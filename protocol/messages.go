@@ -69,19 +69,22 @@ func (r *marshalReader) readHeader() header {
 }
 
 func (r *marshalReader) readIndex() []FileInfo {
+	var files []FileInfo
 	nfiles := r.readUint32()
-	files := make([]FileInfo, nfiles)
-	for i := range files {
-		files[i].Name = r.readString()
-		files[i].Flags = r.readUint32()
-		files[i].Modified = int64(r.readUint64())
-		nblocks := r.readUint32()
-		blocks := make([]BlockInfo, nblocks)
-		for j := range blocks {
-			blocks[j].Length = r.readUint32()
-			blocks[j].Hash = r.readBytes()
+	if nfiles > 0 {
+		files = make([]FileInfo, nfiles)
+		for i := range files {
+			files[i].Name = r.readString()
+			files[i].Flags = r.readUint32()
+			files[i].Modified = int64(r.readUint64())
+			nblocks := r.readUint32()
+			blocks := make([]BlockInfo, nblocks)
+			for j := range blocks {
+				blocks[j].Length = r.readUint32()
+				blocks[j].Hash = r.readBytes()
+			}
+			files[i].Blocks = blocks
 		}
-		files[i].Blocks = blocks
 	}
 	return files
 }
