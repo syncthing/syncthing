@@ -1,0 +1,161 @@
+syncthing
+=========
+
+This is `syncthing`, an open BitTorrent Sync alternative. It is
+currently far from ready for mass consumption, but it is a usable proof
+of concept and tech demo. The following are the project goals:
+
+ 1. Define an open, secure, language neutral protocol usable for
+    efficient synchronization of a file repository between an arbitrary
+    number of nodes. This is the [Block Exchange
+    Protocol](https://github.com/calmh/syncthing/blob/master/protocol/PROTOCOL.md)
+    (BEP).
+
+ 2. Provide the reference implementation to demonstrate the usability of
+    said protocol. This is the `syncthing` utility.
+
+The two are evolving together; the protocol is not to be considered
+stable until syncthing 1.0 is released, at which point it is locked down
+for incompatible changes.
+
+Syncthing does not use the BitTorrent protocol. The reasons for this are
+1) we don't know if BitTorrent Sync does either, so there's nothing to
+be compatible with, 2) BitTorrent includes a lot of functionality for
+making sure large swarms of selfish agents behave and somehow work
+towards a common goal. Here we have a much smaller swarm of cooperative
+agents and a simpler approach will suffice.
+
+Features
+--------
+
+The following features are _currently implemented and working_:
+
+ * The formation of a cluster of nodes, certificate authenticated and
+   communicating over TLS over TCP.
+
+ * Synchronization of a single directory among the cluster nodes.
+
+ * Change detection by periodic scanning of the local repository.
+
+ * Static configuration of cluster nodes.
+
+ * Automatic discovery of cluster nodes on the local network. See
+   [discover.go](https://github.com/calmh/syncthing/blob/master/discover/discover.go)
+   for the protocol specification.
+
+ * Handling of deleted files. Deletes can be propagated or ignored per
+   client.
+
+The following features are _not yet implemented but planned_:
+
+ * Syncing multiple directories from the same syncthing instance.
+
+ * Change detection by listening to file system notifications instead of
+   periodic scanning.
+
+ * HTTP GUI.
+
+The following features are _not implemented but may be implemented_ in
+the future:
+
+ * Automatic remote node discovery using a DHT. This is not technically
+   very difficult but requires one or more globally reachable root
+   nodes. This is open for discussion -- perhaps we can piggyback on an
+   existing DHT, or root nodes need to be established in some other
+   manner.
+
+ * Automatic NAT handling via UPNP. Required for the above, not very
+   useful without it.
+
+ * Conflict resolution. Currently whichever file has the newest
+   modification time "wins". The correct behavior in the face of
+   conflicts is open for discussion.
+
+Security
+--------
+
+Security is one of the primary project goals. This means that it should
+not be possible for an attacker to join a cluster uninvited, and it
+should not be possible to extract private information from intercepted
+traffic. Currently this is implemented as follows.
+
+All traffic is protected by TLS. To prevent uninvited nodes from joining
+a cluster, the certificate fingerprint of each node is compared to a
+preset list of acceptable nodes at connection establishment. The
+fingerprint is computed as the SHA-1 hash of the certificate and
+displayed in BASE32 encoding to form a compact yet convenient string.
+Currently SHA-1 is deemed secure against preimage attacks.
+
+Usage
+=====
+
+`go get github.com/calmh/syncthing`
+
+Check out the options:
+
+```
+$ syncthing --help
+Usage:
+  syncthing [options]
+
+...
+```
+
+Run syncthing to let it create it's config directory and certificate:
+
+```
+$ syncthing
+11:34:13 tls.go:61: OK: wrote cert.pem
+11:34:13 tls.go:67: OK: wrote key.pem
+11:34:13 main.go:66: INFO: My ID: NCTBZAAHXR6ZZP3D7SL3DLYFFQERMW4Q
+11:34:13 main.go:90: FATAL: No config file
+```
+
+Take note of the "My ID: ..." line. Perform the same operation on
+another computer (or the same computer but with a different `--home` for
+testing) to create another node. Take note of that ID as well, and
+create a config file `~/.syncthing/syncthing.ini` looking something like
+this:
+
+```
+[repository]
+dir = /Users/jb/Synced
+
+[nodes]
+NCTBZAAHXR6ZZP3D7SL3DLYFFQERMW4Q = 172.16.32.1:22000 192.23.34.56:22000
+CUGAE43Y5N64CRJU26YFH6MTWPSBLSUL = dynamic
+```
+
+This assumes that the first node is reachable on either of the two
+addresses listed (perhaps one internal and one port-forwarded external)
+and that the other node is not normally reachable from the outside. Save
+this config file, identically, to both nodes. If both nodes are running
+on the same network, you can set all addresses to 'dynamic' and they
+will find each other by local node discovery.
+
+Start syncthing on both nodes. If you're running both on the same
+computer, one needs a different repository directory (in the config
+file) and listening port (set as a command line paramter). For the
+cautious, one side can be set to be read only.
+
+```
+$ syncthing --ro
+13:30:55 main.go:102: INFO: My ID: NCTBZAAHXR6ZZP3D7SL3DLYFFQERMW4Q
+13:30:55 main.go:149: INFO: Initial repository scan in progress
+13:30:59 main.go:153: INFO: Listening for incoming connections
+13:30:59 main.go:157: INFO: Attempting to connect to other nodes
+13:30:59 main.go:247: INFO: Starting local discovery
+13:30:59 main.go:165: OK: Ready to synchronize
+13:31:04 discover.go:113: INFO: Discovered node CUGAE43Y5N64CRJU26YFH6MTWPSBLSUL at 172.16.32.24:23456
+13:31:14 main.go:296: OK: Connected to node CUGAE43Y5N64CRJU26YFH6MTWPSBLSUL
+13:31:19 main.go:345: INFO: Transferred 139 KiB in (14 KiB/s), 139 KiB out (14 KiB/s)
+...
+```
+You should see the synchronization start and then finish a short while
+later. Add nodes to taste.
+
+License
+=======
+
+MIT
+
