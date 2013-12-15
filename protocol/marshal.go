@@ -91,6 +91,11 @@ func (r *marshalReader) readBytes() []byte {
 	if r.err != nil {
 		return nil
 	}
+	if l > 10*1<<20 {
+		// Individual blobs in BEP are not significantly larger than BlockSize.
+		// BlockSize is not larger than 1MB.
+		panic("too large read - protocol error or out of sync")
+	}
 	b := buffers.Get(l + pad(l))
 	_, r.err = io.ReadFull(r.r, b)
 	r.tot += int(l + pad(l))

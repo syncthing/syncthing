@@ -153,7 +153,7 @@ func main() {
 	// Walk the repository and update the local model before establishing any
 	// connections to other nodes.
 
-	infoln("Iniial repository scan in progress")
+	infoln("Initial repository scan in progress")
 	loadIndex(m)
 	updateLocalModel(m)
 
