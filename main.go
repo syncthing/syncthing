@@ -34,7 +34,7 @@ Options:
   --ro             Local repository is read only
   --scan-intv <s>  Repository scan interval, in seconds [default: 60]
   --conn-intv <s>  Node reconnect interval, in seconds [default: 15]
-  --no-stats       Don't print transfer statistics
+  --no-symlinks    Don't follow first level symlinks in the repo
 
 Help Options:
   -h, --help       Show this help
@@ -54,17 +54,17 @@ var (
 
 // Options
 var (
-	confDir    = path.Join(getHomeDir(), confDirName)
-	addr       string
-	prof       string
-	readOnly   bool
-	scanIntv   int
-	connIntv   int
-	traceNet   bool
-	traceFile  bool
-	traceIdx   bool
-	printStats bool
-	doDelete   bool
+	confDir        = path.Join(getHomeDir(), confDirName)
+	addr           string
+	prof           string
+	readOnly       bool
+	scanIntv       int
+	connIntv       int
+	traceNet       bool
+	traceFile      bool
+	traceIdx       bool
+	doDelete       bool
+	followSymlinks bool
 )
 
 func main() {
@@ -95,7 +95,7 @@ func main() {
 	traceFile = arguments["--trace-file"].(bool)
 	traceNet = arguments["--trace-net"].(bool)
 	traceIdx = arguments["--trace-idx"].(bool)
-	printStats = !arguments["--no-stats"].(bool)
+	followSymlinks = !arguments["--no-symlinks"].(bool)
 
 	// Ensure that our home directory exists and that we have a certificate and key.
 
@@ -302,7 +302,7 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, 
 }
 
 func updateLocalModel(m *Model) {
-	files := Walk(m.Dir(), m)
+	files := Walk(m.Dir(), m, followSymlinks)
 	m.ReplaceLocal(files)
 	saveIndex(m)
 }

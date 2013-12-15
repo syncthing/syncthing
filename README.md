@@ -46,9 +46,10 @@ The following features are _currently implemented and working_:
  * Handling of deleted files. Deletes can be propagated or ignored per
    client.
 
-The following features are _not yet implemented but planned_:
+ * Synchronizing multiple unrelated directory tries by following
+   symlinks directly below the repository level.
 
- * Syncing multiple directories from the same syncthing instance.
+The following features are _not yet implemented but planned_:
 
  * Change detection by listening to file system notifications instead of
    periodic scanning.
@@ -57,6 +58,8 @@ The following features are _not yet implemented but planned_:
 
 The following features are _not implemented but may be implemented_ in
 the future:
+
+ * Syncing multiple directories from the same syncthing instance.
 
  * Automatic remote node discovery using a DHT. This is not technically
    very difficult but requires one or more globally reachable root

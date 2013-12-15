@@ -89,13 +89,39 @@ func genWalker(base string, res *[]File, model *Model) filepath.WalkFunc {
 	}
 }
 
-func Walk(dir string, model *Model) []File {
+func Walk(dir string, model *Model, followSymlinks bool) []File {
 	var files []File
 	fn := genWalker(dir, &files, model)
 	err := filepath.Walk(dir, fn)
 	if err != nil {
 		warnln(err)
 	}
+
+	if followSymlinks {
+		d, err := os.Open(dir)
+		if err != nil {
+			warnln(err)
+			return files
+		}
+		fis, err := d.Readdir(-1)
+		if err != nil {
+			warnln(err)
+			return files
+		}
+		d.Close()
+		for _, fi := range fis {
+			if fi.Mode()&os.ModeSymlink != 0 {
+				if traceFile {
+					debugf("Following symlink %q", fi.Name())
+				}
+				err := filepath.Walk(path.Join(dir, fi.Name())+"/", fn)
+				if err != nil {
+					warnln(err)
+				}
+			}
+		}
+	}
+
 	return files
 }
 
