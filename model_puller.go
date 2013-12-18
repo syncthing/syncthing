@@ -171,12 +171,12 @@ func (m *Model) puller() {
 
 			var err error
 			if f.Flags&FlagDeleted == 0 {
-				if traceFile {
+				if opts.Debug.TraceFile {
 					debugf("FILE: Pull %q", n)
 				}
 				err = m.pullFile(n)
 			} else {
-				if traceFile {
+				if opts.Debug.TraceFile {
 					debugf("FILE: Remove %q", n)
 				}
 				// Cheerfully ignore errors here

@@ -62,7 +62,7 @@ func genWalker(base string, res *[]File, model *Model) filepath.WalkFunc {
 				// No change
 				*res = append(*res, hf)
 			} else {
-				if traceFile {
+				if opts.Debug.TraceFile {
 					debugf("FILE: Hash %q", p)
 				}
 				fd, err := os.Open(p)
@@ -97,7 +97,7 @@ func Walk(dir string, model *Model, followSymlinks bool) []File {
 		warnln(err)
 	}
 
-	if followSymlinks {
+	if !opts.NoSymlinks {
 		d, err := os.Open(dir)
 		if err != nil {
 			warnln(err)
@@ -127,7 +127,7 @@ func cleanTempFile(path string, info os.FileInfo, err error) error {
 		return err
 	}
 	if info.Mode()&os.ModeType == 0 && isTempName(path) {
-		if traceFile {
+		if opts.Debug.TraceFile {
 			debugf("FILE: Remove %q", path)
 		}
 		os.Remove(path)

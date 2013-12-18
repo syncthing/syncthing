@@ -17,34 +17,32 @@ import (
 	"github.com/calmh/ini"
 	"github.com/calmh/syncthing/discover"
 	"github.com/calmh/syncthing/protocol"
-	docopt "github.com/docopt/docopt.go"
+	flags "github.com/jessevdk/go-flags"
 )
+
+type Options struct {
+	ConfDir      string        `short:"c" long:"cfg" description:"Configuration directory" default:"~/.syncthing" value-name:"DIR"`
+	Listen       string        `short:"l" long:"listen" description:"Listen address" default:":22000" value-name:"ADDR"`
+	ReadOnly     bool          `long:"ro" description:"Repository is read only"`
+	Delete       bool          `long:"delete" description:"Delete files from repo when deleted from cluster"`
+	NoSymlinks   bool          `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
+	ScanInterval time.Duration `long:"scan-intv" description:"Repository scan interval" default:"60s" value-name:"INTV"`
+	ConnInterval time.Duration `long:"conn-intv" description:"Node reconnect interval" default:"60s" value-name:"INTV"`
+	Debug        DebugOptions  `group:"Debugging Options"`
+}
+
+type DebugOptions struct {
+	TraceFile bool   `long:"trace-file"`
+	TraceNet  bool   `long:"trace-net"`
+	TraceIdx  bool   `long:"trace-idx"`
+	Profiler  string `long:"profiler"`
+}
+
+var opts Options
 
 const (
 	confDirName  = ".syncthing"
 	confFileName = "syncthing.ini"
-	usage        = `Usage:
-  syncthing [options]
-
-Options:
-  -l <addr>        Listening address [default: :22000]
-  -p <addr>        Enable HTTP profiler on addr
-  --home <path>    Home directory
-  --delete         Delete files that were deleted on a peer node
-  --ro             Local repository is read only
-  --scan-intv <s>  Repository scan interval, in seconds [default: 60]
-  --conn-intv <s>  Node reconnect interval, in seconds [default: 15]
-  --no-symlinks    Don't follow first level symlinks in the repo
-
-Help Options:
-  -h, --help       Show this help
-  --version        Show version
-
-Debug Options:
-  --trace-file     Trace file operations
-  --trace-net      Trace network operations
-  --trace-idx      Trace sent indexes
-`
 )
 
 var (
@@ -54,66 +52,40 @@ var (
 
 // Options
 var (
-	confDir        = path.Join(getHomeDir(), confDirName)
-	addr           string
-	prof           string
-	readOnly       bool
-	scanIntv       int
-	connIntv       int
-	traceNet       bool
-	traceFile      bool
-	traceIdx       bool
-	doDelete       bool
-	followSymlinks bool
+	ConfDir = path.Join(getHomeDir(), confDirName)
 )
 
 func main() {
 	// Useful for debugging; to be adjusted.
 	log.SetFlags(log.Ltime | log.Lshortfile)
 
-	arguments, _ := docopt.Parse(usage, nil, true, "syncthing 0.1", false)
-
-	addr = arguments["-l"].(string)
-	prof, _ = arguments["-p"].(string)
-	readOnly, _ = arguments["--ro"].(bool)
-
-	if arguments["--home"] != nil {
-		confDir, _ = arguments["--home"].(string)
+	_, err := flags.Parse(&opts)
+	if err != nil {
+		os.Exit(0)
 	}
-
-	scanIntv, _ = strconv.Atoi(arguments["--scan-intv"].(string))
-	if scanIntv == 0 {
-		fatalln("Invalid --scan-intv")
+	if strings.HasPrefix(opts.ConfDir, "~/") {
+		opts.ConfDir = strings.Replace(opts.ConfDir, "~", getHomeDir(), 1)
 	}
-
-	connIntv, _ = strconv.Atoi(arguments["--conn-intv"].(string))
-	if connIntv == 0 {
-		fatalln("Invalid --conn-intv")
-	}
-
-	doDelete = arguments["--delete"].(bool)
-	traceFile = arguments["--trace-file"].(bool)
-	traceNet = arguments["--trace-net"].(bool)
-	traceIdx = arguments["--trace-idx"].(bool)
-	followSymlinks = !arguments["--no-symlinks"].(bool)
 
 	// Ensure that our home directory exists and that we have a certificate and key.
 
-	ensureDir(confDir)
-	cert, err := loadCert(confDir)
+	ensureDir(ConfDir)
+	cert, err := loadCert(ConfDir)
 	if err != nil {
-		newCertificate(confDir)
-		cert, err = loadCert(confDir)
+		newCertificate(ConfDir)
+		cert, err = loadCert(ConfDir)
 		fatalErr(err)
 	}
 
 	myID := string(certId(cert.Certificate[0]))
 	infoln("My ID:", myID)
 
-	if prof != "" {
-		okln("Profiler listening on", prof)
+	if opts.Debug.Profiler != "" {
 		go func() {
-			http.ListenAndServe(prof, nil)
+			err := http.ListenAndServe(opts.Debug.Profiler, nil)
+			if err != nil {
+				warnln(err)
+			}
 		}()
 	}
 
@@ -130,7 +102,7 @@ func main() {
 
 	// Load the configuration file, if it exists.
 
-	cf, err := os.Open(path.Join(confDir, confFileName))
+	cf, err := os.Open(path.Join(ConfDir, confFileName))
 	if err != nil {
 		fatalln("No config file")
 		config = ini.Config{}
@@ -159,15 +131,15 @@ func main() {
 
 	// Routine to listen for incoming connections
 	infoln("Listening for incoming connections")
-	go listen(myID, addr, m, cfg)
+	go listen(myID, opts.Listen, m, cfg)
 
 	// Routine to connect out to configured nodes
 	infoln("Attempting to connect to other nodes")
-	go connect(myID, addr, nodeAddrs, m, cfg)
+	go connect(myID, opts.Listen, nodeAddrs, m, cfg)
 
 	// Routine to pull blocks from other nodes to synchronize the local
 	// repository. Does not run when we are in read only (publish only) mode.
-	if !readOnly {
+	if !opts.ReadOnly {
 		infoln("Cleaning out incomplete synchronizations")
 		CleanTempFiles(dir)
 		okln("Ready to synchronize")
@@ -178,7 +150,7 @@ func main() {
 	// XXX: Should use some fsnotify mechanism.
 	go func() {
 		for {
-			time.Sleep(time.Duration(scanIntv) * time.Second)
+			time.Sleep(time.Duration(opts.ScanInterval) * time.Second)
 			updateLocalModel(m)
 		}
 	}()
@@ -198,7 +170,7 @@ listen:
 			continue
 		}
 
-		if traceNet {
+		if opts.Debug.TraceNet {
 			debugln("NET: Connect from", conn.RemoteAddr())
 		}
 
@@ -267,12 +239,12 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, 
 					}
 				}
 
-				if traceNet {
+				if opts.Debug.TraceNet {
 					debugln("NET: Dial", nodeID, addr)
 				}
 				conn, err := tls.Dial("tcp", addr, cfg)
 				if err != nil {
-					if traceNet {
+					if opts.Debug.TraceNet {
 						debugln("NET:", err)
 					}
 					continue
@@ -288,7 +260,7 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, 
 				nc := protocol.NewConnection(nodeID, conn, conn, m)
 				okln("Connected to node", remoteID, "(out)")
 				m.AddNode(nc)
-				if traceNet {
+				if opts.Debug.TraceNet {
 					t0 := time.Now()
 					nc.Ping()
 					timing("NET: Ping reply", t0)
@@ -297,19 +269,19 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, 
 			}
 		}
 
-		time.Sleep(time.Duration(connIntv) * time.Second)
+		time.Sleep(time.Duration(opts.ConnInterval) * time.Second)
 	}
 }
 
 func updateLocalModel(m *Model) {
-	files := Walk(m.Dir(), m, followSymlinks)
+	files := Walk(m.Dir(), m, !opts.NoSymlinks)
 	m.ReplaceLocal(files)
 	saveIndex(m)
 }
 
 func saveIndex(m *Model) {
 	fname := fmt.Sprintf("%x.idx", sha1.Sum([]byte(m.Dir())))
-	idxf, err := os.Create(path.Join(confDir, fname))
+	idxf, err := os.Create(path.Join(ConfDir, fname))
 	if err != nil {
 		return
 	}
@@ -319,7 +291,7 @@ func saveIndex(m *Model) {
 
 func loadIndex(m *Model) {
 	fname := fmt.Sprintf("%x.idx", sha1.Sum([]byte(m.Dir())))
-	idxf, err := os.Open(path.Join(confDir, fname))
+	idxf, err := os.Open(path.Join(ConfDir, fname))
 	if err != nil {
 		return
 	}

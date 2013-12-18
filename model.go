@@ -60,13 +60,13 @@ func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {
 	m.Lock()
 	defer m.Unlock()
 
-	if traceNet {
+	if opts.Debug.TraceNet {
 		debugf("NET IDX(in): %s: %d files", nodeID, len(fs))
 	}
 
 	m.remote[nodeID] = make(map[string]File)
 	for _, f := range fs {
-		if f.Flags&FlagDeleted != 0 && !doDelete {
+		if f.Flags&FlagDeleted != 0 && !opts.Delete {
 			// Files marked as deleted do not even enter the model
 			continue
 		}
@@ -122,7 +122,7 @@ func (m *Model) Close(node string) {
 	m.Lock()
 	defer m.Unlock()
 
-	if traceNet {
+	if opts.Debug.TraceNet {
 		debugf("NET CLOSE: %s", node)
 	}
 
@@ -134,7 +134,7 @@ func (m *Model) Close(node string) {
 }
 
 func (m *Model) Request(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
-	if traceNet && nodeID != "<local>" {
+	if opts.Debug.TraceNet && nodeID != "<local>" {
 		debugf("NET REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
 	}
 	fn := path.Join(m.dir, name)
@@ -158,7 +158,7 @@ func (m *Model) RequestGlobal(nodeID, name string, offset uint64, size uint32, h
 	nc := m.nodes[nodeID]
 	m.RUnlock()
 
-	if traceNet {
+	if opts.Debug.TraceNet {
 		debugf("NET REQ(out): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
 	}
 
@@ -200,7 +200,7 @@ func (m *Model) ReplaceLocal(fs []File) {
 func (m *Model) broadcastIndex() {
 	idx := m.protocolIndex()
 	for _, node := range m.nodes {
-		if traceNet {
+		if opts.Debug.TraceNet {
 			debugf("NET IDX(out): %s: %d files", node.ID, len(idx))
 		}
 		node.Index(idx)
@@ -346,7 +346,7 @@ func (m *Model) protocolIndex() []protocol.FileInfo {
 				Hash:   b.Hash,
 			})
 		}
-		if traceIdx {
+		if opts.Debug.TraceIdx {
 			var flagComment string
 			if mf.Flags&FlagDeleted != 0 {
 				flagComment = " (deleted)"
@@ -366,7 +366,7 @@ func (m *Model) AddNode(node *protocol.Connection) {
 	idx := m.protocolIndex()
 	m.RUnlock()
 
-	if traceNet {
+	if opts.Debug.TraceNet {
 		debugf("NET IDX(out): %s: %d files", node.ID, len(idx))
 	}
 	node.Index(idx)
