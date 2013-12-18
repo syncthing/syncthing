@@ -111,9 +111,6 @@ func Walk(dir string, model *Model, followSymlinks bool) []File {
 		d.Close()
 		for _, fi := range fis {
 			if fi.Mode()&os.ModeSymlink != 0 {
-				if traceFile {
-					debugf("Following symlink %q", fi.Name())
-				}
 				err := filepath.Walk(path.Join(dir, fi.Name())+"/", fn)
 				if err != nil {
 					warnln(err)

@@ -188,6 +188,9 @@ func (c *Connection) readerLoop() {
 
 		case messageTypeRequest:
 			c.processRequest(hdr.msgID)
+			if c.mreader.err != nil || c.mwriter.err != nil {
+				c.close()
+			}
 
 		case messageTypeResponse:
 			data := c.mreader.readResponse()
@@ -214,6 +217,9 @@ func (c *Connection) readerLoop() {
 			c.mwriter.writeUint32(encodeHeader(header{0, hdr.msgID, messageTypePong}))
 			c.flush()
 			c.wLock.Unlock()
+			if c.mwriter.err != nil {
+				c.close()
+			}
 
 		case messageTypePong:
 			c.wLock.RLock()

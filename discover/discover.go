@@ -30,6 +30,7 @@ package discover
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -44,6 +45,11 @@ type Discoverer struct {
 	registry     map[string]string
 	registryLock sync.RWMutex
 }
+
+// We tolerate a certain amount of errors because we might be running in
+// laptops that sleep and wake, have intermittent network connectivity, etc.
+// When we hit this many errors in succession, we stop.
+const maxErrors = 30
 
 func NewDiscoverer(id string, port int) (*Discoverer, error) {
 	local4 := &net.UDPAddr{IP: net.IP{0, 0, 0, 0}, Port: 21025}
@@ -77,22 +83,31 @@ func (d *Discoverer) sendAnnouncements() {
 	binary.BigEndian.PutUint16(buf[6:], uint16(len(idbs)))
 	copy(buf[8:], idbs)
 
-	for {
-		_, _, err := d.conn.WriteMsgUDP(buf, nil, remote4)
+	var errCounter = 0
+	var err error
+	for errCounter < maxErrors {
+		_, _, err = d.conn.WriteMsgUDP(buf, nil, remote4)
 		if err != nil {
-			panic(err)
+			errCounter++
+		} else {
+			errCounter = 0
 		}
 		time.Sleep(d.BroadcastIntv)
 	}
+	log.Println("discover/write: stopping due to too many errors:", err)
 }
 
 func (d *Discoverer) recvAnnouncements() {
 	var buf = make([]byte, 1024)
-	for {
+	var errCounter = 0
+	var err error
+	for errCounter < maxErrors {
 		_, addr, err := d.conn.ReadFromUDP(buf)
 		if err != nil {
-			panic(err)
+			time.Sleep(time.Second)
+			continue
 		}
+		errCounter = 0
 		magic := binary.BigEndian.Uint32(buf)
 		if magic != 0x121025 {
 			continue
@@ -111,6 +126,7 @@ func (d *Discoverer) recvAnnouncements() {
 			d.registryLock.Unlock()
 		}
 	}
+	log.Println("discover/read: stopping due to too many errors:", err)
 }
 
 func (d *Discoverer) Lookup(node string) (string, bool) {
