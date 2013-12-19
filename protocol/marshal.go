@@ -35,8 +35,8 @@ func (w *marshalWriter) writeBytes(bs []byte) {
 		return
 	}
 	_, w.err = w.w.Write(bs)
-	if p := pad(len(bs)); p > 0 {
-		w.w.Write(padBytes[:p])
+	if p := pad(len(bs)); w.err == nil && p > 0 {
+		_, w.err = w.w.Write(padBytes[:p])
 	}
 	w.tot += len(bs) + pad(len(bs))
 }

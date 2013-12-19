@@ -49,7 +49,6 @@ type Connection struct {
 	mwriter     *marshalWriter
 	wLock       sync.RWMutex
 	closed      bool
-	closedLock  sync.RWMutex
 	awaiting    map[int]chan asyncResult
 	nextId      int
 	lastReceive time.Time
@@ -74,13 +73,14 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 	}
 
 	c := Connection{
-		receiver: receiver,
-		reader:   flrd,
-		mreader:  &marshalReader{flrd, 0, nil},
-		writer:   flwr,
-		mwriter:  &marshalWriter{flwr, 0, nil},
-		awaiting: make(map[int]chan asyncResult),
-		ID:       nodeID,
+		receiver:    receiver,
+		reader:      flrd,
+		mreader:     &marshalReader{flrd, 0, nil},
+		writer:      flwr,
+		mwriter:     &marshalWriter{flwr, 0, nil},
+		awaiting:    make(map[int]chan asyncResult),
+		lastReceive: time.Now(),
+		ID:          nodeID,
 	}
 
 	go c.readerLoop()
@@ -92,12 +92,15 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 // Index writes the list of file information to the connected peer node
 func (c *Connection) Index(idx []FileInfo) {
 	c.wLock.Lock()
-	defer c.wLock.Unlock()
-
 	c.mwriter.writeHeader(header{0, c.nextId, messageTypeIndex})
-	c.nextId = (c.nextId + 1) & 0xfff
 	c.mwriter.writeIndex(idx)
-	c.flush()
+	err := c.flush()
+	c.nextId = (c.nextId + 1) & 0xfff
+	c.wLock.Unlock()
+	if err != nil || c.mwriter.err != nil {
+		c.close()
+		return
+	}
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
@@ -107,7 +110,17 @@ func (c *Connection) Request(name string, offset uint64, size uint32, hash []byt
 	c.awaiting[c.nextId] = rc
 	c.mwriter.writeHeader(header{0, c.nextId, messageTypeRequest})
 	c.mwriter.writeRequest(request{name, offset, size, hash})
-	c.flush()
+	if c.mwriter.err != nil {
+		c.wLock.Unlock()
+		c.close()
+		return nil, c.mwriter.err
+	}
+	err := c.flush()
+	if err != nil {
+		c.wLock.Unlock()
+		c.close()
+		return nil, err
+	}
 	c.nextId = (c.nextId + 1) & 0xfff
 	c.wLock.Unlock()
 
@@ -123,7 +136,12 @@ func (c *Connection) Ping() bool {
 	rc := make(chan asyncResult)
 	c.awaiting[c.nextId] = rc
 	c.mwriter.writeHeader(header{0, c.nextId, messageTypePing})
-	c.flush()
+	err := c.flush()
+	if err != nil || c.mwriter.err != nil {
+		c.wLock.Unlock()
+		c.close()
+		return false
+	}
 	c.nextId = (c.nextId + 1) & 0xfff
 	c.wLock.Unlock()
 
@@ -138,18 +156,20 @@ type flusher interface {
 	Flush() error
 }
 
-func (c *Connection) flush() {
+func (c *Connection) flush() error {
 	if f, ok := c.writer.(flusher); ok {
-		f.Flush()
+		return f.Flush()
 	}
+	return nil
 }
 
 func (c *Connection) close() {
-	c.closedLock.Lock()
-	c.closed = true
-	c.closedLock.Unlock()
-
 	c.wLock.Lock()
+	if c.closed {
+		c.wLock.Unlock()
+		return
+	}
+	c.closed = true
 	for _, ch := range c.awaiting {
 		close(ch)
 	}
@@ -160,8 +180,8 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) isClosed() bool {
-	c.closedLock.RLock()
-	defer c.closedLock.RUnlock()
+	c.wLock.RLock()
+	defer c.wLock.RUnlock()
 	return c.closed
 }
 
@@ -215,9 +235,9 @@ func (c *Connection) readerLoop() {
 		case messageTypePing:
 			c.wLock.Lock()
 			c.mwriter.writeUint32(encodeHeader(header{0, hdr.msgID, messageTypePong}))
-			c.flush()
+			err := c.flush()
 			c.wLock.Unlock()
-			if c.mwriter.err != nil {
+			if err != nil || c.mwriter.err != nil {
 				c.close()
 			}
 
@@ -248,9 +268,12 @@ func (c *Connection) processRequest(msgID int) {
 			c.wLock.Lock()
 			c.mwriter.writeUint32(encodeHeader(header{0, msgID, messageTypeResponse}))
 			c.mwriter.writeResponse(data)
-			buffers.Put(data)
-			c.flush()
+			err := c.flush()
 			c.wLock.Unlock()
+			buffers.Put(data)
+			if c.mwriter.err != nil || err != nil {
+				c.close()
+			}
 		}()
 	}
 }

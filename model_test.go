@@ -47,7 +47,7 @@ var testDataExpected = map[string]File{
 
 func TestUpdateLocal(t *testing.T) {
 	m := NewModel("foo")
-	fs := Walk("testdata", m)
+	fs := Walk("testdata", m, false)
 	m.ReplaceLocal(fs)
 
 	if len(m.need) > 0 {
@@ -89,7 +89,7 @@ func TestUpdateLocal(t *testing.T) {
 
 func TestRemoteUpdateExisting(t *testing.T) {
 	m := NewModel("foo")
-	fs := Walk("testdata", m)
+	fs := Walk("testdata", m, false)
 	m.ReplaceLocal(fs)
 
 	newFile := protocol.FileInfo{
@@ -106,7 +106,7 @@ func TestRemoteUpdateExisting(t *testing.T) {
 
 func TestRemoteAddNew(t *testing.T) {
 	m := NewModel("foo")
-	fs := Walk("testdata", m)
+	fs := Walk("testdata", m, false)
 	m.ReplaceLocal(fs)
 
 	newFile := protocol.FileInfo{
@@ -123,7 +123,7 @@ func TestRemoteAddNew(t *testing.T) {
 
 func TestRemoteUpdateOld(t *testing.T) {
 	m := NewModel("foo")
-	fs := Walk("testdata", m)
+	fs := Walk("testdata", m, false)
 	m.ReplaceLocal(fs)
 
 	oldTimeStamp := int64(1234)
@@ -141,7 +141,7 @@ func TestRemoteUpdateOld(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	m := NewModel("foo")
-	fs := Walk("testdata", m)
+	fs := Walk("testdata", m, false)
 	m.ReplaceLocal(fs)
 
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
@@ -231,7 +231,7 @@ func TestDelete(t *testing.T) {
 
 func TestForgetNode(t *testing.T) {
 	m := NewModel("foo")
-	fs := Walk("testdata", m)
+	fs := Walk("testdata", m, false)
 	m.ReplaceLocal(fs)
 
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
