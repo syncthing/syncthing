@@ -192,6 +192,10 @@ func (c *Connection) readerLoop() {
 			c.close()
 			break
 		}
+		if hdr.version != 0 {
+			c.close()
+			break
+		}
 
 		c.wLock.Lock()
 		c.lastReceive = time.Now()

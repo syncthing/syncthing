@@ -135,3 +135,25 @@ func TestRequestResponseErr(t *testing.T) {
 		t.Error("Never passed")
 	}
 }
+
+func TestVersionErr(t *testing.T) {
+	m0 := &TestModel{}
+	m1 := &TestModel{}
+
+	ar, aw := io.Pipe()
+	br, bw := io.Pipe()
+
+	c0 := NewConnection("c0", ar, bw, m0)
+	NewConnection("c1", br, aw, m1)
+
+	c0.mwriter.writeHeader(header{
+		version: 2,
+		msgID:   0,
+		msgType: 0,
+	})
+	c0.flush()
+
+	if !m1.closed {
+		t.Error("Connection should close due to unknown version")
+	}
+}
