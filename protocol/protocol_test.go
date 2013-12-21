@@ -157,3 +157,25 @@ func TestVersionErr(t *testing.T) {
 		t.Error("Connection should close due to unknown version")
 	}
 }
+
+func TestTypeErr(t *testing.T) {
+	m0 := &TestModel{}
+	m1 := &TestModel{}
+
+	ar, aw := io.Pipe()
+	br, bw := io.Pipe()
+
+	c0 := NewConnection("c0", ar, bw, m0)
+	NewConnection("c1", br, aw, m1)
+
+	c0.mwriter.writeHeader(header{
+		version: 0,
+		msgID:   0,
+		msgType: 42,
+	})
+	c0.flush()
+
+	if !m1.closed {
+		t.Error("Connection should close due to unknown message type")
+	}
+}

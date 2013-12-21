@@ -4,6 +4,7 @@ import (
 	"compress/flate"
 	"errors"
 	"io"
+	"log"
 	"sync"
 	"time"
 
@@ -193,6 +194,7 @@ func (c *Connection) readerLoop() {
 			break
 		}
 		if hdr.version != 0 {
+			log.Printf("Protocol error: %s: unknown message version %#x", c.ID, hdr.version)
 			c.close()
 			break
 		}
@@ -258,6 +260,10 @@ func (c *Connection) readerLoop() {
 				delete(c.awaiting, hdr.msgID)
 				c.wLock.Unlock()
 			}
+
+		default:
+			log.Printf("Protocol error: %s: unknown message type %#x", c.ID, hdr.msgType)
+			c.close()
 		}
 	}
 }

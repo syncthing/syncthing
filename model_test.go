@@ -97,7 +97,7 @@ func TestRemoteUpdateExisting(t *testing.T) {
 		Modified: time.Now().Unix(),
 		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
 	}
-	m.Index(string("42"), []protocol.FileInfo{newFile})
+	m.Index("42", []protocol.FileInfo{newFile})
 
 	if l := len(m.need); l != 1 {
 		t.Errorf("Model missing Need for one file (%d != 1)", l)
@@ -114,7 +114,7 @@ func TestRemoteAddNew(t *testing.T) {
 		Modified: time.Now().Unix(),
 		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
 	}
-	m.Index(string("42"), []protocol.FileInfo{newFile})
+	m.Index("42", []protocol.FileInfo{newFile})
 
 	if l1, l2 := len(m.need), 1; l1 != l2 {
 		t.Errorf("Model len(m.need) incorrect (%d != %d)", l1, l2)
@@ -132,7 +132,7 @@ func TestRemoteUpdateOld(t *testing.T) {
 		Modified: oldTimeStamp,
 		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
 	}
-	m.Index(string("42"), []protocol.FileInfo{newFile})
+	m.Index("42", []protocol.FileInfo{newFile})
 
 	if l1, l2 := len(m.need), 0; l1 != l2 {
 		t.Errorf("Model len(need) incorrect (%d != %d)", l1, l2)
@@ -249,7 +249,7 @@ func TestForgetNode(t *testing.T) {
 		Modified: time.Now().Unix(),
 		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
 	}
-	m.Index(string("42"), []protocol.FileInfo{newFile})
+	m.Index("42", []protocol.FileInfo{newFile})
 
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
 		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
@@ -261,7 +261,7 @@ func TestForgetNode(t *testing.T) {
 		t.Errorf("Model len(need) incorrect (%d != %d)", l1, l2)
 	}
 
-	m.Close(string("42"))
+	m.Close("42")
 
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
 		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
