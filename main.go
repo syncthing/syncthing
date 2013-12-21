@@ -39,6 +39,7 @@ type DebugOptions struct {
 }
 
 var opts Options
+var Version string
 
 const (
 	confDirName  = ".syncthing"
@@ -67,9 +68,11 @@ func main() {
 		opts.ConfDir = strings.Replace(opts.ConfDir, "~", getHomeDir(), 1)
 	}
 
+	infoln("Version", Version)
+
 	// Ensure that our home directory exists and that we have a certificate and key.
 
-	ensureDir(ConfDir)
+	ensureDir(ConfDir, 0700)
 	cert, err := loadCert(ConfDir)
 	if err != nil {
 		newCertificate(ConfDir)
@@ -120,6 +123,7 @@ func main() {
 		nodeAddrs[nodeID] = addrs
 	}
 
+	ensureDir(dir, -1)
 	m := NewModel(dir)
 
 	// Walk the repository and update the local model before establishing any
@@ -304,13 +308,13 @@ func loadIndex(m *Model) {
 	m.SeedIndex(idx)
 }
 
-func ensureDir(dir string) {
+func ensureDir(dir string, mode int) {
 	fi, err := os.Stat(dir)
 	if os.IsNotExist(err) {
 		err := os.MkdirAll(dir, 0700)
 		fatalErr(err)
-	} else if fi.Mode()&0077 != 0 {
-		err := os.Chmod(dir, 0700)
+	} else if mode >= 0 && err == nil && int(fi.Mode()&0777) != mode {
+		err := os.Chmod(dir, os.FileMode(mode))
 		fatalErr(err)
 	}
 }
