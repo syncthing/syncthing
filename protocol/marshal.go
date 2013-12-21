@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"errors"
 	"io"
 
 	"github.com/calmh/syncthing/buffers"
@@ -22,12 +23,23 @@ type marshalWriter struct {
 	err error
 }
 
+// We will never encode nor expect to decode blobs larger than 10 MB. Check
+// inserted to protect against attempting to allocate arbitrary amounts of
+// memory when reading a corrupt message.
+const maxBytesFieldLength = 10 * 1 << 20
+
+var ErrFieldLengthExceeded = errors.New("Raw bytes field size exceeds limit")
+
 func (w *marshalWriter) writeString(s string) {
 	w.writeBytes([]byte(s))
 }
 
 func (w *marshalWriter) writeBytes(bs []byte) {
 	if w.err != nil {
+		return
+	}
+	if len(bs) > maxBytesFieldLength {
+		w.err = ErrFieldLengthExceeded
 		return
 	}
 	w.writeUint32(uint32(len(bs)))
@@ -91,10 +103,9 @@ func (r *marshalReader) readBytes() []byte {
 	if r.err != nil {
 		return nil
 	}
-	if l > 10*1<<20 {
-		// Individual blobs in BEP are not significantly larger than BlockSize.
-		// BlockSize is not larger than 1MB.
-		panic("too large read - protocol error or out of sync")
+	if l > maxBytesFieldLength {
+		r.err = ErrFieldLengthExceeded
+		return nil
 	}
 	b := buffers.Get(l + pad(l))
 	_, r.err = io.ReadFull(r.r, b)
