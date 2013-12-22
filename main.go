@@ -21,21 +21,29 @@ import (
 )
 
 type Options struct {
-	ConfDir      string        `short:"c" long:"cfg" description:"Configuration directory" default:"~/.syncthing" value-name:"DIR"`
-	Listen       string        `short:"l" long:"listen" description:"Listen address" default:":22000" value-name:"ADDR"`
-	ReadOnly     bool          `long:"ro" description:"Repository is read only"`
-	Delete       bool          `long:"delete" description:"Delete files from repo when deleted from cluster"`
-	NoSymlinks   bool          `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
-	ScanInterval time.Duration `long:"scan-intv" description:"Repository scan interval" default:"60s" value-name:"INTV"`
-	ConnInterval time.Duration `long:"conn-intv" description:"Node reconnect interval" default:"60s" value-name:"INTV"`
-	Debug        DebugOptions  `group:"Debugging Options"`
+	ConfDir      string           `short:"c" long:"cfg" description:"Configuration directory" default:"~/.syncthing" value-name:"DIR"`
+	Listen       string           `short:"l" long:"listen" description:"Listen address" default:":22000" value-name:"ADDR"`
+	ReadOnly     bool             `short:"r" long:"ro" description:"Repository is read only"`
+	Delete       bool             `short:"d" long:"delete" description:"Delete files from repo when deleted from cluster"`
+	NoSymlinks   bool             `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
+	ScanInterval time.Duration    `long:"scan-intv" description:"Repository scan interval" default:"60s" value-name:"INTV"`
+	ConnInterval time.Duration    `long:"conn-intv" description:"Node reconnect interval" default:"60s" value-name:"INTV"`
+	Discovery    DiscoveryOptions `group:"Discovery Options"`
+	Debug        DebugOptions     `group:"Debugging Options"`
 }
 
 type DebugOptions struct {
 	TraceFile bool   `long:"trace-file"`
 	TraceNet  bool   `long:"trace-net"`
 	TraceIdx  bool   `long:"trace-idx"`
-	Profiler  string `long:"profiler"`
+	Profiler  string `long:"profiler" value-name:"ADDR"`
+}
+
+type DiscoveryOptions struct {
+	ExternalServer      string `long:"ext-server" description:"External discovery server" value-name:"NAME" default:"syncthing.nym.se"`
+	ExternalPort        int    `short:"e" long:"ext-port" description:"External listen port" value-name:"PORT" default:"22000"`
+	NoExternalDiscovery bool   `short:"n" long:"no-ext-announce" description:"Do not announce presence externally"`
+	NoLocalDiscovery    bool   `short:"N" long:"no-local-announce" description:"Do not announce presence locally"`
 }
 
 var opts Options
@@ -206,8 +214,6 @@ listen:
 				continue listen
 			}
 		}
-
-		warnln("Connect from unknown node", remoteID)
 		conn.Close()
 	}
 }
@@ -217,10 +223,22 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, 
 	fatalErr(err)
 	port, _ := strconv.Atoi(portstr)
 
-	infoln("Starting local discovery")
-	disc, err := discover.NewDiscoverer(myID, port)
+	if opts.Discovery.NoLocalDiscovery {
+		port = -1
+	} else {
+		infoln("Sending local discovery announcements")
+	}
+
+	if opts.Discovery.NoExternalDiscovery {
+		opts.Discovery.ExternalPort = -1
+	} else {
+		infoln("Sending external discovery announcements")
+	}
+
+	disc, err := discover.NewDiscoverer(myID, port, opts.Discovery.ExternalPort, opts.Discovery.ExternalServer)
+
 	if err != nil {
-		warnln("No local discovery possible")
+		warnf("No discovery possible (%v)", err)
 	}
 
 	for {
