@@ -146,22 +146,19 @@ func NewDiscoverer(id string, port int, extPort int, extServer string) (*Discove
 func (d *Discoverer) sendAnnouncements() {
 	remote4 := &net.UDPAddr{IP: net.IP{255, 255, 255, 255}, Port: AnnouncementPort}
 
-	buf := encodePacket(packet{AnnouncementMagic, uint16(d.ListenPort), d.MyID, nil})
+	buf := EncodePacket(Packet{AnnouncementMagic, uint16(d.ListenPort), d.MyID, nil})
 	go d.writeAnnouncements(buf, remote4, d.BroadcastIntv)
 }
 
 func (d *Discoverer) sendExtAnnouncements() {
-	extIPs, err := net.LookupIP(d.extServer)
+	extIP, err := net.ResolveUDPAddr("udp", d.extServer+":22025")
 	if err != nil {
 		log.Printf("discover/external: %v; no external announcements", err)
 		return
 	}
 
-	buf := encodePacket(packet{AnnouncementMagic, uint16(d.ExtListenPort), d.MyID, nil})
-	for _, extIP := range extIPs {
-		remote4 := &net.UDPAddr{IP: extIP, Port: AnnouncementPort}
-		go d.writeAnnouncements(buf, remote4, d.ExtBroadcastIntv)
-	}
+	buf := EncodePacket(Packet{AnnouncementMagic, uint16(d.ExtListenPort), d.MyID, nil})
+	go d.writeAnnouncements(buf, extIP, d.ExtBroadcastIntv)
 }
 
 func (d *Discoverer) writeAnnouncements(buf []byte, remote *net.UDPAddr, intv time.Duration) {
@@ -170,6 +167,7 @@ func (d *Discoverer) writeAnnouncements(buf []byte, remote *net.UDPAddr, intv ti
 	for errCounter < maxErrors {
 		_, _, err = d.conn.WriteMsgUDP(buf, nil, remote)
 		if err != nil {
+			log.Println("discover/write: warning:", err)
 			errCounter++
 		} else {
 			errCounter = 0
@@ -191,8 +189,8 @@ func (d *Discoverer) recvAnnouncements() {
 			continue
 		}
 
-		pkt, err := decodePacket(buf[:n])
-		if err != nil || pkt.magic != AnnouncementMagic {
+		pkt, err := DecodePacket(buf[:n])
+		if err != nil || pkt.Magic != AnnouncementMagic {
 			errCounter++
 			time.Sleep(time.Second)
 			continue
@@ -200,11 +198,11 @@ func (d *Discoverer) recvAnnouncements() {
 
 		errCounter = 0
 
-		if pkt.id != d.MyID {
-			nodeAddr := fmt.Sprintf("%s:%d", addr.IP.String(), pkt.port)
+		if pkt.ID != d.MyID {
+			nodeAddr := fmt.Sprintf("%s:%d", addr.IP.String(), pkt.Port)
 			d.registryLock.Lock()
-			if d.registry[pkt.id] != nodeAddr {
-				d.registry[pkt.id] = nodeAddr
+			if d.registry[pkt.ID] != nodeAddr {
+				d.registry[pkt.ID] = nodeAddr
 			}
 			d.registryLock.Unlock()
 		}
@@ -213,57 +211,47 @@ func (d *Discoverer) recvAnnouncements() {
 }
 
 func (d *Discoverer) externalLookup(node string) (string, bool) {
-	extIPs, err := net.LookupIP(d.extServer)
+	extIP, err := net.ResolveUDPAddr("udp", d.extServer+":22025")
 	if err != nil {
 		log.Printf("discover/external: %v; no external lookup", err)
 		return "", false
 	}
 
-	var res = make(chan string, len(extIPs))
-	var failed = 0
-	for _, extIP := range extIPs {
-		remote := &net.UDPAddr{IP: extIP, Port: AnnouncementPort}
-		conn, err := net.DialUDP("udp", nil, remote)
-		if err != nil {
-			log.Printf("discover/external: %v; no external lookup", err)
-			failed++
-			continue
-		}
-
-		_, err = conn.Write(encodePacket(packet{QueryMagic, 0, node, nil}))
-		if err != nil {
-			log.Printf("discover/external: %v; no external lookup", err)
-			failed++
-			continue
-		}
-
-		go func() {
-			var buf = make([]byte, 1024)
-			_, err = conn.Read(buf)
-			if err != nil {
-				log.Printf("discover/external/read: %v; no external lookup", err)
-				return
-			}
-
-			pkt, err := decodePacket(buf)
-			if err != nil {
-				log.Printf("discover/external/read: %v; no external lookup", err)
-				return
-			}
-
-			if pkt.magic != AnnouncementMagic {
-				log.Printf("discover/external/read: bad magic; no external lookup", err)
-				return
-			}
-
-			res <- fmt.Sprintf("%s:%d", ipStr(pkt.ip), pkt.port)
-		}()
-	}
-
-	if failed == len(extIPs) {
-		// no point in waiting
+	var res = make(chan string, 1)
+	conn, err := net.DialUDP("udp", nil, extIP)
+	if err != nil {
+		log.Printf("discover/external: %v; no external lookup", err)
 		return "", false
 	}
+
+	_, err = conn.Write(EncodePacket(Packet{QueryMagic, 0, node, nil}))
+	if err != nil {
+		log.Printf("discover/external: %v; no external lookup", err)
+		return "", false
+	}
+	log.Println("query", extIP)
+
+	go func() {
+		var buf = make([]byte, 1024)
+		n, err := conn.Read(buf)
+		if err != nil {
+			log.Printf("discover/external/read: %v; no external lookup", err)
+			return
+		}
+
+		pkt, err := DecodePacket(buf[:n])
+		if err != nil {
+			log.Printf("discover/external/read: %v; no external lookup", err)
+			return
+		}
+
+		if pkt.Magic != AnnouncementMagic {
+			log.Printf("discover/external/read: bad magic; no external lookup", err)
+			return
+		}
+
+		res <- fmt.Sprintf("%s:%d", ipStr(pkt.IP), pkt.Port)
+	}()
 
 	select {
 	case r := <-res:

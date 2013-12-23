@@ -6,11 +6,11 @@ import (
 	"fmt"
 )
 
-type packet struct {
-	magic uint32 // AnnouncementMagic or QueryMagic
-	port  uint16 // unset if magic == QueryMagic
-	id    string
-	ip    []byte // zero length in local announcements
+type Packet struct {
+	Magic uint32 // AnnouncementMagic or QueryMagic
+	Port  uint16 // unset if magic == QueryMagic
+	ID    string
+	IP    []byte // zero length in local announcements
 }
 
 var (
@@ -18,26 +18,26 @@ var (
 	errFormat   = errors.New("incorrect packet format")
 )
 
-func encodePacket(pkt packet) []byte {
-	if l := len(pkt.ip); l != 0 && l != 4 && l != 16 {
+func EncodePacket(pkt Packet) []byte {
+	if l := len(pkt.IP); l != 0 && l != 4 && l != 16 {
 		// bad ip format
 		return nil
 	}
 
-	var idbs = []byte(pkt.id)
+	var idbs = []byte(pkt.ID)
 	var l = 4 + 4 + len(idbs) + pad(len(idbs))
-	if pkt.magic == AnnouncementMagic {
-		l += 4 + 4 + len(pkt.ip)
+	if pkt.Magic == AnnouncementMagic {
+		l += 4 + 4 + len(pkt.IP)
 	}
 
 	var buf = make([]byte, l)
 	var offset = 0
 
-	binary.BigEndian.PutUint32(buf[offset:], pkt.magic)
+	binary.BigEndian.PutUint32(buf[offset:], pkt.Magic)
 	offset += 4
 
-	if pkt.magic == AnnouncementMagic {
-		binary.BigEndian.PutUint16(buf[offset:], uint16(pkt.port))
+	if pkt.Magic == AnnouncementMagic {
+		binary.BigEndian.PutUint16(buf[offset:], uint16(pkt.Port))
 		offset += 4
 	}
 
@@ -46,39 +46,39 @@ func encodePacket(pkt packet) []byte {
 	copy(buf[offset:], idbs)
 	offset += len(idbs) + pad(len(idbs))
 
-	if pkt.magic == AnnouncementMagic {
-		binary.BigEndian.PutUint32(buf[offset:], uint32(len(pkt.ip)))
+	if pkt.Magic == AnnouncementMagic {
+		binary.BigEndian.PutUint32(buf[offset:], uint32(len(pkt.IP)))
 		offset += 4
-		copy(buf[offset:], pkt.ip)
-		offset += len(pkt.ip)
+		copy(buf[offset:], pkt.IP)
+		offset += len(pkt.IP)
 	}
 
 	return buf
 }
 
-func decodePacket(buf []byte) (*packet, error) {
-	var p packet
+func DecodePacket(buf []byte) (*Packet, error) {
+	var p Packet
 	var offset int
 
 	if len(buf) < 4 {
 		// short packet
 		return nil, errFormat
 	}
-	p.magic = binary.BigEndian.Uint32(buf[offset:])
+	p.Magic = binary.BigEndian.Uint32(buf[offset:])
 	offset += 4
 
-	if p.magic != AnnouncementMagic && p.magic != QueryMagic {
+	if p.Magic != AnnouncementMagic && p.Magic != QueryMagic {
 		return nil, errBadMagic
 	}
 
-	if p.magic == AnnouncementMagic {
+	if p.Magic == AnnouncementMagic {
 		// Port Number
 
 		if len(buf) < offset+4 {
 			// short packet
 			return nil, errFormat
 		}
-		p.port = binary.BigEndian.Uint16(buf[offset:])
+		p.Port = binary.BigEndian.Uint16(buf[offset:])
 		offset += 2
 		reserved := binary.BigEndian.Uint16(buf[offset:])
 		if reserved != 0 {
@@ -101,10 +101,10 @@ func decodePacket(buf []byte) (*packet, error) {
 		return nil, errFormat
 	}
 	idbs := buf[offset : offset+int(l)]
-	p.id = string(idbs)
+	p.ID = string(idbs)
 	offset += int(l) + pad(int(l))
 
-	if p.magic == AnnouncementMagic {
+	if p.Magic == AnnouncementMagic {
 		// IP
 
 		if len(buf) < offset+4 {
@@ -123,7 +123,7 @@ func decodePacket(buf []byte) (*packet, error) {
 			return nil, errFormat
 		}
 		if l > 0 {
-			p.ip = buf[offset : offset+int(l)]
+			p.IP = buf[offset : offset+int(l)]
 			offset += int(l)
 		}
 	}

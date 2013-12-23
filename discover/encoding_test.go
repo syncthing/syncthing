@@ -8,7 +8,7 @@ import (
 
 var testdata = []struct {
 	data   []byte
-	packet *packet
+	packet *Packet
 	err    error
 }{
 	{
@@ -17,10 +17,10 @@ var testdata = []struct {
 			0x00, 0x00, 0x00, 0x05,
 			0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x00, 0x00, 0x00,
 			0x00, 0x00, 0x00, 0x00},
-		&packet{
-			magic: 0x20121025,
-			port:  0x1234,
-			id:    "hello",
+		&Packet{
+			Magic: 0x20121025,
+			Port:  0x1234,
+			ID:    "hello",
 		},
 		nil,
 	},
@@ -31,11 +31,11 @@ var testdata = []struct {
 			0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x21, 0x21, 0x21,
 			0x00, 0x00, 0x00, 0x04,
 			0x01, 0x02, 0x03, 0x04},
-		&packet{
-			magic: 0x20121025,
-			port:  0x3456,
-			id:    "hello!!!",
-			ip:    []byte{1, 2, 3, 4},
+		&Packet{
+			Magic: 0x20121025,
+			Port:  0x3456,
+			ID:    "hello!!!",
+			IP:    []byte{1, 2, 3, 4},
 		},
 		nil,
 	},
@@ -43,9 +43,9 @@ var testdata = []struct {
 		[]byte{0x19, 0x76, 0x03, 0x09,
 			0x00, 0x00, 0x00, 0x06,
 			0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x21, 0x00, 0x00},
-		&packet{
-			magic: 0x19760309,
-			id:    "hello!",
+		&Packet{
+			Magic: 0x19760309,
+			ID:    "hello!",
 		},
 		nil,
 	},
@@ -68,7 +68,7 @@ var testdata = []struct {
 		errFormat,
 	},
 	{
-		[]byte{0x19, 0x77, 0x03, 0x09, // incorrect magic
+		[]byte{0x19, 0x77, 0x03, 0x09, // incorrect Magic
 			0x00, 0x00, 0x00, 0x06,
 			0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x21, 0x00, 0x00},
 		nil,
@@ -93,7 +93,7 @@ var testdata = []struct {
 
 func TestDecodePacket(t *testing.T) {
 	for i, test := range testdata {
-		p, err := decodePacket(test.data)
+		p, err := DecodePacket(test.data)
 		if err != test.err {
 			t.Errorf("%d: unexpected error %v", i, err)
 		} else {
@@ -109,7 +109,7 @@ func TestEncodePacket(t *testing.T) {
 		if test.err != nil {
 			continue
 		}
-		buf := encodePacket(*test.packet)
+		buf := EncodePacket(*test.packet)
 		if bytes.Compare(buf, test.data) != 0 {
 			t.Errorf("%d: incorrect encoded packet\n% x\n% 0x", i, test.data, buf)
 		}
