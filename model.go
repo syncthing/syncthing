@@ -14,6 +14,7 @@ TODO(jb): Keep global and per node transfer and performance statistics.
 */
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"sync"
@@ -49,11 +50,41 @@ func NewModel(dir string) *Model {
 		nodes:  make(map[string]*protocol.Connection),
 	}
 
+	go m.printStats()
 	return m
 }
 
 func (m *Model) Start() {
 	go m.puller()
+}
+
+func (m *Model) printStats() {
+	for {
+		time.Sleep(15 * time.Second)
+		m.RLock()
+		for node, conn := range m.nodes {
+			stats := conn.Statistics()
+			if (stats.InBytesPerSec > 0 || stats.OutBytesPerSec > 0) && stats.Latency > 0 {
+				infof("%s: %sB/s in, %sB/s out, %0.02f ms", node, toSI(stats.InBytesPerSec), toSI(stats.OutBytesPerSec), stats.Latency.Seconds()*1000)
+			} else if stats.InBytesPerSec > 0 || stats.OutBytesPerSec > 0 {
+				infof("%s: %sB/s in, %sB/s out", node, toSI(stats.InBytesPerSec), toSI(stats.OutBytesPerSec))
+			}
+		}
+		m.RUnlock()
+	}
+}
+
+func toSI(n int) string {
+	if n > 1<<30 {
+		return fmt.Sprintf("%.02f G", float64(n)/(1<<30))
+	}
+	if n > 1<<20 {
+		return fmt.Sprintf("%.02f M", float64(n)/(1<<20))
+	}
+	if n > 1<<10 {
+		return fmt.Sprintf("%.01f K", float64(n)/(1<<10))
+	}
+	return fmt.Sprintf("%d ", n)
 }
 
 func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {

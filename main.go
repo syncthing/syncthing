@@ -162,7 +162,7 @@ func main() {
 	// XXX: Should use some fsnotify mechanism.
 	go func() {
 		for {
-			time.Sleep(time.Duration(opts.ScanInterval) * time.Second)
+			time.Sleep(opts.ScanInterval)
 			updateLocalModel(m)
 		}
 	}()
@@ -291,7 +291,7 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, 
 			}
 		}
 
-		time.Sleep(time.Duration(opts.ConnInterval) * time.Second)
+		time.Sleep(opts.ConnInterval)
 	}
 }
 

@@ -42,18 +42,19 @@ type Model interface {
 }
 
 type Connection struct {
-	ID          string
-	receiver    Model
-	reader      io.Reader
-	mreader     *marshalReader
-	writer      io.Writer
-	mwriter     *marshalWriter
-	wLock       sync.RWMutex
-	closed      bool
-	awaiting    map[int]chan asyncResult
-	nextId      int
-	lastReceive time.Time
-	peerLatency time.Duration
+	ID             string
+	receiver       Model
+	reader         io.Reader
+	mreader        *marshalReader
+	writer         io.Writer
+	mwriter        *marshalWriter
+	wLock          sync.RWMutex
+	closed         bool
+	awaiting       map[int]chan asyncResult
+	nextId         int
+	lastReceive    time.Time
+	peerLatency    time.Duration
+	lastStatistics Statistics
 }
 
 var ErrClosed = errors.New("Connection closed")
@@ -74,14 +75,15 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 	}
 
 	c := Connection{
-		receiver:    receiver,
-		reader:      flrd,
-		mreader:     &marshalReader{flrd, 0, nil},
-		writer:      flwr,
-		mwriter:     &marshalWriter{flwr, 0, nil},
-		awaiting:    make(map[int]chan asyncResult),
-		lastReceive: time.Now(),
-		ID:          nodeID,
+		receiver:       receiver,
+		reader:         flrd,
+		mreader:        &marshalReader{flrd, 0, nil},
+		writer:         flwr,
+		mwriter:        &marshalWriter{flwr, 0, nil},
+		awaiting:       make(map[int]chan asyncResult),
+		lastReceive:    time.Now(),
+		ID:             nodeID,
+		lastStatistics: Statistics{At: time.Now()},
 	}
 
 	go c.readerLoop()
@@ -312,4 +314,30 @@ func (c *Connection) pingerLoop() {
 		}
 		time.Sleep(time.Second)
 	}
+}
+
+type Statistics struct {
+	At             time.Time
+	InBytesTotal   int
+	InBytesPerSec  int
+	OutBytesTotal  int
+	OutBytesPerSec int
+	Latency        time.Duration
+}
+
+func (c *Connection) Statistics() Statistics {
+	c.wLock.Lock()
+	defer c.wLock.Unlock()
+
+	secs := time.Since(c.lastStatistics.At).Seconds()
+	stats := Statistics{
+		At:             time.Now(),
+		InBytesTotal:   c.mreader.tot,
+		InBytesPerSec:  int(float64(c.mreader.tot-c.lastStatistics.InBytesTotal) / secs),
+		OutBytesTotal:  c.mwriter.tot,
+		OutBytesPerSec: int(float64(c.mwriter.tot-c.lastStatistics.OutBytesTotal) / secs),
+		Latency:        c.peerLatency,
+	}
+	c.lastStatistics = stats
+	return stats
 }

@@ -229,7 +229,6 @@ func (d *Discoverer) externalLookup(node string) (string, bool) {
 		log.Printf("discover/external: %v; no external lookup", err)
 		return "", false
 	}
-	log.Println("query", extIP)
 
 	go func() {
 		var buf = make([]byte, 1024)
