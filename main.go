@@ -16,8 +16,8 @@ import (
 
 	"github.com/calmh/ini"
 	"github.com/calmh/syncthing/discover"
+	flags "github.com/calmh/syncthing/github.com/jessevdk/go-flags"
 	"github.com/calmh/syncthing/protocol"
-	flags "github.com/jessevdk/go-flags"
 )
 
 type Options struct {
