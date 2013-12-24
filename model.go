@@ -60,7 +60,7 @@ func (m *Model) Start() {
 
 func (m *Model) printStats() {
 	for {
-		time.Sleep(15 * time.Second)
+		time.Sleep(60 * time.Second)
 		m.RLock()
 		for node, conn := range m.nodes {
 			stats := conn.Statistics()
@@ -223,7 +223,7 @@ func (m *Model) ReplaceLocal(fs []File) {
 		m.recomputeGlobal()
 		m.recomputeNeed()
 		m.updated = time.Now().Unix()
-		go m.broadcastIndex()
+		m.broadcastIndex()
 	}
 }
 
@@ -231,10 +231,11 @@ func (m *Model) ReplaceLocal(fs []File) {
 func (m *Model) broadcastIndex() {
 	idx := m.protocolIndex()
 	for _, node := range m.nodes {
+		node := node
 		if opts.Debug.TraceNet {
 			debugf("NET IDX(out): %s: %d files", node.ID, len(idx))
 		}
-		node.Index(idx)
+		go node.Index(idx)
 	}
 }
 
@@ -271,7 +272,7 @@ func (m *Model) UpdateLocal(f File) {
 		m.recomputeGlobal()
 		m.recomputeNeed()
 		m.updated = time.Now().Unix()
-		go m.broadcastIndex()
+		m.broadcastIndex()
 	}
 }
 
@@ -400,5 +401,8 @@ func (m *Model) AddNode(node *protocol.Connection) {
 	if opts.Debug.TraceNet {
 		debugf("NET IDX(out): %s: %d files", node.ID, len(idx))
 	}
-	node.Index(idx)
+
+	// Sending the index might take a while if we have many files and a slow
+	// uplink. Return from AddNode in the meantime.
+	go node.Index(idx)
 }

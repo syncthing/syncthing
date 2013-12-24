@@ -282,11 +282,6 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, 
 				nc := protocol.NewConnection(nodeID, conn, conn, m)
 				okln("Connected to node", remoteID, "(out)")
 				m.AddNode(nc)
-				if opts.Debug.TraceNet {
-					t0 := time.Now()
-					nc.Ping()
-					timing("NET: Ping reply", t0)
-				}
 				continue nextNode
 			}
 		}

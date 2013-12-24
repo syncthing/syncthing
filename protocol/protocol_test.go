@@ -46,10 +46,10 @@ func TestPing(t *testing.T) {
 	c0 := NewConnection("c0", ar, bw, nil)
 	c1 := NewConnection("c1", br, aw, nil)
 
-	if !c0.Ping() {
+	if _, ok := c0.Ping(); !ok {
 		t.Error("c0 ping failed")
 	}
-	if !c1.Ping() {
+	if _, ok := c1.Ping(); !ok {
 		t.Error("c1 ping failed")
 	}
 }
@@ -70,7 +70,7 @@ func TestPingErr(t *testing.T) {
 			c0 := NewConnection("c0", ar, ebw, m0)
 			NewConnection("c1", br, eaw, m1)
 
-			res := c0.Ping()
+			_, res := c0.Ping()
 			if (i < 4 || j < 4) && res {
 				t.Errorf("Unexpected ping success; i=%d, j=%d", i, j)
 			} else if (i >= 8 && j >= 8) && !res {
