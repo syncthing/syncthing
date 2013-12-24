@@ -86,6 +86,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/calmh/syncthing/buffers"
 )
 
 const (
@@ -217,8 +219,14 @@ func (d *Discoverer) externalLookup(node string) (string, bool) {
 		return "", false
 	}
 
-	var res = make(chan string, 1)
 	conn, err := net.DialUDP("udp", nil, extIP)
+	if err != nil {
+		log.Printf("discover/external: %v; no external lookup", err)
+		return "", false
+	}
+	defer conn.Close()
+
+	err = conn.SetDeadline(time.Now().Add(5 * time.Second))
 	if err != nil {
 		log.Printf("discover/external: %v; no external lookup", err)
 		return "", false
@@ -230,34 +238,27 @@ func (d *Discoverer) externalLookup(node string) (string, bool) {
 		return "", false
 	}
 
-	go func() {
-		var buf = make([]byte, 1024)
-		n, err := conn.Read(buf)
-		if err != nil {
-			log.Printf("discover/external/read: %v; no external lookup", err)
-			return
-		}
+	var buf = buffers.Get(1024)
+	defer buffers.Put(buf)
 
-		pkt, err := DecodePacket(buf[:n])
-		if err != nil {
-			log.Printf("discover/external/read: %v; no external lookup", err)
-			return
-		}
-
-		if pkt.Magic != AnnouncementMagic {
-			log.Printf("discover/external/read: bad magic; no external lookup", err)
-			return
-		}
-
-		res <- fmt.Sprintf("%s:%d", ipStr(pkt.IP), pkt.Port)
-	}()
-
-	select {
-	case r := <-res:
-		return r, true
-	case <-time.After(5 * time.Second):
+	n, err := conn.Read(buf)
+	if err != nil {
+		log.Printf("discover/external/read: %v; no external lookup", err)
 		return "", false
 	}
+
+	pkt, err := DecodePacket(buf[:n])
+	if err != nil {
+		log.Printf("discover/external/read: %v; no external lookup", err)
+		return "", false
+	}
+
+	if pkt.Magic != AnnouncementMagic {
+		log.Printf("discover/external/read: bad magic; no external lookup", err)
+		return "", false
+	}
+
+	return fmt.Sprintf("%s:%d", ipStr(pkt.IP), pkt.Port), true
 }
 
 func (d *Discoverer) Lookup(node string) (string, bool) {
