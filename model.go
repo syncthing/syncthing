@@ -33,11 +33,20 @@ type Model struct {
 	remote  map[string]map[string]File
 	need    map[string]bool // the files we need to update
 	nodes   map[string]*protocol.Connection
+
+	lastIdxBcast        time.Time
+	lastIdxBcastRequest time.Time
 }
 
 const (
 	RemoteFetchers = 4
 	FlagDeleted    = 1 << 12
+
+	// Index is broadcasted when a broadcast has been requested and the index
+	// has been quiscent for idxBcastHoldtime, or it was at least
+	// idxBcastMaxDelay since we last sent an index.
+	idxBcastHoldtime = 15 * time.Second
+	idxBcastMaxDelay = 120 * time.Second
 )
 
 func NewModel(dir string) *Model {
@@ -51,6 +60,7 @@ func NewModel(dir string) *Model {
 	}
 
 	go m.printStats()
+	go m.broadcastIndexLoop()
 	return m
 }
 
@@ -227,15 +237,33 @@ func (m *Model) ReplaceLocal(fs []File) {
 	}
 }
 
-// Must be called with the read lock held.
 func (m *Model) broadcastIndex() {
-	idx := m.protocolIndex()
-	for _, node := range m.nodes {
-		node := node
-		if opts.Debug.TraceNet {
-			debugf("NET IDX(out): %s: %d files", node.ID, len(idx))
+	m.Lock()
+	defer m.Unlock()
+	m.lastIdxBcastRequest = time.Now()
+}
+
+func (m *Model) broadcastIndexLoop() {
+	for {
+		m.RLock()
+		bcastRequested := m.lastIdxBcastRequest.After(m.lastIdxBcast)
+		holdtimeExceeded := time.Since(m.lastIdxBcastRequest) > idxBcastHoldtime
+		maxDelayExceeded := time.Since(m.lastIdxBcast) > idxBcastMaxDelay
+		if bcastRequested && (holdtimeExceeded || maxDelayExceeded) {
+			idx := m.protocolIndex()
+			for _, node := range m.nodes {
+				node := node
+				if opts.Debug.TraceNet {
+					debugf("NET IDX(out): %s: %d files", node.ID, len(idx))
+				}
+				go node.Index(idx)
+			}
+			// We write here without the write lock because we are the only
+			// goroutine that accesses lastIdxBcast
+			m.lastIdxBcast = time.Now()
 		}
-		go node.Index(idx)
+		m.RUnlock()
+		time.Sleep(idxBcastHoldtime)
 	}
 }
 
