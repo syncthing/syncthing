@@ -39,9 +39,10 @@ The following features are _currently implemented and working_:
 
  * Static configuration of cluster nodes.
 
- * Automatic discovery of cluster nodes on the local network. See
-   [discover.go](https://github.com/calmh/syncthing/blob/master/discover/discover.go)
-   for the protocol specification.
+ * Automatic discovery of cluster nodes. See [discover.go][discover.go]
+   for the protocol specification. Discovery on the LAN is performed by
+   broadcasts, Internet wide discovery is performed with the assistance
+   of a global server.
 
  * Handling of deleted files. Deletes can be propagated or ignored per
    client.
@@ -61,18 +62,14 @@ the future:
 
  * Syncing multiple directories from the same syncthing instance.
 
- * Automatic remote node discovery using a DHT. This is not technically
-   very difficult but requires one or more globally reachable root
-   nodes. This is open for discussion -- perhaps we can piggyback on an
-   existing DHT, or root nodes need to be established in some other
-   manner.
-
  * Automatic NAT handling via UPNP. Required for the above, not very
    useful without it.
 
  * Conflict resolution. Currently whichever file has the newest
    modification time "wins". The correct behavior in the face of
    conflicts is open for discussion.
+
+[discover.go]: (https://github.com/calmh/syncthing/blob/master/discover/discover.go
 
 Security
 --------
