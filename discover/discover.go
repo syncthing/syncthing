@@ -243,6 +243,10 @@ func (d *Discoverer) externalLookup(node string) (string, bool) {
 
 	n, err := conn.Read(buf)
 	if err != nil {
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			// Expected if the server doesn't know about requested node ID
+			return "", false
+		}
 		log.Printf("discover/external/read: %v; no external lookup", err)
 		return "", false
 	}
