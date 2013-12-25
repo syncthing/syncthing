@@ -233,14 +233,8 @@ func (m *Model) ReplaceLocal(fs []File) {
 		m.recomputeGlobal()
 		m.recomputeNeed()
 		m.updated = time.Now().Unix()
-		m.broadcastIndex()
+		m.lastIdxBcastRequest = time.Now()
 	}
-}
-
-func (m *Model) broadcastIndex() {
-	m.Lock()
-	defer m.Unlock()
-	m.lastIdxBcastRequest = time.Now()
 }
 
 func (m *Model) broadcastIndexLoop() {
@@ -263,7 +257,7 @@ func (m *Model) broadcastIndexLoop() {
 			m.lastIdxBcast = time.Now()
 		}
 		m.RUnlock()
-		time.Sleep(idxBcastHoldtime)
+		time.Sleep(idxBcastHoldtime / 2)
 	}
 }
 
@@ -300,7 +294,7 @@ func (m *Model) UpdateLocal(f File) {
 		m.recomputeGlobal()
 		m.recomputeNeed()
 		m.updated = time.Now().Unix()
-		m.broadcastIndex()
+		m.lastIdxBcastRequest = time.Now()
 	}
 }
 
