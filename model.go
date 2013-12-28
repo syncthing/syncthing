@@ -42,8 +42,7 @@ var (
 )
 
 const (
-	RemoteFetchers = 4
-	FlagDeleted    = 1 << 12
+	FlagDeleted = 1 << 12
 
 	idxBcastHoldtime = 15 * time.Second  // Wait at least this long after the last index modification
 	idxBcastMaxDelay = 120 * time.Second // Unless we've already waited this long
@@ -51,12 +50,13 @@ const (
 
 func NewModel(dir string) *Model {
 	m := &Model{
-		dir:    dir,
-		global: make(map[string]File),
-		local:  make(map[string]File),
-		remote: make(map[string]map[string]File),
-		need:   make(map[string]bool),
-		nodes:  make(map[string]*protocol.Connection),
+		dir:          dir,
+		global:       make(map[string]File),
+		local:        make(map[string]File),
+		remote:       make(map[string]map[string]File),
+		need:         make(map[string]bool),
+		nodes:        make(map[string]*protocol.Connection),
+		lastIdxBcast: time.Now(),
 	}
 
 	go m.printStats()

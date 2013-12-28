@@ -11,10 +11,6 @@ held for as short a time as possible.
 
 TODO(jb): Refactor this into smaller and cleaner pieces.
 
-TODO(jb): Some kind of coalescing / rate limiting of index sending, so we don't
-send hundreds of index updates in a short period if time when deleting files
-etc.
-
 */
 
 import (
@@ -28,6 +24,8 @@ import (
 
 	"github.com/calmh/syncthing/buffers"
 )
+
+const RemoteFetchers = 8
 
 func (m *Model) pullFile(name string) error {
 	m.RLock()
@@ -61,7 +59,7 @@ func (m *Model) pullFile(name string) error {
 	local, remote := localFile.Blocks.To(globalFile.Blocks)
 	var fetchDone sync.WaitGroup
 
-	// One local copy routing
+	// One local copy routine
 
 	fetchDone.Add(1)
 	go func() {
