@@ -134,6 +134,9 @@ func (c *Connection) Index(idx []FileInfo) {
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
 func (c *Connection) Request(name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
+	if c.isClosed() {
+		return nil, ErrClosed
+	}
 	c.Lock()
 	rc := make(chan asyncResult)
 	c.awaiting[c.nextId] = rc
@@ -161,6 +164,9 @@ func (c *Connection) Request(name string, offset uint64, size uint32, hash []byt
 }
 
 func (c *Connection) Ping() (time.Duration, bool) {
+	if c.isClosed() {
+		return 0, false
+	}
 	c.Lock()
 	rc := make(chan asyncResult)
 	c.awaiting[c.nextId] = rc

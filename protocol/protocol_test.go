@@ -179,3 +179,36 @@ func TestTypeErr(t *testing.T) {
 		t.Error("Connection should close due to unknown message type")
 	}
 }
+
+func TestClose(t *testing.T) {
+	m0 := &TestModel{}
+	m1 := &TestModel{}
+
+	ar, aw := io.Pipe()
+	br, bw := io.Pipe()
+
+	c0 := NewConnection("c0", ar, bw, m0)
+	NewConnection("c1", br, aw, m1)
+
+	c0.close()
+
+	ok := c0.isClosed()
+	if !ok {
+		t.Fatal("Connection should be closed")
+	}
+
+	// None of these should panic, some should return an error
+
+	_, ok = c0.Ping()
+	if ok {
+		t.Error("Ping should not return true")
+	}
+
+	c0.Index(nil)
+	c0.Index(nil)
+
+	_, err := c0.Request("foo", 0, 0, nil)
+	if err == nil {
+		t.Error("Request should return an error")
+	}
+}

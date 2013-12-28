@@ -14,6 +14,9 @@ type TestModel struct {
 func (t *TestModel) Index(nodeID string, files []FileInfo) {
 }
 
+func (t *TestModel) IndexUpdate(nodeID string, files []FileInfo) {
+}
+
 func (t *TestModel) Request(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
 	t.name = name
 	t.offset = offset
