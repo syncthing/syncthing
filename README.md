@@ -129,9 +129,12 @@ CUGAE43Y5N64CRJU26YFH6MTWPSBLSUL = dynamic
 This assumes that the first node is reachable on either of the two
 addresses listed (perhaps one internal and one port-forwarded external)
 and that the other node is not normally reachable from the outside. Save
-this config file, identically, to both nodes. If both nodes are running
-on the same network, you can set all addresses to 'dynamic' and they
-will find each other by local node discovery.
+this config file, identically, to both nodes.
+
+If the nodes are running on the same network, or reachable on port 22000
+from the outside world, you can set all addresses to "dynamic" and they
+will find each other anyway. (This discovery, including port numbers, can
+be tweaked or disabled using command line options.)
 
 Start syncthing on both nodes. If you're running both on the same
 computer, one needs a different repository directory (in the config
