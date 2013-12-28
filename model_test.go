@@ -139,6 +139,39 @@ func TestRemoteUpdateOld(t *testing.T) {
 	}
 }
 
+func TestRemoteIndexUpdate(t *testing.T) {
+	m := NewModel("foo")
+	fs := Walk("testdata", m, false)
+	m.ReplaceLocal(fs)
+
+	foo := protocol.FileInfo{
+		Name:     "foo",
+		Modified: time.Now().Unix(),
+		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
+	}
+
+	bar := protocol.FileInfo{
+		Name:     "bar",
+		Modified: time.Now().Unix(),
+		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
+	}
+
+	m.Index("42", []protocol.FileInfo{foo})
+
+	if _, ok := m.need["foo"]; !ok {
+		t.Error("Model doesn't need 'foo'")
+	}
+
+	m.IndexUpdate("42", []protocol.FileInfo{bar})
+
+	if _, ok := m.need["foo"]; !ok {
+		t.Error("Model doesn't need 'foo'")
+	}
+	if _, ok := m.need["bar"]; !ok {
+		t.Error("Model doesn't need 'bar'")
+	}
+}
+
 func TestDelete(t *testing.T) {
 	m := NewModel("foo")
 	fs := Walk("testdata", m, false)

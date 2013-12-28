@@ -177,6 +177,14 @@ contents, but copies the Message ID from the Ping.
     struct PongMessage {
     }
 
+### IndexUpdate (Type = 6)
+
+This message has exactly the same structure as the Index message.
+However instead of replacing the contents of the repository in the
+model, the Index Update merely amends it with new or updated file
+information. Any files not mentioned in an Index Update are left
+unchanged.
+
 Example Exchange
 ----------------
 

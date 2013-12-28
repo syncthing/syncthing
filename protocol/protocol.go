@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	messageTypeReserved = iota
-	messageTypeIndex
-	messageTypeRequest
-	messageTypeResponse
-	messageTypePing
-	messageTypePong
+	messageTypeIndex       = 1
+	messageTypeRequest     = 2
+	messageTypeResponse    = 3
+	messageTypePing        = 4
+	messageTypePong        = 5
+	messageTypeIndexUpdate = 6
 )
 
 type FileInfo struct {
@@ -35,6 +35,8 @@ type BlockInfo struct {
 type Model interface {
 	// An index was received from the peer node
 	Index(nodeID string, files []FileInfo)
+	// An index update was received from the peer node
+	IndexUpdate(nodeID string, files []FileInfo)
 	// A request was made by the peer node
 	Request(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error)
 	// The peer node closed the connection
@@ -55,6 +57,7 @@ type Connection struct {
 	lastReceive    time.Time
 	peerLatency    time.Duration
 	lastStatistics Statistics
+	lastIndexSent  map[string]FileInfo
 }
 
 var ErrClosed = errors.New("Connection closed")
@@ -95,7 +98,30 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 // Index writes the list of file information to the connected peer node
 func (c *Connection) Index(idx []FileInfo) {
 	c.Lock()
-	c.mwriter.writeHeader(header{0, c.nextId, messageTypeIndex})
+
+	var msgType int
+	if c.lastIndexSent == nil {
+		// This is the first time we send an index.
+		msgType = messageTypeIndex
+
+		c.lastIndexSent = make(map[string]FileInfo)
+		for _, f := range idx {
+			c.lastIndexSent[f.Name] = f
+		}
+	} else {
+		// We have sent one full index. Only send updates now.
+		msgType = messageTypeIndexUpdate
+		var diff []FileInfo
+		for _, f := range idx {
+			if ef, ok := c.lastIndexSent[f.Name]; !ok || ef.Modified != f.Modified {
+				diff = append(diff, f)
+				c.lastIndexSent[f.Name] = f
+			}
+		}
+		idx = diff
+	}
+
+	c.mwriter.writeHeader(header{0, c.nextId, msgType})
 	c.mwriter.writeIndex(idx)
 	err := c.flush()
 	c.nextId = (c.nextId + 1) & 0xfff
@@ -213,6 +239,14 @@ func (c *Connection) readerLoop() {
 				c.close()
 			} else {
 				c.receiver.Index(c.ID, files)
+			}
+
+		case messageTypeIndexUpdate:
+			files := c.mreader.readIndex()
+			if c.mreader.err != nil {
+				c.close()
+			} else {
+				c.receiver.IndexUpdate(c.ID, files)
 			}
 
 		case messageTypeRequest:

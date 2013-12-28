@@ -9,11 +9,10 @@ The model has read and write locks. These must be acquired as appropriate by
 public methods. To prevent deadlock situations, private methods should never
 acquire locks, but document what locks they require.
 
-TODO(jb): Keep global and per node transfer and performance statistics.
-
 */
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -38,15 +37,16 @@ type Model struct {
 	lastIdxBcastRequest time.Time
 }
 
+var (
+	errNoSuchNode = errors.New("no such node")
+)
+
 const (
 	RemoteFetchers = 4
 	FlagDeleted    = 1 << 12
 
-	// Index is broadcasted when a broadcast has been requested and the index
-	// has been quiscent for idxBcastHoldtime, or it was at least
-	// idxBcastMaxDelay since we last sent an index.
-	idxBcastHoldtime = 15 * time.Second
-	idxBcastMaxDelay = 120 * time.Second
+	idxBcastHoldtime = 15 * time.Second  // Wait at least this long after the last index modification
+	idxBcastMaxDelay = 120 * time.Second // Unless we've already waited this long
 )
 
 func NewModel(dir string) *Model {
@@ -111,21 +111,32 @@ func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {
 			// Files marked as deleted do not even enter the model
 			continue
 		}
-		mf := File{
-			Name:     f.Name,
-			Flags:    f.Flags,
-			Modified: int64(f.Modified),
+		m.remote[nodeID][f.Name] = fileFromProtocol(f)
+	}
+
+	m.recomputeGlobal()
+	m.recomputeNeed()
+}
+
+func (m *Model) IndexUpdate(nodeID string, fs []protocol.FileInfo) {
+	m.Lock()
+	defer m.Unlock()
+
+	if opts.Debug.TraceNet {
+		debugf("NET IDXUP(in): %s: %d files", nodeID, len(fs))
+	}
+
+	repo, ok := m.remote[nodeID]
+	if !ok {
+		return
+	}
+
+	for _, f := range fs {
+		if f.Flags&FlagDeleted != 0 && !opts.Delete {
+			// Files marked as deleted do not even enter the model
+			continue
 		}
-		var offset uint64
-		for _, b := range f.Blocks {
-			mf.Blocks = append(mf.Blocks, Block{
-				Offset: offset,
-				Length: b.Length,
-				Hash:   b.Hash,
-			})
-			offset += uint64(b.Length)
-		}
-		m.remote[nodeID][f.Name] = mf
+		repo[f.Name] = fileFromProtocol(f)
 	}
 
 	m.recomputeGlobal()
@@ -196,8 +207,11 @@ func (m *Model) Request(nodeID, name string, offset uint64, size uint32, hash []
 
 func (m *Model) RequestGlobal(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
 	m.RLock()
-	nc := m.nodes[nodeID]
+	nc, ok := m.nodes[nodeID]
 	m.RUnlock()
+	if !ok {
+		return nil, errNoSuchNode
+	}
 
 	if opts.Debug.TraceNet {
 		debugf("NET REQ(out): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
@@ -242,22 +256,29 @@ func (m *Model) broadcastIndexLoop() {
 		m.RLock()
 		bcastRequested := m.lastIdxBcastRequest.After(m.lastIdxBcast)
 		holdtimeExceeded := time.Since(m.lastIdxBcastRequest) > idxBcastHoldtime
+		m.RUnlock()
+
 		maxDelayExceeded := time.Since(m.lastIdxBcast) > idxBcastMaxDelay
 		if bcastRequested && (holdtimeExceeded || maxDelayExceeded) {
+			m.Lock()
+			var indexWg sync.WaitGroup
+			indexWg.Add(len(m.nodes))
 			idx := m.protocolIndex()
+			m.lastIdxBcast = time.Now()
 			for _, node := range m.nodes {
 				node := node
 				if opts.Debug.TraceNet {
 					debugf("NET IDX(out): %s: %d files", node.ID, len(idx))
 				}
-				go node.Index(idx)
+				go func() {
+					node.Index(idx)
+					indexWg.Done()
+				}()
 			}
-			// We write here without the write lock because we are the only
-			// goroutine that accesses lastIdxBcast
-			m.lastIdxBcast = time.Now()
+			m.Unlock()
+			indexWg.Wait()
 		}
-		m.RUnlock()
-		time.Sleep(idxBcastHoldtime / 2)
+		time.Sleep(idxBcastHoldtime)
 	}
 }
 
@@ -427,4 +448,22 @@ func (m *Model) AddNode(node *protocol.Connection) {
 	// Sending the index might take a while if we have many files and a slow
 	// uplink. Return from AddNode in the meantime.
 	go node.Index(idx)
+}
+
+func fileFromProtocol(f protocol.FileInfo) File {
+	mf := File{
+		Name:     f.Name,
+		Flags:    f.Flags,
+		Modified: int64(f.Modified),
+	}
+	var offset uint64
+	for _, b := range f.Blocks {
+		mf.Blocks = append(mf.Blocks, Block{
+			Offset: offset,
+			Length: b.Length,
+			Hash:   b.Hash,
+		})
+		offset += uint64(b.Length)
+	}
+	return mf
 }
