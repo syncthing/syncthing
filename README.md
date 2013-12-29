@@ -47,7 +47,7 @@ The following features are _currently implemented and working_:
  * Handling of deleted files. Deletes can be propagated or ignored per
    client.
 
- * Synchronizing multiple unrelated directory tries by following
+ * Synchronizing multiple unrelated directory trees by following
    symlinks directly below the repository level.
 
 The following features are _not yet implemented but planned_:
@@ -62,8 +62,7 @@ the future:
 
  * Syncing multiple directories from the same syncthing instance.
 
- * Automatic NAT handling via UPNP. Required for the above, not very
-   useful without it.
+ * Automatic NAT handling via UPNP.
 
  * Conflict resolution. Currently whichever file has the newest
    modification time "wins". The correct behavior in the face of
