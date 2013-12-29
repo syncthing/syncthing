@@ -21,15 +21,14 @@ import (
 )
 
 type Options struct {
-	ConfDir      string           `short:"c" long:"cfg" description:"Configuration directory" default:"~/.syncthing" value-name:"DIR"`
-	Listen       string           `short:"l" long:"listen" description:"Listen address" default:":22000" value-name:"ADDR"`
-	ReadOnly     bool             `short:"r" long:"ro" description:"Repository is read only"`
-	Delete       bool             `short:"d" long:"delete" description:"Delete files from repo when deleted from cluster"`
-	NoSymlinks   bool             `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
-	ScanInterval time.Duration    `long:"scan-intv" description:"Repository scan interval" default:"60s" value-name:"INTV"`
-	ConnInterval time.Duration    `long:"conn-intv" description:"Node reconnect interval" default:"60s" value-name:"INTV"`
-	Discovery    DiscoveryOptions `group:"Discovery Options"`
-	Debug        DebugOptions     `group:"Debugging Options"`
+	ConfDir    string           `short:"c" long:"cfg" description:"Configuration directory" default:"~/.syncthing" value-name:"DIR"`
+	Listen     string           `short:"l" long:"listen" description:"Listen address" default:":22000" value-name:"ADDR"`
+	ReadOnly   bool             `short:"r" long:"ro" description:"Repository is read only"`
+	Delete     bool             `short:"d" long:"delete" description:"Delete files deleted from cluster"`
+	NoSymlinks bool             `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
+	Discovery  DiscoveryOptions `group:"Discovery Options"`
+	Advanced   AdvancedOptions  `group:"Advanced Options"`
+	Debug      DebugOptions     `group:"Debugging Options"`
 }
 
 type DebugOptions struct {
@@ -44,6 +43,13 @@ type DiscoveryOptions struct {
 	ExternalPort        int    `short:"e" long:"ext-port" description:"External listen port" value-name:"PORT" default:"22000"`
 	NoExternalDiscovery bool   `short:"n" long:"no-ext-announce" description:"Do not announce presence externally"`
 	NoLocalDiscovery    bool   `short:"N" long:"no-local-announce" description:"Do not announce presence locally"`
+}
+
+type AdvancedOptions struct {
+	RequestsInFlight int           `long:"reqs-in-flight" description:"Parallell in flight requests per file" default:"8" value-name:"REQS"`
+	FilesInFlight    int           `long:"files-in-flight" description:"Parallell in flight file pulls" default:"4" value-name:"FILES"`
+	ScanInterval     time.Duration `long:"scan-intv" description:"Repository scan interval" default:"60s" value-name:"INTV"`
+	ConnInterval     time.Duration `long:"conn-intv" description:"Node reconnect interval" default:"60s" value-name:"INTV"`
 }
 
 var opts Options
@@ -162,7 +168,7 @@ func main() {
 	// XXX: Should use some fsnotify mechanism.
 	go func() {
 		for {
-			time.Sleep(opts.ScanInterval)
+			time.Sleep(opts.Advanced.ScanInterval)
 			updateLocalModel(m)
 		}
 	}()
@@ -286,7 +292,7 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, 
 			}
 		}
 
-		time.Sleep(opts.ConnInterval)
+		time.Sleep(opts.Advanced.ConnInterval)
 	}
 }
 

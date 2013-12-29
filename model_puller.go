@@ -6,10 +6,10 @@ Locking
 =======
 
 These methods are never called from the outside so don't follow the locking
-policy in model.go. Instead, appropriate locks are acquired when needed and
-held for as short a time as possible.
+policy in model.go.
 
 TODO(jb): Refactor this into smaller and cleaner pieces.
+TODO(jb): Increase performance by taking apparent peer bandwidth into account.
 
 */
 
@@ -24,8 +24,6 @@ import (
 
 	"github.com/calmh/syncthing/buffers"
 )
-
-const RemoteFetchers = 8
 
 func (m *Model) pullFile(name string) error {
 	m.RLock()
@@ -81,57 +79,37 @@ func (m *Model) pullFile(name string) error {
 	m.RLock()
 	var nodeIDs = m.whoHas(name)
 	m.RUnlock()
-	var remoteBlocksChan = make(chan Block)
-	go func() {
-		for _, block := range remote {
-			remoteBlocksChan <- block
-		}
-		close(remoteBlocksChan)
-	}()
+	var remoteBlocks = blockIterator{blocks: remote}
+	for i := 0; i < opts.Advanced.RequestsInFlight; i++ {
+		curNode := nodeIDs[i%len(nodeIDs)]
+		fetchDone.Add(1)
 
-	// XXX: This should be rewritten into something nicer that takes differing
-	// peer performance into account.
-
-	for i := 0; i < RemoteFetchers; i++ {
-		for _, nodeID := range nodeIDs {
-			fetchDone.Add(1)
-			go func(nodeID string) {
-				for block := range remoteBlocksChan {
-					data, err := m.RequestGlobal(nodeID, name, block.Offset, block.Length, block.Hash)
-					if err != nil {
-						break
-					}
-					contentChan <- content{
-						offset: int64(block.Offset),
-						data:   data,
-					}
+		go func(nodeID string) {
+			for {
+				block, ok := remoteBlocks.Next()
+				if !ok {
+					break
 				}
-				fetchDone.Done()
-			}(nodeID)
-		}
+				data, err := m.RequestGlobal(nodeID, name, block.Offset, block.Length, block.Hash)
+				if err != nil {
+					break
+				}
+				contentChan <- content{
+					offset: int64(block.Offset),
+					data:   data,
+				}
+			}
+			fetchDone.Done()
+		}(curNode)
 	}
 
 	fetchDone.Wait()
 	close(contentChan)
 	applyDone.Wait()
 
-	rf, err := os.Open(tmpFilename)
+	err = hashCheck(tmpFilename, globalFile.Blocks)
 	if err != nil {
 		return err
-	}
-	defer rf.Close()
-
-	writtenBlocks, err := Blocks(rf, BlockSize)
-	if err != nil {
-		return err
-	}
-	if len(writtenBlocks) != len(globalFile.Blocks) {
-		return fmt.Errorf("%s: incorrect number of blocks after sync", tmpFilename)
-	}
-	for i := range writtenBlocks {
-		if bytes.Compare(writtenBlocks[i].Hash, globalFile.Blocks[i].Hash) != 0 {
-			return fmt.Errorf("%s: hash mismatch after sync\n  %v\n  %v", tmpFilename, writtenBlocks[i], globalFile.Blocks[i])
-		}
 	}
 
 	err = os.Chtimes(tmpFilename, time.Unix(globalFile.Modified, 0), time.Unix(globalFile.Modified, 0))
@@ -148,23 +126,29 @@ func (m *Model) pullFile(name string) error {
 }
 
 func (m *Model) puller() {
+
 	for {
-		for {
-			var n string
-			var f File
+		time.Sleep(time.Second)
 
-			m.RLock()
-			for n = range m.need {
-				break // just pick first name
-			}
-			if len(n) != 0 {
-				f = m.global[n]
-			}
-			m.RUnlock()
+		var ns []string
+		m.RLock()
+		for n := range m.need {
+			ns = append(ns, n)
+		}
+		m.RUnlock()
 
-			if len(n) == 0 {
-				// we got nothing
-				break
+		if len(ns) == 0 {
+			continue
+		}
+
+		var limiter = make(chan bool, opts.Advanced.FilesInFlight)
+
+		for _, n := range ns {
+			limiter <- true
+
+			f, ok := m.GlobalFile(n)
+			if !ok {
+				continue
 			}
 
 			var err error
@@ -185,8 +169,9 @@ func (m *Model) puller() {
 			} else {
 				warnln(err)
 			}
+
+			<-limiter
 		}
-		time.Sleep(time.Second)
 	}
 }
 
@@ -207,4 +192,46 @@ func applyContent(cc <-chan content, dst io.WriterAt) error {
 	}
 
 	return nil
+}
+
+func hashCheck(name string, correct []Block) error {
+	rf, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+	defer rf.Close()
+
+	current, err := Blocks(rf, BlockSize)
+	if err != nil {
+		return err
+	}
+	if len(current) != len(correct) {
+		return fmt.Errorf("%s: incorrect number of blocks after sync", name)
+	}
+	for i := range current {
+		if bytes.Compare(current[i].Hash, correct[i].Hash) != 0 {
+			return fmt.Errorf("%s: hash mismatch after sync\n  %v\n  %v", name, current[i], correct[i])
+		}
+	}
+
+	return nil
+}
+
+type blockIterator struct {
+	sync.Mutex
+	blocks []Block
+}
+
+func (i *blockIterator) Next() (b Block, ok bool) {
+	i.Lock()
+	defer i.Unlock()
+
+	if len(i.blocks) == 0 {
+		return
+	}
+
+	b, i.blocks = i.blocks[0], i.blocks[1:]
+	ok = true
+
+	return
 }
