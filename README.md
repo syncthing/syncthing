@@ -85,10 +85,20 @@ fingerprint is computed as the SHA-1 hash of the certificate and
 displayed in BASE32 encoding to form a compact yet convenient string.
 Currently SHA-1 is deemed secure against preimage attacks.
 
-Usage
-=====
+Installing
+==========
+
+Download the appropriate precompiled binary from the
+[releases](https://github.com/calmh/syncthing/releases) page. Untar and
+put the `syncthing` binary somewhere convenient in your `$PATH`.
+
+If you are a developer and have Go 1.2 installed you can also install
+the latest version from source:
 
 `go get github.com/calmh/syncthing`
+
+Usage
+=====
 
 Check out the options:
 
@@ -104,6 +114,7 @@ Run syncthing to let it create it's config directory and certificate:
 
 ```
 $ syncthing
+11:34:13 main.go:85: INFO: Version v0.1-40-gbb0fd87
 11:34:13 tls.go:61: OK: wrote cert.pem
 11:34:13 tls.go:67: OK: wrote key.pem
 11:34:13 main.go:66: INFO: My ID: NCTBZAAHXR6ZZP3D7SL3DLYFFQERMW4Q
@@ -111,10 +122,9 @@ $ syncthing
 ```
 
 Take note of the "My ID: ..." line. Perform the same operation on
-another computer (or the same computer but with a different `--home` for
-testing) to create another node. Take note of that ID as well, and
-create a config file `~/.syncthing/syncthing.ini` looking something like
-this:
+another computer to create another node. Take note of that ID as well,
+and create a config file `~/.syncthing/syncthing.ini` looking something
+like this:
 
 ```
 [repository]
@@ -132,23 +142,23 @@ this config file, identically, to both nodes.
 
 If the nodes are running on the same network, or reachable on port 22000
 from the outside world, you can set all addresses to "dynamic" and they
-will find each other anyway. (This discovery, including port numbers, can
-be tweaked or disabled using command line options.)
+will find each other using automatic discovery. (This discovery,
+including port numbers, can be tweaked or disabled using command line
+options.)
 
-Start syncthing on both nodes. If you're running both on the same
-computer, one needs a different repository directory (in the config
-file) and listening port (set as a command line paramter). For the
-cautious, one side can be set to be read only.
+Start syncthing on both nodes. For the cautious, one side can be set to
+be read only.
 
 ```
 $ syncthing --ro
+13:30:55 main.go:85: INFO: Version v0.1-40-gbb0fd87
 13:30:55 main.go:102: INFO: My ID: NCTBZAAHXR6ZZP3D7SL3DLYFFQERMW4Q
 13:30:55 main.go:149: INFO: Initial repository scan in progress
 13:30:59 main.go:153: INFO: Listening for incoming connections
 13:30:59 main.go:157: INFO: Attempting to connect to other nodes
 13:30:59 main.go:247: INFO: Starting local discovery
 13:30:59 main.go:165: OK: Ready to synchronize
-13:31:04 discover.go:113: INFO: Discovered node CUGAE43Y5N64CRJU26YFH6MTWPSBLSUL at 172.16.32.24:23456
+13:31:04 discover.go:113: INFO: Discovered node CUGAE43Y5N64CRJU26YFH6MTWPSBLSUL at 172.16.32.24:22000
 13:31:14 main.go:296: OK: Connected to node CUGAE43Y5N64CRJU26YFH6MTWPSBLSUL
 13:31:19 main.go:345: INFO: Transferred 139 KiB in (14 KiB/s), 139 KiB out (14 KiB/s)
 ...
