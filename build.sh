@@ -3,6 +3,8 @@
 version=$(git describe --always)
 
 go test ./... || exit 1
+
+rm -rf build
 mkdir -p build || exit 1
 
 for goos in darwin linux freebsd ; do
@@ -13,8 +15,8 @@ for goos in darwin linux freebsd ; do
 		export name="syncthing-$goos-$goarch"
 		go build -ldflags "-X main.Version $version" \
 		&& mkdir -p "$name" \
+		&& cp syncthing "build/$name" \
 		&& mv syncthing "$name" \
-		&& cp syncthing.ini "$name" \
 		&& tar zcf "$name.tar.gz" "$name" \
 		&& rm -r  "$name" \
 		&& mv "$name.tar.gz" build
