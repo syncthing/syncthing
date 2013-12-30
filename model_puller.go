@@ -15,6 +15,7 @@ TODO(jb): Increase performance by taking apparent peer bandwidth into account.
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -109,7 +110,7 @@ func (m *Model) pullFile(name string) error {
 
 	err = hashCheck(tmpFilename, globalFile.Blocks)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %s", path.Base(name), err.Error())
 	}
 
 	err = os.Chtimes(tmpFilename, time.Unix(globalFile.Modified, 0), time.Unix(globalFile.Modified, 0))
@@ -210,11 +211,11 @@ func hashCheck(name string, correct []Block) error {
 		return err
 	}
 	if len(current) != len(correct) {
-		return fmt.Errorf("%s: incorrect number of blocks after sync", name)
+		return errors.New("incorrect number of blocks")
 	}
 	for i := range current {
 		if bytes.Compare(current[i].Hash, correct[i].Hash) != 0 {
-			return fmt.Errorf("%s: hash mismatch after sync\n  %v\n  %v", name, current[i], correct[i])
+			return fmt.Errorf("hash mismatch: %x != %x", current[i], correct[i])
 		}
 	}
 
