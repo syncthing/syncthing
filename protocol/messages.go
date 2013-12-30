@@ -48,7 +48,7 @@ func (w *marshalWriter) writeIndex(idx []FileInfo) {
 }
 
 func WriteIndex(w io.Writer, idx []FileInfo) (int, error) {
-	mw := marshalWriter{w, 0, nil}
+	mw := marshalWriter{w: w}
 	mw.writeIndex(idx)
 	return mw.tot, mw.err
 }
@@ -90,7 +90,7 @@ func (r *marshalReader) readIndex() []FileInfo {
 }
 
 func ReadIndex(r io.Reader) ([]FileInfo, error) {
-	mr := marshalReader{r, 0, nil}
+	mr := marshalReader{r: r}
 	idx := mr.readIndex()
 	return idx, mr.err
 }

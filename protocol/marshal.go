@@ -21,6 +21,7 @@ type marshalWriter struct {
 	w   io.Writer
 	tot int
 	err error
+	b   [8]byte
 }
 
 // We will never encode nor expect to decode blobs larger than 10 MB. Check
@@ -57,12 +58,11 @@ func (w *marshalWriter) writeUint32(v uint32) {
 	if w.err != nil {
 		return
 	}
-	var b [4]byte
-	b[0] = byte(v >> 24)
-	b[1] = byte(v >> 16)
-	b[2] = byte(v >> 8)
-	b[3] = byte(v)
-	_, w.err = w.w.Write(b[:])
+	w.b[0] = byte(v >> 24)
+	w.b[1] = byte(v >> 16)
+	w.b[2] = byte(v >> 8)
+	w.b[3] = byte(v)
+	_, w.err = w.w.Write(w.b[:4])
 	w.tot += 4
 }
 
@@ -70,16 +70,15 @@ func (w *marshalWriter) writeUint64(v uint64) {
 	if w.err != nil {
 		return
 	}
-	var b [8]byte
-	b[0] = byte(v >> 56)
-	b[1] = byte(v >> 48)
-	b[2] = byte(v >> 40)
-	b[3] = byte(v >> 32)
-	b[4] = byte(v >> 24)
-	b[5] = byte(v >> 16)
-	b[6] = byte(v >> 8)
-	b[7] = byte(v)
-	_, w.err = w.w.Write(b[:])
+	w.b[0] = byte(v >> 56)
+	w.b[1] = byte(v >> 48)
+	w.b[2] = byte(v >> 40)
+	w.b[3] = byte(v >> 32)
+	w.b[4] = byte(v >> 24)
+	w.b[5] = byte(v >> 16)
+	w.b[6] = byte(v >> 8)
+	w.b[7] = byte(v)
+	_, w.err = w.w.Write(w.b[:8])
 	w.tot += 8
 }
 
@@ -87,6 +86,7 @@ type marshalReader struct {
 	r   io.Reader
 	tot int
 	err error
+	b   [8]byte
 }
 
 func (r *marshalReader) readString() string {
@@ -117,19 +117,17 @@ func (r *marshalReader) readUint32() uint32 {
 	if r.err != nil {
 		return 0
 	}
-	var b [4]byte
-	_, r.err = io.ReadFull(r.r, b[:])
+	_, r.err = io.ReadFull(r.r, r.b[:4])
 	r.tot += 4
-	return uint32(b[3]) | uint32(b[2])<<8 | uint32(b[1])<<16 | uint32(b[0])<<24
+	return uint32(r.b[3]) | uint32(r.b[2])<<8 | uint32(r.b[1])<<16 | uint32(r.b[0])<<24
 }
 
 func (r *marshalReader) readUint64() uint64 {
 	if r.err != nil {
 		return 0
 	}
-	var b [8]byte
-	_, r.err = io.ReadFull(r.r, b[:])
+	_, r.err = io.ReadFull(r.r, r.b[:8])
 	r.tot += 8
-	return uint64(b[7]) | uint64(b[6])<<8 | uint64(b[5])<<16 | uint64(b[4])<<24 |
-		uint64(b[3])<<32 | uint64(b[2])<<40 | uint64(b[1])<<48 | uint64(b[0])<<56
+	return uint64(r.b[7]) | uint64(r.b[6])<<8 | uint64(r.b[5])<<16 | uint64(r.b[4])<<24 |
+		uint64(r.b[3])<<32 | uint64(r.b[2])<<40 | uint64(r.b[1])<<48 | uint64(r.b[0])<<56
 }

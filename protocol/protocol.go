@@ -57,7 +57,7 @@ type Connection struct {
 	lastReceive    time.Time
 	peerLatency    time.Duration
 	lastStatistics Statistics
-	lastIndexSent  map[string]FileInfo
+	indexSent      map[string]int64
 }
 
 var ErrClosed = errors.New("Connection closed")
@@ -80,9 +80,9 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 	c := Connection{
 		receiver:       receiver,
 		reader:         flrd,
-		mreader:        &marshalReader{flrd, 0, nil},
+		mreader:        &marshalReader{r: flrd},
 		writer:         flwr,
-		mwriter:        &marshalWriter{flwr, 0, nil},
+		mwriter:        &marshalWriter{w: flwr},
 		awaiting:       make(map[int]chan asyncResult),
 		lastReceive:    time.Now(),
 		ID:             nodeID,
@@ -100,22 +100,22 @@ func (c *Connection) Index(idx []FileInfo) {
 	c.Lock()
 
 	var msgType int
-	if c.lastIndexSent == nil {
+	if c.indexSent == nil {
 		// This is the first time we send an index.
 		msgType = messageTypeIndex
 
-		c.lastIndexSent = make(map[string]FileInfo)
+		c.indexSent = make(map[string]int64)
 		for _, f := range idx {
-			c.lastIndexSent[f.Name] = f
+			c.indexSent[f.Name] = f.Modified
 		}
 	} else {
 		// We have sent one full index. Only send updates now.
 		msgType = messageTypeIndexUpdate
 		var diff []FileInfo
 		for _, f := range idx {
-			if ef, ok := c.lastIndexSent[f.Name]; !ok || ef.Modified != f.Modified {
+			if modified, ok := c.indexSent[f.Name]; !ok || f.Modified != modified {
 				diff = append(diff, f)
-				c.lastIndexSent[f.Name] = f
+				c.indexSent[f.Name] = f.Modified
 			}
 		}
 		idx = diff

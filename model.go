@@ -111,7 +111,7 @@ func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {
 			// Files marked as deleted do not even enter the model
 			continue
 		}
-		m.remote[nodeID][f.Name] = fileFromProtocol(f)
+		m.remote[nodeID][f.Name] = fileFromFileInfo(f)
 	}
 
 	m.recomputeGlobal()
@@ -136,7 +136,7 @@ func (m *Model) IndexUpdate(nodeID string, fs []protocol.FileInfo) {
 			// Files marked as deleted do not even enter the model
 			continue
 		}
-		repo[f.Name] = fileFromProtocol(f)
+		repo[f.Name] = fileFromFileInfo(f)
 	}
 
 	m.recomputeGlobal()
@@ -149,7 +149,7 @@ func (m *Model) SeedIndex(fs []protocol.FileInfo) {
 
 	m.local = make(map[string]File)
 	for _, f := range fs {
-		m.local[f.Name] = fileFromProtocol(f)
+		m.local[f.Name] = fileFromFileInfo(f)
 	}
 
 	m.recomputeGlobal()
@@ -396,17 +396,7 @@ func (m *Model) ProtocolIndex() []protocol.FileInfo {
 func (m *Model) protocolIndex() []protocol.FileInfo {
 	var index []protocol.FileInfo
 	for _, f := range m.local {
-		mf := protocol.FileInfo{
-			Name:     f.Name,
-			Flags:    f.Flags,
-			Modified: int64(f.Modified),
-		}
-		for _, b := range f.Blocks {
-			mf.Blocks = append(mf.Blocks, protocol.BlockInfo{
-				Length: b.Length,
-				Hash:   b.Hash,
-			})
-		}
+		mf := fileInfoFromFile(f)
 		if opts.Debug.TraceIdx {
 			var flagComment string
 			if mf.Flags&FlagDeleted != 0 {
@@ -436,7 +426,7 @@ func (m *Model) AddNode(node *protocol.Connection) {
 	go node.Index(idx)
 }
 
-func fileFromProtocol(f protocol.FileInfo) File {
+func fileFromFileInfo(f protocol.FileInfo) File {
 	var blocks []Block
 	var offset uint64
 	for _, b := range f.Blocks {
@@ -445,9 +435,26 @@ func fileFromProtocol(f protocol.FileInfo) File {
 			Length: b.Length,
 			Hash:   b.Hash,
 		})
+		buffers.Put(b.Hash)
 		offset += uint64(b.Length)
 	}
 	return File{
+		Name:     f.Name,
+		Flags:    f.Flags,
+		Modified: int64(f.Modified),
+		Blocks:   blocks,
+	}
+}
+
+func fileInfoFromFile(f File) protocol.FileInfo {
+	var blocks []protocol.BlockInfo
+	for _, b := range f.Blocks {
+		blocks = append(blocks, protocol.BlockInfo{
+			Length: b.Length,
+			Hash:   b.Hash,
+		})
+	}
+	return protocol.FileInfo{
 		Name:     f.Name,
 		Flags:    f.Flags,
 		Modified: int64(f.Modified),

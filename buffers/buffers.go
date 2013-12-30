@@ -1,13 +1,26 @@
 package buffers
 
-var buffers = make(chan []byte, 32)
+const (
+	largeMin = 1024
+)
+
+var (
+	smallBuffers = make(chan []byte, 32)
+	largeBuffers = make(chan []byte, 32)
+)
 
 func Get(size int) []byte {
+	var ch = largeBuffers
+	if size < largeMin {
+		ch = smallBuffers
+	}
+
 	var buf []byte
 	select {
-	case buf = <-buffers:
+	case buf = <-ch:
 	default:
 	}
+
 	if len(buf) < size {
 		return make([]byte, size)
 	}
@@ -15,12 +28,18 @@ func Get(size int) []byte {
 }
 
 func Put(buf []byte) {
-	if cap(buf) == 0 {
+	buf = buf[:cap(buf)]
+	if len(buf) == 0 {
 		return
 	}
-	buf = buf[:cap(buf)]
+
+	var ch = largeBuffers
+	if len(buf) < largeMin {
+		ch = smallBuffers
+	}
+
 	select {
-	case buffers <- buf:
+	case ch <- buf:
 	default:
 	}
 }
