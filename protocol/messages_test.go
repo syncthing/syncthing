@@ -32,10 +32,10 @@ func TestIndex(t *testing.T) {
 	}
 
 	var buf = new(bytes.Buffer)
-	var wr = marshalWriter{buf, 0, nil}
+	var wr = marshalWriter{w: buf}
 	wr.writeIndex(idx)
 
-	var rd = marshalReader{buf, 0, nil}
+	var rd = marshalReader{r: buf}
 	var idx2 = rd.readIndex()
 
 	if !reflect.DeepEqual(idx, idx2) {
@@ -47,9 +47,9 @@ func TestRequest(t *testing.T) {
 	f := func(name string, offset uint64, size uint32, hash []byte) bool {
 		var buf = new(bytes.Buffer)
 		var req = request{name, offset, size, hash}
-		var wr = marshalWriter{buf, 0, nil}
+		var wr = marshalWriter{w: buf}
 		wr.writeRequest(req)
-		var rd = marshalReader{buf, 0, nil}
+		var rd = marshalReader{r: buf}
 		var req2 = rd.readRequest()
 		return req.name == req2.name &&
 			req.offset == req2.offset &&
@@ -64,9 +64,9 @@ func TestRequest(t *testing.T) {
 func TestResponse(t *testing.T) {
 	f := func(data []byte) bool {
 		var buf = new(bytes.Buffer)
-		var wr = marshalWriter{buf, 0, nil}
+		var wr = marshalWriter{w: buf}
 		wr.writeResponse(data)
-		var rd = marshalReader{buf, 0, nil}
+		var rd = marshalReader{r: buf}
 		var read = rd.readResponse()
 		return bytes.Compare(read, data) == 0
 	}
@@ -98,7 +98,7 @@ func BenchmarkWriteIndex(b *testing.B) {
 		},
 	}
 
-	var wr = marshalWriter{ioutil.Discard, 0, nil}
+	var wr = marshalWriter{w: ioutil.Discard}
 
 	for i := 0; i < b.N; i++ {
 		wr.writeIndex(idx)
@@ -107,7 +107,7 @@ func BenchmarkWriteIndex(b *testing.B) {
 
 func BenchmarkWriteRequest(b *testing.B) {
 	var req = request{"blah blah", 1231323, 13123123, []byte("hash hash hash")}
-	var wr = marshalWriter{ioutil.Discard, 0, nil}
+	var wr = marshalWriter{w: ioutil.Discard}
 
 	for i := 0; i < b.N; i++ {
 		wr.writeRequest(req)

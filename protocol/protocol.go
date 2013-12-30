@@ -45,6 +45,7 @@ type Model interface {
 
 type Connection struct {
 	sync.RWMutex
+
 	ID             string
 	receiver       Model
 	reader         io.Reader
@@ -54,10 +55,12 @@ type Connection struct {
 	closed         bool
 	awaiting       map[int]chan asyncResult
 	nextId         int
-	lastReceive    time.Time
 	peerLatency    time.Duration
 	lastStatistics Statistics
 	indexSent      map[string]int64
+
+	lastReceive     time.Time
+	lastReceiveLock sync.RWMutex
 }
 
 var ErrClosed = errors.New("Connection closed")
@@ -234,9 +237,9 @@ func (c *Connection) readerLoop() {
 			break
 		}
 
-		c.Lock()
+		c.lastReceiveLock.Lock()
 		c.lastReceive = time.Now()
-		c.Unlock()
+		c.lastReceiveLock.Unlock()
 
 		switch hdr.msgType {
 		case messageTypeIndex:
@@ -334,9 +337,9 @@ func (c *Connection) processRequest(msgID int) {
 func (c *Connection) pingerLoop() {
 	var rc = make(chan time.Duration, 1)
 	for !c.isClosed() {
-		c.RLock()
+		c.lastReceiveLock.RLock()
 		lr := c.lastReceive
-		c.RUnlock()
+		c.lastReceiveLock.RUnlock()
 
 		if time.Since(lr) > pingIdleTime {
 			go func() {
