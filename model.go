@@ -199,9 +199,7 @@ func (m *Model) Close(node string) {
 	m.Lock()
 	defer m.Unlock()
 
-	if opts.Debug.TraceNet {
-		debugf("NET CLOSE: %s", node)
-	}
+	infoln("Disconnected from node", node)
 
 	delete(m.remote, node)
 	delete(m.nodes, node)

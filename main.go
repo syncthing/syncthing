@@ -216,7 +216,7 @@ listen:
 			if nodeID == remoteID {
 				nc := protocol.NewConnection(remoteID, conn, conn, m)
 				m.AddNode(nc)
-				okln("Connected to nodeID", remoteID, "(in)")
+				infoln("Connected to node", remoteID, "(in)")
 				continue listen
 			}
 		}
@@ -287,7 +287,7 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, 
 
 				nc := protocol.NewConnection(nodeID, conn, conn, m)
 				m.AddNode(nc)
-				okln("Connected to node", remoteID, "(out)")
+				infoln("Connected to node", remoteID, "(out)")
 				continue nextNode
 			}
 		}

@@ -115,8 +115,8 @@ Run syncthing to let it create it's config directory and certificate:
 ```
 $ syncthing
 11:34:13 main.go:85: INFO: Version v0.1-40-gbb0fd87
-11:34:13 tls.go:61: OK: wrote cert.pem
-11:34:13 tls.go:67: OK: wrote key.pem
+11:34:13 tls.go:61: OK: Created TLS certificate file
+11:34:13 tls.go:67: OK: Created TLS key file
 11:34:13 main.go:66: INFO: My ID: NCTBZAAHXR6ZZP3D7SL3DLYFFQERMW4Q
 11:34:13 main.go:90: FATAL: No config file
 ```
@@ -159,8 +159,12 @@ $ syncthing --ro
 13:30:59 main.go:247: INFO: Starting local discovery
 13:30:59 main.go:165: OK: Ready to synchronize
 13:31:04 discover.go:113: INFO: Discovered node CUGAE43Y5N64CRJU26YFH6MTWPSBLSUL at 172.16.32.24:22000
-13:31:14 main.go:296: OK: Connected to node CUGAE43Y5N64CRJU26YFH6MTWPSBLSUL
+13:31:14 main.go:296: INFO: Connected to node CUGAE43Y5N64CRJU26YFH6MTWPSBLSUL
 13:31:19 main.go:345: INFO: Transferred 139 KiB in (14 KiB/s), 139 KiB out (14 KiB/s)
+13:32:20 model.go:94: INFO: CUGAE43Y5N64CRJU26YFH6MTWPSBLSUL: 263.4 KB/s in, 69.1 KB/s out
+13:32:20 model.go:104: INFO:  18289 files,  24.24 GB in cluster
+13:32:20 model.go:111: INFO:  17132 files,  22.39 GB in local repo
+13:32:20 model.go:117: INFO:   1157 files,   1.84 GB to synchronize
 ...
 ```
 You should see the synchronization start and then finish a short while

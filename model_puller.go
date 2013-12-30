@@ -110,7 +110,7 @@ func (m *Model) pullFile(name string) error {
 
 	err = hashCheck(tmpFilename, globalFile.Blocks)
 	if err != nil {
-		return fmt.Errorf("%s: %s", path.Base(name), err.Error())
+		return fmt.Errorf("%s: %s (deleting)", path.Base(name), err.Error())
 	}
 
 	err = os.Chtimes(tmpFilename, time.Unix(globalFile.Modified, 0), time.Unix(globalFile.Modified, 0))
