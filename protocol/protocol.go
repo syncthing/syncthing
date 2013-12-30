@@ -139,10 +139,11 @@ func (c *Connection) Index(idx []FileInfo) {
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
 func (c *Connection) Request(name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
-	if c.isClosed() {
+	c.Lock()
+	if c.closed {
+		c.Unlock()
 		return nil, ErrClosed
 	}
-	c.Lock()
 	rc := make(chan asyncResult)
 	c.awaiting[c.nextId] = rc
 	c.mwriter.writeHeader(header{0, c.nextId, messageTypeRequest})
@@ -169,11 +170,12 @@ func (c *Connection) Request(name string, offset uint64, size uint32, hash []byt
 }
 
 func (c *Connection) Ping() (time.Duration, bool) {
-	if c.isClosed() {
+	c.Lock()
+	if c.closed {
+		c.Unlock()
 		return 0, false
 	}
-	c.Lock()
-	rc := make(chan asyncResult)
+	rc := make(chan asyncResult, 1)
 	c.awaiting[c.nextId] = rc
 	t0 := time.Now()
 	c.mwriter.writeHeader(header{0, c.nextId, messageTypePing})
@@ -269,17 +271,14 @@ func (c *Connection) readerLoop() {
 			if c.mreader.err != nil {
 				c.close()
 			} else {
-				c.RLock()
+				c.Lock()
 				rc, ok := c.awaiting[hdr.msgID]
-				c.RUnlock()
+				delete(c.awaiting, hdr.msgID)
+				c.Unlock()
 
 				if ok {
 					rc <- asyncResult{data, c.mreader.err}
 					close(rc)
-
-					c.Lock()
-					delete(c.awaiting, hdr.msgID)
-					c.Unlock()
 				}
 			}
 
