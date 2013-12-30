@@ -149,21 +149,7 @@ func (m *Model) SeedIndex(fs []protocol.FileInfo) {
 
 	m.local = make(map[string]File)
 	for _, f := range fs {
-		mf := File{
-			Name:     f.Name,
-			Flags:    f.Flags,
-			Modified: int64(f.Modified),
-		}
-		var offset uint64
-		for _, b := range f.Blocks {
-			mf.Blocks = append(mf.Blocks, Block{
-				Offset: offset,
-				Length: b.Length,
-				Hash:   b.Hash,
-			})
-			offset += uint64(b.Length)
-		}
-		m.local[f.Name] = mf
+		m.local[f.Name] = fileFromProtocol(f)
 	}
 
 	m.recomputeGlobal()
@@ -451,19 +437,20 @@ func (m *Model) AddNode(node *protocol.Connection) {
 }
 
 func fileFromProtocol(f protocol.FileInfo) File {
-	mf := File{
-		Name:     f.Name,
-		Flags:    f.Flags,
-		Modified: int64(f.Modified),
-	}
+	var blocks []Block
 	var offset uint64
 	for _, b := range f.Blocks {
-		mf.Blocks = append(mf.Blocks, Block{
+		blocks = append(blocks, Block{
 			Offset: offset,
 			Length: b.Length,
 			Hash:   b.Hash,
 		})
 		offset += uint64(b.Length)
 	}
-	return mf
+	return File{
+		Name:     f.Name,
+		Flags:    f.Flags,
+		Modified: int64(f.Modified),
+		Blocks:   blocks,
+	}
 }
