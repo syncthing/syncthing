@@ -146,31 +146,35 @@ func (m *Model) puller() {
 		for _, n := range ns {
 			limiter <- true
 
-			f, ok := m.GlobalFile(n)
-			if !ok {
-				continue
-			}
+			go func(n string) {
+				defer func() {
+					<-limiter
+				}()
 
-			var err error
-			if f.Flags&FlagDeleted == 0 {
-				if opts.Debug.TraceFile {
-					debugf("FILE: Pull %q", n)
+				f, ok := m.GlobalFile(n)
+				if !ok {
+					return
 				}
-				err = m.pullFile(n)
-			} else {
-				if opts.Debug.TraceFile {
-					debugf("FILE: Remove %q", n)
-				}
-				// Cheerfully ignore errors here
-				_ = os.Remove(path.Join(m.dir, n))
-			}
-			if err == nil {
-				m.UpdateLocal(f)
-			} else {
-				warnln(err)
-			}
 
-			<-limiter
+				var err error
+				if f.Flags&FlagDeleted == 0 {
+					if opts.Debug.TraceFile {
+						debugf("FILE: Pull %q", n)
+					}
+					err = m.pullFile(n)
+				} else {
+					if opts.Debug.TraceFile {
+						debugf("FILE: Remove %q", n)
+					}
+					// Cheerfully ignore errors here
+					_ = os.Remove(path.Join(m.dir, n))
+				}
+				if err == nil {
+					m.UpdateLocal(f)
+				} else {
+					warnln(err)
+				}
+			}(n)
 		}
 	}
 }
