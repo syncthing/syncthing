@@ -16,6 +16,7 @@ for goos in darwin linux freebsd ; do
 		go build -ldflags "-X main.Version $version" \
 		&& mkdir -p "$name" \
 		&& cp syncthing "build/$name" \
+		&& cp README.md LICENSE "$name" \
 		&& mv syncthing "$name" \
 		&& tar zcf "$name.tar.gz" "$name" \
 		&& rm -r  "$name" \
