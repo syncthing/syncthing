@@ -25,6 +25,13 @@ func (f File) Dump() {
 	fmt.Println()
 }
 
+func (f File) Size() (bytes int) {
+	for _, b := range f.Blocks {
+		bytes += int(b.Length)
+	}
+	return
+}
+
 func isTempName(name string) bool {
 	return strings.HasPrefix(path.Base(name), ".syncthing.")
 }
