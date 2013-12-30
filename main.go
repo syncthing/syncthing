@@ -53,7 +53,7 @@ type AdvancedOptions struct {
 }
 
 var opts Options
-var Version string
+var Version string = "unknown-dev"
 
 const (
 	confDirName  = ".syncthing"
