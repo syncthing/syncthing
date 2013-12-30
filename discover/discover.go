@@ -238,7 +238,7 @@ func (d *Discoverer) externalLookup(node string) (string, bool) {
 		return "", false
 	}
 
-	var buf = buffers.Get(1024)
+	var buf = buffers.Get(256)
 	defer buffers.Put(buf)
 
 	n, err := conn.Read(buf)

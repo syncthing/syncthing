@@ -491,7 +491,6 @@ func fileFromFileInfo(f protocol.FileInfo) File {
 			Length: b.Length,
 			Hash:   b.Hash,
 		})
-		buffers.Put(b.Hash)
 		offset += uint64(b.Length)
 	}
 	return File{
