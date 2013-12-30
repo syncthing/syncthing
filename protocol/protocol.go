@@ -262,9 +262,6 @@ func (c *Connection) readerLoop() {
 
 		case messageTypeRequest:
 			c.processRequest(hdr.msgID)
-			if c.mreader.err != nil || c.mwriter.err != nil {
-				c.close()
-			}
 
 		case messageTypeResponse:
 			data := c.mreader.readResponse()
