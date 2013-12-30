@@ -3,6 +3,7 @@ package protocol
 import (
 	"errors"
 	"io"
+	"sync/atomic"
 
 	"github.com/calmh/syncthing/buffers"
 )
@@ -19,7 +20,7 @@ var padBytes = []byte{0, 0, 0}
 
 type marshalWriter struct {
 	w   io.Writer
-	tot int
+	tot uint64
 	err error
 	b   [8]byte
 }
@@ -51,7 +52,7 @@ func (w *marshalWriter) writeBytes(bs []byte) {
 	if p := pad(len(bs)); w.err == nil && p > 0 {
 		_, w.err = w.w.Write(padBytes[:p])
 	}
-	w.tot += len(bs) + pad(len(bs))
+	atomic.AddUint64(&w.tot, uint64(len(bs)+pad(len(bs))))
 }
 
 func (w *marshalWriter) writeUint32(v uint32) {
@@ -63,7 +64,7 @@ func (w *marshalWriter) writeUint32(v uint32) {
 	w.b[2] = byte(v >> 8)
 	w.b[3] = byte(v)
 	_, w.err = w.w.Write(w.b[:4])
-	w.tot += 4
+	atomic.AddUint64(&w.tot, 4)
 }
 
 func (w *marshalWriter) writeUint64(v uint64) {
@@ -79,12 +80,16 @@ func (w *marshalWriter) writeUint64(v uint64) {
 	w.b[6] = byte(v >> 8)
 	w.b[7] = byte(v)
 	_, w.err = w.w.Write(w.b[:8])
-	w.tot += 8
+	atomic.AddUint64(&w.tot, 8)
+}
+
+func (w *marshalWriter) getTot() uint64 {
+	return atomic.LoadUint64(&w.tot)
 }
 
 type marshalReader struct {
 	r   io.Reader
-	tot int
+	tot uint64
 	err error
 	b   [8]byte
 }
@@ -109,7 +114,7 @@ func (r *marshalReader) readBytes() []byte {
 	}
 	b := buffers.Get(l + pad(l))
 	_, r.err = io.ReadFull(r.r, b)
-	r.tot += int(l + pad(l))
+	atomic.AddUint64(&r.tot, uint64(l+pad(l)))
 	return b[:l]
 }
 
@@ -118,7 +123,7 @@ func (r *marshalReader) readUint32() uint32 {
 		return 0
 	}
 	_, r.err = io.ReadFull(r.r, r.b[:4])
-	r.tot += 4
+	atomic.AddUint64(&r.tot, 8)
 	return uint32(r.b[3]) | uint32(r.b[2])<<8 | uint32(r.b[1])<<16 | uint32(r.b[0])<<24
 }
 
@@ -127,7 +132,11 @@ func (r *marshalReader) readUint64() uint64 {
 		return 0
 	}
 	_, r.err = io.ReadFull(r.r, r.b[:8])
-	r.tot += 8
+	atomic.AddUint64(&r.tot, 8)
 	return uint64(r.b[7]) | uint64(r.b[6])<<8 | uint64(r.b[5])<<16 | uint64(r.b[4])<<24 |
 		uint64(r.b[3])<<32 | uint64(r.b[2])<<40 | uint64(r.b[1])<<48 | uint64(r.b[0])<<56
+}
+
+func (r *marshalReader) getTot() uint64 {
+	return atomic.LoadUint64(&r.tot)
 }

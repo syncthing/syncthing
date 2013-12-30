@@ -50,7 +50,7 @@ func (w *marshalWriter) writeIndex(idx []FileInfo) {
 func WriteIndex(w io.Writer, idx []FileInfo) (int, error) {
 	mw := marshalWriter{w: w}
 	mw.writeIndex(idx)
-	return mw.tot, mw.err
+	return int(mw.getTot()), mw.err
 }
 
 func (w *marshalWriter) writeRequest(r request) {

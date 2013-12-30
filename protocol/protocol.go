@@ -46,18 +46,20 @@ type Model interface {
 type Connection struct {
 	sync.RWMutex
 
-	ID             string
-	receiver       Model
-	reader         io.Reader
-	mreader        *marshalReader
-	writer         io.Writer
-	mwriter        *marshalWriter
-	closed         bool
-	awaiting       map[int]chan asyncResult
-	nextId         int
-	peerLatency    time.Duration
+	ID          string
+	receiver    Model
+	reader      io.Reader
+	mreader     *marshalReader
+	writer      io.Writer
+	mwriter     *marshalWriter
+	closed      bool
+	awaiting    map[int]chan asyncResult
+	nextId      int
+	peerLatency time.Duration
+	indexSent   map[string]int64
+
 	lastStatistics Statistics
-	indexSent      map[string]int64
+	statisticsLock sync.Mutex
 
 	lastReceive     time.Time
 	lastReceiveLock sync.RWMutex
@@ -371,16 +373,18 @@ type Statistics struct {
 }
 
 func (c *Connection) Statistics() Statistics {
-	c.Lock()
-	defer c.Unlock()
+	c.statisticsLock.Lock()
+	defer c.statisticsLock.Unlock()
 
 	secs := time.Since(c.lastStatistics.At).Seconds()
+	rt := int(c.mreader.getTot())
+	wt := int(c.mwriter.getTot())
 	stats := Statistics{
 		At:             time.Now(),
-		InBytesTotal:   c.mreader.tot,
-		InBytesPerSec:  int(float64(c.mreader.tot-c.lastStatistics.InBytesTotal) / secs),
-		OutBytesTotal:  c.mwriter.tot,
-		OutBytesPerSec: int(float64(c.mwriter.tot-c.lastStatistics.OutBytesTotal) / secs),
+		InBytesTotal:   rt,
+		InBytesPerSec:  int(float64(rt-c.lastStatistics.InBytesTotal) / secs),
+		OutBytesTotal:  wt,
+		OutBytesPerSec: int(float64(wt-c.lastStatistics.OutBytesTotal) / secs),
 		Latency:        c.peerLatency,
 	}
 	c.lastStatistics = stats
