@@ -47,8 +47,8 @@ type DiscoveryOptions struct {
 }
 
 type AdvancedOptions struct {
-	RequestsInFlight int           `long:"reqs-in-flight" description:"Parallell in flight requests per file" default:"8" value-name:"REQS"`
-	FilesInFlight    int           `long:"files-in-flight" description:"Parallell in flight file pulls" default:"4" value-name:"FILES"`
+	RequestsInFlight int           `long:"reqs-in-flight" description:"Parallell in flight requests per file" default:"4" value-name:"REQS"`
+	FilesInFlight    int           `long:"files-in-flight" description:"Parallell in flight file pulls" default:"8" value-name:"FILES"`
 	ScanInterval     time.Duration `long:"scan-intv" description:"Repository scan interval" default:"60s" value-name:"INTV"`
 	ConnInterval     time.Duration `long:"conn-intv" description:"Node reconnect interval" default:"60s" value-name:"INTV"`
 }
