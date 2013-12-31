@@ -304,13 +304,15 @@ func updateLocalModel(m *Model) {
 }
 
 func saveIndex(m *Model) {
-	fname := fmt.Sprintf("%x.idx", sha1.Sum([]byte(m.Dir())))
-	idxf, err := os.Create(path.Join(ConfDir, fname))
+	name := fmt.Sprintf("%x.idx", sha1.Sum([]byte(m.Dir())))
+	fullName := path.Join(ConfDir, name)
+	idxf, err := os.Create(fullName + ".tmp")
 	if err != nil {
 		return
 	}
 	protocol.WriteIndex(idxf, m.ProtocolIndex())
 	idxf.Close()
+	os.Rename(fullName+".tmp", fullName)
 }
 
 func loadIndex(m *Model) {
