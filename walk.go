@@ -110,12 +110,14 @@ func Walk(dir string, model *Model, followSymlinks bool) []File {
 			warnln(err)
 			return files
 		}
+		defer d.Close()
+
 		fis, err := d.Readdir(-1)
 		if err != nil {
 			warnln(err)
 			return files
 		}
-		d.Close()
+
 		for _, fi := range fis {
 			if fi.Mode()&os.ModeSymlink != 0 {
 				err := filepath.Walk(path.Join(dir, fi.Name())+"/", fn)
