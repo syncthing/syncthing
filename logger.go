@@ -6,21 +6,16 @@ import (
 	"os"
 )
 
-var debugEnabled = true
-var logger = log.New(os.Stderr, "", log.Lshortfile|log.Ltime)
+var logger = log.New(os.Stderr, "", log.Ltime)
 
 func debugln(vals ...interface{}) {
-	if debugEnabled {
-		s := fmt.Sprintln(vals...)
-		logger.Output(2, "DEBUG: "+s)
-	}
+	s := fmt.Sprintln(vals...)
+	logger.Output(2, "DEBUG: "+s)
 }
 
 func debugf(format string, vals ...interface{}) {
-	if debugEnabled {
-		s := fmt.Sprintf(format, vals...)
-		logger.Output(2, "DEBUG: "+s)
-	}
+	s := fmt.Sprintf(format, vals...)
+	logger.Output(2, "DEBUG: "+s)
 }
 
 func infoln(vals ...interface{}) {

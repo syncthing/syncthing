@@ -32,6 +32,7 @@ type Options struct {
 }
 
 type DebugOptions struct {
+	LogSource bool   `long:"log-source"`
 	TraceFile bool   `long:"trace-file"`
 	TraceNet  bool   `long:"trace-net"`
 	TraceIdx  bool   `long:"trace-idx"`
@@ -71,12 +72,12 @@ var (
 )
 
 func main() {
-	// Useful for debugging; to be adjusted.
-	log.SetFlags(log.Ltime | log.Lshortfile)
-
 	_, err := flags.Parse(&opts)
 	if err != nil {
 		os.Exit(0)
+	}
+	if opts.Debug.TraceFile || opts.Debug.TraceIdx || opts.Debug.TraceNet || opts.Debug.LogSource {
+		logger = log.New(os.Stderr, "", log.Lshortfile|log.Ldate|log.Ltime|log.Lmicroseconds)
 	}
 	if strings.HasPrefix(opts.ConfDir, "~/") {
 		opts.ConfDir = strings.Replace(opts.ConfDir, "~", getHomeDir(), 1)
