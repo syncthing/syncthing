@@ -45,7 +45,8 @@ func tempName(name string, modified int64) string {
 func genWalker(base string, res *[]File, model *Model) filepath.WalkFunc {
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			warnln(err)
+			return nil
 		}
 
 		if isTempName(p) {
@@ -55,12 +56,14 @@ func genWalker(base string, res *[]File, model *Model) filepath.WalkFunc {
 		if info.Mode()&os.ModeType == 0 {
 			rn, err := filepath.Rel(base, p)
 			if err != nil {
-				return err
+				warnln(err)
+				return nil
 			}
 
 			fi, err := os.Stat(p)
 			if err != nil {
-				return err
+				warnln(err)
+				return nil
 			}
 			modified := fi.ModTime().Unix()
 
@@ -74,13 +77,15 @@ func genWalker(base string, res *[]File, model *Model) filepath.WalkFunc {
 				}
 				fd, err := os.Open(p)
 				if err != nil {
-					return err
+					warnln(err)
+					return nil
 				}
 				defer fd.Close()
 
 				blocks, err := Blocks(fd, BlockSize)
 				if err != nil {
-					return err
+					warnln(err)
+					return nil
 				}
 				f := File{
 					Name:     rn,
