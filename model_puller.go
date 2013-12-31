@@ -30,7 +30,12 @@ func (m *Model) pullFile(name string) error {
 	m.RLock()
 	var localFile = m.local[name]
 	var globalFile = m.global[name]
+	var nodeIDs = m.whoHas(name)
 	m.RUnlock()
+
+	if len(nodeIDs) == 0 {
+		return errNoSuchNode
+	}
 
 	filename := path.Join(m.dir, name)
 	sdir := path.Dir(filename)
@@ -77,9 +82,6 @@ func (m *Model) pullFile(name string) error {
 
 	// N remote copy routines
 
-	m.RLock()
-	var nodeIDs = m.whoHas(name)
-	m.RUnlock()
 	var remoteBlocks = blockIterator{blocks: remote}
 	for i := 0; i < opts.Advanced.RequestsInFlight; i++ {
 		curNode := nodeIDs[i%len(nodeIDs)]
