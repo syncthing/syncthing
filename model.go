@@ -88,9 +88,7 @@ func (m *Model) printStatsLoop() {
 func (m *Model) printConnectionStats() {
 	for node, conn := range m.nodes {
 		stats := conn.Statistics()
-		if (stats.InBytesPerSec > 0 || stats.OutBytesPerSec > 0) && stats.Latency > 0 {
-			infof("%s: %sB/s in, %sB/s out, %0.02f ms", node, toSI(stats.InBytesPerSec), toSI(stats.OutBytesPerSec), stats.Latency.Seconds()*1000)
-		} else if stats.InBytesPerSec > 0 || stats.OutBytesPerSec > 0 {
+		if stats.InBytesPerSec > 0 || stats.OutBytesPerSec > 0 {
 			infof("%s: %sB/s in, %sB/s out", node, toSI(stats.InBytesPerSec), toSI(stats.OutBytesPerSec))
 		}
 	}
