@@ -190,7 +190,7 @@ func TestClose(t *testing.T) {
 	c0 := NewConnection("c0", ar, bw, m0)
 	NewConnection("c1", br, aw, m1)
 
-	c0.Close()
+	c0.Close(nil)
 
 	ok := c0.isClosed()
 	if !ok {

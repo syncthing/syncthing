@@ -294,7 +294,7 @@ func TestForgetNode(t *testing.T) {
 		t.Errorf("Model len(need) incorrect (%d != %d)", l1, l2)
 	}
 
-	m.Close("42")
+	m.Close("42", nil)
 
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
 		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)

@@ -188,11 +188,15 @@ func (m *Model) SeedIndex(fs []protocol.FileInfo) {
 	m.printModelStats()
 }
 
-func (m *Model) Close(node string) {
+func (m *Model) Close(node string, err error) {
 	m.Lock()
 	defer m.Unlock()
 
-	infoln("Disconnected from node", node)
+	if err != nil {
+		warnf("Disconnected from node %s: %v", node, err)
+	} else {
+		infoln("Disconnected from node", node)
+	}
 
 	delete(m.remote, node)
 	delete(m.nodes, node)

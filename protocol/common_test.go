@@ -25,7 +25,7 @@ func (t *TestModel) Request(nodeID, name string, offset uint64, size uint32, has
 	return t.data, nil
 }
 
-func (t *TestModel) Close(nodeID string) {
+func (t *TestModel) Close(nodeID string, err error) {
 	t.closed = true
 }
 
