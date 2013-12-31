@@ -468,13 +468,16 @@ func (m *Model) AddNode(node *protocol.Connection) {
 	idx := m.protocolIndex()
 	m.RUnlock()
 
-	if opts.Debug.TraceNet {
-		debugf("NET IDX(out/add): %s: %d files", node.ID, len(idx))
+	for i := 0; i < len(idx); i += 1000 {
+		s := i + 1000
+		if s > len(idx) {
+			s = len(idx)
+		}
+		if opts.Debug.TraceNet {
+			debugf("NET IDX(out/add): %s: %d:%d", node.ID, i, s)
+		}
+		node.Index(idx[i:s])
 	}
-
-	// Sending the index might take a while if we have many files and a slow
-	// uplink. Return from AddNode in the meantime.
-	go node.Index(idx)
 }
 
 func fileFromFileInfo(f protocol.FileInfo) File {
