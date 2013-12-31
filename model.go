@@ -12,7 +12,6 @@ acquire locks, but document what locks they require.
 */
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -39,10 +38,6 @@ type Model struct {
 	lastIdxBcast        time.Time
 	lastIdxBcastRequest time.Time
 }
-
-var (
-	errNoSuchNode = errors.New("no such node")
-)
 
 const (
 	FlagDeleted = 1 << 12
@@ -231,7 +226,7 @@ func (m *Model) RequestGlobal(nodeID, name string, offset uint64, size uint32, h
 	nc, ok := m.nodes[nodeID]
 	m.RUnlock()
 	if !ok {
-		return nil, errNoSuchNode
+		return nil, fmt.Errorf("RequestGlobal: no such node: %s", nodeID)
 	}
 
 	if opts.Debug.TraceNet {

@@ -34,7 +34,7 @@ func (m *Model) pullFile(name string) error {
 	m.RUnlock()
 
 	if len(nodeIDs) == 0 {
-		return errNoSuchNode
+		return fmt.Errorf("%s: no connected nodes with file available", name)
 	}
 
 	filename := path.Join(m.dir, name)
