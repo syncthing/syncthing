@@ -71,7 +71,7 @@ type asyncResult struct {
 	err error
 }
 
-const pingTimeout = 30 * time.Second
+const pingTimeout = 2 * time.Minute
 const pingIdleTime = 5 * time.Minute
 
 func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver Model) *Connection {
