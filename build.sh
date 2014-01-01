@@ -18,8 +18,22 @@ for goos in darwin linux freebsd ; do
 		&& cp syncthing "build/$name" \
 		&& cp README.md LICENSE "$name" \
 		&& mv syncthing "$name" \
-		&& tar zcf "$name.tar.gz" "$name" \
-		&& rm -r  "$name" \
-		&& mv "$name.tar.gz" build
+		&& tar zcf "build/$name.tar.gz" "$name" \
+		&& rm -r  "$name"
+	done
+done
+
+for goos in windows ; do
+	for goarch in amd64 386 ; do
+		echo "$goos-$goarch"
+		export GOOS="$goos"
+		export GOARCH="$goarch"
+		export name="syncthing-$goos-$goarch"
+		go build -ldflags "-X main.Version $version" \
+		&& mkdir -p "$name" \
+		&& cp syncthing.exe "build/$name.exe" \
+		&& cp README.md LICENSE "$name" \
+		&& zip -qr "build/$name.zip" "$name" \
+		&& rm -r  "$name"
 	done
 done
