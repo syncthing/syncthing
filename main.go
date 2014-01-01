@@ -66,11 +66,6 @@ var (
 	nodeAddrs = make(map[string][]string)
 )
 
-// Options
-var (
-	ConfDir = path.Join(getHomeDir(), confDirName)
-)
-
 func main() {
 	_, err := flags.Parse(&opts)
 	if err != nil {
@@ -87,11 +82,11 @@ func main() {
 
 	// Ensure that our home directory exists and that we have a certificate and key.
 
-	ensureDir(ConfDir, 0700)
-	cert, err := loadCert(ConfDir)
+	ensureDir(opts.ConfDir, 0700)
+	cert, err := loadCert(opts.ConfDir)
 	if err != nil {
-		newCertificate(ConfDir)
-		cert, err = loadCert(ConfDir)
+		newCertificate(opts.ConfDir)
+		cert, err = loadCert(opts.ConfDir)
 		fatalErr(err)
 	}
 
@@ -120,7 +115,7 @@ func main() {
 
 	// Load the configuration file, if it exists.
 
-	cf, err := os.Open(path.Join(ConfDir, confFileName))
+	cf, err := os.Open(path.Join(opts.ConfDir, confFileName))
 	if err != nil {
 		fatalln("No config file")
 		config = ini.Config{}
@@ -301,7 +296,7 @@ func updateLocalModel(m *Model) {
 
 func saveIndex(m *Model) {
 	name := fmt.Sprintf("%x.idx", sha1.Sum([]byte(m.Dir())))
-	fullName := path.Join(ConfDir, name)
+	fullName := path.Join(opts.ConfDir, name)
 	idxf, err := os.Create(fullName + ".tmp")
 	if err != nil {
 		return
@@ -313,7 +308,7 @@ func saveIndex(m *Model) {
 
 func loadIndex(m *Model) {
 	fname := fmt.Sprintf("%x.idx", sha1.Sum([]byte(m.Dir())))
-	idxf, err := os.Open(path.Join(ConfDir, fname))
+	idxf, err := os.Open(path.Join(opts.ConfDir, fname))
 	if err != nil {
 		return
 	}
