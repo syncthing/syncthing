@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"crypto/sha1"
 	"crypto/tls"
 	"fmt"
@@ -295,26 +296,36 @@ func updateLocalModel(m *Model) {
 }
 
 func saveIndex(m *Model) {
-	name := fmt.Sprintf("%x.idx", sha1.Sum([]byte(m.Dir())))
+	name := fmt.Sprintf("%x.idx.gz", sha1.Sum([]byte(m.Dir())))
 	fullName := path.Join(opts.ConfDir, name)
 	idxf, err := os.Create(fullName + ".tmp")
 	if err != nil {
 		return
 	}
-	protocol.WriteIndex(idxf, m.ProtocolIndex())
+
+	gzw := gzip.NewWriter(idxf)
+
+	protocol.WriteIndex(gzw, m.ProtocolIndex())
+	gzw.Close()
 	idxf.Close()
 	os.Rename(fullName+".tmp", fullName)
 }
 
 func loadIndex(m *Model) {
-	fname := fmt.Sprintf("%x.idx", sha1.Sum([]byte(m.Dir())))
+	fname := fmt.Sprintf("%x.idx.gz", sha1.Sum([]byte(m.Dir())))
 	idxf, err := os.Open(path.Join(opts.ConfDir, fname))
 	if err != nil {
 		return
 	}
 	defer idxf.Close()
 
-	idx, err := protocol.ReadIndex(idxf)
+	gzr, err := gzip.NewReader(idxf)
+	if err != nil {
+		return
+	}
+	defer gzr.Close()
+
+	idx, err := protocol.ReadIndex(gzr)
 	if err != nil {
 		return
 	}
