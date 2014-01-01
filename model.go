@@ -13,6 +13,7 @@ acquire locks, but document what locks they require.
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"sync"
@@ -26,11 +27,12 @@ type Model struct {
 	sync.RWMutex
 	dir string
 
-	global map[string]File // the latest version of each file as it exists in the cluster
-	local  map[string]File // the files we currently have locally on disk
-	remote map[string]map[string]File
-	need   map[string]bool // the files we need to update
-	nodes  map[string]*protocol.Connection
+	global  map[string]File // the latest version of each file as it exists in the cluster
+	local   map[string]File // the files we currently have locally on disk
+	remote  map[string]map[string]File
+	need    map[string]bool // the files we need to update
+	nodes   map[string]*protocol.Connection
+	rawConn map[string]io.ReadWriteCloser
 
 	updatedLocal int64 // timestamp of last update to local
 	updateGlobal int64 // timestamp of last update to remote
@@ -54,6 +56,7 @@ func NewModel(dir string) *Model {
 		remote:       make(map[string]map[string]File),
 		need:         make(map[string]bool),
 		nodes:        make(map[string]*protocol.Connection),
+		rawConn:      make(map[string]io.ReadWriteCloser),
 		lastIdxBcast: time.Now(),
 	}
 
@@ -192,6 +195,12 @@ func (m *Model) Close(node string, err error) {
 	m.Lock()
 	defer m.Unlock()
 
+	conn, ok := m.rawConn[node]
+	if !ok {
+		return
+	}
+	conn.Close()
+
 	if err != nil {
 		warnf("Disconnected from node %s: %v", node, err)
 	} else {
@@ -200,6 +209,7 @@ func (m *Model) Close(node string, err error) {
 
 	delete(m.remote, node)
 	delete(m.nodes, node)
+	delete(m.rawConn, node)
 
 	m.recomputeGlobal()
 	m.recomputeNeed()
@@ -460,24 +470,24 @@ func (m *Model) protocolIndex() []protocol.FileInfo {
 	return index
 }
 
-func (m *Model) AddNode(node *protocol.Connection) {
+func (m *Model) AddConnection(conn io.ReadWriteCloser, nodeID string) {
+	node := protocol.NewConnection(nodeID, conn, conn, m)
+
 	m.Lock()
-	m.nodes[node.ID] = node
+	m.nodes[nodeID] = node
+	m.rawConn[nodeID] = conn
 	m.Unlock()
+
+	infoln("Connected to node", nodeID)
+
 	m.RLock()
 	idx := m.protocolIndex()
 	m.RUnlock()
 
-	for i := 0; i < len(idx); i += 1000 {
-		s := i + 1000
-		if s > len(idx) {
-			s = len(idx)
-		}
-		if opts.Debug.TraceNet {
-			debugf("NET IDX(out/add): %s: %d:%d", node.ID, i, s)
-		}
-		node.Index(idx[i:s])
-	}
+	go func() {
+		node.Index(idx)
+		infoln("Sent initial index to node", nodeID)
+	}()
 }
 
 func fileFromFileInfo(f protocol.FileInfo) File {

@@ -57,6 +57,9 @@ type Connection struct {
 	nextId    int
 	indexSent map[string]int64
 
+	hasSentIndex  bool
+	hasRecvdIndex bool
+
 	lastStatistics Statistics
 	statisticsLock sync.Mutex
 }
@@ -126,7 +129,9 @@ func (c *Connection) Index(idx []FileInfo) {
 	c.mwriter.writeIndex(idx)
 	err := c.flush()
 	c.nextId = (c.nextId + 1) & 0xfff
+	c.hasSentIndex = true
 	c.Unlock()
+
 	if err != nil {
 		c.Close(err)
 		return
@@ -252,6 +257,9 @@ loop:
 			} else {
 				c.receiver.Index(c.ID, files)
 			}
+			c.Lock()
+			c.hasRecvdIndex = true
+			c.Unlock()
 
 		case messageTypeIndexUpdate:
 			files := c.mreader.readIndex()
@@ -343,16 +351,23 @@ func (c *Connection) pingerLoop() {
 	var rc = make(chan bool, 1)
 	for {
 		time.Sleep(pingIdleTime / 2)
-		go func() {
-			rc <- c.Ping()
-		}()
-		select {
-		case ok := <-rc:
-			if !ok {
-				c.Close(fmt.Errorf("Ping failure"))
+
+		c.RLock()
+		ready := c.hasRecvdIndex && c.hasSentIndex
+		c.RUnlock()
+
+		if ready {
+			go func() {
+				rc <- c.Ping()
+			}()
+			select {
+			case ok := <-rc:
+				if !ok {
+					c.Close(fmt.Errorf("Ping failure"))
+				}
+			case <-time.After(pingTimeout):
+				c.Close(fmt.Errorf("Ping timeout"))
 			}
-		case <-time.After(pingTimeout):
-			c.Close(fmt.Errorf("Ping timeout"))
 		}
 	}
 }

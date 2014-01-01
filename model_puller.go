@@ -129,7 +129,6 @@ func (m *Model) pullFile(name string) error {
 }
 
 func (m *Model) puller() {
-
 	for {
 		time.Sleep(time.Second)
 
