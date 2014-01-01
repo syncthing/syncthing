@@ -196,10 +196,11 @@ func (m *Model) Close(node string, err error) {
 	defer m.Unlock()
 
 	conn, ok := m.rawConn[node]
-	if !ok {
-		return
+	if ok {
+		conn.Close()
+	} else {
+		warnln("Close on unknown connection for node", node)
 	}
-	conn.Close()
 
 	if err != nil {
 		warnf("Disconnected from node %s: %v", node, err)
