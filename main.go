@@ -26,6 +26,7 @@ type Options struct {
 	Listen     string           `short:"l" long:"listen" description:"Listen address" default:":22000" value-name:"ADDR"`
 	ReadOnly   bool             `short:"r" long:"ro" description:"Repository is read only"`
 	Delete     bool             `short:"d" long:"delete" description:"Delete files deleted from cluster"`
+	Rehash     bool             `long:"rehash" description:"Ignore cache and rehash all files in repository"`
 	NoSymlinks bool             `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
 	Discovery  DiscoveryOptions `group:"Discovery Options"`
 	Advanced   AdvancedOptions  `group:"Advanced Options"`
@@ -140,8 +141,11 @@ func main() {
 	// Walk the repository and update the local model before establishing any
 	// connections to other nodes.
 
-	infoln("Initial repository scan in progress")
-	loadIndex(m)
+	if !opts.Rehash {
+		infoln("Loading index cache")
+		loadIndex(m)
+	}
+	infoln("Populating repository index")
 	updateLocalModel(m)
 
 	// Routine to listen for incoming connections
