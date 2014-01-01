@@ -144,12 +144,15 @@ func (m *Model) puller() {
 		}
 
 		var limiter = make(chan bool, opts.Advanced.FilesInFlight)
+		var allDone sync.WaitGroup
 
 		for _, n := range ns {
 			limiter <- true
+			allDone.Add(1)
 
 			go func(n string) {
 				defer func() {
+					allDone.Done()
 					<-limiter
 				}()
 
@@ -178,6 +181,8 @@ func (m *Model) puller() {
 				}
 			}(n)
 		}
+
+		allDone.Wait()
 	}
 }
 
