@@ -50,13 +50,13 @@ func (m *Model) pullFile(name string) error {
 	if err != nil {
 		return err
 	}
-	defer tmpFile.Close()
 
 	contentChan := make(chan content, 32)
 	var applyDone sync.WaitGroup
 	applyDone.Add(1)
 	go func() {
 		applyContent(contentChan, tmpFile)
+		tmpFile.Close()
 		applyDone.Done()
 	}()
 
@@ -196,10 +196,10 @@ func applyContent(cc <-chan content, dst io.WriterAt) error {
 
 	for c := range cc {
 		_, err = dst.WriteAt(c.data, c.offset)
+		buffers.Put(c.data)
 		if err != nil {
 			return err
 		}
-		buffers.Put(c.data)
 	}
 
 	return nil
