@@ -68,7 +68,7 @@ the future:
    modification time "wins". The correct behavior in the face of
    conflicts is open for discussion.
 
-[discover.go]: (https://github.com/calmh/syncthing/blob/master/discover/discover.go
+[discover.go]: https://github.com/calmh/syncthing/blob/master/discover/discover.go
 
 Security
 --------
