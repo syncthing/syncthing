@@ -15,6 +15,7 @@ import (
 
 func startGUI(addr string, m *Model) {
 	router := martini.NewRouter()
+	router.Get("/", getRoot)
 	router.Get("/rest/version", restGetVersion)
 	router.Get("/rest/model", restGetModel)
 	router.Get("/rest/connections", restGetConnections)
@@ -29,6 +30,10 @@ func startGUI(addr string, m *Model) {
 		mr.Map(m)
 		http.ListenAndServe(addr, mr)
 	}()
+}
+
+func getRoot(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/index.html", 302)
 }
 
 func restGetVersion() string {
