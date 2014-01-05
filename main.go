@@ -174,7 +174,41 @@ func main() {
 		}
 	}()
 
+	// Periodically print statistics
+	go printStatsLoop(m)
+
 	select {}
+}
+
+func printStatsLoop(m *Model) {
+	var lastUpdated int64
+	var lastStats = make(map[string]protocol.Statistics)
+
+	for {
+		time.Sleep(60 * time.Second)
+
+		for node, stats := range m.ConnectionStats() {
+			secs := time.Since(lastStats[node].At).Seconds()
+			inbps := 8 * int(float64(stats.InBytesTotal-lastStats[node].InBytesTotal)/secs)
+			outbps := 8 * int(float64(stats.OutBytesTotal-lastStats[node].OutBytesTotal)/secs)
+
+			if inbps+outbps > 0 {
+				infof("%s: %sb/s in, %sb/s out", node, MetricPrefix(inbps), MetricPrefix(outbps))
+			}
+
+			lastStats[node] = stats
+		}
+
+		if lu := m.Generation(); lu > lastUpdated {
+			lastUpdated = lu
+			files, bytes := m.GlobalSize()
+			infof("%6d files, %9sB in cluster", files, BinaryPrefix(bytes))
+			files, bytes = m.LocalSize()
+			infof("%6d files, %9sB in local repo", files, BinaryPrefix(bytes))
+			files, bytes = m.NeedSize()
+			infof("%6d files, %9sB in to synchronize", files, BinaryPrefix(bytes))
+		}
+	}
 }
 
 func listen(myID string, addr string, m *Model, cfg *tls.Config) {

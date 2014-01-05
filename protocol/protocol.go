@@ -60,7 +60,6 @@ type Connection struct {
 	hasSentIndex  bool
 	hasRecvdIndex bool
 
-	lastStatistics Statistics
 	statisticsLock sync.Mutex
 }
 
@@ -84,14 +83,13 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 	}
 
 	c := Connection{
-		receiver:       receiver,
-		reader:         flrd,
-		mreader:        &marshalReader{r: flrd},
-		writer:         flwr,
-		mwriter:        &marshalWriter{w: flwr},
-		awaiting:       make(map[int]chan asyncResult),
-		ID:             nodeID,
-		lastStatistics: Statistics{At: time.Now()},
+		receiver: receiver,
+		reader:   flrd,
+		mreader:  &marshalReader{r: flrd},
+		writer:   flwr,
+		mwriter:  &marshalWriter{w: flwr},
+		awaiting: make(map[int]chan asyncResult),
+		ID:       nodeID,
 	}
 
 	go c.readerLoop()
@@ -373,27 +371,20 @@ func (c *Connection) pingerLoop() {
 }
 
 type Statistics struct {
-	At             time.Time
-	InBytesTotal   int
-	InBytesPerSec  int
-	OutBytesTotal  int
-	OutBytesPerSec int
+	At            time.Time
+	InBytesTotal  int
+	OutBytesTotal int
 }
 
 func (c *Connection) Statistics() Statistics {
 	c.statisticsLock.Lock()
 	defer c.statisticsLock.Unlock()
 
-	secs := time.Since(c.lastStatistics.At).Seconds()
-	rt := int(c.mreader.getTot())
-	wt := int(c.mwriter.getTot())
 	stats := Statistics{
-		At:             time.Now(),
-		InBytesTotal:   rt,
-		InBytesPerSec:  int(float64(rt-c.lastStatistics.InBytesTotal) / secs),
-		OutBytesTotal:  wt,
-		OutBytesPerSec: int(float64(wt-c.lastStatistics.OutBytesTotal) / secs),
+		At:            time.Now(),
+		InBytesTotal:  int(c.mreader.getTot()),
+		OutBytesTotal: int(c.mwriter.getTot()),
 	}
-	c.lastStatistics = stats
+
 	return stats
 }

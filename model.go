@@ -60,7 +60,6 @@ func NewModel(dir string) *Model {
 		lastIdxBcast: time.Now(),
 	}
 
-	go m.printStatsLoop()
 	go m.broadcastIndexLoop()
 	return m
 }
@@ -69,62 +68,55 @@ func (m *Model) Start() {
 	go m.puller()
 }
 
-func (m *Model) printStatsLoop() {
-	var lastUpdated int64
-	for {
-		time.Sleep(60 * time.Second)
-		m.RLock()
-		m.printConnectionStats()
-		if m.updatedLocal+m.updateGlobal > lastUpdated {
-			m.printModelStats()
-			lastUpdated = m.updatedLocal + m.updateGlobal
-		}
-		m.RUnlock()
-	}
+func (m *Model) Generation() int64 {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.updatedLocal + m.updateGlobal
 }
 
-func (m *Model) printConnectionStats() {
+func (m *Model) ConnectionStats() map[string]protocol.Statistics {
+	m.RLock()
+	defer m.RUnlock()
+
+	var res = make(map[string]protocol.Statistics)
 	for node, conn := range m.nodes {
-		stats := conn.Statistics()
-		if stats.InBytesPerSec > 0 || stats.OutBytesPerSec > 0 {
-			infof("%s: %sB/s in, %sB/s out", node, toSI(stats.InBytesPerSec), toSI(stats.OutBytesPerSec))
-		}
+		res[node] = conn.Statistics()
 	}
+	return res
 }
 
-func (m *Model) printModelStats() {
-	var tot int
+func (m *Model) GlobalSize() (files, bytes int) {
+	m.RLock()
+	defer m.RUnlock()
+
+	files = len(m.global)
 	for _, f := range m.global {
-		tot += f.Size()
+		bytes += f.Size()
 	}
-	infof("%6d files, %8sB in cluster", len(m.global), toSI(tot))
-
-	if len(m.need) > 0 {
-		tot = 0
-		for _, f := range m.local {
-			tot += f.Size()
-		}
-		infof("%6d files, %8sB in local repo", len(m.local), toSI(tot))
-
-		tot = 0
-		for n := range m.need {
-			tot += m.global[n].Size()
-		}
-		infof("%6d files, %8sB to synchronize", len(m.need), toSI(tot))
-	}
+	return
 }
 
-func toSI(n int) string {
-	if n > 1<<30 {
-		return fmt.Sprintf("%.02f G", float64(n)/(1<<30))
+func (m *Model) LocalSize() (files, bytes int) {
+	m.RLock()
+	defer m.RUnlock()
+
+	files = len(m.local)
+	for _, f := range m.local {
+		bytes += f.Size()
 	}
-	if n > 1<<20 {
-		return fmt.Sprintf("%.02f M", float64(n)/(1<<20))
+	return
+}
+
+func (m *Model) NeedSize() (files, bytes int) {
+	m.RLock()
+	defer m.RUnlock()
+
+	files = len(m.need)
+	for n := range m.need {
+		bytes += m.global[n].Size()
 	}
-	if n > 1<<10 {
-		return fmt.Sprintf("%.01f K", float64(n)/(1<<10))
-	}
-	return fmt.Sprintf("%d ", n)
+	return
 }
 
 // Index is called when a new node is connected and we receive their full index.
@@ -147,7 +139,6 @@ func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {
 
 	m.recomputeGlobal()
 	m.recomputeNeed()
-	m.printModelStats()
 }
 
 // IndexUpdate is called for incremental updates to connected nodes' indexes.
@@ -188,7 +179,6 @@ func (m *Model) SeedIndex(fs []protocol.FileInfo) {
 
 	m.recomputeGlobal()
 	m.recomputeNeed()
-	m.printModelStats()
 }
 
 func (m *Model) Close(node string, err error) {
