@@ -14,6 +14,7 @@ acquire locks, but document what locks they require.
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"sync"
@@ -75,46 +76,76 @@ func (m *Model) Generation() int64 {
 	return m.updatedLocal + m.updateGlobal
 }
 
-func (m *Model) ConnectionStats() map[string]protocol.Statistics {
+type ConnectionInfo struct {
+	protocol.Statistics
+	Address string
+}
+
+func (m *Model) ConnectionStats() map[string]ConnectionInfo {
+	type remoteAddrer interface {
+		RemoteAddr() net.Addr
+	}
+
 	m.RLock()
 	defer m.RUnlock()
 
-	var res = make(map[string]protocol.Statistics)
+	var res = make(map[string]ConnectionInfo)
 	for node, conn := range m.nodes {
-		res[node] = conn.Statistics()
+		ci := ConnectionInfo{
+			Statistics: conn.Statistics(),
+		}
+		if nc, ok := m.rawConn[node].(remoteAddrer); ok {
+			ci.Address = nc.RemoteAddr().String()
+		}
+		res[node] = ci
 	}
 	return res
 }
 
-func (m *Model) GlobalSize() (files, bytes int) {
+func (m *Model) GlobalSize() (files, deleted, bytes int) {
 	m.RLock()
 	defer m.RUnlock()
 
-	files = len(m.global)
 	for _, f := range m.global {
-		bytes += f.Size()
+		if f.Flags&FlagDeleted == 0 {
+			files++
+			bytes += f.Size()
+		} else {
+			deleted++
+		}
 	}
 	return
 }
 
-func (m *Model) LocalSize() (files, bytes int) {
+func (m *Model) LocalSize() (files, deleted, bytes int) {
 	m.RLock()
 	defer m.RUnlock()
 
-	files = len(m.local)
 	for _, f := range m.local {
-		bytes += f.Size()
+		if f.Flags&FlagDeleted == 0 {
+			files++
+			bytes += f.Size()
+		} else {
+			deleted++
+		}
 	}
 	return
 }
 
-func (m *Model) NeedSize() (files, bytes int) {
+type FileInfo struct {
+	Name string
+	Size int
+}
+
+func (m *Model) NeedFiles() (files []FileInfo, bytes int) {
 	m.RLock()
 	defer m.RUnlock()
 
-	files = len(m.need)
 	for n := range m.need {
-		bytes += m.global[n].Size()
+		f := m.global[n]
+		s := f.Size()
+		files = append(files, FileInfo{f.Name, s})
+		bytes += s
 	}
 	return
 }

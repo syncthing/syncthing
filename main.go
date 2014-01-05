@@ -28,6 +28,8 @@ type Options struct {
 	Delete     bool             `short:"d" long:"delete" description:"Delete files deleted from cluster"`
 	Rehash     bool             `long:"rehash" description:"Ignore cache and rehash all files in repository"`
 	NoSymlinks bool             `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
+	NoStats    bool             `long:"no-stats" description:"Don't print model and connection statistics"`
+	GUIAddr    string           `long:"gui" description:"GUI listen address" default:"" value-name:"ADDR"`
 	Discovery  DiscoveryOptions `group:"Discovery Options"`
 	Advanced   AdvancedOptions  `group:"Advanced Options"`
 	Debug      DebugOptions     `group:"Debugging Options"`
@@ -138,6 +140,11 @@ func main() {
 	ensureDir(dir, -1)
 	m := NewModel(dir)
 
+	// GUI
+	if opts.GUIAddr != "" {
+		startGUI(opts.GUIAddr, m)
+	}
+
 	// Walk the repository and update the local model before establishing any
 	// connections to other nodes.
 
@@ -174,15 +181,17 @@ func main() {
 		}
 	}()
 
-	// Periodically print statistics
-	go printStatsLoop(m)
+	if !opts.NoStats {
+		// Periodically print statistics
+		go printStatsLoop(m)
+	}
 
 	select {}
 }
 
 func printStatsLoop(m *Model) {
 	var lastUpdated int64
-	var lastStats = make(map[string]protocol.Statistics)
+	var lastStats = make(map[string]ConnectionInfo)
 
 	for {
 		time.Sleep(60 * time.Second)
@@ -201,12 +210,12 @@ func printStatsLoop(m *Model) {
 
 		if lu := m.Generation(); lu > lastUpdated {
 			lastUpdated = lu
-			files, bytes := m.GlobalSize()
+			files, _, bytes := m.GlobalSize()
 			infof("%6d files, %9sB in cluster", files, BinaryPrefix(bytes))
-			files, bytes = m.LocalSize()
+			files, _, bytes = m.LocalSize()
 			infof("%6d files, %9sB in local repo", files, BinaryPrefix(bytes))
-			files, bytes = m.NeedSize()
-			infof("%6d files, %9sB in to synchronize", files, BinaryPrefix(bytes))
+			needFiles, bytes := m.NeedFiles()
+			infof("%6d files, %9sB in to synchronize", len(needFiles), BinaryPrefix(bytes))
 		}
 	}
 }

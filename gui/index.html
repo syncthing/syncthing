@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="syncthing">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="">
+<meta name="author" content="">
+<link rel="shortcut icon" href="../../docs-assets/ico/favicon.png">
+
+<title>syncthing</title>
+<link href="bootstrap/css/bootstrap.css" rel="stylesheet">
+<style type="text/css">
+body {
+    padding-top: 20px;
+    padding-bottom: 20px;
+}
+
+.header {
+    border-bottom: 1px solid #e5e5e5;
+    padding-bottom: 10px;
+}
+
+.text-monospace {
+    font-family: monospace;
+}
+</style>
+</head>
+
+<body ng-controller="SyncthingCtrl">
+<div class="container">
+    <div class="header">
+        <h3 class="text-muted">syncthing&emsp;<small>|</small>&emsp;<small>{{version}}</small></h3>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Synchronization</h2>
+            <div class="progress">
+                <div class="progress-bar" ng-class="{'progress-bar-success': model.needBytes === 0, 'progress-bar-info': model.needBytes !== 0}" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width: {{100 * model.localFiles / (model.localFiles + model.needFiles) | number:2}}%;"></div>
+            </div>
+            <p class="pull-right">{{100 * model.localFiles / (model.localFiles + model.needFiles) | number:2}}%</p>
+            <p ng-show="model.needBytes > 0">Need {{model.needFiles | alwaysNumber}} files, {{model.needBytes | binary}}B</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <h1>Repository Status</h1>
+
+            <p>Cluster contains {{model.globalFiles | alwaysNumber}} files, {{model.globalBytes | binary}}B
+            <span class="text-muted">(+{{model.globalDeleted | alwaysNumber}} delete records)</span></p>
+
+            <p>Local repository has {{model.localFiles | alwaysNumber}} files, {{model.localBytes | binary}}B
+            <span class="text-muted">(+{{model.localDeleted | alwaysNumber}} delete records)</span></p>
+
+            <div ng-show="model.needFiles > 0">
+                <h2>Files to Synchronize</h2>
+                <table class="table table-condesed table-striped">
+                    <tr ng-repeat="file in need track by $index">
+                        <td>{{file.Name}}</td>
+                        <td>{{file.Size | binary}}B</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <h1>Cluster Status</h1>
+            <table class="table table-condensed">
+                <tbody>
+                <tr ng-repeat="(node, address) in config.nodes" ng-class="{'text-primary': !!connections[node]}">
+                    <td><abbr class="text-monospace" title="{{node}}">{{node | short}}</abbr></td>
+                    <td>
+                        <span ng-show="!!connections[node]">
+                            <span class="glyphicon glyphicon-link"></span>
+                            {{connections[node].Address}}
+                        </span>
+                        <span ng-hide="!!connections[node]">
+                            <span class="glyphicon glyphicon-cog"></span>
+                            {{address}}
+                        </span>
+                    </td>
+                    <td class="text-right">
+                        <abbr title="{{connections[node].InBytesTotal | binary}}B">{{connections[node].inbps | metric}}b/s</abbr>
+                        <span class="text-muted glyphicon glyphicon-cloud-download"></span>
+                    </td>
+                    <td class="text-right">
+                        <abbr title="{{connections[node].OutBytesTotal | binary}}B">{{connections[node].outbps | metric}}b/s</abbr>
+                        <span class="text-muted glyphicon glyphicon-cloud-upload"></span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script src="angular.min.js"></script>
+<script src="jquery-2.0.3.min.js"></script>
+<script src="bootstrap/js/bootstrap.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

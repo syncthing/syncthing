@@ -50,12 +50,12 @@ The following features are _currently implemented and working_:
  * Synchronizing multiple unrelated directory trees by following
    symlinks directly below the repository level.
 
+ * HTTP GUI.
+
 The following features are _not yet implemented but planned_:
 
  * Change detection by listening to file system notifications instead of
    periodic scanning.
-
- * HTTP GUI.
 
 The following features are _not implemented but may be implemented_ in
 the future:
@@ -93,9 +93,9 @@ Download the appropriate precompiled binary from the
 put the `syncthing` binary somewhere convenient in your `$PATH`.
 
 If you are a developer and have Go 1.2 installed you can also install
-the latest version from source:
-
-`go get github.com/calmh/syncthing`
+the latest version from source. `go get` works as expected but builds
+a binary without GUI capabilities. Use the included `build.sh` script
+without parameters to build a syncthing with GUI.
 
 Usage
 =====
@@ -169,6 +169,19 @@ $ syncthing --ro
 ```
 You should see the synchronization start and then finish a short while
 later. Add nodes to taste.
+
+GUI
+---
+
+The web based GUI is disabled per default. To enable and access it you
+must start syncthing with the `--gui` command line option, giving a
+listen address. For example:
+
+```
+$ syncthing --gui 127.0.0.1:8080
+```
+
+You then point your browser to the given address.
 
 License
 =======
