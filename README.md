@@ -28,6 +28,8 @@ agents and a simpler approach will suffice.
 Features
 --------
 
+> To request features and file bugs, see [the issue tracker][issues].
+
 The following features are _currently implemented and working_:
 
  * The formation of a cluster of nodes, certificate authenticated and
@@ -69,6 +71,7 @@ the future:
    conflicts is open for discussion.
 
 [discover.go]: https://github.com/calmh/syncthing/blob/master/discover/discover.go
+[issues]: https://github.com/calmh/syncthing/issues
 
 Security
 --------
