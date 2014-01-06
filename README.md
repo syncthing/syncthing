@@ -88,6 +88,9 @@ fingerprint is computed as the SHA-1 hash of the certificate and
 displayed in BASE32 encoding to form a compact yet convenient string.
 Currently SHA-1 is deemed secure against preimage attacks.
 
+Incoming requests for file data are verified to the extent that the
+requested file name must exist in the local index and the global model.
+
 Installing
 ==========
 

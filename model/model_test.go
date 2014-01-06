@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"os"
 	"reflect"
 	"testing"
@@ -315,5 +316,27 @@ func TestForgetNode(t *testing.T) {
 	}
 	if l1, l2 := len(m.need), 0; l1 != l2 {
 		t.Errorf("Model len(need) incorrect (%d != %d)", l1, l2)
+	}
+}
+
+func TestRequest(t *testing.T) {
+	m := NewModel("testdata")
+	fs, _ := m.Walk(false)
+	m.ReplaceLocal(fs)
+
+	bs, err := m.Request("some node", "foo", 0, 6, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Compare(bs, []byte("foobar")) != 0 {
+		t.Errorf("Incorrect data from request: %q", string(bs))
+	}
+
+	bs, err = m.Request("some node", "../walk.go", 0, 6, nil)
+	if err == nil {
+		t.Error("Unexpected nil error on insecure file read")
+	}
+	if bs != nil {
+		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
 	}
 }

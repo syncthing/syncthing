@@ -13,6 +13,7 @@ acquire locks, but document what locks they require.
 
 import (
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -57,6 +58,8 @@ const (
 	idxBcastHoldtime = 15 * time.Second  // Wait at least this long after the last index modification
 	idxBcastMaxDelay = 120 * time.Second // Unless we've already waited this long
 )
+
+var ErrNoSuchFile = errors.New("no such file")
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
@@ -271,6 +274,16 @@ func (m *Model) Close(node string, err error) {
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
 func (m *Model) Request(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
+	// Verify that the requested file exists in the local and global model.
+	m.RLock()
+	_, localOk := m.local[name]
+	_, globalOk := m.global[name]
+	m.RUnlock()
+	if !localOk || !globalOk {
+		log.Printf("SECURITY (nonexistent file) REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
+		return nil, ErrNoSuchFile
+	}
+
 	if m.trace["net"] && nodeID != "<local>" {
 		log.Printf("NET REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
 	}
