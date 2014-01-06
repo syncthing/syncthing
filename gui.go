@@ -43,8 +43,12 @@ func restGetVersion() string {
 func restGetModel(m *Model, w http.ResponseWriter) {
 	var res = make(map[string]interface{})
 
-	res["globalFiles"], res["globalDeleted"], res["globalBytes"] = m.GlobalSize()
-	res["localFiles"], res["localDeleted"], res["localBytes"] = m.LocalSize()
+	globalFiles, globalDeleted, globalBytes := m.GlobalSize()
+	res["globalFiles"], res["globalDeleted"], res["globalBytes"] = globalFiles, globalDeleted, globalBytes
+
+	localFiles, localDeleted, localBytes := m.LocalSize()
+	res["localFiles"], res["localDeleted"], res["localBytes"] = localFiles, localDeleted, localBytes
+
 	files, total := m.NeedFiles()
 	res["needFiles"], res["needBytes"] = len(files), total
 
