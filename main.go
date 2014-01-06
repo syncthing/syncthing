@@ -164,8 +164,15 @@ func main() {
 	// Routine to pull blocks from other nodes to synchronize the local
 	// repository. Does not run when we are in read only (publish only) mode.
 	if !opts.ReadOnly {
-		okln("Ready to synchronize")
+		if opts.Delete {
+			infoln("Deletes from peer nodes are allowed")
+		} else {
+			infoln("Deletes from peer nodes will be ignored")
+		}
+		okln("Ready to synchronize (read-write)")
 		m.StartRW(opts.Delete, opts.Advanced.FilesInFlight, opts.Advanced.RequestsInFlight)
+	} else {
+		okln("Ready to synchronize (read only; no external updates accepted)")
 	}
 
 	// Periodically scan the repository and update the local model.
