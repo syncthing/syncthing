@@ -75,9 +75,7 @@ func main() {
 	if len(opts.Debug.TraceModel) > 0 || opts.Debug.LogSource {
 		logger = log.New(os.Stderr, "", log.Lshortfile|log.Ldate|log.Ltime|log.Lmicroseconds)
 	}
-	if strings.HasPrefix(opts.ConfDir, "~/") {
-		opts.ConfDir = strings.Replace(opts.ConfDir, "~", getHomeDir(), 1)
-	}
+	opts.ConfDir = expandTilde(opts.ConfDir)
 
 	infoln("Version", Version)
 
@@ -124,7 +122,7 @@ func main() {
 	config = ini.Parse(cf)
 	cf.Close()
 
-	var dir = config.Get("repository", "dir")
+	var dir = expandTilde(config.Get("repository", "dir"))
 
 	// Create a map of desired node connections based on the configuration file
 	// directives.
@@ -386,6 +384,13 @@ func ensureDir(dir string, mode int) {
 		err := os.Chmod(dir, os.FileMode(mode))
 		fatalErr(err)
 	}
+}
+
+func expandTilde(p string) string {
+	if strings.HasPrefix(p, "~/") {
+		return strings.Replace(p, "~", getHomeDir(), 1)
+	}
+	return p
 }
 
 func getHomeDir() string {
