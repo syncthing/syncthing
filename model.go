@@ -447,6 +447,9 @@ func (m *Model) recomputeNeed() {
 				// Don't have the file, so don't need to delete it
 				continue
 			}
+			if opts.Debug.TraceNeed {
+				debugln("NEED:", ok, hf, f)
+			}
 			m.need[n] = true
 		}
 	}

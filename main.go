@@ -40,6 +40,7 @@ type DebugOptions struct {
 	TraceFile bool   `long:"trace-file"`
 	TraceNet  bool   `long:"trace-net"`
 	TraceIdx  bool   `long:"trace-idx"`
+	TraceNeed bool   `long:"trace-need"`
 	Profiler  string `long:"profiler" value-name:"ADDR"`
 }
 
