@@ -1,12 +1,10 @@
-package main
+package model
 
 import (
 	"bytes"
 	"crypto/sha256"
 	"io"
 )
-
-type BlockList []Block
 
 type Block struct {
 	Offset uint64
@@ -15,8 +13,8 @@ type Block struct {
 }
 
 // Blocks returns the blockwise hash of the reader.
-func Blocks(r io.Reader, blocksize int) (BlockList, error) {
-	var blocks BlockList
+func Blocks(r io.Reader, blocksize int) ([]Block, error) {
+	var blocks []Block
 	var offset uint64
 	for {
 		lr := &io.LimitedReader{r, int64(blocksize)}
@@ -42,9 +40,9 @@ func Blocks(r io.Reader, blocksize int) (BlockList, error) {
 	return blocks, nil
 }
 
-// To returns the list of blocks necessary to transform src into dst.
-// Both block lists must have been created with the same block size.
-func (src BlockList) To(tgt BlockList) (have, need BlockList) {
+// BlockDiff returns lists of common and missing (to transform src into tgt)
+// blocks. Both block lists must have been created with the same block size.
+func BlockDiff(src, tgt []Block) (have, need []Block) {
 	if len(tgt) == 0 && len(src) != 0 {
 		return nil, nil
 	}

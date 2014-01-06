@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"bytes"
@@ -98,7 +98,7 @@ func TestDiff(t *testing.T) {
 	for i, test := range diffTestData {
 		a, _ := Blocks(bytes.NewBufferString(test.a), test.s)
 		b, _ := Blocks(bytes.NewBufferString(test.b), test.s)
-		_, d := a.To(b)
+		_, d := BlockDiff(a, b)
 		if len(d) != len(test.d) {
 			t.Fatalf("Incorrect length for diff %d; %d != %d", i, len(d), len(test.d))
 		} else {

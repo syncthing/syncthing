@@ -8,12 +8,13 @@ import (
 	"mime"
 	"net/http"
 	"path/filepath"
-	"bitbucket.org/tebeka/nrsc"
 
+	"bitbucket.org/tebeka/nrsc"
+	"github.com/calmh/syncthing/model"
 	"github.com/codegangsta/martini"
 )
 
-func startGUI(addr string, m *Model) {
+func startGUI(addr string, m *model.Model) {
 	router := martini.NewRouter()
 	router.Get("/", getRoot)
 	router.Get("/rest/version", restGetVersion)
@@ -40,7 +41,7 @@ func restGetVersion() string {
 	return Version
 }
 
-func restGetModel(m *Model, w http.ResponseWriter) {
+func restGetModel(m *model.Model, w http.ResponseWriter) {
 	var res = make(map[string]interface{})
 
 	globalFiles, globalDeleted, globalBytes := m.GlobalSize()
@@ -59,7 +60,7 @@ func restGetModel(m *Model, w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func restGetConnections(m *Model, w http.ResponseWriter) {
+func restGetConnections(m *model.Model, w http.ResponseWriter) {
 	var res = m.ConnectionStats()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
@@ -73,14 +74,27 @@ func restGetConfig(w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func restGetNeed(m *Model, w http.ResponseWriter) {
+type guiFile model.File
+
+func (f guiFile) MarshalJSON() ([]byte, error) {
+	type t struct {
+		Name string
+		Size int
+	}
+	return json.Marshal(t{
+		Name: f.Name,
+		Size: model.File(f).Size(),
+	})
+}
+
+func restGetNeed(m *model.Model, w http.ResponseWriter) {
 	files, _ := m.NeedFiles()
-	if files == nil {
-		// We don't want the empty list to serialize as "null\n"
-		files = make([]FileInfo, 0)
+	gfs := make([]guiFile, len(files))
+	for i, f := range files {
+		gfs[i] = guiFile(f)
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(files)
+	json.NewEncoder(w).Encode(gfs)
 }
 
 func nrscStatic(path string) interface{} {

@@ -1,7 +1,8 @@
-package main
+package model
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -14,15 +15,7 @@ type File struct {
 	Name     string
 	Flags    uint32
 	Modified int64
-	Blocks   BlockList
-}
-
-func (f File) Dump() {
-	fmt.Printf("%s\n", f.Name)
-	for _, b := range f.Blocks {
-		fmt.Printf("  %dB @ %d: %x\n", b.Length, b.Offset, b.Hash)
-	}
-	fmt.Println()
+	Blocks   []Block
 }
 
 func (f File) Size() (bytes int) {
@@ -42,10 +35,9 @@ func tempName(name string, modified int64) string {
 	return path.Join(tdir, tname)
 }
 
-func genWalker(base string, res *[]File, model *Model) filepath.WalkFunc {
+func (m *Model) genWalker(res *[]File) filepath.WalkFunc {
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
-			warnln(err)
 			return nil
 		}
 
@@ -54,37 +46,36 @@ func genWalker(base string, res *[]File, model *Model) filepath.WalkFunc {
 		}
 
 		if info.Mode()&os.ModeType == 0 {
-			rn, err := filepath.Rel(base, p)
+			rn, err := filepath.Rel(m.dir, p)
 			if err != nil {
-				warnln(err)
 				return nil
 			}
 
 			fi, err := os.Stat(p)
 			if err != nil {
-				warnln(err)
 				return nil
 			}
 			modified := fi.ModTime().Unix()
 
-			hf, ok := model.LocalFile(rn)
+			m.RLock()
+			hf, ok := m.local[rn]
+			m.RUnlock()
+
 			if ok && hf.Modified == modified {
 				// No change
 				*res = append(*res, hf)
 			} else {
-				if opts.Debug.TraceFile {
-					debugf("FILE: Hash %q", p)
+				if m.trace["file"] {
+					log.Printf("FILE: Hash %q", p)
 				}
 				fd, err := os.Open(p)
 				if err != nil {
-					warnln(err)
 					return nil
 				}
 				defer fd.Close()
 
 				blocks, err := Blocks(fd, BlockSize)
 				if err != nil {
-					warnln(err)
 					return nil
 				}
 				f := File{
@@ -101,34 +92,28 @@ func genWalker(base string, res *[]File, model *Model) filepath.WalkFunc {
 	}
 }
 
-func Walk(dir string, model *Model, followSymlinks bool) []File {
+// Walk returns the list of files found in the local repository by scanning the
+// file system. Files are blockwise hashed.
+func (m *Model) Walk(followSymlinks bool) []File {
 	var files []File
-	fn := genWalker(dir, &files, model)
-	err := filepath.Walk(dir, fn)
-	if err != nil {
-		warnln(err)
-	}
+	fn := m.genWalker(&files)
+	filepath.Walk(m.dir, fn)
 
-	if !opts.NoSymlinks {
-		d, err := os.Open(dir)
+	if followSymlinks {
+		d, err := os.Open(m.dir)
 		if err != nil {
-			warnln(err)
 			return files
 		}
 		defer d.Close()
 
 		fis, err := d.Readdir(-1)
 		if err != nil {
-			warnln(err)
 			return files
 		}
 
 		for _, fi := range fis {
 			if fi.Mode()&os.ModeSymlink != 0 {
-				err := filepath.Walk(path.Join(dir, fi.Name())+"/", fn)
-				if err != nil {
-					warnln(err)
-				}
+				filepath.Walk(path.Join(m.dir, fi.Name())+"/", fn)
 			}
 		}
 	}
@@ -136,19 +121,19 @@ func Walk(dir string, model *Model, followSymlinks bool) []File {
 	return files
 }
 
-func cleanTempFile(path string, info os.FileInfo, err error) error {
+func (m *Model) cleanTempFile(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return err
 	}
 	if info.Mode()&os.ModeType == 0 && isTempName(path) {
-		if opts.Debug.TraceFile {
-			debugf("FILE: Remove %q", path)
+		if m.trace["file"] {
+			log.Printf("FILE: Remove %q", path)
 		}
 		os.Remove(path)
 	}
 	return nil
 }
 
-func CleanTempFiles(dir string) {
-	filepath.Walk(dir, cleanTempFile)
+func (m *Model) cleanTempFiles() {
+	filepath.Walk(m.dir, m.cleanTempFile)
 }

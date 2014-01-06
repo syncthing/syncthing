@@ -1,4 +1,4 @@
-package main
+package model
 
 /*
 
@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path"
 	"sync"
@@ -60,7 +61,7 @@ func (m *Model) pullFile(name string) error {
 		applyDone.Done()
 	}()
 
-	local, remote := localFile.Blocks.To(globalFile.Blocks)
+	local, remote := BlockDiff(localFile.Blocks, globalFile.Blocks)
 	var fetchDone sync.WaitGroup
 
 	// One local copy routine
@@ -83,7 +84,7 @@ func (m *Model) pullFile(name string) error {
 	// N remote copy routines
 
 	var remoteBlocks = blockIterator{blocks: remote}
-	for i := 0; i < opts.Advanced.RequestsInFlight; i++ {
+	for i := 0; i < m.paralllelReqs; i++ {
 		curNode := nodeIDs[i%len(nodeIDs)]
 		fetchDone.Add(1)
 
@@ -93,7 +94,7 @@ func (m *Model) pullFile(name string) error {
 				if !ok {
 					break
 				}
-				data, err := m.RequestGlobal(nodeID, name, block.Offset, block.Length, block.Hash)
+				data, err := m.requestGlobal(nodeID, name, block.Offset, block.Length, block.Hash)
 				if err != nil {
 					break
 				}
@@ -143,7 +144,7 @@ func (m *Model) puller() {
 			continue
 		}
 
-		var limiter = make(chan bool, opts.Advanced.FilesInFlight)
+		var limiter = make(chan bool, m.parallellFiles)
 		var allDone sync.WaitGroup
 
 		for _, n := range ns {
@@ -156,28 +157,31 @@ func (m *Model) puller() {
 					<-limiter
 				}()
 
-				f, ok := m.GlobalFile(n)
+				m.RLock()
+				f, ok := m.global[n]
+				m.RUnlock()
+
 				if !ok {
 					return
 				}
 
 				var err error
 				if f.Flags&FlagDeleted == 0 {
-					if opts.Debug.TraceFile {
-						debugf("FILE: Pull %q", n)
+					if m.trace["file"] {
+						log.Printf("FILE: Pull %q", n)
 					}
 					err = m.pullFile(n)
 				} else {
-					if opts.Debug.TraceFile {
-						debugf("FILE: Remove %q", n)
+					if m.trace["file"] {
+						log.Printf("FILE: Remove %q", n)
 					}
 					// Cheerfully ignore errors here
 					_ = os.Remove(path.Join(m.dir, n))
 				}
 				if err == nil {
-					m.UpdateLocal(f)
-				} else {
-					warnln(err)
+					m.Lock()
+					m.updateLocal(f)
+					m.Unlock()
 				}
 			}(n)
 		}

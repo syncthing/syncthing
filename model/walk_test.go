@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"fmt"
@@ -17,8 +17,8 @@ var testdata = []struct {
 }
 
 func TestWalk(t *testing.T) {
-	m := new(Model)
-	files := Walk("testdata", m, false)
+	m := NewModel("testdata")
+	files := m.Walk(false)
 
 	if l1, l2 := len(files), len(testdata); l1 != l2 {
 		t.Fatalf("Incorrect number of walked files %d != %d", l1, l2)

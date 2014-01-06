@@ -2,9 +2,7 @@ package main
 
 import (
 	"compress/gzip"
-	"crypto/sha1"
 	"crypto/tls"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -18,6 +16,7 @@ import (
 	"github.com/calmh/ini"
 	"github.com/calmh/syncthing/discover"
 	flags "github.com/calmh/syncthing/github.com/jessevdk/go-flags"
+	"github.com/calmh/syncthing/model"
 	"github.com/calmh/syncthing/protocol"
 )
 
@@ -36,12 +35,10 @@ type Options struct {
 }
 
 type DebugOptions struct {
-	LogSource bool   `long:"log-source"`
-	TraceFile bool   `long:"trace-file"`
-	TraceNet  bool   `long:"trace-net"`
-	TraceIdx  bool   `long:"trace-idx"`
-	TraceNeed bool   `long:"trace-need"`
-	Profiler  string `long:"profiler" value-name:"ADDR"`
+	LogSource    bool     `long:"log-source"`
+	TraceModel   []string `long:"trace-model" value-name:"TRACE" description:"idx, net, file, need"`
+	TraceConnect bool     `long:"trace-connect"`
+	Profiler     string   `long:"profiler" value-name:"ADDR"`
 }
 
 type DiscoveryOptions struct {
@@ -76,7 +73,7 @@ func main() {
 	if err != nil {
 		os.Exit(0)
 	}
-	if opts.Debug.TraceFile || opts.Debug.TraceIdx || opts.Debug.TraceNet || opts.Debug.LogSource {
+	if len(opts.Debug.TraceModel) > 0 || opts.Debug.LogSource {
 		logger = log.New(os.Stderr, "", log.Lshortfile|log.Ldate|log.Ltime|log.Lmicroseconds)
 	}
 	if strings.HasPrefix(opts.ConfDir, "~/") {
@@ -139,7 +136,10 @@ func main() {
 	}
 
 	ensureDir(dir, -1)
-	m := NewModel(dir)
+	m := model.NewModel(dir)
+	for _, t := range opts.Debug.TraceModel {
+		m.Trace(t)
+	}
 
 	// GUI
 	if opts.GUIAddr != "" {
@@ -167,10 +167,8 @@ func main() {
 	// Routine to pull blocks from other nodes to synchronize the local
 	// repository. Does not run when we are in read only (publish only) mode.
 	if !opts.ReadOnly {
-		infoln("Cleaning out incomplete synchronizations")
-		CleanTempFiles(dir)
 		okln("Ready to synchronize")
-		m.Start()
+		m.StartRW(opts.Delete, opts.Advanced.FilesInFlight, opts.Advanced.RequestsInFlight)
 	}
 
 	// Periodically scan the repository and update the local model.
@@ -190,9 +188,9 @@ func main() {
 	select {}
 }
 
-func printStatsLoop(m *Model) {
+func printStatsLoop(m *model.Model) {
 	var lastUpdated int64
-	var lastStats = make(map[string]ConnectionInfo)
+	var lastStats = make(map[string]model.ConnectionInfo)
 
 	for {
 		time.Sleep(60 * time.Second)
@@ -216,12 +214,12 @@ func printStatsLoop(m *Model) {
 			files, _, bytes = m.LocalSize()
 			infof("%6d files, %9sB in local repo", files, BinaryPrefix(bytes))
 			needFiles, bytes := m.NeedFiles()
-			infof("%6d files, %9sB in to synchronize", len(needFiles), BinaryPrefix(bytes))
+			infof("%6d files, %9sB to synchronize", len(needFiles), BinaryPrefix(bytes))
 		}
 	}
 }
 
-func listen(myID string, addr string, m *Model, cfg *tls.Config) {
+func listen(myID string, addr string, m *model.Model, cfg *tls.Config) {
 	l, err := tls.Listen("tcp", addr, cfg)
 	fatalErr(err)
 
@@ -233,7 +231,7 @@ listen:
 			continue
 		}
 
-		if opts.Debug.TraceNet {
+		if opts.Debug.TraceConnect {
 			debugln("NET: Connect from", conn.RemoteAddr())
 		}
 
@@ -267,7 +265,7 @@ listen:
 	}
 }
 
-func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, cfg *tls.Config) {
+func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.Model, cfg *tls.Config) {
 	_, portstr, err := net.SplitHostPort(addr)
 	fatalErr(err)
 	port, _ := strconv.Atoi(portstr)
@@ -310,12 +308,12 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, 
 					}
 				}
 
-				if opts.Debug.TraceNet {
+				if opts.Debug.TraceConnect {
 					debugln("NET: Dial", nodeID, addr)
 				}
 				conn, err := tls.Dial("tcp", addr, cfg)
 				if err != nil {
-					if opts.Debug.TraceNet {
+					if opts.Debug.TraceConnect {
 						debugln("NET:", err)
 					}
 					continue
@@ -337,14 +335,14 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *Model, 
 	}
 }
 
-func updateLocalModel(m *Model) {
-	files := Walk(m.Dir(), m, !opts.NoSymlinks)
+func updateLocalModel(m *model.Model) {
+	files := m.Walk(!opts.NoSymlinks)
 	m.ReplaceLocal(files)
 	saveIndex(m)
 }
 
-func saveIndex(m *Model) {
-	name := fmt.Sprintf("%x.idx.gz", sha1.Sum([]byte(m.Dir())))
+func saveIndex(m *model.Model) {
+	name := m.RepoID() + ".idx.gz"
 	fullName := path.Join(opts.ConfDir, name)
 	idxf, err := os.Create(fullName + ".tmp")
 	if err != nil {
@@ -359,9 +357,9 @@ func saveIndex(m *Model) {
 	os.Rename(fullName+".tmp", fullName)
 }
 
-func loadIndex(m *Model) {
-	fname := fmt.Sprintf("%x.idx.gz", sha1.Sum([]byte(m.Dir())))
-	idxf, err := os.Open(path.Join(opts.ConfDir, fname))
+func loadIndex(m *model.Model) {
+	name := m.RepoID() + ".idx.gz"
+	idxf, err := os.Open(path.Join(opts.ConfDir, name))
 	if err != nil {
 		return
 	}
@@ -377,7 +375,7 @@ func loadIndex(m *Model) {
 	if err != nil {
 		return
 	}
-	m.SeedIndex(idx)
+	m.SeedLocal(idx)
 }
 
 func ensureDir(dir string, mode int) {

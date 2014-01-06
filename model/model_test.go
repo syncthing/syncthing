@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"reflect"
@@ -46,8 +46,8 @@ var testDataExpected = map[string]File{
 }
 
 func TestUpdateLocal(t *testing.T) {
-	m := NewModel("foo")
-	fs := Walk("testdata", m, false)
+	m := NewModel("testdata")
+	fs := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	if len(m.need) > 0 {
@@ -88,8 +88,8 @@ func TestUpdateLocal(t *testing.T) {
 }
 
 func TestRemoteUpdateExisting(t *testing.T) {
-	m := NewModel("foo")
-	fs := Walk("testdata", m, false)
+	m := NewModel("testdata")
+	fs := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	newFile := protocol.FileInfo{
@@ -105,8 +105,8 @@ func TestRemoteUpdateExisting(t *testing.T) {
 }
 
 func TestRemoteAddNew(t *testing.T) {
-	m := NewModel("foo")
-	fs := Walk("testdata", m, false)
+	m := NewModel("testdata")
+	fs := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	newFile := protocol.FileInfo{
@@ -122,8 +122,8 @@ func TestRemoteAddNew(t *testing.T) {
 }
 
 func TestRemoteUpdateOld(t *testing.T) {
-	m := NewModel("foo")
-	fs := Walk("testdata", m, false)
+	m := NewModel("testdata")
+	fs := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	oldTimeStamp := int64(1234)
@@ -140,8 +140,8 @@ func TestRemoteUpdateOld(t *testing.T) {
 }
 
 func TestRemoteIndexUpdate(t *testing.T) {
-	m := NewModel("foo")
-	fs := Walk("testdata", m, false)
+	m := NewModel("testdata")
+	fs := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	foo := protocol.FileInfo{
@@ -173,8 +173,8 @@ func TestRemoteIndexUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	m := NewModel("foo")
-	fs := Walk("testdata", m, false)
+	m := NewModel("testdata")
+	fs := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
@@ -190,7 +190,7 @@ func TestDelete(t *testing.T) {
 		Modified: ot,
 		Blocks:   []Block{{0, 100, []byte("some hash bytes")}},
 	}
-	m.UpdateLocal(newFile)
+	m.updateLocal(newFile)
 
 	if l1, l2 := len(m.local), len(fs)+1; l1 != l2 {
 		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
@@ -263,8 +263,8 @@ func TestDelete(t *testing.T) {
 }
 
 func TestForgetNode(t *testing.T) {
-	m := NewModel("foo")
-	fs := Walk("testdata", m, false)
+	m := NewModel("testdata")
+	fs := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {

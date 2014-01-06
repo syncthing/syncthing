@@ -1,4 +1,4 @@
-package main
+package model
 
 /*
 
@@ -12,8 +12,10 @@ acquire locks, but document what locks they require.
 */
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"path"
@@ -40,6 +42,13 @@ type Model struct {
 
 	lastIdxBcast        time.Time
 	lastIdxBcastRequest time.Time
+
+	rwRunning      bool
+	parallellFiles int
+	paralllelReqs  int
+	delete         bool
+
+	trace map[string]bool
 }
 
 const (
@@ -49,6 +58,9 @@ const (
 	idxBcastMaxDelay = 120 * time.Second // Unless we've already waited this long
 )
 
+// NewModel creates and starts a new model. The model starts in read-only mode,
+// where it sends index information to connected peers and responds to requests
+// for file data without altering the local repository in any way.
 func NewModel(dir string) *Model {
 	m := &Model{
 		dir:          dir,
@@ -59,16 +71,42 @@ func NewModel(dir string) *Model {
 		nodes:        make(map[string]*protocol.Connection),
 		rawConn:      make(map[string]io.ReadWriteCloser),
 		lastIdxBcast: time.Now(),
+		trace:        make(map[string]bool),
 	}
 
 	go m.broadcastIndexLoop()
 	return m
 }
 
-func (m *Model) Start() {
+// Trace enables trace logging of the given facility. This is a debugging function; grep for m.trace.
+func (m *Model) Trace(t string) {
+	m.Lock()
+	defer m.Unlock()
+	m.trace[t] = true
+}
+
+// StartRW starts read/write processing on the current model. When in
+// read/write mode the model will attempt to keep in sync with the cluster by
+// pulling needed files from peer nodes.
+func (m *Model) StartRW(del bool, pfiles, preqs int) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.rwRunning {
+		panic("starting started model")
+	}
+
+	m.rwRunning = true
+	m.delete = del
+	m.parallellFiles = pfiles
+	m.paralllelReqs = preqs
+
+	go m.cleanTempFiles()
 	go m.puller()
 }
 
+// Generation returns an opaque integer that is guaranteed to increment on
+// every change to the local repository or global model.
 func (m *Model) Generation() int64 {
 	m.RLock()
 	defer m.RUnlock()
@@ -81,6 +119,7 @@ type ConnectionInfo struct {
 	Address string
 }
 
+// ConnectionStats returns a map with connection statistics for each connected node.
 func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	type remoteAddrer interface {
 		RemoteAddr() net.Addr
@@ -102,6 +141,8 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	return res
 }
 
+// LocalSize returns the number of files, deleted files and total bytes for all
+// files in the global model.
 func (m *Model) GlobalSize() (files, deleted, bytes int) {
 	m.RLock()
 	defer m.RUnlock()
@@ -117,6 +158,8 @@ func (m *Model) GlobalSize() (files, deleted, bytes int) {
 	return
 }
 
+// LocalSize returns the number of files, deleted files and total bytes for all
+// files in the local repository.
 func (m *Model) LocalSize() (files, deleted, bytes int) {
 	m.RLock()
 	defer m.RUnlock()
@@ -132,6 +175,8 @@ func (m *Model) LocalSize() (files, deleted, bytes int) {
 	return
 }
 
+// InSyncSize returns the number and total byte size of the local files that
+// are in sync with the global model.
 func (m *Model) InSyncSize() (files, bytes int) {
 	m.RLock()
 	defer m.RUnlock()
@@ -145,31 +190,27 @@ func (m *Model) InSyncSize() (files, bytes int) {
 	return
 }
 
-type FileInfo struct {
-	Name string
-	Size int
-}
-
-func (m *Model) NeedFiles() (files []FileInfo, bytes int) {
+// NeedFiles returns the list of currently needed files and the total size.
+func (m *Model) NeedFiles() (files []File, bytes int) {
 	m.RLock()
 	defer m.RUnlock()
 
 	for n := range m.need {
 		f := m.global[n]
-		s := f.Size()
-		files = append(files, FileInfo{f.Name, s})
-		bytes += s
+		files = append(files, f)
+		bytes += f.Size()
 	}
 	return
 }
 
 // Index is called when a new node is connected and we receive their full index.
+// Implements the protocol.Model interface.
 func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {
 	m.Lock()
 	defer m.Unlock()
 
-	if opts.Debug.TraceNet {
-		debugf("NET IDX(in): %s: %d files", nodeID, len(fs))
+	if m.trace["net"] {
+		log.Printf("NET IDX(in): %s: %d files", nodeID, len(fs))
 	}
 
 	m.remote[nodeID] = make(map[string]File)
@@ -182,12 +223,13 @@ func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {
 }
 
 // IndexUpdate is called for incremental updates to connected nodes' indexes.
+// Implements the protocol.Model interface.
 func (m *Model) IndexUpdate(nodeID string, fs []protocol.FileInfo) {
 	m.Lock()
 	defer m.Unlock()
 
-	if opts.Debug.TraceNet {
-		debugf("NET IDXUP(in): %s: %d files", nodeID, len(fs))
+	if m.trace["net"] {
+		log.Printf("NET IDXUP(in): %s: %d files", nodeID, len(fs))
 	}
 
 	repo, ok := m.remote[nodeID]
@@ -196,7 +238,7 @@ func (m *Model) IndexUpdate(nodeID string, fs []protocol.FileInfo) {
 	}
 
 	for _, f := range fs {
-		if f.Flags&FlagDeleted != 0 && !opts.Delete {
+		if f.Flags&FlagDeleted != 0 && !m.delete {
 			// Files marked as deleted do not even enter the model
 			continue
 		}
@@ -207,20 +249,8 @@ func (m *Model) IndexUpdate(nodeID string, fs []protocol.FileInfo) {
 	m.recomputeNeed()
 }
 
-// SeedIndex is called when our previously cached index is loaded from disk at startup.
-func (m *Model) SeedIndex(fs []protocol.FileInfo) {
-	m.Lock()
-	defer m.Unlock()
-
-	m.local = make(map[string]File)
-	for _, f := range fs {
-		m.local[f.Name] = fileFromFileInfo(f)
-	}
-
-	m.recomputeGlobal()
-	m.recomputeNeed()
-}
-
+// Close removes the peer from the model and closes the underlyign connection if possible.
+// Implements the protocol.Model interface.
 func (m *Model) Close(node string, err error) {
 	m.Lock()
 	defer m.Unlock()
@@ -228,14 +258,6 @@ func (m *Model) Close(node string, err error) {
 	conn, ok := m.rawConn[node]
 	if ok {
 		conn.Close()
-	} else {
-		warnln("Close on unknown connection for node", node)
-	}
-
-	if err != nil {
-		warnf("Disconnected from node %s: %v", node, err)
-	} else {
-		infoln("Disconnected from node", node)
 	}
 
 	delete(m.remote, node)
@@ -246,9 +268,11 @@ func (m *Model) Close(node string, err error) {
 	m.recomputeNeed()
 }
 
+// Request returns the specified data segment by reading it from local disk.
+// Implements the protocol.Model interface.
 func (m *Model) Request(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
-	if opts.Debug.TraceNet && nodeID != "<local>" {
-		debugf("NET REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
+	if m.trace["net"] && nodeID != "<local>" {
+		log.Printf("NET REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
 	}
 	fn := path.Join(m.dir, name)
 	fd, err := os.Open(fn) // XXX: Inefficient, should cache fd?
@@ -266,21 +290,7 @@ func (m *Model) Request(nodeID, name string, offset uint64, size uint32, hash []
 	return buf, nil
 }
 
-func (m *Model) RequestGlobal(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
-	m.RLock()
-	nc, ok := m.nodes[nodeID]
-	m.RUnlock()
-	if !ok {
-		return nil, fmt.Errorf("RequestGlobal: no such node: %s", nodeID)
-	}
-
-	if opts.Debug.TraceNet {
-		debugf("NET REQ(out): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
-	}
-
-	return nc.Request(name, offset, size, hash)
-}
-
+// ReplaceLocal replaces the local repository index with the given list of files.
 func (m *Model) ReplaceLocal(fs []File) {
 	m.Lock()
 	defer m.Unlock()
@@ -312,6 +322,95 @@ func (m *Model) ReplaceLocal(fs []File) {
 	}
 }
 
+// SeedLocal replaces the local repository index with the given list of files,
+// in protocol data types. Does not track deletes, should only be used to seed
+// the local index from a cache file at startup.
+func (m *Model) SeedLocal(fs []protocol.FileInfo) {
+	m.Lock()
+	defer m.Unlock()
+
+	m.local = make(map[string]File)
+	for _, f := range fs {
+		m.local[f.Name] = fileFromFileInfo(f)
+	}
+
+	m.recomputeGlobal()
+	m.recomputeNeed()
+}
+
+// ConnectedTo returns true if we are connected to the named node.
+func (m *Model) ConnectedTo(nodeID string) bool {
+	m.RLock()
+	defer m.RUnlock()
+	_, ok := m.nodes[nodeID]
+	return ok
+}
+
+// ProtocolIndex returns the current local index in protocol data types.
+func (m *Model) ProtocolIndex() []protocol.FileInfo {
+	m.RLock()
+	defer m.RUnlock()
+	return m.protocolIndex()
+}
+
+// RepoID returns a unique ID representing the current repository location.
+func (m *Model) RepoID() string {
+	return fmt.Sprintf("%x", sha1.Sum([]byte(m.dir)))
+}
+
+// AddConnection adds a new peer connection to the model. An initial index will
+// be sent to the connected peer, thereafter index updates whenever the local
+// repository changes.
+func (m *Model) AddConnection(conn io.ReadWriteCloser, nodeID string) {
+	node := protocol.NewConnection(nodeID, conn, conn, m)
+
+	m.Lock()
+	m.nodes[nodeID] = node
+	m.rawConn[nodeID] = conn
+	m.Unlock()
+
+	m.RLock()
+	idx := m.protocolIndex()
+	m.RUnlock()
+
+	go func() {
+		node.Index(idx)
+	}()
+}
+
+// protocolIndex returns the current local index in protocol data types.
+// Must be called with the read lock held.
+func (m *Model) protocolIndex() []protocol.FileInfo {
+	var index []protocol.FileInfo
+	for _, f := range m.local {
+		mf := fileInfoFromFile(f)
+		if m.trace["idx"] {
+			var flagComment string
+			if mf.Flags&FlagDeleted != 0 {
+				flagComment = " (deleted)"
+			}
+			log.Printf("IDX: %q m=%d f=%o%s (%d blocks)", mf.Name, mf.Modified, mf.Flags, flagComment, len(mf.Blocks))
+		}
+		index = append(index, mf)
+	}
+	return index
+}
+
+func (m *Model) requestGlobal(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
+	m.RLock()
+	nc, ok := m.nodes[nodeID]
+	m.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("requestGlobal: no such node: %s", nodeID)
+	}
+
+	if m.trace["net"] {
+		log.Printf("NET REQ(out): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
+	}
+
+	return nc.Request(name, offset, size, hash)
+}
+
 func (m *Model) broadcastIndexLoop() {
 	for {
 		m.RLock()
@@ -328,8 +427,8 @@ func (m *Model) broadcastIndexLoop() {
 			m.lastIdxBcast = time.Now()
 			for _, node := range m.nodes {
 				node := node
-				if opts.Debug.TraceNet {
-					debugf("NET IDX(out/loop): %s: %d files", node.ID, len(idx))
+				if m.trace["net"] {
+					log.Printf("NET IDX(out/loop): %s: %d files", node.ID, len(idx))
 				}
 				go func() {
 					node.Index(idx)
@@ -367,10 +466,7 @@ func (m *Model) markDeletedLocals(newLocal map[string]File) bool {
 	return updated
 }
 
-func (m *Model) UpdateLocal(f File) {
-	m.Lock()
-	defer m.Unlock()
-
+func (m *Model) updateLocal(f File) {
 	if ef, ok := m.local[f.Name]; !ok || ef.Modified != f.Modified {
 		m.local[f.Name] = f
 		m.recomputeGlobal()
@@ -378,36 +474,6 @@ func (m *Model) UpdateLocal(f File) {
 		m.updatedLocal = time.Now().Unix()
 		m.lastIdxBcastRequest = time.Now()
 	}
-}
-
-func (m *Model) Dir() string {
-	m.RLock()
-	defer m.RUnlock()
-	return m.dir
-}
-
-func (m *Model) HaveFiles() []File {
-	m.RLock()
-	defer m.RUnlock()
-	var files []File
-	for _, file := range m.local {
-		files = append(files, file)
-	}
-	return files
-}
-
-func (m *Model) LocalFile(name string) (File, bool) {
-	m.RLock()
-	defer m.RUnlock()
-	f, ok := m.local[name]
-	return f, ok
-}
-
-func (m *Model) GlobalFile(name string) (File, bool) {
-	m.RLock()
-	defer m.RUnlock()
-	f, ok := m.global[name]
-	return f, ok
 }
 
 // Must be called with the write lock held.
@@ -452,7 +518,7 @@ func (m *Model) recomputeNeed() {
 	for n, f := range m.global {
 		hf, ok := m.local[n]
 		if !ok || f.Modified > hf.Modified {
-			if f.Flags&FlagDeleted != 0 && !opts.Delete {
+			if f.Flags&FlagDeleted != 0 && !m.delete {
 				// Don't want to delete files, so forget this need
 				continue
 			}
@@ -460,8 +526,8 @@ func (m *Model) recomputeNeed() {
 				// Don't have the file, so don't need to delete it
 				continue
 			}
-			if opts.Debug.TraceNeed {
-				debugln("NEED:", ok, hf, f)
+			if m.trace["need"] {
+				log.Println("NEED:", ok, hf, f)
 			}
 			m.need[n] = true
 		}
@@ -480,56 +546,6 @@ func (m *Model) whoHas(name string) []string {
 	}
 
 	return remote
-}
-
-func (m *Model) ConnectedTo(nodeID string) bool {
-	m.RLock()
-	defer m.RUnlock()
-	_, ok := m.nodes[nodeID]
-	return ok
-}
-
-func (m *Model) ProtocolIndex() []protocol.FileInfo {
-	m.RLock()
-	defer m.RUnlock()
-	return m.protocolIndex()
-}
-
-// Must be called with the read lock held.
-func (m *Model) protocolIndex() []protocol.FileInfo {
-	var index []protocol.FileInfo
-	for _, f := range m.local {
-		mf := fileInfoFromFile(f)
-		if opts.Debug.TraceIdx {
-			var flagComment string
-			if mf.Flags&FlagDeleted != 0 {
-				flagComment = " (deleted)"
-			}
-			debugf("IDX: %q m=%d f=%o%s (%d blocks)", mf.Name, mf.Modified, mf.Flags, flagComment, len(mf.Blocks))
-		}
-		index = append(index, mf)
-	}
-	return index
-}
-
-func (m *Model) AddConnection(conn io.ReadWriteCloser, nodeID string) {
-	node := protocol.NewConnection(nodeID, conn, conn, m)
-
-	m.Lock()
-	m.nodes[nodeID] = node
-	m.rawConn[nodeID] = conn
-	m.Unlock()
-
-	infoln("Connected to node", nodeID)
-
-	m.RLock()
-	idx := m.protocolIndex()
-	m.RUnlock()
-
-	go func() {
-		node.Index(idx)
-		infoln("Sent initial index to node", nodeID)
-	}()
 }
 
 func fileFromFileInfo(f protocol.FileInfo) File {
