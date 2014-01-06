@@ -161,10 +161,6 @@ func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {
 
 	m.remote[nodeID] = make(map[string]File)
 	for _, f := range fs {
-		if f.Flags&FlagDeleted != 0 && !opts.Delete {
-			// Files marked as deleted do not even enter the model
-			continue
-		}
 		m.remote[nodeID][f.Name] = fileFromFileInfo(f)
 	}
 
@@ -443,6 +439,14 @@ func (m *Model) recomputeNeed() {
 	for n, f := range m.global {
 		hf, ok := m.local[n]
 		if !ok || f.Modified > hf.Modified {
+			if f.Flags&FlagDeleted != 0 && !opts.Delete {
+				// Don't want to delete files, so forget this need
+				continue
+			}
+			if f.Flags&FlagDeleted != 0 && !ok {
+				// Don't have the file, so don't need to delete it
+				continue
+			}
 			m.need[n] = true
 		}
 	}
