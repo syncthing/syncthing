@@ -28,10 +28,23 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
                     data[id].outbps = 0;
                 }
             }
-
             $scope.connections = data;
         });
         $http.get("/rest/need").success(function (data) {
+            var i, name;
+            for (i = 0; i < data.length; i++) {
+                name = data[i].Name.split("/");
+                data[i].ShortName = name[name.length-1];
+            }
+            data.sort(function (a, b) {
+                if (a.ShortName < b.ShortName) {
+                    return -1;
+                }
+                if (a.ShortName > b.ShortName) {
+                    return 1;
+                }
+                return 0;
+            });
             $scope.need = data;
         });
     };

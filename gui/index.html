@@ -56,10 +56,10 @@ body {
 
             <div ng-show="model.needFiles > 0">
                 <h2>Files to Synchronize</h2>
-                <table class="table table-condesed table-striped">
+                <table class="table table-condensed table-striped">
                     <tr ng-repeat="file in need track by $index">
-                        <td>{{file.Name}}</td>
-                        <td>{{file.Size | binary}}B</td>
+                        <td><abbr title="{{file.Name}}">{{file.ShortName}}</abbr></td>
+                        <td class="text-right">{{file.Size | binary}}B</td>
                     </tr>
                 </table>
             </div>
