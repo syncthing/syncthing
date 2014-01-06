@@ -1,6 +1,7 @@
 #!/bin/bash
 
 version=$(git describe --always)
+buildDir=dist
 
 if [[ -z $1 ]] ; then
 	go build -ldflags "-X main.Version $version" \
@@ -8,8 +9,8 @@ if [[ -z $1 ]] ; then
 else
 	go test ./... || exit 1
 
-	rm -rf build
-	mkdir -p build || exit 1
+	rm -rf "$buildDir"
+	mkdir -p "$buildDir" || exit 1
 
 	for goos in darwin linux freebsd ; do
 		for goarch in amd64 386 ; do
@@ -20,10 +21,10 @@ else
 			go build -ldflags "-X main.Version $version" \
 				&& nrsc syncthing gui \
 				&& mkdir -p "$name" \
-				&& cp syncthing "build/$name" \
+				&& cp syncthing "$buildDir/$name" \
 				&& cp README.md LICENSE "$name" \
 				&& mv syncthing "$name" \
-				&& tar zcf "build/$name.tar.gz" "$name" \
+				&& tar zcf "$buildDir/$name.tar.gz" "$name" \
 				&& rm -r  "$name"
 		done
 	done
@@ -37,9 +38,9 @@ else
 			go build -ldflags "-X main.Version $version" \
 				&& nrsc syncthing.exe gui \
 				&& mkdir -p "$name" \
-				&& cp syncthing.exe "build/$name.exe" \
+				&& cp syncthing.exe "$buildDir/$name.exe" \
 				&& cp README.md LICENSE "$name" \
-				&& zip -qr "build/$name.zip" "$name" \
+				&& zip -qr "$buildDir/$name.zip" "$name" \
 				&& rm -r  "$name"
 		done
 	done
