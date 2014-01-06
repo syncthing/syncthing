@@ -1,7 +1,9 @@
 package model
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -35,7 +37,7 @@ func tempName(name string, modified int64) string {
 	return path.Join(tdir, tname)
 }
 
-func (m *Model) genWalker(res *[]File) filepath.WalkFunc {
+func (m *Model) genWalker(res *[]File, ign map[string][]string) filepath.WalkFunc {
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -45,12 +47,26 @@ func (m *Model) genWalker(res *[]File) filepath.WalkFunc {
 			return nil
 		}
 
-		if info.Mode()&os.ModeType == 0 {
-			rn, err := filepath.Rel(m.dir, p)
-			if err != nil {
-				return nil
-			}
+		rn, err := filepath.Rel(m.dir, p)
+		if err != nil {
+			return nil
+		}
 
+		if pn, sn := path.Split(rn); sn == ".stignore" {
+			pn := strings.Trim(pn, "/")
+			bs, _ := ioutil.ReadFile(p)
+			lines := bytes.Split(bs, []byte("\n"))
+			var patterns []string
+			for _, line := range lines {
+				if len(line) > 0 {
+					patterns = append(patterns, string(line))
+				}
+			}
+			ign[pn] = patterns
+			return nil
+		}
+
+		if info.Mode()&os.ModeType == 0 {
 			fi, err := os.Stat(p)
 			if err != nil {
 				return nil
@@ -94,21 +110,21 @@ func (m *Model) genWalker(res *[]File) filepath.WalkFunc {
 
 // Walk returns the list of files found in the local repository by scanning the
 // file system. Files are blockwise hashed.
-func (m *Model) Walk(followSymlinks bool) []File {
-	var files []File
-	fn := m.genWalker(&files)
+func (m *Model) Walk(followSymlinks bool) (files []File, ignore map[string][]string) {
+	ignore = make(map[string][]string)
+	fn := m.genWalker(&files, ignore)
 	filepath.Walk(m.dir, fn)
 
 	if followSymlinks {
 		d, err := os.Open(m.dir)
 		if err != nil {
-			return files
+			return
 		}
 		defer d.Close()
 
 		fis, err := d.Readdir(-1)
 		if err != nil {
-			return files
+			return
 		}
 
 		for _, fi := range fis {
@@ -118,7 +134,15 @@ func (m *Model) Walk(followSymlinks bool) []File {
 		}
 	}
 
-	return files
+	return
+}
+
+// Walk returns the list of files found in the local repository by scanning the
+// file system. Files are blockwise hashed. Patterns marked in .stignore files
+// are removed from the results.
+func (m *Model) FilteredWalk(followSymlinks bool) []File {
+	var files, ignored = m.Walk(followSymlinks)
+	return ignoreFilter(ignored, files)
 }
 
 func (m *Model) cleanTempFile(path string, info os.FileInfo, err error) error {
@@ -136,4 +160,22 @@ func (m *Model) cleanTempFile(path string, info os.FileInfo, err error) error {
 
 func (m *Model) cleanTempFiles() {
 	filepath.Walk(m.dir, m.cleanTempFile)
+}
+
+func ignoreFilter(patterns map[string][]string, files []File) (filtered []File) {
+nextFile:
+	for _, f := range files {
+		first, last := path.Split(f.Name)
+		for prefix, pats := range patterns {
+			if len(prefix) == 0 || prefix == first || strings.HasPrefix(first, prefix+"/") {
+				for _, pattern := range pats {
+					if match, _ := path.Match(pattern, last); match {
+						continue nextFile
+					}
+				}
+			}
+		}
+		filtered = append(filtered, f)
+	}
+	return filtered
 }

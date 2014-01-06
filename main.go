@@ -333,7 +333,7 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.M
 }
 
 func updateLocalModel(m *model.Model) {
-	files := m.Walk(!opts.NoSymlinks)
+	files := m.FilteredWalk(!opts.NoSymlinks)
 	m.ReplaceLocal(files)
 	saveIndex(m)
 }

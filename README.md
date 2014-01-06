@@ -186,6 +186,15 @@ $ syncthing --gui 127.0.0.1:8080
 
 You then point your browser to the given address.
 
+Excluding Files
+---------------
+
+syncthing looks for files named `.stignore` while walking the
+repository. The file is expected to contain glob patterns of file names
+to ignore. Patterns are matched on file name only and apply to files in
+the same directory as the `.stignore` file and in directories lower down
+in the hierarchy.
+
 License
 =======
 

@@ -58,7 +58,7 @@ func init() {
 
 func TestUpdateLocal(t *testing.T) {
 	m := NewModel("testdata")
-	fs := m.Walk(false)
+	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	if len(m.need) > 0 {
@@ -100,7 +100,7 @@ func TestUpdateLocal(t *testing.T) {
 
 func TestRemoteUpdateExisting(t *testing.T) {
 	m := NewModel("testdata")
-	fs := m.Walk(false)
+	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	newFile := protocol.FileInfo{
@@ -117,7 +117,7 @@ func TestRemoteUpdateExisting(t *testing.T) {
 
 func TestRemoteAddNew(t *testing.T) {
 	m := NewModel("testdata")
-	fs := m.Walk(false)
+	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	newFile := protocol.FileInfo{
@@ -134,7 +134,7 @@ func TestRemoteAddNew(t *testing.T) {
 
 func TestRemoteUpdateOld(t *testing.T) {
 	m := NewModel("testdata")
-	fs := m.Walk(false)
+	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	oldTimeStamp := int64(1234)
@@ -152,7 +152,7 @@ func TestRemoteUpdateOld(t *testing.T) {
 
 func TestRemoteIndexUpdate(t *testing.T) {
 	m := NewModel("testdata")
-	fs := m.Walk(false)
+	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	foo := protocol.FileInfo{
@@ -185,7 +185,7 @@ func TestRemoteIndexUpdate(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	m := NewModel("testdata")
-	fs := m.Walk(false)
+	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
@@ -275,7 +275,7 @@ func TestDelete(t *testing.T) {
 
 func TestForgetNode(t *testing.T) {
 	m := NewModel("testdata")
-	fs := m.Walk(false)
+	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
