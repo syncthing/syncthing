@@ -4,7 +4,7 @@ version=$(git describe --always)
 buildDir=dist
 
 if [[ -z $1 ]] ; then
-	go test ./... || exit 1
+	go test ./...
 	go build -ldflags "-X main.Version $version" \
 	&& nrsc syncthing gui
 else
