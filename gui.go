@@ -49,6 +49,9 @@ func restGetModel(m *Model, w http.ResponseWriter) {
 	localFiles, localDeleted, localBytes := m.LocalSize()
 	res["localFiles"], res["localDeleted"], res["localBytes"] = localFiles, localDeleted, localBytes
 
+	inSyncFiles, inSyncBytes := m.InSyncSize()
+	res["inSyncFiles"], res["inSyncBytes"] = inSyncFiles, inSyncBytes
+
 	files, total := m.NeedFiles()
 	res["needFiles"], res["needBytes"] = len(files), total
 

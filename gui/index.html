@@ -37,9 +37,12 @@ body {
         <div class="col-md-12">
             <h2>Synchronization</h2>
             <div class="progress">
-                <div class="progress-bar" ng-class="{'progress-bar-success': model.needBytes === 0, 'progress-bar-info': model.needBytes !== 0}" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width: {{100 * model.localFiles / (model.localFiles + model.needFiles) | number:2}}%;"></div>
+                <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"
+                    ng-class="{'progress-bar-success': model.needBytes === 0, 'progress-bar-info': model.needBytes !== 0}"
+                    style="width: {{100 * model.inSyncBytes / model.globalBytes | number:2}}%;">
+                        {{100 * model.inSyncBytes / model.globalBytes | number:0}}%
+                </div>
             </div>
-            <p class="pull-right">{{100 * model.localFiles / (model.localFiles + model.needFiles) | number:2}}%</p>
             <p ng-show="model.needBytes > 0">Need {{model.needFiles | alwaysNumber}} files, {{model.needBytes | binary}}B</p>
         </div>
     </div>

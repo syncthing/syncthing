@@ -132,6 +132,19 @@ func (m *Model) LocalSize() (files, deleted, bytes int) {
 	return
 }
 
+func (m *Model) InSyncSize() (files, bytes int) {
+	m.RLock()
+	defer m.RUnlock()
+
+	for n, f := range m.local {
+		if gf, ok := m.global[n]; ok && f.Modified == gf.Modified {
+			files++
+			bytes += f.Size()
+		}
+	}
+	return
+}
+
 type FileInfo struct {
 	Name string
 	Size int
