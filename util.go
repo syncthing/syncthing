@@ -1,13 +1,6 @@
 package main
 
-import (
-	"fmt"
-	"time"
-)
-
-func timing(name string, t0 time.Time) {
-	debugf("%s: %.02f ms", name, time.Since(t0).Seconds()*1000)
-}
+import "fmt"
 
 func MetricPrefix(n int) string {
 	if n > 1e9 {

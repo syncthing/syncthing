@@ -59,7 +59,6 @@ var opts Options
 var Version string = "unknown-dev"
 
 const (
-	confDirName  = ".syncthing"
 	confFileName = "syncthing.ini"
 )
 
