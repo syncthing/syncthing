@@ -228,8 +228,11 @@ func TestDelete(t *testing.T) {
 	if len(m.local["a new file"].Blocks) != 0 {
 		t.Error("Unexpected non-zero blocks for deleted file in local")
 	}
-	if ft := m.local["a new file"].Modified; ft != ot+1 {
+	if ft := m.local["a new file"].Modified; ft != ot {
 		t.Errorf("Unexpected time %d != %d for deleted file in local", ft, ot+1)
+	}
+	if fv := m.local["a new file"].Version; fv != 1 {
+		t.Errorf("Unexpected version %d != 1 for deleted file in local", fv)
 	}
 
 	if m.global["a new file"].Flags&(1<<12) == 0 {
@@ -238,8 +241,11 @@ func TestDelete(t *testing.T) {
 	if len(m.global["a new file"].Blocks) != 0 {
 		t.Error("Unexpected non-zero blocks for deleted file in global")
 	}
-	if ft := m.local["a new file"].Modified; ft != ot+1 {
-		t.Errorf("Unexpected time %d != %d for deleted file in local", ft, ot+1)
+	if ft := m.global["a new file"].Modified; ft != ot {
+		t.Errorf("Unexpected time %d != %d for deleted file in global", ft, ot+1)
+	}
+	if fv := m.local["a new file"].Version; fv != 1 {
+		t.Errorf("Unexpected version %d != 1 for deleted file in global", fv)
 	}
 
 	// Another update should change nothing
@@ -259,8 +265,11 @@ func TestDelete(t *testing.T) {
 	if len(m.local["a new file"].Blocks) != 0 {
 		t.Error("Unexpected non-zero blocks for deleted file in local")
 	}
-	if ft := m.local["a new file"].Modified; ft != ot+1 {
-		t.Errorf("Unexpected time %d != %d for deleted file in local", ft, ot+1)
+	if ft := m.local["a new file"].Modified; ft != ot {
+		t.Errorf("Unexpected time %d != %d for deleted file in local", ft, ot)
+	}
+	if fv := m.local["a new file"].Version; fv != 1 {
+		t.Errorf("Unexpected version %d != 1 for deleted file in local", fv)
 	}
 
 	if m.global["a new file"].Flags&(1<<12) == 0 {
@@ -269,8 +278,11 @@ func TestDelete(t *testing.T) {
 	if len(m.global["a new file"].Blocks) != 0 {
 		t.Error("Unexpected non-zero blocks for deleted file in global")
 	}
-	if ft := m.local["a new file"].Modified; ft != ot+1 {
-		t.Errorf("Unexpected time %d != %d for deleted file in local", ft, ot+1)
+	if ft := m.global["a new file"].Modified; ft != ot {
+		t.Errorf("Unexpected time %d != %d for deleted file in global", ft, ot)
+	}
+	if fv := m.local["a new file"].Version; fv != 1 {
+		t.Errorf("Unexpected version %d != 1 for deleted file in global", fv)
 	}
 }
 

@@ -56,8 +56,6 @@ type Model struct {
 }
 
 const (
-	FlagDeleted = 1 << 12
-
 	idxBcastHoldtime = 15 * time.Second  // Wait at least this long after the last index modification
 	idxBcastMaxDelay = 120 * time.Second // Unless we've already waited this long
 
@@ -65,7 +63,10 @@ const (
 	maxFileHoldTimeS = 600 // Always allow file changes at least this often
 )
 
-var ErrNoSuchFile = errors.New("no such file")
+var (
+	ErrNoSuchFile = errors.New("no such file")
+	ErrInvalid    = errors.New("file is invalid")
+)
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
@@ -159,7 +160,7 @@ func (m *Model) GlobalSize() (files, deleted, bytes int) {
 	defer m.RUnlock()
 
 	for _, f := range m.global {
-		if f.Flags&FlagDeleted == 0 {
+		if f.Flags&protocol.FlagDeleted == 0 {
 			files++
 			bytes += f.Size()
 		} else {
@@ -176,7 +177,7 @@ func (m *Model) LocalSize() (files, deleted, bytes int) {
 	defer m.RUnlock()
 
 	for _, f := range m.local {
-		if f.Flags&FlagDeleted == 0 {
+		if f.Flags&protocol.FlagDeleted == 0 {
 			files++
 			bytes += f.Size()
 		} else {
@@ -193,7 +194,7 @@ func (m *Model) InSyncSize() (files, bytes int) {
 	defer m.RUnlock()
 
 	for n, f := range m.local {
-		if gf, ok := m.global[n]; ok && f.Modified == gf.Modified {
+		if gf, ok := m.global[n]; ok && f.Equals(gf) {
 			files++
 			bytes += f.Size()
 		}
@@ -249,7 +250,7 @@ func (m *Model) IndexUpdate(nodeID string, fs []protocol.FileInfo) {
 	}
 
 	for _, f := range fs {
-		if f.Flags&FlagDeleted != 0 && !m.delete {
+		if f.Flags&protocol.FlagDeleted != 0 && !m.delete {
 			// Files marked as deleted do not even enter the model
 			continue
 		}
@@ -284,12 +285,15 @@ func (m *Model) Close(node string, err error) {
 func (m *Model) Request(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
 	// Verify that the requested file exists in the local and global model.
 	m.RLock()
-	_, localOk := m.local[name]
+	lf, localOk := m.local[name]
 	_, globalOk := m.global[name]
 	m.RUnlock()
 	if !localOk || !globalOk {
 		log.Printf("SECURITY (nonexistent file) REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
 		return nil, ErrNoSuchFile
+	}
+	if lf.Flags&protocol.FlagInvalid != 0 {
+		return nil, ErrInvalid
 	}
 
 	if m.trace["net"] && nodeID != "<local>" {
@@ -322,7 +326,7 @@ func (m *Model) ReplaceLocal(fs []File) {
 
 	for _, f := range fs {
 		newLocal[f.Name] = f
-		if ef := m.local[f.Name]; ef.Modified != f.Modified {
+		if ef := m.local[f.Name]; !ef.Equals(f) {
 			updated = true
 		}
 	}
@@ -430,7 +434,7 @@ func (m *Model) protocolIndex() []protocol.FileInfo {
 		mf := fileInfoFromFile(f)
 		if m.trace["idx"] {
 			var flagComment string
-			if mf.Flags&FlagDeleted != 0 {
+			if mf.Flags&protocol.FlagDeleted != 0 {
 				flagComment = " (deleted)"
 			}
 			log.Printf("IDX: %q m=%d f=%o%s (%d blocks)", mf.Name, mf.Modified, mf.Flags, flagComment, len(mf.Blocks))
@@ -496,10 +500,10 @@ func (m *Model) markDeletedLocals(newLocal map[string]File) bool {
 	var updated bool
 	for n, f := range m.local {
 		if _, ok := newLocal[n]; !ok {
-			if gf := m.global[n]; gf.Modified <= f.Modified {
-				if f.Flags&FlagDeleted == 0 {
-					f.Flags = FlagDeleted
-					f.Modified = f.Modified + 1
+			if gf := m.global[n]; !gf.NewerThan(f) {
+				if f.Flags&protocol.FlagDeleted == 0 {
+					f.Flags = protocol.FlagDeleted
+					f.Version++
 					f.Blocks = nil
 					updated = true
 				}
@@ -511,7 +515,7 @@ func (m *Model) markDeletedLocals(newLocal map[string]File) bool {
 }
 
 func (m *Model) updateLocal(f File) {
-	if ef, ok := m.local[f.Name]; !ok || ef.Modified != f.Modified {
+	if ef, ok := m.local[f.Name]; !ok || !ef.Equals(f) {
 		m.local[f.Name] = f
 		m.recomputeGlobal()
 		m.recomputeNeed()
@@ -530,7 +534,7 @@ func (m *Model) recomputeGlobal() {
 
 	for _, fs := range m.remote {
 		for n, f := range fs {
-			if cf, ok := newGlobal[n]; !ok || cf.Modified < f.Modified {
+			if cf, ok := newGlobal[n]; !ok || f.NewerThan(cf) {
 				newGlobal[n] = f
 			}
 		}
@@ -543,7 +547,7 @@ func (m *Model) recomputeGlobal() {
 		updated = true
 	} else {
 		for n, f0 := range newGlobal {
-			if f1, ok := m.global[n]; !ok || f0.Modified != f1.Modified {
+			if f1, ok := m.global[n]; !ok || !f0.Equals(f1) {
 				updated = true
 				break
 			}
@@ -561,12 +565,16 @@ func (m *Model) recomputeNeed() {
 	m.need = make(map[string]bool)
 	for n, f := range m.global {
 		hf, ok := m.local[n]
-		if !ok || f.Modified > hf.Modified {
-			if f.Flags&FlagDeleted != 0 && !m.delete {
+		if !ok || f.NewerThan(hf) {
+			if f.Flags&protocol.FlagInvalid != 0 {
+				// Never attempt to sync invalid files
+				continue
+			}
+			if f.Flags&protocol.FlagDeleted != 0 && !m.delete {
 				// Don't want to delete files, so forget this need
 				continue
 			}
-			if f.Flags&FlagDeleted != 0 && !ok {
+			if f.Flags&protocol.FlagDeleted != 0 && !ok {
 				// Don't have the file, so don't need to delete it
 				continue
 			}
@@ -584,7 +592,7 @@ func (m *Model) whoHas(name string) []string {
 
 	gf := m.global[name]
 	for node, files := range m.remote {
-		if file, ok := files[name]; ok && file.Modified == gf.Modified {
+		if file, ok := files[name]; ok && file.Equals(gf) {
 			remote = append(remote, node)
 		}
 	}
@@ -607,6 +615,7 @@ func fileFromFileInfo(f protocol.FileInfo) File {
 		Name:     f.Name,
 		Flags:    f.Flags,
 		Modified: int64(f.Modified),
+		Version:  f.Version,
 		Blocks:   blocks,
 	}
 }
@@ -623,6 +632,7 @@ func fileInfoFromFile(f File) protocol.FileInfo {
 		Name:     f.Name,
 		Flags:    f.Flags,
 		Modified: int64(f.Modified),
+		Version:  f.Version,
 		Blocks:   blocks,
 	}
 }

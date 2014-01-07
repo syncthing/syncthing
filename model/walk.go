@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/calmh/syncthing/protocol"
 )
 
 const BlockSize = 128 * 1024
@@ -18,6 +20,7 @@ type File struct {
 	Name     string
 	Flags    uint32
 	Modified int64
+	Version  uint32
 	Blocks   []Block
 }
 
@@ -26,6 +29,14 @@ func (f File) Size() (bytes int) {
 		bytes += int(b.Length)
 	}
 	return
+}
+
+func (f File) Equals(o File) bool {
+	return f.Modified == o.Modified && f.Version == o.Version
+}
+
+func (f File) NewerThan(o File) bool {
+	return f.Modified > o.Modified || (f.Modified == o.Modified && f.Version > o.Version)
 }
 
 func isTempName(name string) bool {
@@ -79,7 +90,10 @@ func (m *Model) genWalker(res *[]File, ign map[string][]string) filepath.WalkFun
 			m.RUnlock()
 
 			if ok && hf.Modified == modified {
-				// No change
+				if nf := uint32(info.Mode()); nf != hf.Flags {
+					hf.Flags = nf
+					hf.Version++
+				}
 				*res = append(*res, hf)
 			} else {
 				m.Lock()
@@ -89,7 +103,8 @@ func (m *Model) genWalker(res *[]File, ign map[string][]string) filepath.WalkFun
 					}
 
 					if ok {
-						// Files that are ignored will be suppressed but don't actually exist in the local model
+						hf.Flags = protocol.FlagInvalid
+						hf.Version++
 						*res = append(*res, hf)
 					}
 					m.Unlock()

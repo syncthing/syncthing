@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/buffers"
+	"github.com/calmh/syncthing/protocol"
 )
 
 func (m *Model) pullFile(name string) error {
@@ -171,7 +172,7 @@ func (m *Model) puller() {
 				}
 
 				var err error
-				if f.Flags&FlagDeleted == 0 {
+				if f.Flags&protocol.FlagDeleted == 0 {
 					if m.trace["file"] {
 						log.Printf("FILE: Pull %q", n)
 					}

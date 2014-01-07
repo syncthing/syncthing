@@ -20,10 +20,16 @@ const (
 	messageTypeIndexUpdate = 6
 )
 
+const (
+	FlagDeleted = 1 << 12
+	FlagInvalid = 1 << 13
+)
+
 type FileInfo struct {
 	Name     string
 	Flags    uint32
 	Modified int64
+	Version  uint32
 	Blocks   []BlockInfo
 }
 

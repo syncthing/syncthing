@@ -39,6 +39,7 @@ func (w *marshalWriter) writeIndex(idx []FileInfo) {
 		w.writeString(f.Name)
 		w.writeUint32(f.Flags)
 		w.writeUint64(uint64(f.Modified))
+		w.writeUint32(f.Version)
 		w.writeUint32(uint32(len(f.Blocks)))
 		for _, b := range f.Blocks {
 			w.writeUint32(b.Length)
@@ -77,6 +78,7 @@ func (r *marshalReader) readIndex() []FileInfo {
 			files[i].Name = r.readString()
 			files[i].Flags = r.readUint32()
 			files[i].Modified = int64(r.readUint64())
+			files[i].Version = r.readUint32()
 			nblocks := r.readUint32()
 			blocks := make([]BlockInfo, nblocks)
 			for j := range blocks {

@@ -62,11 +62,10 @@ reserved bits must be set to zero.
 All data following the message header is in XDR (RFC 1014) encoding.
 The actual data types in use by BEP, in XDR naming convention, are:
 
- - unsigned int   -- unsigned 32 bit integer
- - hyper          -- signed 64 bit integer
- - unsigned hyper -- signed 64 bit integer
- - opaque<>       -- variable length opaque data
- - string<>       -- variable length string
+ - (unsigned) int   -- (unsigned) 32 bit integer
+ - (unsigned) hyper -- (unsigned) 64 bit integer
+ - opaque<>         -- variable length opaque data
+ - string<>         -- variable length string
 
 The encoding of opaque<> and string<> are identical, the distinction is
 solely in interpretation. Opaque data should not be interpreted as such,
@@ -92,6 +91,7 @@ message.
         string Name<>;
         unsigned int Flags;
         hyper Modified;
+        unsigned int Version;
         BlockInfo Blocks<>;
     }
 
@@ -102,15 +102,19 @@ message.
 
 The file name is the part relative to the repository root. The
 modification time is expressed as the number of seconds since the Unix
-Epoch. The hash algorithm is implied by the hash length. Currently, the
-hash must be 32 bytes long and computed by SHA256.
+Epoch. The version field is a counter that increments each time the file
+changes but resets to zero each time the modification is updated. This
+is used to signal changes to the file (or file metadata) while the
+modification time remains unchanged. The hash algorithm is implied by
+the hash length. Currently, the hash must be 32 bytes long and computed
+by SHA256.
 
 The flags field is made up of the following single bit flags:
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |              Reserved               |D|   Unix Perm. & Mode   |
+    |              Reserved             |I|D|   Unix Perm. & Mode   |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
  - The lower 12 bits hold the common Unix permission and mode bits.
@@ -118,9 +122,13 @@ The flags field is made up of the following single bit flags:
  - Bit 19 ("D") is set when the file has been deleted. The block list
    shall contain zero blocks and the modification time indicates the
    time of deletion or, if deletion time is not reliably determinable,
-   one second past the last know modification time.
+   the last known modification time and a higher version number.
 
- - Bit 0 through 18 are reserved for future use and shall be set to
+ - Bit 18 ("I") is set when the file is invalid and unavailable for
+   synchronization. A peer may set this bit to indicate that it can
+   temporarily not serve data for the file.
+
+ - Bit 0 through 17 are reserved for future use and shall be set to
    zero.
 
 ### Request (Type = 2)

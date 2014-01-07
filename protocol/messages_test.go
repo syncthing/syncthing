@@ -12,8 +12,9 @@ func TestIndex(t *testing.T) {
 	idx := []FileInfo{
 		{
 			"Foo",
-			0755,
+			FlagInvalid & FlagDeleted & 0755,
 			1234567890,
+			142,
 			[]BlockInfo{
 				{12345678, []byte("hash hash hash")},
 				{23456781, []byte("ash hash hashh")},
@@ -23,6 +24,7 @@ func TestIndex(t *testing.T) {
 			"Quux/Quux",
 			0644,
 			2345678901,
+			232323232,
 			[]BlockInfo{
 				{45678123, []byte("4321 hash hash hash")},
 				{56781234, []byte("3214 ash hash hashh")},
@@ -81,6 +83,7 @@ func BenchmarkWriteIndex(b *testing.B) {
 			"Foo",
 			0777,
 			1234567890,
+			424242,
 			[]BlockInfo{
 				{12345678, []byte("hash hash hash")},
 				{23456781, []byte("ash hash hashh")},
@@ -90,6 +93,7 @@ func BenchmarkWriteIndex(b *testing.B) {
 			"Quux/Quux",
 			0644,
 			2345678901,
+			323232,
 			[]BlockInfo{
 				{45678123, []byte("4321 hash hash hash")},
 				{56781234, []byte("3214 ash hash hashh")},
