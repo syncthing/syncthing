@@ -30,7 +30,7 @@ else
 			go build -ldflags "-X main.Version $version" \
 				&& nrsc syncthing gui \
 				&& mkdir -p "$name" \
-				&& mv syncthing "$buildDir/$name" \
+				&& cp syncthing "$buildDir/$name" \
 				&& cp README.md LICENSE "$name" \
 				&& mv syncthing "$name" \
 				&& tar zcf "$buildDir/$name.tar.gz" "$name" \
