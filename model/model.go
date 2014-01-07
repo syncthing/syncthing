@@ -50,6 +50,9 @@ type Model struct {
 	delete         bool
 
 	trace map[string]bool
+
+	fileLastChanged   map[string]time.Time
+	fileWasSuppressed map[string]int
 }
 
 const (
@@ -57,6 +60,9 @@ const (
 
 	idxBcastHoldtime = 15 * time.Second  // Wait at least this long after the last index modification
 	idxBcastMaxDelay = 120 * time.Second // Unless we've already waited this long
+
+	minFileHoldTimeS = 60  // Never allow file changes more often than this
+	maxFileHoldTimeS = 600 // Always allow file changes at least this often
 )
 
 var ErrNoSuchFile = errors.New("no such file")
@@ -66,15 +72,17 @@ var ErrNoSuchFile = errors.New("no such file")
 // for file data without altering the local repository in any way.
 func NewModel(dir string) *Model {
 	m := &Model{
-		dir:          dir,
-		global:       make(map[string]File),
-		local:        make(map[string]File),
-		remote:       make(map[string]map[string]File),
-		need:         make(map[string]bool),
-		nodes:        make(map[string]*protocol.Connection),
-		rawConn:      make(map[string]io.ReadWriteCloser),
-		lastIdxBcast: time.Now(),
-		trace:        make(map[string]bool),
+		dir:               dir,
+		global:            make(map[string]File),
+		local:             make(map[string]File),
+		remote:            make(map[string]map[string]File),
+		need:              make(map[string]bool),
+		nodes:             make(map[string]*protocol.Connection),
+		rawConn:           make(map[string]io.ReadWriteCloser),
+		lastIdxBcast:      time.Now(),
+		trace:             make(map[string]bool),
+		fileLastChanged:   make(map[string]time.Time),
+		fileWasSuppressed: make(map[string]int),
 	}
 
 	go m.broadcastIndexLoop()
@@ -304,6 +312,7 @@ func (m *Model) Request(nodeID, name string, offset uint64, size uint32, hash []
 }
 
 // ReplaceLocal replaces the local repository index with the given list of files.
+// Change suppression is applied to files changing too often.
 func (m *Model) ReplaceLocal(fs []File) {
 	m.Lock()
 	defer m.Unlock()
@@ -389,6 +398,28 @@ func (m *Model) AddConnection(conn io.ReadWriteCloser, nodeID string) {
 	go func() {
 		node.Index(idx)
 	}()
+}
+
+func (m *Model) shouldSuppressChange(name string) bool {
+	sup := shouldSuppressChange(m.fileLastChanged[name], m.fileWasSuppressed[name])
+	if sup {
+		m.fileWasSuppressed[name]++
+	} else {
+		m.fileWasSuppressed[name] = 0
+		m.fileLastChanged[name] = time.Now()
+	}
+	return sup
+}
+
+func shouldSuppressChange(lastChange time.Time, numChanges int) bool {
+	sinceLast := time.Since(lastChange)
+	if sinceLast > maxFileHoldTimeS*time.Second {
+		return false
+	}
+	if sinceLast < time.Duration((numChanges+2)*minFileHoldTimeS)*time.Second {
+		return true
+	}
+	return false
 }
 
 // protocolIndex returns the current local index in protocol data types.

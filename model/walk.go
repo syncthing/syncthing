@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const BlockSize = 128 * 1024
@@ -81,17 +82,38 @@ func (m *Model) genWalker(res *[]File, ign map[string][]string) filepath.WalkFun
 				// No change
 				*res = append(*res, hf)
 			} else {
+				m.Lock()
+				if m.shouldSuppressChange(rn) {
+					if m.trace["file"] {
+						log.Println("FILE: SUPPRESS:", rn, m.fileWasSuppressed[rn], time.Since(m.fileLastChanged[rn]))
+					}
+
+					if ok {
+						// Files that are ignored will be suppressed but don't actually exist in the local model
+						*res = append(*res, hf)
+					}
+					m.Unlock()
+					return nil
+				}
+				m.Unlock()
+
 				if m.trace["file"] {
 					log.Printf("FILE: Hash %q", p)
 				}
 				fd, err := os.Open(p)
 				if err != nil {
+					if m.trace["file"] {
+						log.Printf("FILE: %q: %v", p, err)
+					}
 					return nil
 				}
 				defer fd.Close()
 
 				blocks, err := Blocks(fd, BlockSize)
 				if err != nil {
+					if m.trace["file"] {
+						log.Printf("FILE: %q: %v", p, err)
+					}
 					return nil
 				}
 				f := File{
