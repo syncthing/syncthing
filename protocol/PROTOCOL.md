@@ -9,7 +9,7 @@ Each node has a _repository_ of files described by the _local model_,
 containing modifications times and block hashes. The local model is sent
 to the other nodes in the cluster. The union of all files in the local
 models, with files selected for most recent modification time, forms the
-_global model_. Each node strives to get it's repository in synch with
+_global model_. Each node strives to get it's repository in sync with
 the global model by requesting missing blocks from the other nodes.
 
 Transport and Authentication
