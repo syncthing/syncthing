@@ -7,6 +7,14 @@ if [[ -z $1 ]] ; then
 	go test ./...
 	go build -ldflags "-X main.Version $version" \
 	&& nrsc syncthing gui
+elif [[ $1 == "tar" ]] ; then
+	go test ./...
+	go build -ldflags "-X main.Version $version" \
+	&& nrsc syncthing gui \
+	&& mkdir syncthing-dist \
+	&& cp syncthing README.md LICENSE syncthing-dist \
+	&& tar zcvf syncthing-dist.tar.gz syncthing-dist \
+	&& rm -rf syncthing-dist
 else
 	go test ./... || exit 1
 
