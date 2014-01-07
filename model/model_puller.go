@@ -121,6 +121,11 @@ func (m *Model) pullFile(name string) error {
 		return err
 	}
 
+	err = os.Chmod(tmpFilename, os.FileMode(globalFile.Flags&0777))
+	if err != nil {
+		return err
+	}
+
 	err = os.Rename(tmpFilename, filename)
 	if err != nil {
 		return err
