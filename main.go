@@ -24,8 +24,8 @@ type Options struct {
 	ConfDir    string           `short:"c" long:"cfg" description:"Configuration directory" default:"~/.syncthing" value-name:"DIR"`
 	Listen     string           `short:"l" long:"listen" description:"Listen address" default:":22000" value-name:"ADDR"`
 	ReadOnly   bool             `short:"r" long:"ro" description:"Repository is read only"`
-	Delete     bool             `short:"d" long:"delete" description:"Delete files deleted from cluster"`
 	Rehash     bool             `long:"rehash" description:"Ignore cache and rehash all files in repository"`
+	NoDelete   bool             `long:"no-delete" description:"Never delete files"`
 	NoSymlinks bool             `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
 	NoStats    bool             `long:"no-stats" description:"Don't print model and connection statistics"`
 	GUIAddr    string           `long:"gui" description:"GUI listen address" default:"" value-name:"ADDR"`
@@ -164,13 +164,13 @@ func main() {
 	// Routine to pull blocks from other nodes to synchronize the local
 	// repository. Does not run when we are in read only (publish only) mode.
 	if !opts.ReadOnly {
-		if opts.Delete {
-			infoln("Deletes from peer nodes are allowed")
-		} else {
+		if opts.NoDelete {
 			infoln("Deletes from peer nodes will be ignored")
+		} else {
+			infoln("Deletes from peer nodes are allowed")
 		}
 		okln("Ready to synchronize (read-write)")
-		m.StartRW(opts.Delete, opts.Advanced.FilesInFlight, opts.Advanced.RequestsInFlight)
+		m.StartRW(!opts.NoDelete, opts.Advanced.FilesInFlight, opts.Advanced.RequestsInFlight)
 	} else {
 		okln("Ready to synchronize (read only; no external updates accepted)")
 	}
