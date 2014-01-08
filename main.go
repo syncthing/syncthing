@@ -3,6 +3,7 @@ package main
 import (
 	"compress/gzip"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -21,18 +22,19 @@ import (
 )
 
 type Options struct {
-	ConfDir    string           `short:"c" long:"cfg" description:"Configuration directory" default:"~/.syncthing" value-name:"DIR"`
-	Listen     string           `short:"l" long:"listen" description:"Listen address" default:":22000" value-name:"ADDR"`
-	ReadOnly   bool             `short:"r" long:"ro" description:"Repository is read only"`
-	Rehash     bool             `long:"rehash" description:"Ignore cache and rehash all files in repository"`
-	NoDelete   bool             `long:"no-delete" description:"Never delete files"`
-	NoSymlinks bool             `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
-	NoStats    bool             `long:"no-stats" description:"Don't print model and connection statistics"`
-	NoGUI      bool             `long:"no-gui" description:"Don't start GUI"`
-	GUIAddr    string           `long:"gui-addr" description:"GUI listen address" default:"127.0.0.1:8080" value-name:"ADDR"`
-	Discovery  DiscoveryOptions `group:"Discovery Options"`
-	Advanced   AdvancedOptions  `group:"Advanced Options"`
-	Debug      DebugOptions     `group:"Debugging Options"`
+	ConfDir     string           `short:"c" long:"cfg" description:"Configuration directory" default:"~/.syncthing" value-name:"DIR"`
+	Listen      string           `short:"l" long:"listen" description:"Listen address" default:":22000" value-name:"ADDR"`
+	ReadOnly    bool             `short:"r" long:"ro" description:"Repository is read only"`
+	Rehash      bool             `long:"rehash" description:"Ignore cache and rehash all files in repository"`
+	NoDelete    bool             `long:"no-delete" description:"Never delete files"`
+	NoSymlinks  bool             `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
+	NoStats     bool             `long:"no-stats" description:"Don't print model and connection statistics"`
+	NoGUI       bool             `long:"no-gui" description:"Don't start GUI"`
+	GUIAddr     string           `long:"gui-addr" description:"GUI listen address" default:"127.0.0.1:8080" value-name:"ADDR"`
+	ShowVersion bool             `short:"v" long:"version" description:"Show version"`
+	Discovery   DiscoveryOptions `group:"Discovery Options"`
+	Advanced    AdvancedOptions  `group:"Advanced Options"`
+	Debug       DebugOptions     `group:"Debugging Options"`
 }
 
 type DebugOptions struct {
@@ -71,8 +73,14 @@ var (
 func main() {
 	_, err := flags.Parse(&opts)
 	if err != nil {
+		fatalln(err)
+	}
+
+	if opts.ShowVersion {
+		fmt.Println(Version)
 		os.Exit(0)
 	}
+
 	if len(opts.Debug.TraceModel) > 0 || opts.Debug.LogSource {
 		logger = log.New(os.Stderr, "", log.Lshortfile|log.Ldate|log.Ltime|log.Lmicroseconds)
 	}
