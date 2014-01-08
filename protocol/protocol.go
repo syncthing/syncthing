@@ -61,7 +61,7 @@ type Connection struct {
 	closed    bool
 	awaiting  map[int]chan asyncResult
 	nextId    int
-	indexSent map[string]int64
+	indexSent map[string][2]int64
 
 	hasSentIndex  bool
 	hasRecvdIndex bool
@@ -112,18 +112,18 @@ func (c *Connection) Index(idx []FileInfo) {
 		// This is the first time we send an index.
 		msgType = messageTypeIndex
 
-		c.indexSent = make(map[string]int64)
+		c.indexSent = make(map[string][2]int64)
 		for _, f := range idx {
-			c.indexSent[f.Name] = f.Modified
+			c.indexSent[f.Name] = [2]int64{f.Modified, int64(f.Version)}
 		}
 	} else {
 		// We have sent one full index. Only send updates now.
 		msgType = messageTypeIndexUpdate
 		var diff []FileInfo
 		for _, f := range idx {
-			if modified, ok := c.indexSent[f.Name]; !ok || f.Modified != modified {
+			if vs, ok := c.indexSent[f.Name]; !ok || f.Modified != vs[0] || int64(f.Version) != vs[1] {
 				diff = append(diff, f)
-				c.indexSent[f.Name] = f.Modified
+				c.indexSent[f.Name] = [2]int64{f.Modified, int64(f.Version)}
 			}
 		}
 		idx = diff

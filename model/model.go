@@ -228,6 +228,13 @@ func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {
 	m.remote[nodeID] = make(map[string]File)
 	for _, f := range fs {
 		m.remote[nodeID][f.Name] = fileFromFileInfo(f)
+		if m.trace["idx"] {
+			var flagComment string
+			if f.Flags&protocol.FlagDeleted != 0 {
+				flagComment = " (deleted)"
+			}
+			log.Printf("IDX(in): %q m=%d f=%o%s v=%d (%d blocks)", f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
+		}
 	}
 
 	m.recomputeGlobal()
@@ -250,11 +257,14 @@ func (m *Model) IndexUpdate(nodeID string, fs []protocol.FileInfo) {
 	}
 
 	for _, f := range fs {
-		if f.Flags&protocol.FlagDeleted != 0 && !m.delete {
-			// Files marked as deleted do not even enter the model
-			continue
-		}
 		repo[f.Name] = fileFromFileInfo(f)
+		if m.trace["idx"] {
+			var flagComment string
+			if f.Flags&protocol.FlagDeleted != 0 {
+				flagComment = " (deleted)"
+			}
+			log.Printf("IDX(in-up): %q m=%d f=%o%s v=%d (%d blocks)", f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
+		}
 	}
 
 	m.recomputeGlobal()
@@ -437,7 +447,7 @@ func (m *Model) protocolIndex() []protocol.FileInfo {
 			if mf.Flags&protocol.FlagDeleted != 0 {
 				flagComment = " (deleted)"
 			}
-			log.Printf("IDX: %q m=%d f=%o%s (%d blocks)", mf.Name, mf.Modified, mf.Flags, flagComment, len(mf.Blocks))
+			log.Printf("IDX(out): %q m=%d f=%o%s v=%d (%d blocks)", mf.Name, mf.Modified, mf.Flags, flagComment, mf.Version, len(mf.Blocks))
 		}
 		index = append(index, mf)
 	}
@@ -533,9 +543,9 @@ func (m *Model) recomputeGlobal() {
 	}
 
 	for _, fs := range m.remote {
-		for n, f := range fs {
-			if cf, ok := newGlobal[n]; !ok || f.NewerThan(cf) {
-				newGlobal[n] = f
+		for n, nf := range fs {
+			if lf, ok := newGlobal[n]; !ok || nf.NewerThan(lf) {
+				newGlobal[n] = nf
 			}
 		}
 	}
@@ -563,23 +573,23 @@ func (m *Model) recomputeGlobal() {
 // Must be called with the write lock held.
 func (m *Model) recomputeNeed() {
 	m.need = make(map[string]bool)
-	for n, f := range m.global {
-		hf, ok := m.local[n]
-		if !ok || f.NewerThan(hf) {
-			if f.Flags&protocol.FlagInvalid != 0 {
+	for n, gf := range m.global {
+		lf, ok := m.local[n]
+		if !ok || gf.NewerThan(lf) {
+			if gf.Flags&protocol.FlagInvalid != 0 {
 				// Never attempt to sync invalid files
 				continue
 			}
-			if f.Flags&protocol.FlagDeleted != 0 && !m.delete {
+			if gf.Flags&protocol.FlagDeleted != 0 && !m.delete {
 				// Don't want to delete files, so forget this need
 				continue
 			}
-			if f.Flags&protocol.FlagDeleted != 0 && !ok {
+			if gf.Flags&protocol.FlagDeleted != 0 && !ok {
 				// Don't have the file, so don't need to delete it
 				continue
 			}
 			if m.trace["need"] {
-				log.Println("NEED:", ok, hf, f)
+				log.Println("NEED:", ok, lf, gf)
 			}
 			m.need[n] = true
 		}
