@@ -29,7 +29,10 @@ func startGUI(addr string, m *model.Model) {
 		mr.Use(martini.Recovery())
 		mr.Action(router.Handle)
 		mr.Map(m)
-		http.ListenAndServe(addr, mr)
+		err := http.ListenAndServe(addr, mr)
+		if err != nil {
+			warnln("GUI not possible:", err)
+		}
 	}()
 }
 

@@ -28,7 +28,8 @@ type Options struct {
 	NoDelete   bool             `long:"no-delete" description:"Never delete files"`
 	NoSymlinks bool             `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
 	NoStats    bool             `long:"no-stats" description:"Don't print model and connection statistics"`
-	GUIAddr    string           `long:"gui" description:"GUI listen address" default:"" value-name:"ADDR"`
+	NoGUI      bool             `long:"no-gui" description:"Don't start GUI"`
+	GUIAddr    string           `long:"gui-addr" description:"GUI listen address" default:"127.0.0.1:8080" value-name:"ADDR"`
 	Discovery  DiscoveryOptions `group:"Discovery Options"`
 	Advanced   AdvancedOptions  `group:"Advanced Options"`
 	Debug      DebugOptions     `group:"Debugging Options"`
@@ -139,7 +140,7 @@ func main() {
 	}
 
 	// GUI
-	if opts.GUIAddr != "" {
+	if !opts.NoGUI && opts.GUIAddr != "" {
 		startGUI(opts.GUIAddr, m)
 	}
 
