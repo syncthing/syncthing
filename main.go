@@ -10,6 +10,8 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"path"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -79,6 +81,14 @@ func main() {
 	if opts.ShowVersion {
 		fmt.Println(Version)
 		os.Exit(0)
+	}
+
+	if len(os.Getenv("GOGC")) == 0 {
+		debug.SetGCPercent(25)
+	}
+
+	if len(os.Getenv("GOMAXPROCS")) == 0 {
+		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
 	if len(opts.Debug.TraceModel) > 0 || opts.Debug.LogSource {

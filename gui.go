@@ -8,6 +8,8 @@ import (
 	"mime"
 	"net/http"
 	"path/filepath"
+	"runtime"
+	"sync"
 
 	"bitbucket.org/tebeka/nrsc"
 	"github.com/calmh/syncthing/model"
@@ -22,6 +24,7 @@ func startGUI(addr string, m *model.Model) {
 	router.Get("/rest/connections", restGetConnections)
 	router.Get("/rest/config", restGetConfig)
 	router.Get("/rest/need", restGetNeed)
+	router.Get("/rest/system", restGetSystem)
 
 	go func() {
 		mr := martini.New()
@@ -34,6 +37,7 @@ func startGUI(addr string, m *model.Model) {
 			warnln("GUI not possible:", err)
 		}
 	}()
+
 }
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +102,25 @@ func restGetNeed(m *model.Model, w http.ResponseWriter) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(gfs)
+}
+
+var cpuUsagePercent float64
+var cpuUsageLock sync.RWMutex
+
+func restGetSystem(w http.ResponseWriter) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	res := make(map[string]interface{})
+	res["goroutines"] = runtime.NumGoroutine()
+	res["alloc"] = m.Alloc
+	res["sys"] = m.Sys
+	cpuUsageLock.RLock()
+	res["cpuPercent"] = cpuUsagePercent
+	cpuUsageLock.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(res)
 }
 
 func nrscStatic(path string) interface{} {

@@ -47,27 +47,42 @@ html, body {
 
         <div class="row">
             <div class="col-md-12">
-                <h2>Synchronization</h2>
-                <div class="progress">
-                    <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"
-                        ng-class="{'progress-bar-success': model.needBytes === 0, 'progress-bar-info': model.needBytes !== 0}"
-                        style="width: {{100 * model.inSyncBytes / model.globalBytes | number:2}}%;">
-                        {{100 * model.inSyncBytes / model.globalBytes | number:0}}%
+                <div class="panel" ng-class="{'panel-success': model.needBytes === 0, 'panel-primary': model.needBytes !== 0}">
+                    <div class="panel-heading"><h3 class="panel-title">Synchronization</h3></div>
+                    <div class="panel-body">
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"
+                                ng-class="{'progress-bar-success': model.needBytes === 0, 'progress-bar-info': model.needBytes !== 0}"
+                                style="width: {{100 * model.inSyncBytes / model.globalBytes | number:2}}%;">
+                                 {{100 * model.inSyncBytes / model.globalBytes | alwaysNumber | number:0}}%
+                            </div>
+                        </div>
+                        <p ng-show="model.needBytes > 0">Need {{model.needFiles | alwaysNumber}} files, {{model.needBytes | binary}}B</p>
                     </div>
                 </div>
-                <p ng-show="model.needBytes > 0">Need {{model.needFiles | alwaysNumber}} files, {{model.needBytes | binary}}B</p>
             </div>
         </div>
 
         <div class="row">
             <div class="col-md-6">
-                <h1>Repository Status</h1>
+                <div class="panel panel-info">
+                    <div class="panel-heading"><h3 class="panel-title">Repository</h3></div>
+                    <div class="panel-body">
+                        <p>Cluster contains {{model.globalFiles | alwaysNumber}} files, {{model.globalBytes | binary}}B
+                        <span class="text-muted">(+{{model.globalDeleted | alwaysNumber}} delete records)</span></p>
 
-                <p>Cluster contains {{model.globalFiles | alwaysNumber}} files, {{model.globalBytes | binary}}B
-                <span class="text-muted">(+{{model.globalDeleted | alwaysNumber}} delete records)</span></p>
+                        <p>Local repository has {{model.localFiles | alwaysNumber}} files, {{model.localBytes | binary}}B
+                        <span class="text-muted">(+{{model.localDeleted | alwaysNumber}} delete records)</span></p>
+                    </div>
+                </div>
 
-                <p>Local repository has {{model.localFiles | alwaysNumber}} files, {{model.localBytes | binary}}B
-                <span class="text-muted">(+{{model.localDeleted | alwaysNumber}} delete records)</span></p>
+                <div class="panel panel-info">
+                    <div class="panel-heading"><h3 class="panel-title">System</h3></div>
+                    <div class="panel-body">
+                        <p>{{system.sys | binary}}B RAM allocated, {{system.alloc | binary}}B in use</p>
+                        <p>{{system.cpuPercent | alwaysNumber | natural:1}}% CPU, {{system.goroutines | alwaysNumber}} goroutines</p>
+                    </div>
+                </div>
 
                 <div ng-show="model.needFiles > 0">
                     <h2>Files to Synchronize</h2>
@@ -80,32 +95,34 @@ html, body {
                 </div>
             </div>
             <div class="col-md-6">
-                <h1>Cluster Status</h1>
-                <table class="table table-condensed">
-                    <tbody>
-                    <tr ng-repeat="(node, address) in config.nodes" ng-class="{'text-primary': !!connections[node]}">
-                        <td><abbr class="text-monospace" title="{{node}}">{{node | short}}</abbr></td>
-                        <td>
-                            <span ng-show="!!connections[node]">
-                                <span class="glyphicon glyphicon-link"></span>
-                                {{connections[node].Address}}
-                            </span>
-                            <span ng-hide="!!connections[node]">
-                                <span class="glyphicon glyphicon-cog"></span>
-                                {{address}}
-                            </span>
-                        </td>
-                        <td class="text-right">
-                            <abbr title="{{connections[node].InBytesTotal | binary}}B">{{connections[node].inbps | metric}}b/s</abbr>
-                            <span class="text-muted glyphicon glyphicon-cloud-download"></span>
-                        </td>
-                        <td class="text-right">
-                            <abbr title="{{connections[node].OutBytesTotal | binary}}B">{{connections[node].outbps | metric}}b/s</abbr>
-                            <span class="text-muted glyphicon glyphicon-cloud-upload"></span>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
+                <div class="panel panel-info">
+                    <div class="panel-heading"><h3 class="panel-title">Cluster</h3></div>
+                    <table class="table table-condensed">
+                        <tbody>
+                        <tr ng-repeat="(node, address) in config.nodes" ng-class="{'text-primary': !!connections[node]}">
+                            <td><abbr class="text-monospace" title="{{node}}">{{node | short}}</abbr></td>
+                            <td>
+                                <span ng-show="!!connections[node]">
+                                    <span class="glyphicon glyphicon-link"></span>
+                                    {{connections[node].Address}}
+                                </span>
+                                <span ng-hide="!!connections[node]">
+                                    <span class="glyphicon glyphicon-cog"></span>
+                                    {{address}}
+                                </span>
+                            </td>
+                            <td class="text-right">
+                                <abbr title="{{connections[node].InBytesTotal | binary}}B">{{connections[node].inbps | metric}}b/s</abbr>
+                                <span class="text-muted glyphicon glyphicon-cloud-download"></span>
+                            </td>
+                            <td class="text-right">
+                                <abbr title="{{connections[node].OutBytesTotal | binary}}B">{{connections[node].outbps | metric}}b/s</abbr>
+                                <span class="text-muted glyphicon glyphicon-cloud-upload"></span>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -123,7 +140,7 @@ html, body {
         <div class="modal-content">
             <div class="modal-header alert alert-danger">
                 <h4 class="modal-title">
-                <span class="glyphicon glyphicon-exclamation-sign"></span>
+                    <span class="glyphicon glyphicon-exclamation-sign"></span>
                     Connection Error
                 </h4>
             </div>
