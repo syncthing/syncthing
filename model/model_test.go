@@ -377,3 +377,32 @@ func TestSuppression(t *testing.T) {
 		}
 	}
 }
+
+func TestIgnoreWithUnknownFlags(t *testing.T) {
+	m := NewModel("testdata")
+	fs, _ := m.Walk(false)
+	m.ReplaceLocal(fs)
+
+	valid := protocol.FileInfo{
+		Name:     "valid",
+		Modified: time.Now().Unix(),
+		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
+		Flags:    protocol.FlagDeleted | 0755,
+	}
+
+	invalid := protocol.FileInfo{
+		Name:     "invalid",
+		Modified: time.Now().Unix(),
+		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
+		Flags:    1<<27 | protocol.FlagDeleted | 0755,
+	}
+
+	m.Index("42", []protocol.FileInfo{valid, invalid})
+
+	if _, ok := m.global[valid.Name]; !ok {
+		t.Error("Model should include", valid)
+	}
+	if _, ok := m.global[invalid.Name]; ok {
+		t.Error("Model not should include", invalid)
+	}
+}

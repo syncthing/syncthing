@@ -225,17 +225,11 @@ func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {
 		log.Printf("NET IDX(in): %s: %d files", nodeID, len(fs))
 	}
 
-	m.remote[nodeID] = make(map[string]File)
+	repo := make(map[string]File)
 	for _, f := range fs {
-		m.remote[nodeID][f.Name] = fileFromFileInfo(f)
-		if m.trace["idx"] {
-			var flagComment string
-			if f.Flags&protocol.FlagDeleted != 0 {
-				flagComment = " (deleted)"
-			}
-			log.Printf("IDX(in): %q m=%d f=%o%s v=%d (%d blocks)", f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
-		}
+		m.indexUpdate(repo, f)
 	}
+	m.remote[nodeID] = repo
 
 	m.recomputeGlobal()
 	m.recomputeNeed()
@@ -253,22 +247,33 @@ func (m *Model) IndexUpdate(nodeID string, fs []protocol.FileInfo) {
 
 	repo, ok := m.remote[nodeID]
 	if !ok {
+		log.Printf("WARNING: Index update from node %s that does not have an index", nodeID)
 		return
 	}
 
 	for _, f := range fs {
-		repo[f.Name] = fileFromFileInfo(f)
-		if m.trace["idx"] {
-			var flagComment string
-			if f.Flags&protocol.FlagDeleted != 0 {
-				flagComment = " (deleted)"
-			}
-			log.Printf("IDX(in-up): %q m=%d f=%o%s v=%d (%d blocks)", f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
-		}
+		m.indexUpdate(repo, f)
 	}
 
 	m.recomputeGlobal()
 	m.recomputeNeed()
+}
+
+func (m *Model) indexUpdate(repo map[string]File, f protocol.FileInfo) {
+	if m.trace["idx"] {
+		var flagComment string
+		if f.Flags&protocol.FlagDeleted != 0 {
+			flagComment = " (deleted)"
+		}
+		log.Printf("IDX(in): %q m=%d f=%o%s v=%d (%d blocks)", f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
+	}
+
+	if extraFlags := f.Flags &^ (protocol.FlagInvalid | protocol.FlagDeleted | 0xfff); extraFlags != 0 {
+		log.Printf("WARNING: IDX(in): Unknown flags 0x%x in index record %+v", extraFlags, f)
+		return
+	}
+
+	repo[f.Name] = fileFromFileInfo(f)
 }
 
 // Close removes the peer from the model and closes the underlyign connection if possible.
