@@ -13,7 +13,6 @@ var testdata = []struct {
 	hash string
 }{
 	{"bar", 10, "2f72cc11a6fcd0271ecef8c61056ee1eb1243be3805bf9a9df98f92f7636b05c"},
-	{"baz/quux", 9, "c154d94e94ba7298a6adb0523afe34d1b6a581d6b893a763d45ddc5e209dcb83"},
 	{"foo", 7, "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f"},
 }
 
@@ -47,21 +46,6 @@ func TestWalk(t *testing.T) {
 
 	if !reflect.DeepEqual(ignores, correctIgnores) {
 		t.Errorf("Incorrect ignores\n  %v\n  %v", correctIgnores, ignores)
-	}
-}
-
-func TestFilteredWalk(t *testing.T) {
-	m := NewModel("testdata")
-	files := m.FilteredWalk(false)
-
-	if len(files) != 2 {
-		t.Fatalf("Incorrect number of walked filtered files %d != 2", len(files))
-	}
-	if files[0].Name != "bar" {
-		t.Error("Incorrect first file", files[0])
-	}
-	if files[1].Name != "foo" {
-		t.Error("Incorrect second file", files[1])
 	}
 }
 

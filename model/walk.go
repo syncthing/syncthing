@@ -49,13 +49,9 @@ func tempName(name string, modified int64) string {
 	return path.Join(tdir, tname)
 }
 
-func (m *Model) genWalker(res *[]File, ign map[string][]string) filepath.WalkFunc {
+func (m *Model) loadIgnoreFiles(ign map[string][]string) filepath.WalkFunc {
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
-		}
-
-		if isTempName(p) {
 			return nil
 		}
 
@@ -75,6 +71,31 @@ func (m *Model) genWalker(res *[]File, ign map[string][]string) filepath.WalkFun
 				}
 			}
 			ign[pn] = patterns
+		}
+
+		return nil
+	}
+}
+
+func (m *Model) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.WalkFunc {
+	return func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if isTempName(p) {
+			return nil
+		}
+
+		rn, err := filepath.Rel(m.dir, p)
+		if err != nil {
+			return nil
+		}
+
+		if ignoreFile(ign, rn) {
+			if m.trace["file"] {
+				log.Println("FILE: IGNORE:", rn)
+			}
 			return nil
 		}
 
@@ -149,8 +170,11 @@ func (m *Model) genWalker(res *[]File, ign map[string][]string) filepath.WalkFun
 // file system. Files are blockwise hashed.
 func (m *Model) Walk(followSymlinks bool) (files []File, ignore map[string][]string) {
 	ignore = make(map[string][]string)
-	fn := m.genWalker(&files, ignore)
-	filepath.Walk(m.dir, fn)
+
+	hashFiles := m.walkAndHashFiles(&files, ignore)
+
+	filepath.Walk(m.dir, m.loadIgnoreFiles(ignore))
+	filepath.Walk(m.dir, hashFiles)
 
 	if followSymlinks {
 		d, err := os.Open(m.dir)
@@ -166,20 +190,14 @@ func (m *Model) Walk(followSymlinks bool) (files []File, ignore map[string][]str
 
 		for _, fi := range fis {
 			if fi.Mode()&os.ModeSymlink != 0 {
-				filepath.Walk(path.Join(m.dir, fi.Name())+"/", fn)
+				dir := path.Join(m.dir, fi.Name()) + "/"
+				filepath.Walk(dir, m.loadIgnoreFiles(ignore))
+				filepath.Walk(dir, hashFiles)
 			}
 		}
 	}
 
 	return
-}
-
-// Walk returns the list of files found in the local repository by scanning the
-// file system. Files are blockwise hashed. Patterns marked in .stignore files
-// are removed from the results.
-func (m *Model) FilteredWalk(followSymlinks bool) []File {
-	var files, ignored = m.Walk(followSymlinks)
-	return ignoreFilter(ignored, files)
 }
 
 func (m *Model) cleanTempFile(path string, info os.FileInfo, err error) error {
@@ -200,19 +218,24 @@ func (m *Model) cleanTempFiles() {
 }
 
 func ignoreFilter(patterns map[string][]string, files []File) (filtered []File) {
-nextFile:
 	for _, f := range files {
-		first, last := path.Split(f.Name)
-		for prefix, pats := range patterns {
-			if len(prefix) == 0 || prefix == first || strings.HasPrefix(first, prefix+"/") {
-				for _, pattern := range pats {
-					if match, _ := path.Match(pattern, last); match {
-						continue nextFile
-					}
+		if !ignoreFile(patterns, f.Name) {
+			filtered = append(filtered, f)
+		}
+	}
+	return filtered
+}
+
+func ignoreFile(patterns map[string][]string, file string) bool {
+	first, last := path.Split(file)
+	for prefix, pats := range patterns {
+		if len(prefix) == 0 || prefix == first || strings.HasPrefix(first, prefix+"/") {
+			for _, pattern := range pats {
+				if match, _ := path.Match(pattern, last); match {
+					return true
 				}
 			}
 		}
-		filtered = append(filtered, f)
 	}
-	return filtered
+	return false
 }
