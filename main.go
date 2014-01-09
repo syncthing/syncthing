@@ -114,11 +114,13 @@ func main() {
 	// connections.
 
 	cfg := &tls.Config{
-		ClientAuth:         tls.RequestClientCert,
-		ServerName:         "syncthing",
-		NextProtos:         []string{"bep/1.0"},
-		InsecureSkipVerify: true,
-		Certificates:       []tls.Certificate{cert},
+		Certificates:           []tls.Certificate{cert},
+		NextProtos:             []string{"bep/1.0"},
+		ServerName:             myID,
+		ClientAuth:             tls.RequestClientCert,
+		SessionTicketsDisabled: true,
+		InsecureSkipVerify:     true,
+		MinVersion:             tls.VersionTLS12,
 	}
 
 	// Load the configuration file, if it exists.
