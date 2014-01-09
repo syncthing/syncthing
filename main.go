@@ -151,6 +151,7 @@ func main() {
 
 	// GUI
 	if !opts.NoGUI && opts.GUIAddr != "" {
+		infoln(fmt.Sprint("Starting GUI at http://", opts.GUIAddr)))
 		startGUI(opts.GUIAddr, m)
 	}
 
