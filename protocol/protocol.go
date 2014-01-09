@@ -52,7 +52,7 @@ type Model interface {
 type Connection struct {
 	sync.RWMutex
 
-	ID        string
+	id        string
 	receiver  Model
 	reader    io.Reader
 	mreader   *marshalReader
@@ -89,19 +89,23 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 	}
 
 	c := Connection{
+		id:       nodeID,
 		receiver: receiver,
 		reader:   flrd,
 		mreader:  &marshalReader{r: flrd},
 		writer:   flwr,
 		mwriter:  &marshalWriter{w: flwr},
 		awaiting: make(map[int]chan asyncResult),
-		ID:       nodeID,
 	}
 
 	go c.readerLoop()
 	go c.pingerLoop()
 
 	return &c
+}
+
+func (c *Connection) ID() string {
+	return c.id
 }
 
 // Index writes the list of file information to the connected peer node
@@ -137,10 +141,10 @@ func (c *Connection) Index(idx []FileInfo) {
 	c.Unlock()
 
 	if err != nil {
-		c.Close(err)
+		c.close(err)
 		return
 	} else if c.mwriter.err != nil {
-		c.Close(c.mwriter.err)
+		c.close(c.mwriter.err)
 		return
 	}
 }
@@ -158,13 +162,13 @@ func (c *Connection) Request(name string, offset uint64, size uint32, hash []byt
 	c.mwriter.writeRequest(request{name, offset, size, hash})
 	if c.mwriter.err != nil {
 		c.Unlock()
-		c.Close(c.mwriter.err)
+		c.close(c.mwriter.err)
 		return nil, c.mwriter.err
 	}
 	err := c.flush()
 	if err != nil {
 		c.Unlock()
-		c.Close(err)
+		c.close(err)
 		return nil, err
 	}
 	c.nextId = (c.nextId + 1) & 0xfff
@@ -177,7 +181,7 @@ func (c *Connection) Request(name string, offset uint64, size uint32, hash []byt
 	return res.val, res.err
 }
 
-func (c *Connection) Ping() bool {
+func (c *Connection) ping() bool {
 	c.Lock()
 	if c.closed {
 		c.Unlock()
@@ -189,11 +193,11 @@ func (c *Connection) Ping() bool {
 	err := c.flush()
 	if err != nil {
 		c.Unlock()
-		c.Close(err)
+		c.close(err)
 		return false
 	} else if c.mwriter.err != nil {
 		c.Unlock()
-		c.Close(c.mwriter.err)
+		c.close(c.mwriter.err)
 		return false
 	}
 	c.nextId = (c.nextId + 1) & 0xfff
@@ -201,9 +205,6 @@ func (c *Connection) Ping() bool {
 
 	res, ok := <-rc
 	return ok && res.err == nil
-}
-
-func (c *Connection) Stop() {
 }
 
 type flusher interface {
@@ -217,7 +218,7 @@ func (c *Connection) flush() error {
 	return nil
 }
 
-func (c *Connection) Close(err error) {
+func (c *Connection) close(err error) {
 	c.Lock()
 	if c.closed {
 		c.Unlock()
@@ -230,7 +231,7 @@ func (c *Connection) Close(err error) {
 	c.awaiting = nil
 	c.Unlock()
 
-	c.receiver.Close(c.ID, err)
+	c.receiver.Close(c.id, err)
 }
 
 func (c *Connection) isClosed() bool {
@@ -244,11 +245,11 @@ loop:
 	for {
 		hdr := c.mreader.readHeader()
 		if c.mreader.err != nil {
-			c.Close(c.mreader.err)
+			c.close(c.mreader.err)
 			break loop
 		}
 		if hdr.version != 0 {
-			c.Close(fmt.Errorf("Protocol error: %s: unknown message version %#x", c.ID, hdr.version))
+			c.close(fmt.Errorf("Protocol error: %s: unknown message version %#x", c.ID, hdr.version))
 			break loop
 		}
 
@@ -256,10 +257,10 @@ loop:
 		case messageTypeIndex:
 			files := c.mreader.readIndex()
 			if c.mreader.err != nil {
-				c.Close(c.mreader.err)
+				c.close(c.mreader.err)
 				break loop
 			} else {
-				c.receiver.Index(c.ID, files)
+				c.receiver.Index(c.id, files)
 			}
 			c.Lock()
 			c.hasRecvdIndex = true
@@ -268,16 +269,16 @@ loop:
 		case messageTypeIndexUpdate:
 			files := c.mreader.readIndex()
 			if c.mreader.err != nil {
-				c.Close(c.mreader.err)
+				c.close(c.mreader.err)
 				break loop
 			} else {
-				c.receiver.IndexUpdate(c.ID, files)
+				c.receiver.IndexUpdate(c.id, files)
 			}
 
 		case messageTypeRequest:
 			req := c.mreader.readRequest()
 			if c.mreader.err != nil {
-				c.Close(c.mreader.err)
+				c.close(c.mreader.err)
 				break loop
 			}
 			go c.processRequest(hdr.msgID, req)
@@ -286,7 +287,7 @@ loop:
 			data := c.mreader.readResponse()
 
 			if c.mreader.err != nil {
-				c.Close(c.mreader.err)
+				c.close(c.mreader.err)
 				break loop
 			} else {
 				c.Lock()
@@ -306,10 +307,10 @@ loop:
 			err := c.flush()
 			c.Unlock()
 			if err != nil {
-				c.Close(err)
+				c.close(err)
 				break loop
 			} else if c.mwriter.err != nil {
-				c.Close(c.mwriter.err)
+				c.close(c.mwriter.err)
 				break loop
 			}
 
@@ -328,14 +329,14 @@ loop:
 			}
 
 		default:
-			c.Close(fmt.Errorf("Protocol error: %s: unknown message type %#x", c.ID, hdr.msgType))
+			c.close(fmt.Errorf("Protocol error: %s: unknown message type %#x", c.ID, hdr.msgType))
 			break loop
 		}
 	}
 }
 
 func (c *Connection) processRequest(msgID int, req request) {
-	data, _ := c.receiver.Request(c.ID, req.name, req.offset, req.size, req.hash)
+	data, _ := c.receiver.Request(c.id, req.name, req.offset, req.size, req.hash)
 
 	c.Lock()
 	c.mwriter.writeUint32(encodeHeader(header{0, msgID, messageTypeResponse}))
@@ -345,9 +346,9 @@ func (c *Connection) processRequest(msgID int, req request) {
 
 	buffers.Put(data)
 	if err != nil {
-		c.Close(err)
+		c.close(err)
 	} else if c.mwriter.err != nil {
-		c.Close(c.mwriter.err)
+		c.close(c.mwriter.err)
 	}
 }
 
@@ -362,15 +363,15 @@ func (c *Connection) pingerLoop() {
 
 		if ready {
 			go func() {
-				rc <- c.Ping()
+				rc <- c.ping()
 			}()
 			select {
 			case ok := <-rc:
 				if !ok {
-					c.Close(fmt.Errorf("Ping failure"))
+					c.close(fmt.Errorf("Ping failure"))
 				}
 			case <-time.After(pingTimeout):
-				c.Close(fmt.Errorf("Ping timeout"))
+				c.close(fmt.Errorf("Ping timeout"))
 			}
 		}
 	}

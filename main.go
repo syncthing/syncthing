@@ -282,7 +282,8 @@ listen:
 
 		for nodeID := range nodeAddrs {
 			if nodeID == remoteID {
-				m.AddConnection(conn, remoteID)
+				protoConn := protocol.NewConnection(remoteID, conn, conn, m)
+				m.AddConnection(conn, protoConn)
 				continue listen
 			}
 		}
@@ -351,7 +352,8 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.M
 					continue
 				}
 
-				m.AddConnection(conn, remoteID)
+				protoConn := protocol.NewConnection(remoteID, conn, conn, m)
+				m.AddConnection(conn, protoConn)
 				continue nextNode
 			}
 		}

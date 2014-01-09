@@ -2,6 +2,7 @@ package model
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -404,5 +405,115 @@ func TestIgnoreWithUnknownFlags(t *testing.T) {
 	}
 	if _, ok := m.global[invalid.Name]; ok {
 		t.Error("Model not should include", invalid)
+	}
+}
+
+func prepareModel(n int, m *Model) []protocol.FileInfo {
+	fs, _ := m.Walk(false)
+	m.ReplaceLocal(fs)
+
+	files := make([]protocol.FileInfo, n)
+	t := time.Now().Unix()
+	for i := 0; i < n; i++ {
+		files[i] = protocol.FileInfo{
+			Name:     fmt.Sprintf("file%d", i),
+			Modified: t,
+			Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
+		}
+	}
+
+	m.Index("42", files)
+	return files
+}
+
+func BenchmarkRecomputeGlobal10k(b *testing.B) {
+	m := NewModel("testdata")
+	prepareModel(10000, m)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.recomputeGlobal()
+	}
+}
+
+func BenchmarkRecomputeNeed10K(b *testing.B) {
+	m := NewModel("testdata")
+	prepareModel(10000, m)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.recomputeNeed()
+	}
+}
+
+func BenchmarkIndexUpdate10000(b *testing.B) {
+	m := NewModel("testdata")
+	files := prepareModel(10000, m)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.IndexUpdate("42", files)
+	}
+}
+
+type FakeConnection struct {
+	id          string
+	requestData []byte
+}
+
+func (FakeConnection) Close() error {
+	return nil
+}
+
+func (f FakeConnection) ID() string {
+	return string(f.id)
+}
+
+func (FakeConnection) Index([]protocol.FileInfo) {}
+
+func (f FakeConnection) Request(name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
+	return f.requestData, nil
+}
+
+func (FakeConnection) Ping() bool {
+	return true
+}
+
+func (FakeConnection) Statistics() protocol.Statistics {
+	return protocol.Statistics{}
+}
+
+func BenchmarkRequest(b *testing.B) {
+	m := NewModel("testdata")
+	fs, _ := m.Walk(false)
+	m.ReplaceLocal(fs)
+
+	const n = 1000
+	files := make([]protocol.FileInfo, n)
+	t := time.Now().Unix()
+	for i := 0; i < n; i++ {
+		files[i] = protocol.FileInfo{
+			Name:     fmt.Sprintf("file%d", i),
+			Modified: t,
+			Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
+		}
+	}
+
+	fc := FakeConnection{
+		id:          "42",
+		requestData: []byte("some data to return"),
+	}
+	m.AddConnection(fc, fc)
+	m.Index("42", files)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		data, err := m.requestGlobal("42", files[i%n].Name, 0, 32, nil)
+		if err != nil {
+			b.Error(err)
+		}
+		if data == nil {
+			b.Error("nil data")
+		}
 	}
 }

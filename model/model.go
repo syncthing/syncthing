@@ -31,12 +31,12 @@ type Model struct {
 	sync.RWMutex
 	dir string
 
-	global  map[string]File // the latest version of each file as it exists in the cluster
-	local   map[string]File // the files we currently have locally on disk
-	remote  map[string]map[string]File
-	need    map[string]bool // the files we need to update
-	nodes   map[string]*protocol.Connection
-	rawConn map[string]io.ReadWriteCloser
+	global    map[string]File // the latest version of each file as it exists in the cluster
+	local     map[string]File // the files we currently have locally on disk
+	remote    map[string]map[string]File
+	need      map[string]bool // the files we need to update
+	protoConn map[string]Connection
+	rawConn   map[string]io.Closer
 
 	updatedLocal int64 // timestamp of last update to local
 	updateGlobal int64 // timestamp of last update to remote
@@ -53,6 +53,13 @@ type Model struct {
 
 	fileLastChanged   map[string]time.Time
 	fileWasSuppressed map[string]int
+}
+
+type Connection interface {
+	ID() string
+	Index([]protocol.FileInfo)
+	Request(name string, offset uint64, size uint32, hash []byte) ([]byte, error)
+	Statistics() protocol.Statistics
 }
 
 const (
@@ -78,8 +85,8 @@ func NewModel(dir string) *Model {
 		local:             make(map[string]File),
 		remote:            make(map[string]map[string]File),
 		need:              make(map[string]bool),
-		nodes:             make(map[string]*protocol.Connection),
-		rawConn:           make(map[string]io.ReadWriteCloser),
+		protoConn:         make(map[string]Connection),
+		rawConn:           make(map[string]io.Closer),
 		lastIdxBcast:      time.Now(),
 		trace:             make(map[string]bool),
 		fileLastChanged:   make(map[string]time.Time),
@@ -141,7 +148,7 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	defer m.RUnlock()
 
 	var res = make(map[string]ConnectionInfo)
-	for node, conn := range m.nodes {
+	for node, conn := range m.protoConn {
 		ci := ConnectionInfo{
 			Statistics: conn.Statistics(),
 		}
@@ -288,7 +295,7 @@ func (m *Model) Close(node string, err error) {
 	}
 
 	delete(m.remote, node)
-	delete(m.nodes, node)
+	delete(m.protoConn, node)
 	delete(m.rawConn, node)
 
 	m.recomputeGlobal()
@@ -383,7 +390,7 @@ func (m *Model) SeedLocal(fs []protocol.FileInfo) {
 func (m *Model) ConnectedTo(nodeID string) bool {
 	m.RLock()
 	defer m.RUnlock()
-	_, ok := m.nodes[nodeID]
+	_, ok := m.protoConn[nodeID]
 	return ok
 }
 
@@ -402,12 +409,11 @@ func (m *Model) RepoID() string {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // repository changes.
-func (m *Model) AddConnection(conn io.ReadWriteCloser, nodeID string) {
-	node := protocol.NewConnection(nodeID, conn, conn, m)
-
+func (m *Model) AddConnection(rawConn io.Closer, protoConn Connection) {
+	nodeID := protoConn.ID()
 	m.Lock()
-	m.nodes[nodeID] = node
-	m.rawConn[nodeID] = conn
+	m.protoConn[nodeID] = protoConn
+	m.rawConn[nodeID] = rawConn
 	m.Unlock()
 
 	m.RLock()
@@ -415,7 +421,7 @@ func (m *Model) AddConnection(conn io.ReadWriteCloser, nodeID string) {
 	m.RUnlock()
 
 	go func() {
-		node.Index(idx)
+		protoConn.Index(idx)
 	}()
 }
 
@@ -461,7 +467,7 @@ func (m *Model) protocolIndex() []protocol.FileInfo {
 
 func (m *Model) requestGlobal(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
 	m.RLock()
-	nc, ok := m.nodes[nodeID]
+	nc, ok := m.protoConn[nodeID]
 	m.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("requestGlobal: no such node: %s", nodeID)
@@ -485,10 +491,10 @@ func (m *Model) broadcastIndexLoop() {
 		if bcastRequested && (holdtimeExceeded || maxDelayExceeded) {
 			m.Lock()
 			var indexWg sync.WaitGroup
-			indexWg.Add(len(m.nodes))
+			indexWg.Add(len(m.protoConn))
 			idx := m.protocolIndex()
 			m.lastIdxBcast = time.Now()
-			for _, node := range m.nodes {
+			for _, node := range m.protoConn {
 				node := node
 				if m.trace["net"] {
 					log.Printf("NET IDX(out/loop): %s: %d files", node.ID, len(idx))
@@ -547,10 +553,14 @@ func (m *Model) recomputeGlobal() {
 		newGlobal[n] = f
 	}
 
+	var highestMod int64
 	for _, fs := range m.remote {
 		for n, nf := range fs {
 			if lf, ok := newGlobal[n]; !ok || nf.NewerThan(lf) {
 				newGlobal[n] = nf
+				if nf.Modified > highestMod {
+					highestMod = nf.Modified
+				}
 			}
 		}
 	}
@@ -558,7 +568,7 @@ func (m *Model) recomputeGlobal() {
 	// Figure out if anything actually changed
 
 	var updated bool
-	if len(newGlobal) != len(m.global) {
+	if highestMod > m.updateGlobal || len(newGlobal) != len(m.global) {
 		updated = true
 	} else {
 		for n, f0 := range newGlobal {
@@ -616,14 +626,14 @@ func (m *Model) whoHas(name string) []string {
 }
 
 func fileFromFileInfo(f protocol.FileInfo) File {
-	var blocks []Block
+	var blocks = make([]Block, len(f.Blocks))
 	var offset uint64
-	for _, b := range f.Blocks {
-		blocks = append(blocks, Block{
+	for i, b := range f.Blocks {
+		blocks[i] = Block{
 			Offset: offset,
 			Length: b.Length,
 			Hash:   b.Hash,
-		})
+		}
 		offset += uint64(b.Length)
 	}
 	return File{
@@ -636,12 +646,12 @@ func fileFromFileInfo(f protocol.FileInfo) File {
 }
 
 func fileInfoFromFile(f File) protocol.FileInfo {
-	var blocks []protocol.BlockInfo
-	for _, b := range f.Blocks {
-		blocks = append(blocks, protocol.BlockInfo{
+	var blocks = make([]protocol.BlockInfo, len(f.Blocks))
+	for i, b := range f.Blocks {
+		blocks[i] = protocol.BlockInfo{
 			Length: b.Length,
 			Hash:   b.Hash,
-		})
+		}
 	}
 	return protocol.FileInfo{
 		Name:     f.Name,
