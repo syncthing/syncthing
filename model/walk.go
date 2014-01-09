@@ -92,6 +92,11 @@ func (m *Model) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.
 			return nil
 		}
 
+		if _, sn := path.Split(rn); sn == ".stignore" {
+			// We never sync the .stignore files
+			return nil
+		}
+
 		if ignoreFile(ign, rn) {
 			if m.trace["file"] {
 				log.Println("FILE: IGNORE:", rn)
