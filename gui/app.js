@@ -1,18 +1,36 @@
 var syncthing = angular.module('syncthing', []);
 
 syncthing.controller('SyncthingCtrl', function ($scope, $http) {
+    var prevDate = 0;
+    var modelGetOK = true;
+
+    function modelGetSucceeded() {
+        if (!modelGetOK) {
+            $('#networkError').modal('hide');
+            modelGetOK = true;
+        }
+    }
+
+    function modelGetFailed() {
+        if (modelGetOK) {
+            $('#networkError').modal({backdrop: 'static', keyboard: false});
+            modelGetOK = false;
+        }
+    }
+
     $http.get("/rest/version").success(function (data) {
         $scope.version = data;
     });
     $http.get("/rest/config").success(function (data) {
         $scope.config = data;
     });
-    
-    var prevDate = 0;
 
     $scope.refresh = function () {
         $http.get("/rest/model").success(function (data) {
             $scope.model = data;
+            modelGetSucceeded();
+        }).error(function () {
+            modelGetFailed();
         });
         $http.get("/rest/connections").success(function (data) {
             var now = Date.now();
@@ -21,8 +39,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
             for (var id in data) {
                 try {
-                    data[id].inbps = 8 * (data[id].InBytesTotal - $scope.connections[id].InBytesTotal) / td;
-                    data[id].outbps = 8 * (data[id].OutBytesTotal - $scope.connections[id].OutBytesTotal) / td;
+                    data[id].inbps = Math.max(0, 8 * (data[id].InBytesTotal - $scope.connections[id].InBytesTotal) / td);
+                    data[id].outbps = Math.max(0, 8 * (data[id].OutBytesTotal - $scope.connections[id].OutBytesTotal) / td);
                 } catch (e) {
                     data[id].inbps = 0;
                     data[id].outbps = 0;
