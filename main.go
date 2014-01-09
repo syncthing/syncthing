@@ -41,7 +41,7 @@ type Options struct {
 
 type DebugOptions struct {
 	LogSource    bool     `long:"log-source"`
-	TraceModel   []string `long:"trace-model" value-name:"TRACE" description:"idx, net, file, need"`
+	TraceModel   []string `long:"trace-model" value-name:"TRACE" description:"idx, net, file, need, pull"`
 	TraceConnect bool     `long:"trace-connect"`
 	Profiler     string   `long:"profiler" value-name:"ADDR"`
 }
@@ -54,8 +54,7 @@ type DiscoveryOptions struct {
 }
 
 type AdvancedOptions struct {
-	RequestsInFlight int           `long:"reqs-in-flight" description:"Parallell in flight requests per file" default:"4" value-name:"REQS"`
-	FilesInFlight    int           `long:"files-in-flight" description:"Parallell in flight file pulls" default:"8" value-name:"FILES"`
+	RequestsInFlight int           `long:"reqs-in-flight" description:"Parallell in flight requests per node" default:"8" value-name:"REQS"`
 	LimitRate        int           `long:"send-rate" description:"Rate limit for outgoing data" default:"0" value-name:"KBPS"`
 	ScanInterval     time.Duration `long:"scan-intv" description:"Repository scan interval" default:"60s" value-name:"INTV"`
 	ConnInterval     time.Duration `long:"conn-intv" description:"Node reconnect interval" default:"60s" value-name:"INTV"`
@@ -205,7 +204,7 @@ func main() {
 			infoln("Deletes from peer nodes are allowed")
 		}
 		okln("Ready to synchronize (read-write)")
-		m.StartRW(!opts.NoDelete, opts.Advanced.FilesInFlight, opts.Advanced.RequestsInFlight)
+		m.StartRW(!opts.NoDelete, opts.Advanced.RequestsInFlight)
 	} else {
 		okln("Ready to synchronize (read only; no external updates accepted)")
 	}

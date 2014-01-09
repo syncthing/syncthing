@@ -4,7 +4,7 @@ import "io"
 
 type request struct {
 	name   string
-	offset uint64
+	offset int64
 	size   uint32
 	hash   []byte
 }
@@ -42,7 +42,7 @@ func (w *marshalWriter) writeIndex(idx []FileInfo) {
 		w.writeUint32(f.Version)
 		w.writeUint32(uint32(len(f.Blocks)))
 		for _, b := range f.Blocks {
-			w.writeUint32(b.Length)
+			w.writeUint32(b.Size)
 			w.writeBytes(b.Hash)
 		}
 	}
@@ -56,7 +56,7 @@ func WriteIndex(w io.Writer, idx []FileInfo) (int, error) {
 
 func (w *marshalWriter) writeRequest(r request) {
 	w.writeString(r.name)
-	w.writeUint64(r.offset)
+	w.writeUint64(uint64(r.offset))
 	w.writeUint32(r.size)
 	w.writeBytes(r.hash)
 }
@@ -82,7 +82,7 @@ func (r *marshalReader) readIndex() []FileInfo {
 			nblocks := r.readUint32()
 			blocks := make([]BlockInfo, nblocks)
 			for j := range blocks {
-				blocks[j].Length = r.readUint32()
+				blocks[j].Size = r.readUint32()
 				blocks[j].Hash = r.readBytes()
 			}
 			files[i].Blocks = blocks
@@ -100,7 +100,7 @@ func ReadIndex(r io.Reader) ([]FileInfo, error) {
 func (r *marshalReader) readRequest() request {
 	var req request
 	req.name = r.readString()
-	req.offset = r.readUint64()
+	req.offset = int64(r.readUint64())
 	req.size = r.readUint32()
 	req.hash = r.readBytes()
 	return req

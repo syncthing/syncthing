@@ -34,8 +34,8 @@ type FileInfo struct {
 }
 
 type BlockInfo struct {
-	Length uint32
-	Hash   []byte
+	Size uint32
+	Hash []byte
 }
 
 type Model interface {
@@ -44,7 +44,7 @@ type Model interface {
 	// An index update was received from the peer node
 	IndexUpdate(nodeID string, files []FileInfo)
 	// A request was made by the peer node
-	Request(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error)
+	Request(nodeID, name string, offset int64, size uint32, hash []byte) ([]byte, error)
 	// The peer node closed the connection
 	Close(nodeID string, err error)
 }
@@ -150,7 +150,7 @@ func (c *Connection) Index(idx []FileInfo) {
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
-func (c *Connection) Request(name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
+func (c *Connection) Request(name string, offset int64, size uint32, hash []byte) ([]byte, error) {
 	c.Lock()
 	if c.closed {
 		c.Unlock()

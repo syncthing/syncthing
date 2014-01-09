@@ -18,7 +18,7 @@ func TestNewModel(t *testing.T) {
 		t.Fatalf("NewModel returned nil")
 	}
 
-	if len(m.need) > 0 {
+	if fs, _ := m.NeedFiles(); len(fs) > 0 {
 		t.Errorf("New model should have no Need")
 	}
 
@@ -32,13 +32,13 @@ var testDataExpected = map[string]File{
 		Name:     "foo",
 		Flags:    0,
 		Modified: 0,
-		Blocks:   []Block{{Offset: 0x0, Length: 0x7, Hash: []uint8{0xae, 0xc0, 0x70, 0x64, 0x5f, 0xe5, 0x3e, 0xe3, 0xb3, 0x76, 0x30, 0x59, 0x37, 0x61, 0x34, 0xf0, 0x58, 0xcc, 0x33, 0x72, 0x47, 0xc9, 0x78, 0xad, 0xd1, 0x78, 0xb6, 0xcc, 0xdf, 0xb0, 0x1, 0x9f}}},
+		Blocks:   []Block{{Offset: 0x0, Size: 0x7, Hash: []uint8{0xae, 0xc0, 0x70, 0x64, 0x5f, 0xe5, 0x3e, 0xe3, 0xb3, 0x76, 0x30, 0x59, 0x37, 0x61, 0x34, 0xf0, 0x58, 0xcc, 0x33, 0x72, 0x47, 0xc9, 0x78, 0xad, 0xd1, 0x78, 0xb6, 0xcc, 0xdf, 0xb0, 0x1, 0x9f}}},
 	},
 	"bar": File{
 		Name:     "bar",
 		Flags:    0,
 		Modified: 0,
-		Blocks:   []Block{{Offset: 0x0, Length: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}},
+		Blocks:   []Block{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}},
 	},
 }
 
@@ -57,7 +57,7 @@ func TestUpdateLocal(t *testing.T) {
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
-	if len(m.need) > 0 {
+	if fs, _ := m.NeedFiles(); len(fs) > 0 {
 		t.Fatalf("Model with only local data should have no need")
 	}
 
@@ -106,8 +106,8 @@ func TestRemoteUpdateExisting(t *testing.T) {
 	}
 	m.Index("42", []protocol.FileInfo{newFile})
 
-	if l := len(m.need); l != 1 {
-		t.Errorf("Model missing Need for one file (%d != 1)", l)
+	if fs, _ := m.NeedFiles(); len(fs) != 1 {
+		t.Errorf("Model missing Need for one file (%d != 1)", len(fs))
 	}
 }
 
@@ -123,8 +123,8 @@ func TestRemoteAddNew(t *testing.T) {
 	}
 	m.Index("42", []protocol.FileInfo{newFile})
 
-	if l1, l2 := len(m.need), 1; l1 != l2 {
-		t.Errorf("Model len(m.need) incorrect (%d != %d)", l1, l2)
+	if fs, _ := m.NeedFiles(); len(fs) != 1 {
+		t.Errorf("Model len(m.need) incorrect (%d != 1)", len(fs))
 	}
 }
 
@@ -141,8 +141,8 @@ func TestRemoteUpdateOld(t *testing.T) {
 	}
 	m.Index("42", []protocol.FileInfo{newFile})
 
-	if l1, l2 := len(m.need), 0; l1 != l2 {
-		t.Errorf("Model len(need) incorrect (%d != %d)", l1, l2)
+	if fs, _ := m.NeedFiles(); len(fs) != 0 {
+		t.Errorf("Model len(need) incorrect (%d != 0)", len(fs))
 	}
 }
 
@@ -165,16 +165,16 @@ func TestRemoteIndexUpdate(t *testing.T) {
 
 	m.Index("42", []protocol.FileInfo{foo})
 
-	if _, ok := m.need["foo"]; !ok {
+	if fs, _ := m.NeedFiles(); fs[0].Name != "foo" {
 		t.Error("Model doesn't need 'foo'")
 	}
 
 	m.IndexUpdate("42", []protocol.FileInfo{bar})
 
-	if _, ok := m.need["foo"]; !ok {
+	if fs, _ := m.NeedFiles(); fs[0].Name != "foo" {
 		t.Error("Model doesn't need 'foo'")
 	}
-	if _, ok := m.need["bar"]; !ok {
+	if fs, _ := m.NeedFiles(); fs[1].Name != "bar" {
 		t.Error("Model doesn't need 'bar'")
 	}
 }
@@ -292,8 +292,8 @@ func TestForgetNode(t *testing.T) {
 	if l1, l2 := len(m.global), len(fs); l1 != l2 {
 		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
 	}
-	if l1, l2 := len(m.need), 0; l1 != l2 {
-		t.Errorf("Model len(need) incorrect (%d != %d)", l1, l2)
+	if fs, _ := m.NeedFiles(); len(fs) != 0 {
+		t.Errorf("Model len(need) incorrect (%d != 0)", len(fs))
 	}
 
 	newFile := protocol.FileInfo{
@@ -309,8 +309,8 @@ func TestForgetNode(t *testing.T) {
 	if l1, l2 := len(m.global), len(fs)+1; l1 != l2 {
 		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
 	}
-	if l1, l2 := len(m.need), 1; l1 != l2 {
-		t.Errorf("Model len(need) incorrect (%d != %d)", l1, l2)
+	if fs, _ := m.NeedFiles(); len(fs) != 1 {
+		t.Errorf("Model len(need) incorrect (%d != 1)", len(fs))
 	}
 
 	m.Close("42", nil)
@@ -321,8 +321,17 @@ func TestForgetNode(t *testing.T) {
 	if l1, l2 := len(m.global), len(fs); l1 != l2 {
 		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
 	}
-	if l1, l2 := len(m.need), 0; l1 != l2 {
-		t.Errorf("Model len(need) incorrect (%d != %d)", l1, l2)
+
+	if fs, _ := m.NeedFiles(); len(fs) != 1 {
+		t.Errorf("Model len(need) incorrect (%d != 1)", len(fs))
+	}
+	// The file will be removed from the need list when we notice there are no nodes that can provide it
+	_, ok := m.fq.Get("42")
+	if ok {
+		t.Errorf("Unexpected successfull Get()")
+	}
+	if fs, _ := m.NeedFiles(); len(fs) != 0 {
+		t.Errorf("Model len(need) incorrect (%d != 0)", len(fs))
 	}
 }
 
@@ -465,7 +474,7 @@ func (f FakeConnection) ID() string {
 
 func (FakeConnection) Index([]protocol.FileInfo) {}
 
-func (f FakeConnection) Request(name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
+func (f FakeConnection) Request(name string, offset int64, size uint32, hash []byte) ([]byte, error) {
 	return f.requestData, nil
 }
 

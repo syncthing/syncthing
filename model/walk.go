@@ -26,9 +26,14 @@ type File struct {
 
 func (f File) Size() (bytes int) {
 	for _, b := range f.Blocks {
-		bytes += int(b.Length)
+		bytes += int(b.Size)
 	}
 	return
+}
+
+func (f File) String() string {
+	return fmt.Sprintf("File{Name:%q, Flags:0x%x, Modified:%d, Version:%d:, NumBlocks:%d}",
+		f.Name, f.Flags, f.Modified, f.Version, len(f.Blocks))
 }
 
 func (f File) Equals(o File) bool {

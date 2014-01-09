@@ -7,15 +7,15 @@ import (
 )
 
 type Block struct {
-	Offset uint64
-	Length uint32
+	Offset int64
+	Size   uint32
 	Hash   []byte
 }
 
 // Blocks returns the blockwise hash of the reader.
 func Blocks(r io.Reader, blocksize int) ([]Block, error) {
 	var blocks []Block
-	var offset uint64
+	var offset int64
 	for {
 		lr := &io.LimitedReader{r, int64(blocksize)}
 		hf := sha256.New()
@@ -30,11 +30,11 @@ func Blocks(r io.Reader, blocksize int) ([]Block, error) {
 
 		b := Block{
 			Offset: offset,
-			Length: uint32(n),
+			Size:   uint32(n),
 			Hash:   hf.Sum(nil),
 		}
 		blocks = append(blocks, b)
-		offset += uint64(n)
+		offset += int64(n)
 	}
 
 	return blocks, nil

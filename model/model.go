@@ -34,9 +34,10 @@ type Model struct {
 	global    map[string]File // the latest version of each file as it exists in the cluster
 	local     map[string]File // the files we currently have locally on disk
 	remote    map[string]map[string]File
-	need      map[string]bool // the files we need to update
 	protoConn map[string]Connection
 	rawConn   map[string]io.Closer
+	fq        FileQueue // queue for files to fetch
+	dq        chan File // queue for files to delete
 
 	updatedLocal int64 // timestamp of last update to local
 	updateGlobal int64 // timestamp of last update to remote
@@ -44,23 +45,22 @@ type Model struct {
 	lastIdxBcast        time.Time
 	lastIdxBcastRequest time.Time
 
-	rwRunning      bool
-	parallellFiles int
-	paralllelReqs  int
-	delete         bool
+	rwRunning bool
+	delete    bool
 
 	trace map[string]bool
 
 	fileLastChanged   map[string]time.Time
 	fileWasSuppressed map[string]int
 
-	limitRequestRate chan struct{}
+	parallellRequests int
+	limitRequestRate  chan struct{}
 }
 
 type Connection interface {
 	ID() string
 	Index([]protocol.FileInfo)
-	Request(name string, offset uint64, size uint32, hash []byte) ([]byte, error)
+	Request(name string, offset int64, size uint32, hash []byte) ([]byte, error)
 	Statistics() protocol.Statistics
 }
 
@@ -86,14 +86,15 @@ func NewModel(dir string) *Model {
 		global:            make(map[string]File),
 		local:             make(map[string]File),
 		remote:            make(map[string]map[string]File),
-		need:              make(map[string]bool),
 		protoConn:         make(map[string]Connection),
 		rawConn:           make(map[string]io.Closer),
 		lastIdxBcast:      time.Now(),
 		trace:             make(map[string]bool),
 		fileLastChanged:   make(map[string]time.Time),
 		fileWasSuppressed: make(map[string]int),
+		dq:                make(chan File),
 	}
+	m.fq.resolver = m
 
 	go m.broadcastIndexLoop()
 	return m
@@ -124,7 +125,7 @@ func (m *Model) Trace(t string) {
 // StartRW starts read/write processing on the current model. When in
 // read/write mode the model will attempt to keep in sync with the cluster by
 // pulling needed files from peer nodes.
-func (m *Model) StartRW(del bool, pfiles, preqs int) {
+func (m *Model) StartRW(del bool, threads int) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -134,11 +135,12 @@ func (m *Model) StartRW(del bool, pfiles, preqs int) {
 
 	m.rwRunning = true
 	m.delete = del
-	m.parallellFiles = pfiles
-	m.paralllelReqs = preqs
+	m.parallellRequests = threads
 
 	go m.cleanTempFiles()
-	go m.puller()
+	if del {
+		go m.deleteFiles()
+	}
 }
 
 // Generation returns an opaque integer that is guaranteed to increment on
@@ -231,7 +233,7 @@ func (m *Model) NeedFiles() (files []File, bytes int) {
 	m.RLock()
 	defer m.RUnlock()
 
-	for n := range m.need {
+	for _, n := range m.fq.QueuedFiles() {
 		f := m.global[n]
 		files = append(files, f)
 		bytes += f.Size()
@@ -321,7 +323,7 @@ func (m *Model) Close(node string, err error) {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *Model) Request(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
+func (m *Model) Request(nodeID, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
 	// Verify that the requested file exists in the local and global model.
 	m.RLock()
 	lf, localOk := m.local[name]
@@ -346,7 +348,7 @@ func (m *Model) Request(nodeID, name string, offset uint64, size uint32, hash []
 	defer fd.Close()
 
 	buf := buffers.Get(int(size))
-	_, err = fd.ReadAt(buf, int64(offset))
+	_, err = fd.ReadAt(buf, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -446,6 +448,39 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn Connection) {
 	go func() {
 		protoConn.Index(idx)
 	}()
+
+	if m.rwRunning {
+		for i := 0; i < m.parallellRequests; i++ {
+			i := i
+			go func() {
+				if m.trace["pull"] {
+					log.Println("PULL: Starting", nodeID, i)
+				}
+				for {
+					m.RLock()
+					if _, ok := m.protoConn[nodeID]; !ok {
+						if m.trace["pull"] {
+							log.Println("PULL: Exiting", nodeID, i)
+						}
+						m.RUnlock()
+						return
+					}
+					m.RUnlock()
+
+					qb, ok := m.fq.Get(nodeID)
+					if ok {
+						if m.trace["pull"] {
+							log.Println("PULL: Request", nodeID, i, qb.name, qb.block.Offset)
+						}
+						data, _ := protoConn.Request(qb.name, qb.block.Offset, qb.block.Size, qb.block.Hash)
+						m.fq.Done(qb.name, qb.block.Offset, data)
+					} else {
+						time.Sleep(1 * time.Second)
+					}
+				}
+			}()
+		}
+	}
 }
 
 func (m *Model) shouldSuppressChange(name string) bool {
@@ -488,7 +523,7 @@ func (m *Model) protocolIndex() []protocol.FileInfo {
 	return index
 }
 
-func (m *Model) requestGlobal(nodeID, name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
+func (m *Model) requestGlobal(nodeID, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
 	m.RLock()
 	nc, ok := m.protoConn[nodeID]
 	m.RUnlock()
@@ -520,7 +555,7 @@ func (m *Model) broadcastIndexLoop() {
 			for _, node := range m.protoConn {
 				node := node
 				if m.trace["net"] {
-					log.Printf("NET IDX(out/loop): %s: %d files", node.ID, len(idx))
+					log.Printf("NET IDX(out/loop): %s: %d files", node.ID(), len(idx))
 				}
 				go func() {
 					node.Index(idx)
@@ -556,6 +591,12 @@ func (m *Model) markDeletedLocals(newLocal map[string]File) bool {
 		}
 	}
 	return updated
+}
+
+func (m *Model) updateLocalLocked(f File) {
+	m.Lock()
+	m.updateLocal(f)
+	m.Unlock()
 }
 
 func (m *Model) updateLocal(f File) {
@@ -610,8 +651,10 @@ func (m *Model) recomputeGlobal() {
 
 // Must be called with the write lock held.
 func (m *Model) recomputeNeed() {
-	m.need = make(map[string]bool)
 	for n, gf := range m.global {
+		if m.fq.Queued(n) {
+			continue
+		}
 		lf, ok := m.local[n]
 		if !ok || gf.NewerThan(lf) {
 			if gf.Flags&protocol.FlagInvalid != 0 {
@@ -627,15 +670,28 @@ func (m *Model) recomputeNeed() {
 				continue
 			}
 			if m.trace["need"] {
-				log.Println("NEED:", ok, lf, gf)
+				log.Printf("NEED: lf:%v gf:%v", lf, gf)
 			}
-			m.need[n] = true
+
+			if gf.Flags&protocol.FlagDeleted != 0 {
+				m.dq <- gf
+			} else {
+				local, remote := BlockDiff(lf.Blocks, gf.Blocks)
+				fm := fileMonitor{
+					name:        n,
+					path:        path.Clean(path.Join(m.dir, n)),
+					global:      gf,
+					model:       m,
+					localBlocks: local,
+				}
+				m.fq.Add(n, remote, &fm)
+			}
 		}
 	}
 }
 
 // Must be called with the read lock held.
-func (m *Model) whoHas(name string) []string {
+func (m *Model) WhoHas(name string) []string {
 	var remote []string
 
 	gf := m.global[name]
@@ -648,21 +704,35 @@ func (m *Model) whoHas(name string) []string {
 	return remote
 }
 
+func (m *Model) deleteFiles() {
+	for file := range m.dq {
+		if m.trace["file"] {
+			log.Println("FILE: Delete", file.Name)
+		}
+		path := path.Clean(path.Join(m.dir, file.Name))
+		err := os.Remove(path)
+		if err != nil {
+			log.Printf("WARNING: %s: %v", file.Name, err)
+		}
+		m.updateLocalLocked(file)
+	}
+}
+
 func fileFromFileInfo(f protocol.FileInfo) File {
 	var blocks = make([]Block, len(f.Blocks))
-	var offset uint64
+	var offset int64
 	for i, b := range f.Blocks {
 		blocks[i] = Block{
 			Offset: offset,
-			Length: b.Length,
+			Size:   b.Size,
 			Hash:   b.Hash,
 		}
-		offset += uint64(b.Length)
+		offset += int64(b.Size)
 	}
 	return File{
 		Name:     f.Name,
 		Flags:    f.Flags,
-		Modified: int64(f.Modified),
+		Modified: f.Modified,
 		Version:  f.Version,
 		Blocks:   blocks,
 	}
@@ -672,14 +742,14 @@ func fileInfoFromFile(f File) protocol.FileInfo {
 	var blocks = make([]protocol.BlockInfo, len(f.Blocks))
 	for i, b := range f.Blocks {
 		blocks[i] = protocol.BlockInfo{
-			Length: b.Length,
-			Hash:   b.Hash,
+			Size: b.Size,
+			Hash: b.Hash,
 		}
 	}
 	return protocol.FileInfo{
 		Name:     f.Name,
 		Flags:    f.Flags,
-		Modified: int64(f.Modified),
+		Modified: f.Modified,
 		Version:  f.Version,
 		Blocks:   blocks,
 	}

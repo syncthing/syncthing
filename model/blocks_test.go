@@ -52,7 +52,7 @@ func TestBlocks(t *testing.T) {
 			t.Fatalf("Incorrect number of blocks %d != %d", l, len(test.hash))
 		} else {
 			i := 0
-			for off := uint64(0); off < uint64(len(test.data)); off += uint64(test.blocksize) {
+			for off := int64(0); off < int64(len(test.data)); off += int64(test.blocksize) {
 				if blocks[i].Offset != off {
 					t.Errorf("Incorrect offset for block %d: %d != %d", i, blocks[i].Offset, off)
 				}
@@ -61,8 +61,8 @@ func TestBlocks(t *testing.T) {
 				if rem := len(test.data) - int(off); bs > rem {
 					bs = rem
 				}
-				if int(blocks[i].Length) != bs {
-					t.Errorf("Incorrect length for block %d: %d != %d", i, blocks[i].Length, bs)
+				if int(blocks[i].Size) != bs {
+					t.Errorf("Incorrect length for block %d: %d != %d", i, blocks[i].Size, bs)
 				}
 				if h := fmt.Sprintf("%x", blocks[i].Hash); h != test.hash[i] {
 					t.Errorf("Incorrect block hash %q != %q", h, test.hash[i])
@@ -106,8 +106,8 @@ func TestDiff(t *testing.T) {
 				if d[j].Offset != test.d[j].Offset {
 					t.Errorf("Incorrect offset for diff %d block %d; %d != %d", i, j, d[j].Offset, test.d[j].Offset)
 				}
-				if d[j].Length != test.d[j].Length {
-					t.Errorf("Incorrect length for diff %d block %d; %d != %d", i, j, d[j].Length, test.d[j].Length)
+				if d[j].Size != test.d[j].Size {
+					t.Errorf("Incorrect length for diff %d block %d; %d != %d", i, j, d[j].Size, test.d[j].Size)
 				}
 			}
 		}

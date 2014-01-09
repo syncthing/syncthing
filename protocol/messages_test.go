@@ -46,7 +46,7 @@ func TestIndex(t *testing.T) {
 }
 
 func TestRequest(t *testing.T) {
-	f := func(name string, offset uint64, size uint32, hash []byte) bool {
+	f := func(name string, offset int64, size uint32, hash []byte) bool {
 		var buf = new(bytes.Buffer)
 		var req = request{name, offset, size, hash}
 		var wr = marshalWriter{w: buf}
