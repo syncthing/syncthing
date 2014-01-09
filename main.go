@@ -151,7 +151,17 @@ func main() {
 
 	// GUI
 	if !opts.NoGUI && opts.GUIAddr != "" {
-		startGUI(opts.GUIAddr, m)
+		host, port, err := net.SplitHostPort(opts.GUIAddr)
+		if err != nil {
+			warnf("Cannot start GUI on %q: %v", opts.GUIAddr, err)
+		} else {
+			if len(host) > 0 {
+				infof("Starting web GUI on http://%s", opts.GUIAddr)
+			} else {
+				infof("Starting web GUI on port %s", port)
+			}
+			startGUI(opts.GUIAddr, m)
+		}
 	}
 
 	// Walk the repository and update the local model before establishing any
