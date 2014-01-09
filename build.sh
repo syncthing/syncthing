@@ -9,7 +9,7 @@ if [[ $1 == "-f" ]] ; then
 fi
 
 if [[ $fast != yes ]] ; then
-	go get
+	go get -d
 	go test ./...
 fi
 
