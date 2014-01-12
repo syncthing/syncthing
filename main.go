@@ -75,6 +75,11 @@ var (
 func main() {
 	_, err := flags.Parse(&opts)
 	if err != nil {
+		if err, ok := err.(*flags.Error); ok {
+			if err.Type == flags.ErrHelp {
+				os.Exit(0)
+			}
+		}
 		fatalln(err)
 	}
 
