@@ -75,6 +75,7 @@ func restGetConnections(m *model.Model, w http.ResponseWriter) {
 
 func restGetConfig(w http.ResponseWriter) {
 	var res = make(map[string]interface{})
+	res["myID"] = myID
 	res["repository"] = config.OptionMap("repository")
 	res["nodes"] = config.OptionMap("nodes")
 	w.Header().Set("Content-Type", "application/json")

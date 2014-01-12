@@ -68,6 +68,7 @@ const (
 )
 
 var (
+	myID      string
 	config    ini.Config
 	nodeAddrs = make(map[string][]string)
 )
@@ -113,7 +114,7 @@ func main() {
 		fatalErr(err)
 	}
 
-	myID := string(certId(cert.Certificate[0]))
+	myID = string(certId(cert.Certificate[0]))
 	infoln("My ID:", myID)
 
 	if opts.Debug.Profiler != "" {
