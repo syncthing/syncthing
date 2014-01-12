@@ -53,6 +53,8 @@ type Model struct {
 
 	fileLastChanged   map[string]time.Time
 	fileWasSuppressed map[string]int
+
+	limitRequestRate chan struct{}
 }
 
 type Connection interface {
@@ -95,6 +97,21 @@ func NewModel(dir string) *Model {
 
 	go m.broadcastIndexLoop()
 	return m
+}
+
+func (m *Model) LimitRate(kbps int) {
+	m.limitRequestRate = make(chan struct{}, kbps)
+	n := kbps/10 + 1
+	go func() {
+		for {
+			time.Sleep(100 * time.Millisecond)
+			for i := 0; i < n; i++ {
+				select {
+				case m.limitRequestRate <- struct{}{}:
+				}
+			}
+		}
+	}()
 }
 
 // Trace enables trace logging of the given facility. This is a debugging function; grep for m.trace.
@@ -332,6 +349,12 @@ func (m *Model) Request(nodeID, name string, offset uint64, size uint32, hash []
 	_, err = fd.ReadAt(buf, int64(offset))
 	if err != nil {
 		return nil, err
+	}
+
+	if m.limitRequestRate != nil {
+		for s := 0; s < len(buf); s += 1024 {
+			<-m.limitRequestRate
+		}
 	}
 
 	return buf, nil

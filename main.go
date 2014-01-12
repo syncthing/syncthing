@@ -56,6 +56,7 @@ type DiscoveryOptions struct {
 type AdvancedOptions struct {
 	RequestsInFlight int           `long:"reqs-in-flight" description:"Parallell in flight requests per file" default:"4" value-name:"REQS"`
 	FilesInFlight    int           `long:"files-in-flight" description:"Parallell in flight file pulls" default:"8" value-name:"FILES"`
+	LimitRate        int           `long:"send-rate" description:"Rate limit for outgoing data" default:"0" value-name:"KBPS"`
 	ScanInterval     time.Duration `long:"scan-intv" description:"Repository scan interval" default:"60s" value-name:"INTV"`
 	ConnInterval     time.Duration `long:"conn-intv" description:"Node reconnect interval" default:"60s" value-name:"INTV"`
 }
@@ -157,6 +158,9 @@ func main() {
 	m := model.NewModel(dir)
 	for _, t := range opts.Debug.TraceModel {
 		m.Trace(t)
+	}
+	if opts.Advanced.LimitRate > 0 {
+		m.LimitRate(opts.Advanced.LimitRate)
 	}
 
 	// GUI
