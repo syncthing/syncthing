@@ -55,32 +55,28 @@ func TestIgnore(t *testing.T) {
 		"foo":     {"bar", "z*"},
 		"foo/baz": {"quux", ".*"},
 	}
-	var files = []File{
-		{Name: "foo/bar"},
-		{Name: "foo/quux"},
-		{Name: "foo/zuux"},
-		{Name: "foo/qzuux"},
-		{Name: "foo/baz/t1"},
-		{Name: "foo/baz/t2"},
-		{Name: "foo/baz/bar"},
-		{Name: "foo/baz/quuxa"},
-		{Name: "foo/baz/aquux"},
-		{Name: "foo/baz/.quux"},
-		{Name: "foo/baz/zquux"},
-		{Name: "foo/baz/quux"},
-		{Name: "foo/bazz/quux"},
-	}
-	var remaining = []File{
-		{Name: "foo/quux"},
-		{Name: "foo/qzuux"},
-		{Name: "foo/baz/t1"},
-		{Name: "foo/baz/quuxa"},
-		{Name: "foo/baz/aquux"},
-		{Name: "foo/bazz/quux"},
+	var tests = []struct {
+		f string
+		r bool
+	}{
+		{"foo/bar", true},
+		{"foo/quux", false},
+		{"foo/zuux", true},
+		{"foo/qzuux", false},
+		{"foo/baz/t1", false},
+		{"foo/baz/t2", true},
+		{"foo/baz/bar", true},
+		{"foo/baz/quuxa", false},
+		{"foo/baz/aquux", false},
+		{"foo/baz/.quux", true},
+		{"foo/baz/zquux", true},
+		{"foo/baz/quux", true},
+		{"foo/bazz/quux", false},
 	}
 
-	var filtered = ignoreFilter(patterns, files)
-	if !reflect.DeepEqual(filtered, remaining) {
-		t.Errorf("Filtering mismatch\n  %v\n  %v", remaining, filtered)
+	for i, tc := range tests {
+		if r := ignoreFile(patterns, tc.f); r != tc.r {
+			t.Errorf("Incorrect ignoreFile() #%d; E: %v, A: %v", i, tc.r, r)
+		}
 	}
 }

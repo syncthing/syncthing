@@ -227,15 +227,6 @@ func (m *Model) cleanTempFiles() {
 	filepath.Walk(m.dir, m.cleanTempFile)
 }
 
-func ignoreFilter(patterns map[string][]string, files []File) (filtered []File) {
-	for _, f := range files {
-		if !ignoreFile(patterns, f.Name) {
-			filtered = append(filtered, f)
-		}
-	}
-	return filtered
-}
-
 func ignoreFile(patterns map[string][]string, file string) bool {
 	first, last := path.Split(file)
 	for prefix, pats := range patterns {
