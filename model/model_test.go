@@ -303,14 +303,21 @@ func TestForgetNode(t *testing.T) {
 	}
 	m.Index("42", []protocol.FileInfo{newFile})
 
+	newFile = protocol.FileInfo{
+		Name:     "new file 2",
+		Modified: time.Now().Unix(),
+		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
+	}
+	m.Index("43", []protocol.FileInfo{newFile})
+
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
 		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
 	}
-	if l1, l2 := len(m.global), len(fs)+1; l1 != l2 {
+	if l1, l2 := len(m.global), len(fs)+2; l1 != l2 {
 		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
 	}
-	if fs, _ := m.NeedFiles(); len(fs) != 1 {
-		t.Errorf("Model len(need) incorrect (%d != 1)", len(fs))
+	if fs, _ := m.NeedFiles(); len(fs) != 2 {
+		t.Errorf("Model len(need) incorrect (%d != 2)", len(fs))
 	}
 
 	m.Close("42", nil)
@@ -318,20 +325,12 @@ func TestForgetNode(t *testing.T) {
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
 		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
 	}
-	if l1, l2 := len(m.global), len(fs); l1 != l2 {
+	if l1, l2 := len(m.global), len(fs)+1; l1 != l2 {
 		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
 	}
 
 	if fs, _ := m.NeedFiles(); len(fs) != 1 {
 		t.Errorf("Model len(need) incorrect (%d != 1)", len(fs))
-	}
-	// The file will be removed from the need list when we notice there are no nodes that can provide it
-	_, ok := m.fq.Get("42")
-	if ok {
-		t.Errorf("Unexpected successfull Get()")
-	}
-	if fs, _ := m.NeedFiles(); len(fs) != 0 {
-		t.Errorf("Model len(need) incorrect (%d != 0)", len(fs))
 	}
 }
 

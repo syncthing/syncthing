@@ -315,6 +315,7 @@ func (m *Model) Close(node string, err error) {
 	delete(m.remote, node)
 	delete(m.protoConn, node)
 	delete(m.rawConn, node)
+	m.fq.RemoveAvailable(node)
 
 	m.recomputeGlobal()
 	m.recomputeNeed()

@@ -192,6 +192,15 @@ func (q *FileQueue) deleteAt(i int) {
 	q.files = q.files[:i+copy(q.files[i:], q.files[i+1:])]
 }
 
+func (q *FileQueue) deleteFile(n string) {
+	for i, file := range q.files {
+		if n == file.name {
+			q.deleteAt(i)
+			return
+		}
+	}
+}
+
 func (q *FileQueue) SetAvailable(file, node string) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
@@ -208,4 +217,20 @@ func (q *FileQueue) AddAvailable(file, node string) {
 		q.availability = make(map[string][]string)
 	}
 	q.availability[file] = append(q.availability[file], node)
+}
+
+func (q *FileQueue) RemoveAvailable(toRemove string) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	for file, nodes := range q.availability {
+		for i, node := range nodes {
+			if node == toRemove {
+				q.availability[file] = nodes[:i+copy(nodes[i:], nodes[i+1:])]
+				if len(q.availability[file]) == 0 {
+					q.deleteFile(file)
+				}
+			}
+			break
+		}
+	}
 }

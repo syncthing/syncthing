@@ -2,22 +2,10 @@ package model
 
 import (
 	"reflect"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 )
-
-type fakeResolver struct{}
-
-func (fakeResolver) WhoHas(n string) []string {
-	if strings.HasPrefix(n, "a-") {
-		return []string{"a", "nodeID"}
-	} else if strings.HasPrefix(n, "b-") {
-		return []string{"b", "nodeID"}
-	}
-	return []string{"a", "b", "nodeID"}
-}
 
 func TestFileQueueAdd(t *testing.T) {
 	q := FileQueue{}
@@ -25,7 +13,10 @@ func TestFileQueueAdd(t *testing.T) {
 }
 
 func TestFileQueueAddSorting(t *testing.T) {
-	q := FileQueue{resolver: fakeResolver{}}
+	q := FileQueue{}
+	q.SetAvailable("zzz", "nodeID")
+	q.SetAvailable("aaa", "nodeID")
+
 	q.Add("zzz", []Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
 	q.Add("aaa", []Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
 	b, _ := q.Get("nodeID")
@@ -33,7 +24,10 @@ func TestFileQueueAddSorting(t *testing.T) {
 		t.Errorf("Incorrectly sorted get: %+v", b)
 	}
 
-	q = FileQueue{resolver: fakeResolver{}}
+	q = FileQueue{}
+	q.SetAvailable("zzz", "nodeID")
+	q.SetAvailable("aaa", "nodeID")
+
 	q.Add("zzz", []Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
 	b, _ = q.Get("nodeID") // Start on zzzz
 	if b.name != "zzz" {
@@ -58,7 +52,10 @@ func TestFileQueueLen(t *testing.T) {
 }
 
 func TestFileQueueGet(t *testing.T) {
-	q := FileQueue{resolver: fakeResolver{}}
+	q := FileQueue{}
+	q.SetAvailable("foo", "nodeID")
+	q.SetAvailable("bar", "nodeID")
+
 	q.Add("foo", []Block{
 		{Offset: 0, Size: 128, Hash: []byte("some foo hash bytes")},
 		{Offset: 128, Size: 128, Hash: []byte("some other foo hash bytes")},
@@ -180,7 +177,12 @@ func TestFileQueueDone(t *testing.T) {
 */
 
 func TestFileQueueGetNodeIDs(t *testing.T) {
-	q := FileQueue{resolver: fakeResolver{}}
+	q := FileQueue{}
+	q.SetAvailable("a-foo", "nodeID")
+	q.AddAvailable("a-foo", "a")
+	q.SetAvailable("b-bar", "nodeID")
+	q.AddAvailable("b-bar", "b")
+
 	q.Add("a-foo", []Block{
 		{Offset: 0, Size: 128, Hash: []byte("some foo hash bytes")},
 		{Offset: 128, Size: 128, Hash: []byte("some other foo hash bytes")},
@@ -252,8 +254,9 @@ func TestFileQueueThreadHandling(t *testing.T) {
 		total += i
 	}
 
-	q := FileQueue{resolver: fakeResolver{}}
+	q := FileQueue{}
 	q.Add("foo", blocks, nil)
+	q.SetAvailable("foo", "nodeID")
 
 	var start = make(chan bool)
 	var gotTot uint32
