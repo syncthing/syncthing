@@ -97,8 +97,11 @@ func main() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
+	log.SetOutput(os.Stderr)
+	logger = log.New(os.Stderr, "", log.Flags())
 	if len(opts.Debug.TraceModel) > 0 || opts.Debug.LogSource {
-		logger = log.New(os.Stderr, "", log.Lshortfile|log.Ldate|log.Ltime|log.Lmicroseconds)
+		log.SetFlags(log.Lshortfile | log.Ldate | log.Ltime | log.Lmicroseconds)
+		logger.SetFlags(log.Lshortfile | log.Ldate | log.Ltime | log.Lmicroseconds)
 	}
 	opts.ConfDir = expandTilde(opts.ConfDir)
 

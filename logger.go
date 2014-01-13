@@ -6,7 +6,8 @@ import (
 	"os"
 )
 
-var logger = log.New(os.Stderr, "", log.Ltime)
+// set in main()
+var logger *log.Logger
 
 func debugln(vals ...interface{}) {
 	s := fmt.Sprintln(vals...)

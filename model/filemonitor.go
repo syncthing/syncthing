@@ -29,7 +29,10 @@ func (m *fileMonitor) FileBegins(cc <-chan content) error {
 	dir := path.Dir(tmp)
 	_, err := os.Stat(dir)
 	if err != nil && os.IsNotExist(err) {
-		os.MkdirAll(dir, 0777)
+		err = os.MkdirAll(dir, 0777)
+		if err != nil {
+			return err
+		}
 	}
 
 	outFile, err := os.Create(tmp)
@@ -105,6 +108,13 @@ func (m *fileMonitor) FileDone() error {
 
 	tmp := tempName(m.path, m.global.Modified)
 	defer os.Remove(tmp)
+
+	if m.copyError != nil {
+		return m.copyError
+	}
+	if m.writeError != nil {
+		return m.writeError
+	}
 
 	err := hashCheck(tmp, m.global.Blocks)
 	if err != nil {

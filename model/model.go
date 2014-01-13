@@ -94,7 +94,6 @@ func NewModel(dir string) *Model {
 		fileWasSuppressed: make(map[string]int),
 		dq:                make(chan File),
 	}
-	m.fq.resolver = m
 
 	go m.broadcastIndexLoop()
 	return m
@@ -618,13 +617,16 @@ func (m *Model) recomputeGlobal() {
 	}
 
 	var highestMod int64
-	for _, fs := range m.remote {
+	for nodeID, fs := range m.remote {
 		for n, nf := range fs {
 			if lf, ok := newGlobal[n]; !ok || nf.NewerThan(lf) {
 				newGlobal[n] = nf
+				m.fq.SetAvailable(n, nodeID)
 				if nf.Modified > highestMod {
 					highestMod = nf.Modified
 				}
+			} else if lf.Equals(nf) {
+				m.fq.AddAvailable(n, nodeID)
 			}
 		}
 	}
@@ -690,8 +692,14 @@ func (m *Model) recomputeNeed() {
 	}
 }
 
-// Must be called with the read lock held.
 func (m *Model) WhoHas(name string) []string {
+	m.RLock()
+	defer m.RUnlock()
+	return m.whoHas(name)
+}
+
+// Must be called with the read lock held.
+func (m *Model) whoHas(name string) []string {
 	var remote []string
 
 	gf := m.global[name]
