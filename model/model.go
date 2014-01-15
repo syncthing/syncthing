@@ -138,7 +138,7 @@ func (m *Model) StartRW(del bool, threads int) {
 
 	go m.cleanTempFiles()
 	if del {
-		go m.deleteFiles()
+		go m.deleteLoop()
 	}
 }
 
@@ -654,6 +654,8 @@ func (m *Model) recomputeGlobal() {
 
 // Must be called with the write lock held.
 func (m *Model) recomputeNeed() {
+	var toDelete []File
+
 	for n, gf := range m.global {
 		if m.fq.Queued(n) {
 			continue
@@ -677,7 +679,7 @@ func (m *Model) recomputeNeed() {
 			}
 
 			if gf.Flags&protocol.FlagDeleted != 0 {
-				m.dq <- gf
+				toDelete = append(toDelete, gf)
 			} else {
 				local, remote := BlockDiff(lf.Blocks, gf.Blocks)
 				fm := fileMonitor{
@@ -691,6 +693,13 @@ func (m *Model) recomputeNeed() {
 			}
 		}
 	}
+
+	go func() {
+		for _, gf := range toDelete {
+			// The receive side needs the lock, which we are holding
+			m.dq <- gf
+		}
+	}()
 }
 
 func (m *Model) WhoHas(name string) []string {
@@ -713,7 +722,7 @@ func (m *Model) whoHas(name string) []string {
 	return remote
 }
 
-func (m *Model) deleteFiles() {
+func (m *Model) deleteLoop() {
 	for file := range m.dq {
 		if m.trace["file"] {
 			log.Println("FILE: Delete", file.Name)
