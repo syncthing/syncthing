@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"sync"
@@ -24,6 +25,10 @@ type fileMonitor struct {
 }
 
 func (m *fileMonitor) FileBegins(cc <-chan content) error {
+	if m.model.trace["file"] {
+		log.Printf("FILE: FileBegins: " + m.name)
+	}
+
 	tmp := tempName(m.path, m.global.Modified)
 
 	dir := path.Dir(tmp)
@@ -104,6 +109,10 @@ func (m *fileMonitor) copyRemoteBlocks(cc <-chan content, outFile *os.File, writ
 }
 
 func (m *fileMonitor) FileDone() error {
+	if m.model.trace["file"] {
+		log.Printf("FILE: FileDone: " + m.name)
+	}
+
 	m.writeDone.Wait()
 
 	tmp := tempName(m.path, m.global.Modified)
@@ -118,7 +127,7 @@ func (m *fileMonitor) FileDone() error {
 
 	err := hashCheck(tmp, m.global.Blocks)
 	if err != nil {
-		return fmt.Errorf("%s: %s (tmp) (deleting)", path.Base(m.name), err.Error())
+		return err
 	}
 
 	err = os.Chtimes(tmp, time.Unix(m.global.Modified, 0), time.Unix(m.global.Modified, 0))
@@ -136,7 +145,7 @@ func (m *fileMonitor) FileDone() error {
 		return err
 	}
 
-	go m.model.updateLocalLocked(m.global)
+	m.model.updateLocal(m.global)
 	return nil
 }
 

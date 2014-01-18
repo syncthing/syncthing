@@ -116,9 +116,9 @@ func (m *Model) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.
 			}
 			modified := fi.ModTime().Unix()
 
-			m.RLock()
+			m.lmut.RLock()
 			hf, ok := m.local[rn]
-			m.RUnlock()
+			m.lmut.RUnlock()
 
 			if ok && hf.Modified == modified {
 				if nf := uint32(info.Mode()); nf != hf.Flags {
@@ -127,7 +127,6 @@ func (m *Model) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.
 				}
 				*res = append(*res, hf)
 			} else {
-				m.Lock()
 				if m.shouldSuppressChange(rn) {
 					if m.trace["file"] {
 						log.Println("FILE: SUPPRESS:", rn, m.fileWasSuppressed[rn], time.Since(m.fileLastChanged[rn]))
@@ -138,10 +137,8 @@ func (m *Model) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.
 						hf.Version++
 						*res = append(*res, hf)
 					}
-					m.Unlock()
 					return nil
 				}
-				m.Unlock()
 
 				if m.trace["file"] {
 					log.Printf("FILE: Hash %q", p)

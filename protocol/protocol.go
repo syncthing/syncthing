@@ -341,14 +341,15 @@ func (c *Connection) processRequest(msgID int, req request) {
 	c.Lock()
 	c.mwriter.writeUint32(encodeHeader(header{0, msgID, messageTypeResponse}))
 	c.mwriter.writeResponse(data)
-	err := c.flush()
+	err := c.mwriter.err
+	if err == nil {
+		err = c.flush()
+	}
 	c.Unlock()
 
 	buffers.Put(data)
 	if err != nil {
 		c.close(err)
-	} else if c.mwriter.err != nil {
-		c.close(c.mwriter.err)
 	}
 }
 
