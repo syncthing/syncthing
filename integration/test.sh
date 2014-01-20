@@ -2,6 +2,7 @@
 
 rm -rf files-* conf-* md5-*
 
+extraopts=""
 p=$(pwd)
 
 go build genfiles.go
@@ -29,19 +30,22 @@ EOT
 
 	mkdir files-$i
 	pushd files-$i >/dev/null
-	../genfiles -maxsize 780 -files 1500
+	../genfiles -maxexp 21 -files 4000
 	../md5r > ../md5-$i
 	popd >/dev/null
 done
 
 echo "Starting..."
 for i in 1 2 3 ; do
-	syncthing -c conf-$i --no-gui -l :2200$i &
+	sleep 1
+	syncthing -c conf-$i --no-gui -l :2200$i $extraopts &
 done
 
 cat md5-* | sort > md5-tot
 while true ; do
-	sleep 10
+	read
+	echo Verifying...
+
 	conv=0
 	for i in 1 2 3 ; do
 		pushd files-$i >/dev/null

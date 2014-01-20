@@ -119,6 +119,8 @@ func main() {
 
 	myID = string(certId(cert.Certificate[0]))
 	infoln("My ID:", myID)
+	log.SetPrefix("[" + myID[0:5] + "] ")
+	logger.SetPrefix("[" + myID[0:5] + "] ")
 
 	if opts.Debug.Profiler != "" {
 		go func() {
@@ -223,7 +225,9 @@ func main() {
 	go func() {
 		for {
 			time.Sleep(opts.Advanced.ScanInterval)
-			updateLocalModel(m)
+			if m.LocalAge() > opts.Advanced.ScanInterval.Seconds()/2 {
+				updateLocalModel(m)
+			}
 		}
 	}()
 
@@ -248,7 +252,7 @@ func printStatsLoop(m *model.Model) {
 			outbps := 8 * int(float64(stats.OutBytesTotal-lastStats[node].OutBytesTotal)/secs)
 
 			if inbps+outbps > 0 {
-				infof("%s: %sb/s in, %sb/s out", node, MetricPrefix(inbps), MetricPrefix(outbps))
+				infof("%s: %sb/s in, %sb/s out", node[0:5], MetricPrefix(inbps), MetricPrefix(outbps))
 			}
 
 			lastStats[node] = stats

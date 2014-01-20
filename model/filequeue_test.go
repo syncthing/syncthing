@@ -8,14 +8,14 @@ import (
 )
 
 func TestFileQueueAdd(t *testing.T) {
-	q := FileQueue{}
+	q := NewFileQueue()
 	q.Add("foo", nil, nil)
 }
 
 func TestFileQueueAddSorting(t *testing.T) {
-	q := FileQueue{}
-	q.SetAvailable("zzz", "nodeID")
-	q.SetAvailable("aaa", "nodeID")
+	q := NewFileQueue()
+	q.SetAvailable("zzz", []string{"nodeID"})
+	q.SetAvailable("aaa", []string{"nodeID"})
 
 	q.Add("zzz", []Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
 	q.Add("aaa", []Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
@@ -24,9 +24,9 @@ func TestFileQueueAddSorting(t *testing.T) {
 		t.Errorf("Incorrectly sorted get: %+v", b)
 	}
 
-	q = FileQueue{}
-	q.SetAvailable("zzz", "nodeID")
-	q.SetAvailable("aaa", "nodeID")
+	q = NewFileQueue()
+	q.SetAvailable("zzz", []string{"nodeID"})
+	q.SetAvailable("aaa", []string{"nodeID"})
 
 	q.Add("zzz", []Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
 	b, _ = q.Get("nodeID") // Start on zzzz
@@ -42,7 +42,7 @@ func TestFileQueueAddSorting(t *testing.T) {
 }
 
 func TestFileQueueLen(t *testing.T) {
-	q := FileQueue{}
+	q := NewFileQueue()
 	q.Add("foo", nil, nil)
 	q.Add("bar", nil, nil)
 
@@ -52,9 +52,9 @@ func TestFileQueueLen(t *testing.T) {
 }
 
 func TestFileQueueGet(t *testing.T) {
-	q := FileQueue{}
-	q.SetAvailable("foo", "nodeID")
-	q.SetAvailable("bar", "nodeID")
+	q := NewFileQueue()
+	q.SetAvailable("foo", []string{"nodeID"})
+	q.SetAvailable("bar", []string{"nodeID"})
 
 	q.Add("foo", []Block{
 		{Offset: 0, Size: 128, Hash: []byte("some foo hash bytes")},
@@ -177,11 +177,9 @@ func TestFileQueueDone(t *testing.T) {
 */
 
 func TestFileQueueGetNodeIDs(t *testing.T) {
-	q := FileQueue{}
-	q.SetAvailable("a-foo", "nodeID")
-	q.AddAvailable("a-foo", "a")
-	q.SetAvailable("b-bar", "nodeID")
-	q.AddAvailable("b-bar", "b")
+	q := NewFileQueue()
+	q.SetAvailable("a-foo", []string{"nodeID", "a"})
+	q.SetAvailable("b-bar", []string{"nodeID", "b"})
 
 	q.Add("a-foo", []Block{
 		{Offset: 0, Size: 128, Hash: []byte("some foo hash bytes")},
@@ -254,9 +252,9 @@ func TestFileQueueThreadHandling(t *testing.T) {
 		total += i
 	}
 
-	q := FileQueue{}
+	q := NewFileQueue()
 	q.Add("foo", blocks, nil)
-	q.SetAvailable("foo", "nodeID")
+	q.SetAvailable("foo", []string{"nodeID"})
 
 	var start = make(chan bool)
 	var gotTot uint32

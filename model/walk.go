@@ -85,6 +85,9 @@ func (m *Model) loadIgnoreFiles(ign map[string][]string) filepath.WalkFunc {
 func (m *Model) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.WalkFunc {
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
+			if m.trace["file"] {
+				log.Printf("FILE: %q: %v", p, err)
+			}
 			return nil
 		}
 
@@ -110,22 +113,18 @@ func (m *Model) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.
 		}
 
 		if info.Mode()&os.ModeType == 0 {
-			fi, err := os.Stat(p)
-			if err != nil {
-				return nil
-			}
-			modified := fi.ModTime().Unix()
+			modified := info.ModTime().Unix()
 
 			m.lmut.RLock()
-			hf, ok := m.local[rn]
+			lf, ok := m.local[rn]
 			m.lmut.RUnlock()
 
-			if ok && hf.Modified == modified {
-				if nf := uint32(info.Mode()); nf != hf.Flags {
-					hf.Flags = nf
-					hf.Version++
+			if ok && lf.Modified == modified {
+				if nf := uint32(info.Mode()); nf != lf.Flags {
+					lf.Flags = nf
+					lf.Version++
 				}
-				*res = append(*res, hf)
+				*res = append(*res, lf)
 			} else {
 				if m.shouldSuppressChange(rn) {
 					if m.trace["file"] {
@@ -133,9 +132,9 @@ func (m *Model) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.
 					}
 
 					if ok {
-						hf.Flags = protocol.FlagInvalid
-						hf.Version++
-						*res = append(*res, hf)
+						lf.Flags = protocol.FlagInvalid
+						lf.Version++
+						*res = append(*res, lf)
 					}
 					return nil
 				}
@@ -195,9 +194,9 @@ func (m *Model) Walk(followSymlinks bool) (files []File, ignore map[string][]str
 			return
 		}
 
-		for _, fi := range fis {
-			if fi.Mode()&os.ModeSymlink != 0 {
-				dir := path.Join(m.dir, fi.Name()) + "/"
+		for _, info := range fis {
+			if info.Mode()&os.ModeSymlink != 0 {
+				dir := path.Join(m.dir, info.Name()) + "/"
 				filepath.Walk(dir, m.loadIgnoreFiles(ignore))
 				filepath.Walk(dir, hashFiles)
 			}

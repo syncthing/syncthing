@@ -57,6 +57,12 @@ type queuedBlock struct {
 	index int
 }
 
+func NewFileQueue() *FileQueue {
+	return &FileQueue{
+		availability: make(map[string][]string),
+	}
+}
+
 func (q *FileQueue) Add(name string, blocks []Block, monitor Monitor) {
 	q.fmut.Lock()
 	defer q.fmut.Unlock()
@@ -212,24 +218,11 @@ func (q *FileQueue) deleteFile(n string) {
 	}
 }
 
-func (q *FileQueue) SetAvailable(file, node string) {
+func (q *FileQueue) SetAvailable(file string, nodes []string) {
 	q.amut.Lock()
 	defer q.amut.Unlock()
 
-	if q.availability == nil {
-		q.availability = make(map[string][]string)
-	}
-	q.availability[file] = []string{node}
-}
-
-func (q *FileQueue) AddAvailable(file, node string) {
-	q.amut.Lock()
-	defer q.amut.Unlock()
-
-	if q.availability == nil {
-		q.availability = make(map[string][]string)
-	}
-	q.availability[file] = append(q.availability[file], node)
+	q.availability[file] = nodes
 }
 
 func (q *FileQueue) RemoveAvailable(toRemove string) {

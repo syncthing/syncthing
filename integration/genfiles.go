@@ -18,17 +18,22 @@ func name() string {
 
 func main() {
 	var files int
-	var maxsize int
+	var maxexp int
 
 	flag.IntVar(&files, "files", 1000, "Number of files")
-	flag.IntVar(&maxsize, "maxsize", 1000, "Maximum file size (KB)")
+	flag.IntVar(&maxexp, "maxexp", 20, "Maximum file size (max = 2^n + 128*1024 B)")
 	flag.Parse()
 
 	for i := 0; i < files; i++ {
 		n := name()
 		p0 := path.Join(string(n[0]), n[0:2])
 		os.MkdirAll(p0, 0755)
-		s := mr.Intn(maxsize * 1024)
+		s := 1 << uint(mr.Intn(maxexp))
+		a := 128 * 1024
+		if a > s {
+			a = s
+		}
+		s += mr.Intn(a)
 		b := make([]byte, s)
 		rand.Reader.Read(b)
 		p1 := path.Join(p0, n)
