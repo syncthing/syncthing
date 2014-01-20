@@ -3,17 +3,18 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"mime"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
+	"time"
 
-	"bitbucket.org/tebeka/nrsc"
 	"github.com/calmh/syncthing/model"
 	"github.com/codegangsta/martini"
+	"github.com/cratonica/embed"
 )
 
 func startGUI(addr string, m *model.Model) {
@@ -26,9 +27,20 @@ func startGUI(addr string, m *model.Model) {
 	router.Get("/rest/need", restGetNeed)
 	router.Get("/rest/system", restGetSystem)
 
+	fs, err := embed.Unpack(Resources)
+	if err != nil {
+		panic(err)
+	}
+
+	var modt time.Time
+	fi, err := os.Stat(os.Args[0])
+	if err != nil {
+		modt = fi.ModTime()
+	}
+
 	go func() {
 		mr := martini.New()
-		mr.Use(nrscStatic("gui"))
+		mr.Use(embeddedStatic(fs, modt.UTC().Format(http.TimeFormat)))
 		mr.Use(martini.Recovery())
 		mr.Action(router.Handle)
 		mr.Map(m)
@@ -124,36 +136,26 @@ func restGetSystem(w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func nrscStatic(path string) interface{} {
-	if err := nrsc.Initialize(); err != nil {
-		panic("Unable to initialize nrsc: " + err.Error())
-	}
+func embeddedStatic(fs map[string][]byte, modt string) interface{} {
 	return func(res http.ResponseWriter, req *http.Request, log *log.Logger) {
 		file := req.URL.Path
 
-		// nrsc expects there not to be a leading slash
 		if file[0] == '/' {
 			file = file[1:]
 		}
 
-		f := nrsc.Get(file)
-		if f == nil {
+		bs, ok := fs[file]
+		if !ok {
 			return
 		}
-
-		rdr, err := f.Open()
-		if err != nil {
-			http.Error(res, "Internal Server Error", http.StatusInternalServerError)
-		}
-		defer rdr.Close()
 
 		mtype := mime.TypeByExtension(filepath.Ext(req.URL.Path))
 		if len(mtype) != 0 {
 			res.Header().Set("Content-Type", mtype)
 		}
-		res.Header().Set("Content-Size", fmt.Sprintf("%d", f.Size()))
-		res.Header().Set("Last-Modified", f.ModTime().UTC().Format(http.TimeFormat))
+		res.Header().Set("Content-Size", fmt.Sprintf("%d", len(bs)))
+		res.Header().Set("Last-Modified", modt)
 
-		io.Copy(res, rdr)
+		res.Write(bs)
 	}
 }

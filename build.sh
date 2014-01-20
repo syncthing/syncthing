@@ -14,11 +14,11 @@ if [[ $fast != yes ]] ; then
 fi
 
 if [[ -z $1 ]] ; then
-	go build -ldflags "-X main.Version $version" \
-	&& nrsc syncthing gui
+	go build -ldflags "-X main.Version $version"
+elif [[ $1 == "embed" ]] ; then
+	embedder main gui > gui.files.go
 elif [[ $1 == "tar" ]] ; then
 	go build -ldflags "-X main.Version $version" \
-	&& nrsc syncthing gui \
 	&& mkdir syncthing-dist \
 	&& cp syncthing README.md LICENSE syncthing-dist \
 	&& tar zcvf syncthing-dist.tar.gz syncthing-dist \
@@ -34,7 +34,6 @@ elif [[ $1 == "all" ]] ; then
 			export GOARCH="$goarch"
 			export name="syncthing-$goos-$goarch"
 			go build -ldflags "-X main.Version $version" \
-				&& nrsc syncthing gui \
 				&& mkdir -p "$name" \
 				&& cp syncthing "$buildDir/$name" \
 				&& cp README.md LICENSE "$name" \
@@ -53,7 +52,6 @@ elif [[ $1 == "all" ]] ; then
 				export GOARCH="$goarch"
 				export name="syncthing-$goos-${goarch}v$goarm"
 				go build -ldflags "-X main.Version $version" \
-					&& nrsc syncthing gui \
 					&& mkdir -p "$name" \
 					&& cp syncthing "$buildDir/$name" \
 					&& cp README.md LICENSE "$name" \
