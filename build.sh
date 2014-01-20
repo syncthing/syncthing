@@ -71,10 +71,10 @@ elif [[ $1 == "all" ]] ; then
 			export GOARCH="$goarch"
 			export name="syncthing-$goos-$goarch"
 			go build -ldflags "-X main.Version $version" \
-				&& nrsc syncthing.exe gui \
 				&& mkdir -p "$name" \
-				&& mv syncthing.exe "$buildDir/$name.exe" \
+				&& cp syncthing.exe "$buildDir/$name.exe" \
 				&& cp README.md LICENSE "$name" \
+				&& mv syncthing.exe "$name" \
 				&& zip -qr "$buildDir/$name.zip" "$name" \
 				&& rm -r  "$name"
 		done
