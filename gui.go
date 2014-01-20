@@ -6,7 +6,6 @@ import (
 	"log"
 	"mime"
 	"net/http"
-	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -32,15 +31,9 @@ func startGUI(addr string, m *model.Model) {
 		panic(err)
 	}
 
-	var modt time.Time
-	fi, err := os.Stat(os.Args[0])
-	if err != nil {
-		modt = fi.ModTime()
-	}
-
 	go func() {
 		mr := martini.New()
-		mr.Use(embeddedStatic(fs, modt.UTC().Format(http.TimeFormat)))
+		mr.Use(embeddedStatic(fs))
 		mr.Use(martini.Recovery())
 		mr.Action(router.Handle)
 		mr.Map(m)
@@ -136,7 +129,9 @@ func restGetSystem(w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func embeddedStatic(fs map[string][]byte, modt string) interface{} {
+func embeddedStatic(fs map[string][]byte) interface{} {
+	var modt = time.Now().UTC().Format(http.TimeFormat)
+
 	return func(res http.ResponseWriter, req *http.Request, log *log.Logger) {
 		file := req.URL.Path
 

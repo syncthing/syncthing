@@ -3,11 +3,6 @@
 version=$(git describe --always)
 buildDir=dist
 
-if [[ $1 == "-f" ]] ; then
-	fast=yes
-	shift
-fi
-
 if [[ $fast != yes ]] ; then
 	go get -d
 	go test ./...
