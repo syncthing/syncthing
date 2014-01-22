@@ -58,6 +58,7 @@ type AdvancedOptions struct {
 	LimitRate        int           `long:"send-rate" description:"Rate limit for outgoing data" default:"0" value-name:"KBPS"`
 	ScanInterval     time.Duration `long:"scan-intv" description:"Repository scan interval" default:"60s" value-name:"INTV"`
 	ConnInterval     time.Duration `long:"conn-intv" description:"Node reconnect interval" default:"60s" value-name:"INTV"`
+	MaxChangeBW      int           `long:"max-change-bw" description:"Max change bandwidth per file" default:"1e6" value-name:"MB/s"`
 }
 
 var opts Options
@@ -166,7 +167,7 @@ func main() {
 	}
 
 	ensureDir(dir, -1)
-	m := model.NewModel(dir)
+	m := model.NewModel(dir, opts.Advanced.MaxChangeBW)
 	for _, t := range opts.Debug.TraceModel {
 		m.Trace(t)
 	}

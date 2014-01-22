@@ -46,9 +46,7 @@ type Model struct {
 
 	trace map[string]bool
 
-	fileLastChanged   map[string]time.Time
-	fileWasSuppressed map[string]int
-	fmut              sync.Mutex // protects fileLastChanged and fileWasSuppressed
+	sup suppressor
 
 	parallellRequests int
 	limitRequestRate  chan struct{}
@@ -79,20 +77,19 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local repository in any way.
-func NewModel(dir string) *Model {
+func NewModel(dir string, maxChangeBw int) *Model {
 	m := &Model{
-		dir:               dir,
-		global:            make(map[string]File),
-		local:             make(map[string]File),
-		remote:            make(map[string]map[string]File),
-		protoConn:         make(map[string]Connection),
-		rawConn:           make(map[string]io.Closer),
-		lastIdxBcast:      time.Now(),
-		trace:             make(map[string]bool),
-		fileLastChanged:   make(map[string]time.Time),
-		fileWasSuppressed: make(map[string]int),
-		fq:                NewFileQueue(),
-		dq:                make(chan File),
+		dir:          dir,
+		global:       make(map[string]File),
+		local:        make(map[string]File),
+		remote:       make(map[string]map[string]File),
+		protoConn:    make(map[string]Connection),
+		rawConn:      make(map[string]io.Closer),
+		lastIdxBcast: time.Now(),
+		trace:        make(map[string]bool),
+		sup:          suppressor{threshold: int64(maxChangeBw)},
+		fq:           NewFileQueue(),
+		dq:           make(chan File),
 	}
 
 	go m.broadcastIndexLoop()
@@ -391,7 +388,6 @@ func (m *Model) Request(nodeID, name string, offset int64, size uint32, hash []b
 }
 
 // ReplaceLocal replaces the local repository index with the given list of files.
-// Change suppression is applied to files changing too often.
 func (m *Model) ReplaceLocal(fs []File) {
 	var updated bool
 	var newLocal = make(map[string]File)
@@ -510,30 +506,6 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn Connection) {
 			}
 		}()
 	}
-}
-
-func (m *Model) shouldSuppressChange(name string) bool {
-	m.fmut.Lock()
-	sup := shouldSuppressChange(m.fileLastChanged[name], m.fileWasSuppressed[name])
-	if sup {
-		m.fileWasSuppressed[name]++
-	} else {
-		m.fileWasSuppressed[name] = 0
-		m.fileLastChanged[name] = time.Now()
-	}
-	m.fmut.Unlock()
-	return sup
-}
-
-func shouldSuppressChange(lastChange time.Time, numChanges int) bool {
-	sinceLast := time.Since(lastChange)
-	if sinceLast > maxFileHoldTimeS*time.Second {
-		return false
-	}
-	if sinceLast < time.Duration((numChanges+2)*minFileHoldTimeS)*time.Second {
-		return true
-	}
-	return false
 }
 
 // ProtocolIndex returns the current local index in protocol data types.

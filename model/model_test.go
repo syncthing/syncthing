@@ -356,31 +356,6 @@ func TestRequest(t *testing.T) {
 	}
 }
 
-func TestSuppression(t *testing.T) {
-	var testdata = []struct {
-		lastChange time.Time
-		hold       int
-		result     bool
-	}{
-		{time.Unix(0, 0), 0, false},                    // First change
-		{time.Now().Add(-1 * time.Second), 0, true},    // Changed once one second ago, suppress
-		{time.Now().Add(-119 * time.Second), 0, true},  // Changed once 119 seconds ago, suppress
-		{time.Now().Add(-121 * time.Second), 0, false}, // Changed once 121 seconds ago, permit
-
-		{time.Now().Add(-179 * time.Second), 1, true},  // Suppressed once 179 seconds ago, suppress again
-		{time.Now().Add(-181 * time.Second), 1, false}, // Suppressed once 181 seconds ago, permit
-
-		{time.Now().Add(-599 * time.Second), 99, true},  // Suppressed lots of times, last allowed 599 seconds ago, suppress again
-		{time.Now().Add(-601 * time.Second), 99, false}, // Suppressed lots of times, last allowed 601 seconds ago, permit
-	}
-
-	for i, tc := range testdata {
-		if shouldSuppressChange(tc.lastChange, tc.hold) != tc.result {
-			t.Errorf("Incorrect result for test #%d: %v", i, tc)
-		}
-	}
-}
-
 func TestIgnoreWithUnknownFlags(t *testing.T) {
 	m := NewModel("testdata")
 	fs, _ := m.Walk(false)

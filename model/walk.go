@@ -126,9 +126,12 @@ func (m *Model) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.
 				}
 				*res = append(*res, lf)
 			} else {
-				if m.shouldSuppressChange(rn) {
+				if cur, prev := m.sup.suppress(rn, info.Size(), time.Now()); cur {
 					if m.trace["file"] {
-						log.Println("FILE: SUPPRESS:", rn, m.fileWasSuppressed[rn], time.Since(m.fileLastChanged[rn]))
+						log.Printf("FILE: SUPPRESS: %q change bw over threshold", rn)
+					}
+					if !prev {
+						log.Printf("INFO: Changes to %q are being temporarily suppressed because it changes too frequently.", rn)
 					}
 
 					if ok {
@@ -137,6 +140,8 @@ func (m *Model) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.
 						*res = append(*res, lf)
 					}
 					return nil
+				} else if prev && !cur {
+					log.Printf("INFO: Changes to %q are no longer suppressed.", rn)
 				}
 
 				if m.trace["file"] {

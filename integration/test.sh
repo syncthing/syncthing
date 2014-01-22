@@ -30,7 +30,7 @@ EOT
 
 	mkdir files-$i
 	pushd files-$i >/dev/null
-	../genfiles -maxexp 21 -files 4000
+	../genfiles -maxexp 21 -files 400
 	../md5r > ../md5-$i
 	popd >/dev/null
 done
