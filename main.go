@@ -124,6 +124,37 @@ func main() {
 	log.SetPrefix("[" + myID[0:5] + "] ")
 	logger.SetPrefix("[" + myID[0:5] + "] ")
 
+	// Load the configuration file, if it exists.
+	// If it does not, create a template.
+
+	cfgFile := path.Join(opts.ConfDir, confFileName)
+	cf, err := os.Open(cfgFile)
+
+	if err != nil {
+		infoln("No config file; creating a template")
+		config = ini.Config{}
+		config.AddComment("repository", "Set the following to the directory you wish to synchronize")
+		config.AddComment("repository", "dir = ~/Syncthing")
+		config.Set("nodes", myID, "auto")
+		config.AddComment("nodes", "Add peer nodes here")
+		fd, err := os.Create(cfgFile)
+		if err != nil {
+			fatalln(err)
+		}
+		config.Write(fd)
+		fd.Close()
+		infof("Edit %s to suit and restart syncthing.", cfgFile)
+		os.Exit(0)
+	}
+
+	config = ini.Parse(cf)
+	cf.Close()
+
+	var dir = expandTilde(config.Get("repository", "dir"))
+	if len(dir) == 0 {
+		fatalln("No repository directory. Set dir under [repository] in syncthing.ini.")
+	}
+
 	if opts.Debug.Profiler != "" {
 		go func() {
 			err := http.ListenAndServe(opts.Debug.Profiler, nil)
@@ -145,18 +176,6 @@ func main() {
 		InsecureSkipVerify:     true,
 		MinVersion:             tls.VersionTLS12,
 	}
-
-	// Load the configuration file, if it exists.
-
-	cf, err := os.Open(path.Join(opts.ConfDir, confFileName))
-	if err != nil {
-		fatalln("No config file")
-		config = ini.Config{}
-	}
-	config = ini.Parse(cf)
-	cf.Close()
-
-	var dir = expandTilde(config.Get("repository", "dir"))
 
 	// Create a map of desired node connections based on the configuration file
 	// directives.
