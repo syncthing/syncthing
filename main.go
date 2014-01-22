@@ -74,6 +74,9 @@ var (
 )
 
 func main() {
+	log.SetOutput(os.Stderr)
+	logger = log.New(os.Stderr, "", log.Flags())
+
 	_, err := flags.Parse(&opts)
 	if err != nil {
 		if err, ok := err.(*flags.Error); ok {
@@ -97,8 +100,6 @@ func main() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
-	log.SetOutput(os.Stderr)
-	logger = log.New(os.Stderr, "", log.Flags())
 	if len(opts.Debug.TraceModel) > 0 || opts.Debug.LogSource {
 		log.SetFlags(log.Lshortfile | log.Ldate | log.Ltime | log.Lmicroseconds)
 		logger.SetFlags(log.Lshortfile | log.Ldate | log.Ltime | log.Lmicroseconds)
