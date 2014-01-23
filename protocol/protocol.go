@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ const (
 	messageTypePing        = 4
 	messageTypePong        = 5
 	messageTypeIndexUpdate = 6
+	messageTypeOptions     = 7
 )
 
 const (
@@ -52,16 +54,18 @@ type Model interface {
 type Connection struct {
 	sync.RWMutex
 
-	id        string
-	receiver  Model
-	reader    io.Reader
-	mreader   *marshalReader
-	writer    io.Writer
-	mwriter   *marshalWriter
-	closed    bool
-	awaiting  map[int]chan asyncResult
-	nextId    int
-	indexSent map[string][2]int64
+	id          string
+	receiver    Model
+	reader      io.Reader
+	mreader     *marshalReader
+	writer      io.Writer
+	mwriter     *marshalWriter
+	closed      bool
+	awaiting    map[int]chan asyncResult
+	nextId      int
+	indexSent   map[string][2]int64
+	options     map[string]string
+	optionsLock sync.Mutex
 
 	hasSentIndex  bool
 	hasRecvdIndex bool
@@ -81,7 +85,7 @@ const (
 	pingIdleTime = 5 * time.Minute
 )
 
-func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver Model) *Connection {
+func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver Model, options map[string]string) *Connection {
 	flrd := flate.NewReader(reader)
 	flwr, err := flate.NewWriter(writer, flate.BestSpeed)
 	if err != nil {
@@ -100,6 +104,20 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 
 	go c.readerLoop()
 	go c.pingerLoop()
+
+	if options != nil {
+		go func() {
+			c.Lock()
+			c.mwriter.writeHeader(header{0, c.nextId, messageTypeOptions})
+			c.mwriter.writeOptions(options)
+			err := c.flush()
+			if err != nil {
+				log.Printf("Warning:", err)
+			}
+			c.nextId++
+			c.Unlock()
+		}()
+	}
 
 	return &c
 }
@@ -328,6 +346,11 @@ loop:
 				c.Unlock()
 			}
 
+		case messageTypeOptions:
+			c.optionsLock.Lock()
+			c.options = c.mreader.readOptions()
+			c.optionsLock.Unlock()
+
 		default:
 			c.close(fmt.Errorf("Protocol error: %s: unknown message type %#x", c.ID, hdr.msgType))
 			break loop
@@ -395,4 +418,10 @@ func (c *Connection) Statistics() Statistics {
 	}
 
 	return stats
+}
+
+func (c *Connection) Option(key string) string {
+	c.optionsLock.Lock()
+	defer c.optionsLock.Unlock()
+	return c.options[key]
 }

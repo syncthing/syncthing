@@ -117,3 +117,23 @@ func BenchmarkWriteRequest(b *testing.B) {
 		wr.writeRequest(req)
 	}
 }
+
+func TestOptions(t *testing.T) {
+	opts := map[string]string{
+		"foo":     "bar",
+		"someKey": "otherValue",
+		"hello":   "",
+		"":        "42",
+	}
+
+	var buf = new(bytes.Buffer)
+	var wr = marshalWriter{w: buf}
+	wr.writeOptions(opts)
+
+	var rd = marshalReader{r: buf}
+	var ropts = rd.readOptions()
+
+	if !reflect.DeepEqual(opts, ropts) {
+		t.Error("Incorrect options marshal/demarshal")
+	}
+}

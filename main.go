@@ -295,6 +295,11 @@ func listen(myID string, addr string, m *model.Model, cfg *tls.Config) {
 	l, err := tls.Listen("tcp", addr, cfg)
 	fatalErr(err)
 
+	connOpts := map[string]string{
+		"clientId":      "syncthing",
+		"clientVersion": Version,
+	}
+
 listen:
 	for {
 		conn, err := l.Accept()
@@ -329,7 +334,7 @@ listen:
 
 		for nodeID := range nodeAddrs {
 			if nodeID == remoteID {
-				protoConn := protocol.NewConnection(remoteID, conn, conn, m)
+				protoConn := protocol.NewConnection(remoteID, conn, conn, m, connOpts)
 				m.AddConnection(conn, protoConn)
 				continue listen
 			}
@@ -359,6 +364,11 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.M
 
 	if err != nil {
 		warnf("No discovery possible (%v)", err)
+	}
+
+	connOpts := map[string]string{
+		"clientId":      "syncthing",
+		"clientVersion": Version,
 	}
 
 	for {
@@ -399,7 +409,7 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.M
 					continue
 				}
 
-				protoConn := protocol.NewConnection(remoteID, conn, conn, m)
+				protoConn := protocol.NewConnection(remoteID, conn, conn, m, connOpts)
 				m.AddConnection(conn, protoConn)
 				continue nextNode
 			}

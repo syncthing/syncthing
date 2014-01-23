@@ -12,7 +12,7 @@ import (
 )
 
 func TestNewModel(t *testing.T) {
-	m := NewModel("foo")
+	m := NewModel("foo", 1e6)
 
 	if m == nil {
 		t.Fatalf("NewModel returned nil")
@@ -53,7 +53,7 @@ func init() {
 }
 
 func TestUpdateLocal(t *testing.T) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
@@ -95,7 +95,7 @@ func TestUpdateLocal(t *testing.T) {
 }
 
 func TestRemoteUpdateExisting(t *testing.T) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
@@ -112,7 +112,7 @@ func TestRemoteUpdateExisting(t *testing.T) {
 }
 
 func TestRemoteAddNew(t *testing.T) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
@@ -129,7 +129,7 @@ func TestRemoteAddNew(t *testing.T) {
 }
 
 func TestRemoteUpdateOld(t *testing.T) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
@@ -147,7 +147,7 @@ func TestRemoteUpdateOld(t *testing.T) {
 }
 
 func TestRemoteIndexUpdate(t *testing.T) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
@@ -180,7 +180,7 @@ func TestRemoteIndexUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
@@ -282,7 +282,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestForgetNode(t *testing.T) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
@@ -335,7 +335,7 @@ func TestForgetNode(t *testing.T) {
 }
 
 func TestRequest(t *testing.T) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
@@ -357,7 +357,7 @@ func TestRequest(t *testing.T) {
 }
 
 func TestIgnoreWithUnknownFlags(t *testing.T) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
@@ -404,7 +404,7 @@ func prepareModel(n int, m *Model) []protocol.FileInfo {
 }
 
 func BenchmarkRecomputeGlobal10k(b *testing.B) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	prepareModel(10000, m)
 
 	b.ResetTimer()
@@ -414,7 +414,7 @@ func BenchmarkRecomputeGlobal10k(b *testing.B) {
 }
 
 func BenchmarkRecomputeNeed10K(b *testing.B) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	prepareModel(10000, m)
 
 	b.ResetTimer()
@@ -424,7 +424,7 @@ func BenchmarkRecomputeNeed10K(b *testing.B) {
 }
 
 func BenchmarkIndexUpdate10000(b *testing.B) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	files := prepareModel(10000, m)
 
 	b.ResetTimer()
@@ -446,6 +446,10 @@ func (f FakeConnection) ID() string {
 	return string(f.id)
 }
 
+func (f FakeConnection) Option(string) string {
+	return ""
+}
+
 func (FakeConnection) Index([]protocol.FileInfo) {}
 
 func (f FakeConnection) Request(name string, offset int64, size uint32, hash []byte) ([]byte, error) {
@@ -461,7 +465,7 @@ func (FakeConnection) Statistics() protocol.Statistics {
 }
 
 func BenchmarkRequest(b *testing.B) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 

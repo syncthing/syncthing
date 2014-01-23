@@ -193,6 +193,33 @@ model, the Index Update merely amends it with new or updated file
 information. Any files not mentioned in an Index Update are left
 unchanged.
 
+### Options (Type = 7)
+
+This informational message provides information about the client
+configuration, version, etc. It is sent at connection initiation and,
+optionally, when any of the sent parameters have changed. The message is
+in the form of a list of (key, value) pairs, both of string type.
+
+    struct OptionsMessage {
+        KeyValue Options<>;
+    }
+
+    struct KeyValue {
+        string Key;
+        string Value;
+    }
+
+Key ID:s apart from the well known ones are implementation
+specific. An implementation is expected to ignore unknown keys. An
+implementation may impose limits on key and value size.
+
+Well known keys:
+
+  - "clientId" -- The name of the implementation. Example: "syncthing".
+  - "clientVersion" -- The version of the client. Example: "v1.0.33-47". The
+    Following the SemVer 2.0 specification for version strings is
+    encouraged but not enforced.
+
 Example Exchange
 ----------------
 

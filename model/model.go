@@ -59,6 +59,7 @@ type Connection interface {
 	Index([]protocol.FileInfo)
 	Request(name string, offset int64, size uint32, hash []byte) ([]byte, error)
 	Statistics() protocol.Statistics
+	Option(key string) string
 }
 
 const (
@@ -155,7 +156,9 @@ func (m *Model) LocalAge() float64 {
 
 type ConnectionInfo struct {
 	protocol.Statistics
-	Address string
+	Address       string
+	ClientID      string
+	ClientVersion string
 }
 
 // ConnectionStats returns a map with connection statistics for each connected node.
@@ -169,7 +172,9 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	var res = make(map[string]ConnectionInfo)
 	for node, conn := range m.protoConn {
 		ci := ConnectionInfo{
-			Statistics: conn.Statistics(),
+			Statistics:    conn.Statistics(),
+			ClientID:      conn.Option("clientId"),
+			ClientVersion: conn.Option("clientVersion"),
 		}
 		if nc, ok := m.rawConn[node].(remoteAddrer); ok {
 			ci.Address = nc.RemoteAddr().String()

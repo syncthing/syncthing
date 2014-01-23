@@ -43,8 +43,8 @@ func TestPing(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection("c0", ar, bw, nil)
-	c1 := NewConnection("c1", br, aw, nil)
+	c0 := NewConnection("c0", ar, bw, nil, nil)
+	c1 := NewConnection("c1", br, aw, nil, nil)
 
 	if ok := c0.ping(); !ok {
 		t.Error("c0 ping failed")
@@ -67,8 +67,8 @@ func TestPingErr(t *testing.T) {
 			eaw := &ErrPipe{PipeWriter: *aw, max: i, err: e}
 			ebw := &ErrPipe{PipeWriter: *bw, max: j, err: e}
 
-			c0 := NewConnection("c0", ar, ebw, m0)
-			NewConnection("c1", br, eaw, m1)
+			c0 := NewConnection("c0", ar, ebw, m0, nil)
+			NewConnection("c1", br, eaw, m1, nil)
 
 			res := c0.ping()
 			if (i < 4 || j < 4) && res {
@@ -94,8 +94,8 @@ func TestRequestResponseErr(t *testing.T) {
 			eaw := &ErrPipe{PipeWriter: *aw, max: i, err: e}
 			ebw := &ErrPipe{PipeWriter: *bw, max: j, err: e}
 
-			NewConnection("c0", ar, ebw, m0)
-			c1 := NewConnection("c1", br, eaw, m1)
+			NewConnection("c0", ar, ebw, m0, nil)
+			c1 := NewConnection("c1", br, eaw, m1, nil)
 
 			d, err := c1.Request("tn", 1234, 3456, []byte("hashbytes"))
 			if err == e || err == ErrClosed {
@@ -143,8 +143,8 @@ func TestVersionErr(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection("c0", ar, bw, m0)
-	NewConnection("c1", br, aw, m1)
+	c0 := NewConnection("c0", ar, bw, m0, nil)
+	NewConnection("c1", br, aw, m1, nil)
 
 	c0.mwriter.writeHeader(header{
 		version: 2,
@@ -165,8 +165,8 @@ func TestTypeErr(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection("c0", ar, bw, m0)
-	NewConnection("c1", br, aw, m1)
+	c0 := NewConnection("c0", ar, bw, m0, nil)
+	NewConnection("c1", br, aw, m1, nil)
 
 	c0.mwriter.writeHeader(header{
 		version: 0,
@@ -187,8 +187,8 @@ func TestClose(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection("c0", ar, bw, m0)
-	NewConnection("c1", br, aw, m1)
+	c0 := NewConnection("c0", ar, bw, m0, nil)
+	NewConnection("c1", br, aw, m1, nil)
 
 	c0.close(nil)
 

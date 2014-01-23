@@ -21,7 +21,7 @@ var correctIgnores = map[string][]string{
 }
 
 func TestWalk(t *testing.T) {
-	m := NewModel("testdata")
+	m := NewModel("testdata", 1e6)
 	files, ignores := m.Walk(false)
 
 	if l1, l2 := len(files), len(testdata); l1 != l2 {

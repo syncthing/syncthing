@@ -65,6 +65,14 @@ func (w *marshalWriter) writeResponse(data []byte) {
 	w.writeBytes(data)
 }
 
+func (w *marshalWriter) writeOptions(opts map[string]string) {
+	w.writeUint32(uint32(len(opts)))
+	for k, v := range opts {
+		w.writeString(k)
+		w.writeString(v)
+	}
+}
+
 func (r *marshalReader) readHeader() header {
 	return decodeHeader(r.readUint32())
 }
@@ -108,4 +116,15 @@ func (r *marshalReader) readRequest() request {
 
 func (r *marshalReader) readResponse() []byte {
 	return r.readBytes()
+}
+
+func (r *marshalReader) readOptions() map[string]string {
+	n := r.readUint32()
+	opts := make(map[string]string, n)
+	for i := 0; i < int(n); i++ {
+		k := r.readString()
+		v := r.readString()
+		opts[k] = v
+	}
+	return opts
 }
