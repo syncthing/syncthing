@@ -385,10 +385,7 @@ func TestIgnoreWithUnknownFlags(t *testing.T) {
 	}
 }
 
-func prepareModel(n int, m *Model) []protocol.FileInfo {
-	fs, _ := m.Walk(false)
-	m.ReplaceLocal(fs)
-
+func genFiles(n int) []protocol.FileInfo {
 	files := make([]protocol.FileInfo, n)
 	t := time.Now().Unix()
 	for i := 0; i < n; i++ {
@@ -399,37 +396,71 @@ func prepareModel(n int, m *Model) []protocol.FileInfo {
 		}
 	}
 
-	m.Index("42", files)
 	return files
 }
 
-func BenchmarkRecomputeGlobal10k(b *testing.B) {
+func BenchmarkIndex10000(b *testing.B) {
 	m := NewModel("testdata", 1e6)
-	prepareModel(10000, m)
+	fs, _ := m.Walk(false)
+	m.ReplaceLocal(fs)
+	files := genFiles(10000)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.recomputeGlobal()
+		m.Index("42", files)
 	}
 }
 
-func BenchmarkRecomputeNeed10K(b *testing.B) {
+func BenchmarkIndex00100(b *testing.B) {
 	m := NewModel("testdata", 1e6)
-	prepareModel(10000, m)
+	fs, _ := m.Walk(false)
+	m.ReplaceLocal(fs)
+	files := genFiles(100)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.recomputeNeed()
+		m.Index("42", files)
 	}
 }
 
-func BenchmarkIndexUpdate10000(b *testing.B) {
+func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 	m := NewModel("testdata", 1e6)
-	files := prepareModel(10000, m)
+	fs, _ := m.Walk(false)
+	m.ReplaceLocal(fs)
+	files := genFiles(10000)
+	m.Index("42", files)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.IndexUpdate("42", files)
+	}
+}
+
+func BenchmarkIndexUpdate10000f00100(b *testing.B) {
+	m := NewModel("testdata", 1e6)
+	fs, _ := m.Walk(false)
+	m.ReplaceLocal(fs)
+	files := genFiles(10000)
+	m.Index("42", files)
+
+	ufiles := genFiles(100)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.IndexUpdate("42", ufiles)
+	}
+}
+
+func BenchmarkIndexUpdate10000f00001(b *testing.B) {
+	m := NewModel("testdata", 1e6)
+	fs, _ := m.Walk(false)
+	m.ReplaceLocal(fs)
+	files := genFiles(10000)
+	m.Index("42", files)
+
+	ufiles := genFiles(1)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.IndexUpdate("42", ufiles)
 	}
 }
 

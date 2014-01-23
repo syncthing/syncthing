@@ -755,9 +755,7 @@ func (m *Model) recomputeNeed() {
 	m.gmut.RUnlock()
 
 	for _, ao := range toAdd {
-		if !m.fq.Queued(ao.n) {
-			m.fq.Add(ao.n, ao.remote, ao.fm)
-		}
+		m.fq.Add(ao.n, ao.remote, ao.fm)
 	}
 	for _, gf := range toDelete {
 		m.dq <- gf

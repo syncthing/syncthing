@@ -18,6 +18,7 @@ type FileQueue struct {
 	fmut         sync.Mutex // protects files and sorted
 	availability map[string][]string
 	amut         sync.Mutex // protects availability
+	queued       map[string]bool
 }
 
 type queuedFile struct {
@@ -60,6 +61,7 @@ type queuedBlock struct {
 func NewFileQueue() *FileQueue {
 	return &FileQueue{
 		availability: make(map[string][]string),
+		queued:       make(map[string]bool),
 	}
 }
 
@@ -67,10 +69,8 @@ func (q *FileQueue) Add(name string, blocks []Block, monitor Monitor) {
 	q.fmut.Lock()
 	defer q.fmut.Unlock()
 
-	for _, f := range q.files {
-		if f.name == name {
-			panic("re-adding added file " + f.name)
-		}
+	if q.queued[name] {
+		return
 	}
 
 	q.files = append(q.files, queuedFile{
@@ -81,6 +81,7 @@ func (q *FileQueue) Add(name string, blocks []Block, monitor Monitor) {
 		channel:      make(chan content),
 		monitor:      monitor,
 	})
+	q.queued[name] = true
 	q.sorted = false
 }
 
@@ -116,6 +117,7 @@ func (q *FileQueue) Get(nodeID string) (queuedBlock, bool) {
 					mon.FileDone()
 				}
 			}
+			delete(q.queued, qf.name)
 			q.deleteAt(i)
 			return queuedBlock{}, false
 		}
@@ -159,6 +161,7 @@ func (q *FileQueue) Done(file string, offset int64, data []byte) {
 				err := qf.monitor.FileBegins(qf.channel)
 				if err != nil {
 					log.Printf("WARNING: %s: %v (not synced)", qf.name, err)
+					delete(q.queued, qf.name)
 					q.deleteAt(i)
 					return
 				}
@@ -175,24 +178,13 @@ func (q *FileQueue) Done(file string, offset int64, data []byte) {
 						log.Printf("WARNING: %s: %v", qf.name, err)
 					}
 				}
+				delete(q.queued, qf.name)
 				q.deleteAt(i)
 			}
 			return
 		}
 	}
 	panic("unreachable")
-}
-
-func (q *FileQueue) Queued(file string) bool {
-	q.fmut.Lock()
-	defer q.fmut.Unlock()
-
-	for _, qf := range q.files {
-		if qf.name == file {
-			return true
-		}
-	}
-	return false
 }
 
 func (q *FileQueue) QueuedFiles() (files []string) {
@@ -213,6 +205,7 @@ func (q *FileQueue) deleteFile(n string) {
 	for i, file := range q.files {
 		if n == file.name {
 			q.deleteAt(i)
+			delete(q.queued, file.name)
 			return
 		}
 	}
