@@ -100,7 +100,11 @@ html, body {
                     <table class="table table-condensed">
                         <tbody>
                         <tr ng-repeat="(node, address) in config.nodes" ng-class="{'text-primary': !!connections[node], 'text-muted': node == config.myID}">
-                            <td><abbr class="text-monospace" title="{{node}}">{{node | short}}</abbr></td>
+                            <td><span class="text-monospace">{{node | short}}</span></td>
+                            <td>
+                                <span ng-show="node != config.myID">{{connections[node].ClientVersion}}</span>
+                                <span ng-show="node == config.myID">{{version}}</span>
+                            </td>
                             <td>
                                 <span ng-show="node == config.myID">
                                     <span class="glyphicon glyphicon-ok"></span>
