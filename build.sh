@@ -11,7 +11,7 @@ fi
 if [[ -z $1 ]] ; then
 	go build -ldflags "-X main.Version $version"
 elif [[ $1 == "embed" ]] ; then
-	embedder main gui > gui.files.go \
+	embedder auto gui > auto/gui.files.go \
 	&& go build -ldflags "-X main.Version $version"
 elif [[ $1 == "tar" ]] ; then
 	go build -ldflags "-X main.Version $version" \

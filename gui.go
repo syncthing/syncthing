@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/calmh/syncthing/auto"
 	"github.com/calmh/syncthing/model"
 	"github.com/codegangsta/martini"
 	"github.com/cratonica/embed"
@@ -26,7 +27,7 @@ func startGUI(addr string, m *model.Model) {
 	router.Get("/rest/need", restGetNeed)
 	router.Get("/rest/system", restGetSystem)
 
-	fs, err := embed.Unpack(Resources)
+	fs, err := embed.Unpack(auto.Resources)
 	if err != nil {
 		panic(err)
 	}
