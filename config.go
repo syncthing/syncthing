@@ -20,7 +20,7 @@ type Options struct {
 	ExternalServer    string        `ini:"global-announce-server" default:"syncthing.nym.se:22025" description:"Global server for announcements"`
 	ExternalDiscovery bool          `ini:"global-announce-enabled" default:"true" description:"Announce to the global announce server"`
 	LocalDiscovery    bool          `ini:"local-announce-enabled" default:"true" description:"Announce to the local network"`
-	RequestsInFlight  int           `ini:"parallell-requests" default:"16" description:"Maximum number of blocks to request in parallell"`
+	ParallelRequests  int           `ini:"parallel-requests" default:"16" description:"Maximum number of blocks to request in parallel"`
 	LimitRate         int           `ini:"max-send-kbps" description:"Limit outgoing data rate (kbyte/s)"`
 	ScanInterval      time.Duration `ini:"rescan-interval" default:"60s" description:"Scan repository for changes this often"`
 	ConnInterval      time.Duration `ini:"reconnection-interval" default:"60s" description:"Attempt to (re)connect to peers this often"`

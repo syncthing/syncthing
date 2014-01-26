@@ -48,8 +48,8 @@ type Model struct {
 
 	sup suppressor
 
-	parallellRequests int
-	limitRequestRate  chan struct{}
+	parallelRequests int
+	limitRequestRate chan struct{}
 
 	imut sync.Mutex // protects Index
 }
@@ -130,7 +130,7 @@ func (m *Model) StartRW(del bool, threads int) {
 
 	m.rwRunning = true
 	m.delete = del
-	m.parallellRequests = threads
+	m.parallelRequests = threads
 
 	go m.cleanTempFiles()
 	if del {
@@ -491,7 +491,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn Connection) {
 		return
 	}
 
-	for i := 0; i < m.parallellRequests; i++ {
+	for i := 0; i < m.parallelRequests; i++ {
 		i := i
 		go func() {
 			if m.trace["pull"] {

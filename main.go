@@ -210,7 +210,7 @@ func main() {
 			infoln("Deletes from peer nodes will be ignored")
 		}
 		okln("Ready to synchronize (read-write)")
-		m.StartRW(opts.Delete, opts.RequestsInFlight)
+		m.StartRW(opts.Delete, opts.ParallelRequests)
 	} else {
 		okln("Ready to synchronize (read only; no external updates accepted)")
 	}
