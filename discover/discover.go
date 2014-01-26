@@ -100,7 +100,6 @@ type Discoverer struct {
 	MyID             string
 	ListenPort       int
 	BroadcastIntv    time.Duration
-	ExtListenPort    int
 	ExtBroadcastIntv time.Duration
 
 	conn         *net.UDPConn
@@ -114,7 +113,7 @@ type Discoverer struct {
 // When we hit this many errors in succession, we stop.
 const maxErrors = 30
 
-func NewDiscoverer(id string, port int, extPort int, extServer string) (*Discoverer, error) {
+func NewDiscoverer(id string, port int, extServer string) (*Discoverer, error) {
 	local4 := &net.UDPAddr{IP: net.IP{0, 0, 0, 0}, Port: AnnouncementPort}
 	conn, err := net.ListenUDP("udp4", local4)
 	if err != nil {
@@ -125,7 +124,6 @@ func NewDiscoverer(id string, port int, extPort int, extServer string) (*Discove
 		MyID:             id,
 		ListenPort:       port,
 		BroadcastIntv:    30 * time.Second,
-		ExtListenPort:    extPort,
 		ExtBroadcastIntv: 1800 * time.Second,
 
 		conn:      conn,
@@ -138,7 +136,7 @@ func NewDiscoverer(id string, port int, extPort int, extServer string) (*Discove
 	if disc.ListenPort > 0 {
 		disc.sendAnnouncements()
 	}
-	if len(disc.extServer) > 0 && disc.ExtListenPort > 0 {
+	if len(disc.extServer) > 0 {
 		disc.sendExtAnnouncements()
 	}
 
@@ -153,13 +151,13 @@ func (d *Discoverer) sendAnnouncements() {
 }
 
 func (d *Discoverer) sendExtAnnouncements() {
-	extIP, err := net.ResolveUDPAddr("udp", d.extServer+":22025")
+	extIP, err := net.ResolveUDPAddr("udp", d.extServer)
 	if err != nil {
 		log.Printf("discover/external: %v; no external announcements", err)
 		return
 	}
 
-	buf := EncodePacket(Packet{AnnouncementMagic, uint16(d.ExtListenPort), d.MyID, nil})
+	buf := EncodePacket(Packet{AnnouncementMagic, uint16(22000), d.MyID, nil})
 	go d.writeAnnouncements(buf, extIP, d.ExtBroadcastIntv)
 }
 
@@ -213,7 +211,7 @@ func (d *Discoverer) recvAnnouncements() {
 }
 
 func (d *Discoverer) externalLookup(node string) (string, bool) {
-	extIP, err := net.ResolveUDPAddr("udp", d.extServer+":22025")
+	extIP, err := net.ResolveUDPAddr("udp", d.extServer)
 	if err != nil {
 		log.Printf("discover/external: %v; no external lookup", err)
 		return "", false

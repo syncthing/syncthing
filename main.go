@@ -3,6 +3,7 @@ package main
 import (
 	"compress/gzip"
 	"crypto/tls"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -18,48 +19,9 @@ import (
 
 	"github.com/calmh/ini"
 	"github.com/calmh/syncthing/discover"
-	flags "github.com/calmh/syncthing/github.com/jessevdk/go-flags"
 	"github.com/calmh/syncthing/model"
 	"github.com/calmh/syncthing/protocol"
 )
-
-type Options struct {
-	ConfDir     string           `short:"c" long:"cfg" description:"Configuration directory" default:"~/.syncthing" value-name:"DIR"`
-	Listen      string           `short:"l" long:"listen" description:"Listen address" default:":22000" value-name:"ADDR"`
-	ReadOnly    bool             `short:"r" long:"ro" description:"Repository is read only"`
-	Rehash      bool             `long:"rehash" description:"Ignore cache and rehash all files in repository"`
-	NoDelete    bool             `long:"no-delete" description:"Never delete files"`
-	NoSymlinks  bool             `long:"no-symlinks" description:"Don't follow first level symlinks in the repo"`
-	NoStats     bool             `long:"no-stats" description:"Don't print model and connection statistics"`
-	NoGUI       bool             `long:"no-gui" description:"Don't start GUI"`
-	GUIAddr     string           `long:"gui-addr" description:"GUI listen address" default:"127.0.0.1:8080" value-name:"ADDR"`
-	ShowVersion bool             `short:"v" long:"version" description:"Show version"`
-	Discovery   DiscoveryOptions `group:"Discovery Options"`
-	Advanced    AdvancedOptions  `group:"Advanced Options"`
-	Debug       DebugOptions     `group:"Debugging Options"`
-}
-
-type DebugOptions struct {
-	LogSource    bool     `long:"log-source"`
-	TraceModel   []string `long:"trace-model" value-name:"TRACE" description:"idx, net, file, need, pull"`
-	TraceConnect bool     `long:"trace-connect"`
-	Profiler     string   `long:"profiler" value-name:"ADDR"`
-}
-
-type DiscoveryOptions struct {
-	ExternalServer      string `long:"ext-server" description:"External discovery server" value-name:"NAME" default:"syncthing.nym.se"`
-	ExternalPort        int    `short:"e" long:"ext-port" description:"External listen port" value-name:"PORT" default:"22000"`
-	NoExternalDiscovery bool   `short:"n" long:"no-ext-announce" description:"Do not announce presence externally"`
-	NoLocalDiscovery    bool   `short:"N" long:"no-local-announce" description:"Do not announce presence locally"`
-}
-
-type AdvancedOptions struct {
-	RequestsInFlight int           `long:"reqs-in-flight" description:"Parallell in flight requests per node" default:"8" value-name:"REQS"`
-	LimitRate        int           `long:"send-rate" description:"Rate limit for outgoing data" default:"0" value-name:"KBPS"`
-	ScanInterval     time.Duration `long:"scan-intv" description:"Repository scan interval" default:"60s" value-name:"INTV"`
-	ConnInterval     time.Duration `long:"conn-intv" description:"Node reconnect interval" default:"60s" value-name:"INTV"`
-	MaxChangeBW      int           `long:"max-change-bw" description:"Max change bandwidth per file" default:"1e6" value-name:"MB/s"`
-}
 
 var opts Options
 var Version string = "unknown-dev"
@@ -74,21 +36,27 @@ var (
 	nodeAddrs = make(map[string][]string)
 )
 
+var (
+	showVersion bool
+	showConfig  bool
+	confDir     string
+	trace       string
+	profiler    string
+)
+
 func main() {
 	log.SetOutput(os.Stderr)
 	logger = log.New(os.Stderr, "", log.Flags())
 
-	_, err := flags.Parse(&opts)
-	if err != nil {
-		if err, ok := err.(*flags.Error); ok {
-			if err.Type == flags.ErrHelp {
-				os.Exit(0)
-			}
-		}
-		fatalln(err)
-	}
+	flag.StringVar(&confDir, "home", "~/.syncthing", "Set configuration directory")
+	flag.BoolVar(&showConfig, "config", false, "Print current configuration")
+	flag.StringVar(&trace, "debug.trace", "", "(connect,net,idx,file,pull)")
+	flag.StringVar(&profiler, "debug.profiler", "", "(addr)")
+	flag.BoolVar(&showVersion, "version", false, "Show version")
+	flag.Usage = usageFor(flag.CommandLine, "syncthing [options]")
+	flag.Parse()
 
-	if opts.ShowVersion {
+	if showVersion {
 		fmt.Println(Version)
 		os.Exit(0)
 	}
@@ -101,63 +69,73 @@ func main() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
-	if len(opts.Debug.TraceModel) > 0 || opts.Debug.LogSource {
+	if len(trace) > 0 {
 		log.SetFlags(log.Lshortfile | log.Ldate | log.Ltime | log.Lmicroseconds)
 		logger.SetFlags(log.Lshortfile | log.Ldate | log.Ltime | log.Lmicroseconds)
 	}
-	opts.ConfDir = expandTilde(opts.ConfDir)
-
-	infoln("Version", Version)
+	confDir = expandTilde(confDir)
 
 	// Ensure that our home directory exists and that we have a certificate and key.
 
-	ensureDir(opts.ConfDir, 0700)
-	cert, err := loadCert(opts.ConfDir)
+	ensureDir(confDir, 0700)
+	cert, err := loadCert(confDir)
 	if err != nil {
-		newCertificate(opts.ConfDir)
-		cert, err = loadCert(opts.ConfDir)
+		newCertificate(confDir)
+		cert, err = loadCert(confDir)
 		fatalErr(err)
 	}
 
 	myID = string(certId(cert.Certificate[0]))
-	infoln("My ID:", myID)
 	log.SetPrefix("[" + myID[0:5] + "] ")
 	logger.SetPrefix("[" + myID[0:5] + "] ")
 
 	// Load the configuration file, if it exists.
 	// If it does not, create a template.
 
-	cfgFile := path.Join(opts.ConfDir, confFileName)
+	cfgFile := path.Join(confDir, confFileName)
 	cf, err := os.Open(cfgFile)
 
 	if err != nil {
+		infoln("My ID:", myID)
+
 		infoln("No config file; creating a template")
-		config = ini.Config{}
-		config.AddComment("repository", "Set the following to the directory you wish to synchronize")
-		config.AddComment("repository", "dir = ~/Syncthing")
-		config.Set("nodes", myID, "auto")
-		config.AddComment("nodes", "Add peer nodes here")
+
+		loadConfig(nil, &opts) //loads defaults
 		fd, err := os.Create(cfgFile)
 		if err != nil {
 			fatalln(err)
 		}
-		config.Write(fd)
+
+		writeConfig(fd, "~/Sync", map[string]string{myID: "dynamic"}, opts, true)
 		fd.Close()
 		infof("Edit %s to suit and restart syncthing.", cfgFile)
+
 		os.Exit(0)
 	}
 
 	config = ini.Parse(cf)
 	cf.Close()
 
+	loadConfig(config.OptionMap("settings"), &opts)
+
+	if showConfig {
+		writeConfig(os.Stdout,
+			config.Get("repository", "dir"),
+			config.OptionMap("nodes"), opts, false)
+		os.Exit(0)
+	}
+
+	infoln("Version", Version)
+	infoln("My ID:", myID)
+
 	var dir = expandTilde(config.Get("repository", "dir"))
 	if len(dir) == 0 {
 		fatalln("No repository directory. Set dir under [repository] in syncthing.ini.")
 	}
 
-	if opts.Debug.Profiler != "" {
+	if len(profiler) > 0 {
 		go func() {
-			err := http.ListenAndServe(opts.Debug.Profiler, nil)
+			err := http.ListenAndServe(profiler, nil)
 			if err != nil {
 				warnln(err)
 			}
@@ -186,16 +164,16 @@ func main() {
 	}
 
 	ensureDir(dir, -1)
-	m := model.NewModel(dir, opts.Advanced.MaxChangeBW)
-	for _, t := range opts.Debug.TraceModel {
+	m := model.NewModel(dir, opts.MaxChangeBW*1000)
+	for _, t := range strings.Split(trace, ",") {
 		m.Trace(t)
 	}
-	if opts.Advanced.LimitRate > 0 {
-		m.LimitRate(opts.Advanced.LimitRate)
+	if opts.LimitRate > 0 {
+		m.LimitRate(opts.LimitRate)
 	}
 
 	// GUI
-	if !opts.NoGUI && opts.GUIAddr != "" {
+	if opts.GUI && opts.GUIAddr != "" {
 		host, port, err := net.SplitHostPort(opts.GUIAddr)
 		if err != nil {
 			warnf("Cannot start GUI on %q: %v", opts.GUIAddr, err)
@@ -212,10 +190,6 @@ func main() {
 	// Walk the repository and update the local model before establishing any
 	// connections to other nodes.
 
-	if !opts.Rehash {
-		infoln("Loading index cache")
-		loadIndex(m)
-	}
 	infoln("Populating repository index")
 	updateLocalModel(m)
 
@@ -230,13 +204,13 @@ func main() {
 	// Routine to pull blocks from other nodes to synchronize the local
 	// repository. Does not run when we are in read only (publish only) mode.
 	if !opts.ReadOnly {
-		if opts.NoDelete {
-			infoln("Deletes from peer nodes will be ignored")
-		} else {
+		if opts.Delete {
 			infoln("Deletes from peer nodes are allowed")
+		} else {
+			infoln("Deletes from peer nodes will be ignored")
 		}
 		okln("Ready to synchronize (read-write)")
-		m.StartRW(!opts.NoDelete, opts.Advanced.RequestsInFlight)
+		m.StartRW(opts.Delete, opts.RequestsInFlight)
 	} else {
 		okln("Ready to synchronize (read only; no external updates accepted)")
 	}
@@ -245,17 +219,15 @@ func main() {
 	// XXX: Should use some fsnotify mechanism.
 	go func() {
 		for {
-			time.Sleep(opts.Advanced.ScanInterval)
-			if m.LocalAge() > opts.Advanced.ScanInterval.Seconds()/2 {
+			time.Sleep(opts.ScanInterval)
+			if m.LocalAge() > opts.ScanInterval.Seconds()/2 {
 				updateLocalModel(m)
 			}
 		}
 	}()
 
-	if !opts.NoStats {
-		// Periodically print statistics
-		go printStatsLoop(m)
-	}
+	// Periodically print statistics
+	go printStatsLoop(m)
 
 	select {}
 }
@@ -308,7 +280,7 @@ listen:
 			continue
 		}
 
-		if opts.Debug.TraceConnect {
+		if strings.Contains(trace, "connect") {
 			debugln("NET: Connect from", conn.RemoteAddr())
 		}
 
@@ -348,19 +320,19 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.M
 	fatalErr(err)
 	port, _ := strconv.Atoi(portstr)
 
-	if opts.Discovery.NoLocalDiscovery {
+	if !opts.LocalDiscovery {
 		port = -1
 	} else {
 		infoln("Sending local discovery announcements")
 	}
 
-	if opts.Discovery.NoExternalDiscovery {
-		opts.Discovery.ExternalPort = -1
+	if !opts.ExternalDiscovery {
+		opts.ExternalServer = ""
 	} else {
 		infoln("Sending external discovery announcements")
 	}
 
-	disc, err := discover.NewDiscoverer(myID, port, opts.Discovery.ExternalPort, opts.Discovery.ExternalServer)
+	disc, err := discover.NewDiscoverer(myID, port, opts.ExternalServer)
 
 	if err != nil {
 		warnf("No discovery possible (%v)", err)
@@ -391,12 +363,12 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.M
 					}
 				}
 
-				if opts.Debug.TraceConnect {
+				if strings.Contains(trace, "connect") {
 					debugln("NET: Dial", nodeID, addr)
 				}
 				conn, err := tls.Dial("tcp", addr, cfg)
 				if err != nil {
-					if opts.Debug.TraceConnect {
+					if strings.Contains(trace, "connect") {
 						debugln("NET:", err)
 					}
 					continue
@@ -415,19 +387,19 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.M
 			}
 		}
 
-		time.Sleep(opts.Advanced.ConnInterval)
+		time.Sleep(opts.ConnInterval)
 	}
 }
 
 func updateLocalModel(m *model.Model) {
-	files, _ := m.Walk(!opts.NoSymlinks)
+	files, _ := m.Walk(opts.Symlinks)
 	m.ReplaceLocal(files)
 	saveIndex(m)
 }
 
 func saveIndex(m *model.Model) {
 	name := m.RepoID() + ".idx.gz"
-	fullName := path.Join(opts.ConfDir, name)
+	fullName := path.Join(confDir, name)
 	idxf, err := os.Create(fullName + ".tmp")
 	if err != nil {
 		return
@@ -443,7 +415,7 @@ func saveIndex(m *model.Model) {
 
 func loadIndex(m *model.Model) {
 	name := m.RepoID() + ".idx.gz"
-	idxf, err := os.Open(path.Join(opts.ConfDir, name))
+	idxf, err := os.Open(path.Join(confDir, name))
 	if err != nil {
 		return
 	}
