@@ -191,6 +191,7 @@ func main() {
 	// connections to other nodes.
 
 	infoln("Populating repository index")
+	loadIndex(m)
 	updateLocalModel(m)
 
 	// Routine to listen for incoming connections
