@@ -11,7 +11,8 @@ var blocksTestData = []struct {
 	blocksize int
 	hash      []string
 }{
-	{[]byte(""), 1024, []string{}},
+	{[]byte(""), 1024, []string{
+		"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}},
 	{[]byte("contents"), 1024, []string{
 		"d1b2a59fbea7e20077af9f91b27e95e865061b270be03ff539ab3b73587882e8"}},
 	{[]byte("contents"), 9, []string{
@@ -86,7 +87,7 @@ var diffTestData = []struct {
 	{"contents", "cantents", 3, []Block{{0, 3, nil}}},
 	{"contents", "contants", 3, []Block{{3, 3, nil}}},
 	{"contents", "cantants", 3, []Block{{0, 3, nil}, {3, 3, nil}}},
-	{"contents", "", 3, nil},
+	{"contents", "", 3, []Block{{0, 0, nil}}},
 	{"", "contents", 3, []Block{{0, 3, nil}, {3, 3, nil}, {6, 2, nil}}},
 	{"con", "contents", 3, []Block{{3, 3, nil}, {6, 2, nil}}},
 	{"contents", "con", 3, nil},

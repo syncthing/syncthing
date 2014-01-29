@@ -32,7 +32,7 @@ func (f File) Size() (bytes int) {
 }
 
 func (f File) String() string {
-	return fmt.Sprintf("File{Name:%q, Flags:0x%x, Modified:%d, Version:%d:, NumBlocks:%d}",
+	return fmt.Sprintf("File{Name:%q, Flags:0x%x, Modified:%d, Version:%d, NumBlocks:%d}",
 		f.Name, f.Flags, f.Modified, f.Version, len(f.Blocks))
 }
 
