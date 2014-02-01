@@ -2,19 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
-	"mime"
 	"net/http"
-	"path/filepath"
 	"runtime"
 	"sync"
-	"time"
 
-	"github.com/calmh/syncthing/auto"
 	"github.com/calmh/syncthing/model"
 	"github.com/codegangsta/martini"
-	"github.com/cratonica/embed"
 )
 
 func startGUI(addr string, m *model.Model) {
@@ -27,14 +21,11 @@ func startGUI(addr string, m *model.Model) {
 	router.Get("/rest/need", restGetNeed)
 	router.Get("/rest/system", restGetSystem)
 
-	fs, err := embed.Unpack(auto.Resources)
-	if err != nil {
-		panic(err)
-	}
+	router.Post("/rest/config", restPostConfig)
 
 	go func() {
 		mr := martini.New()
-		mr.Use(embeddedStatic(fs))
+		mr.Use(embeddedStatic())
 		mr.Use(martini.Recovery())
 		mr.Action(router.Handle)
 		mr.Map(m)
@@ -43,7 +34,6 @@ func startGUI(addr string, m *model.Model) {
 			warnln("GUI not possible:", err)
 		}
 	}()
-
 }
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
@@ -80,13 +70,16 @@ func restGetConnections(m *model.Model, w http.ResponseWriter) {
 }
 
 func restGetConfig(w http.ResponseWriter) {
-	var res = make(map[string]interface{})
-	res["myID"] = myID
-	res["repository"] = config.OptionMap("repository")
-	res["nodes"] = config.OptionMap("nodes")
-	res["nodes"].(map[string]string)[myID] = "self"
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(res)
+	json.NewEncoder(w).Encode(cfg)
+}
+
+func restPostConfig(req *http.Request) {
+	err := json.NewDecoder(req.Body).Decode(&cfg)
+	if err != nil {
+		log.Println(err)
+	} else {
+		saveConfig()
+	}
 }
 
 type guiFile model.File
@@ -120,6 +113,7 @@ func restGetSystem(w http.ResponseWriter) {
 	runtime.ReadMemStats(&m)
 
 	res := make(map[string]interface{})
+	res["myID"] = myID
 	res["goroutines"] = runtime.NumGoroutine()
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys
@@ -129,30 +123,4 @@ func restGetSystem(w http.ResponseWriter) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
-}
-
-func embeddedStatic(fs map[string][]byte) interface{} {
-	var modt = time.Now().UTC().Format(http.TimeFormat)
-
-	return func(res http.ResponseWriter, req *http.Request, log *log.Logger) {
-		file := req.URL.Path
-
-		if file[0] == '/' {
-			file = file[1:]
-		}
-
-		bs, ok := fs[file]
-		if !ok {
-			return
-		}
-
-		mtype := mime.TypeByExtension(filepath.Ext(req.URL.Path))
-		if len(mtype) != 0 {
-			res.Header().Set("Content-Type", mtype)
-		}
-		res.Header().Set("Content-Size", fmt.Sprintf("%d", len(bs)))
-		res.Header().Set("Last-Modified", modt)
-
-		res.Write(bs)
-	}
 }

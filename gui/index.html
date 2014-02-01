@@ -35,6 +35,11 @@ html, body {
 .text-monospace {
     font-family: monospace;
 }
+
+.table-condensed>thead>tr>th, .table-condensed>tbody>tr>th, .table-condensed>tfoot>tr>th, .table-condensed>thead>tr>td, .table-condensed>tbody>tr>td, .table-condensed>tfoot>tr>td {
+    border-top: none;
+}
+
 </style>
 </head>
 
@@ -64,6 +69,60 @@ html, body {
         </div>
 
         <div class="row">
+            <div class="col-md-12">
+                <div class="panel panel-info">
+                    <div class="panel-heading"><h3 class="panel-title">Cluster</h3></div>
+                    <table class="table table-condensed">
+                        <tbody>
+                        <tr ng-repeat="nodeCfg in nodes" ng-class="{'text-muted': nodeCfg.NodeID == myID}">
+                            <td>
+                                <span class="label label-{{nodeClass(nodeCfg)}}">
+                                    <span class="glyphicon glyphicon-{{nodeIcon(nodeCfg)}}"></span>
+                                </span>
+                            </td>
+                            <td>
+                                <span class="text-monospace">{{nodeCfg.NodeID | short}}</span>
+                            </td>
+                            <td>
+                                {{nodeVer(nodeCfg)}}
+                            </td>
+                            <td>
+                                {{nodeAddr(nodeCfg)}}
+                            </td>
+                            <td class="text-right">
+                                <span ng-show="nodeCfg.NodeID != myID">
+                                    <abbr title="{{connections[nodeCfg.NodeID].InBytesTotal | binary}}B">{{connections[nodeCfg.NodeID].inbps | metric}}bps</abbr>
+                                    <span class="text-muted glyphicon glyphicon-chevron-down"></span>
+                                </span>
+                            </td>
+                            <td class="text-right">
+                                <span ng-show="nodeCfg.NodeID != myID">
+                                    <abbr title="{{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B">{{connections[nodeCfg.NodeID].outbps | metric}}bps</abbr>
+                                    <span class="text-muted glyphicon glyphicon-chevron-up"></span>
+                                </span>
+                            </td>
+                            <td class="text-right">
+                                <button ng-show="nodeCfg.NodeID != myID" type="button" ng-click="editNode(nodeCfg)" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span> Edit</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td class="text-right">
+                                <button type="button" class="btn btn-default btn-xs" ng-click="addNode()"><span class="glyphicon glyphicon-plus"></span> Add</button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
             <div class="col-md-6">
                 <div class="panel panel-info">
                     <div class="panel-heading"><h3 class="panel-title">Repository</h3></div>
@@ -75,7 +134,9 @@ html, body {
                         <span class="text-muted">(+{{model.localDeleted | alwaysNumber}} delete records)</span></p>
                     </div>
                 </div>
+            </div>
 
+            <div class="col-md-6">
                 <div class="panel panel-info">
                     <div class="panel-heading"><h3 class="panel-title">System</h3></div>
                     <div class="panel-body">
@@ -83,57 +144,34 @@ html, body {
                         <p>{{system.cpuPercent | alwaysNumber | natural:1}}% CPU, {{system.goroutines | alwaysNumber}} goroutines</p>
                     </div>
                 </div>
-
-                <div ng-show="model.needFiles > 0">
-                    <h2>Files to Synchronize</h2>
-                    <table class="table table-condensed table-striped">
-                        <tr ng-repeat="file in need track by $index">
-                            <td><abbr title="{{file.Name}}">{{file.ShortName}}</abbr></td>
-                            <td class="text-right">{{file.Size | binary}}B</td>
-                        </tr>
-                    </table>
-                </div>
             </div>
+        </div>
+
+        <div class="row">
             <div class="col-md-6">
                 <div class="panel panel-info">
-                    <div class="panel-heading"><h3 class="panel-title">Cluster</h3></div>
-                    <table class="table table-condensed">
-                        <tbody>
-                        <tr ng-repeat="(node, address) in config.nodes" ng-class="{'text-primary': !!connections[node], 'text-muted': node == config.myID}">
-                            <td><span class="text-monospace">{{node | short}}</span></td>
-                            <td>
-                                <span ng-show="node != config.myID">{{connections[node].ClientVersion}}</span>
-                                <span ng-show="node == config.myID">{{version}}</span>
-                            </td>
-                            <td>
-                                <span ng-show="node == config.myID">
-                                    <span class="glyphicon glyphicon-ok"></span>
-                                    (this node)
-                                </span>
-                                <span ng-show="node != config.myID && !!connections[node]">
-                                    <span class="glyphicon glyphicon-link"></span>
-                                    {{connections[node].Address}}
-                                </span>
-                                <span ng-show="node != config.myID && !connections[node]">
-                                    <span class="glyphicon glyphicon-cog"></span>
-                                    {{address}}
-                                </span>
-                            </td>
-                            <td class="text-right">
-                                <span ng-show="node != config.myID">
-                                    <abbr title="{{connections[node].InBytesTotal | binary}}B">{{connections[node].inbps | metric}}b/s</abbr>
-                                    <span class="text-muted glyphicon glyphicon-cloud-download"></span>
-                                </span>
-                            </td>
-                            <td class="text-right">
-                                <span ng-show="node != config.myID">
-                                    <abbr title="{{connections[node].OutBytesTotal | binary}}B">{{connections[node].outbps | metric}}b/s</abbr>
-                                    <span class="text-muted glyphicon glyphicon-cloud-upload"></span>
-                                </span>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
+                    <div class="panel-heading"><h3 class="panel-title"><a href="" data-toggle="collapse" data-target="#settingsTable">Settings</a></h3></div>
+                    <div id="settingsTable" class="panel-collapse collapse">
+                        <div class="panel-body">
+                            <form role="form">
+                                <div class="form-group" ng-repeat="setting in settings">
+                                    <div ng-if="setting.type == 'string'">
+                                        <label for="{{setting.id}}">{{setting.descr}}</label>
+                                        <input id="{{setting.id}}" class="form-control" type="text" ng-model="config.Options[setting.id]"></input>
+                                    </div>
+                                    <div class="checkbox" ng-if="setting.type == 'bool'">
+                                        <label>
+                                            {{setting.descr}} <input id="{{setting.id}}" type="checkbox" ng-model="config.Options[setting.id]"></input>
+                                        </label>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="panel-footer">
+                            <button type="button" class="btn btn-sm btn-default" ng-click="saveSettings()">Save</button>
+                            <small><span class="text-muted">Changes take effect when restarting syncthing.</span></small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -161,6 +199,40 @@ html, body {
                 Syncthing seems to be down, or there is a problem with your Internet connection.
                 Retrying&hellip;
                 </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="editNode" class="modal fade">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h4 class="modal-title">Edit Node</h4>
+            </div>
+            <div class="modal-body">
+                <form role="form">
+                    <div class="form-group">
+                        <label for="nodeID">Node ID</label>
+                        <input placeholder="YUFJOUDPORCMA..." ng-disabled="editingExisting" id="nodeID" class="form-control" type="text" ng-model="currentNode.NodeID"></input>
+                        <p class="help-block">The node ID can be found in the logs or in the "Add Node" dialog on the other node.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="addresses">Addresses</label>
+                        <input placeholder="dynamic" id="addresses" class="form-control" type="text" ng-model="currentNode.AddressesStr"></input>
+                        <p class="help-block">Enter comma separated <span class="text-monospace">ip:port</span> addresses or <span class="text-monospace">dynamic</span> to perform automatic discovery of the address.</p>
+                    </div>
+                </form>
+                <div ng-show="!editingExisting">
+                When adding a new node, keep in mind that <em>this node</em> must be added on the other side too. The Node ID of this node is:
+                <pre>{{myID}}</pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" ng-click="saveNode()">Save</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left" ng-click="deleteNode()">Delete</button>
             </div>
         </div>
     </div>

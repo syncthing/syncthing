@@ -1,33 +1,48 @@
 package main
 
 import (
-	"fmt"
+	"encoding/xml"
 	"io"
 	"reflect"
 	"strconv"
 	"strings"
-	"text/template"
-	"time"
 )
 
-type Options struct {
-	Listen            string        `ini:"listen-address" default:":22000" description:"ip:port to for incoming sync connections"`
-	ReadOnly          bool          `ini:"read-only" description:"Allow changes to the local repository"`
-	Delete            bool          `ini:"allow-delete" default:"true" description:"Allow deletes of files in the local repository"`
-	Symlinks          bool          `ini:"follow-symlinks" default:"true" description:"Follow symbolic links at the top level of the repository"`
-	GUI               bool          `ini:"gui-enabled" default:"true" description:"Enable the HTTP GUI"`
-	GUIAddr           string        `ini:"gui-address" default:"127.0.0.1:8080" description:"ip:port for GUI connections"`
-	ExternalServer    string        `ini:"global-announce-server" default:"syncthing.nym.se:22025" description:"Global server for announcements"`
-	ExternalDiscovery bool          `ini:"global-announce-enabled" default:"true" description:"Announce to the global announce server"`
-	LocalDiscovery    bool          `ini:"local-announce-enabled" default:"true" description:"Announce to the local network"`
-	ParallelRequests  int           `ini:"parallel-requests" default:"16" description:"Maximum number of blocks to request in parallel"`
-	LimitRate         int           `ini:"max-send-kbps" description:"Limit outgoing data rate (kbyte/s)"`
-	ScanInterval      time.Duration `ini:"rescan-interval" default:"60s" description:"Scan repository for changes this often"`
-	ConnInterval      time.Duration `ini:"reconnection-interval" default:"60s" description:"Attempt to (re)connect to peers this often"`
-	MaxChangeBW       int           `ini:"max-change-bw" default:"1000" description:"Suppress files changing more than this (kbyte/s)"`
+type Configuration struct {
+	Version      int                       `xml:"version,attr" default:"1"`
+	Repositories []RepositoryConfiguration `xml:"repository"`
+	Options      OptionsConfiguration      `xml:"options"`
+	XMLName      xml.Name                  `xml:"configuration" json:"-"`
 }
 
-func loadConfig(m map[string]string, data interface{}) error {
+type RepositoryConfiguration struct {
+	Directory string              `xml:"directory,attr"`
+	Nodes     []NodeConfiguration `xml:"node"`
+}
+
+type NodeConfiguration struct {
+	NodeID    string   `xml:"id,attr"`
+	Addresses []string `xml:"address"`
+}
+
+type OptionsConfiguration struct {
+	ListenAddress      string `xml:"listenAddress" default:":22000" ini:"listen-address"`
+	ReadOnly           bool   `xml:"readOnly" ini:"read-only"`
+	AllowDelete        bool   `xml:"allowDelete" default:"true" ini:"allow-delete"`
+	FollowSymlinks     bool   `xml:"followSymlinks" default:"true" ini:"follow-symlinks"`
+	GUIEnabled         bool   `xml:"guiEnabled" default:"true" ini:"gui-enabled"`
+	GUIAddress         string `xml:"guiAddress" default:"127.0.0.1:8080" ini:"gui-address"`
+	GlobalAnnServer    string `xml:"globalAnnounceServer" default:"syncthing.nym.se:22025" ini:"global-announce-server"`
+	GlobalAnnEnabled   bool   `xml:"globalAnnounceEnabled" default:"true" ini:"global-announce-enabled"`
+	LocalAnnEnabled    bool   `xml:"localAnnounceEnabled" default:"true" ini:"local-announce-enabled"`
+	ParallelRequests   int    `xml:"parallelRequests" default:"16" ini:"parallel-requests"`
+	MaxSendKbps        int    `xml:"maxSendKbps" ini:"max-send-kbps"`
+	RescanIntervalS    int    `xml:"rescanIntervalS" default:"60" ini:"rescan-interval"`
+	ReconnectIntervalS int    `xml:"reconnectionIntervalS" default:"60" ini:"reconnection-interval"`
+	MaxChangeKbps      int    `xml:"maxChangeKbps" default:"1000" ini:"max-change-bw"`
+}
+
+func setDefaults(data interface{}) error {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
 
@@ -35,24 +50,9 @@ func loadConfig(m map[string]string, data interface{}) error {
 		f := s.Field(i)
 		tag := t.Field(i).Tag
 
-		name := tag.Get("ini")
-		if len(name) == 0 {
-			name = strings.ToLower(t.Field(i).Name)
-		}
-
-		v, ok := m[name]
-		if !ok {
-			v = tag.Get("default")
-		}
+		v := tag.Get("default")
 		if len(v) > 0 {
 			switch f.Interface().(type) {
-			case time.Duration:
-				d, err := time.ParseDuration(v)
-				if err != nil {
-					return err
-				}
-				f.SetInt(int64(d))
-
 			case string:
 				f.SetString(v)
 
@@ -74,56 +74,62 @@ func loadConfig(m map[string]string, data interface{}) error {
 	return nil
 }
 
-type cfg struct {
-	Key     string
-	Value   string
-	Comment string
-}
-
-func structToValues(data interface{}) []cfg {
+func readConfigINI(m map[string]string, data interface{}) error {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
 
-	var vals []cfg
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
 		tag := t.Field(i).Tag
 
-		var c cfg
-		c.Key = tag.Get("ini")
-		if len(c.Key) == 0 {
-			c.Key = strings.ToLower(t.Field(i).Name)
+		name := tag.Get("ini")
+		if len(name) == 0 {
+			name = strings.ToLower(t.Field(i).Name)
 		}
-		c.Value = fmt.Sprint(f.Interface())
-		c.Comment = tag.Get("description")
-		vals = append(vals, c)
+
+		if v, ok := m[name]; ok {
+			switch f.Interface().(type) {
+			case string:
+				f.SetString(v)
+
+			case int:
+				i, err := strconv.ParseInt(v, 10, 64)
+				if err == nil {
+					f.SetInt(i)
+				}
+
+			case bool:
+				f.SetBool(v == "true")
+
+			default:
+				panic(f.Type())
+			}
+		}
 	}
-	return vals
+	return nil
 }
 
-var configTemplateStr = `[repository]
-{{if .comments}}; The directory to synchronize. Will be created if it does not exist.
-{{end}}dir = {{.dir}}
+func writeConfigXML(wr io.Writer, cfg Configuration) error {
+	e := xml.NewEncoder(wr)
+	e.Indent("", "    ")
+	err := e.Encode(cfg)
+	if err != nil {
+		return err
+	}
+	_, err = wr.Write([]byte("\n"))
+	return err
+}
 
-[nodes]
-{{if .comments}}; Map of node ID to addresses, or "dynamic" for automatic discovery. Examples:
-; J3MZ4G5O4CLHJKB25WX47K5NUJUWDOLO2TTNY3TV3NRU4HVQRKEQ = 172.16.32.24:22000
-; ZNJZRXQKYHF56A2VVNESRZ6AY4ZOWGFJCV6FXDZJUTRVR3SNBT6Q = dynamic
-{{end}}{{range $n, $a := .nodes}}{{$n}} = {{$a}}
-{{end}}
-[settings]
-{{range $v := .settings}}; {{$v.Comment}}
-{{$v.Key}} = {{$v.Value}}
-{{end}}
-`
+func readConfigXML(rd io.Reader) (Configuration, error) {
+	var cfg Configuration
 
-var configTemplate = template.Must(template.New("config").Parse(configTemplateStr))
+	setDefaults(&cfg)
+	setDefaults(&cfg.Options)
 
-func writeConfig(wr io.Writer, dir string, nodes map[string]string, opts Options, comments bool) {
-	configTemplate.Execute(wr, map[string]interface{}{
-		"dir":      dir,
-		"nodes":    nodes,
-		"settings": structToValues(&opts),
-		"comments": comments,
-	})
+	var err error
+	if rd != nil {
+		err = xml.NewDecoder(rd).Decode(&cfg)
+	}
+
+	return cfg, err
 }

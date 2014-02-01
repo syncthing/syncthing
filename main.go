@@ -23,17 +23,12 @@ import (
 	"github.com/calmh/syncthing/protocol"
 )
 
-var opts Options
+var cfg Configuration
 var Version string = "unknown-dev"
 
-const (
-	confFileName = "syncthing.ini"
-)
-
 var (
-	myID      string
-	config    ini.Config
-	nodeAddrs = make(map[string][]string)
+	myID   string
+	config ini.Config
 )
 
 var (
@@ -89,46 +84,75 @@ func main() {
 	log.SetPrefix("[" + myID[0:5] + "] ")
 	logger.SetPrefix("[" + myID[0:5] + "] ")
 
+	// Prepare to be able to save configuration
+
+	cfgFile := path.Join(confDir, "config.xml")
+	go saveConfigLoop(cfgFile)
+
 	// Load the configuration file, if it exists.
 	// If it does not, create a template.
 
-	cfgFile := path.Join(confDir, confFileName)
 	cf, err := os.Open(cfgFile)
-
-	if err != nil {
-		infoln("My ID:", myID)
-
-		infoln("No config file; creating a template")
-
-		loadConfig(nil, &opts) //loads defaults
-		fd, err := os.Create(cfgFile)
+	if err == nil {
+		// Read config.xml
+		cfg, err = readConfigXML(cf)
 		if err != nil {
 			fatalln(err)
 		}
+		cf.Close()
+	} else {
+		// No config.xml, let's try the old syncthing.ini
+		iniFile := path.Join(confDir, "syncthing.ini")
+		cf, err := os.Open(iniFile)
+		if err == nil {
+			infoln("Migrating syncthing.ini to config.xml")
+			iniCfg := ini.Parse(cf)
+			cf.Close()
+			os.Rename(iniFile, path.Join(confDir, "migrated_syncthing.ini"))
 
-		writeConfig(fd, "~/Sync", map[string]string{myID: "dynamic"}, opts, true)
-		fd.Close()
-		infof("Edit %s to suit and restart syncthing.", cfgFile)
+			cfg, _ = readConfigXML(nil)
+			cfg.Repositories = []RepositoryConfiguration{
+				{Directory: iniCfg.Get("repository", "dir")},
+			}
+			readConfigINI(iniCfg.OptionMap("settings"), &cfg.Options)
+			for name, addrs := range iniCfg.OptionMap("nodes") {
+				n := NodeConfiguration{
+					NodeID:    name,
+					Addresses: strings.Fields(addrs),
+				}
+				cfg.Repositories[0].Nodes = append(cfg.Repositories[0].Nodes, n)
+			}
 
-		os.Exit(0)
+			saveConfig()
+		}
 	}
 
-	config = ini.Parse(cf)
-	cf.Close()
+	if len(cfg.Repositories) == 0 {
+		infoln("No config file; starting with empty defaults")
 
-	loadConfig(config.OptionMap("settings"), &opts)
+		cfg, err = readConfigXML(nil)
+		cfg.Repositories = []RepositoryConfiguration{
+			{
+				Directory: "~/Sync",
+				Nodes: []NodeConfiguration{
+					{NodeID: myID, Addresses: []string{"dynamic"}},
+				},
+			},
+		}
+
+		saveConfig()
+		infof("Edit %s to taste or use the GUI\n", cfgFile)
+	}
 
 	if showConfig {
-		writeConfig(os.Stdout,
-			config.Get("repository", "dir"),
-			config.OptionMap("nodes"), opts, false)
+		writeConfigXML(os.Stdout, cfg)
 		os.Exit(0)
 	}
 
 	infoln("Version", Version)
 	infoln("My ID:", myID)
 
-	var dir = expandTilde(config.Get("repository", "dir"))
+	var dir = expandTilde(cfg.Repositories[0].Directory)
 	if len(dir) == 0 {
 		fatalln("No repository directory. Set dir under [repository] in syncthing.ini.")
 	}
@@ -145,7 +169,7 @@ func main() {
 	// The TLS configuration is used for both the listening socket and outgoing
 	// connections.
 
-	cfg := &tls.Config{
+	tlsCfg := &tls.Config{
 		Certificates:           []tls.Certificate{cert},
 		NextProtos:             []string{"bep/1.0"},
 		ServerName:             myID,
@@ -155,35 +179,27 @@ func main() {
 		MinVersion:             tls.VersionTLS12,
 	}
 
-	// Create a map of desired node connections based on the configuration file
-	// directives.
-
-	for nodeID, addrs := range config.OptionMap("nodes") {
-		addrs := strings.Fields(addrs)
-		nodeAddrs[nodeID] = addrs
-	}
-
 	ensureDir(dir, -1)
-	m := model.NewModel(dir, opts.MaxChangeBW*1000)
+	m := model.NewModel(dir, cfg.Options.MaxChangeKbps*1000)
 	for _, t := range strings.Split(trace, ",") {
 		m.Trace(t)
 	}
-	if opts.LimitRate > 0 {
-		m.LimitRate(opts.LimitRate)
+	if cfg.Options.MaxSendKbps > 0 {
+		m.LimitRate(cfg.Options.MaxSendKbps)
 	}
 
 	// GUI
-	if opts.GUI && opts.GUIAddr != "" {
-		host, port, err := net.SplitHostPort(opts.GUIAddr)
+	if cfg.Options.GUIEnabled && cfg.Options.GUIAddress != "" {
+		host, port, err := net.SplitHostPort(cfg.Options.GUIAddress)
 		if err != nil {
-			warnf("Cannot start GUI on %q: %v", opts.GUIAddr, err)
+			warnf("Cannot start GUI on %q: %v", cfg.Options.GUIAddress, err)
 		} else {
 			if len(host) > 0 {
-				infof("Starting web GUI on http://%s", opts.GUIAddr)
+				infof("Starting web GUI on http://%s", cfg.Options.GUIAddress)
 			} else {
 				infof("Starting web GUI on port %s", port)
 			}
-			startGUI(opts.GUIAddr, m)
+			startGUI(cfg.Options.GUIAddress, m)
 		}
 	}
 
@@ -196,22 +212,22 @@ func main() {
 
 	// Routine to listen for incoming connections
 	infoln("Listening for incoming connections")
-	go listen(myID, opts.Listen, m, cfg)
+	go listen(myID, cfg.Options.ListenAddress, m, tlsCfg)
 
 	// Routine to connect out to configured nodes
 	infoln("Attempting to connect to other nodes")
-	go connect(myID, opts.Listen, nodeAddrs, m, cfg)
+	go connect(myID, cfg.Options.ListenAddress, m, tlsCfg)
 
 	// Routine to pull blocks from other nodes to synchronize the local
 	// repository. Does not run when we are in read only (publish only) mode.
-	if !opts.ReadOnly {
-		if opts.Delete {
+	if !cfg.Options.ReadOnly {
+		if cfg.Options.AllowDelete {
 			infoln("Deletes from peer nodes are allowed")
 		} else {
 			infoln("Deletes from peer nodes will be ignored")
 		}
 		okln("Ready to synchronize (read-write)")
-		m.StartRW(opts.Delete, opts.ParallelRequests)
+		m.StartRW(cfg.Options.AllowDelete, cfg.Options.ParallelRequests)
 	} else {
 		okln("Ready to synchronize (read only; no external updates accepted)")
 	}
@@ -219,9 +235,10 @@ func main() {
 	// Periodically scan the repository and update the local model.
 	// XXX: Should use some fsnotify mechanism.
 	go func() {
+		td := time.Duration(cfg.Options.RescanIntervalS) * time.Second
 		for {
-			time.Sleep(opts.ScanInterval)
-			if m.LocalAge() > opts.ScanInterval.Seconds()/2 {
+			time.Sleep(td)
+			if m.LocalAge() > (td / 2).Seconds() {
 				updateLocalModel(m)
 			}
 		}
@@ -231,6 +248,40 @@ func main() {
 	go printStatsLoop(m)
 
 	select {}
+}
+
+var saveConfigCh = make(chan struct{})
+
+func saveConfigLoop(cfgFile string) {
+	for _ = range saveConfigCh {
+		fd, err := os.Create(cfgFile + ".tmp")
+		if err != nil {
+			warnln(err)
+			continue
+		}
+
+		err = writeConfigXML(fd, cfg)
+		if err != nil {
+			warnln(err)
+			fd.Close()
+			continue
+		}
+
+		err = fd.Close()
+		if err != nil {
+			warnln(err)
+			continue
+		}
+
+		err = os.Rename(cfgFile+".tmp", cfgFile)
+		if err != nil {
+			warnln(err)
+		}
+	}
+}
+
+func saveConfig() {
+	saveConfigCh <- struct{}{}
 }
 
 func printStatsLoop(m *model.Model) {
@@ -264,8 +315,8 @@ func printStatsLoop(m *model.Model) {
 	}
 }
 
-func listen(myID string, addr string, m *model.Model, cfg *tls.Config) {
-	l, err := tls.Listen("tcp", addr, cfg)
+func listen(myID string, addr string, m *model.Model, tlsCfg *tls.Config) {
+	l, err := tls.Listen("tcp", addr, tlsCfg)
 	fatalErr(err)
 
 	connOpts := map[string]string{
@@ -305,8 +356,8 @@ listen:
 			warnf("Connect from connected node (%s)", remoteID)
 		}
 
-		for nodeID := range nodeAddrs {
-			if nodeID == remoteID {
+		for _, nodeCfg := range cfg.Repositories[0].Nodes {
+			if nodeCfg.NodeID == remoteID {
 				protoConn := protocol.NewConnection(remoteID, conn, conn, m, connOpts)
 				m.AddConnection(conn, protoConn)
 				continue listen
@@ -316,24 +367,24 @@ listen:
 	}
 }
 
-func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.Model, cfg *tls.Config) {
+func connect(myID string, addr string, m *model.Model, tlsCfg *tls.Config) {
 	_, portstr, err := net.SplitHostPort(addr)
 	fatalErr(err)
 	port, _ := strconv.Atoi(portstr)
 
-	if !opts.LocalDiscovery {
+	if !cfg.Options.LocalAnnEnabled {
 		port = -1
 	} else {
 		infoln("Sending local discovery announcements")
 	}
 
-	if !opts.ExternalDiscovery {
-		opts.ExternalServer = ""
+	if !cfg.Options.GlobalAnnEnabled {
+		cfg.Options.GlobalAnnServer = ""
 	} else {
 		infoln("Sending external discovery announcements")
 	}
 
-	disc, err := discover.NewDiscoverer(myID, port, opts.ExternalServer)
+	disc, err := discover.NewDiscoverer(myID, port, cfg.Options.GlobalAnnServer)
 
 	if err != nil {
 		warnf("No discovery possible (%v)", err)
@@ -346,18 +397,18 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.M
 
 	for {
 	nextNode:
-		for nodeID, addrs := range nodeAddrs {
-			if nodeID == myID {
+		for _, nodeCfg := range cfg.Repositories[0].Nodes {
+			if nodeCfg.NodeID == myID {
 				continue
 			}
-			if m.ConnectedTo(nodeID) {
+			if m.ConnectedTo(nodeCfg.NodeID) {
 				continue
 			}
-			for _, addr := range addrs {
+			for _, addr := range nodeCfg.Addresses {
 				if addr == "dynamic" {
 					var ok bool
 					if disc != nil {
-						addr, ok = disc.Lookup(nodeID)
+						addr, ok = disc.Lookup(nodeCfg.NodeID)
 					}
 					if !ok {
 						continue
@@ -365,9 +416,9 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.M
 				}
 
 				if strings.Contains(trace, "connect") {
-					debugln("NET: Dial", nodeID, addr)
+					debugln("NET: Dial", nodeCfg.NodeID, addr)
 				}
-				conn, err := tls.Dial("tcp", addr, cfg)
+				conn, err := tls.Dial("tcp", addr, tlsCfg)
 				if err != nil {
 					if strings.Contains(trace, "connect") {
 						debugln("NET:", err)
@@ -376,8 +427,8 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.M
 				}
 
 				remoteID := certId(conn.ConnectionState().PeerCertificates[0].Raw)
-				if remoteID != nodeID {
-					warnln("Unexpected nodeID", remoteID, "!=", nodeID)
+				if remoteID != nodeCfg.NodeID {
+					warnln("Unexpected nodeID", remoteID, "!=", nodeCfg.NodeID)
 					conn.Close()
 					continue
 				}
@@ -388,12 +439,12 @@ func connect(myID string, addr string, nodeAddrs map[string][]string, m *model.M
 			}
 		}
 
-		time.Sleep(opts.ConnInterval)
+		time.Sleep(time.Duration(cfg.Options.ReconnectIntervalS) * time.Second)
 	}
 }
 
 func updateLocalModel(m *model.Model) {
-	files, _ := m.Walk(opts.Symlinks)
+	files, _ := m.Walk(cfg.Options.FollowSymlinks)
 	m.ReplaceLocal(files)
 	saveIndex(m)
 }

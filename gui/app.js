@@ -4,6 +4,28 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     var prevDate = 0;
     var modelGetOK = true;
 
+    $scope.connections = {};
+    $scope.config = {};
+    $scope.myID = "";
+    $scope.nodes = [];
+
+    // Strings before bools look better
+    $scope.settings = [
+        {id: 'ListenAddress', descr:"Sync Protocol Listen Address", type: 'string', restart: true},
+        {id: 'GUIAddress', descr: "GUI Listen Address", type: 'string', restart: true},
+        {id: 'MaxSendKbps', descr: "Outgoing Rate Limit (KBps)", type: 'string', restart: true},
+        {id: 'RescanIntervalS', descr: "Rescan Interval (s)", type: 'string', restart: true},
+        {id: 'ReconnectIntervalS', descr: "Reconnect Interval (s)", type: 'string', restart: true},
+        {id: 'ParallelRequests', descr: "Max Outstanding Requests", type: 'string', restart: true},
+        {id: 'MaxChangeKbps', descr: "Max File Change Rate (KBps)", type: 'string', restart: true},
+
+        {id: 'ReadOnly', descr: "Read Only", type: 'bool', restart: true},
+        {id: 'AllowDelete', descr: "Allow Delete", type: 'bool', restart: true},
+        {id: 'FollowSymlinks', descr: "Follow Symlinks", type: 'bool', restart: true},
+        {id: 'GlobalAnnEnabled', descr: "Global Announce", type: 'bool', restart: true},
+        {id: 'LocalAnnEnabled', descr: "Local Announce", type: 'bool', restart: true},
+    ];
+
     function modelGetSucceeded() {
         if (!modelGetOK) {
             $('#networkError').modal('hide');
@@ -21,8 +43,25 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $http.get("/rest/version").success(function (data) {
         $scope.version = data;
     });
-    $http.get("/rest/config").success(function (data) {
-        $scope.config = data;
+    $http.get("/rest/system").success(function (data) {
+        $scope.system = data;
+        $scope.myID = data.myID;
+
+        $http.get("/rest/config").success(function (data) {
+            $scope.config = data;
+
+            var nodes = $scope.config.Repositories[0].Nodes;
+            nodes.sort(function (a, b) {
+                if (a.NodeID == $scope.myID)
+                    return -1;
+                if (b.NodeID == $scope.myID)
+                    return 1;
+                if (a.NodeID < b.NodeID)
+                    return -1;
+                return a.NodeID > b.NodeID;
+            })
+            $scope.nodes = nodes;
+        });
     });
 
     $scope.refresh = function () {
@@ -70,6 +109,122 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         });
     };
 
+    $scope.nodeIcon = function (nodeCfg) {
+        if (nodeCfg.NodeID === $scope.myID) {
+            return "ok";
+        }
+
+        if ($scope.connections[nodeCfg.NodeID]) {
+            return "ok";
+        }
+
+        return "minus";
+    };
+
+    $scope.nodeClass = function (nodeCfg) {
+        if (nodeCfg.NodeID === $scope.myID) {
+            return "default";
+        }
+
+        var conn = $scope.connections[nodeCfg.NodeID];
+        if (conn) {
+            return "success";
+        }
+
+        return "info";
+    };
+
+    $scope.nodeAddr = function (nodeCfg) {
+        if (nodeCfg.NodeID === $scope.myID) {
+            return "this node";
+        }
+        var conn = $scope.connections[nodeCfg.NodeID];
+        if (conn) {
+            return conn.Address;
+        }
+        return nodeCfg.Addresses.join(", ");
+    };
+
+    $scope.nodeVer = function (nodeCfg) {
+        if (nodeCfg.NodeID === $scope.myID) {
+            return $scope.version;
+        }
+        var conn = $scope.connections[nodeCfg.NodeID];
+        if (conn) {
+            return conn.ClientVersion;
+        }
+        return "";
+    };
+
+    $scope.saveSettings = function () {
+        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        $('#settingsTable').collapse('hide');
+    };
+
+    $scope.editNode = function (nodeCfg) {
+        $scope.currentNode = nodeCfg;
+        $scope.editingExisting = true;
+        $scope.currentNode.AddressesStr = nodeCfg.Addresses.join(", ")
+        $('#editNode').modal({backdrop: 'static', keyboard: false});
+    };
+
+    $scope.addNode = function () {
+        $scope.currentNode = {NodeID: "", AddressesStr: "dynamic"};
+        $scope.editingExisting = false;
+        $('#editNode').modal({backdrop: 'static', keyboard: false});
+    };
+
+    $scope.deleteNode = function () {
+        $('#editNode').modal('hide');
+        if (!$scope.editingExisting)
+            return;
+
+        var newNodes = [];
+        for (var i = 0; i < $scope.nodes.length; i++) {
+            if ($scope.nodes[i].NodeID !== $scope.currentNode.NodeID) {
+                newNodes.push($scope.nodes[i]);
+            }
+        } 
+
+        $scope.nodes = newNodes;
+        $scope.config.Repositories[0].Nodes = newNodes;
+
+        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}})
+    }
+
+    $scope.saveNode = function () {
+        $('#editNode').modal('hide');
+        nodeCfg = $scope.currentNode;
+        nodeCfg.Addresses = nodeCfg.AddressesStr.split(',').map(function (x) { return x.trim(); });
+
+        var done = false;
+        for (var i = 0; i < $scope.nodes.length; i++) {
+            if ($scope.nodes[i].NodeID === nodeCfg.NodeID) {
+                $scope.nodes[i] = nodeCfg;
+                done = true;
+                break;
+            }
+        } 
+
+        if (!done) {
+            $scope.nodes.push(nodeCfg);
+        }
+
+        $scope.nodes.sort(function (a, b) {
+            if (a.NodeID == $scope.myID)
+                return -1;
+            if (b.NodeID == $scope.myID)
+                return 1;
+            if (a.NodeID < b.NodeID)
+                return -1;
+            return a.NodeID > b.NodeID;
+        })
+
+        $scope.config.Repositories[0].Nodes = $scope.nodes;
+
+        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}})
+    };
+
     $scope.refresh();
     setInterval($scope.refresh, 10000);
 });
@@ -90,7 +245,7 @@ syncthing.filter('natural', function() {
 syncthing.filter('binary', function() {
     return function(input) {
         if (input === undefined) {
-            return '- '
+            return '0 '
         }
         if (input > 1024 * 1024 * 1024) {
             input /= 1024 * 1024 * 1024;
@@ -111,7 +266,7 @@ syncthing.filter('binary', function() {
 syncthing.filter('metric', function() {
     return function(input) {
         if (input === undefined) {
-            return '- '
+            return '0 '
         }
         if (input > 1000 * 1000 * 1000) {
             input /= 1000 * 1000 * 1000;
@@ -143,3 +298,15 @@ syncthing.filter('alwaysNumber', function() {
         return input;
     }
 });
+
+syncthing.directive('optionEditor', function() {
+    return {
+        restrict: 'C',
+        replace: true,
+        transclude: true,
+        scope: {
+            setting: '=setting',
+        },
+        template: '<input type="text" ng-model="config.Options[setting.id]"></input>',
+    };
+})
