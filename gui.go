@@ -84,6 +84,7 @@ func restGetConfig(w http.ResponseWriter) {
 	res["myID"] = myID
 	res["repository"] = config.OptionMap("repository")
 	res["nodes"] = config.OptionMap("nodes")
+	res["nodes"].(map[string]string)[myID] = "self"
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
 }
