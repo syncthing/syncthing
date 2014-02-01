@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export COPYFILE_DISABLE=true
+
 version=$(git describe --always)
 buildDir=dist
 
