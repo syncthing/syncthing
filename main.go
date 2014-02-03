@@ -33,10 +33,10 @@ var (
 
 var (
 	showVersion bool
-	showConfig  bool
 	confDir     string
 	trace       string
 	profiler    string
+	verbose     bool
 )
 
 func main() {
@@ -44,10 +44,10 @@ func main() {
 	logger = log.New(os.Stderr, "", log.Flags())
 
 	flag.StringVar(&confDir, "home", "~/.syncthing", "Set configuration directory")
-	flag.BoolVar(&showConfig, "config", false, "Print current configuration")
 	flag.StringVar(&trace, "debug.trace", "", "(connect,net,idx,file,pull)")
 	flag.StringVar(&profiler, "debug.profiler", "", "(addr)")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
+	flag.BoolVar(&verbose, "v", false, "Be more verbose")
 	flag.Usage = usageFor(flag.CommandLine, "syncthing [options]")
 	flag.Parse()
 
@@ -83,6 +83,9 @@ func main() {
 	myID = string(certId(cert.Certificate[0]))
 	log.SetPrefix("[" + myID[0:5] + "] ")
 	logger.SetPrefix("[" + myID[0:5] + "] ")
+
+	infoln("Version", Version)
+	infoln("My ID:", myID)
 
 	// Prepare to be able to save configuration
 
@@ -144,18 +147,7 @@ func main() {
 		infof("Edit %s to taste or use the GUI\n", cfgFile)
 	}
 
-	if showConfig {
-		writeConfigXML(os.Stdout, cfg)
-		os.Exit(0)
-	}
-
-	infoln("Version", Version)
-	infoln("My ID:", myID)
-
 	var dir = expandTilde(cfg.Repositories[0].Directory)
-	if len(dir) == 0 {
-		fatalln("No repository directory. Set dir under [repository] in syncthing.ini.")
-	}
 
 	if len(profiler) > 0 {
 		go func() {
@@ -206,29 +198,37 @@ func main() {
 	// Walk the repository and update the local model before establishing any
 	// connections to other nodes.
 
-	infoln("Populating repository index")
+	if verbose {
+		infoln("Populating repository index")
+	}
 	loadIndex(m)
 	updateLocalModel(m)
 
 	// Routine to listen for incoming connections
-	infoln("Listening for incoming connections")
+	if verbose {
+		infoln("Listening for incoming connections")
+	}
 	go listen(myID, cfg.Options.ListenAddress, m, tlsCfg)
 
 	// Routine to connect out to configured nodes
-	infoln("Attempting to connect to other nodes")
+	if verbose {
+		infoln("Attempting to connect to other nodes")
+	}
 	go connect(myID, cfg.Options.ListenAddress, m, tlsCfg)
 
 	// Routine to pull blocks from other nodes to synchronize the local
 	// repository. Does not run when we are in read only (publish only) mode.
 	if !cfg.Options.ReadOnly {
-		if cfg.Options.AllowDelete {
-			infoln("Deletes from peer nodes are allowed")
-		} else {
-			infoln("Deletes from peer nodes will be ignored")
+		if verbose {
+			if cfg.Options.AllowDelete {
+				infoln("Deletes from peer nodes are allowed")
+			} else {
+				infoln("Deletes from peer nodes will be ignored")
+			}
+			okln("Ready to synchronize (read-write)")
 		}
-		okln("Ready to synchronize (read-write)")
 		m.StartRW(cfg.Options.AllowDelete, cfg.Options.ParallelRequests)
-	} else {
+	} else if verbose {
 		okln("Ready to synchronize (read only; no external updates accepted)")
 	}
 
@@ -244,8 +244,10 @@ func main() {
 		}
 	}()
 
-	// Periodically print statistics
-	go printStatsLoop(m)
+	if verbose {
+		// Periodically print statistics
+		go printStatsLoop(m)
+	}
 
 	select {}
 }
@@ -374,13 +376,13 @@ func connect(myID string, addr string, m *model.Model, tlsCfg *tls.Config) {
 
 	if !cfg.Options.LocalAnnEnabled {
 		port = -1
-	} else {
+	} else if verbose {
 		infoln("Sending local discovery announcements")
 	}
 
 	if !cfg.Options.GlobalAnnEnabled {
 		cfg.Options.GlobalAnnServer = ""
-	} else {
+	} else if verbose {
 		infoln("Sending external discovery announcements")
 	}
 
