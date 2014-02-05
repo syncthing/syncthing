@@ -118,6 +118,22 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         return "minus";
     };
 
+    $scope.nodeStatus = function (nodeCfg) {
+        if ($scope.connections[nodeCfg.NodeID]) {
+            return "Connected";
+        }
+
+        return "Disconnected";
+    };
+
+    $scope.nodeIcon = function (nodeCfg) {
+        if ($scope.connections[nodeCfg.NodeID]) {
+            return "ok";
+        }
+
+        return "minus";
+    };
+
     $scope.nodeClass = function (nodeCfg) {
         var conn = $scope.connections[nodeCfg.NodeID];
         if (conn) {
