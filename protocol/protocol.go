@@ -112,7 +112,7 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 			c.mwriter.writeOptions(options)
 			err := c.flush()
 			if err != nil {
-				log.Printf("Warning:", err)
+				log.Println("Warning: Write error during initial handshake:", err)
 			}
 			c.nextId++
 			c.Unlock()
