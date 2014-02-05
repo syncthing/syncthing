@@ -108,7 +108,7 @@ html, body {
                                 </span>
                             </td>
                             <td>
-                                <span class="text-monospace">{{nodeCfg.NodeID | short}}</span>
+                                <span class="text-monospace">{{nodeName(nodeCfg)}}</span>
                             </td>
                             <td>
                                 {{nodeVer(nodeCfg)}}
@@ -240,6 +240,11 @@ html, body {
                         <label for="nodeID">Node ID</label>
                         <input placeholder="YUFJOUDPORCMA..." ng-disabled="editingExisting" id="nodeID" class="form-control" type="text" ng-model="currentNode.NodeID"></input>
                         <p class="help-block">The node ID can be found in the logs or in the "Add Node" dialog on the other node.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input placeholder="Home Server" id="name" class="form-control" type="text" ng-model="currentNode.Name"></input>
+                        <p class="help-block">Shown instead of Node ID in the cluster status.</p>
                     </div>
                     <div class="form-group">
                         <label for="addresses">Addresses</label>

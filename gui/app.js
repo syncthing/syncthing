@@ -162,6 +162,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         return "";
     };
 
+    $scope.nodeName = function (nodeCfg) {
+        if (nodeCfg.Name) {
+            return nodeCfg.Name;
+        }
+        return nodeCfg.NodeID.substr(0, 6);
+    };
+
     $scope.saveSettings = function () {
         $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
         $('#settingsTable').collapse('hide');

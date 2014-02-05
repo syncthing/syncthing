@@ -22,6 +22,7 @@ type RepositoryConfiguration struct {
 
 type NodeConfiguration struct {
 	NodeID    string   `xml:"id,attr"`
+	Name      string   `xml:"name,attr"`
 	Addresses []string `xml:"address"`
 }
 
