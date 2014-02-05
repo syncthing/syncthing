@@ -11,7 +11,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     // Strings before bools look better
     $scope.settings = [
-        {id: 'ListenAddress', descr:"Sync Protocol Listen Address", type: 'string', restart: true},
+        {id: 'ListenStr', descr:"Sync Protocol Listen Addresses", type: 'string', restart: true},
         {id: 'GUIAddress', descr: "GUI Listen Address", type: 'string', restart: true},
         {id: 'MaxSendKbps', descr: "Outgoing Rate Limit (KBps)", type: 'string', restart: true},
         {id: 'RescanIntervalS', descr: "Rescan Interval (s)", type: 'string', restart: true},
@@ -49,6 +49,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
         $http.get("/rest/config").success(function (data) {
             $scope.config = data;
+            $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(", ")
 
             var nodes = $scope.config.Repositories[0].Nodes;
             nodes = nodes.filter(function (x) { return x.NodeID != $scope.myID; });
@@ -170,6 +171,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.saveSettings = function () {
+        $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) { return x.trim(); });
         $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
         $('#settingsTable').collapse('hide');
     };

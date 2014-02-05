@@ -208,13 +208,16 @@ func main() {
 	if verbose {
 		infoln("Listening for incoming connections")
 	}
-	go listen(myID, cfg.Options.ListenAddress, m, tlsCfg)
+	for _, addr := range cfg.Options.ListenAddress {
+		go listen(myID, addr, m, tlsCfg)
+	}
 
 	// Routine to connect out to configured nodes
 	if verbose {
 		infoln("Attempting to connect to other nodes")
 	}
-	go connect(myID, cfg.Options.ListenAddress, m, tlsCfg)
+	disc := discovery(cfg.Options.ListenAddress[0])
+	go connect(myID, disc, m, tlsCfg)
 
 	// Routine to pull blocks from other nodes to synchronize the local
 	// repository. Does not run when we are in read only (publish only) mode.
@@ -318,6 +321,9 @@ func printStatsLoop(m *model.Model) {
 }
 
 func listen(myID string, addr string, m *model.Model, tlsCfg *tls.Config) {
+	if strings.Contains(trace, "connect") {
+		debugln("NET: Listening on", addr)
+	}
 	l, err := tls.Listen("tcp", addr, tlsCfg)
 	fatalErr(err)
 
@@ -369,7 +375,7 @@ listen:
 	}
 }
 
-func connect(myID string, addr string, m *model.Model, tlsCfg *tls.Config) {
+func discovery(addr string) *discover.Discoverer {
 	_, portstr, err := net.SplitHostPort(addr)
 	fatalErr(err)
 	port, _ := strconv.Atoi(portstr)
@@ -392,6 +398,10 @@ func connect(myID string, addr string, m *model.Model, tlsCfg *tls.Config) {
 		warnf("No discovery possible (%v)", err)
 	}
 
+	return disc
+}
+
+func connect(myID string, disc *discover.Discoverer, m *model.Model, tlsCfg *tls.Config) {
 	connOpts := map[string]string{
 		"clientId":      "syncthing",
 		"clientVersion": Version,

@@ -27,20 +27,20 @@ type NodeConfiguration struct {
 }
 
 type OptionsConfiguration struct {
-	ListenAddress      string `xml:"listenAddress" default:":22000" ini:"listen-address"`
-	ReadOnly           bool   `xml:"readOnly" ini:"read-only"`
-	AllowDelete        bool   `xml:"allowDelete" default:"true" ini:"allow-delete"`
-	FollowSymlinks     bool   `xml:"followSymlinks" default:"true" ini:"follow-symlinks"`
-	GUIEnabled         bool   `xml:"guiEnabled" default:"true" ini:"gui-enabled"`
-	GUIAddress         string `xml:"guiAddress" default:"127.0.0.1:8080" ini:"gui-address"`
-	GlobalAnnServer    string `xml:"globalAnnounceServer" default:"syncthing.nym.se:22025" ini:"global-announce-server"`
-	GlobalAnnEnabled   bool   `xml:"globalAnnounceEnabled" default:"true" ini:"global-announce-enabled"`
-	LocalAnnEnabled    bool   `xml:"localAnnounceEnabled" default:"true" ini:"local-announce-enabled"`
-	ParallelRequests   int    `xml:"parallelRequests" default:"16" ini:"parallel-requests"`
-	MaxSendKbps        int    `xml:"maxSendKbps" ini:"max-send-kbps"`
-	RescanIntervalS    int    `xml:"rescanIntervalS" default:"60" ini:"rescan-interval"`
-	ReconnectIntervalS int    `xml:"reconnectionIntervalS" default:"60" ini:"reconnection-interval"`
-	MaxChangeKbps      int    `xml:"maxChangeKbps" default:"1000" ini:"max-change-bw"`
+	ListenAddress      []string `xml:"listenAddress" default:":22000" ini:"listen-address"`
+	ReadOnly           bool     `xml:"readOnly" ini:"read-only"`
+	AllowDelete        bool     `xml:"allowDelete" default:"true" ini:"allow-delete"`
+	FollowSymlinks     bool     `xml:"followSymlinks" default:"true" ini:"follow-symlinks"`
+	GUIEnabled         bool     `xml:"guiEnabled" default:"true" ini:"gui-enabled"`
+	GUIAddress         string   `xml:"guiAddress" default:"127.0.0.1:8080" ini:"gui-address"`
+	GlobalAnnServer    string   `xml:"globalAnnounceServer" default:"syncthing.nym.se:22025" ini:"global-announce-server"`
+	GlobalAnnEnabled   bool     `xml:"globalAnnounceEnabled" default:"true" ini:"global-announce-enabled"`
+	LocalAnnEnabled    bool     `xml:"localAnnounceEnabled" default:"true" ini:"local-announce-enabled"`
+	ParallelRequests   int      `xml:"parallelRequests" default:"16" ini:"parallel-requests"`
+	MaxSendKbps        int      `xml:"maxSendKbps" ini:"max-send-kbps"`
+	RescanIntervalS    int      `xml:"rescanIntervalS" default:"60" ini:"rescan-interval"`
+	ReconnectIntervalS int      `xml:"reconnectionIntervalS" default:"60" ini:"reconnection-interval"`
+	MaxChangeKbps      int      `xml:"maxChangeKbps" default:"1000" ini:"max-change-bw"`
 }
 
 func setDefaults(data interface{}) error {
@@ -56,6 +56,11 @@ func setDefaults(data interface{}) error {
 			switch f.Interface().(type) {
 			case string:
 				f.SetString(v)
+
+			case []string:
+				rv := reflect.MakeSlice(reflect.TypeOf([]string{}), 1, 1)
+				rv.Index(0).SetString(v)
+				f.Set(rv)
 
 			case int:
 				i, err := strconv.ParseInt(v, 10, 64)
@@ -121,6 +126,20 @@ func writeConfigXML(wr io.Writer, cfg Configuration) error {
 	return err
 }
 
+func uniqueStrings(ss []string) []string {
+	var m = make(map[string]bool, len(ss))
+	for _, s := range ss {
+		m[s] = true
+	}
+
+	var us = make([]string, 0, len(m))
+	for k := range m {
+		us = append(us, k)
+	}
+
+	return us
+}
+
 func readConfigXML(rd io.Reader) (Configuration, error) {
 	var cfg Configuration
 
@@ -132,5 +151,6 @@ func readConfigXML(rd io.Reader) (Configuration, error) {
 		err = xml.NewDecoder(rd).Decode(&cfg)
 	}
 
+	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 	return cfg, err
 }
