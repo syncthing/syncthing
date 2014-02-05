@@ -51,11 +51,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             $scope.config = data;
 
             var nodes = $scope.config.Repositories[0].Nodes;
+            nodes = nodes.filter(function (x) { return x.NodeID != $scope.myID; });
             nodes.sort(function (a, b) {
-                if (a.NodeID == $scope.myID)
-                    return -1;
-                if (b.NodeID == $scope.myID)
-                    return 1;
                 if (a.NodeID < b.NodeID)
                     return -1;
                 return a.NodeID > b.NodeID;
@@ -79,6 +76,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             var td = (now - prevDate) / 1000;
             prevDate = now;
 
+            $scope.inbps = 0
+            $scope.outbps = 0
             for (var id in data) {
                 try {
                     data[id].inbps = Math.max(0, 8 * (data[id].InBytesTotal - $scope.connections[id].InBytesTotal) / td);
@@ -87,6 +86,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
                     data[id].inbps = 0;
                     data[id].outbps = 0;
                 }
+                $scope.inbps += data[id].outbps;
+                $scope.outbps += data[id].inbps;
             }
             $scope.connections = data;
         });
@@ -110,10 +111,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.nodeIcon = function (nodeCfg) {
-        if (nodeCfg.NodeID === $scope.myID) {
-            return "ok";
-        }
-
         if ($scope.connections[nodeCfg.NodeID]) {
             return "ok";
         }
@@ -122,10 +119,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.nodeClass = function (nodeCfg) {
-        if (nodeCfg.NodeID === $scope.myID) {
-            return "default";
-        }
-
         var conn = $scope.connections[nodeCfg.NodeID];
         if (conn) {
             return "success";
@@ -135,9 +128,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.nodeAddr = function (nodeCfg) {
-        if (nodeCfg.NodeID === $scope.myID) {
-            return "this node";
-        }
         var conn = $scope.connections[nodeCfg.NodeID];
         if (conn) {
             return conn.Address;
@@ -211,10 +201,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }
 
         $scope.nodes.sort(function (a, b) {
-            if (a.NodeID == $scope.myID)
-                return -1;
-            if (b.NodeID == $scope.myID)
-                return 1;
             if (a.NodeID < b.NodeID)
                 return -1;
             return a.NodeID > b.NodeID;

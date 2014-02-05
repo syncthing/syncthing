@@ -74,7 +74,34 @@ html, body {
                     <div class="panel-heading"><h3 class="panel-title">Cluster</h3></div>
                     <table class="table table-condensed">
                         <tbody>
-                        <tr ng-repeat="nodeCfg in nodes" ng-class="{'text-muted': nodeCfg.NodeID == myID}">
+                        <!-- myself -->
+                        <tr class="text-muted">
+                            <td>
+                                <span class="label label-default">
+                                    <span class="glyphicon glyphicon-ok"></span>
+                                </span>
+                            </td>
+                            <td>
+                                <span class="text-monospace">{{myID | short}}</span>
+                            </td>
+                            <td>{{version}}</td>
+                            <td>this node</td>
+                            <td class="text-right">
+                                <span ng-show="nodeCfg.NodeID != myID">
+                                    {{inbps | metric}}bps
+                                    <span class="text-muted glyphicon glyphicon-chevron-down"></span>
+                                </span>
+                            </td>
+                            <td class="text-right">
+                                <span ng-show="nodeCfg.NodeID != myID">
+                                    {{outbps | metric}}bps
+                                    <span class="text-muted glyphicon glyphicon-chevron-up"></span>
+                                </span>
+                            </td>
+                            <td class="text-right"></td>
+                        </tr>
+                        <!-- all other nodes -->
+                        <tr ng-repeat="nodeCfg in nodes">
                             <td>
                                 <span class="label label-{{nodeClass(nodeCfg)}}">
                                     <span class="glyphicon glyphicon-{{nodeIcon(nodeCfg)}}"></span>
@@ -90,19 +117,15 @@ html, body {
                                 {{nodeAddr(nodeCfg)}}
                             </td>
                             <td class="text-right">
-                                <span ng-show="nodeCfg.NodeID != myID">
-                                    <abbr title="{{connections[nodeCfg.NodeID].InBytesTotal | binary}}B">{{connections[nodeCfg.NodeID].inbps | metric}}bps</abbr>
-                                    <span class="text-muted glyphicon glyphicon-chevron-down"></span>
-                                </span>
+                                <abbr title="{{connections[nodeCfg.NodeID].InBytesTotal | binary}}B">{{connections[nodeCfg.NodeID].inbps | metric}}bps</abbr>
+                                <span class="text-muted glyphicon glyphicon-chevron-down"></span>
                             </td>
                             <td class="text-right">
-                                <span ng-show="nodeCfg.NodeID != myID">
-                                    <abbr title="{{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B">{{connections[nodeCfg.NodeID].outbps | metric}}bps</abbr>
-                                    <span class="text-muted glyphicon glyphicon-chevron-up"></span>
-                                </span>
+                                <abbr title="{{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B">{{connections[nodeCfg.NodeID].outbps | metric}}bps</abbr>
+                                <span class="text-muted glyphicon glyphicon-chevron-up"></span>
                             </td>
                             <td class="text-right">
-                                <button ng-show="nodeCfg.NodeID != myID" type="button" ng-click="editNode(nodeCfg)" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span> Edit</button>
+                                <button type="button" ng-click="editNode(nodeCfg)" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span> Edit</button>
                             </td>
                         </tr>
                         <tr>
@@ -225,8 +248,8 @@ html, body {
                     </div>
                 </form>
                 <div ng-show="!editingExisting">
-                When adding a new node, keep in mind that <em>this node</em> must be added on the other side too. The Node ID of this node is:
-                <pre>{{myID}}</pre>
+                    When adding a new node, keep in mind that <em>this node</em> must be added on the other side too. The Node ID of this node is:
+                    <pre>{{myID}}</pre>
                 </div>
             </div>
             <div class="modal-footer">
