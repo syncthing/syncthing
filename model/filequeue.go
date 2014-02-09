@@ -199,7 +199,7 @@ func (q *FileQueue) QueuedFiles() (files []string) {
 }
 
 func (q *FileQueue) deleteAt(i int) {
-	q.files = q.files[:i+copy(q.files[i:], q.files[i+1:])]
+	q.files = append(q.files[:i], q.files[i+1:]...)
 }
 
 func (q *FileQueue) deleteFile(n string) {
@@ -228,7 +228,9 @@ func (q *FileQueue) RemoveAvailable(toRemove string) {
 			if node == toRemove {
 				q.availability[file] = nodes[:i+copy(nodes[i:], nodes[i+1:])]
 				if len(q.availability[file]) == 0 {
+					q.fmut.Lock()
 					q.deleteFile(file)
+					q.fmut.Unlock()
 				}
 			}
 			break

@@ -275,3 +275,21 @@ func TestFileQueueThreadHandling(t *testing.T) {
 		t.Error("Total mismatch; %d != %d", gotTot, total)
 	}
 }
+
+func TestDeleteAt(t *testing.T) {
+	q := FileQueue{}
+
+	for i := 0; i < 4; i++ {
+		q.files = queuedFileList{{name: "a"}, {name: "b"}, {name: "c"}, {name: "d"}}
+		q.deleteAt(i)
+		if l := len(q.files); l != 3 {
+			t.Fatal("deleteAt(%d) failed; %d != 3", i, l)
+		}
+	}
+
+	q.files = queuedFileList{{name: "a"}}
+	q.deleteAt(0)
+	if l := len(q.files); l != 0 {
+		t.Fatal("deleteAt(only) failed; %d != 0", l)
+	}
+}
