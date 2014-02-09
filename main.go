@@ -204,12 +204,18 @@ func main() {
 	loadIndex(m)
 	updateLocalModel(m)
 
+	connOpts := map[string]string{
+		"clientId":      "syncthing",
+		"clientVersion": Version,
+		"clusterHash":   clusterHash(cfg.Repositories[0].Nodes),
+	}
+
 	// Routine to listen for incoming connections
 	if verbose {
 		infoln("Listening for incoming connections")
 	}
 	for _, addr := range cfg.Options.ListenAddress {
-		go listen(myID, addr, m, tlsCfg)
+		go listen(myID, addr, m, tlsCfg, connOpts)
 	}
 
 	// Routine to connect out to configured nodes
@@ -217,7 +223,7 @@ func main() {
 		infoln("Attempting to connect to other nodes")
 	}
 	disc := discovery(cfg.Options.ListenAddress[0])
-	go connect(myID, disc, m, tlsCfg)
+	go connect(myID, disc, m, tlsCfg, connOpts)
 
 	// Routine to pull blocks from other nodes to synchronize the local
 	// repository. Does not run when we are in read only (publish only) mode.
@@ -320,17 +326,12 @@ func printStatsLoop(m *model.Model) {
 	}
 }
 
-func listen(myID string, addr string, m *model.Model, tlsCfg *tls.Config) {
+func listen(myID string, addr string, m *model.Model, tlsCfg *tls.Config, connOpts map[string]string) {
 	if strings.Contains(trace, "connect") {
 		debugln("NET: Listening on", addr)
 	}
 	l, err := tls.Listen("tcp", addr, tlsCfg)
 	fatalErr(err)
-
-	connOpts := map[string]string{
-		"clientId":      "syncthing",
-		"clientVersion": Version,
-	}
 
 listen:
 	for {
@@ -401,12 +402,7 @@ func discovery(addr string) *discover.Discoverer {
 	return disc
 }
 
-func connect(myID string, disc *discover.Discoverer, m *model.Model, tlsCfg *tls.Config) {
-	connOpts := map[string]string{
-		"clientId":      "syncthing",
-		"clientVersion": Version,
-	}
-
+func connect(myID string, disc *discover.Discoverer, m *model.Model, tlsCfg *tls.Config, connOpts map[string]string) {
 	for {
 	nextNode:
 		for _, nodeCfg := range cfg.Repositories[0].Nodes {

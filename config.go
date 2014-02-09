@@ -1,9 +1,12 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -153,4 +156,25 @@ func readConfigXML(rd io.Reader) (Configuration, error) {
 
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 	return cfg, err
+}
+
+type NodeConfigurationList []NodeConfiguration
+
+func (l NodeConfigurationList) Less(a, b int) bool {
+	return l[a].NodeID < l[b].NodeID
+}
+func (l NodeConfigurationList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+func (l NodeConfigurationList) Len() int {
+	return len(l)
+}
+
+func clusterHash(nodes []NodeConfiguration) string {
+	sort.Sort(NodeConfigurationList(nodes))
+	h := sha256.New()
+	for _, n := range nodes {
+		h.Write([]byte(n.NodeID))
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

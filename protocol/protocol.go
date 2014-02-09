@@ -27,6 +27,10 @@ const (
 	FlagInvalid = 1 << 13
 )
 
+var (
+	ErrClusterHash = fmt.Errorf("Configuration error: mismatched cluster hash")
+)
+
 type FileInfo struct {
 	Name     string
 	Flags    uint32
@@ -64,7 +68,8 @@ type Connection struct {
 	awaiting    map[int]chan asyncResult
 	nextId      int
 	indexSent   map[string][2]int64
-	options     map[string]string
+	peerOptions map[string]string
+	myOptions   map[string]string
 	optionsLock sync.Mutex
 
 	hasSentIndex  bool
@@ -106,6 +111,7 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 	go c.pingerLoop()
 
 	if options != nil {
+		c.myOptions = options
 		go func() {
 			c.Lock()
 			c.mwriter.writeHeader(header{0, c.nextId, messageTypeOptions})
@@ -348,8 +354,13 @@ loop:
 
 		case messageTypeOptions:
 			c.optionsLock.Lock()
-			c.options = c.mreader.readOptions()
+			c.peerOptions = c.mreader.readOptions()
 			c.optionsLock.Unlock()
+
+			if mh, rh := c.myOptions["clusterHash"], c.peerOptions["clusterHash"]; len(mh) > 0 && len(rh) > 0 && mh != rh {
+				c.close(ErrClusterHash)
+				break loop
+			}
 
 		default:
 			c.close(fmt.Errorf("Protocol error: %s: unknown message type %#x", c.ID, hdr.msgType))
@@ -423,5 +434,5 @@ func (c *Connection) Statistics() Statistics {
 func (c *Connection) Option(key string) string {
 	c.optionsLock.Lock()
 	defer c.optionsLock.Unlock()
-	return c.options[key]
+	return c.peerOptions[key]
 }
