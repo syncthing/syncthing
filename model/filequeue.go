@@ -184,7 +184,8 @@ func (q *FileQueue) Done(file string, offset int64, data []byte) {
 			return
 		}
 	}
-	panic("unreachable")
+
+	// We found nothing, might have errored out already
 }
 
 func (q *FileQueue) QueuedFiles() (files []string) {
