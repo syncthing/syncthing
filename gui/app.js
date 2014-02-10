@@ -1,8 +1,13 @@
+/*jslint browser: true, continue: true, plusplus: true */
+/*global $: false, angular: false */
+
+"use strict";
+
 var syncthing = angular.module('syncthing', []);
 
 syncthing.controller('SyncthingCtrl', function ($scope, $http) {
-    var prevDate = 0;
-    var modelGetOK = true;
+    var prevDate = 0,
+        modelGetOK = true;
 
     $scope.connections = {};
     $scope.config = {};
@@ -11,7 +16,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     // Strings before bools look better
     $scope.settings = [
-        {id: 'ListenStr', descr:"Sync Protocol Listen Addresses", type: 'string', restart: true},
+        {id: 'ListenStr', descr: "Sync Protocol Listen Addresses", type: 'string', restart: true},
         {id: 'GUIAddress', descr: "GUI Listen Address", type: 'string', restart: true},
         {id: 'MaxSendKbps', descr: "Outgoing Rate Limit (KBps)", type: 'string', restart: true},
         {id: 'RescanIntervalS', descr: "Rescan Interval (s)", type: 'string', restart: true},
@@ -40,6 +45,19 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }
     }
 
+    function nodeCompare(a, b) {
+        if (a.NodeID === $scope.myID) {
+            return -1;
+        }
+        if (b.NodeID === $scope.myID) {
+            return 1;
+        }
+        if (a.NodeID < b.NodeID) {
+            return -1;
+        }
+        return a.NodeID > b.NodeID;
+    }
+
     $http.get("/rest/version").success(function (data) {
         $scope.version = data;
     });
@@ -49,15 +67,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
         $http.get("/rest/config").success(function (data) {
             $scope.config = data;
-            $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(", ")
+            $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(", ");
 
             var nodes = $scope.config.Repositories[0].Nodes;
-            nodes = nodes.filter(function (x) { return x.NodeID != $scope.myID; });
-            nodes.sort(function (a, b) {
-                if (a.NodeID < b.NodeID)
-                    return -1;
-                return a.NodeID > b.NodeID;
-            })
+            nodes.sort(nodeCompare);
             $scope.nodes = nodes;
         });
     });
@@ -73,13 +86,18 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             modelGetFailed();
         });
         $http.get("/rest/connections").success(function (data) {
-            var now = Date.now();
-            var td = (now - prevDate) / 1000;
-            prevDate = now;
+            var now = Date.now(),
+                td = (now - prevDate) / 1000,
+                id;
 
-            $scope.inbps = 0
-            $scope.outbps = 0
-            for (var id in data) {
+            prevDate = now;
+            $scope.inbps = 0;
+            $scope.outbps = 0;
+
+            for (id in data) {
+                if (!data.hasOwnProperty(id)) {
+                    continue;
+                }
                 try {
                     data[id].inbps = Math.max(0, 8 * (data[id].InBytesTotal - $scope.connections[id].InBytesTotal) / td);
                     data[id].outbps = Math.max(0, 8 * (data[id].OutBytesTotal - $scope.connections[id].OutBytesTotal) / td);
@@ -96,7 +114,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             var i, name;
             for (i = 0; i < data.length; i++) {
                 name = data[i].Name.split("/");
-                data[i].ShortName = name[name.length-1];
+                data[i].ShortName = name[name.length - 1];
             }
             data.sort(function (a, b) {
                 if (a.ShortName < b.ShortName) {
@@ -179,7 +197,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.editNode = function (nodeCfg) {
         $scope.currentNode = nodeCfg;
         $scope.editingExisting = true;
-        $scope.currentNode.AddressesStr = nodeCfg.Addresses.join(", ")
+        $scope.currentNode.AddressesStr = nodeCfg.Addresses.join(", ");
         $('#editNode').modal({backdrop: 'static', keyboard: false});
     };
 
@@ -190,50 +208,72 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.deleteNode = function () {
-        $('#editNode').modal('hide');
-        if (!$scope.editingExisting)
-            return;
+        var newNodes = [], i;
 
-        var newNodes = [];
-        for (var i = 0; i < $scope.nodes.length; i++) {
+        $('#editNode').modal('hide');
+        if (!$scope.editingExisting) {
+            return;
+        }
+
+        for (i = 0; i < $scope.nodes.length; i++) {
             if ($scope.nodes[i].NodeID !== $scope.currentNode.NodeID) {
                 newNodes.push($scope.nodes[i]);
             }
-        } 
+        }
 
         $scope.nodes = newNodes;
         $scope.config.Repositories[0].Nodes = newNodes;
 
-        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}})
-    }
+        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+    };
 
     $scope.saveNode = function () {
+        var nodeCfg, done, i;
+
         $('#editNode').modal('hide');
         nodeCfg = $scope.currentNode;
         nodeCfg.Addresses = nodeCfg.AddressesStr.split(',').map(function (x) { return x.trim(); });
 
-        var done = false;
-        for (var i = 0; i < $scope.nodes.length; i++) {
+        done = false;
+        for (i = 0; i < $scope.nodes.length; i++) {
             if ($scope.nodes[i].NodeID === nodeCfg.NodeID) {
                 $scope.nodes[i] = nodeCfg;
                 done = true;
                 break;
             }
-        } 
+        }
 
         if (!done) {
             $scope.nodes.push(nodeCfg);
         }
 
-        $scope.nodes.sort(function (a, b) {
-            if (a.NodeID < b.NodeID)
-                return -1;
-            return a.NodeID > b.NodeID;
-        })
-
+        $scope.nodes.sort(nodeCompare);
         $scope.config.Repositories[0].Nodes = $scope.nodes;
 
-        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}})
+        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+    };
+
+    $scope.otherNodes = function () {
+        var nodes = [], i, n;
+
+        for (i = 0; i < $scope.nodes.length; i++) {
+            n = $scope.nodes[i];
+            if (n.NodeID !== $scope.myID) {
+                nodes.push(n);
+            }
+        }
+        return nodes;
+    };
+
+    $scope.thisNode = function () {
+        var i, n;
+
+        for (i = 0; i < $scope.nodes.length; i++) {
+            n = $scope.nodes[i];
+            if (n.NodeID === $scope.myID) {
+                return [n];
+            }
+        }
     };
 
     $scope.refresh();
@@ -241,22 +281,27 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 });
 
 function decimals(val, num) {
-    if (val === 0) { return 0; }
-    var digits = Math.floor(Math.log(Math.abs(val))/Math.log(10));
-    var decimals = Math.max(0, num - digits);
-    return decimals;
+    var digits, decs;
+
+    if (val === 0) {
+        return 0;
+    }
+
+    digits = Math.floor(Math.log(Math.abs(val)) / Math.log(10));
+    decs = Math.max(0, num - digits);
+    return decs;
 }
 
-syncthing.filter('natural', function() {
-    return function(input, valid) {
+syncthing.filter('natural', function () {
+    return function (input, valid) {
         return input.toFixed(decimals(input, valid));
-    }
+    };
 });
 
-syncthing.filter('binary', function() {
-    return function(input) {
+syncthing.filter('binary', function () {
+    return function (input) {
         if (input === undefined) {
-            return '0 '
+            return '0 ';
         }
         if (input > 1024 * 1024 * 1024) {
             input /= 1024 * 1024 * 1024;
@@ -271,13 +316,13 @@ syncthing.filter('binary', function() {
             return input.toFixed(decimals(input, 2)) + ' Ki';
         }
         return Math.round(input) + ' ';
-    }
+    };
 });
 
-syncthing.filter('metric', function() {
-    return function(input) {
+syncthing.filter('metric', function () {
+    return function (input) {
         if (input === undefined) {
-            return '0 '
+            return '0 ';
         }
         if (input > 1000 * 1000 * 1000) {
             input /= 1000 * 1000 * 1000;
@@ -292,25 +337,25 @@ syncthing.filter('metric', function() {
             return input.toFixed(decimals(input, 2)) + ' k';
         }
         return Math.round(input) + ' ';
-    }
+    };
 });
 
-syncthing.filter('short', function() {
-    return function(input) {
+syncthing.filter('short', function () {
+    return function (input) {
         return input.substr(0, 6);
-    }
+    };
 });
 
-syncthing.filter('alwaysNumber', function() {
-    return function(input) {
+syncthing.filter('alwaysNumber', function () {
+    return function (input) {
         if (input === undefined) {
             return 0;
         }
         return input;
-    }
+    };
 });
 
-syncthing.directive('optionEditor', function() {
+syncthing.directive('optionEditor', function () {
     return {
         restrict: 'C',
         replace: true,
@@ -320,4 +365,4 @@ syncthing.directive('optionEditor', function() {
         },
         template: '<input type="text" ng-model="config.Options[setting.id]"></input>',
     };
-})
+});

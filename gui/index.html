@@ -75,14 +75,14 @@ html, body {
                     <table class="table table-condensed">
                         <tbody>
                         <!-- myself -->
-                        <tr class="text-muted">
+                        <tr class="text-muted" ng-repeat="nodeCfg in thisNode()">
                             <td style="width:13%">
                                 <span class="label label-default">
                                     <span class="glyphicon glyphicon-ok"></span> This node
                                 </span>
                             </td>
                             <td style="width:12%">
-                                <span class="text-monospace">{{myID | short}}</span>
+                                <span class="text-monospace">{{nodeName(nodeCfg)}}</span>
                             </td>
                             <td style="width:20%">{{version}}</td>
                             <td style="width:25%"></td>
@@ -98,10 +98,12 @@ html, body {
                                     <span class="text-muted glyphicon glyphicon-chevron-up"></span>
                                 </span>
                             </td>
-                            <td style="width:10%" class="text-right"></td>
+                            <td class="text-right">
+                                <button type="button" ng-click="editNode(nodeCfg)" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span> Edit</button>
+                            </td>
                         </tr>
                         <!-- all other nodes -->
-                        <tr ng-repeat="nodeCfg in nodes">
+                        <tr ng-repeat="nodeCfg in otherNodes()">
                             <td>
                                 <span class="label label-{{nodeClass(nodeCfg)}}">
                                     <span class="glyphicon glyphicon-{{nodeIcon(nodeCfg)}}"></span> {{nodeStatus(nodeCfg)}}
@@ -248,7 +250,7 @@ html, body {
                     </div>
                     <div class="form-group">
                         <label for="addresses">Addresses</label>
-                        <input placeholder="dynamic" id="addresses" class="form-control" type="text" ng-model="currentNode.AddressesStr"></input>
+                        <input placeholder="dynamic" ng-disabled="currentNode.NodeID == myID" id="addresses" class="form-control" type="text" ng-model="currentNode.AddressesStr"></input>
                         <p class="help-block">Enter comma separated <span class="text-monospace">ip:port</span> addresses or <span class="text-monospace">dynamic</span> to perform automatic discovery of the address.</p>
                     </div>
                 </form>

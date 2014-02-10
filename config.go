@@ -178,3 +178,25 @@ func clusterHash(nodes []NodeConfiguration) string {
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
+
+func cleanNodeList(nodes []NodeConfiguration, myID string) []NodeConfiguration {
+	var myIDExists bool
+	for _, node := range nodes {
+		if node.NodeID == myID {
+			myIDExists = true
+			break
+		}
+	}
+
+	if !myIDExists {
+		nodes = append(nodes, NodeConfiguration{
+			NodeID:    myID,
+			Addresses: []string{"dynamic"},
+			Name:      "",
+		})
+	}
+
+	sort.Sort(NodeConfigurationList(nodes))
+
+	return nodes
+}

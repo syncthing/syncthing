@@ -147,6 +147,9 @@ func main() {
 		infof("Edit %s to taste or use the GUI\n", cfgFile)
 	}
 
+	// Make sure the local node is in the node list.
+	cfg.Repositories[0].Nodes = cleanNodeList(cfg.Repositories[0].Nodes, myID)
+
 	var dir = expandTilde(cfg.Repositories[0].Directory)
 
 	if len(profiler) > 0 {
