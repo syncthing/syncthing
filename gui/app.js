@@ -1,7 +1,7 @@
 /*jslint browser: true, continue: true, plusplus: true */
 /*global $: false, angular: false */
 
-"use strict";
+'use strict';
 
 var syncthing = angular.module('syncthing', []);
 
@@ -11,24 +11,24 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     $scope.connections = {};
     $scope.config = {};
-    $scope.myID = "";
+    $scope.myID = '';
     $scope.nodes = [];
 
     // Strings before bools look better
     $scope.settings = [
-        {id: 'ListenStr', descr: "Sync Protocol Listen Addresses", type: 'string', restart: true},
-        {id: 'GUIAddress', descr: "GUI Listen Address", type: 'string', restart: true},
-        {id: 'MaxSendKbps', descr: "Outgoing Rate Limit (KBps)", type: 'string', restart: true},
-        {id: 'RescanIntervalS', descr: "Rescan Interval (s)", type: 'string', restart: true},
-        {id: 'ReconnectIntervalS', descr: "Reconnect Interval (s)", type: 'string', restart: true},
-        {id: 'ParallelRequests', descr: "Max Outstanding Requests", type: 'string', restart: true},
-        {id: 'MaxChangeKbps', descr: "Max File Change Rate (KBps)", type: 'string', restart: true},
+        {id: 'ListenStr', descr: 'Sync Protocol Listen Addresses', type: 'string', restart: true},
+        {id: 'GUIAddress', descr: 'GUI Listen Address', type: 'string', restart: true},
+        {id: 'MaxSendKbps', descr: 'Outgoing Rate Limit (KBps)', type: 'string', restart: true},
+        {id: 'RescanIntervalS', descr: 'Rescan Interval (s)', type: 'string', restart: true},
+        {id: 'ReconnectIntervalS', descr: 'Reconnect Interval (s)', type: 'string', restart: true},
+        {id: 'ParallelRequests', descr: 'Max Outstanding Requests', type: 'string', restart: true},
+        {id: 'MaxChangeKbps', descr: 'Max File Change Rate (KBps)', type: 'string', restart: true},
 
-        {id: 'ReadOnly', descr: "Read Only", type: 'bool', restart: true},
-        {id: 'AllowDelete', descr: "Allow Delete", type: 'bool', restart: true},
-        {id: 'FollowSymlinks', descr: "Follow Symlinks", type: 'bool', restart: true},
-        {id: 'GlobalAnnEnabled', descr: "Global Announce", type: 'bool', restart: true},
-        {id: 'LocalAnnEnabled', descr: "Local Announce", type: 'bool', restart: true},
+        {id: 'ReadOnly', descr: 'Read Only', type: 'bool', restart: true},
+        {id: 'AllowDelete', descr: 'Allow Delete', type: 'bool', restart: true},
+        {id: 'FollowSymlinks', descr: 'Follow Symlinks', type: 'bool', restart: true},
+        {id: 'GlobalAnnEnabled', descr: 'Global Announce', type: 'bool', restart: true},
+        {id: 'LocalAnnEnabled', descr: 'Local Announce', type: 'bool', restart: true},
     ];
 
     function modelGetSucceeded() {
@@ -58,16 +58,16 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         return a.NodeID > b.NodeID;
     }
 
-    $http.get("/rest/version").success(function (data) {
+    $http.get('/rest/version').success(function (data) {
         $scope.version = data;
     });
-    $http.get("/rest/system").success(function (data) {
+    $http.get('/rest/system').success(function (data) {
         $scope.system = data;
         $scope.myID = data.myID;
 
-        $http.get("/rest/config").success(function (data) {
+        $http.get('/rest/config').success(function (data) {
             $scope.config = data;
-            $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(", ");
+            $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
 
             var nodes = $scope.config.Repositories[0].Nodes;
             nodes.sort(nodeCompare);
@@ -76,16 +76,16 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     });
 
     $scope.refresh = function () {
-        $http.get("/rest/system").success(function (data) {
+        $http.get('/rest/system').success(function (data) {
             $scope.system = data;
         });
-        $http.get("/rest/model").success(function (data) {
+        $http.get('/rest/model').success(function (data) {
             $scope.model = data;
             modelGetSucceeded();
         }).error(function () {
             modelGetFailed();
         });
-        $http.get("/rest/connections").success(function (data) {
+        $http.get('/rest/connections').success(function (data) {
             var now = Date.now(),
                 td = (now - prevDate) / 1000,
                 id;
@@ -105,15 +105,15 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
                     data[id].inbps = 0;
                     data[id].outbps = 0;
                 }
-                $scope.inbps += data[id].outbps;
-                $scope.outbps += data[id].inbps;
+                $scope.inbps += data[id].inbps;
+                $scope.outbps += data[id].outbps;
             }
             $scope.connections = data;
         });
-        $http.get("/rest/need").success(function (data) {
+        $http.get('/rest/need').success(function (data) {
             var i, name;
             for (i = 0; i < data.length; i++) {
-                name = data[i].Name.split("/");
+                name = data[i].Name.split('/');
                 data[i].ShortName = name[name.length - 1];
             }
             data.sort(function (a, b) {
@@ -131,35 +131,35 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     $scope.nodeIcon = function (nodeCfg) {
         if ($scope.connections[nodeCfg.NodeID]) {
-            return "ok";
+            return 'ok';
         }
 
-        return "minus";
+        return 'minus';
     };
 
     $scope.nodeStatus = function (nodeCfg) {
         if ($scope.connections[nodeCfg.NodeID]) {
-            return "Connected";
+            return 'Connected';
         }
 
-        return "Disconnected";
+        return 'Disconnected';
     };
 
     $scope.nodeIcon = function (nodeCfg) {
         if ($scope.connections[nodeCfg.NodeID]) {
-            return "ok";
+            return 'ok';
         }
 
-        return "minus";
+        return 'minus';
     };
 
     $scope.nodeClass = function (nodeCfg) {
         var conn = $scope.connections[nodeCfg.NodeID];
         if (conn) {
-            return "success";
+            return 'success';
         }
 
-        return "info";
+        return 'info';
     };
 
     $scope.nodeAddr = function (nodeCfg) {
@@ -167,7 +167,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         if (conn) {
             return conn.Address;
         }
-        return nodeCfg.Addresses.join(", ");
+        return '(unknown address)';
     };
 
     $scope.nodeVer = function (nodeCfg) {
@@ -178,7 +178,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         if (conn) {
             return conn.ClientVersion;
         }
-        return "";
+        return '(unknown version)';
     };
 
     $scope.nodeName = function (nodeCfg) {
@@ -197,12 +197,12 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.editNode = function (nodeCfg) {
         $scope.currentNode = nodeCfg;
         $scope.editingExisting = true;
-        $scope.currentNode.AddressesStr = nodeCfg.Addresses.join(", ");
+        $scope.currentNode.AddressesStr = nodeCfg.Addresses.join(', ');
         $('#editNode').modal({backdrop: 'static', keyboard: false});
     };
 
     $scope.addNode = function () {
-        $scope.currentNode = {NodeID: "", AddressesStr: "dynamic"};
+        $scope.currentNode = {NodeID: '', AddressesStr: 'dynamic'};
         $scope.editingExisting = false;
         $('#editNode').modal({backdrop: 'static', keyboard: false});
     };

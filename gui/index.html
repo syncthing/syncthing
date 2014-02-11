@@ -40,6 +40,10 @@ html, body {
     border-top: none;
 }
 
+thead tr th {
+    text-align: center;
+}
+
 </style>
 </head>
 
@@ -76,7 +80,7 @@ html, body {
                         <tbody>
                         <!-- myself -->
                         <tr class="text-muted" ng-repeat="nodeCfg in thisNode()">
-                            <td style="width:13%">
+                            <td style="width:13%" class="text-center">
                                 <span class="label label-default">
                                     <span class="glyphicon glyphicon-ok"></span> This node
                                 </span>
@@ -85,18 +89,14 @@ html, body {
                                 <span class="text-monospace">{{nodeName(nodeCfg)}}</span>
                             </td>
                             <td style="width:20%">{{version}}</td>
-                            <td style="width:25%"></td>
+                            <td style="width:25%">(this node)</td>
                             <td style="width:10%" class="text-right">
-                                <span ng-show="nodeCfg.NodeID != myID">
-                                    {{inbps | metric}}bps
-                                    <span class="text-muted glyphicon glyphicon-chevron-down"></span>
-                                </span>
+                                {{inbps | metric}}bps
+                                <span class="text-muted glyphicon glyphicon-chevron-down"></span>
                             </td>
                             <td style="width:10%" class="text-right">
-                                <span ng-show="nodeCfg.NodeID != myID">
-                                    {{outbps | metric}}bps
-                                    <span class="text-muted glyphicon glyphicon-chevron-up"></span>
-                                </span>
+                                {{outbps | metric}}bps
+                                <span class="text-muted glyphicon glyphicon-chevron-up"></span>
                             </td>
                             <td class="text-right">
                                 <button type="button" ng-click="editNode(nodeCfg)" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span> Edit</button>
@@ -104,7 +104,7 @@ html, body {
                         </tr>
                         <!-- all other nodes -->
                         <tr ng-repeat="nodeCfg in otherNodes()">
-                            <td>
+                            <td class="text-center">
                                 <span class="label label-{{nodeClass(nodeCfg)}}">
                                     <span class="glyphicon glyphicon-{{nodeIcon(nodeCfg)}}"></span> {{nodeStatus(nodeCfg)}}
                                 </span>
