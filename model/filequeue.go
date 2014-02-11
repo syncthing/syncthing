@@ -221,6 +221,8 @@ func (q *FileQueue) SetAvailable(file string, nodes []string) {
 
 func (q *FileQueue) RemoveAvailable(toRemove string) {
 	q.amut.Lock()
+	q.fmut.Lock()
+	defer q.fmut.Unlock()
 	defer q.amut.Unlock()
 
 	for file, nodes := range q.availability {
@@ -228,9 +230,7 @@ func (q *FileQueue) RemoveAvailable(toRemove string) {
 			if node == toRemove {
 				q.availability[file] = nodes[:i+copy(nodes[i:], nodes[i+1:])]
 				if len(q.availability[file]) == 0 {
-					q.fmut.Lock()
 					q.deleteFile(file)
-					q.fmut.Unlock()
 				}
 			}
 			break
