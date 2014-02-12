@@ -11,6 +11,8 @@ import (
 	"github.com/codegangsta/martini"
 )
 
+var configInSync = true
+
 func startGUI(addr string, m *model.Model) {
 	router := martini.NewRouter()
 	router.Get("/", getRoot)
@@ -18,10 +20,12 @@ func startGUI(addr string, m *model.Model) {
 	router.Get("/rest/model", restGetModel)
 	router.Get("/rest/connections", restGetConnections)
 	router.Get("/rest/config", restGetConfig)
+	router.Get("/rest/config/sync", restGetConfigInSync)
 	router.Get("/rest/need", restGetNeed)
 	router.Get("/rest/system", restGetSystem)
 
 	router.Post("/rest/config", restPostConfig)
+	router.Post("/rest/restart", restPostRestart)
 
 	go func() {
 		mr := martini.New()
@@ -79,7 +83,16 @@ func restPostConfig(req *http.Request) {
 		log.Println(err)
 	} else {
 		saveConfig()
+		configInSync = false
 	}
+}
+
+func restGetConfigInSync(w http.ResponseWriter) {
+	json.NewEncoder(w).Encode(map[string]bool{"configInSync": configInSync})
+}
+
+func restPostRestart(req *http.Request) {
+	restart()
 }
 
 type guiFile model.File

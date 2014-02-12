@@ -13,16 +13,17 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.config = {};
     $scope.myID = '';
     $scope.nodes = [];
+    $scope.configInSync = true;
 
     // Strings before bools look better
     $scope.settings = [
-        {id: 'ListenStr', descr: 'Sync Protocol Listen Addresses', type: 'string', restart: true},
-        {id: 'GUIAddress', descr: 'GUI Listen Address', type: 'string', restart: true},
-        {id: 'MaxSendKbps', descr: 'Outgoing Rate Limit (KBps)', type: 'string', restart: true},
-        {id: 'RescanIntervalS', descr: 'Rescan Interval (s)', type: 'string', restart: true},
-        {id: 'ReconnectIntervalS', descr: 'Reconnect Interval (s)', type: 'string', restart: true},
-        {id: 'ParallelRequests', descr: 'Max Outstanding Requests', type: 'string', restart: true},
-        {id: 'MaxChangeKbps', descr: 'Max File Change Rate (KBps)', type: 'string', restart: true},
+        {id: 'ListenStr', descr: 'Sync Protocol Listen Addresses', type: 'text', restart: true},
+        {id: 'GUIAddress', descr: 'GUI Listen Address', type: 'text', restart: true},
+        {id: 'MaxSendKbps', descr: 'Outgoing Rate Limit (KBps)', type: 'number', restart: true},
+        {id: 'RescanIntervalS', descr: 'Rescan Interval (s)', type: 'number', restart: true},
+        {id: 'ReconnectIntervalS', descr: 'Reconnect Interval (s)', type: 'number', restart: true},
+        {id: 'ParallelRequests', descr: 'Max Outstanding Requests', type: 'number', restart: true},
+        {id: 'MaxChangeKbps', descr: 'Max File Change Rate (KBps)', type: 'number', restart: true},
 
         {id: 'ReadOnly', descr: 'Read Only', type: 'bool', restart: true},
         {id: 'AllowDelete', descr: 'Allow Delete', type: 'bool', restart: true},
@@ -72,6 +73,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             var nodes = $scope.config.Repositories[0].Nodes;
             nodes.sort(nodeCompare);
             $scope.nodes = nodes;
+        });
+        $http.get('/rest/config/sync').success(function (data) {
+            $scope.configInSync = data.configInSync;
         });
     });
 
@@ -189,9 +193,15 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.saveSettings = function () {
+        $scope.configInSync = false;
         $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) { return x.trim(); });
         $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
         $('#settingsTable').collapse('hide');
+    };
+
+    $scope.restart = function () {
+        $http.post('/rest/restart');
+        $scope.configInSync = true;
     };
 
     $scope.editNode = function (nodeCfg) {
@@ -230,6 +240,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.saveNode = function () {
         var nodeCfg, done, i;
 
+        $scope.configInSync = false;
         $('#editNode').modal('hide');
         nodeCfg = $scope.currentNode;
         nodeCfg.Addresses = nodeCfg.AddressesStr.split(',').map(function (x) { return x.trim(); });

@@ -32,11 +32,12 @@ var (
 )
 
 var (
-	showVersion bool
-	confDir     string
-	trace       string
-	profiler    string
-	verbose     bool
+	showVersion  bool
+	confDir      string
+	trace        string
+	profiler     string
+	verbose      bool
+	startupDelay int
 )
 
 func main() {
@@ -48,8 +49,13 @@ func main() {
 	flag.StringVar(&profiler, "debug.profiler", "", "(addr)")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&verbose, "v", false, "Be more verbose")
+	flag.IntVar(&startupDelay, "delay", 0, "Startup delay (s)")
 	flag.Usage = usageFor(flag.CommandLine, "syncthing [options]")
 	flag.Parse()
+
+	if startupDelay > 0 {
+		time.Sleep(time.Duration(startupDelay) * time.Second)
+	}
 
 	if showVersion {
 		fmt.Println(Version)
@@ -262,6 +268,30 @@ func main() {
 	}
 
 	select {}
+}
+
+func restart() {
+	infoln("Restarting")
+	args := os.Args
+	doAppend := true
+	for _, arg := range args {
+		if arg == "-delay" {
+			doAppend = false
+			break
+		}
+	}
+	if doAppend {
+		args = append(args, "-delay", "2")
+	}
+	proc, err := os.StartProcess(os.Args[0], args, &os.ProcAttr{
+		Env:   os.Environ(),
+		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+	})
+	if err != nil {
+		fatalln(err)
+	}
+	proc.Release()
+	os.Exit(0)
 }
 
 var saveConfigCh = make(chan struct{})

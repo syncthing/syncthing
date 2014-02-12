@@ -11,25 +11,10 @@
 <title>syncthing</title>
 <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
 <style type="text/css">
-html, body {
-    height: 100%;
-}
-#wrap{
-    padding-top: 20px;
-    min-height: 100%;
-    height: auto;
-    margin: 0 auto -50px;
-    padding: 20px 0 50px 0;
-}
-#footer {
-    height: 50px;
-    padding: 12px;
-    background-color: #f5f5f5;
-}
 
-.header {
-    border-bottom: 1px solid #e5e5e5;
-    padding-bottom: 10px;
+body {
+    padding-top: 70px;
+    padding-bottom: 70px;
 }
 
 .text-monospace {
@@ -44,170 +29,185 @@ thead tr th {
     text-align: center;
 }
 
+.logo {
+    margin: 0;
+    padding: 0;
+    top: -5px;
+    position: relative;
+}
+
 </style>
 </head>
 
 <body ng-controller="SyncthingCtrl">
-<div id="wrap">
+<div class="navbar navbar-fixed-top navbar-default">
     <div class="container">
-        <div class="page-header">
-            <h1 class="text-muted"><img width="64" height="64" src="st-logo-128.png"> syncthing</h1>
+        <a class="navbar-brand"><img class="logo" src="st-logo-128.png" width="32" height="32"> Syncthing</a>
+        <div ng-if="!configInSync">
+            <form class="navbar-form navbar-right">
+                <button type="button" class="btn btn-primary" ng-click="restart()">Restart Now</button>
+            </form>
+            <p class="navbar-text navbar-right">The configuration has been changed but not activated. Syncthing must restart to activate the new configuration.</p>
         </div>
+    </div>
+</div>
 
-        <div class="row">
-            <div class="col-md-12">
-                <div class="panel" ng-class="{'panel-success': model.needBytes === 0, 'panel-primary': model.needBytes !== 0}">
-                    <div class="panel-heading"><h3 class="panel-title">Synchronization</h3></div>
-                    <div class="panel-body">
-                        <div class="progress">
-                            <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"
-                                ng-class="{'progress-bar-success': model.needBytes === 0, 'progress-bar-info': model.needBytes !== 0}"
-                                style="width: {{100 * model.inSyncBytes / model.globalBytes | number:2}}%;">
-                                {{100 * model.inSyncBytes / model.globalBytes | alwaysNumber | number:0}}%
-                            </div>
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="panel panel-info">
+                <div class="panel-heading"><h3 class="panel-title">Cluster</h3></div>
+                <table class="table table-condensed">
+                    <tbody>
+                    <!-- myself -->
+                    <tr class="text-muted" ng-repeat="nodeCfg in thisNode()">
+                        <td style="width:13%" class="text-center">
+                            <span class="label label-default">
+                                <span class="glyphicon glyphicon-ok"></span> This node
+                            </span>
+                        </td>
+                        <td style="width:12%">
+                            <span class="text-monospace">{{nodeName(nodeCfg)}}</span>
+                        </td>
+                        <td style="width:20%">{{version}}</td>
+                        <td style="width:25%">(this node)</td>
+                        <td style="width:10%" class="text-right">
+                            {{inbps | metric}}bps
+                            <span class="text-muted glyphicon glyphicon-chevron-down"></span>
+                        </td>
+                        <td style="width:10%" class="text-right">
+                            {{outbps | metric}}bps
+                            <span class="text-muted glyphicon glyphicon-chevron-up"></span>
+                        </td>
+                        <td class="text-right">
+                            <button type="button" ng-click="editNode(nodeCfg)" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span> Edit</button>
+                        </td>
+                    </tr>
+                    <!-- all other nodes -->
+                    <tr ng-repeat="nodeCfg in otherNodes()">
+                        <td class="text-center">
+                            <span class="label label-{{nodeClass(nodeCfg)}}">
+                                <span class="glyphicon glyphicon-{{nodeIcon(nodeCfg)}}"></span> {{nodeStatus(nodeCfg)}}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="text-monospace">{{nodeName(nodeCfg)}}</span>
+                        </td>
+                        <td>
+                            {{nodeVer(nodeCfg)}}
+                        </td>
+                        <td>
+                            {{nodeAddr(nodeCfg)}}
+                        </td>
+                        <td class="text-right">
+                            <abbr title="{{connections[nodeCfg.NodeID].InBytesTotal | binary}}B">{{connections[nodeCfg.NodeID].inbps | metric}}bps</abbr>
+                            <span class="text-muted glyphicon glyphicon-chevron-down"></span>
+                        </td>
+                        <td class="text-right">
+                            <abbr title="{{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B">{{connections[nodeCfg.NodeID].outbps | metric}}bps</abbr>
+                            <span class="text-muted glyphicon glyphicon-chevron-up"></span>
+                        </td>
+                        <td class="text-right">
+                            <button type="button" ng-click="editNode(nodeCfg)" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span> Edit</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="text-right">
+                            <button type="button" class="btn btn-default btn-xs" ng-click="addNode()"><span class="glyphicon glyphicon-plus"></span> Add</button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="panel panel-info">
+                <div class="panel-heading"><h3 class="panel-title">Repository</h3></div>
+                <div class="panel-body">
+                    <p>Cluster contains {{model.globalFiles | alwaysNumber}} files, {{model.globalBytes | binary}}B
+                    <span class="text-muted">(+{{model.globalDeleted | alwaysNumber}} delete records)</span></p>
+
+                    <p>Local repository has {{model.localFiles | alwaysNumber}} files, {{model.localBytes | binary}}B
+                    <span class="text-muted">(+{{model.localDeleted | alwaysNumber}} delete records)</span></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="panel" ng-class="{'panel-success': model.needBytes === 0, 'panel-primary': model.needBytes !== 0}">
+                <div class="panel-heading"><h3 class="panel-title">Synchronization</h3></div>
+                <div class="panel-body">
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"
+                            ng-class="{'progress-bar-success': model.needBytes === 0, 'progress-bar-info': model.needBytes !== 0}"
+                            style="width: {{100 * model.inSyncBytes / model.globalBytes | number:2}}%;">
+                            {{100 * model.inSyncBytes / model.globalBytes | alwaysNumber | number:0}}%
                         </div>
-                        <p ng-show="model.needBytes > 0">Need {{model.needFiles | alwaysNumber}} files, {{model.needBytes | binary}}B</p>
                     </div>
+                    <p ng-show="model.needBytes > 0">Need {{model.needFiles | alwaysNumber}} files, {{model.needBytes | binary}}B</p>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="row">
-            <div class="col-md-12">
-                <div class="panel panel-info">
-                    <div class="panel-heading"><h3 class="panel-title">Cluster</h3></div>
-                    <table class="table table-condensed">
-                        <tbody>
-                        <!-- myself -->
-                        <tr class="text-muted" ng-repeat="nodeCfg in thisNode()">
-                            <td style="width:13%" class="text-center">
-                                <span class="label label-default">
-                                    <span class="glyphicon glyphicon-ok"></span> This node
-                                </span>
-                            </td>
-                            <td style="width:12%">
-                                <span class="text-monospace">{{nodeName(nodeCfg)}}</span>
-                            </td>
-                            <td style="width:20%">{{version}}</td>
-                            <td style="width:25%">(this node)</td>
-                            <td style="width:10%" class="text-right">
-                                {{inbps | metric}}bps
-                                <span class="text-muted glyphicon glyphicon-chevron-down"></span>
-                            </td>
-                            <td style="width:10%" class="text-right">
-                                {{outbps | metric}}bps
-                                <span class="text-muted glyphicon glyphicon-chevron-up"></span>
-                            </td>
-                            <td class="text-right">
-                                <button type="button" ng-click="editNode(nodeCfg)" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span> Edit</button>
-                            </td>
-                        </tr>
-                        <!-- all other nodes -->
-                        <tr ng-repeat="nodeCfg in otherNodes()">
-                            <td class="text-center">
-                                <span class="label label-{{nodeClass(nodeCfg)}}">
-                                    <span class="glyphicon glyphicon-{{nodeIcon(nodeCfg)}}"></span> {{nodeStatus(nodeCfg)}}
-                                </span>
-                            </td>
-                            <td>
-                                <span class="text-monospace">{{nodeName(nodeCfg)}}</span>
-                            </td>
-                            <td>
-                                {{nodeVer(nodeCfg)}}
-                            </td>
-                            <td>
-                                {{nodeAddr(nodeCfg)}}
-                            </td>
-                            <td class="text-right">
-                                <abbr title="{{connections[nodeCfg.NodeID].InBytesTotal | binary}}B">{{connections[nodeCfg.NodeID].inbps | metric}}bps</abbr>
-                                <span class="text-muted glyphicon glyphicon-chevron-down"></span>
-                            </td>
-                            <td class="text-right">
-                                <abbr title="{{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B">{{connections[nodeCfg.NodeID].outbps | metric}}bps</abbr>
-                                <span class="text-muted glyphicon glyphicon-chevron-up"></span>
-                            </td>
-                            <td class="text-right">
-                                <button type="button" ng-click="editNode(nodeCfg)" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span> Edit</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td class="text-right">
-                                <button type="button" class="btn btn-default btn-xs" ng-click="addNode()"><span class="glyphicon glyphicon-plus"></span> Add</button>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="panel panel-info">
+                <div class="panel-heading"><h3 class="panel-title">System</h3></div>
+                <div class="panel-body">
+                    <p>{{system.sys | binary}}B RAM allocated, {{system.alloc | binary}}B in use</p>
+                    <p>{{system.cpuPercent | alwaysNumber | natural:1}}% CPU, {{system.goroutines | alwaysNumber}} goroutines</p>
                 </div>
             </div>
         </div>
-
-        <div class="row">
-            <div class="col-md-6">
-                <div class="panel panel-info">
-                    <div class="panel-heading"><h3 class="panel-title">Repository</h3></div>
+        <div class="col-md-6">
+            <div class="panel panel-info">
+                <div class="panel-heading"><h3 class="panel-title"><a href="" data-toggle="collapse" data-target="#settingsTable">Settings</a></h3></div>
+                <div id="settingsTable" class="panel-collapse collapse">
                     <div class="panel-body">
-                        <p>Cluster contains {{model.globalFiles | alwaysNumber}} files, {{model.globalBytes | binary}}B
-                        <span class="text-muted">(+{{model.globalDeleted | alwaysNumber}} delete records)</span></p>
-
-                        <p>Local repository has {{model.localFiles | alwaysNumber}} files, {{model.localBytes | binary}}B
-                        <span class="text-muted">(+{{model.localDeleted | alwaysNumber}} delete records)</span></p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="panel panel-info">
-                    <div class="panel-heading"><h3 class="panel-title">System</h3></div>
-                    <div class="panel-body">
-                        <p>{{system.sys | binary}}B RAM allocated, {{system.alloc | binary}}B in use</p>
-                        <p>{{system.cpuPercent | alwaysNumber | natural:1}}% CPU, {{system.goroutines | alwaysNumber}} goroutines</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-6">
-                <div class="panel panel-info">
-                    <div class="panel-heading"><h3 class="panel-title"><a href="" data-toggle="collapse" data-target="#settingsTable">Settings</a></h3></div>
-                    <div id="settingsTable" class="panel-collapse collapse">
-                        <div class="panel-body">
-                            <form role="form">
-                                <div class="form-group" ng-repeat="setting in settings">
-                                    <div ng-if="setting.type == 'string'">
-                                        <label for="{{setting.id}}">{{setting.descr}}</label>
-                                        <input id="{{setting.id}}" class="form-control" type="text" ng-model="config.Options[setting.id]"></input>
-                                    </div>
-                                    <div class="checkbox" ng-if="setting.type == 'bool'">
-                                        <label>
-                                            {{setting.descr}} <input id="{{setting.id}}" type="checkbox" ng-model="config.Options[setting.id]"></input>
-                                        </label>
-                                    </div>
+                        <form role="form">
+                            <div class="form-group" ng-repeat="setting in settings">
+                                <div ng-if="setting.type == 'text' || setting.type == 'number'">
+                                    <label for="{{setting.id}}">{{setting.descr}}</label>
+                                    <input id="{{setting.id}}" class="form-control" type="{{setting.type}}" ng-model="config.Options[setting.id]"></input>
                                 </div>
-                            </form>
-                        </div>
-                        <div class="panel-footer">
-                            <button type="button" class="btn btn-sm btn-default" ng-click="saveSettings()">Save</button>
-                            <small><span class="text-muted">Changes take effect when restarting syncthing.</span></small>
-                        </div>
+                                <div class="checkbox" ng-if="setting.type == 'bool'">
+                                    <label>
+                                        {{setting.descr}} <input id="{{setting.id}}" type="checkbox" ng-model="config.Options[setting.id]"></input>
+                                    </label>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="panel-footer">
+                        <button type="button" class="btn btn-sm btn-default" ng-click="saveSettings()">Save</button>
+                        <small><span class="text-muted">Changes take effect when restarting syncthing.</span></small>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-<div id="footer" class="text-center">
-    syncthing {{version}}
-    | <a href="https://github.com/calmh/syncthing/releases">Latest Release</a>
-    | <a href="https://github.com/calmh/syncthing/wiki">Documentation</a>
-    | <a href="https://github.com/calmh/syncthing/issues">Bugs</a>
-    | <a href="https://github.com/calmh/syncthing">Source Code</a>
+
+<div class="navbar navbar-default navbar-fixed-bottom">
+    <div class="container">
+        <p class="navbar-text">{{version}}</p>
+        <ul class="nav navbar-nav navbar-right">
+            <li><a class="navbar-link" href="https://github.com/calmh/syncthing/releases">Latest Release</a></li>
+            <li><a class="navbar-link" href="https://github.com/calmh/syncthing/wiki">Documentation</a></li>
+            <li><a class="navbar-link" href="https://github.com/calmh/syncthing/issues">Bugs</a></li>
+            <li><a class="navbar-link" href="https://github.com/calmh/syncthing">Source Code</a></li>
+        </ul>
+        </p>
+    </div>
 </div>
 
 <div id="networkError" class="modal fade">
