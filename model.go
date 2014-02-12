@@ -1,11 +1,10 @@
-package model
+package main
 
 import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"path"
@@ -268,7 +267,7 @@ func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {
 	defer m.imut.Unlock()
 
 	if m.trace["net"] {
-		log.Printf("DEBUG: NET IDX(in): %s: %d files", nodeID, len(fs))
+		debugf("NET IDX(in): %s: %d files", nodeID, len(fs))
 	}
 
 	repo := make(map[string]File)
@@ -296,13 +295,13 @@ func (m *Model) IndexUpdate(nodeID string, fs []protocol.FileInfo) {
 	defer m.imut.Unlock()
 
 	if m.trace["net"] {
-		log.Printf("DEBUG: NET IDXUP(in): %s: %d files", nodeID, len(files))
+		debugf("NET IDXUP(in): %s: %d files", nodeID, len(files))
 	}
 
 	m.rmut.Lock()
 	repo, ok := m.remote[nodeID]
 	if !ok {
-		log.Printf("WARNING: Index update from node %s that does not have an index", nodeID)
+		warnf("Index update from node %s that does not have an index", nodeID)
 		m.rmut.Unlock()
 		return
 	}
@@ -322,11 +321,11 @@ func (m *Model) indexUpdate(repo map[string]File, f File) {
 		if f.Flags&protocol.FlagDeleted != 0 {
 			flagComment = " (deleted)"
 		}
-		log.Printf("DEBUG: IDX(in): %q m=%d f=%o%s v=%d (%d blocks)", f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
+		debugf("IDX(in): %q m=%d f=%o%s v=%d (%d blocks)", f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
 	}
 
 	if extraFlags := f.Flags &^ (protocol.FlagInvalid | protocol.FlagDeleted | 0xfff); extraFlags != 0 {
-		log.Printf("WARNING: IDX(in): Unknown flags 0x%x in index record %+v", extraFlags, f)
+		warnf("IDX(in): Unknown flags 0x%x in index record %+v", extraFlags, f)
 		return
 	}
 
@@ -337,10 +336,10 @@ func (m *Model) indexUpdate(repo map[string]File, f File) {
 // Implements the protocol.Model interface.
 func (m *Model) Close(node string, err error) {
 	if m.trace["net"] {
-		log.Printf("DEBUG: NET: %s: %v", node, err)
+		debugf("NET: %s: %v", node, err)
 	}
 	if err == protocol.ErrClusterHash {
-		log.Printf("WARNING: Connection to %s closed due to mismatched cluster hash. Ensure that the configured cluster members are identical on both nodes.", node)
+		warnf("Connection to %s closed due to mismatched cluster hash. Ensure that the configured cluster members are identical on both nodes.", node)
 	}
 
 	m.fq.RemoveAvailable(node)
@@ -377,7 +376,7 @@ func (m *Model) Request(nodeID, name string, offset int64, size uint32, hash []b
 	m.gmut.RUnlock()
 
 	if !localOk || !globalOk {
-		log.Printf("SECURITY (nonexistent file) REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
+		warnf("SECURITY (nonexistent file) REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
 		return nil, ErrNoSuchFile
 	}
 	if lf.Flags&protocol.FlagInvalid != 0 {
@@ -385,7 +384,7 @@ func (m *Model) Request(nodeID, name string, offset int64, size uint32, hash []b
 	}
 
 	if m.trace["net"] && nodeID != "<local>" {
-		log.Printf("DEBUG: NET REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
+		debugf("NET REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
 	}
 	fn := path.Join(m.dir, name)
 	fd, err := os.Open(fn) // XXX: Inefficient, should cache fd?
@@ -502,13 +501,13 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn Connection) {
 		i := i
 		go func() {
 			if m.trace["pull"] {
-				log.Println("DEBUG: PULL: Starting", nodeID, i)
+				debugln("PULL: Starting", nodeID, i)
 			}
 			for {
 				m.pmut.RLock()
 				if _, ok := m.protoConn[nodeID]; !ok {
 					if m.trace["pull"] {
-						log.Println("DEBUG: PULL: Exiting", nodeID, i)
+						debugln("PULL: Exiting", nodeID, i)
 					}
 					m.pmut.RUnlock()
 					return
@@ -518,7 +517,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn Connection) {
 				qb, ok := m.fq.Get(nodeID)
 				if ok {
 					if m.trace["pull"] {
-						log.Println("DEBUG: PULL: Request", nodeID, i, qb.name, qb.block.Offset)
+						debugln("PULL: Request", nodeID, i, qb.name, qb.block.Offset)
 					}
 					data, _ := protoConn.Request(qb.name, qb.block.Offset, qb.block.Size, qb.block.Hash)
 					m.fq.Done(qb.name, qb.block.Offset, data)
@@ -544,7 +543,7 @@ func (m *Model) ProtocolIndex() []protocol.FileInfo {
 			if mf.Flags&protocol.FlagDeleted != 0 {
 				flagComment = " (deleted)"
 			}
-			log.Printf("DEBUG: IDX(out): %q m=%d f=%o%s v=%d (%d blocks)", mf.Name, mf.Modified, mf.Flags, flagComment, mf.Version, len(mf.Blocks))
+			debugf("IDX(out): %q m=%d f=%o%s v=%d (%d blocks)", mf.Name, mf.Modified, mf.Flags, flagComment, mf.Version, len(mf.Blocks))
 		}
 		index = append(index, mf)
 	}
@@ -563,7 +562,7 @@ func (m *Model) requestGlobal(nodeID, name string, offset int64, size uint32, ha
 	}
 
 	if m.trace["net"] {
-		log.Printf("DEBUG: NET REQ(out): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
+		debugf("NET REQ(out): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
 	}
 
 	return nc.Request(name, offset, size, hash)
@@ -591,7 +590,7 @@ func (m *Model) broadcastIndexLoop() {
 			for _, node := range m.protoConn {
 				node := node
 				if m.trace["net"] {
-					log.Printf("DEBUG: NET IDX(out/loop): %s: %d files", node.ID(), len(idx))
+					debugf("NET IDX(out/loop): %s: %d files", node.ID(), len(idx))
 				}
 				go func() {
 					node.Index(idx)
@@ -803,7 +802,7 @@ func (m *Model) recomputeNeedForFile(gf File, toAdd []addOrder, toDelete []File)
 			return toAdd, toDelete
 		}
 		if m.trace["need"] {
-			log.Printf("DEBUG: NEED: lf:%v gf:%v", lf, gf)
+			debugf("NEED: lf:%v gf:%v", lf, gf)
 		}
 
 		if gf.Flags&protocol.FlagDeleted != 0 {
@@ -845,12 +844,12 @@ func (m *Model) WhoHas(name string) []string {
 func (m *Model) deleteLoop() {
 	for file := range m.dq {
 		if m.trace["file"] {
-			log.Println("DEBUG: FILE: Delete", file.Name)
+			debugln("FILE: Delete", file.Name)
 		}
 		path := path.Clean(path.Join(m.dir, file.Name))
 		err := os.Remove(path)
 		if err != nil {
-			log.Printf("WARNING: %s: %v", file.Name, err)
+			warnf("%s: %v", file.Name, err)
 		}
 
 		m.updateLocal(file)

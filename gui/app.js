@@ -14,6 +14,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.myID = '';
     $scope.nodes = [];
     $scope.configInSync = true;
+    $scope.errors = [];
+    $scope.seenError = '';
 
     // Strings before bools look better
     $scope.settings = [
@@ -131,6 +133,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             });
             $scope.need = data;
         });
+        $http.get('/rest/errors').success(function (data) {
+            $scope.errors = data;
+        });
     };
 
     $scope.nodeIcon = function (nodeCfg) {
@@ -234,6 +239,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $scope.nodes = newNodes;
         $scope.config.Repositories[0].Nodes = newNodes;
 
+        $scope.configInSync = false;
         $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
     };
 
@@ -285,6 +291,29 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
                 return [n];
             }
         }
+    };
+
+    $scope.errorList = function () {
+        var errors = [];
+        for (var i = 0; i < $scope.errors.length; i++) {
+            var e = $scope.errors[i];
+            if (e.Time > $scope.seenError) {
+                errors.push(e);
+            }
+        }
+        return errors;
+    };
+    
+    $scope.clearErrors = function () {
+        $scope.seenError = $scope.errors[$scope.errors.length - 1].Time;
+    };
+
+    $scope.friendlyNodes = function (str) {
+        for (var i = 0; i < $scope.nodes.length; i++) {
+            var cfg = $scope.nodes[i];
+            str = str.replace(cfg.NodeID, $scope.nodeName(cfg));
+        }
+        return str;
     };
 
     $scope.refresh();

@@ -41,11 +41,13 @@ func okf(format string, vals ...interface{}) {
 
 func warnln(vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
+	showGuiError(s)
 	logger.Output(2, "WARNING: "+s)
 }
 
 func warnf(format string, vals ...interface{}) {
 	s := fmt.Sprintf(format, vals...)
+	showGuiError(s)
 	logger.Output(2, "WARNING: "+s)
 }
 

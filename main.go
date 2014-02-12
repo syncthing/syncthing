@@ -19,7 +19,6 @@ import (
 
 	"github.com/calmh/ini"
 	"github.com/calmh/syncthing/discover"
-	"github.com/calmh/syncthing/model"
 	"github.com/calmh/syncthing/protocol"
 )
 
@@ -181,7 +180,7 @@ func main() {
 	}
 
 	ensureDir(dir, -1)
-	m := model.NewModel(dir, cfg.Options.MaxChangeKbps*1000)
+	m := NewModel(dir, cfg.Options.MaxChangeKbps*1000)
 	for _, t := range strings.Split(trace, ",") {
 		m.Trace(t)
 	}
@@ -250,7 +249,7 @@ func main() {
 		okln("Ready to synchronize (read only; no external updates accepted)")
 	}
 
-	// Periodically scan the repository and update the local model.
+	// Periodically scan the repository and update the local
 	// XXX: Should use some fsnotify mechanism.
 	go func() {
 		td := time.Duration(cfg.Options.RescanIntervalS) * time.Second
@@ -328,9 +327,9 @@ func saveConfig() {
 	saveConfigCh <- struct{}{}
 }
 
-func printStatsLoop(m *model.Model) {
+func printStatsLoop(m *Model) {
 	var lastUpdated int64
-	var lastStats = make(map[string]model.ConnectionInfo)
+	var lastStats = make(map[string]ConnectionInfo)
 
 	for {
 		time.Sleep(60 * time.Second)
@@ -359,7 +358,7 @@ func printStatsLoop(m *model.Model) {
 	}
 }
 
-func listen(myID string, addr string, m *model.Model, tlsCfg *tls.Config, connOpts map[string]string) {
+func listen(myID string, addr string, m *Model, tlsCfg *tls.Config, connOpts map[string]string) {
 	if strings.Contains(trace, "connect") {
 		debugln("NET: Listening on", addr)
 	}
@@ -435,7 +434,7 @@ func discovery(addr string) *discover.Discoverer {
 	return disc
 }
 
-func connect(myID string, disc *discover.Discoverer, m *model.Model, tlsCfg *tls.Config, connOpts map[string]string) {
+func connect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls.Config, connOpts map[string]string) {
 	for {
 	nextNode:
 		for _, nodeCfg := range cfg.Repositories[0].Nodes {
@@ -484,13 +483,13 @@ func connect(myID string, disc *discover.Discoverer, m *model.Model, tlsCfg *tls
 	}
 }
 
-func updateLocalModel(m *model.Model) {
+func updateLocalModel(m *Model) {
 	files, _ := m.Walk(cfg.Options.FollowSymlinks)
 	m.ReplaceLocal(files)
 	saveIndex(m)
 }
 
-func saveIndex(m *model.Model) {
+func saveIndex(m *Model) {
 	name := m.RepoID() + ".idx.gz"
 	fullName := path.Join(confDir, name)
 	idxf, err := os.Create(fullName + ".tmp")
@@ -506,7 +505,7 @@ func saveIndex(m *model.Model) {
 	os.Rename(fullName+".tmp", fullName)
 }
 
-func loadIndex(m *model.Model) {
+func loadIndex(m *Model) {
 	name := m.RepoID() + ".idx.gz"
 	idxf, err := os.Open(path.Join(confDir, name))
 	if err != nil {

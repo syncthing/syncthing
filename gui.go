@@ -2,18 +2,28 @@ package main
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"runtime"
 	"sync"
+	"time"
 
-	"github.com/calmh/syncthing/model"
 	"github.com/codegangsta/martini"
 )
 
-var configInSync = true
+type guiError struct {
+	Time  time.Time
+	Error string
+}
 
-func startGUI(addr string, m *model.Model) {
+var (
+	configInSync = true
+	guiErrors    = []guiError{}
+	guiErrorsMut sync.Mutex
+)
+
+func startGUI(addr string, m *Model) {
 	router := martini.NewRouter()
 	router.Get("/", getRoot)
 	router.Get("/rest/version", restGetVersion)
@@ -23,9 +33,11 @@ func startGUI(addr string, m *model.Model) {
 	router.Get("/rest/config/sync", restGetConfigInSync)
 	router.Get("/rest/need", restGetNeed)
 	router.Get("/rest/system", restGetSystem)
+	router.Get("/rest/errors", restGetErrors)
 
 	router.Post("/rest/config", restPostConfig)
 	router.Post("/rest/restart", restPostRestart)
+	router.Post("/rest/error", restPostError)
 
 	go func() {
 		mr := martini.New()
@@ -48,7 +60,7 @@ func restGetVersion() string {
 	return Version
 }
 
-func restGetModel(m *model.Model, w http.ResponseWriter) {
+func restGetModel(m *Model, w http.ResponseWriter) {
 	var res = make(map[string]interface{})
 
 	globalFiles, globalDeleted, globalBytes := m.GlobalSize()
@@ -67,7 +79,7 @@ func restGetModel(m *model.Model, w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func restGetConnections(m *model.Model, w http.ResponseWriter) {
+func restGetConnections(m *Model, w http.ResponseWriter) {
 	var res = m.ConnectionStats()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
@@ -95,7 +107,7 @@ func restPostRestart(req *http.Request) {
 	restart()
 }
 
-type guiFile model.File
+type guiFile File
 
 func (f guiFile) MarshalJSON() ([]byte, error) {
 	type t struct {
@@ -104,11 +116,11 @@ func (f guiFile) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(t{
 		Name: f.Name,
-		Size: model.File(f).Size(),
+		Size: File(f).Size(),
 	})
 }
 
-func restGetNeed(m *model.Model, w http.ResponseWriter) {
+func restGetNeed(m *Model, w http.ResponseWriter) {
 	files, _ := m.NeedFiles()
 	gfs := make([]guiFile, len(files))
 	for i, f := range files {
@@ -136,4 +148,25 @@ func restGetSystem(w http.ResponseWriter) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
+}
+
+func restGetErrors(w http.ResponseWriter) {
+	guiErrorsMut.Lock()
+	json.NewEncoder(w).Encode(guiErrors)
+	guiErrorsMut.Unlock()
+}
+
+func restPostError(req *http.Request) {
+	bs, _ := ioutil.ReadAll(req.Body)
+	req.Body.Close()
+	showGuiError(string(bs))
+}
+
+func showGuiError(err string) {
+	guiErrorsMut.Lock()
+	guiErrors = append(guiErrors, guiError{time.Now(), err})
+	if len(guiErrors) > 5 {
+		guiErrors = guiErrors[len(guiErrors)-5:]
+	}
+	guiErrorsMut.Unlock()
 }

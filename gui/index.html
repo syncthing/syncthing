@@ -55,6 +55,12 @@ thead tr th {
 <div class="container">
     <div class="row">
         <div class="col-md-12">
+            <div ng-if="errorList().length > 0" class="alert alert-warning">
+                <p ng-repeat="err in errorList()"><small>{{err.Time | date:"hh:mm:ss.sss"}}:</small> {{friendlyNodes(err.Error)}}</p>
+                    <button type="button" class="pull-right btn btn-warning" ng-click="clearErrors()">OK</button>
+            <div class="clearfix"></div>
+            </div>
+
             <div class="panel panel-info">
                 <div class="panel-heading"><h3 class="panel-title">Cluster</h3></div>
                 <table class="table table-condensed">
