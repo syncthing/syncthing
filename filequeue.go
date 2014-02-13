@@ -220,10 +220,10 @@ func (q *FileQueue) SetAvailable(file string, nodes []string) {
 }
 
 func (q *FileQueue) RemoveAvailable(toRemove string) {
-	q.amut.Lock()
 	q.fmut.Lock()
-	defer q.fmut.Unlock()
+	q.amut.Lock()
 	defer q.amut.Unlock()
+	defer q.fmut.Unlock()
 
 	for file, nodes := range q.availability {
 		for i, node := range nodes {
