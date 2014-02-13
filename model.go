@@ -158,6 +158,7 @@ type ConnectionInfo struct {
 	Address       string
 	ClientID      string
 	ClientVersion string
+	Completion    int
 }
 
 // ConnectionStats returns a map with connection statistics for each connected node.
@@ -166,7 +167,14 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 		RemoteAddr() net.Addr
 	}
 
+	m.gmut.RLock()
 	m.pmut.RLock()
+	m.rmut.RLock()
+
+	var tot int
+	for _, f := range m.global {
+		tot += f.Size()
+	}
 
 	var res = make(map[string]ConnectionInfo)
 	for node, conn := range m.protoConn {
@@ -178,10 +186,22 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 		if nc, ok := m.rawConn[node].(remoteAddrer); ok {
 			ci.Address = nc.RemoteAddr().String()
 		}
+
+		var have int
+		for _, f := range m.remote[node] {
+			if f.Equals(m.global[f.Name]) {
+				have += f.Size()
+			}
+		}
+
+		ci.Completion = 100 * have / tot
+
 		res[node] = ci
 	}
 
+	m.rmut.RUnlock()
 	m.pmut.RUnlock()
+	m.gmut.RUnlock()
 	return res
 }
 

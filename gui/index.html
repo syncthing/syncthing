@@ -67,31 +67,31 @@ thead tr th {
                     <tbody>
                     <!-- myself -->
                     <tr class="text-muted" ng-repeat="nodeCfg in thisNode()">
-                        <td style="width:13%" class="text-center">
+                        <td style="width:12%">
                             <span class="label label-default">
                                 <span class="glyphicon glyphicon-ok"></span> This node
                             </span>
                         </td>
-                        <td style="width:12%">
+                        <td style="width:10%">
                             <span class="text-monospace">{{nodeName(nodeCfg)}}</span>
                         </td>
                         <td style="width:20%">{{version}}</td>
                         <td style="width:25%">(this node)</td>
-                        <td style="width:10%" class="text-right">
+                        <td style="width:9%" class="text-right">
                             {{inbps | metric}}bps
                             <span class="text-muted glyphicon glyphicon-chevron-down"></span>
                         </td>
-                        <td style="width:10%" class="text-right">
+                        <td style="width:9%" class="text-right">
                             {{outbps | metric}}bps
                             <span class="text-muted glyphicon glyphicon-chevron-up"></span>
                         </td>
-                        <td class="text-right">
+                        <td style="width:7%" class="text-right">
                             <button type="button" ng-click="editNode(nodeCfg)" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span> Edit</button>
                         </td>
                     </tr>
                     <!-- all other nodes -->
                     <tr ng-repeat="nodeCfg in otherNodes()">
-                        <td class="text-center">
+                        <td>
                             <span class="label label-{{nodeClass(nodeCfg)}}">
                                 <span class="glyphicon glyphicon-{{nodeIcon(nodeCfg)}}"></span> {{nodeStatus(nodeCfg)}}
                             </span>
@@ -99,12 +99,8 @@ thead tr th {
                         <td>
                             <span class="text-monospace">{{nodeName(nodeCfg)}}</span>
                         </td>
-                        <td>
-                            {{nodeVer(nodeCfg)}}
-                        </td>
-                        <td>
-                            {{nodeAddr(nodeCfg)}}
-                        </td>
+                        <td>{{nodeVer(nodeCfg)}}</td>
+                        <td>{{nodeAddr(nodeCfg)}}</td>
                         <td class="text-right">
                             <abbr title="{{connections[nodeCfg.NodeID].InBytesTotal | binary}}B">{{connections[nodeCfg.NodeID].inbps | metric}}bps</abbr>
                             <span class="text-muted glyphicon glyphicon-chevron-down"></span>
@@ -167,10 +163,12 @@ thead tr th {
     <div class="row">
         <div class="col-md-6">
             <div class="panel panel-info">
-                <div class="panel-heading"><h3 class="panel-title">System</h3></div>
-                <div class="panel-body">
-                    <p>{{system.sys | binary}}B RAM allocated, {{system.alloc | binary}}B in use</p>
-                    <p>{{system.cpuPercent | alwaysNumber | natural:1}}% CPU, {{system.goroutines | alwaysNumber}} goroutines</p>
+                <div class="panel-heading"><h3 class="panel-title"><a href="" data-toggle="collapse" data-target="#system">System</a></h3></div>
+                <div id="system" class="panel-collapse collapse">
+                    <div class="panel-body">
+                        <p>{{system.sys | binary}}B RAM allocated, {{system.alloc | binary}}B in use</p>
+                        <p>{{system.cpuPercent | alwaysNumber | natural:1}}% CPU, {{system.goroutines | alwaysNumber}} goroutines</p>
+                    </div>
                 </div>
             </div>
         </div>

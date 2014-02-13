@@ -138,25 +138,27 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         });
     };
 
-    $scope.nodeIcon = function (nodeCfg) {
-        if ($scope.connections[nodeCfg.NodeID]) {
-            return 'ok';
-        }
-
-        return 'minus';
-    };
-
     $scope.nodeStatus = function (nodeCfg) {
-        if ($scope.connections[nodeCfg.NodeID]) {
-            return 'Connected';
+        var conn = $scope.connections[nodeCfg.NodeID];
+        if (conn) {
+            if (conn.Completion === 100) {
+                return 'In Sync';
+            } else {
+                return 'Syncing (' + conn.Completion + '%)';
+            }
         }
 
         return 'Disconnected';
     };
 
     $scope.nodeIcon = function (nodeCfg) {
-        if ($scope.connections[nodeCfg.NodeID]) {
-            return 'ok';
+        var conn = $scope.connections[nodeCfg.NodeID];
+        if (conn) {
+            if (conn.Completion === 100) {
+                return 'ok';
+            } else {
+                return 'refresh';
+            }
         }
 
         return 'minus';
@@ -165,7 +167,11 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.nodeClass = function (nodeCfg) {
         var conn = $scope.connections[nodeCfg.NodeID];
         if (conn) {
-            return 'success';
+            if (conn.Completion === 100) {
+                return 'success';
+            } else {
+                return 'primary';
+            }
         }
 
         return 'info';
@@ -177,6 +183,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             return conn.Address;
         }
         return '(unknown address)';
+    };
+
+    $scope.nodeCompletion = function (nodeCfg) {
+        var conn = $scope.connections[nodeCfg.NodeID];
+        if (conn) {
+            return conn.Completion + '%';
+        }
+        return '';
     };
 
     $scope.nodeVer = function (nodeCfg) {
