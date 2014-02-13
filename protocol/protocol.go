@@ -50,7 +50,7 @@ type Model interface {
 	// An index update was received from the peer node
 	IndexUpdate(nodeID string, files []FileInfo)
 	// A request was made by the peer node
-	Request(nodeID, name string, offset int64, size uint32, hash []byte) ([]byte, error)
+	Request(nodeID, repo string, name string, offset int64, size uint32, hash []byte) ([]byte, error)
 	// The peer node closed the connection
 	Close(nodeID string, err error)
 }
@@ -67,7 +67,7 @@ type Connection struct {
 	closed      bool
 	awaiting    map[int]chan asyncResult
 	nextId      int
-	indexSent   map[string][2]int64
+	indexSent   map[string]map[string][2]int64
 	peerOptions map[string]string
 	myOptions   map[string]string
 	optionsLock sync.Mutex
@@ -98,13 +98,14 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 	}
 
 	c := Connection{
-		id:       nodeID,
-		receiver: receiver,
-		reader:   flrd,
-		mreader:  &marshalReader{r: flrd},
-		writer:   flwr,
-		mwriter:  &marshalWriter{w: flwr},
-		awaiting: make(map[int]chan asyncResult),
+		id:        nodeID,
+		receiver:  receiver,
+		reader:    flrd,
+		mreader:   &marshalReader{r: flrd},
+		writer:    flwr,
+		mwriter:   &marshalWriter{w: flwr},
+		awaiting:  make(map[int]chan asyncResult),
+		indexSent: make(map[string]map[string][2]int64),
 	}
 
 	go c.readerLoop()
@@ -133,32 +134,32 @@ func (c *Connection) ID() string {
 }
 
 // Index writes the list of file information to the connected peer node
-func (c *Connection) Index(idx []FileInfo) {
+func (c *Connection) Index(repo string, idx []FileInfo) {
 	c.Lock()
 	var msgType int
-	if c.indexSent == nil {
+	if c.indexSent[repo] == nil {
 		// This is the first time we send an index.
 		msgType = messageTypeIndex
 
-		c.indexSent = make(map[string][2]int64)
+		c.indexSent[repo] = make(map[string][2]int64)
 		for _, f := range idx {
-			c.indexSent[f.Name] = [2]int64{f.Modified, int64(f.Version)}
+			c.indexSent[repo][f.Name] = [2]int64{f.Modified, int64(f.Version)}
 		}
 	} else {
 		// We have sent one full index. Only send updates now.
 		msgType = messageTypeIndexUpdate
 		var diff []FileInfo
 		for _, f := range idx {
-			if vs, ok := c.indexSent[f.Name]; !ok || f.Modified != vs[0] || int64(f.Version) != vs[1] {
+			if vs, ok := c.indexSent[repo][f.Name]; !ok || f.Modified != vs[0] || int64(f.Version) != vs[1] {
 				diff = append(diff, f)
-				c.indexSent[f.Name] = [2]int64{f.Modified, int64(f.Version)}
+				c.indexSent[repo][f.Name] = [2]int64{f.Modified, int64(f.Version)}
 			}
 		}
 		idx = diff
 	}
 
 	c.mwriter.writeHeader(header{0, c.nextId, msgType})
-	c.mwriter.writeIndex(idx)
+	c.mwriter.writeIndex(repo, idx)
 	err := c.flush()
 	c.nextId = (c.nextId + 1) & 0xfff
 	c.hasSentIndex = true
@@ -174,7 +175,7 @@ func (c *Connection) Index(idx []FileInfo) {
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
-func (c *Connection) Request(name string, offset int64, size uint32, hash []byte) ([]byte, error) {
+func (c *Connection) Request(repo string, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
 	c.Lock()
 	if c.closed {
 		c.Unlock()
@@ -183,7 +184,7 @@ func (c *Connection) Request(name string, offset int64, size uint32, hash []byte
 	rc := make(chan asyncResult)
 	c.awaiting[c.nextId] = rc
 	c.mwriter.writeHeader(header{0, c.nextId, messageTypeRequest})
-	c.mwriter.writeRequest(request{name, offset, size, hash})
+	c.mwriter.writeRequest(request{repo, name, offset, size, hash})
 	if c.mwriter.err != nil {
 		c.Unlock()
 		c.close(c.mwriter.err)
@@ -279,7 +280,8 @@ loop:
 
 		switch hdr.msgType {
 		case messageTypeIndex:
-			files := c.mreader.readIndex()
+			repo, files := c.mreader.readIndex()
+			_ = repo
 			if c.mreader.err != nil {
 				c.close(c.mreader.err)
 				break loop
@@ -291,7 +293,8 @@ loop:
 			c.Unlock()
 
 		case messageTypeIndexUpdate:
-			files := c.mreader.readIndex()
+			repo, files := c.mreader.readIndex()
+			_ = repo
 			if c.mreader.err != nil {
 				c.close(c.mreader.err)
 				break loop
@@ -370,7 +373,7 @@ loop:
 }
 
 func (c *Connection) processRequest(msgID int, req request) {
-	data, _ := c.receiver.Request(c.id, req.name, req.offset, req.size, req.hash)
+	data, _ := c.receiver.Request(c.id, req.repo, req.name, req.offset, req.size, req.hash)
 
 	c.Lock()
 	c.mwriter.writeUint32(encodeHeader(header{0, msgID, messageTypeResponse}))

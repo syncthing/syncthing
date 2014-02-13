@@ -30,7 +30,7 @@ type marshalWriter struct {
 // memory when reading a corrupt message.
 const maxBytesFieldLength = 10 * 1 << 20
 
-var ErrFieldLengthExceeded = errors.New("Raw bytes field size exceeds limit")
+var ErrFieldLengthExceeded = errors.New("Protocol error: raw bytes field size exceeds limit")
 
 func (w *marshalWriter) writeString(s string) {
 	w.writeBytes([]byte(s))

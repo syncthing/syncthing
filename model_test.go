@@ -345,7 +345,7 @@ func TestRequest(t *testing.T) {
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
-	bs, err := m.Request("some node", "foo", 0, 6, nil)
+	bs, err := m.Request("some node", "default", "foo", 0, 6, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -353,7 +353,7 @@ func TestRequest(t *testing.T) {
 		t.Errorf("Incorrect data from request: %q", string(bs))
 	}
 
-	bs, err = m.Request("some node", "../walk.go", 0, 6, nil)
+	bs, err = m.Request("some node", "default", "../walk.go", 0, 6, nil)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -487,9 +487,9 @@ func (f FakeConnection) Option(string) string {
 	return ""
 }
 
-func (FakeConnection) Index([]protocol.FileInfo) {}
+func (FakeConnection) Index(string, []protocol.FileInfo) {}
 
-func (f FakeConnection) Request(name string, offset int64, size uint32, hash []byte) ([]byte, error) {
+func (f FakeConnection) Request(repo, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
 	return f.requestData, nil
 }
 

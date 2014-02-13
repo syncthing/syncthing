@@ -84,6 +84,7 @@ an empty Index message must be sent. There is no response to the Index
 message.
 
     struct IndexMessage {
+        string Repository<>;
         FileInfo Files<>;
     }
 
@@ -99,6 +100,10 @@ message.
         unsigned int Length;
         opaque Hash<>
     }
+
+The Repository field identifies the repository that the index message
+pertains to. For single repository implementations an empty repository
+ID is acceptable.
 
 The file name is the part relative to the repository root. The
 modification time is expressed as the number of seconds since the Unix
@@ -143,6 +148,7 @@ before transmitting data. Each Request message must be met with a Response
 message.
 
     struct RequestMessage {
+        string Repository<>;
         string Name<>;
         unsigned hyper Offset;
         unsigned int Length;
@@ -248,4 +254,3 @@ their repository contents and transmits an updated Index message (10).
 Both peers enter idle state after 10. At some later time 11, peer A
 determines that it has not seen data from B for some time and sends a
 Ping request. A response is sent at 12.
-

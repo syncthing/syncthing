@@ -496,7 +496,7 @@ func saveIndex(m *Model) {
 
 	gzw := gzip.NewWriter(idxf)
 
-	protocol.WriteIndex(gzw, m.ProtocolIndex())
+	protocol.WriteIndex(gzw, "local", m.ProtocolIndex())
 	gzw.Close()
 	idxf.Close()
 	os.Rename(fullName+".tmp", fullName)
@@ -516,8 +516,8 @@ func loadIndex(m *Model) {
 	}
 	defer gzr.Close()
 
-	idx, err := protocol.ReadIndex(gzr)
-	if err != nil {
+	repo, idx, err := protocol.ReadIndex(gzr)
+	if repo != "local" || err != nil {
 		return
 	}
 	m.SeedLocal(idx)

@@ -84,8 +84,8 @@ func TestRequestResponseErr(t *testing.T) {
 	e := errors.New("Something broke")
 
 	var pass bool
-	for i := 0; i < 36; i++ {
-		for j := 0; j < 26; j++ {
+	for i := 0; i < 48; i++ {
+		for j := 0; j < 38; j++ {
 			m0 := &TestModel{data: []byte("response data")}
 			m1 := &TestModel{}
 
@@ -97,7 +97,7 @@ func TestRequestResponseErr(t *testing.T) {
 			NewConnection("c0", ar, ebw, m0, nil)
 			c1 := NewConnection("c1", br, eaw, m1, nil)
 
-			d, err := c1.Request("tn", 1234, 3456, []byte("hashbytes"))
+			d, err := c1.Request("default", "tn", 1234, 3456, []byte("hashbytes"))
 			if err == e || err == ErrClosed {
 				t.Logf("Error at %d+%d bytes", i, j)
 				if !m1.closed {
@@ -114,6 +114,9 @@ func TestRequestResponseErr(t *testing.T) {
 			}
 			if string(d) != "response data" {
 				t.Errorf("Incorrect response data %q", string(d))
+			}
+			if m0.repo != "default" {
+				t.Error("Incorrect repo %q", m0.repo)
 			}
 			if m0.name != "tn" {
 				t.Error("Incorrect name %q", m0.name)
@@ -204,10 +207,10 @@ func TestClose(t *testing.T) {
 		t.Error("Ping should not return true")
 	}
 
-	c0.Index(nil)
-	c0.Index(nil)
+	c0.Index("default", nil)
+	c0.Index("default", nil)
 
-	_, err := c0.Request("foo", 0, 0, nil)
+	_, err := c0.Request("default", "foo", 0, 0, nil)
 	if err == nil {
 		t.Error("Request should return an error")
 	}

@@ -55,8 +55,8 @@ type Model struct {
 
 type Connection interface {
 	ID() string
-	Index([]protocol.FileInfo)
-	Request(name string, offset int64, size uint32, hash []byte) ([]byte, error)
+	Index(string, []protocol.FileInfo)
+	Request(repo, name string, offset int64, size uint32, hash []byte) ([]byte, error)
 	Statistics() protocol.Statistics
 	Option(key string) string
 }
@@ -360,6 +360,8 @@ func (m *Model) Close(node string, err error) {
 	}
 	if err == protocol.ErrClusterHash {
 		warnf("Connection to %s closed due to mismatched cluster hash. Ensure that the configured cluster members are identical on both nodes.", node)
+	} else if err != io.EOF {
+		warnf("Connection to %s closed: %v", node, err)
 	}
 
 	m.fq.RemoveAvailable(node)
@@ -385,7 +387,7 @@ func (m *Model) Close(node string, err error) {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *Model) Request(nodeID, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
+func (m *Model) Request(nodeID, repo, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
 	// Verify that the requested file exists in the local and global model.
 	m.lmut.RLock()
 	lf, localOk := m.local[name]
@@ -507,7 +509,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn Connection) {
 
 	go func() {
 		idx := m.ProtocolIndex()
-		protoConn.Index(idx)
+		protoConn.Index("default", idx)
 	}()
 
 	m.initmut.Lock()
@@ -539,7 +541,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn Connection) {
 					if m.trace["pull"] {
 						debugln("PULL: Request", nodeID, i, qb.name, qb.block.Offset)
 					}
-					data, _ := protoConn.Request(qb.name, qb.block.Offset, qb.block.Size, qb.block.Hash)
+					data, _ := protoConn.Request("default", qb.name, qb.block.Offset, qb.block.Size, qb.block.Hash)
 					m.fq.Done(qb.name, qb.block.Offset, data)
 				} else {
 					time.Sleep(1 * time.Second)
@@ -585,7 +587,7 @@ func (m *Model) requestGlobal(nodeID, name string, offset int64, size uint32, ha
 		debugf("NET REQ(out): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
 	}
 
-	return nc.Request(name, offset, size, hash)
+	return nc.Request("default", name, offset, size, hash)
 }
 
 func (m *Model) broadcastIndexLoop() {
@@ -613,7 +615,7 @@ func (m *Model) broadcastIndexLoop() {
 					debugf("NET IDX(out/loop): %s: %d files", node.ID(), len(idx))
 				}
 				go func() {
-					node.Index(idx)
+					node.Index("default", idx)
 					indexWg.Done()
 				}()
 			}

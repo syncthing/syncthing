@@ -4,6 +4,7 @@ import "io"
 
 type TestModel struct {
 	data   []byte
+	repo   string
 	name   string
 	offset int64
 	size   uint32
@@ -17,7 +18,8 @@ func (t *TestModel) Index(nodeID string, files []FileInfo) {
 func (t *TestModel) IndexUpdate(nodeID string, files []FileInfo) {
 }
 
-func (t *TestModel) Request(nodeID, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
+func (t *TestModel) Request(nodeID, repo, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
+	t.repo = repo
 	t.name = name
 	t.offset = offset
 	t.size = size

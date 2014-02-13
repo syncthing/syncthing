@@ -1,8 +1,22 @@
 package protocol
 
-import "io"
+import (
+	"errors"
+	"io"
+)
+
+const (
+	maxNumFiles  = 100000 // More than 100000 files is a protocol error
+	maxNumBlocks = 100000 // 100000 * 128KB = 12.5 GB max acceptable file size
+)
+
+var (
+	ErrMaxFilesExceeded  = errors.New("Protocol error: number of files per index exceeds limit")
+	ErrMaxBlocksExceeded = errors.New("Protocol error: number of blocks per file exceeds limit")
+)
 
 type request struct {
+	repo   string
 	name   string
 	offset int64
 	size   uint32
@@ -33,7 +47,8 @@ func (w *marshalWriter) writeHeader(h header) {
 	w.writeUint32(encodeHeader(h))
 }
 
-func (w *marshalWriter) writeIndex(idx []FileInfo) {
+func (w *marshalWriter) writeIndex(repo string, idx []FileInfo) {
+	w.writeString(repo)
 	w.writeUint32(uint32(len(idx)))
 	for _, f := range idx {
 		w.writeString(f.Name)
@@ -48,13 +63,14 @@ func (w *marshalWriter) writeIndex(idx []FileInfo) {
 	}
 }
 
-func WriteIndex(w io.Writer, idx []FileInfo) (int, error) {
+func WriteIndex(w io.Writer, repo string, idx []FileInfo) (int, error) {
 	mw := marshalWriter{w: w}
-	mw.writeIndex(idx)
+	mw.writeIndex(repo, idx)
 	return int(mw.getTot()), mw.err
 }
 
 func (w *marshalWriter) writeRequest(r request) {
+	w.writeString(r.repo)
 	w.writeString(r.name)
 	w.writeUint64(uint64(r.offset))
 	w.writeUint32(r.size)
@@ -77,9 +93,14 @@ func (r *marshalReader) readHeader() header {
 	return decodeHeader(r.readUint32())
 }
 
-func (r *marshalReader) readIndex() []FileInfo {
+func (r *marshalReader) readIndex() (string, []FileInfo) {
 	var files []FileInfo
+	repo := r.readString()
 	nfiles := r.readUint32()
+	if nfiles > maxNumFiles {
+		r.err = ErrMaxFilesExceeded
+		return "", nil
+	}
 	if nfiles > 0 {
 		files = make([]FileInfo, nfiles)
 		for i := range files {
@@ -88,6 +109,10 @@ func (r *marshalReader) readIndex() []FileInfo {
 			files[i].Modified = int64(r.readUint64())
 			files[i].Version = r.readUint32()
 			nblocks := r.readUint32()
+			if nblocks > maxNumBlocks {
+				r.err = ErrMaxBlocksExceeded
+				return "", nil
+			}
 			blocks := make([]BlockInfo, nblocks)
 			for j := range blocks {
 				blocks[j].Size = r.readUint32()
@@ -96,17 +121,18 @@ func (r *marshalReader) readIndex() []FileInfo {
 			files[i].Blocks = blocks
 		}
 	}
-	return files
+	return repo, files
 }
 
-func ReadIndex(r io.Reader) ([]FileInfo, error) {
+func ReadIndex(r io.Reader) (string, []FileInfo, error) {
 	mr := marshalReader{r: r}
-	idx := mr.readIndex()
-	return idx, mr.err
+	repo, idx := mr.readIndex()
+	return repo, idx, mr.err
 }
 
 func (r *marshalReader) readRequest() request {
 	var req request
+	req.repo = r.readString()
 	req.name = r.readString()
 	req.offset = int64(r.readUint64())
 	req.size = r.readUint32()
