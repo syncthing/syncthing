@@ -40,9 +40,6 @@ var (
 )
 
 func main() {
-	log.SetOutput(os.Stderr)
-	logger = log.New(os.Stderr, "", log.Flags())
-
 	flag.StringVar(&confDir, "home", "~/.syncthing", "Set configuration directory")
 	flag.StringVar(&trace, "debug.trace", "", "(connect,net,idx,file,pull)")
 	flag.StringVar(&profiler, "debug.profiler", "", "(addr)")
