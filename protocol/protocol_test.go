@@ -22,23 +22,6 @@ func TestHeaderFunctions(t *testing.T) {
 	}
 }
 
-func TestPad(t *testing.T) {
-	tests := [][]int{
-		{0, 0},
-		{1, 3},
-		{2, 2},
-		{3, 1},
-		{4, 0},
-		{32, 0},
-		{33, 3},
-	}
-	for _, tc := range tests {
-		if p := pad(tc[0]); p != tc[1] {
-			t.Errorf("Incorrect padding for %d bytes, %d != %d", tc[0], p, tc[1])
-		}
-	}
-}
-
 func TestPing(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()

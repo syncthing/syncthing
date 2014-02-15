@@ -34,10 +34,10 @@ func TestIndex(t *testing.T) {
 	}
 
 	var buf = new(bytes.Buffer)
-	var wr = marshalWriter{w: buf}
+	var wr = newMarshalWriter(buf)
 	wr.writeIndex("default", idx)
 
-	var rd = marshalReader{r: buf}
+	var rd = newMarshalReader(buf)
 	var repo, idx2 = rd.readIndex()
 
 	if repo != "default" {
@@ -53,9 +53,9 @@ func TestRequest(t *testing.T) {
 	f := func(repo, name string, offset int64, size uint32, hash []byte) bool {
 		var buf = new(bytes.Buffer)
 		var req = request{repo, name, offset, size, hash}
-		var wr = marshalWriter{w: buf}
+		var wr = newMarshalWriter(buf)
 		wr.writeRequest(req)
-		var rd = marshalReader{r: buf}
+		var rd = newMarshalReader(buf)
 		var req2 = rd.readRequest()
 		return req.name == req2.name &&
 			req.offset == req2.offset &&
@@ -70,9 +70,9 @@ func TestRequest(t *testing.T) {
 func TestResponse(t *testing.T) {
 	f := func(data []byte) bool {
 		var buf = new(bytes.Buffer)
-		var wr = marshalWriter{w: buf}
+		var wr = newMarshalWriter(buf)
 		wr.writeResponse(data)
-		var rd = marshalReader{r: buf}
+		var rd = newMarshalReader(buf)
 		var read = rd.readResponse()
 		return bytes.Compare(read, data) == 0
 	}
@@ -106,7 +106,7 @@ func BenchmarkWriteIndex(b *testing.B) {
 		},
 	}
 
-	var wr = marshalWriter{w: ioutil.Discard}
+	var wr = newMarshalWriter(ioutil.Discard)
 
 	for i := 0; i < b.N; i++ {
 		wr.writeIndex("default", idx)
@@ -115,7 +115,7 @@ func BenchmarkWriteIndex(b *testing.B) {
 
 func BenchmarkWriteRequest(b *testing.B) {
 	var req = request{"default", "blah blah", 1231323, 13123123, []byte("hash hash hash")}
-	var wr = marshalWriter{w: ioutil.Discard}
+	var wr = newMarshalWriter(ioutil.Discard)
 
 	for i := 0; i < b.N; i++ {
 		wr.writeRequest(req)
@@ -131,10 +131,10 @@ func TestOptions(t *testing.T) {
 	}
 
 	var buf = new(bytes.Buffer)
-	var wr = marshalWriter{w: buf}
+	var wr = newMarshalWriter(buf)
 	wr.writeOptions(opts)
 
-	var rd = marshalReader{r: buf}
+	var rd = newMarshalReader(buf)
 	var ropts = rd.readOptions()
 
 	if !reflect.DeepEqual(opts, ropts) {

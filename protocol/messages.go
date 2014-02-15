@@ -3,6 +3,9 @@ package protocol
 import (
 	"errors"
 	"io"
+
+	"github.com/calmh/syncthing/buffers"
+	"github.com/calmh/syncthing/xdr"
 )
 
 const (
@@ -43,60 +46,93 @@ func decodeHeader(u uint32) header {
 	}
 }
 
+func WriteIndex(w io.Writer, repo string, idx []FileInfo) (int, error) {
+	mw := newMarshalWriter(w)
+	mw.writeIndex(repo, idx)
+	return int(mw.Tot()), mw.Err()
+}
+
+type marshalWriter struct {
+	*xdr.Writer
+}
+
+func newMarshalWriter(w io.Writer) marshalWriter {
+	return marshalWriter{xdr.NewWriter(w)}
+}
+
 func (w *marshalWriter) writeHeader(h header) {
-	w.writeUint32(encodeHeader(h))
+	w.WriteUint32(encodeHeader(h))
 }
 
 func (w *marshalWriter) writeIndex(repo string, idx []FileInfo) {
-	w.writeString(repo)
-	w.writeUint32(uint32(len(idx)))
+	w.WriteString(repo)
+	w.WriteUint32(uint32(len(idx)))
 	for _, f := range idx {
-		w.writeString(f.Name)
-		w.writeUint32(f.Flags)
-		w.writeUint64(uint64(f.Modified))
-		w.writeUint32(f.Version)
-		w.writeUint32(uint32(len(f.Blocks)))
+		w.WriteString(f.Name)
+		w.WriteUint32(f.Flags)
+		w.WriteUint64(uint64(f.Modified))
+		w.WriteUint32(f.Version)
+		w.WriteUint32(uint32(len(f.Blocks)))
 		for _, b := range f.Blocks {
-			w.writeUint32(b.Size)
-			w.writeBytes(b.Hash)
+			w.WriteUint32(b.Size)
+			w.WriteBytes(b.Hash)
 		}
 	}
 }
 
-func WriteIndex(w io.Writer, repo string, idx []FileInfo) (int, error) {
-	mw := marshalWriter{w: w}
-	mw.writeIndex(repo, idx)
-	return int(mw.getTot()), mw.err
-}
-
 func (w *marshalWriter) writeRequest(r request) {
-	w.writeString(r.repo)
-	w.writeString(r.name)
-	w.writeUint64(uint64(r.offset))
-	w.writeUint32(r.size)
-	w.writeBytes(r.hash)
+	w.WriteString(r.repo)
+	w.WriteString(r.name)
+	w.WriteUint64(uint64(r.offset))
+	w.WriteUint32(r.size)
+	w.WriteBytes(r.hash)
 }
 
 func (w *marshalWriter) writeResponse(data []byte) {
-	w.writeBytes(data)
+	w.WriteBytes(data)
 }
 
 func (w *marshalWriter) writeOptions(opts map[string]string) {
-	w.writeUint32(uint32(len(opts)))
+	w.WriteUint32(uint32(len(opts)))
 	for k, v := range opts {
-		w.writeString(k)
-		w.writeString(v)
+		w.WriteString(k)
+		w.WriteString(v)
 	}
 }
 
-func (r *marshalReader) readHeader() header {
-	return decodeHeader(r.readUint32())
+func ReadIndex(r io.Reader) (string, []FileInfo, error) {
+	mr := newMarshalReader(r)
+	repo, idx := mr.readIndex()
+	return repo, idx, mr.Err()
 }
 
-func (r *marshalReader) readIndex() (string, []FileInfo) {
+type marshalReader struct {
+	*xdr.Reader
+	err error
+}
+
+func newMarshalReader(r io.Reader) marshalReader {
+	return marshalReader{
+		Reader: xdr.NewReader(r),
+		err:    nil,
+	}
+}
+
+func (r marshalReader) Err() error {
+	if r.err != nil {
+		return r.err
+	}
+	return r.Reader.Err()
+}
+
+func (r marshalReader) readHeader() header {
+	return decodeHeader(r.ReadUint32())
+}
+
+func (r marshalReader) readIndex() (string, []FileInfo) {
 	var files []FileInfo
-	repo := r.readString()
-	nfiles := r.readUint32()
+	repo := r.ReadString()
+	nfiles := r.ReadUint32()
 	if nfiles > maxNumFiles {
 		r.err = ErrMaxFilesExceeded
 		return "", nil
@@ -104,19 +140,19 @@ func (r *marshalReader) readIndex() (string, []FileInfo) {
 	if nfiles > 0 {
 		files = make([]FileInfo, nfiles)
 		for i := range files {
-			files[i].Name = r.readString()
-			files[i].Flags = r.readUint32()
-			files[i].Modified = int64(r.readUint64())
-			files[i].Version = r.readUint32()
-			nblocks := r.readUint32()
+			files[i].Name = r.ReadString()
+			files[i].Flags = r.ReadUint32()
+			files[i].Modified = int64(r.ReadUint64())
+			files[i].Version = r.ReadUint32()
+			nblocks := r.ReadUint32()
 			if nblocks > maxNumBlocks {
 				r.err = ErrMaxBlocksExceeded
 				return "", nil
 			}
 			blocks := make([]BlockInfo, nblocks)
 			for j := range blocks {
-				blocks[j].Size = r.readUint32()
-				blocks[j].Hash = r.readBytes()
+				blocks[j].Size = r.ReadUint32()
+				blocks[j].Hash = r.ReadBytes(buffers.Get(32))
 			}
 			files[i].Blocks = blocks
 		}
@@ -124,32 +160,26 @@ func (r *marshalReader) readIndex() (string, []FileInfo) {
 	return repo, files
 }
 
-func ReadIndex(r io.Reader) (string, []FileInfo, error) {
-	mr := marshalReader{r: r}
-	repo, idx := mr.readIndex()
-	return repo, idx, mr.err
-}
-
-func (r *marshalReader) readRequest() request {
+func (r marshalReader) readRequest() request {
 	var req request
-	req.repo = r.readString()
-	req.name = r.readString()
-	req.offset = int64(r.readUint64())
-	req.size = r.readUint32()
-	req.hash = r.readBytes()
+	req.repo = r.ReadString()
+	req.name = r.ReadString()
+	req.offset = int64(r.ReadUint64())
+	req.size = r.ReadUint32()
+	req.hash = r.ReadBytes(buffers.Get(32))
 	return req
 }
 
-func (r *marshalReader) readResponse() []byte {
-	return r.readBytes()
+func (r marshalReader) readResponse() []byte {
+	return r.ReadBytes(buffers.Get(128 * 1024))
 }
 
-func (r *marshalReader) readOptions() map[string]string {
-	n := r.readUint32()
+func (r marshalReader) readOptions() map[string]string {
+	n := r.ReadUint32()
 	opts := make(map[string]string, n)
 	for i := 0; i < int(n); i++ {
-		k := r.readString()
-		v := r.readString()
+		k := r.ReadString()
+		v := r.ReadString()
 		opts[k] = v
 	}
 	return opts
