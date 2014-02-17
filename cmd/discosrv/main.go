@@ -4,18 +4,21 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/calmh/syncthing/discover"
 )
 
 type Node struct {
-	IP   []byte
-	Port uint16
+	IP      []byte
+	Port    uint16
+	Updated time.Time
 }
 
 var (
-	nodes = make(map[string]Node)
-	lock  sync.Mutex
+	nodes   = make(map[string]Node)
+	lock    sync.Mutex
+	queries = 0
 )
 
 func main() {
@@ -24,6 +27,26 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	go func() {
+		for {
+			time.Sleep(600 * time.Second)
+
+			lock.Lock()
+
+			var deleted = 0
+			for id, node := range nodes {
+				if time.Since(node.Updated) > 60*time.Minute {
+					delete(nodes, id)
+					deleted++
+				}
+			}
+			log.Printf("Expired %d nodes; %d nodes in registry; %d queries", deleted, len(nodes), queries)
+			queries = 0
+
+			lock.Unlock()
+		}
+	}()
 
 	var buf = make([]byte, 1024)
 	for {
@@ -40,20 +63,25 @@ func main() {
 		switch pkt.Magic {
 		case 0x20121025:
 			// Announcement
-			//lock.Lock()
+			lock.Lock()
 			ip := addr.IP.To4()
 			if ip == nil {
 				ip = addr.IP.To16()
 			}
-			node := Node{ip, uint16(pkt.Port)}
-			log.Println("<-", pkt.ID, node)
+			node := Node{
+				IP:      ip,
+				Port:    uint16(pkt.Port),
+				Updated: time.Now(),
+			}
+			//log.Println("<-", pkt.ID, node)
 			nodes[pkt.ID] = node
-			//lock.Unlock()
+			lock.Unlock()
 		case 0x19760309:
 			// Query
-			//lock.Lock()
+			lock.Lock()
 			node, ok := nodes[pkt.ID]
-			//lock.Unlock()
+			queries++
+			lock.Unlock()
 			if ok {
 				pkt := discover.Packet{
 					Magic: 0x20121025,
@@ -64,11 +92,8 @@ func main() {
 				_, _, err = conn.WriteMsgUDP(discover.EncodePacket(pkt), nil, addr)
 				if err != nil {
 					log.Println("Warning:", err)
-				} else {
-					log.Println("->", pkt.ID, node)
 				}
 			}
 		}
-
 	}
 }
