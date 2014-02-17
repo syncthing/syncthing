@@ -10,6 +10,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/exec"
 	"path"
 	"runtime"
 	"runtime/debug"
@@ -279,7 +280,12 @@ func restart() {
 	if doAppend {
 		args = append(args, "-delay", "2")
 	}
-	proc, err := os.StartProcess(os.Args[0], args, &os.ProcAttr{
+	pgm, err := exec.LookPath(os.Args[0])
+	if err != nil {
+		warnln(err)
+		return
+	}
+	proc, err := os.StartProcess(pgm, args, &os.ProcAttr{
 		Env:   os.Environ(),
 		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 	})
