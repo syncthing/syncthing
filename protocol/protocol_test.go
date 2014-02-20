@@ -80,7 +80,7 @@ func TestRequestResponseErr(t *testing.T) {
 			NewConnection("c0", ar, ebw, m0, nil)
 			c1 := NewConnection("c1", br, eaw, m1, nil)
 
-			d, err := c1.Request("default", "tn", 1234, 3456, []byte("hashbytes"))
+			d, err := c1.Request("default", "tn", 1234)
 			if err == e || err == ErrClosed {
 				t.Logf("Error at %d+%d bytes", i, j)
 				if !m1.closed {
@@ -104,14 +104,11 @@ func TestRequestResponseErr(t *testing.T) {
 			if m0.name != "tn" {
 				t.Error("Incorrect name %q", m0.name)
 			}
-			if m0.offset != 1234 {
+			if m0.offset != 1234*BlockSize {
 				t.Error("Incorrect offset %d", m0.offset)
 			}
-			if m0.size != 3456 {
+			if m0.size != BlockSize {
 				t.Error("Incorrect size %d", m0.size)
-			}
-			if string(m0.hash) != "hashbytes" {
-				t.Error("Incorrect hash %q", m0.hash)
 			}
 			t.Logf("Pass at %d+%d bytes", i, j)
 			pass = true
@@ -132,11 +129,11 @@ func TestVersionErr(t *testing.T) {
 	c0 := NewConnection("c0", ar, bw, m0, nil)
 	NewConnection("c1", br, aw, m1, nil)
 
-	c0.mwriter.writeHeader(header{
+	c0.xw.WriteUint32(encodeHeader(header{
 		version: 2,
 		msgID:   0,
 		msgType: 0,
-	})
+	}))
 	c0.flush()
 
 	if !m1.closed {
@@ -154,11 +151,11 @@ func TestTypeErr(t *testing.T) {
 	c0 := NewConnection("c0", ar, bw, m0, nil)
 	NewConnection("c1", br, aw, m1, nil)
 
-	c0.mwriter.writeHeader(header{
+	c0.xw.WriteUint32(encodeHeader(header{
 		version: 0,
 		msgID:   0,
 		msgType: 42,
-	})
+	}))
 	c0.flush()
 
 	if !m1.closed {
@@ -193,7 +190,7 @@ func TestClose(t *testing.T) {
 	c0.Index("default", nil)
 	c0.Index("default", nil)
 
-	_, err := c0.Request("default", "foo", 0, 0, nil)
+	_, err := c0.Request("default", "foo", 0)
 	if err == nil {
 		t.Error("Request should return an error")
 	}

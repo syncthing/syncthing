@@ -1,89 +1,12 @@
-/*
-This is the local node discovery protocol. In principle we might be better
-served by something more standardized, such as mDNS / DNS-SD. In practice, this
-was much easier and quicker to get up and running.
-
-The mode of operation is to periodically (currently once every 30 seconds)
-broadcast an Announcement packet to UDP port 21025. The packet has the
-following format:
-
-     0                   1                   2                   3
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                   Magic Number (0x20121025)                   |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |          Port Number          |           Reserved            |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                        Length of NodeID                       |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \                   NodeID (variable length)                    \
-    /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                          Length of IP                         |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \                     IP (variable length)                      \
-    /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-This is the XDR encoding of:
-
-struct Announcement {
-	unsigned int Magic;
-	unsigned short Port;
-	string NodeID<>;
-}
-
-(Hence NodeID is padded to a multiple of 32 bits)
-
-The sending node's address is not encoded in local announcement -- the Length
-of IP field is set to zero and the address is taken to be the source address of
-the announcement. In announcement packets sent by a discovery server in
-response to a query, the IP is present and the length is either 4 (IPv4) or 16
-(IPv6).
-
-Every time such a packet is received, a local table that maps NodeID to Address
-is updated. When the local node wants to connect to another node with the
-address specification 'dynamic', this table is consulted.
-
-For external discovery, an identical packet is sent every 30 minutes to the
-external discovery server. The server keeps information for up to 60 minutes.
-To query the server, and UDP packet with the format below is sent.
-
-     0                   1                   2                   3
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                   Magic Number (0x19760309)                   |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                        Length of NodeID                       |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \                   NodeID (variable length)                    \
-    /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-This is the XDR encoding of:
-
-struct Announcement {
-	unsigned int Magic;
-	string NodeID<>;
-}
-
-(Hence NodeID is padded to a multiple of 32 bits)
-
-It is answered with an announcement packet for the queried node ID if the
-information is available. There is no answer for queries about unknown nodes. A
-reasonable timeout is recommended instead. (This, combined with server side
-rate limits for packets per source IP and queries per node ID, prevents the
-server from being used as an amplifier in a DDoS attack.)
-*/
 package discover
 
 import (
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -91,9 +14,8 @@ import (
 )
 
 const (
-	AnnouncementPort  = 21025
-	AnnouncementMagic = 0x20121025
-	QueryMagic        = 0x19760309
+	AnnouncementPort = 21025
+	Debug            = false
 )
 
 type Discoverer struct {
@@ -103,10 +25,14 @@ type Discoverer struct {
 	ExtBroadcastIntv time.Duration
 
 	conn         *net.UDPConn
-	registry     map[string]string
+	registry     map[string][]string
 	registryLock sync.RWMutex
 	extServer    string
 }
+
+var (
+	ErrIncorrectMagic = errors.New("Incorrect magic number")
+)
 
 // We tolerate a certain amount of errors because we might be running on
 // laptops that sleep and wake, have intermittent network connectivity, etc.
@@ -127,7 +53,7 @@ func NewDiscoverer(id string, port int, extServer string) (*Discoverer, error) {
 		ExtBroadcastIntv: 1800 * time.Second,
 
 		conn:      conn,
-		registry:  make(map[string]string),
+		registry:  make(map[string][]string),
 		extServer: extServer,
 	}
 
@@ -146,7 +72,8 @@ func NewDiscoverer(id string, port int, extServer string) (*Discoverer, error) {
 func (d *Discoverer) sendAnnouncements() {
 	remote4 := &net.UDPAddr{IP: net.IP{255, 255, 255, 255}, Port: AnnouncementPort}
 
-	buf := EncodePacket(Packet{AnnouncementMagic, uint16(d.ListenPort), d.MyID, nil})
+	pkt := AnnounceV2{AnnouncementMagicV2, d.MyID, []Address{{nil, 22000}}}
+	buf := pkt.MarshalXDR()
 	go d.writeAnnouncements(buf, remote4, d.BroadcastIntv)
 }
 
@@ -157,7 +84,8 @@ func (d *Discoverer) sendExtAnnouncements() {
 		return
 	}
 
-	buf := EncodePacket(Packet{AnnouncementMagic, uint16(22000), d.MyID, nil})
+	pkt := AnnounceV2{AnnouncementMagicV2, d.MyID, []Address{{nil, 22000}}}
+	buf := pkt.MarshalXDR()
 	go d.writeAnnouncements(buf, extIP, d.ExtBroadcastIntv)
 }
 
@@ -189,90 +117,137 @@ func (d *Discoverer) recvAnnouncements() {
 			continue
 		}
 
-		pkt, err := DecodePacket(buf[:n])
-		if err != nil || pkt.Magic != AnnouncementMagic {
+		if Debug {
+			log.Printf("read announcement:\n%s", hex.Dump(buf[:n]))
+		}
+
+		var pkt AnnounceV2
+		err = pkt.UnmarshalXDR(buf[:n])
+		if err != nil {
 			errCounter++
 			time.Sleep(time.Second)
 			continue
 		}
 
+		if Debug {
+			log.Printf("read announcement: %#v", pkt)
+		}
+
 		errCounter = 0
 
-		if pkt.ID != d.MyID {
-			nodeAddr := fmt.Sprintf("%s:%d", addr.IP.String(), pkt.Port)
-			d.registryLock.Lock()
-			if d.registry[pkt.ID] != nodeAddr {
-				d.registry[pkt.ID] = nodeAddr
+		if pkt.NodeID != d.MyID {
+			var addrs []string
+			for _, a := range pkt.Addresses {
+				var nodeAddr string
+				if len(a.IP) > 0 {
+					nodeAddr = fmt.Sprintf("%s:%d", ipStr(a.IP), a.Port)
+				} else {
+					nodeAddr = fmt.Sprintf("%s:%d", addr.IP.String(), a.Port)
+				}
+				addrs = append(addrs, nodeAddr)
 			}
+			if Debug {
+				log.Printf("register: %#v", addrs)
+			}
+			d.registryLock.Lock()
+			d.registry[pkt.NodeID] = addrs
 			d.registryLock.Unlock()
 		}
 	}
 	log.Println("discover/read: stopping due to too many errors:", err)
 }
 
-func (d *Discoverer) externalLookup(node string) (string, bool) {
+func (d *Discoverer) externalLookup(node string) []string {
 	extIP, err := net.ResolveUDPAddr("udp", d.extServer)
 	if err != nil {
 		log.Printf("discover/external: %v; no external lookup", err)
-		return "", false
+		return nil
 	}
 
 	conn, err := net.DialUDP("udp", nil, extIP)
 	if err != nil {
 		log.Printf("discover/external: %v; no external lookup", err)
-		return "", false
+		return nil
 	}
 	defer conn.Close()
 
 	err = conn.SetDeadline(time.Now().Add(5 * time.Second))
 	if err != nil {
 		log.Printf("discover/external: %v; no external lookup", err)
-		return "", false
+		return nil
 	}
 
-	_, err = conn.Write(EncodePacket(Packet{QueryMagic, 0, node, nil}))
+	buf := QueryV2{QueryMagicV2, node}.MarshalXDR()
+	_, err = conn.Write(buf)
 	if err != nil {
 		log.Printf("discover/external: %v; no external lookup", err)
-		return "", false
+		return nil
 	}
+	buffers.Put(buf)
 
-	var buf = buffers.Get(256)
+	buf = buffers.Get(256)
 	defer buffers.Put(buf)
 
 	n, err := conn.Read(buf)
 	if err != nil {
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			// Expected if the server doesn't know about requested node ID
-			return "", false
+			return nil
 		}
 		log.Printf("discover/external/read: %v; no external lookup", err)
-		return "", false
+		return nil
 	}
 
-	pkt, err := DecodePacket(buf[:n])
+	if Debug {
+		log.Printf("read external:\n%s", hex.Dump(buf[:n]))
+	}
+
+	var pkt AnnounceV2
+	err = pkt.UnmarshalXDR(buf[:n])
 	if err != nil {
-		log.Printf("discover/external/read: %v; no external lookup", err)
-		return "", false
+		log.Println("discover/external/decode:", err)
+		return nil
 	}
 
-	if pkt.Magic != AnnouncementMagic {
-		log.Printf("discover/external/read: bad magic; no external lookup", err)
-		return "", false
+	if Debug {
+		log.Printf("read external: %#v", pkt)
 	}
 
-	return fmt.Sprintf("%s:%d", ipStr(pkt.IP), pkt.Port), true
+	var addrs []string
+	for _, a := range pkt.Addresses {
+		var nodeAddr string
+		if len(a.IP) > 0 {
+			nodeAddr = fmt.Sprintf("%s:%d", ipStr(a.IP), a.Port)
+		}
+		addrs = append(addrs, nodeAddr)
+	}
+	return addrs
 }
 
-func (d *Discoverer) Lookup(node string) (string, bool) {
+func (d *Discoverer) Lookup(node string) []string {
 	d.registryLock.Lock()
 	addr, ok := d.registry[node]
 	d.registryLock.Unlock()
 
 	if ok {
-		return addr, true
+		return addr
 	} else if len(d.extServer) != 0 {
 		// We might want to cache this, but not permanently so it needs some intelligence
 		return d.externalLookup(node)
 	}
-	return "", false
+	return nil
+}
+
+func ipStr(ip []byte) string {
+	var f = "%d"
+	var s = "."
+	if len(ip) > 4 {
+		f = "%x"
+		s = ":"
+	}
+	var ss = make([]string, len(ip))
+	for i := range ip {
+		ss[i] = fmt.Sprintf(f, ip[i])
+	}
+	return strings.Join(ss, s)
 }

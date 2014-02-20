@@ -30,8 +30,8 @@ func TestBytesNil(t *testing.T) {
 		var r = NewReader(b)
 		w.WriteBytes(bs)
 		w.WriteBytes(bs)
-		r.ReadBytes(nil)
-		res := r.ReadBytes(nil)
+		r.ReadBytes()
+		res := r.ReadBytes()
 		return bytes.Compare(bs, res) == 0
 	}
 	if err := quick.Check(fn, nil); err != nil {
@@ -47,8 +47,8 @@ func TestBytesGiven(t *testing.T) {
 		w.WriteBytes(bs)
 		w.WriteBytes(bs)
 		res := make([]byte, 12)
-		res = r.ReadBytes(res)
-		res = r.ReadBytes(res)
+		res = r.ReadBytesInto(res)
+		res = r.ReadBytesInto(res)
 		return bytes.Compare(bs, res) == 0
 	}
 	if err := quick.Check(fn, nil); err != nil {

@@ -1,10 +1,15 @@
 package xdr
 
-import "io"
+import (
+	"errors"
+	"io"
+)
+
+var ErrElementSizeExceeded = errors.New("Element size exceeded")
 
 type Reader struct {
 	r   io.Reader
-	tot uint64
+	tot int
 	err error
 	b   [8]byte
 }
@@ -16,15 +21,35 @@ func NewReader(r io.Reader) *Reader {
 }
 
 func (r *Reader) ReadString() string {
-	return string(r.ReadBytes(nil))
+	return string(r.ReadBytes())
 }
 
-func (r *Reader) ReadBytes(dst []byte) []byte {
+func (r *Reader) ReadStringMax(max int) string {
+	return string(r.ReadBytesMax(max))
+}
+
+func (r *Reader) ReadBytes() []byte {
+	return r.ReadBytesInto(nil)
+}
+
+func (r *Reader) ReadBytesMax(max int) []byte {
+	return r.ReadBytesMaxInto(max, nil)
+}
+
+func (r *Reader) ReadBytesInto(dst []byte) []byte {
+	return r.ReadBytesMaxInto(0, dst)
+}
+
+func (r *Reader) ReadBytesMaxInto(max int, dst []byte) []byte {
 	if r.err != nil {
 		return nil
 	}
 	l := int(r.ReadUint32())
 	if r.err != nil {
+		return nil
+	}
+	if max > 0 && l > max {
+		r.err = ErrElementSizeExceeded
 		return nil
 	}
 	if l+pad(l) > len(dst) {
@@ -33,8 +58,17 @@ func (r *Reader) ReadBytes(dst []byte) []byte {
 		dst = dst[:l+pad(l)]
 	}
 	_, r.err = io.ReadFull(r.r, dst)
-	r.tot += uint64(l + pad(l))
+	r.tot += l + pad(l)
 	return dst[:l]
+}
+
+func (r *Reader) ReadUint16() uint16 {
+	if r.err != nil {
+		return 0
+	}
+	_, r.err = io.ReadFull(r.r, r.b[:4])
+	r.tot += 4
+	return uint16(r.b[1]) | uint16(r.b[0])<<8
 }
 
 func (r *Reader) ReadUint32() uint32 {
@@ -42,7 +76,7 @@ func (r *Reader) ReadUint32() uint32 {
 		return 0
 	}
 	_, r.err = io.ReadFull(r.r, r.b[:4])
-	r.tot += 8
+	r.tot += 4
 	return uint32(r.b[3]) | uint32(r.b[2])<<8 | uint32(r.b[1])<<16 | uint32(r.b[0])<<24
 }
 
@@ -56,10 +90,10 @@ func (r *Reader) ReadUint64() uint64 {
 		uint64(r.b[3])<<32 | uint64(r.b[2])<<40 | uint64(r.b[1])<<48 | uint64(r.b[0])<<56
 }
 
-func (r *Reader) Tot() uint64 {
+func (r *Reader) Tot() int {
 	return r.tot
 }
 
-func (r *Reader) Err() error {
+func (r *Reader) Error() error {
 	return r.err
 }

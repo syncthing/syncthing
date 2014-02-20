@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 
-func MetricPrefix(n int) string {
+func MetricPrefix(n int64) string {
 	if n > 1e9 {
 		return fmt.Sprintf("%.02f G", float64(n)/1e9)
 	}
@@ -15,7 +15,7 @@ func MetricPrefix(n int) string {
 	return fmt.Sprintf("%d ", n)
 }
 
-func BinaryPrefix(n int) string {
+func BinaryPrefix(n int64) string {
 	if n > 1<<30 {
 		return fmt.Sprintf("%.02f Gi", float64(n)/(1<<30))
 	}

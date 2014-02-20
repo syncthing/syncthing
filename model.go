@@ -56,7 +56,7 @@ type Model struct {
 type Connection interface {
 	ID() string
 	Index(string, []protocol.FileInfo)
-	Request(repo, name string, offset int64, size uint32, hash []byte) ([]byte, error)
+	Request(repo, name string, offset int64, size int) ([]byte, error)
 	Statistics() protocol.Statistics
 	Option(key string) string
 }
@@ -171,9 +171,9 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	m.pmut.RLock()
 	m.rmut.RLock()
 
-	var tot int
+	var tot int64
 	for _, f := range m.global {
-		tot += f.Size()
+		tot += f.Size
 	}
 
 	var res = make(map[string]ConnectionInfo)
@@ -187,14 +187,14 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 			ci.Address = nc.RemoteAddr().String()
 		}
 
-		var have int
+		var have int64
 		for _, f := range m.remote[node] {
 			if f.Equals(m.global[f.Name]) {
-				have += f.Size()
+				have += f.Size
 			}
 		}
 
-		ci.Completion = 100 * have / tot
+		ci.Completion = int(100 * have / tot)
 
 		res[node] = ci
 	}
@@ -205,15 +205,15 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	return res
 }
 
-// LocalSize returns the number of files, deleted files and total bytes for all
+// GlobalSize returns the number of files, deleted files and total bytes for all
 // files in the global model.
-func (m *Model) GlobalSize() (files, deleted, bytes int) {
+func (m *Model) GlobalSize() (files, deleted int, bytes int64) {
 	m.gmut.RLock()
 
 	for _, f := range m.global {
 		if f.Flags&protocol.FlagDeleted == 0 {
 			files++
-			bytes += f.Size()
+			bytes += f.Size
 		} else {
 			deleted++
 		}
@@ -225,13 +225,13 @@ func (m *Model) GlobalSize() (files, deleted, bytes int) {
 
 // LocalSize returns the number of files, deleted files and total bytes for all
 // files in the local repository.
-func (m *Model) LocalSize() (files, deleted, bytes int) {
+func (m *Model) LocalSize() (files, deleted int, bytes int64) {
 	m.lmut.RLock()
 
 	for _, f := range m.local {
 		if f.Flags&protocol.FlagDeleted == 0 {
 			files++
-			bytes += f.Size()
+			bytes += f.Size
 		} else {
 			deleted++
 		}
@@ -243,14 +243,14 @@ func (m *Model) LocalSize() (files, deleted, bytes int) {
 
 // InSyncSize returns the number and total byte size of the local files that
 // are in sync with the global model.
-func (m *Model) InSyncSize() (files, bytes int) {
+func (m *Model) InSyncSize() (files, bytes int64) {
 	m.gmut.RLock()
 	m.lmut.RLock()
 
 	for n, f := range m.local {
 		if gf, ok := m.global[n]; ok && f.Equals(gf) {
 			files++
-			bytes += f.Size()
+			bytes += f.Size
 		}
 	}
 
@@ -260,7 +260,7 @@ func (m *Model) InSyncSize() (files, bytes int) {
 }
 
 // NeedFiles returns the list of currently needed files and the total size.
-func (m *Model) NeedFiles() (files []File, bytes int) {
+func (m *Model) NeedFiles() (files []File, bytes int64) {
 	qf := m.fq.QueuedFiles()
 
 	m.gmut.RLock()
@@ -268,7 +268,7 @@ func (m *Model) NeedFiles() (files []File, bytes int) {
 	for _, n := range qf {
 		f := m.global[n]
 		files = append(files, f)
-		bytes += f.Size()
+		bytes += f.Size
 	}
 
 	m.gmut.RUnlock()
@@ -387,7 +387,7 @@ func (m *Model) Close(node string, err error) {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *Model) Request(nodeID, repo, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
+func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]byte, error) {
 	// Verify that the requested file exists in the local and global model.
 	m.lmut.RLock()
 	lf, localOk := m.local[name]
@@ -398,7 +398,7 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size uint32, ha
 	m.gmut.RUnlock()
 
 	if !localOk || !globalOk {
-		warnf("SECURITY (nonexistent file) REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
+		warnf("SECURITY (nonexistent file) REQ(in): %s: %q o=%d s=%d", nodeID, name, offset, size)
 		return nil, ErrNoSuchFile
 	}
 	if lf.Flags&protocol.FlagInvalid != 0 {
@@ -406,7 +406,7 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size uint32, ha
 	}
 
 	if m.trace["net"] && nodeID != "<local>" {
-		debugf("NET REQ(in): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
+		debugf("NET REQ(in): %s: %q o=%d s=%d", nodeID, name, offset, size)
 	}
 	fn := path.Join(m.dir, name)
 	fd, err := os.Open(fn) // XXX: Inefficient, should cache fd?
@@ -541,7 +541,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn Connection) {
 					if m.trace["pull"] {
 						debugln("PULL: Request", nodeID, i, qb.name, qb.block.Offset)
 					}
-					data, _ := protoConn.Request("default", qb.name, qb.block.Offset, qb.block.Size, qb.block.Hash)
+					data, _ := protoConn.Request("default", qb.name, qb.block.Offset, int(qb.block.Size))
 					m.fq.Done(qb.name, qb.block.Offset, data)
 				} else {
 					time.Sleep(1 * time.Second)
@@ -574,7 +574,7 @@ func (m *Model) ProtocolIndex() []protocol.FileInfo {
 	return index
 }
 
-func (m *Model) requestGlobal(nodeID, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
+func (m *Model) requestGlobal(nodeID, name string, offset int64, size int, hash []byte) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.protoConn[nodeID]
 	m.pmut.RUnlock()
@@ -587,7 +587,7 @@ func (m *Model) requestGlobal(nodeID, name string, offset int64, size uint32, ha
 		debugf("NET REQ(out): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
 	}
 
-	return nc.Request("default", name, offset, size, hash)
+	return nc.Request("default", name, offset, size)
 }
 
 func (m *Model) broadcastIndexLoop() {
@@ -891,6 +891,7 @@ func fileFromFileInfo(f protocol.FileInfo) File {
 	}
 	return File{
 		Name:     f.Name,
+		Size:     offset,
 		Flags:    f.Flags,
 		Modified: f.Modified,
 		Version:  f.Version,

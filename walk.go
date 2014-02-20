@@ -21,14 +21,8 @@ type File struct {
 	Flags    uint32
 	Modified int64
 	Version  uint32
+	Size     int64
 	Blocks   []Block
-}
-
-func (f File) Size() (bytes int) {
-	for _, b := range f.Blocks {
-		bytes += int(b.Size)
-	}
-	return
 }
 
 func (f File) String() string {
@@ -165,6 +159,7 @@ func (m *Model) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.
 				}
 				f := File{
 					Name:     rn,
+					Size:     info.Size(),
 					Flags:    uint32(info.Mode()),
 					Modified: modified,
 					Blocks:   blocks,

@@ -14,7 +14,7 @@ var padBytes = []byte{0, 0, 0}
 
 type Writer struct {
 	w   io.Writer
-	tot uint64
+	tot int
 	err error
 	b   [8]byte
 }
@@ -48,7 +48,22 @@ func (w *Writer) WriteBytes(bs []byte) (int, error) {
 		l += n
 	}
 
-	w.tot += uint64(l)
+	w.tot += l
+	return l, w.err
+}
+
+func (w *Writer) WriteUint16(v uint16) (int, error) {
+	if w.err != nil {
+		return 0, w.err
+	}
+	w.b[0] = byte(v >> 8)
+	w.b[1] = byte(v)
+	w.b[2] = 0
+	w.b[3] = 0
+
+	var l int
+	l, w.err = w.w.Write(w.b[:4])
+	w.tot += l
 	return l, w.err
 }
 
@@ -63,7 +78,7 @@ func (w *Writer) WriteUint32(v uint32) (int, error) {
 
 	var l int
 	l, w.err = w.w.Write(w.b[:4])
-	w.tot += uint64(l)
+	w.tot += l
 	return l, w.err
 }
 
@@ -82,14 +97,14 @@ func (w *Writer) WriteUint64(v uint64) (int, error) {
 
 	var l int
 	l, w.err = w.w.Write(w.b[:8])
-	w.tot += uint64(l)
+	w.tot += l
 	return l, w.err
 }
 
-func (w *Writer) Tot() uint64 {
+func (w *Writer) Tot() int {
 	return w.tot
 }
 
-func (w *Writer) Err() error {
+func (w *Writer) Error() error {
 	return w.err
 }

@@ -1,18 +1,18 @@
 syncthing
 =========
 
-This is `syncthing`, an open BitTorrent Sync alternative. It is
-currently far from ready for mass consumption, but it is a usable proof
-of concept and tech demo. The following are the project goals:
+This is the `syncthing` project. The following are the project goals:
 
- 1. Define an open, secure, language neutral protocol usable for
-    efficient synchronization of a file repository between an arbitrary
-    number of nodes. This is the [Block Exchange
-    Protocol](https://github.com/calmh/syncthing/blob/master/protocol/PROTOCOL.md)
-    (BEP).
+ 1. Define a protocol for synchronization of a file repository between a
+    number of collaborating nodes. The protocol should be well defined,
+    unambigous, easily understood, free to use, efficient, secure and
+    languange neutral. This is the [Block Exchange
+    Protocol](https://github.com/calmh/syncthing/blob/master/protocol/PROTOCOL.md).
 
  2. Provide the reference implementation to demonstrate the usability of
-    said protocol. This is the `syncthing` utility.
+    said protocol. This is the `syncthing` utility. It is the hope that
+    alternative, compatible implementations of the protocol will come to
+    exist.
 
 The two are evolving together; the protocol is not to be considered
 stable until syncthing 1.0 is released, at which point it is locked down
@@ -34,5 +34,9 @@ The syncthing documentation is kept on the
 License
 =======
 
-MIT
+All documentation and protocol specifications are licensed
+under the [Creative Commons Attribution 4.0 International
+License](http://creativecommons.org/licenses/by/4.0/).
 
+All code is licensed under the [MIT
+License](https://github.com/calmh/syncthing/blob/master/LICENSE).

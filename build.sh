@@ -26,7 +26,7 @@ elif [[ $1 == "all" ]] ; then
 	mkdir -p "$buildDir" || exit 1
 
 	export GOARM=7
-	for os in darwin-amd64 linux-386 linux-amd64 linux-arm freebsd-386 freebsd-amd64 windows-386 windows-amd64 ; do
+	for os in darwin-amd64 linux-amd64 linux-arm freebsd-amd64 windows-amd64 ; do
 		echo "$os"
 		export name="syncthing-$os"
 		export GOOS=${os%-*}

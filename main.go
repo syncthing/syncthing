@@ -343,7 +343,7 @@ func printStatsLoop(m *Model) {
 			outbps := 8 * int(float64(stats.OutBytesTotal-lastStats[node].OutBytesTotal)/secs)
 
 			if inbps+outbps > 0 {
-				infof("%s: %sb/s in, %sb/s out", node[0:5], MetricPrefix(inbps), MetricPrefix(outbps))
+				infof("%s: %sb/s in, %sb/s out", node[0:5], MetricPrefix(int64(inbps)), MetricPrefix(int64(outbps)))
 			}
 
 			lastStats[node] = stats
@@ -449,12 +449,12 @@ func connect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls.Confi
 			}
 			for _, addr := range nodeCfg.Addresses {
 				if addr == "dynamic" {
-					var ok bool
 					if disc != nil {
-						addr, ok = disc.Lookup(nodeCfg.NodeID)
-					}
-					if !ok {
-						continue
+						t := disc.Lookup(nodeCfg.NodeID)
+						if len(t) == 0 {
+							continue
+						}
+						addr = t[0] //XXX: Handle all of them
 					}
 				}
 
@@ -502,7 +502,7 @@ func saveIndex(m *Model) {
 
 	gzw := gzip.NewWriter(idxf)
 
-	protocol.WriteIndex(gzw, "local", m.ProtocolIndex())
+	protocol.IndexMessage{"local", m.ProtocolIndex()}.EncodeXDR(gzw)
 	gzw.Close()
 	idxf.Close()
 	os.Rename(fullName+".tmp", fullName)
@@ -522,11 +522,12 @@ func loadIndex(m *Model) {
 	}
 	defer gzr.Close()
 
-	repo, idx, err := protocol.ReadIndex(gzr)
-	if repo != "local" || err != nil {
+	var im protocol.IndexMessage
+	err = im.DecodeXDR(gzr)
+	if err != nil || im.Repository != "local" {
 		return
 	}
-	m.SeedLocal(idx)
+	m.SeedLocal(im.Files)
 }
 
 func ensureDir(dir string, mode int) {

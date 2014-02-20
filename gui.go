@@ -112,11 +112,11 @@ type guiFile File
 func (f guiFile) MarshalJSON() ([]byte, error) {
 	type t struct {
 		Name string
-		Size int
+		Size int64
 	}
 	return json.Marshal(t{
 		Name: f.Name,
-		Size: File(f).Size(),
+		Size: File(f).Size,
 	})
 }
 
