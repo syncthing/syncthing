@@ -40,8 +40,8 @@ var (
 const maxErrors = 30
 
 func NewDiscoverer(id string, port int, extServer string) (*Discoverer, error) {
-	local4 := &net.UDPAddr{IP: net.IP{0, 0, 0, 0}, Port: AnnouncementPort}
-	conn, err := net.ListenUDP("udp4", local4)
+	local := &net.UDPAddr{IP: nil, Port: AnnouncementPort}
+	conn, err := net.ListenUDP("udp", local)
 	if err != nil {
 		return nil, err
 	}
@@ -60,39 +60,62 @@ func NewDiscoverer(id string, port int, extServer string) (*Discoverer, error) {
 	go disc.recvAnnouncements()
 
 	if disc.ListenPort > 0 {
-		disc.sendAnnouncements()
+		go disc.sendAnnouncements()
 	}
 	if len(disc.extServer) > 0 {
-		disc.sendExtAnnouncements()
+		go disc.sendExtAnnouncements()
 	}
 
 	return disc, nil
 }
 
 func (d *Discoverer) sendAnnouncements() {
-	remote4 := &net.UDPAddr{IP: net.IP{255, 255, 255, 255}, Port: AnnouncementPort}
+	var pkt = AnnounceV2{AnnouncementMagicV2, d.MyID, []Address{{nil, 22000}}}
+	var buf = pkt.MarshalXDR()
+	var errCounter = 0
+	var err error
 
-	pkt := AnnounceV2{AnnouncementMagicV2, d.MyID, []Address{{nil, 22000}}}
-	buf := pkt.MarshalXDR()
-	go d.writeAnnouncements(buf, remote4, d.BroadcastIntv)
+	for errCounter < maxErrors {
+		for _, ipStr := range allBroadcasts() {
+			var addrStr = ipStr + ":21025"
+
+			remote, err := net.ResolveUDPAddr("udp4", addrStr)
+			if err != nil {
+				log.Printf("discover/external: %v; no external announcements", err)
+				return
+			}
+
+			if Debug {
+				fmt.Println("send announcement -> ", remote)
+			}
+			_, _, err = d.conn.WriteMsgUDP(buf, nil, remote)
+			if err != nil {
+				log.Println("discover/write: warning:", err)
+				errCounter++
+			} else {
+				errCounter = 0
+			}
+		}
+		time.Sleep(d.BroadcastIntv)
+	}
+	log.Println("discover/write: local: stopping due to too many errors:", err)
 }
 
 func (d *Discoverer) sendExtAnnouncements() {
-	extIP, err := net.ResolveUDPAddr("udp", d.extServer)
+	remote, err := net.ResolveUDPAddr("udp", d.extServer)
 	if err != nil {
 		log.Printf("discover/external: %v; no external announcements", err)
 		return
 	}
 
-	pkt := AnnounceV2{AnnouncementMagicV2, d.MyID, []Address{{nil, 22000}}}
-	buf := pkt.MarshalXDR()
-	go d.writeAnnouncements(buf, extIP, d.ExtBroadcastIntv)
-}
-
-func (d *Discoverer) writeAnnouncements(buf []byte, remote *net.UDPAddr, intv time.Duration) {
+	var pkt = AnnounceV2{AnnouncementMagicV2, d.MyID, []Address{{nil, 22000}}}
+	var buf = pkt.MarshalXDR()
 	var errCounter = 0
-	var err error
+
 	for errCounter < maxErrors {
+		if Debug {
+			fmt.Println("send announcement -> ", remote)
+		}
 		_, _, err = d.conn.WriteMsgUDP(buf, nil, remote)
 		if err != nil {
 			log.Println("discover/write: warning:", err)
@@ -100,7 +123,7 @@ func (d *Discoverer) writeAnnouncements(buf []byte, remote *net.UDPAddr, intv ti
 		} else {
 			errCounter = 0
 		}
-		time.Sleep(intv)
+		time.Sleep(d.ExtBroadcastIntv)
 	}
 	log.Println("discover/write: %v: stopping due to too many errors:", remote, err)
 }
@@ -250,4 +273,39 @@ func ipStr(ip []byte) string {
 		ss[i] = fmt.Sprintf(f, ip[i])
 	}
 	return strings.Join(ss, s)
+}
+
+func allBroadcasts() []string {
+	var bcasts = make(map[string]bool)
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil
+	}
+
+	for _, addr := range addrs {
+		switch {
+		case strings.HasPrefix(addr.String(), "127."):
+			// Ignore v4 localhost
+
+		case strings.Contains(addr.String(), ":"):
+			// Ignore all v6, because we need link local multicast there which I haven't implemented
+
+		default:
+			if in, ok := addr.(*net.IPNet); ok {
+				il := len(in.IP) - 1
+				ml := len(in.Mask) - 1
+				for i := range in.Mask {
+					in.IP[il-i] = in.IP[il-i] | ^in.Mask[ml-i]
+				}
+				parts := strings.Split(in.String(), "/")
+				bcasts[parts[0]] = true
+			}
+		}
+	}
+
+	var l []string
+	for ip := range bcasts {
+		l = append(l, ip)
+	}
+	return l
 }
