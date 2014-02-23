@@ -306,7 +306,7 @@ loop:
 			go c.processRequest(hdr.msgID, req)
 
 		case messageTypeResponse:
-			data := c.xr.ReadBytes()
+			data := c.xr.ReadBytesMax(256 * 1024) // Sufficiently larger than max expected block size
 
 			if c.xr.Error() != nil {
 				c.close(c.xr.Error())

@@ -7,8 +7,7 @@ type TestModel struct {
 	repo   string
 	name   string
 	offset int64
-	size   uint32
-	hash   []byte
+	size   int
 	closed bool
 }
 
@@ -18,12 +17,11 @@ func (t *TestModel) Index(nodeID string, files []FileInfo) {
 func (t *TestModel) IndexUpdate(nodeID string, files []FileInfo) {
 }
 
-func (t *TestModel) Request(nodeID, repo, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
+func (t *TestModel) Request(nodeID, repo, name string, offset int64, size int) ([]byte, error) {
 	t.repo = repo
 	t.name = name
 	t.offset = offset
 	t.size = size
-	t.hash = hash
 	return t.data, nil
 }
 

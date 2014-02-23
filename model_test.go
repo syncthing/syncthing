@@ -32,18 +32,21 @@ var testDataExpected = map[string]File{
 		Name:     "foo",
 		Flags:    0,
 		Modified: 0,
+		Size:     7,
 		Blocks:   []Block{{Offset: 0x0, Size: 0x7, Hash: []uint8{0xae, 0xc0, 0x70, 0x64, 0x5f, 0xe5, 0x3e, 0xe3, 0xb3, 0x76, 0x30, 0x59, 0x37, 0x61, 0x34, 0xf0, 0x58, 0xcc, 0x33, 0x72, 0x47, 0xc9, 0x78, 0xad, 0xd1, 0x78, 0xb6, 0xcc, 0xdf, 0xb0, 0x1, 0x9f}}},
 	},
 	"empty": File{
 		Name:     "empty",
 		Flags:    0,
 		Modified: 0,
+		Size:     0,
 		Blocks:   []Block{{Offset: 0x0, Size: 0x0, Hash: []uint8{0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55}}},
 	},
 	"bar": File{
 		Name:     "bar",
 		Flags:    0,
 		Modified: 0,
+		Size:     10,
 		Blocks:   []Block{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}},
 	},
 }
@@ -345,7 +348,7 @@ func TestRequest(t *testing.T) {
 	fs, _ := m.Walk(false)
 	m.ReplaceLocal(fs)
 
-	bs, err := m.Request("some node", "default", "foo", 0, 6, nil)
+	bs, err := m.Request("some node", "default", "foo", 0, 6)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -353,7 +356,7 @@ func TestRequest(t *testing.T) {
 		t.Errorf("Incorrect data from request: %q", string(bs))
 	}
 
-	bs, err = m.Request("some node", "default", "../walk.go", 0, 6, nil)
+	bs, err = m.Request("some node", "default", "../walk.go", 0, 6)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -489,7 +492,7 @@ func (f FakeConnection) Option(string) string {
 
 func (FakeConnection) Index(string, []protocol.FileInfo) {}
 
-func (f FakeConnection) Request(repo, name string, offset int64, size uint32, hash []byte) ([]byte, error) {
+func (f FakeConnection) Request(repo, name string, offset int64, size int) ([]byte, error) {
 	return f.requestData, nil
 }
 

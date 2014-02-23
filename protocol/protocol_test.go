@@ -80,7 +80,7 @@ func TestRequestResponseErr(t *testing.T) {
 			NewConnection("c0", ar, ebw, m0, nil)
 			c1 := NewConnection("c1", br, eaw, m1, nil)
 
-			d, err := c1.Request("default", "tn", 1234)
+			d, err := c1.Request("default", "tn", 1234, 5678)
 			if err == e || err == ErrClosed {
 				t.Logf("Error at %d+%d bytes", i, j)
 				if !m1.closed {
@@ -104,10 +104,10 @@ func TestRequestResponseErr(t *testing.T) {
 			if m0.name != "tn" {
 				t.Error("Incorrect name %q", m0.name)
 			}
-			if m0.offset != 1234*BlockSize {
+			if m0.offset != 1234 {
 				t.Error("Incorrect offset %d", m0.offset)
 			}
-			if m0.size != BlockSize {
+			if m0.size != 5678 {
 				t.Error("Incorrect size %d", m0.size)
 			}
 			t.Logf("Pass at %d+%d bytes", i, j)
@@ -190,7 +190,7 @@ func TestClose(t *testing.T) {
 	c0.Index("default", nil)
 	c0.Index("default", nil)
 
-	_, err := c0.Request("default", "foo", 0)
+	_, err := c0.Request("default", "foo", 0, 0)
 	if err == nil {
 		t.Error("Request should return an error")
 	}
