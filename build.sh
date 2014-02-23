@@ -6,15 +6,13 @@ version=$(git describe --always)
 buildDir=dist
 
 if [[ $fast != yes ]] ; then
+	./assets.sh | gofmt > auto/gui.files.go
 	go get -d
 	go test ./...
 fi
 
 if [[ -z $1 ]] ; then
 	go build -ldflags "-X main.Version $version"
-elif [[ $1 == "embed" ]] ; then
-	embedder auto gui > auto/gui.files.go \
-	&& go build -ldflags "-X main.Version $version"
 elif [[ $1 == "tar" ]] ; then
 	go build -ldflags "-X main.Version $version" \
 	&& mkdir syncthing-dist \

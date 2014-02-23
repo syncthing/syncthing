@@ -11,15 +11,9 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/auto"
-	"github.com/cratonica/embed"
 )
 
 func embeddedStatic() interface{} {
-	fs, err := embed.Unpack(auto.Resources)
-	if err != nil {
-		panic(err)
-	}
-
 	var modt = time.Now().UTC().Format(http.TimeFormat)
 
 	return func(res http.ResponseWriter, req *http.Request, log *log.Logger) {
@@ -29,7 +23,7 @@ func embeddedStatic() interface{} {
 			file = file[1:]
 		}
 
-		bs, ok := fs[file]
+		bs, ok := auto.Assets[file]
 		if !ok {
 			return
 		}
