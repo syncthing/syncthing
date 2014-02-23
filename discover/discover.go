@@ -91,7 +91,7 @@ func (d *Discoverer) sendAnnouncements() {
 			}
 
 			if Debug {
-				fmt.Println("send announcement -> ", remote)
+				log.Println("send announcement -> ", remote)
 			}
 			_, _, err = d.conn.WriteMsgUDP(buf, nil, remote)
 			if err != nil {
@@ -123,7 +123,7 @@ func (d *Discoverer) sendExtAnnouncements() {
 
 	for errCounter < maxErrors {
 		if Debug {
-			fmt.Println("send announcement -> ", remote)
+			log.Println("send announcement -> ", remote)
 		}
 		_, _, err = d.conn.WriteMsgUDP(buf, nil, remote)
 		if err != nil {
@@ -184,7 +184,6 @@ func (d *Discoverer) recvAnnouncements() {
 			d.registryLock.Lock()
 			_, seen := d.registry[pkt.NodeID]
 			if !seen {
-				fmt.Println("new node seen, forced announce")
 				select {
 				case d.forcedBroadcastTick <- time.Now():
 				}
