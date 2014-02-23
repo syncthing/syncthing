@@ -28,6 +28,9 @@ type Discoverer struct {
 	registry     map[string][]string
 	registryLock sync.RWMutex
 	extServer    string
+
+	localBroadcastTick  <-chan time.Time
+	forcedBroadcastTick chan time.Time
 }
 
 var (
@@ -60,6 +63,8 @@ func NewDiscoverer(id string, port int, extServer string) (*Discoverer, error) {
 	go disc.recvAnnouncements()
 
 	if disc.ListenPort > 0 {
+		disc.localBroadcastTick = time.Tick(disc.BroadcastIntv)
+		disc.forcedBroadcastTick = make(chan time.Time)
 		go disc.sendAnnouncements()
 	}
 	if len(disc.extServer) > 0 {
@@ -96,7 +101,11 @@ func (d *Discoverer) sendAnnouncements() {
 				errCounter = 0
 			}
 		}
-		time.Sleep(d.BroadcastIntv)
+
+		select {
+		case <-d.localBroadcastTick:
+		case <-d.forcedBroadcastTick:
+		}
 	}
 	log.Println("discover/write: local: stopping due to too many errors:", err)
 }
@@ -173,6 +182,13 @@ func (d *Discoverer) recvAnnouncements() {
 				log.Printf("register: %#v", addrs)
 			}
 			d.registryLock.Lock()
+			_, seen := d.registry[pkt.NodeID]
+			if !seen {
+				fmt.Println("new node seen, forced announce")
+				select {
+				case d.forcedBroadcastTick <- time.Now():
+				}
+			}
 			d.registry[pkt.NodeID] = addrs
 			d.registryLock.Unlock()
 		}
