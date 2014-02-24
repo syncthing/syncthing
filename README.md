@@ -1,4 +1,4 @@
-syncthing
+syncthing [![Build Status](https://drone.io/github.com/calmh/syncthing/status.png)](https://drone.io/github.com/calmh/syncthing/latest)
 =========
 
 This is the `syncthing` project. The following are the project goals:
