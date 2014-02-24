@@ -38,7 +38,7 @@ func TestPing(t *testing.T) {
 }
 
 func TestPingErr(t *testing.T) {
-	e := errors.New("Something broke")
+	e := errors.New("something broke")
 
 	for i := 0; i < 12; i++ {
 		for j := 0; j < 12; j++ {
@@ -64,7 +64,7 @@ func TestPingErr(t *testing.T) {
 }
 
 func TestRequestResponseErr(t *testing.T) {
-	e := errors.New("Something broke")
+	e := errors.New("something broke")
 
 	var pass bool
 	for i := 0; i < 48; i++ {

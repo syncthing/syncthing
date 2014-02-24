@@ -25,7 +25,7 @@ func loadCert(dir string) (tls.Certificate, error) {
 	return tls.LoadX509KeyPair(path.Join(dir, "cert.pem"), path.Join(dir, "key.pem"))
 }
 
-func certId(bs []byte) string {
+func certID(bs []byte) string {
 	hf := sha256.New()
 	hf.Write(bs)
 	id := hf.Sum(nil)

@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-var ErrElementSizeExceeded = errors.New("Element size exceeded")
+var ErrElementSizeExceeded = errors.New("element size exceeded")
 
 type Reader struct {
 	r   io.Reader

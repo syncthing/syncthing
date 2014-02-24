@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	MAX_CHANGE_HISTORY = 4
+	MaxChangeHistory = 4
 )
 
 type change struct {
@@ -45,8 +45,8 @@ func (h changeHistory) bandwidth(t time.Time) int64 {
 
 func (h *changeHistory) append(size int64, t time.Time) {
 	c := change{size, t}
-	if len(h.changes) == MAX_CHANGE_HISTORY {
-		h.changes = h.changes[1:MAX_CHANGE_HISTORY]
+	if len(h.changes) == MaxChangeHistory {
+		h.changes = h.changes[1:MaxChangeHistory]
 	}
 	h.changes = append(h.changes, c)
 }

@@ -34,7 +34,7 @@ type Discoverer struct {
 }
 
 var (
-	ErrIncorrectMagic = errors.New("Incorrect magic number")
+	ErrIncorrectMagic = errors.New("incorrect magic number")
 )
 
 // We tolerate a certain amount of errors because we might be running on

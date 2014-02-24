@@ -24,7 +24,7 @@ import (
 )
 
 var cfg Configuration
-var Version string = "unknown-dev"
+var Version = "unknown-dev"
 
 var (
 	myID   string
@@ -83,7 +83,7 @@ func main() {
 		fatalErr(err)
 	}
 
-	myID = string(certId(cert.Certificate[0]))
+	myID = string(certID(cert.Certificate[0]))
 	log.SetPrefix("[" + myID[0:5] + "] ")
 	logger.SetPrefix("[" + myID[0:5] + "] ")
 
@@ -388,7 +388,7 @@ listen:
 			continue
 		}
 
-		remoteID := certId(tc.ConnectionState().PeerCertificates[0].Raw)
+		remoteID := certID(tc.ConnectionState().PeerCertificates[0].Raw)
 
 		if remoteID == myID {
 			warnf("Connect from myself (%s) - should not happen", remoteID)
@@ -469,7 +469,7 @@ func connect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls.Confi
 					continue
 				}
 
-				remoteID := certId(conn.ConnectionState().PeerCertificates[0].Raw)
+				remoteID := certID(conn.ConnectionState().PeerCertificates[0].Raw)
 				if remoteID != nodeCfg.NodeID {
 					warnln("Unexpected nodeID", remoteID, "!=", nodeCfg.NodeID)
 					conn.Close()

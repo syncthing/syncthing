@@ -46,7 +46,6 @@ func (e *ErrPipe) Write(data []byte) (int, error) {
 		e.PipeWriter.CloseWithError(e.err)
 		e.closed = true
 		return n, e.err
-	} else {
-		return e.PipeWriter.Write(data)
 	}
+	return e.PipeWriter.Write(data)
 }

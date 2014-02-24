@@ -84,29 +84,29 @@ func TestHistory(t *testing.T) {
 		t.Errorf("Incorrect first record size %d", s)
 	}
 
-	for i := 1; i < MAX_CHANGE_HISTORY; i++ {
+	for i := 1; i < MaxChangeHistory; i++ {
 		h.append(int64(40+i), t0.Add(time.Duration(i)*time.Second))
 	}
 
-	if l := len(h.changes); l != MAX_CHANGE_HISTORY {
+	if l := len(h.changes); l != MaxChangeHistory {
 		t.Errorf("Incorrect history length %d", l)
 	}
 	if s := h.changes[0].size; s != 40 {
 		t.Errorf("Incorrect first record size %d", s)
 	}
-	if s := h.changes[MAX_CHANGE_HISTORY-1].size; s != 40+MAX_CHANGE_HISTORY-1 {
+	if s := h.changes[MaxChangeHistory-1].size; s != 40+MaxChangeHistory-1 {
 		t.Errorf("Incorrect last record size %d", s)
 	}
 
 	h.append(999, t0.Add(time.Duration(999)*time.Second))
 
-	if l := len(h.changes); l != MAX_CHANGE_HISTORY {
+	if l := len(h.changes); l != MaxChangeHistory {
 		t.Errorf("Incorrect history length %d", l)
 	}
 	if s := h.changes[0].size; s != 41 {
 		t.Errorf("Incorrect first record size %d", s)
 	}
-	if s := h.changes[MAX_CHANGE_HISTORY-1].size; s != 999 {
+	if s := h.changes[MaxChangeHistory-1].size; s != 999 {
 		t.Errorf("Incorrect last record size %d", s)
 	}
 
