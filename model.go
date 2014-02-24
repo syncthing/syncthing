@@ -64,9 +64,6 @@ type Connection interface {
 const (
 	idxBcastHoldtime = 15 * time.Second  // Wait at least this long after the last index modification
 	idxBcastMaxDelay = 120 * time.Second // Unless we've already waited this long
-
-	minFileHoldTimeS = 60  // Never allow file changes more often than this
-	maxFileHoldTimeS = 600 // Always allow file changes at least this often
 )
 
 var (

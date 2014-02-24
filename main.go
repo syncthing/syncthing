@@ -27,8 +27,7 @@ var cfg Configuration
 var Version = "unknown-dev"
 
 var (
-	myID   string
-	config ini.Config
+	myID string
 )
 
 var (
