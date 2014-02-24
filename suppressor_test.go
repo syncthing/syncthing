@@ -21,7 +21,7 @@ func TestSuppressor(t *testing.T) {
 	// bw is 10000 / 10 = 1000
 	t1 = t0.Add(10 * time.Second)
 	if bw := s.changes["foo"].bandwidth(t1); bw != 1000 {
-		t.Error("Incorrect bw %d", bw)
+		t.Errorf("Incorrect bw %d", bw)
 	}
 	sup, prev = s.suppress("foo", 10000, t1)
 	if sup {
@@ -34,7 +34,7 @@ func TestSuppressor(t *testing.T) {
 	// bw is (10000 + 10000) / 11 = 1818
 	t1 = t0.Add(11 * time.Second)
 	if bw := s.changes["foo"].bandwidth(t1); bw != 1818 {
-		t.Error("Incorrect bw %d", bw)
+		t.Errorf("Incorrect bw %d", bw)
 	}
 	sup, prev = s.suppress("foo", 100500, t1)
 	if sup {
@@ -47,7 +47,7 @@ func TestSuppressor(t *testing.T) {
 	// bw is (10000 + 10000 + 100500) / 12 = 10041
 	t1 = t0.Add(12 * time.Second)
 	if bw := s.changes["foo"].bandwidth(t1); bw != 10041 {
-		t.Error("Incorrect bw %d", bw)
+		t.Errorf("Incorrect bw %d", bw)
 	}
 	sup, prev = s.suppress("foo", 10000000, t1) // value will be ignored
 	if !sup {
@@ -60,7 +60,7 @@ func TestSuppressor(t *testing.T) {
 	// bw is (10000 + 10000 + 100500) / 15 = 8033
 	t1 = t0.Add(15 * time.Second)
 	if bw := s.changes["foo"].bandwidth(t1); bw != 8033 {
-		t.Error("Incorrect bw %d", bw)
+		t.Errorf("Incorrect bw %d", bw)
 	}
 	sup, prev = s.suppress("foo", 10000000, t1)
 	if sup {

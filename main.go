@@ -502,7 +502,10 @@ func saveIndex(m *Model) {
 
 	gzw := gzip.NewWriter(idxf)
 
-	protocol.IndexMessage{"local", m.ProtocolIndex()}.EncodeXDR(gzw)
+	protocol.IndexMessage{
+		Repository: "local",
+		Files:      m.ProtocolIndex(),
+	}.EncodeXDR(gzw)
 	gzw.Close()
 	idxf.Close()
 	os.Rename(fullName+".tmp", fullName)

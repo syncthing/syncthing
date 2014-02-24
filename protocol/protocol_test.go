@@ -99,16 +99,16 @@ func TestRequestResponseErr(t *testing.T) {
 				t.Errorf("Incorrect response data %q", string(d))
 			}
 			if m0.repo != "default" {
-				t.Error("Incorrect repo %q", m0.repo)
+				t.Errorf("Incorrect repo %q", m0.repo)
 			}
 			if m0.name != "tn" {
-				t.Error("Incorrect name %q", m0.name)
+				t.Errorf("Incorrect name %q", m0.name)
 			}
 			if m0.offset != 1234 {
-				t.Error("Incorrect offset %d", m0.offset)
+				t.Errorf("Incorrect offset %d", m0.offset)
 			}
 			if m0.size != 5678 {
-				t.Error("Incorrect size %d", m0.size)
+				t.Errorf("Incorrect size %d", m0.size)
 			}
 			t.Logf("Pass at %d+%d bytes", i, j)
 			pass = true

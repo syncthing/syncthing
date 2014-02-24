@@ -134,7 +134,7 @@ func (d *Discoverer) sendExtAnnouncements() {
 		}
 		time.Sleep(d.ExtBroadcastIntv)
 	}
-	log.Println("discover/write: %v: stopping due to too many errors:", remote, err)
+	log.Printf("discover/write: %v: stopping due to too many errors: %v", remote, err)
 }
 
 func (d *Discoverer) recvAnnouncements() {

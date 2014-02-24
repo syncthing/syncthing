@@ -17,7 +17,7 @@ func Blocks(r io.Reader, blocksize int) ([]Block, error) {
 	var blocks []Block
 	var offset int64
 	for {
-		lr := &io.LimitedReader{r, int64(blocksize)}
+		lr := &io.LimitedReader{R: r, N: int64(blocksize)}
 		hf := sha256.New()
 		n, err := io.Copy(hf, lr)
 		if err != nil {

@@ -268,7 +268,7 @@ loop:
 			break loop
 		}
 		if hdr.version != 0 {
-			c.close(fmt.Errorf("Protocol error: %s: unknown message version %#x", c.ID, hdr.version))
+			c.close(fmt.Errorf("Protocol error: %s: unknown message version %#x", c.id, hdr.version))
 			break loop
 		}
 
@@ -371,7 +371,7 @@ loop:
 			}
 
 		default:
-			c.close(fmt.Errorf("Protocol error: %s: unknown message type %#x", c.ID, hdr.msgType))
+			c.close(fmt.Errorf("Protocol error: %s: unknown message type %#x", c.id, hdr.msgType))
 			break loop
 		}
 	}

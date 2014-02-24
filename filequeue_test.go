@@ -272,7 +272,7 @@ func TestFileQueueThreadHandling(t *testing.T) {
 	close(start)
 	wg.Wait()
 	if int(gotTot) != total {
-		t.Error("Total mismatch; %d != %d", gotTot, total)
+		t.Errorf("Total mismatch; %d != %d", gotTot, total)
 	}
 }
 
@@ -283,13 +283,13 @@ func TestDeleteAt(t *testing.T) {
 		q.files = queuedFileList{{name: "a"}, {name: "b"}, {name: "c"}, {name: "d"}}
 		q.deleteAt(i)
 		if l := len(q.files); l != 3 {
-			t.Fatal("deleteAt(%d) failed; %d != 3", i, l)
+			t.Fatalf("deleteAt(%d) failed; %d != 3", i, l)
 		}
 	}
 
 	q.files = queuedFileList{{name: "a"}}
 	q.deleteAt(0)
 	if l := len(q.files); l != 0 {
-		t.Fatal("deleteAt(only) failed; %d != 0", l)
+		t.Fatalf("deleteAt(only) failed; %d != 0", l)
 	}
 }
