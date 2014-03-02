@@ -2,48 +2,90 @@
 
 export COPYFILE_DISABLE=true
 
+distFiles=(README.md LICENSE) # apart from the binary itself
 version=$(git describe --always)
-buildDir=dist
 
-if [[ $fast != yes ]] ; then
+build() {
+	go build -ldflags "-w -X main.Version $version" ./cmd/syncthing	
+}
+
+prepare() {
 	./assets.sh | gofmt > auto/gui.files.go
 	go get -d
+}
+
+test() {
 	go test ./...
-fi
+}	
 
-if [[ -z $1 ]] ; then
-	go build -ldflags "-X main.Version $version" ./cmd/syncthing
-elif [[ $1 == "tar" ]] ; then
-	go build -ldflags "-X main.Version $version" ./cmd/syncthing \
-	&& mkdir syncthing-dist \
-	&& cp syncthing README.md LICENSE syncthing-dist \
-	&& tar zcvf syncthing-dist.tar.gz syncthing-dist \
-	&& rm -rf syncthing-dist
-elif [[ $1 == "all" ]] ; then
-	rm -rf "$buildDir"
-	mkdir -p "$buildDir" || exit 1
+tarDist() {
+	name="$1"
+	mkdir -p "$name"
+	cp syncthing "${distFiles[@]}" "$name"
+	tar zcvf "$name.tar.gz" "$name"
+	rm -rf "$name"
+}
 
-	export GOARM=7
-	for os in darwin-amd64 linux-amd64 linux-arm freebsd-amd64 windows-amd64 ; do
-		echo "$os"
-		export name="syncthing-$os"
-		export GOOS=${os%-*}
-		export GOARCH=${os#*-}
-		go build -ldflags "-X main.Version $version" ./cmd/syncthing
-		mkdir -p "$name"
-		cp README.md LICENSE "$name"
-		case $GOOS in
-			windows)
-				cp syncthing.exe "$buildDir/$name.exe"
-				mv syncthing.exe "$name"
-				zip -qr "$buildDir/$name.zip" "$name"
-				;;
-			*)
-				cp syncthing "$buildDir/$name"
-				mv syncthing "$name"
-				tar zcf "$buildDir/$name.tar.gz" "$name"
-				;;
-		esac
-		rm -r  "$name"
-	done
-fi
+zipDist() {
+	name="$1"
+	mkdir -p "$name"
+	cp syncthing.exe "${distFiles[@]}" "$name"
+	zip -r "$name.zip" "$name"
+	rm -rf "$name"
+}
+
+case "$1" in
+	"")
+		build
+		;;
+
+	tar)
+		rm -f *.tar.gz *.zip
+		prepare
+		test || exit 1
+		build
+
+		eval $(go env)
+		name="syncthing-$GOOS-$GOARCH-$version"
+
+		tarDist "$name"
+		;;
+
+	all)
+		rm -f *.tar.gz *.zip
+		prepare
+		test || exit 1
+
+		export GOARM=7
+		for os in darwin-amd64 linux-amd64 linux-arm freebsd-amd64 windows-amd64 ; do
+			export GOOS=${os%-*}
+			export GOARCH=${os#*-}
+
+			build
+			
+			name="syncthing-$os-$version"
+			case $GOOS in
+				windows)
+					zipDist "$name"
+					rm -f syncthing.exe
+					;;
+				*)
+					tarDist "$name"
+					rm -f syncthing
+					;;
+			esac
+		done
+		;;
+
+	upload)
+		tag=$(git describe)
+		shopt -s nullglob
+		for f in *gz *zip ; do
+			relup calmh/syncthing "$tag" "$f"
+		done
+		;;
+
+	*)
+		echo "Unknown build parameter $1"
+		;;
+esac
