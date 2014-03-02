@@ -187,16 +187,26 @@ func main() {
 
 	// GUI
 	if cfg.Options.GUIEnabled && cfg.Options.GUIAddress != "" {
-		host, port, err := net.SplitHostPort(cfg.Options.GUIAddress)
+		addr, err := net.ResolveTCPAddr("tcp", cfg.Options.GUIAddress)
 		if err != nil {
 			warnf("Cannot start GUI on %q: %v", cfg.Options.GUIAddress, err)
 		} else {
-			if len(host) > 0 {
-				infof("Starting web GUI on http://%s", cfg.Options.GUIAddress)
-			} else {
-				infof("Starting web GUI on port %s", port)
+			var hostOpen, hostShow string
+			switch {
+			case addr.IP == nil:
+				hostOpen = "localhost"
+				hostShow = "0.0.0.0"
+			case addr.IP.IsUnspecified():
+				hostOpen = "localhost"
+				hostShow = addr.IP.String()
+			default:
+				hostOpen = addr.IP.String()
+				hostShow = hostOpen
 			}
+
+			infof("Starting web GUI on http://%s:%d/", hostShow, addr.Port)
 			startGUI(cfg.Options.GUIAddress, m)
+			openURL(fmt.Sprintf("http://%s:%d", hostOpen, addr.Port))
 		}
 	}
 
