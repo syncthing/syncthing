@@ -11,6 +11,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 	"runtime"
 	"runtime/debug"
@@ -561,9 +562,13 @@ func expandTilde(p string) string {
 }
 
 func getHomeDir() string {
-	home := os.Getenv("HOME")
-	if home == "" {
+	usr, err := user.Current()
+	if err != nil {
+		fatalln(err)
+	}
+
+	if usr.HomeDir == "" {
 		fatalln("No home directory?")
 	}
-	return home
+	return usr.HomeDir
 }
