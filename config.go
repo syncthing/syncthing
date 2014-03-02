@@ -36,7 +36,7 @@ type OptionsConfiguration struct {
 	FollowSymlinks     bool     `xml:"followSymlinks" default:"true" ini:"follow-symlinks"`
 	GUIEnabled         bool     `xml:"guiEnabled" default:"true" ini:"gui-enabled"`
 	GUIAddress         string   `xml:"guiAddress" default:"127.0.0.1:8080" ini:"gui-address"`
-	GlobalAnnServer    string   `xml:"globalAnnounceServer" default:"syncthing.nym.se:22025" ini:"global-announce-server"`
+	GlobalAnnServer    string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22025" ini:"global-announce-server"`
 	GlobalAnnEnabled   bool     `xml:"globalAnnounceEnabled" default:"true" ini:"global-announce-enabled"`
 	LocalAnnEnabled    bool     `xml:"localAnnounceEnabled" default:"true" ini:"local-announce-enabled"`
 	ParallelRequests   int      `xml:"parallelRequests" default:"16" ini:"parallel-requests"`
