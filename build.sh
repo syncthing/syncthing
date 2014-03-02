@@ -12,9 +12,9 @@ if [[ $fast != yes ]] ; then
 fi
 
 if [[ -z $1 ]] ; then
-	go build -ldflags "-X main.Version $version"
+	go build -ldflags "-X main.Version $version" ./cmd/syncthing
 elif [[ $1 == "tar" ]] ; then
-	go build -ldflags "-X main.Version $version" \
+	go build -ldflags "-X main.Version $version" ./cmd/syncthing \
 	&& mkdir syncthing-dist \
 	&& cp syncthing README.md LICENSE syncthing-dist \
 	&& tar zcvf syncthing-dist.tar.gz syncthing-dist \
@@ -29,7 +29,7 @@ elif [[ $1 == "all" ]] ; then
 		export name="syncthing-$os"
 		export GOOS=${os%-*}
 		export GOARCH=${os#*-}
-		go build -ldflags "-X main.Version $version"
+		go build -ldflags "-X main.Version $version" ./cmd/syncthing
 		mkdir -p "$name"
 		cp README.md LICENSE "$name"
 		case $GOOS in
