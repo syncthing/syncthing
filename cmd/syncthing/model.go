@@ -191,7 +191,7 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 			}
 		}
 
-		ci.Completion = 0
+		ci.Completion = 100
 		if tot != 0 {
 			ci.Completion = int(100 * have / tot)
 		}
