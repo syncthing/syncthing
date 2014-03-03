@@ -80,24 +80,75 @@ func (d *Discoverer) sendAnnouncements() {
 	var errCounter = 0
 	var err error
 
+	remote := &net.UDPAddr{
+		IP:   net.IP{255, 255, 255, 255},
+		Port: AnnouncementPort,
+	}
+
 	for errCounter < maxErrors {
-		for _, ipStr := range allBroadcasts() {
-			var addrStr = ipStr + ":21025"
+		intfs, err := net.Interfaces()
+		if err != nil {
+			log.Printf("discover/listInterfaces: %v; no local announcements", err)
+			return
+		}
 
-			remote, err := net.ResolveUDPAddr("udp4", addrStr)
-			if err != nil {
-				log.Printf("discover/external: %v; no external announcements", err)
-				return
-			}
+		for _, intf := range intfs {
+			if intf.Flags&(net.FlagBroadcast|net.FlagLoopback) == net.FlagBroadcast {
+				addrs, err := intf.Addrs()
+				if err != nil {
+					log.Println("discover/listAddrs: warning:", err)
+					errCounter++
+					continue
+				}
 
-			if Debug {
-				log.Println("send announcement -> ", remote)
-			}
-			_, _, err = d.conn.WriteMsgUDP(buf, nil, remote)
-			if err != nil {
-				log.Println("discover/write: warning:", err)
-				errCounter++
-			} else {
+				var srcAddr string
+				for _, addr := range addrs {
+					if strings.Contains(addr.String(), ".") {
+						// Found an IPv4 adress
+						parts := strings.Split(addr.String(), "/")
+						srcAddr = parts[0]
+						break
+					}
+				}
+				if len(srcAddr) == 0 {
+					if Debug {
+						log.Println("discover: debug: no source address found on interface", intf.Name)
+					}
+					continue
+				}
+
+				iaddr, err := net.ResolveUDPAddr("udp4", srcAddr+":0")
+				if err != nil {
+					log.Println("discover/resolve: warning:", err)
+					errCounter++
+					continue
+				}
+
+				conn, err := net.ListenUDP("udp4", iaddr)
+				if err != nil {
+					log.Println("discover/listen: warning:", err)
+					errCounter++
+					continue
+				}
+
+				if Debug {
+					log.Println("discover: debug: send announcement from", conn.LocalAddr(), "to", remote, "on", intf.Name)
+				}
+
+				_, err = conn.WriteTo(buf, remote)
+				if err != nil {
+					// Some interfaces don't seem to support broadcast even though the flags claims they do, i.e. vmnet
+					conn.Close()
+
+					if Debug {
+						log.Println("discover/write: debug:", err)
+					}
+
+					errCounter++
+					continue
+				}
+
+				conn.Close()
 				errCounter = 0
 			}
 		}
@@ -125,7 +176,7 @@ func (d *Discoverer) sendExtAnnouncements() {
 		if Debug {
 			log.Println("send announcement -> ", remote)
 		}
-		_, _, err = d.conn.WriteMsgUDP(buf, nil, remote)
+		_, err = d.conn.WriteTo(buf, remote)
 		if err != nil {
 			log.Println("discover/write: warning:", err)
 			errCounter++
@@ -288,39 +339,4 @@ func ipStr(ip []byte) string {
 		ss[i] = fmt.Sprintf(f, ip[i])
 	}
 	return strings.Join(ss, s)
-}
-
-func allBroadcasts() []string {
-	var bcasts = make(map[string]bool)
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return nil
-	}
-
-	for _, addr := range addrs {
-		switch {
-		case strings.HasPrefix(addr.String(), "127."):
-			// Ignore v4 localhost
-
-		case strings.Contains(addr.String(), ":"):
-			// Ignore all v6, because we need link local multicast there which I haven't implemented
-
-		default:
-			if in, ok := addr.(*net.IPNet); ok {
-				il := len(in.IP) - 1
-				ml := len(in.Mask) - 1
-				for i := range in.Mask {
-					in.IP[il-i] = in.IP[il-i] | ^in.Mask[ml-i]
-				}
-				parts := strings.Split(in.String(), "/")
-				bcasts[parts[0]] = true
-			}
-		}
-	}
-
-	var l []string
-	for ip := range bcasts {
-		l = append(l, ip)
-	}
-	return l
 }
