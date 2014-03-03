@@ -40,7 +40,7 @@ var (
 )
 
 func main() {
-	flag.StringVar(&confDir, "home", "~/.syncthing", "Set configuration directory")
+	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
 	flag.StringVar(&trace, "debug.trace", "", "(connect,net,idx,file,pull)")
 	flag.StringVar(&profiler, "debug.profiler", "", "(addr)")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
@@ -138,7 +138,7 @@ func main() {
 		cfg, err = readConfigXML(nil)
 		cfg.Repositories = []RepositoryConfiguration{
 			{
-				Directory: "~/Sync",
+				Directory: path.Join(getHomeDir(), "Sync"),
 				Nodes: []NodeConfiguration{
 					{NodeID: myID, Addresses: []string{"dynamic"}},
 				},
@@ -326,6 +326,13 @@ func saveConfigLoop(cfgFile string) {
 		if err != nil {
 			warnln(err)
 			continue
+		}
+
+		if runtime.GOOS == "windows" {
+			err := os.Remove(cfgFile)
+			if err != nil && !os.IsNotExist(err) {
+				warnln(err)
+			}
 		}
 
 		err = os.Rename(cfgFile+".tmp", cfgFile)
@@ -554,16 +561,38 @@ func ensureDir(dir string, mode int) {
 }
 
 func expandTilde(p string) string {
+	if runtime.GOOS == "windows" {
+		return p
+	}
+
 	if strings.HasPrefix(p, "~/") {
-		return strings.Replace(p, "~", getHomeDir(), 1)
+		return strings.Replace(p, "~", getUnixHomeDir(), 1)
 	}
 	return p
 }
 
-func getHomeDir() string {
+func getUnixHomeDir() string {
 	home := os.Getenv("HOME")
 	if home == "" {
 		fatalln("No home directory?")
 	}
 	return home
+}
+
+func getHomeDir() string {
+	if runtime.GOOS == "windows" {
+		home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
+		if home == "" {
+			home = os.Getenv("USERPROFILE")
+		}
+		return home
+	}
+	return getUnixHomeDir()
+}
+
+func getDefaultConfDir() string {
+	if runtime.GOOS == "windows" {
+		return path.Join(os.Getenv("AppData"), "syncthing")
+	}
+	return expandTilde("~/.syncthing")
 }
