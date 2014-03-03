@@ -328,6 +328,13 @@ func saveConfigLoop(cfgFile string) {
 			continue
 		}
 
+		if runtime.GOOS == "windows" {
+			err := os.Remove(cfgFile)
+			if err != nil && !os.IsNotExist(err) {
+				warnln(err)
+			}
+		}
+
 		err = os.Rename(cfgFile+".tmp", cfgFile)
 		if err != nil {
 			warnln(err)
@@ -557,7 +564,7 @@ func expandTilde(p string) string {
 	if runtime.GOOS == "windows" {
 		return p
 	}
-	
+
 	if strings.HasPrefix(p, "~/") {
 		return strings.Replace(p, "~", getUnixHomeDir(), 1)
 	}
