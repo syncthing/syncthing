@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -39,6 +40,9 @@ func (f File) NewerThan(o File) bool {
 }
 
 func isTempName(name string) bool {
+	if runtime.GOOS == "windows" {
+		name = filepath.ToSlash(name)
+	}
 	return strings.HasPrefix(path.Base(name), ".syncthing.")
 }
 
