@@ -46,7 +46,7 @@ type OptionsConfiguration struct {
 	MaxChangeKbps      int      `xml:"maxChangeKbps" default:"1000" ini:"max-change-bw"`
 }
 
-func setDefaults(data interface{}, setNilSlices bool) error {
+func setDefaults(data interface{}, setEmptySlices bool) error {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
 
@@ -66,7 +66,7 @@ func setDefaults(data interface{}, setNilSlices bool) error {
 				f.SetString(v)
 
 			case []string:
-				if setNilSlices {
+				if setEmptySlices {
 					rv := reflect.MakeSlice(reflect.TypeOf([]string{}), 1, 1)
 					rv.Index(0).SetString(v)
 					f.Set(rv)
