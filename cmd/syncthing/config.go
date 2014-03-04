@@ -46,7 +46,7 @@ type OptionsConfiguration struct {
 	MaxChangeKbps      int      `xml:"maxChangeKbps" default:"1000" ini:"max-change-bw"`
 }
 
-func setDefaults(data interface{}) error {
+func setDefaults(data interface{}, setEmptySlices bool) error {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
 
@@ -56,14 +56,20 @@ func setDefaults(data interface{}) error {
 
 		v := tag.Get("default")
 		if len(v) > 0 {
+			if f.Kind().String() == "slice" && f.Len() != 0 {
+				continue
+			}
+
 			switch f.Interface().(type) {
 			case string:
 				f.SetString(v)
 
 			case []string:
-				rv := reflect.MakeSlice(reflect.TypeOf([]string{}), 1, 1)
-				rv.Index(0).SetString(v)
-				f.Set(rv)
+				if setEmptySlices {
+					rv := reflect.MakeSlice(reflect.TypeOf([]string{}), 1, 1)
+					rv.Index(0).SetString(v)
+					f.Set(rv)
+				}
 
 			case int:
 				i, err := strconv.ParseInt(v, 10, 64)
@@ -146,13 +152,15 @@ func uniqueStrings(ss []string) []string {
 func readConfigXML(rd io.Reader) (Configuration, error) {
 	var cfg Configuration
 
-	setDefaults(&cfg)
-	setDefaults(&cfg.Options)
+	setDefaults(&cfg, false)
+	setDefaults(&cfg.Options, false)
 
 	var err error
 	if rd != nil {
 		err = xml.NewDecoder(rd).Decode(&cfg)
 	}
+
+	setDefaults(&cfg.Options, true)
 
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 	return cfg, err
