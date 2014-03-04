@@ -46,7 +46,7 @@ type OptionsConfiguration struct {
 	MaxChangeKbps      int      `xml:"maxChangeKbps" default:"1000" ini:"max-change-bw"`
 }
 
-func setDefaults(data interface{}, setEmptySlices bool) error {
+func setDefaults(data interface{}) error {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
 
@@ -56,20 +56,9 @@ func setDefaults(data interface{}, setEmptySlices bool) error {
 
 		v := tag.Get("default")
 		if len(v) > 0 {
-			if f.Kind().String() == "slice" && f.Len() != 0 {
-				continue
-			}
-
 			switch f.Interface().(type) {
 			case string:
 				f.SetString(v)
-
-			case []string:
-				if setEmptySlices {
-					rv := reflect.MakeSlice(reflect.TypeOf([]string{}), 1, 1)
-					rv.Index(0).SetString(v)
-					f.Set(rv)
-				}
 
 			case int:
 				i, err := strconv.ParseInt(v, 10, 64)
@@ -81,8 +70,37 @@ func setDefaults(data interface{}, setEmptySlices bool) error {
 			case bool:
 				f.SetBool(v == "true")
 
+			case []string:
+				// We don't do anything with string slices here. Any default
+				// we set will be appended to by the XML decoder, so we fill
+				// those after decoding.
+
 			default:
 				panic(f.Type())
+			}
+		}
+	}
+	return nil
+}
+
+// fillNilSlices sets default value on slices that are still nil.
+func fillNilSlices(data interface{}) error {
+	s := reflect.ValueOf(data).Elem()
+	t := s.Type()
+
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		tag := t.Field(i).Tag
+
+		v := tag.Get("default")
+		if len(v) > 0 {
+			switch f.Interface().(type) {
+			case []string:
+				if f.IsNil() {
+					rv := reflect.MakeSlice(reflect.TypeOf([]string{}), 1, 1)
+					rv.Index(0).SetString(v)
+					f.Set(rv)
+				}
 			}
 		}
 	}
@@ -152,15 +170,15 @@ func uniqueStrings(ss []string) []string {
 func readConfigXML(rd io.Reader) (Configuration, error) {
 	var cfg Configuration
 
-	setDefaults(&cfg, false)
-	setDefaults(&cfg.Options, false)
+	setDefaults(&cfg)
+	setDefaults(&cfg.Options)
 
 	var err error
 	if rd != nil {
 		err = xml.NewDecoder(rd).Decode(&cfg)
 	}
 
-	setDefaults(&cfg.Options, true)
+	fillNilSlices(&cfg.Options)
 
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 	return cfg, err

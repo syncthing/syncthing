@@ -92,7 +92,7 @@ func TestOverriddenValues(t *testing.T) {
 		FollowSymlinks:     false,
 		GUIEnabled:         false,
 		GUIAddress:         "125.2.2.2:8080",
-		GlobalAnnServer:    "announce.nym.se:22025",
+		GlobalAnnServer:    "syncthing.nym.se:22025",
 		GlobalAnnEnabled:   false,
 		LocalAnnEnabled:    false,
 		ParallelRequests:   32,
