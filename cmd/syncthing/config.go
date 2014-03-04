@@ -57,7 +57,6 @@ func setDefaults(data interface{}, setEmptySlices bool) error {
 		v := tag.Get("default")
 		if len(v) > 0 {
 			if f.Kind().String() == "slice" && f.Len() != 0 {
-				fmt.Println(f.Type(), f.Type().Kind().String(), f.Len())
 				continue
 			}
 
