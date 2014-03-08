@@ -21,7 +21,10 @@ import (
 	"github.com/calmh/ini"
 	"github.com/calmh/syncthing/discover"
 	"github.com/calmh/syncthing/protocol"
+	"github.com/calmh/syncthing/scanner"
 )
+
+const BlockSize = 128 * 1024
 
 var cfg Configuration
 var Version = "unknown-dev"
@@ -217,7 +220,17 @@ func main() {
 		infoln("Populating repository index")
 	}
 	loadIndex(m)
-	updateLocalModel(m)
+
+	sup := &suppressor{threshold: int64(cfg.Options.MaxChangeKbps)}
+	w := &scanner.Walker{
+		Dir:            m.dir,
+		IgnoreFile:     ".stignore",
+		FollowSymlinks: cfg.Options.FollowSymlinks,
+		BlockSize:      BlockSize,
+		Suppressor:     sup,
+		TempNamer:      defTempNamer,
+	}
+	updateLocalModel(m, w)
 
 	connOpts := map[string]string{
 		"clientId":      "syncthing",
@@ -263,7 +276,7 @@ func main() {
 		for {
 			time.Sleep(td)
 			if m.LocalAge() > (td / 2).Seconds() {
-				updateLocalModel(m)
+				updateLocalModel(m, w)
 			}
 		}
 	}()
@@ -502,8 +515,8 @@ func connect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls.Confi
 	}
 }
 
-func updateLocalModel(m *Model) {
-	files, _ := m.Walk(cfg.Options.FollowSymlinks)
+func updateLocalModel(m *Model, w *scanner.Walker) {
+	files, _ := w.Walk()
 	m.ReplaceLocal(files)
 	saveIndex(m)
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"sync"
 	"time"
 )
@@ -49,6 +50,11 @@ func (h *changeHistory) append(size int64, t time.Time) {
 		h.changes = h.changes[1:MaxChangeHistory]
 	}
 	h.changes = append(h.changes, c)
+}
+
+func (s *suppressor) Suppress(name string, fi os.FileInfo) bool {
+	sup, _ := s.suppress(name, fi.Size(), time.Now())
+	return sup
 }
 
 func (s *suppressor) suppress(name string, size int64, t time.Time) (bool, bool) {

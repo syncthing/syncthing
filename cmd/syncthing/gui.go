@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/calmh/syncthing/scanner"
 	"github.com/codegangsta/martini"
 )
 
@@ -107,7 +108,7 @@ func restPostRestart(req *http.Request) {
 	restart()
 }
 
-type guiFile File
+type guiFile scanner.File
 
 func (f guiFile) MarshalJSON() ([]byte, error) {
 	type t struct {
@@ -116,7 +117,7 @@ func (f guiFile) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(t{
 		Name: f.Name,
-		Size: File(f).Size,
+		Size: scanner.File(f).Size,
 	})
 }
 

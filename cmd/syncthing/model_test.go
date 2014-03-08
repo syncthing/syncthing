@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/protocol"
+	"github.com/calmh/syncthing/scanner"
 )
 
 func TestNewModel(t *testing.T) {
@@ -27,27 +28,27 @@ func TestNewModel(t *testing.T) {
 	}
 }
 
-var testDataExpected = map[string]File{
-	"foo": File{
+var testDataExpected = map[string]scanner.File{
+	"foo": scanner.File{
 		Name:     "foo",
 		Flags:    0,
 		Modified: 0,
 		Size:     7,
-		Blocks:   []Block{{Offset: 0x0, Size: 0x7, Hash: []uint8{0xae, 0xc0, 0x70, 0x64, 0x5f, 0xe5, 0x3e, 0xe3, 0xb3, 0x76, 0x30, 0x59, 0x37, 0x61, 0x34, 0xf0, 0x58, 0xcc, 0x33, 0x72, 0x47, 0xc9, 0x78, 0xad, 0xd1, 0x78, 0xb6, 0xcc, 0xdf, 0xb0, 0x1, 0x9f}}},
+		Blocks:   []scanner.Block{{Offset: 0x0, Size: 0x7, Hash: []uint8{0xae, 0xc0, 0x70, 0x64, 0x5f, 0xe5, 0x3e, 0xe3, 0xb3, 0x76, 0x30, 0x59, 0x37, 0x61, 0x34, 0xf0, 0x58, 0xcc, 0x33, 0x72, 0x47, 0xc9, 0x78, 0xad, 0xd1, 0x78, 0xb6, 0xcc, 0xdf, 0xb0, 0x1, 0x9f}}},
 	},
-	"empty": File{
+	"empty": scanner.File{
 		Name:     "empty",
 		Flags:    0,
 		Modified: 0,
 		Size:     0,
-		Blocks:   []Block{{Offset: 0x0, Size: 0x0, Hash: []uint8{0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55}}},
+		Blocks:   []scanner.Block{{Offset: 0x0, Size: 0x0, Hash: []uint8{0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55}}},
 	},
-	"bar": File{
+	"bar": scanner.File{
 		Name:     "bar",
 		Flags:    0,
 		Modified: 0,
 		Size:     10,
-		Blocks:   []Block{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}},
+		Blocks:   []scanner.Block{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}},
 	},
 }
 
@@ -63,7 +64,8 @@ func init() {
 
 func TestUpdateLocal(t *testing.T) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 
 	if fs, _ := m.NeedFiles(); len(fs) > 0 {
@@ -105,7 +107,8 @@ func TestUpdateLocal(t *testing.T) {
 
 func TestRemoteUpdateExisting(t *testing.T) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 
 	newFile := protocol.FileInfo{
@@ -122,7 +125,8 @@ func TestRemoteUpdateExisting(t *testing.T) {
 
 func TestRemoteAddNew(t *testing.T) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 
 	newFile := protocol.FileInfo{
@@ -139,7 +143,8 @@ func TestRemoteAddNew(t *testing.T) {
 
 func TestRemoteUpdateOld(t *testing.T) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 
 	oldTimeStamp := int64(1234)
@@ -157,7 +162,8 @@ func TestRemoteUpdateOld(t *testing.T) {
 
 func TestRemoteIndexUpdate(t *testing.T) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 
 	foo := protocol.FileInfo{
@@ -190,7 +196,8 @@ func TestRemoteIndexUpdate(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
@@ -201,10 +208,10 @@ func TestDelete(t *testing.T) {
 	}
 
 	ot := time.Now().Unix()
-	newFile := File{
+	newFile := scanner.File{
 		Name:     "a new file",
 		Modified: ot,
-		Blocks:   []Block{{0, 100, []byte("some hash bytes")}},
+		Blocks:   []scanner.Block{{0, 100, []byte("some hash bytes")}},
 	}
 	m.updateLocal(newFile)
 
@@ -292,7 +299,8 @@ func TestDelete(t *testing.T) {
 
 func TestForgetNode(t *testing.T) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 
 	if l1, l2 := len(m.local), len(fs); l1 != l2 {
@@ -345,7 +353,8 @@ func TestForgetNode(t *testing.T) {
 
 func TestRequest(t *testing.T) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 
 	bs, err := m.Request("some node", "default", "foo", 0, 6)
@@ -367,7 +376,8 @@ func TestRequest(t *testing.T) {
 
 func TestIgnoreWithUnknownFlags(t *testing.T) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 
 	valid := protocol.FileInfo{
@@ -410,7 +420,8 @@ func genFiles(n int) []protocol.FileInfo {
 
 func BenchmarkIndex10000(b *testing.B) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 	files := genFiles(10000)
 
@@ -422,7 +433,8 @@ func BenchmarkIndex10000(b *testing.B) {
 
 func BenchmarkIndex00100(b *testing.B) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 	files := genFiles(100)
 
@@ -434,7 +446,8 @@ func BenchmarkIndex00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 	files := genFiles(10000)
 	m.Index("42", files)
@@ -447,7 +460,8 @@ func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 	files := genFiles(10000)
 	m.Index("42", files)
@@ -461,7 +475,8 @@ func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00001(b *testing.B) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 	files := genFiles(10000)
 	m.Index("42", files)
@@ -506,7 +521,8 @@ func (FakeConnection) Statistics() protocol.Statistics {
 
 func BenchmarkRequest(b *testing.B) {
 	m := NewModel("testdata", 1e6)
-	fs, _ := m.Walk(false)
+	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
+	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 
 	const n = 1000

@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/calmh/syncthing/scanner"
 )
 
 func TestFileQueueAdd(t *testing.T) {
@@ -17,8 +19,8 @@ func TestFileQueueAddSorting(t *testing.T) {
 	q.SetAvailable("zzz", []string{"nodeID"})
 	q.SetAvailable("aaa", []string{"nodeID"})
 
-	q.Add("zzz", []Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
-	q.Add("aaa", []Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
+	q.Add("zzz", []scanner.Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
+	q.Add("aaa", []scanner.Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
 	b, _ := q.Get("nodeID")
 	if b.name != "aaa" {
 		t.Errorf("Incorrectly sorted get: %+v", b)
@@ -28,12 +30,12 @@ func TestFileQueueAddSorting(t *testing.T) {
 	q.SetAvailable("zzz", []string{"nodeID"})
 	q.SetAvailable("aaa", []string{"nodeID"})
 
-	q.Add("zzz", []Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
+	q.Add("zzz", []scanner.Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
 	b, _ = q.Get("nodeID") // Start on zzzz
 	if b.name != "zzz" {
 		t.Errorf("Incorrectly sorted get: %+v", b)
 	}
-	q.Add("aaa", []Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
+	q.Add("aaa", []scanner.Block{{Offset: 0, Size: 128}, {Offset: 128, Size: 128}}, nil)
 	b, _ = q.Get("nodeID")
 	if b.name != "zzz" {
 		// Continue rather than starting a new file
@@ -56,12 +58,12 @@ func TestFileQueueGet(t *testing.T) {
 	q.SetAvailable("foo", []string{"nodeID"})
 	q.SetAvailable("bar", []string{"nodeID"})
 
-	q.Add("foo", []Block{
+	q.Add("foo", []scanner.Block{
 		{Offset: 0, Size: 128, Hash: []byte("some foo hash bytes")},
 		{Offset: 128, Size: 128, Hash: []byte("some other foo hash bytes")},
 		{Offset: 256, Size: 128, Hash: []byte("more foo hash bytes")},
 	}, nil)
-	q.Add("bar", []Block{
+	q.Add("bar", []scanner.Block{
 		{Offset: 0, Size: 128, Hash: []byte("some bar hash bytes")},
 		{Offset: 128, Size: 128, Hash: []byte("some other bar hash bytes")},
 	}, nil)
@@ -70,7 +72,7 @@ func TestFileQueueGet(t *testing.T) {
 
 	expected := queuedBlock{
 		name: "bar",
-		block: Block{
+		block: scanner.Block{
 			Offset: 0,
 			Size:   128,
 			Hash:   []byte("some bar hash bytes"),
@@ -89,7 +91,7 @@ func TestFileQueueGet(t *testing.T) {
 
 	expected = queuedBlock{
 		name: "bar",
-		block: Block{
+		block: scanner.Block{
 			Offset: 128,
 			Size:   128,
 			Hash:   []byte("some other bar hash bytes"),
@@ -109,7 +111,7 @@ func TestFileQueueGet(t *testing.T) {
 
 	expected = queuedBlock{
 		name: "foo",
-		block: Block{
+		block: scanner.Block{
 			Offset: 0,
 			Size:   128,
 			Hash:   []byte("some foo hash bytes"),
@@ -150,7 +152,7 @@ func TestFileQueueDone(t *testing.T) {
 	}()
 
 	q := FileQueue{resolver: fakeResolver{}}
-	q.Add("foo", []Block{
+	q.Add("foo", []scanner.Block{
 		{Offset: 0, Length: 128, Hash: []byte("some foo hash bytes")},
 		{Offset: 128, Length: 128, Hash: []byte("some other foo hash bytes")},
 	}, ch)
@@ -181,19 +183,19 @@ func TestFileQueueGetNodeIDs(t *testing.T) {
 	q.SetAvailable("a-foo", []string{"nodeID", "a"})
 	q.SetAvailable("b-bar", []string{"nodeID", "b"})
 
-	q.Add("a-foo", []Block{
+	q.Add("a-foo", []scanner.Block{
 		{Offset: 0, Size: 128, Hash: []byte("some foo hash bytes")},
 		{Offset: 128, Size: 128, Hash: []byte("some other foo hash bytes")},
 		{Offset: 256, Size: 128, Hash: []byte("more foo hash bytes")},
 	}, nil)
-	q.Add("b-bar", []Block{
+	q.Add("b-bar", []scanner.Block{
 		{Offset: 0, Size: 128, Hash: []byte("some bar hash bytes")},
 		{Offset: 128, Size: 128, Hash: []byte("some other bar hash bytes")},
 	}, nil)
 
 	expected := queuedBlock{
 		name: "b-bar",
-		block: Block{
+		block: scanner.Block{
 			Offset: 0,
 			Size:   128,
 			Hash:   []byte("some bar hash bytes"),
@@ -209,7 +211,7 @@ func TestFileQueueGetNodeIDs(t *testing.T) {
 
 	expected = queuedBlock{
 		name: "a-foo",
-		block: Block{
+		block: scanner.Block{
 			Offset: 0,
 			Size:   128,
 			Hash:   []byte("some foo hash bytes"),
@@ -225,7 +227,7 @@ func TestFileQueueGetNodeIDs(t *testing.T) {
 
 	expected = queuedBlock{
 		name: "a-foo",
-		block: Block{
+		block: scanner.Block{
 			Offset: 128,
 			Size:   128,
 			Hash:   []byte("some other foo hash bytes"),
@@ -246,9 +248,9 @@ func TestFileQueueThreadHandling(t *testing.T) {
 
 	const n = 100
 	var total int
-	var blocks []Block
+	var blocks []scanner.Block
 	for i := 1; i <= n; i++ {
-		blocks = append(blocks, Block{Offset: int64(i), Size: 1})
+		blocks = append(blocks, scanner.Block{Offset: int64(i), Size: 1})
 		total += i
 	}
 

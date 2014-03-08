@@ -5,6 +5,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/calmh/syncthing/scanner"
 )
 
 type Monitor interface {
@@ -23,7 +25,7 @@ type FileQueue struct {
 
 type queuedFile struct {
 	name         string
-	blocks       []Block
+	blocks       []scanner.Block
 	activeBlocks []bool
 	given        int
 	remaining    int
@@ -54,7 +56,7 @@ func (l queuedFileList) Less(a, b int) bool {
 
 type queuedBlock struct {
 	name  string
-	block Block
+	block scanner.Block
 	index int
 }
 
@@ -65,7 +67,7 @@ func NewFileQueue() *FileQueue {
 	}
 }
 
-func (q *FileQueue) Add(name string, blocks []Block, monitor Monitor) {
+func (q *FileQueue) Add(name string, blocks []scanner.Block, monitor Monitor) {
 	q.fmut.Lock()
 	defer q.fmut.Unlock()
 

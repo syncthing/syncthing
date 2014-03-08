@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/buffers"
+	"github.com/calmh/syncthing/scanner"
 )
 
 type fileMonitor struct {
@@ -18,8 +19,8 @@ type fileMonitor struct {
 	path        string // full path
 	writeDone   sync.WaitGroup
 	model       *Model
-	global      File
-	localBlocks []Block
+	global      scanner.File
+	localBlocks []scanner.Block
 	copyError   error
 	writeError  error
 }
@@ -29,7 +30,7 @@ func (m *fileMonitor) FileBegins(cc <-chan content) error {
 		log.Printf("FILE: FileBegins: " + m.name)
 	}
 
-	tmp := tempName(m.path, m.global.Modified)
+	tmp := defTempNamer.TempName(m.path)
 
 	dir := path.Dir(tmp)
 	_, err := os.Stat(dir)
@@ -115,7 +116,7 @@ func (m *fileMonitor) FileDone() error {
 
 	m.writeDone.Wait()
 
-	tmp := tempName(m.path, m.global.Modified)
+	tmp := defTempNamer.TempName(m.path)
 	defer os.Remove(tmp)
 
 	if m.copyError != nil {
@@ -149,14 +150,14 @@ func (m *fileMonitor) FileDone() error {
 	return nil
 }
 
-func hashCheck(name string, correct []Block) error {
+func hashCheck(name string, correct []scanner.Block) error {
 	rf, err := os.Open(name)
 	if err != nil {
 		return err
 	}
 	defer rf.Close()
 
-	current, err := Blocks(rf, BlockSize)
+	current, err := scanner.Blocks(rf, BlockSize)
 	if err != nil {
 		return err
 	}

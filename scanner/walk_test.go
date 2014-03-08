@@ -1,4 +1,4 @@
-package main
+package scanner
 
 import (
 	"fmt"
@@ -22,8 +22,12 @@ var correctIgnores = map[string][]string{
 }
 
 func TestWalk(t *testing.T) {
-	m := NewModel("testdata", 1e6)
-	files, ignores := m.Walk(false)
+	w := Walker{
+		Dir:        "testdata",
+		BlockSize:  128 * 1024,
+		IgnoreFile: ".stignore",
+	}
+	files, ignores := w.Walk()
 
 	if l1, l2 := len(files), len(testdata); l1 != l2 {
 		t.Fatalf("Incorrect number of walked files %d != %d", l1, l2)
@@ -75,8 +79,9 @@ func TestIgnore(t *testing.T) {
 		{"foo/bazz/quux", false},
 	}
 
+	w := Walker{}
 	for i, tc := range tests {
-		if r := ignoreFile(patterns, tc.f); r != tc.r {
+		if r := w.ignoreFile(patterns, tc.f); r != tc.r {
 			t.Errorf("Incorrect ignoreFile() #%d; E: %v, A: %v", i, tc.r, r)
 		}
 	}
