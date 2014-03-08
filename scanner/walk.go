@@ -107,12 +107,12 @@ func (w *Walker) loadIgnoreFiles(dir string, ign map[string][]string) filepath.W
 			return nil
 		}
 
-		p, err = filepath.Rel(dir, p)
+		rn, err := filepath.Rel(dir, p)
 		if err != nil {
 			return nil
 		}
 
-		if pn, sn := path.Split(p); sn == w.IgnoreFile {
+		if pn, sn := path.Split(rn); sn == w.IgnoreFile {
 			pn := strings.Trim(pn, "/")
 			bs, _ := ioutil.ReadFile(p)
 			lines := bytes.Split(bs, []byte("\n"))
@@ -138,44 +138,47 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			return nil
 		}
 
-		p, err = filepath.Rel(w.Dir, p)
+		rn, err := filepath.Rel(w.Dir, p)
 		if err != nil {
-			return nil
-		}
-
-		if w.TempNamer != nil && w.TempNamer.IsTemporary(p) {
 			if debug {
-				dlog.Println("temporary:", p)
+				dlog.Println("rel error:", p, err)
 			}
 			return nil
 		}
 
-		if _, sn := path.Split(p); sn == w.IgnoreFile {
+		if w.TempNamer != nil && w.TempNamer.IsTemporary(rn) {
 			if debug {
-				dlog.Println("ignorefile:", p)
+				dlog.Println("temporary:", rn)
 			}
 			return nil
 		}
 
-		if w.ignoreFile(ign, p) {
+		if _, sn := path.Split(rn); sn == w.IgnoreFile {
 			if debug {
-				dlog.Println("ignored:", p)
+				dlog.Println("ignorefile:", rn)
+			}
+			return nil
+		}
+
+		if w.ignoreFile(ign, rn) {
+			if debug {
+				dlog.Println("ignored:", rn)
 			}
 			return nil
 		}
 
 		if info.Mode()&os.ModeType == 0 {
 			modified := info.ModTime().Unix()
-			pf := w.previous[p]
+			pf := w.previous[rn]
 
 			if pf.Modified == modified {
 				if nf := uint32(info.Mode()); nf != pf.Flags {
 					if debug {
-						dlog.Println("new flags:", p)
+						dlog.Println("new flags:", rn)
 					}
 					pf.Flags = nf
 					pf.Version++
-					w.previous[p] = pf
+					w.previous[rn] = pf
 				} else if debug {
 					dlog.Println("unchanged:", p)
 				}
@@ -183,12 +186,12 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 				return nil
 			}
 
-			if w.Suppressor != nil && w.Suppressor.Suppress(p, info) {
+			if w.Suppressor != nil && w.Suppressor.Suppress(rn, info) {
 				if debug {
-					dlog.Println("suppressed:", p)
+					dlog.Println("suppressed:", rn)
 				}
-				if !w.suppressed[p] {
-					w.suppressed[p] = true
+				if !w.suppressed[rn] {
+					w.suppressed[rn] = true
 					log.Printf("INFO: Changes to %q are being temporarily suppressed because it changes too frequently.", p)
 				}
 				f := pf
@@ -196,13 +199,16 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 				f.Blocks = nil
 				*res = append(*res, f)
 				return nil
-			} else if w.suppressed[p] {
+			} else if w.suppressed[rn] {
 				log.Printf("INFO: Changes to %q are no longer suppressed.", p)
-				delete(w.suppressed, p)
+				delete(w.suppressed, rn)
 			}
 
 			fd, err := os.Open(p)
 			if err != nil {
+				if debug {
+					dlog.Println("open:", p, err)
+				}
 				return nil
 			}
 			defer fd.Close()
@@ -211,22 +217,22 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			blocks, err := Blocks(fd, w.BlockSize)
 			if err != nil {
 				if debug {
-					dlog.Println("hash error:", p, err)
+					dlog.Println("hash error:", rn, err)
 				}
 				return nil
 			}
 			if debug {
 				t1 := time.Now()
-				dlog.Println("hashed:", p, ";", len(blocks), "blocks;", info.Size(), "bytes;", int(float64(info.Size())/1024/t1.Sub(t0).Seconds()), "KB/s")
+				dlog.Println("hashed:", rn, ";", len(blocks), "blocks;", info.Size(), "bytes;", int(float64(info.Size())/1024/t1.Sub(t0).Seconds()), "KB/s")
 			}
 			f := File{
-				Name:     p,
+				Name:     rn,
 				Size:     info.Size(),
 				Flags:    uint32(info.Mode()),
 				Modified: modified,
 				Blocks:   blocks,
 			}
-			w.previous[p] = f
+			w.previous[rn] = f
 			*res = append(*res, f)
 		}
 
