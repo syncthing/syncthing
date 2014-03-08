@@ -32,6 +32,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         {id: 'FollowSymlinks', descr: 'Follow Symlinks', type: 'bool', restart: true},
         {id: 'GlobalAnnEnabled', descr: 'Global Announce', type: 'bool', restart: true},
         {id: 'LocalAnnEnabled', descr: 'Local Announce', type: 'bool', restart: true},
+        {id: 'StartBrowser', descr: 'Start Browser', type: 'bool'},
     ];
 
     function modelGetSucceeded() {
@@ -317,7 +318,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }
         return errors;
     };
-    
+
     $scope.clearErrors = function () {
         $scope.seenError = $scope.errors[$scope.errors.length - 1].Time;
     };

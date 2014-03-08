@@ -23,6 +23,7 @@ func TestDefaultValues(t *testing.T) {
 		RescanIntervalS:    60,
 		ReconnectIntervalS: 60,
 		MaxChangeKbps:      1000,
+		StartBrowser:       true,
 	}
 
 	cfg, err := readConfigXML(bytes.NewReader(nil))
@@ -81,6 +82,7 @@ func TestOverriddenValues(t *testing.T) {
         <rescanIntervalS>600</rescanIntervalS>
         <reconnectionIntervalS>6000</reconnectionIntervalS>
         <maxChangeKbps>2345</maxChangeKbps>
+        <startBrowser>false</startBrowser>
     </options>
 </configuration>
 `)
@@ -100,6 +102,7 @@ func TestOverriddenValues(t *testing.T) {
 		RescanIntervalS:    600,
 		ReconnectIntervalS: 6000,
 		MaxChangeKbps:      2345,
+		StartBrowser:       false,
 	}
 
 	cfg, err := readConfigXML(bytes.NewReader(data))

@@ -209,7 +209,9 @@ func main() {
 
 			infof("Starting web GUI on http://%s:%d/", hostShow, addr.Port)
 			startGUI(cfg.Options.GUIAddress, m)
-			openURL(fmt.Sprintf("http://%s:%d", hostOpen, addr.Port))
+			if cfg.Options.StartBrowser {
+				openURL(fmt.Sprintf("http://%s:%d", hostOpen, addr.Port))
+			}
 		}
 	}
 
