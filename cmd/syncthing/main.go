@@ -34,12 +34,11 @@ var (
 )
 
 var (
-	showVersion  bool
-	confDir      string
-	trace        string
-	profiler     string
-	verbose      bool
-	startupDelay int
+	showVersion bool
+	confDir     string
+	trace       string
+	profiler    string
+	verbose     bool
 )
 
 func main() {
@@ -48,12 +47,12 @@ func main() {
 	flag.StringVar(&profiler, "debug.profiler", "", "(addr)")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&verbose, "v", false, "Be more verbose")
-	flag.IntVar(&startupDelay, "delay", 0, "Startup delay (s)")
 	flag.Usage = usageFor(flag.CommandLine, "syncthing [options]")
 	flag.Parse()
 
-	if startupDelay > 0 {
-		time.Sleep(time.Duration(startupDelay) * time.Second)
+	if len(os.Getenv("STRESTART")) > 0 {
+		// Give the parent process time to exit and release sockets etc.
+		time.Sleep(1 * time.Second)
 	}
 
 	if showVersion {
@@ -293,24 +292,17 @@ func main() {
 
 func restart() {
 	infoln("Restarting")
-	args := os.Args
-	doAppend := true
-	for _, arg := range args {
-		if arg == "-delay" {
-			doAppend = false
-			break
-		}
-	}
-	if doAppend {
-		args = append(args, "-delay", "2")
+	env := os.Environ()
+	if len(os.Getenv("STRESTART")) == 0 {
+		env = append(env, "STRESTART=1")
 	}
 	pgm, err := exec.LookPath(os.Args[0])
 	if err != nil {
 		warnln(err)
 		return
 	}
-	proc, err := os.StartProcess(pgm, args, &os.ProcAttr{
-		Env:   os.Environ(),
+	proc, err := os.StartProcess(pgm, os.Args, &os.ProcAttr{
+		Env:   env,
 		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 	})
 	if err != nil {
