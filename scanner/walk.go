@@ -160,7 +160,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			return nil
 		}
 
-		if w.ignoreFile(ign, rn) {
+		if rn != "." && w.ignoreFile(ign, rn) {
 			if debug {
 				dlog.Println("ignored:", rn)
 			}
