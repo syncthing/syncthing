@@ -167,10 +167,10 @@ func main() {
 
 	if profiler := os.Getenv("STPROFILER"); len(profiler) > 0 {
 		go func() {
-			debugln("Starting profiler on", profiler)
+			dlog.Println("Starting profiler on", profiler)
 			err := http.ListenAndServe(profiler, nil)
 			if err != nil {
-				warnln(err)
+				dlog.Fatal(err)
 			}
 		}()
 	}

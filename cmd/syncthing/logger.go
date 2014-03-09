@@ -13,16 +13,6 @@ func init() {
 	logger = log.New(os.Stderr, "", log.Flags())
 }
 
-func debugln(vals ...interface{}) {
-	s := fmt.Sprintln(vals...)
-	logger.Output(2, "DEBUG: "+s)
-}
-
-func debugf(format string, vals ...interface{}) {
-	s := fmt.Sprintf(format, vals...)
-	logger.Output(2, "DEBUG: "+s)
-}
-
 func infoln(vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
 	logger.Output(2, "INFO: "+s)
