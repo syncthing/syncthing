@@ -164,6 +164,9 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			if debug {
 				dlog.Println("ignored:", rn)
 			}
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
