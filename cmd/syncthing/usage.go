@@ -22,18 +22,14 @@ func optionTable(w io.Writer, rows [][]string) {
 	tw.Flush()
 }
 
-func usageFor(fs *flag.FlagSet, usage string) func() {
+func usageFor(fs *flag.FlagSet, usage string, extra string) func() {
 	return func() {
 		var b bytes.Buffer
 		b.WriteString("Usage:\n  " + usage + "\n")
 
 		var options [][]string
 		fs.VisitAll(func(f *flag.Flag) {
-			var dash = "-"
-			if len(f.Name) > 1 {
-				dash = "--"
-			}
-			var opt = "  " + dash + f.Name
+			var opt = "  -" + f.Name
 
 			if f.DefValue != "false" {
 				opt += "=" + f.DefValue
@@ -48,5 +44,9 @@ func usageFor(fs *flag.FlagSet, usage string) func() {
 		}
 
 		fmt.Println(b.String())
+
+		if len(extra) > 0 {
+			fmt.Println(extra)
+		}
 	}
 }

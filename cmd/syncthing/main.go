@@ -37,17 +37,27 @@ var (
 	showVersion bool
 	confDir     string
 	trace       string
-	profiler    string
 	verbose     bool
+)
+
+const (
+	usage      = "syncthing [options]"
+	extraUsage = `The following environemnt variables can be set to facilitate debugging:
+
+ STPROFILER  Set to a listen address such as "127.0.0.1:9090" to start the
+             profiler with HTTP access.
+
+ STTRACE     A comma separated string of facilities to trace. The valid
+             facility strings:
+             - "scanner" (the file change scanner)`
 )
 
 func main() {
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
 	flag.StringVar(&trace, "debug.trace", "", "(connect,net,idx,file,pull)")
-	flag.StringVar(&profiler, "debug.profiler", "", "(addr)")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&verbose, "v", false, "Be more verbose")
-	flag.Usage = usageFor(flag.CommandLine, "syncthing [options]")
+	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
 	flag.Parse()
 
 	if len(os.Getenv("STRESTART")) > 0 {
@@ -156,8 +166,9 @@ func main() {
 
 	var dir = expandTilde(cfg.Repositories[0].Directory)
 
-	if len(profiler) > 0 {
+	if profiler := os.Getenv("STPROFILER"); len(profiler) > 0 {
 		go func() {
+			debugln("Starting profiler on", profiler)
 			err := http.ListenAndServe(profiler, nil)
 			if err != nil {
 				warnln(err)
