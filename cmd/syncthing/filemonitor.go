@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"sync"
@@ -26,8 +25,8 @@ type fileMonitor struct {
 }
 
 func (m *fileMonitor) FileBegins(cc <-chan content) error {
-	if m.model.trace["file"] {
-		log.Printf("FILE: FileBegins: " + m.name)
+	if debugPull {
+		dlog.Println("file begins:", m.name)
 	}
 
 	tmp := defTempNamer.TempName(m.path)
@@ -110,8 +109,8 @@ func (m *fileMonitor) copyRemoteBlocks(cc <-chan content, outFile *os.File, writ
 }
 
 func (m *fileMonitor) FileDone() error {
-	if m.model.trace["file"] {
-		log.Printf("FILE: FileDone: " + m.name)
+	if debugPull {
+		dlog.Println("file done:", m.name)
 	}
 
 	m.writeDone.Wait()

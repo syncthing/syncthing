@@ -36,7 +36,6 @@ var (
 var (
 	showVersion bool
 	confDir     string
-	trace       string
 	verbose     bool
 )
 
@@ -50,12 +49,15 @@ const (
  STTRACE     A comma separated string of facilities to trace. The valid
              facility strings:
              - "scanner"  (the file change scanner)
-             - "discover" (the node discovery package)`
+             - "discover" (the node discovery package)
+             - "net"      (connecting and disconnecting, sent/received messages)
+             - "idx"      (index sending and receiving)
+             - "need"     (file need calculations)
+             - "pull"     (file pull activity)`
 )
 
 func main() {
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
-	flag.StringVar(&trace, "debug.trace", "", "(connect,net,idx,file,pull)")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&verbose, "v", false, "Be more verbose")
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
@@ -79,10 +81,6 @@ func main() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
-	if len(trace) > 0 {
-		log.SetFlags(log.Lshortfile | log.Ldate | log.Ltime | log.Lmicroseconds)
-		logger.SetFlags(log.Lshortfile | log.Ldate | log.Ltime | log.Lmicroseconds)
-	}
 	confDir = expandTilde(confDir)
 
 	// Ensure that our home directory exists and that we have a certificate and key.
@@ -192,9 +190,6 @@ func main() {
 
 	ensureDir(dir, -1)
 	m := NewModel(dir, cfg.Options.MaxChangeKbps*1000)
-	for _, t := range strings.Split(trace, ",") {
-		m.Trace(t)
-	}
 	if cfg.Options.MaxSendKbps > 0 {
 		m.LimitRate(cfg.Options.MaxSendKbps)
 	}
@@ -397,8 +392,8 @@ func printStatsLoop(m *Model) {
 }
 
 func listen(myID string, addr string, m *Model, tlsCfg *tls.Config, connOpts map[string]string) {
-	if strings.Contains(trace, "connect") {
-		debugln("NET: Listening on", addr)
+	if debugNet {
+		dlog.Println("listening on", addr)
 	}
 	l, err := tls.Listen("tcp", addr, tlsCfg)
 	fatalErr(err)
@@ -411,8 +406,8 @@ listen:
 			continue
 		}
 
-		if strings.Contains(trace, "connect") {
-			debugln("NET: Connect from", conn.RemoteAddr())
+		if debugNet {
+			dlog.Println("connect from", conn.RemoteAddr())
 		}
 
 		tc := conn.(*tls.Conn)
@@ -493,13 +488,13 @@ func connect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls.Confi
 					}
 				}
 
-				if strings.Contains(trace, "connect") {
-					debugln("NET: Dial", nodeCfg.NodeID, addr)
+				if debugNet {
+					dlog.Println("dial", nodeCfg.NodeID, addr)
 				}
 				conn, err := tls.Dial("tcp", addr, tlsCfg)
 				if err != nil {
-					if strings.Contains(trace, "connect") {
-						debugln("NET:", err)
+					if debugNet {
+						dlog.Println(err)
 					}
 					continue
 				}
