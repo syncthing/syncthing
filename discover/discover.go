@@ -15,7 +15,6 @@ import (
 
 const (
 	AnnouncementPort = 21025
-	Debug            = false
 )
 
 type Discoverer struct {
@@ -111,8 +110,8 @@ func (d *Discoverer) sendAnnouncements() {
 					}
 				}
 				if len(srcAddr) == 0 {
-					if Debug {
-						log.Println("discover: debug: no source address found on interface", intf.Name)
+					if debug {
+						dlog.Println("no source address found on interface", intf.Name)
 					}
 					continue
 				}
@@ -131,8 +130,8 @@ func (d *Discoverer) sendAnnouncements() {
 					continue
 				}
 
-				if Debug {
-					log.Println("discover: debug: send announcement from", conn.LocalAddr(), "to", remote, "on", intf.Name)
+				if debug {
+					dlog.Println("send announcement from", conn.LocalAddr(), "to", remote, "on", intf.Name)
 				}
 
 				_, err = conn.WriteTo(buf, remote)
@@ -140,8 +139,8 @@ func (d *Discoverer) sendAnnouncements() {
 					// Some interfaces don't seem to support broadcast even though the flags claims they do, i.e. vmnet
 					conn.Close()
 
-					if Debug {
-						log.Println("discover/write: debug:", err)
+					if debug {
+						log.Println(err)
 					}
 
 					errCounter++
@@ -173,8 +172,8 @@ func (d *Discoverer) sendExtAnnouncements() {
 	var errCounter = 0
 
 	for errCounter < maxErrors {
-		if Debug {
-			log.Println("send announcement -> ", remote)
+		if debug {
+			dlog.Println("send announcement -> ", remote)
 		}
 		_, err = d.conn.WriteTo(buf, remote)
 		if err != nil {
@@ -200,8 +199,8 @@ func (d *Discoverer) recvAnnouncements() {
 			continue
 		}
 
-		if Debug {
-			log.Printf("read announcement:\n%s", hex.Dump(buf[:n]))
+		if debug {
+			dlog.Printf("read announcement:\n%s", hex.Dump(buf[:n]))
 		}
 
 		var pkt AnnounceV2
@@ -212,8 +211,8 @@ func (d *Discoverer) recvAnnouncements() {
 			continue
 		}
 
-		if Debug {
-			log.Printf("read announcement: %#v", pkt)
+		if debug {
+			dlog.Printf("parsed announcement: %#v", pkt)
 		}
 
 		errCounter = 0
@@ -229,8 +228,8 @@ func (d *Discoverer) recvAnnouncements() {
 				}
 				addrs = append(addrs, nodeAddr)
 			}
-			if Debug {
-				log.Printf("register: %#v", addrs)
+			if debug {
+				dlog.Printf("register: %#v", addrs)
 			}
 			d.registryLock.Lock()
 			_, seen := d.registry[pkt.NodeID]
@@ -287,8 +286,8 @@ func (d *Discoverer) externalLookup(node string) []string {
 		return nil
 	}
 
-	if Debug {
-		log.Printf("read external:\n%s", hex.Dump(buf[:n]))
+	if debug {
+		dlog.Printf("read external:\n%s", hex.Dump(buf[:n]))
 	}
 
 	var pkt AnnounceV2
@@ -298,8 +297,8 @@ func (d *Discoverer) externalLookup(node string) []string {
 		return nil
 	}
 
-	if Debug {
-		log.Printf("read external: %#v", pkt)
+	if debug {
+		dlog.Printf("parsed external: %#v", pkt)
 	}
 
 	var addrs []string

@@ -180,7 +180,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 					pf.Version++
 					w.previous[rn] = pf
 				} else if debug {
-					dlog.Println("unchanged:", p)
+					dlog.Println("unchanged:", rn)
 				}
 				*res = append(*res, pf)
 				return nil

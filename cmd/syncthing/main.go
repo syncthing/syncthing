@@ -49,7 +49,8 @@ const (
 
  STTRACE     A comma separated string of facilities to trace. The valid
              facility strings:
-             - "scanner" (the file change scanner)`
+             - "scanner"  (the file change scanner)
+             - "discover" (the node discovery package)`
 )
 
 func main() {
