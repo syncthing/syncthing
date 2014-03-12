@@ -41,19 +41,23 @@ var (
 
 const (
 	usage      = "syncthing [options]"
-	extraUsage = `The following environemnt variables can be set to facilitate debugging:
+	extraUsage = `The following enviroment variables are interpreted by syncthing:
 
- STPROFILER  Set to a listen address such as "127.0.0.1:9090" to start the
-             profiler with HTTP access.
+ STNORESTART  Do not attempt to restart when requested to, instead just exit.
+              Set this variable when running under a service manager such as
+              runit, launchd, etc.
 
- STTRACE     A comma separated string of facilities to trace. The valid
-             facility strings:
-             - "scanner"  (the file change scanner)
-             - "discover" (the node discovery package)
-             - "net"      (connecting and disconnecting, sent/received messages)
-             - "idx"      (index sending and receiving)
-             - "need"     (file need calculations)
-             - "pull"     (file pull activity)`
+ STPROFILER   Set to a listen address such as "127.0.0.1:9090" to start the
+              profiler with HTTP access.
+
+ STTRACE      A comma separated string of facilities to trace. The valid
+              facility strings:
+              - "scanner"  (the file change scanner)
+              - "discover" (the node discovery package)
+              - "net"      (connecting and disconnecting, network messages)
+              - "idx"      (index sending and receiving)
+              - "need"     (file need calculations)
+              - "pull"     (file pull activity)`
 )
 
 func main() {
@@ -299,6 +303,12 @@ func main() {
 
 func restart() {
 	infoln("Restarting")
+	if os.Getenv("SMF_FMRI") != "" || os.Getenv("STNORESTART") != "" {
+		// Solaris SMF
+		infoln("Service manager detected; exit instead of restart")
+		os.Exit(0)
+	}
+
 	env := os.Environ()
 	if len(os.Getenv("STRESTART")) == 0 {
 		env = append(env, "STRESTART=1")
