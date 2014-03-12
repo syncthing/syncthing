@@ -1,3 +1,4 @@
+// Package buffers manages a set of reusable byte buffers.
 package buffers
 
 const (

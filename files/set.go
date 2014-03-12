@@ -1,3 +1,4 @@
+// Package fileset provides a set type to track local/remote files with newness checks.
 package fileset
 
 import "sync"

@@ -1,3 +1,4 @@
+// Package cid provides a manager for mappings between node ID:s and connection ID:s.
 package cid
 
 type Map struct {
