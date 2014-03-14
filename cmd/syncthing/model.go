@@ -162,7 +162,9 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 
 	var tot int64
 	for _, f := range m.global {
-		tot += f.Size
+		if f.Flags&protocol.FlagDeleted == 0 {
+			tot += f.Size
+		}
 	}
 
 	var res = make(map[string]ConnectionInfo)
@@ -178,7 +180,7 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 
 		var have int64
 		for _, f := range m.remote[node] {
-			if f.Equals(m.global[f.Name]) {
+			if f.Equals(m.global[f.Name]) && f.Flags&protocol.FlagDeleted == 0 {
 				have += f.Size
 			}
 		}
@@ -241,8 +243,10 @@ func (m *Model) InSyncSize() (files, bytes int64) {
 
 	for n, f := range m.local {
 		if gf, ok := m.global[n]; ok && f.Equals(gf) {
-			files++
-			bytes += f.Size
+			if f.Flags&protocol.FlagDeleted == 0 {
+				files++
+				bytes += f.Size
+			}
 		}
 	}
 
