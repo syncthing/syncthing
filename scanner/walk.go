@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/calmh/syncthing/protocol"
 )
 
 type Walker struct {
@@ -25,10 +23,13 @@ type Walker struct {
 	IgnoreFile string
 	// If TempNamer is not nil, it is used to ignore tempory files when walking.
 	TempNamer TempNamer
+	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
+	CurrentFiler CurrentFiler
 	// If Suppressor is not nil, it is queried for supression of modified files.
+	// Suppressed files will be returned with empty metadata and the Suppressed flag set.
+	// Requires CurrentFiler to be set.
 	Suppressor Suppressor
 
-	previous   map[string]File // file name -> last seen file state
 	suppressed map[string]bool // file name -> suppression status
 }
 
@@ -42,6 +43,11 @@ type TempNamer interface {
 type Suppressor interface {
 	// Supress returns true if the update to the named file should be ignored.
 	Suppress(name string, fi os.FileInfo) bool
+}
+
+type CurrentFiler interface {
+	// CurrentFile returns the file as seen at last scan.
+	CurrentFile(name string) File
 }
 
 // Walk returns the list of files found in the local repository by scanning the
@@ -95,8 +101,7 @@ func (w *Walker) CleanTempFiles() {
 }
 
 func (w *Walker) lazyInit() {
-	if w.previous == nil {
-		w.previous = make(map[string]File)
+	if w.suppressed == nil {
 		w.suppressed = make(map[string]bool)
 	}
 }
@@ -171,40 +176,30 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		}
 
 		if info.Mode()&os.ModeType == 0 {
-			modified := info.ModTime().Unix()
-			pf := w.previous[rn]
-
-			if pf.Modified == modified {
-				if nf := uint32(info.Mode()); nf != pf.Flags {
+			if w.CurrentFiler != nil {
+				cf := w.CurrentFiler.CurrentFile(rn)
+				if cf.Modified == info.ModTime().Unix() {
 					if debug {
-						dlog.Println("new flags:", rn)
+						dlog.Println("unchanged:", rn)
 					}
-					pf.Flags = nf
-					pf.Version++
-					w.previous[rn] = pf
-				} else if debug {
-					dlog.Println("unchanged:", rn)
+					*res = append(*res, cf)
+					return nil
 				}
-				*res = append(*res, pf)
-				return nil
-			}
 
-			if w.Suppressor != nil && w.Suppressor.Suppress(rn, info) {
-				if debug {
-					dlog.Println("suppressed:", rn)
+				if w.Suppressor != nil && w.Suppressor.Suppress(rn, info) {
+					if debug {
+						dlog.Println("suppressed:", rn)
+					}
+					if !w.suppressed[rn] {
+						w.suppressed[rn] = true
+						log.Printf("INFO: Changes to %q are being temporarily suppressed because it changes too frequently.", p)
+					}
+					cf.Suppressed = true
+					*res = append(*res, cf)
+				} else if w.suppressed[rn] {
+					log.Printf("INFO: Changes to %q are no longer suppressed.", p)
+					delete(w.suppressed, rn)
 				}
-				if !w.suppressed[rn] {
-					w.suppressed[rn] = true
-					log.Printf("INFO: Changes to %q are being temporarily suppressed because it changes too frequently.", p)
-				}
-				f := pf
-				f.Flags = protocol.FlagInvalid
-				f.Blocks = nil
-				*res = append(*res, f)
-				return nil
-			} else if w.suppressed[rn] {
-				log.Printf("INFO: Changes to %q are no longer suppressed.", p)
-				delete(w.suppressed, rn)
 			}
 
 			fd, err := os.Open(p)
@@ -232,10 +227,9 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 				Name:     rn,
 				Size:     info.Size(),
 				Flags:    uint32(info.Mode()),
-				Modified: modified,
+				Modified: info.ModTime().Unix(),
 				Blocks:   blocks,
 			}
-			w.previous[rn] = f
 			*res = append(*res, f)
 		}
 

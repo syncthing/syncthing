@@ -239,8 +239,9 @@ func main() {
 		IgnoreFile:     ".stignore",
 		FollowSymlinks: cfg.Options.FollowSymlinks,
 		BlockSize:      BlockSize,
-		Suppressor:     sup,
 		TempNamer:      defTempNamer,
+		Suppressor:     sup,
+		CurrentFiler:   m,
 	}
 	updateLocalModel(m, w)
 

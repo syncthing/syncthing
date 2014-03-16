@@ -26,8 +26,8 @@ const (
 )
 
 const (
-	FlagDeleted = 1 << 12
-	FlagInvalid = 1 << 13
+	FlagDeleted uint32 = 1 << 12
+	FlagInvalid        = 1 << 13
 )
 
 var (

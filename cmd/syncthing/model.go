@@ -397,7 +397,7 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 		warnf("SECURITY (nonexistent file) REQ(in): %s: %q o=%d s=%d", nodeID, name, offset, size)
 		return nil, ErrNoSuchFile
 	}
-	if lf.Flags&protocol.FlagInvalid != 0 {
+	if lf.Suppressed {
 		return nil, ErrInvalid
 	}
 
@@ -478,6 +478,14 @@ func (m *Model) SeedLocal(fs []protocol.FileInfo) {
 
 	m.recomputeGlobal()
 	m.recomputeNeedForGlobal()
+}
+
+// Implements scanner.CurrentFiler
+func (m *Model) CurrentFile(file string) scanner.File {
+	m.lmut.RLock()
+	f := m.local[file]
+	m.lmut.RUnlock()
+	return f
 }
 
 // ConnectedTo returns true if we are connected to the named node.
@@ -810,7 +818,7 @@ func (m *Model) recomputeNeedForFile(gf scanner.File, toAdd []addOrder, toDelete
 	m.lmut.RUnlock()
 
 	if !ok || gf.NewerThan(lf) {
-		if gf.Flags&protocol.FlagInvalid != 0 {
+		if gf.Suppressed {
 			// Never attempt to sync invalid files
 			return toAdd, toDelete
 		}
@@ -889,12 +897,13 @@ func fileFromFileInfo(f protocol.FileInfo) scanner.File {
 		offset += int64(b.Size)
 	}
 	return scanner.File{
-		Name:     f.Name,
-		Size:     offset,
-		Flags:    f.Flags,
-		Modified: f.Modified,
-		Version:  f.Version,
-		Blocks:   blocks,
+		Name:       f.Name,
+		Size:       offset,
+		Flags:      f.Flags &^ protocol.FlagInvalid,
+		Modified:   f.Modified,
+		Version:    f.Version,
+		Blocks:     blocks,
+		Suppressed: f.Flags&protocol.FlagInvalid != 0,
 	}
 }
 
@@ -906,11 +915,15 @@ func fileInfoFromFile(f scanner.File) protocol.FileInfo {
 			Hash: b.Hash,
 		}
 	}
-	return protocol.FileInfo{
+	pf := protocol.FileInfo{
 		Name:     f.Name,
 		Flags:    f.Flags,
 		Modified: f.Modified,
 		Version:  f.Version,
 		Blocks:   blocks,
 	}
+	if f.Suppressed {
+		pf.Flags |= protocol.FlagInvalid
+	}
+	return pf
 }

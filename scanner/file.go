@@ -3,12 +3,13 @@ package scanner
 import "fmt"
 
 type File struct {
-	Name     string
-	Flags    uint32
-	Modified int64
-	Version  uint32
-	Size     int64
-	Blocks   []Block
+	Name       string
+	Flags      uint32
+	Modified   int64
+	Version    uint32
+	Size       int64
+	Blocks     []Block
+	Suppressed bool
 }
 
 func (f File) String() string {
