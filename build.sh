@@ -10,7 +10,7 @@ build() {
 }
 
 prepare() {
-	./assets.sh | gofmt > auto/gui.files.go
+	go run cmd/assets/assets.go gui > auto/gui.files.go
 	go get -d
 }
 
