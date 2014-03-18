@@ -14,7 +14,6 @@ import (
 	"path"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"time"
 
@@ -263,7 +262,7 @@ func main() {
 	if verbose {
 		infoln("Attempting to connect to other nodes")
 	}
-	disc := discovery(cfg.Options.ListenAddress[0])
+	disc := discovery()
 	go connect(myID, disc, m, tlsCfg, connOpts)
 
 	// Routine to pull blocks from other nodes to synchronize the local
@@ -452,16 +451,12 @@ listen:
 	}
 }
 
-func discovery(addr string) *discover.Discoverer {
-	_, portstr, err := net.SplitHostPort(addr)
-	fatalErr(err)
-	port, _ := strconv.Atoi(portstr)
-
+func discovery() *discover.Discoverer {
 	if !cfg.Options.LocalAnnEnabled {
-		port = -1
-	} else if verbose {
-		infoln("Sending local discovery announcements")
+		return nil
 	}
+
+	infoln("Sending local discovery announcements")
 
 	if !cfg.Options.GlobalAnnEnabled {
 		cfg.Options.GlobalAnnServer = ""
@@ -469,7 +464,7 @@ func discovery(addr string) *discover.Discoverer {
 		infoln("Sending external discovery announcements")
 	}
 
-	disc, err := discover.NewDiscoverer(myID, port, cfg.Options.GlobalAnnServer)
+	disc, err := discover.NewDiscoverer(myID, cfg.Options.ListenAddress, cfg.Options.GlobalAnnServer)
 
 	if err != nil {
 		warnf("No discovery possible (%v)", err)
