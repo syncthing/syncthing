@@ -24,6 +24,7 @@ tarDist() {
 	cp syncthing "${distFiles[@]}" "$name"
 	tar zcvf "$name.tar.gz" "$name"
 	rm -rf "$name"
+	gpg -ab "$name.tar.gz"
 }
 
 zipDist() {
@@ -32,6 +33,7 @@ zipDist() {
 	cp syncthing.exe "${distFiles[@]}" "$name"
 	zip -r "$name.zip" "$name"
 	rm -rf "$name"
+	gpg -ab "$name.zip"
 }
 
 case "$1" in
@@ -80,7 +82,7 @@ case "$1" in
 	upload)
 		tag=$(git describe)
 		shopt -s nullglob
-		for f in *gz *zip ; do
+		for f in *.tar.gz *.zip *.asc ; do
 			relup calmh/syncthing "$tag" "$f"
 		done
 		;;

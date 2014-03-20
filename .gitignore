@@ -2,3 +2,4 @@ syncthing
 syncthing.exe
 *.tar.gz
 *.zip
+*.asc
