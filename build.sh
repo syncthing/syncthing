@@ -59,7 +59,7 @@ case "$1" in
 		test || exit 1
 
 		export GOARM=7
-		for os in darwin-amd64 linux-amd64 linux-arm freebsd-amd64 windows-amd64 ; do
+		for os in darwin-amd64 linux-amd64 linux-arm freebsd-amd64 ; do
 			export GOOS=${os%-*}
 			export GOARCH=${os#*-}
 
