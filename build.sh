@@ -42,7 +42,7 @@ case "$1" in
 		;;
 
 	tar)
-		rm -f *.tar.gz *.zip
+		rm -f *.tar.gz *.zip *.asc
 		prepare
 		test || exit 1
 		build
@@ -54,7 +54,7 @@ case "$1" in
 		;;
 
 	all)
-		rm -f *.tar.gz *.zip
+		rm -f *.tar.gz *.zip *.asc
 		prepare
 		test || exit 1
 
