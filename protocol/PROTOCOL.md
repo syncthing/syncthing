@@ -163,8 +163,9 @@ response to the Index message.
 The Repository field identifies the repository that the index message
 pertains to. For single repository implementations an empty repository
 ID is acceptable, or the word "default". The Name is the file name path
-relative to the repository root. The combination of Repository and Name
-uniquely identifies each file in a cluster.
+relative to the repository root. The Name is always in UTF-8 NFC regardless
+of operating system or file system specific conventions. The combination of
+Repository and Name uniquely identifies each file in a cluster.
 
 The Version field is a counter that is initially zero for each file. It
 is incremented each time a change is detected. The combination of

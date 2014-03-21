@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"code.google.com/p/go.text/unicode/norm"
 )
 
 type Walker struct {
@@ -136,6 +138,7 @@ func (w *Walker) loadIgnoreFiles(dir string, ign map[string][]string) filepath.W
 
 func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.WalkFunc {
 	return func(p string, info os.FileInfo, err error) error {
+
 		if err != nil {
 			if debug {
 				dlog.Println("error:", p, info, err)
@@ -150,6 +153,9 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			}
 			return nil
 		}
+
+		// Internally, we always use unicode normalization form C
+		rn = norm.NFC.String(rn)
 
 		if w.TempNamer != nil && w.TempNamer.IsTemporary(rn) {
 			if debug {

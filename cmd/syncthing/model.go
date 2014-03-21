@@ -839,8 +839,8 @@ func (m *Model) recomputeNeedForFile(gf scanner.File, toAdd []addOrder, toDelete
 		} else {
 			local, remote := scanner.BlockDiff(lf.Blocks, gf.Blocks)
 			fm := fileMonitor{
-				name:        gf.Name,
-				path:        path.Clean(path.Join(m.dir, gf.Name)),
+				name:        FSNormalize(gf.Name),
+				path:        FSNormalize(path.Clean(path.Join(m.dir, gf.Name))),
 				global:      gf,
 				model:       m,
 				localBlocks: local,
@@ -875,7 +875,7 @@ func (m *Model) deleteLoop() {
 		if debugPull {
 			dlog.Println("delete", file.Name)
 		}
-		path := path.Clean(path.Join(m.dir, file.Name))
+		path := FSNormalize(path.Clean(path.Join(m.dir, file.Name)))
 		err := os.Remove(path)
 		if err != nil {
 			warnf("%s: %v", file.Name, err)
