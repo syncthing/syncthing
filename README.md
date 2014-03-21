@@ -25,6 +25,13 @@ making sure large swarms of selfish agents behave and somehow work
 towards a common goal. Here we have a much smaller swarm of cooperative
 agents and a simpler approach will suffice.
 
+Signed Releases
+---------------
+
+As of v0.7.0 and onwards, git tags and release binaries are GPG signed with
+the key BCE524C7 (http://nym.se/gpg.txt). The signature is included in the
+normal release bundle as `syncthing.asc` or `syncthing.exe.asc`.
+
 Documentation
 =============
 

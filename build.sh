@@ -6,7 +6,7 @@ distFiles=(README.md LICENSE) # apart from the binary itself
 version=$(git describe --always)
 
 build() {
-	go build -ldflags "-w -X main.Version $version" ./cmd/syncthing	
+	go build -ldflags "-w -X main.Version $version" ./cmd/syncthing
 }
 
 prepare() {
@@ -16,24 +16,26 @@ prepare() {
 
 test() {
 	go test ./...
-}	
+}
 
 tarDist() {
 	name="$1"
+	rm -rf "$name"
 	mkdir -p "$name"
 	cp syncthing "${distFiles[@]}" "$name"
+	gpg -ab "$name/syncthing"
 	tar zcvf "$name.tar.gz" "$name"
 	rm -rf "$name"
-	gpg -ab "$name.tar.gz"
 }
 
 zipDist() {
 	name="$1"
+	rm -rf "$name"
 	mkdir -p "$name"
 	cp syncthing.exe "${distFiles[@]}" "$name"
+	gpg -ab "$name/syncthing.exe"
 	zip -r "$name.zip" "$name"
 	rm -rf "$name"
-	gpg -ab "$name.zip"
 }
 
 case "$1" in
@@ -42,7 +44,7 @@ case "$1" in
 		;;
 
 	tar)
-		rm -f *.tar.gz *.zip *.asc
+		rm -f *.tar.gz *.zip
 		prepare
 		test || exit 1
 		build
@@ -54,7 +56,7 @@ case "$1" in
 		;;
 
 	all)
-		rm -f *.tar.gz *.zip *.asc
+		rm -f *.tar.gz *.zip
 		prepare
 		test || exit 1
 
@@ -64,7 +66,7 @@ case "$1" in
 			export GOARCH=${os#*-}
 
 			build
-			
+
 			name="syncthing-$os-$version"
 			case $GOOS in
 				windows)
