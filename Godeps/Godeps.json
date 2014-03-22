@@ -1,0 +1,36 @@
+{
+	"ImportPath": "github.com/calmh/syncthing",
+	"GoVersion": "devel +3ca54dd30864 Sat Mar 22 11:05:40 2014 -0700",
+	"Packages": [
+		"./cmd/syncthing"
+	],
+	"Deps": [
+		{
+			"ImportPath": "code.google.com/p/go.net/ipv6",
+			"Comment": "null-88",
+			"Rev": "55437409069bb181ad562b1ad1e5f361c44aff17"
+		},
+		{
+			"ImportPath": "code.google.com/p/go.text/transform",
+			"Comment": "null-81",
+			"Rev": "9cbe983aed9b0dfc73954433fead5e00866342ac"
+		},
+		{
+			"ImportPath": "code.google.com/p/go.text/unicode/norm",
+			"Comment": "null-81",
+			"Rev": "9cbe983aed9b0dfc73954433fead5e00866342ac"
+		},
+		{
+			"ImportPath": "github.com/calmh/ini",
+			"Rev": "1020b6d8618a7dc6031cda4a7782324eac346875"
+		},
+		{
+			"ImportPath": "github.com/codegangsta/inject",
+			"Rev": "37512bbe41b4cc579cdd706742efc7bf34f94b06"
+		},
+		{
+			"ImportPath": "github.com/codegangsta/martini",
+			"Rev": "f86ef0561cc5aa2801d41a7277fd480272ad1556"
+		}
+	]
+}

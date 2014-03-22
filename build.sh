@@ -6,12 +6,19 @@ distFiles=(README.md LICENSE) # apart from the binary itself
 version=$(git describe --always)
 
 build() {
-	go build -ldflags "-w -X main.Version $version" ./cmd/syncthing
+	if which -s godep ; then
+		godep=godep
+	else
+		echo "Warning: no godep, using \"go get\" instead."
+		echo "Try \"go get github.com/tools/godep\"."
+		go get -d ./cmd/syncthing
+		godep=
+	fi
+	${godep} go build -ldflags "-w -X main.Version $version" ./cmd/syncthing
 }
 
 prepare() {
 	go run cmd/assets/assets.go gui > auto/gui.files.go
-	go get -d
 }
 
 test() {
@@ -41,6 +48,10 @@ zipDist() {
 case "$1" in
 	"")
 		build
+		;;
+
+	test)
+		test
 		;;
 
 	tar)
