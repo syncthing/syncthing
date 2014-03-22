@@ -174,23 +174,23 @@ func TestClose(t *testing.T) {
 
 	c0.close(nil)
 
-	ok := c0.isClosed()
-	if !ok {
+	if !c0.isClosed() {
+		t.Fatal("Connection should be closed")
+	}
+	if !m0.isClosed() {
 		t.Fatal("Connection should be closed")
 	}
 
 	// None of these should panic, some should return an error
 
-	ok = c0.ping()
-	if ok {
+	if c0.ping() {
 		t.Error("Ping should not return true")
 	}
 
 	c0.Index("default", nil)
 	c0.Index("default", nil)
 
-	_, err := c0.Request("default", "foo", 0, 0)
-	if err == nil {
+	if _, err := c0.Request("default", "foo", 0, 0); err == nil {
 		t.Error("Request should return an error")
 	}
 }
