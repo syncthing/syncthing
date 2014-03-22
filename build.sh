@@ -25,12 +25,19 @@ test() {
 	go test -cpu=1,2,4 ./...
 }
 
+sign() {
+	id=BCE524C7
+	if gpg --list-keys "$id" >/dev/null 2>&1 ; then
+		gpg -ab -u "$id" "$1"
+	fi
+}
+
 tarDist() {
 	name="$1"
 	rm -rf "$name"
 	mkdir -p "$name"
 	cp syncthing "${distFiles[@]}" "$name"
-	gpg -ab "$name/syncthing"
+	sign "$name/syncthing"
 	tar zcvf "$name.tar.gz" "$name"
 	rm -rf "$name"
 }
@@ -40,7 +47,7 @@ zipDist() {
 	rm -rf "$name"
 	mkdir -p "$name"
 	cp syncthing.exe "${distFiles[@]}" "$name"
-	gpg -ab "$name/syncthing.exe"
+	sign "$name/syncthing.exe"
 	zip -r "$name.zip" "$name"
 	rm -rf "$name"
 }
