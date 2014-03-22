@@ -12,9 +12,7 @@ func Logger() Handler {
 		start := time.Now()
 		log.Printf("Started %s %s", req.Method, req.URL.Path)
 
-		rw := NewResponseWriter(res)
-		c.MapTo(rw, (*http.ResponseWriter)(nil))
-
+		rw := res.(ResponseWriter)
 		c.Next()
 
 		log.Printf("Completed %v %s in %v\n", rw.Status(), http.StatusText(rw.Status()), time.Since(start))

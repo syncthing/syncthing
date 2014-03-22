@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	errNotSupported    = errors.New("not supported")
 	errMissingAddress  = errors.New("missing address")
 	errInvalidConnType = errors.New("invalid conn type")
 	errNoSuchInterface = errors.New("no such interface")

@@ -3,6 +3,7 @@ package martini
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -10,47 +11,41 @@ func Test_Routing(t *testing.T) {
 	router := NewRouter()
 	recorder := httptest.NewRecorder()
 
-	req, err := http.NewRequest("GET", "http://localhost:3000/foo", nil)
-	if err != nil {
-		t.Error(err)
-	}
+	req, _ := http.NewRequest("GET", "http://localhost:3000/foo", nil)
 	context := New().createContext(recorder, req)
 
-	req2, err := http.NewRequest("POST", "http://localhost:3000/bar/bat", nil)
-	if err != nil {
-		t.Error(err)
-	}
+	req2, _ := http.NewRequest("POST", "http://localhost:3000/bar/bat", nil)
 	context2 := New().createContext(recorder, req2)
 
-	req3, err := http.NewRequest("DELETE", "http://localhost:3000/baz", nil)
-	if err != nil {
-		t.Error(err)
-	}
+	req3, _ := http.NewRequest("DELETE", "http://localhost:3000/baz", nil)
 	context3 := New().createContext(recorder, req3)
 
-	req4, err := http.NewRequest("PATCH", "http://localhost:3000/bar/foo", nil)
-	if err != nil {
-		t.Error(err)
-	}
+	req4, _ := http.NewRequest("PATCH", "http://localhost:3000/bar/foo", nil)
 	context4 := New().createContext(recorder, req4)
 
-	req5, err := http.NewRequest("GET", "http://localhost:3000/fez/this/should/match", nil)
-	if err != nil {
-		t.Error(err)
-	}
+	req5, _ := http.NewRequest("GET", "http://localhost:3000/fez/this/should/match", nil)
 	context5 := New().createContext(recorder, req5)
 
-	req6, err := http.NewRequest("PUT", "http://localhost:3000/pop/blah/blah/blah/bap/foo/", nil)
-	if err != nil {
-		t.Error(err)
-	}
+	req6, _ := http.NewRequest("PUT", "http://localhost:3000/pop/blah/blah/blah/bap/foo/", nil)
 	context6 := New().createContext(recorder, req6)
 
-	req7, err := http.NewRequest("DELETE", "http://localhost:3000/wap//pow", nil)
-	if err != nil {
-		t.Error(err)
-	}
-	context7 := New().createContext(recorder, req6)
+	req7, _ := http.NewRequest("DELETE", "http://localhost:3000/wap//pow", nil)
+	context7 := New().createContext(recorder, req7)
+
+	req8, _ := http.NewRequest("HEAD", "http://localhost:3000/wap//pow", nil)
+	context8 := New().createContext(recorder, req8)
+
+	req9, _ := http.NewRequest("OPTIONS", "http://localhost:3000/opts", nil)
+	context9 := New().createContext(recorder, req9)
+
+	req10, _ := http.NewRequest("HEAD", "http://localhost:3000/foo", nil)
+	context10 := New().createContext(recorder, req10)
+
+	req11, _ := http.NewRequest("GET", "http://localhost:3000/bazz/inga", nil)
+	context11 := New().createContext(recorder, req11)
+
+	req12, _ := http.NewRequest("POST", "http://localhost:3000/bazz/inga", nil)
+	context12 := New().createContext(recorder, req12)
 
 	result := ""
 	router.Get("/foo", func(req *http.Request) {
@@ -84,6 +79,26 @@ func Test_Routing(t *testing.T) {
 		expect(t, params["_1"], "")
 		result += "wappow"
 	})
+	router.Options("/opts", func() {
+		result += "opts"
+	})
+	router.Head("/wap/**/pow", func(params Params) {
+		expect(t, params["_1"], "")
+		result += "wappow"
+	})
+	router.Group("/bazz", func(r Router) {
+		r.Get("/inga", func() {
+			result += "get"
+		})
+
+		r.Post("/inga", func() {
+			result += "post"
+		})
+	}, func() {
+		result += "bazz"
+	}, func() {
+		result += "inga"
+	})
 
 	router.Handle(recorder, req, context)
 	router.Handle(recorder, req2, context2)
@@ -92,7 +107,12 @@ func Test_Routing(t *testing.T) {
 	router.Handle(recorder, req5, context5)
 	router.Handle(recorder, req6, context6)
 	router.Handle(recorder, req7, context7)
-	expect(t, result, "foobarbatbarfoofezpopbapwappow")
+	router.Handle(recorder, req8, context8)
+	router.Handle(recorder, req9, context9)
+	router.Handle(recorder, req10, context10)
+	router.Handle(recorder, req11, context11)
+	router.Handle(recorder, req12, context12)
+	expect(t, result, "foobarbatbarfoofezpopbapwappowwappowoptsfoobazzingagetbazzingapost")
 	expect(t, recorder.Code, http.StatusNotFound)
 	expect(t, recorder.Body.String(), "404 page not found\n")
 }
@@ -108,13 +128,16 @@ func Test_RouterHandlerStatusCode(t *testing.T) {
 	router.Get("/baz", func() (string, string) {
 		return "baz", "BAZ!"
 	})
+	router.Get("/bytes", func() []byte {
+		return []byte("Bytes!")
+	})
+	router.Get("/interface", func() interface{} {
+		return "Interface!"
+	})
 
 	// code should be 200 if none is returned from the handler
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "http://localhost:3000/foo", nil)
-	if err != nil {
-		t.Error(err)
-	}
+	req, _ := http.NewRequest("GET", "http://localhost:3000/foo", nil)
 	context := New().createContext(recorder, req)
 	router.Handle(recorder, req, context)
 	expect(t, recorder.Code, http.StatusOK)
@@ -122,10 +145,7 @@ func Test_RouterHandlerStatusCode(t *testing.T) {
 
 	// if a status code is returned, it should be used
 	recorder = httptest.NewRecorder()
-	req, err = http.NewRequest("GET", "http://localhost:3000/bar", nil)
-	if err != nil {
-		t.Error(err)
-	}
+	req, _ = http.NewRequest("GET", "http://localhost:3000/bar", nil)
 	context = New().createContext(recorder, req)
 	router.Handle(recorder, req, context)
 	expect(t, recorder.Code, http.StatusForbidden)
@@ -133,24 +153,34 @@ func Test_RouterHandlerStatusCode(t *testing.T) {
 
 	// shouldn't use the first returned value as a status code if not an integer
 	recorder = httptest.NewRecorder()
-	req, err = http.NewRequest("GET", "http://localhost:3000/baz", nil)
-	if err != nil {
-		t.Error(err)
-	}
+	req, _ = http.NewRequest("GET", "http://localhost:3000/baz", nil)
 	context = New().createContext(recorder, req)
 	router.Handle(recorder, req, context)
 	expect(t, recorder.Code, http.StatusOK)
 	expect(t, recorder.Body.String(), "baz")
+
+	// Should render bytes as a return value as well.
+	recorder = httptest.NewRecorder()
+	req, _ = http.NewRequest("GET", "http://localhost:3000/bytes", nil)
+	context = New().createContext(recorder, req)
+	router.Handle(recorder, req, context)
+	expect(t, recorder.Code, http.StatusOK)
+	expect(t, recorder.Body.String(), "Bytes!")
+
+	// Should render interface{} values.
+	recorder = httptest.NewRecorder()
+	req, _ = http.NewRequest("GET", "http://localhost:3000/interface", nil)
+	context = New().createContext(recorder, req)
+	router.Handle(recorder, req, context)
+	expect(t, recorder.Code, http.StatusOK)
+	expect(t, recorder.Body.String(), "Interface!")
 }
 
 func Test_RouterHandlerStacking(t *testing.T) {
 	router := NewRouter()
 	recorder := httptest.NewRecorder()
 
-	req, err := http.NewRequest("GET", "http://localhost:3000/foo", nil)
-	if err != nil {
-		t.Error(err)
-	}
+	req, _ := http.NewRequest("GET", "http://localhost:3000/foo", nil)
 	context := New().createContext(recorder, req)
 
 	result := ""
@@ -209,6 +239,37 @@ func Test_RouteMatching(t *testing.T) {
 	}
 }
 
+func Test_MethodsFor(t *testing.T) {
+	router := NewRouter()
+	recorder := httptest.NewRecorder()
+
+	req, _ := http.NewRequest("POST", "http://localhost:3000/foo", nil)
+	context := New().createContext(recorder, req)
+	context.MapTo(router, (*Routes)(nil))
+	router.Post("/foo/bar", func() {
+	})
+
+	router.Post("/fo", func() {
+	})
+
+	router.Get("/foo", func() {
+	})
+
+	router.Put("/foo", func() {
+	})
+
+	router.NotFound(func(routes Routes, w http.ResponseWriter, r *http.Request) {
+		methods := routes.MethodsFor(r.URL.Path)
+		if len(methods) != 0 {
+			w.Header().Set("Allow", strings.Join(methods, ","))
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})
+	router.Handle(recorder, req, context)
+	expect(t, recorder.Code, http.StatusMethodNotAllowed)
+	expect(t, recorder.Header().Get("Allow"), "GET,PUT")
+}
+
 func Test_NotFound(t *testing.T) {
 	router := NewRouter()
 	recorder := httptest.NewRecorder()
@@ -223,6 +284,81 @@ func Test_NotFound(t *testing.T) {
 	router.Handle(recorder, req, context)
 	expect(t, recorder.Code, http.StatusNotFound)
 	expect(t, recorder.Body.String(), "Nope\n")
+}
+
+func Test_NotFoundAsHandler(t *testing.T) {
+	router := NewRouter()
+	recorder := httptest.NewRecorder()
+
+	req, _ := http.NewRequest("GET", "http://localhost:3000/foo", nil)
+	context := New().createContext(recorder, req)
+
+	router.NotFound(func() string {
+		return "not found"
+	})
+
+	router.Handle(recorder, req, context)
+	expect(t, recorder.Code, http.StatusOK)
+	expect(t, recorder.Body.String(), "not found")
+
+	recorder = httptest.NewRecorder()
+
+	context = New().createContext(recorder, req)
+
+	router.NotFound(func() (int, string) {
+		return 404, "not found"
+	})
+
+	router.Handle(recorder, req, context)
+	expect(t, recorder.Code, http.StatusNotFound)
+	expect(t, recorder.Body.String(), "not found")
+
+	recorder = httptest.NewRecorder()
+
+	context = New().createContext(recorder, req)
+
+	router.NotFound(func() (int, string) {
+		return 200, ""
+	})
+
+	router.Handle(recorder, req, context)
+	expect(t, recorder.Code, http.StatusOK)
+	expect(t, recorder.Body.String(), "")
+}
+
+func Test_NotFoundStacking(t *testing.T) {
+	router := NewRouter()
+	recorder := httptest.NewRecorder()
+
+	req, _ := http.NewRequest("GET", "http://localhost:3000/foo", nil)
+	context := New().createContext(recorder, req)
+
+	result := ""
+
+	f1 := func() {
+		result += "foo"
+	}
+
+	f2 := func(c Context) {
+		result += "bar"
+		c.Next()
+		result += "bing"
+	}
+
+	f3 := func() string {
+		result += "bat"
+		return "Not Found"
+	}
+
+	f4 := func() {
+		result += "baz"
+	}
+
+	router.NotFound(f1, f2, f3, f4)
+
+	router.Handle(recorder, req, context)
+	expect(t, result, "foobarbatbing")
+	expect(t, recorder.Body.String(), "Not Found")
 }
 
 func Test_Any(t *testing.T) {
@@ -250,28 +386,25 @@ func Test_Any(t *testing.T) {
 
 func Test_URLFor(t *testing.T) {
 	router := NewRouter()
-	var barIDNameRoute, fooRoute, barRoute Route
 
-	fooRoute = router.Get("/foo", func() {
+	router.Get("/foo", func() {
 		// Nothing
-	})
+	}).Name("foo")
 
-	barRoute = router.Post("/bar/:id", func(params Params) {
+	router.Post("/bar/:id", func(params Params) {
 		// Nothing
-	})
+	}).Name("bar")
 
-	barIDNameRoute = router.Get("/bar/:id/:name", func(params Params, routes Routes) {
-		expect(t, routes.URLFor(fooRoute, nil), "/foo")
-		expect(t, routes.URLFor(barRoute, 5), "/bar/5")
-		expect(t, routes.URLFor(barIDNameRoute, 5, "john"), "/bar/5/john")
-	})
+	router.Get("/bar/:id/:name", func(params Params, routes Routes) {
+		expect(t, routes.URLFor("foo", nil), "/foo")
+		expect(t, routes.URLFor("bar", 5), "/bar/5")
+		expect(t, routes.URLFor("bar_id", 5, "john"), "/bar/5/john")
+	}).Name("bar_id")
 
 	// code should be 200 if none is returned from the handler
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "http://localhost:3000/bar/foo/bar", nil)
-	if err != nil {
-		t.Error(err)
-	}
+	req, _ := http.NewRequest("GET", "http://localhost:3000/bar/foo/bar", nil)
 	context := New().createContext(recorder, req)
+	context.MapTo(router, (*Routes)(nil))
 	router.Handle(recorder, req, context)
 }

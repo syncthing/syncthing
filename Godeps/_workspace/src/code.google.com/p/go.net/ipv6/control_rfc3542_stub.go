@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package ipv6
+// +build dragonfly plan9 solaris
 
-import "syscall"
+package ipv6
 
 func setControlMessage(fd int, opt *rawOpt, cf ControlFlags, on bool) error {
 	// TODO(mikio): Implement this
-	return syscall.EPLAN9
+	return errOpNoSupport
 }
 
 func newControlMessage(opt *rawOpt) (oob []byte) {
@@ -18,7 +18,7 @@ func newControlMessage(opt *rawOpt) (oob []byte) {
 
 func parseControlMessage(b []byte) (*ControlMessage, error) {
 	// TODO(mikio): Implement this
-	return nil, syscall.EPLAN9
+	return nil, errOpNoSupport
 }
 
 func marshalControlMessage(cm *ControlMessage) (oob []byte) {

@@ -218,3 +218,18 @@ func (c *Config) Set(sectionName, key, value string) {
 		options: []option{{key, value}},
 	})
 }
+
+// Delete removes the option from the specified section.
+func (c *Config) Delete(section, key string) {
+	for sn, sect := range c.sections {
+		if sect.name == section {
+			for i, opt := range sect.options {
+				if opt.name == key {
+					c.sections[sn].options = append(sect.options[:i], sect.options[i+1:]...)
+					return
+				}
+			}
+			return
+		}
+	}
+}

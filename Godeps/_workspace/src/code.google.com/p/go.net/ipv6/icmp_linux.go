@@ -4,13 +4,11 @@
 
 package ipv6
 
-import "syscall"
-
-type rawICMPFilter struct {
-	syscall.ICMPv6Filter
+type sysICMPFilter struct {
+	Data [8]uint32
 }
 
-func (f *rawICMPFilter) set(typ ICMPType, block bool) {
+func (f *sysICMPFilter) set(typ ICMPType, block bool) {
 	if block {
 		f.Data[typ>>5] |= 1 << (uint32(typ) & 31)
 	} else {
@@ -18,7 +16,7 @@ func (f *rawICMPFilter) set(typ ICMPType, block bool) {
 	}
 }
 
-func (f *rawICMPFilter) setAll(block bool) {
+func (f *sysICMPFilter) setAll(block bool) {
 	for i := range f.Data {
 		if block {
 			f.Data[i] = 1<<32 - 1
@@ -28,6 +26,6 @@ func (f *rawICMPFilter) setAll(block bool) {
 	}
 }
 
-func (f *rawICMPFilter) willBlock(typ ICMPType) bool {
+func (f *sysICMPFilter) willBlock(typ ICMPType) bool {
 	return f.Data[typ>>5]&(1<<(uint32(typ)&31)) != 0
 }

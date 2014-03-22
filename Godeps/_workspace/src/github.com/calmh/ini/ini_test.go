@@ -2,9 +2,10 @@ package ini_test
 
 import (
 	"bytes"
-	"github.com/calmh/ini"
 	"strings"
 	"testing"
+
+	"github.com/calmh/ini"
 )
 
 func TestParseValues(t *testing.T) {
@@ -133,6 +134,41 @@ baz2=quux2
 
 	if s := out.String(); s != correct {
 		t.Errorf("Incorrect INI after set:\n%s", s)
+	}
+}
+
+func TestDelete(t *testing.T) {
+	buf := bytes.NewBufferString("[general]\nfoo=bar\nfoo2=bar2\nfoo3=baz\n")
+	cfg := ini.Parse(buf)
+	cfg.Delete("general", "foo")
+	out := new(bytes.Buffer)
+	cfg.Write(out)
+	correct := "[general]\nfoo2=bar2\nfoo3=baz\n\n"
+
+	if s := out.String(); s != correct {
+		t.Errorf("Incorrect INI after delete:\n%s", s)
+	}
+
+	buf = bytes.NewBufferString("[general]\nfoo=bar\nfoo2=bar2\nfoo3=baz\n")
+	cfg = ini.Parse(buf)
+	cfg.Delete("general", "foo2")
+	out = new(bytes.Buffer)
+	cfg.Write(out)
+	correct = "[general]\nfoo=bar\nfoo3=baz\n\n"
+
+	if s := out.String(); s != correct {
+		t.Errorf("Incorrect INI after delete:\n%s", s)
+	}
+
+	buf = bytes.NewBufferString("[general]\nfoo=bar\nfoo2=bar2\nfoo3=baz\n")
+	cfg = ini.Parse(buf)
+	cfg.Delete("general", "foo3")
+	out = new(bytes.Buffer)
+	cfg.Write(out)
+	correct = "[general]\nfoo=bar\nfoo2=bar2\n\n"
+
+	if s := out.String(); s != correct {
+		t.Errorf("Incorrect INI after delete:\n%s", s)
 	}
 }
 

@@ -6,12 +6,13 @@ package ipv6
 
 import (
 	"os"
-	"syscall"
+	"unsafe"
 )
 
 func setIPv6Checksum(fd int, on bool, offset int) error {
 	if !on {
 		offset = -1
 	}
-	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd, ianaProtocolReserved, syscall.IPV6_CHECKSUM, offset))
+	v := int32(offset)
+	return os.NewSyscallError("setsockopt", setsockopt(fd, ianaProtocolReserved, sysSockoptChecksum, uintptr(unsafe.Pointer(&v)), 4))
 }

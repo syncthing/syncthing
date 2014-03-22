@@ -14,9 +14,27 @@ import (
 	"testing"
 )
 
+var icmpStringTests = []struct {
+	in  ipv6.ICMPType
+	out string
+}{
+	{ipv6.ICMPTypeDestinationUnreachable, "destination unreachable"},
+
+	{256, "<nil>"},
+}
+
+func TestICMPString(t *testing.T) {
+	for _, tt := range icmpStringTests {
+		s := tt.in.String()
+		if s != tt.out {
+			t.Errorf("got %s; expected %s", s, tt.out)
+		}
+	}
+}
+
 func TestICMPFilter(t *testing.T) {
 	switch runtime.GOOS {
-	case "plan9", "windows":
+	case "dragonfly", "plan9", "solaris", "windows":
 		t.Skipf("not supported on %q", runtime.GOOS)
 	}
 
@@ -49,7 +67,7 @@ func TestICMPFilter(t *testing.T) {
 
 func TestSetICMPFilter(t *testing.T) {
 	switch runtime.GOOS {
-	case "plan9", "windows":
+	case "dragonfly", "plan9", "solaris", "windows":
 		t.Skipf("not supported on %q", runtime.GOOS)
 	}
 	if !supportsIPv6 {

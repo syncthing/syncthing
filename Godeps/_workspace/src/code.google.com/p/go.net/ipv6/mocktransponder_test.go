@@ -86,25 +86,3 @@ func acceptor(t *testing.T, ln net.Listener, done chan<- bool) {
 	}
 	c.Close()
 }
-
-func transponder(t *testing.T, ln net.Listener, done chan<- bool) {
-	defer func() { done <- true }()
-
-	c, err := ln.Accept()
-	if err != nil {
-		t.Errorf("net.Listener.Accept failed: %v", err)
-		return
-	}
-	defer c.Close()
-
-	b := make([]byte, 128)
-	n, err := c.Read(b)
-	if err != nil {
-		t.Errorf("net.Conn.Read failed: %v", err)
-		return
-	}
-	if _, err := c.Write(b[:n]); err != nil {
-		t.Errorf("net.Conn.Write failed: %v", err)
-		return
-	}
-}

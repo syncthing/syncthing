@@ -21,26 +21,27 @@ func (typ ICMPType) String() string {
 // packets.
 type ICMPFilter struct {
 	mu sync.RWMutex
-	rawICMPFilter
+	sysICMPFilter
 }
 
 // Set sets the ICMP type and filter action to the filter.
 func (f *ICMPFilter) Set(typ ICMPType, block bool) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.set(typ, block)
+	f.mu.Unlock()
 }
 
 // SetAll sets the filter action to the filter.
 func (f *ICMPFilter) SetAll(block bool) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.setAll(block)
+	f.mu.Unlock()
 }
 
 // WillBlock reports whether the ICMP type will be blocked.
 func (f *ICMPFilter) WillBlock(typ ICMPType) bool {
 	f.mu.RLock()
-	defer f.mu.RUnlock()
-	return f.willBlock(typ)
+	ok := f.willBlock(typ)
+	f.mu.RUnlock()
+	return ok
 }

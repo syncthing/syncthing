@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package ipv6
+// +build dragonfly plan9 solaris
 
-import "syscall"
+package ipv6
 
 func ipv6PathMTU(fd int) (int, error) {
 	// TODO(mikio): Implement this
-	return 0, syscall.EPLAN9
+	return 0, errOpNoSupport
 }

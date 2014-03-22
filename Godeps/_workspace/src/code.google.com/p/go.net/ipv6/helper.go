@@ -4,7 +4,12 @@
 
 package ipv6
 
-import "net"
+import (
+	"errors"
+	"net"
+)
+
+var errOpNoSupport = errors.New("operation not supported")
 
 func boolint(b bool) int {
 	if b {

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// +build freebsd linux netbsd openbsd
+
 package ipv6
 
 import (
@@ -9,13 +11,6 @@ import (
 	"os"
 	"syscall"
 	"unsafe"
-)
-
-const (
-	// See /usr/include/linux/in6.h.
-	syscall_IPV6_RECVPATHMTU = syscall.IPV6_DSTOPTS + 1 + iota
-	syscall_IPV6_PATHMTU
-	syscall_IPV6_DONTFRAG
 )
 
 const pktinfo = FlagDst | FlagInterface
@@ -77,40 +72,40 @@ func newControlMessage(opt *rawOpt) (oob []byte) {
 		l += syscall.CmsgSpace(4)
 	}
 	if opt.isset(pktinfo) {
-		l += syscall.CmsgSpace(syscall.SizeofInet6Pktinfo)
+		l += syscall.CmsgSpace(sysSizeofPacketInfo)
 	}
 	if opt.isset(FlagPathMTU) {
-		l += syscall.CmsgSpace(syscall.SizeofIPv6MTUInfo)
+		l += syscall.CmsgSpace(sysSizeofMTUInfo)
 	}
 	if l > 0 {
 		oob = make([]byte, l)
 		if opt.isset(FlagTrafficClass) {
 			m := (*syscall.Cmsghdr)(unsafe.Pointer(&oob[off]))
 			m.Level = ianaProtocolIPv6
-			m.Type = syscall.IPV6_RECVTCLASS
+			m.Type = sysSockoptReceiveTrafficClass
 			m.SetLen(syscall.CmsgLen(4))
 			off += syscall.CmsgSpace(4)
 		}
 		if opt.isset(FlagHopLimit) {
 			m := (*syscall.Cmsghdr)(unsafe.Pointer(&oob[off]))
 			m.Level = ianaProtocolIPv6
-			m.Type = syscall.IPV6_RECVHOPLIMIT
+			m.Type = sysSockoptReceiveHopLimit
 			m.SetLen(syscall.CmsgLen(4))
 			off += syscall.CmsgSpace(4)
 		}
 		if opt.isset(pktinfo) {
 			m := (*syscall.Cmsghdr)(unsafe.Pointer(&oob[off]))
 			m.Level = ianaProtocolIPv6
-			m.Type = syscall.IPV6_RECVPKTINFO
-			m.SetLen(syscall.CmsgLen(syscall.SizeofInet6Pktinfo))
-			off += syscall.CmsgSpace(syscall.SizeofInet6Pktinfo)
+			m.Type = sysSockoptReceivePacketInfo
+			m.SetLen(syscall.CmsgLen(sysSizeofPacketInfo))
+			off += syscall.CmsgSpace(sysSizeofPacketInfo)
 		}
 		if opt.isset(FlagPathMTU) {
 			m := (*syscall.Cmsghdr)(unsafe.Pointer(&oob[off]))
 			m.Level = ianaProtocolIPv6
-			m.Type = syscall_IPV6_RECVPATHMTU
-			m.SetLen(syscall.CmsgLen(syscall.SizeofIPv6MTUInfo))
-			off += syscall.CmsgSpace(syscall.SizeofIPv6MTUInfo)
+			m.Type = sysSockoptReceivePathMTU
+			m.SetLen(syscall.CmsgLen(sysSizeofMTUInfo))
+			off += syscall.CmsgSpace(sysSizeofMTUInfo)
 		}
 	}
 	return
@@ -130,19 +125,19 @@ func parseControlMessage(b []byte) (*ControlMessage, error) {
 			continue
 		}
 		switch m.Header.Type {
-		case syscall.IPV6_TCLASS:
+		case sysSockoptTrafficClass:
 			cm.TrafficClass = int(*(*byte)(unsafe.Pointer(&m.Data[:1][0])))
-		case syscall.IPV6_HOPLIMIT:
+		case sysSockoptHopLimit:
 			cm.HopLimit = int(*(*byte)(unsafe.Pointer(&m.Data[:1][0])))
-		case syscall.IPV6_PKTINFO:
-			pi := (*syscall.Inet6Pktinfo)(unsafe.Pointer(&m.Data[0]))
-			cm.Dst = pi.Addr[:]
-			cm.IfIndex = int(pi.Ifindex)
-		case syscall_IPV6_PATHMTU:
-			mi := (*syscall.IPv6MTUInfo)(unsafe.Pointer(&m.Data[0]))
+		case sysSockoptPacketInfo:
+			pi := (*sysPacketInfo)(unsafe.Pointer(&m.Data[0]))
+			cm.Dst = pi.IP[:]
+			cm.IfIndex = int(pi.IfIndex)
+		case sysSockoptPathMTU:
+			mi := (*sysMTUInfo)(unsafe.Pointer(&m.Data[0]))
 			cm.Dst = mi.Addr.Addr[:]
 			cm.IfIndex = int(mi.Addr.Scope_id)
-			cm.MTU = int(mi.Mtu)
+			cm.MTU = int(mi.MTU)
 		}
 	}
 	return cm, nil
@@ -162,7 +157,7 @@ func marshalControlMessage(cm *ControlMessage) (oob []byte) {
 	pion := false
 	if cm.Src.To4() == nil && cm.Src.To16() != nil || cm.IfIndex != 0 {
 		pion = true
-		l += syscall.CmsgSpace(syscall.SizeofInet6Pktinfo)
+		l += syscall.CmsgSpace(sysSizeofPacketInfo)
 	}
 	if len(cm.NextHop) == net.IPv6len {
 		l += syscall.CmsgSpace(syscall.SizeofSockaddrInet6)
@@ -172,7 +167,7 @@ func marshalControlMessage(cm *ControlMessage) (oob []byte) {
 		if cm.TrafficClass > 0 {
 			m := (*syscall.Cmsghdr)(unsafe.Pointer(&oob[off]))
 			m.Level = ianaProtocolIPv6
-			m.Type = syscall.IPV6_TCLASS
+			m.Type = sysSockoptTrafficClass
 			m.SetLen(syscall.CmsgLen(4))
 			data := oob[off+syscall.CmsgLen(0):]
 			*(*byte)(unsafe.Pointer(&data[:1][0])) = byte(cm.TrafficClass)
@@ -181,7 +176,7 @@ func marshalControlMessage(cm *ControlMessage) (oob []byte) {
 		if cm.HopLimit > 0 {
 			m := (*syscall.Cmsghdr)(unsafe.Pointer(&oob[off]))
 			m.Level = ianaProtocolIPv6
-			m.Type = syscall.IPV6_HOPLIMIT
+			m.Type = sysSockoptHopLimit
 			m.SetLen(syscall.CmsgLen(4))
 			data := oob[off+syscall.CmsgLen(0):]
 			*(*byte)(unsafe.Pointer(&data[:1][0])) = byte(cm.HopLimit)
@@ -190,26 +185,24 @@ func marshalControlMessage(cm *ControlMessage) (oob []byte) {
 		if pion {
 			m := (*syscall.Cmsghdr)(unsafe.Pointer(&oob[off]))
 			m.Level = ianaProtocolIPv6
-			m.Type = syscall.IPV6_PKTINFO
-			m.SetLen(syscall.CmsgLen(syscall.SizeofInet6Pktinfo))
-			pi := (*syscall.Inet6Pktinfo)(unsafe.Pointer(&oob[off+syscall.CmsgLen(0)]))
+			m.Type = sysSockoptPacketInfo
+			m.SetLen(syscall.CmsgLen(sysSizeofPacketInfo))
+			pi := (*sysPacketInfo)(unsafe.Pointer(&oob[off+syscall.CmsgLen(0)]))
 			if ip := cm.Src.To16(); ip != nil && ip.To4() == nil {
-				copy(pi.Addr[:], ip)
+				copy(pi.IP[:], ip)
 			}
 			if cm.IfIndex != 0 {
-				pi.Ifindex = uint32(cm.IfIndex)
+				pi.IfIndex = uint32(cm.IfIndex)
 			}
-			off += syscall.CmsgSpace(syscall.SizeofInet6Pktinfo)
+			off += syscall.CmsgSpace(sysSizeofPacketInfo)
 		}
 		if len(cm.NextHop) == net.IPv6len {
 			m := (*syscall.Cmsghdr)(unsafe.Pointer(&oob[off]))
 			m.Level = ianaProtocolIPv6
-			m.Type = syscall.IPV6_NEXTHOP
+			m.Type = sysSockoptNextHop
 			m.SetLen(syscall.CmsgLen(syscall.SizeofSockaddrInet6))
 			sa := (*syscall.RawSockaddrInet6)(unsafe.Pointer(&oob[off+syscall.CmsgLen(0)]))
-			sa.Family = syscall.AF_INET6
-			copy(sa.Addr[:], cm.NextHop)
-			sa.Scope_id = uint32(cm.IfIndex)
+			setSockaddr(sa, cm.NextHop, cm.IfIndex)
 			off += syscall.CmsgSpace(syscall.SizeofSockaddrInet6)
 		}
 	}

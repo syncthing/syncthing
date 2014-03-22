@@ -7,8 +7,8 @@
 	"Deps": [
 		{
 			"ImportPath": "code.google.com/p/go.net/ipv6",
-			"Comment": "null-88",
-			"Rev": "55437409069bb181ad562b1ad1e5f361c44aff17"
+			"Comment": "null-117",
+			"Rev": "c17ad62118ea511e1051721b429779fa40bddc74"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.text/transform",
@@ -22,15 +22,16 @@
 		},
 		{
 			"ImportPath": "github.com/calmh/ini",
-			"Rev": "1020b6d8618a7dc6031cda4a7782324eac346875"
+			"Rev": "386c4240a9684d91d9ec4d93651909b49c7269e1"
 		},
 		{
 			"ImportPath": "github.com/codegangsta/inject",
-			"Rev": "37512bbe41b4cc579cdd706742efc7bf34f94b06"
+			"Rev": "9aea7a2fa5b79ef7fc00f63a575e72df33b4e886"
 		},
 		{
 			"ImportPath": "github.com/codegangsta/martini",
-			"Rev": "f86ef0561cc5aa2801d41a7277fd480272ad1556"
+			"Comment": "v0.1-142-g8659df7",
+			"Rev": "8659df7a51aebe6c6120268cd5a8b4c34fa8441a"
 		}
 	]
 }
