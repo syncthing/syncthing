@@ -15,7 +15,7 @@ prepare() {
 }
 
 test() {
-	go test ./...
+	go test -cpu=1,2,4 ./...
 }
 
 tarDist() {

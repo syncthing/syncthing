@@ -5,7 +5,6 @@ import (
 	"io"
 	"testing"
 	"testing/quick"
-	"time"
 )
 
 func TestHeaderFunctions(t *testing.T) {
@@ -42,8 +41,8 @@ func TestPingErr(t *testing.T) {
 
 	for i := 0; i < 12; i++ {
 		for j := 0; j < 12; j++ {
-			m0 := &TestModel{}
-			m1 := &TestModel{}
+			m0 := newTestModel()
+			m1 := newTestModel()
 
 			ar, aw := io.Pipe()
 			br, bw := io.Pipe()
@@ -69,8 +68,9 @@ func TestRequestResponseErr(t *testing.T) {
 	var pass bool
 	for i := 0; i < 48; i++ {
 		for j := 0; j < 38; j++ {
-			m0 := &TestModel{data: []byte("response data")}
-			m1 := &TestModel{}
+			m0 := newTestModel()
+			m0.data = []byte("response data")
+			m1 := newTestModel()
 
 			ar, aw := io.Pipe()
 			br, bw := io.Pipe()
@@ -83,11 +83,10 @@ func TestRequestResponseErr(t *testing.T) {
 			d, err := c1.Request("default", "tn", 1234, 5678)
 			if err == e || err == ErrClosed {
 				t.Logf("Error at %d+%d bytes", i, j)
-				if !m1.closed {
+				if !m1.isClosed() {
 					t.Error("c1 not closed")
 				}
-				time.Sleep(1 * time.Millisecond)
-				if !m0.closed {
+				if !m0.isClosed() {
 					t.Error("c0 not closed")
 				}
 				continue
@@ -120,8 +119,8 @@ func TestRequestResponseErr(t *testing.T) {
 }
 
 func TestVersionErr(t *testing.T) {
-	m0 := &TestModel{}
-	m1 := &TestModel{}
+	m0 := newTestModel()
+	m1 := newTestModel()
 
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
@@ -136,14 +135,14 @@ func TestVersionErr(t *testing.T) {
 	}))
 	c0.flush()
 
-	if !m1.closed {
+	if !m1.isClosed() {
 		t.Error("Connection should close due to unknown version")
 	}
 }
 
 func TestTypeErr(t *testing.T) {
-	m0 := &TestModel{}
-	m1 := &TestModel{}
+	m0 := newTestModel()
+	m1 := newTestModel()
 
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
@@ -158,14 +157,14 @@ func TestTypeErr(t *testing.T) {
 	}))
 	c0.flush()
 
-	if !m1.closed {
+	if !m1.isClosed() {
 		t.Error("Connection should close due to unknown message type")
 	}
 }
 
 func TestClose(t *testing.T) {
-	m0 := &TestModel{}
-	m1 := &TestModel{}
+	m0 := newTestModel()
+	m1 := newTestModel()
 
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()

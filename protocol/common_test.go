@@ -1,14 +1,23 @@
 package protocol
 
-import "io"
+import (
+	"io"
+	"time"
+)
 
 type TestModel struct {
-	data   []byte
-	repo   string
-	name   string
-	offset int64
-	size   int
-	closed bool
+	data     []byte
+	repo     string
+	name     string
+	offset   int64
+	size     int
+	closedCh chan bool
+}
+
+func newTestModel() *TestModel {
+	return &TestModel{
+		closedCh: make(chan bool),
+	}
 }
 
 func (t *TestModel) Index(nodeID string, files []FileInfo) {
@@ -26,7 +35,16 @@ func (t *TestModel) Request(nodeID, repo, name string, offset int64, size int) (
 }
 
 func (t *TestModel) Close(nodeID string, err error) {
-	t.closed = true
+	close(t.closedCh)
+}
+
+func (t *TestModel) isClosed() bool {
+	select {
+	case <-t.closedCh:
+		return true
+	case <-time.After(1 * time.Second):
+		return false // Timeout
+	}
 }
 
 type ErrPipe struct {
