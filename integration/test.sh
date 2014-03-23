@@ -63,6 +63,8 @@ for i in 1 2 3 ; do
 	touch "empty-$i"
 	echo "  $i: common file"
 	dd if=/dev/urandom of=common bs=1000 count=1000 2>/dev/null
+	echo "  $i: large file"
+	dd if=/dev/urandom of=large-$i bs=1024k count=55 2>/dev/null
 	popd >/dev/null
 done
 
@@ -86,7 +88,9 @@ for i in 1 2 3 ; do
 	pushd "s$i" >/dev/null
 	rm -rf */?[02468ace]
 	../genfiles -maxexp 22 -files 600
-	../md5r -l > ../md5-$i
+	echo "  $i: append to large file"
+	dd if=/dev/urandom bs=1024k count=4 >> large-$i 2>/dev/null
+	../md5r -l | egrep -v "large-[^$i]" > ../md5-$i
 	popd >/dev/null
 done
 
