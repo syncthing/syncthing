@@ -177,6 +177,9 @@ func (c *Connection) Request(repo string, name string, offset int64, size int) (
 		return nil, ErrClosed
 	}
 	rc := make(chan asyncResult)
+	if _, ok := c.awaiting[c.nextID]; ok {
+		panic("id taken")
+	}
 	c.awaiting[c.nextID] = rc
 	header{0, c.nextID, messageTypeRequest}.encodeXDR(c.xw)
 	_, err := RequestMessage{repo, name, uint64(offset), uint32(size)}.encodeXDR(c.xw)
@@ -312,15 +315,17 @@ loop:
 				break loop
 			}
 
-			c.Lock()
-			rc, ok := c.awaiting[hdr.msgID]
-			delete(c.awaiting, hdr.msgID)
-			c.Unlock()
+			go func(hdr header, err error) {
+				c.Lock()
+				rc, ok := c.awaiting[hdr.msgID]
+				delete(c.awaiting, hdr.msgID)
+				c.Unlock()
 
-			if ok {
-				rc <- asyncResult{data, c.xr.Error()}
-				close(rc)
-			}
+				if ok {
+					rc <- asyncResult{data, err}
+					close(rc)
+				}
+			}(hdr, c.xr.Error())
 
 		case messageTypePing:
 			c.Lock()
