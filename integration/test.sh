@@ -2,6 +2,8 @@
 
 export STNORESTART=1
 
+iterations=5
+
 id1=I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA
 id2=JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ
 id3=373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA
@@ -13,7 +15,6 @@ go build json.go
 testConvergence() {
 	echo "Starting..."
 	for i in 1 2 3 ; do
-		sleep 1
 		syncthing -home "h$i" &
 	done
 
@@ -41,14 +42,20 @@ testConvergence() {
 		pushd "s$i" >/dev/null
 		../md5r -l | sort > ../md5-$i
 		popd >/dev/null
+	done
+
+	ok=0
+	for i in 1 2 3 ; do
 		if ! cmp "md5-$i" md5-tot >/dev/null ; then
 			echo "Fail: instance $i unconverged"
-			diff -u md5-tot "md5-$i"
-			exit
 		else
+			ok=$(($ok + 1))
 			echo "OK: instance $i converged"
 		fi
 	done
+	if [[ $ok != 3 ]] ; then
+		exit 1
+	fi
 }
 
 echo "Setting up files..."
@@ -83,16 +90,18 @@ grep -v common md5-3 > t ; mv t md5-3
 
 testConvergence
 
-echo "Add and remove random files..."
-for i in 1 2 3 ; do
-	pushd "s$i" >/dev/null
-	rm -rf */?[02468ace]
-	../genfiles -maxexp 22 -files 600
-	echo "  $i: append to large file"
-	dd if=/dev/urandom bs=1024k count=4 >> large-$i 2>/dev/null
-	../md5r -l | egrep -v "large-[^$i]" > ../md5-$i
-	popd >/dev/null
-done
+for ((t = 0; t < $iterations; t++)) ; do
+	echo "Add and remove random files ($((t+1)) / $iterations)..."
+	for i in 1 2 3 ; do
+		pushd "s$i" >/dev/null
+		rm -rf */?[02468ace]
+		../genfiles -maxexp 22 -files 600
+		echo "  $i: append to large file"
+		dd if=/dev/urandom bs=1024k count=4 >> large-$i 2>/dev/null
+		../md5r -l | egrep -v "large-[^$i]" > ../md5-$i
+		popd >/dev/null
+	done
 
-testConvergence
+	testConvergence
+done
 
