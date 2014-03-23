@@ -1,136 +1,156 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-<link rel="stylesheet" type="text/css" href="bootstrap/css/bootstrap.min.css">
-<script src="jquery.min.js" type="text/javascript"></script>
-<script src="bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
-<script src="app.js" type="text/javascript"></script>
-<style type="text/css">
-html, body {
-    font-size: 12pt;
-}
-strong {
-    font-weight: bold;
-    font-style: italic;
-}
-li {
-    margin-bottom: 0.75em;
-}
-#top {
-    background-image: url(bg.jpg);
-    background-position: center center;
-    background-size: cover;
-}
-#top .jumbotron{
-    margin-top: 65px;
-    margin-bottom: 65px;
-    background: rgba(40, 40, 40, 0.3);
-    color: #eee;
-}
-.container>.row {
-    margin-top: 40px;
-    margin-bottom: 40px;
-}
-</style>
+    <link rel="stylesheet" type="text/css" href="bootstrap/css/bootstrap.min.css">
+    <script src="jquery.min.js" type="text/javascript"></script>
+    <script src="bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
+    <script src="app.js" type="text/javascript"></script>
+    <style type="text/css">
+        html, body {
+            font-size: 12pt;
+        }
+        strong {
+            font-weight: bold;
+            font-style: italic;
+        }
+        li {
+            margin-bottom: 0.75em;
+        }
+        #top {
+            background-image: url(bg.jpg);
+            background-position: center center;
+            background-size: cover;
+        }
+        #top .jumbotron{
+            margin-top: 65px;
+            margin-bottom: 65px;
+            background: rgba(40, 40, 40, 0.3);
+            color: #eee;
+        }
+        .container>.row {
+            margin-top: 40px;
+            margin-bottom: 40px;
+        }
+    </style>
 </head>
 <body>
 
-<div id="top">
-    <a href="https://github.com/calmh/syncthing"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://github-camo.global.ssl.fastly.net/a6677b08c955af8400f44c6298f40e7d19cc5b2d/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f677261795f3664366436642e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png"></a>
-    <div class="container">
-        <div class="jumbotron">
-            <div class="col-md-2">
-                <h1><img src="logo.png" width="100"></h1>
-            </div>
-            <div class="col-md-10">
-                <h1>Syncthing</h1>
-                <p>Syncthing replaces Dropbox and BitTorrent Sync with something open, trustworthy and decentralized. Your data is your data alone and <em>you</em> deserve to choose where it is stored, if it is shared with some third party and how it's transmitted over the Internet.</p>
-                <p>Using syncthing, that control is returned to you.</p>
-            </div>
-            <div class="clearfix"></div>
-        </div>
-    </div>
-</div>
-<div id="main">
-    <div class="container">
-        <div class="row">
-            <div class="col-sm-12">
-                <h2>Secure & Private</h2>
-                <hr/>
-                <div class="row">
-                    <div class="col-sm-8">
-                        <ul>
-                            <li><strong>Private.</strong> None of your data is ever stored anywhere else than on your computers. There is no central server that might be compromised, legally or illegally.</li>
-                            <li><strong>Encrypted.</strong> All communication is secured using TLS. The encryption used includes perfect forward secrecy to prevent any eavesdropper from ever gaining access to your data.</li>
-                            <li><strong>Authenticated.</strong> Every node is identified by a strong cryptographic certificate. Only nodes you have explicitly allowed can connect to your cluster.</li>
-                        </ul>
-                    </div>
-                    <div class="col-sm-4">
-                        <img src="rsa.png" width="360" class="img-thumbnail">
-                    </div>
+    <div id="top">
+        <a href="https://github.com/calmh/syncthing"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://github-camo.global.ssl.fastly.net/a6677b08c955af8400f44c6298f40e7d19cc5b2d/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f677261795f3664366436642e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png"></a>
+        <div class="container">
+            <div class="jumbotron">
+                <div class="col-md-2">
+                    <h1><img src="logo.png" width="100"></h1>
                 </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-sm-12">
-                <h2>Open Development</h2>
-                <hr/>
-                <div class="row">
-                    <div class="col-sm-8">
-                        <ul>
-                            <li><strong>Open Source.</strong> All source code is available on GitHub &mdash; what you see is what you get, there is no hidden funny business.
-                            <br><a href="https://github.com/calmh/syncthing/tree/master">Syncthing Source Code</a></li>
-                            <li><strong>Open Protocol.</strong> The protocol is a documented standard &mdash; no hidden magic.
-                            <br><a href="https://github.com/calmh/syncthing/blob/master/protocol/PROTOCOL.md">Syncthing Protocol Definition</a></li>
-                            <li><strong>Open Process.</strong> Any bugs found are immediately visible for anyone to browse &mdash; no hidden flaws.
-                            <br><a href="https://github.com/calmh/syncthing/issues?state=open">Syncthing Issue Tracker</a></li>
-                        </ul>
-                    </div>
-                    <div class="col-sm-4">
-                        <img src="code.png" width="360" class="img-thumbnail">
-                    </div>
+                <div class="col-md-10">
+                    <h1>Syncthing</h1>
+                    <p>Syncthing replaces Dropbox and BitTorrent Sync with something open, trustworthy and decentralized. Your data is your data alone and <em>you</em> deserve to choose where it is stored, if it is shared with some third party and how it's transmitted over the Internet.</p>
+                    <p>Using syncthing, that control is returned to you.</p>
                 </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-sm-12">
-                <h2>Easy to Use</h2>
-                <hr/>
-                <div class="row">
-                    <div class="col-sm-8">
-                        <ul>
-                            <li><strong>Web GUI.</strong> Configure and monitor Syncthing via your usual web browser.</li>
-                            <li><strong>Portable.</strong> Works on Mac OS X, Windows, Linux, FreeBSD and Solaris. Run it on your desktop computers and synchronize them with your server for backup.</li>
-                        </ul>
-                    </div>
-                    <div class="col-sm-4">
-                        <img src="screenshot.png" width="360" class="img-thumbnail">
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-sm-12">
-                <h2>Get Started</h2>
-                <hr/>
-                <ol>
-                    <li>Download the latest version of Syncthing for your operating system from <a href="https://github.com/calmh/syncthing/releases">GitHub Releases</a>.
-                    <li>Unpack it, run it, and look around in the GUI.</li>
-                    <li>Take a look in the <a href="https://github.com/calmh/syncthing/wiki/Getting-Started">Getting Started Guide</a> for more information and tips.
-                </ol>
-            </div>
-        </div>
-        <div class="row">
-            <hr/>
-            <div class="col-sm-12 text-center">
-                <iframe src="http://ghbtns.com/github-btn.html?user=calmh&repo=syncthing&type=watch&count=true&size=large"
-                    allowtransparency="true" frameborder="0" scrolling="0" width="170" height="30"></iframe>
-                <iframe src="http://ghbtns.com/github-btn.html?user=calmh&repo=syncthing&type=fork&count=true&size=large"
-                    allowtransparency="true" frameborder="0" scrolling="0" width="170" height="30"></iframe>
+                <div class="clearfix"></div>
             </div>
         </div>
     </div>
-</div>
-</body>
-</html>
+    <div id="main">
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-12">
+                    <h2>Secure & Private</h2>
+                    <hr/>
+                    <div class="row">
+                        <div class="col-sm-8">
+                            <ul>
+                                <li><strong>Private.</strong> None of your data is ever stored anywhere else than on your computers. There is no central server that might be compromised, legally or illegally.</li>
+                                <li><strong>Encrypted.</strong> All communication is secured using TLS. The encryption used includes perfect forward secrecy to prevent any eavesdropper from ever gaining access to your data.</li>
+                                <li><strong>Authenticated.</strong> Every node is identified by a strong cryptographic certificate. Only nodes you have explicitly allowed can connect to your cluster.</li>
+                            </ul>
+                        </div>
+                        <div class="col-sm-4">
+                            <img src="rsa.png" width="360" class="img-thumbnail">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <h2>Open Development</h2>
+                    <hr/>
+                    <div class="row">
+                        <div class="col-sm-8">
+                            <ul>
+                                <li><strong>Open Source.</strong> All source code is available on GitHub &mdash; what you see is what you get, there is no hidden funny business.
+                                    <br><a href="https://github.com/calmh/syncthing/tree/master">Syncthing Source Code</a></li>
+                                    <li><strong>Open Protocol.</strong> The protocol is a documented standard &mdash; no hidden magic.
+                                        <br><a href="https://github.com/calmh/syncthing/blob/master/protocol/PROTOCOL.md">Syncthing Protocol Definition</a></li>
+                                        <li><strong>Open Process.</strong> Any bugs found are immediately visible for anyone to browse &mdash; no hidden flaws.
+                                            <br><a href="https://github.com/calmh/syncthing/issues?state=open">Syncthing Issue Tracker</a></li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-sm-4">
+                                        <img src="code.png" width="360" class="img-thumbnail">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <h2>Easy to Use</h2>
+                                <hr/>
+                                <div class="row">
+                                    <div class="col-sm-8">
+                                        <ul>
+                                            <li><strong>Web GUI.</strong> Configure and monitor Syncthing via your usual web browser.</li>
+                                            <li><strong>Portable.</strong> Works on Mac OS X, Windows, Linux, FreeBSD and Solaris. Run it on your desktop computers and synchronize them with your server for backup.</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-sm-4">
+                                        <img src="screenshot.png" width="360" class="img-thumbnail">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h2>Get Started</h2>
+                                <hr/>
+                                <ol>
+                                    <li>Download the latest version of Syncthing for your operating system from <a href="https://github.com/calmh/syncthing/releases">GitHub Releases</a>.
+                                        <li>Unpack it, run it, and look around in the GUI.</li>
+                                        <li>Take a look in the <a href="https://github.com/calmh/syncthing/wiki/Getting-Started">Getting Started Guide</a> for more information and tips.
+                                        </ol>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <h2>Release Schedule &amp; Versioning</h2>
+                                        <hr/>
+
+                                        <p>There is generally a <strong>patch release</strong> once a week. Patch releases contain bugfixes and are always backwards compatible. You should probably run the latest one.</p>
+
+                                        <p>The next minor release is <strong>v0.7</strong>. It will include some major rewiring of the internals and the groundwork for having a node join multiple clusters and synchronize multiple separate directories. It's scheduled to be done Real Soon Now &mdash; you can see what remains to be done in the <a href="https://github.com/calmh/syncthing/issues?milestone=4&state=open">issue tracker</a>. Expect it to be somewhat rough around the edges on the new functionality and the following patch releases to clean that up.</p>
+
+                                        <p>After that, <strong>v0.8</strong> will be the next minor release. I expect this release to focus mostly on UI, usability and reliability. There's no schedule and no specifics yet.</p>
+
+                                        <p>The next major release will be <strong>v1.0</strong>. Major version one is serious business; at this point, syncthing should work well and contain features that are useful to many people. The protocol should not have had to change in a good long while and the UI should be good enough that it can be used without pain. It should not be perfect, or we'll never get it out the door.</p>
+
+                                        <p>Syncthing follows the <a href="http://semver.org/">semantic versioning guidelines</a> for version numbering.</p>
+
+                                        <p class="text-muted"><small>This means every release is has a three part version number, <em>x.y.z</em>. The last number, <em>z</em>, is called the <em>patch version</em> and is incremented when there is a new release that is backwards compatible and only includes bugfixes. The second number, <em>y</em>, is called the <em>minor version</em> and is incremented when there is a new release that is backwards compatible but includes new features as well. The first number, <em>x</em>, is the <em>major version</em> and only changes when there are big, backwards incompatible changes. As long as the major version is zero (i.e. we're at <em>v0.y.z</em>), we play a bit fast and loose with these rules.</small></p>
+
+                                    </div>
+                                </div>
+
+
+                                <div class="row">
+                                    <hr/>
+                                    <div class="col-sm-12 text-center">
+                                        <iframe src="http://ghbtns.com/github-btn.html?user=calmh&repo=syncthing&type=watch&count=true&size=large"
+                                        allowtransparency="true" frameborder="0" scrolling="0" width="170" height="30"></iframe>
+                                        <iframe src="http://ghbtns.com/github-btn.html?user=calmh&repo=syncthing&type=fork&count=true&size=large"
+                                        allowtransparency="true" frameborder="0" scrolling="0" width="170" height="30"></iframe>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
 
