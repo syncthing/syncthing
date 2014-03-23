@@ -507,7 +507,13 @@ func (m *Model) RepoID() string {
 func (m *Model) AddConnection(rawConn io.Closer, protoConn Connection) {
 	nodeID := protoConn.ID()
 	m.pmut.Lock()
+	if _, ok := m.protoConn[nodeID]; ok {
+		panic("add existing node")
+	}
 	m.protoConn[nodeID] = protoConn
+	if _, ok := m.rawConn[nodeID]; ok {
+		panic("add existing node")
+	}
 	m.rawConn[nodeID] = rawConn
 	m.pmut.Unlock()
 
