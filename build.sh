@@ -6,7 +6,7 @@ distFiles=(README.md LICENSE) # apart from the binary itself
 version=$(git describe --always)
 
 build() {
-	if which -s godep ; then
+	if command -v godep >/dev/null ; then
 		godep=godep
 	else
 		echo "Warning: no godep, using \"go get\" instead."
