@@ -44,6 +44,7 @@ func startGUI(addr string, m *Model) {
 		mr := martini.New()
 		mr.Use(embeddedStatic())
 		mr.Use(martini.Recovery())
+		mr.Use(restMiddleware)
 		mr.Action(router.Handle)
 		mr.Map(m)
 		err := http.ListenAndServe(addr, mr)
@@ -55,6 +56,12 @@ func startGUI(addr string, m *Model) {
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/index.html", 302)
+}
+
+func restMiddleware(w http.ResponseWriter, r *http.Request) {
+	if len(r.URL.Path) >= 6 && r.URL.Path[:6] == "/rest/" {
+		w.Header().Set("Cache-Control", "no-cache")
+	}
 }
 
 func restGetVersion() string {
