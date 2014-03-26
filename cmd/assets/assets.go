@@ -63,7 +63,7 @@ func walkerFor(basePath string) filepath.WalkFunc {
 
 			name, _ = filepath.Rel(basePath, name)
 			assets = append(assets, asset{
-				Name:    name,
+				Name:    filepath.ToSlash(name),
 				HexData: fmt.Sprintf("%x", buf.Bytes()),
 			})
 		}
