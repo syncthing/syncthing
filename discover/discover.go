@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"code.google.com/p/go.net/ipv6"
 
 	"github.com/calmh/syncthing/buffers"
+	"github.com/calmh/syncthing/mc"
 )
 
 const (
@@ -19,18 +19,14 @@ const (
 )
 
 type Discoverer struct {
-	MyID             string
-	ListenAddresses  []string
-	BroadcastIntv    time.Duration
-	ExtBroadcastIntv time.Duration
-
-	conn         *ipv6.PacketConn
-	intfs        []*net.Interface
-	registry     map[string][]string
-	registryLock sync.RWMutex
-	extServer    string
-	group        *net.UDPAddr
-
+	MyID                string
+	ListenAddresses     []string
+	BroadcastIntv       time.Duration
+	ExtBroadcastIntv    time.Duration
+	beacon              *mc.Beacon
+	registry            map[string][]string
+	registryLock        sync.RWMutex
+	extServer           string
 	localBroadcastTick  <-chan time.Time
 	forcedBroadcastTick chan time.Time
 }
@@ -50,43 +46,9 @@ func NewDiscoverer(id string, addresses []string, extServer string) (*Discoverer
 		ListenAddresses:  addresses,
 		BroadcastIntv:    30 * time.Second,
 		ExtBroadcastIntv: 1800 * time.Second,
+		beacon:           mc.NewBeacon("239.21.0.25", 21025),
 		registry:         make(map[string][]string),
 		extServer:        extServer,
-		group:            &net.UDPAddr{IP: net.ParseIP("ff02::2012:1025"), Port: AnnouncementPort},
-	}
-
-	// Listen on a multicast socket. This enables sharing the socket, i.e.
-	// other instances of syncting on the same box can listen on the same
-	// group/port.
-
-	conn, err := net.ListenPacket("udp6", fmt.Sprintf("[ff02::]:%d", AnnouncementPort))
-	if err != nil {
-		return nil, err
-	}
-	disc.conn = ipv6.NewPacketConn(conn)
-
-	// Join the multicast group on as many interfaces as possible. Remember
-	// which those were.
-
-	intfs, err := net.Interfaces()
-	if err != nil {
-		log.Printf("discover/interfaces: %v; no local announcements", err)
-		conn.Close()
-		return nil, err
-	}
-
-	for _, intf := range intfs {
-		intf := intf
-		addrs, err := intf.Addrs()
-		if err == nil && len(addrs) > 0 && intf.Flags&net.FlagMulticast != 0 && intf.Flags&net.FlagUp != 0 {
-			if err := disc.conn.JoinGroup(&intf, disc.group); err != nil {
-				if debug {
-					dlog.Printf("%v; not joining on %s", err, intf.Name)
-				}
-			} else {
-				disc.intfs = append(disc.intfs, &intf)
-			}
-		}
 	}
 
 	// Receive announcements sent to the local multicast group.
@@ -140,21 +102,9 @@ func (d *Discoverer) announcementPkt() []byte {
 
 func (d *Discoverer) sendLocalAnnouncements() {
 	var buf = d.announcementPkt()
-	var errCounter = 0
-	var err error
 
-	wcm := ipv6.ControlMessage{HopLimit: 1}
-	for errCounter < maxErrors {
-		for _, intf := range d.intfs {
-			wcm.IfIndex = intf.Index
-			if _, err = d.conn.WriteTo(buf, &wcm, d.group); err != nil {
-				log.Printf("discover/sendLocalAnnouncements: on %s: %v; no local announcement", intf.Name, err)
-				errCounter++
-				continue
-			} else {
-				errCounter = 0
-			}
-		}
+	for {
+		d.beacon.Send(buf)
 
 		select {
 		case <-d.localBroadcastTick:
@@ -196,34 +146,22 @@ func (d *Discoverer) sendExternalAnnouncements() {
 }
 
 func (d *Discoverer) recvAnnouncements() {
-	var buf = make([]byte, 1024)
-	var errCounter = 0
-	var err error
-	for errCounter < maxErrors {
-		n, _, addr, err := d.conn.ReadFrom(buf)
-		if err != nil {
-			errCounter++
-			time.Sleep(time.Second)
-			continue
-		}
+	for {
+		buf, addr := d.beacon.Recv()
 
 		if debug {
-			dlog.Printf("read announcement:\n%s", hex.Dump(buf[:n]))
+			dlog.Printf("read announcement:\n%s", hex.Dump(buf))
 		}
 
 		var pkt AnnounceV2
-		err = pkt.UnmarshalXDR(buf[:n])
+		err := pkt.UnmarshalXDR(buf)
 		if err != nil {
-			errCounter++
-			time.Sleep(time.Second)
 			continue
 		}
 
 		if debug {
 			dlog.Printf("parsed announcement: %#v", pkt)
 		}
-
-		errCounter = 0
 
 		if pkt.NodeID != d.MyID {
 			var addrs []string
@@ -252,7 +190,6 @@ func (d *Discoverer) recvAnnouncements() {
 			d.registryLock.Unlock()
 		}
 	}
-	log.Println("discover/read: stopping due to too many errors:", err)
 }
 
 func (d *Discoverer) externalLookup(node string) []string {

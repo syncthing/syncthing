@@ -1,15 +1,10 @@
 {
 	"ImportPath": "github.com/calmh/syncthing",
-	"GoVersion": "devel +3ca54dd30864 Sat Mar 22 11:05:40 2014 -0700",
+	"GoVersion": "go1.2.1",
 	"Packages": [
 		"./cmd/syncthing"
 	],
 	"Deps": [
-		{
-			"ImportPath": "code.google.com/p/go.net/ipv6",
-			"Comment": "null-117",
-			"Rev": "c17ad62118ea511e1051721b429779fa40bddc74"
-		},
 		{
 			"ImportPath": "code.google.com/p/go.text/transform",
 			"Comment": "null-81",
