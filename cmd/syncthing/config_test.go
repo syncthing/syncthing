@@ -11,7 +11,6 @@ func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		ListenAddress:      []string{":22000"},
 		ReadOnly:           false,
-		AllowDelete:        true,
 		FollowSymlinks:     true,
 		GUIEnabled:         true,
 		GUIAddress:         "127.0.0.1:8080",
@@ -90,7 +89,6 @@ func TestOverriddenValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		ListenAddress:      []string{":23000"},
 		ReadOnly:           true,
-		AllowDelete:        false,
 		FollowSymlinks:     false,
 		GUIEnabled:         false,
 		GUIAddress:         "125.2.2.2:8080",

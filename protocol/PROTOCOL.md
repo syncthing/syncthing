@@ -19,20 +19,31 @@ File data is described and transferred in units of _blocks_, each being
 Transport and Authentication
 ----------------------------
 
-BEP itself does not provide retransmissions, compression, encryption nor
-authentication. It is expected that this is performed at lower layers of
-the networking stack. The typical deployment stack is the following:
+BEP is deployed as the highest level in a protocol stack, with the lower
+level protocols providing compression, encryption and authentication.
+The transport protocol is always TCP.
 
     +-----------------------------|
     |   Block Exchange Protocol   |
     |-----------------------------|
     |   Compression (RFC 1951)    |
     |-----------------------------|
-    | Encryption & Auth (TLS 1.0) |
+    | Encryption & Auth (TLS 1.2) |
     |-----------------------------|
     |             TCP             |
     |-----------------------------|
-    v                             v
+    v             ...             v
+
+Compression is started directly after a successfull TLS handshake,
+before the first message is sent. The compression is flushed at each
+message boundary.
+
+The TLS layer shall use a strong cipher suite. Only cipher suites
+without known weaknesses and providing Perfect Forward Secrecy (PFS) can
+be considered strong. Examples of valid cipher suites are given at the
+end of this document. This is not to be taken as an exhaustive list of
+allowed cipher suites but represents best practices at the time of
+writing.
 
 The exact nature of the authentication is up to the application.
 Possibilities include certificates signed by a common trusted CA,
@@ -43,10 +54,6 @@ There is no required order or synchronization among BEP messages - any
 message type may be sent at any time and the sender need not await a
 response to one message before sending another. Responses must however
 be sent in the same order as the requests are received.
-
-Compression is started directly after a successfull TLS handshake,
-before the first message is sent. The compression is flushed at each
-message boundary.
 
 Messages
 --------
@@ -134,7 +141,9 @@ response to the Index message.
     +                      Modified (64 bits)                       +
     |                                                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                            Version                            |
+    |                                                               |
+    +                       Version (64 bits)                       +
+    |                                                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                       Number of Blocks                        |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -163,14 +172,16 @@ response to the Index message.
 The Repository field identifies the repository that the index message
 pertains to. For single repository implementations an empty repository
 ID is acceptable, or the word "default". The Name is the file name path
-relative to the repository root. The Name is always in UTF-8 NFC regardless
-of operating system or file system specific conventions. The combination of
-Repository and Name uniquely identifies each file in a cluster.
+relative to the repository root. The Name is always in UTF-8 NFC
+regardless of operating system or file system specific conventions. The
+combination of Repository and Name uniquely identifies each file in a
+cluster.
 
-The Version field is a counter that is initially zero for each file. It
-is incremented each time a change is detected. The combination of
-Repository, Name and Version uniquely identifies the contents of a file
-at a certain point in time.
+The Version field is the value of a cluster wide Lamport clock
+indicating when the change was detected. The clock ticks on every
+detected and received change. The combination of Repository, Name and
+Version uniquely identifies the contents of a file at a certain point in
+time.
 
 The Flags field is made up of the following single bit flags:
 
@@ -220,7 +231,7 @@ block which may represent a smaller amount of data.
         string Name<>;
         unsigned int Flags;
         hyper Modified;
-        unsigned int Version;
+        unsigned hyper Version;
         BlockInfo Blocks<>;
     }
 
@@ -338,8 +349,8 @@ Well known keys:
 
   - "clientId" -- The name of the implementation. Example: "syncthing".
 
-  - "clientVersion" -- The version of the client. Example: "v1.0.33-47". The
-    Following the SemVer 2.0 specification for version strings is
+  - "clientVersion" -- The version of the client. Example: "v1.0.33-47".
+    The Following the SemVer 2.0 specification for version strings is
     encouraged but not enforced.
 
 #### Graphical Representation
@@ -411,3 +422,15 @@ their repository contents and transmits an Index Update message (10).
 Both peers enter idle state after 10. At some later time 11, peer A
 determines that it has not seen data from B for some time and sends a
 Ping request. A response is sent at 12.
+
+Examples of Acceptable Cipher Suites
+------------------------------------
+
+0x009F DHE-RSA-AES256-GCM-SHA384 (TLSv1.2 DH RSA AESGCM(256) AEAD)
+0x006B DHE-RSA-AES256-SHA256 (TLSv1.2 DH RSA AES(256) SHA256)
+0xC030 ECDHE-RSA-AES256-GCM-SHA384 (TLSv1.2 ECDH RSA AESGCM(256) AEAD)
+0xC028 ECDHE-RSA-AES256-SHA384 (TLSv1.2 ECDH RSA AES(256) SHA384)
+0x009E DHE-RSA-AES128-GCM-SHA256 (TLSv1.2 DH RSA AESGCM(128) AEAD)
+0x0067 DHE-RSA-AES128-SHA256 (TLSv1.2 DH RSA AES(128) SHA256)
+0xC02F ECDHE-RSA-AES128-GCM-SHA256 (TLSv1.2 ECDH RSA AESGCM(128) AEAD)
+0xC027 ECDHE-RSA-AES128-SHA256 (TLSv1.2 ECDH RSA AES(128) SHA256)

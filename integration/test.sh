@@ -68,16 +68,10 @@ for i in 1 2 3 ; do
 	../genfiles -maxexp 22 -files 600
 	echo "  $i: empty file"
 	touch "empty-$i"
-	echo "  $i: common file"
-	dd if=/dev/urandom of=common bs=1000 count=1000 2>/dev/null
 	echo "  $i: large file"
 	dd if=/dev/urandom of=large-$i bs=1024k count=55 2>/dev/null
 	popd >/dev/null
 done
-
-# instance 1 common file should be the newest, the other should disappear
-sleep 2
-touch "s1/common"
 
 echo "MD5-summing..."
 for i in 1 2 3 ; do
@@ -85,8 +79,6 @@ for i in 1 2 3 ; do
 	../md5r -l > ../md5-$i
 	popd >/dev/null
 done
-grep -v common md5-2 > t ; mv t md5-2
-grep -v common md5-3 > t ; mv t md5-3
 
 testConvergence
 

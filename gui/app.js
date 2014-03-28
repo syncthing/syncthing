@@ -28,7 +28,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         {id: 'MaxChangeKbps', descr: 'Max File Change Rate (KBps)', type: 'number', restart: true},
 
         {id: 'ReadOnly', descr: 'Read Only', type: 'bool', restart: true},
-        {id: 'AllowDelete', descr: 'Allow Delete', type: 'bool', restart: true},
         {id: 'FollowSymlinks', descr: 'Follow Symlinks', type: 'bool', restart: true},
         {id: 'GlobalAnnEnabled', descr: 'Global Announce', type: 'bool', restart: true},
         {id: 'LocalAnnEnabled', descr: 'Local Announce', type: 'bool', restart: true},

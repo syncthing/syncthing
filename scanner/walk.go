@@ -5,12 +5,11 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"code.google.com/p/go.text/unicode/norm"
+	"github.com/calmh/syncthing/lamport"
 )
 
 type Walker struct {
@@ -36,7 +35,7 @@ type Walker struct {
 }
 
 type TempNamer interface {
-	// Temporary returns a temporary name for the filed referred to by path.
+	// Temporary returns a temporary name for the filed referred to by filepath.
 	TempName(path string) string
 	// IsTemporary returns true if path refers to the name of temporary file.
 	IsTemporary(path string) bool
@@ -82,7 +81,7 @@ func (w *Walker) Walk() (files []File, ignore map[string][]string) {
 
 		for _, info := range fis {
 			if info.Mode()&os.ModeSymlink != 0 {
-				dir := path.Join(w.Dir, info.Name()) + "/"
+				dir := filepath.Join(w.Dir, info.Name()) + "/"
 				filepath.Walk(dir, w.loadIgnoreFiles(dir, ignore))
 				filepath.Walk(dir, hashFiles)
 			}
@@ -119,7 +118,7 @@ func (w *Walker) loadIgnoreFiles(dir string, ign map[string][]string) filepath.W
 			return nil
 		}
 
-		if pn, sn := path.Split(rn); sn == w.IgnoreFile {
+		if pn, sn := filepath.Split(rn); sn == w.IgnoreFile {
 			pn := strings.Trim(pn, "/")
 			bs, _ := ioutil.ReadFile(p)
 			lines := bytes.Split(bs, []byte("\n"))
@@ -154,9 +153,6 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			return nil
 		}
 
-		// Internally, we always use unicode normalization form C
-		rn = norm.NFC.String(rn)
-
 		if w.TempNamer != nil && w.TempNamer.IsTemporary(rn) {
 			if debug {
 				dlog.Println("temporary:", rn)
@@ -164,7 +160,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			return nil
 		}
 
-		if _, sn := path.Split(rn); sn == w.IgnoreFile {
+		if _, sn := filepath.Split(rn); sn == w.IgnoreFile {
 			if debug {
 				dlog.Println("ignorefile:", rn)
 			}
@@ -186,22 +182,24 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 				cf := w.CurrentFiler.CurrentFile(rn)
 				if cf.Modified == info.ModTime().Unix() {
 					if debug {
-						dlog.Println("unchanged:", rn)
+						dlog.Println("unchanged:", cf)
 					}
 					*res = append(*res, cf)
 					return nil
 				}
 
 				if w.Suppressor != nil && w.Suppressor.Suppress(rn, info) {
-					if debug {
-						dlog.Println("suppressed:", rn)
-					}
 					if !w.suppressed[rn] {
 						w.suppressed[rn] = true
 						log.Printf("INFO: Changes to %q are being temporarily suppressed because it changes too frequently.", p)
+						cf.Suppressed = true
+						cf.Version++
 					}
-					cf.Suppressed = true
+					if debug {
+						dlog.Println("suppressed:", cf)
+					}
 					*res = append(*res, cf)
+					return nil
 				} else if w.suppressed[rn] {
 					log.Printf("INFO: Changes to %q are no longer suppressed.", p)
 					delete(w.suppressed, rn)
@@ -231,6 +229,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			}
 			f := File{
 				Name:     rn,
+				Version:  lamport.Default.Tick(0),
 				Size:     info.Size(),
 				Flags:    uint32(info.Mode()),
 				Modified: info.ModTime().Unix(),
@@ -254,11 +253,11 @@ func (w *Walker) cleanTempFile(path string, info os.FileInfo, err error) error {
 }
 
 func (w *Walker) ignoreFile(patterns map[string][]string, file string) bool {
-	first, last := path.Split(file)
+	first, last := filepath.Split(file)
 	for prefix, pats := range patterns {
 		if len(prefix) == 0 || prefix == first || strings.HasPrefix(first, prefix+"/") {
 			for _, pattern := range pats {
-				if match, _ := path.Match(pattern, last); match {
+				if match, _ := filepath.Match(pattern, last); match {
 					return true
 				}
 			}

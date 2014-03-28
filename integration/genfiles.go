@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	mr "math/rand"
 	"os"
-	"path"
+	"path/filepath"
 	"time"
 )
 
@@ -27,7 +27,7 @@ func main() {
 
 	for i := 0; i < files; i++ {
 		n := name()
-		p0 := path.Join(string(n[0]), n[0:2])
+		p0 := filepath.Join(string(n[0]), n[0:2])
 		os.MkdirAll(p0, 0755)
 		s := 1 << uint(mr.Intn(maxexp))
 		a := 128 * 1024
@@ -37,7 +37,7 @@ func main() {
 		s += mr.Intn(a)
 		b := make([]byte, s)
 		rand.Reader.Read(b)
-		p1 := path.Join(p0, n)
+		p1 := filepath.Join(p0, n)
 		ioutil.WriteFile(p1, b, 0644)
 
 		os.Chmod(p1, os.FileMode(mr.Intn(0777)|0400))

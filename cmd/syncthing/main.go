@@ -11,7 +11,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
@@ -51,12 +51,15 @@ const (
 
  STTRACE      A comma separated string of facilities to trace. The valid
               facility strings:
-              - "scanner"  (the file change scanner)
               - "discover" (the node discovery package)
-              - "net"      (connecting and disconnecting, network messages)
+              - "files"    (file set store)
               - "idx"      (index sending and receiving)
+              - "mc"       (multicast beacon)
               - "need"     (file need calculations)
-              - "pull"     (file pull activity)`
+              - "net"      (connecting and disconnecting, network messages)
+              - "pull"     (file pull activity)
+              - "scanner"  (the file change scanner)
+              `
 )
 
 func main() {
@@ -105,7 +108,7 @@ func main() {
 
 	// Prepare to be able to save configuration
 
-	cfgFile := path.Join(confDir, "config.xml")
+	cfgFile := filepath.Join(confDir, "config.xml")
 	go saveConfigLoop(cfgFile)
 
 	// Load the configuration file, if it exists.
@@ -121,13 +124,13 @@ func main() {
 		cf.Close()
 	} else {
 		// No config.xml, let's try the old syncthing.ini
-		iniFile := path.Join(confDir, "syncthing.ini")
+		iniFile := filepath.Join(confDir, "syncthing.ini")
 		cf, err := os.Open(iniFile)
 		if err == nil {
 			infoln("Migrating syncthing.ini to config.xml")
 			iniCfg := ini.Parse(cf)
 			cf.Close()
-			os.Rename(iniFile, path.Join(confDir, "migrated_syncthing.ini"))
+			Rename(iniFile, filepath.Join(confDir, "migrated_syncthing.ini"))
 
 			cfg, _ = readConfigXML(nil)
 			cfg.Repositories = []RepositoryConfiguration{
@@ -152,7 +155,7 @@ func main() {
 		cfg, err = readConfigXML(nil)
 		cfg.Repositories = []RepositoryConfiguration{
 			{
-				Directory: path.Join(getHomeDir(), "Sync"),
+				Directory: filepath.Join(getHomeDir(), "Sync"),
 				Nodes: []NodeConfiguration{
 					{NodeID: myID, Addresses: []string{"dynamic"}},
 				},
@@ -259,35 +262,16 @@ func main() {
 
 	// Routine to pull blocks from other nodes to synchronize the local
 	// repository. Does not run when we are in read only (publish only) mode.
-	if !cfg.Options.ReadOnly {
+	if cfg.Options.ReadOnly {
 		if verbose {
-			if cfg.Options.AllowDelete {
-				infoln("Deletes from peer nodes are allowed")
-			} else {
-				infoln("Deletes from peer nodes will be ignored")
-			}
+			okln("Ready to synchronize (read only; no external updates accepted)")
+		}
+		m.StartRO()
+	} else {
+		if verbose {
 			okln("Ready to synchronize (read-write)")
 		}
-		m.StartRW(cfg.Options.AllowDelete, cfg.Options.ParallelRequests)
-	} else if verbose {
-		okln("Ready to synchronize (read only; no external updates accepted)")
-	}
-
-	// Periodically scan the repository and update the local
-	// XXX: Should use some fsnotify mechanism.
-	go func() {
-		td := time.Duration(cfg.Options.RescanIntervalS) * time.Second
-		for {
-			time.Sleep(td)
-			if m.LocalAge() > (td / 2).Seconds() {
-				updateLocalModel(m, w)
-			}
-		}
-	}()
-
-	if verbose {
-		// Periodically print statistics
-		go printStatsLoop(m)
+		m.StartRW(cfg.Options.ParallelRequests)
 	}
 
 	select {}
@@ -344,14 +328,7 @@ func saveConfigLoop(cfgFile string) {
 			continue
 		}
 
-		if runtime.GOOS == "windows" {
-			err := os.Remove(cfgFile)
-			if err != nil && !os.IsNotExist(err) {
-				warnln(err)
-			}
-		}
-
-		err = os.Rename(cfgFile+".tmp", cfgFile)
+		err = Rename(cfgFile+".tmp", cfgFile)
 		if err != nil {
 			warnln(err)
 		}
@@ -360,37 +337,6 @@ func saveConfigLoop(cfgFile string) {
 
 func saveConfig() {
 	saveConfigCh <- struct{}{}
-}
-
-func printStatsLoop(m *Model) {
-	var lastUpdated int64
-	var lastStats = make(map[string]ConnectionInfo)
-
-	for {
-		time.Sleep(60 * time.Second)
-
-		for node, stats := range m.ConnectionStats() {
-			secs := time.Since(lastStats[node].At).Seconds()
-			inbps := 8 * int(float64(stats.InBytesTotal-lastStats[node].InBytesTotal)/secs)
-			outbps := 8 * int(float64(stats.OutBytesTotal-lastStats[node].OutBytesTotal)/secs)
-
-			if inbps+outbps > 0 {
-				infof("%s: %sb/s in, %sb/s out", node[0:5], MetricPrefix(int64(inbps)), MetricPrefix(int64(outbps)))
-			}
-
-			lastStats[node] = stats
-		}
-
-		if lu := m.Generation(); lu > lastUpdated {
-			lastUpdated = lu
-			files, _, bytes := m.GlobalSize()
-			infof("%6d files, %9sB in cluster", files, BinaryPrefix(bytes))
-			files, _, bytes = m.LocalSize()
-			infof("%6d files, %9sB in local repo", files, BinaryPrefix(bytes))
-			needFiles, bytes := m.NeedFiles()
-			infof("%6d files, %9sB to synchronize", len(needFiles), BinaryPrefix(bytes))
-		}
-	}
 }
 
 func listenConnect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls.Config, connOpts map[string]string) {
@@ -529,7 +475,7 @@ func updateLocalModel(m *Model, w *scanner.Walker) {
 
 func saveIndex(m *Model) {
 	name := m.RepoID() + ".idx.gz"
-	fullName := path.Join(confDir, name)
+	fullName := filepath.Join(confDir, name)
 	idxf, err := os.Create(fullName + ".tmp")
 	if err != nil {
 		return
@@ -543,12 +489,13 @@ func saveIndex(m *Model) {
 	}.EncodeXDR(gzw)
 	gzw.Close()
 	idxf.Close()
-	os.Rename(fullName+".tmp", fullName)
+
+	Rename(fullName+".tmp", fullName)
 }
 
 func loadIndex(m *Model) {
 	name := m.RepoID() + ".idx.gz"
-	idxf, err := os.Open(path.Join(confDir, name))
+	idxf, err := os.Open(filepath.Join(confDir, name))
 	if err != nil {
 		return
 	}
@@ -611,7 +558,7 @@ func getHomeDir() string {
 
 func getDefaultConfDir() string {
 	if runtime.GOOS == "windows" {
-		return path.Join(os.Getenv("AppData"), "syncthing")
+		return filepath.Join(os.Getenv("AppData"), "syncthing")
 	}
 	return expandTilde("~/.syncthing")
 }

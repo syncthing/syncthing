@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"runtime"
+)
 
 func MetricPrefix(n int64) string {
 	if n > 1e9 {
@@ -26,4 +30,14 @@ func BinaryPrefix(n int64) string {
 		return fmt.Sprintf("%.01f Ki", float64(n)/(1<<10))
 	}
 	return fmt.Sprintf("%d ", n)
+}
+
+func Rename(from, to string) error {
+	if runtime.GOOS == "windows" {
+		err := os.Remove(to)
+		if err != nil && !os.IsNotExist(err) {
+			warnln(err)
+		}
+	}
+	return os.Rename(from, to)
 }

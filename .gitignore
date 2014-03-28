@@ -1,5 +1,7 @@
 syncthing
 syncthing.exe
+stcli
+stcli.exe
 *.tar.gz
 *.zip
 *.asc

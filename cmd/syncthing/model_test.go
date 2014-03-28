@@ -4,29 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
+	"github.com/calmh/syncthing/cid"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
 )
-
-func TestNewModel(t *testing.T) {
-	m := NewModel("foo", 1e6)
-
-	if m == nil {
-		t.Fatalf("NewModel returned nil")
-	}
-
-	if fs, _ := m.NeedFiles(); len(fs) > 0 {
-		t.Errorf("New model should have no Need")
-	}
-
-	if len(m.local) > 0 {
-		t.Errorf("New model should have no Have")
-	}
-}
 
 var testDataExpected = map[string]scanner.File{
 	"foo": scanner.File{
@@ -62,295 +46,6 @@ func init() {
 	}
 }
 
-func TestUpdateLocal(t *testing.T) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
-
-	if fs, _ := m.NeedFiles(); len(fs) > 0 {
-		t.Fatalf("Model with only local data should have no need")
-	}
-
-	if l1, l2 := len(m.local), len(testDataExpected); l1 != l2 {
-		t.Fatalf("Model len(local) incorrect, %d != %d", l1, l2)
-	}
-	if l1, l2 := len(m.global), len(testDataExpected); l1 != l2 {
-		t.Fatalf("Model len(global) incorrect, %d != %d", l1, l2)
-	}
-	for name, file := range testDataExpected {
-		if f, ok := m.local[name]; ok {
-			if !reflect.DeepEqual(f, file) {
-				t.Errorf("Incorrect local\n%v !=\n%v\nfor file %q", f, file, name)
-			}
-		} else {
-			t.Errorf("Missing file %q in local table", name)
-		}
-		if f, ok := m.global[name]; ok {
-			if !reflect.DeepEqual(f, file) {
-				t.Errorf("Incorrect global\n%v !=\n%v\nfor file %q", f, file, name)
-			}
-		} else {
-			t.Errorf("Missing file %q in global table", name)
-		}
-	}
-
-	for _, f := range fs {
-		if hf, ok := m.local[f.Name]; !ok || hf.Modified != f.Modified {
-			t.Fatalf("Incorrect local for %q", f.Name)
-		}
-		if cf, ok := m.global[f.Name]; !ok || cf.Modified != f.Modified {
-			t.Fatalf("Incorrect global for %q", f.Name)
-		}
-	}
-}
-
-func TestRemoteUpdateExisting(t *testing.T) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
-
-	newFile := protocol.FileInfo{
-		Name:     "foo",
-		Modified: time.Now().Unix(),
-		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
-	}
-	m.Index("42", []protocol.FileInfo{newFile})
-
-	if fs, _ := m.NeedFiles(); len(fs) != 1 {
-		t.Errorf("Model missing Need for one file (%d != 1)", len(fs))
-	}
-}
-
-func TestRemoteAddNew(t *testing.T) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
-
-	newFile := protocol.FileInfo{
-		Name:     "a new file",
-		Modified: time.Now().Unix(),
-		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
-	}
-	m.Index("42", []protocol.FileInfo{newFile})
-
-	if fs, _ := m.NeedFiles(); len(fs) != 1 {
-		t.Errorf("Model len(m.need) incorrect (%d != 1)", len(fs))
-	}
-}
-
-func TestRemoteUpdateOld(t *testing.T) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
-
-	oldTimeStamp := int64(1234)
-	newFile := protocol.FileInfo{
-		Name:     "foo",
-		Modified: oldTimeStamp,
-		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
-	}
-	m.Index("42", []protocol.FileInfo{newFile})
-
-	if fs, _ := m.NeedFiles(); len(fs) != 0 {
-		t.Errorf("Model len(need) incorrect (%d != 0)", len(fs))
-	}
-}
-
-func TestRemoteIndexUpdate(t *testing.T) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
-
-	foo := protocol.FileInfo{
-		Name:     "foo",
-		Modified: time.Now().Unix(),
-		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
-	}
-
-	bar := protocol.FileInfo{
-		Name:     "bar",
-		Modified: time.Now().Unix(),
-		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
-	}
-
-	m.Index("42", []protocol.FileInfo{foo})
-
-	if fs, _ := m.NeedFiles(); fs[0].Name != "foo" {
-		t.Error("Model doesn't need 'foo'")
-	}
-
-	m.IndexUpdate("42", []protocol.FileInfo{bar})
-
-	if fs, _ := m.NeedFiles(); fs[0].Name != "foo" {
-		t.Error("Model doesn't need 'foo'")
-	}
-	if fs, _ := m.NeedFiles(); fs[1].Name != "bar" {
-		t.Error("Model doesn't need 'bar'")
-	}
-}
-
-func TestDelete(t *testing.T) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
-
-	if l1, l2 := len(m.local), len(fs); l1 != l2 {
-		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
-	}
-	if l1, l2 := len(m.global), len(fs); l1 != l2 {
-		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
-	}
-
-	ot := time.Now().Unix()
-	newFile := scanner.File{
-		Name:     "a new file",
-		Modified: ot,
-		Blocks:   []scanner.Block{{0, 100, []byte("some hash bytes")}},
-	}
-	m.updateLocal(newFile)
-
-	if l1, l2 := len(m.local), len(fs)+1; l1 != l2 {
-		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
-	}
-	if l1, l2 := len(m.global), len(fs)+1; l1 != l2 {
-		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
-	}
-
-	// The deleted file is kept in the local and global tables and marked as deleted.
-
-	m.ReplaceLocal(fs)
-
-	if l1, l2 := len(m.local), len(fs)+1; l1 != l2 {
-		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
-	}
-	if l1, l2 := len(m.global), len(fs)+1; l1 != l2 {
-		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
-	}
-
-	if m.local["a new file"].Flags&(1<<12) == 0 {
-		t.Error("Unexpected deleted flag = 0 in local table")
-	}
-	if len(m.local["a new file"].Blocks) != 0 {
-		t.Error("Unexpected non-zero blocks for deleted file in local")
-	}
-	if ft := m.local["a new file"].Modified; ft != ot {
-		t.Errorf("Unexpected time %d != %d for deleted file in local", ft, ot+1)
-	}
-	if fv := m.local["a new file"].Version; fv != 1 {
-		t.Errorf("Unexpected version %d != 1 for deleted file in local", fv)
-	}
-
-	if m.global["a new file"].Flags&(1<<12) == 0 {
-		t.Error("Unexpected deleted flag = 0 in global table")
-	}
-	if len(m.global["a new file"].Blocks) != 0 {
-		t.Error("Unexpected non-zero blocks for deleted file in global")
-	}
-	if ft := m.global["a new file"].Modified; ft != ot {
-		t.Errorf("Unexpected time %d != %d for deleted file in global", ft, ot+1)
-	}
-	if fv := m.local["a new file"].Version; fv != 1 {
-		t.Errorf("Unexpected version %d != 1 for deleted file in global", fv)
-	}
-
-	// Another update should change nothing
-
-	m.ReplaceLocal(fs)
-
-	if l1, l2 := len(m.local), len(fs)+1; l1 != l2 {
-		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
-	}
-	if l1, l2 := len(m.global), len(fs)+1; l1 != l2 {
-		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
-	}
-
-	if m.local["a new file"].Flags&(1<<12) == 0 {
-		t.Error("Unexpected deleted flag = 0 in local table")
-	}
-	if len(m.local["a new file"].Blocks) != 0 {
-		t.Error("Unexpected non-zero blocks for deleted file in local")
-	}
-	if ft := m.local["a new file"].Modified; ft != ot {
-		t.Errorf("Unexpected time %d != %d for deleted file in local", ft, ot)
-	}
-	if fv := m.local["a new file"].Version; fv != 1 {
-		t.Errorf("Unexpected version %d != 1 for deleted file in local", fv)
-	}
-
-	if m.global["a new file"].Flags&(1<<12) == 0 {
-		t.Error("Unexpected deleted flag = 0 in global table")
-	}
-	if len(m.global["a new file"].Blocks) != 0 {
-		t.Error("Unexpected non-zero blocks for deleted file in global")
-	}
-	if ft := m.global["a new file"].Modified; ft != ot {
-		t.Errorf("Unexpected time %d != %d for deleted file in global", ft, ot)
-	}
-	if fv := m.local["a new file"].Version; fv != 1 {
-		t.Errorf("Unexpected version %d != 1 for deleted file in global", fv)
-	}
-}
-
-func TestForgetNode(t *testing.T) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
-
-	if l1, l2 := len(m.local), len(fs); l1 != l2 {
-		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
-	}
-	if l1, l2 := len(m.global), len(fs); l1 != l2 {
-		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
-	}
-	if fs, _ := m.NeedFiles(); len(fs) != 0 {
-		t.Errorf("Model len(need) incorrect (%d != 0)", len(fs))
-	}
-
-	newFile := protocol.FileInfo{
-		Name:     "new file",
-		Modified: time.Now().Unix(),
-		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
-	}
-	m.Index("42", []protocol.FileInfo{newFile})
-
-	newFile = protocol.FileInfo{
-		Name:     "new file 2",
-		Modified: time.Now().Unix(),
-		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
-	}
-	m.Index("43", []protocol.FileInfo{newFile})
-
-	if l1, l2 := len(m.local), len(fs); l1 != l2 {
-		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
-	}
-	if l1, l2 := len(m.global), len(fs)+2; l1 != l2 {
-		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
-	}
-	if fs, _ := m.NeedFiles(); len(fs) != 2 {
-		t.Errorf("Model len(need) incorrect (%d != 2)", len(fs))
-	}
-
-	m.Close("42", nil)
-
-	if l1, l2 := len(m.local), len(fs); l1 != l2 {
-		t.Errorf("Model len(local) incorrect (%d != %d)", l1, l2)
-	}
-	if l1, l2 := len(m.global), len(fs)+1; l1 != l2 {
-		t.Errorf("Model len(global) incorrect (%d != %d)", l1, l2)
-	}
-
-	if fs, _ := m.NeedFiles(); len(fs) != 1 {
-		t.Errorf("Model len(need) incorrect (%d != 1)", len(fs))
-	}
-}
-
 func TestRequest(t *testing.T) {
 	m := NewModel("testdata", 1e6)
 	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
@@ -371,36 +66,6 @@ func TestRequest(t *testing.T) {
 	}
 	if bs != nil {
 		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
-	}
-}
-
-func TestIgnoreWithUnknownFlags(t *testing.T) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
-
-	valid := protocol.FileInfo{
-		Name:     "valid",
-		Modified: time.Now().Unix(),
-		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
-		Flags:    protocol.FlagDeleted | 0755,
-	}
-
-	invalid := protocol.FileInfo{
-		Name:     "invalid",
-		Modified: time.Now().Unix(),
-		Blocks:   []protocol.BlockInfo{{100, []byte("some hash bytes")}},
-		Flags:    1<<27 | protocol.FlagDeleted | 0755,
-	}
-
-	m.Index("42", []protocol.FileInfo{valid, invalid})
-
-	if _, ok := m.global[valid.Name]; !ok {
-		t.Error("Model should include", valid)
-	}
-	if _, ok := m.global[invalid.Name]; ok {
-		t.Error("Model not should include", invalid)
 	}
 }
 
@@ -552,5 +217,31 @@ func BenchmarkRequest(b *testing.B) {
 		if data == nil {
 			b.Error("nil data")
 		}
+	}
+}
+
+func TestActivityMap(t *testing.T) {
+	cm := cid.NewMap()
+	fooID := cm.Get("foo")
+	if fooID == 0 {
+		t.Fatal("ID cannot be zero")
+	}
+	barID := cm.Get("bar")
+	if barID == 0 {
+		t.Fatal("ID cannot be zero")
+	}
+
+	m := make(activityMap)
+	if node := m.leastBusyNode(1<<fooID, cm); node != "foo" {
+		t.Errorf("Incorrect least busy node %q", node)
+	}
+	if node := m.leastBusyNode(1<<barID, cm); node != "bar" {
+		t.Errorf("Incorrect least busy node %q", node)
+	}
+	if node := m.leastBusyNode(1<<fooID|1<<barID, cm); node != "foo" {
+		t.Errorf("Incorrect least busy node %q", node)
+	}
+	if node := m.leastBusyNode(1<<fooID|1<<barID, cm); node != "bar" {
+		t.Errorf("Incorrect least busy node %q", node)
 	}
 }

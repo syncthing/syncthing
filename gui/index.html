@@ -150,7 +150,7 @@ thead tr th {
                     <div class="progress">
                         <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"
                             ng-class="{'progress-bar-success': model.needBytes === 0, 'progress-bar-info': model.needBytes !== 0}"
-                            style="width: {{100 * model.inSyncBytes / model.globalBytes | number:2}}%;">
+                            ng-style="{width: (100 * model.inSyncBytes / model.globalBytes) + '%'}">
                             {{100 * model.inSyncBytes / model.globalBytes | alwaysNumber | number:0}}%
                         </div>
                     </div>

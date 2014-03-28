@@ -1,13 +1,13 @@
 <configuration version="1">
     <repository directory="s3">
         <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA" name="s1">
-            <address>dynamic</address>
+            <address>127.0.0.1:22001</address>
         </node>
         <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ" name="s2">
-            <address>dynamic</address>
+            <address>127.0.0.1:22002</address>
         </node>
         <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA" name="s3">
-            <address>dynamic</address>
+            <address>127.0.0.1:22003</address>
         </node>
     </repository>
     <options>

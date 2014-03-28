@@ -77,7 +77,7 @@ func (o FileInfo) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteString(o.Name)
 	xw.WriteUint32(o.Flags)
 	xw.WriteUint64(uint64(o.Modified))
-	xw.WriteUint32(o.Version)
+	xw.WriteUint64(o.Version)
 	if len(o.Blocks) > 100000 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
@@ -103,7 +103,7 @@ func (o *FileInfo) decodeXDR(xr *xdr.Reader) error {
 	o.Name = xr.ReadStringMax(1024)
 	o.Flags = xr.ReadUint32()
 	o.Modified = int64(xr.ReadUint64())
-	o.Version = xr.ReadUint32()
+	o.Version = xr.ReadUint64()
 	_BlocksSize := int(xr.ReadUint32())
 	if _BlocksSize > 100000 {
 		return xdr.ErrElementSizeExceeded

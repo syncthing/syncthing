@@ -11,7 +11,7 @@ import (
 	"encoding/pem"
 	"math/big"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -22,7 +22,7 @@ const (
 )
 
 func loadCert(dir string) (tls.Certificate, error) {
-	return tls.LoadX509KeyPair(path.Join(dir, "cert.pem"), path.Join(dir, "key.pem"))
+	return tls.LoadX509KeyPair(filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem"))
 }
 
 func certID(bs []byte) string {
@@ -57,13 +57,13 @@ func newCertificate(dir string) {
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
 	fatalErr(err)
 
-	certOut, err := os.Create(path.Join(dir, "cert.pem"))
+	certOut, err := os.Create(filepath.Join(dir, "cert.pem"))
 	fatalErr(err)
 	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	certOut.Close()
 	okln("Created RSA certificate file")
 
-	keyOut, err := os.OpenFile(path.Join(dir, "key.pem"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	keyOut, err := os.OpenFile(filepath.Join(dir, "key.pem"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	fatalErr(err)
 	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	keyOut.Close()

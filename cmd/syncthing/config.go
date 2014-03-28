@@ -32,7 +32,6 @@ type NodeConfiguration struct {
 type OptionsConfiguration struct {
 	ListenAddress      []string `xml:"listenAddress" default:":22000" ini:"listen-address"`
 	ReadOnly           bool     `xml:"readOnly" ini:"read-only"`
-	AllowDelete        bool     `xml:"allowDelete" default:"true" ini:"allow-delete"`
 	FollowSymlinks     bool     `xml:"followSymlinks" default:"true" ini:"follow-symlinks"`
 	GUIEnabled         bool     `xml:"guiEnabled" default:"true" ini:"gui-enabled"`
 	GUIAddress         string   `xml:"guiAddress" default:"127.0.0.1:8080" ini:"gui-address"`
