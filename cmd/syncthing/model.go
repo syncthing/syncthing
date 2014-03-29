@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"crypto/sha1"
 	"errors"
 	"fmt"
@@ -20,27 +21,25 @@ import (
 )
 
 type Model struct {
-	dir string
-	cm  *cid.Map
-	fs  *files.Set
+	repoDirs  map[string]string     // repo -> dir
+	repoFiles map[string]*files.Set // repo -> files
+	repoNodes map[string][]string   // repo -> nodeIDs
+	nodeRepos map[string][]string   // nodeID -> repos
+	rmut      sync.RWMutex          // protects the above
+
+	cm *cid.Map
 
 	protoConn map[string]protocol.Connection
 	rawConn   map[string]io.Closer
 	pmut      sync.RWMutex // protects protoConn and rawConn
 
-	initOnce sync.Once
-
 	sup suppressor
 
 	limitRequestRate chan struct{}
 
-	imut sync.Mutex // protects Index
+	addedRepo bool
+	started   bool
 }
-
-const (
-	idxBcastHoldtime = 15 * time.Second  // Wait at least this long after the last index modification
-	idxBcastMaxDelay = 120 * time.Second // Unless we've already waited this long
-)
 
 var (
 	ErrNoSuchFile = errors.New("no such file")
@@ -50,11 +49,13 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local repository in any way.
-func NewModel(dir string, maxChangeBw int) *Model {
+func NewModel(maxChangeBw int) *Model {
 	m := &Model{
-		dir:       dir,
+		repoDirs:  make(map[string]string),
+		repoFiles: make(map[string]*files.Set),
+		repoNodes: make(map[string][]string),
+		nodeRepos: make(map[string][]string),
 		cm:        cid.NewMap(),
-		fs:        files.NewSet(),
 		protoConn: make(map[string]protocol.Connection),
 		rawConn:   make(map[string]io.Closer),
 		sup:       suppressor{threshold: int64(maxChangeBw)},
@@ -83,25 +84,32 @@ func (m *Model) LimitRate(kbps int) {
 // read/write mode the model will attempt to keep in sync with the cluster by
 // pulling needed files from peer nodes.
 func (m *Model) StartRW(threads int) {
-	m.initOnce.Do(func() {
-		newPuller("default", m.dir, m, threads)
-	})
+	m.rmut.Lock()
+	defer m.rmut.Unlock()
+
+	if !m.addedRepo {
+		panic("cannot start without repo")
+	}
+	m.started = true
+	for repo, dir := range m.repoDirs {
+		newPuller(repo, dir, m, threads)
+	}
 }
 
 // StartRO starts read only processing on the current model. When in
 // read only mode the model will announce files to the cluster but not
 // pull in any external changes.
 func (m *Model) StartRO() {
-	m.initOnce.Do(func() {
-		newPuller("default", m.dir, m, 0) // zero threads => read only
-	})
-}
+	m.rmut.Lock()
+	defer m.rmut.Unlock()
 
-// Generation returns an opaque integer that is guaranteed to increment on
-// every change to the local repository or global model.
-func (m *Model) Generation() uint64 {
-	c := m.fs.Changes(cid.LocalID)
-	return c
+	if !m.addedRepo {
+		panic("cannot start without repo")
+	}
+	m.started = true
+	for repo, dir := range m.repoDirs {
+		newPuller(repo, dir, m, 0) // zero threads => read only
+	}
 }
 
 type ConnectionInfo struct {
@@ -119,13 +127,7 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	}
 
 	m.pmut.RLock()
-
-	var tot int64
-	for _, f := range m.fs.Global() {
-		if f.Flags&protocol.FlagDeleted == 0 {
-			tot += f.Size
-		}
-	}
+	m.rmut.RLock()
 
 	var res = make(map[string]ConnectionInfo)
 	for node, conn := range m.protoConn {
@@ -138,10 +140,21 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 			ci.Address = nc.RemoteAddr().String()
 		}
 
-		var have = tot
-		for _, f := range m.fs.Need(m.cm.Get(node)) {
-			if f.Flags&protocol.FlagDeleted == 0 {
-				have -= f.Size
+		var tot int64
+		var have int64
+
+		for _, repo := range m.nodeRepos[node] {
+			for _, f := range m.repoFiles[repo].Global() {
+				if f.Flags&protocol.FlagDeleted == 0 {
+					tot += f.Size
+					have += f.Size
+				}
+			}
+
+			for _, f := range m.repoFiles[repo].Need(m.cm.Get(node)) {
+				if f.Flags&protocol.FlagDeleted == 0 {
+					have -= f.Size
+				}
 			}
 		}
 
@@ -153,6 +166,7 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 		res[node] = ci
 	}
 
+	m.rmut.RUnlock()
 	m.pmut.RUnlock()
 
 	return res
@@ -173,32 +187,54 @@ func sizeOf(fs []scanner.File) (files, deleted int, bytes int64) {
 // GlobalSize returns the number of files, deleted files and total bytes for all
 // files in the global model.
 func (m *Model) GlobalSize() (files, deleted int, bytes int64) {
-	fs := m.fs.Global()
+	m.rmut.RLock()
+	var fs []scanner.File
+	for _, rf := range m.repoFiles {
+		fs = append(fs, rf.Global()...)
+	}
+	m.rmut.RUnlock()
 	return sizeOf(fs)
 }
 
 // LocalSize returns the number of files, deleted files and total bytes for all
 // files in the local repository.
 func (m *Model) LocalSize() (files, deleted int, bytes int64) {
-	fs := m.fs.Have(cid.LocalID)
+	m.rmut.RLock()
+	var fs []scanner.File
+	for _, rf := range m.repoFiles {
+		fs = append(fs, rf.Have(cid.LocalID)...)
+	}
+	m.rmut.RUnlock()
 	return sizeOf(fs)
 }
 
 // InSyncSize returns the number and total byte size of the local files that
 // are in sync with the global model.
 func (m *Model) InSyncSize() (files int, bytes int64) {
-	gf := m.fs.Global()
-	hf := m.fs.Need(cid.LocalID)
+	var gf []scanner.File
+	var nf []scanner.File
+
+	m.rmut.RLock()
+	for _, rf := range m.repoFiles {
+		gf = append(gf, rf.Global()...)
+		nf = append(nf, rf.Need(cid.LocalID)...)
+	}
+	m.rmut.RUnlock()
 
 	gn, _, gb := sizeOf(gf)
-	hn, _, hb := sizeOf(hf)
+	nn, _, nb := sizeOf(nf)
 
-	return gn - hn, gb - hb
+	return gn - nn, gb - nb
 }
 
 // NeedFiles returns the list of currently needed files and the total size.
 func (m *Model) NeedFiles() ([]scanner.File, int64) {
-	nf := m.fs.Need(cid.LocalID)
+	var nf []scanner.File
+	m.rmut.RLock()
+	for _, rf := range m.repoFiles {
+		nf = append(nf, rf.Need(cid.LocalID)...)
+	}
+	m.rmut.RUnlock()
 
 	var bytes int64
 	for _, f := range nf {
@@ -210,24 +246,11 @@ func (m *Model) NeedFiles() ([]scanner.File, int64) {
 
 // Index is called when a new node is connected and we receive their full index.
 // Implements the protocol.Model interface.
-func (m *Model) Index(nodeID string, fs []protocol.FileInfo) {
-	var files = make([]scanner.File, len(fs))
-	for i := range fs {
-		lamport.Default.Tick(fs[i].Version)
-		files[i] = fileFromFileInfo(fs[i])
-	}
-
-	cid := m.cm.Get(nodeID)
-	m.fs.Replace(cid, files)
-
+func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 	if debugNet {
-		dlog.Printf("IDX(in): %s: %d files", nodeID, len(fs))
+		dlog.Printf("IDX(in): %s / %q: %d files", nodeID, repo, len(fs))
 	}
-}
 
-// IndexUpdate is called for incremental updates to connected nodes' indexes.
-// Implements the protocol.Model interface.
-func (m *Model) IndexUpdate(nodeID string, fs []protocol.FileInfo) {
 	var files = make([]scanner.File, len(fs))
 	for i := range fs {
 		lamport.Default.Tick(fs[i].Version)
@@ -235,11 +258,36 @@ func (m *Model) IndexUpdate(nodeID string, fs []protocol.FileInfo) {
 	}
 
 	id := m.cm.Get(nodeID)
-	m.fs.Update(id, files)
-
-	if debugNet {
-		dlog.Printf("IDXUP(in): %s: %d files", nodeID, len(files))
+	m.rmut.RLock()
+	if r, ok := m.repoFiles[repo]; ok {
+		r.Replace(id, files)
+	} else {
+		warnf("Index from %s for nonexistant repo %q; dropping", nodeID, repo)
 	}
+	m.rmut.RUnlock()
+}
+
+// IndexUpdate is called for incremental updates to connected nodes' indexes.
+// Implements the protocol.Model interface.
+func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) {
+	if debugNet {
+		dlog.Printf("IDXUP(in): %s / %q: %d files", nodeID, repo, len(fs))
+	}
+
+	var files = make([]scanner.File, len(fs))
+	for i := range fs {
+		lamport.Default.Tick(fs[i].Version)
+		files[i] = fileFromFileInfo(fs[i])
+	}
+
+	id := m.cm.Get(nodeID)
+	m.rmut.RLock()
+	if r, ok := m.repoFiles[repo]; ok {
+		r.Update(id, files)
+	} else {
+		warnf("Index update from %s for nonexistant repo %q; dropping", nodeID, repo)
+	}
+	m.rmut.RUnlock()
 }
 
 // Close removes the peer from the model and closes the underlying connection if possible.
@@ -255,7 +303,11 @@ func (m *Model) Close(node string, err error) {
 	}
 
 	cid := m.cm.Get(node)
-	m.fs.Replace(cid, nil)
+	m.rmut.RLock()
+	for _, repo := range m.nodeRepos[node] {
+		m.repoFiles[repo].Replace(cid, nil)
+	}
+	m.rmut.RUnlock()
 	m.cm.Clear(node)
 
 	m.pmut.Lock()
@@ -272,19 +324,31 @@ func (m *Model) Close(node string, err error) {
 // Implements the protocol.Model interface.
 func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]byte, error) {
 	// Verify that the requested file exists in the local model.
-	lf := m.fs.Get(cid.LocalID, name)
+	m.rmut.RLock()
+	r, ok := m.repoFiles[repo]
+	m.rmut.RUnlock()
+
+	if !ok {
+		warnf("Request from %s for file %s in nonexistent repo %q", nodeID, name, repo)
+		return nil, ErrNoSuchFile
+	}
+
+	lf := r.Get(cid.LocalID, name)
 	if offset > lf.Size {
 		warnf("SECURITY (nonexistent file) REQ(in): %s: %q o=%d s=%d", nodeID, name, offset, size)
 		return nil, ErrNoSuchFile
 	}
+
 	if lf.Suppressed {
 		return nil, ErrInvalid
 	}
 
 	if debugNet && nodeID != "<local>" {
-		dlog.Printf("REQ(in): %s: %q o=%d s=%d", nodeID, name, offset, size)
+		dlog.Printf("REQ(in): %s: %q / %q o=%d s=%d", nodeID, repo, name, offset, size)
 	}
-	fn := filepath.Join(m.dir, name)
+	m.rmut.RLock()
+	fn := filepath.Join(m.repoDirs[repo], name)
+	m.rmut.RUnlock()
 	fd, err := os.Open(fn) // XXX: Inefficient, should cache fd?
 	if err != nil {
 		return nil, err
@@ -307,24 +371,34 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 }
 
 // ReplaceLocal replaces the local repository index with the given list of files.
-func (m *Model) ReplaceLocal(fs []scanner.File) {
-	m.fs.ReplaceWithDelete(cid.LocalID, fs)
+func (m *Model) ReplaceLocal(repo string, fs []scanner.File) {
+	m.rmut.RLock()
+	m.repoFiles[repo].ReplaceWithDelete(cid.LocalID, fs)
+	m.rmut.RUnlock()
 }
 
-// ReplaceLocal replaces the local repository index with the given list of files.
-func (m *Model) SeedLocal(fs []protocol.FileInfo) {
+func (m *Model) SeedLocal(repo string, fs []protocol.FileInfo) {
 	var sfs = make([]scanner.File, len(fs))
 	for i := 0; i < len(fs); i++ {
 		lamport.Default.Tick(fs[i].Version)
 		sfs[i] = fileFromFileInfo(fs[i])
 	}
 
-	m.fs.Replace(cid.LocalID, sfs)
+	m.rmut.RLock()
+	m.repoFiles[repo].Replace(cid.LocalID, sfs)
+	m.rmut.RUnlock()
+}
+
+type cFiler struct {
+	m *Model
+	r string
 }
 
 // Implements scanner.CurrentFiler
-func (m *Model) CurrentFile(file string) scanner.File {
-	f := m.fs.Get(cid.LocalID, file)
+func (cf cFiler) CurrentFile(file string) scanner.File {
+	cf.m.rmut.RLock()
+	f := cf.m.repoFiles[cf.r].Get(cid.LocalID, file)
+	cf.m.rmut.RUnlock()
 	return f
 }
 
@@ -334,11 +408,6 @@ func (m *Model) ConnectedTo(nodeID string) bool {
 	_, ok := m.protoConn[nodeID]
 	m.pmut.RUnlock()
 	return ok
-}
-
-// RepoID returns a unique ID representing the current repository location.
-func (m *Model) RepoID() string {
-	return fmt.Sprintf("%x", sha1.Sum([]byte(m.dir)))
 }
 
 // AddConnection adds a new peer connection to the model. An initial index will
@@ -358,20 +427,27 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	m.pmut.Unlock()
 
 	go func() {
-		idx := m.ProtocolIndex()
-		if debugNet {
-			dlog.Printf("IDX(out/initial): %s: %d files", nodeID, len(idx))
+		m.rmut.RLock()
+		repos := m.nodeRepos[nodeID]
+		m.rmut.RUnlock()
+		for _, repo := range repos {
+			idx := m.ProtocolIndex(repo)
+			if debugNet {
+				dlog.Printf("IDX(out/initial): %s: %q: %d files", nodeID, repo, len(idx))
+			}
+			protoConn.Index(repo, idx)
 		}
-		protoConn.Index("default", idx)
 	}()
 }
 
 // ProtocolIndex returns the current local index in protocol data types.
 // Must be called with the read lock held.
-func (m *Model) ProtocolIndex() []protocol.FileInfo {
+func (m *Model) ProtocolIndex(repo string) []protocol.FileInfo {
 	var index []protocol.FileInfo
 
-	fs := m.fs.Have(cid.LocalID)
+	m.rmut.RLock()
+	fs := m.repoFiles[repo].Have(cid.LocalID)
+	m.rmut.RUnlock()
 
 	for _, f := range fs {
 		mf := fileInfoFromFile(f)
@@ -380,7 +456,7 @@ func (m *Model) ProtocolIndex() []protocol.FileInfo {
 			if mf.Flags&protocol.FlagDeleted != 0 {
 				flagComment = " (deleted)"
 			}
-			dlog.Printf("IDX(out): %q m=%d f=%o%s v=%d (%d blocks)", mf.Name, mf.Modified, mf.Flags, flagComment, mf.Version, len(mf.Blocks))
+			dlog.Printf("IDX(out): %q/%q m=%d f=%o%s v=%d (%d blocks)", repo, mf.Name, mf.Modified, mf.Flags, flagComment, mf.Version, len(mf.Blocks))
 		}
 		index = append(index, mf)
 	}
@@ -388,11 +464,13 @@ func (m *Model) ProtocolIndex() []protocol.FileInfo {
 	return index
 }
 
-func (m *Model) updateLocal(f scanner.File) {
-	m.fs.Update(cid.LocalID, []scanner.File{f})
+func (m *Model) updateLocal(repo string, f scanner.File) {
+	m.rmut.RLock()
+	m.repoFiles[repo].Update(cid.LocalID, []scanner.File{f})
+	m.rmut.RUnlock()
 }
 
-func (m *Model) requestGlobal(nodeID, name string, offset int64, size int, hash []byte) ([]byte, error) {
+func (m *Model) requestGlobal(nodeID, repo, name string, offset int64, size int, hash []byte) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.protoConn[nodeID]
 	m.pmut.RUnlock()
@@ -402,50 +480,161 @@ func (m *Model) requestGlobal(nodeID, name string, offset int64, size int, hash 
 	}
 
 	if debugNet {
-		dlog.Printf("REQ(out): %s: %q o=%d s=%d h=%x", nodeID, name, offset, size, hash)
+		dlog.Printf("REQ(out): %s: %q / %q o=%d s=%d h=%x", nodeID, repo, name, offset, size, hash)
 	}
 
-	return nc.Request("default", name, offset, size)
+	return nc.Request(repo, name, offset, size)
 }
 
 func (m *Model) broadcastIndexLoop() {
-	var lastChange uint64
+	var lastChange = map[string]uint64{}
 	for {
 		time.Sleep(5 * time.Second)
 
-		c := m.fs.Changes(cid.LocalID)
-		if c == lastChange {
-			continue
-		}
-		lastChange = c
-
-		saveIndex(m) // This should be cleaned up we don't do a lot of processing twice
-
-		fs := m.fs.Have(cid.LocalID)
-
-		var indexWg sync.WaitGroup
-		indexWg.Add(len(m.protoConn))
-
-		var idx = make([]protocol.FileInfo, len(fs))
-		for i, f := range fs {
-			idx[i] = fileInfoFromFile(f)
-		}
-
 		m.pmut.RLock()
-		for _, node := range m.protoConn {
-			node := node
-			if debugNet {
-				dlog.Printf("IDX(out/loop): %s: %d files", node.ID(), len(idx))
-			}
-			go func() {
-				node.Index("default", idx)
-				indexWg.Done()
-			}()
-		}
-		m.pmut.RUnlock()
+		m.rmut.RLock()
 
-		indexWg.Wait()
+		for repo, fs := range m.repoFiles {
+			c := fs.Changes(cid.LocalID)
+			if c == lastChange[repo] {
+				continue
+			}
+			lastChange[repo] = c
+
+			idx := m.ProtocolIndex(repo)
+			m.saveIndex(repo, confDir, idx)
+
+			var indexWg sync.WaitGroup
+			for _, nodeID := range m.repoNodes[repo] {
+				if conn, ok := m.protoConn[nodeID]; ok {
+					indexWg.Add(1)
+					if debugNet {
+						dlog.Printf("IDX(out/loop): %s: %d files", nodeID, len(idx))
+					}
+					go func() {
+						conn.Index(repo, idx)
+						indexWg.Done()
+					}()
+				}
+			}
+
+			indexWg.Wait()
+		}
+
+		m.rmut.RUnlock()
+		m.pmut.RUnlock()
 	}
+}
+
+func (m *Model) AddRepo(id, dir string, nodes []NodeConfiguration) {
+	if m.started {
+		panic("cannot add repo to started model")
+	}
+	if len(id) == 0 {
+		panic("cannot add empty repo id")
+	}
+
+	m.rmut.Lock()
+	m.repoDirs[id] = dir
+	m.repoFiles[id] = files.NewSet()
+
+	m.repoNodes[id] = make([]string, len(nodes))
+	for i, node := range nodes {
+		m.repoNodes[id][i] = node.NodeID
+		m.nodeRepos[node.NodeID] = append(m.nodeRepos[node.NodeID], id)
+	}
+
+	m.addedRepo = true
+	m.rmut.Unlock()
+}
+
+func (m *Model) ScanRepos() {
+	m.rmut.RLock()
+	for repo := range m.repoDirs {
+		m.ScanRepo(repo)
+	}
+	m.rmut.RUnlock()
+}
+
+func (m *Model) ScanRepo(repo string) {
+	sup := &suppressor{threshold: int64(cfg.Options.MaxChangeKbps)}
+	w := &scanner.Walker{
+		Dir:            m.repoDirs[repo],
+		IgnoreFile:     ".stignore",
+		FollowSymlinks: cfg.Options.FollowSymlinks,
+		BlockSize:      BlockSize,
+		TempNamer:      defTempNamer,
+		Suppressor:     sup,
+		CurrentFiler:   cFiler{m, repo},
+	}
+	fs, _ := w.Walk()
+	m.ReplaceLocal(repo, fs)
+}
+
+func (m *Model) SaveIndexes(dir string) {
+	m.rmut.RLock()
+	for repo := range m.repoDirs {
+		fs := m.ProtocolIndex(repo)
+		m.saveIndex(repo, dir, fs)
+	}
+	m.rmut.RUnlock()
+}
+
+func (m *Model) LoadIndexes(dir string) {
+	m.rmut.RLock()
+	for repo := range m.repoDirs {
+		fs := m.loadIndex(repo, dir)
+		m.SeedLocal(repo, fs)
+	}
+	m.rmut.RUnlock()
+}
+
+func (m *Model) saveIndex(repo string, dir string, fs []protocol.FileInfo) {
+	id := fmt.Sprintf("%x", sha1.Sum([]byte(m.repoDirs[repo])))
+	name := id + ".idx.gz"
+	name = filepath.Join(dir, name)
+
+	idxf, err := os.Create(name + ".tmp")
+	if err != nil {
+		return
+	}
+
+	gzw := gzip.NewWriter(idxf)
+
+	protocol.IndexMessage{
+		Repository: repo,
+		Files:      fs,
+	}.EncodeXDR(gzw)
+	gzw.Close()
+	idxf.Close()
+
+	Rename(name+".tmp", name)
+}
+
+func (m *Model) loadIndex(repo string, dir string) []protocol.FileInfo {
+	id := fmt.Sprintf("%x", sha1.Sum([]byte(m.repoDirs[repo])))
+	name := id + ".idx.gz"
+	name = filepath.Join(dir, name)
+
+	idxf, err := os.Open(name)
+	if err != nil {
+		return nil
+	}
+	defer idxf.Close()
+
+	gzr, err := gzip.NewReader(idxf)
+	if err != nil {
+		return nil
+	}
+	defer gzr.Close()
+
+	var im protocol.IndexMessage
+	err = im.DecodeXDR(gzr)
+	if err != nil || im.Repository != repo {
+		return nil
+	}
+
+	return im.Files
 }
 
 func fileFromFileInfo(f protocol.FileInfo) scanner.File {

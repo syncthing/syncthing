@@ -1,7 +1,6 @@
 package main
 
 import (
-	"compress/gzip"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -20,7 +19,6 @@ import (
 	"github.com/calmh/ini"
 	"github.com/calmh/syncthing/discover"
 	"github.com/calmh/syncthing/protocol"
-	"github.com/calmh/syncthing/scanner"
 )
 
 const BlockSize = 128 * 1024
@@ -166,11 +164,6 @@ func main() {
 		infof("Edit %s to taste or use the GUI\n", cfgFile)
 	}
 
-	// Make sure the local node is in the node list.
-	cfg.Repositories[0].Nodes = cleanNodeList(cfg.Repositories[0].Nodes, myID)
-
-	var dir = expandTilde(cfg.Repositories[0].Directory)
-
 	if profiler := os.Getenv("STPROFILER"); len(profiler) > 0 {
 		go func() {
 			dlog.Println("Starting profiler on", profiler)
@@ -194,10 +187,16 @@ func main() {
 		MinVersion:             tls.VersionTLS12,
 	}
 
-	ensureDir(dir, -1)
-	m := NewModel(dir, cfg.Options.MaxChangeKbps*1000)
+	m := NewModel(cfg.Options.MaxChangeKbps * 1000)
 	if cfg.Options.MaxSendKbps > 0 {
 		m.LimitRate(cfg.Options.MaxSendKbps)
+	}
+
+	for i := range cfg.Repositories {
+		cfg.Repositories[i].Nodes = cleanNodeList(cfg.Repositories[i].Nodes, myID)
+		dir := expandTilde(cfg.Repositories[i].Directory)
+		ensureDir(dir, -1)
+		m.AddRepo(cfg.Repositories[i].ID, dir, cfg.Repositories[i].Nodes)
 	}
 
 	// GUI
@@ -233,19 +232,9 @@ func main() {
 	if verbose {
 		infoln("Populating repository index")
 	}
-	loadIndex(m)
-
-	sup := &suppressor{threshold: int64(cfg.Options.MaxChangeKbps)}
-	w := &scanner.Walker{
-		Dir:            m.dir,
-		IgnoreFile:     ".stignore",
-		FollowSymlinks: cfg.Options.FollowSymlinks,
-		BlockSize:      BlockSize,
-		TempNamer:      defTempNamer,
-		Suppressor:     sup,
-		CurrentFiler:   m,
-	}
-	updateLocalModel(m, w)
+	m.LoadIndexes(confDir)
+	m.ScanRepos()
+	m.SaveIndexes(confDir)
 
 	connOpts := map[string]string{
 		"clientId":      "syncthing",
@@ -465,54 +454,6 @@ func discovery() *discover.Discoverer {
 	}
 
 	return disc
-}
-
-func updateLocalModel(m *Model, w *scanner.Walker) {
-	files, _ := w.Walk()
-	m.ReplaceLocal(files)
-	saveIndex(m)
-}
-
-func saveIndex(m *Model) {
-	name := m.RepoID() + ".idx.gz"
-	fullName := filepath.Join(confDir, name)
-	idxf, err := os.Create(fullName + ".tmp")
-	if err != nil {
-		return
-	}
-
-	gzw := gzip.NewWriter(idxf)
-
-	protocol.IndexMessage{
-		Repository: "local",
-		Files:      m.ProtocolIndex(),
-	}.EncodeXDR(gzw)
-	gzw.Close()
-	idxf.Close()
-
-	Rename(fullName+".tmp", fullName)
-}
-
-func loadIndex(m *Model) {
-	name := m.RepoID() + ".idx.gz"
-	idxf, err := os.Open(filepath.Join(confDir, name))
-	if err != nil {
-		return
-	}
-	defer idxf.Close()
-
-	gzr, err := gzip.NewReader(idxf)
-	if err != nil {
-		return
-	}
-	defer gzr.Close()
-
-	var im protocol.IndexMessage
-	err = im.DecodeXDR(gzr)
-	if err != nil || im.Repository != "local" {
-		return
-	}
-	m.SeedLocal(im.Files)
 }
 
 func ensureDir(dir string, mode int) {

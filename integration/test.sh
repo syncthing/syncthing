@@ -15,7 +15,7 @@ go build json.go
 testConvergence() {
 	echo "Starting..."
 	for i in 1 2 3 ; do
-		syncthing -home "h$i" &
+		STPROFILER=":909$i" syncthing -home "h$i" &
 	done
 
 	while true ; do
@@ -36,9 +36,11 @@ testConvergence() {
 	done
 
 	echo "Verifying..."
-	cat md5-* | sort | uniq > md5-tot
+	cat md5-? | sort | uniq > md5-tot
+	cat md5-12-? | sort | uniq > md5-12-tot
+	cat md5-23-? | sort | uniq > md5-23-tot
 
-	for i in 1 2 3 ; do
+	for i in 1 2 3 12-1 12-2 23-2 23-3; do
 		pushd "s$i" >/dev/null
 		../md5r -l | sort > ../md5-$i
 		popd >/dev/null
@@ -47,19 +49,35 @@ testConvergence() {
 	ok=0
 	for i in 1 2 3 ; do
 		if ! cmp "md5-$i" md5-tot >/dev/null ; then
-			echo "Fail: instance $i unconverged"
+			echo "Fail: instance $i unconverged for default"
 		else
 			ok=$(($ok + 1))
-			echo "OK: instance $i converged"
+			echo "OK: instance $i converged for default"
 		fi
 	done
-	if [[ $ok != 3 ]] ; then
+	for i in 12-1 12-2 ; do
+		if ! cmp "md5-$i" md5-12-tot >/dev/null ; then
+			echo "Fail: instance $i unconverged for s12"
+		else
+			ok=$(($ok + 1))
+			echo "OK: instance $i converged for s12"
+		fi
+	done
+	for i in 23-2 23-3 ; do
+		if ! cmp "md5-$i" md5-23-tot >/dev/null ; then
+			echo "Fail: instance $i unconverged for s23"
+		else
+			ok=$(($ok + 1))
+			echo "OK: instance $i converged for s23"
+		fi
+	done
+	if [[ $ok != 7 ]] ; then
 		exit 1
 	fi
 }
 
 echo "Setting up files..."
-for i in 1 2 3 ; do
+for i in 1 2 3 12-1 12-2 23-2 23-3; do
 	rm -f h$i/*.idx.gz
 	rm -rf "s$i"
 	mkdir "s$i"
@@ -74,7 +92,7 @@ for i in 1 2 3 ; do
 done
 
 echo "MD5-summing..."
-for i in 1 2 3 ; do
+for i in 1 2 3 12-1 12-2 23-2 23-3 ; do
 	pushd "s$i" >/dev/null
 	../md5r -l > ../md5-$i
 	popd >/dev/null
@@ -84,13 +102,14 @@ testConvergence
 
 for ((t = 0; t < $iterations; t++)) ; do
 	echo "Add and remove random files ($((t+1)) / $iterations)..."
-	for i in 1 2 3 ; do
+	for i in 1 2 3 12-1 12-2 23-2 23-3 ; do
 		pushd "s$i" >/dev/null
 		rm -rf */?[02468ace]
 		../genfiles -maxexp 22 -files 600
 		echo "  $i: append to large file"
 		dd if=/dev/urandom bs=1024k count=4 >> large-$i 2>/dev/null
-		../md5r -l | egrep -v "large-[^$i]" > ../md5-$i
+		../md5r -l > ../md5-tmp
+		(grep -v large ../md5-tmp ; grep "large-$i" ../md5-tmp) > ../md5-$i
 		popd >/dev/null
 	done
 

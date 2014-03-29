@@ -78,8 +78,8 @@ func prtIndex(files []protocol.FileInfo) {
 	}
 }
 
-func (m Model) Index(nodeID string, files []protocol.FileInfo) {
-	log.Printf("Received index")
+func (m Model) Index(nodeID string, repo string, files []protocol.FileInfo) {
+	log.Printf("Received index for repo %q", repo)
 	if cmd == "idx" {
 		prtIndex(files)
 		if get != "" {
@@ -117,8 +117,8 @@ func getFile(f protocol.FileInfo) {
 	fd.Close()
 }
 
-func (m Model) IndexUpdate(nodeID string, files []protocol.FileInfo) {
-	log.Println("Received index update")
+func (m Model) IndexUpdate(nodeID string, repo string, files []protocol.FileInfo) {
+	log.Printf("Received index update for repo %q", repo)
 	if cmd == "idx" {
 		prtIndex(files)
 		if exit {

@@ -19,6 +19,7 @@ type Configuration struct {
 }
 
 type RepositoryConfiguration struct {
+	ID        string              `xml:"id,attr"`
 	Directory string              `xml:"directory,attr"`
 	Nodes     []NodeConfiguration `xml:"node"`
 }
@@ -181,6 +182,20 @@ func readConfigXML(rd io.Reader) (Configuration, error) {
 	fillNilSlices(&cfg.Options)
 
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
+
+	var seenRepos = map[string]bool{}
+	for i := range cfg.Repositories {
+		if cfg.Repositories[i].ID == "" {
+			cfg.Repositories[i].ID = "default"
+		}
+
+		id := cfg.Repositories[i].ID
+		if seenRepos[id] {
+			panic("duplicate repository ID " + id)
+		}
+		seenRepos[id] = true
+	}
+
 	return cfg, err
 }
 

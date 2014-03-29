@@ -92,7 +92,7 @@ func BenchmarkIndex10000(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.Index("42", files)
+		m.Index("42", "default", files)
 	}
 }
 
@@ -105,7 +105,7 @@ func BenchmarkIndex00100(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.Index("42", files)
+		m.Index("42", "default", files)
 	}
 }
 
@@ -115,11 +115,11 @@ func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 	files := genFiles(10000)
-	m.Index("42", files)
+	m.Index("42", "default", files)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate("42", files)
+		m.IndexUpdate("42", "default", files)
 	}
 }
 
@@ -129,12 +129,12 @@ func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 	files := genFiles(10000)
-	m.Index("42", files)
+	m.Index("42", "default", files)
 
 	ufiles := genFiles(100)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate("42", ufiles)
+		m.IndexUpdate("42", "default", ufiles)
 	}
 }
 
@@ -144,12 +144,12 @@ func BenchmarkIndexUpdate10000f00001(b *testing.B) {
 	fs, _ := w.Walk()
 	m.ReplaceLocal(fs)
 	files := genFiles(10000)
-	m.Index("42", files)
+	m.Index("42", "default", files)
 
 	ufiles := genFiles(1)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate("42", ufiles)
+		m.IndexUpdate("42", "default", ufiles)
 	}
 }
 
@@ -206,7 +206,7 @@ func BenchmarkRequest(b *testing.B) {
 		requestData: []byte("some data to return"),
 	}
 	m.AddConnection(fc, fc)
-	m.Index("42", files)
+	m.Index("42", "default", files)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

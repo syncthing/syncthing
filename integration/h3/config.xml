@@ -10,6 +10,14 @@
             <address>127.0.0.1:22003</address>
         </node>
     </repository>
+    <repository id="s23" directory="s23-3">
+        <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ" name="s2">
+            <address>127.0.0.1:22002</address>
+        </node>
+        <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA" name="s3">
+            <address>127.0.0.1:22003</address>
+        </node>
+    </repository>
     <options>
         <listenAddress>127.0.0.1:22003</listenAddress>
         <readOnly>false</readOnly>

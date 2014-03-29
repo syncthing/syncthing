@@ -8,12 +8,12 @@ type nativeModel struct {
 	next Model
 }
 
-func (m nativeModel) Index(nodeID string, files []FileInfo) {
-	m.next.Index(nodeID, files)
+func (m nativeModel) Index(nodeID string, repo string, files []FileInfo) {
+	m.next.Index(nodeID, repo, files)
 }
 
-func (m nativeModel) IndexUpdate(nodeID string, files []FileInfo) {
-	m.next.IndexUpdate(nodeID, files)
+func (m nativeModel) IndexUpdate(nodeID string, repo string, files []FileInfo) {
+	m.next.IndexUpdate(nodeID, repo, files)
 }
 
 func (m nativeModel) Request(nodeID, repo string, name string, offset int64, size int) ([]byte, error) {

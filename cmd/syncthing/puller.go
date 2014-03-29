@@ -111,7 +111,7 @@ func (p *puller) run() {
 			<-p.requestSlots
 			b := p.bq.get()
 			if debugPull {
-				dlog.Printf("filler: queueing %q offset %d copy %d", b.file.Name, b.block.Offset, len(b.copy))
+				dlog.Printf("filler: queueing %q / %q offset %d copy %d", p.repo, b.file.Name, b.block.Offset, len(b.copy))
 			}
 			p.blocks <- b
 		}
@@ -119,17 +119,6 @@ func (p *puller) run() {
 
 	walkTicker := time.Tick(time.Duration(cfg.Options.RescanIntervalS) * time.Second)
 	timeout := time.Tick(5 * time.Second)
-
-	sup := &suppressor{threshold: int64(cfg.Options.MaxChangeKbps)}
-	w := &scanner.Walker{
-		Dir:            p.dir,
-		IgnoreFile:     ".stignore",
-		FollowSymlinks: cfg.Options.FollowSymlinks,
-		BlockSize:      BlockSize,
-		TempNamer:      defTempNamer,
-		Suppressor:     sup,
-		CurrentFiler:   p.model,
-	}
 
 	for {
 		// Run the pulling loop as long as there are blocks to fetch
@@ -152,7 +141,7 @@ func (p *puller) run() {
 					break pull
 				}
 				if debugPull {
-					dlog.Printf("idle but have %d open files", len(p.openFiles))
+					dlog.Printf("%q: idle but have %d open files", p.repo, len(p.openFiles))
 					i := 5
 					for _, f := range p.openFiles {
 						dlog.Printf("  %v", f)
@@ -169,10 +158,9 @@ func (p *puller) run() {
 		select {
 		case <-walkTicker:
 			if debugPull {
-				dlog.Println("time for rescan")
+				dlog.Printf("%q: time for rescan", p.repo)
 			}
-			files, _ := w.Walk()
-			p.model.fs.ReplaceWithDelete(cid.LocalID, files)
+			p.model.ScanRepo(p.repo)
 
 		default:
 		}
@@ -185,23 +173,11 @@ func (p *puller) run() {
 func (p *puller) runRO() {
 	walkTicker := time.Tick(time.Duration(cfg.Options.RescanIntervalS) * time.Second)
 
-	sup := &suppressor{threshold: int64(cfg.Options.MaxChangeKbps)}
-	w := &scanner.Walker{
-		Dir:            p.dir,
-		IgnoreFile:     ".stignore",
-		FollowSymlinks: cfg.Options.FollowSymlinks,
-		BlockSize:      BlockSize,
-		TempNamer:      defTempNamer,
-		Suppressor:     sup,
-		CurrentFiler:   p.model,
-	}
-
 	for _ = range walkTicker {
 		if debugPull {
-			dlog.Println("time for rescan")
+			dlog.Printf("%q: time for rescan", p.repo)
 		}
-		files, _ := w.Walk()
-		p.model.fs.ReplaceWithDelete(cid.LocalID, files)
+		p.model.ScanRepo(p.repo)
 	}
 }
 
@@ -222,12 +198,12 @@ func (p *puller) handleRequestResult(res requestResult) {
 	p.openFiles[f.Name] = of
 
 	if debugPull {
-		dlog.Printf("pull: wrote %q offset %d outstanding %d done %v", f.Name, res.offset, of.outstanding, of.done)
+		dlog.Printf("pull: wrote %q / %q offset %d outstanding %d done %v", p.repo, f.Name, res.offset, of.outstanding, of.done)
 	}
 
 	if of.done && of.outstanding == 0 {
 		if debugPull {
-			dlog.Printf("pull: closing %q", f.Name)
+			dlog.Printf("pull: closing %q / %q", p.repo, f.Name)
 		}
 		of.file.Close()
 		defer os.Remove(of.temp)
@@ -237,7 +213,7 @@ func (p *puller) handleRequestResult(res requestResult) {
 		fd, err := os.Open(of.temp)
 		if err != nil {
 			if debugPull {
-				dlog.Printf("pull: error: %q: %v", f.Name, err)
+				dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, err)
 			}
 			return
 		}
@@ -246,14 +222,14 @@ func (p *puller) handleRequestResult(res requestResult) {
 
 		if l0, l1 := len(hb), len(f.Blocks); l0 != l1 {
 			if debugPull {
-				dlog.Printf("pull: %q: nblocks %d != %d", f.Name, l0, l1)
+				dlog.Printf("pull: %q / %q: nblocks %d != %d", p.repo, f.Name, l0, l1)
 			}
 			return
 		}
 
 		for i := range hb {
 			if bytes.Compare(hb[i].Hash, f.Blocks[i].Hash) != 0 {
-				dlog.Printf("pull: %q: block %d hash mismatch", f.Name, i)
+				dlog.Printf("pull: %q / %q: block %d hash mismatch", p.repo, f.Name, i)
 				return
 			}
 		}
@@ -262,12 +238,12 @@ func (p *puller) handleRequestResult(res requestResult) {
 		os.Chtimes(of.temp, t, t)
 		os.Chmod(of.temp, os.FileMode(f.Flags&0777))
 		if debugPull {
-			dlog.Printf("pull: rename %q: %q", f.Name, of.filepath)
+			dlog.Printf("pull: rename %q / %q: %q", p.repo, f.Name, of.filepath)
 		}
 		if err := Rename(of.temp, of.filepath); err == nil {
-			p.model.fs.Update(cid.LocalID, []scanner.File{f})
+			p.model.updateLocal(p.repo, f)
 		} else {
-			dlog.Printf("pull: error: %q: %v", f.Name, err)
+			dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, err)
 		}
 	}
 }
@@ -280,10 +256,10 @@ func (p *puller) handleBlock(b bqBlock) {
 
 	if !ok {
 		if debugPull {
-			dlog.Printf("pull: opening file %q", f.Name)
+			dlog.Printf("pull: %q: opening file %q", p.repo, f.Name)
 		}
 
-		of.availability = uint64(p.model.fs.Availability(f.Name))
+		of.availability = uint64(p.model.repoFiles[p.repo].Availability(f.Name))
 		of.filepath = filepath.Join(p.dir, f.Name)
 		of.temp = filepath.Join(p.dir, defTempNamer.TempName(f.Name))
 
@@ -293,13 +269,13 @@ func (p *puller) handleBlock(b bqBlock) {
 			err = os.MkdirAll(dirName, 0777)
 		}
 		if err != nil {
-			dlog.Printf("pull: error: %q: %v", f.Name, err)
+			dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, err)
 		}
 
 		of.file, of.err = os.Create(of.temp)
 		if of.err != nil {
 			if debugPull {
-				dlog.Printf("pull: error: %q: %v", f.Name, of.err)
+				dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
 			}
 			if !b.last {
 				p.openFiles[f.Name] = of
@@ -312,10 +288,10 @@ func (p *puller) handleBlock(b bqBlock) {
 	if of.err != nil {
 		// We have already failed this file.
 		if debugPull {
-			dlog.Printf("pull: error: %q has already failed: %v", f.Name, of.err)
+			dlog.Printf("pull: error: %q / %q has already failed: %v", p.repo, f.Name, of.err)
 		}
 		if b.last {
-			dlog.Printf("pull: removing failed file %q", f.Name)
+			dlog.Printf("pull: removing failed file %q / %q", p.repo, f.Name)
 			delete(p.openFiles, f.Name)
 		}
 
@@ -346,14 +322,14 @@ func (p *puller) handleCopyBlock(b bqBlock) {
 	of := p.openFiles[f.Name]
 
 	if debugPull {
-		dlog.Printf("pull: copying %d blocks for %q", len(b.copy), f.Name)
+		dlog.Printf("pull: copying %d blocks for %q / %q", len(b.copy), p.repo, f.Name)
 	}
 
 	var exfd *os.File
 	exfd, of.err = os.Open(of.filepath)
 	if of.err != nil {
 		if debugPull {
-			dlog.Printf("pull: error: %q: %v", f.Name, of.err)
+			dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
 		}
 		of.file.Close()
 		of.file = nil
@@ -372,7 +348,7 @@ func (p *puller) handleCopyBlock(b bqBlock) {
 		buffers.Put(bs)
 		if of.err != nil {
 			if debugPull {
-				dlog.Printf("pull: error: %q: %v", f.Name, of.err)
+				dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
 			}
 			exfd.Close()
 			of.file.Close()
@@ -412,10 +388,10 @@ func (p *puller) handleRequestBlock(b bqBlock) {
 
 	go func(node string, b bqBlock) {
 		if debugPull {
-			dlog.Printf("pull: requesting %q offset %d size %d from %q outstanding %d", f.Name, b.block.Offset, b.block.Size, node, of.outstanding)
+			dlog.Printf("pull: requesting %q / %q offset %d size %d from %q outstanding %d", p.repo, f.Name, b.block.Offset, b.block.Size, node, of.outstanding)
 		}
 
-		bs, err := p.model.requestGlobal(node, f.Name, b.block.Offset, int(b.block.Size), nil)
+		bs, err := p.model.requestGlobal(node, p.repo, f.Name, b.block.Offset, int(b.block.Size), nil)
 		p.requestResults <- requestResult{
 			node:     node,
 			file:     f,
@@ -445,7 +421,7 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 		os.Remove(of.filepath)
 	} else {
 		if debugPull {
-			dlog.Printf("pull: no blocks to fetch and nothing to copy for %q", f.Name)
+			dlog.Printf("pull: no blocks to fetch and nothing to copy for %q / %q", p.repo, f.Name)
 		}
 		t := time.Unix(f.Modified, 0)
 		os.Chtimes(of.temp, t, t)
@@ -453,13 +429,13 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 		Rename(of.temp, of.filepath)
 	}
 	delete(p.openFiles, f.Name)
-	p.model.fs.Update(cid.LocalID, []scanner.File{f})
+	p.model.repoFiles[p.repo].Update(cid.LocalID, []scanner.File{f})
 }
 
 func (p *puller) queueNeededBlocks() {
 	queued := 0
-	for _, f := range p.model.fs.Need(cid.LocalID) {
-		lf := p.model.fs.Get(cid.LocalID, f.Name)
+	for _, f := range p.model.repoFiles[p.repo].Need(cid.LocalID) {
+		lf := p.model.repoFiles[p.repo].Get(cid.LocalID, f.Name)
 		have, need := scanner.BlockDiff(lf.Blocks, f.Blocks)
 		if debugNeed {
 			dlog.Printf("need:\n  local: %v\n  global: %v\n  haveBlocks: %v\n  needBlocks: %v", lf, f, have, need)
@@ -472,6 +448,6 @@ func (p *puller) queueNeededBlocks() {
 		})
 	}
 	if debugPull && queued > 0 {
-		dlog.Printf("queued %d blocks", queued)
+		dlog.Printf("%q: queued %d blocks", p.repo, queued)
 	}
 }

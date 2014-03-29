@@ -20,10 +20,10 @@ func newTestModel() *TestModel {
 	}
 }
 
-func (t *TestModel) Index(nodeID string, files []FileInfo) {
+func (t *TestModel) Index(nodeID string, repo string, files []FileInfo) {
 }
 
-func (t *TestModel) IndexUpdate(nodeID string, files []FileInfo) {
+func (t *TestModel) IndexUpdate(nodeID string, repo string, files []FileInfo) {
 }
 
 func (t *TestModel) Request(nodeID, repo, name string, offset int64, size int) ([]byte, error) {

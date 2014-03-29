@@ -14,7 +14,7 @@ build() {
 		go get -d ./cmd/syncthing
 		godep=
 	fi
-	${godep} go build -ldflags "-w -X main.Version $version" ./cmd/syncthing
+	${godep} go build $* -ldflags "-w -X main.Version $version" ./cmd/syncthing
 	${godep} go build -ldflags "-w -X main.Version $version" ./cmd/stcli
 }
 
@@ -59,6 +59,10 @@ zipDist() {
 case "$1" in
 	"")
 		build
+		;;
+
+	race)
+		build -race
 		;;
 
 	test)
