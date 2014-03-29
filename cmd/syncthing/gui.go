@@ -119,12 +119,16 @@ type guiFile scanner.File
 
 func (f guiFile) MarshalJSON() ([]byte, error) {
 	type t struct {
-		Name string
-		Size int64
+		Name     string
+		Size     int64
+		Modified int64
+		Flags    uint32
 	}
 	return json.Marshal(t{
-		Name: f.Name,
-		Size: scanner.File(f).Size,
+		Name:     f.Name,
+		Size:     scanner.File(f).Size,
+		Modified: f.Modified,
+		Flags:    f.Flags,
 	})
 }
 
