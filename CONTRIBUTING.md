@@ -1,4 +1,7 @@
-Please do contribute!
+Please do contribute! If you want to contribute but are unsure where to
+start, the [Contributions Needed
+page](https://github.com/calmh/syncthing/wiki/Contributions-Needed)
+lists areas in need of attention.
 
 ## Licensing
 
