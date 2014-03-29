@@ -441,7 +441,7 @@ restrictive than the following:
 
  - Data: 256 KiB
 
- ### Options Message
+### Options Message
 
  - Number of Options: 64
  - Key: 64 bytes
