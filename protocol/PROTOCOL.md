@@ -16,12 +16,16 @@ nodes in the cluster.
 File data is described and transferred in units of _blocks_, each being
 128 KiB (131072 bytes) in size.
 
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL
+NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED",  "MAY", and
+"OPTIONAL" in this document are to be interpreted as described in
+RFC 2119.
+
 Transport and Authentication
 ----------------------------
 
 BEP is deployed as the highest level in a protocol stack, with the lower
 level protocols providing compression, encryption and authentication.
-The transport protocol is always TCP.
 
     +-----------------------------|
     |   Block Exchange Protocol   |
@@ -36,24 +40,31 @@ The transport protocol is always TCP.
 
 Compression is started directly after a successfull TLS handshake,
 before the first message is sent. The compression is flushed at each
-message boundary.
+message boundary. Compression SHALL use the DEFLATE format as specified
+in RFC 1951.
 
-The TLS layer shall use a strong cipher suite. Only cipher suites
-without known weaknesses and providing Perfect Forward Secrecy (PFS) can
-be considered strong. Examples of valid cipher suites are given at the
-end of this document. This is not to be taken as an exhaustive list of
-allowed cipher suites but represents best practices at the time of
-writing.
+The encryption and authentication layer SHALL use TLS 1.2 or a higher
+revision. A strong cipher suite SHALL be used, with "string cipher
+suite" being defined as being without known weaknesses and providing
+Perfect Forward Secrecy (PFS). Examples of strong cipher suites are
+given at the end of this document. This is not to be taken as an
+exhaustive list of allowed cipher suites but represents best practices
+at the time of writing.
 
-The exact nature of the authentication is up to the application.
-Possibilities include certificates signed by a common trusted CA,
-preshared certificates, preshared certificate fingerprints or
-certificate pinning combined with some out of band first verification.
+The exact nature of the authentication is up to the application, however
+it SHALL be based on the TLS certificate presented at the start of the
+connection. Possibilities include certificates signed by a common
+trusted CA, preshared certificates, preshared certificate fingerprints
+or certificate pinning combined with some out of band first
+verification. The reference implementation uses preshared certificate
+fingerprints (SHA-256) referred to as "Node IDs".
 
 There is no required order or synchronization among BEP messages - any
 message type may be sent at any time and the sender need not await a
-response to one message before sending another. Responses must however
+response to one message before sending another. Responses MUST however
 be sent in the same order as the requests are received.
+
+The underlying transport protocol MUST be TCP.
 
 Messages
 --------
@@ -75,12 +86,17 @@ and is one of the integers defined below.
 
 The Message ID is set to a unique value for each transmitted message. In
 request messages the Reply To is set to zero. In response messages it is
-set to the message ID of the corresponding request.
+set to the message ID of the corresponding request. The uniqueness
+requirement implies that no more than 4096 messages may be outstanding
+at any given moment. The ordering requirement implies that a response to
+a given message ID also means that all preceding messages have been
+received, specifically those which do not otherwise demand a response.
+Hence their message ID:s may be reused.
 
-All data following the message header is in XDR (RFC 1014) encoding. All
-fields smaller than 32 bits and all variable length data is padded to a
-multiple of 32 bits. The actual data types in use by BEP, in XDR naming
-convention, are:
+All data following the message header MUST be in XDR (RFC 1014)
+encoding. All fields shorter than 32 bits and all variable length data
+MUST be padded to a multiple of 32 bits. The actual data types in use by
+BEP, in XDR naming convention, are the following:
 
  - (unsigned) int   -- (unsigned) 32 bit integer
  - (unsigned) hyper -- (unsigned) 64 bit integer
@@ -89,19 +105,19 @@ convention, are:
 
 The transmitted length of string and opaque data is the length of actual
 data, excluding any added padding. The encoding of opaque<> and string<>
-are identical, the distinction being solely in interpretation. Opaque
-data should not be interpreted but can be compared bytewise to other
-opaque data. All strings use the UTF-8 encoding.
+are identical, the distinction being solely one of interpretation.
+Opaque data should not be interpreted but can be compared bytewise to
+other opaque data. All strings MUST use the Unicode UTF-8 encoding,
+normalization form C.
 
 ### Index (Type = 1)
 
 The Index message defines the contents of the senders repository. An
-Index message is sent by each peer immediately upon connection. A peer
-with no data to advertise (the repository is empty, or it is set to only
-import data) is allowed but not required to send an empty Index message
-(a file list of zero length). If the repository contents change from
-non-empty to empty, an empty Index message must be sent. There is no
-response to the Index message.
+Index message MUST be sent by each node immediately upon connection. A
+node with no data to advertise MUST send an empty Index message (a file
+list of zero length). If the repository contents change from non-empty
+to empty, an empty Index message MUST be sent. There is no response to
+the Index message.
 
 #### Graphical Representation
 
@@ -170,17 +186,20 @@ response to the Index message.
 #### Fields
 
 The Repository field identifies the repository that the index message
-pertains to. For single repository implementations an empty repository
-ID is acceptable, or the word "default". The Name is the file name path
-relative to the repository root. The Name is always in UTF-8 NFC
-regardless of operating system or file system specific conventions. The
-combination of Repository and Name uniquely identifies each file in a
-cluster.
+pertains to. For single repository implementations the node MAY send an
+empty repository ID or use the string "default".
+
+The Name is the file name path relative to the repository root. Like all
+strings in BEP, the Name is always in UTF-8 NFC regardless of operating
+system or file system specific conventions. The Name field uses the
+slash character ("/") as path separator, regardless of the
+implementation's operating system conventions. The combination of
+Repository and Name uniquely identifies each file in a cluster.
 
 The Version field is the value of a cluster wide Lamport clock
 indicating when the change was detected. The clock ticks on every
 detected and received change. The combination of Repository, Name and
-Version uniquely identifies the contents of a file at a certain point in
+Version uniquely identifies the contents of a file at a given point in
 time.
 
 The Flags field is made up of the following single bit flags:
@@ -191,30 +210,33 @@ The Flags field is made up of the following single bit flags:
     |              Reserved             |I|D|   Unix Perm. & Mode   |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
- - The lower 12 bits hold the common Unix permission and mode bits.
+ - The lower 12 bits hold the common Unix permission and mode bits. An
+   implemention MAY ignore or interpret these as is suitable on the host
+   operating system.
 
  - Bit 19 ("D") is set when the file has been deleted. The block list
-   shall contain zero blocks and the modification time indicates the
-   time of deletion or, if deletion time is not reliably determinable,
-   the last known modification time and a higher version number.
+   SHALL be of length zero and the modification time indicates the time
+   of deletion or, if the time of deletion is not reliably determinable,
+   the last known modification time.
 
  - Bit 18 ("I") is set when the file is invalid and unavailable for
-   synchronization. A peer may set this bit to indicate that it can
+   synchronization. A peer MAY set this bit to indicate that it can
    temporarily not serve data for the file.
 
- - Bit 0 through 17 are reserved for future use and shall be set to
+ - Bit 0 through 17 are reserved for future use and SHALL be set to
    zero.
 
 The hash algorithm is implied by the Hash length. Currently, the hash
-must be 32 bytes long and computed by SHA256.
+MUST be 32 bytes long and computed by SHA256.
 
 The Modified time is expressed as the number of seconds since the Unix
-Epoch. In the rare occasion that a file is simultaneously and
-independently modified by two nodes in the same cluster and thus end up
-on the same Version number after modification, the Modified field is
-used as a tie breaker.
+Epoch (1970-01-01 00:00:00 UTC).
 
-The Size field is the size of the file, in bytes.
+In the rare occasion that a file is simultaneously and independently
+modified by two nodes in the same cluster and thus end up on the same
+Version number after modification, the Modified field is used as a tie
+breaker (higher being better), followed by the hash values of the file
+blocks (lower being better).
 
 The Blocks list contains the size and hash for each block in the file.
 Each block represents a 128 KiB slice of the file, except for the last
@@ -275,7 +297,7 @@ corresponding to a part of a certain file in the peer's repository.
 
 The Repository and Name fields are as documented for the Index message.
 The Offset and Size fields specify the region of the file to be
-transferred. This should equate to exactly one block as seen in an Index
+transferred. This SHOULD equate to exactly one block as seen in an Index
 message.
 
 #### XDR
@@ -394,6 +416,37 @@ Well known keys:
         string Value<>;
     }
 
+Message Limits
+--------------
+
+An implementation MAY impose reasonable limits on the length of message
+fields to aid robustness in the face of corruption or broken
+implementations. These limits, if imposed, SHOULD not be more
+restrictive than the following:
+
+### Index and Index Update Messages
+
+ - Repository: 64 bytes
+ - Number of Files: 100.000
+ - Name: 1024 bytes
+ - Number of Blocks: 100.000
+ - Hash: 64 bytes
+
+### Request Messages
+
+ - Repository: 64 bytes
+ - Name: 1024 bytes
+
+### Response Messages
+
+ - Data: 256 KiB
+
+ ### Options Message
+
+ - Number of Options: 64
+ - Key: 64 bytes
+ - Value: 1024 bytes
+
 Example Exchange
 ----------------
 
@@ -423,8 +476,8 @@ Both peers enter idle state after 10. At some later time 11, peer A
 determines that it has not seen data from B for some time and sends a
 Ping request. A response is sent at 12.
 
-Examples of Acceptable Cipher Suites
-------------------------------------
+Examples of Strong Cipher Suites
+--------------------------------
 
 0x009F DHE-RSA-AES256-GCM-SHA384 (TLSv1.2 DH RSA AESGCM(256) AEAD)
 0x006B DHE-RSA-AES256-SHA256 (TLSv1.2 DH RSA AES(256) SHA256)
