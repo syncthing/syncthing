@@ -47,10 +47,9 @@ func init() {
 }
 
 func TestRequest(t *testing.T) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
+	m := NewModel(1e6)
+	m.AddRepo("default", "testdata", nil)
+	m.ScanRepo("default")
 
 	bs, err := m.Request("some node", "default", "foo", 0, 6)
 	if err != nil {
@@ -84,10 +83,9 @@ func genFiles(n int) []protocol.FileInfo {
 }
 
 func BenchmarkIndex10000(b *testing.B) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
+	m := NewModel(1e6)
+	m.AddRepo("default", "testdata", nil)
+	m.ScanRepo("default")
 	files := genFiles(10000)
 
 	b.ResetTimer()
@@ -97,10 +95,9 @@ func BenchmarkIndex10000(b *testing.B) {
 }
 
 func BenchmarkIndex00100(b *testing.B) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
+	m := NewModel(1e6)
+	m.AddRepo("default", "testdata", nil)
+	m.ScanRepo("default")
 	files := genFiles(100)
 
 	b.ResetTimer()
@@ -110,10 +107,9 @@ func BenchmarkIndex00100(b *testing.B) {
 }
 
 func BenchmarkIndexUpdate10000f10000(b *testing.B) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
+	m := NewModel(1e6)
+	m.AddRepo("default", "testdata", nil)
+	m.ScanRepo("default")
 	files := genFiles(10000)
 	m.Index("42", "default", files)
 
@@ -124,10 +120,9 @@ func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 }
 
 func BenchmarkIndexUpdate10000f00100(b *testing.B) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
+	m := NewModel(1e6)
+	m.AddRepo("default", "testdata", nil)
+	m.ScanRepo("default")
 	files := genFiles(10000)
 	m.Index("42", "default", files)
 
@@ -139,10 +134,9 @@ func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 }
 
 func BenchmarkIndexUpdate10000f00001(b *testing.B) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
+	m := NewModel(1e6)
+	m.AddRepo("default", "testdata", nil)
+	m.ScanRepo("default")
 	files := genFiles(10000)
 	m.Index("42", "default", files)
 
@@ -185,10 +179,9 @@ func (FakeConnection) Statistics() protocol.Statistics {
 }
 
 func BenchmarkRequest(b *testing.B) {
-	m := NewModel("testdata", 1e6)
-	w := scanner.Walker{Dir: "testdata", IgnoreFile: ".stignore", BlockSize: 128 * 1024}
-	fs, _ := w.Walk()
-	m.ReplaceLocal(fs)
+	m := NewModel(1e6)
+	m.AddRepo("default", "testdata", nil)
+	m.ScanRepo("default")
 
 	const n = 1000
 	files := make([]protocol.FileInfo, n)
@@ -210,7 +203,7 @@ func BenchmarkRequest(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		data, err := m.requestGlobal("42", files[i%n].Name, 0, 32, nil)
+		data, err := m.requestGlobal("42", "default", files[i%n].Name, 0, 32, nil)
 		if err != nil {
 			b.Error(err)
 		}
