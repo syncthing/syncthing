@@ -153,6 +153,7 @@ func main() {
 		cfg, err = readConfigXML(nil)
 		cfg.Repositories = []RepositoryConfiguration{
 			{
+				ID:        "default",
 				Directory: filepath.Join(getHomeDir(), "Sync"),
 				Nodes: []NodeConfiguration{
 					{NodeID: myID, Addresses: []string{"dynamic"}},
