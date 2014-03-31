@@ -86,8 +86,7 @@ case "$1" in
 		prepare
 		test || exit 1
 
-		export GOARM=7
-		for os in darwin-amd64 linux-amd64 linux-arm freebsd-amd64 windows-amd64 ; do
+		for os in darwin-amd64 linux-amd64 freebsd-amd64 windows-amd64 ; do
 			export GOOS=${os%-*}
 			export GOARCH=${os#*-}
 
@@ -105,6 +104,18 @@ case "$1" in
 					;;
 			esac
 		done
+
+		export GOOS=linux
+		export GOARCH=arm
+
+		export GOARM=7
+		build
+		tarDist "syncthing-linux-armv7-$version"
+
+		export GOARM=6
+		build
+		tarDist "syncthing-linux-armv6-$version"
+
 		;;
 
 	upload)
