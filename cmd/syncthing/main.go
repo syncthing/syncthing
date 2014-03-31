@@ -71,7 +71,7 @@ func main() {
 	}
 
 	if showVersion {
-		fmt.Println(Version)
+		fmt.Printf("syncthing %s (%s %s-%s)\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 		os.Exit(0)
 	}
 
