@@ -33,7 +33,6 @@ var (
 var (
 	showVersion bool
 	confDir     string
-	verbose     bool
 )
 
 const (
@@ -63,7 +62,6 @@ const (
 func main() {
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
-	flag.BoolVar(&verbose, "v", false, "Be more verbose")
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
 	flag.Parse()
 
@@ -230,9 +228,7 @@ func main() {
 	// Walk the repository and update the local model before establishing any
 	// connections to other nodes.
 
-	if verbose {
-		infoln("Populating repository index")
-	}
+	infoln("Populating repository index")
 	m.LoadIndexes(confDir)
 	m.ScanRepos()
 	m.SaveIndexes(confDir)
@@ -244,23 +240,16 @@ func main() {
 	}
 
 	// Routine to connect out to configured nodes
-	if verbose {
-		infoln("Attempting to connect to other nodes")
-	}
 	disc := discovery()
 	go listenConnect(myID, disc, m, tlsCfg, connOpts)
 
 	// Routine to pull blocks from other nodes to synchronize the local
 	// repository. Does not run when we are in read only (publish only) mode.
 	if cfg.Options.ReadOnly {
-		if verbose {
-			okln("Ready to synchronize (read only; no external updates accepted)")
-		}
+		okln("Ready to synchronize (read only; no external updates accepted)")
 		m.StartRO()
 	} else {
-		if verbose {
-			okln("Ready to synchronize (read-write)")
-		}
+		okln("Ready to synchronize (read-write)")
 		m.StartRW(cfg.Options.ParallelRequests)
 	}
 
@@ -444,7 +433,7 @@ func discovery() *discover.Discoverer {
 
 	if !cfg.Options.GlobalAnnEnabled {
 		cfg.Options.GlobalAnnServer = ""
-	} else if verbose {
+	} else {
 		infoln("Sending external discovery announcements")
 	}
 
