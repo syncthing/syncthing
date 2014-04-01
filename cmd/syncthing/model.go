@@ -227,6 +227,14 @@ func (m *Model) NeedFiles() ([]scanner.File, int64) {
 	return nf, bytes
 }
 
+// NeedFiles returns the list of currently needed files and the total size.
+func (m *Model) NeedFilesRepo(repo string) []scanner.File {
+	m.rmut.RLock()
+	nf := m.repoFiles[repo].Need(cid.LocalID)
+	m.rmut.RUnlock()
+	return nf
+}
+
 // Index is called when a new node is connected and we receive their full index.
 // Implements the protocol.Model interface.
 func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
@@ -366,6 +374,20 @@ func (m *Model) SeedLocal(repo string, fs []protocol.FileInfo) {
 	m.rmut.RUnlock()
 }
 
+func (m *Model) CurrentRepoFile(repo string, file string) scanner.File {
+	m.rmut.RLock()
+	f := m.repoFiles[repo].Get(cid.LocalID, file)
+	m.rmut.RUnlock()
+	return f
+}
+
+func (m *Model) CurrentGlobalFile(repo string, file string) scanner.File {
+	m.rmut.RLock()
+	f := m.repoFiles[repo].GetGlobal(file)
+	m.rmut.RUnlock()
+	return f
+}
+
 type cFiler struct {
 	m *Model
 	r string
@@ -373,10 +395,7 @@ type cFiler struct {
 
 // Implements scanner.CurrentFiler
 func (cf cFiler) CurrentFile(file string) scanner.File {
-	cf.m.rmut.RLock()
-	f := cf.m.repoFiles[cf.r].Get(cid.LocalID, file)
-	cf.m.rmut.RUnlock()
-	return f
+	return cf.m.CurrentRepoFile(cf.r, file)
 }
 
 // ConnectedTo returns true if we are connected to the named node.

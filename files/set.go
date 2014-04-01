@@ -112,7 +112,7 @@ func (m *Set) ReplaceWithDelete(id uint, fs []scanner.File) {
 			if _, ok := nf[ck.Name]; !ok {
 				cf := m.files[ck].File
 				if cf.Flags&protocol.FlagDeleted != protocol.FlagDeleted {
-					cf.Flags = protocol.FlagDeleted
+					cf.Flags |= protocol.FlagDeleted
 					cf.Blocks = nil
 					cf.Size = 0
 					cf.Version = lamport.Default.Tick(cf.Version)
@@ -145,9 +145,13 @@ func (m *Set) Need(id uint) []scanner.File {
 	}
 	var fs []scanner.File
 	m.Lock()
+	rkID := m.remoteKey[id]
 	for name, gk := range m.globalKey {
-		if gk.newerThan(m.remoteKey[id][name]) {
-			fs = append(fs, m.files[gk].File)
+		if gk.newerThan(rkID[name]) {
+			if m.files[gk].File.Flags&protocol.FlagDirectory == 0 || // Regular file
+				m.files[gk].File.Flags&(protocol.FlagDirectory|protocol.FlagDeleted) == protocol.FlagDirectory { // Non-deleted directory
+				fs = append(fs, m.files[gk].File)
+			}
 		}
 	}
 	m.Unlock()

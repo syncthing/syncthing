@@ -77,6 +77,7 @@ func TestLocalDeleted(t *testing.T) {
 		scanner.File{Name: "b", Version: 1000},
 		scanner.File{Name: "c", Version: 1000},
 		scanner.File{Name: "d", Version: 1000},
+		scanner.File{Name: "z", Version: 1000, Flags: protocol.FlagDirectory},
 	}
 
 	m.ReplaceWithDelete(cid.LocalID, local1)
@@ -91,6 +92,7 @@ func TestLocalDeleted(t *testing.T) {
 		scanner.File{Name: "b", Version: 1001, Flags: protocol.FlagDeleted},
 		local1[2],
 		scanner.File{Name: "d", Version: 1002, Flags: protocol.FlagDeleted},
+		scanner.File{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
 	}
 
 	m.ReplaceWithDelete(cid.LocalID, local2)
@@ -109,8 +111,9 @@ func TestLocalDeleted(t *testing.T) {
 	expectedGlobal2 := []scanner.File{
 		local1[0],
 		scanner.File{Name: "b", Version: 1001, Flags: protocol.FlagDeleted},
-		scanner.File{Name: "c", Version: 1003, Flags: protocol.FlagDeleted},
+		scanner.File{Name: "c", Version: 1004, Flags: protocol.FlagDeleted},
 		scanner.File{Name: "d", Version: 1002, Flags: protocol.FlagDeleted},
+		scanner.File{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
 	}
 
 	m.ReplaceWithDelete(cid.LocalID, local3)

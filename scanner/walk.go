@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/lamport"
+	"github.com/calmh/syncthing/protocol"
 )
 
 type Walker struct {
@@ -137,7 +138,6 @@ func (w *Walker) loadIgnoreFiles(dir string, ign map[string][]string) filepath.W
 
 func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.WalkFunc {
 	return func(p string, info os.FileInfo, err error) error {
-
 		if err != nil {
 			if debug {
 				dlog.Println("error:", p, info, err)
@@ -153,7 +153,12 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			return nil
 		}
 
+		if rn == "." {
+			return nil
+		}
+
 		if w.TempNamer != nil && w.TempNamer.IsTemporary(rn) {
+			// A temporary file
 			if debug {
 				dlog.Println("temporary:", rn)
 			}
@@ -161,13 +166,15 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		}
 
 		if _, sn := filepath.Split(rn); sn == w.IgnoreFile {
+			// An ignore-file; these are ignored themselves
 			if debug {
 				dlog.Println("ignorefile:", rn)
 			}
 			return nil
 		}
 
-		if rn != "." && w.ignoreFile(ign, rn) {
+		if w.ignoreFile(ign, rn) {
+			// An ignored file
 			if debug {
 				dlog.Println("ignored:", rn)
 			}
@@ -177,10 +184,34 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			return nil
 		}
 
-		if info.Mode()&os.ModeType == 0 {
+		if info.Mode().IsDir() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				if cf.Modified == info.ModTime().Unix() {
+				if cf.Modified == info.ModTime().Unix() && cf.Flags == uint32(info.Mode()&os.ModePerm|protocol.FlagDirectory) {
+					if debug {
+						dlog.Println("unchanged:", cf)
+					}
+					*res = append(*res, cf)
+				} else {
+					f := File{
+						Name:     rn,
+						Version:  lamport.Default.Tick(0),
+						Flags:    uint32(info.Mode()&os.ModePerm) | protocol.FlagDirectory,
+						Modified: info.ModTime().Unix(),
+					}
+					if debug {
+						dlog.Println("dir:", cf, f)
+					}
+					*res = append(*res, f)
+				}
+				return nil
+			}
+		}
+
+		if info.Mode().IsRegular() {
+			if w.CurrentFiler != nil {
+				cf := w.CurrentFiler.CurrentFile(rn)
+				if cf.Flags&protocol.FlagDeleted == 0 && cf.Modified == info.ModTime().Unix() {
 					if debug {
 						dlog.Println("unchanged:", cf)
 					}
