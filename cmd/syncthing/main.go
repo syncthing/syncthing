@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"github.com/calmh/ini"
 	"github.com/calmh/syncthing/discover"
 	"github.com/calmh/syncthing/protocol"
+	"github.com/juju/ratelimit"
 )
 
 const BlockSize = 128 * 1024
@@ -27,12 +29,9 @@ var cfg Configuration
 var Version = "unknown-dev"
 
 var (
-	myID string
-)
-
-var (
-	showVersion bool
-	confDir     string
+	myID       string
+	confDir    string
+	rateBucket *ratelimit.Bucket
 )
 
 const (
@@ -60,6 +59,7 @@ const (
 )
 
 func main() {
+	var showVersion bool
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
@@ -186,10 +186,14 @@ func main() {
 		MinVersion:             tls.VersionTLS12,
 	}
 
-	m := NewModel(cfg.Options.MaxChangeKbps * 1000)
+	// If the write rate should be limited, set up a rate limiter for it.
+	// This will be used on connections created in the connect and listen routines.
+
 	if cfg.Options.MaxSendKbps > 0 {
-		m.LimitRate(cfg.Options.MaxSendKbps)
+		rateBucket = ratelimit.NewBucketWithRate(float64(1000*cfg.Options.MaxSendKbps), int64(5*1000*cfg.Options.MaxSendKbps))
 	}
+
+	m := NewModel(cfg.Options.MaxChangeKbps * 1000)
 
 	for i := range cfg.Repositories {
 		cfg.Repositories[i].Nodes = cleanNodeList(cfg.Repositories[i].Nodes, myID)
@@ -415,7 +419,11 @@ next:
 
 		for _, nodeCfg := range cfg.Repositories[0].Nodes {
 			if nodeCfg.NodeID == remoteID {
-				protoConn := protocol.NewConnection(remoteID, conn, conn, m, connOpts)
+				var wr io.Writer = conn
+				if rateBucket != nil {
+					wr = &limitedWriter{conn, rateBucket}
+				}
+				protoConn := protocol.NewConnection(remoteID, conn, wr, m, connOpts)
 				m.AddConnection(conn, protoConn)
 				continue next
 			}

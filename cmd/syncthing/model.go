@@ -18,7 +18,6 @@ import (
 	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
-	"github.com/juju/ratelimit"
 )
 
 type Model struct {
@@ -35,8 +34,6 @@ type Model struct {
 	pmut      sync.RWMutex // protects protoConn and rawConn
 
 	sup suppressor
-
-	limitRequestRate *ratelimit.Bucket
 
 	addedRepo bool
 	started   bool
@@ -64,10 +61,6 @@ func NewModel(maxChangeBw int) *Model {
 
 	go m.broadcastIndexLoop()
 	return m
-}
-
-func (m *Model) LimitRate(kbps int) {
-	m.limitRequestRate = ratelimit.NewBucketWithRate(float64(kbps), int64(5*kbps))
 }
 
 // StartRW starts read/write processing on the current model. When in
@@ -349,10 +342,6 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 	_, err = fd.ReadAt(buf, offset)
 	if err != nil {
 		return nil, err
-	}
-
-	if m.limitRequestRate != nil {
-		m.limitRequestRate.Wait(int64(size / 1024))
 	}
 
 	return buf, nil
