@@ -86,7 +86,7 @@ case "$1" in
 		prepare
 		test || exit 1
 
-		for os in darwin-amd64 linux-amd64 freebsd-amd64 windows-amd64 ; do
+		for os in darwin-amd64 linux-386 linux-amd64 freebsd-amd64 windows-amd64 ; do
 			export GOOS=${os%-*}
 			export GOARCH=${os#*-}
 
