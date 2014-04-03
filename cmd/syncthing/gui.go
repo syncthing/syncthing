@@ -38,6 +38,7 @@ func startGUI(addr string, m *Model) {
 
 	router.Post("/rest/config", restPostConfig)
 	router.Post("/rest/restart", restPostRestart)
+	router.Post("/rest/reset", restPostReset)
 	router.Post("/rest/error", restPostError)
 
 	go func() {
@@ -112,7 +113,12 @@ func restGetConfigInSync(w http.ResponseWriter) {
 }
 
 func restPostRestart(req *http.Request) {
-	restart()
+	go restart()
+}
+
+func restPostReset(req *http.Request) {
+	resetRepositories()
+	go restart()
 }
 
 type guiFile scanner.File

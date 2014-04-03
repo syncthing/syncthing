@@ -59,8 +59,10 @@ const (
 )
 
 func main() {
+	var reset bool
 	var showVersion bool
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
+	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
 	flag.Parse()
@@ -163,6 +165,11 @@ func main() {
 		infof("Edit %s to taste or use the GUI\n", cfgFile)
 	}
 
+	if reset {
+		resetRepositories()
+		os.Exit(0)
+	}
+
 	if profiler := os.Getenv("STPROFILER"); len(profiler) > 0 {
 		go func() {
 			dlog.Println("Starting profiler on", profiler)
@@ -258,6 +265,25 @@ func main() {
 	}
 
 	select {}
+}
+
+func resetRepositories() {
+	suffix := fmt.Sprintf(".syncthing-reset-%d", time.Now().UnixNano())
+	for _, repo := range cfg.Repositories {
+		if _, err := os.Stat(repo.Directory); err == nil {
+			infof("Reset: Moving %s -> %s", repo.Directory, repo.Directory+suffix)
+			os.Rename(repo.Directory, repo.Directory+suffix)
+		}
+	}
+
+	pat := filepath.Join(confDir, "*.idx.gz")
+	idxs, err := filepath.Glob(pat)
+	if err == nil {
+		for _, idx := range idxs {
+			infof("Reset: Removing %s", idx)
+			os.Remove(idx)
+		}
+	}
 }
 
 func restart() {
