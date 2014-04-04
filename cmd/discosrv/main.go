@@ -287,7 +287,8 @@ func logStats() {
 				deleted++
 			}
 		}
-		log.Printf("Expired %d nodes; %d nodes in registry; %d queries (%d answered); %d entries in limiter cache", deleted, len(nodes), queries, answered, limiter.Len())
+
+		log.Printf("Expired %d nodes; %d nodes in registry; %d queries (%d answered)", deleted, len(nodes), queries, answered)
 		log.Printf("Limited %d queries; %d entries in limiter cache", limited, limiter.Len())
 		queries = 0
 		answered = 0
