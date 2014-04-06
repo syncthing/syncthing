@@ -16,8 +16,6 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
-
-	"github.com/calmh/ini"
 	"github.com/calmh/syncthing/discover"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/juju/ratelimit"
@@ -120,31 +118,6 @@ func main() {
 			fatalln(err)
 		}
 		cf.Close()
-	} else {
-		// No config.xml, let's try the old syncthing.ini
-		iniFile := filepath.Join(confDir, "syncthing.ini")
-		cf, err := os.Open(iniFile)
-		if err == nil {
-			infoln("Migrating syncthing.ini to config.xml")
-			iniCfg := ini.Parse(cf)
-			cf.Close()
-			Rename(iniFile, filepath.Join(confDir, "migrated_syncthing.ini"))
-
-			cfg, _ = readConfigXML(nil)
-			cfg.Repositories = []RepositoryConfiguration{
-				{Directory: iniCfg.Get("repository", "dir")},
-			}
-			readConfigINI(iniCfg.OptionMap("settings"), &cfg.Options)
-			for name, addrs := range iniCfg.OptionMap("nodes") {
-				n := NodeConfiguration{
-					NodeID:    name,
-					Addresses: strings.Fields(addrs),
-				}
-				cfg.Repositories[0].Nodes = append(cfg.Repositories[0].Nodes, n)
-			}
-
-			saveConfig()
-		}
 	}
 
 	if len(cfg.Repositories) == 0 {

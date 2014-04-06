@@ -16,10 +16,6 @@
 			"Rev": "9cbe983aed9b0dfc73954433fead5e00866342ac"
 		},
 		{
-			"ImportPath": "github.com/calmh/ini",
-			"Rev": "386c4240a9684d91d9ec4d93651909b49c7269e1"
-		},
-		{
 			"ImportPath": "github.com/codegangsta/inject",
 			"Rev": "9aea7a2fa5b79ef7fc00f63a575e72df33b4e886"
 		},

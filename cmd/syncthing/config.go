@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
-	"strings"
 )
 
 type Configuration struct {
@@ -101,41 +100,6 @@ func fillNilSlices(data interface{}) error {
 					rv.Index(0).SetString(v)
 					f.Set(rv)
 				}
-			}
-		}
-	}
-	return nil
-}
-
-func readConfigINI(m map[string]string, data interface{}) error {
-	s := reflect.ValueOf(data).Elem()
-	t := s.Type()
-
-	for i := 0; i < s.NumField(); i++ {
-		f := s.Field(i)
-		tag := t.Field(i).Tag
-
-		name := tag.Get("ini")
-		if len(name) == 0 {
-			name = strings.ToLower(t.Field(i).Name)
-		}
-
-		if v, ok := m[name]; ok {
-			switch f.Interface().(type) {
-			case string:
-				f.SetString(v)
-
-			case int:
-				i, err := strconv.ParseInt(v, 10, 64)
-				if err == nil {
-					f.SetInt(i)
-				}
-
-			case bool:
-				f.SetBool(v == "true")
-
-			default:
-				panic(f.Type())
 			}
 		}
 	}
