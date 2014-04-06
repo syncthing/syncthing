@@ -11,7 +11,6 @@ func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		ListenAddress:      []string{":22000"},
 		ReadOnly:           false,
-		FollowSymlinks:     true,
 		GUIEnabled:         true,
 		GUIAddress:         "127.0.0.1:8080",
 		GlobalAnnServer:    "announce.syncthing.net:22025",
@@ -70,7 +69,6 @@ func TestOverriddenValues(t *testing.T) {
        <listenAddress>:23000</listenAddress>
         <readOnly>true</readOnly>
         <allowDelete>false</allowDelete>
-        <followSymlinks>false</followSymlinks>
         <guiEnabled>false</guiEnabled>
         <guiAddress>125.2.2.2:8080</guiAddress>
         <globalAnnounceServer>syncthing.nym.se:22025</globalAnnounceServer>
@@ -89,7 +87,6 @@ func TestOverriddenValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		ListenAddress:      []string{":23000"},
 		ReadOnly:           true,
-		FollowSymlinks:     false,
 		GUIEnabled:         false,
 		GUIAddress:         "125.2.2.2:8080",
 		GlobalAnnServer:    "syncthing.nym.se:22025",

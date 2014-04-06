@@ -557,7 +557,6 @@ func (m *Model) ScanRepo(repo string) {
 	w := &scanner.Walker{
 		Dir:            m.repoDirs[repo],
 		IgnoreFile:     ".stignore",
-		FollowSymlinks: cfg.Options.FollowSymlinks,
 		BlockSize:      BlockSize,
 		TempNamer:      defTempNamer,
 		Suppressor:     sup,

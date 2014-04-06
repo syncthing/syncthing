@@ -16,9 +16,6 @@ import (
 type Walker struct {
 	// Dir is the base directory for the walk
 	Dir string
-	// If FollowSymlinks is true, symbolic links directly under Dir will be followed.
-	// Symbolic links at deeper levels are never followed regardless of this flag.
-	FollowSymlinks bool
 	// BlockSize controls the size of the block used when hashing.
 	BlockSize int
 	// If IgnoreFile is not empty, it is the name used for the file that holds ignore patterns.
@@ -58,7 +55,7 @@ func (w *Walker) Walk() (files []File, ignore map[string][]string) {
 	w.lazyInit()
 
 	if debug {
-		dlog.Println("Walk", w.Dir, w.FollowSymlinks, w.BlockSize, w.IgnoreFile)
+		dlog.Println("Walk", w.Dir, w.BlockSize, w.IgnoreFile)
 	}
 	t0 := time.Now()
 
@@ -67,27 +64,6 @@ func (w *Walker) Walk() (files []File, ignore map[string][]string) {
 
 	filepath.Walk(w.Dir, w.loadIgnoreFiles(w.Dir, ignore))
 	filepath.Walk(w.Dir, hashFiles)
-
-	if w.FollowSymlinks {
-		d, err := os.Open(w.Dir)
-		if err != nil {
-			return
-		}
-		defer d.Close()
-
-		fis, err := d.Readdir(-1)
-		if err != nil {
-			return
-		}
-
-		for _, info := range fis {
-			if info.Mode()&os.ModeSymlink != 0 {
-				dir := filepath.Join(w.Dir, info.Name()) + "/"
-				filepath.Walk(dir, w.loadIgnoreFiles(dir, ignore))
-				filepath.Walk(dir, hashFiles)
-			}
-		}
-	}
 
 	if debug {
 		t1 := time.Now()
