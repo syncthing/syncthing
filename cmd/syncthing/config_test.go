@@ -140,8 +140,6 @@ func TestOverriddenValues(t *testing.T) {
     <options>
        <listenAddress>:23000</listenAddress>
         <allowDelete>false</allowDelete>
-        <guiEnabled>false</guiEnabled>
-        <guiAddress>125.2.2.2:8080</guiAddress>
         <globalAnnounceServer>syncthing.nym.se:22025</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
@@ -157,8 +155,6 @@ func TestOverriddenValues(t *testing.T) {
 
 	expected := OptionsConfiguration{
 		ListenAddress:      []string{":23000"},
-		GUIEnabled:         false,
-		GUIAddress:         "125.2.2.2:8080",
 		GlobalAnnServer:    "syncthing.nym.se:22025",
 		GlobalAnnEnabled:   false,
 		LocalAnnEnabled:    false,
