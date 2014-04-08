@@ -56,6 +56,10 @@ zipDist() {
 	rm -rf "$name"
 }
 
+deps() {
+	godep save ./cmd/syncthing ./cmd/assets ./cmd/stcli ./discover/cmd/discosrv
+}
+
 case "$1" in
 	"")
 		build
@@ -124,6 +128,10 @@ case "$1" in
 		for f in *.tar.gz *.zip *.asc ; do
 			relup calmh/syncthing "$tag" "$f"
 		done
+		;;
+
+	deps)
+		deps
 		;;
 
 	*)
