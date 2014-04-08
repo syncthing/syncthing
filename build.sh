@@ -18,12 +18,12 @@ build() {
 	${godep} go build -ldflags "-w -X main.Version $version" ./cmd/stcli
 }
 
-prepare() {
-	go run cmd/assets/assets.go gui > auto/gui.files.go
+assets() {
+	godep go run cmd/assets/assets.go gui > auto/gui.files.go
 }
 
 test() {
-	go test -cpu=1,2,4 ./...
+	godep go test -cpu=1,2,4 ./...
 }
 
 sign() {
@@ -75,8 +75,8 @@ case "$1" in
 
 	tar)
 		rm -f *.tar.gz *.zip
-		prepare
 		test || exit 1
+		assets
 		build
 
 		eval $(go env)
@@ -87,8 +87,8 @@ case "$1" in
 
 	all)
 		rm -f *.tar.gz *.zip
-		prepare
 		test || exit 1
+		assets
 
 		for os in darwin-amd64 linux-386 linux-amd64 freebsd-amd64 windows-amd64 ; do
 			export GOOS=${os%-*}
@@ -132,6 +132,10 @@ case "$1" in
 
 	deps)
 		deps
+		;;
+
+	assets)
+		assets
 		;;
 
 	*)
