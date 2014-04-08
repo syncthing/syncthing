@@ -429,7 +429,13 @@ func listenConnect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls
 
 next:
 	for conn := range conns {
-		remoteID := certID(conn.ConnectionState().PeerCertificates[0].Raw)
+		certs := conn.ConnectionState().PeerCertificates
+		if l := len(certs); l != 1 {
+			warnf("Got peer certificate list of length %d != 1; protocol error", l)
+			conn.Close()
+			continue
+		}
+		remoteID := certID(certs[0].Raw)
 
 		if remoteID == myID {
 			warnf("Connected to myself (%s) - should not happen", remoteID)
