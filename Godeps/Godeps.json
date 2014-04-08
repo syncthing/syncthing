@@ -2,7 +2,10 @@
 	"ImportPath": "github.com/calmh/syncthing",
 	"GoVersion": "go1.2.1",
 	"Packages": [
-		"./cmd/syncthing"
+		"./cmd/syncthing",
+		"./cmd/assets",
+		"./cmd/stcli",
+		"./discover/cmd/discosrv"
 	],
 	"Deps": [
 		{
@@ -23,6 +26,10 @@
 			"ImportPath": "github.com/codegangsta/martini",
 			"Comment": "v0.1-142-g8659df7",
 			"Rev": "8659df7a51aebe6c6120268cd5a8b4c34fa8441a"
+		},
+		{
+			"ImportPath": "github.com/golang/groupcache/lru",
+			"Rev": "d781998583680cda80cf61e0b37dd0cd8da2eb52"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
