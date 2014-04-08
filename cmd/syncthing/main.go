@@ -432,7 +432,7 @@ next:
 			continue
 		}
 
-		for _, nodeCfg := range cfg.Repositories[0].Nodes {
+		for _, nodeCfg := range cfg.Nodes {
 			if nodeCfg.NodeID == remoteID {
 				var wr io.Writer = conn
 				if rateBucket != nil {
