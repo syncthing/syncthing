@@ -66,15 +66,13 @@ func NewModel(maxChangeBw int) *Model {
 // StartRW starts read/write processing on the current model. When in
 // read/write mode the model will attempt to keep in sync with the cluster by
 // pulling needed files from peer nodes.
-func (m *Model) StartRW(threads int) {
+func (m *Model) StartRepoRW(repo string, threads int) {
 	m.rmut.Lock()
 	defer m.rmut.Unlock()
 
-	if !m.addedRepo {
+	if dir, ok := m.repoDirs[repo]; !ok {
 		panic("cannot start without repo")
-	}
-	m.started = true
-	for repo, dir := range m.repoDirs {
+	} else {
 		newPuller(repo, dir, m, threads)
 	}
 }
@@ -82,17 +80,8 @@ func (m *Model) StartRW(threads int) {
 // StartRO starts read only processing on the current model. When in
 // read only mode the model will announce files to the cluster but not
 // pull in any external changes.
-func (m *Model) StartRO() {
-	m.rmut.Lock()
-	defer m.rmut.Unlock()
-
-	if !m.addedRepo {
-		panic("cannot start without repo")
-	}
-	m.started = true
-	for repo, dir := range m.repoDirs {
-		newPuller(repo, dir, m, 0) // zero threads => read only
-	}
+func (m *Model) StartRepoRO(repo string) {
+	m.StartRepoRW(repo, 0) // zero threads => read only
 }
 
 type ConnectionInfo struct {
@@ -555,12 +544,12 @@ func (m *Model) ScanRepos() {
 func (m *Model) ScanRepo(repo string) {
 	sup := &suppressor{threshold: int64(cfg.Options.MaxChangeKbps)}
 	w := &scanner.Walker{
-		Dir:            m.repoDirs[repo],
-		IgnoreFile:     ".stignore",
-		BlockSize:      BlockSize,
-		TempNamer:      defTempNamer,
-		Suppressor:     sup,
-		CurrentFiler:   cFiler{m, repo},
+		Dir:          m.repoDirs[repo],
+		IgnoreFile:   ".stignore",
+		BlockSize:    BlockSize,
+		TempNamer:    defTempNamer,
+		Suppressor:   sup,
+		CurrentFiler: cFiler{m, repo},
 	}
 	fs, _ := w.Walk()
 	m.ReplaceLocal(repo, fs)

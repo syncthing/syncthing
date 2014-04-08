@@ -11,8 +11,9 @@ import (
 )
 
 type Configuration struct {
-	Version      int                       `xml:"version,attr" default:"1"`
+	Version      int                       `xml:"version,attr" default:"2"`
 	Repositories []RepositoryConfiguration `xml:"repository"`
+	Nodes        []NodeConfiguration       `xml:"node"`
 	Options      OptionsConfiguration      `xml:"options"`
 	XMLName      xml.Name                  `xml:"configuration" json:"-"`
 }
@@ -21,27 +22,38 @@ type RepositoryConfiguration struct {
 	ID        string              `xml:"id,attr"`
 	Directory string              `xml:"directory,attr"`
 	Nodes     []NodeConfiguration `xml:"node"`
+	ReadOnly  bool                `xml:"ro,attr"`
+	nodeIDs   []string
+}
+
+func (r *RepositoryConfiguration) NodeIDs() []string {
+	if r.nodeIDs == nil {
+		for _, n := range r.Nodes {
+			r.nodeIDs = append(r.nodeIDs, n.NodeID)
+		}
+	}
+	return r.nodeIDs
 }
 
 type NodeConfiguration struct {
 	NodeID    string   `xml:"id,attr"`
-	Name      string   `xml:"name,attr"`
-	Addresses []string `xml:"address"`
+	Name      string   `xml:"name,attr,omitempty"`
+	Addresses []string `xml:"address,omitempty"`
 }
 
 type OptionsConfiguration struct {
-	ListenAddress      []string `xml:"listenAddress" default:":22000" ini:"listen-address"`
-	ReadOnly           bool     `xml:"readOnly" ini:"read-only"`
-	GUIEnabled         bool     `xml:"guiEnabled" default:"true" ini:"gui-enabled"`
-	GUIAddress         string   `xml:"guiAddress" default:"127.0.0.1:8080" ini:"gui-address"`
-	GlobalAnnServer    string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22025" ini:"global-announce-server"`
-	GlobalAnnEnabled   bool     `xml:"globalAnnounceEnabled" default:"true" ini:"global-announce-enabled"`
-	LocalAnnEnabled    bool     `xml:"localAnnounceEnabled" default:"true" ini:"local-announce-enabled"`
-	ParallelRequests   int      `xml:"parallelRequests" default:"16" ini:"parallel-requests"`
-	MaxSendKbps        int      `xml:"maxSendKbps" ini:"max-send-kbps"`
-	RescanIntervalS    int      `xml:"rescanIntervalS" default:"60" ini:"rescan-interval"`
-	ReconnectIntervalS int      `xml:"reconnectionIntervalS" default:"60" ini:"reconnection-interval"`
-	MaxChangeKbps      int      `xml:"maxChangeKbps" default:"1000" ini:"max-change-bw"`
+	ListenAddress      []string `xml:"listenAddress" default:":22000"`
+	ReadOnly           bool     `xml:"readOnly,omitempty"`
+	GUIEnabled         bool     `xml:"guiEnabled" default:"true"`
+	GUIAddress         string   `xml:"guiAddress" default:"127.0.0.1:8080"`
+	GlobalAnnServer    string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22025"`
+	GlobalAnnEnabled   bool     `xml:"globalAnnounceEnabled" default:"true"`
+	LocalAnnEnabled    bool     `xml:"localAnnounceEnabled" default:"true"`
+	ParallelRequests   int      `xml:"parallelRequests" default:"16"`
+	MaxSendKbps        int      `xml:"maxSendKbps"`
+	RescanIntervalS    int      `xml:"rescanIntervalS" default:"60"`
+	ReconnectIntervalS int      `xml:"reconnectionIntervalS" default:"60"`
+	MaxChangeKbps      int      `xml:"maxChangeKbps" default:"1000"`
 	StartBrowser       bool     `xml:"startBrowser" default:"true"`
 }
 
@@ -159,7 +171,36 @@ func readConfigXML(rd io.Reader) (Configuration, error) {
 		seenRepos[id] = true
 	}
 
+	if cfg.Version == 1 {
+		convertV1V2(&cfg)
+	}
+
 	return cfg, err
+}
+
+func convertV1V2(cfg *Configuration) {
+	// Collect the list of nodes.
+	// Replace node configs inside repositories with only a reference to the nide ID.
+	// Set all repositories to read only if the global read only flag is set.
+	var nodes = map[string]NodeConfiguration{}
+	for i, repo := range cfg.Repositories {
+		cfg.Repositories[i].ReadOnly = cfg.Options.ReadOnly
+		for j, node := range repo.Nodes {
+			if _, ok := nodes[node.NodeID]; !ok {
+				nodes[node.NodeID] = node
+			}
+			cfg.Repositories[i].Nodes[j] = NodeConfiguration{NodeID: node.NodeID}
+		}
+	}
+
+	// Set and sort the list of nodes.
+	for _, node := range nodes {
+		cfg.Nodes = append(cfg.Nodes, node)
+	}
+	sort.Sort(NodeConfigurationList(cfg.Nodes))
+
+	cfg.Options.ReadOnly = false
+	cfg.Version = 2
 }
 
 type NodeConfigurationList []NodeConfiguration

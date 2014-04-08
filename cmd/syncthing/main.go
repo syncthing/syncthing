@@ -16,6 +16,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
+
 	"github.com/calmh/syncthing/discover"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/juju/ratelimit"
@@ -128,10 +129,11 @@ func main() {
 			{
 				ID:        "default",
 				Directory: filepath.Join(getHomeDir(), "Sync"),
-				Nodes: []NodeConfiguration{
-					{NodeID: myID, Addresses: []string{"dynamic"}},
-				},
+				Nodes:     []NodeConfiguration{{NodeID: myID}},
 			},
+		}
+		cfg.Nodes = []NodeConfiguration{
+			{NodeID: myID, Addresses: []string{"dynamic"}},
 		}
 
 		saveConfig()
@@ -227,14 +229,16 @@ func main() {
 	disc := discovery()
 	go listenConnect(myID, disc, m, tlsCfg, connOpts)
 
-	// Routine to pull blocks from other nodes to synchronize the local
-	// repository. Does not run when we are in read only (publish only) mode.
-	if cfg.Options.ReadOnly {
-		okln("Ready to synchronize (read only; no external updates accepted)")
-		m.StartRO()
-	} else {
-		okln("Ready to synchronize (read-write)")
-		m.StartRW(cfg.Options.ParallelRequests)
+	for _, repo := range cfg.Repositories {
+		// Routine to pull blocks from other nodes to synchronize the local
+		// repository. Does not run when we are in read only (publish only) mode.
+		if repo.ReadOnly {
+			okf("Ready to synchronize %s (read only; no external updates accepted)", repo.ID)
+			m.StartRepoRO(repo.ID)
+		} else {
+			okf("Ready to synchronize %s (read-write)", repo.ID)
+			m.StartRepoRW(repo.ID, cfg.Options.ParallelRequests)
+		}
 	}
 
 	select {}
@@ -362,13 +366,15 @@ func listenConnect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls
 	go func() {
 		for {
 		nextNode:
-			for _, nodeCfg := range cfg.Repositories[0].Nodes {
+			for _, nodeCfg := range cfg.Nodes {
 				if nodeCfg.NodeID == myID {
 					continue
 				}
 				if m.ConnectedTo(nodeCfg.NodeID) {
 					continue
 				}
+
+				var addrs []string
 				for _, addr := range nodeCfg.Addresses {
 					if addr == "dynamic" {
 						if disc != nil {
@@ -376,10 +382,14 @@ func listenConnect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls
 							if len(t) == 0 {
 								continue
 							}
-							addr = t[0] //XXX: Handle all of them
+							addrs = append(addrs, t...)
 						}
+					} else {
+						addrs = append(addrs, addr)
 					}
+				}
 
+				for _, addr := range addrs {
 					if debugNet {
 						dlog.Println("dial", nodeCfg.NodeID, addr)
 					}
