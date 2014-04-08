@@ -14,6 +14,7 @@ type Configuration struct {
 	Version      int                       `xml:"version,attr" default:"2"`
 	Repositories []RepositoryConfiguration `xml:"repository"`
 	Nodes        []NodeConfiguration       `xml:"node"`
+	GUI          GUIConfiguration          `xml:"gui"`
 	Options      OptionsConfiguration      `xml:"options"`
 	XMLName      xml.Name                  `xml:"configuration" json:"-"`
 }
@@ -43,9 +44,6 @@ type NodeConfiguration struct {
 
 type OptionsConfiguration struct {
 	ListenAddress      []string `xml:"listenAddress" default:":22000"`
-	ReadOnly           bool     `xml:"readOnly,omitempty"`
-	GUIEnabled         bool     `xml:"guiEnabled" default:"true"`
-	GUIAddress         string   `xml:"guiAddress" default:"127.0.0.1:8080"`
 	GlobalAnnServer    string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22025"`
 	GlobalAnnEnabled   bool     `xml:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled    bool     `xml:"localAnnounceEnabled" default:"true"`
@@ -55,6 +53,17 @@ type OptionsConfiguration struct {
 	ReconnectIntervalS int      `xml:"reconnectionIntervalS" default:"60"`
 	MaxChangeKbps      int      `xml:"maxChangeKbps" default:"1000"`
 	StartBrowser       bool     `xml:"startBrowser" default:"true"`
+
+	Deprecated_ReadOnly   bool   `xml:"readOnly,omitempty"`
+	Deprecated_GUIEnabled bool   `xml:"guiEnabled,omitempty"`
+	Deprecated_GUIAddress string `xml:"guiAddress,omitempty"`
+}
+
+type GUIConfiguration struct {
+	Enabled  bool   `xml:"enabled,attr" default:"true"`
+	Address  string `xml:"address" default:"127.0.0.1:8080"`
+	User     string `xml:"user,omitempty"`
+	Password string `xml:"password,omitempty"`
 }
 
 func setDefaults(data interface{}) error {
@@ -148,6 +157,7 @@ func readConfigXML(rd io.Reader) (Configuration, error) {
 
 	setDefaults(&cfg)
 	setDefaults(&cfg.Options)
+	setDefaults(&cfg.GUI)
 
 	var err error
 	if rd != nil {
@@ -184,7 +194,7 @@ func convertV1V2(cfg *Configuration) {
 	// Set all repositories to read only if the global read only flag is set.
 	var nodes = map[string]NodeConfiguration{}
 	for i, repo := range cfg.Repositories {
-		cfg.Repositories[i].ReadOnly = cfg.Options.ReadOnly
+		cfg.Repositories[i].ReadOnly = cfg.Options.Deprecated_ReadOnly
 		for j, node := range repo.Nodes {
 			if _, ok := nodes[node.NodeID]; !ok {
 				nodes[node.NodeID] = node
@@ -192,6 +202,7 @@ func convertV1V2(cfg *Configuration) {
 			cfg.Repositories[i].Nodes[j] = NodeConfiguration{NodeID: node.NodeID}
 		}
 	}
+	cfg.Options.Deprecated_ReadOnly = false
 
 	// Set and sort the list of nodes.
 	for _, node := range nodes {
@@ -199,7 +210,12 @@ func convertV1V2(cfg *Configuration) {
 	}
 	sort.Sort(NodeConfigurationList(cfg.Nodes))
 
-	cfg.Options.ReadOnly = false
+	// GUI
+	cfg.GUI.Address = cfg.Options.Deprecated_GUIAddress
+	cfg.GUI.Enabled = cfg.Options.Deprecated_GUIEnabled
+	cfg.Options.Deprecated_GUIEnabled = false
+	cfg.Options.Deprecated_GUIAddress = ""
+
 	cfg.Version = 2
 }
 

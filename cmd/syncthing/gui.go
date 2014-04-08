@@ -11,6 +11,7 @@ import (
 
 	"github.com/calmh/syncthing/scanner"
 	"github.com/codegangsta/martini"
+	"github.com/codegangsta/martini-contrib/auth"
 )
 
 type guiError struct {
@@ -24,7 +25,7 @@ var (
 	guiErrorsMut sync.Mutex
 )
 
-func startGUI(addr string, m *Model) {
+func startGUI(cfg GUIConfiguration, m *Model) {
 	router := martini.NewRouter()
 	router.Get("/", getRoot)
 	router.Get("/rest/version", restGetVersion)
@@ -43,12 +44,15 @@ func startGUI(addr string, m *Model) {
 
 	go func() {
 		mr := martini.New()
+		if len(cfg.User) > 0 && len(cfg.Password) > 0 {
+			mr.Use(auth.Basic(cfg.User, cfg.Password))
+		}
 		mr.Use(embeddedStatic())
 		mr.Use(martini.Recovery())
 		mr.Use(restMiddleware)
 		mr.Action(router.Handle)
 		mr.Map(m)
-		err := http.ListenAndServe(addr, mr)
+		err := http.ListenAndServe(cfg.Address, mr)
 		if err != nil {
 			warnln("GUI not possible:", err)
 		}
