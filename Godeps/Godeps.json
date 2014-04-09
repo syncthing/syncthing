@@ -28,6 +28,11 @@
 			"Rev": "8659df7a51aebe6c6120268cd5a8b4c34fa8441a"
 		},
 		{
+			"ImportPath": "github.com/codegangsta/martini-contrib/auth",
+			"Comment": "v0.1-159-g8ce6181",
+			"Rev": "8ce6181c2609699e4c7cd30994b76a850a9cdadc"
+		},
+		{
 			"ImportPath": "github.com/golang/groupcache/lru",
 			"Rev": "d781998583680cda80cf61e0b37dd0cd8da2eb52"
 		},
