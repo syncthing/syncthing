@@ -7,7 +7,7 @@ var syncthing = angular.module('syncthing', []);
 
 syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     var prevDate = 0,
-        modelGetOK = true;
+    getOK = true;
 
     $scope.connections = {};
     $scope.config = {};
@@ -16,35 +16,40 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.configInSync = true;
     $scope.errors = [];
     $scope.seenError = '';
+    $scope.model = {};
+    $scope.repos = [];
 
     // Strings before bools look better
     $scope.settings = [
-        {id: 'ListenStr', descr: 'Sync Protocol Listen Addresses', type: 'text', restart: true},
-        {id: 'GUIAddress', descr: 'GUI Listen Address', type: 'text', restart: true},
-        {id: 'MaxSendKbps', descr: 'Outgoing Rate Limit (KBps)', type: 'number', restart: true},
-        {id: 'RescanIntervalS', descr: 'Rescan Interval (s)', type: 'number', restart: true},
-        {id: 'ReconnectIntervalS', descr: 'Reconnect Interval (s)', type: 'number', restart: true},
-        {id: 'ParallelRequests', descr: 'Max Outstanding Requests', type: 'number', restart: true},
-        {id: 'MaxChangeKbps', descr: 'Max File Change Rate (KBps)', type: 'number', restart: true},
+    {id: 'ListenStr', descr: 'Sync Protocol Listen Addresses', type: 'text', restart: true},
+    {id: 'MaxSendKbps', descr: 'Outgoing Rate Limit (KBps)', type: 'number', restart: true},
+    {id: 'RescanIntervalS', descr: 'Rescan Interval (s)', type: 'number', restart: true},
+    {id: 'ReconnectIntervalS', descr: 'Reconnect Interval (s)', type: 'number', restart: true},
+    {id: 'ParallelRequests', descr: 'Max Outstanding Requests', type: 'number', restart: true},
+    {id: 'MaxChangeKbps', descr: 'Max File Change Rate (KBps)', type: 'number', restart: true},
 
-        {id: 'ReadOnly', descr: 'Read Only', type: 'bool', restart: true},
-        {id: 'FollowSymlinks', descr: 'Follow Symlinks', type: 'bool', restart: true},
-        {id: 'GlobalAnnEnabled', descr: 'Global Announce', type: 'bool', restart: true},
-        {id: 'LocalAnnEnabled', descr: 'Local Announce', type: 'bool', restart: true},
-        {id: 'StartBrowser', descr: 'Start Browser', type: 'bool'},
+    {id: 'GlobalAnnEnabled', descr: 'Global Announce', type: 'bool', restart: true},
+    {id: 'LocalAnnEnabled', descr: 'Local Announce', type: 'bool', restart: true},
+    {id: 'StartBrowser', descr: 'Start Browser', type: 'bool'},
     ];
 
-    function modelGetSucceeded() {
-        if (!modelGetOK) {
+    $scope.guiSettings = [
+    {id: 'Address', descr: 'GUI Listen Addresses', type: 'text', restart: true},
+    {id: 'User', descr: 'GUI Authentication User', type: 'text', restart: true},
+    {id: 'Password', descr: 'GUI Authentication Password', type: 'password', restart: true},
+    ];
+
+    function getSucceeded() {
+        if (!getOK) {
             $('#networkError').modal('hide');
-            modelGetOK = true;
+            getOK = true;
         }
     }
 
-    function modelGetFailed() {
-        if (modelGetOK) {
+    function getFailed() {
+        if (getOK) {
             $('#networkError').modal({backdrop: 'static', keyboard: false});
-            modelGetOK = false;
+            getOK = false;
         }
     }
 
@@ -61,40 +66,22 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         return a.NodeID > b.NodeID;
     }
 
-    $http.get('/rest/version').success(function (data) {
-        $scope.version = data;
-    });
-    $http.get('/rest/system').success(function (data) {
-        $scope.system = data;
-        $scope.myID = data.myID;
-
-        $http.get('/rest/config').success(function (data) {
-            $scope.config = data;
-            $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
-
-            var nodes = $scope.config.Repositories[0].Nodes;
-            nodes.sort(nodeCompare);
-            $scope.nodes = nodes;
-        });
-        $http.get('/rest/config/sync').success(function (data) {
-            $scope.configInSync = data.configInSync;
-        });
-    });
-
     $scope.refresh = function () {
         $http.get('/rest/system').success(function (data) {
+            getSucceeded();
             $scope.system = data;
-        });
-        $http.get('/rest/model').success(function (data) {
-            $scope.model = data;
-            modelGetSucceeded();
         }).error(function () {
-            modelGetFailed();
+            getFailed();
+        });
+        $scope.repos.forEach(function (repo) {
+            $http.get('/rest/model/' + repo.ID).success(function (data) {
+                $scope.model[repo.ID] = data;
+            });
         });
         $http.get('/rest/connections').success(function (data) {
             var now = Date.now(),
-                td = (now - prevDate) / 1000,
-                id;
+            td = (now - prevDate) / 1000,
+            id;
 
             prevDate = now;
             $scope.inbps = 0;
@@ -116,26 +103,21 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             }
             $scope.connections = data;
         });
-        $http.get('/rest/need').success(function (data) {
-            var i, name;
-            for (i = 0; i < data.length; i++) {
-                name = data[i].Name.split('/');
-                data[i].ShortName = name[name.length - 1];
-            }
-            data.sort(function (a, b) {
-                if (a.ShortName < b.ShortName) {
-                    return -1;
-                }
-                if (a.ShortName > b.ShortName) {
-                    return 1;
-                }
-                return 0;
-            });
-            $scope.need = data;
-        });
         $http.get('/rest/errors').success(function (data) {
             $scope.errors = data;
         });
+    };
+
+    $scope.syncPercentage = function (repo) {
+        if (typeof $scope.model[repo] === 'undefined') {
+            return 100;
+        }
+        if ($scope.model[repo].globalBytes === 0) {
+            return 100;
+        }
+
+        var pct = 100 * $scope.model[repo].inSyncBytes / $scope.model[repo].globalBytes;
+        return Math.ceil(pct);
     };
 
     $scope.nodeStatus = function (nodeCfg) {
@@ -182,7 +164,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         if (conn) {
             return conn.Address;
         }
-        return '(unknown address)';
+        return '?';
     };
 
     $scope.nodeCompletion = function (nodeCfg) {
@@ -201,7 +183,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         if (conn) {
             return conn.ClientVersion;
         }
-        return '(unknown version)';
+        return '?';
     };
 
     $scope.nodeName = function (nodeCfg) {
@@ -211,11 +193,15 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         return nodeCfg.NodeID.substr(0, 6);
     };
 
+    $scope.editSettings = function () {
+        $('#settings').modal({backdrop: 'static', keyboard: true});
+    }
+
     $scope.saveSettings = function () {
         $scope.configInSync = false;
         $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) { return x.trim(); });
         $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
-        $('#settingsTable').collapse('hide');
+        $('#settings').modal("hide");
     };
 
     $scope.restart = function () {
@@ -224,34 +210,34 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.editNode = function (nodeCfg) {
-        $scope.currentNode = nodeCfg;
+        $scope.currentNode = $.extend({}, nodeCfg);
         $scope.editingExisting = true;
         $scope.currentNode.AddressesStr = nodeCfg.Addresses.join(', ');
-        $('#editNode').modal({backdrop: 'static', keyboard: false});
+        $('#editNode').modal({backdrop: 'static', keyboard: true});
     };
 
     $scope.addNode = function () {
-        $scope.currentNode = {NodeID: '', AddressesStr: 'dynamic'};
+        $scope.currentNode = {AddressesStr: 'dynamic'};
         $scope.editingExisting = false;
-        $('#editNode').modal({backdrop: 'static', keyboard: false});
+        $('#editNode').modal({backdrop: 'static', keyboard: true});
     };
 
     $scope.deleteNode = function () {
-        var newNodes = [], i;
-
         $('#editNode').modal('hide');
         if (!$scope.editingExisting) {
             return;
         }
 
-        for (i = 0; i < $scope.nodes.length; i++) {
-            if ($scope.nodes[i].NodeID !== $scope.currentNode.NodeID) {
-                newNodes.push($scope.nodes[i]);
-            }
-        }
+        $scope.nodes = $scope.nodes.filter(function (n) {
+            return n.NodeID !== $scope.currentNode.NodeID;
+        });
+        $scope.config.Nodes = $scope.nodes;
 
-        $scope.nodes = newNodes;
-        $scope.config.Repositories[0].Nodes = newNodes;
+        for (var i = 0; i < $scope.repos.length; i++) {
+            $scope.repos[i].Nodes = $scope.repos[i].Nodes.filter(function (n) {
+                return n.NodeID !== $scope.currentNode.NodeID;
+            });
+        }
 
         $scope.configInSync = false;
         $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
@@ -279,21 +265,15 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }
 
         $scope.nodes.sort(nodeCompare);
-        $scope.config.Repositories[0].Nodes = $scope.nodes;
+        $scope.config.Nodes = $scope.nodes;
 
         $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
     };
 
     $scope.otherNodes = function () {
-        var nodes = [], i, n;
-
-        for (i = 0; i < $scope.nodes.length; i++) {
-            n = $scope.nodes[i];
-            if (n.NodeID !== $scope.myID) {
-                nodes.push(n);
-            }
-        }
-        return nodes;
+        return $scope.nodes.filter(function (n){
+            return n.NodeID !== $scope.myID;
+        });
     };
 
     $scope.thisNode = function () {
@@ -308,14 +288,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.errorList = function () {
-        var errors = [];
-        for (var i = 0; i < $scope.errors.length; i++) {
-            var e = $scope.errors[i];
-            if (e.Time > $scope.seenError) {
-                errors.push(e);
-            }
-        }
-        return errors;
+        return $scope.errors.filter(function (e) {
+            return e.Time > $scope.seenError;
+        });
     };
 
     $scope.clearErrors = function () {
@@ -330,7 +305,96 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         return str;
     };
 
-    $scope.refresh();
+    $scope.editRepo = function (nodeCfg) {
+        $scope.currentRepo = $.extend({selectedNodes: {}}, nodeCfg);
+        $scope.currentRepo.Nodes.forEach(function (n) {
+            $scope.currentRepo.selectedNodes[n.NodeID] = true;
+        });
+        $scope.editingExisting = true;
+        $('#editRepo').modal({backdrop: 'static', keyboard: true});
+    };
+
+    $scope.addRepo = function () {
+        $scope.currentRepo = {selectedNodes: {}};
+        $scope.editingExisting = false;
+        $('#editRepo').modal({backdrop: 'static', keyboard: true});
+    };
+
+    $scope.saveRepo = function () {
+        var repoCfg, done, i;
+
+        $scope.configInSync = false;
+        $('#editRepo').modal('hide');
+        repoCfg = $scope.currentRepo;
+        repoCfg.Nodes = [];
+        repoCfg.selectedNodes[$scope.myID] = true;
+        for (var nodeID in repoCfg.selectedNodes) {
+            if (repoCfg.selectedNodes[nodeID] === true) {
+                repoCfg.Nodes.push({NodeID: nodeID});
+            }
+        }
+        delete repoCfg.selectedNodes;
+
+        done = false;
+        for (i = 0; i < $scope.repos.length; i++) {
+            if ($scope.repos[i].ID === repoCfg.ID) {
+                $scope.repos[i] = repoCfg;
+                done = true;
+                break;
+            }
+        }
+
+        if (!done) {
+            $scope.repos.push(repoCfg);
+        }
+
+        $scope.config.Repositories = $scope.repos;
+
+        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+    };
+
+    $scope.deleteRepo = function () {
+        $('#editRepo').modal('hide');
+        if (!$scope.editingExisting) {
+            return;
+        }
+
+        $scope.repos = $scope.repos.filter(function (r) {
+            return r.ID !== $scope.currentRepo.ID;
+        });
+
+        $scope.config.Repositories = $scope.repos;
+
+        $scope.configInSync = false;
+        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+    };
+
+    $http.get('/rest/version').success(function (data) {
+        $scope.version = data;
+    });
+
+    $http.get('/rest/system').success(function (data) {
+        $scope.system = data;
+        $scope.myID = data.myID;
+    });
+
+    $http.get('/rest/config').success(function (data) {
+        $scope.config = data;
+        $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
+
+        var nodes = $scope.config.Nodes;
+        nodes.sort(nodeCompare);
+        $scope.nodes = nodes;
+
+        $scope.repos = $scope.config.Repositories;
+
+        $scope.refresh();
+    });
+
+    $http.get('/rest/config/sync').success(function (data) {
+        $scope.configInSync = data.configInSync;
+    });
+
     setInterval($scope.refresh, 10000);
 });
 

@@ -62,7 +62,8 @@ deps() {
 
 case "$1" in
 	"")
-		build
+		shift
+		build $*
 		;;
 
 	race)
