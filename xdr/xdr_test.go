@@ -56,7 +56,7 @@ func TestBytesGiven(t *testing.T) {
 	}
 }
 
-func TestReadMaxInto(t *testing.T) {
+func TestReadBytesMaxInto(t *testing.T) {
 	var max = 64
 	for tot := 32; tot < 128; tot++ {
 		for diff := -32; diff <= 32; diff++ {
@@ -76,6 +76,30 @@ func TestReadMaxInto(t *testing.T) {
 				}
 			} else if r.err != ErrElementSizeExceeded {
 				t.Errorf("Unexpected non-ErrElementSizeExceeded error for wrote=%d, max=%d: %v", tot, max, r.err)
+			}
+		}
+	}
+}
+
+func TestReadBytesMaxIntoNil(t *testing.T) {
+	for tot := 42; tot < 72; tot++ {
+		for max := 0; max < 128; max++ {
+			var b = new(bytes.Buffer)
+			var r = NewReader(b)
+			var w = NewWriter(b)
+
+			var toWrite = make([]byte, tot)
+			w.WriteBytes(toWrite)
+
+			var bs = r.ReadBytesMaxInto(max, nil)
+			var read = len(bs)
+
+			if max == 0 || tot <= max {
+				if read != tot {
+					t.Errorf("Incorrect read bytes, wrote=%d, max=%d, read=%d", tot, max, read)
+				}
+			} else if r.err != ErrElementSizeExceeded {
+				t.Errorf("Unexpected non-ErrElementSizeExceeded error for wrote=%d, max=%d, read=%d: %v", tot, max, read, r.err)
 			}
 		}
 	}
