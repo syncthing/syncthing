@@ -158,70 +158,45 @@ func sizeOf(fs []scanner.File) (files, deleted int, bytes int64) {
 
 // GlobalSize returns the number of files, deleted files and total bytes for all
 // files in the global model.
-func (m *Model) GlobalSize() (files, deleted int, bytes int64) {
+func (m *Model) GlobalSize(repo string) (files, deleted int, bytes int64) {
 	m.rmut.RLock()
-	var fs []scanner.File
-	for _, rf := range m.repoFiles {
-		fs = append(fs, rf.Global()...)
+	defer m.rmut.RUnlock()
+	if rf, ok := m.repoFiles[repo]; ok {
+		return sizeOf(rf.Global())
 	}
-	m.rmut.RUnlock()
-	return sizeOf(fs)
+	return 0, 0, 0
 }
 
 // LocalSize returns the number of files, deleted files and total bytes for all
 // files in the local repository.
-func (m *Model) LocalSize() (files, deleted int, bytes int64) {
+func (m *Model) LocalSize(repo string) (files, deleted int, bytes int64) {
 	m.rmut.RLock()
-	var fs []scanner.File
-	for _, rf := range m.repoFiles {
-		fs = append(fs, rf.Have(cid.LocalID)...)
+	defer m.rmut.RUnlock()
+	if rf, ok := m.repoFiles[repo]; ok {
+		return sizeOf(rf.Have(cid.LocalID))
 	}
-	m.rmut.RUnlock()
-	return sizeOf(fs)
-}
-
-// InSyncSize returns the number and total byte size of the local files that
-// are in sync with the global model.
-func (m *Model) InSyncSize() (files int, bytes int64) {
-	var gf []scanner.File
-	var nf []scanner.File
-
-	m.rmut.RLock()
-	for _, rf := range m.repoFiles {
-		gf = append(gf, rf.Global()...)
-		nf = append(nf, rf.Need(cid.LocalID)...)
-	}
-	m.rmut.RUnlock()
-
-	gn, _, gb := sizeOf(gf)
-	nn, _, nb := sizeOf(nf)
-
-	return gn - nn, gb - nb
+	return 0, 0, 0
 }
 
 // NeedFiles returns the list of currently needed files and the total size.
-func (m *Model) NeedFiles() ([]scanner.File, int64) {
-	var nf []scanner.File
-	m.rmut.RLock()
-	for _, rf := range m.repoFiles {
-		nf = append(nf, rf.Need(cid.LocalID)...)
-	}
-	m.rmut.RUnlock()
+func (m *Model) NeedSize(repo string) (files int, bytes int64) {
+	var nf = m.NeedFilesRepo(repo)
 
-	var bytes int64
 	for _, f := range nf {
 		bytes += f.Size
 	}
 
-	return nf, bytes
+	return len(nf), bytes
 }
 
 // NeedFiles returns the list of currently needed files and the total size.
 func (m *Model) NeedFilesRepo(repo string) []scanner.File {
 	m.rmut.RLock()
-	nf := m.repoFiles[repo].Need(cid.LocalID)
-	m.rmut.RUnlock()
-	return nf
+	defer m.rmut.RUnlock()
+	if rf, ok := m.repoFiles[repo]; ok {
+		return rf.Need(cid.LocalID)
+	}
+	return nil
 }
 
 // Index is called when a new node is connected and we receive their full index.
