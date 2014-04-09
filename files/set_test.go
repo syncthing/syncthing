@@ -82,10 +82,24 @@ func TestLocalDeleted(t *testing.T) {
 
 	m.ReplaceWithDelete(cid.LocalID, local1)
 
-	local2 := []scanner.File{
+	m.ReplaceWithDelete(cid.LocalID, []scanner.File{
+		local1[0],
+		// [1] removed
+		local1[2],
+		local1[3],
+		local1[4],
+	})
+	m.ReplaceWithDelete(cid.LocalID, []scanner.File{
 		local1[0],
 		local1[2],
-	}
+		// [3] removed
+		local1[4],
+	})
+	m.ReplaceWithDelete(cid.LocalID, []scanner.File{
+		local1[0],
+		local1[2],
+		// [4] removed
+	})
 
 	expectedGlobal1 := []scanner.File{
 		local1[0],
@@ -95,7 +109,6 @@ func TestLocalDeleted(t *testing.T) {
 		scanner.File{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
 	}
 
-	m.ReplaceWithDelete(cid.LocalID, local2)
 	g := m.Global()
 	sort.Sort(fileList(g))
 	sort.Sort(fileList(expectedGlobal1))
@@ -104,9 +117,10 @@ func TestLocalDeleted(t *testing.T) {
 		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", g, expectedGlobal1)
 	}
 
-	local3 := []scanner.File{
+	m.ReplaceWithDelete(cid.LocalID, []scanner.File{
 		local1[0],
-	}
+		// [2] removed
+	})
 
 	expectedGlobal2 := []scanner.File{
 		local1[0],
@@ -116,7 +130,6 @@ func TestLocalDeleted(t *testing.T) {
 		scanner.File{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
 	}
 
-	m.ReplaceWithDelete(cid.LocalID, local3)
 	g = m.Global()
 	sort.Sort(fileList(g))
 	sort.Sort(fileList(expectedGlobal2))
@@ -284,6 +297,10 @@ func TestNeed(t *testing.T) {
 	m.Replace(1, remote)
 
 	need := m.Need(0)
+
+	sort.Sort(fileList(need))
+	sort.Sort(fileList(shouldNeed))
+
 	if !reflect.DeepEqual(need, shouldNeed) {
 		t.Errorf("Need incorrect;\n%v !=\n%v", need, shouldNeed)
 	}
