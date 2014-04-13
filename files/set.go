@@ -143,7 +143,7 @@ func (m *Set) Need(id uint) []scanner.File {
 	if debug {
 		dlog.Printf("Need(%d)", id)
 	}
-	var fs []scanner.File
+	var fs = make([]scanner.File, 0, len(m.globalKey)/2) // Just a guess, but avoids too many reallocations
 	m.Lock()
 	rkID := m.remoteKey[id]
 	for name, gk := range m.globalKey {
@@ -162,7 +162,7 @@ func (m *Set) Have(id uint) []scanner.File {
 	if debug {
 		dlog.Printf("Have(%d)", id)
 	}
-	var fs []scanner.File
+	var fs = make([]scanner.File, 0, len(m.remoteKey[id]))
 	m.Lock()
 	for _, rk := range m.remoteKey[id] {
 		fs = append(fs, m.files[rk].File)
@@ -175,7 +175,7 @@ func (m *Set) Global() []scanner.File {
 	if debug {
 		dlog.Printf("Global()")
 	}
-	var fs []scanner.File
+	var fs = make([]scanner.File, 0, len(m.globalKey))
 	m.Lock()
 	for _, rk := range m.globalKey {
 		fs = append(fs, m.files[rk].File)
