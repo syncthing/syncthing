@@ -139,62 +139,33 @@ func TestLocalDeleted(t *testing.T) {
 	}
 }
 
-func BenchmarkSetLocal10k(b *testing.B) {
-	m := NewSet()
-
+func Benchmark10kReplace(b *testing.B) {
 	var local []scanner.File
 	for i := 0; i < 10000; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d"), Version: 1000})
+		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
-
-	var remote []scanner.File
-	for i := 0; i < 10000; i++ {
-		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d"), Version: 1000})
-	}
-
-	m.Replace(1, remote)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		m := NewSet()
 		m.ReplaceWithDelete(cid.LocalID, local)
 	}
 }
 
-func BenchmarkSetLocal10(b *testing.B) {
-	m := NewSet()
-
-	var local []scanner.File
-	for i := 0; i < 10; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d"), Version: 1000})
-	}
-
+func Benchmark10kUpdateChg(b *testing.B) {
 	var remote []scanner.File
 	for i := 0; i < 10000; i++ {
-		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d"), Version: 1000})
+		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	m.Replace(1, remote)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		m.ReplaceWithDelete(cid.LocalID, local)
-	}
-}
-
-func BenchmarkAddLocal10k(b *testing.B) {
 	m := NewSet()
+	m.Replace(1, remote)
 
 	var local []scanner.File
 	for i := 0; i < 10000; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d"), Version: 1000})
+		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	var remote []scanner.File
-	for i := 0; i < 10000; i++ {
-		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d"), Version: 1000})
-	}
-
-	m.Replace(1, remote)
 	m.ReplaceWithDelete(cid.LocalID, local)
 
 	b.ResetTimer()
@@ -208,28 +179,109 @@ func BenchmarkAddLocal10k(b *testing.B) {
 	}
 }
 
-func BenchmarkAddLocal10(b *testing.B) {
-	m := NewSet()
-
-	var local []scanner.File
-	for i := 0; i < 10; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d"), Version: 1000})
-	}
-
+func Benchmark10kUpdateSme(b *testing.B) {
 	var remote []scanner.File
 	for i := 0; i < 10000; i++ {
-		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d"), Version: 1000})
+		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
+	m := NewSet()
 	m.Replace(1, remote)
+
+	var local []scanner.File
+	for i := 0; i < 10000; i++ {
+		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+	}
+
 	m.ReplaceWithDelete(cid.LocalID, local)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for j := range local {
-			local[j].Version++
-		}
 		m.Update(cid.LocalID, local)
+	}
+}
+
+func Benchmark10kNeed2k(b *testing.B) {
+	var remote []scanner.File
+	for i := 0; i < 10000; i++ {
+		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+	}
+
+	m := NewSet()
+	m.Replace(cid.LocalID+1, remote)
+
+	var local []scanner.File
+	for i := 0; i < 8000; i++ {
+		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+	}
+	for i := 8000; i < 10000; i++ {
+		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 980})
+	}
+
+	m.ReplaceWithDelete(cid.LocalID, local)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fs := m.Need(cid.LocalID)
+		if l := len(fs); l != 2000 {
+			b.Errorf("wrong length %d != 2k", l)
+		}
+	}
+}
+
+func Benchmark10kHave(b *testing.B) {
+	var remote []scanner.File
+	for i := 0; i < 10000; i++ {
+		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+	}
+
+	m := NewSet()
+	m.Replace(cid.LocalID+1, remote)
+
+	var local []scanner.File
+	for i := 0; i < 2000; i++ {
+		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+	}
+	for i := 2000; i < 10000; i++ {
+		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 980})
+	}
+
+	m.ReplaceWithDelete(cid.LocalID, local)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fs := m.Have(cid.LocalID)
+		if l := len(fs); l != 10000 {
+			b.Errorf("wrong length %d != 10k", l)
+		}
+	}
+}
+
+func Benchmark10kGlobal(b *testing.B) {
+	var remote []scanner.File
+	for i := 0; i < 10000; i++ {
+		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+	}
+
+	m := NewSet()
+	m.Replace(cid.LocalID+1, remote)
+
+	var local []scanner.File
+	for i := 0; i < 2000; i++ {
+		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+	}
+	for i := 2000; i < 10000; i++ {
+		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 980})
+	}
+
+	m.ReplaceWithDelete(cid.LocalID, local)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fs := m.Global()
+		if l := len(fs); l != 10000 {
+			b.Errorf("wrong length %d != 10k", l)
+		}
 	}
 }
 
