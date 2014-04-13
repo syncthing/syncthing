@@ -25,8 +25,21 @@ type RequestMessage struct {
 	Size       uint32
 }
 
-type OptionsMessage struct {
-	Options []Option // max:64
+type ClusterConfigMessage struct {
+	ClientName    string       // max:64
+	ClientVersion string       // max:64
+	Repositories  []Repository // max:64
+	Options       []Option     // max:64
+}
+
+type Repository struct {
+	ID    string // max:64
+	Nodes []Node // max:64
+}
+
+type Node struct {
+	ID    string // max:64
+	Flags uint32
 }
 
 type Option struct {

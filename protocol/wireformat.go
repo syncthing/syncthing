@@ -30,10 +30,10 @@ func (c wireFormatConnection) Request(repo, name string, offset int64, size int)
 	return c.next.Request(repo, name, offset, size)
 }
 
-func (c wireFormatConnection) Statistics() Statistics {
-	return c.next.Statistics()
+func (c wireFormatConnection) ClusterConfig(config ClusterConfigMessage) {
+	c.next.ClusterConfig(config)
 }
 
-func (c wireFormatConnection) Option(key string) string {
-	return c.next.Option(key)
+func (c wireFormatConnection) Statistics() Statistics {
+	return c.next.Statistics()
 }

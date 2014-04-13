@@ -61,7 +61,7 @@ func connect(target string) {
 
 	remoteID := certID(conn.ConnectionState().PeerCertificates[0].Raw)
 
-	pc = protocol.NewConnection(remoteID, conn, conn, Model{}, nil)
+	pc = protocol.NewConnection(remoteID, conn, conn, Model{})
 
 	select {}
 }
@@ -125,6 +125,11 @@ func (m Model) IndexUpdate(nodeID string, repo string, files []protocol.FileInfo
 			os.Exit(0)
 		}
 	}
+}
+
+func (m Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessage) {
+	log.Println("Received cluster config")
+	log.Printf("%#v", config)
 }
 
 func (m Model) Request(nodeID, repo string, name string, offset int64, size int) ([]byte, error) {

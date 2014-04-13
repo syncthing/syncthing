@@ -20,6 +20,10 @@ func (m nativeModel) Request(nodeID, repo string, name string, offset int64, siz
 	return m.next.Request(nodeID, repo, name, offset, size)
 }
 
+func (m nativeModel) ClusterConfig(nodeID string, config ClusterConfigMessage) {
+	m.next.ClusterConfig(nodeID, config)
+}
+
 func (m nativeModel) Close(nodeID string, err error) {
 	m.next.Close(nodeID, err)
 }

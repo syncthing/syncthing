@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 	"time"
 
@@ -17,19 +16,25 @@ import (
 const BlockSize = 128 * 1024
 
 const (
-	messageTypeIndex       = 1
-	messageTypeRequest     = 2
-	messageTypeResponse    = 3
-	messageTypePing        = 4
-	messageTypePong        = 5
-	messageTypeIndexUpdate = 6
-	messageTypeOptions     = 7
+	messageTypeClusterConfig = 0
+	messageTypeIndex         = 1
+	messageTypeRequest       = 2
+	messageTypeResponse      = 3
+	messageTypePing          = 4
+	messageTypePong          = 5
+	messageTypeIndexUpdate   = 6
 )
 
 const (
 	FlagDeleted   uint32 = 1 << 12
 	FlagInvalid          = 1 << 13
 	FlagDirectory        = 1 << 14
+)
+
+const (
+	FlagShareTrusted  uint32 = 1 << 0
+	FlagShareReadOnly        = 1 << 1
+	FlagShareBits            = 0x000000ff
 )
 
 var (
@@ -44,6 +49,8 @@ type Model interface {
 	IndexUpdate(nodeID string, repo string, files []FileInfo)
 	// A request was made by the peer node
 	Request(nodeID string, repo string, name string, offset int64, size int) ([]byte, error)
+	// A cluster configuration message was received
+	ClusterConfig(nodeID string, config ClusterConfigMessage)
 	// The peer node closed the connection
 	Close(nodeID string, err error)
 }
@@ -52,27 +59,24 @@ type Connection interface {
 	ID() string
 	Index(repo string, files []FileInfo)
 	Request(repo string, name string, offset int64, size int) ([]byte, error)
+	ClusterConfig(config ClusterConfigMessage)
 	Statistics() Statistics
-	Option(key string) string
 }
 
 type rawConnection struct {
 	sync.RWMutex
 
-	id          string
-	receiver    Model
-	reader      io.ReadCloser
-	xr          *xdr.Reader
-	writer      io.WriteCloser
-	wb          *bufio.Writer
-	xw          *xdr.Writer
-	closed      chan struct{}
-	awaiting    map[int]chan asyncResult
-	nextID      int
-	indexSent   map[string]map[string][2]int64
-	peerOptions map[string]string
-	myOptions   map[string]string
-	optionsLock sync.Mutex
+	id        string
+	receiver  Model
+	reader    io.ReadCloser
+	xr        *xdr.Reader
+	writer    io.WriteCloser
+	wb        *bufio.Writer
+	xw        *xdr.Writer
+	closed    chan struct{}
+	awaiting  map[int]chan asyncResult
+	nextID    int
+	indexSent map[string]map[string][2]int64
 
 	hasSentIndex  bool
 	hasRecvdIndex bool
@@ -88,7 +92,7 @@ const (
 	pingIdleTime = 5 * time.Minute
 )
 
-func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver Model, options map[string]string) Connection {
+func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver Model) Connection {
 	flrd := flate.NewReader(reader)
 	flwr, err := flate.NewWriter(writer, flate.BestSpeed)
 	if err != nil {
@@ -111,28 +115,6 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 
 	go c.readerLoop()
 	go c.pingerLoop()
-
-	if options != nil {
-		c.myOptions = options
-		go func() {
-			c.Lock()
-			header{0, c.nextID, messageTypeOptions}.encodeXDR(c.xw)
-			var om OptionsMessage
-			for k, v := range options {
-				om.Options = append(om.Options, Option{k, v})
-			}
-			om.encodeXDR(c.xw)
-			err := c.xw.Error()
-			if err == nil {
-				err = c.flush()
-			}
-			if err != nil {
-				log.Println("Warning: Write error during initial handshake:", err)
-			}
-			c.nextID++
-			c.Unlock()
-		}()
-	}
 
 	return wireFormatConnection{&c}
 }
@@ -215,6 +197,27 @@ func (c *rawConnection) Request(repo string, name string, offset int64, size int
 		return nil, ErrClosed
 	}
 	return res.val, res.err
+}
+
+// ClusterConfig send the cluster configuration message to the peer and returns any error
+func (c *rawConnection) ClusterConfig(config ClusterConfigMessage) {
+	c.Lock()
+	defer c.Unlock()
+
+	if c.isClosed() {
+		return
+	}
+
+	header{0, c.nextID, messageTypeClusterConfig}.encodeXDR(c.xw)
+	c.nextID = (c.nextID + 1) & 0xfff
+
+	_, err := config.encodeXDR(c.xw)
+	if err == nil {
+		err = c.flush()
+	}
+	if err != nil {
+		c.close(err)
+	}
 }
 
 func (c *rawConnection) ping() bool {
@@ -386,24 +389,14 @@ loop:
 				c.Unlock()
 			}
 
-		case messageTypeOptions:
-			var om OptionsMessage
-			om.decodeXDR(c.xr)
+		case messageTypeClusterConfig:
+			var cm ClusterConfigMessage
+			cm.decodeXDR(c.xr)
 			if c.xr.Error() != nil {
 				c.close(c.xr.Error())
 				break loop
-			}
-
-			c.optionsLock.Lock()
-			c.peerOptions = make(map[string]string, len(om.Options))
-			for _, opt := range om.Options {
-				c.peerOptions[opt.Key] = opt.Value
-			}
-			c.optionsLock.Unlock()
-
-			if mh, rh := c.myOptions["clusterHash"], c.peerOptions["clusterHash"]; len(mh) > 0 && len(rh) > 0 && mh != rh {
-				c.close(ErrClusterHash)
-				break loop
+			} else {
+				go c.receiver.ClusterConfig(c.id, cm)
 			}
 
 		default:
@@ -471,10 +464,4 @@ func (c *rawConnection) Statistics() Statistics {
 		InBytesTotal:  int(c.xr.Tot()),
 		OutBytesTotal: int(c.xw.Tot()),
 	}
-}
-
-func (c *rawConnection) Option(key string) string {
-	c.optionsLock.Lock()
-	defer c.optionsLock.Unlock()
-	return c.peerOptions[key]
 }

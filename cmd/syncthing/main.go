@@ -219,15 +219,9 @@ func main() {
 	m.ScanRepos()
 	m.SaveIndexes(confDir)
 
-	connOpts := map[string]string{
-		"clientId":      "syncthing",
-		"clientVersion": Version,
-		"clusterHash":   clusterHash(cfg.Repositories[0].Nodes),
-	}
-
 	// Routine to connect out to configured nodes
 	disc := discovery()
-	go listenConnect(myID, disc, m, tlsCfg, connOpts)
+	go listenConnect(myID, disc, m, tlsCfg)
 
 	for _, repo := range cfg.Repositories {
 		// Routine to pull blocks from other nodes to synchronize the local
@@ -325,7 +319,7 @@ func saveConfig() {
 	saveConfigCh <- struct{}{}
 }
 
-func listenConnect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls.Config, connOpts map[string]string) {
+func listenConnect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls.Config) {
 	var conns = make(chan *tls.Conn)
 
 	// Listen
@@ -438,7 +432,7 @@ next:
 				if rateBucket != nil {
 					wr = &limitedWriter{conn, rateBucket}
 				}
-				protoConn := protocol.NewConnection(remoteID, conn, wr, m, connOpts)
+				protoConn := protocol.NewConnection(remoteID, conn, wr, m)
 				m.AddConnection(conn, protoConn)
 				continue next
 			}

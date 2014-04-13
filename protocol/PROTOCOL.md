@@ -79,10 +79,14 @@ version, type and ID.
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 For BEP v1 the Version field is set to zero. Future versions with
-incompatible message formats will increment the Version field.
+incompatible message formats will increment the Version field. A message
+with an unknown version is a protocol error and MUST result in the
+connection being terminated. A client supporting multiple versions MAY
+retry with a different protcol version upon disconnection.
 
 The Type field indicates the type of data following the message header
-and is one of the integers defined below.
+and is one of the integers defined below. A message of an unknown type
+is a protocol error and MUST result in the connection being terminated.
 
 The Message ID is set to a unique value for each transmitted message. In
 request messages the Reply To is set to zero. In response messages it is
@@ -109,6 +113,183 @@ are identical, the distinction being solely one of interpretation.
 Opaque data should not be interpreted but can be compared bytewise to
 other opaque data. All strings MUST use the Unicode UTF-8 encoding,
 normalization form C.
+
+### Cluster Config (Type = 0)
+
+This informational message provides information about the cluster
+configuration, as it pertains to the current connection. It is sent by
+both sides after connection establishment.
+
+#### Graphical Representation
+
+    ClusterConfigMessage Structure:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                     Length of ClientName                      |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                 ClientName (variable length)                  \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                    Length of ClientVersion                    |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                ClientVersion (variable length)                \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                    Number of Repositories                     |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \              Zero or more Repository Structures               \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                       Number of Options                       |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                Zero or more Option Structures                 \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+    Repository Structure:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                         Length of ID                          |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                     ID (variable length)                      \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                        Number of Nodes                        |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                 Zero or more Node Structures                  \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+    Node Structure:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                         Length of ID                          |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                     ID (variable length)                      \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                             Flags                             |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+    Option Structure:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                         Length of Key                         |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                     Key (variable length)                     \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                        Length of Value                        |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                    Value (variable length)                    \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+#### Fields
+
+The ClientName and ClientVersion fields identify the implementation. The
+values SHOULD be simple strings identifying the implementation name, as
+a user would expect to see it, and the version string in the same
+manner. An example ClientName is "syncthing" and an example
+ClientVersion is "v0.7.2". The ClientVersion field SHOULD follow the
+patterns laid out in the [Semantic Versioning](http://semver.org/)
+standard.
+
+The Repositories field lists all repositories that will be synchronized
+over the current connection. Each repository has a list of participating
+Nodes. Each node has an associated Flags field to indicate the sharing
+mode of that node for the repository in question. See the discussion on
+Sharing Modes.
+
+The Node Flags field contains the following single bit flags:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |          Reserved         |Pri|          Reserved         |R|T|
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+ - Bit 31 ("T", Trusted) is set for nodes that participate in trusted
+   mode.
+
+ - Bit 30 ("R", Read Only) is set for nodes that participate in read
+   only mode.
+
+ - Bits 16 through 28 are reserved and MUST be set to zero.
+
+ - Bits 14-15 ("Pri) indicate the node's upload priority for this
+   repository. Possible values are:
+
+    - 00: The default. Normal priority.
+
+    - 01: High priority. Other nodes SHOULD favour requesting files from
+      this node over nodes with normal or low priority.
+
+    - 10: Low priority. Other nodes SHOULD avoid requesting files from
+      this node when they are available from other nodes.
+
+    - 11: Sharing disabled. Other nodes SHOULD NOT request files from
+      this node.
+
+ - Bits 0 through 14 are reserved and MUST be set to zero.
+
+Exactly one of the T, R or S bits MUST be set.
+
+The Options field contain option values to be used in an implementation
+specific manner. The options list is conceptually a map of Key => Value
+items, although it is transmitted in the form of a list of (Key, Value)
+pairs, both of string type. Key ID:s are implementation specific. An
+implementation MUST ignore unknown keys. An implementation MAY impose
+limits on the length keys and values. The options list may be used to
+inform nodes of relevant local configuration options such as rate
+limiting or make recommendations about request parallellism, node
+priorities, etc. An empty options list is valid for nodes not having any
+such information to share. Nodes MAY NOT make any assumptions about
+peers acting in a specific manner as a result of sent options.
+
+#### XDR
+
+    struct ClusterConfigMessage {
+        string ClientName<>;
+        string ClientVersion<>;
+        Repository Repositories<>;
+        Option Options<>;
+    }
+
+    struct Repository {
+        string ID<>;
+        Node Nodes<>;
+    }
+
+    struct Node {
+        string ID<>;
+        unsigned int Flags;
+    }
+
+    struct Option {
+        string Key<>;
+        string Value<>;
+    }
 
 ### Index (Type = 1)
 
@@ -356,65 +537,32 @@ model, the Index Update merely amends it with new or updated file
 information. Any files not mentioned in an Index Update are left
 unchanged.
 
-### Options (Type = 7)
+Sharing Modes
+-------------
 
-This informational message provides information about the client
-configuration, version, etc. It is sent at connection initiation and,
-optionally, when any of the sent parameters have changed. The message is
-in the form of a list of (key, value) pairs, both of string type.
+### Trusted
 
-Key ID:s apart from the well known ones are implementation specific. An
-implementation is expected to ignore unknown keys. An implementation may
-impose limits on key and value size.
+Trusted mode is the default sharing mode. Updates are exchanged in both
+directions.
 
-Well known keys:
+    +------------+     Updates      /---------\
+    |            |  ----------->   /           \
+    |    Node    |                 |  Cluster  |
+    |            |  <-----------   \           /
+    +------------+     Updates      \---------/
 
-  - "clientId" -- The name of the implementation. Example: "syncthing".
+### Read Only
 
-  - "clientVersion" -- The version of the client. Example: "v1.0.33-47".
-    The Following the SemVer 2.0 specification for version strings is
-    encouraged but not enforced.
+In read only mode a node does not synchronize the local repository to
+the cluster, but publishes changes to it's local repository contents as
+usual. The local repository can be seen as a "master copy" that is never
+affected by the actions of other cluster nodes.
 
-#### Graphical Representation
-
-     0                   1                   2                   3
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                       Number of Options                       |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \               Zero or more KeyValue Structures                \
-    /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-    KeyValue Structure:
-
-     0                   1                   2                   3
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                         Length of Key                         |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \                     Key (variable length)                     \
-    /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                        Length of Value                        |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \                    Value (variable length)                    \
-    /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-#### XDR
-
-    struct OptionsMessage {
-        KeyValue Options<>;
-    }
-
-    struct KeyValue {
-        string Key<>;
-        string Value<>;
-    }
+    +------------+     Updates      /---------\
+    |            |  ----------->   /           \
+    |    Node    |                 |  Cluster  |
+    |            |                 \           /
+    +------------+                  \---------/
 
 Message Limits
 --------------

@@ -31,6 +31,7 @@ type Model struct {
 
 	protoConn map[string]protocol.Connection
 	rawConn   map[string]io.Closer
+	nodeVer   map[string]string
 	pmut      sync.RWMutex // protects protoConn and rawConn
 
 	sup suppressor
@@ -56,6 +57,7 @@ func NewModel(maxChangeBw int) *Model {
 		cm:        cid.NewMap(),
 		protoConn: make(map[string]protocol.Connection),
 		rawConn:   make(map[string]io.Closer),
+		nodeVer:   make(map[string]string),
 		sup:       suppressor{threshold: int64(maxChangeBw)},
 	}
 
@@ -87,7 +89,6 @@ func (m *Model) StartRepoRO(repo string) {
 type ConnectionInfo struct {
 	protocol.Statistics
 	Address       string
-	ClientID      string
 	ClientVersion string
 	Completion    int
 }
@@ -105,8 +106,7 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	for node, conn := range m.protoConn {
 		ci := ConnectionInfo{
 			Statistics:    conn.Statistics(),
-			ClientID:      conn.Option("clientId"),
-			ClientVersion: conn.Option("clientVersion"),
+			ClientVersion: m.nodeVer[node],
 		}
 		if nc, ok := m.rawConn[node].(remoteAddrer); ok {
 			ci.Address = nc.RemoteAddr().String()
@@ -245,15 +245,37 @@ func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) 
 	m.rmut.RUnlock()
 }
 
+func (m *Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessage) {
+	compErr := compareClusterConfig(m.clusterConfig(nodeID), config)
+	if debugNet {
+		dlog.Printf("ClusterConfig: %s: %#v", nodeID, config)
+		dlog.Printf("  ... compare: %s: %v", nodeID, compErr)
+	}
+
+	if compErr != nil {
+		warnf("%s: %v", nodeID, compErr)
+		m.Close(nodeID, compErr)
+	}
+
+	m.pmut.Lock()
+	if config.ClientName == "syncthing" {
+		m.nodeVer[nodeID] = config.ClientVersion
+	} else {
+		m.nodeVer[nodeID] = config.ClientName + " " + config.ClientVersion
+	}
+	m.pmut.Unlock()
+}
+
 // Close removes the peer from the model and closes the underlying connection if possible.
 // Implements the protocol.Model interface.
 func (m *Model) Close(node string, err error) {
 	if debugNet {
 		dlog.Printf("%s: %v", node, err)
 	}
-	if err == protocol.ErrClusterHash {
-		warnf("Connection to %s closed due to mismatched cluster hash. Ensure that the configured cluster members are identical on both nodes.", node)
-	} else if err != io.EOF {
+
+	if err != io.EOF {
+		warnf("Connection to %s closed: %v", node, err)
+	} else if _, ok := err.(ClusterConfigMismatch); ok {
 		warnf("Connection to %s closed: %v", node, err)
 	}
 
@@ -272,6 +294,7 @@ func (m *Model) Close(node string, err error) {
 	}
 	delete(m.protoConn, node)
 	delete(m.rawConn, node)
+	delete(m.nodeVer, node)
 	m.pmut.Unlock()
 }
 
@@ -385,6 +408,9 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	}
 	m.rawConn[nodeID] = rawConn
 	m.pmut.Unlock()
+
+	cm := m.clusterConfig(nodeID)
+	protoConn.ClusterConfig(cm)
 
 	go func() {
 		m.rmut.RLock()
@@ -596,46 +622,28 @@ func (m *Model) loadIndex(repo string, dir string) []protocol.FileInfo {
 	return im.Files
 }
 
-func fileFromFileInfo(f protocol.FileInfo) scanner.File {
-	var blocks = make([]scanner.Block, len(f.Blocks))
-	var offset int64
-	for i, b := range f.Blocks {
-		blocks[i] = scanner.Block{
-			Offset: offset,
-			Size:   b.Size,
-			Hash:   b.Hash,
-		}
-		offset += int64(b.Size)
+// clusterConfig returns a ClusterConfigMessage that is correct for the given peer node
+func (m *Model) clusterConfig(node string) protocol.ClusterConfigMessage {
+	cm := protocol.ClusterConfigMessage{
+		ClientName:    "syncthing",
+		ClientVersion: Version,
 	}
-	return scanner.File{
-		// Name is with native separator and normalization
-		Name:       filepath.FromSlash(f.Name),
-		Size:       offset,
-		Flags:      f.Flags &^ protocol.FlagInvalid,
-		Modified:   f.Modified,
-		Version:    f.Version,
-		Blocks:     blocks,
-		Suppressed: f.Flags&protocol.FlagInvalid != 0,
-	}
-}
 
-func fileInfoFromFile(f scanner.File) protocol.FileInfo {
-	var blocks = make([]protocol.BlockInfo, len(f.Blocks))
-	for i, b := range f.Blocks {
-		blocks[i] = protocol.BlockInfo{
-			Size: b.Size,
-			Hash: b.Hash,
+	m.rmut.Lock()
+	for _, repo := range m.nodeRepos[node] {
+		cr := protocol.Repository{
+			ID: repo,
 		}
+		for _, node := range m.repoNodes[repo] {
+			// TODO: Set read only bit when relevant
+			cr.Nodes = append(cr.Nodes, protocol.Node{
+				ID:    node,
+				Flags: protocol.FlagShareTrusted,
+			})
+		}
+		cm.Repositories = append(cm.Repositories, cr)
 	}
-	pf := protocol.FileInfo{
-		Name:     filepath.ToSlash(f.Name),
-		Flags:    f.Flags,
-		Modified: f.Modified,
-		Version:  f.Version,
-		Blocks:   blocks,
-	}
-	if f.Suppressed {
-		pf.Flags |= protocol.FlagInvalid
-	}
-	return pf
+	m.rmut.Unlock()
+
+	return cm
 }

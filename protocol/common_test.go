@@ -38,6 +38,9 @@ func (t *TestModel) Close(nodeID string, err error) {
 	close(t.closedCh)
 }
 
+func (t *TestModel) ClusterConfig(nodeID string, config ClusterConfigMessage) {
+}
+
 func (t *TestModel) isClosed() bool {
 	select {
 	case <-t.closedCh:

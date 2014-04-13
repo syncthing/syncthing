@@ -1,9 +1,7 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"reflect"
 	"sort"
@@ -229,15 +227,6 @@ func (l NodeConfigurationList) Swap(a, b int) {
 }
 func (l NodeConfigurationList) Len() int {
 	return len(l)
-}
-
-func clusterHash(nodes []NodeConfiguration) string {
-	sort.Sort(NodeConfigurationList(nodes))
-	h := sha256.New()
-	for _, n := range nodes {
-		h.Write([]byte(n.NodeID))
-	}
-	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func cleanNodeList(nodes []NodeConfiguration, myID string) []NodeConfiguration {

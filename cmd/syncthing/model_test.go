@@ -170,6 +170,8 @@ func (f FakeConnection) Request(repo, name string, offset int64, size int) ([]by
 	return f.requestData, nil
 }
 
+func (FakeConnection) ClusterConfig(protocol.ClusterConfigMessage) {}
+
 func (FakeConnection) Ping() bool {
 	return true
 }
