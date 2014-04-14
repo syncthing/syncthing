@@ -87,6 +87,7 @@ alterFiles() {
 			todelete=$(( $nfiles - 2000 ))
 			echo "Deleting $todelete files..."
 			find . -type f \
+				| grep -v large \
 				| sort -k 1.16 \
 				| head -n "$todelete" \
 				| xargs rm -f
@@ -136,3 +137,4 @@ for ((t = 1; t <= $iterations; t++)) ; do
 	testConvergence
 done
 
+pkill syncthing
