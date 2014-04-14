@@ -127,11 +127,13 @@ func (p *puller) run() {
 		for {
 			select {
 			case res := <-p.requestResults:
+				p.model.setState(p.repo, RepoSyncing)
 				changed = true
 				p.requestSlots <- true
 				p.handleRequestResult(res)
 
 			case b := <-p.blocks:
+				p.model.setState(p.repo, RepoSyncing)
 				changed = true
 				p.handleBlock(b)
 
@@ -155,9 +157,12 @@ func (p *puller) run() {
 		}
 
 		if changed {
+			p.model.setState(p.repo, RepoCleaning)
 			p.fixupDirectories()
 			changed = false
 		}
+
+		p.model.setState(p.repo, RepoIdle)
 
 		// Do a rescan if it's time for it
 		select {

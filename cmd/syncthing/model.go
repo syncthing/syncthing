@@ -20,11 +20,21 @@ import (
 	"github.com/calmh/syncthing/scanner"
 )
 
+type repoState int
+
+const (
+	RepoIdle repoState = iota
+	RepoScanning
+	RepoSyncing
+	RepoCleaning
+)
+
 type Model struct {
 	repoDirs  map[string]string     // repo -> dir
 	repoFiles map[string]*files.Set // repo -> files
 	repoNodes map[string][]string   // repo -> nodeIDs
 	nodeRepos map[string][]string   // nodeID -> repos
+	repoState map[string]repoState  // repo -> state
 	rmut      sync.RWMutex          // protects the above
 
 	cm *cid.Map
@@ -54,6 +64,7 @@ func NewModel(maxChangeBw int) *Model {
 		repoFiles: make(map[string]*files.Set),
 		repoNodes: make(map[string][]string),
 		nodeRepos: make(map[string][]string),
+		repoState: make(map[string]repoState),
 		cm:        cid.NewMap(),
 		protoConn: make(map[string]protocol.Connection),
 		rawConn:   make(map[string]io.Closer),
@@ -536,14 +547,20 @@ func (m *Model) AddRepo(id, dir string, nodes []NodeConfiguration) {
 
 func (m *Model) ScanRepos() {
 	m.rmut.RLock()
+	var repos = make([]string, 0, len(m.repoDirs))
 	for repo := range m.repoDirs {
-		m.ScanRepo(repo)
+		repos = append(repos, repo)
 	}
 	m.rmut.RUnlock()
+
+	for _, repo := range repos {
+		m.ScanRepo(repo)
+	}
 }
 
 func (m *Model) ScanRepo(repo string) {
 	sup := &suppressor{threshold: int64(cfg.Options.MaxChangeKbps)}
+	m.rmut.Lock()
 	w := &scanner.Walker{
 		Dir:          m.repoDirs[repo],
 		IgnoreFile:   ".stignore",
@@ -552,8 +569,11 @@ func (m *Model) ScanRepo(repo string) {
 		Suppressor:   sup,
 		CurrentFiler: cFiler{m, repo},
 	}
+	m.rmut.Unlock()
+	m.setState(repo, RepoScanning)
 	fs, _ := w.Walk()
 	m.ReplaceLocal(repo, fs)
+	m.setState(repo, RepoIdle)
 }
 
 func (m *Model) SaveIndexes(dir string) {
@@ -646,4 +666,28 @@ func (m *Model) clusterConfig(node string) protocol.ClusterConfigMessage {
 	m.rmut.Unlock()
 
 	return cm
+}
+
+func (m *Model) setState(repo string, state repoState) {
+	m.rmut.Lock()
+	m.repoState[repo] = state
+	m.rmut.Unlock()
+}
+
+func (m *Model) State(repo string) string {
+	m.rmut.Lock()
+	state := m.repoState[repo]
+	m.rmut.Unlock()
+	switch state {
+	case RepoIdle:
+		return "idle"
+	case RepoScanning:
+		return "scanning"
+	case RepoCleaning:
+		return "cleaning"
+	case RepoSyncing:
+		return "syncing"
+	default:
+		return "unknown"
+	}
 }

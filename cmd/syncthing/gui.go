@@ -88,6 +88,8 @@ func restGetModel(m *Model, w http.ResponseWriter, params martini.Params) {
 
 	res["inSyncFiles"], res["inSyncBytes"] = globalFiles-needFiles, globalBytes-needBytes
 
+	res["state"] = m.State(repo)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
 }

@@ -137,9 +137,8 @@
                       <span class="data">{{repo.ID}}</span>
                     </div>
                     <div class="li-column">
-                      <span class="text-muted glyphicon glyphicon-home"></span>
-                      <span class="data text-success" ng-show="syncPercentage(repo.ID) == 100">In Sync</span>
-                      <span class="data text-primary" ng-hide="syncPercentage(repo.ID) == 100">Syncing ({{syncPercentage(repo.ID)}}%)</span>
+                      <span class="text-muted glyphicon glyphicon-comment"></span>
+                      <span class="data" ng-class="repoClass(repo.ID)">{{repoStatus(repo.ID)}}</span>
                     </div>
                   </li>
                   <li>
@@ -191,7 +190,7 @@
                       <span class="data">{{nodeAddr(nodeCfg)}}</span>
                     </div>
                     <div class="li-column">
-                      <span class="text-muted glyphicon glyphicon-dashboard"></span>
+                      <span class="text-muted glyphicon glyphicon-comment"></span>
                       <span class="data text-{{nodeClass(nodeCfg)}}">{{nodeStatus(nodeCfg)}}</span>
                     </div>
                   </li>

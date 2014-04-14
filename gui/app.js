@@ -108,6 +108,36 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         });
     };
 
+    $scope.repoStatus = function (repo) {
+        if (typeof $scope.model[repo] === 'undefined') {
+            return 'Unknown';
+        }
+
+        var state = '' + $scope.model[repo].state;
+        state = state[0].toUpperCase() + state.substr(1);
+
+        if (state == "Syncing" || state == "Idle") {
+            state += " (" + $scope.syncPercentage(repo) + "%)";
+        }
+
+        return state;
+    }
+
+    $scope.repoClass = function (repo) {
+        if (typeof $scope.model[repo] === 'undefined') {
+            return 'text-info';
+        }
+
+        var state = '' + $scope.model[repo].state;
+        if (state == 'idle') {
+            return 'text-success';
+        }
+        if (state == 'syncing') {
+            return 'text-primary';
+        }
+        return 'text-info';
+    }
+
     $scope.syncPercentage = function (repo) {
         if (typeof $scope.model[repo] === 'undefined') {
             return 100;
