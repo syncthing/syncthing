@@ -72,8 +72,7 @@ func trackCPUUsage() {
 	var prevTime = time.Now().UnixNano()
 	var rusage prusage_t
 	var pid = os.Getpid()
-	for {
-		time.Sleep(10 * time.Second)
+	for _ = range time.NewTicker(time.Second).C {
 		err := solarisPrusage(pid, &rusage)
 		if err != nil {
 			warnln(err)
@@ -84,7 +83,8 @@ func trackCPUUsage() {
 		curUsage := rusage.Pr_utime.Nano() + rusage.Pr_stime.Nano()
 		usageDiff := curUsage - prevUsage
 		cpuUsageLock.Lock()
-		cpuUsagePercent = 100 * float64(usageDiff) / float64(timeDiff)
+		copy(cpuUsagePercent[1:], cpuUsagePercent[0:])
+		cpuUsagePercent[0] = 100 * float64(usageDiff) / float64(timeDiff)
 		cpuUsageLock.Unlock()
 		prevTime = curTime
 		prevUsage = curUsage

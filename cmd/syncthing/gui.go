@@ -155,7 +155,7 @@ func restGetNeed(m *Model, w http.ResponseWriter, params martini.Params) {
 	json.NewEncoder(w).Encode(gfs)
 }
 
-var cpuUsagePercent float64
+var cpuUsagePercent [10]float64 // The last ten seconds
 var cpuUsageLock sync.RWMutex
 
 func restGetSystem(w http.ResponseWriter) {
@@ -168,8 +168,12 @@ func restGetSystem(w http.ResponseWriter) {
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys
 	cpuUsageLock.RLock()
-	res["cpuPercent"] = cpuUsagePercent
+	var cpusum float64
+	for _, p := range cpuUsagePercent {
+		cpusum += p
+	}
 	cpuUsageLock.RUnlock()
+	res["cpuPercent"] = cpusum / 10
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
