@@ -428,7 +428,9 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 		repos := m.nodeRepos[nodeID]
 		m.rmut.RUnlock()
 		for _, repo := range repos {
-			idx := m.ProtocolIndex(repo)
+			m.rmut.RLock()
+			idx := m.protocolIndex(repo)
+			m.rmut.RUnlock()
 			if debugNet {
 				dlog.Printf("IDX(out/initial): %s: %q: %d files", nodeID, repo, len(idx))
 			}
@@ -437,14 +439,11 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	}()
 }
 
-// ProtocolIndex returns the current local index in protocol data types.
-// Must be called with the read lock held.
-func (m *Model) ProtocolIndex(repo string) []protocol.FileInfo {
+// protocolIndex returns the current local index in protocol data types.
+func (m *Model) protocolIndex(repo string) []protocol.FileInfo {
 	var index []protocol.FileInfo
 
-	m.rmut.RLock()
 	fs := m.repoFiles[repo].Have(cid.LocalID)
-	m.rmut.RUnlock()
 
 	for _, f := range fs {
 		mf := fileInfoFromFile(f)
@@ -498,7 +497,7 @@ func (m *Model) broadcastIndexLoop() {
 			}
 			lastChange[repo] = c
 
-			idx := m.ProtocolIndex(repo)
+			idx := m.protocolIndex(repo)
 			m.saveIndex(repo, confDir, idx)
 
 			var indexWg sync.WaitGroup
@@ -579,7 +578,7 @@ func (m *Model) ScanRepo(repo string) {
 func (m *Model) SaveIndexes(dir string) {
 	m.rmut.RLock()
 	for repo := range m.repoDirs {
-		fs := m.ProtocolIndex(repo)
+		fs := m.protocolIndex(repo)
 		m.saveIndex(repo, dir, fs)
 	}
 	m.rmut.RUnlock()
