@@ -2,7 +2,7 @@
 
 export STNORESTART=1
 
-iterations=5
+iterations=${1:-5}
 
 id1=I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA
 id2=JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ
@@ -12,12 +12,14 @@ go build genfiles.go
 go build md5r.go
 go build json.go
 
-testConvergence() {
+start() {
 	echo "Starting..."
 	for i in 1 2 3 ; do
 		STPROFILER=":909$i" syncthing -home "h$i" &
 	done
+}
 
+testConvergence() {
 	while true ; do
 		sleep 5
 		s1comp=$(curl -s "http://localhost:8082/rest/connections" | ./json "$id1/Completion")
@@ -29,8 +31,6 @@ testConvergence() {
 		tot=$(($s1comp + $s2comp + $s3comp))
 		echo $tot / 300
 		if [[ $tot == 300 ]] ; then
-			echo "Stopping..."
-			pkill syncthing
 			break
 		fi
 	done
@@ -72,8 +72,34 @@ testConvergence() {
 		fi
 	done
 	if [[ $ok != 7 ]] ; then
+		pkill syncthing
 		exit 1
 	fi
+}
+
+alterFiles() {
+	pkill -STOP syncthing
+	for i in 1 2 3 12-1 12-2 23-2 23-3 ; do
+		pushd "s$i" >/dev/null
+
+		nfiles=$(find . -type f | wc -l)
+		if [[ $nfiles > 2000 ]] ; then
+			todelete=$(( $nfiles - 2000 ))
+			echo "Deleting $todelete files..."
+			find . -type f \
+				| sort -k 1.16 \
+				| head -n "$todelete" \
+				| xargs rm -f
+		fi
+
+		../genfiles -maxexp 22 -files 600
+		echo "  $i: append to large file"
+		dd if=/dev/urandom bs=1024k count=4 >> large-$i 2>/dev/null
+		../md5r -l > ../md5-tmp
+		(grep -v large ../md5-tmp ; grep "large-$i" ../md5-tmp) | grep -v '/.syncthing.' > ../md5-$i
+		popd >/dev/null
+	done
+	pkill -CONT syncthing
 }
 
 echo "Setting up files..."
@@ -98,21 +124,15 @@ for i in 1 2 3 12-1 12-2 23-2 23-3 ; do
 	popd >/dev/null
 done
 
+start
 testConvergence
 
-for ((t = 0; t < $iterations; t++)) ; do
-	echo "Add and remove random files ($((t+1)) / $iterations)..."
-	for i in 1 2 3 12-1 12-2 23-2 23-3 ; do
-		pushd "s$i" >/dev/null
-		rm -rf */?[02468ace]
-		../genfiles -maxexp 22 -files 600
-		echo "  $i: append to large file"
-		dd if=/dev/urandom bs=1024k count=4 >> large-$i 2>/dev/null
-		../md5r -l > ../md5-tmp
-		(grep -v large ../md5-tmp ; grep "large-$i" ../md5-tmp) > ../md5-$i
-		popd >/dev/null
-	done
+for ((t = 1; t <= $iterations; t++)) ; do
+	echo "Add and remove random files ($t / $iterations)..."
+	alterFiles
 
+	echo "Waiting..."
+	sleep 30
 	testConvergence
 done
 
