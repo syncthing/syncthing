@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -31,30 +32,32 @@ var (
 	myID       string
 	confDir    string
 	rateBucket *ratelimit.Bucket
+	stop       = make(chan bool)
 )
 
 const (
 	usage      = "syncthing [options]"
 	extraUsage = `The following enviroment variables are interpreted by syncthing:
 
- STNORESTART  Do not attempt to restart when requested to, instead just exit.
-              Set this variable when running under a service manager such as
-              runit, launchd, etc.
+ STNORESTART   Do not attempt to restart when requested to, instead just exit.
+               Set this variable when running under a service manager such as
+               runit, launchd, etc.
 
- STPROFILER   Set to a listen address such as "127.0.0.1:9090" to start the
-              profiler with HTTP access.
+ STPROFILER    Set to a listen address such as "127.0.0.1:9090" to start the
+               profiler with HTTP access.
 
- STTRACE      A comma separated string of facilities to trace. The valid
-              facility strings:
-              - "discover" (the node discovery package)
-              - "files"    (file set store)
-              - "idx"      (index sending and receiving)
-              - "mc"       (multicast beacon)
-              - "need"     (file need calculations)
-              - "net"      (connecting and disconnecting, network messages)
-              - "pull"     (file pull activity)
-              - "scanner"  (the file change scanner)
-              `
+ STTRACE       A comma separated string of facilities to trace. The valid
+               facility strings:
+               - "discover" (the node discovery package)
+               - "files"    (file set store)
+               - "idx"      (index sending and receiving)
+               - "mc"       (multicast beacon)
+               - "need"     (file need calculations)
+               - "net"      (connecting and disconnecting, network messages)
+               - "pull"     (file pull activity)
+               - "scanner"  (the file change scanner)
+
+ STCPUPROFILE  Write CPU profile to the specified file.`
 )
 
 func main() {
@@ -73,7 +76,7 @@ func main() {
 
 	if showVersion {
 		fmt.Printf("syncthing %s (%s %s-%s)\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
-		os.Exit(0)
+		return
 	}
 
 	if len(os.Getenv("GOGC")) == 0 {
@@ -142,7 +145,7 @@ func main() {
 
 	if reset {
 		resetRepositories()
-		os.Exit(0)
+		return
 	}
 
 	if profiler := os.Getenv("STPROFILER"); len(profiler) > 0 {
@@ -235,7 +238,16 @@ func main() {
 		}
 	}
 
-	select {}
+	if cpuprof := os.Getenv("STCPUPROFILE"); len(cpuprof) > 0 {
+		f, err := os.Create(cpuprof)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
+	<-stop
 }
 
 func resetRepositories() {
@@ -262,7 +274,8 @@ func restart() {
 	if os.Getenv("SMF_FMRI") != "" || os.Getenv("STNORESTART") != "" {
 		// Solaris SMF
 		infoln("Service manager detected; exit instead of restart")
-		os.Exit(0)
+		stop <- true
+		return
 	}
 
 	env := os.Environ()
@@ -282,7 +295,7 @@ func restart() {
 		fatalln(err)
 	}
 	proc.Release()
-	os.Exit(0)
+	stop <- true
 }
 
 var saveConfigCh = make(chan struct{})
