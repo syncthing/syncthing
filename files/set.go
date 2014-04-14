@@ -11,8 +11,9 @@ import (
 )
 
 type fileRecord struct {
-	Usage int
-	File  scanner.File
+	File   scanner.File
+	Usage  int
+	Global bool
 }
 
 type bitset uint64
@@ -110,13 +111,17 @@ func (m *Set) Need(id uint) []scanner.File {
 	var fs = make([]scanner.File, 0, len(m.globalKey)/2) // Just a guess, but avoids too many reallocations
 	m.Lock()
 	rkID := m.remoteKey[id]
-	for name, gk := range m.globalKey {
-		if gk.newerThan(rkID[name]) {
-			file := m.files[gk].File
-			if file.Flags&protocol.FlagDirectory == 0 || // Regular file
-				file.Flags&(protocol.FlagDirectory|protocol.FlagDeleted) == protocol.FlagDirectory { // Non-deleted directory
-				fs = append(fs, file)
-			}
+	for gk, gf := range m.files {
+		if !gf.Global {
+			continue
+		}
+
+		file := gf.File
+		switch {
+		case file.Flags&protocol.FlagDirectory == 0 && gk.newerThan(rkID[gk.Name]):
+			fs = append(fs, file)
+		case file.Flags&(protocol.FlagDirectory|protocol.FlagDeleted) == protocol.FlagDirectory && gk.newerThan(rkID[gk.Name]):
+			fs = append(fs, file)
 		}
 	}
 	m.Unlock()
@@ -142,8 +147,10 @@ func (m *Set) Global() []scanner.File {
 	}
 	var fs = make([]scanner.File, 0, len(m.globalKey))
 	m.Lock()
-	for _, rk := range m.globalKey {
-		fs = append(fs, m.files[rk].File)
+	for _, file := range m.files {
+		if file.Global {
+			fs = append(fs, file.File)
+		}
 	}
 	m.Unlock()
 	return fs
@@ -237,6 +244,14 @@ func (m *Set) update(cid uint, fs []scanner.File) {
 			av |= 1 << cid
 			m.globalAvailability[n] = av
 		case fk.newerThan(gk):
+			if ok {
+				f := m.files[gk]
+				f.Global = false
+				m.files[gk] = f
+			}
+			f := m.files[fk]
+			f.Global = true
+			m.files[fk] = f
 			m.globalKey[n] = fk
 			m.globalAvailability[n] = 1 << cid
 		}
