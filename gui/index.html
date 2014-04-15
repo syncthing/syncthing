@@ -132,27 +132,27 @@
                 <span class="text-monospace">{{repo.Directory}}</span>
                 <ul class="list-no-bullet">
                   <li>
-                    <div class="li-column">
+                    <div class="li-column" title="Repository ID">
                       <span class="text-muted glyphicon glyphicon-tag"></span>
                       <span class="data">{{repo.ID}}</span>
                     </div>
-                    <div class="li-column">
+                    <div class="li-column" title="Repository synchronization status">
                       <span class="text-muted glyphicon glyphicon-comment"></span>
                       <span class="data" ng-class="repoClass(repo.ID)">{{repoStatus(repo.ID)}}</span>
                     </div>
                   </li>
                   <li>
-                    <div class="li-column">
+                    <div class="li-column" title="Global repository files">
                       <span class="text-muted glyphicon glyphicon-globe"></span>
                       <span class="data">{{model[repo.ID].globalFiles | alwaysNumber}} files, {{model[repo.ID].globalBytes | binary}}B</span>
                     </div>
-                    <div class="li-column">
+                    <div class="li-column" title="Local repository files">
                       <span class="text-muted glyphicon glyphicon-home"></span>
                       <span class="data">{{model[repo.ID].localFiles | alwaysNumber}} files, {{model[repo.ID].localBytes | binary}}B</span>
                     </div>
                   </li>
                   <li>
-                    <div class="li-column">
+                    <div class="li-column" title="Unsynchronized files">
                       <span class="text-muted glyphicon glyphicon-cloud-download"></span>
                       <span class="data">{{model[repo.ID].needFiles | alwaysNumber}} files, {{model[repo.ID].needBytes | binary}}B</span>
                     </div>
@@ -185,27 +185,27 @@
                 <span class="text-monospace">{{nodeName(nodeCfg)}}</span>
                 <ul class="list-no-bullet">
                   <li>
-                    <div class="li-column">
+                    <div class="li-column" title="Node address">
                       <span class="text-muted glyphicon glyphicon-link"></span>
                       <span class="data">{{nodeAddr(nodeCfg)}}</span>
                     </div>
-                    <div class="li-column">
+                    <div class="li-column" title="Node synchronization status">
                       <span class="text-muted glyphicon glyphicon-comment"></span>
                       <span class="data text-{{nodeClass(nodeCfg)}}">{{nodeStatus(nodeCfg)}}</span>
                     </div>
                   </li>
                   <li>
-                    <div class="li-column">
+                    <div class="li-column" title="Download rate">
                       <span class="text-muted glyphicon glyphicon-cloud-download"></span>
                       <span class="data">{{connections[nodeCfg.NodeID].inbps | metric}}bps</span>
                     </div>
-                    <div class="li-column">
+                    <div class="li-column" title="Upload rate">
                       <span class="text-muted glyphicon glyphicon-cloud-upload"></span>
                       <span class="data">{{connections[nodeCfg.NodeID].outbps | metric}}bps</span>
                     </div>
                   </li>
                   <li>
-                    <div class="li-column">
+                    <div class="li-column" title="Node version">
                       <span class="text-muted glyphicon glyphicon-tag"></span>
                       <span class="data">{{nodeVer(nodeCfg)}}</span>
                     </div>
@@ -224,21 +224,21 @@
                 <span class="text-monospace">{{nodeName(nodeCfg)}}</span>&emsp;
                 <ul class="list-no-bullet">
                   <li>
-                    <div class="li-column">
+                    <div class="li-column" title="Current RAM utilization">
                       <span class="text-muted glyphicon glyphicon-th"></span>
                       <span class="data">{{system.sys | binary}}B RAM</span>
                     </div>
-                    <div class="li-column">
+                    <div class="li-column" title="Current CPU utilization (10 s)">
                       <span class="text-muted glyphicon glyphicon-tasks"></span>
                       <span class="data">{{system.cpuPercent | alwaysNumber | natural:1}}% CPU</span>
                     </div>
                   </li>
                   <li>
-                    <div class="li-column">
+                    <div class="li-column" title="Download rate (total)">
                       <span class="text-muted glyphicon glyphicon-cloud-download"></span>
                       <span class="data">{{inbps | metric}}bps</span>
                     </div>
-                    <div class="li-column">
+                    <div class="li-column" title="Upload rate (total)">
                       <span class="text-muted glyphicon glyphicon-cloud-upload"></span>
                       <span class="data">{{outbps | metric}}bps</span>
                     </div>
