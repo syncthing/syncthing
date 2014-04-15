@@ -54,11 +54,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     }
 
     function nodeCompare(a, b) {
-        if (a.NodeID === $scope.myID) {
-            return -1;
-        }
-        if (b.NodeID === $scope.myID) {
-            return 1;
+        if (typeof a.Name !== 'undefined' && typeof b.Name !== 'undefined') {
+            if (a.Name < b.Name)
+                return -1;
+            return a.Name > b.Name;
         }
         if (a.NodeID < b.NodeID) {
             return -1;
