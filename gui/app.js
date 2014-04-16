@@ -334,6 +334,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     $scope.clearErrors = function () {
         $scope.seenError = $scope.errors[$scope.errors.length - 1].Time;
+        $http.post('/rest/error/clear');
     };
 
     $scope.friendlyNodes = function (str) {

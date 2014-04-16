@@ -41,6 +41,7 @@ func startGUI(cfg GUIConfiguration, m *Model) {
 	router.Post("/rest/restart", restPostRestart)
 	router.Post("/rest/reset", restPostReset)
 	router.Post("/rest/error", restPostError)
+	router.Post("/rest/error/clear", restClearErrors)
 
 	go func() {
 		mr := martini.New()
@@ -189,6 +190,12 @@ func restPostError(req *http.Request) {
 	bs, _ := ioutil.ReadAll(req.Body)
 	req.Body.Close()
 	showGuiError(string(bs))
+}
+
+func restClearErrors() {
+	guiErrorsMut.Lock()
+	guiErrors = nil
+	guiErrorsMut.Unlock()
 }
 
 func showGuiError(err string) {
