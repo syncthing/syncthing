@@ -107,16 +107,14 @@ func limit(addr *net.UDPAddr) bool {
 		if bkt.TakeAvailable(1) != 1 {
 			// Rate limit exceeded; ignore packet
 			if debug {
-				log.Printf("Rate limit exceeded for", key)
+				log.Println("Rate limit exceeded for", key)
 			}
 			limited++
 			return true
-		} else if debug {
-			log.Printf("Rate limit OK for", key)
 		}
 	} else {
 		if debug {
-			log.Printf("New limiter for", key)
+			log.Println("New limiter for", key)
 		}
 		// One packet per ten seconds average rate, burst ten packets
 		limiter.Add(key, ratelimit.NewBucket(10*time.Second, 10))
