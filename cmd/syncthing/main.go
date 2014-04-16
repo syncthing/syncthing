@@ -397,6 +397,14 @@ func listenConnect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls
 				}
 
 				for _, addr := range addrs {
+					host, port, err := net.SplitHostPort(addr)
+					if err != nil && strings.HasPrefix(err.Error(), "missing port") {
+						// addr is on the form "1.2.3.4"
+						addr = net.JoinHostPort(addr, "22000")
+					} else if err == nil && port == "" {
+						// addr is on the form "1.2.3.4:"
+						addr = net.JoinHostPort(host, "22000")
+					}
 					if debugNet {
 						dlog.Println("dial", nodeCfg.NodeID, addr)
 					}
