@@ -114,7 +114,7 @@
             <p>The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.</p>
           </div>
           <div class="panel-footer">
-            <button type="button" class="btn btn-sm btn-default pull-right" ng-click="restart()"><span class="glyphicon glyphicon-off"></span> Restart Now</button>
+            <button type="button" class="btn btn-sm btn-default pull-right" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span> Restart Now</button>
             <div class="clearfix"></div>
           </div>
         </div>
@@ -315,6 +315,26 @@
           <p>
             Syncthing seems to be down, or there is a problem with your Internet connection.
             Retrying&hellip;
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restarting modal -->
+
+  <div id="restarting" class="modal fade">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header alert alert-info">
+          <h4 class="modal-title">
+            <span class="glyphicon glyphicon-refresh"></span>
+            Restarting
+          </h4>
+        </div>
+        <div class="modal-body">
+          <p>
+            Syncthing is restarting. Please hold&hellip;
           </p>
         </div>
       </div>

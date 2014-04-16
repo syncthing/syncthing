@@ -6,8 +6,9 @@
 var syncthing = angular.module('syncthing', []);
 
 syncthing.controller('SyncthingCtrl', function ($scope, $http) {
-    var prevDate = 0,
-    getOK = true;
+    var prevDate = 0;
+    var getOK = true;
+    var restarting = false;
 
     $scope.connections = {};
     $scope.config = {};
@@ -44,9 +45,16 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             $('#networkError').modal('hide');
             getOK = true;
         }
+        if (restarting) {
+            $('#restarting').modal('hide');
+            restarting = false;
+        }
     }
 
     function getFailed() {
+        if (restarting) {
+            return;
+        }
         if (getOK) {
             $('#networkError').modal({backdrop: 'static', keyboard: false});
             getOK = false;
@@ -234,6 +242,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.restart = function () {
+        restarting = true;
+        $('#restarting').modal('show');
         $http.post('/rest/restart');
         $scope.configInSync = true;
     };
