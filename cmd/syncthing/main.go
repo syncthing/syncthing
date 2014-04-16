@@ -126,6 +126,7 @@ func main() {
 
 	if len(cfg.Repositories) == 0 {
 		infoln("No config file; starting with empty defaults")
+		name, _ := os.Hostname()
 
 		cfg, err = readConfigXML(nil)
 		cfg.Repositories = []RepositoryConfiguration{
@@ -136,7 +137,11 @@ func main() {
 			},
 		}
 		cfg.Nodes = []NodeConfiguration{
-			{NodeID: myID, Addresses: []string{"dynamic"}},
+			{
+				NodeID:    myID,
+				Addresses: []string{"dynamic"},
+				Name:      name,
+			},
 		}
 
 		saveConfig()
