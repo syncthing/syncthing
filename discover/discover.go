@@ -40,7 +40,7 @@ var (
 // When we hit this many errors in succession, we stop.
 const maxErrors = 30
 
-func NewDiscoverer(id string, addresses []string, extServer string) (*Discoverer, error) {
+func NewDiscoverer(id string, addresses []string) (*Discoverer, error) {
 	disc := &Discoverer{
 		MyID:             id,
 		ListenAddresses:  addresses,
@@ -48,30 +48,24 @@ func NewDiscoverer(id string, addresses []string, extServer string) (*Discoverer
 		ExtBroadcastIntv: 1800 * time.Second,
 		beacon:           mc.NewBeacon("239.21.0.25", 21025),
 		registry:         make(map[string][]string),
-		extServer:        extServer,
 	}
 
 	// Receive announcements sent to the local multicast group.
 
 	go disc.recvAnnouncements()
 
-	// If we got a list of addresses that we listen on, announce those
-	// locally.
-
-	if len(disc.ListenAddresses) > 0 {
-		disc.localBroadcastTick = time.Tick(disc.BroadcastIntv)
-		disc.forcedBroadcastTick = make(chan time.Time)
-		go disc.sendLocalAnnouncements()
-
-		// If we have an external server address, also announce to that
-		// server.
-
-		if len(disc.extServer) > 0 {
-			go disc.sendExternalAnnouncements()
-		}
-	}
-
 	return disc, nil
+}
+
+func (d *Discoverer) StartLocal() {
+	d.localBroadcastTick = time.Tick(d.BroadcastIntv)
+	d.forcedBroadcastTick = make(chan time.Time)
+	go d.sendLocalAnnouncements()
+}
+
+func (d *Discoverer) StartGlobal(server string) {
+	d.extServer = server
+	go d.sendExternalAnnouncements()
 }
 
 func (d *Discoverer) announcementPkt() []byte {

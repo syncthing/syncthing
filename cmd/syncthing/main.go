@@ -468,22 +468,20 @@ next:
 }
 
 func discovery() *discover.Discoverer {
-	if !cfg.Options.LocalAnnEnabled {
+	disc, err := discover.NewDiscoverer(myID, cfg.Options.ListenAddress)
+	if err != nil {
+		warnf("No discovery possible (%v)", err)
 		return nil
 	}
 
-	infoln("Sending local discovery announcements")
-
-	if !cfg.Options.GlobalAnnEnabled {
-		cfg.Options.GlobalAnnServer = ""
-	} else {
-		infoln("Sending external discovery announcements")
+	if cfg.Options.LocalAnnEnabled {
+		infoln("Sending local discovery announcements")
+		disc.StartLocal()
 	}
 
-	disc, err := discover.NewDiscoverer(myID, cfg.Options.ListenAddress, cfg.Options.GlobalAnnServer)
-
-	if err != nil {
-		warnf("No discovery possible (%v)", err)
+	if cfg.Options.GlobalAnnEnabled {
+		infoln("Sending external discovery announcements")
+		disc.StartGlobal(cfg.Options.GlobalAnnServer)
 	}
 
 	return disc
