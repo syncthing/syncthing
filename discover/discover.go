@@ -19,16 +19,18 @@ const (
 )
 
 type Discoverer struct {
-	MyID                string
-	ListenAddresses     []string
-	BroadcastIntv       time.Duration
-	ExtBroadcastIntv    time.Duration
-	beacon              *mc.Beacon
-	registry            map[string][]string
-	registryLock        sync.RWMutex
-	extServer           string
-	localBroadcastTick  <-chan time.Time
-	forcedBroadcastTick chan time.Time
+	myID             string
+	listenAddrs      []string
+	localBcastIntv   time.Duration
+	globalBcastIntv  time.Duration
+	beacon           *mc.Beacon
+	registry         map[string][]string
+	registryLock     sync.RWMutex
+	extServer        string
+	localBcastTick   <-chan time.Time
+	forcedBcastTick  chan time.Time
+	extAnnounceOK    bool
+	extAnnounceOKmut sync.Mutex
 }
 
 var (
@@ -42,15 +44,13 @@ const maxErrors = 30
 
 func NewDiscoverer(id string, addresses []string) (*Discoverer, error) {
 	disc := &Discoverer{
-		MyID:             id,
-		ListenAddresses:  addresses,
-		BroadcastIntv:    30 * time.Second,
-		ExtBroadcastIntv: 1800 * time.Second,
-		beacon:           mc.NewBeacon("239.21.0.25", 21025),
-		registry:         make(map[string][]string),
+		myID:            id,
+		listenAddrs:     addresses,
+		localBcastIntv:  30 * time.Second,
+		globalBcastIntv: 1800 * time.Second,
+		beacon:          mc.NewBeacon("239.21.0.25", 21025),
+		registry:        make(map[string][]string),
 	}
-
-	// Receive announcements sent to the local multicast group.
 
 	go disc.recvAnnouncements()
 
@@ -58,8 +58,8 @@ func NewDiscoverer(id string, addresses []string) (*Discoverer, error) {
 }
 
 func (d *Discoverer) StartLocal() {
-	d.localBroadcastTick = time.Tick(d.BroadcastIntv)
-	d.forcedBroadcastTick = make(chan time.Time)
+	d.localBcastTick = time.Tick(d.localBcastIntv)
+	d.forcedBcastTick = make(chan time.Time)
 	go d.sendLocalAnnouncements()
 }
 
@@ -68,9 +68,15 @@ func (d *Discoverer) StartGlobal(server string) {
 	go d.sendExternalAnnouncements()
 }
 
+func (d *Discoverer) ExtAnnounceOK() bool {
+	d.extAnnounceOKmut.Lock()
+	defer d.extAnnounceOKmut.Unlock()
+	return d.extAnnounceOK
+}
+
 func (d *Discoverer) announcementPkt() []byte {
 	var addrs []Address
-	for _, astr := range d.ListenAddresses {
+	for _, astr := range d.listenAddrs {
 		addr, err := net.ResolveTCPAddr("tcp", astr)
 		if err != nil {
 			log.Printf("discover/announcement: %v: not announcing %s", err, astr)
@@ -88,7 +94,7 @@ func (d *Discoverer) announcementPkt() []byte {
 	}
 	var pkt = AnnounceV2{
 		Magic:     AnnouncementMagicV2,
-		NodeID:    d.MyID,
+		NodeID:    d.myID,
 		Addresses: addrs,
 	}
 	return pkt.MarshalXDR()
@@ -101,8 +107,8 @@ func (d *Discoverer) sendLocalAnnouncements() {
 		d.beacon.Send(buf)
 
 		select {
-		case <-d.localBroadcastTick:
-		case <-d.forcedBroadcastTick:
+		case <-d.localBcastTick:
+		case <-d.forcedBcastTick:
 		}
 	}
 }
@@ -124,22 +130,40 @@ func (d *Discoverer) sendExternalAnnouncements() {
 	var errCounter = 0
 
 	for errCounter < maxErrors {
+		var ok bool
+
 		if debug {
 			dlog.Printf("send announcement -> %v\n%s", remote, hex.Dump(buf))
 		}
+
 		_, err = conn.WriteTo(buf, remote)
 		if err != nil {
 			log.Println("discover/write: warning:", err)
 			errCounter++
+			ok = false
 		} else {
 			errCounter = 0
-		}
-		if debug {
+
+			// Verify that the announce server responds positively for our node ID
+
 			time.Sleep(1 * time.Second)
-			res := d.externalLookup(d.MyID)
-			dlog.Println("external lookup check:", res)
+			res := d.externalLookup(d.myID)
+			if debug {
+				dlog.Println("external lookup check:", res)
+			}
+			ok = len(res) > 0
+
 		}
-		time.Sleep(d.ExtBroadcastIntv)
+
+		d.extAnnounceOKmut.Lock()
+		d.extAnnounceOK = ok
+		d.extAnnounceOKmut.Unlock()
+
+		if ok {
+			time.Sleep(d.globalBcastIntv)
+		} else {
+			time.Sleep(60 * time.Second)
+		}
 	}
 	log.Printf("discover/write: %v: stopping due to too many errors: %v", remote, err)
 }
@@ -162,7 +186,7 @@ func (d *Discoverer) recvAnnouncements() {
 			dlog.Printf("parsed announcement: %#v", pkt)
 		}
 
-		if pkt.NodeID != d.MyID {
+		if pkt.NodeID != d.myID {
 			var addrs []string
 			for _, a := range pkt.Addresses {
 				var nodeAddr string
@@ -182,7 +206,7 @@ func (d *Discoverer) recvAnnouncements() {
 			_, seen := d.registry[pkt.NodeID]
 			if !seen {
 				select {
-				case d.forcedBroadcastTick <- time.Now():
+				case d.forcedBcastTick <- time.Now():
 				}
 			}
 			d.registry[pkt.NodeID] = addrs

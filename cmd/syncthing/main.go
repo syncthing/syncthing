@@ -33,6 +33,7 @@ var (
 	confDir    string
 	rateBucket *ratelimit.Bucket
 	stop       = make(chan bool)
+	discoverer *discover.Discoverer
 )
 
 const (
@@ -228,8 +229,8 @@ func main() {
 	m.SaveIndexes(confDir)
 
 	// Routine to connect out to configured nodes
-	disc := discovery()
-	go listenConnect(myID, disc, m, tlsCfg)
+	discoverer = discovery()
+	go listenConnect(myID, m, tlsCfg)
 
 	for _, repo := range cfg.Repositories {
 		// Routine to pull blocks from other nodes to synchronize the local
@@ -337,7 +338,7 @@ func saveConfig() {
 	saveConfigCh <- struct{}{}
 }
 
-func listenConnect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls.Config) {
+func listenConnect(myID string, m *Model, tlsCfg *tls.Config) {
 	var conns = make(chan *tls.Conn)
 
 	// Listen
@@ -389,8 +390,8 @@ func listenConnect(myID string, disc *discover.Discoverer, m *Model, tlsCfg *tls
 				var addrs []string
 				for _, addr := range nodeCfg.Addresses {
 					if addr == "dynamic" {
-						if disc != nil {
-							t := disc.Lookup(nodeCfg.NodeID)
+						if discoverer != nil {
+							t := discoverer.Lookup(nodeCfg.NodeID)
 							if len(t) == 0 {
 								continue
 							}

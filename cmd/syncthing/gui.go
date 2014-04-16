@@ -168,6 +168,9 @@ func restGetSystem(w http.ResponseWriter) {
 	res["goroutines"] = runtime.NumGoroutine()
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys
+	if discoverer != nil {
+		res["extAnnounceOK"] = discoverer.ExtAnnounceOK()
+	}
 	cpuUsageLock.RLock()
 	var cpusum float64
 	for _, p := range cpuUsagePercent {

@@ -248,6 +248,11 @@
                     </div>
                   </li>
                   <li>
+                    <div ng-if="system.extAnnounceOK != undefined" class="li-column" title="Global announce server">
+                      <span class="text-muted glyphicon glyphicon-bullhorn"></span>
+                      <span class="data text-success" ng-if="system.extAnnounceOK">Online</span>
+                      <span class="data text-danger" ng-if="!system.extAnnounceOK">Offline</span>
+                    </div>
                     <div class="li-column">
                       <span class="text-muted glyphicon glyphicon-cog"></span>
                       <span class="data"><a href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span> Edit</a></span>
