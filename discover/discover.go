@@ -131,7 +131,7 @@ func (d *Discoverer) sendExternalAnnouncements() {
 
 	for errCounter < maxErrors {
 		if debug {
-			dlog.Println("send announcement -> ", remote)
+			dlog.Printf("send announcement -> %v\n%s", remote, hex.Dump(buf))
 		}
 		_, err = conn.WriteTo(buf, remote)
 		if err != nil {
@@ -139,6 +139,11 @@ func (d *Discoverer) sendExternalAnnouncements() {
 			errCounter++
 		} else {
 			errCounter = 0
+		}
+		if debug {
+			time.Sleep(1 * time.Second)
+			res := d.externalLookup(d.MyID)
+			dlog.Println("external lookup check:", res)
 		}
 		time.Sleep(d.ExtBroadcastIntv)
 	}
