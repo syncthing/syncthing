@@ -27,6 +27,7 @@ type Discoverer struct {
 	registry         map[string][]string
 	registryLock     sync.RWMutex
 	extServer        string
+	extPort          uint16
 	localBcastTick   <-chan time.Time
 	forcedBcastTick  chan time.Time
 	extAnnounceOK    bool
@@ -63,8 +64,9 @@ func (d *Discoverer) StartLocal() {
 	go d.sendLocalAnnouncements()
 }
 
-func (d *Discoverer) StartGlobal(server string) {
+func (d *Discoverer) StartGlobal(server string, extPort uint16) {
 	d.extServer = server
+	d.extPort = extPort
 	go d.sendExternalAnnouncements()
 }
 
@@ -126,7 +128,17 @@ func (d *Discoverer) sendExternalAnnouncements() {
 		return
 	}
 
-	var buf = d.announcementPkt()
+	var buf []byte
+	if d.extPort != 0 {
+		var pkt = AnnounceV2{
+			Magic:     AnnouncementMagicV2,
+			NodeID:    d.myID,
+			Addresses: []Address{{Port: d.extPort}},
+		}
+		buf = pkt.MarshalXDR()
+	} else {
+		buf = d.announcementPkt()
+	}
 	var errCounter = 0
 
 	for errCounter < maxErrors {

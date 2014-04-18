@@ -15,11 +15,13 @@ import (
 	"runtime"
 	"runtime/debug"
 	"runtime/pprof"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/calmh/syncthing/discover"
 	"github.com/calmh/syncthing/protocol"
+	"github.com/calmh/syncthing/upnp"
 	"github.com/juju/ratelimit"
 )
 
@@ -57,6 +59,7 @@ const (
                - "net"      (connecting and disconnecting, network messages)
                - "pull"     (file pull activity)
                - "scanner"  (the file change scanner)
+               - "upnp"     (the upnp port mapper)
 
  STCPUPROFILE  Write CPU profile to the specified file.`
 )
@@ -228,8 +231,39 @@ func main() {
 	m.ScanRepos()
 	m.SaveIndexes(confDir)
 
+	// UPnP
+
+	var externalPort = 0
+	if len(cfg.Options.ListenAddress) == 1 {
+		_, portStr, err := net.SplitHostPort(cfg.Options.ListenAddress[0])
+		if err != nil {
+			warnln(err)
+		} else {
+			// Set up incoming port forwarding, if necessary and possible
+			port, _ := strconv.Atoi(portStr)
+			igd, err := upnp.Discover()
+			if err == nil {
+				for i := 0; i < 10; i++ {
+					err := igd.AddPortMapping(upnp.TCP, port+i, port, "syncthing", 0)
+					if err == nil {
+						externalPort = port + i
+						infoln("Created UPnP port mapping - external port", externalPort)
+						break
+					}
+				}
+				if externalPort == 0 {
+					warnln("Failed to create UPnP port mapping")
+				}
+			} else {
+				infof("No UPnP IGD device found, no port mapping created (%v)", err)
+			}
+		}
+	} else {
+		warnln("Multiple listening addresses; not attempting UPnP port mapping")
+	}
+
 	// Routine to connect out to configured nodes
-	discoverer = discovery()
+	discoverer = discovery(externalPort)
 	go listenConnect(myID, m, tlsCfg)
 
 	for _, repo := range cfg.Repositories {
@@ -468,7 +502,7 @@ next:
 	}
 }
 
-func discovery() *discover.Discoverer {
+func discovery(extPort int) *discover.Discoverer {
 	disc, err := discover.NewDiscoverer(myID, cfg.Options.ListenAddress)
 	if err != nil {
 		warnf("No discovery possible (%v)", err)
@@ -481,8 +515,8 @@ func discovery() *discover.Discoverer {
 	}
 
 	if cfg.Options.GlobalAnnEnabled {
-		infoln("Sending external discovery announcements")
-		disc.StartGlobal(cfg.Options.GlobalAnnServer)
+		infoln("Sending global discovery announcements")
+		disc.StartGlobal(cfg.Options.GlobalAnnServer, uint16(extPort))
 	}
 
 	return disc
