@@ -32,6 +32,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     {id: 'GlobalAnnEnabled', descr: 'Global Announce', type: 'bool', restart: true},
     {id: 'LocalAnnEnabled', descr: 'Local Announce', type: 'bool', restart: true},
     {id: 'StartBrowser', descr: 'Start Browser', type: 'bool'},
+    {id: 'UPnPEnabled', descr: 'Enable UPnP', type: 'bool'},
     ];
 
     $scope.guiSettings = [

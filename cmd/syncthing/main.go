@@ -234,32 +234,8 @@ func main() {
 	// UPnP
 
 	var externalPort = 0
-	if len(cfg.Options.ListenAddress) == 1 {
-		_, portStr, err := net.SplitHostPort(cfg.Options.ListenAddress[0])
-		if err != nil {
-			warnln(err)
-		} else {
-			// Set up incoming port forwarding, if necessary and possible
-			port, _ := strconv.Atoi(portStr)
-			igd, err := upnp.Discover()
-			if err == nil {
-				for i := 0; i < 10; i++ {
-					err := igd.AddPortMapping(upnp.TCP, port+i, port, "syncthing", 0)
-					if err == nil {
-						externalPort = port + i
-						infoln("Created UPnP port mapping - external port", externalPort)
-						break
-					}
-				}
-				if externalPort == 0 {
-					warnln("Failed to create UPnP port mapping")
-				}
-			} else {
-				infof("No UPnP IGD device found, no port mapping created (%v)", err)
-			}
-		}
-	} else {
-		warnln("Multiple listening addresses; not attempting UPnP port mapping")
+	if cfg.Options.UPnPEnabled {
+		externalPort = setupUPnP()
 	}
 
 	// Routine to connect out to configured nodes
@@ -288,6 +264,38 @@ func main() {
 	}
 
 	<-stop
+}
+
+func setupUPnP() int {
+	var externalPort = 0
+	if len(cfg.Options.ListenAddress) == 1 {
+		_, portStr, err := net.SplitHostPort(cfg.Options.ListenAddress[0])
+		if err != nil {
+			warnln(err)
+		} else {
+			// Set up incoming port forwarding, if necessary and possible
+			port, _ := strconv.Atoi(portStr)
+			igd, err := upnp.Discover()
+			if err == nil {
+				for i := 0; i < 10; i++ {
+					err := igd.AddPortMapping(upnp.TCP, port+i, port, "syncthing", 0)
+					if err == nil {
+						externalPort = port + i
+						infoln("Created UPnP port mapping - external port", externalPort)
+						break
+					}
+				}
+				if externalPort == 0 {
+					warnln("Failed to create UPnP port mapping")
+				}
+			} else {
+				infof("No UPnP IGD device found, no port mapping created (%v)", err)
+			}
+		}
+	} else {
+		warnln("Multiple listening addresses; not attempting UPnP port mapping")
+	}
+	return externalPort
 }
 
 func resetRepositories() {

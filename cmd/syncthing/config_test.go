@@ -19,6 +19,7 @@ func TestDefaultValues(t *testing.T) {
 		ReconnectIntervalS: 60,
 		MaxChangeKbps:      1000,
 		StartBrowser:       true,
+		UPnPEnabled:        true,
 	}
 
 	cfg, err := readConfigXML(bytes.NewReader(nil))
@@ -149,6 +150,7 @@ func TestOverriddenValues(t *testing.T) {
         <reconnectionIntervalS>6000</reconnectionIntervalS>
         <maxChangeKbps>2345</maxChangeKbps>
         <startBrowser>false</startBrowser>
+        <upnpEnabled>false</upnpEnabled>
     </options>
 </configuration>
 `)
@@ -164,6 +166,7 @@ func TestOverriddenValues(t *testing.T) {
 		ReconnectIntervalS: 6000,
 		MaxChangeKbps:      2345,
 		StartBrowser:       false,
+		UPnPEnabled:        false,
 	}
 
 	cfg, err := readConfigXML(bytes.NewReader(data))

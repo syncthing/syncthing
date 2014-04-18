@@ -51,6 +51,7 @@ type OptionsConfiguration struct {
 	ReconnectIntervalS int      `xml:"reconnectionIntervalS" default:"60"`
 	MaxChangeKbps      int      `xml:"maxChangeKbps" default:"1000"`
 	StartBrowser       bool     `xml:"startBrowser" default:"true"`
+	UPnPEnabled        bool     `xml:"upnpEnabled" default:"true"`
 
 	Deprecated_ReadOnly   bool   `xml:"readOnly,omitempty"`
 	Deprecated_GUIEnabled bool   `xml:"guiEnabled,omitempty"`
