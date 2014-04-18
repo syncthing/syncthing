@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -103,7 +104,7 @@ func main() {
 		fatalErr(err)
 	}
 
-	myID = string(certID(cert.Certificate[0]))
+	myID = certID(cert.Certificate[0])
 	log.SetPrefix("[" + myID[0:5] + "] ")
 	logger.SetPrefix("[" + myID[0:5] + "] ")
 
@@ -235,6 +236,9 @@ func main() {
 
 	var externalPort = 0
 	if cfg.Options.UPnPEnabled {
+		// We seed the random number generator with the node ID to get a
+		// repeatable sequence of random external ports.
+		rand.Seed(certSeed(cert.Certificate[0]))
 		externalPort = setupUPnP()
 	}
 
@@ -278,9 +282,10 @@ func setupUPnP() int {
 			igd, err := upnp.Discover()
 			if err == nil {
 				for i := 0; i < 10; i++ {
-					err := igd.AddPortMapping(upnp.TCP, port+i, port, "syncthing", 0)
+					r := 1024 + rand.Intn(65535-1024)
+					err := igd.AddPortMapping(upnp.TCP, r, port, "syncthing", 0)
 					if err == nil {
-						externalPort = port + i
+						externalPort = r
 						infoln("Created UPnP port mapping - external port", externalPort)
 						break
 					}

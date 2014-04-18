@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base32"
+	"encoding/binary"
 	"encoding/pem"
 	"math/big"
 	"os"
@@ -30,6 +31,13 @@ func certID(bs []byte) string {
 	hf.Write(bs)
 	id := hf.Sum(nil)
 	return strings.Trim(base32.StdEncoding.EncodeToString(id), "=")
+}
+
+func certSeed(bs []byte) int64 {
+	hf := sha256.New()
+	hf.Write(bs)
+	id := hf.Sum(nil)
+	return int64(binary.BigEndian.Uint64(id))
 }
 
 func newCertificate(dir string) {
