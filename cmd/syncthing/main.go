@@ -29,14 +29,18 @@ import (
 const BlockSize = 128 * 1024
 
 var (
-	Version    = "unknown-dev"
-	BuildStamp = "0"
-	BuildDate  time.Time
+	Version     = "unknown-dev"
+	BuildStamp  = "0"
+	BuildDate   time.Time
+	LongVersion string
 )
 
 func init() {
 	stamp, _ := strconv.Atoi(BuildStamp)
 	BuildDate = time.Unix(int64(stamp), 0)
+
+	date := BuildDate.UTC().Format(time.RFC3339)
+	LongVersion = fmt.Sprintf("syncthing %s (%s %s-%s) %s", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, date)
 }
 
 var (
@@ -89,8 +93,7 @@ func main() {
 	}
 
 	if showVersion {
-		date := BuildDate.UTC().Format(time.RFC3339)
-		fmt.Printf("syncthing %s (%s %s-%s) %s\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, date)
+		fmt.Println(LongVersion)
 		return
 	}
 
@@ -118,7 +121,7 @@ func main() {
 	log.SetPrefix("[" + myID[0:5] + "] ")
 	logger.SetPrefix("[" + myID[0:5] + "] ")
 
-	infoln("Version", Version)
+	infoln(LongVersion)
 	infoln("My ID:", myID)
 
 	// Prepare to be able to save configuration
