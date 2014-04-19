@@ -109,7 +109,9 @@ func restGetConnections(m *Model, w http.ResponseWriter) {
 
 func restGetConfig(w http.ResponseWriter) {
 	encCfg := cfg
-	encCfg.GUI.Password = unchangedPassword
+	if encCfg.GUI.Password != "" {
+		encCfg.GUI.Password = unchangedPassword
+	}
 	json.NewEncoder(w).Encode(encCfg)
 }
 
@@ -119,7 +121,9 @@ func restPostConfig(req *http.Request) {
 	if err != nil {
 		warnln(err)
 	} else {
-		if cfg.GUI.Password != unchangedPassword {
+		if cfg.GUI.Password == "" {
+			// Leave it empty
+		} else if cfg.GUI.Password != unchangedPassword {
 			hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
 			if err != nil {
 				warnln(err)
