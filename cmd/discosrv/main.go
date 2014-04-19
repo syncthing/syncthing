@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -26,22 +27,28 @@ type Address struct {
 }
 
 var (
-	nodes    = make(map[string]Node)
-	lock     sync.Mutex
-	queries  = 0
-	answered = 0
-	limited  = 0
-	debug    = false
-	limiter  = lru.New(1024)
+	nodes     = make(map[string]Node)
+	lock      sync.Mutex
+	queries   = 0
+	announces = 0
+	answered  = 0
+	limited   = 0
+	unknowns  = 0
+	debug     = false
+	limiter   = lru.New(1024)
 )
 
 func main() {
 	var listen string
 	var timestamp bool
+	var statsIntv int
+	var statsFile string
 
 	flag.StringVar(&listen, "listen", ":22025", "Listen address")
 	flag.BoolVar(&debug, "debug", false, "Enable debug output")
 	flag.BoolVar(&timestamp, "timestamp", true, "Timestamp the log output")
+	flag.IntVar(&statsIntv, "stats-intv", 0, "Statistics output interval (s)")
+	flag.StringVar(&statsFile, "stats-file", "/var/log/discosrv.stats", "Statistics file name")
 	flag.Parse()
 
 	log.SetOutput(os.Stdout)
@@ -55,7 +62,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	go logStats()
+	if statsIntv > 0 {
+		go logStats(statsFile, statsIntv)
+	}
 
 	var buf = make([]byte, 1024)
 	for {
@@ -85,6 +94,11 @@ func main() {
 
 		case discover.QueryMagicV2:
 			handleQueryV2(conn, addr, buf)
+
+		default:
+			lock.Lock()
+			unknowns++
+			lock.Unlock()
 		}
 	}
 }
@@ -128,6 +142,10 @@ func handleAnnounceV2(addr *net.UDPAddr, buf []byte) {
 	if debug {
 		log.Printf("<- %v %#v", addr, pkt)
 	}
+
+	lock.Lock()
+	announces++
+	lock.Unlock()
 
 	ip := addr.IP.To4()
 	if ip == nil {
@@ -197,9 +215,21 @@ func handleQueryV2(conn *net.UDPConn, addr *net.UDPAddr, buf []byte) {
 	}
 }
 
-func logStats() {
+func next(intv int) time.Time {
+	d := time.Duration(intv) * time.Second
+	t0 := time.Now()
+	t1 := t0.Add(d).Truncate(d)
+	time.Sleep(t1.Sub(t0))
+	return t1
+}
+
+func logStats(file string, intv int) {
+	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
 	for {
-		time.Sleep(600 * time.Second)
+		t := next(intv)
 
 		lock.Lock()
 
@@ -211,11 +241,15 @@ func logStats() {
 			}
 		}
 
-		log.Printf("Expired %d nodes; %d nodes in registry; %d queries (%d answered)", deleted, len(nodes), queries, answered)
-		log.Printf("Limited %d queries; %d entries in limiter cache", limited, limiter.Len())
+		fmt.Fprintf(f, "%d Nr:%d Ne:%d Qt:%d Qa:%d A:%d U:%d Lq:%d Lc:%d\n",
+			t.Unix(), len(nodes), deleted, queries, answered, announces, unknowns, limited, limiter.Len())
+		f.Sync()
+
 		queries = 0
+		announces = 0
 		answered = 0
 		limited = 0
+		unknowns = 0
 
 		lock.Unlock()
 	}
