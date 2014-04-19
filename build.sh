@@ -4,6 +4,7 @@ export COPYFILE_DISABLE=true
 
 distFiles=(README.md LICENSE) # apart from the binary itself
 version=$(git describe --always --dirty)
+date=$(date +%s)
 
 build() {
 	if command -v godep >/dev/null ; then
@@ -14,8 +15,8 @@ build() {
 		go get -d ./cmd/syncthing
 		godep=
 	fi
-	${godep} go build $* -ldflags "-w -X main.Version $version" ./cmd/syncthing
-	${godep} go build -ldflags "-w -X main.Version $version" ./cmd/stcli
+	${godep} go build $* -ldflags "-w -X main.Version $version -X main.BuildStamp $date" ./cmd/syncthing
+	${godep} go build -ldflags "-w -X main.Version $version -X main.BuildStamp $date" ./cmd/stcli
 }
 
 assets() {

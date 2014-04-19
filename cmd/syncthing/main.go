@@ -28,10 +28,19 @@ import (
 
 const BlockSize = 128 * 1024
 
-var cfg Configuration
-var Version = "unknown-dev"
+var (
+	Version    = "unknown-dev"
+	BuildStamp = "0"
+	BuildDate  time.Time
+)
+
+func init() {
+	stamp, _ := strconv.Atoi(BuildStamp)
+	BuildDate = time.Unix(int64(stamp), 0)
+}
 
 var (
+	cfg        Configuration
 	myID       string
 	confDir    string
 	rateBucket *ratelimit.Bucket
@@ -80,7 +89,8 @@ func main() {
 	}
 
 	if showVersion {
-		fmt.Printf("syncthing %s (%s %s-%s)\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+		date := BuildDate.UTC().Format(time.RFC3339)
+		fmt.Printf("syncthing %s (%s %s-%s) %s\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, date)
 		return
 	}
 
