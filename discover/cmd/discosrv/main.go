@@ -80,12 +80,6 @@ func main() {
 		magic := binary.BigEndian.Uint32(buf)
 
 		switch magic {
-		case discover.AnnouncementMagicV1:
-			handleAnnounceV1(addr, buf)
-
-		case discover.QueryMagicV1:
-			handleQueryV1(conn, addr, buf)
-
 		case discover.AnnouncementMagicV2:
 			handleAnnounceV2(addr, buf)
 
@@ -121,75 +115,6 @@ func limit(addr *net.UDPAddr) bool {
 	}
 
 	return false
-}
-
-func handleAnnounceV1(addr *net.UDPAddr, buf []byte) {
-	var pkt discover.AnnounceV1
-	err := pkt.UnmarshalXDR(buf)
-	if err != nil {
-		log.Println("AnnounceV1 Unmarshal:", err)
-		log.Println(hex.Dump(buf))
-		return
-	}
-	if debug {
-		log.Printf("<- %v %#v", addr, pkt)
-	}
-
-	ip := addr.IP.To4()
-	if ip == nil {
-		ip = addr.IP.To16()
-	}
-	node := Node{
-		Addresses: []Address{{
-			IP:   ip,
-			Port: pkt.Port,
-		}},
-		Updated: time.Now(),
-	}
-
-	lock.Lock()
-	nodes[pkt.NodeID] = node
-	lock.Unlock()
-}
-
-func handleQueryV1(conn *net.UDPConn, addr *net.UDPAddr, buf []byte) {
-	var pkt discover.QueryV1
-	err := pkt.UnmarshalXDR(buf)
-	if err != nil {
-		log.Println("QueryV1 Unmarshal:", err)
-		log.Println(hex.Dump(buf))
-		return
-	}
-	if debug {
-		log.Printf("<- %v %#v", addr, pkt)
-	}
-
-	lock.Lock()
-	node, ok := nodes[pkt.NodeID]
-	queries++
-	lock.Unlock()
-
-	if ok && len(node.Addresses) > 0 {
-		pkt := discover.AnnounceV1{
-			Magic:  discover.AnnouncementMagicV1,
-			NodeID: pkt.NodeID,
-			Port:   node.Addresses[0].Port,
-			IP:     node.Addresses[0].IP,
-		}
-		if debug {
-			log.Printf("-> %v %#v", addr, pkt)
-		}
-
-		tb := pkt.MarshalXDR()
-		_, _, err = conn.WriteMsgUDP(tb, nil, addr)
-		if err != nil {
-			log.Println("QueryV1 response write:", err)
-		}
-
-		lock.Lock()
-		answered++
-		lock.Unlock()
-	}
 }
 
 func handleAnnounceV2(addr *net.UDPAddr, buf []byte) {
