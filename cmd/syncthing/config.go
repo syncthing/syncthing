@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+
+	"code.google.com/p/go.crypto/bcrypt"
 )
 
 type Configuration struct {
@@ -182,6 +184,15 @@ func readConfigXML(rd io.Reader) (Configuration, error) {
 
 	if cfg.Version == 1 {
 		convertV1V2(&cfg)
+	}
+
+	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
+		hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
+		if err != nil {
+			warnln(err)
+		} else {
+			cfg.GUI.Password = string(hash)
+		}
 	}
 
 	return cfg, err

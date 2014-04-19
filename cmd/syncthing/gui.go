@@ -1,17 +1,19 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
-	"log"
+	"math/rand"
 	"net/http"
 	"runtime"
 	"sync"
 	"time"
 
+	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/syncthing/scanner"
 	"github.com/codegangsta/martini"
-	"github.com/codegangsta/martini-contrib/auth"
 )
 
 type guiError struct {
@@ -23,6 +25,10 @@ var (
 	configInSync = true
 	guiErrors    = []guiError{}
 	guiErrorsMut sync.Mutex
+)
+
+const (
+	unchangedPassword = "--password-unchanged--"
 )
 
 func startGUI(cfg GUIConfiguration, m *Model) {
@@ -46,7 +52,7 @@ func startGUI(cfg GUIConfiguration, m *Model) {
 	go func() {
 		mr := martini.New()
 		if len(cfg.User) > 0 && len(cfg.Password) > 0 {
-			mr.Use(auth.Basic(cfg.User, cfg.Password))
+			mr.Use(basic(cfg.User, cfg.Password))
 		}
 		mr.Use(embeddedStatic())
 		mr.Use(martini.Recovery())
@@ -102,14 +108,27 @@ func restGetConnections(m *Model, w http.ResponseWriter) {
 }
 
 func restGetConfig(w http.ResponseWriter) {
-	json.NewEncoder(w).Encode(cfg)
+	encCfg := cfg
+	encCfg.GUI.Password = unchangedPassword
+	json.NewEncoder(w).Encode(encCfg)
 }
 
 func restPostConfig(req *http.Request) {
+	var prevPassHash = cfg.GUI.Password
 	err := json.NewDecoder(req.Body).Decode(&cfg)
 	if err != nil {
-		log.Println(err)
+		warnln(err)
 	} else {
+		if cfg.GUI.Password != unchangedPassword {
+			hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
+			if err != nil {
+				warnln(err)
+			} else {
+				cfg.GUI.Password = string(hash)
+			}
+		} else {
+			cfg.GUI.Password = prevPassHash
+		}
 		saveConfig()
 		configInSync = false
 	}
@@ -208,4 +227,43 @@ func showGuiError(err string) {
 		guiErrors = guiErrors[len(guiErrors)-5:]
 	}
 	guiErrorsMut.Unlock()
+}
+
+func basic(username string, passhash string) http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		error := func() {
+			time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
+			res.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
+			http.Error(res, "Not Authorized", http.StatusUnauthorized)
+		}
+
+		hdr := req.Header.Get("Authorization")
+		if len(hdr) < len("Basic ") || hdr[:6] != "Basic " {
+			error()
+			return
+		}
+
+		hdr = hdr[6:]
+		bs, err := base64.StdEncoding.DecodeString(hdr)
+		if err != nil {
+			error()
+			return
+		}
+
+		fields := bytes.SplitN(bs, []byte(":"), 2)
+		if len(fields) != 2 {
+			error()
+			return
+		}
+
+		if string(fields[0]) != username {
+			error()
+			return
+		}
+
+		if err := bcrypt.CompareHashAndPassword([]byte(passhash), fields[1]); err != nil {
+			error()
+			return
+		}
+	}
 }
