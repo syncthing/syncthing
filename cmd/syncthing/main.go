@@ -32,6 +32,8 @@ var (
 	Version     = "unknown-dev"
 	BuildStamp  = "0"
 	BuildDate   time.Time
+	BuildHost   = "unknown"
+	BuildUser   = "unknown"
 	LongVersion string
 )
 
@@ -40,7 +42,7 @@ func init() {
 	BuildDate = time.Unix(int64(stamp), 0)
 
 	date := BuildDate.UTC().Format(time.RFC3339)
-	LongVersion = fmt.Sprintf("syncthing %s (%s %s-%s) %s", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, date)
+	LongVersion = fmt.Sprintf("syncthing %s (%s %s-%s) %s@%s %s", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
 }
 
 var (
