@@ -69,8 +69,10 @@ type rawConnection struct {
 	id        string
 	receiver  Model
 	reader    io.ReadCloser
+	cr        *countingReader
 	xr        *xdr.Reader
 	writer    io.WriteCloser
+	cw        *countingWriter
 	wb        *bufio.Writer
 	xw        *xdr.Writer
 	closed    chan struct{}
@@ -93,8 +95,11 @@ const (
 )
 
 func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver Model) Connection {
-	flrd := flate.NewReader(reader)
-	flwr, err := flate.NewWriter(writer, flate.BestSpeed)
+	cr := &countingReader{Reader: reader}
+	cw := &countingWriter{Writer: writer}
+
+	flrd := flate.NewReader(cr)
+	flwr, err := flate.NewWriter(cw, flate.BestSpeed)
 	if err != nil {
 		panic(err)
 	}
@@ -104,8 +109,10 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 		id:        nodeID,
 		receiver:  nativeModel{receiver},
 		reader:    flrd,
+		cr:        cr,
 		xr:        xdr.NewReader(flrd),
 		writer:    flwr,
+		cw:        cw,
 		wb:        wb,
 		xw:        xdr.NewWriter(wb),
 		closed:    make(chan struct{}),
@@ -461,7 +468,7 @@ type Statistics struct {
 func (c *rawConnection) Statistics() Statistics {
 	return Statistics{
 		At:            time.Now(),
-		InBytesTotal:  int(c.xr.Tot()),
-		OutBytesTotal: int(c.xw.Tot()),
+		InBytesTotal:  int(c.cr.Tot()),
+		OutBytesTotal: int(c.cw.Tot()),
 	}
 }
