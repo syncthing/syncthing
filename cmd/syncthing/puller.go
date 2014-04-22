@@ -313,6 +313,7 @@ func (p *puller) handleRequestResult(res requestResult) {
 		t := time.Unix(f.Modified, 0)
 		os.Chtimes(of.temp, t, t)
 		os.Chmod(of.temp, os.FileMode(f.Flags&0777))
+		defTempNamer.Show(of.temp)
 		if debugPull {
 			dlog.Printf("pull: rename %q / %q: %q", p.repo, f.Name, of.filepath)
 		}
@@ -371,6 +372,7 @@ func (p *puller) handleBlock(b bqBlock) {
 			p.requestSlots <- true
 			return
 		}
+		defTempNamer.Hide(of.temp)
 	}
 
 	if of.err != nil {
@@ -514,6 +516,7 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 		t := time.Unix(f.Modified, 0)
 		os.Chtimes(of.temp, t, t)
 		os.Chmod(of.temp, os.FileMode(f.Flags&0777))
+		defTempNamer.Show(of.temp)
 		Rename(of.temp, of.filepath)
 	}
 	delete(p.openFiles, f.Name)

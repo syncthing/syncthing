@@ -580,11 +580,13 @@ func getDefaultConfDir() string {
 	switch runtime.GOOS {
 	case "windows":
 		return filepath.Join(os.Getenv("AppData"), "Syncthing")
+
 	case "darwin":
 		return expandTilde("~/Library/Application Support/Syncthing")
+
 	default:
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
-			return xdgCfg + "/syncthing"
+			return filepath.Join(xdgCfg, "syncthing")
 		} else {
 			return expandTilde("~/.config/syncthing")
 		}
@@ -592,17 +594,11 @@ func getDefaultConfDir() string {
 }
 
 func expandTilde(p string) string {
-	if !strings.HasPrefix(p, "~/") {
+	if runtime.GOOS == "windows" || !strings.HasPrefix(p, "~/") {
 		return p
 	}
 
-	switch runtime.GOOS {
-	case "windows":
-		return p
-
-	default:
-		return filepath.Join(getHomeDir(), p[2:])
-	}
+	return filepath.Join(getHomeDir(), p[2:])
 }
 
 func getHomeDir() string {
@@ -610,7 +606,7 @@ func getHomeDir() string {
 
 	switch runtime.GOOS {
 	case "windows":
-		home = os.Getenv("HomeDrive") + os.Getenv("HomePath")
+		home = filepath.Join(os.Getenv("HomeDrive"), os.Getenv("HomePath"))
 		if home == "" {
 			home = os.Getenv("UserProfile")
 		}
