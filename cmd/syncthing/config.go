@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/xml"
 	"io"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -153,7 +154,7 @@ func uniqueStrings(ss []string) []string {
 	return us
 }
 
-func readConfigXML(rd io.Reader) (Configuration, error) {
+func readConfigXML(rd io.Reader, myID string) (Configuration, error) {
 	var cfg Configuration
 
 	setDefaults(&cfg)
@@ -169,6 +170,7 @@ func readConfigXML(rd io.Reader) (Configuration, error) {
 
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 
+	// Check for missing or duplicate repository ID:s
 	var seenRepos = map[string]bool{}
 	for i := range cfg.Repositories {
 		if cfg.Repositories[i].ID == "" {
@@ -182,16 +184,32 @@ func readConfigXML(rd io.Reader) (Configuration, error) {
 		seenRepos[id] = true
 	}
 
+	// Upgrade to v2 configuration if appropriate
 	if cfg.Version == 1 {
 		convertV1V2(&cfg)
 	}
 
+	// Hash old cleartext passwords
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
 		hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
 		if err != nil {
 			warnln(err)
 		} else {
 			cfg.GUI.Password = string(hash)
+		}
+	}
+
+	// Ensure this node is present in all relevant places
+	cfg.Nodes = ensureNodePresent(cfg.Nodes, myID)
+	for i := range cfg.Repositories {
+		cfg.Repositories[i].Nodes = ensureNodePresent(cfg.Repositories[i].Nodes, myID)
+	}
+
+	// An empty address list is equivalent to a single "dynamic" entry
+	for i := range cfg.Nodes {
+		n := &cfg.Nodes[i]
+		if len(n.Addresses) == 0 || len(n.Addresses) == 1 && n.Addresses[0] == "" {
+			n.Addresses = []string{"dynamic"}
 		}
 	}
 
@@ -241,7 +259,7 @@ func (l NodeConfigurationList) Len() int {
 	return len(l)
 }
 
-func cleanNodeList(nodes []NodeConfiguration, myID string) []NodeConfiguration {
+func ensureNodePresent(nodes []NodeConfiguration, myID string) []NodeConfiguration {
 	var myIDExists bool
 	for _, node := range nodes {
 		if node.NodeID == myID {
@@ -251,10 +269,10 @@ func cleanNodeList(nodes []NodeConfiguration, myID string) []NodeConfiguration {
 	}
 
 	if !myIDExists {
+		name, _ := os.Hostname()
 		nodes = append(nodes, NodeConfiguration{
-			NodeID:    myID,
-			Addresses: []string{"dynamic"},
-			Name:      "",
+			NodeID: myID,
+			Name:   name,
 		})
 	}
 

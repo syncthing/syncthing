@@ -137,7 +137,7 @@ func main() {
 	cf, err := os.Open(cfgFile)
 	if err == nil {
 		// Read config.xml
-		cfg, err = readConfigXML(cf)
+		cfg, err = readConfigXML(cf, myID)
 		if err != nil {
 			fatalln(err)
 		}
@@ -148,7 +148,7 @@ func main() {
 		infoln("No config file; starting with empty defaults")
 		name, _ := os.Hostname()
 
-		cfg, err = readConfigXML(nil)
+		cfg, err = readConfigXML(nil, myID)
 		cfg.Repositories = []RepositoryConfiguration{
 			{
 				ID:        "default",
@@ -206,7 +206,6 @@ func main() {
 	m := NewModel(cfg.Options.MaxChangeKbps * 1000)
 
 	for i := range cfg.Repositories {
-		cfg.Repositories[i].Nodes = cleanNodeList(cfg.Repositories[i].Nodes, myID)
 		dir := expandTilde(cfg.Repositories[i].Directory)
 		ensureDir(dir, -1)
 		m.AddRepo(cfg.Repositories[i].ID, dir, cfg.Repositories[i].Nodes)
