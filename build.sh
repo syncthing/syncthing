@@ -6,7 +6,8 @@ distFiles=(README.md LICENSE) # apart from the binary itself
 version=$(git describe --always --dirty)
 date=$(date +%s)
 user=$(whoami)
-host=$(hostname -s)
+host=$(hostname)
+host=${host%%.*}
 ldflags="-w -X main.Version $version -X main.BuildStamp $date -X main.BuildUser $user -X main.BuildHost $host"
 
 build() {
