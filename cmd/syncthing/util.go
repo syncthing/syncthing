@@ -117,8 +117,6 @@ func compareClusterConfig(local, remote protocol.ClusterConfigMessage) error {
 					if lflags&protocol.FlagShareBits != rflags&protocol.FlagShareBits {
 						return ClusterConfigMismatch(fmt.Errorf("remote has different sharing flags for node %q in repository %q", node, repo))
 					}
-				} else {
-					return ClusterConfigMismatch(fmt.Errorf("remote is missing node %q in repository %q", node, repo))
 				}
 			}
 		} else {
@@ -126,14 +124,8 @@ func compareClusterConfig(local, remote protocol.ClusterConfigMessage) error {
 		}
 	}
 
-	for repo, rnodes := range rm {
-		if lnodes, ok := lm[repo]; ok {
-			for node := range rnodes {
-				if _, ok := lnodes[node]; !ok {
-					return ClusterConfigMismatch(fmt.Errorf("remote has extra node %q in repository %q", node, repo))
-				}
-			}
-		} else {
+	for repo := range rm {
+		if _, ok := lm[repo]; !ok {
 			return ClusterConfigMismatch(fmt.Errorf("remote has extra repository %q", repo))
 		}
 

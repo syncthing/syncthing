@@ -103,7 +103,7 @@ var testcases = []struct {
 				{ID: "bar"},
 			},
 		},
-		err: `remote is missing node "a" in repository "foo"`,
+		err: "",
 	},
 
 	{
@@ -130,7 +130,7 @@ var testcases = []struct {
 				{ID: "bar"},
 			},
 		},
-		err: `remote has extra node "b" in repository "foo"`,
+		err: "",
 	},
 
 	{
