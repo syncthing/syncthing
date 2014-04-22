@@ -252,6 +252,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.editNode = function (nodeCfg) {
         $scope.currentNode = $.extend({}, nodeCfg);
         $scope.editingExisting = true;
+        $scope.editingSelf = (nodeCfg.NodeID == $scope.myID);
         $scope.currentNode.AddressesStr = nodeCfg.Addresses.join(', ');
         $('#editNode').modal({backdrop: 'static', keyboard: true});
     };
@@ -259,6 +260,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.addNode = function () {
         $scope.currentNode = {AddressesStr: 'dynamic'};
         $scope.editingExisting = false;
+        $scope.editingSelf = false;
         $('#editNode').modal({backdrop: 'static', keyboard: true});
     };
 

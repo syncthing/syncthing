@@ -382,7 +382,7 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-primary" ng-click="saveNode()">Save</button>
           <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-          <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left" ng-click="deleteNode()">Delete</button>
+          <button ng-if="editingExisting && !editingSelf" type="button" class="btn btn-danger pull-left" ng-click="deleteNode()">Delete</button>
         </div>
       </div>
     </div>
