@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"io"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -193,6 +194,7 @@ func TestNodeAddresses(t *testing.T) {
 </configuration>
 `)
 
+	name, _ := os.Hostname()
 	expected := []NodeConfiguration{
 		{
 			NodeID:    "n1",
@@ -208,6 +210,7 @@ func TestNodeAddresses(t *testing.T) {
 		},
 		{
 			NodeID:    "n4",
+			Name:      name, // Set when auto created
 			Addresses: []string{"dynamic"},
 		},
 	}
