@@ -278,7 +278,7 @@
         <div class="panel panel-warning">
           <div class="panel-heading"><h3 class="panel-title">Notice</h3></div>
           <div class="panel-body">
-            <p ng-repeat="err in errorList()"><small>{{err.Time | date:"hh:mm:ss.sss"}}:</small> {{friendlyNodes(err.Error)}}</p>
+            <p ng-repeat="err in errorList()"><small>{{err.Time | date:"H:mm:ss"}}:</small> {{friendlyNodes(err.Error)}}</p>
           </div>
           <div class="panel-footer">
             <button type="button" class="pull-right btn btn-sm btn-default" ng-click="clearErrors()">OK</button>
