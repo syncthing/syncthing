@@ -158,9 +158,7 @@ func main() {
 			fatalln(err)
 		}
 		cf.Close()
-	}
-
-	if len(cfg.Repositories) == 0 {
+	} else {
 		infoln("No config file; starting with empty defaults")
 		name, _ := os.Hostname()
 
