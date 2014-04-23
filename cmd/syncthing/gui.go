@@ -35,11 +35,10 @@ func startGUI(cfg GUIConfiguration, m *Model) {
 	router := martini.NewRouter()
 	router.Get("/", getRoot)
 	router.Get("/rest/version", restGetVersion)
-	router.Get("/rest/model/:repo", restGetModel)
+	router.Get("/rest/model", restGetModel)
 	router.Get("/rest/connections", restGetConnections)
 	router.Get("/rest/config", restGetConfig)
 	router.Get("/rest/config/sync", restGetConfigInSync)
-	router.Get("/rest/need/:repo", restGetNeed)
 	router.Get("/rest/system", restGetSystem)
 	router.Get("/rest/errors", restGetErrors)
 
@@ -80,8 +79,9 @@ func restGetVersion() string {
 	return Version
 }
 
-func restGetModel(m *Model, w http.ResponseWriter, params martini.Params) {
-	var repo = params["repo"]
+func restGetModel(m *Model, w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var repo = qs.Get("repo")
 	var res = make(map[string]interface{})
 
 	globalFiles, globalDeleted, globalBytes := m.GlobalSize(repo)
@@ -166,17 +166,6 @@ func (f guiFile) MarshalJSON() ([]byte, error) {
 		Modified: f.Modified,
 		Flags:    f.Flags,
 	})
-}
-
-func restGetNeed(m *Model, w http.ResponseWriter, params martini.Params) {
-	repo := params["repo"]
-	files := m.NeedFilesRepo(repo)
-	gfs := make([]guiFile, len(files))
-	for i, f := range files {
-		gfs[i] = guiFile(f)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(gfs)
 }
 
 var cpuUsagePercent [10]float64 // The last ten seconds

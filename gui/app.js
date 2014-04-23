@@ -82,7 +82,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             getFailed();
         });
         $scope.repos.forEach(function (repo) {
-            $http.get('/rest/model/' + repo.ID).success(function (data) {
+            $http.get('/rest/model?repo=' + encodeURIComponent(repo.ID)).success(function (data) {
                 $scope.model[repo.ID] = data;
             });
         });
