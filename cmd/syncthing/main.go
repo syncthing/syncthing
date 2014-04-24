@@ -161,12 +161,14 @@ func main() {
 	} else {
 		infoln("No config file; starting with empty defaults")
 		name, _ := os.Hostname()
+		defaultRepo := filepath.Join(getHomeDir(), "Sync")
+		ensureDir(defaultRepo, 0755)
 
 		cfg, err = readConfigXML(nil, myID)
 		cfg.Repositories = []RepositoryConfiguration{
 			{
 				ID:        "default",
-				Directory: filepath.Join(getHomeDir(), "Sync"),
+				Directory: defaultRepo,
 				Nodes:     []NodeConfiguration{{NodeID: myID}},
 			},
 		}
@@ -219,10 +221,9 @@ func main() {
 
 	m := NewModel(cfg.Options.MaxChangeKbps * 1000)
 
-	for i := range cfg.Repositories {
-		dir := expandTilde(cfg.Repositories[i].Directory)
-		ensureDir(dir, -1)
-		m.AddRepo(cfg.Repositories[i].ID, dir, cfg.Repositories[i].Nodes)
+	for _, repo := range cfg.Repositories {
+		dir := expandTilde(repo.Directory)
+		m.AddRepo(repo.ID, dir, repo.Nodes)
 	}
 
 	// GUI
@@ -257,6 +258,25 @@ func main() {
 
 	infoln("Populating repository index")
 	m.LoadIndexes(confDir)
+
+	for _, repo := range cfg.Repositories {
+		dir := expandTilde(repo.Directory)
+
+		// Safety check. If the cached index contains files but the repository
+		// doesn't exist, we have a problem. We would assume that all files
+		// have been deleted which might not be the case, so abort instead.
+
+		if files, _, _ := m.LocalSize(repo.ID); files > 0 {
+			if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+				warnf("Configured repository %q has index but directory %q is missing; not starting.", repo.ID, repo.Directory)
+				fatalf("Ensure that directory is present or remove repository from configuration.")
+			}
+		}
+
+		// Ensure that repository directories exist for newly configured repositories.
+		ensureDir(dir, -1)
+	}
+
 	m.ScanRepos()
 	m.SaveIndexes(confDir)
 
