@@ -1,6 +1,10 @@
 package main
 
-import "github.com/calmh/syncthing/scanner"
+import (
+	"sync/atomic"
+
+	"github.com/calmh/syncthing/scanner"
+)
 
 type bqAdd struct {
 	file scanner.File
@@ -20,6 +24,7 @@ type blockQueue struct {
 	outbox chan bqBlock
 
 	queued []bqBlock
+	qlen   uint32
 }
 
 func newBlockQueue() *blockQueue {
@@ -77,6 +82,7 @@ func (q *blockQueue) run() {
 				q.queued = q.queued[1:]
 			}
 		}
+		atomic.StoreUint32(&q.qlen, uint32(len(q.queued)))
 	}
 }
 
@@ -89,6 +95,7 @@ func (q *blockQueue) get() bqBlock {
 }
 
 func (q *blockQueue) empty() bool {
-	// There is a race condition here. We're only mostly sure the queue is empty if the expression below is true.
-	return len(q.queued) == 0 && len(q.inbox) == 0 && len(q.outbox) == 0
+	var l uint32
+	atomic.LoadUint32(&l)
+	return l == 0
 }

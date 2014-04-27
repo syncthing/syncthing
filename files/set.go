@@ -108,8 +108,8 @@ func (m *Set) Need(id uint) []scanner.File {
 	if debug {
 		dlog.Printf("Need(%d)", id)
 	}
-	var fs = make([]scanner.File, 0, len(m.globalKey)/2) // Just a guess, but avoids too many reallocations
 	m.Lock()
+	var fs = make([]scanner.File, 0, len(m.globalKey)/2) // Just a guess, but avoids too many reallocations
 	rkID := m.remoteKey[id]
 	for gk, gf := range m.files {
 		if !gf.Global {
@@ -145,8 +145,8 @@ func (m *Set) Global() []scanner.File {
 	if debug {
 		dlog.Printf("Global()")
 	}
-	var fs = make([]scanner.File, 0, len(m.globalKey))
 	m.Lock()
+	var fs = make([]scanner.File, 0, len(m.globalKey))
 	for _, file := range m.files {
 		if file.Global {
 			fs = append(fs, file.File)
