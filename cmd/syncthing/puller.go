@@ -135,7 +135,10 @@ func (p *puller) run() {
 			case b := <-p.blocks:
 				p.model.setState(p.repo, RepoSyncing)
 				changed = true
-				p.handleBlock(b)
+				if p.handleBlock(b) {
+					// Block was fully handled, free up the slot
+					p.requestSlots <- true
+				}
 
 			case <-timeout:
 				if len(p.openFiles) == 0 && p.bq.empty() {
@@ -325,7 +328,10 @@ func (p *puller) handleRequestResult(res requestResult) {
 	}
 }
 
-func (p *puller) handleBlock(b bqBlock) {
+// handleBlock fulfills the block request by copying, ignoring or fetching
+// from the network. Returns true if the block was fully handled
+// synchronously, i.e. if the slot can be reused.
+func (p *puller) handleBlock(b bqBlock) bool {
 	f := b.file
 
 	// For directories, simply making sure they exist is enough
@@ -336,8 +342,7 @@ func (p *puller) handleBlock(b bqBlock) {
 			os.MkdirAll(path, 0777)
 		}
 		p.model.updateLocal(p.repo, f)
-		p.requestSlots <- true
-		return
+		return true
 	}
 
 	of, ok := p.openFiles[f.Name]
@@ -369,8 +374,7 @@ func (p *puller) handleBlock(b bqBlock) {
 			if !b.last {
 				p.openFiles[f.Name] = of
 			}
-			p.requestSlots <- true
-			return
+			return true
 		}
 		defTempNamer.Hide(of.temp)
 	}
@@ -385,8 +389,7 @@ func (p *puller) handleBlock(b bqBlock) {
 			delete(p.openFiles, f.Name)
 		}
 
-		p.requestSlots <- true
-		return
+		return true
 	}
 
 	p.openFiles[f.Name] = of
@@ -394,15 +397,14 @@ func (p *puller) handleBlock(b bqBlock) {
 	switch {
 	case len(b.copy) > 0:
 		p.handleCopyBlock(b)
-		p.requestSlots <- true
+		return true
 
 	case b.block.Size > 0:
-		p.handleRequestBlock(b)
-		// Request slot gets freed in <-p.blocks case
+		return p.handleRequestBlock(b)
 
 	default:
 		p.handleEmptyBlock(b)
-		p.requestSlots <- true
+		return true
 	}
 }
 
@@ -450,9 +452,10 @@ func (p *puller) handleCopyBlock(b bqBlock) {
 	}
 }
 
-func (p *puller) handleRequestBlock(b bqBlock) {
-	// We have a block to get from the network
-
+// handleRequestBlock tries to pull a block from the network. Returns true if
+// the block could _not_ be fetched (i.e. it was fully handled, matching the
+// return criteria of handleBlock)
+func (p *puller) handleRequestBlock(b bqBlock) bool {
 	f := b.file
 	of := p.openFiles[f.Name]
 
@@ -469,8 +472,7 @@ func (p *puller) handleRequestBlock(b bqBlock) {
 		} else {
 			p.openFiles[f.Name] = of
 		}
-		p.requestSlots <- true
-		return
+		return true
 	}
 
 	of.outstanding++
@@ -491,6 +493,8 @@ func (p *puller) handleRequestBlock(b bqBlock) {
 			err:      err,
 		}
 	}(node, b)
+
+	return false
 }
 
 func (p *puller) handleEmptyBlock(b bqBlock) {
