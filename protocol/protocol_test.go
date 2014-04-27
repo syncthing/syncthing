@@ -5,6 +5,7 @@ import (
 	"io"
 	"testing"
 	"testing/quick"
+	"time"
 )
 
 func TestHeaderFunctions(t *testing.T) {
@@ -172,7 +173,13 @@ func TestClose(t *testing.T) {
 	c0 := NewConnection("c0", ar, bw, m0).(wireFormatConnection).next.(*rawConnection)
 	NewConnection("c1", br, aw, m1)
 
-	c0.close(nil)
+	c0.close <- nil
+
+	select {
+	case <-c0.closed:
+	case <-time.After(1 * time.Second):
+		t.Fatal("Did not close within a second")
+	}
 
 	if !c0.isClosed() {
 		t.Fatal("Connection should be closed")
