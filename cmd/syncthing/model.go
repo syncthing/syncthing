@@ -423,14 +423,16 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	cm := m.clusterConfig(nodeID)
 	protoConn.ClusterConfig(cm)
 
+	var idxToSend = make(map[string][]protocol.FileInfo)
+
+	m.rmut.RLock()
+	for _, repo := range m.nodeRepos[nodeID] {
+		idxToSend[repo] = m.protocolIndex(repo)
+	}
+	m.rmut.RUnlock()
+
 	go func() {
-		m.rmut.RLock()
-		repos := m.nodeRepos[nodeID]
-		m.rmut.RUnlock()
-		for _, repo := range repos {
-			m.rmut.RLock()
-			idx := m.protocolIndex(repo)
-			m.rmut.RUnlock()
+		for repo, idx := range idxToSend {
 			if debugNet {
 				dlog.Printf("IDX(out/initial): %s: %q: %d files", nodeID, repo, len(idx))
 			}
