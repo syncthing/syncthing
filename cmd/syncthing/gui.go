@@ -84,6 +84,13 @@ func restGetModel(m *Model, w http.ResponseWriter, r *http.Request) {
 	var repo = qs.Get("repo")
 	var res = make(map[string]interface{})
 
+	for _, cr := range cfg.Repositories {
+		if cr.ID == repo {
+			res["invalid"] = cr.Invalid
+			break
+		}
+	}
+
 	globalFiles, globalDeleted, globalBytes := m.GlobalSize(repo)
 	res["globalFiles"], res["globalDeleted"], res["globalBytes"] = globalFiles, globalDeleted, globalBytes
 

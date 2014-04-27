@@ -134,6 +134,7 @@
             <ul class="list-unstyled" ng-repeat="repo in repos">
               <li>
                 <span class="text-monospace">{{repo.Directory}}</span>
+                <span ng-if="repo.Invalid" class="label label-danger">Invalid: {{repo.Invalid}}</span>
                 <ul class="list-no-bullet">
                   <li>
                     <div class="li-column" title="Repository ID">

@@ -25,6 +25,7 @@ type RepositoryConfiguration struct {
 	Directory string              `xml:"directory,attr"`
 	Nodes     []NodeConfiguration `xml:"node"`
 	ReadOnly  bool                `xml:"ro,attr"`
+	Invalid   string              `xml:"-"` // Set at runtime when there is an error, not saved
 	nodeIDs   []string
 }
 
@@ -171,17 +172,21 @@ func readConfigXML(rd io.Reader, myID string) (Configuration, error) {
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 
 	// Check for missing or duplicate repository ID:s
-	var seenRepos = map[string]bool{}
+	var seenRepos = map[string]*RepositoryConfiguration{}
 	for i := range cfg.Repositories {
-		if cfg.Repositories[i].ID == "" {
-			cfg.Repositories[i].ID = "default"
+		repo := &cfg.Repositories[i]
+
+		if repo.ID == "" {
+			repo.ID = "default"
 		}
 
-		id := cfg.Repositories[i].ID
-		if seenRepos[id] {
-			panic("duplicate repository ID " + id)
+		if seen, ok := seenRepos[repo.ID]; ok {
+			seen.Invalid = "duplicate repository ID"
+			repo.Invalid = "duplicate repository ID"
+			warnf("Multiple repositories with ID %q; disabling", repo.ID)
+		} else {
+			seenRepos[repo.ID] = repo
 		}
-		seenRepos[id] = true
 	}
 
 	// Upgrade to v2 configuration if appropriate

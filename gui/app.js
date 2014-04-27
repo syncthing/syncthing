@@ -121,6 +121,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             return 'Unknown';
         }
 
+        if ($scope.model[repo].invalid !== '') {
+            return 'Stopped';
+        }
+
         var state = '' + $scope.model[repo].state;
         state = state[0].toUpperCase() + state.substr(1);
 
@@ -134,6 +138,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.repoClass = function (repo) {
         if (typeof $scope.model[repo] === 'undefined') {
             return 'text-info';
+        }
+
+        if ($scope.model[repo].invalid !== '') {
+            return 'text-warning';
         }
 
         var state = '' + $scope.model[repo].state;

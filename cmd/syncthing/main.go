@@ -222,6 +222,9 @@ func main() {
 	m := NewModel(cfg.Options.MaxChangeKbps * 1000)
 
 	for _, repo := range cfg.Repositories {
+		if repo.Invalid != "" {
+			continue
+		}
 		dir := expandTilde(repo.Directory)
 		m.AddRepo(repo.ID, dir, repo.Nodes)
 	}
@@ -260,6 +263,10 @@ func main() {
 	m.LoadIndexes(confDir)
 
 	for _, repo := range cfg.Repositories {
+		if repo.Invalid != "" {
+			continue
+		}
+
 		dir := expandTilde(repo.Directory)
 
 		// Safety check. If the cached index contains files but the repository
@@ -295,6 +302,10 @@ func main() {
 	go listenConnect(myID, m, tlsCfg)
 
 	for _, repo := range cfg.Repositories {
+		if repo.Invalid != "" {
+			continue
+		}
+
 		// Routine to pull blocks from other nodes to synchronize the local
 		// repository. Does not run when we are in read only (publish only) mode.
 		if repo.ReadOnly {
