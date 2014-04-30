@@ -4,6 +4,7 @@
 'use strict';
 
 var syncthing = angular.module('syncthing', []);
+var urlbase = 'rest';
 
 syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     var prevDate = 0;
@@ -75,18 +76,18 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     }
 
     $scope.refresh = function () {
-        $http.get('/rest/system').success(function (data) {
+        $http.get(urlbase + '/system').success(function (data) {
             getSucceeded();
             $scope.system = data;
         }).error(function () {
             getFailed();
         });
         $scope.repos.forEach(function (repo) {
-            $http.get('/rest/model?repo=' + encodeURIComponent(repo.ID)).success(function (data) {
+            $http.get(urlbase + '/model?repo=' + encodeURIComponent(repo.ID)).success(function (data) {
                 $scope.model[repo.ID] = data;
             });
         });
-        $http.get('/rest/connections').success(function (data) {
+        $http.get(urlbase + '/connections').success(function (data) {
             var now = Date.now(),
             td = (now - prevDate) / 1000,
             id;
@@ -111,7 +112,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             }
             $scope.connections = data;
         });
-        $http.get('/rest/errors').success(function (data) {
+        $http.get(urlbase + '/errors').success(function (data) {
             $scope.errors = data;
         });
     };
@@ -246,14 +247,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.saveSettings = function () {
         $scope.configInSync = false;
         $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) { return x.trim(); });
-        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
         $('#settings').modal("hide");
     };
 
     $scope.restart = function () {
         restarting = true;
         $('#restarting').modal('show');
-        $http.post('/rest/restart');
+        $http.post(urlbase + '/restart');
         $scope.configInSync = true;
     };
 
@@ -290,7 +291,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }
 
         $scope.configInSync = false;
-        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
     };
 
     $scope.saveNode = function () {
@@ -317,7 +318,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $scope.nodes.sort(nodeCompare);
         $scope.config.Nodes = $scope.nodes;
 
-        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
     };
 
     $scope.otherNodes = function () {
@@ -345,7 +346,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     $scope.clearErrors = function () {
         $scope.seenError = $scope.errors[$scope.errors.length - 1].Time;
-        $http.post('/rest/error/clear');
+        $http.post(urlbase + '/error/clear');
     };
 
     $scope.friendlyNodes = function (str) {
@@ -401,7 +402,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
         $scope.config.Repositories = $scope.repos;
 
-        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
     };
 
     $scope.deleteRepo = function () {
@@ -417,19 +418,19 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $scope.config.Repositories = $scope.repos;
 
         $scope.configInSync = false;
-        $http.post('/rest/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
     };
 
-    $http.get('/rest/version').success(function (data) {
+    $http.get(urlbase + '/version').success(function (data) {
         $scope.version = data;
     });
 
-    $http.get('/rest/system').success(function (data) {
+    $http.get(urlbase + '/system').success(function (data) {
         $scope.system = data;
         $scope.myID = data.myID;
     });
 
-    $http.get('/rest/config').success(function (data) {
+    $http.get(urlbase + '/config').success(function (data) {
         $scope.config = data;
         $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
 
@@ -442,7 +443,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $scope.refresh();
     });
 
-    $http.get('/rest/config/sync').success(function (data) {
+    $http.get(urlbase + '/config/sync').success(function (data) {
         $scope.configInSync = data.configInSync;
     });
 
