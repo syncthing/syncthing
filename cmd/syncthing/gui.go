@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"runtime"
@@ -26,7 +27,7 @@ var (
 	guiErrors    = []guiError{}
 	guiErrorsMut sync.Mutex
 	static       = embeddedStatic()
-	staticFunc   = static.(func(http.ResponseWriter, *http.Request))
+	staticFunc   = static.(func(http.ResponseWriter, *http.Request, *log.Logger))
 )
 
 const (
@@ -69,7 +70,7 @@ func startGUI(cfg GUIConfiguration, m *Model) {
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
 	r.URL.Path = "/index.html"
-	staticFunc(w, r)
+	staticFunc(w, r, nil)
 }
 
 func restMiddleware(w http.ResponseWriter, r *http.Request) {

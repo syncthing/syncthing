@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"mime"
 	"net/http"
 	"path/filepath"
@@ -15,7 +16,7 @@ import (
 func embeddedStatic() interface{} {
 	var modt = time.Now().UTC().Format(http.TimeFormat)
 
-	return func(res http.ResponseWriter, req *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request, log *log.Logger) {
 		file := req.URL.Path
 
 		if file[0] == '/' {
