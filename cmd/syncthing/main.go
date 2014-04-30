@@ -233,7 +233,7 @@ func main() {
 	if cfg.GUI.Enabled && cfg.GUI.Address != "" {
 		addr, err := net.ResolveTCPAddr("tcp", cfg.GUI.Address)
 		if err != nil {
-			warnf("Cannot start GUI on %q: %v", cfg.GUI.Address, err)
+			fatalf("Cannot start GUI on %q: %v", cfg.GUI.Address, err)
 		} else {
 			var hostOpen, hostShow string
 			switch {
@@ -249,7 +249,10 @@ func main() {
 			}
 
 			infof("Starting web GUI on http://%s:%d/", hostShow, addr.Port)
-			startGUI(cfg.GUI, m)
+			err := startGUI(cfg.GUI, m)
+			if err != nil {
+				fatalln("Cannot start GUI:", err)
+			}
 			if cfg.Options.StartBrowser && len(os.Getenv("STRESTART")) == 0 {
 				openURL(fmt.Sprintf("http://%s:%d", hostOpen, addr.Port))
 			}

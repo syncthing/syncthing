@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"runtime"
 	"sync"
@@ -34,7 +35,12 @@ const (
 	unchangedPassword = "--password-unchanged--"
 )
 
-func startGUI(cfg GUIConfiguration, m *Model) {
+func startGUI(cfg GUIConfiguration, m *Model) error {
+	l, err := net.Listen("tcp", cfg.Address)
+	if err != nil {
+		return err
+	}
+
 	router := martini.NewRouter()
 	router.Get("/", getRoot)
 	router.Get("/rest/version", restGetVersion)
@@ -51,21 +57,19 @@ func startGUI(cfg GUIConfiguration, m *Model) {
 	router.Post("/rest/error", restPostError)
 	router.Post("/rest/error/clear", restClearErrors)
 
-	go func() {
-		mr := martini.New()
-		if len(cfg.User) > 0 && len(cfg.Password) > 0 {
-			mr.Use(basic(cfg.User, cfg.Password))
-		}
-		mr.Use(static)
-		mr.Use(martini.Recovery())
-		mr.Use(restMiddleware)
-		mr.Action(router.Handle)
-		mr.Map(m)
-		err := http.ListenAndServe(cfg.Address, mr)
-		if err != nil {
-			warnln("GUI not possible:", err)
-		}
-	}()
+	mr := martini.New()
+	if len(cfg.User) > 0 && len(cfg.Password) > 0 {
+		mr.Use(basic(cfg.User, cfg.Password))
+	}
+	mr.Use(static)
+	mr.Use(martini.Recovery())
+	mr.Use(restMiddleware)
+	mr.Action(router.Handle)
+	mr.Map(m)
+
+	go http.Serve(l, mr)
+
+	return nil
 }
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
