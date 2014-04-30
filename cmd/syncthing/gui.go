@@ -25,6 +25,8 @@ var (
 	configInSync = true
 	guiErrors    = []guiError{}
 	guiErrorsMut sync.Mutex
+	static       = embeddedStatic()
+	staticFunc   = static.(func(http.ResponseWriter, *http.Request))
 )
 
 const (
@@ -53,7 +55,7 @@ func startGUI(cfg GUIConfiguration, m *Model) {
 		if len(cfg.User) > 0 && len(cfg.Password) > 0 {
 			mr.Use(basic(cfg.User, cfg.Password))
 		}
-		mr.Use(embeddedStatic())
+		mr.Use(static)
 		mr.Use(martini.Recovery())
 		mr.Use(restMiddleware)
 		mr.Action(router.Handle)
@@ -66,7 +68,8 @@ func startGUI(cfg GUIConfiguration, m *Model) {
 }
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/index.html", 302)
+	r.URL.Path = "/index.html"
+	staticFunc(w, r)
 }
 
 func restMiddleware(w http.ResponseWriter, r *http.Request) {
