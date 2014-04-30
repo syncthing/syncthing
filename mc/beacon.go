@@ -45,6 +45,9 @@ func (b *Beacon) run() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if debug {
+		dlog.Printf("trying %d interfaces", len(intfs))
+	}
 
 	for _, intf := range intfs {
 		intf := intf
@@ -55,10 +58,13 @@ func (b *Beacon) run() {
 		conn, err := net.ListenMulticastUDP("udp4", &intf, group)
 		if err != nil {
 			if debug {
-				dlog.Printf("listen for multicast group on %q: %v", intf.Name, err)
+				dlog.Printf("failed to listen for multicast group on %q: %v", intf.Name, err)
 			}
 		} else {
 			b.conns = append(b.conns, conn)
+			if debug {
+				dlog.Printf("listening for multicast group on %q", intf.Name)
+			}
 		}
 	}
 
@@ -72,6 +78,9 @@ func (b *Beacon) run() {
 					dlog.Println(err)
 					return
 				}
+				if debug {
+					dlog.Printf("recv %d bytes from %s on %v", n, addr, conn)
+				}
 				b.outbox <- recv{bs[:n], addr}
 			}
 		}()
@@ -84,6 +93,9 @@ func (b *Beacon) run() {
 				if err != nil {
 					dlog.Println(err)
 					return
+				}
+				if debug {
+					dlog.Printf("sent %d bytes to %s on %v", len(bs), group, conn)
 				}
 			}
 		}
