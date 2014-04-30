@@ -25,6 +25,11 @@ making sure large swarms of selfish agents behave and somehow work
 towards a common goal. Here we have a much smaller swarm of cooperative
 agents and a simpler approach will suffice.
 
+Getting Started
+---------------
+
+Take a look at the [getting started guide](http://discourse.syncthing.net/t/getting-started/46).
+
 Signed Releases
 ---------------
 
