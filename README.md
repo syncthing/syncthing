@@ -35,8 +35,9 @@ normal release bundle as `syncthing.asc` or `syncthing.exe.asc`.
 Documentation
 =============
 
-The syncthing documentation is kept on the
-[GitHub Wiki](https://github.com/calmh/syncthing/wiki).
+The [syncthing
+documentation](http://discourse.syncthing.net/category/documentation) is
+on the discourse site.
 
 License
 =======

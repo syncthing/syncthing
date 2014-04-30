@@ -1,6 +1,6 @@
 Please do contribute! If you want to contribute but are unsure where to
 start, the [Contributions Needed
-page](https://github.com/calmh/syncthing/wiki/Contributions-Needed)
+topic](http://discourse.syncthing.net/t/contributions-needed/49)
 lists areas in need of attention.
 
 ## Licensing
@@ -15,7 +15,8 @@ will ensure that you are added to the CONTRIBUTORS file.
 
 ## Building
 
-[See the wiki](https://github.com/calmh/syncthing/wiki/Building)
+[See the
+documentation](http://discourse.syncthing.net/t/building-syncthing/44)
 
 ## Branches
 
@@ -46,7 +47,7 @@ Yes please!
 
 ## Documentation
 
-[Hack it here](https://github.com/calmh/syncthing/wiki)
+[Over here!](http://discourse.syncthing.net/category/documentation)
 
 ## License
 
