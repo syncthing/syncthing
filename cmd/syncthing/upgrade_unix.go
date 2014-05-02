@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -64,7 +65,7 @@ func upgrade() error {
 		if strings.HasPrefix(asset.Name, expectedRelease) {
 			if strings.HasSuffix(asset.Name, ".tar.gz") {
 				infof("Downloading %s...", asset.Name)
-				fname, err := readTarGZ(asset.URL)
+				fname, err := readTarGZ(asset.URL, filepath.Dir(path))
 				if err != nil {
 					return err
 				}
@@ -90,7 +91,7 @@ func upgrade() error {
 	return nil
 }
 
-func readTarGZ(url string) (string, error) {
+func readTarGZ(url string, dir string) (string, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
@@ -125,20 +126,19 @@ func readTarGZ(url string) (string, error) {
 		}
 
 		if path.Base(hdr.Name) == "syncthing" {
-			fname := filepath.Join(os.TempDir(), "syncthing.new")
-			of, err := os.Create(fname)
+			of, err := ioutil.TempFile(dir, "syncthing")
 			if err != nil {
 				return "", err
 			}
 			io.Copy(of, tr)
 			err = of.Close()
 			if err != nil {
-				os.Remove(fname)
+				os.Remove(of.Name())
 				return "", err
 			}
 
-			os.Chmod(fname, os.FileMode(hdr.Mode))
-			return fname, nil
+			os.Chmod(of.Name(), os.FileMode(hdr.Mode))
+			return of.Name(), nil
 		}
 	}
 
