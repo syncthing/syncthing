@@ -2,6 +2,8 @@
 
 package main
 
-func upgrade() {
-	fatalln("Upgrade currently unsupported on Windows")
+import "errors"
+
+func upgrade() error {
+	return errors.New("Upgrade currently unsupported on Windows")
 }
