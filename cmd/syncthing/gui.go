@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"code.google.com/p/go.crypto/bcrypt"
-	"github.com/calmh/syncthing/scanner"
 	"github.com/codegangsta/martini"
 )
 
@@ -164,23 +163,6 @@ func restPostRestart(req *http.Request) {
 func restPostReset(req *http.Request) {
 	resetRepositories()
 	go restart()
-}
-
-type guiFile scanner.File
-
-func (f guiFile) MarshalJSON() ([]byte, error) {
-	type t struct {
-		Name     string
-		Size     int64
-		Modified int64
-		Flags    uint32
-	}
-	return json.Marshal(t{
-		Name:     f.Name,
-		Size:     scanner.File(f).Size,
-		Modified: f.Modified,
-		Flags:    f.Flags,
-	})
 }
 
 var cpuUsagePercent [10]float64 // The last ten seconds
