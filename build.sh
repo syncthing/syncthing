@@ -11,6 +11,8 @@ host=${host%%.*}
 ldflags="-w -X main.Version $version -X main.BuildStamp $date -X main.BuildUser $user -X main.BuildHost $host"
 
 build() {
+	go vet ./... || exit 1
+
 	if command -v godep >/dev/null ; then
 		godep=godep
 	else
