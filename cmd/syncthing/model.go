@@ -80,8 +80,8 @@ func NewModel(maxChangeBw int) *Model {
 // read/write mode the model will attempt to keep in sync with the cluster by
 // pulling needed files from peer nodes.
 func (m *Model) StartRepoRW(repo string, threads int) {
-	m.rmut.Lock()
-	defer m.rmut.Unlock()
+	m.rmut.RLock()
+	defer m.rmut.RUnlock()
 
 	if dir, ok := m.repoDirs[repo]; !ok {
 		panic("cannot start without repo")
@@ -561,7 +561,7 @@ func (m *Model) ScanRepos() {
 
 func (m *Model) ScanRepo(repo string) {
 	sup := &suppressor{threshold: int64(cfg.Options.MaxChangeKbps)}
-	m.rmut.Lock()
+	m.rmut.RLock()
 	w := &scanner.Walker{
 		Dir:          m.repoDirs[repo],
 		IgnoreFile:   ".stignore",
@@ -570,7 +570,7 @@ func (m *Model) ScanRepo(repo string) {
 		Suppressor:   sup,
 		CurrentFiler: cFiler{m, repo},
 	}
-	m.rmut.Unlock()
+	m.rmut.RUnlock()
 	m.setState(repo, RepoScanning)
 	fs, _ := w.Walk()
 	m.ReplaceLocal(repo, fs)
@@ -650,7 +650,7 @@ func (m *Model) clusterConfig(node string) protocol.ClusterConfigMessage {
 		ClientVersion: Version,
 	}
 
-	m.rmut.Lock()
+	m.rmut.RLock()
 	for _, repo := range m.nodeRepos[node] {
 		cr := protocol.Repository{
 			ID: repo,
@@ -664,7 +664,7 @@ func (m *Model) clusterConfig(node string) protocol.ClusterConfigMessage {
 		}
 		cm.Repositories = append(cm.Repositories, cr)
 	}
-	m.rmut.Unlock()
+	m.rmut.RUnlock()
 
 	return cm
 }
@@ -676,9 +676,9 @@ func (m *Model) setState(repo string, state repoState) {
 }
 
 func (m *Model) State(repo string) string {
-	m.rmut.Lock()
+	m.rmut.RLock()
 	state := m.repoState[repo]
-	m.rmut.Unlock()
+	m.rmut.RUnlock()
 	switch state {
 	case RepoIdle:
 		return "idle"
