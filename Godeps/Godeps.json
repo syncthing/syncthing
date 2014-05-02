@@ -9,6 +9,11 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "bitbucket.org/kardianos/osext",
+			"Comment": "null-9",
+			"Rev": "364fb577de68fb646c4cb39cc0e09c887ee16376"
+		},
+		{
 			"ImportPath": "code.google.com/p/go.crypto/bcrypt",
 			"Comment": "null-185",
 			"Rev": "6478cc9340cbbe6c04511280c5007722269108e9"
