@@ -83,9 +83,11 @@ const (
 func main() {
 	var reset bool
 	var showVersion bool
+	var doUpgrade bool
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
+	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
 	flag.Parse()
 
@@ -96,6 +98,14 @@ func main() {
 
 	if showVersion {
 		fmt.Println(LongVersion)
+		return
+	}
+
+	if doUpgrade {
+		err := upgrade()
+		if err != nil {
+			fatalln(err)
+		}
 		return
 	}
 
