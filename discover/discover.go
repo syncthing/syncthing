@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -74,6 +73,20 @@ func (d *Discoverer) ExtAnnounceOK() bool {
 	d.extAnnounceOKmut.Lock()
 	defer d.extAnnounceOKmut.Unlock()
 	return d.extAnnounceOK
+}
+
+func (d *Discoverer) Lookup(node string) []string {
+	d.registryLock.Lock()
+	addr, ok := d.registry[node]
+	d.registryLock.Unlock()
+
+	if ok {
+		return addr
+	} else if len(d.extServer) != 0 {
+		// We might want to cache this, but not permanently so it needs some intelligence
+		return d.externalLookup(node)
+	}
+	return nil
 }
 
 func (d *Discoverer) announcementPkt() []byte {
@@ -203,7 +216,7 @@ func (d *Discoverer) recvAnnouncements() {
 			for _, a := range pkt.Addresses {
 				var nodeAddr string
 				if len(a.IP) > 0 {
-					nodeAddr = fmt.Sprintf("%s:%d", ipStr(a.IP), a.Port)
+					nodeAddr = fmt.Sprintf("%s:%d", net.IP(a.IP), a.Port)
 				} else {
 					ua := addr.(*net.UDPAddr)
 					ua.Port = int(a.Port)
@@ -285,39 +298,8 @@ func (d *Discoverer) externalLookup(node string) []string {
 
 	var addrs []string
 	for _, a := range pkt.Addresses {
-		var nodeAddr string
-		if len(a.IP) > 0 {
-			nodeAddr = fmt.Sprintf("%s:%d", ipStr(a.IP), a.Port)
-		}
+		nodeAddr := fmt.Sprintf("%s:%d", net.IP(a.IP), a.Port)
 		addrs = append(addrs, nodeAddr)
 	}
 	return addrs
-}
-
-func (d *Discoverer) Lookup(node string) []string {
-	d.registryLock.Lock()
-	addr, ok := d.registry[node]
-	d.registryLock.Unlock()
-
-	if ok {
-		return addr
-	} else if len(d.extServer) != 0 {
-		// We might want to cache this, but not permanently so it needs some intelligence
-		return d.externalLookup(node)
-	}
-	return nil
-}
-
-func ipStr(ip []byte) string {
-	var f = "%d"
-	var s = "."
-	if len(ip) > 4 {
-		f = "%x"
-		s = ":"
-	}
-	var ss = make([]string, len(ip))
-	for i := range ip {
-		ss[i] = fmt.Sprintf(f, ip[i])
-	}
-	return strings.Join(ss, s)
 }
