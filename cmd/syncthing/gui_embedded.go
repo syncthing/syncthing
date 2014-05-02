@@ -32,7 +32,7 @@ func embeddedStatic() interface{} {
 		if len(mtype) != 0 {
 			res.Header().Set("Content-Type", mtype)
 		}
-		res.Header().Set("Content-Size", fmt.Sprintf("%d", len(bs)))
+		res.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
 		res.Header().Set("Last-Modified", modt)
 
 		res.Write(bs)
