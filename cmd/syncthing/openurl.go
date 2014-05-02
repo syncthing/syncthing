@@ -19,6 +19,7 @@ package main
 import (
 	"os/exec"
 	"runtime"
+	"syscall"
 )
 
 func openURL(url string) error {
@@ -30,5 +31,9 @@ func openURL(url string) error {
 		return exec.Command("open", url).Run()
 	}
 
-	return exec.Command("xdg-open", url).Run()
+	cmd := exec.Command("xdg-open", url)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
+	return cmd.Run()
 }
