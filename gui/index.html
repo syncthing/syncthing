@@ -415,9 +415,10 @@
             <div class="form-group">
               <div class="checkbox">
                 <label>
-                  <input type="checkbox" ng-model="currentRepo.ReadOnly"> Read Only
+                  <input type="checkbox" ng-model="currentRepo.ReadOnly"> Repository Master
                 </label>
               </div>
+              <p class="help-block">Files are protected from changes made on other nodes, but changes made on <em>this</em> node will be sent to the rest of the cluster.</p>
             </div>
             <div class="form-group">
               <label for="nodes">Nodes</label>
