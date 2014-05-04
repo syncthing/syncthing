@@ -173,7 +173,11 @@ func (p *puller) run() {
 			if debugPull {
 				dlog.Printf("%q: time for rescan", p.repo)
 			}
-			p.model.ScanRepo(p.repo)
+			err := p.model.ScanRepo(p.repo)
+			if err != nil {
+				invalidateRepo(p.repo, err)
+				return
+			}
 
 		default:
 		}
@@ -190,7 +194,11 @@ func (p *puller) runRO() {
 		if debugPull {
 			dlog.Printf("%q: time for rescan", p.repo)
 		}
-		p.model.ScanRepo(p.repo)
+		err := p.model.ScanRepo(p.repo)
+		if err != nil {
+			invalidateRepo(p.repo, err)
+			return
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"bytes"
+	"errors"
 	"io/ioutil"
 	"log"
 	"os"
@@ -51,12 +52,18 @@ type CurrentFiler interface {
 
 // Walk returns the list of files found in the local repository by scanning the
 // file system. Files are blockwise hashed.
-func (w *Walker) Walk() (files []File, ignore map[string][]string) {
+func (w *Walker) Walk() (files []File, ignore map[string][]string, err error) {
 	w.lazyInit()
 
 	if debug {
 		dlog.Println("Walk", w.Dir, w.BlockSize, w.IgnoreFile)
 	}
+
+	err = checkDir(w.Dir)
+	if err != nil {
+		return
+	}
+
 	t0 := time.Now()
 
 	ignore = make(map[string][]string)
@@ -70,6 +77,8 @@ func (w *Walker) Walk() (files []File, ignore map[string][]string) {
 		d := t1.Sub(t0).Seconds()
 		dlog.Printf("Walk in %.02f ms, %.0f files/s", d*1000, float64(len(files))/d)
 	}
+
+	err = checkDir(w.Dir)
 	return
 }
 
@@ -271,4 +280,13 @@ func (w *Walker) ignoreFile(patterns map[string][]string, file string) bool {
 		}
 	}
 	return false
+}
+
+func checkDir(dir string) error {
+	if info, err := os.Stat(dir); err != nil {
+		return err
+	} else if !info.IsDir() {
+		return errors.New(dir + ": not a directory")
+	}
+	return nil
 }

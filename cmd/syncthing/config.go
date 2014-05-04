@@ -285,3 +285,13 @@ func ensureNodePresent(nodes []NodeConfiguration, myID string) []NodeConfigurati
 
 	return nodes
 }
+
+func invalidateRepo(repoID string, err error) {
+	for i := range cfg.Repositories {
+		repo := &cfg.Repositories[i]
+		if repo.ID == repoID {
+			repo.Invalid = err.Error()
+			return
+		}
+	}
+}

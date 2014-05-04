@@ -559,7 +559,7 @@ func (m *Model) ScanRepos() {
 	}
 }
 
-func (m *Model) ScanRepo(repo string) {
+func (m *Model) ScanRepo(repo string) error {
 	sup := &suppressor{threshold: int64(cfg.Options.MaxChangeKbps)}
 	m.rmut.RLock()
 	w := &scanner.Walker{
@@ -572,9 +572,13 @@ func (m *Model) ScanRepo(repo string) {
 	}
 	m.rmut.RUnlock()
 	m.setState(repo, RepoScanning)
-	fs, _ := w.Walk()
+	fs, _, err := w.Walk()
+	if err != nil {
+		return err
+	}
 	m.ReplaceLocal(repo, fs)
 	m.setState(repo, RepoIdle)
+	return nil
 }
 
 func (m *Model) SaveIndexes(dir string) {

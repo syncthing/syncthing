@@ -142,7 +142,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }
 
         if ($scope.model[repo].invalid !== '') {
-            return 'text-warning';
+            return 'text-danger';
         }
 
         var state = '' + $scope.model[repo].state;

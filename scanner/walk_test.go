@@ -27,7 +27,11 @@ func TestWalk(t *testing.T) {
 		BlockSize:  128 * 1024,
 		IgnoreFile: ".stignore",
 	}
-	files, ignores := w.Walk()
+	files, ignores, err := w.Walk()
+
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if l1, l2 := len(files), len(testdata); l1 != l2 {
 		t.Fatalf("Incorrect number of walked files %d != %d", l1, l2)
@@ -51,6 +55,30 @@ func TestWalk(t *testing.T) {
 
 	if !reflect.DeepEqual(ignores, correctIgnores) {
 		t.Errorf("Incorrect ignores\n  %v\n  %v", correctIgnores, ignores)
+	}
+}
+
+func TestWalkError(t *testing.T) {
+	w := Walker{
+		Dir:        "testdata-missing",
+		BlockSize:  128 * 1024,
+		IgnoreFile: ".stignore",
+	}
+	_, _, err := w.Walk()
+
+	if err == nil {
+		t.Error("no error from missing directory")
+	}
+
+	w = Walker{
+		Dir:        "testdata/bar",
+		BlockSize:  128 * 1024,
+		IgnoreFile: ".stignore",
+	}
+	_, _, err = w.Walk()
+
+	if err == nil {
+		t.Error("no error from non-directory")
 	}
 }
 
