@@ -98,7 +98,7 @@ case "$1" in
 		test || exit 1
 		assets
 
-		for os in darwin-amd64 linux-386 linux-amd64 freebsd-amd64 windows-amd64 ; do
+		for os in darwin-amd64 linux-386 linux-amd64 freebsd-amd64 windows-amd64 windows-386 ; do
 			export GOOS=${os%-*}
 			export GOARCH=${os#*-}
 
@@ -127,6 +127,10 @@ case "$1" in
 		export GOARM=6
 		build
 		tarDist "syncthing-linux-armv6-$version"
+
+		export GOARM=5
+		build
+		tarDist "syncthing-linux-armv5-$version"
 
 		;;
 
