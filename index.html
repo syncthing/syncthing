@@ -3,6 +3,7 @@
 
 <head>
   <title>Syncthing</title>
+  <link href="http://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css" rel="stylesheet">
   <link rel="stylesheet" type="text/css" href="bootstrap/css/bootstrap.min.css">
   <link rel="shortcut icon" href="favicon.png" type="image/png">
   <link rel="icon" href="favicon.png" type="image/png">
@@ -36,17 +37,28 @@
       margin-top: 40px;
       margin-bottom: 40px;
     }
+    .title {
+      margin-right: 15px;
+    }
+    #download {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .extra {
+      margin-bottom:10px;
+      font-size: 40px;
+    }
   </style>
 </head>
 
 <body>
 
   <div id="top">
-    <a href="https://github.com/calmh/syncthing">
+    <a target="_blank" href="https://github.com/calmh/syncthing">
       <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://github-camo.global.ssl.fastly.net/a6677b08c955af8400f44c6298f40e7d19cc5b2d/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f677261795f3664366436642e706e67"
       alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png">
     </a>
-    <div class="container">
+    <div class="container-fluid container">
       <div class="jumbotron">
         <div class="col-md-2">
           <h1><img src="logo.png" width="100"></h1>
@@ -65,7 +77,7 @@
     <div class="container">
       <div class="row">
         <div class="col-sm-12">
-          <h2>Secure & Private</h2>
+          <h2><i class="title fa fa-lock"></i>Secure & Private</h2>
           <hr/>
           <div class="row">
             <div class="col-sm-8">
@@ -83,22 +95,23 @@
       </div>
       <div class="row">
         <div class="col-sm-12">
-          <h2>Open Development</h2>
+          <h2><i class="title fa fa-code-fork"></i>Open Development</h2>
           <hr/>
           <div class="row">
             <div class="col-sm-8">
+              <p></p>
               <ul>
                 <li><strong>Open Discourse.</strong> Development and usage is always open for discussion.
-                  <br><a href="http://discourse.syncthing.net/">Syncthing Discussion Forum</a>
+                  <br><a target="_blank" href="http://discourse.syncthing.net/">Syncthing Discussion Forum</a>
                 </li>
                 <li><strong>Open Source.</strong> All source code is available on GitHub &mdash; what you see is what you get, there is no hidden funny business.
-                  <br><a href="https://github.com/calmh/syncthing/tree/master">Syncthing Source Code</a>
+                  <br><a target="_blank" href="https://github.com/calmh/syncthing/tree/master">Syncthing Source Code</a>
                 </li>
                 <li><strong>Open Protocol.</strong> The protocol is a documented standard &mdash; no hidden magic.
-                  <br><a href="https://github.com/calmh/syncthing/blob/master/protocol/PROTOCOL.md">Syncthing Protocol Definition</a>
+                  <br><a target="_blank" href="https://github.com/calmh/syncthing/blob/master/protocol/PROTOCOL.md">Syncthing Protocol Definition</a>
                 </li>
-                <li><strong>Open Process.</strong> Any bugs found are immediately visible for anyone to browse &mdash; no hidden flaws.
-                  <br><a href="https://github.com/calmh/syncthing/issues?state=open">Syncthing Issue Tracker</a>
+                <li><strong>Open Developement.</strong> Any bugs found are immediately visible for anyone to browse &mdash; no hidden flaws.
+                  <br><a target="_blank" href="https://github.com/calmh/syncthing/issues?state=open">Syncthing Issue Tracker</a>
                 </li>
               </ul>
             </div>
@@ -110,36 +123,52 @@
       </div>
       <div class="row">
         <div class="col-sm-12">
-          <h2>Easy to Use</h2>
+          <h2><i class="title fa fa-users"></i>Easy to Use</h2>
           <hr/>
           <div class="row">
-            <div class="col-sm-8">
+            <div class="col-sm-7">
               <p>Syncthing is still in development, although a large number of features have already been implemented:</p>
               <ul>
                 <li><strong>Web GUI.</strong> Configure and monitor Syncthing via a responsive and powerful interface accessible via your browser.</li>
-                <li><strong>Portable.</strong> Works on Mac OS X, Windows, Linux, FreeBSD and Solaris. Run it on your desktop computers and synchronize them with your server for backup.</li>                <li><strong>Simple.</strong> Syncthing doesn't need IP addresses or advanced configuration: it just works, over LAN and over the Internet. Every machine is identified by an ID. Just give your ID to you friends, share a folder and watch: uPnP will do if you don't want to port forward or you don't know how.</li>
+                <li><strong>Portable.</strong> Works on Mac OS X, Windows, Linux, FreeBSD and Solaris. Run it on your desktop computers and synchronize them with your server for backup.</li>
+                <li><strong>Simple.</strong> Syncthing doesn't need IP addresses or advanced configuration: it just works, over LAN and over the Internet. Every machine is identified by an ID. Just give your ID to you friends, share a folder and watch: uPnP
+                  will do if you don't want to port forward or you don't know how.</li>
                 <li><strong>Powerful.</strong> Synchronize as many folders as you need with different people.
               </ul>
             </div>
-            <div class="col-sm-4">
-              <img src="screenshot.png" width="360" class="img-thumbnail">
+            <div class="col-sm-5">
+              <img src="screenshot.png" width="385">
             </div>
           </div>
         </div>
       </div>
       <div class="row">
         <div class="col-md-6">
-          <h2>Get Started</h2>
+          <h2><i class="title fa fa-github"></i>Get Started</h2>
           <hr/>
-          <ol>
-            <li>Download the latest version of Syncthing for your operating system from <a href="https://github.com/calmh/syncthing/releases">GitHub Releases</a>.
-              <li>Unpack it, run it, and look around in the GUI.</li>
-              <li>Take a look in the <a href="https://github.com/calmh/syncthing/wiki/Getting-Started">Getting Started Guide</a> for more information and tips.
-          </ol>
+          <h1 align="center"><i class="fa fa-download"></i><br><a target="_blank" href="https://github.com/calmh/syncthing/releases">Download</a>
+          <br><small>For Mac, Windows, Linux, BSD and Solaris</small></h1>
+          <p align="center">Once you have downloaded the latest version, extract it then run the executable in a terminal. A browser window will open and you will have access to the GUI.</p>
+          <p align="center">Make sure to <a target="_blank" href="http://discourse.syncthing.net/t/getting-started/46">check out the Docs if you need some help.</a></p>
+          <hr>
+          <div class="row">
+            <div class="col-sm-4">
+              <h3 align="center"><i class="extra fa fa-comments"></i><br><a target="_blank" href="http://discourse.syncthing.net/">Discuss</a>
+                <br><small>Join the talk on the forums</small></h3>
+            </div>
+            <div class="col-sm-4">
+              <h3 align="center"><i class="extra fa fa-book"></i><br><a target="_blank" href="http://discourse.syncthing.net/category/documentation">Docs</a>
+                <br><small>Need some help?</small></h3>
+            </div>
+            <div class="col-sm-4">
+                <h3 align="center"><i class="extra fa fa-cogs"></i><br><a target="_blank" href="http://github.com/calmh/syncthing">Contribute</a>
+                <br><small>Clone, Fork, and start tinkering</small></h3>
+            </div>
+          </div>
         </div>
 
         <div class="col-md-6">
-          <h2>Release Schedule &amp; Versioning</h2>
+          <h2><i class="title fa fa-code"></i>Versioning &amp; Updates</h2>
           <hr/>
 
           <p>There is generally a <strong>patch release</strong> once a week. Patch releases contain bugfixes and are always backwards compatible. You should probably run the latest one.</p>
