@@ -190,6 +190,14 @@ func main() {
 			},
 		}
 
+		port, err := getFreePort("127.0.0.1", 8080)
+		fatalErr(err)
+		cfg.GUI.Address = fmt.Sprintf("127.0.0.1:%d", port)
+
+		port, err = getFreePort("", 22000)
+		fatalErr(err)
+		cfg.Options.ListenAddress = []string{fmt.Sprintf(":%d", port)}
+
 		saveConfig()
 		infof("Edit %s to taste or use the GUI\n", cfgFile)
 	}
@@ -661,4 +669,36 @@ func getHomeDir() string {
 	}
 
 	return home
+}
+
+// getFreePort returns a free TCP port fort listening on. The ports given are
+// tried in succession and the first to succeed is returned. If none succeed,
+// a random high port is returned.
+func getFreePort(host string, ports ...int) (int, error) {
+	for _, port := range ports {
+		c, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+		if err == nil {
+			c.Close()
+			return port, nil
+		}
+	}
+
+	c, err := net.Listen("tcp", host+":0")
+	if err != nil {
+		return 0, err
+	}
+	addr := c.Addr().String()
+	c.Close()
+
+	_, portstr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0, err
+	}
+
+	port, err := strconv.Atoi(portstr)
+	if err != nil {
+		return 0, err
+	}
+
+	return port, nil
 }
