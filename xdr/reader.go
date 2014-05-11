@@ -72,20 +72,25 @@ func (r *Reader) ReadUint16() uint16 {
 }
 
 func (r *Reader) ReadUint32() uint32 {
+	var n int
 	if r.err != nil {
 		return 0
 	}
-	_, r.err = io.ReadFull(r.r, r.b[:4])
-	r.tot += 4
+	n, r.err = io.ReadFull(r.r, r.b[:4])
+	if n < 4 {
+		return 0
+	}
+	r.tot += n
 	return uint32(r.b[3]) | uint32(r.b[2])<<8 | uint32(r.b[1])<<16 | uint32(r.b[0])<<24
 }
 
 func (r *Reader) ReadUint64() uint64 {
+	var n int
 	if r.err != nil {
 		return 0
 	}
-	_, r.err = io.ReadFull(r.r, r.b[:8])
-	r.tot += 8
+	n, r.err = io.ReadFull(r.r, r.b[:8])
+	r.tot += n
 	return uint64(r.b[7]) | uint64(r.b[6])<<8 | uint64(r.b[5])<<16 | uint64(r.b[4])<<24 |
 		uint64(r.b[3])<<32 | uint64(r.b[2])<<40 | uint64(r.b[1])<<48 | uint64(r.b[0])<<56
 }

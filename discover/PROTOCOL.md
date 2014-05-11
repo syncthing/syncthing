@@ -36,12 +36,28 @@ The Announcement packet has the following structure:
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                   Magic Number (0x029E4C77)                   |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                       Length of Node ID                       |
+    |                      Magic (0x029E4C77)                       |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                   Node ID (variable length)                   \
+    \                        Node Structure                         \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                     Number of Extra Nodes                     |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                 Zero or more Node Structures                  \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    Node Structure:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                         Length of ID                          |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                     ID (variable length)                      \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                      Number of Addresses                      |
@@ -62,29 +78,37 @@ The Announcement packet has the following structure:
     \                     IP (variable length)                      \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |          Port Number          |            0x0000             |
+    |             Port              |            0x0000             |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 This is the XDR encoding of:
 
     struct Announcement {
-        unsigned int MagicNumber;
-        string NodeID<>;
+        unsigned int Magic;
+        Node This;
+        Node Extra<>;
+    }
+
+    struct Node {
+        string ID<>;
         Address Addresses<>;
     }
 
     struct Address {
         opaque IP<>;
-        unsigned short PortNumber;
+        unsigned short Port;
     }
 
-NodeID is padded to a multiple of 32 bits and all fields are in sent in
-network (big endian) byte order. In the Address structure, the IP field
-can be of three differnt kinds;
+The first Node structure contains information about the sending node.
+The following zero or more Extra nodes contain information about other
+nodes known to the sending node.
+
+In the Address structure, the IP field can be of three differnt kinds;
 
  - A zero length indicates that the IP address should be taken from the
    source address of the announcement packet, be it IPv4 or IPv6. The
-   source address must be a valid unicast address.
+   source address must be a valid unicast address. This is only valid
+   in the first node structure, not in the list of extras.
 
  - A four byte length indicates that the address is an IPv4 unicast
    address.

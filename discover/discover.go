@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"sync"
@@ -108,18 +109,34 @@ func (d *Discoverer) announcementPkt() []byte {
 		}
 	}
 	var pkt = AnnounceV2{
-		Magic:     AnnouncementMagicV2,
-		NodeID:    d.myID,
-		Addresses: addrs,
+		Magic: AnnouncementMagicV2,
+		This:  Node{d.myID, addrs},
 	}
 	return pkt.MarshalXDR()
 }
 
 func (d *Discoverer) sendLocalAnnouncements() {
-	var buf = d.announcementPkt()
+	var addrs = resolveAddrs(d.listenAddrs)
+
+	var pkt = AnnounceV2{
+		Magic: AnnouncementMagicV2,
+		This:  Node{d.myID, addrs},
+	}
 
 	for {
-		d.beacon.Send(buf)
+		pkt.Extra = nil
+		d.registryLock.RLock()
+		for node, addrs := range d.registry {
+			if len(pkt.Extra) == 16 {
+				break
+			}
+
+			anode := Node{node, resolveAddrs(addrs)}
+			pkt.Extra = append(pkt.Extra, anode)
+		}
+		d.registryLock.RUnlock()
+
+		d.beacon.Send(pkt.MarshalXDR())
 
 		select {
 		case <-d.localBcastTick:
@@ -144,9 +161,8 @@ func (d *Discoverer) sendExternalAnnouncements() {
 	var buf []byte
 	if d.extPort != 0 {
 		var pkt = AnnounceV2{
-			Magic:     AnnouncementMagicV2,
-			NodeID:    d.myID,
-			Addresses: []Address{{Port: d.extPort}},
+			Magic: AnnouncementMagicV2,
+			This:  Node{d.myID, []Address{{Port: d.extPort}}},
 		}
 		buf = pkt.MarshalXDR()
 	} else {
@@ -203,7 +219,7 @@ func (d *Discoverer) recvAnnouncements() {
 
 		var pkt AnnounceV2
 		err := pkt.UnmarshalXDR(buf)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			continue
 		}
 
@@ -211,33 +227,53 @@ func (d *Discoverer) recvAnnouncements() {
 			dlog.Printf("parsed announcement: %#v", pkt)
 		}
 
-		if pkt.NodeID != d.myID {
-			var addrs []string
-			for _, a := range pkt.Addresses {
-				var nodeAddr string
-				if len(a.IP) > 0 {
-					nodeAddr = fmt.Sprintf("%s:%d", net.IP(a.IP), a.Port)
-				} else {
-					ua := addr.(*net.UDPAddr)
-					ua.Port = int(a.Port)
-					nodeAddr = ua.String()
-				}
-				addrs = append(addrs, nodeAddr)
+		var newNode bool
+		if pkt.This.ID != d.myID {
+			n := d.registerNode(addr, pkt.This)
+			newNode = newNode || n
+		}
+		for _, node := range pkt.Extra {
+			if node.ID != d.myID {
+				n := d.registerNode(nil, node)
+				newNode = newNode || n
 			}
-			if debug {
-				dlog.Printf("register: %#v", addrs)
+		}
+
+		if newNode {
+			select {
+			case d.forcedBcastTick <- time.Now():
 			}
-			d.registryLock.Lock()
-			_, seen := d.registry[pkt.NodeID]
-			if !seen {
-				select {
-				case d.forcedBcastTick <- time.Now():
-				}
-			}
-			d.registry[pkt.NodeID] = addrs
-			d.registryLock.Unlock()
 		}
 	}
+}
+
+func (d *Discoverer) registerNode(addr net.Addr, node Node) bool {
+	var addrs []string
+	for _, a := range node.Addresses {
+		var nodeAddr string
+		if len(a.IP) > 0 {
+			nodeAddr = fmt.Sprintf("%s:%d", net.IP(a.IP), a.Port)
+			addrs = append(addrs, nodeAddr)
+		} else if addr != nil {
+			ua := addr.(*net.UDPAddr)
+			ua.Port = int(a.Port)
+			nodeAddr = ua.String()
+			addrs = append(addrs, nodeAddr)
+		}
+	}
+	if len(addrs) == 0 {
+		if debug {
+			dlog.Println("no valid address for", node.ID)
+		}
+	}
+	if debug {
+		dlog.Printf("register: %s -> %#v", node.ID, addrs)
+	}
+	d.registryLock.Lock()
+	_, seen := d.registry[node.ID]
+	d.registry[node.ID] = addrs
+	d.registryLock.Unlock()
+	return !seen
 }
 
 func (d *Discoverer) externalLookup(node string) []string {
@@ -268,7 +304,7 @@ func (d *Discoverer) externalLookup(node string) []string {
 	}
 	buffers.Put(buf)
 
-	buf = buffers.Get(256)
+	buf = buffers.Get(2048)
 	defer buffers.Put(buf)
 
 	n, err := conn.Read(buf)
@@ -287,7 +323,7 @@ func (d *Discoverer) externalLookup(node string) []string {
 
 	var pkt AnnounceV2
 	err = pkt.UnmarshalXDR(buf[:n])
-	if err != nil {
+	if err != nil && err != io.EOF {
 		log.Println("discover/external/decode:", err)
 		return nil
 	}
@@ -297,9 +333,35 @@ func (d *Discoverer) externalLookup(node string) []string {
 	}
 
 	var addrs []string
-	for _, a := range pkt.Addresses {
+	for _, a := range pkt.This.Addresses {
 		nodeAddr := fmt.Sprintf("%s:%d", net.IP(a.IP), a.Port)
 		addrs = append(addrs, nodeAddr)
 	}
 	return addrs
+}
+
+func addrToAddr(addr *net.TCPAddr) Address {
+	if len(addr.IP) == 0 || addr.IP.IsUnspecified() {
+		return Address{Port: uint16(addr.Port)}
+	} else if bs := addr.IP.To4(); bs != nil {
+		return Address{IP: bs, Port: uint16(addr.Port)}
+	} else if bs := addr.IP.To16(); bs != nil {
+		return Address{IP: bs, Port: uint16(addr.Port)}
+	}
+	return Address{}
+}
+
+func resolveAddrs(addrs []string) []Address {
+	var raddrs []Address
+	for _, addrStr := range addrs {
+		addrRes, err := net.ResolveTCPAddr("tcp", addrStr)
+		if err != nil {
+			continue
+		}
+		addr := addrToAddr(addrRes)
+		if len(addr.IP) > 0 {
+			raddrs = append(raddrs, addr)
+		}
+	}
+	return raddrs
 }

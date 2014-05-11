@@ -11,8 +11,13 @@ type QueryV2 struct {
 }
 
 type AnnounceV2 struct {
-	Magic     uint32
-	NodeID    string    // max:64
+	Magic uint32
+	This  Node
+	Extra []Node // max:16
+}
+
+type Node struct {
+	ID        string    // max:64
 	Addresses []Address // max:16
 }
 
