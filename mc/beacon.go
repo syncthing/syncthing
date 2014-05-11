@@ -10,10 +10,15 @@ type recv struct {
 	src  net.Addr
 }
 
+type dst struct {
+	intf string
+	conn *net.UDPConn
+}
+
 type Beacon struct {
 	group  string
 	port   int
-	conns  []*net.UDPConn
+	conns  []dst
 	inbox  chan []byte
 	outbox chan recv
 }
@@ -61,25 +66,25 @@ func (b *Beacon) run() {
 				dlog.Printf("failed to listen for multicast group on %q: %v", intf.Name, err)
 			}
 		} else {
-			b.conns = append(b.conns, conn)
+			b.conns = append(b.conns, dst{intf.Name, conn})
 			if debug {
 				dlog.Printf("listening for multicast group on %q", intf.Name)
 			}
 		}
 	}
 
-	for _, conn := range b.conns {
-		conn := conn
+	for _, dst := range b.conns {
+		dst := dst
 		go func() {
 			for {
 				var bs = make([]byte, 1500)
-				n, addr, err := conn.ReadFrom(bs)
+				n, addr, err := dst.conn.ReadFrom(bs)
 				if err != nil {
 					dlog.Println(err)
 					return
 				}
 				if debug {
-					dlog.Printf("recv %d bytes from %s on %v", n, addr, conn)
+					dlog.Printf("recv %d bytes from %s on %s", n, addr, dst.intf)
 				}
 				b.outbox <- recv{bs[:n], addr}
 			}
@@ -88,14 +93,14 @@ func (b *Beacon) run() {
 
 	go func() {
 		for bs := range b.inbox {
-			for _, conn := range b.conns {
-				_, err := conn.WriteTo(bs, group)
+			for _, dst := range b.conns {
+				_, err := dst.conn.WriteTo(bs, group)
 				if err != nil {
 					dlog.Println(err)
 					return
 				}
 				if debug {
-					dlog.Printf("sent %d bytes to %s on %v", len(bs), group, conn)
+					dlog.Printf("sent %d bytes to %s on %s", len(bs), group, dst.intf)
 				}
 			}
 		}
