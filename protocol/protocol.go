@@ -90,7 +90,7 @@ type asyncResult struct {
 }
 
 const (
-	pingTimeout  = 2 * time.Minute
+	pingTimeout  = 4 * time.Minute
 	pingIdleTime = 5 * time.Minute
 )
 
