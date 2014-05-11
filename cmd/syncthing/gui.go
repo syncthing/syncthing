@@ -53,6 +53,7 @@ func startGUI(cfg GUIConfiguration, m *Model) error {
 	router.Post("/rest/config", restPostConfig)
 	router.Post("/rest/restart", restPostRestart)
 	router.Post("/rest/reset", restPostReset)
+	router.Post("/rest/shutdown", restPostShutdown)
 	router.Post("/rest/error", restPostError)
 	router.Post("/rest/error/clear", restClearErrors)
 
@@ -156,13 +157,17 @@ func restGetConfigInSync(w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(map[string]bool{"configInSync": configInSync})
 }
 
-func restPostRestart(req *http.Request) {
+func restPostRestart() {
 	go restart()
 }
 
-func restPostReset(req *http.Request) {
+func restPostReset() {
 	resetRepositories()
 	go restart()
+}
+
+func restPostShutdown() {
+	go shutdown()
 }
 
 var cpuUsagePercent [10]float64 // The last ten seconds

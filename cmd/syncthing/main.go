@@ -431,6 +431,10 @@ func restart() {
 	stop <- true
 }
 
+func shutdown() {
+	stop <- true
+}
+
 var saveConfigCh = make(chan struct{})
 
 func saveConfigLoop(cfgFile string) {
