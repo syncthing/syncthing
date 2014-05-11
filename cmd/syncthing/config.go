@@ -57,9 +57,9 @@ type OptionsConfiguration struct {
 	StartBrowser       bool     `xml:"startBrowser" default:"true"`
 	UPnPEnabled        bool     `xml:"upnpEnabled" default:"true"`
 
-	Deprecated_ReadOnly   bool   `xml:"readOnly,omitempty"`
-	Deprecated_GUIEnabled bool   `xml:"guiEnabled,omitempty"`
-	Deprecated_GUIAddress string `xml:"guiAddress,omitempty"`
+	Deprecated_ReadOnly   bool   `xml:"readOnly,omitempty" json:"-"`
+	Deprecated_GUIEnabled bool   `xml:"guiEnabled,omitempty" json:"-"`
+	Deprecated_GUIAddress string `xml:"guiAddress,omitempty" json:"-"`
 }
 
 type GUIConfiguration struct {
