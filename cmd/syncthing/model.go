@@ -323,13 +323,15 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 	}
 
 	lf := r.Get(cid.LocalID, name)
-	if offset > lf.Size {
-		warnf("SECURITY (nonexistent file) REQ(in): %s: %q o=%d s=%d", nodeID, name, offset, size)
-		return nil, ErrNoSuchFile
+	if lf.Suppressed || lf.Flags&protocol.FlagDeleted != 0 {
+		return nil, ErrInvalid
 	}
 
-	if lf.Suppressed {
-		return nil, ErrInvalid
+	if offset > lf.Size {
+		if debugNet {
+			dlog.Printf("REQ(in; nonexistent): %s: %q o=%d s=%d", nodeID, name, offset, size)
+		}
+		return nil, ErrNoSuchFile
 	}
 
 	if debugNet && nodeID != "<local>" {
