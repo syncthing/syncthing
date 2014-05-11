@@ -4,7 +4,7 @@ export COPYFILE_DISABLE=true
 
 distFiles=(README.md LICENSE) # apart from the binary itself
 version=$(git describe --always --dirty)
-date=$(date +%s)
+date=$(git show -s --format=%ct)
 user=$(whoami)
 host=$(hostname)
 host=${host%%.*}
