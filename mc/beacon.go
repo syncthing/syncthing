@@ -86,7 +86,13 @@ func (b *Beacon) run() {
 				if debug {
 					dlog.Printf("recv %d bytes from %s on %s", n, addr, dst.intf)
 				}
-				b.outbox <- recv{bs[:n], addr}
+				select {
+				case b.outbox <- recv{bs[:n], addr}:
+				default:
+					if debug {
+						dlog.Println("Dropping message")
+					}
+				}
 			}
 		}()
 	}
