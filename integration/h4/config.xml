@@ -1,0 +1,36 @@
+<configuration version="2">
+    <repository id="unique" directory="s4" ro="false">
+        <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA" name="s1"></node>
+        <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ" name="s2"></node>
+        <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA" name="s3"></node>
+        <node id="EJHMPAQOGCVORISB4IS3SYYVJXTKJGLTU66DIQPGJ5D2GXGQ3OWQ" name="s4"></node>
+    </repository>
+    <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA" name="s1">
+        <address>127.0.0.1:22001</address>
+    </node>
+    <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ" name="s2">
+        <address>127.0.0.1:22002</address>
+    </node>
+    <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA" name="s3">
+        <address>127.0.0.1:22003</address>
+    </node>
+    <node id="EJHMPAQOGCVORISB4IS3SYYVJXTKJGLTU66DIQPGJ5D2GXGQ3OWQ" name="s4">
+        <address>dynamic</address>
+    </node>
+    <gui enabled="true">
+        <address>127.0.0.1:8084</address>
+    </gui>
+    <options>
+        <listenAddress>:22004</listenAddress>
+        <globalAnnounceServer>announce.syncthing.net:22025</globalAnnounceServer>
+        <globalAnnounceEnabled>false</globalAnnounceEnabled>
+        <localAnnounceEnabled>true</localAnnounceEnabled>
+        <parallelRequests>16</parallelRequests>
+        <maxSendKbps>0</maxSendKbps>
+        <rescanIntervalS>60</rescanIntervalS>
+        <reconnectionIntervalS>10</reconnectionIntervalS>
+        <maxChangeKbps>1000</maxChangeKbps>
+        <startBrowser>false</startBrowser>
+        <upnpEnabled>false</upnpEnabled>
+    </options>
+</configuration>

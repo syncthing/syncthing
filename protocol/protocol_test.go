@@ -174,9 +174,7 @@ func TestClose(t *testing.T) {
 
 	c0.close(nil)
 
-	if !c0.isClosed() {
-		t.Fatal("Connection should be closed")
-	}
+	<-c0.closed
 	if !m0.isClosed() {
 		t.Fatal("Connection should be closed")
 	}

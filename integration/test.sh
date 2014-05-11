@@ -14,7 +14,7 @@ go build json.go
 
 start() {
 	echo "Starting..."
-	for i in 1 2 3 ; do
+	for i in 1 2 3 4 ; do
 		STPROFILER=":909$i" syncthing -home "h$i" &
 	done
 }

@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/calmh/syncthing/buffers"
 	"github.com/calmh/syncthing/xdr"
 )
 
@@ -72,16 +71,18 @@ type rawConnection struct {
 	xr     *xdr.Reader
 	writer io.WriteCloser
 
-	cw     *countingWriter
-	wb     *bufio.Writer
-	xw     *xdr.Writer
-	wmut   sync.Mutex
-	closed bool
+	cw   *countingWriter
+	wb   *bufio.Writer
+	xw   *xdr.Writer
+	wmut sync.Mutex
 
-	awaiting  map[int]chan asyncResult
-	nextID    int
 	indexSent map[string]map[string][2]int64
+	awaiting  []chan asyncResult
 	imut      sync.Mutex
+
+	nextID chan int
+	outbox chan []encodable
+	closed chan struct{}
 }
 
 type asyncResult struct {
@@ -115,12 +116,17 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 		cw:        cw,
 		wb:        wb,
 		xw:        xdr.NewWriter(wb),
-		awaiting:  make(map[int]chan asyncResult),
+		awaiting:  make([]chan asyncResult, 0x1000),
 		indexSent: make(map[string]map[string][2]int64),
+		outbox:    make(chan []encodable),
+		nextID:    make(chan int),
+		closed:    make(chan struct{}),
 	}
 
 	go c.readerLoop()
+	go c.writerLoop()
 	go c.pingerLoop()
+	go c.idGenerator()
 
 	return wireFormatConnection{&c}
 }
@@ -131,10 +137,6 @@ func (c *rawConnection) ID() string {
 
 // Index writes the list of file information to the connected peer node
 func (c *rawConnection) Index(repo string, idx []FileInfo) {
-	if c.isClosed() {
-		return
-	}
-
 	c.imut.Lock()
 	var msgType int
 	if c.indexSent[repo] == nil {
@@ -157,48 +159,32 @@ func (c *rawConnection) Index(repo string, idx []FileInfo) {
 		}
 		idx = diff
 	}
-
-	id := c.nextID
-	c.nextID = (c.nextID + 1) & 0xfff
 	c.imut.Unlock()
 
-	c.wmut.Lock()
-	header{0, id, msgType}.encodeXDR(c.xw)
-	IndexMessage{repo, idx}.encodeXDR(c.xw)
-	err := c.flush()
-	c.wmut.Unlock()
-
-	if err != nil {
-		c.close(err)
-		return
-	}
+	c.send(header{0, -1, msgType}, IndexMessage{repo, idx})
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
 func (c *rawConnection) Request(repo string, name string, offset int64, size int) ([]byte, error) {
-	if c.isClosed() {
+	var id int
+	select {
+	case id = <-c.nextID:
+	case <-c.closed:
 		return nil, ErrClosed
 	}
 
 	c.imut.Lock()
-	id := c.nextID
-	c.nextID = (c.nextID + 1) & 0xfff
-	rc := make(chan asyncResult)
-	if _, ok := c.awaiting[id]; ok {
+	if ch := c.awaiting[id]; ch != nil {
 		panic("id taken")
 	}
+	rc := make(chan asyncResult)
 	c.awaiting[id] = rc
 	c.imut.Unlock()
 
-	c.wmut.Lock()
-	header{0, id, messageTypeRequest}.encodeXDR(c.xw)
-	RequestMessage{repo, name, uint64(offset), uint32(size)}.encodeXDR(c.xw)
-	err := c.flush()
-	c.wmut.Unlock()
-
-	if err != nil {
-		c.close(err)
-		return nil, err
+	ok := c.send(header{0, id, messageTypeRequest},
+		RequestMessage{repo, name, uint64(offset), uint32(size)})
+	if !ok {
+		return nil, ErrClosed
 	}
 
 	res, ok := <-rc
@@ -210,50 +196,219 @@ func (c *rawConnection) Request(repo string, name string, offset int64, size int
 
 // ClusterConfig send the cluster configuration message to the peer and returns any error
 func (c *rawConnection) ClusterConfig(config ClusterConfigMessage) {
-	if c.isClosed() {
-		return
-	}
-
-	c.imut.Lock()
-	id := c.nextID
-	c.nextID = (c.nextID + 1) & 0xfff
-	c.imut.Unlock()
-
-	c.wmut.Lock()
-	header{0, id, messageTypeClusterConfig}.encodeXDR(c.xw)
-	config.encodeXDR(c.xw)
-	err := c.flush()
-	c.wmut.Unlock()
-
-	if err != nil {
-		c.close(err)
-	}
+	c.send(header{0, -1, messageTypeClusterConfig}, config)
 }
 
 func (c *rawConnection) ping() bool {
-	if c.isClosed() {
+	var id int
+	select {
+	case id = <-c.nextID:
+	case <-c.closed:
 		return false
 	}
 
-	c.imut.Lock()
-	id := c.nextID
-	c.nextID = (c.nextID + 1) & 0xfff
 	rc := make(chan asyncResult, 1)
+	c.imut.Lock()
 	c.awaiting[id] = rc
 	c.imut.Unlock()
 
-	c.wmut.Lock()
-	header{0, id, messageTypePing}.encodeXDR(c.xw)
-	err := c.flush()
-	c.wmut.Unlock()
-
-	if err != nil {
-		c.close(err)
+	ok := c.send(header{0, id, messageTypePing})
+	if !ok {
 		return false
 	}
 
 	res, ok := <-rc
 	return ok && res.err == nil
+}
+
+func (c *rawConnection) readerLoop() (err error) {
+	defer func() {
+		c.close(err)
+	}()
+
+	for {
+		select {
+		case <-c.closed:
+			return ErrClosed
+		default:
+		}
+
+		var hdr header
+		hdr.decodeXDR(c.xr)
+		if err := c.xr.Error(); err != nil {
+			return err
+		}
+		if hdr.version != 0 {
+			return fmt.Errorf("protocol error: %s: unknown message version %#x", c.id, hdr.version)
+		}
+
+		switch hdr.msgType {
+		case messageTypeIndex:
+			if err := c.handleIndex(); err != nil {
+				return err
+			}
+
+		case messageTypeIndexUpdate:
+			if err := c.handleIndexUpdate(); err != nil {
+				return err
+			}
+
+		case messageTypeRequest:
+			if err := c.handleRequest(hdr); err != nil {
+				return err
+			}
+
+		case messageTypeResponse:
+			if err := c.handleResponse(hdr); err != nil {
+				return err
+			}
+
+		case messageTypePing:
+			c.send(header{0, hdr.msgID, messageTypePong})
+
+		case messageTypePong:
+			c.handlePong(hdr)
+
+		case messageTypeClusterConfig:
+			if err := c.handleClusterConfig(); err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("protocol error: %s: unknown message type %#x", c.id, hdr.msgType)
+		}
+	}
+}
+
+func (c *rawConnection) handleIndex() error {
+	var im IndexMessage
+	im.decodeXDR(c.xr)
+	if err := c.xr.Error(); err != nil {
+		return err
+	} else {
+
+		// We run this (and the corresponding one for update, below)
+		// in a separate goroutine to avoid blocking the read loop.
+		// There is otherwise a potential deadlock where both sides
+		// has the model locked because it's sending a large index
+		// update and can't receive the large index update from the
+		// other side.
+
+		go c.receiver.Index(c.id, im.Repository, im.Files)
+	}
+	return nil
+}
+
+func (c *rawConnection) handleIndexUpdate() error {
+	var im IndexMessage
+	im.decodeXDR(c.xr)
+	if err := c.xr.Error(); err != nil {
+		return err
+	} else {
+		go c.receiver.IndexUpdate(c.id, im.Repository, im.Files)
+	}
+	return nil
+}
+
+func (c *rawConnection) handleRequest(hdr header) error {
+	var req RequestMessage
+	req.decodeXDR(c.xr)
+	if err := c.xr.Error(); err != nil {
+		return err
+	}
+	go c.processRequest(hdr.msgID, req)
+	return nil
+}
+
+func (c *rawConnection) handleResponse(hdr header) error {
+	data := c.xr.ReadBytesMax(256 * 1024) // Sufficiently larger than max expected block size
+
+	if err := c.xr.Error(); err != nil {
+		return err
+	}
+
+	go func(hdr header, err error) {
+		c.imut.Lock()
+		rc := c.awaiting[hdr.msgID]
+		c.awaiting[hdr.msgID] = nil
+		c.imut.Unlock()
+
+		if rc != nil {
+			rc <- asyncResult{data, err}
+			close(rc)
+		}
+	}(hdr, c.xr.Error())
+
+	return nil
+}
+
+func (c *rawConnection) handlePong(hdr header) {
+	c.imut.Lock()
+	if rc := c.awaiting[hdr.msgID]; rc != nil {
+		go func() {
+			rc <- asyncResult{}
+			close(rc)
+		}()
+
+		c.awaiting[hdr.msgID] = nil
+	}
+	c.imut.Unlock()
+}
+
+func (c *rawConnection) handleClusterConfig() error {
+	var cm ClusterConfigMessage
+	cm.decodeXDR(c.xr)
+	if err := c.xr.Error(); err != nil {
+		return err
+	} else {
+		go c.receiver.ClusterConfig(c.id, cm)
+	}
+	return nil
+}
+
+type encodable interface {
+	encodeXDR(*xdr.Writer) (int, error)
+}
+type encodableBytes []byte
+
+func (e encodableBytes) encodeXDR(xw *xdr.Writer) (int, error) {
+	return xw.WriteBytes(e)
+}
+
+func (c *rawConnection) send(h header, es ...encodable) bool {
+	if h.msgID < 0 {
+		select {
+		case id := <-c.nextID:
+			h.msgID = id
+		case <-c.closed:
+			return false
+		}
+	}
+	msg := append([]encodable{h}, es...)
+
+	select {
+	case c.outbox <- msg:
+		return true
+	case <-c.closed:
+		return false
+	}
+}
+
+func (c *rawConnection) writerLoop() {
+	var err error
+	for es := range c.outbox {
+		c.wmut.Lock()
+		for _, e := range es {
+			e.encodeXDR(c.xw)
+		}
+
+		if err = c.flush(); err != nil {
+			c.wmut.Unlock()
+			c.close(err)
+			return
+		}
+		c.wmut.Unlock()
+	}
 }
 
 type flusher interface {
@@ -282,154 +437,35 @@ func (c *rawConnection) close(err error) {
 	defer c.imut.Unlock()
 	defer c.wmut.Unlock()
 
-	if c.closed {
+	select {
+	case <-c.closed:
 		return
-	}
+	default:
+		close(c.closed)
 
-	c.closed = true
-
-	for _, ch := range c.awaiting {
-		close(ch)
-	}
-	c.awaiting = nil
-	c.writer.Close()
-	c.reader.Close()
-
-	c.receiver.Close(c.id, err)
-}
-
-func (c *rawConnection) isClosed() bool {
-	c.wmut.Lock()
-	defer c.wmut.Unlock()
-	return c.closed
-}
-
-func (c *rawConnection) readerLoop() {
-loop:
-	for !c.isClosed() {
-		var hdr header
-		hdr.decodeXDR(c.xr)
-		if err := c.xr.Error(); err != nil {
-			c.close(err)
-			break loop
-		}
-		if hdr.version != 0 {
-			c.close(fmt.Errorf("protocol error: %s: unknown message version %#x", c.id, hdr.version))
-			break loop
+		for i, ch := range c.awaiting {
+			if ch != nil {
+				close(ch)
+				c.awaiting[i] = nil
+			}
 		}
 
-		switch hdr.msgType {
-		case messageTypeIndex:
-			var im IndexMessage
-			im.decodeXDR(c.xr)
-			if err := c.xr.Error(); err != nil {
-				c.close(err)
-				break loop
-			} else {
+		c.writer.Close()
+		c.reader.Close()
 
-				// We run this (and the corresponding one for update, below)
-				// in a separate goroutine to avoid blocking the read loop.
-				// There is otherwise a potential deadlock where both sides
-				// has the model locked because it's sending a large index
-				// update and can't receive the large index update from the
-				// other side.
-
-				go c.receiver.Index(c.id, im.Repository, im.Files)
-			}
-
-		case messageTypeIndexUpdate:
-			var im IndexMessage
-			im.decodeXDR(c.xr)
-			if err := c.xr.Error(); err != nil {
-				c.close(err)
-				break loop
-			} else {
-				go c.receiver.IndexUpdate(c.id, im.Repository, im.Files)
-			}
-
-		case messageTypeRequest:
-			var req RequestMessage
-			req.decodeXDR(c.xr)
-			if err := c.xr.Error(); err != nil {
-				c.close(err)
-				break loop
-			}
-			go c.processRequest(hdr.msgID, req)
-
-		case messageTypeResponse:
-			data := c.xr.ReadBytesMax(256 * 1024) // Sufficiently larger than max expected block size
-
-			if err := c.xr.Error(); err != nil {
-				c.close(err)
-				break loop
-			}
-
-			go func(hdr header, err error) {
-				c.imut.Lock()
-				rc, ok := c.awaiting[hdr.msgID]
-				delete(c.awaiting, hdr.msgID)
-				c.imut.Unlock()
-
-				if ok {
-					rc <- asyncResult{data, err}
-					close(rc)
-				}
-			}(hdr, c.xr.Error())
-
-		case messageTypePing:
-			c.wmut.Lock()
-			header{0, hdr.msgID, messageTypePong}.encodeXDR(c.xw)
-			err := c.flush()
-			c.wmut.Unlock()
-			if err != nil {
-				c.close(err)
-				break loop
-			}
-
-		case messageTypePong:
-			c.imut.Lock()
-			rc, ok := c.awaiting[hdr.msgID]
-
-			if ok {
-				go func() {
-					rc <- asyncResult{}
-					close(rc)
-				}()
-
-				delete(c.awaiting, hdr.msgID)
-			}
-			c.imut.Unlock()
-
-		case messageTypeClusterConfig:
-			var cm ClusterConfigMessage
-			cm.decodeXDR(c.xr)
-			if err := c.xr.Error(); err != nil {
-				c.close(err)
-				break loop
-			} else {
-				go c.receiver.ClusterConfig(c.id, cm)
-			}
-
-		default:
-			c.close(fmt.Errorf("protocol error: %s: unknown message type %#x", c.id, hdr.msgType))
-			break loop
-		}
+		c.receiver.Close(c.id, err)
 	}
 }
 
-func (c *rawConnection) processRequest(msgID int, req RequestMessage) {
-	data, _ := c.receiver.Request(c.id, req.Repository, req.Name, int64(req.Offset), int(req.Size))
-
-	c.wmut.Lock()
-	header{0, msgID, messageTypeResponse}.encodeXDR(c.xw)
-	c.xw.WriteBytes(data)
-	err := c.flush()
-	c.wmut.Unlock()
-
-	buffers.Put(data)
-
-	if err != nil {
-		c.close(err)
+func (c *rawConnection) idGenerator() {
+	nextID := 0
+	for {
+		nextID = (nextID + 1) & 0xfff
+		select {
+		case c.nextID <- nextID:
+		case <-c.closed:
+			return
+		}
 	}
 }
 
@@ -437,9 +473,6 @@ func (c *rawConnection) pingerLoop() {
 	var rc = make(chan bool, 1)
 	ticker := time.Tick(pingIdleTime / 2)
 	for {
-		if c.isClosed() {
-			return
-		}
 		select {
 		case <-ticker:
 			go func() {
@@ -452,9 +485,21 @@ func (c *rawConnection) pingerLoop() {
 				}
 			case <-time.After(pingTimeout):
 				c.close(fmt.Errorf("ping timeout"))
+			case <-c.closed:
+				return
 			}
+
+		case <-c.closed:
+			return
 		}
 	}
+}
+
+func (c *rawConnection) processRequest(msgID int, req RequestMessage) {
+	data, _ := c.receiver.Request(c.id, req.Repository, req.Name, int64(req.Offset), int(req.Size))
+
+	c.send(header{0, msgID, messageTypeResponse},
+		encodableBytes(data))
 }
 
 type Statistics struct {
