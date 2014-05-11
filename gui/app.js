@@ -77,6 +77,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         return a.NodeID > b.NodeID;
     }
 
+    function repoCompare(a, b) {
+        if (a.Directory < b.Directory) {
+            return -1;
+        }
+        return a.Directory > b.Directory;
+    }
+
     $scope.refresh = function () {
         $http.get(urlbase + '/system').success(function (data) {
             getSucceeded();
@@ -437,11 +444,11 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             $scope.config = data;
             $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
 
-            var nodes = $scope.config.Nodes;
-            nodes.sort(nodeCompare);
-            $scope.nodes = nodes;
+            $scope.nodes = $scope.config.Nodes;
+            $scope.nodes.sort(nodeCompare);
 
             $scope.repos = $scope.config.Repositories;
+            $scope.repos.sort(repoCompare);
 
             $scope.refresh();
         });
