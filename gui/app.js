@@ -44,10 +44,12 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     function getSucceeded() {
         if (!getOK) {
+            $scope.init();
             $('#networkError').modal('hide');
             getOK = true;
         }
         if (restarting) {
+            $scope.init();
             $('#restarting').modal('hide');
             restarting = false;
         }
@@ -421,32 +423,35 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
     };
 
-    $http.get(urlbase + '/version').success(function (data) {
-        $scope.version = data;
-    });
+    $scope.init = function() {
+        $http.get(urlbase + '/version').success(function (data) {
+            $scope.version = data;
+        });
 
-    $http.get(urlbase + '/system').success(function (data) {
-        $scope.system = data;
-        $scope.myID = data.myID;
-    });
+        $http.get(urlbase + '/system').success(function (data) {
+            $scope.system = data;
+            $scope.myID = data.myID;
+        });
 
-    $http.get(urlbase + '/config').success(function (data) {
-        $scope.config = data;
-        $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
+        $http.get(urlbase + '/config').success(function (data) {
+            $scope.config = data;
+            $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
 
-        var nodes = $scope.config.Nodes;
-        nodes.sort(nodeCompare);
-        $scope.nodes = nodes;
+            var nodes = $scope.config.Nodes;
+            nodes.sort(nodeCompare);
+            $scope.nodes = nodes;
 
-        $scope.repos = $scope.config.Repositories;
+            $scope.repos = $scope.config.Repositories;
 
-        $scope.refresh();
-    });
+            $scope.refresh();
+        });
 
-    $http.get(urlbase + '/config/sync').success(function (data) {
-        $scope.configInSync = data.configInSync;
-    });
+        $http.get(urlbase + '/config/sync').success(function (data) {
+            $scope.configInSync = data.configInSync;
+        });
+    };
 
+    $scope.init();
     setInterval($scope.refresh, 10000);
 });
 
