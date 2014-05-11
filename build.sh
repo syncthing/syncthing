@@ -22,7 +22,6 @@ build() {
 		godep=
 	fi
 	${godep} go build $* -ldflags "$ldflags" ./cmd/syncthing
-	${godep} go build -ldflags "$ldflags" ./cmd/stcli
 }
 
 assets() {
@@ -64,7 +63,7 @@ zipDist() {
 }
 
 deps() {
-	godep save ./cmd/syncthing ./cmd/assets ./cmd/stcli ./discover/cmd/discosrv
+	godep save ./cmd/syncthing ./cmd/assets ./discover/cmd/discosrv
 }
 
 case "$1" in
