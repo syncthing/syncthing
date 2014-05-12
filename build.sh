@@ -10,25 +10,28 @@ host=$(hostname)
 host=${host%%.*}
 ldflags="-w -X main.Version $version -X main.BuildStamp $date -X main.BuildUser $user -X main.BuildHost $host"
 
+check() {
+	if ! command -v godep >/dev/null ; then
+		echo "Error: no godep. Try \"$0 setup\"."
+		exit 1
+	fi
+}
+
 build() {
+	check
+
 	go vet ./... || exit 1
 
-	if command -v godep >/dev/null ; then
-		godep=godep
-	else
-		echo "Warning: no godep, using \"go get\" instead."
-		echo "Try \"go get github.com/tools/godep\"."
-		go get -d ./cmd/syncthing
-		godep=
-	fi
-	${godep} go build $* -ldflags "$ldflags" ./cmd/syncthing
+	godep go build $* -ldflags "$ldflags" ./cmd/syncthing
 }
 
 assets() {
+	check
 	godep go run cmd/assets/assets.go gui > auto/gui.files.go
 }
 
 test() {
+	check
 	godep go test -cpu=1,2,4 ./...
 }
 
@@ -63,7 +66,15 @@ zipDist() {
 }
 
 deps() {
+	check
 	godep save ./cmd/syncthing ./cmd/assets ./discover/cmd/discosrv
+}
+
+setup() {
+	echo Installing godep...
+	go get -u github.com/tools/godep
+	echo Installing go vet...
+	go get -u code.google.com/p/go.tools/cmd/vet
 }
 
 case "$1" in
@@ -147,6 +158,10 @@ case "$1" in
 
 	assets)
 		assets
+		;;
+
+	setup)
+		setup
 		;;
 
 	*)
