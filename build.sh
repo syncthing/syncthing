@@ -87,6 +87,10 @@ case "$1" in
 		build -race
 		;;
 
+	guidev)
+		build -tags guidev
+		;;
+
 	test)
 		test
 		;;
