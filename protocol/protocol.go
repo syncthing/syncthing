@@ -453,7 +453,7 @@ func (c *rawConnection) close(err error) {
 		c.writer.Close()
 		c.reader.Close()
 
-		c.receiver.Close(c.id, err)
+		go c.receiver.Close(c.id, err)
 	}
 }
 
