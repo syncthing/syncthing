@@ -1,7 +1,5 @@
 #!/bin/bash
 
-export STNORESTART=1
-
 iterations=${1:-5}
 
 id1=I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA
@@ -137,4 +135,6 @@ for ((t = 1; t <= $iterations; t++)) ; do
 	testConvergence
 done
 
-pkill syncthing
+for i in 1 2 3 4 ; do
+	curl -X POST "http://localhost:808$i/rest/shutdown"
+done
