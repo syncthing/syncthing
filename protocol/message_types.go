@@ -2,7 +2,7 @@ package protocol
 
 type IndexMessage struct {
 	Repository string     // max:64
-	Files      []FileInfo // max:100000
+	Files      []FileInfo // max:1000000
 }
 
 type FileInfo struct {

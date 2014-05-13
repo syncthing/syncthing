@@ -24,7 +24,7 @@ func (o IndexMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteString(o.Repository)
-	if len(o.Files) > 100000 {
+	if len(o.Files) > 1000000 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteUint32(uint32(len(o.Files)))
@@ -48,7 +48,7 @@ func (o *IndexMessage) UnmarshalXDR(bs []byte) error {
 func (o *IndexMessage) decodeXDR(xr *xdr.Reader) error {
 	o.Repository = xr.ReadStringMax(64)
 	_FilesSize := int(xr.ReadUint32())
-	if _FilesSize > 100000 {
+	if _FilesSize > 1000000 {
 		return xdr.ErrElementSizeExceeded
 	}
 	o.Files = make([]FileInfo, _FilesSize)
