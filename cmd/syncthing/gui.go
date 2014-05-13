@@ -49,6 +49,7 @@ func startGUI(cfg GUIConfiguration, m *Model) error {
 	router.Get("/rest/config/sync", restGetConfigInSync)
 	router.Get("/rest/system", restGetSystem)
 	router.Get("/rest/errors", restGetErrors)
+	router.Get("/rest/discovery", restGetDiscovery)
 
 	router.Post("/rest/config", restPostConfig)
 	router.Post("/rest/restart", restPostRestart)
@@ -241,6 +242,10 @@ func restPostDiscoveryHint(r *http.Request) {
 	if len(node) != 0 && len(addr) != 0 && discoverer != nil {
 		discoverer.Hint(node, []string{addr})
 	}
+}
+
+func restGetDiscovery(w http.ResponseWriter) {
+	json.NewEncoder(w).Encode(discoverer.All())
 }
 
 func basic(username string, passhash string) http.HandlerFunc {

@@ -98,6 +98,18 @@ func (d *Discoverer) Hint(node string, addrs []string) {
 	})
 }
 
+func (d *Discoverer) All() map[string][]string {
+	d.registryLock.RLock()
+	nodes := make(map[string][]string, len(d.registry))
+	for node, addrs := range d.registry {
+		addrsCopy := make([]string, len(addrs))
+		copy(addrsCopy, addrs)
+		nodes[node] = addrsCopy
+	}
+	d.registryLock.RUnlock()
+	return nodes
+}
+
 func (d *Discoverer) announcementPkt() []byte {
 	var addrs []Address
 	for _, astr := range d.listenAddrs {
