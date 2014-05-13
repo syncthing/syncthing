@@ -362,8 +362,8 @@
             <div class="form-group">
               <label for="nodeID">Node ID</label>
               <input ng-if="!editingExisting" id="nodeID" class="form-control" type="text" ng-model="currentNode.NodeID"></input>
-              <div ng-if="editingExisting" class="well well-sm">{{currentNode.NodeID}}</div>
-              <p class="help-block">The node ID can be found in the "Add Node" dialog on the other node.</p>
+              <div ng-if="editingExisting" class="well well-sm">{{currentNode.NodeID | chunkID}}</div>
+              <p class="help-block">The node ID can be found in the "Add Node" dialog on the other node. Spaces are ignored.</p>
             </div>
             <div class="form-group">
               <label for="name">Name</label>
@@ -378,7 +378,7 @@
           </form>
           <div ng-show="!editingExisting">
             When adding a new node, keep in mind that <em>this node</em> must be added on the other side too. The Node ID of this node is:
-            <pre>{{myID}}</pre>
+            <pre>{{myID | chunkID}}</pre>
           </div>
         </div>
         <div class="modal-footer">
