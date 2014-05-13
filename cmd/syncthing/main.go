@@ -84,12 +84,16 @@ func main() {
 	var reset bool
 	var showVersion bool
 	var doUpgrade bool
-	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
+	flag.StringVar(&confDir, "home", "", "Set configuration directory")
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
 	flag.Parse()
+
+	if (confDir == "") {
+		confDir = getDefaultConfDir()
+	}
 
 	if len(os.Getenv("STRESTART")) > 0 {
 		// Give the parent process time to exit and release sockets etc.
