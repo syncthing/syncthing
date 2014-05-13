@@ -44,7 +44,7 @@ message boundary. Compression SHALL use the DEFLATE format as specified
 in RFC 1951.
 
 The encryption and authentication layer SHALL use TLS 1.2 or a higher
-revision. A strong cipher suite SHALL be used, with "string cipher
+revision. A strong cipher suite SHALL be used, with "strong cipher
 suite" being defined as being without known weaknesses and providing
 Perfect Forward Secrecy (PFS). Examples of strong cipher suites are
 given at the end of this document. This is not to be taken as an
