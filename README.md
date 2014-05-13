@@ -5,8 +5,8 @@ This is the `syncthing` project. The following are the project goals:
 
  1. Define a protocol for synchronization of a file repository between a
     number of collaborating nodes. The protocol should be well defined,
-    unambigous, easily understood, free to use, efficient, secure and
-    languange neutral. This is the [Block Exchange
+    unambiguous, easily understood, free to use, efficient, secure and
+    language neutral. This is the [Block Exchange
     Protocol](https://github.com/calmh/syncthing/blob/master/protocol/PROTOCOL.md).
 
  2. Provide the reference implementation to demonstrate the usability of
