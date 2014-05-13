@@ -556,9 +556,16 @@ func (m *Model) ScanRepos() {
 	}
 	m.rmut.RUnlock()
 
+	var wg sync.WaitGroup
+	wg.Add(len(repos))
 	for _, repo := range repos {
-		m.ScanRepo(repo)
+		repo := repo
+		go func() {
+			m.ScanRepo(repo)
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
 
 func (m *Model) ScanRepo(repo string) error {
