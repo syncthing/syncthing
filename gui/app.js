@@ -309,6 +309,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $scope.configInSync = false;
         $('#editNode').modal('hide');
         nodeCfg = $scope.currentNode;
+        nodeCfg.NodeID = nodeCfg.NodeID.replace(/ /g, '').trim();
         nodeCfg.Addresses = nodeCfg.AddressesStr.split(',').map(function (x) { return x.trim(); });
 
         done = false;
@@ -535,6 +536,12 @@ syncthing.filter('alwaysNumber', function () {
         }
         return input;
     };
+});
+
+syncthing.filter('chunkID', function () {
+    return function (input) {
+        return input.match(/.{1,6}/g).join(' ');
+    }
 });
 
 syncthing.directive('optionEditor', function () {
