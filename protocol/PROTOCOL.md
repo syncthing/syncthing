@@ -38,7 +38,7 @@ level protocols providing compression, encryption and authentication.
     |-----------------------------|
     v             ...             v
 
-Compression is started directly after a successfull TLS handshake,
+Compression is started directly after a successful TLS handshake,
 before the first message is sent. The compression is flushed at each
 message boundary. Compression SHALL use the DEFLATE format as specified
 in RFC 1951.
@@ -82,7 +82,7 @@ For BEP v1 the Version field is set to zero. Future versions with
 incompatible message formats will increment the Version field. A message
 with an unknown version is a protocol error and MUST result in the
 connection being terminated. A client supporting multiple versions MAY
-retry with a different protcol version upon disconnection.
+retry with a different protocol version upon disconnection.
 
 The Type field indicates the type of data following the message header
 and is one of the integers defined below. A message of an unknown type
@@ -262,7 +262,7 @@ pairs, both of string type. Key ID:s are implementation specific. An
 implementation MUST ignore unknown keys. An implementation MAY impose
 limits on the length keys and values. The options list may be used to
 inform nodes of relevant local configuration options such as rate
-limiting or make recommendations about request parallellism, node
+limiting or make recommendations about request parallelism, node
 priorities, etc. An empty options list is valid for nodes not having any
 such information to share. Nodes MAY NOT make any assumptions about
 peers acting in a specific manner as a result of sent options.
@@ -392,7 +392,7 @@ The Flags field is made up of the following single bit flags:
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
  - The lower 12 bits hold the common Unix permission and mode bits. An
-   implemention MAY ignore or interpret these as is suitable on the host
+   implementation MAY ignore or interpret these as is suitable on the host
    operating system.
 
  - Bit 19 ("D") is set when the file has been deleted. The block list
