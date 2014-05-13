@@ -56,6 +56,7 @@ func startGUI(cfg GUIConfiguration, m *Model) error {
 	router.Post("/rest/shutdown", restPostShutdown)
 	router.Post("/rest/error", restPostError)
 	router.Post("/rest/error/clear", restClearErrors)
+	router.Post("/rest/discovery/hint", restPostDiscoveryHint)
 
 	mr := martini.New()
 	if len(cfg.User) > 0 && len(cfg.Password) > 0 {
@@ -231,6 +232,15 @@ func showGuiError(err string) {
 		guiErrors = guiErrors[len(guiErrors)-5:]
 	}
 	guiErrorsMut.Unlock()
+}
+
+func restPostDiscoveryHint(r *http.Request) {
+	var qs = r.URL.Query()
+	var node = qs.Get("node")
+	var addr = qs.Get("addr")
+	if len(node) != 0 && len(addr) != 0 && discoverer != nil {
+		discoverer.Hint(node, []string{addr})
+	}
 }
 
 func basic(username string, passhash string) http.HandlerFunc {

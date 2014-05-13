@@ -90,6 +90,14 @@ func (d *Discoverer) Lookup(node string) []string {
 	return nil
 }
 
+func (d *Discoverer) Hint(node string, addrs []string) {
+	resAddrs := resolveAddrs(addrs)
+	d.registerNode(nil, Node{
+		ID:        node,
+		Addresses: resAddrs,
+	})
+}
+
 func (d *Discoverer) announcementPkt() []byte {
 	var addrs []Address
 	for _, astr := range d.listenAddrs {
