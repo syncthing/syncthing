@@ -171,6 +171,11 @@ func readConfigXML(rd io.Reader, myID string) (Configuration, error) {
 
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 
+	// Initialize an empty slice for repositories if the config has none
+	if cfg.Repositories == nil {
+		cfg.Repositories = []RepositoryConfiguration{}
+	}
+
 	// Check for missing, bad or duplicate repository ID:s
 	var seenRepos = map[string]*RepositoryConfiguration{}
 	for i := range cfg.Repositories {
