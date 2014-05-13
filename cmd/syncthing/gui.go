@@ -157,17 +157,26 @@ func restGetConfigInSync(w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(map[string]bool{"configInSync": configInSync})
 }
 
-func restPostRestart() {
+func restPostRestart(w http.ResponseWriter) {
+	flushResponse(`{"ok": "restarting"}`, w)
 	go restart()
 }
 
-func restPostReset() {
+func restPostReset(w http.ResponseWriter) {
+	flushResponse(`{"ok": "resetting repos"}`, w)
 	resetRepositories()
 	go restart()
 }
 
-func restPostShutdown() {
+func restPostShutdown(w http.ResponseWriter) {
+	flushResponse(`{"ok": "shutting down"}`, w)
 	go shutdown()
+}
+
+func flushResponse(s string, w http.ResponseWriter) {
+	w.Write([]byte(s + "\n"))
+	f := w.(http.Flusher)
+	f.Flush()
 }
 
 var cpuUsagePercent [10]float64 // The last ten seconds
