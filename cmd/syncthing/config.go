@@ -45,7 +45,7 @@ type NodeConfiguration struct {
 }
 
 type OptionsConfiguration struct {
-	ListenAddress      []string `xml:"listenAddress" default:":22000"`
+	ListenAddress      []string `xml:"listenAddress" default:"0.0.0.0:22000"`
 	GlobalAnnServer    string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22025"`
 	GlobalAnnEnabled   bool     `xml:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled    bool     `xml:"localAnnounceEnabled" default:"true"`
