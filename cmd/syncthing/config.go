@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io"
 	"os"
 	"reflect"
@@ -178,6 +179,7 @@ func readConfigXML(rd io.Reader, myID string) (Configuration, error) {
 
 	// Check for missing, bad or duplicate repository ID:s
 	var seenRepos = map[string]*RepositoryConfiguration{}
+	var uniqueCounter int
 	for i := range cfg.Repositories {
 		repo := &cfg.Repositories[i]
 
@@ -191,9 +193,16 @@ func readConfigXML(rd io.Reader, myID string) (Configuration, error) {
 		}
 
 		if seen, ok := seenRepos[repo.ID]; ok {
-			seen.Invalid = "duplicate repository ID"
-			repo.Invalid = "duplicate repository ID"
 			warnf("Multiple repositories with ID %q; disabling", repo.ID)
+
+			seen.Invalid = "duplicate repository ID"
+			if seen.ID == repo.ID {
+				uniqueCounter++
+				seen.ID = fmt.Sprintf("%s~%d", repo.ID, uniqueCounter)
+			}
+			repo.Invalid = "duplicate repository ID"
+			uniqueCounter++
+			repo.ID = fmt.Sprintf("%s~%d", repo.ID, uniqueCounter)
 		} else {
 			seenRepos[repo.ID] = repo
 		}
