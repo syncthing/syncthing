@@ -19,7 +19,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.errors = [];
     $scope.seenError = '';
     $scope.model = {};
-    $scope.repos = [];
+    $scope.repos = {};
 
     // Strings before bools look better
     $scope.settings = [
@@ -65,25 +65,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }
     }
 
-    function nodeCompare(a, b) {
-        if (typeof a.Name !== 'undefined' && typeof b.Name !== 'undefined') {
-            if (a.Name < b.Name)
-                return -1;
-            return a.Name > b.Name;
-        }
-        if (a.NodeID < b.NodeID) {
-            return -1;
-        }
-        return a.NodeID > b.NodeID;
-    }
-
-    function repoCompare(a, b) {
-        if (a.Directory < b.Directory) {
-            return -1;
-        }
-        return a.Directory > b.Directory;
-    }
-
     $scope.refresh = function () {
         $http.get(urlbase + '/system').success(function (data) {
             getSucceeded();
@@ -91,9 +72,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }).error(function () {
             getFailed();
         });
-        $scope.repos.forEach(function (repo) {
-            $http.get(urlbase + '/model?repo=' + encodeURIComponent(repo.ID)).success(function (data) {
-                $scope.model[repo.ID] = data;
+        Object.keys($scope.repos).forEach(function (id) {
+            $http.get(urlbase + '/model?repo=' + encodeURIComponent(id)).success(function (data) {
+                $scope.model[id] = data;
             });
         });
         $http.get(urlbase + '/connections').success(function (data) {
@@ -272,6 +253,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $scope.editingExisting = true;
         $scope.editingSelf = (nodeCfg.NodeID == $scope.myID);
         $scope.currentNode.AddressesStr = nodeCfg.Addresses.join(', ');
+        $scope.nodeEditor.$setPristine();
         $('#editNode').modal({backdrop: 'static', keyboard: true});
     };
 
@@ -279,6 +261,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $scope.currentNode = {AddressesStr: 'dynamic'};
         $scope.editingExisting = false;
         $scope.editingSelf = false;
+        $scope.nodeEditor.$setPristine();
         $('#editNode').modal({backdrop: 'static', keyboard: true});
     };
 
@@ -293,8 +276,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         });
         $scope.config.Nodes = $scope.nodes;
 
-        for (var i = 0; i < $scope.repos.length; i++) {
-            $scope.repos[i].Nodes = $scope.repos[i].Nodes.filter(function (n) {
+        for (var id in repos) {
+            $scope.repos[id].Nodes = $scope.repos[id].Nodes.filter(function (n) {
                 return n.NodeID !== $scope.currentNode.NodeID;
             });
         }
@@ -367,18 +350,24 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         return str;
     };
 
+    $scope.repoList = function () {
+        return repoList($scope.repos);
+    }
+
     $scope.editRepo = function (nodeCfg) {
         $scope.currentRepo = $.extend({selectedNodes: {}}, nodeCfg);
         $scope.currentRepo.Nodes.forEach(function (n) {
             $scope.currentRepo.selectedNodes[n.NodeID] = true;
         });
         $scope.editingExisting = true;
+        $scope.repoEditor.$setPristine();
         $('#editRepo').modal({backdrop: 'static', keyboard: true});
     };
 
     $scope.addRepo = function () {
         $scope.currentRepo = {selectedNodes: {}};
         $scope.editingExisting = false;
+        $scope.repoEditor.$setPristine();
         $('#editRepo').modal({backdrop: 'static', keyboard: true});
     };
 
@@ -397,20 +386,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }
         delete repoCfg.selectedNodes;
 
-        done = false;
-        for (i = 0; i < $scope.repos.length; i++) {
-            if ($scope.repos[i].ID === repoCfg.ID) {
-                $scope.repos[i] = repoCfg;
-                done = true;
-                break;
-            }
-        }
-
-        if (!done) {
-            $scope.repos.push(repoCfg);
-        }
-
-        $scope.config.Repositories = $scope.repos;
+        $scope.repos[repoCfg.ID] = repoCfg;
+        $scope.config.Repositories = repoList($scope.repos);
 
         $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
     };
@@ -421,11 +398,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             return;
         }
 
-        $scope.repos = $scope.repos.filter(function (r) {
-            return r.ID !== $scope.currentRepo.ID;
-        });
-
-        $scope.config.Repositories = $scope.repos;
+        delete $scope.repos[$scope.currentRepo.ID];
+        $scope.config.Repositories = repoList($scope.repos);
 
         $scope.configInSync = false;
         $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
@@ -448,8 +422,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             $scope.nodes = $scope.config.Nodes;
             $scope.nodes.sort(nodeCompare);
 
-            $scope.repos = $scope.config.Repositories;
-            $scope.repos.sort(repoCompare);
+            $scope.repos = repoMap($scope.config.Repositories);
 
             $scope.refresh();
         });
@@ -462,6 +435,42 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.init();
     setInterval($scope.refresh, 10000);
 });
+
+function nodeCompare(a, b) {
+    if (typeof a.Name !== 'undefined' && typeof b.Name !== 'undefined') {
+        if (a.Name < b.Name)
+            return -1;
+        return a.Name > b.Name;
+    }
+    if (a.NodeID < b.NodeID) {
+        return -1;
+    }
+    return a.NodeID > b.NodeID;
+}
+
+function repoCompare(a, b) {
+    if (a.Directory < b.Directory) {
+        return -1;
+    }
+    return a.Directory > b.Directory;
+}
+
+function repoMap(l) {
+    var m = {};
+    l.forEach(function (r) {
+        m[r.ID] = r;
+    });
+    return m;
+}
+
+function repoList(m) {
+    var l = [];
+    for (var id in m) {
+        l.push(m[id])
+    }
+    l.sort(repoCompare);
+    return l;
+}
 
 function decimals(val, num) {
     var digits, decs;
@@ -540,7 +549,12 @@ syncthing.filter('alwaysNumber', function () {
 
 syncthing.filter('chunkID', function () {
     return function (input) {
-        return input.match(/.{1,6}/g).join(' ');
+        if (input === undefined)
+            return "";
+        var parts = input.match(/.{1,6}/g);
+        if (!parts)
+            return "";
+        return parts.join(' ');
     }
 });
 
@@ -553,5 +567,26 @@ syncthing.directive('optionEditor', function () {
             setting: '=setting',
         },
         template: '<input type="text" ng-model="config.Options[setting.id]"></input>',
+    };
+});
+
+syncthing.directive('uniqueRepo', function() {
+    return {
+        require: 'ngModel',
+        link: function(scope, elm, attrs, ctrl) {
+            ctrl.$parsers.unshift(function(viewValue) {
+                if (scope.editingExisting) {
+                    // we shouldn't validate
+                    ctrl.$setValidity('uniqueRepo', true);
+                } else if (scope.repos[viewValue]) {
+                    // the repo exists already
+                    ctrl.$setValidity('uniqueRepo', false);
+                } else {
+                    // the repo is unique
+                    ctrl.$setValidity('uniqueRepo', true);
+                }
+                return viewValue;
+            });
+        }
     };
 });
