@@ -10,7 +10,7 @@ import (
 
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
-		ListenAddress:      []string{":22000"},
+		ListenAddress:      []string{"0.0.0.0:22000"},
 		GlobalAnnServer:    "announce.syncthing.net:22025",
 		GlobalAnnEnabled:   true,
 		LocalAnnEnabled:    true,
