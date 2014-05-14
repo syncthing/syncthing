@@ -44,12 +44,16 @@ var (
 const maxErrors = 30
 
 func NewDiscoverer(id string, addresses []string) (*Discoverer, error) {
+	b, err := mc.NewBeacon(21025)
+	if err != nil {
+		return nil, err
+	}
 	disc := &Discoverer{
 		myID:            id,
 		listenAddrs:     addresses,
 		localBcastIntv:  30 * time.Second,
 		globalBcastIntv: 1800 * time.Second,
-		beacon:          mc.NewBeacon("239.21.0.25", 21025),
+		beacon:          b,
 		registry:        make(map[string][]string),
 	}
 
@@ -251,11 +255,11 @@ func (d *Discoverer) recvAnnouncements() {
 		if pkt.This.ID != d.myID {
 			n := d.registerNode(addr, pkt.This)
 			newNode = newNode || n
-		}
-		for _, node := range pkt.Extra {
-			if node.ID != d.myID {
-				n := d.registerNode(nil, node)
-				newNode = newNode || n
+			for _, node := range pkt.Extra {
+				if node.ID != d.myID {
+					n := d.registerNode(nil, node)
+					newNode = newNode || n
+				}
 			}
 		}
 

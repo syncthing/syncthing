@@ -9,7 +9,10 @@ import (
 )
 
 func main() {
-	b := mc.NewBeacon("239.21.0.25", 21025)
+	b, err := mc.NewBeacon(21025)
+	if err != nil {
+		log.Fatal(err)
+	}
 	go func() {
 		for {
 			bs, addr := b.Recv()
