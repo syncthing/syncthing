@@ -5,11 +5,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/calmh/syncthing/mc"
+	"github.com/calmh/syncthing/beacon"
 )
 
 func main() {
-	b, err := mc.NewBeacon(21025)
+	b, err := beacon.NewBeacon(21025)
 	if err != nil {
 		log.Fatal(err)
 	}

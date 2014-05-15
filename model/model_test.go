@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/cid"
+	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
 )
@@ -47,7 +48,7 @@ func init() {
 }
 
 func TestRequest(t *testing.T) {
-	m := NewModel(1e6)
+	m := NewModel("/tmp", &config.Configuration{}, "syncthing", "dev")
 	m.AddRepo("default", "testdata", nil)
 	m.ScanRepo("default")
 
@@ -83,7 +84,7 @@ func genFiles(n int) []protocol.FileInfo {
 }
 
 func BenchmarkIndex10000(b *testing.B) {
-	m := NewModel(1e6)
+	m := NewModel("/tmp", nil, "syncthing", "dev")
 	m.AddRepo("default", "testdata", nil)
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -95,7 +96,7 @@ func BenchmarkIndex10000(b *testing.B) {
 }
 
 func BenchmarkIndex00100(b *testing.B) {
-	m := NewModel(1e6)
+	m := NewModel("/tmp", nil, "syncthing", "dev")
 	m.AddRepo("default", "testdata", nil)
 	m.ScanRepo("default")
 	files := genFiles(100)
@@ -107,7 +108,7 @@ func BenchmarkIndex00100(b *testing.B) {
 }
 
 func BenchmarkIndexUpdate10000f10000(b *testing.B) {
-	m := NewModel(1e6)
+	m := NewModel("/tmp", nil, "syncthing", "dev")
 	m.AddRepo("default", "testdata", nil)
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -120,7 +121,7 @@ func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 }
 
 func BenchmarkIndexUpdate10000f00100(b *testing.B) {
-	m := NewModel(1e6)
+	m := NewModel("/tmp", nil, "syncthing", "dev")
 	m.AddRepo("default", "testdata", nil)
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -134,7 +135,7 @@ func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 }
 
 func BenchmarkIndexUpdate10000f00001(b *testing.B) {
-	m := NewModel(1e6)
+	m := NewModel("/tmp", nil, "syncthing", "dev")
 	m.AddRepo("default", "testdata", nil)
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -181,7 +182,7 @@ func (FakeConnection) Statistics() protocol.Statistics {
 }
 
 func BenchmarkRequest(b *testing.B) {
-	m := NewModel(1e6)
+	m := NewModel("/tmp", nil, "syncthing", "dev")
 	m.AddRepo("default", "testdata", nil)
 	m.ScanRepo("default")
 

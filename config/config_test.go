@@ -18,7 +18,7 @@ func TestDefaultValues(t *testing.T) {
 		MaxSendKbps:        0,
 		RescanIntervalS:    60,
 		ReconnectIntervalS: 60,
-		MaxChangeKbps:      1000,
+		MaxChangeKbps:      10000,
 		StartBrowser:       true,
 		UPnPEnabled:        true,
 	}
