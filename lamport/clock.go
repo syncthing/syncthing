@@ -1,3 +1,4 @@
+// Package lamport implements a simple Lamport Clock for versioning
 package lamport
 
 import "sync"

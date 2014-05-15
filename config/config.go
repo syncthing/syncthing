@@ -1,3 +1,4 @@
+// Package config implements reading and writing of the syncthing configuration file.
 package config
 
 import (

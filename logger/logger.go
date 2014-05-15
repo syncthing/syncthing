@@ -1,3 +1,4 @@
+// Package logger implements a standardized logger with callback functionality
 package logger
 
 import (
