@@ -14,6 +14,7 @@ import (
 
 	"github.com/calmh/syncthing/buffers"
 	"github.com/calmh/syncthing/cid"
+	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/files"
 	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"
@@ -526,7 +527,7 @@ func (m *Model) broadcastIndexLoop() {
 	}
 }
 
-func (m *Model) AddRepo(id, dir string, nodes []NodeConfiguration) {
+func (m *Model) AddRepo(id, dir string, nodes []config.NodeConfiguration) {
 	if m.started {
 		panic("cannot add repo to started model")
 	}

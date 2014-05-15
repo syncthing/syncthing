@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/discover"
 	"github.com/calmh/syncthing/logger"
 	"github.com/calmh/syncthing/protocol"
@@ -53,7 +54,7 @@ func init() {
 }
 
 var (
-	cfg        Configuration
+	cfg        config.Configuration
 	myID       string
 	confDir    string
 	rateBucket *ratelimit.Bucket
@@ -170,7 +171,7 @@ func main() {
 	cf, err := os.Open(cfgFile)
 	if err == nil {
 		// Read config.xml
-		cfg, err = readConfigXML(cf, myID)
+		cfg, err = config.Load(cf, myID)
 		if err != nil {
 			l.Fatalln(err)
 		}
@@ -181,15 +182,15 @@ func main() {
 		defaultRepo := filepath.Join(getHomeDir(), "Sync")
 		ensureDir(defaultRepo, 0755)
 
-		cfg, err = readConfigXML(nil, myID)
-		cfg.Repositories = []RepositoryConfiguration{
+		cfg, err = config.Load(nil, myID)
+		cfg.Repositories = []config.RepositoryConfiguration{
 			{
 				ID:        "default",
 				Directory: defaultRepo,
-				Nodes:     []NodeConfiguration{{NodeID: myID}},
+				Nodes:     []config.NodeConfiguration{{NodeID: myID}},
 			},
 		}
-		cfg.Nodes = []NodeConfiguration{
+		cfg.Nodes = []config.NodeConfiguration{
 			{
 				NodeID:    myID,
 				Addresses: []string{"dynamic"},
@@ -452,7 +453,7 @@ func saveConfigLoop(cfgFile string) {
 			continue
 		}
 
-		err = writeConfigXML(fd, cfg)
+		err = config.Save(fd, cfg)
 		if err != nil {
 			l.Warnln(err)
 			fd.Close()

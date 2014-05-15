@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/xml"
@@ -10,7 +10,10 @@ import (
 	"strconv"
 
 	"code.google.com/p/go.crypto/bcrypt"
+	"github.com/calmh/syncthing/logger"
 )
+
+var l = logger.DefaultLogger
 
 type Configuration struct {
 	Version      int                       `xml:"version,attr" default:"2"`
@@ -131,7 +134,7 @@ func fillNilSlices(data interface{}) error {
 	return nil
 }
 
-func writeConfigXML(wr io.Writer, cfg Configuration) error {
+func Save(wr io.Writer, cfg Configuration) error {
 	e := xml.NewEncoder(wr)
 	e.Indent("", "    ")
 	err := e.Encode(cfg)
@@ -156,7 +159,7 @@ func uniqueStrings(ss []string) []string {
 	return us
 }
 
-func readConfigXML(rd io.Reader, myID string) (Configuration, error) {
+func Load(rd io.Reader, myID string) (Configuration, error) {
 	var cfg Configuration
 
 	setDefaults(&cfg)
@@ -303,14 +306,4 @@ func ensureNodePresent(nodes []NodeConfiguration, myID string) []NodeConfigurati
 	sort.Sort(NodeConfigurationList(nodes))
 
 	return nodes
-}
-
-func invalidateRepo(repoID string, err error) {
-	for i := range cfg.Repositories {
-		repo := &cfg.Repositories[i]
-		if repo.ID == repoID {
-			repo.Invalid = err.Error()
-			return
-		}
-	}
 }

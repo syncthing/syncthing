@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"bytes"
@@ -23,7 +23,7 @@ func TestDefaultValues(t *testing.T) {
 		UPnPEnabled:        true,
 	}
 
-	cfg, err := readConfigXML(bytes.NewReader(nil), "nodeID")
+	cfg, err := Load(bytes.NewReader(nil), "nodeID")
 	if err != io.EOF {
 		t.Error(err)
 	}
@@ -66,7 +66,7 @@ func TestNodeConfig(t *testing.T) {
 `)
 
 	for i, data := range [][]byte{v1data, v2data} {
-		cfg, err := readConfigXML(bytes.NewReader(data), "node1")
+		cfg, err := Load(bytes.NewReader(data), "node1")
 		if err != nil {
 			t.Error(err)
 		}
@@ -121,7 +121,7 @@ func TestNoListenAddress(t *testing.T) {
 </configuration>
 `)
 
-	cfg, err := readConfigXML(bytes.NewReader(data), "nodeID")
+	cfg, err := Load(bytes.NewReader(data), "nodeID")
 	if err != nil {
 		t.Error(err)
 	}
@@ -170,7 +170,7 @@ func TestOverriddenValues(t *testing.T) {
 		UPnPEnabled:        false,
 	}
 
-	cfg, err := readConfigXML(bytes.NewReader(data), "nodeID")
+	cfg, err := Load(bytes.NewReader(data), "nodeID")
 	if err != nil {
 		t.Error(err)
 	}
@@ -215,7 +215,7 @@ func TestNodeAddresses(t *testing.T) {
 		},
 	}
 
-	cfg, err := readConfigXML(bytes.NewReader(data), "n4")
+	cfg, err := Load(bytes.NewReader(data), "n4")
 	if err != nil {
 		t.Error(err)
 	}

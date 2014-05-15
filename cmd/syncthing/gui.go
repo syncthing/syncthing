@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"code.google.com/p/go.crypto/bcrypt"
+	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/logger"
 	"github.com/codegangsta/martini"
 )
@@ -39,7 +40,7 @@ func init() {
 	l.AddHandler(logger.LevelWarn, showGuiError)
 }
 
-func startGUI(cfg GUIConfiguration, m *Model) error {
+func startGUI(cfg config.GUIConfiguration, m *Model) error {
 	listener, err := net.Listen("tcp", cfg.Address)
 	if err != nil {
 		return err

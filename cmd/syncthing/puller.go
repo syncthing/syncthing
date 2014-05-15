@@ -9,6 +9,7 @@ import (
 
 	"github.com/calmh/syncthing/buffers"
 	"github.com/calmh/syncthing/cid"
+	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
 )
@@ -175,7 +176,7 @@ func (p *puller) run() {
 			}
 			err := p.model.ScanRepo(p.repo)
 			if err != nil {
-				invalidateRepo(p.repo, err)
+				invalidateRepo(cfg, p.repo, err)
 				return
 			}
 
@@ -196,7 +197,7 @@ func (p *puller) runRO() {
 		}
 		err := p.model.ScanRepo(p.repo)
 		if err != nil {
-			invalidateRepo(p.repo, err)
+			invalidateRepo(cfg, p.repo, err)
 			return
 		}
 	}
@@ -560,5 +561,15 @@ func (p *puller) closeFile(f scanner.File) {
 		p.model.updateLocal(p.repo, f)
 	} else {
 		l.Debugf("pull: error: %q / %q: %v", p.repo, f.Name, err)
+	}
+}
+
+func invalidateRepo(cfg config.Configuration, repoID string, err error) {
+	for i := range cfg.Repositories {
+		repo := &cfg.Repositories[i]
+		if repo.ID == repoID {
+			repo.Invalid = err.Error()
+			return
+		}
 	}
 }
