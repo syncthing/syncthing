@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"bytes"
@@ -62,6 +62,7 @@ func (m activityMap) decrease(node string) {
 var errNoNode = errors.New("no available source node")
 
 type puller struct {
+	cfg               *config.Configuration
 	repo              string
 	dir               string
 	bq                *blockQueue
@@ -73,8 +74,9 @@ type puller struct {
 	requestResults    chan requestResult
 }
 
-func newPuller(repo, dir string, model *Model, slots int) *puller {
+func newPuller(repo, dir string, model *Model, slots int, cfg *config.Configuration) *puller {
 	p := &puller{
+		cfg:               cfg,
 		repo:              repo,
 		dir:               dir,
 		bq:                newBlockQueue(),
@@ -91,13 +93,13 @@ func newPuller(repo, dir string, model *Model, slots int) *puller {
 		for i := 0; i < slots; i++ {
 			p.requestSlots <- true
 		}
-		if debugPull {
+		if debug {
 			l.Debugf("starting puller; repo %q dir %q slots %d", repo, dir, slots)
 		}
 		go p.run()
 	} else {
 		// Read only
-		if debugPull {
+		if debug {
 			l.Debugf("starting puller; repo %q dir %q (read only)", repo, dir)
 		}
 		go p.runRO()
@@ -111,14 +113,14 @@ func (p *puller) run() {
 		for {
 			<-p.requestSlots
 			b := p.bq.get()
-			if debugPull {
+			if debug {
 				l.Debugf("filler: queueing %q / %q offset %d copy %d", p.repo, b.file.Name, b.block.Offset, len(b.copy))
 			}
 			p.blocks <- b
 		}
 	}()
 
-	walkTicker := time.Tick(time.Duration(cfg.Options.RescanIntervalS) * time.Second)
+	walkTicker := time.Tick(time.Duration(p.cfg.Options.RescanIntervalS) * time.Second)
 	timeout := time.Tick(5 * time.Second)
 	changed := true
 
@@ -146,7 +148,7 @@ func (p *puller) run() {
 					// Nothing more to do for the moment
 					break pull
 				}
-				if debugPull {
+				if debug {
 					l.Debugf("%q: idle but have %d open files", p.repo, len(p.openFiles))
 					i := 5
 					for _, f := range p.openFiles {
@@ -171,12 +173,12 @@ func (p *puller) run() {
 		// Do a rescan if it's time for it
 		select {
 		case <-walkTicker:
-			if debugPull {
+			if debug {
 				l.Debugf("%q: time for rescan", p.repo)
 			}
 			err := p.model.ScanRepo(p.repo)
 			if err != nil {
-				invalidateRepo(cfg, p.repo, err)
+				invalidateRepo(p.cfg, p.repo, err)
 				return
 			}
 
@@ -189,15 +191,15 @@ func (p *puller) run() {
 }
 
 func (p *puller) runRO() {
-	walkTicker := time.Tick(time.Duration(cfg.Options.RescanIntervalS) * time.Second)
+	walkTicker := time.Tick(time.Duration(p.cfg.Options.RescanIntervalS) * time.Second)
 
 	for _ = range walkTicker {
-		if debugPull {
+		if debug {
 			l.Debugf("%q: time for rescan", p.repo)
 		}
 		err := p.model.ScanRepo(p.repo)
 		if err != nil {
-			invalidateRepo(cfg, p.repo, err)
+			invalidateRepo(p.cfg, p.repo, err)
 			return
 		}
 	}
@@ -226,7 +228,7 @@ func (p *puller) fixupDirectories() {
 		}
 
 		if cur.Flags&protocol.FlagDeleted != 0 {
-			if debugPull {
+			if debug {
 				l.Debugf("queue delete dir: %v", cur)
 			}
 
@@ -240,7 +242,7 @@ func (p *puller) fixupDirectories() {
 
 		if cur.Flags&uint32(os.ModePerm) != uint32(info.Mode()&os.ModePerm) {
 			os.Chmod(path, os.FileMode(cur.Flags)&os.ModePerm)
-			if debugPull {
+			if debug {
 				l.Debugf("restored dir flags: %o -> %v", info.Mode()&os.ModePerm, cur)
 			}
 		}
@@ -248,7 +250,7 @@ func (p *puller) fixupDirectories() {
 		if cur.Modified != info.ModTime().Unix() {
 			t := time.Unix(cur.Modified, 0)
 			os.Chtimes(path, t, t)
-			if debugPull {
+			if debug {
 				l.Debugf("restored dir modtime: %d -> %v", info.ModTime().Unix(), cur)
 			}
 		}
@@ -258,7 +260,7 @@ func (p *puller) fixupDirectories() {
 
 	// Delete any queued directories
 	for i := len(deleteDirs) - 1; i >= 0; i-- {
-		if debugPull {
+		if debug {
 			l.Debugln("delete dir:", deleteDirs[i])
 		}
 		err := os.Remove(deleteDirs[i])
@@ -284,7 +286,7 @@ func (p *puller) handleRequestResult(res requestResult) {
 	of.outstanding--
 	p.openFiles[f.Name] = of
 
-	if debugPull {
+	if debug {
 		l.Debugf("pull: wrote %q / %q offset %d outstanding %d done %v", p.repo, f.Name, res.offset, of.outstanding, of.done)
 	}
 
@@ -314,7 +316,7 @@ func (p *puller) handleBlock(b bqBlock) bool {
 	of.done = b.last
 
 	if !ok {
-		if debugPull {
+		if debug {
 			l.Debugf("pull: %q: opening file %q", p.repo, f.Name)
 		}
 
@@ -333,7 +335,7 @@ func (p *puller) handleBlock(b bqBlock) bool {
 
 		of.file, of.err = os.Create(of.temp)
 		if of.err != nil {
-			if debugPull {
+			if debug {
 				l.Debugf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
 			}
 			if !b.last {
@@ -346,7 +348,7 @@ func (p *puller) handleBlock(b bqBlock) bool {
 
 	if of.err != nil {
 		// We have already failed this file.
-		if debugPull {
+		if debug {
 			l.Debugf("pull: error: %q / %q has already failed: %v", p.repo, f.Name, of.err)
 		}
 		if b.last {
@@ -378,14 +380,14 @@ func (p *puller) handleCopyBlock(b bqBlock) {
 	f := b.file
 	of := p.openFiles[f.Name]
 
-	if debugPull {
+	if debug {
 		l.Debugf("pull: copying %d blocks for %q / %q", len(b.copy), p.repo, f.Name)
 	}
 
 	var exfd *os.File
 	exfd, of.err = os.Open(of.filepath)
 	if of.err != nil {
-		if debugPull {
+		if debug {
 			l.Debugf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
 		}
 		of.file.Close()
@@ -404,7 +406,7 @@ func (p *puller) handleCopyBlock(b bqBlock) {
 		}
 		buffers.Put(bs)
 		if of.err != nil {
-			if debugPull {
+			if debug {
 				l.Debugf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
 			}
 			exfd.Close()
@@ -447,7 +449,7 @@ func (p *puller) handleRequestBlock(b bqBlock) bool {
 	p.openFiles[f.Name] = of
 
 	go func(node string, b bqBlock) {
-		if debugPull {
+		if debug {
 			l.Debugf("pull: requesting %q / %q offset %d size %d from %q outstanding %d", p.repo, f.Name, b.block.Offset, b.block.Size, node, of.outstanding)
 		}
 
@@ -476,13 +478,13 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 	}
 
 	if f.Flags&protocol.FlagDeleted != 0 {
-		if debugPull {
+		if debug {
 			l.Debugf("pull: delete %q", f.Name)
 		}
 		os.Remove(of.temp)
 		os.Remove(of.filepath)
 	} else {
-		if debugPull {
+		if debug {
 			l.Debugf("pull: no blocks to fetch and nothing to copy for %q / %q", p.repo, f.Name)
 		}
 		t := time.Unix(f.Modified, 0)
@@ -500,7 +502,7 @@ func (p *puller) queueNeededBlocks() {
 	for _, f := range p.model.NeedFilesRepo(p.repo) {
 		lf := p.model.CurrentRepoFile(p.repo, f.Name)
 		have, need := scanner.BlockDiff(lf.Blocks, f.Blocks)
-		if debugNeed {
+		if debug {
 			l.Debugf("need:\n  local: %v\n  global: %v\n  haveBlocks: %v\n  needBlocks: %v", lf, f, have, need)
 		}
 		queued++
@@ -510,13 +512,13 @@ func (p *puller) queueNeededBlocks() {
 			need: need,
 		})
 	}
-	if debugPull && queued > 0 {
+	if debug && queued > 0 {
 		l.Debugf("%q: queued %d blocks", p.repo, queued)
 	}
 }
 
 func (p *puller) closeFile(f scanner.File) {
-	if debugPull {
+	if debug {
 		l.Debugf("pull: closing %q / %q", p.repo, f.Name)
 	}
 
@@ -528,16 +530,16 @@ func (p *puller) closeFile(f scanner.File) {
 
 	fd, err := os.Open(of.temp)
 	if err != nil {
-		if debugPull {
+		if debug {
 			l.Debugf("pull: error: %q / %q: %v", p.repo, f.Name, err)
 		}
 		return
 	}
-	hb, _ := scanner.Blocks(fd, BlockSize)
+	hb, _ := scanner.Blocks(fd, scanner.StandardBlockSize)
 	fd.Close()
 
 	if l0, l1 := len(hb), len(f.Blocks); l0 != l1 {
-		if debugPull {
+		if debug {
 			l.Debugf("pull: %q / %q: nblocks %d != %d", p.repo, f.Name, l0, l1)
 		}
 		return
@@ -554,7 +556,7 @@ func (p *puller) closeFile(f scanner.File) {
 	os.Chtimes(of.temp, t, t)
 	os.Chmod(of.temp, os.FileMode(f.Flags&0777))
 	defTempNamer.Show(of.temp)
-	if debugPull {
+	if debug {
 		l.Debugf("pull: rename %q / %q: %q", p.repo, f.Name, of.filepath)
 	}
 	if err := Rename(of.temp, of.filepath); err == nil {
@@ -564,7 +566,7 @@ func (p *puller) closeFile(f scanner.File) {
 	}
 }
 
-func invalidateRepo(cfg config.Configuration, repoID string, err error) {
+func invalidateRepo(cfg *config.Configuration, repoID string, err error) {
 	for i := range cfg.Repositories {
 		repo := &cfg.Repositories[i]
 		if repo.ID == repoID {

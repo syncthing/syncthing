@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"os"
@@ -52,9 +52,8 @@ func (h *changeHistory) append(size int64, t time.Time) {
 	h.changes = append(h.changes, c)
 }
 
-func (s *suppressor) Suppress(name string, fi os.FileInfo) bool {
-	sup, _ := s.suppress(name, fi.Size(), time.Now())
-	return sup
+func (s *suppressor) Suppress(name string, fi os.FileInfo) (cur, prev bool) {
+	return s.suppress(name, fi.Size(), time.Now())
 }
 
 func (s *suppressor) suppress(name string, size int64, t time.Time) (bool, bool) {

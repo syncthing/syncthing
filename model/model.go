@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"compress/gzip"
@@ -31,12 +31,19 @@ const (
 )
 
 type Model struct {
-	repoDirs  map[string]string     // repo -> dir
-	repoFiles map[string]*files.Set // repo -> files
-	repoNodes map[string][]string   // repo -> nodeIDs
-	nodeRepos map[string][]string   // nodeID -> repos
-	repoState map[string]repoState  // repo -> state
-	rmut      sync.RWMutex          // protects the above
+	indexDir string
+	cfg      *config.Configuration
+
+	clientName    string
+	clientVersion string
+
+	repoDirs   map[string]string      // repo -> dir
+	repoFiles  map[string]*files.Set  // repo -> files
+	repoNodes  map[string][]string    // repo -> nodeIDs
+	nodeRepos  map[string][]string    // nodeID -> repos
+	repoState  map[string]repoState   // repo -> state
+	suppressor map[string]*suppressor // repo -> suppressor
+	rmut       sync.RWMutex           // protects the above
 
 	cm *cid.Map
 
@@ -59,18 +66,23 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local repository in any way.
-func NewModel(maxChangeBw int) *Model {
+func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVersion string) *Model {
 	m := &Model{
-		repoDirs:  make(map[string]string),
-		repoFiles: make(map[string]*files.Set),
-		repoNodes: make(map[string][]string),
-		nodeRepos: make(map[string][]string),
-		repoState: make(map[string]repoState),
-		cm:        cid.NewMap(),
-		protoConn: make(map[string]protocol.Connection),
-		rawConn:   make(map[string]io.Closer),
-		nodeVer:   make(map[string]string),
-		sup:       suppressor{threshold: int64(maxChangeBw)},
+		indexDir:      indexDir,
+		cfg:           cfg,
+		clientName:    clientName,
+		clientVersion: clientVersion,
+		repoDirs:      make(map[string]string),
+		repoFiles:     make(map[string]*files.Set),
+		repoNodes:     make(map[string][]string),
+		nodeRepos:     make(map[string][]string),
+		repoState:     make(map[string]repoState),
+		suppressor:    make(map[string]*suppressor),
+		cm:            cid.NewMap(),
+		protoConn:     make(map[string]protocol.Connection),
+		rawConn:       make(map[string]io.Closer),
+		nodeVer:       make(map[string]string),
+		sup:           suppressor{threshold: int64(cfg.Options.MaxChangeKbps)},
 	}
 
 	go m.broadcastIndexLoop()
@@ -87,7 +99,7 @@ func (m *Model) StartRepoRW(repo string, threads int) {
 	if dir, ok := m.repoDirs[repo]; !ok {
 		panic("cannot start without repo")
 	} else {
-		newPuller(repo, dir, m, threads)
+		newPuller(repo, dir, m, threads, m.cfg)
 	}
 }
 
@@ -214,7 +226,7 @@ func (m *Model) NeedFilesRepo(repo string) []scanner.File {
 // Index is called when a new node is connected and we receive their full index.
 // Implements the protocol.Model interface.
 func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
-	if debugNet {
+	if debug {
 		l.Debugf("IDX(in): %s / %q: %d files", nodeID, repo, len(fs))
 	}
 
@@ -237,7 +249,7 @@ func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 // IndexUpdate is called for incremental updates to connected nodes' indexes.
 // Implements the protocol.Model interface.
 func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) {
-	if debugNet {
+	if debug {
 		l.Debugf("IDXUP(in): %s / %q: %d files", nodeID, repo, len(fs))
 	}
 
@@ -259,7 +271,7 @@ func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) 
 
 func (m *Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessage) {
 	compErr := compareClusterConfig(m.clusterConfig(nodeID), config)
-	if debugNet {
+	if debug {
 		l.Debugf("ClusterConfig: %s: %#v", nodeID, config)
 		l.Debugf("  ... compare: %s: %v", nodeID, compErr)
 	}
@@ -281,7 +293,7 @@ func (m *Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessag
 // Close removes the peer from the model and closes the underlying connection if possible.
 // Implements the protocol.Model interface.
 func (m *Model) Close(node string, err error) {
-	if debugNet {
+	if debug {
 		l.Debugf("%s: %v", node, err)
 	}
 
@@ -329,13 +341,13 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 	}
 
 	if offset > lf.Size {
-		if debugNet {
+		if debug {
 			l.Debugf("REQ(in; nonexistent): %s: %q o=%d s=%d", nodeID, name, offset, size)
 		}
 		return nil, ErrNoSuchFile
 	}
 
-	if debugNet && nodeID != "<local>" {
+	if debug && nodeID != "<local>" {
 		l.Debugf("REQ(in): %s: %q / %q o=%d s=%d", nodeID, repo, name, offset, size)
 	}
 	m.rmut.RLock()
@@ -436,7 +448,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 
 	go func() {
 		for repo, idx := range idxToSend {
-			if debugNet {
+			if debug {
 				l.Debugf("IDX(out/initial): %s: %q: %d files", nodeID, repo, len(idx))
 			}
 			protoConn.Index(repo, idx)
@@ -452,7 +464,7 @@ func (m *Model) protocolIndex(repo string) []protocol.FileInfo {
 
 	for _, f := range fs {
 		mf := fileInfoFromFile(f)
-		if debugIdx {
+		if debug {
 			var flagComment string
 			if mf.Flags&protocol.FlagDeleted != 0 {
 				flagComment = " (deleted)"
@@ -480,7 +492,7 @@ func (m *Model) requestGlobal(nodeID, repo, name string, offset int64, size int,
 		return nil, fmt.Errorf("requestGlobal: no such node: %s", nodeID)
 	}
 
-	if debugNet {
+	if debug {
 		l.Debugf("REQ(out): %s: %q / %q o=%d s=%d h=%x", nodeID, repo, name, offset, size, hash)
 	}
 
@@ -503,13 +515,13 @@ func (m *Model) broadcastIndexLoop() {
 			lastChange[repo] = c
 
 			idx := m.protocolIndex(repo)
-			m.saveIndex(repo, confDir, idx)
+			m.saveIndex(repo, m.indexDir, idx)
 
 			var indexWg sync.WaitGroup
 			for _, nodeID := range m.repoNodes[repo] {
 				if conn, ok := m.protoConn[nodeID]; ok {
 					indexWg.Add(1)
-					if debugNet {
+					if debug {
 						l.Debugf("IDX(out/loop): %s: %d files", nodeID, len(idx))
 					}
 					go func() {
@@ -538,6 +550,7 @@ func (m *Model) AddRepo(id, dir string, nodes []config.NodeConfiguration) {
 	m.rmut.Lock()
 	m.repoDirs[id] = dir
 	m.repoFiles[id] = files.NewSet()
+	m.suppressor[id] = &suppressor{threshold: int64(m.cfg.Options.MaxChangeKbps)}
 
 	m.repoNodes[id] = make([]string, len(nodes))
 	for i, node := range nodes {
@@ -569,15 +582,37 @@ func (m *Model) ScanRepos() {
 	wg.Wait()
 }
 
+func (m *Model) CleanRepos() {
+	m.rmut.RLock()
+	var dirs = make([]string, 0, len(m.repoDirs))
+	for _, dir := range m.repoDirs {
+		dirs = append(dirs, dir)
+	}
+	m.rmut.RUnlock()
+
+	var wg sync.WaitGroup
+	wg.Add(len(dirs))
+	for _, dir := range dirs {
+		w := &scanner.Walker{
+			Dir:       dir,
+			TempNamer: defTempNamer,
+		}
+		go func() {
+			w.CleanTempFiles()
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+
 func (m *Model) ScanRepo(repo string) error {
-	sup := &suppressor{threshold: int64(cfg.Options.MaxChangeKbps)}
 	m.rmut.RLock()
 	w := &scanner.Walker{
 		Dir:          m.repoDirs[repo],
 		IgnoreFile:   ".stignore",
-		BlockSize:    BlockSize,
+		BlockSize:    scanner.StandardBlockSize,
 		TempNamer:    defTempNamer,
-		Suppressor:   sup,
+		Suppressor:   m.suppressor[repo],
 		CurrentFiler: cFiler{m, repo},
 	}
 	m.rmut.RUnlock()
@@ -660,8 +695,8 @@ func (m *Model) loadIndex(repo string, dir string) []protocol.FileInfo {
 // clusterConfig returns a ClusterConfigMessage that is correct for the given peer node
 func (m *Model) clusterConfig(node string) protocol.ClusterConfigMessage {
 	cm := protocol.ClusterConfigMessage{
-		ClientName:    "syncthing",
-		ClientVersion: Version,
+		ClientName:    m.clientName,
+		ClientVersion: m.clientVersion,
 	}
 
 	m.rmut.RLock()

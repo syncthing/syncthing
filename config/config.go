@@ -57,7 +57,7 @@ type OptionsConfiguration struct {
 	MaxSendKbps        int      `xml:"maxSendKbps"`
 	RescanIntervalS    int      `xml:"rescanIntervalS" default:"60"`
 	ReconnectIntervalS int      `xml:"reconnectionIntervalS" default:"60"`
-	MaxChangeKbps      int      `xml:"maxChangeKbps" default:"1000"`
+	MaxChangeKbps      int      `xml:"maxChangeKbps" default:"10000"`
 	StartBrowser       bool     `xml:"startBrowser" default:"true"`
 	UPnPEnabled        bool     `xml:"upnpEnabled" default:"true"`
 

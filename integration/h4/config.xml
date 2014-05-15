@@ -29,7 +29,7 @@
         <maxSendKbps>0</maxSendKbps>
         <rescanIntervalS>60</rescanIntervalS>
         <reconnectionIntervalS>10</reconnectionIntervalS>
-        <maxChangeKbps>1000</maxChangeKbps>
+        <maxChangeKbps>10000</maxChangeKbps>
         <startBrowser>false</startBrowser>
         <upnpEnabled>false</upnpEnabled>
     </options>

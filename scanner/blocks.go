@@ -6,6 +6,8 @@ import (
 	"io"
 )
 
+const StandardBlockSize = 128 * 1024
+
 type Block struct {
 	Offset int64
 	Size   uint32

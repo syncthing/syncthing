@@ -28,8 +28,6 @@ type Walker struct {
 	// Suppressed files will be returned with empty metadata and the Suppressed flag set.
 	// Requires CurrentFiler to be set.
 	Suppressor Suppressor
-
-	suppressed map[string]bool // file name -> suppression status
 }
 
 type TempNamer interface {
@@ -41,7 +39,7 @@ type TempNamer interface {
 
 type Suppressor interface {
 	// Supress returns true if the update to the named file should be ignored.
-	Suppress(name string, fi os.FileInfo) bool
+	Suppress(name string, fi os.FileInfo) (bool, bool)
 }
 
 type CurrentFiler interface {
@@ -52,8 +50,6 @@ type CurrentFiler interface {
 // Walk returns the list of files found in the local repository by scanning the
 // file system. Files are blockwise hashed.
 func (w *Walker) Walk() (files []File, ignore map[string][]string, err error) {
-	w.lazyInit()
-
 	if debug {
 		l.Debugln("Walk", w.Dir, w.BlockSize, w.IgnoreFile)
 	}
@@ -84,12 +80,6 @@ func (w *Walker) Walk() (files []File, ignore map[string][]string, err error) {
 // CleanTempFiles removes all files that match the temporary filename pattern.
 func (w *Walker) CleanTempFiles() {
 	filepath.Walk(w.Dir, w.cleanTempFile)
-}
-
-func (w *Walker) lazyInit() {
-	if w.suppressed == nil {
-		w.suppressed = make(map[string]bool)
-	}
 }
 
 func (w *Walker) loadIgnoreFiles(dir string, ign map[string][]string) filepath.WalkFunc {
@@ -203,21 +193,19 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 					return nil
 				}
 
-				if w.Suppressor != nil && w.Suppressor.Suppress(rn, info) {
-					if !w.suppressed[rn] {
-						w.suppressed[rn] = true
+				if w.Suppressor != nil {
+					if cur, prev := w.Suppressor.Suppress(rn, info); cur && !prev {
 						l.Infof("Changes to %q are being temporarily suppressed because it changes too frequently.", p)
 						cf.Suppressed = true
 						cf.Version++
+						if debug {
+							l.Debugln("suppressed:", cf)
+						}
+						*res = append(*res, cf)
+						return nil
+					} else if prev && !cur {
+						l.Infof("Changes to %q are no longer suppressed.", p)
 					}
-					if debug {
-						l.Debugln("suppressed:", cf)
-					}
-					*res = append(*res, cf)
-					return nil
-				} else if w.suppressed[rn] {
-					l.Infof("Changes to %q are no longer suppressed.", p)
-					delete(w.suppressed, rn)
 				}
 			}
 

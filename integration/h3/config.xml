@@ -32,7 +32,7 @@
         <maxSendKbps>0</maxSendKbps>
         <rescanIntervalS>20</rescanIntervalS>
         <reconnectionIntervalS>5</reconnectionIntervalS>
-        <maxChangeKbps>1000</maxChangeKbps>
+        <maxChangeKbps>10000</maxChangeKbps>
         <startBrowser>false</startBrowser>
     </options>
 </configuration>

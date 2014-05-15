@@ -16,6 +16,7 @@ import (
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/logger"
+	"github.com/calmh/syncthing/model"
 	"github.com/codegangsta/martini"
 )
 
@@ -40,7 +41,7 @@ func init() {
 	l.AddHandler(logger.LevelWarn, showGuiError)
 }
 
-func startGUI(cfg config.GUIConfiguration, m *Model) error {
+func startGUI(cfg config.GUIConfiguration, m *model.Model) error {
 	listener, err := net.Listen("tcp", cfg.Address)
 	if err != nil {
 		return err
@@ -95,7 +96,7 @@ func restGetVersion() string {
 	return Version
 }
 
-func restGetModel(m *Model, w http.ResponseWriter, r *http.Request) {
+func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var repo = qs.Get("repo")
 	var res = make(map[string]interface{})
@@ -124,7 +125,7 @@ func restGetModel(m *Model, w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func restGetConnections(m *Model, w http.ResponseWriter) {
+func restGetConnections(m *model.Model, w http.ResponseWriter) {
 	var res = m.ConnectionStats()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)

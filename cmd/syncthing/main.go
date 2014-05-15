@@ -23,12 +23,11 @@ import (
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/discover"
 	"github.com/calmh/syncthing/logger"
+	"github.com/calmh/syncthing/model"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/upnp"
 	"github.com/juju/ratelimit"
 )
-
-const BlockSize = 128 * 1024
 
 var (
 	Version     = "unknown-dev"
@@ -75,15 +74,12 @@ const (
 
  STTRACE       A comma separated string of facilities to trace. The valid
                facility strings:
-               - "discover" (the node discovery package)
-               - "files"    (file set store)
-               - "idx"      (index sending and receiving)
-               - "mc"       (multicast beacon)
-               - "need"     (file need calculations)
-               - "net"      (connecting and disconnecting, network messages)
-               - "pull"     (file pull activity)
-               - "scanner"  (the file change scanner)
-               - "upnp"     (the upnp port mapper)
+               - "beacon"   (the beacon package)
+               - "discover" (the discover package)
+               - "files"    (the files package)
+               - "net"      (the main packge; connections & network messages)
+               - "scanner"  (the scanner package)
+               - "upnp"     (the upnp package)
                - "all"      (all of the above)
 
  STCPUPROFILE  Write CPU profile to the specified file.`
@@ -245,7 +241,7 @@ func main() {
 		rateBucket = ratelimit.NewBucketWithRate(float64(1000*cfg.Options.MaxSendKbps), int64(5*1000*cfg.Options.MaxSendKbps))
 	}
 
-	m := NewModel(cfg.Options.MaxChangeKbps * 1000)
+	m := model.NewModel(confDir, &cfg, "syncthing", Version)
 
 	for _, repo := range cfg.Repositories {
 		if repo.Invalid != "" {
@@ -313,6 +309,7 @@ func main() {
 		ensureDir(dir, -1)
 	}
 
+	m.CleanRepos()
 	m.ScanRepos()
 	m.SaveIndexes(confDir)
 
@@ -466,7 +463,7 @@ func saveConfigLoop(cfgFile string) {
 			continue
 		}
 
-		err = Rename(cfgFile+".tmp", cfgFile)
+		err = model.Rename(cfgFile+".tmp", cfgFile)
 		if err != nil {
 			l.Warnln(err)
 		}
@@ -477,7 +474,7 @@ func saveConfig() {
 	saveConfigCh <- struct{}{}
 }
 
-func listenConnect(myID string, m *Model, tlsCfg *tls.Config) {
+func listenConnect(myID string, m *model.Model, tlsCfg *tls.Config) {
 	var conns = make(chan *tls.Conn)
 
 	// Listen
