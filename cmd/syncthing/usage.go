@@ -32,7 +32,7 @@ func usageFor(fs *flag.FlagSet, usage string, extra string) func() {
 			var opt = "  -" + f.Name
 
 			if f.DefValue != "false" {
-				opt += "=" + f.DefValue
+				opt += "=" + fmt.Sprintf("%q", f.DefValue)
 			}
 
 			options = append(options, []string{opt, f.Usage})
