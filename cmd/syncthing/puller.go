@@ -91,13 +91,13 @@ func newPuller(repo, dir string, model *Model, slots int) *puller {
 			p.requestSlots <- true
 		}
 		if debugPull {
-			dlog.Printf("starting puller; repo %q dir %q slots %d", repo, dir, slots)
+			l.Debugf("starting puller; repo %q dir %q slots %d", repo, dir, slots)
 		}
 		go p.run()
 	} else {
 		// Read only
 		if debugPull {
-			dlog.Printf("starting puller; repo %q dir %q (read only)", repo, dir)
+			l.Debugf("starting puller; repo %q dir %q (read only)", repo, dir)
 		}
 		go p.runRO()
 	}
@@ -111,7 +111,7 @@ func (p *puller) run() {
 			<-p.requestSlots
 			b := p.bq.get()
 			if debugPull {
-				dlog.Printf("filler: queueing %q / %q offset %d copy %d", p.repo, b.file.Name, b.block.Offset, len(b.copy))
+				l.Debugf("filler: queueing %q / %q offset %d copy %d", p.repo, b.file.Name, b.block.Offset, len(b.copy))
 			}
 			p.blocks <- b
 		}
@@ -146,10 +146,10 @@ func (p *puller) run() {
 					break pull
 				}
 				if debugPull {
-					dlog.Printf("%q: idle but have %d open files", p.repo, len(p.openFiles))
+					l.Debugf("%q: idle but have %d open files", p.repo, len(p.openFiles))
 					i := 5
 					for _, f := range p.openFiles {
-						dlog.Printf("  %v", f)
+						l.Debugf("  %v", f)
 						i--
 						if i == 0 {
 							break
@@ -171,7 +171,7 @@ func (p *puller) run() {
 		select {
 		case <-walkTicker:
 			if debugPull {
-				dlog.Printf("%q: time for rescan", p.repo)
+				l.Debugf("%q: time for rescan", p.repo)
 			}
 			err := p.model.ScanRepo(p.repo)
 			if err != nil {
@@ -192,7 +192,7 @@ func (p *puller) runRO() {
 
 	for _ = range walkTicker {
 		if debugPull {
-			dlog.Printf("%q: time for rescan", p.repo)
+			l.Debugf("%q: time for rescan", p.repo)
 		}
 		err := p.model.ScanRepo(p.repo)
 		if err != nil {
@@ -226,7 +226,7 @@ func (p *puller) fixupDirectories() {
 
 		if cur.Flags&protocol.FlagDeleted != 0 {
 			if debugPull {
-				dlog.Printf("queue delete dir: %v", cur)
+				l.Debugf("queue delete dir: %v", cur)
 			}
 
 			// We queue the directories to delete since we walk the
@@ -240,7 +240,7 @@ func (p *puller) fixupDirectories() {
 		if cur.Flags&uint32(os.ModePerm) != uint32(info.Mode()&os.ModePerm) {
 			os.Chmod(path, os.FileMode(cur.Flags)&os.ModePerm)
 			if debugPull {
-				dlog.Printf("restored dir flags: %o -> %v", info.Mode()&os.ModePerm, cur)
+				l.Debugf("restored dir flags: %o -> %v", info.Mode()&os.ModePerm, cur)
 			}
 		}
 
@@ -248,7 +248,7 @@ func (p *puller) fixupDirectories() {
 			t := time.Unix(cur.Modified, 0)
 			os.Chtimes(path, t, t)
 			if debugPull {
-				dlog.Printf("restored dir modtime: %d -> %v", info.ModTime().Unix(), cur)
+				l.Debugf("restored dir modtime: %d -> %v", info.ModTime().Unix(), cur)
 			}
 		}
 
@@ -258,11 +258,11 @@ func (p *puller) fixupDirectories() {
 	// Delete any queued directories
 	for i := len(deleteDirs) - 1; i >= 0; i-- {
 		if debugPull {
-			dlog.Println("delete dir:", deleteDirs[i])
+			l.Debugln("delete dir:", deleteDirs[i])
 		}
 		err := os.Remove(deleteDirs[i])
 		if err != nil {
-			warnln(err)
+			l.Warnln(err)
 		}
 	}
 }
@@ -284,7 +284,7 @@ func (p *puller) handleRequestResult(res requestResult) {
 	p.openFiles[f.Name] = of
 
 	if debugPull {
-		dlog.Printf("pull: wrote %q / %q offset %d outstanding %d done %v", p.repo, f.Name, res.offset, of.outstanding, of.done)
+		l.Debugf("pull: wrote %q / %q offset %d outstanding %d done %v", p.repo, f.Name, res.offset, of.outstanding, of.done)
 	}
 
 	if of.done && of.outstanding == 0 {
@@ -314,7 +314,7 @@ func (p *puller) handleBlock(b bqBlock) bool {
 
 	if !ok {
 		if debugPull {
-			dlog.Printf("pull: %q: opening file %q", p.repo, f.Name)
+			l.Debugf("pull: %q: opening file %q", p.repo, f.Name)
 		}
 
 		of.availability = uint64(p.model.repoFiles[p.repo].Availability(f.Name))
@@ -327,13 +327,13 @@ func (p *puller) handleBlock(b bqBlock) bool {
 			err = os.MkdirAll(dirName, 0777)
 		}
 		if err != nil {
-			dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, err)
+			l.Debugf("pull: error: %q / %q: %v", p.repo, f.Name, err)
 		}
 
 		of.file, of.err = os.Create(of.temp)
 		if of.err != nil {
 			if debugPull {
-				dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
+				l.Debugf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
 			}
 			if !b.last {
 				p.openFiles[f.Name] = of
@@ -346,10 +346,10 @@ func (p *puller) handleBlock(b bqBlock) bool {
 	if of.err != nil {
 		// We have already failed this file.
 		if debugPull {
-			dlog.Printf("pull: error: %q / %q has already failed: %v", p.repo, f.Name, of.err)
+			l.Debugf("pull: error: %q / %q has already failed: %v", p.repo, f.Name, of.err)
 		}
 		if b.last {
-			dlog.Printf("pull: removing failed file %q / %q", p.repo, f.Name)
+			l.Debugf("pull: removing failed file %q / %q", p.repo, f.Name)
 			delete(p.openFiles, f.Name)
 		}
 
@@ -378,14 +378,14 @@ func (p *puller) handleCopyBlock(b bqBlock) {
 	of := p.openFiles[f.Name]
 
 	if debugPull {
-		dlog.Printf("pull: copying %d blocks for %q / %q", len(b.copy), p.repo, f.Name)
+		l.Debugf("pull: copying %d blocks for %q / %q", len(b.copy), p.repo, f.Name)
 	}
 
 	var exfd *os.File
 	exfd, of.err = os.Open(of.filepath)
 	if of.err != nil {
 		if debugPull {
-			dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
+			l.Debugf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
 		}
 		of.file.Close()
 		of.file = nil
@@ -404,7 +404,7 @@ func (p *puller) handleCopyBlock(b bqBlock) {
 		buffers.Put(bs)
 		if of.err != nil {
 			if debugPull {
-				dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
+				l.Debugf("pull: error: %q / %q: %v", p.repo, f.Name, of.err)
 			}
 			exfd.Close()
 			of.file.Close()
@@ -447,7 +447,7 @@ func (p *puller) handleRequestBlock(b bqBlock) bool {
 
 	go func(node string, b bqBlock) {
 		if debugPull {
-			dlog.Printf("pull: requesting %q / %q offset %d size %d from %q outstanding %d", p.repo, f.Name, b.block.Offset, b.block.Size, node, of.outstanding)
+			l.Debugf("pull: requesting %q / %q offset %d size %d from %q outstanding %d", p.repo, f.Name, b.block.Offset, b.block.Size, node, of.outstanding)
 		}
 
 		bs, err := p.model.requestGlobal(node, p.repo, f.Name, b.block.Offset, int(b.block.Size), nil)
@@ -476,13 +476,13 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 
 	if f.Flags&protocol.FlagDeleted != 0 {
 		if debugPull {
-			dlog.Printf("pull: delete %q", f.Name)
+			l.Debugf("pull: delete %q", f.Name)
 		}
 		os.Remove(of.temp)
 		os.Remove(of.filepath)
 	} else {
 		if debugPull {
-			dlog.Printf("pull: no blocks to fetch and nothing to copy for %q / %q", p.repo, f.Name)
+			l.Debugf("pull: no blocks to fetch and nothing to copy for %q / %q", p.repo, f.Name)
 		}
 		t := time.Unix(f.Modified, 0)
 		os.Chtimes(of.temp, t, t)
@@ -500,7 +500,7 @@ func (p *puller) queueNeededBlocks() {
 		lf := p.model.CurrentRepoFile(p.repo, f.Name)
 		have, need := scanner.BlockDiff(lf.Blocks, f.Blocks)
 		if debugNeed {
-			dlog.Printf("need:\n  local: %v\n  global: %v\n  haveBlocks: %v\n  needBlocks: %v", lf, f, have, need)
+			l.Debugf("need:\n  local: %v\n  global: %v\n  haveBlocks: %v\n  needBlocks: %v", lf, f, have, need)
 		}
 		queued++
 		p.bq.put(bqAdd{
@@ -510,13 +510,13 @@ func (p *puller) queueNeededBlocks() {
 		})
 	}
 	if debugPull && queued > 0 {
-		dlog.Printf("%q: queued %d blocks", p.repo, queued)
+		l.Debugf("%q: queued %d blocks", p.repo, queued)
 	}
 }
 
 func (p *puller) closeFile(f scanner.File) {
 	if debugPull {
-		dlog.Printf("pull: closing %q / %q", p.repo, f.Name)
+		l.Debugf("pull: closing %q / %q", p.repo, f.Name)
 	}
 
 	of := p.openFiles[f.Name]
@@ -528,7 +528,7 @@ func (p *puller) closeFile(f scanner.File) {
 	fd, err := os.Open(of.temp)
 	if err != nil {
 		if debugPull {
-			dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, err)
+			l.Debugf("pull: error: %q / %q: %v", p.repo, f.Name, err)
 		}
 		return
 	}
@@ -537,14 +537,14 @@ func (p *puller) closeFile(f scanner.File) {
 
 	if l0, l1 := len(hb), len(f.Blocks); l0 != l1 {
 		if debugPull {
-			dlog.Printf("pull: %q / %q: nblocks %d != %d", p.repo, f.Name, l0, l1)
+			l.Debugf("pull: %q / %q: nblocks %d != %d", p.repo, f.Name, l0, l1)
 		}
 		return
 	}
 
 	for i := range hb {
 		if bytes.Compare(hb[i].Hash, f.Blocks[i].Hash) != 0 {
-			dlog.Printf("pull: %q / %q: block %d hash mismatch", p.repo, f.Name, i)
+			l.Debugf("pull: %q / %q: block %d hash mismatch", p.repo, f.Name, i)
 			return
 		}
 	}
@@ -554,11 +554,11 @@ func (p *puller) closeFile(f scanner.File) {
 	os.Chmod(of.temp, os.FileMode(f.Flags&0777))
 	defTempNamer.Show(of.temp)
 	if debugPull {
-		dlog.Printf("pull: rename %q / %q: %q", p.repo, f.Name, of.filepath)
+		l.Debugf("pull: rename %q / %q: %q", p.repo, f.Name, of.filepath)
 	}
 	if err := Rename(of.temp, of.filepath); err == nil {
 		p.model.updateLocal(p.repo, f)
 	} else {
-		dlog.Printf("pull: error: %q / %q: %v", p.repo, f.Name, err)
+		l.Debugf("pull: error: %q / %q: %v", p.repo, f.Name, err)
 	}
 }

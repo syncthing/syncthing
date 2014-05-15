@@ -14,7 +14,7 @@ func Rename(from, to string) error {
 	if runtime.GOOS == "windows" {
 		err := os.Remove(to)
 		if err != nil && !os.IsNotExist(err) {
-			warnln(err)
+			l.Warnln(err)
 		}
 	}
 	return os.Rename(from, to)

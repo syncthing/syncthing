@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,7 +55,7 @@ func (w *Walker) Walk() (files []File, ignore map[string][]string, err error) {
 	w.lazyInit()
 
 	if debug {
-		dlog.Println("Walk", w.Dir, w.BlockSize, w.IgnoreFile)
+		l.Debugln("Walk", w.Dir, w.BlockSize, w.IgnoreFile)
 	}
 
 	err = checkDir(w.Dir)
@@ -75,7 +74,7 @@ func (w *Walker) Walk() (files []File, ignore map[string][]string, err error) {
 	if debug {
 		t1 := time.Now()
 		d := t1.Sub(t0).Seconds()
-		dlog.Printf("Walk in %.02f ms, %.0f files/s", d*1000, float64(len(files))/d)
+		l.Debugf("Walk in %.02f ms, %.0f files/s", d*1000, float64(len(files))/d)
 	}
 
 	err = checkDir(w.Dir)
@@ -125,7 +124,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			if debug {
-				dlog.Println("error:", p, info, err)
+				l.Debugln("error:", p, info, err)
 			}
 			return nil
 		}
@@ -133,7 +132,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		rn, err := filepath.Rel(w.Dir, p)
 		if err != nil {
 			if debug {
-				dlog.Println("rel error:", p, err)
+				l.Debugln("rel error:", p, err)
 			}
 			return nil
 		}
@@ -145,7 +144,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if w.TempNamer != nil && w.TempNamer.IsTemporary(rn) {
 			// A temporary file
 			if debug {
-				dlog.Println("temporary:", rn)
+				l.Debugln("temporary:", rn)
 			}
 			return nil
 		}
@@ -153,7 +152,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if _, sn := filepath.Split(rn); sn == w.IgnoreFile {
 			// An ignore-file; these are ignored themselves
 			if debug {
-				dlog.Println("ignorefile:", rn)
+				l.Debugln("ignorefile:", rn)
 			}
 			return nil
 		}
@@ -161,7 +160,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if w.ignoreFile(ign, rn) {
 			// An ignored file
 			if debug {
-				dlog.Println("ignored:", rn)
+				l.Debugln("ignored:", rn)
 			}
 			if info.IsDir() {
 				return filepath.SkipDir
@@ -174,7 +173,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 				cf := w.CurrentFiler.CurrentFile(rn)
 				if cf.Modified == info.ModTime().Unix() && cf.Flags == uint32(info.Mode()&os.ModePerm|protocol.FlagDirectory) {
 					if debug {
-						dlog.Println("unchanged:", cf)
+						l.Debugln("unchanged:", cf)
 					}
 					*res = append(*res, cf)
 				} else {
@@ -185,7 +184,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 						Modified: info.ModTime().Unix(),
 					}
 					if debug {
-						dlog.Println("dir:", cf, f)
+						l.Debugln("dir:", cf, f)
 					}
 					*res = append(*res, f)
 				}
@@ -198,7 +197,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 				cf := w.CurrentFiler.CurrentFile(rn)
 				if cf.Flags&protocol.FlagDeleted == 0 && cf.Modified == info.ModTime().Unix() {
 					if debug {
-						dlog.Println("unchanged:", cf)
+						l.Debugln("unchanged:", cf)
 					}
 					*res = append(*res, cf)
 					return nil
@@ -207,17 +206,17 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 				if w.Suppressor != nil && w.Suppressor.Suppress(rn, info) {
 					if !w.suppressed[rn] {
 						w.suppressed[rn] = true
-						log.Printf("INFO: Changes to %q are being temporarily suppressed because it changes too frequently.", p)
+						l.Infof("Changes to %q are being temporarily suppressed because it changes too frequently.", p)
 						cf.Suppressed = true
 						cf.Version++
 					}
 					if debug {
-						dlog.Println("suppressed:", cf)
+						l.Debugln("suppressed:", cf)
 					}
 					*res = append(*res, cf)
 					return nil
 				} else if w.suppressed[rn] {
-					log.Printf("INFO: Changes to %q are no longer suppressed.", p)
+					l.Infof("Changes to %q are no longer suppressed.", p)
 					delete(w.suppressed, rn)
 				}
 			}
@@ -225,7 +224,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			fd, err := os.Open(p)
 			if err != nil {
 				if debug {
-					dlog.Println("open:", p, err)
+					l.Debugln("open:", p, err)
 				}
 				return nil
 			}
@@ -235,13 +234,13 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			blocks, err := Blocks(fd, w.BlockSize)
 			if err != nil {
 				if debug {
-					dlog.Println("hash error:", rn, err)
+					l.Debugln("hash error:", rn, err)
 				}
 				return nil
 			}
 			if debug {
 				t1 := time.Now()
-				dlog.Println("hashed:", rn, ";", len(blocks), "blocks;", info.Size(), "bytes;", int(float64(info.Size())/1024/t1.Sub(t0).Seconds()), "KB/s")
+				l.Debugln("hashed:", rn, ";", len(blocks), "blocks;", info.Size(), "bytes;", int(float64(info.Size())/1024/t1.Sub(t0).Seconds()), "KB/s")
 			}
 			f := File{
 				Name:     rn,

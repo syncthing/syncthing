@@ -1,12 +1,13 @@
 package scanner
 
 import (
-	"log"
 	"os"
 	"strings"
+
+	"github.com/calmh/syncthing/logger"
 )
 
 var (
-	dlog  = log.New(os.Stderr, "scanner: ", log.Lmicroseconds|log.Lshortfile)
-	debug = strings.Contains(os.Getenv("STTRACE"), "scanner")
+	debug = strings.Contains(os.Getenv("STTRACE"), "scanner") || os.Getenv("STTRACE") == "all"
+	l     = logger.DefaultLogger
 )

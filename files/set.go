@@ -38,7 +38,7 @@ func NewSet() *Set {
 
 func (m *Set) Replace(id uint, fs []scanner.File) {
 	if debug {
-		dlog.Printf("Replace(%d, [%d])", id, len(fs))
+		l.Debugf("Replace(%d, [%d])", id, len(fs))
 	}
 	if id > 63 {
 		panic("Connection ID must be in the range 0 - 63 inclusive")
@@ -54,7 +54,7 @@ func (m *Set) Replace(id uint, fs []scanner.File) {
 
 func (m *Set) ReplaceWithDelete(id uint, fs []scanner.File) {
 	if debug {
-		dlog.Printf("ReplaceWithDelete(%d, [%d])", id, len(fs))
+		l.Debugf("ReplaceWithDelete(%d, [%d])", id, len(fs))
 	}
 	if id > 63 {
 		panic("Connection ID must be in the range 0 - 63 inclusive")
@@ -84,7 +84,7 @@ func (m *Set) ReplaceWithDelete(id uint, fs []scanner.File) {
 				}
 				fs = append(fs, cf)
 				if debug {
-					dlog.Println("deleted:", ck.Name)
+					l.Debugln("deleted:", ck.Name)
 				}
 			}
 		}
@@ -96,7 +96,7 @@ func (m *Set) ReplaceWithDelete(id uint, fs []scanner.File) {
 
 func (m *Set) Update(id uint, fs []scanner.File) {
 	if debug {
-		dlog.Printf("Update(%d, [%d])", id, len(fs))
+		l.Debugf("Update(%d, [%d])", id, len(fs))
 	}
 	m.Lock()
 	m.update(id, fs)
@@ -106,7 +106,7 @@ func (m *Set) Update(id uint, fs []scanner.File) {
 
 func (m *Set) Need(id uint) []scanner.File {
 	if debug {
-		dlog.Printf("Need(%d)", id)
+		l.Debugf("Need(%d)", id)
 	}
 	m.Lock()
 	var fs = make([]scanner.File, 0, len(m.globalKey)/2) // Just a guess, but avoids too many reallocations
@@ -130,7 +130,7 @@ func (m *Set) Need(id uint) []scanner.File {
 
 func (m *Set) Have(id uint) []scanner.File {
 	if debug {
-		dlog.Printf("Have(%d)", id)
+		l.Debugf("Have(%d)", id)
 	}
 	var fs = make([]scanner.File, 0, len(m.remoteKey[id]))
 	m.Lock()
@@ -143,7 +143,7 @@ func (m *Set) Have(id uint) []scanner.File {
 
 func (m *Set) Global() []scanner.File {
 	if debug {
-		dlog.Printf("Global()")
+		l.Debugf("Global()")
 	}
 	m.Lock()
 	var fs = make([]scanner.File, 0, len(m.globalKey))
@@ -160,7 +160,7 @@ func (m *Set) Get(id uint, file string) scanner.File {
 	m.Lock()
 	defer m.Unlock()
 	if debug {
-		dlog.Printf("Get(%d, %q)", id, file)
+		l.Debugf("Get(%d, %q)", id, file)
 	}
 	return m.files[m.remoteKey[id][file]].File
 }
@@ -169,7 +169,7 @@ func (m *Set) GetGlobal(file string) scanner.File {
 	m.Lock()
 	defer m.Unlock()
 	if debug {
-		dlog.Printf("GetGlobal(%q)", file)
+		l.Debugf("GetGlobal(%q)", file)
 	}
 	return m.files[m.globalKey[file]].File
 }
@@ -179,7 +179,7 @@ func (m *Set) Availability(name string) bitset {
 	defer m.Unlock()
 	av := m.globalAvailability[name]
 	if debug {
-		dlog.Printf("Availability(%q) = %0x", name, av)
+		l.Debugf("Availability(%q) = %0x", name, av)
 	}
 	return av
 }
@@ -188,7 +188,7 @@ func (m *Set) Changes(id uint) uint64 {
 	m.Lock()
 	defer m.Unlock()
 	if debug {
-		dlog.Printf("Changes(%d)", id)
+		l.Debugf("Changes(%d)", id)
 	}
 	return m.changes[id]
 }

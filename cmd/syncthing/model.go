@@ -214,7 +214,7 @@ func (m *Model) NeedFilesRepo(repo string) []scanner.File {
 // Implements the protocol.Model interface.
 func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 	if debugNet {
-		dlog.Printf("IDX(in): %s / %q: %d files", nodeID, repo, len(fs))
+		l.Debugf("IDX(in): %s / %q: %d files", nodeID, repo, len(fs))
 	}
 
 	var files = make([]scanner.File, len(fs))
@@ -228,7 +228,7 @@ func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 	if r, ok := m.repoFiles[repo]; ok {
 		r.Replace(id, files)
 	} else {
-		warnf("Index from %s for nonexistant repo %q; dropping", nodeID, repo)
+		l.Warnf("Index from %s for nonexistant repo %q; dropping", nodeID, repo)
 	}
 	m.rmut.RUnlock()
 }
@@ -237,7 +237,7 @@ func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 // Implements the protocol.Model interface.
 func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) {
 	if debugNet {
-		dlog.Printf("IDXUP(in): %s / %q: %d files", nodeID, repo, len(fs))
+		l.Debugf("IDXUP(in): %s / %q: %d files", nodeID, repo, len(fs))
 	}
 
 	var files = make([]scanner.File, len(fs))
@@ -251,7 +251,7 @@ func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) 
 	if r, ok := m.repoFiles[repo]; ok {
 		r.Update(id, files)
 	} else {
-		warnf("Index update from %s for nonexistant repo %q; dropping", nodeID, repo)
+		l.Warnf("Index update from %s for nonexistant repo %q; dropping", nodeID, repo)
 	}
 	m.rmut.RUnlock()
 }
@@ -259,12 +259,12 @@ func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) 
 func (m *Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessage) {
 	compErr := compareClusterConfig(m.clusterConfig(nodeID), config)
 	if debugNet {
-		dlog.Printf("ClusterConfig: %s: %#v", nodeID, config)
-		dlog.Printf("  ... compare: %s: %v", nodeID, compErr)
+		l.Debugf("ClusterConfig: %s: %#v", nodeID, config)
+		l.Debugf("  ... compare: %s: %v", nodeID, compErr)
 	}
 
 	if compErr != nil {
-		warnf("%s: %v", nodeID, compErr)
+		l.Warnf("%s: %v", nodeID, compErr)
 		m.Close(nodeID, compErr)
 	}
 
@@ -281,13 +281,13 @@ func (m *Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessag
 // Implements the protocol.Model interface.
 func (m *Model) Close(node string, err error) {
 	if debugNet {
-		dlog.Printf("%s: %v", node, err)
+		l.Debugf("%s: %v", node, err)
 	}
 
 	if err != io.EOF {
-		warnf("Connection to %s closed: %v", node, err)
+		l.Warnf("Connection to %s closed: %v", node, err)
 	} else if _, ok := err.(ClusterConfigMismatch); ok {
-		warnf("Connection to %s closed: %v", node, err)
+		l.Warnf("Connection to %s closed: %v", node, err)
 	}
 
 	cid := m.cm.Get(node)
@@ -318,7 +318,7 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 	m.rmut.RUnlock()
 
 	if !ok {
-		warnf("Request from %s for file %s in nonexistent repo %q", nodeID, name, repo)
+		l.Warnf("Request from %s for file %s in nonexistent repo %q", nodeID, name, repo)
 		return nil, ErrNoSuchFile
 	}
 
@@ -329,13 +329,13 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 
 	if offset > lf.Size {
 		if debugNet {
-			dlog.Printf("REQ(in; nonexistent): %s: %q o=%d s=%d", nodeID, name, offset, size)
+			l.Debugf("REQ(in; nonexistent): %s: %q o=%d s=%d", nodeID, name, offset, size)
 		}
 		return nil, ErrNoSuchFile
 	}
 
 	if debugNet && nodeID != "<local>" {
-		dlog.Printf("REQ(in): %s: %q / %q o=%d s=%d", nodeID, repo, name, offset, size)
+		l.Debugf("REQ(in): %s: %q / %q o=%d s=%d", nodeID, repo, name, offset, size)
 	}
 	m.rmut.RLock()
 	fn := filepath.Join(m.repoDirs[repo], name)
@@ -436,7 +436,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	go func() {
 		for repo, idx := range idxToSend {
 			if debugNet {
-				dlog.Printf("IDX(out/initial): %s: %q: %d files", nodeID, repo, len(idx))
+				l.Debugf("IDX(out/initial): %s: %q: %d files", nodeID, repo, len(idx))
 			}
 			protoConn.Index(repo, idx)
 		}
@@ -456,7 +456,7 @@ func (m *Model) protocolIndex(repo string) []protocol.FileInfo {
 			if mf.Flags&protocol.FlagDeleted != 0 {
 				flagComment = " (deleted)"
 			}
-			dlog.Printf("IDX(out): %q/%q m=%d f=%o%s v=%d (%d blocks)", repo, mf.Name, mf.Modified, mf.Flags, flagComment, mf.Version, len(mf.Blocks))
+			l.Debugf("IDX(out): %q/%q m=%d f=%o%s v=%d (%d blocks)", repo, mf.Name, mf.Modified, mf.Flags, flagComment, mf.Version, len(mf.Blocks))
 		}
 		index = append(index, mf)
 	}
@@ -480,7 +480,7 @@ func (m *Model) requestGlobal(nodeID, repo, name string, offset int64, size int,
 	}
 
 	if debugNet {
-		dlog.Printf("REQ(out): %s: %q / %q o=%d s=%d h=%x", nodeID, repo, name, offset, size, hash)
+		l.Debugf("REQ(out): %s: %q / %q o=%d s=%d h=%x", nodeID, repo, name, offset, size, hash)
 	}
 
 	return nc.Request(repo, name, offset, size)
@@ -509,7 +509,7 @@ func (m *Model) broadcastIndexLoop() {
 				if conn, ok := m.protoConn[nodeID]; ok {
 					indexWg.Add(1)
 					if debugNet {
-						dlog.Printf("IDX(out/loop): %s: %d files", nodeID, len(idx))
+						l.Debugf("IDX(out/loop): %s: %d files", nodeID, len(idx))
 					}
 					go func() {
 						conn.Index(repo, idx)

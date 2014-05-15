@@ -1,12 +1,13 @@
 package files
 
 import (
-	"log"
 	"os"
 	"strings"
+
+	"github.com/calmh/syncthing/logger"
 )
 
 var (
-	dlog  = log.New(os.Stderr, "files: ", log.Lmicroseconds|log.Lshortfile)
-	debug = strings.Contains(os.Getenv("STTRACE"), "files")
+	debug = strings.Contains(os.Getenv("STTRACE"), "files") || os.Getenv("STTRACE") == "all"
+	l     = logger.DefaultLogger
 )

@@ -1,12 +1,13 @@
 package upnp
 
 import (
-	"log"
 	"os"
 	"strings"
+
+	"github.com/calmh/syncthing/logger"
 )
 
 var (
-	dlog  = log.New(os.Stderr, "upnp: ", log.Lmicroseconds|log.Lshortfile)
-	debug = strings.Contains(os.Getenv("STTRACE"), "upnp")
+	debug = strings.Contains(os.Getenv("STTRACE"), "upnp") || os.Getenv("STTRACE") == "all"
+	l     = logger.DefaultLogger
 )

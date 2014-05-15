@@ -1,12 +1,13 @@
 package discover
 
 import (
-	"log"
 	"os"
 	"strings"
+
+	"github.com/calmh/syncthing/logger"
 )
 
 var (
-	dlog  = log.New(os.Stderr, "discover: ", log.Lmicroseconds|log.Lshortfile)
-	debug = strings.Contains(os.Getenv("STTRACE"), "discover")
+	debug = strings.Contains(os.Getenv("STTRACE"), "discover") || os.Getenv("STTRACE") == "all"
+	l     = logger.DefaultLogger
 )

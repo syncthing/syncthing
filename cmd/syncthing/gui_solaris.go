@@ -75,7 +75,7 @@ func trackCPUUsage() {
 	for _ = range time.NewTicker(time.Second).C {
 		err := solarisPrusage(pid, &rusage)
 		if err != nil {
-			warnln(err)
+			l.Warnln(err)
 			continue
 		}
 		curTime := time.Now().UnixNano()

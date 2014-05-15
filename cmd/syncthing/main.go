@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/discover"
+	"github.com/calmh/syncthing/logger"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/upnp"
 	"github.com/juju/ratelimit"
@@ -37,12 +38,18 @@ var (
 	LongVersion string
 )
 
+var l = logger.DefaultLogger
+
 func init() {
 	stamp, _ := strconv.Atoi(BuildStamp)
 	BuildDate = time.Unix(int64(stamp), 0)
 
 	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
 	LongVersion = fmt.Sprintf("syncthing %s (%s %s-%s) %s@%s %s", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
+
+	if os.Getenv("STTRACE") != "" {
+		l.SetFlags(log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile)
+	}
 }
 
 var (
@@ -76,6 +83,7 @@ const (
                - "pull"     (file pull activity)
                - "scanner"  (the file change scanner)
                - "upnp"     (the upnp port mapper)
+               - "all"      (all of the above)
 
  STCPUPROFILE  Write CPU profile to the specified file.`
 )
@@ -104,7 +112,7 @@ func main() {
 	if doUpgrade {
 		err := upgrade()
 		if err != nil {
-			fatalln(err)
+			l.Fatalln(err)
 		}
 		return
 	}
@@ -130,7 +138,7 @@ func main() {
 		if _, err := os.Stat(oldDefault); err == nil {
 			os.MkdirAll(filepath.Dir(confDir), 0700)
 			if err := os.Rename(oldDefault, confDir); err == nil {
-				infoln("Moved config dir", oldDefault, "to", confDir)
+				l.Infoln("Moved config dir", oldDefault, "to", confDir)
 			}
 		}
 	}
@@ -142,15 +150,14 @@ func main() {
 	if err != nil {
 		newCertificate(confDir)
 		cert, err = loadCert(confDir)
-		fatalErr(err)
+		l.FatalErr(err)
 	}
 
 	myID = certID(cert.Certificate[0])
-	log.SetPrefix("[" + myID[0:5] + "] ")
-	logger.SetPrefix("[" + myID[0:5] + "] ")
+	l.SetPrefix(fmt.Sprintf("[%s] ", myID[:5]))
 
-	infoln(LongVersion)
-	infoln("My ID:", myID)
+	l.Infoln(LongVersion)
+	l.Infoln("My ID:", myID)
 
 	// Prepare to be able to save configuration
 
@@ -165,11 +172,11 @@ func main() {
 		// Read config.xml
 		cfg, err = readConfigXML(cf, myID)
 		if err != nil {
-			fatalln(err)
+			l.Fatalln(err)
 		}
 		cf.Close()
 	} else {
-		infoln("No config file; starting with empty defaults")
+		l.Infoln("No config file; starting with empty defaults")
 		name, _ := os.Hostname()
 		defaultRepo := filepath.Join(getHomeDir(), "Sync")
 		ensureDir(defaultRepo, 0755)
@@ -191,15 +198,15 @@ func main() {
 		}
 
 		port, err := getFreePort("127.0.0.1", 8080)
-		fatalErr(err)
+		l.FatalErr(err)
 		cfg.GUI.Address = fmt.Sprintf("127.0.0.1:%d", port)
 
 		port, err = getFreePort("", 22000)
-		fatalErr(err)
+		l.FatalErr(err)
 		cfg.Options.ListenAddress = []string{fmt.Sprintf(":%d", port)}
 
 		saveConfig()
-		infof("Edit %s to taste or use the GUI\n", cfgFile)
+		l.Infof("Edit %s to taste or use the GUI\n", cfgFile)
 	}
 
 	if reset {
@@ -209,10 +216,10 @@ func main() {
 
 	if profiler := os.Getenv("STPROFILER"); len(profiler) > 0 {
 		go func() {
-			dlog.Println("Starting profiler on", profiler)
+			l.Debugln("Starting profiler on", profiler)
 			err := http.ListenAndServe(profiler, nil)
 			if err != nil {
-				dlog.Fatal(err)
+				l.Fatalln(err)
 			}
 		}()
 	}
@@ -251,7 +258,7 @@ func main() {
 	if cfg.GUI.Enabled && cfg.GUI.Address != "" {
 		addr, err := net.ResolveTCPAddr("tcp", cfg.GUI.Address)
 		if err != nil {
-			fatalf("Cannot start GUI on %q: %v", cfg.GUI.Address, err)
+			l.Fatalf("Cannot start GUI on %q: %v", cfg.GUI.Address, err)
 		} else {
 			var hostOpen, hostShow string
 			switch {
@@ -266,10 +273,10 @@ func main() {
 				hostShow = hostOpen
 			}
 
-			infof("Starting web GUI on http://%s:%d/", hostShow, addr.Port)
+			l.Infof("Starting web GUI on http://%s:%d/", hostShow, addr.Port)
 			err := startGUI(cfg.GUI, m)
 			if err != nil {
-				fatalln("Cannot start GUI:", err)
+				l.Fatalln("Cannot start GUI:", err)
 			}
 			if cfg.Options.StartBrowser && len(os.Getenv("STRESTART")) == 0 {
 				openURL(fmt.Sprintf("http://%s:%d", hostOpen, addr.Port))
@@ -280,7 +287,7 @@ func main() {
 	// Walk the repository and update the local model before establishing any
 	// connections to other nodes.
 
-	infoln("Populating repository index")
+	l.Infoln("Populating repository index")
 	m.LoadIndexes(confDir)
 
 	for _, repo := range cfg.Repositories {
@@ -296,8 +303,8 @@ func main() {
 
 		if files, _, _ := m.LocalSize(repo.ID); files > 0 {
 			if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
-				warnf("Configured repository %q has index but directory %q is missing; not starting.", repo.ID, repo.Directory)
-				fatalf("Ensure that directory is present or remove repository from configuration.")
+				l.Warnf("Configured repository %q has index but directory %q is missing; not starting.", repo.ID, repo.Directory)
+				l.Fatalf("Ensure that directory is present or remove repository from configuration.")
 			}
 		}
 
@@ -330,10 +337,10 @@ func main() {
 		// Routine to pull blocks from other nodes to synchronize the local
 		// repository. Does not run when we are in read only (publish only) mode.
 		if repo.ReadOnly {
-			okf("Ready to synchronize %s (read only; no external updates accepted)", repo.ID)
+			l.Okf("Ready to synchronize %s (read only; no external updates accepted)", repo.ID)
 			m.StartRepoRO(repo.ID)
 		} else {
-			okf("Ready to synchronize %s (read-write)", repo.ID)
+			l.Okf("Ready to synchronize %s (read-write)", repo.ID)
 			m.StartRepoRW(repo.ID, cfg.Options.ParallelRequests)
 		}
 	}
@@ -355,7 +362,7 @@ func setupUPnP() int {
 	if len(cfg.Options.ListenAddress) == 1 {
 		_, portStr, err := net.SplitHostPort(cfg.Options.ListenAddress[0])
 		if err != nil {
-			warnln(err)
+			l.Warnln(err)
 		} else {
 			// Set up incoming port forwarding, if necessary and possible
 			port, _ := strconv.Atoi(portStr)
@@ -366,19 +373,19 @@ func setupUPnP() int {
 					err := igd.AddPortMapping(upnp.TCP, r, port, "syncthing", 0)
 					if err == nil {
 						externalPort = r
-						infoln("Created UPnP port mapping - external port", externalPort)
+						l.Infoln("Created UPnP port mapping - external port", externalPort)
 						break
 					}
 				}
 				if externalPort == 0 {
-					warnln("Failed to create UPnP port mapping")
+					l.Warnln("Failed to create UPnP port mapping")
 				}
 			} else {
-				infof("No UPnP IGD device found, no port mapping created (%v)", err)
+				l.Infof("No UPnP IGD device found, no port mapping created (%v)", err)
 			}
 		}
 	} else {
-		warnln("Multiple listening addresses; not attempting UPnP port mapping")
+		l.Warnln("Multiple listening addresses; not attempting UPnP port mapping")
 	}
 	return externalPort
 }
@@ -387,7 +394,7 @@ func resetRepositories() {
 	suffix := fmt.Sprintf(".syncthing-reset-%d", time.Now().UnixNano())
 	for _, repo := range cfg.Repositories {
 		if _, err := os.Stat(repo.Directory); err == nil {
-			infof("Reset: Moving %s -> %s", repo.Directory, repo.Directory+suffix)
+			l.Infof("Reset: Moving %s -> %s", repo.Directory, repo.Directory+suffix)
 			os.Rename(repo.Directory, repo.Directory+suffix)
 		}
 	}
@@ -396,17 +403,17 @@ func resetRepositories() {
 	idxs, err := filepath.Glob(pat)
 	if err == nil {
 		for _, idx := range idxs {
-			infof("Reset: Removing %s", idx)
+			l.Infof("Reset: Removing %s", idx)
 			os.Remove(idx)
 		}
 	}
 }
 
 func restart() {
-	infoln("Restarting")
+	l.Infoln("Restarting")
 	if os.Getenv("SMF_FMRI") != "" || os.Getenv("STNORESTART") != "" {
 		// Solaris SMF
-		infoln("Service manager detected; exit instead of restart")
+		l.Infoln("Service manager detected; exit instead of restart")
 		stop <- true
 		return
 	}
@@ -417,7 +424,7 @@ func restart() {
 	}
 	pgm, err := exec.LookPath(os.Args[0])
 	if err != nil {
-		warnln(err)
+		l.Warnln(err)
 		return
 	}
 	proc, err := os.StartProcess(pgm, os.Args, &os.ProcAttr{
@@ -425,7 +432,7 @@ func restart() {
 		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 	})
 	if err != nil {
-		fatalln(err)
+		l.Fatalln(err)
 	}
 	proc.Release()
 	stop <- true
@@ -441,26 +448,26 @@ func saveConfigLoop(cfgFile string) {
 	for _ = range saveConfigCh {
 		fd, err := os.Create(cfgFile + ".tmp")
 		if err != nil {
-			warnln(err)
+			l.Warnln(err)
 			continue
 		}
 
 		err = writeConfigXML(fd, cfg)
 		if err != nil {
-			warnln(err)
+			l.Warnln(err)
 			fd.Close()
 			continue
 		}
 
 		err = fd.Close()
 		if err != nil {
-			warnln(err)
+			l.Warnln(err)
 			continue
 		}
 
 		err = Rename(cfgFile+".tmp", cfgFile)
 		if err != nil {
-			warnln(err)
+			l.Warnln(err)
 		}
 	}
 }
@@ -477,26 +484,26 @@ func listenConnect(myID string, m *Model, tlsCfg *tls.Config) {
 		addr := addr
 		go func() {
 			if debugNet {
-				dlog.Println("listening on", addr)
+				l.Debugln("listening on", addr)
 			}
-			l, err := tls.Listen("tcp", addr, tlsCfg)
-			fatalErr(err)
+			listener, err := tls.Listen("tcp", addr, tlsCfg)
+			l.FatalErr(err)
 
 			for {
-				conn, err := l.Accept()
+				conn, err := listener.Accept()
 				if err != nil {
-					warnln(err)
+					l.Warnln(err)
 					continue
 				}
 
 				if debugNet {
-					dlog.Println("connect from", conn.RemoteAddr())
+					l.Debugln("connect from", conn.RemoteAddr())
 				}
 
 				tc := conn.(*tls.Conn)
 				err = tc.Handshake()
 				if err != nil {
-					warnln(err)
+					l.Warnln(err)
 					tc.Close()
 					continue
 				}
@@ -543,12 +550,12 @@ func listenConnect(myID string, m *Model, tlsCfg *tls.Config) {
 						addr = net.JoinHostPort(host, "22000")
 					}
 					if debugNet {
-						dlog.Println("dial", nodeCfg.NodeID, addr)
+						l.Debugln("dial", nodeCfg.NodeID, addr)
 					}
 					conn, err := tls.Dial("tcp", addr, tlsCfg)
 					if err != nil {
 						if debugNet {
-							dlog.Println(err)
+							l.Debugln(err)
 						}
 						continue
 					}
@@ -565,21 +572,21 @@ func listenConnect(myID string, m *Model, tlsCfg *tls.Config) {
 next:
 	for conn := range conns {
 		certs := conn.ConnectionState().PeerCertificates
-		if l := len(certs); l != 1 {
-			warnf("Got peer certificate list of length %d != 1; protocol error", l)
+		if cl := len(certs); cl != 1 {
+			l.Warnf("Got peer certificate list of length %d != 1; protocol error", cl)
 			conn.Close()
 			continue
 		}
 		remoteID := certID(certs[0].Raw)
 
 		if remoteID == myID {
-			warnf("Connected to myself (%s) - should not happen", remoteID)
+			l.Warnf("Connected to myself (%s) - should not happen", remoteID)
 			conn.Close()
 			continue
 		}
 
 		if m.ConnectedTo(remoteID) {
-			warnf("Connected to already connected node (%s)", remoteID)
+			l.Warnf("Connected to already connected node (%s)", remoteID)
 			conn.Close()
 			continue
 		}
@@ -602,17 +609,17 @@ next:
 func discovery(extPort int) *discover.Discoverer {
 	disc, err := discover.NewDiscoverer(myID, cfg.Options.ListenAddress)
 	if err != nil {
-		warnf("No discovery possible (%v)", err)
+		l.Warnf("No discovery possible (%v)", err)
 		return nil
 	}
 
 	if cfg.Options.LocalAnnEnabled {
-		infoln("Sending local discovery announcements")
+		l.Infoln("Sending local discovery announcements")
 		disc.StartLocal()
 	}
 
 	if cfg.Options.GlobalAnnEnabled {
-		infoln("Sending global discovery announcements")
+		l.Infoln("Sending global discovery announcements")
 		disc.StartGlobal(cfg.Options.GlobalAnnServer, uint16(extPort))
 	}
 
@@ -623,10 +630,10 @@ func ensureDir(dir string, mode int) {
 	fi, err := os.Stat(dir)
 	if os.IsNotExist(err) {
 		err := os.MkdirAll(dir, 0700)
-		fatalErr(err)
+		l.FatalErr(err)
 	} else if mode >= 0 && err == nil && int(fi.Mode()&0777) != mode {
 		err := os.Chmod(dir, os.FileMode(mode))
-		fatalErr(err)
+		l.FatalErr(err)
 	}
 }
 
@@ -669,7 +676,7 @@ func getHomeDir() string {
 	}
 
 	if home == "" {
-		fatalln("No home directory found - set $HOME (or the platform equivalent).")
+		l.Fatalln("No home directory found - set $HOME (or the platform equivalent).")
 	}
 
 	return home

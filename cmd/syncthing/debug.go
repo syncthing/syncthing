@@ -1,15 +1,13 @@
 package main
 
 import (
-	"log"
 	"os"
 	"strings"
 )
 
 var (
-	dlog      = log.New(os.Stderr, "main: ", log.Lmicroseconds|log.Lshortfile)
-	debugNet  = strings.Contains(os.Getenv("STTRACE"), "net")
-	debugIdx  = strings.Contains(os.Getenv("STTRACE"), "idx")
-	debugNeed = strings.Contains(os.Getenv("STTRACE"), "need")
-	debugPull = strings.Contains(os.Getenv("STTRACE"), "pull")
+	debugNet  = strings.Contains(os.Getenv("STTRACE"), "net") || os.Getenv("STTRACE") == "all"
+	debugIdx  = strings.Contains(os.Getenv("STTRACE"), "idx") || os.Getenv("STTRACE") == "all"
+	debugNeed = strings.Contains(os.Getenv("STTRACE"), "need") || os.Getenv("STTRACE") == "all"
+	debugPull = strings.Contains(os.Getenv("STTRACE"), "pull") || os.Getenv("STTRACE") == "all"
 )

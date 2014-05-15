@@ -81,7 +81,7 @@ Mx: 3
 	}
 
 	if debug {
-		dlog.Println(string(resp[:n]))
+		l.Debugln(string(resp[:n]))
 	}
 
 	reader := bufio.NewReader(bytes.NewBuffer(resp[:n]))
@@ -225,8 +225,8 @@ func soapRequest(url, function, message string) error {
 	req.Header.Set("Pragma", "no-cache")
 
 	if debug {
-		dlog.Println(req.Header.Get("SOAPAction"))
-		dlog.Println(body)
+		l.Debugln(req.Header.Get("SOAPAction"))
+		l.Debugln(body)
 	}
 
 	r, err := http.DefaultClient.Do(req)
@@ -236,7 +236,7 @@ func soapRequest(url, function, message string) error {
 
 	if debug {
 		resp, _ := ioutil.ReadAll(r.Body)
-		dlog.Println(string(resp))
+		l.Debugln(string(resp))
 	}
 
 	r.Body.Close()

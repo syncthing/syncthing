@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"code.google.com/p/go.crypto/bcrypt"
+	"github.com/calmh/syncthing/logger"
 	"github.com/codegangsta/martini"
 )
 
@@ -34,8 +35,12 @@ const (
 	unchangedPassword = "--password-unchanged--"
 )
 
+func init() {
+	l.AddHandler(logger.LevelWarn, showGuiError)
+}
+
 func startGUI(cfg GUIConfiguration, m *Model) error {
-	l, err := net.Listen("tcp", cfg.Address)
+	listener, err := net.Listen("tcp", cfg.Address)
 	if err != nil {
 		return err
 	}
@@ -69,7 +74,7 @@ func startGUI(cfg GUIConfiguration, m *Model) error {
 	mr.Action(router.Handle)
 	mr.Map(m)
 
-	go http.Serve(l, mr)
+	go http.Serve(listener, mr)
 
 	return nil
 }
@@ -136,14 +141,14 @@ func restPostConfig(req *http.Request) {
 	var prevPassHash = cfg.GUI.Password
 	err := json.NewDecoder(req.Body).Decode(&cfg)
 	if err != nil {
-		warnln(err)
+		l.Warnln(err)
 	} else {
 		if cfg.GUI.Password == "" {
 			// Leave it empty
 		} else if cfg.GUI.Password != unchangedPassword {
 			hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
 			if err != nil {
-				warnln(err)
+				l.Warnln(err)
 			} else {
 				cfg.GUI.Password = string(hash)
 			}
@@ -217,7 +222,7 @@ func restGetErrors(w http.ResponseWriter) {
 func restPostError(req *http.Request) {
 	bs, _ := ioutil.ReadAll(req.Body)
 	req.Body.Close()
-	showGuiError(string(bs))
+	showGuiError(0, string(bs))
 }
 
 func restClearErrors() {
@@ -226,7 +231,7 @@ func restClearErrors() {
 	guiErrorsMut.Unlock()
 }
 
-func showGuiError(err string) {
+func showGuiError(l logger.LogLevel, err string) {
 	guiErrorsMut.Lock()
 	guiErrors = append(guiErrors, guiError{time.Now(), err})
 	if len(guiErrors) > 5 {

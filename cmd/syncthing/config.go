@@ -193,7 +193,7 @@ func readConfigXML(rd io.Reader, myID string) (Configuration, error) {
 		}
 
 		if seen, ok := seenRepos[repo.ID]; ok {
-			warnf("Multiple repositories with ID %q; disabling", repo.ID)
+			l.Warnf("Multiple repositories with ID %q; disabling", repo.ID)
 
 			seen.Invalid = "duplicate repository ID"
 			if seen.ID == repo.ID {
@@ -217,7 +217,7 @@ func readConfigXML(rd io.Reader, myID string) (Configuration, error) {
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
 		hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
 		if err != nil {
-			warnln(err)
+			l.Warnln(err)
 		} else {
 			cfg.GUI.Password = string(hash)
 		}

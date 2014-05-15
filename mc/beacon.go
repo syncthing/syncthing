@@ -52,17 +52,17 @@ func (b *Beacon) reader() {
 	for {
 		n, addr, err := b.conn.ReadFrom(bs)
 		if err != nil {
-			dlog.Println(err)
+			l.Warnln("Beacon read:", err)
 			return
 		}
 		if debug {
-			dlog.Printf("recv %d bytes from %s", n, addr)
+			l.Debugf("recv %d bytes from %s", n, addr)
 		}
 		select {
 		case b.outbox <- recv{bs[:n], addr}:
 		default:
 			if debug {
-				dlog.Println("Dropping message")
+				l.Debugln("dropping message")
 			}
 		}
 	}
@@ -73,7 +73,7 @@ func (b *Beacon) writer() {
 
 		addrs, err := net.InterfaceAddrs()
 		if err != nil {
-			dlog.Println(err)
+			l.Warnln("Beacon: interface addresses:", err)
 			continue
 		}
 
@@ -90,16 +90,22 @@ func (b *Beacon) writer() {
 			dsts = append(dsts, net.IP{0xff, 0xff, 0xff, 0xff})
 		}
 
+		if debug {
+			l.Debugln("addresses:", dsts)
+		}
+
 		for _, ip := range dsts {
 			dst := &net.UDPAddr{IP: ip, Port: b.port}
 
 			_, err := b.conn.WriteTo(bs, dst)
 			if err != nil {
-				dlog.Println(err)
+				if debug {
+					l.Debugln(err)
+				}
 				return
 			}
 			if debug {
-				dlog.Printf("sent %d bytes to %s", len(bs), dst)
+				l.Debugf("sent %d bytes to %s", len(bs), dst)
 			}
 		}
 	}

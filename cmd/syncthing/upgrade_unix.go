@@ -51,12 +51,12 @@ func upgrade() error {
 	rel := rels[0]
 
 	if rel.Tag > Version {
-		infof("Attempting upgrade to %s...", rel.Tag)
+		l.Infof("Attempting upgrade to %s...", rel.Tag)
 	} else if rel.Tag == Version {
-		okf("Already running the latest version, %s. Not upgrading.", Version)
+		l.Okf("Already running the latest version, %s. Not upgrading.", Version)
 		return nil
 	} else {
-		okf("Current version %s is newer than latest release %s. Not upgrading.", Version, rel.Tag)
+		l.Okf("Current version %s is newer than latest release %s. Not upgrading.", Version, rel.Tag)
 		return nil
 	}
 
@@ -64,7 +64,7 @@ func upgrade() error {
 	for _, asset := range rel.Assets {
 		if strings.HasPrefix(asset.Name, expectedRelease) {
 			if strings.HasSuffix(asset.Name, ".tar.gz") {
-				infof("Downloading %s...", asset.Name)
+				l.Infof("Downloading %s...", asset.Name)
 				fname, err := readTarGZ(asset.URL, filepath.Dir(path))
 				if err != nil {
 					return err
@@ -80,8 +80,8 @@ func upgrade() error {
 					return err
 				}
 
-				okf("Upgraded %q to %s.", path, rel.Tag)
-				okf("Previous version saved in %q.", old)
+				l.Okf("Upgraded %q to %s.", path, rel.Tag)
+				l.Okf("Previous version saved in %q.", old)
 
 				return nil
 			}
