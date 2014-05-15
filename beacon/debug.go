@@ -1,4 +1,4 @@
-package mc
+package beacon
 
 import (
 	"os"
@@ -8,6 +8,6 @@ import (
 )
 
 var (
-	debug = strings.Contains(os.Getenv("STTRACE"), "mc") || os.Getenv("STTRACE") == "all"
+	debug = strings.Contains(os.Getenv("STTRACE"), "beacon") || os.Getenv("STTRACE") == "all"
 	l     = logger.DefaultLogger
 )

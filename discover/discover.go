@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/calmh/syncthing/beacon"
 	"github.com/calmh/syncthing/buffers"
-	"github.com/calmh/syncthing/mc"
 )
 
 const (
@@ -22,7 +22,7 @@ type Discoverer struct {
 	listenAddrs      []string
 	localBcastIntv   time.Duration
 	globalBcastIntv  time.Duration
-	beacon           *mc.Beacon
+	beacon           *beacon.Beacon
 	registry         map[string][]string
 	registryLock     sync.RWMutex
 	extServer        string
@@ -43,7 +43,7 @@ var (
 const maxErrors = 30
 
 func NewDiscoverer(id string, addresses []string) (*Discoverer, error) {
-	b, err := mc.NewBeacon(21025)
+	b, err := beacon.New(21025)
 	if err != nil {
 		return nil, err
 	}

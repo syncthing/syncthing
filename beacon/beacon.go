@@ -1,4 +1,4 @@
-package mc
+package beacon
 
 import "net"
 
@@ -20,7 +20,7 @@ type Beacon struct {
 	outbox chan recv
 }
 
-func NewBeacon(port int) (*Beacon, error) {
+func New(port int) (*Beacon, error) {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
 	if err != nil {
 		return nil, err
