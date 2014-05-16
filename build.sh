@@ -71,10 +71,19 @@ deps() {
 }
 
 setup() {
-	echo Installing godep...
-	go get -u github.com/tools/godep
-	echo Installing go vet...
-	go get -u code.google.com/p/go.tools/cmd/vet
+	# Test if it exists via hash.
+	hash godep > /dev/null 2>&1
+	if [ $? -ge 1 ]; then
+		echo Installing godep...
+		go get -u github.com/tools/godep
+	fi
+
+	# Test using help command, as hash can't test sub-programs.
+	go help vet > /dev/null 2>&1
+	if [ $? -ge 1 ]; then
+		echo Installing go vet...
+		go get -u code.google.com/p/go.tools/cmd/vet
+	fi
 }
 
 case "$1" in
