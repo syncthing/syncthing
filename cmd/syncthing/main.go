@@ -571,20 +571,20 @@ next:
 	for conn := range conns {
 		certs := conn.ConnectionState().PeerCertificates
 		if cl := len(certs); cl != 1 {
-			l.Warnf("Got peer certificate list of length %d != 1; protocol error", cl)
+			l.Infof("Got peer certificate list of length %d != 1 from %s; protocol error", cl, conn.RemoteAddr())
 			conn.Close()
 			continue
 		}
 		remoteID := certID(certs[0].Raw)
 
 		if remoteID == myID {
-			l.Warnf("Connected to myself (%s) - should not happen", remoteID)
+			l.Infof("Connected to myself (%s) - should not happen", remoteID)
 			conn.Close()
 			continue
 		}
 
 		if m.ConnectedTo(remoteID) {
-			l.Warnf("Connected to already connected node (%s)", remoteID)
+			l.Infof("Connected to already connected node (%s)", remoteID)
 			conn.Close()
 			continue
 		}
@@ -600,6 +600,8 @@ next:
 				continue next
 			}
 		}
+
+		l.Infof("Connection from %s with unknown node ID %s; ignoring", conn.RemoteAddr(), remoteID)
 		conn.Close()
 	}
 }
