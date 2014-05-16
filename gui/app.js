@@ -230,6 +230,18 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         return nodeCfg.NodeID.substr(0, 6);
     };
 
+    $scope.thisNodeName = function () {
+        var nodes = $scope.thisNode();
+        if (typeof nodes === 'undefined' || nodes.length != 1) {
+            return "(unknown node)";
+        }
+        var nodeCfg = nodes[0];
+        if (nodeCfg.Name) {
+            return nodeCfg.Name;
+        }
+        return nodeCfg.NodeID.substr(0, 6);
+    };
+
     $scope.editSettings = function () {
         $('#settings').modal({backdrop: 'static', keyboard: true});
     }

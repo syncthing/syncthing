@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" ng-app="syncthing">
+<html lang="en" ng-app="syncthing" ng-controller="SyncthingCtrl" class="ng-cloak">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -8,7 +8,7 @@
   <meta name="author" content="">
   <link rel="shortcut icon" href="favicon.png">
 
-  <title>syncthing</title>
+  <title>Syncthing | {{thisNodeName()}}</title>
   <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <style type="text/css">
     body {
@@ -91,13 +91,13 @@
   </style>
 </head>
 
-<body ng-controller="SyncthingCtrl" class="ng-cloak">
+<body>
 
   <!-- Top bar -->
 
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
-      <span class="navbar-brand"><img class="logo" src="st-logo-128.png" width="32" height="32"> Syncthing</span>
+      <span class="navbar-brand"><img class="logo" src="st-logo-128.png" width="32" height="32" /> Syncthing<small> | {{thisNodeName()}}</small></span>
       <button type="button" class="btn btn-default btn-sm pull-right navbar-btn" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span> Settings</button>
     </div>
   </nav>
