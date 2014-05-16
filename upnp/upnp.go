@@ -87,6 +87,9 @@ Mx: 3
 	reader := bufio.NewReader(bytes.NewBuffer(resp[:n]))
 	request := &http.Request{}
 	response, err := http.ReadResponse(reader, request)
+	if err != nil {
+		return nil, err
+	}
 
 	if response.Header.Get("St") != "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
 		return nil, errors.New("no igd")
