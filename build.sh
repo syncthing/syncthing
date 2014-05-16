@@ -20,7 +20,7 @@ check() {
 build() {
 	check
 
-	go vet ./... || exit 1
+	go vet ./...
 
 	godep go build $* -ldflags "$ldflags" ./cmd/syncthing
 }
