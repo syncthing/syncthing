@@ -398,6 +398,8 @@ func resolveAddrs(addrs []string) []Address {
 		addr := addrToAddr(addrRes)
 		if len(addr.IP) > 0 {
 			raddrs = append(raddrs, addr)
+		} else {
+			raddrs = append(raddrs, Address{Port: addr.Port})
 		}
 	}
 	return raddrs
