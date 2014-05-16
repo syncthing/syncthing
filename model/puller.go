@@ -352,7 +352,6 @@ func (p *puller) handleBlock(b bqBlock) bool {
 			l.Debugf("pull: error: %q / %q has already failed: %v", p.repo, f.Name, of.err)
 		}
 		if b.last {
-			l.Debugf("pull: removing failed file %q / %q", p.repo, f.Name)
 			delete(p.openFiles, f.Name)
 		}
 
