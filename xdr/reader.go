@@ -48,9 +48,6 @@ func (r *Reader) ReadBytesMaxInto(max int, dst []byte) []byte {
 	if r.err != nil {
 		return nil
 	}
-	if debug {
-		dl.Debugf("rd bytes len=%d", l)
-	}
 	if max > 0 && l > max {
 		r.err = ErrElementSizeExceeded
 		return nil
