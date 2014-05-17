@@ -5,12 +5,13 @@
 
 var syncthing = angular.module('syncthing', []);
 var urlbase = 'rest';
+var refreshInterval = 10000; // ms
 
 syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     var prevDate = 0;
-    var getOK = true;
     var restarting = false;
 
+    $scope.getOK = true;
     $scope.connections = {};
     $scope.config = {};
     $scope.myID = '';
@@ -20,6 +21,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.seenError = '';
     $scope.model = {};
     $scope.repos = {};
+    $scope.lastUpdated = new Date();
+    $scope.heartbeat = 0;
 
     // Strings before bools look better
     $scope.settings = [
@@ -43,10 +46,11 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     ];
 
     function getSucceeded() {
-        if (!getOK) {
+        $scope.lastUpdated = new Date();
+        if (!$scope.getOK) {
             $scope.init();
             $('#networkError').modal('hide');
-            getOK = true;
+            $scope.getOK = true;
         }
         if (restarting) {
             $scope.init();
@@ -59,9 +63,18 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         if (restarting) {
             return;
         }
-        if (getOK) {
+        if ($scope.getOK) {
             $('#networkError').modal({backdrop: 'static', keyboard: false});
-            getOK = false;
+            $scope.getOK = false;
+            $scope.heartbeat = 0;
+        }
+    }
+
+    function heartbeat() {
+        if ($scope.getOK){
+            $scope.$apply(function () {
+                $scope.heartbeat = ($scope.heartbeat + 1) % 5;
+            });
         }
     }
 
@@ -445,7 +458,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.init();
-    setInterval($scope.refresh, 10000);
+
+    setInterval($scope.refresh, refreshInterval);
+    setInterval(heartbeat, 450);
 });
 
 function nodeCompare(a, b) {

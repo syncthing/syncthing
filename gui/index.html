@@ -88,6 +88,10 @@
     .ng-cloak {
       display: none !important;
     }
+
+    .navbar-text {
+      margin-top: 14px;
+    }
   </style>
 </head>
 
@@ -98,7 +102,10 @@
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
       <span class="navbar-brand"><img class="logo" src="st-logo-128.png" width="32" height="32" /> Syncthing<small> | {{thisNodeName()}}</small></span>
-      <button type="button" class="btn btn-default btn-sm pull-right navbar-btn" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span> Settings</button>
+      <div class="navbar-right">
+      <p class="navbar-text" title="Time of last contact with backend"><small><span ng-class="{'text-muted': heartbeat == 0}" class="glyphicon glyphicon-heart"></span> {{lastUpdated | date:'HH:mm'}}</small></p>
+      <button type="button" class="btn btn-primary btn-sm navbar-btn" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span> Settings</button>
+      </div>
     </div>
   </nav>
 
@@ -226,7 +233,7 @@
             <h5>This Node</h5>
             <ul class="list-unstyled" ng-repeat="nodeCfg in thisNode()">
               <li>
-                <span class="text-monospace">{{nodeName(nodeCfg)}}</span>&emsp;
+                <span class="text-monospace">{{nodeName(nodeCfg)}}</span>
                 <ul class="list-no-bullet">
                   <li>
                     <div class="li-column" title="Current RAM utilization">
