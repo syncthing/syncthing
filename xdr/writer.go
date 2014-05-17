@@ -39,6 +39,14 @@ func (w *Writer) WriteBytes(bs []byte) (int, error) {
 		return 0, w.err
 	}
 
+	if debug {
+		if len(bs) > maxDebugBytes {
+			dl.Debugf("wr bytes (%d): %x...", len(bs), bs[:maxDebugBytes])
+		} else {
+			dl.Debugf("wr bytes (%d): %x", len(bs), bs)
+		}
+	}
+
 	var l, n int
 	n, w.err = w.w.Write(bs)
 	l += n
@@ -56,6 +64,11 @@ func (w *Writer) WriteUint16(v uint16) (int, error) {
 	if w.err != nil {
 		return 0, w.err
 	}
+
+	if debug {
+		dl.Debugf("wr uint16=%d", v)
+	}
+
 	w.b[0] = byte(v >> 8)
 	w.b[1] = byte(v)
 	w.b[2] = 0
@@ -71,6 +84,11 @@ func (w *Writer) WriteUint32(v uint32) (int, error) {
 	if w.err != nil {
 		return 0, w.err
 	}
+
+	if debug {
+		dl.Debugf("wr uint32=%d", v)
+	}
+
 	w.b[0] = byte(v >> 24)
 	w.b[1] = byte(v >> 16)
 	w.b[2] = byte(v >> 8)
@@ -86,6 +104,11 @@ func (w *Writer) WriteUint64(v uint64) (int, error) {
 	if w.err != nil {
 		return 0, w.err
 	}
+
+	if debug {
+		dl.Debugf("wr uint64=%d", v)
+	}
+
 	w.b[0] = byte(v >> 56)
 	w.b[1] = byte(v >> 48)
 	w.b[2] = byte(v >> 40)

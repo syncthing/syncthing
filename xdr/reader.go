@@ -48,6 +48,9 @@ func (r *Reader) ReadBytesMaxInto(max int, dst []byte) []byte {
 	if r.err != nil {
 		return nil
 	}
+	if debug {
+		dl.Debugf("rd bytes len=%d", l)
+	}
 	if max > 0 && l > max {
 		r.err = ErrElementSizeExceeded
 		return nil
@@ -57,8 +60,16 @@ func (r *Reader) ReadBytesMaxInto(max int, dst []byte) []byte {
 	} else {
 		dst = dst[:l+pad(l)]
 	}
-	_, r.err = io.ReadFull(r.r, dst)
-	r.tot += l + pad(l)
+	var n int
+	n, r.err = io.ReadFull(r.r, dst)
+	r.tot += n
+	if debug {
+		if n > maxDebugBytes {
+			dl.Debugf("rd bytes (%d): %x...", n, dst[:maxDebugBytes])
+		} else {
+			dl.Debugf("rd bytes (%d): %x", n, dst)
+		}
+	}
 	return dst[:l]
 }
 
@@ -68,7 +79,11 @@ func (r *Reader) ReadUint16() uint16 {
 	}
 	_, r.err = io.ReadFull(r.r, r.b[:4])
 	r.tot += 4
-	return uint16(r.b[1]) | uint16(r.b[0])<<8
+	v := uint16(r.b[1]) | uint16(r.b[0])<<8
+	if debug {
+		dl.Debugf("rd uint16=%d", v)
+	}
+	return v
 }
 
 func (r *Reader) ReadUint32() uint32 {
@@ -81,7 +96,11 @@ func (r *Reader) ReadUint32() uint32 {
 		return 0
 	}
 	r.tot += n
-	return uint32(r.b[3]) | uint32(r.b[2])<<8 | uint32(r.b[1])<<16 | uint32(r.b[0])<<24
+	v := uint32(r.b[3]) | uint32(r.b[2])<<8 | uint32(r.b[1])<<16 | uint32(r.b[0])<<24
+	if debug {
+		dl.Debugf("rd uint32=%d", v)
+	}
+	return v
 }
 
 func (r *Reader) ReadUint64() uint64 {
@@ -91,8 +110,12 @@ func (r *Reader) ReadUint64() uint64 {
 	}
 	n, r.err = io.ReadFull(r.r, r.b[:8])
 	r.tot += n
-	return uint64(r.b[7]) | uint64(r.b[6])<<8 | uint64(r.b[5])<<16 | uint64(r.b[4])<<24 |
+	v := uint64(r.b[7]) | uint64(r.b[6])<<8 | uint64(r.b[5])<<16 | uint64(r.b[4])<<24 |
 		uint64(r.b[3])<<32 | uint64(r.b[2])<<40 | uint64(r.b[1])<<48 | uint64(r.b[0])<<56
+	if debug {
+		dl.Debugf("rd uint64=%d", v)
+	}
+	return v
 }
 
 func (r *Reader) Tot() int {

@@ -80,6 +80,7 @@ const (
                - "net"      (the main packge; connections & network messages)
                - "scanner"  (the scanner package)
                - "upnp"     (the upnp package)
+               - "xdr"      (the xdr package)
                - "all"      (all of the above)
 
  STCPUPROFILE  Write CPU profile to the specified file.`
