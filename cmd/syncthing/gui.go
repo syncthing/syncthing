@@ -229,7 +229,7 @@ func restPostError(req *http.Request) {
 
 func restClearErrors() {
 	guiErrorsMut.Lock()
-	guiErrors = nil
+	guiErrors = []guiError{}
 	guiErrorsMut.Unlock()
 }
 
