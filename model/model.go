@@ -30,6 +30,12 @@ const (
 	RepoCleaning
 )
 
+// Somewhat arbitrary amount of bytes that we choose to let represent the size
+// of an unsynchronized directory entry or a deleted file. We need it to be
+// larger than zero so that it's visible that there is some amount of bytes to
+// transfer to bring the systems into synchronization.
+const zeroEntrySize = 128
+
 type Model struct {
 	indexDir string
 	cfg      *config.Configuration
@@ -142,14 +148,22 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 		for _, repo := range m.nodeRepos[node] {
 			for _, f := range m.repoFiles[repo].Global() {
 				if f.Flags&protocol.FlagDeleted == 0 {
-					tot += f.Size
-					have += f.Size
+					size := f.Size
+					if f.Flags&protocol.FlagDirectory != 0 {
+						size = zeroEntrySize
+					}
+					tot += size
+					have += size
 				}
 			}
 
 			for _, f := range m.repoFiles[repo].Need(m.cm.Get(node)) {
 				if f.Flags&protocol.FlagDeleted == 0 {
-					have -= f.Size
+					size := f.Size
+					if f.Flags&protocol.FlagDirectory != 0 {
+						size = zeroEntrySize
+					}
+					have -= size
 				}
 			}
 		}
@@ -172,9 +186,14 @@ func sizeOf(fs []scanner.File) (files, deleted int, bytes int64) {
 	for _, f := range fs {
 		if f.Flags&protocol.FlagDeleted == 0 {
 			files++
-			bytes += f.Size
+			if f.Flags&protocol.FlagDirectory == 0 {
+				bytes += f.Size
+			} else {
+				bytes += zeroEntrySize
+			}
 		} else {
 			deleted++
+			bytes += zeroEntrySize
 		}
 	}
 	return
@@ -204,13 +223,8 @@ func (m *Model) LocalSize(repo string) (files, deleted int, bytes int64) {
 
 // NeedFiles returns the list of currently needed files and the total size.
 func (m *Model) NeedSize(repo string) (files int, bytes int64) {
-	var nf = m.NeedFilesRepo(repo)
-
-	for _, f := range nf {
-		bytes += f.Size
-	}
-
-	return len(nf), bytes
+	f, d, b := sizeOf(m.NeedFilesRepo(repo))
+	return f + d, b
 }
 
 // NeedFiles returns the list of currently needed files and the total size.
