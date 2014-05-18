@@ -368,10 +368,10 @@
           <form role="form" name="nodeEditor">
             <div class="form-group" ng-class="{'has-error': nodeEditor.nodeID.$invalid && nodeEditor.nodeID.$dirty}">
               <label for="nodeID">Node ID</label>
-              <input ng-if="!editingExisting" name="nodeID" id="nodeID" class="form-control" type="text" ng-model="currentNode.NodeID" required></input>
-              <div ng-if="editingExisting" class="well well-sm">{{currentNode.NodeID | chunkID}}</div>
+              <input ng-if="!editingExisting" name="nodeID" id="nodeID" class="form-control text-monospace" type="text" ng-model="currentNode.NodeID" required></input>
+              <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentNode.NodeID | chunkID}}</div>
               <p class="help-block">
-                <span ng-if="nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine">The node ID to enter here can be found in the "Add Node" dialog on the other node. Spaces are ignored.</span>
+                <span ng-if="nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine">The node ID to enter here can be found in the "Add Node" dialog on the other node. Spaces and dashes are optional (ignored).</span>
                 <span ng-if="nodeEditor.nodeID.$error.required && nodeEditor.nodeID.$dirty">The node ID cannot be blank.</span>
               </p>
             </div>
@@ -388,7 +388,7 @@
           </form>
           <div ng-show="!editingExisting">
             When adding a new node, keep in mind that <em>this node</em> must be added on the other side too. The Node ID of this node is:
-            <pre>{{myID | chunkID}}</pre>
+            <div class="well well-sm text-monospace">{{myID | chunkID}}</div>
           </div>
         </div>
         <div class="modal-footer">

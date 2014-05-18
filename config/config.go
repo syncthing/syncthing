@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/syncthing/logger"
@@ -181,6 +182,14 @@ func Load(rd io.Reader, myID string) (Configuration, error) {
 		cfg.Repositories = []RepositoryConfiguration{}
 	}
 
+	// Sanitize node IDs
+	for i := range cfg.Nodes {
+		node := &cfg.Nodes[i]
+		// Strip spaces and dashes
+		node.NodeID = strings.Replace(node.NodeID, "-", "", -1)
+		node.NodeID = strings.Replace(node.NodeID, " ", "", -1)
+	}
+
 	// Check for missing, bad or duplicate repository ID:s
 	var seenRepos = map[string]*RepositoryConfiguration{}
 	var uniqueCounter int
@@ -194,6 +203,13 @@ func Load(rd io.Reader, myID string) (Configuration, error) {
 
 		if repo.ID == "" {
 			repo.ID = "default"
+		}
+
+		for i := range repo.Nodes {
+			node := &repo.Nodes[i]
+			// Strip spaces and dashes
+			node.NodeID = strings.Replace(node.NodeID, "-", "", -1)
+			node.NodeID = strings.Replace(node.NodeID, " ", "", -1)
 		}
 
 		if seen, ok := seenRepos[repo.ID]; ok {

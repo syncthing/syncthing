@@ -224,3 +224,53 @@ func TestNodeAddresses(t *testing.T) {
 		t.Errorf("Nodes differ;\n  E: %#v\n  A: %#v", expected, cfg.Nodes)
 	}
 }
+
+func TestStripNodeIs(t *testing.T) {
+	data := []byte(`
+<configuration version="2">
+    <node id="AAAA-BBBB-CCCC">
+        <address>dynamic</address>
+    </node>
+    <node id="AAAA BBBB DDDD">
+        <address></address>
+    </node>
+    <node id="AAAABBBBEEEE">
+        <address></address>
+    </node>
+    <repository directory="~/Sync">
+        <node id="AAA ABBB-BCC CC" name=""></node>
+        <node id="AA-AAB BBBD-DDD" name=""></node>
+        <node id="AAA AB-BBB EEE-E" name=""></node>
+    </repository>
+</configuration>
+`)
+
+	expected := []NodeConfiguration{
+		{
+			NodeID:    "AAAABBBBCCCC",
+			Addresses: []string{"dynamic"},
+		},
+		{
+			NodeID:    "AAAABBBBDDDD",
+			Addresses: []string{"dynamic"},
+		},
+		{
+			NodeID:    "AAAABBBBEEEE",
+			Addresses: []string{"dynamic"},
+		},
+	}
+
+	cfg, err := Load(bytes.NewReader(data), "n4")
+	if err != nil {
+		t.Error(err)
+	}
+
+	for i := range expected {
+		if !reflect.DeepEqual(cfg.Nodes[i], expected[i]) {
+			t.Errorf("Nodes[%d] differ;\n  E: %#v\n  A: %#v", i, expected[i], cfg.Nodes[i])
+		}
+		if cfg.Repositories[0].Nodes[i].NodeID != expected[i].NodeID {
+			t.Errorf("Repo nodes[%d] differ;\n  E: %#v\n  A: %#v", i, expected[i].NodeID, cfg.Repositories[0].Nodes[i].NodeID)
+		}
+	}
+}

@@ -460,7 +460,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.init();
 
     setInterval($scope.refresh, refreshInterval);
-    setInterval(heartbeat, 450);
+    setInterval(heartbeat, 650);
 });
 
 function nodeCompare(a, b) {
@@ -581,7 +581,7 @@ syncthing.filter('chunkID', function () {
         var parts = input.match(/.{1,6}/g);
         if (!parts)
             return "";
-        return parts.join(' ');
+        return parts.join('-');
     }
 });
 
