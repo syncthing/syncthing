@@ -11,10 +11,14 @@ import (
 	"path/filepath"
 )
 
-var long bool
+var (
+	long bool
+	dirs bool
+)
 
 func main() {
 	flag.BoolVar(&long, "l", false, "Long output")
+	flag.BoolVar(&dirs, "d", false, "Check dirs")
 	flag.Parse()
 	args := flag.Args()
 
@@ -37,14 +41,15 @@ func walker(path string, info os.FileInfo, err error) error {
 		return err
 	}
 
-	if !info.IsDir() {
+	if dirs && info.IsDir() {
+		fmt.Printf("%s  %s 0%03o %d\n", "-", path, info.Mode(), info.ModTime().Unix())
+	} else if !info.IsDir() {
 		sum, err := md5file(path)
 		if err != nil {
 			return err
 		}
 		if long {
 			fmt.Printf("%s  %s 0%03o %d\n", sum, path, info.Mode(), info.ModTime().Unix())
-
 		} else {
 			fmt.Printf("%s  %s\n", sum, path)
 		}

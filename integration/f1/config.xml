@@ -1,15 +1,15 @@
 <configuration version="1">
     <repository directory="s1" ro="true">
-        <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA" name="s1">
+        <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA" name="f1">
             <address>127.0.0.1:22001</address>
         </node>
-        <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ" name="s2">
+        <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ" name="f2">
             <address>127.0.0.1:22002</address>
         </node>
     </repository>
     <options>
         <listenAddress>127.0.0.1:22001</listenAddress>
-        <readOnly>false</readOnly>
+        <readOnly>true</readOnly>
         <allowDelete>true</allowDelete>
         <followSymlinks>true</followSymlinks>
         <guiEnabled>true</guiEnabled>

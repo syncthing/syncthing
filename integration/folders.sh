@@ -11,7 +11,7 @@ go build json.go
 start() {
 	echo "Starting..."
 	for i in 1 2 ; do
-		STPROFILER=":909$i" syncthing -home "f$i" &
+		STTRACE=linenumbers STPROFILER=":909$i" syncthing -home "f$i" &
 	done
 }
 
@@ -51,11 +51,11 @@ testConvergence() {
 	echo "Verifying..."
 
 	pushd s1 >/dev/null
-	find . -type d | sort > ../dirs-1
+	../md5r -d | grep -v ' . ' > ../dirs-1
 	popd >/dev/null
 
 	pushd s2 >/dev/null
-	find . -type d | sort > ../dirs-2
+	../md5r -d | grep -v ' . ' > ../dirs-2
 	popd >/dev/null
 
 	if ! cmp dirs-1 dirs-2 ; then
@@ -66,7 +66,7 @@ testConvergence() {
 }
 
 rm -rf s? s??-?
-rm -f h?/*.idx.gz
+rm -f f?/*.idx.gz
 
 setup
 start
