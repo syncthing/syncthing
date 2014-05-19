@@ -185,7 +185,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if info.Mode().IsRegular() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				if cf.Flags&protocol.FlagDeleted == 0 && cf.Modified == info.ModTime().Unix() {
+				if cf.Flags&protocol.FlagDeleted == 0 && cf.Modified == info.ModTime().Unix() && cf.Flags == uint32(info.Mode()&os.ModePerm) {
 					if debug {
 						l.Debugln("unchanged:", cf)
 					}
