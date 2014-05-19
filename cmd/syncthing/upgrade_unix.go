@@ -30,6 +30,8 @@ type githubAsset struct {
 	Name string `json:"name"`
 }
 
+var GoArchExtra string // "", "v5", "v6", "v7"
+
 func upgrade() error {
 	path, err := osext.Executable()
 	if err != nil {
@@ -60,7 +62,7 @@ func upgrade() error {
 		return nil
 	}
 
-	expectedRelease := fmt.Sprintf("syncthing-%s-%s-%s.", runtime.GOOS, runtime.GOARCH, rel.Tag)
+	expectedRelease := fmt.Sprintf("syncthing-%s-%s%s-%s.", runtime.GOOS, runtime.GOARCH, GoArchExtra, rel.Tag)
 	for _, asset := range rel.Assets {
 		if strings.HasPrefix(asset.Name, expectedRelease) {
 			if strings.HasSuffix(asset.Name, ".tar.gz") {
@@ -88,6 +90,7 @@ func upgrade() error {
 		}
 	}
 
+	l.Warnf("Found no asset for %q", expectedRelease)
 	return nil
 }
 

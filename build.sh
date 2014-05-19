@@ -134,15 +134,20 @@ case "$1" in
 		export GOOS=linux
 		export GOARCH=arm
 
+		origldflags="$ldflags"
+
 		export GOARM=7
+		ldflags="$origldflags -X main.GoArchExtra v7"
 		build
 		tarDist "syncthing-linux-armv7-$version"
 
 		export GOARM=6
+		ldflags="$origldflags -X main.GoArchExtra v6"
 		build
 		tarDist "syncthing-linux-armv6-$version"
 
 		export GOARM=5
+		ldflags="$origldflags -X main.GoArchExtra v5"
 		build
 		tarDist "syncthing-linux-armv5-$version"
 
