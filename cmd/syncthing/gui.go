@@ -51,6 +51,7 @@ func startGUI(cfg config.GUIConfiguration, m *model.Model) error {
 	router.Get("/", getRoot)
 	router.Get("/rest/version", restGetVersion)
 	router.Get("/rest/model", restGetModel)
+	router.Get("/rest/need", restGetNeed)
 	router.Get("/rest/connections", restGetConnections)
 	router.Get("/rest/config", restGetConfig)
 	router.Get("/rest/config/sync", restGetConfigInSync)
@@ -123,6 +124,16 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
+}
+
+func restGetNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var repo = qs.Get("repo")
+
+	files := m.NeedFilesRepo(repo)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(files)
 }
 
 func restGetConnections(m *model.Model, w http.ResponseWriter) {

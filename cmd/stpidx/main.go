@@ -41,8 +41,8 @@ func main() {
 		inv := file.Flags&protocol.FlagInvalid != 0
 		dir := file.Flags&protocol.FlagDirectory != 0
 		prm := file.Flags & 0777
-		log.Printf("File: %q, Del: %v, Inv: %v, Dir: %v, Perm: 0%03o, Modified: %d, Blocks: %d",
-			file.Name, del, inv, dir, prm, file.Modified, len(file.Blocks))
+		log.Printf("File: %q, Ver:%d, Del: %v, Inv: %v, Dir: %v, Perm: 0%03o, Modified: %d, Blocks: %d",
+			file.Name, file.Version, del, inv, dir, prm, file.Modified, len(file.Blocks))
 		if *showBlocks {
 			for _, block := range file.Blocks {
 				log.Printf("   Size: %6d, Hash: %x", block.Size, block.Hash)

@@ -4,15 +4,13 @@ iterations=${1:-5}
 
 id1=I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA
 id2=JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ
-id3=373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA
 
 go build json.go
 
 start() {
 	echo "Starting..."
-	for i in 1 2 ; do
-		STTRACE=linenumbers STPROFILER=":909$i" syncthing -home "f$i" &
-	done
+	STTRACE=model,scanner STPROFILER=":9091" syncthing -home "f1" > 1.out 2>&1 &
+	STTRACE=model,scanner STPROFILER=":9092" syncthing -home "f2" > 2.out 2>&1 &
 }
 
 stop() {
@@ -44,6 +42,11 @@ testConvergence() {
 		tot=$(($s1comp + $s2comp))
 		echo $tot / 200
 		if [[ $tot == 200 ]] ; then
+			# when fixing up directories, a node will announce completion
+			# slightly before it's actually complete. this is arguably a bug,
+			# but we let it slide for the moment as long as it gets there
+			# eventually.
+			sleep 5
 			break
 		fi
 	done

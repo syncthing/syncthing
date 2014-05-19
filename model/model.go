@@ -221,7 +221,7 @@ func (m *Model) LocalSize(repo string) (files, deleted int, bytes int64) {
 	return 0, 0, 0
 }
 
-// NeedFiles returns the list of currently needed files and the total size.
+// NeedSize returns the number and total size of currently needed files.
 func (m *Model) NeedSize(repo string) (files int, bytes int64) {
 	f, d, b := sizeOf(m.NeedFilesRepo(repo))
 	return f + d, b
@@ -241,13 +241,21 @@ func (m *Model) NeedFilesRepo(repo string) []scanner.File {
 // Implements the protocol.Model interface.
 func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 	if debug {
-		l.Debugf("IDX(in): %s / %q: %d files", nodeID, repo, len(fs))
+		l.Debugf("IDX(in): %s %q: %d files", nodeID, repo, len(fs))
 	}
 
 	var files = make([]scanner.File, len(fs))
 	for i := range fs {
-		lamport.Default.Tick(fs[i].Version)
-		files[i] = fileFromFileInfo(fs[i])
+		f := fs[i]
+		lamport.Default.Tick(f.Version)
+		if debug {
+			var flagComment string
+			if f.Flags&protocol.FlagDeleted != 0 {
+				flagComment = " (deleted)"
+			}
+			l.Debugf("IDX(in): %s %q/%q m=%d f=%o%s v=%d (%d blocks)", nodeID, repo, f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
+		}
+		files[i] = fileFromFileInfo(f)
 	}
 
 	id := m.cm.Get(nodeID)
@@ -269,8 +277,16 @@ func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) 
 
 	var files = make([]scanner.File, len(fs))
 	for i := range fs {
-		lamport.Default.Tick(fs[i].Version)
-		files[i] = fileFromFileInfo(fs[i])
+		f := fs[i]
+		lamport.Default.Tick(f.Version)
+		if debug {
+			var flagComment string
+			if f.Flags&protocol.FlagDeleted != 0 {
+				flagComment = " (deleted)"
+			}
+			l.Debugf("IDXUP(in): %s %q/%q m=%d f=%o%s v=%d (%d blocks)", nodeID, repo, f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
+		}
+		files[i] = fileFromFileInfo(f)
 	}
 
 	id := m.cm.Get(nodeID)

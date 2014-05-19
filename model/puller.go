@@ -207,7 +207,9 @@ func (p *puller) runRO() {
 
 func (p *puller) fixupDirectories() {
 	var deleteDirs []string
-	filepath.Walk(p.dir, func(path string, info os.FileInfo, err error) error {
+	var changed = 0
+
+	var walkFn = func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			return nil
 		}
@@ -221,9 +223,12 @@ func (p *puller) fixupDirectories() {
 			return nil
 		}
 
-		cur := p.model.CurrentGlobalFile(p.repo, rn)
+		cur := p.model.CurrentRepoFile(p.repo, rn)
 		if cur.Name != rn {
 			// No matching dir in current list; weird
+			if debug {
+				l.Debugf("missing dir: %s; %v", rn, cur)
+			}
 			return nil
 		}
 
@@ -241,31 +246,59 @@ func (p *puller) fixupDirectories() {
 		}
 
 		if cur.Flags&uint32(os.ModePerm) != uint32(info.Mode()&os.ModePerm) {
-			os.Chmod(path, os.FileMode(cur.Flags)&os.ModePerm)
-			if debug {
-				l.Debugf("restored dir flags: %o -> %v", info.Mode()&os.ModePerm, cur)
+			err := os.Chmod(path, os.FileMode(cur.Flags)&os.ModePerm)
+			if err != nil {
+				l.Warnln("Restoring folder flags: %q: %v", path, err)
+			} else {
+				changed++
+				if debug {
+					l.Debugf("restored dir flags: %o -> %v", info.Mode()&os.ModePerm, cur)
+				}
 			}
 		}
 
 		if cur.Modified != info.ModTime().Unix() {
 			t := time.Unix(cur.Modified, 0)
-			os.Chtimes(path, t, t)
-			if debug {
-				l.Debugf("restored dir modtime: %d -> %v", info.ModTime().Unix(), cur)
+			err := os.Chtimes(path, t, t)
+			if err != nil {
+				l.Warnln("Restoring folder modtime: %q: %v", path, err)
+			} else {
+				changed++
+				if debug {
+					l.Debugf("restored dir modtime: %d -> %v", info.ModTime().Unix(), cur)
+				}
 			}
 		}
 
 		return nil
-	})
+	}
 
-	// Delete any queued directories
-	for i := len(deleteDirs) - 1; i >= 0; i-- {
-		if debug {
-			l.Debugln("delete dir:", deleteDirs[i])
+	for {
+		deleteDirs = nil
+		changed = 0
+		filepath.Walk(p.dir, walkFn)
+
+		var deleted = 0
+		// Delete any queued directories
+		for i := len(deleteDirs) - 1; i >= 0; i-- {
+			dir := deleteDirs[i]
+			if debug {
+				l.Debugln("delete dir:", dir)
+			}
+			err := os.Remove(dir)
+			if err != nil {
+				l.Warnln(err)
+			} else {
+				deleted++
+			}
 		}
-		err := os.Remove(deleteDirs[i])
-		if err != nil {
-			l.Warnln(err)
+
+		if debug {
+			l.Debugf("changed %d, deleted %d dirs", changed, deleted)
+		}
+
+		if changed+deleted == 0 {
+			return
 		}
 	}
 }
@@ -301,12 +334,23 @@ func (p *puller) handleRequestResult(res requestResult) {
 func (p *puller) handleBlock(b bqBlock) bool {
 	f := b.file
 
-	// For directories, simply making sure they exist is enough
+	// For directories, making sure they exist is enough.
+	// Deleted directories we mark as handled and delete later.
 	if f.Flags&protocol.FlagDirectory != 0 {
-		path := filepath.Join(p.dir, f.Name)
-		_, err := os.Stat(path)
-		if err != nil && os.IsNotExist(err) {
-			os.MkdirAll(path, 0777)
+		if f.Flags&protocol.FlagDeleted == 0 {
+			path := filepath.Join(p.dir, f.Name)
+			_, err := os.Stat(path)
+			if err != nil && os.IsNotExist(err) {
+				if debug {
+					l.Debugf("create dir: %v", f)
+				}
+				err = os.MkdirAll(path, 0777)
+				if err != nil {
+					l.Warnf("Create folder: %q: %v", path, err)
+				}
+			}
+		} else if debug {
+			l.Debugf("ignore delete dir: %v", f)
 		}
 		p.model.updateLocal(p.repo, f)
 		return true

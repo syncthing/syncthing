@@ -116,12 +116,8 @@ func (m *Set) Need(id uint) []scanner.File {
 			continue
 		}
 
-		file := gf.File
-		switch {
-		case file.Flags&protocol.FlagDirectory == 0 && gk.newerThan(rkID[gk.Name]):
-			fs = append(fs, file)
-		case file.Flags&(protocol.FlagDirectory|protocol.FlagDeleted) == protocol.FlagDirectory && gk.newerThan(rkID[gk.Name]):
-			fs = append(fs, file)
+		if gk.newerThan(rkID[gk.Name]) {
+			fs = append(fs, gf.File)
 		}
 	}
 	m.Unlock()

@@ -11,3 +11,4 @@ md5r
 json
 *.idx.gz
 dirs-*
+*.out

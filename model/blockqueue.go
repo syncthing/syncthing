@@ -1,7 +1,7 @@
 package model
 
 import (
-	"sync/atomic"
+	"sync"
 
 	"github.com/calmh/syncthing/scanner"
 )
@@ -24,7 +24,8 @@ type blockQueue struct {
 	outbox chan bqBlock
 
 	queued []bqBlock
-	qlen   uint32
+
+	mut sync.Mutex
 }
 
 func newBlockQueue() *blockQueue {
@@ -37,6 +38,9 @@ func newBlockQueue() *blockQueue {
 }
 
 func (q *blockQueue) addBlock(a bqAdd) {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+
 	// If we already have it queued, return
 	for _, b := range q.queued {
 		if b.file.Name == a.file.Name {
@@ -74,15 +78,18 @@ func (q *blockQueue) run() {
 		if len(q.queued) == 0 {
 			q.addBlock(<-q.inbox)
 		} else {
+			q.mut.Lock()
 			next := q.queued[0]
+			q.mut.Unlock()
 			select {
 			case a := <-q.inbox:
 				q.addBlock(a)
 			case q.outbox <- next:
+				q.mut.Lock()
 				q.queued = q.queued[1:]
+				q.mut.Unlock()
 			}
 		}
-		atomic.StoreUint32(&q.qlen, uint32(len(q.queued)))
 	}
 }
 
@@ -95,7 +102,7 @@ func (q *blockQueue) get() bqBlock {
 }
 
 func (q *blockQueue) empty() bool {
-	var l uint32
-	atomic.LoadUint32(&l)
-	return l == 0
+	q.mut.Lock()
+	defer q.mut.Unlock()
+	return len(q.queued) == 0
 }
