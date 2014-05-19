@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -161,7 +162,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if info.Mode().IsDir() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				if cf.Modified == info.ModTime().Unix() && cf.Flags == uint32(info.Mode()&os.ModePerm|protocol.FlagDirectory) {
+				if cf.Modified == info.ModTime().Unix() && cf.Flags&protocol.FlagDirectory != 0 && permsEqual(cf.Flags, uint32(info.Mode())) {
 					if debug {
 						l.Debugln("unchanged:", cf)
 					}
@@ -185,7 +186,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if info.Mode().IsRegular() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				if cf.Flags&protocol.FlagDeleted == 0 && cf.Modified == info.ModTime().Unix() && cf.Flags == uint32(info.Mode()&os.ModePerm) {
+				if cf.Flags&protocol.FlagDeleted == 0 && cf.Modified == info.ModTime().Unix() && permsEqual(cf.Flags, uint32(info.Mode())) {
 					if debug {
 						l.Debugln("unchanged:", cf)
 					}
@@ -206,6 +207,10 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 					} else if prev && !cur {
 						l.Infof("Changes to %q are no longer suppressed.", p)
 					}
+				}
+
+				if debug {
+					l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&os.ModePerm)
 				}
 			}
 
@@ -276,4 +281,16 @@ func checkDir(dir string) error {
 		return errors.New(dir + ": not a directory")
 	}
 	return nil
+}
+
+func permsEqual(a, b uint32) bool {
+	switch runtime.GOOS {
+	case "windows":
+		// There is only writeable and read only, represented for user, group
+		// and other equally. We only compare against user.
+		return a&0600 == b&0600
+	default:
+		// All bits count
+		return a&0777 == b&0777
+	}
 }

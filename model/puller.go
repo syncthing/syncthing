@@ -525,19 +525,29 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 			l.Debugf("pull: delete %q", f.Name)
 		}
 		os.Remove(of.temp)
-		os.Remove(of.filepath)
+		os.Chmod(of.filepath, 0666)
+		if os.Remove(of.filepath) == nil {
+			p.model.updateLocal(p.repo, f)
+		}
 	} else {
 		if debug {
 			l.Debugf("pull: no blocks to fetch and nothing to copy for %q / %q", p.repo, f.Name)
 		}
 		t := time.Unix(f.Modified, 0)
-		os.Chtimes(of.temp, t, t)
-		os.Chmod(of.temp, os.FileMode(f.Flags&0777))
+		if os.Chtimes(of.temp, t, t) != nil {
+			delete(p.openFiles, f.Name)
+			return
+		}
+		if os.Chmod(of.temp, os.FileMode(f.Flags&0777)) != nil {
+			delete(p.openFiles, f.Name)
+			return
+		}
 		defTempNamer.Show(of.temp)
-		Rename(of.temp, of.filepath)
+		if Rename(of.temp, of.filepath) == nil {
+			p.model.updateLocal(p.repo, f)
+		}
 	}
 	delete(p.openFiles, f.Name)
-	p.model.updateLocal(p.repo, f)
 }
 
 func (p *puller) queueNeededBlocks() {
