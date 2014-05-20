@@ -526,7 +526,7 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 		}
 		os.Remove(of.temp)
 		os.Chmod(of.filepath, 0666)
-		if os.Remove(of.filepath) == nil {
+		if err := os.Remove(of.filepath); err == nil || os.IsNotExist(err) {
 			p.model.updateLocal(p.repo, f)
 		}
 	} else {
