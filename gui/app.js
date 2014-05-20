@@ -128,21 +128,21 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     $scope.repoClass = function (repo) {
         if (typeof $scope.model[repo] === 'undefined') {
-            return 'text-info';
+            return 'info';
         }
 
         if ($scope.model[repo].invalid !== '') {
-            return 'text-danger';
+            return 'danger';
         }
 
         var state = '' + $scope.model[repo].state;
         if (state == 'idle') {
-            return 'text-success';
+            return 'success';
         }
         if (state == 'syncing') {
-            return 'text-primary';
+            return 'primary';
         }
-        return 'text-info';
+        return 'info';
     }
 
     $scope.syncPercentage = function (repo) {
@@ -154,7 +154,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }
 
         var pct = 100 * $scope.model[repo].inSyncBytes / $scope.model[repo].globalBytes;
-        return Math.ceil(pct);
+        return Math.floor(pct);
     };
 
     $scope.nodeStatus = function (nodeCfg) {
@@ -223,6 +223,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         return '?';
     };
 
+    $scope.findNode = function (nodeID) {
+        var matches = $scope.nodes.filter(function (n) { return n.NodeID == nodeID; });
+        if (matches.length != 1) {
+            return undefined;
+        }
+        return matches[0];
+    };
+
     $scope.nodeName = function (nodeCfg) {
         if (nodeCfg.Name) {
             return nodeCfg.Name;
@@ -231,15 +239,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.thisNodeName = function () {
-        var nodes = $scope.thisNode();
-        if (typeof nodes === 'undefined' || nodes.length != 1) {
+        var node = $scope.thisNode();
+        if (typeof node === 'undefined') {
             return "(unknown node)";
         }
-        var nodeCfg = nodes[0];
-        if (nodeCfg.Name) {
-            return nodeCfg.Name;
+        if (node.Name) {
+            return node.Name;
         }
-        return nodeCfg.NodeID.substr(0, 6);
+        return node.NodeID.substr(0, 6);
     };
 
     $scope.editSettings = function () {
@@ -257,6 +264,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         restarting = true;
         $('#restarting').modal('show');
         $http.post(urlbase + '/restart');
+        $scope.configInSync = true;
+    };
+
+    $scope.shutdown = function () {
+        $http.post(urlbase + '/shutdown').success(function () {
+            setTimeout($scope.refresh(), 250);
+        });
         $scope.configInSync = true;
     };
 
@@ -338,9 +352,15 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         for (i = 0; i < $scope.nodes.length; i++) {
             n = $scope.nodes[i];
             if (n.NodeID === $scope.myID) {
-                return [n];
+                return n;
             }
         }
+    };
+
+    $scope.allNodes = function () {
+        var nodes = $scope.otherNodes();
+        nodes.push($scope.thisNode());
+        return nodes;
     };
 
     $scope.errorList = function () {
@@ -567,6 +587,18 @@ syncthing.filter('chunkID', function () {
         if (!parts)
             return "";
         return parts.join('-');
+    }
+});
+
+syncthing.filter('shortPath', function () {
+    return function (input) {
+        if (input === undefined)
+            return "";
+        var parts = input.split(/[\/\\]/);
+        if (!parts || parts.length <= 3) {
+            return input;
+        }
+        return ".../" + parts.slice(parts.length-2).join("/");
     }
 });
 
