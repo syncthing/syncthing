@@ -24,11 +24,11 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     // Strings before bools look better
     $scope.settings = [
     {id: 'ListenStr', descr: 'Sync Protocol Listen Addresses', type: 'text', restart: true},
-    {id: 'MaxSendKbps', descr: 'Outgoing Rate Limit (KBps)', type: 'number', restart: true},
+    {id: 'MaxSendKbps', descr: 'Outgoing Rate Limit (KiB/s)', type: 'number', restart: true},
     {id: 'RescanIntervalS', descr: 'Rescan Interval (s)', type: 'number', restart: true},
     {id: 'ReconnectIntervalS', descr: 'Reconnect Interval (s)', type: 'number', restart: true},
     {id: 'ParallelRequests', descr: 'Max Outstanding Requests', type: 'number', restart: true},
-    {id: 'MaxChangeKbps', descr: 'Max File Change Rate (KBps)', type: 'number', restart: true},
+    {id: 'MaxChangeKbps', descr: 'Max File Change Rate (KiB/s)', type: 'number', restart: true},
 
     {id: 'GlobalAnnEnabled', descr: 'Global Announce', type: 'bool', restart: true},
     {id: 'LocalAnnEnabled', descr: 'Local Announce', type: 'bool', restart: true},
