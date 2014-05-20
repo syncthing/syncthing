@@ -135,38 +135,38 @@
             <table class="table table-condensed table-striped">
             <tbody>
               <tr>
-                <th><span class="glyphicon glyphicon-tag"></span> Repository ID</th>
+                <th><span class="glyphicon glyphicon-tag"></span>&emsp;Repository ID</th>
                 <td class="text-right">{{repo.ID}}</td>
               </tr>
               <tr>
-                <th><span class="glyphicon glyphicon-folder-open"></span> Folder</th>
+                <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;Folder</th>
                 <td class="text-right">{{repo.Directory}}</td>
               </tr>
               <tr>
-                <th><span class="glyphicon glyphicon-comment"></span> Synchronization</th>
+                <th><span class="glyphicon glyphicon-comment"></span>&emsp;Synchronization</th>
                 <td class="text-right">{{repoStatus(repo.ID)}}</td>
               </tr>
               <tr>
-                <th><span class="glyphicon glyphicon-globe"></span> Global Repository</th>
+                <th><span class="glyphicon glyphicon-globe"></span>&emsp;Global Repository</th>
                 <td class="text-right">{{model[repo.ID].globalFiles | alwaysNumber}} files, {{model[repo.ID].globalBytes | binary}}B</td>
               </tr>
               <tr>
-                <th><span class="glyphicon glyphicon-home"></span> Local Repository</th>
+                <th><span class="glyphicon glyphicon-home"></span>&emsp;Local Repository</th>
                 <td class="text-right">{{model[repo.ID].localFiles | alwaysNumber}} files, {{model[repo.ID].localBytes | binary}}B</td>
               </tr>
               <tr>
-                <th><span class="glyphicon glyphicon-cloud-download"></span> Out of Sync</th>
+                <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Out of Sync</th>
                 <td class="text-right">{{model[repo.ID].needFiles | alwaysNumber}} files, {{model[repo.ID].needBytes | binary}}B</td>
               </tr>
               <tr>
-                <th><span class="glyphicon glyphicon-lock"></span> Master Repository</th>
+                <th><span class="glyphicon glyphicon-lock"></span>&emsp;Master Repository</th>
                 <td class="text-right">
                 <span ng-if="repo.ReadOnly">Yes</span>
                 <span ng-if="!repo.ReadOnly">No</span>
                 </td>
               </tr>
               <tr>
-                <th><span class="glyphicon glyphicon-globe"></span> Shared With</th>
+                <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;Shared With</th>
                 <td class="text-right">
                 <span ng-repeat="n in repo.Nodes">
                 {{nodeName(findNode(n.NodeID))}}<span ng-if="!$last">, </span>
@@ -199,30 +199,30 @@
             <table class="table table-condensed table-striped">
               <tbody>
                 <tr>
-                  <th><span class="glyphicon glyphicon-th"></span> RAM Utilization</th>
+                  <th><span class="glyphicon glyphicon-th"></span>&emsp;RAM Utilization</th>
                   <td class="text-right">{{system.sys | binary}}B</td>
                 </tr>
                 <tr>
-                  <th><span class="glyphicon glyphicon-tasks"></span> CPU Utilization</th>
+                  <th><span class="glyphicon glyphicon-tasks"></span>&emsp;CPU Utilization</th>
                   <td class="text-right">{{system.cpuPercent | alwaysNumber | natural:1}}%</td>
                 </tr>
                 <tr>
-                  <th><span class="glyphicon glyphicon-cloud-download"></span> Download Rate</th>
+                  <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Download Rate</th>
                   <td class="text-right">{{inbps | metric}}bps</td>
                 </tr>
                 <tr>
-                  <th><span class="glyphicon glyphicon-cloud-upload"></span> Upload Rate</th>
+                  <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;Upload Rate</th>
                   <td class="text-right">{{outbps | metric}}bps </td>
                 </tr>
                 <tr ng-if="system.extAnnounceOK != undefined">
-                  <th><span class="glyphicon glyphicon-bullhorn"></span> Announce Server</th>
+                  <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;Announce Server</th>
                   <td class="text-right">
                   <span class="data text-success" ng-if="system.extAnnounceOK">Online</span>
                   <span class="data text-danger" ng-if="!system.extAnnounceOK">Offline</span>
                   </td>
                 </tr>
                 <tr>
-                  <th><span class="glyphicon glyphicon-tag"></span> Version</th>
+                  <th><span class="glyphicon glyphicon-tag"></span>&emsp;Version</th>
                   <td class="text-right">{{version}}</td>
                 </tr>
               </tbody>
@@ -237,7 +237,7 @@
           <div class="panel-heading">
             <h3 class="panel-title">
             <a data-toggle="collapse" data-parent="#nodes" href="#node-{{nodeCfg.NodeID}}">
-            <span class="glyphicon glyphicon-globe"></span>
+            <span class="glyphicon glyphicon-retweet"></span>
             {{nodeName(nodeCfg)}}
             <span class="pull-right">{{nodeStatus(nodeCfg)}}</span>
             </a>
@@ -249,23 +249,23 @@
             <table class="table table-condensed table-striped">
               <tbody>
                 <tr>
-                  <th><span class="glyphicon glyphicon-link"></span> Address</th>
+                  <th><span class="glyphicon glyphicon-link"></span>&emsp;Address</th>
                   <td class="text-right">{{nodeAddr(nodeCfg)}}</td>
                 </tr>
                 <tr>
-                  <th><span class="glyphicon glyphicon-comment"></span> Synchronization</th>
+                  <th><span class="glyphicon glyphicon-comment"></span>&emsp;Synchronization</th>
                   <td class="text-right">{{nodeStatus(nodeCfg)}}</td>
                 </tr>
                 <tr>
-                  <th><span class="glyphicon glyphicon-cloud-download"></span> Download Rate</th>
+                  <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Download Rate</th>
                   <td class="text-right">{{connections[nodeCfg.NodeID].inbps | metric}}bps</td>
                 </tr>
                 <tr>
-                  <th><span class="glyphicon glyphicon-cloud-upload"></span> Upload Rate</th>
+                  <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;Upload Rate</th>
                   <td class="text-right">{{connections[nodeCfg.NodeID].outbps | metric}}bps </td>
                 </tr>
                 <tr>
-                  <th><span class="glyphicon glyphicon-tag"></span> Version</th>
+                  <th><span class="glyphicon glyphicon-tag"></span>&emsp;Version</th>
                   <td class="text-right">{{nodeVer(nodeCfg)}}</td>
                 </tr>
               </tbody>
