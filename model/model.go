@@ -47,9 +47,11 @@ type Model struct {
 	repoFiles  map[string]*files.Set  // repo -> files
 	repoNodes  map[string][]string    // repo -> nodeIDs
 	nodeRepos  map[string][]string    // nodeID -> repos
-	repoState  map[string]repoState   // repo -> state
 	suppressor map[string]*suppressor // repo -> suppressor
 	rmut       sync.RWMutex           // protects the above
+
+	repoState map[string]repoState // repo -> state
+	smut      sync.RWMutex
 
 	cm *cid.Map
 
@@ -537,7 +539,10 @@ func (m *Model) broadcastIndexLoop() {
 		m.pmut.RLock()
 		m.rmut.RLock()
 
+		var indexWg sync.WaitGroup
 		for repo, fs := range m.repoFiles {
+			repo := repo
+
 			c := fs.Changes(cid.LocalID)
 			if c == lastChange[repo] {
 				continue
@@ -545,10 +550,14 @@ func (m *Model) broadcastIndexLoop() {
 			lastChange[repo] = c
 
 			idx := m.protocolIndex(repo)
-			m.saveIndex(repo, m.indexDir, idx)
+			indexWg.Add(1)
+			go func() {
+				m.saveIndex(repo, m.indexDir, idx)
+				indexWg.Done()
+			}()
 
-			var indexWg sync.WaitGroup
 			for _, nodeID := range m.repoNodes[repo] {
+				nodeID := nodeID
 				if conn, ok := m.protoConn[nodeID]; ok {
 					indexWg.Add(1)
 					if debug {
@@ -560,12 +569,12 @@ func (m *Model) broadcastIndexLoop() {
 					}()
 				}
 			}
-
-			indexWg.Wait()
 		}
 
 		m.rmut.RUnlock()
 		m.pmut.RUnlock()
+
+		indexWg.Wait()
 	}
 }
 
@@ -749,15 +758,15 @@ func (m *Model) clusterConfig(node string) protocol.ClusterConfigMessage {
 }
 
 func (m *Model) setState(repo string, state repoState) {
-	m.rmut.Lock()
+	m.smut.Lock()
 	m.repoState[repo] = state
-	m.rmut.Unlock()
+	m.smut.Unlock()
 }
 
 func (m *Model) State(repo string) string {
-	m.rmut.RLock()
+	m.smut.RLock()
 	state := m.repoState[repo]
-	m.rmut.RUnlock()
+	m.smut.RUnlock()
 	switch state {
 	case RepoIdle:
 		return "idle"

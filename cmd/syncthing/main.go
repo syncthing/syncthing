@@ -215,6 +215,7 @@ func main() {
 	if profiler := os.Getenv("STPROFILER"); len(profiler) > 0 {
 		go func() {
 			l.Debugln("Starting profiler on", profiler)
+			runtime.SetBlockProfileRate(1)
 			err := http.ListenAndServe(profiler, nil)
 			if err != nil {
 				l.Fatalln(err)
