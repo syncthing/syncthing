@@ -112,7 +112,7 @@ func (m *Set) Need(id uint) []scanner.File {
 	var fs = make([]scanner.File, 0, len(m.globalKey)/2) // Just a guess, but avoids too many reallocations
 	rkID := m.remoteKey[id]
 	for gk, gf := range m.files {
-		if !gf.Global {
+		if !gf.Global || gf.File.Suppressed {
 			continue
 		}
 
