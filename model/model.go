@@ -369,6 +369,9 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 
 	lf := r.Get(cid.LocalID, name)
 	if lf.Suppressed || lf.Flags&protocol.FlagDeleted != 0 {
+		if debug {
+			l.Debugf("REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", nodeID, repo, name, offset, size, lf)
+		}
 		return nil, ErrInvalid
 	}
 
@@ -412,6 +415,7 @@ func (m *Model) SeedLocal(repo string, fs []protocol.FileInfo) {
 	for i := 0; i < len(fs); i++ {
 		lamport.Default.Tick(fs[i].Version)
 		sfs[i] = fileFromFileInfo(fs[i])
+		sfs[i].Suppressed = false // we might have saved an index with files that were suppressed; the should not be on startup
 	}
 
 	m.rmut.RLock()
