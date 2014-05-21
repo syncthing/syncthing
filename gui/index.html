@@ -80,13 +80,13 @@
       <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown">Edit&nbsp;<b class="caret"></b></a>
           <ul class="dropdown-menu">
-            <li><a ng-click="addRepo()"><span class="glyphicon glyphicon-hdd"></span> Add Repository</a></li>
-            <li><a ng-click="addNode()"><span class="glyphicon glyphicon-globe"></span> Add Node</a></li>
+            <li><a ng-click="addRepo()"><span class="glyphicon glyphicon-hdd"></span>&emsp;Add Repository</a></li>
+            <li><a ng-click="addNode()"><span class="glyphicon glyphicon-retweet"></span>&emsp;Add Node</a></li>
             <li class="divider"></li>
-            <li><a ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span> Settings</a></li>
+            <li><a ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span>&emsp;Settings</a></li>
             <li class="divider"></li>
-            <li><a ng-click="shutdown()"><span class="glyphicon glyphicon-off"></span> Shutdown</a></li>
-            <li><a ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span> Restart</a></li>
+            <li><a ng-click="shutdown()"><span class="glyphicon glyphicon-off"></span>&emsp;Shutdown</a></li>
+            <li><a ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span>&emsp;Restart</a></li>
           </ul>
         </li>
         </ul>
@@ -105,7 +105,7 @@
             <p>The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.</p>
           </div>
           <div class="panel-footer">
-            <button type="button" class="btn btn-sm btn-default pull-right" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span> Restart Now</button>
+            <button type="button" class="btn btn-sm btn-default pull-right" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span>&emsp;Restart</button>
             <div class="clearfix"></div>
           </div>
         </div>
@@ -176,7 +176,7 @@
             </tbody>
             </table>
             </div>
-          <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span> Edit</a></span>
+          <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span>&emsp;Edit</a></span>
           </div>
           </div>
         </div>
@@ -228,7 +228,7 @@
               </tbody>
             </table>
             </div>
-            <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span> Edit</a></span>
+            <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;Edit</a></span>
           </div>
           </div>
         </div>
@@ -271,7 +271,7 @@
               </tbody>
             </table>
             </div>
-            <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span> Edit</a></span>
+            <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;Edit</a></span>
           </div>
           </div>
         </div>
@@ -289,7 +289,7 @@
             <p ng-repeat="err in errorList()"><small>{{err.Time | date:"H:mm:ss"}}:</small> {{friendlyNodes(err.Error)}}</p>
           </div>
           <div class="panel-footer">
-            <button type="button" class="pull-right btn btn-sm btn-default" ng-click="clearErrors()">OK</button>
+            <button type="button" class="pull-right btn btn-sm btn-default" ng-click="clearErrors()"><span class="glyphicon glyphicon-ok"></span>&emsp;OK</button>
             <div class="clearfix"></div>
           </div>
         </div>
@@ -391,9 +391,9 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" ng-click="saveNode()" ng-disabled="nodeEditor.$invalid">Save</button>
-          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-          <button ng-if="editingExisting && !editingSelf" type="button" class="btn btn-danger pull-left" ng-click="deleteNode()">Delete</button>
+          <button type="button" class="btn btn-primary" ng-click="saveNode()" ng-disabled="nodeEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;Save</button>
+          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
+          <button ng-if="editingExisting && !editingSelf" type="button" class="btn btn-danger pull-left" ng-click="deleteNode()"><span class="glyphicon glyphicon-minus"></span>&emsp;Delete</button>
         </div>
       </div>
     </div>
@@ -451,9 +451,9 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" ng-click="saveRepo()" ng-disabled="repoEditor.$invalid">Save</button>
-          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-          <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left" ng-click="deleteRepo()">Delete</button>
+          <button type="button" class="btn btn-primary" ng-click="saveRepo()" ng-disabled="repoEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;Save</button>
+          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
+          <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left" ng-click="deleteRepo()"><span class="glyphicon glyphicon-minus"></span>&emsp;Delete</button>
         </div>
       </div>
     </div>
@@ -501,8 +501,8 @@
           </form>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" ng-click="saveSettings()">Save</button>
-          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" ng-click="saveSettings()"><span class="glyphicon glyphicon-ok"></span>&emsp;Save</button>
+          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
         </div>
       </div>
     </div>
