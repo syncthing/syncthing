@@ -18,12 +18,15 @@ The two are evolving together; the protocol is not to be considered
 stable until syncthing 1.0 is released, at which point it is locked down
 for incompatible changes.
 
-Syncthing does not use the BitTorrent protocol. The reasons for this are
-1) we don't know if BitTorrent Sync does either, so there's nothing to
-be compatible with, 2) BitTorrent includes a lot of functionality for
-making sure large swarms of selfish agents behave and somehow work
-towards a common goal. Here we have a much smaller swarm of cooperative
-agents and a simpler approach will suffice.
+Syncthing does not use the BitTorrent protocol. The reasons for this are:
+
+ 1. We don't know if BitTorrent Sync does either, so there's nothing to
+    be compatible with.
+
+ 2. BitTorrent includes a lot of functionality for 
+    making sure large swarms of selfish agents behave and somehow work
+    towards a common goal. Here we have a much smaller swarm of cooperative
+    agents and a simpler approach will suffice.
 
 Getting Started
 ---------------
