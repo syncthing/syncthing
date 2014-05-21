@@ -389,7 +389,7 @@
         <div class="well well-sm text-monospace text-center">
           {{myID | chunkID}}
         </div>
-        <img class="center-block img-thumbnail" src="qr/{{myID | chunkID}}"/>
+        <img ng-if="myID" class="center-block img-thumbnail" src="qr/{{myID | chunkID}}"/>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>

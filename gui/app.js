@@ -234,6 +234,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.nodeName = function (nodeCfg) {
+        if (typeof nodeCfg === 'undefined') {
+            return "";
+        }
         if (nodeCfg.Name) {
             return nodeCfg.Name;
         }
@@ -314,7 +317,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         });
         $scope.config.Nodes = $scope.nodes;
 
-        for (var id in repos) {
+        for (var id in $scope.repos) {
             $scope.repos[id].Nodes = $scope.repos[id].Nodes.filter(function (n) {
                 return n.NodeID !== $scope.currentNode.NodeID;
             });
