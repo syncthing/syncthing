@@ -5,5 +5,4 @@ stcli.exe
 *.tar.gz
 *.zip
 *.asc
-Godeps/
 *.sublime*
