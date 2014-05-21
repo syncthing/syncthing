@@ -10,6 +10,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     var prevDate = 0;
     var getOK = true;
     var restarting = false;
+    var oldOptions = {};
 
     $scope.connections = {};
     $scope.config = {};
@@ -251,13 +252,18 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.editSettings = function () {
+        oldOptions = angular.copy($scope.config.Options);
         $('#settings').modal({backdrop: 'static', keyboard: true});
     }
 
     $scope.saveSettings = function () {
-        $scope.configInSync = false;
-        $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) { return x.trim(); });
-        $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        // Make sure something changed
+        if(! angular.equals(oldOptions, $scope.config.Options)){
+            $scope.configInSync = false;
+            $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) { return x.trim(); });
+            $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        }
+        
         $('#settings').modal("hide");
     };
 
