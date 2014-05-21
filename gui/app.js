@@ -308,7 +308,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         });
         $scope.config.Nodes = $scope.nodes;
 
-        for (var id in repos) {
+        for (var id in $scope.repos) {
             $scope.repos[id].Nodes = $scope.repos[id].Nodes.filter(function (n) {
                 return n.NodeID !== $scope.currentNode.NodeID;
             });
