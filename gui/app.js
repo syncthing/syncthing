@@ -233,6 +233,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.nodeName = function (nodeCfg) {
+        if (typeof nodeCfg === 'undefined') {
+            return "";
+        }
         if (nodeCfg.Name) {
             return nodeCfg.Name;
         }
