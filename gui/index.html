@@ -80,13 +80,14 @@
       <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown">Edit&nbsp;<b class="caret"></b></a>
           <ul class="dropdown-menu">
-            <li><a ng-click="addRepo()"><span class="glyphicon glyphicon-hdd"></span>&emsp;Add Repository</a></li>
-            <li><a ng-click="addNode()"><span class="glyphicon glyphicon-retweet"></span>&emsp;Add Node</a></li>
+            <li><a href="" ng-click="addRepo()"><span class="glyphicon glyphicon-hdd"></span>&emsp;Add Repository</a></li>
+            <li><a href="" ng-click="addNode()"><span class="glyphicon glyphicon-retweet"></span>&emsp;Add Node</a></li>
             <li class="divider"></li>
-            <li><a ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span>&emsp;Settings</a></li>
+            <li><a href="" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span>&emsp;Settings</a></li>
+            <li><a href="" ng-click="idNode()"><span class="glyphicon glyphicon-qrcode"></span>&emsp;Show ID</a></span>
             <li class="divider"></li>
-            <li><a ng-click="shutdown()"><span class="glyphicon glyphicon-off"></span>&emsp;Shutdown</a></li>
-            <li><a ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span>&emsp;Restart</a></li>
+            <li><a href="" ng-click="shutdown()"><span class="glyphicon glyphicon-off"></span>&emsp;Shutdown</a></li>
+            <li><a href="" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span>&emsp;Restart</a></li>
           </ul>
         </li>
         </ul>
@@ -373,13 +374,36 @@
     </div>
   </div>
 
+  <!-- ID modal -->
+
+  <div id="idqr" class="modal fade">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title">
+            <span class="glyphicon glyphicon-qrcode"></span>
+            Node Identification &mdash; {{nodeName(thisNode())}}
+          </h4>
+        </div>
+        <div class="modal-body">
+        <div class="well well-sm text-monospace text-center">
+          {{myID | chunkID}}
+        </div>
+        <img class="center-block img-thumbnail" src="qr/{{myID | chunkID}}"/>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
+         </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Node editor modal -->
 
   <div id="editNode" class="modal fade">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
           <h4 ng-show="!editingExisting" class="modal-title">Add Node</h4>
           <h4 ng-show="editingExisting" class="modal-title">Edit Node</h4>
         </div>
@@ -390,7 +414,9 @@
               <input ng-if="!editingExisting" name="nodeID" id="nodeID" class="form-control text-monospace" type="text" ng-model="currentNode.NodeID" required></input>
               <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentNode.NodeID | chunkID}}</div>
               <p class="help-block">
-                <span ng-if="nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine">The node ID to enter here can be found in the "Add Node" dialog on the other node. Spaces and dashes are optional (ignored).</span>
+                <span ng-if="nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine">The node ID to enter here can be found in the "Edit > Show ID" dialog on the other node. Spaces and dashes are optional (ignored).
+                <span ng-show="!editingExisting">When adding a new node, keep in mind that <em>this node</em> must be added on the other side too.</span>
+                </span>
                 <span ng-if="nodeEditor.nodeID.$error.required && nodeEditor.nodeID.$dirty">The node ID cannot be blank.</span>
               </p>
             </div>
@@ -405,10 +431,6 @@
               <p class="help-block">Enter comma separated <span class="text-monospace">ip:port</span> addresses or <span class="text-monospace">dynamic</span> to perform automatic discovery of the address.</p>
             </div>
           </form>
-          <div ng-show="!editingExisting">
-            When adding a new node, keep in mind that <em>this node</em> must be added on the other side too. The Node ID of this node is:
-            <div class="well well-sm text-monospace">{{myID | chunkID}}</div>
-          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary" ng-click="saveNode()" ng-disabled="nodeEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;Save</button>
@@ -425,7 +447,6 @@
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
           <h4 ng-show="!editingExisting" class="modal-title">Add Repository</h4>
           <h4 ng-show="editingExisting" class="modal-title">Edit Repository</h4>
         </div>
@@ -485,7 +506,6 @@
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
           <h4 class="modal-title"> Settings</h4>
         </div>
         <div class="modal-body">

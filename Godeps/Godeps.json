@@ -1,10 +1,9 @@
 {
 	"ImportPath": "github.com/calmh/syncthing",
-	"GoVersion": "go1.2.1",
+	"GoVersion": "go1.2.2",
 	"Packages": [
 		"./cmd/syncthing",
 		"./cmd/assets",
-		"./cmd/stcli",
 		"./discover/cmd/discosrv"
 	],
 	"Deps": [
@@ -49,6 +48,18 @@
 		{
 			"ImportPath": "github.com/juju/ratelimit",
 			"Rev": "cbaa435c80a9716e086f25d409344b26c4039358"
+		},
+		{
+			"ImportPath": "github.com/vitrun/qart/coding",
+			"Rev": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0"
+		},
+		{
+			"ImportPath": "github.com/vitrun/qart/gf256",
+			"Rev": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0"
+		},
+		{
+			"ImportPath": "github.com/vitrun/qart/qr",
+			"Rev": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0"
 		}
 	]
 }

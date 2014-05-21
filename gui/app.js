@@ -285,6 +285,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $('#editNode').modal({backdrop: 'static', keyboard: true});
     };
 
+    $scope.idNode = function () {
+        $('#idqr').modal('show');
+    };
+
     $scope.addNode = function () {
         $scope.currentNode = {AddressesStr: 'dynamic'};
         $scope.editingExisting = false;
