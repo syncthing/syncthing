@@ -269,14 +269,15 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     $scope.restart = function () {
         restarting = true;
-        $('#restarting').modal('show');
+        $('#restarting').modal({backdrop: 'static', keyboard: false});
         $http.post(urlbase + '/restart');
         $scope.configInSync = true;
     };
 
     $scope.shutdown = function () {
+        restarting = true;
         $http.post(urlbase + '/shutdown').success(function () {
-            setTimeout($scope.refresh(), 250);
+            $('#shutdown').modal({backdrop: 'static', keyboard: false});
         });
         $scope.configInSync = true;
     };
@@ -288,6 +289,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $scope.currentNode.AddressesStr = nodeCfg.Addresses.join(', ');
         $scope.nodeEditor.$setPristine();
         $('#editNode').modal({backdrop: 'static', keyboard: true});
+    };
+
+    $scope.idNode = function () {
+        $('#idqr').modal('show');
     };
 
     $scope.addNode = function () {
