@@ -73,6 +73,7 @@ type GUIConfiguration struct {
 	Address  string `xml:"address" default:"127.0.0.1:8080"`
 	User     string `xml:"user,omitempty"`
 	Password string `xml:"password,omitempty"`
+	UseTLS   bool   `xml:"tls,attr"`
 }
 
 func setDefaults(data interface{}) error {

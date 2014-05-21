@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"crypto/tls"
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/logger"
@@ -42,9 +43,30 @@ func init() {
 }
 
 func startGUI(cfg config.GUIConfiguration, m *model.Model) error {
-	listener, err := net.Listen("tcp", cfg.Address)
-	if err != nil {
-		return err
+	var listener net.Listener
+	var err error
+	if cfg.UseTLS {
+		cert, err := loadCert(confDir, "https-")
+		if err != nil {
+			newCertificate(confDir, "https-")
+			cert, err = loadCert(confDir, "https-")
+		}
+		if err != nil {
+			return err
+		}
+		tlsCfg := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			ServerName:   "syncthing",
+		}
+		listener, err = tls.Listen("tcp", cfg.Address, tlsCfg)
+		if err != nil {
+			return err
+		}
+	} else {
+		listener, err = net.Listen("tcp", cfg.Address)
+		if err != nil {
+			return err
+		}
 	}
 
 	router := martini.NewRouter()

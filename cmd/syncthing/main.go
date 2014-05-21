@@ -144,10 +144,10 @@ func main() {
 	// Ensure that our home directory exists and that we have a certificate and key.
 
 	ensureDir(confDir, 0700)
-	cert, err := loadCert(confDir)
+	cert, err := loadCert(confDir, "")
 	if err != nil {
-		newCertificate(confDir)
-		cert, err = loadCert(confDir)
+		newCertificate(confDir, "")
+		cert, err = loadCert(confDir, "")
 		l.FatalErr(err)
 	}
 
@@ -272,13 +272,18 @@ func main() {
 				hostShow = hostOpen
 			}
 
-			l.Infof("Starting web GUI on http://%s:%d/", hostShow, addr.Port)
+			var proto = "http"
+			if cfg.GUI.UseTLS {
+				proto = "https"
+			}
+
+			l.Infof("Starting web GUI on %s://%s:%d/", proto, hostShow, addr.Port)
 			err := startGUI(cfg.GUI, m)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
 			if cfg.Options.StartBrowser && len(os.Getenv("STRESTART")) == 0 {
-				openURL(fmt.Sprintf("http://%s:%d", hostOpen, addr.Port))
+				openURL(fmt.Sprintf("%s://%s:%d", proto, hostOpen, addr.Port))
 			}
 		}
 	}

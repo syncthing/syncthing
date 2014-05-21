@@ -40,6 +40,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     {id: 'Address', descr: 'GUI Listen Addresses', type: 'text', restart: true},
     {id: 'User', descr: 'GUI Authentication User', type: 'text', restart: true},
     {id: 'Password', descr: 'GUI Authentication Password', type: 'password', restart: true},
+    {id: 'UseTLS', descr: 'Use HTTPS for GUI', type: 'bool', restart: true},
     ];
 
     function getSucceeded() {
