@@ -30,8 +30,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     {id: 'ParallelRequests', descr: 'Max Outstanding Requests', type: 'number', restart: true},
     {id: 'MaxChangeKbps', descr: 'Max File Change Rate (KiB/s)', type: 'number', restart: true},
 
-    {id: 'GlobalAnnEnabled', descr: 'Global Announce', type: 'bool', restart: true},
-    {id: 'LocalAnnEnabled', descr: 'Local Announce', type: 'bool', restart: true},
+    {id: 'GlobalAnnEnabled', descr: 'Global Discovery', type: 'bool', restart: true},
+    {id: 'LocalAnnEnabled', descr: 'Local Discovery', type: 'bool', restart: true},
+    {id: 'LocalAnnPort', descr: 'Local Discovery Port', type: 'number', restart: true},
     {id: 'StartBrowser', descr: 'Start Browser', type: 'bool'},
     {id: 'UPnPEnabled', descr: 'Enable UPnP', type: 'bool'},
     ];
