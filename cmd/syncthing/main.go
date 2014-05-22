@@ -84,7 +84,9 @@ const (
                - "xdr"      (the xdr package)
                - "all"      (all of the above)
 
- STCPUPROFILE  Write CPU profile to the specified file.`
+ STCPUPROFILE  Write CPU profile to the specified file.
+
+ STGUIASSETS   Directory to load GUI assets from. Overrides compiled in assets.`
 )
 
 func main() {
@@ -279,7 +281,7 @@ func main() {
 			}
 
 			l.Infof("Starting web GUI on %s://%s:%d/", proto, hostShow, addr.Port)
-			err := startGUI(cfg.GUI, m)
+			err := startGUI(cfg.GUI, os.Getenv("STGUIASSETS"), m)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}

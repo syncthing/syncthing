@@ -4,17 +4,21 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"mime"
 	"net"
 	"net/http"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
 
 	"crypto/tls"
 	"code.google.com/p/go.crypto/bcrypt"
+	"github.com/calmh/syncthing/auto"
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/logger"
 	"github.com/calmh/syncthing/model"
@@ -31,8 +35,7 @@ var (
 	configInSync = true
 	guiErrors    = []guiError{}
 	guiErrorsMut sync.Mutex
-	static       = embeddedStatic()
-	staticFunc   = static.(func(http.ResponseWriter, *http.Request, *log.Logger))
+	static       func(http.ResponseWriter, *http.Request, *log.Logger)
 )
 
 const (
@@ -43,7 +46,7 @@ func init() {
 	l.AddHandler(logger.LevelWarn, showGuiError)
 }
 
-func startGUI(cfg config.GUIConfiguration, m *model.Model) error {
+func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
 	var listener net.Listener
 	var err error
 	if cfg.UseTLS {
@@ -68,6 +71,12 @@ func startGUI(cfg config.GUIConfiguration, m *model.Model) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if len(assetDir) > 0 {
+		static = martini.Static(assetDir).(func(http.ResponseWriter, *http.Request, *log.Logger))
+	} else {
+		static = embeddedStatic()
 	}
 
 	router := martini.NewRouter()
@@ -108,7 +117,7 @@ func startGUI(cfg config.GUIConfiguration, m *model.Model) error {
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
 	r.URL.Path = "/index.html"
-	staticFunc(w, r, nil)
+	static(w, r, nil)
 }
 
 func restMiddleware(w http.ResponseWriter, r *http.Request) {
@@ -338,5 +347,31 @@ func basic(username string, passhash string) http.HandlerFunc {
 			error()
 			return
 		}
+	}
+}
+
+func embeddedStatic() func(http.ResponseWriter, *http.Request, *log.Logger) {
+	var modt = time.Now().UTC().Format(http.TimeFormat)
+
+	return func(res http.ResponseWriter, req *http.Request, log *log.Logger) {
+		file := req.URL.Path
+
+		if file[0] == '/' {
+			file = file[1:]
+		}
+
+		bs, ok := auto.Assets[file]
+		if !ok {
+			return
+		}
+
+		mtype := mime.TypeByExtension(filepath.Ext(req.URL.Path))
+		if len(mtype) != 0 {
+			res.Header().Set("Content-Type", mtype)
+		}
+		res.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
+		res.Header().Set("Last-Modified", modt)
+
+		res.Write(bs)
 	}
 }

@@ -88,7 +88,8 @@ case "$1" in
 		;;
 
 	guidev)
-		build -tags guidev
+		echo "Syncthing is already built for GUI developments. Try:"
+		echo "    STGUIASSETS=~/someDir/gui syncthing"
 		;;
 
 	test)
