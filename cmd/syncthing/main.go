@@ -615,7 +615,7 @@ next:
 }
 
 func discovery(extPort int) *discover.Discoverer {
-	disc, err := discover.NewDiscoverer(myID, cfg.Options.ListenAddress)
+	disc, err := discover.NewDiscoverer(myID, cfg.Options.ListenAddress, cfg.Options.LocalAnnPort)
 	if err != nil {
 		l.Warnf("No discovery possible (%v)", err)
 		return nil

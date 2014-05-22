@@ -14,6 +14,7 @@ func TestDefaultValues(t *testing.T) {
 		GlobalAnnServer:    "announce.syncthing.net:22025",
 		GlobalAnnEnabled:   true,
 		LocalAnnEnabled:    true,
+		LocalAnnPort:       21025,
 		ParallelRequests:   16,
 		MaxSendKbps:        0,
 		RescanIntervalS:    60,
@@ -145,6 +146,7 @@ func TestOverriddenValues(t *testing.T) {
         <globalAnnounceServer>syncthing.nym.se:22025</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
+        <localAnnouncePort>42123</localAnnouncePort>
         <parallelRequests>32</parallelRequests>
         <maxSendKbps>1234</maxSendKbps>
         <rescanIntervalS>600</rescanIntervalS>
@@ -161,6 +163,7 @@ func TestOverriddenValues(t *testing.T) {
 		GlobalAnnServer:    "syncthing.nym.se:22025",
 		GlobalAnnEnabled:   false,
 		LocalAnnEnabled:    false,
+		LocalAnnPort:       42123,
 		ParallelRequests:   32,
 		MaxSendKbps:        1234,
 		RescanIntervalS:    600,

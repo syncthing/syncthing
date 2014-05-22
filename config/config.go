@@ -55,6 +55,7 @@ type OptionsConfiguration struct {
 	GlobalAnnServer    string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22025"`
 	GlobalAnnEnabled   bool     `xml:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled    bool     `xml:"localAnnounceEnabled" default:"true"`
+	LocalAnnPort       int      `xml:"localAnnouncePort" default:"21025"`
 	ParallelRequests   int      `xml:"parallelRequests" default:"16"`
 	MaxSendKbps        int      `xml:"maxSendKbps"`
 	RescanIntervalS    int      `xml:"rescanIntervalS" default:"60"`

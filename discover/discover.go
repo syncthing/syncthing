@@ -13,10 +13,6 @@ import (
 	"github.com/calmh/syncthing/buffers"
 )
 
-const (
-	AnnouncementPort = 21025
-)
-
 type Discoverer struct {
 	myID             string
 	listenAddrs      []string
@@ -42,8 +38,8 @@ var (
 // When we hit this many errors in succession, we stop.
 const maxErrors = 30
 
-func NewDiscoverer(id string, addresses []string) (*Discoverer, error) {
-	b, err := beacon.New(21025)
+func NewDiscoverer(id string, addresses []string, localPort int) (*Discoverer, error) {
+	b, err := beacon.New(localPort)
 	if err != nil {
 		return nil, err
 	}
