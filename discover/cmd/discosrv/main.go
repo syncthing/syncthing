@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -16,18 +17,18 @@ import (
 	"github.com/juju/ratelimit"
 )
 
-type Node struct {
-	Addresses []Address
-	Updated   time.Time
+type node struct {
+	addresses []address
+	updated   time.Time
 }
 
-type Address struct {
-	IP   []byte
-	Port uint16
+type address struct {
+	ip   []byte
+	port uint16
 }
 
 var (
-	nodes     = make(map[string]Node)
+	nodes     = make(map[string]node)
 	lock      sync.Mutex
 	queries   = 0
 	announces = 0
@@ -134,7 +135,7 @@ func limit(addr *net.UDPAddr) bool {
 func handleAnnounceV2(addr *net.UDPAddr, buf []byte) {
 	var pkt discover.AnnounceV2
 	err := pkt.UnmarshalXDR(buf)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		log.Println("AnnounceV2 Unmarshal:", err)
 		log.Println(hex.Dump(buf))
 		return
@@ -152,25 +153,25 @@ func handleAnnounceV2(addr *net.UDPAddr, buf []byte) {
 		ip = addr.IP.To16()
 	}
 
-	var addrs []Address
-	for _, addr := range pkt.Addresses {
+	var addrs []address
+	for _, addr := range pkt.This.Addresses {
 		tip := addr.IP
 		if len(tip) == 0 {
 			tip = ip
 		}
-		addrs = append(addrs, Address{
-			IP:   tip,
-			Port: addr.Port,
+		addrs = append(addrs, address{
+			ip:   tip,
+			port: addr.Port,
 		})
 	}
 
-	node := Node{
-		Addresses: addrs,
-		Updated:   time.Now(),
+	node := node{
+		addresses: addrs,
+		updated:   time.Now(),
 	}
 
 	lock.Lock()
-	nodes[pkt.NodeID] = node
+	nodes[pkt.This.ID] = node
 	lock.Unlock()
 }
 
@@ -191,19 +192,21 @@ func handleQueryV2(conn *net.UDPConn, addr *net.UDPAddr, buf []byte) {
 	queries++
 	lock.Unlock()
 
-	if ok && len(node.Addresses) > 0 {
-		pkt := discover.AnnounceV2{
-			Magic:  discover.AnnouncementMagicV2,
-			NodeID: pkt.NodeID,
+	if ok && len(node.addresses) > 0 {
+		ann := discover.AnnounceV2{
+			Magic: discover.AnnouncementMagicV2,
+			This: discover.Node{
+				ID: pkt.NodeID,
+			},
 		}
-		for _, addr := range node.Addresses {
-			pkt.Addresses = append(pkt.Addresses, discover.Address{IP: addr.IP, Port: addr.Port})
+		for _, addr := range node.addresses {
+			ann.This.Addresses = append(ann.This.Addresses, discover.Address{IP: addr.ip, Port: addr.port})
 		}
 		if debug {
 			log.Printf("-> %v %#v", addr, pkt)
 		}
 
-		tb := pkt.MarshalXDR()
+		tb := ann.MarshalXDR()
 		_, _, err = conn.WriteMsgUDP(tb, nil, addr)
 		if err != nil {
 			log.Println("QueryV2 response write:", err)
@@ -235,7 +238,7 @@ func logStats(file string, intv int) {
 
 		var deleted = 0
 		for id, node := range nodes {
-			if time.Since(node.Updated) > 60*time.Minute {
+			if time.Since(node.updated) > 60*time.Minute {
 				delete(nodes, id)
 				deleted++
 			}

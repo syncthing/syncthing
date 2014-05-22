@@ -6,3 +6,5 @@ stcli.exe
 *.zip
 *.asc
 *.sublime*
+discosrv
+stpidx
