@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"math/big"
+	mr "math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,7 +51,7 @@ func newCertificate(dir string, prefix string) {
 	notAfter := time.Date(2049, 12, 31, 23, 59, 59, 0, time.UTC)
 
 	template := x509.Certificate{
-		SerialNumber: new(big.Int).SetInt64(0),
+		SerialNumber: new(big.Int).SetInt64(mr.Int63()),
 		Subject: pkix.Name{
 			CommonName: tlsName,
 		},
