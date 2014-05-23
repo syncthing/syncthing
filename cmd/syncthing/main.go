@@ -252,8 +252,8 @@ func main() {
 		if repo.Invalid != "" {
 			continue
 		}
-		dir := expandTilde(repo.Directory)
-		m.AddRepo(repo.ID, dir, repo.Nodes)
+		repo.Directory = expandTilde(repo.Directory)
+		m.AddRepo(repo)
 	}
 
 	// GUI

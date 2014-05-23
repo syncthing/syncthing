@@ -167,6 +167,13 @@
                 </td>
               </tr>
               <tr>
+                <th><span class="glyphicon glyphicon-unchecked"></span>&emsp;Ignore Permissions</th>
+                <td class="text-right">
+                <span ng-if="repo.IgnorePerms">Yes</span>
+                <span ng-if="!repo.IgnorePerms">No</span>
+                </td>
+              </tr>
+              <tr>
                 <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;Shared With</th>
                 <td class="text-right">
                 <span ng-repeat="n in repo.Nodes">
@@ -476,6 +483,14 @@
                 </label>
               </div>
               <p class="help-block">Files are protected from changes made on other nodes, but changes made on <em>this</em> node will be sent to the rest of the cluster.</p>
+            </div>
+            <div class="form-group">
+              <div class="checkbox">
+                <label>
+                  <input type="checkbox" ng-model="currentRepo.IgnorePerms"> Ignore Permissions
+                </label>
+              </div>
+              <p class="help-block">File permission bits are ignored when looking for changes. Use on FAT filesystems.</p>
             </div>
             <div class="form-group">
               <label for="nodes">Nodes</label>

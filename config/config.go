@@ -27,12 +27,13 @@ type Configuration struct {
 }
 
 type RepositoryConfiguration struct {
-	ID        string              `xml:"id,attr"`
-	Directory string              `xml:"directory,attr"`
-	Nodes     []NodeConfiguration `xml:"node"`
-	ReadOnly  bool                `xml:"ro,attr"`
-	Invalid   string              `xml:"-"` // Set at runtime when there is an error, not saved
-	nodeIDs   []string
+	ID          string              `xml:"id,attr"`
+	Directory   string              `xml:"directory,attr"`
+	Nodes       []NodeConfiguration `xml:"node"`
+	ReadOnly    bool                `xml:"ro,attr"`
+	IgnorePerms bool                `xml:"ignorePerms,attr"`
+	Invalid     string              `xml:"-"` // Set at runtime when there is an error, not saved
+	nodeIDs     []string
 }
 
 func (r *RepositoryConfiguration) NodeIDs() []string {

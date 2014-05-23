@@ -43,12 +43,12 @@ type Model struct {
 	clientName    string
 	clientVersion string
 
-	repoDirs   map[string]string      // repo -> dir
-	repoFiles  map[string]*files.Set  // repo -> files
-	repoNodes  map[string][]string    // repo -> nodeIDs
-	nodeRepos  map[string][]string    // nodeID -> repos
-	suppressor map[string]*suppressor // repo -> suppressor
-	rmut       sync.RWMutex           // protects the above
+	repoCfgs   map[string]config.RepositoryConfiguration // repo -> cfg
+	repoFiles  map[string]*files.Set                     // repo -> files
+	repoNodes  map[string][]string                       // repo -> nodeIDs
+	nodeRepos  map[string][]string                       // nodeID -> repos
+	suppressor map[string]*suppressor                    // repo -> suppressor
+	rmut       sync.RWMutex                              // protects the above
 
 	repoState map[string]repoState // repo -> state
 	smut      sync.RWMutex
@@ -80,7 +80,7 @@ func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVers
 		cfg:           cfg,
 		clientName:    clientName,
 		clientVersion: clientVersion,
-		repoDirs:      make(map[string]string),
+		repoCfgs:      make(map[string]config.RepositoryConfiguration),
 		repoFiles:     make(map[string]*files.Set),
 		repoNodes:     make(map[string][]string),
 		nodeRepos:     make(map[string][]string),
@@ -104,10 +104,10 @@ func (m *Model) StartRepoRW(repo string, threads int) {
 	m.rmut.RLock()
 	defer m.rmut.RUnlock()
 
-	if dir, ok := m.repoDirs[repo]; !ok {
+	if cfg, ok := m.repoCfgs[repo]; !ok {
 		panic("cannot start without repo")
 	} else {
-		newPuller(repo, dir, m, threads, m.cfg)
+		newPuller(cfg, m, threads, m.cfg)
 	}
 }
 
@@ -386,7 +386,7 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 		l.Debugf("REQ(in): %s: %q / %q o=%d s=%d", nodeID, repo, name, offset, size)
 	}
 	m.rmut.RLock()
-	fn := filepath.Join(m.repoDirs[repo], name)
+	fn := filepath.Join(m.repoCfgs[repo].Directory, name)
 	m.rmut.RUnlock()
 	fd, err := os.Open(fn) // XXX: Inefficient, should cache fd?
 	if err != nil {
@@ -582,23 +582,23 @@ func (m *Model) broadcastIndexLoop() {
 	}
 }
 
-func (m *Model) AddRepo(id, dir string, nodes []config.NodeConfiguration) {
+func (m *Model) AddRepo(cfg config.RepositoryConfiguration) {
 	if m.started {
 		panic("cannot add repo to started model")
 	}
-	if len(id) == 0 {
+	if len(cfg.ID) == 0 {
 		panic("cannot add empty repo id")
 	}
 
 	m.rmut.Lock()
-	m.repoDirs[id] = dir
-	m.repoFiles[id] = files.NewSet()
-	m.suppressor[id] = &suppressor{threshold: int64(m.cfg.Options.MaxChangeKbps)}
+	m.repoCfgs[cfg.ID] = cfg
+	m.repoFiles[cfg.ID] = files.NewSet()
+	m.suppressor[cfg.ID] = &suppressor{threshold: int64(m.cfg.Options.MaxChangeKbps)}
 
-	m.repoNodes[id] = make([]string, len(nodes))
-	for i, node := range nodes {
-		m.repoNodes[id][i] = node.NodeID
-		m.nodeRepos[node.NodeID] = append(m.nodeRepos[node.NodeID], id)
+	m.repoNodes[cfg.ID] = make([]string, len(cfg.Nodes))
+	for i, node := range cfg.Nodes {
+		m.repoNodes[cfg.ID][i] = node.NodeID
+		m.nodeRepos[node.NodeID] = append(m.nodeRepos[node.NodeID], cfg.ID)
 	}
 
 	m.addedRepo = true
@@ -607,8 +607,8 @@ func (m *Model) AddRepo(id, dir string, nodes []config.NodeConfiguration) {
 
 func (m *Model) ScanRepos() {
 	m.rmut.RLock()
-	var repos = make([]string, 0, len(m.repoDirs))
-	for repo := range m.repoDirs {
+	var repos = make([]string, 0, len(m.repoCfgs))
+	for repo := range m.repoCfgs {
 		repos = append(repos, repo)
 	}
 	m.rmut.RUnlock()
@@ -627,9 +627,9 @@ func (m *Model) ScanRepos() {
 
 func (m *Model) CleanRepos() {
 	m.rmut.RLock()
-	var dirs = make([]string, 0, len(m.repoDirs))
-	for _, dir := range m.repoDirs {
-		dirs = append(dirs, dir)
+	var dirs = make([]string, 0, len(m.repoCfgs))
+	for _, cfg := range m.repoCfgs {
+		dirs = append(dirs, cfg.Directory)
 	}
 	m.rmut.RUnlock()
 
@@ -651,12 +651,13 @@ func (m *Model) CleanRepos() {
 func (m *Model) ScanRepo(repo string) error {
 	m.rmut.RLock()
 	w := &scanner.Walker{
-		Dir:          m.repoDirs[repo],
+		Dir:          m.repoCfgs[repo].Directory,
 		IgnoreFile:   ".stignore",
 		BlockSize:    scanner.StandardBlockSize,
 		TempNamer:    defTempNamer,
 		Suppressor:   m.suppressor[repo],
 		CurrentFiler: cFiler{m, repo},
+		IgnorePerms:  m.repoCfgs[repo].IgnorePerms,
 	}
 	m.rmut.RUnlock()
 	m.setState(repo, RepoScanning)
@@ -671,7 +672,7 @@ func (m *Model) ScanRepo(repo string) error {
 
 func (m *Model) SaveIndexes(dir string) {
 	m.rmut.RLock()
-	for repo := range m.repoDirs {
+	for repo := range m.repoCfgs {
 		fs := m.protocolIndex(repo)
 		m.saveIndex(repo, dir, fs)
 	}
@@ -680,7 +681,7 @@ func (m *Model) SaveIndexes(dir string) {
 
 func (m *Model) LoadIndexes(dir string) {
 	m.rmut.RLock()
-	for repo := range m.repoDirs {
+	for repo := range m.repoCfgs {
 		fs := m.loadIndex(repo, dir)
 		m.SeedLocal(repo, fs)
 	}
@@ -688,7 +689,7 @@ func (m *Model) LoadIndexes(dir string) {
 }
 
 func (m *Model) saveIndex(repo string, dir string, fs []protocol.FileInfo) {
-	id := fmt.Sprintf("%x", sha1.Sum([]byte(m.repoDirs[repo])))
+	id := fmt.Sprintf("%x", sha1.Sum([]byte(m.repoCfgs[repo].Directory)))
 	name := id + ".idx.gz"
 	name = filepath.Join(dir, name)
 
@@ -710,7 +711,7 @@ func (m *Model) saveIndex(repo string, dir string, fs []protocol.FileInfo) {
 }
 
 func (m *Model) loadIndex(repo string, dir string) []protocol.FileInfo {
-	id := fmt.Sprintf("%x", sha1.Sum([]byte(m.repoDirs[repo])))
+	id := fmt.Sprintf("%x", sha1.Sum([]byte(m.repoCfgs[repo].Directory)))
 	name := id + ".idx.gz"
 	name = filepath.Join(dir, name)
 

@@ -29,10 +29,10 @@ type Walker struct {
 	// Suppressed files will be returned with empty metadata and the Suppressed flag set.
 	// Requires CurrentFiler to be set.
 	Suppressor Suppressor
-	// If IgnorePermissions is true, changes to permission bits will not be
+	// If IgnorePerms is true, changes to permission bits will not be
 	// detected. Scanned files will get zero permission bits and the
 	// NoPermissionBits flag set.
-	IgnorePermissions bool
+	IgnorePerms bool
 }
 
 type TempNamer interface {
@@ -166,7 +166,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if info.Mode().IsDir() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				permUnchanged := w.IgnorePermissions || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
+				permUnchanged := w.IgnorePerms || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
 				if cf.Modified == info.ModTime().Unix() && protocol.IsDirectory(cf.Flags) && permUnchanged {
 					if debug {
 						l.Debugln("unchanged:", cf)
@@ -174,7 +174,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 					*res = append(*res, cf)
 				} else {
 					var flags uint32 = protocol.FlagDirectory
-					if w.IgnorePermissions {
+					if w.IgnorePerms {
 						flags |= protocol.FlagNoPermBits
 					} else {
 						flags |= uint32(info.Mode() & os.ModePerm)
@@ -197,7 +197,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if info.Mode().IsRegular() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				permUnchanged := w.IgnorePermissions || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
+				permUnchanged := w.IgnorePerms || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
 				if !protocol.IsDeleted(cf.Flags) && cf.Modified == info.ModTime().Unix() && permUnchanged {
 					if debug {
 						l.Debugln("unchanged:", cf)
@@ -249,7 +249,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			}
 
 			var flags = uint32(info.Mode() & os.ModePerm)
-			if w.IgnorePermissions {
+			if w.IgnorePerms {
 				flags = protocol.FlagNoPermBits
 			}
 			f := File{
