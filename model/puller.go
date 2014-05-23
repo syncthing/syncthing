@@ -245,7 +245,7 @@ func (p *puller) fixupDirectories() {
 			return nil
 		}
 
-		if !permsEqual(cur.Flags, uint32(info.Mode())) {
+		if !scanner.PermsEqual(cur.Flags, uint32(info.Mode())) {
 			err := os.Chmod(path, os.FileMode(cur.Flags)&os.ModePerm)
 			if err != nil {
 				l.Warnln("Restoring folder flags: %q: %v", path, err)

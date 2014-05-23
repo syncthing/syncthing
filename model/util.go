@@ -109,15 +109,3 @@ func compareClusterConfig(local, remote protocol.ClusterConfigMessage) error {
 
 	return nil
 }
-
-func permsEqual(a, b uint32) bool {
-	switch runtime.GOOS {
-	case "windows":
-		// There is only writeable and read only, represented for user, group
-		// and other equally. We only compare against user.
-		return a&0600 == b&0600
-	default:
-		// All bits count
-		return a&0777 == b&0777
-	}
-}
