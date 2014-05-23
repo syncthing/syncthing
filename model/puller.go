@@ -232,7 +232,7 @@ func (p *puller) fixupDirectories() {
 			return nil
 		}
 
-		if cur.Flags&protocol.FlagDeleted != 0 {
+		if protocol.IsDeleted(cur.Flags) {
 			if debug {
 				l.Debugf("queue delete dir: %v", cur)
 			}
@@ -245,7 +245,7 @@ func (p *puller) fixupDirectories() {
 			return nil
 		}
 
-		if cur.Flags&uint32(os.ModePerm) != uint32(info.Mode()&os.ModePerm) {
+		if !permsEqual(cur.Flags, uint32(info.Mode())) {
 			err := os.Chmod(path, os.FileMode(cur.Flags)&os.ModePerm)
 			if err != nil {
 				l.Warnln("Restoring folder flags: %q: %v", path, err)
@@ -336,8 +336,8 @@ func (p *puller) handleBlock(b bqBlock) bool {
 
 	// For directories, making sure they exist is enough.
 	// Deleted directories we mark as handled and delete later.
-	if f.Flags&protocol.FlagDirectory != 0 {
-		if f.Flags&protocol.FlagDeleted == 0 {
+	if protocol.IsDirectory(f.Flags) {
+		if !protocol.IsDeleted(f.Flags) {
 			path := filepath.Join(p.dir, f.Name)
 			_, err := os.Stat(path)
 			if err != nil && os.IsNotExist(err) {
@@ -520,7 +520,7 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 		}
 	}
 
-	if f.Flags&protocol.FlagDeleted != 0 {
+	if protocol.IsDeleted(f.Flags) {
 		if debug {
 			l.Debugf("pull: delete %q", f.Name)
 		}

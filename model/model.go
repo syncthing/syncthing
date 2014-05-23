@@ -149,9 +149,9 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 
 		for _, repo := range m.nodeRepos[node] {
 			for _, f := range m.repoFiles[repo].Global() {
-				if f.Flags&protocol.FlagDeleted == 0 {
+				if !protocol.IsDeleted(f.Flags) {
 					size := f.Size
-					if f.Flags&protocol.FlagDirectory != 0 {
+					if protocol.IsDirectory(f.Flags) {
 						size = zeroEntrySize
 					}
 					tot += size
@@ -160,9 +160,9 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 			}
 
 			for _, f := range m.repoFiles[repo].Need(m.cm.Get(node)) {
-				if f.Flags&protocol.FlagDeleted == 0 {
+				if !protocol.IsDeleted(f.Flags) {
 					size := f.Size
-					if f.Flags&protocol.FlagDirectory != 0 {
+					if protocol.IsDirectory(f.Flags) {
 						size = zeroEntrySize
 					}
 					have -= size
@@ -186,9 +186,9 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 
 func sizeOf(fs []scanner.File) (files, deleted int, bytes int64) {
 	for _, f := range fs {
-		if f.Flags&protocol.FlagDeleted == 0 {
+		if !protocol.IsDeleted(f.Flags) {
 			files++
-			if f.Flags&protocol.FlagDirectory == 0 {
+			if !protocol.IsDirectory(f.Flags) {
 				bytes += f.Size
 			} else {
 				bytes += zeroEntrySize
@@ -252,7 +252,7 @@ func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 		lamport.Default.Tick(f.Version)
 		if debug {
 			var flagComment string
-			if f.Flags&protocol.FlagDeleted != 0 {
+			if protocol.IsDeleted(f.Flags) {
 				flagComment = " (deleted)"
 			}
 			l.Debugf("IDX(in): %s %q/%q m=%d f=%o%s v=%d (%d blocks)", nodeID, repo, f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
@@ -283,7 +283,7 @@ func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) 
 		lamport.Default.Tick(f.Version)
 		if debug {
 			var flagComment string
-			if f.Flags&protocol.FlagDeleted != 0 {
+			if protocol.IsDeleted(f.Flags) {
 				flagComment = " (deleted)"
 			}
 			l.Debugf("IDXUP(in): %s %q/%q m=%d f=%o%s v=%d (%d blocks)", nodeID, repo, f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
@@ -368,7 +368,7 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 	}
 
 	lf := r.Get(cid.LocalID, name)
-	if lf.Suppressed || lf.Flags&protocol.FlagDeleted != 0 {
+	if lf.Suppressed || protocol.IsDeleted(lf.Flags) {
 		if debug {
 			l.Debugf("REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", nodeID, repo, name, offset, size, lf)
 		}
@@ -502,7 +502,7 @@ func (m *Model) protocolIndex(repo string) []protocol.FileInfo {
 		mf := fileInfoFromFile(f)
 		if debug {
 			var flagComment string
-			if mf.Flags&protocol.FlagDeleted != 0 {
+			if protocol.IsDeleted(mf.Flags) {
 				flagComment = " (deleted)"
 			}
 			l.Debugf("IDX(out): %q/%q m=%d f=%o%s v=%d (%d blocks)", repo, mf.Name, mf.Modified, mf.Flags, flagComment, mf.Version, len(mf.Blocks))

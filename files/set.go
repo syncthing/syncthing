@@ -76,7 +76,7 @@ func (m *Set) ReplaceWithDelete(id uint, fs []scanner.File) {
 		for _, ck := range m.remoteKey[cid.LocalID] {
 			if _, ok := nf[ck.Name]; !ok {
 				cf := m.files[ck].File
-				if cf.Flags&protocol.FlagDeleted != protocol.FlagDeleted {
+				if !protocol.IsDeleted(cf.Flags) {
 					cf.Flags |= protocol.FlagDeleted
 					cf.Blocks = nil
 					cf.Size = 0
@@ -193,7 +193,7 @@ func (m *Set) equals(id uint, fs []scanner.File) bool {
 	curWithoutDeleted := make(map[string]key)
 	for _, k := range m.remoteKey[id] {
 		f := m.files[k].File
-		if f.Flags&protocol.FlagDeleted == 0 {
+		if !protocol.IsDeleted(f.Flags) {
 			curWithoutDeleted[f.Name] = k
 		}
 	}

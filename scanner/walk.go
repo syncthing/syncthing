@@ -162,7 +162,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if info.Mode().IsDir() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				if cf.Modified == info.ModTime().Unix() && cf.Flags&protocol.FlagDirectory != 0 && permsEqual(cf.Flags, uint32(info.Mode())) {
+				if cf.Modified == info.ModTime().Unix() && protocol.IsDirectory(cf.Flags) && permsEqual(cf.Flags, uint32(info.Mode())) {
 					if debug {
 						l.Debugln("unchanged:", cf)
 					}
@@ -186,7 +186,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if info.Mode().IsRegular() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				if cf.Flags&protocol.FlagDeleted == 0 && cf.Modified == info.ModTime().Unix() && permsEqual(cf.Flags, uint32(info.Mode())) {
+				if !protocol.IsDeleted(cf.Flags) && cf.Modified == info.ModTime().Unix() && permsEqual(cf.Flags, uint32(info.Mode())) {
 					if debug {
 						l.Debugln("unchanged:", cf)
 					}
