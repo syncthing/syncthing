@@ -404,6 +404,11 @@ The Flags field is made up of the following single bit flags:
    synchronization. A peer MAY set this bit to indicate that it can
    temporarily not serve data for the file.
 
+ - Bit 17 ("P") is set when there is no permission information for the
+   file. This is the case when it originates on a non-permission-
+   supporting file system. Changes to only permission bits should be
+   disregarded on files with this bit set.
+
  - Bit 0 through 17 are reserved for future use and SHALL be set to
    zero.
 
