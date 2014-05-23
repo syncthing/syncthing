@@ -29,6 +29,10 @@ type Walker struct {
 	// Suppressed files will be returned with empty metadata and the Suppressed flag set.
 	// Requires CurrentFiler to be set.
 	Suppressor Suppressor
+	// If IgnorePermissions is true, changes to permission bits will not be
+	// detected. Scanned files will get zero permission bits and the
+	// NoPermissionBits flag set.
+	IgnorePermissions bool
 }
 
 type TempNamer interface {
@@ -162,16 +166,23 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if info.Mode().IsDir() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				if cf.Modified == info.ModTime().Unix() && protocol.IsDirectory(cf.Flags) && PermsEqual(cf.Flags, uint32(info.Mode())) {
+				permUnchanged := w.IgnorePermissions || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
+				if cf.Modified == info.ModTime().Unix() && protocol.IsDirectory(cf.Flags) && permUnchanged {
 					if debug {
 						l.Debugln("unchanged:", cf)
 					}
 					*res = append(*res, cf)
 				} else {
+					var flags uint32 = protocol.FlagDirectory
+					if w.IgnorePermissions {
+						flags |= protocol.FlagNoPermBits
+					} else {
+						flags |= uint32(info.Mode() & os.ModePerm)
+					}
 					f := File{
 						Name:     rn,
 						Version:  lamport.Default.Tick(0),
-						Flags:    uint32(info.Mode()&os.ModePerm) | protocol.FlagDirectory,
+						Flags:    flags,
 						Modified: info.ModTime().Unix(),
 					}
 					if debug {
@@ -186,7 +197,8 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 		if info.Mode().IsRegular() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				if !protocol.IsDeleted(cf.Flags) && cf.Modified == info.ModTime().Unix() && PermsEqual(cf.Flags, uint32(info.Mode())) {
+				permUnchanged := w.IgnorePermissions || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
+				if !protocol.IsDeleted(cf.Flags) && cf.Modified == info.ModTime().Unix() && permUnchanged {
 					if debug {
 						l.Debugln("unchanged:", cf)
 					}
@@ -235,11 +247,16 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 				t1 := time.Now()
 				l.Debugln("hashed:", rn, ";", len(blocks), "blocks;", info.Size(), "bytes;", int(float64(info.Size())/1024/t1.Sub(t0).Seconds()), "KB/s")
 			}
+
+			var flags = uint32(info.Mode() & os.ModePerm)
+			if w.IgnorePermissions {
+				flags = protocol.FlagNoPermBits
+			}
 			f := File{
 				Name:     rn,
 				Version:  lamport.Default.Tick(0),
 				Size:     info.Size(),
-				Flags:    uint32(info.Mode()),
+				Flags:    flags,
 				Modified: info.ModTime().Unix(),
 				Blocks:   blocks,
 			}

@@ -538,7 +538,7 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 			delete(p.openFiles, f.Name)
 			return
 		}
-		if os.Chmod(of.temp, os.FileMode(f.Flags&0777)) != nil {
+		if protocol.HasPermissionBits(f.Flags) && os.Chmod(of.temp, os.FileMode(f.Flags&0777)) != nil {
 			delete(p.openFiles, f.Name)
 			return
 		}
@@ -607,7 +607,9 @@ func (p *puller) closeFile(f scanner.File) {
 
 	t := time.Unix(f.Modified, 0)
 	os.Chtimes(of.temp, t, t)
-	os.Chmod(of.temp, os.FileMode(f.Flags&0777))
+	if protocol.HasPermissionBits(f.Flags) {
+		os.Chmod(of.temp, os.FileMode(f.Flags&0777))
+	}
 	defTempNamer.Show(of.temp)
 	if debug {
 		l.Debugf("pull: rename %q / %q: %q", p.repo, f.Name, of.filepath)
