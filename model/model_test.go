@@ -49,7 +49,7 @@ func init() {
 
 func TestRequest(t *testing.T) {
 	m := NewModel("/tmp", &config.Configuration{}, "syncthing", "dev")
-	m.AddRepo("default", "testdata", nil)
+	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 
 	bs, err := m.Request("some node", "default", "foo", 0, 6)
@@ -85,7 +85,7 @@ func genFiles(n int) []protocol.FileInfo {
 
 func BenchmarkIndex10000(b *testing.B) {
 	m := NewModel("/tmp", nil, "syncthing", "dev")
-	m.AddRepo("default", "testdata", nil)
+	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
 
@@ -97,7 +97,7 @@ func BenchmarkIndex10000(b *testing.B) {
 
 func BenchmarkIndex00100(b *testing.B) {
 	m := NewModel("/tmp", nil, "syncthing", "dev")
-	m.AddRepo("default", "testdata", nil)
+	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(100)
 
@@ -109,7 +109,7 @@ func BenchmarkIndex00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 	m := NewModel("/tmp", nil, "syncthing", "dev")
-	m.AddRepo("default", "testdata", nil)
+	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
 	m.Index("42", "default", files)
@@ -122,7 +122,7 @@ func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 	m := NewModel("/tmp", nil, "syncthing", "dev")
-	m.AddRepo("default", "testdata", nil)
+	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
 	m.Index("42", "default", files)
@@ -136,7 +136,7 @@ func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00001(b *testing.B) {
 	m := NewModel("/tmp", nil, "syncthing", "dev")
-	m.AddRepo("default", "testdata", nil)
+	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
 	m.Index("42", "default", files)
@@ -183,7 +183,7 @@ func (FakeConnection) Statistics() protocol.Statistics {
 
 func BenchmarkRequest(b *testing.B) {
 	m := NewModel("/tmp", nil, "syncthing", "dev")
-	m.AddRepo("default", "testdata", nil)
+	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 
 	const n = 1000
