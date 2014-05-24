@@ -100,11 +100,6 @@ func main() {
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
 	flag.Parse()
 
-	if len(os.Getenv("STRESTART")) > 0 {
-		// Give the parent process time to exit and release sockets etc.
-		time.Sleep(1 * time.Second)
-	}
-
 	if showVersion {
 		fmt.Println(LongVersion)
 		return
@@ -224,6 +219,10 @@ func main() {
 				l.Fatalln(err)
 			}
 		}()
+	}
+
+	if len(os.Getenv("STRESTART")) > 0 {
+		waitForParentExit()
 	}
 
 	// The TLS configuration is used for both the listening socket and outgoing
@@ -363,6 +362,21 @@ func main() {
 	}
 
 	<-stop
+	l.Okln("Exiting")
+}
+
+func waitForParentExit() {
+	l.Infoln("Waiting for parent to exit...")
+	// Wait for the listen address to become free, indicating that the parent has exited.
+	for {
+		ln, err := net.Listen("tcp", cfg.Options.ListenAddress[0])
+		if err == nil {
+			ln.Close()
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	l.Okln("Continuing")
 }
 
 func setupUPnP() int {
