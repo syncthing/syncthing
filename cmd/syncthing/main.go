@@ -679,7 +679,11 @@ func getDefaultConfDir() string {
 }
 
 func expandTilde(p string) string {
-	if runtime.GOOS == "windows" || !strings.HasPrefix(p, "~/") {
+	if p == "~" {
+		return getHomeDir()
+	}
+
+	if !strings.HasPrefix(p, fmt.Sprintf("~%c", os.PathSeparator)) {
 		return p
 	}
 
