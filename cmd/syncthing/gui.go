@@ -184,23 +184,24 @@ func restGetConfig(w http.ResponseWriter) {
 }
 
 func restPostConfig(req *http.Request) {
-	var prevPassHash = cfg.GUI.Password
-	err := json.NewDecoder(req.Body).Decode(&cfg)
+	var newCfg config.Configuration
+	err := json.NewDecoder(req.Body).Decode(&newCfg)
 	if err != nil {
 		l.Warnln(err)
 	} else {
-		if cfg.GUI.Password == "" {
+		if newCfg.GUI.Password == "" {
 			// Leave it empty
-		} else if cfg.GUI.Password != unchangedPassword {
-			hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
+		} else if newCfg.GUI.Password == unchangedPassword {
+			newCfg.GUI.Password = cfg.GUI.Password
+		} else {
+			hash, err := bcrypt.GenerateFromPassword([]byte(newCfg.GUI.Password), 0)
 			if err != nil {
 				l.Warnln(err)
 			} else {
-				cfg.GUI.Password = string(hash)
+				newCfg.GUI.Password = string(hash)
 			}
-		} else {
-			cfg.GUI.Password = prevPassHash
 		}
+		cfg = newCfg
 		saveConfig()
 		configInSync = false
 	}
