@@ -53,6 +53,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         if (restarting) {
             $scope.init();
             $('#restarting').modal('hide');
+            $('#shutdown').modal('hide');
             restarting = false;
         }
     }
