@@ -175,11 +175,7 @@
               </tr>
               <tr>
                 <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;Shared With</th>
-                <td class="text-right">
-                <span ng-repeat="n in repo.Nodes">
-                {{nodeName(findNode(n.NodeID))}}<span ng-if="!$last">, </span>
-                </span>
-                </td>
+                <td class="text-right">{{sharesRepo(repo)}}</td>
               </tr>
             </tbody>
             </table>

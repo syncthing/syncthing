@@ -447,6 +447,15 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
     };
 
+    $scope.sharesRepo = function(repoCfg) {
+        var names = [];
+        repoCfg.Nodes.forEach(function (node) {
+            names.push($scope.nodeName($scope.findNode(node.NodeID)));
+        });
+        names.sort();
+        return names.join(", ");
+    };
+
     $scope.deleteRepo = function () {
         $('#editRepo').modal('hide');
         if (!$scope.editingExisting) {
