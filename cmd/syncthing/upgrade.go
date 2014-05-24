@@ -1,11 +1,10 @@
-// +build !windows
-
 package main
 
 import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,8 +13,10 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
+	"bytes"
 	"bitbucket.org/kardianos/osext"
 )
 
@@ -33,6 +34,10 @@ type githubAsset struct {
 var GoArchExtra string // "", "v5", "v6", "v7"
 
 func upgrade() error {
+	if runtime.GOOS == "windows" {
+		return errors.New("Upgrade currently unsupported on Windows")
+	}
+
 	path, err := osext.Executable()
 	if err != nil {
 		return err
@@ -52,14 +57,15 @@ func upgrade() error {
 	}
 	rel := rels[0]
 
-	if rel.Tag > Version {
-		l.Infof("Attempting upgrade to %s...", rel.Tag)
-	} else if rel.Tag == Version {
-		l.Okf("Already running the latest version, %s. Not upgrading.", Version)
-		return nil
-	} else {
+	switch compareVersions(rel.Tag, Version) {
+	case -1:
 		l.Okf("Current version %s is newer than latest release %s. Not upgrading.", Version, rel.Tag)
 		return nil
+	case 0:
+		l.Okf("Already running the latest version, %s. Not upgrading.", Version)
+		return nil
+	default:
+		l.Infof("Attempting upgrade to %s...", rel.Tag)
 	}
 
 	expectedRelease := fmt.Sprintf("syncthing-%s-%s%s-%s.", runtime.GOOS, runtime.GOARCH, GoArchExtra, rel.Tag)
@@ -146,4 +152,19 @@ func readTarGZ(url string, dir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("No upgrade found")
+}
+
+func compareVersions(a, b string) int {
+	return bytes.Compare(versionParts(a), versionParts(b))
+}
+
+func versionParts(v string) []byte {
+	parts := strings.Split(v, "-")
+	fields := strings.Split(parts[0], ".")
+	res := make([]byte, len(fields))
+	for i, s := range fields {
+		v, _ := strconv.Atoi(s)
+		res[i] = byte(v)
+	}
+	return res
 }
