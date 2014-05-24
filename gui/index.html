@@ -126,7 +126,7 @@
           <h3 class="panel-title">
           <a data-toggle="collapse" data-parent="#repositories" href="#repo-{{repo.ID}}">
           <span class="glyphicon glyphicon-hdd"></span> {{repo.Directory | shortPath}}
-          <span class="pull-right">{{repoStatus(repo.ID)}}</span>
+          <span class="pull-right hidden-xs">{{repoStatus(repo.ID)}}</span>
           </a>
           </h3>
           </div>
@@ -247,7 +247,7 @@
             <a data-toggle="collapse" data-parent="#nodes" href="#node-{{nodeCfg.NodeID}}">
             <span class="glyphicon glyphicon-retweet"></span>
             {{nodeName(nodeCfg)}}
-            <span class="pull-right">{{nodeStatus(nodeCfg)}}</span>
+            <span class="pull-right hidden-xs">{{nodeStatus(nodeCfg)}}</span>
             </a>
             </h3>
           </div>
