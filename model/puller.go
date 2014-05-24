@@ -246,7 +246,7 @@ func (p *puller) fixupDirectories() {
 		if !scanner.PermsEqual(cur.Flags, uint32(info.Mode())) {
 			err := os.Chmod(path, os.FileMode(cur.Flags)&os.ModePerm)
 			if err != nil {
-				l.Warnln("Restoring folder flags: %q: %v", path, err)
+				l.Warnf("Restoring folder flags: %q: %v", path, err)
 			} else {
 				changed++
 				if debug {
@@ -259,7 +259,7 @@ func (p *puller) fixupDirectories() {
 			t := time.Unix(cur.Modified, 0)
 			err := os.Chtimes(path, t, t)
 			if err != nil {
-				l.Warnln("Restoring folder modtime: %q: %v", path, err)
+				l.Warnf("Restoring folder modtime: %q: %v", path, err)
 			} else {
 				changed++
 				if debug {
