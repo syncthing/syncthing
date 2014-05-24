@@ -181,6 +181,15 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	m.rmut.RUnlock()
 	m.pmut.RUnlock()
 
+	in, out := protocol.TotalInOut()
+	res["total"] = ConnectionInfo{
+		Statistics: protocol.Statistics{
+			At:            time.Now(),
+			InBytesTotal:  int(in),
+			OutBytesTotal: int(out),
+		},
+	}
+
 	return res
 }
 

@@ -212,11 +212,11 @@
                 </tr>
                 <tr>
                   <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Download Rate</th>
-                  <td class="text-right">{{inbps | metric}}bps</td>
+                  <td class="text-right">{{connections['total'].inbps | metric}}bps ({{connections['total'].InBytesTotal | binary}}B)</td>
                 </tr>
                 <tr>
                   <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;Upload Rate</th>
-                  <td class="text-right">{{outbps | metric}}bps </td>
+                  <td class="text-right">{{connections['total'].outbps | metric}}bps ({{connections['total'].OutBytesTotal | binary}}B)</td>
                 </tr>
                 <tr ng-if="system.extAnnounceOK != undefined">
                   <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;Announce Server</th>
@@ -262,11 +262,11 @@
                 </tr>
                 <tr>
                   <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Download Rate</th>
-                  <td class="text-right">{{connections[nodeCfg.NodeID].inbps | metric}}bps</td>
+                  <td class="text-right">{{connections[nodeCfg.NodeID].inbps | metric}}bps ({{connections[nodeCfg.NodeID].InBytesTotal | binary}}B)</td>
                 </tr>
                 <tr>
                   <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;Upload Rate</th>
-                  <td class="text-right">{{connections[nodeCfg.NodeID].outbps | metric}}bps </td>
+                  <td class="text-right">{{connections[nodeCfg.NodeID].outbps | metric}}bps ({{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B)</td>
                 </tr>
                 <tr>
                   <th><span class="glyphicon glyphicon-tag"></span>&emsp;Version</th>

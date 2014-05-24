@@ -86,9 +86,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             id;
 
             prevDate = now;
-            $scope.inbps = 0;
-            $scope.outbps = 0;
-
             for (id in data) {
                 if (!data.hasOwnProperty(id)) {
                     continue;
@@ -100,8 +97,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
                     data[id].inbps = 0;
                     data[id].outbps = 0;
                 }
-                $scope.inbps += data[id].inbps;
-                $scope.outbps += data[id].outbps;
             }
             $scope.connections = data;
         });
