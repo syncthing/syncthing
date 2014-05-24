@@ -130,7 +130,12 @@ func main() {
 		// continue. We don't much care if this fails at this point, we will
 		// be checking that later.
 
-		oldDefault := expandTilde("~/.syncthing")
+		var oldDefault string
+		if runtime.GOOS == "windows" {
+			oldDefault = filepath.Join(os.Getenv("AppData"), "Syncthing")
+		} else {
+			oldDefault = expandTilde("~/.syncthing")
+		}
 		if _, err := os.Stat(oldDefault); err == nil {
 			os.MkdirAll(filepath.Dir(confDir), 0700)
 			if err := os.Rename(oldDefault, confDir); err == nil {
@@ -670,7 +675,7 @@ func ensureDir(dir string, mode int) {
 func getDefaultConfDir() string {
 	switch runtime.GOOS {
 	case "windows":
-		return filepath.Join(os.Getenv("AppData"), "Syncthing")
+		return filepath.Join(os.Getenv("LocalAppData"), "Syncthing")
 
 	case "darwin":
 		return expandTilde("~/Library/Application Support/Syncthing")
