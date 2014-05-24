@@ -388,7 +388,7 @@ The Flags field is made up of the following single bit flags:
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |              Reserved             |I|D|   Unix Perm. & Mode   |
+    |              Reserved           |P|I|D|   Unix Perm. & Mode   |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
  - The lower 12 bits hold the common Unix permission and mode bits. An
@@ -406,10 +406,11 @@ The Flags field is made up of the following single bit flags:
 
  - Bit 17 ("P") is set when there is no permission information for the
    file. This is the case when it originates on a non-permission-
-   supporting file system. Changes to only permission bits should be
-   disregarded on files with this bit set.
+   supporting file system. Changes to only permission bits SHOULD be
+   disregarded on files with this bit set. The permissions bits MUST be
+   set to the octal value 0666.
 
- - Bit 0 through 17 are reserved for future use and SHALL be set to
+ - Bit 0 through 16 are reserved for future use and SHALL be set to
    zero.
 
 The hash algorithm is implied by the Hash length. Currently, the hash

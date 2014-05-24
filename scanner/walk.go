@@ -250,7 +250,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 
 			var flags = uint32(info.Mode() & os.ModePerm)
 			if w.IgnorePerms {
-				flags = protocol.FlagNoPermBits
+				flags = protocol.FlagNoPermBits | 0666
 			}
 			f := File{
 				Name:     rn,
