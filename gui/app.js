@@ -273,7 +273,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) { return x.trim(); });
             $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
         }
-        
+
         $('#settings').modal("hide");
     };
 
@@ -340,7 +340,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $scope.configInSync = false;
         $('#editNode').modal('hide');
         nodeCfg = $scope.currentNode;
-        nodeCfg.NodeID = nodeCfg.NodeID.replace(/ /g, '').replace(/-/g, '').trim();
+        nodeCfg.NodeID = nodeCfg.NodeID.replace(/ /g, '').replace(/-/g, '').toUpperCase().trim();
         nodeCfg.Addresses = nodeCfg.AddressesStr.split(',').map(function (x) { return x.trim(); });
 
         done = false;

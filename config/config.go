@@ -191,6 +191,7 @@ func Load(rd io.Reader, myID string) (Configuration, error) {
 		// Strip spaces and dashes
 		node.NodeID = strings.Replace(node.NodeID, "-", "", -1)
 		node.NodeID = strings.Replace(node.NodeID, " ", "", -1)
+		node.NodeID = strings.ToUpper(node.NodeID)
 	}
 
 	// Check for missing, bad or duplicate repository ID:s
