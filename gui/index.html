@@ -77,20 +77,20 @@
     <div class="container">
       <span class="navbar-brand"><img class="logo" src="st-logo-128.png" width="32" height="32" /> Syncthing<small class="hidden-xs"> <span class="text-muted">|</span> {{thisNodeName()}}</small></span>
       <ul class="nav navbar-nav navbar-right">
-      <li class="dropdown">
+        <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown">Edit&nbsp;<b class="caret"></b></a>
           <ul class="dropdown-menu">
             <li><a href="" ng-click="addRepo()"><span class="glyphicon glyphicon-hdd"></span>&emsp;Add Repository</a></li>
             <li><a href="" ng-click="addNode()"><span class="glyphicon glyphicon-retweet"></span>&emsp;Add Node</a></li>
             <li class="divider"></li>
             <li><a href="" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span>&emsp;Settings</a></li>
-            <li><a href="" ng-click="idNode()"><span class="glyphicon glyphicon-qrcode"></span>&emsp;Show ID</a></span>
+            <li><a href="" ng-click="idNode()"><span class="glyphicon glyphicon-qrcode"></span>&emsp;Show ID</a></li>
             <li class="divider"></li>
             <li><a href="" ng-click="shutdown()"><span class="glyphicon glyphicon-off"></span>&emsp;Shutdown</a></li>
             <li><a href="" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span>&emsp;Restart</a></li>
           </ul>
         </li>
-        </ul>
+      </ul>
     </div>
   </nav>
 
@@ -120,167 +120,167 @@
       <!-- Repository list (top left) -->
 
       <div class="col-md-6">
-      <div class="panel-group" id="repositories">
-        <div class="panel panel-{{repoClass(repo.ID)}}" ng-repeat="repo in repoList()">
-          <div class="panel-heading">
-          <h3 class="panel-title">
-          <a data-toggle="collapse" data-parent="#repositories" href="#repo-{{repo.ID}}">
-          <span class="glyphicon glyphicon-hdd"></span> {{repo.Directory | shortPath}}
-          <span class="pull-right hidden-xs">{{repoStatus(repo.ID)}}</span>
-          </a>
-          </h3>
-          </div>
-          <div id="repo-{{repo.ID}}" class="panel-collapse collapse">
-          <div class="panel-body">
-          <div class="table-responsive">
-            <table class="table table-condensed table-striped">
-            <tbody>
-              <tr>
-                <th><span class="glyphicon glyphicon-tag"></span>&emsp;Repository ID</th>
-                <td class="text-right">{{repo.ID}}</td>
-              </tr>
-              <tr>
-                <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;Folder</th>
-                <td class="text-right">{{repo.Directory}}</td>
-              </tr>
-              <tr>
-                <th><span class="glyphicon glyphicon-comment"></span>&emsp;Synchronization</th>
-                <td class="text-right">{{repoStatus(repo.ID)}}</td>
-              </tr>
-              <tr>
-                <th><span class="glyphicon glyphicon-globe"></span>&emsp;Global Repository</th>
-                <td class="text-right">{{model[repo.ID].globalFiles | alwaysNumber}} files, {{model[repo.ID].globalBytes | binary}}B</td>
-              </tr>
-              <tr>
-                <th><span class="glyphicon glyphicon-home"></span>&emsp;Local Repository</th>
-                <td class="text-right">{{model[repo.ID].localFiles | alwaysNumber}} files, {{model[repo.ID].localBytes | binary}}B</td>
-              </tr>
-              <tr>
-                <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Out of Sync</th>
-                <td class="text-right">{{model[repo.ID].needFiles | alwaysNumber}} files, {{model[repo.ID].needBytes | binary}}B</td>
-              </tr>
-              <tr>
-                <th><span class="glyphicon glyphicon-lock"></span>&emsp;Master Repository</th>
-                <td class="text-right">
-                <span ng-if="repo.ReadOnly">Yes</span>
-                <span ng-if="!repo.ReadOnly">No</span>
-                </td>
-              </tr>
-              <tr>
-                <th><span class="glyphicon glyphicon-unchecked"></span>&emsp;Ignore Permissions</th>
-                <td class="text-right">
-                <span ng-if="repo.IgnorePerms">Yes</span>
-                <span ng-if="!repo.IgnorePerms">No</span>
-                </td>
-              </tr>
-              <tr>
-                <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;Shared With</th>
-                <td class="text-right">{{sharesRepo(repo)}}</td>
-              </tr>
-            </tbody>
-            </table>
+        <div class="panel-group" id="repositories">
+          <div class="panel panel-{{repoClass(repo.ID)}}" ng-repeat="repo in repoList()">
+            <div class="panel-heading">
+              <h3 class="panel-title">
+                <a data-toggle="collapse" data-parent="#repositories" href="#repo-{{repo.ID}}">
+                  <span class="glyphicon glyphicon-hdd"></span> {{repo.Directory | shortPath}}
+                  <span class="pull-right hidden-xs">{{repoStatus(repo.ID)}}</span>
+                </a>
+              </h3>
             </div>
-          <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span>&emsp;Edit</a></span>
-          </div>
+            <div id="repo-{{repo.ID}}" class="panel-collapse collapse">
+              <div class="panel-body">
+                <div class="table-responsive">
+                  <table class="table table-condensed table-striped">
+                    <tbody>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-tag"></span>&emsp;Repository ID</th>
+                        <td class="text-right">{{repo.ID}}</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;Folder</th>
+                        <td class="text-right">{{repo.Directory}}</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-comment"></span>&emsp;Synchronization</th>
+                        <td class="text-right">{{repoStatus(repo.ID)}}</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-globe"></span>&emsp;Global Repository</th>
+                        <td class="text-right">{{model[repo.ID].globalFiles | alwaysNumber}} files, {{model[repo.ID].globalBytes | binary}}B</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-home"></span>&emsp;Local Repository</th>
+                        <td class="text-right">{{model[repo.ID].localFiles | alwaysNumber}} files, {{model[repo.ID].localBytes | binary}}B</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Out of Sync</th>
+                        <td class="text-right">{{model[repo.ID].needFiles | alwaysNumber}} files, {{model[repo.ID].needBytes | binary}}B</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-lock"></span>&emsp;Master Repository</th>
+                        <td class="text-right">
+                          <span ng-if="repo.ReadOnly">Yes</span>
+                          <span ng-if="!repo.ReadOnly">No</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-unchecked"></span>&emsp;Ignore Permissions</th>
+                        <td class="text-right">
+                          <span ng-if="repo.IgnorePerms">Yes</span>
+                          <span ng-if="!repo.IgnorePerms">No</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;Shared With</th>
+                        <td class="text-right">{{sharesRepo(repo)}}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span>&emsp;Edit</a></span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
       </div>
 
       <!-- Node list (top right) -->
 
       <div class="col-md-6">
-      <div class="panel-group" id="nodes">
-        <div class="panel panel-default" ng-repeat="nodeCfg in [thisNode()]">
-          <div class="panel-heading">
-            <h3 class="panel-title">
-            <a data-toggle="collapse" data-parent="#nodes" href="#node-{{nodeCfg.NodeID}}"><span class="glyphicon glyphicon-home"></span> {{nodeName(nodeCfg)}}</a>
-            </h3>
-          </div>
-          <div id="node-{{nodeCfg.NodeID}}" class="panel-collapse collapse in">
-          <div class="panel-body">
-          <div class="table-responsive">
-            <table class="table table-condensed table-striped">
-              <tbody>
-                <tr>
-                  <th><span class="glyphicon glyphicon-th"></span>&emsp;RAM Utilization</th>
-                  <td class="text-right">{{system.sys | binary}}B</td>
-                </tr>
-                <tr>
-                  <th><span class="glyphicon glyphicon-tasks"></span>&emsp;CPU Utilization</th>
-                  <td class="text-right">{{system.cpuPercent | alwaysNumber | natural:1}}%</td>
-                </tr>
-                <tr>
-                  <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Download Rate</th>
-                  <td class="text-right">{{connections['total'].inbps | metric}}bps ({{connections['total'].InBytesTotal | binary}}B)</td>
-                </tr>
-                <tr>
-                  <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;Upload Rate</th>
-                  <td class="text-right">{{connections['total'].outbps | metric}}bps ({{connections['total'].OutBytesTotal | binary}}B)</td>
-                </tr>
-                <tr ng-if="system.extAnnounceOK != undefined">
-                  <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;Announce Server</th>
-                  <td class="text-right">
-                  <span class="data text-success" ng-if="system.extAnnounceOK">Online</span>
-                  <span class="data text-danger" ng-if="!system.extAnnounceOK">Offline</span>
-                  </td>
-                </tr>
-                <tr>
-                  <th><span class="glyphicon glyphicon-tag"></span>&emsp;Version</th>
-                  <td class="text-right">{{version}}</td>
-                </tr>
-              </tbody>
-            </table>
+        <div class="panel-group" id="nodes">
+          <div class="panel panel-default" ng-repeat="nodeCfg in [thisNode()]">
+            <div class="panel-heading">
+              <h3 class="panel-title">
+                <a data-toggle="collapse" data-parent="#nodes" href="#node-{{nodeCfg.NodeID}}"><span class="glyphicon glyphicon-home"></span> {{nodeName(nodeCfg)}}</a>
+              </h3>
             </div>
-            <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;Edit</a></span>
+            <div id="node-{{nodeCfg.NodeID}}" class="panel-collapse collapse in">
+              <div class="panel-body">
+                <div class="table-responsive">
+                  <table class="table table-condensed table-striped">
+                    <tbody>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-th"></span>&emsp;RAM Utilization</th>
+                        <td class="text-right">{{system.sys | binary}}B</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-tasks"></span>&emsp;CPU Utilization</th>
+                        <td class="text-right">{{system.cpuPercent | alwaysNumber | natural:1}}%</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Download Rate</th>
+                        <td class="text-right">{{connections['total'].inbps | metric}}bps ({{connections['total'].InBytesTotal | binary}}B)</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;Upload Rate</th>
+                        <td class="text-right">{{connections['total'].outbps | metric}}bps ({{connections['total'].OutBytesTotal | binary}}B)</td>
+                      </tr>
+                      <tr ng-if="system.extAnnounceOK != undefined">
+                        <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;Announce Server</th>
+                        <td class="text-right">
+                          <span class="data text-success" ng-if="system.extAnnounceOK">Online</span>
+                          <span class="data text-danger" ng-if="!system.extAnnounceOK">Offline</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-tag"></span>&emsp;Version</th>
+                        <td class="text-right">{{version}}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;Edit</a></span>
+              </div>
+            </div>
           </div>
-          </div>
-        </div>
 
-        <div class="panel panel-{{nodeClass(nodeCfg)}}" ng-repeat="nodeCfg in otherNodes()">
-          <div class="panel-heading">
-            <h3 class="panel-title">
-            <a data-toggle="collapse" data-parent="#nodes" href="#node-{{nodeCfg.NodeID}}">
-            <span class="glyphicon glyphicon-retweet"></span>
-            {{nodeName(nodeCfg)}}
-            <span class="pull-right hidden-xs">{{nodeStatus(nodeCfg)}}</span>
-            </a>
-            </h3>
-          </div>
-          <div id="node-{{nodeCfg.NodeID}}" class="panel-collapse collapse">
-          <div class="panel-body">
-          <div class="table-responsive">
-            <table class="table table-condensed table-striped">
-              <tbody>
-                <tr>
-                  <th><span class="glyphicon glyphicon-link"></span>&emsp;Address</th>
-                  <td class="text-right">{{nodeAddr(nodeCfg)}}</td>
-                </tr>
-                <tr>
-                  <th><span class="glyphicon glyphicon-comment"></span>&emsp;Synchronization</th>
-                  <td class="text-right">{{nodeStatus(nodeCfg)}}</td>
-                </tr>
-                <tr>
-                  <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Download Rate</th>
-                  <td class="text-right">{{connections[nodeCfg.NodeID].inbps | metric}}bps ({{connections[nodeCfg.NodeID].InBytesTotal | binary}}B)</td>
-                </tr>
-                <tr>
-                  <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;Upload Rate</th>
-                  <td class="text-right">{{connections[nodeCfg.NodeID].outbps | metric}}bps ({{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B)</td>
-                </tr>
-                <tr>
-                  <th><span class="glyphicon glyphicon-tag"></span>&emsp;Version</th>
-                  <td class="text-right">{{nodeVer(nodeCfg)}}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="panel panel-{{nodeClass(nodeCfg)}}" ng-repeat="nodeCfg in otherNodes()">
+            <div class="panel-heading">
+              <h3 class="panel-title">
+                <a data-toggle="collapse" data-parent="#nodes" href="#node-{{nodeCfg.NodeID}}">
+                  <span class="glyphicon glyphicon-retweet"></span>
+                  {{nodeName(nodeCfg)}}
+                  <span class="pull-right hidden-xs">{{nodeStatus(nodeCfg)}}</span>
+                </a>
+              </h3>
             </div>
-            <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;Edit</a></span>
-          </div>
+            <div id="node-{{nodeCfg.NodeID}}" class="panel-collapse collapse">
+              <div class="panel-body">
+                <div class="table-responsive">
+                  <table class="table table-condensed table-striped">
+                    <tbody>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-link"></span>&emsp;Address</th>
+                        <td class="text-right">{{nodeAddr(nodeCfg)}}</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-comment"></span>&emsp;Synchronization</th>
+                        <td class="text-right">{{nodeStatus(nodeCfg)}}</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Download Rate</th>
+                        <td class="text-right">{{connections[nodeCfg.NodeID].inbps | metric}}bps ({{connections[nodeCfg.NodeID].InBytesTotal | binary}}B)</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;Upload Rate</th>
+                        <td class="text-right">{{connections[nodeCfg.NodeID].outbps | metric}}bps ({{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B)</td>
+                      </tr>
+                      <tr>
+                        <th><span class="glyphicon glyphicon-tag"></span>&emsp;Version</th>
+                        <td class="text-right">{{nodeVer(nodeCfg)}}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;Edit</a></span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-
     </div> <!-- /row -->
 
     <!-- Errors -->
@@ -389,14 +389,14 @@
           </h4>
         </div>
         <div class="modal-body">
-        <div class="well well-sm text-monospace text-center">
-          {{myID | chunkID}}
-        </div>
-        <img ng-if="myID" class="center-block img-thumbnail" src="qr/{{myID | chunkID}}"/>
+          <div class="well well-sm text-monospace text-center">
+            {{myID | chunkID}}
+          </div>
+          <img ng-if="myID" class="center-block img-thumbnail" src="qr/{{myID | chunkID}}"/>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
-         </div>
+        </div>
       </div>
     </div>
   </div>
@@ -418,7 +418,7 @@
               <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentNode.NodeID | chunkID}}</div>
               <p class="help-block">
                 <span ng-if="nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine">The node ID to enter here can be found in the "Edit > Show ID" dialog on the other node. Spaces and dashes are optional (ignored).
-                <span ng-show="!editingExisting">When adding a new node, keep in mind that <em>this node</em> must be added on the other side too.</span>
+                  <span ng-show="!editingExisting">When adding a new node, keep in mind that <em>this node</em> must be added on the other side too.</span>
                 </span>
                 <span ng-if="nodeEditor.nodeID.$error.required && nodeEditor.nodeID.$dirty">The node ID cannot be blank.</span>
               </p>
@@ -459,17 +459,17 @@
               <label for="repoID">Repository ID</label>
               <input name="repoID" placeholder="documents" ng-disabled="editingExisting" id="repoID" class="form-control" type="text" ng-model="currentRepo.ID" required unique-repo></input>
               <p class="help-block">
-              <span ng-if="repoEditor.repoID.$valid || repoEditor.repoID.$pristine">Short identifier for the repository. Must be the same on all cluster nodes.</span>
-              <span ng-if="repoEditor.repoID.$error.uniqueRepo">The repository ID must be unique.</span>
-              <span ng-if="repoEditor.repoID.$error.required && repoEditor.repoID.$dirty">The repository ID cannot be blank.</span>
+                <span ng-if="repoEditor.repoID.$valid || repoEditor.repoID.$pristine">Short identifier for the repository. Must be the same on all cluster nodes.</span>
+                <span ng-if="repoEditor.repoID.$error.uniqueRepo">The repository ID must be unique.</span>
+                <span ng-if="repoEditor.repoID.$error.required && repoEditor.repoID.$dirty">The repository ID cannot be blank.</span>
               </p>
             </div>
             <div class="form-group" ng-class="{'has-error': repoEditor.repoPath.$invalid && repoEditor.repoPath.$dirty}">
               <label for="repoPath">Repository Path</label>
               <input name="repoPath" placeholder="~/Documents" id="repoPath" class="form-control" type="text" ng-model="currentRepo.Directory" required></input>
               <p class="help-block">
-              <span ng-if="repoEditor.repoPath.$valid || repoEditor.repoPath.$pristine">Path to the repository on the local computer. Will be created if it does not exist. The tilde character <code>~</code> can be used as a shortcut for <code>{{system.tilde}}</code>.</span>
-              <span ng-if="repoEditor.repoPath.$error.required && repoEditor.repoPath.$dirty">The repository path cannot be blank.</span>
+                <span ng-if="repoEditor.repoPath.$valid || repoEditor.repoPath.$pristine">Path to the repository on the local computer. Will be created if it does not exist. The tilde character <code>~</code> can be used as a shortcut for <code>{{system.tilde}}</code>.</span>
+                <span ng-if="repoEditor.repoPath.$error.required && repoEditor.repoPath.$dirty">The repository path cannot be blank.</span>
               </p>
             </div>
             <div class="form-group">
