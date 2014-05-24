@@ -163,7 +163,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         var conn = $scope.connections[nodeCfg.NodeID];
         if (conn) {
             if (conn.Completion === 100) {
-                return 'In Sync';
+                return 'Up to Date';
             } else {
                 return 'Syncing (' + conn.Completion + '%)';
             }
