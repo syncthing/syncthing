@@ -361,6 +361,12 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	for _, node := range cfg.Nodes {
+		if len(node.Name) > 0 {
+			l.Infof("Node %s is %q at %v", node.NodeID, node.Name, node.Addresses)
+		}
+	}
+
 	<-stop
 	l.Okln("Exiting")
 }
