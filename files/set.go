@@ -210,6 +210,9 @@ func (m *Set) equals(id uint, fs []scanner.File) bool {
 
 func (m *Set) update(cid uint, fs []scanner.File) {
 	remFiles := m.remoteKey[cid]
+	if remFiles == nil {
+		l.Fatalln("update before replace for cid", cid)
+	}
 	for _, f := range fs {
 		n := f.Name
 		fk := keyFor(f)
