@@ -144,15 +144,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			return nil
 		}
 
-		if _, sn := filepath.Split(rn); sn == w.IgnoreFile {
-			// An ignore-file; these are ignored themselves
-			if debug {
-				l.Debugln("ignorefile:", rn)
-			}
-			return nil
-		}
-
-		if w.ignoreFile(ign, rn) {
+		if sn := filepath.Base(rn); sn == w.IgnoreFile || sn == ".stversions" || w.ignoreFile(ign, rn) {
 			// An ignored file
 			if debug {
 				l.Debugln("ignored:", rn)

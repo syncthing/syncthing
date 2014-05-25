@@ -455,47 +455,75 @@
         </div>
         <div class="modal-body">
           <form role="form" name="repoEditor">
-            <div class="form-group" ng-class="{'has-error': repoEditor.repoID.$invalid && repoEditor.repoID.$dirty}">
-              <label for="repoID">Repository ID</label>
-              <input name="repoID" placeholder="documents" ng-disabled="editingExisting" id="repoID" class="form-control" type="text" ng-model="currentRepo.ID" required unique-repo></input>
-              <p class="help-block">
-                <span ng-if="repoEditor.repoID.$valid || repoEditor.repoID.$pristine">Short identifier for the repository. Must be the same on all cluster nodes.</span>
-                <span ng-if="repoEditor.repoID.$error.uniqueRepo">The repository ID must be unique.</span>
-                <span ng-if="repoEditor.repoID.$error.required && repoEditor.repoID.$dirty">The repository ID cannot be blank.</span>
-              </p>
-            </div>
-            <div class="form-group" ng-class="{'has-error': repoEditor.repoPath.$invalid && repoEditor.repoPath.$dirty}">
-              <label for="repoPath">Repository Path</label>
-              <input name="repoPath" placeholder="~/Documents" id="repoPath" class="form-control" type="text" ng-model="currentRepo.Directory" required></input>
-              <p class="help-block">
-                <span ng-if="repoEditor.repoPath.$valid || repoEditor.repoPath.$pristine">Path to the repository on the local computer. Will be created if it does not exist. The tilde character <code>~</code> can be used as a shortcut for <code>{{system.tilde}}</code>.</span>
-                <span ng-if="repoEditor.repoPath.$error.required && repoEditor.repoPath.$dirty">The repository path cannot be blank.</span>
-              </p>
-            </div>
-            <div class="form-group">
-              <div class="checkbox">
-                <label>
-                  <input type="checkbox" ng-model="currentRepo.ReadOnly"> Repository Master
-                </label>
+            <div class="row">
+              <div class="col-md-12">
+                <div class="form-group" ng-class="{'has-error': repoEditor.repoID.$invalid && repoEditor.repoID.$dirty}">
+                  <label for="repoID">Repository ID</label>
+                  <input name="repoID" placeholder="documents" ng-disabled="editingExisting" id="repoID" class="form-control" type="text" ng-model="currentRepo.ID" required unique-repo></input>
+                  <p class="help-block">
+                    <span ng-if="repoEditor.repoID.$valid || repoEditor.repoID.$pristine">Short identifier for the repository. Must be the same on all cluster nodes.</span>
+                    <span ng-if="repoEditor.repoID.$error.uniqueRepo">The repository ID must be unique.</span>
+                    <span ng-if="repoEditor.repoID.$error.required && repoEditor.repoID.$dirty">The repository ID cannot be blank.</span>
+                  </p>
+                </div>
+                <div class="form-group" ng-class="{'has-error': repoEditor.repoPath.$invalid && repoEditor.repoPath.$dirty}">
+                  <label for="repoPath">Repository Path</label>
+                  <input name="repoPath" placeholder="~/Documents" id="repoPath" class="form-control" type="text" ng-model="currentRepo.Directory" required></input>
+                  <p class="help-block">
+                    <span ng-if="repoEditor.repoPath.$valid || repoEditor.repoPath.$pristine">Path to the repository on the local computer. Will be created if it does not exist. The tilde character <code>~</code> can be used as a shortcut for <code>{{system.tilde}}</code>.</span>
+                    <span ng-if="repoEditor.repoPath.$error.required && repoEditor.repoPath.$dirty">The repository path cannot be blank.</span>
+                  </p>
+                </div>
               </div>
-              <p class="help-block">Files are protected from changes made on other nodes, but changes made on <em>this</em> node will be sent to the rest of the cluster.</p>
             </div>
-            <div class="form-group">
-              <div class="checkbox">
-                <label>
-                  <input type="checkbox" ng-model="currentRepo.IgnorePerms"> Ignore Permissions
-                </label>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <div class="checkbox">
+                    <label>
+                      <input type="checkbox" ng-model="currentRepo.ReadOnly"> Repository Master
+                    </label>
+                  </div>
+                  <p class="help-block">Files are protected from changes made on other nodes, but changes made on <em>this</em> node will be sent to the rest of the cluster.</p>
+                </div>
+                <div class="form-group">
+                  <div class="checkbox">
+                    <label>
+                      <input type="checkbox" ng-model="currentRepo.IgnorePerms"> Ignore Permissions
+                    </label>
+                  </div>
+                  <p class="help-block">File permission bits are ignored when looking for changes. Use on FAT filesystems.</p>
+                </div>
+                <div class="form-group">
+                  <label for="nodes">Nodes</label>
+                  <div class="checkbox" ng-repeat="node in otherNodes()">
+                    <label>
+                      <input type="checkbox" ng-model="currentRepo.selectedNodes[node.NodeID]"> {{nodeName(node)}}
+                    </label>
+                  </div>
+                  <p class="help-block">Select the nodes to share this repository with.</p>
+                </div>
               </div>
-              <p class="help-block">File permission bits are ignored when looking for changes. Use on FAT filesystems.</p>
-            </div>
-            <div class="form-group">
-              <label for="nodes">Nodes</label>
-              <div class="checkbox" ng-repeat="node in otherNodes()">
-                <label>
-                  <input type="checkbox" ng-model="currentRepo.selectedNodes[node.NodeID]"> {{nodeName(node)}}
-                </label>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <div class="checkbox">
+                    <label>
+                      <input type="checkbox" ng-model="currentRepo.simpleFileVersioning"> Simple File Versioning
+                    </label>
+                  </div>
+                  <p class="help-block">Files are moved to date stamped versions in a <code>.stversions</code> folder when replaced or deleted by syncthing.</p>
+                </div>
+                <div class="form-group" ng-if="currentRepo.simpleFileVersioning" ng-class="{'has-error': repoEditor.simpleKeep.$invalid && repoEditor.simpleKeep.$dirty}">
+                  <label for="simpleKeep">Keep Versions</label>
+                  <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentRepo.simpleKeep" required min="1"></input>
+                  <p class="help-block">
+                    <span ng-if="repoEditor.simpleKeep.$valid || repoEditor.simpleKeep.$pristine">The number of old versions to keep, per file.</span>
+                    <span ng-if="repoEditor.simpleKeep.$error.required && repoEditor.simpleKeep.$dirty">The number of versions must be a number and cannot be blank.</span>
+                    <span ng-if="repoEditor.simpleKeep.$error.min && repoEditor.simpleKeep.$dirty">You must keep at least one version.</span>
+                  </p>
+                </div>
+
               </div>
-              <p class="help-block">Select the nodes to share this repository with.</p>
             </div>
           </form>
           <div ng-show="!editingExisting">

@@ -17,6 +17,7 @@ import (
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/files"
 	"github.com/calmh/syncthing/lamport"
+	"github.com/calmh/syncthing/osutil"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
 )
@@ -716,7 +717,7 @@ func (m *Model) saveIndex(repo string, dir string, fs []protocol.FileInfo) {
 	gzw.Close()
 	idxf.Close()
 
-	Rename(name+".tmp", name)
+	osutil.Rename(name+".tmp", name)
 }
 
 func (m *Model) loadIndex(repo string, dir string) []protocol.FileInfo {

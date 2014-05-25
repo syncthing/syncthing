@@ -24,6 +24,7 @@ import (
 	"github.com/calmh/syncthing/discover"
 	"github.com/calmh/syncthing/logger"
 	"github.com/calmh/syncthing/model"
+	"github.com/calmh/syncthing/osutil"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/upnp"
 	"github.com/juju/ratelimit"
@@ -498,7 +499,7 @@ func saveConfigLoop(cfgFile string) {
 			continue
 		}
 
-		err = model.Rename(cfgFile+".tmp", cfgFile)
+		err = osutil.Rename(cfgFile+".tmp", cfgFile)
 		if err != nil {
 			l.Warnln(err)
 		}

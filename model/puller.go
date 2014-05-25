@@ -10,8 +10,10 @@ import (
 	"github.com/calmh/syncthing/buffers"
 	"github.com/calmh/syncthing/cid"
 	"github.com/calmh/syncthing/config"
+	"github.com/calmh/syncthing/osutil"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
+	"github.com/calmh/syncthing/versioner"
 )
 
 type requestResult struct {
@@ -71,6 +73,7 @@ type puller struct {
 	requestSlots      chan bool
 	blocks            chan bqBlock
 	requestResults    chan requestResult
+	versioner         versioner.Versioner
 }
 
 func newPuller(repoCfg config.RepositoryConfiguration, model *Model, slots int, cfg *config.Configuration) *puller {
@@ -84,6 +87,14 @@ func newPuller(repoCfg config.RepositoryConfiguration, model *Model, slots int, 
 		requestSlots:      make(chan bool, slots),
 		blocks:            make(chan bqBlock),
 		requestResults:    make(chan requestResult),
+	}
+
+	if len(repoCfg.Versioning.Type) > 0 {
+		factory, ok := versioner.Factories[repoCfg.Versioning.Type]
+		if !ok {
+			l.Fatalf("Requested versioning type %q that does not exist", repoCfg.Versioning.Type)
+		}
+		p.versioner = factory(repoCfg.Versioning.Params)
 	}
 
 	if slots > 0 {
@@ -221,6 +232,10 @@ func (p *puller) fixupDirectories() {
 			return nil
 		}
 
+		if filepath.Base(rn) == ".stversions" {
+			return nil
+		}
+
 		cur := p.model.CurrentRepoFile(p.repoCfg.ID, rn)
 		if cur.Name != rn {
 			// No matching dir in current list; weird
@@ -284,10 +299,10 @@ func (p *puller) fixupDirectories() {
 				l.Debugln("delete dir:", dir)
 			}
 			err := os.Remove(dir)
-			if err != nil {
-				l.Warnln(err)
-			} else {
+			if err == nil {
 				deleted++
+			} else if p.versioner == nil { // Failures are expected in the presence of versioning
+				l.Warnln(err)
 			}
 		}
 
@@ -385,7 +400,7 @@ func (p *puller) handleBlock(b bqBlock) bool {
 			}
 			return true
 		}
-		defTempNamer.Hide(of.temp)
+		osutil.HideFile(of.temp)
 	}
 
 	if of.err != nil {
@@ -524,7 +539,11 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 		}
 		os.Remove(of.temp)
 		os.Chmod(of.filepath, 0666)
-		if err := os.Remove(of.filepath); err == nil || os.IsNotExist(err) {
+		if p.versioner != nil {
+			if err := p.versioner.Archive(of.filepath); err == nil {
+				p.model.updateLocal(p.repoCfg.ID, f)
+			}
+		} else if err := os.Remove(of.filepath); err == nil || os.IsNotExist(err) {
 			p.model.updateLocal(p.repoCfg.ID, f)
 		}
 	} else {
@@ -540,8 +559,8 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 			delete(p.openFiles, f.Name)
 			return
 		}
-		defTempNamer.Show(of.temp)
-		if Rename(of.temp, of.filepath) == nil {
+		osutil.ShowFile(of.temp)
+		if osutil.Rename(of.temp, of.filepath) == nil {
 			p.model.updateLocal(p.repoCfg.ID, f)
 		}
 	}
@@ -614,11 +633,23 @@ func (p *puller) closeFile(f scanner.File) {
 			l.Debugf("pull: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
 		}
 	}
-	defTempNamer.Show(of.temp)
+
+	osutil.ShowFile(of.temp)
+
+	if p.versioner != nil {
+		err := p.versioner.Archive(of.filepath)
+		if err != nil {
+			if debug {
+				l.Debugf("pull: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
+			}
+			return
+		}
+	}
+
 	if debug {
 		l.Debugf("pull: rename %q / %q: %q", p.repoCfg.ID, f.Name, of.filepath)
 	}
-	if err := Rename(of.temp, of.filepath); err == nil {
+	if err := osutil.Rename(of.temp, of.filepath); err == nil {
 		p.model.updateLocal(p.repoCfg.ID, f)
 	} else {
 		l.Debugf("pull: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)

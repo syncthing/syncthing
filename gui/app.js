@@ -405,10 +405,16 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     }
 
     $scope.editRepo = function (nodeCfg) {
-        $scope.currentRepo = $.extend({selectedNodes: {}}, nodeCfg);
+        $scope.currentRepo = angular.copy(nodeCfg);
+        $scope.currentRepo.selectedNodes = {};
         $scope.currentRepo.Nodes.forEach(function (n) {
             $scope.currentRepo.selectedNodes[n.NodeID] = true;
         });
+        if ($scope.currentRepo.Versioning && $scope.currentRepo.Versioning.Type === "simple") {
+            $scope.currentRepo.simpleFileVersioning = true;
+            $scope.currentRepo.simpleKeep = +$scope.currentRepo.Versioning.Params.keep;
+        }
+        $scope.currentRepo.simpleKeep = $scope.currentRepo.simpleKeep || 5;
         $scope.editingExisting = true;
         $scope.repoEditor.$setPristine();
         $('#editRepo').modal({backdrop: 'static', keyboard: true});
@@ -435,6 +441,19 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             }
         }
         delete repoCfg.selectedNodes;
+
+        if (repoCfg.simpleFileVersioning) {
+            repoCfg.Versioning = {
+                'Type': 'simple',
+                'Params': {
+                    'keep': '' + repoCfg.simpleKeep,
+                }
+            };
+            delete repoCfg.simpleFileVersioning;
+            delete repoCfg.simpleKeep;
+        } else {
+            delete repoCfg.Versioning;
+        }
 
         $scope.repos[repoCfg.ID] = repoCfg;
         $scope.config.Repositories = repoList($scope.repos);

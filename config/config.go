@@ -27,13 +27,56 @@ type Configuration struct {
 }
 
 type RepositoryConfiguration struct {
-	ID          string              `xml:"id,attr"`
-	Directory   string              `xml:"directory,attr"`
-	Nodes       []NodeConfiguration `xml:"node"`
-	ReadOnly    bool                `xml:"ro,attr"`
-	IgnorePerms bool                `xml:"ignorePerms,attr"`
-	Invalid     string              `xml:"-"` // Set at runtime when there is an error, not saved
-	nodeIDs     []string
+	ID          string                  `xml:"id,attr"`
+	Directory   string                  `xml:"directory,attr"`
+	Nodes       []NodeConfiguration     `xml:"node"`
+	ReadOnly    bool                    `xml:"ro,attr"`
+	IgnorePerms bool                    `xml:"ignorePerms,attr"`
+	Invalid     string                  `xml:"-"` // Set at runtime when there is an error, not saved
+	Versioning  VersioningConfiguration `xml:"versioning"`
+
+	nodeIDs []string
+}
+
+type VersioningConfiguration struct {
+	Type   string `xml:"type,attr"`
+	Params map[string]string
+}
+
+type InternalVersioningConfiguration struct {
+	Type   string          `xml:"type,attr,omitempty"`
+	Params []InternalParam `xml:"param"`
+}
+
+type InternalParam struct {
+	Key string `xml:"key,attr"`
+	Val string `xml:"val,attr"`
+}
+
+func (c *VersioningConfiguration) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	var tmp InternalVersioningConfiguration
+	tmp.Type = c.Type
+	for k, v := range c.Params {
+		tmp.Params = append(tmp.Params, InternalParam{k, v})
+	}
+
+	return e.EncodeElement(tmp, start)
+
+}
+
+func (c *VersioningConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	var tmp InternalVersioningConfiguration
+	err := d.DecodeElement(&tmp, &start)
+	if err != nil {
+		return err
+	}
+
+	c.Type = tmp.Type
+	c.Params = make(map[string]string, len(tmp.Params))
+	for _, p := range tmp.Params {
+		c.Params[p.Key] = p.Val
+	}
+	return nil
 }
 
 func (r *RepositoryConfiguration) NodeIDs() []string {
