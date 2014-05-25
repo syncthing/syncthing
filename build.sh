@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 export COPYFILE_DISABLE=true
+export GO386=387 # Don't use SSE on 32 bit builds
 
 distFiles=(README.md LICENSE) # apart from the binary itself
 version=$(git describe --always --dirty)
