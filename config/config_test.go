@@ -38,10 +38,10 @@ func TestNodeConfig(t *testing.T) {
 	v1data := []byte(`
 <configuration version="1">
     <repository id="test" directory="~/Sync">
-        <node id="node1" name="node one">
+        <node id="NODE1" name="node one">
             <address>a</address>
         </node>
-        <node id="node2" name="node two">
+        <node id="NODE2" name="node two">
             <address>b</address>
         </node>
     </repository>
@@ -54,20 +54,20 @@ func TestNodeConfig(t *testing.T) {
 	v2data := []byte(`
 <configuration version="2">
     <repository id="test" directory="~/Sync" ro="true">
-        <node id="node1"/>
-        <node id="node2"/>
+        <node id="NODE1"/>
+        <node id="NODE2"/>
     </repository>
-    <node id="node1" name="node one">
+    <node id="NODE1" name="node one">
         <address>a</address>
     </node>
-    <node id="node2" name="node two">
+    <node id="NODE2" name="node two">
         <address>b</address>
     </node>
 </configuration>
 `)
 
 	for i, data := range [][]byte{v1data, v2data} {
-		cfg, err := Load(bytes.NewReader(data), "node1")
+		cfg, err := Load(bytes.NewReader(data), "NODE1")
 		if err != nil {
 			t.Error(err)
 		}
@@ -76,23 +76,23 @@ func TestNodeConfig(t *testing.T) {
 			{
 				ID:        "test",
 				Directory: "~/Sync",
-				Nodes:     []NodeConfiguration{{NodeID: "node1"}, {NodeID: "node2"}},
+				Nodes:     []NodeConfiguration{{NodeID: "NODE1"}, {NodeID: "NODE2"}},
 				ReadOnly:  true,
 			},
 		}
 		expectedNodes := []NodeConfiguration{
 			{
-				NodeID:    "node1",
+				NodeID:    "NODE1",
 				Name:      "node one",
 				Addresses: []string{"a"},
 			},
 			{
-				NodeID:    "node2",
+				NodeID:    "NODE2",
 				Name:      "node two",
 				Addresses: []string{"b"},
 			},
 		}
-		expectedNodeIDs := []string{"node1", "node2"}
+		expectedNodeIDs := []string{"NODE1", "NODE2"}
 
 		if cfg.Version != 2 {
 			t.Errorf("%d: Incorrect version %d != 2", i, cfg.Version)
@@ -200,25 +200,25 @@ func TestNodeAddresses(t *testing.T) {
 	name, _ := os.Hostname()
 	expected := []NodeConfiguration{
 		{
-			NodeID:    "n1",
+			NodeID:    "N1",
 			Addresses: []string{"dynamic"},
 		},
 		{
-			NodeID:    "n2",
+			NodeID:    "N2",
 			Addresses: []string{"dynamic"},
 		},
 		{
-			NodeID:    "n3",
+			NodeID:    "N3",
 			Addresses: []string{"dynamic"},
 		},
 		{
-			NodeID:    "n4",
+			NodeID:    "N4",
 			Name:      name, // Set when auto created
 			Addresses: []string{"dynamic"},
 		},
 	}
 
-	cfg, err := Load(bytes.NewReader(data), "n4")
+	cfg, err := Load(bytes.NewReader(data), "N4")
 	if err != nil {
 		t.Error(err)
 	}
