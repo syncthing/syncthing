@@ -87,6 +87,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	router.Get("/rest/connections", restGetConnections)
 	router.Get("/rest/config", restGetConfig)
 	router.Get("/rest/config/sync", restGetConfigInSync)
+	router.Get("/rest/config/repository_ids", restGetRepositoryIDs)
 	router.Get("/rest/system", restGetSystem)
 	router.Get("/rest/errors", restGetErrors)
 	router.Get("/rest/discovery", restGetDiscovery)
@@ -310,6 +311,10 @@ func getQR(w http.ResponseWriter, params martini.Params) {
 
 	w.Header().Set("Content-Type", "image/png")
 	w.Write(code.PNG())
+}
+
+func restGetRepositoryIDs(w http.ResponseWriter) {
+	json.NewEncoder(w).Encode(cfg.RepositoryIDs())
 }
 
 func basic(username string, passhash string) http.HandlerFunc {

@@ -88,6 +88,14 @@ func (r *RepositoryConfiguration) NodeIDs() []string {
 	return r.nodeIDs
 }
 
+func (c *Configuration) RepositoryIDs() []string {
+	var repositoryIDs = []string{}
+	for _, repo := range c.Repositories {
+		repositoryIDs = append(repositoryIDs, repo.ID)
+	}
+	return repositoryIDs
+}
+
 type NodeConfiguration struct {
 	NodeID    string   `xml:"id,attr"`
 	Name      string   `xml:"name,attr,omitempty"`
