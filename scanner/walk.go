@@ -167,7 +167,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 				} else {
 					var flags uint32 = protocol.FlagDirectory
 					if w.IgnorePerms {
-						flags |= protocol.FlagNoPermBits
+						flags |= protocol.FlagNoPermBits | 0777
 					} else {
 						flags |= uint32(info.Mode() & os.ModePerm)
 					}
