@@ -203,9 +203,9 @@ func main() {
 		l.FatalErr(err)
 		cfg.GUI.Address = fmt.Sprintf("127.0.0.1:%d", port)
 
-		port, err = getFreePort("", 22000)
+		port, err = getFreePort("0.0.0.0", 22000)
 		l.FatalErr(err)
-		cfg.Options.ListenAddress = []string{fmt.Sprintf(":%d", port)}
+		cfg.Options.ListenAddress = []string{fmt.Sprintf("0.0.0.0:%d", port)}
 
 		saveConfig()
 		l.Infof("Edit %s to taste or use the GUI\n", cfgFile)
