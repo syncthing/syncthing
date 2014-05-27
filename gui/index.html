@@ -66,6 +66,11 @@
     .table td {
       padding-left: 20px !important;
     }
+
+    .col-text-right {
+      margin: 0;
+      text-align: right;
+    }
   </style>
 </head>
 
@@ -140,8 +145,10 @@
                         <td class="text-right">{{repo.ID}}</td>
                       </tr>
                       <tr>
-                        <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;Folder</th>
-                        <td class="text-right">{{repo.Directory}}</td>
+                        <th colspan="2">
+                          <span class="glyphicon glyphicon-folder-open"></span>&emsp;Folder:
+                          <p class="col-text-right">{{repo.Directory}}</p>
+                        </th>
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-comment"></span>&emsp;Synchronization</th>
@@ -174,8 +181,10 @@
                         </td>
                       </tr>
                       <tr>
-                        <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;Shared With</th>
-                        <td class="text-right">{{sharesRepo(repo)}}</td>
+                        <th colspan="2">
+                          <span class="glyphicon glyphicon-share-alt"></span>&emsp;Shared With:
+                          <p class="col-text-right">{{sharesRepo(repo)}}</p>
+                        </th>
                       </tr>
                     </tbody>
                   </table>
