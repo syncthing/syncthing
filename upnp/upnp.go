@@ -60,14 +60,14 @@ func Discover() (*IGD, error) {
 		return nil, err
 	}
 
-	search := []byte(`
-M-SEARCH * HTTP/1.1
+	searchStr := `M-SEARCH * HTTP/1.1
 Host: 239.255.255.250:1900
 St: urn:schemas-upnp-org:device:InternetGatewayDevice:1
 Man: "ssdp:discover"
 Mx: 3
 
-`)
+`
+	search := []byte(strings.Replace(searchStr, "\n", "\r\n", -1))
 
 	_, err = socket.WriteTo(search, ssdp)
 	if err != nil {
