@@ -297,6 +297,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             setTimeout(function(){
                 window.location.protocol = protocol;
             }, 1000);
+
+            $scope.protocolChanged = false;
         }
     };
 
