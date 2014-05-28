@@ -3,7 +3,7 @@
 export COPYFILE_DISABLE=true
 export GO386=387 # Don't use SSE on 32 bit builds
 
-distFiles=(README.md LICENSE) # apart from the binary itself
+distFiles=(README.md LICENSE CONTRIBUTORS) # apart from the binary itself
 version=$(git describe --always --dirty)
 date=$(git show -s --format=%ct)
 user=$(whoami)
