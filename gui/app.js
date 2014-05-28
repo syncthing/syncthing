@@ -648,6 +648,12 @@ syncthing.filter('shortPath', function () {
     }
 });
 
+syncthing.filter('clean', function () {
+    return function (input) {
+        return encodeURIComponent(input).replace(/%/g, '');
+    }
+});
+
 syncthing.directive('optionEditor', function () {
     return {
         restrict: 'C',
@@ -674,6 +680,28 @@ syncthing.directive('uniqueRepo', function() {
                 } else {
                     // the repo is unique
                     ctrl.$setValidity('uniqueRepo', true);
+                }
+                return viewValue;
+            });
+        }
+    };
+});
+
+syncthing.directive('validNodeid', function() {
+    return {
+        require: 'ngModel',
+        link: function(scope, elm, attrs, ctrl) {
+            ctrl.$parsers.unshift(function(viewValue) {
+                if (scope.editingExisting) {
+                    // we shouldn't validate
+                    ctrl.$setValidity('validNodeid', true);
+                } else {
+                    var cleaned = viewValue.replace(/ /g, '').replace(/-/g, '').toUpperCase().trim();
+                    if (cleaned.match(/^[A-Z2-7]{52}$/)) {
+                        ctrl.$setValidity('validNodeid', true);
+                    } else {
+                        ctrl.$setValidity('validNodeid', false);
+                    }
                 }
                 return viewValue;
             });
