@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/calmh/syncthing/buffers"
@@ -274,7 +275,10 @@ func (p *puller) fixupDirectories() {
 			t := time.Unix(cur.Modified, 0)
 			err := os.Chtimes(path, t, t)
 			if err != nil {
-				l.Warnf("Restoring folder modtime: %q: %v", path, err)
+				if runtime.GOOS != "windows" {
+					// https://code.google.com/p/go/issues/detail?id=8090
+					l.Warnf("Restoring folder modtime: %q: %v", path, err)
+				}
 			} else {
 				changed++
 				if debug {
