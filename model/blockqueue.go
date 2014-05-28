@@ -16,6 +16,7 @@ type bqBlock struct {
 	file  scanner.File
 	block scanner.Block   // get this block from the network
 	copy  []scanner.Block // copy these blocks from the old version of the file
+	first bool
 	last  bool
 }
 
@@ -47,24 +48,30 @@ func (q *blockQueue) addBlock(a bqAdd) {
 			return
 		}
 	}
+
+	l := len(a.need)
+
 	if len(a.have) > 0 {
 		// First queue a copy operation
 		q.queued = append(q.queued, bqBlock{
-			file: a.file,
-			copy: a.have,
+			file:  a.file,
+			copy:  a.have,
+			first: true,
+			last:  l == 0,
 		})
 	}
+
 	// Queue the needed blocks individually
-	l := len(a.need)
 	for i, b := range a.need {
 		q.queued = append(q.queued, bqBlock{
 			file:  a.file,
 			block: b,
+			first: len(a.have) == 0 && i == 0,
 			last:  i == l-1,
 		})
 	}
 
-	if l == 0 {
+	if len(a.need)+len(a.have) == 0 {
 		// If we didn't have anything to fetch, queue an empty block with the "last" flag set to close the file.
 		q.queued = append(q.queued, bqBlock{
 			file: a.file,

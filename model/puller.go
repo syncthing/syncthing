@@ -373,6 +373,29 @@ func (p *puller) handleBlock(b bqBlock) bool {
 		return true
 	}
 
+	if len(b.copy) > 0 && len(b.copy) == len(b.file.Blocks) && b.last {
+		// We are supposed to copy the entire file, and then fetch nothing.
+		// We don't actually need to make the copy.
+		if debug {
+			l.Debugln("taking shortcut:", f)
+		}
+		fp := filepath.Join(p.repoCfg.Directory, f.Name)
+		t := time.Unix(f.Modified, 0)
+		err := os.Chtimes(fp, t, t)
+		if debug && err != nil {
+			l.Debugf("pull: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
+		}
+		if !p.repoCfg.IgnorePerms && protocol.HasPermissionBits(f.Flags) {
+			err = os.Chmod(fp, os.FileMode(f.Flags&0777))
+			if debug && err != nil {
+				l.Debugf("pull: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
+			}
+		}
+
+		p.model.updateLocal(p.repoCfg.ID, f)
+		return true
+	}
+
 	of, ok := p.openFiles[f.Name]
 	of.done = b.last
 
