@@ -60,7 +60,10 @@ zipDist() {
 	name="$1"
 	rm -rf "$name"
 	mkdir -p "$name"
-	cp syncthing.exe "${distFiles[@]}" "$name"
+	for f in "${distFiles[@]}" ; do
+		sed 's/$//' < "$f" > "$name/$f.txt"
+	done
+	cp syncthing.exe "$name"
 	sign "$name/syncthing.exe"
 	zip -r "$name.zip" "$name"
 	rm -rf "$name"
