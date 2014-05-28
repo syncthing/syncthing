@@ -496,7 +496,9 @@ func (c *rawConnection) pingerLoop() {
 			}()
 			select {
 			case ok := <-rc:
-				l.Debugln(c.id, "<- pong")
+				if debug {
+					l.Debugln(c.id, "<- pong")
+				}
 				if !ok {
 					c.close(fmt.Errorf("ping failure"))
 				}
