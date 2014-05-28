@@ -1,6 +1,9 @@
 package xdr
 
-import "io"
+import (
+	"io"
+	"time"
+)
 
 func pad(l int) int {
 	d := l % 4
@@ -13,10 +16,11 @@ func pad(l int) int {
 var padBytes = []byte{0, 0, 0}
 
 type Writer struct {
-	w   io.Writer
-	tot int
-	err error
-	b   [8]byte
+	w    io.Writer
+	tot  int
+	err  error
+	b    [8]byte
+	last time.Time
 }
 
 func NewWriter(w io.Writer) *Writer {
@@ -34,6 +38,7 @@ func (w *Writer) WriteBytes(bs []byte) (int, error) {
 		return 0, w.err
 	}
 
+	w.last = time.Now()
 	w.WriteUint32(uint32(len(bs)))
 	if w.err != nil {
 		return 0, w.err
@@ -65,6 +70,7 @@ func (w *Writer) WriteUint16(v uint16) (int, error) {
 		return 0, w.err
 	}
 
+	w.last = time.Now()
 	if debug {
 		dl.Debugf("wr uint16=%d", v)
 	}
@@ -85,6 +91,7 @@ func (w *Writer) WriteUint32(v uint32) (int, error) {
 		return 0, w.err
 	}
 
+	w.last = time.Now()
 	if debug {
 		dl.Debugf("wr uint32=%d", v)
 	}
@@ -105,6 +112,7 @@ func (w *Writer) WriteUint64(v uint64) (int, error) {
 		return 0, w.err
 	}
 
+	w.last = time.Now()
 	if debug {
 		dl.Debugf("wr uint64=%d", v)
 	}
@@ -130,4 +138,8 @@ func (w *Writer) Tot() int {
 
 func (w *Writer) Error() error {
 	return w.err
+}
+
+func (w *Writer) LastWrite() time.Time {
+	return w.last
 }

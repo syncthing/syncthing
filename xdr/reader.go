@@ -3,15 +3,17 @@ package xdr
 import (
 	"errors"
 	"io"
+	"time"
 )
 
 var ErrElementSizeExceeded = errors.New("element size exceeded")
 
 type Reader struct {
-	r   io.Reader
-	tot int
-	err error
-	b   [8]byte
+	r    io.Reader
+	tot  int
+	err  error
+	b    [8]byte
+	last time.Time
 }
 
 func NewReader(r io.Reader) *Reader {
@@ -44,6 +46,7 @@ func (r *Reader) ReadBytesMaxInto(max int, dst []byte) []byte {
 	if r.err != nil {
 		return nil
 	}
+	r.last = time.Now()
 	l := int(r.ReadUint32())
 	if r.err != nil {
 		return nil
@@ -74,6 +77,7 @@ func (r *Reader) ReadUint16() uint16 {
 	if r.err != nil {
 		return 0
 	}
+	r.last = time.Now()
 	_, r.err = io.ReadFull(r.r, r.b[:4])
 	r.tot += 4
 	v := uint16(r.b[1]) | uint16(r.b[0])<<8
@@ -88,6 +92,7 @@ func (r *Reader) ReadUint32() uint32 {
 	if r.err != nil {
 		return 0
 	}
+	r.last = time.Now()
 	n, r.err = io.ReadFull(r.r, r.b[:4])
 	if n < 4 {
 		return 0
@@ -105,6 +110,7 @@ func (r *Reader) ReadUint64() uint64 {
 	if r.err != nil {
 		return 0
 	}
+	r.last = time.Now()
 	n, r.err = io.ReadFull(r.r, r.b[:8])
 	r.tot += n
 	v := uint64(r.b[7]) | uint64(r.b[6])<<8 | uint64(r.b[5])<<16 | uint64(r.b[4])<<24 |
@@ -121,4 +127,8 @@ func (r *Reader) Tot() int {
 
 func (r *Reader) Error() error {
 	return r.err
+}
+
+func (r *Reader) LastRead() time.Time {
+	return r.last
 }

@@ -92,8 +92,8 @@ type asyncResult struct {
 }
 
 const (
-	pingTimeout  = 4 * time.Minute
-	pingIdleTime = 5 * time.Minute
+	pingTimeout  = 300 * time.Second
+	pingIdleTime = 600 * time.Second
 )
 
 func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver Model) Connection {
@@ -476,11 +476,27 @@ func (c *rawConnection) pingerLoop() {
 	for {
 		select {
 		case <-ticker:
+			if d := time.Since(c.xr.LastRead()); d < pingIdleTime {
+				if debug {
+					l.Debugln(c.id, "ping skipped after rd", d)
+				}
+				continue
+			}
+			if d := time.Since(c.xw.LastWrite()); d < pingIdleTime {
+				if debug {
+					l.Debugln(c.id, "ping skipped after wr", d)
+				}
+				continue
+			}
 			go func() {
+				if debug {
+					l.Debugln(c.id, "ping ->")
+				}
 				rc <- c.ping()
 			}()
 			select {
 			case ok := <-rc:
+				l.Debugln(c.id, "<- pong")
 				if !ok {
 					c.close(fmt.Errorf("ping failure"))
 				}
