@@ -24,24 +24,6 @@ var testcases = []struct {
 		local: protocol.ClusterConfigMessage{
 			Repositories: []protocol.Repository{
 				{ID: "foo"},
-			},
-		},
-		remote: protocol.ClusterConfigMessage{ClientName: "c", ClientVersion: "d"},
-		err:    `remote is missing repository "foo"`,
-	},
-	{
-		local: protocol.ClusterConfigMessage{ClientName: "c", ClientVersion: "d"},
-		remote: protocol.ClusterConfigMessage{
-			Repositories: []protocol.Repository{
-				{ID: "foo"},
-			},
-		},
-		err: `remote has extra repository "foo"`,
-	},
-	{
-		local: protocol.ClusterConfigMessage{
-			Repositories: []protocol.Repository{
-				{ID: "foo"},
 				{ID: "bar"},
 			},
 		},
@@ -52,38 +34,6 @@ var testcases = []struct {
 			},
 		},
 		err: "",
-	},
-	{
-		local: protocol.ClusterConfigMessage{
-			Repositories: []protocol.Repository{
-				{ID: "quux"},
-				{ID: "foo"},
-				{ID: "bar"},
-			},
-		},
-		remote: protocol.ClusterConfigMessage{
-			Repositories: []protocol.Repository{
-				{ID: "bar"},
-				{ID: "quux"},
-			},
-		},
-		err: `remote is missing repository "foo"`,
-	},
-	{
-		local: protocol.ClusterConfigMessage{
-			Repositories: []protocol.Repository{
-				{ID: "quux"},
-				{ID: "bar"},
-			},
-		},
-		remote: protocol.ClusterConfigMessage{
-			Repositories: []protocol.Repository{
-				{ID: "bar"},
-				{ID: "foo"},
-				{ID: "quux"},
-			},
-		},
-		err: `remote has extra repository "foo"`,
 	},
 	{
 		local: protocol.ClusterConfigMessage{
