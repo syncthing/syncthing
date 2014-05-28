@@ -144,6 +144,10 @@
                         <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;Folder</th>
                         <td class="text-right">{{repo.Directory}}</td>
                       </tr>
+                      <tr ng-if="model[repo.ID].invalid">
+                        <th><span class="glyphicon glyphicon-warning-sign"></span>&emsp;Error</th>
+                        <td class="text-right">{{model[repo.ID].invalid}}</td>
+                      </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-comment"></span>&emsp;Synchronization</th>
                         <td class="text-right">{{repoStatus(repo.ID)}}</td>

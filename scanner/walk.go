@@ -284,10 +284,12 @@ func (w *Walker) ignoreFile(patterns map[string][]string, file string) bool {
 }
 
 func checkDir(dir string) error {
-	if info, err := os.Stat(dir); err != nil {
+	if info, err := os.Lstat(dir); err != nil {
 		return err
 	} else if !info.IsDir() {
 		return errors.New(dir + ": not a directory")
+	} else if debug {
+		l.Debugln("checkDir", dir, info)
 	}
 	return nil
 }

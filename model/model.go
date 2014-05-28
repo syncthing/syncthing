@@ -628,7 +628,10 @@ func (m *Model) ScanRepos() {
 	for _, repo := range repos {
 		repo := repo
 		go func() {
-			m.ScanRepo(repo)
+			err := m.ScanRepo(repo)
+			if err != nil {
+				invalidateRepo(m.cfg, repo, err)
+			}
 			wg.Done()
 		}()
 	}
