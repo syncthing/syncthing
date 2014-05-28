@@ -8,3 +8,4 @@ stcli.exe
 *.sublime*
 discosrv
 stpidx
+.jshintrc

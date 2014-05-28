@@ -1,7 +1,7 @@
 /*jslint browser: true, continue: true, plusplus: true */
 /*global $: false, angular: false */
 
-'use-strict';
+'use strict';
 
 var syncthing = angular.module('syncthing', []);
 var urlbase = 'rest';
