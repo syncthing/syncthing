@@ -102,9 +102,7 @@ func (b *Beacon) writer() {
 				if debug {
 					l.Debugln(err)
 				}
-				return
-			}
-			if debug {
+			} else if debug {
 				l.Debugf("sent %d bytes to %s", len(bs), dst)
 			}
 		}
