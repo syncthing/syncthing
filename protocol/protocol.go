@@ -77,7 +77,7 @@ type rawConnection struct {
 	xw   *xdr.Writer
 	wmut sync.Mutex
 
-	indexSent map[string]uint64
+	indexSent map[string]map[string][2]int64
 	awaiting  []chan asyncResult
 	imut      sync.Mutex
 
@@ -117,8 +117,8 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 		cw:        cw,
 		wb:        wb,
 		xw:        xdr.NewWriter(wb),
-		indexSent: make(map[string]uint64),
 		awaiting:  make([]chan asyncResult, 0x1000),
+		indexSent: make(map[string]map[string][2]int64),
 		outbox:    make(chan []encodable),
 		nextID:    make(chan int),
 		closed:    make(chan struct{}),
@@ -140,29 +140,26 @@ func (c *rawConnection) ID() string {
 func (c *rawConnection) Index(repo string, idx []FileInfo) {
 	c.imut.Lock()
 	var msgType int
-	maxSent := c.indexSent[repo]
-	var newMaxSent uint64
-	if maxSent == 0 {
+	if c.indexSent[repo] == nil {
 		// This is the first time we send an index.
 		msgType = messageTypeIndex
+
+		c.indexSent[repo] = make(map[string][2]int64)
 		for _, f := range idx {
-			if f.Version > newMaxSent {
-				newMaxSent = f.Version
-			}
+			c.indexSent[repo][f.Name] = [2]int64{f.Modified, int64(f.Version)}
 		}
 	} else {
 		// We have sent one full index. Only send updates now.
 		msgType = messageTypeIndexUpdate
 		var diff []FileInfo
 		for _, f := range idx {
-			if f.Version > maxSent {
+			if vs, ok := c.indexSent[repo][f.Name]; !ok || f.Modified != vs[0] || int64(f.Version) != vs[1] {
 				diff = append(diff, f)
-				newMaxSent = f.Version
+				c.indexSent[repo][f.Name] = [2]int64{f.Modified, int64(f.Version)}
 			}
 		}
 		idx = diff
 	}
-	c.indexSent[repo] = newMaxSent
 	c.imut.Unlock()
 
 	c.send(header{0, -1, msgType}, IndexMessage{repo, idx})
