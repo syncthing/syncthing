@@ -244,7 +244,7 @@ func Load(rd io.Reader, myID string) (Configuration, error) {
 		repo := &cfg.Repositories[i]
 
 		if len(repo.Directory) == 0 {
-			repo.Invalid = "empty directory"
+			repo.Invalid = "no directory configured"
 			continue
 		}
 

@@ -275,7 +275,8 @@ func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 	if r, ok := m.repoFiles[repo]; ok {
 		r.Replace(id, files)
 	} else {
-		l.Warnf("Index from %s for nonexistant repo %q; dropping", nodeID, repo)
+		l.Warnf("Index from %s for unexpected repo %q; verify configuration", nodeID, repo)
+
 	}
 	m.rmut.RUnlock()
 }

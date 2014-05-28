@@ -81,16 +81,7 @@ func compareClusterConfig(local, remote protocol.ClusterConfigMessage) error {
 					}
 				}
 			}
-		} else {
-			return ClusterConfigMismatch(fmt.Errorf("remote is missing repository %q", repo))
 		}
-	}
-
-	for repo := range rm {
-		if _, ok := lm[repo]; !ok {
-			return ClusterConfigMismatch(fmt.Errorf("remote has extra repository %q", repo))
-		}
-
 	}
 
 	return nil
