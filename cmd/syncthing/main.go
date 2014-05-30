@@ -233,14 +233,14 @@ func main() {
 
 	// The TLS configuration is used for both the listening socket and outgoing
 	// connections.
-
+	// InsecureSkipVerify should be false!?
 	tlsCfg := &tls.Config{
 		Certificates:           []tls.Certificate{cert},
 		NextProtos:             []string{"bep/1.0"},
 		ServerName:             myID,
 		ClientAuth:             tls.RequestClientCert,
 		SessionTicketsDisabled: true,
-		InsecureSkipVerify:     true,
+		InsecureSkipVerify:     false,
 		MinVersion:             tls.VersionTLS12,
 	}
 
