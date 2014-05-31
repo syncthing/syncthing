@@ -575,7 +575,7 @@ Message Limits
 
 An implementation MAY impose reasonable limits on the length of message
 fields to aid robustness in the face of corruption or broken
-implementations. These limits, if imposed, SHOULD not be more
+implementations. These limits, if imposed, SHOULD NOT be more
 restrictive than the following:
 
 ### Index and Index Update Messages
