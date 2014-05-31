@@ -567,7 +567,10 @@ func (m *Model) broadcastIndexLoop() {
 			idx := m.protocolIndex(repo)
 			indexWg.Add(1)
 			go func() {
-				m.saveIndex(repo, m.indexDir, idx)
+				err := m.saveIndex(repo, m.indexDir, idx)
+				if err != nil {
+					l.Warnln("Saving index for %q: %v", repo, err)
+				}
 				indexWg.Done()
 			}()
 
@@ -688,7 +691,10 @@ func (m *Model) SaveIndexes(dir string) {
 	m.rmut.RLock()
 	for repo := range m.repoCfgs {
 		fs := m.protocolIndex(repo)
-		m.saveIndex(repo, dir, fs)
+		err := m.saveIndex(repo, dir, fs)
+		if err != nil {
+			l.Warnln("Saving index for %q: %v", repo, err)
+		}
 	}
 	m.rmut.RUnlock()
 }
@@ -702,26 +708,43 @@ func (m *Model) LoadIndexes(dir string) {
 	m.rmut.RUnlock()
 }
 
-func (m *Model) saveIndex(repo string, dir string, fs []protocol.FileInfo) {
+func (m *Model) saveIndex(repo string, dir string, fs []protocol.FileInfo) error {
 	id := fmt.Sprintf("%x", sha1.Sum([]byte(m.repoCfgs[repo].Directory)))
 	name := id + ".idx.gz"
 	name = filepath.Join(dir, name)
 
 	idxf, err := os.Create(name + ".tmp")
 	if err != nil {
-		return
+		return err
 	}
 
 	gzw := gzip.NewWriter(idxf)
 
-	protocol.IndexMessage{
+	n, err := protocol.IndexMessage{
 		Repository: repo,
 		Files:      fs,
 	}.EncodeXDR(gzw)
-	gzw.Close()
-	idxf.Close()
+	if err != nil {
+		gzw.Close()
+		idxf.Close()
+		return err
+	}
 
-	osutil.Rename(name+".tmp", name)
+	err = gzw.Close()
+	if err != nil {
+		return err
+	}
+
+	err = idxf.Close()
+	if err != nil {
+		return err
+	}
+
+	if debug {
+		l.Debugln("wrote index,", n, "bytes uncompressed")
+	}
+
+	return osutil.Rename(name+".tmp", name)
 }
 
 func (m *Model) loadIndex(repo string, dir string) []protocol.FileInfo {
