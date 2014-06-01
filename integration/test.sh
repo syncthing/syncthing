@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
+# Use of this source code is governed by an MIT-style license that can be
+# found in the LICENSE file.
+
 iterations=${1:-5}
 
 id1=I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA

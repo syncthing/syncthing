@@ -1,9 +1,12 @@
-// Package upnp implements UPnP Internet Gateway upnpDevice port mappings
-package upnp
+// Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
+// Use of this source code is governed by an MIT-style license that can be
+// found in the LICENSE file.
 
 // Adapted from https://github.com/jackpal/Taipei-Torrent/blob/dd88a8bfac6431c01d959ce3c745e74b8a911793/IGD.go
 // Copyright (c) 2010 Jack Palevich (https://github.com/jackpal/Taipei-Torrent/blob/dd88a8bfac6431c01d959ce3c745e74b8a911793/LICENSE)
-// Copyright (c) 2014 Jakob Borg
+
+// Package upnp implements UPnP Internet Gateway upnpDevice port mappings
+package upnp
 
 import (
 	"bufio"
