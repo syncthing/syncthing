@@ -523,15 +523,15 @@ func (c *rawConnection) processRequest(msgID int, req RequestMessage) {
 
 type Statistics struct {
 	At            time.Time
-	InBytesTotal  int
-	OutBytesTotal int
+	InBytesTotal  uint64
+	OutBytesTotal uint64
 }
 
 func (c *rawConnection) Statistics() Statistics {
 	return Statistics{
 		At:            time.Now(),
-		InBytesTotal:  int(c.cr.Tot()),
-		OutBytesTotal: int(c.cw.Tot()),
+		InBytesTotal:  c.cr.Tot(),
+		OutBytesTotal: c.cw.Tot(),
 	}
 }
 

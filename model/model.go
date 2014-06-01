@@ -186,8 +186,8 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	res["total"] = ConnectionInfo{
 		Statistics: protocol.Statistics{
 			At:            time.Now(),
-			InBytesTotal:  int(in),
-			OutBytesTotal: int(out),
+			InBytesTotal:  in,
+			OutBytesTotal: out,
 		},
 	}
 
