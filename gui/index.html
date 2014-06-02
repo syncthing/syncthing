@@ -72,13 +72,13 @@ found in the LICENSE file.
     .table td {
       padding-left: 20px !important;
     }
-    
-    @media (max-width:767px){   
-      .table-responsive>.table>tbody>tr>td{
+
+    @media (max-width:767px) {
+      .table-responsive>.table>tbody>tr>td {
         /* revert a bootstrap setting e.g.:
          * for mobile phones to allow linebreaks in long repro folder/shared with
          * columns. */
-        white-space:normal;
+        white-space: normal;
       }
     }
   </style>
@@ -139,13 +139,13 @@ found in the LICENSE file.
           <div class="panel panel-{{repoClass(repo.ID)}}" ng-repeat="repo in repoList()">
             <div class="panel-heading">
               <h3 class="panel-title">
-                <a data-toggle="collapse" data-parent="#repositories" href="#repo-{{repo.ID | clean}}">
+                <a data-toggle="collapse" data-parent="#repositories" href="#repo-{{$index}}">
                   <span class="glyphicon glyphicon-hdd"></span> {{repo.Directory | shortPath}}
                   <span class="pull-right hidden-xs">{{repoStatus(repo.ID)}}</span>
                 </a>
               </h3>
             </div>
-            <div id="repo-{{repo.ID | clean}}" class="panel-collapse collapse">
+            <div id="repo-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
                 <div class="table-responsive">
                   <table class="table table-condensed table-striped">
@@ -213,10 +213,10 @@ found in the LICENSE file.
           <div class="panel panel-default" ng-repeat="nodeCfg in [thisNode()]">
             <div class="panel-heading">
               <h3 class="panel-title">
-                <a data-toggle="collapse" data-parent="#nodes" href="#node-{{nodeCfg.NodeID | clean}}"><span class="glyphicon glyphicon-home"></span> {{nodeName(nodeCfg)}}</a>
+                <a data-toggle="collapse" data-parent="#nodes" href="#node-this"><span class="glyphicon glyphicon-home"></span> {{nodeName(nodeCfg)}}</a>
               </h3>
             </div>
-            <div id="node-{{nodeCfg.NodeID | clean}}" class="panel-collapse collapse in">
+            <div id="node-this" class="panel-collapse collapse in">
               <div class="panel-body">
                 <div class="table-responsive">
                   <table class="table table-condensed table-striped">
@@ -259,14 +259,14 @@ found in the LICENSE file.
           <div class="panel panel-{{nodeClass(nodeCfg)}}" ng-repeat="nodeCfg in otherNodes()">
             <div class="panel-heading">
               <h3 class="panel-title">
-                <a data-toggle="collapse" data-parent="#nodes" href="#node-{{nodeCfg.NodeID}}">
+                <a data-toggle="collapse" data-parent="#nodes" href="#node-{{$index}}">
                   <span class="glyphicon glyphicon-retweet"></span>
                   {{nodeName(nodeCfg)}}
                   <span class="pull-right hidden-xs">{{nodeStatus(nodeCfg)}}</span>
                 </a>
               </h3>
             </div>
-            <div id="node-{{nodeCfg.NodeID}}" class="panel-collapse collapse">
+            <div id="node-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
                 <div class="table-responsive">
                   <table class="table table-condensed table-striped">
