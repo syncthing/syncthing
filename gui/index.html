@@ -470,7 +470,7 @@ found in the LICENSE file.
               <div class="col-md-12">
                 <div class="form-group" ng-class="{'has-error': repoEditor.repoID.$invalid && repoEditor.repoID.$dirty}">
                   <label for="repoID">Repository ID</label>
-                  <input name="repoID" placeholder="documents" ng-disabled="editingExisting" id="repoID" class="form-control" type="text" ng-model="currentRepo.ID" required unique-repo ng-pattern="/^[a-zaZ0-9-_.]{1,64}$/"></input>
+                  <input name="repoID" placeholder="documents" ng-disabled="editingExisting" id="repoID" class="form-control" type="text" ng-model="currentRepo.ID" required unique-repo ng-pattern="/^[a-zA-Z0-9-_.]{1,64}$/"></input>
                   <p class="help-block">
                     <span ng-if="repoEditor.repoID.$valid || repoEditor.repoID.$pristine">Short identifier for the repository. Must be the same on all cluster nodes.</span>
                     <span ng-if="repoEditor.repoID.$error.uniqueRepo">The repository ID must be unique.</span>
