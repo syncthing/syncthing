@@ -72,6 +72,15 @@ found in the LICENSE file.
     .table td {
       padding-left: 20px !important;
     }
+    
+    @media (max-width:767px){   
+      .table-responsive>.table>tbody>tr>td{
+        /* revert a bootstrap setting e.g.:
+         * for mobile phones to allow linebreaks in long repro folder/shared with
+         * columns. */
+        white-space:normal;
+      }
+    }
   </style>
 </head>
 
