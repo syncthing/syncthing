@@ -676,7 +676,7 @@ syncthing.filter('shortPath', function () {
 
 syncthing.filter('clean', function () {
     return function (input) {
-        return encodeURIComponent(input).replace(/%/g, '');
+        return encodeURIComponent(input).replace(/%/g, '').replace(/\./g, '_');
     };
 });
 
