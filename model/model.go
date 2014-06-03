@@ -573,7 +573,7 @@ func (m *Model) broadcastIndexLoop() {
 			go func() {
 				err := m.saveIndex(repo, m.indexDir, idx)
 				if err != nil {
-					l.Warnln("Saving index for %q: %v", repo, err)
+					l.Warnf("Saving index for %q: %v", repo, err)
 				}
 				indexWg.Done()
 			}()
