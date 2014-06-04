@@ -6,23 +6,43 @@
 
 package protocol
 
-// Windows uses backslashes as file separator
+// Windows uses backslashes as file separator and disallows a bunch of
+// characters in the filename
 
-import "path/filepath"
+import (
+	"path/filepath"
+	"strings"
+)
+
+var disallowedCharacters = string([]rune{
+	'<', '>', ':', '"', '|', '?', '*',
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+	21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+	31,
+})
 
 type nativeModel struct {
 	next Model
 }
 
 func (m nativeModel) Index(nodeID string, repo string, files []FileInfo) {
-	for i := range files {
-		files[i].Name = filepath.FromSlash(files[i].Name)
+	for i, f := range files {
+		if strings.ContainsAny(f.Name, disallowedCharacters) {
+			files[i].Flags |= FlagInvalid
+			l.Warnf("File name %q contains invalid characters; marked as invalid.", f.Name)
+		}
+		files[i].Name = filepath.FromSlash(f.Name)
 	}
 	m.next.Index(nodeID, repo, files)
 }
 
 func (m nativeModel) IndexUpdate(nodeID string, repo string, files []FileInfo) {
-	for i := range files {
+	for i, f := range files {
+		if strings.ContainsAny(f.Name, disallowedCharacters) {
+			files[i].Flags |= FlagInvalid
+			l.Warnf("File name %q contains invalid characters; marked as invalid.", f.Name)
+		}
 		files[i].Name = filepath.FromSlash(files[i].Name)
 	}
 	m.next.IndexUpdate(nodeID, repo, files)
