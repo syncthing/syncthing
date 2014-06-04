@@ -10,6 +10,11 @@
 var syncthing = angular.module('syncthing', []);
 var urlbase = 'rest';
 
+syncthing.config(function ($httpProvider) {
+    $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
+    $httpProvider.defaults.xsrfCookieName = 'CSRF-Token';
+});
+
 syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     var prevDate = 0;
     var getOK = true;

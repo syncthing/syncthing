@@ -105,6 +105,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	router.Post("/rest/discovery/hint", restPostDiscoveryHint)
 
 	mr := martini.New()
+	mr.Use(csrfMiddleware)
 	if len(cfg.User) > 0 && len(cfg.Password) > 0 {
 		mr.Use(basic(cfg.User, cfg.Password))
 	}
@@ -113,6 +114,8 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	mr.Use(restMiddleware)
 	mr.Action(router.Handle)
 	mr.Map(m)
+
+	loadCsrfTokens()
 
 	go http.Serve(listener, mr)
 
