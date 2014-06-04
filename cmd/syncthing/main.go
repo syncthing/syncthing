@@ -53,7 +53,7 @@ func init() {
 	LongVersion = fmt.Sprintf("syncthing %s (%s %s-%s) %s@%s %s", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
 
 	if os.Getenv("STTRACE") != "" {
-		l.SetFlags(log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile)
+		logFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
 	}
 }
 
@@ -61,6 +61,7 @@ var (
 	cfg        config.Configuration
 	myID       string
 	confDir    string
+	logFlags   int = log.Ltime
 	rateBucket *ratelimit.Bucket
 	stop       = make(chan bool)
 	discoverer *discover.Discoverer
@@ -68,7 +69,19 @@ var (
 
 const (
 	usage      = "syncthing [options]"
-	extraUsage = `The following enviroment variables are interpreted by syncthing:
+	extraUsage = `The value for the -logflags option is a sum of the following:
+
+   1  Date
+   2  Time
+   4  Microsecond time
+   8  Long filename
+  16  Short filename
+
+I.e. to prefix each log line with date and time, set -logflags=3 (1 + 2 from
+above). The value 0 is used to disable all of the above. The default is to
+show time only (2).
+
+The following enviroment variables are interpreted by syncthing:
 
  STNORESTART   Do not attempt to restart when requested to, instead just exit.
                Set this variable when running under a service manager such as
@@ -102,6 +115,7 @@ func main() {
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
+	flag.IntVar(&logFlags, "logflags", logFlags, "Set log flags")
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
 	flag.Parse()
 
@@ -109,6 +123,8 @@ func main() {
 		fmt.Println(LongVersion)
 		return
 	}
+
+	l.SetFlags(logFlags)
 
 	if doUpgrade {
 		err := upgrade()
