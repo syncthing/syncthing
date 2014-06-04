@@ -716,11 +716,12 @@ func (m *Model) saveIndex(repo string, dir string, fs []protocol.FileInfo) error
 	id := fmt.Sprintf("%x", sha1.Sum([]byte(m.repoCfgs[repo].Directory)))
 	name := id + ".idx.gz"
 	name = filepath.Join(dir, name)
-
-	idxf, err := os.Create(name + ".tmp")
+	tmp := fmt.Sprintf("%s.tmp.%d", name, time.Now().UnixNano())
+	idxf, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
+	defer os.Remove(tmp)
 
 	gzw := gzip.NewWriter(idxf)
 
@@ -748,7 +749,7 @@ func (m *Model) saveIndex(repo string, dir string, fs []protocol.FileInfo) error
 		l.Debugln("wrote index,", n, "bytes uncompressed")
 	}
 
-	return osutil.Rename(name+".tmp", name)
+	return osutil.Rename(tmp, name)
 }
 
 func (m *Model) loadIndex(repo string, dir string) []protocol.FileInfo {
