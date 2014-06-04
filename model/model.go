@@ -573,7 +573,7 @@ func (m *Model) broadcastIndexLoop() {
 			go func() {
 				err := m.saveIndex(repo, m.indexDir, idx)
 				if err != nil {
-					l.Warnf("Saving index for %q: %v", repo, err)
+					l.Infof("Saving index for %q: %v", repo, err)
 				}
 				indexWg.Done()
 			}()
@@ -697,7 +697,7 @@ func (m *Model) SaveIndexes(dir string) {
 		fs := m.protocolIndex(repo)
 		err := m.saveIndex(repo, dir, fs)
 		if err != nil {
-			l.Warnln("Saving index for %q: %v", repo, err)
+			l.Infof("Saving index for %q: %v", repo, err)
 		}
 	}
 	m.rmut.RUnlock()
