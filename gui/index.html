@@ -595,6 +595,11 @@ found in the LICENSE file.
                       {{setting.descr}} <input id="{{setting.id}}" type="checkbox" ng-model="config.workingGUI[setting.id]"></input>
                     </label>
                   </div>
+                  <div ng-if="setting.type == 'apikey'">
+                    <label>{{setting.descr}} (<a href="http://discourse.syncthing.net/t/v0-8-14-api-keys/335">Usage</a>)</label>
+                    <div class="well well-sm text-monospace">{{config.workingGUI[setting.id] || "-"}}</div>
+                    <button type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(config.workingGUI)">Generate</button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -321,6 +321,10 @@ func getQR(w http.ResponseWriter, params martini.Params) {
 
 func basic(username string, passhash string) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
+		if validAPIKey(req.Header.Get("X-API-Key")) {
+			return
+		}
+
 		error := func() {
 			time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
 			res.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
@@ -356,6 +360,10 @@ func basic(username string, passhash string) http.HandlerFunc {
 			return
 		}
 	}
+}
+
+func validAPIKey(k string) bool {
+	return len(cfg.GUI.APIKey) > 0 && k == cfg.GUI.APIKey
 }
 
 func embeddedStatic() func(http.ResponseWriter, *http.Request, *log.Logger) {

@@ -22,6 +22,9 @@ var csrfMut sync.Mutex
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
 // is currently set.
 func csrfMiddleware(w http.ResponseWriter, r *http.Request) {
+	if validAPIKey(r.Header.Get("X-API-Key")) {
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/rest/") {
 		token := r.Header.Get("X-CSRF-Token")
 		if !validCsrfToken(token) {

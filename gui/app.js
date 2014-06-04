@@ -52,6 +52,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     {id: 'User', descr: 'GUI Authentication User', type: 'text', restart: true},
     {id: 'Password', descr: 'GUI Authentication Password', type: 'password', restart: true},
     {id: 'UseTLS', descr: 'Use HTTPS for GUI', type: 'bool', restart: true},
+    {id: 'APIKey', descr: 'API Key', type: 'apikey'},
     ];
 
     function getSucceeded() {
@@ -514,6 +515,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
     };
 
+    $scope.setAPIKey = function (cfg) {
+        cfg.APIKey = randomString(30, 32);
+    };
+
     $scope.init = function() {
         $http.get(urlbase + '/version').success(function (data) {
             $scope.version = data;
@@ -591,6 +596,18 @@ function decimals(val, num) {
     digits = Math.floor(Math.log(Math.abs(val)) / Math.log(10));
     decs = Math.max(0, num - digits);
     return decs;
+}
+
+function randomString(len, bits)
+{
+    bits = bits || 36;
+    var outStr = "", newStr;
+    while (outStr.length < len)
+    {
+        newStr = Math.random().toString(bits).slice(2);
+        outStr += newStr.slice(0, Math.min(newStr.length, (len - outStr.length)));
+    }
+    return outStr.toUpperCase();
 }
 
 syncthing.filter('natural', function () {

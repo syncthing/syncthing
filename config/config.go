@@ -123,6 +123,7 @@ type GUIConfiguration struct {
 	User     string `xml:"user,omitempty"`
 	Password string `xml:"password,omitempty"`
 	UseTLS   bool   `xml:"tls,attr"`
+	APIKey   string `xml:"apikey,omitempty"`
 }
 
 func setDefaults(data interface{}) error {
