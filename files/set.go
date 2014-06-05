@@ -297,6 +297,9 @@ func (m *Set) replace(cid uint, fs []scanner.File) {
 
 		if na != 0 {
 			// Someone had the file
+			f := m.files[nk]
+			f.Global = true
+			m.files[nk] = f
 			m.globalKey[n] = nk
 			m.globalAvailability[n] = na
 		} else {

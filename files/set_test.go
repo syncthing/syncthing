@@ -2,7 +2,7 @@
 // Use of this source code is governed by an MIT-style license that can be
 // found in the LICENSE file.
 
-package files
+package files_test
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/calmh/syncthing/cid"
+	"github.com/calmh/syncthing/files"
 	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
@@ -31,7 +32,7 @@ func (l fileList) Swap(a, b int) {
 }
 
 func TestGlobalSet(t *testing.T) {
-	m := NewSet()
+	m := files.NewSet()
 
 	local := []scanner.File{
 		scanner.File{Name: "a", Version: 1000},
@@ -40,7 +41,15 @@ func TestGlobalSet(t *testing.T) {
 		scanner.File{Name: "d", Version: 1000},
 	}
 
-	remote := []scanner.File{
+	remote0 := []scanner.File{
+		scanner.File{Name: "a", Version: 1000},
+		scanner.File{Name: "c", Version: 1002},
+	}
+	remote1 := []scanner.File{
+		scanner.File{Name: "b", Version: 1001},
+		scanner.File{Name: "e", Version: 1000},
+	}
+	remoteTot := []scanner.File{
 		scanner.File{Name: "a", Version: 1000},
 		scanner.File{Name: "b", Version: 1001},
 		scanner.File{Name: "c", Version: 1002},
@@ -55,25 +64,86 @@ func TestGlobalSet(t *testing.T) {
 		scanner.File{Name: "e", Version: 1000},
 	}
 
+	expectedLocalNeed := []scanner.File{
+		scanner.File{Name: "b", Version: 1001},
+		scanner.File{Name: "c", Version: 1002},
+		scanner.File{Name: "e", Version: 1000},
+	}
+
+	expectedRemoteNeed := []scanner.File{
+		scanner.File{Name: "d", Version: 1000},
+	}
+
 	m.ReplaceWithDelete(cid.LocalID, local)
-	m.Replace(1, remote)
+	m.Replace(1, remote0)
+	m.Update(1, remote1)
 
 	g := m.Global()
-
 	sort.Sort(fileList(g))
-	sort.Sort(fileList(expectedGlobal))
 
 	if !reflect.DeepEqual(g, expectedGlobal) {
 		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", g, expectedGlobal)
 	}
 
-	if lb := len(m.files); lb != 7 {
-		t.Errorf("Num files incorrect %d != 7\n%v", lb, m.files)
+	h := m.Have(cid.LocalID)
+	sort.Sort(fileList(h))
+
+	if !reflect.DeepEqual(h, local) {
+		t.Errorf("Have incorrect;\n A: %v !=\n E: %v", h, local)
+	}
+
+	h = m.Have(1)
+	sort.Sort(fileList(h))
+
+	if !reflect.DeepEqual(h, remoteTot) {
+		t.Errorf("Have incorrect;\n A: %v !=\n E: %v", h, remoteTot)
+	}
+
+	n := m.Need(cid.LocalID)
+	sort.Sort(fileList(n))
+
+	if !reflect.DeepEqual(n, expectedLocalNeed) {
+		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", n, expectedLocalNeed)
+	}
+
+	n = m.Need(1)
+	sort.Sort(fileList(n))
+
+	if !reflect.DeepEqual(n, expectedRemoteNeed) {
+		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", n, expectedRemoteNeed)
+	}
+
+	f := m.Get(cid.LocalID, "b")
+	if !reflect.DeepEqual(f, local[1]) {
+		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, local[1])
+	}
+
+	f = m.Get(1, "b")
+	if !reflect.DeepEqual(f, remote1[0]) {
+		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, remote1[0])
+	}
+
+	f = m.GetGlobal("b")
+	if !reflect.DeepEqual(f, remote1[0]) {
+		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, remote1[0])
+	}
+
+	a := int(m.Availability("a"))
+	if av := 1<<0 + 1<<1; a != av {
+		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, av)
+	}
+	a = int(m.Availability("b"))
+	if av := 1 << 1; a != av {
+		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, av)
+	}
+	a = int(m.Availability("d"))
+	if av := 1 << 0; a != av {
+		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, av)
 	}
 }
 
 func TestLocalDeleted(t *testing.T) {
-	m := NewSet()
+	m := files.NewSet()
 	lamport.Default = lamport.Clock{}
 
 	local1 := []scanner.File{
@@ -151,7 +221,7 @@ func Benchmark10kReplace(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m := NewSet()
+		m := files.NewSet()
 		m.ReplaceWithDelete(cid.LocalID, local)
 	}
 }
@@ -162,7 +232,7 @@ func Benchmark10kUpdateChg(b *testing.B) {
 		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	m := NewSet()
+	m := files.NewSet()
 	m.Replace(1, remote)
 
 	var local []scanner.File
@@ -189,7 +259,7 @@ func Benchmark10kUpdateSme(b *testing.B) {
 		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	m := NewSet()
+	m := files.NewSet()
 	m.Replace(1, remote)
 
 	var local []scanner.File
@@ -211,7 +281,7 @@ func Benchmark10kNeed2k(b *testing.B) {
 		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	m := NewSet()
+	m := files.NewSet()
 	m.Replace(cid.LocalID+1, remote)
 
 	var local []scanner.File
@@ -239,7 +309,7 @@ func Benchmark10kHave(b *testing.B) {
 		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	m := NewSet()
+	m := files.NewSet()
 	m.Replace(cid.LocalID+1, remote)
 
 	var local []scanner.File
@@ -267,7 +337,7 @@ func Benchmark10kGlobal(b *testing.B) {
 		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	m := NewSet()
+	m := files.NewSet()
 	m.Replace(cid.LocalID+1, remote)
 
 	var local []scanner.File
@@ -290,7 +360,7 @@ func Benchmark10kGlobal(b *testing.B) {
 }
 
 func TestGlobalReset(t *testing.T) {
-	m := NewSet()
+	m := files.NewSet()
 
 	local := []scanner.File{
 		scanner.File{Name: "a", Version: 1000},
@@ -306,28 +376,27 @@ func TestGlobalReset(t *testing.T) {
 		scanner.File{Name: "e", Version: 1000},
 	}
 
-	expectedGlobalKey := map[string]key{
-		"a": keyFor(local[0]),
-		"b": keyFor(local[1]),
-		"c": keyFor(local[2]),
-		"d": keyFor(local[3]),
+	m.ReplaceWithDelete(cid.LocalID, local)
+	g := m.Global()
+	sort.Sort(fileList(g))
+
+	if !reflect.DeepEqual(g, local) {
+		t.Errorf("Global incorrect;\n%v !=\n%v", g, local)
 	}
 
-	m.ReplaceWithDelete(cid.LocalID, local)
 	m.Replace(1, remote)
 	m.Replace(1, nil)
 
-	if !reflect.DeepEqual(m.globalKey, expectedGlobalKey) {
-		t.Errorf("Global incorrect;\n%v !=\n%v", m.globalKey, expectedGlobalKey)
-	}
+	g = m.Global()
+	sort.Sort(fileList(g))
 
-	if lb := len(m.files); lb != 4 {
-		t.Errorf("Num files incorrect %d != 4\n%v", lb, m.files)
+	if !reflect.DeepEqual(g, local) {
+		t.Errorf("Global incorrect;\n%v !=\n%v", g, local)
 	}
 }
 
 func TestNeed(t *testing.T) {
-	m := NewSet()
+	m := files.NewSet()
 
 	local := []scanner.File{
 		scanner.File{Name: "a", Version: 1000},
@@ -363,7 +432,7 @@ func TestNeed(t *testing.T) {
 }
 
 func TestChanges(t *testing.T) {
-	m := NewSet()
+	m := files.NewSet()
 
 	local1 := []scanner.File{
 		scanner.File{Name: "a", Version: 1000},
