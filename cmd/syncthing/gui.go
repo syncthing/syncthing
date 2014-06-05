@@ -40,6 +40,7 @@ var (
 	guiErrors    = []guiError{}
 	guiErrorsMut sync.Mutex
 	static       func(http.ResponseWriter, *http.Request, *log.Logger)
+	apiKey       string
 )
 
 const (
@@ -115,6 +116,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	mr.Action(router.Handle)
 	mr.Map(m)
 
+	apiKey = cfg.APIKey
 	loadCsrfTokens()
 
 	go http.Serve(listener, mr)
@@ -363,7 +365,7 @@ func basic(username string, passhash string) http.HandlerFunc {
 }
 
 func validAPIKey(k string) bool {
-	return len(cfg.GUI.APIKey) > 0 && k == cfg.GUI.APIKey
+	return len(apiKey) > 0 && k == apiKey
 }
 
 func embeddedStatic() func(http.ResponseWriter, *http.Request, *log.Logger) {

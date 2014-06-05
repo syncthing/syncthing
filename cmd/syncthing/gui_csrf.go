@@ -25,6 +25,7 @@ func csrfMiddleware(w http.ResponseWriter, r *http.Request) {
 	if validAPIKey(r.Header.Get("X-API-Key")) {
 		return
 	}
+
 	if strings.HasPrefix(r.URL.Path, "/rest/") {
 		token := r.Header.Get("X-CSRF-Token")
 		if !validCsrfToken(token) {
