@@ -24,9 +24,9 @@ start() {
 testConvergence() {
 	while true ; do
 		sleep 5
-		s1comp=$(curl -s "http://localhost:8082/rest/connections" | ./json "$id1/Completion")
-		s2comp=$(curl -s "http://localhost:8083/rest/connections" | ./json "$id2/Completion")
-		s3comp=$(curl -s "http://localhost:8081/rest/connections" | ./json "$id3/Completion")
+		s1comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8082/rest/connections" | ./json "$id1/Completion")
+		s2comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8083/rest/connections" | ./json "$id2/Completion")
+		s3comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8081/rest/connections" | ./json "$id3/Completion")
 		s1comp=${s1comp:-0}
 		s2comp=${s2comp:-0}
 		s3comp=${s3comp:-0}
@@ -117,6 +117,11 @@ for i in 1 2 3 12-1 12-2 23-2 23-3; do
 	touch "empty-$i"
 	echo "  $i: large file"
 	dd if=/dev/urandom of=large-$i bs=1024k count=55 2>/dev/null
+	echo "  $i: weird encodings"
+	echo somedata > "$(echo -e utf8-nfc-\\xc3\\xad)-$i"
+	echo somedata > "$(echo -e utf8-nfd-i\\xcc\\x81)-$i"
+	echo somedata > "$(echo -e cp850-\\xa1)-$i"
+	touch "empty-$i"
 	popd >/dev/null
 done
 
@@ -140,5 +145,5 @@ for ((t = 1; t <= $iterations; t++)) ; do
 done
 
 for i in 1 2 3 4 ; do
-	curl -X POST "http://localhost:808$i/rest/shutdown"
+	curl -HX-API-Key:abc123 -X POST "http://localhost:808$i/rest/shutdown"
 done
