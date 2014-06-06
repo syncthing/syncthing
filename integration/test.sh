@@ -105,10 +105,11 @@ alterFiles() {
 	pkill -CONT syncthing
 }
 
+rm -f h?/*.idx.gz
+rm -rf s? s??-? s4d
+
 echo "Setting up files..."
 for i in 1 2 3 12-1 12-2 23-2 23-3; do
-	rm -f h$i/*.idx.gz
-	rm -rf "s$i"
 	mkdir "s$i"
 	pushd "s$i" >/dev/null
 	echo "  $i: random nonoverlapping"
@@ -124,6 +125,9 @@ for i in 1 2 3 12-1 12-2 23-2 23-3; do
 	touch "empty-$i"
 	popd >/dev/null
 done
+
+mkdir s4d
+echo somerandomdata > s4d/extrafile
 
 echo "MD5-summing..."
 for i in 1 2 3 12-1 12-2 23-2 23-3 ; do

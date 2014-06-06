@@ -1,7 +1,6 @@
 <configuration version="2">
     <repository id="default" directory="s1" ro="false" ignorePerms="false">
         <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA"></node>
-        <node id="EJHMPAQOGCVORISB4IS3SYYVJXTKJGLTU66DIQPGJ5D2GXGQ3OWQ"></node>
         <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA"></node>
         <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ"></node>
         <versioning></versioning>

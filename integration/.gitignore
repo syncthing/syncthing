@@ -12,3 +12,5 @@ json
 *.idx.gz
 dirs-*
 *.out
+csrftokens.txt
+s4d
