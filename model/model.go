@@ -260,6 +260,11 @@ func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 		l.Debugf("IDX(in): %s %q: %d files", nodeID, repo, len(fs))
 	}
 
+	if !m.repoSharedWith(repo, nodeID) {
+		l.Warnf("Unexpected repository ID %q sent from node %q; ensure that the repository exists and that this node is selected under \"Share With\" in the repository configuration.", repo, nodeID)
+		return
+	}
+
 	var files = make([]scanner.File, len(fs))
 	for i := range fs {
 		f := fs[i]
@@ -279,7 +284,7 @@ func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 	if r, ok := m.repoFiles[repo]; ok {
 		r.Replace(id, files)
 	} else {
-		l.Warnf("Unexpected repository ID %q sent from node %q; ensure that the repository exists and that this node is selected under \"Share With\" in the repository configuration.", repo, nodeID)
+		l.Fatalf("Index for nonexistant repo %q", repo)
 	}
 	m.rmut.RUnlock()
 }
@@ -289,6 +294,11 @@ func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) {
 	if debug {
 		l.Debugf("IDXUP(in): %s / %q: %d files", nodeID, repo, len(fs))
+	}
+
+	if !m.repoSharedWith(repo, nodeID) {
+		l.Warnf("Unexpected repository ID %q sent from node %q; ensure that the repository exists and that this node is selected under \"Share With\" in the repository configuration.", repo, nodeID)
+		return
 	}
 
 	var files = make([]scanner.File, len(fs))
@@ -310,9 +320,20 @@ func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) 
 	if r, ok := m.repoFiles[repo]; ok {
 		r.Update(id, files)
 	} else {
-		l.Warnf("Index update from %s for nonexistant repo %q; dropping", nodeID, repo)
+		l.Fatalf("IndexUpdate for nonexistant repo %q", repo)
 	}
 	m.rmut.RUnlock()
+}
+
+func (m *Model) repoSharedWith(repo, nodeID string) bool {
+	m.rmut.RLock()
+	defer m.rmut.RUnlock()
+	for _, nrepo := range m.nodeRepos[nodeID] {
+		if nrepo == repo {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessage) {
