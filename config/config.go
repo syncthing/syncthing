@@ -33,16 +33,16 @@ type Configuration struct {
 }
 
 type SyncOrderPattern struct {
-	MyPattern       string `xml:"pattern,attr"`
+	Pattern       string `xml:"pattern,attr"`
 	Priority        int    `xml:"priority,attr"`
 	compiledPattern *regexp.Regexp
 }
 
-func (s *SyncOrderPattern) Pattern() *regexp.Regexp {
+func (s *SyncOrderPattern) CompiledPattern() *regexp.Regexp {
 	if s.compiledPattern == nil {
-		re, err := regexp.Compile(s.MyPattern)
+		re, err := regexp.Compile(s.Pattern)
 		if err != nil {
-			l.Warnln("Could not compile regexp (" + s.MyPattern + "): " + err.Error())
+			l.Warnln("Could not compile regexp (" + s.Pattern + "): " + err.Error())
 			s.compiledPattern = regexp.MustCompile("^\\0$")
 		} else {
 			s.compiledPattern = re
@@ -121,7 +121,7 @@ func (r RepositoryConfiguration) FileRanker() func(scanner.File) int {
 	return func(f scanner.File) int {
 		ret := 0
 		for _, v := range r.SyncOrderPatterns {
-			if v.Pattern().MatchString(f.Name) {
+			if v.CompiledPattern().MatchString(f.Name) {
 				ret += v.Priority
 			}
 		}

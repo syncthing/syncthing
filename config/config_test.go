@@ -302,7 +302,7 @@ func TestSyncOrders(t *testing.T) {
 
 	expected := []SyncOrderPattern{
 		{
-			MyPattern: "\\.jpg$",
+			Pattern: "\\.jpg$",
 			Priority:  1,
 		},
 	}
