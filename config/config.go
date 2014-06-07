@@ -11,10 +11,12 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/calmh/syncthing/scanner"
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/syncthing/logger"
 )
@@ -30,14 +32,34 @@ type Configuration struct {
 	XMLName      xml.Name                  `xml:"configuration" json:"-"`
 }
 
+type SyncOrderPattern struct {
+	MyPattern       string `xml:"pattern,attr"`
+	Priority        int    `xml:"priority,attr"`
+	compiledPattern *regexp.Regexp
+}
+
+func (s *SyncOrderPattern) Pattern() *regexp.Regexp {
+	if s.compiledPattern == nil {
+		re, err := regexp.Compile(s.MyPattern)
+		if err != nil {
+			l.Warnln("Could not compile regexp (" + s.MyPattern + "): " + err.Error())
+			s.compiledPattern = regexp.MustCompile("^\\0$")
+		} else {
+			s.compiledPattern = re
+		}
+	}
+	return s.compiledPattern
+}
+
 type RepositoryConfiguration struct {
-	ID          string                  `xml:"id,attr"`
-	Directory   string                  `xml:"directory,attr"`
-	Nodes       []NodeConfiguration     `xml:"node"`
-	ReadOnly    bool                    `xml:"ro,attr"`
-	IgnorePerms bool                    `xml:"ignorePerms,attr"`
-	Invalid     string                  `xml:"-"` // Set at runtime when there is an error, not saved
-	Versioning  VersioningConfiguration `xml:"versioning"`
+	ID                string                  `xml:"id,attr"`
+	Directory         string                  `xml:"directory,attr"`
+	Nodes             []NodeConfiguration     `xml:"node"`
+	ReadOnly          bool                    `xml:"ro,attr"`
+	IgnorePerms       bool                    `xml:"ignorePerms,attr"`
+	Invalid           string                  `xml:"-"` // Set at runtime when there is an error, not saved
+	Versioning        VersioningConfiguration `xml:"versioning"`
+	SyncOrderPatterns []SyncOrderPattern      `xml:"syncorder>pattern"`
 
 	nodeIDs []string
 }
@@ -90,6 +112,21 @@ func (r *RepositoryConfiguration) NodeIDs() []string {
 		}
 	}
 	return r.nodeIDs
+}
+
+func (r RepositoryConfiguration) FileRanker() func(scanner.File) int {
+	if len(r.SyncOrderPatterns) <= 0 {
+		return nil
+	}
+	return func(f scanner.File) int {
+		ret := 0
+		for _, v := range r.SyncOrderPatterns {
+			if v.Pattern().MatchString(f.Name) {
+				ret += v.Priority
+			}
+		}
+		return ret
+	}
 }
 
 type NodeConfiguration struct {
