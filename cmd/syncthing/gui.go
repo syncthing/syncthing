@@ -16,6 +16,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"sync"
 	"time"
@@ -210,9 +211,43 @@ func restPostConfig(req *http.Request) {
 				newCfg.GUI.Password = string(hash)
 			}
 		}
+
+		// Figure out if any changes require a restart
+
+		if len(cfg.Repositories) != len(newCfg.Repositories) {
+			configInSync = false
+		} else {
+			om := cfg.RepoMap()
+			nm := newCfg.RepoMap()
+			for id := range om {
+				if !reflect.DeepEqual(om[id], nm[id]) {
+					configInSync = false
+					break
+				}
+			}
+		}
+
+		if len(cfg.Nodes) != len(newCfg.Nodes) {
+			configInSync = false
+		} else {
+			om := cfg.NodeMap()
+			nm := newCfg.NodeMap()
+			for k := range om {
+				if _, ok := nm[k]; !ok {
+					configInSync = false
+					break
+				}
+			}
+		}
+
+		if !reflect.DeepEqual(cfg.Options, newCfg.Options) {
+			configInSync = false
+		}
+
+		// Activate and save
+
 		cfg = newCfg
 		saveConfig()
-		configInSync = false
 	}
 }
 

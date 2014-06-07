@@ -268,6 +268,16 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $('#settings').modal({backdrop: 'static', keyboard: true});
     };
 
+    $scope.saveConfig = function() {
+        var cfg = JSON.stringify($scope.config);
+        var opts = {headers: {'Content-Type': 'application/json'}};
+        $http.post(urlbase + '/config', cfg, opts).success(function () {
+            $http.get(urlbase + '/config/sync').success(function (data) {
+                $scope.configInSync = data.configInSync;
+            });
+        });
+    };
+
     $scope.saveSettings = function () {
         // Make sure something changed
         var changed = ! angular.equals($scope.config.Options, $scope.config.workingOptions) ||
@@ -281,10 +291,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             // Apply new settings locally
             $scope.config.Options = angular.copy($scope.config.workingOptions);
             $scope.config.GUI = angular.copy($scope.config.workingGUI);
-
-            $scope.configInSync = false;
             $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) { return x.trim(); });
-            $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+
+            $scope.saveConfig();
         }
 
         $('#settings').modal("hide");
@@ -358,14 +367,12 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             });
         }
 
-        $scope.configInSync = false;
-        $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        $scope.saveConfig();
     };
 
     $scope.saveNode = function () {
         var nodeCfg, done, i;
 
-        $scope.configInSync = false;
         $('#editNode').modal('hide');
         nodeCfg = $scope.currentNode;
         nodeCfg.NodeID = nodeCfg.NodeID.replace(/ /g, '').replace(/-/g, '').toUpperCase().trim();
@@ -387,7 +394,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $scope.nodes.sort(nodeCompare);
         $scope.config.Nodes = $scope.nodes;
 
-        $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        $scope.saveConfig();
     };
 
     $scope.otherNodes = function () {
@@ -462,7 +469,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.saveRepo = function () {
         var repoCfg, done, i;
 
-        $scope.configInSync = false;
         $('#editRepo').modal('hide');
         repoCfg = $scope.currentRepo;
         repoCfg.Nodes = [];
@@ -490,7 +496,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $scope.repos[repoCfg.ID] = repoCfg;
         $scope.config.Repositories = repoList($scope.repos);
 
-        $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        $scope.saveConfig();
     };
 
     $scope.sharesRepo = function(repoCfg) {
@@ -511,8 +517,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         delete $scope.repos[$scope.currentRepo.ID];
         $scope.config.Repositories = repoList($scope.repos);
 
-        $scope.configInSync = false;
-        $http.post(urlbase + '/config', JSON.stringify($scope.config), {headers: {'Content-Type': 'application/json'}});
+        $scope.saveConfig();
     };
 
     $scope.setAPIKey = function (cfg) {

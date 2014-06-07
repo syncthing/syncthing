@@ -126,6 +126,22 @@ type GUIConfiguration struct {
 	APIKey   string `xml:"apikey,omitempty"`
 }
 
+func (cfg *Configuration) NodeMap() map[string]NodeConfiguration {
+	m := make(map[string]NodeConfiguration, len(cfg.Nodes))
+	for _, n := range cfg.Nodes {
+		m[n.NodeID] = n
+	}
+	return m
+}
+
+func (cfg *Configuration) RepoMap() map[string]RepositoryConfiguration {
+	m := make(map[string]RepositoryConfiguration, len(cfg.Repositories))
+	for _, r := range cfg.Repositories {
+		m[r.ID] = r
+	}
+	return m
+}
+
 func setDefaults(data interface{}) error {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
