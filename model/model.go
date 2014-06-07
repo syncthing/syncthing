@@ -248,7 +248,11 @@ func (m *Model) NeedFilesRepo(repo string) []scanner.File {
 	m.rmut.RLock()
 	defer m.rmut.RUnlock()
 	if rf, ok := m.repoFiles[repo]; ok {
-		return rf.Need(cid.LocalID)
+		f := rf.Need(cid.LocalID)
+		if r := m.repoCfgs[repo].FileRanker(); r != nil {
+			files.SortBy(r).Sort(f)
+		}
+		return f
 	}
 	return nil
 }
