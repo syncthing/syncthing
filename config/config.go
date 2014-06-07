@@ -32,8 +32,16 @@ type Configuration struct {
 	XMLName      xml.Name                  `xml:"configuration" json:"-"`
 }
 
+// SyncOrderPattern allows a user to prioritize file downloading based on a
+// regular expression.  If a file matches the Pattern the Priority will be
+// assigned to the file.  If a file matches more than one Pattern the
+// Priorities are summed.  This allows a user to, for example, prioritize files
+// in a directory, as well as prioritize based on file type.  The higher the
+// priority the "sooner" a file will be downloaded.  Files can be deprioritized
+// by giving them a negative priority.  While Priority is represented as an
+// integer, the expected range is something like -1000 to 1000.
 type SyncOrderPattern struct {
-	Pattern       string `xml:"pattern,attr"`
+	Pattern         string `xml:"pattern,attr"`
 	Priority        int    `xml:"priority,attr"`
 	compiledPattern *regexp.Regexp
 }
