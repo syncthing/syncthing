@@ -1,4 +1,4 @@
-syncthing
+syncthing [![Build Status](https://travis-ci.org/calmh/syncthing.svg?branch=master)](https://travis-ci.org/calmh/syncthing)
 =========
 
 This is the `syncthing` project. The following are the project goals:
