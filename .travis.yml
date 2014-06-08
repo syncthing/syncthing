@@ -7,6 +7,11 @@ go:
 install:
    - export PATH=$PATH:$HOME/gopath/bin
    - ./build.sh setup
+   - go get code.google.com/p/go.tools/cmd/cover
+   - go get github.com/mattn/goveralls
 
 script:
-   - ./build.sh test
+   - ./build.sh test-cov
+
+after_success:
+   - goveralls -coverprofile=acc.out -service=travis-ci
