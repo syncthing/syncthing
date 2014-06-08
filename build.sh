@@ -31,6 +31,25 @@ assets() {
 	godep go run cmd/assets/assets.go gui > auto/gui.files.go
 }
 
+test-cov() {
+   echo "mode: set" > acc.out
+   fail=0
+
+   for dir in $(find . -maxdepth 10 -not -path './.git*' -not -path '*/integration' -not -path '*/_*' -type d);
+   do
+   if ls $dir/*.go &> /dev/null; then
+   godep go test -coverprofile=profile.out $dir || fail=1
+       if [ -f profile.out ]
+       then
+   cat profile.out | grep -v "mode: set" >> acc.out
+         rm profile.out
+       fi
+   fi
+   done
+
+   exit $fail
+}
+
 test() {
 	check
 	godep go test -cpu=1,2,4 ./...
@@ -98,6 +117,10 @@ case "$1" in
 
 	test)
 		test
+		;;
+
+	test-cov)
+		test-cov
 		;;
 
 	tar)
