@@ -1,4 +1,4 @@
-syncthing [![Build Status](https://travis-ci.org/calmh/syncthing.svg?branch=master)](https://travis-ci.org/calmh/syncthing) [![Coverage Status](https://img.shields.io/coveralls/calmh/syncthing.svg)]
+syncthing [![Build Status](https://travis-ci.org/calmh/syncthing.svg?branch=master)](https://travis-ci.org/calmh/syncthing) [![Coverage Status](https://img.shields.io/coveralls/calmh/syncthing.svg)](https://coveralls.io/r/calmh/syncthing?branch=master)
 =========
 
 This is the `syncthing` project. The following are the project goals:
