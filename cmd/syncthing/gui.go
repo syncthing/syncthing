@@ -58,6 +58,8 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	if cfg.UseTLS {
 		cert, err := loadCert(confDir, "https-")
 		if err != nil {
+			l.Infoln("Loading HTTPS certificate:", err)
+			l.Infoln("Creating new HTTPS certificate", err)
 			newCertificate(confDir, "https-")
 			cert, err = loadCert(confDir, "https-")
 		}
