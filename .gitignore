@@ -9,3 +9,4 @@ stcli.exe
 discosrv
 stpidx
 .jshintrc
+coverage.out

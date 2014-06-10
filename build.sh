@@ -32,20 +32,16 @@ assets() {
 }
 
 test-cov() {
-   echo "mode: set" > acc.out
-   fail=0
+	echo "mode: set" > coverage.out
+	fail=0
 
-   for dir in $(find . -maxdepth 10 -not -path './.git*' -not -path '*/integration' -not -path '*/_*' -type d);
-   do
-   if ls $dir/*.go &> /dev/null; then
-   godep go test -coverprofile=profile.out $dir || fail=1
-       if [ -f profile.out ]
-       then
-   cat profile.out | grep -v "mode: set" >> acc.out
-         rm profile.out
-       fi
-   fi
-   done
+	for dir in $(go list ./...) ; do
+		godep go test -coverprofile=profile.out $dir || fail=1
+		if [ -f profile.out ] ; then
+			grep -v "mode: set" profile.out >> coverage.out
+		rm profile.out
+        fi
+    done
 
    exit $fail
 }
@@ -80,7 +76,8 @@ zipDist() {
 	rm -rf "$name"
 	mkdir -p "$name"
 	for f in "${distFiles[@]}" ; do
-		sed 's/$//' < "$f" > "$name/$f.txt"
+		sed 's/$/
+/' < "$f" > "$name/$f.txt"
 	done
 	cp syncthing.exe "$name"
 	sign "$name/syncthing.exe"
