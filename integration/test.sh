@@ -21,6 +21,15 @@ start() {
 	done
 }
 
+clean() {
+	if [[ $(uname -s) == "Linux" ]] ; then
+		grep -v utf8-nfd
+	else
+		cat
+	fi
+}
+
+
 testConvergence() {
 	while true ; do
 		sleep 5
@@ -38,13 +47,13 @@ testConvergence() {
 	done
 
 	echo "Verifying..."
-	cat md5-? | sort | uniq > md5-tot
-	cat md5-12-? | sort | uniq > md5-12-tot
-	cat md5-23-? | sort | uniq > md5-23-tot
+	cat md5-? | sort | clean | uniq > md5-tot
+	cat md5-12-? | sort | clean | uniq > md5-12-tot
+	cat md5-23-? | sort | clean | uniq > md5-23-tot
 
 	for i in 1 2 3 12-1 12-2 23-2 23-3; do
 		pushd "s$i" >/dev/null
-		../md5r -l | sort > ../md5-$i
+		../md5r -l | sort | clean > ../md5-$i
 		popd >/dev/null
 	done
 

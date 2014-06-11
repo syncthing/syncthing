@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"code.google.com/p/go.text/unicode/norm"
 
 	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"
@@ -156,6 +157,11 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+
+		if (runtime.GOOS == "linux" || runtime.GOOS == "windows") && !norm.NFC.IsNormalString(rn) {
+			l.Warnf("File %q contains non-NFC UTF-8 sequences and cannot be synced. Consider renaming.", rn)
 			return nil
 		}
 
