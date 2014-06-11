@@ -70,12 +70,13 @@ Messages
 --------
 
 Every message starts with one 32 bit word indicating the message
-version, type and ID.
+version, type and ID. The header is in network byte order, i.e. big
+endian.
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |  Ver  |  Type |       Message ID      |        Reply To       |
+    |  Ver  |       Message ID      |      Type     |    Reserved   |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 For BEP v1 the Version field is set to zero. Future versions with
@@ -84,18 +85,18 @@ with an unknown version is a protocol error and MUST result in the
 connection being terminated. A client supporting multiple versions MAY
 retry with a different protocol version upon disconnection.
 
+The Message ID is set to a unique value for each transmitted request
+message. In response messages it is set to the Message ID of the
+corresponding request message. The uniqueness requirement implies that
+no more than 4096 messages may be outstanding at any given moment. The
+ordering requirement implies that a response to a given message ID also
+means that all preceding messages have been received, specifically those
+which do not otherwise demand a response. Hence their message ID:s may
+be reused.
+
 The Type field indicates the type of data following the message header
 and is one of the integers defined below. A message of an unknown type
 is a protocol error and MUST result in the connection being terminated.
-
-The Message ID is set to a unique value for each transmitted message. In
-request messages the Reply To is set to zero. In response messages it is
-set to the message ID of the corresponding request. The uniqueness
-requirement implies that no more than 4096 messages may be outstanding
-at any given moment. The ordering requirement implies that a response to
-a given message ID also means that all preceding messages have been
-received, specifically those which do not otherwise demand a response.
-Hence their message ID:s may be reused.
 
 All data following the message header MUST be in XDR (RFC 1014)
 encoding. All fields shorter than 32 bits and all variable length data
