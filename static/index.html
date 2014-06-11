@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!--
+Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
+Use of this source code is governed by an MIT-style license that can be
+found in the LICENSE file.
+-->
+<html lang="en" ng-app="reports" ng-controller="ReportsCtrl" class="ng-cloak">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+  <link rel="shortcut icon" href="favicon.png">
+
+  <title>Syncthing Usage Reports</title>
+  <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <style type="text/css">
+    body {
+      margin: 40px;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+      <h1>Syncthing Usage Data</h1>
+      <p>
+      This is the aggregated usage report data for yesterday.
+      </p>
+      <pre>{{ report | json}}</pre>
+      </div>
+    </div>
+  </div>
+
+
+  <script src="angular.min.js"></script>
+  <script src="jquery-2.0.3.min.js"></script>
+  <script src="bootstrap/js/bootstrap.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
