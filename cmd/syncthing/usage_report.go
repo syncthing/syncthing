@@ -69,13 +69,16 @@ func sendUsageReport(m *model.Model) error {
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
 
-	// This works around the lack of DNS resolution on Android... :()
-	tr := &http.Transport{
-		Dial: func(network, addr string) (net.Conn, error) {
-			return net.Dial(network, "194.126.249.13:443")
-		},
+	var client = http.DefaultClient
+	if runtime.GOARCH == "arm" {
+		// This works around the lack of DNS resolution on Android... :(
+		tr := &http.Transport{
+			Dial: func(network, addr string) (net.Conn, error) {
+				return net.Dial(network, "194.126.249.13:443")
+			},
+		}
+		client = &http.Client{Transport: tr}
 	}
-	client := &http.Client{Transport: tr}
 	_, err := client.Post("https://data.syncthing.net/newdata", "application/json", &b)
 	return err
 }
