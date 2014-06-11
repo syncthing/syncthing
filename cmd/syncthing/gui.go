@@ -108,8 +108,6 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	router.Post("/rest/error", restPostError)
 	router.Post("/rest/error/clear", restClearErrors)
 	router.Post("/rest/discovery/hint", restPostDiscoveryHint)
-	router.Post("/rest/report/enable", restPostReportEnable)
-	router.Post("/rest/report/disable", restPostReportDisable)
 
 	mr := martini.New()
 	mr.Use(csrfMiddleware)
@@ -386,33 +384,6 @@ func getQR(w http.ResponseWriter, params martini.Params) {
 
 	w.Header().Set("Content-Type", "image/png")
 	w.Write(code.PNG())
-}
-
-func restPostReportEnable(m *model.Model) {
-	if cfg.Options.UREnabled {
-		return
-	}
-
-	cfg.Options.UREnabled = true
-	cfg.Options.URDeclined = false
-	cfg.Options.URAccepted = usageReportVersion
-
-	go usageReportingLoop(m)
-	sendUsageRport(m)
-	saveConfig()
-}
-
-func restPostReportDisable(m *model.Model) {
-	if !cfg.Options.UREnabled {
-		return
-	}
-
-	cfg.Options.UREnabled = false
-	cfg.Options.URDeclined = true
-	cfg.Options.URAccepted = 0
-
-	stopUsageReporting()
-	saveConfig()
 }
 
 func basic(username string, passhash string) http.HandlerFunc {
