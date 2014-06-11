@@ -251,7 +251,10 @@ func restPostConfig(req *http.Request, m *model.Model) {
 			// Set the corresponding options in newCfg so we don't trigger the restart check if this was the only option change
 			newCfg.Options.URDeclined = false
 			newCfg.Options.URAccepted = usageReportVersion
-			sendUsageRport(m)
+			err := sendUsageReport(m)
+			if err != nil {
+				l.Infoln("Usage report:", err)
+			}
 			go usageReportingLoop(m)
 		} else if !newCfg.Options.UREnabled && cfg.Options.UREnabled {
 			// UR was disabled

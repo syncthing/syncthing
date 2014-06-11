@@ -401,7 +401,10 @@ func main() {
 		go usageReportingLoop(m)
 		go func() {
 			time.Sleep(10 * time.Minute)
-			sendUsageRport(m)
+			err := sendUsageReport(m)
+			if err != nil {
+				l.Infoln("Usage report:", err)
+			}
 		}()
 	}
 

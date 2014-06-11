@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
+	"net"
 	"net/http"
 	"runtime"
 	"strings"
@@ -63,11 +64,19 @@ func reportData(m *model.Model) map[string]interface{} {
 	return res
 }
 
-func sendUsageRport(m *model.Model) error {
+func sendUsageReport(m *model.Model) error {
 	d := reportData(m)
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
-	_, err := http.Post("https://data.syncthing.net/newdata", "application/json", &b)
+
+	// This works around the lack of DNS resolution on Android... :()
+	tr := &http.Transport{
+		Dial: func(network, addr string) (net.Conn, error) {
+			return net.Dial(network, "194.126.249.13:443")
+		},
+	}
+	client := &http.Client{Transport: tr}
+	_, err := client.Post("https://data.syncthing.net/newdata", "application/json", &b)
 	return err
 }
 
@@ -80,7 +89,10 @@ loop:
 		case <-stopUsageReportingCh:
 			break loop
 		case <-t.C:
-			sendUsageRport(m)
+			err := sendUsageReport(m)
+			if err != nil {
+				l.Infoln("Usage report:", err)
+			}
 		}
 	}
 	l.Infoln("Stopping usage reporting")
