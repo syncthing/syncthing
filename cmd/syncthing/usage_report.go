@@ -1,0 +1,109 @@
+package main
+
+import (
+	"bytes"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/json"
+	"net/http"
+	"runtime"
+	"strings"
+	"time"
+
+	"github.com/calmh/syncthing/model"
+)
+
+// Current version number of the usage report, for acceptance purposes. If
+// fields are added or changed this integer must be incremented so that users
+// are prompted for acceptance of the new report.
+const usageReportVersion = 1
+
+var stopUsageReportingCh = make(chan struct{})
+
+func reportData(m *model.Model) map[string]interface{} {
+	res := make(map[string]interface{})
+	res["uniqueID"] = strings.ToLower(certID([]byte(myID)))[:6]
+	res["version"] = Version
+	res["platform"] = runtime.GOOS + "-" + runtime.GOARCH
+	res["numRepos"] = len(cfg.Repositories)
+	res["numNodes"] = len(cfg.Nodes)
+
+	var totFiles, maxFiles int
+	var totBytes, maxBytes int64
+	for _, repo := range cfg.Repositories {
+		files, _, bytes := m.GlobalSize(repo.ID)
+		totFiles += files
+		totBytes += bytes
+		if files > maxFiles {
+			maxFiles = files
+		}
+		if bytes > maxBytes {
+			maxBytes = bytes
+		}
+	}
+
+	res["totFiles"] = totFiles
+	res["repoMaxFiles"] = maxFiles
+	res["totMiB"] = totBytes / 1024 / 1024
+	res["repoMaxMiB"] = maxBytes / 1024 / 1024
+
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	res["memoryUsageMiB"] = mem.Sys / 1024 / 1024
+
+	var perf float64
+	for i := 0; i < 5; i++ {
+		p := cpuBench()
+		if p > perf {
+			perf = p
+		}
+	}
+	res["sha256Perf"] = perf
+
+	return res
+}
+
+func sendUsageRport(m *model.Model) error {
+	d := reportData(m)
+	var b bytes.Buffer
+	json.NewEncoder(&b).Encode(d)
+	_, err := http.Post("https://data.syncthing.net/newdata", "application/json", &b)
+	return err
+}
+
+func usageReportingLoop(m *model.Model) {
+	l.Infoln("Starting usage reporting")
+	t := time.NewTicker(86400 * time.Second)
+loop:
+	for {
+		select {
+		case <-stopUsageReportingCh:
+			break loop
+		case <-t.C:
+			sendUsageRport(m)
+		}
+	}
+	l.Infoln("Stopping usage reporting")
+}
+
+func stopUsageReporting() {
+	stopUsageReportingCh <- struct{}{}
+}
+
+// Returns CPU performance as a measure of single threaded SHA-256 MiB/s
+func cpuBench() float64 {
+	chunkSize := 100 * 1 << 10
+	h := sha256.New()
+	bs := make([]byte, chunkSize)
+	rand.Reader.Read(bs)
+
+	t0 := time.Now()
+	b := 0
+	for time.Since(t0) < 125*time.Millisecond {
+		h.Write(bs)
+		b += chunkSize
+	}
+	h.Sum(nil)
+	d := time.Since(t0)
+	return float64(int(float64(b)/d.Seconds()/(1<<20)*100)) / 100
+}

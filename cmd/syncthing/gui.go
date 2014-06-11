@@ -98,6 +98,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	router.Get("/rest/system", restGetSystem)
 	router.Get("/rest/errors", restGetErrors)
 	router.Get("/rest/discovery", restGetDiscovery)
+	router.Get("/rest/report", restGetReport)
 	router.Get("/qr/:text", getQR)
 
 	router.Post("/rest/config", restPostConfig)
@@ -107,6 +108,8 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	router.Post("/rest/error", restPostError)
 	router.Post("/rest/error/clear", restClearErrors)
 	router.Post("/rest/discovery/hint", restPostDiscoveryHint)
+	router.Post("/rest/report/enable", restPostReportEnable)
+	router.Post("/rest/report/disable", restPostReportDisable)
 
 	mr := martini.New()
 	mr.Use(csrfMiddleware)
@@ -195,7 +198,7 @@ func restGetConfig(w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(encCfg)
 }
 
-func restPostConfig(req *http.Request) {
+func restPostConfig(req *http.Request, m *model.Model) {
 	var newCfg config.Configuration
 	err := json.NewDecoder(req.Body).Decode(&newCfg)
 	if err != nil {
@@ -240,6 +243,29 @@ func restPostConfig(req *http.Request) {
 					break
 				}
 			}
+		}
+
+		if newCfg.Options.UREnabled && !cfg.Options.UREnabled {
+			// UR was enabled
+			cfg.Options.UREnabled = true
+			cfg.Options.URDeclined = false
+			cfg.Options.URAccepted = usageReportVersion
+			// Set the corresponding options in newCfg so we don't trigger the restart check if this was the only option change
+			newCfg.Options.URDeclined = false
+			newCfg.Options.URAccepted = usageReportVersion
+			sendUsageRport(m)
+			go usageReportingLoop(m)
+		} else if !newCfg.Options.UREnabled && cfg.Options.UREnabled {
+			// UR was disabled
+			cfg.Options.UREnabled = false
+			cfg.Options.URDeclined = true
+			cfg.Options.URAccepted = 0
+			// Set the corresponding options in newCfg so we don't trigger the restart check if this was the only option change
+			newCfg.Options.URDeclined = true
+			newCfg.Options.URAccepted = 0
+			stopUsageReporting()
+		} else {
+			cfg.Options.URDeclined = newCfg.Options.URDeclined
 		}
 
 		if !reflect.DeepEqual(cfg.Options, newCfg.Options) {
@@ -347,6 +373,10 @@ func restGetDiscovery(w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(discoverer.All())
 }
 
+func restGetReport(w http.ResponseWriter, m *model.Model) {
+	json.NewEncoder(w).Encode(reportData(m))
+}
+
 func getQR(w http.ResponseWriter, params martini.Params) {
 	code, err := qr.Encode(params["text"], qr.M)
 	if err != nil {
@@ -356,6 +386,33 @@ func getQR(w http.ResponseWriter, params martini.Params) {
 
 	w.Header().Set("Content-Type", "image/png")
 	w.Write(code.PNG())
+}
+
+func restPostReportEnable(m *model.Model) {
+	if cfg.Options.UREnabled {
+		return
+	}
+
+	cfg.Options.UREnabled = true
+	cfg.Options.URDeclined = false
+	cfg.Options.URAccepted = usageReportVersion
+
+	go usageReportingLoop(m)
+	sendUsageRport(m)
+	saveConfig()
+}
+
+func restPostReportDisable(m *model.Model) {
+	if !cfg.Options.UREnabled {
+		return
+	}
+
+	cfg.Options.UREnabled = false
+	cfg.Options.URDeclined = true
+	cfg.Options.URAccepted = 0
+
+	stopUsageReporting()
+	saveConfig()
 }
 
 func basic(username string, passhash string) http.HandlerFunc {
