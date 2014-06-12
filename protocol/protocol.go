@@ -165,9 +165,11 @@ func (c *rawConnection) Index(repo string, idx []FileInfo) {
 		}
 		idx = diff
 	}
-	c.imut.Unlock()
 
-	c.send(header{0, -1, msgType}, IndexMessage{repo, idx})
+	if len(idx) > 0 {
+		c.send(header{0, -1, msgType}, IndexMessage{repo, idx})
+	}
+	c.imut.Unlock()
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
