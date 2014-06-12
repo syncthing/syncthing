@@ -27,11 +27,62 @@ found in the LICENSE file.
   <div class="container">
     <div class="row">
       <div class="col-md-12">
-      <h1>Syncthing Usage Data</h1>
-      <p>
-      This is the aggregated usage report data for yesterday.
-      </p>
-      <pre>{{ report | json}}</pre>
+        <h1>Syncthing Usage Data</h1>
+        <p>
+          This is the aggregated usage report data for yesterday. Data based on <b>{{ report.nodes }}</b> nodes that have reported in.
+        </p>
+
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th></th><th class="text-right">Min</th><th class="text-right">Median</th><th class="text-right">95%</th><th class="text-right">Max</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ng-repeat="cat in categories">
+              <td>{{cat.descr}}</td>
+              <td class="text-right">{{report[cat.key].min}} {{cat.unit}}</td>
+              <td class="text-right">{{report[cat.key].med}} {{cat.unit}}</td>
+              <td class="text-right">{{report[cat.key].nfp}} {{cat.unit}}</td>
+              <td class="text-right">{{report[cat.key].max}} {{cat.unit}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Version</th><th class="text-right">Nodes</th><th class="text-right">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ng-repeat="v in versions">
+              <td>{{v[0]}}</td>
+              <td class="text-right">{{v[1]}}</td>
+              <td class="text-right">{{v[2] | number:2}}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-6">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Platform</th><th class="text-right">Nodes</th><th class="text-right">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ng-repeat="p in platforms">
+              <td>{{p[0]}}</td>
+              <td class="text-right">{{p[1]}}</td>
+              <td class="text-right">{{p[2] | number:2}}%</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
