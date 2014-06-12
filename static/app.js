@@ -20,6 +20,7 @@ reports.controller('ReportsCtrl', function ($scope, $http) {
 	{key: 'numNodes', descr: 'Number of Nodes in Cluster', unit: ''},
 	{key: 'numRepos', descr: 'Number of Repositories Configured', unit: ''},
 	{key: 'memoryUsage', descr: 'Memory Usage', unit: 'MiB'},
+	{key: 'memorySize', descr: 'System Memory', unit: 'MiB'},
 	{key: 'sha256Perf', descr: 'SHA-256 Hashing Performance', unit: 'MiB/s'},
 	];
 

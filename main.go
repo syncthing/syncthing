@@ -89,6 +89,7 @@ type report struct {
 	RepoMaxMiB     int
 	MemoryUsageMiB int
 	SHA256Perf     float64
+	MemorySize     int
 }
 
 var cache map[string]interface{}
@@ -123,6 +124,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		var maxMiB []int
 		var memoryUsage []int
 		var sha256Perf []float64
+		var memorySize []int
 
 		for _, fn := range files {
 			f, err := os.Open(fn)
@@ -148,6 +150,9 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 			maxMiB = append(maxMiB, rep.RepoMaxMiB)
 			memoryUsage = append(memoryUsage, rep.MemoryUsageMiB)
 			sha256Perf = append(sha256Perf, rep.SHA256Perf)
+			if rep.MemorySize > 0 {
+				memorySize = append(memorySize, rep.MemorySize)
+			}
 		}
 
 		cache = make(map[string]interface{})
@@ -162,6 +167,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		cache["maxMiB"] = statsForInts(maxMiB)
 		cache["memoryUsage"] = statsForInts(memoryUsage)
 		cache["sha256Perf"] = statsForFloats(sha256Perf)
+		cache["memorySize"] = statsForInts(memorySize)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
