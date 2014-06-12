@@ -107,6 +107,10 @@ The following enviroment variables are interpreted by syncthing:
  STGUIASSETS   Directory to load GUI assets from. Overrides compiled in assets.`
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func main() {
 	var reset bool
 	var showVersion bool
@@ -354,8 +358,7 @@ func main() {
 	if cfg.Options.UPnPEnabled {
 		// We seed the random number generator with the node ID to get a
 		// repeatable sequence of random external ports.
-		rand.Seed(certSeed(cert.Certificate[0]))
-		externalPort = setupUPnP()
+		externalPort = setupUPnP(rand.NewSource(certSeed(cert.Certificate[0])))
 	}
 
 	// Routine to connect out to configured nodes
@@ -426,7 +429,7 @@ func waitForParentExit() {
 	l.Okln("Continuing")
 }
 
-func setupUPnP() int {
+func setupUPnP(r rand.Source) int {
 	var externalPort = 0
 	if len(cfg.Options.ListenAddress) == 1 {
 		_, portStr, err := net.SplitHostPort(cfg.Options.ListenAddress[0])
@@ -438,7 +441,7 @@ func setupUPnP() int {
 			igd, err := upnp.Discover()
 			if err == nil {
 				for i := 0; i < 10; i++ {
-					r := 1024 + rand.Intn(65535-1024)
+					r := 1024 + int(r.Int63()%(65535-1024))
 					err := igd.AddPortMapping(upnp.TCP, r, port, "syncthing", 0)
 					if err == nil {
 						externalPort = r
