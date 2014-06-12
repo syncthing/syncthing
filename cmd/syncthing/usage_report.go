@@ -61,6 +61,11 @@ func reportData(m *model.Model) map[string]interface{} {
 	}
 	res["sha256Perf"] = perf
 
+	bytes, err := memorySize()
+	if err == nil {
+		res["memorySize"] = bytes / 1024 / 1024
+	}
+
 	return res
 }
 
