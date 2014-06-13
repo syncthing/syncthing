@@ -36,6 +36,7 @@ import (
 
 var (
 	Version     = "unknown-dev"
+	BuildEnv    = "default"
 	BuildStamp  = "0"
 	BuildDate   time.Time
 	BuildHost   = "unknown"
@@ -50,7 +51,7 @@ func init() {
 	BuildDate = time.Unix(int64(stamp), 0)
 
 	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
-	LongVersion = fmt.Sprintf("syncthing %s (%s %s-%s) %s@%s %s", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
+	LongVersion = fmt.Sprintf("syncthing %s (%s %s-%s %s) %s@%s %s", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildEnv, BuildUser, BuildHost, date)
 
 	if os.Getenv("STTRACE") != "" {
 		logFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile

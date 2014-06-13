@@ -9,7 +9,8 @@ date=$(git show -s --format=%ct)
 user=$(whoami)
 host=$(hostname)
 host=${host%%.*}
-ldflags="-w -X main.Version $version -X main.BuildStamp $date -X main.BuildUser $user -X main.BuildHost $host"
+bldenv=${ENVIRONMENT:-default}
+ldflags="-w -X main.Version $version -X main.BuildStamp $date -X main.BuildUser $user -X main.BuildHost $host -X main.BuildEnv $bldenv"
 
 check() {
 	if ! command -v godep >/dev/null ; then
