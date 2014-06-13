@@ -75,7 +75,7 @@ func sendUsageReport(m *model.Model) error {
 	json.NewEncoder(&b).Encode(d)
 
 	var client = http.DefaultClient
-	if runtime.GOARCH == "arm" {
+	if BuildEnv == "android" {
 		// This works around the lack of DNS resolution on Android... :(
 		tr := &http.Transport{
 			Dial: func(network, addr string) (net.Conn, error) {
