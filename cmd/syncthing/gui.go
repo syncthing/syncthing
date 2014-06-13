@@ -269,7 +269,7 @@ func restPostConfig(req *http.Request, m *model.Model) {
 			cfg.Options.URDeclined = newCfg.Options.URDeclined
 		}
 
-		if !reflect.DeepEqual(cfg.Options, newCfg.Options) {
+		if !reflect.DeepEqual(cfg.Options, newCfg.Options) || !reflect.DeepEqual(cfg.GUI, newCfg.GUI) {
 			configInSync = false
 		}
 
