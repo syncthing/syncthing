@@ -120,7 +120,12 @@ func (m *Set) Need(id uint) []scanner.File {
 			continue
 		}
 
-		if gk.newerThan(rkID[gk.Name]) {
+		if rk, ok := rkID[gk.Name]; gk.newerThan(rk) {
+			if protocol.IsDeleted(gf.File.Flags) && (!ok || protocol.IsDeleted(m.files[rk].File.Flags)) {
+				// We don't need to delete files we don't have or that are already deleted
+				continue
+			}
+
 			fs = append(fs, gf.File)
 		}
 	}
