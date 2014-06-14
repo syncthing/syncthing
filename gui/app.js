@@ -33,6 +33,19 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.reportData = {};
     $scope.reportPreview = false;
 
+    $scope.needActions = {
+        'rm': 'Del',
+        'rmdir': 'Del (dir)',
+        'sync': 'Sync',
+        'touch': 'Update',
+    }
+    $scope.needIcons = {
+        'rm': 'remove',
+        'rmdir': 'remove',
+        'sync': 'download',
+        'touch': 'asterisk',
+    }
+
     // Strings before bools look better
     $scope.settings = [
     {id: 'ListenStr', descr: 'Sync Protocol Listen Addresses', type: 'text'},
@@ -590,6 +603,30 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         $('#ur').modal('hide');
     };
 
+    $scope.showNeed = function (repo) {
+        $scope.neededLoaded = false;
+        $('#needed').modal({backdrop: 'static', keyboard: true});
+        $http.get(urlbase + "/need?repo=" + encodeURIComponent(repo)).success(function (data) {
+            $scope.needed = data;
+            $scope.neededLoaded = true;
+        });
+    };
+
+    $scope.needAction = function (file) {
+        var fDelete = 4096;
+        var fDirectory = 16384;
+
+        if ((file.Flags & (fDelete+fDirectory)) === fDelete+fDirectory) {
+            return 'rmdir';
+        } else if ((file.Flags & fDelete) === fDelete) {
+            return 'rm';
+        } else if ((file.Flags & fDirectory) === fDirectory) {
+            return 'touch';
+        } else {
+            return 'sync';
+        }
+    };
+
     $scope.init();
     setInterval($scope.refresh, 10000);
 });
@@ -737,6 +774,18 @@ syncthing.filter('shortPath', function () {
             return input;
         }
         return ".../" + parts.slice(parts.length-2).join("/");
+    };
+});
+
+syncthing.filter('basename', function () {
+    return function (input) {
+        if (input === undefined)
+            return "";
+        var parts = input.split(/[\/\\]/);
+        if (!parts || parts.length < 1) {
+            return input;
+        }
+        return parts[parts.length-1];
     };
 });
 

@@ -65,12 +65,16 @@ found in the LICENSE file.
     }
 
     .table th {
-      white-space:nowrap;
+      white-space: nowrap;
       font-weight: 400;
     }
 
     .table td {
       padding-left: 20px !important;
+    }
+
+    .table td.small-data {
+      white-space: nowrap;
     }
 
     @media (max-width:767px) {
@@ -168,15 +172,18 @@ found in the LICENSE file.
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-globe"></span>&emsp;Global Repository</th>
-                        <td class="text-right">{{model[repo.ID].globalFiles | alwaysNumber}} files, {{model[repo.ID].globalBytes | binary}}B</td>
+                        <td class="text-right">{{model[repo.ID].globalFiles | alwaysNumber}} items, {{model[repo.ID].globalBytes | binary}}B</td>
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-home"></span>&emsp;Local Repository</th>
-                        <td class="text-right">{{model[repo.ID].localFiles | alwaysNumber}} files, {{model[repo.ID].localBytes | binary}}B</td>
+                        <td class="text-right">{{model[repo.ID].localFiles | alwaysNumber}} items, {{model[repo.ID].localBytes | binary}}B</td>
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;Out of Sync</th>
-                        <td class="text-right">{{model[repo.ID].needFiles | alwaysNumber}} files, {{model[repo.ID].needBytes | binary}}B</td>
+                        <td class="text-right">
+                        <a ng-if="model[repo.ID].needFiles > 0" ng-click="showNeed(repo.ID)" href="">{{model[repo.ID].needFiles | alwaysNumber}} items, {{model[repo.ID].needBytes | binary}}B</a>
+                        <span ng-if="model[repo.ID].needFiles == 0">0 items, 0 B</span>
+                        </td>
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-lock"></span>&emsp;Master Repository</th>
@@ -632,6 +639,30 @@ found in the LICENSE file.
         <div class="modal-footer">
           <button type="button" class="btn btn-success" ng-click="acceptUR()"><span class="glyphicon glyphicon-ok"></span>&emsp;Yes</button>
           <button type="button" class="btn btn-danger" ng-click="declineUR()"><span class="glyphicon glyphicon-remove"></span>&emsp;No</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Needed files modal -->
+
+  <div id="needed" class="modal fade">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header alert alert-info">
+          <h4 class="modal-title">Out of Sync Items</h4>
+        </div>
+        <div class="modal-body">
+          <table class="table table-striped table-condensed">
+          <tr ng-repeat="f in needed" ng-init="a = needAction(f)">
+            <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
+            <td title="{{f.Name}}">{{f.Name | basename}}</td>
+            <td class="text-right small-data"><span ng-if="f.Size > 0">{{f.Size | binary}}B</span></td>
+          </tr>
+          </table>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
         </div>
       </div>
     </div>
