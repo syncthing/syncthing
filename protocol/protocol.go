@@ -96,8 +96,8 @@ type asyncResult struct {
 }
 
 const (
-	pingTimeout  = 300 * time.Second
-	pingIdleTime = 600 * time.Second
+	pingTimeout  = 30 * time.Second
+	pingIdleTime = 60 * time.Second
 )
 
 func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver Model) Connection {
