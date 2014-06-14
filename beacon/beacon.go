@@ -83,7 +83,7 @@ func (b *Beacon) writer() {
 
 		var dsts []net.IP
 		for _, addr := range addrs {
-			if iaddr, ok := addr.(*net.IPNet); ok && iaddr.IP.IsGlobalUnicast() {
+			if iaddr, ok := addr.(*net.IPNet); ok && iaddr.IP.IsGlobalUnicast() && iaddr.IP.To4() != nil {
 				baddr := bcast(iaddr)
 				dsts = append(dsts, baddr.IP)
 			}
