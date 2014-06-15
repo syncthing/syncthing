@@ -612,6 +612,7 @@ func listenConnect(myID string, m *model.Model, tlsCfg *tls.Config) {
 
 	// Connect
 	go func() {
+		var delay time.Duration = 1 * time.Second
 		for {
 		nextNode:
 			for _, nodeCfg := range cfg.Nodes {
@@ -662,7 +663,11 @@ func listenConnect(myID string, m *model.Model, tlsCfg *tls.Config) {
 				}
 			}
 
-			time.Sleep(time.Duration(cfg.Options.ReconnectIntervalS) * time.Second)
+			time.Sleep(delay)
+			delay *= 2
+			if maxD := time.Duration(cfg.Options.ReconnectIntervalS) * time.Second; delay > maxD {
+				delay = maxD
+			}
 		}
 	}()
 
