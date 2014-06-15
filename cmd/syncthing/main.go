@@ -5,6 +5,7 @@
 package main
 
 import (
+	"crypto/sha1"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -352,6 +353,29 @@ func main() {
 	m.CleanRepos()
 	m.ScanRepos()
 	m.SaveIndexes(confDir)
+
+	// Remove all .idx* files that don't belong to an active repo.
+
+	validIndexes := make(map[string]bool)
+	for _, repo := range cfg.Repositories {
+		dir := expandTilde(repo.Directory)
+		id := fmt.Sprintf("%x", sha1.Sum([]byte(dir)))
+		validIndexes[id] = true
+	}
+
+	allIndexes, err := filepath.Glob(filepath.Join(confDir, "*.idx*"))
+	if err == nil {
+		for _, idx := range allIndexes {
+			bn := filepath.Base(idx)
+			fs := strings.Split(bn, ".")
+			if len(fs) > 1 {
+				if _, ok := validIndexes[fs[0]]; !ok {
+					l.Infoln("Removing old index", bn)
+					os.Remove(idx)
+				}
+			}
+		}
+	}
 
 	// UPnP
 
