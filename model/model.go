@@ -851,3 +851,26 @@ func (m *Model) State(repo string) string {
 		return "unknown"
 	}
 }
+
+func (m *Model) Override(repo string) {
+	fs := m.NeedFilesRepo(repo)
+
+	m.rmut.Lock()
+	r := m.repoFiles[repo]
+	for i := range fs {
+		f := &fs[i]
+		h := r.Get(cid.LocalID, f.Name)
+		if h.Name != f.Name {
+			// We are missing the file
+			f.Flags |= protocol.FlagDeleted
+			f.Blocks = nil
+		} else {
+			// We have the file, replace with our version
+			*f = h
+		}
+		f.Version = lamport.Default.Tick(f.Version)
+	}
+	m.rmut.Unlock()
+
+	r.Update(cid.LocalID, fs)
+}

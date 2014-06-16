@@ -206,7 +206,10 @@ found in the LICENSE file.
                     </tbody>
                   </table>
                 </div>
-                <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span>&emsp;Edit</a></span>
+                <span class="pull-right">
+                  <a class="btn btn-sm btn-primary" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span>&emsp;Edit</a>
+                  <a class="btn btn-sm btn-danger" ng-if="repo.ReadOnly && model[repo.ID].needFiles > 0" ng-click="override(repo.ID)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;Override Changes</a>
+                </span>
               </div>
             </div>
           </div>

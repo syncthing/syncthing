@@ -627,6 +627,12 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         }
     };
 
+    $scope.override = function (repo) {
+        $http.post(urlbase + "/model/override?repo=" + encodeURIComponent(repo)).success(function () {
+            $scope.refresh();
+        });
+    };
+
     $scope.init();
     setInterval($scope.refresh, 10000);
 });

@@ -108,6 +108,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	router.Post("/rest/error", restPostError)
 	router.Post("/rest/error/clear", restClearErrors)
 	router.Post("/rest/discovery/hint", restPostDiscoveryHint)
+	router.Post("/rest/model/override", restPostOverride)
 
 	mr := martini.New()
 	mr.Use(csrfMiddleware)
@@ -170,6 +171,12 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
+}
+
+func restPostOverride(m *model.Model, r *http.Request) {
+	var qs = r.URL.Query()
+	var repo = qs.Get("repo")
+	m.Override(repo)
 }
 
 func restGetNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {
