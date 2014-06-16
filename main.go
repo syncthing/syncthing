@@ -96,18 +96,49 @@ var cache map[string]interface{}
 var cacheDate string
 var cacheMut sync.Mutex
 
+func fileList() ([]string, error) {
+	files := make(map[string]string)
+	t0 := time.Now().Add(-24 * time.Hour).Format("20060102")
+	t1 := time.Now().Format("20060102")
+
+	dir := filepath.Join(*dbDir, t0)
+	gr, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range gr {
+		bn := filepath.Base(f)
+		files[bn] = f
+	}
+
+	dir = filepath.Join(*dbDir, t1)
+	gr, err = filepath.Glob(filepath.Join(dir, "*.json"))
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range gr {
+		bn := filepath.Base(f)
+		files[bn] = f
+	}
+
+	l := make([]string, 0, len(files))
+	for _, f := range files {
+		l = append(l, f)
+	}
+
+	return l, nil
+}
+
 func reportHandler(w http.ResponseWriter, r *http.Request) {
-	yesterday := time.Now().Add(-24 * time.Hour).Format("20060102")
+	cd := time.Now().Format("20060102T15")
 
 	cacheMut.Lock()
 	cacheMut.Unlock()
 
-	if cacheDate != yesterday {
+	if cacheDate != cd {
 		cache = make(map[string]interface{})
 
-		dir := filepath.Join(*dbDir, yesterday)
-
-		files, err := filepath.Glob(filepath.Join(dir, "*.json"))
+		files, err := fileList()
 		if err != nil {
 			http.Error(w, "Glob error", 500)
 			return
@@ -156,6 +187,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		cache = make(map[string]interface{})
+		cache["cache"] = cd
 		cache["nodes"] = nodes
 		cache["versions"] = versions
 		cache["platforms"] = platforms
