@@ -7,6 +7,7 @@ package scanner
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -104,13 +105,15 @@ func (w *Walker) loadIgnoreFiles(dir string, ign map[string][]string) filepath.W
 		}
 
 		if pn, sn := filepath.Split(rn); sn == w.IgnoreFile {
-			pn := strings.Trim(pn, "/")
+			pn := filepath.Clean(pn)
+			l.Debugf("pn: %q", pn)
 			bs, _ := ioutil.ReadFile(p)
 			lines := bytes.Split(bs, []byte("\n"))
 			var patterns []string
 			for _, line := range lines {
-				if len(line) > 0 {
-					patterns = append(patterns, string(line))
+				lineStr := strings.TrimSpace(string(line))
+				if len(lineStr) > 0 {
+					patterns = append(patterns, lineStr)
 				}
 			}
 			ign[pn] = patterns
@@ -282,8 +285,9 @@ func (w *Walker) cleanTempFile(path string, info os.FileInfo, err error) error {
 func (w *Walker) ignoreFile(patterns map[string][]string, file string) bool {
 	first, last := filepath.Split(file)
 	for prefix, pats := range patterns {
-		if len(prefix) == 0 || prefix == first || strings.HasPrefix(first, prefix+"/") {
+		if prefix == "." || prefix == first || strings.HasPrefix(first, fmt.Sprintf("%s%c", prefix, os.PathSeparator)) {
 			for _, pattern := range pats {
+				l.Debugf("%q %q", pattern, last)
 				if match, _ := filepath.Match(pattern, last); match {
 					return true
 				}
