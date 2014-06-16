@@ -41,10 +41,10 @@ found in the LICENSE file.
           <tbody>
             <tr ng-repeat="cat in categories">
               <td>{{cat.descr}}</td>
-              <td class="text-right">{{report[cat.key].min}} {{cat.unit}}</td>
-              <td class="text-right">{{report[cat.key].med}} {{cat.unit}}</td>
-              <td class="text-right">{{report[cat.key].nfp}} {{cat.unit}}</td>
-              <td class="text-right">{{report[cat.key].max}} {{cat.unit}}</td>
+              <td class="text-right">{{report[cat.key].min | number}} {{cat.unit}}</td>
+              <td class="text-right">{{report[cat.key].med | number}} {{cat.unit}}</td>
+              <td class="text-right">{{report[cat.key].nfp | number}} {{cat.unit}}</td>
+              <td class="text-right">{{report[cat.key].max | number}} {{cat.unit}}</td>
             </tr>
           </tbody>
         </table>
