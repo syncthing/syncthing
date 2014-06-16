@@ -35,13 +35,13 @@ found in the LICENSE file.
         <table class="table table-striped">
           <thead>
             <tr>
-              <th></th><th class="text-right">Min</th><th class="text-right">Median</th><th class="text-right">95%</th><th class="text-right">Max</th>
+              <th></th><th class="text-right">5%</th><th class="text-right">50%</th><th class="text-right">95%</th><th class="text-right">100%</th>
             </tr>
           </thead>
           <tbody>
             <tr ng-repeat="cat in categories">
               <td>{{cat.descr}}</td>
-              <td class="text-right">{{report[cat.key].min | number}} {{cat.unit}}</td>
+              <td class="text-right">{{report[cat.key].fp | number}} {{cat.unit}}</td>
               <td class="text-right">{{report[cat.key].med | number}} {{cat.unit}}</td>
               <td class="text-right">{{report[cat.key].nfp | number}} {{cat.unit}}</td>
               <td class="text-right">{{report[cat.key].max | number}} {{cat.unit}}</td>

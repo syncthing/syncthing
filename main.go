@@ -209,7 +209,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 func statsForInts(data []int) map[string]int {
 	sort.Ints(data)
 	res := make(map[string]int, 4)
-	res["min"] = data[0]
+	res["fp"] = data[int(float64(len(data))*0.05)]
 	res["med"] = data[len(data)/2]
 	res["nfp"] = data[int(float64(len(data))*0.95)]
 	res["max"] = data[len(data)-1]
