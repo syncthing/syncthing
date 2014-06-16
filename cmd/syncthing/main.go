@@ -279,11 +279,28 @@ func main() {
 
 	m := model.NewModel(confDir, &cfg, "syncthing", Version)
 
-	for _, repo := range cfg.Repositories {
+nextRepo:
+	for i, repo := range cfg.Repositories {
 		if repo.Invalid != "" {
 			continue
 		}
+
 		repo.Directory = expandTilde(repo.Directory)
+
+		// Safety check. If the cached index contains files but the repository
+		// doesn't exist, we have a problem. We would assume that all files
+		// have been deleted which might not be the case, so abort instead.
+
+		id := fmt.Sprintf("%x", sha1.Sum([]byte(repo.Directory)))
+		idxFile := filepath.Join(confDir, id+".idx.gz")
+		if _, err := os.Stat(idxFile); err == nil {
+			if fi, err := os.Stat(repo.Directory); err != nil || !fi.IsDir() {
+				cfg.Repositories[i].Invalid = "repo directory missing"
+				continue nextRepo
+			}
+		}
+
+		ensureDir(repo.Directory, -1)
 		m.AddRepo(repo)
 	}
 
@@ -327,29 +344,6 @@ func main() {
 
 	l.Infoln("Populating repository index")
 	m.LoadIndexes(confDir)
-
-	for _, repo := range cfg.Repositories {
-		if repo.Invalid != "" {
-			continue
-		}
-
-		dir := expandTilde(repo.Directory)
-
-		// Safety check. If the cached index contains files but the repository
-		// doesn't exist, we have a problem. We would assume that all files
-		// have been deleted which might not be the case, so abort instead.
-
-		if files, _, _ := m.LocalSize(repo.ID); files > 0 {
-			if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
-				l.Warnf("Configured repository %q has index but directory %q is missing; not starting.", repo.ID, repo.Directory)
-				l.Fatalf("Ensure that directory is present or remove repository from configuration.")
-			}
-		}
-
-		// Ensure that repository directories exist for newly configured repositories.
-		ensureDir(dir, -1)
-	}
-
 	m.CleanRepos()
 	m.ScanRepos()
 	m.SaveIndexes(confDir)
