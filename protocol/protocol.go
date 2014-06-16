@@ -81,7 +81,7 @@ type rawConnection struct {
 	xw   *xdr.Writer
 	wmut sync.Mutex
 
-	indexSent map[string]map[string][2]int64
+	indexSent map[string]map[string]uint64
 	awaiting  []chan asyncResult
 	imut      sync.Mutex
 
@@ -122,7 +122,7 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 		wb:        wb,
 		xw:        xdr.NewWriter(wb),
 		awaiting:  make([]chan asyncResult, 0x1000),
-		indexSent: make(map[string]map[string][2]int64),
+		indexSent: make(map[string]map[string]uint64),
 		outbox:    make(chan []encodable),
 		nextID:    make(chan int),
 		closed:    make(chan struct{}),
@@ -149,18 +149,18 @@ func (c *rawConnection) Index(repo string, idx []FileInfo) {
 		// This is the first time we send an index.
 		msgType = messageTypeIndex
 
-		c.indexSent[repo] = make(map[string][2]int64)
+		c.indexSent[repo] = make(map[string]uint64)
 		for _, f := range idx {
-			c.indexSent[repo][f.Name] = [2]int64{f.Modified, int64(f.Version)}
+			c.indexSent[repo][f.Name] = f.Version
 		}
 	} else {
 		// We have sent one full index. Only send updates now.
 		msgType = messageTypeIndexUpdate
 		var diff []FileInfo
 		for _, f := range idx {
-			if vs, ok := c.indexSent[repo][f.Name]; !ok || f.Modified != vs[0] || int64(f.Version) != vs[1] {
+			if vs, ok := c.indexSent[repo][f.Name]; !ok || f.Version != vs {
 				diff = append(diff, f)
-				c.indexSent[repo][f.Name] = [2]int64{f.Modified, int64(f.Version)}
+				c.indexSent[repo][f.Name] = f.Version
 			}
 		}
 		idx = diff
