@@ -173,14 +173,30 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 			nodes++
 			versions[rep.Version]++
 			platforms[rep.Platform]++
-			numRepos = append(numRepos, rep.NumRepos)
-			numNodes = append(numNodes, rep.NumNodes)
-			totFiles = append(totFiles, rep.TotFiles)
-			maxFiles = append(maxFiles, rep.RepoMaxFiles)
-			totMiB = append(totMiB, rep.TotMiB)
-			maxMiB = append(maxMiB, rep.RepoMaxMiB)
-			memoryUsage = append(memoryUsage, rep.MemoryUsageMiB)
-			sha256Perf = append(sha256Perf, rep.SHA256Perf)
+			if rep.NumRepos > 0 {
+				numRepos = append(numRepos, rep.NumRepos)
+			}
+			if rep.NumNodes > 0 {
+				numNodes = append(numNodes, rep.NumNodes)
+			}
+			if rep.TotFiles > 0 {
+				totFiles = append(totFiles, rep.TotFiles)
+			}
+			if rep.RepoMaxFiles > 0 {
+				maxFiles = append(maxFiles, rep.RepoMaxFiles)
+			}
+			if rep.TotMiB > 0 {
+				totMiB = append(totMiB, rep.TotMiB)
+			}
+			if rep.RepoMaxMiB > 0 {
+				maxMiB = append(maxMiB, rep.RepoMaxMiB)
+			}
+			if rep.MemoryUsageMiB > 0 {
+				memoryUsage = append(memoryUsage, rep.MemoryUsageMiB)
+			}
+			if rep.SHA256Perf > 0 {
+				sha256Perf = append(sha256Perf, rep.SHA256Perf)
+			}
 			if rep.MemorySize > 0 {
 				memorySize = append(memorySize, rep.MemorySize)
 			}
