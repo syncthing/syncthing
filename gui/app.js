@@ -279,8 +279,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     $scope.editSettings = function () {
         // Make a working copy
-        $scope.config.workingOptions = angular.copy($scope.config.Options);
-        $scope.config.workingGUI = angular.copy($scope.config.GUI);
+        $scope.tmpOptions = angular.copy($scope.config.Options);
+        $scope.tmpOptions.UREnabled = ($scope.tmpOptions.URAccepted > 0);
+        $scope.tmpGUI = angular.copy($scope.config.GUI);
         $('#settings').modal({backdrop: 'static', keyboard: true});
     };
 
@@ -296,17 +297,24 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     $scope.saveSettings = function () {
         // Make sure something changed
-        var changed = ! angular.equals($scope.config.Options, $scope.config.workingOptions) ||
-                      ! angular.equals($scope.config.GUI, $scope.config.workingGUI);
-        if(changed){
-            // see if protocol will need to be changed on restart
-            if($scope.config.GUI.UseTLS !== $scope.config.workingGUI.UseTLS){
+        var changed = !angular.equals($scope.config.Options, $scope.tmpOptions) ||
+                      !angular.equals($scope.config.GUI, $scope.tmpGUI);
+        if (changed) {
+            // Check if usage reporting has been enabled or disabled
+            if ($scope.tmpOptions.UREnabled && $scope.tmpOptions.URAccepted <= 0) {
+                $scope.tmpOptions.URAccepted = 1000;
+            } else if (!$scope.tmpOptions.UREnabled && $scope.tmpOptions.URAccepted > 0){
+                $scope.tmpOptions.URAccepted = -1;
+            }
+
+            // Check if protocol will need to be changed on restart
+            if($scope.config.GUI.UseTLS !== $scope.tmpGUI.UseTLS){
                 $scope.protocolChanged = true;
             }
 
             // Apply new settings locally
-            $scope.config.Options = angular.copy($scope.config.workingOptions);
-            $scope.config.GUI = angular.copy($scope.config.workingGUI);
+            $scope.config.Options = angular.copy($scope.tmpOptions);
+            $scope.config.GUI = angular.copy($scope.tmpGUI);
             $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) { return x.trim(); });
 
             $scope.saveConfig();
@@ -561,7 +569,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
             $scope.refresh();
 
-            if (!$scope.config.Options.UREnabled && !$scope.config.Options.URDeclined) {
+            if ($scope.config.Options.URAccepted == 0) {
                 // If usage reporting has been neither accepted nor declined,
                 // we want to ask the user to make a choice. But we don't want
                 // to bug them during initial setup, so we set a cookie with
@@ -590,15 +598,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.acceptUR = function () {
-        $scope.config.Options.UREnabled = true;
-        $scope.config.Options.URDeclined = false;
+        $scope.config.Options.URAccepted = 1000; // Larger than the largest existing report version
         $scope.saveConfig();
         $('#ur').modal('hide');
     };
 
     $scope.declineUR = function () {
-        $scope.config.Options.UREnabled = false;
-        $scope.config.Options.URDeclined = true;
+        $scope.config.Options.URAccepted = -1;
         $scope.saveConfig();
         $('#ur').modal('hide');
     };

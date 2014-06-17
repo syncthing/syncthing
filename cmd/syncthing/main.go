@@ -415,11 +415,11 @@ nextRepo:
 		}
 	}
 
-	if cfg.Options.UREnabled && cfg.Options.URAccepted < usageReportVersion {
+	if cfg.Options.URAccepted > 0 && cfg.Options.URAccepted < usageReportVersion {
 		l.Infoln("Anonymous usage report has changed; revoking acceptance")
-		cfg.Options.UREnabled = false
+		cfg.Options.URAccepted = 0
 	}
-	if cfg.Options.UREnabled {
+	if cfg.Options.URAccepted >= usageReportVersion {
 		go usageReportingLoop(m)
 		go func() {
 			time.Sleep(10 * time.Minute)

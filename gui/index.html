@@ -583,11 +583,11 @@ found in the LICENSE file.
                 <div class="form-group" ng-repeat="setting in settings">
                   <div ng-if="setting.type == 'text' || setting.type == 'number'">
                     <label for="{{setting.id}}">{{setting.descr}}</label>
-                    <input id="{{setting.id}}" class="form-control" type="{{setting.type}}" ng-model="config.workingOptions[setting.id]"></input>
+                    <input id="{{setting.id}}" class="form-control" type="{{setting.type}}" ng-model="tmpOptions[setting.id]"></input>
                   </div>
                   <div class="checkbox" ng-if="setting.type == 'bool'">
                     <label>
-                      {{setting.descr}} <input id="{{setting.id}}" type="checkbox" ng-model="config.workingOptions[setting.id]"></input>
+                      {{setting.descr}} <input id="{{setting.id}}" type="checkbox" ng-model="tmpOptions[setting.id]"></input>
                     </label>
                   </div>
                 </div>
@@ -596,17 +596,17 @@ found in the LICENSE file.
                 <div class="form-group" ng-repeat="setting in guiSettings">
                   <div ng-if="setting.type == 'text' || setting.type == 'number' || setting.type == 'password'">
                     <label for="{{setting.id}}">{{setting.descr}}</label>
-                    <input id="{{setting.id}}" class="form-control" type="{{setting.type}}" ng-model="config.workingGUI[setting.id]"></input>
+                    <input id="{{setting.id}}" class="form-control" type="{{setting.type}}" ng-model="tmpGUI[setting.id]"></input>
                   </div>
                   <div class="checkbox" ng-if="setting.type == 'bool'">
                     <label>
-                      {{setting.descr}} <input id="{{setting.id}}" type="checkbox" ng-model="config.workingGUI[setting.id]"></input>
+                      {{setting.descr}} <input id="{{setting.id}}" type="checkbox" ng-model="tmpGUI[setting.id]"></input>
                     </label>
                   </div>
                   <div ng-if="setting.type == 'apikey'">
                     <label>{{setting.descr}} (<a href="http://discourse.syncthing.net/t/v0-8-14-api-keys/335">Usage</a>)</label>
-                    <div class="well well-sm text-monospace">{{config.workingGUI[setting.id] || "-"}}</div>
-                    <button type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(config.workingGUI)">Generate</button>
+                    <div class="well well-sm text-monospace">{{tmpGUI[setting.id] || "-"}}</div>
+                    <button type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(tmpGUI)">Generate</button>
                   </div>
                 </div>
               </div>

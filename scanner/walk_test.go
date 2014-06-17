@@ -97,6 +97,7 @@ func TestIgnore(t *testing.T) {
 		r bool
 	}{
 		{"foo/bar", true},
+		{"foofoo", false},
 		{"foo/quux", false},
 		{"foo/zuux", true},
 		{"foo/qzuux", false},

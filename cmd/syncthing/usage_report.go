@@ -107,7 +107,10 @@ loop:
 }
 
 func stopUsageReporting() {
-	stopUsageReportingCh <- struct{}{}
+	select {
+	case stopUsageReportingCh <- struct{}{}:
+	default:
+	}
 }
 
 // Returns CPU performance as a measure of single threaded SHA-256 MiB/s
