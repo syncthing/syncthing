@@ -59,11 +59,11 @@ or certificate pinning combined with some out of band first
 verification. The reference implementation uses preshared certificate
 fingerprints (SHA-256) referred to as "Node IDs".
 
-There is no required order or synchronization among BEP messages (except
-for the requirements on Cluster Config messages below) - any message
-type may be sent at any time and the sender need not await a response to
-one message before sending another. Responses MUST however be sent in
-the same order as the requests are received.
+There is no required order or synchronization among BEP messages except
+as noted per message type - any message type may be sent at any time and
+the sender need not await a response to one message before sending
+another. Responses MUST however be sent in the same order as the
+requests are received.
 
 The underlying transport protocol MUST be TCP.
 
@@ -297,11 +297,12 @@ peers acting in a specific manner as a result of sent options.
 ### Index (Type = 1)
 
 The Index message defines the contents of the senders repository. An
-Index message MUST be sent by each node immediately upon connection. A
-node with no data to advertise MUST send an empty Index message (a file
-list of zero length). If the repository contents change from non-empty
-to empty, an empty Index message MUST be sent. There is no response to
-the Index message.
+Index message MUST be sent for each repository mentioned in the Cluster
+Config message. An Index message for a repository MUST be sent before
+any other message referring to that repository. A node with no data to
+advertise MUST send an empty Index message (a file list of zero length).
+If the repository contents change from non-empty to empty, an empty
+Index message MUST be sent. There is no response to the Index message.
 
 #### Graphical Representation
 
