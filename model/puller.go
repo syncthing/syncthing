@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
-
-	"github.com/calmh/syncthing/buffers"
 	"github.com/calmh/syncthing/cid"
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/osutil"
@@ -339,7 +337,6 @@ func (p *puller) handleRequestResult(res requestResult) {
 	}
 
 	_, of.err = of.file.WriteAt(res.data, res.offset)
-	buffers.Put(res.data)
 
 	of.outstanding--
 	p.openFiles[f.Name] = of
@@ -490,12 +487,11 @@ func (p *puller) handleCopyBlock(b bqBlock) {
 	defer exfd.Close()
 
 	for _, b := range b.copy {
-		bs := buffers.Get(int(b.Size))
+		bs := make([]byte, b.Size)
 		_, of.err = exfd.ReadAt(bs, b.Offset)
 		if of.err == nil {
 			_, of.err = of.file.WriteAt(bs, b.Offset)
 		}
-		buffers.Put(bs)
 		if of.err != nil {
 			if debug {
 				l.Debugf("pull: error: %q / %q: %v", p.repoCfg.ID, f.Name, of.err)

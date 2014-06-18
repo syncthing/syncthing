@@ -15,8 +15,6 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/calmh/syncthing/buffers"
 	"github.com/calmh/syncthing/cid"
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/files"
@@ -433,7 +431,7 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 	}
 	defer fd.Close()
 
-	buf := buffers.Get(int(size))
+	buf := make([]byte, size)
 	_, err = fd.ReadAt(buf, offset)
 	if err != nil {
 		return nil, err

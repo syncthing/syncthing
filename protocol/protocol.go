@@ -12,7 +12,6 @@ import (
 	"io"
 	"sync"
 	"time"
-
 	"github.com/calmh/syncthing/xdr"
 )
 

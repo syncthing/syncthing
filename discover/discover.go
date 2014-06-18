@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/beacon"
-	"github.com/calmh/syncthing/buffers"
 )
 
 type Discoverer struct {
@@ -329,11 +328,8 @@ func (d *Discoverer) externalLookup(node string) []string {
 		}
 		return nil
 	}
-	buffers.Put(buf)
 
-	buf = buffers.Get(2048)
-	defer buffers.Put(buf)
-
+	buf = make([]byte, 2048)
 	n, err := conn.Read(buf)
 	if err != nil {
 		if err, ok := err.(net.Error); ok && err.Timeout() {
