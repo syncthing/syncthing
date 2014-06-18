@@ -59,10 +59,11 @@ or certificate pinning combined with some out of band first
 verification. The reference implementation uses preshared certificate
 fingerprints (SHA-256) referred to as "Node IDs".
 
-There is no required order or synchronization among BEP messages - any
-message type may be sent at any time and the sender need not await a
-response to one message before sending another. Responses MUST however
-be sent in the same order as the requests are received.
+There is no required order or synchronization among BEP messages (except
+for the requirements on Cluster Config messages below) - any message
+type may be sent at any time and the sender need not await a response to
+one message before sending another. Responses MUST however be sent in
+the same order as the requests are received.
 
 The underlying transport protocol MUST be TCP.
 
@@ -118,8 +119,9 @@ normalization form C.
 ### Cluster Config (Type = 0)
 
 This informational message provides information about the cluster
-configuration, as it pertains to the current connection. It is sent by
-both sides after connection establishment.
+configuration as it pertains to the current connection. A Cluster Config
+message MUST be the first message sent on a BEP connection. Additional
+Cluster Config messages MUST NOT be sent after the initial exchange.
 
 #### Graphical Representation
 
