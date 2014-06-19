@@ -872,3 +872,18 @@ func (m *Model) Override(repo string) {
 
 	r.Update(cid.LocalID, fs)
 }
+
+// Version returns the change version for the given repository. This is
+// guaranteed to increment if the contents of the local or global repository
+// has changed.
+func (m *Model) Version(repo string) uint64 {
+	var ver uint64
+
+	m.rmut.Lock()
+	for _, n := range m.repoNodes[repo] {
+		ver += m.repoFiles[repo].Changes(m.cm.Get(n))
+	}
+	m.rmut.Unlock()
+
+	return ver
+}

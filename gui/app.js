@@ -103,9 +103,20 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
             getFailed();
         });
         Object.keys($scope.repos).forEach(function (id) {
-            $http.get(urlbase + '/model?repo=' + encodeURIComponent(id)).success(function (data) {
-                $scope.model[id] = data;
-            });
+            if (typeof $scope.model[id] === 'undefined') {
+                // Never fetched before
+                $http.get(urlbase + '/model?repo=' + encodeURIComponent(id)).success(function (data) {
+                    $scope.model[id] = data;
+                });
+            } else {
+                $http.get(urlbase + '/model/version?repo=' + encodeURIComponent(id)).success(function (data) {
+                    if (data.version > $scope.model[id].version) {
+                        $http.get(urlbase + '/model?repo=' + encodeURIComponent(id)).success(function (data) {
+                            $scope.model[id] = data;
+                        });
+                    }
+                });
+            }
         });
         $http.get(urlbase + '/connections').success(function (data) {
             var now = Date.now(),

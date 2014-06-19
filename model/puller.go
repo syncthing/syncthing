@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
 	"github.com/calmh/syncthing/cid"
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/osutil"
@@ -135,6 +136,7 @@ func (p *puller) run() {
 	walkTicker := time.Tick(time.Duration(p.cfg.Options.RescanIntervalS) * time.Second)
 	timeout := time.Tick(5 * time.Second)
 	changed := true
+	var prevVer uint64
 
 	for {
 		// Run the pulling loop as long as there are blocks to fetch
@@ -197,8 +199,11 @@ func (p *puller) run() {
 		default:
 		}
 
-		// Queue more blocks to fetch, if any
-		p.queueNeededBlocks()
+		if v := p.model.Version(p.repoCfg.ID); v > prevVer {
+			// Queue more blocks to fetch, if any
+			p.queueNeededBlocks()
+			prevVer = v
+		}
 	}
 }
 
