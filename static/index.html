@@ -52,7 +52,7 @@ found in the LICENSE file.
     </div>
 
     <div class="row">
-      <div class="col-md-6">
+      <div class="col-md-4">
         <table class="table table-striped">
           <thead>
             <tr>
@@ -68,7 +68,7 @@ found in the LICENSE file.
           </tbody>
         </table>
       </div>
-      <div class="col-md-6">
+      <div class="col-md-4">
         <table class="table table-striped">
           <thead>
             <tr>
@@ -77,6 +77,22 @@ found in the LICENSE file.
           </thead>
           <tbody>
             <tr ng-repeat="p in platforms">
+              <td>{{p[0]}}</td>
+              <td class="text-right">{{p[1]}}</td>
+              <td class="text-right">{{p[2] | number:2}}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-4">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>OS</th><th class="text-right">Nodes</th><th class="text-right">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ng-repeat="p in os">
               <td>{{p[0]}}</td>
               <td class="text-right">{{p[1]}}</td>
               <td class="text-right">{{p[2] | number:2}}%</td>

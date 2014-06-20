@@ -34,10 +34,26 @@ reports.controller('ReportsCtrl', function ($scope, $http) {
 		$scope.versions = sortedList(data.versions);
 		$scope.platforms = sortedList(data.platforms);
 
+		var os = aggregate(data.platforms, function (x) {return x.replace(/-.*/, '');})
+		$scope.os = sortedList(os);
+
 	}).error(function () {
 		$scope.failure = true;
 	});
 });
+
+function aggregate(d, f) {
+	var r = {};
+	for (var o in d) {
+		var k = f(o);
+		if (k in r) {
+			r[k] += d[o];
+		} else {
+			r[k] = d[o];
+		}
+	}
+	return r;
+}
 
 function sortedList(d) {
 	var l = [];
