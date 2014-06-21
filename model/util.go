@@ -7,6 +7,8 @@ package model
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
@@ -89,4 +91,28 @@ func compareClusterConfig(local, remote protocol.ClusterConfigMessage) error {
 	}
 
 	return nil
+}
+
+func deadlockDetect(mut sync.Locker, timeout time.Duration) {
+	go func() {
+		for {
+			time.Sleep(timeout / 4)
+			ok := make(chan bool, 2)
+
+			go func() {
+				mut.Lock()
+				mut.Unlock()
+				ok <- true
+			}()
+
+			go func() {
+				time.Sleep(timeout)
+				ok <- false
+			}()
+
+			if r := <-ok; !r {
+				panic("deadlock detected")
+			}
+		}
+	}()
 }

@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/calmh/syncthing",
-	"GoVersion": "go1.2.2",
+	"GoVersion": "go1.3",
 	"Packages": [
 		"./cmd/syncthing",
 		"./cmd/assets",

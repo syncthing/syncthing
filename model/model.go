@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
 	"github.com/calmh/syncthing/cid"
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/files"
@@ -96,6 +97,9 @@ func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVers
 		sup:           suppressor{threshold: int64(cfg.Options.MaxChangeKbps)},
 	}
 
+	deadlockDetect(&m.rmut, 60*time.Second)
+	deadlockDetect(&m.smut, 60*time.Second)
+	deadlockDetect(&m.pmut, 60*time.Second)
 	go m.broadcastIndexLoop()
 	return m
 }
