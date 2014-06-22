@@ -12,6 +12,7 @@ import (
 	"io"
 	"sync"
 	"time"
+
 	"github.com/calmh/syncthing/xdr"
 )
 
@@ -84,6 +85,8 @@ type rawConnection struct {
 	awaiting  []chan asyncResult
 	imut      sync.Mutex
 
+	idxMut sync.Mutex // ensures serialization of Index calls
+
 	nextID chan int
 	outbox chan []encodable
 	closed chan struct{}
@@ -142,6 +145,9 @@ func (c *rawConnection) ID() string {
 
 // Index writes the list of file information to the connected peer node
 func (c *rawConnection) Index(repo string, idx []FileInfo) {
+	c.idxMut.Lock()
+	defer c.idxMut.Unlock()
+
 	c.imut.Lock()
 	var msgType int
 	if c.indexSent[repo] == nil {
@@ -164,11 +170,11 @@ func (c *rawConnection) Index(repo string, idx []FileInfo) {
 		}
 		idx = diff
 	}
+	c.imut.Unlock()
 
 	if len(idx) > 0 {
 		c.send(header{0, -1, msgType}, IndexMessage{repo, idx})
 	}
-	c.imut.Unlock()
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
