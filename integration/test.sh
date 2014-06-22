@@ -13,12 +13,30 @@ id3=373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA
 go build genfiles.go
 go build md5r.go
 go build json.go
+go build http.go
 
 start() {
 	echo "Starting..."
 	for i in 1 2 3 4 ; do
 		STPROFILER=":909$i" syncthing -home "h$i" > "$i.out" 2>&1 &
 	done
+
+	# Test REST API
+	sleep 2
+	curl -s -o /dev/null http://testuser:testpass@localhost:8081/index.html
+	curl -s -o /dev/null http://localhost:8082/index.html
+	sleep 1
+	./http -target localhost:8081 -user testuser -pass testpass -csrf h1/csrftokens.txt || stop 1
+	./http -target localhost:8081 -api abc123 || stop 1
+	./http -target localhost:8082 -csrf h2/csrftokens.txt || stop 1
+	./http -target localhost:8082 -api abc123 || stop 1
+}
+
+stop() {
+	for i in 1 2 3 4 ; do
+		curl -HX-API-Key:abc123 -X POST "http://localhost:808$i/rest/shutdown"
+	done
+	exit $1
 }
 
 clean() {
@@ -83,8 +101,7 @@ testConvergence() {
 		fi
 	done
 	if [[ $ok != 7 ]] ; then
-		pkill syncthing
-		exit 1
+		stop 1
 	fi
 }
 
@@ -157,6 +174,4 @@ for ((t = 1; t <= $iterations; t++)) ; do
 	testConvergence
 done
 
-for i in 1 2 3 4 ; do
-	curl -HX-API-Key:abc123 -X POST "http://localhost:808$i/rest/shutdown"
-done
+stop 0

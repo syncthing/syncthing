@@ -152,7 +152,7 @@ func restGetModelVersion(m *model.Model, w http.ResponseWriter, r *http.Request)
 
 	res["version"] = m.Version(repo)
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -182,7 +182,7 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	res["state"] = m.State(repo)
 	res["version"] = m.Version(repo)
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -198,13 +198,13 @@ func restGetNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 	files := m.NeedFilesRepo(repo)
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(files)
 }
 
 func restGetConnections(m *model.Model, w http.ResponseWriter) {
 	var res = m.ConnectionStats()
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -213,6 +213,7 @@ func restGetConfig(w http.ResponseWriter) {
 	if encCfg.GUI.Password != "" {
 		encCfg.GUI.Password = unchangedPassword
 	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(encCfg)
 }
 
@@ -289,21 +290,25 @@ func restPostConfig(req *http.Request, m *model.Model) {
 }
 
 func restGetConfigInSync(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(map[string]bool{"configInSync": configInSync})
 }
 
 func restPostRestart(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	flushResponse(`{"ok": "restarting"}`, w)
 	go restart()
 }
 
 func restPostReset(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	flushResponse(`{"ok": "resetting repos"}`, w)
 	resetRepositories()
 	go restart()
 }
 
 func restPostShutdown(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	flushResponse(`{"ok": "shutting down"}`, w)
 	go shutdown()
 }
@@ -338,11 +343,12 @@ func restGetSystem(w http.ResponseWriter) {
 	cpuUsageLock.RUnlock()
 	res["cpuPercent"] = cpusum / 10
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
 
 func restGetErrors(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	guiErrorsMut.Lock()
 	json.NewEncoder(w).Encode(guiErrors)
 	guiErrorsMut.Unlock()
@@ -379,10 +385,12 @@ func restPostDiscoveryHint(r *http.Request) {
 }
 
 func restGetDiscovery(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(discoverer.All())
 }
 
 func restGetReport(w http.ResponseWriter, m *model.Model) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(reportData(m))
 }
 

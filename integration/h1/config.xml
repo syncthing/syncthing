@@ -25,6 +25,8 @@
     <gui enabled="true" tls="false">
         <address>127.0.0.1:8081</address>
         <apikey>abc123</apikey>
+        <user>testuser</user>
+        <password>testpass</password>
     </gui>
     <options>
         <listenAddress>127.0.0.1:22001</listenAddress>
