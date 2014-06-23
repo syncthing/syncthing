@@ -858,8 +858,10 @@ func (m *Model) State(repo string) string {
 func (m *Model) Override(repo string) {
 	fs := m.NeedFilesRepo(repo)
 
-	m.rmut.Lock()
+	m.rmut.RLock()
 	r := m.repoFiles[repo]
+	m.rmut.RUnlock()
+
 	for i := range fs {
 		f := &fs[i]
 		h := r.Get(cid.LocalID, f.Name)
@@ -873,7 +875,6 @@ func (m *Model) Override(repo string) {
 		}
 		f.Version = lamport.Default.Tick(f.Version)
 	}
-	m.rmut.Unlock()
 
 	r.Update(cid.LocalID, fs)
 }
