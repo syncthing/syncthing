@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"runtime/debug"
 	"runtime/pprof"
@@ -48,6 +49,14 @@ var (
 var l = logger.DefaultLogger
 
 func init() {
+	if Version != "unknown-dev" {
+		// If not a generic dev build, version string should come from git describe
+		exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-\d+-g[0-9a-f]+)?(-dirty)?$`)
+		if !exp.MatchString(Version) {
+			l.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, exp)
+		}
+	}
+
 	stamp, _ := strconv.Atoi(BuildStamp)
 	BuildDate = time.Unix(int64(stamp), 0)
 
