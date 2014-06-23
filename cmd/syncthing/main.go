@@ -703,6 +703,9 @@ next:
 					wr = &limitedWriter{conn, rateBucket}
 				}
 				protoConn := protocol.NewConnection(remoteID, conn, wr, m)
+
+				l.Infof("Connection to %s established at %v", remoteID, conn.RemoteAddr())
+
 				m.AddConnection(conn, protoConn)
 				continue next
 			}

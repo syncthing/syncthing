@@ -366,16 +366,7 @@ func (m *Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessag
 // Close removes the peer from the model and closes the underlying connection if possible.
 // Implements the protocol.Model interface.
 func (m *Model) Close(node string, err error) {
-	if debug {
-		l.Debugf("%s: %v", node, err)
-	}
-
-	// EOFs (disconnect) are usually nothing to worry about
-	if err != io.EOF && err != io.ErrUnexpectedEOF {
-		l.Warnf("Connection to %s closed: %v", node, err)
-	} else if debug {
-		l.Debugln("Connection to %s closed: %v", node, err)
-	}
+	l.Infof("Connection to %s closed: %v", node, err)
 
 	cid := m.cm.Get(node)
 	m.rmut.RLock()
