@@ -342,6 +342,7 @@ func (o Node) encodeXDR(xw *xdr.Writer) (int, error) {
 	}
 	xw.WriteString(o.ID)
 	xw.WriteUint32(o.Flags)
+	xw.WriteUint64(o.MaxVersion)
 	return xw.Tot(), xw.Error()
 }
 
@@ -359,6 +360,7 @@ func (o *Node) UnmarshalXDR(bs []byte) error {
 func (o *Node) decodeXDR(xr *xdr.Reader) error {
 	o.ID = xr.ReadStringMax(64)
 	o.Flags = xr.ReadUint32()
+	o.MaxVersion = xr.ReadUint64()
 	return xr.Error()
 }
 

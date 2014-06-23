@@ -188,6 +188,10 @@ Cluster Config messages MUST NOT be sent after the initial exchange.
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                             Flags                             |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                                                               |
+    +                     Max Version (64 bits)                     +
+    |                                                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
     Option Structure:
@@ -258,6 +262,14 @@ The Node Flags field contains the following single bit flags:
 
 Exactly one of the T, R or S bits MUST be set.
 
+The Node Max Version field contains the highest file version number of
+the files already known to be in the index sent by this node. If nothing
+is known about the index of a given node, this field MUST be set to
+zero. When receiving a Cluster Config message with a non-zero Max
+Version for the local node ID, a node MAY elect to send an Index Update
+message containing only files with higher version numbers in place of
+the initial Index message.
+
 The Options field contain option values to be used in an implementation
 specific manner. The options list is conceptually a map of Key => Value
 items, although it is transmitted in the form of a list of (Key, Value)
@@ -287,6 +299,7 @@ peers acting in a specific manner as a result of sent options.
     struct Node {
         string ID<>;
         unsigned int Flags;
+        unsigned hyper MaxVersion;
     }
 
     struct Option {
@@ -294,12 +307,19 @@ peers acting in a specific manner as a result of sent options.
         string Value<>;
     }
 
-### Index (Type = 1)
+### Index (Type = 1) and Index Update (Type = 6)
 
-The Index message defines the contents of the senders repository. An
-Index message MUST be sent for each repository mentioned in the Cluster
-Config message. An Index message for a repository MUST be sent before
-any other message referring to that repository. A node with no data to
+The Index and Index Update messages define the contents of the senders
+repository. An Index message represents the full contents of the
+repository and thus supersedes any previous index. An Index Update
+amends an existing index with new information, not affecting any entries
+not included in the message. An Index Update MAY NOT be sent unless
+preceded by an Index, unless a non-zero Max Version has been announced
+for the given repository by the peer node.
+
+An Index or Index Update message MUST be sent for each repository
+included in the Cluster Config message, and MUST be sent before any
+other message referring to that repository. A node with no data to
 advertise MUST send an empty Index message (a file list of zero length).
 If the repository contents change from non-empty to empty, an empty
 Index message MUST be sent. There is no response to the Index message.
@@ -538,14 +558,6 @@ firewalls and NAT gateways. The Ping message has no contents.
 
 The Pong message is sent in response to a Ping. The Pong message has no
 contents, but copies the Message ID from the Ping.
-
-### Index Update (Type = 6)
-
-This message has exactly the same structure as the Index message.
-However instead of replacing the contents of the repository in the
-model, the Index Update merely amends it with new or updated file
-information. Any files not mentioned in an Index Update are left
-unchanged.
 
 Sharing Modes
 -------------

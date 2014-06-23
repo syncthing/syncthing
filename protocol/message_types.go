@@ -42,8 +42,9 @@ type Repository struct {
 }
 
 type Node struct {
-	ID    string // max:64
-	Flags uint32
+	ID         string // max:64
+	Flags      uint32
+	MaxVersion uint64
 }
 
 type Option struct {
