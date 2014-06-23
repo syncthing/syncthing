@@ -106,7 +106,6 @@ func (w *Walker) loadIgnoreFiles(dir string, ign map[string][]string) filepath.W
 
 		if pn, sn := filepath.Split(rn); sn == w.IgnoreFile {
 			pn := filepath.Clean(pn)
-			l.Debugf("pn: %q", pn)
 			bs, _ := ioutil.ReadFile(p)
 			lines := bytes.Split(bs, []byte("\n"))
 			var patterns []string
@@ -287,7 +286,6 @@ func (w *Walker) ignoreFile(patterns map[string][]string, file string) bool {
 	for prefix, pats := range patterns {
 		if prefix == "." || prefix == first || strings.HasPrefix(first, fmt.Sprintf("%s%c", prefix, os.PathSeparator)) {
 			for _, pattern := range pats {
-				l.Debugf("%q %q", pattern, last)
 				if match, _ := filepath.Match(pattern, last); match {
 					return true
 				}
