@@ -35,7 +35,7 @@ var DefaultLogger = New()
 
 func New() *Logger {
 	return &Logger{
-		logger: log.New(os.Stderr, "", log.Ltime),
+		logger: log.New(os.Stdout, "", log.Ltime),
 	}
 }
 
