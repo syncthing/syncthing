@@ -370,10 +370,11 @@ func (m *Model) Close(node string, err error) {
 		l.Debugf("%s: %v", node, err)
 	}
 
-	if err != io.EOF {
+	// EOFs (disconnect) are usually nothing to worry about
+	if err != io.EOF && err != io.ErrUnexpectedEOF {
 		l.Warnf("Connection to %s closed: %v", node, err)
-	} else if _, ok := err.(ClusterConfigMismatch); ok {
-		l.Warnf("Connection to %s closed: %v", node, err)
+	} else if debug {
+		l.Debugln("Connection to %s closed: %v", node, err)
 	}
 
 	cid := m.cm.Get(node)
