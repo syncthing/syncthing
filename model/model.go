@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -97,9 +98,16 @@ func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVers
 		sup:           suppressor{threshold: int64(cfg.Options.MaxChangeKbps)},
 	}
 
-	deadlockDetect(&m.rmut, 60*time.Second)
-	deadlockDetect(&m.smut, 60*time.Second)
-	deadlockDetect(&m.pmut, 60*time.Second)
+	var timeout = 20 * 60 // seconds
+	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
+		it, err := strconv.Atoi(t)
+		if err == nil {
+			timeout = it
+		}
+	}
+	deadlockDetect(&m.rmut, time.Duration(timeout)*time.Second)
+	deadlockDetect(&m.smut, time.Duration(timeout)*time.Second)
+	deadlockDetect(&m.pmut, time.Duration(timeout)*time.Second)
 	go m.broadcastIndexLoop()
 	return m
 }

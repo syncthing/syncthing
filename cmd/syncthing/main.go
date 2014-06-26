@@ -115,7 +115,9 @@ The following enviroment variables are interpreted by syncthing:
 
  STCPUPROFILE  Write CPU profile to the specified file.
 
- STGUIASSETS   Directory to load GUI assets from. Overrides compiled in assets.`
+ STGUIASSETS   Directory to load GUI assets from. Overrides compiled in assets.
+
+ STDEADLOCKTIMEOUT  Alter deadlock detection timeout (seconds; default 1200).`
 )
 
 func init() {
