@@ -32,15 +32,18 @@ type address struct {
 }
 
 var (
-	nodes     = make(map[string]node)
-	lock      sync.Mutex
-	queries   = 0
-	announces = 0
-	answered  = 0
-	limited   = 0
-	unknowns  = 0
-	debug     = false
-	limiter   = lru.New(1024)
+	nodes      = make(map[string]node)
+	lock       sync.Mutex
+	queries    = 0
+	announces  = 0
+	answered   = 0
+	limited    = 0
+	unknowns   = 0
+	debug      = false
+	lruSize    = 1024
+	limitAvg   = 1
+	limitBurst = 10
+	limiter    *lru.Cache
 )
 
 func main() {
@@ -54,7 +57,12 @@ func main() {
 	flag.BoolVar(&timestamp, "timestamp", true, "Timestamp the log output")
 	flag.IntVar(&statsIntv, "stats-intv", 0, "Statistics output interval (s)")
 	flag.StringVar(&statsFile, "stats-file", "/var/log/discosrv.stats", "Statistics file name")
+	flag.IntVar(&lruSize, "limit-cache", lruSize, "Limiter cache entries")
+	flag.IntVar(&limitAvg, "limit-avg", limitAvg, "Allowed average package rate, per 10 s")
+	flag.IntVar(&limitBurst, "limit-burst", limitBurst, "Allowed burst size, packets")
 	flag.Parse()
+
+	limiter = lru.New(lruSize)
 
 	log.SetOutput(os.Stdout)
 	if !timestamp {
@@ -130,7 +138,7 @@ func limit(addr *net.UDPAddr) bool {
 			log.Println("New limiter for", key)
 		}
 		// One packet per ten seconds average rate, burst ten packets
-		limiter.Add(key, ratelimit.NewBucket(10*time.Second, 10))
+		limiter.Add(key, ratelimit.NewBucket(10*time.Second/time.Duration(limitAvg), int64(limitBurst)))
 	}
 
 	return false
