@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -14,7 +13,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -28,48 +26,9 @@ var (
 	tpl      *template.Template
 )
 
-type category struct {
-	Key   string
-	Descr string
-	Unit  string
-}
-
-var categories = []category{
-	{Key: "totFiles", Descr: "Files Managed per Node", Unit: ""},
-	{Key: "maxFiles", Descr: "Files in Largest Repo", Unit: ""},
-	{Key: "totMiB", Descr: "Data Managed per Node", Unit: "MiB"},
-	{Key: "maxMiB", Descr: "Data in Largest Repo", Unit: "MiB"},
-	{Key: "numNodes", Descr: "Number of Nodes in Cluster", Unit: ""},
-	{Key: "numRepos", Descr: "Number of Repositories Configured", Unit: ""},
-	{Key: "memoryUsage", Descr: "Memory Usage", Unit: "MiB"},
-	{Key: "memorySize", Descr: "System Memory", Unit: "MiB"},
-	{Key: "sha256Perf", Descr: "SHA-256 Hashing Performance", Unit: "MiB/s"},
-}
-
-var numRe = regexp.MustCompile(`\d\d\d$`)
 var funcs = map[string]interface{}{
-	"number": func(n interface{}) string {
-		var s string
-		switch n := n.(type) {
-		case int:
-			s = fmt.Sprint(n)
-		case float64:
-			s = fmt.Sprintf("%.02f", n)
-		default:
-			return fmt.Sprint(n)
-		}
-
-		var b bytes.Buffer
-		l := len(s)
-		for i := range s {
-			b.Write([]byte{s[i]})
-			if (l-i)%3 == 1 {
-				b.WriteString(",")
-			}
-		}
-		return b.String()
-	},
 	"commatize": commatize,
+	"number":    number,
 }
 
 func main() {
@@ -203,10 +162,24 @@ func fileList() ([]string, error) {
 
 	l := make([]string, 0, len(files))
 	for _, f := range files {
-		l = append(l, f)
+		si, err := os.Stat(f)
+		if err != nil {
+			continue
+		}
+		if time.Since(si.ModTime()) < 24*time.Hour {
+			l = append(l, f)
+		}
 	}
 
 	return l, nil
+}
+
+type category struct {
+	Values [4]float64
+	Key    string
+	Descr  string
+	Unit   string
+	Binary bool
 }
 
 var reportCache map[string]interface{}
@@ -270,21 +243,77 @@ func getReport(key string) map[string]interface{} {
 			maxFiles = append(maxFiles, rep.RepoMaxFiles)
 		}
 		if rep.TotMiB > 0 {
-			totMiB = append(totMiB, rep.TotMiB)
+			totMiB = append(totMiB, rep.TotMiB*(1<<20))
 		}
 		if rep.RepoMaxMiB > 0 {
-			maxMiB = append(maxMiB, rep.RepoMaxMiB)
+			maxMiB = append(maxMiB, rep.RepoMaxMiB*(1<<20))
 		}
 		if rep.MemoryUsageMiB > 0 {
-			memoryUsage = append(memoryUsage, rep.MemoryUsageMiB)
+			memoryUsage = append(memoryUsage, rep.MemoryUsageMiB*(1<<20))
 		}
 		if rep.SHA256Perf > 0 {
-			sha256Perf = append(sha256Perf, rep.SHA256Perf)
+			sha256Perf = append(sha256Perf, rep.SHA256Perf*(1<<20))
 		}
 		if rep.MemorySize > 0 {
-			memorySize = append(memorySize, rep.MemorySize)
+			memorySize = append(memorySize, rep.MemorySize*(1<<20))
 		}
 	}
+
+	var categories []category
+	categories = append(categories, category{
+		Values: statsForInts(totFiles),
+		Descr:  "Files Managed per Node",
+	})
+
+	categories = append(categories, category{
+		Values: statsForInts(maxFiles),
+		Descr:  "Files in Largest Repo",
+	})
+
+	categories = append(categories, category{
+		Values: statsForInts(totMiB),
+		Descr:  "Data Managed per Node",
+		Unit:   "B",
+		Binary: true,
+	})
+
+	categories = append(categories, category{
+		Values: statsForInts(maxMiB),
+		Descr:  "Data in Largest Repo",
+		Unit:   "B",
+		Binary: true,
+	})
+
+	categories = append(categories, category{
+		Values: statsForInts(numNodes),
+		Descr:  "Number of Nodes in Cluster",
+	})
+
+	categories = append(categories, category{
+		Values: statsForInts(numRepos),
+		Descr:  "Number of Repositories Configured",
+	})
+
+	categories = append(categories, category{
+		Values: statsForInts(memoryUsage),
+		Descr:  "Memory Usage",
+		Unit:   "B",
+		Binary: true,
+	})
+
+	categories = append(categories, category{
+		Values: statsForInts(memorySize),
+		Descr:  "System Memory",
+		Unit:   "B",
+		Binary: true,
+	})
+
+	categories = append(categories, category{
+		Values: statsForFloats(sha256Perf),
+		Descr:  "SHA-256 Hashing Performance",
+		Unit:   "B/s",
+		Binary: true,
+	})
 
 	r := make(map[string]interface{})
 	r["key"] = key
@@ -293,83 +322,10 @@ func getReport(key string) map[string]interface{} {
 	r["versions"] = analyticsFor(versions)
 	r["platforms"] = analyticsFor(platforms)
 	r["os"] = analyticsFor(oses)
-	r["numRepos"] = statsForInts(numRepos)
-	r["numNodes"] = statsForInts(numNodes)
-	r["totFiles"] = statsForInts(totFiles)
-	r["maxFiles"] = statsForInts(maxFiles)
-	r["totMiB"] = statsForInts(totMiB)
-	r["maxMiB"] = statsForInts(maxMiB)
-	r["memoryUsage"] = statsForInts(memoryUsage)
-	r["sha256Perf"] = statsForFloats(sha256Perf)
-	r["memorySize"] = statsForInts(memorySize)
 
 	reportCache = r
 
 	return r
-}
-
-type analytic struct {
-	Key        string
-	Count      int
-	Percentage float64
-}
-
-type analyticList []analytic
-
-func (l analyticList) Less(a, b int) bool {
-	return l[b].Count < l[a].Count // inverse
-}
-
-func (l analyticList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
-}
-
-func (l analyticList) Len() int {
-	return len(l)
-}
-
-// Returns a list of frequency analytics for a given list of strings.
-func analyticsFor(ss []string) []analytic {
-	m := make(map[string]int)
-	t := 0
-	for _, s := range ss {
-		m[s]++
-		t++
-	}
-
-	l := make([]analytic, 0, len(m))
-	for k, c := range m {
-		l = append(l, analytic{k, c, 100 * float64(c) / float64(t)})
-	}
-
-	sort.Sort(analyticList(l))
-	return l
-}
-
-func statsForInts(data []int) map[string]int {
-	sort.Ints(data)
-	res := make(map[string]int, 4)
-	if len(data) == 0 {
-		return res
-	}
-	res["fp"] = data[int(float64(len(data))*0.05)]
-	res["med"] = data[len(data)/2]
-	res["nfp"] = data[int(float64(len(data))*0.95)]
-	res["max"] = data[len(data)-1]
-	return res
-}
-
-func statsForFloats(data []float64) map[string]float64 {
-	sort.Float64s(data)
-	res := make(map[string]float64, 4)
-	if len(data) == 0 {
-		return res
-	}
-	res["fp"] = data[int(float64(len(data))*0.05)]
-	res["med"] = data[len(data)/2]
-	res["nfp"] = data[int(float64(len(data))*0.95)]
-	res["max"] = data[len(data)-1]
-	return res
 }
 
 func ensureDir(dir string, mode int) {
@@ -393,28 +349,6 @@ func transformVersion(v string) string {
 		return m[1] + " (+dev)"
 	}
 	return v
-}
-
-// commatize returns a number with sep as thousands separators. Handles
-// integers and plain floats.
-func commatize(sep, s string) string {
-	var b bytes.Buffer
-	fs := strings.SplitN(s, ".", 2)
-
-	l := len(fs[0])
-	for i := range fs[0] {
-		b.Write([]byte{s[i]})
-		if i < l-1 && (l-i)%3 == 1 {
-			b.WriteString(sep)
-		}
-	}
-
-	if len(fs) > 1 && len(fs[1]) > 0 {
-		b.WriteString(".")
-		b.WriteString(fs[1])
-	}
-
-	return b.String()
 }
 
 // timestamp returns a time stamp for the current hour, to be used as a cache key

@@ -30,7 +30,7 @@ found in the LICENSE file.
       <div class="col-md-12">
         <h1>Syncthing Usage Data</h1>
         <p>
-          This is the aggregated usage report data for today and yesterday. Data based on <b>{{.nodes}}</b> nodes that have reported in.
+          This is the aggregated usage report data for the last 24 hours. Data based on <b>{{.nodes}}</b> nodes that have reported in.
         </p>
 
         <table class="table table-striped">
@@ -40,13 +40,13 @@ found in the LICENSE file.
             </tr>
           </thead>
           <tbody>
-            {{range $cat := .categories}}
+            {{range .categories}}
             <tr>
-              <td>{{$cat.Descr}}</td>
-              <td class="text-right">{{index $ $cat.Key "fp" | printf "%v" | commatize " "}} {{$cat.Unit}}</td>
-              <td class="text-right">{{index $ $cat.Key "med" | printf "%v" | commatize " "}} {{$cat.Unit}}</td>
-              <td class="text-right">{{index $ $cat.Key "nfp" | printf "%v" | commatize " "}} {{$cat.Unit}}</td>
-              <td class="text-right">{{index $ $cat.Key "max" | printf "%v" | commatize " "}} {{$cat.Unit}}</td>
+              <td>{{.Descr}}</td>
+              <td class="text-right">{{index .Values 0 | number .Binary | commatize " "}}{{.Unit}}</td>
+              <td class="text-right">{{index .Values 1 | number .Binary | commatize " "}}{{.Unit}}</td>
+              <td class="text-right">{{index .Values 2 | number .Binary | commatize " "}}{{.Unit}}</td>
+              <td class="text-right">{{index .Values 3 | number .Binary | commatize " "}}{{.Unit}}</td>
             </tr>
             {{end}}
           </tbody>
