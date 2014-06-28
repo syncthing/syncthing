@@ -1,16 +1,21 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -20,20 +25,99 @@ var (
 	certFile = flag.String("cert", "", "Certificate file")
 	dbDir    = flag.String("db", "", "Database directory")
 	port     = flag.Int("port", 8443, "Listen port")
+	tpl      *template.Template
 )
+
+type category struct {
+	Key   string
+	Descr string
+	Unit  string
+}
+
+var categories = []category{
+	{Key: "totFiles", Descr: "Files Managed per Node", Unit: ""},
+	{Key: "maxFiles", Descr: "Files in Largest Repo", Unit: ""},
+	{Key: "totMiB", Descr: "Data Managed per Node", Unit: "MiB"},
+	{Key: "maxMiB", Descr: "Data in Largest Repo", Unit: "MiB"},
+	{Key: "numNodes", Descr: "Number of Nodes in Cluster", Unit: ""},
+	{Key: "numRepos", Descr: "Number of Repositories Configured", Unit: ""},
+	{Key: "memoryUsage", Descr: "Memory Usage", Unit: "MiB"},
+	{Key: "memorySize", Descr: "System Memory", Unit: "MiB"},
+	{Key: "sha256Perf", Descr: "SHA-256 Hashing Performance", Unit: "MiB/s"},
+}
+
+var numRe = regexp.MustCompile(`\d\d\d$`)
+var funcs = map[string]interface{}{
+	"number": func(n interface{}) string {
+		var s string
+		switch n := n.(type) {
+		case int:
+			s = fmt.Sprint(n)
+		case float64:
+			s = fmt.Sprintf("%.02f", n)
+		default:
+			return fmt.Sprint(n)
+		}
+
+		var b bytes.Buffer
+		l := len(s)
+		for i := range s {
+			b.Write([]byte{s[i]})
+			if (l-i)%3 == 1 {
+				b.WriteString(",")
+			}
+		}
+		return b.String()
+	},
+	"commatize": commatize,
+}
 
 func main() {
 	flag.Parse()
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
-	http.HandleFunc("/newdata", newDataHandler)
-	http.HandleFunc("/report", reportHandler)
-	http.Handle("/", http.FileServer(http.Dir("static")))
-
-	err := http.ListenAndServeTLS(fmt.Sprintf(":%d", *port), *certFile, *keyFile, nil)
+	fd, err := os.Open("static/index.html")
 	if err != nil {
 		log.Fatal(err)
 	}
+	bs, err := ioutil.ReadAll(fd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fd.Close()
+	tpl = template.Must(template.New("index.html").Funcs(funcs).Parse(string(bs)))
+
+	http.HandleFunc("/", rootHandler)
+	http.HandleFunc("/newdata", newDataHandler)
+	http.HandleFunc("/report", reportHandler)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+
+	err = http.ListenAndServeTLS(fmt.Sprintf(":%d", *port), *certFile, *keyFile, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+		k := timestamp()
+		rep := getReport(k)
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		err := tpl.Execute(w, rep)
+		if err != nil {
+			log.Println(err)
+		}
+	} else {
+		http.Error(w, "Not found", 404)
+	}
+}
+
+func reportHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	k := timestamp()
+	rep := getReport(k)
+	json.NewEncoder(w).Encode(rep)
 }
 
 func newDataHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,10 +176,6 @@ type report struct {
 	MemorySize     int
 }
 
-var cache map[string]interface{}
-var cacheDate string
-var cacheMut sync.Mutex
-
 func fileList() ([]string, error) {
 	files := make(map[string]string)
 	t0 := time.Now().Add(-24 * time.Hour).Format("20060102")
@@ -129,97 +209,141 @@ func fileList() ([]string, error) {
 	return l, nil
 }
 
-func reportHandler(w http.ResponseWriter, r *http.Request) {
-	cd := time.Now().Format("20060102T15")
+var reportCache map[string]interface{}
+var reportMutex sync.Mutex
 
-	cacheMut.Lock()
-	cacheMut.Unlock()
+func getReport(key string) map[string]interface{} {
+	reportMutex.Lock()
+	defer reportMutex.Unlock()
 
-	if cacheDate != cd {
-		cache = make(map[string]interface{})
-
-		files, err := fileList()
-		if err != nil {
-			http.Error(w, "Glob error", 500)
-			return
-		}
-
-		nodes := 0
-		versions := make(map[string]int)
-		platforms := make(map[string]int)
-		var numRepos []int
-		var numNodes []int
-		var totFiles []int
-		var maxFiles []int
-		var totMiB []int
-		var maxMiB []int
-		var memoryUsage []int
-		var sha256Perf []float64
-		var memorySize []int
-
-		for _, fn := range files {
-			f, err := os.Open(fn)
-			if err != nil {
-				continue
-			}
-
-			var rep report
-			err = json.NewDecoder(f).Decode(&rep)
-			if err != nil {
-				continue
-			}
-			f.Close()
-
-			nodes++
-			versions[rep.Version]++
-			platforms[rep.Platform]++
-			if rep.NumRepos > 0 {
-				numRepos = append(numRepos, rep.NumRepos)
-			}
-			if rep.NumNodes > 0 {
-				numNodes = append(numNodes, rep.NumNodes)
-			}
-			if rep.TotFiles > 0 {
-				totFiles = append(totFiles, rep.TotFiles)
-			}
-			if rep.RepoMaxFiles > 0 {
-				maxFiles = append(maxFiles, rep.RepoMaxFiles)
-			}
-			if rep.TotMiB > 0 {
-				totMiB = append(totMiB, rep.TotMiB)
-			}
-			if rep.RepoMaxMiB > 0 {
-				maxMiB = append(maxMiB, rep.RepoMaxMiB)
-			}
-			if rep.MemoryUsageMiB > 0 {
-				memoryUsage = append(memoryUsage, rep.MemoryUsageMiB)
-			}
-			if rep.SHA256Perf > 0 {
-				sha256Perf = append(sha256Perf, rep.SHA256Perf)
-			}
-			if rep.MemorySize > 0 {
-				memorySize = append(memorySize, rep.MemorySize)
-			}
-		}
-
-		cache = make(map[string]interface{})
-		cache["cache"] = cd
-		cache["nodes"] = nodes
-		cache["versions"] = versions
-		cache["platforms"] = platforms
-		cache["numRepos"] = statsForInts(numRepos)
-		cache["numNodes"] = statsForInts(numNodes)
-		cache["totFiles"] = statsForInts(totFiles)
-		cache["maxFiles"] = statsForInts(maxFiles)
-		cache["totMiB"] = statsForInts(totMiB)
-		cache["maxMiB"] = statsForInts(maxMiB)
-		cache["memoryUsage"] = statsForInts(memoryUsage)
-		cache["sha256Perf"] = statsForFloats(sha256Perf)
-		cache["memorySize"] = statsForInts(memorySize)
+	if k := reportCache["key"]; k == key {
+		return reportCache
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cache)
+	files, err := fileList()
+	if err != nil {
+		return nil
+	}
+
+	nodes := 0
+	var versions []string
+	var platforms []string
+	var oses []string
+	var numRepos []int
+	var numNodes []int
+	var totFiles []int
+	var maxFiles []int
+	var totMiB []int
+	var maxMiB []int
+	var memoryUsage []int
+	var sha256Perf []float64
+	var memorySize []int
+
+	for _, fn := range files {
+		f, err := os.Open(fn)
+		if err != nil {
+			continue
+		}
+
+		var rep report
+		err = json.NewDecoder(f).Decode(&rep)
+		if err != nil {
+			continue
+		}
+		f.Close()
+
+		nodes++
+		versions = append(versions, transformVersion(rep.Version))
+		platforms = append(platforms, rep.Platform)
+		ps := strings.Split(rep.Platform, "-")
+		oses = append(oses, ps[0])
+		if rep.NumRepos > 0 {
+			numRepos = append(numRepos, rep.NumRepos)
+		}
+		if rep.NumNodes > 0 {
+			numNodes = append(numNodes, rep.NumNodes)
+		}
+		if rep.TotFiles > 0 {
+			totFiles = append(totFiles, rep.TotFiles)
+		}
+		if rep.RepoMaxFiles > 0 {
+			maxFiles = append(maxFiles, rep.RepoMaxFiles)
+		}
+		if rep.TotMiB > 0 {
+			totMiB = append(totMiB, rep.TotMiB)
+		}
+		if rep.RepoMaxMiB > 0 {
+			maxMiB = append(maxMiB, rep.RepoMaxMiB)
+		}
+		if rep.MemoryUsageMiB > 0 {
+			memoryUsage = append(memoryUsage, rep.MemoryUsageMiB)
+		}
+		if rep.SHA256Perf > 0 {
+			sha256Perf = append(sha256Perf, rep.SHA256Perf)
+		}
+		if rep.MemorySize > 0 {
+			memorySize = append(memorySize, rep.MemorySize)
+		}
+	}
+
+	r := make(map[string]interface{})
+	r["key"] = key
+	r["nodes"] = nodes
+	r["categories"] = categories
+	r["versions"] = analyticsFor(versions)
+	r["platforms"] = analyticsFor(platforms)
+	r["os"] = analyticsFor(oses)
+	r["numRepos"] = statsForInts(numRepos)
+	r["numNodes"] = statsForInts(numNodes)
+	r["totFiles"] = statsForInts(totFiles)
+	r["maxFiles"] = statsForInts(maxFiles)
+	r["totMiB"] = statsForInts(totMiB)
+	r["maxMiB"] = statsForInts(maxMiB)
+	r["memoryUsage"] = statsForInts(memoryUsage)
+	r["sha256Perf"] = statsForFloats(sha256Perf)
+	r["memorySize"] = statsForInts(memorySize)
+
+	reportCache = r
+
+	return r
+}
+
+type analytic struct {
+	Key        string
+	Count      int
+	Percentage float64
+}
+
+type analyticList []analytic
+
+func (l analyticList) Less(a, b int) bool {
+	return l[b].Count < l[a].Count // inverse
+}
+
+func (l analyticList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+
+func (l analyticList) Len() int {
+	return len(l)
+}
+
+// Returns a list of frequency analytics for a given list of strings.
+func analyticsFor(ss []string) []analytic {
+	m := make(map[string]int)
+	t := 0
+	for _, s := range ss {
+		m[s]++
+		t++
+	}
+
+	l := make([]analytic, 0, len(m))
+	for k, c := range m {
+		l = append(l, analytic{k, c, 100 * float64(c) / float64(t)})
+	}
+
+	sort.Sort(analyticList(l))
+	return l
 }
 
 func statsForInts(data []int) map[string]int {
@@ -255,4 +379,45 @@ func ensureDir(dir string, mode int) {
 	} else if mode >= 0 && err == nil && int(fi.Mode()&0777) != mode {
 		os.Chmod(dir, os.FileMode(mode))
 	}
+}
+
+var vRe = regexp.MustCompile(`^(v\d+\.\d+\.\d+)-.+`)
+
+// transformVersion returns a version number formatted correctly, with all
+// development versions aggregated into one.
+func transformVersion(v string) string {
+	if !strings.HasPrefix(v, "v") {
+		v = "v" + v
+	}
+	if m := vRe.FindStringSubmatch(v); len(m) > 0 {
+		return m[1] + " (+dev)"
+	}
+	return v
+}
+
+// commatize returns a number with sep as thousands separators. Handles
+// integers and plain floats.
+func commatize(sep, s string) string {
+	var b bytes.Buffer
+	fs := strings.SplitN(s, ".", 2)
+
+	l := len(fs[0])
+	for i := range fs[0] {
+		b.Write([]byte{s[i]})
+		if i < l-1 && (l-i)%3 == 1 {
+			b.WriteString(sep)
+		}
+	}
+
+	if len(fs) > 1 && len(fs[1]) > 0 {
+		b.WriteString(".")
+		b.WriteString(fs[1])
+	}
+
+	return b.String()
+}
+
+// timestamp returns a time stamp for the current hour, to be used as a cache key
+func timestamp() string {
+	return time.Now().Format("20060102T15")
 }

@@ -4,7 +4,7 @@ Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
 Use of this source code is governed by an MIT-style license that can be
 found in the LICENSE file.
 -->
-<html lang="en" ng-app="reports" ng-controller="ReportsCtrl" class="ng-cloak">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -14,7 +14,8 @@ found in the LICENSE file.
   <link rel="shortcut icon" href="favicon.png">
 
   <title>Syncthing Usage Reports</title>
-  <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <script src="static/bootstrap/js/bootstrap.min.js"></script>
   <style type="text/css">
     body {
       margin: 40px;
@@ -29,7 +30,7 @@ found in the LICENSE file.
       <div class="col-md-12">
         <h1>Syncthing Usage Data</h1>
         <p>
-          This is the aggregated usage report data for today and yesterday. Data based on <b>{{ report.nodes }}</b> nodes that have reported in.
+          This is the aggregated usage report data for today and yesterday. Data based on <b>{{.nodes}}</b> nodes that have reported in.
         </p>
 
         <table class="table table-striped">
@@ -39,13 +40,15 @@ found in the LICENSE file.
             </tr>
           </thead>
           <tbody>
-            <tr ng-repeat="cat in categories">
-              <td>{{cat.descr}}</td>
-              <td class="text-right">{{report[cat.key].fp | number}} {{cat.unit}}</td>
-              <td class="text-right">{{report[cat.key].med | number}} {{cat.unit}}</td>
-              <td class="text-right">{{report[cat.key].nfp | number}} {{cat.unit}}</td>
-              <td class="text-right">{{report[cat.key].max | number}} {{cat.unit}}</td>
+            {{range $cat := .categories}}
+            <tr>
+              <td>{{$cat.Descr}}</td>
+              <td class="text-right">{{index $ $cat.Key "fp" | printf "%v" | commatize " "}} {{$cat.Unit}}</td>
+              <td class="text-right">{{index $ $cat.Key "med" | printf "%v" | commatize " "}} {{$cat.Unit}}</td>
+              <td class="text-right">{{index $ $cat.Key "nfp" | printf "%v" | commatize " "}} {{$cat.Unit}}</td>
+              <td class="text-right">{{index $ $cat.Key "max" | printf "%v" | commatize " "}} {{$cat.Unit}}</td>
             </tr>
+            {{end}}
           </tbody>
         </table>
       </div>
@@ -60,11 +63,13 @@ found in the LICENSE file.
             </tr>
           </thead>
           <tbody>
-            <tr ng-repeat="v in versions">
-              <td>{{v[0]}}</td>
-              <td class="text-right">{{v[1]}}</td>
-              <td class="text-right">{{v[2] | number:2}}%</td>
+            {{range .versions}}
+            <tr>
+              <td>{{.Key}}</td>
+              <td class="text-right">{{.Count}}</td>
+              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
             </tr>
+            {{end}}
           </tbody>
         </table>
       </div>
@@ -76,11 +81,13 @@ found in the LICENSE file.
             </tr>
           </thead>
           <tbody>
-            <tr ng-repeat="p in platforms">
-              <td>{{p[0]}}</td>
-              <td class="text-right">{{p[1]}}</td>
-              <td class="text-right">{{p[2] | number:2}}%</td>
+            {{range .platforms}}
+            <tr>
+              <td>{{.Key}}</td>
+              <td class="text-right">{{.Count}}</td>
+              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
             </tr>
+            {{end}}
           </tbody>
         </table>
       </div>
@@ -92,21 +99,17 @@ found in the LICENSE file.
             </tr>
           </thead>
           <tbody>
-            <tr ng-repeat="p in os">
-              <td>{{p[0]}}</td>
-              <td class="text-right">{{p[1]}}</td>
-              <td class="text-right">{{p[2] | number:2}}%</td>
+            {{range .os}}
+            <tr>
+              <td>{{.Key}}</td>
+              <td class="text-right">{{.Count}}</td>
+              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
             </tr>
+            {{end}}
           </tbody>
         </table>
       </div>
     </div>
   </div>
-
-
-  <script src="angular.min.js"></script>
-  <script src="jquery-2.0.3.min.js"></script>
-  <script src="bootstrap/js/bootstrap.min.js"></script>
-  <script src="app.js"></script>
 </body>
 </html>
