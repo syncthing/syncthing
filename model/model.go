@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -97,9 +98,16 @@ func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVers
 		sup:           suppressor{threshold: int64(cfg.Options.MaxChangeKbps)},
 	}
 
-	deadlockDetect(&m.rmut, 60*time.Second)
-	deadlockDetect(&m.smut, 60*time.Second)
-	deadlockDetect(&m.pmut, 60*time.Second)
+	var timeout = 20 * 60 // seconds
+	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
+		it, err := strconv.Atoi(t)
+		if err == nil {
+			timeout = it
+		}
+	}
+	deadlockDetect(&m.rmut, time.Duration(timeout)*time.Second)
+	deadlockDetect(&m.smut, time.Duration(timeout)*time.Second)
+	deadlockDetect(&m.pmut, time.Duration(timeout)*time.Second)
 	go m.broadcastIndexLoop()
 	return m
 }
@@ -366,15 +374,7 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterCon
 // Close removes the peer from the model and closes the underlying connection if possible.
 // Implements the protocol.Model interface.
 func (m *Model) Close(node protocol.NodeID, err error) {
-	if debug {
-		l.Debugf("%s: %v", node, err)
-	}
-
-	if err != io.EOF {
-		l.Warnf("Connection to %s closed: %v", node, err)
-	} else if _, ok := err.(ClusterConfigMismatch); ok {
-		l.Warnf("Connection to %s closed: %v", node, err)
-	}
+	l.Infof("Connection to %s closed: %v", node, err)
 
 	cid := m.cm.Get(node)
 	m.rmut.RLock()
@@ -857,8 +857,10 @@ func (m *Model) State(repo string) string {
 func (m *Model) Override(repo string) {
 	fs := m.NeedFilesRepo(repo)
 
-	m.rmut.Lock()
+	m.rmut.RLock()
 	r := m.repoFiles[repo]
+	m.rmut.RUnlock()
+
 	for i := range fs {
 		f := &fs[i]
 		h := r.Get(cid.LocalID, f.Name)
@@ -872,7 +874,6 @@ func (m *Model) Override(repo string) {
 		}
 		f.Version = lamport.Default.Tick(f.Version)
 	}
-	m.rmut.Unlock()
 
 	r.Update(cid.LocalID, fs)
 }

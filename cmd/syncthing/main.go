@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"runtime/debug"
 	"runtime/pprof"
@@ -48,6 +49,14 @@ var (
 var l = logger.DefaultLogger
 
 func init() {
+	if Version != "unknown-dev" {
+		// If not a generic dev build, version string should come from git describe
+		exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-\d+-g[0-9a-f]+)?(-dirty)?$`)
+		if !exp.MatchString(Version) {
+			l.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, exp)
+		}
+	}
+
 	stamp, _ := strconv.Atoi(BuildStamp)
 	BuildDate = time.Unix(int64(stamp), 0)
 
@@ -106,7 +115,9 @@ The following enviroment variables are interpreted by syncthing:
 
  STCPUPROFILE  Write CPU profile to the specified file.
 
- STGUIASSETS   Directory to load GUI assets from. Overrides compiled in assets.`
+ STGUIASSETS   Directory to load GUI assets from. Overrides compiled in assets.
+
+ STDEADLOCKTIMEOUT  Alter deadlock detection timeout (seconds; default 1200).`
 )
 
 func init() {
@@ -694,6 +705,9 @@ next:
 					wr = &limitedWriter{conn, rateBucket}
 				}
 				protoConn := protocol.NewConnection(remoteID, conn, wr, m)
+
+				l.Infof("Connection to %s established at %v", remoteID, conn.RemoteAddr())
+
 				m.AddConnection(conn, protoConn)
 				continue next
 			}
