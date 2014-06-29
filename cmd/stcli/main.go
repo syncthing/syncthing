@@ -46,12 +46,12 @@ func connect(target string) {
 		log.Fatal(err)
 	}
 
-	myID := string(certID(cert.Certificate[0]))
+	myID := protocol.NewNodeID(cert.Certificate[0])
 
 	tlsCfg := &tls.Config{
 		Certificates:           []tls.Certificate{cert},
 		NextProtos:             []string{"bep/1.0"},
-		ServerName:             myID,
+		ServerName:             myID.String(),
 		ClientAuth:             tls.RequestClientCert,
 		SessionTicketsDisabled: true,
 		InsecureSkipVerify:     true,
@@ -63,7 +63,7 @@ func connect(target string) {
 		log.Fatal(err)
 	}
 
-	remoteID := certID(conn.ConnectionState().PeerCertificates[0].Raw)
+	remoteID := protocol.NewNodeID(conn.ConnectionState().PeerCertificates[0].Raw)
 
 	pc = protocol.NewConnection(remoteID, conn, conn, Model{})
 
@@ -82,7 +82,7 @@ func prtIndex(files []protocol.FileInfo) {
 	}
 }
 
-func (m Model) Index(nodeID string, repo string, files []protocol.FileInfo) {
+func (m Model) Index(nodeID protocol.NodeID, repo string, files []protocol.FileInfo) {
 	log.Printf("Received index for repo %q", repo)
 	if cmd == "idx" {
 		prtIndex(files)
@@ -121,7 +121,7 @@ func getFile(f protocol.FileInfo) {
 	fd.Close()
 }
 
-func (m Model) IndexUpdate(nodeID string, repo string, files []protocol.FileInfo) {
+func (m Model) IndexUpdate(nodeID protocol.NodeID, repo string, files []protocol.FileInfo) {
 	log.Printf("Received index update for repo %q", repo)
 	if cmd == "idx" {
 		prtIndex(files)
@@ -131,16 +131,16 @@ func (m Model) IndexUpdate(nodeID string, repo string, files []protocol.FileInfo
 	}
 }
 
-func (m Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessage) {
+func (m Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterConfigMessage) {
 	log.Println("Received cluster config")
 	log.Printf("%#v", config)
 }
 
-func (m Model) Request(nodeID, repo string, name string, offset int64, size int) ([]byte, error) {
+func (m Model) Request(nodeID protocol.NodeID, repo string, name string, offset int64, size int) ([]byte, error) {
 	log.Println("Received request")
 	return nil, io.EOF
 }
 
-func (m Model) Close(nodeID string, err error) {
+func (m Model) Close(nodeID protocol.NodeID, err error) {
 	log.Println("Received close")
 }

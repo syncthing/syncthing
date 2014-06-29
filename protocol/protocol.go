@@ -48,19 +48,19 @@ var (
 
 type Model interface {
 	// An index was received from the peer node
-	Index(nodeID string, repo string, files []FileInfo)
+	Index(nodeID NodeID, repo string, files []FileInfo)
 	// An index update was received from the peer node
-	IndexUpdate(nodeID string, repo string, files []FileInfo)
+	IndexUpdate(nodeID NodeID, repo string, files []FileInfo)
 	// A request was made by the peer node
-	Request(nodeID string, repo string, name string, offset int64, size int) ([]byte, error)
+	Request(nodeID NodeID, repo string, name string, offset int64, size int) ([]byte, error)
 	// A cluster configuration message was received
-	ClusterConfig(nodeID string, config ClusterConfigMessage)
+	ClusterConfig(nodeID NodeID, config ClusterConfigMessage)
 	// The peer node closed the connection
-	Close(nodeID string, err error)
+	Close(nodeID NodeID, err error)
 }
 
 type Connection interface {
-	ID() string
+	ID() NodeID
 	Index(repo string, files []FileInfo)
 	Request(repo string, name string, offset int64, size int) ([]byte, error)
 	ClusterConfig(config ClusterConfigMessage)
@@ -68,7 +68,7 @@ type Connection interface {
 }
 
 type rawConnection struct {
-	id       string
+	id       NodeID
 	receiver Model
 
 	reader io.ReadCloser
@@ -102,7 +102,7 @@ const (
 	pingIdleTime = 60 * time.Second
 )
 
-func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver Model) Connection {
+func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver Model) Connection {
 	cr := &countingReader{Reader: reader}
 	cw := &countingWriter{Writer: writer}
 
@@ -139,7 +139,7 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 	return wireFormatConnection{&c}
 }
 
-func (c *rawConnection) ID() string {
+func (c *rawConnection) ID() NodeID {
 	return c.id
 }
 
@@ -295,7 +295,7 @@ func (c *rawConnection) readerLoop() (err error) {
 
 type incomingIndex struct {
 	update bool
-	id     string
+	id     NodeID
 	repo   string
 	files  []FileInfo
 }

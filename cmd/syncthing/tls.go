@@ -11,14 +11,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/base32"
 	"encoding/binary"
 	"encoding/pem"
 	"math/big"
 	mr "math/rand"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -28,14 +26,9 @@ const (
 )
 
 func loadCert(dir string, prefix string) (tls.Certificate, error) {
-	return tls.LoadX509KeyPair(filepath.Join(dir, prefix+"cert.pem"), filepath.Join(dir, prefix+"key.pem"))
-}
-
-func certID(bs []byte) string {
-	hf := sha256.New()
-	hf.Write(bs)
-	id := hf.Sum(nil)
-	return strings.Trim(base32.StdEncoding.EncodeToString(id), "=")
+	cf := filepath.Join(dir, prefix+"cert.pem")
+	kf := filepath.Join(dir, prefix+"key.pem")
+	return tls.LoadX509KeyPair(cf, kf)
 }
 
 func certSeed(bs []byte) int64 {

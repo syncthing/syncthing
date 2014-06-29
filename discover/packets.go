@@ -11,7 +11,7 @@ const (
 
 type QueryV2 struct {
 	Magic  uint32
-	NodeID string // max:64
+	NodeID []byte // max:32
 }
 
 type AnnounceV2 struct {
@@ -21,7 +21,7 @@ type AnnounceV2 struct {
 }
 
 type Node struct {
-	ID        string    // max:64
+	ID        []byte    // max:32
 	Addresses []Address // max:16
 }
 

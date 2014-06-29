@@ -14,11 +14,11 @@ type wireFormatConnection struct {
 	next Connection
 }
 
-func (c wireFormatConnection) ID() string {
+func (c wireFormatConnection) ID() NodeID {
 	return c.next.ID()
 }
 
-func (c wireFormatConnection) Index(node string, fs []FileInfo) {
+func (c wireFormatConnection) Index(repo string, fs []FileInfo) {
 	var myFs = make([]FileInfo, len(fs))
 	copy(myFs, fs)
 
@@ -26,7 +26,7 @@ func (c wireFormatConnection) Index(node string, fs []FileInfo) {
 		myFs[i].Name = norm.NFC.String(filepath.ToSlash(myFs[i].Name))
 	}
 
-	c.next.Index(node, myFs)
+	c.next.Index(repo, myFs)
 }
 
 func (c wireFormatConnection) Request(repo, name string, offset int64, size int) ([]byte, error) {

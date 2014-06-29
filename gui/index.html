@@ -418,8 +418,8 @@ found in the LICENSE file.
           </h4>
         </div>
         <div class="modal-body">
-          <div class="well well-sm text-monospace text-center">{{myID | chunkID}}</div>
-          <img ng-if="myID" class="center-block img-thumbnail" src="qr/{{myID | chunkID}}"/>
+          <div class="well well-sm text-monospace text-center">{{myID}}</div>
+          <img ng-if="myID" class="center-block img-thumbnail" src="qr/{{myID}}"/>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
@@ -442,7 +442,7 @@ found in the LICENSE file.
             <div class="form-group" ng-class="{'has-error': nodeEditor.nodeID.$invalid && nodeEditor.nodeID.$dirty}">
               <label for="nodeID">Node ID</label>
               <input ng-if="!editingExisting" name="nodeID" id="nodeID" class="form-control text-monospace" type="text" ng-model="currentNode.NodeID" required valid-nodeid></input>
-              <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentNode.NodeID | chunkID}}</div>
+              <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentNode.NodeID}}</div>
               <p class="help-block">
                 <span ng-if="nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine">The node ID to enter here can be found in the "Edit > Show ID" dialog on the other node. Spaces and dashes are optional (ignored).
                   <span ng-show="!editingExisting">When adding a new node, keep in mind that <em>this node</em> must be added on the other side too.</span>

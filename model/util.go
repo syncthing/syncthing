@@ -58,12 +58,14 @@ func fileInfoFromFile(f scanner.File) protocol.FileInfo {
 	return pf
 }
 
-func cmMap(cm protocol.ClusterConfigMessage) map[string]map[string]uint32 {
-	m := make(map[string]map[string]uint32)
+func cmMap(cm protocol.ClusterConfigMessage) map[string]map[protocol.NodeID]uint32 {
+	m := make(map[string]map[protocol.NodeID]uint32)
 	for _, repo := range cm.Repositories {
-		m[repo.ID] = make(map[string]uint32)
+		m[repo.ID] = make(map[protocol.NodeID]uint32)
 		for _, node := range repo.Nodes {
-			m[repo.ID][node.ID] = node.Flags
+			var id protocol.NodeID
+			copy(id[:], node.ID)
+			m[repo.ID][id] = node.Flags
 		}
 	}
 	return m
@@ -72,7 +74,7 @@ func cmMap(cm protocol.ClusterConfigMessage) map[string]map[string]uint32 {
 type ClusterConfigMismatch error
 
 // compareClusterConfig returns nil for two equivalent configurations,
-// otherwise a decriptive error
+// otherwise a descriptive error
 func compareClusterConfig(local, remote protocol.ClusterConfigMessage) error {
 	lm := cmMap(local)
 	rm := cmMap(remote)

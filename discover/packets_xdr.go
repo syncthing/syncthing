@@ -1,7 +1,3 @@
-// Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
-// Use of this source code is governed by an MIT-style license that can be
-// found in the LICENSE file.
-
 package discover
 
 import (
@@ -25,10 +21,10 @@ func (o QueryV2) MarshalXDR() []byte {
 
 func (o QueryV2) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint32(o.Magic)
-	if len(o.NodeID) > 64 {
+	if len(o.NodeID) > 32 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
-	xw.WriteString(o.NodeID)
+	xw.WriteBytes(o.NodeID)
 	return xw.Tot(), xw.Error()
 }
 
@@ -45,7 +41,7 @@ func (o *QueryV2) UnmarshalXDR(bs []byte) error {
 
 func (o *QueryV2) decodeXDR(xr *xdr.Reader) error {
 	o.Magic = xr.ReadUint32()
-	o.NodeID = xr.ReadStringMax(64)
+	o.NodeID = xr.ReadBytesMax(32)
 	return xr.Error()
 }
 
@@ -112,10 +108,10 @@ func (o Node) MarshalXDR() []byte {
 }
 
 func (o Node) encodeXDR(xw *xdr.Writer) (int, error) {
-	if len(o.ID) > 64 {
+	if len(o.ID) > 32 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
-	xw.WriteString(o.ID)
+	xw.WriteBytes(o.ID)
 	if len(o.Addresses) > 16 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
@@ -138,7 +134,7 @@ func (o *Node) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *Node) decodeXDR(xr *xdr.Reader) error {
-	o.ID = xr.ReadStringMax(64)
+	o.ID = xr.ReadBytesMax(32)
 	_AddressesSize := int(xr.ReadUint32())
 	if _AddressesSize > 16 {
 		return xdr.ErrElementSizeExceeded

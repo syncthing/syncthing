@@ -1,7 +1,3 @@
-// Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
-// Use of this source code is governed by an MIT-style license that can be
-// found in the LICENSE file.
-
 package protocol
 
 import (
@@ -337,10 +333,10 @@ func (o Node) MarshalXDR() []byte {
 }
 
 func (o Node) encodeXDR(xw *xdr.Writer) (int, error) {
-	if len(o.ID) > 64 {
+	if len(o.ID) > 32 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
-	xw.WriteString(o.ID)
+	xw.WriteBytes(o.ID)
 	xw.WriteUint32(o.Flags)
 	xw.WriteUint64(o.MaxVersion)
 	return xw.Tot(), xw.Error()
@@ -358,7 +354,7 @@ func (o *Node) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *Node) decodeXDR(xr *xdr.Reader) error {
-	o.ID = xr.ReadStringMax(64)
+	o.ID = xr.ReadBytesMax(32)
 	o.Flags = xr.ReadUint32()
 	o.MaxVersion = xr.ReadUint64()
 	return xr.Error()

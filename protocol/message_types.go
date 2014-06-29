@@ -42,7 +42,7 @@ type Repository struct {
 }
 
 type Node struct {
-	ID         string // max:64
+	ID         []byte // max:32
 	Flags      uint32
 	MaxVersion uint64
 }

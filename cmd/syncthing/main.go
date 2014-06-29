@@ -61,7 +61,7 @@ func init() {
 
 var (
 	cfg        config.Configuration
-	myID       string
+	myID       protocol.NodeID
 	confDir    string
 	logFlags   int = log.Ltime
 	rateBucket *ratelimit.Bucket
@@ -181,8 +181,8 @@ func main() {
 		l.FatalErr(err)
 	}
 
-	myID = certID(cert.Certificate[0])
-	l.SetPrefix(fmt.Sprintf("[%s] ", myID[:5]))
+	myID = protocol.NewNodeID(cert.Certificate[0])
+	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
 
 	l.Infoln(LongVersion)
 	l.Infoln("My ID:", myID)
@@ -263,7 +263,7 @@ func main() {
 	tlsCfg := &tls.Config{
 		Certificates:           []tls.Certificate{cert},
 		NextProtos:             []string{"bep/1.0"},
-		ServerName:             myID,
+		ServerName:             myID.String(),
 		ClientAuth:             tls.RequestClientCert,
 		SessionTicketsDisabled: true,
 		InsecureSkipVerify:     true,
@@ -567,7 +567,7 @@ func saveConfig() {
 	saveConfigCh <- struct{}{}
 }
 
-func listenConnect(myID string, m *model.Model, tlsCfg *tls.Config) {
+func listenConnect(myID protocol.NodeID, m *model.Model, tlsCfg *tls.Config) {
 	var conns = make(chan *tls.Conn)
 
 	// Listen
@@ -673,7 +673,7 @@ next:
 			conn.Close()
 			continue
 		}
-		remoteID := certID(certs[0].Raw)
+		remoteID := protocol.NewNodeID(certs[0].Raw)
 
 		if remoteID == myID {
 			l.Infof("Connected to myself (%s) - should not happen", remoteID)

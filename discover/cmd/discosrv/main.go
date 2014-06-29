@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/discover"
+	"github.com/calmh/syncthing/protocol"
 	"github.com/golang/groupcache/lru"
 	"github.com/juju/ratelimit"
 )
@@ -32,7 +33,7 @@ type address struct {
 }
 
 var (
-	nodes      = make(map[string]node)
+	nodes      = make(map[protocol.NodeID]node)
 	lock       sync.Mutex
 	queries    = 0
 	announces  = 0
@@ -182,8 +183,16 @@ func handleAnnounceV2(addr *net.UDPAddr, buf []byte) {
 		updated:   time.Now(),
 	}
 
+	var id protocol.NodeID
+	if len(pkt.This.ID) == 32 {
+		// Raw node ID
+		copy(id[:], pkt.This.ID)
+	} else {
+		id.UnmarshalText(pkt.This.ID)
+	}
+
 	lock.Lock()
-	nodes[pkt.This.ID] = node
+	nodes[id] = node
 	lock.Unlock()
 }
 
@@ -199,8 +208,16 @@ func handleQueryV2(conn *net.UDPConn, addr *net.UDPAddr, buf []byte) {
 		log.Printf("<- %v %#v", addr, pkt)
 	}
 
+	var id protocol.NodeID
+	if len(pkt.NodeID) == 32 {
+		// Raw node ID
+		copy(id[:], pkt.NodeID)
+	} else {
+		id.UnmarshalText(pkt.NodeID)
+	}
+
 	lock.Lock()
-	node, ok := nodes[pkt.NodeID]
+	node, ok := nodes[id]
 	queries++
 	lock.Unlock()
 

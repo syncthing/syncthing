@@ -410,7 +410,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
         $('#editNode').modal('hide');
         nodeCfg = $scope.currentNode;
-        nodeCfg.NodeID = nodeCfg.NodeID.replace(/ /g, '').replace(/-/g, '').toUpperCase().trim();
+        nodeCfg.NodeID = nodeCfg.NodeID.replace(/ /g, '').replace(/-/g, '').toLowerCase().trim();
         nodeCfg.Addresses = nodeCfg.AddressesStr.split(',').map(function (x) { return x.trim(); });
 
         done = false;
@@ -711,7 +711,7 @@ function randomString(len, bits)
         newStr = Math.random().toString(bits).slice(2);
         outStr += newStr.slice(0, Math.min(newStr.length, (len - outStr.length)));
     }
-    return outStr.toUpperCase();
+    return outStr.toLowerCase();
 }
 
 syncthing.filter('natural', function () {
@@ -774,17 +774,6 @@ syncthing.filter('alwaysNumber', function () {
             return 0;
         }
         return input;
-    };
-});
-
-syncthing.filter('chunkID', function () {
-    return function (input) {
-        if (input === undefined)
-            return "";
-        var parts = input.match(/.{1,6}/g);
-        if (!parts)
-            return "";
-        return parts.join('-');
     };
 });
 
@@ -860,8 +849,8 @@ syncthing.directive('validNodeid', function() {
                     // we shouldn't validate
                     ctrl.$setValidity('validNodeid', true);
                 } else {
-                    var cleaned = viewValue.replace(/ /g, '').replace(/-/g, '').toUpperCase().trim();
-                    if (cleaned.match(/^[A-Z2-7]{52}$/)) {
+                    var cleaned = viewValue.replace(/ /g, '').replace(/-/g, '').toLowerCase().trim();
+                    if (cleaned.match(/^[a-z2-7]{52}$/)) {
                         ctrl.$setValidity('validNodeid', true);
                     } else {
                         ctrl.$setValidity('validNodeid', false);

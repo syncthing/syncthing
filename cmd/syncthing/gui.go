@@ -327,7 +327,7 @@ func restGetSystem(w http.ResponseWriter) {
 	runtime.ReadMemStats(&m)
 
 	res := make(map[string]interface{})
-	res["myID"] = myID
+	res["myID"] = myID.String()
 	res["goroutines"] = runtime.NumGoroutine()
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys

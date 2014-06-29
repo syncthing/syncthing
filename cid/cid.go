@@ -5,27 +5,32 @@
 // Package cid provides a manager for mappings between node ID:s and connection ID:s.
 package cid
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/calmh/syncthing/protocol"
+)
 
 type Map struct {
 	sync.Mutex
-	toCid  map[string]uint
-	toName []string
+	toCid  map[protocol.NodeID]uint
+	toName []protocol.NodeID
 }
 
 var (
-	LocalName      = "<local>"
-	LocalID   uint = 0
+	LocalNodeID      = protocol.NodeID{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	LocalID     uint = 0
+	emptyNodeID protocol.NodeID
 )
 
 func NewMap() *Map {
 	return &Map{
-		toCid:  map[string]uint{"<local>": 0},
-		toName: []string{"<local>"},
+		toCid:  map[protocol.NodeID]uint{LocalNodeID: LocalID},
+		toName: []protocol.NodeID{LocalNodeID},
 	}
 }
 
-func (m *Map) Get(name string) uint {
+func (m *Map) Get(name protocol.NodeID) uint {
 	m.Lock()
 	defer m.Unlock()
 
@@ -36,7 +41,7 @@ func (m *Map) Get(name string) uint {
 
 	// Find a free slot to get a new ID
 	for i, n := range m.toName {
-		if n == "" {
+		if n == emptyNodeID {
 			m.toName[i] = name
 			m.toCid[name] = uint(i)
 			return uint(i)
@@ -50,19 +55,19 @@ func (m *Map) Get(name string) uint {
 	return cid
 }
 
-func (m *Map) Name(cid uint) string {
+func (m *Map) Name(cid uint) protocol.NodeID {
 	m.Lock()
 	defer m.Unlock()
 
 	return m.toName[cid]
 }
 
-func (m *Map) Names() []string {
+func (m *Map) Names() []protocol.NodeID {
 	m.Lock()
 
-	var names []string
+	var names []protocol.NodeID
 	for _, name := range m.toName {
-		if name != "" {
+		if name != emptyNodeID {
 			names = append(names, name)
 		}
 	}
@@ -71,11 +76,11 @@ func (m *Map) Names() []string {
 	return names
 }
 
-func (m *Map) Clear(name string) {
+func (m *Map) Clear(name protocol.NodeID) {
 	m.Lock()
 	cid, ok := m.toCid[name]
 	if ok {
-		m.toName[cid] = ""
+		m.toName[cid] = emptyNodeID
 		delete(m.toCid, name)
 	}
 	m.Unlock()

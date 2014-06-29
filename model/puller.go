@@ -21,7 +21,7 @@ import (
 )
 
 type requestResult struct {
-	node     string
+	node     protocol.NodeID
 	file     scanner.File
 	filepath string // full filepath name
 	offset   int64
@@ -39,11 +39,11 @@ type openFile struct {
 	done         bool  // we have sent all requests for this file
 }
 
-type activityMap map[string]int
+type activityMap map[protocol.NodeID]int
 
-func (m activityMap) leastBusyNode(availability uint64, cm *cid.Map) string {
+func (m activityMap) leastBusyNode(availability uint64, cm *cid.Map) protocol.NodeID {
 	var low int = 2<<30 - 1
-	var selected string
+	var selected protocol.NodeID
 	for _, node := range cm.Names() {
 		id := cm.Get(node)
 		if id == cid.LocalID {
@@ -61,7 +61,7 @@ func (m activityMap) leastBusyNode(availability uint64, cm *cid.Map) string {
 	return selected
 }
 
-func (m activityMap) decrease(node string) {
+func (m activityMap) decrease(node protocol.NodeID) {
 	m[node]--
 }
 
@@ -540,7 +540,7 @@ func (p *puller) handleRequestBlock(b bqBlock) bool {
 	of.outstanding++
 	p.openFiles[f.Name] = of
 
-	go func(node string, b bqBlock) {
+	go func(node protocol.NodeID, b bqBlock) {
 		if debug {
 			l.Debugf("pull: requesting %q / %q offset %d size %d from %q outstanding %d", p.repoCfg.ID, f.Name, b.block.Offset, b.block.Size, node, of.outstanding)
 		}

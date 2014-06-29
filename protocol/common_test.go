@@ -24,13 +24,13 @@ func newTestModel() *TestModel {
 	}
 }
 
-func (t *TestModel) Index(nodeID string, repo string, files []FileInfo) {
+func (t *TestModel) Index(nodeID NodeID, repo string, files []FileInfo) {
 }
 
-func (t *TestModel) IndexUpdate(nodeID string, repo string, files []FileInfo) {
+func (t *TestModel) IndexUpdate(nodeID NodeID, repo string, files []FileInfo) {
 }
 
-func (t *TestModel) Request(nodeID, repo, name string, offset int64, size int) ([]byte, error) {
+func (t *TestModel) Request(nodeID NodeID, repo, name string, offset int64, size int) ([]byte, error) {
 	t.repo = repo
 	t.name = name
 	t.offset = offset
@@ -38,11 +38,11 @@ func (t *TestModel) Request(nodeID, repo, name string, offset int64, size int) (
 	return t.data, nil
 }
 
-func (t *TestModel) Close(nodeID string, err error) {
+func (t *TestModel) Close(nodeID NodeID, err error) {
 	close(t.closedCh)
 }
 
-func (t *TestModel) ClusterConfig(nodeID string, config ClusterConfigMessage) {
+func (t *TestModel) ClusterConfig(nodeID NodeID, config ClusterConfigMessage) {
 }
 
 func (t *TestModel) isClosed() bool {

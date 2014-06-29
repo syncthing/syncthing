@@ -17,6 +17,13 @@ import (
 	"github.com/calmh/syncthing/scanner"
 )
 
+var node1, node2 protocol.NodeID
+
+func init() {
+	node1, _ = protocol.NodeIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
+	node2, _ = protocol.NodeIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
+}
+
 var testDataExpected = map[string]scanner.File{
 	"foo": scanner.File{
 		Name:     "foo",
@@ -56,7 +63,7 @@ func TestRequest(t *testing.T) {
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 
-	bs, err := m.Request("some node", "default", "foo", 0, 6)
+	bs, err := m.Request(node1, "default", "foo", 0, 6)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +71,7 @@ func TestRequest(t *testing.T) {
 		t.Errorf("Incorrect data from request: %q", string(bs))
 	}
 
-	bs, err = m.Request("some node", "default", "../walk.go", 0, 6)
+	bs, err = m.Request(node1, "default", "../walk.go", 0, 6)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -95,7 +102,7 @@ func BenchmarkIndex10000(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.Index("42", "default", files)
+		m.Index(node1, "default", files)
 	}
 }
 
@@ -107,7 +114,7 @@ func BenchmarkIndex00100(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.Index("42", "default", files)
+		m.Index(node1, "default", files)
 	}
 }
 
@@ -116,11 +123,11 @@ func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
-	m.Index("42", "default", files)
+	m.Index(node1, "default", files)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate("42", "default", files)
+		m.IndexUpdate(node1, "default", files)
 	}
 }
 
@@ -129,12 +136,12 @@ func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
-	m.Index("42", "default", files)
+	m.Index(node1, "default", files)
 
 	ufiles := genFiles(100)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate("42", "default", ufiles)
+		m.IndexUpdate(node1, "default", ufiles)
 	}
 }
 
@@ -143,17 +150,17 @@ func BenchmarkIndexUpdate10000f00001(b *testing.B) {
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
-	m.Index("42", "default", files)
+	m.Index(node1, "default", files)
 
 	ufiles := genFiles(1)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate("42", "default", ufiles)
+		m.IndexUpdate(node1, "default", ufiles)
 	}
 }
 
 type FakeConnection struct {
-	id          string
+	id          protocol.NodeID
 	requestData []byte
 }
 
@@ -161,8 +168,8 @@ func (FakeConnection) Close() error {
 	return nil
 }
 
-func (f FakeConnection) ID() string {
-	return string(f.id)
+func (f FakeConnection) ID() protocol.NodeID {
+	return f.id
 }
 
 func (f FakeConnection) Option(string) string {
@@ -202,15 +209,15 @@ func BenchmarkRequest(b *testing.B) {
 	}
 
 	fc := FakeConnection{
-		id:          "42",
+		id:          node1,
 		requestData: []byte("some data to return"),
 	}
 	m.AddConnection(fc, fc)
-	m.Index("42", "default", files)
+	m.Index(node1, "default", files)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		data, err := m.requestGlobal("42", "default", files[i%n].Name, 0, 32, nil)
+		data, err := m.requestGlobal(node1, "default", files[i%n].Name, 0, 32, nil)
 		if err != nil {
 			b.Error(err)
 		}
@@ -222,26 +229,26 @@ func BenchmarkRequest(b *testing.B) {
 
 func TestActivityMap(t *testing.T) {
 	cm := cid.NewMap()
-	fooID := cm.Get("foo")
+	fooID := cm.Get(node1)
 	if fooID == 0 {
 		t.Fatal("ID cannot be zero")
 	}
-	barID := cm.Get("bar")
+	barID := cm.Get(node2)
 	if barID == 0 {
 		t.Fatal("ID cannot be zero")
 	}
 
 	m := make(activityMap)
-	if node := m.leastBusyNode(1<<fooID, cm); node != "foo" {
+	if node := m.leastBusyNode(1<<fooID, cm); node != node1 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
-	if node := m.leastBusyNode(1<<barID, cm); node != "bar" {
+	if node := m.leastBusyNode(1<<barID, cm); node != node2 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
-	if node := m.leastBusyNode(1<<fooID|1<<barID, cm); node != "foo" {
+	if node := m.leastBusyNode(1<<fooID|1<<barID, cm); node != node1 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
-	if node := m.leastBusyNode(1<<fooID|1<<barID, cm); node != "bar" {
+	if node := m.leastBusyNode(1<<fooID|1<<barID, cm); node != node2 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
 }

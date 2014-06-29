@@ -1,19 +1,22 @@
 <configuration version="2">
     <repository id="default" directory="s2" ro="false" ignorePerms="false">
-        <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA"></node>
         <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA"></node>
         <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ"></node>
+        <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA"></node>
         <versioning></versioning>
+        <syncorder></syncorder>
     </repository>
     <repository id="s12" directory="s12-2" ro="false" ignorePerms="false">
         <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA"></node>
         <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ"></node>
         <versioning></versioning>
+        <syncorder></syncorder>
     </repository>
     <repository id="s23" directory="s23-2" ro="false" ignorePerms="false">
-        <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA"></node>
         <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ"></node>
+        <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA"></node>
         <versioning></versioning>
+        <syncorder></syncorder>
     </repository>
     <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA" name="s1">
         <address>127.0.0.1:22001</address>
@@ -41,5 +44,6 @@
         <maxChangeKbps>10000</maxChangeKbps>
         <startBrowser>false</startBrowser>
         <upnpEnabled>true</upnpEnabled>
+        <urAccepted>-1</urAccepted>
     </options>
 </configuration>

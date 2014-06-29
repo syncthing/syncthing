@@ -49,8 +49,8 @@ type Model struct {
 
 	repoCfgs   map[string]config.RepositoryConfiguration // repo -> cfg
 	repoFiles  map[string]*files.Set                     // repo -> files
-	repoNodes  map[string][]string                       // repo -> nodeIDs
-	nodeRepos  map[string][]string                       // nodeID -> repos
+	repoNodes  map[string][]protocol.NodeID              // repo -> nodeIDs
+	nodeRepos  map[protocol.NodeID][]string              // nodeID -> repos
 	suppressor map[string]*suppressor                    // repo -> suppressor
 	rmut       sync.RWMutex                              // protects the above
 
@@ -59,9 +59,9 @@ type Model struct {
 
 	cm *cid.Map
 
-	protoConn map[string]protocol.Connection
-	rawConn   map[string]io.Closer
-	nodeVer   map[string]string
+	protoConn map[protocol.NodeID]protocol.Connection
+	rawConn   map[protocol.NodeID]io.Closer
+	nodeVer   map[protocol.NodeID]string
 	pmut      sync.RWMutex // protects protoConn and rawConn
 
 	sup suppressor
@@ -86,14 +86,14 @@ func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVers
 		clientVersion: clientVersion,
 		repoCfgs:      make(map[string]config.RepositoryConfiguration),
 		repoFiles:     make(map[string]*files.Set),
-		repoNodes:     make(map[string][]string),
-		nodeRepos:     make(map[string][]string),
+		repoNodes:     make(map[string][]protocol.NodeID),
+		nodeRepos:     make(map[protocol.NodeID][]string),
 		repoState:     make(map[string]repoState),
 		suppressor:    make(map[string]*suppressor),
 		cm:            cid.NewMap(),
-		protoConn:     make(map[string]protocol.Connection),
-		rawConn:       make(map[string]io.Closer),
-		nodeVer:       make(map[string]string),
+		protoConn:     make(map[protocol.NodeID]protocol.Connection),
+		rawConn:       make(map[protocol.NodeID]io.Closer),
+		nodeVer:       make(map[protocol.NodeID]string),
 		sup:           suppressor{threshold: int64(cfg.Options.MaxChangeKbps)},
 	}
 
@@ -182,7 +182,7 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 			ci.Completion = int(100 * have / tot)
 		}
 
-		res[node] = ci
+		res[node.String()] = ci
 	}
 
 	m.rmut.RUnlock()
@@ -261,7 +261,7 @@ func (m *Model) NeedFilesRepo(repo string) []scanner.File {
 
 // Index is called when a new node is connected and we receive their full index.
 // Implements the protocol.Model interface.
-func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
+func (m *Model) Index(nodeID protocol.NodeID, repo string, fs []protocol.FileInfo) {
 	if debug {
 		l.Debugf("IDX(in): %s %q: %d files", nodeID, repo, len(fs))
 	}
@@ -297,7 +297,7 @@ func (m *Model) Index(nodeID string, repo string, fs []protocol.FileInfo) {
 
 // IndexUpdate is called for incremental updates to connected nodes' indexes.
 // Implements the protocol.Model interface.
-func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) {
+func (m *Model) IndexUpdate(nodeID protocol.NodeID, repo string, fs []protocol.FileInfo) {
 	if debug {
 		l.Debugf("IDXUP(in): %s / %q: %d files", nodeID, repo, len(fs))
 	}
@@ -331,7 +331,7 @@ func (m *Model) IndexUpdate(nodeID string, repo string, fs []protocol.FileInfo) 
 	m.rmut.RUnlock()
 }
 
-func (m *Model) repoSharedWith(repo, nodeID string) bool {
+func (m *Model) repoSharedWith(repo string, nodeID protocol.NodeID) bool {
 	m.rmut.RLock()
 	defer m.rmut.RUnlock()
 	for _, nrepo := range m.nodeRepos[nodeID] {
@@ -342,7 +342,7 @@ func (m *Model) repoSharedWith(repo, nodeID string) bool {
 	return false
 }
 
-func (m *Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessage) {
+func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterConfigMessage) {
 	compErr := compareClusterConfig(m.clusterConfig(nodeID), config)
 	if debug {
 		l.Debugf("ClusterConfig: %s: %#v", nodeID, config)
@@ -365,7 +365,7 @@ func (m *Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessag
 
 // Close removes the peer from the model and closes the underlying connection if possible.
 // Implements the protocol.Model interface.
-func (m *Model) Close(node string, err error) {
+func (m *Model) Close(node protocol.NodeID, err error) {
 	if debug {
 		l.Debugf("%s: %v", node, err)
 	}
@@ -397,7 +397,7 @@ func (m *Model) Close(node string, err error) {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]byte, error) {
+func (m *Model) Request(nodeID protocol.NodeID, repo, name string, offset int64, size int) ([]byte, error) {
 	// Verify that the requested file exists in the local model.
 	m.rmut.RLock()
 	r, ok := m.repoFiles[repo]
@@ -423,7 +423,7 @@ func (m *Model) Request(nodeID, repo, name string, offset int64, size int) ([]by
 		return nil, ErrNoSuchFile
 	}
 
-	if debug && nodeID != "<local>" {
+	if debug && nodeID != cid.LocalNodeID {
 		l.Debugf("REQ(in): %s: %q / %q o=%d s=%d", nodeID, repo, name, offset, size)
 	}
 	m.rmut.RLock()
@@ -489,7 +489,7 @@ func (cf cFiler) CurrentFile(file string) scanner.File {
 }
 
 // ConnectedTo returns true if we are connected to the named node.
-func (m *Model) ConnectedTo(nodeID string) bool {
+func (m *Model) ConnectedTo(nodeID protocol.NodeID) bool {
 	m.pmut.RLock()
 	_, ok := m.protoConn[nodeID]
 	m.pmut.RUnlock()
@@ -560,7 +560,7 @@ func (m *Model) updateLocal(repo string, f scanner.File) {
 	m.rmut.RUnlock()
 }
 
-func (m *Model) requestGlobal(nodeID, repo, name string, offset int64, size int, hash []byte) ([]byte, error) {
+func (m *Model) requestGlobal(nodeID protocol.NodeID, repo, name string, offset int64, size int, hash []byte) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.protoConn[nodeID]
 	m.pmut.RUnlock()
@@ -639,7 +639,7 @@ func (m *Model) AddRepo(cfg config.RepositoryConfiguration) {
 	m.repoFiles[cfg.ID] = files.NewSet()
 	m.suppressor[cfg.ID] = &suppressor{threshold: int64(m.cfg.Options.MaxChangeKbps)}
 
-	m.repoNodes[cfg.ID] = make([]string, len(cfg.Nodes))
+	m.repoNodes[cfg.ID] = make([]protocol.NodeID, len(cfg.Nodes))
 	for i, node := range cfg.Nodes {
 		m.repoNodes[cfg.ID][i] = node.NodeID
 		m.nodeRepos[node.NodeID] = append(m.nodeRepos[node.NodeID], cfg.ID)
@@ -805,7 +805,7 @@ func (m *Model) loadIndex(repo string, dir string) []protocol.FileInfo {
 }
 
 // clusterConfig returns a ClusterConfigMessage that is correct for the given peer node
-func (m *Model) clusterConfig(node string) protocol.ClusterConfigMessage {
+func (m *Model) clusterConfig(node protocol.NodeID) protocol.ClusterConfigMessage {
 	cm := protocol.ClusterConfigMessage{
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
@@ -819,7 +819,7 @@ func (m *Model) clusterConfig(node string) protocol.ClusterConfigMessage {
 		for _, node := range m.repoNodes[repo] {
 			// TODO: Set read only bit when relevant
 			cr.Nodes = append(cr.Nodes, protocol.Node{
-				ID:    node,
+				ID:    node[:],
 				Flags: protocol.FlagShareTrusted,
 			})
 		}
