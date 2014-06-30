@@ -105,7 +105,7 @@ func (r *Reader) ReadUint16() uint16 {
 		return 0
 	}
 
-	v := uint16(r.b[1]) | uint16(r.b[0])<<8
+	v := uint16(r.b[3]) | uint16(r.b[2])<<8
 
 	if debug {
 		dl.Debugf("@0x%x: rd uint16=%d (0x%04x)", s, v, v)
