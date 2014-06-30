@@ -27,6 +27,13 @@ type Writer struct {
 	last time.Time
 }
 
+type AppendWriter []byte
+
+func (w *AppendWriter) Write(bs []byte) (int, error) {
+	*w = append(*w, bs...)
+	return len(bs), nil
+}
+
 func NewWriter(w io.Writer) *Writer {
 	return &Writer{
 		w: w,

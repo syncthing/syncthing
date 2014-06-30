@@ -50,10 +50,10 @@ func (o {{.TypeName}}) EncodeXDR(w io.Writer) (int, error) {
 }//+n
 
 func (o {{.TypeName}}) MarshalXDR() []byte {
-	var buf bytes.Buffer
-	var xw = xdr.NewWriter(&buf)
+	var aw = make(xdr.AppendWriter, 0, 128)
+	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
-	return buf.Bytes()
+	return []byte(aw)
 }//+n
 
 func (o {{.TypeName}}) encodeXDR(xw *xdr.Writer) (int, error) {
@@ -98,8 +98,8 @@ func (o *{{.TypeName}}) DecodeXDR(r io.Reader) error {
 }//+n
 
 func (o *{{.TypeName}}) UnmarshalXDR(bs []byte) error {
-	var buf = bytes.NewBuffer(bs)
-	var xr = xdr.NewReader(buf)
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
 	return o.decodeXDR(xr)
 }//+n
 

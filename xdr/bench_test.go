@@ -5,25 +5,30 @@
 package xdr_test
 
 import (
-	"bytes"
+	"io"
+	"io/ioutil"
 	"testing"
 )
 
 type XDRBenchStruct struct {
-	I1 uint64
-	I2 uint32
-	I3 uint16
-	Bs []byte
-	S  string
+	I1  uint64
+	I2  uint32
+	I3  uint16
+	Bs0 []byte // max:128
+	Bs1 []byte
+	S0  string // max:128
+	S1  string
 }
 
 var res []byte // no to be optimized away
 var s = XDRBenchStruct{
-	I1: 42,
-	I2: 43,
-	I3: 44,
-	Bs: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18},
-	S:  "Hello World!",
+	I1:  42,
+	I2:  43,
+	I3:  44,
+	Bs0: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18},
+	Bs1: []byte{11, 12, 13, 14, 15, 16, 17, 18, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+	S0:  "Hello World! String one.",
+	S1:  "Hello World! String two.",
 }
 var e = s.MarshalXDR()
 
@@ -43,15 +48,40 @@ func BenchmarkThisUnmarshal(b *testing.B) {
 	}
 }
 
-func BenchmarkEncode(b *testing.B) {
-	bs := make([]byte, 0, 65536)
-	buf := bytes.NewBuffer(bs)
-
+func BenchmarkThisEncode(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := s.EncodeXDR(buf)
+		_, err := s.EncodeXDR(ioutil.Discard)
 		if err != nil {
 			b.Fatal(err)
 		}
-		buf.Reset()
+	}
+}
+
+type repeatReader struct {
+	data []byte
+}
+
+func (r *repeatReader) Read(bs []byte) (n int, err error) {
+	if len(bs) > len(r.data) {
+		err = io.EOF
+	}
+	n = copy(bs, r.data)
+	r.data = r.data[n:]
+	return n, err
+}
+
+func (r *repeatReader) Reset(bs []byte) {
+	r.data = bs
+}
+
+func BenchmarkThisDecode(b *testing.B) {
+	rr := &repeatReader{e}
+	var t XDRBenchStruct
+	for i := 0; i < b.N; i++ {
+		err := t.DecodeXDR(rr)
+		if err != nil {
+			b.Fatal(err)
+		}
+		rr.Reset(e)
 	}
 }

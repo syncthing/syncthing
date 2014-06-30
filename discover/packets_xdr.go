@@ -13,10 +13,10 @@ func (o QueryV2) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o QueryV2) MarshalXDR() []byte {
-	var buf bytes.Buffer
-	var xw = xdr.NewWriter(&buf)
+	var aw = make(xdr.AppendWriter, 0, 128)
+	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
-	return buf.Bytes()
+	return []byte(aw)
 }
 
 func (o QueryV2) encodeXDR(xw *xdr.Writer) (int, error) {
@@ -34,8 +34,8 @@ func (o *QueryV2) DecodeXDR(r io.Reader) error {
 }
 
 func (o *QueryV2) UnmarshalXDR(bs []byte) error {
-	var buf = bytes.NewBuffer(bs)
-	var xr = xdr.NewReader(buf)
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
 	return o.decodeXDR(xr)
 }
 
@@ -51,10 +51,10 @@ func (o AnnounceV2) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o AnnounceV2) MarshalXDR() []byte {
-	var buf bytes.Buffer
-	var xw = xdr.NewWriter(&buf)
+	var aw = make(xdr.AppendWriter, 0, 128)
+	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
-	return buf.Bytes()
+	return []byte(aw)
 }
 
 func (o AnnounceV2) encodeXDR(xw *xdr.Writer) (int, error) {
@@ -76,8 +76,8 @@ func (o *AnnounceV2) DecodeXDR(r io.Reader) error {
 }
 
 func (o *AnnounceV2) UnmarshalXDR(bs []byte) error {
-	var buf = bytes.NewBuffer(bs)
-	var xr = xdr.NewReader(buf)
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
 	return o.decodeXDR(xr)
 }
 
@@ -101,10 +101,10 @@ func (o Node) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o Node) MarshalXDR() []byte {
-	var buf bytes.Buffer
-	var xw = xdr.NewWriter(&buf)
+	var aw = make(xdr.AppendWriter, 0, 128)
+	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
-	return buf.Bytes()
+	return []byte(aw)
 }
 
 func (o Node) encodeXDR(xw *xdr.Writer) (int, error) {
@@ -128,8 +128,8 @@ func (o *Node) DecodeXDR(r io.Reader) error {
 }
 
 func (o *Node) UnmarshalXDR(bs []byte) error {
-	var buf = bytes.NewBuffer(bs)
-	var xr = xdr.NewReader(buf)
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
 	return o.decodeXDR(xr)
 }
 
@@ -152,10 +152,10 @@ func (o Address) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o Address) MarshalXDR() []byte {
-	var buf bytes.Buffer
-	var xw = xdr.NewWriter(&buf)
+	var aw = make(xdr.AppendWriter, 0, 128)
+	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
-	return buf.Bytes()
+	return []byte(aw)
 }
 
 func (o Address) encodeXDR(xw *xdr.Writer) (int, error) {
@@ -173,8 +173,8 @@ func (o *Address) DecodeXDR(r io.Reader) error {
 }
 
 func (o *Address) UnmarshalXDR(bs []byte) error {
-	var buf = bytes.NewBuffer(bs)
-	var xr = xdr.NewReader(buf)
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
 	return o.decodeXDR(xr)
 }
 

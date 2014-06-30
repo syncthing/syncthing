@@ -17,6 +17,7 @@ type Reader struct {
 	tot  int
 	err  error
 	b    [8]byte
+	sb   []byte
 	last time.Time
 }
 
@@ -27,11 +28,23 @@ func NewReader(r io.Reader) *Reader {
 }
 
 func (r *Reader) ReadString() string {
-	return string(r.ReadBytes())
+	if r.sb == nil {
+		r.sb = make([]byte, 64)
+	} else {
+		r.sb = r.sb[:cap(r.sb)]
+	}
+	r.sb = r.ReadBytesInto(r.sb)
+	return string(r.sb)
 }
 
 func (r *Reader) ReadStringMax(max int) string {
-	return string(r.ReadBytesMax(max))
+	if r.sb == nil {
+		r.sb = make([]byte, 64)
+	} else {
+		r.sb = r.sb[:cap(r.sb)]
+	}
+	r.sb = r.ReadBytesMaxInto(max, r.sb)
+	return string(r.sb)
 }
 
 func (r *Reader) ReadBytes() []byte {
