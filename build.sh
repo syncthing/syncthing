@@ -139,8 +139,6 @@ case "$1" in
 		assets
 
 		godep go build ./discover/cmd/discosrv
-		godep go build ./cmd/stpidx
-		godep go build ./cmd/stcli
 
 		for os in darwin-amd64 linux-386 linux-amd64 freebsd-amd64 windows-amd64 windows-386 solaris-amd64 ; do
 			export GOOS=${os%-*}
