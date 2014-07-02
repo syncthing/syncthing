@@ -372,6 +372,8 @@ func (m *Model) ClusterConfig(nodeID string, config protocol.ClusterConfigMessag
 		m.nodeVer[nodeID] = config.ClientName + " " + config.ClientVersion
 	}
 	m.pmut.Unlock()
+
+	l.Infof(`Node %s client is "%s %s"`, nodeID, config.ClientName, config.ClientVersion)
 }
 
 // Close removes the peer from the model and closes the underlying connection if possible.
