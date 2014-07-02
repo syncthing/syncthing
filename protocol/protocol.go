@@ -88,11 +88,11 @@ type rawConnection struct {
 	xw   *xdr.Writer
 	wmut sync.Mutex
 
-	indexSent map[string]map[string]uint64
-	awaiting  []chan asyncResult
-	imut      sync.Mutex
+	awaiting []chan asyncResult
+	imut     sync.Mutex
 
-	idxMut sync.Mutex // ensures serialization of Index calls
+	idxSent map[string]map[string]uint64
+	idxMut  sync.Mutex // ensures serialization of Index calls
 
 	nextID chan int
 	outbox chan []encodable
@@ -121,21 +121,21 @@ func NewConnection(nodeID string, reader io.Reader, writer io.Writer, receiver M
 	wb := bufio.NewWriter(flwr)
 
 	c := rawConnection{
-		id:        nodeID,
-		receiver:  nativeModel{receiver},
-		state:     stateInitial,
-		reader:    flrd,
-		cr:        cr,
-		xr:        xdr.NewReader(flrd),
-		writer:    flwr,
-		cw:        cw,
-		wb:        wb,
-		xw:        xdr.NewWriter(wb),
-		awaiting:  make([]chan asyncResult, 0x1000),
-		indexSent: make(map[string]map[string]uint64),
-		outbox:    make(chan []encodable),
-		nextID:    make(chan int),
-		closed:    make(chan struct{}),
+		id:       nodeID,
+		receiver: nativeModel{receiver},
+		state:    stateInitial,
+		reader:   flrd,
+		cr:       cr,
+		xr:       xdr.NewReader(flrd),
+		writer:   flwr,
+		cw:       cw,
+		wb:       wb,
+		xw:       xdr.NewWriter(wb),
+		awaiting: make([]chan asyncResult, 0x1000),
+		idxSent:  make(map[string]map[string]uint64),
+		outbox:   make(chan []encodable),
+		nextID:   make(chan int),
+		closed:   make(chan struct{}),
 	}
 
 	go c.indexSerializerLoop()
@@ -156,29 +156,27 @@ func (c *rawConnection) Index(repo string, idx []FileInfo) {
 	c.idxMut.Lock()
 	defer c.idxMut.Unlock()
 
-	c.imut.Lock()
 	var msgType int
-	if c.indexSent[repo] == nil {
+	if c.idxSent[repo] == nil {
 		// This is the first time we send an index.
 		msgType = messageTypeIndex
 
-		c.indexSent[repo] = make(map[string]uint64)
+		c.idxSent[repo] = make(map[string]uint64)
 		for _, f := range idx {
-			c.indexSent[repo][f.Name] = f.Version
+			c.idxSent[repo][f.Name] = f.Version
 		}
 	} else {
 		// We have sent one full index. Only send updates now.
 		msgType = messageTypeIndexUpdate
 		var diff []FileInfo
 		for _, f := range idx {
-			if vs, ok := c.indexSent[repo][f.Name]; !ok || f.Version != vs {
+			if vs, ok := c.idxSent[repo][f.Name]; !ok || f.Version != vs {
 				diff = append(diff, f)
-				c.indexSent[repo][f.Name] = f.Version
+				c.idxSent[repo][f.Name] = f.Version
 			}
 		}
 		idx = diff
 	}
-	c.imut.Unlock()
 
 	if len(idx) > 0 {
 		c.send(header{0, -1, msgType}, IndexMessage{repo, idx})
