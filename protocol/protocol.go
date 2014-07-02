@@ -178,7 +178,7 @@ func (c *rawConnection) Index(repo string, idx []FileInfo) {
 		idx = diff
 	}
 
-	if len(idx) > 0 {
+	if msgType == messageTypeIndex || len(idx) > 0 {
 		c.send(header{0, -1, msgType}, IndexMessage{repo, idx})
 	}
 }
