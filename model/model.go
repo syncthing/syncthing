@@ -520,7 +520,14 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 			if debug {
 				l.Debugf("IDX(out/initial): %s: %q: %d files", nodeID, repo, len(idx))
 			}
-			protoConn.Index(repo, idx)
+			const batchSize = 1000
+			for i := 0; i < len(idx); i += batchSize {
+				if len(idx[i:]) < batchSize {
+					protoConn.Index(repo, idx[i:])
+				} else {
+					protoConn.Index(repo, idx[i:i+batchSize])
+				}
+			}
 		}
 	}()
 }
