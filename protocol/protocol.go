@@ -332,11 +332,16 @@ func (c *rawConnection) indexSerializerLoop() {
 	// large index update from the other side. But we must also ensure to
 	// process the indexes in the order they are received, hence the separate
 	// routine and buffered channel.
-	for ii := range incomingIndexes {
-		if ii.update {
-			c.receiver.IndexUpdate(ii.id, ii.repo, ii.files)
-		} else {
-			c.receiver.Index(ii.id, ii.repo, ii.files)
+	for {
+		select {
+		case ii := <-incomingIndexes:
+			if ii.update {
+				c.receiver.IndexUpdate(ii.id, ii.repo, ii.files)
+			} else {
+				c.receiver.Index(ii.id, ii.repo, ii.files)
+			}
+		case <-c.closed:
+			return
 		}
 	}
 }
@@ -450,13 +455,18 @@ func (c *rawConnection) send(h header, es ...encodable) bool {
 
 func (c *rawConnection) writerLoop() {
 	var err error
-	for es := range c.outbox {
-		for _, e := range es {
-			e.encodeXDR(c.xw)
-		}
+	for {
+		select {
+		case es := <-c.outbox:
+			for _, e := range es {
+				e.encodeXDR(c.xw)
+			}
 
-		if err = c.flush(); err != nil {
-			c.close(err)
+			if err = c.flush(); err != nil {
+				c.close(err)
+				return
+			}
+		case <-c.closed:
 			return
 		}
 	}
