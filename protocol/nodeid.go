@@ -34,7 +34,11 @@ func NodeIDFromString(s string) (NodeID, error) {
 func (n NodeID) String() string {
 	id := base32.StdEncoding.EncodeToString(n[:])
 	id = strings.Trim(id, "=")
-	id = luhnify(id)
+	id, err := luhnify(id)
+	if err != nil {
+		// Should never happen
+		panic(err)
+	}
 	id = chunkify(id)
 	return id
 }
@@ -84,7 +88,7 @@ func (n *NodeID) UnmarshalText(bs []byte) error {
 	}
 }
 
-func luhnify(s string) string {
+func luhnify(s string) (string, error) {
 	if len(s) != 52 {
 		panic("unsupported string length")
 	}
@@ -92,10 +96,13 @@ func luhnify(s string) string {
 	res := make([]string, 0, 4)
 	for i := 0; i < 4; i++ {
 		p := s[i*13 : (i+1)*13]
-		l := luhn.Base32.Generate(p)
+		l, err := luhn.Base32.Generate(p)
+		if err != nil {
+			return "", err
+		}
 		res = append(res, fmt.Sprintf("%s%c", p, l))
 	}
-	return res[0] + res[1] + res[2] + res[3]
+	return res[0] + res[1] + res[2] + res[3], nil
 }
 
 func unluhnify(s string) (string, error) {
@@ -106,7 +113,10 @@ func unluhnify(s string) (string, error) {
 	res := make([]string, 0, 4)
 	for i := 0; i < 4; i++ {
 		p := s[i*14 : (i+1)*14-1]
-		l := luhn.Base32.Generate(p)
+		l, err := luhn.Base32.Generate(p)
+		if err != nil {
+			return "", err
+		}
 		if g := fmt.Sprintf("%s%c", p, l); g != s[i*14:(i+1)*14] {
 			log.Printf("%q; %q", g, s[i*14:(i+1)*14])
 			return "", errors.New("check digit incorrect")
