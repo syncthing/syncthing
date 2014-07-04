@@ -168,16 +168,21 @@ func (d *Discoverer) sendLocalAnnouncements() {
 }
 
 func (d *Discoverer) sendExternalAnnouncements() {
+	// this should go in the Discoverer struct
+	errorRetryIntv := 60 * time.Second
+
 	remote, err := net.ResolveUDPAddr("udp", d.extServer)
-	if err != nil {
-		l.Warnf("Global discovery: %v; no external announcements", err)
-		return
+	for err != nil {
+		l.Warnf("Global discovery: %v; trying again in %v", err, errorRetryIntv)
+		time.Sleep(errorRetryIntv)
+		remote, err = net.ResolveUDPAddr("udp", d.extServer)
 	}
 
 	conn, err := net.ListenUDP("udp", nil)
-	if err != nil {
-		l.Warnf("Global discovery: %v; no external announcements", err)
-		return
+	for err != nil {
+		l.Warnf("Global discovery: %v; trying again in %v", err, errorRetryIntv)
+		time.Sleep(errorRetryIntv)
+		conn, err = net.ListenUDP("udp", nil)
 	}
 
 	var buf []byte
@@ -198,7 +203,7 @@ func (d *Discoverer) sendExternalAnnouncements() {
 			l.Debugf("discover: send announcement -> %v\n%s", remote, hex.Dump(buf))
 		}
 
-		_, err = conn.WriteTo(buf, remote)
+		_, err := conn.WriteTo(buf, remote)
 		if err != nil {
 			if debug {
 				l.Debugln("discover: warning:", err)
@@ -222,7 +227,7 @@ func (d *Discoverer) sendExternalAnnouncements() {
 		if ok {
 			time.Sleep(d.globalBcastIntv)
 		} else {
-			time.Sleep(60 * time.Second)
+			time.Sleep(errorRetryIntv)
 		}
 	}
 }
