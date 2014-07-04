@@ -483,7 +483,10 @@ func setupUPnP(r rand.Source) int {
 					l.Warnln("Failed to create UPnP port mapping")
 				}
 			} else {
-				l.Infof("No UPnP IGD device found, no port mapping created (%v)", err)
+				l.Infof("No UPnP gateway detected")
+				if debugNet {
+					l.Debugf("UPnP: %v", err)
+				}
 			}
 		}
 	} else {

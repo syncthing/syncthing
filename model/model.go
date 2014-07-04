@@ -98,6 +98,9 @@ func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVers
 		sup:           suppressor{threshold: int64(cfg.Options.MaxChangeKbps)},
 	}
 
+	// TEMP: #344
+	files.SetCM(m.cm)
+
 	var timeout = 20 * 60 // seconds
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
 		it, err := strconv.Atoi(t)
@@ -369,6 +372,8 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterCon
 		m.nodeVer[nodeID] = config.ClientName + " " + config.ClientVersion
 	}
 	m.pmut.Unlock()
+
+	l.Infof(`Node %s client is "%s %s"`, nodeID, config.ClientName, config.ClientVersion)
 }
 
 // Close removes the peer from the model and closes the underlying connection if possible.
@@ -451,19 +456,6 @@ func (m *Model) ReplaceLocal(repo string, fs []scanner.File) {
 	m.rmut.RUnlock()
 }
 
-func (m *Model) SeedLocal(repo string, fs []protocol.FileInfo) {
-	var sfs = make([]scanner.File, len(fs))
-	for i := 0; i < len(fs); i++ {
-		lamport.Default.Tick(fs[i].Version)
-		sfs[i] = fileFromFileInfo(fs[i])
-		sfs[i].Suppressed = false // we might have saved an index with files that were suppressed; the should not be on startup
-	}
-
-	m.rmut.RLock()
-	m.repoFiles[repo].Replace(cid.LocalID, sfs)
-	m.rmut.RUnlock()
-}
-
 func (m *Model) CurrentRepoFile(repo string, file string) scanner.File {
 	m.rmut.RLock()
 	f := m.repoFiles[repo].Get(cid.LocalID, file)
@@ -528,7 +520,14 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 			if debug {
 				l.Debugf("IDX(out/initial): %s: %q: %d files", nodeID, repo, len(idx))
 			}
-			protoConn.Index(repo, idx)
+			const batchSize = 1000
+			for i := 0; i < len(idx); i += batchSize {
+				if len(idx[i:]) < batchSize {
+					protoConn.Index(repo, idx[i:])
+				} else {
+					protoConn.Index(repo, idx[i:i+batchSize])
+				}
+			}
 		}
 	}()
 }
@@ -733,7 +732,15 @@ func (m *Model) LoadIndexes(dir string) {
 	m.rmut.RLock()
 	for repo := range m.repoCfgs {
 		fs := m.loadIndex(repo, dir)
-		m.SeedLocal(repo, fs)
+
+		var sfs = make([]scanner.File, len(fs))
+		for i := 0; i < len(fs); i++ {
+			lamport.Default.Tick(fs[i].Version)
+			sfs[i] = fileFromFileInfo(fs[i])
+			sfs[i].Suppressed = false // we might have saved an index with files that were suppressed; the should not be on startup
+		}
+
+		m.repoFiles[repo].Replace(cid.LocalID, sfs)
 	}
 	m.rmut.RUnlock()
 }

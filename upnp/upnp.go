@@ -203,12 +203,24 @@ func getServiceURL(rootURL string) (string, error) {
 	}
 
 	u, _ := url.Parse(rootURL)
-	if svc.ControlURL[0] == '/' {
-		u.Path = svc.ControlURL
-	} else {
-		u.Path += svc.ControlURL
-	}
+	replaceRawPath(u, svc.ControlURL)
 	return u.String(), nil
+}
+
+func replaceRawPath(u *url.URL, rp string) {
+	var p, q string
+	fs := strings.Split(rp, "?")
+	p = fs[0]
+	if len(fs) > 1 {
+		q = fs[1]
+	}
+
+	if p[0] == '/' {
+		u.Path = p
+	} else {
+		u.Path += p
+	}
+	u.RawQuery = q
 }
 
 func soapRequest(url, function, message string) error {

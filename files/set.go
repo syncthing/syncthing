@@ -49,6 +49,7 @@ func (m *Set) Replace(id uint, fs []scanner.File) {
 	}
 
 	m.Lock()
+	log("Replace", id, len(fs))
 	if len(fs) == 0 || !m.equals(id, fs) {
 		m.changes[id]++
 		m.replace(id, fs)
@@ -65,6 +66,7 @@ func (m *Set) ReplaceWithDelete(id uint, fs []scanner.File) {
 	}
 
 	m.Lock()
+	log("ReplaceWithDelete", id, len(fs))
 	if len(fs) == 0 || !m.equals(id, fs) {
 		m.changes[id]++
 
@@ -102,7 +104,9 @@ func (m *Set) Update(id uint, fs []scanner.File) {
 	if debug {
 		l.Debugf("Update(%d, [%d])", id, len(fs))
 	}
+
 	m.Lock()
+	log("Update", id, len(fs))
 	m.update(id, fs)
 	m.changes[id]++
 	m.Unlock()
@@ -220,6 +224,7 @@ func (m *Set) equals(id uint, fs []scanner.File) bool {
 func (m *Set) update(cid uint, fs []scanner.File) {
 	remFiles := m.remoteKey[cid]
 	if remFiles == nil {
+		printLog()
 		l.Fatalln("update before replace for cid", cid)
 	}
 	for _, f := range fs {
