@@ -92,7 +92,7 @@ func luhnify(s string) string {
 	res := make([]string, 0, 4)
 	for i := 0; i < 4; i++ {
 		p := s[i*13 : (i+1)*13]
-		l := luhn.Base32Trimmed.Generate(p)
+		l := luhn.Base32.Generate(p)
 		res = append(res, fmt.Sprintf("%s%c", p, l))
 	}
 	return res[0] + res[1] + res[2] + res[3]
@@ -106,7 +106,7 @@ func unluhnify(s string) (string, error) {
 	res := make([]string, 0, 4)
 	for i := 0; i < 4; i++ {
 		p := s[i*14 : (i+1)*14-1]
-		l := luhn.Base32Trimmed.Generate(p)
+		l := luhn.Base32.Generate(p)
 		if g := fmt.Sprintf("%s%c", p, l); g != s[i*14:(i+1)*14] {
 			log.Printf("%q; %q", g, s[i*14:(i+1)*14])
 			return "", errors.New("check digit incorrect")
