@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -21,26 +20,37 @@ var csrfMut sync.Mutex
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
 // is currently set.
-func csrfMiddleware(w http.ResponseWriter, r *http.Request) {
-	if validAPIKey(r.Header.Get("X-API-Key")) {
-		return
-	}
+func csrfMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow requests carrying a valid API key
+		if validAPIKey(r.Header.Get("X-API-Key")) {
+			next.ServeHTTP(w, r)
+			return
+		}
 
-	if strings.HasPrefix(r.URL.Path, "/rest/") {
+		// Allow requests for the front page, and set a CSRF cookie if there isn't already a valid one.
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			cookie, err := r.Cookie("CSRF-Token")
+			if err != nil || !validCsrfToken(cookie.Value) {
+				cookie = &http.Cookie{
+					Name:  "CSRF-Token",
+					Value: newCsrfToken(),
+				}
+				http.SetCookie(w, cookie)
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Verify the CSRF token
 		token := r.Header.Get("X-CSRF-Token")
 		if !validCsrfToken(token) {
 			http.Error(w, "CSRF Error", 403)
+			return
 		}
-	} else if r.URL.Path == "/" || r.URL.Path == "/index.html" {
-		cookie, err := r.Cookie("CSRF-Token")
-		if err != nil || !validCsrfToken(cookie.Value) {
-			cookie = &http.Cookie{
-				Name:  "CSRF-Token",
-				Value: newCsrfToken(),
-			}
-			http.SetCookie(w, cookie)
-		}
-	}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func validCsrfToken(token string) bool {
