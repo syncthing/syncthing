@@ -24,7 +24,7 @@ func (o IndexMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteString(o.Repository)
-	if len(o.Files) > 1000000 {
+	if len(o.Files) > 10000000 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteUint32(uint32(len(o.Files)))
@@ -48,7 +48,7 @@ func (o *IndexMessage) UnmarshalXDR(bs []byte) error {
 func (o *IndexMessage) decodeXDR(xr *xdr.Reader) error {
 	o.Repository = xr.ReadStringMax(64)
 	_FilesSize := int(xr.ReadUint32())
-	if _FilesSize > 1000000 {
+	if _FilesSize > 10000000 {
 		return xdr.ErrElementSizeExceeded
 	}
 	o.Files = make([]FileInfo, _FilesSize)
@@ -78,7 +78,7 @@ func (o FileInfo) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint32(o.Flags)
 	xw.WriteUint64(uint64(o.Modified))
 	xw.WriteUint64(o.Version)
-	if len(o.Blocks) > 100000 {
+	if len(o.Blocks) > 1000000 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteUint32(uint32(len(o.Blocks)))
@@ -105,7 +105,7 @@ func (o *FileInfo) decodeXDR(xr *xdr.Reader) error {
 	o.Modified = int64(xr.ReadUint64())
 	o.Version = xr.ReadUint64()
 	_BlocksSize := int(xr.ReadUint32())
-	if _BlocksSize > 100000 {
+	if _BlocksSize > 1000000 {
 		return xdr.ErrElementSizeExceeded
 	}
 	o.Blocks = make([]BlockInfo, _BlocksSize)

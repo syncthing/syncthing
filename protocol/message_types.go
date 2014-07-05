@@ -6,7 +6,7 @@ package protocol
 
 type IndexMessage struct {
 	Repository string     // max:64
-	Files      []FileInfo // max:1000000
+	Files      []FileInfo // max:10000000
 }
 
 type FileInfo struct {
@@ -14,7 +14,7 @@ type FileInfo struct {
 	Flags    uint32
 	Modified int64
 	Version  uint64
-	Blocks   []BlockInfo // max:100000
+	Blocks   []BlockInfo // max:1000000
 }
 
 type BlockInfo struct {

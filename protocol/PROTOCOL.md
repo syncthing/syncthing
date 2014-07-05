@@ -597,9 +597,9 @@ restrictive than the following:
 ### Index and Index Update Messages
 
  - Repository: 64 bytes
- - Number of Files: 1.000.000
+ - Number of Files: 10.000.000
  - Name: 1024 bytes
- - Number of Blocks: 100.000
+ - Number of Blocks: 1.000.000
  - Hash: 64 bytes
 
 ### Request Messages
