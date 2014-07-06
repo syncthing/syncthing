@@ -126,8 +126,9 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		mux.HandleFunc("/", embeddedStatic)
 	}
 
-	// Wrap everything in CSRF protection
-	handler := csrfMiddleware(mux)
+	// Wrap everything in CSRF protection. The /rest prefix should be
+	// protected, other requests will grant cookies.
+	handler := csrfMiddleware("/rest", mux)
 
 	// Wrap everything in basic auth, if user/password is set.
 	if len(cfg.User) > 0 {
