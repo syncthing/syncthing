@@ -8,10 +8,9 @@ package files
 import (
 	"sync"
 
-	"github.com/calmh/syncthing/cid"
-	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type fileRecord struct {
@@ -23,297 +22,97 @@ type fileRecord struct {
 type bitset uint64
 
 type Set struct {
-	sync.Mutex
-	files              map[key]fileRecord
-	remoteKey          [64]map[string]key
-	changes            [64]uint64
-	globalAvailability map[string]bitset
-	globalKey          map[string]key
+	changes map[protocol.NodeID]uint64
+	mutex   sync.RWMutex
+	repo    string
+	db      *leveldb.DB
 }
 
-func NewSet() *Set {
-	var m = Set{
-		files:              make(map[key]fileRecord),
-		globalAvailability: make(map[string]bitset),
-		globalKey:          make(map[string]key),
+func NewSet(repo string, db *leveldb.DB) *Set {
+	var s = Set{
+		changes: make(map[protocol.NodeID]uint64),
+		repo:    repo,
+		db:      db,
 	}
-	return &m
+	return &s
 }
 
-func (m *Set) Replace(id uint, fs []scanner.File) {
+func (s *Set) Replace(node protocol.NodeID, fs []scanner.File) {
 	if debug {
-		l.Debugf("Replace(%d, [%d])", id, len(fs))
+		l.Debugf("%s Replace(%v, [%d])", s.repo, node, len(fs))
 	}
-	if id > 63 {
-		panic("Connection ID must be in the range 0 - 63 inclusive")
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if ldbReplace(s.db, []byte(s.repo), node[:], fs) {
+		s.changes[node]++
 	}
-
-	m.Lock()
-	if len(fs) == 0 || !m.equals(id, fs) {
-		m.changes[id]++
-		m.replace(id, fs)
-	}
-	m.Unlock()
 }
 
-func (m *Set) ReplaceWithDelete(id uint, fs []scanner.File) {
+func (s *Set) ReplaceWithDelete(node protocol.NodeID, fs []scanner.File) {
 	if debug {
-		l.Debugf("ReplaceWithDelete(%d, [%d])", id, len(fs))
+		l.Debugf("%s ReplaceWithDelete(%v, [%d])", s.repo, node, len(fs))
 	}
-	if id > 63 {
-		panic("Connection ID must be in the range 0 - 63 inclusive")
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if ldbReplaceWithDelete(s.db, []byte(s.repo), node[:], fs) {
+		s.changes[node]++
 	}
-
-	m.Lock()
-	if len(fs) == 0 || !m.equals(id, fs) {
-		m.changes[id]++
-
-		var nf = make(map[string]key, len(fs))
-		for _, f := range fs {
-			nf[f.Name] = keyFor(f)
-		}
-
-		// For previously existing files not in the list, add them to the list
-		// with the relevant delete flags etc set. Previously existing files
-		// with the delete bit already set are not modified.
-
-		for _, ck := range m.remoteKey[cid.LocalID] {
-			if _, ok := nf[ck.Name]; !ok {
-				cf := m.files[ck].File
-				if !protocol.IsDeleted(cf.Flags) {
-					cf.Flags |= protocol.FlagDeleted
-					cf.Blocks = nil
-					cf.Size = 0
-					cf.Version = lamport.Default.Tick(cf.Version)
-				}
-				fs = append(fs, cf)
-				if debug {
-					l.Debugln("deleted:", ck.Name)
-				}
-			}
-		}
-
-		m.replace(id, fs)
-	}
-	m.Unlock()
 }
 
-func (m *Set) Update(id uint, fs []scanner.File) {
+func (s *Set) Update(node protocol.NodeID, fs []scanner.File) {
 	if debug {
-		l.Debugf("Update(%d, [%d])", id, len(fs))
+		l.Debugf("%s Update(%v, [%d])", s.repo, node, len(fs))
 	}
-	m.Lock()
-	m.update(id, fs)
-	m.changes[id]++
-	m.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if ldbUpdate(s.db, []byte(s.repo), node[:], fs) {
+		s.changes[node]++
+	}
 }
 
-func (m *Set) Need(id uint) []scanner.File {
+func (s *Set) WithNeed(node protocol.NodeID, fn fileIterator) {
 	if debug {
-		l.Debugf("Need(%d)", id)
+		l.Debugf("%s Need(%v)", s.repo, node)
 	}
-	m.Lock()
-	var fs = make([]scanner.File, 0, len(m.globalKey)/2) // Just a guess, but avoids too many reallocations
-	rkID := m.remoteKey[id]
-	for gk, gf := range m.files {
-		if !gf.Global || gf.File.Suppressed {
-			continue
-		}
-
-		if rk, ok := rkID[gk.Name]; gk.newerThan(rk) {
-			if protocol.IsDeleted(gf.File.Flags) && (!ok || protocol.IsDeleted(m.files[rk].File.Flags)) {
-				// We don't need to delete files we don't have or that are already deleted
-				continue
-			}
-
-			fs = append(fs, gf.File)
-		}
-	}
-	m.Unlock()
-	return fs
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	ldbWithNeed(s.db, []byte(s.repo), node[:], fn)
 }
 
-func (m *Set) Have(id uint) []scanner.File {
+func (s *Set) WithHave(node protocol.NodeID, fn fileIterator) {
 	if debug {
-		l.Debugf("Have(%d)", id)
+		l.Debugf("%s WithHave(%v)", s.repo, node)
 	}
-	var fs = make([]scanner.File, 0, len(m.remoteKey[id]))
-	m.Lock()
-	for _, rk := range m.remoteKey[id] {
-		fs = append(fs, m.files[rk].File)
-	}
-	m.Unlock()
-	return fs
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	ldbWithHave(s.db, []byte(s.repo), node[:], fn)
 }
 
-func (m *Set) Global() []scanner.File {
+func (s *Set) WithGlobal(fn fileIterator) {
 	if debug {
-		l.Debugf("Global()")
+		l.Debugf("%s WithGlobal()", s.repo)
 	}
-	m.Lock()
-	var fs = make([]scanner.File, 0, len(m.globalKey))
-	for _, file := range m.files {
-		if file.Global {
-			fs = append(fs, file.File)
-		}
-	}
-	m.Unlock()
-	return fs
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	ldbWithGlobal(s.db, []byte(s.repo), fn)
 }
 
-func (m *Set) Get(id uint, file string) scanner.File {
-	m.Lock()
-	defer m.Unlock()
-	if debug {
-		l.Debugf("Get(%d, %q)", id, file)
-	}
-	return m.files[m.remoteKey[id][file]].File
+func (s *Set) Get(node protocol.NodeID, file string) scanner.File {
+	return ldbGet(s.db, []byte(s.repo), node[:], []byte(file))
 }
 
-func (m *Set) GetGlobal(file string) scanner.File {
-	m.Lock()
-	defer m.Unlock()
-	if debug {
-		l.Debugf("GetGlobal(%q)", file)
-	}
-	return m.files[m.globalKey[file]].File
+func (s *Set) GetGlobal(file string) scanner.File {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return ldbGetGlobal(s.db, []byte(s.repo), []byte(file))
 }
 
-func (m *Set) Availability(name string) bitset {
-	m.Lock()
-	defer m.Unlock()
-	av := m.globalAvailability[name]
-	if debug {
-		l.Debugf("Availability(%q) = %0x", name, av)
-	}
-	return av
+func (s *Set) Availability(file string) []protocol.NodeID {
+	return ldbAvailability(s.db, []byte(s.repo), []byte(file))
 }
 
-func (m *Set) Changes(id uint) uint64 {
-	m.Lock()
-	defer m.Unlock()
-	if debug {
-		l.Debugf("Changes(%d)", id)
-	}
-	return m.changes[id]
-}
-
-func (m *Set) equals(id uint, fs []scanner.File) bool {
-	curWithoutDeleted := make(map[string]key)
-	for _, k := range m.remoteKey[id] {
-		f := m.files[k].File
-		if !protocol.IsDeleted(f.Flags) {
-			curWithoutDeleted[f.Name] = k
-		}
-	}
-	if len(curWithoutDeleted) != len(fs) {
-		return false
-	}
-	for _, f := range fs {
-		if curWithoutDeleted[f.Name] != keyFor(f) {
-			return false
-		}
-	}
-	return true
-}
-
-func (m *Set) update(cid uint, fs []scanner.File) {
-	remFiles := m.remoteKey[cid]
-	if remFiles == nil {
-		l.Fatalln("update before replace for cid", cid)
-	}
-	for _, f := range fs {
-		n := f.Name
-		fk := keyFor(f)
-
-		if ck, ok := remFiles[n]; ok && ck == fk {
-			// The remote already has exactly this file, skip it
-			continue
-		}
-
-		remFiles[n] = fk
-
-		// Keep the block list or increment the usage
-		if br, ok := m.files[fk]; !ok {
-			m.files[fk] = fileRecord{
-				Usage: 1,
-				File:  f,
-			}
-		} else {
-			br.Usage++
-			m.files[fk] = br
-		}
-
-		// Update global view
-		gk, ok := m.globalKey[n]
-		switch {
-		case ok && fk == gk:
-			av := m.globalAvailability[n]
-			av |= 1 << cid
-			m.globalAvailability[n] = av
-		case fk.newerThan(gk):
-			if ok {
-				f := m.files[gk]
-				f.Global = false
-				m.files[gk] = f
-			}
-			f := m.files[fk]
-			f.Global = true
-			m.files[fk] = f
-			m.globalKey[n] = fk
-			m.globalAvailability[n] = 1 << cid
-		}
-	}
-}
-
-func (m *Set) replace(cid uint, fs []scanner.File) {
-	// Decrement usage for all files belonging to this remote, and remove
-	// those that are no longer needed.
-	for _, fk := range m.remoteKey[cid] {
-		br, ok := m.files[fk]
-		switch {
-		case ok && br.Usage == 1:
-			delete(m.files, fk)
-		case ok && br.Usage > 1:
-			br.Usage--
-			m.files[fk] = br
-		}
-	}
-
-	// Clear existing remote remoteKey
-	m.remoteKey[cid] = make(map[string]key)
-
-	// Recalculate global based on all remaining remoteKey
-	for n := range m.globalKey {
-		var nk key    // newest key
-		var na bitset // newest availability
-
-		for i, rem := range m.remoteKey {
-			if rk, ok := rem[n]; ok {
-				switch {
-				case rk == nk:
-					na |= 1 << uint(i)
-				case rk.newerThan(nk):
-					nk = rk
-					na = 1 << uint(i)
-				}
-			}
-		}
-
-		if na != 0 {
-			// Someone had the file
-			f := m.files[nk]
-			f.Global = true
-			m.files[nk] = f
-			m.globalKey[n] = nk
-			m.globalAvailability[n] = na
-		} else {
-			// Noone had the file
-			delete(m.globalKey, n)
-			delete(m.globalAvailability, n)
-		}
-	}
-
-	// Add new remote remoteKey to the mix
-	m.update(cid, fs)
+func (s *Set) Changes(node protocol.NodeID) uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.changes[node]
 }

@@ -11,10 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/calmh/syncthing/cid"
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 var node1, node2 protocol.NodeID
@@ -59,7 +60,8 @@ func init() {
 }
 
 func TestRequest(t *testing.T) {
-	m := NewModel("/tmp", &config.Configuration{}, "syncthing", "dev")
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel("/tmp", &config.Configuration{}, "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 
@@ -95,7 +97,8 @@ func genFiles(n int) []protocol.FileInfo {
 }
 
 func BenchmarkIndex10000(b *testing.B) {
-	m := NewModel("/tmp", nil, "syncthing", "dev")
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel("/tmp", nil, "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -107,7 +110,8 @@ func BenchmarkIndex10000(b *testing.B) {
 }
 
 func BenchmarkIndex00100(b *testing.B) {
-	m := NewModel("/tmp", nil, "syncthing", "dev")
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel("/tmp", nil, "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(100)
@@ -119,7 +123,8 @@ func BenchmarkIndex00100(b *testing.B) {
 }
 
 func BenchmarkIndexUpdate10000f10000(b *testing.B) {
-	m := NewModel("/tmp", nil, "syncthing", "dev")
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel("/tmp", nil, "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -132,7 +137,8 @@ func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 }
 
 func BenchmarkIndexUpdate10000f00100(b *testing.B) {
-	m := NewModel("/tmp", nil, "syncthing", "dev")
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel("/tmp", nil, "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -146,7 +152,8 @@ func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 }
 
 func BenchmarkIndexUpdate10000f00001(b *testing.B) {
-	m := NewModel("/tmp", nil, "syncthing", "dev")
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel("/tmp", nil, "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -193,7 +200,8 @@ func (FakeConnection) Statistics() protocol.Statistics {
 }
 
 func BenchmarkRequest(b *testing.B) {
-	m := NewModel("/tmp", nil, "syncthing", "dev")
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel("/tmp", nil, "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 
@@ -228,27 +236,17 @@ func BenchmarkRequest(b *testing.B) {
 }
 
 func TestActivityMap(t *testing.T) {
-	cm := cid.NewMap()
-	fooID := cm.Get(node1)
-	if fooID == 0 {
-		t.Fatal("ID cannot be zero")
-	}
-	barID := cm.Get(node2)
-	if barID == 0 {
-		t.Fatal("ID cannot be zero")
-	}
-
 	m := make(activityMap)
-	if node := m.leastBusyNode(1<<fooID, cm); node != node1 {
+	if node := m.leastBusyNode([]protocol.NodeID{node1}); node != node1 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
-	if node := m.leastBusyNode(1<<barID, cm); node != node2 {
+	if node := m.leastBusyNode([]protocol.NodeID{node2}); node != node2 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
-	if node := m.leastBusyNode(1<<fooID|1<<barID, cm); node != node1 {
+	if node := m.leastBusyNode([]protocol.NodeID{node1, node2}); node != node1 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
-	if node := m.leastBusyNode(1<<fooID|1<<barID, cm); node != node2 {
+	if node := m.leastBusyNode([]protocol.NodeID{node1, node2}); node != node2 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
 }

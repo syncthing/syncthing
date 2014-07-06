@@ -1,22 +1,24 @@
 <configuration version="2">
     <repository id="default" directory="s3" ro="false" ignorePerms="false">
-        <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA"></node>
-        <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA"></node>
-        <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ"></node>
+        <node id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></node>
+        <node id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></node>
+        <node id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></node>
         <versioning></versioning>
+        <syncorder></syncorder>
     </repository>
     <repository id="s23" directory="s23-3" ro="false" ignorePerms="false">
-        <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA"></node>
-        <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ"></node>
+        <node id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></node>
+        <node id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></node>
         <versioning></versioning>
+        <syncorder></syncorder>
     </repository>
-    <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA" name="s1">
+    <node id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1">
         <address>127.0.0.1:22001</address>
     </node>
-    <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ" name="s2">
+    <node id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU" name="s2">
         <address>127.0.0.1:22002</address>
     </node>
-    <node id="373HSRPQLPNLIJYKZVQFP4PKZ6R2ZE6K3YD442UJHBGBQGWWXAHA" name="s3">
+    <node id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3">
         <address>127.0.0.1:22003</address>
     </node>
     <gui enabled="true" tls="false">
@@ -36,5 +38,6 @@
         <maxChangeKbps>10000</maxChangeKbps>
         <startBrowser>false</startBrowser>
         <upnpEnabled>true</upnpEnabled>
+        <urAccepted>-1</urAccepted>
     </options>
 </configuration>

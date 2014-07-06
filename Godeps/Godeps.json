@@ -33,12 +33,21 @@
 			"Rev": "9cbe983aed9b0dfc73954433fead5e00866342ac"
 		},
 		{
+			"ImportPath": "code.google.com/p/snappy-go/snappy",
+			"Comment": "null-15",
+			"Rev": "12e4b4183793ac4b061921e7980845e750679fd0"
+		},
+		{
 			"ImportPath": "github.com/golang/groupcache/lru",
 			"Rev": "d781998583680cda80cf61e0b37dd0cd8da2eb52"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
 			"Rev": "cbaa435c80a9716e086f25d409344b26c4039358"
+		},
+		{
+			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
+			"Rev": "ca1565e5fb6658691d7074d270602c9185a55c79"
 		},
 		{
 			"ImportPath": "github.com/vitrun/qart/coding",

@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/calmh/syncthing/cid"
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/osutil"
 	"github.com/calmh/syncthing/protocol"
@@ -32,7 +31,7 @@ type requestResult struct {
 type openFile struct {
 	filepath     string // full filepath name
 	temp         string // temporary filename
-	availability uint64 // availability bitset
+	availability []protocol.NodeID
 	file         *os.File
 	err          error // error when opening or writing to file, all following operations are cancelled
 	outstanding  int   // number of requests we still have outstanding
@@ -41,20 +40,14 @@ type openFile struct {
 
 type activityMap map[protocol.NodeID]int
 
-func (m activityMap) leastBusyNode(availability uint64, cm *cid.Map) protocol.NodeID {
+func (m activityMap) leastBusyNode(availability []protocol.NodeID) protocol.NodeID {
 	var low int = 2<<30 - 1
 	var selected protocol.NodeID
-	for _, node := range cm.Names() {
-		id := cm.Get(node)
-		if id == cid.LocalID {
-			continue
-		}
+	for _, node := range availability {
 		usage := m[node]
-		if availability&(1<<id) != 0 {
-			if usage < low {
-				low = usage
-				selected = node
-			}
+		if usage < low {
+			low = usage
+			selected = node
 		}
 	}
 	m[selected]++
@@ -245,7 +238,7 @@ func (p *puller) fixupDirectories() {
 		}
 
 		if filepath.Base(rn) == ".stversions" {
-			return nil
+			return filepath.SkipDir
 		}
 
 		cur := p.model.CurrentRepoFile(p.repoCfg.ID, rn)
@@ -414,7 +407,7 @@ func (p *puller) handleBlock(b bqBlock) bool {
 			l.Debugf("pull: %q: opening file %q", p.repoCfg.ID, f.Name)
 		}
 
-		of.availability = uint64(p.model.repoFiles[p.repoCfg.ID].Availability(f.Name))
+		of.availability = p.model.repoFiles[p.repoCfg.ID].Availability(f.Name)
 		of.filepath = filepath.Join(p.repoCfg.Directory, f.Name)
 		of.temp = filepath.Join(p.repoCfg.Directory, defTempNamer.TempName(f.Name))
 
@@ -521,7 +514,7 @@ func (p *puller) handleRequestBlock(b bqBlock) bool {
 		panic("bug: request for non-open file")
 	}
 
-	node := p.oustandingPerNode.leastBusyNode(of.availability, p.model.cm)
+	node := p.oustandingPerNode.leastBusyNode(of.availability)
 	if len(node) == 0 {
 		of.err = errNoNode
 		if of.file != nil {

@@ -101,6 +101,31 @@ func (r *Reader) ReadBytesMaxInto(max int, dst []byte) []byte {
 	return dst[:l]
 }
 
+func (r *Reader) ReadBool() bool {
+	if r.err != nil {
+		return false
+	}
+	r.last = time.Now()
+	s := r.tot
+
+	var n int
+	n, r.err = io.ReadFull(r.r, r.b[:4])
+	r.tot += n
+	if r.err != nil {
+		if debug {
+			dl.Debugf("@0x%x: rd bool: %v", r.tot, r.err)
+		}
+		return false
+	}
+
+	v := r.b[3] != 0
+
+	if debug {
+		dl.Debugf("@0x%x: rd bool=%v (0x%04x)", s, v, v)
+	}
+	return v
+}
+
 func (r *Reader) ReadUint16() uint16 {
 	if r.err != nil {
 		return 0

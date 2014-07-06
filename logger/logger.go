@@ -142,6 +142,11 @@ func (l *Logger) Fatalf(format string, vals ...interface{}) {
 
 func (l *Logger) FatalErr(err error) {
 	if err != nil {
-		l.Fatalf(err.Error())
+		l.mut.Lock()
+		defer l.mut.Unlock()
+		l.logger.SetFlags(l.logger.Flags() | log.Lshortfile)
+		l.logger.Output(2, "FATAL: "+err.Error())
+		l.callHandlers(LevelFatal, err.Error())
+		os.Exit(3)
 	}
 }

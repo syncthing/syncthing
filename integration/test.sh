@@ -18,7 +18,7 @@ go build http.go
 start() {
 	echo "Starting..."
 	for i in 1 2 3 4 ; do
-		STPROFILER=":909$i" syncthing -home "h$i" > "$i.out" 2>&1 &
+		STTRACE=files,model,puller STPROFILER=":909$i" syncthing -home "h$i" > "$i.out" 2>&1 &
 	done
 
 	# Test REST API
@@ -131,7 +131,7 @@ alterFiles() {
 	pkill -CONT syncthing
 }
 
-rm -f h?/*.idx.gz
+rm -rf h?/*.idx.gz h?/index
 rm -rf s? s??-? s4d
 
 echo "Setting up files..."

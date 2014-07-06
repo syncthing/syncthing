@@ -34,6 +34,7 @@ import (
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/upnp"
 	"github.com/juju/ratelimit"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 var (
@@ -288,7 +289,16 @@ func main() {
 		rateBucket = ratelimit.NewBucketWithRate(float64(1000*cfg.Options.MaxSendKbps), int64(5*1000*cfg.Options.MaxSendKbps))
 	}
 
-	m := model.NewModel(confDir, &cfg, "syncthing", Version)
+	havePersistentIndex := false
+	if fi, err := os.Stat(filepath.Join(confDir, "index")); err == nil && fi.IsDir() {
+		havePersistentIndex = true
+	}
+
+	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), nil)
+	if err != nil {
+		l.Fatalln("leveldb.OpenFile():", err)
+	}
+	m := model.NewModel(confDir, &cfg, "syncthing", Version, db)
 
 nextRepo:
 	for i, repo := range cfg.Repositories {
@@ -353,11 +363,14 @@ nextRepo:
 	// Walk the repository and update the local model before establishing any
 	// connections to other nodes.
 
-	l.Infoln("Populating repository index")
-	m.LoadIndexes(confDir)
+	if !havePersistentIndex {
+		// There's no new style index, load old ones
+		l.Infoln("Loading legacy index files")
+		m.LoadIndexes(confDir)
+	}
 	m.CleanRepos()
+	l.Infoln("Performing initial repository scan")
 	m.ScanRepos()
-	m.SaveIndexes(confDir)
 
 	// Remove all .idx* files that don't belong to an active repo.
 
@@ -709,7 +722,7 @@ next:
 				}
 				protoConn := protocol.NewConnection(remoteID, conn, wr, m)
 
-				l.Infof("Connection to %s established at %v", remoteID, conn.RemoteAddr())
+				l.Infof("Established secure connection to %s at %v", remoteID, conn.RemoteAddr())
 
 				m.AddConnection(conn, protoConn)
 				continue next

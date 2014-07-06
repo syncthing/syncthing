@@ -17,8 +17,8 @@ type File struct {
 }
 
 func (f File) String() string {
-	return fmt.Sprintf("File{Name:%q, Flags:0%o, Modified:%d, Version:%d, Size:%d, NumBlocks:%d, Sup:%v}",
-		f.Name, f.Flags, f.Modified, f.Version, f.Size, len(f.Blocks), f.Suppressed)
+	return fmt.Sprintf("File{Name:%q, Flags:0%o, Modified:%d, Version:%d, Size:%d, Blocks:%v, Sup:%v}",
+		f.Name, f.Flags, f.Modified, f.Version, f.Size, f.Blocks, f.Suppressed)
 }
 
 func (f File) Equals(o File) bool {

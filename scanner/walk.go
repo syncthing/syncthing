@@ -6,6 +6,7 @@ package scanner
 
 import (
 	"bytes"
+	"code.google.com/p/go.text/unicode/norm"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -14,7 +15,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	"code.google.com/p/go.text/unicode/norm"
 
 	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"

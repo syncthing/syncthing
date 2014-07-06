@@ -7,6 +7,7 @@ package scanner
 import (
 	"bytes"
 	"crypto/sha256"
+	"fmt"
 	"io"
 )
 
@@ -16,6 +17,10 @@ type Block struct {
 	Offset int64
 	Size   uint32
 	Hash   []byte
+}
+
+func (b Block) String() string {
+	return fmt.Sprintf("%d/%d/%x", b.Offset, b.Size, b.Hash)
 }
 
 // Blocks returns the blockwise hash of the reader.
