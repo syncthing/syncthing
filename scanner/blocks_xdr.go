@@ -13,10 +13,14 @@ func (o Block) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o Block) MarshalXDR() []byte {
-	var buf bytes.Buffer
-	var xw = xdr.NewWriter(&buf)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o Block) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
+	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
-	return buf.Bytes()
+	return []byte(aw)
 }
 
 func (o Block) encodeXDR(xw *xdr.Writer) (int, error) {
@@ -32,8 +36,8 @@ func (o *Block) DecodeXDR(r io.Reader) error {
 }
 
 func (o *Block) UnmarshalXDR(bs []byte) error {
-	var buf = bytes.NewBuffer(bs)
-	var xr = xdr.NewReader(buf)
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
 	return o.decodeXDR(xr)
 }
 

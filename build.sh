@@ -98,6 +98,13 @@ setup() {
 	go get -u code.google.com/p/go.tools/cmd/vet
 }
 
+xdr() {
+	go install ./xdr/cmd/genxdr
+	for f in discover/packets files/leveldb protocol/message scanner/blocks scanner/file ; do
+		genxdr "${f}.go" > "${f}_xdr.go"
+	done
+}
+
 case "$1" in
 	"")
 		shift
@@ -199,6 +206,10 @@ case "$1" in
 
 	setup)
 		setup
+		;;
+
+	xdr)
+		xdr
 		;;
 
 	*)

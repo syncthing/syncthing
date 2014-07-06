@@ -13,7 +13,11 @@ func (o IndexMessage) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o IndexMessage) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o IndexMessage) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
@@ -64,7 +68,11 @@ func (o FileInfo) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o FileInfo) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o FileInfo) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
@@ -121,7 +129,11 @@ func (o BlockInfo) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o BlockInfo) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o BlockInfo) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
@@ -159,7 +171,11 @@ func (o RequestMessage) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o RequestMessage) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o RequestMessage) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
@@ -204,7 +220,11 @@ func (o ClusterConfigMessage) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o ClusterConfigMessage) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o ClusterConfigMessage) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
@@ -275,7 +295,11 @@ func (o Repository) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o Repository) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o Repository) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
@@ -326,7 +350,11 @@ func (o Node) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o Node) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o Node) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
@@ -366,7 +394,11 @@ func (o Option) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o Option) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o Option) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)

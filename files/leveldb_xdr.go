@@ -13,7 +13,11 @@ func (o fileVersion) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o fileVersion) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o fileVersion) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
@@ -48,7 +52,11 @@ func (o versionList) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o versionList) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o versionList) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)

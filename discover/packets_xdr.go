@@ -13,7 +13,11 @@ func (o QueryV2) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o QueryV2) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o QueryV2) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
@@ -51,7 +55,11 @@ func (o AnnounceV2) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o AnnounceV2) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o AnnounceV2) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
@@ -101,7 +109,11 @@ func (o Node) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o Node) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o Node) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
@@ -152,7 +164,11 @@ func (o Address) EncodeXDR(w io.Writer) (int, error) {
 }
 
 func (o Address) MarshalXDR() []byte {
-	var aw = make(xdr.AppendWriter, 0, 128)
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o Address) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
