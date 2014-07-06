@@ -265,7 +265,7 @@ func (m *Model) LocalSize(repo string) (files, deleted int, bytes int64) {
 			return true
 		})
 	}
-	return 0, 0, 0
+	return
 }
 
 // NeedSize returns the number and total size of currently needed files.
