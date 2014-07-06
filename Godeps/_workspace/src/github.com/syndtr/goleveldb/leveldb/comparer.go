@@ -9,34 +9,48 @@ package leveldb
 import "github.com/syndtr/goleveldb/leveldb/comparer"
 
 type iComparer struct {
-	cmp comparer.Comparer
+	ucmp comparer.Comparer
 }
 
-func (p *iComparer) Name() string {
-	return p.cmp.Name()
+func (icmp *iComparer) uName() string {
+	return icmp.ucmp.Name()
 }
 
-func (p *iComparer) Compare(a, b []byte) int {
-	ia, ib := iKey(a), iKey(b)
-	r := p.cmp.Compare(ia.ukey(), ib.ukey())
-	if r == 0 {
-		an, bn := ia.num(), ib.num()
-		if an > bn {
-			r = -1
-		} else if an < bn {
-			r = 1
+func (icmp *iComparer) uCompare(a, b []byte) int {
+	return icmp.ucmp.Compare(a, b)
+}
+
+func (icmp *iComparer) uSeparator(dst, a, b []byte) []byte {
+	return icmp.ucmp.Separator(dst, a, b)
+}
+
+func (icmp *iComparer) uSuccessor(dst, b []byte) []byte {
+	return icmp.ucmp.Successor(dst, b)
+}
+
+func (icmp *iComparer) Name() string {
+	return icmp.uName()
+}
+
+func (icmp *iComparer) Compare(a, b []byte) int {
+	x := icmp.ucmp.Compare(iKey(a).ukey(), iKey(b).ukey())
+	if x == 0 {
+		if m, n := iKey(a).num(), iKey(b).num(); m > n {
+			x = -1
+		} else if m < n {
+			x = 1
 		}
 	}
-	return r
+	return x
 }
 
-func (p *iComparer) Separator(dst, a, b []byte) []byte {
+func (icmp *iComparer) Separator(dst, a, b []byte) []byte {
 	ua, ub := iKey(a).ukey(), iKey(b).ukey()
-	dst = p.cmp.Separator(dst, ua, ub)
+	dst = icmp.ucmp.Separator(dst, ua, ub)
 	if dst == nil {
 		return nil
 	}
-	if len(dst) < len(ua) && p.cmp.Compare(ua, dst) < 0 {
+	if len(dst) < len(ua) && icmp.uCompare(ua, dst) < 0 {
 		dst = append(dst, kMaxNumBytes...)
 	} else {
 		// Did not close possibilities that n maybe longer than len(ub).
@@ -45,13 +59,13 @@ func (p *iComparer) Separator(dst, a, b []byte) []byte {
 	return dst
 }
 
-func (p *iComparer) Successor(dst, b []byte) []byte {
+func (icmp *iComparer) Successor(dst, b []byte) []byte {
 	ub := iKey(b).ukey()
-	dst = p.cmp.Successor(dst, ub)
+	dst = icmp.ucmp.Successor(dst, ub)
 	if dst == nil {
 		return nil
 	}
-	if len(dst) < len(ub) && p.cmp.Compare(ub, dst) < 0 {
+	if len(dst) < len(ub) && icmp.uCompare(ub, dst) < 0 {
 		dst = append(dst, kMaxNumBytes...)
 	} else {
 		// Did not close possibilities that n maybe longer than len(ub).

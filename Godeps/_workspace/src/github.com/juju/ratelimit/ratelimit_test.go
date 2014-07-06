@@ -273,7 +273,7 @@ func (rateLimitSuite) TestRate(c *gc.C) {
 	if !isCloseTo(tb.Rate(), 0.5, 0.00001) {
 		c.Fatalf("got %v want 0.5", tb.Rate())
 	}
-	tb = newBucketWithQuantum(100*time.Millisecond, 1, 5)
+	tb = NewBucketWithQuantum(100*time.Millisecond, 1, 5)
 	if !isCloseTo(tb.Rate(), 50, 0.00001) {
 		c.Fatalf("got %v want 50", tb.Rate())
 	}

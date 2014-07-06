@@ -46,7 +46,7 @@ func (d *DB) newMem(n int) (mem *memdb.DB, err error) {
 	d.journalWriter = w
 	d.journalFile = file
 	d.frozenMem = d.mem
-	d.mem = memdb.New(s.cmp, maxInt(d.s.o.GetWriteBuffer(), n))
+	d.mem = memdb.New(s.icmp, maxInt(d.s.o.GetWriteBuffer(), n))
 	mem = d.mem
 	// The seq only incremented by the writer.
 	d.frozenSeq = d.seq

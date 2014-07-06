@@ -10,7 +10,6 @@ import (
 	"errors"
 	"runtime"
 
-	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -35,7 +34,7 @@ func (db *DB) newRawIterator(slice *util.Range, ro *opt.ReadOptions) iterator.It
 	}
 	i = append(i, ti...)
 	strict := s.o.GetStrict(opt.StrictIterator) || ro.GetStrict(opt.StrictIterator)
-	mi := iterator.NewMergedIterator(i, s.cmp, strict)
+	mi := iterator.NewMergedIterator(i, s.icmp, strict)
 	mi.SetReleaser(&versionReleaser{v: v})
 	return mi
 }
@@ -53,7 +52,7 @@ func (db *DB) newIterator(seq uint64, slice *util.Range, ro *opt.ReadOptions) *d
 	}
 	rawIter := db.newRawIterator(slice_, ro)
 	iter := &dbIter{
-		cmp:    db.s.cmp.cmp,
+		icmp:   db.s.icmp,
 		iter:   rawIter,
 		seq:    seq,
 		strict: db.s.o.GetStrict(opt.StrictIterator) || ro.GetStrict(opt.StrictIterator),
@@ -76,7 +75,7 @@ const (
 
 // dbIter represent an interator states over a database session.
 type dbIter struct {
-	cmp    comparer.BasicComparer
+	icmp   *iComparer
 	iter   iterator.Iterator
 	seq    uint64
 	strict bool
@@ -166,7 +165,7 @@ func (i *dbIter) next() bool {
 					i.key = append(i.key[:0], ukey...)
 					i.dir = dirForward
 				case tVal:
-					if i.dir == dirSOI || i.cmp.Compare(ukey, i.key) > 0 {
+					if i.dir == dirSOI || i.icmp.uCompare(ukey, i.key) > 0 {
 						i.key = append(i.key[:0], ukey...)
 						i.value = append(i.value[:0], i.iter.Value()...)
 						i.dir = dirForward
@@ -211,7 +210,7 @@ func (i *dbIter) prev() bool {
 			ukey, seq, t, ok := parseIkey(i.iter.Key())
 			if ok {
 				if seq <= i.seq {
-					if !del && i.cmp.Compare(ukey, i.key) < 0 {
+					if !del && i.icmp.uCompare(ukey, i.key) < 0 {
 						return true
 					}
 					del = (t == tDel)
@@ -252,7 +251,7 @@ func (i *dbIter) Prev() bool {
 		for i.iter.Prev() {
 			ukey, _, _, ok := parseIkey(i.iter.Key())
 			if ok {
-				if i.cmp.Compare(ukey, i.key) < 0 {
+				if i.icmp.uCompare(ukey, i.key) < 0 {
 					goto cont
 				}
 			} else if i.strict {

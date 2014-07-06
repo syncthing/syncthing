@@ -32,8 +32,8 @@ func (s *session) setOptions(o *opt.Options) {
 		s.o.BlockCache = nil
 	}
 	// Comparer.
-	s.cmp = &iComparer{o.GetComparer()}
-	s.o.Comparer = s.cmp
+	s.icmp = &iComparer{o.GetComparer()}
+	s.o.Comparer = s.icmp
 	// Filter.
 	if filter := o.GetFilter(); filter != nil {
 		s.o.Filter = &iFilter{filter}

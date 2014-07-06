@@ -387,7 +387,6 @@ func recoverTable(s *session, o *opt.Options) error {
 
 func (d *DB) recoverJournal() error {
 	s := d.s
-	icmp := s.cmp
 
 	ff0, err := s.getFiles(storage.TypeJournal)
 	if err != nil {
@@ -477,7 +476,7 @@ func (d *DB) recoverJournal() error {
 	// Recover all journals.
 	if len(ff2) > 0 {
 		s.logf("journal@recovery F·%d", len(ff2))
-		mem = memdb.New(icmp, writeBuffer)
+		mem = memdb.New(s.icmp, writeBuffer)
 		for _, file := range ff2 {
 			if err := recoverJournal(file); err != nil {
 				return err
@@ -508,7 +507,6 @@ func (d *DB) recoverJournal() error {
 func (d *DB) get(key []byte, seq uint64, ro *opt.ReadOptions) (value []byte, err error) {
 	s := d.s
 
-	ucmp := s.cmp.cmp
 	ikey := newIKey(key, seq, tSeek)
 
 	em, fm := d.getMems()
@@ -519,7 +517,7 @@ func (d *DB) get(key []byte, seq uint64, ro *opt.ReadOptions) (value []byte, err
 		mk, mv, me := m.Find(ikey)
 		if me == nil {
 			ukey, _, t, ok := parseIkey(mk)
-			if ok && ucmp.Compare(ukey, key) == 0 {
+			if ok && s.icmp.uCompare(ukey, key) == 0 {
 				if t == tDel {
 					return nil, ErrNotFound
 				}
@@ -656,13 +654,13 @@ func (d *DB) GetProperty(name string) (value string, err error) {
 	return
 }
 
-// GetApproximateSizes calculates approximate sizes of the given key ranges.
+// SizeOf calculates approximate sizes of the given key ranges.
 // The length of the returned sizes are equal with the length of the given
 // ranges. The returned sizes measure storage space usage, so if the user
 // data compresses by a factor of ten, the returned sizes will be one-tenth
 // the size of the corresponding user data size.
 // The results may not include the sizes of recently written data.
-func (d *DB) GetApproximateSizes(ranges []util.Range) (Sizes, error) {
+func (d *DB) SizeOf(ranges []util.Range) (Sizes, error) {
 	if err := d.ok(); err != nil {
 		return nil, err
 	}
@@ -674,11 +672,11 @@ func (d *DB) GetApproximateSizes(ranges []util.Range) (Sizes, error) {
 	for _, r := range ranges {
 		min := newIKey(r.Start, kMaxSeq, tSeek)
 		max := newIKey(r.Limit, kMaxSeq, tSeek)
-		start, err := v.getApproximateOffset(min)
+		start, err := v.offsetOf(min)
 		if err != nil {
 			return nil, err
 		}
-		limit, err := v.getApproximateOffset(max)
+		limit, err := v.offsetOf(max)
 		if err != nil {
 			return nil, err
 		}

@@ -13,7 +13,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 )
 
-var icmp = &iComparer{comparer.DefaultComparer}
+var defaultIComparer = &iComparer{comparer.DefaultComparer}
 
 func ikey(key string, seq uint64, t vType) iKey {
 	return newIKey([]byte(key), uint64(seq), t)
@@ -21,7 +21,7 @@ func ikey(key string, seq uint64, t vType) iKey {
 
 func shortSep(a, b []byte) []byte {
 	dst := make([]byte, len(a))
-	dst = icmp.Separator(dst[:0], a, b)
+	dst = defaultIComparer.Separator(dst[:0], a, b)
 	if dst == nil {
 		return a
 	}
@@ -30,7 +30,7 @@ func shortSep(a, b []byte) []byte {
 
 func shortSuccessor(b []byte) []byte {
 	dst := make([]byte, len(b))
-	dst = icmp.Successor(dst[:0], b)
+	dst = defaultIComparer.Successor(dst[:0], b)
 	if dst == nil {
 		return b
 	}

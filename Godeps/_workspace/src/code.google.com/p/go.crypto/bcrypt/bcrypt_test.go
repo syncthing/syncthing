@@ -53,6 +53,15 @@ func TestBcryptingIsCorrect(t *testing.T) {
 	}
 }
 
+func TestVeryShortPasswords(t *testing.T) {
+	key := []byte("k")
+	salt := []byte("XajjQvNhvvRt5GSeFk1xFe")
+	_, err := bcrypt(key, 10, salt)
+	if err != nil {
+		t.Errorf("One byte key resulted in error: %s", err)
+	}
+}
+
 func TestTooLongPasswordsWork(t *testing.T) {
 	salt := []byte("XajjQvNhvvRt5GSeFk1xFe")
 	// One byte over the usual 56 byte limit that blowfish has

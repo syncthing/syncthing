@@ -732,10 +732,10 @@ func (r *Reader) Get(key []byte, ro *opt.ReadOptions) (value []byte, err error) 
 	return
 }
 
-// GetApproximateOffset returns approximate offset for the given key.
+// OffsetOf returns approximate offset for the given key.
 //
 // It is safe to modify the contents of the argument after Get returns.
-func (r *Reader) GetApproximateOffset(key []byte) (offset int64, err error) {
+func (r *Reader) OffsetOf(key []byte) (offset int64, err error) {
 	if r.err != nil {
 		err = r.err
 		return

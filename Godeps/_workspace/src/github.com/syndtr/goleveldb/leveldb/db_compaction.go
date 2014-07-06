@@ -232,7 +232,7 @@ func (d *DB) memCompaction() {
 	// Pause table compaction.
 	ch := make(chan struct{})
 	select {
-	case d.tcompPauseC <- ch:
+	case d.tcompPauseC <- (chan<- struct{})(ch):
 	case _, _ = <-d.closeC:
 		return
 	}
@@ -268,7 +268,7 @@ func (d *DB) memCompaction() {
 	// Drop frozen mem.
 	d.dropFrozenMem()
 
-	// Unpause table compaction.
+	// Resume table compaction.
 	select {
 	case <-ch:
 	case _, _ = <-d.closeC:
@@ -281,7 +281,6 @@ func (d *DB) memCompaction() {
 
 func (d *DB) tableCompaction(c *compaction, noTrivial bool) {
 	s := d.s
-	ucmp := s.cmp.cmp
 
 	rec := new(sessionRecord)
 	rec.addCompactionPointer(c.level, c.max)
@@ -382,7 +381,7 @@ func (d *DB) tableCompaction(c *compaction, noTrivial bool) {
 				hasUkey = false
 				lseq = kMaxSeq
 			} else {
-				if !hasUkey || ucmp.Compare(key.ukey(), ukey) != 0 {
+				if !hasUkey || s.icmp.uCompare(key.ukey(), ukey) != 0 {
 					// First occurrence of this user key
 					ukey = append(ukey[:0], key.ukey()...)
 					hasUkey = true
@@ -499,7 +498,7 @@ func (d *DB) tableRangeCompaction(level int, min, max []byte) {
 		v := s.version_NB()
 		m := 1
 		for i, t := range v.tables[1:] {
-			if t.isOverlaps(min, max, true, s.cmp) {
+			if t.isOverlaps(min, max, true, s.icmp) {
 				m = i + 1
 			}
 		}

@@ -36,7 +36,7 @@ type Bucket struct {
 // maximum capacity. Both arguments must be
 // positive. The bucket is initially full.
 func NewBucket(fillInterval time.Duration, capacity int64) *Bucket {
-	return newBucketWithQuantum(fillInterval, capacity, 1)
+	return NewBucketWithQuantum(fillInterval, capacity, 1)
 }
 
 // rateMargin specifes the allowed variance of actual
@@ -54,7 +54,7 @@ func NewBucketWithRate(rate float64, capacity int64) *Bucket {
 		if fillInterval <= 0 {
 			continue
 		}
-		tb := newBucketWithQuantum(fillInterval, capacity, quantum)
+		tb := NewBucketWithQuantum(fillInterval, capacity, quantum)
 		if diff := abs(tb.Rate() - rate); diff/rate <= rateMargin {
 			return tb
 		}
@@ -73,11 +73,10 @@ func nextQuantum(q int64) int64 {
 	return q1
 }
 
-// newBucketWithQuantum is similar to NewBucket, but allows
+// NewBucketWithQuantum is similar to NewBucket, but allows
 // the specification of the quantum size - quantum tokens
-// are added every fillInterval. This is so that we can get accurate
-// rates even when we want to add more than one token per ns.
-func newBucketWithQuantum(fillInterval time.Duration, capacity, quantum int64) *Bucket {
+// are added every fillInterval.
+func NewBucketWithQuantum(fillInterval time.Duration, capacity, quantum int64) *Bucket {
 	if fillInterval <= 0 {
 		panic("token bucket fill interval is not > 0")
 	}

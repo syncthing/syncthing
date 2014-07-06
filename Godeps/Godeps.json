@@ -9,28 +9,28 @@
 	"Deps": [
 		{
 			"ImportPath": "bitbucket.org/kardianos/osext",
-			"Comment": "null-9",
-			"Rev": "364fb577de68fb646c4cb39cc0e09c887ee16376"
+			"Comment": "null-13",
+			"Rev": "5d3ddcf53a508cc2f7404eaebf546ef2cb5cdb6e"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.crypto/bcrypt",
-			"Comment": "null-185",
-			"Rev": "6478cc9340cbbe6c04511280c5007722269108e9"
+			"Comment": "null-212",
+			"Rev": "1064b89a6fb591df0dd65422295b8498916b092f"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.crypto/blowfish",
-			"Comment": "null-185",
-			"Rev": "6478cc9340cbbe6c04511280c5007722269108e9"
+			"Comment": "null-212",
+			"Rev": "1064b89a6fb591df0dd65422295b8498916b092f"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.text/transform",
-			"Comment": "null-81",
-			"Rev": "9cbe983aed9b0dfc73954433fead5e00866342ac"
+			"Comment": "null-87",
+			"Rev": "c59e4f2f93824f81213799e64c3eead7be24660a"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.text/unicode/norm",
-			"Comment": "null-81",
-			"Rev": "9cbe983aed9b0dfc73954433fead5e00866342ac"
+			"Comment": "null-87",
+			"Rev": "c59e4f2f93824f81213799e64c3eead7be24660a"
 		},
 		{
 			"ImportPath": "code.google.com/p/snappy-go/snappy",
@@ -39,15 +39,15 @@
 		},
 		{
 			"ImportPath": "github.com/golang/groupcache/lru",
-			"Rev": "d781998583680cda80cf61e0b37dd0cd8da2eb52"
+			"Rev": "a531d51b7f9f3dd13c1c2b50d42d739b70442dbb"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
-			"Rev": "cbaa435c80a9716e086f25d409344b26c4039358"
+			"Rev": "f9f36d11773655c0485207f0ad30dc2655f69d56"
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "ca1565e5fb6658691d7074d270602c9185a55c79"
+			"Rev": "e1f2d2bdccd7c62f4d4a29aaf081bf1fc4404f91"
 		},
 		{
 			"ImportPath": "github.com/vitrun/qart/coding",

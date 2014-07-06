@@ -42,6 +42,14 @@ NewBucket returns a new token bucket that fills at the rate of one token every
 fillInterval, up to the given maximum capacity. Both arguments must be positive.
 The bucket is initially full.
 
+#### func  NewBucketWithQuantum
+
+```go
+func NewBucketWithQuantum(fillInterval time.Duration, capacity, quantum int64) *Bucket
+```
+NewBucketWithQuantum is similar to NewBucket, but allows the specification of
+the quantum size - quantum tokens are added every fillInterval.
+
 #### func  NewBucketWithRate
 
 ```go

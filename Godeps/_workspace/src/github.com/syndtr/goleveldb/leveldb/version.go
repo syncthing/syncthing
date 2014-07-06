@@ -91,8 +91,6 @@ func (v *version) release() {
 
 func (v *version) get(key iKey, ro *opt.ReadOptions) (value []byte, cstate bool, err error) {
 	s := v.s
-	icmp := s.cmp
-	ucmp := icmp.cmp
 
 	ukey := key.ukey()
 
@@ -112,8 +110,8 @@ func (v *version) get(key iKey, ro *opt.ReadOptions) (value []byte, cstate bool,
 			// overlap user_key and process them in order from newest to
 			var tmp tFiles
 			for _, t := range ts {
-				if ucmp.Compare(ukey, t.min.ukey()) >= 0 &&
-					ucmp.Compare(ukey, t.max.ukey()) <= 0 {
+				if s.icmp.uCompare(ukey, t.min.ukey()) >= 0 &&
+					s.icmp.uCompare(ukey, t.max.ukey()) <= 0 {
 					tmp = append(tmp, t)
 				}
 			}
@@ -125,8 +123,8 @@ func (v *version) get(key iKey, ro *opt.ReadOptions) (value []byte, cstate bool,
 			tmp.sortByNum()
 			ts = tmp
 		} else {
-			i := ts.searchMax(key, icmp)
-			if i >= len(ts) || ucmp.Compare(ukey, ts[i].min.ukey()) < 0 {
+			i := ts.searchMax(key, s.icmp)
+			if i >= len(ts) || s.icmp.uCompare(ukey, ts[i].min.ukey()) < 0 {
 				continue
 			}
 
@@ -157,7 +155,7 @@ func (v *version) get(key iKey, ro *opt.ReadOptions) (value []byte, cstate bool,
 
 			rkey := iKey(_rkey)
 			if seq, t, ok := rkey.parseNum(); ok {
-				if ucmp.Compare(ukey, rkey.ukey()) == 0 {
+				if s.icmp.uCompare(ukey, rkey.ukey()) == 0 {
 					if level == 0 {
 						if seq >= l0seq {
 							l0found = true
@@ -201,7 +199,6 @@ func (v *version) get(key iKey, ro *opt.ReadOptions) (value []byte, cstate bool,
 
 func (v *version) getIterators(slice *util.Range, ro *opt.ReadOptions) (its []iterator.Iterator) {
 	s := v.s
-	icmp := s.cmp
 
 	// Merge all level zero files together since they may overlap
 	for _, t := range v.tables[0] {
@@ -215,7 +212,7 @@ func (v *version) getIterators(slice *util.Range, ro *opt.ReadOptions) (its []it
 			continue
 		}
 
-		it := iterator.NewIndexedIterator(tt.newIndexIterator(s.tops, icmp, slice, ro), strict, true)
+		it := iterator.NewIndexedIterator(tt.newIndexIterator(s.tops, s.icmp, slice, ro), strict, true)
 		its = append(its, it)
 	}
 
@@ -245,16 +242,13 @@ func (v *version) tLen(level int) int {
 	return len(v.tables[level])
 }
 
-func (v *version) getApproximateOffset(key iKey) (n uint64, err error) {
-	icmp := v.s.cmp
-	tops := v.s.tops
-
+func (v *version) offsetOf(key iKey) (n uint64, err error) {
 	for level, tt := range v.tables {
 		for _, t := range tt {
-			if icmp.Compare(t.max, key) <= 0 {
+			if v.s.icmp.Compare(t.max, key) <= 0 {
 				// Entire file is before "key", so just add the file size
 				n += t.size
-			} else if icmp.Compare(t.min, key) > 0 {
+			} else if v.s.icmp.Compare(t.min, key) > 0 {
 				// Entire file is after "key", so ignore
 				if level > 0 {
 					// Files other than level 0 are sorted by meta->min, so
@@ -266,7 +260,7 @@ func (v *version) getApproximateOffset(key iKey) (n uint64, err error) {
 				// "key" falls in the range for this table.  Add the
 				// approximate offset of "key" within the table.
 				var nn uint64
-				nn, err = tops.getApproximateOffset(t, key)
+				nn, err = v.s.tops.offsetOf(t, key)
 				if err != nil {
 					return 0, err
 				}
@@ -279,16 +273,13 @@ func (v *version) getApproximateOffset(key iKey) (n uint64, err error) {
 }
 
 func (v *version) pickLevel(min, max []byte) (level int) {
-	icmp := v.s.cmp
-	ucmp := icmp.cmp
-
-	if !v.tables[0].isOverlaps(min, max, false, icmp) {
+	if !v.tables[0].isOverlaps(min, max, false, v.s.icmp) {
 		var r tFiles
 		for ; level < kMaxMemCompactLevel; level++ {
-			if v.tables[level+1].isOverlaps(min, max, true, icmp) {
+			if v.tables[level+1].isOverlaps(min, max, true, v.s.icmp) {
 				break
 			}
-			v.tables[level+2].getOverlaps(min, max, &r, true, ucmp)
+			v.tables[level+2].getOverlaps(min, max, &r, true, v.s.icmp.ucmp)
 			if r.size() > kMaxGrandParentOverlapBytes {
 				break
 			}
@@ -411,7 +402,7 @@ func (p *versionStaging) finish() *version {
 		}
 
 		// sort tables
-		nt.sortByKey(s.cmp)
+		nt.sortByKey(s.icmp)
 		nv.tables[level] = nt
 	}
 

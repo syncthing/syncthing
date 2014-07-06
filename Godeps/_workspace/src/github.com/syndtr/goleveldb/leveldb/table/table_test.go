@@ -61,7 +61,7 @@ var _ = testutil.Defer(func() {
 
 				tr := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()), nil, o)
 				CheckOffset := func(key string, expect, threshold int) {
-					offset, err := tr.GetApproximateOffset([]byte(key))
+					offset, err := tr.OffsetOf([]byte(key))
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(offset).Should(BeNumerically("~", expect, threshold), "Offset of key %q", key)
 				}

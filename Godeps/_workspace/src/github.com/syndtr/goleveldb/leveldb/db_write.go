@@ -9,7 +9,6 @@ package leveldb
 import (
 	"time"
 
-	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/memdb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -232,11 +231,11 @@ func (d *DB) Delete(key []byte, wo *opt.WriteOptions) error {
 	return d.Write(b, wo)
 }
 
-func isMemOverlaps(ucmp comparer.BasicComparer, mem *memdb.DB, min, max []byte) bool {
+func isMemOverlaps(icmp *iComparer, mem *memdb.DB, min, max []byte) bool {
 	iter := mem.NewIterator(nil)
 	defer iter.Release()
-	return (max == nil || (iter.First() && ucmp.Compare(max, iKey(iter.Key()).ukey()) >= 0)) &&
-		(min == nil || (iter.Last() && ucmp.Compare(min, iKey(iter.Key()).ukey()) <= 0))
+	return (max == nil || (iter.First() && icmp.uCompare(max, iKey(iter.Key()).ukey()) >= 0)) &&
+		(min == nil || (iter.Last() && icmp.uCompare(min, iKey(iter.Key()).ukey()) <= 0))
 }
 
 // CompactRange compacts the underlying DB for the given key range.
@@ -261,7 +260,7 @@ func (d *DB) CompactRange(r util.Range) error {
 
 	// Check for overlaps in memdb.
 	mem := d.getEffectiveMem()
-	if isMemOverlaps(d.s.cmp.cmp, mem, r.Start, r.Limit) {
+	if isMemOverlaps(d.s.icmp, mem, r.Start, r.Limit) {
 		// Memdb compaction.
 		if _, err := d.rotateMem(0); err != nil {
 			<-d.writeLockC

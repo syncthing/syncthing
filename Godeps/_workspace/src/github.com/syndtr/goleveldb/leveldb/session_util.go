@@ -148,7 +148,7 @@ func (s *session) fillRecord(r *sessionRecord, snapshot bool) {
 			}
 		}
 
-		r.setComparer(s.cmp.cmp.Name())
+		r.setComparer(s.icmp.uName())
 	}
 }
 
