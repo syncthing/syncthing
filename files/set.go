@@ -23,7 +23,7 @@ type bitset uint64
 
 type Set struct {
 	changes map[protocol.NodeID]uint64
-	mutex   sync.RWMutex
+	mutex   sync.Mutex
 	repo    string
 	db      *leveldb.DB
 }
@@ -74,8 +74,6 @@ func (s *Set) WithNeed(node protocol.NodeID, fn fileIterator) {
 	if debug {
 		l.Debugf("%s Need(%v)", s.repo, node)
 	}
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
 	ldbWithNeed(s.db, []byte(s.repo), node[:], fn)
 }
 
@@ -83,8 +81,6 @@ func (s *Set) WithHave(node protocol.NodeID, fn fileIterator) {
 	if debug {
 		l.Debugf("%s WithHave(%v)", s.repo, node)
 	}
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
 	ldbWithHave(s.db, []byte(s.repo), node[:], fn)
 }
 
@@ -92,8 +88,6 @@ func (s *Set) WithGlobal(fn fileIterator) {
 	if debug {
 		l.Debugf("%s WithGlobal()", s.repo)
 	}
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
 	ldbWithGlobal(s.db, []byte(s.repo), fn)
 }
 
@@ -102,8 +96,6 @@ func (s *Set) Get(node protocol.NodeID, file string) scanner.File {
 }
 
 func (s *Set) GetGlobal(file string) scanner.File {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
 	return ldbGetGlobal(s.db, []byte(s.repo), []byte(file))
 }
 
@@ -112,7 +104,7 @@ func (s *Set) Availability(file string) []protocol.NodeID {
 }
 
 func (s *Set) Changes(node protocol.NodeID) uint64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	return s.changes[node]
 }
