@@ -107,6 +107,8 @@ found in the LICENSE file.
             <li class="divider"></li>
             <li><a href="" ng-click="shutdown()"><span class="glyphicon glyphicon-off"></span>&emsp;Shutdown</a></li>
             <li><a href="" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span>&emsp;Restart</a></li>
+            <li class="divider"></li>
+            <li><a href="" ng-click="about()"><span class="glyphicon glyphicon-heart-empty"></span>&emsp;About</a></li>
           </ul>
         </li>
       </ul>
@@ -663,6 +665,62 @@ found in the LICENSE file.
             <td class="text-right small-data"><span ng-if="f.Size > 0">{{f.Size | binary}}B</span></td>
           </tr>
           </table>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- About modal -->
+
+  <div id="about" class="modal fade">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header alert alert-info">
+          <h4 class="modal-title">About</h4>
+        </div>
+        <div class="modal-body">
+        <h1>Syncthing <small>{{version}}</small></h1>
+        <hr/>
+
+        <p>Copyright &copy; 2013-2014 <b>Jakob Borg</b> and the following contributors:</p>
+        <div class="row">
+        <div class="col-md-6">
+        <ul>
+          <li>Aaron Bieber</li>
+          <li>Andrew Dunham</li>
+          <li>Arthur Axel fREW Schmidt</li>
+          <li>Ben Sidhom</li>
+          <li>Brandon Philips</li>
+        </ul>
+        </div>
+        <div class="col-md-6">
+        <ul>
+          <li>James Patterson</li>
+          <li>Jens Diemer</li>
+          <li>Philippe Schommers</li>
+          <li>Ryan Sullivan</li>
+          <li>Veeti Paananen</li>
+        </ul>
+        </div>
+        </div>
+        <hr/>
+
+        <p>Syncthing includes the following software, copyright their respective authors.
+        <ul>
+          <li><a href="http://golang.org/">The Go Programming Languange</a>, Copyright &copy; 2012 The Go Authors.</li>
+          <li><a href="https://bitbucket.org/kardianos/osext">kardianos/osext</a>, Copyright &copy; 2012 Daniel Theophanes.</li>
+          <li><a href="https://code.google.com/p/snappy-go/">snappy-go</a>, Copyright &copy; 2011 The Snappy-Go Authors.</li>
+          <li><a href="https://github.com/golang/groupcache">groupcache/lru</a>, Copyright &copy; 2013 Google Inc.</li>
+          <li><a href="https://github.com/juju/ratelimit">juju/ratelimit</a>, Copyright &copy; 2014 Canonical Ltd.</li>
+          <li><a href="https://github.com/syndtr/goleveldb">syndtr/goleveldb</a>, Copyright &copy; 2012, Suryandaru Triandana</li>
+          <li><a href="https://github.com/vitrun/qart">vitrun/qart</a>, Copyright &copy; The Go Authors.</li>
+          <li><a href="https://angularjs.org/">AngularJS</a>, Copyright &copy; 2010-2014 Google, Inc.</li>
+          <li><a href="http://getbootstrap.com/">Bootstrap</a>, Copyright &copy; 2011-2014 Twitter, Inc.</li>
+        </ul>
+        </p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>

@@ -650,6 +650,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         });
     };
 
+    $scope.about = function () {
+        $('#about').modal('show');
+    };
+
     $scope.init();
     setInterval($scope.refresh, 10000);
 });
