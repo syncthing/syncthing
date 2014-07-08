@@ -98,9 +98,6 @@ func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVers
 		sup:           suppressor{threshold: int64(cfg.Options.MaxChangeKbps)},
 	}
 
-	// TEMP: #344
-	files.SetCM(m.cm)
-
 	var timeout = 20 * 60 // seconds
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
 		it, err := strconv.Atoi(t)
