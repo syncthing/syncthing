@@ -89,7 +89,7 @@ func TestWalkError(t *testing.T) {
 func TestIgnore(t *testing.T) {
 	var patterns = map[string][]string{
 		".":       {"t2"},
-		"foo":     {"bar", "z*"},
+		"foo":     {"bar", "z*", "q[abc]x", "q\\[abc\\]y"},
 		"foo/baz": {"quux", ".*"},
 	}
 	var tests = []struct {
@@ -110,6 +110,9 @@ func TestIgnore(t *testing.T) {
 		{"foo/baz/zquux", true},
 		{"foo/baz/quux", true},
 		{"foo/bazz/quux", false},
+		{"foo/bazz/q[abc]x", false},
+		{"foo/bazz/qax", true},
+		{"foo/bazz/q[abc]y", true},
 	}
 
 	w := Walker{}
