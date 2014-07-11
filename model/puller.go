@@ -309,8 +309,8 @@ func (p *puller) fixupDirectories() {
 			err := os.Remove(dir)
 			if err == nil {
 				deleted++
-			} else if p.versioner == nil { // Failures are expected in the presence of versioning
-				l.Warnln(err)
+			} else {
+				l.Warnln("Delete dir:", err)
 			}
 		}
 
@@ -569,8 +569,13 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 		os.Remove(of.temp)
 		os.Chmod(of.filepath, 0666)
 		if p.versioner != nil {
-			if err := p.versioner.Archive(of.filepath); err == nil {
+			if debug {
+				l.Debugln("pull: deleting with versioner")
+			}
+			if err := p.versioner.Archive(p.repoCfg.Directory, of.filepath); err == nil {
 				p.model.updateLocal(p.repoCfg.ID, f)
+			} else if debug {
+				l.Debugln("pull: error:", err)
 			}
 		} else if err := os.Remove(of.filepath); err == nil || os.IsNotExist(err) {
 			p.model.updateLocal(p.repoCfg.ID, f)
@@ -666,7 +671,7 @@ func (p *puller) closeFile(f scanner.File) {
 	osutil.ShowFile(of.temp)
 
 	if p.versioner != nil {
-		err := p.versioner.Archive(of.filepath)
+		err := p.versioner.Archive(p.repoCfg.Directory, of.filepath)
 		if err != nil {
 			if debug {
 				l.Debugf("pull: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)

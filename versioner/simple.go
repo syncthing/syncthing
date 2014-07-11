@@ -43,27 +43,51 @@ func NewSimple(params map[string]string) Versioner {
 
 // Move away the named file to a version archive. If this function returns
 // nil, the named file does not exist any more (has been archived).
-func (v Simple) Archive(path string) error {
-	_, err := os.Stat(path)
+func (v Simple) Archive(repoPath, filePath string) error {
+	_, err := os.Stat(filePath)
 	if err != nil && os.IsNotExist(err) {
+		if debug {
+			l.Debugln("not archiving nonexistent file", filePath)
+		}
 		return nil
 	}
 
-	if debug {
-		l.Debugln("archiving", path)
+	versionsDir := filepath.Join(repoPath, ".stversions")
+	_, err = os.Stat(versionsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if debug {
+				l.Debugln("creating versions dir", versionsDir)
+			}
+			os.MkdirAll(versionsDir, 0755)
+			osutil.HideFile(versionsDir)
+		} else {
+			return err
+		}
 	}
 
-	file := filepath.Base(path)
-	dir := filepath.Join(filepath.Dir(path), ".stversions")
+	if debug {
+		l.Debugln("archiving", filePath)
+	}
+
+	file := filepath.Base(filePath)
+	inRepoPath, err := filepath.Rel(repoPath, filepath.Dir(filePath))
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Join(versionsDir, inRepoPath)
 	err = os.MkdirAll(dir, 0755)
 	if err != nil && !os.IsExist(err) {
 		return err
-	} else {
-		osutil.HideFile(dir)
 	}
 
 	ver := file + "~" + time.Now().Format("20060102-150405")
-	err = osutil.Rename(path, filepath.Join(dir, ver))
+	dst := filepath.Join(dir, ver)
+	if debug {
+		l.Debugln("moving to", dst)
+	}
+	err = osutil.Rename(filePath, dst)
 	if err != nil {
 		return err
 	}
@@ -77,6 +101,9 @@ func (v Simple) Archive(path string) error {
 	if len(versions) > v.keep {
 		sort.Strings(versions)
 		for _, toRemove := range versions[:len(versions)-v.keep] {
+			if debug {
+				l.Debugln("cleaning out", toRemove)
+			}
 			err = os.Remove(toRemove)
 			if err != nil {
 				l.Warnln(err)
