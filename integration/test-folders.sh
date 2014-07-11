@@ -6,8 +6,8 @@
 
 iterations=${1:-5}
 
-id1=I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA
-id2=JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ
+id1=I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU
+id2=JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU
 
 go build json.go
 
@@ -15,6 +15,7 @@ start() {
 	echo "Starting..."
 	STTRACE=model,scanner STPROFILER=":9091" syncthing -home "f1" > 1.out 2>&1 &
 	STTRACE=model,scanner STPROFILER=":9092" syncthing -home "f2" > 2.out 2>&1 &
+	sleep 1
 }
 
 stop() {
@@ -28,11 +29,17 @@ setup() {
 	echo "Setting up dirs..."
 	mkdir -p s1
 	pushd s1 >/dev/null
-	rmdir */*[02468] 2>/dev/null
+	rm -r */*[02468] 2>/dev/null
 	rm -rf *2
-	for ((i = 0; i < 1000; i++)) ; do
-		mkdir -p $RANDOM/$RANDOM
+	for ((i = 0; i < 500; i++)) ; do
+		mkdir -p "$RANDOM/$RANDOM"
 	done
+	for ((i = 0; i < 500; i++)) ; do
+		d="$RANDOM/$RANDOM"
+		mkdir -p "$d"
+		touch "$d/foo"
+	done
+	../md5r -d | grep -v ' . ' > ../dirs-1
 	popd >/dev/null
 }
 
@@ -57,12 +64,8 @@ testConvergence() {
 
 	echo "Verifying..."
 
-	pushd s1 >/dev/null
-	../md5r -d | grep -v ' . ' > ../dirs-1
-	popd >/dev/null
-
 	pushd s2 >/dev/null
-	../md5r -d | grep -v ' . ' > ../dirs-2
+	../md5r -d | grep -v ' . ' | grep -v .stversions > ../dirs-2
 	popd >/dev/null
 
 	if ! cmp dirs-1 dirs-2 ; then
@@ -73,12 +76,12 @@ testConvergence() {
 }
 
 rm -rf s? s??-?
-rm -f f?/*.idx.gz
+rm -rf f?/*.idx.gz f?/index
 
 setup
 start
 
-for ((j = 0; j < 10; j++)) ; do
+for ((j = 0; j < iterations; j++)) ; do
 	echo "#$j..."
 	testConvergence
 	setup

@@ -13,40 +13,20 @@ id3=373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU
 go build genfiles.go
 go build md5r.go
 go build json.go
-go build http.go
 
 start() {
 	echo "Starting..."
-	for i in 1 2 3 4 ; do
-		STTRACE=files,model,puller STPROFILER=":909$i" syncthing -home "h$i" > "$i.out" 2>&1 &
+	for i in 1 2 3 ; do
+		STTRACE=files,model,puller,versioner STPROFILER=":909$i" syncthing -home "h$i" > "$i.out" 2>&1 &
 	done
-
-	# Test REST API
-	sleep 2
-	curl -s -o /dev/null http://testuser:testpass@localhost:8081/index.html
-	curl -s -o /dev/null http://localhost:8082/index.html
-	sleep 1
-	./http -target localhost:8081 -user testuser -pass testpass -csrf h1/csrftokens.txt || stop 1
-	./http -target localhost:8081 -api abc123 || stop 1
-	./http -target localhost:8082 -csrf h2/csrftokens.txt || stop 1
-	./http -target localhost:8082 -api abc123 || stop 1
 }
 
 stop() {
-	for i in 1 2 3 4 ; do
+	for i in 1 2 3 ; do
 		curl -HX-API-Key:abc123 -X POST "http://localhost:808$i/rest/shutdown"
 	done
 	exit $1
 }
-
-clean() {
-	if [[ $(uname -s) == "Linux" ]] ; then
-		grep -v utf8-nfd
-	else
-		cat
-	fi
-}
-
 
 testConvergence() {
 	while true ; do
@@ -65,13 +45,13 @@ testConvergence() {
 	done
 
 	echo "Verifying..."
-	cat md5-? | sort | clean | uniq > md5-tot
-	cat md5-12-? | sort | clean | uniq > md5-12-tot
-	cat md5-23-? | sort | clean | uniq > md5-23-tot
+	cp md5-1 md5-tot
+	cp md5-12-2 md5-12-tot
+	cp md5-23-3 md5-23-tot
 
 	for i in 1 2 3 12-1 12-2 23-2 23-3; do
 		pushd "s$i" >/dev/null
-		../md5r -l | sort | clean > ../md5-$i
+		../md5r -l | sort | grep -v .stversions > ../md5-$i
 		popd >/dev/null
 	done
 
@@ -107,13 +87,14 @@ testConvergence() {
 
 alterFiles() {
 	pkill -STOP syncthing
-	for i in 1 2 3 12-1 12-2 23-2 23-3 ; do
-		pushd "s$i" >/dev/null
 
+	for i in 1 12-2 23-3 ; do
+		# Delete some files
+		pushd "s$i" >/dev/null
 		nfiles=$(find . -type f | wc -l)
-		if [[ $nfiles > 2000 ]] ; then
-			todelete=$(( $nfiles - 2000 ))
-			echo "Deleting $todelete files..."
+		if [[ $nfiles -ge 300 ]] ; then
+			todelete=$(( $nfiles - 300 ))
+			echo "  $i: deleting $todelete files..."
 			find . -type f \
 				| grep -v large \
 				| sort -k 1.16 \
@@ -121,44 +102,34 @@ alterFiles() {
 				| xargs rm -f
 		fi
 
-		../genfiles -maxexp 22 -files 600
+		# Create some new files and alter existing ones
+		echo "  $i: random nonoverlapping"
+		../genfiles -maxexp 22 -files 200
 		echo "  $i: append to large file"
-		dd if=/dev/urandom bs=1024k count=4 >> large-$i 2>/dev/null
-		../md5r -l > ../md5-tmp
-		(grep -v large ../md5-tmp ; grep "large-$i" ../md5-tmp) | grep -v '/.syncthing.' > ../md5-$i
+		dd if=large-$i bs=1024k count=4 >> large-$i 2>/dev/null
+		../md5r -l | sort | grep -v .stversions > ../md5-$i
 		popd >/dev/null
 	done
+
 	pkill -CONT syncthing
 }
 
 rm -rf h?/*.idx.gz h?/index
-rm -rf s? s??-? s4d
+rm -rf s? s??-?
+mkdir s1 s2 s3 s12-1 s12-2 s23-2 s23-3
 
 echo "Setting up files..."
-for i in 1 2 3 12-1 12-2 23-2 23-3; do
-	mkdir "s$i"
+for i in 1 12-2 23-3; do
 	pushd "s$i" >/dev/null
 	echo "  $i: random nonoverlapping"
-	../genfiles -maxexp 22 -files 600
-	echo "  $i: empty file"
-	touch "empty-$i"
-	echo "  $i: large file"
-	dd if=/dev/urandom of=large-$i bs=1024k count=55 2>/dev/null
-	echo "  $i: weird encodings"
-	echo somedata > "$(echo -e utf8-nfc-\\xc3\\xad)-$i"
-	echo somedata > "$(echo -e utf8-nfd-i\\xcc\\x81)-$i"
-	echo somedata > "$(echo -e cp850-\\xa1)-$i"
-	touch "empty-$i"
+	../genfiles -maxexp 22 -files 400
 	popd >/dev/null
 done
 
-mkdir s4d
-echo somerandomdata > s4d/extrafile
-
 echo "MD5-summing..."
-for i in 1 2 3 12-1 12-2 23-2 23-3 ; do
+for i in 1 12-2 23-3 ; do
 	pushd "s$i" >/dev/null
-	../md5r -l > ../md5-$i
+	../md5r -l | sort > ../md5-$i
 	popd >/dev/null
 done
 
