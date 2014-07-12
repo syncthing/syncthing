@@ -75,8 +75,7 @@ zipDist() {
 	rm -rf "$name"
 	mkdir -p "$name"
 	for f in "${distFiles[@]}" ; do
-		sed 's/$/
-/' < "$f" > "$name/$f.txt"
+		GOARCH="" GOOS="" go run cmd/todos/main.go < "$f" > "$name/$f.txt"
 	done
 	cp syncthing.exe "$name"
 	sign "$name/syncthing.exe"
