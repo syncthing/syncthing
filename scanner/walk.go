@@ -1,12 +1,11 @@
-// Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
-// Use of this source code is governed by an MIT-style license that can be
-// found in the LICENSE file.
+// Copyright (C) 2014 Jakob Borg and Contributors (see the CONTRIBUTORS file).
+// All rights reserved. Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
 
 package scanner
 
 import (
 	"bytes"
-	"code.google.com/p/go.text/unicode/norm"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -15,6 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"code.google.com/p/go.text/unicode/norm"
 
 	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"
