@@ -96,9 +96,8 @@ setup() {
 }
 
 xdr() {
-	go install ./xdr/cmd/genxdr
 	for f in discover/packets files/leveldb protocol/message scanner/blocks scanner/file ; do
-		genxdr "${f}.go" > "${f}_xdr.go"
+		go run xdr/cmd/genxdr/main.go -- "${f}.go" > "${f}_xdr.go"
 	done
 }
 
