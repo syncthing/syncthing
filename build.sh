@@ -21,9 +21,6 @@ check() {
 
 build() {
 	check
-
-	go vet ./...
-
 	godep go build $* -ldflags "$ldflags" ./cmd/syncthing
 }
 
@@ -49,6 +46,7 @@ test-cov() {
 
 test() {
 	check
+	go vet ./...
 	godep go test -cpu=1,2,4 ./...
 }
 
