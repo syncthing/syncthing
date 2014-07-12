@@ -13,7 +13,6 @@ import (
 
 	"github.com/calmh/syncthing/files"
 	"github.com/calmh/syncthing/protocol"
-	"github.com/calmh/syncthing/scanner"
 )
 
 var node1, node2, node3, node4 protocol.NodeID
@@ -274,7 +273,7 @@ func TestFileSorter(t *testing.T) {
 		},
 	}
 
-	f := []scanner.File{
+	f := []protocol.FileInfo{
 		{Name: "bar.mov"},
 		{Name: "baz.txt"},
 		{Name: "foo.jpg"},
@@ -290,7 +289,7 @@ func TestFileSorter(t *testing.T) {
 
 	files.SortBy(rcfg.FileRanker()).Sort(f)
 
-	expected := []scanner.File{
+	expected := []protocol.FileInfo{
 		{Name: "camera-uploads/foo.jpg"},
 		{Name: "camera-uploads/herp.mov"},
 		{Name: "camera-uploads/hurr.pl"},
@@ -314,7 +313,7 @@ func TestFileSorter(t *testing.T) {
 	}
 }
 
-func formatFiles(f []scanner.File) string {
+func formatFiles(f []protocol.FileInfo) string {
 	ret := ""
 
 	for _, v := range f {

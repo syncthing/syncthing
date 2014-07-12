@@ -2,13 +2,12 @@ package files
 
 import (
 	"sort"
-
-	"github.com/calmh/syncthing/scanner"
+	"github.com/calmh/syncthing/protocol"
 )
 
-type SortBy func(p scanner.File) int
+type SortBy func(p protocol.FileInfo) int
 
-func (by SortBy) Sort(files []scanner.File) {
+func (by SortBy) Sort(files []protocol.FileInfo) {
 	ps := &fileSorter{
 		files: files,
 		by:    by,
@@ -17,8 +16,8 @@ func (by SortBy) Sort(files []scanner.File) {
 }
 
 type fileSorter struct {
-	files []scanner.File
-	by    func(p1 scanner.File) int
+	files []protocol.FileInfo
+	by    func(p1 protocol.FileInfo) int
 }
 
 func (s *fileSorter) Len() int {

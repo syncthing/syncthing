@@ -8,7 +8,6 @@ import (
 
 	"github.com/calmh/syncthing/files"
 	"github.com/calmh/syncthing/protocol"
-	"github.com/calmh/syncthing/scanner"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -29,7 +28,7 @@ func main() {
 
 	if *node == "" {
 		log.Printf("*** Global index for repo %q", *repo)
-		fs.WithGlobal(func(f scanner.File) bool {
+		fs.WithGlobal(func(f protocol.FileInfo) bool {
 			fmt.Println(f)
 			fmt.Println("\t", fs.Availability(f.Name))
 			return true
@@ -40,7 +39,7 @@ func main() {
 			log.Fatal(err)
 		}
 		log.Printf("*** Have index for repo %q node %q", *repo, n)
-		fs.WithHave(n, func(f scanner.File) bool {
+		fs.WithHave(n, func(f protocol.FileInfo) bool {
 			fmt.Println(f)
 			return true
 		})

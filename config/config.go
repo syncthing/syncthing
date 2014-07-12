@@ -18,7 +18,6 @@ import (
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/syncthing/logger"
 	"github.com/calmh/syncthing/protocol"
-	"github.com/calmh/syncthing/scanner"
 )
 
 var l = logger.DefaultLogger
@@ -122,11 +121,11 @@ func (r *RepositoryConfiguration) NodeIDs() []protocol.NodeID {
 	return r.nodeIDs
 }
 
-func (r RepositoryConfiguration) FileRanker() func(scanner.File) int {
+func (r RepositoryConfiguration) FileRanker() func(protocol.FileInfo) int {
 	if len(r.SyncOrderPatterns) <= 0 {
 		return nil
 	}
-	return func(f scanner.File) int {
+	return func(f protocol.FileInfo) int {
 		ret := 0
 		for _, v := range r.SyncOrderPatterns {
 			if v.CompiledPattern().MatchString(f.Name) {

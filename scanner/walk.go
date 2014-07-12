@@ -55,12 +55,12 @@ type Suppressor interface {
 
 type CurrentFiler interface {
 	// CurrentFile returns the file as seen at last scan.
-	CurrentFile(name string) File
+	CurrentFile(name string) protocol.FileInfo
 }
 
 // Walk returns the list of files found in the local repository by scanning the
 // file system. Files are blockwise hashed.
-func (w *Walker) Walk() (files []File, ignore map[string][]string, err error) {
+func (w *Walker) Walk() (files []protocol.FileInfo, ignore map[string][]string, err error) {
 	if debug {
 		l.Debugln("Walk", w.Dir, w.BlockSize, w.IgnoreFile)
 	}
@@ -122,7 +122,7 @@ func (w *Walker) loadIgnoreFiles(dir string, ign map[string][]string) filepath.W
 	}
 }
 
-func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath.WalkFunc {
+func (w *Walker) walkAndHashFiles(res *[]protocol.FileInfo, ign map[string][]string) filepath.WalkFunc {
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			if debug {
@@ -183,7 +183,7 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 					} else {
 						flags |= uint32(info.Mode() & os.ModePerm)
 					}
-					f := File{
+					f := protocol.FileInfo{
 						Name:     rn,
 						Version:  lamport.Default.Tick(0),
 						Flags:    flags,
@@ -213,8 +213,8 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 				if w.Suppressor != nil {
 					if cur, prev := w.Suppressor.Suppress(rn, info); cur && !prev {
 						l.Infof("Changes to %q are being temporarily suppressed because it changes too frequently.", p)
-						cf.Suppressed = true
-						cf.Version++
+						cf.Flags |= protocol.FlagInvalid
+						cf.Version = lamport.Default.Tick(cf.Version)
 						if debug {
 							l.Debugln("suppressed:", cf)
 						}
@@ -256,10 +256,9 @@ func (w *Walker) walkAndHashFiles(res *[]File, ign map[string][]string) filepath
 			if w.IgnorePerms {
 				flags = protocol.FlagNoPermBits | 0666
 			}
-			f := File{
+			f := protocol.FileInfo{
 				Name:     rn,
 				Version:  lamport.Default.Tick(0),
-				Size:     info.Size(),
 				Flags:    flags,
 				Modified: info.ModTime().Unix(),
 				Blocks:   blocks,

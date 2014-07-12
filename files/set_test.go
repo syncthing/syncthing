@@ -12,7 +12,6 @@ import (
 	"github.com/calmh/syncthing/files"
 	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"
-	"github.com/calmh/syncthing/scanner"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
@@ -23,48 +22,47 @@ func init() {
 	remoteNode, _ = protocol.NodeIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 }
 
-func genBlocks(n int) []scanner.Block {
-	b := make([]scanner.Block, n)
+func genBlocks(n int) []protocol.BlockInfo {
+	b := make([]protocol.BlockInfo, n)
 	for i := range b {
 		h := make([]byte, 32)
 		for j := range h {
 			h[j] = byte(i + j)
 		}
 		b[i].Size = uint32(i)
-		b[i].Offset = int64(i)
 		b[i].Hash = h
 	}
 	return b
 }
 
-func globalList(s *files.Set) []scanner.File {
-	var fs []scanner.File
-	s.WithGlobal(func(f scanner.File) bool {
+func globalList(s *files.Set) []protocol.FileInfo {
+	var fs []protocol.FileInfo
+	s.WithGlobal(func(f protocol.FileInfo) bool {
 		fs = append(fs, f)
 		return true
 	})
 	return fs
 }
 
-func haveList(s *files.Set, n protocol.NodeID) []scanner.File {
-	var fs []scanner.File
-	s.WithHave(n, func(f scanner.File) bool {
+func haveList(s *files.Set, n protocol.NodeID) []protocol.FileInfo {
+	var fs []protocol.FileInfo
+	s.WithHave(n, func(f protocol.FileInfo) bool {
 		fs = append(fs, f)
 		return true
 	})
 	return fs
 }
 
-func needList(s *files.Set, n protocol.NodeID) []scanner.File {
-	var fs []scanner.File
-	s.WithNeed(n, func(f scanner.File) bool {
+func needList(s *files.Set, n protocol.NodeID) []protocol.FileInfo {
+	var fs []protocol.FileInfo
+	s.WithNeed(n, func(f protocol.FileInfo) bool {
 		fs = append(fs, f)
 		return true
 	})
 	return fs
 }
 
-type fileList []scanner.File
+type fileList []protocol.FileInfo
 
 func (l fileList) Len() int {
 	return len(l)
@@ -88,44 +86,44 @@ func TestGlobalSet(t *testing.T) {
 
 	m := files.NewSet("test", db)
 
-	local0 := []scanner.File{
-		scanner.File{Name: "a", Version: 1000, Blocks: genBlocks(1)},
-		scanner.File{Name: "b", Version: 1000, Blocks: genBlocks(2)},
-		scanner.File{Name: "c", Version: 1000, Blocks: genBlocks(3)},
-		scanner.File{Name: "d", Version: 1000, Blocks: genBlocks(4)},
-		scanner.File{Name: "z", Version: 1000, Blocks: genBlocks(8)},
+	local0 := []protocol.FileInfo{
+		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
+		protocol.FileInfo{Name: "b", Version: 1000, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Version: 1000, Blocks: genBlocks(3)},
+		protocol.FileInfo{Name: "d", Version: 1000, Blocks: genBlocks(4)},
+		protocol.FileInfo{Name: "z", Version: 1000, Blocks: genBlocks(8)},
 	}
-	local1 := []scanner.File{
-		scanner.File{Name: "a", Version: 1000, Blocks: genBlocks(1)},
-		scanner.File{Name: "b", Version: 1000, Blocks: genBlocks(2)},
-		scanner.File{Name: "c", Version: 1000, Blocks: genBlocks(3)},
-		scanner.File{Name: "d", Version: 1000, Blocks: genBlocks(4)},
+	local1 := []protocol.FileInfo{
+		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
+		protocol.FileInfo{Name: "b", Version: 1000, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Version: 1000, Blocks: genBlocks(3)},
+		protocol.FileInfo{Name: "d", Version: 1000, Blocks: genBlocks(4)},
 	}
-	localTot := []scanner.File{
+	localTot := []protocol.FileInfo{
 		local0[0],
 		local0[1],
 		local0[2],
 		local0[3],
-		scanner.File{Name: "z", Version: 1001, Flags: protocol.FlagDeleted},
+		protocol.FileInfo{Name: "z", Version: 1001, Flags: protocol.FlagDeleted},
 	}
 
-	remote0 := []scanner.File{
-		scanner.File{Name: "a", Version: 1000, Blocks: genBlocks(1)},
-		scanner.File{Name: "b", Version: 1000, Blocks: genBlocks(2)},
-		scanner.File{Name: "c", Version: 1002, Blocks: genBlocks(5)},
+	remote0 := []protocol.FileInfo{
+		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
+		protocol.FileInfo{Name: "b", Version: 1000, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Version: 1002, Blocks: genBlocks(5)},
 	}
-	remote1 := []scanner.File{
-		scanner.File{Name: "b", Version: 1001, Blocks: genBlocks(6)},
-		scanner.File{Name: "e", Version: 1000, Blocks: genBlocks(7)},
+	remote1 := []protocol.FileInfo{
+		protocol.FileInfo{Name: "b", Version: 1001, Blocks: genBlocks(6)},
+		protocol.FileInfo{Name: "e", Version: 1000, Blocks: genBlocks(7)},
 	}
-	remoteTot := []scanner.File{
+	remoteTot := []protocol.FileInfo{
 		remote0[0],
 		remote1[0],
 		remote0[2],
 		remote1[1],
 	}
 
-	expectedGlobal := []scanner.File{
+	expectedGlobal := []protocol.FileInfo{
 		remote0[0],
 		remote1[0],
 		remote0[2],
@@ -134,13 +132,13 @@ func TestGlobalSet(t *testing.T) {
 		localTot[4],
 	}
 
-	expectedLocalNeed := []scanner.File{
+	expectedLocalNeed := []protocol.FileInfo{
 		remote1[0],
 		remote0[2],
 		remote1[1],
 	}
 
-	expectedRemoteNeed := []scanner.File{
+	expectedRemoteNeed := []protocol.FileInfo{
 		local0[3],
 	}
 
@@ -201,12 +199,12 @@ func TestGlobalSet(t *testing.T) {
 
 	f = m.Get(protocol.LocalNodeID, "zz")
 	if f.Name != "" {
-		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, scanner.File{})
+		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, protocol.FileInfo{})
 	}
 
 	f = m.GetGlobal("zz")
 	if f.Name != "" {
-		t.Errorf("GetGlobal incorrect;\n A: %v !=\n E: %v", f, scanner.File{})
+		t.Errorf("GetGlobal incorrect;\n A: %v !=\n E: %v", f, protocol.FileInfo{})
 	}
 
 	av := []protocol.NodeID{protocol.LocalNodeID, remoteNode}
@@ -232,41 +230,41 @@ func TestLocalDeleted(t *testing.T) {
 	m := files.NewSet("test", db)
 	lamport.Default = lamport.Clock{}
 
-	local1 := []scanner.File{
-		scanner.File{Name: "a", Version: 1000},
-		scanner.File{Name: "b", Version: 1000},
-		scanner.File{Name: "c", Version: 1000},
-		scanner.File{Name: "d", Version: 1000},
-		scanner.File{Name: "z", Version: 1000, Flags: protocol.FlagDirectory},
+	local1 := []protocol.FileInfo{
+		protocol.FileInfo{Name: "a", Version: 1000},
+		protocol.FileInfo{Name: "b", Version: 1000},
+		protocol.FileInfo{Name: "c", Version: 1000},
+		protocol.FileInfo{Name: "d", Version: 1000},
+		protocol.FileInfo{Name: "z", Version: 1000, Flags: protocol.FlagDirectory},
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local1)
 
-	m.ReplaceWithDelete(protocol.LocalNodeID, []scanner.File{
+	m.ReplaceWithDelete(protocol.LocalNodeID, []protocol.FileInfo{
 		local1[0],
 		// [1] removed
 		local1[2],
 		local1[3],
 		local1[4],
 	})
-	m.ReplaceWithDelete(protocol.LocalNodeID, []scanner.File{
+	m.ReplaceWithDelete(protocol.LocalNodeID, []protocol.FileInfo{
 		local1[0],
 		local1[2],
 		// [3] removed
 		local1[4],
 	})
-	m.ReplaceWithDelete(protocol.LocalNodeID, []scanner.File{
+	m.ReplaceWithDelete(protocol.LocalNodeID, []protocol.FileInfo{
 		local1[0],
 		local1[2],
 		// [4] removed
 	})
 
-	expectedGlobal1 := []scanner.File{
+	expectedGlobal1 := []protocol.FileInfo{
 		local1[0],
-		scanner.File{Name: "b", Version: 1001, Flags: protocol.FlagDeleted},
+		protocol.FileInfo{Name: "b", Version: 1001, Flags: protocol.FlagDeleted},
 		local1[2],
-		scanner.File{Name: "d", Version: 1002, Flags: protocol.FlagDeleted},
-		scanner.File{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
+		protocol.FileInfo{Name: "d", Version: 1002, Flags: protocol.FlagDeleted},
+		protocol.FileInfo{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
 	}
 
 	g := globalList(m)
@@ -277,17 +275,17 @@ func TestLocalDeleted(t *testing.T) {
 		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", g, expectedGlobal1)
 	}
 
-	m.ReplaceWithDelete(protocol.LocalNodeID, []scanner.File{
+	m.ReplaceWithDelete(protocol.LocalNodeID, []protocol.FileInfo{
 		local1[0],
 		// [2] removed
 	})
 
-	expectedGlobal2 := []scanner.File{
+	expectedGlobal2 := []protocol.FileInfo{
 		local1[0],
-		scanner.File{Name: "b", Version: 1001, Flags: protocol.FlagDeleted},
-		scanner.File{Name: "c", Version: 1004, Flags: protocol.FlagDeleted},
-		scanner.File{Name: "d", Version: 1002, Flags: protocol.FlagDeleted},
-		scanner.File{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
+		protocol.FileInfo{Name: "b", Version: 1001, Flags: protocol.FlagDeleted},
+		protocol.FileInfo{Name: "c", Version: 1004, Flags: protocol.FlagDeleted},
+		protocol.FileInfo{Name: "d", Version: 1002, Flags: protocol.FlagDeleted},
+		protocol.FileInfo{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
 	}
 
 	g = globalList(m)
@@ -305,9 +303,9 @@ func Benchmark10kReplace(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	var local []scanner.File
+	var local []protocol.FileInfo
 	for i := 0; i < 10000; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
 	b.ResetTimer()
@@ -318,9 +316,9 @@ func Benchmark10kReplace(b *testing.B) {
 }
 
 func Benchmark10kUpdateChg(b *testing.B) {
-	var remote []scanner.File
+	var remote []protocol.FileInfo
 	for i := 0; i < 10000; i++ {
-		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+		remote = append(remote, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
 	db, err := leveldb.Open(storage.NewMemStorage(), nil)
@@ -331,9 +329,9 @@ func Benchmark10kUpdateChg(b *testing.B) {
 	m := files.NewSet("test", db)
 	m.Replace(remoteNode, remote)
 
-	var local []scanner.File
+	var local []protocol.FileInfo
 	for i := 0; i < 10000; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local)
@@ -350,9 +348,9 @@ func Benchmark10kUpdateChg(b *testing.B) {
 }
 
 func Benchmark10kUpdateSme(b *testing.B) {
-	var remote []scanner.File
+	var remote []protocol.FileInfo
 	for i := 0; i < 10000; i++ {
-		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+		remote = append(remote, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
 	db, err := leveldb.Open(storage.NewMemStorage(), nil)
@@ -362,9 +360,9 @@ func Benchmark10kUpdateSme(b *testing.B) {
 	m := files.NewSet("test", db)
 	m.Replace(remoteNode, remote)
 
-	var local []scanner.File
+	var local []protocol.FileInfo
 	for i := 0; i < 10000; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local)
@@ -376,9 +374,9 @@ func Benchmark10kUpdateSme(b *testing.B) {
 }
 
 func Benchmark10kNeed2k(b *testing.B) {
-	var remote []scanner.File
+	var remote []protocol.FileInfo
 	for i := 0; i < 10000; i++ {
-		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+		remote = append(remote, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
 	db, err := leveldb.Open(storage.NewMemStorage(), nil)
@@ -389,12 +387,12 @@ func Benchmark10kNeed2k(b *testing.B) {
 	m := files.NewSet("test", db)
 	m.Replace(remoteNode, remote)
 
-	var local []scanner.File
+	var local []protocol.FileInfo
 	for i := 0; i < 8000; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 	for i := 8000; i < 10000; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 980})
+		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 980})
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local)
@@ -409,9 +407,9 @@ func Benchmark10kNeed2k(b *testing.B) {
 }
 
 func Benchmark10kHaveFullList(b *testing.B) {
-	var remote []scanner.File
+	var remote []protocol.FileInfo
 	for i := 0; i < 10000; i++ {
-		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+		remote = append(remote, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
 	db, err := leveldb.Open(storage.NewMemStorage(), nil)
@@ -422,12 +420,12 @@ func Benchmark10kHaveFullList(b *testing.B) {
 	m := files.NewSet("test", db)
 	m.Replace(remoteNode, remote)
 
-	var local []scanner.File
+	var local []protocol.FileInfo
 	for i := 0; i < 2000; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 	for i := 2000; i < 10000; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 980})
+		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 980})
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local)
@@ -442,9 +440,9 @@ func Benchmark10kHaveFullList(b *testing.B) {
 }
 
 func Benchmark10kGlobal(b *testing.B) {
-	var remote []scanner.File
+	var remote []protocol.FileInfo
 	for i := 0; i < 10000; i++ {
-		remote = append(remote, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+		remote = append(remote, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
 	db, err := leveldb.Open(storage.NewMemStorage(), nil)
@@ -455,12 +453,12 @@ func Benchmark10kGlobal(b *testing.B) {
 	m := files.NewSet("test", db)
 	m.Replace(remoteNode, remote)
 
-	var local []scanner.File
+	var local []protocol.FileInfo
 	for i := 0; i < 2000; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 1000})
+		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 	for i := 2000; i < 10000; i++ {
-		local = append(local, scanner.File{Name: fmt.Sprintf("file%d", i), Version: 980})
+		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 980})
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local)
@@ -482,18 +480,18 @@ func TestGlobalReset(t *testing.T) {
 
 	m := files.NewSet("test", db)
 
-	local := []scanner.File{
-		scanner.File{Name: "a", Version: 1000},
-		scanner.File{Name: "b", Version: 1000},
-		scanner.File{Name: "c", Version: 1000},
-		scanner.File{Name: "d", Version: 1000},
+	local := []protocol.FileInfo{
+		protocol.FileInfo{Name: "a", Version: 1000},
+		protocol.FileInfo{Name: "b", Version: 1000},
+		protocol.FileInfo{Name: "c", Version: 1000},
+		protocol.FileInfo{Name: "d", Version: 1000},
 	}
 
-	remote := []scanner.File{
-		scanner.File{Name: "a", Version: 1000},
-		scanner.File{Name: "b", Version: 1001},
-		scanner.File{Name: "c", Version: 1002},
-		scanner.File{Name: "e", Version: 1000},
+	remote := []protocol.FileInfo{
+		protocol.FileInfo{Name: "a", Version: 1000},
+		protocol.FileInfo{Name: "b", Version: 1001},
+		protocol.FileInfo{Name: "c", Version: 1002},
+		protocol.FileInfo{Name: "e", Version: 1000},
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local)
@@ -523,24 +521,24 @@ func TestNeed(t *testing.T) {
 
 	m := files.NewSet("test", db)
 
-	local := []scanner.File{
-		scanner.File{Name: "a", Version: 1000},
-		scanner.File{Name: "b", Version: 1000},
-		scanner.File{Name: "c", Version: 1000},
-		scanner.File{Name: "d", Version: 1000},
+	local := []protocol.FileInfo{
+		protocol.FileInfo{Name: "a", Version: 1000},
+		protocol.FileInfo{Name: "b", Version: 1000},
+		protocol.FileInfo{Name: "c", Version: 1000},
+		protocol.FileInfo{Name: "d", Version: 1000},
 	}
 
-	remote := []scanner.File{
-		scanner.File{Name: "a", Version: 1000},
-		scanner.File{Name: "b", Version: 1001},
-		scanner.File{Name: "c", Version: 1002},
-		scanner.File{Name: "e", Version: 1000},
+	remote := []protocol.FileInfo{
+		protocol.FileInfo{Name: "a", Version: 1000},
+		protocol.FileInfo{Name: "b", Version: 1001},
+		protocol.FileInfo{Name: "c", Version: 1002},
+		protocol.FileInfo{Name: "e", Version: 1000},
 	}
 
-	shouldNeed := []scanner.File{
-		scanner.File{Name: "b", Version: 1001},
-		scanner.File{Name: "c", Version: 1002},
-		scanner.File{Name: "e", Version: 1000},
+	shouldNeed := []protocol.FileInfo{
+		protocol.FileInfo{Name: "b", Version: 1001},
+		protocol.FileInfo{Name: "c", Version: 1002},
+		protocol.FileInfo{Name: "e", Version: 1000},
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local)
@@ -564,19 +562,19 @@ func TestChanges(t *testing.T) {
 
 	m := files.NewSet("test", db)
 
-	local1 := []scanner.File{
-		scanner.File{Name: "a", Version: 1000},
-		scanner.File{Name: "b", Version: 1000},
-		scanner.File{Name: "c", Version: 1000},
-		scanner.File{Name: "d", Version: 1000},
+	local1 := []protocol.FileInfo{
+		protocol.FileInfo{Name: "a", Version: 1000},
+		protocol.FileInfo{Name: "b", Version: 1000},
+		protocol.FileInfo{Name: "c", Version: 1000},
+		protocol.FileInfo{Name: "d", Version: 1000},
 	}
 
-	local2 := []scanner.File{
+	local2 := []protocol.FileInfo{
 		local1[0],
 		// [1] deleted
 		local1[2],
-		scanner.File{Name: "d", Version: 1002},
-		scanner.File{Name: "e", Version: 1000},
+		protocol.FileInfo{Name: "d", Version: 1002},
+		protocol.FileInfo{Name: "e", Version: 1000},
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local1)

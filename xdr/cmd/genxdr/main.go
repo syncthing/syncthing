@@ -178,6 +178,9 @@ func handleStruct(name string, t *ast.StructType) {
 			if m := maxRe.FindStringSubmatch(c); m != nil {
 				max, _ = strconv.Atoi(m[1])
 			}
+			if strings.Contains(c, "noencode") {
+				continue
+			}
 		}
 
 		var f field

@@ -162,11 +162,13 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 		var have int64
 
 		for _, repo := range m.nodeRepos[node] {
-			m.repoFiles[repo].WithGlobal(func(f scanner.File) bool {
+			m.repoFiles[repo].WithGlobal(func(f protocol.FileInfo) bool {
 				if !protocol.IsDeleted(f.Flags) {
-					size := f.Size
+					var size int64
 					if protocol.IsDirectory(f.Flags) {
 						size = zeroEntrySize
+					} else {
+						size = f.Size()
 					}
 					tot += size
 					have += size
@@ -174,11 +176,13 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 				return true
 			})
 
-			m.repoFiles[repo].WithNeed(node, func(f scanner.File) bool {
+			m.repoFiles[repo].WithNeed(node, func(f protocol.FileInfo) bool {
 				if !protocol.IsDeleted(f.Flags) {
-					size := f.Size
+					var size int64
 					if protocol.IsDirectory(f.Flags) {
 						size = zeroEntrySize
+					} else {
+						size = f.Size()
 					}
 					have -= size
 				}
@@ -209,7 +213,7 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	return res
 }
 
-func sizeOf(fs []scanner.File) (files, deleted int, bytes int64) {
+func sizeOf(fs []protocol.FileInfo) (files, deleted int, bytes int64) {
 	for _, f := range fs {
 		fs, de, by := sizeOfFile(f)
 		files += fs
@@ -219,11 +223,11 @@ func sizeOf(fs []scanner.File) (files, deleted int, bytes int64) {
 	return
 }
 
-func sizeOfFile(f scanner.File) (files, deleted int, bytes int64) {
+func sizeOfFile(f protocol.FileInfo) (files, deleted int, bytes int64) {
 	if !protocol.IsDeleted(f.Flags) {
 		files++
 		if !protocol.IsDirectory(f.Flags) {
-			bytes += f.Size
+			bytes += f.Size()
 		} else {
 			bytes += zeroEntrySize
 		}
@@ -240,7 +244,7 @@ func (m *Model) GlobalSize(repo string) (files, deleted int, bytes int64) {
 	m.rmut.RLock()
 	defer m.rmut.RUnlock()
 	if rf, ok := m.repoFiles[repo]; ok {
-		rf.WithGlobal(func(f scanner.File) bool {
+		rf.WithGlobal(func(f protocol.FileInfo) bool {
 			fs, de, by := sizeOfFile(f)
 			files += fs
 			deleted += de
@@ -257,7 +261,7 @@ func (m *Model) LocalSize(repo string) (files, deleted int, bytes int64) {
 	m.rmut.RLock()
 	defer m.rmut.RUnlock()
 	if rf, ok := m.repoFiles[repo]; ok {
-		rf.WithHave(protocol.LocalNodeID, func(f scanner.File) bool {
+		rf.WithHave(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
 			fs, de, by := sizeOfFile(f)
 			files += fs
 			deleted += de
@@ -275,12 +279,12 @@ func (m *Model) NeedSize(repo string) (files int, bytes int64) {
 }
 
 // NeedFiles returns the list of currently needed files
-func (m *Model) NeedFilesRepo(repo string) []scanner.File {
+func (m *Model) NeedFilesRepo(repo string) []protocol.FileInfo {
 	m.rmut.RLock()
 	defer m.rmut.RUnlock()
 	if rf, ok := m.repoFiles[repo]; ok {
-		var fs []scanner.File
-		rf.WithNeed(protocol.LocalNodeID, func(f scanner.File) bool {
+		var fs []protocol.FileInfo
+		rf.WithNeed(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
 			fs = append(fs, f)
 			return true
 		})
@@ -304,23 +308,9 @@ func (m *Model) Index(nodeID protocol.NodeID, repo string, fs []protocol.FileInf
 		return
 	}
 
-	var files = make([]scanner.File, len(fs))
-	for i := range fs {
-		f := fs[i]
-		lamport.Default.Tick(f.Version)
-		if debug {
-			var flagComment string
-			if protocol.IsDeleted(f.Flags) {
-				flagComment = " (deleted)"
-			}
-			l.Debugf("IDX(in): %s %q/%q m=%d f=%o%s v=%d (%d blocks)", nodeID, repo, f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
-		}
-		files[i] = fileFromFileInfo(f)
-	}
-
 	m.rmut.RLock()
 	if r, ok := m.repoFiles[repo]; ok {
-		r.Replace(nodeID, files)
+		r.Replace(nodeID, fs)
 	} else {
 		l.Fatalf("Index for nonexistant repo %q", repo)
 	}
@@ -339,23 +329,9 @@ func (m *Model) IndexUpdate(nodeID protocol.NodeID, repo string, fs []protocol.F
 		return
 	}
 
-	var files = make([]scanner.File, len(fs))
-	for i := range fs {
-		f := fs[i]
-		lamport.Default.Tick(f.Version)
-		if debug {
-			var flagComment string
-			if protocol.IsDeleted(f.Flags) {
-				flagComment = " (deleted)"
-			}
-			l.Debugf("IDXUP(in): %s %q/%q m=%d f=%o%s v=%d (%d blocks)", nodeID, repo, f.Name, f.Modified, f.Flags, flagComment, f.Version, len(f.Blocks))
-		}
-		files[i] = fileFromFileInfo(f)
-	}
-
 	m.rmut.RLock()
 	if r, ok := m.repoFiles[repo]; ok {
-		r.Update(nodeID, files)
+		r.Update(nodeID, fs)
 	} else {
 		l.Fatalf("IndexUpdate for nonexistant repo %q", repo)
 	}
@@ -432,14 +408,14 @@ func (m *Model) Request(nodeID protocol.NodeID, repo, name string, offset int64,
 	}
 
 	lf := r.Get(protocol.LocalNodeID, name)
-	if lf.Suppressed || protocol.IsDeleted(lf.Flags) {
+	if protocol.IsInvalid(lf.Flags) || protocol.IsDeleted(lf.Flags) {
 		if debug {
 			l.Debugf("REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", nodeID, repo, name, offset, size, lf)
 		}
 		return nil, ErrInvalid
 	}
 
-	if offset > lf.Size {
+	if offset > lf.Size() {
 		if debug {
 			l.Debugf("REQ(in; nonexistent): %s: %q o=%d s=%d", nodeID, name, offset, size)
 		}
@@ -468,20 +444,20 @@ func (m *Model) Request(nodeID protocol.NodeID, repo, name string, offset int64,
 }
 
 // ReplaceLocal replaces the local repository index with the given list of files.
-func (m *Model) ReplaceLocal(repo string, fs []scanner.File) {
+func (m *Model) ReplaceLocal(repo string, fs []protocol.FileInfo) {
 	m.rmut.RLock()
 	m.repoFiles[repo].ReplaceWithDelete(protocol.LocalNodeID, fs)
 	m.rmut.RUnlock()
 }
 
-func (m *Model) CurrentRepoFile(repo string, file string) scanner.File {
+func (m *Model) CurrentRepoFile(repo string, file string) protocol.FileInfo {
 	m.rmut.RLock()
 	f := m.repoFiles[repo].Get(protocol.LocalNodeID, file)
 	m.rmut.RUnlock()
 	return f
 }
 
-func (m *Model) CurrentGlobalFile(repo string, file string) scanner.File {
+func (m *Model) CurrentGlobalFile(repo string, file string) protocol.FileInfo {
 	m.rmut.RLock()
 	f := m.repoFiles[repo].GetGlobal(file)
 	m.rmut.RUnlock()
@@ -494,7 +470,7 @@ type cFiler struct {
 }
 
 // Implements scanner.CurrentFiler
-func (cf cFiler) CurrentFile(file string) scanner.File {
+func (cf cFiler) CurrentFile(file string) protocol.FileInfo {
 	return cf.m.CurrentRepoFile(cf.r, file)
 }
 
@@ -552,32 +528,18 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 
 // protocolIndex returns the current local index in protocol data types.
 func (m *Model) protocolIndex(repo string) []protocol.FileInfo {
-	var index []protocol.FileInfo
-
-	var fs []scanner.File
-	m.repoFiles[repo].WithHave(protocol.LocalNodeID, func(f scanner.File) bool {
+	var fs []protocol.FileInfo
+	m.repoFiles[repo].WithHave(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
 		fs = append(fs, f)
 		return true
 	})
 
-	for _, f := range fs {
-		mf := fileInfoFromFile(f)
-		if debug {
-			var flagComment string
-			if protocol.IsDeleted(mf.Flags) {
-				flagComment = " (deleted)"
-			}
-			l.Debugf("IDX(out): %q/%q m=%d f=%o%s v=%d (%d blocks)", repo, mf.Name, mf.Modified, mf.Flags, flagComment, mf.Version, len(mf.Blocks))
-		}
-		index = append(index, mf)
-	}
-
-	return index
+	return fs
 }
 
-func (m *Model) updateLocal(repo string, f scanner.File) {
+func (m *Model) updateLocal(repo string, f protocol.FileInfo) {
 	m.rmut.RLock()
-	m.repoFiles[repo].Update(protocol.LocalNodeID, []scanner.File{f})
+	m.repoFiles[repo].Update(protocol.LocalNodeID, []protocol.FileInfo{f})
 	m.rmut.RUnlock()
 }
 
@@ -736,11 +698,10 @@ func (m *Model) LoadIndexes(dir string) {
 	for repo := range m.repoCfgs {
 		fs := m.loadIndex(repo, dir)
 
-		var sfs = make([]scanner.File, len(fs))
+		var sfs = make([]protocol.FileInfo, len(fs))
 		for i := 0; i < len(fs); i++ {
 			lamport.Default.Tick(fs[i].Version)
-			sfs[i] = fileFromFileInfo(fs[i])
-			sfs[i].Suppressed = false // we might have saved an index with files that were suppressed; the should not be on startup
+			fs[i].Flags &= ^uint32(protocol.FlagInvalid) // we might have saved an index with files that were suppressed; the should not be on startup
 		}
 
 		m.repoFiles[repo].Replace(protocol.LocalNodeID, sfs)

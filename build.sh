@@ -96,7 +96,7 @@ setup() {
 }
 
 xdr() {
-	for f in discover/packets files/leveldb protocol/message scanner/blocks scanner/file ; do
+	for f in discover/packets files/leveldb protocol/message ; do
 		go run xdr/cmd/genxdr/main.go -- "${f}.go" > "${f}_xdr.go"
 	done
 }

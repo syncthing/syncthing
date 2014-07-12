@@ -9,12 +9,11 @@ import (
 	"sync"
 
 	"github.com/calmh/syncthing/protocol"
-	"github.com/calmh/syncthing/scanner"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type fileRecord struct {
-	File   scanner.File
+	File   protocol.FileInfo
 	Usage  int
 	Global bool
 }
@@ -37,7 +36,7 @@ func NewSet(repo string, db *leveldb.DB) *Set {
 	return &s
 }
 
-func (s *Set) Replace(node protocol.NodeID, fs []scanner.File) {
+func (s *Set) Replace(node protocol.NodeID, fs []protocol.FileInfo) {
 	if debug {
 		l.Debugf("%s Replace(%v, [%d])", s.repo, node, len(fs))
 	}
@@ -48,7 +47,7 @@ func (s *Set) Replace(node protocol.NodeID, fs []scanner.File) {
 	}
 }
 
-func (s *Set) ReplaceWithDelete(node protocol.NodeID, fs []scanner.File) {
+func (s *Set) ReplaceWithDelete(node protocol.NodeID, fs []protocol.FileInfo) {
 	if debug {
 		l.Debugf("%s ReplaceWithDelete(%v, [%d])", s.repo, node, len(fs))
 	}
@@ -59,7 +58,7 @@ func (s *Set) ReplaceWithDelete(node protocol.NodeID, fs []scanner.File) {
 	}
 }
 
-func (s *Set) Update(node protocol.NodeID, fs []scanner.File) {
+func (s *Set) Update(node protocol.NodeID, fs []protocol.FileInfo) {
 	if debug {
 		l.Debugf("%s Update(%v, [%d])", s.repo, node, len(fs))
 	}
@@ -91,11 +90,11 @@ func (s *Set) WithGlobal(fn fileIterator) {
 	ldbWithGlobal(s.db, []byte(s.repo), fn)
 }
 
-func (s *Set) Get(node protocol.NodeID, file string) scanner.File {
+func (s *Set) Get(node protocol.NodeID, file string) protocol.FileInfo {
 	return ldbGet(s.db, []byte(s.repo), node[:], []byte(file))
 }
 
-func (s *Set) GetGlobal(file string) scanner.File {
+func (s *Set) GetGlobal(file string) protocol.FileInfo {
 	return ldbGetGlobal(s.db, []byte(s.repo), []byte(file))
 }
 

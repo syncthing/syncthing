@@ -21,7 +21,7 @@ import (
 
 type requestResult struct {
 	node     protocol.NodeID
-	file     scanner.File
+	file     protocol.FileInfo
 	filepath string // full filepath name
 	offset   int64
 	data     []byte
@@ -621,7 +621,7 @@ func (p *puller) queueNeededBlocks() {
 	}
 }
 
-func (p *puller) closeFile(f scanner.File) {
+func (p *puller) closeFile(f protocol.FileInfo) {
 	if debug {
 		l.Debugf("pull: closing %q / %q", p.repoCfg.ID, f.Name)
 	}

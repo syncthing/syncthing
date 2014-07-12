@@ -6,57 +6,11 @@ package model
 
 import (
 	"fmt"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/calmh/syncthing/protocol"
-	"github.com/calmh/syncthing/scanner"
 )
-
-func fileFromFileInfo(f protocol.FileInfo) scanner.File {
-	var blocks = make([]scanner.Block, len(f.Blocks))
-	var offset int64
-	for i, b := range f.Blocks {
-		blocks[i] = scanner.Block{
-			Offset: offset,
-			Size:   b.Size,
-			Hash:   b.Hash,
-		}
-		offset += int64(b.Size)
-	}
-	return scanner.File{
-		// Name is with native separator and normalization
-		Name:       filepath.FromSlash(f.Name),
-		Size:       offset,
-		Flags:      f.Flags &^ protocol.FlagInvalid,
-		Modified:   f.Modified,
-		Version:    f.Version,
-		Blocks:     blocks,
-		Suppressed: f.Flags&protocol.FlagInvalid != 0,
-	}
-}
-
-func fileInfoFromFile(f scanner.File) protocol.FileInfo {
-	var blocks = make([]protocol.BlockInfo, len(f.Blocks))
-	for i, b := range f.Blocks {
-		blocks[i] = protocol.BlockInfo{
-			Size: b.Size,
-			Hash: b.Hash,
-		}
-	}
-	pf := protocol.FileInfo{
-		Name:     filepath.ToSlash(f.Name),
-		Flags:    f.Flags,
-		Modified: f.Modified,
-		Version:  f.Version,
-		Blocks:   blocks,
-	}
-	if f.Suppressed {
-		pf.Flags |= protocol.FlagInvalid
-	}
-	return pf
-}
 
 func cmMap(cm protocol.ClusterConfigMessage) map[string]map[protocol.NodeID]uint32 {
 	m := make(map[string]map[protocol.NodeID]uint32)
