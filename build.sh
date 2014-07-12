@@ -145,7 +145,7 @@ case "$1" in
 
 		godep go build ./discover/cmd/discosrv
 
-		for os in darwin-amd64 linux-386 linux-amd64 freebsd-amd64 windows-amd64 windows-386 solaris-amd64 ; do
+		for os in darwin-amd64 linux-386 linux-amd64 freebsd-amd64 windows-amd64 windows-386 ; do
 			export GOOS=${os%-*}
 			export GOARCH=${os#*-}
 
