@@ -28,6 +28,7 @@ import (
 
 	"github.com/calmh/syncthing/config"
 	"github.com/calmh/syncthing/discover"
+	"github.com/calmh/syncthing/events"
 	"github.com/calmh/syncthing/logger"
 	"github.com/calmh/syncthing/model"
 	"github.com/calmh/syncthing/osutil"
@@ -454,8 +455,19 @@ nextRepo:
 		}()
 	}
 
+	events.Default.Log(events.StartupComplete, nil)
+	go generateEvents()
+
 	<-stop
+
 	l.Okln("Exiting")
+}
+
+func generateEvents() {
+	for {
+		time.Sleep(300 * time.Second)
+		events.Default.Log(events.Ping, nil)
+	}
 }
 
 func waitForParentExit() {
@@ -723,6 +735,10 @@ next:
 				protoConn := protocol.NewConnection(remoteID, conn, wr, m)
 
 				l.Infof("Established secure connection to %s at %v", remoteID, conn.RemoteAddr())
+				events.Default.Log(events.NodeConnected, map[string]string{
+					"id":   remoteID.String(),
+					"addr": conn.RemoteAddr().String(),
+				})
 
 				m.AddConnection(conn, protoConn)
 				continue next

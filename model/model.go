@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/config"
+	"github.com/calmh/syncthing/events"
 	"github.com/calmh/syncthing/files"
 	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/osutil"
@@ -315,6 +316,11 @@ func (m *Model) Index(nodeID protocol.NodeID, repo string, fs []protocol.FileInf
 		l.Fatalf("Index for nonexistant repo %q", repo)
 	}
 	m.rmut.RUnlock()
+
+	events.Default.Log(events.RemoteIndexUpdated, map[string]string{
+		"node": nodeID.String(),
+		"repo": repo,
+	})
 }
 
 // IndexUpdate is called for incremental updates to connected nodes' indexes.
@@ -336,6 +342,11 @@ func (m *Model) IndexUpdate(nodeID protocol.NodeID, repo string, fs []protocol.F
 		l.Fatalf("IndexUpdate for nonexistant repo %q", repo)
 	}
 	m.rmut.RUnlock()
+
+	events.Default.Log(events.RemoteIndexUpdated, map[string]string{
+		"node": nodeID.String(),
+		"repo": repo,
+	})
 }
 
 func (m *Model) repoSharedWith(repo string, nodeID protocol.NodeID) bool {
@@ -376,6 +387,10 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterCon
 // Implements the protocol.Model interface.
 func (m *Model) Close(node protocol.NodeID, err error) {
 	l.Infof("Connection to %s closed: %v", node, err)
+	events.Default.Log(events.NodeDisconnected, map[string]string{
+		"id":    node.String(),
+		"error": err.Error(),
+	})
 
 	m.rmut.RLock()
 	for _, repo := range m.nodeRepos[node] {
@@ -541,6 +556,7 @@ func (m *Model) updateLocal(repo string, f protocol.FileInfo) {
 	m.rmut.RLock()
 	m.repoFiles[repo].Update(protocol.LocalNodeID, []protocol.FileInfo{f})
 	m.rmut.RUnlock()
+	events.Default.Log(events.LocalIndexUpdated, map[string]string{"repo": repo})
 }
 
 func (m *Model) requestGlobal(nodeID protocol.NodeID, repo, name string, offset int64, size int, hash []byte) ([]byte, error) {

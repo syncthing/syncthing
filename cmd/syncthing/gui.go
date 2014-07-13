@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ import (
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/syncthing/auto"
 	"github.com/calmh/syncthing/config"
+	"github.com/calmh/syncthing/events"
 	"github.com/calmh/syncthing/logger"
 	"github.com/calmh/syncthing/model"
 	"github.com/vitrun/qart/qr"
@@ -43,6 +45,7 @@ var (
 	static       func(http.ResponseWriter, *http.Request, *log.Logger)
 	apiKey       string
 	modt         = time.Now().UTC().Format(http.TimeFormat)
+	eventSub     = events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents), 1000)
 )
 
 const (
@@ -98,6 +101,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/errors", restGetErrors)
 	getRestMux.HandleFunc("/rest/discovery", restGetDiscovery)
 	getRestMux.HandleFunc("/rest/report", withModel(m, restGetReport))
+	getRestMux.HandleFunc("/rest/events", restGetEvents)
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
@@ -412,6 +416,15 @@ func restGetDiscovery(w http.ResponseWriter, r *http.Request) {
 func restGetReport(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(reportData(m))
+}
+
+func restGetEvents(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	ts := qs.Get("since")
+	since, _ := strconv.Atoi(ts)
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(eventSub.Since(since, nil))
 }
 
 func getQR(w http.ResponseWriter, r *http.Request) {

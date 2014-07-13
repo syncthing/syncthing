@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/config"
+	"github.com/calmh/syncthing/events"
 	"github.com/calmh/syncthing/osutil"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
@@ -395,6 +396,11 @@ func (p *puller) handleBlock(b bqBlock) bool {
 			}
 		}
 
+		events.Default.Log(events.ItemStarted, map[string]string{
+			"repo": p.repoCfg.ID,
+			"item": f.Name,
+		})
+
 		p.model.updateLocal(p.repoCfg.ID, f)
 		return true
 	}
@@ -406,6 +412,11 @@ func (p *puller) handleBlock(b bqBlock) bool {
 		if debug {
 			l.Debugf("pull: %q: opening file %q", p.repoCfg.ID, f.Name)
 		}
+
+		events.Default.Log(events.ItemStarted, map[string]string{
+			"repo": p.repoCfg.ID,
+			"item": f.Name,
+		})
 
 		of.availability = p.model.repoFiles[p.repoCfg.ID].Availability(f.Name)
 		of.filepath = filepath.Join(p.repoCfg.Directory, f.Name)
