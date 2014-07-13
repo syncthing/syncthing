@@ -6,17 +6,21 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
 type event struct {
-	ID   int
-	Type string
-	Time time.Time
-	Data map[string]interface{}
+	ID   int                    `json:"id"`
+	Type string                 `json:"type"`
+	Time time.Time              `json:"time"`
+	Data map[string]interface{} `json:"data"`
 }
 
 func main() {
+	log.SetOutput(os.Stdout)
+	log.SetFlags(0)
+
 	target := flag.String("target", "localhost:8080", "Target Syncthing instance")
 	apikey := flag.String("apikey", "", "Syncthing API key")
 	flag.Parse()
@@ -42,12 +46,11 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		res.Body.Close()
 
 		for _, event := range events {
-			log.Printf("%d: %v", event.ID, event.Type)
-			for k, v := range event.Data {
-				log.Printf("\t%s: %v", k, v)
-			}
+			bs, _ := json.MarshalIndent(event, "", "    ")
+			log.Printf("%s", bs)
 			since = event.ID
 		}
 	}
