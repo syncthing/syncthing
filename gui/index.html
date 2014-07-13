@@ -450,7 +450,7 @@
                   <span ng-show="!editingExisting">When adding a new node, keep in mind that <em>this node</em> must be added on the other side too.</span>
                 </span>
                 <span ng-if="nodeEditor.nodeID.$error.required && nodeEditor.nodeID.$dirty">The node ID cannot be blank.</span>
-                <span ng-if="nodeEditor.nodeID.$error.validNodeid && nodeEditor.nodeID.$dirty">The entered node ID does not look valid. It should be a 56 character string consisting of letters and numbers, with spaces and dashes being optional.</span>
+                <span ng-if="nodeEditor.nodeID.$error.validNodeid && nodeEditor.nodeID.$dirty">The entered node ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.</span>
               </p>
             </div>
             <div class="form-group">
