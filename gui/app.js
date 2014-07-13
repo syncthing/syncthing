@@ -854,7 +854,7 @@ syncthing.directive('validNodeid', function() {
                     ctrl.$setValidity('validNodeid', true);
                 } else {
                     var cleaned = viewValue.replace(/ /g, '').replace(/-/g, '').toLowerCase().trim();
-                    if (cleaned.match(/^[a-z2-7]{52}$/)) {
+                    if (cleaned.match(/^[a-z2-7]{56}$/)) {
                         ctrl.$setValidity('validNodeid', true);
                     } else {
                         ctrl.$setValidity('validNodeid', false);
