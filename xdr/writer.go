@@ -77,49 +77,15 @@ func (w *Writer) WriteBytes(bs []byte) (int, error) {
 }
 
 func (w *Writer) WriteBool(v bool) (int, error) {
-	if w.err != nil {
-		return 0, w.err
-	}
-
-	w.last = time.Now()
-	if debug {
-		dl.Debugf("wr uint16=%d", v)
-	}
-
-	w.b[0] = 0
-	w.b[1] = 0
-	w.b[2] = 0
 	if v {
-		w.b[3] = 1
+		return w.WriteUint32(1)
 	} else {
-		w.b[3] = 0
+		return w.WriteUint32(0)
 	}
-
-	var l int
-	l, w.err = w.w.Write(w.b[:4])
-	w.tot += l
-	return l, w.err
 }
 
 func (w *Writer) WriteUint16(v uint16) (int, error) {
-	if w.err != nil {
-		return 0, w.err
-	}
-
-	w.last = time.Now()
-	if debug {
-		dl.Debugf("wr uint16=%d", v)
-	}
-
-	w.b[0] = 0
-	w.b[1] = 0
-	w.b[2] = byte(v >> 8)
-	w.b[3] = byte(v)
-
-	var l int
-	l, w.err = w.w.Write(w.b[:4])
-	w.tot += l
-	return l, w.err
+	return w.WriteUint32(uint32(v))
 }
 
 func (w *Writer) WriteUint32(v uint32) (int, error) {
