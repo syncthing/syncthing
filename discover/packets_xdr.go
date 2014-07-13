@@ -17,7 +17,7 @@ import (
 
 /*
 
-QueryV2 Structure:
+Query Structure:
 
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -32,30 +32,30 @@ QueryV2 Structure:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
-struct QueryV2 {
+struct Query {
 	unsigned int Magic;
 	opaque NodeID<32>;
 }
 
 */
 
-func (o QueryV2) EncodeXDR(w io.Writer) (int, error) {
+func (o Query) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
 	return o.encodeXDR(xw)
 }
 
-func (o QueryV2) MarshalXDR() []byte {
+func (o Query) MarshalXDR() []byte {
 	return o.AppendXDR(make([]byte, 0, 128))
 }
 
-func (o QueryV2) AppendXDR(bs []byte) []byte {
+func (o Query) AppendXDR(bs []byte) []byte {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
 }
 
-func (o QueryV2) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o Query) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint32(o.Magic)
 	if len(o.NodeID) > 32 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
@@ -64,18 +64,18 @@ func (o QueryV2) encodeXDR(xw *xdr.Writer) (int, error) {
 	return xw.Tot(), xw.Error()
 }
 
-func (o *QueryV2) DecodeXDR(r io.Reader) error {
+func (o *Query) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
 	return o.decodeXDR(xr)
 }
 
-func (o *QueryV2) UnmarshalXDR(bs []byte) error {
+func (o *Query) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
 	return o.decodeXDR(xr)
 }
 
-func (o *QueryV2) decodeXDR(xr *xdr.Reader) error {
+func (o *Query) decodeXDR(xr *xdr.Reader) error {
 	o.Magic = xr.ReadUint32()
 	o.NodeID = xr.ReadBytesMax(32)
 	return xr.Error()
@@ -83,7 +83,7 @@ func (o *QueryV2) decodeXDR(xr *xdr.Reader) error {
 
 /*
 
-AnnounceV2 Structure:
+Announce Structure:
 
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -100,7 +100,7 @@ AnnounceV2 Structure:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
-struct AnnounceV2 {
+struct Announce {
 	unsigned int Magic;
 	Node This;
 	Node Extra<16>;
@@ -108,23 +108,23 @@ struct AnnounceV2 {
 
 */
 
-func (o AnnounceV2) EncodeXDR(w io.Writer) (int, error) {
+func (o Announce) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
 	return o.encodeXDR(xw)
 }
 
-func (o AnnounceV2) MarshalXDR() []byte {
+func (o Announce) MarshalXDR() []byte {
 	return o.AppendXDR(make([]byte, 0, 128))
 }
 
-func (o AnnounceV2) AppendXDR(bs []byte) []byte {
+func (o Announce) AppendXDR(bs []byte) []byte {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
 }
 
-func (o AnnounceV2) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o Announce) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint32(o.Magic)
 	o.This.encodeXDR(xw)
 	if len(o.Extra) > 16 {
@@ -137,18 +137,18 @@ func (o AnnounceV2) encodeXDR(xw *xdr.Writer) (int, error) {
 	return xw.Tot(), xw.Error()
 }
 
-func (o *AnnounceV2) DecodeXDR(r io.Reader) error {
+func (o *Announce) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
 	return o.decodeXDR(xr)
 }
 
-func (o *AnnounceV2) UnmarshalXDR(bs []byte) error {
+func (o *Announce) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
 	return o.decodeXDR(xr)
 }
 
-func (o *AnnounceV2) decodeXDR(xr *xdr.Reader) error {
+func (o *Announce) decodeXDR(xr *xdr.Reader) error {
 	o.Magic = xr.ReadUint32()
 	(&o.This).decodeXDR(xr)
 	_ExtraSize := int(xr.ReadUint32())

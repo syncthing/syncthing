@@ -144,7 +144,7 @@ type NodeConfiguration struct {
 
 type OptionsConfiguration struct {
 	ListenAddress      []string `xml:"listenAddress" default:"0.0.0.0:22000"`
-	GlobalAnnServer    string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22025"`
+	GlobalAnnServer    string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22026"`
 	GlobalAnnEnabled   bool     `xml:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled    bool     `xml:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort       int      `xml:"localAnnouncePort" default:"21025"`
@@ -360,6 +360,12 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 		if len(n.Addresses) == 0 || len(n.Addresses) == 1 && n.Addresses[0] == "" {
 			n.Addresses = []string{"dynamic"}
 		}
+	}
+
+	// The global discovery format and port number changed in v0.9. Having the
+	// default announce server but old port number is guaranteed to be legacy.
+	if cfg.Options.GlobalAnnServer == "announce.syncthing.net:22025" {
+		cfg.Options.GlobalAnnServer = "announce.syncthing.net:22026"
 	}
 
 	return cfg, err

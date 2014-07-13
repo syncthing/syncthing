@@ -134,8 +134,8 @@ func (d *Discoverer) announcementPkt() []byte {
 			addrs = append(addrs, Address{IP: bs, Port: uint16(addr.Port)})
 		}
 	}
-	var pkt = AnnounceV2{
-		Magic: AnnouncementMagicV2,
+	var pkt = Announce{
+		Magic: AnnouncementMagic,
 		This:  Node{d.myID[:], addrs},
 	}
 	return pkt.MarshalXDR()
@@ -144,8 +144,8 @@ func (d *Discoverer) announcementPkt() []byte {
 func (d *Discoverer) sendLocalAnnouncements() {
 	var addrs = resolveAddrs(d.listenAddrs)
 
-	var pkt = AnnounceV2{
-		Magic: AnnouncementMagicV2,
+	var pkt = Announce{
+		Magic: AnnouncementMagic,
 		This:  Node{d.myID[:], addrs},
 	}
 
@@ -191,8 +191,8 @@ func (d *Discoverer) sendExternalAnnouncements() {
 
 	var buf []byte
 	if d.extPort != 0 {
-		var pkt = AnnounceV2{
-			Magic: AnnouncementMagicV2,
+		var pkt = Announce{
+			Magic: AnnouncementMagic,
 			This:  Node{d.myID[:], []Address{{Port: d.extPort}}},
 		}
 		buf = pkt.MarshalXDR()
@@ -244,7 +244,7 @@ func (d *Discoverer) recvAnnouncements() {
 			l.Debugf("discover: read announcement:\n%s", hex.Dump(buf))
 		}
 
-		var pkt AnnounceV2
+		var pkt Announce
 		err := pkt.UnmarshalXDR(buf)
 		if err != nil && err != io.EOF {
 			continue
@@ -331,7 +331,7 @@ func (d *Discoverer) externalLookup(node protocol.NodeID) []string {
 		return nil
 	}
 
-	buf := QueryV2{QueryMagicV2, node[:]}.MarshalXDR()
+	buf := Query{QueryMagic, node[:]}.MarshalXDR()
 	_, err = conn.Write(buf)
 	if err != nil {
 		if debug {
@@ -357,7 +357,7 @@ func (d *Discoverer) externalLookup(node protocol.NodeID) []string {
 		l.Debugf("discover: read external:\n%s", hex.Dump(buf[:n]))
 	}
 
-	var pkt AnnounceV2
+	var pkt Announce
 	err = pkt.UnmarshalXDR(buf[:n])
 	if err != nil && err != io.EOF {
 		if debug {

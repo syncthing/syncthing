@@ -5,16 +5,16 @@
 package discover
 
 const (
-	AnnouncementMagicV2 = 0x029E4C77
-	QueryMagicV2        = 0x23D63A9A
+	AnnouncementMagic = 0x9D79BC39
+	QueryMagic        = 0x2CA856F5
 )
 
-type QueryV2 struct {
+type Query struct {
 	Magic  uint32
 	NodeID []byte // max:32
 }
 
-type AnnounceV2 struct {
+type Announce struct {
 	Magic uint32
 	This  Node
 	Extra []Node // max:16
