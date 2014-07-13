@@ -53,7 +53,7 @@ func main() {
 	var statsIntv int
 	var statsFile string
 
-	flag.StringVar(&listen, "listen", ":22025", "Listen address")
+	flag.StringVar(&listen, "listen", ":22026", "Listen address")
 	flag.BoolVar(&debug, "debug", false, "Enable debug output")
 	flag.BoolVar(&timestamp, "timestamp", true, "Timestamp the log output")
 	flag.IntVar(&statsIntv, "stats-intv", 0, "Statistics output interval (s)")
@@ -103,10 +103,10 @@ func main() {
 		magic := binary.BigEndian.Uint32(buf)
 
 		switch magic {
-		case discover.AnnouncementMagicV2:
+		case discover.AnnouncementMagic:
 			handleAnnounceV2(addr, buf)
 
-		case discover.QueryMagicV2:
+		case discover.QueryMagic:
 			handleQueryV2(conn, addr, buf)
 
 		default:
@@ -146,7 +146,7 @@ func limit(addr *net.UDPAddr) bool {
 }
 
 func handleAnnounceV2(addr *net.UDPAddr, buf []byte) {
-	var pkt discover.AnnounceV2
+	var pkt discover.Announce
 	err := pkt.UnmarshalXDR(buf)
 	if err != nil && err != io.EOF {
 		log.Println("AnnounceV2 Unmarshal:", err)
@@ -197,7 +197,7 @@ func handleAnnounceV2(addr *net.UDPAddr, buf []byte) {
 }
 
 func handleQueryV2(conn *net.UDPConn, addr *net.UDPAddr, buf []byte) {
-	var pkt discover.QueryV2
+	var pkt discover.Query
 	err := pkt.UnmarshalXDR(buf)
 	if err != nil {
 		log.Println("QueryV2 Unmarshal:", err)
@@ -222,8 +222,8 @@ func handleQueryV2(conn *net.UDPConn, addr *net.UDPAddr, buf []byte) {
 	lock.Unlock()
 
 	if ok && len(node.addresses) > 0 {
-		ann := discover.AnnounceV2{
-			Magic: discover.AnnouncementMagicV2,
+		ann := discover.Announce{
+			Magic: discover.AnnouncementMagic,
 			This: discover.Node{
 				ID: pkt.NodeID,
 			},
