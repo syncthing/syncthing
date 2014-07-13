@@ -27,7 +27,7 @@ func init() {
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		ListenAddress:      []string{"0.0.0.0:22000"},
-		GlobalAnnServer:    "announce.syncthing.net:22025",
+		GlobalAnnServer:    "announce.syncthing.net:22026",
 		GlobalAnnEnabled:   true,
 		LocalAnnEnabled:    true,
 		LocalAnnPort:       21025,
@@ -149,7 +149,7 @@ func TestOverriddenValues(t *testing.T) {
     <options>
        <listenAddress>:23000</listenAddress>
         <allowDelete>false</allowDelete>
-        <globalAnnounceServer>syncthing.nym.se:22025</globalAnnounceServer>
+        <globalAnnounceServer>syncthing.nym.se:22026</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
         <localAnnouncePort>42123</localAnnouncePort>
@@ -166,7 +166,7 @@ func TestOverriddenValues(t *testing.T) {
 
 	expected := OptionsConfiguration{
 		ListenAddress:      []string{":23000"},
-		GlobalAnnServer:    "syncthing.nym.se:22025",
+		GlobalAnnServer:    "syncthing.nym.se:22026",
 		GlobalAnnEnabled:   false,
 		LocalAnnEnabled:    false,
 		LocalAnnPort:       42123,
