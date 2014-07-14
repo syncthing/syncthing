@@ -735,6 +735,9 @@ next:
 				protoConn := protocol.NewConnection(remoteID, conn, wr, m)
 
 				l.Infof("Established secure connection to %s at %v", remoteID, conn.RemoteAddr())
+				if debugNet {
+					l.Debugf("cipher suite %04X", conn.ConnectionState().CipherSuite)
+				}
 				events.Default.Log(events.NodeConnected, map[string]string{
 					"id":   remoteID.String(),
 					"addr": conn.RemoteAddr().String(),

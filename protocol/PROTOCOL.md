@@ -25,23 +25,16 @@ Transport and Authentication
 ----------------------------
 
 BEP is deployed as the highest level in a protocol stack, with the lower
-level protocols providing compression, encryption and authentication.
+level protocols providing encryption and authentication.
 
     +-----------------------------|
     |   Block Exchange Protocol   |
-    |-----------------------------|
-    |   Compression (RFC 1951)    |
     |-----------------------------|
     | Encryption & Auth (TLS 1.2) |
     |-----------------------------|
     |             TCP             |
     |-----------------------------|
     v             ...             v
-
-Compression is started directly after a successful TLS handshake,
-before the first message is sent. The compression is flushed at each
-message boundary. Compression SHALL use the DEFLATE format as specified
-in RFC 1951.
 
 The encryption and authentication layer SHALL use TLS 1.2 or a higher
 revision. A strong cipher suite SHALL be used, with "strong cipher
