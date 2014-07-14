@@ -352,86 +352,31 @@
 
   <!-- Network error modal -->
 
-  <div id="networkError" class="modal fade">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header alert alert-danger">
-          <h4 class="modal-title">
-            <span class="glyphicon glyphicon-exclamation-sign"></span>
-            Connection Error
-          </h4>
-        </div>
-        <div class="modal-body">
-          <p>
-            Syncthing seems to be down, or there is a problem with your Internet connection.
-            Retrying&hellip;
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
+  <modal id="networkError" status="danger" icon="exclamation-sign" title="Connection Error">
+    <p>
+      Syncthing seems to be down, or there is a problem with your Internet connection.
+      Retrying&hellip;
+    </p>
+  </modal>
 
   <!-- Restarting modal -->
 
-  <div id="restarting" class="modal fade">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header alert alert-info">
-          <h4 class="modal-title">
-            <span class="glyphicon glyphicon-refresh"></span>
-            {{restartingHeader}}
-          </h4>
-        </div>
-        <div class="modal-body">
-          <p>
-            {{restartingBody}} Please hold&hellip;
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
+  <modal id="restarting" icon="refresh" title="{{restartingTitle}}" status="info">
+    <p>{{restartingBody}} Please hold&hellip;</p>
+  </modal>
 
   <!-- Shutdown modal -->
 
-  <div id="shutdown" class="modal fade">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header alert alert-success">
-          <h4 class="modal-title">
-            <span class="glyphicon glyphicon-off"></span>
-            Shutdown Complete
-          </h4>
-        </div>
-        <div class="modal-body">
-          <p>
-            Syncthing has been shut down.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
+  <modal id="shutdown" icon="off" status="success" title="Shutdown Complete">
+    <p>Syncthing has been shut down.</p>
+  </modal>
 
   <!-- ID modal -->
 
-  <div id="idqr" class="modal fade">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h4 class="modal-title">
-            <span class="glyphicon glyphicon-qrcode"></span>
-            Node Identification &mdash; {{nodeName(thisNode())}}
-          </h4>
-        </div>
-        <div class="modal-body">
-          <div class="well well-sm text-monospace text-center">{{myID}}</div>
-          <img ng-if="myID" class="center-block img-thumbnail" src="qr/{{myID}}"/>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <modal id="idqr" large="yes" status="info" close="yes" icon="qrcode" title="Node Identification &mdash; {{nodeName(thisNode())}}">
+    <div class="well well-sm text-monospace text-center">{{myID}}</div>
+    <img ng-if="myID" class="center-block img-thumbnail" src="qr/{{myID}}"/>
+  </modal>
 
   <!-- Node editor modal -->
 
@@ -654,43 +599,25 @@
 
   <!-- Needed files modal -->
 
-  <div id="needed" class="modal fade">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
-        <div class="modal-header alert alert-info">
-          <h4 class="modal-title">Out of Sync Items</h4>
-        </div>
-        <div class="modal-body">
-          <table class="table table-striped table-condensed">
-          <tr ng-repeat="f in needed" ng-init="a = needAction(f)">
-            <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
-            <td title="{{f.Name}}">{{f.Name | basename}}</td>
-            <td class="text-right small-data"><span ng-if="f.Size > 0">{{f.Size | binary}}B</span></td>
-          </tr>
-          </table>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <modal id="needed" large="yes" status="info" icon="cloud-download" close="yes" title="Out of Sync Items">
+    <table class="table table-striped table-condensed">
+      <tr ng-repeat="f in needed" ng-init="a = needAction(f)">
+        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
+        <td title="{{f.Name}}">{{f.Name | basename}}</td>
+        <td class="text-right small-data"><span ng-if="f.Size > 0">{{f.Size | binary}}B</span></td>
+      </tr>
+    </table>
+  </modal>
 
   <!-- About modal -->
 
-  <div id="about" class="modal fade">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
-        <div class="modal-header alert alert-info">
-          <h4 class="modal-title">About</h4>
-        </div>
-        <div class="modal-body">
-        <h1>Syncthing <small>{{version}}</small></h1>
-        <hr/>
+  <modal id="about" large="yes" close="yes" status="info" title="About">
+    <h1 class="text-center"><img src="st-logo-128.png" style="vertical-align: -16px" width="64" height="64"/> Syncthing<br/><small>{{version}}</small></h1>
+    <hr/>
 
-        <p>Copyright &copy; 2014 <b>Jakob Borg</b> and the following <b>Contributors</b>:</p>
-        <div class="row">
-        <div class="col-md-6">
+    <p>Copyright &copy; 2014 <b>Jakob Borg</b> and the following <b>Contributors</b>:</p>
+    <div class="row">
+      <div class="col-md-6">
         <ul>
           <li>Aaron Bieber</li>
           <li>Andrew Dunham</li>
@@ -699,7 +626,7 @@
           <li>Brandon Philips</li>
         </ul>
         </div>
-        <div class="col-md-6">
+      <div class="col-md-6">
         <ul>
           <li>James Patterson</li>
           <li>Jens Diemer</li>
@@ -708,29 +635,23 @@
           <li>Veeti Paananen</li>
         </ul>
         </div>
-        </div>
-        <hr/>
-
-        <p>Syncthing includes the following software or portions thereof:
-        <ul>
-          <li><a href="http://golang.org/">The Go Programming Languange</a>, Copyright &copy; 2012 The Go Authors.</li>
-          <li><a href="https://bitbucket.org/kardianos/osext">kardianos/osext</a>, Copyright &copy; 2012 Daniel Theophanes.</li>
-          <li><a href="https://code.google.com/p/snappy-go/">snappy-go</a>, Copyright &copy; 2011 The Snappy-Go Authors.</li>
-          <li><a href="https://github.com/golang/groupcache">groupcache/lru</a>, Copyright &copy; 2013 Google Inc.</li>
-          <li><a href="https://github.com/juju/ratelimit">juju/ratelimit</a>, Copyright &copy; 2014 Canonical Ltd.</li>
-          <li><a href="https://github.com/syndtr/goleveldb">syndtr/goleveldb</a>, Copyright &copy; 2012, Suryandaru Triandana</li>
-          <li><a href="https://github.com/vitrun/qart">vitrun/qart</a>, Copyright &copy; The Go Authors.</li>
-          <li><a href="https://angularjs.org/">AngularJS</a>, Copyright &copy; 2010-2014 Google, Inc.</li>
-          <li><a href="http://getbootstrap.com/">Bootstrap</a>, Copyright &copy; 2011-2014 Twitter, Inc.</li>
-        </ul>
-        </p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
-        </div>
-      </div>
     </div>
-  </div>
+    <hr/>
+
+    <p>Syncthing includes the following software or portions thereof:
+    <ul>
+      <li><a href="http://golang.org/">The Go Programming Languange</a>, Copyright &copy; 2012 The Go Authors.</li>
+      <li><a href="https://bitbucket.org/kardianos/osext">kardianos/osext</a>, Copyright &copy; 2012 Daniel Theophanes.</li>
+      <li><a href="https://code.google.com/p/snappy-go/">snappy-go</a>, Copyright &copy; 2011 The Snappy-Go Authors.</li>
+      <li><a href="https://github.com/golang/groupcache">groupcache/lru</a>, Copyright &copy; 2013 Google Inc.</li>
+      <li><a href="https://github.com/juju/ratelimit">juju/ratelimit</a>, Copyright &copy; 2014 Canonical Ltd.</li>
+      <li><a href="https://github.com/syndtr/goleveldb">syndtr/goleveldb</a>, Copyright &copy; 2012, Suryandaru Triandana</li>
+      <li><a href="https://github.com/vitrun/qart">vitrun/qart</a>, Copyright &copy; The Go Authors.</li>
+      <li><a href="https://angularjs.org/">AngularJS</a>, Copyright &copy; 2010-2014 Google, Inc.</li>
+      <li><a href="http://getbootstrap.com/">Bootstrap</a>, Copyright &copy; 2011-2014 Twitter, Inc.</li>
+    </ul>
+    </p>
+  </modal>
 
 
   <script src="angular.min.js"></script>

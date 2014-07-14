@@ -337,7 +337,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     $scope.restart = function () {
         restarting = true;
-        $scope.restartingHeader = "Restarting"
+        $scope.restartingTitle = "Restarting"
         $scope.restartingBody = "Syncthing is restarting."
         $('#restarting').modal({backdrop: 'static', keyboard: false});
         $http.post(urlbase + '/restart');
@@ -360,7 +360,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     };
 
     $scope.upgrade = function () {
-        $scope.restartingHeader = "Upgrading"
+        $scope.restartingTitle = "Upgrading"
         $scope.restartingBody = "Syncthing is upgrading."
         $('#restarting').modal({backdrop: 'static', keyboard: false});
         $http.post(urlbase + '/upgrade').success(function () {
@@ -885,4 +885,20 @@ syncthing.directive('validNodeid', function() {
             });
         }
     };
+});
+
+syncthing.directive('modal', function () {
+    return {
+        restrict: 'E',
+        templateUrl: 'modal.html',
+        replace: true,
+        transclude: true,
+        scope: {
+            title: '@',
+            status: '@',
+            icon: '@',
+            close: '@',
+            large: '@',
+        },
+    }
 });

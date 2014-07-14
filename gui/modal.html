@@ -1,0 +1,17 @@
+<div class="modal fade">
+  <div class="modal-dialog" ng-class="{'modal-lg': large}">
+    <div class="modal-content">
+      <div class="modal-header alert alert-{{status}}">
+        <h4 class="modal-title">
+          <span ng-if="icon" class="glyphicon glyphicon-{{icon}}"></span>
+          {{title}}
+        </h4>
+      </div>
+      <div class="modal-body" ng-transclude>
+      </div>
+      <div ng-if="close" class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;Close</button>
+      </div>
+    </div>
+  </div>
+</div>
