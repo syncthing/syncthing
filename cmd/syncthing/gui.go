@@ -102,6 +102,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/discovery", restGetDiscovery)
 	getRestMux.HandleFunc("/rest/report", withModel(m, restGetReport))
 	getRestMux.HandleFunc("/rest/events", restGetEvents)
+	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
@@ -113,6 +114,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/error/clear", restClearErrors)
 	postRestMux.HandleFunc("/rest/discovery/hint", restPostDiscoveryHint)
 	postRestMux.HandleFunc("/rest/model/override", withModel(m, restPostOverride))
+	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -425,6 +427,32 @@ func restGetEvents(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(eventSub.Since(since, nil))
+}
+
+func restGetUpgrade(w http.ResponseWriter, r *http.Request) {
+	rel, err := currentRelease()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	res := make(map[string]interface{})
+	res["running"] = Version
+	res["latest"] = rel.Tag
+	res["newer"] = compareVersions(rel.Tag, Version) == 1
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(res)
+}
+
+func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
+	err := upgrade()
+	if err != nil {
+		l.Warnln(err)
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	restPostRestart(w, r)
 }
 
 func getQR(w http.ResponseWriter, r *http.Request) {

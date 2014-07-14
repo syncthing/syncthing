@@ -96,6 +96,9 @@
     <div class="container">
       <span class="navbar-brand"><img class="logo" src="st-logo-128.png" width="32" height="32" /> Syncthing<small class="hidden-xs"> <span class="text-muted">|</span> {{thisNodeName()}}</small></span>
       <ul class="nav navbar-nav navbar-right">
+        <li ng-if="upgradeInfo.newer">
+          <button type="button" class="btn navbar-btn btn-default" href="" ng-click="upgrade()"><span class="glyphicon glyphicon-chevron-up"></span>&emsp;Upgrade to {{upgradeInfo.latest}}</button>
+        </li>
         <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown">Edit&nbsp;<b class="caret"></b></a>
           <ul class="dropdown-menu">
@@ -376,12 +379,12 @@
         <div class="modal-header alert alert-info">
           <h4 class="modal-title">
             <span class="glyphicon glyphicon-refresh"></span>
-            Restarting
+            {{restartingHeader}}
           </h4>
         </div>
         <div class="modal-body">
           <p>
-            Syncthing is restarting. Please hold&hellip;
+            {{restartingBody}} Please hold&hellip;
           </p>
         </div>
       </div>

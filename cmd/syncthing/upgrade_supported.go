@@ -2,7 +2,7 @@
 // All rights reserved. Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-// +build !solaris,!windows
+// +build !solaris,!windows,!noupgrade
 
 package main
 
@@ -19,23 +19,10 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 
-	"bytes"
 	"bitbucket.org/kardianos/osext"
 )
-
-type githubRelease struct {
-	Tag      string        `json:"tag_name"`
-	Prelease bool          `json:"prerelease"`
-	Assets   []githubAsset `json:"assets"`
-}
-
-type githubAsset struct {
-	URL  string `json:"url"`
-	Name string `json:"name"`
-}
 
 var GoArchExtra string // "", "v5", "v6", "v7"
 
@@ -49,19 +36,10 @@ func upgrade() error {
 		return err
 	}
 
-	resp, err := http.Get("https://api.github.com/repos/calmh/syncthing/releases?per_page=1")
+	rel, err := currentRelease()
 	if err != nil {
 		return err
 	}
-
-	var rels []githubRelease
-	json.NewDecoder(resp.Body).Decode(&rels)
-	resp.Body.Close()
-
-	if len(rels) != 1 {
-		return fmt.Errorf("Unexpected number of releases: %d", len(rels))
-	}
-	rel := rels[0]
 
 	switch compareVersions(rel.Tag, Version) {
 	case -1:
@@ -102,8 +80,23 @@ func upgrade() error {
 		}
 	}
 
-	l.Warnf("Found no asset for %q", expectedRelease)
-	return nil
+	return fmt.Errorf("Found no asset for %q", expectedRelease)
+}
+
+func currentRelease() (githubRelease, error) {
+	resp, err := http.Get("https://api.github.com/repos/calmh/syncthing/releases?per_page=1")
+	if err != nil {
+		return githubRelease{}, err
+	}
+
+	var rels []githubRelease
+	json.NewDecoder(resp.Body).Decode(&rels)
+	resp.Body.Close()
+
+	if len(rels) != 1 {
+		return githubRelease{}, fmt.Errorf("Unexpected number of releases: %d", len(rels))
+	}
+	return rels[0], nil
 }
 
 func readTarGZ(url string, dir string) (string, error) {
@@ -158,19 +151,4 @@ func readTarGZ(url string, dir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("No upgrade found")
-}
-
-func compareVersions(a, b string) int {
-	return bytes.Compare(versionParts(a), versionParts(b))
-}
-
-func versionParts(v string) []byte {
-	parts := strings.Split(v, "-")
-	fields := strings.Split(parts[0], ".")
-	res := make([]byte, len(fields))
-	for i, s := range fields {
-		v, _ := strconv.Atoi(s)
-		res[i] = byte(v)
-	}
-	return res
 }

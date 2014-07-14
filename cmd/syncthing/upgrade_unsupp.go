@@ -1,9 +1,15 @@
-// +build windows solaris
+// +build windows solaris noupgrade
 
 package main
 
 import "errors"
 
+var errUpgradeUnsupported = errors.New("Automatic upgrade not supported")
+
 func upgrade() error {
-	return errors.New("Upgrade currently unsupported on Windows")
+	return errUpgradeUnsupported
+}
+
+func currentRelease() (githubRelease, error) {
+	return githubRelease{}, errUpgradeUnsupported
 }

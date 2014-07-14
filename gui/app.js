@@ -32,6 +32,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
     $scope.repos = {};
     $scope.reportData = {};
     $scope.reportPreview = false;
+    $scope.upgradeInfo = {};
 
     $scope.needActions = {
         'rm': 'Del',
@@ -336,6 +337,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
     $scope.restart = function () {
         restarting = true;
+        $scope.restartingHeader = "Restarting"
+        $scope.restartingBody = "Syncthing is restarting."
         $('#restarting').modal({backdrop: 'static', keyboard: false});
         $http.post(urlbase + '/restart');
         $scope.configInSync = true;
@@ -354,6 +357,18 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
             $scope.protocolChanged = false;
         }
+    };
+
+    $scope.upgrade = function () {
+        $scope.restartingHeader = "Upgrading"
+        $scope.restartingBody = "Syncthing is upgrading."
+        $('#restarting').modal({backdrop: 'static', keyboard: false});
+        $http.post(urlbase + '/upgrade').success(function () {
+            restarting = true;
+            $scope.restartingBody = "Syncthing is restarting into the new version."
+        }).error(function () {
+            $('#restarting').modal('hide');
+        });
     };
 
     $scope.shutdown = function () {
@@ -605,6 +620,12 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
 
         $http.get(urlbase + '/report').success(function (data) {
             $scope.reportData = data;
+        });
+
+        $http.get(urlbase + '/upgrade').success(function (data) {
+            $scope.upgradeInfo = data;
+        }).error(function () {
+            $scope.upgradeInfo = {};
         });
     };
 
