@@ -150,7 +150,7 @@ func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo
 			ldbUpdateGlobal(snap, batch, repo, node, newName, fs[fsi].Version)
 			fsi++
 
-		case cmp == 0:
+		case moreFs && moreDb && cmp == 0:
 			// File exists on both sides - compare versions.
 			var ef protocol.FileInfo
 			ef.UnmarshalXDR(dbi.Value())
