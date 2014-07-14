@@ -176,26 +176,27 @@ func (w *Walker) walkAndHashFiles(res *[]protocol.FileInfo, ign map[string][]str
 						l.Debugln("unchanged:", cf)
 					}
 					*res = append(*res, cf)
-				} else {
-					var flags uint32 = protocol.FlagDirectory
-					if w.IgnorePerms {
-						flags |= protocol.FlagNoPermBits | 0777
-					} else {
-						flags |= uint32(info.Mode() & os.ModePerm)
-					}
-					f := protocol.FileInfo{
-						Name:     rn,
-						Version:  lamport.Default.Tick(0),
-						Flags:    flags,
-						Modified: info.ModTime().Unix(),
-					}
-					if debug {
-						l.Debugln("dir:", cf, f)
-					}
-					*res = append(*res, f)
+					return nil
 				}
-				return nil
 			}
+
+			var flags uint32 = protocol.FlagDirectory
+			if w.IgnorePerms {
+				flags |= protocol.FlagNoPermBits | 0777
+			} else {
+				flags |= uint32(info.Mode() & os.ModePerm)
+			}
+			f := protocol.FileInfo{
+				Name:     rn,
+				Version:  lamport.Default.Tick(0),
+				Flags:    flags,
+				Modified: info.ModTime().Unix(),
+			}
+			if debug {
+				l.Debugln("dir:", f)
+			}
+			*res = append(*res, f)
+			return nil
 		}
 
 		if info.Mode().IsRegular() {
