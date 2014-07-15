@@ -195,8 +195,10 @@ func (p *puller) run() {
 
 		if v := p.model.LocalVersion(p.repoCfg.ID); v > prevVer {
 			// Queue more blocks to fetch, if any
-			p.queueNeededBlocks()
-			prevVer = v
+			if p.queueNeededBlocks() == 0 {
+				// We've fetched all blocks we need
+				prevVer = v
+			}
 		}
 	}
 }
@@ -618,7 +620,7 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 	delete(p.openFiles, f.Name)
 }
 
-func (p *puller) queueNeededBlocks() {
+func (p *puller) queueNeededBlocks() int {
 	queued := 0
 	for _, f := range p.model.NeedFilesRepo(p.repoCfg.ID) {
 		lf := p.model.CurrentRepoFile(p.repoCfg.ID, f.Name)
@@ -634,8 +636,9 @@ func (p *puller) queueNeededBlocks() {
 		})
 	}
 	if debug && queued > 0 {
-		l.Debugf("%q: queued %d blocks", p.repoCfg.ID, queued)
+		l.Debugf("%q: queued %d items", p.repoCfg.ID, queued)
 	}
+	return queued
 }
 
 func (p *puller) closeFile(f protocol.FileInfo) {

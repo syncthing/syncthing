@@ -278,8 +278,17 @@ func (m *Model) LocalSize(repo string) (files, deleted int, bytes int64) {
 
 // NeedSize returns the number and total size of currently needed files.
 func (m *Model) NeedSize(repo string) (files int, bytes int64) {
-	f, d, b := sizeOf(m.NeedFilesRepo(repo))
-	return f + d, b
+	m.rmut.RLock()
+	defer m.rmut.RUnlock()
+	if rf, ok := m.repoFiles[repo]; ok {
+		rf.WithNeed(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
+			fs, de, by := sizeOfFile(f)
+			files += fs + de
+			bytes += by
+			return true
+		})
+	}
+	return
 }
 
 // NeedFiles returns the list of currently needed files
@@ -287,10 +296,10 @@ func (m *Model) NeedFilesRepo(repo string) []protocol.FileInfo {
 	m.rmut.RLock()
 	defer m.rmut.RUnlock()
 	if rf, ok := m.repoFiles[repo]; ok {
-		var fs []protocol.FileInfo
+		fs := make([]protocol.FileInfo, 0, indexBatchSize)
 		rf.WithNeed(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
 			fs = append(fs, f)
-			return true
+			return len(fs) < indexBatchSize
 		})
 		if r := m.repoCfgs[repo].FileRanker(); r != nil {
 			files.SortBy(r).Sort(fs)
@@ -721,9 +730,10 @@ func (m *Model) ScanRepo(repo string) error {
 	if err != nil {
 		return err
 	}
-	batch := make([]protocol.FileInfo, 0, indexBatchSize)
+	batchSize := 100
+	batch := make([]protocol.FileInfo, 0, 00)
 	for f := range fchan {
-		if len(batch) == indexBatchSize {
+		if len(batch) == batchSize {
 			fs.Update(protocol.LocalNodeID, batch)
 			batch = batch[:0]
 		}
@@ -736,7 +746,7 @@ func (m *Model) ScanRepo(repo string) error {
 	batch = batch[:0]
 	fs.WithHave(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
 		if !protocol.IsDeleted(f.Flags) {
-			if len(batch) == indexBatchSize {
+			if len(batch) == batchSize {
 				fs.Update(protocol.LocalNodeID, batch)
 				batch = batch[:0]
 			}
@@ -810,41 +820,52 @@ func (m *Model) State(repo string) string {
 }
 
 func (m *Model) Override(repo string) {
-	fs := m.NeedFilesRepo(repo)
-
 	m.rmut.RLock()
-	r := m.repoFiles[repo]
+	fs := m.repoFiles[repo]
 	m.rmut.RUnlock()
 
-	for i := range fs {
-		f := &fs[i]
-		h := r.Get(protocol.LocalNodeID, f.Name)
-		if h.Name != f.Name {
+	batch := make([]protocol.FileInfo, 0, indexBatchSize)
+	fs.WithNeed(protocol.LocalNodeID, func(need protocol.FileInfo) bool {
+		if len(batch) == indexBatchSize {
+			fs.Update(protocol.LocalNodeID, batch)
+			batch = batch[:0]
+		}
+
+		have := fs.Get(protocol.LocalNodeID, need.Name)
+		if have.Name != need.Name {
 			// We are missing the file
-			f.Flags |= protocol.FlagDeleted
-			f.Blocks = nil
+			need.Flags |= protocol.FlagDeleted
+			need.Blocks = nil
 		} else {
 			// We have the file, replace with our version
-			*f = h
+			need = have
 		}
-		f.Version = lamport.Default.Tick(f.Version)
-		f.LocalVersion = 0
+		need.Version = lamport.Default.Tick(need.Version)
+		need.LocalVersion = 0
+		batch = append(batch, need)
+		return true
+	})
+	if len(batch) > 0 {
+		fs.Update(protocol.LocalNodeID, batch)
 	}
-
-	r.Update(protocol.LocalNodeID, fs)
 }
 
 // Version returns the change version for the given repository. This is
 // guaranteed to increment if the contents of the local or global repository
 // has changed.
 func (m *Model) LocalVersion(repo string) uint64 {
-	var ver uint64
-
 	m.rmut.Lock()
-	for _, n := range m.repoNodes[repo] {
-		ver += m.repoFiles[repo].LocalVersion(n)
+	defer m.rmut.Unlock()
+
+	fs, ok := m.repoFiles[repo]
+	if !ok {
+		return 0
 	}
-	m.rmut.Unlock()
+
+	ver := fs.LocalVersion(protocol.LocalNodeID)
+	for _, n := range m.repoNodes[repo] {
+		ver += fs.LocalVersion(n)
+	}
 
 	return ver
 }

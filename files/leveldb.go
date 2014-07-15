@@ -207,8 +207,8 @@ func ldbReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint6
 		if debug {
 			l.Debugf("delete; repo=%q node=%x name=%q", repo, node, name)
 		}
-		batch.Delete(dbi.Key())
 		ldbRemoveFromGlobal(db, batch, repo, node, name)
+		batch.Delete(dbi.Key())
 		return 0
 	})
 }
