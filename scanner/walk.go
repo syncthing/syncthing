@@ -6,6 +6,7 @@ package scanner
 
 import (
 	"bytes"
+	"code.google.com/p/go.text/unicode/norm"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -14,7 +15,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	"code.google.com/p/go.text/unicode/norm"
 
 	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"
@@ -216,6 +216,7 @@ func (w *Walker) walkAndHashFiles(res *[]protocol.FileInfo, ign map[string][]str
 						l.Infof("Changes to %q are being temporarily suppressed because it changes too frequently.", p)
 						cf.Flags |= protocol.FlagInvalid
 						cf.Version = lamport.Default.Tick(cf.Version)
+						cf.LocalVersion = 0
 						if debug {
 							l.Debugln("suppressed:", cf)
 						}

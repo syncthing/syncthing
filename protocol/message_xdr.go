@@ -121,6 +121,10 @@ FileInfo Structure:
 +                       Version (64 bits)                       +
 |                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++                    Local Version (64 bits)                    +
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                       Number of Blocks                        |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
@@ -134,6 +138,7 @@ struct FileInfo {
 	unsigned int Flags;
 	hyper Modified;
 	unsigned hyper Version;
+	unsigned hyper LocalVersion;
 	BlockInfo Blocks<1000000>;
 }
 
@@ -163,6 +168,7 @@ func (o FileInfo) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint32(o.Flags)
 	xw.WriteUint64(uint64(o.Modified))
 	xw.WriteUint64(o.Version)
+	xw.WriteUint64(o.LocalVersion)
 	if len(o.Blocks) > 1000000 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
@@ -189,6 +195,7 @@ func (o *FileInfo) decodeXDR(xr *xdr.Reader) error {
 	o.Flags = xr.ReadUint32()
 	o.Modified = int64(xr.ReadUint64())
 	o.Version = xr.ReadUint64()
+	o.LocalVersion = xr.ReadUint64()
 	_BlocksSize := int(xr.ReadUint32())
 	if _BlocksSize > 1000000 {
 		return xdr.ErrElementSizeExceeded
@@ -567,7 +574,7 @@ Node Structure:
 |                             Flags                             |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
-+                     Max Version (64 bits)                     +
++                  Max Local Version (64 bits)                  +
 |                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
@@ -575,7 +582,7 @@ Node Structure:
 struct Node {
 	opaque ID<32>;
 	unsigned int Flags;
-	unsigned hyper MaxVersion;
+	unsigned hyper MaxLocalVersion;
 }
 
 */
@@ -602,7 +609,7 @@ func (o Node) encodeXDR(xw *xdr.Writer) (int, error) {
 	}
 	xw.WriteBytes(o.ID)
 	xw.WriteUint32(o.Flags)
-	xw.WriteUint64(o.MaxVersion)
+	xw.WriteUint64(o.MaxLocalVersion)
 	return xw.Tot(), xw.Error()
 }
 
@@ -620,7 +627,7 @@ func (o *Node) UnmarshalXDR(bs []byte) error {
 func (o *Node) decodeXDR(xr *xdr.Reader) error {
 	o.ID = xr.ReadBytesMax(32)
 	o.Flags = xr.ReadUint32()
-	o.MaxVersion = xr.ReadUint64()
+	o.MaxLocalVersion = xr.ReadUint64()
 	return xr.Error()
 }
 

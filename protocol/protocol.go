@@ -66,7 +66,9 @@ type Model interface {
 
 type Connection interface {
 	ID() NodeID
-	Index(repo string, files []FileInfo)
+	Name() string
+	Index(repo string, files []FileInfo) error
+	IndexUpdate(repo string, files []FileInfo) error
 	Request(repo string, name string, offset int64, size int) ([]byte, error)
 	ClusterConfig(config ClusterConfigMessage)
 	Statistics() Statistics
@@ -74,6 +76,7 @@ type Connection interface {
 
 type rawConnection struct {
 	id       NodeID
+	name     string
 	receiver Model
 	state    int
 
@@ -87,8 +90,7 @@ type rawConnection struct {
 	awaiting    []chan asyncResult
 	awaitingMut sync.Mutex
 
-	idxSent map[string]map[string]uint64
-	idxMut  sync.Mutex // ensures serialization of Index calls
+	idxMut sync.Mutex // ensures serialization of Index calls
 
 	nextID chan int
 	outbox chan []encodable
@@ -106,15 +108,16 @@ const (
 	pingIdleTime = 60 * time.Second
 )
 
-func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver Model) Connection {
+func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver Model, name string) Connection {
 	cr := &countingReader{Reader: reader}
 	cw := &countingWriter{Writer: writer}
 
 	rb := bufio.NewReader(cr)
-	wb := bufio.NewWriter(cw)
+	wb := bufio.NewWriterSize(cw, 65536)
 
 	c := rawConnection{
 		id:       nodeID,
+		name:     name,
 		receiver: nativeModel{receiver},
 		state:    stateInitial,
 		cr:       cr,
@@ -123,7 +126,6 @@ func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver M
 		wb:       wb,
 		xw:       xdr.NewWriter(wb),
 		awaiting: make([]chan asyncResult, 0x1000),
-		idxSent:  make(map[string]map[string]uint64),
 		outbox:   make(chan []encodable),
 		nextID:   make(chan int),
 		closed:   make(chan struct{}),
@@ -142,36 +144,34 @@ func (c *rawConnection) ID() NodeID {
 	return c.id
 }
 
+func (c *rawConnection) Name() string {
+	return c.name
+}
+
 // Index writes the list of file information to the connected peer node
-func (c *rawConnection) Index(repo string, idx []FileInfo) {
+func (c *rawConnection) Index(repo string, idx []FileInfo) error {
+	select {
+	case <-c.closed:
+		return ErrClosed
+	default:
+	}
 	c.idxMut.Lock()
-	defer c.idxMut.Unlock()
+	c.send(header{0, -1, messageTypeIndex}, IndexMessage{repo, idx})
+	c.idxMut.Unlock()
+	return nil
+}
 
-	var msgType int
-	if c.idxSent[repo] == nil {
-		// This is the first time we send an index.
-		msgType = messageTypeIndex
-
-		c.idxSent[repo] = make(map[string]uint64)
-		for _, f := range idx {
-			c.idxSent[repo][f.Name] = f.Version
-		}
-	} else {
-		// We have sent one full index. Only send updates now.
-		msgType = messageTypeIndexUpdate
-		var diff []FileInfo
-		for _, f := range idx {
-			if vs, ok := c.idxSent[repo][f.Name]; !ok || f.Version != vs {
-				diff = append(diff, f)
-				c.idxSent[repo][f.Name] = f.Version
-			}
-		}
-		idx = diff
+// IndexUpdate writes the list of file information to the connected peer node as an update
+func (c *rawConnection) IndexUpdate(repo string, idx []FileInfo) error {
+	select {
+	case <-c.closed:
+		return ErrClosed
+	default:
 	}
-
-	if msgType == messageTypeIndex || len(idx) > 0 {
-		c.send(header{0, -1, msgType}, IndexMessage{repo, idx})
-	}
+	c.idxMut.Lock()
+	c.send(header{0, -1, messageTypeIndexUpdate}, IndexMessage{repo, idx})
+	c.idxMut.Unlock()
+	return nil
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
@@ -445,15 +445,13 @@ func (c *rawConnection) send(h header, es ...encodable) bool {
 }
 
 func (c *rawConnection) writerLoop() {
-	var err error
 	for {
 		select {
 		case es := <-c.outbox:
 			for _, e := range es {
 				e.encodeXDR(c.xw)
 			}
-
-			if err = c.flush(); err != nil {
+			if err := c.flush(); err != nil {
 				c.close(err)
 				return
 			}
@@ -471,11 +469,9 @@ func (c *rawConnection) flush() error {
 	if err := c.xw.Error(); err != nil {
 		return err
 	}
-
 	if err := c.wb.Flush(); err != nil {
 		return err
 	}
-
 	return nil
 }
 

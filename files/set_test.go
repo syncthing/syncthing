@@ -554,7 +554,7 @@ func TestNeed(t *testing.T) {
 	}
 }
 
-func TestChanges(t *testing.T) {
+func TestLocalVersion(t *testing.T) {
 	db, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -578,17 +578,17 @@ func TestChanges(t *testing.T) {
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local1)
-	c0 := m.Changes(protocol.LocalNodeID)
+	c0 := m.LocalVersion(protocol.LocalNodeID)
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local2)
-	c1 := m.Changes(protocol.LocalNodeID)
+	c1 := m.LocalVersion(protocol.LocalNodeID)
 	if !(c1 > c0) {
-		t.Fatal("Change number should have incremented")
+		t.Fatal("Local version number should have incremented")
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local2)
-	c2 := m.Changes(protocol.LocalNodeID)
+	c2 := m.LocalVersion(protocol.LocalNodeID)
 	if c2 != c1 {
-		t.Fatal("Change number should be unchanged")
+		t.Fatal("Local version number should be unchanged")
 	}
 }

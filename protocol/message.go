@@ -12,11 +12,12 @@ type IndexMessage struct {
 }
 
 type FileInfo struct {
-	Name     string // max:1024
-	Flags    uint32
-	Modified int64
-	Version  uint64
-	Blocks   []BlockInfo // max:1000000
+	Name         string // max:1024
+	Flags        uint32
+	Modified     int64
+	Version      uint64
+	LocalVersion uint64
+	Blocks       []BlockInfo // max:1000000
 }
 
 func (f FileInfo) String() string {
@@ -69,9 +70,9 @@ type Repository struct {
 }
 
 type Node struct {
-	ID         []byte // max:32
-	Flags      uint32
-	MaxVersion uint64
+	ID              []byte // max:32
+	Flags           uint32
+	MaxLocalVersion uint64
 }
 
 type Option struct {

@@ -193,7 +193,7 @@ func (p *puller) run() {
 		default:
 		}
 
-		if v := p.model.Version(p.repoCfg.ID); v > prevVer {
+		if v := p.model.LocalVersion(p.repoCfg.ID); v > prevVer {
 			// Queue more blocks to fetch, if any
 			p.queueNeededBlocks()
 			prevVer = v
@@ -335,14 +335,20 @@ func (p *puller) handleRequestResult(res requestResult) {
 		return
 	}
 
-	_, of.err = of.file.WriteAt(res.data, res.offset)
+	if res.err != nil {
+		of.err = res.err
+		if debug {
+			l.Debugf("pull: not writing %q / %q offset %d: %v", p.repoCfg.ID, f.Name, res.offset, res.err)
+		}
+	} else {
+		_, of.err = of.file.WriteAt(res.data, res.offset)
+		if debug {
+			l.Debugf("pull: wrote %q / %q offset %d len %d outstanding %d done %v", p.repoCfg.ID, f.Name, res.offset, len(res.data), of.outstanding, of.done)
+		}
+	}
 
 	of.outstanding--
 	p.openFiles[f.Name] = of
-
-	if debug {
-		l.Debugf("pull: wrote %q / %q offset %d outstanding %d done %v", p.repoCfg.ID, f.Name, res.offset, of.outstanding, of.done)
-	}
 
 	if of.done && of.outstanding == 0 {
 		p.closeFile(f)
@@ -526,7 +532,7 @@ func (p *puller) handleRequestBlock(b bqBlock) bool {
 	}
 
 	node := p.oustandingPerNode.leastBusyNode(of.availability)
-	if len(node) == 0 {
+	if node == (protocol.NodeID{}) {
 		of.err = errNoNode
 		if of.file != nil {
 			of.file.Close()
@@ -662,7 +668,7 @@ func (p *puller) closeFile(f protocol.FileInfo) {
 
 	for i := range hb {
 		if bytes.Compare(hb[i].Hash, f.Blocks[i].Hash) != 0 {
-			l.Debugf("pull: %q / %q: block %d hash mismatch", p.repoCfg.ID, f.Name, i)
+			l.Debugf("pull: %q / %q: block %d hash mismatch\n\thave: %x\n\twant: %x", p.repoCfg.ID, f.Name, i, hb[i].Hash, f.Blocks[i].Hash)
 			return
 		}
 	}

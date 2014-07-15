@@ -182,7 +182,7 @@ Cluster Config messages MUST NOT be sent after the initial exchange.
     |                             Flags                             |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                                                               |
-    +                     Max Version (64 bits)                     +
+    +                  Max Local Version (64 bits)                  +
     |                                                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
@@ -255,13 +255,13 @@ The Node Flags field contains the following single bit flags:
 
 Exactly one of the T, R or S bits MUST be set.
 
-The Node Max Version field contains the highest file version number of
-the files already known to be in the index sent by this node. If nothing
-is known about the index of a given node, this field MUST be set to
-zero. When receiving a Cluster Config message with a non-zero Max
+The Node Max Local Version field contains the highest local file version
+number of the files already known to be in the index sent by this node.
+If nothing is known about the index of a given node, this field MUST be
+set to zero. When receiving a Cluster Config message with a non-zero Max
 Version for the local node ID, a node MAY elect to send an Index Update
-message containing only files with higher version numbers in place of
-the initial Index message.
+message containing only files with higher local version numbers in place
+of the initial Index message.
 
 The Options field contain option values to be used in an implementation
 specific manner. The options list is conceptually a map of Key => Value
@@ -292,7 +292,7 @@ peers acting in a specific manner as a result of sent options.
     struct Node {
         string ID<>;
         unsigned int Flags;
-        unsigned hyper MaxVersion;
+        unsigned hyper MaxLocalVersion;
     }
 
     struct Option {
@@ -359,6 +359,10 @@ Index message MUST be sent. There is no response to the Index message.
     +                       Version (64 bits)                       +
     |                                                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                                                               |
+    +                    Local Version (64 bits)                    +
+    |                                                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                       Number of Blocks                        |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
@@ -399,6 +403,10 @@ indicating when the change was detected. The clock ticks on every
 detected and received change. The combination of Repository, Name and
 Version uniquely identifies the contents of a file at a given point in
 time.
+
+The Local Version field is the value of a node local monotonic clock at
+the time of last local database update to a file. The clock ticks on
+every local database update.
 
 The Flags field is made up of the following single bit flags:
 
@@ -458,6 +466,7 @@ block which may represent a smaller amount of data.
         unsigned int Flags;
         hyper Modified;
         unsigned hyper Version;
+        unsigned hyper LocalVer;
         BlockInfo Blocks<>;
     }
 

@@ -17,8 +17,8 @@ var (
 // Generate returns a check digit for the string s, which should be composed
 // of characters from the Alphabet a.
 func (a Alphabet) Generate(s string) (rune, error) {
-	if err:=a.check();err!=nil{
-		return 0,err
+	if err := a.check(); err != nil {
+		return 0, err
 	}
 
 	factor := 1

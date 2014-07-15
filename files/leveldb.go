@@ -3,6 +3,7 @@ package files
 import (
 	"bytes"
 	"sort"
+	"sync"
 
 	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"
@@ -11,6 +12,22 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
+
+var (
+	clockTick uint64
+	clockMut  sync.Mutex
+)
+
+func clock(v uint64) uint64 {
+	clockMut.Lock()
+	defer clockMut.Unlock()
+	if v > clockTick {
+		clockTick = v + 1
+	} else {
+		clockTick++
+	}
+	return clockTick
+}
 
 const (
 	keyTypeNode = iota
@@ -91,11 +108,11 @@ func globalKeyName(key []byte) []byte {
 	return key[1+64:]
 }
 
-type deletionHandler func(db dbReader, batch dbWriter, repo, node, name []byte, dbi iterator.Iterator) bool
+type deletionHandler func(db dbReader, batch dbWriter, repo, node, name []byte, dbi iterator.Iterator) uint64
 
 type fileIterator func(f protocol.FileInfo) bool
 
-func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo, deleteFn deletionHandler) bool {
+func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo, deleteFn deletionHandler) uint64 {
 	sort.Sort(fileList(fs)) // sort list on name, same as on disk
 
 	start := nodeKey(repo, node, nil)                            // before all repo/node files
@@ -112,7 +129,7 @@ func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo
 
 	moreDb := dbi.Next()
 	fsi := 0
-	changed := false
+	var maxLocalVer uint64
 
 	for {
 		var newName, oldName []byte
@@ -144,9 +161,10 @@ func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo
 
 		switch {
 		case moreFs && (!moreDb || cmp == -1):
-			changed = true
 			// Disk is missing this file. Insert it.
-			ldbInsert(batch, repo, node, newName, fs[fsi])
+			if lv := ldbInsert(batch, repo, node, newName, fs[fsi]); lv > maxLocalVer {
+				maxLocalVer = lv
+			}
 			ldbUpdateGlobal(snap, batch, repo, node, newName, fs[fsi].Version)
 			fsi++
 
@@ -155,9 +173,10 @@ func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo
 			var ef protocol.FileInfo
 			ef.UnmarshalXDR(dbi.Value())
 			if fs[fsi].Version > ef.Version {
-				ldbInsert(batch, repo, node, newName, fs[fsi])
+				if lv := ldbInsert(batch, repo, node, newName, fs[fsi]); lv > maxLocalVer {
+					maxLocalVer = lv
+				}
 				ldbUpdateGlobal(snap, batch, repo, node, newName, fs[fsi].Version)
-				changed = true
 			}
 			// Iterate both sides.
 			fsi++
@@ -165,8 +184,8 @@ func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo
 
 		case moreDb && (!moreFs || cmp == 1):
 			if deleteFn != nil {
-				if deleteFn(snap, batch, repo, node, oldName, dbi) {
-					changed = true
+				if lv := deleteFn(snap, batch, repo, node, oldName, dbi); lv > maxLocalVer {
+					maxLocalVer = lv
 				}
 			}
 			moreDb = dbi.Next()
@@ -178,23 +197,24 @@ func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo
 		panic(err)
 	}
 
-	return changed
+	return maxLocalVer
 }
 
-func ldbReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) bool {
-	return ldbGenericReplace(db, repo, node, fs, func(db dbReader, batch dbWriter, repo, node, name []byte, dbi iterator.Iterator) bool {
+func ldbReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint64 {
+	// TODO: Return the remaining maxLocalVer?
+	return ldbGenericReplace(db, repo, node, fs, func(db dbReader, batch dbWriter, repo, node, name []byte, dbi iterator.Iterator) uint64 {
 		// Disk has files that we are missing. Remove it.
 		if debug {
 			l.Debugf("delete; repo=%q node=%x name=%q", repo, node, name)
 		}
 		batch.Delete(dbi.Key())
 		ldbRemoveFromGlobal(db, batch, repo, node, name)
-		return true
+		return 0
 	})
 }
 
-func ldbReplaceWithDelete(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) bool {
-	return ldbGenericReplace(db, repo, node, fs, func(db dbReader, batch dbWriter, repo, node, name []byte, dbi iterator.Iterator) bool {
+func ldbReplaceWithDelete(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint64 {
+	return ldbGenericReplace(db, repo, node, fs, func(db dbReader, batch dbWriter, repo, node, name []byte, dbi iterator.Iterator) uint64 {
 		var f protocol.FileInfo
 		err := f.UnmarshalXDR(dbi.Value())
 		if err != nil {
@@ -204,18 +224,20 @@ func ldbReplaceWithDelete(db *leveldb.DB, repo, node []byte, fs []protocol.FileI
 			if debug {
 				l.Debugf("mark deleted; repo=%q node=%x name=%q", repo, node, name)
 			}
+			ts := clock(f.LocalVersion)
 			f.Blocks = nil
 			f.Version = lamport.Default.Tick(f.Version)
 			f.Flags |= protocol.FlagDeleted
+			f.LocalVersion = ts
 			batch.Put(dbi.Key(), f.MarshalXDR())
 			ldbUpdateGlobal(db, batch, repo, node, nodeKeyName(dbi.Key()), f.Version)
-			return true
+			return ts
 		}
-		return false
+		return 0
 	})
 }
 
-func ldbUpdate(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) bool {
+func ldbUpdate(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint64 {
 	batch := new(leveldb.Batch)
 	snap, err := db.GetSnapshot()
 	if err != nil {
@@ -223,12 +245,15 @@ func ldbUpdate(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) bool {
 	}
 	defer snap.Release()
 
+	var maxLocalVer uint64
 	for _, f := range fs {
 		name := []byte(f.Name)
 		fk := nodeKey(repo, node, name)
 		bs, err := snap.Get(fk, nil)
 		if err == leveldb.ErrNotFound {
-			ldbInsert(batch, repo, node, name, f)
+			if lv := ldbInsert(batch, repo, node, name, f); lv > maxLocalVer {
+				maxLocalVer = lv
+			}
 			ldbUpdateGlobal(snap, batch, repo, node, name, f.Version)
 			continue
 		}
@@ -239,7 +264,9 @@ func ldbUpdate(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) bool {
 			panic(err)
 		}
 		if ef.Version != f.Version {
-			ldbInsert(batch, repo, node, name, f)
+			if lv := ldbInsert(batch, repo, node, name, f); lv > maxLocalVer {
+				maxLocalVer = lv
+			}
 			ldbUpdateGlobal(snap, batch, repo, node, name, f.Version)
 		}
 	}
@@ -249,16 +276,22 @@ func ldbUpdate(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) bool {
 		panic(err)
 	}
 
-	return true
+	return maxLocalVer
 }
 
-func ldbInsert(batch dbWriter, repo, node, name []byte, file protocol.FileInfo) {
+func ldbInsert(batch dbWriter, repo, node, name []byte, file protocol.FileInfo) uint64 {
 	if debug {
 		l.Debugf("insert; repo=%q node=%x %v", repo, node, file)
 	}
 
+	if file.LocalVersion == 0 {
+		file.LocalVersion = clock(0)
+	}
+
 	nk := nodeKey(repo, node, name)
 	batch.Put(nk, file.MarshalXDR())
+
+	return file.LocalVersion
 }
 
 // ldbUpdateGlobal adds this node+version to the version list for the given

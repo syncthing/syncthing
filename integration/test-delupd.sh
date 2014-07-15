@@ -112,6 +112,9 @@ alterFiles() {
 	done
 
 	pkill -CONT syncthing
+
+	echo "Restarting instance 2"
+	curl -HX-API-Key:abc123 -X POST "http://localhost:8082/rest/restart"
 }
 
 rm -rf h?/*.idx.gz h?/index

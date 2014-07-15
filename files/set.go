@@ -21,18 +21,29 @@ type fileRecord struct {
 type bitset uint64
 
 type Set struct {
-	changes map[protocol.NodeID]uint64
-	mutex   sync.Mutex
-	repo    string
-	db      *leveldb.DB
+	localVersion map[protocol.NodeID]uint64
+	mutex        sync.Mutex
+	repo         string
+	db           *leveldb.DB
 }
 
 func NewSet(repo string, db *leveldb.DB) *Set {
 	var s = Set{
-		changes: make(map[protocol.NodeID]uint64),
-		repo:    repo,
-		db:      db,
+		localVersion: make(map[protocol.NodeID]uint64),
+		repo:         repo,
+		db:           db,
 	}
+
+	var lv uint64
+	ldbWithHave(db, []byte(repo), protocol.LocalNodeID[:], func(f protocol.FileInfo) bool {
+		if f.LocalVersion > lv {
+			lv = f.LocalVersion
+		}
+		return true
+	})
+	s.localVersion[protocol.LocalNodeID] = lv
+	clock(lv)
+
 	return &s
 }
 
@@ -42,8 +53,8 @@ func (s *Set) Replace(node protocol.NodeID, fs []protocol.FileInfo) {
 	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if ldbReplace(s.db, []byte(s.repo), node[:], fs) {
-		s.changes[node]++
+	if lv := ldbReplace(s.db, []byte(s.repo), node[:], fs); lv > s.localVersion[node] {
+		s.localVersion[node] = lv
 	}
 }
 
@@ -53,8 +64,8 @@ func (s *Set) ReplaceWithDelete(node protocol.NodeID, fs []protocol.FileInfo) {
 	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if ldbReplaceWithDelete(s.db, []byte(s.repo), node[:], fs) {
-		s.changes[node]++
+	if lv := ldbReplaceWithDelete(s.db, []byte(s.repo), node[:], fs); lv > s.localVersion[node] {
+		s.localVersion[node] = lv
 	}
 }
 
@@ -64,8 +75,8 @@ func (s *Set) Update(node protocol.NodeID, fs []protocol.FileInfo) {
 	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if ldbUpdate(s.db, []byte(s.repo), node[:], fs) {
-		s.changes[node]++
+	if lv := ldbUpdate(s.db, []byte(s.repo), node[:], fs); lv > s.localVersion[node] {
+		s.localVersion[node] = lv
 	}
 }
 
@@ -102,8 +113,8 @@ func (s *Set) Availability(file string) []protocol.NodeID {
 	return ldbAvailability(s.db, []byte(s.repo), []byte(file))
 }
 
-func (s *Set) Changes(node protocol.NodeID) uint64 {
+func (s *Set) LocalVersion(node protocol.NodeID) uint64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.changes[node]
+	return s.localVersion[node]
 }

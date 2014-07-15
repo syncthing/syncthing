@@ -1,8 +1,8 @@
 package files
 
 import (
-	"sort"
 	"github.com/calmh/syncthing/protocol"
+	"sort"
 )
 
 type SortBy func(p protocol.FileInfo) int

@@ -180,7 +180,7 @@ func restGetModelVersion(m *model.Model, w http.ResponseWriter, r *http.Request)
 	var repo = qs.Get("repo")
 	var res = make(map[string]interface{})
 
-	res["version"] = m.Version(repo)
+	res["version"] = m.LocalVersion(repo)
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
@@ -210,7 +210,7 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	res["inSyncFiles"], res["inSyncBytes"] = globalFiles-needFiles, globalBytes-needBytes
 
 	res["state"] = m.State(repo)
-	res["version"] = m.Version(repo)
+	res["version"] = m.LocalVersion(repo)
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)

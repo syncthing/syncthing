@@ -5,8 +5,6 @@
 package model
 
 import (
-	"compress/gzip"
-	"crypto/sha1"
 	"errors"
 	"fmt"
 	"io"
@@ -21,7 +19,6 @@ import (
 	"github.com/calmh/syncthing/events"
 	"github.com/calmh/syncthing/files"
 	"github.com/calmh/syncthing/lamport"
-	"github.com/calmh/syncthing/osutil"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/calmh/syncthing/scanner"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -41,6 +38,9 @@ const (
 // larger than zero so that it's visible that there is some amount of bytes to
 // transfer to bring the systems into synchronization.
 const zeroEntrySize = 128
+
+// How many files to send in each Index/IndexUpdate message.
+const indexBatchSize = 1000
 
 type Model struct {
 	indexDir string
@@ -64,6 +64,9 @@ type Model struct {
 	rawConn   map[protocol.NodeID]io.Closer
 	nodeVer   map[protocol.NodeID]string
 	pmut      sync.RWMutex // protects protoConn and rawConn
+
+	sentLocalVer map[protocol.NodeID]map[string]uint64
+	slMut        sync.Mutex
 
 	sup suppressor
 
@@ -95,6 +98,7 @@ func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVers
 		protoConn:     make(map[protocol.NodeID]protocol.Connection),
 		rawConn:       make(map[protocol.NodeID]io.Closer),
 		nodeVer:       make(map[protocol.NodeID]string),
+		sentLocalVer:  make(map[protocol.NodeID]map[string]uint64),
 		sup:           suppressor{threshold: int64(cfg.Options.MaxChangeKbps)},
 	}
 
@@ -108,7 +112,6 @@ func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVers
 	deadlockDetect(&m.rmut, time.Duration(timeout)*time.Second)
 	deadlockDetect(&m.smut, time.Duration(timeout)*time.Second)
 	deadlockDetect(&m.pmut, time.Duration(timeout)*time.Second)
-	go m.broadcastIndexLoop()
 	return m
 }
 
@@ -392,13 +395,13 @@ func (m *Model) Close(node protocol.NodeID, err error) {
 		"error": err.Error(),
 	})
 
+	m.pmut.Lock()
 	m.rmut.RLock()
 	for _, repo := range m.nodeRepos[node] {
 		m.repoFiles[repo].Replace(node, nil)
 	}
 	m.rmut.RUnlock()
 
-	m.pmut.Lock()
 	conn, ok := m.rawConn[node]
 	if ok {
 		conn.Close()
@@ -502,6 +505,7 @@ func (m *Model) ConnectedTo(nodeID protocol.NodeID) bool {
 // repository changes.
 func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) {
 	nodeID := protoConn.ID()
+
 	m.pmut.Lock()
 	if _, ok := m.protoConn[nodeID]; ok {
 		panic("add existing node")
@@ -511,48 +515,99 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 		panic("add existing node")
 	}
 	m.rawConn[nodeID] = rawConn
-	m.pmut.Unlock()
 
 	cm := m.clusterConfig(nodeID)
 	protoConn.ClusterConfig(cm)
 
-	var idxToSend = make(map[string][]protocol.FileInfo)
-
 	m.rmut.RLock()
 	for _, repo := range m.nodeRepos[nodeID] {
-		idxToSend[repo] = m.protocolIndex(repo)
+		fs := m.repoFiles[repo]
+		go sendIndexes(protoConn, repo, fs)
 	}
 	m.rmut.RUnlock()
-
-	go func() {
-		for repo, idx := range idxToSend {
-			if debug {
-				l.Debugf("IDX(out/initial): %s: %q: %d files", nodeID, repo, len(idx))
-			}
-			const batchSize = 1000
-			for i := 0; i < len(idx); i += batchSize {
-				if len(idx[i:]) < batchSize {
-					protoConn.Index(repo, idx[i:])
-				} else {
-					protoConn.Index(repo, idx[i:i+batchSize])
-				}
-			}
-		}
-	}()
+	m.pmut.Unlock()
 }
 
-// protocolIndex returns the current local index in protocol data types.
-func (m *Model) protocolIndex(repo string) []protocol.FileInfo {
-	var fs []protocol.FileInfo
-	m.repoFiles[repo].WithHave(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
-		fs = append(fs, f)
-		return true
-	})
+func sendIndexes(conn protocol.Connection, repo string, fs *files.Set) {
+	nodeID := conn.ID()
+	name := conn.Name()
 
-	return fs
+	if debug {
+		l.Debugf("sendIndexes for %s-%s@/%q starting", nodeID, name, repo)
+	}
+
+	initial := true
+	minLocalVer := uint64(0)
+	var err error
+
+	defer func() {
+		if debug {
+			l.Debugf("sendIndexes for %s-%s@/%q exiting: %v", nodeID, name, repo, err)
+		}
+	}()
+
+	for err == nil {
+		if !initial && fs.LocalVersion(protocol.LocalNodeID) <= minLocalVer {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		batch := make([]protocol.FileInfo, 0, indexBatchSize)
+		maxLocalVer := uint64(0)
+
+		fs.WithHave(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
+			if f.LocalVersion <= minLocalVer {
+				return true
+			}
+
+			if f.LocalVersion > maxLocalVer {
+				maxLocalVer = f.LocalVersion
+			}
+
+			if len(batch) == indexBatchSize {
+				if initial {
+					if err = conn.Index(repo, batch); err != nil {
+						return false
+					}
+					if debug {
+						l.Debugf("sendIndexes for %s-%s/%q: %d files (initial index)", nodeID, name, repo, len(batch))
+					}
+					initial = false
+				} else {
+					if err = conn.IndexUpdate(repo, batch); err != nil {
+						return false
+					}
+					if debug {
+						l.Debugf("sendIndexes for %s-%s/%q: %d files (batched update)", nodeID, name, repo, len(batch))
+					}
+				}
+
+				batch = make([]protocol.FileInfo, 0, indexBatchSize)
+			}
+
+			batch = append(batch, f)
+			return true
+		})
+
+		if initial {
+			err = conn.Index(repo, batch)
+			if debug && err == nil {
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (small initial index)", nodeID, name, repo, len(batch))
+			}
+			initial = false
+		} else if len(batch) > 0 {
+			err = conn.IndexUpdate(repo, batch)
+			if debug && err == nil {
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (last batch)", nodeID, name, repo, len(batch))
+			}
+		}
+
+		minLocalVer = maxLocalVer
+	}
 }
 
 func (m *Model) updateLocal(repo string, f protocol.FileInfo) {
+	f.LocalVersion = 0
 	m.rmut.RLock()
 	m.repoFiles[repo].Update(protocol.LocalNodeID, []protocol.FileInfo{f})
 	m.rmut.RUnlock()
@@ -573,49 +628,6 @@ func (m *Model) requestGlobal(nodeID protocol.NodeID, repo, name string, offset 
 	}
 
 	return nc.Request(repo, name, offset, size)
-}
-
-func (m *Model) broadcastIndexLoop() {
-	// TODO: Rewrite to send index in segments
-	var lastChange = map[string]uint64{}
-	for {
-		time.Sleep(5 * time.Second)
-
-		m.pmut.RLock()
-		m.rmut.RLock()
-
-		var indexWg sync.WaitGroup
-		for repo, fs := range m.repoFiles {
-			repo := repo
-
-			c := fs.Changes(protocol.LocalNodeID)
-			if c == lastChange[repo] {
-				continue
-			}
-			lastChange[repo] = c
-
-			idx := m.protocolIndex(repo)
-
-			for _, nodeID := range m.repoNodes[repo] {
-				nodeID := nodeID
-				if conn, ok := m.protoConn[nodeID]; ok {
-					indexWg.Add(1)
-					if debug {
-						l.Debugf("IDX(out/loop): %s: %d files", nodeID, len(idx))
-					}
-					go func() {
-						conn.Index(repo, idx)
-						indexWg.Done()
-					}()
-				}
-			}
-		}
-
-		m.rmut.RUnlock()
-		m.pmut.RUnlock()
-
-		indexWg.Wait()
-	}
 }
 
 func (m *Model) AddRepo(cfg config.RepositoryConfiguration) {
@@ -709,88 +721,6 @@ func (m *Model) ScanRepo(repo string) error {
 	return nil
 }
 
-func (m *Model) LoadIndexes(dir string) {
-	m.rmut.RLock()
-	for repo := range m.repoCfgs {
-		fs := m.loadIndex(repo, dir)
-
-		var sfs = make([]protocol.FileInfo, len(fs))
-		for i := 0; i < len(fs); i++ {
-			lamport.Default.Tick(fs[i].Version)
-			fs[i].Flags &= ^uint32(protocol.FlagInvalid) // we might have saved an index with files that were suppressed; the should not be on startup
-		}
-
-		m.repoFiles[repo].Replace(protocol.LocalNodeID, sfs)
-	}
-	m.rmut.RUnlock()
-}
-
-func (m *Model) saveIndex(repo string, dir string, fs []protocol.FileInfo) error {
-	id := fmt.Sprintf("%x", sha1.Sum([]byte(m.repoCfgs[repo].Directory)))
-	name := id + ".idx.gz"
-	name = filepath.Join(dir, name)
-	tmp := fmt.Sprintf("%s.tmp.%d", name, time.Now().UnixNano())
-	idxf, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmp)
-
-	gzw := gzip.NewWriter(idxf)
-
-	n, err := protocol.IndexMessage{
-		Repository: repo,
-		Files:      fs,
-	}.EncodeXDR(gzw)
-	if err != nil {
-		gzw.Close()
-		idxf.Close()
-		return err
-	}
-
-	err = gzw.Close()
-	if err != nil {
-		return err
-	}
-
-	err = idxf.Close()
-	if err != nil {
-		return err
-	}
-
-	if debug {
-		l.Debugln("wrote index,", n, "bytes uncompressed")
-	}
-
-	return osutil.Rename(tmp, name)
-}
-
-func (m *Model) loadIndex(repo string, dir string) []protocol.FileInfo {
-	id := fmt.Sprintf("%x", sha1.Sum([]byte(m.repoCfgs[repo].Directory)))
-	name := id + ".idx.gz"
-	name = filepath.Join(dir, name)
-
-	idxf, err := os.Open(name)
-	if err != nil {
-		return nil
-	}
-	defer idxf.Close()
-
-	gzr, err := gzip.NewReader(idxf)
-	if err != nil {
-		return nil
-	}
-	defer gzr.Close()
-
-	var im protocol.IndexMessage
-	err = im.DecodeXDR(gzr)
-	if err != nil || im.Repository != repo {
-		return nil
-	}
-
-	return im.Files
-}
-
 // clusterConfig returns a ClusterConfigMessage that is correct for the given peer node
 func (m *Model) clusterConfig(node protocol.NodeID) protocol.ClusterConfigMessage {
 	cm := protocol.ClusterConfigMessage{
@@ -868,12 +798,12 @@ func (m *Model) Override(repo string) {
 // Version returns the change version for the given repository. This is
 // guaranteed to increment if the contents of the local or global repository
 // has changed.
-func (m *Model) Version(repo string) uint64 {
+func (m *Model) LocalVersion(repo string) uint64 {
 	var ver uint64
 
 	m.rmut.Lock()
 	for _, n := range m.repoNodes[repo] {
-		ver += m.repoFiles[repo].Changes(n)
+		ver += m.repoFiles[repo].LocalVersion(n)
 	}
 	m.rmut.Unlock()
 

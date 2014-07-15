@@ -290,11 +290,6 @@ func main() {
 		rateBucket = ratelimit.NewBucketWithRate(float64(1000*cfg.Options.MaxSendKbps), int64(5*1000*cfg.Options.MaxSendKbps))
 	}
 
-	havePersistentIndex := false
-	if fi, err := os.Stat(filepath.Join(confDir, "index")); err == nil && fi.IsDir() {
-		havePersistentIndex = true
-	}
-
 	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), nil)
 	if err != nil {
 		l.Fatalln("leveldb.OpenFile():", err)
@@ -364,11 +359,6 @@ nextRepo:
 	// Walk the repository and update the local model before establishing any
 	// connections to other nodes.
 
-	if !havePersistentIndex {
-		// There's no new style index, load old ones
-		l.Infoln("Loading legacy index files")
-		m.LoadIndexes(confDir)
-	}
 	m.CleanRepos()
 	l.Infoln("Performing initial repository scan")
 	m.ScanRepos()
@@ -645,9 +635,10 @@ next:
 				if rateBucket != nil {
 					wr = &limitedWriter{conn, rateBucket}
 				}
-				protoConn := protocol.NewConnection(remoteID, conn, wr, m)
+				name := fmt.Sprintf("%s-%s", conn.LocalAddr(), conn.RemoteAddr())
+				protoConn := protocol.NewConnection(remoteID, conn, wr, m, name)
 
-				l.Infof("Established secure connection to %s at %v", remoteID, conn.RemoteAddr())
+				l.Infof("Established secure connection to %s at %s", remoteID, name)
 				if debugNet {
 					l.Debugf("cipher suite %04X", conn.ConnectionState().CipherSuite)
 				}
