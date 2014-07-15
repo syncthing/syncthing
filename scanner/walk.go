@@ -6,7 +6,6 @@ package scanner
 
 import (
 	"bytes"
-	"code.google.com/p/go.text/unicode/norm"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -15,6 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"code.google.com/p/go.text/unicode/norm"
 
 	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"
@@ -60,7 +60,7 @@ type CurrentFiler interface {
 
 // Walk returns the list of files found in the local repository by scanning the
 // file system. Files are blockwise hashed.
-func (w *Walker) Walk() (files []protocol.FileInfo, ignore map[string][]string, err error) {
+func (w *Walker) Walk() (files chan protocol.FileInfo, ignore map[string][]string, err error) {
 	if debug {
 		l.Debugln("Walk", w.Dir, w.BlockSize, w.IgnoreFile)
 	}
@@ -70,21 +70,16 @@ func (w *Walker) Walk() (files []protocol.FileInfo, ignore map[string][]string, 
 		return
 	}
 
-	t0 := time.Now()
-
 	ignore = make(map[string][]string)
-	hashFiles := w.walkAndHashFiles(&files, ignore)
+	files = make(chan protocol.FileInfo)
+	hashFiles := w.walkAndHashFiles(files, ignore)
 
-	filepath.Walk(w.Dir, w.loadIgnoreFiles(w.Dir, ignore))
-	filepath.Walk(w.Dir, hashFiles)
+	go func() {
+		filepath.Walk(w.Dir, w.loadIgnoreFiles(w.Dir, ignore))
+		filepath.Walk(w.Dir, hashFiles)
+		close(files)
+	}()
 
-	if debug {
-		t1 := time.Now()
-		d := t1.Sub(t0).Seconds()
-		l.Debugf("Walk in %.02f ms, %.0f files/s", d*1000, float64(len(files))/d)
-	}
-
-	err = checkDir(w.Dir)
 	return
 }
 
@@ -122,7 +117,7 @@ func (w *Walker) loadIgnoreFiles(dir string, ign map[string][]string) filepath.W
 	}
 }
 
-func (w *Walker) walkAndHashFiles(res *[]protocol.FileInfo, ign map[string][]string) filepath.WalkFunc {
+func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo, ign map[string][]string) filepath.WalkFunc {
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			if debug {
@@ -175,7 +170,6 @@ func (w *Walker) walkAndHashFiles(res *[]protocol.FileInfo, ign map[string][]str
 					if debug {
 						l.Debugln("unchanged:", cf)
 					}
-					*res = append(*res, cf)
 					return nil
 				}
 			}
@@ -195,7 +189,7 @@ func (w *Walker) walkAndHashFiles(res *[]protocol.FileInfo, ign map[string][]str
 			if debug {
 				l.Debugln("dir:", f)
 			}
-			*res = append(*res, f)
+			fchan <- f
 			return nil
 		}
 
@@ -207,7 +201,6 @@ func (w *Walker) walkAndHashFiles(res *[]protocol.FileInfo, ign map[string][]str
 					if debug {
 						l.Debugln("unchanged:", cf)
 					}
-					*res = append(*res, cf)
 					return nil
 				}
 
@@ -220,7 +213,7 @@ func (w *Walker) walkAndHashFiles(res *[]protocol.FileInfo, ign map[string][]str
 						if debug {
 							l.Debugln("suppressed:", cf)
 						}
-						*res = append(*res, cf)
+						fchan <- cf
 						return nil
 					} else if prev && !cur {
 						l.Infof("Changes to %q are no longer suppressed.", p)
@@ -265,7 +258,7 @@ func (w *Walker) walkAndHashFiles(res *[]protocol.FileInfo, ign map[string][]str
 				Modified: info.ModTime().Unix(),
 				Blocks:   blocks,
 			}
-			*res = append(*res, f)
+			fchan <- f
 		}
 
 		return nil

@@ -701,8 +701,11 @@ func (m *Model) CleanRepos() {
 
 func (m *Model) ScanRepo(repo string) error {
 	m.rmut.RLock()
+	fs := m.repoFiles[repo]
+	dir := m.repoCfgs[repo].Directory
+
 	w := &scanner.Walker{
-		Dir:          m.repoCfgs[repo].Directory,
+		Dir:          dir,
 		IgnoreFile:   ".stignore",
 		BlockSize:    scanner.StandardBlockSize,
 		TempNamer:    defTempNamer,
@@ -711,12 +714,47 @@ func (m *Model) ScanRepo(repo string) error {
 		IgnorePerms:  m.repoCfgs[repo].IgnorePerms,
 	}
 	m.rmut.RUnlock()
+
 	m.setState(repo, RepoScanning)
-	fs, _, err := w.Walk()
+	fchan, _, err := w.Walk()
+
 	if err != nil {
 		return err
 	}
-	m.ReplaceLocal(repo, fs)
+	batch := make([]protocol.FileInfo, 0, indexBatchSize)
+	for f := range fchan {
+		if len(batch) == indexBatchSize {
+			fs.Update(protocol.LocalNodeID, batch)
+			batch = batch[:0]
+		}
+		batch = append(batch, f)
+	}
+	if len(batch) > 0 {
+		fs.Update(protocol.LocalNodeID, batch)
+	}
+
+	batch = batch[:0]
+	fs.WithHave(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
+		if !protocol.IsDeleted(f.Flags) {
+			if len(batch) == indexBatchSize {
+				fs.Update(protocol.LocalNodeID, batch)
+				batch = batch[:0]
+			}
+			if _, err := os.Stat(filepath.Join(dir, f.Name)); err != nil && os.IsNotExist(err) {
+				// File has been deleted
+				f.Blocks = nil
+				f.Flags |= protocol.FlagDeleted
+				f.Version = lamport.Default.Tick(f.Version)
+				f.LocalVersion = 0
+				batch = append(batch, f)
+			}
+		}
+		return true
+	})
+	if len(batch) > 0 {
+		fs.Update(protocol.LocalNodeID, batch)
+	}
+
 	m.setState(repo, RepoIdle)
 	return nil
 }
@@ -790,6 +828,7 @@ func (m *Model) Override(repo string) {
 			*f = h
 		}
 		f.Version = lamport.Default.Tick(f.Version)
+		f.LocalVersion = 0
 	}
 
 	r.Update(protocol.LocalNodeID, fs)

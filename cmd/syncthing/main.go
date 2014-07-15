@@ -290,6 +290,7 @@ func main() {
 		rateBucket = ratelimit.NewBucketWithRate(float64(1000*cfg.Options.MaxSendKbps), int64(5*1000*cfg.Options.MaxSendKbps))
 	}
 
+	removeLegacyIndexes()
 	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), nil)
 	if err != nil {
 		l.Fatalln("leveldb.OpenFile():", err)
@@ -519,7 +520,12 @@ func resetRepositories() {
 		}
 	}
 
-	pat := filepath.Join(confDir, "*.idx.gz")
+	idx := filepath.Join(confDir, "index")
+	os.RemoveAll(idx)
+}
+
+func removeLegacyIndexes() {
+	pat := filepath.Join(confDir, "*.idx.gz*")
 	idxs, err := filepath.Glob(pat)
 	if err == nil {
 		for _, idx := range idxs {
