@@ -437,6 +437,40 @@ func ldbWithAllRepo(db *leveldb.DB, repo []byte, fn func(node []byte, f protocol
 	}
 }
 
+/*
+func ldbCheckGlobalConsistency(db *leveldb.DB, repo []byte) {
+	l.Debugf("Checking global consistency for %q", repo)
+	start := nodeKey(repo, nil, nil)                                                // before all repo/node files
+	limit := nodeKey(repo, protocol.LocalNodeID[:], []byte{0xff, 0xff, 0xff, 0xff}) // after all repo/node files
+	snap, err := db.GetSnapshot()
+	if err != nil {
+		panic(err)
+	}
+	defer snap.Release()
+	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	defer dbi.Release()
+
+	batch := new(leveldb.Batch)
+	i := 0
+	for dbi.Next() {
+		repo := nodeKeyRepo(dbi.Key())
+		node := nodeKeyNode(dbi.Key())
+		var f protocol.FileInfo
+		err := f.UnmarshalXDR(dbi.Value())
+		if err != nil {
+			panic(err)
+		}
+		if ldbUpdateGlobal(snap, batch, repo, node, []byte(f.Name), f.Version) {
+			var nodeID protocol.NodeID
+			copy(nodeID[:], node)
+			l.Debugf("fixed global for %q %s %q", repo, nodeID, f.Name)
+		}
+		i++
+	}
+	l.Debugln("Done", i)
+}
+*/
+
 func ldbGet(db *leveldb.DB, repo, node, file []byte) protocol.FileInfo {
 	nk := nodeKey(repo, node, file)
 	bs, err := db.Get(nk, nil)

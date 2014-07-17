@@ -8,6 +8,7 @@ package files
 import (
 	"sync"
 
+	"github.com/calmh/syncthing/lamport"
 	"github.com/calmh/syncthing/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -40,6 +41,7 @@ func NewSet(repo string, db *leveldb.DB) *Set {
 		if f.LocalVersion > s.localVersion[nodeID] {
 			s.localVersion[nodeID] = f.LocalVersion
 		}
+		lamport.Default.Tick(f.Version)
 		return true
 	})
 	if debug {
