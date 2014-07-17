@@ -103,6 +103,14 @@ func globalKey(repo, file []byte) []byte {
 func nodeKeyName(key []byte) []byte {
 	return key[1+64+32:]
 }
+func nodeKeyRepo(key []byte) []byte {
+	repo := key[1 : 1+64]
+	izero := bytes.IndexByte(repo, 0)
+	return repo[:izero]
+}
+func nodeKeyNode(key []byte) []byte {
+	return key[1+64 : 1+64+32]
+}
 
 func globalKeyName(key []byte) []byte {
 	return key[1+64:]
@@ -400,6 +408,30 @@ func ldbWithHave(db *leveldb.DB, repo, node []byte, fn fileIterator) {
 			panic(err)
 		}
 		if cont := fn(f); !cont {
+			return
+		}
+	}
+}
+
+func ldbWithAllRepo(db *leveldb.DB, repo []byte, fn func(node []byte, f protocol.FileInfo) bool) {
+	start := nodeKey(repo, nil, nil)                                                // before all repo/node files
+	limit := nodeKey(repo, protocol.LocalNodeID[:], []byte{0xff, 0xff, 0xff, 0xff}) // after all repo/node files
+	snap, err := db.GetSnapshot()
+	if err != nil {
+		panic(err)
+	}
+	defer snap.Release()
+	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	defer dbi.Release()
+
+	for dbi.Next() {
+		node := nodeKeyNode(dbi.Key())
+		var f protocol.FileInfo
+		err := f.UnmarshalXDR(dbi.Value())
+		if err != nil {
+			panic(err)
+		}
+		if cont := fn(node, f); !cont {
 			return
 		}
 	}

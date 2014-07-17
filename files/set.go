@@ -34,15 +34,18 @@ func NewSet(repo string, db *leveldb.DB) *Set {
 		db:           db,
 	}
 
-	var lv uint64
-	ldbWithHave(db, []byte(repo), protocol.LocalNodeID[:], func(f protocol.FileInfo) bool {
-		if f.LocalVersion > lv {
-			lv = f.LocalVersion
+	var nodeID protocol.NodeID
+	ldbWithAllRepo(db, []byte(repo), func(node []byte, f protocol.FileInfo) bool {
+		copy(nodeID[:], node)
+		if f.LocalVersion > s.localVersion[nodeID] {
+			s.localVersion[nodeID] = f.LocalVersion
 		}
 		return true
 	})
-	s.localVersion[protocol.LocalNodeID] = lv
-	clock(lv)
+	if debug {
+		l.Debugf("loaded localVersion for %q: %#v", repo, s.localVersion)
+	}
+	clock(s.localVersion[protocol.LocalNodeID])
 
 	return &s
 }
