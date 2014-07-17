@@ -127,9 +127,10 @@ func (p *puller) run() {
 		}
 	}()
 
-	walkTicker := time.Tick(time.Duration(p.cfg.Options.RescanIntervalS) * time.Second)
 	timeout := time.Tick(5 * time.Second)
 	changed := true
+	scanintv := time.Duration(p.cfg.Options.RescanIntervalS) * time.Second
+	lastscan := time.Now()
 	var prevVer uint64
 
 	for {
@@ -179,18 +180,17 @@ func (p *puller) run() {
 		p.model.setState(p.repoCfg.ID, RepoIdle)
 
 		// Do a rescan if it's time for it
-		select {
-		case <-walkTicker:
+		if time.Since(lastscan) > scanintv {
 			if debug {
 				l.Debugf("%q: time for rescan", p.repoCfg.ID)
 			}
+
 			err := p.model.ScanRepo(p.repoCfg.ID)
 			if err != nil {
 				invalidateRepo(p.cfg, p.repoCfg.ID, err)
 				return
 			}
-
-		default:
+			lastscan = time.Now()
 		}
 
 		if v := p.model.LocalVersion(p.repoCfg.ID); v > prevVer {
