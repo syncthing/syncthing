@@ -209,7 +209,7 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 	res["inSyncFiles"], res["inSyncBytes"] = globalFiles-needFiles, globalBytes-needBytes
 
-	res["state"] = m.State(repo)
+	res["state"], res["stateChanged"] = m.State(repo)
 	res["version"] = m.LocalVersion(repo)
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

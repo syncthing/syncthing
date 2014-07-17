@@ -11,13 +11,16 @@ type EventType uint64
 
 const (
 	Ping = 1 << iota
+	Starting
 	StartupComplete
+	NodeDiscovered
 	NodeConnected
 	NodeDisconnected
 	LocalIndexUpdated
 	RemoteIndexUpdated
 	ItemStarted
 	ItemCompleted
+	StateChanged
 
 	AllEvents = ^EventType(0)
 )
@@ -26,8 +29,12 @@ func (t EventType) String() string {
 	switch t {
 	case Ping:
 		return "Ping"
+	case Starting:
+		return "Starting"
 	case StartupComplete:
 		return "StartupComplete"
+	case NodeDiscovered:
+		return "NodeDiscovered"
 	case NodeConnected:
 		return "NodeConnected"
 	case NodeDisconnected:
@@ -38,6 +45,8 @@ func (t EventType) String() string {
 		return "RemoteIndexUpdated"
 	case ItemStarted:
 		return "ItemStarted"
+	case StateChanged:
+		return "StateChanged"
 	default:
 		return "Unknown"
 	}

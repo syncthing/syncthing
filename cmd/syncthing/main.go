@@ -163,6 +163,8 @@ func main() {
 
 	confDir = expandTilde(confDir)
 
+	events.Default.Log(events.Starting, map[string]string{"home": confDir})
+
 	if _, err := os.Stat(confDir); err != nil && confDir == getDefaultConfDir() {
 		// We are supposed to use the default configuration directory. It
 		// doesn't exist. In the past our default has been ~/.syncthing, so if

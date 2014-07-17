@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/calmh/syncthing/beacon"
+	"github.com/calmh/syncthing/events"
 	"github.com/calmh/syncthing/protocol"
 )
 
@@ -256,12 +257,12 @@ func (d *Discoverer) recvAnnouncements() {
 
 		var newNode bool
 		if bytes.Compare(pkt.This.ID, d.myID[:]) != 0 {
-			n := d.registerNode(addr, pkt.This)
-			newNode = newNode || n
+			newNode = d.registerNode(addr, pkt.This)
 			for _, node := range pkt.Extra {
 				if bytes.Compare(node.ID, d.myID[:]) != 0 {
-					n := d.registerNode(nil, node)
-					newNode = newNode || n
+					if d.registerNode(nil, node) {
+						newNode = true
+					}
 				}
 			}
 		}
@@ -302,6 +303,13 @@ func (d *Discoverer) registerNode(addr net.Addr, node Node) bool {
 	_, seen := d.registry[id]
 	d.registry[id] = addrs
 	d.registryLock.Unlock()
+
+	if !seen {
+		events.Default.Log(events.NodeDiscovered, map[string]interface{}{
+			"node":  id.String(),
+			"addrs": addrs,
+		})
+	}
 	return !seen
 }
 
