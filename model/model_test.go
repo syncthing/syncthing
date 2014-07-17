@@ -175,11 +175,21 @@ func (f FakeConnection) ID() protocol.NodeID {
 	return f.id
 }
 
+func (f FakeConnection) Name() string {
+	return ""
+}
+
 func (f FakeConnection) Option(string) string {
 	return ""
 }
 
-func (FakeConnection) Index(string, []protocol.FileInfo) {}
+func (FakeConnection) Index(string, []protocol.FileInfo) error {
+	return nil
+}
+
+func (FakeConnection) IndexUpdate(string, []protocol.FileInfo) error {
+	return nil
+}
 
 func (f FakeConnection) Request(repo, name string, offset int64, size int) ([]byte, error) {
 	return f.requestData, nil

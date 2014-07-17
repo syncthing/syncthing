@@ -59,8 +59,8 @@ func TestPing(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, nil).(wireFormatConnection).next.(*rawConnection)
-	c1 := NewConnection(c1ID, br, aw, nil).(wireFormatConnection).next.(*rawConnection)
+	c0 := NewConnection(c0ID, ar, bw, nil, "name").(wireFormatConnection).next.(*rawConnection)
+	c1 := NewConnection(c1ID, br, aw, nil, "name").(wireFormatConnection).next.(*rawConnection)
 
 	if ok := c0.ping(); !ok {
 		t.Error("c0 ping failed")
@@ -83,8 +83,8 @@ func TestPingErr(t *testing.T) {
 			eaw := &ErrPipe{PipeWriter: *aw, max: i, err: e}
 			ebw := &ErrPipe{PipeWriter: *bw, max: j, err: e}
 
-			c0 := NewConnection(c0ID, ar, ebw, m0).(wireFormatConnection).next.(*rawConnection)
-			NewConnection(c1ID, br, eaw, m1)
+			c0 := NewConnection(c0ID, ar, ebw, m0, "name").(wireFormatConnection).next.(*rawConnection)
+			NewConnection(c1ID, br, eaw, m1, "name")
 
 			res := c0.ping()
 			if (i < 4 || j < 4) && res {
@@ -159,8 +159,8 @@ func TestVersionErr(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, m0).(wireFormatConnection).next.(*rawConnection)
-	NewConnection(c1ID, br, aw, m1)
+	c0 := NewConnection(c0ID, ar, bw, m0, "name").(wireFormatConnection).next.(*rawConnection)
+	NewConnection(c1ID, br, aw, m1, "name")
 
 	c0.xw.WriteUint32(encodeHeader(header{
 		version: 2,
@@ -181,8 +181,8 @@ func TestTypeErr(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, m0).(wireFormatConnection).next.(*rawConnection)
-	NewConnection(c1ID, br, aw, m1)
+	c0 := NewConnection(c0ID, ar, bw, m0, "name").(wireFormatConnection).next.(*rawConnection)
+	NewConnection(c1ID, br, aw, m1, "name")
 
 	c0.xw.WriteUint32(encodeHeader(header{
 		version: 0,
@@ -203,8 +203,8 @@ func TestClose(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, m0).(wireFormatConnection).next.(*rawConnection)
-	NewConnection(c1ID, br, aw, m1)
+	c0 := NewConnection(c0ID, ar, bw, m0, "name").(wireFormatConnection).next.(*rawConnection)
+	NewConnection(c1ID, br, aw, m1, "name")
 
 	c0.close(nil)
 

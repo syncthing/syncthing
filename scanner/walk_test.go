@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/calmh/syncthing/protocol"
 )
 
 var testdata = []struct {
@@ -17,6 +19,7 @@ var testdata = []struct {
 	hash string
 }{
 	{"bar", 10, "2f72cc11a6fcd0271ecef8c61056ee1eb1243be3805bf9a9df98f92f7636b05c"},
+	{"baz", 0, ""},
 	{"empty", 0, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
 	{"foo", 7, "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f"},
 }
@@ -31,13 +34,19 @@ func TestWalk(t *testing.T) {
 		BlockSize:  128 * 1024,
 		IgnoreFile: ".stignore",
 	}
-	files, ignores, err := w.Walk()
+	fchan, ignores, err := w.Walk()
+	var files []protocol.FileInfo
+	for f := range fchan {
+		files = append(files, f)
+	}
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if l1, l2 := len(files), len(testdata); l1 != l2 {
+		t.Log(files)
+		t.Log(testdata)
 		t.Fatalf("Incorrect number of walked files %d != %d", l1, l2)
 	}
 
@@ -46,8 +55,10 @@ func TestWalk(t *testing.T) {
 			t.Errorf("Incorrect file name %q != %q for case #%d", n1, n2, i)
 		}
 
-		if h1, h2 := fmt.Sprintf("%x", files[i].Blocks[0].Hash), testdata[i].hash; h1 != h2 {
-			t.Errorf("Incorrect hash %q != %q for case #%d", h1, h2, i)
+		if testdata[i].hash != "" {
+			if h1, h2 := fmt.Sprintf("%x", files[i].Blocks[0].Hash), testdata[i].hash; h1 != h2 {
+				t.Errorf("Incorrect hash %q != %q for case #%d", h1, h2, i)
+			}
 		}
 
 		t0 := time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
