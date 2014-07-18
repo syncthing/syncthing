@@ -30,6 +30,7 @@ import (
 	"github.com/calmh/syncthing/events"
 	"github.com/calmh/syncthing/logger"
 	"github.com/calmh/syncthing/model"
+	"github.com/calmh/syncthing/protocol"
 	"github.com/vitrun/qart/qr"
 )
 
@@ -103,6 +104,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/report", withModel(m, restGetReport))
 	getRestMux.HandleFunc("/rest/events", restGetEvents)
 	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
+	getRestMux.HandleFunc("/rest/nodeid", restGetNodeID)
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
@@ -442,6 +444,22 @@ func restGetUpgrade(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
+}
+
+func restGetNodeID(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	idStr := qs.Get("id")
+	id, err := protocol.NodeIDFromString(idStr)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if err == nil {
+		json.NewEncoder(w).Encode(map[string]string{
+			"id": id.String(),
+		})
+	} else {
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": err.Error(),
+		})
+	}
 }
 
 func restPostUpgrade(w http.ResponseWriter, r *http.Request) {

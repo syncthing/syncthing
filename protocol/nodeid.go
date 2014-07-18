@@ -6,7 +6,6 @@ import (
 	"encoding/base32"
 	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
@@ -120,7 +119,6 @@ func unluhnify(s string) (string, error) {
 			return "", err
 		}
 		if g := fmt.Sprintf("%s%c", p, l); g != s[i*14:(i+1)*14] {
-			log.Printf("%q; %q", g, s[i*14:(i+1)*14])
 			return "", errors.New("check digit incorrect")
 		}
 		res = append(res, p)

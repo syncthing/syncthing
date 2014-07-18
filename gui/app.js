@@ -865,7 +865,7 @@ syncthing.directive('uniqueRepo', function() {
     };
 });
 
-syncthing.directive('validNodeid', function() {
+syncthing.directive('validNodeid', function($http) {
     return {
         require: 'ngModel',
         link: function(scope, elm, attrs, ctrl) {
@@ -874,12 +874,13 @@ syncthing.directive('validNodeid', function() {
                     // we shouldn't validate
                     ctrl.$setValidity('validNodeid', true);
                 } else {
-                    var cleaned = viewValue.replace(/ /g, '').replace(/-/g, '').toLowerCase().trim();
-                    if (cleaned.match(/^[a-z2-7]{52}$/)) {
-                        ctrl.$setValidity('validNodeid', true);
-                    } else {
-                        ctrl.$setValidity('validNodeid', false);
-                    }
+                    $http.get(urlbase + '/nodeid?id='+viewValue).success(function (resp) {
+                        if (resp.error) {
+                            ctrl.$setValidity('validNodeid', false);
+                        } else {
+                            ctrl.$setValidity('validNodeid', true);
+                        }
+                    });
                 }
                 return viewValue;
             });
