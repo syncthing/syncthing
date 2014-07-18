@@ -346,7 +346,6 @@ func (m *Model) Index(nodeID protocol.NodeID, repo string, fs []protocol.FileInf
 	} else {
 		l.Fatalf("Index for nonexistant repo %q", repo)
 	}
-	m.rmut.RUnlock()
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
 		"node":    nodeID.String(),
@@ -371,13 +370,11 @@ func (m *Model) IndexUpdate(nodeID protocol.NodeID, repo string, fs []protocol.F
 	m.rmut.RLock()
 	r, ok := m.repoFiles[repo]
 	m.rmut.RUnlock()
-	m.rmut.RLock()
 	if ok {
 		r.Update(nodeID, fs)
 	} else {
 		l.Fatalf("IndexUpdate for nonexistant repo %q", repo)
 	}
-	m.rmut.RUnlock()
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
 		"node":    nodeID.String(),
