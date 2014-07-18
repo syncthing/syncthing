@@ -32,14 +32,6 @@ func (f FileInfo) Size() (bytes int64) {
 	return
 }
 
-func (a FileInfo) Equals(b FileInfo) bool {
-	return a.Version == b.Version
-}
-
-func (a FileInfo) NewerThan(b FileInfo) bool {
-	return a.Version > b.Version
-}
-
 type BlockInfo struct {
 	Offset int64 // noencode (cache only)
 	Size   uint32
