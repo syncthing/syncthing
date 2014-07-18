@@ -338,6 +338,10 @@ func (m *Model) Index(nodeID protocol.NodeID, repo string, fs []protocol.FileInf
 		return
 	}
 
+	for i := range fs {
+		lamport.Default.Tick(fs[i].Version)
+	}
+
 	m.rmut.RLock()
 	r, ok := m.repoFiles[repo]
 	m.rmut.RUnlock()
@@ -365,6 +369,10 @@ func (m *Model) IndexUpdate(nodeID protocol.NodeID, repo string, fs []protocol.F
 	if !m.repoSharedWith(repo, nodeID) {
 		l.Warnf("Unexpected repository ID %q sent from node %q; ensure that the repository exists and that this node is selected under \"Share With\" in the repository configuration.", repo, nodeID)
 		return
+	}
+
+	for i := range fs {
+		lamport.Default.Tick(fs[i].Version)
 	}
 
 	m.rmut.RLock()
