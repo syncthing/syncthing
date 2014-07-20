@@ -7,15 +7,21 @@
 
 'use strict';
 
-var syncthing = angular.module('syncthing', []);
+var syncthing = angular.module('syncthing', ['pascalprecht.translate']);
 var urlbase = 'rest';
 
-syncthing.config(function ($httpProvider) {
+syncthing.config(function ($httpProvider, $translateProvider) {
     $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
     $httpProvider.defaults.xsrfCookieName = 'CSRF-Token';
+
+    $translateProvider.useStaticFilesLoader({
+        prefix: 'lang-',
+        suffix: '.json'
+    });
+    $translateProvider.preferredLanguage('en');
 });
 
-syncthing.controller('SyncthingCtrl', function ($scope, $http) {
+syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate) {
     var prevDate = 0;
     var getOK = true;
     var restarting = false;
@@ -46,31 +52,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http) {
         'sync': 'download',
         'touch': 'asterisk',
     }
-
-    // Strings before bools look better
-    $scope.settings = [
-    {id: 'ListenStr', descr: 'Sync Protocol Listen Addresses', type: 'text'},
-    {id: 'MaxSendKbps', descr: 'Outgoing Rate Limit (KiB/s)', type: 'number'},
-    {id: 'RescanIntervalS', descr: 'Rescan Interval (s)', type: 'number'},
-    {id: 'ReconnectIntervalS', descr: 'Reconnect Interval (s)', type: 'number'},
-    {id: 'ParallelRequests', descr: 'Max Outstanding Requests', type: 'number'},
-    {id: 'MaxChangeKbps', descr: 'Max File Change Rate (KiB/s)', type: 'number'},
-
-    {id: 'LocalAnnPort', descr: 'Local Discovery Port', type: 'number'},
-    {id: 'LocalAnnEnabled', descr: 'Local Discovery', type: 'bool'},
-    {id: 'GlobalAnnEnabled', descr: 'Global Discovery', type: 'bool'},
-    {id: 'StartBrowser', descr: 'Start Browser', type: 'bool'},
-    {id: 'UPnPEnabled', descr: 'Enable UPnP', type: 'bool'},
-    {id: 'UREnabled', descr: 'Anonymous Usage Reporting', type: 'bool'},
-    ];
-
-    $scope.guiSettings = [
-    {id: 'Address', descr: 'GUI Listen Addresses', type: 'text', restart: true},
-    {id: 'User', descr: 'GUI Authentication User', type: 'text', restart: true},
-    {id: 'Password', descr: 'GUI Authentication Password', type: 'password', restart: true},
-    {id: 'UseTLS', descr: 'Use HTTPS for GUI', type: 'bool', restart: true},
-    {id: 'APIKey', descr: 'API Key', type: 'apikey'},
-    ];
 
     function getSucceeded() {
         if (!getOK) {
