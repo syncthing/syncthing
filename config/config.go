@@ -11,7 +11,6 @@ import (
 	"io"
 	"os"
 	"reflect"
-	"regexp"
 	"sort"
 	"strconv"
 
@@ -31,42 +30,14 @@ type Configuration struct {
 	XMLName      xml.Name                  `xml:"configuration" json:"-"`
 }
 
-// SyncOrderPattern allows a user to prioritize file downloading based on a
-// regular expression.  If a file matches the Pattern the Priority will be
-// assigned to the file.  If a file matches more than one Pattern the
-// Priorities are summed.  This allows a user to, for example, prioritize files
-// in a directory, as well as prioritize based on file type.  The higher the
-// priority the "sooner" a file will be downloaded.  Files can be deprioritized
-// by giving them a negative priority.  While Priority is represented as an
-// integer, the expected range is something like -1000 to 1000.
-type SyncOrderPattern struct {
-	Pattern         string `xml:"pattern,attr"`
-	Priority        int    `xml:"priority,attr"`
-	compiledPattern *regexp.Regexp
-}
-
-func (s *SyncOrderPattern) CompiledPattern() *regexp.Regexp {
-	if s.compiledPattern == nil {
-		re, err := regexp.Compile(s.Pattern)
-		if err != nil {
-			l.Warnln("Could not compile regexp (" + s.Pattern + "): " + err.Error())
-			s.compiledPattern = regexp.MustCompile("^\\0$")
-		} else {
-			s.compiledPattern = re
-		}
-	}
-	return s.compiledPattern
-}
-
 type RepositoryConfiguration struct {
-	ID                string                  `xml:"id,attr"`
-	Directory         string                  `xml:"directory,attr"`
-	Nodes             []NodeConfiguration     `xml:"node"`
-	ReadOnly          bool                    `xml:"ro,attr"`
-	IgnorePerms       bool                    `xml:"ignorePerms,attr"`
-	Invalid           string                  `xml:"-"` // Set at runtime when there is an error, not saved
-	Versioning        VersioningConfiguration `xml:"versioning"`
-	SyncOrderPatterns []SyncOrderPattern      `xml:"syncorder>pattern"`
+	ID          string                  `xml:"id,attr"`
+	Directory   string                  `xml:"directory,attr"`
+	Nodes       []NodeConfiguration     `xml:"node"`
+	ReadOnly    bool                    `xml:"ro,attr"`
+	IgnorePerms bool                    `xml:"ignorePerms,attr"`
+	Invalid     string                  `xml:"-"` // Set at runtime when there is an error, not saved
+	Versioning  VersioningConfiguration `xml:"versioning"`
 
 	nodeIDs []protocol.NodeID
 }
@@ -119,21 +90,6 @@ func (r *RepositoryConfiguration) NodeIDs() []protocol.NodeID {
 		}
 	}
 	return r.nodeIDs
-}
-
-func (r RepositoryConfiguration) FileRanker() func(protocol.FileInfo) int {
-	if len(r.SyncOrderPatterns) <= 0 {
-		return nil
-	}
-	return func(f protocol.FileInfo) int {
-		ret := 0
-		for _, v := range r.SyncOrderPatterns {
-			if v.CompiledPattern().MatchString(f.Name) {
-				ret += v.Priority
-			}
-		}
-		return ret
-	}
 }
 
 type NodeConfiguration struct {

@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/calmh/syncthing/files"
 	"github.com/calmh/syncthing/protocol"
 )
 
@@ -232,93 +231,4 @@ func TestNodeAddresses(t *testing.T) {
 	if !reflect.DeepEqual(cfg.Nodes, expected) {
 		t.Errorf("Nodes differ;\n  E: %#v\n  A: %#v", expected, cfg.Nodes)
 	}
-}
-
-func TestSyncOrders(t *testing.T) {
-	data := []byte(`
-<configuration version="2">
-    <repository directory="~/Sync">
-        <syncorder>
-            <pattern pattern="\.jpg$" priority="1" />
-        </syncorder>
-    </repository>
-</configuration>
-`)
-
-	expected := []SyncOrderPattern{
-		{
-			Pattern:  "\\.jpg$",
-			Priority: 1,
-		},
-	}
-
-	cfg, err := Load(bytes.NewReader(data), node1)
-	if err != nil {
-		t.Error(err)
-	}
-
-	for i := range expected {
-		if !reflect.DeepEqual(cfg.Repositories[0].SyncOrderPatterns[i], expected[i]) {
-			t.Errorf("Patterns[%d] differ;\n  E: %#v\n  A: %#v", i, expected[i], cfg.Repositories[0].SyncOrderPatterns[i])
-		}
-	}
-}
-
-func TestFileSorter(t *testing.T) {
-	rcfg := RepositoryConfiguration{
-		SyncOrderPatterns: []SyncOrderPattern{
-			{"\\.jpg$", 10, nil},
-			{"\\.mov$", 5, nil},
-			{"^camera-uploads", 100, nil},
-		},
-	}
-
-	f := []protocol.FileInfo{
-		{Name: "bar.mov"},
-		{Name: "baz.txt"},
-		{Name: "foo.jpg"},
-		{Name: "frew/foo.jpg"},
-		{Name: "frew/lol.go"},
-		{Name: "frew/rofl.copter"},
-		{Name: "frew/bar.mov"},
-		{Name: "camera-uploads/foo.jpg"},
-		{Name: "camera-uploads/hurr.pl"},
-		{Name: "camera-uploads/herp.mov"},
-		{Name: "camera-uploads/wee.txt"},
-	}
-
-	files.SortBy(rcfg.FileRanker()).Sort(f)
-
-	expected := []protocol.FileInfo{
-		{Name: "camera-uploads/foo.jpg"},
-		{Name: "camera-uploads/herp.mov"},
-		{Name: "camera-uploads/hurr.pl"},
-		{Name: "camera-uploads/wee.txt"},
-		{Name: "foo.jpg"},
-		{Name: "frew/foo.jpg"},
-		{Name: "bar.mov"},
-		{Name: "frew/bar.mov"},
-		{Name: "frew/lol.go"},
-		{Name: "baz.txt"},
-		{Name: "frew/rofl.copter"},
-	}
-
-	if !reflect.DeepEqual(f, expected) {
-		t.Errorf(
-			"\n\nexpected:\n" +
-				formatFiles(expected) + "\n" +
-				"got:\n" +
-				formatFiles(f) + "\n\n",
-		)
-	}
-}
-
-func formatFiles(f []protocol.FileInfo) string {
-	ret := ""
-
-	for _, v := range f {
-		ret += "   " + v.Name + "\n"
-	}
-
-	return ret
 }

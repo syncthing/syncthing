@@ -318,9 +318,6 @@ func (m *Model) NeedFilesRepo(repo string) []protocol.FileInfo {
 			fs = append(fs, f)
 			return len(fs) < indexBatchSize
 		})
-		if r := m.repoCfgs[repo].FileRanker(); r != nil {
-			files.SortBy(r).Sort(fs)
-		}
 		return fs
 	}
 	return nil
