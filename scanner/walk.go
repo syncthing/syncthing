@@ -166,7 +166,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo, ign map[string][
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
 				permUnchanged := w.IgnorePerms || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if !protocol.IsDeleted(cf.Flags) && cf.Modified == info.ModTime().Unix() && protocol.IsDirectory(cf.Flags) && permUnchanged {
+				if !protocol.IsDeleted(cf.Flags) && protocol.IsDirectory(cf.Flags) && permUnchanged {
 					if debug {
 						l.Debugln("unchanged:", cf)
 					}

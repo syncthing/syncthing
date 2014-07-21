@@ -9,7 +9,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/calmh/syncthing/config"
@@ -278,22 +277,6 @@ func (p *puller) fixupDirectories() {
 			}
 		}
 
-		if cur.Modified != info.ModTime().Unix() {
-			t := time.Unix(cur.Modified, 0)
-			err := os.Chtimes(path, t, t)
-			if err != nil {
-				if runtime.GOOS != "windows" {
-					// https://code.google.com/p/go/issues/detail?id=8090
-					l.Warnf("Restoring folder modtime: %q: %v", path, err)
-				}
-			} else {
-				changed++
-				if debug {
-					l.Debugf("restored dir modtime: %d -> %v", info.ModTime().Unix(), cur)
-				}
-			}
-		}
-
 		return nil
 	}
 
@@ -373,7 +356,7 @@ func (p *puller) handleBlock(b bqBlock) bool {
 				if debug {
 					l.Debugf("create dir: %v", f)
 				}
-				err = os.MkdirAll(path, 0777)
+				err = os.MkdirAll(path, os.FileMode(f.Flags&0777))
 				if err != nil {
 					l.Warnf("Create folder: %q: %v", path, err)
 				}
