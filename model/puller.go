@@ -41,12 +41,12 @@ type openFile struct {
 
 type activityMap map[protocol.NodeID]int
 
-func (m activityMap) leastBusyNode(availability []protocol.NodeID) protocol.NodeID {
+func (m activityMap) leastBusyNode(availability []protocol.NodeID, isValid func(protocol.NodeID) bool) protocol.NodeID {
 	var low int = 2<<30 - 1
 	var selected protocol.NodeID
 	for _, node := range availability {
 		usage := m[node]
-		if usage < low {
+		if usage < low && isValid(node) {
 			low = usage
 			selected = node
 		}
@@ -533,7 +533,7 @@ func (p *puller) handleRequestBlock(b bqBlock) bool {
 		panic("bug: request for non-open file")
 	}
 
-	node := p.oustandingPerNode.leastBusyNode(of.availability)
+	node := p.oustandingPerNode.leastBusyNode(of.availability, p.model.ConnectedTo)
 	if node == (protocol.NodeID{}) {
 		of.err = errNoNode
 		if of.file != nil {

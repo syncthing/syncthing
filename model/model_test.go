@@ -242,17 +242,20 @@ func BenchmarkRequest(b *testing.B) {
 }
 
 func TestActivityMap(t *testing.T) {
+	isValid := func(protocol.NodeID) bool {
+		return true
+	}
 	m := make(activityMap)
-	if node := m.leastBusyNode([]protocol.NodeID{node1}); node != node1 {
+	if node := m.leastBusyNode([]protocol.NodeID{node1}, isValid); node != node1 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
-	if node := m.leastBusyNode([]protocol.NodeID{node2}); node != node2 {
+	if node := m.leastBusyNode([]protocol.NodeID{node2}, isValid); node != node2 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
-	if node := m.leastBusyNode([]protocol.NodeID{node1, node2}); node != node1 {
+	if node := m.leastBusyNode([]protocol.NodeID{node1, node2}, isValid); node != node1 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
-	if node := m.leastBusyNode([]protocol.NodeID{node1, node2}); node != node2 {
+	if node := m.leastBusyNode([]protocol.NodeID{node1, node2}, isValid); node != node2 {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
 }
