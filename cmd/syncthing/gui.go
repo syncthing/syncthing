@@ -15,6 +15,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -128,11 +129,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	mux.HandleFunc("/qr/", getQR)
 
 	// Serve compiled in assets unless an asset directory was set (for development)
-	if len(assetDir) > 0 {
-		mux.Handle("/", http.FileServer(http.Dir(assetDir)))
-	} else {
-		mux.HandleFunc("/", embeddedStatic)
-	}
+	mux.Handle("/", embeddedStatic(assetDir))
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
@@ -536,28 +533,40 @@ func validAPIKey(k string) bool {
 	return len(apiKey) > 0 && k == apiKey
 }
 
-func embeddedStatic(w http.ResponseWriter, r *http.Request) {
-	file := r.URL.Path
+func embeddedStatic(assetDir string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		file := r.URL.Path
 
-	if file[0] == '/' {
-		file = file[1:]
-	}
+		if file[0] == '/' {
+			file = file[1:]
+		}
 
-	if len(file) == 0 {
-		file = "index.html"
-	}
+		if len(file) == 0 {
+			file = "index.html"
+		}
 
-	bs, ok := auto.Assets[file]
-	if !ok {
-		return
-	}
+		if assetDir != "" {
+			p := filepath.Join(assetDir, filepath.FromSlash(file))
+			_, err := os.Stat(p)
+			if err == nil {
+				http.ServeFile(w, r, p)
+				return
+			}
+		}
 
-	mtype := mime.TypeByExtension(filepath.Ext(r.URL.Path))
-	if len(mtype) != 0 {
-		w.Header().Set("Content-Type", mtype)
-	}
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-	w.Header().Set("Last-Modified", modt)
+		bs, ok := auto.Assets[file]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
 
-	w.Write(bs)
+		mtype := mime.TypeByExtension(filepath.Ext(r.URL.Path))
+		if len(mtype) != 0 {
+			w.Header().Set("Content-Type", mtype)
+		}
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
+		w.Header().Set("Last-Modified", modt)
+
+		w.Write(bs)
+	})
 }
