@@ -304,10 +304,19 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 		}
 	}
 
+	// Build a list of available nodes
+	existingNodes := make(map[protocol.NodeID]bool)
+	existingNodes[myID] = true
+	for _, node := range cfg.Nodes {
+		existingNodes[node.NodeID] = true
+	}
+
 	// Ensure this node is present in all relevant places
+	// Ensure that any loose nodes are not present in the wrong places
 	cfg.Nodes = ensureNodePresent(cfg.Nodes, myID)
 	for i := range cfg.Repositories {
 		cfg.Repositories[i].Nodes = ensureNodePresent(cfg.Repositories[i].Nodes, myID)
+		cfg.Repositories[i].Nodes = ensureExistingNodes(cfg.Repositories[i].Nodes, existingNodes)
 	}
 
 	// An empty address list is equivalent to a single "dynamic" entry
@@ -386,6 +395,23 @@ func ensureNodePresent(nodes []NodeConfiguration, myID protocol.NodeID) []NodeCo
 			NodeID: myID,
 			Name:   name,
 		})
+	}
+
+	sort.Sort(NodeConfigurationList(nodes))
+
+	return nodes
+}
+
+func ensureExistingNodes(nodes []NodeConfiguration, existingNodes map[protocol.NodeID]bool) []NodeConfiguration {
+	i := 0
+	for _, node := range nodes {
+		if _, ok := existingNodes[node.NodeID]; !ok {
+			last := len(nodes) - 1
+			nodes[i] = nodes[last]
+			nodes = nodes[:last]
+		} else {
+			i++
+		}
 	}
 
 	sort.Sort(NodeConfigurationList(nodes))

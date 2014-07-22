@@ -70,6 +70,7 @@ func TestNodeConfig(t *testing.T) {
 <configuration version="2">
     <repository id="test" directory="~/Sync" ro="true">
         <node id="AIR6LPZ7K4PTTUXQSMUUCPQ5YWOEDFIIQJUG7772YQXXR5YD6AWQ"/>
+        <node id="C4YBIESWDUAIGU62GOSRXCRAAJDWVE3TKCPMURZE2LH5QHAF576A"/>
         <node id="P56IOI7MZJNU2IQGDREYDM2MGTMGL3BXNPQ6W5BTBBZ4TJXZWICQ"/>
     </repository>
     <node id="AIR6LPZ7K4PTTUXQSMUUCPQ5YWOEDFIIQJUG7772YQXXR5YD6AWQ" name="node one">
