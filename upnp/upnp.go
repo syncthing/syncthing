@@ -14,6 +14,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 
 type IGD struct {
 	serviceURL string
+	device     string
 	ourIP      string
 }
 
@@ -103,7 +105,7 @@ Mx: 3
 		return nil, errors.New("no location")
 	}
 
-	serviceURL, err := getServiceURL(locURL)
+	serviceURL, device, err := getServiceURL(locURL)
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +121,7 @@ Mx: 3
 
 	igd := &IGD{
 		serviceURL: serviceURL,
+		device:     device,
 		ourIP:      ourIP,
 	}
 	return igd, nil
@@ -162,49 +165,57 @@ func getChildService(d upnpDevice, serviceType string) (upnpService, bool) {
 	return upnpService{}, false
 }
 
-func getServiceURL(rootURL string) (string, error) {
+func getServiceURL(rootURL string) (string, string, error) {
 	r, err := http.Get(rootURL)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer r.Body.Close()
 	if r.StatusCode >= 400 {
-		return "", errors.New(r.Status)
+		return "", "", errors.New(r.Status)
 	}
+	return getServiceURLReader(rootURL, r.Body)
+}
 
+func getServiceURLReader(rootURL string, r io.Reader) (string, string, error) {
 	var upnpRoot upnpRoot
-	err = xml.NewDecoder(r.Body).Decode(&upnpRoot)
+	err := xml.NewDecoder(r).Decode(&upnpRoot)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	dev := upnpRoot.Device
 	if dev.DeviceType != "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
-		return "", errors.New("No InternetGatewayDevice")
+		return "", "", errors.New("No InternetGatewayDevice")
 	}
 
 	dev, ok := getChildDevice(dev, "urn:schemas-upnp-org:device:WANDevice:1")
 	if !ok {
-		return "", errors.New("No WANDevice")
+		return "", "", errors.New("No WANDevice")
 	}
 
 	dev, ok = getChildDevice(dev, "urn:schemas-upnp-org:device:WANConnectionDevice:1")
 	if !ok {
-		return "", errors.New("No WANConnectionDevice")
+		return "", "", errors.New("No WANConnectionDevice")
 	}
 
-	svc, ok := getChildService(dev, "urn:schemas-upnp-org:service:WANIPConnection:1")
+	device := "urn:schemas-upnp-org:service:WANIPConnection:1"
+	svc, ok := getChildService(dev, device)
 	if !ok {
-		return "", errors.New("No WANIPConnection")
+		device = "urn:schemas-upnp-org:service:WANPPPConnection:1"
+	}
+	svc, ok = getChildService(dev, device)
+	if !ok {
+		return "", "", errors.New("No WANIPConnection nor WANPPPConnection")
 	}
 
 	if len(svc.ControlURL) == 0 {
-		return "", errors.New("no controlURL")
+		return "", "", errors.New("no controlURL")
 	}
 
 	u, _ := url.Parse(rootURL)
 	replaceRawPath(u, svc.ControlURL)
-	return u.String(), nil
+	return u.String(), device, nil
 }
 
 func replaceRawPath(u *url.URL, rp string) {
@@ -223,7 +234,7 @@ func replaceRawPath(u *url.URL, rp string) {
 	u.RawQuery = q
 }
 
-func soapRequest(url, function, message string) error {
+func soapRequest(url, device, function, message string) error {
 	tpl := `<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
@@ -237,7 +248,7 @@ func soapRequest(url, function, message string) error {
 	}
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")
-	req.Header.Set("SOAPAction", `"urn:schemas-upnp-org:service:WANIPConnection:1#`+function+`"`)
+	req.Header.Set("SOAPAction", fmt.Sprintf(`"%s#%s"`, device, function))
 	req.Header.Set("Connection", "Close")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Pragma", "no-cache")
@@ -280,7 +291,7 @@ func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, 
 	`
 
 	body := fmt.Sprintf(tpl, externalPort, protocol, internalPort, n.ourIP, description, timeout)
-	return soapRequest(n.serviceURL, "AddPortMapping", body)
+	return soapRequest(n.serviceURL, n.device, "AddPortMapping", body)
 }
 
 func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) (err error) {
@@ -292,5 +303,5 @@ func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) (err error)
 	`
 
 	body := fmt.Sprintf(tpl, externalPort, protocol)
-	return soapRequest(n.serviceURL, "DeletePortMapping", body)
+	return soapRequest(n.serviceURL, n.device, "DeletePortMapping", body)
 }
