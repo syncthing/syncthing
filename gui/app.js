@@ -21,7 +21,7 @@ syncthing.config(function ($httpProvider, $translateProvider) {
     $translateProvider.preferredLanguage('en');
 });
 
-syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate) {
+syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $location) {
     var prevDate = 0;
     var getOK = true;
     var restarting = false;
@@ -39,6 +39,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate) {
     $scope.reportData = {};
     $scope.reportPreview = false;
     $scope.upgradeInfo = {};
+
+    $scope.$on("$locationChangeSuccess", function () {
+        var lang = $location.search().lang;
+        if (lang) {
+            $translate.use(lang);
+        }
+    });
 
     $scope.needActions = {
         'rm': 'Del',
