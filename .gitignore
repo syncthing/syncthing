@@ -8,3 +8,6 @@ discosrv
 .jshintrc
 coverage.out
 files/pidx
+discosrv.exe
+bin
+perfstats*.csv
