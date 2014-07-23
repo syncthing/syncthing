@@ -26,7 +26,7 @@ build() {
 
 assets() {
 	check
-	godep go run cmd/assets/assets.go gui > auto/gui.files.go
+	godep go run cmd/genassets/main.go gui > auto/gui.files.go
 }
 
 test-cov() {
@@ -97,7 +97,7 @@ setup() {
 
 xdr() {
 	for f in discover/packets files/leveldb protocol/message ; do
-		go run xdr/cmd/genxdr/main.go -- "${f}.go" > "${f}_xdr.go"
+		go run cmd/genxdr/main.go -- "${f}.go" > "${f}_xdr.go"
 	done
 }
 
@@ -141,7 +141,7 @@ case "$1" in
 		test || exit 1
 		assets
 
-		godep go build ./discover/cmd/discosrv
+		godep go build ./cmd/discosrv
 
 		for os in darwin-amd64 linux-386 linux-amd64 freebsd-amd64 windows-amd64 windows-386 ; do
 			export GOOS=${os%-*}
