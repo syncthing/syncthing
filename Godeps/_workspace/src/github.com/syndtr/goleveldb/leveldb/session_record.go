@@ -35,19 +35,19 @@ const (
 
 type cpRecord struct {
 	level int
-	key   iKey
+	ikey  iKey
 }
 
 type ntRecord struct {
 	level int
 	num   uint64
 	size  uint64
-	min   iKey
-	max   iKey
+	imin  iKey
+	imax  iKey
 }
 
 func (r ntRecord) makeFile(s *session) *tFile {
-	return newTFile(s.getTableFile(r.num), r.size, r.min, r.max)
+	return newTableFile(s.getTableFile(r.num), r.size, r.imin, r.imax)
 }
 
 type dtRecord struct {
@@ -98,9 +98,9 @@ func (p *sessionRecord) setSeq(seq uint64) {
 	p.seq = seq
 }
 
-func (p *sessionRecord) addCompactionPointer(level int, key iKey) {
+func (p *sessionRecord) addCompactionPointer(level int, ikey iKey) {
 	p.hasRec |= 1 << recCompactionPointer
-	p.compactionPointers = append(p.compactionPointers, cpRecord{level, key})
+	p.compactionPointers = append(p.compactionPointers, cpRecord{level, ikey})
 }
 
 func (p *sessionRecord) resetCompactionPointers() {
@@ -108,13 +108,13 @@ func (p *sessionRecord) resetCompactionPointers() {
 	p.compactionPointers = p.compactionPointers[:0]
 }
 
-func (p *sessionRecord) addTable(level int, num, size uint64, min, max iKey) {
+func (p *sessionRecord) addTable(level int, num, size uint64, imin, imax iKey) {
 	p.hasRec |= 1 << recNewTable
-	p.addedTables = append(p.addedTables, ntRecord{level, num, size, min, max})
+	p.addedTables = append(p.addedTables, ntRecord{level, num, size, imin, imax})
 }
 
 func (p *sessionRecord) addTableFile(level int, t *tFile) {
-	p.addTable(level, t.file.Num(), t.size, t.min, t.max)
+	p.addTable(level, t.file.Num(), t.size, t.imin, t.imax)
 }
 
 func (p *sessionRecord) resetAddedTables() {
@@ -169,23 +169,23 @@ func (p *sessionRecord) encode(w io.Writer) error {
 		p.putUvarint(w, recSeq)
 		p.putUvarint(w, p.seq)
 	}
-	for _, cp := range p.compactionPointers {
+	for _, r := range p.compactionPointers {
 		p.putUvarint(w, recCompactionPointer)
-		p.putUvarint(w, uint64(cp.level))
-		p.putBytes(w, cp.key)
+		p.putUvarint(w, uint64(r.level))
+		p.putBytes(w, r.ikey)
 	}
-	for _, t := range p.deletedTables {
+	for _, r := range p.deletedTables {
 		p.putUvarint(w, recDeletedTable)
-		p.putUvarint(w, uint64(t.level))
-		p.putUvarint(w, t.num)
+		p.putUvarint(w, uint64(r.level))
+		p.putUvarint(w, r.num)
 	}
-	for _, t := range p.addedTables {
+	for _, r := range p.addedTables {
 		p.putUvarint(w, recNewTable)
-		p.putUvarint(w, uint64(t.level))
-		p.putUvarint(w, t.num)
-		p.putUvarint(w, t.size)
-		p.putBytes(w, t.min)
-		p.putBytes(w, t.max)
+		p.putUvarint(w, uint64(r.level))
+		p.putUvarint(w, r.num)
+		p.putUvarint(w, r.size)
+		p.putBytes(w, r.imin)
+		p.putBytes(w, r.imax)
 	}
 	return p.err
 }
@@ -282,18 +282,18 @@ func (p *sessionRecord) decode(r io.Reader) error {
 			}
 		case recCompactionPointer:
 			level := p.readLevel(br)
-			key := p.readBytes(br)
+			ikey := p.readBytes(br)
 			if p.err == nil {
-				p.addCompactionPointer(level, iKey(key))
+				p.addCompactionPointer(level, iKey(ikey))
 			}
 		case recNewTable:
 			level := p.readLevel(br)
 			num := p.readUvarint(br)
 			size := p.readUvarint(br)
-			min := p.readBytes(br)
-			max := p.readBytes(br)
+			imin := p.readBytes(br)
+			imax := p.readBytes(br)
 			if p.err == nil {
-				p.addTable(level, num, size, min, max)
+				p.addTable(level, num, size, imin, imax)
 			}
 		case recDeletedTable:
 			level := p.readLevel(br)

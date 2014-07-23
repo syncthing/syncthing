@@ -14,7 +14,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
-// logging
+// Logging.
 
 type dropper struct {
 	s    *session
@@ -29,15 +29,10 @@ func (d dropper) Drop(err error) {
 	}
 }
 
-func (s *session) log(v ...interface{}) {
-	s.stor.Log(fmt.Sprint(v...))
-}
+func (s *session) log(v ...interface{})                 { s.stor.Log(fmt.Sprint(v...)) }
+func (s *session) logf(format string, v ...interface{}) { s.stor.Log(fmt.Sprintf(format, v...)) }
 
-func (s *session) logf(format string, v ...interface{}) {
-	s.stor.Log(fmt.Sprintf(format, v...))
-}
-
-// file utils
+// File utils.
 
 func (s *session) getJournalFile(num uint64) storage.File {
 	return s.stor.GetFile(num, storage.TypeJournal)
@@ -56,7 +51,7 @@ func (s *session) newTemp() storage.File {
 	return s.stor.GetFile(num, storage.TypeTemp)
 }
 
-// session state
+// Session state.
 
 // Get current version.
 func (s *session) version() *version {
@@ -126,7 +121,7 @@ func (s *session) reuseFileNum(num uint64) {
 	}
 }
 
-// manifest related utils
+// Manifest related utils.
 
 // Fill given session record obj with current states; need external
 // synchronization.
@@ -142,7 +137,7 @@ func (s *session) fillRecord(r *sessionRecord, snapshot bool) {
 			r.setSeq(s.stSeq)
 		}
 
-		for level, ik := range s.stCPtrs {
+		for level, ik := range s.stCptrs {
 			if ik != nil {
 				r.addCompactionPointer(level, ik)
 			}
@@ -168,7 +163,7 @@ func (s *session) recordCommited(r *sessionRecord) {
 	}
 
 	for _, p := range r.compactionPointers {
-		s.stCPtrs[p.level] = iKey(p.key)
+		s.stCptrs[p.level] = iKey(p.ikey)
 	}
 }
 

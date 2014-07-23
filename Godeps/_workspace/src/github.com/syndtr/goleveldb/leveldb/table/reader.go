@@ -761,6 +761,8 @@ func (r *Reader) OffsetOf(key []byte) (offset int64, err error) {
 
 // NewReader creates a new initialized table reader for the file.
 // The cache is optional and can be nil.
+//
+// The returned table reader instance is goroutine-safe.
 func NewReader(f io.ReaderAt, size int64, cache cache.Namespace, o *opt.Options) *Reader {
 	r := &Reader{
 		reader:     f,

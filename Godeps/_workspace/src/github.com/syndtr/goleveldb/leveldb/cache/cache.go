@@ -29,7 +29,7 @@ type DelFin func(exist bool)
 // to call it or not.
 type PurgeFin func(ns, key uint64, delfin DelFin)
 
-// Cache is a cache tree.
+// Cache is a cache tree. A cache instance must be goroutine-safe.
 type Cache interface {
 	// SetCapacity sets cache capacity.
 	SetCapacity(capacity int)
@@ -44,7 +44,7 @@ type Cache interface {
 	Zap(closed bool)
 }
 
-// Namespace is a cache namespace.
+// Namespace is a cache namespace. A namespace instance must be goroutine-safe.
 type Namespace interface {
 	// Get gets cache object for the given key. The given SetFunc (if not nil) will
 	// be called if the given key does not exist.

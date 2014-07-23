@@ -9,6 +9,7 @@
 package transform
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"unicode/utf8"
@@ -127,7 +128,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 				// cannot read more bytes into src.
 				r.transformComplete = r.err != nil
 				continue
-			case err == ErrShortDst && r.dst1 != 0:
+			case err == ErrShortDst && (r.dst1 != 0 || n != 0):
 				// Make room in dst by copying out, and try again.
 				continue
 			case err == ErrShortSrc && r.src1-r.src0 != len(r.src) && r.err == nil:
@@ -210,7 +211,7 @@ func (w *Writer) Write(data []byte) (n int, err error) {
 			n += nSrc
 		}
 		switch {
-		case err == ErrShortDst && nDst > 0:
+		case err == ErrShortDst && (nDst > 0 || nSrc > 0):
 		case err == ErrShortSrc && len(src) < len(w.src):
 			m := copy(w.src, src)
 			// If w.n > 0, bytes from data were already copied to w.src and n
@@ -467,30 +468,125 @@ func (t removeF) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err err
 	return
 }
 
-// Bytes returns a new byte slice with the result of converting b using t.
-// If any unrecoverable error occurs it returns nil.
-func Bytes(t Transformer, b []byte) []byte {
-	out := make([]byte, len(b))
-	n := 0
-	for {
-		nDst, nSrc, err := t.Transform(out[n:], b, true)
-		n += nDst
-		if err == nil {
-			return out[:n]
-		} else if err != ErrShortDst {
-			return nil
-		}
-		b = b[nSrc:]
+// grow returns a new []byte that is longer than b, and copies the first n bytes
+// of b to the start of the new slice.
+func grow(b []byte, n int) []byte {
+	m := len(b)
+	if m <= 256 {
+		m *= 2
+	} else {
+		m += m >> 1
+	}
+	buf := make([]byte, m)
+	copy(buf, b[:n])
+	return buf
+}
 
-		// Grow the destination buffer.
-		sz := len(out)
-		if sz <= 256 {
-			sz *= 2
-		} else {
-			sz += sz >> 1
+const initialBufSize = 128
+
+// String returns a string with the result of converting s[:n] using t, where
+// n <= len(s). If err == nil, n will be len(s).
+func String(t Transformer, s string) (result string, n int, err error) {
+	if s == "" {
+		return "", 0, nil
+	}
+
+	// Allocate only once. Note that both dst and src escape when passed to
+	// Transform.
+	buf := [2 * initialBufSize]byte{}
+	dst := buf[:initialBufSize:initialBufSize]
+	src := buf[initialBufSize : 2*initialBufSize]
+
+	// Avoid allocation if the transformed string is identical to the original.
+	// After this loop, pDst will point to the furthest point in s for which it
+	// could be detected that t gives equal results, src[:nSrc] will
+	// indicated the last processed chunk of s for which the output is not equal
+	// and dst[:nDst] will be the transform of this chunk.
+	var nDst, nSrc int
+	pDst := 0 // Used as index in both src and dst in this loop.
+	for {
+		n := copy(src, s[pDst:])
+		nDst, nSrc, err = t.Transform(dst, src[:n], pDst+n == len(s))
+
+		// Note 1: we will not enter the loop with pDst == len(s) and we will
+		// not end the loop with it either. So if nSrc is 0, this means there is
+		// some kind of error from which we cannot recover given the current
+		// buffer sizes. We will give up in this case.
+		// Note 2: it is not entirely correct to simply do a bytes.Equal as
+		// a Transformer may buffer internally. It will work in most cases,
+		// though, and no harm is done if it doesn't work.
+		// TODO:  let transformers implement an optional Spanner interface, akin
+		// to norm's QuickSpan. This would even allow us to avoid any allocation.
+		if nSrc == 0 || !bytes.Equal(dst[:nDst], src[:nSrc]) {
+			break
 		}
-		out2 := make([]byte, sz)
-		copy(out2, out[:n])
-		out = out2
+
+		if pDst += nDst; pDst == len(s) {
+			return s, pDst, nil
+		}
+	}
+
+	// Move the bytes seen so far to dst.
+	pSrc := pDst + nSrc
+	if pDst+nDst <= initialBufSize {
+		copy(dst[pDst:], dst[:nDst])
+	} else {
+		b := make([]byte, len(s)+nDst-nSrc)
+		copy(b[pDst:], dst[:nDst])
+		dst = b
+	}
+	copy(dst, s[:pDst])
+	pDst += nDst
+
+	if err != nil && err != ErrShortDst && err != ErrShortSrc {
+		return string(dst[:pDst]), pSrc, err
+	}
+
+	// Complete the string with the remainder.
+	for {
+		n := copy(src, s[pSrc:])
+		nDst, nSrc, err = t.Transform(dst[pDst:], src[:n], pSrc+n == len(s))
+		pDst += nDst
+		pSrc += nSrc
+
+		switch err {
+		case nil:
+			if pSrc == len(s) {
+				return string(dst[:pDst]), pSrc, nil
+			}
+		case ErrShortDst:
+			// Do not grow as long as we can make progress. This may avoid
+			// excessive allocations.
+			if nDst == 0 {
+				dst = grow(dst, pDst)
+			}
+		case ErrShortSrc:
+			if nSrc == 0 {
+				src = grow(src, 0)
+			}
+		default:
+			return string(dst[:pDst]), pSrc, err
+		}
+	}
+}
+
+// Bytes returns a new byte slice with the result of converting b[:n] using t,
+// where n <= len(b). If err == nil, n will be len(b).
+func Bytes(t Transformer, b []byte) (result []byte, n int, err error) {
+	dst := make([]byte, len(b))
+	pDst, pSrc := 0, 0
+	for {
+		nDst, nSrc, err := t.Transform(dst[pDst:], b[pSrc:], true)
+		pDst += nDst
+		pSrc += nSrc
+		if err != ErrShortDst {
+			return dst[:pDst], pSrc, err
+		}
+
+		// Grow the destination buffer, but do not grow as long as we can make
+		// progress. This may avoid excessive allocations.
+		if nDst == 0 {
+			dst = grow(dst, pDst)
+		}
 	}
 }

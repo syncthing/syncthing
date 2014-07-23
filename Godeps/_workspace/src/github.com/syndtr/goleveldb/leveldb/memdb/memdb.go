@@ -437,6 +437,8 @@ func (p *DB) Reset() {
 // New creates a new initalized in-memory key/value DB. The capacity
 // is the initial key/value buffer capacity. The capacity is advisory,
 // not enforced.
+//
+// The returned DB instance is goroutine-safe.
 func New(cmp comparer.BasicComparer, capacity int) *DB {
 	p := &DB{
 		cmp:       cmp,

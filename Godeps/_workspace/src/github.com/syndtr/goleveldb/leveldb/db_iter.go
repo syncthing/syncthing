@@ -20,10 +20,8 @@ var (
 )
 
 func (db *DB) newRawIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator {
-	s := db.s
-
 	em, fm := db.getMems()
-	v := s.version()
+	v := db.s.version()
 
 	ti := v.getIterators(slice, ro)
 	n := len(ti) + 2
@@ -33,24 +31,24 @@ func (db *DB) newRawIterator(slice *util.Range, ro *opt.ReadOptions) iterator.It
 		i = append(i, fm.NewIterator(slice))
 	}
 	i = append(i, ti...)
-	strict := s.o.GetStrict(opt.StrictIterator) || ro.GetStrict(opt.StrictIterator)
-	mi := iterator.NewMergedIterator(i, s.icmp, strict)
+	strict := db.s.o.GetStrict(opt.StrictIterator) || ro.GetStrict(opt.StrictIterator)
+	mi := iterator.NewMergedIterator(i, db.s.icmp, strict)
 	mi.SetReleaser(&versionReleaser{v: v})
 	return mi
 }
 
 func (db *DB) newIterator(seq uint64, slice *util.Range, ro *opt.ReadOptions) *dbIter {
-	var slice_ *util.Range
+	var islice *util.Range
 	if slice != nil {
-		slice_ = &util.Range{}
+		islice = &util.Range{}
 		if slice.Start != nil {
-			slice_.Start = newIKey(slice.Start, kMaxSeq, tSeek)
+			islice.Start = newIKey(slice.Start, kMaxSeq, tSeek)
 		}
 		if slice.Limit != nil {
-			slice_.Limit = newIKey(slice.Limit, kMaxSeq, tSeek)
+			islice.Limit = newIKey(slice.Limit, kMaxSeq, tSeek)
 		}
 	}
-	rawIter := db.newRawIterator(slice_, ro)
+	rawIter := db.newRawIterator(islice, ro)
 	iter := &dbIter{
 		icmp:   db.s.icmp,
 		iter:   rawIter,

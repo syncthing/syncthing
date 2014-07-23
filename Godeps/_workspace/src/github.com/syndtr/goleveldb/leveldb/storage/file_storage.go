@@ -344,19 +344,17 @@ type fileWrap struct {
 }
 
 func (fw fileWrap) Sync() error {
+	if err := fw.File.Sync(); err != nil {
+		return err
+	}
 	if fw.f.Type() == TypeManifest {
 		// Also sync parent directory if file type is manifest.
 		// See: https://code.google.com/p/leveldb/issues/detail?id=190.
-		f, err := os.Open(fw.f.fs.path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		if err := f.Sync(); err != nil {
+		if err := syncDir(fw.f.fs.path); err != nil {
 			return err
 		}
 	}
-	return fw.File.Sync()
+	return nil
 }
 
 func (fw fileWrap) Close() error {

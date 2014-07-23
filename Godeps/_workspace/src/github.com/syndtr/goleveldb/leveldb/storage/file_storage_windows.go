@@ -65,3 +65,5 @@ func rename(oldpath, newpath string) error {
 	}
 	return moveFileEx(from, to, _MOVEFILE_REPLACE_EXISTING)
 }
+
+func syncDir(name string) error { return nil }

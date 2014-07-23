@@ -87,12 +87,12 @@ type Snapshot struct {
 
 // Creates new snapshot object.
 func (db *DB) newSnapshot() *Snapshot {
-	p := &Snapshot{
+	snap := &Snapshot{
 		db:   db,
 		elem: db.acquireSnapshot(),
 	}
-	runtime.SetFinalizer(p, (*Snapshot).Release)
-	return p
+	runtime.SetFinalizer(snap, (*Snapshot).Release)
+	return snap
 }
 
 // Get gets the value for the given key. It returns ErrNotFound if
@@ -100,19 +100,18 @@ func (db *DB) newSnapshot() *Snapshot {
 //
 // The caller should not modify the contents of the returned slice, but
 // it is safe to modify the contents of the argument after Get returns.
-func (p *Snapshot) Get(key []byte, ro *opt.ReadOptions) (value []byte, err error) {
-	db := p.db
-	err = db.ok()
+func (snap *Snapshot) Get(key []byte, ro *opt.ReadOptions) (value []byte, err error) {
+	err = snap.db.ok()
 	if err != nil {
 		return
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.released {
+	snap.mu.Lock()
+	defer snap.mu.Unlock()
+	if snap.released {
 		err = ErrSnapshotReleased
 		return
 	}
-	return db.get(key, p.elem.seq, ro)
+	return snap.db.get(key, snap.elem.seq, ro)
 }
 
 // NewIterator returns an iterator for the snapshot of the uderlying DB.
@@ -132,17 +131,18 @@ func (p *Snapshot) Get(key []byte, ro *opt.ReadOptions) (value []byte, err error
 // iterator would be still valid until released.
 //
 // Also read Iterator documentation of the leveldb/iterator package.
-func (p *Snapshot) NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator {
-	db := p.db
-	if err := db.ok(); err != nil {
+func (snap *Snapshot) NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator {
+	if err := snap.db.ok(); err != nil {
 		return iterator.NewEmptyIterator(err)
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.released {
+	snap.mu.Lock()
+	defer snap.mu.Unlock()
+	if snap.released {
 		return iterator.NewEmptyIterator(ErrSnapshotReleased)
 	}
-	return db.newIterator(p.elem.seq, slice, ro)
+	// Since iterator already hold version ref, it doesn't need to
+	// hold snapshot ref.
+	return snap.db.newIterator(snap.elem.seq, slice, ro)
 }
 
 // Release releases the snapshot. This will not release any returned
@@ -150,16 +150,17 @@ func (p *Snapshot) NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.
 // underlying DB is closed.
 //
 // Other methods should not be called after the snapshot has been released.
-func (p *Snapshot) Release() {
-	p.mu.Lock()
-	if !p.released {
-		// Clear the finalizer.
-		runtime.SetFinalizer(p, nil)
+func (snap *Snapshot) Release() {
+	snap.mu.Lock()
+	defer snap.mu.Unlock()
 
-		p.released = true
-		p.db.releaseSnapshot(p.elem)
-		p.db = nil
-		p.elem = nil
+	if !snap.released {
+		// Clear the finalizer.
+		runtime.SetFinalizer(snap, nil)
+
+		snap.released = true
+		snap.db.releaseSnapshot(snap.elem)
+		snap.db = nil
+		snap.elem = nil
 	}
-	p.mu.Unlock()
 }

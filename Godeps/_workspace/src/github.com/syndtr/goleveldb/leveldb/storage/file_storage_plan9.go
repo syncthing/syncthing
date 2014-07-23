@@ -38,3 +38,15 @@ func rename(oldpath, newpath string) error {
 	_, fname := filepath.Split(newpath)
 	return os.Rename(oldpath, fname)
 }
+
+func syncDir(name string) error {
+	f, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	return nil
+}

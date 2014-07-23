@@ -14,100 +14,101 @@ import (
 )
 
 // Get latest sequence number.
-func (d *DB) getSeq() uint64 {
-	return atomic.LoadUint64(&d.seq)
+func (db *DB) getSeq() uint64 {
+	return atomic.LoadUint64(&db.seq)
 }
 
 // Atomically adds delta to seq.
-func (d *DB) addSeq(delta uint64) {
-	atomic.AddUint64(&d.seq, delta)
+func (db *DB) addSeq(delta uint64) {
+	atomic.AddUint64(&db.seq, delta)
 }
 
 // Create new memdb and froze the old one; need external synchronization.
 // newMem only called synchronously by the writer.
-func (d *DB) newMem(n int) (mem *memdb.DB, err error) {
-	s := d.s
-
-	num := s.allocFileNum()
-	file := s.getJournalFile(num)
+func (db *DB) newMem(n int) (mem *memdb.DB, err error) {
+	num := db.s.allocFileNum()
+	file := db.s.getJournalFile(num)
 	w, err := file.Create()
 	if err != nil {
-		s.reuseFileNum(num)
+		db.s.reuseFileNum(num)
 		return
 	}
-	d.memMu.Lock()
-	if d.journal == nil {
-		d.journal = journal.NewWriter(w)
+
+	db.memMu.Lock()
+	defer db.memMu.Unlock()
+
+	if db.journal == nil {
+		db.journal = journal.NewWriter(w)
 	} else {
-		d.journal.Reset(w)
-		d.journalWriter.Close()
-		d.frozenJournalFile = d.journalFile
+		db.journal.Reset(w)
+		db.journalWriter.Close()
+		db.frozenJournalFile = db.journalFile
 	}
-	d.journalWriter = w
-	d.journalFile = file
-	d.frozenMem = d.mem
-	d.mem = memdb.New(s.icmp, maxInt(d.s.o.GetWriteBuffer(), n))
-	mem = d.mem
-	// The seq only incremented by the writer.
-	d.frozenSeq = d.seq
-	d.memMu.Unlock()
+	db.journalWriter = w
+	db.journalFile = file
+	db.frozenMem = db.mem
+	db.mem = memdb.New(db.s.icmp, maxInt(db.s.o.GetWriteBuffer(), n))
+	mem = db.mem
+	// The seq only incremented by the writer. And whoever called newMem
+	// should hold write lock, so no need additional synchronization here.
+	db.frozenSeq = db.seq
 	return
 }
 
 // Get all memdbs.
-func (d *DB) getMems() (e *memdb.DB, f *memdb.DB) {
-	d.memMu.RLock()
-	defer d.memMu.RUnlock()
-	return d.mem, d.frozenMem
+func (db *DB) getMems() (e *memdb.DB, f *memdb.DB) {
+	db.memMu.RLock()
+	defer db.memMu.RUnlock()
+	return db.mem, db.frozenMem
 }
 
 // Get frozen memdb.
-func (d *DB) getEffectiveMem() *memdb.DB {
-	d.memMu.RLock()
-	defer d.memMu.RUnlock()
-	return d.mem
+func (db *DB) getEffectiveMem() *memdb.DB {
+	db.memMu.RLock()
+	defer db.memMu.RUnlock()
+	return db.mem
 }
 
 // Check whether we has frozen memdb.
-func (d *DB) hasFrozenMem() bool {
-	d.memMu.RLock()
-	defer d.memMu.RUnlock()
-	return d.frozenMem != nil
+func (db *DB) hasFrozenMem() bool {
+	db.memMu.RLock()
+	defer db.memMu.RUnlock()
+	return db.frozenMem != nil
 }
 
 // Get frozen memdb.
-func (d *DB) getFrozenMem() *memdb.DB {
-	d.memMu.RLock()
-	defer d.memMu.RUnlock()
-	return d.frozenMem
+func (db *DB) getFrozenMem() *memdb.DB {
+	db.memMu.RLock()
+	defer db.memMu.RUnlock()
+	return db.frozenMem
 }
 
 // Drop frozen memdb; assume that frozen memdb isn't nil.
-func (d *DB) dropFrozenMem() {
-	d.memMu.Lock()
-	if err := d.frozenJournalFile.Remove(); err != nil {
-		d.s.logf("journal@remove removing @%d %q", d.frozenJournalFile.Num(), err)
+func (db *DB) dropFrozenMem() {
+	db.memMu.Lock()
+	if err := db.frozenJournalFile.Remove(); err != nil {
+		db.logf("journal@remove removing @%d %q", db.frozenJournalFile.Num(), err)
 	} else {
-		d.s.logf("journal@remove removed @%d", d.frozenJournalFile.Num())
+		db.logf("journal@remove removed @%d", db.frozenJournalFile.Num())
 	}
-	d.frozenJournalFile = nil
-	d.frozenMem = nil
-	d.memMu.Unlock()
+	db.frozenJournalFile = nil
+	db.frozenMem = nil
+	db.memMu.Unlock()
 }
 
 // Set closed flag; return true if not already closed.
-func (d *DB) setClosed() bool {
-	return atomic.CompareAndSwapUint32(&d.closed, 0, 1)
+func (db *DB) setClosed() bool {
+	return atomic.CompareAndSwapUint32(&db.closed, 0, 1)
 }
 
 // Check whether DB was closed.
-func (d *DB) isClosed() bool {
-	return atomic.LoadUint32(&d.closed) != 0
+func (db *DB) isClosed() bool {
+	return atomic.LoadUint32(&db.closed) != 0
 }
 
 // Check read ok status.
-func (d *DB) ok() error {
-	if d.isClosed() {
+func (db *DB) ok() error {
+	if db.isClosed() {
 		return ErrClosed
 	}
 	return nil

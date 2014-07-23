@@ -36,7 +36,7 @@ var _ = testutil.Defer(func() {
 				testutil.DoDBTesting(&t)
 				db.TestClose()
 				done <- true
-			}, 9.0)
+			}, 20.0)
 		})
 
 		Describe("read test", func() {

@@ -48,6 +48,7 @@ func (t *testingDB) TestClose() {
 func newTestingDB(o *opt.Options, ro *opt.ReadOptions, wo *opt.WriteOptions) *testingDB {
 	stor := testutil.NewStorage()
 	db, err := Open(stor, o)
+	// FIXME: This may be called from outside It, which may cause panic.
 	Expect(err).NotTo(HaveOccurred())
 	return &testingDB{
 		DB:   db,

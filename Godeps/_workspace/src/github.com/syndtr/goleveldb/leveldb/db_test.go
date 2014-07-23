@@ -154,9 +154,7 @@ func (h *dbHarness) maxNextLevelOverlappingBytes(want uint64) {
 		level := i + 1
 		next := v.tables[level+1]
 		for _, t := range tt {
-			var r tFiles
-			min, max := t.min.ukey(), t.max.ukey()
-			next.getOverlaps(min, max, &r, true, db.s.icmp.ucmp)
+			r := next.getOverlaps(nil, db.s.icmp, t.imin.ukey(), t.imax.ukey(), false)
 			sum := r.size()
 			if sum > res {
 				res = sum

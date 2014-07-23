@@ -12,13 +12,13 @@
 		},
 		{
 			"ImportPath": "code.google.com/p/go.crypto/bcrypt",
-			"Comment": "null-212",
-			"Rev": "1064b89a6fb591df0dd65422295b8498916b092f"
+			"Comment": "null-213",
+			"Rev": "aa2644fe4aa50e3b38d75187b4799b1f0c9ddcef"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.crypto/blowfish",
-			"Comment": "null-212",
-			"Rev": "1064b89a6fb591df0dd65422295b8498916b092f"
+			"Comment": "null-213",
+			"Rev": "aa2644fe4aa50e3b38d75187b4799b1f0c9ddcef"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.net/html",
@@ -27,13 +27,13 @@
 		},
 		{
 			"ImportPath": "code.google.com/p/go.text/transform",
-			"Comment": "null-87",
-			"Rev": "c59e4f2f93824f81213799e64c3eead7be24660a"
+			"Comment": "null-88",
+			"Rev": "1506dcc33592c369c3be7bd30b38f90445b86deb"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.text/unicode/norm",
-			"Comment": "null-87",
-			"Rev": "c59e4f2f93824f81213799e64c3eead7be24660a"
+			"Comment": "null-88",
+			"Rev": "1506dcc33592c369c3be7bd30b38f90445b86deb"
 		},
 		{
 			"ImportPath": "code.google.com/p/snappy-go/snappy",
@@ -42,7 +42,7 @@
 		},
 		{
 			"ImportPath": "github.com/golang/groupcache/lru",
-			"Rev": "a531d51b7f9f3dd13c1c2b50d42d739b70442dbb"
+			"Rev": "8b25adc0f62632c810997cb38c21111a3f256bf4"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
@@ -50,7 +50,7 @@
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "e1f2d2bdccd7c62f4d4a29aaf081bf1fc4404f91"
+			"Rev": "ba4481e4cb1d45f586e32be2ab663f173b08b207"
 		},
 		{
 			"ImportPath": "github.com/vitrun/qart/coding",

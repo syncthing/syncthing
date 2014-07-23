@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 )
 
@@ -132,6 +133,43 @@ func (e rleEncode) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err e
 	return nDst, nSrc, nil
 }
 
+// trickler consumes all input bytes, but writes a single byte at a time to dst.
+type trickler []byte
+
+func (t *trickler) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
+	*t = append(*t, src...)
+	if len(*t) == 0 {
+		return 0, 0, nil
+	}
+	if len(dst) == 0 {
+		return 0, len(src), ErrShortDst
+	}
+	dst[0] = (*t)[0]
+	*t = (*t)[1:]
+	if len(*t) > 0 {
+		err = ErrShortDst
+	}
+	return 1, len(src), err
+}
+
+// delayedTrickler is like trickler, but delays writing output to dst. This is
+// highly unlikely to be relevant in practice, but it seems like a good idea
+// to have some tolerance as long as progress can be detected.
+type delayedTrickler []byte
+
+func (t *delayedTrickler) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
+	if len(*t) > 0 && len(dst) > 0 {
+		dst[0] = (*t)[0]
+		*t = (*t)[1:]
+		nDst = 1
+	}
+	*t = append(*t, src...)
+	if len(*t) > 0 {
+		err = ErrShortDst
+	}
+	return nDst, len(src), err
+}
+
 type testCase struct {
 	desc     string
 	t        Transformer
@@ -170,6 +208,15 @@ func (c chain) String() string {
 }
 
 var testCases = []testCase{
+	{
+		desc:    "empty",
+		t:       lowerCaseASCII{},
+		src:     "",
+		dstSize: 100,
+		srcSize: 100,
+		wantStr: "",
+	},
+
 	{
 		desc:    "basic",
 		t:       lowerCaseASCII{},
@@ -377,6 +424,24 @@ var testCases = []testCase{
 		srcSize: 10,
 		ioSize:  10,
 		wantStr: "4a6b2b4c4d1d",
+	},
+
+	{
+		desc:    "trickler",
+		t:       &trickler{},
+		src:     "abcdefghijklm",
+		dstSize: 3,
+		srcSize: 15,
+		wantStr: "abcdefghijklm",
+	},
+
+	{
+		desc:    "delayedTrickler",
+		t:       &delayedTrickler{},
+		src:     "abcdefghijklm",
+		dstSize: 3,
+		srcSize: 15,
+		wantStr: "abcdefghijklm",
 	},
 }
 
@@ -685,7 +750,7 @@ func doTransform(tc testCase) (res string, iter int, err error) {
 		switch {
 		case err == nil && len(in) != 0:
 		case err == ErrShortSrc && nSrc > 0:
-		case err == ErrShortDst && nDst > 0:
+		case err == ErrShortDst && (nDst > 0 || nSrc > 0):
 		default:
 			return string(out), iter, err
 		}
@@ -875,27 +940,136 @@ func TestRemoveFunc(t *testing.T) {
 	}
 }
 
-func TestBytes(t *testing.T) {
+func testString(t *testing.T, f func(Transformer, string) (string, int, error)) {
 	for _, tt := range append(testCases, chainTests()...) {
 		if tt.desc == "allowStutter = true" {
 			// We don't have control over the buffer size, so we eliminate tests
 			// that depend on a specific buffer size being set.
 			continue
 		}
-		got := Bytes(tt.t, []byte(tt.src))
-		if tt.wantErr != nil {
-			if tt.wantErr != ErrShortDst && tt.wantErr != ErrShortSrc {
-				// Bytes should return nil for non-recoverable errors.
-				if g, w := (got == nil), (tt.wantErr != nil); g != w {
-					t.Errorf("%s:error: got %v; want %v", tt.desc, g, w)
-				}
-			}
-			// The output strings in the tests that expect an error will
-			// almost certainly not be the same as the result of Bytes.
+		reset(tt.t)
+		if tt.wantErr == ErrShortDst || tt.wantErr == ErrShortSrc {
+			// The result string will be different.
 			continue
 		}
-		if string(got) != tt.wantStr {
+		got, n, err := f(tt.t, tt.src)
+		if tt.wantErr != err {
+			t.Errorf("%s:error: got %v; want %v", tt.desc, err, tt.wantErr)
+		}
+		if got, want := err == nil, n == len(tt.src); got != want {
+			t.Errorf("%s:n: got %v; want %v", tt.desc, got, want)
+		}
+		if got != tt.wantStr {
 			t.Errorf("%s:string: got %q; want %q", tt.desc, got, tt.wantStr)
 		}
+	}
+}
+
+func TestBytes(t *testing.T) {
+	testString(t, func(z Transformer, s string) (string, int, error) {
+		b, n, err := Bytes(z, []byte(s))
+		return string(b), n, err
+	})
+}
+
+func TestString(t *testing.T) {
+	testString(t, String)
+
+	// Overrun the internal destination buffer.
+	for i, s := range []string{
+		strings.Repeat("a", initialBufSize-1),
+		strings.Repeat("a", initialBufSize+0),
+		strings.Repeat("a", initialBufSize+1),
+		strings.Repeat("A", initialBufSize-1),
+		strings.Repeat("A", initialBufSize+0),
+		strings.Repeat("A", initialBufSize+1),
+		strings.Repeat("A", 2*initialBufSize-1),
+		strings.Repeat("A", 2*initialBufSize+0),
+		strings.Repeat("A", 2*initialBufSize+1),
+		strings.Repeat("a", initialBufSize-2) + "A",
+		strings.Repeat("a", initialBufSize-1) + "A",
+		strings.Repeat("a", initialBufSize+0) + "A",
+		strings.Repeat("a", initialBufSize+1) + "A",
+	} {
+		got, _, _ := String(lowerCaseASCII{}, s)
+		if want := strings.ToLower(s); got != want {
+			t.Errorf("%d:dst buffer test: got %s (%d); want %s (%d)", i, got, len(got), want, len(want))
+		}
+	}
+
+	// Overrun the internal source buffer.
+	for i, s := range []string{
+		strings.Repeat("a", initialBufSize-1),
+		strings.Repeat("a", initialBufSize+0),
+		strings.Repeat("a", initialBufSize+1),
+		strings.Repeat("a", 2*initialBufSize+1),
+		strings.Repeat("a", 2*initialBufSize+0),
+		strings.Repeat("a", 2*initialBufSize+1),
+	} {
+		got, _, _ := String(rleEncode{}, s)
+		if want := fmt.Sprintf("%da", len(s)); got != want {
+			t.Errorf("%d:src buffer test: got %s (%d); want %s (%d)", i, got, len(got), want, len(want))
+		}
+	}
+
+	// Test allocations for non-changing strings.
+	// Note we still need to allocate a single buffer.
+	for i, s := range []string{
+		"",
+		"123",
+		"123456789",
+		strings.Repeat("a", initialBufSize),
+		strings.Repeat("a", 10*initialBufSize),
+	} {
+		if n := testing.AllocsPerRun(5, func() { String(&lowerCaseASCII{}, s) }); n > 1 {
+			t.Errorf("%d: #allocs was %f; want 1", i, n)
+		}
+	}
+}
+
+// TestBytesAllocation tests that buffer growth stays limited with the trickler
+// transformer, which behaves oddly but within spec. In case buffer growth is
+// not correctly handled, the test will either panic with a failed allocation or
+// thrash. To ensure the tests terminate under the last condition, we time out
+// after some sufficiently long period of time.
+func TestBytesAllocation(t *testing.T) {
+	done := make(chan bool)
+	go func() {
+		in := bytes.Repeat([]byte{'a'}, 1000)
+		tr := trickler(make([]byte, 1))
+		Bytes(&tr, in)
+		done <- true
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Error("time out, likely due to excessive allocation")
+	}
+}
+
+// TestStringAllocation tests that buffer growth stays limited with the trickler
+// transformer, which behaves oddly but within spec. In case buffer growth is
+// not correctly handled, the test will either panic with a failed allocation or
+// thrash. To ensure the tests terminate under the last condition, we time out
+// after some sufficiently long period of time.
+func TestStringAllocation(t *testing.T) {
+	done := make(chan bool)
+	go func() {
+		in := strings.Repeat("a", 1000)
+		tr := trickler(make([]byte, 1))
+		String(&tr, in)
+		done <- true
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Error("time out, likely due to excessive allocation")
+	}
+}
+
+func BenchmarkStringLower(b *testing.B) {
+	in := strings.Repeat("a", 4096)
+	for i := 0; i < b.N; i++ {
+		String(&lowerCaseASCII{}, in)
 	}
 }

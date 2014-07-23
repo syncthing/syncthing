@@ -39,11 +39,12 @@ type session struct {
 	manifestWriter storage.Writer
 	manifestFile   storage.File
 
-	stCPtrs   [kNumLevels]iKey // compact pointers; need external synchronization
+	stCptrs   [kNumLevels]iKey // compact pointers; need external synchronization
 	stVersion *version         // current version
 	vmu       sync.Mutex
 }
 
+// Creates new initialized session instance.
 func newSession(stor storage.Storage, o *opt.Options) (s *session, err error) {
 	if stor == nil {
 		return nil, os.ErrInvalid
@@ -81,6 +82,7 @@ func (s *session) close() {
 	s.stVersion = nil
 }
 
+// Release session lock.
 func (s *session) release() {
 	s.storLock.Release()
 }
@@ -132,8 +134,8 @@ func (s *session) recover() (err error) {
 		err = rec.decode(r)
 		if err == nil {
 			// save compact pointers
-			for _, rp := range rec.compactionPointers {
-				s.stCPtrs[rp.level] = iKey(rp.key)
+			for _, r := range rec.compactionPointers {
+				s.stCptrs[r.level] = iKey(r.ikey)
 			}
 			// commit record to version staging
 			staging.commit(rec)
@@ -195,16 +197,16 @@ func (s *session) pickCompaction() *compaction {
 	var t0 tFiles
 	if v.cScore >= 1 {
 		level = v.cLevel
-		cp := s.stCPtrs[level]
-		tt := v.tables[level]
-		for _, t := range tt {
-			if cp == nil || s.icmp.Compare(t.max, cp) > 0 {
+		cptr := s.stCptrs[level]
+		tables := v.tables[level]
+		for _, t := range tables {
+			if cptr == nil || s.icmp.Compare(t.imax, cptr) > 0 {
 				t0 = append(t0, t)
 				break
 			}
 		}
 		if len(t0) == 0 {
-			t0 = append(t0, tt[0])
+			t0 = append(t0, tables[0])
 		}
 	} else {
 		if p := atomic.LoadPointer(&v.cSeek); p != nil {
@@ -216,11 +218,10 @@ func (s *session) pickCompaction() *compaction {
 		}
 	}
 
-	c := &compaction{s: s, version: v, level: level}
+	c := &compaction{s: s, v: v, level: level}
 	if level == 0 {
-		min, max := t0.getRange(s.icmp)
-		t0 = nil
-		v.tables[0].getOverlaps(min.ukey(), max.ukey(), &t0, false, s.icmp.ucmp)
+		imin, imax := t0.getRange(s.icmp)
+		t0 = v.tables[0].getOverlaps(t0[:0], s.icmp, imin.ukey(), imax.ukey(), true)
 	}
 
 	c.tables[0] = t0
@@ -229,11 +230,10 @@ func (s *session) pickCompaction() *compaction {
 }
 
 // Create compaction from given level and range; need external synchronization.
-func (s *session) getCompactionRange(level int, min, max []byte) *compaction {
+func (s *session) getCompactionRange(level int, umin, umax []byte) *compaction {
 	v := s.version_NB()
 
-	var t0 tFiles
-	v.tables[level].getOverlaps(min, max, &t0, level != 0, s.icmp.ucmp)
+	t0 := v.tables[level].getOverlaps(nil, s.icmp, umin, umax, level == 0)
 	if len(t0) == 0 {
 		return nil
 	}
@@ -255,16 +255,16 @@ func (s *session) getCompactionRange(level int, min, max []byte) *compaction {
 		}
 	}
 
-	c := &compaction{s: s, version: v, level: level}
+	c := &compaction{s: s, v: v, level: level}
 	c.tables[0] = t0
 	c.expand()
 	return c
 }
 
-// compaction represent a compaction state
+// compaction represent a compaction state.
 type compaction struct {
-	s       *session
-	version *version
+	s *session
+	v *version
 
 	level  int
 	tables [2]tFiles
@@ -273,42 +273,36 @@ type compaction struct {
 	gpidx           int
 	seenKey         bool
 	overlappedBytes uint64
-	min, max        iKey
+	imin, imax      iKey
 
 	tPtrs [kNumLevels]int
 }
 
 // Expand compacted tables; need external synchronization.
 func (c *compaction) expand() {
-	s := c.s
-	v := c.version
-
 	level := c.level
-	vt0, vt1 := v.tables[level], v.tables[level+1]
+	vt0, vt1 := c.v.tables[level], c.v.tables[level+1]
 
 	t0, t1 := c.tables[0], c.tables[1]
-	min, max := t0.getRange(s.icmp)
-	vt1.getOverlaps(min.ukey(), max.ukey(), &t1, true, s.icmp.ucmp)
-
-	// Get entire range covered by compaction
-	amin, amax := append(t0, t1...).getRange(s.icmp)
+	imin, imax := t0.getRange(c.s.icmp)
+	t1 = vt1.getOverlaps(t1, c.s.icmp, imin.ukey(), imax.ukey(), false)
+	// Get entire range covered by compaction.
+	amin, amax := append(t0, t1...).getRange(c.s.icmp)
 
 	// See if we can grow the number of inputs in "level" without
 	// changing the number of "level+1" files we pick up.
 	if len(t1) > 0 {
-		var exp0 tFiles
-		vt0.getOverlaps(amin.ukey(), amax.ukey(), &exp0, level != 0, s.icmp.ucmp)
+		exp0 := vt0.getOverlaps(nil, c.s.icmp, amin.ukey(), amax.ukey(), level == 0)
 		if len(exp0) > len(t0) && t1.size()+exp0.size() < kExpCompactionMaxBytes {
-			var exp1 tFiles
-			xmin, xmax := exp0.getRange(s.icmp)
-			vt1.getOverlaps(xmin.ukey(), xmax.ukey(), &exp1, true, s.icmp.ucmp)
+			xmin, xmax := exp0.getRange(c.s.icmp)
+			exp1 := vt1.getOverlaps(nil, c.s.icmp, xmin.ukey(), xmax.ukey(), false)
 			if len(exp1) == len(t1) {
-				s.logf("table@compaction expanding L%d+L%d (F·%d S·%s)+(F·%d S·%s) -> (F·%d S·%s)+(F·%d S·%s)",
+				c.s.logf("table@compaction expanding L%d+L%d (F·%d S·%s)+(F·%d S·%s) -> (F·%d S·%s)+(F·%d S·%s)",
 					level, level+1, len(t0), shortenb(int(t0.size())), len(t1), shortenb(int(t1.size())),
 					len(exp0), shortenb(int(exp0.size())), len(exp1), shortenb(int(exp1.size())))
-				min, max = xmin, xmax
+				imin, imax = xmin, xmax
 				t0, t1 = exp0, exp1
-				amin, amax = append(t0, t1...).getRange(s.icmp)
+				amin, amax = append(t0, t1...).getRange(c.s.icmp)
 			}
 		}
 	}
@@ -316,11 +310,11 @@ func (c *compaction) expand() {
 	// Compute the set of grandparent files that overlap this compaction
 	// (parent == level+1; grandparent == level+2)
 	if level+2 < kNumLevels {
-		v.tables[level+2].getOverlaps(amin.ukey(), amax.ukey(), &c.gp, true, s.icmp.ucmp)
+		c.gp = c.v.tables[level+2].getOverlaps(c.gp, c.s.icmp, amin.ukey(), amax.ukey(), false)
 	}
 
 	c.tables[0], c.tables[1] = t0, t1
-	c.min, c.max = min, max
+	c.imin, c.imax = imin, imax
 }
 
 // Check whether compaction is trivial.
@@ -328,17 +322,14 @@ func (c *compaction) trivial() bool {
 	return len(c.tables[0]) == 1 && len(c.tables[1]) == 0 && c.gp.size() <= kMaxGrandParentOverlapBytes
 }
 
-func (c *compaction) isBaseLevelForKey(key []byte) bool {
-	s := c.s
-	v := c.version
-
-	for level, tt := range v.tables[c.level+2:] {
-		for c.tPtrs[level] < len(tt) {
-			t := tt[c.tPtrs[level]]
-			if s.icmp.uCompare(key, t.max.ukey()) <= 0 {
-				// We've advanced far enough
-				if s.icmp.uCompare(key, t.min.ukey()) >= 0 {
-					// Key falls in this file's range, so definitely not base level
+func (c *compaction) baseLevelForKey(ukey []byte) bool {
+	for level, tables := range c.v.tables[c.level+2:] {
+		for c.tPtrs[level] < len(tables) {
+			t := tables[c.tPtrs[level]]
+			if c.s.icmp.uCompare(ukey, t.imax.ukey()) <= 0 {
+				// We've advanced far enough.
+				if c.s.icmp.uCompare(ukey, t.imin.ukey()) >= 0 {
+					// Key falls in this file's range, so definitely not base level.
 					return false
 				}
 				break
@@ -349,10 +340,10 @@ func (c *compaction) isBaseLevelForKey(key []byte) bool {
 	return true
 }
 
-func (c *compaction) shouldStopBefore(key iKey) bool {
+func (c *compaction) shouldStopBefore(ikey iKey) bool {
 	for ; c.gpidx < len(c.gp); c.gpidx++ {
 		gp := c.gp[c.gpidx]
-		if c.s.icmp.Compare(key, gp.max) <= 0 {
+		if c.s.icmp.Compare(ikey, gp.imax) <= 0 {
 			break
 		}
 		if c.seenKey {
@@ -362,42 +353,44 @@ func (c *compaction) shouldStopBefore(key iKey) bool {
 	c.seenKey = true
 
 	if c.overlappedBytes > kMaxGrandParentOverlapBytes {
-		// Too much overlap for current output; start new output
+		// Too much overlap for current output; start new output.
 		c.overlappedBytes = 0
 		return true
 	}
 	return false
 }
 
+// Creates an iterator.
 func (c *compaction) newIterator() iterator.Iterator {
-	s := c.s
-
-	level := c.level
-	icap := 2
+	// Creates iterator slice.
+	icap := len(c.tables)
 	if c.level == 0 {
+		// Special case for level-0
 		icap = len(c.tables[0]) + 1
 	}
 	its := make([]iterator.Iterator, 0, icap)
 
+	// Options.
 	ro := &opt.ReadOptions{
 		DontFillCache: true,
 	}
-	strict := s.o.GetStrict(opt.StrictIterator)
+	strict := c.s.o.GetStrict(opt.StrictIterator)
 
-	for i, tt := range c.tables {
-		if len(tt) == 0 {
+	for i, tables := range c.tables {
+		if len(tables) == 0 {
 			continue
 		}
 
-		if level+i == 0 {
-			for _, t := range tt {
-				its = append(its, s.tops.newIterator(t, nil, ro))
+		// Level-0 is not sorted and may overlaps each other.
+		if c.level+i == 0 {
+			for _, t := range tables {
+				its = append(its, c.s.tops.newIterator(t, nil, ro))
 			}
 		} else {
-			it := iterator.NewIndexedIterator(tt.newIndexIterator(s.tops, s.icmp, nil, ro), strict, true)
+			it := iterator.NewIndexedIterator(tables.newIndexIterator(c.s.tops, c.s.icmp, nil, ro), strict, true)
 			its = append(its, it)
 		}
 	}
 
-	return iterator.NewMergedIterator(its, s.icmp, true)
+	return iterator.NewMergedIterator(its, c.s.icmp, true)
 }
