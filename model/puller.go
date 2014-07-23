@@ -315,17 +315,19 @@ func (p *puller) handleRequestResult(res requestResult) {
 	f := res.file
 
 	of, ok := p.openFiles[f.Name]
-	if !ok || of.err != nil {
+	if !ok {
 		// no entry in openFiles means there was an error and we've cancelled the operation
 		return
 	}
 
 	if res.err != nil {
+		// This request resulted in an error
 		of.err = res.err
 		if debug {
-			l.Debugf("pull: not writing %q / %q offset %d: %v", p.repoCfg.ID, f.Name, res.offset, res.err)
+			l.Debugf("pull: not writing %q / %q offset %d: %v; (done=%v, outstanding=%d)", p.repoCfg.ID, f.Name, res.offset, res.err, of.done, of.outstanding)
 		}
-	} else {
+	} else if of.err == nil {
+		// This request was sucessfull and nothing has failed previously either
 		_, of.err = of.file.WriteAt(res.data, res.offset)
 		if debug {
 			l.Debugf("pull: wrote %q / %q offset %d len %d outstanding %d done %v", p.repoCfg.ID, f.Name, res.offset, len(res.data), of.outstanding, of.done)
@@ -523,10 +525,19 @@ func (p *puller) handleRequestBlock(b bqBlock) bool {
 			of.file.Close()
 			of.file = nil
 			os.Remove(of.temp)
+			if debug {
+				l.Debugf("pull: no source for %q / %q; closed", p.repoCfg.ID, f.Name)
+			}
 		}
 		if b.last {
+			if debug {
+				l.Debugf("pull: no source for %q / %q; deleting", p.repoCfg.ID, f.Name)
+			}
 			delete(p.openFiles, f.Name)
 		} else {
+			if debug {
+				l.Debugf("pull: no source for %q / %q; await more blocks", p.repoCfg.ID, f.Name)
+			}
 			p.openFiles[f.Name] = of
 		}
 		return true

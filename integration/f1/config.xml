@@ -3,7 +3,6 @@
         <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA"></node>
         <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ"></node>
         <versioning></versioning>
-        <syncorder></syncorder>
     </repository>
     <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA" name="f1">
         <address>127.0.0.1:22001</address>
@@ -22,11 +21,12 @@
         <localAnnounceEnabled>true</localAnnounceEnabled>
         <localAnnouncePort>21025</localAnnouncePort>
         <parallelRequests>16</parallelRequests>
-        <maxSendKbps>0</maxSendKbps>
+        <maxSendKbps>1000</maxSendKbps>
         <rescanIntervalS>10</rescanIntervalS>
         <reconnectionIntervalS>5</reconnectionIntervalS>
         <maxChangeKbps>10000</maxChangeKbps>
         <startBrowser>false</startBrowser>
         <upnpEnabled>true</upnpEnabled>
+        <urAccepted>-1</urAccepted>
     </options>
 </configuration>
