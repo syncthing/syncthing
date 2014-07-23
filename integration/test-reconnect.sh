@@ -83,3 +83,5 @@ setup
 start
 testConvergence 8082
 stop
+
+exit 0

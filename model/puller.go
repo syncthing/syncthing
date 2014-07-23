@@ -192,9 +192,15 @@ func (p *puller) run() {
 			lastscan = time.Now()
 		}
 
-		if v := p.model.LocalVersion(p.repoCfg.ID); v > prevVer {
+		if v := p.model.LocalVersion(p.repoCfg.ID); v != prevVer {
+			if debug {
+				l.Debugf("%q: checking for more needed blocks", p.repoCfg.ID)
+			}
 			// Queue more blocks to fetch, if any
 			if p.queueNeededBlocks() == 0 {
+				if debug {
+					l.Debugf("%q: no more needed blocks", p.repoCfg.ID)
+				}
 				// We've fetched all blocks we need
 				prevVer = v
 			}

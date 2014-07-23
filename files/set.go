@@ -58,9 +58,7 @@ func (s *Set) Replace(node protocol.NodeID, fs []protocol.FileInfo) {
 	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if lv := ldbReplace(s.db, []byte(s.repo), node[:], fs); lv > s.localVersion[node] {
-		s.localVersion[node] = lv
-	}
+	s.localVersion[node] = ldbReplace(s.db, []byte(s.repo), node[:], fs)
 }
 
 func (s *Set) ReplaceWithDelete(node protocol.NodeID, fs []protocol.FileInfo) {
