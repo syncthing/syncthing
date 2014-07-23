@@ -85,7 +85,7 @@ zipDist() {
 
 deps() {
 	check
-	godep save ./cmd/syncthing ./cmd/assets ./discover/cmd/discosrv
+	godep save ./cmd/...
 }
 
 setup() {

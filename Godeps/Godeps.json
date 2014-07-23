@@ -1,10 +1,8 @@
 {
 	"ImportPath": "github.com/calmh/syncthing",
-	"GoVersion": "go1.3",
+	"GoVersion": "devel +6bdbf9086c00 Thu Jul 17 17:02:46 2014 +1000",
 	"Packages": [
-		"./cmd/syncthing",
-		"./cmd/assets",
-		"./discover/cmd/discosrv"
+		"./cmd/..."
 	],
 	"Deps": [
 		{
@@ -21,6 +19,11 @@
 			"ImportPath": "code.google.com/p/go.crypto/blowfish",
 			"Comment": "null-212",
 			"Rev": "1064b89a6fb591df0dd65422295b8498916b092f"
+		},
+		{
+			"ImportPath": "code.google.com/p/go.net/html",
+			"Comment": "null-137",
+			"Rev": "335bcad0b70a3ba61b9951992a418c9176a73fd4"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.text/transform",
