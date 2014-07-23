@@ -22,6 +22,7 @@ check() {
 build() {
 	check
 	godep go build $* -ldflags "$ldflags" ./cmd/syncthing
+	godep go build $* -ldflags "$ldflags" ./cmd/discosrv
 }
 
 assets() {
@@ -140,8 +141,6 @@ case "$1" in
 		rm -f *.tar.gz *.zip
 		test || exit 1
 		assets
-
-		godep go build ./cmd/discosrv
 
 		for os in darwin-amd64 linux-386 linux-amd64 freebsd-amd64 windows-amd64 windows-386 ; do
 			export GOOS=${os%-*}
