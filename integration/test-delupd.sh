@@ -17,7 +17,7 @@ go build json.go
 start() {
 	echo "Starting..."
 	for i in 1 2 3 ; do
-		STTRACE=files,model,puller,versioner STPROFILER=":909$i" syncthing -home "h$i" > "$i.out" 2>&1 &
+		STTRACE=files,model,puller,versioner,protocol STPROFILER=":909$i" syncthing -home "h$i" > "$i.out" 2>&1 &
 	done
 }
 

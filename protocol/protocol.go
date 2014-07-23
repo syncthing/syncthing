@@ -327,8 +327,14 @@ func (c *rawConnection) indexSerializerLoop() {
 		select {
 		case ii := <-incomingIndexes:
 			if ii.update {
+				if debug {
+					l.Debugf("calling IndexUpdate(%v, %v, %d files)", ii.id, ii.repo, len(ii.files))
+				}
 				c.receiver.IndexUpdate(ii.id, ii.repo, ii.files)
 			} else {
+				if debug {
+					l.Debugf("calling Index(%v, %v, %d files)", ii.id, ii.repo, len(ii.files))
+				}
 				c.receiver.Index(ii.id, ii.repo, ii.files)
 			}
 		case <-c.closed:
@@ -351,6 +357,9 @@ func (c *rawConnection) handleIndex() error {
 		// update and can't receive the large index update from the
 		// other side.
 
+		if debug {
+			l.Debugf("queueing Index(%v, %v, %d files)", c.id, im.Repository, len(im.Files))
+		}
 		incomingIndexes <- incomingIndex{false, c.id, im.Repository, im.Files}
 	}
 	return nil
@@ -362,6 +371,9 @@ func (c *rawConnection) handleIndexUpdate() error {
 	if err := c.xr.Error(); err != nil {
 		return err
 	} else {
+		if debug {
+			l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.id, im.Repository, len(im.Files))
+		}
 		incomingIndexes <- incomingIndex{true, c.id, im.Repository, im.Files}
 	}
 	return nil

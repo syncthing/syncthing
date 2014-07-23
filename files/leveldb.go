@@ -164,7 +164,7 @@ func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo
 		cmp := bytes.Compare(newName, oldName)
 
 		if debug {
-			l.Debugf("generic replace; repo=%q node=%x moreFs=%v moreDb=%v cmp=%d newName=%q oldName=%q", repo, node, moreFs, moreDb, cmp, newName, oldName)
+			l.Debugf("generic replace; repo=%q node=%v moreFs=%v moreDb=%v cmp=%d newName=%q oldName=%q", repo, protocol.NodeIDFromBytes(node), moreFs, moreDb, cmp, newName, oldName)
 		}
 
 		switch {
@@ -213,7 +213,7 @@ func ldbReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint6
 	return ldbGenericReplace(db, repo, node, fs, func(db dbReader, batch dbWriter, repo, node, name []byte, dbi iterator.Iterator) uint64 {
 		// Disk has files that we are missing. Remove it.
 		if debug {
-			l.Debugf("delete; repo=%q node=%x name=%q", repo, node, name)
+			l.Debugf("delete; repo=%q node=%v name=%q", repo, protocol.NodeIDFromBytes(node), name)
 		}
 		ldbRemoveFromGlobal(db, batch, repo, node, name)
 		batch.Delete(dbi.Key())
@@ -230,7 +230,7 @@ func ldbReplaceWithDelete(db *leveldb.DB, repo, node []byte, fs []protocol.FileI
 		}
 		if !protocol.IsDeleted(f.Flags) {
 			if debug {
-				l.Debugf("mark deleted; repo=%q node=%x name=%q", repo, node, name)
+				l.Debugf("mark deleted; repo=%q node=%v name=%q", repo, protocol.NodeIDFromBytes(node), name)
 			}
 			ts := clock(f.LocalVersion)
 			f.Blocks = nil
@@ -289,7 +289,7 @@ func ldbUpdate(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint64
 
 func ldbInsert(batch dbWriter, repo, node, name []byte, file protocol.FileInfo) uint64 {
 	if debug {
-		l.Debugf("insert; repo=%q node=%x %v", repo, node, file)
+		l.Debugf("insert; repo=%q node=%v %v", repo, protocol.NodeIDFromBytes(node), file)
 	}
 
 	if file.LocalVersion == 0 {
@@ -307,7 +307,7 @@ func ldbInsert(batch dbWriter, repo, node, name []byte, file protocol.FileInfo) 
 // If the file does not have an entry in the global list, it is created.
 func ldbUpdateGlobal(db dbReader, batch dbWriter, repo, node, file []byte, version uint64) bool {
 	if debug {
-		l.Debugf("update global; repo=%q node=%x file=%q version=%d", repo, node, file, version)
+		l.Debugf("update global; repo=%q node=%v file=%q version=%d", repo, protocol.NodeIDFromBytes(node), file, version)
 	}
 	gk := globalKey(repo, file)
 	svl, err := db.Get(gk, nil)
@@ -361,7 +361,7 @@ done:
 // removed entirely.
 func ldbRemoveFromGlobal(db dbReader, batch dbWriter, repo, node, file []byte) {
 	if debug {
-		l.Debugf("remove from global; repo=%q node=%x file=%q", repo, node, file)
+		l.Debugf("remove from global; repo=%q node=%v file=%q", repo, protocol.NodeIDFromBytes(node), file)
 	}
 
 	gk := globalKey(repo, file)
@@ -589,8 +589,7 @@ func ldbAvailability(db *leveldb.DB, repo, file []byte) []protocol.NodeID {
 		if v.version != vl.versions[0].version {
 			break
 		}
-		var n protocol.NodeID
-		copy(n[:], v.node)
+		n := protocol.NodeIDFromBytes(v.node)
 		nodes = append(nodes, n)
 	}
 
@@ -634,7 +633,7 @@ func ldbWithNeed(db *leveldb.DB, repo, node []byte, fn fileIterator) {
 		if need || !have {
 			name := globalKeyName(dbi.Key())
 			if debug {
-				l.Debugf("need repo=%q node=%x name=%q need=%v have=%v haveV=%d globalV=%d", repo, node, name, need, have, haveVersion, vl.versions[0].version)
+				l.Debugf("need repo=%q node=%v name=%q need=%v have=%v haveV=%d globalV=%d", repo, protocol.NodeIDFromBytes(node), name, need, have, haveVersion, vl.versions[0].version)
 			}
 			fk := nodeKey(repo, vl.versions[0].node, name)
 			bs, err := snap.Get(fk, nil)

@@ -31,6 +31,15 @@ func NodeIDFromString(s string) (NodeID, error) {
 	return n, err
 }
 
+func NodeIDFromBytes(bs []byte) NodeID {
+	var n NodeID
+	if len(bs) != len(n) {
+		panic("incorrect length of byte slice representing node ID")
+	}
+	copy(n[:], bs)
+	return n
+}
+
 // String returns the canonical string representation of the node ID
 func (n NodeID) String() string {
 	id := base32.StdEncoding.EncodeToString(n[:])
