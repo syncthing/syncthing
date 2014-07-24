@@ -584,8 +584,10 @@ func sendIndexes(conn protocol.Connection, repo string, fs *files.Set) {
 	}()
 
 	for err == nil {
-		if !initial && fs.LocalVersion(protocol.LocalNodeID) <= minLocalVer {
-			time.Sleep(1 * time.Second)
+		if !initial {
+			time.Sleep(5 * time.Second)
+		}
+		if fs.LocalVersion(protocol.LocalNodeID) <= minLocalVer {
 			continue
 		}
 

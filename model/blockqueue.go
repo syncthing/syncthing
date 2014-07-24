@@ -4,11 +4,7 @@
 
 package model
 
-import (
-	"sync"
-
-	"github.com/calmh/syncthing/protocol"
-)
+import "github.com/calmh/syncthing/protocol"
 
 type bqAdd struct {
 	file protocol.FileInfo
@@ -25,27 +21,10 @@ type bqBlock struct {
 }
 
 type blockQueue struct {
-	inbox  chan bqAdd
-	outbox chan bqBlock
-
 	queued []bqBlock
-
-	mut sync.Mutex
 }
 
-func newBlockQueue() *blockQueue {
-	q := &blockQueue{
-		inbox:  make(chan bqAdd),
-		outbox: make(chan bqBlock),
-	}
-	go q.run()
-	return q
-}
-
-func (q *blockQueue) addBlock(a bqAdd) {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-
+func (q *blockQueue) put(a bqAdd) {
 	// If we already have it queued, return
 	for _, b := range q.queued {
 		if b.file.Name == a.file.Name {
@@ -84,36 +63,11 @@ func (q *blockQueue) addBlock(a bqAdd) {
 	}
 }
 
-func (q *blockQueue) run() {
-	for {
-		if len(q.queued) == 0 {
-			q.addBlock(<-q.inbox)
-		} else {
-			q.mut.Lock()
-			next := q.queued[0]
-			q.mut.Unlock()
-			select {
-			case a := <-q.inbox:
-				q.addBlock(a)
-			case q.outbox <- next:
-				q.mut.Lock()
-				q.queued = q.queued[1:]
-				q.mut.Unlock()
-			}
-		}
+func (q *blockQueue) get() (bqBlock, bool) {
+	if len(q.queued) == 0 {
+		return bqBlock{}, false
 	}
-}
-
-func (q *blockQueue) put(a bqAdd) {
-	q.inbox <- a
-}
-
-func (q *blockQueue) get() bqBlock {
-	return <-q.outbox
-}
-
-func (q *blockQueue) empty() bool {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-	return len(q.queued) == 0
+	b := q.queued[0]
+	q.queued = q.queued[1:]
+	return b, true
 }
