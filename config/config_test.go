@@ -189,7 +189,7 @@ func TestOverriddenValues(t *testing.T) {
 	}
 }
 
-func TestNodeAddresses(t *testing.T) {
+func TestNodeAddressesDynamic(t *testing.T) {
 	data := []byte(`
 <configuration version="2">
     <node id="AIR6LPZ7K4PTTUXQSMUUCPQ5YWOEDFIIQJUG7772YQXXR5YD6AWQ">
@@ -216,6 +216,55 @@ func TestNodeAddresses(t *testing.T) {
 		{
 			NodeID:    node3,
 			Addresses: []string{"dynamic"},
+		},
+		{
+			NodeID:    node4,
+			Name:      name, // Set when auto created
+			Addresses: []string{"dynamic"},
+		},
+	}
+
+	cfg, err := Load(bytes.NewReader(data), node4)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !reflect.DeepEqual(cfg.Nodes, expected) {
+		t.Errorf("Nodes differ;\n  E: %#v\n  A: %#v", expected, cfg.Nodes)
+	}
+}
+
+func TestNodeAddressesStatic(t *testing.T) {
+	data := []byte(`
+<configuration version="2">
+    <node id="AIR6LPZ7K4PTTUXQSMUUCPQ5YWOEDFIIQJUG7772YQXXR5YD6AWQ">
+        <address>192.0.2.1</address>
+        <address>192.0.2.2</address>
+    </node>
+    <node id="GYRZZQBIRNPV4T7TC52WEQYJ3TFDQW6MWDFLMU4SSSU6EMFBK2VA">
+        <address>192.0.2.3:6070</address>
+        <address>[2001:db8::42]:4242</address>
+    </node>
+    <node id="LGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q">
+        <address>[2001:db8::44]:4444</address>
+        <address>192.0.2.4:6090</address>
+    </node>
+</configuration>
+`)
+
+	name, _ := os.Hostname()
+	expected := []NodeConfiguration{
+		{
+			NodeID:    node1,
+			Addresses: []string{"192.0.2.1", "192.0.2.2"},
+		},
+		{
+			NodeID:    node2,
+			Addresses: []string{"192.0.2.3:6070", "[2001:db8::42]:4242"},
+		},
+		{
+			NodeID:    node3,
+			Addresses: []string{"[2001:db8::44]:4444", "192.0.2.4:6090"},
 		},
 		{
 			NodeID:    node4,

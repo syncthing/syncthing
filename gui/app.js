@@ -413,7 +413,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
         $('#editNode').modal('hide');
         nodeCfg = $scope.currentNode;
-        nodeCfg.NodeID = nodeCfg.NodeID.replace(/ /g, '').replace(/-/g, '').toLowerCase().trim();
         nodeCfg.Addresses = nodeCfg.AddressesStr.split(',').map(function (x) { return x.trim(); });
 
         done = false;
@@ -866,6 +865,7 @@ syncthing.directive('validNodeid', function($http) {
                         if (resp.error) {
                             ctrl.$setValidity('validNodeid', false);
                         } else {
+                            scope.currentNode.NodeID = resp.id;
                             ctrl.$setValidity('validNodeid', true);
                         }
                     });
