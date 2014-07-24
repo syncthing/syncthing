@@ -93,13 +93,24 @@ func currentRelease() (githubRelease, error) {
 	json.NewDecoder(resp.Body).Decode(&rels)
 	resp.Body.Close()
 
-	for _, rel := range rels {
-		if !rel.Prerelease {
-			return rel, nil
+	if strings.Contains(Version, "-beta") {
+		// We are a beta version. Use whatever we can find that is newer-or-equal than current.
+		for _, rel := range rels {
+			if compareVersions(rel.Tag, Version) >= 0 {
+				return rel, nil
+			}
 		}
+		// We found nothing. Return the latest release and let the next layer decide.
+		return rels[0], nil
+	} else {
+		// We are a regular release. Only consider non-prerelease versions for upgrade.
+		for _, rel := range rels {
+			if !rel.Prerelease {
+				return rel, nil
+			}
+		}
+		return githubRelease{}, errors.New("no suitable release found")
 	}
-
-	return githubRelease{}, errors.New("no suitable release found")
 }
 
 func readTarGZ(url string, dir string) (string, error) {
