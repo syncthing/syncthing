@@ -105,7 +105,8 @@ xdr() {
 case "$1" in
 	"")
 		shift
-		build $*
+		export GOBIN=$(pwd)/bin
+		godep go install $* -ldflags "$ldflags" ./cmd/...
 		;;
 
 	race)
