@@ -84,7 +84,7 @@ func upgrade() error {
 }
 
 func currentRelease() (githubRelease, error) {
-	resp, err := http.Get("https://api.github.com/repos/calmh/syncthing/releases?per_page=1")
+	resp, err := http.Get("https://api.github.com/repos/calmh/syncthing/releases?per_page=10")
 	if err != nil {
 		return githubRelease{}, err
 	}
@@ -93,10 +93,13 @@ func currentRelease() (githubRelease, error) {
 	json.NewDecoder(resp.Body).Decode(&rels)
 	resp.Body.Close()
 
-	if len(rels) != 1 {
-		return githubRelease{}, fmt.Errorf("Unexpected number of releases: %d", len(rels))
+	for _, rel := range rels {
+		if !rel.Prerelease {
+			return rel, nil
+		}
 	}
-	return rels[0], nil
+
+	return githubRelease{}, errors.New("no suitable release found")
 }
 
 func readTarGZ(url string, dir string) (string, error) {

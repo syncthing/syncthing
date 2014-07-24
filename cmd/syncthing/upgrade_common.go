@@ -7,9 +7,9 @@ import (
 )
 
 type githubRelease struct {
-	Tag      string        `json:"tag_name"`
-	Prelease bool          `json:"prerelease"`
-	Assets   []githubAsset `json:"assets"`
+	Tag        string        `json:"tag_name"`
+	Prerelease bool          `json:"prerelease"`
+	Assets     []githubAsset `json:"assets"`
 }
 
 type githubAsset struct {
