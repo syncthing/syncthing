@@ -27,9 +27,9 @@ import (
 )
 
 type githubRelease struct {
-	Tag      string        `json:"tag_name"`
-	Prelease bool          `json:"prerelease"`
-	Assets   []githubAsset `json:"assets"`
+	Tag        string        `json:"tag_name"`
+	Prerelease bool          `json:"prerelease"`
+	Assets     []githubAsset `json:"assets"`
 }
 
 type githubAsset struct {
@@ -49,7 +49,7 @@ func upgrade() error {
 		return err
 	}
 
-	resp, err := http.Get("https://api.github.com/repos/calmh/syncthing/releases?per_page=1")
+	resp, err := http.Get("https://api.github.com/repos/calmh/syncthing/releases?per_page=10")
 	if err != nil {
 		return err
 	}
@@ -58,10 +58,17 @@ func upgrade() error {
 	json.NewDecoder(resp.Body).Decode(&rels)
 	resp.Body.Close()
 
-	if len(rels) != 1 {
-		return fmt.Errorf("Unexpected number of releases: %d", len(rels))
+	var rel githubRelease
+	for _, trel := range rels {
+		if !trel.Prerelease {
+			rel = trel
+			break
+		}
 	}
-	rel := rels[0]
+
+	if len(rel.Tag) == 0 {
+		return errors.New("no suitable release found")
+	}
 
 	switch compareVersions(rel.Tag, Version) {
 	case -1:
