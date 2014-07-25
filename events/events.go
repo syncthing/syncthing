@@ -1,3 +1,7 @@
+// Copyright (C) 2014 Jakob Borg and Contributors (see the CONTRIBUTORS file).
+// All rights reserved. Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
 // Package events provides event subscription and polling functionality.
 package events
 
@@ -93,6 +97,9 @@ func NewLogger() *Logger {
 
 func (l *Logger) Log(t EventType, data interface{}) {
 	l.mutex.Lock()
+	if debug {
+		dl.Debugln("log", l.nextId, t.String(), data)
+	}
 	e := Event{
 		ID:   l.nextId,
 		Time: time.Now(),
@@ -114,6 +121,9 @@ func (l *Logger) Log(t EventType, data interface{}) {
 
 func (l *Logger) Subscribe(mask EventType) *Subscription {
 	l.mutex.Lock()
+	if debug {
+		dl.Debugln("subscribe", mask)
+	}
 	s := &Subscription{
 		mask:   mask,
 		id:     l.nextId,
@@ -127,6 +137,9 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 
 func (l *Logger) Unsubscribe(s *Subscription) {
 	l.mutex.Lock()
+	if debug {
+		dl.Debugln("unsubsribe")
+	}
 	delete(l.subs, s.id)
 	close(s.events)
 	l.mutex.Unlock()
@@ -135,6 +148,10 @@ func (l *Logger) Unsubscribe(s *Subscription) {
 func (s *Subscription) Poll(timeout time.Duration) (Event, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	if debug {
+		dl.Debugln("poll", timeout)
+	}
 
 	to := time.After(timeout)
 	select {

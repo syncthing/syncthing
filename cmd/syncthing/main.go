@@ -107,6 +107,7 @@ The following enviroment variables are interpreted by syncthing:
                facility strings:
                - "beacon"   (the beacon package)
                - "discover" (the discover package)
+               - "events"   (the events package)
                - "files"    (the files package)
                - "net"      (the main package; connections & network messages)
                - "model"    (the model package)
