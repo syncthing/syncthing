@@ -109,11 +109,17 @@ const (
 )
 
 func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver Model, name string) Connection {
+	// Byte counters are at the lowest level, counting compressed bytes
 	cr := &countingReader{Reader: reader}
 	cw := &countingWriter{Writer: writer}
 
-	rb := bufio.NewReader(cr)
-	wb := bufio.NewWriterSize(cw, 65536)
+	// Compression is just above counting
+	zr := newLZ4Reader(cr)
+	zw := newLZ4Writer(cw)
+
+	// We buffer writes on top of compression.
+	// The LZ4 reader is already internally buffered
+	wb := bufio.NewWriterSize(zw, 65536)
 
 	c := rawConnection{
 		id:       nodeID,
@@ -121,7 +127,7 @@ func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver M
 		receiver: nativeModel{receiver},
 		state:    stateInitial,
 		cr:       cr,
-		xr:       xdr.NewReader(rb),
+		xr:       xdr.NewReader(zr),
 		cw:       cw,
 		wb:       wb,
 		xw:       xdr.NewWriter(wb),
@@ -426,10 +432,6 @@ func (c *rawConnection) writerLoop() {
 			return
 		}
 	}
-}
-
-type flusher interface {
-	Flush() error
 }
 
 func (c *rawConnection) flush() error {

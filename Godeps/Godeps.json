@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/calmh/syncthing",
-	"GoVersion": "devel +6bdbf9086c00 Thu Jul 17 17:02:46 2014 +1000",
+	"GoVersion": "go1.3",
 	"Packages": [
 		"./cmd/..."
 	],
@@ -39,6 +39,10 @@
 			"ImportPath": "code.google.com/p/snappy-go/snappy",
 			"Comment": "null-15",
 			"Rev": "12e4b4183793ac4b061921e7980845e750679fd0"
+		},
+		{
+			"ImportPath": "github.com/bkaradzic/go-lz4",
+			"Rev": "77e2ba877bde9da31213bec75dbbe197fa507c21"
 		},
 		{
 			"ImportPath": "github.com/golang/groupcache/lru",

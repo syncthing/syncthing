@@ -25,10 +25,12 @@ Transport and Authentication
 ----------------------------
 
 BEP is deployed as the highest level in a protocol stack, with the lower
-level protocols providing encryption and authentication.
+level protocols providing compression, encryption and authentication.
 
     +-----------------------------|
     |   Block Exchange Protocol   |
+    |-----------------------------|
+    |      Compression (LZ4)      |
     |-----------------------------|
     | Encryption & Auth (TLS 1.2) |
     |-----------------------------|
@@ -59,6 +61,37 @@ another. Responses MUST however be sent in the same order as the
 requests are received.
 
 The underlying transport protocol MUST be TCP.
+
+Compression
+-----------
+
+All data is sent within compressed blocks. Blocks are compressed using
+the LZ4 format and algorithm described in
+https://code.google.com/p/lz4/. Each compressed block is preceded by a
+header consisting of three 32 bit words, in network order (big endian):
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                     Magic (0x0x5e63b278)                      |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                          Data Length                          |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                   Uncompressed Block Length                   |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                        Compressed Data                        \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+The Data Length indicates the length of data following the Data Length
+field until the next header, i.e. the length of the Compressed Data
+section plus four bytes for the Uncompressed Block Length field. The
+Uncompressed Block Length indicates the amount of data that will result
+when decompressing the Compressed Data section.
+
+A single BEP message SHOULD be sent as a single compressed block. A
+single compressed block MAY NOT contain more than one BEP message.
 
 Messages
 --------

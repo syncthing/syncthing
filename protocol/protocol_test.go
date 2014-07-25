@@ -73,8 +73,8 @@ func TestPing(t *testing.T) {
 func TestPingErr(t *testing.T) {
 	e := errors.New("something broke")
 
-	for i := 0; i < 12; i++ {
-		for j := 0; j < 12; j++ {
+	for i := 0; i < 16; i++ {
+		for j := 0; j < 16; j++ {
 			m0 := newTestModel()
 			m1 := newTestModel()
 
@@ -87,9 +87,9 @@ func TestPingErr(t *testing.T) {
 			NewConnection(c1ID, br, eaw, m1, "name")
 
 			res := c0.ping()
-			if (i < 4 || j < 4) && res {
+			if (i < 8 || j < 8) && res {
 				t.Errorf("Unexpected ping success; i=%d, j=%d", i, j)
-			} else if (i >= 8 && j >= 8) && !res {
+			} else if (i >= 12 && j >= 12) && !res {
 				t.Errorf("Unexpected ping fail; i=%d, j=%d", i, j)
 			}
 		}
