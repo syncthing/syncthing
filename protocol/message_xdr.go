@@ -38,7 +38,7 @@ IndexMessage Structure:
 
 struct IndexMessage {
 	string Repository<64>;
-	FileInfo Files<10000000>;
+	FileInfo Files<>;
 }
 
 */
@@ -64,9 +64,6 @@ func (o IndexMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteString(o.Repository)
-	if len(o.Files) > 10000000 {
-		return xw.Tot(), xdr.ErrElementSizeExceeded
-	}
 	xw.WriteUint32(uint32(len(o.Files)))
 	for i := range o.Files {
 		o.Files[i].encodeXDR(xw)
@@ -88,9 +85,6 @@ func (o *IndexMessage) UnmarshalXDR(bs []byte) error {
 func (o *IndexMessage) decodeXDR(xr *xdr.Reader) error {
 	o.Repository = xr.ReadStringMax(64)
 	_FilesSize := int(xr.ReadUint32())
-	if _FilesSize > 10000000 {
-		return xdr.ErrElementSizeExceeded
-	}
 	o.Files = make([]FileInfo, _FilesSize)
 	for i := range o.Files {
 		(&o.Files[i]).decodeXDR(xr)
@@ -139,7 +133,7 @@ struct FileInfo {
 	hyper Modified;
 	unsigned hyper Version;
 	unsigned hyper LocalVersion;
-	BlockInfo Blocks<1000000>;
+	BlockInfo Blocks<>;
 }
 
 */
@@ -169,9 +163,6 @@ func (o FileInfo) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint64(uint64(o.Modified))
 	xw.WriteUint64(o.Version)
 	xw.WriteUint64(o.LocalVersion)
-	if len(o.Blocks) > 1000000 {
-		return xw.Tot(), xdr.ErrElementSizeExceeded
-	}
 	xw.WriteUint32(uint32(len(o.Blocks)))
 	for i := range o.Blocks {
 		o.Blocks[i].encodeXDR(xw)
@@ -197,9 +188,6 @@ func (o *FileInfo) decodeXDR(xr *xdr.Reader) error {
 	o.Version = xr.ReadUint64()
 	o.LocalVersion = xr.ReadUint64()
 	_BlocksSize := int(xr.ReadUint32())
-	if _BlocksSize > 1000000 {
-		return xdr.ErrElementSizeExceeded
-	}
 	o.Blocks = make([]BlockInfo, _BlocksSize)
 	for i := range o.Blocks {
 		(&o.Blocks[i]).decodeXDR(xr)

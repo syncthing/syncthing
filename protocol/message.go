@@ -7,8 +7,8 @@ package protocol
 import "fmt"
 
 type IndexMessage struct {
-	Repository string     // max:64
-	Files      []FileInfo // max:10000000
+	Repository string // max:64
+	Files      []FileInfo
 }
 
 type FileInfo struct {
@@ -17,7 +17,7 @@ type FileInfo struct {
 	Modified     int64
 	Version      uint64
 	LocalVersion uint64
-	Blocks       []BlockInfo // max:1000000
+	Blocks       []BlockInfo
 }
 
 func (f FileInfo) String() string {
