@@ -586,9 +586,9 @@ func sendIndexes(conn protocol.Connection, repo string, fs *files.Set) {
 	for err == nil {
 		if !initial {
 			time.Sleep(5 * time.Second)
-		}
-		if fs.LocalVersion(protocol.LocalNodeID) <= minLocalVer {
-			continue
+			if fs.LocalVersion(protocol.LocalNodeID) <= minLocalVer {
+				continue
+			}
 		}
 
 		batch := make([]protocol.FileInfo, 0, indexBatchSize)
