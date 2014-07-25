@@ -4,7 +4,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd
+// +build solaris
 
 package storage
 
@@ -39,11 +39,16 @@ func newFileLock(path string) (fl fileLock, err error) {
 }
 
 func setFileLock(f *os.File, lock bool) error {
-	how := syscall.LOCK_UN
-	if lock {
-		how = syscall.LOCK_EX
+	flock := syscall.Flock_t{
+		Type:   syscall.F_UNLCK,
+		Start:  0,
+		Len:    0,
+		Whence: 1,
 	}
-	return syscall.Flock(int(f.Fd()), how|syscall.LOCK_NB)
+	if lock {
+		flock.Type = syscall.F_WRLCK
+	}
+	return syscall.FcntlFlock(f.Fd(), syscall.F_SETLK, &flock)
 }
 
 func rename(oldpath, newpath string) error {
