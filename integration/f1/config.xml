@@ -21,7 +21,7 @@
         <localAnnounceEnabled>true</localAnnounceEnabled>
         <localAnnouncePort>21025</localAnnouncePort>
         <parallelRequests>16</parallelRequests>
-        <maxSendKbps>50</maxSendKbps>
+        <maxSendKbps>500</maxSendKbps>
         <rescanIntervalS>10</rescanIntervalS>
         <reconnectionIntervalS>5</reconnectionIntervalS>
         <maxChangeKbps>10000</maxChangeKbps>
