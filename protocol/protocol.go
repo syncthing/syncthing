@@ -25,6 +25,7 @@ const (
 	messageTypePing          = 4
 	messageTypePong          = 5
 	messageTypeIndexUpdate   = 6
+	messageTypeClose         = 7
 )
 
 const (
@@ -306,6 +307,11 @@ func (c *rawConnection) readerLoop() (err error) {
 			}
 			c.state = stateCCRcvd
 
+		case messageTypeClose:
+			if err := c.handleClose(); err != nil {
+				return err
+			}
+
 		default:
 			return fmt.Errorf("protocol error: %s: unknown message type %#x", c.id, hdr.msgType)
 		}
@@ -387,6 +393,15 @@ func (c *rawConnection) handleClusterConfig() error {
 		go c.receiver.ClusterConfig(c.id, cm)
 	}
 	return nil
+}
+
+func (c *rawConnection) handleClose() error {
+	var cm CloseMessage
+	cm.decodeXDR(c.xr)
+	if err := c.xr.Error(); err != nil {
+		return err
+	}
+	return errors.New(cm.Reason)
 }
 
 type encodable interface {

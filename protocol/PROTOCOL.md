@@ -594,6 +594,33 @@ firewalls and NAT gateways. The Ping message has no contents.
 The Pong message is sent in response to a Ping. The Pong message has no
 contents, but copies the Message ID from the Ping.
 
+### Close (Type = 7)
+
+The Close message MAY be sent to indicate that the connection will be
+torn down due to an error condition. A Close message MUST NOT be
+followed by further messages.
+
+#### Graphical Representation
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                       Length of Reason                        |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                   Reason (variable length)                    \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+#### Fields
+
+The Reason field contains a human description of the error condition,
+suitable for consumption by a human.
+
+    struct CloseMessage {
+        string Reason<1024>;
+    }
+
 Sharing Modes
 -------------
 

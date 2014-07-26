@@ -71,3 +71,7 @@ type Option struct {
 	Key   string // max:64
 	Value string // max:1024
 }
+
+type CloseMessage struct {
+	Reason string // max:1024
+}

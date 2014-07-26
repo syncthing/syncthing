@@ -691,3 +691,64 @@ func (o *Option) decodeXDR(xr *xdr.Reader) error {
 	o.Value = xr.ReadStringMax(1024)
 	return xr.Error()
 }
+
+/*
+
+CloseMessage Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Length of Reason                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                   Reason (variable length)                    \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+struct CloseMessage {
+	string Reason<1024>;
+}
+
+*/
+
+func (o CloseMessage) EncodeXDR(w io.Writer) (int, error) {
+	var xw = xdr.NewWriter(w)
+	return o.encodeXDR(xw)
+}
+
+func (o CloseMessage) MarshalXDR() []byte {
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o CloseMessage) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
+	var xw = xdr.NewWriter(&aw)
+	o.encodeXDR(xw)
+	return []byte(aw)
+}
+
+func (o CloseMessage) encodeXDR(xw *xdr.Writer) (int, error) {
+	if len(o.Reason) > 1024 {
+		return xw.Tot(), xdr.ErrElementSizeExceeded
+	}
+	xw.WriteString(o.Reason)
+	return xw.Tot(), xw.Error()
+}
+
+func (o *CloseMessage) DecodeXDR(r io.Reader) error {
+	xr := xdr.NewReader(r)
+	return o.decodeXDR(xr)
+}
+
+func (o *CloseMessage) UnmarshalXDR(bs []byte) error {
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
+	return o.decodeXDR(xr)
+}
+
+func (o *CloseMessage) decodeXDR(xr *xdr.Reader) error {
+	o.Reason = xr.ReadStringMax(1024)
+	return xr.Error()
+}
