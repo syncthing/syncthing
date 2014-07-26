@@ -106,6 +106,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/events", restGetEvents)
 	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
 	getRestMux.HandleFunc("/rest/nodeid", restGetNodeID)
+	getRestMux.HandleFunc("/rest/lang", restGetLang)
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
@@ -457,6 +458,17 @@ func restGetNodeID(w http.ResponseWriter, r *http.Request) {
 			"error": err.Error(),
 		})
 	}
+}
+
+func restGetLang(w http.ResponseWriter, r *http.Request) {
+	lang := r.Header.Get("Accept-Language")
+	var langs []string
+	for _, l := range strings.Split(lang, ",") {
+		if len(l) >= 2 {
+			langs = append(langs, l[:2])
+		}
+	}
+	json.NewEncoder(w).Encode(langs)
 }
 
 func restPostUpgrade(w http.ResponseWriter, r *http.Request) {

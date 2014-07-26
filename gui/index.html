@@ -153,7 +153,19 @@
               <h3 class="panel-title">
                 <a data-toggle="collapse" data-parent="#repositories" href="#repo-{{$index}}">
                   <span class="glyphicon glyphicon-hdd"></span> {{repo.Directory | shortPath}}
-                  <span class="pull-right hidden-xs">{{repoStatus(repo.ID)}}</span>
+                  <span class="pull-right hidden-xs" ng-switch="repoStatus(repo.ID)">
+                    <span translate ng-switch-when="unknown">Unknown</span>
+                    <span translate ng-switch-when="stopped">Stopped</span>
+                    <span translate ng-switch-when="scanning">Scanning</span>
+                    <span ng-switch-when="syncing">
+                      <span translate>Syncing</span>
+                      ({{syncPercentage(repo.ID)}}%)
+                    </span>
+                    <span ng-switch-when="idle">
+                      <span translate>Idle</span>
+                      ({{syncPercentage(repo.ID)}}%)
+                    </span>
+                  </span>
                 </a>
               </h3>
             </div>
@@ -173,10 +185,6 @@
                       <tr ng-if="model[repo.ID].invalid">
                         <th><span class="glyphicon glyphicon-warning-sign"></span>&emsp;<span translate>Error</span></th>
                         <td class="text-right">{{model[repo.ID].invalid}}</td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-comment"></span>&emsp;<span translate>Synchronization</span></th>
-                        <td class="text-right">{{repoStatus(repo.ID)}}</td>
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global Repository</span></th>
@@ -280,7 +288,15 @@
                 <a data-toggle="collapse" data-parent="#nodes" href="#node-{{$index}}">
                   <span class="glyphicon glyphicon-retweet"></span>
                   {{nodeName(nodeCfg)}}
-                  <span class="pull-right hidden-xs">{{nodeStatus(nodeCfg)}}</span>
+                  <span class="pull-right hidden-xs">
+                    <span ng-if="connections[nodeCfg.NodeID].Completion == 100">
+                      <span translate>Up to Date</span> (100%)
+                    </span>
+                    <span ng-if="connections[nodeCfg.NodeID].Completion < 100">
+                      <span translate>Syncing</span> ({{connections[nodeCfg.NodeID].Completion}}%)
+                    </span>
+                    <span translate ng-if="!connections[nodeCfg.NodeID]">Disconnected</span>
+                  </span>
                 </a>
               </h3>
             </div>
@@ -295,7 +311,7 @@
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-comment"></span>&emsp;<span translate>Synchronization</span></th>
-                        <td class="text-right">{{nodeStatus(nodeCfg)}}</td>
+                        <td class="text-right">{{connections[nodeCfg.NodeID].Completion | alwaysNumber}}%</td>
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
@@ -686,6 +702,7 @@
           <li>Aaron Bieber</li>
           <li>Andrew Dunham</li>
           <li>Arthur Axel fREW Schmidt</li>
+          <li>Audrius Butkevicius</li>
           <li>Ben Sidhom</li>
           <li>Brandon Philips</li>
         </ul>

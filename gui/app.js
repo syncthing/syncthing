@@ -9,6 +9,7 @@
 
 var syncthing = angular.module('syncthing', ['pascalprecht.translate']);
 var urlbase = 'rest';
+var validLangs = ['de', 'en', 'es', 'fr', 'pt', 'sv'];
 
 syncthing.config(function ($httpProvider, $translateProvider) {
     $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
@@ -18,7 +19,6 @@ syncthing.config(function ($httpProvider, $translateProvider) {
         prefix: 'lang-',
         suffix: '.json'
     });
-    $translateProvider.preferredLanguage('en');
 });
 
 syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $location) {
@@ -39,6 +39,17 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.reportData = {};
     $scope.reportPreview = false;
     $scope.upgradeInfo = {};
+
+    $http.get(urlbase+"/lang").success(function (langs) {
+        var lang;
+        for (var i = 0; i < langs.length; i++) {
+            lang = langs[i];
+            if (validLangs.indexOf(lang) >= 0) {
+                $translate.use(lang);
+                break;
+            }
+        }
+    })
 
     $scope.$on("$locationChangeSuccess", function () {
         var lang = $location.search().lang;
@@ -134,21 +145,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.repoStatus = function (repo) {
         if (typeof $scope.model[repo] === 'undefined') {
-            return 'Unknown';
+            return 'unknown';
         }
 
         if ($scope.model[repo].invalid !== '') {
-            return 'Stopped';
+            return 'stopped';
         }
 
-        var state = '' + $scope.model[repo].state;
-        state = state[0].toUpperCase() + state.substr(1);
-
-        if (state == "Syncing" || state == "Idle") {
-            state += " (" + $scope.syncPercentage(repo) + "%)";
-        }
-
-        return state;
+        return '' + $scope.model[repo].state;
     };
 
     $scope.repoClass = function (repo) {
@@ -180,19 +184,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
         var pct = 100 * $scope.model[repo].inSyncBytes / $scope.model[repo].globalBytes;
         return Math.floor(pct);
-    };
-
-    $scope.nodeStatus = function (nodeCfg) {
-        var conn = $scope.connections[nodeCfg.NodeID];
-        if (conn) {
-            if (conn.Completion === 100) {
-                return 'Up to Date';
-            } else {
-                return 'Syncing (' + conn.Completion + '%)';
-            }
-        }
-
-        return 'Disconnected';
     };
 
     $scope.nodeIcon = function (nodeCfg) {
