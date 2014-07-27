@@ -194,6 +194,7 @@ var repositoryCommand = cli.Command{
 			Subcommands: []cli.Command{
 				{
 					Name:     "list",
+					Usage:    "List of nodes which the repository is shared with",
 					Requires: &cli.Requires{"repository id"},
 					Action: func(c *cli.Context) {
 						rid := c.Args()[0]
