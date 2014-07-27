@@ -17,24 +17,28 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:  "endpoint, e",
-			Value: "http://127.0.0.1:8080",
-			Usage: "End point to connect to",
+			Name:   "endpoint, e",
+			Value:  "http://127.0.0.1:8080",
+			Usage:  "End point to connect to",
+			EnvVar: "STENDPOINT",
 		},
 		cli.StringFlag{
-			Name:  "apikey, k",
-			Value: "",
-			Usage: "API Key",
+			Name:   "apikey, k",
+			Value:  "",
+			Usage:  "API Key",
+			EnvVar: "STAPIKEY",
 		},
 		cli.StringFlag{
-			Name:  "username, u",
-			Value: "",
-			Usage: "Username",
+			Name:   "username, u",
+			Value:  "",
+			Usage:  "Username",
+			EnvVar: "STUSERNAME",
 		},
 		cli.StringFlag{
-			Name:  "password, p",
-			Value: "",
-			Usage: "Password",
+			Name:   "password, p",
+			Value:  "",
+			Usage:  "Password",
+			EnvVar: "STPASSWORD",
 		},
 	}
 
