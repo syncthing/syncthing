@@ -403,16 +403,18 @@ func ensureNodePresent(nodes []NodeConfiguration, myID protocol.NodeID) []NodeCo
 }
 
 func ensureExistingNodes(nodes []NodeConfiguration, existingNodes map[protocol.NodeID]bool) []NodeConfiguration {
+	count := len(nodes)
 	i := 0
-	for _, node := range nodes {
-		if _, ok := existingNodes[node.NodeID]; !ok {
-			last := len(nodes) - 1
-			nodes[i] = nodes[last]
-			nodes = nodes[:last]
-		} else {
-			i++
+loop:
+	for i < count {
+		if _, ok := existingNodes[nodes[i].NodeID]; !ok {
+			nodes[i] = nodes[count-1]
+			count--
+			continue loop
 		}
+		i++
 	}
+	nodes = nodes[0:count]
 
 	sort.Sort(NodeConfigurationList(nodes))
 
