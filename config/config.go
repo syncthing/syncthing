@@ -313,10 +313,12 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 
 	// Ensure this node is present in all relevant places
 	// Ensure that any loose nodes are not present in the wrong places
+	// Ensure that there are no duplicate nodes
 	cfg.Nodes = ensureNodePresent(cfg.Nodes, myID)
 	for i := range cfg.Repositories {
 		cfg.Repositories[i].Nodes = ensureNodePresent(cfg.Repositories[i].Nodes, myID)
 		cfg.Repositories[i].Nodes = ensureExistingNodes(cfg.Repositories[i].Nodes, existingNodes)
+		cfg.Repositories[i].Nodes = ensureNoDuplicates(cfg.Repositories[i].Nodes)
 	}
 
 	// An empty address list is equivalent to a single "dynamic" entry
@@ -412,6 +414,28 @@ loop:
 			count--
 			continue loop
 		}
+		i++
+	}
+	nodes = nodes[0:count]
+
+	sort.Sort(NodeConfigurationList(nodes))
+
+	return nodes
+}
+
+func ensureNoDuplicates(nodes []NodeConfiguration) []NodeConfiguration {
+	count := len(nodes)
+	i := 0
+	seenNodes := make(map[protocol.NodeID]bool)
+loop:
+	for i < count {
+		id := nodes[i].NodeID
+		if _, ok := seenNodes[id]; ok {
+			nodes[i] = nodes[count-1]
+			count--
+			continue loop
+		}
+		seenNodes[id] = true
 		i++
 	}
 	nodes = nodes[0:count]
