@@ -32,7 +32,7 @@ var repositoryCommand = cli.Command{
 					if repo.Versioning.Type != "" {
 						fmt.Fprintln(writer, "Versioning:\t", repo.Versioning.Type, "\t(versioning)")
 						for key, value := range repo.Versioning.Params {
-							fmt.Fprintf(writer, "Versioning %s:\t %s\t(versioning-%s)\n", key, value, key)
+							fmt.Fprintf(writer, "Versioning %s:\t %s \t(versioning-%s)\n", key, value, key)
 						}
 					}
 					if repo.Invalid != "" {

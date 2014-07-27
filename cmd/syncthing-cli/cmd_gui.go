@@ -18,15 +18,15 @@ var guiCommand = cli.Command{
 			Action: func(c *cli.Context) {
 				cfg := getConfig(c).GUI
 				writer := newTableWriter()
-				fmt.Fprintf(writer, "Enabled:\t%t\t(enabled)\n", cfg.Enabled)
-				fmt.Fprintf(writer, "Use HTTPS:\t%t\t(tls)\n", cfg.UseTLS)
-				fmt.Fprintf(writer, "Listen Addresses:\t%s\t(address)\n", cfg.Address)
+				fmt.Fprintln(writer, "Enabled:\t", cfg.Enabled, "\t(enabled)")
+				fmt.Fprintln(writer, "Use HTTPS:\t", cfg.UseTLS, "\t(tls)")
+				fmt.Fprintln(writer, "Listen Addresses:\t", cfg.Address, "\t(address)")
 				if cfg.User != "" {
-					fmt.Fprintf(writer, "Authentication User:\t%s\t(username)\n", cfg.User)
-					fmt.Fprintf(writer, "Authentication Password:\t%s\t(password)\n", cfg.Password)
+					fmt.Fprintln(writer, "Authentication User:\t", cfg.User, "\t(username)")
+					fmt.Fprintln(writer, "Authentication Password:\t", cfg.Password, "\t(password)")
 				}
 				if cfg.APIKey != "" {
-					fmt.Fprintf(writer, "API Key:\t%s\t(apikey)\n", cfg.APIKey)
+					fmt.Fprintln(writer, "API Key:\t", cfg.APIKey, "\t(apikey)")
 				}
 				writer.Flush()
 			},

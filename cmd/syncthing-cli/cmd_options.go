@@ -19,32 +19,32 @@ var optionsCommand = cli.Command{
 				cfg := getConfig(c).Options
 				writer := newTableWriter()
 
-				fmt.Fprintf(writer, "Sync protocol listen addresses:\t%s\t(address)\n", strings.Join(cfg.ListenAddress, " "))
-				fmt.Fprintf(writer, "Global discovery enabled:\t%t\t(globalannenabled)\n", cfg.GlobalAnnEnabled)
-				fmt.Fprintf(writer, "Global discovery server:\t%s\t(globalannserver)\n", cfg.GlobalAnnServer)
+				fmt.Fprintln(writer, "Sync protocol listen addresses:\t", strings.Join(cfg.ListenAddress, " "), "\t(address)")
+				fmt.Fprintln(writer, "Global discovery enabled:\t", cfg.GlobalAnnEnabled, "\t(globalannenabled)")
+				fmt.Fprintln(writer, "Global discovery server:\t", cfg.GlobalAnnServer, "\t(globalannserver)")
 
-				fmt.Fprintf(writer, "Local discovery enabled:\t%t\t(localannenabled)\n", cfg.LocalAnnEnabled)
-				fmt.Fprintf(writer, "Local discovery port:\t%d\t(localannport)\n", cfg.LocalAnnPort)
+				fmt.Fprintln(writer, "Local discovery enabled:\t", cfg.LocalAnnEnabled, "\t(localannenabled)")
+				fmt.Fprintln(writer, "Local discovery port:\t", cfg.LocalAnnPort, "\t(localannport)")
 
-				fmt.Fprintf(writer, "Maximum outstanding requests:\t%d\t(requests)\n", cfg.ParallelRequests)
-				fmt.Fprintf(writer, "Maximum file change rate in KiB/s:\t%d\t(maxchange)\n", cfg.MaxChangeKbps)
-				fmt.Fprintf(writer, "Outgoing rate limit in KiB/s:\t%d\t(maxsend)\n", cfg.MaxSendKbps)
-				fmt.Fprintf(writer, "Rescan interval in seconds:\t%d\t(rescan)\n", cfg.RescanIntervalS)
-				fmt.Fprintf(writer, "Reconnect interval in seconds:\t%d\t(reconnect)\n", cfg.ReconnectIntervalS)
-				fmt.Fprintf(writer, "Start browser:\t%t\t(browser)\n", cfg.StartBrowser)
-				fmt.Fprintf(writer, "Enable UPnP:\t%t\t(upnp)\n", cfg.UPnPEnabled)
-				fmt.Fprint(writer, "Anonymous usage reporting:\t")
+				fmt.Fprintln(writer, "Maximum outstanding requests:\t", cfg.ParallelRequests, "\t(requests)")
+				fmt.Fprintln(writer, "Maximum file change rate in KiB/s:\t", cfg.MaxChangeKbps, "\t(maxchange)")
+				fmt.Fprintln(writer, "Outgoing rate limit in KiB/s:\t", cfg.MaxSendKbps, "\t(maxsend)")
+				fmt.Fprintln(writer, "Rescan interval in seconds:\t", cfg.RescanIntervalS, "\t(rescan)")
+				fmt.Fprintln(writer, "Reconnect interval in seconds:\t", cfg.ReconnectIntervalS, "\t(reconnect)")
+				fmt.Fprintln(writer, "Start browser:\t", cfg.StartBrowser, "\t(browser)")
+				fmt.Fprintln(writer, "Enable UPnP:\t", cfg.UPnPEnabled, "\t(upnp)")
+
+				reporting := "unrecognized value"
 				switch cfg.URAccepted {
 				case -1:
-					fmt.Fprint(writer, "false")
+					reporting = "false"
 				case 0:
-					fmt.Fprint(writer, "undecided/false")
+					reporting = "undecided/false"
 				case 1:
-					fmt.Fprint(writer, "true")
-				default:
-					fmt.Fprint(writer, "unrecognized value")
+					reporting = "true"
 				}
-				fmt.Fprint(writer, "\t(reporting)\n")
+				fmt.Fprintln(writer, "Anonymous usage reporting:\t", reporting, "\t(reporting)")
+
 				writer.Flush()
 			},
 		},
@@ -57,7 +57,7 @@ var optionsCommand = cli.Command{
 				arg := c.Args()[0]
 				switch strings.ToLower(arg) {
 				case "address":
-					fmt.Printf("%s\n", strings.Join(cfg.ListenAddress, "\n"))
+					fmt.Println(strings.Join(cfg.ListenAddress, "\n"))
 				case "globalannenabled":
 					fmt.Println(cfg.GlobalAnnEnabled)
 				case "globalannserver":
