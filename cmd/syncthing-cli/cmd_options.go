@@ -19,12 +19,7 @@ var optionsCommand = cli.Command{
 				cfg := getConfig(c).Options
 				writer := newTableWriter()
 
-				fmt.Fprint(writer, "Sync protocol listen addresses:\t")
-				for _, address := range cfg.ListenAddress {
-					fmt.Fprintf(writer, "%s ", address)
-				}
-				fmt.Fprintf(writer, "\t(address)\n")
-
+				fmt.Fprintf(writer, "Sync protocol listen addresses:\t%s\t(address)\n", strings.Join(cfg.ListenAddress, " "))
 				fmt.Fprintf(writer, "Global discovery enabled:\t%t\t(globalannenabled)\n", cfg.GlobalAnnEnabled)
 				fmt.Fprintf(writer, "Global discovery server:\t%s\t(globalannserver)\n", cfg.GlobalAnnServer)
 
@@ -62,9 +57,7 @@ var optionsCommand = cli.Command{
 				arg := c.Args()[0]
 				switch strings.ToLower(arg) {
 				case "address":
-					for _, item := range cfg.ListenAddress {
-						fmt.Println(item)
-					}
+					fmt.Printf("%s\n", strings.Join(cfg.ListenAddress, "\n"))
 				case "globalannenabled":
 					fmt.Println(cfg.GlobalAnnEnabled)
 				case "globalannserver":

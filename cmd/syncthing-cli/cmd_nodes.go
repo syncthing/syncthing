@@ -26,11 +26,7 @@ var nodeCommand = cli.Command{
 					}
 					fmt.Fprintln(writer, "ID:\t", node.NodeID, "\t")
 					fmt.Fprintln(writer, "Name:\t", node.Name, "\t(name)")
-					fmt.Fprintf(writer, "Address:\t")
-					for _, item := range node.Addresses {
-						fmt.Fprintf(writer, " %s", item)
-					}
-					fmt.Fprintln(writer, "\t(address)")
+					fmt.Fprintln(writer, "Address:\t", strings.Join(node.Addresses, " "), "\t(address)")
 					first = false
 				}
 				writer.Flush()
@@ -115,9 +111,7 @@ var nodeCommand = cli.Command{
 					case "name":
 						fmt.Println(node.Name)
 					case "address":
-						for _, address := range node.Addresses {
-							fmt.Println(address)
-						}
+						fmt.Println(strings.Join(node.Addresses, "\n"))
 					default:
 						die("Invalid property: " + arg + "\nAvailable properties: name, address")
 					}

@@ -36,10 +36,7 @@ var errorCommand = cli.Command{
 			Usage:    "Push an error to active clients",
 			Requires: &cli.Requires{"error message..."},
 			Action: func(c *cli.Context) {
-				err := ""
-				for _, item := range c.Args() {
-					err += " " + item
-				}
+				err := strings.Join(c.Args(), " ")
 				response := httpPost(c, "error", strings.TrimSpace(err))
 				if response.StatusCode != 200 {
 					err = fmt.Sprint("Failed to push error\nStatus code: ", response.StatusCode)
