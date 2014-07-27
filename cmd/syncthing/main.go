@@ -308,20 +308,29 @@ nextRepo:
 
 		repo.Directory = expandTilde(repo.Directory)
 
-		// Safety check. If the cached index contains files but the repository
-		// doesn't exist, we have a problem. We would assume that all files
-		// have been deleted which might not be the case, so abort instead.
-
-		id := fmt.Sprintf("%x", sha1.Sum([]byte(repo.Directory)))
-		idxFile := filepath.Join(confDir, id+".idx.gz")
-		if _, err := os.Stat(idxFile); err == nil {
-			if fi, err := os.Stat(repo.Directory); err != nil || !fi.IsDir() {
+		fi, err := os.Stat(repo.Directory)
+		if m.LocalVersion(repo.ID) > 0 {
+			// Safety check. If the cached index contains files but the
+			// repository doesn't exist, we have a problem. We would assume
+			// that all files have been deleted which might not be the case,
+			// so mark it as invalid instead.
+			if err != nil || !fi.IsDir() {
 				cfg.Repositories[i].Invalid = "repo directory missing"
 				continue nextRepo
 			}
+		} else if os.IsNotExist(err) {
+			// If we don't have ny files in the index, and the directory does
+			// exist, try creating it.
+			err = os.MkdirAll(repo.Directory, 0700)
 		}
 
-		ensureDir(repo.Directory, -1)
+		if err != nil {
+			// If there was another error or we could not create the
+			// directory, the repository is invalid.
+			cfg.Repositories[i].Invalid = err.Error()
+			continue nextRepo
+		}
+
 		m.AddRepo(repo)
 	}
 
