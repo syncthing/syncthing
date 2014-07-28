@@ -9,6 +9,8 @@ import (
 	"io"
 	"testing"
 	"testing/quick"
+
+	"github.com/calmh/syncthing/xdr"
 )
 
 var (
@@ -21,7 +23,7 @@ func TestHeaderFunctions(t *testing.T) {
 		ver = int(uint(ver) % 16)
 		id = int(uint(id) % 4096)
 		typ = int(uint(typ) % 256)
-		h0 := header{ver, id, typ}
+		h0 := header{version: ver, msgID: id, msgType: typ}
 		h1 := decodeHeader(encodeHeader(h0))
 		return h0 == h1
 	}
@@ -35,21 +37,21 @@ func TestHeaderLayout(t *testing.T) {
 
 	// Version are the first four bits
 	e = 0xf0000000
-	a = encodeHeader(header{0xf, 0, 0})
+	a = encodeHeader(header{version: 0xf})
 	if a != e {
 		t.Errorf("Header layout incorrect; %08x != %08x", a, e)
 	}
 
 	// Message ID are the following 12 bits
 	e = 0x0fff0000
-	a = encodeHeader(header{0, 0xfff, 0})
+	a = encodeHeader(header{msgID: 0xfff})
 	if a != e {
 		t.Errorf("Header layout incorrect; %08x != %08x", a, e)
 	}
 
 	// Type are the last 8 bits before reserved
 	e = 0x0000ff00
-	a = encodeHeader(header{0, 0, 0xff})
+	a = encodeHeader(header{msgType: 0xff})
 	if a != e {
 		t.Errorf("Header layout incorrect; %08x != %08x", a, e)
 	}
@@ -162,12 +164,13 @@ func TestVersionErr(t *testing.T) {
 	c0 := NewConnection(c0ID, ar, bw, m0, "name").(wireFormatConnection).next.(*rawConnection)
 	NewConnection(c1ID, br, aw, m1, "name")
 
-	c0.xw.WriteUint32(encodeHeader(header{
+	w := xdr.NewWriter(c0.cw)
+	w.WriteUint32(encodeHeader(header{
 		version: 2,
 		msgID:   0,
 		msgType: 0,
 	}))
-	c0.flush()
+	w.WriteUint32(0)
 
 	if !m1.isClosed() {
 		t.Error("Connection should close due to unknown version")
@@ -184,12 +187,13 @@ func TestTypeErr(t *testing.T) {
 	c0 := NewConnection(c0ID, ar, bw, m0, "name").(wireFormatConnection).next.(*rawConnection)
 	NewConnection(c1ID, br, aw, m1, "name")
 
-	c0.xw.WriteUint32(encodeHeader(header{
+	w := xdr.NewWriter(c0.cw)
+	w.WriteUint32(encodeHeader(header{
 		version: 0,
 		msgID:   0,
 		msgType: 42,
 	}))
-	c0.flush()
+	w.WriteUint32(0)
 
 	if !m1.isClosed() {
 		t.Error("Connection should close due to unknown message type")
