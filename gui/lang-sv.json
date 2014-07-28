@@ -101,6 +101,7 @@
     "Upgrade To {%version%}": "Uppgradera till {{version}}",
     "Upload Rate": "Uppladdningshastighet",
     "Usage": "Användande",
+    "Use Compression": "Använd komprimering",
     "Use HTTPS for GUI": "Använd HTTPS för GUI",
     "Version": "Version",
     "When adding a new node, keep in mind that this node must be added on the other side too.": "När du lägger till en ny nod, kom ihåg att den här noden måste läggas till på den andra noden också.",

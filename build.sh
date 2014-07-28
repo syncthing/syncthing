@@ -102,6 +102,12 @@ xdr() {
 	done
 }
 
+transifex() {
+	pushd gui
+	go run ../cmd/transifexdl/main.go
+	popd
+}
+
 case "$1" in
 	"")
 		shift
@@ -206,6 +212,10 @@ case "$1" in
 
 	xdr)
 		xdr
+		;;
+
+	transifex)
+		transifex
 		;;
 
 	*)
