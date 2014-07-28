@@ -129,7 +129,7 @@ func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver M
 	cr := &countingReader{Reader: reader}
 	cw := &countingWriter{Writer: writer}
 
-	compThres := 1<<32 - 1 // compression disabled
+	compThres := 1<<31 - 1 // compression disabled
 	if compress {
 		compThres = 128 // compress messages that are 128 bytes long or larger
 	}
