@@ -313,10 +313,14 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 
 	// Ensure this node is present in all relevant places
 	// Ensure that any loose nodes are not present in the wrong places
+	// Ensure that there are no duplicate nodes
 	cfg.Nodes = ensureNodePresent(cfg.Nodes, myID)
+	sort.Sort(NodeConfigurationList(cfg.Nodes))
 	for i := range cfg.Repositories {
 		cfg.Repositories[i].Nodes = ensureNodePresent(cfg.Repositories[i].Nodes, myID)
 		cfg.Repositories[i].Nodes = ensureExistingNodes(cfg.Repositories[i].Nodes, existingNodes)
+		cfg.Repositories[i].Nodes = ensureNoDuplicates(cfg.Repositories[i].Nodes)
+		sort.Sort(NodeConfigurationList(cfg.Repositories[i].Nodes))
 	}
 
 	// An empty address list is equivalent to a single "dynamic" entry
@@ -381,40 +385,50 @@ func (l NodeConfigurationList) Len() int {
 }
 
 func ensureNodePresent(nodes []NodeConfiguration, myID protocol.NodeID) []NodeConfiguration {
-	var myIDExists bool
 	for _, node := range nodes {
 		if node.NodeID.Equals(myID) {
-			myIDExists = true
-			break
+			return nodes
 		}
 	}
 
-	if !myIDExists {
-		name, _ := os.Hostname()
-		nodes = append(nodes, NodeConfiguration{
-			NodeID: myID,
-			Name:   name,
-		})
-	}
-
-	sort.Sort(NodeConfigurationList(nodes))
+	name, _ := os.Hostname()
+	nodes = append(nodes, NodeConfiguration{
+		NodeID: myID,
+		Name:   name,
+	})
 
 	return nodes
 }
 
 func ensureExistingNodes(nodes []NodeConfiguration, existingNodes map[protocol.NodeID]bool) []NodeConfiguration {
+	count := len(nodes)
 	i := 0
-	for _, node := range nodes {
-		if _, ok := existingNodes[node.NodeID]; !ok {
-			last := len(nodes) - 1
-			nodes[i] = nodes[last]
-			nodes = nodes[:last]
-		} else {
-			i++
+loop:
+	for i < count {
+		if _, ok := existingNodes[nodes[i].NodeID]; !ok {
+			nodes[i] = nodes[count-1]
+			count--
+			continue loop
 		}
+		i++
 	}
+	return nodes[0:count]
+}
 
-	sort.Sort(NodeConfigurationList(nodes))
-
-	return nodes
+func ensureNoDuplicates(nodes []NodeConfiguration) []NodeConfiguration {
+	count := len(nodes)
+	i := 0
+	seenNodes := make(map[protocol.NodeID]bool)
+loop:
+	for i < count {
+		id := nodes[i].NodeID
+		if _, ok := seenNodes[id]; ok {
+			nodes[i] = nodes[count-1]
+			count--
+			continue loop
+		}
+		seenNodes[id] = true
+		i++
+	}
+	return nodes[0:count]
 }
