@@ -30,18 +30,19 @@ func main() {
 	var langs []string
 	for code, stat := range stats {
 		shortCode := code[:2]
-		if shortCode == "en" {
-			continue
-		}
 		if pct := 100 * stat.Translated / (stat.Translated + stat.Untranslated); pct < 95 {
 			log.Printf("Skipping language %q (too low completion ratio %d%%)", shortCode, pct)
 			os.Remove("lang-" + shortCode + ".json")
 			continue
 		}
 
+		langs = append(langs, shortCode)
+		if shortCode == "en" {
+			continue
+		}
+
 		log.Printf("Updating language %q", shortCode)
 
-		langs = append(langs, shortCode)
 		resp := req("https://www.transifex.com/api/2/project/syncthing/resource/gui/translation/" + code)
 		var t translation
 		err := json.NewDecoder(resp.Body).Decode(&t)

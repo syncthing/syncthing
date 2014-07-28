@@ -9,7 +9,7 @@
 
 var syncthing = angular.module('syncthing', ['pascalprecht.translate']);
 var urlbase = 'rest';
-var validLangs = ["de","es","fr","pt","sv"];
+var validLangs = ["de","en","es","fr","pt","sv"];
 
 syncthing.config(function ($httpProvider, $translateProvider) {
     $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
