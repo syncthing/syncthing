@@ -348,6 +348,64 @@ func (o *RequestMessage) decodeXDR(xr *xdr.Reader) error {
 
 /*
 
+ResponseMessage Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        Length of Data                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                    Data (variable length)                     \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+struct ResponseMessage {
+	opaque Data<>;
+}
+
+*/
+
+func (o ResponseMessage) EncodeXDR(w io.Writer) (int, error) {
+	var xw = xdr.NewWriter(w)
+	return o.encodeXDR(xw)
+}
+
+func (o ResponseMessage) MarshalXDR() []byte {
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o ResponseMessage) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
+	var xw = xdr.NewWriter(&aw)
+	o.encodeXDR(xw)
+	return []byte(aw)
+}
+
+func (o ResponseMessage) encodeXDR(xw *xdr.Writer) (int, error) {
+	xw.WriteBytes(o.Data)
+	return xw.Tot(), xw.Error()
+}
+
+func (o *ResponseMessage) DecodeXDR(r io.Reader) error {
+	xr := xdr.NewReader(r)
+	return o.decodeXDR(xr)
+}
+
+func (o *ResponseMessage) UnmarshalXDR(bs []byte) error {
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
+	return o.decodeXDR(xr)
+}
+
+func (o *ResponseMessage) decodeXDR(xr *xdr.Reader) error {
+	o.Data = xr.ReadBytes()
+	return xr.Error()
+}
+
+/*
+
 ClusterConfigMessage Structure:
 
  0                   1                   2                   3
@@ -750,5 +808,54 @@ func (o *CloseMessage) UnmarshalXDR(bs []byte) error {
 
 func (o *CloseMessage) decodeXDR(xr *xdr.Reader) error {
 	o.Reason = xr.ReadStringMax(1024)
+	return xr.Error()
+}
+
+/*
+
+EmptyMessage Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+struct EmptyMessage {
+}
+
+*/
+
+func (o EmptyMessage) EncodeXDR(w io.Writer) (int, error) {
+	var xw = xdr.NewWriter(w)
+	return o.encodeXDR(xw)
+}
+
+func (o EmptyMessage) MarshalXDR() []byte {
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o EmptyMessage) AppendXDR(bs []byte) []byte {
+	var aw = xdr.AppendWriter(bs)
+	var xw = xdr.NewWriter(&aw)
+	o.encodeXDR(xw)
+	return []byte(aw)
+}
+
+func (o EmptyMessage) encodeXDR(xw *xdr.Writer) (int, error) {
+	return xw.Tot(), xw.Error()
+}
+
+func (o *EmptyMessage) DecodeXDR(r io.Reader) error {
+	xr := xdr.NewReader(r)
+	return o.decodeXDR(xr)
+}
+
+func (o *EmptyMessage) UnmarshalXDR(bs []byte) error {
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
+	return o.decodeXDR(xr)
+}
+
+func (o *EmptyMessage) decodeXDR(xr *xdr.Reader) error {
 	return xr.Error()
 }

@@ -7,18 +7,15 @@ package xdr
 import (
 	"errors"
 	"io"
-	"time"
 )
 
 var ErrElementSizeExceeded = errors.New("element size exceeded")
 
 type Reader struct {
-	r    io.Reader
-	tot  int
-	err  error
-	b    [8]byte
-	sb   []byte
-	last time.Time
+	r   io.Reader
+	err error
+	b   [8]byte
+	sb  []byte
 }
 
 func NewReader(r io.Reader) *Reader {
@@ -63,8 +60,6 @@ func (r *Reader) ReadBytesMaxInto(max int, dst []byte) []byte {
 	if r.err != nil {
 		return nil
 	}
-	r.last = time.Now()
-	s := r.tot
 
 	l := int(r.ReadUint32())
 	if r.err != nil {
@@ -85,17 +80,16 @@ func (r *Reader) ReadBytesMaxInto(max int, dst []byte) []byte {
 	n, r.err = io.ReadFull(r.r, dst)
 	if r.err != nil {
 		if debug {
-			dl.Debugf("@0x%x: rd bytes (%d): %v", s, len(dst), r.err)
+			dl.Debugf("rd bytes (%d): %v", len(dst), r.err)
 		}
 		return nil
 	}
-	r.tot += n
 
 	if debug {
 		if n > maxDebugBytes {
-			dl.Debugf("@0x%x: rd bytes (%d): %x...", s, len(dst), dst[:maxDebugBytes])
+			dl.Debugf("rd bytes (%d): %x...", len(dst), dst[:maxDebugBytes])
 		} else {
-			dl.Debugf("@0x%x: rd bytes (%d): %x", s, len(dst), dst)
+			dl.Debugf("rd bytes (%d): %x", len(dst), dst)
 		}
 	}
 	return dst[:l]
@@ -113,15 +107,11 @@ func (r *Reader) ReadUint32() uint32 {
 	if r.err != nil {
 		return 0
 	}
-	r.last = time.Now()
-	s := r.tot
 
-	var n int
-	n, r.err = io.ReadFull(r.r, r.b[:4])
-	r.tot += n
+	_, r.err = io.ReadFull(r.r, r.b[:4])
 	if r.err != nil {
 		if debug {
-			dl.Debugf("@0x%x: rd uint32: %v", r.tot, r.err)
+			dl.Debugf("rd uint32: %v", r.err)
 		}
 		return 0
 	}
@@ -129,7 +119,7 @@ func (r *Reader) ReadUint32() uint32 {
 	v := uint32(r.b[3]) | uint32(r.b[2])<<8 | uint32(r.b[1])<<16 | uint32(r.b[0])<<24
 
 	if debug {
-		dl.Debugf("@0x%x: rd uint32=%d (0x%08x)", s, v, v)
+		dl.Debugf("rd uint32=%d (0x%08x)", v, v)
 	}
 	return v
 }
@@ -138,15 +128,11 @@ func (r *Reader) ReadUint64() uint64 {
 	if r.err != nil {
 		return 0
 	}
-	r.last = time.Now()
-	s := r.tot
 
-	var n int
-	n, r.err = io.ReadFull(r.r, r.b[:8])
-	r.tot += n
+	_, r.err = io.ReadFull(r.r, r.b[:8])
 	if r.err != nil {
 		if debug {
-			dl.Debugf("@0x%x: rd uint64: %v", r.tot, r.err)
+			dl.Debugf("rd uint64: %v", r.err)
 		}
 		return 0
 	}
@@ -155,19 +141,23 @@ func (r *Reader) ReadUint64() uint64 {
 		uint64(r.b[3])<<32 | uint64(r.b[2])<<40 | uint64(r.b[1])<<48 | uint64(r.b[0])<<56
 
 	if debug {
-		dl.Debugf("@0x%x: rd uint64=%d (0x%016x)", s, v, v)
+		dl.Debugf("rd uint64=%d (0x%016x)", v, v)
 	}
 	return v
 }
 
-func (r *Reader) Tot() int {
-	return r.tot
+type XDRError struct {
+	op  string
+	err error
+}
+
+func (e XDRError) Error() string {
+	return "xdr " + e.op + ": " + e.err.Error()
 }
 
 func (r *Reader) Error() error {
-	return r.err
-}
-
-func (r *Reader) LastRead() time.Time {
-	return r.last
+	if r.err == nil {
+		return nil
+	}
+	return XDRError{"read", r.err}
 }

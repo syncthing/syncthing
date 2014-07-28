@@ -4,10 +4,7 @@
 
 package xdr
 
-import (
-	"io"
-	"time"
-)
+import "io"
 
 func pad(l int) int {
 	d := l % 4
@@ -20,11 +17,10 @@ func pad(l int) int {
 var padBytes = []byte{0, 0, 0}
 
 type Writer struct {
-	w    io.Writer
-	tot  int
-	err  error
-	b    [8]byte
-	last time.Time
+	w   io.Writer
+	tot int
+	err error
+	b   [8]byte
 }
 
 type AppendWriter []byte
@@ -49,7 +45,6 @@ func (w *Writer) WriteBytes(bs []byte) (int, error) {
 		return 0, w.err
 	}
 
-	w.last = time.Now()
 	w.WriteUint32(uint32(len(bs)))
 	if w.err != nil {
 		return 0, w.err
@@ -93,7 +88,6 @@ func (w *Writer) WriteUint32(v uint32) (int, error) {
 		return 0, w.err
 	}
 
-	w.last = time.Now()
 	if debug {
 		dl.Debugf("wr uint32=%d", v)
 	}
@@ -114,7 +108,6 @@ func (w *Writer) WriteUint64(v uint64) (int, error) {
 		return 0, w.err
 	}
 
-	w.last = time.Now()
 	if debug {
 		dl.Debugf("wr uint64=%d", v)
 	}
@@ -139,9 +132,8 @@ func (w *Writer) Tot() int {
 }
 
 func (w *Writer) Error() error {
-	return w.err
-}
-
-func (w *Writer) LastWrite() time.Time {
-	return w.last
+	if w.err == nil {
+		return nil
+	}
+	return XDRError{"write", w.err}
 }

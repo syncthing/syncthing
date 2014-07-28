@@ -49,6 +49,10 @@ type RequestMessage struct {
 	Size       uint32
 }
 
+type ResponseMessage struct {
+	Data []byte
+}
+
 type ClusterConfigMessage struct {
 	ClientName    string       // max:64
 	ClientVersion string       // max:64
@@ -75,3 +79,5 @@ type Option struct {
 type CloseMessage struct {
 	Reason string // max:1024
 }
+
+type EmptyMessage struct{}

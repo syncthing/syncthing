@@ -25,12 +25,10 @@ Transport and Authentication
 ----------------------------
 
 BEP is deployed as the highest level in a protocol stack, with the lower
-level protocols providing compression, encryption and authentication.
+level protocols providing encryption and authentication.
 
     +-----------------------------|
     |   Block Exchange Protocol   |
-    |-----------------------------|
-    |      Compression (LZ4)      |
     |-----------------------------|
     | Encryption & Auth (TLS 1.2) |
     |-----------------------------|
@@ -62,48 +60,19 @@ requests are received.
 
 The underlying transport protocol MUST be TCP.
 
-Compression
------------
-
-All data is sent within compressed blocks. Blocks are compressed using
-the LZ4 format and algorithm described in
-https://code.google.com/p/lz4/. Each compressed block is preceded by a
-header consisting of three 32 bit words, in network order (big endian):
-
-     0                   1                   2                   3
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                     Magic (0x0x5e63b278)                      |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                          Data Length                          |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                   Uncompressed Block Length                   |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \                        Compressed Data                        \
-    /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-The Data Length indicates the length of data following the Data Length
-field until the next header, i.e. the length of the Compressed Data
-section plus four bytes for the Uncompressed Block Length field. The
-Uncompressed Block Length indicates the amount of data that will result
-when decompressing the Compressed Data section.
-
-A single BEP message SHOULD be sent as a single compressed block. A
-single compressed block MAY NOT contain more than one BEP message.
-
 Messages
 --------
 
 Every message starts with one 32 bit word indicating the message
-version, type and ID. The header is in network byte order, i.e. big
-endian.
+version, type and ID, followed by the length of the message. The header
+is in network byte order, i.e. big endian.
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |  Ver  |       Message ID      |      Type     |    Reserved   |
+    |  Ver  |       Message ID      |      Type     |   Reserved  |C|
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                            Length                             |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 For BEP v1 the Version field is set to zero. Future versions with
@@ -125,10 +94,28 @@ The Type field indicates the type of data following the message header
 and is one of the integers defined below. A message of an unknown type
 is a protocol error and MUST result in the connection being terminated.
 
-All data following the message header MUST be in XDR (RFC 1014)
-encoding. All fields shorter than 32 bits and all variable length data
-MUST be padded to a multiple of 32 bits. The actual data types in use by
-BEP, in XDR naming convention, are the following:
+The Compression bit "C" indicates the compression used for the message.
+
+For C=1:
+
+  * The Length field contains the length, in bytes, of the
+    compressed message data.
+
+  * The message data is compressed using the LZ4 format and algorithm
+    described in https://code.google.com/p/lz4/.
+
+For C=0:
+
+  * The Length field contains the length, in bytes, of the
+    uncompressed message data.
+
+  * The message is not compressed.
+
+All data within the the message (post decompression, if compression is
+in use) MUST be in XDR (RFC 1014) encoding. All fields shorter than 32
+bits and all variable length data MUST be padded to a multiple of 32
+bits. The actual data types in use by BEP, in XDR naming convention, are
+the following:
 
  - (unsigned) int   -- (unsigned) 32 bit integer
  - (unsigned) hyper -- (unsigned) 64 bit integer
