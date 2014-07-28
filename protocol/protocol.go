@@ -18,8 +18,7 @@ import (
 )
 
 const (
-	BlockSize         = 128 * 1024
-	MinCompressedSize = 128 // message must be this big to enable compression
+	BlockSize = 128 * 1024
 )
 
 const (
@@ -101,6 +100,8 @@ type rawConnection struct {
 	closed chan struct{}
 	once   sync.Once
 
+	compressionThreshold int // compress messages larger than this many bytes
+
 	rdbuf0 []byte // used & reused by readMessage
 	rdbuf1 []byte // used & reused by readMessage
 }
@@ -124,20 +125,25 @@ const (
 	pingIdleTime = 60 * time.Second
 )
 
-func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver Model, name string) Connection {
+func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver Model, name string, compress bool) Connection {
 	cr := &countingReader{Reader: reader}
 	cw := &countingWriter{Writer: writer}
 
+	compThres := 1<<32 - 1 // compression disabled
+	if compress {
+		compThres = 128 // compress messages that are 128 bytes long or larger
+	}
 	c := rawConnection{
-		id:       nodeID,
-		name:     name,
-		receiver: nativeModel{receiver},
-		state:    stateInitial,
-		cr:       cr,
-		cw:       cw,
-		outbox:   make(chan hdrMsg),
-		nextID:   make(chan int),
-		closed:   make(chan struct{}),
+		id:                   nodeID,
+		name:                 name,
+		receiver:             nativeModel{receiver},
+		state:                stateInitial,
+		cr:                   cr,
+		cw:                   cw,
+		outbox:               make(chan hdrMsg),
+		nextID:               make(chan int),
+		closed:               make(chan struct{}),
+		compressionThreshold: compThres,
 	}
 
 	go c.readerLoop()
@@ -470,7 +476,7 @@ func (c *rawConnection) writerLoop() {
 				// Uncompressed message in uncBuf
 				uncBuf = hm.msg.AppendXDR(uncBuf[:0])
 
-				if len(uncBuf) >= MinCompressedSize {
+				if len(uncBuf) >= c.compressionThreshold {
 					// Use compression for large messages
 					hm.hdr.compression = true
 

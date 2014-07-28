@@ -93,9 +93,10 @@ func (r *RepositoryConfiguration) NodeIDs() []protocol.NodeID {
 }
 
 type NodeConfiguration struct {
-	NodeID    protocol.NodeID `xml:"id,attr"`
-	Name      string          `xml:"name,attr,omitempty"`
-	Addresses []string        `xml:"address,omitempty"`
+	NodeID      protocol.NodeID `xml:"id,attr"`
+	Name        string          `xml:"name,attr,omitempty"`
+	Addresses   []string        `xml:"address,omitempty"`
+	Compression bool            `xml:"compression,attr"`
 }
 
 type OptionsConfiguration struct {

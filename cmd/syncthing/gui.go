@@ -288,6 +288,7 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 			nm := newCfg.NodeMap()
 			for k := range om {
 				if _, ok := nm[k]; !ok {
+					// A node was removed and another added
 					configInSync = false
 					break
 				}

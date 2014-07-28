@@ -654,7 +654,7 @@ next:
 					wr = &limitedWriter{conn, rateBucket}
 				}
 				name := fmt.Sprintf("%s-%s", conn.LocalAddr(), conn.RemoteAddr())
-				protoConn := protocol.NewConnection(remoteID, conn, wr, m, name)
+				protoConn := protocol.NewConnection(remoteID, conn, wr, m, name, nodeCfg.Compression)
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
 				if debugNet {

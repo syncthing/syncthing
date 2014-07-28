@@ -101,6 +101,7 @@
    "Upgrade To {%version%}": "Upgrade To {{version}}",
    "Upload Rate": "Upload Rate",
    "Usage": "Usage",
+   "Use Compression": "Use Compression",
    "Use HTTPS for GUI": "Use HTTPS for GUI",
    "Version": "Version",
    "When adding a new node, keep in mind that this node must be added on the other side too.": "When adding a new node, keep in mind that this node must be added on the other side too.",
