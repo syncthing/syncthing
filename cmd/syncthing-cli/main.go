@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+var cliCommands []cli.Command
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "syncthing-cli"
@@ -42,14 +44,6 @@ func main() {
 		},
 	}
 
-	app.Commands = []cli.Command{
-		repositoryCommand,
-		nodeCommand,
-		guiCommand,
-		optionsCommand,
-		reportCommand,
-		errorCommand,
-	}
-	app.Commands = append(app.Commands, generalCommands...)
+	app.Commands = cliCommands
 	app.RunAndExitOnError()
 }
