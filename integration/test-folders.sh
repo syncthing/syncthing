@@ -46,8 +46,8 @@ setup() {
 testConvergence() {
 	while true ; do
 		sleep 5
-		s1comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8082/rest/connections" | ./json "$id1/Completion")
-		s2comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8081/rest/connections" | ./json "$id2/Completion")
+		s1comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8082/rest/debug/peerCompletion" | ./json "$id1")
+		s2comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8081/rest/debug/peerCompletion" | ./json "$id2")
 		s1comp=${s1comp:-0}
 		s2comp=${s2comp:-0}
 		tot=$(($s1comp + $s2comp))

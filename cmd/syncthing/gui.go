@@ -111,6 +111,9 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
 	getRestMux.HandleFunc("/rest/version", restGetVersion)
 
+	// Debug endpoints, not for general use
+	getRestMux.HandleFunc("/rest/debug/peerCompletion", withModel(m, restGetPeerCompletion))
+
 	// The POST handlers
 	postRestMux := http.NewServeMux()
 	postRestMux.HandleFunc("/rest/config", withModel(m, restPostConfig))
@@ -523,6 +526,31 @@ func getQR(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "image/png")
 	w.Write(code.PNG())
+}
+
+func restGetPeerCompletion(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	tot := map[string]float64{}
+	count := map[string]float64{}
+
+	for _, repo := range cfg.Repositories {
+		for _, node := range repo.NodeIDs() {
+			nodeStr := node.String()
+			if m.ConnectedTo(node) {
+				tot[nodeStr] += m.Completion(node, repo.ID)
+			} else {
+				tot[nodeStr] = 0
+			}
+			count[nodeStr]++
+		}
+	}
+
+	comp := map[string]int{}
+	for node := range tot {
+		comp[node] = int(tot[node] / count[node])
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(comp)
 }
 
 func basicAuthMiddleware(username string, passhash string, next http.Handler) http.Handler {

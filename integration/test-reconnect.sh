@@ -43,7 +43,7 @@ testConvergence() {
 
 	while true ; do
 		sleep 5
-		comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8081/rest/connections" | ./json "$id2/Completion")
+		comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8081/rest/debug/peerCompletion" | ./json "$id2")
 		comp=${comp:-0}
 		echo $comp / 100
 
