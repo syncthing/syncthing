@@ -55,10 +55,10 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
             online = false;
         }
         setTimeout(function () {
-            $http.get(urlbase + '/events?since=' + lastID)
+            $http.get(urlbase + '/events?limit=1')
             .success(successFn)
             .error(errorFn);
-        }, 500);
+        }, 1000);
     };
 
     $http.get(urlbase + '/events?limit=1')
@@ -118,13 +118,16 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     }
 
     $scope.$on('UIOnline', function (event, arg) {
+        console.log('UIOnline');
         $scope.init();
+        restarting = false;
         $('#networkError').modal('hide');
         $('#restarting').modal('hide');
         $('#shutdown').modal('hide');
     });
 
     $scope.$on('UIOffline', function (event, arg) {
+        console.log('UIOffline');
         if (!restarting) {
             $('#networkError').modal({backdrop: 'static', keyboard: false});
         }
