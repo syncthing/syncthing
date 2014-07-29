@@ -632,9 +632,6 @@ func ldbWithNeed(db *leveldb.DB, repo, node []byte, fn fileIterator) {
 
 		if need || !have {
 			name := globalKeyName(dbi.Key())
-			if debug {
-				l.Debugf("need repo=%q node=%v name=%q need=%v have=%v haveV=%d globalV=%d", repo, protocol.NodeIDFromBytes(node), name, need, have, haveVersion, vl.versions[0].version)
-			}
 			fk := nodeKey(repo, vl.versions[0].node, name)
 			bs, err := snap.Get(fk, nil)
 			if err != nil {
@@ -650,6 +647,10 @@ func ldbWithNeed(db *leveldb.DB, repo, node []byte, fn fileIterator) {
 			if protocol.IsDeleted(gf.Flags) && !have {
 				// We don't need deleted files that we don't have
 				continue
+			}
+
+			if debug {
+				l.Debugf("need repo=%q node=%v name=%q need=%v have=%v haveV=%d globalV=%d", repo, protocol.NodeIDFromBytes(node), name, need, have, haveVersion, vl.versions[0].version)
 			}
 
 			if cont := fn(gf); !cont {

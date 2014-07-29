@@ -85,7 +85,7 @@ func (s *Set) Update(node protocol.NodeID, fs []protocol.FileInfo) {
 
 func (s *Set) WithNeed(node protocol.NodeID, fn fileIterator) {
 	if debug {
-		l.Debugf("%s Need(%v)", s.repo, node)
+		l.Debugf("%s WithNeed(%v)", s.repo, node)
 	}
 	ldbWithNeed(s.db, []byte(s.repo), node[:], fn)
 }

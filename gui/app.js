@@ -21,23 +21,68 @@ syncthing.config(function ($httpProvider, $translateProvider) {
     });
 });
 
+syncthing.controller('EventCtrl', function ($scope, $http) {
+    $scope.lastEvent = null;
+    var online = false;
+    var lastID = 0;
+
+    var successFn = function (data) {
+        if (!online) {
+            $scope.$emit('UIOnline');
+            online = true;
+        }
+
+        if (lastID > 0) {
+            data.forEach(function (event) {
+                $scope.$emit(event.type, event);
+            });
+        };
+
+        $scope.lastEvent = data[data.length - 1];
+        lastID = $scope.lastEvent.id;
+
+        setTimeout(function () {
+            $http.get(urlbase + '/events?since=' + lastID)
+            .success(successFn)
+            .error(errorFn);
+        }, 500);
+    };
+
+    var errorFn = function (data) {
+        if (online) {
+            $scope.$emit('UIOffline');
+            online = false;
+        }
+        setTimeout(function () {
+            $http.get(urlbase + '/events?since=' + lastID)
+            .success(successFn)
+            .error(errorFn);
+        }, 500);
+    };
+
+    $http.get(urlbase + '/events?limit=1')
+        .success(successFn)
+        .error(errorFn);
+});
+
 syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $location) {
     var prevDate = 0;
     var getOK = true;
     var restarting = false;
 
-    $scope.connections = {};
+    $scope.completion = {};
     $scope.config = {};
+    $scope.configInSync = true;
+    $scope.connections = {};
+    $scope.errors = [];
+    $scope.model = {};
     $scope.myID = '';
     $scope.nodes = [];
-    $scope.configInSync = true;
     $scope.protocolChanged = false;
-    $scope.errors = [];
-    $scope.seenError = '';
-    $scope.model = {};
-    $scope.repos = {};
     $scope.reportData = {};
     $scope.reportPreview = false;
+    $scope.repos = {};
+    $scope.seenError = '';
     $scope.upgradeInfo = {};
 
     $http.get(urlbase+"/lang").success(function (langs) {
@@ -71,53 +116,118 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         'touch': 'asterisk',
     }
 
-    function getSucceeded() {
-        if (!getOK) {
-            $scope.init();
-            $('#networkError').modal('hide');
-            getOK = true;
-        }
-        if (restarting) {
-            $scope.init();
-            $('#restarting').modal('hide');
-            $('#shutdown').modal('hide');
-            restarting = false;
-        }
-    }
+    $scope.$on('UIOnline', function (event, arg) {
+        $scope.init();
+        $('#networkError').modal('hide');
+        $('#restarting').modal('hide');
+        $('#shutdown').modal('hide');
+    });
 
-    function getFailed() {
-        if (restarting) {
-            return;
-        }
-        if (getOK) {
+    $scope.$on('UIOffline', function (event, arg) {
+        if (!restarting) {
             $('#networkError').modal({backdrop: 'static', keyboard: false});
-            getOK = false;
         }
+    });
+
+    $scope.$on('StateChanged', function (event, arg) {
+        var data = arg.data;
+        if ($scope.model[data.repo]) {
+            $scope.model[data.repo].state = data.to;
+        }
+    });
+
+    $scope.$on('LocalIndexUpdated', function (event, arg) {
+        var data = arg.data;
+        refreshRepo(data.repo);
+
+        // Update completion status for all nodes that we share this repo with.
+        $scope.repos[data.repo].Nodes.forEach(function (nodeCfg) {
+            debouncedRefreshCompletion(nodeCfg.NodeID, data.repo);
+        });
+    });
+
+    $scope.$on('RemoteIndexUpdated', function (event, arg) {
+        var data = arg.data;
+        refreshRepo(data.repo);
+        refreshCompletion(data.node, data.repo);
+    });
+
+    $scope.$on('NodeDisconnected', function (event, arg) {
+        delete $scope.connections[arg.data.id];
+    });
+
+    $scope.$on('NodeConnected', function (event, arg) {
+        if (!$scope.connections[arg.data.id]) {
+            $scope.connections[arg.data.id] = {
+                inbps: 0,
+                outbps: 0,
+                InBytesTotal: 0,
+                OutBytesTotal: 0,
+                Address: arg.data.addr,
+            };
+        }
+    });
+
+    $scope.$on('ConfigLoaded', function (event) {
+        if ($scope.config.Options.URAccepted == 0) {
+            // If usage reporting has been neither accepted nor declined,
+            // we want to ask the user to make a choice. But we don't want
+            // to bug them during initial setup, so we set a cookie with
+            // the time of the first visit. When that cookie is present
+            // and the time is more than four hours ago, we ask the
+            // question.
+
+            var firstVisit = document.cookie.replace(/(?:(?:^|.*;\s*)firstVisit\s*\=\s*([^;]*).*$)|^.*$/, "$1");
+            if (!firstVisit) {
+                document.cookie = "firstVisit=" + Date.now() + ";max-age=" + 30*24*3600;
+            } else {
+                if (+firstVisit < Date.now() - 4*3600*1000){
+                    $('#ur').modal({backdrop: 'static', keyboard: false});
+                }
+            }
+        }
+    })
+
+    function refreshRepo(repo) {
+        $http.get(urlbase + '/model?repo=' + encodeURIComponent(repo)).success(function (data) {
+            $scope.model[repo] = data;
+        });
     }
 
-    $scope.refresh = function () {
+    function refreshSystem() {
         $http.get(urlbase + '/system').success(function (data) {
-            getSucceeded();
+            $scope.myID = data.myID;
             $scope.system = data;
-        }).error(function () {
-            getFailed();
         });
-        Object.keys($scope.repos).forEach(function (id) {
-            if (typeof $scope.model[id] === 'undefined') {
-                // Never fetched before
-                $http.get(urlbase + '/model?repo=' + encodeURIComponent(id)).success(function (data) {
-                    $scope.model[id] = data;
-                });
-            } else {
-                $http.get(urlbase + '/model/version?repo=' + encodeURIComponent(id)).success(function (data) {
-                    if (data.version > $scope.model[id].version) {
-                        $http.get(urlbase + '/model?repo=' + encodeURIComponent(id)).success(function (data) {
-                            $scope.model[id] = data;
-                        });
+    }
+
+    var completionFuncs = {};
+    function refreshCompletion(node, repo) {
+        if (node === $scope.myID) {
+            return
+        }
+
+        if (!completionFuncs[node+repo]) {
+            completionFuncs[node+repo] = debounce(function () {
+                $http.get(urlbase + '/completion?node=' + node + '&repo=' + encodeURIComponent(repo)).success(function (data) {
+                    if (!$scope.completion[node]) {
+                        $scope.completion[node] = {};
                     }
+                    $scope.completion[node][repo] = data.completion;
+
+                    var tot = 0, cnt = 0;
+                    for (var cmp in $scope.completion[node]) {
+                        tot += $scope.completion[node][cmp];
+                        cnt += 1;
+                    }
+                    $scope.completion[node]._total = tot / cnt;
                 });
-            }
-        });
+            });
+        }
+        completionFuncs[node+repo]();
+    }
+
+    function refreshConnectionStats() {
         $http.get(urlbase + '/connections').success(function (data) {
             var now = Date.now(),
             td = (now - prevDate) / 1000,
@@ -138,9 +248,66 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             }
             $scope.connections = data;
         });
+    }
+
+    function refreshErrors() {
         $http.get(urlbase + '/errors').success(function (data) {
             $scope.errors = data;
         });
+    }
+
+    function refreshConfig() {
+        $http.get(urlbase + '/config').success(function (data) {
+            var hasConfig = !isEmptyObject($scope.config);
+
+            $scope.config = data;
+            $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
+
+            $scope.nodes = $scope.config.Nodes;
+            $scope.nodes.sort(nodeCompare);
+
+            $scope.repos = repoMap($scope.config.Repositories);
+            Object.keys($scope.repos).forEach(function (repo) {
+                refreshRepo(repo);
+                $scope.repos[repo].Nodes.forEach(function (nodeCfg) {
+                    refreshCompletion(nodeCfg.NodeID, repo);
+                });
+            });
+
+            if (!hasConfig) {
+                $scope.$emit('ConfigLoaded');
+            }
+        });
+
+        $http.get(urlbase + '/config/sync').success(function (data) {
+            $scope.configInSync = data.configInSync;
+        });
+    }
+
+    $scope.init = function() {
+        refreshSystem();
+        refreshConfig();
+        refreshConnectionStats();
+
+        $http.get(urlbase + '/version').success(function (data) {
+            $scope.version = data;
+        });
+
+        $http.get(urlbase + '/report').success(function (data) {
+            $scope.reportData = data;
+        });
+
+        $http.get(urlbase + '/upgrade').success(function (data) {
+            $scope.upgradeInfo = data;
+        }).error(function () {
+            $scope.upgradeInfo = {};
+        });
+    };
+
+    $scope.refresh = function () {
+        refreshSystem();
+        refreshConnectionStats();
+        refreshErrors();
     };
 
     $scope.repoStatus = function (repo) {
@@ -187,9 +354,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     };
 
     $scope.nodeIcon = function (nodeCfg) {
-        var conn = $scope.connections[nodeCfg.NodeID];
-        if (conn) {
-            if (conn.Completion === 100) {
+        if ($scope.connections[nodeCfg.NodeID]) {
+            if ($scope.completion[nodeCfg.NodeID] && $scope.completion[nodeCfg.NodeID]._total === 100) {
                 return 'ok';
             } else {
                 return 'refresh';
@@ -200,9 +366,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     };
 
     $scope.nodeClass = function (nodeCfg) {
-        var conn = $scope.connections[nodeCfg.NodeID];
-        if (conn) {
-            if (conn.Completion === 100) {
+        if ($scope.connections[nodeCfg.NodeID]) {
+            if ($scope.completion[nodeCfg.NodeID] && $scope.completion[nodeCfg.NodeID]._total === 100) {
                 return 'success';
             } else {
                 return 'primary';
@@ -552,60 +717,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         cfg.APIKey = randomString(30, 32);
     };
 
-    $scope.init = function() {
-        $http.get(urlbase + '/version').success(function (data) {
-            $scope.version = data;
-        });
 
-        $http.get(urlbase + '/system').success(function (data) {
-            $scope.system = data;
-            $scope.myID = data.myID;
-        });
-
-        $http.get(urlbase + '/config').success(function (data) {
-            $scope.config = data;
-            $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
-
-            $scope.nodes = $scope.config.Nodes;
-            $scope.nodes.sort(nodeCompare);
-
-            $scope.repos = repoMap($scope.config.Repositories);
-
-            $scope.refresh();
-
-            if ($scope.config.Options.URAccepted == 0) {
-                // If usage reporting has been neither accepted nor declined,
-                // we want to ask the user to make a choice. But we don't want
-                // to bug them during initial setup, so we set a cookie with
-                // the time of the first visit. When that cookie is present
-                // and the time is more than four hours ago, we ask the
-                // question.
-
-                var firstVisit = document.cookie.replace(/(?:(?:^|.*;\s*)firstVisit\s*\=\s*([^;]*).*$)|^.*$/, "$1");
-                if (!firstVisit) {
-                    document.cookie = "firstVisit=" + Date.now() + ";max-age=" + 30*24*3600;
-                } else {
-                    if (+firstVisit < Date.now() - 4*3600*1000){
-                        $('#ur').modal({backdrop: 'static', keyboard: false});
-                    }
-                }
-            }
-        });
-
-        $http.get(urlbase + '/config/sync').success(function (data) {
-            $scope.configInSync = data.configInSync;
-        });
-
-        $http.get(urlbase + '/report').success(function (data) {
-            $scope.reportData = data;
-        });
-
-        $http.get(urlbase + '/upgrade').success(function (data) {
-            $scope.upgradeInfo = data;
-        }).error(function () {
-            $scope.upgradeInfo = {};
-        });
-    };
 
     $scope.acceptUR = function () {
         $scope.config.Options.URAccepted = 1000; // Larger than the largest existing report version
@@ -715,6 +827,47 @@ function randomString(len, bits)
         outStr += newStr.slice(0, Math.min(newStr.length, (len - outStr.length)));
     }
     return outStr.toLowerCase();
+}
+
+function isEmptyObject(obj) {
+    var name;
+    for (name in obj) {
+        return false;
+    }
+    return true;
+}
+
+function debounce(func, wait, immediate) {
+    var timeout, args, context, timestamp, result;
+
+    var later = function() {
+        var last = Date.now() - timestamp;
+        if (last < wait) {
+            timeout = setTimeout(later, wait - last);
+        } else {
+            timeout = null;
+            if (!immediate) {
+                result = func.apply(context, args);
+                context = args = null;
+            }
+        }
+    };
+
+    return function() {
+        context = this;
+        args = arguments;
+        timestamp = Date.now();
+        var callNow = immediate && !timeout;
+        if (!timeout) {
+            timeout = setTimeout(later, wait);
+        }
+        if (callNow) {
+            result = func.apply(context, args);
+            context = args = null;
+        }
+
+        return result;
+    };
 }
 
 syncthing.filter('natural', function () {

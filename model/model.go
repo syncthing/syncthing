@@ -157,7 +157,6 @@ type ConnectionInfo struct {
 	protocol.Statistics
 	Address       string
 	ClientVersion string
-	Completion    int
 }
 
 // ConnectionStats returns a map with connection statistics for each connected node.
@@ -179,43 +178,6 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 			ci.Address = nc.RemoteAddr().String()
 		}
 
-		var tot int64
-		var have int64
-
-		for _, repo := range m.nodeRepos[node] {
-			m.repoFiles[repo].WithGlobal(func(f protocol.FileInfo) bool {
-				if !protocol.IsDeleted(f.Flags) {
-					var size int64
-					if protocol.IsDirectory(f.Flags) {
-						size = zeroEntrySize
-					} else {
-						size = f.Size()
-					}
-					tot += size
-					have += size
-				}
-				return true
-			})
-
-			m.repoFiles[repo].WithNeed(node, func(f protocol.FileInfo) bool {
-				if !protocol.IsDeleted(f.Flags) {
-					var size int64
-					if protocol.IsDirectory(f.Flags) {
-						size = zeroEntrySize
-					} else {
-						size = f.Size()
-					}
-					have -= size
-				}
-				return true
-			})
-		}
-
-		ci.Completion = 100
-		if tot != 0 {
-			ci.Completion = int(100 * have / tot)
-		}
-
 		res[node.String()] = ci
 	}
 
@@ -232,6 +194,39 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	}
 
 	return res
+}
+
+// Returns the completion status, in percent, for the given node and repo.
+func (m *Model) Completion(node protocol.NodeID, repo string) float64 {
+	var tot int64
+	m.repoFiles[repo].WithGlobal(func(f protocol.FileInfo) bool {
+		if !protocol.IsDeleted(f.Flags) {
+			var size int64
+			if protocol.IsDirectory(f.Flags) {
+				size = zeroEntrySize
+			} else {
+				size = f.Size()
+			}
+			tot += size
+		}
+		return true
+	})
+
+	var need int64
+	m.repoFiles[repo].WithNeed(node, func(f protocol.FileInfo) bool {
+		if !protocol.IsDeleted(f.Flags) {
+			var size int64
+			if protocol.IsDirectory(f.Flags) {
+				size = zeroEntrySize
+			} else {
+				size = f.Size()
+			}
+			need += size
+		}
+		return true
+	})
+
+	return 100 * (1 - float64(need)/float64(tot))
 }
 
 func sizeOf(fs []protocol.FileInfo) (files, deleted int, bytes int64) {

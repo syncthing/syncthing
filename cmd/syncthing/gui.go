@@ -47,7 +47,7 @@ var (
 	static       func(http.ResponseWriter, *http.Request, *log.Logger)
 	apiKey       string
 	modt         = time.Now().UTC().Format(http.TimeFormat)
-	eventSub     = events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents), 1000)
+	eventSub     *events.BufferedSubscription
 )
 
 const (
@@ -56,6 +56,8 @@ const (
 
 func init() {
 	l.AddHandler(logger.LevelWarn, showGuiError)
+	sub := events.Default.Subscribe(^events.EventType(events.ItemStarted | events.ItemCompleted))
+	eventSub = events.NewBufferedSubscription(sub, 1000)
 }
 
 func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
@@ -92,32 +94,33 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
-	getRestMux.HandleFunc("/rest/version", restGetVersion)
+	getRestMux.HandleFunc("/rest/completion", withModel(m, restGetCompletion))
+	getRestMux.HandleFunc("/rest/config", restGetConfig)
+	getRestMux.HandleFunc("/rest/config/sync", restGetConfigInSync)
+	getRestMux.HandleFunc("/rest/connections", withModel(m, restGetConnections))
+	getRestMux.HandleFunc("/rest/discovery", restGetDiscovery)
+	getRestMux.HandleFunc("/rest/errors", restGetErrors)
+	getRestMux.HandleFunc("/rest/events", restGetEvents)
+	getRestMux.HandleFunc("/rest/lang", restGetLang)
 	getRestMux.HandleFunc("/rest/model", withModel(m, restGetModel))
 	getRestMux.HandleFunc("/rest/model/version", withModel(m, restGetModelVersion))
 	getRestMux.HandleFunc("/rest/need", withModel(m, restGetNeed))
-	getRestMux.HandleFunc("/rest/connections", withModel(m, restGetConnections))
-	getRestMux.HandleFunc("/rest/config", restGetConfig)
-	getRestMux.HandleFunc("/rest/config/sync", restGetConfigInSync)
-	getRestMux.HandleFunc("/rest/system", restGetSystem)
-	getRestMux.HandleFunc("/rest/errors", restGetErrors)
-	getRestMux.HandleFunc("/rest/discovery", restGetDiscovery)
-	getRestMux.HandleFunc("/rest/report", withModel(m, restGetReport))
-	getRestMux.HandleFunc("/rest/events", restGetEvents)
-	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
 	getRestMux.HandleFunc("/rest/nodeid", restGetNodeID)
-	getRestMux.HandleFunc("/rest/lang", restGetLang)
+	getRestMux.HandleFunc("/rest/report", withModel(m, restGetReport))
+	getRestMux.HandleFunc("/rest/system", restGetSystem)
+	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
+	getRestMux.HandleFunc("/rest/version", restGetVersion)
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
 	postRestMux.HandleFunc("/rest/config", withModel(m, restPostConfig))
-	postRestMux.HandleFunc("/rest/restart", restPostRestart)
-	postRestMux.HandleFunc("/rest/reset", restPostReset)
-	postRestMux.HandleFunc("/rest/shutdown", restPostShutdown)
+	postRestMux.HandleFunc("/rest/discovery/hint", restPostDiscoveryHint)
 	postRestMux.HandleFunc("/rest/error", restPostError)
 	postRestMux.HandleFunc("/rest/error/clear", restClearErrors)
-	postRestMux.HandleFunc("/rest/discovery/hint", restPostDiscoveryHint)
 	postRestMux.HandleFunc("/rest/model/override", withModel(m, restPostOverride))
+	postRestMux.HandleFunc("/rest/reset", restPostReset)
+	postRestMux.HandleFunc("/rest/restart", restPostRestart)
+	postRestMux.HandleFunc("/rest/shutdown", restPostShutdown)
 	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
 
 	// A handler that splits requests between the two above and disables
@@ -173,6 +176,25 @@ func withModel(m *model.Model, h func(m *model.Model, w http.ResponseWriter, r *
 
 func restGetVersion(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(Version))
+}
+
+func restGetCompletion(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var repo = qs.Get("repo")
+	var nodeStr = qs.Get("node")
+
+	node, err := protocol.NodeIDFromString(nodeStr)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	res := map[string]float64{
+		"completion": m.Completion(node, repo),
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(res)
 }
 
 func restGetModelVersion(m *model.Model, w http.ResponseWriter, r *http.Request) {
@@ -423,11 +445,18 @@ func restGetReport(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 func restGetEvents(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
-	ts := qs.Get("since")
-	since, _ := strconv.Atoi(ts)
+	sinceStr := qs.Get("since")
+	limitStr := qs.Get("limit")
+	since, _ := strconv.Atoi(sinceStr)
+	limit, _ := strconv.Atoi(limitStr)
+
+	evs := eventSub.Since(since, nil)
+	if 0 < limit && limit < len(evs) {
+		evs = evs[len(evs)-limit:]
+	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(eventSub.Since(since, nil))
+	json.NewEncoder(w).Encode(evs)
 }
 
 func restGetUpgrade(w http.ResponseWriter, r *http.Request) {

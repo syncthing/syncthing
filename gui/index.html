@@ -89,6 +89,7 @@
 </head>
 
 <body>
+  <div ng-controller="EventCtrl"></div>
 
   <!-- Top bar -->
 
@@ -289,10 +290,10 @@
                   <span class="glyphicon glyphicon-retweet"></span>
                   {{nodeName(nodeCfg)}}
                   <span class="pull-right hidden-xs">
-                    <span ng-if="connections[nodeCfg.NodeID].Completion == 100">
+                    <span ng-if="connections[nodeCfg.NodeID] && completion[nodeCfg.NodeID]._total == 100">
                       <span translate>Up to Date</span> (100%)
                     </span>
-                    <span ng-if="connections[nodeCfg.NodeID].Completion < 100">
+                    <span ng-if="connections[nodeCfg.NodeID] && completion[nodeCfg.NodeID]._total < 100">
                       <span translate>Syncing</span> ({{connections[nodeCfg.NodeID].Completion}}%)
                     </span>
                     <span translate ng-if="!connections[nodeCfg.NodeID]">Disconnected</span>
@@ -311,7 +312,7 @@
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-comment"></span>&emsp;<span translate>Synchronization</span></th>
-                        <td class="text-right">{{connections[nodeCfg.NodeID].Completion | alwaysNumber}}%</td>
+                        <td class="text-right">{{completion[nodeCfg.NodeID]._total | alwaysNumber}}%</td>
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-compressed"></span>&emsp;<span translate>Use Compression</span></th>

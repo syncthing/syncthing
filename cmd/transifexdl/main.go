@@ -18,6 +18,12 @@ type translation struct {
 }
 
 func main() {
+	log.SetFlags(log.Lshortfile)
+
+	if u, p := userPass(); u == "" || p == "" {
+		log.Fatal("Need environment variables TRANSIFEX_USER and TRANSIFEX_PASS")
+	}
+
 	resp := req("https://www.transifex.com/api/2/project/syncthing/resource/gui/stats")
 
 	var stats map[string]stat
@@ -63,9 +69,14 @@ func main() {
 	json.NewEncoder(os.Stdout).Encode(langs)
 }
 
-func req(url string) *http.Response {
+func userPass() (string, string) {
 	user := os.Getenv("TRANSIFEX_USER")
 	pass := os.Getenv("TRANSIFEX_PASS")
+	return user, pass
+}
+
+func req(url string) *http.Response {
+	user, pass := userPass()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
