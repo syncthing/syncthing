@@ -764,6 +764,13 @@ func (m *Model) ScanRepo(repo string) error {
 	batchSize := 100
 	batch := make([]protocol.FileInfo, 0, 00)
 	for f := range fchan {
+		events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
+			"repo":     repo,
+			"name":     f.Name,
+			"modified": time.Unix(f.Modified, 0),
+			"flags":    fmt.Sprintf("0%o", f.Flags),
+			"size":     f.Size(),
+		})
 		if len(batch) == batchSize {
 			fs.Update(protocol.LocalNodeID, batch)
 			batch = batch[:0]
@@ -787,6 +794,13 @@ func (m *Model) ScanRepo(repo string) error {
 				f.Flags |= protocol.FlagDeleted
 				f.Version = lamport.Default.Tick(f.Version)
 				f.LocalVersion = 0
+				events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
+					"repo":     repo,
+					"name":     f.Name,
+					"modified": time.Unix(f.Modified, 0),
+					"flags":    fmt.Sprintf("0%o", f.Flags),
+					"size":     f.Size(),
+				})
 				batch = append(batch, f)
 			}
 		}
