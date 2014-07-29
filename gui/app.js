@@ -34,6 +34,7 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
 
         if (lastID > 0) {
             data.forEach(function (event) {
+                console.log("event", event.id, event.type, event.data);
                 $scope.$emit(event.type, event);
             });
         };
@@ -142,7 +143,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
         // Update completion status for all nodes that we share this repo with.
         $scope.repos[data.repo].Nodes.forEach(function (nodeCfg) {
-            debouncedRefreshCompletion(nodeCfg.NodeID, data.repo);
+            refreshCompletion(nodeCfg.NodeID, data.repo);
         });
     });
 
@@ -188,27 +189,37 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
     })
 
+    var debouncedFuncs = {};
+
     function refreshRepo(repo) {
-        $http.get(urlbase + '/model?repo=' + encodeURIComponent(repo)).success(function (data) {
-            $scope.model[repo] = data;
-        });
+        var key = "refreshRepo" + repo;
+        if (!debouncedFuncs[key]) {
+            debouncedFuncs[key] = debounce(function () {
+                $http.get(urlbase + '/model?repo=' + encodeURIComponent(repo)).success(function (data) {
+                    $scope.model[repo] = data;
+                    console.log("refreshRepo", repo, data);
+                });
+            }, 1000, true);
+        }
+        debouncedFuncs[key]();
     }
 
     function refreshSystem() {
         $http.get(urlbase + '/system').success(function (data) {
             $scope.myID = data.myID;
             $scope.system = data;
+            console.log("refreshSystem", data);
         });
     }
 
-    var completionFuncs = {};
     function refreshCompletion(node, repo) {
         if (node === $scope.myID) {
             return
         }
 
-        if (!completionFuncs[node+repo]) {
-            completionFuncs[node+repo] = debounce(function () {
+        var key = "refreshCompletion" + node + repo;
+        if (!debouncedFuncs[key]) {
+            debouncedFuncs[key] = debounce(function () {
                 $http.get(urlbase + '/completion?node=' + node + '&repo=' + encodeURIComponent(repo)).success(function (data) {
                     if (!$scope.completion[node]) {
                         $scope.completion[node] = {};
@@ -217,14 +228,19 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
                     var tot = 0, cnt = 0;
                     for (var cmp in $scope.completion[node]) {
+                        if (cmp === "_total") {
+                            continue;
+                        }
                         tot += $scope.completion[node][cmp];
                         cnt += 1;
                     }
                     $scope.completion[node]._total = tot / cnt;
+
+                    console.log("refreshCompletion", node, repo, $scope.completion[node]);
                 });
-            });
+            }, 1000, true);
         }
-        completionFuncs[node+repo]();
+        debouncedFuncs[key]();
     }
 
     function refreshConnectionStats() {
@@ -247,12 +263,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
                 }
             }
             $scope.connections = data;
+            console.log("refreshConnections", data);
         });
     }
 
     function refreshErrors() {
         $http.get(urlbase + '/errors').success(function (data) {
             $scope.errors = data;
+            console.log("refreshErrors", data);
         });
     }
 
@@ -277,6 +295,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             if (!hasConfig) {
                 $scope.$emit('ConfigLoaded');
             }
+
+            console.log("refreshConfig", data);
         });
 
         $http.get(urlbase + '/config/sync').success(function (data) {
@@ -837,8 +857,8 @@ function isEmptyObject(obj) {
     return true;
 }
 
-function debounce(func, wait, immediate) {
-    var timeout, args, context, timestamp, result;
+function debounce(func, wait) {
+    var timeout, args, context, timestamp, result, again;
 
     var later = function() {
         var last = Date.now() - timestamp;
@@ -846,9 +866,10 @@ function debounce(func, wait, immediate) {
             timeout = setTimeout(later, wait - last);
         } else {
             timeout = null;
-            if (!immediate) {
+            if (again) {
                 result = func.apply(context, args);
                 context = args = null;
+                again = false;
             }
         }
     };
@@ -857,13 +878,13 @@ function debounce(func, wait, immediate) {
         context = this;
         args = arguments;
         timestamp = Date.now();
-        var callNow = immediate && !timeout;
+        var callNow = !timeout;
         if (!timeout) {
             timeout = setTimeout(later, wait);
-        }
-        if (callNow) {
             result = func.apply(context, args);
             context = args = null;
+        } else {
+            again = true;
         }
 
         return result;

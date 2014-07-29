@@ -294,7 +294,7 @@
                       <span translate>Up to Date</span> (100%)
                     </span>
                     <span ng-if="connections[nodeCfg.NodeID] && completion[nodeCfg.NodeID]._total < 100">
-                      <span translate>Syncing</span> ({{connections[nodeCfg.NodeID].Completion}}%)
+                      <span translate>Syncing</span> ({{completion[nodeCfg.NodeID]._total | number:0}}%)
                     </span>
                     <span translate ng-if="!connections[nodeCfg.NodeID]">Disconnected</span>
                   </span>
@@ -312,7 +312,7 @@
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-comment"></span>&emsp;<span translate>Synchronization</span></th>
-                        <td class="text-right">{{completion[nodeCfg.NodeID]._total | alwaysNumber}}%</td>
+                        <td class="text-right">{{completion[nodeCfg.NodeID]._total | alwaysNumber | number:0}}%</td>
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-compressed"></span>&emsp;<span translate>Use Compression</span></th>
