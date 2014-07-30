@@ -293,7 +293,9 @@ func main() {
 		rateBucket = ratelimit.NewBucketWithRate(float64(1000*cfg.Options.MaxSendKbps), int64(5*1000*cfg.Options.MaxSendKbps))
 	}
 
-	removeLegacyIndexes()
+	// If this is the first time the user runs v0.9, archive the old indexes and config.
+	archiveLegacyConfig()
+
 	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), nil)
 	if err != nil {
 		l.Fatalln("leveldb.OpenFile():", err)
@@ -536,14 +538,39 @@ func resetRepositories() {
 	os.RemoveAll(idx)
 }
 
-func removeLegacyIndexes() {
+func archiveLegacyConfig() {
 	pat := filepath.Join(confDir, "*.idx.gz*")
 	idxs, err := filepath.Glob(pat)
-	if err == nil {
-		for _, idx := range idxs {
-			l.Infof("Reset: Removing %s", idx)
-			os.Remove(idx)
+	if err == nil && len(idxs) > 0 {
+		// There are legacy indexes. This is probably the first time we run as v0.9.
+		backupDir := filepath.Join(confDir, "backup-of-v0.8")
+		err = os.MkdirAll(backupDir, 0700)
+		if err != nil {
+			l.Warnln("Cannot archive config/indexes:", err)
+			return
 		}
+
+		for _, idx := range idxs {
+			l.Infof("Archiving %s", filepath.Base(idx))
+			os.Rename(idx, filepath.Join(backupDir, filepath.Base(idx)))
+		}
+
+		src, err := os.Open(filepath.Join(confDir, "config.xml"))
+		if err != nil {
+			l.Warnf("Cannot archive config:", err)
+			return
+		}
+		defer src.Close()
+
+		dst, err := os.Create(filepath.Join(backupDir, "config.xml"))
+		if err != nil {
+			l.Warnf("Cannot archive config:", err)
+			return
+		}
+		defer src.Close()
+
+		l.Infoln("Archiving config.xml")
+		io.Copy(dst, src)
 	}
 }
 
