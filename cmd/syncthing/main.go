@@ -492,7 +492,7 @@ func setupUPnP(r rand.Source) int {
 	if len(cfg.Options.ListenAddress) == 1 {
 		_, portStr, err := net.SplitHostPort(cfg.Options.ListenAddress[0])
 		if err != nil {
-			l.Warnln(err)
+			l.Warnln("Bad listen address:", err)
 		} else {
 			// Set up incoming port forwarding, if necessary and possible
 			port, _ := strconv.Atoi(portStr)
@@ -562,7 +562,7 @@ func restart() {
 	}
 	pgm, err := exec.LookPath(os.Args[0])
 	if err != nil {
-		l.Warnln(err)
+		l.Warnln("Cannot restart:", err)
 		return
 	}
 	proc, err := os.StartProcess(pgm, os.Args, &os.ProcAttr{
@@ -586,26 +586,26 @@ func saveConfigLoop(cfgFile string) {
 	for _ = range saveConfigCh {
 		fd, err := os.Create(cfgFile + ".tmp")
 		if err != nil {
-			l.Warnln(err)
+			l.Warnln("Saving config:", err)
 			continue
 		}
 
 		err = config.Save(fd, cfg)
 		if err != nil {
-			l.Warnln(err)
+			l.Warnln("Saving config:", err)
 			fd.Close()
 			continue
 		}
 
 		err = fd.Close()
 		if err != nil {
-			l.Warnln(err)
+			l.Warnln("Saving config:", err)
 			continue
 		}
 
 		err = osutil.Rename(cfgFile+".tmp", cfgFile)
 		if err != nil {
-			l.Warnln(err)
+			l.Warnln("Saving config:", err)
 		}
 	}
 }
@@ -709,7 +709,7 @@ func listenTLS(conns chan *tls.Conn, addr string, tlsCfg *tls.Config) {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			l.Warnln(err)
+			l.Warnln("Accepting connection:", err)
 			continue
 		}
 
@@ -723,7 +723,7 @@ func listenTLS(conns chan *tls.Conn, addr string, tlsCfg *tls.Config) {
 		tc := tls.Server(conn, tlsCfg)
 		err = tc.Handshake()
 		if err != nil {
-			l.Warnln(err)
+			l.Infoln("TLS handshake:", err)
 			tc.Close()
 			continue
 		}
@@ -795,7 +795,7 @@ func dialTLS(m *model.Model, conns chan *tls.Conn, tlsCfg *tls.Config) {
 				tc := tls.Client(conn, tlsCfg)
 				err = tc.Handshake()
 				if err != nil {
-					l.Warnln(err)
+					l.Infoln("TLS handshake:", err)
 					tc.Close()
 					continue
 				}
