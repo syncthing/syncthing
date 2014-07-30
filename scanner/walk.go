@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 	"code.google.com/p/go.text/unicode/norm"
 
 	"github.com/calmh/syncthing/lamport"
@@ -60,18 +59,20 @@ type CurrentFiler interface {
 
 // Walk returns the list of files found in the local repository by scanning the
 // file system. Files are blockwise hashed.
-func (w *Walker) Walk() (files chan protocol.FileInfo, ignore map[string][]string, err error) {
+func (w *Walker) Walk() (chan protocol.FileInfo, map[string][]string, error) {
 	if debug {
 		l.Debugln("Walk", w.Dir, w.BlockSize, w.IgnoreFile)
 	}
 
-	err = checkDir(w.Dir)
+	err := checkDir(w.Dir)
 	if err != nil {
-		return
+		return nil, nil, err
 	}
 
-	ignore = make(map[string][]string)
-	files = make(chan protocol.FileInfo)
+	ignore := make(map[string][]string)
+	files := make(chan protocol.FileInfo)
+	hashedFiles := make(chan protocol.FileInfo)
+	newParallelHasher(w.Dir, w.BlockSize, runtime.NumCPU(), hashedFiles, files)
 	hashFiles := w.walkAndHashFiles(files, ignore)
 
 	go func() {
@@ -80,7 +81,7 @@ func (w *Walker) Walk() (files chan protocol.FileInfo, ignore map[string][]strin
 		close(files)
 	}()
 
-	return
+	return hashedFiles, ignore, nil
 }
 
 // CleanTempFiles removes all files that match the temporary filename pattern.
@@ -219,40 +220,17 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo, ign map[string][
 				}
 			}
 
-			fd, err := os.Open(p)
-			if err != nil {
-				if debug {
-					l.Debugln("open:", p, err)
-				}
-				return nil
-			}
-			defer fd.Close()
-
-			t0 := time.Now()
-			blocks, err := Blocks(fd, w.BlockSize)
-			if err != nil {
-				if debug {
-					l.Debugln("hash error:", rn, err)
-				}
-				return nil
-			}
-			if debug {
-				t1 := time.Now()
-				l.Debugln("hashed:", rn, ";", len(blocks), "blocks;", info.Size(), "bytes;", int(float64(info.Size())/1024/t1.Sub(t0).Seconds()), "KB/s")
-			}
-
 			var flags = uint32(info.Mode() & os.ModePerm)
 			if w.IgnorePerms {
 				flags = protocol.FlagNoPermBits | 0666
 			}
-			f := protocol.FileInfo{
+
+			fchan <- protocol.FileInfo{
 				Name:     rn,
 				Version:  lamport.Default.Tick(0),
 				Flags:    flags,
 				Modified: info.ModTime().Unix(),
-				Blocks:   blocks,
 			}
-			fchan <- f
 		}
 
 		return nil

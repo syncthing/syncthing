@@ -7,6 +7,7 @@ package scanner
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -39,6 +40,7 @@ func TestWalk(t *testing.T) {
 	for f := range fchan {
 		files = append(files, f)
 	}
+	sort.Sort(fileList(files))
 
 	if err != nil {
 		t.Fatal(err)
@@ -132,4 +134,18 @@ func TestIgnore(t *testing.T) {
 			t.Errorf("Incorrect ignoreFile() #%d; E: %v, A: %v", i, tc.r, r)
 		}
 	}
+}
+
+type fileList []protocol.FileInfo
+
+func (f fileList) Len() int {
+	return len(f)
+}
+
+func (f fileList) Less(a, b int) bool {
+	return f[a].Name < f[b].Name
+}
+
+func (f fileList) Swap(a, b int) {
+	f[a], f[b] = f[b], f[a]
 }
