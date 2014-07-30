@@ -97,6 +97,7 @@ type NodeConfiguration struct {
 	Name        string          `xml:"name,attr,omitempty"`
 	Addresses   []string        `xml:"address,omitempty"`
 	Compression bool            `xml:"compression,attr"`
+	CertName    string          `xml:"certName,attr,omitempty"`
 }
 
 type OptionsConfiguration struct {

@@ -633,7 +633,8 @@ next:
 			conn.Close()
 			continue
 		}
-		remoteID := protocol.NewNodeID(certs[0].Raw)
+		remoteCert := certs[0]
+		remoteID := protocol.NewNodeID(remoteCert.Raw)
 
 		if remoteID == myID {
 			l.Infof("Connected to myself (%s) - should not happen", remoteID)
@@ -649,10 +650,30 @@ next:
 
 		for _, nodeCfg := range cfg.Nodes {
 			if nodeCfg.NodeID == remoteID {
+				// Verify the name on the certificate. By default we set it to
+				// "syncthing" when generating, but the user may have replaced
+				// the certificate and used another name.
+				certName := nodeCfg.CertName
+				if certName == "" {
+					certName = "syncthing"
+				}
+				err := remoteCert.VerifyHostname(certName)
+				if err != nil {
+					// Incorrect certificate name is something the user most
+					// likely wants to know about, since it's an advanced
+					// config. Warn instead of Info.
+					l.Warnf("Bad certificate from %s (%v): %v", remoteID, conn.RemoteAddr(), err)
+					conn.Close()
+					continue next
+				}
+
+				// If rate limiting is set, we wrap the write side of the
+				// connection in a limiter.
 				var wr io.Writer = conn
 				if rateBucket != nil {
 					wr = &limitedWriter{conn, rateBucket}
 				}
+
 				name := fmt.Sprintf("%s-%s", conn.LocalAddr(), conn.RemoteAddr())
 				protoConn := protocol.NewConnection(remoteID, conn, wr, m, name, nodeCfg.Compression)
 
