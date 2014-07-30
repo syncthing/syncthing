@@ -22,7 +22,6 @@ check() {
 build() {
 	check
 	godep go build $* -ldflags "$ldflags" ./cmd/syncthing
-	godep go build $* -ldflags "$ldflags" ./cmd/discosrv
 }
 
 assets() {
