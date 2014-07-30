@@ -104,8 +104,9 @@ xdr() {
 
 transifex() {
 	pushd gui
-	go run ../cmd/transifexdl/main.go
+	go run ../cmd/transifexdl/main.go > valid-langs.js
 	popd
+	assets
 }
 
 case "$1" in

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -66,6 +67,7 @@ func main() {
 	}
 
 	sort.Strings(langs)
+	fmt.Print("var validLangs = ")
 	json.NewEncoder(os.Stdout).Encode(langs)
 }
 
