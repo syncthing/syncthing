@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"strconv"
 	"strings"
 )
@@ -17,17 +16,114 @@ type githubAsset struct {
 	Name string `json:"name"`
 }
 
+// Returns 1 if a>b, -1 if a<b and 0 if they are equal
 func compareVersions(a, b string) int {
-	return bytes.Compare(versionParts(a), versionParts(b))
+	arel, apre := versionParts(a)
+	brel, bpre := versionParts(b)
+
+	minlen := len(arel)
+	if l := len(brel); l < minlen {
+		minlen = l
+	}
+
+	// First compare major-minor-patch versions
+	for i := 0; i < minlen; i++ {
+		if arel[i] < brel[i] {
+			return -1
+		}
+		if arel[i] > brel[i] {
+			return 1
+		}
+	}
+
+	// Longer version is newer, when the preceding parts are equal
+	if len(arel) < len(brel) {
+		return -1
+	}
+	if len(arel) > len(brel) {
+		return 1
+	}
+
+	// Prerelease versions are older, if the versions are the same
+	if len(apre) == 0 && len(bpre) > 0 {
+		return 1
+	}
+	if len(apre) > 0 && len(bpre) == 0 {
+		return -1
+	}
+
+	minlen = len(apre)
+	if l := len(bpre); l < minlen {
+		minlen = l
+	}
+
+	// Compare prerelease strings
+	for i := 0; i < minlen; i++ {
+		switch av := apre[i].(type) {
+		case int:
+			switch bv := bpre[i].(type) {
+			case int:
+				if av < bv {
+					return -1
+				}
+				if av > bv {
+					return 1
+				}
+			case string:
+				return -1
+			}
+		case string:
+			switch bv := bpre[i].(type) {
+			case int:
+				return 1
+			case string:
+				if av < bv {
+					return -1
+				}
+				if av > bv {
+					return 1
+				}
+			}
+		}
+	}
+
+	// If all else is equal, longer prerelease string is newer
+	if len(apre) < len(bpre) {
+		return -1
+	}
+	if len(apre) > len(bpre) {
+		return 1
+	}
+
+	// Looks like they're actually the same
+	return 0
 }
 
-func versionParts(v string) []byte {
-	parts := strings.Split(v, "-")
+// Split a version into parts.
+// "1.2.3-beta.2" -> []int{1, 2, 3}, []interface{}{"beta", 2}
+func versionParts(v string) ([]int, []interface{}) {
+	parts := strings.SplitN(v, "-", 2)
 	fields := strings.Split(parts[0], ".")
-	res := make([]byte, len(fields))
+
+	release := make([]int, len(fields))
 	for i, s := range fields {
 		v, _ := strconv.Atoi(s)
-		res[i] = byte(v)
+		release[i] = v
 	}
-	return res
+
+	var prerelease []interface{}
+	if len(parts) > 1 {
+		fields = strings.Split(parts[1], ".")
+		prerelease = make([]interface{}, len(fields))
+		for i, s := range fields {
+			v, err := strconv.Atoi(s)
+			if err == nil {
+				prerelease[i] = v
+			} else {
+				prerelease[i] = s
+			}
+		}
+	}
+
+	return release, prerelease
 }
