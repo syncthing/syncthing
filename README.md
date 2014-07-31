@@ -3,6 +3,8 @@ syncthing
 
 [![Build Status](https://img.shields.io/travis/calmh/syncthing.svg?style=flat)](https://travis-ci.org/calmh/syncthing)
 [![Coverage Status](https://img.shields.io/coveralls/calmh/syncthing.svg?style=flat)](https://coveralls.io/r/calmh/syncthing?branch=master)
+[![API Documentation](http://img.shields.io/badge/api-Godoc-blue.svg?style=flat)](http://godoc.org/github.com/calmh/syncthing)
+[![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](http://opensource.org/licenses/MIT)
 
 This is the `syncthing` project. The following are the project goals:
 
