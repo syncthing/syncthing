@@ -2,6 +2,8 @@
 // All rights reserved. Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
+// Package versioner implements common interfaces for file versioning and a
+// simple default versioning scheme.
 package versioner
 
 type Versioner interface {
