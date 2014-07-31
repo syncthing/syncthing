@@ -93,6 +93,10 @@ func currentRelease() (githubRelease, error) {
 	json.NewDecoder(resp.Body).Decode(&rels)
 	resp.Body.Close()
 
+	if len(rels) == 0 {
+		return githubRelease{}, errors.New("no releases found")
+	}
+
 	if strings.Contains(Version, "-beta") {
 		// We are a beta version. Use whatever we can find that is newer-or-equal than current.
 		for _, rel := range rels {
