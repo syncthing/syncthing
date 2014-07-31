@@ -162,7 +162,7 @@ func main() {
 	if doUpgradeCheck {
 		rel, err := currentRelease()
 		if err != nil {
-			log.Fatalln(err) // exits 1
+			l.Fatalln(err) // exits 1
 		}
 
 		switch compareVersions(rel.Tag, Version) {
