@@ -571,6 +571,7 @@
                   <label translate for="RescanIntervalS">Rescan Interval (s)</label>
                   <input id="RescanIntervalS" class="form-control" type="number" ng-model="tmpOptions.RescanIntervalS">
                 </div>
+                <!--
                 <div class="form-group">
                   <label translate for="ReconnectIntervalS">Reconnect Interval (s)</label>
                   <input id="ReconnectIntervalS" class="form-control" type="number" ng-model="tmpOptions.ReconnectIntervalS">
@@ -583,6 +584,15 @@
                   <label translate for="MaxChangeKbps">Max File Change Rate (KiB/s)</label>
                   <input id="MaxChangeKbps" class="form-control" type="number" ng-model="tmpOptions.MaxChangeKbps">
                 </div>
+                -->
+                <div class="form-group">
+                  <div class="checkbox">
+                    <label>
+                      <span translate>Enable UPnP</span> <input id="UPnPEnabled" type="checkbox" ng-model="tmpOptions.UPnPEnabled">
+                    </label>
+                  </div>
+                </div>
+
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
@@ -602,11 +612,8 @@
                   </div>
                 </div>
                 <div class="form-group">
-                  <div class="checkbox">
-                    <label>
-                      <span translate>Enable UPnP</span> <input id="UPnPEnabled" type="checkbox" ng-model="tmpOptions.UPnPEnabled">
-                    </label>
-                  </div>
+                  <label translate for="GlobalAnnServer">Global Discovery Server</label>
+                  <input ng-disabled="!tmpOptions.GlobalAnnEnabled" id="GlobalAnnServer" class="form-control" type="text" ng-model="tmpOptions.GlobalAnnServer">
                 </div>
               </div>
 
@@ -637,23 +644,20 @@
                     </label>
                   </div>
                 </div>
-
-                <hr/>
-
-                <div class="form-group">
-                  <label><span translate>API Key</span> (<a translate href="http://discourse.syncthing.net/t/v0-8-14-api-keys/335">Usage</a>)</label>
-                  <div class="well well-sm text-monospace">{{tmpGUI.APIKey || "-"}}</div>
-                  <button translate type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(tmpGUI)">Generate</button>
-                </div>
-
-                <hr/>
-
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
                       <span translate>Anonymous Usage Reporting</span> <input id="UREnabled" type="checkbox" ng-model="tmpOptions.UREnabled">
                     </label>
                   </div>
+                </div>
+
+                <hr />
+
+                <div class="form-group">
+                  <label><span translate>API Key</span></label>
+                  <div class="well well-sm text-monospace">{{tmpGUI.APIKey || "-"}}</div>
+                  <button translate type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(tmpGUI)">Generate</button>
                 </div>
               </div>
 
