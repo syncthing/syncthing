@@ -89,11 +89,11 @@ deps() {
 }
 
 setup() {
-	go get -v -u code.google.com/p/go.tools/cmd/cover
-	go get -v -u code.google.com/p/go.tools/cmd/vet
-	go get -v -u github.com/mattn/goveralls
-	go get -v -u github.com/tools/godep
-	go get -v -t ./...
+	go get -v code.google.com/p/go.tools/cmd/cover
+	go get -v code.google.com/p/go.tools/cmd/vet
+	go get -v github.com/mattn/goveralls
+	go get -v github.com/tools/godep
+	GOPATH="$GOPATH:$(godep path)" go get -v -t ./...
 }
 
 xdr() {
