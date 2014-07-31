@@ -131,6 +131,13 @@ func TestNodeConfig(t *testing.T) {
 		if !reflect.DeepEqual(cfg.Repositories[0].NodeIDs(), expectedNodeIDs) {
 			t.Errorf("%d: Incorrect NodeIDs\n  A: %#v\n  E: %#v", i, cfg.Repositories[0].NodeIDs(), expectedNodeIDs)
 		}
+
+		if len(cfg.NodeMap()) != len(expectedNodes) {
+			t.Errorf("Unexpected number of NodeMap() entries")
+		}
+		if len(cfg.RepoMap()) != len(expectedRepos) {
+			t.Errorf("Unexpected number of RepoMap() entries")
+		}
 	}
 }
 
@@ -289,5 +296,39 @@ func TestNodeAddressesStatic(t *testing.T) {
 
 	if !reflect.DeepEqual(cfg.Nodes, expected) {
 		t.Errorf("Nodes differ;\n  E: %#v\n  A: %#v", expected, cfg.Nodes)
+	}
+}
+
+func TestVersioningConfig(t *testing.T) {
+	data := []byte(`
+		<configuration version="2">
+			<repository id="test" directory="~/Sync" ro="true">
+				<versioning type="simple">
+					<param key="foo" val="bar"/>
+					<param key="baz" val="quux"/>
+				</versioning>
+			</repository>
+		</configuration>
+		`)
+
+	cfg, err := Load(bytes.NewReader(data), node4)
+	if err != nil {
+		t.Error(err)
+	}
+
+	vc := cfg.Repositories[0].Versioning
+	if vc.Type != "simple" {
+		t.Errorf(`vc.Type %q != "simple"`, vc.Type)
+	}
+	if l := len(vc.Params); l != 2 {
+		t.Errorf("len(vc.Params) %d != 2", l)
+	}
+
+	expected := map[string]string{
+		"foo": "bar",
+		"baz": "quux",
+	}
+	if !reflect.DeepEqual(vc.Params, expected) {
+		t.Errorf("vc.Params differ;\n  E: %#v\n  A: %#v", expected, vc.Params)
 	}
 }
