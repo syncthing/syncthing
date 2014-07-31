@@ -2,7 +2,7 @@
 // All rights reserved. Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-package main
+package upgrade
 
 import "testing"
 
@@ -32,7 +32,7 @@ var testcases = []struct {
 
 func TestCompareVersions(t *testing.T) {
 	for _, tc := range testcases {
-		if r := compareVersions(tc.a, tc.b); r != tc.r {
+		if r := CompareVersions(tc.a, tc.b); r != tc.r {
 			t.Errorf("compareVersions(%q, %q): %d != %d", tc.a, tc.b, r, tc.r)
 		}
 	}

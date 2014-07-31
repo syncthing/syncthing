@@ -32,6 +32,7 @@ import (
 	"github.com/calmh/syncthing/logger"
 	"github.com/calmh/syncthing/model"
 	"github.com/calmh/syncthing/protocol"
+	"github.com/calmh/syncthing/upgrade"
 	"github.com/vitrun/qart/qr"
 )
 
@@ -463,7 +464,7 @@ func restGetEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func restGetUpgrade(w http.ResponseWriter, r *http.Request) {
-	rel, err := currentRelease()
+	rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -471,7 +472,7 @@ func restGetUpgrade(w http.ResponseWriter, r *http.Request) {
 	res := make(map[string]interface{})
 	res["running"] = Version
 	res["latest"] = rel.Tag
-	res["newer"] = compareVersions(rel.Tag, Version) == 1
+	res["newer"] = upgrade.CompareVersions(rel.Tag, Version) == 1
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
@@ -505,14 +506,23 @@ func restGetLang(w http.ResponseWriter, r *http.Request) {
 }
 
 func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
-	err := upgrade()
+	rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
 	if err != nil {
 		l.Warnln(err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	restPostRestart(w, r)
+	if upgrade.CompareVersions(rel.Tag, Version) == 1 {
+		err = upgrade.UpgradeTo(rel)
+		if err != nil {
+			l.Warnln(err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		restPostRestart(w, r)
+	}
 }
 
 func getQR(w http.ResponseWriter, r *http.Request) {

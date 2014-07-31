@@ -33,6 +33,7 @@ import (
 	"github.com/calmh/syncthing/model"
 	"github.com/calmh/syncthing/osutil"
 	"github.com/calmh/syncthing/protocol"
+	"github.com/calmh/syncthing/upgrade"
 	"github.com/calmh/syncthing/upnp"
 	"github.com/juju/ratelimit"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -148,33 +149,28 @@ func main() {
 
 	l.SetFlags(logFlags)
 
-	if doUpgrade {
-		err := upgrade()
-		if err == errVersionUpToDate {
-			os.Exit(2)
-		}
+	if doUpgrade || doUpgradeCheck {
+		rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
 		if err != nil {
-			l.Fatalln(err) // exits 1
-		}
-		return
-	}
-
-	if doUpgradeCheck {
-		rel, err := currentRelease()
-		if err != nil {
-			l.Fatalln(err) // exits 1
+			l.Fatalln("Upgrade:", err) // exits 1
 		}
 
-		switch compareVersions(rel.Tag, Version) {
-		case -1:
-			l.Okf("Current version %s is newer than latest release %s.", Version, rel.Tag)
+		if upgrade.CompareVersions(rel.Tag, Version) <= 0 {
+			l.Infof("No upgrade available (current %q >= latest %q).", Version, rel.Tag)
 			os.Exit(2)
-		case 0:
-			l.Okf("Already running the latest version, %s. Not upgrading.", Version)
-			os.Exit(2)
-		default:
-			l.Infof("An upgrade to %s is available.", rel.Tag)
-			os.Exit(0)
+		}
+
+		l.Infof("Upgrade available (current %q < latest %q)", Version, rel.Tag)
+
+		if doUpgrade {
+			err = upgrade.UpgradeTo(rel)
+			if err != nil {
+				l.Fatalln("Upgrade:", err) // exits 1
+			}
+			l.Okf("Upgraded to %q", rel.Tag)
+			return
+		} else {
+			return
 		}
 	}
 

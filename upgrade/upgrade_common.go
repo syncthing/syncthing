@@ -1,4 +1,8 @@
-package main
+// Copyright (C) 2014 Jakob Borg and Contributors (see the CONTRIBUTORS file).
+// All rights reserved. Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
+package upgrade
 
 import (
 	"errors"
@@ -6,25 +10,25 @@ import (
 	"strings"
 )
 
-type githubRelease struct {
-	Tag        string        `json:"tag_name"`
-	Prerelease bool          `json:"prerelease"`
-	Assets     []githubAsset `json:"assets"`
+type Release struct {
+	Tag        string  `json:"tag_name"`
+	Prerelease bool    `json:"prerelease"`
+	Assets     []Asset `json:"assets"`
 }
 
-type githubAsset struct {
+type Asset struct {
 	URL  string `json:"url"`
 	Name string `json:"name"`
 }
 
 var (
-	errVersionUpToDate    = errors.New("current version is up to date")
-	errVersionUnknown     = errors.New("couldn't fetch release information")
-	errUpgradeUnsupported = errors.New("upgrade unsupported")
+	ErrVersionUpToDate    = errors.New("current version is up to date")
+	ErrVersionUnknown     = errors.New("couldn't fetch release information")
+	ErrUpgradeUnsupported = errors.New("upgrade unsupported")
 )
 
 // Returns 1 if a>b, -1 if a<b and 0 if they are equal
-func compareVersions(a, b string) int {
+func CompareVersions(a, b string) int {
 	arel, apre := versionParts(a)
 	brel, bpre := versionParts(b)
 

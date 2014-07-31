@@ -4,7 +4,7 @@
 
 // +build !solaris,!windows,!noupgrade
 
-package main
+package upgrade
 
 import (
 	"archive/tar"
@@ -25,39 +25,23 @@ import (
 
 var GoArchExtra string // "", "v5", "v6", "v7"
 
-func upgrade() error {
+// Upgrade to the given release, saving the previous binary with a ".old" extension.
+func UpgradeTo(rel Release) error {
 	path, err := osext.Executable()
 	if err != nil {
 		return err
-	}
-
-	rel, err := currentRelease()
-	if err != nil {
-		return err
-	}
-
-	switch compareVersions(rel.Tag, Version) {
-	case -1:
-		l.Okf("Current version %s is newer than latest release %s. Not upgrading.", Version, rel.Tag)
-		return errVersionUpToDate
-	case 0:
-		l.Okf("Already running the latest version, %s. Not upgrading.", Version)
-		return errVersionUpToDate
-	default:
-		l.Infof("Attempting upgrade to %s...", rel.Tag)
 	}
 
 	expectedRelease := fmt.Sprintf("syncthing-%s-%s%s-%s.", runtime.GOOS, runtime.GOARCH, GoArchExtra, rel.Tag)
 	for _, asset := range rel.Assets {
 		if strings.HasPrefix(asset.Name, expectedRelease) {
 			if strings.HasSuffix(asset.Name, ".tar.gz") {
-				l.Infof("Downloading %s...", asset.Name)
 				fname, err := readTarGZ(asset.URL, filepath.Dir(path))
 				if err != nil {
 					return err
 				}
 
-				old := path + "." + Version
+				old := path + ".old"
 				err = os.Rename(path, old)
 				if err != nil {
 					return err
@@ -66,43 +50,34 @@ func upgrade() error {
 				if err != nil {
 					return err
 				}
-
-				l.Okf("Upgraded %q to %s.", path, rel.Tag)
-				l.Okf("Previous version saved in %q.", old)
-
 				return nil
 			}
 		}
 	}
 
-	return errVersionUnknown
+	return ErrVersionUnknown
 }
 
-func currentRelease() (githubRelease, error) {
+// Returns the latest release, including prereleases or not depending on the argument
+func LatestRelease(prerelease bool) (Release, error) {
 	resp, err := http.Get("https://api.github.com/repos/calmh/syncthing/releases?per_page=10")
 	if err != nil {
-		return githubRelease{}, err
+		return Release{}, err
 	}
 	if resp.StatusCode > 299 {
-		return githubRelease{}, fmt.Errorf("API call returned HTTP error: %s", resp.Status)
+		return Release{}, fmt.Errorf("API call returned HTTP error: %s", resp.Status)
 	}
 
-	var rels []githubRelease
+	var rels []Release
 	json.NewDecoder(resp.Body).Decode(&rels)
 	resp.Body.Close()
 
 	if len(rels) == 0 {
-		return githubRelease{}, errVersionUnknown
+		return Release{}, ErrVersionUnknown
 	}
 
-	if strings.Contains(Version, "-beta") {
-		// We are a beta version. Use whatever we can find that is newer-or-equal than current.
-		for _, rel := range rels {
-			if compareVersions(rel.Tag, Version) >= 0 {
-				return rel, nil
-			}
-		}
-		// We found nothing. Return the latest release and let the next layer decide.
+	if prerelease {
+		// We are a beta version. Use the latest.
 		return rels[0], nil
 	} else {
 		// We are a regular release. Only consider non-prerelease versions for upgrade.
@@ -111,7 +86,7 @@ func currentRelease() (githubRelease, error) {
 				return rel, nil
 			}
 		}
-		return githubRelease{}, errVersionUnknown
+		return Release{}, ErrVersionUnknown
 	}
 }
 
