@@ -26,6 +26,11 @@ import (
 
 var GoArchExtra string // "", "v5", "v6", "v7"
 
+var (
+	errVersionUpToDate = errors.New("current version is up to date")
+	errVersionUnknown  = errors.New("couldn't fetch release information")
+)
+
 func upgrade() error {
 	if runtime.GOOS == "windows" {
 		return errors.New("Upgrade currently unsupported on Windows")
@@ -44,10 +49,10 @@ func upgrade() error {
 	switch compareVersions(rel.Tag, Version) {
 	case -1:
 		l.Okf("Current version %s is newer than latest release %s. Not upgrading.", Version, rel.Tag)
-		return nil
+		return errVersionUpToDate
 	case 0:
 		l.Okf("Already running the latest version, %s. Not upgrading.", Version)
-		return nil
+		return errVersionUpToDate
 	default:
 		l.Infof("Attempting upgrade to %s...", rel.Tag)
 	}
@@ -80,7 +85,7 @@ func upgrade() error {
 		}
 	}
 
-	return fmt.Errorf("Found no asset for %q", expectedRelease)
+	return errVersionUnknown
 }
 
 func currentRelease() (githubRelease, error) {
@@ -88,13 +93,16 @@ func currentRelease() (githubRelease, error) {
 	if err != nil {
 		return githubRelease{}, err
 	}
+	if resp.StatusCode > 299 {
+		return githubRelease{}, fmt.Errorf("API call returned HTTP error: %s", resp.Status)
+	}
 
 	var rels []githubRelease
 	json.NewDecoder(resp.Body).Decode(&rels)
 	resp.Body.Close()
 
 	if len(rels) == 0 {
-		return githubRelease{}, errors.New("no releases found")
+		return githubRelease{}, errVersionUnknown
 	}
 
 	if strings.Contains(Version, "-beta") {
@@ -113,7 +121,7 @@ func currentRelease() (githubRelease, error) {
 				return rel, nil
 			}
 		}
-		return githubRelease{}, errors.New("no suitable release found")
+		return githubRelease{}, errVersionUnknown
 	}
 }
 

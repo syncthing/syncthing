@@ -131,10 +131,12 @@ func main() {
 	var reset bool
 	var showVersion bool
 	var doUpgrade bool
+	var doUpgradeCheck bool
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
+	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.IntVar(&logFlags, "logflags", logFlags, "Set log flags")
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
 	flag.Parse()
@@ -148,10 +150,32 @@ func main() {
 
 	if doUpgrade {
 		err := upgrade()
+		if err == errVersionUpToDate {
+			os.Exit(2)
+		}
 		if err != nil {
-			l.Fatalln(err)
+			l.Fatalln(err) // exits 1
 		}
 		return
+	}
+
+	if doUpgradeCheck {
+		rel, err := currentRelease()
+		if err != nil {
+			log.Fatalln(err) // exits 1
+		}
+
+		switch compareVersions(rel.Tag, Version) {
+		case -1:
+			l.Okf("Current version %s is newer than latest release %s.", Version, rel.Tag)
+			os.Exit(2)
+		case 0:
+			l.Okf("Already running the latest version, %s. Not upgrading.", Version)
+			os.Exit(2)
+		default:
+			l.Infof("An upgrade to %s is available.", rel.Tag)
+			os.Exit(0)
+		}
 	}
 
 	if len(os.Getenv("GOGC")) == 0 {

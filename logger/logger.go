@@ -128,7 +128,7 @@ func (l *Logger) Fatalln(vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
 	l.logger.Output(2, "FATAL: "+s)
 	l.callHandlers(LevelFatal, s)
-	os.Exit(3)
+	os.Exit(1)
 }
 
 func (l *Logger) Fatalf(format string, vals ...interface{}) {
@@ -137,7 +137,7 @@ func (l *Logger) Fatalf(format string, vals ...interface{}) {
 	s := fmt.Sprintf(format, vals...)
 	l.logger.Output(2, "FATAL: "+s)
 	l.callHandlers(LevelFatal, s)
-	os.Exit(3)
+	os.Exit(1)
 }
 
 func (l *Logger) FatalErr(err error) {
@@ -147,6 +147,6 @@ func (l *Logger) FatalErr(err error) {
 		l.logger.SetFlags(l.logger.Flags() | log.Lshortfile)
 		l.logger.Output(2, "FATAL: "+err.Error())
 		l.callHandlers(LevelFatal, err.Error())
-		os.Exit(3)
+		os.Exit(1)
 	}
 }
