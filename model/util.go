@@ -5,49 +5,9 @@
 package model
 
 import (
-	"fmt"
 	"sync"
 	"time"
-
-	"github.com/calmh/syncthing/protocol"
 )
-
-func cmMap(cm protocol.ClusterConfigMessage) map[string]map[protocol.NodeID]uint32 {
-	m := make(map[string]map[protocol.NodeID]uint32)
-	for _, repo := range cm.Repositories {
-		m[repo.ID] = make(map[protocol.NodeID]uint32)
-		for _, node := range repo.Nodes {
-			var id protocol.NodeID
-			copy(id[:], node.ID)
-			m[repo.ID][id] = node.Flags
-		}
-	}
-	return m
-}
-
-type ClusterConfigMismatch error
-
-// compareClusterConfig returns nil for two equivalent configurations,
-// otherwise a descriptive error
-func compareClusterConfig(local, remote protocol.ClusterConfigMessage) error {
-	lm := cmMap(local)
-	rm := cmMap(remote)
-
-	for repo, lnodes := range lm {
-		_ = lnodes
-		if rnodes, ok := rm[repo]; ok {
-			for node, lflags := range lnodes {
-				if rflags, ok := rnodes[node]; ok {
-					if lflags&protocol.FlagShareBits != rflags&protocol.FlagShareBits {
-						return ClusterConfigMismatch(fmt.Errorf("remote has different sharing flags for node %q in repository %q", node, repo))
-					}
-				}
-			}
-		}
-	}
-
-	return nil
-}
 
 func deadlockDetect(mut sync.Locker, timeout time.Duration) {
 	go func() {

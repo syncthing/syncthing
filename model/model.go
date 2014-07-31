@@ -396,17 +396,6 @@ func (m *Model) repoSharedWith(repo string, nodeID protocol.NodeID) bool {
 }
 
 func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterConfigMessage) {
-	compErr := compareClusterConfig(m.clusterConfig(nodeID), config)
-	if debug {
-		l.Debugf("ClusterConfig: %s: %#v", nodeID, config)
-		l.Debugf("  ... compare: %s: %v", nodeID, compErr)
-	}
-
-	if compErr != nil {
-		l.Warnf("%s: %v", nodeID, compErr)
-		m.Close(nodeID, compErr)
-	}
-
 	m.pmut.Lock()
 	if config.ClientName == "syncthing" {
 		m.nodeVer[nodeID] = config.ClientVersion
