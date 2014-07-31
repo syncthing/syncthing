@@ -2,10 +2,6 @@
 
 package main
 
-import "errors"
-
-var errUpgradeUnsupported = errors.New("Automatic upgrade not supported")
-
 func upgrade() error {
 	return errUpgradeUnsupported
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 )
@@ -15,6 +16,12 @@ type githubAsset struct {
 	URL  string `json:"url"`
 	Name string `json:"name"`
 }
+
+var (
+	errVersionUpToDate    = errors.New("current version is up to date")
+	errVersionUnknown     = errors.New("couldn't fetch release information")
+	errUpgradeUnsupported = errors.New("upgrade unsupported")
+)
 
 // Returns 1 if a>b, -1 if a<b and 0 if they are equal
 func compareVersions(a, b string) int {

@@ -10,7 +10,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,16 +25,7 @@ import (
 
 var GoArchExtra string // "", "v5", "v6", "v7"
 
-var (
-	errVersionUpToDate = errors.New("current version is up to date")
-	errVersionUnknown  = errors.New("couldn't fetch release information")
-)
-
 func upgrade() error {
-	if runtime.GOOS == "windows" {
-		return errors.New("Upgrade currently unsupported on Windows")
-	}
-
 	path, err := osext.Executable()
 	if err != nil {
 		return err
