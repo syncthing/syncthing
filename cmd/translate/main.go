@@ -75,4 +75,5 @@ func main() {
 		log.Fatal(err)
 	}
 	os.Stdout.Write(bs)
+	os.Stdout.WriteString("\n")
 }

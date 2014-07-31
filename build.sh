@@ -101,6 +101,13 @@ xdr() {
 	done
 }
 
+translate() {
+	pushd gui
+	go run ../cmd/translate/main.go lang-en.json < index.html > lang-en-new.json
+	mv lang-en-new.json lang-en.json
+	popd
+}
+
 transifex() {
 	pushd gui
 	go run ../cmd/transifexdl/main.go > valid-langs.js
@@ -212,6 +219,10 @@ case "$1" in
 
 	xdr)
 		xdr
+		;;
+
+	translate)
+		translate
 		;;
 
 	transifex)
