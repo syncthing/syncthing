@@ -126,13 +126,19 @@ func (o Announce) AppendXDR(bs []byte) []byte {
 
 func (o Announce) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint32(o.Magic)
-	o.This.encodeXDR(xw)
+	_, err := o.This.encodeXDR(xw)
+	if err != nil {
+		return xw.Tot(), err
+	}
 	if len(o.Extra) > 16 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteUint32(uint32(len(o.Extra)))
 	for i := range o.Extra {
-		o.Extra[i].encodeXDR(xw)
+		_, err := o.Extra[i].encodeXDR(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
 	}
 	return xw.Tot(), xw.Error()
 }
@@ -216,7 +222,10 @@ func (o Node) encodeXDR(xw *xdr.Writer) (int, error) {
 	}
 	xw.WriteUint32(uint32(len(o.Addresses)))
 	for i := range o.Addresses {
-		o.Addresses[i].encodeXDR(xw)
+		_, err := o.Addresses[i].encodeXDR(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
 	}
 	return xw.Tot(), xw.Error()
 }

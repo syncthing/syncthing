@@ -5,12 +5,19 @@
 package protocol
 
 import (
+	"bytes"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
+	"reflect"
 	"testing"
 	"testing/quick"
 
 	"github.com/calmh/syncthing/xdr"
+	pretty "github.com/tonnerre/golang-pretty"
 )
 
 var (
@@ -229,4 +236,125 @@ func TestClose(t *testing.T) {
 	if _, err := c0.Request("default", "foo", 0, 0); err == nil {
 		t.Error("Request should return an error")
 	}
+}
+
+func TestElementSizeExceededNested(t *testing.T) {
+	m := ClusterConfigMessage{
+		Repositories: []Repository{
+			{ID: "longstringlongstringlongstringinglongstringlongstringlonlongstringlongstringlon"},
+		},
+	}
+	_, err := m.EncodeXDR(ioutil.Discard)
+	if err == nil {
+		t.Errorf("ID length %d > max 64, but no error", len(m.Repositories[0].ID))
+	}
+}
+
+func TestMarshalIndexMessage(t *testing.T) {
+	f := func(m1 IndexMessage) bool {
+		for _, f := range m1.Files {
+			for i := range f.Blocks {
+				f.Blocks[i].Offset = 0
+				if len(f.Blocks[i].Hash) == 0 {
+					f.Blocks[i].Hash = nil
+				}
+			}
+		}
+
+		return testMarshal(t, "index", &m1, &IndexMessage{})
+	}
+
+	if err := quick.Check(f, &quick.Config{MaxCountScale: 10}); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestMarshalRequestMessage(t *testing.T) {
+	f := func(m1 RequestMessage) bool {
+		return testMarshal(t, "request", &m1, &RequestMessage{})
+	}
+
+	if err := quick.Check(f, &quick.Config{MaxCountScale: 10}); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestMarshalResponseMessage(t *testing.T) {
+	f := func(m1 ResponseMessage) bool {
+		if len(m1.Data) == 0 {
+			m1.Data = nil
+		}
+		return testMarshal(t, "response", &m1, &ResponseMessage{})
+	}
+
+	if err := quick.Check(f, &quick.Config{MaxCountScale: 10}); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestMarshalClusterConfigMessage(t *testing.T) {
+	f := func(m1 ClusterConfigMessage) bool {
+		return testMarshal(t, "clusterconfig", &m1, &ClusterConfigMessage{})
+	}
+
+	if err := quick.Check(f, &quick.Config{MaxCountScale: 10}); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestMarshalCloseMessage(t *testing.T) {
+	f := func(m1 CloseMessage) bool {
+		return testMarshal(t, "close", &m1, &CloseMessage{})
+	}
+
+	if err := quick.Check(f, &quick.Config{MaxCountScale: 10}); err != nil {
+		t.Error(err)
+	}
+}
+
+type message interface {
+	EncodeXDR(io.Writer) (int, error)
+	DecodeXDR(io.Reader) error
+}
+
+func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
+	var buf bytes.Buffer
+
+	failed := func(bc []byte) {
+		f, _ := os.Create(prefix + "-1.txt")
+		pretty.Fprintf(f, "%# v", m1)
+		f.Close()
+		f, _ = os.Create(prefix + "-2.txt")
+		pretty.Fprintf(f, "%# v", m2)
+		f.Close()
+		if len(bc) > 0 {
+			f, _ := os.Create(prefix + "-data.txt")
+			fmt.Fprint(f, hex.Dump(bc))
+			f.Close()
+		}
+	}
+
+	_, err := m1.EncodeXDR(&buf)
+	if err == xdr.ErrElementSizeExceeded {
+		return true
+	}
+	if err != nil {
+		failed(nil)
+		t.Fatal(err)
+	}
+
+	bc := make([]byte, len(buf.Bytes()))
+	copy(bc, buf.Bytes())
+
+	err = m2.DecodeXDR(&buf)
+	if err != nil {
+		failed(bc)
+		t.Fatal(err)
+	}
+
+	ok := reflect.DeepEqual(m1, m2)
+	if !ok {
+		failed(bc)
+	}
+	return ok
 }

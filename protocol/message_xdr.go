@@ -66,7 +66,10 @@ func (o IndexMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteString(o.Repository)
 	xw.WriteUint32(uint32(len(o.Files)))
 	for i := range o.Files {
-		o.Files[i].encodeXDR(xw)
+		_, err := o.Files[i].encodeXDR(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
 	}
 	return xw.Tot(), xw.Error()
 }
@@ -165,7 +168,10 @@ func (o FileInfo) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint64(o.LocalVersion)
 	xw.WriteUint32(uint32(len(o.Blocks)))
 	for i := range o.Blocks {
-		o.Blocks[i].encodeXDR(xw)
+		_, err := o.Blocks[i].encodeXDR(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
 	}
 	return xw.Tot(), xw.Error()
 }
@@ -476,14 +482,20 @@ func (o ClusterConfigMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 	}
 	xw.WriteUint32(uint32(len(o.Repositories)))
 	for i := range o.Repositories {
-		o.Repositories[i].encodeXDR(xw)
+		_, err := o.Repositories[i].encodeXDR(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
 	}
 	if len(o.Options) > 64 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteUint32(uint32(len(o.Options)))
 	for i := range o.Options {
-		o.Options[i].encodeXDR(xw)
+		_, err := o.Options[i].encodeXDR(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
 	}
 	return xw.Tot(), xw.Error()
 }
@@ -575,7 +587,10 @@ func (o Repository) encodeXDR(xw *xdr.Writer) (int, error) {
 	}
 	xw.WriteUint32(uint32(len(o.Nodes)))
 	for i := range o.Nodes {
-		o.Nodes[i].encodeXDR(xw)
+		_, err := o.Nodes[i].encodeXDR(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
 	}
 	return xw.Tot(), xw.Error()
 }

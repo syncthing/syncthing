@@ -84,7 +84,10 @@ func (o {{.TypeName}}) encodeXDR(xw *xdr.Writer) (int, error) {
 				{{end}}
 				xw.Write{{$fieldInfo.Encoder}}(o.{{$fieldInfo.Name}})
 			{{else}}
-				o.{{$fieldInfo.Name}}.encodeXDR(xw)
+				_, err := o.{{$fieldInfo.Name}}.encodeXDR(xw)
+				if err != nil {
+					return xw.Tot(), err
+				}
 			{{end}}
 		{{else}}
 			{{if ge $fieldInfo.Max 1}}
@@ -99,7 +102,10 @@ func (o {{.TypeName}}) encodeXDR(xw *xdr.Writer) (int, error) {
 			{{else if $fieldInfo.IsBasic}}
 				xw.Write{{$fieldInfo.Encoder}}(o.{{$fieldInfo.Name}}[i])
 			{{else}}
-				o.{{$fieldInfo.Name}}[i].encodeXDR(xw)
+				_, err := o.{{$fieldInfo.Name}}[i].encodeXDR(xw)
+				if err != nil {
+					return xw.Tot(), err
+				}
 			{{end}}
 			}
 		{{end}}

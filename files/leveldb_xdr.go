@@ -120,7 +120,10 @@ func (o versionList) AppendXDR(bs []byte) []byte {
 func (o versionList) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint32(uint32(len(o.versions)))
 	for i := range o.versions {
-		o.versions[i].encodeXDR(xw)
+		_, err := o.versions[i].encodeXDR(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
 	}
 	return xw.Tot(), xw.Error()
 }
