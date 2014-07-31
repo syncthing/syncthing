@@ -93,6 +93,7 @@ setup() {
 	go get -v -u code.google.com/p/go.tools/cmd/vet
 	go get -v -u github.com/mattn/goveralls
 	go get -v -u github.com/tools/godep
+	go get -v -t ./...
 }
 
 xdr() {
