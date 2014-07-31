@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -55,7 +56,7 @@ func (l *Logger) SetPrefix(prefix string) {
 
 func (l *Logger) callHandlers(level LogLevel, s string) {
 	for _, h := range l.handlers[level] {
-		h(level, s)
+		h(level, strings.TrimSpace(s))
 	}
 }
 
