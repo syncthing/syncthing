@@ -434,7 +434,7 @@
               <input placeholder="dynamic" ng-disabled="currentNode.NodeID == myID" id="addresses" class="form-control" type="text" ng-model="currentNode.AddressesStr"></input>
               <p translate class="help-block">Enter comma separated "ip:port" addresses or "dynamic" to perform automatic discovery of the address.</p>
             </div>
-            <div class="form-group">
+            <div ng-if="!editingSelf" class="form-group">
               <div class="checkbox">
                 <label>
                   <input type="checkbox" ng-model="currentNode.Compression"> <span translate>Use Compression</span>
