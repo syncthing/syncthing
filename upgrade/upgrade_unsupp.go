@@ -6,8 +6,8 @@
 
 package upgrade
 
-func Upgrade(current string) (Release, error) {
-	return Release{}, ErrUpgradeUnsupported
+func UpgradeTo(rel Release) error {
+	return ErrUpgradeUnsupported
 }
 
 func LatestRelease(prerelease bool) (Release, error) {
