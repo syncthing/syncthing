@@ -360,6 +360,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         if (state == 'syncing') {
             return 'primary';
         }
+        if (state == 'scanning') {
+            return 'primary';
+        }
         return 'info';
     };
 
