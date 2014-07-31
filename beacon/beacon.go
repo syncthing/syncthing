@@ -124,7 +124,7 @@ func bcast(ip *net.IPNet) *net.IPNet {
 
 	offset := len(bc.IP) - len(bc.Mask)
 	for i := range bc.IP {
-		if i-offset > 0 {
+		if i-offset >= 0 {
 			bc.IP[i] = ip.IP[i] | ^ip.Mask[i-offset]
 		}
 	}
