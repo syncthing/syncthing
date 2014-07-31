@@ -37,7 +37,7 @@ test-cov() {
 		godep go test -coverprofile=profile.out $dir || fail=1
 		if [ -f profile.out ] ; then
 			grep -v "mode: set" profile.out >> coverage.out
-		rm profile.out
+			rm profile.out
         fi
     done
 
@@ -89,10 +89,10 @@ deps() {
 }
 
 setup() {
-	echo Installing godep...
-	go get -u github.com/tools/godep
-	echo Installing go vet...
-	go get -u code.google.com/p/go.tools/cmd/vet
+	go get -v -u code.google.com/p/go.tools/cmd/cover
+	go get -v -u code.google.com/p/go.tools/cmd/vet
+	go get -v -u github.com/mattn/goveralls
+	go get -v -u github.com/tools/godep
 }
 
 xdr() {
