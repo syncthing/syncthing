@@ -1,8 +1,8 @@
 syncthing
 =========
 
-Build status: [![Build Status](https://drone.io/github.com/calmh/syncthing/status.png)](https://drone.io/github.com/calmh/syncthing/latest)
-Coverage status: [![Coverage Status](https://img.shields.io/coveralls/calmh/syncthing.svg)](https://coveralls.io/r/calmh/syncthing?branch=master)
+[![Build Status](https://img.shields.io/travis/calmh/syncthing.svg?style=flat)](https://travis-ci.org/calmh/syncthing)
+[![Coverage Status](https://img.shields.io/coveralls/calmh/syncthing.svg?style=flat)](https://coveralls.io/r/calmh/syncthing?branch=master)
 
 This is the `syncthing` project. The following are the project goals:
 
