@@ -91,7 +91,21 @@ func TestNodeConfig(t *testing.T) {
 </configuration>
 `)
 
-	for i, data := range [][]byte{v1data, v2data} {
+	v3data := []byte(`
+<configuration version="3">
+    <repository id="test" directory="~/Sync" ro="true" ignorePerms="false">
+        <node id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR" compression="false"></node>
+        <node id="P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2" compression="false"></node>
+    </repository>
+    <node id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR" name="node one" compression="true">
+        <address>a</address>
+    </node>
+    <node id="P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2" name="node two" compression="true">
+        <address>b</address>
+    </node>
+</configuration>`)
+
+	for i, data := range [][]byte{v1data, v2data, v3data} {
 		cfg, err := Load(bytes.NewReader(data), node1)
 		if err != nil {
 			t.Error(err)
@@ -107,20 +121,22 @@ func TestNodeConfig(t *testing.T) {
 		}
 		expectedNodes := []NodeConfiguration{
 			{
-				NodeID:    node1,
-				Name:      "node one",
-				Addresses: []string{"a"},
+				NodeID:      node1,
+				Name:        "node one",
+				Addresses:   []string{"a"},
+				Compression: true,
 			},
 			{
-				NodeID:    node4,
-				Name:      "node two",
-				Addresses: []string{"b"},
+				NodeID:      node4,
+				Name:        "node two",
+				Addresses:   []string{"b"},
+				Compression: true,
 			},
 		}
 		expectedNodeIDs := []protocol.NodeID{node1, node4}
 
-		if cfg.Version != 2 {
-			t.Errorf("%d: Incorrect version %d != 2", i, cfg.Version)
+		if cfg.Version != 3 {
+			t.Errorf("%d: Incorrect version %d != 3", i, cfg.Version)
 		}
 		if !reflect.DeepEqual(cfg.Repositories, expectedRepos) {
 			t.Errorf("%d: Incorrect Repositories\n  A: %#v\n  E: %#v", i, cfg.Repositories, expectedRepos)
@@ -222,16 +238,19 @@ func TestNodeAddressesDynamic(t *testing.T) {
 	name, _ := os.Hostname()
 	expected := []NodeConfiguration{
 		{
-			NodeID:    node1,
-			Addresses: []string{"dynamic"},
+			NodeID:      node1,
+			Addresses:   []string{"dynamic"},
+			Compression: true,
 		},
 		{
-			NodeID:    node2,
-			Addresses: []string{"dynamic"},
+			NodeID:      node2,
+			Addresses:   []string{"dynamic"},
+			Compression: true,
 		},
 		{
-			NodeID:    node3,
-			Addresses: []string{"dynamic"},
+			NodeID:      node3,
+			Addresses:   []string{"dynamic"},
+			Compression: true,
 		},
 		{
 			NodeID:    node4,
@@ -252,7 +271,7 @@ func TestNodeAddressesDynamic(t *testing.T) {
 
 func TestNodeAddressesStatic(t *testing.T) {
 	data := []byte(`
-<configuration version="2">
+<configuration version="3">
     <node id="AIR6LPZ7K4PTTUXQSMUUCPQ5YWOEDFIIQJUG7772YQXXR5YD6AWQ">
         <address>192.0.2.1</address>
         <address>192.0.2.2</address>
