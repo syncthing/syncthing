@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/calmh/syncthing/model"
+	"github.com/syncthing/syncthing/model"
 )
 
 // Current version number of the usage report, for acceptance purposes. If

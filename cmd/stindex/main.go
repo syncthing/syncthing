@@ -10,8 +10,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/calmh/syncthing/files"
-	"github.com/calmh/syncthing/protocol"
+	"github.com/syncthing/syncthing/files"
+	"github.com/syncthing/syncthing/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 

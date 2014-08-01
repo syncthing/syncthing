@@ -67,7 +67,7 @@ func TestReadBytesMaxInto(t *testing.T) {
 	}
 }
 
-func TestReadBytesMaxIntoNil(t *testing.T) {
+func TestReadStringMax(t *testing.T) {
 	for tot := 42; tot < 72; tot++ {
 		for max := 0; max < 128; max++ {
 			var b = new(bytes.Buffer)
@@ -77,8 +77,8 @@ func TestReadBytesMaxIntoNil(t *testing.T) {
 			var toWrite = make([]byte, tot)
 			w.WriteBytes(toWrite)
 
-			var bs = r.ReadBytesMaxInto(max, nil)
-			var read = len(bs)
+			var str = r.ReadStringMax(max)
+			var read = len(str)
 
 			if max == 0 || tot <= max {
 				if read != tot {

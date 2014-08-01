@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/calmh/syncthing/protocol"
+	"github.com/syncthing/syncthing/protocol"
 )
 
 var node1, node2, node3, node4 protocol.NodeID

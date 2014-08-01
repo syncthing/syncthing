@@ -26,13 +26,13 @@ import (
 
 	"crypto/tls"
 	"code.google.com/p/go.crypto/bcrypt"
-	"github.com/calmh/syncthing/auto"
-	"github.com/calmh/syncthing/config"
-	"github.com/calmh/syncthing/events"
-	"github.com/calmh/syncthing/logger"
-	"github.com/calmh/syncthing/model"
-	"github.com/calmh/syncthing/protocol"
-	"github.com/calmh/syncthing/upgrade"
+	"github.com/syncthing/syncthing/auto"
+	"github.com/syncthing/syncthing/config"
+	"github.com/syncthing/syncthing/events"
+	"github.com/syncthing/syncthing/logger"
+	"github.com/syncthing/syncthing/model"
+	"github.com/syncthing/syncthing/protocol"
+	"github.com/syncthing/syncthing/upgrade"
 	"github.com/vitrun/qart/qr"
 )
 

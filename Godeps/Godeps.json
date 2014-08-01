@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/calmh/syncthing",
+	"ImportPath": "github.com/syncthing/syncthing",
 	"GoVersion": "go1.3",
 	"Packages": [
 		"./cmd/..."
@@ -22,13 +22,13 @@
 		},
 		{
 			"ImportPath": "code.google.com/p/go.text/transform",
-			"Comment": "null-88",
-			"Rev": "1506dcc33592c369c3be7bd30b38f90445b86deb"
+			"Comment": "null-89",
+			"Rev": "df15baaf13e3f62b6b7a901e74caa3818a7c0a7c"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.text/unicode/norm",
-			"Comment": "null-88",
-			"Rev": "1506dcc33592c369c3be7bd30b38f90445b86deb"
+			"Comment": "null-89",
+			"Rev": "df15baaf13e3f62b6b7a901e74caa3818a7c0a7c"
 		},
 		{
 			"ImportPath": "code.google.com/p/snappy-go/snappy",
@@ -41,7 +41,7 @@
 		},
 		{
 			"ImportPath": "github.com/calmh/xdr",
-			"Rev": "89d756f35ba26bcdd47ca25cf9795b3b8d1e1852"
+			"Rev": "694859acb207675085232438780db923ceb43e96"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",

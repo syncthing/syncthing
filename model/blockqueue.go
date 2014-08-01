@@ -4,7 +4,7 @@
 
 package model
 
-import "github.com/calmh/syncthing/protocol"
+import "github.com/syncthing/syncthing/protocol"
 
 type bqAdd struct {
 	file protocol.FileInfo

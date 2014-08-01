@@ -15,8 +15,8 @@ import (
 	"strconv"
 
 	"code.google.com/p/go.crypto/bcrypt"
-	"github.com/calmh/syncthing/logger"
-	"github.com/calmh/syncthing/protocol"
+	"github.com/syncthing/syncthing/logger"
+	"github.com/syncthing/syncthing/protocol"
 )
 
 var l = logger.DefaultLogger

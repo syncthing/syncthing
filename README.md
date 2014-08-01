@@ -1,9 +1,9 @@
 syncthing
 =========
 
-[![Build Status](https://img.shields.io/travis/calmh/syncthing.svg?style=flat)](https://travis-ci.org/calmh/syncthing)
-[![Coverage Status](https://img.shields.io/coveralls/calmh/syncthing.svg?style=flat)](https://coveralls.io/r/calmh/syncthing?branch=master)
-[![API Documentation](http://img.shields.io/badge/api-Godoc-blue.svg?style=flat)](http://godoc.org/github.com/calmh/syncthing)
+[![Build Status](https://img.shields.io/travis/syncthing/syncthing.svg?style=flat)](https://travis-ci.org/syncthing/syncthing)
+[![Coverage Status](https://img.shields.io/coveralls/syncthing/syncthing.svg?style=flat)](https://coveralls.io/r/syncthing/syncthing?branch=master)
+[![API Documentation](http://img.shields.io/badge/api-Godoc-blue.svg?style=flat)](http://godoc.org/github.com/syncthing/syncthing)
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](http://opensource.org/licenses/MIT)
 
 This is the `syncthing` project. The following are the project goals:
@@ -12,7 +12,7 @@ This is the `syncthing` project. The following are the project goals:
     number of collaborating nodes. The protocol should be well defined,
     unambiguous, easily understood, free to use, efficient, secure and
     language neutral. This is the [Block Exchange
-    Protocol](https://github.com/calmh/syncthing/blob/master/protocol/PROTOCOL.md).
+    Protocol](https://github.com/syncthing/syncthing/blob/master/protocol/PROTOCOL.md).
 
  2. Provide the reference implementation to demonstrate the usability of
     said protocol. This is the `syncthing` utility. It is the hope that
@@ -50,4 +50,4 @@ under the [Creative Commons Attribution 4.0 International
 License](http://creativecommons.org/licenses/by/4.0/).
 
 All code is licensed under the [MIT
-License](https://github.com/calmh/syncthing/blob/master/LICENSE).
+License](https://github.com/syncthing/syncthing/blob/master/LICENSE).

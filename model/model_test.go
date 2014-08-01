@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/calmh/syncthing/config"
-	"github.com/calmh/syncthing/protocol"
+	"github.com/syncthing/syncthing/config"
+	"github.com/syncthing/syncthing/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )

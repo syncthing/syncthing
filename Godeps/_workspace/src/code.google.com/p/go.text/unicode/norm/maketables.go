@@ -11,7 +11,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
@@ -24,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"code.google.com/p/go.text/internal/ucd"
 )
 
 func main() {
@@ -63,31 +64,7 @@ var localFiles = flag.Bool("local",
 
 var logger = log.New(os.Stderr, "", log.Lshortfile)
 
-// UnicodeData.txt has form:
-//	0037;DIGIT SEVEN;Nd;0;EN;;7;7;7;N;;;;;
-//	007A;LATIN SMALL LETTER Z;Ll;0;L;;;;;N;;;005A;;005A
-// See http://unicode.org/reports/tr44/ for full explanation
-// The fields:
-const (
-	FCodePoint = iota
-	FName
-	FGeneralCategory
-	FCanonicalCombiningClass
-	FBidiClass
-	FDecompMapping
-	FDecimalValue
-	FDigitValue
-	FNumericValue
-	FBidiMirrored
-	FUnicode1Name
-	FISOComment
-	FSimpleUppercaseMapping
-	FSimpleLowercaseMapping
-	FSimpleTitlecaseMapping
-	NumField
-
-	MaxChar = 0x10FFFF // anything above this shouldn't exist
-)
+const MaxChar = 0x10FFFF // anything above this shouldn't exist
 
 // Quick Check properties of runes allow us to quickly
 // determine whether a rune may occur in a normal form.
@@ -232,7 +209,7 @@ func openReader(file string) (input io.ReadCloser) {
 	return
 }
 
-func parseDecomposition(s string, skipfirst bool) (a []rune, e error) {
+func parseDecomposition(s string, skipfirst bool) (a []rune, err error) {
 	decomp := strings.Split(s, " ")
 	if len(decomp) > 0 && skipfirst {
 		decomp = decomp[1:]
@@ -247,56 +224,31 @@ func parseDecomposition(s string, skipfirst bool) (a []rune, e error) {
 	return a, nil
 }
 
-func parseCharacter(line string) {
-	field := strings.Split(line, ";")
-	if len(field) != NumField {
-		logger.Fatalf("%5s: %d fields (expected %d)\n", line, len(field), NumField)
-	}
-	x, err := strconv.ParseUint(field[FCodePoint], 16, 64)
-	point := int(x)
-	if err != nil {
-		logger.Fatalf("%.5s...: %s", line, err)
-	}
-	if point == 0 {
-		return // not interesting and we use 0 as unset
-	}
-	if point > MaxChar {
-		logger.Fatalf("%5s: Rune %X > MaxChar (%X)", line, point, MaxChar)
-		return
-	}
-	state := SNormal
-	switch {
-	case strings.Index(field[FName], ", First>") > 0:
-		state = SFirst
-	case strings.Index(field[FName], ", Last>") > 0:
-		state = SLast
-	}
-	firstChar := lastChar + 1
-	lastChar = rune(point)
-	if state != SLast {
-		firstChar = lastChar
-	}
-	x, err = strconv.ParseUint(field[FCanonicalCombiningClass], 10, 64)
-	if err != nil {
-		logger.Fatalf("%U: bad ccc field: %s", int(x), err)
-	}
-	ccc := uint8(x)
-	decmap := field[FDecompMapping]
-	exp, e := parseDecomposition(decmap, false)
-	isCompat := false
-	if e != nil {
-		if len(decmap) > 0 {
-			exp, e = parseDecomposition(decmap, true)
-			if e != nil {
-				logger.Fatalf(`%U: bad decomp |%v|: "%s"`, int(x), decmap, e)
+func loadUnicodeData() {
+	f := openReader("UnicodeData.txt")
+	defer f.Close()
+	p := ucd.New(f)
+	for p.Next() {
+		r := p.Rune(ucd.CodePoint)
+		char := &chars[r]
+
+		char.ccc = uint8(p.Uint(ucd.CanonicalCombiningClass))
+		decmap := p.String(ucd.DecompMapping)
+
+		exp, err := parseDecomposition(decmap, false)
+		isCompat := false
+		if err != nil {
+			if len(decmap) > 0 {
+				exp, err = parseDecomposition(decmap, true)
+				if err != nil {
+					logger.Fatalf(`%U: bad decomp |%v|: "%s"`, r, decmap, err)
+				}
+				isCompat = true
 			}
-			isCompat = true
 		}
-	}
-	for i := firstChar; i <= lastChar; i++ {
-		char := &chars[i]
-		char.name = field[FName]
-		char.codePoint = i
+
+		char.name = p.String(ucd.Name)
+		char.codePoint = r
 		char.forms[FCompatibility].decomp = exp
 		if !isCompat {
 			char.forms[FCanonical].decomp = exp
@@ -306,24 +258,9 @@ func parseCharacter(line string) {
 		if len(decmap) > 0 {
 			char.forms[FCompatibility].decomp = exp
 		}
-		char.ccc = ccc
-		char.state = SMissing
-		if i == lastChar {
-			char.state = state
-		}
 	}
-	return
-}
-
-func loadUnicodeData() {
-	f := openReader("UnicodeData.txt")
-	defer f.Close()
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		parseCharacter(scanner.Text())
-	}
-	if scanner.Err() != nil {
-		logger.Fatal(scanner.Err())
+	if err := p.Err(); err != nil {
+		logger.Fatal(err)
 	}
 }
 
@@ -354,47 +291,22 @@ func compactCCC() {
 	}
 }
 
-var singlePointRe = regexp.MustCompile(`^([0-9A-F]+) *$`)
-
 // CompositionExclusions.txt has form:
 // 0958    # ...
 // See http://unicode.org/reports/tr44/ for full explanation
-func parseExclusion(line string) int {
-	comment := strings.Index(line, "#")
-	if comment >= 0 {
-		line = line[0:comment]
-	}
-	if len(line) == 0 {
-		return 0
-	}
-	matches := singlePointRe.FindStringSubmatch(line)
-	if len(matches) != 2 {
-		logger.Fatalf("%s: %d matches (expected 1)\n", line, len(matches))
-	}
-	point, err := strconv.ParseUint(matches[1], 16, 64)
-	if err != nil {
-		logger.Fatalf("%.5s...: %s", line, err)
-	}
-	return int(point)
-}
-
 func loadCompositionExclusions() {
 	f := openReader("CompositionExclusions.txt")
 	defer f.Close()
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		point := parseExclusion(scanner.Text())
-		if point == 0 {
-			continue
-		}
-		c := &chars[point]
+	p := ucd.New(f)
+	for p.Next() {
+		c := &chars[p.Rune(0)]
 		if c.excludeInComp {
 			logger.Fatalf("%U: Duplicate entry in exclusions.", c.codePoint)
 		}
 		c.excludeInComp = true
 	}
-	if scanner.Err() != nil {
-		log.Fatal(scanner.Err())
+	if e := p.Err(); e != nil {
+		logger.Fatal(e)
 	}
 }
 
@@ -988,8 +900,6 @@ func verifyComputed() {
 	}
 }
 
-var qcRe = regexp.MustCompile(`([0-9A-F\.]+) *; (NF.*_QC); ([YNM]) #.*`)
-
 // Use values in DerivedNormalizationProps.txt to compare against the
 // values we computed.
 // DerivedNormalizationProps.txt has form:
@@ -999,27 +909,13 @@ var qcRe = regexp.MustCompile(`([0-9A-F\.]+) *; (NF.*_QC); ([YNM]) #.*`)
 func testDerived() {
 	f := openReader("DerivedNormalizationProps.txt")
 	defer f.Close()
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
-		qc := qcRe.FindStringSubmatch(line)
-		if qc == nil {
-			continue
-		}
-		rng := strings.Split(qc[1], "..")
-		i, err := strconv.ParseUint(rng[0], 16, 64)
-		if err != nil {
-			log.Fatal(err)
-		}
-		j := i
-		if len(rng) > 1 {
-			j, err = strconv.ParseUint(rng[1], 16, 64)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
+	p := ucd.New(f)
+	for p.Next() {
+		r := p.Rune(0)
+		c := &chars[r]
+
 		var ftype, mode int
-		qt := strings.TrimSpace(qc[2])
+		qt := p.String(1)
 		switch qt {
 		case "NFC_QC":
 			ftype, mode = FCanonical, MComposed
@@ -1030,10 +926,10 @@ func testDerived() {
 		case "NFKD_QC":
 			ftype, mode = FCompatibility, MDecomposed
 		default:
-			log.Fatalf(`Unexpected quick check type "%s"`, qt)
+			continue
 		}
 		var qr QCResult
-		switch qc[3] {
+		switch p.String(2) {
 		case "Y":
 			qr = QCYes
 		case "N":
@@ -1041,27 +937,15 @@ func testDerived() {
 		case "M":
 			qr = QCMaybe
 		default:
-			log.Fatalf(`Unexpected quick check value "%s"`, qc[3])
+			log.Fatalf(`Unexpected quick check value "%s"`, p.String(2))
 		}
-		var lastFailed bool
-		// Verify current
-		for ; i <= j; i++ {
-			c := &chars[int(i)]
-			c.forms[ftype].verified[mode] = true
-			curqr := c.forms[ftype].quickCheck[mode]
-			if curqr != qr {
-				if !lastFailed {
-					logger.Printf("%s: %.4X..%.4X -- %s\n",
-						qt, int(i), int(j), line[0:50])
-				}
-				logger.Printf("%U: FAILED %s (was %v need %v)\n",
-					int(i), qt, curqr, qr)
-				lastFailed = true
-			}
+		if got := c.forms[ftype].quickCheck[mode]; got != qr {
+			logger.Printf("%U: FAILED %s (was %v need %v)\n", r, qt, got, qr)
 		}
+		c.forms[ftype].verified[mode] = true
 	}
-	if scanner.Err() != nil {
-		logger.Fatal(scanner.Err())
+	if err := p.Err(); err != nil {
+		logger.Fatal(err)
 	}
 	// Any unspecified value must be QCYes. Verify this.
 	for i, c := range chars {

@@ -66,7 +66,7 @@ func UpgradeTo(rel Release) error {
 
 // Returns the latest release, including prereleases or not depending on the argument
 func LatestRelease(prerelease bool) (Release, error) {
-	resp, err := http.Get("https://api.github.com/repos/calmh/syncthing/releases?per_page=10")
+	resp, err := http.Get("https://api.github.com/repos/syncthing/syncthing/releases?per_page=10")
 	if err != nil {
 		return Release{}, err
 	}

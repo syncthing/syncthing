@@ -15,8 +15,8 @@ import (
 	"strings"
 	"code.google.com/p/go.text/unicode/norm"
 
-	"github.com/calmh/syncthing/lamport"
-	"github.com/calmh/syncthing/protocol"
+	"github.com/syncthing/syncthing/lamport"
+	"github.com/syncthing/syncthing/protocol"
 )
 
 type Walker struct {

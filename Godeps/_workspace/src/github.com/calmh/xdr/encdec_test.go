@@ -5,8 +5,12 @@ package xdr_test
 
 import (
 	"bytes"
+	"math/rand"
+	"reflect"
 	"testing"
 	"testing/quick"
+
+	"github.com/calmh/xdr"
 )
 
 // Contains all supported types
@@ -22,6 +26,25 @@ type TestStruct struct {
 	UI64 uint64
 	BS   []byte
 	S    string
+	C    Opaque
+}
+
+type Opaque [32]byte
+
+func (u *Opaque) encodeXDR(w *xdr.Writer) (int, error) {
+	return w.WriteRaw(u[:])
+}
+
+func (u *Opaque) decodeXDR(r *xdr.Reader) (int, error) {
+	return r.ReadRaw(u[:])
+}
+
+func (Opaque) Generate(rand *rand.Rand, size int) reflect.Value {
+	var u Opaque
+	for i := range u[:] {
+		u[i] = byte(rand.Int())
+	}
+	return reflect.ValueOf(u)
 }
 
 func TestEncDec(t *testing.T) {
@@ -39,7 +62,7 @@ func TestEncDec(t *testing.T) {
 			t0.I32 != t1.I32 || t0.UI32 != t1.UI32 ||
 			t0.I64 != t1.I64 || t0.UI64 != t1.UI64 ||
 			bytes.Compare(t0.BS, t1.BS) != 0 ||
-			t0.S != t1.S {
+			t0.S != t1.S || t0.C != t1.C {
 			t.Logf("%#v", t0)
 			t.Logf("%#v", t1)
 			return false

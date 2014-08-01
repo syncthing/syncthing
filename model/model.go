@@ -15,12 +15,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/calmh/syncthing/config"
-	"github.com/calmh/syncthing/events"
-	"github.com/calmh/syncthing/files"
-	"github.com/calmh/syncthing/lamport"
-	"github.com/calmh/syncthing/protocol"
-	"github.com/calmh/syncthing/scanner"
+	"github.com/syncthing/syncthing/config"
+	"github.com/syncthing/syncthing/events"
+	"github.com/syncthing/syncthing/files"
+	"github.com/syncthing/syncthing/lamport"
+	"github.com/syncthing/syncthing/protocol"
+	"github.com/syncthing/syncthing/scanner"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 

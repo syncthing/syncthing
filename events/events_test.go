@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/calmh/syncthing/events"
+	"github.com/syncthing/syncthing/events"
 )
 
 var timeout = 100 * time.Millisecond

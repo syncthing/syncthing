@@ -3,7 +3,7 @@ package luhn_test
 import (
 	"testing"
 
-	"github.com/calmh/syncthing/luhn"
+	"github.com/syncthing/syncthing/luhn"
 )
 
 func TestGenerate(t *testing.T) {

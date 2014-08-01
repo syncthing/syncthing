@@ -11,12 +11,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/calmh/syncthing/config"
-	"github.com/calmh/syncthing/events"
-	"github.com/calmh/syncthing/osutil"
-	"github.com/calmh/syncthing/protocol"
-	"github.com/calmh/syncthing/scanner"
-	"github.com/calmh/syncthing/versioner"
+	"github.com/syncthing/syncthing/config"
+	"github.com/syncthing/syncthing/events"
+	"github.com/syncthing/syncthing/osutil"
+	"github.com/syncthing/syncthing/protocol"
+	"github.com/syncthing/syncthing/scanner"
+	"github.com/syncthing/syncthing/versioner"
 )
 
 type requestResult struct {

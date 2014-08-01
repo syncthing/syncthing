@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/calmh/syncthing/protocol"
+	"github.com/syncthing/syncthing/protocol"
 )
 
 var blocksTestData = []struct {

@@ -14,9 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/calmh/syncthing/beacon"
-	"github.com/calmh/syncthing/events"
-	"github.com/calmh/syncthing/protocol"
+	"github.com/syncthing/syncthing/beacon"
+	"github.com/syncthing/syncthing/events"
+	"github.com/syncthing/syncthing/protocol"
 )
 
 type Discoverer struct {

@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/calmh/syncthing/luhn"
+	"github.com/syncthing/syncthing/luhn"
 )
 
 type NodeID [32]byte

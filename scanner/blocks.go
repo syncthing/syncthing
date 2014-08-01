@@ -9,7 +9,7 @@ import (
 	"crypto/sha256"
 	"io"
 
-	"github.com/calmh/syncthing/protocol"
+	"github.com/syncthing/syncthing/protocol"
 )
 
 const StandardBlockSize = 128 * 1024

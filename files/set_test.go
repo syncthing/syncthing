@@ -9,9 +9,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/calmh/syncthing/files"
-	"github.com/calmh/syncthing/lamport"
-	"github.com/calmh/syncthing/protocol"
+	"github.com/syncthing/syncthing/files"
+	"github.com/syncthing/syncthing/lamport"
+	"github.com/syncthing/syncthing/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )

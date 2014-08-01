@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/calmh/syncthing/protocol"
+	"github.com/syncthing/syncthing/protocol"
 )
 
 // The parallell hasher reads FileInfo structures from the inbox, hashes the

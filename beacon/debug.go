@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/calmh/syncthing/logger"
+	"github.com/syncthing/syncthing/logger"
 )
 
 var (

@@ -52,6 +52,8 @@ TestStruct Structure:
 \                      S (variable length)                      \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                            Opaque                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct TestStruct {
@@ -66,6 +68,7 @@ struct TestStruct {
 	unsigned hyper UI64;
 	opaque BS<>;
 	string S<>;
+	Opaque C;
 }
 
 */
@@ -98,6 +101,10 @@ func (o TestStruct) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint64(o.UI64)
 	xw.WriteBytes(o.BS)
 	xw.WriteString(o.S)
+	_, err := o.C.encodeXDR(xw)
+	if err != nil {
+		return xw.Tot(), err
+	}
 	return xw.Tot(), xw.Error()
 }
 
@@ -124,5 +131,6 @@ func (o *TestStruct) decodeXDR(xr *xdr.Reader) error {
 	o.UI64 = xr.ReadUint64()
 	o.BS = xr.ReadBytes()
 	o.S = xr.ReadString()
+	(&o.C).decodeXDR(xr)
 	return xr.Error()
 }

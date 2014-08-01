@@ -8,8 +8,8 @@ package files
 import (
 	"sync"
 
-	"github.com/calmh/syncthing/lamport"
-	"github.com/calmh/syncthing/protocol"
+	"github.com/syncthing/syncthing/lamport"
+	"github.com/syncthing/syncthing/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 

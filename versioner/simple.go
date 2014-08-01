@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/calmh/syncthing/osutil"
+	"github.com/syncthing/syncthing/osutil"
 )
 
 func init() {

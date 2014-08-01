@@ -202,7 +202,7 @@ case "$1" in
 		tag=$(git describe)
 		shopt -s nullglob
 		for f in *.tar.gz *.zip *.asc ; do
-			relup calmh/syncthing "$tag" "$f"
+			relup syncthing/syncthing "$tag" "$f"
 		done
 		;;
 
