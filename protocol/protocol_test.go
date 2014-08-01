@@ -16,7 +16,7 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/calmh/syncthing/xdr"
+	"github.com/calmh/xdr"
 	pretty "github.com/tonnerre/golang-pretty"
 )
 

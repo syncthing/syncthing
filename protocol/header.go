@@ -4,7 +4,7 @@
 
 package protocol
 
-import "github.com/calmh/syncthing/xdr"
+import "github.com/calmh/xdr"
 
 type header struct {
 	version     int

@@ -98,7 +98,7 @@ setup() {
 
 xdr() {
 	for f in discover/packets files/leveldb protocol/message ; do
-		go run cmd/genxdr/main.go -- "${f}.go" > "${f}_xdr.go"
+		go run "$(godep path)/src/github.com/calmh/xdr/cmd/genxdr/main.go" -- "${f}.go" > "${f}_xdr.go"
 	done
 }
 

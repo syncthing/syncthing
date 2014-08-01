@@ -21,11 +21,6 @@
 			"Rev": "aa2644fe4aa50e3b38d75187b4799b1f0c9ddcef"
 		},
 		{
-			"ImportPath": "code.google.com/p/go.net/html",
-			"Comment": "null-137",
-			"Rev": "335bcad0b70a3ba61b9951992a418c9176a73fd4"
-		},
-		{
 			"ImportPath": "code.google.com/p/go.text/transform",
 			"Comment": "null-88",
 			"Rev": "1506dcc33592c369c3be7bd30b38f90445b86deb"
@@ -45,8 +40,8 @@
 			"Rev": "77e2ba877bde9da31213bec75dbbe197fa507c21"
 		},
 		{
-			"ImportPath": "github.com/golang/groupcache/lru",
-			"Rev": "8b25adc0f62632c810997cb38c21111a3f256bf4"
+			"ImportPath": "github.com/calmh/xdr",
+			"Rev": "89d756f35ba26bcdd47ca25cf9795b3b8d1e1852"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
