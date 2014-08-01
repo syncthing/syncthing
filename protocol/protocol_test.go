@@ -251,6 +251,11 @@ func TestElementSizeExceededNested(t *testing.T) {
 }
 
 func TestMarshalIndexMessage(t *testing.T) {
+	var quickCfg = &quick.Config{MaxCountScale: 10}
+	if testing.Short() {
+		quickCfg = nil
+	}
+
 	f := func(m1 IndexMessage) bool {
 		for _, f := range m1.Files {
 			for i := range f.Blocks {
@@ -264,22 +269,32 @@ func TestMarshalIndexMessage(t *testing.T) {
 		return testMarshal(t, "index", &m1, &IndexMessage{})
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCountScale: 10}); err != nil {
+	if err := quick.Check(f, quickCfg); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestMarshalRequestMessage(t *testing.T) {
+	var quickCfg = &quick.Config{MaxCountScale: 10}
+	if testing.Short() {
+		quickCfg = nil
+	}
+
 	f := func(m1 RequestMessage) bool {
 		return testMarshal(t, "request", &m1, &RequestMessage{})
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCountScale: 10}); err != nil {
+	if err := quick.Check(f, quickCfg); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestMarshalResponseMessage(t *testing.T) {
+	var quickCfg = &quick.Config{MaxCountScale: 10}
+	if testing.Short() {
+		quickCfg = nil
+	}
+
 	f := func(m1 ResponseMessage) bool {
 		if len(m1.Data) == 0 {
 			m1.Data = nil
@@ -287,27 +302,37 @@ func TestMarshalResponseMessage(t *testing.T) {
 		return testMarshal(t, "response", &m1, &ResponseMessage{})
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCountScale: 10}); err != nil {
+	if err := quick.Check(f, quickCfg); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestMarshalClusterConfigMessage(t *testing.T) {
+	var quickCfg = &quick.Config{MaxCountScale: 10}
+	if testing.Short() {
+		quickCfg = nil
+	}
+
 	f := func(m1 ClusterConfigMessage) bool {
 		return testMarshal(t, "clusterconfig", &m1, &ClusterConfigMessage{})
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCountScale: 10}); err != nil {
+	if err := quick.Check(f, quickCfg); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestMarshalCloseMessage(t *testing.T) {
+	var quickCfg = &quick.Config{MaxCountScale: 10}
+	if testing.Short() {
+		quickCfg = nil
+	}
+
 	f := func(m1 CloseMessage) bool {
 		return testMarshal(t, "close", &m1, &CloseMessage{})
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCountScale: 10}); err != nil {
+	if err := quick.Check(f, quickCfg); err != nil {
 		t.Error(err)
 	}
 }

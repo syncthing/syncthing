@@ -47,7 +47,7 @@ test-cov() {
 test() {
 	check
 	go vet ./...
-	godep go test -cpu=1,2,4 ./...
+	godep go test -cpu=1,2,4 $* ./...
 }
 
 sign() {
@@ -133,7 +133,7 @@ case "$1" in
 		;;
 
 	test)
-		test
+		test -short
 		;;
 
 	test-cov)
@@ -142,7 +142,7 @@ case "$1" in
 
 	tar)
 		rm -f *.tar.gz *.zip
-		test || exit 1
+		test -short || exit 1
 		assets
 		build
 
@@ -154,7 +154,7 @@ case "$1" in
 
 	all)
 		rm -f *.tar.gz *.zip
-		test || exit 1
+		test -short || exit 1
 		assets
 
 		for os in darwin-amd64 linux-386 linux-amd64 freebsd-amd64 windows-amd64 windows-386 solaris-amd64 ; do
