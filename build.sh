@@ -147,7 +147,7 @@ case "$1" in
 		build
 
 		eval $(go env)
-		name="syncthing-$GOOS-$GOARCH-$version"
+		name="syncthing-${GOOS/darwin/macosx}-$GOARCH-$version"
 
 		tarDist "$name"
 		;;
@@ -163,7 +163,7 @@ case "$1" in
 
 			build
 
-			name="syncthing-$os-$version"
+			name="syncthing-${os/darwin/macosx}-$version"
 			case $GOOS in
 				windows)
 					zipDist "$name"

@@ -32,7 +32,13 @@ func UpgradeTo(rel Release) error {
 		return err
 	}
 
-	expectedRelease := fmt.Sprintf("syncthing-%s-%s%s-%s.", runtime.GOOS, runtime.GOARCH, GoArchExtra, rel.Tag)
+	osName := runtime.GOOS
+	if osName == "darwin" {
+		// We call the darwin release bundles macosx because that makes more
+		// sense for people downloading them
+		osName = "macosx"
+	}
+	expectedRelease := fmt.Sprintf("syncthing-%s-%s%s-%s.", osName, runtime.GOARCH, GoArchExtra, rel.Tag)
 	for _, asset := range rel.Assets {
 		if strings.HasPrefix(asset.Name, expectedRelease) {
 			if strings.HasSuffix(asset.Name, ".tar.gz") {
