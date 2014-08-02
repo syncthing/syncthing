@@ -16,10 +16,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/calmh/syncthing/discover"
-	"github.com/calmh/syncthing/protocol"
 	"github.com/golang/groupcache/lru"
 	"github.com/juju/ratelimit"
+	"github.com/syncthing/syncthing/discover"
+	"github.com/syncthing/syncthing/protocol"
 )
 
 type node struct {
