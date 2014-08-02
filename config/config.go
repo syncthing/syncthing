@@ -338,12 +338,6 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 		}
 	}
 
-	// The global discovery format and port number changed in v0.9. Having the
-	// default announce server but old port number is guaranteed to be legacy.
-	if cfg.Options.GlobalAnnServer == "announce.syncthing.net:22025" {
-		cfg.Options.GlobalAnnServer = "announce.syncthing.net:22026"
-	}
-
 	return cfg, err
 }
 
@@ -354,6 +348,13 @@ func convertV2V3(cfg *Configuration) {
 	for i := range cfg.Nodes {
 		cfg.Nodes[i].Compression = true
 	}
+
+	// The global discovery format and port number changed in v0.9. Having the
+	// default announce server but old port number is guaranteed to be legacy.
+	if cfg.Options.GlobalAnnServer == "announce.syncthing.net:22025" {
+		cfg.Options.GlobalAnnServer = "announce.syncthing.net:22026"
+	}
+
 	cfg.Version = 3
 }
 
