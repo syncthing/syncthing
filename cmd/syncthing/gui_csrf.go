@@ -43,6 +43,12 @@ func csrfMiddleware(prefix string, next http.Handler) http.Handler {
 			return
 		}
 
+		if r.Method == "GET" {
+			// Allow GET requests unconditionally
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Verify the CSRF token
 		token := r.Header.Get("X-CSRF-Token")
 		if !validCsrfToken(token) {
