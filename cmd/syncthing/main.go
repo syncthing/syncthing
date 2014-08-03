@@ -135,12 +135,14 @@ func main() {
 	var showVersion bool
 	var doUpgrade bool
 	var doUpgradeCheck bool
+	var generateDir string
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.IntVar(&logFlags, "logflags", logFlags, "Set log flags")
+	flag.StringVar(&generateDir, "generate", "", "Generate key in specified dir")
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
 	flag.Parse()
 
@@ -151,10 +153,29 @@ func main() {
 
 	l.SetFlags(logFlags)
 
-	var err error
-	lockPort, err = getLockPort()
-	if err != nil {
-		l.Fatalln("Opening lock port:", err)
+	if generateDir != "" {
+		dir := expandTilde(generateDir)
+
+		info, err := os.Stat(dir)
+		l.FatalErr(err)
+		if !info.IsDir() {
+			l.Fatalln(dir, "is not a directory")
+		}
+
+		cert, err := loadCert(dir, "")
+		if err == nil {
+			l.Warnln("Key exists; will not overwrite.")
+			l.Infoln("Node ID:", protocol.NewNodeID(cert.Certificate[0]))
+			return
+		}
+
+		newCertificate(dir, "")
+		cert, err = loadCert(dir, "")
+		l.FatalErr(err)
+		if err == nil {
+			l.Infoln("Node ID:", protocol.NewNodeID(cert.Certificate[0]))
+		}
+		return
 	}
 
 	if doUpgrade || doUpgradeCheck {
@@ -180,6 +201,12 @@ func main() {
 		} else {
 			return
 		}
+	}
+
+	var err error
+	lockPort, err = getLockPort()
+	if err != nil {
+		l.Fatalln("Opening lock port:", err)
 	}
 
 	if len(os.Getenv("GOGC")) == 0 {

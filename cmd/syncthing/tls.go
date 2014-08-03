@@ -39,7 +39,7 @@ func certSeed(bs []byte) int64 {
 }
 
 func newCertificate(dir string, prefix string) {
-	l.Infoln("Generating RSA certificate and key...")
+	l.Infoln("Generating RSA key and certificate...")
 
 	priv, err := rsa.GenerateKey(rand.Reader, tlsRSABits)
 	l.FatalErr(err)
@@ -67,11 +67,9 @@ func newCertificate(dir string, prefix string) {
 	l.FatalErr(err)
 	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	certOut.Close()
-	l.Okln("Created RSA certificate file")
 
 	keyOut, err := os.OpenFile(filepath.Join(dir, prefix+"key.pem"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	l.FatalErr(err)
 	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	keyOut.Close()
-	l.Okln("Created RSA key file")
 }
