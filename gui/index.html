@@ -153,7 +153,7 @@
             <div class="panel-heading">
               <h3 class="panel-title">
                 <a data-toggle="collapse" data-parent="#repositories" href="#repo-{{$index}}">
-                  <span class="glyphicon glyphicon-hdd"></span> {{repo.Directory | shortPath}}
+                  <span class="glyphicon glyphicon-hdd"></span> {{repo.ID}}
                   <span class="pull-right hidden-xs" ng-switch="repoStatus(repo.ID)">
                     <span translate ng-switch-when="unknown">Unknown</span>
                     <span translate ng-switch-when="stopped">Stopped</span>
