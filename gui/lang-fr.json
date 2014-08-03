@@ -85,7 +85,7 @@
     "Syncthing has been shut down.": "Syncthing a été éteint.",
     "Syncthing includes the following software or portions thereof:": "Syncthing inclut les logiciels, ou portion de ceux-ci, suivants:",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing semble être éteint, ou il y a un problème avec votre connexion Internet. Nouvelle tentative ...",
-    "The aggregated statistics are publicly available at {{url}}": "Les statistiques agrégées sont disponibles publiquement à l'adresse {{url}}",
+    "The aggregated statistics are publicly available at {%url%}.": "Les statistiques agrégées sont disponibles publiquement à l'adresse {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "La configuration a été sauvée mais pas activée. Syncthing doit redémarrer afin d'activer la nouvelle configuration.",
     "The encrypted usage report is sent daily. It is used to track common platforms, repo sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.": "Le rapport d'utilisation chiffré est envoyé quotidiennement. Il sert à répertorier les plateformes utilisées, la taille des répertoires et les versions de l'application. Si le jeu de données rapportées devait être changé, il vous sera demandé de le valider de nouveau via ce dialogue.",
     "The entered node ID does not look valid. It should be a 52 character string consisting of letters and numbers, with spaces and dashes being optional.": "L'ID du nœud ne semble pas être valide. Il devrait ressembler à une chaine de 52 caractères comprenant lettres et chiffres, avec des espaces et des traits d'union optionnels.",

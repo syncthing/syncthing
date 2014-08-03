@@ -682,8 +682,8 @@
         </div>
         <div class="modal-body">
         <p translate>The encrypted usage report is sent daily. It is used to track common platforms, repo sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.</p>
-        <p translate translate-value-url="https://data.syncthing.net">The aggregated statistics are publicly available at {{url}}</p>
-        <button translate type="button" class="btn btn-default" ng-show="!reportPreview" ng-click="reportPreview = true">Preview Usage Report</button>
+        <p translate translate-value-url="https://data.syncthing.net">The aggregated statistics are publicly available at {%url%}.</p>
+        <button translate type="button" class="btn btn-default" ng-show="!reportPreview" ng-click="showReportPreview()">Preview Usage Report</button>
         <pre ng-if="reportPreview"><small>{{reportData | json}}</small></pre>
         </div>
         <div class="modal-footer">

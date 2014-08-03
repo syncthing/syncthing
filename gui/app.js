@@ -790,6 +790,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $('#about').modal('show');
     };
 
+    $scope.showReportPreview = function () {
+        $scope.reportPreview = true;
+    };
+
     $scope.init();
     setInterval($scope.refresh, 10000);
 });

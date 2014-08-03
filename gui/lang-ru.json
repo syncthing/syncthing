@@ -85,7 +85,7 @@
     "Syncthing has been shut down.": "Syncthing выключен.",
     "Syncthing includes the following software or portions thereof:": "Syncthing включает в себя следующее ПО или его части:",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Кажется, Syncthing не запущен или есть проблемы с подключением к Интернету. Переподключаюсь...",
-    "The aggregated statistics are publicly available at {{url}}": "Суммарная статистика общедоступна на {{url}}",
+    "The aggregated statistics are publicly available at {%url%}.": "Суммарная статистика общедоступна на {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Конфигурация была сохранена но не активирована. Для активации новой конфигурации необходимо рестартовать Syncthing.",
     "The encrypted usage report is sent daily. It is used to track common platforms, repo sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.": "Зашифрованные отчёты об использовании отправляются ежедневно. Они используются для отслеживания проблем, размеров репозиториев и версий Syncthing. Если набор данных в отчёте будет изменён, то вы получите уведомление об этом в этом диалоге.",
     "The entered node ID does not look valid. It should be a 52 character string consisting of letters and numbers, with spaces and dashes being optional.": "Введённый ID узла выглядит неправильно: ID должен быть строкой, длинной 52 символа, обязательно содержащей группы букв и цифр которые могут быть разделены пробелами или тире.",

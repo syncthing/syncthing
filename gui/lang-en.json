@@ -85,7 +85,7 @@
    "Syncthing has been shut down.": "Syncthing has been shut down.",
    "Syncthing includes the following software or portions thereof:": "Syncthing includes the following software or portions thereof:",
    "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…",
-   "The aggregated statistics are publicly available at {{url}}": "The aggregated statistics are publicly available at {{url}}",
+   "The aggregated statistics are publicly available at {%url%}.": "The aggregated statistics are publicly available at {{url}}.",
    "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.",
    "The encrypted usage report is sent daily. It is used to track common platforms, repo sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.": "The encrypted usage report is sent daily. It is used to track common platforms, repo sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.",
    "The entered node ID does not look valid. It should be a 52 character string consisting of letters and numbers, with spaces and dashes being optional.": "The entered node ID does not look valid. It should be a 52 character string consisting of letters and numbers, with spaces and dashes being optional.",
