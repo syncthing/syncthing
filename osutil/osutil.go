@@ -6,8 +6,12 @@
 package osutil
 
 import (
+	"fmt"
+	"net"
 	"os"
 	"runtime"
+	"strconv"
+	"time"
 )
 
 func Rename(from, to string) error {
@@ -20,4 +24,31 @@ func Rename(from, to string) error {
 	}
 	defer os.Remove(from) // Don't leave a dangling temp file in case of rename error
 	return os.Rename(from, to)
+}
+
+func GetLockPort() (*net.TCPListener, int, error) {
+	lockConn, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.IP{127, 0, 0, 1}})
+	if err != nil {
+		return nil, 0, err
+	}
+	addr := lockConn.Addr().(*net.TCPAddr)
+	return lockConn, addr.Port, nil
+}
+
+func WaitForParentExit() error {
+	lockPortStr := os.Getenv("STRESTART")
+	lockPort, err := strconv.Atoi(lockPortStr)
+	if err != nil {
+		return fmt.Errorf("Invalid lock port %q: %v", lockPortStr, err)
+	}
+	// Wait for the listen address to become free, indicating that the parent has exited.
+	for {
+		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", lockPort))
+		if err == nil {
+			ln.Close()
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return nil
 }
