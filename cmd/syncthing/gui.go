@@ -526,8 +526,8 @@ func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
 }
 
 func getQR(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	text := r.FormValue("text")
+	var qs = r.URL.Query()
+	var text = qs.Get("text")
 	code, err := qr.Encode(text, qr.M)
 	if err != nil {
 		http.Error(w, "Invalid", 500)

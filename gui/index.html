@@ -404,7 +404,7 @@
 
   <modal id="idqr" large="yes" status="info" close="yes" icon="qrcode" title="{{'Node Identification' | translate}} &mdash; {{nodeName(thisNode())}}">
     <div class="well well-sm text-monospace text-center">{{myID}}</div>
-    <img ng-if="myID" class="center-block img-thumbnail" src="qr/{{myID}}"/>
+    <img ng-if="myID" class="center-block img-thumbnail" src="qr/?text={{myID}}"/>
   </modal>
 
   <!-- Node editor modal -->
