@@ -25,9 +25,6 @@
 //  3. As we need to swap the binaries around, we need to synchronize between
 //     the state of the processes, such that we are sure the old syncthing.exe
 //     has exited before we try and remove/replace it.
-//  4. The ideal way to work out if the parent process has exited, is by
-//     is by checking if the parent process is still alive.
-//     Sadly os.Getppid does not work on Windows.
 //
 // Solutions to the problems:
 //  1. We will always divert the execution path to upgrade.LatestRelease which
@@ -42,10 +39,8 @@
 //     to the future processes. Once the upgrade process is complete, if the
 //     special flag is set, the process will exit instead of continuing
 //     normal execution.
-//  3. Since Windows does not support signals, we have to resort to using
-//     os.FindProcess and Wait(), which is not exactly reliable
-//  4. To replace os.Getppid functionality, each parent will pass its own pid
-//     to the children as an environment variable.
+//  3. Due to poor Windows system call implementation in Go, best way to
+//     synchronize processes seems to be using a listener socket.
 
 package upgrade
 
@@ -56,16 +51,22 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"bitbucket.org/kardianos/osext"
+	"github.com/syncthing/syncthing/osutil"
+)
+
+var (
+	lockConn *net.TCPListener
+	lockPort int
 )
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
@@ -126,7 +127,11 @@ func UpgradeTo(rel Release) error {
 					os.Args = append(os.Args, "-upgrade-check")
 				}
 
-				os.Setenv("STPPID", strconv.Itoa(os.Getpid()))
+				lockConn, lockPort, err = osutil.GetLockPort()
+				if err != nil {
+					return err
+				}
+				os.Setenv("STRESTART", fmt.Sprintf("%d", lockPort))
 				return runAndExit(path + ".new")
 			}
 		}
@@ -243,7 +248,7 @@ func checkMidUpgrade() error {
 	}
 
 	if strings.HasSuffix(path, ".new") {
-		err = waitForParentExit()
+		err = osutil.WaitForParentExit()
 		if err != nil {
 			return err
 		}
@@ -260,14 +265,17 @@ func checkMidUpgrade() error {
 			return err
 		}
 
-		// os.Getppid does not work on Windows, hence pass the PPID as env var
-		os.Setenv("STPPID", strconv.Itoa(os.Getpid()))
+		lockConn, lockPort, err = osutil.GetLockPort()
+		if err != nil {
+			return err
+		}
+		os.Setenv("STRESTART", fmt.Sprintf("%d", lockPort))
 		return runAndExit(newpath)
 
 	} else {
 		_, err = os.Stat(path + ".new")
 		if err == nil {
-			err = waitForParentExit()
+			err = osutil.WaitForParentExit()
 			if err != nil {
 				return err
 			}
@@ -294,32 +302,11 @@ func checkMidUpgrade() error {
 					break
 				}
 			}
-			os.Setenv("STPPID", "")
+			os.Setenv("STRESTART", "")
 			return runAndExit(path)
 		}
 	}
 	return nil
-}
-
-func waitForParentExit() error {
-	if os.Getenv("STPPID") == "" {
-		return nil
-	}
-
-	// os.Getppid does not work on Windows, hence get the PPID from an env var
-	ppid64, err := strconv.ParseInt(os.Getenv("STPPID"), 10, 64)
-	if err != nil {
-		return err
-	}
-
-	proc, err := os.FindProcess(int(ppid64))
-	if err != nil {
-		// The process has most likely already exited (fingers crossed)
-		return nil
-	}
-
-	_, err = proc.Wait()
-	return err
 }
 
 func runAndExit(path string) error {
