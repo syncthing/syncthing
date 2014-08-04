@@ -13,3 +13,7 @@ func UpgradeTo(rel Release) error {
 func LatestRelease(prerelease bool) (Release, error) {
 	return Release{}, ErrUpgradeUnsupported
 }
+
+func CheckMidUpgrade() error {
+	return nil
+}

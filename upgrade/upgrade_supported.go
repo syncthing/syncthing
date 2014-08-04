@@ -96,6 +96,10 @@ func LatestRelease(prerelease bool) (Release, error) {
 	}
 }
 
+func CheckMidUpgrade() error {
+	return nil
+}
+
 func readTarGZ(url string, dir string) (string, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

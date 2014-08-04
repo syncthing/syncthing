@@ -178,6 +178,9 @@ func main() {
 		return
 	}
 
+	err := upgrade.CheckMidUpgrade()
+	l.FatalErr(err)
+
 	if doUpgrade || doUpgradeCheck {
 		rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
 		if err != nil {
@@ -203,7 +206,6 @@ func main() {
 		}
 	}
 
-	var err error
 	lockConn, lockPort, err = osutil.GetLockPort()
 	if err != nil {
 		l.Fatalln("Opening lock port:", err)

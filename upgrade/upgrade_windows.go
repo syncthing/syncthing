@@ -13,25 +13,18 @@
 //      the execution
 //
 // There are multiple problems with this approach:
-//  1. As we start and restart the binaries, we need to force them to execute
-//     a specific part of the code which takes care of performing the above
-//     upgrade steps
-//  2. Since we will be running different binaries at different times,
+//  1. Since we will be running different binaries at different times,
 //     we will loose the initial execution state of the old binary.
 //     This means that we will find it hard to know if the upgrade was started
 //     via -upgrade flag (where it is supposed to upgrade and exit), or if it
 //     was started via Web UI (where it is supposed to upgrade and continue
 //     execution)
-//  3. As we need to swap the binaries around, we need to synchronize between
+//  2. As we need to swap the binaries around, we need to synchronize between
 //     the state of the processes, such that we are sure the old syncthing.exe
 //     has exited before we try and remove/replace it.
 //
 // Solutions to the problems:
-//  1. We will always divert the execution path to upgrade.LatestRelease which
-//     will then recognize the step of execution we are in, and act accordingly
-//     To make this happen, we will append -upgrade-check flag to the binaries
-//     that we run
-//  2. Currently there are only two possible paths how the upgrade is started:
+//  1. Currently there are only two possible paths how the upgrade is started:
 //     * Via -upgrade command line switch
 //     * Via web UI
 //     We can easily detect that the upgrade was started by the command line
@@ -39,7 +32,7 @@
 //     to the future processes. Once the upgrade process is complete, if the
 //     special flag is set, the process will exit instead of continuing
 //     normal execution.
-//  3. Due to poor Windows system call implementation in Go, best way to
+//  2. Due to poor Windows system call implementation in Go, best way to
 //     synchronize processes seems to be using a listener socket.
 
 package upgrade
@@ -105,26 +98,14 @@ func UpgradeTo(rel Release) error {
 					return err
 				}
 
-				found := false
 				// Check if this upgrade was started via command line
 				// and add a enviroment variable which will tell future
 				// executions of the binary to exit after the upgrade is done.
 				for _, arg := range os.Args {
-					switch arg {
-					case "-upgrade":
+					if arg == "-upgrade" {
 						os.Setenv("STEXITPOSTUPGRADE", "1")
 						break
-					case "-upgrade-check":
-						found = true
-						break
 					}
-				}
-
-				// Since we need LatestRelease to be called as we swap the
-				// binaries around, make sure the flag is set for future
-				// executions of the binary to run that part of the code.
-				if !found {
-					os.Args = append(os.Args, "-upgrade-check")
 				}
 
 				lockConn, lockPort, err = osutil.GetLockPort()
@@ -144,11 +125,6 @@ func UpgradeTo(rel Release) error {
 func LatestRelease(prerelease bool) (Release, error) {
 	if os.Getenv("SMF_FMRI") != "" || os.Getenv("STNORESTART") != "" {
 		return Release{}, fmt.Errorf("Cannot perform upgrades under service manager mode")
-	}
-
-	err := checkMidUpgrade()
-	if err != nil {
-		return Release{}, err
 	}
 
 	resp, err := http.Get("https://api.github.com/repos/syncthing/syncthing/releases?per_page=10")
@@ -241,7 +217,7 @@ func readZip(url string, dir string) (string, error) {
 	return "", fmt.Errorf("No upgrade found")
 }
 
-func checkMidUpgrade() error {
+func CheckMidUpgrade() error {
 	path, err := osext.Executable()
 	if err != nil {
 		return err
@@ -291,17 +267,7 @@ func checkMidUpgrade() error {
 				os.Exit(0)
 			}
 
-			// Otherwise, the execution should continue
-			// Clean up the argument, enviroment, and restart back into
-			// the normal mode.
-			for i, arg := range os.Args {
-				if arg == "-upgrade-check" {
-					last := len(os.Args) - 1
-					os.Args[i] = os.Args[last]
-					os.Args = os.Args[:last]
-					break
-				}
-			}
+			// Clean up the enviroment, and restart back into normal mode.
 			os.Setenv("STRESTART", "")
 			return runAndExit(path)
 		}
