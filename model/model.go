@@ -199,7 +199,15 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 // Returns the completion status, in percent, for the given node and repo.
 func (m *Model) Completion(node protocol.NodeID, repo string) float64 {
 	var tot int64
-	m.repoFiles[repo].WithGlobal(func(f protocol.FileInfo) bool {
+
+	m.rmut.RLock()
+	rf, ok := m.repoFiles[repo]
+	m.rmut.RUnlock()
+	if !ok {
+		return 0 // Repo doesn't exist, so we hardly have any of it
+	}
+
+	rf.WithGlobal(func(f protocol.FileInfo) bool {
 		if !protocol.IsDeleted(f.Flags) {
 			var size int64
 			if protocol.IsDirectory(f.Flags) {
@@ -212,8 +220,12 @@ func (m *Model) Completion(node protocol.NodeID, repo string) float64 {
 		return true
 	})
 
+	if tot == 0 {
+		return 100 // Repo is empty, so we have all of it
+	}
+
 	var need int64
-	m.repoFiles[repo].WithNeed(node, func(f protocol.FileInfo) bool {
+	rf.WithNeed(node, func(f protocol.FileInfo) bool {
 		if !protocol.IsDeleted(f.Flags) {
 			var size int64
 			if protocol.IsDirectory(f.Flags) {

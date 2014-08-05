@@ -168,6 +168,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
                 OutBytesTotal: 0,
                 Address: arg.data.addr,
             };
+            $scope.completion[arg.data.id] = {
+                _total: 100,
+            };
         }
     });
 
@@ -284,6 +287,11 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
 
             $scope.nodes = $scope.config.Nodes;
+            $scope.nodes.forEach(function (nodeCfg) {
+                $scope.completion[nodeCfg.NodeID] = {
+                    _total: 100,
+                };
+            });
             $scope.nodes.sort(nodeCompare);
 
             $scope.repos = repoMap($scope.config.Repositories);
