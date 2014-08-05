@@ -9,6 +9,7 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -27,16 +28,19 @@ var (
 )
 
 var jsonEndpoints = []string{
-	"/rest/model?repo=default",
-	"/rest/model/version?repo=default",
-	"/rest/need",
-	"/rest/connections",
+	"/rest/completion?node=I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU&repo=default",
 	"/rest/config",
 	"/rest/config/sync",
-	"/rest/system",
+	"/rest/connections",
 	"/rest/errors",
-	// "/rest/discovery",
+	"/rest/events",
+	"/rest/lang",
+	"/rest/model/version?repo=default",
+	"/rest/model?repo=default",
+	"/rest/need",
+	"/rest/nodeid?id=I6KAH7666SLLLB5PFXSOAUFJCDZCYAOMLEKCP2GB32BV5RQST3PSROAU",
 	"/rest/report",
+	"/rest/system",
 }
 
 func main() {
@@ -61,17 +65,21 @@ func main() {
 
 	var tests []testing.InternalTest
 	tests = append(tests, testing.InternalTest{"TestGetIndex", TestGetIndex})
-	tests = append(tests, testing.InternalTest{"TestGetVersion", TestGetVersion})
-	tests = append(tests, testing.InternalTest{"TestGetVersionNoCSRF", TestGetVersion})
 	tests = append(tests, testing.InternalTest{"TestJSONEndpoints", TestJSONEndpoints})
-	if len(authUser) > 0 || len(apiKey) > 0 {
+	tests = append(tests, testing.InternalTest{"TestPOSTNoCSRF", TestPOSTNoCSRF})
+
+	if len(authUser) > 0 {
+		// If we expect authentication, verify that it fails with the wrong password and wrong API key
 		tests = append(tests, testing.InternalTest{"TestJSONEndpointsNoAuth", TestJSONEndpointsNoAuth})
 		tests = append(tests, testing.InternalTest{"TestJSONEndpointsIncorrectAuth", TestJSONEndpointsIncorrectAuth})
 	}
+
 	if len(csrfToken) > 0 {
-		tests = append(tests, testing.InternalTest{"TestJSONEndpointsNoCSRF", TestJSONEndpointsNoCSRF})
+		// If we have a CSRF token, verify that POST succeeds with it
+		tests = append(tests, testing.InternalTest{"TestPOSTWithCSRF", TestPOSTWithCSRF})
 	}
 
+	fmt.Printf("Testing HTTP: CSRF=%v, API=%v, Auth=%v\n", len(csrfToken) > 0, len(apiKey) > 0, len(authUser) > 0)
 	testing.Main(matcher, tests, nil, nil)
 }
 
@@ -145,33 +153,54 @@ func TestJSONEndpoints(t *testing.T) {
 	for _, p := range jsonEndpoints {
 		res, err := get(p)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			continue
 		}
 		if res.StatusCode != 200 {
 			t.Errorf("Status %d != 200 for %q", res.StatusCode, p)
+			continue
 		}
 		if ct := res.Header.Get("Content-Type"); ct != "application/json; charset=utf-8" {
 			t.Errorf("Content-Type %q != \"application/json\" for %q", ct, p)
+			continue
 		}
 	}
 }
 
-func TestJSONEndpointsNoCSRF(t *testing.T) {
-	for _, p := range jsonEndpoints {
-		r, err := http.NewRequest("GET", "http://"+target+p, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(authUser) > 0 {
-			r.SetBasicAuth(authUser, authPass)
-		}
-		res, err := http.DefaultClient.Do(r)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if res.StatusCode != 403 && res.StatusCode != 401 {
-			t.Fatalf("Status %d != 403/401 for %q", res.StatusCode, p)
-		}
+func TestPOSTNoCSRF(t *testing.T) {
+	r, err := http.NewRequest("POST", "http://"+target+"/rest/error/clear", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(authUser) > 0 {
+		r.SetBasicAuth(authUser, authPass)
+	}
+	res, err := http.DefaultClient.Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != 403 && res.StatusCode != 401 {
+		t.Fatalf("Status %d != 403/401 for POST", res.StatusCode)
+	}
+}
+
+func TestPOSTWithCSRF(t *testing.T) {
+	r, err := http.NewRequest("POST", "http://"+target+"/rest/error/clear", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(csrfToken) > 0 {
+		r.Header.Set("X-CSRF-Token", csrfToken)
+	}
+	if len(authUser) > 0 {
+		r.SetBasicAuth(authUser, authPass)
+	}
+	res, err := http.DefaultClient.Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != 200 {
+		t.Fatalf("Status %d != 200 for POST", res.StatusCode)
 	}
 }
 
@@ -179,17 +208,20 @@ func TestJSONEndpointsNoAuth(t *testing.T) {
 	for _, p := range jsonEndpoints {
 		r, err := http.NewRequest("GET", "http://"+target+p, nil)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			continue
 		}
 		if len(csrfToken) > 0 {
 			r.Header.Set("X-CSRF-Token", csrfToken)
 		}
 		res, err := http.DefaultClient.Do(r)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			continue
 		}
 		if res.StatusCode != 403 && res.StatusCode != 401 {
-			t.Fatalf("Status %d != 403/401 for %q", res.StatusCode, p)
+			t.Errorf("Status %d != 403/401 for %q", res.StatusCode, p)
+			continue
 		}
 	}
 }
@@ -198,7 +230,8 @@ func TestJSONEndpointsIncorrectAuth(t *testing.T) {
 	for _, p := range jsonEndpoints {
 		r, err := http.NewRequest("GET", "http://"+target+p, nil)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			continue
 		}
 		if len(csrfToken) > 0 {
 			r.Header.Set("X-CSRF-Token", csrfToken)
@@ -206,10 +239,12 @@ func TestJSONEndpointsIncorrectAuth(t *testing.T) {
 		r.SetBasicAuth("wronguser", "wrongpass")
 		res, err := http.DefaultClient.Do(r)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			continue
 		}
 		if res.StatusCode != 403 && res.StatusCode != 401 {
-			t.Fatalf("Status %d != 403/401 for %q", res.StatusCode, p)
+			t.Errorf("Status %d != 403/401 for %q", res.StatusCode, p)
+			continue
 		}
 	}
 }
@@ -221,9 +256,6 @@ func get(path string) (*http.Response, error) {
 	}
 	if len(authUser) > 0 {
 		r.SetBasicAuth(authUser, authPass)
-	}
-	if len(csrfToken) > 0 {
-		r.Header.Set("X-CSRF-Token", csrfToken)
 	}
 	if len(apiKey) > 0 {
 		r.Header.Set("X-API-Key", apiKey)
