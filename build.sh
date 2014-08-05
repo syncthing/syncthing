@@ -93,7 +93,6 @@ setup() {
 	go get -v code.google.com/p/go.tools/cmd/vet
 	go get -v github.com/mattn/goveralls
 	go get -v github.com/tools/godep
-	GOPATH="$GOPATH:$(godep path)" go get -v -t ./...
 }
 
 xdr() {

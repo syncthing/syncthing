@@ -7,6 +7,7 @@ package protocol
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +18,6 @@ import (
 	"testing/quick"
 
 	"github.com/calmh/xdr"
-	pretty "github.com/tonnerre/golang-pretty"
 )
 
 var (
@@ -346,12 +346,10 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 	var buf bytes.Buffer
 
 	failed := func(bc []byte) {
-		f, _ := os.Create(prefix + "-1.txt")
-		pretty.Fprintf(f, "%# v", m1)
-		f.Close()
-		f, _ = os.Create(prefix + "-2.txt")
-		pretty.Fprintf(f, "%# v", m2)
-		f.Close()
+		bs, _ := json.MarshalIndent(m1, "", "  ")
+		ioutil.WriteFile(prefix+"-1.txt", bs, 0644)
+		bs, _ = json.MarshalIndent(m2, "", "  ")
+		ioutil.WriteFile(prefix+"-2.txt", bs, 0644)
 		if len(bc) > 0 {
 			f, _ := os.Create(prefix + "-data.txt")
 			fmt.Fprint(f, hex.Dump(bc))
