@@ -675,8 +675,10 @@ func (p *puller) closeFile(f protocol.FileInfo) {
 
 	of := p.openFiles[f.Name]
 	err := of.file.Close()
-	p.errors++
-	l.Infof("close: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
+	if err != nil {
+		p.errors++
+		l.Infof("close: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
+	}
 	defer os.Remove(of.temp)
 
 	delete(p.openFiles, f.Name)
