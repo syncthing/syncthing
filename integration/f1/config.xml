@@ -26,7 +26,7 @@
         <reconnectionIntervalS>5</reconnectionIntervalS>
         <maxChangeKbps>10000</maxChangeKbps>
         <startBrowser>false</startBrowser>
-        <upnpEnabled>true</upnpEnabled>
+        <upnpEnabled>false</upnpEnabled>
         <urAccepted>-1</urAccepted>
     </options>
 </configuration>
