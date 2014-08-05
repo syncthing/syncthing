@@ -4,7 +4,11 @@ export COPYFILE_DISABLE=true
 export GO386=387 # Don't use SSE on 32 bit builds
 
 distFiles=(README.md LICENSE CONTRIBUTORS) # apart from the binary itself
+
+# replace "...-12-g123abc" with "...+12-g123abc" to remain semver compatible-ish
 version=$(git describe --always --dirty)
+version=$(echo "$version" | sed 's/-\([0-9]\{1,3\}-g[0-9a-f]\{5,10\}\)/+\1/')
+
 date=$(git show -s --format=%ct)
 user=$(whoami)
 host=$(hostname)
