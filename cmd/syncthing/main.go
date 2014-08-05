@@ -426,6 +426,15 @@ nextRepo:
 		}
 	}
 
+	// Clear out old indexes for other nodes. Otherwise we'll start up and
+	// start needing a bunch of files which are nowhere to be found. This
+	// needs to be changed when we correctly do persistent indexes.
+	for _, repoCfg := range cfg.Repositories {
+		for _, node := range repoCfg.NodeIDs() {
+			m.Index(node, repoCfg.ID, nil)
+		}
+	}
+
 	// Walk the repository and update the local model before establishing any
 	// connections to other nodes.
 
