@@ -51,7 +51,7 @@ func reportData(m *model.Model) map[string]interface{} {
 
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
-	res["memoryUsageMiB"] = mem.Sys / 1024 / 1024
+	res["memoryUsageMiB"] = (mem.Sys - mem.HeapReleased) / 1024 / 1024
 
 	var perf float64
 	for i := 0; i < 5; i++ {
