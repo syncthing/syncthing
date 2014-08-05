@@ -1039,7 +1039,6 @@ syncthing.directive('validNodeid', function($http) {
                         if (resp.error) {
                             ctrl.$setValidity('validNodeid', false);
                         } else {
-                            scope.currentNode.NodeID = resp.id;
                             ctrl.$setValidity('validNodeid', true);
                         }
                     });
