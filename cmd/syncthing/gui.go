@@ -57,7 +57,7 @@ const (
 
 func init() {
 	l.AddHandler(logger.LevelWarn, showGuiError)
-	sub := events.Default.Subscribe(^events.EventType(events.ItemStarted | events.ItemCompleted))
+	sub := events.Default.Subscribe(events.AllEvents)
 	eventSub = events.NewBufferedSubscription(sub, 1000)
 }
 

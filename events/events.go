@@ -23,7 +23,6 @@ const (
 	LocalIndexUpdated
 	RemoteIndexUpdated
 	ItemStarted
-	ItemCompleted
 	StateChanged
 
 	AllEvents = ^EventType(0)
