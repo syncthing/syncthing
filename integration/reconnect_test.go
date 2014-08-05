@@ -2,6 +2,8 @@
 // All rights reserved. Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
+// +build integration
+
 package integration_test
 
 import (
@@ -37,11 +39,6 @@ func TestRestartSenderDuringTransfer(t *testing.T) {
 }
 
 func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool, senderDelay, receiverDelay time.Duration) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
-		return
-	}
-
 	t.Log("Cleaning...")
 	err := removeAll("s1", "s2", "f1/index", "f2/index")
 	if err != nil {
