@@ -384,7 +384,7 @@ func restGetSystem(w http.ResponseWriter, r *http.Request) {
 	res["myID"] = myID.String()
 	res["goroutines"] = runtime.NumGoroutine()
 	res["alloc"] = m.Alloc
-	res["sys"] = m.Sys
+	res["sys"] = m.Sys - m.HeapReleased
 	res["tilde"] = expandTilde("~")
 	if cfg.Options.GlobalAnnEnabled && discoverer != nil {
 		res["extAnnounceOK"] = discoverer.ExtAnnounceOK()
