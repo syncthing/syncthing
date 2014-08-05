@@ -7,6 +7,7 @@ package model
 import (
 	"bytes"
 	"errors"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
@@ -641,10 +642,17 @@ func (p *puller) queueNeededBlocks(prevVer uint64) (uint64, int) {
 	}
 
 	queued := 0
+	files := make([]protocol.FileInfo, 0, indexBatchSize)
 	for _, f := range p.model.NeedFilesRepo(p.repoCfg.ID) {
 		if _, ok := p.openFiles[f.Name]; ok {
 			continue
 		}
+		files = append(files, f)
+	}
+
+	perm := rand.Perm(len(files))
+	for _, idx := range perm {
+		f := files[idx]
 		lf := p.model.CurrentRepoFile(p.repoCfg.ID, f.Name)
 		have, need := scanner.BlockDiff(lf.Blocks, f.Blocks)
 		if debug {
@@ -657,6 +665,7 @@ func (p *puller) queueNeededBlocks(prevVer uint64) (uint64, int) {
 			need: need,
 		})
 	}
+
 	if debug && queued > 0 {
 		l.Debugf("%q: queued %d items", p.repoCfg.ID, queued)
 	}
