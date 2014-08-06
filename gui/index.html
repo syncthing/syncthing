@@ -391,8 +391,12 @@
 
   <!-- Restarting modal -->
 
-  <modal id="restarting" icon="refresh" title="{{restartingTitle}}" status="info">
-    <p>{{restartingBody}} <span translate>Please wait</span>&hellip;</p>
+  <modal id="restarting" icon="refresh" title="{{'Restarting' | translate}}" status="info">
+    <p><span translate>Syncthing is restarting.</span> <span translate>Please wait</span>...</p>
+  </modal>
+
+  <modal id="upgrading" icon="refresh" title="{{'Upgrading' | translate}}" status="info">
+    <p><span translate>Syncthing is upgrading.</span> <span translate>Please wait</span>...</p>
   </modal>
 
   <!-- Shutdown modal -->

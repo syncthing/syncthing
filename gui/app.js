@@ -514,8 +514,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.restart = function () {
         restarting = true;
-        $scope.restartingTitle = "Restarting"
-        $scope.restartingBody = "Syncthing is restarting."
         $('#restarting').modal({backdrop: 'static', keyboard: false});
         $http.post(urlbase + '/restart');
         $scope.configInSync = true;
@@ -537,14 +535,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     };
 
     $scope.upgrade = function () {
-        $scope.restartingTitle = "Upgrading"
-        $scope.restartingBody = "Syncthing is upgrading."
-        $('#restarting').modal({backdrop: 'static', keyboard: false});
+        restarting = true;
+        $('#upgrading').modal({backdrop: 'static', keyboard: false});
         $http.post(urlbase + '/upgrade').success(function () {
-            restarting = true;
-            $scope.restartingBody = "Syncthing is restarting into the new version."
+            $('#restarting').modal({backdrop: 'static', keyboard: false});
+            $('#upgrading').modal('hide');
         }).error(function () {
-            $('#restarting').modal('hide');
+            $('#upgrading').modal('hide');
         });
     };
 
