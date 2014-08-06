@@ -9,10 +9,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
+	"strings"
 )
 
 type stat struct {
@@ -31,6 +34,12 @@ func main() {
 		log.Fatal("Need environment variables TRANSIFEX_USER and TRANSIFEX_PASS")
 	}
 
+	curValidLangs := map[string]bool{}
+	for _, lang := range loadValidLangs() {
+		curValidLangs[lang] = true
+	}
+	log.Println(curValidLangs)
+
 	resp := req("https://www.transifex.com/api/2/project/syncthing/resource/gui/stats")
 
 	var stats map[string]stat
@@ -43,10 +52,12 @@ func main() {
 	var langs []string
 	for code, stat := range stats {
 		shortCode := code[:2]
-		if pct := 100 * stat.Translated / (stat.Translated + stat.Untranslated); pct < 95 {
-			log.Printf("Skipping language %q (too low completion ratio %d%%)", shortCode, pct)
-			os.Remove("lang-" + shortCode + ".json")
-			continue
+		if !curValidLangs[shortCode] {
+			if pct := 100 * stat.Translated / (stat.Translated + stat.Untranslated); pct < 95 {
+				log.Printf("Skipping language %q (too low completion ratio %d%%)", shortCode, pct)
+				os.Remove("lang-" + shortCode + ".json")
+				continue
+			}
 		}
 
 		langs = append(langs, shortCode)
@@ -72,9 +83,18 @@ func main() {
 		fd.Close()
 	}
 
+	saveValidLangs(langs)
+}
+
+func saveValidLangs(langs []string) {
 	sort.Strings(langs)
-	fmt.Print("var validLangs = ")
-	json.NewEncoder(os.Stdout).Encode(langs)
+	fd, err := os.Create("valid-langs.js")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprint(fd, "var validLangs = ")
+	json.NewEncoder(fd).Encode(langs)
+	fd.Close()
 }
 
 func userPass() (string, string) {
@@ -96,4 +116,28 @@ func req(url string) *http.Response {
 		log.Fatal(err)
 	}
 	return resp
+}
+
+func loadValidLangs() []string {
+	fd, err := os.Open("valid-langs.js")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer fd.Close()
+	bs, err := ioutil.ReadAll(fd)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var langs []string
+	exp := regexp.MustCompile(`\[([a-z",]+)\]`)
+	if matches := exp.FindSubmatch(bs); len(matches) == 2 {
+		langs = strings.Split(string(matches[1]), ",")
+		for i := range langs {
+			// Remove quotes
+			langs[i] = langs[i][1 : len(langs[i])-1]
+		}
+	}
+
+	return langs
 }
