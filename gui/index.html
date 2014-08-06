@@ -100,7 +100,8 @@
 
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
-      <span class="navbar-brand"><img class="logo" src="st-logo-128.png" width="32" height="32" /> Syncthing<small class="hidden-xs"> <span class="text-muted">|</span> {{thisNodeName()}}</small></span>
+      <span class="navbar-brand"><img class="logo" src="logo-text-64.png" height="32" width="117"/></span>
+      <p class="navbar-text hidden-xs">{{thisNodeName()}}</p>
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo.newer">
           <button type="button" class="btn navbar-btn btn-default" href="" ng-click="upgrade()">
@@ -714,7 +715,7 @@
   <!-- About modal -->
 
   <modal id="about" large="yes" close="yes" status="info" title="About">
-    <h1 class="text-center"><img src="st-logo-128.png" style="vertical-align: -16px" width="64" height="64"/> Syncthing<br/><small>{{version}}</small></h1>
+    <h1 class="text-center"><img alt="Syncthing" title="Syncthing" src="logo-text-256.png" style="vertical-align: -16px" height="100" width="366"/><br/><small>{{version}}</small></h1>
     <hr/>
 
     <p translate>Copyright &copy; 2014 Jakob Borg and the following Contributors:</p>
@@ -731,6 +732,7 @@
         </div>
       <div class="col-md-6">
         <ul>
+          <li>Gilli Sigurdsson</li>
           <li>James Patterson</li>
           <li>Jens Diemer</li>
           <li>Philippe Schommers</li>
