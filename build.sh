@@ -114,7 +114,7 @@ translate() {
 
 transifex() {
 	pushd gui
-	go run ../cmd/transifexdl/main.go > valid-langs.js
+	go run ../cmd/transifexdl/main.go
 	popd
 	assets
 }

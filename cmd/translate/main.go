@@ -10,12 +10,14 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 
 	"code.google.com/p/go.net/html"
 )
 
 var trans = make(map[string]string)
+var attrRe = regexp.MustCompile(`\{\{'([^']+)'\s+\|\s+translate\}\}`)
 
 func generalNode(n *html.Node) {
 	translate := false
@@ -24,6 +26,10 @@ func generalNode(n *html.Node) {
 			if a.Key == "translate" {
 				translate = true
 				break
+			} else {
+				if matches := attrRe.FindStringSubmatch(a.Val); len(matches) == 2 {
+					translation(matches[1])
+				}
 			}
 		}
 	} else if n.Type == html.TextNode {
@@ -44,12 +50,7 @@ func generalNode(n *html.Node) {
 
 func inTranslate(n *html.Node) {
 	if n.Type == html.TextNode {
-		v := strings.TrimSpace(n.Data)
-		if _, ok := trans[v]; !ok {
-			av := strings.Replace(v, "{%", "{{", -1)
-			av = strings.Replace(av, "%}", "}}", -1)
-			trans[v] = av
-		}
+		translation(n.Data)
 	} else {
 		log.Println("translate node with non-text child <")
 		log.Println(n)
@@ -57,6 +58,15 @@ func inTranslate(n *html.Node) {
 	if n.FirstChild != nil {
 		log.Println("translate node has children:")
 		log.Println(n.Data)
+	}
+}
+
+func translation(v string) {
+	v = strings.TrimSpace(v)
+	if _, ok := trans[v]; !ok {
+		av := strings.Replace(v, "{%", "{{", -1)
+		av = strings.Replace(av, "%}", "}}", -1)
+		trans[v] = av
 	}
 }
 
