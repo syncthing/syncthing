@@ -21,6 +21,14 @@ least the following:
 If you're not sure whether something is relevant, erring on the side of
 too much information will never get you yelled at. :)
 
+## Contributing Translations
+
+All translations are done via
+[Transifex](https://www.transifex.com/projects/p/syncthing/). If you
+wish to contribute to a translation, just head over there and sign up.
+Before every release, the language resources are updated from the
+latest info on Transifex.
+
 ## Contributing Code
 
 Please do contribute! If you want to contribute but are unsure where to
