@@ -91,6 +91,7 @@ alterFiles() {
 	for i in 1 12-2 23-3 ; do
 		# Delete some files
 		pushd "s$i" >/dev/null
+		chmod 755 ro-test
 		nfiles=$(find . -type f | wc -l)
 		if [[ $nfiles -ge 300 ]] ; then
 			todelete=$(( $nfiles - 300 ))
@@ -107,6 +108,10 @@ alterFiles() {
 		../genfiles -maxexp 22 -files 200
 		echo "  $i: append to large file"
 		dd if=large-$i bs=1024k count=4 >> large-$i 2>/dev/null
+		echo "  $i: new files in ro directory"
+		uuidgen > ro-test/$(uuidgen)
+		chmod 500 ro-test
+
 		../md5r -l | sort | grep -v .stversions > ../md5-$i
 		popd >/dev/null
 	done
@@ -118,6 +123,7 @@ alterFiles() {
 }
 
 rm -rf h?/*.idx.gz h?/index
+chmod -R u+w s? s??-?
 rm -rf s? s??-?
 mkdir s1 s2 s3 s12-1 s12-2 s23-2 s23-3
 
@@ -126,6 +132,10 @@ for i in 1 12-2 23-3; do
 	pushd "s$i" >/dev/null
 	echo "  $i: random nonoverlapping"
 	../genfiles -maxexp 22 -files 400
+	echo "  $i: ro directory"
+	mkdir ro-test
+	uuidgen > ro-test/$(uuidgen)
+	chmod 500 ro-test
 	popd >/dev/null
 done
 
