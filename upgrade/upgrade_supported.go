@@ -23,10 +23,8 @@ import (
 	"bitbucket.org/kardianos/osext"
 )
 
-var GoArchExtra string // "", "v5", "v6", "v7"
-
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
-func UpgradeTo(rel Release) error {
+func UpgradeTo(rel Release, archExtra string) error {
 	path, err := osext.Executable()
 	if err != nil {
 		return err
@@ -38,8 +36,14 @@ func UpgradeTo(rel Release) error {
 		// sense for people downloading them
 		osName = "macosx"
 	}
-	expectedRelease := fmt.Sprintf("syncthing-%s-%s%s-%s.", osName, runtime.GOARCH, GoArchExtra, rel.Tag)
+	expectedRelease := fmt.Sprintf("syncthing-%s-%s%s-%s.", osName, runtime.GOARCH, archExtra, rel.Tag)
+	if debug {
+		l.Debugf("expected release asset %q", expectedRelease)
+	}
 	for _, asset := range rel.Assets {
+		if debug {
+			l.Debugln("considering release", asset)
+		}
 		if strings.HasPrefix(asset.Name, expectedRelease) {
 			if strings.HasSuffix(asset.Name, ".tar.gz") {
 				fname, err := readTarGZ(asset.URL, filepath.Dir(path))
@@ -97,6 +101,10 @@ func LatestRelease(prerelease bool) (Release, error) {
 }
 
 func readTarGZ(url string, dir string) (string, error) {
+	if debug {
+		l.Debugf("loading %q", url)
+	}
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
@@ -128,6 +136,9 @@ func readTarGZ(url string, dir string) (string, error) {
 		}
 		if err != nil {
 			return "", err
+		}
+		if debug {
+			l.Debugf("considering file %q", hdr.Name)
 		}
 
 		if path.Base(hdr.Name) == "syncthing" {
