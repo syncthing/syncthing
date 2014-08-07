@@ -436,7 +436,7 @@ func (p *puller) handleBlock(b bqBlock) bool {
 		of.temp = filepath.Join(p.repoCfg.Directory, defTempNamer.TempName(f.Name))
 
 		dirName := filepath.Dir(of.filepath)
-		fi, err := os.Stat(dirName)
+		_, err := os.Stat(dirName)
 		if err != nil {
 			err = os.MkdirAll(dirName, 0777)
 		} else {
