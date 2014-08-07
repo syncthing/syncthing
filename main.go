@@ -337,11 +337,14 @@ func ensureDir(dir string, mode int) {
 	}
 }
 
-var vRe = regexp.MustCompile(`^(v\d+\.\d+\.\d+)-.+`)
+var vRe = regexp.MustCompile(`^(v\d+\.\d+\.\d+(?:-[a-z]\w+)?)[+\.-]`)
 
 // transformVersion returns a version number formatted correctly, with all
 // development versions aggregated into one.
 func transformVersion(v string) string {
+	if v == "unknown-dev" {
+		return v
+	}
 	if !strings.HasPrefix(v, "v") {
 		v = "v" + v
 	}
