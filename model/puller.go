@@ -441,7 +441,9 @@ func (p *puller) handleBlock(b bqBlock) bool {
 			err = os.MkdirAll(dirName, 0777)
 		} else {
 			// We need to make sure the directory is writeable so we can create files in it
-			err = os.Chmod(dirName, 0777)
+			if (dirName != p.repoCfg.Directory) {
+			   err = os.Chmod(dirName, 0777)
+			}
 		}
 		if err != nil {
 			l.Infof("mkdir: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
@@ -600,9 +602,13 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 			l.Debugf("pull: delete %q", f.Name)
 		}
 		os.Remove(of.temp)
+
 		// Ensure the file and the directory it is in is writeable so we can remove the file
+		dirName := filepath.Dir(of.filepath)
 		os.Chmod(of.filepath, 0666)
-		os.Chmod(filepath.Dir(of.filepath), 0777)
+		if (dirName != p.repoCfg.Directory) {
+		   os.Chmod(dirName, 0777)
+		}
 		if p.versioner != nil {
 			if debug {
 				l.Debugln("pull: deleting with versioner")
