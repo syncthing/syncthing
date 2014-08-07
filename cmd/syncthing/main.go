@@ -136,11 +136,13 @@ func main() {
 	var doUpgrade bool
 	var doUpgradeCheck bool
 	var generateDir string
+	var noBrowser bool
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
+	flag.BoolVar(&noBrowser, "no-browser", false, "Do not start browser")
 	flag.IntVar(&logFlags, "logflags", logFlags, "Set log flags")
 	flag.StringVar(&generateDir, "generate", "", "Generate key in specified dir")
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
@@ -420,7 +422,7 @@ nextRepo:
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
-			if cfg.Options.StartBrowser && len(os.Getenv("STRESTART")) == 0 {
+			if !noBrowser && cfg.Options.StartBrowser && len(os.Getenv("STRESTART")) == 0 {
 				openURL(fmt.Sprintf("%s://%s:%d", proto, hostOpen, addr.Port))
 			}
 		}
