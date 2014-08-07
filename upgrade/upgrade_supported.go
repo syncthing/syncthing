@@ -100,6 +100,10 @@ func LatestRelease(prerelease bool) (Release, error) {
 	}
 }
 
+func CheckMidUpgrade() error {
+	return nil
+}
+
 func readTarGZ(url string, dir string) (string, error) {
 	if debug {
 		l.Debugf("loading %q", url)

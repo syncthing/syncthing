@@ -181,6 +181,9 @@ func main() {
 		return
 	}
 
+	err := upgrade.CheckMidUpgrade()
+	l.FatalErr(err)
+
 	if doUpgrade || doUpgradeCheck {
 		rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
 		if err != nil {
@@ -206,8 +209,7 @@ func main() {
 		}
 	}
 
-	var err error
-	lockPort, err = getLockPort()
+	lockConn, lockPort, err = osutil.GetLockPort()
 	if err != nil {
 		l.Fatalln("Opening lock port:", err)
 	}
@@ -317,7 +319,10 @@ func main() {
 	}
 
 	if len(os.Getenv("STRESTART")) > 0 {
-		waitForParentExit()
+		l.Infoln("Waiting for parent to exit...")
+		err = osutil.WaitForParentExit()
+		l.FatalErr(err)
+		l.Infoln("Continuing")
 	}
 
 	if profiler := os.Getenv("STPROFILER"); len(profiler) > 0 {
@@ -540,25 +545,6 @@ func generateEvents() {
 		time.Sleep(300 * time.Second)
 		events.Default.Log(events.Ping, nil)
 	}
-}
-
-func waitForParentExit() {
-	l.Infoln("Waiting for parent to exit...")
-	lockPortStr := os.Getenv("STRESTART")
-	lockPort, err := strconv.Atoi(lockPortStr)
-	if err != nil {
-		l.Warnln("Invalid lock port %q: %v", lockPortStr, err)
-	}
-	// Wait for the listen address to become free, indicating that the parent has exited.
-	for {
-		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", lockPort))
-		if err == nil {
-			ln.Close()
-			break
-		}
-		time.Sleep(250 * time.Millisecond)
-	}
-	l.Infoln("Continuing")
 }
 
 func setupUPnP(r rand.Source) int {
@@ -1032,15 +1018,5 @@ func getFreePort(host string, ports ...int) (int, error) {
 	}
 	addr := c.Addr().(*net.TCPAddr)
 	c.Close()
-	return addr.Port, nil
-}
-
-func getLockPort() (int, error) {
-	var err error
-	lockConn, err = net.ListenTCP("tcp", &net.TCPAddr{IP: net.IP{127, 0, 0, 1}})
-	if err != nil {
-		return 0, err
-	}
-	addr := lockConn.Addr().(*net.TCPAddr)
 	return addr.Port, nil
 }
