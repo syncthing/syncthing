@@ -47,6 +47,7 @@ var (
 	BuildHost   = "unknown"
 	BuildUser   = "unknown"
 	LongVersion string
+	GoArchExtra string // "", "v5", "v6", "v7"
 )
 
 var l = logger.DefaultLogger
@@ -194,7 +195,7 @@ func main() {
 		l.Infof("Upgrade available (current %q < latest %q)", Version, rel.Tag)
 
 		if doUpgrade {
-			err = upgrade.UpgradeTo(rel)
+			err = upgrade.UpgradeTo(rel, GoArchExtra)
 			if err != nil {
 				l.Fatalln("Upgrade:", err) // exits 1
 			}

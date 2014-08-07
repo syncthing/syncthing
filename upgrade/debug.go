@@ -2,14 +2,16 @@
 // All rights reserved. Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-// +build windows solaris noupgrade
-
 package upgrade
 
-func UpgradeTo(rel Release, extra string) error {
-	return ErrUpgradeUnsupported
-}
+import (
+	"os"
+	"strings"
 
-func LatestRelease(prerelease bool) (Release, error) {
-	return Release{}, ErrUpgradeUnsupported
-}
+	"github.com/syncthing/syncthing/logger"
+)
+
+var (
+	debug = strings.Contains(os.Getenv("STTRACE"), "upgrade") || os.Getenv("STTRACE") == "all"
+	l     = logger.DefaultLogger
+)
