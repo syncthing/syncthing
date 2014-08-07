@@ -2,6 +2,7 @@ package files
 
 import (
 	"bytes"
+	"runtime"
 	"sort"
 	"sync"
 
@@ -121,6 +122,8 @@ type deletionHandler func(db dbReader, batch dbWriter, repo, node, name []byte, 
 type fileIterator func(f protocol.FileInfo) bool
 
 func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo, deleteFn deletionHandler) uint64 {
+	defer runtime.GC()
+
 	sort.Sort(fileList(fs)) // sort list on name, same as on disk
 
 	start := nodeKey(repo, node, nil)                            // before all repo/node files
@@ -246,6 +249,8 @@ func ldbReplaceWithDelete(db *leveldb.DB, repo, node []byte, fs []protocol.FileI
 }
 
 func ldbUpdate(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint64 {
+	defer runtime.GC()
+
 	batch := new(leveldb.Batch)
 	snap, err := db.GetSnapshot()
 	if err != nil {
@@ -414,6 +419,8 @@ func ldbWithHave(db *leveldb.DB, repo, node []byte, fn fileIterator) {
 }
 
 func ldbWithAllRepo(db *leveldb.DB, repo []byte, fn func(node []byte, f protocol.FileInfo) bool) {
+	defer runtime.GC()
+
 	start := nodeKey(repo, nil, nil)                                                // before all repo/node files
 	limit := nodeKey(repo, protocol.LocalNodeID[:], []byte{0xff, 0xff, 0xff, 0xff}) // after all repo/node files
 	snap, err := db.GetSnapshot()
@@ -530,6 +537,8 @@ func ldbGetGlobal(db *leveldb.DB, repo, file []byte) protocol.FileInfo {
 }
 
 func ldbWithGlobal(db *leveldb.DB, repo []byte, fn fileIterator) {
+	defer runtime.GC()
+
 	start := globalKey(repo, nil)
 	limit := globalKey(repo, []byte{0xff, 0xff, 0xff, 0xff})
 	snap, err := db.GetSnapshot()
@@ -597,6 +606,8 @@ func ldbAvailability(db *leveldb.DB, repo, file []byte) []protocol.NodeID {
 }
 
 func ldbWithNeed(db *leveldb.DB, repo, node []byte, fn fileIterator) {
+	defer runtime.GC()
+
 	start := globalKey(repo, nil)
 	limit := globalKey(repo, []byte{0xff, 0xff, 0xff, 0xff})
 	snap, err := db.GetSnapshot()
