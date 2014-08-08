@@ -8,6 +8,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -76,7 +77,9 @@ func main() {
 
 	if len(csrfToken) > 0 {
 		// If we have a CSRF token, verify that POST succeeds with it
-		tests = append(tests, testing.InternalTest{"TestPOSTWithCSRF", TestPOSTWithCSRF})
+		tests = append(tests, testing.InternalTest{"TestPostWitchCSRF", TestPostWitchCSRF})
+		tests = append(tests, testing.InternalTest{"TestGetPostConfigOK", TestGetPostConfigOK})
+		tests = append(tests, testing.InternalTest{"TestGetPostConfigFail", TestGetPostConfigFail})
 	}
 
 	fmt.Printf("Testing HTTP: CSRF=%v, API=%v, Auth=%v\n", len(csrfToken) > 0, len(apiKey) > 0, len(authUser) > 0)
@@ -184,7 +187,7 @@ func TestPOSTNoCSRF(t *testing.T) {
 	}
 }
 
-func TestPOSTWithCSRF(t *testing.T) {
+func TestPostWitchCSRF(t *testing.T) {
 	r, err := http.NewRequest("POST", "http://"+target+"/rest/error/clear", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -201,6 +204,96 @@ func TestPOSTWithCSRF(t *testing.T) {
 	}
 	if res.StatusCode != 200 {
 		t.Fatalf("Status %d != 200 for POST", res.StatusCode)
+	}
+}
+
+func TestGetPostConfigOK(t *testing.T) {
+	// Get config
+	r, err := http.NewRequest("GET", "http://"+target+"/rest/config", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(csrfToken) > 0 {
+		r.Header.Set("X-CSRF-Token", csrfToken)
+	}
+	if len(authUser) > 0 {
+		r.SetBasicAuth(authUser, authPass)
+	}
+	res, err := http.DefaultClient.Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != 200 {
+		t.Fatalf("Status %d != 200 for POST", res.StatusCode)
+	}
+	bs, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+
+	// Post same config back
+	r, err = http.NewRequest("POST", "http://"+target+"/rest/config", bytes.NewBuffer(bs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(csrfToken) > 0 {
+		r.Header.Set("X-CSRF-Token", csrfToken)
+	}
+	if len(authUser) > 0 {
+		r.SetBasicAuth(authUser, authPass)
+	}
+	res, err = http.DefaultClient.Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != 200 {
+		t.Fatalf("Status %d != 200 for POST", res.StatusCode)
+	}
+}
+
+func TestGetPostConfigFail(t *testing.T) {
+	// Get config
+	r, err := http.NewRequest("GET", "http://"+target+"/rest/config", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(csrfToken) > 0 {
+		r.Header.Set("X-CSRF-Token", csrfToken)
+	}
+	if len(authUser) > 0 {
+		r.SetBasicAuth(authUser, authPass)
+	}
+	res, err := http.DefaultClient.Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != 200 {
+		t.Fatalf("Status %d != 200 for POST", res.StatusCode)
+	}
+	bs, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+
+	// Post same config back, with some characters missing to create a syntax error
+	r, err = http.NewRequest("POST", "http://"+target+"/rest/config", bytes.NewBuffer(bs[2:]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(csrfToken) > 0 {
+		r.Header.Set("X-CSRF-Token", csrfToken)
+	}
+	if len(authUser) > 0 {
+		r.SetBasicAuth(authUser, authPass)
+	}
+	res, err = http.DefaultClient.Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != 500 {
+		t.Fatalf("Status %d != 500 for POST", res.StatusCode)
 	}
 }
 

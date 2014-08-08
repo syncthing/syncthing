@@ -278,6 +278,8 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&newCfg)
 	if err != nil {
 		l.Warnln(err)
+		http.Error(w, err.Error(), 500)
+		return
 	} else {
 		if newCfg.GUI.Password == "" {
 			// Leave it empty
@@ -287,6 +289,8 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 			hash, err := bcrypt.GenerateFromPassword([]byte(newCfg.GUI.Password), 0)
 			if err != nil {
 				l.Warnln(err)
+				http.Error(w, err.Error(), 500)
+				return
 			} else {
 				newCfg.GUI.Password = string(hash)
 			}
