@@ -395,6 +395,8 @@
     <p><span translate>Syncthing is restarting.</span> <span translate>Please wait</span>...</p>
   </modal>
 
+  <!-- Upgrading modal -->
+
   <modal id="upgrading" icon="refresh" title="{{'Upgrading' | translate}}" status="info">
     <p><span translate>Syncthing is upgrading.</span> <span translate>Please wait</span>...</p>
   </modal>
@@ -414,7 +416,7 @@
 
   <!-- Node editor modal -->
 
-  <div id="editNode" class="modal fade">
+  <div id="editNode" class="modal fade" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
@@ -464,7 +466,7 @@
 
   <!-- Repo editor modal -->
 
-  <div id="editRepo" class="modal fade">
+  <div id="editRepo" class="modal fade" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
@@ -558,7 +560,7 @@
 
   <!-- Settings modal -->
 
-  <div id="settings" class="modal fade">
+  <div id="settings" class="modal fade" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
@@ -684,7 +686,7 @@
 
   <!-- Usage report modal -->
 
-  <div id="ur" class="modal fade">
+  <div id="ur" class="modal fade" data-backdrop="static" data-keyboard="false" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header alert alert-success">
