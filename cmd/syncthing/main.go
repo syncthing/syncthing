@@ -139,6 +139,7 @@ func main() {
 	var generateDir string
 	var noBrowser bool
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
+	var guiAddr = flag.String("gui-addr", "127.0.0.1:8080", "Gui address and port")
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
@@ -299,9 +300,13 @@ func main() {
 			},
 		}
 
-		port, err := getFreePort("127.0.0.1", 8080)
+		splip, splport, err := net.SplitHostPort(*guiAddr)
 		l.FatalErr(err)
-		cfg.GUI.Address = fmt.Sprintf("127.0.0.1:%d", port)
+		intport, err := strconv.Atoi(splport)
+		l.FatalErr(err)
+		port, err := getFreePort(splip, intport)
+		l.FatalErr(err)
+		cfg.GUI.Address = fmt.Sprintf(splip+":%d", port)
 
 		port, err = getFreePort("0.0.0.0", 22000)
 		l.FatalErr(err)
