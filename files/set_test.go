@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/syncthing/syncthing/files"
 	"github.com/syncthing/syncthing/lamport"
@@ -590,5 +591,64 @@ func TestLocalVersion(t *testing.T) {
 	c2 := m.LocalVersion(protocol.LocalNodeID)
 	if c2 != c1 {
 		t.Fatal("Local version number should be unchanged")
+	}
+}
+
+var gf protocol.FileInfo
+
+func TestStressGlobalVersion(t *testing.T) {
+	dur := 15 * time.Second
+	if testing.Short() {
+		dur = 1 * time.Second
+	}
+
+	set1 := []protocol.FileInfo{
+		protocol.FileInfo{Name: "a", Version: 1000},
+		protocol.FileInfo{Name: "b", Version: 1000},
+	}
+	set2 := []protocol.FileInfo{
+		protocol.FileInfo{Name: "b", Version: 1001},
+		protocol.FileInfo{Name: "c", Version: 1000},
+	}
+
+	db, err := leveldb.OpenFile("testdata/global.db", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m := files.NewSet("test", db)
+
+	done := make(chan struct{})
+	go stressWriter(m, remoteNode, set1, nil, done)
+	go stressWriter(m, protocol.LocalNodeID, set2, nil, done)
+
+	t0 := time.Now()
+	for time.Since(t0) < dur {
+		m.WithGlobal(func(f protocol.FileInfo) bool {
+			gf = f
+			return true
+		})
+	}
+
+	close(done)
+}
+
+func stressWriter(s *files.Set, id protocol.NodeID, set1, set2 []protocol.FileInfo, done chan struct{}) {
+	one := true
+	i := 0
+	for {
+		select {
+		case <-done:
+			return
+
+		default:
+			if one {
+				s.Replace(id, set1)
+			} else {
+				s.Replace(id, set2)
+			}
+			one = !one
+		}
+		i++
 	}
 }
