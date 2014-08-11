@@ -126,6 +126,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/restart", restPostRestart)
 	postRestMux.HandleFunc("/rest/shutdown", restPostShutdown)
 	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
+	postRestMux.HandleFunc("/rest/scan", withModel(m, restPostScan))
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -527,6 +528,16 @@ func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
 		}
 
 		restPostRestart(w, r)
+	}
+}
+
+func restPostScan(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	repo := qs.Get("repo")
+	sub := qs.Get("sub")
+	err := m.ScanRepoSub(repo, sub)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
 	}
 }
 

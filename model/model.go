@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -744,12 +745,21 @@ func (m *Model) CleanRepos() {
 }
 
 func (m *Model) ScanRepo(repo string) error {
+	return m.ScanRepoSub(repo, "")
+}
+
+func (m *Model) ScanRepoSub(repo, sub string) error {
+	if p := filepath.Clean(filepath.Join(repo, sub)); !strings.HasPrefix(p, repo) {
+		return errors.New("invalid subpath")
+	}
+
 	m.rmut.RLock()
-	fs := m.repoFiles[repo]
+	fs, ok := m.repoFiles[repo]
 	dir := m.repoCfgs[repo].Directory
 
 	w := &scanner.Walker{
 		Dir:          dir,
+		Sub:          sub,
 		IgnoreFile:   ".stignore",
 		BlockSize:    scanner.StandardBlockSize,
 		TempNamer:    defTempNamer,
@@ -758,6 +768,9 @@ func (m *Model) ScanRepo(repo string) error {
 		IgnorePerms:  m.repoCfgs[repo].IgnorePerms,
 	}
 	m.rmut.RUnlock()
+	if !ok {
+		return errors.New("no such repo")
+	}
 
 	m.setState(repo, RepoScanning)
 	fchan, _, err := w.Walk()
@@ -786,7 +799,13 @@ func (m *Model) ScanRepo(repo string) error {
 	}
 
 	batch = batch[:0]
+	// TODO: We should limit the Have scanning to start at sub
+	seenPrefix := false
 	fs.WithHave(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
+		if !strings.HasPrefix(f.Name, sub) {
+			return !seenPrefix
+		}
+		seenPrefix = true
 		if !protocol.IsDeleted(f.Flags) {
 			if len(batch) == batchSize {
 				fs.Update(protocol.LocalNodeID, batch)

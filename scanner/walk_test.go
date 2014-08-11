@@ -29,6 +29,30 @@ var correctIgnores = map[string][]string{
 	".": {".*", "quux"},
 }
 
+func TestWalkSub(t *testing.T) {
+	w := Walker{
+		Dir:        "testdata",
+		Sub:        "foo",
+		BlockSize:  128 * 1024,
+		IgnoreFile: ".stignore",
+	}
+	fchan, _, err := w.Walk()
+	var files []protocol.FileInfo
+	for f := range fchan {
+		files = append(files, f)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(files) != 1 {
+		t.Fatalf("Incorrect length %d != 1", len(files))
+	}
+	if files[0].Name != "foo" {
+		t.Errorf("Incorrect file %v != foo", files[0])
+	}
+}
+
 func TestWalk(t *testing.T) {
 	w := Walker{
 		Dir:        "testdata",
