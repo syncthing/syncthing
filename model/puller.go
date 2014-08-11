@@ -2,6 +2,25 @@
 // All rights reserved. Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
+/*
+__        __               _             _
+\ \      / /_ _ _ __ _ __ (_)_ __   __ _| |
+ \ \ /\ / / _` | '__| '_ \| | '_ \ / _` | |
+  \ V  V / (_| | |  | | | | | | | | (_| |_|
+   \_/\_/ \__,_|_|  |_| |_|_|_| |_|\__, (_)
+                                   |___/
+
+The code in this file is a piece of crap. Don't base anything on it.
+Refactorin ongoing in new-puller branch.
+
+__        __               _             _
+\ \      / /_ _ _ __ _ __ (_)_ __   __ _| |
+ \ \ /\ / / _` | '__| '_ \| | '_ \ / _` | |
+  \ V  V / (_| | |  | | | | | | | | (_| |_|
+   \_/\_/ \__,_|_|  |_| |_|_|_| |_|\__, (_)
+                                   |___/
+*/
+
 package model
 
 import (
@@ -441,8 +460,8 @@ func (p *puller) handleBlock(b bqBlock) bool {
 			err = os.MkdirAll(dirName, 0777)
 		} else {
 			// We need to make sure the directory is writeable so we can create files in it
-			if (dirName != p.repoCfg.Directory) {
-			   err = os.Chmod(dirName, 0777)
+			if dirName != p.repoCfg.Directory {
+				err = os.Chmod(dirName, 0777)
 			}
 		}
 		if err != nil {
@@ -606,8 +625,8 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 		// Ensure the file and the directory it is in is writeable so we can remove the file
 		dirName := filepath.Dir(of.filepath)
 		os.Chmod(of.filepath, 0666)
-		if (dirName != p.repoCfg.Directory) {
-		   os.Chmod(dirName, 0777)
+		if dirName != p.repoCfg.Directory {
+			os.Chmod(dirName, 0777)
 		}
 		if p.versioner != nil {
 			if debug {
