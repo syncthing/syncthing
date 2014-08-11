@@ -126,6 +126,10 @@ case "$1" in
 		godep go install $* -ldflags "$ldflags" ./cmd/...
 		;;
 
+	clean)
+		rm -rf bin Godeps/_workspace/pkg $GOPATH/pkg/*/github.com/syncthing
+		;;
+
 	race)
 		build -race
 		;;
