@@ -40,6 +40,6 @@ func savePerfStats(file string) {
 
 		startms := int(t.Sub(t0).Seconds() * 1000)
 
-		fmt.Fprintf(fd, "%d\t%f\t%d\t%d\n", startms, cpuUsagePercent, memstats.Alloc, memstats.Sys)
+		fmt.Fprintf(fd, "%d\t%f\t%d\t%d\n", startms, cpuUsagePercent, memstats.Alloc, memstats.Sys-memstats.HeapReleased)
 	}
 }
