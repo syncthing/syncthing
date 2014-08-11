@@ -128,7 +128,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.$on('UIOffline', function (event, arg) {
         console.log('UIOffline');
         if (!restarting) {
-            $('#networkError').modal({backdrop: 'static', keyboard: false});
+            $('#networkError').modal();
         }
     });
 
@@ -188,7 +188,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
                 document.cookie = "firstVisit=" + Date.now() + ";max-age=" + 30*24*3600;
             } else {
                 if (+firstVisit < Date.now() - 4*3600*1000){
-                    $('#ur').modal({backdrop: 'static', keyboard: false});
+                    $('#ur').modal();
                 }
             }
         }
@@ -471,7 +471,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.tmpOptions = angular.copy($scope.config.Options);
         $scope.tmpOptions.UREnabled = ($scope.tmpOptions.URAccepted > 0);
         $scope.tmpGUI = angular.copy($scope.config.GUI);
-        $('#settings').modal({backdrop: 'static', keyboard: true});
+        $('#settings').modal();
     };
 
     $scope.saveConfig = function() {
@@ -514,7 +514,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.restart = function () {
         restarting = true;
-        $('#restarting').modal({backdrop: 'static', keyboard: false});
+        $('#restarting').modal();
         $http.post(urlbase + '/restart');
         $scope.configInSync = true;
 
@@ -536,9 +536,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.upgrade = function () {
         restarting = true;
-        $('#upgrading').modal({backdrop: 'static', keyboard: false});
+        $('#upgrading').modal();
         $http.post(urlbase + '/upgrade').success(function () {
-            $('#restarting').modal({backdrop: 'static', keyboard: false});
+            $('#restarting').modal();
             $('#upgrading').modal('hide');
         }).error(function () {
             $('#upgrading').modal('hide');
@@ -548,7 +548,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.shutdown = function () {
         restarting = true;
         $http.post(urlbase + '/shutdown').success(function () {
-            $('#shutdown').modal({backdrop: 'static', keyboard: false});
+            $('#shutdown').modal();
         });
         $scope.configInSync = true;
     };
@@ -559,7 +559,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.editingSelf = (nodeCfg.NodeID == $scope.myID);
         $scope.currentNode.AddressesStr = nodeCfg.Addresses.join(', ');
         $scope.nodeEditor.$setPristine();
-        $('#editNode').modal({backdrop: 'static', keyboard: true});
+        $('#editNode').modal();
     };
 
     $scope.idNode = function () {
@@ -571,7 +571,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.editingExisting = false;
         $scope.editingSelf = false;
         $scope.nodeEditor.$setPristine();
-        $('#editNode').modal({backdrop: 'static', keyboard: true});
+        $('#editNode').modal();
     };
 
     $scope.deleteNode = function () {
@@ -679,14 +679,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.currentRepo.simpleKeep = $scope.currentRepo.simpleKeep || 5;
         $scope.editingExisting = true;
         $scope.repoEditor.$setPristine();
-        $('#editRepo').modal({backdrop: 'static', keyboard: true});
+        $('#editRepo').modal();
     };
 
     $scope.addRepo = function () {
         $scope.currentRepo = {selectedNodes: {}};
         $scope.editingExisting = false;
         $scope.repoEditor.$setPristine();
-        $('#editRepo').modal({backdrop: 'static', keyboard: true});
+        $('#editRepo').modal();
     };
 
     $scope.saveRepo = function () {
@@ -763,7 +763,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.showNeed = function (repo) {
         $scope.neededLoaded = false;
-        $('#needed').modal({backdrop: 'static', keyboard: true});
+        $('#needed').modal();
         $http.get(urlbase + "/need?repo=" + encodeURIComponent(repo)).success(function (data) {
             $scope.needed = data;
             $scope.neededLoaded = true;
