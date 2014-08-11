@@ -119,6 +119,52 @@ transifex() {
 	assets
 }
 
+build-all() {
+	rm -f *.tar.gz *.zip
+	test -short || exit 1
+	assets
+
+	rm -rf bin Godeps/_workspace/pkg $GOPATH/pkg/*/github.com/syncthing
+	for os in darwin-amd64 freebsd-amd64 freebsd-386 linux-amd64 linux-386 windows-amd64 windows-386 solaris-amd64 ; do
+		export GOOS=${os%-*}
+		export GOARCH=${os#*-}
+
+		build $*
+
+		name="syncthing-${os/darwin/macosx}-$version"
+		case $GOOS in
+			windows)
+				zipDist "$name"
+				rm -f syncthing.exe
+				;;
+			*)
+				tarDist "$name"
+				rm -f syncthing
+				;;
+		esac
+	done
+
+	export GOOS=linux
+	export GOARCH=arm
+
+	origldflags="$ldflags"
+
+	export GOARM=7
+	ldflags="$origldflags -X main.GoArchExtra v7"
+	build $*
+	tarDist "syncthing-linux-armv7-$version"
+
+	export GOARM=6
+	ldflags="$origldflags -X main.GoArchExtra v6"
+	build $*
+	tarDist "syncthing-linux-armv6-$version"
+
+	export GOARM=5
+	ldflags="$origldflags -X main.GoArchExtra v5"
+	build $*
+	tarDist "syncthing-linux-armv5-$version"
+}
+
 case "$1" in
 	"")
 		shift
@@ -128,6 +174,11 @@ case "$1" in
 
 	clean)
 		rm -rf bin Godeps/_workspace/pkg $GOPATH/pkg/*/github.com/syncthing
+		;;
+
+	noupgrade)
+		export GOBIN=$(pwd)/bin
+		godep go install -tags noupgrade -ldflags "$ldflags" ./cmd/...
 		;;
 
 	race)
@@ -160,49 +211,13 @@ case "$1" in
 		;;
 
 	all)
-		rm -f *.tar.gz *.zip
-		test -short || exit 1
-		assets
+		shift
+		build-all
+		;;
 
-		for os in darwin-amd64 freebsd-amd64 freebsd-386 linux-amd64 linux-386 windows-amd64 windows-386 solaris-amd64 ; do
-			export GOOS=${os%-*}
-			export GOARCH=${os#*-}
-
-			build
-
-			name="syncthing-${os/darwin/macosx}-$version"
-			case $GOOS in
-				windows)
-					zipDist "$name"
-					rm -f syncthing.exe
-					;;
-				*)
-					tarDist "$name"
-					rm -f syncthing
-					;;
-			esac
-		done
-
-		export GOOS=linux
-		export GOARCH=arm
-
-		origldflags="$ldflags"
-
-		export GOARM=7
-		ldflags="$origldflags -X main.GoArchExtra v7"
-		build
-		tarDist "syncthing-linux-armv7-$version"
-
-		export GOARM=6
-		ldflags="$origldflags -X main.GoArchExtra v6"
-		build
-		tarDist "syncthing-linux-armv6-$version"
-
-		export GOARM=5
-		ldflags="$origldflags -X main.GoArchExtra v5"
-		build
-		tarDist "syncthing-linux-armv5-$version"
-
+	all-noupgrade)
+		shift
+		build-all -tags noupgrade
 		;;
 
 	upload)

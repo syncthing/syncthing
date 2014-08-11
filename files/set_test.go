@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/syncthing/syncthing/files"
 	"github.com/syncthing/syncthing/lamport"
@@ -594,6 +593,7 @@ func TestLocalVersion(t *testing.T) {
 	}
 }
 
+/*
 var gf protocol.FileInfo
 
 func TestStressGlobalVersion(t *testing.T) {
@@ -652,3 +652,4 @@ func stressWriter(s *files.Set, id protocol.NodeID, set1, set2 []protocol.FileIn
 		i++
 	}
 }
+*/
