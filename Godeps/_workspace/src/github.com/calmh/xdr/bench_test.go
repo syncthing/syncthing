@@ -7,6 +7,8 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+
+	"github.com/calmh/xdr"
 )
 
 type XDRBenchStruct struct {
@@ -58,6 +60,16 @@ func BenchmarkThisEncode(b *testing.B) {
 	}
 }
 
+func BenchmarkThisEncoder(b *testing.B) {
+	w := xdr.NewWriter(ioutil.Discard)
+	for i := 0; i < b.N; i++ {
+		_, err := s.encodeXDR(w)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 type repeatReader struct {
 	data []byte
 }
@@ -80,6 +92,19 @@ func BenchmarkThisDecode(b *testing.B) {
 	var t XDRBenchStruct
 	for i := 0; i < b.N; i++ {
 		err := t.DecodeXDR(rr)
+		if err != nil {
+			b.Fatal(err)
+		}
+		rr.Reset(e)
+	}
+}
+
+func BenchmarkThisDecoder(b *testing.B) {
+	rr := &repeatReader{e}
+	r := xdr.NewReader(rr)
+	var t XDRBenchStruct
+	for i := 0; i < b.N; i++ {
+		err := t.decodeXDR(r)
 		if err != nil {
 			b.Fatal(err)
 		}

@@ -12,23 +12,23 @@
 		},
 		{
 			"ImportPath": "code.google.com/p/go.crypto/bcrypt",
-			"Comment": "null-213",
-			"Rev": "aa2644fe4aa50e3b38d75187b4799b1f0c9ddcef"
+			"Comment": "null-216",
+			"Rev": "41cd4647fccc72b0b79ef1bd1fe6735e718257cd"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.crypto/blowfish",
-			"Comment": "null-213",
-			"Rev": "aa2644fe4aa50e3b38d75187b4799b1f0c9ddcef"
+			"Comment": "null-216",
+			"Rev": "41cd4647fccc72b0b79ef1bd1fe6735e718257cd"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.text/transform",
-			"Comment": "null-89",
-			"Rev": "df15baaf13e3f62b6b7a901e74caa3818a7c0a7c"
+			"Comment": "null-90",
+			"Rev": "d65bffbc88a153d23a6d2a864531e6e7c2cde59b"
 		},
 		{
 			"ImportPath": "code.google.com/p/go.text/unicode/norm",
-			"Comment": "null-89",
-			"Rev": "df15baaf13e3f62b6b7a901e74caa3818a7c0a7c"
+			"Comment": "null-90",
+			"Rev": "d65bffbc88a153d23a6d2a864531e6e7c2cde59b"
 		},
 		{
 			"ImportPath": "code.google.com/p/snappy-go/snappy",
@@ -41,7 +41,7 @@
 		},
 		{
 			"ImportPath": "github.com/calmh/xdr",
-			"Rev": "694859acb207675085232438780db923ceb43e96"
+			"Rev": "e1714bbe4764b15490fcc8ebd25d4bd9ea50a4b9"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",

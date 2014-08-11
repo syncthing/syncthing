@@ -7,6 +7,8 @@ package xdr
 import (
 	"errors"
 	"io"
+	"reflect"
+	"unsafe"
 )
 
 var ErrElementSizeExceeded = errors.New("element size exceeded")
@@ -15,7 +17,6 @@ type Reader struct {
 	r   io.Reader
 	err error
 	b   [8]byte
-	sb  []byte
 }
 
 func NewReader(r io.Reader) *Reader {
@@ -35,23 +36,17 @@ func (r *Reader) ReadRaw(bs []byte) (int, error) {
 }
 
 func (r *Reader) ReadString() string {
-	if r.sb == nil {
-		r.sb = make([]byte, 64)
-	} else {
-		r.sb = r.sb[:cap(r.sb)]
-	}
-	r.sb = r.ReadBytesInto(r.sb)
-	return string(r.sb)
+	return r.ReadStringMax(0)
 }
 
 func (r *Reader) ReadStringMax(max int) string {
-	if r.sb == nil {
-		r.sb = make([]byte, 64)
-	} else {
-		r.sb = r.sb[:cap(r.sb)]
+	buf := r.ReadBytesMaxInto(max, nil)
+	bh := (*reflect.SliceHeader)(unsafe.Pointer(&buf))
+	sh := reflect.StringHeader{
+		Data: bh.Data,
+		Len:  bh.Len,
 	}
-	r.sb = r.ReadBytesMaxInto(max, r.sb)
-	return string(r.sb)
+	return *((*string)(unsafe.Pointer(&sh)))
 }
 
 func (r *Reader) ReadBytes() []byte {
@@ -80,10 +75,10 @@ func (r *Reader) ReadBytesMaxInto(max int, dst []byte) []byte {
 		return nil
 	}
 
-	if l+pad(l) > len(dst) {
-		dst = make([]byte, l+pad(l))
+	if fullLen := l + pad(l); fullLen > len(dst) {
+		dst = make([]byte, fullLen)
 	} else {
-		dst = dst[:l+pad(l)]
+		dst = dst[:fullLen]
 	}
 
 	var n int

@@ -4,6 +4,22 @@
 
 package blowfish
 
+// getNextWord returns the next big-endian uint32 value from the byte slice
+// at the given position in a circular manner, updating the position.
+func getNextWord(b []byte, pos *int) uint32 {
+	var w uint32
+	j := *pos
+	for i := 0; i < 4; i++ {
+		w = w<<8 | uint32(b[j])
+		j++
+		if j >= len(b) {
+			j = 0
+		}
+	}
+	*pos = j
+	return w
+}
+
 // ExpandKey performs a key expansion on the given *Cipher. Specifically, it
 // performs the Blowfish algorithm's key schedule which sets up the *Cipher's
 // pi and substitution tables for calls to Encrypt. This is used, primarily,
@@ -12,6 +28,7 @@ package blowfish
 func ExpandKey(key []byte, c *Cipher) {
 	j := 0
 	for i := 0; i < 18; i++ {
+		// Using inlined getNextWord for performance.
 		var d uint32
 		for k := 0; k < 4; k++ {
 			d = d<<8 | uint32(key[j])
@@ -54,86 +71,44 @@ func ExpandKey(key []byte, c *Cipher) {
 func expandKeyWithSalt(key []byte, salt []byte, c *Cipher) {
 	j := 0
 	for i := 0; i < 18; i++ {
-		var d uint32
-		for k := 0; k < 4; k++ {
-			d = d<<8 | uint32(key[j])
-			j++
-			if j >= len(key) {
-				j = 0
-			}
-		}
-		c.p[i] ^= d
+		c.p[i] ^= getNextWord(key, &j)
 	}
 
 	j = 0
-	var expandedSalt [4]uint32
-	for i := range expandedSalt {
-		var d uint32
-		for k := 0; k < 4; k++ {
-			d = d<<8 | uint32(salt[j])
-			j++
-			if j >= len(salt) {
-				j = 0
-			}
-		}
-		expandedSalt[i] = d
-	}
-
 	var l, r uint32
 	for i := 0; i < 18; i += 2 {
-		l ^= expandedSalt[i&2]
-		r ^= expandedSalt[(i&2)+1]
+		l ^= getNextWord(salt, &j)
+		r ^= getNextWord(salt, &j)
 		l, r = encryptBlock(l, r, c)
 		c.p[i], c.p[i+1] = l, r
 	}
 
-	for i := 0; i < 256; i += 4 {
-		l ^= expandedSalt[2]
-		r ^= expandedSalt[3]
+	for i := 0; i < 256; i += 2 {
+		l ^= getNextWord(salt, &j)
+		r ^= getNextWord(salt, &j)
 		l, r = encryptBlock(l, r, c)
 		c.s0[i], c.s0[i+1] = l, r
-
-		l ^= expandedSalt[0]
-		r ^= expandedSalt[1]
-		l, r = encryptBlock(l, r, c)
-		c.s0[i+2], c.s0[i+3] = l, r
-
 	}
 
-	for i := 0; i < 256; i += 4 {
-		l ^= expandedSalt[2]
-		r ^= expandedSalt[3]
+	for i := 0; i < 256; i += 2 {
+		l ^= getNextWord(salt, &j)
+		r ^= getNextWord(salt, &j)
 		l, r = encryptBlock(l, r, c)
 		c.s1[i], c.s1[i+1] = l, r
-
-		l ^= expandedSalt[0]
-		r ^= expandedSalt[1]
-		l, r = encryptBlock(l, r, c)
-		c.s1[i+2], c.s1[i+3] = l, r
 	}
 
-	for i := 0; i < 256; i += 4 {
-		l ^= expandedSalt[2]
-		r ^= expandedSalt[3]
+	for i := 0; i < 256; i += 2 {
+		l ^= getNextWord(salt, &j)
+		r ^= getNextWord(salt, &j)
 		l, r = encryptBlock(l, r, c)
 		c.s2[i], c.s2[i+1] = l, r
-
-		l ^= expandedSalt[0]
-		r ^= expandedSalt[1]
-		l, r = encryptBlock(l, r, c)
-		c.s2[i+2], c.s2[i+3] = l, r
 	}
 
-	for i := 0; i < 256; i += 4 {
-		l ^= expandedSalt[2]
-		r ^= expandedSalt[3]
+	for i := 0; i < 256; i += 2 {
+		l ^= getNextWord(salt, &j)
+		r ^= getNextWord(salt, &j)
 		l, r = encryptBlock(l, r, c)
 		c.s3[i], c.s3[i+1] = l, r
-
-		l ^= expandedSalt[0]
-		r ^= expandedSalt[1]
-		l, r = encryptBlock(l, r, c)
-		c.s3[i+2], c.s3[i+3] = l, r
 	}
 }
 
@@ -181,10 +156,4 @@ func decryptBlock(l, r uint32, c *Cipher) (uint32, uint32) {
 	xl ^= ((c.s0[byte(xr>>24)] + c.s1[byte(xr>>16)]) ^ c.s2[byte(xr>>8)]) + c.s3[byte(xr)] ^ c.p[1]
 	xr ^= c.p[0]
 	return xr, xl
-}
-
-func zero(x []uint32) {
-	for i := range x {
-		x[i] = 0
-	}
 }
