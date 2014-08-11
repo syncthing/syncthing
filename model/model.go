@@ -56,7 +56,12 @@ func (s repoState) String() string {
 const zeroEntrySize = 128
 
 // How many files to send in each Index/IndexUpdate message.
-const indexBatchSize = 1000
+const (
+	indexTargetSize   = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
+	indexPerFileSize  = 250        // Each FileInfo is approximately this big, in bytes, excluding BlockInfos
+	IndexPerBlockSize = 40         // Each BlockInfo is approximately this big
+	indexBatchSize    = 1000       // Either way, don't include more files than this
+)
 
 type Model struct {
 	indexDir string
@@ -593,6 +598,7 @@ func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, rep
 	nodeID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
+	currentBatchSize := 0
 	maxLocalVer := uint64(0)
 	var err error
 
@@ -605,13 +611,13 @@ func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, rep
 			maxLocalVer = f.LocalVersion
 		}
 
-		if len(batch) == indexBatchSize {
+		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
 			if initial {
 				if err = conn.Index(repo, batch); err != nil {
 					return false
 				}
 				if debug {
-					l.Debugf("sendIndexes for %s-%s/%q: %d files (initial index)", nodeID, name, repo, len(batch))
+					l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", nodeID, name, repo, len(batch), currentBatchSize)
 				}
 				initial = false
 			} else {
@@ -619,14 +625,16 @@ func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, rep
 					return false
 				}
 				if debug {
-					l.Debugf("sendIndexes for %s-%s/%q: %d files (batched update)", nodeID, name, repo, len(batch))
+					l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", nodeID, name, repo, len(batch), currentBatchSize)
 				}
 			}
 
 			batch = make([]protocol.FileInfo, 0, indexBatchSize)
+			currentBatchSize = 0
 		}
 
 		batch = append(batch, f)
+		currentBatchSize += indexPerFileSize + len(f.Blocks)*IndexPerBlockSize
 		return true
 	})
 
