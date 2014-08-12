@@ -195,16 +195,16 @@
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global Repository</span></th>
-                        <td class="text-right">{{model[repo.ID].globalFiles | alwaysNumber}} <span translate>items</span>, {{model[repo.ID].globalBytes | binary}}B</td>
+                        <td class="text-right">{{model[repo.ID].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].globalBytes | binary}}B</td>
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local Repository</span></th>
-                        <td class="text-right">{{model[repo.ID].localFiles | alwaysNumber}} <span translate>items</span>, {{model[repo.ID].localBytes | binary}}B</td>
+                        <td class="text-right">{{model[repo.ID].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].localBytes | binary}}B</td>
                       </tr>
                       <tr>
                         <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Out Of Sync</span></th>
                         <td class="text-right">
-                        <a ng-if="model[repo.ID].needFiles > 0" ng-click="showNeed(repo.ID)" href="">{{model[repo.ID].needFiles | alwaysNumber}} <span translate>items</span>, {{model[repo.ID].needBytes | binary}}B</a>
+                        <a ng-if="model[repo.ID].needFiles > 0" ng-click="showNeed(repo.ID)" href="">{{model[repo.ID].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].needBytes | binary}}B</a>
                         <span ng-if="model[repo.ID].needFiles == 0">0 <span translate>items</span>, 0 B</span>
                         </td>
                       </tr>
