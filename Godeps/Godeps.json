@@ -49,7 +49,7 @@
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "fcb3916f495c513b7eab70340f030e942e67b7da"
+			"Rev": "c9d6b7be1428942d4cf4f54055b991a8513392eb"
 		},
 		{
 			"ImportPath": "github.com/vitrun/qart/coding",

@@ -13,6 +13,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"sync"
 
 	"code.google.com/p/snappy-go/snappy"
 
@@ -528,6 +529,8 @@ type Reader struct {
 	dataEnd     int64
 	indexBlock  *block
 	filterBlock *filterBlock
+
+	blockPool sync.Pool
 }
 
 func verifyChecksum(data []byte) bool {
@@ -538,7 +541,13 @@ func verifyChecksum(data []byte) bool {
 }
 
 func (r *Reader) readRawBlock(bh blockHandle, checksum bool) ([]byte, error) {
-	data := make([]byte, bh.length+blockTrailerLen)
+	data, _ := r.blockPool.Get().([]byte) // data is either nil or a valid []byte from the pool
+	if l := bh.length + blockTrailerLen; uint64(len(data)) >= l {
+		data = data[:l]
+	} else {
+		r.blockPool.Put(data)
+		data = make([]byte, l)
+	}
 	if _, err := r.reader.ReadAt(data, int64(bh.offset)); err != nil && err != io.EOF {
 		return nil, err
 	}
@@ -552,10 +561,13 @@ func (r *Reader) readRawBlock(bh blockHandle, checksum bool) ([]byte, error) {
 		data = data[:bh.length]
 	case blockTypeSnappyCompression:
 		var err error
-		data, err = snappy.Decode(nil, data[:bh.length])
+		decData, _ := r.blockPool.Get().([]byte)
+		decData, err = snappy.Decode(decData, data[:bh.length])
 		if err != nil {
 			return nil, err
 		}
+		r.blockPool.Put(data[:cap(data)])
+		data = decData
 	default:
 		return nil, fmt.Errorf("leveldb/table: Reader: unknown block compression type: %d", data[bh.length])
 	}
