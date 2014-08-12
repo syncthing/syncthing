@@ -36,7 +36,7 @@ func NewSet(repo string, db *leveldb.DB) *Set {
 	}
 
 	var nodeID protocol.NodeID
-	ldbWithAllRepo(db, []byte(repo), func(node []byte, f protocol.FileInfo) bool {
+	ldbWithAllRepoTruncated(db, []byte(repo), func(node []byte, f protocol.FileInfoTruncated) bool {
 		copy(nodeID[:], node)
 		if f.LocalVersion > s.localVersion[nodeID] {
 			s.localVersion[nodeID] = f.LocalVersion
@@ -87,21 +87,35 @@ func (s *Set) WithNeed(node protocol.NodeID, fn fileIterator) {
 	if debug {
 		l.Debugf("%s WithNeed(%v)", s.repo, node)
 	}
-	ldbWithNeed(s.db, []byte(s.repo), node[:], fn)
+	ldbWithNeed(s.db, []byte(s.repo), node[:], false, fn)
+}
+
+func (s *Set) WithNeedTruncated(node protocol.NodeID, fn fileIterator) {
+	if debug {
+		l.Debugf("%s WithNeedTruncated(%v)", s.repo, node)
+	}
+	ldbWithNeed(s.db, []byte(s.repo), node[:], true, fn)
 }
 
 func (s *Set) WithHave(node protocol.NodeID, fn fileIterator) {
 	if debug {
 		l.Debugf("%s WithHave(%v)", s.repo, node)
 	}
-	ldbWithHave(s.db, []byte(s.repo), node[:], fn)
+	ldbWithHave(s.db, []byte(s.repo), node[:], false, fn)
 }
 
-func (s *Set) WithGlobal(fn fileIterator) {
+func (s *Set) WithHaveTruncated(node protocol.NodeID, fn fileIterator) {
 	if debug {
-		l.Debugf("%s WithGlobal()", s.repo)
+		l.Debugf("%s WithHaveTruncated(%v)", s.repo, node)
 	}
-	ldbWithGlobal(s.db, []byte(s.repo), fn)
+	ldbWithHave(s.db, []byte(s.repo), node[:], true, fn)
+}
+
+func (s *Set) WithGlobalTruncated(fn fileIterator) {
+	if debug {
+		l.Debugf("%s WithGlobalTrucnated()", s.repo)
+	}
+	ldbWithGlobal(s.db, []byte(s.repo), true, fn)
 }
 
 func (s *Set) Get(node protocol.NodeID, file string) protocol.FileInfo {

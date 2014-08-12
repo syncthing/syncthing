@@ -32,7 +32,8 @@ func main() {
 
 	if *node == "" {
 		log.Printf("*** Global index for repo %q", *repo)
-		fs.WithGlobal(func(f protocol.FileInfo) bool {
+		fs.WithGlobalTruncated(func(fi protocol.FileIntf) bool {
+			f := fi.(protocol.FileInfoTruncated)
 			fmt.Println(f)
 			fmt.Println("\t", fs.Availability(f.Name))
 			return true
@@ -43,7 +44,8 @@ func main() {
 			log.Fatal(err)
 		}
 		log.Printf("*** Have index for repo %q node %q", *repo, n)
-		fs.WithHave(n, func(f protocol.FileInfo) bool {
+		fs.WithHaveTruncated(n, func(fi protocol.FileIntf) bool {
+			f := fi.(protocol.FileInfoTruncated)
 			fmt.Println(f)
 			return true
 		})
