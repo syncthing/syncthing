@@ -111,9 +111,16 @@ func (s *Set) WithHaveTruncated(node protocol.NodeID, fn fileIterator) {
 	ldbWithHave(s.db, []byte(s.repo), node[:], true, fn)
 }
 
+func (s *Set) WithGlobal(fn fileIterator) {
+	if debug {
+		l.Debugf("%s WithGlobal()", s.repo)
+	}
+	ldbWithGlobal(s.db, []byte(s.repo), false, fn)
+}
+
 func (s *Set) WithGlobalTruncated(fn fileIterator) {
 	if debug {
-		l.Debugf("%s WithGlobalTrucnated()", s.repo)
+		l.Debugf("%s WithGlobalTruncated()", s.repo)
 	}
 	ldbWithGlobal(s.db, []byte(s.repo), true, fn)
 }
