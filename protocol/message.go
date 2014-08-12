@@ -49,12 +49,16 @@ type FileInfoTruncated struct {
 	NumBlocks    uint32
 }
 
-// Returns an upper bound on the size, not the exact figure
+// Returns a statistical guess on the size, not the exact figure
 func (f FileInfoTruncated) Size() int64 {
 	if IsDeleted(f.Flags) || IsDirectory(f.Flags) {
 		return 128
 	}
-	return int64(f.NumBlocks) * BlockSize
+	if f.NumBlocks < 2 {
+		return BlockSize / 2
+	} else {
+		return int64(f.NumBlocks-1)*BlockSize + BlockSize/2
+	}
 }
 
 func (f FileInfoTruncated) IsDeleted() bool {
