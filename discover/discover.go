@@ -33,6 +33,7 @@ type Discoverer struct {
 	forcedBcastTick  chan time.Time
 	extAnnounceOK    bool
 	extAnnounceOKmut sync.Mutex
+	globalBcastStop  chan bool
 }
 
 var (
@@ -70,6 +71,11 @@ func (d *Discoverer) StartLocal() {
 }
 
 func (d *Discoverer) StartGlobal(server string, extPort uint16) {
+	if d.globalBcastStop != nil {
+		d.globalBcastStop <- true
+	} else {
+		d.globalBcastStop = make(chan bool)
+	}
 	d.extServer = server
 	d.extPort = extPort
 	go d.sendExternalAnnouncements()
@@ -230,7 +236,17 @@ func (d *Discoverer) sendExternalAnnouncements() {
 		d.extAnnounceOKmut.Unlock()
 
 		if ok {
-			time.Sleep(d.globalBcastIntv)
+			// Don't do a long sleep, listen for a stop signal, just incase
+			// the UPnP mapping has changed, and a new routine should be started.
+			for i := time.Duration(0); i < d.globalBcastIntv; i += time.Duration(1) {
+				select {
+				case <-d.globalBcastStop:
+					return
+				default:
+					time.Sleep(1 * time.Second)
+				}
+			}
+
 		} else {
 			time.Sleep(errorRetryIntv)
 		}

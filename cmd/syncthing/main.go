@@ -577,7 +577,9 @@ func setupUPnP(rnd rand.Source) {
 					if err == nil {
 						externalPort = r
 						l.Infoln("Created UPnP port mapping - external port", externalPort)
-						go renewUPnP(igd, rnd, port)
+						if cfg.Options.UPnPRenewal > 0 {
+							go renewUPnP(igd, rnd, port)
+						}
 						break
 					}
 				}
@@ -597,10 +599,6 @@ func setupUPnP(rnd rand.Source) {
 }
 
 func renewUPnP(igd *upnp.IGD, rnd rand.Source, port int) {
-	if cfg.Options.UPnPRenewal < 1 {
-		return
-	}
-
 	for {
 		time.Sleep(time.Duration(cfg.Options.UPnPRenewal) * time.Minute)
 
@@ -615,6 +613,7 @@ func renewUPnP(igd *upnp.IGD, rnd rand.Source, port int) {
 		if err == nil {
 			l.Infoln("Updated UPnP port mapping - external port", externalPort)
 			externalPort = r
+			discoverer.StartGlobal(cfg.Options.GlobalAnnServer, uint16(r))
 			continue
 		}
 		l.Warnln("Failed to update UPnP port mapping - externalPort", externalPort)
