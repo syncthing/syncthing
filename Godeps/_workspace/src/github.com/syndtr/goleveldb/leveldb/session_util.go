@@ -22,7 +22,7 @@ type dropper struct {
 }
 
 func (d dropper) Drop(err error) {
-	if e, ok := err.(journal.DroppedError); ok {
+	if e, ok := err.(journal.ErrCorrupted); ok {
 		d.s.logf("journal@drop %s-%d S·%s %q", d.file.Type(), d.file.Num(), shortenb(e.Size), e.Reason)
 	} else {
 		d.s.logf("journal@drop %s-%d %q", d.file.Type(), d.file.Num(), err)

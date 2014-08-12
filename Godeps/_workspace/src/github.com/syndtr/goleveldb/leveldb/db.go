@@ -481,10 +481,11 @@ func (db *DB) recoverJournal() error {
 
 			buf.Reset()
 			if _, err := buf.ReadFrom(r); err != nil {
-				if strict {
+				if err == io.ErrUnexpectedEOF {
+					continue
+				} else {
 					return err
 				}
-				continue
 			}
 			if err := batch.decode(buf.Bytes()); err != nil {
 				return err

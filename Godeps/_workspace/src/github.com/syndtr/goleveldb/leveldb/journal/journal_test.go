@@ -326,3 +326,148 @@ func TestStaleWriter(t *testing.T) {
 		t.Fatalf("stale write #1: unexpected error: %v", err)
 	}
 }
+
+func TestCorrupt_MissingLastBlock(t *testing.T) {
+	buf := new(bytes.Buffer)
+
+	w := NewWriter(buf)
+
+	// First record.
+	ww, err := w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize-1024)); err != nil {
+		t.Fatalf("write #0: unexpected error: %v", err)
+	}
+
+	// Second record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize-headerSize)); err != nil {
+		t.Fatalf("write #1: unexpected error: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Cut the last block.
+	b := buf.Bytes()[:blockSize]
+	r := NewReader(bytes.NewReader(b), dropper{t}, false, true)
+
+	// First read.
+	rr, err := r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #0: %v", err)
+	}
+	if n != blockSize-1024 {
+		t.Fatalf("read #0: got %d bytes want %d", n, blockSize-1024)
+	}
+
+	// Second read.
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != io.ErrUnexpectedEOF {
+		t.Fatalf("read #1: unexpected error: %v", err)
+	}
+}
+
+func TestCorrupt_CorruptedMiddleBlock(t *testing.T) {
+	buf := new(bytes.Buffer)
+
+	w := NewWriter(buf)
+
+	// First record.
+	ww, err := w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize/2)); err != nil {
+		t.Fatalf("write #0: unexpected error: %v", err)
+	}
+
+	// Second record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize-headerSize)); err != nil {
+		t.Fatalf("write #1: unexpected error: %v", err)
+	}
+
+	// Third record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), (blockSize-headerSize)+1)); err != nil {
+		t.Fatalf("write #2: unexpected error: %v", err)
+	}
+
+	// Fourth record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), (blockSize-headerSize)+2)); err != nil {
+		t.Fatalf("write #3: unexpected error: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	b := buf.Bytes()
+	// Corrupting block #1.
+	for i := 0; i < 1024; i++ {
+		b[blockSize+i] = '1'
+	}
+
+	r := NewReader(bytes.NewReader(b), dropper{t}, false, true)
+
+	// First read.
+	rr, err := r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #0: %v", err)
+	}
+	if want := int64(blockSize / 2); n != want {
+		t.Fatalf("read #0: got %d bytes want %d", n, want)
+	}
+
+	// Second read.
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != io.ErrUnexpectedEOF {
+		t.Fatalf("read #1: unexpected error: %v", err)
+	}
+
+	// Third read.
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #2: %v", err)
+	}
+	if want := int64(blockSize-headerSize) + 2; n != want {
+		t.Fatalf("read #2: got %d bytes want %d", n, want)
+	}
+}
