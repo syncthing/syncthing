@@ -127,7 +127,8 @@ The following enviroment variables are interpreted by syncthing:
  STHEAPPROFILE Write heap profiles to heap-$pid-$timestamp.pprof each time
                heap usage increases.
 
- STPERFSTATS   Write running performance statistics to perf-$pid.csv.
+ STPERFSTATS   Write running performance statistics to perf-$pid.csv. Not
+               supported on Windows.
 
  STDEADLOCKTIMEOUT  Alter deadlock detection timeout (seconds; default 1200).`
 )
