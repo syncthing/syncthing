@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
 
 export COPYFILE_DISABLE=true
 export GO386=387 # Don't use SSE on 32 bit builds
@@ -109,7 +111,7 @@ transifex() {
 
 build-all() {
 	rm -f *.tar.gz *.zip
-	test -short || exit 1
+	test -short
 	assets
 
 	rm -rf bin Godeps/_workspace/pkg $GOPATH/pkg/*/github.com/syncthing
@@ -153,9 +155,11 @@ build-all() {
 	tarDist "syncthing-linux-armv5-$version"
 }
 
-case "$1" in
-	"")
-		shift
+case "${1:-default}" in
+	default)
+		if [[ $# -gt 1 ]] ; then
+			shift
+		fi
 		export GOBIN=$(pwd)/bin
 		godep go install $* -ldflags "$ldflags" ./cmd/...
 		;;
@@ -188,7 +192,7 @@ case "$1" in
 
 	tar)
 		rm -f *.tar.gz *.zip
-		test -short || exit 1
+		test -short
 		assets
 		build
 
@@ -233,6 +237,6 @@ case "$1" in
 		;;
 
 	*)
-		echo "Unknown build parameter $1"
+		echo "Unknown build command $1"
 		;;
 esac
