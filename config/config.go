@@ -114,7 +114,7 @@ type OptionsConfiguration struct {
 	StartBrowser       bool     `xml:"startBrowser" default:"true"`
 	UPnPEnabled        bool     `xml:"upnpEnabled" default:"true"`
 	UPnPLease          int      `xml:"upnpLeaseMinutes" default:"0"`
-	UPnPRenewal        int      `xml:"upnpRenewalMinutes" default:"0"`
+	UPnPRenewal        int      `xml:"upnpRenewalMinutes" default:"30"`
 	URAccepted         int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
 
 	Deprecated_UREnabled  bool   `xml:"urEnabled,omitempty" json:"-"`
