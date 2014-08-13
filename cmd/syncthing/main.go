@@ -577,9 +577,6 @@ func setupUPnP(rnd rand.Source) {
 					if err == nil {
 						externalPort = r
 						l.Infoln("Created UPnP port mapping - external port", externalPort)
-						if cfg.Options.UPnPRenewal > 0 {
-							go renewUPnP(igd, rnd, port)
-						}
 						break
 					}
 				}
@@ -592,17 +589,25 @@ func setupUPnP(rnd rand.Source) {
 					l.Debugf("UPnP: %v", err)
 				}
 			}
+			if cfg.Options.UPnPRenewal > 0 {
+				go renewUPnP(rnd, port)
+			}
 		}
 	} else {
 		l.Warnln("Multiple listening addresses; not attempting UPnP port mapping")
 	}
 }
 
-func renewUPnP(igd *upnp.IGD, rnd rand.Source, port int) {
+func renewUPnP(rnd rand.Source, port int) {
 	for {
 		time.Sleep(time.Duration(cfg.Options.UPnPRenewal) * time.Minute)
 
-		err := igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", cfg.Options.UPnPLease*60)
+		igd, err := upnp.Discover()
+		if err != nil {
+			continue
+		}
+
+		err = igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", cfg.Options.UPnPLease*60)
 		if err == nil {
 			l.Infoln("Renewed UPnP port mapping - external port", externalPort)
 			continue
