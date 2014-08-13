@@ -211,9 +211,14 @@ case "$1" in
 	upload)
 		tag=$(git describe)
 		shopt -s nullglob
-		for f in *.tar.gz *.zip *.asc ; do
-			relup syncthing/syncthing "$tag" "$f"
+		dir=$(mktemp -d -t syncthing-release)
+		pushd $dir
+		curl -O 'http://build.syncthing.net/job/syncthing/lastSuccessfulBuild/artifact/*zip*/archive.zip'
+		unzip archive.zip
+		for f in archive/* ; do
+			echo relup syncthing/syncthing "$tag" "$f"
 		done
+		popd
 		;;
 
 	deps)
