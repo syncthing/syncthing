@@ -54,22 +54,11 @@ test() {
 	godep go test -cpu=1,2,4 $* ./...
 }
 
-sign() {
-	if git describe --exact-match 2>/dev/null >/dev/null ; then
-		# HEAD is a tag
-		id=BCE524C7
-		if gpg --list-keys "$id" >/dev/null 2>&1 ; then
-			gpg -ab -u "$id" "$1"
-		fi
-	fi
-}
-
 tarDist() {
 	name="$1"
 	rm -rf "$name"
 	mkdir -p "$name"
 	cp syncthing "${distFiles[@]}" "$name"
-	sign "$name/syncthing"
 	tar zcvf "$name.tar.gz" "$name"
 	rm -rf "$name"
 }
@@ -82,7 +71,6 @@ zipDist() {
 		GOARCH="" GOOS="" go run cmd/todos/main.go < "$f" > "$name/$f.txt"
 	done
 	cp syncthing.exe "$name"
-	sign "$name/syncthing.exe"
 	zip -r "$name.zip" "$name"
 	rm -rf "$name"
 }

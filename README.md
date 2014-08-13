@@ -33,8 +33,9 @@ Signed Releases
 ---------------
 
 As of v0.7.0 and onwards, git tags and release binaries are GPG signed with
-the key BCE524C7 (http://nym.se/gpg.txt). The signature is included in the
-normal release bundle as `syncthing.asc` or `syncthing.exe.asc`.
+the key BCE524C7 (http://nym.se/gpg.txt). For release binaries, MD5 and
+SHA1 checksums are calculated and signed, available in the
+md5sum.txt.asc and sha1sum.txt.asc files.
 
 Documentation
 =============
