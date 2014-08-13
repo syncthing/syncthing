@@ -83,6 +83,7 @@ var (
 	lockConn     *net.TCPListener
 	lockPort     int
 	externalPort int
+	cert         tls.Certificate
 )
 
 const (
@@ -249,7 +250,7 @@ func main() {
 	// Ensure that our home directory exists and that we have a certificate and key.
 
 	ensureDir(confDir, 0700)
-	cert, err := loadCert(confDir, "")
+	cert, err = loadCert(confDir, "")
 	if err != nil {
 		newCertificate(confDir, "")
 		cert, err = loadCert(confDir, "")
@@ -472,9 +473,7 @@ nextRepo:
 	// UPnP
 
 	if cfg.Options.UPnPEnabled {
-		// We seed the random number generator with the node ID to get a
-		// repeatable sequence of random external ports.
-		setupUPnP(rand.NewSource(certSeed(cert.Certificate[0])))
+		setupUPnP()
 	}
 
 	// Routine to connect out to configured nodes
@@ -561,7 +560,7 @@ func waitForParentExit() {
 	l.Infoln("Continuing")
 }
 
-func setupUPnP(rnd rand.Source) {
+func setupUPnP() {
 	if len(cfg.Options.ListenAddress) == 1 {
 		_, portStr, err := net.SplitHostPort(cfg.Options.ListenAddress[0])
 		if err != nil {
@@ -571,17 +570,11 @@ func setupUPnP(rnd rand.Source) {
 			port, _ := strconv.Atoi(portStr)
 			igd, err := upnp.Discover()
 			if err == nil {
-				for i := 0; i < 10; i++ {
-					r := 1024 + int(rnd.Int63()%(65535-1024))
-					err := igd.AddPortMapping(upnp.TCP, r, port, "syncthing", cfg.Options.UPnPLease*60)
-					if err == nil {
-						externalPort = r
-						l.Infoln("Created UPnP port mapping - external port", externalPort)
-						break
-					}
-				}
+				externalPort = setupExternalPort(igd, port)
 				if externalPort == 0 {
 					l.Warnln("Failed to create UPnP port mapping")
+				} else {
+					l.Infoln("Created UPnP port mapping - external port", externalPort)
 				}
 			} else {
 				l.Infof("No UPnP gateway detected")
@@ -590,7 +583,7 @@ func setupUPnP(rnd rand.Source) {
 				}
 			}
 			if cfg.Options.UPnPRenewal > 0 {
-				go renewUPnP(rnd, port)
+				go renewUPnP(port)
 			}
 		}
 	} else {
@@ -598,7 +591,21 @@ func setupUPnP(rnd rand.Source) {
 	}
 }
 
-func renewUPnP(rnd rand.Source, port int) {
+func setupExternalPort(igd *upnp.IGD, port int) int {
+	// We seed the random number generator with the node ID to get a
+	// repeatable sequence of random external ports.
+	rnd := rand.NewSource(certSeed(cert.Certificate[0]))
+	for i := 0; i < 10; i++ {
+		r := 1024 + int(rnd.Int63()%(65535-1024))
+		err := igd.AddPortMapping(upnp.TCP, r, port, "syncthing", cfg.Options.UPnPLease*60)
+		if err == nil {
+			return r
+		}
+	}
+	return 0
+}
+
+func renewUPnP(port int) {
 	for {
 		time.Sleep(time.Duration(cfg.Options.UPnPRenewal) * time.Minute)
 
@@ -607,21 +614,23 @@ func renewUPnP(rnd rand.Source, port int) {
 			continue
 		}
 
+		// Just renew the same port that we already have
 		err = igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", cfg.Options.UPnPLease*60)
 		if err == nil {
 			l.Infoln("Renewed UPnP port mapping - external port", externalPort)
 			continue
 		}
 
-		r := 1024 + int(rnd.Int63()%(65535-1024))
-		err = igd.AddPortMapping(upnp.TCP, r, port, "syncthing", cfg.Options.UPnPLease*60)
-		if err == nil {
-			l.Infoln("Updated UPnP port mapping - external port", externalPort)
+		// Something strange has happened. Perhaps the gateway has changed?
+		// Retry the same port sequence from the beginning.
+		r := setupExternalPort(igd, port)
+		if r != 0 {
 			externalPort = r
+			l.Infoln("Updated UPnP port mapping - external port", externalPort)
 			discoverer.StartGlobal(cfg.Options.GlobalAnnServer, uint16(r))
 			continue
 		}
-		l.Warnln("Failed to update UPnP port mapping - externalPort", externalPort)
+		l.Warnln("Failed to update UPnP port mapping - external port", externalPort)
 	}
 }
 
