@@ -2,8 +2,6 @@
 // All rights reserved. Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-// +build heapprof
-
 package main
 
 import (
@@ -16,7 +14,9 @@ import (
 )
 
 func init() {
-	go saveHeapProfiles()
+	if os.Getenv("STHEAPPROFILE") != "" {
+		go saveHeapProfiles()
+	}
 }
 
 func saveHeapProfiles() {

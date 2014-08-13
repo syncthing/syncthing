@@ -104,9 +104,6 @@ The following enviroment variables are interpreted by syncthing:
                Set this variable when running under a service manager such as
                runit, launchd, etc.
 
- STPROFILER    Set to a listen address such as "127.0.0.1:9090" to start the
-               profiler with HTTP access.
-
  STTRACE       A comma separated string of facilities to trace. The valid
                facility strings:
                - "beacon"   (the beacon package)
@@ -120,9 +117,17 @@ The following enviroment variables are interpreted by syncthing:
                - "xdr"      (the xdr package)
                - "all"      (all of the above)
 
- STCPUPROFILE  Write CPU profile to the specified file.
-
  STGUIASSETS   Directory to load GUI assets from. Overrides compiled in assets.
+
+ STPROFILER    Set to a listen address such as "127.0.0.1:9090" to start the
+               profiler with HTTP access.
+
+ STCPUPROFILE  Write a CPU profile to cpu-$pid.pprof on exit.
+
+ STHEAPPROFILE Write heap profiles to heap-$pid-$timestamp.pprof each time
+               heap usage increases.
+
+ STPERFSTATS   Write running performance statistics to perf-$pid.csv.
 
  STDEADLOCKTIMEOUT  Alter deadlock detection timeout (seconds; default 1200).`
 )
@@ -498,7 +503,7 @@ nextRepo:
 	}
 
 	if cpuprof := os.Getenv("STCPUPROFILE"); len(cpuprof) > 0 {
-		f, err := os.Create(cpuprof)
+		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
 			log.Fatal(err)
 		}

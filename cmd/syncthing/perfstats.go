@@ -2,8 +2,6 @@
 // All rights reserved. Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-// +build perfstats
-
 package main
 
 import (
@@ -15,7 +13,9 @@ import (
 )
 
 func init() {
-	go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()))
+	if os.Getenv("STPERFSTATS") != "" {
+		go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()))
+	}
 }
 
 func savePerfStats(file string) {
