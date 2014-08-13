@@ -208,19 +208,6 @@ case "$1" in
 		build-all -tags noupgrade
 		;;
 
-	upload)
-		tag=$(git describe)
-		shopt -s nullglob
-		dir=$(mktemp -d -t syncthing-release)
-		pushd $dir
-		curl -O 'http://build.syncthing.net/job/syncthing/lastSuccessfulBuild/artifact/*zip*/archive.zip'
-		unzip archive.zip
-		for f in archive/* ; do
-			echo relup syncthing/syncthing "$tag" "$f"
-		done
-		popd
-		;;
-
 	deps)
 		deps
 		;;
