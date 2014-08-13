@@ -125,7 +125,7 @@ build-all() {
 	assets
 
 	rm -rf bin Godeps/_workspace/pkg $GOPATH/pkg/*/github.com/syncthing
-	for os in darwin-amd64 freebsd-amd64 freebsd-386 linux-amd64 linux-386 windows-amd64 windows-386 solaris-amd64 ; do
+	for os in darwin-amd64 freebsd-amd64 freebsd-386 linux-amd64 linux-386 windows-amd64 windows-386 ; do
 		export GOOS=${os%-*}
 		export GOARCH=${os#*-}
 
