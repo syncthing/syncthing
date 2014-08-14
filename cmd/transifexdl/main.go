@@ -51,21 +51,21 @@ func main() {
 
 	var langs []string
 	for code, stat := range stats {
-		shortCode := code[:2]
-		if !curValidLangs[shortCode] {
+		code = strings.Replace(code, "_", "-", 1)
+		if !curValidLangs[code] {
 			if pct := 100 * stat.Translated / (stat.Translated + stat.Untranslated); pct < 95 {
-				log.Printf("Skipping language %q (too low completion ratio %d%%)", shortCode, pct)
-				os.Remove("lang-" + shortCode + ".json")
+				log.Printf("Skipping language %q (too low completion ratio %d%%)", code, pct)
+				os.Remove("lang-" + code + ".json")
 				continue
 			}
 		}
 
-		langs = append(langs, shortCode)
-		if shortCode == "en" {
+		langs = append(langs, code)
+		if code == "en" {
 			continue
 		}
 
-		log.Printf("Updating language %q", shortCode)
+		log.Printf("Updating language %q", code)
 
 		resp := req("https://www.transifex.com/api/2/project/syncthing/resource/gui/translation/" + code)
 		var t translation
@@ -75,7 +75,7 @@ func main() {
 		}
 		resp.Body.Close()
 
-		fd, err := os.Create("lang-" + shortCode + ".json")
+		fd, err := os.Create("lang-" + code + ".json")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -130,7 +130,7 @@ func loadValidLangs() []string {
 	}
 
 	var langs []string
-	exp := regexp.MustCompile(`\[([a-z",]+)\]`)
+	exp := regexp.MustCompile(`\[([a-zA-Z",-]+)\]`)
 	if matches := exp.FindSubmatch(bs); len(matches) == 2 {
 		langs = strings.Split(string(matches[1]), ",")
 		for i := range langs {

@@ -86,11 +86,19 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.upgradeInfo = {};
 
     $http.get(urlbase+"/lang").success(function (langs) {
-        var lang;
+        // Find the first language in the list provided by the user's browser
+        // that is a prefix of a language we have available. That is, "en"
+        // sent by the browser will match "en" or "en-US", while "zh-TW" will
+        // match only "zh-TW" and not "zh-CN".
+
+        var lang, matching;
         for (var i = 0; i < langs.length; i++) {
             lang = langs[i];
-            if (validLangs.indexOf(lang) >= 0) {
-                $translate.use(lang);
+            matching = validLangs.filter(function (l) {
+                return l.indexOf(lang) == 0;
+            });
+            if (matching.length >= 1) {
+                $translate.use(matching[0]);
                 break;
             }
         }
