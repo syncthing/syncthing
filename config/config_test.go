@@ -36,6 +36,8 @@ func TestDefaultValues(t *testing.T) {
 		ReconnectIntervalS: 60,
 		StartBrowser:       true,
 		UPnPEnabled:        true,
+		UPnPLease:          0,
+		UPnPRenewal:        30,
 	}
 
 	cfg, err := Load(bytes.NewReader(nil), node1)
@@ -190,6 +192,8 @@ func TestOverriddenValues(t *testing.T) {
         <reconnectionIntervalS>6000</reconnectionIntervalS>
         <startBrowser>false</startBrowser>
         <upnpEnabled>false</upnpEnabled>
+        <upnpLeaseMinutes>60</upnpLeaseMinutes>
+        <upnpRenewalMinutes>15</upnpRenewalMinutes>
     </options>
 </configuration>
 `)
@@ -206,6 +210,8 @@ func TestOverriddenValues(t *testing.T) {
 		ReconnectIntervalS: 6000,
 		StartBrowser:       false,
 		UPnPEnabled:        false,
+		UPnPLease:          60,
+		UPnPRenewal:        15,
 	}
 
 	cfg, err := Load(bytes.NewReader(data), node1)
