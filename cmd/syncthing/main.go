@@ -633,6 +633,7 @@ func renewUPnP(port int) {
 		if r != 0 {
 			externalPort = r
 			l.Infoln("Updated UPnP port mapping - external port", externalPort)
+			discoverer.StopGlobal()
 			discoverer.StartGlobal(cfg.Options.GlobalAnnServer, uint16(r))
 			continue
 		}
