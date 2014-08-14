@@ -274,6 +274,8 @@ func main() {
 	cfgFile := filepath.Join(confDir, "config.xml")
 	go saveConfigLoop(cfgFile)
 
+	var myName string
+
 	// Load the configuration file, if it exists.
 	// If it does not, create a template.
 
@@ -285,9 +287,15 @@ func main() {
 			l.Fatalln(err)
 		}
 		cf.Close()
+		myCfg := cfg.GetNodeConfiguration(myID)
+		if myCfg == nil || myCfg.Name == "" {
+			myName, _ = os.Hostname()
+		} else {
+			myName = myCfg.Name
+		}
 	} else {
 		l.Infoln("No config file; starting with empty defaults")
-		name, _ := os.Hostname()
+		myName, _ = os.Hostname()
 		defaultRepo := filepath.Join(getHomeDir(), "Sync")
 
 		cfg, err = config.Load(nil, myID)
@@ -302,7 +310,7 @@ func main() {
 			{
 				NodeID:    myID,
 				Addresses: []string{"dynamic"},
-				Name:      name,
+				Name:      myName,
 			},
 		}
 
@@ -365,7 +373,7 @@ func main() {
 	if err != nil {
 		l.Fatalln("leveldb.OpenFile():", err)
 	}
-	m := model.NewModel(confDir, &cfg, "syncthing", Version, db)
+	m := model.NewModel(confDir, &cfg, myName, "syncthing", Version, db)
 
 nextRepo:
 	for i, repo := range cfg.Repositories {

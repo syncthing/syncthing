@@ -140,6 +140,15 @@ func (cfg *Configuration) NodeMap() map[protocol.NodeID]NodeConfiguration {
 	return m
 }
 
+func (cfg *Configuration) GetNodeConfiguration(nodeid protocol.NodeID) *NodeConfiguration {
+	for i, node := range cfg.Nodes {
+		if node.NodeID == nodeid {
+			return &cfg.Nodes[i]
+		}
+	}
+	return nil
+}
+
 func (cfg *Configuration) RepoMap() map[string]RepositoryConfiguration {
 	m := make(map[string]RepositoryConfiguration, len(cfg.Repositories))
 	for _, r := range cfg.Repositories {

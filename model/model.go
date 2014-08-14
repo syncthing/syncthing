@@ -68,6 +68,7 @@ type Model struct {
 	cfg      *config.Configuration
 	db       *leveldb.DB
 
+	nodeName      string
 	clientName    string
 	clientVersion string
 
@@ -101,11 +102,12 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local repository in any way.
-func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVersion string, db *leveldb.DB) *Model {
+func NewModel(indexDir string, cfg *config.Configuration, nodeName, clientName, clientVersion string, db *leveldb.DB) *Model {
 	m := &Model{
 		indexDir:         indexDir,
 		cfg:              cfg,
 		db:               db,
+		nodeName:         nodeName,
 		clientName:       clientName,
 		clientVersion:    clientVersion,
 		repoCfgs:         make(map[string]config.RepositoryConfiguration),
@@ -405,6 +407,14 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterCon
 		m.nodeVer[nodeID] = config.ClientVersion
 	} else {
 		m.nodeVer[nodeID] = config.ClientName + " " + config.ClientVersion
+	}
+	name := config.GetOption("name")
+	if name != "" {
+		node := m.cfg.GetNodeConfiguration(nodeID)
+		if node != nil && node.Name == "" {
+			l.Infof("Node %s is called %q", nodeID, name)
+			node.Name = name
+		}
 	}
 	m.pmut.Unlock()
 
@@ -838,6 +848,12 @@ func (m *Model) clusterConfig(node protocol.NodeID) protocol.ClusterConfigMessag
 	cm := protocol.ClusterConfigMessage{
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
+		Options: []protocol.Option{
+			{
+				Key:   "name",
+				Value: m.nodeName,
+			},
+		},
 	}
 
 	m.rmut.RLock()

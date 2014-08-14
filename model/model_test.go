@@ -57,7 +57,7 @@ func init() {
 
 func TestRequest(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", &config.Configuration{}, "syncthing", "dev", db)
+	m := NewModel("/tmp", &config.Configuration{}, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 
@@ -94,7 +94,7 @@ func genFiles(n int) []protocol.FileInfo {
 
 func BenchmarkIndex10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -107,7 +107,7 @@ func BenchmarkIndex10000(b *testing.B) {
 
 func BenchmarkIndex00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(100)
@@ -120,7 +120,7 @@ func BenchmarkIndex00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -134,7 +134,7 @@ func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -149,7 +149,7 @@ func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00001(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -207,7 +207,7 @@ func (FakeConnection) Statistics() protocol.Statistics {
 
 func BenchmarkRequest(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 
@@ -257,5 +257,47 @@ func TestActivityMap(t *testing.T) {
 	}
 	if node := m.leastBusyNode([]protocol.NodeID{node1, node2}, isValid); node != node2 {
 		t.Errorf("Incorrect least busy node %q", node)
+	}
+}
+
+func TestNodeRename(t *testing.T) {
+	ccm := protocol.ClusterConfigMessage{
+		ClientName:    "syncthing",
+		ClientVersion: "v0.9.4",
+	}
+
+	cfg, _ := config.Load(nil, node1)
+	cfg.Nodes = []config.NodeConfiguration{
+		{
+			NodeID: node1,
+		},
+	}
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel("/tmp", &cfg, "node", "syncthing", "dev", db)
+	if cfg.Nodes[0].Name != "" {
+		t.Errorf("Node already has a name")
+	}
+
+	m.ClusterConfig(node1, ccm)
+	if cfg.Nodes[0].Name != "" {
+		t.Errorf("Node already has a name")
+	}
+
+	ccm.Options = []protocol.Option{
+		{
+			Key:   "name",
+			Value: "tester",
+		},
+	}
+	m.ClusterConfig(node1, ccm)
+	if cfg.Nodes[0].Name != "tester" {
+		t.Errorf("Node did not get a name")
+	}
+
+	ccm.Options[0].Value = "tester2"
+	m.ClusterConfig(node1, ccm)
+	if cfg.Nodes[0].Name != "tester" {
+		t.Errorf("Node name got overwritten")
 	}
 }
