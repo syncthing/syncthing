@@ -68,6 +68,7 @@ type Model struct {
 	cfg      *config.Configuration
 	db       *leveldb.DB
 
+	nodeName      string
 	clientName    string
 	clientVersion string
 
@@ -101,11 +102,12 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local repository in any way.
-func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVersion string, db *leveldb.DB) *Model {
+func NewModel(indexDir string, cfg *config.Configuration, nodeName, clientName, clientVersion string, db *leveldb.DB) *Model {
 	m := &Model{
 		indexDir:         indexDir,
 		cfg:              cfg,
 		db:               db,
+		nodeName:         nodeName,
 		clientName:       clientName,
 		clientVersion:    clientVersion,
 		repoCfgs:         make(map[string]config.RepositoryConfiguration),
@@ -405,6 +407,22 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterCon
 		m.nodeVer[nodeID] = config.ClientVersion
 	} else {
 		m.nodeVer[nodeID] = config.ClientName + " " + config.ClientVersion
+	}
+	for i, node := range m.cfg.Nodes {
+		if node.NodeID == nodeID && node.Name == "" {
+			l.Infof(`Node %s identifies himself as "%s"`, nodeID, config.NodeName)
+			m.cfg.Nodes[i].Name = config.NodeName
+
+			// This is awful
+			for j, repo := range m.cfg.Repositories {
+				for k, node := range repo.Nodes {
+					if node.NodeID == nodeID {
+						m.cfg.Repositories[j].Nodes[k].Name = config.NodeName
+					}
+				}
+			}
+			break
+		}
 	}
 	m.pmut.Unlock()
 
@@ -836,6 +854,7 @@ func (m *Model) ScanRepoSub(repo, sub string) error {
 // clusterConfig returns a ClusterConfigMessage that is correct for the given peer node
 func (m *Model) clusterConfig(node protocol.NodeID) protocol.ClusterConfigMessage {
 	cm := protocol.ClusterConfigMessage{
+		NodeName:      m.nodeName,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
 	}
