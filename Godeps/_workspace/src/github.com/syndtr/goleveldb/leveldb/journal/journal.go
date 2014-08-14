@@ -110,7 +110,7 @@ type ErrCorrupted struct {
 }
 
 func (e ErrCorrupted) Error() string {
-	return fmt.Sprintf("leveldb/journal: corrupted %d bytes: %s", e.Size, e.Reason)
+	return fmt.Sprintf("leveldb/journal: block/chunk corrupted: %s (%d bytes)", e.Reason, e.Size)
 }
 
 // Dropper is the interface that wrap simple Drop method. The Drop

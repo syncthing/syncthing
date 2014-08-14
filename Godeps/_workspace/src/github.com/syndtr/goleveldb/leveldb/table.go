@@ -275,6 +275,7 @@ type tOps struct {
 	s       *session
 	cache   cache.Cache
 	cacheNS cache.Namespace
+	bpool   *util.BufferPool
 }
 
 // Creates an empty table and returns table writer.
@@ -340,7 +341,7 @@ func (t *tOps) open(f *tFile) (c cache.Object, err error) {
 		}
 
 		ok = true
-		value = table.NewReader(r, int64(f.size), cacheNS, o)
+		value = table.NewReader(r, int64(f.size), cacheNS, t.bpool, o)
 		charge = 1
 		fin = func() {
 			r.Close()
@@ -412,8 +413,12 @@ func (t *tOps) close() {
 // Creates new initialized table ops instance.
 func newTableOps(s *session, cacheCap int) *tOps {
 	c := cache.NewLRUCache(cacheCap)
-	ns := c.GetNamespace(0)
-	return &tOps{s, c, ns}
+	return &tOps{
+		s:       s,
+		cache:   c,
+		cacheNS: c.GetNamespace(0),
+		bpool:   util.NewBufferPool(s.o.GetBlockSize() + 5),
+	}
 }
 
 // tWriter wraps the table writer. It keep track of file descriptor
