@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
 	"testing"
 
 	"github.com/syndtr/goleveldb/leveldb/iterator"
@@ -170,7 +171,7 @@ func (p *dbBench) writes(perBatch int) {
 	b.SetBytes(116)
 }
 
-func (p *dbBench) drop() {
+func (p *dbBench) gc() {
 	p.keys, p.values = nil, nil
 	runtime.GC()
 }
@@ -249,6 +250,7 @@ func (p *dbBench) newIter() iterator.Iterator {
 }
 
 func (p *dbBench) close() {
+	p.b.Log(p.db.s.tops.bpool)
 	p.db.Close()
 	p.stor.Close()
 	os.RemoveAll(benchDB)
@@ -331,7 +333,7 @@ func BenchmarkDBRead(b *testing.B) {
 	p := openDBBench(b, false)
 	p.populate(b.N)
 	p.fill()
-	p.drop()
+	p.gc()
 
 	iter := p.newIter()
 	b.ResetTimer()
@@ -341,6 +343,50 @@ func BenchmarkDBRead(b *testing.B) {
 	b.StopTimer()
 	b.SetBytes(116)
 	p.close()
+}
+
+func BenchmarkDBReadConcurrent(b *testing.B) {
+	p := openDBBench(b, false)
+	p.populate(b.N)
+	p.fill()
+	p.gc()
+	defer p.close()
+
+	b.ResetTimer()
+	b.SetBytes(116)
+
+	b.RunParallel(func(pb *testing.PB) {
+		iter := p.newIter()
+		defer iter.Release()
+		for pb.Next() && iter.Next() {
+		}
+	})
+}
+
+func BenchmarkDBReadConcurrent2(b *testing.B) {
+	p := openDBBench(b, false)
+	p.populate(b.N)
+	p.fill()
+	p.gc()
+	defer p.close()
+
+	b.ResetTimer()
+	b.SetBytes(116)
+
+	var dir uint32
+	b.RunParallel(func(pb *testing.PB) {
+		iter := p.newIter()
+		defer iter.Release()
+		if atomic.AddUint32(&dir, 1)%2 == 0 {
+			for pb.Next() && iter.Next() {
+			}
+		} else {
+			if pb.Next() && iter.Last() {
+				for pb.Next() && iter.Prev() {
+				}
+			}
+		}
+	})
 }
 
 func BenchmarkDBReadGC(b *testing.B) {
@@ -362,7 +408,7 @@ func BenchmarkDBReadUncompressed(b *testing.B) {
 	p := openDBBench(b, true)
 	p.populate(b.N)
 	p.fill()
-	p.drop()
+	p.gc()
 
 	iter := p.newIter()
 	b.ResetTimer()
@@ -379,7 +425,7 @@ func BenchmarkDBReadTable(b *testing.B) {
 	p.populate(b.N)
 	p.fill()
 	p.reopen()
-	p.drop()
+	p.gc()
 
 	iter := p.newIter()
 	b.ResetTimer()
@@ -395,7 +441,7 @@ func BenchmarkDBReadReverse(b *testing.B) {
 	p := openDBBench(b, false)
 	p.populate(b.N)
 	p.fill()
-	p.drop()
+	p.gc()
 
 	iter := p.newIter()
 	b.ResetTimer()
@@ -413,7 +459,7 @@ func BenchmarkDBReadReverseTable(b *testing.B) {
 	p.populate(b.N)
 	p.fill()
 	p.reopen()
-	p.drop()
+	p.gc()
 
 	iter := p.newIter()
 	b.ResetTimer()

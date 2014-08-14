@@ -34,7 +34,6 @@ func TestDefaultValues(t *testing.T) {
 		MaxSendKbps:        0,
 		RescanIntervalS:    60,
 		ReconnectIntervalS: 60,
-		MaxChangeKbps:      10000,
 		StartBrowser:       true,
 		UPnPEnabled:        true,
 	}
@@ -189,7 +188,6 @@ func TestOverriddenValues(t *testing.T) {
         <maxSendKbps>1234</maxSendKbps>
         <rescanIntervalS>600</rescanIntervalS>
         <reconnectionIntervalS>6000</reconnectionIntervalS>
-        <maxChangeKbps>2345</maxChangeKbps>
         <startBrowser>false</startBrowser>
         <upnpEnabled>false</upnpEnabled>
     </options>
@@ -206,7 +204,6 @@ func TestOverriddenValues(t *testing.T) {
 		MaxSendKbps:        1234,
 		RescanIntervalS:    600,
 		ReconnectIntervalS: 6000,
-		MaxChangeKbps:      2345,
 		StartBrowser:       false,
 		UPnPEnabled:        false,
 	}

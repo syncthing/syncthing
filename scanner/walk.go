@@ -32,10 +32,6 @@ type Walker struct {
 	TempNamer TempNamer
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
 	CurrentFiler CurrentFiler
-	// If Suppressor is not nil, it is queried for supression of modified files.
-	// Suppressed files will be returned with empty metadata and the Suppressed flag set.
-	// Requires CurrentFiler to be set.
-	Suppressor Suppressor
 	// If IgnorePerms is true, changes to permission bits will not be
 	// detected. Scanned files will get zero permission bits and the
 	// NoPermissionBits flag set.
@@ -47,11 +43,6 @@ type TempNamer interface {
 	TempName(path string) string
 	// IsTemporary returns true if path refers to the name of temporary file.
 	IsTemporary(path string) bool
-}
-
-type Suppressor interface {
-	// Supress returns true if the update to the named file should be ignored.
-	Suppress(name string, fi os.FileInfo) (bool, bool)
 }
 
 type CurrentFiler interface {
@@ -199,22 +190,6 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo, ign map[string][
 				permUnchanged := w.IgnorePerms || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
 				if !protocol.IsDeleted(cf.Flags) && cf.Modified == info.ModTime().Unix() && permUnchanged {
 					return nil
-				}
-
-				if w.Suppressor != nil {
-					if cur, prev := w.Suppressor.Suppress(rn, info); cur && !prev {
-						l.Infof("Changes to %q are being temporarily suppressed because it changes too frequently.", p)
-						cf.Flags |= protocol.FlagInvalid
-						cf.Version = lamport.Default.Tick(cf.Version)
-						cf.LocalVersion = 0
-						if debug {
-							l.Debugln("suppressed:", cf)
-						}
-						fchan <- cf
-						return nil
-					} else if prev && !cur {
-						l.Infof("Changes to %q are no longer suppressed.", p)
-					}
 				}
 
 				if debug {

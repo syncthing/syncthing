@@ -1,4 +1,8 @@
-// +build perfstats
+// Copyright (C) 2014 Jakob Borg and Contributors (see the CONTRIBUTORS file).
+// All rights reserved. Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
+// +build !windows
 
 package main
 
@@ -11,7 +15,9 @@ import (
 )
 
 func init() {
-	go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()))
+	if os.Getenv("STPERFSTATS") != "" {
+		go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()))
+	}
 }
 
 func savePerfStats(file string) {

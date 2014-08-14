@@ -26,10 +26,48 @@ func (f FileInfo) String() string {
 }
 
 func (f FileInfo) Size() (bytes int64) {
+	if IsDeleted(f.Flags) || IsDirectory(f.Flags) {
+		return 128
+	}
 	for _, b := range f.Blocks {
 		bytes += int64(b.Size)
 	}
 	return
+}
+
+func (f FileInfo) IsDeleted() bool {
+	return IsDeleted(f.Flags)
+}
+
+// Used for unmarshalling a FileInfo structure but skipping the actual block list
+type FileInfoTruncated struct {
+	Name         string // max:1024
+	Flags        uint32
+	Modified     int64
+	Version      uint64
+	LocalVersion uint64
+	NumBlocks    uint32
+}
+
+// Returns a statistical guess on the size, not the exact figure
+func (f FileInfoTruncated) Size() int64 {
+	if IsDeleted(f.Flags) || IsDirectory(f.Flags) {
+		return 128
+	}
+	if f.NumBlocks < 2 {
+		return BlockSize / 2
+	} else {
+		return int64(f.NumBlocks-1)*BlockSize + BlockSize/2
+	}
+}
+
+func (f FileInfoTruncated) IsDeleted() bool {
+	return IsDeleted(f.Flags)
+}
+
+type FileIntf interface {
+	Size() int64
+	IsDeleted() bool
 }
 
 type BlockInfo struct {

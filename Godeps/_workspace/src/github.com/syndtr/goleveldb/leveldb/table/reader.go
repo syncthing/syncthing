@@ -437,18 +437,20 @@ func (i *blockIter) Value() []byte {
 }
 
 func (i *blockIter) Release() {
-	i.prevNode = nil
-	i.prevKeys = nil
-	i.key = nil
-	i.value = nil
-	i.dir = dirReleased
-	if i.cache != nil {
-		i.cache.Release()
-		i.cache = nil
-	}
-	if i.releaser != nil {
-		i.releaser.Release()
-		i.releaser = nil
+	if i.dir > dirReleased {
+		i.prevNode = nil
+		i.prevKeys = nil
+		i.key = nil
+		i.value = nil
+		i.dir = dirReleased
+		if i.cache != nil {
+			i.cache.Release()
+			i.cache = nil
+		}
+		if i.releaser != nil {
+			i.releaser.Release()
+			i.releaser = nil
+		}
 	}
 }
 
@@ -519,6 +521,7 @@ type Reader struct {
 	reader io.ReaderAt
 	cache  cache.Namespace
 	err    error
+	bpool  *util.BufferPool
 	// Options
 	cmp        comparer.Comparer
 	filter     filter.Filter
@@ -538,7 +541,7 @@ func verifyChecksum(data []byte) bool {
 }
 
 func (r *Reader) readRawBlock(bh blockHandle, checksum bool) ([]byte, error) {
-	data := make([]byte, bh.length+blockTrailerLen)
+	data := r.bpool.Get(int(bh.length + blockTrailerLen))
 	if _, err := r.reader.ReadAt(data, int64(bh.offset)); err != nil && err != io.EOF {
 		return nil, err
 	}
@@ -551,8 +554,13 @@ func (r *Reader) readRawBlock(bh blockHandle, checksum bool) ([]byte, error) {
 	case blockTypeNoCompression:
 		data = data[:bh.length]
 	case blockTypeSnappyCompression:
-		var err error
-		data, err = snappy.Decode(nil, data[:bh.length])
+		decLen, err := snappy.DecodedLen(data[:bh.length])
+		if err != nil {
+			return nil, err
+		}
+		tmp := data
+		data, err = snappy.Decode(r.bpool.Get(decLen), tmp[:bh.length])
+		r.bpool.Put(tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -602,6 +610,18 @@ func (r *Reader) readFilterBlock(bh blockHandle, filter filter.Filter) (*filterB
 	return b, nil
 }
 
+type releaseBlock struct {
+	r *Reader
+	b *block
+}
+
+func (r releaseBlock) Release() {
+	if r.b.data != nil {
+		r.r.bpool.Put(r.b.data)
+		r.b.data = nil
+	}
+}
+
 func (r *Reader) getDataIter(dataBH blockHandle, slice *util.Range, checksum, fillCache bool) iterator.Iterator {
 	if r.cache != nil {
 		// Get/set block cache.
@@ -616,6 +636,10 @@ func (r *Reader) getDataIter(dataBH blockHandle, slice *util.Range, checksum, fi
 				ok = true
 				value = dataBlock
 				charge = int(dataBH.length)
+				fin = func() {
+					r.bpool.Put(dataBlock.data)
+					dataBlock.data = nil
+				}
 			}
 			return
 		})
@@ -638,7 +662,7 @@ func (r *Reader) getDataIter(dataBH blockHandle, slice *util.Range, checksum, fi
 	if err != nil {
 		return iterator.NewEmptyIterator(err)
 	}
-	iter := dataBlock.newIterator(slice, false, nil)
+	iter := dataBlock.newIterator(slice, false, releaseBlock{r, dataBlock})
 	return iter
 }
 
@@ -708,8 +732,11 @@ func (r *Reader) Find(key []byte, ro *opt.ReadOptions) (rkey, value []byte, err 
 		}
 		return
 	}
+	// Don't use block buffer, no need to copy the buffer.
 	rkey = data.Key()
-	value = data.Value()
+	// Use block buffer, and since the buffer will be recycled, the buffer
+	// need to be copied.
+	value = append([]byte{}, data.Value()...)
 	return
 }
 
@@ -760,13 +787,17 @@ func (r *Reader) OffsetOf(key []byte) (offset int64, err error) {
 }
 
 // NewReader creates a new initialized table reader for the file.
-// The cache is optional and can be nil.
+// The cache and bpool is optional and can be nil.
 //
 // The returned table reader instance is goroutine-safe.
-func NewReader(f io.ReaderAt, size int64, cache cache.Namespace, o *opt.Options) *Reader {
+func NewReader(f io.ReaderAt, size int64, cache cache.Namespace, bpool *util.BufferPool, o *opt.Options) *Reader {
+	if bpool == nil {
+		bpool = util.NewBufferPool(o.GetBlockSize() + blockTrailerLen)
+	}
 	r := &Reader{
 		reader:     f,
 		cache:      cache,
+		bpool:      bpool,
 		cmp:        o.GetComparer(),
 		checksum:   o.GetStrict(opt.StrictBlockChecksum),
 		strictIter: o.GetStrict(opt.StrictIterator),

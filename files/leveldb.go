@@ -119,7 +119,7 @@ func globalKeyName(key []byte) []byte {
 
 type deletionHandler func(db dbReader, batch dbWriter, repo, node, name []byte, dbi iterator.Iterator) uint64
 
-type fileIterator func(f protocol.FileInfo) bool
+type fileIterator func(f protocol.FileIntf) bool
 
 func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo, deleteFn deletionHandler) uint64 {
 	defer runtime.GC()
@@ -181,7 +181,7 @@ func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo
 
 		case moreFs && moreDb && cmp == 0:
 			// File exists on both sides - compare versions.
-			var ef protocol.FileInfo
+			var ef protocol.FileInfoTruncated
 			ef.UnmarshalXDR(dbi.Value())
 			if fs[fsi].Version > ef.Version {
 				if lv := ldbInsert(batch, repo, node, newName, fs[fsi]); lv > maxLocalVer {
@@ -226,20 +226,23 @@ func ldbReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint6
 
 func ldbReplaceWithDelete(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint64 {
 	return ldbGenericReplace(db, repo, node, fs, func(db dbReader, batch dbWriter, repo, node, name []byte, dbi iterator.Iterator) uint64 {
-		var f protocol.FileInfo
-		err := f.UnmarshalXDR(dbi.Value())
+		var tf protocol.FileInfoTruncated
+		err := tf.UnmarshalXDR(dbi.Value())
 		if err != nil {
 			panic(err)
 		}
-		if !protocol.IsDeleted(f.Flags) {
+		if !tf.IsDeleted() {
 			if debug {
 				l.Debugf("mark deleted; repo=%q node=%v name=%q", repo, protocol.NodeIDFromBytes(node), name)
 			}
-			ts := clock(f.LocalVersion)
-			f.Blocks = nil
-			f.Version = lamport.Default.Tick(f.Version)
-			f.Flags |= protocol.FlagDeleted
-			f.LocalVersion = ts
+			ts := clock(tf.LocalVersion)
+			f := protocol.FileInfo{
+				Name:         tf.Name,
+				Version:      lamport.Default.Tick(tf.Version),
+				LocalVersion: ts,
+				Flags:        tf.Flags | protocol.FlagDeleted,
+				Modified:     tf.Modified,
+			}
 			batch.Put(dbi.Key(), f.MarshalXDR())
 			ldbUpdateGlobal(db, batch, repo, node, nodeKeyName(dbi.Key()), f.Version)
 			return ts
@@ -271,7 +274,7 @@ func ldbUpdate(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint64
 			continue
 		}
 
-		var ef protocol.FileInfo
+		var ef protocol.FileInfoTruncated
 		err = ef.UnmarshalXDR(bs)
 		if err != nil {
 			panic(err)
@@ -395,7 +398,7 @@ func ldbRemoveFromGlobal(db dbReader, batch dbWriter, repo, node, file []byte) {
 	}
 }
 
-func ldbWithHave(db *leveldb.DB, repo, node []byte, fn fileIterator) {
+func ldbWithHave(db *leveldb.DB, repo, node []byte, truncate bool, fn fileIterator) {
 	start := nodeKey(repo, node, nil)                            // before all repo/node files
 	limit := nodeKey(repo, node, []byte{0xff, 0xff, 0xff, 0xff}) // after all repo/node files
 	snap, err := db.GetSnapshot()
@@ -407,8 +410,7 @@ func ldbWithHave(db *leveldb.DB, repo, node []byte, fn fileIterator) {
 	defer dbi.Release()
 
 	for dbi.Next() {
-		var f protocol.FileInfo
-		err := f.UnmarshalXDR(dbi.Value())
+		f, err := unmarshalTrunc(dbi.Value(), truncate)
 		if err != nil {
 			panic(err)
 		}
@@ -418,7 +420,7 @@ func ldbWithHave(db *leveldb.DB, repo, node []byte, fn fileIterator) {
 	}
 }
 
-func ldbWithAllRepo(db *leveldb.DB, repo []byte, fn func(node []byte, f protocol.FileInfo) bool) {
+func ldbWithAllRepoTruncated(db *leveldb.DB, repo []byte, fn func(node []byte, f protocol.FileInfoTruncated) bool) {
 	defer runtime.GC()
 
 	start := nodeKey(repo, nil, nil)                                                // before all repo/node files
@@ -433,7 +435,7 @@ func ldbWithAllRepo(db *leveldb.DB, repo []byte, fn func(node []byte, f protocol
 
 	for dbi.Next() {
 		node := nodeKeyNode(dbi.Key())
-		var f protocol.FileInfo
+		var f protocol.FileInfoTruncated
 		err := f.UnmarshalXDR(dbi.Value())
 		if err != nil {
 			panic(err)
@@ -443,40 +445,6 @@ func ldbWithAllRepo(db *leveldb.DB, repo []byte, fn func(node []byte, f protocol
 		}
 	}
 }
-
-/*
-func ldbCheckGlobalConsistency(db *leveldb.DB, repo []byte) {
-	l.Debugf("Checking global consistency for %q", repo)
-	start := nodeKey(repo, nil, nil)                                                // before all repo/node files
-	limit := nodeKey(repo, protocol.LocalNodeID[:], []byte{0xff, 0xff, 0xff, 0xff}) // after all repo/node files
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
-	defer snap.Release()
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
-	defer dbi.Release()
-
-	batch := new(leveldb.Batch)
-	i := 0
-	for dbi.Next() {
-		repo := nodeKeyRepo(dbi.Key())
-		node := nodeKeyNode(dbi.Key())
-		var f protocol.FileInfo
-		err := f.UnmarshalXDR(dbi.Value())
-		if err != nil {
-			panic(err)
-		}
-		if ldbUpdateGlobal(snap, batch, repo, node, []byte(f.Name), f.Version) {
-			var nodeID protocol.NodeID
-			copy(nodeID[:], node)
-			l.Debugf("fixed global for %q %s %q", repo, nodeID, f.Name)
-		}
-		i++
-	}
-	l.Debugln("Done", i)
-}
-*/
 
 func ldbGet(db *leveldb.DB, repo, node, file []byte) protocol.FileInfo {
 	nk := nodeKey(repo, node, file)
@@ -536,7 +504,7 @@ func ldbGetGlobal(db *leveldb.DB, repo, file []byte) protocol.FileInfo {
 	return f
 }
 
-func ldbWithGlobal(db *leveldb.DB, repo []byte, fn fileIterator) {
+func ldbWithGlobal(db *leveldb.DB, repo []byte, truncate bool, fn fileIterator) {
 	defer runtime.GC()
 
 	start := globalKey(repo, nil)
@@ -565,8 +533,7 @@ func ldbWithGlobal(db *leveldb.DB, repo []byte, fn fileIterator) {
 			panic(err)
 		}
 
-		var f protocol.FileInfo
-		err = f.UnmarshalXDR(bs)
+		f, err := unmarshalTrunc(bs, truncate)
 		if err != nil {
 			panic(err)
 		}
@@ -605,7 +572,7 @@ func ldbAvailability(db *leveldb.DB, repo, file []byte) []protocol.NodeID {
 	return nodes
 }
 
-func ldbWithNeed(db *leveldb.DB, repo, node []byte, fn fileIterator) {
+func ldbWithNeed(db *leveldb.DB, repo, node []byte, truncate bool, fn fileIterator) {
 	defer runtime.GC()
 
 	start := globalKey(repo, nil)
@@ -649,13 +616,12 @@ func ldbWithNeed(db *leveldb.DB, repo, node []byte, fn fileIterator) {
 				panic(err)
 			}
 
-			var gf protocol.FileInfo
-			err = gf.UnmarshalXDR(bs)
+			gf, err := unmarshalTrunc(bs, truncate)
 			if err != nil {
 				panic(err)
 			}
 
-			if protocol.IsDeleted(gf.Flags) && !have {
+			if gf.IsDeleted() && !have {
 				// We don't need deleted files that we don't have
 				continue
 			}
@@ -668,5 +634,17 @@ func ldbWithNeed(db *leveldb.DB, repo, node []byte, fn fileIterator) {
 				return
 			}
 		}
+	}
+}
+
+func unmarshalTrunc(bs []byte, truncate bool) (protocol.FileIntf, error) {
+	if truncate {
+		var tf protocol.FileInfoTruncated
+		err := tf.UnmarshalXDR(bs)
+		return tf, err
+	} else {
+		var tf protocol.FileInfo
+		err := tf.UnmarshalXDR(bs)
+		return tf, err
 	}
 }

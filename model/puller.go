@@ -728,7 +728,7 @@ func (p *puller) closeFile(f protocol.FileInfo) {
 		l.Infof("open: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
 		return
 	}
-	hb, _ := scanner.Blocks(fd, scanner.StandardBlockSize)
+	hb, _ := scanner.Blocks(fd, scanner.StandardBlockSize, f.Size())
 	fd.Close()
 
 	if l0, l1 := len(hb), len(f.Blocks); l0 != l1 {

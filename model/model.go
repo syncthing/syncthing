@@ -71,12 +71,11 @@ type Model struct {
 	clientName    string
 	clientVersion string
 
-	repoCfgs   map[string]config.RepositoryConfiguration // repo -> cfg
-	repoFiles  map[string]*files.Set                     // repo -> files
-	repoNodes  map[string][]protocol.NodeID              // repo -> nodeIDs
-	nodeRepos  map[protocol.NodeID][]string              // nodeID -> repos
-	suppressor map[string]*suppressor                    // repo -> suppressor
-	rmut       sync.RWMutex                              // protects the above
+	repoCfgs  map[string]config.RepositoryConfiguration // repo -> cfg
+	repoFiles map[string]*files.Set                     // repo -> files
+	repoNodes map[string][]protocol.NodeID              // repo -> nodeIDs
+	nodeRepos map[protocol.NodeID][]string              // nodeID -> repos
+	rmut      sync.RWMutex                              // protects the above
 
 	repoState        map[string]repoState // repo -> state
 	repoStateChanged map[string]time.Time // repo -> time when state changed
@@ -89,8 +88,6 @@ type Model struct {
 
 	sentLocalVer map[protocol.NodeID]map[string]uint64
 	slMut        sync.Mutex
-
-	sup suppressor
 
 	addedRepo bool
 	started   bool
@@ -117,12 +114,10 @@ func NewModel(indexDir string, cfg *config.Configuration, clientName, clientVers
 		nodeRepos:        make(map[protocol.NodeID][]string),
 		repoState:        make(map[string]repoState),
 		repoStateChanged: make(map[string]time.Time),
-		suppressor:       make(map[string]*suppressor),
 		protoConn:        make(map[protocol.NodeID]protocol.Connection),
 		rawConn:          make(map[protocol.NodeID]io.Closer),
 		nodeVer:          make(map[protocol.NodeID]string),
 		sentLocalVer:     make(map[protocol.NodeID]map[string]uint64),
-		sup:              suppressor{threshold: int64(cfg.Options.MaxChangeKbps)},
 	}
 
 	var timeout = 20 * 60 // seconds
@@ -213,15 +208,9 @@ func (m *Model) Completion(node protocol.NodeID, repo string) float64 {
 		return 0 // Repo doesn't exist, so we hardly have any of it
 	}
 
-	rf.WithGlobal(func(f protocol.FileInfo) bool {
-		if !protocol.IsDeleted(f.Flags) {
-			var size int64
-			if protocol.IsDirectory(f.Flags) {
-				size = zeroEntrySize
-			} else {
-				size = f.Size()
-			}
-			tot += size
+	rf.WithGlobalTruncated(func(f protocol.FileIntf) bool {
+		if !f.IsDeleted() {
+			tot += f.Size()
 		}
 		return true
 	})
@@ -231,20 +220,19 @@ func (m *Model) Completion(node protocol.NodeID, repo string) float64 {
 	}
 
 	var need int64
-	rf.WithNeed(node, func(f protocol.FileInfo) bool {
-		if !protocol.IsDeleted(f.Flags) {
-			var size int64
-			if protocol.IsDirectory(f.Flags) {
-				size = zeroEntrySize
-			} else {
-				size = f.Size()
-			}
-			need += size
+	rf.WithNeedTruncated(node, func(f protocol.FileIntf) bool {
+		if !f.IsDeleted() {
+			need += f.Size()
 		}
 		return true
 	})
 
-	return 100 * (1 - float64(need)/float64(tot))
+	res := 100 * (1 - float64(need)/float64(tot))
+	if debug {
+		l.Debugf("Completion(%s, %q): %f (%d / %d)", node, repo, res, need, tot)
+	}
+
+	return res
 }
 
 func sizeOf(fs []protocol.FileInfo) (files, deleted int, bytes int64) {
@@ -257,18 +245,13 @@ func sizeOf(fs []protocol.FileInfo) (files, deleted int, bytes int64) {
 	return
 }
 
-func sizeOfFile(f protocol.FileInfo) (files, deleted int, bytes int64) {
-	if !protocol.IsDeleted(f.Flags) {
+func sizeOfFile(f protocol.FileIntf) (files, deleted int, bytes int64) {
+	if !f.IsDeleted() {
 		files++
-		if !protocol.IsDirectory(f.Flags) {
-			bytes += f.Size()
-		} else {
-			bytes += zeroEntrySize
-		}
 	} else {
 		deleted++
-		bytes += zeroEntrySize
 	}
+	bytes += f.Size()
 	return
 }
 
@@ -278,7 +261,7 @@ func (m *Model) GlobalSize(repo string) (files, deleted int, bytes int64) {
 	m.rmut.RLock()
 	defer m.rmut.RUnlock()
 	if rf, ok := m.repoFiles[repo]; ok {
-		rf.WithGlobal(func(f protocol.FileInfo) bool {
+		rf.WithGlobalTruncated(func(f protocol.FileIntf) bool {
 			fs, de, by := sizeOfFile(f)
 			files += fs
 			deleted += de
@@ -295,7 +278,7 @@ func (m *Model) LocalSize(repo string) (files, deleted int, bytes int64) {
 	m.rmut.RLock()
 	defer m.rmut.RUnlock()
 	if rf, ok := m.repoFiles[repo]; ok {
-		rf.WithHave(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
+		rf.WithHaveTruncated(protocol.LocalNodeID, func(f protocol.FileIntf) bool {
 			fs, de, by := sizeOfFile(f)
 			files += fs
 			deleted += de
@@ -311,12 +294,15 @@ func (m *Model) NeedSize(repo string) (files int, bytes int64) {
 	m.rmut.RLock()
 	defer m.rmut.RUnlock()
 	if rf, ok := m.repoFiles[repo]; ok {
-		rf.WithNeed(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
+		rf.WithNeedTruncated(protocol.LocalNodeID, func(f protocol.FileIntf) bool {
 			fs, de, by := sizeOfFile(f)
 			files += fs + de
 			bytes += by
 			return true
 		})
+	}
+	if debug {
+		l.Debugf("NeedSize(%q): %d %d", repo, files, bytes)
 	}
 	return
 }
@@ -327,8 +313,8 @@ func (m *Model) NeedFilesRepo(repo string) []protocol.FileInfo {
 	defer m.rmut.RUnlock()
 	if rf, ok := m.repoFiles[repo]; ok {
 		fs := make([]protocol.FileInfo, 0, indexBatchSize)
-		rf.WithNeed(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
-			fs = append(fs, f)
+		rf.WithNeed(protocol.LocalNodeID, func(f protocol.FileIntf) bool {
+			fs = append(fs, f.(protocol.FileInfo))
 			return len(fs) < indexBatchSize
 		})
 		return fs
@@ -602,7 +588,8 @@ func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, rep
 	maxLocalVer := uint64(0)
 	var err error
 
-	fs.WithHave(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
+	fs.WithHave(protocol.LocalNodeID, func(fi protocol.FileIntf) bool {
+		f := fi.(protocol.FileInfo)
 		if f.LocalVersion <= minLocalVer {
 			return true
 		}
@@ -694,7 +681,6 @@ func (m *Model) AddRepo(cfg config.RepositoryConfiguration) {
 	m.rmut.Lock()
 	m.repoCfgs[cfg.ID] = cfg
 	m.repoFiles[cfg.ID] = files.NewSet(cfg.ID, m.db)
-	m.suppressor[cfg.ID] = &suppressor{threshold: int64(m.cfg.Options.MaxChangeKbps)}
 
 	m.repoNodes[cfg.ID] = make([]protocol.NodeID, len(cfg.Nodes))
 	for i, node := range cfg.Nodes {
@@ -771,7 +757,6 @@ func (m *Model) ScanRepoSub(repo, sub string) error {
 		IgnoreFile:   ".stignore",
 		BlockSize:    scanner.StandardBlockSize,
 		TempNamer:    defTempNamer,
-		Suppressor:   m.suppressor[repo],
 		CurrentFiler: cFiler{m, repo},
 		IgnorePerms:  m.repoCfgs[repo].IgnorePerms,
 	}
@@ -809,7 +794,8 @@ func (m *Model) ScanRepoSub(repo, sub string) error {
 	batch = batch[:0]
 	// TODO: We should limit the Have scanning to start at sub
 	seenPrefix := false
-	fs.WithHave(protocol.LocalNodeID, func(f protocol.FileInfo) bool {
+	fs.WithHaveTruncated(protocol.LocalNodeID, func(fi protocol.FileIntf) bool {
+		f := fi.(protocol.FileInfoTruncated)
 		if !strings.HasPrefix(f.Name, sub) {
 			return !seenPrefix
 		}
@@ -821,10 +807,12 @@ func (m *Model) ScanRepoSub(repo, sub string) error {
 			}
 			if _, err := os.Stat(filepath.Join(dir, f.Name)); err != nil && os.IsNotExist(err) {
 				// File has been deleted
-				f.Blocks = nil
-				f.Flags |= protocol.FlagDeleted
-				f.Version = lamport.Default.Tick(f.Version)
-				f.LocalVersion = 0
+				nf := protocol.FileInfo{
+					Name:     f.Name,
+					Flags:    f.Flags | protocol.FlagDeleted,
+					Modified: f.Modified,
+					Version:  lamport.Default.Tick(f.Version),
+				}
 				events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
 					"repo":     repo,
 					"name":     f.Name,
@@ -832,7 +820,7 @@ func (m *Model) ScanRepoSub(repo, sub string) error {
 					"flags":    fmt.Sprintf("0%o", f.Flags),
 					"size":     f.Size(),
 				})
-				batch = append(batch, f)
+				batch = append(batch, nf)
 			}
 		}
 		return true
@@ -905,7 +893,8 @@ func (m *Model) Override(repo string) {
 	m.rmut.RUnlock()
 
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
-	fs.WithNeed(protocol.LocalNodeID, func(need protocol.FileInfo) bool {
+	fs.WithNeed(protocol.LocalNodeID, func(fi protocol.FileIntf) bool {
+		need := fi.(protocol.FileInfo)
 		if len(batch) == indexBatchSize {
 			fs.Update(protocol.LocalNodeID, batch)
 			batch = batch[:0]

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
 
 export COPYFILE_DISABLE=true
 export GO386=387 # Don't use SSE on 32 bit builds
@@ -54,22 +56,11 @@ test() {
 	godep go test -cpu=1,2,4 $* ./...
 }
 
-sign() {
-	if git describe --exact-match 2>/dev/null >/dev/null ; then
-		# HEAD is a tag
-		id=BCE524C7
-		if gpg --list-keys "$id" >/dev/null 2>&1 ; then
-			gpg -ab -u "$id" "$1"
-		fi
-	fi
-}
-
 tarDist() {
 	name="$1"
 	rm -rf "$name"
 	mkdir -p "$name"
 	cp syncthing "${distFiles[@]}" "$name"
-	sign "$name/syncthing"
 	tar zcvf "$name.tar.gz" "$name"
 	rm -rf "$name"
 }
@@ -82,7 +73,6 @@ zipDist() {
 		GOARCH="" GOOS="" go run cmd/todos/main.go < "$f" > "$name/$f.txt"
 	done
 	cp syncthing.exe "$name"
-	sign "$name/syncthing.exe"
 	zip -r "$name.zip" "$name"
 	rm -rf "$name"
 }
@@ -121,11 +111,11 @@ transifex() {
 
 build-all() {
 	rm -f *.tar.gz *.zip
-	test -short || exit 1
+	test -short
 	assets
 
 	rm -rf bin Godeps/_workspace/pkg $GOPATH/pkg/*/github.com/syncthing
-	for os in darwin-amd64 freebsd-amd64 freebsd-386 linux-amd64 linux-386 windows-amd64 windows-386 solaris-amd64 ; do
+	for os in darwin-amd64 freebsd-amd64 freebsd-386 linux-amd64 linux-386 windows-amd64 windows-386 ; do
 		export GOOS=${os%-*}
 		export GOARCH=${os#*-}
 
@@ -165,9 +155,11 @@ build-all() {
 	tarDist "syncthing-linux-armv5-$version"
 }
 
-case "$1" in
-	"")
-		shift
+case "${1:-default}" in
+	default)
+		if [[ $# -gt 1 ]] ; then
+			shift
+		fi
 		export GOBIN=$(pwd)/bin
 		godep go install $* -ldflags "$ldflags" ./cmd/...
 		;;
@@ -200,7 +192,7 @@ case "$1" in
 
 	tar)
 		rm -f *.tar.gz *.zip
-		test -short || exit 1
+		test -short
 		assets
 		build
 
@@ -218,14 +210,6 @@ case "$1" in
 	all-noupgrade)
 		shift
 		build-all -tags noupgrade
-		;;
-
-	upload)
-		tag=$(git describe)
-		shopt -s nullglob
-		for f in *.tar.gz *.zip *.asc ; do
-			relup syncthing/syncthing "$tag" "$f"
-		done
 		;;
 
 	deps)
@@ -253,6 +237,6 @@ case "$1" in
 		;;
 
 	*)
-		echo "Unknown build parameter $1"
+		echo "Unknown build command $1"
 		;;
 esac

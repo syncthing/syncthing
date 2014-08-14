@@ -49,7 +49,15 @@ func hashFile(dir string, blockSize int, outbox, inbox chan protocol.FileInfo) {
 			continue
 		}
 
-		blocks, err := Blocks(fd, blockSize)
+		fi, err := fd.Stat()
+		if err != nil {
+			fd.Close()
+			if debug {
+				l.Debugln("stat:", err)
+			}
+			continue
+		}
+		blocks, err := Blocks(fd, blockSize, fi.Size())
 		fd.Close()
 
 		if err != nil {

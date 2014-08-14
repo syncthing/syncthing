@@ -257,6 +257,7 @@ func recoverTable(s *session, o *opt.Options) error {
 	var mSeq uint64
 	var good, corrupted int
 	rec := new(sessionRecord)
+	bpool := util.NewBufferPool(o.GetBlockSize() + 5)
 	buildTable := func(iter iterator.Iterator) (tmp storage.File, size int64, err error) {
 		tmp = s.newTemp()
 		writer, err := tmp.Create()
@@ -314,7 +315,7 @@ func recoverTable(s *session, o *opt.Options) error {
 		var tSeq uint64
 		var tgood, tcorrupted, blockerr int
 		var imin, imax []byte
-		tr := table.NewReader(reader, size, nil, o)
+		tr := table.NewReader(reader, size, nil, bpool, o)
 		iter := tr.NewIterator(nil, nil)
 		iter.(iterator.ErrorCallbackSetter).SetErrorCallback(func(err error) {
 			s.logf("table@recovery found error @%d %q", file.Num(), err)
@@ -481,10 +482,11 @@ func (db *DB) recoverJournal() error {
 
 			buf.Reset()
 			if _, err := buf.ReadFrom(r); err != nil {
-				if strict {
+				if err == io.ErrUnexpectedEOF {
+					continue
+				} else {
 					return err
 				}
-				continue
 			}
 			if err := batch.decode(buf.Bytes()); err != nil {
 				return err
