@@ -230,6 +230,7 @@
                   </table>
                 </div>
                 <span class="pull-right">
+                  <a class="btn btn-sm btn-default" href="" ng-show="repoStatus(repo.ID) == 'idle'" ng-click="rescanRepo(repo.ID)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></a>
                   <a class="btn btn-sm btn-primary" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></a>
                   <a class="btn btn-sm btn-danger" ng-if="repo.ReadOnly && model[repo.ID].needFiles > 0" ng-click="override(repo.ID)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></a>
                 </span>

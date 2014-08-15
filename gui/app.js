@@ -755,8 +755,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         cfg.APIKey = randomString(30, 32);
     };
 
-
-
     $scope.acceptUR = function () {
         $scope.config.Options.URAccepted = 1000; // Larger than the largest existing report version
         $scope.saveConfig();
@@ -794,9 +792,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     };
 
     $scope.override = function (repo) {
-        $http.post(urlbase + "/model/override?repo=" + encodeURIComponent(repo)).success(function () {
-            $scope.refresh();
-        });
+        $http.post(urlbase + "/model/override?repo=" + encodeURIComponent(repo));
     };
 
     $scope.about = function () {
@@ -805,6 +801,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.showReportPreview = function () {
         $scope.reportPreview = true;
+    };
+
+    $scope.rescanRepo = function (repo) {
+        $http.post(urlbase + "/scan?repo=" + encodeURIComponent(repo));
     };
 
     $scope.init();
