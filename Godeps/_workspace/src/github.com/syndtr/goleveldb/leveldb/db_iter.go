@@ -9,6 +9,7 @@ package leveldb
 import (
 	"errors"
 	"runtime"
+	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -19,6 +20,17 @@ var (
 	errInvalidIkey = errors.New("leveldb: Iterator: invalid internal key")
 )
 
+type memdbReleaser struct {
+	once sync.Once
+	m    *memDB
+}
+
+func (mr *memdbReleaser) Release() {
+	mr.once.Do(func() {
+		mr.m.decref()
+	})
+}
+
 func (db *DB) newRawIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator {
 	em, fm := db.getMems()
 	v := db.s.version()
@@ -26,9 +38,13 @@ func (db *DB) newRawIterator(slice *util.Range, ro *opt.ReadOptions) iterator.It
 	ti := v.getIterators(slice, ro)
 	n := len(ti) + 2
 	i := make([]iterator.Iterator, 0, n)
-	i = append(i, em.NewIterator(slice))
+	emi := em.db.NewIterator(slice)
+	emi.SetReleaser(&memdbReleaser{m: em})
+	i = append(i, emi)
 	if fm != nil {
-		i = append(i, fm.NewIterator(slice))
+		fmi := fm.db.NewIterator(slice)
+		fmi.SetReleaser(&memdbReleaser{m: fm})
+		i = append(i, fmi)
 	}
 	i = append(i, ti...)
 	strict := db.s.o.GetStrict(opt.StrictIterator) || ro.GetStrict(opt.StrictIterator)

@@ -45,7 +45,7 @@ func (db *DB) jWriter() {
 	}
 }
 
-func (db *DB) rotateMem(n int) (mem *memdb.DB, err error) {
+func (db *DB) rotateMem(n int) (mem *memDB, err error) {
 	// Wait for pending memdb compaction.
 	err = db.compSendIdle(db.mcompCmdC)
 	if err != nil {
@@ -63,13 +63,19 @@ func (db *DB) rotateMem(n int) (mem *memdb.DB, err error) {
 	return
 }
 
-func (db *DB) flush(n int) (mem *memdb.DB, nn int, err error) {
+func (db *DB) flush(n int) (mem *memDB, nn int, err error) {
 	delayed := false
-	flush := func() bool {
+	flush := func() (retry bool) {
 		v := db.s.version()
 		defer v.release()
 		mem = db.getEffectiveMem()
-		nn = mem.Free()
+		defer func() {
+			if retry {
+				mem.decref()
+				mem = nil
+			}
+		}()
+		nn = mem.db.Free()
 		switch {
 		case v.tLen(0) >= kL0_SlowdownWritesTrigger && !delayed:
 			delayed = true
@@ -84,12 +90,17 @@ func (db *DB) flush(n int) (mem *memdb.DB, nn int, err error) {
 			}
 		default:
 			// Allow memdb to grow if it has no entry.
-			if mem.Len() == 0 {
+			if mem.db.Len() == 0 {
 				nn = n
-				return false
+			} else {
+				mem.decref()
+				mem, err = db.rotateMem(n)
+				if err == nil {
+					nn = mem.db.Free()
+				} else {
+					nn = 0
+				}
 			}
-			mem, err = db.rotateMem(n)
-			nn = mem.Free()
 			return false
 		}
 		return true
@@ -140,6 +151,7 @@ retry:
 	if err != nil {
 		return
 	}
+	defer mem.decref()
 
 	// Calculate maximum size of the batch.
 	m := 1 << 20
@@ -178,7 +190,7 @@ drain:
 			return
 		case db.journalC <- b:
 			// Write into memdb
-			b.memReplay(mem)
+			b.memReplay(mem.db)
 		}
 		// Wait for journal writer
 		select {
@@ -188,7 +200,7 @@ drain:
 		case err = <-db.journalAckC:
 			if err != nil {
 				// Revert memdb if error detected
-				b.revertMemReplay(mem)
+				b.revertMemReplay(mem.db)
 				return
 			}
 		}
@@ -197,7 +209,7 @@ drain:
 		if err != nil {
 			return
 		}
-		b.memReplay(mem)
+		b.memReplay(mem.db)
 	}
 
 	// Set last seq number.
@@ -258,7 +270,8 @@ func (db *DB) CompactRange(r util.Range) error {
 
 	// Check for overlaps in memdb.
 	mem := db.getEffectiveMem()
-	if isMemOverlaps(db.s.icmp, mem, r.Start, r.Limit) {
+	defer mem.decref()
+	if isMemOverlaps(db.s.icmp, mem.db, r.Start, r.Limit) {
 		// Memdb compaction.
 		if _, err := db.rotateMem(0); err != nil {
 			<-db.writeLockC

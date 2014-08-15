@@ -216,14 +216,15 @@ func (db *DB) memCompaction() {
 	if mem == nil {
 		return
 	}
+	defer mem.decref()
 
 	c := newCMem(db.s)
 	stats := new(cStatsStaging)
 
-	db.logf("mem@flush N·%d S·%s", mem.Len(), shortenb(mem.Size()))
+	db.logf("mem@flush N·%d S·%s", mem.db.Len(), shortenb(mem.db.Size()))
 
 	// Don't compact empty memdb.
-	if mem.Len() == 0 {
+	if mem.db.Len() == 0 {
 		db.logf("mem@flush skipping")
 		// drop frozen mem
 		db.dropFrozenMem()
@@ -241,7 +242,7 @@ func (db *DB) memCompaction() {
 	db.compactionTransact("mem@flush", func(cnt *compactionTransactCounter) (err error) {
 		stats.startTimer()
 		defer stats.stopTimer()
-		return c.flush(mem, -1)
+		return c.flush(mem.db, -1)
 	}, func() error {
 		for _, r := range c.rec.addedTables {
 			db.logf("mem@flush rollback @%d", r.num)

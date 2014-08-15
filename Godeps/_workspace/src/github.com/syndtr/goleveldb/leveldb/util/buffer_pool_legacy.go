@@ -4,13 +4,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// +build go1.3
+// +build !go1.3
 
 package util
 
 import (
 	"fmt"
-	"sync"
 	"sync/atomic"
 )
 
@@ -21,7 +20,7 @@ type buffer struct {
 
 // BufferPool is a 'buffer pool'.
 type BufferPool struct {
-	pool      [4]sync.Pool
+	pool      [4]chan []byte
 	size      [3]uint32
 	sizeMiss  [3]uint32
 	baseline0 int
@@ -49,9 +48,12 @@ func (p *BufferPool) poolNum(n int) int {
 
 // Get returns buffer with length of n.
 func (p *BufferPool) Get(n int) []byte {
-	if poolNum := p.poolNum(n); poolNum == 0 {
+	poolNum := p.poolNum(n)
+	pool := p.pool[poolNum]
+	if poolNum == 0 {
 		// Fast path.
-		if b, ok := p.pool[0].Get().([]byte); ok {
+		select {
+		case b := <-pool:
 			switch {
 			case cap(b) > n:
 				atomic.AddUint32(&p.less, 1)
@@ -62,7 +64,7 @@ func (p *BufferPool) Get(n int) []byte {
 			default:
 				panic("not reached")
 			}
-		} else {
+		default:
 			atomic.AddUint32(&p.miss, 1)
 		}
 
@@ -70,7 +72,8 @@ func (p *BufferPool) Get(n int) []byte {
 	} else {
 		sizePtr := &p.size[poolNum-1]
 
-		if b, ok := p.pool[poolNum].Get().([]byte); ok {
+		select {
+		case b := <-pool:
 			switch {
 			case cap(b) > n:
 				atomic.AddUint32(&p.less, 1)
@@ -81,10 +84,13 @@ func (p *BufferPool) Get(n int) []byte {
 			default:
 				atomic.AddUint32(&p.greater, 1)
 				if uint32(cap(b)) >= atomic.LoadUint32(sizePtr) {
-					p.pool[poolNum].Put(b)
+					select {
+					case pool <- b:
+					default:
+					}
 				}
 			}
-		} else {
+		default:
 			atomic.AddUint32(&p.miss, 1)
 		}
 
@@ -107,7 +113,12 @@ func (p *BufferPool) Get(n int) []byte {
 
 // Put adds given buffer to the pool.
 func (p *BufferPool) Put(b []byte) {
-	p.pool[p.poolNum(cap(b))].Put(b)
+	pool := p.pool[p.poolNum(cap(b))]
+	select {
+	case pool <- b:
+	default:
+	}
+
 }
 
 func (p *BufferPool) String() string {
@@ -120,9 +131,13 @@ func NewBufferPool(baseline int) *BufferPool {
 	if baseline <= 0 {
 		panic("baseline can't be <= 0")
 	}
-	return &BufferPool{
+	p := &BufferPool{
 		baseline0: baseline,
 		baseline1: baseline * 2,
 		baseline2: baseline * 4,
 	}
+	for i, cap := range []int{6, 6, 3, 1} {
+		p.pool[i] = make(chan []byte, cap)
+	}
+	return p
 }
