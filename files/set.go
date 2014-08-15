@@ -2,7 +2,12 @@
 // All rights reserved. Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-// Package files provides a set type to track local/remote files with newness checks.
+// Package files provides a set type to track local/remote files with newness
+// checks. We must do a certain amount of normalization in here. We will get
+// fed paths with either native or wire-format separators and encodings
+// depending on who calls us. We transform paths to wire-format (NFC and
+// slashes) on the way to the database, and transform to native format
+// (varying separator and encoding) on the way back out.
 package files
 
 import (
@@ -56,6 +61,7 @@ func (s *Set) Replace(node protocol.NodeID, fs []protocol.FileInfo) {
 	if debug {
 		l.Debugf("%s Replace(%v, [%d])", s.repo, node, len(fs))
 	}
+	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.localVersion[node] = ldbReplace(s.db, []byte(s.repo), node[:], fs)
@@ -65,6 +71,7 @@ func (s *Set) ReplaceWithDelete(node protocol.NodeID, fs []protocol.FileInfo) {
 	if debug {
 		l.Debugf("%s ReplaceWithDelete(%v, [%d])", s.repo, node, len(fs))
 	}
+	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if lv := ldbReplaceWithDelete(s.db, []byte(s.repo), node[:], fs); lv > s.localVersion[node] {
@@ -76,6 +83,7 @@ func (s *Set) Update(node protocol.NodeID, fs []protocol.FileInfo) {
 	if debug {
 		l.Debugf("%s Update(%v, [%d])", s.repo, node, len(fs))
 	}
+	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if lv := ldbUpdate(s.db, []byte(s.repo), node[:], fs); lv > s.localVersion[node] {
@@ -87,58 +95,83 @@ func (s *Set) WithNeed(node protocol.NodeID, fn fileIterator) {
 	if debug {
 		l.Debugf("%s WithNeed(%v)", s.repo, node)
 	}
-	ldbWithNeed(s.db, []byte(s.repo), node[:], false, fn)
+	ldbWithNeed(s.db, []byte(s.repo), node[:], false, nativeFileIterator(fn))
 }
 
 func (s *Set) WithNeedTruncated(node protocol.NodeID, fn fileIterator) {
 	if debug {
 		l.Debugf("%s WithNeedTruncated(%v)", s.repo, node)
 	}
-	ldbWithNeed(s.db, []byte(s.repo), node[:], true, fn)
+	ldbWithNeed(s.db, []byte(s.repo), node[:], true, nativeFileIterator(fn))
 }
 
 func (s *Set) WithHave(node protocol.NodeID, fn fileIterator) {
 	if debug {
 		l.Debugf("%s WithHave(%v)", s.repo, node)
 	}
-	ldbWithHave(s.db, []byte(s.repo), node[:], false, fn)
+	ldbWithHave(s.db, []byte(s.repo), node[:], false, nativeFileIterator(fn))
 }
 
 func (s *Set) WithHaveTruncated(node protocol.NodeID, fn fileIterator) {
 	if debug {
 		l.Debugf("%s WithHaveTruncated(%v)", s.repo, node)
 	}
-	ldbWithHave(s.db, []byte(s.repo), node[:], true, fn)
+	ldbWithHave(s.db, []byte(s.repo), node[:], true, nativeFileIterator(fn))
 }
 
 func (s *Set) WithGlobal(fn fileIterator) {
 	if debug {
 		l.Debugf("%s WithGlobal()", s.repo)
 	}
-	ldbWithGlobal(s.db, []byte(s.repo), false, fn)
+	ldbWithGlobal(s.db, []byte(s.repo), false, nativeFileIterator(fn))
 }
 
 func (s *Set) WithGlobalTruncated(fn fileIterator) {
 	if debug {
 		l.Debugf("%s WithGlobalTruncated()", s.repo)
 	}
-	ldbWithGlobal(s.db, []byte(s.repo), true, fn)
+	ldbWithGlobal(s.db, []byte(s.repo), true, nativeFileIterator(fn))
 }
 
 func (s *Set) Get(node protocol.NodeID, file string) protocol.FileInfo {
-	return ldbGet(s.db, []byte(s.repo), node[:], []byte(file))
+	f := ldbGet(s.db, []byte(s.repo), node[:], []byte(normalizedFilename(file)))
+	f.Name = nativeFilename(f.Name)
+	return f
 }
 
 func (s *Set) GetGlobal(file string) protocol.FileInfo {
-	return ldbGetGlobal(s.db, []byte(s.repo), []byte(file))
+	f := ldbGetGlobal(s.db, []byte(s.repo), []byte(normalizedFilename(file)))
+	f.Name = nativeFilename(f.Name)
+	return f
 }
 
 func (s *Set) Availability(file string) []protocol.NodeID {
-	return ldbAvailability(s.db, []byte(s.repo), []byte(file))
+	return ldbAvailability(s.db, []byte(s.repo), []byte(normalizedFilename(file)))
 }
 
 func (s *Set) LocalVersion(node protocol.NodeID) uint64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.localVersion[node]
+}
+
+func normalizeFilenames(fs []protocol.FileInfo) {
+	for i := range fs {
+		fs[i].Name = normalizedFilename(fs[i].Name)
+	}
+}
+
+func nativeFileIterator(fn fileIterator) fileIterator {
+	return func(fi protocol.FileIntf) bool {
+		switch f := fi.(type) {
+		case protocol.FileInfo:
+			f.Name = nativeFilename(f.Name)
+			return fn(f)
+		case protocol.FileInfoTruncated:
+			f.Name = nativeFilename(f.Name)
+			return fn(f)
+		default:
+			panic("unknown interface type")
+		}
+	}
 }
