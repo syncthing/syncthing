@@ -259,3 +259,45 @@ func TestActivityMap(t *testing.T) {
 		t.Errorf("Incorrect least busy node %q", node)
 	}
 }
+
+func TestNodeRename(t *testing.T) {
+	ccm := protocol.ClusterConfigMessage{
+		ClientName:    "syncthing",
+		ClientVersion: "v0.9.4",
+	}
+
+	cfg, _ := config.Load(nil, node1)
+	cfg.Nodes = []config.NodeConfiguration{
+		{
+			NodeID: node1,
+		},
+	}
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel("/tmp", &cfg, "node", "syncthing", "dev", db)
+	if cfg.Nodes[0].Name != "" {
+		t.Errorf("Node already has a name")
+	}
+
+	m.ClusterConfig(node1, ccm)
+	if cfg.Nodes[0].Name != "" {
+		t.Errorf("Node already has a name")
+	}
+
+	ccm.Options = []protocol.Option{
+		{
+			Key:   "name",
+			Value: "tester",
+		},
+	}
+	m.ClusterConfig(node1, ccm)
+	if cfg.Nodes[0].Name != "tester" {
+		t.Errorf("Node did not get a name")
+	}
+
+	ccm.Options[0].Value = "tester2"
+	m.ClusterConfig(node1, ccm)
+	if cfg.Nodes[0].Name != "tester" {
+		t.Errorf("Node name got overwritten")
+	}
+}
