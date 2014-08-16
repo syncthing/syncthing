@@ -57,7 +57,7 @@ func init() {
 
 func TestRequest(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", &config.Configuration{}, "syncthing", "dev", db)
+	m := NewModel("/tmp", &config.Configuration{}, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 
@@ -94,7 +94,7 @@ func genFiles(n int) []protocol.FileInfo {
 
 func BenchmarkIndex10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -107,7 +107,7 @@ func BenchmarkIndex10000(b *testing.B) {
 
 func BenchmarkIndex00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(100)
@@ -120,7 +120,7 @@ func BenchmarkIndex00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -134,7 +134,7 @@ func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -149,7 +149,7 @@ func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00001(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 	files := genFiles(10000)
@@ -207,7 +207,7 @@ func (FakeConnection) Statistics() protocol.Statistics {
 
 func BenchmarkRequest(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "syncthing", "dev", db)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
 	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
 	m.ScanRepo("default")
 
