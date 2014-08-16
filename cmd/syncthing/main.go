@@ -287,14 +287,11 @@ func main() {
 			l.Fatalln(err)
 		}
 		cf.Close()
-		for _, node := range cfg.Nodes {
-			if node.NodeID == myID {
-				if node.Name == "" {
-					myName, _ = os.Hostname()
-				} else {
-					myName = node.Name
-				}
-			}
+		myCfg := cfg.GetNodeConfiguration(myID)
+		if myCfg == nil || myCfg.Name == "" {
+			myName, _ = os.Hostname()
+		} else {
+			myName = myCfg.Name
 		}
 	} else {
 		l.Infoln("No config file; starting with empty defaults")
