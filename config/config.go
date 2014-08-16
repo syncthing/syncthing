@@ -31,13 +31,13 @@ type Configuration struct {
 }
 
 type RepositoryConfiguration struct {
-	ID          string                  `xml:"id,attr"`
-	Directory   string                  `xml:"directory,attr"`
-	Nodes       []NodeConfiguration     `xml:"node"`
-	ReadOnly    bool                    `xml:"ro,attr"`
-	IgnorePerms bool                    `xml:"ignorePerms,attr"`
-	Invalid     string                  `xml:"-"` // Set at runtime when there is an error, not saved
-	Versioning  VersioningConfiguration `xml:"versioning"`
+	ID          string                        `xml:"id,attr"`
+	Directory   string                        `xml:"directory,attr"`
+	Nodes       []RepositoryNodeConfiguration `xml:"node"`
+	ReadOnly    bool                          `xml:"ro,attr"`
+	IgnorePerms bool                          `xml:"ignorePerms,attr"`
+	Invalid     string                        `xml:"-"` // Set at runtime when there is an error, not saved
+	Versioning  VersioningConfiguration       `xml:"versioning"`
 
 	nodeIDs []protocol.NodeID
 }
@@ -98,6 +98,13 @@ type NodeConfiguration struct {
 	Addresses   []string        `xml:"address,omitempty"`
 	Compression bool            `xml:"compression,attr"`
 	CertName    string          `xml:"certName,attr,omitempty"`
+}
+
+type RepositoryNodeConfiguration struct {
+	NodeID protocol.NodeID `xml:"id,attr"`
+
+	Deprecated_Name      string   `xml:"name,attr,omitempty" json:"-"`
+	Deprecated_Addresses []string `xml:"address,omitempty" json:"-"`
 }
 
 type OptionsConfiguration struct {
@@ -311,6 +318,11 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 		convertV2V3(&cfg)
 	}
 
+	// Upgrade to v4 configuration if appropriate
+	if cfg.Version == 3 {
+		convertV3V4(&cfg)
+	}
+
 	// Hash old cleartext passwords
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
 		hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
@@ -329,15 +341,22 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 	}
 
 	// Ensure this node is present in all relevant places
+	me := cfg.GetNodeConfiguration(myID)
+	if me == nil {
+		myName, _ := os.Hostname()
+		cfg.Nodes = append(cfg.Nodes, NodeConfiguration{
+			NodeID: myID,
+			Name:   myName,
+		})
+	}
+	sort.Sort(NodeConfigurationList(cfg.Nodes))
 	// Ensure that any loose nodes are not present in the wrong places
 	// Ensure that there are no duplicate nodes
-	cfg.Nodes = ensureNodePresent(cfg.Nodes, myID)
-	sort.Sort(NodeConfigurationList(cfg.Nodes))
 	for i := range cfg.Repositories {
 		cfg.Repositories[i].Nodes = ensureNodePresent(cfg.Repositories[i].Nodes, myID)
 		cfg.Repositories[i].Nodes = ensureExistingNodes(cfg.Repositories[i].Nodes, existingNodes)
 		cfg.Repositories[i].Nodes = ensureNoDuplicates(cfg.Repositories[i].Nodes)
-		sort.Sort(NodeConfigurationList(cfg.Repositories[i].Nodes))
+		sort.Sort(RepositoryNodeConfigurationList(cfg.Repositories[i].Nodes))
 	}
 
 	// An empty address list is equivalent to a single "dynamic" entry
@@ -349,6 +368,21 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 	}
 
 	return cfg, err
+}
+
+func convertV3V4(cfg *Configuration) {
+	// In previous versions, repositories held full node configurations.
+	// Since that's the only place where node configs were in V1, we still have
+	// to define the deprecated fields to be able to upgrade from V1 to V4.
+	for i, repo := range cfg.Repositories {
+		for j := range repo.Nodes {
+			rncfg := cfg.Repositories[i].Nodes[j]
+			rncfg.Deprecated_Name = ""
+			rncfg.Deprecated_Addresses = nil
+		}
+	}
+
+	cfg.Version = 4
 }
 
 func convertV2V3(cfg *Configuration) {
@@ -372,7 +406,7 @@ func convertV1V2(cfg *Configuration) {
 	// Collect the list of nodes.
 	// Replace node configs inside repositories with only a reference to the nide ID.
 	// Set all repositories to read only if the global read only flag is set.
-	var nodes = map[string]NodeConfiguration{}
+	var nodes = map[string]RepositoryNodeConfiguration{}
 	for i, repo := range cfg.Repositories {
 		cfg.Repositories[i].ReadOnly = cfg.Options.Deprecated_ReadOnly
 		for j, node := range repo.Nodes {
@@ -380,14 +414,18 @@ func convertV1V2(cfg *Configuration) {
 			if _, ok := nodes[id]; !ok {
 				nodes[id] = node
 			}
-			cfg.Repositories[i].Nodes[j] = NodeConfiguration{NodeID: node.NodeID}
+			cfg.Repositories[i].Nodes[j] = RepositoryNodeConfiguration{NodeID: node.NodeID}
 		}
 	}
 	cfg.Options.Deprecated_ReadOnly = false
 
 	// Set and sort the list of nodes.
 	for _, node := range nodes {
-		cfg.Nodes = append(cfg.Nodes, node)
+		cfg.Nodes = append(cfg.Nodes, NodeConfiguration{
+			NodeID:    node.NodeID,
+			Name:      node.Deprecated_Name,
+			Addresses: node.Deprecated_Addresses,
+		})
 	}
 	sort.Sort(NodeConfigurationList(cfg.Nodes))
 
@@ -412,23 +450,33 @@ func (l NodeConfigurationList) Len() int {
 	return len(l)
 }
 
-func ensureNodePresent(nodes []NodeConfiguration, myID protocol.NodeID) []NodeConfiguration {
+type RepositoryNodeConfigurationList []RepositoryNodeConfiguration
+
+func (l RepositoryNodeConfigurationList) Less(a, b int) bool {
+	return l[a].NodeID.Compare(l[b].NodeID) == -1
+}
+func (l RepositoryNodeConfigurationList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+func (l RepositoryNodeConfigurationList) Len() int {
+	return len(l)
+}
+
+func ensureNodePresent(nodes []RepositoryNodeConfiguration, myID protocol.NodeID) []RepositoryNodeConfiguration {
 	for _, node := range nodes {
 		if node.NodeID.Equals(myID) {
 			return nodes
 		}
 	}
 
-	name, _ := os.Hostname()
-	nodes = append(nodes, NodeConfiguration{
+	nodes = append(nodes, RepositoryNodeConfiguration{
 		NodeID: myID,
-		Name:   name,
 	})
 
 	return nodes
 }
 
-func ensureExistingNodes(nodes []NodeConfiguration, existingNodes map[protocol.NodeID]bool) []NodeConfiguration {
+func ensureExistingNodes(nodes []RepositoryNodeConfiguration, existingNodes map[protocol.NodeID]bool) []RepositoryNodeConfiguration {
 	count := len(nodes)
 	i := 0
 loop:
@@ -443,7 +491,7 @@ loop:
 	return nodes[0:count]
 }
 
-func ensureNoDuplicates(nodes []NodeConfiguration) []NodeConfiguration {
+func ensureNoDuplicates(nodes []RepositoryNodeConfiguration) []RepositoryNodeConfiguration {
 	count := len(nodes)
 	i := 0
 	seenNodes := make(map[protocol.NodeID]bool)

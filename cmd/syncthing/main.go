@@ -303,7 +303,7 @@ func main() {
 			{
 				ID:        "default",
 				Directory: defaultRepo,
-				Nodes:     []config.NodeConfiguration{{NodeID: myID}},
+				Nodes:     []config.RepositoryNodeConfiguration{{NodeID: myID}},
 			},
 		}
 		cfg.Nodes = []config.NodeConfiguration{
