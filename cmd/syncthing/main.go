@@ -371,7 +371,7 @@ func main() {
 
 	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), nil)
 	if err != nil {
-		l.Fatalln("leveldb.OpenFile():", err)
+		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
 	m := model.NewModel(confDir, &cfg, myName, "syncthing", Version, db)
 
