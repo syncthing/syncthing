@@ -289,7 +289,6 @@ func main() {
 		l.Infoln("No config file; starting with empty defaults")
 		name, _ := os.Hostname()
 		defaultRepo := filepath.Join(getHomeDir(), "Sync")
-		ensureDir(defaultRepo, 0755)
 
 		cfg, err = config.Load(nil, myID)
 		cfg.Repositories = []config.RepositoryConfiguration{
