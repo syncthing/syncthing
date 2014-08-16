@@ -408,17 +408,17 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterCon
 	} else {
 		m.nodeVer[nodeID] = config.ClientName + " " + config.ClientVersion
 	}
-	name := config.GetOption("name")
-	if name != "" {
-		node := m.cfg.GetNodeConfiguration(nodeID)
-		if node != nil && node.Name == "" {
-			l.Infof("Node %s is called %q", nodeID, name)
-			node.Name = name
-		}
-	}
 	m.pmut.Unlock()
 
 	l.Infof(`Node %s client is "%s %s"`, nodeID, config.ClientName, config.ClientVersion)
+
+	if name := config.GetOption("name"); name != "" {
+		l.Infof("Node %s hostname is %q", nodeID, name)
+		node := m.cfg.GetNodeConfiguration(nodeID)
+		if node != nil && node.Name == "" {
+			node.Name = name
+		}
+	}
 }
 
 // Close removes the peer from the model and closes the underlying connection if possible.
