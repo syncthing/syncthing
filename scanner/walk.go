@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
 	"code.google.com/p/go.text/unicode/norm"
 
 	"github.com/syncthing/syncthing/lamport"
@@ -229,7 +230,7 @@ func (w *Walker) ignoreFile(patterns map[string][]string, file string) bool {
 	for prefix, pats := range patterns {
 		if prefix == "." || prefix == first || strings.HasPrefix(first, fmt.Sprintf("%s%c", prefix, os.PathSeparator)) {
 			for _, pattern := range pats {
-				if match, _ := filepath.Match(pattern, last); match {
+				if match, _ := filepath.Match(pattern, last); match || pattern == last {
 					return true
 				}
 			}
