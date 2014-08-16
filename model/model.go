@@ -412,6 +412,7 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterCon
 	if name != "" {
 		node := m.cfg.GetNodeConfiguration(nodeID)
 		if node != nil && node.Name == "" {
+			l.Infof(`Node %s identifies himself as "%s"`, nodeID, name)
 			node.Name = name
 		}
 	}
