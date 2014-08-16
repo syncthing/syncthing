@@ -92,11 +92,19 @@ type ResponseMessage struct {
 }
 
 type ClusterConfigMessage struct {
-	NodeName      string       // max:64
 	ClientName    string       // max:64
 	ClientVersion string       // max:64
 	Repositories  []Repository // max:64
 	Options       []Option     // max:64
+}
+
+func (o *ClusterConfigMessage) GetOption(key string) string {
+	for _, option := range o.Options {
+		if option.Key == key {
+			return option.Value
+		}
+	}
+	return ""
 }
 
 type Repository struct {

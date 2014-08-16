@@ -408,20 +408,11 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterCon
 	} else {
 		m.nodeVer[nodeID] = config.ClientName + " " + config.ClientVersion
 	}
-	for i, node := range m.cfg.Nodes {
-		if node.NodeID == nodeID && node.Name == "" {
-			l.Infof(`Node %s identifies himself as "%s"`, nodeID, config.NodeName)
-			m.cfg.Nodes[i].Name = config.NodeName
-
-			// This is awful
-			for j, repo := range m.cfg.Repositories {
-				for k, node := range repo.Nodes {
-					if node.NodeID == nodeID {
-						m.cfg.Repositories[j].Nodes[k].Name = config.NodeName
-					}
-				}
-			}
-			break
+	name := config.GetOption("name")
+	if name != "" {
+		node := m.cfg.GetNodeConfiguration(nodeID)
+		if node != nil && node.Name == "" {
+			node.Name = name
 		}
 	}
 	m.pmut.Unlock()
@@ -854,9 +845,14 @@ func (m *Model) ScanRepoSub(repo, sub string) error {
 // clusterConfig returns a ClusterConfigMessage that is correct for the given peer node
 func (m *Model) clusterConfig(node protocol.NodeID) protocol.ClusterConfigMessage {
 	cm := protocol.ClusterConfigMessage{
-		NodeName:      m.nodeName,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
+		Options: []protocol.Option{
+			{
+				Key:   "name",
+				Value: m.nodeName,
+			},
+		},
 	}
 
 	m.rmut.RLock()

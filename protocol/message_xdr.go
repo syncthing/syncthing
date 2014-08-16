@@ -505,12 +505,6 @@ ClusterConfigMessage Structure:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     Length of Node Name                       |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/                                                               /
-\                  Node name (variable length)                  \
-/                                                               /
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                     Length of Client Name                     |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
@@ -538,7 +532,6 @@ ClusterConfigMessage Structure:
 
 
 struct ClusterConfigMessage {
-	string NodeName<64>;
 	string ClientName<64>;
 	string ClientVersion<64>;
 	Repository Repositories<64>;
@@ -564,10 +557,6 @@ func (o ClusterConfigMessage) AppendXDR(bs []byte) []byte {
 }
 
 func (o ClusterConfigMessage) encodeXDR(xw *xdr.Writer) (int, error) {
-	if len(o.NodeName) > 64 {
-		return xw.Tot(), xdr.ErrElementSizeExceeded
-	}
-	xw.WriteString(o.NodeName)
 	if len(o.ClientName) > 64 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
@@ -611,7 +600,6 @@ func (o *ClusterConfigMessage) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *ClusterConfigMessage) decodeXDR(xr *xdr.Reader) error {
-	o.NodeName = xr.ReadStringMax(64)
 	o.ClientName = xr.ReadStringMax(64)
 	o.ClientVersion = xr.ReadStringMax(64)
 	_RepositoriesSize := int(xr.ReadUint32())
