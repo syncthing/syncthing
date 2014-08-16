@@ -6,7 +6,9 @@ package scanner
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -124,38 +126,45 @@ func TestWalkError(t *testing.T) {
 }
 
 func TestIgnore(t *testing.T) {
+	pattern := "q\\[abc\\]y"
+	// On Windows, escaping is disabled.
+	// Instead, '\\' is treated as path separator.
+	if runtime.GOOS == "windows" {
+		pattern = "q[abc]y"
+	}
+
 	var patterns = map[string][]string{
-		".":       {"t2"},
-		"foo":     {"bar", "z*", "q[abc]x", "q\\[abc\\]y"},
-		"foo/baz": {"quux", ".*"},
+		".":   {"t2"},
+		"foo": {"bar", "z*", "q[abc]x", pattern},
+		filepath.Join("foo", "baz"): {"quux", ".*"},
 	}
 	var tests = []struct {
 		f string
 		r bool
 	}{
-		{"foo/bar", true},
-		{"foofoo", false},
-		{"foo/quux", false},
-		{"foo/zuux", true},
-		{"foo/qzuux", false},
-		{"foo/baz/t1", false},
-		{"foo/baz/t2", true},
-		{"foo/baz/bar", true},
-		{"foo/baz/quuxa", false},
-		{"foo/baz/aquux", false},
-		{"foo/baz/.quux", true},
-		{"foo/baz/zquux", true},
-		{"foo/baz/quux", true},
-		{"foo/bazz/quux", false},
-		{"foo/bazz/q[abc]x", false},
-		{"foo/bazz/qax", true},
-		{"foo/bazz/q[abc]y", true},
+		{filepath.Join("foo", "bar"), true},
+		{filepath.Join("foofoo"), false},
+		{filepath.Join("foo", "quux"), false},
+		{filepath.Join("foo", "zuux"), true},
+		{filepath.Join("foo", "qzuux"), false},
+		{filepath.Join("foo", "baz", "t1"), false},
+		{filepath.Join("foo", "baz", "t2"), true},
+		{filepath.Join("foo", "baz", "bar"), true},
+		{filepath.Join("foo", "baz", "quuxa"), false},
+		{filepath.Join("foo", "baz", "aquux"), false},
+		{filepath.Join("foo", "baz", ".quux"), true},
+		{filepath.Join("foo", "baz", "zquux"), true},
+		{filepath.Join("foo", "baz", "quux"), true},
+		{filepath.Join("foo", "bazz", "quux"), false},
+		{filepath.Join("foo", "bazz", "q[abc]x"), true},
+		{filepath.Join("foo", "bazz", "qax"), true},
+		{filepath.Join("foo", "bazz", "q[abc]y"), true},
 	}
 
 	w := Walker{}
 	for i, tc := range tests {
 		if r := w.ignoreFile(patterns, tc.f); r != tc.r {
-			t.Errorf("Incorrect ignoreFile() #%d; E: %v, A: %v", i, tc.r, r)
+			t.Errorf("Incorrect ignoreFile() #%d (%s); E: %v, A: %v", i, tc.f, tc.r, r)
 		}
 	}
 }
