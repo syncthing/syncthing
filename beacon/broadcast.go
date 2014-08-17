@@ -6,16 +6,6 @@ package beacon
 
 import "net"
 
-type recv struct {
-	data []byte
-	src  net.Addr
-}
-
-type dst struct {
-	intf string
-	conn *net.UDPConn
-}
-
 type Broadcast struct {
 	conn   *net.UDPConn
 	port   int
@@ -36,7 +26,7 @@ func NewBroadcast(port int) (*Broadcast, error) {
 		outbox: make(chan recv, 16),
 	}
 
-	go b.reader()
+	go genericReader(b.conn, b.outbox)
 	go b.writer()
 
 	return b, nil
@@ -49,30 +39,6 @@ func (b *Broadcast) Send(data []byte) {
 func (b *Broadcast) Recv() ([]byte, net.Addr) {
 	recv := <-b.outbox
 	return recv.data, recv.src
-}
-
-func (b *Broadcast) reader() {
-	bs := make([]byte, 65536)
-	for {
-		n, addr, err := b.conn.ReadFrom(bs)
-		if err != nil {
-			l.Warnln("Broadcast read:", err)
-			return
-		}
-		if debug {
-			l.Debugf("recv %d bytes from %s", n, addr)
-		}
-
-		c := make([]byte, n)
-		copy(c, bs)
-		select {
-		case b.outbox <- recv{c, addr}:
-		default:
-			if debug {
-				l.Debugln("dropping message")
-			}
-		}
-	}
 }
 
 func (b *Broadcast) writer() {

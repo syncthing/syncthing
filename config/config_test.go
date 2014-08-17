@@ -30,6 +30,7 @@ func TestDefaultValues(t *testing.T) {
 		GlobalAnnEnabled:   true,
 		LocalAnnEnabled:    true,
 		LocalAnnPort:       21025,
+		LocalAnnMCAddr:     "[ff32::5222]:21026",
 		ParallelRequests:   16,
 		MaxSendKbps:        0,
 		RescanIntervalS:    60,
@@ -200,6 +201,7 @@ func TestOverriddenValues(t *testing.T) {
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
         <localAnnouncePort>42123</localAnnouncePort>
+        <localAnnounceMCAddr>quux:3232</localAnnounceMCAddr>
         <parallelRequests>32</parallelRequests>
         <maxSendKbps>1234</maxSendKbps>
         <rescanIntervalS>600</rescanIntervalS>
@@ -218,6 +220,7 @@ func TestOverriddenValues(t *testing.T) {
 		GlobalAnnEnabled:   false,
 		LocalAnnEnabled:    false,
 		LocalAnnPort:       42123,
+		LocalAnnMCAddr:     "quux:3232",
 		ParallelRequests:   32,
 		MaxSendKbps:        1234,
 		RescanIntervalS:    600,

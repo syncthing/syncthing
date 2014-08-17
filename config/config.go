@@ -113,6 +113,7 @@ type OptionsConfiguration struct {
 	GlobalAnnEnabled   bool     `xml:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled    bool     `xml:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort       int      `xml:"localAnnouncePort" default:"21025"`
+	LocalAnnMCAddr     string   `xml:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
 	ParallelRequests   int      `xml:"parallelRequests" default:"16"`
 	MaxSendKbps        int      `xml:"maxSendKbps"`
 	RescanIntervalS    int      `xml:"rescanIntervalS" default:"60"`

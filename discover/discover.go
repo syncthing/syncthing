@@ -26,7 +26,8 @@ type Discoverer struct {
 	globalBcastIntv  time.Duration
 	errorRetryIntv   time.Duration
 	cacheLifetime    time.Duration
-	broadcastBeacon  *beacon.Broadcast
+	broadcastBeacon  beacon.Interface
+	multicastBeacon  beacon.Interface
 	registry         map[protocol.NodeID][]cacheEntry
 	registryLock     sync.RWMutex
 	extServer        string
@@ -54,11 +55,7 @@ var (
 // When we hit this many errors in succession, we stop.
 const maxErrors = 30
 
-func NewDiscoverer(id protocol.NodeID, addresses []string, localPort int) (*Discoverer, error) {
-	b, err := beacon.NewBroadcast(localPort)
-	if err != nil {
-		return nil, err
-	}
+func NewDiscoverer(id protocol.NodeID, addresses []string, localPort int, localMCAddr string) (*Discoverer, error) {
 	disc := &Discoverer{
 		myID:            id,
 		listenAddrs:     addresses,
@@ -66,11 +63,26 @@ func NewDiscoverer(id protocol.NodeID, addresses []string, localPort int) (*Disc
 		globalBcastIntv: 1800 * time.Second,
 		errorRetryIntv:  60 * time.Second,
 		cacheLifetime:   5 * time.Minute,
-		broadcastBeacon: b,
 		registry:        make(map[protocol.NodeID][]cacheEntry),
 	}
 
-	go disc.recvAnnouncements()
+	if localPort > 0 {
+		bb, err := beacon.NewBroadcast(localPort)
+		if err != nil {
+			return nil, err
+		}
+		disc.broadcastBeacon = bb
+		go disc.recvAnnouncements(bb)
+	}
+
+	if len(localMCAddr) > 0 {
+		mb, err := beacon.NewMulticast(localMCAddr)
+		if err != nil {
+			return nil, err
+		}
+		disc.multicastBeacon = mb
+		go disc.recvAnnouncements(mb)
+	}
 
 	return disc, nil
 }
@@ -187,7 +199,12 @@ func (d *Discoverer) sendLocalAnnouncements() {
 	msg := pkt.MarshalXDR()
 
 	for {
-		d.broadcastBeacon.Send(msg)
+		if d.multicastBeacon != nil {
+			d.multicastBeacon.Send(msg)
+		}
+		if d.broadcastBeacon != nil {
+			d.broadcastBeacon.Send(msg)
+		}
 
 		select {
 		case <-d.localBcastTick:
@@ -284,9 +301,9 @@ loop:
 	}
 }
 
-func (d *Discoverer) recvAnnouncements() {
+func (d *Discoverer) recvAnnouncements(b beacon.Interface) {
 	for {
-		buf, addr := d.broadcastBeacon.Recv()
+		buf, addr := b.Recv()
 
 		if debug {
 			l.Debugf("discover: read announcement from %s:\n%s", addr, hex.Dump(buf))
