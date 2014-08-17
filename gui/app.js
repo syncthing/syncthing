@@ -22,15 +22,9 @@ syncthing.config(function ($httpProvider, $translateProvider) {
 
 syncthing.controller('EventCtrl', function ($scope, $http) {
     $scope.lastEvent = null;
-    var online = false;
     var lastID = 0;
 
     var successFn = function (data) {
-        if (!online) {
-            $scope.$emit('UIOnline');
-            online = true;
-        }
-
         if (lastID > 0) {
             data.forEach(function (event) {
                 console.log("event", event.id, event.type, event.data);
@@ -49,10 +43,6 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
     };
 
     var errorFn = function (data) {
-        if (online) {
-            $scope.$emit('UIOffline');
-            online = false;
-        }
         setTimeout(function () {
             $http.get(urlbase + '/events?limit=1')
             .success(successFn)
@@ -69,6 +59,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     var prevDate = 0;
     var getOK = true;
     var restarting = false;
+    var online = false;
 
     $scope.completion = {};
     $scope.config = {};
@@ -128,6 +119,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         console.log('UIOnline');
         $scope.init();
         restarting = false;
+        online = true;
         $('#networkError').modal('hide');
         $('#restarting').modal('hide');
         $('#shutdown').modal('hide');
@@ -135,6 +127,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.$on('UIOffline', function (event, arg) {
         console.log('UIOffline');
+        online = false;
         if (!restarting) {
             $('#networkError').modal();
         }
@@ -218,10 +211,19 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     }
 
     function refreshSystem() {
-        $http.get(urlbase + '/system').success(function (data) {
+        $http.get(urlbase + '/system')
+        .success(function (data) {
+            if (!online || restarting) {
+                $scope.$emit('UIOnline');
+            }
             $scope.myID = data.myID;
             $scope.system = data;
             console.log("refreshSystem", data);
+        })
+        .error(function() {
+            if (online) {
+                $scope.$emit('UIOffline');
+            }	
         });
     }
 
@@ -522,6 +524,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.restart = function () {
         restarting = true;
+        online = false;
         $('#restarting').modal();
         $http.post(urlbase + '/restart');
         $scope.configInSync = true;
@@ -539,6 +542,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             }, 1000);
 
             $scope.protocolChanged = false;
+        } else {
+            setTimeout(refreshSystem, 1000);
         }
     };
 
