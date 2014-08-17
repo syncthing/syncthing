@@ -278,7 +278,7 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var newCfg config.Configuration
 	err := json.NewDecoder(r.Body).Decode(&newCfg)
 	if err != nil {
-		l.Warnln(err)
+		l.Warnln("decoding posted config:", err)
 		http.Error(w, err.Error(), 500)
 		return
 	} else {
@@ -289,7 +289,7 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		} else {
 			hash, err := bcrypt.GenerateFromPassword([]byte(newCfg.GUI.Password), 0)
 			if err != nil {
-				l.Warnln(err)
+				l.Warnln("bcrypting password:", err)
 				http.Error(w, err.Error(), 500)
 				return
 			} else {
@@ -513,7 +513,7 @@ func restGetLang(w http.ResponseWriter, r *http.Request) {
 func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
 	rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
 	if err != nil {
-		l.Warnln(err)
+		l.Warnln("getting latest release:", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -521,7 +521,7 @@ func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
 	if upgrade.CompareVersions(rel.Tag, Version) == 1 {
 		err = upgrade.UpgradeTo(rel, GoArchExtra)
 		if err != nil {
-			l.Warnln(err)
+			l.Warnln("upgrading:", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}

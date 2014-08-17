@@ -315,7 +315,7 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
 		hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
 		if err != nil {
-			l.Warnln(err)
+			l.Warnln("bcrypting password:", err)
 		} else {
 			cfg.GUI.Password = string(hash)
 		}

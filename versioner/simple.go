@@ -96,7 +96,7 @@ func (v Simple) Archive(filePath string) error {
 
 	versions, err := filepath.Glob(filepath.Join(dir, file+"~*"))
 	if err != nil {
-		l.Warnln(err)
+		l.Warnln("globbing:", err)
 		return nil
 	}
 
@@ -108,7 +108,7 @@ func (v Simple) Archive(filePath string) error {
 			}
 			err = os.Remove(toRemove)
 			if err != nil {
-				l.Warnln(err)
+				l.Warnln("removing old version:", err)
 			}
 		}
 	}
