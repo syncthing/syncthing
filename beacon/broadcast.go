@@ -16,7 +16,7 @@ type dst struct {
 	conn *net.UDPConn
 }
 
-type Beacon struct {
+type Broadcast struct {
 	conn   *net.UDPConn
 	port   int
 	conns  []dst
@@ -24,12 +24,12 @@ type Beacon struct {
 	outbox chan recv
 }
 
-func New(port int) (*Beacon, error) {
+func NewBroadcast(port int) (*Broadcast, error) {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
 	if err != nil {
 		return nil, err
 	}
-	b := &Beacon{
+	b := &Broadcast{
 		conn:   conn,
 		port:   port,
 		inbox:  make(chan []byte),
@@ -42,21 +42,21 @@ func New(port int) (*Beacon, error) {
 	return b, nil
 }
 
-func (b *Beacon) Send(data []byte) {
+func (b *Broadcast) Send(data []byte) {
 	b.inbox <- data
 }
 
-func (b *Beacon) Recv() ([]byte, net.Addr) {
+func (b *Broadcast) Recv() ([]byte, net.Addr) {
 	recv := <-b.outbox
 	return recv.data, recv.src
 }
 
-func (b *Beacon) reader() {
+func (b *Broadcast) reader() {
 	bs := make([]byte, 65536)
 	for {
 		n, addr, err := b.conn.ReadFrom(bs)
 		if err != nil {
-			l.Warnln("Beacon read:", err)
+			l.Warnln("Broadcast read:", err)
 			return
 		}
 		if debug {
@@ -75,12 +75,12 @@ func (b *Beacon) reader() {
 	}
 }
 
-func (b *Beacon) writer() {
+func (b *Broadcast) writer() {
 	for bs := range b.inbox {
 
 		addrs, err := net.InterfaceAddrs()
 		if err != nil {
-			l.Warnln("Beacon: interface addresses:", err)
+			l.Warnln("Broadcast: interface addresses:", err)
 			continue
 		}
 

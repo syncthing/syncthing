@@ -26,7 +26,7 @@ type Discoverer struct {
 	globalBcastIntv  time.Duration
 	errorRetryIntv   time.Duration
 	cacheLifetime    time.Duration
-	beacon           *beacon.Beacon
+	broadcastBeacon  *beacon.Broadcast
 	registry         map[protocol.NodeID][]cacheEntry
 	registryLock     sync.RWMutex
 	extServer        string
@@ -55,7 +55,7 @@ var (
 const maxErrors = 30
 
 func NewDiscoverer(id protocol.NodeID, addresses []string, localPort int) (*Discoverer, error) {
-	b, err := beacon.New(localPort)
+	b, err := beacon.NewBroadcast(localPort)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func NewDiscoverer(id protocol.NodeID, addresses []string, localPort int) (*Disc
 		globalBcastIntv: 1800 * time.Second,
 		errorRetryIntv:  60 * time.Second,
 		cacheLifetime:   5 * time.Minute,
-		beacon:          b,
+		broadcastBeacon: b,
 		registry:        make(map[protocol.NodeID][]cacheEntry),
 	}
 
@@ -187,7 +187,7 @@ func (d *Discoverer) sendLocalAnnouncements() {
 	msg := pkt.MarshalXDR()
 
 	for {
-		d.beacon.Send(msg)
+		d.broadcastBeacon.Send(msg)
 
 		select {
 		case <-d.localBcastTick:
@@ -286,7 +286,7 @@ loop:
 
 func (d *Discoverer) recvAnnouncements() {
 	for {
-		buf, addr := d.beacon.Recv()
+		buf, addr := d.broadcastBeacon.Recv()
 
 		if debug {
 			l.Debugf("discover: read announcement from %s:\n%s", addr, hex.Dump(buf))
