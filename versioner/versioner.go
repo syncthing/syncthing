@@ -7,7 +7,7 @@
 package versioner
 
 type Versioner interface {
-	Archive(repoPath, filePath string) error
+	Archive(filePath string) error
 }
 
-var Factories = map[string]func(map[string]string) Versioner{}
+var Factories = map[string]func(repoID string, repoDir string, params map[string]string) Versioner{}

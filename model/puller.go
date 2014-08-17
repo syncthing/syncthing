@@ -113,7 +113,7 @@ func newPuller(repoCfg config.RepositoryConfiguration, model *Model, slots int, 
 		if !ok {
 			l.Fatalf("Requested versioning type %q that does not exist", repoCfg.Versioning.Type)
 		}
-		p.versioner = factory(repoCfg.Versioning.Params)
+		p.versioner = factory(repoCfg.ID, repoCfg.Directory, repoCfg.Versioning.Params)
 	}
 
 	if slots > 0 {
@@ -632,7 +632,7 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 			if debug {
 				l.Debugln("pull: deleting with versioner")
 			}
-			if err := p.versioner.Archive(p.repoCfg.Directory, of.filepath); err == nil {
+			if err := p.versioner.Archive(of.filepath); err == nil {
 				p.model.updateLocal(p.repoCfg.ID, f)
 			} else if debug {
 				l.Debugln("pull: error:", err)
@@ -762,7 +762,7 @@ func (p *puller) closeFile(f protocol.FileInfo) {
 	osutil.ShowFile(of.temp)
 
 	if p.versioner != nil {
-		err := p.versioner.Archive(p.repoCfg.Directory, of.filepath)
+		err := p.versioner.Archive(of.filepath)
 		if err != nil {
 			if debug {
 				l.Debugf("pull: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)

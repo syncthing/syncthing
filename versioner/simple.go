@@ -21,18 +21,20 @@ func init() {
 
 // The type holds our configuration
 type Simple struct {
-	keep int
+	keep     int
+	repoPath string
 }
 
 // The constructor function takes a map of parameters and creates the type.
-func NewSimple(params map[string]string) Versioner {
+func NewSimple(repoID, repoPath string, params map[string]string) Versioner {
 	keep, err := strconv.Atoi(params["keep"])
 	if err != nil {
 		keep = 5 // A reasonable default
 	}
 
 	s := Simple{
-		keep: keep,
+		keep:     keep,
+		repoPath: repoPath,
 	}
 
 	if debug {
@@ -43,7 +45,7 @@ func NewSimple(params map[string]string) Versioner {
 
 // Move away the named file to a version archive. If this function returns
 // nil, the named file does not exist any more (has been archived).
-func (v Simple) Archive(repoPath, filePath string) error {
+func (v Simple) Archive(filePath string) error {
 	_, err := os.Stat(filePath)
 	if err != nil && os.IsNotExist(err) {
 		if debug {
@@ -52,7 +54,7 @@ func (v Simple) Archive(repoPath, filePath string) error {
 		return nil
 	}
 
-	versionsDir := filepath.Join(repoPath, ".stversions")
+	versionsDir := filepath.Join(v.repoPath, ".stversions")
 	_, err = os.Stat(versionsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -71,7 +73,7 @@ func (v Simple) Archive(repoPath, filePath string) error {
 	}
 
 	file := filepath.Base(filePath)
-	inRepoPath, err := filepath.Rel(repoPath, filepath.Dir(filePath))
+	inRepoPath, err := filepath.Rel(v.repoPath, filepath.Dir(filePath))
 	if err != nil {
 		return err
 	}
