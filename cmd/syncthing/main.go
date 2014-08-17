@@ -140,7 +140,7 @@ func main() {
 	var generateDir string
 	var noBrowser bool
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
-	flag.StringVar(&guiAddr, "gui-address", "127.0.0.1:8080", "Overides GUI address and port")
+	flag.StringVar(&guiAddr, "gui-address", "127.0.0.1:8080", "Overrides GUI address and port")
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
