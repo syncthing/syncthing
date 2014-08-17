@@ -106,7 +106,21 @@ func TestNodeConfig(t *testing.T) {
     </node>
 </configuration>`)
 
-	for i, data := range [][]byte{v1data, v2data, v3data} {
+	v4data := []byte(`
+<configuration version="4">
+    <repository id="test" directory="~/Sync" ro="true" ignorePerms="false">
+        <node id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR"></node>
+        <node id="P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2"></node>
+    </repository>
+    <node id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR" name="node one" compression="true">
+        <address>a</address>
+    </node>
+    <node id="P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2" name="node two" compression="true">
+        <address>b</address>
+    </node>
+</configuration>`)
+
+	for i, data := range [][]byte{v1data, v2data, v3data, v4data} {
 		cfg, err := Load(bytes.NewReader(data), node1)
 		if err != nil {
 			t.Error(err)
@@ -116,7 +130,7 @@ func TestNodeConfig(t *testing.T) {
 			{
 				ID:        "test",
 				Directory: "~/Sync",
-				Nodes:     []NodeConfiguration{{NodeID: node1}, {NodeID: node4}},
+				Nodes:     []RepositoryNodeConfiguration{{NodeID: node1}, {NodeID: node4}},
 				ReadOnly:  true,
 			},
 		}
@@ -136,7 +150,7 @@ func TestNodeConfig(t *testing.T) {
 		}
 		expectedNodeIDs := []protocol.NodeID{node1, node4}
 
-		if cfg.Version != 3 {
+		if cfg.Version != 4 {
 			t.Errorf("%d: Incorrect version %d != 3", i, cfg.Version)
 		}
 		if !reflect.DeepEqual(cfg.Repositories, expectedRepos) {
