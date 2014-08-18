@@ -9,7 +9,7 @@ node has one or more _repositories_ of files described by the _local
 model_, containing metadata and block hashes. The local model is sent to
 the other nodes in the cluster. The union of all files in the local
 models, with files selected for highest change version, forms the
-_global model_. Each node strives to get it's repositories in sync with
+_global model_. Each node strives to get its repositories in sync with
 the global model by requesting missing or outdated blocks from the other
 nodes in the cluster.
 
@@ -111,7 +111,7 @@ For C=0:
 
   * The message is not compressed.
 
-All data within the the message (post decompression, if compression is
+All data within the message (post decompression, if compression is
 in use) MUST be in XDR (RFC 1014) encoding. All fields shorter than 32
 bits and all variable length data MUST be padded to a multiple of 32
 bits. The actual data types in use by BEP, in XDR naming convention, are
@@ -624,8 +624,8 @@ directions.
 
 ### Read Only
 
-In read only mode a node does not synchronize the local repository to
-the cluster, but publishes changes to it's local repository contents as
+In read only mode, a node does not synchronize the local repository to
+the cluster, but publishes changes to its local repository contents as
 usual. The local repository can be seen as a "master copy" that is never
 affected by the actions of other cluster nodes.
 
