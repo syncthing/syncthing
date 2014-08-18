@@ -95,7 +95,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         for (var i = 0; i < langs.length; i++) {
             lang = langs[i];
             matching = validLangs.filter(function (l) {
-                return l.indexOf(lang) == 0;
+                return lang.length >= 2 && l.indexOf(lang) == 0;
             });
             if (matching.length >= 1) {
                 $translate.use(matching[0]);
