@@ -136,8 +136,6 @@ func (p *puller) run() {
 	changed := true
 	var intv int
 
-	l.Debugf("%d",p.repoCfg.RescanInterval)
-
 	if p.repoCfg.RescanInterval > 0 {
 		intv = p.repoCfg.RescanInterval
 	} else {
