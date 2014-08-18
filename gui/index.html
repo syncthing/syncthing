@@ -546,10 +546,10 @@
                 </div>
                   <div class="checkbox">
                     <label>
-                      <input type="checkbox" ng-model="currentRepo.specificInterval"> <span translate>Specify Rescan Interval</span>
+                      <input type="checkbox" ng-model="currentRepo.specificInterval"> <span translate>Rescan Interval</span>
                     </label>
                   </div>
-                  <p translate class="help-block">Define the rescan interval dedicated exactly to this repository.</p>
+                  <p translate class="help-block">Set the rescan interval dedicated exactly to this repository.</p>
                 </div>
                 <div class="form-group" ng-if="currentRepo.specificInterval" ng-class="{'has-error': repoEditor.repoRescanInterval.$invalid && repoEditor.repoRescanInterval.$dirty}">
                   <input name="repoRescanInterval" placeholder="60" id="repoRescanInterval" class="form-control" type="number" ng-model="currentRepo.repoRescanInterval" required min="10"></input>
