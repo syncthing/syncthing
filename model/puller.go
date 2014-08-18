@@ -142,7 +142,7 @@ func (p *puller) run() {
 		intv = p.cfg.Options.RescanIntervalS
 	}
 
-	scanintv := time.Duration(intv)
+	scanintv := time.Duration(intv) * time.Second
 	lastscan := time.Now()
 	var prevVer uint64
 	var queued int
