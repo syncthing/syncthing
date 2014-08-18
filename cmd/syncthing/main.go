@@ -846,6 +846,10 @@ next:
 			}
 		}
 
+		events.Default.Log(events.NodeRejected, map[string]string{
+			"node":    remoteID.String(),
+			"address": conn.RemoteAddr().String(),
+		})
 		l.Infof("Connection from %s with unknown node ID %s; ignoring", conn.RemoteAddr(), remoteID)
 		conn.Close()
 	}

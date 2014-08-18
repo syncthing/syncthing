@@ -332,6 +332,10 @@ func (m *Model) Index(nodeID protocol.NodeID, repo string, fs []protocol.FileInf
 	}
 
 	if !m.repoSharedWith(repo, nodeID) {
+		events.Default.Log(events.RepoRejected, map[string]string{
+			"repo": repo,
+			"node": nodeID.String(),
+		})
 		l.Warnf("Unexpected repository ID %q sent from node %q; ensure that the repository exists and that this node is selected under \"Share With\" in the repository configuration.", repo, nodeID)
 		return
 	}
