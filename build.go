@@ -193,6 +193,9 @@ func setBuildEnv() {
 	} else {
 		os.Setenv("GOARCH", goarch)
 	}
+	if goarch == "386" {
+		os.Setenv("GO386", "387")
+	}
 }
 
 func assets() {
