@@ -497,6 +497,13 @@
                     <span translate ng-if="repoEditor.repoPath.$error.required && repoEditor.repoPath.$dirty">The repository path cannot be blank.</span>
                   </p>
                 </div>
+                <div class="form-group" ng-class="{'has-error': repoEditor.rescanIntervalS.$invalid && repoEditor.rescanIntervalS.$dirty}">
+                  <label translate for="rescanIntervalS">Rescan Interval (s)</label>
+                  <input name="rescanIntervalS" placeholder="60" id="rescanIntervalS" class="form-control" type="number" ng-model="currentRepo.RescanIntervalS" required min="5"></input>
+                  <p class="help-block">
+                    <span translate ng-if="!repoEditor.rescanIntervalS.$valid && repoEditor.rescanIntervalS.$dirty">The rescan interval must be at least 5 seconds.</span>
+                  </p>
+                </div>
               </div>
             </div>
             <div class="row">
@@ -580,10 +587,6 @@
                 <div class="form-group">
                   <label translate for="MaxSendKbps">Outgoing Rate Limit (KiB/s)</label>
                   <input id="MaxSendKbps" class="form-control" type="number" ng-model="tmpOptions.MaxSendKbps">
-                </div>
-                <div class="form-group">
-                  <label translate for="RescanIntervalS">Rescan Interval (s)</label>
-                  <input id="RescanIntervalS" class="form-control" type="number" ng-model="tmpOptions.RescanIntervalS">
                 </div>
                 <!--
                 <div class="form-group">

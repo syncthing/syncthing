@@ -33,7 +33,6 @@ func TestDefaultValues(t *testing.T) {
 		LocalAnnMCAddr:     "[ff32::5222]:21026",
 		ParallelRequests:   16,
 		MaxSendKbps:        0,
-		RescanIntervalS:    60,
 		ReconnectIntervalS: 60,
 		StartBrowser:       true,
 		UPnPEnabled:        true,
@@ -70,6 +69,7 @@ func TestNodeConfig(t *testing.T) {
     </repository>
     <options>
         <readOnly>true</readOnly>
+        <rescanIntervalS>600</rescanIntervalS>
     </options>
 </configuration>
 `)
@@ -90,6 +90,9 @@ func TestNodeConfig(t *testing.T) {
     <node id="P56IOI7MZJNU2IQGDREYDM2MGTMGL3BXNPQ6W5BTBBZ4TJXZWICQ" name="node two">
         <address>b</address>
     </node>
+    <options>
+        <rescanIntervalS>600</rescanIntervalS>
+    </options>
 </configuration>
 `)
 
@@ -105,11 +108,14 @@ func TestNodeConfig(t *testing.T) {
     <node id="P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2" name="node two" compression="true">
         <address>b</address>
     </node>
+    <options>
+        <rescanIntervalS>600</rescanIntervalS>
+    </options>
 </configuration>`)
 
 	v4data := []byte(`
 <configuration version="4">
-    <repository id="test" directory="~/Sync" ro="true" ignorePerms="false">
+    <repository id="test" directory="~/Sync" ro="true" ignorePerms="false" rescanIntervalS="600">
         <node id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR"></node>
         <node id="P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2"></node>
     </repository>
@@ -129,10 +135,11 @@ func TestNodeConfig(t *testing.T) {
 
 		expectedRepos := []RepositoryConfiguration{
 			{
-				ID:        "test",
-				Directory: "~/Sync",
-				Nodes:     []RepositoryNodeConfiguration{{NodeID: node1}, {NodeID: node4}},
-				ReadOnly:  true,
+				ID:              "test",
+				Directory:       "~/Sync",
+				Nodes:           []RepositoryNodeConfiguration{{NodeID: node1}, {NodeID: node4}},
+				ReadOnly:        true,
+				RescanIntervalS: 600,
 			},
 		}
 		expectedNodes := []NodeConfiguration{
@@ -204,7 +211,6 @@ func TestOverriddenValues(t *testing.T) {
         <localAnnounceMCAddr>quux:3232</localAnnounceMCAddr>
         <parallelRequests>32</parallelRequests>
         <maxSendKbps>1234</maxSendKbps>
-        <rescanIntervalS>600</rescanIntervalS>
         <reconnectionIntervalS>6000</reconnectionIntervalS>
         <startBrowser>false</startBrowser>
         <upnpEnabled>false</upnpEnabled>
@@ -223,7 +229,6 @@ func TestOverriddenValues(t *testing.T) {
 		LocalAnnMCAddr:     "quux:3232",
 		ParallelRequests:   32,
 		MaxSendKbps:        1234,
-		RescanIntervalS:    600,
 		ReconnectIntervalS: 6000,
 		StartBrowser:       false,
 		UPnPEnabled:        false,

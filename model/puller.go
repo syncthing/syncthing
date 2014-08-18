@@ -134,7 +134,7 @@ func newPuller(repoCfg config.RepositoryConfiguration, model *Model, slots int, 
 
 func (p *puller) run() {
 	changed := true
-	scanintv := time.Duration(p.cfg.Options.RescanIntervalS) * time.Second
+	scanintv := time.Duration(p.repoCfg.RescanIntervalS) * time.Second
 	lastscan := time.Now()
 	var prevVer uint64
 	var queued int
@@ -241,7 +241,7 @@ func (p *puller) run() {
 }
 
 func (p *puller) runRO() {
-	walkTicker := time.Tick(time.Duration(p.cfg.Options.RescanIntervalS) * time.Second)
+	walkTicker := time.Tick(time.Duration(p.repoCfg.RescanIntervalS) * time.Second)
 
 	for _ = range walkTicker {
 		if debug {
