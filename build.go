@@ -140,6 +140,7 @@ func build(pkg string, tags []string) {
 		args = append(args, "-tags", strings.Join(tags, ","))
 	}
 	args = append(args, pkg)
+	setBuildEnv()
 	runPrint("godep", args...)
 }
 
@@ -150,9 +151,6 @@ func buildTar() {
 		tags = []string{"noupgrade"}
 		name += "-noupgrade"
 	}
-	os.Setenv("GOOS", goos)
-	os.Setenv("GOARCH", goarch)
-
 	build("./cmd/syncthing", tags)
 	filename := name + ".tar.gz"
 	tarGz(filename, []archiveFile{
@@ -171,8 +169,6 @@ func buildZip() {
 		tags = []string{"noupgrade"}
 		name += "-noupgrade"
 	}
-	os.Setenv("GOOS", goos)
-	os.Setenv("GOARCH", goarch)
 	build("./cmd/syncthing", tags)
 	filename := name + ".zip"
 	zipFile(filename, []archiveFile{
@@ -182,6 +178,15 @@ func buildZip() {
 		{"syncthing.exe", name + "/syncthing.exe"},
 	})
 	log.Println(filename)
+}
+
+func setBuildEnv() {
+	os.Setenv("GOOS", goos)
+	if strings.HasPrefix(goarch, "arm") {
+		os.Setenv("GOARCH", "arm")
+	} else {
+		os.Setenv("GOARCH", goarch)
+	}
 }
 
 func assets() {
@@ -230,6 +235,9 @@ func ldflags() string {
 	b.WriteString(fmt.Sprintf(" -X main.BuildUser %s", buildUser()))
 	b.WriteString(fmt.Sprintf(" -X main.BuildHost %s", buildHost()))
 	b.WriteString(fmt.Sprintf(" -X main.BuildEnv %s", buildEnvironment()))
+	if strings.HasPrefix(goarch, "arm") {
+		b.WriteString(fmt.Sprintf(" -X main.GoArchExtra %s", goarch[3:]))
+	}
 	return b.String()
 }
 
