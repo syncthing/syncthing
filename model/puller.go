@@ -134,7 +134,15 @@ func newPuller(repoCfg config.RepositoryConfiguration, model *Model, slots int, 
 
 func (p *puller) run() {
 	changed := true
-	scanintv := time.Duration(p.cfg.Options.RescanIntervalS) * time.Second
+	var intv int
+
+	if p.repoCfg.RescanInterval > 0 {
+		intv = p.repoCfg.RescanInterval
+	} else {
+		intv = p.cfg.Options.RescanIntervalS
+	}
+
+	scanintv := time.Duration(intv) * time.Second
 	lastscan := time.Now()
 	var prevVer uint64
 	var queued int

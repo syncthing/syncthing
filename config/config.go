@@ -31,13 +31,14 @@ type Configuration struct {
 }
 
 type RepositoryConfiguration struct {
-	ID          string                        `xml:"id,attr"`
-	Directory   string                        `xml:"directory,attr"`
-	Nodes       []RepositoryNodeConfiguration `xml:"node"`
-	ReadOnly    bool                          `xml:"ro,attr"`
-	IgnorePerms bool                          `xml:"ignorePerms,attr"`
-	Invalid     string                        `xml:"-"` // Set at runtime when there is an error, not saved
-	Versioning  VersioningConfiguration       `xml:"versioning"`
+	ID             string                        `xml:"id,attr"`
+	Directory      string                        `xml:"directory,attr"`
+	Nodes          []RepositoryNodeConfiguration `xml:"node"`
+	ReadOnly       bool                          `xml:"ro,attr"`
+	IgnorePerms    bool                          `xml:"ignorePerms,attr"`
+	Invalid        string                        `xml:"-"` // Set at runtime when there is an error, not saved
+	RescanInterval int                           `xml:"rescanInterval"`
+	Versioning     VersioningConfiguration       `xml:"versioning"`
 
 	nodeIDs []protocol.NodeID
 }

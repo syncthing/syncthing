@@ -535,7 +535,6 @@
                     </label>
                   </div>
                   <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</p>
-                </div>
                 <div class="form-group" ng-if="currentRepo.simpleFileVersioning" ng-class="{'has-error': repoEditor.simpleKeep.$invalid && repoEditor.simpleKeep.$dirty}">
                   <label translate for="simpleKeep">Keep Versions</label>
                   <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentRepo.simpleKeep" required min="1"></input>
@@ -545,9 +544,21 @@
                     <span translate ng-if="repoEditor.simpleKeep.$error.min && repoEditor.simpleKeep.$dirty">You must keep at least one version.</span>
                   </p>
                 </div>
-
-              </div>
+                  <div class="checkbox">
+                    <label>
+                      <input type="checkbox" ng-model="currentRepo.specificInterval"> <span translate>Rescan Interval</span>
+                    </label>
+                  </div>
+                  <p translate class="help-block">Set the rescan interval dedicated exactly to this repository.</p>
+                </div>
+                <div class="form-group" ng-if="currentRepo.specificInterval" ng-class="{'has-error': repoEditor.repoRescanInterval.$invalid && repoEditor.repoRescanInterval.$dirty}">
+                  <input name="repoRescanInterval" placeholder="60" id="repoRescanInterval" class="form-control" type="number" ng-model="currentRepo.repoRescanInterval" required min="10"></input>
+                  <p class="help-block">
+                    <span translate ng-if="!repoEditor.repoRescanInterval.$valid && repoEditor.repoRescanInterval.$dirty">The rescan interval must be a number greater than or equal to 10.</span>
+                  </p>
+                </div>
             </div>
+          </div>
           </form>
           <div translate ng-show="!editingExisting">When adding a new repository, keep in mind that the Repository ID is used to tie repositories together between nodes. They are case sensitive and must match exactly between all nodes.</div>
         </div>
