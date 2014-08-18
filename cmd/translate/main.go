@@ -81,10 +81,16 @@ func main() {
 	}
 	fd.Close()
 
-	doc, err := html.Parse(os.Stdin)
+	fd, err = os.Open(os.Args[2])
 	if err != nil {
 		log.Fatal(err)
 	}
+	doc, err := html.Parse(fd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fd.Close()
+
 	generalNode(doc)
 	bs, err := json.MarshalIndent(trans, "", "   ")
 	if err != nil {

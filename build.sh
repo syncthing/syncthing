@@ -97,7 +97,7 @@ xdr() {
 
 translate() {
 	pushd gui
-	go run ../cmd/translate/main.go lang-en.json < index.html > lang-en-new.json
+	go run ../cmd/translate/main.go lang-en.json index.html > lang-en-new.json
 	mv lang-en-new.json lang-en.json
 	popd
 }
