@@ -37,6 +37,7 @@ type RepositoryConfiguration struct {
 	ReadOnly    bool                          `xml:"ro,attr"`
 	IgnorePerms bool                          `xml:"ignorePerms,attr"`
 	Invalid     string                        `xml:"-"` // Set at runtime when there is an error, not saved
+	RescanInterval int 							`xml:"rescanInterval"`
 	Versioning  VersioningConfiguration       `xml:"versioning"`
 
 	nodeIDs []protocol.NodeID

@@ -680,6 +680,12 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.currentRepo.Nodes.forEach(function (n) {
             $scope.currentRepo.selectedNodes[n.NodeID] = true;
         });
+
+        if ($scope.currentRepo.RescanInterval) {
+            $scope.currentRepo.specificInterval = true
+            $scope.currentRepo.repoRescanInterval = $scope.currentRepo.RescanInterval
+        }
+
         if ($scope.currentRepo.Versioning && $scope.currentRepo.Versioning.Type === "simple") {
             $scope.currentRepo.simpleFileVersioning = true;
             $scope.currentRepo.simpleKeep = +$scope.currentRepo.Versioning.Params.keep;
@@ -710,6 +716,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             }
         }
         delete repoCfg.selectedNodes;
+
+        if (repoCfg.specificInterval) {
+            repoCfg.RescanInterval = repoCfg.repoRescanInterval;
+            delete repoCfg.specificInterval;
+            delete repoCfg.repoRescanInterval;
+        } else {
+            delete repoCfg.RescanInterval;
+        }
 
         if (repoCfg.simpleFileVersioning) {
             repoCfg.Versioning = {
