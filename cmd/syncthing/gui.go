@@ -459,6 +459,11 @@ func restGetEvents(w http.ResponseWriter, r *http.Request) {
 	since, _ := strconv.Atoi(sinceStr)
 	limit, _ := strconv.Atoi(limitStr)
 
+	// Flush before blocking, to indicate that we've received the request
+	// and that it should not be retried.
+	f := w.(http.Flusher)
+	f.Flush()
+
 	evs := eventSub.Since(since, nil)
 	if 0 < limit && limit < len(evs) {
 		evs = evs[len(evs)-limit:]
