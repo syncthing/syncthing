@@ -31,13 +31,14 @@ type Configuration struct {
 }
 
 type RepositoryConfiguration struct {
-	ID          string                        `xml:"id,attr"`
-	Directory   string                        `xml:"directory,attr"`
-	Nodes       []RepositoryNodeConfiguration `xml:"node"`
-	ReadOnly    bool                          `xml:"ro,attr"`
-	IgnorePerms bool                          `xml:"ignorePerms,attr"`
-	Invalid     string                        `xml:"-"` // Set at runtime when there is an error, not saved
-	Versioning  VersioningConfiguration       `xml:"versioning"`
+	ID              string                        `xml:"id,attr"`
+	Directory       string                        `xml:"directory,attr"`
+	Nodes           []RepositoryNodeConfiguration `xml:"node"`
+	ReadOnly        bool                          `xml:"ro,attr"`
+	RescanIntervalS int                           `xml:"rescanIntervalS,attr" default:"60"`
+	IgnorePerms     bool                          `xml:"ignorePerms,attr"`
+	Invalid         string                        `xml:"-"` // Set at runtime when there is an error, not saved
+	Versioning      VersioningConfiguration       `xml:"versioning"`
 
 	nodeIDs []protocol.NodeID
 }
@@ -116,7 +117,6 @@ type OptionsConfiguration struct {
 	LocalAnnMCAddr     string   `xml:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
 	ParallelRequests   int      `xml:"parallelRequests" default:"16"`
 	MaxSendKbps        int      `xml:"maxSendKbps"`
-	RescanIntervalS    int      `xml:"rescanIntervalS" default:"60"`
 	ReconnectIntervalS int      `xml:"reconnectionIntervalS" default:"60"`
 	StartBrowser       bool     `xml:"startBrowser" default:"true"`
 	UPnPEnabled        bool     `xml:"upnpEnabled" default:"true"`
@@ -124,11 +124,12 @@ type OptionsConfiguration struct {
 	UPnPRenewal        int      `xml:"upnpRenewalMinutes" default:"30"`
 	URAccepted         int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
 
-	Deprecated_UREnabled  bool   `xml:"urEnabled,omitempty" json:"-"`
-	Deprecated_URDeclined bool   `xml:"urDeclined,omitempty" json:"-"`
-	Deprecated_ReadOnly   bool   `xml:"readOnly,omitempty" json:"-"`
-	Deprecated_GUIEnabled bool   `xml:"guiEnabled,omitempty" json:"-"`
-	Deprecated_GUIAddress string `xml:"guiAddress,omitempty" json:"-"`
+	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
+	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`
+	Deprecated_URDeclined      bool   `xml:"urDeclined,omitempty" json:"-"`
+	Deprecated_ReadOnly        bool   `xml:"readOnly,omitempty" json:"-"`
+	Deprecated_GUIEnabled      bool   `xml:"guiEnabled,omitempty" json:"-"`
+	Deprecated_GUIAddress      string `xml:"guiAddress,omitempty" json:"-"`
 }
 
 type GUIConfiguration struct {
@@ -372,10 +373,20 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 }
 
 func convertV3V4(cfg *Configuration) {
+	// In previous versions, rescan interval was common for each repository.
+	// From now, it can be set independently. We have to make sure, that after upgrade
+	// the individual rescan interval will be defined for every existing repository.
+	for i := range cfg.Repositories {
+		cfg.Repositories[i].RescanIntervalS = cfg.Options.Deprecated_RescanIntervalS
+	}
+
+	cfg.Options.Deprecated_RescanIntervalS = 0
+
 	// In previous versions, repositories held full node configurations.
 	// Since that's the only place where node configs were in V1, we still have
 	// to define the deprecated fields to be able to upgrade from V1 to V4.
 	for i, repo := range cfg.Repositories {
+
 		for j := range repo.Nodes {
 			rncfg := cfg.Repositories[i].Nodes[j]
 			rncfg.Deprecated_Name = ""
