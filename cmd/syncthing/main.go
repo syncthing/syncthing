@@ -989,19 +989,15 @@ func setTCPOptions(conn *net.TCPConn) {
 }
 
 func discovery(extPort int) *discover.Discoverer {
-	disc, err := discover.NewDiscoverer(myID, cfg.Options.ListenAddress, cfg.Options.LocalAnnPort, cfg.Options.LocalAnnMCAddr)
-	if err != nil {
-		l.Warnf("No discovery possible (%v)", err)
-		return nil
-	}
+	disc := discover.NewDiscoverer(myID, cfg.Options.ListenAddress)
 
 	if cfg.Options.LocalAnnEnabled {
-		l.Infoln("Sending local discovery announcements")
-		disc.StartLocal()
+		l.Infoln("Starting local discovery announcements")
+		disc.StartLocal(cfg.Options.LocalAnnPort, cfg.Options.LocalAnnMCAddr)
 	}
 
 	if cfg.Options.GlobalAnnEnabled {
-		l.Infoln("Sending global discovery announcements")
+		l.Infoln("Starting global discovery announcements")
 		disc.StartGlobal(cfg.Options.GlobalAnnServer, uint16(extPort))
 	}
 
