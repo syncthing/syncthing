@@ -223,6 +223,10 @@
                         </td>
                       </tr>
                       <tr>
+                        <th><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan Interval</span></th>
+                        <td class="text-right">{{repo.RescanIntervalS}} s</td>
+                      </tr>
+                      <tr>
                         <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;<span translate>Shared With</span></th>
                         <td class="text-right">{{sharesRepo(repo)}}</td>
                       </tr>
@@ -498,7 +502,7 @@
                   </p>
                 </div>
                 <div class="form-group" ng-class="{'has-error': repoEditor.rescanIntervalS.$invalid && repoEditor.rescanIntervalS.$dirty}">
-                  <label translate for="rescanIntervalS">Rescan Interval (s)</label>
+                  <label for="rescanIntervalS"><span translate>Rescan Interval</span> (s)</label>
                   <input name="rescanIntervalS" placeholder="60" id="rescanIntervalS" class="form-control" type="number" ng-model="currentRepo.RescanIntervalS" required min="5"></input>
                   <p class="help-block">
                     <span translate ng-if="!repoEditor.rescanIntervalS.$valid && repoEditor.rescanIntervalS.$dirty">The rescan interval must be at least 5 seconds.</span>
