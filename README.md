@@ -25,7 +25,14 @@ for incompatible changes.
 Getting Started
 ---------------
 
-Take a look at the [getting started guide](http://discourse.syncthing.net/t/getting-started/46).
+Take a look at the [getting started guide](http://discourse.syncthing.net/t/46).
+
+Building
+--------
+
+Building Syncthing from source is easy, and there's a
+[guide](http://discourse.syncthing.net/t/44)
+that describes it for both Unix and Windows.
 
 Signed Releases
 ---------------
