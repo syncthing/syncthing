@@ -78,10 +78,11 @@ func NewDiscoverer(id protocol.NodeID, addresses []string, localPort int, localM
 	if len(localMCAddr) > 0 {
 		mb, err := beacon.NewMulticast(localMCAddr)
 		if err != nil {
-			return nil, err
+			l.Infof("No IPv6 discovery possible (%v)", err)
+		} else {
+			disc.multicastBeacon = mb
+			go disc.recvAnnouncements(mb)
 		}
-		disc.multicastBeacon = mb
-		go disc.recvAnnouncements(mb)
 	}
 
 	return disc, nil
