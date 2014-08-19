@@ -34,7 +34,10 @@ latest info on Transifex.
 Please do contribute! If you want to contribute but are unsure where to
 start, the [Contributions Needed
 topic](http://discourse.syncthing.net/t/49) lists areas in need of
-attention. In general, any open issues are fair game!
+attention. In general, any open issues are fair game! Be prepared for a
+[certain amount of
+review](https://discourse.syncthing.net/t/733); it's all in the name of
+quality. :)
 
 ## Licensing
 
