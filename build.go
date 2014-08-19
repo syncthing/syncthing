@@ -149,7 +149,6 @@ func setup() {
 	runPrint("go", "get", "-v", "code.google.com/p/go.tools/cmd/cover")
 	runPrint("go", "get", "-v", "code.google.com/p/go.tools/cmd/vet")
 	runPrint("go", "get", "-v", "code.google.com/p/go.net/html")
-	runPrint("go", "get", "-v", "github.com/mattn/goveralls")
 	runPrint("go", "get", "-v", "github.com/tools/godep")
 }
 

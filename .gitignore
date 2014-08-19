@@ -9,3 +9,4 @@ coverage.out
 files/pidx
 bin
 perfstats*.csv
+coverage.xml

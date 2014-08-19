@@ -2,7 +2,6 @@ syncthing
 =========
 
 [![Latest Build](http://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing.svg?style=flat-square)](http://build.syncthing.net/job/syncthing/lastSuccessfulBuild/artifact/)
-[![Coverage Status](https://img.shields.io/coveralls/syncthing/syncthing.svg?style=flat-square)](https://coveralls.io/r/syncthing/syncthing?branch=master)
 [![API Documentation](http://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](http://godoc.org/github.com/syncthing/syncthing)
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](http://opensource.org/licenses/MIT)
 
