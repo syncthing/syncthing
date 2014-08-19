@@ -25,6 +25,10 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
     var online = false;
     var lastID = 0;
 
+    $(window).bind('beforeunload', function() {
+        online = false;
+    });
+
     var successFn = function (data) {
         if (!online) {
             $scope.$emit('UIOnline');
