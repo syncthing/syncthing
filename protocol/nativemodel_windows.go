@@ -29,6 +29,11 @@ type nativeModel struct {
 func (m nativeModel) Index(nodeID NodeID, repo string, files []FileInfo) {
 	for i, f := range files {
 		if strings.ContainsAny(f.Name, disallowedCharacters) {
+			if f.IsDeleted() {
+				// Don't complain if the file is marked as deleted, since it
+				// can't possibly exist here anyway.
+				continue
+			}
 			files[i].Flags |= FlagInvalid
 			l.Warnf("File name %q contains invalid characters; marked as invalid.", f.Name)
 		}
@@ -40,6 +45,11 @@ func (m nativeModel) Index(nodeID NodeID, repo string, files []FileInfo) {
 func (m nativeModel) IndexUpdate(nodeID NodeID, repo string, files []FileInfo) {
 	for i, f := range files {
 		if strings.ContainsAny(f.Name, disallowedCharacters) {
+			if f.IsDeleted() {
+				// Don't complain if the file is marked as deleted, since it
+				// can't possibly exist here anyway.
+				continue
+			}
 			files[i].Flags |= FlagInvalid
 			l.Warnf("File name %q contains invalid characters; marked as invalid.", f.Name)
 		}
