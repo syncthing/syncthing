@@ -459,6 +459,8 @@ func restGetEvents(w http.ResponseWriter, r *http.Request) {
 	since, _ := strconv.Atoi(sinceStr)
 	limit, _ := strconv.Atoi(limitStr)
 
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
 	// Flush before blocking, to indicate that we've received the request
 	// and that it should not be retried.
 	f := w.(http.Flusher)
@@ -469,7 +471,6 @@ func restGetEvents(w http.ResponseWriter, r *http.Request) {
 		evs = evs[len(evs)-limit:]
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(evs)
 }
 
