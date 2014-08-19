@@ -33,6 +33,8 @@ var (
 	noupgrade bool
 )
 
+const minGoVersion = 1.3
+
 func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
@@ -52,6 +54,8 @@ func main() {
 	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
 	flag.BoolVar(&noupgrade, "no-upgrade", false, "Disable upgrade functionality")
 	flag.Parse()
+
+	checkRequiredGoVersion()
 
 	if check() != nil {
 		setup()
@@ -120,6 +124,25 @@ func main() {
 func check() error {
 	_, err := exec.LookPath("godep")
 	return err
+}
+
+func checkRequiredGoVersion() {
+	ver := run("go", "version")
+	re := regexp.MustCompile(`go version go(\d+\.\d+)`)
+	if m := re.FindSubmatch(ver); len(m) == 2 {
+		vs := string(m[1])
+		// This is a standard go build. Verify that it's new enough.
+		f, err := strconv.ParseFloat(vs, 64)
+		if err != nil {
+			log.Printf("*** Could parse Go version out of %q.\n*** This isn't known to work, proceed on your own risk.", vs)
+			return
+		}
+		if f < minGoVersion {
+			log.Fatalf("*** Go version %.01f is less than required %.01f.\n*** This is known not to work, not proceeding.", f, minGoVersion)
+		}
+	} else {
+		log.Printf("*** Unknown Go version %q.\n*** This isn't known to work, proceed on your own risk.", ver)
+	}
 }
 
 func setup() {
