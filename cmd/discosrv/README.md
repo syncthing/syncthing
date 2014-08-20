@@ -1,7 +1,7 @@
 discosrv
 ========
 
-[![Latest Build](http://img.shields.io/jenkins/s/http/build.syncthing.net/discosrv.svg?style=flat-square)](http://build.syncthing.net/job/discosrv/lastSuccessfulBuild/artifact/)
+[![Latest Build](http://img.shields.io/jenkins/s/http/build.syncthing.net/discosrv.svg?style=flat-square)](http://build.syncthing.net/job/discosrv/lastBuild/)
 
 This is the global discovery server for the `syncthing` project.
 
