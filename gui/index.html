@@ -540,14 +540,25 @@
               </div>
               <div class="col-md-6">
                 <div class="form-group">
-                  <div class="checkbox">
+                  <label translate>File Versioning</label>
+                  <div class="radio">
                     <label>
-                      <input type="checkbox" ng-model="currentRepo.simpleFileVersioning"> <span translate>File Versioning</span>
+                      <input type="radio" ng-model="currentRepo.FileVersioningSelector" value="none"> <span translate>No File Versioning</span>
                     </label>
                   </div>
-                  <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</p>
+                  <div class="radio">
+                    <label>
+                      <input type="radio" ng-model="currentRepo.FileVersioningSelector" value="simple"> <span translate>Simple File Versioning</span>
+                    </label>
+                  </div>
+                  <div class="radio">
+                    <label>
+                      <input type="radio" ng-model="currentRepo.FileVersioningSelector" value="staggered"> <span translate>Staggered File Versioning</span>
+                    </label>
+                  </div>
                 </div>
-                <div class="form-group" ng-if="currentRepo.simpleFileVersioning" ng-class="{'has-error': repoEditor.simpleKeep.$invalid && repoEditor.simpleKeep.$dirty}">
+                <div class="form-group" ng-if="currentRepo.FileVersioningSelector=='simple'" ng-class="{'has-error': repoEditor.simpleKeep.$invalid && repoEditor.simpleKeep.$dirty}">
+                  <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</p>
                   <label translate for="simpleKeep">Keep Versions</label>
                   <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentRepo.simpleKeep" required min="1"></input>
                   <p class="help-block">
@@ -556,7 +567,30 @@
                     <span translate ng-if="repoEditor.simpleKeep.$error.min && repoEditor.simpleKeep.$dirty">You must keep at least one version.</span>
                   </p>
                 </div>
-
+                <div class="form-group" ng-if="currentRepo.FileVersioningSelector=='staggered'" ng-class="{'has-error': repoEditor.staggeredMaxAge.$invalid && repoEditor.staggeredMaxAge.$dirty}">
+                  <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing. Versions are automatically deleted if they are over the set maximum age or too many files are in a interval.</p>
+                  <p translate class="help-block">The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.</p>
+                  <label translate for="staggeredMaxAge">Maximum Age</label>
+                  <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentRepo.staggeredMaxAge" required></input>
+                  <p class="help-block">
+                    <span translate ng-if="repoEditor.staggeredMaxAge.$valid || repoEditor.staggeredMaxAge.$pristine">The maximum time to keep a version in seconds, -1 keeps versions forever.</span>
+                    <span translate ng-if="repoEditor.staggeredMaxAge.$error.required && repoEditor.staggeredMaxAge.$dirty">The maximum age must be a number and cannot be blank.</span>
+                  </p>
+                </div>
+                <div class="form-group" ng-if="currentRepo.FileVersioningSelector=='staggered'" ng-class="{'has-error': repoEditor.staggeredCleanInterval.$invalid && repoEditor.staggeredCleanInterval.$dirty}">
+                  <label translate for="staggeredCleanInterval">Clean Interval</label>
+                  <input name="staggeredCleanInterval" id="staggeredCleanInterval" class="form-control" type="number" ng-model="currentRepo.staggeredCleanInterval" required min="1"></input>
+                  <p class="help-block">
+                    <span translate ng-if="repoEditor.staggeredCleanInterval.$valid || repoEditor.staggeredCleanInterval.$pristine">The interval to clean versions in seconds.</span>
+                    <span translate ng-if="repoEditor.staggeredCleanInterval.$error.required && repoEditor.staggeredCleanInterval.$dirty">The clean interval must be a number and cannot be blank.</span>
+                    <span translate ng-if="repoEditor.staggeredCleanInterval.$error.min && repoEditor.staggeredCleanInterval.$dirty">Clean Interval has to be greater than 0.</span>
+                  </p>
+                </div>
+                <div class="form-group" ng-if="currentRepo.FileVersioningSelector=='staggered'">
+                  <label translate for="staggeredVersionsPath">Versions Path</label>
+                  <input name="staggeredVersionsPath" placeholder="" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentRepo.staggeredVersionsPath"></input>
+                  <p translate class="help-block">Path where versions should be stored, leave empty to put them in .stversions folder in the repository.</p>
+                </div>
               </div>
             </div>
           </form>

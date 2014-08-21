@@ -686,9 +686,22 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         });
         if ($scope.currentRepo.Versioning && $scope.currentRepo.Versioning.Type === "simple") {
             $scope.currentRepo.simpleFileVersioning = true;
+            $scope.currentRepo.FileVersioningSelector = "simple";
             $scope.currentRepo.simpleKeep = +$scope.currentRepo.Versioning.Params.keep;
+        } else if ($scope.currentRepo.Versioning && $scope.currentRepo.Versioning.Type === "staggered") {
+            $scope.currentRepo.staggeredFileVersioning = true;
+            $scope.currentRepo.FileVersioningSelector = "staggered";
+            $scope.currentRepo.staggeredMaxAge = +$scope.currentRepo.Versioning.Params.maxAge;
+            $scope.currentRepo.staggeredCleanInterval = +$scope.currentRepo.Versioning.Params.cleanInterval;
+            $scope.currentRepo.staggeredVersionsPath = $scope.currentRepo.Versioning.Params.versionsPath;
+        } else {
+            $scope.currentRepo.FileVersioningSelector = "none";
         }
         $scope.currentRepo.simpleKeep = $scope.currentRepo.simpleKeep || 5;
+        $scope.currentRepo.staggeredMaxAge = $scope.currentRepo.staggeredMaxAge || 31536000;
+        $scope.currentRepo.staggeredCleanInterval = $scope.currentRepo.staggeredCleanInterval || 3600;
+        $scope.currentRepo.staggeredVersionsPath = $scope.currentRepo.staggeredVersionsPath || "";
+        
         $scope.editingExisting = true;
         $scope.repoEditor.$setPristine();
         $('#editRepo').modal();
@@ -696,6 +709,11 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.addRepo = function () {
         $scope.currentRepo = {selectedNodes: {}};
+        $scope.currentRepo.FileVersioningSelector = "none";
+        $scope.currentRepo.simpleKeep = 5;
+        $scope.currentRepo.staggeredMaxAge = 31536000;
+        $scope.currentRepo.staggeredCleanInterval = 3600;
+        $scope.currentRepo.staggeredVersionsPath = "";
         $scope.editingExisting = false;
         $scope.repoEditor.$setPristine();
         $('#editRepo').modal();
@@ -715,7 +733,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
         delete repoCfg.selectedNodes;
 
-        if (repoCfg.simpleFileVersioning) {
+        if (repoCfg.FileVersioningSelector === "simple") {
             repoCfg.Versioning = {
                 'Type': 'simple',
                 'Params': {
@@ -724,6 +742,20 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             };
             delete repoCfg.simpleFileVersioning;
             delete repoCfg.simpleKeep;
+        } else if (repoCfg.FileVersioningSelector === "staggered") {
+            repoCfg.Versioning = {
+                'Type': 'staggered',
+                'Params': {
+                    'maxAge': '' + repoCfg.staggeredMaxAge,
+                    'cleanInterval': '' + repoCfg.staggeredCleanInterval,
+                    'versionsPath': '' + repoCfg.staggeredVersionsPath,
+                }
+            };
+            delete repoCfg.staggeredFileVersioning;
+            delete repoCfg.staggeredMaxAge;
+            delete repoCfg.staggeredCleanInterval;
+            delete repoCfg.staggeredVersionsPath;
+        
         } else {
             delete repoCfg.Versioning;
         }
