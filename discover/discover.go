@@ -55,8 +55,8 @@ var (
 // When we hit this many errors in succession, we stop.
 const maxErrors = 30
 
-func NewDiscoverer(id protocol.NodeID, addresses []string, localPort int, localMCAddr string) (*Discoverer, error) {
-	disc := &Discoverer{
+func NewDiscoverer(id protocol.NodeID, addresses []string) *Discoverer {
+	return &Discoverer{
 		myID:            id,
 		listenAddrs:     addresses,
 		localBcastIntv:  30 * time.Second,
@@ -65,32 +65,36 @@ func NewDiscoverer(id protocol.NodeID, addresses []string, localPort int, localM
 		cacheLifetime:   5 * time.Minute,
 		registry:        make(map[protocol.NodeID][]cacheEntry),
 	}
+}
 
+func (d *Discoverer) StartLocal(localPort int, localMCAddr string) {
 	if localPort > 0 {
 		bb, err := beacon.NewBroadcast(localPort)
 		if err != nil {
-			return nil, err
+			l.Infof("No IPv4 discovery possible (%v)", err)
+		} else {
+			d.broadcastBeacon = bb
+			go d.recvAnnouncements(bb)
 		}
-		disc.broadcastBeacon = bb
-		go disc.recvAnnouncements(bb)
 	}
 
 	if len(localMCAddr) > 0 {
 		mb, err := beacon.NewMulticast(localMCAddr)
 		if err != nil {
-			return nil, err
+			l.Infof("No IPv6 discovery possible (%v)", err)
+		} else {
+			d.multicastBeacon = mb
+			go d.recvAnnouncements(mb)
 		}
-		disc.multicastBeacon = mb
-		go disc.recvAnnouncements(mb)
 	}
 
-	return disc, nil
-}
-
-func (d *Discoverer) StartLocal() {
-	d.localBcastTick = time.Tick(d.localBcastIntv)
-	d.forcedBcastTick = make(chan time.Time)
-	go d.sendLocalAnnouncements()
+	if d.broadcastBeacon == nil && d.multicastBeacon == nil {
+		l.Warnln("No local discovery method available")
+	} else {
+		d.localBcastTick = time.Tick(d.localBcastIntv)
+		d.forcedBcastTick = make(chan time.Time)
+		go d.sendLocalAnnouncements()
+	}
 }
 
 func (d *Discoverer) StartGlobal(server string, extPort uint16) {
