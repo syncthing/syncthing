@@ -125,6 +125,7 @@ The following enviroment variables are interpreted by syncthing:
                - "net"      (the main package; connections & network messages)
                - "model"    (the model package)
                - "scanner"  (the scanner package)
+               - "stats"    (the stats package)
                - "upnp"     (the upnp package)
                - "xdr"      (the xdr package)
                - "all"      (all of the above)

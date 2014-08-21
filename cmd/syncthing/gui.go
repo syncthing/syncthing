@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -24,7 +25,6 @@ import (
 	"sync"
 	"time"
 
-	"crypto/tls"
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/syncthing/syncthing/auto"
 	"github.com/syncthing/syncthing/config"
