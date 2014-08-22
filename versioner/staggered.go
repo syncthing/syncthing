@@ -6,7 +6,6 @@ package versioner
 
 import (
 	"fmt"
-	"github.com/syncthing/syncthing/osutil"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/syncthing/syncthing/osutil"
 )
 
 func init() {
@@ -56,7 +57,6 @@ func isFile(path string) bool {
 
 // The constructor function takes a map of parameters and creates the type.
 func NewStaggered(repoID, repoPath string, params map[string]string) Versioner {
-
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
 		maxAge = 31536000 // Default: ~1 year
@@ -86,10 +86,10 @@ func NewStaggered(repoID, repoPath string, params map[string]string) Versioner {
 		cleanInterval: cleanInterval,
 		repoPath:      repoPath,
 		interval: [4]Interval{
-			Interval{30, 3600},        // first hour -> 30 sec between versions
-			Interval{3600, 86400},     // next day -> 1 h between versions
-			Interval{86400, 2592000},  // next 30 days -> 1 day between versions
-			Interval{604800, maxAge}, // next year -> 1 week between versions
+			Interval{30, 3600},               // first hour -> 30 sec between versions
+			Interval{3600, 86400},            // next day -> 1 h between versions
+			Interval{86400, 592000},          // next 30 days -> 1 day between versions
+			Interval{604800, maxAge * 86400}, // next year -> 1 week between versions
 		},
 		mutex: &mutex,
 	}
@@ -127,7 +127,7 @@ func (v Staggered) clean() {
 			os.MkdirAll(v.versionsPath, 0755)
 			osutil.HideFile(v.versionsPath)
 		} else {
-			l.Warnln("Versioner: can't create versions dir",err)
+			l.Warnln("Versioner: can't create versions dir", err)
 		}
 	}
 
@@ -151,7 +151,7 @@ func (v Staggered) clean() {
 		return nil
 	})
 	if err != nil {
-		l.Warnln("Versioner: error scanning versions dir",err)
+		l.Warnln("Versioner: error scanning versions dir", err)
 	}
 
 	for k, _ := range clean_filelist {
@@ -204,7 +204,7 @@ func expire(versions []string, v Staggered) {
 					break
 				}
 			}
-			if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end != -1 && age > lastIntv.end {
+			if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
 				if debug {
 					l.Debugln("Versioner: File over maximum age -> delete ", file)
 				}

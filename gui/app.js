@@ -691,17 +691,17 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         } else if ($scope.currentRepo.Versioning && $scope.currentRepo.Versioning.Type === "staggered") {
             $scope.currentRepo.staggeredFileVersioning = true;
             $scope.currentRepo.FileVersioningSelector = "staggered";
-            $scope.currentRepo.staggeredMaxAge = +$scope.currentRepo.Versioning.Params.maxAge;
+            $scope.currentRepo.staggeredMaxAge = Math.floor(+$scope.currentRepo.Versioning.Params.maxAge / 86400);
             $scope.currentRepo.staggeredCleanInterval = +$scope.currentRepo.Versioning.Params.cleanInterval;
             $scope.currentRepo.staggeredVersionsPath = $scope.currentRepo.Versioning.Params.versionsPath;
         } else {
             $scope.currentRepo.FileVersioningSelector = "none";
         }
         $scope.currentRepo.simpleKeep = $scope.currentRepo.simpleKeep || 5;
-        $scope.currentRepo.staggeredMaxAge = $scope.currentRepo.staggeredMaxAge || 31536000;
+        $scope.currentRepo.staggeredMaxAge = $scope.currentRepo.staggeredMaxAge || 365;
         $scope.currentRepo.staggeredCleanInterval = $scope.currentRepo.staggeredCleanInterval || 3600;
         $scope.currentRepo.staggeredVersionsPath = $scope.currentRepo.staggeredVersionsPath || "";
-        
+
         $scope.editingExisting = true;
         $scope.repoEditor.$setPristine();
         $('#editRepo').modal();
@@ -711,7 +711,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.currentRepo = {selectedNodes: {}};
         $scope.currentRepo.FileVersioningSelector = "none";
         $scope.currentRepo.simpleKeep = 5;
-        $scope.currentRepo.staggeredMaxAge = 31536000;
+        $scope.currentRepo.staggeredMaxAge = 365;
         $scope.currentRepo.staggeredCleanInterval = 3600;
         $scope.currentRepo.staggeredVersionsPath = "";
         $scope.editingExisting = false;
@@ -746,7 +746,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             repoCfg.Versioning = {
                 'Type': 'staggered',
                 'Params': {
-                    'maxAge': '' + repoCfg.staggeredMaxAge,
+                    'maxAge': '' + (repoCfg.staggeredMaxAge * 86400),
                     'cleanInterval': '' + repoCfg.staggeredCleanInterval,
                     'versionsPath': '' + repoCfg.staggeredVersionsPath,
                 }
@@ -755,7 +755,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             delete repoCfg.staggeredMaxAge;
             delete repoCfg.staggeredCleanInterval;
             delete repoCfg.staggeredVersionsPath;
-        
+
         } else {
             delete repoCfg.Versioning;
         }
