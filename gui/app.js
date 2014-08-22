@@ -80,6 +80,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.repos = {};
     $scope.seenError = '';
     $scope.upgradeInfo = {};
+    $scope.stats = {};
 
     $http.get(urlbase+"/lang").success(function (langs) {
         // Find the first language in the list provided by the user's browser
@@ -175,6 +176,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.$on('NodeDisconnected', function (event, arg) {
         delete $scope.connections[arg.data.id];
+        refreshNodeStats();
     });
 
     $scope.$on('NodeConnected', function (event, arg) {
@@ -332,10 +334,18 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         });
     }
 
+    var refreshNodeStats = debounce(function () {
+        $http.get(urlbase+"/stats/node").success(function (data) {
+            $scope.stats = data;
+            console.log("refreshNodeStats", data);
+        });
+    }, 500);
+
     $scope.init = function() {
         refreshSystem();
         refreshConfig();
         refreshConnectionStats();
+        refreshNodeStats();
 
         $http.get(urlbase + '/version').success(function (data) {
             $scope.version = data;
@@ -1048,6 +1058,12 @@ syncthing.filter('clean', function () {
         return encodeURIComponent(input).replace(/%/g, '');
     };
 });
+
+syncthing.filter('asDate', function() {
+    return function (input) {
+        return new Date(input);
+    }
+})
 
 syncthing.directive('optionEditor', function () {
     return {
