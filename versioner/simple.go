@@ -47,11 +47,15 @@ func NewSimple(repoID, repoPath string, params map[string]string) Versioner {
 // nil, the named file does not exist any more (has been archived).
 func (v Simple) Archive(filePath string) error {
 	_, err := os.Stat(filePath)
-	if err != nil && os.IsNotExist(err) {
-		if debug {
-			l.Debugln("not archiving nonexistent file", filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if debug {
+				l.Debugln("not archiving nonexistent file", filePath)
+			}
+			return nil
+		} else {
+			return err
 		}
-		return nil
 	}
 
 	versionsDir := filepath.Join(v.repoPath, ".stversions")
