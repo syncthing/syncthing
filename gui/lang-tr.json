@@ -64,8 +64,8 @@
     "Repository ID": "Depo ID",
     "Repository Master": "Ana depo",
     "Repository Path": "Depo Yolu",
-    "Rescan": "Rescan",
-    "Rescan Interval (s)": "Yeni tarama süresi (sn)",
+    "Rescan": "Tekrar Tara",
+    "Rescan Interval (s)": "Tekrar tarama süresi (sn)",
     "Restart": "Yeniden Başlat",
     "Restart Needed": "Yeniden başlatma gereklidir",
     "Restarting": "Yeniden başlatılıyor",
@@ -78,8 +78,8 @@
     "Short identifier for the repository. Must be the same on all cluster nodes.": "Depo için kısa tanımlayıcı. Kümedeki tüm düğümlerde aynı olmalı.",
     "Show ID": "ID Göster",
     "Shown instead of Node ID in the cluster status.": "Ana ekranda Düğüm ID yerine bunu göster.",
-    "Shown instead of Node ID in the cluster status. Will be advertised to other nodes as an optional default name.": "Shown instead of Node ID in the cluster status. Will be advertised to other nodes as an optional default name.",
-    "Shown instead of Node ID in the cluster status. Will be updated to the name the node advertises if left empty.": "Shown instead of Node ID in the cluster status. Will be updated to the name the node advertises if left empty.",
+    "Shown instead of Node ID in the cluster status. Will be advertised to other nodes as an optional default name.": "Küme durumunda Düğüm ID yerine bunu göster.  Varsayılan isim isteğe bağlı olarak diğer düğümlere ilan edilecektir.",
+    "Shown instead of Node ID in the cluster status. Will be updated to the name the node advertises if left empty.": "Küme durumunda Düğüm ID yerine bunu göster.  Eğer düğüm ismi boş bırakılırsa düğüm ismi güncellenip ilan edilecektir.",
     "Shutdown": "Kapat",
     "Source Code": "Kaynak Kodu",
     "Start Browser": "Tarayıcıyı Başlat",
@@ -119,5 +119,5 @@
     "When adding a new repository, keep in mind that the Repository ID is used to tie repositories together between nodes. They are case sensitive and must match exactly between all nodes.": "Unutmayın ki; Depo ID, depoları düğümler arasında bağlamak için kullanılıyor. Büyük - küçük harf duyarlı, ve bütün düğümlerde aynı olmalı.",
     "Yes": "Evet",
     "You must keep at least one version.": "En az bir sürümü tutmalısınız.",
-    "items": "öğe"
+    "items": "öğeler"
 }
