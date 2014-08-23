@@ -158,6 +158,7 @@ func test(pkg string) {
 
 func install(pkg string) {
 	os.Setenv("GOBIN", "./bin")
+	setBuildEnv()
 	runPrint("godep", "go", "install", "-ldflags", ldflags(), pkg)
 }
 
@@ -212,6 +213,7 @@ func setBuildEnv() {
 	os.Setenv("GOOS", goos)
 	if strings.HasPrefix(goarch, "arm") {
 		os.Setenv("GOARCH", "arm")
+		os.Setenv("GOARM", goarch[4:])
 	} else {
 		os.Setenv("GOARCH", goarch)
 	}
