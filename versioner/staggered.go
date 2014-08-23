@@ -6,7 +6,6 @@ package versioner
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -123,50 +122,52 @@ func (v Staggered) clean() {
 		}
 	}
 
-	// Using keys of map as set
-	clean_filelist := make(map[string]struct{})
-	clean_emptyDirs := make(map[string]struct{})
+	versionsPerFile := make(map[string][]string)
+	filesPerDir := make(map[string]int)
 
 	err = filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
 		switch mode := f.Mode(); {
 		case mode.IsDir():
-			files, _ := ioutil.ReadDir(path)
-			if len(files) == 0 {
-				clean_emptyDirs[path] = struct{}{}
-			}
+			filesPerDir[path] = 0
+
 		case mode.IsRegular():
 			extension := filepath.Ext(path)
-			name := path[0 : len(path)-len(extension)]
-			clean_filelist[name] = struct{}{}
+			dir := filepath.Dir(path)
+			name := path[:len(path)-len(extension)]
+
+			filesPerDir[dir]++
+			versionsPerFile[name] = append(versionsPerFile[name], path)
 		}
 
 		return nil
 	})
 	if err != nil {
 		l.Warnln("Versioner: error scanning versions dir", err)
+		return
 	}
 
-	for k, _ := range clean_filelist {
-		versions, err := filepath.Glob(k + ".v[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]")
-		if err != nil {
-			l.Warnln("Versioner: error finding versions for", k, err)
-		}
-		sort.Strings(versions)
-		expire(versions, v)
+	for _, versionList := range versionsPerFile {
+		// List from filepath.Walk is sorted
+		v.expire(versionList)
 	}
-	for k, _ := range clean_emptyDirs {
-		if k == v.versionsPath {
+
+	for path, numFiles := range filesPerDir {
+		if path == v.versionsPath {
 			if debug {
-				l.Debugln("Cleaner: versions dir is empty, don't delete", k)
+				l.Debugln("Cleaner: versions dir is empty, don't delete", path)
 			}
 			continue
 		}
-		if debug {
-			l.Debugln("Cleaner: deleting empty directory", k)
+		if numFiles > 0 {
+			continue
 		}
-		err = os.Remove(k)
+
+		if debug {
+			l.Debugln("Cleaner: deleting empty directory", path)
+		}
+		err = os.Remove(path)
 		if err != nil {
-			l.Warnln("Versioner: can't remove directory", k, err)
+			l.Warnln("Versioner: can't remove directory", path, err)
 		}
 	}
 	if debug {
@@ -174,7 +175,7 @@ func (v Staggered) clean() {
 	}
 }
 
-func expire(versions []string, v Staggered) {
+func (v Staggered) expire(versions []string) {
 	if debug {
 		l.Debugln("Versioner: Expiring versions", versions)
 	}
@@ -185,32 +186,36 @@ func expire(versions []string, v Staggered) {
 		if isFile(file) {
 			versiondate, err := strconv.ParseInt(strings.Replace(filepath.Ext(file), ".v", "", 1), 10, 0)
 			if err != nil {
-				l.Warnln("Versioner expire: file", file, "is invalid")
+				l.Infoln("Versioner: file name %q is invalid: %v", file, err)
 				continue
 			}
 			age := now - versiondate
 
-			var usedInterval Interval
-			for _, usedInterval = range v.interval { // Find the interval the file fits in
-				if age < usedInterval.end {
-					break
-				}
-			}
+			// If the file is older than the max age of the last interval, remove it
 			if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
 				if debug {
 					l.Debugln("Versioner: File over maximum age -> delete ", file)
 				}
 				err = os.Remove(file)
 				if err != nil {
-					l.Warnln("Versioner: can't remove file", file, err)
+					l.Warnf("Versioner: can't remove %q: %v", file, err)
 				}
 				continue
 			}
 
+			// If it's the first (oldest) file in the list we can skip the interval checks
 			if firstFile {
 				prevAge = age
 				firstFile = false
 				continue
+			}
+
+			// Find the interval the file fits in
+			var usedInterval Interval
+			for _, usedInterval = range v.interval {
+				if age < usedInterval.end {
+					break
+				}
 			}
 
 			if prevAge-age < usedInterval.step {
@@ -219,18 +224,16 @@ func expire(versions []string, v Staggered) {
 				}
 				err = os.Remove(file)
 				if err != nil {
-					l.Warnln("Versioner: can't remove file", file, err)
+					l.Warnf("Versioner: can't remove %q: %v", file, err)
 				}
 				continue
 			}
+
 			prevAge = age
-
 		} else {
-			l.Warnln("Versioner: folder", file, "is named like a file version")
+			l.Infoln("non-file %q is named like a file version", file)
 		}
-
 	}
-
 }
 
 // Move away the named file to a version archive. If this function returns
@@ -282,6 +285,7 @@ func (v Staggered) Archive(filePath string) error {
 	if err != nil && !os.IsExist(err) {
 		return err
 	}
+
 	ver := file + ".v" + fmt.Sprintf("%010d", time.Now().Unix())
 	dst := filepath.Join(dir, ver)
 	if debug {
@@ -299,7 +303,7 @@ func (v Staggered) Archive(filePath string) error {
 	}
 
 	sort.Strings(versions)
-	expire(versions, v)
+	v.expire(versions)
 
 	return nil
 }
