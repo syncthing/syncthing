@@ -709,6 +709,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.addRepo = function () {
         $scope.currentRepo = {selectedNodes: {}};
+        $scope.currentRepo.RescanIntervalS = 60;
         $scope.currentRepo.FileVersioningSelector = "none";
         $scope.currentRepo.simpleKeep = 5;
         $scope.currentRepo.staggeredMaxAge = 365;
