@@ -39,15 +39,7 @@ type Staggered struct {
 
 // Check if file or dir
 func isFile(path string) bool {
-	fileordir := path
-	file, err := os.Open(fileordir)
-	if err != nil {
-		l.Infoln("versioner isFile:", err)
-		return false
-	}
-	defer file.Close()
-
-	fileInfo, err := file.Stat()
+	fileInfo, err := os.Stat(path)
 	if err != nil {
 		l.Infoln("versioner isFile:", err)
 		return false
