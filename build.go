@@ -366,6 +366,7 @@ func runPipe(file, cmd string, args ...string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fd.Close()
 }
 
 type archiveFile struct {
