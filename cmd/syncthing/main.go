@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/config"
 	"github.com/syncthing/syncthing/discover"
@@ -102,6 +103,15 @@ show time only (2).
 
 The following enviroment variables are interpreted by syncthing:
 
+ STGUIADDRESS  Override GUI listen address set in config. Expects protocol type
+               followed by hostname or an IP address, followed by a port, such
+               as "https://127.0.0.1:8888".
+			
+ STGUIAUTH     Override GUI authentication credentials set in config. Expects 
+               a colon separated username and password, such as "admin:secret".
+
+ STGUIAPIKEY   Override GUI API key set in config.
+
  STNORESTART   Do not attempt to restart when requested to, instead just exit.
                Set this variable when running under a service manager such as
                runit, launchd, etc.
@@ -144,16 +154,22 @@ func main() {
 	var showVersion bool
 	var doUpgrade bool
 	var doUpgradeCheck bool
-	var generateDir string
 	var noBrowser bool
+	var generateDir string
+	var guiAddress string
+	var guiAuthentication string
+	var guiAPIKey string
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&noBrowser, "no-browser", false, "Do not start browser")
-	flag.IntVar(&logFlags, "logflags", logFlags, "Set log flags")
 	flag.StringVar(&generateDir, "generate", "", "Generate key in specified dir")
+	flag.StringVar(&guiAddress, "gui-address", "", "Override GUI address")
+	flag.StringVar(&guiAuthentication, "gui-authentication", "", "Override GUI authentication. Expects 'username:password'")
+	flag.StringVar(&guiAPIKey, "gui-apikey", "", "Override GUI API key")
+	flag.IntVar(&logFlags, "logflags", logFlags, "Set log flags")
 	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
 	flag.Parse()
 
@@ -410,10 +426,13 @@ nextRepo:
 	}
 
 	// GUI
-	if cfg.GUI.Enabled && cfg.GUI.Address != "" {
-		addr, err := net.ResolveTCPAddr("tcp", cfg.GUI.Address)
+
+	guiCfg := overrideGUIConfig(cfg.GUI, guiAddress, guiAuthentication, guiAPIKey)
+
+	if guiCfg.Enabled && guiCfg.Address != "" {
+		addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address)
 		if err != nil {
-			l.Fatalf("Cannot start GUI on %q: %v", cfg.GUI.Address, err)
+			l.Fatalf("Cannot start GUI on %q: %v", guiCfg.Address, err)
 		} else {
 			var hostOpen, hostShow string
 			switch {
@@ -429,12 +448,12 @@ nextRepo:
 			}
 
 			var proto = "http"
-			if cfg.GUI.UseTLS {
+			if guiCfg.UseTLS {
 				proto = "https"
 			}
 
 			l.Infof("Starting web GUI on %s://%s:%d/", proto, hostShow, addr.Port)
-			err := startGUI(cfg.GUI, os.Getenv("STGUIASSETS"), m)
+			err := startGUI(guiCfg, os.Getenv("STGUIASSETS"), m)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
@@ -1094,4 +1113,53 @@ func getLockPort() (int, error) {
 	}
 	addr := lockConn.Addr().(*net.TCPAddr)
 	return addr.Port, nil
+}
+
+func overrideGUIConfig(originalCfg config.GUIConfiguration, address, authentication, apikey string) config.GUIConfiguration {
+	// Make a copy of the config
+	cfg := originalCfg
+
+	if address == "" {
+		address = os.Getenv("STGUIADDRESS")
+	}
+
+	if address != "" {
+		cfg.Enabled = true
+
+		addressParts := strings.SplitN(address, "://", 2)
+		switch addressParts[0] {
+		case "http":
+			cfg.UseTLS = false
+		case "https":
+			cfg.UseTLS = true
+		default:
+			l.Fatalln("Unidentified protocol", addressParts[0])
+		}
+		cfg.Address = addressParts[1]
+	}
+
+	if authentication == "" {
+		authentication = os.Getenv("STGUIAUTH")
+	}
+
+	if authentication != "" {
+		authenticationParts := strings.SplitN(authentication, ":", 2)
+
+		hash, err := bcrypt.GenerateFromPassword([]byte(authenticationParts[1]), 0)
+		if err != nil {
+			l.Fatalln("Invalid GUI password:", err)
+		}
+
+		cfg.User = authenticationParts[0]
+		cfg.Password = string(hash)
+	}
+
+	if apikey == "" {
+		apikey = os.Getenv("STGUIAPIKEY")
+	}
+
+	if apikey != "" {
+		cfg.APIKey = apikey
+	}
+	return cfg
 }
