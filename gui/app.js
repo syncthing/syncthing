@@ -22,18 +22,10 @@ syncthing.config(function ($httpProvider, $translateProvider) {
 
 syncthing.controller('EventCtrl', function ($scope, $http) {
     $scope.lastEvent = null;
-    var online = false;
     var lastID = 0;
 
-    $(window).bind('beforeunload', function() {
-        online = false;
-    });
-
     var successFn = function (data) {
-        if (!online) {
-            $scope.$emit('UIOnline');
-            online = true;
-        }
+        $scope.$emit('UIOnline');
 
         if (lastID > 0) {
             data.forEach(function (event) {
@@ -53,10 +45,8 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
     };
 
     var errorFn = function (data) {
-        if (online) {
-            $scope.$emit('UIOffline');
-            online = false;
-        }
+        $scope.$emit('UIOffline');
+
         setTimeout(function () {
             $http.get(urlbase + '/events?limit=1')
             .success(successFn)
@@ -72,6 +62,8 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
 syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $location) {
     var prevDate = 0;
     var getOK = true;
+    var navigatingAway = false;
+    var online = false;
     var restarting = false;
 
     $scope.completion = {};
@@ -108,6 +100,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
     })
 
+    $(window).bind('beforeunload', function() {
+        navigatingAway = true;
+    });
+
     $scope.$on("$locationChangeSuccess", function () {
         var lang = $location.search().lang;
         if (lang) {
@@ -129,8 +125,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     }
 
     $scope.$on('UIOnline', function (event, arg) {
+        if (online && !restarting) {
+            return;
+        }
+
         console.log('UIOnline');
         $scope.init();
+        online = true;
         restarting = false;
         $('#networkError').modal('hide');
         $('#restarting').modal('hide');
@@ -138,7 +139,12 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     });
 
     $scope.$on('UIOffline', function (event, arg) {
+        if (navigatingAway || !online) {
+            return;
+        }
+
         console.log('UIOffline');
+        online = false;
         if (!restarting) {
             $('#networkError').modal();
         }
