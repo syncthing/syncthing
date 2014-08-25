@@ -44,8 +44,6 @@ case "${1:-default}" in
 		;;
 
 	all)
-		go run build.go test
-
 		go run build.go -goos linux -goarch amd64 tar
 		go run build.go -goos linux -goarch 386 tar
 		go run build.go -goos linux -goarch armv5 tar
