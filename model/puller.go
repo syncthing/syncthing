@@ -461,7 +461,7 @@ func (p *puller) handleBlock(b bqBlock) bool {
 		of.temp = filepath.Join(p.repoCfg.Directory, defTempNamer.TempName(f.Name))
 
 		dirName := filepath.Dir(of.filepath)
-		_, err := os.Stat(dirName)
+		info, err := os.Stat(dirName)
 		if err != nil {
 			err = os.MkdirAll(dirName, 0777)
 		} else {
@@ -469,6 +469,8 @@ func (p *puller) handleBlock(b bqBlock) bool {
 			if dirName != p.repoCfg.Directory {
 				err = os.Chmod(dirName, 0777)
 			}
+			// Change it back after creating the file, to minimize the time window with incorrect permissions
+			defer os.Chmod(dirName, info.Mode())
 		}
 		if err != nil {
 			l.Infof("mkdir: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
@@ -632,7 +634,13 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 		dirName := filepath.Dir(of.filepath)
 		os.Chmod(of.filepath, 0666)
 		if dirName != p.repoCfg.Directory {
+			info, err := os.Stat(dirName)
+			if err != nil {
+				l.Debugln("weird! can't happen?", err)
+			}
 			os.Chmod(dirName, 0777)
+			// Change it back after deleting the file, to minimize the time window with incorrect permissions
+			defer os.Chmod(dirName, info.Mode())
 		}
 		if p.versioner != nil {
 			if debug {

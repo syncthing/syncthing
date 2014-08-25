@@ -1,5 +1,8 @@
-#!/bin/sh
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
 
-./test-http.sh || exit
-./test-merge.sh || exit
-./test-delupd.sh || exit
+go test -tags integration -v
+./test-http.sh
+./test-merge.sh
+./test-delupd.sh
