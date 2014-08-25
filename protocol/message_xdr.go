@@ -127,7 +127,7 @@ FileInfo Structure:
 
 
 struct FileInfo {
-	string Name<1024>;
+	string Name<8192>;
 	unsigned int Flags;
 	hyper Modified;
 	unsigned hyper Version;
@@ -154,7 +154,7 @@ func (o FileInfo) AppendXDR(bs []byte) []byte {
 }
 
 func (o FileInfo) encodeXDR(xw *xdr.Writer) (int, error) {
-	if len(o.Name) > 1024 {
+	if len(o.Name) > 8192 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteString(o.Name)
@@ -184,7 +184,7 @@ func (o *FileInfo) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *FileInfo) decodeXDR(xr *xdr.Reader) error {
-	o.Name = xr.ReadStringMax(1024)
+	o.Name = xr.ReadStringMax(8192)
 	o.Flags = xr.ReadUint32()
 	o.Modified = int64(xr.ReadUint64())
 	o.Version = xr.ReadUint64()
@@ -229,7 +229,7 @@ FileInfoTruncated Structure:
 
 
 struct FileInfoTruncated {
-	string Name<1024>;
+	string Name<8192>;
 	unsigned int Flags;
 	hyper Modified;
 	unsigned hyper Version;
@@ -256,7 +256,7 @@ func (o FileInfoTruncated) AppendXDR(bs []byte) []byte {
 }
 
 func (o FileInfoTruncated) encodeXDR(xw *xdr.Writer) (int, error) {
-	if len(o.Name) > 1024 {
+	if len(o.Name) > 8192 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteString(o.Name)
@@ -280,7 +280,7 @@ func (o *FileInfoTruncated) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *FileInfoTruncated) decodeXDR(xr *xdr.Reader) error {
-	o.Name = xr.ReadStringMax(1024)
+	o.Name = xr.ReadStringMax(8192)
 	o.Flags = xr.ReadUint32()
 	o.Modified = int64(xr.ReadUint64())
 	o.Version = xr.ReadUint64()
@@ -384,7 +384,7 @@ RequestMessage Structure:
 
 struct RequestMessage {
 	string Repository<64>;
-	string Name<1024>;
+	string Name<8192>;
 	unsigned hyper Offset;
 	unsigned int Size;
 }
@@ -412,7 +412,7 @@ func (o RequestMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteString(o.Repository)
-	if len(o.Name) > 1024 {
+	if len(o.Name) > 8192 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteString(o.Name)
@@ -434,7 +434,7 @@ func (o *RequestMessage) UnmarshalXDR(bs []byte) error {
 
 func (o *RequestMessage) decodeXDR(xr *xdr.Reader) error {
 	o.Repository = xr.ReadStringMax(64)
-	o.Name = xr.ReadStringMax(1024)
+	o.Name = xr.ReadStringMax(8192)
 	o.Offset = xr.ReadUint64()
 	o.Size = xr.ReadUint32()
 	return xr.Error()

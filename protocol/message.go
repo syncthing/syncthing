@@ -12,7 +12,7 @@ type IndexMessage struct {
 }
 
 type FileInfo struct {
-	Name         string // max:1024
+	Name         string // max:8192
 	Flags        uint32
 	Modified     int64
 	Version      uint64
@@ -41,7 +41,7 @@ func (f FileInfo) IsDeleted() bool {
 
 // Used for unmarshalling a FileInfo structure but skipping the actual block list
 type FileInfoTruncated struct {
-	Name         string // max:1024
+	Name         string // max:8192
 	Flags        uint32
 	Modified     int64
 	Version      uint64
@@ -82,7 +82,7 @@ func (b BlockInfo) String() string {
 
 type RequestMessage struct {
 	Repository string // max:64
-	Name       string // max:1024
+	Name       string // max:8192
 	Offset     uint64
 	Size       uint32
 }

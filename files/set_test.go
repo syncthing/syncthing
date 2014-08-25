@@ -5,6 +5,7 @@
 package files_test
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"testing"
@@ -593,6 +594,35 @@ func TestLocalVersion(t *testing.T) {
 	c2 := m.LocalVersion(protocol.LocalNodeID)
 	if c2 != c1 {
 		t.Fatal("Local version number should be unchanged")
+	}
+}
+
+func TestLongPath(t *testing.T) {
+	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := files.NewSet("test", db)
+
+	var b bytes.Buffer
+	for i := 0; i < 100; i++ {
+		b.WriteString("012345678901234567890123456789012345678901234567890")
+	}
+	name := b.String() // 5000 characters
+
+	local := []protocol.FileInfo{
+		protocol.FileInfo{Name: string(name), Version: 1000},
+	}
+
+	s.ReplaceWithDelete(protocol.LocalNodeID, local)
+
+	gf := globalList(s)
+	if l := len(gf); l != 1 {
+		t.Fatalf("Incorrect len %d != 1 for global list", l)
+	}
+	if gf[0].Name != local[0].Name {
+		t.Error("Incorrect long filename;\n%q !=\n%q", gf[0].Name, local[0].Name)
 	}
 }
 
