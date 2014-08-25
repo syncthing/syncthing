@@ -22,6 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lamport"
 	"github.com/syncthing/syncthing/protocol"
 	"github.com/syncthing/syncthing/scanner"
+	"github.com/syncthing/syncthing/stats"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -72,11 +73,12 @@ type Model struct {
 	clientName    string
 	clientVersion string
 
-	repoCfgs  map[string]config.RepositoryConfiguration // repo -> cfg
-	repoFiles map[string]*files.Set                     // repo -> files
-	repoNodes map[string][]protocol.NodeID              // repo -> nodeIDs
-	nodeRepos map[protocol.NodeID][]string              // nodeID -> repos
-	rmut      sync.RWMutex                              // protects the above
+	repoCfgs     map[string]config.RepositoryConfiguration          // repo -> cfg
+	repoFiles    map[string]*files.Set                              // repo -> files
+	repoNodes    map[string][]protocol.NodeID                       // repo -> nodeIDs
+	nodeRepos    map[protocol.NodeID][]string                       // nodeID -> repos
+	nodeStatRefs map[protocol.NodeID]*stats.NodeStatisticsReference // nodeID -> statsRef
+	rmut         sync.RWMutex                                       // protects the above
 
 	repoState        map[string]repoState // repo -> state
 	repoStateChanged map[string]time.Time // repo -> time when state changed
@@ -114,12 +116,17 @@ func NewModel(indexDir string, cfg *config.Configuration, nodeName, clientName, 
 		repoFiles:        make(map[string]*files.Set),
 		repoNodes:        make(map[string][]protocol.NodeID),
 		nodeRepos:        make(map[protocol.NodeID][]string),
+		nodeStatRefs:     make(map[protocol.NodeID]*stats.NodeStatisticsReference),
 		repoState:        make(map[string]repoState),
 		repoStateChanged: make(map[string]time.Time),
 		protoConn:        make(map[protocol.NodeID]protocol.Connection),
 		rawConn:          make(map[protocol.NodeID]io.Closer),
 		nodeVer:          make(map[protocol.NodeID]string),
 		sentLocalVer:     make(map[protocol.NodeID]map[string]uint64),
+	}
+
+	for _, node := range cfg.Nodes {
+		m.nodeStatRefs[node.NodeID] = stats.NewNodeStatisticsReference(db, node.NodeID)
 	}
 
 	var timeout = 20 * 60 // seconds
@@ -196,6 +203,15 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 		},
 	}
 
+	return res
+}
+
+// Returns statistics about each node
+func (m *Model) NodeStatistics() map[string]stats.NodeStatistics {
+	var res = make(map[string]stats.NodeStatistics)
+	for _, node := range m.cfg.Nodes {
+		res[node.NodeID.String()] = m.nodeStatRefs[node.NodeID].GetStatistics()
+	}
 	return res
 }
 
@@ -535,6 +551,9 @@ func (cf cFiler) CurrentFile(file string) protocol.FileInfo {
 func (m *Model) ConnectedTo(nodeID protocol.NodeID) bool {
 	m.pmut.RLock()
 	_, ok := m.protoConn[nodeID]
+	if ok {
+		m.nodeStatRefs[nodeID].WasSeen()
+	}
 	m.pmut.RUnlock()
 	return ok
 }
@@ -563,6 +582,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 		fs := m.repoFiles[repo]
 		go sendIndexes(protoConn, repo, fs)
 	}
+	m.nodeStatRefs[nodeID].WasSeen()
 	m.rmut.RUnlock()
 	m.pmut.Unlock()
 }
