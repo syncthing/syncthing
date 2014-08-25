@@ -152,10 +152,7 @@ func (i *inifiteReader) Read(bs []byte) (int, error) {
 // rm -rf
 func removeAll(dirs ...string) error {
 	for _, dir := range dirs {
-		err := os.RemoveAll(dir)
-		if err != nil {
-			return err
-		}
+		os.RemoveAll(dir)
 	}
 	return nil
 }

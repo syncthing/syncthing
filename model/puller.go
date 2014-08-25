@@ -26,6 +26,7 @@ package model
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -145,8 +146,11 @@ func (p *puller) run() {
 	}
 
 	for {
-		// Run the pulling loop as long as there are blocks to fetch
+		if sc, sl := cap(p.requestSlots), len(p.requestSlots); sl != sc {
+			panic(fmt.Sprintf("Incorrect number of slots; %d != %d", sl, sc))
+		}
 
+		// Run the pulling loop as long as there are blocks to fetch
 		prevVer, queued = p.queueNeededBlocks(prevVer)
 		if queued > 0 {
 			p.errors = 0
@@ -169,6 +173,7 @@ func (p *puller) run() {
 						}
 
 						if p.errors > 0 && p.errors >= queued {
+							p.requestSlots <- true
 							break pull
 						}
 
@@ -181,6 +186,7 @@ func (p *puller) run() {
 						if debug {
 							l.Debugf("%q: pulling loop done", p.repoCfg.ID)
 						}
+						p.requestSlots <- true
 						break pull
 					}
 

@@ -7,6 +7,7 @@
 package integration_test
 
 import (
+	"log"
 	"sync"
 	"testing"
 	"time"
@@ -39,19 +40,19 @@ func TestRestartSenderDuringTransfer(t *testing.T) {
 }
 
 func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool, senderDelay, receiverDelay time.Duration) {
-	t.Log("Cleaning...")
+	log.Println("Cleaning...")
 	err := removeAll("s1", "s2", "f1/index", "f2/index")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Log("Generating files...")
+	log.Println("Generating files...")
 	err = generateFiles("s1", 1000, 20, "../bin/syncthing")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Log("Starting up...")
+	log.Println("Starting up...")
 	sender := syncthingProcess{ // id1
 		log:  "1.out",
 		argv: []string{"-home", "f1"},
@@ -94,12 +95,12 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 
 		if curComp > prevComp {
 			if restartReceiver {
-				t.Logf("Stopping receiver...")
+				log.Printf("Stopping receiver...")
 				receiver.stop()
 			}
 
 			if restartSender {
-				t.Logf("Stopping sender...")
+				log.Printf("Stopping sender...")
 				sender.stop()
 			}
 
@@ -109,7 +110,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 				wg.Add(1)
 				go func() {
 					time.Sleep(receiverDelay)
-					t.Logf("Starting receiver...")
+					log.Printf("Starting receiver...")
 					receiver.start()
 					wg.Done()
 				}()
@@ -119,7 +120,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 				wg.Add(1)
 				go func() {
 					time.Sleep(senderDelay)
-					t.Logf("Starting sender...")
+					log.Printf("Starting sender...")
 					sender.start()
 					wg.Done()
 				}()
@@ -133,7 +134,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 		time.Sleep(1 * time.Second)
 	}
 
-	t.Log("Comparing directories...")
+	log.Println("Comparing directories...")
 	err = compareDirectories("s1", "s2")
 	if err != nil {
 		t.Fatal(err)
