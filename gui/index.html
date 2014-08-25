@@ -82,10 +82,17 @@
       white-space: nowrap;
     }
 
+    table.table-condensed {
+      table-layout: fixed;
+    }
+    table.table-condensed td {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     @media (max-width:767px) {
-      .table-responsive>.table>tbody>tr>td {
-        /* revert a bootstrap setting e.g.:
-         * for mobile phones to allow linebreaks in long repro folder/shared with
+      table.table-condensed td {
+        /* for mobile phones to allow linebreaks in long repro folder/shared with
          * columns. */
         white-space: normal;
       }
@@ -178,7 +185,6 @@
             </div>
             <div id="repo-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
-                <div class="table-responsive">
                   <table class="table table-condensed table-striped">
                     <tbody>
                       <tr>
@@ -232,7 +238,6 @@
                       </tr>
                     </tbody>
                   </table>
-                </div>
                 <span class="pull-right">
                   <a class="btn btn-sm btn-default" href="" ng-show="repoStatus(repo.ID) == 'idle'" ng-click="rescanRepo(repo.ID)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></a>
                   <a class="btn btn-sm btn-primary" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></a>
@@ -256,7 +261,6 @@
             </div>
             <div id="node-this" class="panel-collapse collapse in">
               <div class="panel-body">
-                <div class="table-responsive">
                   <table class="table table-condensed table-striped">
                     <tbody>
                       <tr>
@@ -288,7 +292,6 @@
                       </tr>
                     </tbody>
                   </table>
-                </div>
                 <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></a></span>
               </div>
             </div>
@@ -314,7 +317,6 @@
             </div>
             <div id="node-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
-                <div class="table-responsive">
                   <table class="table table-condensed table-striped">
                     <tbody>
                       <tr>
@@ -349,7 +351,6 @@
                       </tr>
                     </tbody>
                   </table>
-                </div>
                 <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></a></span>
               </div>
             </div>
