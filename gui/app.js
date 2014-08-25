@@ -1059,12 +1059,6 @@ syncthing.filter('clean', function () {
     };
 });
 
-syncthing.filter('asDate', function() {
-    return function (input) {
-        return new Date(input);
-    }
-})
-
 syncthing.directive('optionEditor', function () {
     return {
         restrict: 'C',

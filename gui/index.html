@@ -345,7 +345,7 @@
                       <tr ng-if="!connections[nodeCfg.NodeID]">
                         <th><span class="glyphicon glyphicon-eye-open"></span>&emsp;<span translate>Last seen</span></th>
                         <td translate ng-if="stats[nodeCfg.NodeID].LastSeen.indexOf('1970') > -1" class="text-right">Never</td>
-                        <td ng-if="stats[nodeCfg.NodeID].LastSeen.indexOf('1970') < 0" class="text-right">{{stats[nodeCfg.NodeID].LastSeen | asDate | date:'short'}}</td>
+                        <td ng-if="stats[nodeCfg.NodeID].LastSeen.indexOf('1970') < 0" class="text-right">{{stats[nodeCfg.NodeID].LastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
                       </tr>
                     </tbody>
                   </table>
