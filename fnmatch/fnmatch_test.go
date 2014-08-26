@@ -5,15 +5,19 @@
 package fnmatch
 
 import (
+	"path/filepath"
+	"runtime"
 	"testing"
 )
 
-var testCases = []struct {
+type testcase struct {
 	pat   string
 	name  string
 	flags int
 	match bool
-}{
+}
+
+var testcases = []testcase{
 	{"", "", 0, true},
 	{"*", "", 0, true},
 	{"*", "foo", 0, true},
@@ -24,9 +28,6 @@ var testCases = []struct {
 	{"*.*", "foo.txt", 0, true},
 	{"foo*.txt", "foobar.txt", 0, true},
 	{"foo.txt", "foo.txt", 0, true},
-	{"foo\\.txt", "foo.txt", 0, true},
-	{"foo\\*.txt", "foo*.txt", 0, true},
-	{"foo\\.txt", "foo.txt", FNM_NOESCAPE, false},
 
 	{"foo.txt", "bar/foo.txt", 0, false},
 	{"*/foo.txt", "bar/foo.txt", 0, true},
@@ -38,9 +39,7 @@ var testCases = []struct {
 	{"f[ab]o.txt", "fco.txt", 0, false},
 	{"f[ab]o.txt", "fabo.txt", 0, false},
 	{"f[ab]o.txt", "f[ab]o.txt", 0, false},
-	{"f\\[ab\\]o.txt", "f[ab]o.txt", 0, true},
 	{"f\\[ab\\]o.txt", "f[ab]o.txt", FNM_NOESCAPE, false},
-	{"f\\\\\\[ab\\\\\\]o.txt", "f\\[ab\\]o.txt", 0, true},
 
 	{"*foo.txt", "bar/foo.txt", 0, true},
 	{"*foo.txt", "bar/foo.txt", FNM_PATHNAME, false},
@@ -56,8 +55,16 @@ var testCases = []struct {
 }
 
 func TestMatch(t *testing.T) {
-	for _, tc := range testCases {
-		if m, err := Match(tc.pat, tc.name, tc.flags); m != tc.match {
+	if runtime.GOOS != "windows" {
+		testcases = append(testcases, testcase{"f\\[ab\\]o.txt", "f[ab]o.txt", 0, true})
+		testcases = append(testcases, testcase{"foo\\.txt", "foo.txt", 0, true})
+		testcases = append(testcases, testcase{"foo\\*.txt", "foo*.txt", 0, true})
+		testcases = append(testcases, testcase{"foo\\.txt", "foo.txt", FNM_NOESCAPE, false})
+		testcases = append(testcases, testcase{"f\\\\\\[ab\\\\\\]o.txt", "f\\[ab\\]o.txt", 0, true})
+	}
+
+	for _, tc := range testcases {
+		if m, err := Match(tc.pat, filepath.FromSlash(tc.name), tc.flags); m != tc.match {
 			if err != nil {
 				t.Error(err)
 			} else {

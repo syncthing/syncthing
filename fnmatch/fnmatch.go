@@ -18,13 +18,15 @@ const (
 )
 
 func Convert(pattern string, flags int) (*regexp.Regexp, error) {
+	any := "."
+
 	if runtime.GOOS == "windows" {
 		flags |= FNM_NOESCAPE
 		pattern = filepath.FromSlash(pattern)
-	}
-
-	any := "."
-	if flags&FNM_PATHNAME != 0 {
+		if flags&FNM_PATHNAME != 0 {
+			any = "[^\\\\]"
+		}
+	} else if flags&FNM_PATHNAME != 0 {
 		any = "[^/]"
 	}
 	if flags&FNM_NOESCAPE != 0 {
