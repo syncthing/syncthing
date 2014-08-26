@@ -75,6 +75,7 @@ testConvergence() {
 	fi
 }
 
+chmod -R +w s? s??-?
 rm -rf s? s??-?
 rm -rf f?/*.idx.gz f?/index
 

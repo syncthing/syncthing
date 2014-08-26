@@ -19,6 +19,7 @@ echo Building
 go build http.go
 
 echo Starting
+chmod -R +w s1 s2
 rm -rf s1 s2 h1/index h2/index
 syncthing -home h1 > 1.out 2>&1 &
 syncthing -home h2 > 2.out 2>&1 &

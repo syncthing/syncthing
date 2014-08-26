@@ -5,10 +5,9 @@
 package scanner
 
 import (
+	"bytes"
 	"fmt"
 	"path/filepath"
-	"reflect"
-	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -38,7 +37,7 @@ func TestWalkSub(t *testing.T) {
 		BlockSize:  128 * 1024,
 		IgnoreFile: ".stignore",
 	}
-	fchan, _, err := w.Walk()
+	fchan, err := w.Walk()
 	var files []protocol.FileInfo
 	for f := range fchan {
 		files = append(files, f)
@@ -61,7 +60,7 @@ func TestWalk(t *testing.T) {
 		BlockSize:  128 * 1024,
 		IgnoreFile: ".stignore",
 	}
-	fchan, ignores, err := w.Walk()
+	fchan, err := w.Walk()
 	var files []protocol.FileInfo
 	for f := range fchan {
 		files = append(files, f)
@@ -95,10 +94,6 @@ func TestWalk(t *testing.T) {
 			t.Errorf("Unrealistic modtime %d for test %d", mt, i)
 		}
 	}
-
-	if !reflect.DeepEqual(ignores, correctIgnores) {
-		t.Errorf("Incorrect ignores\n  %v\n  %v", correctIgnores, ignores)
-	}
 }
 
 func TestWalkError(t *testing.T) {
@@ -107,7 +102,7 @@ func TestWalkError(t *testing.T) {
 		BlockSize:  128 * 1024,
 		IgnoreFile: ".stignore",
 	}
-	_, _, err := w.Walk()
+	_, err := w.Walk()
 
 	if err == nil {
 		t.Error("no error from missing directory")
@@ -118,7 +113,7 @@ func TestWalkError(t *testing.T) {
 		BlockSize:  128 * 1024,
 		IgnoreFile: ".stignore",
 	}
-	_, _, err = w.Walk()
+	_, err = w.Walk()
 
 	if err == nil {
 		t.Error("no error from non-directory")
@@ -126,29 +121,41 @@ func TestWalkError(t *testing.T) {
 }
 
 func TestIgnore(t *testing.T) {
-	pattern := "q\\[abc\\]y"
-	// On Windows, escaping is disabled.
-	// Instead, '\\' is treated as path separator.
-	if runtime.GOOS == "windows" {
-		pattern = "q[abc]y"
-	}
+	patStr := bytes.NewBufferString(`
+		t2
+		/t3
+		sub/dir/*
+		*/other/test
+		**/deep
+	`)
+	patterns := parseIgnoreFile(patStr, "")
 
-	var patterns = map[string][]string{
-		".":   {"t2"},
-		"foo": {"bar", "z*", "q[abc]x", pattern},
-		filepath.Join("foo", "baz"): {"quux", ".*"},
-	}
+	patStr = bytes.NewBufferString(`
+		bar
+		z*
+		q[abc]x
+	`)
+	patterns = append(patterns, parseIgnoreFile(patStr, "foo")...)
+
+	patStr = bytes.NewBufferString(`
+		quux
+		.*
+	`)
+	patterns = append(patterns, parseIgnoreFile(patStr, "foo/baz")...)
+
 	var tests = []struct {
 		f string
 		r bool
 	}{
 		{filepath.Join("foo", "bar"), true},
+		{filepath.Join("t3"), true},
 		{filepath.Join("foofoo"), false},
 		{filepath.Join("foo", "quux"), false},
 		{filepath.Join("foo", "zuux"), true},
 		{filepath.Join("foo", "qzuux"), false},
 		{filepath.Join("foo", "baz", "t1"), false},
 		{filepath.Join("foo", "baz", "t2"), true},
+		{filepath.Join("foo", "baz", "t3"), false},
 		{filepath.Join("foo", "baz", "bar"), true},
 		{filepath.Join("foo", "baz", "quuxa"), false},
 		{filepath.Join("foo", "baz", "aquux"), false},
@@ -156,9 +163,14 @@ func TestIgnore(t *testing.T) {
 		{filepath.Join("foo", "baz", "zquux"), true},
 		{filepath.Join("foo", "baz", "quux"), true},
 		{filepath.Join("foo", "bazz", "quux"), false},
-		{filepath.Join("foo", "bazz", "q[abc]x"), true},
-		{filepath.Join("foo", "bazz", "qax"), true},
-		{filepath.Join("foo", "bazz", "q[abc]y"), true},
+		{filepath.Join("sub", "dir", "hej"), true},
+		{filepath.Join("deeper", "sub", "dir", "hej"), true},
+		{filepath.Join("other", "test"), false},
+		{filepath.Join("sub", "other", "test"), true},
+		{filepath.Join("deeper", "sub", "other", "test"), true},
+		{filepath.Join("deep"), true},
+		{filepath.Join("deeper", "deep"), true},
+		{filepath.Join("deeper", "deeper", "deep"), true},
 	}
 
 	w := Walker{}

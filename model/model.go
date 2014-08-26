@@ -800,7 +800,7 @@ func (m *Model) ScanRepoSub(repo, sub string) error {
 	}
 
 	m.setState(repo, RepoScanning)
-	fchan, _, err := w.Walk()
+	fchan, err := w.Walk()
 
 	if err != nil {
 		return err

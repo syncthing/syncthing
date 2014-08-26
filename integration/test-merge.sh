@@ -114,6 +114,7 @@ alterFiles() {
 }
 
 rm -rf h?/*.idx.gz h?/index
+chmod -R +w s? s??-? s4d
 rm -rf s? s??-? s4d
 
 echo "Setting up files..."
