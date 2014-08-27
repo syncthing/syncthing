@@ -464,16 +464,19 @@ func (p *puller) handleBlock(b bqBlock) bool {
 		info, err := os.Stat(dirName)
 		if err != nil {
 			err = os.MkdirAll(dirName, 0777)
+			if debug && err != nil {
+				l.Debugf("mkdir: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
+			}
 		} else {
 			// We need to make sure the directory is writeable so we can create files in it
 			if dirName != p.repoCfg.Directory {
 				err = os.Chmod(dirName, 0777)
+				if debug && err != nil {
+					l.Debugf("make writeable: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
+				}
 			}
 			// Change it back after creating the file, to minimize the time window with incorrect permissions
 			defer os.Chmod(dirName, info.Mode())
-		}
-		if err != nil {
-			l.Infof("mkdir: error: %q / %q: %v", p.repoCfg.ID, f.Name, err)
 		}
 
 		of.file, of.err = os.Create(of.temp)
@@ -632,13 +635,19 @@ func (p *puller) handleEmptyBlock(b bqBlock) {
 
 		// Ensure the file and the directory it is in is writeable so we can remove the file
 		dirName := filepath.Dir(of.filepath)
-		os.Chmod(of.filepath, 0666)
+		err := os.Chmod(of.filepath, 0666)
+		if debug && err != nil {
+			l.Debugf("make writeable: error: %q: %v", of.filepath, err)
+		}
 		if dirName != p.repoCfg.Directory {
 			info, err := os.Stat(dirName)
 			if err != nil {
 				l.Debugln("weird! can't happen?", err)
 			}
-			os.Chmod(dirName, 0777)
+			err = os.Chmod(dirName, 0777)
+			if debug && err != nil {
+				l.Debugf("make writeable: error: %q: %v", dirName, err)
+			}
 			// Change it back after deleting the file, to minimize the time window with incorrect permissions
 			defer os.Chmod(dirName, info.Mode())
 		}
