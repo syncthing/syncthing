@@ -390,19 +390,23 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
 
         var state = '' + $scope.model[repo].state;
-        if (state == 'idle') {
-            return 'success';
+
+        switch(state) {
+            case 'idle':
+                return 'success';
+                break;
+            case 'syncing':
+                return 'primary';
+                break;
+            case 'scanning':
+                return 'primary';
+                break;
+            case 'paused':
+                return 'default';
+                break;
+            default:
+                return 'info';
         }
-        if (state == 'syncing') {
-            return 'primary';
-        }
-        if (state == 'scanning') {
-            return 'primary';
-        }
-        if (state == 'paused') {
-            return 'default';
-        }
-        return 'info';
     };
 
     $scope.syncPercentage = function (repo) {

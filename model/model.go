@@ -776,10 +776,7 @@ func (m *Model) CleanRepos() {
 }
 
 func (m *Model) IsPaused(repo string) bool {
-	if m.repoState[repo] == RepoPaused {
-		return true
-	}
-	return false
+	return m.repoState[repo] == RepoPaused
 }
 
 func (m *Model) PauseRepo(repo string) {
