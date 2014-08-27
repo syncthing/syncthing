@@ -150,9 +150,7 @@ func (p *puller) run() {
 			panic(fmt.Sprintf("Incorrect number of slots; %d != %d", sl, sc))
 		}
 
-		repoid := p.repoCfg.ID
-
-		if p.model.IsPaused(repoid) {
+		if p.model.IsPaused(p.repoCfg.ID) {
 			time.Sleep(5 * time.Second)
 			continue
 		}
