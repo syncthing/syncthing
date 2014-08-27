@@ -171,6 +171,7 @@
                     <span translate ng-switch-when="unknown">Unknown</span>
                     <span translate ng-switch-when="stopped">Stopped</span>
                     <span translate ng-switch-when="scanning">Scanning</span>
+                    <span translate ng-switch-when="paused">Paused</span>
                     <span ng-switch-when="syncing">
                       <span translate>Syncing</span>
                       ({{syncPercentage(repo.ID)}}%)
@@ -239,6 +240,8 @@
                     </tbody>
                   </table>
                 <span class="pull-right">
+                  <a class="btn btn-sm btn-default" href="" ng-show="repoStatus(repo.ID) == 'idle'" ng-click="pauseRepo(repo.ID)"><span class="glyphicon glyphicon-pause"></span>&emsp;<span translate>Pause</span></a>
+                  <a class="btn btn-sm btn-default" href="" ng-show="repoStatus(repo.ID) == 'paused'" ng-click="resumeRepo(repo.ID)"><span class="glyphicon glyphicon-play"></span>&emsp;<span translate>Resume</span></a>
                   <a class="btn btn-sm btn-default" href="" ng-show="repoStatus(repo.ID) == 'idle'" ng-click="rescanRepo(repo.ID)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></a>
                   <a class="btn btn-sm btn-primary" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></a>
                   <a class="btn btn-sm btn-danger" ng-if="repo.ReadOnly && model[repo.ID].needFiles > 0" ng-click="override(repo.ID)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></a>

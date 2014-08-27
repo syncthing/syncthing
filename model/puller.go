@@ -150,9 +150,16 @@ func (p *puller) run() {
 			panic(fmt.Sprintf("Incorrect number of slots; %d != %d", sl, sc))
 		}
 
+		repoid := p.repoCfg.ID
+
+		if p.model.IsPaused(repoid){
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
 		// Run the pulling loop as long as there are blocks to fetch
 		prevVer, queued = p.queueNeededBlocks(prevVer)
-		if queued > 0 {
+		if queued > 0 && !p.model.IsPaused(repoid) {
 			p.errors = 0
 
 		pull:
