@@ -152,7 +152,7 @@ func (p *puller) run() {
 
 		repoid := p.repoCfg.ID
 
-		if p.model.IsPaused(repoid){
+		if p.model.IsPaused(repoid) {
 			time.Sleep(5 * time.Second)
 			continue
 		}

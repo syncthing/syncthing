@@ -775,19 +775,19 @@ func (m *Model) CleanRepos() {
 	wg.Wait()
 }
 
-func (m *Model) IsPaused(repo string) bool{
+func (m *Model) IsPaused(repo string) bool {
 	if m.repoState[repo] == RepoPaused {
 		return true
 	}
 	return false
 }
 
-func (m *Model) PauseRepo(repo string){
-	m.setState(repo,RepoPaused)
+func (m *Model) PauseRepo(repo string) {
+	m.setState(repo, RepoPaused)
 }
 
-func (m *Model) ResumeRepo(repo string){
-	m.setState(repo,RepoIdle)
+func (m *Model) ResumeRepo(repo string) {
+	m.setState(repo, RepoIdle)
 }
 
 func (m *Model) ScanRepo(repo string) error {
