@@ -390,16 +390,19 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
 
         var state = '' + $scope.model[repo].state;
-        if (state == 'idle') {
-            return 'success';
+
+        switch(state) {
+            case 'idle':
+                return 'success';
+            case 'syncing':
+                return 'primary';
+            case 'scanning':
+                return 'primary';
+            case 'paused':
+                return 'default';
+            default:
+                return 'info';
         }
-        if (state == 'syncing') {
-            return 'primary';
-        }
-        if (state == 'scanning') {
-            return 'primary';
-        }
-        return 'info';
     };
 
     $scope.syncPercentage = function (repo) {
@@ -858,6 +861,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.rescanRepo = function (repo) {
         $http.post(urlbase + "/scan?repo=" + encodeURIComponent(repo));
+    };
+
+    $scope.pauseRepo = function (repo) {
+        $http.post(urlbase + "/pause?repo=" + encodeURIComponent(repo));
+    };
+
+    $scope.resumeRepo = function (repo) {
+        $http.post(urlbase + "/resume?repo=" + encodeURIComponent(repo));
     };
 
     $scope.init();

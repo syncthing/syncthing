@@ -33,6 +33,7 @@ const (
 	RepoScanning
 	RepoSyncing
 	RepoCleaning
+	RepoPaused
 )
 
 func (s repoState) String() string {
@@ -45,6 +46,8 @@ func (s repoState) String() string {
 		return "cleaning"
 	case RepoSyncing:
 		return "syncing"
+	case RepoPaused:
+		return "paused"
 	default:
 		return "unknown"
 	}
@@ -770,6 +773,18 @@ func (m *Model) CleanRepos() {
 		}()
 	}
 	wg.Wait()
+}
+
+func (m *Model) IsPaused(repo string) bool {
+	return m.repoState[repo] == RepoPaused
+}
+
+func (m *Model) PauseRepo(repo string) {
+	m.setState(repo, RepoPaused)
+}
+
+func (m *Model) ResumeRepo(repo string) {
+	m.setState(repo, RepoIdle)
 }
 
 func (m *Model) ScanRepo(repo string) error {
