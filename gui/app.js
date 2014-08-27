@@ -394,16 +394,12 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         switch(state) {
             case 'idle':
                 return 'success';
-                break;
             case 'syncing':
                 return 'primary';
-                break;
             case 'scanning':
                 return 'primary';
-                break;
             case 'paused':
                 return 'default';
-                break;
             default:
                 return 'info';
         }
