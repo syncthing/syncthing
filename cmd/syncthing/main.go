@@ -318,9 +318,10 @@ func main() {
 		cfg, err = config.Load(nil, myID)
 		cfg.Repositories = []config.RepositoryConfiguration{
 			{
-				ID:        "default",
-				Directory: defaultRepo,
-				Nodes:     []config.RepositoryNodeConfiguration{{NodeID: myID}},
+				ID:              "default",
+				Directory:       defaultRepo,
+				RescanIntervalS: 60,
+				Nodes:           []config.RepositoryNodeConfiguration{{NodeID: myID}},
 			},
 		}
 		cfg.Nodes = []config.NodeConfiguration{
