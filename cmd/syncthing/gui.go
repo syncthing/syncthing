@@ -549,18 +549,12 @@ func restPostPause(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	repo := qs.Get("repo")
 	m.PauseRepo(repo)
-	//if err != nil {
-//		http.Error(w, err.Error(), 500)
-	//}
 }
 
 func restPostResume(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	repo := qs.Get("repo")
 	m.ResumeRepo(repo)
-	//if err != nil {
-//		http.Error(w, err.Error(), 500)
-	//}
 }
 
 func restPostScan(m *model.Model, w http.ResponseWriter, r *http.Request) {
