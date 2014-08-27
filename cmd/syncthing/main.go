@@ -106,8 +106,8 @@ The following enviroment variables are interpreted by syncthing:
  STGUIADDRESS  Override GUI listen address set in config. Expects protocol type
                followed by hostname or an IP address, followed by a port, such
                as "https://127.0.0.1:8888".
-			
- STGUIAUTH     Override GUI authentication credentials set in config. Expects 
+
+ STGUIAUTH     Override GUI authentication credentials set in config. Expects
                a colon separated username and password, such as "admin:secret".
 
  STGUIAPIKEY   Override GUI API key set in config.
@@ -558,6 +558,8 @@ nextRepo:
 			}
 		}()
 	}
+
+	go standbyMonitor()
 
 	events.Default.Log(events.StartupComplete, nil)
 	go generateEvents()
@@ -1163,4 +1165,16 @@ func overrideGUIConfig(originalCfg config.GUIConfiguration, address, authenticat
 		cfg.APIKey = apikey
 	}
 	return cfg
+}
+
+func standbyMonitor() {
+	now := time.Now()
+	for {
+		time.Sleep(10 * time.Second)
+		if time.Since(now) > 2*time.Minute {
+			l.Infoln("Paused state detected, possibly woke up from standby.")
+			restart()
+		}
+		now = time.Now()
+	}
 }
