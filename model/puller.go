@@ -159,7 +159,7 @@ func (p *puller) run() {
 
 		// Run the pulling loop as long as there are blocks to fetch
 		prevVer, queued = p.queueNeededBlocks(prevVer)
-		if queued > 0 && !p.model.IsPaused(repoid) {
+		if queued > 0 {
 			p.errors = 0
 
 		pull:
