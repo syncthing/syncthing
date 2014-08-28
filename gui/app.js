@@ -91,14 +91,27 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         var lang, matching;
         for (var i = 0; i < langs.length; i++) {
             lang = langs[i];
-            matching = validLangs.filter(function (l) {
-                return lang.length >= 2 && l.indexOf(lang) == 0;
+            if (lang.length < 2) {
+                continue;
+            }
+            matching = validLangs.filter(function (possibleLang) {
+                // The langs returned by the /rest/langs call will be in lower
+                // case. We compare to the lowercase version of the language
+                // code we have as well.
+                possibleLang = possibleLang.toLowerCase()
+                if (possibleLang.length > lang.length) {
+                    return possibleLang.indexOf(lang) == 0;
+                } else {
+                    return lang.indexOf(possibleLang) == 0;
+                }
             });
             if (matching.length >= 1) {
                 $translate.use(matching[0]);
-                break;
+                return;
             }
         }
+        // Fallback if nothing matched
+        $translate.use("en");
     })
 
     $(window).bind('beforeunload', function() {
