@@ -113,10 +113,10 @@ func loadIgnoreFile(ignFile, base string) []*regexp.Regexp {
 		return nil
 	}
 	defer fd.Close()
-	return parseIgnoreFile(fd, base)
+	return parseIgnoreFile(fd, base, filepath.Dir(ignFile))
 }
 
-func parseIgnoreFile(fd io.Reader, base string) []*regexp.Regexp {
+func parseIgnoreFile(fd io.Reader, base, dir string) []*regexp.Regexp {
 	var exps []*regexp.Regexp
 	scanner := bufio.NewScanner(fd)
 	for scanner.Scan() {
@@ -148,6 +148,14 @@ func parseIgnoreFile(fd io.Reader, base string) []*regexp.Regexp {
 				continue
 			}
 			exps = append(exps, exp)
+		} else if strings.HasPrefix(line, "#include ") {
+			includeFile := filepath.Join(dir, strings.Replace(line, "#include ", "", 1))
+			if _, err := os.Stat(includeFile); os.IsNotExist(err) {
+				l.Infoln("Could not open ignore include file", includeFile)
+			} else {
+				includes := loadIgnoreFile(includeFile, base)
+				exps = append(exps, includes...)
+			}
 		} else {
 			// Path name or pattern, add it so it matches files both in
 			// current directory and subdirs.

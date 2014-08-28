@@ -128,20 +128,20 @@ func TestIgnore(t *testing.T) {
 		*/other/test
 		**/deep
 	`)
-	patterns := parseIgnoreFile(patStr, "")
+	patterns := parseIgnoreFile(patStr, "", "")
 
 	patStr = bytes.NewBufferString(`
 		bar
 		z*
 		q[abc]x
 	`)
-	patterns = append(patterns, parseIgnoreFile(patStr, "foo")...)
+	patterns = append(patterns, parseIgnoreFile(patStr, "foo", "")...)
 
 	patStr = bytes.NewBufferString(`
 		quux
 		.*
 	`)
-	patterns = append(patterns, parseIgnoreFile(patStr, "foo/baz")...)
+	patterns = append(patterns, parseIgnoreFile(patStr, "foo/baz", "")...)
 
 	var tests = []struct {
 		f string
