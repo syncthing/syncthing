@@ -143,7 +143,8 @@ The following enviroment variables are interpreted by syncthing:
  STPERFSTATS   Write running performance statistics to perf-$pid.csv. Not
                supported on Windows.
 
- STDEADLOCKTIMEOUT  Alter deadlock detection timeout (seconds; default 1200).`
+ GOMAXPROCS    Set the maximum number of CPU cores to use. Defaults to all
+               available CPU cores.`
 )
 
 func init() {
