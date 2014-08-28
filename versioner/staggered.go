@@ -186,7 +186,7 @@ func (v Staggered) expire(versions []string) {
 		if isFile(file) {
 			versiondate, err := strconv.ParseInt(strings.Replace(filepath.Ext(file), ".v", "", 1), 10, 0)
 			if err != nil {
-				l.Infoln("Versioner: file name %q is invalid: %v", file, err)
+				l.Infof("Versioner: file name %q is invalid: %v", file, err)
 				continue
 			}
 			age := now - versiondate
@@ -231,7 +231,7 @@ func (v Staggered) expire(versions []string) {
 
 			prevAge = age
 		} else {
-			l.Infoln("non-file %q is named like a file version", file)
+			l.Infof("non-file %q is named like a file version", file)
 		}
 	}
 }
