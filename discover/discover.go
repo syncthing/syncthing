@@ -8,9 +8,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -345,7 +345,7 @@ func (d *Discoverer) registerNode(addr net.Addr, node Node) bool {
 	for _, a := range node.Addresses {
 		var nodeAddr string
 		if len(a.IP) > 0 {
-			nodeAddr = fmt.Sprintf("%s:%d", net.IP(a.IP), a.Port)
+			nodeAddr = net.JoinHostPort(net.IP(a.IP).String(), strconv.Itoa(int(a.Port)))
 		} else if addr != nil {
 			ua := addr.(*net.UDPAddr)
 			ua.Port = int(a.Port)
@@ -449,7 +449,7 @@ func (d *Discoverer) externalLookup(node protocol.NodeID) []string {
 
 	var addrs []string
 	for _, a := range pkt.This.Addresses {
-		nodeAddr := fmt.Sprintf("%s:%d", net.IP(a.IP), a.Port)
+		nodeAddr := net.JoinHostPort(net.IP(a.IP).String(), strconv.Itoa(int(a.Port)))
 		addrs = append(addrs, nodeAddr)
 	}
 	return addrs
