@@ -25,6 +25,16 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
     var lastID = 0;
 
     var successFn = function (data) {
+        // When Syncthing restarts while the long polling connection is in
+        // progress the browser on some platforms returns a 200 (since the
+        // headers has been flushed with the return code 200), with no data.
+        // This basically means that the connection has been reset, and the call
+        // was not actually sucessful.
+        if (!data) {
+            errorFn(data);
+            return;
+        }
+
         $scope.$emit('UIOnline');
 
         if (lastID > 0) {
