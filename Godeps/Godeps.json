@@ -41,7 +41,7 @@
 		},
 		{
 			"ImportPath": "github.com/calmh/xdr",
-			"Rev": "e1714bbe4764b15490fcc8ebd25d4bd9ea50a4b9"
+			"Rev": "a597b63b87d6140f79084c8aab214b4d533833a1"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
@@ -49,7 +49,7 @@
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "17fd8940e0f778c27793a25bff8c48ddd7bf53ac"
+			"Rev": "59d87758aeaab5ab6ed289c773349500228a1557"
 		},
 		{
 			"ImportPath": "github.com/vitrun/qart/coding",

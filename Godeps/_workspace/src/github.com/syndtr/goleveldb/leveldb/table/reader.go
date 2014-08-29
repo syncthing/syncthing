@@ -37,6 +37,7 @@ func max(x, y int) int {
 }
 
 type block struct {
+	bpool          *util.BufferPool
 	cmp            comparer.BasicComparer
 	data           []byte
 	restartsLen    int
@@ -137,6 +138,14 @@ func (b *block) newIterator(slice *util.Range, inclLimit bool, cache util.Releas
 		}
 	}
 	return bi
+}
+
+func (b *block) Release() {
+	if b.bpool != nil {
+		b.bpool.Put(b.data)
+		b.bpool = nil
+	}
+	b.data = nil
 }
 
 type dir int
@@ -438,6 +447,7 @@ func (i *blockIter) Value() []byte {
 
 func (i *blockIter) Release() {
 	if i.dir > dirReleased {
+		i.block = nil
 		i.prevNode = nil
 		i.prevKeys = nil
 		i.key = nil
@@ -610,43 +620,25 @@ func (r *Reader) readFilterBlock(bh blockHandle, filter filter.Filter) (*filterB
 	return b, nil
 }
 
-type releaseBlock struct {
-	r *Reader
-	b *block
-}
-
-func (r releaseBlock) Release() {
-	if r.b.data != nil {
-		r.r.bpool.Put(r.b.data)
-		r.b.data = nil
-	}
-}
-
 func (r *Reader) getDataIter(dataBH blockHandle, slice *util.Range, checksum, fillCache bool) iterator.Iterator {
 	if r.cache != nil {
 		// Get/set block cache.
 		var err error
-		cache, ok := r.cache.Get(dataBH.offset, func() (ok bool, value interface{}, charge int, fin cache.SetFin) {
+		cache := r.cache.Get(dataBH.offset, func() (charge int, value interface{}) {
 			if !fillCache {
-				return
+				return 0, nil
 			}
 			var dataBlock *block
 			dataBlock, err = r.readBlock(dataBH, checksum)
-			if err == nil {
-				ok = true
-				value = dataBlock
-				charge = int(dataBH.length)
-				fin = func() {
-					r.bpool.Put(dataBlock.data)
-					dataBlock.data = nil
-				}
+			if err != nil {
+				return 0, nil
 			}
-			return
+			return int(dataBH.length), dataBlock
 		})
 		if err != nil {
 			return iterator.NewEmptyIterator(err)
 		}
-		if ok {
+		if cache != nil {
 			dataBlock := cache.Value().(*block)
 			if !dataBlock.checksum && (r.checksum || checksum) {
 				if !verifyChecksum(dataBlock.data) {
@@ -662,7 +654,7 @@ func (r *Reader) getDataIter(dataBH blockHandle, slice *util.Range, checksum, fi
 	if err != nil {
 		return iterator.NewEmptyIterator(err)
 	}
-	iter := dataBlock.newIterator(slice, false, releaseBlock{r, dataBlock})
+	iter := dataBlock.newIterator(slice, false, dataBlock)
 	return iter
 }
 

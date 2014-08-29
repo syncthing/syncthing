@@ -22,7 +22,7 @@ func (r *Reader) ReadUint8() uint8 {
 	}
 
 	if debug {
-		dl.Printf("rd uint8=%d (0x%08x)", r.b[0], r.b[0])
+		dl.Printf("rd uint8=%d (0x%02x)", r.b[0], r.b[0])
 	}
 	return r.b[0]
 }
@@ -43,7 +43,7 @@ func (r *Reader) ReadUint16() uint16 {
 	v := uint16(r.b[1]) | uint16(r.b[0])<<8
 
 	if debug {
-		dl.Printf("rd uint16=%d (0x%08x)", v, v)
+		dl.Printf("rd uint16=%d (0x%04x)", v, v)
 	}
 	return v
 }

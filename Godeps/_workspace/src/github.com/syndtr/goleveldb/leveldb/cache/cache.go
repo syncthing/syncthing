@@ -11,76 +11,99 @@ import (
 	"sync/atomic"
 )
 
-// SetFunc used by Namespace.Get method to create a cache object. SetFunc
-// may return ok false, in that case the cache object will not be created.
-type SetFunc func() (ok bool, value interface{}, charge int, fin SetFin)
+// SetFunc is the function that will be called by Namespace.Get to create
+// a cache object, if charge is less than one than the cache object will
+// not be registered to cache tree, if value is nil then the cache object
+// will not be created.
+type SetFunc func() (charge int, value interface{})
 
-// SetFin will be called when corresponding cache object are released.
-type SetFin func()
+// DelFin is the function that will be called as the result of a delete operation.
+// Exist == true is indication that the object is exist, and pending == true is
+// indication of deletion already happen but haven't done yet (wait for all handles
+// to be released). And exist == false means the object doesn't exist.
+type DelFin func(exist, pending bool)
 
-// DelFin will be called when corresponding cache object are released.
-// DelFin will be called after SetFin. The exist is true if the corresponding
-// cache object is actually exist in the cache tree.
-type DelFin func(exist bool)
-
-// PurgeFin will be called when corresponding cache object are released.
-// PurgeFin will be called after SetFin. If PurgeFin present DelFin will
-// not be executed but passed to the PurgeFin, it is up to the caller
-// to call it or not.
-type PurgeFin func(ns, key uint64, delfin DelFin)
+// PurgeFin is the function that will be called as the result of a purge operation.
+type PurgeFin func(ns, key uint64)
 
 // Cache is a cache tree. A cache instance must be goroutine-safe.
 type Cache interface {
-	// SetCapacity sets cache capacity.
+	// SetCapacity sets cache tree capacity.
 	SetCapacity(capacity int)
 
-	// GetNamespace gets or creates a cache namespace for the given id.
+	// Capacity returns cache tree capacity.
+	Capacity() int
+
+	// Used returns used cache tree capacity.
+	Used() int
+
+	// Size returns entire alive cache objects size.
+	Size() int
+
+	// GetNamespace gets cache namespace with the given id.
+	// GetNamespace is never return nil.
 	GetNamespace(id uint64) Namespace
 
-	// Purge purges all cache namespaces, read Namespace.Purge method documentation.
+	// Purge purges all cache namespace from this cache tree.
+	// This is behave the same as calling Namespace.Purge method on all cache namespace.
 	Purge(fin PurgeFin)
 
-	// Zap zaps all cache namespaces, read Namespace.Zap method documentation.
-	Zap(closed bool)
+	// Zap detaches all cache namespace from this cache tree.
+	// This is behave the same as calling Namespace.Zap method on all cache namespace.
+	Zap()
 }
 
 // Namespace is a cache namespace. A namespace instance must be goroutine-safe.
 type Namespace interface {
-	// Get gets cache object for the given key. The given SetFunc (if not nil) will
-	// be called if the given key does not exist.
-	// If the given key does not exist, SetFunc is nil or SetFunc return ok false, Get
-	// will return ok false.
-	Get(key uint64, setf SetFunc) (obj Object, ok bool)
-
-	// Get deletes cache object for the given key. If exist the cache object will
-	// be deleted later when all of its handles have been released (i.e. no one use
-	// it anymore) and the given DelFin (if not nil) will finally be  executed. If
-	// such cache object does not exist the given DelFin will be executed anyway.
+	// Get gets cache object with the given key.
+	// If cache object is not found and setf is not nil, Get will atomically creates
+	// the cache object by calling setf. Otherwise Get will returns nil.
 	//
-	// Delete returns true if such cache object exist.
+	// The returned cache handle should be released after use by calling Release
+	// method.
+	Get(key uint64, setf SetFunc) Handle
+
+	// Delete removes cache object with the given key from cache tree.
+	// A deleted cache object will be released as soon as all of its handles have
+	// been released.
+	// Delete only happen once, subsequent delete will consider cache object doesn't
+	// exist, even if the cache object ins't released yet.
+	//
+	// If not nil, fin will be called if the cache object doesn't exist or when
+	// finally be released.
+	//
+	// Delete returns true if such cache object exist and never been deleted.
 	Delete(key uint64, fin DelFin) bool
 
-	// Purge deletes all cache objects, read Delete method documentation.
+	// Purge removes all cache objects within this namespace from cache tree.
+	// This is the same as doing delete on all cache objects.
+	//
+	// If not nil, fin will be called on all cache objects when its finally be
+	// released.
 	Purge(fin PurgeFin)
 
-	// Zap detaches the namespace from the cache tree and delete all its cache
-	// objects. The cache objects deletion and finalizers execution are happen
-	// immediately, even if its existing handles haven't yet been released.
-	// A zapped namespace can't never be filled again.
-	// If closed is false then the Get function will always call the given SetFunc
-	// if it is not nil, but resultant of the SetFunc will not be cached.
-	Zap(closed bool)
+	// Zap detaches namespace from cache tree and release all its cache objects.
+	// A zapped namespace can never be filled again.
+	// Calling Get on zapped namespace will always return nil.
+	Zap()
 }
 
-// Object is a cache object.
-type Object interface {
-	// Release releases the cache object. Other methods should not be called
-	// after the cache object has been released.
+// Handle is a cache handle.
+type Handle interface {
+	// Release releases this cache handle. This method can be safely called mutiple
+	// times.
 	Release()
 
-	// Value returns value of the cache object.
+	// Value returns value of this cache handle.
+	// Value will returns nil after this cache handle have be released.
 	Value() interface{}
 }
+
+const (
+	DelNotExist = iota
+	DelExist
+	DelPendig
+)
 
 // Namespace state.
 type nsState int
@@ -88,7 +111,6 @@ type nsState int
 const (
 	nsEffective nsState = iota
 	nsZapped
-	nsClosed
 )
 
 // Node state.
@@ -97,29 +119,29 @@ type nodeState int
 const (
 	nodeEffective nodeState = iota
 	nodeEvicted
-	nodeRemoved
+	nodeDeleted
 )
 
-// Fake object.
-type fakeObject struct {
+// Fake handle.
+type fakeHandle struct {
 	value interface{}
 	fin   func()
 	once  uint32
 }
 
-func (o *fakeObject) Value() interface{} {
-	if atomic.LoadUint32(&o.once) == 0 {
-		return o.value
+func (h *fakeHandle) Value() interface{} {
+	if atomic.LoadUint32(&h.once) == 0 {
+		return h.value
 	}
 	return nil
 }
 
-func (o *fakeObject) Release() {
-	if !atomic.CompareAndSwapUint32(&o.once, 0, 1) {
+func (h *fakeHandle) Release() {
+	if !atomic.CompareAndSwapUint32(&h.once, 0, 1) {
 		return
 	}
-	if o.fin != nil {
-		o.fin()
-		o.fin = nil
+	if h.fin != nil {
+		h.fin()
+		h.fin = nil
 	}
 }

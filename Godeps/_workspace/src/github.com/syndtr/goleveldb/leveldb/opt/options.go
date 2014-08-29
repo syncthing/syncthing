@@ -31,9 +31,12 @@ const (
 type noCache struct{}
 
 func (noCache) SetCapacity(capacity int)               {}
+func (noCache) Capacity() int                          { return 0 }
+func (noCache) Used() int                              { return 0 }
+func (noCache) Size() int                              { return 0 }
 func (noCache) GetNamespace(id uint64) cache.Namespace { return nil }
 func (noCache) Purge(fin cache.PurgeFin)               {}
-func (noCache) Zap(closed bool)                        {}
+func (noCache) Zap()                                   {}
 
 var NoCache cache.Cache = noCache{}
 

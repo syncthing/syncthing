@@ -249,7 +249,9 @@ func (p *dbBench) newIter() iterator.Iterator {
 }
 
 func (p *dbBench) close() {
-	p.b.Log(p.db.s.tops.bpool)
+	if bp, err := p.db.GetProperty("leveldb.blockpool"); err == nil {
+		p.b.Log("Block pool stats: ", bp)
+	}
 	p.db.Close()
 	p.stor.Close()
 	os.RemoveAll(benchDB)

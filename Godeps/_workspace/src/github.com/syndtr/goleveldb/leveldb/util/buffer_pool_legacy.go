@@ -26,6 +26,8 @@ type BufferPool struct {
 	baseline1 int
 	baseline2 int
 
+	get     uint32
+	put     uint32
 	less    uint32
 	equal   uint32
 	greater uint32
@@ -47,6 +49,8 @@ func (p *BufferPool) poolNum(n int) int {
 
 // Get returns buffer with length of n.
 func (p *BufferPool) Get(n int) []byte {
+	atomic.AddUint32(&p.get, 1)
+
 	poolNum := p.poolNum(n)
 	pool := p.pool[poolNum]
 	if poolNum == 0 {
@@ -112,6 +116,8 @@ func (p *BufferPool) Get(n int) []byte {
 
 // Put adds given buffer to the pool.
 func (p *BufferPool) Put(b []byte) {
+	atomic.AddUint32(&p.put, 1)
+
 	pool := p.pool[p.poolNum(cap(b))]
 	select {
 	case pool <- b:
@@ -121,8 +127,8 @@ func (p *BufferPool) Put(b []byte) {
 }
 
 func (p *BufferPool) String() string {
-	return fmt.Sprintf("BufferPool{B·%d Z·%v Zm·%v L·%d E·%d G·%d M·%d}",
-		p.baseline0, p.size, p.sizeMiss, p.less, p.equal, p.greater, p.miss)
+	return fmt.Sprintf("BufferPool{B·%d Z·%v Zm·%v G·%d P·%d <·%d =·%d >·%d M·%d}",
+		p.baseline0, p.size, p.sizeMiss, p.get, p.put, p.less, p.equal, p.greater, p.miss)
 }
 
 func (p *BufferPool) drain() {

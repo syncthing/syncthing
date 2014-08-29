@@ -9,16 +9,17 @@ package cache
 import (
 	"sync"
 	"sync/atomic"
+
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 // lruCache represent a LRU cache state.
 type lruCache struct {
-	sync.Mutex
-
-	recent   lruNode
-	table    map[uint64]*lruNs
-	capacity int
-	size     int
+	mu         sync.Mutex
+	recent     lruNode
+	table      map[uint64]*lruNs
+	capacity   int
+	used, size int
 }
 
 // NewLRUCache creates a new initialized LRU cache with the given capacity.
@@ -32,57 +33,75 @@ func NewLRUCache(capacity int) Cache {
 	return c
 }
 
+func (c *lruCache) Capacity() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.capacity
+}
+
+func (c *lruCache) Used() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.used
+}
+
+func (c *lruCache) Size() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.size
+}
+
 // SetCapacity set cache capacity.
 func (c *lruCache) SetCapacity(capacity int) {
-	c.Lock()
+	c.mu.Lock()
 	c.capacity = capacity
 	c.evict()
-	c.Unlock()
+	c.mu.Unlock()
 }
 
 // GetNamespace return namespace object for given id.
 func (c *lruCache) GetNamespace(id uint64) Namespace {
-	c.Lock()
-	defer c.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if p, ok := c.table[id]; ok {
-		return p
+	if ns, ok := c.table[id]; ok {
+		return ns
 	}
 
-	p := &lruNs{
+	ns := &lruNs{
 		lru:   c,
 		id:    id,
 		table: make(map[uint64]*lruNode),
 	}
-	c.table[id] = p
-	return p
+	c.table[id] = ns
+	return ns
 }
 
 // Purge purge entire cache.
 func (c *lruCache) Purge(fin PurgeFin) {
-	c.Lock()
+	c.mu.Lock()
 	for _, ns := range c.table {
 		ns.purgeNB(fin)
 	}
-	c.Unlock()
+	c.mu.Unlock()
 }
 
-func (c *lruCache) Zap(closed bool) {
-	c.Lock()
+func (c *lruCache) Zap() {
+	c.mu.Lock()
 	for _, ns := range c.table {
-		ns.zapNB(closed)
+		ns.zapNB()
 	}
 	c.table = make(map[uint64]*lruNs)
-	c.Unlock()
+	c.mu.Unlock()
 }
 
 func (c *lruCache) evict() {
 	top := &c.recent
-	for n := c.recent.rPrev; c.size > c.capacity && n != top; {
+	for n := c.recent.rPrev; c.used > c.capacity && n != top; {
 		n.state = nodeEvicted
 		n.rRemove()
-		n.evictNB()
-		c.size -= n.charge
+		n.derefNB()
+		c.used -= n.charge
 		n = c.recent.rPrev
 	}
 }
@@ -94,170 +113,157 @@ type lruNs struct {
 	state nsState
 }
 
-func (ns *lruNs) Get(key uint64, setf SetFunc) (o Object, ok bool) {
-	lru := ns.lru
-	lru.Lock()
+func (ns *lruNs) Get(key uint64, setf SetFunc) Handle {
+	ns.lru.mu.Lock()
 
-	switch ns.state {
-	case nsZapped:
-		lru.Unlock()
-		if setf == nil {
-			return
-		}
-
-		var value interface{}
-		var fin func()
-		ok, value, _, fin = setf()
-		if ok {
-			o = &fakeObject{
-				value: value,
-				fin:   fin,
-			}
-		}
-		return
-	case nsClosed:
-		lru.Unlock()
-		return
+	if ns.state != nsEffective {
+		ns.lru.mu.Unlock()
+		return nil
 	}
 
-	n, ok := ns.table[key]
+	node, ok := ns.table[key]
 	if ok {
-		switch n.state {
+		switch node.state {
 		case nodeEvicted:
 			// Insert to recent list.
-			n.state = nodeEffective
-			n.ref++
-			lru.size += n.charge
-			lru.evict()
+			node.state = nodeEffective
+			node.ref++
+			ns.lru.used += node.charge
+			ns.lru.evict()
 			fallthrough
 		case nodeEffective:
-			// Bump to front
-			n.rRemove()
-			n.rInsert(&lru.recent)
+			// Bump to front.
+			node.rRemove()
+			node.rInsert(&ns.lru.recent)
 		}
-		n.ref++
+		node.ref++
 	} else {
 		if setf == nil {
-			lru.Unlock()
-			return
+			ns.lru.mu.Unlock()
+			return nil
 		}
 
-		var value interface{}
-		var charge int
-		var fin func()
-		ok, value, charge, fin = setf()
-		if !ok {
-			lru.Unlock()
-			return
+		charge, value := setf()
+		if value == nil {
+			ns.lru.mu.Unlock()
+			return nil
 		}
 
-		n = &lruNode{
+		node = &lruNode{
 			ns:     ns,
 			key:    key,
 			value:  value,
 			charge: charge,
-			setfin: fin,
-			ref:    2,
+			ref:    1,
 		}
-		ns.table[key] = n
-		n.rInsert(&lru.recent)
+		ns.table[key] = node
 
-		lru.size += charge
-		lru.evict()
+		if charge > 0 {
+			node.ref++
+			node.rInsert(&ns.lru.recent)
+			ns.lru.used += charge
+			ns.lru.size += charge
+			ns.lru.evict()
+		}
 	}
 
-	lru.Unlock()
-	o = &lruObject{node: n}
-	return
+	ns.lru.mu.Unlock()
+	return &lruHandle{node: node}
 }
 
 func (ns *lruNs) Delete(key uint64, fin DelFin) bool {
-	lru := ns.lru
-	lru.Lock()
+	ns.lru.mu.Lock()
 
 	if ns.state != nsEffective {
-		lru.Unlock()
 		if fin != nil {
-			fin(false)
+			fin(false, false)
 		}
+		ns.lru.mu.Unlock()
 		return false
 	}
 
-	n, ok := ns.table[key]
-	if !ok {
-		lru.Unlock()
+	node, exist := ns.table[key]
+	if !exist {
 		if fin != nil {
-			fin(false)
+			fin(false, false)
 		}
+		ns.lru.mu.Unlock()
 		return false
 	}
 
-	n.delfin = fin
-	switch n.state {
-	case nodeRemoved:
-		lru.Unlock()
+	switch node.state {
+	case nodeDeleted:
+		if fin != nil {
+			fin(true, true)
+		}
+		ns.lru.mu.Unlock()
 		return false
 	case nodeEffective:
-		lru.size -= n.charge
-		n.rRemove()
-		n.evictNB()
+		ns.lru.used -= node.charge
+		node.state = nodeDeleted
+		node.delfin = fin
+		node.rRemove()
+		node.derefNB()
+	default:
+		node.state = nodeDeleted
+		node.delfin = fin
 	}
-	n.state = nodeRemoved
 
-	lru.Unlock()
+	ns.lru.mu.Unlock()
 	return true
 }
 
 func (ns *lruNs) purgeNB(fin PurgeFin) {
-	lru := ns.lru
 	if ns.state != nsEffective {
 		return
 	}
 
-	for _, n := range ns.table {
-		n.purgefin = fin
-		if n.state == nodeEffective {
-			lru.size -= n.charge
-			n.rRemove()
-			n.evictNB()
+	for _, node := range ns.table {
+		switch node.state {
+		case nodeDeleted:
+		case nodeEffective:
+			ns.lru.used -= node.charge
+			node.state = nodeDeleted
+			node.purgefin = fin
+			node.rRemove()
+			node.derefNB()
+		default:
+			node.state = nodeDeleted
+			node.purgefin = fin
 		}
-		n.state = nodeRemoved
 	}
 }
 
 func (ns *lruNs) Purge(fin PurgeFin) {
-	ns.lru.Lock()
+	ns.lru.mu.Lock()
 	ns.purgeNB(fin)
-	ns.lru.Unlock()
+	ns.lru.mu.Unlock()
 }
 
-func (ns *lruNs) zapNB(closed bool) {
-	lru := ns.lru
+func (ns *lruNs) zapNB() {
 	if ns.state != nsEffective {
 		return
 	}
 
-	if closed {
-		ns.state = nsClosed
-	} else {
-		ns.state = nsZapped
-	}
-	for _, n := range ns.table {
-		if n.state == nodeEffective {
-			lru.size -= n.charge
-			n.rRemove()
+	ns.state = nsZapped
+
+	for _, node := range ns.table {
+		if node.state == nodeEffective {
+			ns.lru.used -= node.charge
+			node.rRemove()
 		}
-		n.state = nodeRemoved
-		n.execFin()
+		ns.lru.size -= node.charge
+		node.state = nodeDeleted
+		node.fin()
 	}
 	ns.table = nil
 }
 
-func (ns *lruNs) Zap(closed bool) {
-	ns.lru.Lock()
-	ns.zapNB(closed)
+func (ns *lruNs) Zap() {
+	ns.lru.mu.Lock()
+	ns.zapNB()
 	delete(ns.lru.table, ns.id)
-	ns.lru.Unlock()
+	ns.lru.mu.Unlock()
 }
 
 type lruNode struct {
@@ -270,7 +276,6 @@ type lruNode struct {
 	charge   int
 	ref      int
 	state    nodeState
-	setfin   SetFin
 	delfin   DelFin
 	purgefin PurgeFin
 }
@@ -284,7 +289,6 @@ func (n *lruNode) rInsert(at *lruNode) {
 }
 
 func (n *lruNode) rRemove() bool {
-	// only remove if not already removed
 	if n.rPrev == nil {
 		return false
 	}
@@ -297,58 +301,56 @@ func (n *lruNode) rRemove() bool {
 	return true
 }
 
-func (n *lruNode) execFin() {
-	if n.setfin != nil {
-		n.setfin()
-		n.setfin = nil
+func (n *lruNode) fin() {
+	if r, ok := n.value.(util.Releaser); ok {
+		r.Release()
 	}
 	if n.purgefin != nil {
-		n.purgefin(n.ns.id, n.key, n.delfin)
+		n.purgefin(n.ns.id, n.key)
 		n.delfin = nil
 		n.purgefin = nil
 	} else if n.delfin != nil {
-		n.delfin(true)
+		n.delfin(true, false)
 		n.delfin = nil
 	}
 }
 
-func (n *lruNode) evictNB() {
+func (n *lruNode) derefNB() {
 	n.ref--
 	if n.ref == 0 {
 		if n.ns.state == nsEffective {
-			// remove elem
+			// Remove elemement.
 			delete(n.ns.table, n.key)
-			// execute finalizer
-			n.execFin()
+			n.ns.lru.size -= n.charge
+			n.fin()
 		}
 	} else if n.ref < 0 {
 		panic("leveldb/cache: lruCache: negative node reference")
 	}
 }
 
-func (n *lruNode) evict() {
-	n.ns.lru.Lock()
-	n.evictNB()
-	n.ns.lru.Unlock()
+func (n *lruNode) deref() {
+	n.ns.lru.mu.Lock()
+	n.derefNB()
+	n.ns.lru.mu.Unlock()
 }
 
-type lruObject struct {
+type lruHandle struct {
 	node *lruNode
 	once uint32
 }
 
-func (o *lruObject) Value() interface{} {
-	if atomic.LoadUint32(&o.once) == 0 {
-		return o.node.value
+func (h *lruHandle) Value() interface{} {
+	if atomic.LoadUint32(&h.once) == 0 {
+		return h.node.value
 	}
 	return nil
 }
 
-func (o *lruObject) Release() {
-	if !atomic.CompareAndSwapUint32(&o.once, 0, 1) {
+func (h *lruHandle) Release() {
+	if !atomic.CompareAndSwapUint32(&h.once, 0, 1) {
 		return
 	}
-
-	o.node.evict()
-	o.node = nil
+	h.node.deref()
+	h.node = nil
 }
