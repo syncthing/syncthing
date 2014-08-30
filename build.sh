@@ -12,6 +12,10 @@ case "${1:-default}" in
 		;;
 
 	test)
+		ulimit -t 60 || true
+		ulimit -d 512000 || true
+		ulimit -m 512000 || true
+
 		go run build.go "$1"
 		;;
 
@@ -64,6 +68,10 @@ case "${1:-default}" in
 		;;
 
 	test-cov)
+		ulimit -t 60 || true
+		ulimit -d 512000 || true
+		ulimit -m 512000 || true
+
 		go get github.com/axw/gocov/gocov
 		go get github.com/AlekSi/gocov-xml
 
