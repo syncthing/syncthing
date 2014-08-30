@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	rdebug "runtime/debug"
 	"sort"
 	"testing"
 
@@ -36,6 +37,13 @@ var testdata = testfileList{
 
 var correctIgnores = map[string][]string{
 	".": {".*", "quux"},
+}
+
+func init() {
+	// This test runs the risk of entering infinite recursion if it fails.
+	// Limit the stack size to 10 megs to creash early in that case instead of
+	// potentially taking down the box...
+	rdebug.SetMaxStack(10 * 1 << 20)
 }
 
 func TestWalkSub(t *testing.T) {
