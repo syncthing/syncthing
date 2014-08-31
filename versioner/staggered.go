@@ -90,6 +90,7 @@ func NewStaggered(repoID, repoPath string, params map[string]string) Versioner {
 	}
 
 	go func() {
+		defer l.CaptureAndRepanic()
 		s.clean()
 		for _ = range time.Tick(time.Duration(cleanInterval) * time.Second) {
 			s.clean()
