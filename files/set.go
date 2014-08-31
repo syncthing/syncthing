@@ -155,6 +155,17 @@ func (s *Set) LocalVersion(node protocol.NodeID) uint64 {
 	return s.localVersion[node]
 }
 
+// ListRepos returns the repository IDs seen in the database.
+func ListRepos(db *leveldb.DB) []string {
+	return ldbListRepos(db)
+}
+
+// DropRepo clears out all information related to the given repo from the
+// database.
+func DropRepo(db *leveldb.DB, repo string) {
+	ldbDropRepo(db, []byte(repo))
+}
+
 func normalizeFilenames(fs []protocol.FileInfo) {
 	for i := range fs {
 		fs[i].Name = normalizedFilename(fs[i].Name)

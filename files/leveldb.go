@@ -117,6 +117,12 @@ func globalKeyName(key []byte) []byte {
 	return key[1+64:]
 }
 
+func globalKeyRepo(key []byte) []byte {
+	repo := key[1 : 1+64]
+	izero := bytes.IndexByte(repo, 0)
+	return repo[:izero]
+}
+
 type deletionHandler func(db dbReader, batch dbWriter, repo, node, name []byte, dbi iterator.Iterator) uint64
 
 type fileIterator func(f protocol.FileIntf) bool
@@ -635,6 +641,70 @@ func ldbWithNeed(db *leveldb.DB, repo, node []byte, truncate bool, fn fileIterat
 			}
 		}
 	}
+}
+
+func ldbListRepos(db *leveldb.DB) []string {
+	defer runtime.GC()
+
+	start := []byte{keyTypeGlobal}
+	limit := []byte{keyTypeGlobal + 1}
+	snap, err := db.GetSnapshot()
+	if err != nil {
+		panic(err)
+	}
+	defer snap.Release()
+	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	defer dbi.Release()
+
+	repoExists := make(map[string]bool)
+	for dbi.Next() {
+		repo := string(globalKeyRepo(dbi.Key()))
+		if !repoExists[repo] {
+			repoExists[repo] = true
+		}
+	}
+
+	repos := make([]string, 0, len(repoExists))
+	for k := range repoExists {
+		repos = append(repos, k)
+	}
+
+	sort.Strings(repos)
+	return repos
+}
+
+func ldbDropRepo(db *leveldb.DB, repo []byte) {
+	defer runtime.GC()
+
+	snap, err := db.GetSnapshot()
+	if err != nil {
+		panic(err)
+	}
+	defer snap.Release()
+
+	// Remove all items related to the given repo from the node->file bucket
+	start := []byte{keyTypeNode}
+	limit := []byte{keyTypeNode + 1}
+	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	for dbi.Next() {
+		itemRepo := nodeKeyRepo(dbi.Key())
+		if bytes.Compare(repo, itemRepo) == 0 {
+			db.Delete(dbi.Key(), nil)
+		}
+	}
+	dbi.Release()
+
+	// Remove all items related to the given repo from the global bucket
+	start = []byte{keyTypeGlobal}
+	limit = []byte{keyTypeGlobal + 1}
+	dbi = snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	for dbi.Next() {
+		itemRepo := globalKeyRepo(dbi.Key())
+		if bytes.Compare(repo, itemRepo) == 0 {
+			db.Delete(dbi.Key(), nil)
+		}
+	}
+	dbi.Release()
 }
 
 func unmarshalTrunc(bs []byte, truncate bool) (protocol.FileIntf, error) {

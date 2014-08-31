@@ -31,6 +31,7 @@ import (
 	"github.com/syncthing/syncthing/config"
 	"github.com/syncthing/syncthing/discover"
 	"github.com/syncthing/syncthing/events"
+	"github.com/syncthing/syncthing/files"
 	"github.com/syncthing/syncthing/logger"
 	"github.com/syncthing/syncthing/model"
 	"github.com/syncthing/syncthing/osutil"
@@ -392,6 +393,16 @@ func main() {
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
+
+	// Remove database entries for repos that no longer exist in the config
+	repoMap := cfg.RepoMap()
+	for _, repo := range files.ListRepos(db) {
+		if _, ok := repoMap[repo]; !ok {
+			l.Infof("Cleaning data for dropped repo %q", repo)
+			files.DropRepo(db, repo)
+		}
+	}
+
 	m := model.NewModel(confDir, &cfg, myName, "syncthing", Version, db)
 
 nextRepo:

@@ -7,6 +7,7 @@ package files_test
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -594,6 +595,57 @@ func TestLocalVersion(t *testing.T) {
 	c2 := m.LocalVersion(protocol.LocalNodeID)
 	if c2 != c1 {
 		t.Fatal("Local version number should be unchanged")
+	}
+}
+
+func TestListDropRepo(t *testing.T) {
+	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s0 := files.NewSet("test0", db)
+	local1 := []protocol.FileInfo{
+		protocol.FileInfo{Name: "a", Version: 1000},
+		protocol.FileInfo{Name: "b", Version: 1000},
+		protocol.FileInfo{Name: "c", Version: 1000},
+	}
+	s0.Replace(protocol.LocalNodeID, local1)
+
+	s1 := files.NewSet("test1", db)
+	local2 := []protocol.FileInfo{
+		protocol.FileInfo{Name: "d", Version: 1002},
+		protocol.FileInfo{Name: "e", Version: 1002},
+		protocol.FileInfo{Name: "f", Version: 1002},
+	}
+	s1.Replace(remoteNode, local2)
+
+	// Check that we have both repos and their data is in the global list
+
+	expectedRepoList := []string{"test0", "test1"}
+	if actualRepoList := files.ListRepos(db); !reflect.DeepEqual(actualRepoList, expectedRepoList) {
+		t.Fatalf("RepoList mismatch\nE: %v\nA: %v", expectedRepoList, actualRepoList)
+	}
+	if l := len(globalList(s0)); l != 3 {
+		t.Errorf("Incorrect global length %d != 3 for s0", l)
+	}
+	if l := len(globalList(s1)); l != 3 {
+		t.Errorf("Incorrect global length %d != 3 for s1", l)
+	}
+
+	// Drop one of them and check that it's gone.
+
+	files.DropRepo(db, "test1")
+
+	expectedRepoList = []string{"test0"}
+	if actualRepoList := files.ListRepos(db); !reflect.DeepEqual(actualRepoList, expectedRepoList) {
+		t.Fatalf("RepoList mismatch\nE: %v\nA: %v", expectedRepoList, actualRepoList)
+	}
+	if l := len(globalList(s0)); l != 3 {
+		t.Errorf("Incorrect global length %d != 3 for s0", l)
+	}
+	if l := len(globalList(s1)); l != 0 {
+		t.Errorf("Incorrect global length %d != 0 for s1", l)
 	}
 }
 
