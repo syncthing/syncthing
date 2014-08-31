@@ -134,6 +134,7 @@ func newPuller(repoCfg config.RepositoryConfiguration, model *Model, slots int, 
 }
 
 func (p *puller) run() {
+	defer l.CaptureAndRepanic()
 	changed := true
 	scanintv := time.Duration(p.repoCfg.RescanIntervalS) * time.Second
 	lastscan := time.Now()
@@ -247,6 +248,7 @@ func (p *puller) run() {
 }
 
 func (p *puller) runRO() {
+	defer l.CaptureAndRepanic()
 	walkTicker := time.Tick(time.Duration(p.repoCfg.RescanIntervalS) * time.Second)
 
 	for _ = range walkTicker {
@@ -599,6 +601,7 @@ func (p *puller) handleRequestBlock(b bqBlock) bool {
 	p.openFiles[f.Name] = of
 
 	go func(node protocol.NodeID, b bqBlock) {
+		defer l.CaptureAndRepanic()
 		if debug {
 			l.Debugf("pull: requesting %q / %q offset %d size %d from %q outstanding %d", p.repoCfg.ID, f.Name, b.block.Offset, b.block.Size, node, of.outstanding)
 		}
