@@ -9,8 +9,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 )
 
 type LogLevel int
@@ -149,5 +153,25 @@ func (l *Logger) FatalErr(err error) {
 		l.logger.Output(2, "FATAL: "+err.Error())
 		l.callHandlers(LevelFatal, err.Error())
 		os.Exit(1)
+	}
+}
+
+func (l *Logger) CaptureAndRepanic() {
+	r := recover()
+	if r != nil {
+		bin, err := exec.LookPath(os.Args[0])
+		if err != nil {
+			l.Warnf("Failed to look up binary path: %v", err)
+		} else {
+			log := filepath.Join(filepath.Dir(bin), "panic.log")
+			f, err := os.OpenFile(log, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+			if err != nil {
+				l.Warnf("Failed to open panic log file %s: %v", log, err)
+			} else {
+				defer f.Close()
+				f.WriteString(fmt.Sprintf("%s\n%v\n\nStack trace:\n%s\n\n", time.Now(), r, debug.Stack()))
+			}
+		}
+		panic(r)
 	}
 }
