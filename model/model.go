@@ -582,7 +582,11 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 		fs := m.repoFiles[repo]
 		go sendIndexes(protoConn, repo, fs)
 	}
-	m.nodeStatRefs[nodeID].WasSeen()
+	if statRef, ok := m.nodeStatRefs[nodeID]; ok {
+		statRef.WasSeen()
+	} else {
+		l.Warnf("AddConnection for unconfigured node %v?", nodeID)
+	}
 	m.rmut.RUnlock()
 	m.pmut.Unlock()
 }
