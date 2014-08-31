@@ -27,9 +27,9 @@ type testfileList []testfile
 var testdata = testfileList{
 	{"afile", 4, "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"},
 	{"dir1", 128, ""},
-	{"dir1/dfile", 5, "49ae93732fcf8d63fe1cce759664982dbd5b23161f007dba8561862adc96d063"},
+	{filepath.Join("dir1", "dfile"), 5, "49ae93732fcf8d63fe1cce759664982dbd5b23161f007dba8561862adc96d063"},
 	{"dir2", 128, ""},
-	{"dir2/cfile", 4, "bf07a7fbb825fc0aae7bf4a1177b2b31fcf8a3feeaf7092761e18c859ee52a9c"},
+	{filepath.Join("dir2", "cfile"), 4, "bf07a7fbb825fc0aae7bf4a1177b2b31fcf8a3feeaf7092761e18c859ee52a9c"},
 	{"excludes", 78, "1f5ac95d9e6fb2516629a029d788d27953c7bb2f4dc09184b660fdda0c8f2f04"},
 	{"further-excludes", 5, "7eb0a548094fa6295f7fd9200d69973e5f5ec5c04f2a86d998080ac43ecf89f1"},
 	{"loop-excludes", 18, "2db057aa82a8b8fe4b1367ccc875259ed4b8020255820d4e3d4bfe78f0dd3f2a"},
@@ -71,7 +71,7 @@ func TestWalkSub(t *testing.T) {
 	if files[0].Name != "dir2" {
 		t.Errorf("Incorrect file %v != dir2", files[0])
 	}
-	if files[1].Name != "dir2/cfile" {
+	if files[1].Name != filepath.Join("dir2", "cfile") {
 		t.Errorf("Incorrect file %v != dir2/cfile", files[1])
 	}
 }
@@ -132,20 +132,20 @@ func TestIgnore(t *testing.T) {
 		*/other/test
 		**/deep
 	`)
-	patterns := parseIgnoreFile(patStr, "", "")
+	patterns := parseIgnoreFile(patStr, "", "", make(map[string]map[string]bool))
 
 	patStr = bytes.NewBufferString(`
 		bar
 		z*
 		q[abc]x
 	`)
-	patterns = append(patterns, parseIgnoreFile(patStr, "foo", "")...)
+	patterns = append(patterns, parseIgnoreFile(patStr, "foo", "", make(map[string]map[string]bool))...)
 
 	patStr = bytes.NewBufferString(`
 		quux
 		.*
 	`)
-	patterns = append(patterns, parseIgnoreFile(patStr, "foo/baz", "")...)
+	patterns = append(patterns, parseIgnoreFile(patStr, "foo/baz", "", make(map[string]map[string]bool))...)
 
 	var tests = []struct {
 		f string
