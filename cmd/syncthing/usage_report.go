@@ -90,6 +90,7 @@ func sendUsageReport(m *model.Model) error {
 }
 
 func usageReportingLoop(m *model.Model) {
+	defer l.CaptureAndRepanic()
 	l.Infoln("Starting usage reporting")
 	t := time.NewTicker(86400 * time.Second)
 loop:

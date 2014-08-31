@@ -153,6 +153,9 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		handler = basicAuthMiddleware(cfg.User, cfg.Password, handler)
 	}
 
+	// Capture panics to a log file
+	handler = withPanicCaptureMiddleware(handler)
+
 	go http.Serve(listener, handler)
 	return nil
 }
@@ -180,6 +183,13 @@ func noCacheMiddleware(h http.Handler) http.Handler {
 func withVersionMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Syncthing-Version", Version)
+		h.ServeHTTP(w, r)
+	})
+}
+
+func withPanicCaptureMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer l.CaptureAndRepanic()
 		h.ServeHTTP(w, r)
 	})
 }

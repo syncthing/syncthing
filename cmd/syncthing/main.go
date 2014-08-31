@@ -357,6 +357,7 @@ func main() {
 
 	if profiler := os.Getenv("STPROFILER"); len(profiler) > 0 {
 		go func() {
+			defer l.CaptureAndRepanic()
 			l.Debugln("Starting profiler on", profiler)
 			runtime.SetBlockProfileRate(1)
 			err := http.ListenAndServe(profiler, nil)
@@ -564,6 +565,7 @@ nextRepo:
 	if cfg.Options.URAccepted >= usageReportVersion {
 		go usageReportingLoop(m)
 		go func() {
+			defer l.CaptureAndRepanic()
 			time.Sleep(10 * time.Minute)
 			err := sendUsageReport(m)
 			if err != nil {
@@ -654,6 +656,7 @@ func setupExternalPort(igd *upnp.IGD, port int) int {
 }
 
 func renewUPnP(port int) {
+	defer l.CaptureAndRepanic()
 	for {
 		time.Sleep(time.Duration(cfg.Options.UPnPRenewal) * time.Minute)
 
@@ -733,6 +736,7 @@ func archiveLegacyConfig() {
 }
 
 func restart() {
+	defer l.CaptureAndRepanic()
 	l.Infoln("Restarting")
 	if os.Getenv("SMF_FMRI") != "" || os.Getenv("STNORESTART") != "" {
 		// Solaris SMF
@@ -773,6 +777,7 @@ func shutdown() {
 var saveConfigCh = make(chan struct{})
 
 func saveConfigLoop(cfgFile string) {
+	defer l.CaptureAndRepanic()
 	for _ = range saveConfigCh {
 		fd, err := os.Create(cfgFile + ".tmp")
 		if err != nil {
@@ -805,6 +810,7 @@ func saveConfig() {
 }
 
 func listenConnect(myID protocol.NodeID, m *model.Model, tlsCfg *tls.Config) {
+	defer l.CaptureAndRepanic()
 	var conns = make(chan *tls.Conn)
 
 	// Listen
@@ -891,6 +897,7 @@ next:
 }
 
 func listenTLS(conns chan *tls.Conn, addr string, tlsCfg *tls.Config) {
+	defer l.CaptureAndRepanic()
 	if debugNet {
 		l.Debugln("listening on", addr)
 	}
@@ -928,6 +935,7 @@ func listenTLS(conns chan *tls.Conn, addr string, tlsCfg *tls.Config) {
 }
 
 func dialTLS(m *model.Model, conns chan *tls.Conn, tlsCfg *tls.Config) {
+	defer l.CaptureAndRepanic()
 	var delay time.Duration = 1 * time.Second
 	for {
 	nextNode:
@@ -1181,6 +1189,7 @@ func overrideGUIConfig(originalCfg config.GUIConfiguration, address, authenticat
 }
 
 func standbyMonitor() {
+	defer l.CaptureAndRepanic()
 	now := time.Now()
 	for {
 		time.Sleep(10 * time.Second)
