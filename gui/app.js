@@ -15,9 +15,10 @@ syncthing.config(function ($httpProvider, $translateProvider) {
     $httpProvider.defaults.xsrfCookieName = 'CSRF-Token';
 
     $translateProvider.useStaticFilesLoader({
-        prefix: 'lang-',
+        prefix: 'lang/',
         suffix: '.json'
     });
+    $translateProvider.determinePreferredLanguage();
 });
 
 syncthing.controller('EventCtrl', function ($scope, $http) {
@@ -82,37 +83,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.upgradeInfo = {};
     $scope.stats = {};
 
-    $http.get(urlbase+"/lang").success(function (langs) {
-        // Find the first language in the list provided by the user's browser
-        // that is a prefix of a language we have available. That is, "en"
-        // sent by the browser will match "en" or "en-US", while "zh-TW" will
-        // match only "zh-TW" and not "zh-CN".
-
-        var lang, matching;
-        for (var i = 0; i < langs.length; i++) {
-            lang = langs[i];
-            if (lang.length < 2) {
-                continue;
-            }
-            matching = validLangs.filter(function (possibleLang) {
-                // The langs returned by the /rest/langs call will be in lower
-                // case. We compare to the lowercase version of the language
-                // code we have as well.
-                possibleLang = possibleLang.toLowerCase()
-                if (possibleLang.length > lang.length) {
-                    return possibleLang.indexOf(lang) == 0;
-                } else {
-                    return lang.indexOf(possibleLang) == 0;
-                }
-            });
-            if (matching.length >= 1) {
-                $translate.use(matching[0]);
-                return;
-            }
-        }
-        // Fallback if nothing matched
-        $translate.use("en");
-    })
 
     $(window).bind('beforeunload', function() {
         navigatingAway = true;
