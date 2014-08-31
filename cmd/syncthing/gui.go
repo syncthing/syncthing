@@ -145,6 +145,9 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	// protected, other requests will grant cookies.
 	handler := csrfMiddleware("/rest", mux)
 
+	// Add our version as a header to responses
+	handler = withVersionMiddleware(handler)
+
 	// Wrap everything in basic auth, if user/password is set.
 	if len(cfg.User) > 0 {
 		handler = basicAuthMiddleware(cfg.User, cfg.Password, handler)
@@ -170,6 +173,13 @@ func getPostHandler(get, post http.Handler) http.Handler {
 func noCacheMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
+		h.ServeHTTP(w, r)
+	})
+}
+
+func withVersionMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Syncthing-Version", Version)
 		h.ServeHTTP(w, r)
 	})
 }
