@@ -38,7 +38,7 @@
     "Idle": "Inactivo",
     "Ignore Permissions": "Ignorar permisos",
     "Keep Versions": "Conservar versiones",
-    "Last seen": "Last seen",
+    "Last seen": "Visto por ultima vez",
     "Latest Release": "Última versión",
     "Local Discovery": "Búsqueda en red local",
     "Local Discovery Port": "Puerto de búsqueda de red local",
@@ -47,7 +47,7 @@
     "Max File Change Rate (KiB/s)": "Tasa máxima de cambios (KiB/s)",
     "Max Outstanding Requests": "Cantidad máxima de peticiones pendientes",
     "Maximum Age": "Maximum Age",
-    "Never": "Never",
+    "Never": "Nunca",
     "No": "No",
     "No File Versioning": "No File Versioning",
     "Node ID": "Nodo ID",
@@ -127,11 +127,11 @@
     "Use Compression": "Usar compresión",
     "Use HTTPS for GUI": "Usar HTTPS para la GUI",
     "Version": "Versión",
-    "Versions Path": "Versions Path",
+    "Versions Path": "Ruta de versiones",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.",
     "When adding a new node, keep in mind that this node must be added on the other side too.": "Al agregar un nuevo nodo, recuerde que este nodo debe ser agregado en el otro lado también.",
     "When adding a new repository, keep in mind that the Repository ID is used to tie repositories together between nodes. They are case sensitive and must match exactly between all nodes.": "Al agregar un nuevo repositorio, tenga en mente que el ID de repositorio se utiliza para ligar los repositorios entre nodos. Distingue mayúsculas y minúsculas y debe ser exactamente igual en todos los nodos.",
     "Yes": "Si",
     "You must keep at least one version.": "Debe mantener al menos una versión",
-    "items": "items"
+    "items": "Articulos"
 }

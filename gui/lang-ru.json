@@ -47,7 +47,7 @@
     "Max File Change Rate (KiB/s)": "Максимальная скорость изменения файлов (KiB/s)",
     "Max Outstanding Requests": "Максимальное количество исходящих запросов",
     "Maximum Age": "Максимальный срок",
-    "Never": "Never",
+    "Never": "Никогда",
     "No": "Нет",
     "No File Versioning": "Без управления версиями файлов",
     "Node ID": "ID Узла",
