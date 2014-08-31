@@ -22,6 +22,7 @@ type Interface interface {
 }
 
 func genericReader(conn *net.UDPConn, outbox chan<- recv) {
+	defer l.CaptureAndRepanic()
 	bs := make([]byte, 65536)
 	for {
 		n, addr, err := conn.ReadFrom(bs)
