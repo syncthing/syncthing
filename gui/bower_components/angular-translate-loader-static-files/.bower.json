@@ -1,0 +1,19 @@
+{
+  "name": "angular-translate-loader-static-files",
+  "version": "2.2.0",
+  "main": "./angular-translate-loader-static-files.js",
+  "dependencies": {
+    "angular-translate": "~2.2.0"
+  },
+  "homepage": "https://github.com/PascalPrecht/bower-angular-translate-loader-static-files",
+  "_release": "2.2.0",
+  "_resolution": {
+    "type": "version",
+    "tag": "2.2.0",
+    "commit": "6f0cbc619d478b371000aab3a0720bf93b556a63"
+  },
+  "_source": "git://github.com/PascalPrecht/bower-angular-translate-loader-static-files.git",
+  "_target": "~2.2.0",
+  "_originalSource": "angular-translate-loader-static-files",
+  "_direct": true
+}

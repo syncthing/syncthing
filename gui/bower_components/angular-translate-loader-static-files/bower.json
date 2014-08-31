@@ -1,0 +1,8 @@
+{
+  "name": "angular-translate-loader-static-files",
+  "version": "2.2.0",
+  "main": "./angular-translate-loader-static-files.js",
+  "dependencies": {
+    "angular-translate": "~2.2.0"
+  }
+}
