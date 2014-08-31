@@ -209,9 +209,11 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 // Returns statistics about each node
 func (m *Model) NodeStatistics() map[string]stats.NodeStatistics {
 	var res = make(map[string]stats.NodeStatistics)
+	m.rmut.RLock()
 	for _, node := range m.cfg.Nodes {
 		res[node.NodeID.String()] = m.nodeStatRefs[node.NodeID].GetStatistics()
 	}
+	m.rmut.RUnlock()
 	return res
 }
 
