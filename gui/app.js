@@ -737,9 +737,15 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             $scope.currentRepo.FileVersioningSelector = "none";
         }
         $scope.currentRepo.simpleKeep = $scope.currentRepo.simpleKeep || 5;
-        $scope.currentRepo.staggeredMaxAge = $scope.currentRepo.staggeredMaxAge || 365;
         $scope.currentRepo.staggeredCleanInterval = $scope.currentRepo.staggeredCleanInterval || 3600;
         $scope.currentRepo.staggeredVersionsPath = $scope.currentRepo.staggeredVersionsPath || "";
+
+        // staggeredMaxAge can validly be zero, which we should not replace
+        // with the default value of 365. So only set the default if it's
+        // actually undefined.
+        if (typeof $scope.currentRepo.staggeredMaxAge === 'undefined') {
+            $scope.currentRepo.staggeredMaxAge = 365;
+        }
 
         $scope.editingExisting = true;
         $scope.repoEditor.$setPristine();
