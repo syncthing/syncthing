@@ -71,6 +71,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 
 	var ignores []*regexp.Regexp
 	go func() {
+		defer l.CaptureAndRepanic()
 		filepath.Walk(w.Dir, w.loadIgnoreFiles(w.Dir, &ignores))
 
 		hashFiles := w.walkAndHashFiles(files, ignores)
