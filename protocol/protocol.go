@@ -219,6 +219,7 @@ func (c *rawConnection) Request(repo string, name string, offset int64, size int
 
 // ClusterConfig send the cluster configuration message to the peer and returns any error
 func (c *rawConnection) ClusterConfig(config ClusterConfigMessage) {
+	defer l.CaptureAndRepanic()
 	c.send(-1, messageTypeClusterConfig, config)
 }
 
@@ -245,6 +246,7 @@ func (c *rawConnection) ping() bool {
 }
 
 func (c *rawConnection) readerLoop() (err error) {
+	defer l.CaptureAndRepanic()
 	defer func() {
 		c.close(err)
 	}()
@@ -414,6 +416,7 @@ func (c *rawConnection) handleIndexUpdate(im IndexMessage) {
 }
 
 func (c *rawConnection) handleRequest(msgID int, req RequestMessage) {
+	defer l.CaptureAndRepanic()
 	data, _ := c.receiver.Request(c.id, req.Repository, req.Name, int64(req.Offset), int(req.Size))
 
 	c.send(msgID, messageTypeResponse, ResponseMessage{data})
@@ -464,6 +467,7 @@ func (c *rawConnection) send(msgID int, msgType int, msg encodable) bool {
 }
 
 func (c *rawConnection) writerLoop() {
+	defer l.CaptureAndRepanic()
 	var msgBuf = make([]byte, 8) // buffer for wire format message, kept and reused
 	var uncBuf []byte            // buffer for uncompressed message, kept and reused
 	for {
@@ -556,6 +560,7 @@ func (c *rawConnection) close(err error) {
 }
 
 func (c *rawConnection) idGenerator() {
+	defer l.CaptureAndRepanic()
 	nextID := 0
 	for {
 		nextID = (nextID + 1) & 0xfff
@@ -568,6 +573,7 @@ func (c *rawConnection) idGenerator() {
 }
 
 func (c *rawConnection) pingerLoop() {
+	defer l.CaptureAndRepanic()
 	var rc = make(chan bool, 1)
 	ticker := time.Tick(pingIdleTime / 2)
 	for {
@@ -586,6 +592,7 @@ func (c *rawConnection) pingerLoop() {
 				continue
 			}
 			go func() {
+				defer l.CaptureAndRepanic()
 				if debug {
 					l.Debugln(c.id, "ping ->")
 				}
