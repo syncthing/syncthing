@@ -89,7 +89,7 @@ table.table-condensed td {
 .panel-success {
     border-color: #29b74e;
 }
-.panel-success>.panel-heading {
+.alert-success, .panel-success>.panel-heading {
     color: #fff;
     background-color: #2ecc71;
     border-color: #29b74e;
@@ -98,8 +98,26 @@ table.table-condensed td {
 .panel-info {
     border-color: #7f4bab;
 }
-.panel-info>.panel-heading {
+.alert-info, .panel-info>.panel-heading {
     color: #fff;
     background-color: #9b59b6;
     border-color: #7f4bab;
+}
+
+.panel-warning {
+    border-color: #da8f0d;
+}
+.alert-warning, .panel-warning>.panel-heading {
+    background-color:#f1c40f;
+    border-color:#da8f0d;
+    color:#fff;
+}
+
+.panel-danger {
+    border-color: #e42533;
+}
+.alert-danger, .panel-danger>.panel-heading {
+    color:#fff;
+    background-color:#e74c3c;
+    border-color:#e42533;
 }
