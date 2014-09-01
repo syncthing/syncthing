@@ -591,6 +591,7 @@ func ldbWithNeed(db *leveldb.DB, repo, node []byte, truncate bool, fn fileIterat
 	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
 	defer dbi.Release()
 
+outer:
 	for dbi.Next() {
 		var vl versionList
 		err := vl.UnmarshalXDR(dbi.Value())
@@ -616,28 +617,41 @@ func ldbWithNeed(db *leveldb.DB, repo, node []byte, truncate bool, fn fileIterat
 
 		if need || !have {
 			name := globalKeyName(dbi.Key())
-			fk := nodeKey(repo, vl.versions[0].node, name)
-			bs, err := snap.Get(fk, nil)
-			if err != nil {
-				panic(err)
-			}
+			needVersion := vl.versions[0].version
+		inner:
+			for i := range vl.versions {
+				if vl.versions[i].version != needVersion {
+					// We haven't found a valid copy of the file with the needed version.
+					continue outer
+				}
+				fk := nodeKey(repo, vl.versions[i].node, name)
+				bs, err := snap.Get(fk, nil)
+				if err != nil {
+					panic(err)
+				}
 
-			gf, err := unmarshalTrunc(bs, truncate)
-			if err != nil {
-				panic(err)
-			}
+				gf, err := unmarshalTrunc(bs, truncate)
+				if err != nil {
+					panic(err)
+				}
 
-			if gf.IsDeleted() && !have {
-				// We don't need deleted files that we don't have
-				continue
-			}
+				if gf.IsInvalid() {
+					// The file is marked invalid for whatever reason, don't use it.
+					continue inner
+				}
 
-			if debug {
-				l.Debugf("need repo=%q node=%v name=%q need=%v have=%v haveV=%d globalV=%d", repo, protocol.NodeIDFromBytes(node), name, need, have, haveVersion, vl.versions[0].version)
-			}
+				if gf.IsDeleted() && !have {
+					// We don't need deleted files that we don't have
+					continue outer
+				}
 
-			if cont := fn(gf); !cont {
-				return
+				if debug {
+					l.Debugf("need repo=%q node=%v name=%q need=%v have=%v haveV=%d globalV=%d", repo, protocol.NodeIDFromBytes(node), name, need, have, haveVersion, vl.versions[0].version)
+				}
+
+				if cont := fn(gf); !cont {
+					return
+				}
 			}
 		}
 	}

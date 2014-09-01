@@ -39,6 +39,10 @@ func (f FileInfo) IsDeleted() bool {
 	return IsDeleted(f.Flags)
 }
 
+func (f FileInfo) IsInvalid() bool {
+	return IsInvalid(f.Flags)
+}
+
 // Used for unmarshalling a FileInfo structure but skipping the actual block list
 type FileInfoTruncated struct {
 	Name         string // max:8192
@@ -65,9 +69,14 @@ func (f FileInfoTruncated) IsDeleted() bool {
 	return IsDeleted(f.Flags)
 }
 
+func (f FileInfoTruncated) IsInvalid() bool {
+	return IsInvalid(f.Flags)
+}
+
 type FileIntf interface {
 	Size() int64
 	IsDeleted() bool
+	IsInvalid() bool
 }
 
 type BlockInfo struct {

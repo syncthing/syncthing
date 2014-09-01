@@ -18,10 +18,11 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
-var remoteNode protocol.NodeID
+var remoteNode0, remoteNode1 protocol.NodeID
 
 func init() {
-	remoteNode, _ = protocol.NodeIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
+	remoteNode0, _ = protocol.NodeIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
+	remoteNode1, _ = protocol.NodeIDFromString("I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU")
 }
 
 func genBlocks(n int) []protocol.BlockInfo {
@@ -81,6 +82,16 @@ func (l fileList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
 }
 
+func (l fileList) String() string {
+	var b bytes.Buffer
+	b.WriteString("[]protocol.FileList{\n")
+	for _, f := range l {
+		fmt.Fprintf(&b, "  %q: #%d, %d bytes, %d blocks\n", f.Name, f.Version, f.Size(), len(f.Blocks))
+	}
+	b.WriteString("}")
+	return b.String()
+}
+
 func TestGlobalSet(t *testing.T) {
 	lamport.Default = lamport.Clock{}
 
@@ -91,20 +102,20 @@ func TestGlobalSet(t *testing.T) {
 
 	m := files.NewSet("test", db)
 
-	local0 := []protocol.FileInfo{
+	local0 := fileList{
 		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
 		protocol.FileInfo{Name: "b", Version: 1000, Blocks: genBlocks(2)},
 		protocol.FileInfo{Name: "c", Version: 1000, Blocks: genBlocks(3)},
 		protocol.FileInfo{Name: "d", Version: 1000, Blocks: genBlocks(4)},
 		protocol.FileInfo{Name: "z", Version: 1000, Blocks: genBlocks(8)},
 	}
-	local1 := []protocol.FileInfo{
+	local1 := fileList{
 		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
 		protocol.FileInfo{Name: "b", Version: 1000, Blocks: genBlocks(2)},
 		protocol.FileInfo{Name: "c", Version: 1000, Blocks: genBlocks(3)},
 		protocol.FileInfo{Name: "d", Version: 1000, Blocks: genBlocks(4)},
 	}
-	localTot := []protocol.FileInfo{
+	localTot := fileList{
 		local0[0],
 		local0[1],
 		local0[2],
@@ -112,76 +123,76 @@ func TestGlobalSet(t *testing.T) {
 		protocol.FileInfo{Name: "z", Version: 1001, Flags: protocol.FlagDeleted},
 	}
 
-	remote0 := []protocol.FileInfo{
+	remote0 := fileList{
 		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
 		protocol.FileInfo{Name: "b", Version: 1000, Blocks: genBlocks(2)},
 		protocol.FileInfo{Name: "c", Version: 1002, Blocks: genBlocks(5)},
 	}
-	remote1 := []protocol.FileInfo{
+	remote1 := fileList{
 		protocol.FileInfo{Name: "b", Version: 1001, Blocks: genBlocks(6)},
 		protocol.FileInfo{Name: "e", Version: 1000, Blocks: genBlocks(7)},
 	}
-	remoteTot := []protocol.FileInfo{
+	remoteTot := fileList{
 		remote0[0],
 		remote1[0],
 		remote0[2],
 		remote1[1],
 	}
 
-	expectedGlobal := []protocol.FileInfo{
-		remote0[0],
-		remote1[0],
-		remote0[2],
-		localTot[3],
-		remote1[1],
-		localTot[4],
+	expectedGlobal := fileList{
+		remote0[0],  // a
+		remote1[0],  // b
+		remote0[2],  // c
+		localTot[3], // d
+		remote1[1],  // e
+		localTot[4], // z
 	}
 
-	expectedLocalNeed := []protocol.FileInfo{
+	expectedLocalNeed := fileList{
 		remote1[0],
 		remote0[2],
 		remote1[1],
 	}
 
-	expectedRemoteNeed := []protocol.FileInfo{
+	expectedRemoteNeed := fileList{
 		local0[3],
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local0)
 	m.ReplaceWithDelete(protocol.LocalNodeID, local1)
-	m.Replace(remoteNode, remote0)
-	m.Update(remoteNode, remote1)
+	m.Replace(remoteNode0, remote0)
+	m.Update(remoteNode0, remote1)
 
-	g := globalList(m)
-	sort.Sort(fileList(g))
+	g := fileList(globalList(m))
+	sort.Sort(g)
 
 	if fmt.Sprint(g) != fmt.Sprint(expectedGlobal) {
 		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", g, expectedGlobal)
 	}
 
-	h := haveList(m, protocol.LocalNodeID)
-	sort.Sort(fileList(h))
+	h := fileList(haveList(m, protocol.LocalNodeID))
+	sort.Sort(h)
 
 	if fmt.Sprint(h) != fmt.Sprint(localTot) {
 		t.Errorf("Have incorrect;\n A: %v !=\n E: %v", h, localTot)
 	}
 
-	h = haveList(m, remoteNode)
-	sort.Sort(fileList(h))
+	h = fileList(haveList(m, remoteNode0))
+	sort.Sort(h)
 
 	if fmt.Sprint(h) != fmt.Sprint(remoteTot) {
 		t.Errorf("Have incorrect;\n A: %v !=\n E: %v", h, remoteTot)
 	}
 
-	n := needList(m, protocol.LocalNodeID)
-	sort.Sort(fileList(n))
+	n := fileList(needList(m, protocol.LocalNodeID))
+	sort.Sort(n)
 
 	if fmt.Sprint(n) != fmt.Sprint(expectedLocalNeed) {
 		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", n, expectedLocalNeed)
 	}
 
-	n = needList(m, remoteNode)
-	sort.Sort(fileList(n))
+	n = fileList(needList(m, remoteNode0))
+	sort.Sort(n)
 
 	if fmt.Sprint(n) != fmt.Sprint(expectedRemoteNeed) {
 		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", n, expectedRemoteNeed)
@@ -192,7 +203,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, localTot[1])
 	}
 
-	f = m.Get(remoteNode, "b")
+	f = m.Get(remoteNode0, "b")
 	if fmt.Sprint(f) != fmt.Sprint(remote1[0]) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, remote1[0])
 	}
@@ -212,18 +223,60 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("GetGlobal incorrect;\n A: %v !=\n E: %v", f, protocol.FileInfo{})
 	}
 
-	av := []protocol.NodeID{protocol.LocalNodeID, remoteNode}
+	av := []protocol.NodeID{protocol.LocalNodeID, remoteNode0}
 	a := m.Availability("a")
 	if !(len(a) == 2 && (a[0] == av[0] && a[1] == av[1] || a[0] == av[1] && a[1] == av[0])) {
 		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, av)
 	}
 	a = m.Availability("b")
-	if len(a) != 1 || a[0] != remoteNode {
-		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, remoteNode)
+	if len(a) != 1 || a[0] != remoteNode0 {
+		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, remoteNode0)
 	}
 	a = m.Availability("d")
 	if len(a) != 1 || a[0] != protocol.LocalNodeID {
 		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, protocol.LocalNodeID)
+	}
+}
+
+func TestNeedWithInvalid(t *testing.T) {
+	lamport.Default = lamport.Clock{}
+
+	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := files.NewSet("test", db)
+
+	localHave := fileList{
+		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
+	}
+	remote0Have := fileList{
+		protocol.FileInfo{Name: "b", Version: 1001, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Version: 1002, Blocks: genBlocks(5), Flags: protocol.FlagInvalid},
+		protocol.FileInfo{Name: "d", Version: 1003, Blocks: genBlocks(7)},
+	}
+	remote1Have := fileList{
+		protocol.FileInfo{Name: "c", Version: 1002, Blocks: genBlocks(7)},
+		protocol.FileInfo{Name: "d", Version: 1003, Blocks: genBlocks(5), Flags: protocol.FlagInvalid},
+		protocol.FileInfo{Name: "e", Version: 1004, Blocks: genBlocks(5), Flags: protocol.FlagInvalid},
+	}
+
+	expectedNeed := fileList{
+		protocol.FileInfo{Name: "b", Version: 1001, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Version: 1002, Blocks: genBlocks(7)},
+		protocol.FileInfo{Name: "d", Version: 1003, Blocks: genBlocks(7)},
+	}
+
+	s.ReplaceWithDelete(protocol.LocalNodeID, localHave)
+	s.Replace(remoteNode0, remote0Have)
+	s.Replace(remoteNode1, remote1Have)
+
+	need := fileList(needList(s, protocol.LocalNodeID))
+	sort.Sort(need)
+
+	if fmt.Sprint(need) != fmt.Sprint(expectedNeed) {
+		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", need, expectedNeed)
 	}
 }
 
@@ -332,7 +385,7 @@ func Benchmark10kUpdateChg(b *testing.B) {
 	}
 
 	m := files.NewSet("test", db)
-	m.Replace(remoteNode, remote)
+	m.Replace(remoteNode0, remote)
 
 	var local []protocol.FileInfo
 	for i := 0; i < 10000; i++ {
@@ -363,7 +416,7 @@ func Benchmark10kUpdateSme(b *testing.B) {
 		b.Fatal(err)
 	}
 	m := files.NewSet("test", db)
-	m.Replace(remoteNode, remote)
+	m.Replace(remoteNode0, remote)
 
 	var local []protocol.FileInfo
 	for i := 0; i < 10000; i++ {
@@ -390,7 +443,7 @@ func Benchmark10kNeed2k(b *testing.B) {
 	}
 
 	m := files.NewSet("test", db)
-	m.Replace(remoteNode, remote)
+	m.Replace(remoteNode0, remote)
 
 	var local []protocol.FileInfo
 	for i := 0; i < 8000; i++ {
@@ -423,7 +476,7 @@ func Benchmark10kHaveFullList(b *testing.B) {
 	}
 
 	m := files.NewSet("test", db)
-	m.Replace(remoteNode, remote)
+	m.Replace(remoteNode0, remote)
 
 	var local []protocol.FileInfo
 	for i := 0; i < 2000; i++ {
@@ -456,7 +509,7 @@ func Benchmark10kGlobal(b *testing.B) {
 	}
 
 	m := files.NewSet("test", db)
-	m.Replace(remoteNode, remote)
+	m.Replace(remoteNode0, remote)
 
 	var local []protocol.FileInfo
 	for i := 0; i < 2000; i++ {
@@ -507,8 +560,8 @@ func TestGlobalReset(t *testing.T) {
 		t.Errorf("Global incorrect;\n%v !=\n%v", g, local)
 	}
 
-	m.Replace(remoteNode, remote)
-	m.Replace(remoteNode, nil)
+	m.Replace(remoteNode0, remote)
+	m.Replace(remoteNode0, nil)
 
 	g = globalList(m)
 	sort.Sort(fileList(g))
@@ -547,7 +600,7 @@ func TestNeed(t *testing.T) {
 	}
 
 	m.ReplaceWithDelete(protocol.LocalNodeID, local)
-	m.Replace(remoteNode, remote)
+	m.Replace(remoteNode0, remote)
 
 	need := needList(m, protocol.LocalNodeID)
 
@@ -618,7 +671,7 @@ func TestListDropRepo(t *testing.T) {
 		protocol.FileInfo{Name: "e", Version: 1002},
 		protocol.FileInfo{Name: "f", Version: 1002},
 	}
-	s1.Replace(remoteNode, local2)
+	s1.Replace(remoteNode0, local2)
 
 	// Check that we have both repos and their data is in the global list
 
@@ -704,7 +757,7 @@ func TestStressGlobalVersion(t *testing.T) {
 	m := files.NewSet("test", db)
 
 	done := make(chan struct{})
-	go stressWriter(m, remoteNode, set1, nil, done)
+	go stressWriter(m, remoteNode0, set1, nil, done)
 	go stressWriter(m, protocol.LocalNodeID, set2, nil, done)
 
 	t0 := time.Now()
