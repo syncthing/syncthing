@@ -5,13 +5,10 @@
 package main
 
 import (
-	"bytes"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"mime"
 	"net"
 	"net/http"
@@ -44,7 +41,6 @@ var (
 	configInSync = true
 	guiErrors    = []guiError{}
 	guiErrorsMut sync.Mutex
-	apiKey       string
 	modt         = time.Now().UTC().Format(http.TimeFormat)
 	eventSub     *events.BufferedSubscription
 )
@@ -87,9 +83,6 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 			return err
 		}
 	}
-
-	apiKey = cfg.APIKey
-	loadCsrfTokens()
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
@@ -141,14 +134,14 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware("/rest", mux)
+	handler := csrfMiddleware("/rest", cfg.APIKey, mux)
 
 	// Add our version as a header to responses
 	handler = withVersionMiddleware(handler)
 
 	// Wrap everything in basic auth, if user/password is set.
 	if len(cfg.User) > 0 {
-		handler = basicAuthMiddleware(cfg.User, cfg.Password, handler)
+		handler = basicAuthAndSessionMiddleware(cfg, handler)
 	}
 
 	go http.Serve(listener, handler)
@@ -598,56 +591,6 @@ func restGetPeerCompletion(m *model.Model, w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(comp)
-}
-
-func basicAuthMiddleware(username string, passhash string, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if validAPIKey(r.Header.Get("X-API-Key")) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		error := func() {
-			time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
-			w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
-			http.Error(w, "Not Authorized", http.StatusUnauthorized)
-		}
-
-		hdr := r.Header.Get("Authorization")
-		if !strings.HasPrefix(hdr, "Basic ") {
-			error()
-			return
-		}
-
-		hdr = hdr[6:]
-		bs, err := base64.StdEncoding.DecodeString(hdr)
-		if err != nil {
-			error()
-			return
-		}
-
-		fields := bytes.SplitN(bs, []byte(":"), 2)
-		if len(fields) != 2 {
-			error()
-			return
-		}
-
-		if string(fields[0]) != username {
-			error()
-			return
-		}
-
-		if err := bcrypt.CompareHashAndPassword([]byte(passhash), fields[1]); err != nil {
-			error()
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func validAPIKey(k string) bool {
-	return len(apiKey) > 0 && k == apiKey
 }
 
 func embeddedStatic(assetDir string) http.Handler {

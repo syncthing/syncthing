@@ -25,10 +25,11 @@ var csrfMut sync.Mutex
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
 // is currently set.
-func csrfMiddleware(prefix string, next http.Handler) http.Handler {
+func csrfMiddleware(prefix, apiKey string, next http.Handler) http.Handler {
+	loadCsrfTokens()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Allow requests carrying a valid API key
-		if validAPIKey(r.Header.Get("X-API-Key")) {
+		if apiKey != "" && r.Header.Get("X-API-Key") == apiKey {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -76,13 +77,7 @@ func validCsrfToken(token string) bool {
 }
 
 func newCsrfToken() string {
-	bs := make([]byte, 30)
-	_, err := rand.Reader.Read(bs)
-	if err != nil {
-		l.Fatalln(err)
-	}
-
-	token := base64.StdEncoding.EncodeToString(bs)
+	token := randomString(30)
 
 	csrfMut.Lock()
 	csrfTokens = append(csrfTokens, token)
@@ -133,4 +128,14 @@ func loadCsrfTokens() {
 	for s.Scan() {
 		csrfTokens = append(csrfTokens, s.Text())
 	}
+}
+
+func randomString(len int) string {
+	bs := make([]byte, len)
+	_, err := rand.Reader.Read(bs)
+	if err != nil {
+		l.Fatalln(err)
+	}
+
+	return base64.StdEncoding.EncodeToString(bs)
 }
