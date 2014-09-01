@@ -483,7 +483,13 @@ nextRepo:
 	// start needing a bunch of files which are nowhere to be found. This
 	// needs to be changed when we correctly do persistent indexes.
 	for _, repoCfg := range cfg.Repositories {
+		if repoCfg.Invalid != "" {
+			continue
+		}
 		for _, node := range repoCfg.NodeIDs() {
+			if node == myID {
+				continue
+			}
 			m.Index(node, repoCfg.ID, nil)
 		}
 	}
