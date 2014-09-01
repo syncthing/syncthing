@@ -468,7 +468,7 @@ nextRepo:
 				proto = "https"
 			}
 
-			l.Infof("Starting web GUI on %s://%s:%d/", proto, hostShow, addr.Port)
+			l.Infof("Starting web GUI on %s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			err := startGUI(guiCfg, os.Getenv("STGUIASSETS"), m)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
