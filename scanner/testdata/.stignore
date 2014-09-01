@@ -1,2 +1,6 @@
-.*
-quux
+#include excludes
+#include nonexistent-file
+
+bfile
+dir1/cfile
+

@@ -99,7 +99,8 @@ func (w *Walker) loadIgnoreFiles(dir string, ignores *[]*regexp.Regexp) filepath
 
 		if pn, sn := filepath.Split(rn); sn == w.IgnoreFile {
 			pn := filepath.Clean(pn)
-			dirIgnores := loadIgnoreFile(p, pn)
+			filesSeen := make(map[string]map[string]bool)
+			dirIgnores := loadIgnoreFile(p, pn, filesSeen)
 			*ignores = append(*ignores, dirIgnores...)
 		}
 
@@ -107,16 +108,16 @@ func (w *Walker) loadIgnoreFiles(dir string, ignores *[]*regexp.Regexp) filepath
 	}
 }
 
-func loadIgnoreFile(ignFile, base string) []*regexp.Regexp {
+func loadIgnoreFile(ignFile, base string, filesSeen map[string]map[string]bool) []*regexp.Regexp {
 	fd, err := os.Open(ignFile)
 	if err != nil {
 		return nil
 	}
 	defer fd.Close()
-	return parseIgnoreFile(fd, base)
+	return parseIgnoreFile(fd, base, ignFile, filesSeen)
 }
 
-func parseIgnoreFile(fd io.Reader, base string) []*regexp.Regexp {
+func parseIgnoreFile(fd io.Reader, base, currentFile string, filesSeen map[string]map[string]bool) []*regexp.Regexp {
 	var exps []*regexp.Regexp
 	scanner := bufio.NewScanner(fd)
 	for scanner.Scan() {
@@ -148,6 +149,27 @@ func parseIgnoreFile(fd io.Reader, base string) []*regexp.Regexp {
 				continue
 			}
 			exps = append(exps, exp)
+		} else if strings.HasPrefix(line, "#include ") {
+			includeFile := filepath.Join(filepath.Dir(currentFile), strings.Replace(line, "#include ", "", 1))
+			if _, err := os.Stat(includeFile); os.IsNotExist(err) {
+				l.Infoln("Could not open ignore include file", includeFile)
+			} else {
+				seen := false
+				if seenByCurrent, ok := filesSeen[currentFile]; ok {
+					_, seen = seenByCurrent[includeFile]
+				}
+
+				if seen {
+					l.Warnf("Recursion detected while including %s from %s", includeFile, currentFile)
+				} else {
+					if filesSeen[currentFile] == nil {
+						filesSeen[currentFile] = make(map[string]bool)
+					}
+					filesSeen[currentFile][includeFile] = true
+					includes := loadIgnoreFile(includeFile, base, filesSeen)
+					exps = append(exps, includes...)
+				}
+			}
 		} else {
 			// Path name or pattern, add it so it matches files both in
 			// current directory and subdirs.

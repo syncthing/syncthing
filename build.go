@@ -163,7 +163,7 @@ func setup() {
 }
 
 func test(pkg string) {
-	runPrint("godep", "go", "test", pkg)
+	runPrint("godep", "go", "test", "-short", "-timeout", "10s", pkg)
 }
 
 func install(pkg string) {

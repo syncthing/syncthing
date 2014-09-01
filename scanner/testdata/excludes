@@ -1,0 +1,4 @@
+dir2/dfile
+#include excludes
+#include further-excludes
+#include loop-excludes
