@@ -420,6 +420,7 @@ nextRepo:
 			// that all files have been deleted which might not be the case,
 			// so mark it as invalid instead.
 			if err != nil || !fi.IsDir() {
+				l.Warnf("Stopping repository %q - directory missing, but has files in index", repo.ID)
 				cfg.Repositories[i].Invalid = "repo directory missing"
 				continue nextRepo
 			}
@@ -432,6 +433,7 @@ nextRepo:
 		if err != nil {
 			// If there was another error or we could not create the
 			// directory, the repository is invalid.
+			l.Warnf("Stopping repository %q - %v", err)
 			cfg.Repositories[i].Invalid = err.Error()
 			continue nextRepo
 		}
