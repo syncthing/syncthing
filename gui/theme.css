@@ -83,6 +83,7 @@ table.table-condensed td {
     #border-color: #29b74e;
 }
 .panel-success>.panel-heading {
+    color: #fff;
     background-color: #2ecc71;
     border-color: #29b74e;
 }
@@ -91,6 +92,7 @@ table.table-condensed td {
     #border-color: #7f4bab;
 }
 .panel-info>.panel-heading {
+    color: #fff;
     background-color: #9b59b6;
     border-color: #7f4bab;
 }
