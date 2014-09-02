@@ -16,7 +16,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -52,7 +51,15 @@ var (
 	GoArchExtra string // "", "v5", "v6", "v7"
 )
 
+const (
+	exitSuccess            = 0
+	exitError              = 1
+	exitNoUpgradeAvailable = 2
+	exitRestarting         = 3
+)
+
 var l = logger.DefaultLogger
+var innerProcess = os.Getenv("STNORESTART") != ""
 
 func init() {
 	if Version != "unknown-dev" {
@@ -80,10 +87,8 @@ var (
 	confDir      string
 	logFlags     int = log.Ltime
 	rateBucket   *ratelimit.Bucket
-	stop         = make(chan bool)
+	stop         = make(chan int)
 	discoverer   *discover.Discoverer
-	lockConn     *net.TCPListener
-	lockPort     int
 	externalPort int
 	cert         tls.Certificate
 )
@@ -152,16 +157,20 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+// Command line options
+var (
+	reset             bool
+	showVersion       bool
+	doUpgrade         bool
+	doUpgradeCheck    bool
+	noBrowser         bool
+	generateDir       string
+	guiAddress        string
+	guiAuthentication string
+	guiAPIKey         string
+)
+
 func main() {
-	var reset bool
-	var showVersion bool
-	var doUpgrade bool
-	var doUpgradeCheck bool
-	var noBrowser bool
-	var generateDir string
-	var guiAddress string
-	var guiAuthentication string
-	var guiAPIKey string
 	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
@@ -216,7 +225,7 @@ func main() {
 
 		if upgrade.CompareVersions(rel.Tag, Version) <= 0 {
 			l.Infof("No upgrade available (current %q >= latest %q).", Version, rel.Tag)
-			os.Exit(2)
+			os.Exit(exitNoUpgradeAvailable)
 		}
 
 		l.Infof("Upgrade available (current %q < latest %q)", Version, rel.Tag)
@@ -233,11 +242,20 @@ func main() {
 		}
 	}
 
-	var err error
-	lockPort, err = getLockPort()
-	if err != nil {
-		l.Fatalln("Opening lock port:", err)
+	if reset {
+		resetRepositories()
+		return
 	}
+
+	if os.Getenv("STNORESTART") != "" {
+		syncthingMain()
+	} else {
+		monitorMain()
+	}
+}
+
+func syncthingMain() {
+	var err error
 
 	if len(os.Getenv("GOGC")) == 0 {
 		debug.SetGCPercent(25)
@@ -251,7 +269,7 @@ func main() {
 
 	events.Default.Log(events.Starting, map[string]string{"home": confDir})
 
-	if _, err := os.Stat(confDir); err != nil && confDir == getDefaultConfDir() {
+	if _, err = os.Stat(confDir); err != nil && confDir == getDefaultConfDir() {
 		// We are supposed to use the default configuration directory. It
 		// doesn't exist. In the past our default has been ~/.syncthing, so if
 		// that directory exists we move it to the new default location and
@@ -344,15 +362,6 @@ func main() {
 
 		saveConfig()
 		l.Infof("Edit %s to taste or use the GUI\n", cfgFile)
-	}
-
-	if reset {
-		resetRepositories()
-		return
-	}
-
-	if len(os.Getenv("STRESTART")) > 0 {
-		waitForParentExit()
 	}
 
 	if profiler := os.Getenv("STPROFILER"); len(profiler) > 0 {
@@ -585,9 +594,10 @@ nextRepo:
 	events.Default.Log(events.StartupComplete, nil)
 	go generateEvents()
 
-	<-stop
+	code := <-stop
 
 	l.Okln("Exiting")
+	os.Exit(code)
 }
 
 func generateEvents() {
@@ -595,25 +605,6 @@ func generateEvents() {
 		time.Sleep(300 * time.Second)
 		events.Default.Log(events.Ping, nil)
 	}
-}
-
-func waitForParentExit() {
-	l.Infoln("Waiting for parent to exit...")
-	lockPortStr := os.Getenv("STRESTART")
-	lockPort, err := strconv.Atoi(lockPortStr)
-	if err != nil {
-		l.Warnln("Invalid lock port %q: %v", lockPortStr, err)
-	}
-	// Wait for the listen address to become free, indicating that the parent has exited.
-	for {
-		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", lockPort))
-		if err == nil {
-			ln.Close()
-			break
-		}
-		time.Sleep(250 * time.Millisecond)
-	}
-	l.Infoln("Continuing")
 }
 
 func setupUPnP() {
@@ -742,40 +733,12 @@ func archiveLegacyConfig() {
 
 func restart() {
 	l.Infoln("Restarting")
-	if os.Getenv("SMF_FMRI") != "" || os.Getenv("STNORESTART") != "" {
-		// Solaris SMF
-		l.Infoln("Service manager detected; exit instead of restart")
-		stop <- true
-		return
-	}
-
-	env := os.Environ()
-	newEnv := make([]string, 0, len(env))
-	for _, s := range env {
-		if !strings.HasPrefix(s, "STRESTART=") {
-			newEnv = append(newEnv, s)
-		}
-	}
-	newEnv = append(newEnv, fmt.Sprintf("STRESTART=%d", lockPort))
-
-	pgm, err := exec.LookPath(os.Args[0])
-	if err != nil {
-		l.Warnln("Cannot restart:", err)
-		return
-	}
-	proc, err := os.StartProcess(pgm, os.Args, &os.ProcAttr{
-		Env:   newEnv,
-		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
-	})
-	if err != nil {
-		l.Fatalln(err)
-	}
-	proc.Release()
-	stop <- true
+	stop <- exitRestarting
 }
 
 func shutdown() {
-	stop <- true
+	l.Infoln("Shutting down")
+	stop <- exitSuccess
 }
 
 var saveConfigCh = make(chan struct{})
@@ -1126,16 +1089,6 @@ func getFreePort(host string, ports ...int) (int, error) {
 	}
 	addr := c.Addr().(*net.TCPAddr)
 	c.Close()
-	return addr.Port, nil
-}
-
-func getLockPort() (int, error) {
-	var err error
-	lockConn, err = net.ListenTCP("tcp", &net.TCPAddr{IP: net.IP{127, 0, 0, 1}})
-	if err != nil {
-		return 0, err
-	}
-	addr := lockConn.Addr().(*net.TCPAddr)
 	return addr.Port, nil
 }
 
