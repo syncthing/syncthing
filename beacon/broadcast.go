@@ -42,6 +42,7 @@ func (b *Broadcast) Recv() ([]byte, net.Addr) {
 }
 
 func (b *Broadcast) writer() {
+	defer l.CaptureAndRepanic()
 	for bs := range b.inbox {
 
 		addrs, err := net.InterfaceAddrs()

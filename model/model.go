@@ -621,6 +621,7 @@ func sendIndexes(conn protocol.Connection, repo string, fs *files.Set) {
 }
 
 func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, repo string, fs *files.Set) (uint64, error) {
+	defer l.CaptureAndRepanic()
 	nodeID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -745,6 +746,7 @@ func (m *Model) ScanRepos() {
 	for _, repo := range repos {
 		repo := repo
 		go func() {
+			defer l.CaptureAndRepanic()
 			err := m.ScanRepo(repo)
 			if err != nil {
 				invalidateRepo(m.cfg, repo, err)
@@ -771,6 +773,7 @@ func (m *Model) CleanRepos() {
 			TempNamer: defTempNamer,
 		}
 		go func() {
+			defer l.CaptureAndRepanic()
 			w.CleanTempFiles()
 			wg.Done()
 		}()

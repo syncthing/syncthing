@@ -23,12 +23,14 @@ func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan pr
 
 	for i := 0; i < workers; i++ {
 		go func() {
+			defer l.CaptureAndRepanic()
 			hashFile(dir, blockSize, outbox, inbox)
 			wg.Done()
 		}()
 	}
 
 	go func() {
+		defer l.CaptureAndRepanic()
 		wg.Wait()
 		close(outbox)
 	}()

@@ -16,6 +16,7 @@ func init() {
 }
 
 func trackCPUUsage() {
+	defer l.CaptureAndRepanic()
 	var prevUsage int64
 	var prevTime = time.Now().UnixNano()
 	var rusage syscall.Rusage

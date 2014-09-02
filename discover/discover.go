@@ -194,6 +194,7 @@ func (d *Discoverer) announcementPkt() []byte {
 }
 
 func (d *Discoverer) sendLocalAnnouncements() {
+	defer l.CaptureAndRepanic()
 	var addrs = resolveAddrs(d.listenAddrs)
 
 	var pkt = Announce{
@@ -218,6 +219,7 @@ func (d *Discoverer) sendLocalAnnouncements() {
 }
 
 func (d *Discoverer) sendExternalAnnouncements() {
+	defer l.CaptureAndRepanic()
 	defer d.globalWG.Done()
 
 	remote, err := net.ResolveUDPAddr("udp", d.extServer)
@@ -306,6 +308,7 @@ loop:
 }
 
 func (d *Discoverer) recvAnnouncements(b beacon.Interface) {
+	defer l.CaptureAndRepanic()
 	for {
 		buf, addr := b.Recv()
 

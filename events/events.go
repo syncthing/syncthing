@@ -190,6 +190,7 @@ func NewBufferedSubscription(s *Subscription, size int) *BufferedSubscription {
 }
 
 func (s *BufferedSubscription) pollingLoop() {
+	defer dl.CaptureAndRepanic()
 	for {
 		ev, err := s.sub.Poll(60 * time.Second)
 		if err == ErrTimeout {

@@ -38,5 +38,6 @@ func (m nativeModel) ClusterConfig(nodeID NodeID, config ClusterConfigMessage) {
 }
 
 func (m nativeModel) Close(nodeID NodeID, err error) {
+	defer l.CaptureAndRepanic()
 	m.next.Close(nodeID, err)
 }
