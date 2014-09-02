@@ -23,7 +23,7 @@ start() {
 
 stop() {
 	for i in 1 2 3 4 ; do
-		curl -HX-API-Key:abc123 -X POST "http://localhost:808$i/rest/shutdown"
+		curl -HX-API-Key:abc123 -X POST "http://127.0.0.1:808$i/rest/shutdown"
 	done
 	exit $1
 }
@@ -40,9 +40,9 @@ clean() {
 testConvergence() {
 	while true ; do
 		sleep 5
-		s1comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8082/rest/debug/peerCompletion" | ./json "$id1")
-		s2comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8083/rest/debug/peerCompletion" | ./json "$id2")
-		s3comp=$(curl -HX-API-Key:abc123 -s "http://localhost:8081/rest/debug/peerCompletion" | ./json "$id3")
+		s1comp=$(curl -HX-API-Key:abc123 -s "http://127.0.0.1:8082/rest/debug/peerCompletion" | ./json "$id1")
+		s2comp=$(curl -HX-API-Key:abc123 -s "http://127.0.0.1:8083/rest/debug/peerCompletion" | ./json "$id2")
+		s3comp=$(curl -HX-API-Key:abc123 -s "http://127.0.0.1:8081/rest/debug/peerCompletion" | ./json "$id3")
 		s1comp=${s1comp:-0}
 		s2comp=${s2comp:-0}
 		s3comp=${s3comp:-0}

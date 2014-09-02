@@ -10,8 +10,8 @@ id3=373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU
 
 stop() {
 	echo Stopping
-	curl -s -o/dev/null -HX-API-Key:abc123 -X POST http://localhost:8081/rest/shutdown
-	curl -s -o/dev/null -HX-API-Key:abc123 -X POST http://localhost:8082/rest/shutdown
+	curl -s -o/dev/null -HX-API-Key:abc123 -X POST http://127.0.0.1:8081/rest/shutdown
+	curl -s -o/dev/null -HX-API-Key:abc123 -X POST http://127.0.0.1:8082/rest/shutdown
 	exit $1
 }
 
@@ -26,14 +26,14 @@ syncthing -home h2 > 2.out 2>&1 &
 sleep 1
 
 echo Fetching CSRF tokens
-curl -s -o /dev/null http://testuser:testpass@localhost:8081/index.html
-curl -s -o /dev/null http://localhost:8082/index.html
+curl -s -o /dev/null http://testuser:testpass@127.0.0.1:8081/index.html
+curl -s -o /dev/null http://127.0.0.1:8082/index.html
 sleep 1
 
 echo Testing
-./http -target localhost:8081 -user testuser -pass testpass -csrf h1/csrftokens.txt || stop 1
-./http -target localhost:8081 -api abc123 || stop 1
-./http -target localhost:8082 -csrf h2/csrftokens.txt || stop 1
-./http -target localhost:8082 -api abc123 || stop 1
+./http -target 127.0.0.1:8081 -user testuser -pass testpass -csrf h1/csrftokens.txt || stop 1
+./http -target 127.0.0.1:8081 -api abc123 || stop 1
+./http -target 127.0.0.1:8082 -csrf h2/csrftokens.txt || stop 1
+./http -target 127.0.0.1:8082 -api abc123 || stop 1
 
 stop 0

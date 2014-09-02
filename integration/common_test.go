@@ -59,7 +59,7 @@ func (p *syncthingProcess) stop() {
 }
 
 func (p *syncthingProcess) peerCompletion() (map[string]int, error) {
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/rest/debug/peerCompletion", p.port))
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/rest/debug/peerCompletion", p.port))
 	if err != nil {
 		return nil, err
 	}
