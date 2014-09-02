@@ -30,13 +30,16 @@ const (
 
 type noCache struct{}
 
-func (noCache) SetCapacity(capacity int)               {}
-func (noCache) Capacity() int                          { return 0 }
-func (noCache) Used() int                              { return 0 }
-func (noCache) Size() int                              { return 0 }
-func (noCache) GetNamespace(id uint64) cache.Namespace { return nil }
-func (noCache) Purge(fin cache.PurgeFin)               {}
-func (noCache) Zap()                                   {}
+func (noCache) SetCapacity(capacity int)                     {}
+func (noCache) Capacity() int                                { return 0 }
+func (noCache) Used() int                                    { return 0 }
+func (noCache) Size() int                                    { return 0 }
+func (noCache) NumObjects() int                              { return 0 }
+func (noCache) GetNamespace(id uint64) cache.Namespace       { return nil }
+func (noCache) PurgeNamespace(id uint64, fin cache.PurgeFin) {}
+func (noCache) ZapNamespace(id uint64)                       {}
+func (noCache) Purge(fin cache.PurgeFin)                     {}
+func (noCache) Zap()                                         {}
 
 var NoCache cache.Cache = noCache{}
 

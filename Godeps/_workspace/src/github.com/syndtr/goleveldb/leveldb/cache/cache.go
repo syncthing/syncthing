@@ -40,9 +40,20 @@ type Cache interface {
 	// Size returns entire alive cache objects size.
 	Size() int
 
+	// NumObjects returns number of alive objects.
+	NumObjects() int
+
 	// GetNamespace gets cache namespace with the given id.
 	// GetNamespace is never return nil.
 	GetNamespace(id uint64) Namespace
+
+	// PurgeNamespace purges cache namespace with the given id from this cache tree.
+	// Also read Namespace.Purge.
+	PurgeNamespace(id uint64, fin PurgeFin)
+
+	// ZapNamespace detaches cache namespace with the given id from this cache tree.
+	// Also read Namespace.Zap.
+	ZapNamespace(id uint64)
 
 	// Purge purges all cache namespace from this cache tree.
 	// This is behave the same as calling Namespace.Purge method on all cache namespace.

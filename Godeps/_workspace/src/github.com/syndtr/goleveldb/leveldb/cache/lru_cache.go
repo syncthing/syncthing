@@ -15,11 +15,11 @@ import (
 
 // lruCache represent a LRU cache state.
 type lruCache struct {
-	mu         sync.Mutex
-	recent     lruNode
-	table      map[uint64]*lruNs
-	capacity   int
-	used, size int
+	mu                sync.Mutex
+	recent            lruNode
+	table             map[uint64]*lruNs
+	capacity          int
+	used, size, alive int
 }
 
 // NewLRUCache creates a new initialized LRU cache with the given capacity.
@@ -51,6 +51,12 @@ func (c *lruCache) Size() int {
 	return c.size
 }
 
+func (c *lruCache) NumObjects() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.alive
+}
+
 // SetCapacity set cache capacity.
 func (c *lruCache) SetCapacity(capacity int) {
 	c.mu.Lock()
@@ -75,6 +81,23 @@ func (c *lruCache) GetNamespace(id uint64) Namespace {
 	}
 	c.table[id] = ns
 	return ns
+}
+
+func (c *lruCache) ZapNamespace(id uint64) {
+	c.mu.Lock()
+	if ns, exist := c.table[id]; exist {
+		ns.zapNB()
+		delete(c.table, id)
+	}
+	c.mu.Unlock()
+}
+
+func (c *lruCache) PurgeNamespace(id uint64, fin PurgeFin) {
+	c.mu.Lock()
+	if ns, exist := c.table[id]; exist {
+		ns.purgeNB(fin)
+	}
+	c.mu.Unlock()
 }
 
 // Purge purge entire cache.
@@ -158,11 +181,12 @@ func (ns *lruNs) Get(key uint64, setf SetFunc) Handle {
 		}
 		ns.table[key] = node
 
+		ns.lru.size += charge
+		ns.lru.alive++
 		if charge > 0 {
 			node.ref++
 			node.rInsert(&ns.lru.recent)
 			ns.lru.used += charge
-			ns.lru.size += charge
 			ns.lru.evict()
 		}
 	}
@@ -322,8 +346,10 @@ func (n *lruNode) derefNB() {
 			// Remove elemement.
 			delete(n.ns.table, n.key)
 			n.ns.lru.size -= n.charge
+			n.ns.lru.alive--
 			n.fin()
 		}
+		n.value = nil
 	} else if n.ref < 0 {
 		panic("leveldb/cache: lruCache: negative node reference")
 	}

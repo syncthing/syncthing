@@ -9,6 +9,7 @@ package leveldb
 import (
 	"runtime"
 	"sync"
+	"sync/atomic"
 
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -81,7 +82,7 @@ func (db *DB) minSeq() uint64 {
 type Snapshot struct {
 	db       *DB
 	elem     *snapshotElement
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	released bool
 }
 
@@ -91,6 +92,7 @@ func (db *DB) newSnapshot() *Snapshot {
 		db:   db,
 		elem: db.acquireSnapshot(),
 	}
+	atomic.AddInt32(&db.aliveSnaps, 1)
 	runtime.SetFinalizer(snap, (*Snapshot).Release)
 	return snap
 }
@@ -105,8 +107,8 @@ func (snap *Snapshot) Get(key []byte, ro *opt.ReadOptions) (value []byte, err er
 	if err != nil {
 		return
 	}
-	snap.mu.Lock()
-	defer snap.mu.Unlock()
+	snap.mu.RLock()
+	defer snap.mu.RUnlock()
 	if snap.released {
 		err = ErrSnapshotReleased
 		return
@@ -160,6 +162,7 @@ func (snap *Snapshot) Release() {
 
 		snap.released = true
 		snap.db.releaseSnapshot(snap.elem)
+		atomic.AddInt32(&snap.db.aliveSnaps, -1)
 		snap.db = nil
 		snap.elem = nil
 	}

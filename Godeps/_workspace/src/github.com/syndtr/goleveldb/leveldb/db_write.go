@@ -75,7 +75,7 @@ func (db *DB) flush(n int) (mem *memDB, nn int, err error) {
 				mem = nil
 			}
 		}()
-		nn = mem.db.Free()
+		nn = mem.mdb.Free()
 		switch {
 		case v.tLen(0) >= kL0_SlowdownWritesTrigger && !delayed:
 			delayed = true
@@ -90,13 +90,13 @@ func (db *DB) flush(n int) (mem *memDB, nn int, err error) {
 			}
 		default:
 			// Allow memdb to grow if it has no entry.
-			if mem.db.Len() == 0 {
+			if mem.mdb.Len() == 0 {
 				nn = n
 			} else {
 				mem.decref()
 				mem, err = db.rotateMem(n)
 				if err == nil {
-					nn = mem.db.Free()
+					nn = mem.mdb.Free()
 				} else {
 					nn = 0
 				}
@@ -190,7 +190,7 @@ drain:
 			return
 		case db.journalC <- b:
 			// Write into memdb
-			b.memReplay(mem.db)
+			b.memReplay(mem.mdb)
 		}
 		// Wait for journal writer
 		select {
@@ -200,7 +200,7 @@ drain:
 		case err = <-db.journalAckC:
 			if err != nil {
 				// Revert memdb if error detected
-				b.revertMemReplay(mem.db)
+				b.revertMemReplay(mem.mdb)
 				return
 			}
 		}
@@ -209,7 +209,7 @@ drain:
 		if err != nil {
 			return
 		}
-		b.memReplay(mem.db)
+		b.memReplay(mem.mdb)
 	}
 
 	// Set last seq number.
@@ -271,7 +271,7 @@ func (db *DB) CompactRange(r util.Range) error {
 	// Check for overlaps in memdb.
 	mem := db.getEffectiveMem()
 	defer mem.decref()
-	if isMemOverlaps(db.s.icmp, mem.db, r.Start, r.Limit) {
+	if isMemOverlaps(db.s.icmp, mem.mdb, r.Start, r.Limit) {
 		// Memdb compaction.
 		if _, err := db.rotateMem(0); err != nil {
 			<-db.writeLockC

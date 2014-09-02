@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb/iterator"
@@ -35,7 +36,7 @@ type DB struct {
 
 	// MemDB.
 	memMu             sync.RWMutex
-	memPool           *util.Pool
+	memPool           chan *memdb.DB
 	mem, frozenMem    *memDB
 	journal           *journal.Writer
 	journalWriter     storage.Writer
@@ -46,6 +47,9 @@ type DB struct {
 	// Snapshot.
 	snapsMu   sync.Mutex
 	snapsRoot snapshotElement
+
+	// Stats.
+	aliveSnaps, aliveIters int32
 
 	// Write.
 	writeC       chan *Batch
@@ -80,7 +84,7 @@ func openDB(s *session) (*DB, error) {
 		// Initial sequence
 		seq: s.stSeq,
 		// MemDB
-		memPool: util.NewPool(1),
+		memPool: make(chan *memdb.DB, 1),
 		// Write
 		writeC:       make(chan *Batch),
 		writeMergedC: make(chan bool),
@@ -122,6 +126,7 @@ func openDB(s *session) (*DB, error) {
 	go db.tCompaction()
 	go db.mCompaction()
 	go db.jWriter()
+	go db.mpoolDrain()
 
 	s.logf("db@open done T·%v", time.Since(start))
 
@@ -568,7 +573,7 @@ func (db *DB) get(key []byte, seq uint64, ro *opt.ReadOptions) (value []byte, er
 		}
 		defer m.decref()
 
-		mk, mv, me := m.db.Find(ikey)
+		mk, mv, me := m.mdb.Find(ikey)
 		if me == nil {
 			ukey, _, t, ok := parseIkey(mk)
 			if ok && db.s.icmp.uCompare(ukey, key) == 0 {
@@ -657,6 +662,14 @@ func (db *DB) GetSnapshot() (*Snapshot, error) {
 //		Returns sstables list for each level.
 //	leveldb.blockpool
 //		Returns block pool stats.
+//	leveldb.cachedblock
+//		Returns size of cached block.
+//	leveldb.openedtables
+//		Returns number of opened tables.
+//	leveldb.alivesnaps
+//		Returns number of alive snapshots.
+//	leveldb.aliveiters
+//		Returns number of alive iterators.
 func (db *DB) GetProperty(name string) (value string, err error) {
 	err = db.ok()
 	if err != nil {
@@ -712,6 +725,10 @@ func (db *DB) GetProperty(name string) (value string, err error) {
 		}
 	case p == "openedtables":
 		value = fmt.Sprintf("%d", db.s.tops.cache.Size())
+	case p == "alivesnaps":
+		value = fmt.Sprintf("%d", atomic.LoadInt32(&db.aliveSnaps))
+	case p == "aliveiters":
+		value = fmt.Sprintf("%d", atomic.LoadInt32(&db.aliveIters))
 	default:
 		err = errors.New("leveldb: GetProperty: unknown property: " + name)
 	}

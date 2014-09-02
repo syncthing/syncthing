@@ -8,16 +8,16 @@ package leveldb
 
 import (
 	"sync/atomic"
+	"time"
 
 	"github.com/syndtr/goleveldb/leveldb/journal"
 	"github.com/syndtr/goleveldb/leveldb/memdb"
-	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type memDB struct {
-	pool *util.Pool
-	db   *memdb.DB
-	ref  int32
+	db  *DB
+	mdb *memdb.DB
+	ref int32
 }
 
 func (m *memDB) incref() {
@@ -26,7 +26,13 @@ func (m *memDB) incref() {
 
 func (m *memDB) decref() {
 	if ref := atomic.AddInt32(&m.ref, -1); ref == 0 {
-		m.pool.Put(m)
+		// Only put back memdb with std capacity.
+		if m.mdb.Capacity() == m.db.s.o.GetWriteBuffer() {
+			m.mdb.Reset()
+			m.db.mpoolPut(m.mdb)
+		}
+		m.db = nil
+		m.mdb = nil
 	} else if ref < 0 {
 		panic("negative memdb ref")
 	}
@@ -40,6 +46,41 @@ func (db *DB) getSeq() uint64 {
 // Atomically adds delta to seq.
 func (db *DB) addSeq(delta uint64) {
 	atomic.AddUint64(&db.seq, delta)
+}
+
+func (db *DB) mpoolPut(mem *memdb.DB) {
+	defer func() {
+		recover()
+	}()
+	select {
+	case db.memPool <- mem:
+	default:
+	}
+}
+
+func (db *DB) mpoolGet() *memdb.DB {
+	select {
+	case mem := <-db.memPool:
+		return mem
+	default:
+		return nil
+	}
+}
+
+func (db *DB) mpoolDrain() {
+	ticker := time.NewTicker(30 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			select {
+			case <-db.memPool:
+			default:
+			}
+		case _, _ = <-db.closeC:
+			close(db.memPool)
+			return
+		}
+	}
 }
 
 // Create new memdb and froze the old one; need external synchronization.
@@ -70,18 +111,15 @@ func (db *DB) newMem(n int) (mem *memDB, err error) {
 	db.journalWriter = w
 	db.journalFile = file
 	db.frozenMem = db.mem
-	mem, ok := db.memPool.Get().(*memDB)
-	if ok && mem.db.Capacity() >= n {
-		mem.db.Reset()
-		mem.incref()
-	} else {
-		mem = &memDB{
-			pool: db.memPool,
-			db:   memdb.New(db.s.icmp, maxInt(db.s.o.GetWriteBuffer(), n)),
-			ref:  1,
-		}
+	mdb := db.mpoolGet()
+	if mdb == nil || mdb.Capacity() < n {
+		mdb = memdb.New(db.s.icmp, maxInt(db.s.o.GetWriteBuffer(), n))
 	}
-	mem.incref()
+	mem = &memDB{
+		db:  db,
+		mdb: mdb,
+		ref: 2,
+	}
 	db.mem = mem
 	// The seq only incremented by the writer. And whoever called newMem
 	// should hold write lock, so no need additional synchronization here.
