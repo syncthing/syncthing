@@ -27,17 +27,17 @@ import (
 	"io/ioutil"
 )
 
-var Assets = make(map[string][]byte)
-
-func init() {
+func Assets() map[string][]byte {
+	var assets = make(map[string][]byte, {{.assets | len}})
 	var bs []byte
 	var gr *gzip.Reader
 {{range $asset := .assets}}
 	bs, _ = base64.StdEncoding.DecodeString("{{$asset.Data}}")
 	gr, _ = gzip.NewReader(bytes.NewBuffer(bs))
 	bs, _ = ioutil.ReadAll(gr)
-	Assets["{{$asset.Name}}"] = bs
+	assets["{{$asset.Name}}"] = bs
 {{end}}
+	return assets
 }
 `))
 

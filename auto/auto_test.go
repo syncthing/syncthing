@@ -4,4 +4,20 @@
 
 package auto_test
 
-// Empty test file to generate 0% coverage rather than no coverage
+import (
+	"bytes"
+	"testing"
+
+	"github.com/syncthing/syncthing/auto"
+)
+
+func TestAssets(t *testing.T) {
+	assets := auto.Assets()
+	idx, ok := assets["index.html"]
+	if !ok {
+		t.Fatal("No index.html in compiled in assets")
+	}
+	if !bytes.Contains(idx, []byte("<html")) {
+		t.Fatal("No html in index.html")
+	}
+}

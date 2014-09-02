@@ -652,6 +652,8 @@ func validAPIKey(k string) bool {
 }
 
 func embeddedStatic(assetDir string) http.Handler {
+	assets := auto.Assets()
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		file := r.URL.Path
 
@@ -672,7 +674,7 @@ func embeddedStatic(assetDir string) http.Handler {
 			}
 		}
 
-		bs, ok := auto.Assets[file]
+		bs, ok := assets[file]
 		if !ok {
 			http.NotFound(w, r)
 			return
