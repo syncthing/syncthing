@@ -906,10 +906,10 @@ function nodeCompare(a, b) {
 }
 
 function repoCompare(a, b) {
-    if (a.Directory < b.Directory) {
+    if (a.ID < b.ID) {
         return -1;
     }
-    return a.Directory > b.Directory;
+    return a.ID > b.ID;
 }
 
 function repoMap(l) {
