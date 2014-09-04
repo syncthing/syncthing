@@ -14,7 +14,16 @@ no-docs-typos() {
 	grep -v f1120d7aa936c0658429edef0037792520b46334
 }
 
-for email in $(missing-contribs) ; do
-	git log --author="$email" --format="%H %ae %s" | no-docs-typos
-done
+print-missing-contribs() {
+	for email in $(missing-contribs) ; do
+		git log --author="$email" --format="%H %ae %s" | no-docs-typos
+	done
+}
+
+print-missing-copyright() {
+	find . -name \*.go | xargs grep -L 'Copyright (C)' | grep -v Godeps
+}
+
+print-missing-contribs
+print-missing-copyright
 
