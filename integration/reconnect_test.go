@@ -24,19 +24,19 @@ var env = []string{
 	"STTRACE=model",
 }
 
-func TestRestartBothDuringTransfer(t *testing.T) {
-	// Give the receiver some time to rot with needed files but
-	// without any peer. This triggers
-	// https://github.com/syncthing/syncthing/issues/463
-	testRestartDuringTransfer(t, true, true, 10*time.Second, 0)
-}
-
 func TestRestartReceiverDuringTransfer(t *testing.T) {
 	testRestartDuringTransfer(t, false, true, 0, 0)
 }
 
 func TestRestartSenderDuringTransfer(t *testing.T) {
 	testRestartDuringTransfer(t, true, false, 0, 0)
+}
+
+func TestRestartSenderAndReceiverDuringTransfer(t *testing.T) {
+	// 	// Give the receiver some time to rot with needed files but
+	// 	// without any peer. This triggers
+	// 	// https://github.com/syncthing/syncthing/issues/463
+	testRestartDuringTransfer(t, true, true, 10*time.Second, 0)
 }
 
 func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool, senderDelay, receiverDelay time.Duration) {
@@ -133,6 +133,9 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 
 		time.Sleep(1 * time.Second)
 	}
+
+	sender.stop()
+	receiver.stop()
 
 	log.Println("Comparing directories...")
 	err = compareDirectories("s1", "s2")
