@@ -5,7 +5,6 @@
 package protocol
 
 import (
-	"bufio"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -86,9 +85,7 @@ type rawConnection struct {
 	state    int
 
 	cr *countingReader
-
 	cw *countingWriter
-	wb *bufio.Writer
 
 	awaiting    [4096]chan asyncResult
 	awaitingMut sync.Mutex

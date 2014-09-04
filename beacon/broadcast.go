@@ -9,7 +9,6 @@ import "net"
 type Broadcast struct {
 	conn   *net.UDPConn
 	port   int
-	conns  []dst
 	inbox  chan []byte
 	outbox chan recv
 }

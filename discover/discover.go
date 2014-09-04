@@ -38,7 +38,6 @@ type Discoverer struct {
 	forcedBcastTick  chan time.Time
 	extAnnounceOK    bool
 	extAnnounceOKmut sync.Mutex
-	globalBcastStop  chan bool
 }
 
 type cacheEntry struct {
@@ -49,11 +48,6 @@ type cacheEntry struct {
 var (
 	ErrIncorrectMagic = errors.New("incorrect magic number")
 )
-
-// We tolerate a certain amount of errors because we might be running on
-// laptops that sleep and wake, have intermittent network connectivity, etc.
-// When we hit this many errors in succession, we stop.
-const maxErrors = 30
 
 func NewDiscoverer(id protocol.NodeID, addresses []string) *Discoverer {
 	return &Discoverer{

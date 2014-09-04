@@ -9,7 +9,6 @@ import "net"
 type Multicast struct {
 	conn   *net.UDPConn
 	addr   *net.UDPAddr
-	conns  []dst
 	inbox  chan []byte
 	outbox chan recv
 }

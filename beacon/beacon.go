@@ -11,11 +11,6 @@ type recv struct {
 	src  net.Addr
 }
 
-type dst struct {
-	intf string
-	conn *net.UDPConn
-}
-
 type Interface interface {
 	Send(data []byte)
 	Recv() ([]byte, net.Addr)

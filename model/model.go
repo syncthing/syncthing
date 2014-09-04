@@ -50,12 +50,6 @@ func (s repoState) String() string {
 	}
 }
 
-// Somewhat arbitrary amount of bytes that we choose to let represent the size
-// of an unsynchronized directory entry or a deleted file. We need it to be
-// larger than zero so that it's visible that there is some amount of bytes to
-// transfer to bring the systems into synchronization.
-const zeroEntrySize = 128
-
 // How many files to send in each Index/IndexUpdate message.
 const (
 	indexTargetSize   = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
@@ -89,9 +83,6 @@ type Model struct {
 	nodeVer   map[protocol.NodeID]string
 	pmut      sync.RWMutex // protects protoConn and rawConn
 
-	sentLocalVer map[protocol.NodeID]map[string]uint64
-	slMut        sync.Mutex
-
 	addedRepo bool
 	started   bool
 }
@@ -122,7 +113,6 @@ func NewModel(indexDir string, cfg *config.Configuration, nodeName, clientName, 
 		protoConn:        make(map[protocol.NodeID]protocol.Connection),
 		rawConn:          make(map[protocol.NodeID]io.Closer),
 		nodeVer:          make(map[protocol.NodeID]string),
-		sentLocalVer:     make(map[protocol.NodeID]map[string]uint64),
 	}
 
 	for _, node := range cfg.Nodes {

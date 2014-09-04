@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"mime"
 	"net"
@@ -45,7 +44,6 @@ var (
 	configInSync = true
 	guiErrors    = []guiError{}
 	guiErrorsMut sync.Mutex
-	static       func(http.ResponseWriter, *http.Request, *log.Logger)
 	apiKey       string
 	modt         = time.Now().UTC().Format(http.TimeFormat)
 	eventSub     *events.BufferedSubscription
