@@ -15,7 +15,7 @@ syncthing.config(function ($httpProvider, $translateProvider) {
     $httpProvider.defaults.xsrfCookieName = 'CSRF-Token';
 
     $translateProvider.useStaticFilesLoader({
-        prefix: 'lang-',
+        prefix: 'lang/lang-',
         suffix: '.json'
     });
 });

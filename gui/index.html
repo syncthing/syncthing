@@ -11,93 +11,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="">
   <meta name="author" content="">
-  <link rel="shortcut icon" href="favicon.png">
+  <link rel="shortcut icon" href="img/favicon.png">
 
   <title>Syncthing | {{thisNodeName()}}</title>
   <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
-  <link href="raleway.css" rel="stylesheet">
-  <style type="text/css">
-    body {
-      padding-bottom: 70px;
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    }
-
-    h1, h2, h3, h4, h5 {
-      font-family: "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    }
-
-    ul+h5 {
-      margin-top: 1.5em;
-    }
-
-    .text-monospace {
-      font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
-    }
-
-    .table-condensed>thead>tr>th, .table-condensed>tbody>tr>th, .table-condensed>tfoot>tr>th, .table-condensed>thead>tr>td, .table-condensed>tbody>tr>td, .table-condensed>tfoot>tr>td {
-      border-top: none;
-    }
-
-    .logo {
-      margin: 0;
-      padding: 0;
-      top: -5px;
-      position: relative;
-    }
-
-    .list-no-bullet {
-      list-style-type: none
-    }
-
-    .li-column {
-      display: inline-block;
-      min-width: 7em;
-      margin-right: 1em;
-      background-color: rgb(236, 240, 241);
-      border-radius: 3px;
-      padding: 1px 4px;
-      margin: 2px 2px;
-    }
-    .li-column span.data {
-      margin-left: 0.5em;
-      min-width: 10em;
-      text-align: right;
-      display: inline-block;
-    }
-
-    .ng-cloak {
-      display: none !important;
-    }
-
-    .table th {
-      white-space: nowrap;
-      font-weight: 400;
-    }
-
-    .table td {
-      padding-left: 20px !important;
-    }
-
-    .table td.small-data {
-      white-space: nowrap;
-    }
-
-    table.table-condensed {
-      table-layout: fixed;
-    }
-    table.table-condensed td {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    @media (max-width:767px) {
-      table.table-condensed td {
-        /* for mobile phones to allow linebreaks in long repro folder/shared with
-         * columns. */
-        white-space: normal;
-      }
-    }
-  </style>
+  <link href="font/raleway.css" rel="stylesheet">
+  <link href="overrides.css" rel="stylesheet">
 </head>
 
 <body>
@@ -107,7 +26,7 @@
 
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
-      <span class="navbar-brand"><img class="logo" src="logo-text-64.png" height="32" width="117"/></span>
+      <span class="navbar-brand"><img class="logo" src="img/logo-text-64.png" height="32" width="117"/></span>
       <p class="navbar-text hidden-xs">{{thisNodeName()}}</p>
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo.newer">
@@ -757,7 +676,7 @@
   <!-- About modal -->
 
   <modal id="about" large="yes" close="yes" status="info" title="About">
-    <h1 class="text-center"><img alt="Syncthing" title="Syncthing" src="logo-text-256.png" style="vertical-align: -16px" height="100" width="366"/><br/><small>{{version}}</small></h1>
+    <h1 class="text-center"><img alt="Syncthing" title="Syncthing" src="img/logo-text-256.png" style="vertical-align: -16px" height="100" width="366"/><br/><small>{{version}}</small></h1>
     <hr/>
 
     <p translate>Copyright &copy; 2014 Jakob Borg and the following Contributors:</p>
@@ -803,12 +722,12 @@
   </modal>
 
 
-  <script src="angular.min.js"></script>
-  <script src="angular-translate.min.js"></script>
-  <script src="angular-translate-loader.min.js"></script>
-  <script src="jquery-2.0.3.min.js"></script>
+  <script src="angular/angular.min.js"></script>
+  <script src="angular/angular-translate.min.js"></script>
+  <script src="angular/angular-translate-loader.min.js"></script>
+  <script src="jquery/jquery-2.0.3.min.js"></script>
   <script src="bootstrap/js/bootstrap.min.js"></script>
-  <script src="valid-langs.js"></script>
+  <script src="lang/valid-langs.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
