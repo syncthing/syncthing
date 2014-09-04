@@ -663,13 +663,16 @@ func renewUPnP(port int) {
 		}
 
 		// Just renew the same port that we already have
-		err = igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", cfg.Options.UPnPLease*60)
-		if err == nil {
-			l.Infoln("Renewed UPnP port mapping - external port", externalPort)
-			continue
+		if externalPort != 0 {
+			err = igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", cfg.Options.UPnPLease*60)
+			if err == nil {
+				l.Infoln("Renewed UPnP port mapping - external port", externalPort)
+				continue
+			}
 		}
 
-		// Something strange has happened. Perhaps the gateway has changed?
+		// Something strange has happened. We didn't have an external port before?
+		// Or perhaps the gateway has changed?
 		// Retry the same port sequence from the beginning.
 		r := setupExternalPort(igd, port)
 		if r != 0 {
