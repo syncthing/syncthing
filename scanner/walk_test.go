@@ -13,6 +13,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/syncthing/syncthing/ignore"
 	"github.com/syncthing/syncthing/protocol"
 )
 
@@ -30,9 +31,8 @@ var testdata = testfileList{
 	{filepath.Join("dir1", "dfile"), 5, "49ae93732fcf8d63fe1cce759664982dbd5b23161f007dba8561862adc96d063"},
 	{"dir2", 128, ""},
 	{filepath.Join("dir2", "cfile"), 4, "bf07a7fbb825fc0aae7bf4a1177b2b31fcf8a3feeaf7092761e18c859ee52a9c"},
-	{"excludes", 78, "1f5ac95d9e6fb2516629a029d788d27953c7bb2f4dc09184b660fdda0c8f2f04"},
+	{"excludes", 37, "df90b52f0c55dba7a7a940affe482571563b1ac57bd5be4d8a0291e7de928e06"},
 	{"further-excludes", 5, "7eb0a548094fa6295f7fd9200d69973e5f5ec5c04f2a86d998080ac43ecf89f1"},
-	{"loop-excludes", 18, "2db057aa82a8b8fe4b1367ccc875259ed4b8020255820d4e3d4bfe78f0dd3f2a"},
 }
 
 var correctIgnores = map[string][]string{
@@ -47,11 +47,16 @@ func init() {
 }
 
 func TestWalkSub(t *testing.T) {
+	ignores, err := ignore.Load("testdata/.stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	w := Walker{
-		Dir:        "testdata",
-		Sub:        "dir2",
-		BlockSize:  128 * 1024,
-		IgnoreFile: ".stignore",
+		Dir:       "testdata",
+		Sub:       "dir2",
+		BlockSize: 128 * 1024,
+		Ignores:   ignores,
 	}
 	fchan, err := w.Walk()
 	var files []protocol.FileInfo
@@ -77,10 +82,16 @@ func TestWalkSub(t *testing.T) {
 }
 
 func TestWalk(t *testing.T) {
+	ignores, err := ignore.Load("testdata/.stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(ignores)
+
 	w := Walker{
-		Dir:        "testdata",
-		BlockSize:  128 * 1024,
-		IgnoreFile: ".stignore",
+		Dir:       "testdata",
+		BlockSize: 128 * 1024,
+		Ignores:   ignores,
 	}
 
 	fchan, err := w.Walk()
@@ -102,9 +113,8 @@ func TestWalk(t *testing.T) {
 
 func TestWalkError(t *testing.T) {
 	w := Walker{
-		Dir:        "testdata-missing",
-		BlockSize:  128 * 1024,
-		IgnoreFile: ".stignore",
+		Dir:       "testdata-missing",
+		BlockSize: 128 * 1024,
 	}
 	_, err := w.Walk()
 
@@ -113,75 +123,13 @@ func TestWalkError(t *testing.T) {
 	}
 
 	w = Walker{
-		Dir:        "testdata/bar",
-		BlockSize:  128 * 1024,
-		IgnoreFile: ".stignore",
+		Dir:       "testdata/bar",
+		BlockSize: 128 * 1024,
 	}
 	_, err = w.Walk()
 
 	if err == nil {
 		t.Error("no error from non-directory")
-	}
-}
-
-func TestIgnore(t *testing.T) {
-	patStr := bytes.NewBufferString(`
-		t2
-		/t3
-		sub/dir/*
-		*/other/test
-		**/deep
-	`)
-	patterns := parseIgnoreFile(patStr, "", "", make(map[string]map[string]bool))
-
-	patStr = bytes.NewBufferString(`
-		bar
-		z*
-		q[abc]x
-	`)
-	patterns = append(patterns, parseIgnoreFile(patStr, "foo", "", make(map[string]map[string]bool))...)
-
-	patStr = bytes.NewBufferString(`
-		quux
-		.*
-	`)
-	patterns = append(patterns, parseIgnoreFile(patStr, "foo/baz", "", make(map[string]map[string]bool))...)
-
-	var tests = []struct {
-		f string
-		r bool
-	}{
-		{filepath.Join("foo", "bar"), true},
-		{filepath.Join("t3"), true},
-		{filepath.Join("foofoo"), false},
-		{filepath.Join("foo", "quux"), false},
-		{filepath.Join("foo", "zuux"), true},
-		{filepath.Join("foo", "qzuux"), false},
-		{filepath.Join("foo", "baz", "t1"), false},
-		{filepath.Join("foo", "baz", "t2"), true},
-		{filepath.Join("foo", "baz", "t3"), false},
-		{filepath.Join("foo", "baz", "bar"), true},
-		{filepath.Join("foo", "baz", "quuxa"), false},
-		{filepath.Join("foo", "baz", "aquux"), false},
-		{filepath.Join("foo", "baz", ".quux"), true},
-		{filepath.Join("foo", "baz", "zquux"), true},
-		{filepath.Join("foo", "baz", "quux"), true},
-		{filepath.Join("foo", "bazz", "quux"), false},
-		{filepath.Join("sub", "dir", "hej"), true},
-		{filepath.Join("deeper", "sub", "dir", "hej"), true},
-		{filepath.Join("other", "test"), false},
-		{filepath.Join("sub", "other", "test"), true},
-		{filepath.Join("deeper", "sub", "other", "test"), true},
-		{filepath.Join("deep"), true},
-		{filepath.Join("deeper", "deep"), true},
-		{filepath.Join("deeper", "deeper", "deep"), true},
-	}
-
-	w := Walker{}
-	for i, tc := range tests {
-		if r := w.ignoreFile(patterns, tc.f); r != tc.r {
-			t.Errorf("Incorrect ignoreFile() #%d (%s); E: %v, A: %v", i, tc.f, tc.r, r)
-		}
 	}
 }
 

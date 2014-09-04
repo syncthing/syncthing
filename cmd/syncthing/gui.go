@@ -255,7 +255,7 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 func restPostOverride(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var repo = qs.Get("repo")
-	m.Override(repo)
+	go m.Override(repo)
 }
 
 func restGetNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {

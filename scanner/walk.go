@@ -5,19 +5,14 @@
 package scanner
 
 import (
-	"bufio"
 	"errors"
-	"io"
 	"os"
-	"path"
 	"path/filepath"
-	"regexp"
 	"runtime"
-	"strings"
 
 	"code.google.com/p/go.text/unicode/norm"
 
-	"github.com/syncthing/syncthing/fnmatch"
+	"github.com/syncthing/syncthing/ignore"
 	"github.com/syncthing/syncthing/lamport"
 	"github.com/syncthing/syncthing/protocol"
 )
@@ -29,8 +24,8 @@ type Walker struct {
 	Sub string
 	// BlockSize controls the size of the block used when hashing.
 	BlockSize int
-	// If IgnoreFile is not empty, it is the name used for the file that holds ignore patterns.
-	IgnoreFile string
+	// List of patterns to ignore
+	Ignores ignore.Patterns
 	// If TempNamer is not nil, it is used to ignore tempory files when walking.
 	TempNamer TempNamer
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
@@ -57,7 +52,7 @@ type CurrentFiler interface {
 // file system. Files are blockwise hashed.
 func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	if debug {
-		l.Debugln("Walk", w.Dir, w.Sub, w.BlockSize, w.IgnoreFile)
+		l.Debugln("Walk", w.Dir, w.Sub, w.BlockSize, w.Ignores)
 	}
 
 	err := checkDir(w.Dir)
@@ -69,11 +64,8 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	hashedFiles := make(chan protocol.FileInfo)
 	newParallelHasher(w.Dir, w.BlockSize, runtime.NumCPU(), hashedFiles, files)
 
-	var ignores []*regexp.Regexp
 	go func() {
-		filepath.Walk(w.Dir, w.loadIgnoreFiles(w.Dir, &ignores))
-
-		hashFiles := w.walkAndHashFiles(files, ignores)
+		hashFiles := w.walkAndHashFiles(files)
 		filepath.Walk(filepath.Join(w.Dir, w.Sub), hashFiles)
 		close(files)
 	}()
@@ -86,113 +78,7 @@ func (w *Walker) CleanTempFiles() {
 	filepath.Walk(w.Dir, w.cleanTempFile)
 }
 
-func (w *Walker) loadIgnoreFiles(dir string, ignores *[]*regexp.Regexp) filepath.WalkFunc {
-	return func(p string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-
-		rn, err := filepath.Rel(dir, p)
-		if err != nil {
-			return nil
-		}
-
-		if pn, sn := filepath.Split(rn); sn == w.IgnoreFile {
-			pn := filepath.Clean(pn)
-			filesSeen := make(map[string]map[string]bool)
-			dirIgnores := loadIgnoreFile(p, pn, filesSeen)
-			*ignores = append(*ignores, dirIgnores...)
-		}
-
-		return nil
-	}
-}
-
-func loadIgnoreFile(ignFile, base string, filesSeen map[string]map[string]bool) []*regexp.Regexp {
-	fd, err := os.Open(ignFile)
-	if err != nil {
-		return nil
-	}
-	defer fd.Close()
-	return parseIgnoreFile(fd, base, ignFile, filesSeen)
-}
-
-func parseIgnoreFile(fd io.Reader, base, currentFile string, filesSeen map[string]map[string]bool) []*regexp.Regexp {
-	var exps []*regexp.Regexp
-	scanner := bufio.NewScanner(fd)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-
-		if strings.HasPrefix(line, "/") {
-			// Pattern is rooted in the current dir only
-			exp, err := fnmatch.Convert(path.Join(base, line[1:]), fnmatch.FNM_PATHNAME)
-			if err != nil {
-				l.Warnf("Invalid pattern %q in ignore file", line)
-				continue
-			}
-			exps = append(exps, exp)
-		} else if strings.HasPrefix(line, "**/") {
-			// Add the pattern as is, and without **/ so it matches in current dir
-			exp, err := fnmatch.Convert(line, fnmatch.FNM_PATHNAME)
-			if err != nil {
-				l.Warnf("Invalid pattern %q in ignore file", line)
-				continue
-			}
-			exps = append(exps, exp)
-
-			exp, err = fnmatch.Convert(path.Join(base, line[3:]), fnmatch.FNM_PATHNAME)
-			if err != nil {
-				l.Warnf("Invalid pattern %q in ignore file", line)
-				continue
-			}
-			exps = append(exps, exp)
-		} else if strings.HasPrefix(line, "#include ") {
-			includeFile := filepath.Join(filepath.Dir(currentFile), strings.Replace(line, "#include ", "", 1))
-			if _, err := os.Stat(includeFile); os.IsNotExist(err) {
-				l.Infoln("Could not open ignore include file", includeFile)
-			} else {
-				seen := false
-				if seenByCurrent, ok := filesSeen[currentFile]; ok {
-					_, seen = seenByCurrent[includeFile]
-				}
-
-				if seen {
-					l.Warnf("Recursion detected while including %s from %s", includeFile, currentFile)
-				} else {
-					if filesSeen[currentFile] == nil {
-						filesSeen[currentFile] = make(map[string]bool)
-					}
-					filesSeen[currentFile][includeFile] = true
-					includes := loadIgnoreFile(includeFile, base, filesSeen)
-					exps = append(exps, includes...)
-				}
-			}
-		} else {
-			// Path name or pattern, add it so it matches files both in
-			// current directory and subdirs.
-			exp, err := fnmatch.Convert(path.Join(base, line), fnmatch.FNM_PATHNAME)
-			if err != nil {
-				l.Warnf("Invalid pattern %q in ignore file", line)
-				continue
-			}
-			exps = append(exps, exp)
-
-			exp, err = fnmatch.Convert(path.Join(base, "**", line), fnmatch.FNM_PATHNAME)
-			if err != nil {
-				l.Warnf("Invalid pattern %q in ignore file", line)
-				continue
-			}
-			exps = append(exps, exp)
-		}
-	}
-
-	return exps
-}
-
-func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo, ignores []*regexp.Regexp) filepath.WalkFunc {
+func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFunc {
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			if debug {
@@ -221,7 +107,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo, ignores []*regex
 			return nil
 		}
 
-		if sn := filepath.Base(rn); sn == w.IgnoreFile || sn == ".stversions" || w.ignoreFile(ignores, rn) {
+		if sn := filepath.Base(rn); sn == ".stignore" || sn == ".stversions" || w.Ignores.Match(rn) {
 			// An ignored file
 			if debug {
 				l.Debugln("ignored:", rn)
@@ -303,18 +189,6 @@ func (w *Walker) cleanTempFile(path string, info os.FileInfo, err error) error {
 		os.Remove(path)
 	}
 	return nil
-}
-
-func (w *Walker) ignoreFile(patterns []*regexp.Regexp, file string) bool {
-	for _, pattern := range patterns {
-		if pattern.MatchString(file) {
-			if debug {
-				l.Debugf("%q matches %v", file, pattern)
-			}
-			return true
-		}
-	}
-	return false
 }
 
 func checkDir(dir string) error {

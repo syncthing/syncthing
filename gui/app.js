@@ -971,9 +971,9 @@ function debounce(func, wait) {
         } else {
             timeout = null;
             if (again) {
+                again = false;
                 result = func.apply(context, args);
                 context = args = null;
-                again = false;
             }
         }
     };

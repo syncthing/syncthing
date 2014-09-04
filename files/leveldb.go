@@ -186,18 +186,28 @@ func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo
 			if lv := ldbInsert(batch, repo, node, newName, fs[fsi]); lv > maxLocalVer {
 				maxLocalVer = lv
 			}
-			ldbUpdateGlobal(snap, batch, repo, node, newName, fs[fsi].Version)
+			if fs[fsi].IsInvalid() {
+				ldbRemoveFromGlobal(snap, batch, repo, node, newName)
+			} else {
+				ldbUpdateGlobal(snap, batch, repo, node, newName, fs[fsi].Version)
+			}
 			fsi++
 
 		case moreFs && moreDb && cmp == 0:
-			// File exists on both sides - compare versions.
+			// File exists on both sides - compare versions. We might get an
+			// update with the same version and different flags if a node has
+			// marked a file as invalid, so handle that too.
 			var ef protocol.FileInfoTruncated
 			ef.UnmarshalXDR(dbi.Value())
-			if fs[fsi].Version > ef.Version {
+			if fs[fsi].Version > ef.Version || fs[fsi].Version != ef.Version {
 				if lv := ldbInsert(batch, repo, node, newName, fs[fsi]); lv > maxLocalVer {
 					maxLocalVer = lv
 				}
-				ldbUpdateGlobal(snap, batch, repo, node, newName, fs[fsi].Version)
+				if fs[fsi].IsInvalid() {
+					ldbRemoveFromGlobal(snap, batch, repo, node, newName)
+				} else {
+					ldbUpdateGlobal(snap, batch, repo, node, newName, fs[fsi].Version)
+				}
 			}
 			// Iterate both sides.
 			fsi++
@@ -280,7 +290,11 @@ func ldbUpdate(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint64
 			if lv := ldbInsert(batch, repo, node, name, f); lv > maxLocalVer {
 				maxLocalVer = lv
 			}
-			ldbUpdateGlobal(snap, batch, repo, node, name, f.Version)
+			if f.IsInvalid() {
+				ldbRemoveFromGlobal(snap, batch, repo, node, name)
+			} else {
+				ldbUpdateGlobal(snap, batch, repo, node, name, f.Version)
+			}
 			continue
 		}
 
@@ -289,11 +303,17 @@ func ldbUpdate(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint64
 		if err != nil {
 			panic(err)
 		}
-		if ef.Version != f.Version {
+		// Flags might change without the version being bumped when we set the
+		// invalid flag on an existing file.
+		if ef.Version != f.Version || ef.Flags != f.Flags {
 			if lv := ldbInsert(batch, repo, node, name, f); lv > maxLocalVer {
 				maxLocalVer = lv
 			}
-			ldbUpdateGlobal(snap, batch, repo, node, name, f.Version)
+			if f.IsInvalid() {
+				ldbRemoveFromGlobal(snap, batch, repo, node, name)
+			} else {
+				ldbUpdateGlobal(snap, batch, repo, node, name, f.Version)
+			}
 		}
 	}
 
@@ -385,7 +405,9 @@ func ldbRemoveFromGlobal(db dbReader, batch dbWriter, repo, node, file []byte) {
 	gk := globalKey(repo, file)
 	svl, err := db.Get(gk, nil)
 	if err != nil {
-		panic(err)
+		// We might be called to "remove" a global version that doesn't exist
+		// if the first update for the file is already marked invalid.
+		return
 	}
 
 	var fl versionList

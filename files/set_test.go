@@ -86,7 +86,7 @@ func (l fileList) String() string {
 	var b bytes.Buffer
 	b.WriteString("[]protocol.FileList{\n")
 	for _, f := range l {
-		fmt.Fprintf(&b, "  %q: #%d, %d bytes, %d blocks\n", f.Name, f.Version, f.Size(), len(f.Blocks))
+		fmt.Fprintf(&b, "  %q: #%d, %d bytes, %d blocks, flags=%o\n", f.Name, f.Version, f.Size(), len(f.Blocks), f.Flags)
 	}
 	b.WriteString("}")
 	return b.String()
@@ -277,6 +277,86 @@ func TestNeedWithInvalid(t *testing.T) {
 
 	if fmt.Sprint(need) != fmt.Sprint(expectedNeed) {
 		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", need, expectedNeed)
+	}
+}
+
+func TestUpdateToInvalid(t *testing.T) {
+	lamport.Default = lamport.Clock{}
+
+	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := files.NewSet("test", db)
+
+	localHave := fileList{
+		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
+		protocol.FileInfo{Name: "b", Version: 1001, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Version: 1002, Blocks: genBlocks(5), Flags: protocol.FlagInvalid},
+		protocol.FileInfo{Name: "d", Version: 1003, Blocks: genBlocks(7)},
+	}
+
+	s.ReplaceWithDelete(protocol.LocalNodeID, localHave)
+
+	have := fileList(haveList(s, protocol.LocalNodeID))
+	sort.Sort(have)
+
+	if fmt.Sprint(have) != fmt.Sprint(localHave) {
+		t.Errorf("Have incorrect before invalidation;\n A: %v !=\n E: %v", have, localHave)
+	}
+
+	localHave[1] = protocol.FileInfo{Name: "b", Version: 1001, Flags: protocol.FlagInvalid}
+	s.Update(protocol.LocalNodeID, localHave[1:2])
+
+	have = fileList(haveList(s, protocol.LocalNodeID))
+	sort.Sort(have)
+
+	if fmt.Sprint(have) != fmt.Sprint(localHave) {
+		t.Errorf("Have incorrect after invalidation;\n A: %v !=\n E: %v", have, localHave)
+	}
+}
+
+func TestInvalidAvailability(t *testing.T) {
+	lamport.Default = lamport.Clock{}
+
+	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := files.NewSet("test", db)
+
+	remote0Have := fileList{
+		protocol.FileInfo{Name: "both", Version: 1001, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "r1only", Version: 1002, Blocks: genBlocks(5), Flags: protocol.FlagInvalid},
+		protocol.FileInfo{Name: "r0only", Version: 1003, Blocks: genBlocks(7)},
+		protocol.FileInfo{Name: "none", Version: 1004, Blocks: genBlocks(5), Flags: protocol.FlagInvalid},
+	}
+	remote1Have := fileList{
+		protocol.FileInfo{Name: "both", Version: 1001, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "r1only", Version: 1002, Blocks: genBlocks(7)},
+		protocol.FileInfo{Name: "r0only", Version: 1003, Blocks: genBlocks(5), Flags: protocol.FlagInvalid},
+		protocol.FileInfo{Name: "none", Version: 1004, Blocks: genBlocks(5), Flags: protocol.FlagInvalid},
+	}
+
+	s.Replace(remoteNode0, remote0Have)
+	s.Replace(remoteNode1, remote1Have)
+
+	if av := s.Availability("both"); len(av) != 2 {
+		t.Error("Incorrect availability for 'both':", av)
+	}
+
+	if av := s.Availability("r0only"); len(av) != 1 || av[0] != remoteNode0 {
+		t.Error("Incorrect availability for 'r0only':", av)
+	}
+
+	if av := s.Availability("r1only"); len(av) != 1 || av[0] != remoteNode1 {
+		t.Error("Incorrect availability for 'r1only':", av)
+	}
+
+	if av := s.Availability("none"); len(av) != 0 {
+		t.Error("Incorrect availability for 'none':", av)
 	}
 }
 

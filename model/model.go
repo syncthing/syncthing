@@ -19,6 +19,7 @@ import (
 	"github.com/syncthing/syncthing/config"
 	"github.com/syncthing/syncthing/events"
 	"github.com/syncthing/syncthing/files"
+	"github.com/syncthing/syncthing/ignore"
 	"github.com/syncthing/syncthing/lamport"
 	"github.com/syncthing/syncthing/protocol"
 	"github.com/syncthing/syncthing/scanner"
@@ -72,6 +73,7 @@ type Model struct {
 	repoNodes    map[string][]protocol.NodeID                       // repo -> nodeIDs
 	nodeRepos    map[protocol.NodeID][]string                       // nodeID -> repos
 	nodeStatRefs map[protocol.NodeID]*stats.NodeStatisticsReference // nodeID -> statsRef
+	repoIgnores  map[string]ignore.Patterns                         // repo -> list of ignore patterns
 	rmut         sync.RWMutex                                       // protects the above
 
 	repoState        map[string]repoState // repo -> state
@@ -108,6 +110,7 @@ func NewModel(indexDir string, cfg *config.Configuration, nodeName, clientName, 
 		repoNodes:        make(map[string][]protocol.NodeID),
 		nodeRepos:        make(map[protocol.NodeID][]string),
 		nodeStatRefs:     make(map[protocol.NodeID]*stats.NodeStatisticsReference),
+		repoIgnores:      make(map[string]ignore.Patterns),
 		repoState:        make(map[string]repoState),
 		repoStateChanged: make(map[string]time.Time),
 		protoConn:        make(map[protocol.NodeID]protocol.Connection),
@@ -289,6 +292,9 @@ func (m *Model) LocalSize(repo string) (files, deleted int, bytes int64) {
 	defer m.rmut.RUnlock()
 	if rf, ok := m.repoFiles[repo]; ok {
 		rf.WithHaveTruncated(protocol.LocalNodeID, func(f protocol.FileIntf) bool {
+			if f.IsInvalid() {
+				return true
+			}
 			fs, de, by := sizeOfFile(f)
 			files += fs
 			deleted += de
@@ -348,24 +354,32 @@ func (m *Model) Index(nodeID protocol.NodeID, repo string, fs []protocol.FileInf
 		return
 	}
 
-	for i := range fs {
-		lamport.Default.Tick(fs[i].Version)
-	}
-
 	m.rmut.RLock()
-	r, ok := m.repoFiles[repo]
+	files, ok := m.repoFiles[repo]
+	ignores, _ := m.repoIgnores[repo]
 	m.rmut.RUnlock()
-	if ok {
-		r.Replace(nodeID, fs)
-	} else {
+
+	if !ok {
 		l.Fatalf("Index for nonexistant repo %q", repo)
 	}
+
+	for i := 0; i < len(fs); {
+		lamport.Default.Tick(fs[i].Version)
+		if ignores.Match(fs[i].Name) {
+			fs[i] = fs[len(fs)-1]
+			fs = fs[:len(fs)-1]
+		} else {
+			i++
+		}
+	}
+
+	files.Replace(nodeID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
 		"node":    nodeID.String(),
 		"repo":    repo,
 		"items":   len(fs),
-		"version": r.LocalVersion(nodeID),
+		"version": files.LocalVersion(nodeID),
 	})
 }
 
@@ -381,24 +395,32 @@ func (m *Model) IndexUpdate(nodeID protocol.NodeID, repo string, fs []protocol.F
 		return
 	}
 
-	for i := range fs {
-		lamport.Default.Tick(fs[i].Version)
-	}
-
 	m.rmut.RLock()
-	r, ok := m.repoFiles[repo]
+	files, ok := m.repoFiles[repo]
+	ignores, _ := m.repoIgnores[repo]
 	m.rmut.RUnlock()
-	if ok {
-		r.Update(nodeID, fs)
-	} else {
+
+	if !ok {
 		l.Fatalf("IndexUpdate for nonexistant repo %q", repo)
 	}
+
+	for i := 0; i < len(fs); {
+		lamport.Default.Tick(fs[i].Version)
+		if ignores.Match(fs[i].Name) {
+			fs[i] = fs[len(fs)-1]
+			fs = fs[:len(fs)-1]
+		} else {
+			i++
+		}
+	}
+
+	files.Update(nodeID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
 		"node":    nodeID.String(),
 		"repo":    repo,
 		"items":   len(fs),
-		"version": r.LocalVersion(nodeID),
+		"version": files.LocalVersion(nodeID),
 	})
 }
 
@@ -572,7 +594,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	m.rmut.RLock()
 	for _, repo := range m.nodeRepos[nodeID] {
 		fs := m.repoFiles[repo]
-		go sendIndexes(protoConn, repo, fs)
+		go sendIndexes(protoConn, repo, fs, m.repoIgnores[repo])
 	}
 	if statRef, ok := m.nodeStatRefs[nodeID]; ok {
 		statRef.WasSeen()
@@ -583,7 +605,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	m.pmut.Unlock()
 }
 
-func sendIndexes(conn protocol.Connection, repo string, fs *files.Set) {
+func sendIndexes(conn protocol.Connection, repo string, fs *files.Set, ignores ignore.Patterns) {
 	nodeID := conn.ID()
 	name := conn.Name()
 	var err error
@@ -598,7 +620,7 @@ func sendIndexes(conn protocol.Connection, repo string, fs *files.Set) {
 		}
 	}()
 
-	minLocalVer, err := sendIndexTo(true, 0, conn, repo, fs)
+	minLocalVer, err := sendIndexTo(true, 0, conn, repo, fs, ignores)
 
 	for err == nil {
 		time.Sleep(5 * time.Second)
@@ -606,11 +628,11 @@ func sendIndexes(conn protocol.Connection, repo string, fs *files.Set) {
 			continue
 		}
 
-		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, repo, fs)
+		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, repo, fs, ignores)
 	}
 }
 
-func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, repo string, fs *files.Set) (uint64, error) {
+func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, repo string, fs *files.Set, ignores ignore.Patterns) (uint64, error) {
 	nodeID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -626,6 +648,10 @@ func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, rep
 
 		if f.LocalVersion > maxLocalVer {
 			maxLocalVer = f.LocalVersion
+		}
+
+		if ignores.Match(f.Name) {
+			return true
 		}
 
 		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
@@ -781,10 +807,13 @@ func (m *Model) ScanRepoSub(repo, sub string) error {
 	fs, ok := m.repoFiles[repo]
 	dir := m.repoCfgs[repo].Directory
 
+	ignores, _ := ignore.Load(filepath.Join(dir, ".stignore"))
+	m.repoIgnores[repo] = ignores
+
 	w := &scanner.Walker{
 		Dir:          dir,
 		Sub:          sub,
-		IgnoreFile:   ".stignore",
+		Ignores:      ignores,
 		BlockSize:    scanner.StandardBlockSize,
 		TempNamer:    defTempNamer,
 		CurrentFiler: cFiler{m, repo},
@@ -827,15 +856,40 @@ func (m *Model) ScanRepoSub(repo, sub string) error {
 	fs.WithHaveTruncated(protocol.LocalNodeID, func(fi protocol.FileIntf) bool {
 		f := fi.(protocol.FileInfoTruncated)
 		if !strings.HasPrefix(f.Name, sub) {
+			// Return true so that we keep iterating, until we get to the part
+			// of the tree we are interested in. Then return false so we stop
+			// iterating when we've passed the end of the subtree.
 			return !seenPrefix
 		}
+
 		seenPrefix = true
 		if !protocol.IsDeleted(f.Flags) {
+			if f.IsInvalid() {
+				return true
+			}
+
 			if len(batch) == batchSize {
 				fs.Update(protocol.LocalNodeID, batch)
 				batch = batch[:0]
 			}
-			if _, err := os.Stat(filepath.Join(dir, f.Name)); err != nil && os.IsNotExist(err) {
+
+			if ignores.Match(f.Name) {
+				// File has been ignored. Set invalid bit.
+				nf := protocol.FileInfo{
+					Name:     f.Name,
+					Flags:    f.Flags | protocol.FlagInvalid,
+					Modified: f.Modified,
+					Version:  f.Version, // The file is still the same, so don't bump version
+				}
+				events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
+					"repo":     repo,
+					"name":     f.Name,
+					"modified": time.Unix(f.Modified, 0),
+					"flags":    fmt.Sprintf("0%o", f.Flags),
+					"size":     f.Size(),
+				})
+				batch = append(batch, nf)
+			} else if _, err := os.Stat(filepath.Join(dir, f.Name)); err != nil && os.IsNotExist(err) {
 				// File has been deleted
 				nf := protocol.FileInfo{
 					Name:     f.Name,
@@ -928,6 +982,7 @@ func (m *Model) Override(repo string) {
 	fs := m.repoFiles[repo]
 	m.rmut.RUnlock()
 
+	m.setState(repo, RepoScanning)
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
 	fs.WithNeed(protocol.LocalNodeID, func(fi protocol.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
@@ -953,6 +1008,7 @@ func (m *Model) Override(repo string) {
 	if len(batch) > 0 {
 		fs.Update(protocol.LocalNodeID, batch)
 	}
+	m.setState(repo, RepoIdle)
 }
 
 // Version returns the change version for the given repository. This is
