@@ -680,7 +680,7 @@ func embeddedStatic(assetDir string) http.Handler {
 			return
 		}
 
-		mtype := mime.TypeByExtension(filepath.Ext(r.URL.Path))
+		mtype := mimeTypeForFile(file)
 		if len(mtype) != 0 {
 			w.Header().Set("Content-Type", mtype)
 		}
@@ -689,4 +689,27 @@ func embeddedStatic(assetDir string) http.Handler {
 
 		w.Write(bs)
 	})
+}
+
+func mimeTypeForFile(file string) string {
+	// We use a built in table of the common types since the system
+	// TypeByExtension might be unreliable. But if we don't know, we delegate
+	// to the system.
+	ext := filepath.Ext(file)
+	switch ext {
+	case ".htm", ".html":
+		return "text/html"
+	case ".css":
+		return "text/css"
+	case ".js":
+		return "application/javascript"
+	case ".json":
+		return "application/json"
+	case ".png":
+		return "image/png"
+	case ".ttf":
+		return "application/x-font-ttf"
+	default:
+		return mime.TypeByExtension(ext)
+	}
 }
