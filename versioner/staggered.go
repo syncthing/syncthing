@@ -129,7 +129,10 @@ func (v Staggered) clean() {
 		switch mode := f.Mode(); {
 		case mode.IsDir():
 			filesPerDir[path] = 0
-
+			if path != v.versionsPath {
+				dir := filepath.Dir(path)
+				filesPerDir[dir]++
+			}
 		case mode.IsRegular():
 			extension := filepath.Ext(path)
 			dir := filepath.Dir(path)
@@ -152,15 +155,17 @@ func (v Staggered) clean() {
 	}
 
 	for path, numFiles := range filesPerDir {
+		if numFiles > 0 {
+			continue
+		}
+		
 		if path == v.versionsPath {
 			if debug {
 				l.Debugln("Cleaner: versions dir is empty, don't delete", path)
 			}
 			continue
 		}
-		if numFiles > 0 {
-			continue
-		}
+
 
 		if debug {
 			l.Debugln("Cleaner: deleting empty directory", path)
