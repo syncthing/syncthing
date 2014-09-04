@@ -725,7 +725,7 @@ func archiveLegacyConfig() {
 			l.Warnf("Cannot archive config:", err)
 			return
 		}
-		defer src.Close()
+		defer dst.Close()
 
 		l.Infoln("Archiving config.xml")
 		io.Copy(dst, src)
