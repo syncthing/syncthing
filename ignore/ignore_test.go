@@ -73,13 +73,13 @@ func TestExcludes(t *testing.T) {
 		{"ign2", true},
 		{"ibla2", true},
 		{"iex2", false},
-		{"ign1/ign", true},
-		{"ign1/ex", false},
-		{"ign1/iex2", false},
-		{"iex2/ign", false},
-		{"foo/bar/ign1", true},
-		{"foo/bar/ign2", true},
-		{"foo/bar/iex2", false},
+		{filepath.Join("ign1", "ign"), true},
+		{filepath.Join("ign1", "ex"), false},
+		{filepath.Join("ign1", "iex2"), false},
+		{filepath.Join("iex2", "ign"), false},
+		{filepath.Join("foo", "bar", "ign1"), true},
+		{filepath.Join("foo", "bar", "ign2"), true},
+		{filepath.Join("foo", "bar", "iex2"), false},
 	}
 
 	for _, tc := range tests {
