@@ -1043,30 +1043,12 @@ syncthing.filter('metric', function () {
     };
 });
 
-syncthing.filter('short', function () {
-    return function (input) {
-        return input.substr(0, 6);
-    };
-});
-
 syncthing.filter('alwaysNumber', function () {
     return function (input) {
         if (input === undefined) {
             return 0;
         }
         return input;
-    };
-});
-
-syncthing.filter('shortPath', function () {
-    return function (input) {
-        if (input === undefined)
-            return "";
-        var parts = input.split(/[\/\\]/);
-        if (!parts || parts.length <= 3) {
-            return input;
-        }
-        return ".../" + parts.slice(parts.length-2).join("/");
     };
 });
 
@@ -1079,24 +1061,6 @@ syncthing.filter('basename', function () {
             return input;
         }
         return parts[parts.length-1];
-    };
-});
-
-syncthing.filter('clean', function () {
-    return function (input) {
-        return encodeURIComponent(input).replace(/%/g, '');
-    };
-});
-
-syncthing.directive('optionEditor', function () {
-    return {
-        restrict: 'C',
-        replace: true,
-        transclude: true,
-        scope: {
-            setting: '=setting',
-        },
-        template: '<input type="text" ng-model="config.Options[setting.id]"></input>',
     };
 });
 
