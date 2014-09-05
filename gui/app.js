@@ -1064,18 +1064,6 @@ syncthing.filter('basename', function () {
     };
 });
 
-syncthing.directive('optionEditor', function () {
-    return {
-        restrict: 'C',
-        replace: true,
-        transclude: true,
-        scope: {
-            setting: '=setting',
-        },
-        template: '<input type="text" ng-model="config.Options[setting.id]"></input>',
-    };
-});
-
 syncthing.directive('uniqueRepo', function() {
     return {
         require: 'ngModel',
