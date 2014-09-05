@@ -1064,12 +1064,6 @@ syncthing.filter('basename', function () {
     };
 });
 
-syncthing.filter('clean', function () {
-    return function (input) {
-        return encodeURIComponent(input).replace(/%/g, '');
-    };
-});
-
 syncthing.directive('optionEditor', function () {
     return {
         restrict: 'C',
