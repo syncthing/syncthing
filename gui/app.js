@@ -1052,18 +1052,6 @@ syncthing.filter('alwaysNumber', function () {
     };
 });
 
-syncthing.filter('shortPath', function () {
-    return function (input) {
-        if (input === undefined)
-            return "";
-        var parts = input.split(/[\/\\]/);
-        if (!parts || parts.length <= 3) {
-            return input;
-        }
-        return ".../" + parts.slice(parts.length-2).join("/");
-    };
-});
-
 syncthing.filter('basename', function () {
     return function (input) {
         if (input === undefined)
