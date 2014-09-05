@@ -1006,16 +1006,16 @@ syncthing.filter('binary', function () {
         if (input === undefined) {
             return '0 ';
         }
-        if (input > 1024 * 1024 * 1024) {
-            input /= 1024 * 1024 * 1024;
+        if (input > Math.pow(2, 30)) {
+            input /= Math.pow(2, 30);
             return input.toFixed(decimals(input, 2)) + ' Gi';
         }
-        if (input > 1024 * 1024) {
-            input /= 1024 * 1024;
+        if (input > Math.pow(2, 20)) {
+            input /= Math.pow(2, 20);
             return input.toFixed(decimals(input, 2)) + ' Mi';
         }
-        if (input > 1024) {
-            input /= 1024;
+        if (input > Math.pow(2, 10)) {
+            input /= Math.pow(2, 10);
             return input.toFixed(decimals(input, 2)) + ' Ki';
         }
         return Math.round(input) + ' ';
@@ -1027,16 +1027,16 @@ syncthing.filter('metric', function () {
         if (input === undefined) {
             return '0 ';
         }
-        if (input > 1000 * 1000 * 1000) {
-            input /= 1000 * 1000 * 1000;
+        if (input > Math.pow(10, 9)) {
+            input /= Math.pow(10, 9);
             return input.toFixed(decimals(input, 2)) + ' G';
         }
-        if (input > 1000 * 1000) {
-            input /= 1000 * 1000;
+        if (input > Math.pow(10, 6)) {
+            input /= Math.pow(10, 6);
             return input.toFixed(decimals(input, 2)) + ' M';
         }
-        if (input > 1000) {
-            input /= 1000;
+        if (input > Math.pow(10, 3)) {
+            input /= Math.pow(10, 3);
             return input.toFixed(decimals(input, 2)) + ' k';
         }
         return Math.round(input) + ' ';
