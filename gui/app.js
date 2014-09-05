@@ -1043,12 +1043,6 @@ syncthing.filter('metric', function () {
     };
 });
 
-syncthing.filter('short', function () {
-    return function (input) {
-        return input.substr(0, 6);
-    };
-});
-
 syncthing.filter('alwaysNumber', function () {
     return function (input) {
         if (input === undefined) {
