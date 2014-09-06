@@ -451,6 +451,7 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterCon
 		node := m.cfg.GetNodeConfiguration(nodeID)
 		if node != nil && node.Name == "" {
 			node.Name = name
+			m.cfg.Save()
 		}
 	}
 }
