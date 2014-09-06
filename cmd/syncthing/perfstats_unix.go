@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	if innerProcess && os.Getenv("STPERFSTATS") != "" {
+	if os.Getenv("STPERFSTATS") != "" {
 		go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()))
 	}
 }

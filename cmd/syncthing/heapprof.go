@@ -14,8 +14,7 @@ import (
 )
 
 func init() {
-	if innerProcess && os.Getenv("STHEAPPROFILE") != "" {
-		l.Debugln("Starting heap profiling")
+	if os.Getenv("STHEAPPROFILE") != "" {
 		go saveHeapProfiles()
 	}
 }
