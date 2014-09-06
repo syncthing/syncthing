@@ -9,11 +9,9 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -34,10 +32,6 @@ func monitorMain() {
 
 	args := os.Args
 	var restarts [countRestarts]time.Time
-
-	sign := make(chan os.Signal, 1)
-	sigTerm := syscall.Signal(0xf)
-	signal.Notify(sign, os.Interrupt, sigTerm, os.Kill)
 
 	for {
 		if t := time.Since(restarts[0]); t < loopThreshold {
@@ -74,23 +68,10 @@ func monitorMain() {
 		go copyStderr(stderr)
 		go copyStdout(stdout)
 
-		exit := make(chan error)
-
-		go func() {
-			exit <- cmd.Wait()
-		}()
-
-		select {
-		case s := <-sign:
-			l.Infof("Signal %d received; exiting", s)
-			cmd.Process.Kill()
-			<-exit
+		err = cmd.Wait()
+		if err == nil {
+			// Successfull exit indicates an intentional shutdown
 			return
-		case <-exit:
-			if err == nil {
-				// Successfull exit indicates an intentional shutdown
-				return
-			}
 		}
 
 		l.Infoln("Syncthing exited:", err)

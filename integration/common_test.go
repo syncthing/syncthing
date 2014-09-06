@@ -19,7 +19,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"time"
 )
 
@@ -55,11 +54,7 @@ func (p *syncthingProcess) start() error {
 }
 
 func (p *syncthingProcess) stop() {
-	if runtime.GOOS != "windows" {
-		p.cmd.Process.Signal(os.Interrupt)
-	} else {
-		p.cmd.Process.Kill()
-	}
+	p.cmd.Process.Kill()
 	p.cmd.Wait()
 }
 
