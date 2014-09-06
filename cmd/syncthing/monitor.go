@@ -86,7 +86,7 @@ func monitorMain() {
 			cmd.Process.Kill()
 			<-exit
 			return
-		case <-exit:
+		case err = <-exit:
 			if err == nil {
 				// Successfull exit indicates an intentional shutdown
 				return
