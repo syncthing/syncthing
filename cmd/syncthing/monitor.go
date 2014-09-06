@@ -95,6 +95,10 @@ func monitorMain() {
 
 		l.Infoln("Syncthing exited:", err)
 		time.Sleep(1 * time.Second)
+
+		// Let the next child process know that this is not the first time
+		// it's starting up.
+		os.Setenv("STRESTART", "yes")
 	}
 }
 
