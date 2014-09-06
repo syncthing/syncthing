@@ -227,3 +227,67 @@ func TestVersioningConfig(t *testing.T) {
 		t.Errorf("vc.Params differ;\n  E: %#v\n  A: %#v", expected, vc.Params)
 	}
 }
+
+func TestNewSaveLoad(t *testing.T) {
+	path := "testdata/temp.xml"
+	os.Remove(path)
+
+	exists := func(path string) bool {
+		_, err := os.Stat(path)
+		return err == nil
+	}
+
+	cfg := New(path, node1)
+
+	// To make the equality pass later
+	cfg.XMLName.Local = "configuration"
+
+	if exists(path) {
+		t.Error(path, "exists")
+	}
+
+	err := cfg.Save()
+	if err != nil {
+		t.Error(err)
+	}
+	if !exists(path) {
+		t.Error(path, "does not exist")
+	}
+
+	cfg2, err := Load(path, node1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !reflect.DeepEqual(cfg, cfg2) {
+		t.Errorf("Configs are not equal;\n  E:  %#v\n  A:  %#v", cfg, cfg2)
+	}
+
+	cfg.GUI.User = "test"
+	cfg.Save()
+
+	cfg2, err = Load(path, node1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if cfg2.GUI.User != "test" || !reflect.DeepEqual(cfg, cfg2) {
+		t.Errorf("Configs are not equal;\n  E:  %#v\n  A:  %#v", cfg, cfg2)
+	}
+
+	os.Remove(path)
+}
+
+func TestPrepare(t *testing.T) {
+	var cfg Configuration
+
+	if cfg.Repositories != nil || cfg.Nodes != nil || cfg.Options.ListenAddress != nil {
+		t.Error("Expected nil")
+	}
+
+	cfg.prepare(node1)
+
+	if cfg.Repositories == nil || cfg.Nodes == nil || cfg.Options.ListenAddress == nil {
+		t.Error("Unexpected nil")
+	}
+}
