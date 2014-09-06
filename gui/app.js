@@ -20,6 +20,26 @@
         });
     });
 
+    syncthing.run(function ($http, $translate) {
+        $http.get(urlbase + "/lang").success(function (langs) {
+            // Find the first language in the list provided by the user's browser
+            // that is a prefix of a language we have available. That is, "en"
+            // sent by the browser will match "en" or "en-US", while "zh-TW" will
+            // match only "zh-TW" and not "zh-CN".
+
+            var i, j;
+            for (i = 0; i < langs.length; i++) {
+                for (j = 0; j < validLangs.length; j++) {
+                    if (validLangs[j].indexOf(langs[i]) === 0) {
+                        $translate.use(validLangs[j]);
+                        return;
+                    }
+                }
+            }
+            $translate.use("en");
+        });
+    });
+
     syncthing.controller('EventCtrl', function ($scope, $http) {
         $scope.lastEvent = null;
         var lastID = 0;
@@ -91,37 +111,6 @@
         $scope.seenError = '';
         $scope.upgradeInfo = {};
         $scope.stats = {};
-
-        $http.get(urlbase + "/lang").success(function (langs) {
-            // Find the first language in the list provided by the user's browser
-            // that is a prefix of a language we have available. That is, "en"
-            // sent by the browser will match "en" or "en-US", while "zh-TW" will
-            // match only "zh-TW" and not "zh-CN".
-
-            var lang, matching, i;
-            for (i = 0; i < langs.length; i++) {
-                lang = langs[i];
-                if (lang.length < 2) {
-                    continue;
-                }
-                matching = validLangs.filter(function (possibleLang) {
-                    // The langs returned by the /rest/langs call will be in lower
-                    // case. We compare to the lowercase version of the language
-                    // code we have as well.
-                    possibleLang = possibleLang.toLowerCase();
-                    if (possibleLang.length > lang.length) {
-                        return possibleLang.indexOf(lang) === 0;
-                    }
-                    return lang.indexOf(possibleLang) === 0;
-                });
-                if (matching.length >= 1) {
-                    $translate.use(matching[0]);
-                    return;
-                }
-            }
-            // Fallback if nothing matched
-            $translate.use("en");
-        });
 
         $(window).bind('beforeunload', function () {
             navigatingAway = true;
