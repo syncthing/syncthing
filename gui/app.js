@@ -237,6 +237,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
     })
 
+    $scope.$on('ConfigSaved', function (event, arg) {
+        updateLocalConfig(arg.data);
+
+        $http.get(urlbase + '/config/sync').success(function (data) {
+            $scope.configInSync = data.configInSync;
+        });
+    });
+
     var debouncedFuncs = {};
 
     function refreshRepo(repo) {
@@ -250,6 +258,33 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             }, 1000, true);
         }
         debouncedFuncs[key]();
+    }
+
+    function updateLocalConfig(config) {
+        var hasConfig = !isEmptyObject($scope.config);
+
+        $scope.config = config;
+        $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
+
+        $scope.nodes = $scope.config.Nodes;
+        $scope.nodes.forEach(function (nodeCfg) {
+            $scope.completion[nodeCfg.NodeID] = {
+                _total: 100,
+            };
+        });
+        $scope.nodes.sort(nodeCompare);
+
+        $scope.repos = repoMap($scope.config.Repositories);
+        Object.keys($scope.repos).forEach(function (repo) {
+            refreshRepo(repo);
+            $scope.repos[repo].Nodes.forEach(function (nodeCfg) {
+                refreshCompletion(nodeCfg.NodeID, repo);
+            });
+        });
+
+        if (!hasConfig) {
+            $scope.$emit('ConfigLoaded');
+        }
     }
 
     function refreshSystem() {
@@ -324,31 +359,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     function refreshConfig() {
         $http.get(urlbase + '/config').success(function (data) {
-            var hasConfig = !isEmptyObject($scope.config);
-
-            $scope.config = data;
-            $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
-
-            $scope.nodes = $scope.config.Nodes;
-            $scope.nodes.forEach(function (nodeCfg) {
-                $scope.completion[nodeCfg.NodeID] = {
-                    _total: 100,
-                };
-            });
-            $scope.nodes.sort(nodeCompare);
-
-            $scope.repos = repoMap($scope.config.Repositories);
-            Object.keys($scope.repos).forEach(function (repo) {
-                refreshRepo(repo);
-                $scope.repos[repo].Nodes.forEach(function (nodeCfg) {
-                    refreshCompletion(nodeCfg.NodeID, repo);
-                });
-            });
-
-            if (!hasConfig) {
-                $scope.$emit('ConfigLoaded');
-            }
-
+            updateLocalConfig(data);
             console.log("refreshConfig", data);
         });
 
