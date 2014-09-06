@@ -26,6 +26,7 @@ const (
 	ItemStarted
 	StateChanged
 	RepoRejected
+	ConfigSaved
 
 	AllEvents = ^EventType(0)
 )
@@ -56,6 +57,8 @@ func (t EventType) String() string {
 		return "StateChanged"
 	case RepoRejected:
 		return "RepoRejected"
+	case ConfigSaved:
+		return "ConfigSaved"
 	default:
 		return "Unknown"
 	}
