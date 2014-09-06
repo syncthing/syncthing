@@ -361,8 +361,9 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 		// Activate and save
 
+		newCfg.Location = cfg.Location
+		newCfg.Save()
 		cfg = newCfg
-		saveConfig()
 	}
 }
 
