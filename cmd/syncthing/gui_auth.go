@@ -5,21 +5,16 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"math/rand"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/syncthing/syncthing/config"
-	"github.com/syncthing/syncthing/osutil"
 )
 
 var (
