@@ -5,7 +5,6 @@
 package versioner
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -44,6 +43,40 @@ func isFile(path string) bool {
 		return false
 	}
 	return fileInfo.Mode().IsRegular()
+}
+
+const TimeLayout = "20060102-150405"
+
+func versionExt(path string) string {
+	pathSplit := strings.Split(path, "~")
+	if len(pathSplit) > 1 {
+		return pathSplit[len(pathSplit)-1]
+	} else {
+		return ""
+	}
+}
+
+// Rename versions with old version format
+func (v Staggered) renameOld() {
+	err := filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
+		if f.Mode().IsRegular() {
+			versionUnix, err := strconv.ParseInt(strings.Replace(filepath.Ext(path), ".v", "", 1), 10, 0)
+			if err == nil {
+				l.Infoln("Renaming file", path, "from old to new version format")
+				versiondate := time.Unix(versionUnix, 0)
+				name := path[:len(path)-len(filepath.Ext(path))]
+				err = osutil.Rename(path, name+"~"+versiondate.Format(TimeLayout))
+				if err != nil {
+					l.Infoln("Error renaming to new format", err)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		l.Infoln("Versioner: error scanning versions dir", err)
+		return
+	}
 }
 
 // The constructor function takes a map of parameters and creates the type.
@@ -88,6 +121,9 @@ func NewStaggered(repoID, repoPath string, params map[string]string) Versioner {
 	if debug {
 		l.Debugf("instantiated %#v", s)
 	}
+
+	// Rename version with old version format
+	s.renameOld()
 
 	go func() {
 		s.clean()
@@ -134,9 +170,9 @@ func (v Staggered) clean() {
 				filesPerDir[dir]++
 			}
 		case mode.IsRegular():
-			extension := filepath.Ext(path)
+			extension := versionExt(path)
 			dir := filepath.Dir(path)
-			name := path[:len(path)-len(extension)]
+			name := path[:len(path)-len(extension)-1]
 
 			filesPerDir[dir]++
 			versionsPerFile[name] = append(versionsPerFile[name], path)
@@ -158,14 +194,13 @@ func (v Staggered) clean() {
 		if numFiles > 0 {
 			continue
 		}
-		
+
 		if path == v.versionsPath {
 			if debug {
 				l.Debugln("Cleaner: versions dir is empty, don't delete", path)
 			}
 			continue
 		}
-
 
 		if debug {
 			l.Debugln("Cleaner: deleting empty directory", path)
@@ -184,17 +219,16 @@ func (v Staggered) expire(versions []string) {
 	if debug {
 		l.Debugln("Versioner: Expiring versions", versions)
 	}
-	now := time.Now().Unix()
 	var prevAge int64
 	firstFile := true
 	for _, file := range versions {
 		if isFile(file) {
-			versiondate, err := strconv.ParseInt(strings.Replace(filepath.Ext(file), ".v", "", 1), 10, 0)
+			versionTime, err := time.Parse(TimeLayout, versionExt(file))
 			if err != nil {
 				l.Infof("Versioner: file name %q is invalid: %v", file, err)
 				continue
 			}
-			age := now - versiondate
+			age := int64(time.Since(versionTime).Seconds())
 
 			// If the file is older than the max age of the last interval, remove it
 			if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
@@ -250,7 +284,7 @@ func (v Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	_, err := os.Stat(filePath)
+	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if debug {
@@ -291,7 +325,7 @@ func (v Staggered) Archive(filePath string) error {
 		return err
 	}
 
-	ver := file + ".v" + fmt.Sprintf("%010d", time.Now().Unix())
+	ver := file + "~" + fileInfo.ModTime().Format(TimeLayout)
 	dst := filepath.Join(dir, ver)
 	if debug {
 		l.Debugln("moving to", dst)
@@ -301,7 +335,7 @@ func (v Staggered) Archive(filePath string) error {
 		return err
 	}
 
-	versions, err := filepath.Glob(filepath.Join(dir, file+".v[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]"))
+	versions, err := filepath.Glob(filepath.Join(dir, file+"~[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]"))
 	if err != nil {
 		l.Warnln("Versioner: error finding versions for", file, err)
 		return nil

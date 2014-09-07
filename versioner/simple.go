@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/syncthing/syncthing/osutil"
 )
@@ -46,7 +45,7 @@ func NewSimple(repoID, repoPath string, params map[string]string) Versioner {
 // Move away the named file to a version archive. If this function returns
 // nil, the named file does not exist any more (has been archived).
 func (v Simple) Archive(filePath string) error {
-	_, err := os.Stat(filePath)
+	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if debug {
@@ -88,7 +87,7 @@ func (v Simple) Archive(filePath string) error {
 		return err
 	}
 
-	ver := file + "~" + time.Now().Format("20060102-150405")
+	ver := file + "~" + fileInfo.ModTime().Format("20060102-150405")
 	dst := filepath.Join(dir, ver)
 	if debug {
 		l.Debugln("moving to", dst)
@@ -98,7 +97,7 @@ func (v Simple) Archive(filePath string) error {
 		return err
 	}
 
-	versions, err := filepath.Glob(filepath.Join(dir, file+"~*"))
+	versions, err := filepath.Glob(filepath.Join(dir, file+"~[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]"))
 	if err != nil {
 		l.Warnln("globbing:", err)
 		return nil
