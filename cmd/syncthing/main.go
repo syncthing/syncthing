@@ -37,7 +37,6 @@ import (
 	"github.com/syncthing/syncthing/upgrade"
 	"github.com/syncthing/syncthing/upnp"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 var (
@@ -391,7 +390,7 @@ func syncthingMain() {
 	// If this is the first time the user runs v0.9, archive the old indexes and config.
 	archiveLegacyConfig()
 
-	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{MaxOpenFiles: 100})
+	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), nil)
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
