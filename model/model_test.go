@@ -266,7 +266,7 @@ func TestNodeRename(t *testing.T) {
 		ClientVersion: "v0.9.4",
 	}
 
-	cfg, _ := config.Load(nil, node1)
+	cfg := config.New("test", node1)
 	cfg.Nodes = []config.NodeConfiguration{
 		{
 			NodeID: node1,

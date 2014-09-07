@@ -8,7 +8,6 @@ package config
 import (
 	"encoding/xml"
 	"fmt"
-	"io"
 	"os"
 	"reflect"
 	"sort"
@@ -16,12 +15,14 @@ import (
 
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/syncthing/syncthing/logger"
+	"github.com/syncthing/syncthing/osutil"
 	"github.com/syncthing/syncthing/protocol"
 )
 
 var l = logger.DefaultLogger
 
 type Configuration struct {
+	Location     string                    `xml:"-" json:"-"`
 	Version      int                       `xml:"version,attr" default:"3"`
 	Repositories []RepositoryConfiguration `xml:"repository"`
 	Nodes        []NodeConfiguration       `xml:"node"`
@@ -227,14 +228,38 @@ func fillNilSlices(data interface{}) error {
 	return nil
 }
 
-func Save(wr io.Writer, cfg Configuration) error {
-	e := xml.NewEncoder(wr)
-	e.Indent("", "    ")
-	err := e.Encode(cfg)
+func (cfg *Configuration) Save() error {
+	fd, err := os.Create(cfg.Location + ".tmp")
 	if err != nil {
+		l.Warnln("Saving config:", err)
 		return err
 	}
-	_, err = wr.Write([]byte("\n"))
+
+	e := xml.NewEncoder(fd)
+	e.Indent("", "    ")
+	err = e.Encode(cfg)
+	if err != nil {
+		fd.Close()
+		return err
+	}
+	_, err = fd.Write([]byte("\n"))
+
+	if err != nil {
+		l.Warnln("Saving config:", err)
+		fd.Close()
+		return err
+	}
+
+	err = fd.Close()
+	if err != nil {
+		l.Warnln("Saving config:", err)
+		return err
+	}
+
+	err = osutil.Rename(cfg.Location+".tmp", cfg.Location)
+	if err != nil {
+		l.Warnln("Saving config:", err)
+	}
 	return err
 }
 
@@ -252,18 +277,7 @@ func uniqueStrings(ss []string) []string {
 	return us
 }
 
-func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
-	var cfg Configuration
-
-	setDefaults(&cfg)
-	setDefaults(&cfg.Options)
-	setDefaults(&cfg.GUI)
-
-	var err error
-	if rd != nil {
-		err = xml.NewDecoder(rd).Decode(&cfg)
-	}
-
+func (cfg *Configuration) prepare(myID protocol.NodeID) {
 	fillNilSlices(&cfg.Options)
 
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
@@ -312,17 +326,17 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 
 	// Upgrade to v2 configuration if appropriate
 	if cfg.Version == 1 {
-		convertV1V2(&cfg)
+		convertV1V2(cfg)
 	}
 
 	// Upgrade to v3 configuration if appropriate
 	if cfg.Version == 2 {
-		convertV2V3(&cfg)
+		convertV2V3(cfg)
 	}
 
 	// Upgrade to v4 configuration if appropriate
 	if cfg.Version == 3 {
-		convertV3V4(&cfg)
+		convertV3V4(cfg)
 	}
 
 	// Hash old cleartext passwords
@@ -368,6 +382,39 @@ func Load(rd io.Reader, myID protocol.NodeID) (Configuration, error) {
 			n.Addresses = []string{"dynamic"}
 		}
 	}
+}
+
+func New(location string, myID protocol.NodeID) Configuration {
+	var cfg Configuration
+
+	cfg.Location = location
+
+	setDefaults(&cfg)
+	setDefaults(&cfg.Options)
+	setDefaults(&cfg.GUI)
+
+	cfg.prepare(myID)
+
+	return cfg
+}
+
+func Load(location string, myID protocol.NodeID) (Configuration, error) {
+	var cfg Configuration
+
+	cfg.Location = location
+
+	setDefaults(&cfg)
+	setDefaults(&cfg.Options)
+	setDefaults(&cfg.GUI)
+
+	fd, err := os.Open(location)
+	if err != nil {
+		return Configuration{}, err
+	}
+	err = xml.NewDecoder(fd).Decode(&cfg)
+	fd.Close()
+
+	cfg.prepare(myID)
 
 	return cfg, err
 }

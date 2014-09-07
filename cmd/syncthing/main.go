@@ -33,7 +33,6 @@ import (
 	"github.com/syncthing/syncthing/files"
 	"github.com/syncthing/syncthing/logger"
 	"github.com/syncthing/syncthing/model"
-	"github.com/syncthing/syncthing/osutil"
 	"github.com/syncthing/syncthing/protocol"
 	"github.com/syncthing/syncthing/upgrade"
 	"github.com/syncthing/syncthing/upnp"
@@ -310,21 +309,14 @@ func syncthingMain() {
 	// Prepare to be able to save configuration
 
 	cfgFile := filepath.Join(confDir, "config.xml")
-	go saveConfigLoop(cfgFile)
 
 	var myName string
 
 	// Load the configuration file, if it exists.
 	// If it does not, create a template.
 
-	cf, err := os.Open(cfgFile)
+	cfg, err = config.Load(cfgFile, myID)
 	if err == nil {
-		// Read config.xml
-		cfg, err = config.Load(cf, myID)
-		if err != nil {
-			l.Fatalln(err)
-		}
-		cf.Close()
 		myCfg := cfg.GetNodeConfiguration(myID)
 		if myCfg == nil || myCfg.Name == "" {
 			myName, _ = os.Hostname()
@@ -336,7 +328,7 @@ func syncthingMain() {
 		myName, _ = os.Hostname()
 		defaultRepo := filepath.Join(getHomeDir(), "Sync")
 
-		cfg, err = config.Load(nil, myID)
+		cfg = config.New(cfgFile, myID)
 		cfg.Repositories = []config.RepositoryConfiguration{
 			{
 				ID:              "default",
@@ -361,7 +353,7 @@ func syncthingMain() {
 		l.FatalErr(err)
 		cfg.Options.ListenAddress = []string{fmt.Sprintf("0.0.0.0:%d", port)}
 
-		saveConfig()
+		cfg.Save()
 		l.Infof("Edit %s to taste or use the GUI\n", cfgFile)
 	}
 
@@ -743,40 +735,6 @@ func restart() {
 func shutdown() {
 	l.Infoln("Shutting down")
 	stop <- exitSuccess
-}
-
-var saveConfigCh = make(chan struct{})
-
-func saveConfigLoop(cfgFile string) {
-	for _ = range saveConfigCh {
-		fd, err := os.Create(cfgFile + ".tmp")
-		if err != nil {
-			l.Warnln("Saving config:", err)
-			continue
-		}
-
-		err = config.Save(fd, cfg)
-		if err != nil {
-			l.Warnln("Saving config:", err)
-			fd.Close()
-			continue
-		}
-
-		err = fd.Close()
-		if err != nil {
-			l.Warnln("Saving config:", err)
-			continue
-		}
-
-		err = osutil.Rename(cfgFile+".tmp", cfgFile)
-		if err != nil {
-			l.Warnln("Saving config:", err)
-		}
-	}
-}
-
-func saveConfig() {
-	saveConfigCh <- struct{}{}
 }
 
 func listenConnect(myID protocol.NodeID, m *model.Model, tlsCfg *tls.Config) {
