@@ -222,7 +222,7 @@ func (p *puller) run() {
 
 		if changed {
 			p.model.setState(p.repoCfg.ID, RepoCleaning)
-			p.fixupDirectories()
+			p.clean()
 			changed = false
 		}
 
@@ -261,13 +261,19 @@ func (p *puller) runRO() {
 	}
 }
 
-func (p *puller) fixupDirectories() {
+// clean deletes orphaned temporary files and directories that should no
+// longer exist.
+func (p *puller) clean() {
 	var deleteDirs []string
 	var changed = 0
 
 	var walkFn = func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		if info.Mode().IsRegular() && defTempNamer.IsTemporary(path) {
+			os.Remove(path)
 		}
 
 		if !info.IsDir() {
