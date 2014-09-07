@@ -525,8 +525,10 @@ func restGetLang(w http.ResponseWriter, r *http.Request) {
 	lang := r.Header.Get("Accept-Language")
 	var langs []string
 	for _, l := range strings.Split(lang, ",") {
-		parts := strings.SplitN(l, ";", 2)
-		langs = append(langs, strings.ToLower(strings.TrimSpace(parts[0])))
+		s := strings.TrimSpace(strings.SplitN(l, ";", 2)[0])
+		if len(s) >= 2 {
+			langs = append(langs, s)
+		}
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(langs)
