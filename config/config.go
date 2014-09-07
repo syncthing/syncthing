@@ -14,6 +14,7 @@ import (
 	"strconv"
 
 	"code.google.com/p/go.crypto/bcrypt"
+	"github.com/syncthing/syncthing/events"
 	"github.com/syncthing/syncthing/logger"
 	"github.com/syncthing/syncthing/osutil"
 	"github.com/syncthing/syncthing/protocol"
@@ -260,6 +261,7 @@ func (cfg *Configuration) Save() error {
 	if err != nil {
 		l.Warnln("Saving config:", err)
 	}
+	events.Default.Log(events.ConfigSaved, cfg)
 	return err
 }
 
