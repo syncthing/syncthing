@@ -128,7 +128,8 @@ const (
 type nodeState int
 
 const (
-	nodeEffective nodeState = iota
+	nodeZero nodeState = iota
+	nodeEffective
 	nodeEvicted
 	nodeDeleted
 )

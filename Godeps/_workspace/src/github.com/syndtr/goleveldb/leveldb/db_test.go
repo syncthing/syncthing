@@ -1210,7 +1210,7 @@ func TestDb_DeletionMarkers2(t *testing.T) {
 }
 
 func TestDb_CompactionTableOpenError(t *testing.T) {
-	h := newDbHarnessWopt(t, &opt.Options{MaxOpenFiles: 0})
+	h := newDbHarnessWopt(t, &opt.Options{CachedOpenFiles: -1})
 	defer h.close()
 
 	im := 10

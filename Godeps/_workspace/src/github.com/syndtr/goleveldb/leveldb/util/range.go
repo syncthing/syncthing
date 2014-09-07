@@ -25,6 +25,7 @@ func BytesPrefix(prefix []byte) *Range {
 			limit = make([]byte, i+1)
 			copy(limit, prefix)
 			limit[i] = c + 1
+			break
 		}
 	}
 	return &Range{prefix, limit}

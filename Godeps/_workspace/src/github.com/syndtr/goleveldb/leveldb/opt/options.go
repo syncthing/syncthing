@@ -24,7 +24,7 @@ const (
 	DefaultBlockRestartInterval = 16
 	DefaultBlockSize            = 4 * KiB
 	DefaultCompressionType      = SnappyCompression
-	DefaultMaxOpenFiles         = 1000
+	DefaultCachedOpenFiles      = 500
 	DefaultWriteBuffer          = 4 * MiB
 )
 
@@ -125,6 +125,13 @@ type Options struct {
 	// The default value is 4KiB.
 	BlockSize int
 
+	// CachedOpenFiles defines number of open files to kept around when not
+	// in-use, the counting includes still in-use files.
+	// Set this to negative value to disable caching.
+	//
+	// The default value is 500.
+	CachedOpenFiles int
+
 	// Comparer defines a total ordering over the space of []byte keys: a 'less
 	// than' relationship. The same comparison algorithm must be used for reads
 	// and writes over the lifetime of the DB.
@@ -164,13 +171,6 @@ type Options struct {
 	//
 	// The default value is nil.
 	Filter filter.Filter
-
-	// MaxOpenFiles defines maximum number of open files to kept around
-	// (cached). This is not an hard limit, actual open files may exceed
-	// the defined value.
-	//
-	// The default value is 1000.
-	MaxOpenFiles int
 
 	// Strict defines the DB strict level.
 	Strict Strict
@@ -213,6 +213,15 @@ func (o *Options) GetBlockSize() int {
 	return o.BlockSize
 }
 
+func (o *Options) GetCachedOpenFiles() int {
+	if o == nil || o.CachedOpenFiles == 0 {
+		return DefaultCachedOpenFiles
+	} else if o.CachedOpenFiles < 0 {
+		return 0
+	}
+	return o.CachedOpenFiles
+}
+
 func (o *Options) GetComparer() comparer.Comparer {
 	if o == nil || o.Comparer == nil {
 		return comparer.DefaultComparer
@@ -246,13 +255,6 @@ func (o *Options) GetFilter() filter.Filter {
 		return nil
 	}
 	return o.Filter
-}
-
-func (o *Options) GetMaxOpenFiles() int {
-	if o == nil || o.MaxOpenFiles <= 0 {
-		return DefaultMaxOpenFiles
-	}
-	return o.MaxOpenFiles
 }
 
 func (o *Options) GetStrict(strict Strict) bool {

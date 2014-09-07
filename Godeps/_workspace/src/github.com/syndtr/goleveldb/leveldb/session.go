@@ -58,7 +58,7 @@ func newSession(stor storage.Storage, o *opt.Options) (s *session, err error) {
 		storLock: storLock,
 	}
 	s.setOptions(o)
-	s.tops = newTableOps(s, s.o.GetMaxOpenFiles())
+	s.tops = newTableOps(s, s.o.GetCachedOpenFiles())
 	s.setVersion(&version{s: s})
 	s.log("log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock D·DeletedEntry L·Level Q·SeqNum T·TimeElapsed")
 	return

@@ -512,6 +512,56 @@ func TestLRUCache_Finalizer(t *testing.T) {
 	}
 }
 
+func BenchmarkLRUCache_Set(b *testing.B) {
+	c := NewLRUCache(0)
+	ns := c.GetNamespace(0)
+	b.ResetTimer()
+	for i := uint64(0); i < uint64(b.N); i++ {
+		set(ns, i, "", 1, nil)
+	}
+}
+
+func BenchmarkLRUCache_Get(b *testing.B) {
+	c := NewLRUCache(0)
+	ns := c.GetNamespace(0)
+	b.ResetTimer()
+	for i := uint64(0); i < uint64(b.N); i++ {
+		set(ns, i, "", 1, nil)
+	}
+	b.ResetTimer()
+	for i := uint64(0); i < uint64(b.N); i++ {
+		ns.Get(i, nil)
+	}
+}
+
+func BenchmarkLRUCache_Get2(b *testing.B) {
+	c := NewLRUCache(0)
+	ns := c.GetNamespace(0)
+	b.ResetTimer()
+	for i := uint64(0); i < uint64(b.N); i++ {
+		set(ns, i, "", 1, nil)
+	}
+	b.ResetTimer()
+	for i := uint64(0); i < uint64(b.N); i++ {
+		ns.Get(i, func() (charge int, value interface{}) {
+			return 0, nil
+		})
+	}
+}
+
+func BenchmarkLRUCache_Release(b *testing.B) {
+	c := NewLRUCache(0)
+	ns := c.GetNamespace(0)
+	handles := make([]Handle, b.N)
+	for i := uint64(0); i < uint64(b.N); i++ {
+		handles[i] = set(ns, i, "", 1, nil)
+	}
+	b.ResetTimer()
+	for _, h := range handles {
+		h.Release()
+	}
+}
+
 func BenchmarkLRUCache_SetRelease(b *testing.B) {
 	capacity := b.N / 100
 	if capacity <= 0 {
@@ -521,7 +571,7 @@ func BenchmarkLRUCache_SetRelease(b *testing.B) {
 	ns := c.GetNamespace(0)
 	b.ResetTimer()
 	for i := uint64(0); i < uint64(b.N); i++ {
-		set(ns, i, nil, 1, nil).Release()
+		set(ns, i, "", 1, nil).Release()
 	}
 }
 
@@ -538,10 +588,10 @@ func BenchmarkLRUCache_SetReleaseTwice(b *testing.B) {
 	nb := b.N - na
 
 	for i := uint64(0); i < uint64(na); i++ {
-		set(ns, i, nil, 1, nil).Release()
+		set(ns, i, "", 1, nil).Release()
 	}
 
 	for i := uint64(0); i < uint64(nb); i++ {
-		set(ns, i, nil, 1, nil).Release()
+		set(ns, i, "", 1, nil).Release()
 	}
 }

@@ -21,7 +21,7 @@ var _ = testutil.Defer(func() {
 			BlockRestartInterval: 5,
 			BlockSize:            50,
 			Compression:          opt.NoCompression,
-			MaxOpenFiles:         0,
+			CachedOpenFiles:      -1,
 			Strict:               opt.StrictAll,
 			WriteBuffer:          1000,
 		}

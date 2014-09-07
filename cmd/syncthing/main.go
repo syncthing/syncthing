@@ -391,7 +391,7 @@ func syncthingMain() {
 	// If this is the first time the user runs v0.9, archive the old indexes and config.
 	archiveLegacyConfig()
 
-	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{MaxOpenFiles: 100})
+	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{CachedOpenFiles: 100})
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
