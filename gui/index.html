@@ -614,7 +614,7 @@
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <span translate>Anonymous Usage Reporting</span> <input id="UREnabled" type="checkbox" ng-model="tmpOptions.UREnabled">
+                      <span translate>Anonymous Usage Reporting</span> <input id="UREnabled" type="checkbox" ng-model="tmpOptions.UREnabled"> (<a translate ng-click="showURPreview()" href="#">Preview</a>)
                     </label>
                   </div>
                 </div>
@@ -656,6 +656,26 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-success btn-sm" ng-click="acceptUR()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Yes</span></button>
           <button type="button" class="btn btn-danger btn-sm" ng-click="declineUR()"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>No</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Usage report preview modal -->
+
+  <div id="urPreview" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header alert alert-success">
+          <h4 translate class="modal-title">Anonymous Usage Reporting</h4>
+        </div>
+        <div class="modal-body">
+          <p translate>The encrypted usage report is sent daily. It is used to track common platforms, repo sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.</p>
+          <p translate translate-value-url="https://data.syncthing.net">The aggregated statistics are publicly available at {%url%}.</p>
+          <pre><small>{{reportData | json}}</small></pre>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-success btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>OK</span></button>
         </div>
       </div>
     </div>
