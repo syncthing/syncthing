@@ -328,7 +328,7 @@ nextAddr:
 
 func clean(statsLog io.Writer, db *leveldb.DB) {
 	for {
-		now := time.Now()
+		now := next(cacheLimitSeconds)
 		nowSecs := now.Unix()
 
 		var kept, deleted int64
@@ -363,7 +363,5 @@ func clean(statsLog io.Writer, db *leveldb.DB) {
 		iter.Release()
 
 		fmt.Fprintf(statsLog, "%d Kept:%d Deleted:%d Took:%0.04fs\n", nowSecs, kept, deleted, time.Since(now).Seconds())
-
-		time.Sleep(cacheLimitSeconds * time.Second / 2)
 	}
 }
