@@ -199,7 +199,7 @@
                         <td class="text-right">{{connections['total'].outbps | metric}}bps ({{connections['total'].OutBytesTotal | binary}}B)</td>
                       </tr>
                       <tr ng-if="system.extAnnounceOK != undefined">
-                        <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;<span translate>Announce Server</span></th>
+                        <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;<span translate>Global Discovery Server</span></th>
                         <td class="text-right">
                           <span class="data text-success" ng-if="system.extAnnounceOK"><span translate>Online</span></span>
                           <span class="data text-danger" ng-if="!system.extAnnounceOK"><span translate>Offline</span></span>
