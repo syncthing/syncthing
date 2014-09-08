@@ -782,6 +782,46 @@ func TestListDropRepo(t *testing.T) {
 	}
 }
 
+func TestGlobalNeedWithInvalid(t *testing.T) {
+	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := files.NewSet("test1", db)
+
+	rem0 := fileList{
+		protocol.FileInfo{Name: "a", Version: 1002, Blocks: genBlocks(4)},
+		protocol.FileInfo{Name: "b", Version: 1002, Flags: protocol.FlagInvalid},
+		protocol.FileInfo{Name: "c", Version: 1002, Blocks: genBlocks(4)},
+	}
+	s.Replace(remoteNode0, rem0)
+
+	rem1 := fileList{
+		protocol.FileInfo{Name: "a", Version: 1002, Blocks: genBlocks(4)},
+		protocol.FileInfo{Name: "b", Version: 1002, Blocks: genBlocks(4)},
+		protocol.FileInfo{Name: "c", Version: 1002, Flags: protocol.FlagInvalid},
+	}
+	s.Replace(remoteNode1, rem1)
+
+	total := fileList{
+		// There's a valid copy of each file, so it should be merged
+		protocol.FileInfo{Name: "a", Version: 1002, Blocks: genBlocks(4)},
+		protocol.FileInfo{Name: "b", Version: 1002, Blocks: genBlocks(4)},
+		protocol.FileInfo{Name: "c", Version: 1002, Blocks: genBlocks(4)},
+	}
+
+	need := fileList(needList(s, protocol.LocalNodeID))
+	if fmt.Sprint(need) != fmt.Sprint(total) {
+		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", need, total)
+	}
+
+	global := fileList(globalList(s))
+	if fmt.Sprint(global) != fmt.Sprint(total) {
+		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", global, total)
+	}
+}
+
 func TestLongPath(t *testing.T) {
 	db, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {

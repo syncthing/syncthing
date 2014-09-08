@@ -678,6 +678,9 @@ outer:
 				if cont := fn(gf); !cont {
 					return
 				}
+
+				// This file is handled, no need to look further in the version list
+				continue outer
 			}
 		}
 	}
