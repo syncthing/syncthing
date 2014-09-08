@@ -82,24 +82,22 @@
       <div class="col-md-6">
         <div class="panel-group" id="repositories">
           <div class="panel panel-{{repoClass(repo.ID)}}" ng-repeat="repo in repoList()">
-            <div class="panel-heading">
+            <div class="panel-heading" data-toggle="collapse" data-parent="#repositories" href="#repo-{{$index}}" style="cursor: pointer">
               <h3 class="panel-title">
-                <a data-toggle="collapse" data-parent="#repositories" href="#repo-{{$index}}">
-                  <span class="glyphicon glyphicon-hdd"></span> {{repo.ID}}
-                  <span class="pull-right hidden-xs" ng-switch="repoStatus(repo.ID)">
-                    <span translate ng-switch-when="unknown">Unknown</span>
-                    <span translate ng-switch-when="stopped">Stopped</span>
-                    <span translate ng-switch-when="scanning">Scanning</span>
-                    <span ng-switch-when="syncing">
-                      <span translate>Syncing</span>
-                      ({{syncPercentage(repo.ID)}}%)
-                    </span>
-                    <span ng-switch-when="idle">
-                      <span translate>Idle</span>
-                      ({{syncPercentage(repo.ID)}}%)
-                    </span>
+                <span class="glyphicon glyphicon-hdd"></span> {{repo.ID}}
+                <span class="pull-right hidden-xs" ng-switch="repoStatus(repo.ID)">
+                  <span translate ng-switch-when="unknown">Unknown</span>
+                  <span translate ng-switch-when="stopped">Stopped</span>
+                  <span translate ng-switch-when="scanning">Scanning</span>
+                  <span ng-switch-when="syncing">
+                    <span translate>Syncing</span>
+                    ({{syncPercentage(repo.ID)}}%)
                   </span>
-                </a>
+                  <span ng-switch-when="idle">
+                    <span translate>Idle</span>
+                    ({{syncPercentage(repo.ID)}}%)
+                  </span>
+                </span>
               </h3>
             </div>
             <div id="repo-{{$index}}" class="panel-collapse collapse">
@@ -173,9 +171,9 @@
       <div class="col-md-6">
         <div class="panel-group" id="nodes">
           <div class="panel panel-default" ng-repeat="nodeCfg in [thisNode()]">
-            <div class="panel-heading">
+            <div class="panel-heading" data-toggle="collapse" data-parent="#nodes" href="#node-this" style="cursor: pointer">
               <h3 class="panel-title">
-                <a data-toggle="collapse" data-parent="#nodes" href="#node-this"><span class="glyphicon glyphicon-home"></span> {{nodeName(nodeCfg)}}</a>
+                <span class="glyphicon glyphicon-home"></span> {{nodeName(nodeCfg)}}
               </h3>
             </div>
             <div id="node-this" class="panel-collapse collapse in">
@@ -218,20 +216,18 @@
 
           <div class="panel panel-{{nodeClass(nodeCfg)}}" ng-repeat="nodeCfg in otherNodes()">
             <div class="panel-heading">
-              <h3 class="panel-title">
-                <a data-toggle="collapse" data-parent="#nodes" href="#node-{{$index}}">
-                  <span class="glyphicon glyphicon-retweet"></span>
-                  {{nodeName(nodeCfg)}}
-                  <span class="pull-right hidden-xs">
-                    <span ng-if="connections[nodeCfg.NodeID] && completion[nodeCfg.NodeID]._total == 100">
-                      <span translate>Up to Date</span> (100%)
-                    </span>
-                    <span ng-if="connections[nodeCfg.NodeID] && completion[nodeCfg.NodeID]._total < 100">
-                      <span translate>Syncing</span> ({{completion[nodeCfg.NodeID]._total | number:0}}%)
-                    </span>
-                    <span translate ng-if="!connections[nodeCfg.NodeID]">Disconnected</span>
+              <h3 class="panel-title" data-toggle="collapse" data-parent="#nodes" href="#node-{{$index}}" style="cursor: pointer">
+                <span class="glyphicon glyphicon-retweet"></span>
+                {{nodeName(nodeCfg)}}
+                <span class="pull-right hidden-xs">
+                  <span ng-if="connections[nodeCfg.NodeID] && completion[nodeCfg.NodeID]._total == 100">
+                    <span translate>Up to Date</span> (100%)
                   </span>
-                </a>
+                  <span ng-if="connections[nodeCfg.NodeID] && completion[nodeCfg.NodeID]._total < 100">
+                    <span translate>Syncing</span> ({{completion[nodeCfg.NodeID]._total | number:0}}%)
+                  </span>
+                  <span translate ng-if="!connections[nodeCfg.NodeID]">Disconnected</span>
+                </span>
               </h3>
             </div>
             <div id="node-{{$index}}" class="panel-collapse collapse">
