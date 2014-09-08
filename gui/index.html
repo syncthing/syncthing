@@ -242,7 +242,7 @@
                         <th><span class="glyphicon glyphicon-link"></span>&emsp;<span translate>Address</span></th>
                         <td class="text-right">{{nodeAddr(nodeCfg)}}</td>
                       </tr>
-                      <tr>
+                      <tr ng-if="connections[nodeCfg.NodeID]">
                         <th><span class="glyphicon glyphicon-comment"></span>&emsp;<span translate>Synchronization</span></th>
                         <td class="text-right">{{completion[nodeCfg.NodeID]._total | alwaysNumber | number:0}}%</td>
                       </tr>
@@ -251,17 +251,17 @@
                         <td translate ng-if="nodeCfg.Compression" class="text-right">Yes</td>
                         <td translate ng-if="!nodeCfg.Compression" class="text-right">No</td>
                       </tr>
-                      <tr>
+                      <tr ng-if="connections[nodeCfg.NodeID]">
                         <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
                         <td class="text-right">{{connections[nodeCfg.NodeID].inbps | metric}}bps ({{connections[nodeCfg.NodeID].InBytesTotal | binary}}B)</td>
                       </tr>
-                      <tr>
+                      <tr ng-if="connections[nodeCfg.NodeID]">
                         <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
                         <td class="text-right">{{connections[nodeCfg.NodeID].outbps | metric}}bps ({{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B)</td>
                       </tr>
-                      <tr>
+                      <tr ng-if="connections[nodeCfg.NodeID]">
                         <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Version</span></th>
-                        <td class="text-right">{{nodeVer(nodeCfg)}}</td>
+                        <td class="text-right">{{connections[nodeCfg.NodeID].ClientVersion}}</td>
                       </tr>
                       <tr ng-if="!connections[nodeCfg.NodeID]">
                         <th><span class="glyphicon glyphicon-eye-open"></span>&emsp;<span translate>Last seen</span></th>

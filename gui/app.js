@@ -488,17 +488,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         return '';
     };
 
-    $scope.nodeVer = function (nodeCfg) {
-        if (nodeCfg.NodeID === $scope.myID) {
-            return $scope.version;
-        }
-        var conn = $scope.connections[nodeCfg.NodeID];
-        if (conn) {
-            return conn.ClientVersion;
-        }
-        return '?';
-    };
-
     $scope.findNode = function (nodeID) {
         var matches = $scope.nodes.filter(function (n) { return n.NodeID == nodeID; });
         if (matches.length != 1) {
