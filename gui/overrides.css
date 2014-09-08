@@ -1,80 +1,85 @@
-    body {
-      padding-bottom: 70px;
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    }
+body {
+    padding-bottom: 70px;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
 
-    h1, h2, h3, h4, h5 {
-      font-family: "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    }
+h1, h2, h3, h4, h5 {
+    font-family: "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
 
-    ul+h5 {
-      margin-top: 1.5em;
-    }
+ul+h5 {
+    margin-top: 1.5em;
+}
 
-    .text-monospace {
-      font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
-    }
+.text-monospace {
+    font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+}
 
-    .table-condensed>thead>tr>th, .table-condensed>tbody>tr>th, .table-condensed>tfoot>tr>th, .table-condensed>thead>tr>td, .table-condensed>tbody>tr>td, .table-condensed>tfoot>tr>td {
-      border-top: none;
-    }
+.table-condensed>thead>tr>th, .table-condensed>tbody>tr>th, .table-condensed>tfoot>tr>th, .table-condensed>thead>tr>td, .table-condensed>tbody>tr>td, .table-condensed>tfoot>tr>td {
+    border-top: none;
+}
 
-    .logo {
-      margin: 0;
-      padding: 0;
-      top: -5px;
-      position: relative;
-    }
+.logo {
+    margin: 0;
+    padding: 0;
+    top: -5px;
+    position: relative;
+}
 
-    .list-no-bullet {
-      list-style-type: none
-    }
+.list-no-bullet {
+    list-style-type: none
+}
 
-    .li-column {
-      display: inline-block;
-      min-width: 7em;
-      margin-right: 1em;
-      background-color: rgb(236, 240, 241);
-      border-radius: 3px;
-      padding: 1px 4px;
-      margin: 2px 2px;
-    }
-    .li-column span.data {
-      margin-left: 0.5em;
-      min-width: 10em;
-      text-align: right;
-      display: inline-block;
-    }
+.li-column {
+    display: inline-block;
+    min-width: 7em;
+    margin-right: 1em;
+    background-color: rgb(236, 240, 241);
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin: 2px 2px;
+}
+.li-column span.data {
+    margin-left: 0.5em;
+    min-width: 10em;
+    text-align: right;
+    display: inline-block;
+}
 
-    .ng-cloak {
-      display: none !important;
-    }
+.ng-cloak {
+    display: none !important;
+}
 
-    .table th {
-      white-space: nowrap;
-      font-weight: 400;
-    }
+.table th {
+    white-space: nowrap;
+    font-weight: 400;
+}
 
-    .table td {
-      padding-left: 20px !important;
-    }
+.table td {
+    padding-left: 20px !important;
+}
 
-    .table td.small-data {
-      white-space: nowrap;
-    }
+.table td.small-data {
+    white-space: nowrap;
+}
 
-    table.table-condensed {
-      table-layout: fixed;
-    }
+table.table-condensed {
+    table-layout: fixed;
+}
+table.table-condensed td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+@media (max-width:767px) {
     table.table-condensed td {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    @media (max-width:767px) {
-      table.table-condensed td {
         /* for mobile phones to allow linebreaks in long repro folder/shared with
-         * columns. */
+        * columns. */
         white-space: normal;
-      }
     }
+}
+
+.navbar-right {
+    /* to align with panel */
+    padding-right: 15px;
+}
