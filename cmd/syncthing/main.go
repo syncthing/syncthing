@@ -82,15 +82,16 @@ func init() {
 }
 
 var (
-	cfg          config.Configuration
-	myID         protocol.NodeID
-	confDir      string
-	logFlags     int = log.Ltime
-	rateBucket   *ratelimit.Bucket
-	stop         = make(chan int)
-	discoverer   *discover.Discoverer
-	externalPort int
-	cert         tls.Certificate
+	cfg            config.Configuration
+	myID           protocol.NodeID
+	confDir        string
+	logFlags       int = log.Ltime
+	writeRateLimit *ratelimit.Bucket
+	readRateLimit  *ratelimit.Bucket
+	stop           = make(chan int)
+	discoverer     *discover.Discoverer
+	externalPort   int
+	cert           tls.Certificate
 )
 
 const (
@@ -381,11 +382,14 @@ func syncthingMain() {
 		MinVersion:             tls.VersionTLS12,
 	}
 
-	// If the write rate should be limited, set up a rate limiter for it.
+	// If the read or write rate should be limited, set up a rate limiter for it.
 	// This will be used on connections created in the connect and listen routines.
 
 	if cfg.Options.MaxSendKbps > 0 {
-		rateBucket = ratelimit.NewBucketWithRate(float64(1000*cfg.Options.MaxSendKbps), int64(5*1000*cfg.Options.MaxSendKbps))
+		writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*cfg.Options.MaxSendKbps), int64(5*1000*cfg.Options.MaxSendKbps))
+	}
+	if cfg.Options.MaxRecvKbps > 0 {
+		readRateLimit = ratelimit.NewBucketWithRate(float64(1000*cfg.Options.MaxRecvKbps), int64(5*1000*cfg.Options.MaxRecvKbps))
 	}
 
 	// If this is the first time the user runs v0.9, archive the old indexes and config.
@@ -790,15 +794,20 @@ next:
 					continue next
 				}
 
-				// If rate limiting is set, we wrap the write side of the
-				// connection in a limiter.
+				// If rate limiting is set, we wrap the connection in a
+				// limiter.
 				var wr io.Writer = conn
-				if rateBucket != nil {
-					wr = &limitedWriter{conn, rateBucket}
+				if writeRateLimit != nil {
+					wr = &limitedWriter{conn, writeRateLimit}
+				}
+
+				var rd io.Reader = conn
+				if readRateLimit != nil {
+					rd = &limitedReader{conn, readRateLimit}
 				}
 
 				name := fmt.Sprintf("%s-%s", conn.LocalAddr(), conn.RemoteAddr())
-				protoConn := protocol.NewConnection(remoteID, conn, wr, m, name, nodeCfg.Compression)
+				protoConn := protocol.NewConnection(remoteID, rd, wr, m, name, nodeCfg.Compression)
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
 				if debugNet {

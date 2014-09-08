@@ -9,6 +9,7 @@
         <localAnnounceMCAddr>quux:3232</localAnnounceMCAddr>
         <parallelRequests>32</parallelRequests>
         <maxSendKbps>1234</maxSendKbps>
+        <maxRecvKbps>2341</maxRecvKbps>
         <reconnectionIntervalS>6000</reconnectionIntervalS>
         <startBrowser>false</startBrowser>
         <upnpEnabled>false</upnpEnabled>
