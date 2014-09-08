@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"flag"
@@ -13,6 +14,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -20,20 +22,13 @@ import (
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/discover"
 	"github.com/syncthing/syncthing/protocol"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
-type node struct {
-	addresses []address
-	updated   time.Time
-}
-
-type address struct {
-	ip   []byte
-	port uint16
-}
+const cacheLimitSeconds = 3600
 
 var (
-	nodes      = make(map[protocol.NodeID]node)
 	lock       sync.Mutex
 	queries    = 0
 	announces  = 0
@@ -52,15 +47,17 @@ func main() {
 	var timestamp bool
 	var statsIntv int
 	var statsFile string
+	var dbDir string
 
 	flag.StringVar(&listen, "listen", ":22026", "Listen address")
 	flag.BoolVar(&debug, "debug", false, "Enable debug output")
 	flag.BoolVar(&timestamp, "timestamp", true, "Timestamp the log output")
 	flag.IntVar(&statsIntv, "stats-intv", 0, "Statistics output interval (s)")
-	flag.StringVar(&statsFile, "stats-file", "/var/log/discosrv.stats", "Statistics file name")
+	flag.StringVar(&statsFile, "stats-file", "/var/discosrv/stats", "Statistics file name")
 	flag.IntVar(&lruSize, "limit-cache", lruSize, "Limiter cache entries")
 	flag.IntVar(&limitAvg, "limit-avg", limitAvg, "Allowed average package rate, per 10 s")
 	flag.IntVar(&limitBurst, "limit-burst", limitBurst, "Allowed burst size, packets")
+	flag.StringVar(&dbDir, "db-dir", "/var/discosrv/db", "Database directory")
 	flag.Parse()
 
 	limiter = lru.New(lruSize)
@@ -76,9 +73,29 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if statsIntv > 0 {
-		go logStats(statsFile, statsIntv)
+	parentDir := filepath.Dir(dbDir)
+	if _, err := os.Stat(parentDir); err != nil && os.IsNotExist(err) {
+		err = os.MkdirAll(parentDir, 0755)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+
+	db, err := leveldb.OpenFile(dbDir, &opt.Options{CachedOpenFiles: 32})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	statsLog, err := os.OpenFile(statsFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if statsIntv > 0 {
+		go logStats(statsLog, statsIntv)
+	}
+
+	go clean(statsLog, db)
 
 	var buf = make([]byte, 1024)
 	for {
@@ -104,10 +121,10 @@ func main() {
 
 		switch magic {
 		case discover.AnnouncementMagic:
-			handleAnnounceV2(addr, buf)
+			handleAnnounceV2(db, addr, buf)
 
 		case discover.QueryMagic:
-			handleQueryV2(conn, addr, buf)
+			handleQueryV2(db, conn, addr, buf)
 
 		default:
 			lock.Lock()
@@ -145,7 +162,7 @@ func limit(addr *net.UDPAddr) bool {
 	return false
 }
 
-func handleAnnounceV2(addr *net.UDPAddr, buf []byte) {
+func handleAnnounceV2(db *leveldb.DB, addr *net.UDPAddr, buf []byte) {
 	var pkt discover.Announce
 	err := pkt.UnmarshalXDR(buf)
 	if err != nil && err != io.EOF {
@@ -167,6 +184,7 @@ func handleAnnounceV2(addr *net.UDPAddr, buf []byte) {
 	}
 
 	var addrs []address
+	now := time.Now().Unix()
 	for _, addr := range pkt.This.Addresses {
 		tip := addr.IP
 		if len(tip) == 0 {
@@ -175,12 +193,8 @@ func handleAnnounceV2(addr *net.UDPAddr, buf []byte) {
 		addrs = append(addrs, address{
 			ip:   tip,
 			port: addr.Port,
+			seen: now,
 		})
-	}
-
-	node := node{
-		addresses: addrs,
-		updated:   time.Now(),
 	}
 
 	var id protocol.NodeID
@@ -191,12 +205,10 @@ func handleAnnounceV2(addr *net.UDPAddr, buf []byte) {
 		id.UnmarshalText(pkt.This.ID)
 	}
 
-	lock.Lock()
-	nodes[id] = node
-	lock.Unlock()
+	update(db, id, addrs)
 }
 
-func handleQueryV2(conn *net.UDPConn, addr *net.UDPAddr, buf []byte) {
+func handleQueryV2(db *leveldb.DB, conn *net.UDPConn, addr *net.UDPAddr, buf []byte) {
 	var pkt discover.Query
 	err := pkt.UnmarshalXDR(buf)
 	if err != nil {
@@ -217,22 +229,31 @@ func handleQueryV2(conn *net.UDPConn, addr *net.UDPAddr, buf []byte) {
 	}
 
 	lock.Lock()
-	node, ok := nodes[id]
 	queries++
 	lock.Unlock()
 
-	if ok && len(node.addresses) > 0 {
+	addrs := get(db, id)
+
+	now := time.Now().Unix()
+	if len(addrs) > 0 {
 		ann := discover.Announce{
 			Magic: discover.AnnouncementMagic,
 			This: discover.Node{
 				ID: pkt.NodeID,
 			},
 		}
-		for _, addr := range node.addresses {
+		for _, addr := range addrs {
+			if now-addr.seen > cacheLimitSeconds {
+				continue
+			}
 			ann.This.Addresses = append(ann.This.Addresses, discover.Address{IP: addr.ip, Port: addr.port})
 		}
 		if debug {
 			log.Printf("-> %v %#v", addr, pkt)
+		}
+
+		if len(ann.This.Addresses) == 0 {
+			return
 		}
 
 		tb := ann.MarshalXDR()
@@ -255,27 +276,14 @@ func next(intv int) time.Time {
 	return t1
 }
 
-func logStats(file string, intv int) {
-	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
+func logStats(statsLog io.Writer, intv int) {
 	for {
 		t := next(intv)
 
 		lock.Lock()
 
-		var deleted = 0
-		for id, node := range nodes {
-			if time.Since(node.updated) > 60*time.Minute {
-				delete(nodes, id)
-				deleted++
-			}
-		}
-
-		fmt.Fprintf(f, "%d Nr:%d Ne:%d Qt:%d Qa:%d A:%d U:%d Lq:%d Lc:%d\n",
-			t.Unix(), len(nodes), deleted, queries, answered, announces, unknowns, limited, limiter.Len())
-		f.Sync()
+		fmt.Fprintf(statsLog, "%d Queries:%d Answered:%d Announces:%d Unknown:%d Limited:%d\n",
+			t.Unix(), queries, answered, announces, unknowns, limited)
 
 		queries = 0
 		announces = 0
@@ -284,5 +292,78 @@ func logStats(file string, intv int) {
 		unknowns = 0
 
 		lock.Unlock()
+	}
+}
+
+func get(db *leveldb.DB, id protocol.NodeID) []address {
+	var addrs addressList
+	val, err := db.Get(id[:], nil)
+	if err == nil {
+		addrs.UnmarshalXDR(val)
+	}
+	return addrs.addresses
+}
+
+func update(db *leveldb.DB, id protocol.NodeID, addrs []address) {
+	var newAddrs addressList
+
+	val, err := db.Get(id[:], nil)
+	if err == nil {
+		newAddrs.UnmarshalXDR(val)
+	}
+
+nextAddr:
+	for _, newAddr := range addrs {
+		for i, exAddr := range newAddrs.addresses {
+			if bytes.Compare(newAddr.ip, exAddr.ip) == 0 {
+				newAddrs.addresses[i] = newAddr
+				continue nextAddr
+			}
+		}
+		newAddrs.addresses = append(newAddrs.addresses, newAddr)
+	}
+
+	db.Put(id[:], newAddrs.MarshalXDR(), nil)
+}
+
+func clean(statsLog io.Writer, db *leveldb.DB) {
+	for {
+		now := time.Now()
+		nowSecs := now.Unix()
+
+		var kept, deleted int64
+		iter := db.NewIterator(nil, nil)
+		for iter.Next() {
+			var addrs addressList
+			addrs.UnmarshalXDR(iter.Value())
+
+			// Remove expired addresses
+			newAddrs := addrs.addresses
+			for i := 0; i < len(newAddrs); i++ {
+				if nowSecs-newAddrs[i].seen > cacheLimitSeconds {
+					newAddrs[i] = newAddrs[len(newAddrs)-1]
+					newAddrs = newAddrs[:len(newAddrs)-1]
+				}
+			}
+
+			// Delete empty records
+			if len(newAddrs) == 0 {
+				db.Delete(iter.Key(), nil)
+				deleted++
+				continue
+			}
+
+			// Update changed records
+			if len(newAddrs) != len(addrs.addresses) {
+				addrs.addresses = newAddrs
+				db.Put(iter.Key(), addrs.MarshalXDR(), nil)
+			}
+			kept++
+		}
+		iter.Release()
+
+		fmt.Fprintf(statsLog, "%d Kept:%d Deleted:%d Took:%0.04fs\n", nowSecs, kept, deleted, time.Since(now).Seconds())
+
+		time.Sleep(cacheLimitSeconds * time.Second / 2)
 	}
 }
