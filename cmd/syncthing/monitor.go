@@ -86,6 +86,7 @@ func monitorMain() {
 			cmd.Process.Kill()
 			<-exit
 			return
+
 		case err = <-exit:
 			if err == nil {
 				// Successfull exit indicates an intentional shutdown
@@ -109,9 +110,6 @@ func copyStderr(stderr io.ReadCloser) {
 	for {
 		line, err := br.ReadString('\n')
 		if err != nil {
-			if err != io.EOF {
-				l.Warnln("stderr:", err)
-			}
 			return
 		}
 
@@ -150,9 +148,6 @@ func copyStdout(stderr io.ReadCloser) {
 	for {
 		line, err := br.ReadString('\n')
 		if err != nil {
-			if err != io.EOF {
-				l.Warnln("stdout:", err)
-			}
 			return
 		}
 

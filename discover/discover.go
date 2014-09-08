@@ -65,7 +65,10 @@ func (d *Discoverer) StartLocal(localPort int, localMCAddr string) {
 	if localPort > 0 {
 		bb, err := beacon.NewBroadcast(localPort)
 		if err != nil {
-			l.Infof("No IPv4 discovery possible (%v)", err)
+			if debug {
+				l.Debugln(err)
+			}
+			l.Infoln("Local discovery over IPv4 unavailable")
 		} else {
 			d.broadcastBeacon = bb
 			go d.recvAnnouncements(bb)
@@ -75,7 +78,10 @@ func (d *Discoverer) StartLocal(localPort int, localMCAddr string) {
 	if len(localMCAddr) > 0 {
 		mb, err := beacon.NewMulticast(localMCAddr)
 		if err != nil {
-			l.Infof("No IPv6 discovery possible (%v)", err)
+			if debug {
+				l.Debugln(err)
+			}
+			l.Infoln("Local discovery over IPv6 unavailable")
 		} else {
 			d.multicastBeacon = mb
 			go d.recvAnnouncements(mb)
@@ -83,7 +89,7 @@ func (d *Discoverer) StartLocal(localPort int, localMCAddr string) {
 	}
 
 	if d.broadcastBeacon == nil && d.multicastBeacon == nil {
-		l.Warnln("No local discovery method available")
+		l.Warnln("Local discovery unavailable")
 	} else {
 		d.localBcastTick = time.Tick(d.localBcastIntv)
 		d.forcedBcastTick = make(chan time.Time)
