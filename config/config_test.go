@@ -37,6 +37,7 @@ func TestDefaultValues(t *testing.T) {
 		UPnPEnabled:        true,
 		UPnPLease:          0,
 		UPnPRenewal:        30,
+		RestartOnWakeup:    true,
 	}
 
 	cfg := New("test", node1)
@@ -128,6 +129,7 @@ func TestOverriddenValues(t *testing.T) {
 		UPnPEnabled:        false,
 		UPnPLease:          60,
 		UPnPRenewal:        15,
+		RestartOnWakeup:    false,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", node1)

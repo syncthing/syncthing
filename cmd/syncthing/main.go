@@ -598,7 +598,9 @@ nextRepo:
 		}()
 	}
 
-	go standbyMonitor()
+	if cfg.Options.RestartOnWakeup {
+		go standbyMonitor()
+	}
 
 	events.Default.Log(events.StartupComplete, nil)
 	go generateEvents()

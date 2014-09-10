@@ -126,6 +126,7 @@ type OptionsConfiguration struct {
 	UPnPLease          int      `xml:"upnpLeaseMinutes" default:"0"`
 	UPnPRenewal        int      `xml:"upnpRenewalMinutes" default:"30"`
 	URAccepted         int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
+	RestartOnWakeup    bool     `xml:"restartOnWakeup" default:"true"`
 
 	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
 	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`
