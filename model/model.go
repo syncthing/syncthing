@@ -5,6 +5,7 @@
 package model
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -474,6 +475,13 @@ func (m *Model) Close(node protocol.NodeID, err error) {
 
 	conn, ok := m.rawConn[node]
 	if ok {
+		if conn, ok := conn.(*tls.Conn); ok {
+			// If the underlying connection is a *tls.Conn, Close() does more
+			// than it says on the tin. Specifically, it sends a TLS alert
+			// message, which might block forever if the connection is dead
+			// and we don't have a deadline site.
+			conn.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
+		}
 		conn.Close()
 	}
 	delete(m.protoConn, node)
