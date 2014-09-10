@@ -219,8 +219,8 @@
 
         <div class="panel-group" id="nodes">
           <div class="panel panel-{{nodeClass(nodeCfg)}}" ng-repeat="nodeCfg in otherNodes()">
-            <div class="panel-heading">
-              <h3 class="panel-title" data-toggle="collapse" data-parent="#nodes" href="#node-{{$index}}" style="cursor: pointer">
+            <div class="panel-heading" data-toggle="collapse" data-parent="#nodes" href="#node-{{$index}}" style="cursor: pointer">
+              <h3 class="panel-title">
                 <span class="glyphicon glyphicon-retweet"></span>&emsp;{{nodeName(nodeCfg)}}
                 <span class="pull-right hidden-xs">
                   <span ng-if="connections[nodeCfg.NodeID] && completion[nodeCfg.NodeID]._total == 100">
