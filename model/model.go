@@ -573,10 +573,12 @@ func (cf cFiler) CurrentFile(file string) protocol.FileInfo {
 // ConnectedTo returns true if we are connected to the named node.
 func (m *Model) ConnectedTo(nodeID protocol.NodeID) bool {
 	m.pmut.RLock()
-	if statRef, ok := m.nodeStatRefs[nodeID]; ok {
-		statRef.WasSeen()
-	}
 	_, ok := m.protoConn[nodeID]
+	if ok {
+		if statRef, ok := m.nodeStatRefs[nodeID]; ok {
+			statRef.WasSeen()
+		}
+	}
 	m.pmut.RUnlock()
 	return ok
 }
