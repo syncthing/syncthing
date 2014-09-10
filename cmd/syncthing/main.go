@@ -248,6 +248,12 @@ func main() {
 		return
 	}
 
+	confDir = expandTilde(confDir)
+
+	if info, err := os.Stat(confDir); err == nil && !info.IsDir() {
+		l.Fatalln("Config directory", confDir, "is not a directory")
+	}
+
 	if os.Getenv("STNORESTART") != "" {
 		syncthingMain()
 	} else {
@@ -265,8 +271,6 @@ func syncthingMain() {
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
-
-	confDir = expandTilde(confDir)
 
 	events.Default.Log(events.Starting, map[string]string{"home": confDir})
 
