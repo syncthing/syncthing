@@ -108,8 +108,10 @@ func (d *Discoverer) StartGlobal(server string, extPort uint16) {
 }
 
 func (d *Discoverer) StopGlobal() {
-	close(d.stopGlobal)
-	d.globalWG.Wait()
+	if d.stopGlobal != nil {
+		close(d.stopGlobal)
+		d.globalWG.Wait()
+	}
 }
 
 func (d *Discoverer) ExtAnnounceOK() bool {
