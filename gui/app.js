@@ -521,6 +521,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         // Make a working copy
         $scope.tmpOptions = angular.copy($scope.config.Options);
         $scope.tmpOptions.UREnabled = ($scope.tmpOptions.URAccepted > 0);
+        $scope.tmpOptions.NodeName = $scope.thisNode().Name;
         $scope.tmpGUI = angular.copy($scope.config.GUI);
         $('#settings').modal();
     };
@@ -553,6 +554,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             }
 
             // Apply new settings locally
+            $scope.thisNode().Name = $scope.tmpOptions.NodeName;
             $scope.config.Options = angular.copy($scope.tmpOptions);
             $scope.config.GUI = angular.copy($scope.tmpGUI);
             $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) { return x.trim(); });

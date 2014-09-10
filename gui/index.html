@@ -30,17 +30,14 @@
       <p class="navbar-text hidden-xs">{{thisNodeName()}}</p>
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo.newer">
-          <button type="button" class="btn navbar-btn btn-default" href="" ng-click="upgrade()">
-          <span class="glyphicon glyphicon-chevron-up"></span>&emsp;
-          <span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
+          <button type="button" class="btn navbar-btn btn-primary btn-sm" href="" ng-click="upgrade()">
+            <span class="glyphicon glyphicon-chevron-up"></span>&emsp;
+            <span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
         <li class="dropdown">
-          <button href="#" class="btn navbar-btn btn-default dropdown-toggle" data-toggle="dropdown"><span translate>Edit</span>&nbsp;<b class="caret"></b></button>
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog"></span></a>
           <ul class="dropdown-menu">
-            <li><a href="" ng-click="addRepo()"><span class="glyphicon glyphicon-hdd"></span>&emsp;<span translate>Add Repository</span></a></li>
-            <li><a href="" ng-click="addNode()"><span class="glyphicon glyphicon-retweet"></span>&emsp;<span translate>Add Node</span></a></li>
-            <li class="divider"></li>
             <li><a href="" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span>&emsp;<span translate>Settings</span></a></li>
             <li><a href="" ng-click="idNode()"><span class="glyphicon glyphicon-qrcode"></span>&emsp;<span translate>Show ID</span></a></li>
             <li class="divider"></li>
@@ -84,7 +81,7 @@
           <div class="panel panel-{{repoClass(repo.ID)}}" ng-repeat="repo in repoList()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#repositories" href="#repo-{{$index}}" style="cursor: pointer">
               <h3 class="panel-title">
-                <span class="glyphicon glyphicon-hdd"></span> {{repo.ID}}
+                <span class="glyphicon glyphicon-hdd"></span>&emsp;{{repo.ID}}
                 <span class="pull-right hidden-xs" ng-switch="repoStatus(repo.ID)">
                   <span translate ng-switch-when="unknown">Unknown</span>
                   <span translate ng-switch-when="stopped">Stopped</span>
@@ -100,125 +97,131 @@
                 </span>
               </h3>
             </div>
-            <div id="repo-{{$index}}" class="panel-collapse collapse">
+            <div id="repo-{{$index}}" class="panel-collapse collapse" ng-class="{in: $index === 0}">
               <div class="panel-body">
-                  <table class="table table-condensed table-striped">
-                    <tbody>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Repository ID</span></th>
-                        <td class="text-right">{{repo.ID}}</td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder</span></th>
-                        <td class="text-right">{{repo.Directory}}</td>
-                      </tr>
-                      <tr ng-if="model[repo.ID].invalid">
-                        <th><span class="glyphicon glyphicon-warning-sign"></span>&emsp;<span translate>Error</span></th>
-                        <td class="text-right">{{model[repo.ID].invalid}}</td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global Repository</span></th>
-                        <td class="text-right">{{model[repo.ID].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].globalBytes | binary}}B</td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local Repository</span></th>
-                        <td class="text-right">{{model[repo.ID].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].localBytes | binary}}B</td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Out Of Sync</span></th>
-                        <td class="text-right">
+                <table class="table table-condensed table-striped">
+                  <tbody>
+                    <tr>
+                      <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Repository ID</span></th>
+                      <td class="text-right">{{repo.ID}}</td>
+                    </tr>
+                    <tr>
+                      <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder</span></th>
+                      <td class="text-right">{{repo.Directory}}</td>
+                    </tr>
+                    <tr ng-if="model[repo.ID].invalid">
+                      <th><span class="glyphicon glyphicon-warning-sign"></span>&emsp;<span translate>Error</span></th>
+                      <td class="text-right">{{model[repo.ID].invalid}}</td>
+                    </tr>
+                    <tr>
+                      <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global Repository</span></th>
+                      <td class="text-right">{{model[repo.ID].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].globalBytes | binary}}B</td>
+                    </tr>
+                    <tr>
+                      <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local Repository</span></th>
+                      <td class="text-right">{{model[repo.ID].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].localBytes | binary}}B</td>
+                    </tr>
+                    <tr>
+                      <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Out Of Sync</span></th>
+                      <td class="text-right">
                         <a ng-if="model[repo.ID].needFiles > 0" ng-click="showNeed(repo.ID)" href="">{{model[repo.ID].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].needBytes | binary}}B</a>
                         <span ng-if="model[repo.ID].needFiles == 0">0 <span translate>items</span>, 0 B</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-lock"></span>&emsp;<span translate>Master Repo</span></th>
-                        <td class="text-right">
-                          <span translate ng-if="repo.ReadOnly">Yes</span>
-                          <span translate ng-if="!repo.ReadOnly">No</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-unchecked"></span>&emsp;<span translate>Ignore Permissions</span></th>
-                        <td class="text-right">
-                          <span translate ng-if="repo.IgnorePerms">Yes</span>
-                          <span translate ng-if="!repo.IgnorePerms">No</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan Interval</span></th>
-                        <td class="text-right">{{repo.RescanIntervalS}} s</td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;<span translate>Shared With</span></th>
-                        <td class="text-right">{{sharesRepo(repo)}}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th><span class="glyphicon glyphicon-lock"></span>&emsp;<span translate>Master Repo</span></th>
+                      <td class="text-right">
+                        <span translate ng-if="repo.ReadOnly">Yes</span>
+                        <span translate ng-if="!repo.ReadOnly">No</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th><span class="glyphicon glyphicon-unchecked"></span>&emsp;<span translate>Ignore Permissions</span></th>
+                      <td class="text-right">
+                        <span translate ng-if="repo.IgnorePerms">Yes</span>
+                        <span translate ng-if="!repo.IgnorePerms">No</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan Interval</span></th>
+                      <td class="text-right">{{repo.RescanIntervalS}} s</td>
+                    </tr>
+                    <tr>
+                      <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;<span translate>Shared With</span></th>
+                      <td class="text-right">{{sharesRepo(repo)}}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="panel-footer">
+                <button class="btn btn-sm btn-danger" ng-if="repo.ReadOnly && model[repo.ID].needFiles > 0" ng-click="override(repo.ID)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
                 <span class="pull-right">
-                  <a class="btn btn-sm btn-default" href="" ng-show="repoStatus(repo.ID) == 'idle'" ng-click="rescanRepo(repo.ID)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></a>
-                  <a class="btn btn-sm btn-primary" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></a>
-                  <a class="btn btn-sm btn-danger" ng-if="repo.ReadOnly && model[repo.ID].needFiles > 0" ng-click="override(repo.ID)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></a>
+                  <button class="btn btn-sm btn-default" href="" ng-show="repoStatus(repo.ID) == 'idle'" ng-click="rescanRepo(repo.ID)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></button>
+                  <button class="btn btn-sm btn-default" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></button>
                 </span>
+                <div class="clearfix"></div>
               </div>
             </div>
           </div>
         </div>
+        <button class="btn btn-sm btn-default pull-right" ng-click="addRepo()"><span class="glyphicon glyphicon-plus"></span>&emsp;<span translate>Add Repository</span></button>
       </div>
 
       <!-- Node list (top right) -->
 
+      <!-- This node -->
+
       <div class="col-md-6">
-        <div class="panel-group" id="nodes">
-          <div class="panel panel-default" ng-repeat="nodeCfg in [thisNode()]">
-            <div class="panel-heading" data-toggle="collapse" data-parent="#nodes" href="#node-this" style="cursor: pointer">
-              <h3 class="panel-title">
-                <span class="glyphicon glyphicon-home"></span> {{nodeName(nodeCfg)}}
-              </h3>
-            </div>
-            <div id="node-this" class="panel-collapse collapse in">
-              <div class="panel-body">
-                  <table class="table table-condensed table-striped">
-                    <tbody>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-th"></span>&emsp;<span translate>RAM Utilization</span></th>
-                        <td class="text-right">{{system.sys | binary}}B</td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-dashboard"></span>&emsp;<span translate>CPU Utilization</span></th>
-                        <td class="text-right">{{system.cpuPercent | alwaysNumber | natural:1}}%</td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
-                        <td class="text-right">{{connections['total'].inbps | metric}}bps ({{connections['total'].InBytesTotal | binary}}B)</td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
-                        <td class="text-right">{{connections['total'].outbps | metric}}bps ({{connections['total'].OutBytesTotal | binary}}B)</td>
-                      </tr>
-                      <tr ng-if="system.extAnnounceOK != undefined">
-                        <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;<span translate>Global Discovery Server</span></th>
-                        <td class="text-right">
-                          <span class="data text-success" ng-if="system.extAnnounceOK"><span translate>Online</span></span>
-                          <span class="data text-danger" ng-if="!system.extAnnounceOK"><span translate>Offline</span></span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Version</span></th>
-                        <td class="text-right">{{version}}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></a></span>
-              </div>
+        <div class="panel panel-default" ng-repeat="nodeCfg in [thisNode()]">
+          <div class="panel-heading" data-toggle="collapse" href="#node-this" style="cursor: pointer">
+            <h3 class="panel-title">
+              <span class="glyphicon glyphicon-home"></span>&emsp;{{nodeName(nodeCfg)}}
+            </h3>
+          </div>
+          <div id="node-this" class="panel-collapse collapse in">
+            <div class="panel-body">
+              <table class="table table-condensed table-striped">
+                <tbody>
+                  <tr>
+                    <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
+                    <td class="text-right">{{connections['total'].inbps | metric}}bps ({{connections['total'].InBytesTotal | binary}}B)</td>
+                  </tr>
+                  <tr>
+                    <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
+                    <td class="text-right">{{connections['total'].outbps | metric}}bps ({{connections['total'].OutBytesTotal | binary}}B)</td>
+                  </tr>
+                  <tr>
+                    <th><span class="glyphicon glyphicon-th"></span>&emsp;<span translate>RAM Utilization</span></th>
+                    <td class="text-right">{{system.sys | binary}}B</td>
+                  </tr>
+                  <tr>
+                    <th><span class="glyphicon glyphicon-dashboard"></span>&emsp;<span translate>CPU Utilization</span></th>
+                    <td class="text-right">{{system.cpuPercent | alwaysNumber | natural:1}}%</td>
+                  </tr>
+                  <tr ng-if="system.extAnnounceOK != undefined">
+                    <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;<span translate>Global Discovery Server</span></th>
+                    <td class="text-right">
+                      <span class="data text-success" ng-if="system.extAnnounceOK"><span translate>Online</span></span>
+                      <span class="data text-danger" ng-if="!system.extAnnounceOK"><span translate>Offline</span></span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Version</span></th>
+                    <td class="text-right">{{version}}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
+        </div>
 
+        <!-- Remote nodes -->
+
+        <div class="panel-group" id="nodes">
           <div class="panel panel-{{nodeClass(nodeCfg)}}" ng-repeat="nodeCfg in otherNodes()">
             <div class="panel-heading">
               <h3 class="panel-title" data-toggle="collapse" data-parent="#nodes" href="#node-{{$index}}" style="cursor: pointer">
-                <span class="glyphicon glyphicon-retweet"></span>
-                {{nodeName(nodeCfg)}}
+                <span class="glyphicon glyphicon-retweet"></span>&emsp;{{nodeName(nodeCfg)}}
                 <span class="pull-right hidden-xs">
                   <span ng-if="connections[nodeCfg.NodeID] && completion[nodeCfg.NodeID]._total == 100">
                     <span translate>Up to Date</span> (100%)
@@ -232,45 +235,49 @@
             </div>
             <div id="node-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
-                  <table class="table table-condensed table-striped">
-                    <tbody>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-link"></span>&emsp;<span translate>Address</span></th>
-                        <td class="text-right">{{nodeAddr(nodeCfg)}}</td>
-                      </tr>
-                      <tr ng-if="connections[nodeCfg.NodeID]">
-                        <th><span class="glyphicon glyphicon-comment"></span>&emsp;<span translate>Synchronization</span></th>
-                        <td class="text-right">{{completion[nodeCfg.NodeID]._total | alwaysNumber | number:0}}%</td>
-                      </tr>
-                      <tr>
-                        <th><span class="glyphicon glyphicon-compressed"></span>&emsp;<span translate>Use Compression</span></th>
-                        <td translate ng-if="nodeCfg.Compression" class="text-right">Yes</td>
-                        <td translate ng-if="!nodeCfg.Compression" class="text-right">No</td>
-                      </tr>
-                      <tr ng-if="connections[nodeCfg.NodeID]">
-                        <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
-                        <td class="text-right">{{connections[nodeCfg.NodeID].inbps | metric}}bps ({{connections[nodeCfg.NodeID].InBytesTotal | binary}}B)</td>
-                      </tr>
-                      <tr ng-if="connections[nodeCfg.NodeID]">
-                        <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
-                        <td class="text-right">{{connections[nodeCfg.NodeID].outbps | metric}}bps ({{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B)</td>
-                      </tr>
-                      <tr ng-if="connections[nodeCfg.NodeID]">
-                        <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Version</span></th>
-                        <td class="text-right">{{connections[nodeCfg.NodeID].ClientVersion}}</td>
-                      </tr>
-                      <tr ng-if="!connections[nodeCfg.NodeID]">
-                        <th><span class="glyphicon glyphicon-eye-open"></span>&emsp;<span translate>Last seen</span></th>
-                        <td translate ng-if="stats[nodeCfg.NodeID].LastSeen.indexOf('1970') > -1" class="text-right">Never</td>
-                        <td ng-if="stats[nodeCfg.NodeID].LastSeen.indexOf('1970') < 0" class="text-right">{{stats[nodeCfg.NodeID].LastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                <span class="pull-right"><a class="btn btn-sm btn-primary" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></a></span>
+                <table class="table table-condensed table-striped">
+                  <tbody>
+                    <tr ng-if="connections[nodeCfg.NodeID]">
+                      <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
+                      <td class="text-right">{{connections[nodeCfg.NodeID].inbps | metric}}bps ({{connections[nodeCfg.NodeID].InBytesTotal | binary}}B)</td>
+                    </tr>
+                    <tr ng-if="connections[nodeCfg.NodeID]">
+                      <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
+                      <td class="text-right">{{connections[nodeCfg.NodeID].outbps | metric}}bps ({{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B)</td>
+                    </tr>
+                    <tr>
+                      <th><span class="glyphicon glyphicon-link"></span>&emsp;<span translate>Address</span></th>
+                      <td class="text-right">{{nodeAddr(nodeCfg)}}</td>
+                    </tr>
+                    <tr ng-if="connections[nodeCfg.NodeID]">
+                      <th><span class="glyphicon glyphicon-comment"></span>&emsp;<span translate>Synchronization</span></th>
+                      <td class="text-right">{{completion[nodeCfg.NodeID]._total | alwaysNumber | number:0}}%</td>
+                    </tr>
+                    <tr>
+                      <th><span class="glyphicon glyphicon-compressed"></span>&emsp;<span translate>Use Compression</span></th>
+                      <td translate ng-if="nodeCfg.Compression" class="text-right">Yes</td>
+                      <td translate ng-if="!nodeCfg.Compression" class="text-right">No</td>
+                    </tr>
+                    <tr ng-if="connections[nodeCfg.NodeID]">
+                      <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Version</span></th>
+                      <td class="text-right">{{connections[nodeCfg.NodeID].ClientVersion}}</td>
+                    </tr>
+                    <tr ng-if="!connections[nodeCfg.NodeID]">
+                      <th><span class="glyphicon glyphicon-eye-open"></span>&emsp;<span translate>Last seen</span></th>
+                      <td translate ng-if="stats[nodeCfg.NodeID].LastSeen.indexOf('1970') > -1" class="text-right">Never</td>
+                      <td ng-if="stats[nodeCfg.NodeID].LastSeen.indexOf('1970') < 0" class="text-right">{{stats[nodeCfg.NodeID].LastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="panel-footer">
+                <span class="pull-right"><a class="btn btn-sm btn-default" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></a></span>
+                <div class="clearfix"></div>
               </div>
             </div>
           </div>
         </div>
+        <button class="btn btn-sm btn-default pull-right" ng-click="addNode()"><span class="glyphicon glyphicon-plus"></span>&emsp;<span translate>Add Node</span></button>
       </div>
     </div> <!-- /row -->
 
@@ -383,9 +390,9 @@
           </form>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" ng-click="saveNode()" ng-disabled="nodeEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
-          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
-          <button ng-if="editingExisting && !editingSelf" type="button" class="btn btn-danger pull-left" ng-click="deleteNode()"><span class="glyphicon glyphicon-minus"></span>&emsp;<span translate>Delete</span></button>
+          <button type="button" class="btn btn-primary btn-sm" ng-click="saveNode()" ng-disabled="nodeEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
+          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
+          <button ng-if="editingExisting && !editingSelf" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteNode()"><span class="glyphicon glyphicon-minus"></span>&emsp;<span translate>Delete</span></button>
         </div>
       </div>
     </div>
@@ -509,9 +516,9 @@
           <div translate ng-show="!editingExisting">When adding a new repository, keep in mind that the Repository ID is used to tie repositories together between nodes. They are case sensitive and must match exactly between all nodes.</div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" ng-click="saveRepo()" ng-disabled="repoEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
-          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
-          <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left" ng-click="deleteRepo()"><span class="glyphicon glyphicon-minus"></span>&emsp;<span translate>Delete</span></button>
+          <button type="button" class="btn btn-primary btn-sm" ng-click="saveRepo()" ng-disabled="repoEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
+          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
+          <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteRepo()"><span class="glyphicon glyphicon-minus"></span>&emsp;<span translate>Delete</span></button>
         </div>
       </div>
     </div>
@@ -531,6 +538,10 @@
 
               <div class="col-md-6">
                 <div class="form-group">
+                  <label translate for="NodeName">Node Name</label>
+                  <input id="NodeName" class="form-control" type="text" ng-model="tmpOptions.NodeName">
+                </div>
+                <div class="form-group">
                   <label translate for="ListenStr">Sync Protocol Listen Addresses</label>
                   <input id="ListenStr" class="form-control" type="text" ng-model="tmpOptions.ListenStr">
                 </div>
@@ -542,20 +553,6 @@
                   <label translate for="MaxSendKbps">Outgoing Rate Limit (KiB/s)</label>
                   <input id="MaxSendKbps" class="form-control" type="number" ng-model="tmpOptions.MaxSendKbps">
                 </div>
-                <!--
-                <div class="form-group">
-                  <label translate for="ReconnectIntervalS">Reconnect Interval (s)</label>
-                  <input id="ReconnectIntervalS" class="form-control" type="number" ng-model="tmpOptions.ReconnectIntervalS">
-                </div>
-                <div class="form-group">
-                  <label translate for="ParallelRequests">Max Outstanding Requests</label>
-                  <input id="ParallelRequests" class="form-control" type="number" ng-model="tmpOptions.ParallelRequests">
-                </div>
-                <div class="form-group">
-                  <label translate for="MaxChangeKbps">Max File Change Rate (KiB/s)</label>
-                  <input id="MaxChangeKbps" class="form-control" type="number" ng-model="tmpOptions.MaxChangeKbps">
-                </div>
-                -->
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
@@ -600,7 +597,7 @@
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                    <span translate>Use HTTPS for GUI</span> <input id="UseTLS" type="checkbox" ng-model="tmpGUI.UseTLS">
+                      <span translate>Use HTTPS for GUI</span> <input id="UseTLS" type="checkbox" ng-model="tmpGUI.UseTLS">
                     </label>
                   </div>
                 </div>
@@ -632,8 +629,8 @@
           </form>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" ng-click="saveSettings()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
-          <button type="button" class="btn btn-default" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
+          <button type="button" class="btn btn-primary btn-sm" ng-click="saveSettings()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
+          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
         </div>
       </div>
     </div>
@@ -648,14 +645,14 @@
           <h4 translate class="modal-title">Allow Anonymous Usage Reporting?</h4>
         </div>
         <div class="modal-body">
-        <p translate>The encrypted usage report is sent daily. It is used to track common platforms, repo sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.</p>
-        <p translate translate-value-url="https://data.syncthing.net">The aggregated statistics are publicly available at {%url%}.</p>
-        <button translate type="button" class="btn btn-default" ng-show="!reportPreview" ng-click="showReportPreview()">Preview Usage Report</button>
-        <pre ng-if="reportPreview"><small>{{reportData | json}}</small></pre>
+          <p translate>The encrypted usage report is sent daily. It is used to track common platforms, repo sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.</p>
+          <p translate translate-value-url="https://data.syncthing.net">The aggregated statistics are publicly available at {%url%}.</p>
+          <button translate type="button" class="btn btn-default btn-sm" ng-show="!reportPreview" ng-click="showReportPreview()">Preview Usage Report</button>
+          <pre ng-if="reportPreview"><small>{{reportData | json}}</small></pre>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-success" ng-click="acceptUR()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Yes</span></button>
-          <button type="button" class="btn btn-danger" ng-click="declineUR()"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>No</span></button>
+          <button type="button" class="btn btn-success btn-sm" ng-click="acceptUR()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Yes</span></button>
+          <button type="button" class="btn btn-danger btn-sm" ng-click="declineUR()"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>No</span></button>
         </div>
       </div>
     </div>
@@ -692,7 +689,7 @@
           <li>Brandon Philips</li>
           <li>Gilli Sigurdsson</li>
         </ul>
-        </div>
+      </div>
       <div class="col-md-6">
         <ul>
           <li>James Patterson</li>
@@ -704,7 +701,7 @@
           <li>Tully Robinson</li>
           <li>Veeti Paananen</li>
         </ul>
-        </div>
+      </div>
     </div>
     <hr/>
 

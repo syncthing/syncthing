@@ -83,3 +83,7 @@ table.table-condensed td {
     /* to align with panel */
     padding-right: 15px;
 }
+
+.panel-body .table-condensed {
+    margin-bottom: 0;
+}
