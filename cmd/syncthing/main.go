@@ -530,6 +530,14 @@ nextRepo:
 		}
 	}
 
+	// The default port we announce, possibly modified by setupUPnP next.
+
+	addr, err := net.ResolveTCPAddr("tcp", cfg.Options.ListenAddress[0])
+	if err != nil {
+		l.Fatalln("Bad listen address:", err)
+	}
+	externalPort = addr.Port
+
 	// UPnP
 
 	if cfg.Options.UPnPEnabled {
