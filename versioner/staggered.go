@@ -59,6 +59,9 @@ func versionExt(path string) string {
 // Rename versions with old version format
 func (v Staggered) renameOld() {
 	err := filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		if f.Mode().IsRegular() {
 			versionUnix, err := strconv.ParseInt(strings.Replace(filepath.Ext(path), ".v", "", 1), 10, 0)
 			if err == nil {
