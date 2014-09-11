@@ -124,7 +124,7 @@ func copyStderr(stderr io.ReadCloser) {
 				}
 
 				l.Warnf("Panic detected, writing to \"%s\"", panicFd.Name())
-				l.Warnln("Please create an issue at https://github.com/syncting/syncthing/issues/ with the panic log attached")
+				l.Warnln("Please create an issue at https://github.com/syncthing/syncthing/issues/ with the panic log attached")
 
 				panicFd.WriteString("Panic at " + time.Now().Format(time.RFC1123) + "\n")
 				stdoutMut.Lock()
