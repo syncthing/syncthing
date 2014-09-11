@@ -99,7 +99,10 @@ The Compression bit "C" indicates the compression used for the message.
 For C=1:
 
   * The Length field contains the length, in bytes, of the
-    compressed message data.
+    compressed message data plus a four byte uncompressed length field.
+
+  * The compressed message data is preceeded by a 32 bit field denoting
+    the length of the uncompressed message.
 
   * The message data is compressed using the LZ4 format and algorithm
     described in https://code.google.com/p/lz4/.
