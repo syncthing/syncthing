@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -13,8 +14,10 @@ import (
 	"crypto/x509/pkix"
 	"encoding/binary"
 	"encoding/pem"
+	"io"
 	"math/big"
 	mr "math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -72,4 +75,49 @@ func newCertificate(dir string, prefix string) {
 	l.FatalErr(err)
 	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	keyOut.Close()
+}
+
+type DowngradingListener struct {
+	net.Listener
+	TLSConfig *tls.Config
+}
+
+type WrappedConnection struct {
+	io.Reader
+	net.Conn
+}
+
+func NewDowngradingListener(address string, config *tls.Config) (net.Listener, error) {
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return nil, err
+	}
+	return &DowngradingListener{listener, config}, nil
+}
+
+func (listener *DowngradingListener) Accept() (net.Conn, error) {
+	connection, err := listener.Listener.Accept()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var peek [1]byte
+	_, err = io.ReadFull(connection, peek[:])
+	if err != nil {
+		return nil, err
+	}
+
+	jointReader := io.MultiReader(bytes.NewReader(peek[:]), connection)
+	wrapper := &WrappedConnection{jointReader, connection}
+
+	// TLS handshake starts with ASCII SYN
+	if peek[0] == 22 {
+		return tls.Server(wrapper, listener.TLSConfig), nil
+	}
+	return wrapper, nil
+}
+
+func (c *WrappedConnection) Read(b []byte) (n int, err error) {
+	return c.Reader.Read(b)
 }
