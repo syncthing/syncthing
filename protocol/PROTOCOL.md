@@ -104,6 +104,12 @@ For C=1:
   * The message data is compressed using the LZ4 format and algorithm
     described in https://code.google.com/p/lz4/.
 
+  * Note that due to [go-lz4](https://github.com/bkaradzic/go-lz4) 
+    implementation details compressed data is actually prefixed with 
+    `uint32` containing uncompressed length, so if you're using other
+    library (for example official C library) you might need to skip 
+    those 4 bytes for correct decompression
+
 For C=0:
 
   * The Length field contains the length, in bytes, of the
