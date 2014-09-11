@@ -59,6 +59,9 @@ func versionExt(path string) string {
 // Rename versions with old version format
 func (v Staggered) renameOld() {
 	err := filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		if f.Mode().IsRegular() {
 			versionUnix, err := strconv.ParseInt(strings.Replace(filepath.Ext(path), ".v", "", 1), 10, 0)
 			if err == nil {
@@ -122,8 +125,15 @@ func NewStaggered(repoID, repoPath string, params map[string]string) Versioner {
 		l.Debugf("instantiated %#v", s)
 	}
 
-	// Rename version with old version format
-	s.renameOld()
+	// Rename version with old version format if versionsPath exists
+	_, err = os.Stat(s.versionsPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			l.Warnln(err)
+		}
+	} else {
+		s.renameOld()
+	}
 
 	go func() {
 		s.clean()
@@ -162,6 +172,9 @@ func (v Staggered) clean() {
 	filesPerDir := make(map[string]int)
 
 	err = filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		switch mode := f.Mode(); {
 		case mode.IsDir():
 			filesPerDir[path] = 0
