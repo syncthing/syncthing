@@ -58,30 +58,25 @@ func init() {
 func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
 	var listener net.Listener
 	var err error
-	if cfg.UseTLS {
-		cert, err := loadCert(confDir, "https-")
-		if err != nil {
-			l.Infoln("Loading HTTPS certificate:", err)
-			l.Infoln("Creating new HTTPS certificate")
-			newCertificate(confDir, "https-")
-			cert, err = loadCert(confDir, "https-")
-		}
-		if err != nil {
-			return err
-		}
-		tlsCfg := &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			ServerName:   "syncthing",
-		}
-		listener, err = tls.Listen("tcp", cfg.Address, tlsCfg)
-		if err != nil {
-			return err
-		}
-	} else {
-		listener, err = net.Listen("tcp", cfg.Address)
-		if err != nil {
-			return err
-		}
+
+	cert, err := loadCert(confDir, "https-")
+	if err != nil {
+		l.Infoln("Loading HTTPS certificate:", err)
+		l.Infoln("Creating new HTTPS certificate")
+		newCertificate(confDir, "https-")
+		cert, err = loadCert(confDir, "https-")
+	}
+	if err != nil {
+		return err
+	}
+	tlsCfg := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ServerName:   "syncthing",
+	}
+
+	listener, err = NewDowngradingListener(cfg.Address, tlsCfg)
+	if err != nil {
+		return err
 	}
 
 	// The GET handlers
@@ -144,6 +139,9 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		handler = basicAuthAndSessionMiddleware(cfg, handler)
 	}
 
+	// Add our redirection middleware
+	handler = redirectionMiddleware(handler, cfg.Address, cfg.UseTLS)
+
 	go http.Serve(listener, handler)
 	return nil
 }
@@ -157,6 +155,22 @@ func getPostHandler(get, post http.Handler) http.Handler {
 			post.ServeHTTP(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+}
+
+func redirectionMiddleware(h http.Handler, host string, usingTLS bool) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.TLS == nil && usingTLS {
+			r.URL.Host = host
+			r.URL.Scheme = "https"
+			http.Redirect(w, r, r.URL.String(), http.StatusFound)
+		} else if r.TLS != nil && !usingTLS {
+			r.URL.Host = host
+			r.URL.Scheme = "http"
+			http.Redirect(w, r, r.URL.String(), http.StatusFound)
+		} else {
+			h.ServeHTTP(w, r)
 		}
 	})
 }
