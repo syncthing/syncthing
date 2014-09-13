@@ -136,7 +136,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	handler = withVersionMiddleware(handler)
 
 	// Wrap everything in basic auth, if user/password is set.
-	if len(cfg.User) > 0 {
+	if len(cfg.User) > 0 && len(cfg.Password) > 0 {
 		handler = basicAuthAndSessionMiddleware(cfg, handler)
 	}
 
