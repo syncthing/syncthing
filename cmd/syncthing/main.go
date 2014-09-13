@@ -56,6 +56,7 @@ const (
 	exitError              = 1
 	exitNoUpgradeAvailable = 2
 	exitRestarting         = 3
+	exitUpgrading          = 4
 )
 
 var l = logger.DefaultLogger

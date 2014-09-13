@@ -91,6 +91,18 @@ func monitorMain() {
 			if err == nil {
 				// Successfull exit indicates an intentional shutdown
 				return
+			} else if exiterr, ok := err.(*exec.ExitError); ok {
+				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+					switch status.ExitStatus() {
+					case exitUpgrading:
+						// Restart the monitor process to release the .old
+						// binary as part of the upgrade process.
+						l.Infoln("Restarting monitor...")
+						os.Setenv("STNORESTART", "")
+						exec.Command(args[0], args[1:]...).Start()
+						return
+					}
+				}
 			}
 		}
 
