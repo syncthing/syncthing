@@ -324,15 +324,19 @@ func (m *Model) NeedSize(repo string) (files int, bytes int64) {
 	return
 }
 
-// NeedFiles returns the list of currently needed files
-func (m *Model) NeedFilesRepo(repo string) []protocol.FileInfo {
+// NeedFiles returns the list of currently needed files, stopping at maxFiles
+// files or maxBlocks blocks. Limits <= 0 are ignored.
+func (m *Model) NeedFilesRepoLimited(repo string, maxFiles, maxBlocks int) []protocol.FileInfo {
 	m.rmut.RLock()
 	defer m.rmut.RUnlock()
+	nblocks := 0
 	if rf, ok := m.repoFiles[repo]; ok {
-		fs := make([]protocol.FileInfo, 0, indexBatchSize)
+		fs := make([]protocol.FileInfo, 0, maxFiles)
 		rf.WithNeed(protocol.LocalNodeID, func(f protocol.FileIntf) bool {
-			fs = append(fs, f.(protocol.FileInfo))
-			return len(fs) < indexBatchSize
+			fi := f.(protocol.FileInfo)
+			fs = append(fs, fi)
+			nblocks += len(fi.Blocks)
+			return (maxFiles <= 0 || len(fs) < maxFiles) && (maxBlocks <= 0 || nblocks < maxBlocks)
 		})
 		return fs
 	}

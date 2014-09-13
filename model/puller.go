@@ -61,6 +61,11 @@ type openFile struct {
 
 type activityMap map[protocol.NodeID]int
 
+// Queue about this many blocks each puller iteration. More blocks means
+// longer iterations and better efficiency; fewer blocks reduce memory
+// consumption. 1000 blocks ~= 1000 * 128 KiB ~= 125 MiB of data.
+const pullIterationBlocks = 1000
+
 func (m activityMap) leastBusyNode(availability []protocol.NodeID, isValid func(protocol.NodeID) bool) protocol.NodeID {
 	var low int = 2<<30 - 1
 	var selected protocol.NodeID
@@ -702,7 +707,7 @@ func (p *puller) queueNeededBlocks(prevVer uint64) (uint64, int) {
 
 	queued := 0
 	files := make([]protocol.FileInfo, 0, indexBatchSize)
-	for _, f := range p.model.NeedFilesRepo(p.repoCfg.ID) {
+	for _, f := range p.model.NeedFilesRepoLimited(p.repoCfg.ID, indexBatchSize, pullIterationBlocks) {
 		if _, ok := p.openFiles[f.Name]; ok {
 			continue
 		}
