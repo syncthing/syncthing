@@ -99,7 +99,10 @@ func monitorMain() {
 						// binary as part of the upgrade process.
 						l.Infoln("Restarting monitor...")
 						os.Setenv("STNORESTART", "")
-						exec.Command(args[0], args[1:]...).Start()
+						err := exec.Command(args[0], args[1:]...).Start()
+						if err != nil {
+							l.Warnln("restart:", err)
+						}
 						return
 					}
 				}
