@@ -531,7 +531,9 @@ func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		restPostRestart(w, r)
+		flushResponse(`{"ok": "restarting"}`, w)
+		l.Infoln("Upgrading")
+		stop <- exitUpgrading
 	}
 }
 
