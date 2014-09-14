@@ -371,6 +371,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     var refreshNodeStats = debounce(function () {
         $http.get(urlbase+"/stats/node").success(function (data) {
             $scope.stats = data;
+            for (var node in $scope.stats) {
+                $scope.stats[node].LastSeen = new Date($scope.stats[node].LastSeen);
+                $scope.stats[node].LastSeenDays = (new Date() - $scope.stats[node].LastSeen) / 1000 / 86400;
+            }
             console.log("refreshNodeStats", data);
         });
     }, 500);
