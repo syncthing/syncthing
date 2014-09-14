@@ -839,6 +839,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         cfg.APIKey = randomString(30, 32);
     };
 
+    $scope.showURPreview = function () {
+        $('#settings').modal('hide');
+        $('#urPreview').modal().on('hidden.bs.modal', function () {
+            $('#settings').modal();
+        });
+    }
+
     $scope.acceptUR = function () {
         $scope.config.Options.URAccepted = 1000; // Larger than the largest existing report version
         $scope.saveConfig();
