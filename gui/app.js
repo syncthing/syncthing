@@ -153,13 +153,17 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             return;
         }
 
-        console.log('UIOnline');
-        $scope.init();
-        online = true;
-        restarting = false;
-        $('#networkError').modal('hide');
-        $('#restarting').modal('hide');
-        $('#shutdown').modal('hide');
+        if (restarting){
+            document.location.reload(true);
+        } else {
+            console.log('UIOnline');
+            $scope.init();
+            online = true;
+            restarting = false;
+            $('#networkError').modal('hide');
+            $('#restarting').modal('hide');
+            $('#shutdown').modal('hide');
+        }
     });
 
     $scope.$on('UIOffline', function (event, arg) {
@@ -585,7 +589,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
             setTimeout(function(){
                 window.location.protocol = protocol;
-            }, 1000);
+            }, 2500);
 
             $scope.protocolChanged = false;
         }

@@ -52,33 +52,28 @@ func init() {
 }
 
 func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
-	var listener net.Listener
 	var err error
-	if cfg.UseTLS {
-		cert, err := loadCert(confDir, "https-")
-		if err != nil {
-			l.Infoln("Loading HTTPS certificate:", err)
-			l.Infoln("Creating new HTTPS certificate")
-			newCertificate(confDir, "https-")
-			cert, err = loadCert(confDir, "https-")
-		}
-		if err != nil {
-			return err
-		}
-		tlsCfg := &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			ServerName:   "syncthing",
-		}
-		listener, err = tls.Listen("tcp", cfg.Address, tlsCfg)
-		if err != nil {
-			return err
-		}
-	} else {
-		listener, err = net.Listen("tcp", cfg.Address)
-		if err != nil {
-			return err
-		}
+
+	cert, err := loadCert(confDir, "https-")
+	if err != nil {
+		l.Infoln("Loading HTTPS certificate:", err)
+		l.Infoln("Creating new HTTPS certificate")
+		newCertificate(confDir, "https-")
+		cert, err = loadCert(confDir, "https-")
 	}
+	if err != nil {
+		return err
+	}
+	tlsCfg := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ServerName:   "syncthing",
+	}
+
+	rawListener, err := net.Listen("tcp", cfg.Address)
+	if err != nil {
+		return err
+	}
+	listener := &DowngradingListener{rawListener, tlsCfg}
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
@@ -140,6 +135,11 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		handler = basicAuthAndSessionMiddleware(cfg, handler)
 	}
 
+	// Redirect to HTTPS if we are supposed to
+	if cfg.UseTLS {
+		handler = redirectToHTTPSMiddleware(handler)
+	}
+
 	go http.Serve(listener, handler)
 	return nil
 }
@@ -153,6 +153,23 @@ func getPostHandler(get, post http.Handler) http.Handler {
 			post.ServeHTTP(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+}
+
+func redirectToHTTPSMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Add a generous access-control-allow-origin header since we may be
+		// redirecting REST requests over protocols
+		w.Header().Add("Access-Control-Allow-Origin", "*")
+
+		if r.TLS == nil {
+			// Redirect HTTP requests to HTTPS
+			r.URL.Host = r.Host
+			r.URL.Scheme = "https"
+			http.Redirect(w, r, r.URL.String(), http.StatusFound)
+		} else {
+			h.ServeHTTP(w, r)
 		}
 	})
 }

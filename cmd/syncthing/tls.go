@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -13,8 +14,10 @@ import (
 	"crypto/x509/pkix"
 	"encoding/binary"
 	"encoding/pem"
+	"io"
 	"math/big"
 	mr "math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -72,4 +75,41 @@ func newCertificate(dir string, prefix string) {
 	l.FatalErr(err)
 	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	keyOut.Close()
+}
+
+type DowngradingListener struct {
+	net.Listener
+	TLSConfig *tls.Config
+}
+
+type WrappedConnection struct {
+	io.Reader
+	net.Conn
+}
+
+func (l *DowngradingListener) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	br := bufio.NewReader(conn)
+	bs, err := br.Peek(1)
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	wrapper := &WrappedConnection{br, conn}
+
+	// 0x16 is the first byte of a TLS handshake
+	if bs[0] == 0x16 {
+		return tls.Server(wrapper, l.TLSConfig), nil
+	}
+
+	return wrapper, nil
+}
+
+func (c *WrappedConnection) Read(b []byte) (n int, err error) {
+	return c.Reader.Read(b)
 }
