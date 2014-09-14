@@ -5,7 +5,7 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -87,34 +87,26 @@ type WrappedConnection struct {
 	net.Conn
 }
 
-func NewDowngradingListener(address string, config *tls.Config) (net.Listener, error) {
-	listener, err := net.Listen("tcp", address)
-	if err != nil {
-		return nil, err
-	}
-	return &DowngradingListener{listener, config}, nil
-}
-
-func (listener *DowngradingListener) Accept() (net.Conn, error) {
-	connection, err := listener.Listener.Accept()
-
+func (l *DowngradingListener) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
 	}
 
-	var peek [1]byte
-	_, err = io.ReadFull(connection, peek[:])
+	br := bufio.NewReader(conn)
+	bs, err := br.Peek(1)
 	if err != nil {
+		conn.Close()
 		return nil, err
 	}
 
-	jointReader := io.MultiReader(bytes.NewReader(peek[:]), connection)
-	wrapper := &WrappedConnection{jointReader, connection}
+	wrapper := &WrappedConnection{br, conn}
 
-	// TLS handshake starts with ASCII SYN
-	if peek[0] == 22 {
-		return tls.Server(wrapper, listener.TLSConfig), nil
+	// 0x16 is the first byte of a TLS handshake
+	if bs[0] == 0x16 {
+		return tls.Server(wrapper, l.TLSConfig), nil
 	}
+
 	return wrapper, nil
 }
 

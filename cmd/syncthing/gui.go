@@ -56,7 +56,6 @@ func init() {
 }
 
 func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
-	var listener net.Listener
 	var err error
 
 	cert, err := loadCert(confDir, "https-")
@@ -74,10 +73,11 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		ServerName:   "syncthing",
 	}
 
-	listener, err = NewDowngradingListener(cfg.Address, tlsCfg)
+	rawListener, err := net.Listen("tcp", cfg.Address)
 	if err != nil {
 		return err
 	}
+	listener := &DowngradingListener{rawListener, tlsCfg}
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
@@ -139,8 +139,10 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		handler = basicAuthAndSessionMiddleware(cfg, handler)
 	}
 
-	// Add our redirection middleware
-	handler = redirectionMiddleware(handler, cfg.Address, cfg.UseTLS)
+	// Redirect to HTTPS if we are supposed to
+	if cfg.UseTLS {
+		handler = redirectToHTTPSMiddleware(handler)
+	}
 
 	go http.Serve(listener, handler)
 	return nil
@@ -159,15 +161,16 @@ func getPostHandler(get, post http.Handler) http.Handler {
 	})
 }
 
-func redirectionMiddleware(h http.Handler, host string, usingTLS bool) http.Handler {
+func redirectToHTTPSMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.TLS == nil && usingTLS {
-			r.URL.Host = host
+		// Add a generous access-control-allow-origin header since we may be
+		// redirecting REST requests over protocols
+		w.Header().Add("Access-Control-Allow-Origin", "*")
+
+		if r.TLS == nil {
+			// Redirect HTTP requests to HTTPS
+			r.URL.Host = r.Host
 			r.URL.Scheme = "https"
-			http.Redirect(w, r, r.URL.String(), http.StatusFound)
-		} else if r.TLS != nil && !usingTLS {
-			r.URL.Host = host
-			r.URL.Scheme = "http"
 			http.Redirect(w, r, r.URL.String(), http.StatusFound)
 		} else {
 			h.ServeHTTP(w, r)
