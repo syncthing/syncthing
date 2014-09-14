@@ -45,10 +45,6 @@ var (
 	eventSub     *events.BufferedSubscription
 )
 
-const (
-	unchangedPassword = "--password-unchanged--"
-)
-
 func init() {
 	l.AddHandler(logger.LevelWarn, showGuiError)
 	sub := events.Default.Subscribe(events.AllEvents)
@@ -140,7 +136,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	handler = withVersionMiddleware(handler)
 
 	// Wrap everything in basic auth, if user/password is set.
-	if len(cfg.User) > 0 {
+	if len(cfg.User) > 0 && len(cfg.Password) > 0 {
 		handler = basicAuthAndSessionMiddleware(cfg, handler)
 	}
 
@@ -274,12 +270,8 @@ func restGetNodeStats(m *model.Model, w http.ResponseWriter, r *http.Request) {
 }
 
 func restGetConfig(w http.ResponseWriter, r *http.Request) {
-	encCfg := cfg
-	if encCfg.GUI.Password != "" {
-		encCfg.GUI.Password = unchangedPassword
-	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(encCfg)
+	json.NewEncoder(w).Encode(cfg)
 }
 
 func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
@@ -290,18 +282,16 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	} else {
-		if newCfg.GUI.Password == "" {
-			// Leave it empty
-		} else if newCfg.GUI.Password == unchangedPassword {
-			newCfg.GUI.Password = cfg.GUI.Password
-		} else {
-			hash, err := bcrypt.GenerateFromPassword([]byte(newCfg.GUI.Password), 0)
-			if err != nil {
-				l.Warnln("bcrypting password:", err)
-				http.Error(w, err.Error(), 500)
-				return
-			} else {
-				newCfg.GUI.Password = string(hash)
+		if newCfg.GUI.Password != cfg.GUI.Password {
+			if newCfg.GUI.Password != "" {
+				hash, err := bcrypt.GenerateFromPassword([]byte(newCfg.GUI.Password), 0)
+				if err != nil {
+					l.Warnln("bcrypting password:", err)
+					http.Error(w, err.Error(), 500)
+					return
+				} else {
+					newCfg.GUI.Password = string(hash)
+				}
 			}
 		}
 
