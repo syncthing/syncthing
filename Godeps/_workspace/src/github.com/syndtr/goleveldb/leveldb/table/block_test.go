@@ -59,7 +59,7 @@ var _ = testutil.Defer(func() {
 						// Make block.
 						br := Build(kv, restartInterval)
 						// Do testing.
-						testutil.KeyValueTesting(nil, br, kv.Clone())
+						testutil.KeyValueTesting(nil, kv.Clone(), br, nil, nil)
 					}
 
 					Describe(Text(), Test)

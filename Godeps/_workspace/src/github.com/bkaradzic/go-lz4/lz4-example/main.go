@@ -72,10 +72,18 @@ func main() {
 
 	if *decompress {
 		data, _ = ioutil.ReadAll(input)
-		data, _ = lz4.Decode(nil, data)
+		data, err = lz4.Decode(nil, data)
+		if err != nil {
+			fmt.Println("Failed to decode:", err)
+			return
+		}
 	} else {
 		data, _ = ioutil.ReadAll(input)
-		data, _ = lz4.Encode(nil, data)
+		data, err = lz4.Encode(nil, data)
+		if err != nil {
+			fmt.Println("Failed to encode:", err)
+			return
+		}
 	}
 
 	err = ioutil.WriteFile(args[1], data, 0644)

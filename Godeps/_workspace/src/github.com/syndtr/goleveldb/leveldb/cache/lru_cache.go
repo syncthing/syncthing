@@ -13,8 +13,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-// The LLRB implementation were taken from https://github.com/petar/GoLLRB,
-// which conatins the following header:
+// The LLRB implementation were taken from https://github.com/petar/GoLLRB.
+// Which contains the following header:
 //
 // Copyright 2010 Petar Maymounkov. All rights reserved.
 // Use of this source code is governed by a BSD-style

@@ -40,18 +40,17 @@ var _ = testutil.Defer(func() {
 		})
 
 		Describe("read test", func() {
-			testutil.AllKeyValueTesting(nil, func(kv testutil.KeyValue) testutil.DB {
+			testutil.AllKeyValueTesting(nil, nil, func(kv testutil.KeyValue) testutil.DB {
 				// Building the DB.
 				db := newTestingDB(o, nil, nil)
 				kv.IterateShuffled(nil, func(i int, key, value []byte) {
 					err := db.TestPut(key, value)
 					Expect(err).NotTo(HaveOccurred())
 				})
-				testutil.Defer("teardown", func() {
-					db.TestClose()
-				})
 
 				return db
+			}, func(db testutil.DB) {
+				db.(*testingDB).TestClose()
 			})
 		})
 	})

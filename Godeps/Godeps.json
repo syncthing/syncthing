@@ -37,7 +37,7 @@
 		},
 		{
 			"ImportPath": "github.com/bkaradzic/go-lz4",
-			"Rev": "77e2ba877bde9da31213bec75dbbe197fa507c21"
+			"Rev": "93a831dcee242be64a9cc9803dda84af25932de7"
 		},
 		{
 			"ImportPath": "github.com/calmh/xdr",
@@ -49,7 +49,7 @@
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "457e6f75905f7c1316afd8c43ad323f4c32b31c2"
+			"Rev": "9bca75c48d6c31becfbb127702b425e7226052e3"
 		},
 		{
 			"ImportPath": "github.com/vitrun/qart/coding",

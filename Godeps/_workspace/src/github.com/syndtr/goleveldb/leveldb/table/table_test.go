@@ -104,11 +104,11 @@ var _ = testutil.Defer(func() {
 					if body != nil {
 						body(db.(tableWrapper).Reader)
 					}
-					testutil.KeyValueTesting(nil, db, *kv)
+					testutil.KeyValueTesting(nil, *kv, db, nil, nil)
 				}
 			}
 
-			testutil.AllKeyValueTesting(nil, Build)
+			testutil.AllKeyValueTesting(nil, Build, nil, nil)
 			Describe("with one key per block", Test(testutil.KeyValue_Generate(nil, 9, 1, 10, 512, 512), func(r *Reader) {
 				It("should have correct blocks number", func() {
 					indexBlock, err := r.readBlock(r.indexBH, true)
