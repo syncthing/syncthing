@@ -25,7 +25,7 @@ start() {
 
 stop() {
 	for i in 1 2 3 ; do
-		curl -HX-API-Key:abc123 -X POST "http://127.0.0.1:808$i/rest/shutdown"
+		curl -s -o /dev/null -HX-API-Key:abc123 -X POST "http://127.0.0.1:808$i/rest/shutdown"
 	done
 	exit $1
 }
@@ -98,11 +98,13 @@ alterFiles() {
 		if [[ $nfiles -ge 300 ]] ; then
 			todelete=$(( $nfiles - 300 ))
 			echo "  $i: deleting $todelete files..."
+			set +o pipefail
 			find . -type f \
 				| grep -v large \
 				| sort -k 1.16 \
 				| head -n "$todelete" \
 				| xargs rm -f
+			set -o pipefail
 		fi
 
 		# Create some new files and alter existing ones
@@ -121,7 +123,7 @@ alterFiles() {
 	pkill -CONT syncthing
 
 	echo "Restarting instance 2"
-	curl -HX-API-Key:abc123 -X POST "http://127.0.0.1:8082/rest/restart"
+	curl -s -o /dev/null -HX-API-Key:abc123 -X POST "http://127.0.0.1:8082/rest/restart"
 }
 
 rm -rf h?/*.idx.gz h?/index

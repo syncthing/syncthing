@@ -23,7 +23,7 @@ start() {
 stop() {
 	echo "Stopping..."
 	for i in 1 2 ; do
-		curl -HX-API-Key:abc123 -X POST "http://127.0.0.1:808$i/rest/shutdown"
+		curl -s -o /dev/null -HX-API-Key:abc123 -X POST "http://127.0.0.1:808$i/rest/shutdown"
 	done
 }
 
