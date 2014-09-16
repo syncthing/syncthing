@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
 
 # Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
 # Use of this source code is governed by an MIT-style license that can be
@@ -19,7 +21,7 @@ echo Building
 go build http.go
 
 echo Starting
-chmod -R +w s1 s2
+chmod -R +w s1 s2 || true
 rm -rf s1 s2 h1/index h2/index
 syncthing -home h1 > 1.out 2>&1 &
 syncthing -home h2 > 2.out 2>&1 &

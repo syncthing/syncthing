@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
 
 # Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
 # Use of this source code is governed by an MIT-style license that can be
@@ -23,7 +25,7 @@ start() {
 
 stop() {
 	for i in 1 2 3 ; do
-		curl -HX-API-Key:abc123 -X POST "http://127.0.0.1:808$i/rest/shutdown"
+		curl -s -o /dev/null -HX-API-Key:abc123 -X POST "http://127.0.0.1:808$i/rest/shutdown"
 	done
 	exit $1
 }
@@ -96,11 +98,13 @@ alterFiles() {
 		if [[ $nfiles -ge 300 ]] ; then
 			todelete=$(( $nfiles - 300 ))
 			echo "  $i: deleting $todelete files..."
+			set +o pipefail
 			find . -type f \
 				| grep -v large \
 				| sort -k 1.16 \
 				| head -n "$todelete" \
 				| xargs rm -f
+			set -o pipefail
 		fi
 
 		# Create some new files and alter existing ones
@@ -119,11 +123,11 @@ alterFiles() {
 	pkill -CONT syncthing
 
 	echo "Restarting instance 2"
-	curl -HX-API-Key:abc123 -X POST "http://127.0.0.1:8082/rest/restart"
+	curl -s -o /dev/null -HX-API-Key:abc123 -X POST "http://127.0.0.1:8082/rest/restart"
 }
 
 rm -rf h?/*.idx.gz h?/index
-chmod -R u+w s? s??-?
+chmod -R u+w s? s??-? || true
 rm -rf s? s??-?
 mkdir s1 s2 s3 s12-1 s12-2 s23-2 s23-3
 

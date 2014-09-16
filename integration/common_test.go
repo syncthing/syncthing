@@ -13,30 +13,44 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	mr "math/rand"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"time"
 )
 
+const (
+	id1    = "I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"
+	id2    = "JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"
+	apiKey = "abc123"
+)
+
+var env = []string{
+	"HOME=.",
+	"STTRACE=model",
+	"STGUIAPIKEY=" + apiKey,
+}
+
 type syncthingProcess struct {
-	log  string
-	argv []string
-	port int
+	log       string
+	argv      []string
+	port      int
+	apiKey    string
+	csrfToken string
 
 	cmd   *exec.Cmd
 	logfd *os.File
 }
 
-func (p *syncthingProcess) start() error {
+func (p *syncthingProcess) start() (string, error) {
 	if p.logfd == nil {
 		logfd, err := os.Create(p.log)
 		if err != nil {
-			return err
+			return "", err
 		}
 		p.logfd = logfd
 	}
@@ -48,23 +62,44 @@ func (p *syncthingProcess) start() error {
 
 	err := cmd.Start()
 	if err != nil {
-		return err
+		return "", err
 	}
 	p.cmd = cmd
-	return nil
+
+	for {
+		ver, err := p.version()
+		if err == nil {
+			return ver, nil
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
 }
 
 func (p *syncthingProcess) stop() {
-	if runtime.GOOS != "windows" {
-		p.cmd.Process.Signal(os.Interrupt)
-	} else {
-		p.cmd.Process.Kill()
-	}
+	p.cmd.Process.Signal(os.Interrupt)
 	p.cmd.Wait()
 }
 
+func (p *syncthingProcess) get(path string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://127.0.0.1:%d%s", p.port, path), nil)
+	if err != nil {
+		return nil, err
+	}
+	if p.apiKey != "" {
+		req.Header.Add("X-API-Key", p.apiKey)
+	}
+	if p.csrfToken != "" {
+		req.Header.Add("X-CSRF-Token", p.csrfToken)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (p *syncthingProcess) peerCompletion() (map[string]int, error) {
-	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/rest/debug/peerCompletion", p.port))
+	resp, err := p.get("/rest/debug/peerCompletion")
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +108,19 @@ func (p *syncthingProcess) peerCompletion() (map[string]int, error) {
 	comp := map[string]int{}
 	err = json.NewDecoder(resp.Body).Decode(&comp)
 	return comp, err
+}
+
+func (p *syncthingProcess) version() (string, error) {
+	resp, err := p.get("/rest/version")
+	if err != nil {
+		return "", err
+	}
+	bs, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return "", err
+	}
+	return string(bs), nil
 }
 
 type fileGenerator struct {
@@ -202,7 +250,7 @@ func compareDirectories(dirs ...string) error {
 type fileInfo struct {
 	name string
 	mode os.FileMode
-	mod  time.Time
+	mod  int64
 	hash [16]byte
 }
 
@@ -228,7 +276,7 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) {
 			f = fileInfo{
 				name: rn,
 				mode: info.Mode(),
-				mod:  info.ModTime(),
+				mod:  info.ModTime().Unix(),
 			}
 			sum, err := md5file(path)
 			if err != nil {

@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
 
 # Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
 # Use of this source code is governed by an MIT-style license that can be
@@ -21,7 +23,7 @@ start() {
 stop() {
 	echo "Stopping..."
 	for i in 1 2 ; do
-		curl -HX-API-Key:abc123 -X POST "http://127.0.0.1:808$i/rest/shutdown"
+		curl -s -o /dev/null -HX-API-Key:abc123 -X POST "http://127.0.0.1:808$i/rest/shutdown"
 	done
 }
 
@@ -29,7 +31,7 @@ setup() {
 	echo "Setting up dirs..."
 	mkdir -p s1
 	pushd s1 >/dev/null
-	rm -r */*[02468] 2>/dev/null
+	rm -r */*[02468] 2>/dev/null || true
 	rm -rf *2
 	for ((i = 0; i < 500; i++)) ; do
 		mkdir -p "$RANDOM/$RANDOM"
@@ -75,7 +77,7 @@ testConvergence() {
 	fi
 }
 
-chmod -R +w s? s??-?
+chmod -R +w s? s??-? || true
 rm -rf s? s??-?
 rm -rf f?/*.idx.gz f?/index
 

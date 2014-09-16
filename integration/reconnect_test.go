@@ -13,17 +13,6 @@ import (
 	"time"
 )
 
-const (
-	apiKey = "abc123" // Used when talking to the processes under test
-	id1    = "I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"
-	id2    = "JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"
-)
-
-var env = []string{
-	"HOME=.",
-	"STTRACE=model",
-}
-
 func TestRestartReceiverDuringTransfer(t *testing.T) {
 	testRestartDuringTransfer(t, false, true, 0, 0)
 }
@@ -33,48 +22,50 @@ func TestRestartSenderDuringTransfer(t *testing.T) {
 }
 
 func TestRestartSenderAndReceiverDuringTransfer(t *testing.T) {
-	// 	// Give the receiver some time to rot with needed files but
-	// 	// without any peer. This triggers
-	// 	// https://github.com/syncthing/syncthing/issues/463
+	// Give the receiver some time to rot with needed files but
+	// without any peer. This triggers
+	// https://github.com/syncthing/syncthing/issues/463
 	testRestartDuringTransfer(t, true, true, 10*time.Second, 0)
 }
 
 func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool, senderDelay, receiverDelay time.Duration) {
 	log.Println("Cleaning...")
-	err := removeAll("s1", "s2", "f1/index", "f2/index")
+	err := removeAll("s1", "s2", "h1/index", "h2/index")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	log.Println("Generating files...")
-	err = generateFiles("s1", 1000, 20, "../bin/syncthing")
+	err = generateFiles("s1", 1000, 22, "../bin/syncthing")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	log.Println("Starting up...")
 	sender := syncthingProcess{ // id1
-		log:  "1.out",
-		argv: []string{"-home", "f1"},
-		port: 8081,
+		log:    "1.out",
+		argv:   []string{"-home", "h1"},
+		port:   8081,
+		apiKey: apiKey,
 	}
-	err = sender.start()
+	ver, err := sender.start()
 	if err != nil {
 		t.Fatal(err)
 	}
+	log.Println(ver)
 
 	receiver := syncthingProcess{ // id2
-		log:  "2.out",
-		argv: []string{"-home", "f2"},
-		port: 8082,
+		log:    "2.out",
+		argv:   []string{"-home", "h2"},
+		port:   8082,
+		apiKey: apiKey,
 	}
-	err = receiver.start()
+	ver, err = receiver.start()
 	if err != nil {
+		sender.stop()
 		t.Fatal(err)
 	}
-
-	// Give them time to start up
-	time.Sleep(1 * time.Second)
+	log.Println(ver)
 
 	var prevComp int
 	for {
@@ -130,8 +121,6 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 
 			prevComp = curComp
 		}
-
-		time.Sleep(1 * time.Second)
 	}
 
 	sender.stop()
