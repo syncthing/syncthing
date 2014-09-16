@@ -20,15 +20,22 @@ const (
 func Convert(pattern string, flags int) (*regexp.Regexp, error) {
 	any := "."
 
-	if runtime.GOOS == "windows" {
-		flags |= FNM_NOESCAPE
+	switch runtime.GOOS {
+	case "windows":
+		flags |= FNM_NOESCAPE | FNM_CASEFOLD
 		pattern = filepath.FromSlash(pattern)
 		if flags&FNM_PATHNAME != 0 {
 			any = "[^\\\\]"
 		}
-	} else if flags&FNM_PATHNAME != 0 {
-		any = "[^/]"
+	case "darwin":
+		flags |= FNM_CASEFOLD
+		fallthrough
+	default:
+		if flags&FNM_PATHNAME != 0 {
+			any = "[^/]"
+		}
 	}
+
 	if flags&FNM_NOESCAPE != 0 {
 		pattern = strings.Replace(pattern, "\\", "\\\\", -1)
 	} else {

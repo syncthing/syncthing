@@ -7,6 +7,7 @@ package ignore_test
 import (
 	"bytes"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/syncthing/syncthing/ignore"
@@ -103,6 +104,32 @@ func TestBadPatterns(t *testing.T) {
 		parsed, err := ignore.Parse(bytes.NewBufferString(pat), ".stignore")
 		if err == nil {
 			t.Errorf("No error for pattern %q: %v", pat, parsed)
+		}
+	}
+}
+
+func TestCaseSensitivity(t *testing.T) {
+	ign, _ := ignore.Parse(bytes.NewBufferString("test"), ".stignore")
+
+	match := []string{"test"}
+	dontMatch := []string{"foo"}
+
+	switch runtime.GOOS {
+	case "darwin", "windows":
+		match = append(match, "TEST", "Test", "tESt")
+	default:
+		dontMatch = append(dontMatch, "TEST", "Test", "tESt")
+	}
+
+	for _, tc := range match {
+		if !ign.Match(tc) {
+			t.Errorf("Incorrect match for %q: should be matched", tc)
+		}
+	}
+
+	for _, tc := range dontMatch {
+		if ign.Match(tc) {
+			t.Errorf("Incorrect match for %q: should not be matched", tc)
 		}
 	}
 }

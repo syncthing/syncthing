@@ -50,12 +50,17 @@ var testcases = []testcase{
 	{"**/foo.txt", "bar/baz/foo.txt", 0, true},
 	{"**/foo.txt", "bar/baz/foo.txt", FNM_PATHNAME, true},
 
-	{"foo.txt", "foo.TXT", 0, false},
 	{"foo.txt", "foo.TXT", FNM_CASEFOLD, true},
 }
 
 func TestMatch(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	switch runtime.GOOS {
+	case "windows":
+		testcases = append(testcases, testcase{"foo.txt", "foo.TXT", 0, true})
+	case "darwin":
+		testcases = append(testcases, testcase{"foo.txt", "foo.TXT", 0, true})
+		fallthrough
+	default:
 		testcases = append(testcases, testcase{"f\\[ab\\]o.txt", "f[ab]o.txt", 0, true})
 		testcases = append(testcases, testcase{"foo\\.txt", "foo.txt", 0, true})
 		testcases = append(testcases, testcase{"foo\\*.txt", "foo*.txt", 0, true})
