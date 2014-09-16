@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
 
 # Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
 # Use of this source code is governed by an MIT-style license that can be
@@ -114,7 +116,7 @@ alterFiles() {
 }
 
 rm -rf h?/*.idx.gz h?/index
-chmod -R +w s? s??-? s4d
+chmod -R +w s? s??-? s4d || true
 rm -rf s? s??-? s4d
 
 echo "Setting up files..."

@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
 
 # Copyright (C) 2014 Jakob Borg and other contributors. All rights reserved.
 # Use of this source code is governed by an MIT-style license that can be
@@ -123,7 +125,7 @@ alterFiles() {
 }
 
 rm -rf h?/*.idx.gz h?/index
-chmod -R u+w s? s??-?
+chmod -R u+w s? s??-? || true
 rm -rf s? s??-?
 mkdir s1 s2 s3 s12-1 s12-2 s23-2 s23-3
 
