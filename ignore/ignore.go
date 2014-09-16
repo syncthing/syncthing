@@ -122,6 +122,8 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) (Pa
 		switch {
 		case line == "":
 			continue
+		case strings.HasPrefix(line, "//"):
+			continue
 		case strings.HasPrefix(line, "#"):
 			err = addPattern(line)
 		case strings.HasSuffix(line, "/**"):
