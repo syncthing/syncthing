@@ -81,6 +81,9 @@ func (p *syncthingProcess) stop() {
 }
 
 func (p *syncthingProcess) get(path string) (*http.Response, error) {
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://127.0.0.1:%d%s", p.port, path), nil)
 	if err != nil {
 		return nil, err
@@ -91,7 +94,7 @@ func (p *syncthingProcess) get(path string) (*http.Response, error) {
 	if p.csrfToken != "" {
 		req.Header.Add("X-CSRF-Token", p.csrfToken)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
