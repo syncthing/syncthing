@@ -64,6 +64,7 @@
     "Path to the repository on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Sökväg till katalogen på din dator. Kommer att skapas om det inte finns. Tecknet tilde (~) kan användas som en genväg för",
     "Path where versions should be stored (leave empty for the default .stversions folder in the repository).": "Katalog där versioner sparas (lämna blankt för att använda .stversions i lagringskatalogen).",
     "Please wait": "Var god vänta",
+    "Preview": "Preview",
     "Preview Usage Report": "Förhandsgranska statistik",
     "RAM Utilization": "Minnesanvändning",
     "Reconnect Interval (s)": "Anslutningsintervall (s)",

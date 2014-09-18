@@ -64,6 +64,7 @@
     "Path to the repository on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Sti til lagring på din lokale computer. Hvis biblioteket ikke findes vil det blive oprettet. Tegnet tilde (~) kan bruges som genvej til",
     "Path where versions should be stored (leave empty for the default .stversions folder in the repository).": "Path where versions should be stored (leave empty for the default .stversions folder in the repository).",
     "Please wait": "Vent venligst",
+    "Preview": "Preview",
     "Preview Usage Report": "Forhåndsvisning af forbrugsrapport",
     "RAM Utilization": "RAM-forbrug",
     "Reconnect Interval (s)": "Gentilslutningsinterval (s)",

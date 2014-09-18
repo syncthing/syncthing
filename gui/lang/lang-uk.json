@@ -64,6 +64,7 @@
     "Path to the repository on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Шлях до репозиторія на локальному комп’ютері. Буде створений, якщо такий не існує. Символ тильди (~) може бути використаний як ярлик для",
     "Path where versions should be stored (leave empty for the default .stversions folder in the repository).": "Шлях, де повинні зберігатися версії (залиште порожнім для зберігання в директорію .stversions в репозиторії)",
     "Please wait": "Будь ласка, зачекайте",
+    "Preview": "Preview",
     "Preview Usage Report": "Попередній перегляд статистичного звіту",
     "RAM Utilization": "Використання RAM",
     "Reconnect Interval (s)": "Інтервал повторного з’єднання (с)",

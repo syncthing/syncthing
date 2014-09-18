@@ -64,6 +64,7 @@
     "Path to the repository on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Μονοπάτι του αποθετηρίου στον τοπικό υπολογιστή. Σε περίπτωση που δεν υπάρχει, θα δημιουργηθεί. Ο χαρακτήρας tilde (~) μπορεί να χρησιμοποιηθεί σαν συντόμευση για",
     "Path where versions should be stored (leave empty for the default .stversions folder in the repository).": "Path where versions should be stored (leave empty for the default .stversions folder in the repository).",
     "Please wait": "Παρακαλώ περιμένετε",
+    "Preview": "Preview",
     "Preview Usage Report": "Προεπισκόπηση αναφοράς χρήσης",
     "RAM Utilization": "Χρήση RAM",
     "Reconnect Interval (s)": "Χρονικό διάστημα επανασύνδεσης (s)",

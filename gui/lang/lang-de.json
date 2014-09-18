@@ -64,6 +64,7 @@
     "Path to the repository on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Pfad zum Verzeichnis auf dem lokalen Rechner. Wird erzeugt, wenn es nicht existiert. Das Tilden-Zeichen (~)  kann als Abkürzung benutzt werden für",
     "Path where versions should be stored (leave empty for the default .stversions folder in the repository).": "Pfad in dem die Versionen gespeichert werden sollen (ohne Angabe wird der Ordner .stversions im Verzeichnis verwendet).",
     "Please wait": "Bitte warten",
+    "Preview": "Vorschau",
     "Preview Usage Report": "Vorschau des Nutzungsberichts",
     "RAM Utilization": "Verwendeter Arbeitsspeicher",
     "Reconnect Interval (s)": "Wiederverbindungsintervall (s)",

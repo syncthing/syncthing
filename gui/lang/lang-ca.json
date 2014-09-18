@@ -64,6 +64,7 @@
     "Path to the repository on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Ruta del repositori a l'equip local. Si no existeix serà creada. El caràcter (~) es pot fer servir com a drecera de",
     "Path where versions should be stored (leave empty for the default .stversions folder in the repository).": "Ruta on les versions s'haurien de guardar (deixa-ho buit per fer servir el directori .stversions per defecte al repositori)",
     "Please wait": "Si-us-plau espera",
+    "Preview": "Preview",
     "Preview Usage Report": "Vista Prèvia de l'Informe d'Ús",
     "RAM Utilization": "Utilització de la RAM",
     "Reconnect Interval (s)": "Interval de Reconnexió (s)",

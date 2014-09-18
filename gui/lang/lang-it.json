@@ -64,6 +64,7 @@
     "Path to the repository on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Percorso del deposito nel computer locale. Verrà creato se non esiste già. Il carattere tilde (~) può essere utilizzato come scorciatoia per",
     "Path where versions should be stored (leave empty for the default .stversions folder in the repository).": "Percorso di salvataggio delle versioni (lasciare vuoto per utilizzare la cartella predefinita .stversions nel deposito).",
     "Please wait": "Attendere prego",
+    "Preview": "Preview",
     "Preview Usage Report": "Anteprima Statistiche di Utilizzo",
     "RAM Utilization": "Utilizzo RAM",
     "Reconnect Interval (s)": "Intervallo di Riconnessione (s)",

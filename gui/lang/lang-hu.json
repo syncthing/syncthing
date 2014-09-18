@@ -64,6 +64,7 @@
     "Path to the repository on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "A tároló útvonala ezen a számítógépen. Amennyiben nem létezik automatikusan létrehozzuk. A hullámvonal (~) karakter használható a rövidítésre",
     "Path where versions should be stored (leave empty for the default .stversions folder in the repository).": "Az útvonal ahol a régi verziókat tároljuk (ha üresen hagyod akkor .stversions mappa lesz a neve).",
     "Please wait": "Kérem várj",
+    "Preview": "Előnézet",
     "Preview Usage Report": "Felhasználási adatok átnézése",
     "RAM Utilization": "Memória használat",
     "Reconnect Interval (s)": "Újracsatlakozási intervallum (mp)",
