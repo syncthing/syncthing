@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 /*jslint browser: true, continue: true, plusplus: true */
-/*global $: false, angular: false */
+/*global $: false, angular: false, console: false, validLangs: false */
 
 'use strict';
 
@@ -42,15 +42,15 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
                 console.log("event", event.id, event.type, event.data);
                 $scope.$emit(event.type, event);
             });
-        };
+        }
 
         $scope.lastEvent = data[data.length - 1];
         lastID = $scope.lastEvent.id;
 
         setTimeout(function () {
             $http.get(urlbase + '/events?since=' + lastID)
-            .success(successFn)
-            .error(errorFn);
+                .success(successFn)
+                .error(errorFn);
         }, 500);
     };
 
@@ -59,8 +59,8 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
 
         setTimeout(function () {
             $http.get(urlbase + '/events?limit=1')
-            .success(successFn)
-            .error(errorFn);
+                .success(successFn)
+                .error(errorFn);
         }, 1000);
     };
 
@@ -92,7 +92,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.upgradeInfo = {};
     $scope.stats = {};
 
-    $http.get(urlbase+"/lang").success(function (langs) {
+    $http.get(urlbase + "/lang").success(function (langs) {
         // Find the first language in the list provided by the user's browser
         // that is a prefix of a language we have available. That is, "en"
         // sent by the browser will match "en" or "en-US", while "zh-TW" will
@@ -108,11 +108,11 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
                 // The langs returned by the /rest/langs call will be in lower
                 // case. We compare to the lowercase version of the language
                 // code we have as well.
-                possibleLang = possibleLang.toLowerCase()
+                possibleLang = possibleLang.toLowerCase();
                 if (possibleLang.length > lang.length) {
-                    return possibleLang.indexOf(lang) == 0;
+                    return possibleLang.indexOf(lang) === 0;
                 } else {
-                    return lang.indexOf(possibleLang) == 0;
+                    return lang.indexOf(possibleLang) === 0;
                 }
             });
             if (matching.length >= 1) {
@@ -122,9 +122,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
         // Fallback if nothing matched
         $translate.use("en");
-    })
+    });
 
-    $(window).bind('beforeunload', function() {
+    $(window).bind('beforeunload', function () {
         navigatingAway = true;
     });
 
@@ -140,20 +140,20 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         'rmdir': 'Del (dir)',
         'sync': 'Sync',
         'touch': 'Update',
-    }
+    };
     $scope.needIcons = {
         'rm': 'remove',
         'rmdir': 'remove',
         'sync': 'download',
         'touch': 'asterisk',
-    }
+    };
 
     $scope.$on('UIOnline', function (event, arg) {
         if (online && !restarting) {
             return;
         }
 
-        if (restarting){
+        if (restarting) {
             document.location.reload(true);
         } else {
             console.log('UIOnline');
@@ -222,7 +222,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     });
 
     $scope.$on('ConfigLoaded', function (event) {
-        if ($scope.config.Options.URAccepted == 0) {
+        if ($scope.config.Options.URAccepted === 0) {
             // If usage reporting has been neither accepted nor declined,
             // we want to ask the user to make a choice. But we don't want
             // to bug them during initial setup, so we set a cookie with
@@ -232,14 +232,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
             var firstVisit = document.cookie.replace(/(?:(?:^|.*;\s*)firstVisit\s*\=\s*([^;]*).*$)|^.*$/, "$1");
             if (!firstVisit) {
-                document.cookie = "firstVisit=" + Date.now() + ";max-age=" + 30*24*3600;
+                document.cookie = "firstVisit=" + Date.now() + ";max-age=" + 30 * 24 * 3600;
             } else {
-                if (+firstVisit < Date.now() - 4*3600*1000){
+                if (+firstVisit < Date.now() - 4 * 3600 * 1000) {
                     $('#ur').modal();
                 }
             }
         }
-    })
+    });
 
     $scope.$on('ConfigSaved', function (event, arg) {
         updateLocalConfig(arg.data);
@@ -301,7 +301,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     function refreshCompletion(node, repo) {
         if (node === $scope.myID) {
-            return
+            return;
         }
 
         var key = "refreshCompletion" + node + repo;
@@ -313,7 +313,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
                     }
                     $scope.completion[node][repo] = data.completion;
 
-                    var tot = 0, cnt = 0;
+                    var tot = 0,
+                        cnt = 0;
                     for (var cmp in $scope.completion[node]) {
                         if (cmp === "_total") {
                             continue;
@@ -333,8 +334,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     function refreshConnectionStats() {
         $http.get(urlbase + '/connections').success(function (data) {
             var now = Date.now(),
-            td = (now - prevDate) / 1000,
-            id;
+                td = (now - prevDate) / 1000,
+                id;
 
             prevDate = now;
             for (id in data) {
@@ -373,7 +374,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     }
 
     var refreshNodeStats = debounce(function () {
-        $http.get(urlbase+"/stats/node").success(function (data) {
+        $http.get(urlbase + "/stats/node").success(function (data) {
             $scope.stats = data;
             for (var node in $scope.stats) {
                 $scope.stats[node].LastSeen = new Date($scope.stats[node].LastSeen);
@@ -383,7 +384,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         });
     }, 500);
 
-    $scope.init = function() {
+    $scope.init = function () {
         refreshSystem();
         refreshConfig();
         refreshConnectionStats();
@@ -497,7 +498,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     };
 
     $scope.findNode = function (nodeID) {
-        var matches = $scope.nodes.filter(function (n) { return n.NodeID == nodeID; });
+        var matches = $scope.nodes.filter(function (n) {
+            return n.NodeID == nodeID;
+        });
         if (matches.length != 1) {
             return undefined;
         }
@@ -534,9 +537,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $('#settings').modal();
     };
 
-    $scope.saveConfig = function() {
+    $scope.saveConfig = function () {
         var cfg = JSON.stringify($scope.config);
-        var opts = {headers: {'Content-Type': 'application/json'}};
+        var opts = {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
         $http.post(urlbase + '/config', cfg, opts).success(function () {
             $http.get(urlbase + '/config/sync').success(function (data) {
                 $scope.configInSync = data.configInSync;
@@ -547,17 +554,17 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.saveSettings = function () {
         // Make sure something changed
         var changed = !angular.equals($scope.config.Options, $scope.tmpOptions) ||
-                      !angular.equals($scope.config.GUI, $scope.tmpGUI);
+            !angular.equals($scope.config.GUI, $scope.tmpGUI);
         if (changed) {
             // Check if usage reporting has been enabled or disabled
             if ($scope.tmpOptions.UREnabled && $scope.tmpOptions.URAccepted <= 0) {
                 $scope.tmpOptions.URAccepted = 1000;
-            } else if (!$scope.tmpOptions.UREnabled && $scope.tmpOptions.URAccepted > 0){
+            } else if (!$scope.tmpOptions.UREnabled && $scope.tmpOptions.URAccepted > 0) {
                 $scope.tmpOptions.URAccepted = -1;
             }
 
             // Check if protocol will need to be changed on restart
-            if($scope.config.GUI.UseTLS !== $scope.tmpGUI.UseTLS){
+            if ($scope.config.GUI.UseTLS !== $scope.tmpGUI.UseTLS) {
                 $scope.protocolChanged = true;
             }
 
@@ -565,7 +572,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             $scope.thisNode().Name = $scope.tmpOptions.NodeName;
             $scope.config.Options = angular.copy($scope.tmpOptions);
             $scope.config.GUI = angular.copy($scope.tmpGUI);
-            $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) { return x.trim(); });
+            $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) {
+                return x.trim();
+            });
 
             $scope.saveConfig();
         }
@@ -580,14 +589,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.configInSync = true;
 
         // Switch webpage protocol if needed
-        if($scope.protocolChanged){
+        if ($scope.protocolChanged) {
             var protocol = 'http';
 
-            if($scope.config.GUI.UseTLS){
-               protocol = 'https';
+            if ($scope.config.GUI.UseTLS) {
+                protocol = 'https';
             }
 
-            setTimeout(function(){
+            setTimeout(function () {
                 window.location.protocol = protocol;
             }, 2500);
 
@@ -628,7 +637,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     };
 
     $scope.addNode = function () {
-        $scope.currentNode = {AddressesStr: 'dynamic', Compression: true};
+        $scope.currentNode = {
+            AddressesStr: 'dynamic',
+            Compression: true
+        };
         $scope.editingExisting = false;
         $scope.editingSelf = false;
         $scope.nodeEditor.$setPristine();
@@ -660,7 +672,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
         $('#editNode').modal('hide');
         nodeCfg = $scope.currentNode;
-        nodeCfg.Addresses = nodeCfg.AddressesStr.split(',').map(function (x) { return x.trim(); });
+        nodeCfg.Addresses = nodeCfg.AddressesStr.split(',').map(function (x) {
+            return x.trim();
+        });
 
         done = false;
         for (i = 0; i < $scope.nodes.length; i++) {
@@ -682,7 +696,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     };
 
     $scope.otherNodes = function () {
-        return $scope.nodes.filter(function (n){
+        return $scope.nodes.filter(function (n) {
             return n.NodeID !== $scope.myID;
         });
     };
@@ -763,7 +777,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     };
 
     $scope.addRepo = function () {
-        $scope.currentRepo = {selectedNodes: {}};
+        $scope.currentRepo = {
+            selectedNodes: {}
+        };
         $scope.currentRepo.RescanIntervalS = 60;
         $scope.currentRepo.FileVersioningSelector = "none";
         $scope.currentRepo.simpleKeep = 5;
@@ -784,7 +800,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         repoCfg.selectedNodes[$scope.myID] = true;
         for (var nodeID in repoCfg.selectedNodes) {
             if (repoCfg.selectedNodes[nodeID] === true) {
-                repoCfg.Nodes.push({NodeID: nodeID});
+                repoCfg.Nodes.push({
+                    NodeID: nodeID
+                });
             }
         }
         delete repoCfg.selectedNodes;
@@ -822,7 +840,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.saveConfig();
     };
 
-    $scope.sharesRepo = function(repoCfg) {
+    $scope.sharesRepo = function (repoCfg) {
         var names = [];
         repoCfg.Nodes.forEach(function (node) {
             names.push($scope.nodeName($scope.findNode(node.NodeID)));
@@ -852,7 +870,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $('#urPreview').modal().on('hidden.bs.modal', function () {
             $('#settings').modal();
         });
-    }
+    };
 
     $scope.acceptUR = function () {
         $scope.config.Options.URAccepted = 1000; // Larger than the largest existing report version
@@ -879,7 +897,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         var fDelete = 4096;
         var fDirectory = 16384;
 
-        if ((file.Flags & (fDelete+fDirectory)) === fDelete+fDirectory) {
+        if ((file.Flags & (fDelete + fDirectory)) === fDelete + fDirectory) {
             return 'rmdir';
         } else if ((file.Flags & fDelete) === fDelete) {
             return 'rm';
@@ -958,12 +976,11 @@ function decimals(val, num) {
     return decs;
 }
 
-function randomString(len, bits)
-{
+function randomString(len, bits) {
     bits = bits || 36;
-    var outStr = "", newStr;
-    while (outStr.length < len)
-    {
+    var outStr = "",
+        newStr;
+    while (outStr.length < len) {
         newStr = Math.random().toString(bits).slice(2);
         outStr += newStr.slice(0, Math.min(newStr.length, (len - outStr.length)));
     }
@@ -981,7 +998,7 @@ function isEmptyObject(obj) {
 function debounce(func, wait) {
     var timeout, args, context, timestamp, result, again;
 
-    var later = function() {
+    var later = function () {
         var last = Date.now() - timestamp;
         if (last < wait) {
             timeout = setTimeout(later, wait - last);
@@ -995,7 +1012,7 @@ function debounce(func, wait) {
         }
     };
 
-    return function() {
+    return function () {
         context = this;
         args = arguments;
         timestamp = Date.now();
@@ -1077,15 +1094,15 @@ syncthing.filter('basename', function () {
         if (!parts || parts.length < 1) {
             return input;
         }
-        return parts[parts.length-1];
+        return parts[parts.length - 1];
     };
 });
 
-syncthing.directive('uniqueRepo', function() {
+syncthing.directive('uniqueRepo', function () {
     return {
         require: 'ngModel',
-        link: function(scope, elm, attrs, ctrl) {
-            ctrl.$parsers.unshift(function(viewValue) {
+        link: function (scope, elm, attrs, ctrl) {
+            ctrl.$parsers.unshift(function (viewValue) {
                 if (scope.editingExisting) {
                     // we shouldn't validate
                     ctrl.$setValidity('uniqueRepo', true);
@@ -1102,16 +1119,16 @@ syncthing.directive('uniqueRepo', function() {
     };
 });
 
-syncthing.directive('validNodeid', function($http) {
+syncthing.directive('validNodeid', function ($http) {
     return {
         require: 'ngModel',
-        link: function(scope, elm, attrs, ctrl) {
-            ctrl.$parsers.unshift(function(viewValue) {
+        link: function (scope, elm, attrs, ctrl) {
+            ctrl.$parsers.unshift(function (viewValue) {
                 if (scope.editingExisting) {
                     // we shouldn't validate
                     ctrl.$setValidity('validNodeid', true);
                 } else {
-                    $http.get(urlbase + '/nodeid?id='+viewValue).success(function (resp) {
+                    $http.get(urlbase + '/nodeid?id=' + viewValue).success(function (resp) {
                         if (resp.error) {
                             ctrl.$setValidity('validNodeid', false);
                         } else {
@@ -1138,5 +1155,5 @@ syncthing.directive('modal', function () {
             close: '@',
             large: '@',
         },
-    }
+    };
 });
