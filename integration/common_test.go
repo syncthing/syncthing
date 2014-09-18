@@ -33,6 +33,7 @@ var env = []string{
 	"HOME=.",
 	"STTRACE=model",
 	"STGUIAPIKEY=" + apiKey,
+	"STNORESTART=1",
 }
 
 type syncthingProcess struct {

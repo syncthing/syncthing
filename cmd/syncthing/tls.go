@@ -96,8 +96,9 @@ func (l *DowngradingListener) Accept() (net.Conn, error) {
 	br := bufio.NewReader(conn)
 	bs, err := br.Peek(1)
 	if err != nil {
-		conn.Close()
-		return nil, err
+		// We hit a read error here, but the Accept() call succeeded so we must not return an error.
+		// We return the connection as is and let whoever tries to use it deal with the error.
+		return conn, nil
 	}
 
 	wrapper := &WrappedConnection{br, conn}

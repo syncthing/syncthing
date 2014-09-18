@@ -12,8 +12,8 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -25,8 +25,6 @@ func TestStressHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	os.Setenv("STNORESTART", "1")
 
 	log.Println("Starting up...")
 	sender := syncthingProcess{ // id1
@@ -56,6 +54,23 @@ func TestStressHTTP(t *testing.T) {
 	var lock sync.Mutex
 
 	errChan := make(chan error, 2)
+
+	// One thread with immediately closed connections
+	wg.Add(1)
+	go func() {
+		for time.Since(t0).Seconds() < 30 {
+			conn, err := net.Dial("tcp", "localhost:8082")
+			if err != nil {
+				log.Println(err)
+				errChan <- err
+				return
+			}
+			conn.Close()
+		}
+		wg.Done()
+	}()
+
+	// 50 threads doing HTTP and HTTPS requests
 	for i := 0; i < 50; i++ {
 		i := i
 		wg.Add(1)
