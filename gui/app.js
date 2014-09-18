@@ -356,7 +356,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     function refreshErrors() {
         $http.get(urlbase + '/errors').success(function (data) {
-            $scope.errors = data;
+            $scope.errors = data.errors;
             console.log("refreshErrors", data);
         });
     }

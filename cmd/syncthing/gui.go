@@ -430,7 +430,7 @@ func restGetSystem(w http.ResponseWriter, r *http.Request) {
 func restGetErrors(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	guiErrorsMut.Lock()
-	json.NewEncoder(w).Encode(guiErrors)
+	json.NewEncoder(w).Encode(map[string][]guiError{"errors": guiErrors})
 	guiErrorsMut.Unlock()
 }
 
