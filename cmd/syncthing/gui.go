@@ -200,7 +200,13 @@ func withModel(m *model.Model, h func(m *model.Model, w http.ResponseWriter, r *
 }
 
 func restGetVersion(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(Version))
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(map[string]string{
+		"version":     Version,
+		"longVersion": LongVersion,
+		"os":          runtime.GOOS,
+		"arch":        runtime.GOARCH,
+	})
 }
 
 func restGetCompletion(m *model.Model, w http.ResponseWriter, r *http.Request) {

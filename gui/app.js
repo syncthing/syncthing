@@ -390,7 +390,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         refreshNodeStats();
 
         $http.get(urlbase + '/version').success(function (data) {
-            $scope.version = data;
+            $scope.version = data.version;
         });
 
         $http.get(urlbase + '/report').success(function (data) {
