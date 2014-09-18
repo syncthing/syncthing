@@ -132,7 +132,7 @@ type deletionHandler func(db dbReader, batch dbWriter, repo, node, name []byte, 
 type fileIterator func(f protocol.FileIntf) bool
 
 func ldbGenericReplace(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo, deleteFn deletionHandler) uint64 {
-	defer runtime.GC()
+	runtime.GC()
 
 	sort.Sort(fileList(fs)) // sort list on name, same as on disk
 
@@ -272,7 +272,7 @@ func ldbReplaceWithDelete(db *leveldb.DB, repo, node []byte, fs []protocol.FileI
 }
 
 func ldbUpdate(db *leveldb.DB, repo, node []byte, fs []protocol.FileInfo) uint64 {
-	defer runtime.GC()
+	runtime.GC()
 
 	batch := new(leveldb.Batch)
 	snap, err := db.GetSnapshot()
@@ -453,7 +453,7 @@ func ldbWithHave(db *leveldb.DB, repo, node []byte, truncate bool, fn fileIterat
 }
 
 func ldbWithAllRepoTruncated(db *leveldb.DB, repo []byte, fn func(node []byte, f protocol.FileInfoTruncated) bool) {
-	defer runtime.GC()
+	runtime.GC()
 
 	start := nodeKey(repo, nil, nil)                                                // before all repo/node files
 	limit := nodeKey(repo, protocol.LocalNodeID[:], []byte{0xff, 0xff, 0xff, 0xff}) // after all repo/node files
@@ -537,7 +537,7 @@ func ldbGetGlobal(db *leveldb.DB, repo, file []byte) protocol.FileInfo {
 }
 
 func ldbWithGlobal(db *leveldb.DB, repo []byte, truncate bool, fn fileIterator) {
-	defer runtime.GC()
+	runtime.GC()
 
 	start := globalKey(repo, nil)
 	limit := globalKey(repo, []byte{0xff, 0xff, 0xff, 0xff})
@@ -605,7 +605,7 @@ func ldbAvailability(db *leveldb.DB, repo, file []byte) []protocol.NodeID {
 }
 
 func ldbWithNeed(db *leveldb.DB, repo, node []byte, truncate bool, fn fileIterator) {
-	defer runtime.GC()
+	runtime.GC()
 
 	start := globalKey(repo, nil)
 	limit := globalKey(repo, []byte{0xff, 0xff, 0xff, 0xff})
@@ -687,7 +687,7 @@ outer:
 }
 
 func ldbListRepos(db *leveldb.DB) []string {
-	defer runtime.GC()
+	runtime.GC()
 
 	start := []byte{keyTypeGlobal}
 	limit := []byte{keyTypeGlobal + 1}
@@ -717,7 +717,7 @@ func ldbListRepos(db *leveldb.DB) []string {
 }
 
 func ldbDropRepo(db *leveldb.DB, repo []byte) {
-	defer runtime.GC()
+	runtime.GC()
 
 	snap, err := db.GetSnapshot()
 	if err != nil {
