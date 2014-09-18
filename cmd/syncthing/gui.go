@@ -77,6 +77,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
+	getRestMux.HandleFunc("/rest/ping", restPing)
 	getRestMux.HandleFunc("/rest/completion", withModel(m, restGetCompletion))
 	getRestMux.HandleFunc("/rest/config", restGetConfig)
 	getRestMux.HandleFunc("/rest/config/sync", restGetConfigInSync)
@@ -100,6 +101,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
+	postRestMux.HandleFunc("/rest/ping", restPing)
 	postRestMux.HandleFunc("/rest/config", withModel(m, restPostConfig))
 	postRestMux.HandleFunc("/rest/discovery/hint", restPostDiscoveryHint)
 	postRestMux.HandleFunc("/rest/error", restPostError)
@@ -197,6 +199,13 @@ func withModel(m *model.Model, h func(m *model.Model, w http.ResponseWriter, r *
 	return func(w http.ResponseWriter, r *http.Request) {
 		h(m, w, r)
 	}
+}
+
+func restPing(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(map[string]string{
+		"ping": "pong",
+	})
 }
 
 func restGetVersion(w http.ResponseWriter, r *http.Request) {
