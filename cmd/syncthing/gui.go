@@ -140,7 +140,12 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		handler = redirectToHTTPSMiddleware(handler)
 	}
 
-	go http.Serve(listener, handler)
+	go func() {
+		err := http.Serve(listener, handler)
+		if err != nil {
+			panic(err)
+		}
+	}()
 	return nil
 }
 
