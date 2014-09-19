@@ -951,6 +951,9 @@ func (m *Model) clusterConfig(node protocol.NodeID) protocol.ClusterConfigMessag
 			ID: repo,
 		}
 		for _, node := range m.repoNodes[repo] {
+			// NodeID is a value type, but with an underlying array. Copy it
+			// so we don't grab aliases to the same array later on in node[:]
+			node := node
 			// TODO: Set read only bit when relevant
 			cr.Nodes = append(cr.Nodes, protocol.Node{
 				ID:    node[:],

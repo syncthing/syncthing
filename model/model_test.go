@@ -301,3 +301,71 @@ func TestNodeRename(t *testing.T) {
 		t.Errorf("Node name got overwritten")
 	}
 }
+
+func TestClusterConfig(t *testing.T) {
+	cfg := config.New("test", node1)
+	cfg.Nodes = []config.NodeConfiguration{
+		{
+			NodeID: node1,
+		},
+		{
+			NodeID: node2,
+		},
+	}
+	cfg.Repositories = []config.RepositoryConfiguration{
+		{
+			ID: "repo1",
+			Nodes: []config.RepositoryNodeConfiguration{
+				{NodeID: node1},
+				{NodeID: node2},
+			},
+		},
+		{
+			ID: "repo2",
+			Nodes: []config.RepositoryNodeConfiguration{
+				{NodeID: node1},
+				{NodeID: node2},
+			},
+		},
+	}
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+
+	m := NewModel("/tmp", &cfg, "node", "syncthing", "dev", db)
+	m.AddRepo(cfg.Repositories[0])
+	m.AddRepo(cfg.Repositories[1])
+
+	cm := m.clusterConfig(node2)
+
+	if l := len(cm.Repositories); l != 2 {
+		t.Fatalf("Incorrect number of repos %d != 2", l)
+	}
+
+	r := cm.Repositories[0]
+	if r.ID != "repo1" {
+		t.Errorf("Incorrect repo %q != repo1", r.ID)
+	}
+	if l := len(r.Nodes); l != 2 {
+		t.Errorf("Incorrect number of nodes %d != 2", l)
+	}
+	if id := r.Nodes[0].ID; bytes.Compare(id, node1[:]) != 0 {
+		t.Errorf("Incorrect node ID %x != %x", id, node1)
+	}
+	if id := r.Nodes[1].ID; bytes.Compare(id, node2[:]) != 0 {
+		t.Errorf("Incorrect node ID %x != %x", id, node2)
+	}
+
+	r = cm.Repositories[1]
+	if r.ID != "repo2" {
+		t.Errorf("Incorrect repo %q != repo2", r.ID)
+	}
+	if l := len(r.Nodes); l != 2 {
+		t.Errorf("Incorrect number of nodes %d != 2", l)
+	}
+	if id := r.Nodes[0].ID; bytes.Compare(id, node1[:]) != 0 {
+		t.Errorf("Incorrect node ID %x != %x", id, node1)
+	}
+	if id := r.Nodes[1].ID; bytes.Compare(id, node2[:]) != 0 {
+		t.Errorf("Incorrect node ID %x != %x", id, node2)
+	}
+}
