@@ -952,8 +952,10 @@ func (m *Model) clusterConfig(node protocol.NodeID) protocol.ClusterConfigMessag
 		}
 		for _, node := range m.repoNodes[repo] {
 			// TODO: Set read only bit when relevant
+			id_copy := make([]byte, len(node));
+			copy(id_copy, node[:]);
 			cr.Nodes = append(cr.Nodes, protocol.Node{
-				ID:    node[:],
+				ID:    id_copy,
 				Flags: protocol.FlagShareTrusted,
 			})
 		}
