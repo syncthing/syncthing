@@ -955,8 +955,10 @@ func (m *Model) clusterConfig(node protocol.NodeID) protocol.ClusterConfigMessag
 			// so we don't grab aliases to the same array later on in node[:]
 			node := node
 			// TODO: Set read only bit when relevant
+			id_copy := make([]byte, len(node));
+			copy(id_copy, node[:]);
 			cr.Nodes = append(cr.Nodes, protocol.Node{
-				ID:    node[:],
+				ID:    id_copy,
 				Flags: protocol.FlagShareTrusted,
 			})
 		}
