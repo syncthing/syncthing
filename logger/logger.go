@@ -123,6 +123,15 @@ func (l *Logger) Warnf(format string, vals ...interface{}) {
 	l.callHandlers(LevelWarn, s)
 }
 
+func (l *Logger) WarnErr(err error) {
+	if err != nil {
+		l.mut.Lock()
+		defer l.mut.Unlock()
+		l.logger.Output(2, "WARNING: "+err.Error())
+		l.callHandlers(LevelWarn, err.Error())
+	}
+}
+
 func (l *Logger) Fatalln(vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
