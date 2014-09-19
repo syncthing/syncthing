@@ -479,6 +479,7 @@ func restPostIgnores(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var data map[string][]string
 	err := json.NewDecoder(r.Body).Decode(&data)
 	r.Body.Close()
+
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

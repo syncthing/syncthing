@@ -888,6 +888,42 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.saveConfig();
     };
 
+    $scope.editIgnores = function () {
+        if (!$scope.editingExisting) {
+            return;
+        }
+
+        $('#editIgnoresButton').attr('disabled', 'disabled');
+        $http.get(urlbase + '/ignores?repo=' + encodeURIComponent($scope.currentRepo.ID))
+            .success(function (data) {
+                $('#editRepo').modal('hide');
+                var textArea = $('#editIgnores textarea');
+
+                textArea.val(data.ignore.join('\n'));
+
+                $('#editIgnores').modal()
+                    .on('hidden.bs.modal', function () {
+                        $('#editRepo').modal();
+                    })
+                    .on('shown.bs.modal', function () {
+                        textArea.focus();
+                    });
+            })
+            .then(function () {
+                $('#editIgnoresButton').removeAttr('disabled');
+            });
+    };
+
+    $scope.saveIgnores = function () {
+        if (!$scope.editingExisting) {
+            return;
+        }
+
+        $http.post(urlbase + '/ignores?repo=' + encodeURIComponent($scope.currentRepo.ID), {
+            ignore: $('#editIgnores textarea').val().split('\n')
+        });
+    };
+
     $scope.setAPIKey = function (cfg) {
         cfg.APIKey = randomString(30, 32);
     };
