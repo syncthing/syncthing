@@ -423,6 +423,39 @@ func Load(location string, myID protocol.NodeID) (Configuration, error) {
 	return cfg, err
 }
 
+// ChangeRequiresRestart returns true if updating the configuration requires a
+// complete restart.
+func ChangeRequiresRestart(from, to Configuration) bool {
+	// Adding, removing or changing repos requires restart
+	if len(from.Repositories) != len(to.Repositories) {
+		return true
+	}
+	fromRepos := from.RepoMap()
+	toRepos := to.RepoMap()
+	for id := range fromRepos {
+		if !reflect.DeepEqual(fromRepos[id], toRepos[id]) {
+			return true
+		}
+	}
+
+	// Removing a node requires a restart. Adding one does not. Changing
+	// address or name does not.
+	fromNodes := from.NodeMap()
+	toNodes := to.NodeMap()
+	for nodeID := range fromNodes {
+		if _, ok := toNodes[nodeID]; !ok {
+			return true
+		}
+	}
+
+	// All of the generic options require restart
+	if !reflect.DeepEqual(from.Options, to.Options) || !reflect.DeepEqual(from.GUI, to.GUI) {
+		return true
+	}
+
+	return false
+}
+
 func convertV3V4(cfg *Configuration) {
 	// In previous versions, rescan interval was common for each repository.
 	// From now, it can be set independently. We have to make sure, that after upgrade

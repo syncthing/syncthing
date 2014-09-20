@@ -332,34 +332,7 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Figure out if any changes require a restart
-
-		if len(cfg.Repositories) != len(newCfg.Repositories) {
-			configInSync = false
-		} else {
-			om := cfg.RepoMap()
-			nm := newCfg.RepoMap()
-			for id := range om {
-				if !reflect.DeepEqual(om[id], nm[id]) {
-					configInSync = false
-					break
-				}
-			}
-		}
-
-		if len(cfg.Nodes) != len(newCfg.Nodes) {
-			configInSync = false
-		} else {
-			om := cfg.NodeMap()
-			nm := newCfg.NodeMap()
-			for k := range om {
-				if _, ok := nm[k]; !ok {
-					// A node was removed and another added
-					configInSync = false
-					break
-				}
-			}
-		}
+		// Start or stop usage reporting as appropriate
 
 		if newCfg.Options.URAccepted > cfg.Options.URAccepted {
 			// UR was enabled
@@ -375,12 +348,9 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 			stopUsageReporting()
 		}
 
-		if !reflect.DeepEqual(cfg.Options, newCfg.Options) || !reflect.DeepEqual(cfg.GUI, newCfg.GUI) {
-			configInSync = false
-		}
-
 		// Activate and save
 
+		configInSync = !config.ChangeRequiresRestart(cfg, newCfg)
 		newCfg.Location = cfg.Location
 		newCfg.Save()
 		cfg = newCfg
