@@ -198,7 +198,9 @@ func main() {
 		dir := expandTilde(generateDir)
 
 		info, err := os.Stat(dir)
-		l.FatalErr(err)
+		if err != nil {
+			l.Fatalln("generate:", err)
+		}
 		if !info.IsDir() {
 			l.Fatalln(dir, "is not a directory")
 		}
@@ -212,7 +214,9 @@ func main() {
 
 		newCertificate(dir, "")
 		cert, err = loadCert(dir, "")
-		l.FatalErr(err)
+		if err != nil {
+			l.Fatalln("load cert:", err)
+		}
 		if err == nil {
 			l.Infoln("Node ID:", protocol.NewNodeID(cert.Certificate[0]))
 		}
@@ -303,7 +307,9 @@ func syncthingMain() {
 	if err != nil {
 		newCertificate(confDir, "")
 		cert, err = loadCert(confDir, "")
-		l.FatalErr(err)
+		if err != nil {
+			l.Fatalln("load cert:", err)
+		}
 	}
 
 	myID = protocol.NewNodeID(cert.Certificate[0])
@@ -352,11 +358,15 @@ func syncthingMain() {
 		}
 
 		port, err := getFreePort("127.0.0.1", 8080)
-		l.FatalErr(err)
+		if err != nil {
+			l.Fatalln("get free port (GUI):", err)
+		}
 		cfg.GUI.Address = fmt.Sprintf("127.0.0.1:%d", port)
 
 		port, err = getFreePort("0.0.0.0", 22000)
-		l.FatalErr(err)
+		if err != nil {
+			l.Fatalln("get free port (BEP):", err)
+		}
 		cfg.Options.ListenAddress = []string{fmt.Sprintf("0.0.0.0:%d", port)}
 
 		cfg.Save()
@@ -853,9 +863,13 @@ func listenTLS(conns chan *tls.Conn, addr string, tlsCfg *tls.Config) {
 	}
 
 	tcaddr, err := net.ResolveTCPAddr("tcp", addr)
-	l.FatalErr(err)
+	if err != nil {
+		l.Fatalln("listen (BEP):", err)
+	}
 	listener, err := net.ListenTCP("tcp", tcaddr)
-	l.FatalErr(err)
+	if err != nil {
+		l.Fatalln("listen (BEP):", err)
+	}
 
 	for {
 		conn, err := listener.Accept()
@@ -1000,7 +1014,9 @@ func ensureDir(dir string, mode int) {
 	fi, err := os.Stat(dir)
 	if os.IsNotExist(err) {
 		err := os.MkdirAll(dir, 0700)
-		l.FatalErr(err)
+		if err != nil {
+			l.Fatalln(err)
+		}
 	} else if mode >= 0 && err == nil && int(fi.Mode()&0777) != mode {
 		err := os.Chmod(dir, os.FileMode(mode))
 		// This can fail on crappy filesystems, nothing we can do about it.

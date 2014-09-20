@@ -140,14 +140,3 @@ func (l *Logger) Fatalf(format string, vals ...interface{}) {
 	l.callHandlers(LevelFatal, s)
 	os.Exit(1)
 }
-
-func (l *Logger) FatalErr(err error) {
-	if err != nil {
-		l.mut.Lock()
-		defer l.mut.Unlock()
-		l.logger.SetFlags(l.logger.Flags() | log.Lshortfile)
-		l.logger.Output(2, "FATAL: "+err.Error())
-		l.callHandlers(LevelFatal, err.Error())
-		os.Exit(1)
-	}
-}

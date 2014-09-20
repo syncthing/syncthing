@@ -45,7 +45,9 @@ func newCertificate(dir string, prefix string) {
 	l.Infoln("Generating RSA key and certificate...")
 
 	priv, err := rsa.GenerateKey(rand.Reader, tlsRSABits)
-	l.FatalErr(err)
+	if err != nil {
+		l.Fatalln("generate key:", err)
+	}
 
 	notBefore := time.Now()
 	notAfter := time.Date(2049, 12, 31, 23, 59, 59, 0, time.UTC)
@@ -64,21 +66,35 @@ func newCertificate(dir string, prefix string) {
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-	l.FatalErr(err)
+	if err != nil {
+		l.Fatalln("create cert:", err)
+	}
 
 	certOut, err := os.Create(filepath.Join(dir, prefix+"cert.pem"))
-	l.FatalErr(err)
+	if err != nil {
+		l.Fatalln("save cert:", err)
+	}
 	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	l.FatalErr(err)
+	if err != nil {
+		l.Fatalln("save cert:", err)
+	}
 	err = certOut.Close()
-	l.FatalErr(err)
+	if err != nil {
+		l.Fatalln("save cert:", err)
+	}
 
 	keyOut, err := os.OpenFile(filepath.Join(dir, prefix+"key.pem"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	l.FatalErr(err)
+	if err != nil {
+		l.Fatalln("save key:", err)
+	}
 	err = pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
-	l.FatalErr(err)
+	if err != nil {
+		l.Fatalln("save key:", err)
+	}
 	err = keyOut.Close()
-	l.FatalErr(err)
+	if err != nil {
+		l.Fatalln("save key:", err)
+	}
 }
 
 type DowngradingListener struct {
