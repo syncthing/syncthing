@@ -68,13 +68,17 @@ func newCertificate(dir string, prefix string) {
 
 	certOut, err := os.Create(filepath.Join(dir, prefix+"cert.pem"))
 	l.FatalErr(err)
-	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	certOut.Close()
+	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	l.FatalErr(err)
+	err = certOut.Close()
+	l.FatalErr(err)
 
 	keyOut, err := os.OpenFile(filepath.Join(dir, prefix+"key.pem"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	l.FatalErr(err)
-	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
-	keyOut.Close()
+	err = pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+	l.FatalErr(err)
+	err = keyOut.Close()
+	l.FatalErr(err)
 }
 
 type DowngradingListener struct {
