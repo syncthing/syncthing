@@ -165,6 +165,9 @@ func (v Staggered) clean() {
 	filesPerDir := make(map[string]int)
 
 	err = filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		switch mode := f.Mode(); {
 		case mode.IsDir():
 			filesPerDir[path] = 0
