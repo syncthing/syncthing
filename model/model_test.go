@@ -369,3 +369,89 @@ func TestClusterConfig(t *testing.T) {
 		t.Errorf("Incorrect node ID %x != %x", id, node2)
 	}
 }
+
+func TestIgnores(t *testing.T) {
+	arrEqual := func(a, b []string) bool {
+		if len(a) != len(b) {
+			return false
+		}
+
+		for i := range a {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
+	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
+
+	expected := []string{
+		".*",
+		"quux",
+	}
+
+	ignores, err := m.GetIgnores("default")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !arrEqual(ignores, expected) {
+		t.Errorf("Incorrect ignores: %v != %v", ignores, expected)
+	}
+
+	ignores = append(ignores, "pox")
+
+	err = m.SetIgnores("default", ignores)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ignores2, err := m.GetIgnores("default")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if arrEqual(expected, ignores2) {
+		t.Errorf("Incorrect ignores: %v == %v", ignores2, expected)
+	}
+
+	if !arrEqual(ignores, ignores2) {
+		t.Errorf("Incorrect ignores: %v != %v", ignores2, ignores)
+	}
+
+	err = m.SetIgnores("default", expected)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ignores, err = m.GetIgnores("default")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !arrEqual(ignores, expected) {
+		t.Errorf("Incorrect ignores: %v != %v", ignores, expected)
+	}
+
+	ignores, err = m.GetIgnores("doesnotexist")
+	if err == nil {
+		t.Error("No error")
+	}
+
+	err = m.SetIgnores("doesnotexist", expected)
+	if err == nil {
+		t.Error("No error")
+	}
+
+	m.AddRepo(config.RepositoryConfiguration{ID: "fresh", Directory: "XXX"})
+	ignores, err = m.GetIgnores("fresh")
+	if err != nil {
+		t.Error(err)
+	}
+	if len(ignores) > 0 {
+		t.Errorf("Expected no ignores, got: %v", ignores)
+	}
+}
