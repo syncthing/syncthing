@@ -119,10 +119,6 @@ func NewModel(indexDir string, cfg *config.Configuration, nodeName, clientName, 
 		nodeVer:          make(map[protocol.NodeID]string),
 	}
 
-	for _, node := range cfg.Nodes {
-		m.nodeStatRefs[node.NodeID] = stats.NewNodeStatisticsReference(db, node.NodeID)
-	}
-
 	var timeout = 20 * 60 // seconds
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
 		it, err := strconv.Atoi(t)
@@ -203,11 +199,9 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 // Returns statistics about each node
 func (m *Model) NodeStatistics() map[string]stats.NodeStatistics {
 	var res = make(map[string]stats.NodeStatistics)
-	m.rmut.RLock()
 	for _, node := range m.cfg.Nodes {
-		res[node.NodeID.String()] = m.nodeStatRefs[node.NodeID].GetStatistics()
+		res[node.NodeID.String()] = m.nodeStatRef(node.NodeID).GetStatistics()
 	}
-	m.rmut.RUnlock()
 	return res
 }
 
@@ -578,12 +572,10 @@ func (cf cFiler) CurrentFile(file string) protocol.FileInfo {
 func (m *Model) ConnectedTo(nodeID protocol.NodeID) bool {
 	m.pmut.RLock()
 	_, ok := m.protoConn[nodeID]
-	if ok {
-		if statRef, ok := m.nodeStatRefs[nodeID]; ok {
-			statRef.WasSeen()
-		}
-	}
 	m.pmut.RUnlock()
+	if ok {
+		m.nodeWasSeen(nodeID)
+	}
 	return ok
 }
 
@@ -611,13 +603,27 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 		fs := m.repoFiles[repo]
 		go sendIndexes(protoConn, repo, fs, m.repoIgnores[repo])
 	}
-	if statRef, ok := m.nodeStatRefs[nodeID]; ok {
-		statRef.WasSeen()
-	} else {
-		l.Warnf("AddConnection for unconfigured node %v?", nodeID)
-	}
 	m.rmut.RUnlock()
 	m.pmut.Unlock()
+
+	m.nodeWasSeen(nodeID)
+}
+
+func (m *Model) nodeStatRef(nodeID protocol.NodeID) *stats.NodeStatisticsReference {
+	m.rmut.Lock()
+	defer m.rmut.Unlock()
+
+	if sr, ok := m.nodeStatRefs[nodeID]; ok {
+		return sr
+	} else {
+		sr = stats.NewNodeStatisticsReference(m.db, nodeID)
+		m.nodeStatRefs[nodeID] = sr
+		return sr
+	}
+}
+
+func (m *Model) nodeWasSeen(nodeID protocol.NodeID) {
+	m.nodeStatRef(nodeID).WasSeen()
 }
 
 func sendIndexes(conn protocol.Connection, repo string, fs *files.Set, ignores ignore.Patterns) {
