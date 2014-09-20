@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "Kiek failo versijų saugoti.",
     "The number of versions must be a number and cannot be blank.": "Versijų skaičius turi būti skaitmuo ir negali būti tuščias laukelis.",
     "The repository ID cannot be blank.": "Saugyklos vardas negali būti tuščias.",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "Saugyklos vardas negali būti ilgesnis nei 64 simboliai. Galima naudoti tik raides ir skaičius bet tašką (.), brukšnelį (-) ir pabraukimą (_).",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "Saugyklos vardas negali būti ilgesnis nei 64 simboliai. Galima naudoti tik raides ir skaičius bet tašką (.), brukšnelį (-) ir pabraukimą (_).",
     "The repository ID must be unique.": "Saugyklos vardas turi būti unikalus.",
     "The repository path cannot be blank.": "Kelias iki saugyklos negali būti tuščias.",
     "The rescan interval must be at least 5 seconds.": "Nuskaityti galima nedažniau nei kas 5 sekundes.",

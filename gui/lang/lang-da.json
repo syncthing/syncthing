@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "Antallet af gamle versioner som gemmes, per fil.",
     "The number of versions must be a number and cannot be blank.": "Antallet af versioner skal være et tal, og kan ikke være blankt.",
     "The repository ID cannot be blank.": "Lagrings-ID kan ikke være blankt.",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "Lagrings-ID'et skal være en kort identificierende streng (64 karaktere eller mindre) bestående af bogstav-, tal-, punktum- (.), bindestreg- (-) og understregskaraktere (_).",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "Lagrings-ID'et skal være en kort identificierende streng (64 karaktere eller mindre) bestående af bogstav-, tal-, punktum- (.), bindestreg- (-) og understregskaraktere (_).",
     "The repository ID must be unique.": "Lagrings-ID'et skal være unikt.",
     "The repository path cannot be blank.": "Lagringsstien kan ikke være blank.",
     "The rescan interval must be at least 5 seconds.": "The rescan interval must be at least 5 seconds.",

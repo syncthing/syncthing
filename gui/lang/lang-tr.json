@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "Dosya başına saklanacak eski sürüm.",
     "The number of versions must be a number and cannot be blank.": "Sürümlerin sayısı sayı olmalı ve boş bırakılamaz.",
     "The repository ID cannot be blank.": "Depo ID boş bırakılamaz.",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "Depo ID uzun olmamalı (64 karakter ya da daha az). Sadece harf, rakam, nokta (.), kısa çizgi (-) ve alt çizgi (_) kullanabilirsiniz.",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "Depo ID uzun olmamalı (64 karakter ya da daha az). Sadece harf, rakam, nokta (.), kısa çizgi (-) ve alt çizgi (_) kullanabilirsiniz.",
     "The repository ID must be unique.": "Depo ID'si benzersiz olmalıdır.",
     "The repository path cannot be blank.": "Depo yolu boş bırakılamaz.",
     "The rescan interval must be at least 5 seconds.": "The rescan interval must be at least 5 seconds.",

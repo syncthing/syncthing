@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "每個檔案要保留的舊版本數量。",
     "The number of versions must be a number and cannot be blank.": "每個檔案要保留的舊版本數量必須是數字且不能為空白。",
     "The repository ID cannot be blank.": "儲存庫識別碼不能為空白。",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "儲存庫識別碼必須為一段只包含半形英文字母、數字、點 (.)、連接符號 (-) 以及底線 (_) 的簡短識別碼 (不多於 64 個字元)",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "儲存庫識別碼必須為一段只包含半形英文字母、數字、點 (.)、連接符號 (-) 以及底線 (_) 的簡短識別碼 (不多於 64 個字元)",
     "The repository ID must be unique.": "儲存庫識別碼必須為獨一無二的。",
     "The repository path cannot be blank.": "儲存庫路徑不能空白。",
     "The rescan interval must be at least 5 seconds.": "重新掃描間隔至少必須為 5 秒。",

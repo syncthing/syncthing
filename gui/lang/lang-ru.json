@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "Количество хранимых версий файла.",
     "The number of versions must be a number and cannot be blank.": "Количество версий должно быть числом и не может быть пустым.",
     "The repository ID cannot be blank.": "ID Репозитория не может быть пустым.",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "ID репозитория должен быть коротким id (64 символа или меньше) состоящий только из букв, цифр,  точек (.), тире (-) и нижнего подчёркивания (_).",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "ID репозитория должен быть коротким id (64 символа или меньше) состоящий только из букв, цифр,  точек (.), тире (-) и нижнего подчёркивания (_).",
     "The repository ID must be unique.": "ID Репозитория должен быть уникальным.",
     "The repository path cannot be blank.": "Путь к репозиторию не может быть пустым.",
     "The rescan interval must be at least 5 seconds.": "Интервал пересканирования должен быть хотя бы 5 секунд.",

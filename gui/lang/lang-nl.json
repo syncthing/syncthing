@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "Het aantal versies dat bewaard moet worden per file.",
     "The number of versions must be a number and cannot be blank.": "Het aantal nummers moet een getal zijn en mag niet leeg blijven.",
     "The repository ID cannot be blank.": "Er moet een repository ID ingevoerd worden.",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "Het repository ID moet een korte naam zijn (met 64 karakters of minder) en mag alleen bestaan uit cijfers, letters, punten (.), streepjes (-) en liggende streepjes (_). ",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "Het repository ID moet een korte naam zijn (met 64 karakters of minder) en mag alleen bestaan uit cijfers, letters, punten (.), streepjes (-) en liggende streepjes (_). ",
     "The repository ID must be unique.": "Het repository ID moet uniek zijn.",
     "The repository path cannot be blank.": "Het repository ID moet ingevuld worden.",
     "The rescan interval must be at least 5 seconds.": "De scanfrequentie moet minimaal 5 seconde zijn.",

@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "The number of old versions to keep, per file.",
     "The number of versions must be a number and cannot be blank.": "Ο αριθμός εκδόσεων πρέπει να είναι αριθμός και σίγουρα όχι κενό.",
     "The repository ID cannot be blank.": "Το ID Αποθετηρίου δε μπορεί να είναι κενό.",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.",
     "The repository ID must be unique.": "Το ID Αποθετηρίου πρέπει να είναι μοναδικό.",
     "The repository path cannot be blank.": "Το μονοπάτι του αποθετηρίου δε μπορεί να είναι κενό.",
     "The rescan interval must be at least 5 seconds.": "The rescan interval must be at least 5 seconds.",

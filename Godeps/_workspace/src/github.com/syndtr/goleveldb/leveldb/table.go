@@ -379,7 +379,7 @@ func (t *tOps) newIterator(f *tFile, slice *util.Range, ro *opt.ReadOptions) ite
 }
 
 // Removes table from persistent storage. It waits until
-// no one use the table.
+// no one use the the table.
 func (t *tOps) remove(f *tFile) {
 	num := f.file.Num()
 	t.cacheNS.Delete(num, func(exist, pending bool) {

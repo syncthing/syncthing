@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "El numero de versiones anteriores a conservar, por archivo.",
     "The number of versions must be a number and cannot be blank.": "El número de versiones debe ser un número y no puede estar vacío.",
     "The repository ID cannot be blank.": "El ID de repositorio no puede estar vacio.",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "El ID de repositorio debe ser una cadena corta (64 caracteres o menos) consistente solamente en letras, números, punto (.), guion (-) y guion bajo (_).",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "El ID de repositorio debe ser una cadena corta (64 caracteres o menos) consistente solamente en letras, números, punto (.), guion (-) y guion bajo (_).",
     "The repository ID must be unique.": "El ID de repositorio debe ser único.",
     "The repository path cannot be blank.": "La ruta del repositorio no puede estar vacía.",
     "The rescan interval must be at least 5 seconds.": "The rescan interval must be at least 5 seconds.",

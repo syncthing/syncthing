@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "Кількість старих версій, яку необхідно зберігати для кожного файлу.",
     "The number of versions must be a number and cannot be blank.": "Кількість версій повинна бути цифрою та не може бути порожньою.",
     "The repository ID cannot be blank.": "ID репозиторія не може бути порожнім.",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "ID репозиторія повинен бути коротким ідентифікатором (64 символи або менше), що містить лише цифри та літери, знак крапки (.), тире (-) та нижнього підкреслення (_).",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "ID репозиторія повинен бути коротким ідентифікатором (64 символи або менше), що містить лише цифри та літери, знак крапки (.), тире (-) та нижнього підкреслення (_).",
     "The repository ID must be unique.": "ID репозиторія повинен бути унікальним.",
     "The repository path cannot be blank.": "Шлях до репозиторія не може бути порожнім.",
     "The rescan interval must be at least 5 seconds.": "Інтервал повторного сканування повинен бути принаймні 5 секунд.",

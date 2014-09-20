@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "Броят стари версии, които да бъдат пазени за всеки файл.",
     "The number of versions must be a number and cannot be blank.": "Броят версии трябва да бъде число и не може да бъде празно.",
     "The repository ID cannot be blank.": "Полето идентификатор на папка не може д абъде празно.",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "Идентификаторът на папка трябва да бъде къс(64 символа или по-малко) състоящ се само от букви, цифри, точка(.), тире(-) и подчерта (_).",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "Идентификаторът на папка трябва да бъде къс(64 символа или по-малко) състоящ се само от букви, цифри, точка(.), тире(-) и подчерта (_).",
     "The repository ID must be unique.": "Идентификаторът на папката тряба да бъде уникален.",
     "The repository path cannot be blank.": "Пътят до папката не може да бъде празен.",
     "The rescan interval must be at least 5 seconds.": "Интервала за повторно сканиране трябва да бъде поне 5 секунди.",

@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "Mennyi régi változatot tartsunk meg a file-okból",
     "The number of versions must be a number and cannot be blank.": "A megtartott változatok száma nem lehet üres",
     "The repository ID cannot be blank.": "A tároló azonosító nem lehet üres",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "A tároló azonosító egy rövid (maximálisan 64 karakteres) csak számokat, betűket, pontot (.), kötőjelet (-) illetve aláhúzást (_) tartalmazó karakterlánc",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "A tároló azonosító egy rövid (maximálisan 64 karakteres) csak számokat, betűket, pontot (.), kötőjelet (-) illetve aláhúzást (_) tartalmazó karakterlánc",
     "The repository ID must be unique.": "A tároló azonosítónak egyedinek kell lennie",
     "The repository path cannot be blank.": "A tároló útvonala nem lehet üres",
     "The rescan interval must be at least 5 seconds.": "Az átnézési intervallumbak legalább 5 másodpercnek kell lennie.",
