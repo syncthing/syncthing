@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "每个文件保留的版本数量上限。",
     "The number of versions must be a number and cannot be blank.": "保留版本数量必须为数字，且不能为空。",
     "The repository ID cannot be blank.": "仓库ID不能为空。",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "仓库ID的长度,必须在64字节或更少，只能包含字母，数字，点(.),以及下划线(_)",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "仓库ID的长度,必须在64字节或更少，只能包含字母，数字，点(.),以及下划线(_)",
     "The repository ID must be unique.": "仓库ID必须唯一。",
     "The repository path cannot be blank.": "仓库路径不能为空。",
     "The rescan interval must be at least 5 seconds.": "扫描间隔必须至少为5秒。",

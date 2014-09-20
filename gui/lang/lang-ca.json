@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "El nombre de versions antigues que es mantenen per fitxer.",
     "The number of versions must be a number and cannot be blank.": "El nombre de versions ha de ser un número i no es pot deixar en blanc.",
     "The repository ID cannot be blank.": "El ID del repositori no pot estar en blanc.",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "El ID del repositori ha de ser un identificador curt (64 caràcters o menys) format només per lletres, nombres i el punt (.), barra (-) i barra baixa (_).",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "El ID del repositori ha de ser un identificador curt (64 caràcters o menys) format només per lletres, nombres i el punt (.), barra (-) i barra baixa (_).",
     "The repository ID must be unique.": "El ID del repositori ha de ser únic",
     "The repository path cannot be blank.": "La carpeta del repositori no pot estar en blanc.",
     "The rescan interval must be at least 5 seconds.": "El interval de re-escaneig ha de ser com a mínim de 5 segons.",

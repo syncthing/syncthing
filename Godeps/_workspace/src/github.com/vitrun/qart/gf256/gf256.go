@@ -109,7 +109,7 @@ func (f *Field) Add(x, y byte) byte {
 	return x ^ y
 }
 
-// Exp returns the the base-α exponential of e in the field.
+// Exp returns the base-α exponential of e in the field.
 // If e < 0, Exp returns 0.
 func (f *Field) Exp(e int) byte {
 	if e < 0 {

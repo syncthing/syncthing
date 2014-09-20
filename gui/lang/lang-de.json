@@ -116,7 +116,7 @@
     "The number of old versions to keep, per file.": "Anzahl der alten Versionen, die von jeder Datei gespeichert werden sollen.",
     "The number of versions must be a number and cannot be blank.": "Die Anzahl von Versionen muss eine Zahl und darf nicht leer sein.",
     "The repository ID cannot be blank.": "Die Verzeichnis-ID darf nicht leer sein.",
-    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the the dot (.), dash (-) and underscode (_) characters only.": "Die Verzeichnis-ID muss eine kurze Kennung (64 Zeichen oder weniger) sein. Sie kann aus Buchstaben, Zahlen und den Punkt- (.), Strich- (-), und Unterstrich- (_) Zeichen bestehen.",
+    "The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.": "Die Verzeichnis-ID muss eine kurze Kennung (64 Zeichen oder weniger) sein. Sie kann aus Buchstaben, Zahlen und den Punkt- (.), Strich- (-), und Unterstrich- (_) Zeichen bestehen.",
     "The repository ID must be unique.": "Die Verzeichnis-ID muss eindeutig sein.",
     "The repository path cannot be blank.": "Der Verzeichnis-Pfad kann nicht leer sein",
     "The rescan interval must be at least 5 seconds.": "Das Suchintervall muss mindestens 5 Sekunden betragen.",
