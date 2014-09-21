@@ -602,7 +602,7 @@ func restPostCreateFile(m *model.Model, w http.ResponseWriter, r *http.Request) 
 	var repo, repoExists = cfg.RepoMap()[repoId]
 	var path = qs.Get("path")
 	var isDir = path[len(path)-1] == '/'
-	path = filepath.Clean(repo.Directory + "/" + qs.Get("path"))
+	path = filepath.Clean(filepath.Join(repo.Directory, qs.Get("path")))
 
 	if !repoExists {
 		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
@@ -635,7 +635,7 @@ func restPostDeleteFile(m *model.Model, w http.ResponseWriter, r *http.Request) 
 	var qs = r.URL.Query()
 	var repoId = qs.Get("repo")
 	var repo, repoExists = cfg.RepoMap()[repoId]
-	var path = filepath.Clean(repo.Directory + "/" + qs.Get("path"))
+	var path = filepath.Clean(filepath.Join(repo.Directory, qs.Get("path")))
 
 	if !repoExists {
 		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
@@ -663,7 +663,7 @@ func restGetFolderContents(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var repoId = qs.Get("repo")
 	var repo, repoExists = cfg.RepoMap()[repoId]
-	var path = filepath.Clean(repo.Directory + "/" + qs.Get("path"))
+	var path = filepath.Clean(filepath.Join(repo.Directory, qs.Get("path")))
 
 	if !repoExists {
 		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
@@ -687,7 +687,7 @@ func restGetFolderContents(w http.ResponseWriter, r *http.Request) {
 		if f.IsDir() {
 			mimetype = MIME_TYPE_DIR
 		} else {
-			mimetype = mime.TypeByExtension(filepath.Ext(f.Name()))
+			mimetype = mimeTypeForFile(f.Name())
 		}
 		contents[i] = map[string]string{
 			"name":     f.Name(),
