@@ -597,8 +597,9 @@ func restPostCreateFile(m *model.Model, w http.ResponseWriter, r *http.Request) 
 	var qs = r.URL.Query()
 	var repoId = qs.Get("repo")
 	var repo, repoExists = cfg.RepoMap()[repoId]
-	var path = filepath.Clean(repo.Directory + "/" + qs.Get("path"))
+	var path = qs.Get("path")
 	var isDir = path[len(path)-1] == '/'
+	path = filepath.Clean(repo.Directory + "/" + qs.Get("path"))
 
 	if !repoExists {
 		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
@@ -607,13 +608,6 @@ func restPostCreateFile(m *model.Model, w http.ResponseWriter, r *http.Request) 
 
 	if !strings.HasPrefix(path, repo.Directory) {
 		flushResponse(`{"error": "Must not create file outside repository"}`, w)
-		return
-	}
-
-	var parent = filepath.Dir(path)
-	var _, statParentError = os.Stat(parent)
-	if !isDir && strings.Contains(path, "/") && statParentError != nil {
-		flushResponse(`{"error": "Parent directory does not exist"}`, w)
 		return
 	}
 
