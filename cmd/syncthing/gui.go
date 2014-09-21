@@ -97,6 +97,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/version", restGetVersion)
 	getRestMux.HandleFunc("/rest/stats/node", withModel(m, restGetNodeStats))
 	getRestMux.HandleFunc("/rest/file/list", restGetFolderContents)
+	getRestMux.HandleFunc("/rest/file/read", restGetFile)
 
 	// Debug endpoints, not for general use
 	getRestMux.HandleFunc("/rest/debug/peerCompletion", withModel(m, restGetPeerCompletion))
@@ -691,12 +692,43 @@ func restGetFolderContents(w http.ResponseWriter, r *http.Request) {
 		}
 		contents[i] = map[string]string{
 			"name":     f.Name(),
-			"size":     strconv.FormatInt(f.Size(), 10),
-			"modified": strconv.FormatInt(f.ModTime().Unix(), 10),
+			"size":     fmt.Sprintf("%d", f.Size()),
+			"modified": fmt.Sprintf("%d", f.ModTime().Unix()),
 			"mime":     mimetype,
 		}
 	}
 	json.NewEncoder(w).Encode(contents)
+}
+
+func restGetFile(w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var repoId = qs.Get("repo")
+	var repo, repoExists = cfg.RepoMap()[repoId]
+	var path = filepath.Clean(filepath.Join(repo.Directory, qs.Get("path")))
+
+	if !repoExists {
+		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
+		return
+	}
+
+	if !strings.HasPrefix(path, repo.Directory) {
+		flushResponse(`{"error": "Must not access file outside repository"}`, w)
+		return
+	}
+
+	var f, err = os.Stat(path)
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	http.ServeFile(w, r, path)
+	mtype := mimeTypeForFile(path)
+	if len(mtype) != 0 {
+		w.Header().Set("Content-Type", mtype)
+	}
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", f.Size()))
+	w.Header().Set("Last-Modified", fmt.Sprintf("%d", f.ModTime()))
 }
 
 func embeddedStatic(assetDir string) http.Handler {
