@@ -278,13 +278,13 @@ The Node Flags field contains the following single bit flags:
 
 Exactly one of the T, R or S bits MUST be set.
 
-The Node Max Local Version field contains the highest local file version
-number of the files already known to be in the index sent by this node.
-If nothing is known about the index of a given node, this field MUST be
-set to zero. When receiving a Cluster Config message with a non-zero Max
-Version for the local node ID, a node MAY elect to send an Index Update
-message containing only files with higher local version numbers in place
-of the initial Index message.
+The per node Max Local Version field contains the highest local file
+version number of the files already known to be in the index sent by
+this node. If nothing is known about the index of a given node, this
+field MUST be set to zero. When receiving a Cluster Config message with
+a non-zero Max Local Version for the local node ID, a node MAY elect to
+send an Index Update message containing only files with higher local
+version numbers in place of the initial Index message.
 
 The Options field contain option values to be used in an implementation
 specific manner. The options list is conceptually a map of Key => Value
@@ -330,8 +330,8 @@ repository. An Index message represents the full contents of the
 repository and thus supersedes any previous index. An Index Update
 amends an existing index with new information, not affecting any entries
 not included in the message. An Index Update MAY NOT be sent unless
-preceded by an Index, unless a non-zero Max Version has been announced
-for the given repository by the peer node.
+preceded by an Index, unless a non-zero Max Local Version has been
+announced for the given repository by the peer node.
 
 An Index or Index Update message MUST be sent for each repository
 included in the Cluster Config message, and MUST be sent before any
