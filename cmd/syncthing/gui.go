@@ -111,6 +111,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/shutdown", restPostShutdown)
 	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
 	postRestMux.HandleFunc("/rest/scan", withModel(m, restPostScan))
+	getRestMux.HandleFunc("/rest/file/create", withModel(m, restPostCreateFile))
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -589,6 +590,47 @@ func restGetPeerCompletion(m *model.Model, w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(comp)
+}
+
+func restPostCreateFile(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var repoId = qs.Get("repo")
+	var repo, repoExists = cfg.RepoMap()[repoId]
+	var path = filepath.Clean(repo.Directory + "/" + qs.Get("path"))
+	var isDir = path[len(path)-1] == '/'
+
+	if !repoExists {
+		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
+		return
+	}
+
+	if !strings.HasPrefix(path, repo.Directory) {
+		flushResponse(`{"error": "Must not create file outside repository"}`, w)
+		return
+	}
+
+	var parent = filepath.Dir(path)
+	var _, statParentError = os.Stat(parent)
+	if !isDir && strings.Contains(path, "/") && statParentError != nil {
+		flushResponse(`{"error": "Parent directory does not exist"}`, w)
+		return
+	}
+
+	var err error
+	if isDir {
+		err = os.Mkdir(path, 0775)
+	} else {
+		_, err = os.Create(path)
+	}
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	m.ScanRepoSub(repoId, path)
+	flushResponse(`{"ok": "file created"}`, w)
 }
 
 func embeddedStatic(assetDir string) http.Handler {
