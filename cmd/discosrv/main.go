@@ -7,7 +7,6 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
@@ -47,6 +46,7 @@ func main() {
 	var timestamp bool
 	var statsIntv int
 	var statsFile string
+	var unknownFile string
 	var dbDir string
 
 	flag.StringVar(&listen, "listen", ":22026", "Listen address")
@@ -54,6 +54,7 @@ func main() {
 	flag.BoolVar(&timestamp, "timestamp", true, "Timestamp the log output")
 	flag.IntVar(&statsIntv, "stats-intv", 0, "Statistics output interval (s)")
 	flag.StringVar(&statsFile, "stats-file", "/var/discosrv/stats", "Statistics file name")
+	flag.StringVar(&unknownFile, "unknown-file", "", "Unknown packet log file name")
 	flag.IntVar(&lruSize, "limit-cache", lruSize, "Limiter cache entries")
 	flag.IntVar(&limitAvg, "limit-avg", limitAvg, "Allowed average package rate, per 10 s")
 	flag.IntVar(&limitBurst, "limit-burst", limitBurst, "Allowed burst size, packets")
@@ -91,6 +92,14 @@ func main() {
 		log.Fatal(err)
 	}
 
+	var unknownLog io.Writer
+	if unknownFile != "" {
+		unknownLog, err = os.OpenFile(unknownFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	if statsIntv > 0 {
 		go logStats(statsLog, statsIntv)
 	}
@@ -121,15 +130,24 @@ func main() {
 
 		switch magic {
 		case discover.AnnouncementMagic:
-			handleAnnounceV2(db, addr, buf)
+			err := handleAnnounceV2(db, addr, buf)
+			if err != nil && unknownLog != nil {
+				fmt.Fprintf(unknownLog, "AE %d %v %x\n", time.Now().Unix(), addr, buf)
+			}
 
 		case discover.QueryMagic:
-			handleQueryV2(db, conn, addr, buf)
+			err := handleQueryV2(db, conn, addr, buf)
+			if err != nil && unknownLog != nil {
+				fmt.Fprintf(unknownLog, "QE %d %v %x\n", time.Now().Unix(), addr, buf)
+			}
 
 		default:
 			lock.Lock()
 			unknowns++
 			lock.Unlock()
+			if unknownLog != nil {
+				fmt.Fprintf(unknownLog, "UN %d %v %x\n", time.Now().Unix(), addr, buf)
+			}
 		}
 	}
 }
@@ -162,13 +180,11 @@ func limit(addr *net.UDPAddr) bool {
 	return false
 }
 
-func handleAnnounceV2(db *leveldb.DB, addr *net.UDPAddr, buf []byte) {
+func handleAnnounceV2(db *leveldb.DB, addr *net.UDPAddr, buf []byte) error {
 	var pkt discover.Announce
 	err := pkt.UnmarshalXDR(buf)
 	if err != nil && err != io.EOF {
-		log.Println("AnnounceV2 Unmarshal:", err)
-		log.Println(hex.Dump(buf))
-		return
+		return err
 	}
 	if debug {
 		log.Printf("<- %v %#v", addr, pkt)
@@ -202,19 +218,21 @@ func handleAnnounceV2(db *leveldb.DB, addr *net.UDPAddr, buf []byte) {
 		// Raw node ID
 		copy(id[:], pkt.This.ID)
 	} else {
-		id.UnmarshalText(pkt.This.ID)
+		err = id.UnmarshalText(pkt.This.ID)
+		if err != nil {
+			return err
+		}
 	}
 
 	update(db, id, addrs)
+	return nil
 }
 
-func handleQueryV2(db *leveldb.DB, conn *net.UDPConn, addr *net.UDPAddr, buf []byte) {
+func handleQueryV2(db *leveldb.DB, conn *net.UDPConn, addr *net.UDPAddr, buf []byte) error {
 	var pkt discover.Query
 	err := pkt.UnmarshalXDR(buf)
 	if err != nil {
-		log.Println("QueryV2 Unmarshal:", err)
-		log.Println(hex.Dump(buf))
-		return
+		return err
 	}
 	if debug {
 		log.Printf("<- %v %#v", addr, pkt)
@@ -225,7 +243,10 @@ func handleQueryV2(db *leveldb.DB, conn *net.UDPConn, addr *net.UDPAddr, buf []b
 		// Raw node ID
 		copy(id[:], pkt.NodeID)
 	} else {
-		id.UnmarshalText(pkt.NodeID)
+		err = id.UnmarshalText(pkt.NodeID)
+		if err != nil {
+			return err
+		}
 	}
 
 	lock.Lock()
@@ -253,19 +274,21 @@ func handleQueryV2(db *leveldb.DB, conn *net.UDPConn, addr *net.UDPAddr, buf []b
 		}
 
 		if len(ann.This.Addresses) == 0 {
-			return
+			return nil
 		}
 
 		tb := ann.MarshalXDR()
 		_, _, err = conn.WriteMsgUDP(tb, nil, addr)
 		if err != nil {
 			log.Println("QueryV2 response write:", err)
+			return nil
 		}
 
 		lock.Lock()
 		answered++
 		lock.Unlock()
 	}
+	return nil
 }
 
 func next(intv int) time.Time {
