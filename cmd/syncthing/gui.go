@@ -8,8 +8,10 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"mime"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"os"
@@ -115,8 +117,9 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/shutdown", restPostShutdown)
 	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
 	postRestMux.HandleFunc("/rest/scan", withModel(m, restPostScan))
-	getRestMux.HandleFunc("/rest/file/create", withModel(m, restPostCreateFile))
-	getRestMux.HandleFunc("/rest/file/delete", withModel(m, restPostDeleteFile))
+	postRestMux.HandleFunc("/rest/file/create", withModel(m, restPostCreateFile))
+	postRestMux.HandleFunc("/rest/file/delete", withModel(m, restPostDeleteFile))
+	postRestMux.HandleFunc("/rest/file/write", restPostFile)
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -650,9 +653,7 @@ func restPostDeleteFile(m *model.Model, w http.ResponseWriter, r *http.Request) 
 
 	var err = os.Remove(path)
 	if err != nil {
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": err.Error(),
-		})
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
 		return
 	}
 
@@ -729,6 +730,54 @@ func restGetFile(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", f.Size()))
 	w.Header().Set("Last-Modified", fmt.Sprintf("%d", f.ModTime()))
+}
+
+func restPostFile(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var qs = r.URL.Query()
+	var repoId = qs.Get("repo")
+	var repo, repoExists = cfg.RepoMap()[repoId]
+	var path = filepath.Clean(filepath.Join(repo.Directory, qs.Get("path")))
+
+	if !repoExists {
+		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
+		return
+	}
+
+	if !strings.HasPrefix(path, repo.Directory) {
+		flushResponse(`{"error": "Must not access file outside repository"}`, w)
+		return
+	}
+
+	_, err = os.Stat(path)
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	var f *os.File
+	f, err = os.OpenFile(path, os.O_WRONLY, 0)
+	defer f.Close()
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	var file multipart.File
+	file, _, err = r.FormFile("file")
+	defer file.Close()
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	_, err = io.Copy(f, file)
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	flushResponse(`{"ok": "file written"}`, w)
 }
 
 func embeddedStatic(assetDir string) http.Handler {
