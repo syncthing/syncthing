@@ -449,7 +449,7 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, cm protocol.ClusterConfigM
 	l.Infof(`Node %s client is "%s %s"`, nodeID, cm.ClientName, cm.ClientVersion)
 
 	if name := cm.GetOption("name"); name != "" {
-		l.Infof("Node %s hostname is %q", nodeID, name)
+		l.Infof("Node %s name is %q", nodeID, name)
 		node := m.cfg.GetNodeConfiguration(nodeID)
 		if node != nil && node.Name == "" {
 			node.Name = name
