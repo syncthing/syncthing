@@ -112,6 +112,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
 	postRestMux.HandleFunc("/rest/scan", withModel(m, restPostScan))
 	getRestMux.HandleFunc("/rest/file/create", withModel(m, restPostCreateFile))
+	getRestMux.HandleFunc("/rest/file/delete", withModel(m, restPostDeleteFile))
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -631,6 +632,34 @@ func restPostCreateFile(m *model.Model, w http.ResponseWriter, r *http.Request) 
 
 	m.ScanRepoSub(repoId, path)
 	flushResponse(`{"ok": "file created"}`, w)
+}
+
+func restPostDeleteFile(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var repoId = qs.Get("repo")
+	var repo, repoExists = cfg.RepoMap()[repoId]
+	var path = filepath.Clean(repo.Directory + "/" + qs.Get("path"))
+
+	if !repoExists {
+		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
+		return
+	}
+
+	if !strings.HasPrefix(path, repo.Directory) {
+		flushResponse(`{"error": "Must not delete file outside repository"}`, w)
+		return
+	}
+
+	var err = os.Remove(path)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	m.ScanRepoSub(repoId, path)
+	flushResponse(`{"ok": "file deleted"}`, w)
 }
 
 func embeddedStatic(assetDir string) http.Handler {
