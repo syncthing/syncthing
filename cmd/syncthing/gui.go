@@ -44,6 +44,8 @@ var (
 	eventSub     *events.BufferedSubscription
 )
 
+const MIME_TYPE_DIR = "inode/directory"
+
 func init() {
 	l.AddHandler(logger.LevelWarn, showGuiError)
 	sub := events.Default.Subscribe(events.AllEvents)
@@ -94,6 +96,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
 	getRestMux.HandleFunc("/rest/version", restGetVersion)
 	getRestMux.HandleFunc("/rest/stats/node", withModel(m, restGetNodeStats))
+	getRestMux.HandleFunc("/rest/file/list", restGetFolderContents)
 
 	// Debug endpoints, not for general use
 	getRestMux.HandleFunc("/rest/debug/peerCompletion", withModel(m, restGetPeerCompletion))
@@ -654,6 +657,46 @@ func restPostDeleteFile(m *model.Model, w http.ResponseWriter, r *http.Request) 
 
 	m.ScanRepoSub(repoId, path)
 	flushResponse(`{"ok": "file deleted"}`, w)
+}
+
+func restGetFolderContents(w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var repoId = qs.Get("repo")
+	var repo, repoExists = cfg.RepoMap()[repoId]
+	var path = filepath.Clean(repo.Directory + "/" + qs.Get("path"))
+
+	if !repoExists {
+		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
+		return
+	}
+
+	if !strings.HasPrefix(path, repo.Directory) {
+		flushResponse(`{"error": "Must not access file outside repository"}`, w)
+		return
+	}
+
+	var fi, err = ioutil.ReadDir(path)
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	var contents = make([]map[string]string, len(fi))
+	for i, f := range fi {
+		var mimetype string
+		if f.IsDir() {
+			mimetype = MIME_TYPE_DIR
+		} else {
+			mimetype = mime.TypeByExtension(filepath.Ext(f.Name()))
+		}
+		contents[i] = map[string]string{
+			"name":     f.Name(),
+			"size":     strconv.FormatInt(f.Size(), 10),
+			"modified": strconv.FormatInt(f.ModTime().Unix(), 10),
+			"mime":     mimetype,
+		}
+	}
+	json.NewEncoder(w).Encode(contents)
 }
 
 func embeddedStatic(assetDir string) http.Handler {
