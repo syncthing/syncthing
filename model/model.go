@@ -624,9 +624,12 @@ func (m *Model) SetIgnores(repo string, content []string) error {
 	}
 	defer os.Remove(fd.Name())
 
-	writer := bufio.NewWriter(fd)
 	for _, line := range content {
-		fmt.Fprintln(writer, line)
+		_, err = fmt.Fprintln(fd, line)
+		if err != nil {
+			l.Warnln("Saving .stignore:", err)
+			return err
+		}
 	}
 
 	err = fd.Close()
