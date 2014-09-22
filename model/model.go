@@ -1044,7 +1044,7 @@ func (m *Model) LocalVersion(repo string) uint64 {
 
 	fs, ok := m.repoFiles[repo]
 	if !ok {
-		return 0
+		panic("bug: LocalVersion called for nonexistent repo " + repo)
 	}
 
 	ver := fs.LocalVersion(protocol.LocalNodeID)

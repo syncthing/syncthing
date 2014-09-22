@@ -431,8 +431,8 @@ nextRepo:
 		if repo.Invalid != "" {
 			continue
 		}
-
 		repo.Directory = expandTilde(repo.Directory)
+		m.AddRepo(repo)
 
 		fi, err := os.Stat(repo.Directory)
 		if m.LocalVersion(repo.ID) > 0 {
@@ -458,8 +458,6 @@ nextRepo:
 			cfg.Repositories[i].Invalid = err.Error()
 			continue nextRepo
 		}
-
-		m.AddRepo(repo)
 	}
 
 	// GUI
