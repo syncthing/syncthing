@@ -617,7 +617,7 @@ func (m *Model) SetIgnores(repo string, content []string) error {
 		return fmt.Errorf("Repo %s does not exist", repo)
 	}
 
-	fd, err := ioutil.TempFile(cfg.Directory, "stignore-"+repo)
+	fd, err := ioutil.TempFile(cfg.Directory, ".syncthing.stignore-"+repo)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
