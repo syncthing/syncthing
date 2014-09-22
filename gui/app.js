@@ -896,6 +896,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $('#editIgnoresButton').attr('disabled', 'disabled');
         $http.get(urlbase + '/ignores?repo=' + encodeURIComponent($scope.currentRepo.ID))
             .success(function (data) {
+                data.ignore = data.ignore || [];
+
                 $('#editRepo').modal('hide');
                 var textArea = $('#editIgnores textarea');
 

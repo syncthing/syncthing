@@ -87,3 +87,11 @@ table.table-condensed td {
 .panel-body .table-condensed {
     margin-bottom: 0;
 }
+
+.dl-horizontal.dl-narrow dt {
+    width: 40px;
+}
+
+.dl-horizontal.dl-narrow dd {
+    margin-left: 60px;
+}
