@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -617,11 +617,13 @@ func (m *Model) SetIgnores(repo string, content []string) error {
 		return fmt.Errorf("Repo %s does not exist", repo)
 	}
 
-	fd, err := ioutil.TempFile("", "stignore-"+repo)
+	tmpFileName := filepath.Join(cfg.Directory, fmt.Sprintf(".stignore.%d", rand.Int63()))
+	fd, err := os.Create(tmpFileName)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
+	defer os.Remove(tmpFileName)
 
 	writer := bufio.NewWriter(fd)
 	for _, line := range content {
