@@ -630,13 +630,6 @@ func (m *Model) SetIgnores(repo string, content []string) error {
 		fmt.Fprintln(writer, line)
 	}
 
-	err = writer.Flush()
-	if err != nil {
-		l.Warnln("Saving .stignore:", err)
-		fd.Close()
-		return err
-	}
-
 	err = fd.Close()
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
@@ -644,10 +637,7 @@ func (m *Model) SetIgnores(repo string, content []string) error {
 	}
 
 	file := filepath.Join(cfg.Directory, ".stignore")
-	m.rmut.Lock()
-	os.Remove(file)
-	err = osutil.Rename(fd.Name(), file)
-	m.rmut.Unlock()
+	err = osutil.Rename(tmpFileName, file)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
