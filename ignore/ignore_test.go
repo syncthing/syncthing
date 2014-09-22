@@ -133,3 +133,21 @@ func TestCaseSensitivity(t *testing.T) {
 		}
 	}
 }
+
+func TestCommentsAndBlankLines(t *testing.T) {
+	stignore := `
+	// foo
+	//bar
+
+	//!baz
+	//#dex
+
+	//                        ips
+
+
+	`
+	pats, _ := ignore.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if len(pats) > 0 {
+		t.Errorf("Expected no patterns")
+	}
+}

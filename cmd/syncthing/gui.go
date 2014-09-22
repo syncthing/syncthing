@@ -84,6 +84,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/discovery", restGetDiscovery)
 	getRestMux.HandleFunc("/rest/errors", restGetErrors)
 	getRestMux.HandleFunc("/rest/events", restGetEvents)
+	getRestMux.HandleFunc("/rest/ignores", withModel(m, restGetIgnores))
 	getRestMux.HandleFunc("/rest/lang", restGetLang)
 	getRestMux.HandleFunc("/rest/model", withModel(m, restGetModel))
 	getRestMux.HandleFunc("/rest/model/version", withModel(m, restGetModelVersion))
@@ -105,6 +106,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/discovery/hint", restPostDiscoveryHint)
 	postRestMux.HandleFunc("/rest/error", restPostError)
 	postRestMux.HandleFunc("/rest/error/clear", restClearErrors)
+	postRestMux.HandleFunc("/rest/ignores", withModel(m, restPostIgnores))
 	postRestMux.HandleFunc("/rest/model/override", withModel(m, restPostOverride))
 	postRestMux.HandleFunc("/rest/reset", restPostReset)
 	postRestMux.HandleFunc("/rest/restart", restPostRestart)
@@ -455,6 +457,41 @@ func restGetDiscovery(w http.ResponseWriter, r *http.Request) {
 func restGetReport(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(reportData(m))
+}
+
+func restGetIgnores(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	ignores, err := m.GetIgnores(qs.Get("repo"))
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string][]string{
+		"ignore": ignores,
+	})
+}
+
+func restPostIgnores(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	var data map[string][]string
+	err := json.NewDecoder(r.Body).Decode(&data)
+	r.Body.Close()
+
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = m.SetIgnores(qs.Get("repo"), data["ignore"])
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	restGetIgnores(m, w, r)
 }
 
 func restGetEvents(w http.ResponseWriter, r *http.Request) {

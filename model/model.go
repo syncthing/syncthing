@@ -5,10 +5,12 @@
 package model
 
 import (
+	"bufio"
 	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -22,6 +24,7 @@ import (
 	"github.com/syncthing/syncthing/files"
 	"github.com/syncthing/syncthing/ignore"
 	"github.com/syncthing/syncthing/lamport"
+	"github.com/syncthing/syncthing/osutil"
 	"github.com/syncthing/syncthing/protocol"
 	"github.com/syncthing/syncthing/scanner"
 	"github.com/syncthing/syncthing/stats"
@@ -577,6 +580,78 @@ func (m *Model) ConnectedTo(nodeID protocol.NodeID) bool {
 		m.nodeWasSeen(nodeID)
 	}
 	return ok
+}
+
+func (m *Model) GetIgnores(repo string) ([]string, error) {
+	var lines []string
+
+	cfg, ok := m.repoCfgs[repo]
+	if !ok {
+		return lines, fmt.Errorf("Repo %s does not exist", repo)
+	}
+
+	m.rmut.Lock()
+	defer m.rmut.Unlock()
+
+	fd, err := os.Open(filepath.Join(cfg.Directory, ".stignore"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return lines, nil
+		}
+		l.Warnln("Loading .stignore:", err)
+		return lines, err
+	}
+	defer fd.Close()
+
+	scanner := bufio.NewScanner(fd)
+	for scanner.Scan() {
+		lines = append(lines, strings.TrimSpace(scanner.Text()))
+	}
+
+	return lines, nil
+}
+
+func (m *Model) SetIgnores(repo string, content []string) error {
+	cfg, ok := m.repoCfgs[repo]
+	if !ok {
+		return fmt.Errorf("Repo %s does not exist", repo)
+	}
+
+	fd, err := ioutil.TempFile("", "stignore-"+repo)
+	if err != nil {
+		l.Warnln("Saving .stignore:", err)
+		return err
+	}
+
+	writer := bufio.NewWriter(fd)
+	for _, line := range content {
+		fmt.Fprintln(writer, line)
+	}
+
+	err = writer.Flush()
+	if err != nil {
+		l.Warnln("Saving .stignore:", err)
+		fd.Close()
+		return err
+	}
+
+	err = fd.Close()
+	if err != nil {
+		l.Warnln("Saving .stignore:", err)
+		return err
+	}
+
+	file := filepath.Join(cfg.Directory, ".stignore")
+	m.rmut.Lock()
+	os.Remove(file)
+	err = osutil.Rename(fd.Name(), file)
+	m.rmut.Unlock()
+	if err != nil {
+		l.Warnln("Saving .stignore:", err)
+		return err
+	}
+
+	return m.ScanRepo(repo)
 }
 
 // AddConnection adds a new peer connection to the model. An initial index will

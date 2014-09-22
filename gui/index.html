@@ -522,6 +522,35 @@
           <button type="button" class="btn btn-primary btn-sm" ng-click="saveRepo()" ng-disabled="repoEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
           <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
           <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteRepo()"><span class="glyphicon glyphicon-minus"></span>&emsp;<span translate>Delete</span></button>
+          <button id="editIgnoresButton" ng-if="editingExisting" type="button" class="btn btn-default pull-left btn-sm" ng-click="editIgnores()"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit ignored files and directories</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ignores editor modal -->
+
+  <div id="editIgnores" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 translate class="modal-title">Ignored files and directories</h4>
+        </div>
+        <div class="modal-body">
+          <p translate>Supported patterns:</p>
+          <ul>
+            <li><code>*</code> - <span translate>Single-level wildcard (matches anything within a single directory)</span>
+            <li><code>**</code> - <span translate>Multi-level wildcard (matches anything within all directories at any depth)</span>
+            <li><code>!</code> - <span translate>Inversion of the given condition, which excludes the given pattern from any previous matches</span>
+            <li><code>#include</code> - <span translate>Including ignores from another file</span>
+            <li><code>//</code> - <span translate>Comment</span>
+          </ul>
+          <textarea class="form-control" rows="15"></textarea>
+        </div>
+        <div class="modal-footer">
+          <div class="pull-left"><span translate >Ignore file location</span>:<code>{{ currentRepo.Directory }}/.stignore</code></div>
+          <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal" ng-click="saveIgnores()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
+          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
         </div>
       </div>
     </div>
