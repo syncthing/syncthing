@@ -266,7 +266,7 @@ func TestNodeRename(t *testing.T) {
 		ClientVersion: "v0.9.4",
 	}
 
-	cfg := config.New("test", node1)
+	cfg := config.New("/tmp/test", node1)
 	cfg.Nodes = []config.NodeConfiguration{
 		{
 			NodeID: node1,
@@ -303,7 +303,7 @@ func TestNodeRename(t *testing.T) {
 }
 
 func TestClusterConfig(t *testing.T) {
-	cfg := config.New("test", node1)
+	cfg := config.New("/tmp/test", node1)
 	cfg.Nodes = []config.NodeConfiguration{
 		{
 			NodeID: node1,
