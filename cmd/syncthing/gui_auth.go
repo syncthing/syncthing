@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"code.google.com/p/go.crypto/bcrypt"
-	"github.com/syncthing/syncthing/config"
+	"github.com/syncthing/syncthing/internal/config"
 )
 
 var (

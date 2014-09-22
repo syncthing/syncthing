@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/model"
+	"github.com/syncthing/syncthing/internal/model"
 )
 
 // Current version number of the usage report, for acceptance purposes. If

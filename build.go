@@ -233,11 +233,11 @@ func setBuildEnv() {
 }
 
 func assets() {
-	runPipe("auto/gui.files.go", "godep", "go", "run", "cmd/genassets/main.go", "gui")
+	runPipe("internal/auto/gui.files.go", "godep", "go", "run", "cmd/genassets/main.go", "gui")
 }
 
 func xdr() {
-	for _, f := range []string{"discover/packets", "files/leveldb", "protocol/message"} {
+	for _, f := range []string{"internal/discover/packets", "internal/files/leveldb", "internal/protocol/message"} {
 		runPipe(f+"_xdr.go", "go", "run", "./Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go", "--", f+".go")
 	}
 }

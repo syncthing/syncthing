@@ -21,13 +21,13 @@ import (
 	"time"
 
 	"code.google.com/p/go.crypto/bcrypt"
-	"github.com/syncthing/syncthing/auto"
-	"github.com/syncthing/syncthing/config"
-	"github.com/syncthing/syncthing/events"
-	"github.com/syncthing/syncthing/logger"
-	"github.com/syncthing/syncthing/model"
-	"github.com/syncthing/syncthing/protocol"
-	"github.com/syncthing/syncthing/upgrade"
+	"github.com/syncthing/syncthing/internal/auto"
+	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/internal/logger"
+	"github.com/syncthing/syncthing/internal/model"
+	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/vitrun/qart/qr"
 )
 
