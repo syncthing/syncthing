@@ -487,13 +487,15 @@ nextRepo:
 				proto = "https"
 			}
 
-			l.Infof("Starting web GUI on %s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
+			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
+			l.Infoln("Starting web GUI on", urlShow)
 			err := startGUI(guiCfg, os.Getenv("STGUIASSETS"), m)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
 			if !noBrowser && cfg.Options.StartBrowser && len(os.Getenv("STRESTART")) == 0 {
-				openURL(fmt.Sprintf("%s://%s:%d", proto, hostOpen, addr.Port))
+				urlOpen := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostOpen, strconv.Itoa(addr.Port)))
+				openURL(urlOpen)
 			}
 		}
 	}
