@@ -249,7 +249,7 @@ The Node Flags field contains the following single bit flags:
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |          Reserved         |Pri|          Reserved         |R|T|
+    |          Reserved         |Pri|          Reserved       |I|R|T|
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
  - Bit 31 ("T", Trusted) is set for nodes that participate in trusted
@@ -257,6 +257,9 @@ The Node Flags field contains the following single bit flags:
 
  - Bit 30 ("R", Read Only) is set for nodes that participate in read
    only mode.
+
+ - Bit 29 ("I", Introducer) is set for nodes that are trusted as cluster
+   introducers.
 
  - Bits 16 through 28 are reserved and MUST be set to zero.
 
@@ -276,7 +279,7 @@ The Node Flags field contains the following single bit flags:
 
  - Bits 0 through 14 are reserved and MUST be set to zero.
 
-Exactly one of the T, R or S bits MUST be set.
+Exactly one of the T and R bits MUST be set.
 
 The per node Max Local Version field contains the highest local file
 version number of the files already known to be in the index sent by

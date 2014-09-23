@@ -306,7 +306,8 @@ func TestClusterConfig(t *testing.T) {
 	cfg := config.New("/tmp/test", node1)
 	cfg.Nodes = []config.NodeConfiguration{
 		{
-			NodeID: node1,
+			NodeID:     node1,
+			Introducer: true,
 		},
 		{
 			NodeID: node2,
@@ -351,8 +352,14 @@ func TestClusterConfig(t *testing.T) {
 	if id := r.Nodes[0].ID; bytes.Compare(id, node1[:]) != 0 {
 		t.Errorf("Incorrect node ID %x != %x", id, node1)
 	}
+	if r.Nodes[0].Flags&protocol.FlagIntroducer == 0 {
+		t.Error("Node1 should be flagged as Introducer")
+	}
 	if id := r.Nodes[1].ID; bytes.Compare(id, node2[:]) != 0 {
 		t.Errorf("Incorrect node ID %x != %x", id, node2)
+	}
+	if r.Nodes[1].Flags&protocol.FlagIntroducer != 0 {
+		t.Error("Node2 should not be flagged as Introducer")
 	}
 
 	r = cm.Repositories[1]
@@ -365,8 +372,14 @@ func TestClusterConfig(t *testing.T) {
 	if id := r.Nodes[0].ID; bytes.Compare(id, node1[:]) != 0 {
 		t.Errorf("Incorrect node ID %x != %x", id, node1)
 	}
+	if r.Nodes[0].Flags&protocol.FlagIntroducer == 0 {
+		t.Error("Node1 should be flagged as Introducer")
+	}
 	if id := r.Nodes[1].ID; bytes.Compare(id, node2[:]) != 0 {
 		t.Errorf("Incorrect node ID %x != %x", id, node2)
+	}
+	if r.Nodes[1].Flags&protocol.FlagIntroducer != 0 {
+		t.Error("Node2 should not be flagged as Introducer")
 	}
 }
 

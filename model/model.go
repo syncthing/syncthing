@@ -437,22 +437,89 @@ func (m *Model) repoSharedWith(repo string, nodeID protocol.NodeID) bool {
 	return false
 }
 
-func (m *Model) ClusterConfig(nodeID protocol.NodeID, config protocol.ClusterConfigMessage) {
+func (m *Model) ClusterConfig(nodeID protocol.NodeID, cm protocol.ClusterConfigMessage) {
 	m.pmut.Lock()
-	if config.ClientName == "syncthing" {
-		m.nodeVer[nodeID] = config.ClientVersion
+	if cm.ClientName == "syncthing" {
+		m.nodeVer[nodeID] = cm.ClientVersion
 	} else {
-		m.nodeVer[nodeID] = config.ClientName + " " + config.ClientVersion
+		m.nodeVer[nodeID] = cm.ClientName + " " + cm.ClientVersion
 	}
 	m.pmut.Unlock()
 
-	l.Infof(`Node %s client is "%s %s"`, nodeID, config.ClientName, config.ClientVersion)
+	l.Infof(`Node %s client is "%s %s"`, nodeID, cm.ClientName, cm.ClientVersion)
 
-	if name := config.GetOption("name"); name != "" {
+	if name := cm.GetOption("name"); name != "" {
 		l.Infof("Node %s hostname is %q", nodeID, name)
 		node := m.cfg.GetNodeConfiguration(nodeID)
 		if node != nil && node.Name == "" {
 			node.Name = name
+			m.cfg.Save()
+		}
+	}
+
+	if m.cfg.GetNodeConfiguration(nodeID).Introducer {
+		// This node is an introducer. Go through the announced lists of repos
+		// and nodes and add what we are missing.
+
+		var changed bool
+		for _, repo := range cm.Repositories {
+			// If we don't have this repository yet, skip it. Ideally, we'd
+			// offer up something in the GUI to create the repo, but for the
+			// moment we only handle repos that we already have.
+			if _, ok := m.repoNodes[repo.ID]; !ok {
+				continue
+			}
+
+		nextNode:
+			for _, node := range repo.Nodes {
+				var id protocol.NodeID
+				copy(id[:], node.ID)
+
+				if _, ok := m.nodeRepos[id]; !ok {
+					// The node is currently unknown. Add it to the config.
+
+					l.Infof("Adding node %v to config (vouched for by introducer %v)", id, nodeID)
+					newNodeCfg := config.NodeConfiguration{
+						NodeID: id,
+					}
+
+					// The introducers' introducers are also our introducers.
+					if node.Flags&protocol.FlagIntroducer != 0 {
+						l.Infof("Node %v is now also an introducer", id)
+						newNodeCfg.Introducer = true
+					}
+
+					m.cfg.Nodes = append(m.cfg.Nodes, newNodeCfg)
+
+					changed = true
+				}
+
+				for _, er := range m.nodeRepos[id] {
+					if er == repo.ID {
+						// We already share the repo with this node, so
+						// nothing to do.
+						continue nextNode
+					}
+				}
+
+				// We don't yet share this repo with this node. Add the node
+				// to sharing list of the repo.
+
+				l.Infof("Adding node %v to share %q (vouched for by introducer %v)", id, repo.ID, nodeID)
+
+				m.nodeRepos[id] = append(m.nodeRepos[id], repo.ID)
+				m.repoNodes[repo.ID] = append(m.repoNodes[repo.ID], id)
+
+				repoCfg := m.cfg.GetRepoConfiguration(repo.ID)
+				repoCfg.Nodes = append(repoCfg.Nodes, config.RepositoryNodeConfiguration{
+					NodeID: id,
+				})
+
+				changed = true
+			}
+		}
+
+		if changed {
 			m.cfg.Save()
 		}
 	}
@@ -1030,10 +1097,14 @@ func (m *Model) clusterConfig(node protocol.NodeID) protocol.ClusterConfigMessag
 			// so we don't grab aliases to the same array later on in node[:]
 			node := node
 			// TODO: Set read only bit when relevant
-			cr.Nodes = append(cr.Nodes, protocol.Node{
+			cn := protocol.Node{
 				ID:    node[:],
 				Flags: protocol.FlagShareTrusted,
-			})
+			}
+			if nodeCfg := m.cfg.GetNodeConfiguration(node); nodeCfg.Introducer {
+				cn.Flags |= protocol.FlagIntroducer
+			}
+			cr.Nodes = append(cr.Nodes, cn)
 		}
 		cm.Repositories = append(cm.Repositories, cr)
 	}

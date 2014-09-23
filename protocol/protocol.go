@@ -47,6 +47,7 @@ const (
 const (
 	FlagShareTrusted  uint32 = 1 << 0
 	FlagShareReadOnly        = 1 << 1
+	FlagIntroducer           = 1 << 2
 	FlagShareBits            = 0x000000ff
 )
 

@@ -666,7 +666,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.addNode = function () {
         $scope.currentNode = {
             AddressesStr: 'dynamic',
-            Compression: true
+            Compression: true,
+            Introducer: true
         };
         $scope.editingExisting = false;
         $scope.editingSelf = false;

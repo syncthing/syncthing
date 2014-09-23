@@ -101,6 +101,7 @@ type NodeConfiguration struct {
 	Addresses   []string        `xml:"address,omitempty"`
 	Compression bool            `xml:"compression,attr"`
 	CertName    string          `xml:"certName,attr,omitempty"`
+	Introducer  bool            `xml:"introducer,attr"`
 }
 
 type RepositoryNodeConfiguration struct {
@@ -153,10 +154,19 @@ func (cfg *Configuration) NodeMap() map[protocol.NodeID]NodeConfiguration {
 	return m
 }
 
-func (cfg *Configuration) GetNodeConfiguration(nodeid protocol.NodeID) *NodeConfiguration {
+func (cfg *Configuration) GetNodeConfiguration(nodeID protocol.NodeID) *NodeConfiguration {
 	for i, node := range cfg.Nodes {
-		if node.NodeID == nodeid {
+		if node.NodeID == nodeID {
 			return &cfg.Nodes[i]
+		}
+	}
+	return nil
+}
+
+func (cfg *Configuration) GetRepoConfiguration(repoID string) *RepositoryConfiguration {
+	for i, repo := range cfg.Repositories {
+		if repo.ID == repoID {
+			return &cfg.Repositories[i]
 		}
 	}
 	return nil
