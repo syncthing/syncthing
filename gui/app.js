@@ -252,20 +252,34 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         });
     });
 
-    var nextCall = {};
+		var debounced = {};
 
-    function refreshRepo(repo) {
-        var key = "refreshRepo" + repo;
-        if (nextCall[key] && nextCall[key] > Date.now()) {
-            return;
-        }
-        nextCall[key] = Date.now() + requestTimeout;
-        $http.get(urlbase + '/model?repo=' + encodeURIComponent(repo)).success(function (data) {
-            nextCall[key] = Date.now() + refreshTimeout;
-            $scope.model[repo] = data;
-            console.log("refreshRepo", repo, data);
-        });
-    }
+		function debouncedHttp(key, refreshTimeout, force) {
+			return {
+				get: function (url) {
+					if (!force && debounced[key] && debounced[key] > Date.now()) {
+						return Proxy.create({ get: function(proxy) {
+							console.log("Debounced: "+key);
+							return function() { return proxy }}});
+					}
+					debounced[key] = Date.now() + requestTimeout;
+					var promise = $http.get(url);
+					promise.then(function() {
+						debounced[key] = Date.now() + refreshTimeout;
+					});
+					return promise;
+				}
+			}
+		}
+
+		function refreshRepo(repo) {
+			var key = "refreshRepo" + repo;
+			debouncedHttp(key, refreshTimeout)
+				.get(urlbase + '/model?repo=' + encodeURIComponent(repo)).success(function (data) {
+					$scope.model[repo] = data;
+					console.log("refreshRepo", repo, data);
+				});
+		}
 
     function updateLocalConfig(config) {
         var hasConfig = !isEmptyObject($scope.config);
@@ -294,32 +308,22 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
     }
 
-    function refreshSystem() {
-        var key = "refreshSystem"
-        if (nextCall[key] && nextCall[key] > Date.now()) {
-            return;
-        }
-        nextCall[key] = Date.now() + requestTimeout;
-        $http.get(urlbase + '/system').success(function (data) {
-            nextCall[key] = Date.now() + refreshQuickTimeout;
-            $scope.myID = data.myID;
-            $scope.system = data;
-            console.log("refreshSystem", data);
-        });
-    }
+		function refreshSystem() {
+			var key = "refreshSystem";
+			debouncedHttp(key, refreshQuickTimeout).get(urlbase + '/system').success(function (data) {
+				$scope.myID = data.myID;
+				$scope.system = data;
+				console.log("refreshSystem", data);
+			});
+		}
 
-    function refreshCompletion(node, repo) {
-        if (node === $scope.myID) {
+		function refreshCompletion(node, repo) {
+			if (node === $scope.myID) {
             return;
         }
 
         var key = "refreshCompletion" + node + repo;
-        if (nextCall[key] && nextCall[key] > Date.now()) {
-            return;
-        }
-        nextCall[key] = Date.now() + requestTimeout;
-        $http.get(urlbase + '/completion?node=' + node + '&repo=' + encodeURIComponent(repo)).success(function (data) {
-            nextCall[key] = Date.now() + refreshTimeout;
+        debouncedHttp(key, refreshTimeout).get(urlbase + '/completion?node=' + node + '&repo=' + encodeURIComponent(repo)).success(function (data) {
             if (!$scope.completion[node]) {
                 $scope.completion[node] = {};
             }
@@ -342,12 +346,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     function refreshConnectionStats() {
         var key = "refreshConnectionStats"
-        if (nextCall[key] && nextCall[key] > Date.now()) {
-            return;
-        }
-        nextCall[key] = Date.now() + requestTimeout;
-        $http.get(urlbase + '/connections').success(function (data) {
-            nextCall[key] = Date.now() + refreshQuickTimeout;
+        debouncedHttp(key, refreshQuickTimeout).get(urlbase + '/connections').success(function (data) {
             var now = Date.now(),
                 td = (now - prevDate) / 1000,
                 id;
@@ -372,12 +371,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     function refreshErrors() {
         var key = "refreshErrors"
-        if (nextCall[key] && nextCall[key] > Date.now()) {
-            return;
-        }
-        nextCall[key] = Date.now() + requestTimeout;
-        $http.get(urlbase + '/errors').success(function (data) {
-            nextCall[key] = Date.now() + refreshQuickTimeout;
+        debouncedHttp(key, refreshQuickTimeout).get(urlbase + '/errors').success(function (data) {
             $scope.errors = data.errors;
             console.log("refreshErrors", data);
         });
@@ -396,12 +390,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     var refreshNodeStats = function () {
         var key = "refreshNode";
-        if (nextCall[key] && nextCall[key] > Date.now()) {
-            return;
-        }
-        nextCall[key] = Date.now() + requestTimeout;
-        $http.get(urlbase + "/stats/node").success(function (data) {
-            nextCall[key] = Date.now() + refreshTimeout;
+        debouncedHttp(key, refreshTimeout).get(urlbase + "/stats/node").success(function (data) {
             $scope.stats = data;
             for (var node in $scope.stats) {
                 $scope.stats[node].LastSeen = new Date($scope.stats[node].LastSeen);
