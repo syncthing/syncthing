@@ -223,6 +223,15 @@ func main() {
 		return
 	}
 
+	confDir = expandTilde(confDir)
+
+	if info, err := os.Stat(confDir); err == nil && !info.IsDir() {
+		l.Fatalln("Config directory", confDir, "is not a directory")
+	}
+
+	// Ensure that our home directory exists.
+	ensureDir(confDir, 0700)
+
 	if doUpgrade || doUpgradeCheck {
 		rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
 		if err != nil {
@@ -237,6 +246,12 @@ func main() {
 		l.Infof("Upgrade available (current %q < latest %q)", Version, rel.Tag)
 
 		if doUpgrade {
+			// Use leveldb database locks to protect against concurrent upgrades
+			_, err = leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{CachedOpenFiles: 100})
+			if err != nil {
+				l.Fatalln("Cannot upgrade, database seems to be locked. Is another copy of Syncthing already running?")
+			}
+
 			err = upgrade.UpgradeTo(rel, GoArchExtra)
 			if err != nil {
 				l.Fatalln("Upgrade:", err) // exits 1
@@ -251,12 +266,6 @@ func main() {
 	if reset {
 		resetRepositories()
 		return
-	}
-
-	confDir = expandTilde(confDir)
-
-	if info, err := os.Stat(confDir); err == nil && !info.IsDir() {
-		l.Fatalln("Config directory", confDir, "is not a directory")
 	}
 
 	if os.Getenv("STNORESTART") != "" {
@@ -300,9 +309,7 @@ func syncthingMain() {
 		}
 	}
 
-	// Ensure that our home directory exists and that we have a certificate and key.
-
-	ensureDir(confDir, 0700)
+	// Ensure that that we have a certificate and key.
 	cert, err = loadCert(confDir, "")
 	if err != nil {
 		newCertificate(confDir, "")
