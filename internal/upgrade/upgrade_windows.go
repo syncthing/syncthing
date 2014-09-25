@@ -19,17 +19,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"bitbucket.org/kardianos/osext"
 )
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
-func UpgradeTo(rel Release, archExtra string) error {
-	path, err := osext.Executable()
-	if err != nil {
-		return err
-	}
-
+func upgradeTo(path string, rel Release, archExtra string) error {
 	expectedRelease := fmt.Sprintf("syncthing-%s-%s%s-%s.", runtime.GOOS, runtime.GOARCH, archExtra, rel.Tag)
 	if debug {
 		l.Debugf("expected release asset %q", expectedRelease)
