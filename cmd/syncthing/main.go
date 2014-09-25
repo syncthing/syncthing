@@ -620,6 +620,10 @@ nextFolder:
 		go standbyMonitor()
 	}
 
+	if cfg.Options.AutoUpgradeIntervalH > 0 {
+		go autoUpgrade()
+	}
+
 	events.Default.Log(events.StartupComplete, nil)
 	go generateEvents()
 
@@ -1170,5 +1174,38 @@ func standbyMonitor() {
 			return
 		}
 		now = time.Now()
+	}
+}
+
+func autoUpgrade() {
+	var skipped bool
+	interval := time.Duration(cfg.Options.AutoUpgradeIntervalH) * time.Hour
+	for {
+		if skipped {
+			time.Sleep(interval)
+		} else {
+			skipped = true
+		}
+
+		rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
+		if err != nil {
+			l.Warnln("Automatic upgrade:", err)
+			continue
+		}
+
+		if upgrade.CompareVersions(rel.Tag, Version) <= 0 {
+			continue
+		}
+
+		l.Infof("Automatic upgrade (current %q < latest %q)", Version, rel.Tag)
+		err = upgrade.UpgradeTo(rel, GoArchExtra)
+		if err != nil {
+			l.Warnln("Automatic upgrade:", err)
+			continue
+		}
+		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
+		time.Sleep(time.Minute)
+		stop <- exitUpgrading
+		return
 	}
 }
