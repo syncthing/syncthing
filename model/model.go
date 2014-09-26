@@ -475,7 +475,7 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, cm protocol.ClusterConfigM
 				var id protocol.NodeID
 				copy(id[:], node.ID)
 
-				if _, ok := m.nodeRepos[id]; !ok {
+				if _, ok := m.nodeRepos[id]; !ok && m.cfg.GetNodeConfiguration(id) == nil {
 					// The node is currently unknown. Add it to the config.
 
 					l.Infof("Adding node %v to config (vouched for by introducer %v)", id, nodeID)
