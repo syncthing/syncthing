@@ -25,19 +25,27 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
 type IGD struct {
+	uuid           string
+	friendlyName   string
+	services       []IGDServiceDescription
+	url            *url.URL
+	localIPAddress string
+}
+
+type IGDServiceDescription struct {
 	serviceURL string
-	device     string
-	ourIP      string
+	serviceURN string
 }
 
 type Protocol string
@@ -53,180 +61,351 @@ type upnpService struct {
 }
 
 type upnpDevice struct {
-	DeviceType string        `xml:"deviceType"`
-	Devices    []upnpDevice  `xml:"deviceList>device"`
-	Services   []upnpService `xml:"serviceList>service"`
+	DeviceType   string        `xml:"deviceType"`
+	FriendlyName string        `xml:"friendlyName"`
+	Devices      []upnpDevice  `xml:"deviceList>device"`
+	Services     []upnpService `xml:"serviceList>service"`
 }
 
 type upnpRoot struct {
 	Device upnpDevice `xml:"device"`
 }
 
-func Discover() (*IGD, error) {
+// Discover UPnP InternetGatewayDevices
+// The order in which the devices appear in the result list is not deterministic
+func Discover() []*IGD {
+	result := make([]*IGD, 0)
+	l.Infoln("Starting UPnP discovery...")
+
+	timeout := 3
+
+	// Search for InternetGatewayDevice:2 devices
+	result = append(result, discover("urn:schemas-upnp-org:device:InternetGatewayDevice:2", timeout, result)...)
+
+	// Search for InternetGatewayDevice:1 devices
+	// InternetGatewayDevice:2 devices that correctly respond to the IGD:1 request as well will not be re-added to the result list
+	result = append(result, discover("urn:schemas-upnp-org:device:InternetGatewayDevice:1", timeout, result)...)
+
+	if len(result) > 0 && debug {
+		l.Debugln("UPnP discovery result:")
+		for _, resultDevice := range result {
+			l.Debugln("[" + resultDevice.uuid + "]")
+
+			for _, resultService := range resultDevice.services {
+				l.Debugln("* " + resultService.serviceURL)
+			}
+		}
+	}
+
+	suffix := "devices"
+	if len(result) == 1 {
+		suffix = "device"
+	}
+
+	l.Infof("UPnP discovery complete (found %d %s).", len(result), suffix)
+
+	return result
+}
+
+// Search for UPnP InternetGatewayDevices for <timeout> seconds
+// Ignore responses from any devices listed in <knownDevices>
+// The order in which the devices appear in the result list is not deterministic
+func discover(deviceType string, timeout int, knownDevices []*IGD) []*IGD {
 	ssdp := &net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
+
+	tpl := `M-SEARCH * HTTP/1.1
+Host: 239.255.255.250:1900
+St: %s
+Man: "ssdp:discover"
+Mx: %d
+
+`
+	searchStr := fmt.Sprintf(tpl, deviceType, timeout)
+
+	search := []byte(strings.Replace(searchStr, "\n", "\r\n", -1))
+
+	if debug {
+		l.Debugln("Starting discovery of device type " + deviceType + "...")
+	}
+
+	results := make([]*IGD, 0)
+	resultChannel := make(chan *IGD, 8)
 
 	socket, err := net.ListenUDP("udp4", &net.UDPAddr{})
 	if err != nil {
-		return nil, err
+		l.Infoln(err)
+		return results
 	}
-	defer socket.Close()
+	defer socket.Close() // Make sure our socket gets closed
 
-	err = socket.SetDeadline(time.Now().Add(3 * time.Second))
+	err = socket.SetDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
 	if err != nil {
-		return nil, err
-	}
-
-	searchStr := `M-SEARCH * HTTP/1.1
-Host: 239.255.255.250:1900
-St: urn:schemas-upnp-org:device:InternetGatewayDevice:1
-Man: "ssdp:discover"
-Mx: 3
-
-`
-	search := []byte(strings.Replace(searchStr, "\n", "\r\n", -1))
-
-	_, err = socket.WriteTo(search, ssdp)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := make([]byte, 1500)
-	n, _, err := socket.ReadFrom(resp)
-	if err != nil {
-		return nil, err
+		l.Infoln(err)
+		return results
 	}
 
 	if debug {
-		l.Debugln(string(resp[:n]))
+		l.Debugln("Sending search request for device type " + deviceType + "...")
 	}
 
-	reader := bufio.NewReader(bytes.NewBuffer(resp[:n]))
+	var resultWaitGroup sync.WaitGroup
+
+	_, err = socket.WriteTo(search, ssdp)
+	if err != nil {
+		l.Infoln(err)
+		return results
+	}
+
+	if debug {
+		l.Debugln("Listening for UPnP response for device type " + deviceType + "...")
+	}
+
+	// Listen for responses until a timeout is reached
+	for {
+		resp := make([]byte, 1500)
+		n, _, err := socket.ReadFrom(resp)
+		if err != nil {
+			if e, ok := err.(net.Error); !ok || !e.Timeout() {
+				l.Infoln(err) //legitimate error, not a timeout.
+			}
+
+			break
+		} else {
+			// Process results in a separate go routine so we can immediately return to listening for more responses
+			resultWaitGroup.Add(1)
+			go handleSearchResponse(deviceType, knownDevices, resp, n, resultChannel, &resultWaitGroup)
+		}
+	}
+
+	// Wait for all result handlers to finish processing, then close result channel
+	resultWaitGroup.Wait()
+	close(resultChannel)
+
+	// Collect our results from the result handlers using the result channel
+	for result := range resultChannel {
+		results = append(results, result)
+	}
+
+	if debug {
+		l.Debugln("Discovery for device type " + deviceType + " finished.")
+	}
+
+	return results
+}
+
+func handleSearchResponse(deviceType string, knownDevices []*IGD, resp []byte, length int, resultChannel chan<- *IGD, resultWaitGroup *sync.WaitGroup) {
+	defer resultWaitGroup.Done() // Signal when we've finished processing
+
+	if debug {
+		l.Debugln("Handling UPnP response:\n\n" + string(resp[:length]))
+	}
+
+	reader := bufio.NewReader(bytes.NewBuffer(resp[:length]))
 	request := &http.Request{}
 	response, err := http.ReadResponse(reader, request)
 	if err != nil {
-		return nil, err
+		l.Infoln(err)
+		return
 	}
 
-	if response.Header.Get("St") != "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
-		return nil, errors.New("no igd")
+	respondingDeviceType := response.Header.Get("St")
+	if respondingDeviceType != deviceType {
+		l.Infoln("Unrecognized UPnP device of type " + respondingDeviceType)
+		return
 	}
 
-	locURL := response.Header.Get("Location")
-	if locURL == "" {
-		return nil, errors.New("no location")
+	deviceDescriptionLocation := response.Header.Get("Location")
+	if deviceDescriptionLocation == "" {
+		l.Infoln("Invalid IGD response: no location specified.")
+		return
 	}
 
-	serviceURL, device, err := getServiceURL(locURL)
+	deviceDescriptionURL, err := url.Parse(deviceDescriptionLocation)
+
 	if err != nil {
-		return nil, err
+		l.Infoln("Invalid IGD location: " + err.Error())
 	}
 
-	// Figure out our IP number, on the network used to reach the IGD. We
-	// do this in a fairly roundabout way by connecting to the IGD and
+	deviceUSN := response.Header.Get("USN")
+	if deviceUSN == "" {
+		l.Infoln("Invalid IGD response: USN not specified.")
+		return
+	}
+
+	deviceUUID := strings.TrimLeft(strings.Split(deviceUSN, "::")[0], "uuid:")
+	matched, err := regexp.MatchString("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}", deviceUUID)
+	if !matched {
+		l.Infoln("Invalid IGD response: invalid device UUID " + deviceUUID)
+		return
+	}
+
+	// Don't re-add devices that are already known
+	for _, knownDevice := range knownDevices {
+		if deviceUUID == knownDevice.uuid {
+			if debug {
+				l.Debugln("Ignoring known device with UUID " + deviceUUID)
+			}
+			return
+		}
+	}
+
+	response, err = http.Get(deviceDescriptionLocation)
+	if err != nil {
+		l.Infoln(err)
+		return
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode >= 400 {
+		l.Infoln(errors.New(response.Status))
+		return
+	}
+
+	var upnpRoot upnpRoot
+	err = xml.NewDecoder(response.Body).Decode(&upnpRoot)
+	if err != nil {
+		l.Infoln(err)
+		return
+	}
+
+	services, err := getServiceDescriptions(deviceDescriptionLocation, upnpRoot.Device)
+	if err != nil {
+		l.Infoln(err)
+		return
+	}
+
+	// Figure out our IP number, on the network used to reach the IGD.
+	// We do this in a fairly roundabout way by connecting to the IGD and
 	// checking the address of the local end of the socket. I'm open to
 	// suggestions on a better way to do this...
-	ourIP, err := localIP(locURL)
+	localIPAddress, err := localIP(deviceDescriptionURL)
 	if err != nil {
-		return nil, err
+		l.Infoln(err)
+		return
 	}
 
 	igd := &IGD{
-		serviceURL: serviceURL,
-		device:     device,
-		ourIP:      ourIP,
+		uuid:           deviceUUID,
+		friendlyName:   upnpRoot.Device.FriendlyName,
+		url:            deviceDescriptionURL,
+		services:       services,
+		localIPAddress: localIPAddress,
 	}
-	return igd, nil
+
+	resultChannel <- igd
+
+	if debug {
+		l.Debugln("Finished handling of UPnP response.")
+	}
 }
 
-func localIP(tgt string) (string, error) {
-	url, err := url.Parse(tgt)
-	if err != nil {
-		return "", err
-	}
-
+func localIP(url *url.URL) (string, error) {
 	conn, err := net.Dial("tcp", url.Host)
 	if err != nil {
 		return "", err
 	}
 	defer conn.Close()
 
-	ourIP, _, err := net.SplitHostPort(conn.LocalAddr().String())
+	localIPAddress, _, err := net.SplitHostPort(conn.LocalAddr().String())
 	if err != nil {
 		return "", err
 	}
 
-	return ourIP, nil
+	return localIPAddress, nil
 }
 
-func getChildDevice(d upnpDevice, deviceType string) (upnpDevice, bool) {
+func getChildDevices(d upnpDevice, deviceType string) []upnpDevice {
+	result := make([]upnpDevice, 0)
 	for _, dev := range d.Devices {
 		if dev.DeviceType == deviceType {
-			return dev, true
+			result = append(result, dev)
 		}
 	}
-	return upnpDevice{}, false
+	return result
 }
 
-func getChildService(d upnpDevice, serviceType string) (upnpService, bool) {
+func getChildServices(d upnpDevice, serviceType string) []upnpService {
+	result := make([]upnpService, 0)
 	for _, svc := range d.Services {
 		if svc.ServiceType == serviceType {
-			return svc, true
+			result = append(result, svc)
 		}
 	}
-	return upnpService{}, false
+	return result
 }
 
-func getServiceURL(rootURL string) (string, string, error) {
-	r, err := http.Get(rootURL)
-	if err != nil {
-		return "", "", err
+func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDServiceDescription, error) {
+	result := make([]IGDServiceDescription, 0)
+
+	if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
+		descriptions := getIGDServiceDescriptions(rootURL, device,
+			"urn:schemas-upnp-org:device:WANDevice:1",
+			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
+			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1"})
+
+		result = append(result, descriptions...)
+	} else if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
+		descriptions := getIGDServiceDescriptions(rootURL, device,
+			"urn:schemas-upnp-org:device:WANDevice:2",
+			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
+			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:1"})
+
+		result = append(result, descriptions...)
+	} else {
+		return result, errors.New("[" + rootURL + "] Malformed root device description: not an InternetGatewayDevice.")
 	}
-	defer r.Body.Close()
-	if r.StatusCode >= 400 {
-		return "", "", errors.New(r.Status)
+
+	if len(result) < 1 {
+		return result, errors.New("[" + rootURL + "] Malformed device description: no compatible service descriptions found.")
+	} else {
+		return result, nil
 	}
-	return getServiceURLReader(rootURL, r.Body)
 }
 
-func getServiceURLReader(rootURL string, r io.Reader) (string, string, error) {
-	var upnpRoot upnpRoot
-	err := xml.NewDecoder(r).Decode(&upnpRoot)
-	if err != nil {
-		return "", "", err
+func getIGDServiceDescriptions(rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, serviceURNs []string) []IGDServiceDescription {
+	result := make([]IGDServiceDescription, 0)
+
+	devices := getChildDevices(device, wanDeviceURN)
+
+	if len(devices) < 1 {
+		l.Infoln("[" + rootURL + "] Malformed InternetGatewayDevice description: no WANDevices specified.")
+		return result
 	}
 
-	dev := upnpRoot.Device
-	if dev.DeviceType != "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
-		return "", "", errors.New("No InternetGatewayDevice")
+	for _, device := range devices {
+		connections := getChildDevices(device, wanConnectionURN)
+
+		if len(connections) < 1 {
+			l.Infoln("[" + rootURL + "] Malformed " + wanDeviceURN + " description: no WANConnectionDevices specified.")
+		}
+
+		for _, connection := range connections {
+			for _, serviceURN := range serviceURNs {
+				services := getChildServices(connection, serviceURN)
+
+				if len(services) < 1 && debug {
+					l.Debugln("[" + rootURL + "] No services of type " + serviceURN + " found on connection.")
+				}
+
+				for _, service := range services {
+					if len(service.ControlURL) == 0 {
+						l.Infoln("[" + rootURL + "] Malformed " + service.ServiceType + " description: no control URL.")
+					} else {
+						u, _ := url.Parse(rootURL)
+						replaceRawPath(u, service.ControlURL)
+
+						if debug {
+							l.Debugln("[" + rootURL + "] Found " + service.ServiceType + " with URL " + u.String())
+						}
+
+						result = append(result, IGDServiceDescription{serviceURL: u.String(), serviceURN: service.ServiceType})
+					}
+				}
+			}
+		}
 	}
 
-	dev, ok := getChildDevice(dev, "urn:schemas-upnp-org:device:WANDevice:1")
-	if !ok {
-		return "", "", errors.New("No WANDevice")
-	}
-
-	dev, ok = getChildDevice(dev, "urn:schemas-upnp-org:device:WANConnectionDevice:1")
-	if !ok {
-		return "", "", errors.New("No WANConnectionDevice")
-	}
-
-	device := "urn:schemas-upnp-org:service:WANIPConnection:1"
-	svc, ok := getChildService(dev, device)
-	if !ok {
-		device = "urn:schemas-upnp-org:service:WANPPPConnection:1"
-	}
-	svc, ok = getChildService(dev, device)
-	if !ok {
-		return "", "", errors.New("No WANIPConnection nor WANPPPConnection")
-	}
-
-	if len(svc.ControlURL) == 0 {
-		return "", "", errors.New("no controlURL")
-	}
-
-	u, _ := url.Parse(rootURL)
-	replaceRawPath(u, svc.ControlURL)
-	return u.String(), device, nil
+	return result
 }
 
 func replaceRawPath(u *url.URL, rp string) {
@@ -246,7 +425,7 @@ func replaceRawPath(u *url.URL, rp string) {
 }
 
 func soapRequest(url, device, function, message string) error {
-	tpl := `<?xml version="1.0" ?>
+	tpl := `	<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
 	</s:Envelope>
@@ -266,7 +445,7 @@ func soapRequest(url, device, function, message string) error {
 
 	if debug {
 		l.Debugln(req.Header.Get("SOAPAction"))
-		l.Debugln(body)
+		l.Debugln("SOAP Request:\n\n" + body)
 	}
 
 	r, err := http.DefaultClient.Do(req)
@@ -276,7 +455,7 @@ func soapRequest(url, device, function, message string) error {
 
 	if debug {
 		resp, _ := ioutil.ReadAll(r.Body)
-		l.Debugln(string(resp))
+		l.Debugln("SOAP Response:\n\n" + string(resp) + "\n")
 	}
 
 	r.Body.Close()
@@ -289,7 +468,8 @@ func soapRequest(url, device, function, message string) error {
 }
 
 func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
-	tpl := `<u:AddPortMapping xmlns:u="urn:schemas-upnp-org:service:WANIPConnection:1">
+	for _, service := range n.services {
+		tpl := `<u:AddPortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>
 	<NewProtocol>%s</NewProtocol>
@@ -298,21 +478,46 @@ func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, 
 	<NewEnabled>1</NewEnabled>
 	<NewPortMappingDescription>%s</NewPortMappingDescription>
 	<NewLeaseDuration>%d</NewLeaseDuration>
-	</u:AddPortMapping>
-	`
+	</u:AddPortMapping>`
+		body := fmt.Sprintf(tpl, service.serviceURN, externalPort, protocol, internalPort, n.localIPAddress, description, timeout)
 
-	body := fmt.Sprintf(tpl, externalPort, protocol, internalPort, n.ourIP, description, timeout)
-	return soapRequest(n.serviceURL, n.device, "AddPortMapping", body)
+		err := soapRequest(service.serviceURL, service.serviceURN, "AddPortMapping", body)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) (err error) {
-	tpl := `<u:DeletePortMapping xmlns:u="urn:schemas-upnp-org:service:WANIPConnection:1">
+	for _, service := range n.services {
+		tpl := `<u:DeletePortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>
 	<NewProtocol>%s</NewProtocol>
-	</u:DeletePortMapping>
-	`
+	</u:DeletePortMapping>`
+		body := fmt.Sprintf(tpl, service.serviceURN, externalPort, protocol)
 
-	body := fmt.Sprintf(tpl, externalPort, protocol)
-	return soapRequest(n.serviceURL, n.device, "DeletePortMapping", body)
+		err := soapRequest(service.serviceURL, service.serviceURN, "DeletePortMapping", body)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (n *IGD) UUID() string {
+	return n.uuid
+}
+
+func (n *IGD) FriendlyName() string {
+	return n.friendlyName
+}
+
+func (n *IGD) FriendlyIdentifier() string {
+	return "'" + n.FriendlyName() + "' (" + strings.Split(n.URL().Host, ":")[0] + ")"
+}
+
+func (n *IGD) URL() *url.URL {
+	return n.url
 }
