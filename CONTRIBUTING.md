@@ -39,6 +39,17 @@ attention. In general, any open issues are fair game! Be prepared for a
 review](https://discourse.syncthing.net/t/733); it's all in the name of
 quality. :)
 
+You may be asked to "rebase" or "squash" your pull request before it's
+accepted. This means to make sure that the pull request:
+
+ - Is based on the latest commit on `master`.
+
+ - Only contains a single commit (exceptions to be made where
+   appropriate).
+
+ - Has a descriptive commit message, ending in `(fixes #123)` if it
+   resolves an existing issue.
+
 ## Licensing
 
 All contributions are made under the same MIT License as the rest of the
