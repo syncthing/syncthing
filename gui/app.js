@@ -54,7 +54,11 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
         }, 500);
     };
 
-    var errorFn = function (data) {
+    var errorFn = function (data, status) {
+        if (restarting && status == 302) {
+            document.location.reload(true);
+            return;
+        }
         $scope.$emit('UIOffline');
 
         setTimeout(function () {
@@ -84,7 +88,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.model = {};
     $scope.myID = '';
     $scope.nodes = [];
-    $scope.protocolChanged = false;
     $scope.reportData = {};
     $scope.reportPreview = false;
     $scope.repos = {};
@@ -563,11 +566,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
                 $scope.tmpOptions.URAccepted = -1;
             }
 
-            // Check if protocol will need to be changed on restart
-            if ($scope.config.GUI.UseTLS !== $scope.tmpGUI.UseTLS) {
-                $scope.protocolChanged = true;
-            }
-
             // Apply new settings locally
             $scope.thisNode().Name = $scope.tmpOptions.NodeName;
             $scope.config.Options = angular.copy($scope.tmpOptions);
@@ -587,21 +585,6 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $('#restarting').modal();
         $http.post(urlbase + '/restart');
         $scope.configInSync = true;
-
-        // Switch webpage protocol if needed
-        if ($scope.protocolChanged) {
-            var protocol = 'http';
-
-            if ($scope.config.GUI.UseTLS) {
-                protocol = 'https';
-            }
-
-            setTimeout(function () {
-                window.location.protocol = protocol;
-            }, 2500);
-
-            $scope.protocolChanged = false;
-        }
     };
 
     $scope.upgrade = function () {
