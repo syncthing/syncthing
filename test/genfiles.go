@@ -7,20 +7,34 @@
 package main
 
 import (
-	"crypto/rand"
 	"flag"
 	"fmt"
 	"io"
 	"log"
-	mr "math/rand"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
 )
 
+func init() {
+	rand.Seed(42)
+}
+
+func ReadRand(bs []byte) (int, error) {
+	var r uint32
+	for i := range bs {
+		if i%4 == 0 {
+			r = uint32(rand.Int63())
+		}
+		bs[i] = byte(r >> uint((i%4)*8))
+	}
+	return len(bs), nil
+}
+
 func name() string {
 	var b [16]byte
-	rand.Reader.Read(b[:])
+	ReadRand(b[:])
 	return fmt.Sprintf("%x", b[:])
 }
 
@@ -47,12 +61,12 @@ func main() {
 			log.Fatal(err)
 		}
 
-		s := 1 << uint(mr.Intn(maxexp))
+		s := 1 << uint(rand.Intn(maxexp))
 		a := 128 * 1024
 		if a > s {
 			a = s
 		}
-		s += mr.Intn(a)
+		s += rand.Intn(a)
 
 		src := io.LimitReader(&inifiteReader{fd}, int64(s))
 
@@ -72,12 +86,12 @@ func main() {
 			log.Fatal(err)
 		}
 
-		err = os.Chmod(p1, os.FileMode(mr.Intn(0777)|0400))
+		err = os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		t := time.Now().Add(-time.Duration(mr.Intn(30*86400)) * time.Second)
+		t := time.Now().Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
 		err = os.Chtimes(p1, t, t)
 		if err != nil {
 			log.Fatal(err)

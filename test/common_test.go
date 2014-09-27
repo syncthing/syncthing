@@ -8,20 +8,22 @@ package integration_test
 
 import (
 	"crypto/md5"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
-	mr "math/rand"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
 )
+
+func init() {
+	rand.Seed(42)
+}
 
 const (
 	id1    = "I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"
@@ -34,6 +36,7 @@ var env = []string{
 	"STTRACE=model",
 	"STGUIAPIKEY=" + apiKey,
 	"STNORESTART=1",
+	"STPERFSTATS=1",
 }
 
 type syncthingProcess struct {
@@ -42,6 +45,7 @@ type syncthingProcess struct {
 	port      int
 	apiKey    string
 	csrfToken string
+	lastEvent int
 
 	cmd   *exec.Cmd
 	logfd *os.File
@@ -114,17 +118,46 @@ func (p *syncthingProcess) peerCompletion() (map[string]int, error) {
 	return comp, err
 }
 
+type event struct {
+	ID   int
+	Time time.Time
+	Type string
+	Data interface{}
+}
+
+func (p *syncthingProcess) events() ([]event, error) {
+	resp, err := p.get(fmt.Sprintf("/rest/events?since=%d", p.lastEvent))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var evs []event
+	err = json.NewDecoder(resp.Body).Decode(&evs)
+	if err != nil {
+		return nil, err
+	}
+	p.lastEvent = evs[len(evs)-1].ID
+	return evs, err
+}
+
+type versionResp struct {
+	Version string
+}
+
 func (p *syncthingProcess) version() (string, error) {
 	resp, err := p.get("/rest/version")
 	if err != nil {
 		return "", err
 	}
-	bs, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
+	defer resp.Body.Close()
+
+	var v versionResp
+	err = json.NewDecoder(resp.Body).Decode(&v)
 	if err != nil {
 		return "", err
 	}
-	return string(bs), nil
+	return v.Version, nil
 }
 
 type fileGenerator struct {
@@ -147,12 +180,12 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 			log.Fatal(err)
 		}
 
-		s := 1 << uint(mr.Intn(maxexp))
+		s := 1 << uint(rand.Intn(maxexp))
 		a := 128 * 1024
 		if a > s {
 			a = s
 		}
-		s += mr.Intn(a)
+		s += rand.Intn(a)
 
 		src := io.LimitReader(&inifiteReader{fd}, int64(s))
 
@@ -172,12 +205,12 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 			return err
 		}
 
-		err = os.Chmod(p1, os.FileMode(mr.Intn(0777)|0400))
+		err = os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
 		if err != nil {
 			return err
 		}
 
-		t := time.Now().Add(-time.Duration(mr.Intn(30*86400)) * time.Second)
+		t := time.Now().Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
 		err = os.Chtimes(p1, t, t)
 		if err != nil {
 			return err
@@ -187,9 +220,20 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 	return nil
 }
 
+func ReadRand(bs []byte) (int, error) {
+	var r uint32
+	for i := range bs {
+		if i%4 == 0 {
+			r = uint32(rand.Int63())
+		}
+		bs[i] = byte(r >> uint((i%4)*8))
+	}
+	return len(bs), nil
+}
+
 func randomName() string {
 	var b [16]byte
-	rand.Reader.Read(b[:])
+	ReadRand(b[:])
 	return fmt.Sprintf("%x", b[:])
 }
 

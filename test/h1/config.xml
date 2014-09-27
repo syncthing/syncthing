@@ -36,8 +36,8 @@
         <localAnnouncePort>21025</localAnnouncePort>
         <localAnnounceMCAddr>[ff32::5222]:21026</localAnnounceMCAddr>
         <parallelRequests>16</parallelRequests>
-        <maxSendKbps>0</maxSendKbps>
-        <maxRecvKbps>0</maxRecvKbps>
+        <maxSendKbps>50000</maxSendKbps>
+        <maxRecvKbps>50000</maxRecvKbps>
         <reconnectionIntervalS>5</reconnectionIntervalS>
         <startBrowser>false</startBrowser>
         <upnpEnabled>true</upnpEnabled>
