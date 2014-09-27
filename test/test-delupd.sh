@@ -19,7 +19,7 @@ go build json.go
 start() {
 	echo "Starting..."
 	for i in 1 2 3 ; do
-		STTRACE=files,model,puller,versioner,protocol STPROFILER=":909$i" syncthing -home "h$i" > "$i.out" 2>&1 &
+		STTRACE=model,scanner STPROFILER=":909$i" syncthing -home "h$i" > "$i.out" 2>&1 &
 	done
 }
 
@@ -100,7 +100,7 @@ alterFiles() {
 			echo "  $i: deleting $todelete files..."
 			set +o pipefail
 			find . -type f \
-				| grep -v large \
+				| grep -v timechanged \
 				| sort -k 1.16 \
 				| head -n "$todelete" \
 				| xargs rm -f
@@ -110,11 +110,10 @@ alterFiles() {
 		# Create some new files and alter existing ones
 		echo "  $i: random nonoverlapping"
 		../genfiles -maxexp 22 -files 200
-		echo "  $i: append to large file"
-		dd if=large-$i bs=1024k count=4 >> large-$i 2>/dev/null
 		echo "  $i: new files in ro directory"
 		uuidgen > ro-test/$(uuidgen)
 		chmod 500 ro-test
+		touch "timechanged-$i"
 
 		../md5r -l | sort | grep -v .stversions > ../md5-$i
 		popd >/dev/null
@@ -140,6 +139,7 @@ for i in 1 12-2 23-3; do
 	mkdir ro-test
 	uuidgen > ro-test/$(uuidgen)
 	chmod 500 ro-test
+	dd if=/dev/urandom of="timechanged-$i" bs=1024k count=1
 	popd >/dev/null
 done
 

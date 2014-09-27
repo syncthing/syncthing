@@ -133,6 +133,50 @@ func TestWalkError(t *testing.T) {
 	}
 }
 
+func TestVerify(t *testing.T) {
+	blocksize := 16
+	// data should be an even multiple of blocksize long
+	data := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut e")
+	buf := bytes.NewBuffer(data)
+
+	blocks, err := Blocks(buf, blocksize, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exp := len(data) / blocksize; len(blocks) != exp {
+		t.Fatalf("Incorrect number of blocks %d != %d", len(blocks), exp)
+	}
+
+	buf = bytes.NewBuffer(data)
+	err = Verify(buf, blocksize, blocks)
+	t.Log(err)
+	if err != nil {
+		t.Fatal("Unexpected verify failure", err)
+	}
+
+	buf = bytes.NewBuffer(append(data, '\n'))
+	err = Verify(buf, blocksize, blocks)
+	t.Log(err)
+	if err == nil {
+		t.Fatal("Unexpected verify success")
+	}
+
+	buf = bytes.NewBuffer(data[:len(data)-1])
+	err = Verify(buf, blocksize, blocks)
+	t.Log(err)
+	if err == nil {
+		t.Fatal("Unexpected verify success")
+	}
+
+	data[42] = 42
+	buf = bytes.NewBuffer(data)
+	err = Verify(buf, blocksize, blocks)
+	t.Log(err)
+	if err == nil {
+		t.Fatal("Unexpected verify success")
+	}
+}
+
 type fileList []protocol.FileInfo
 
 func (f fileList) Len() int {

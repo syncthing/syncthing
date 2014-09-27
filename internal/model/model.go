@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syncthing/syncthing/internal/scanner"
 	"github.com/syncthing/syncthing/internal/stats"
+	"github.com/syncthing/syncthing/internal/versioner"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -138,22 +139,54 @@ func NewModel(indexDir string, cfg *config.Configuration, nodeName, clientName, 
 // StartRW starts read/write processing on the current model. When in
 // read/write mode the model will attempt to keep in sync with the cluster by
 // pulling needed files from peer nodes.
-func (m *Model) StartRepoRW(repo string, threads int) {
-	m.rmut.RLock()
-	defer m.rmut.RUnlock()
+func (m *Model) StartRepoRW(repo string) {
+	m.rmut.Lock()
+	cfg, ok := m.repoCfgs[repo]
+	m.rmut.Unlock()
 
-	if cfg, ok := m.repoCfgs[repo]; !ok {
-		panic("cannot start without repo")
-	} else {
-		newPuller(cfg, m, threads, m.cfg)
+	if !ok {
+		panic("cannot start nonexistent repo " + repo)
 	}
+
+	p := Puller{
+		repo:     repo,
+		dir:      cfg.Directory,
+		scanIntv: time.Duration(cfg.RescanIntervalS) * time.Second,
+		model:    m,
+	}
+
+	if len(cfg.Versioning.Type) > 0 {
+		factory, ok := versioner.Factories[cfg.Versioning.Type]
+		if !ok {
+			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
+		}
+		p.versioner = factory(repo, cfg.Directory, cfg.Versioning.Params)
+	}
+
+	go p.Serve()
 }
 
 // StartRO starts read only processing on the current model. When in
 // read only mode the model will announce files to the cluster but not
 // pull in any external changes.
 func (m *Model) StartRepoRO(repo string) {
-	m.StartRepoRW(repo, 0) // zero threads => read only
+	intv := time.Duration(m.repoCfgs[repo].RescanIntervalS) * time.Second
+	go func() {
+		for {
+			time.Sleep(intv)
+
+			if debug {
+				l.Debugln(m, "rescan", repo)
+			}
+
+			m.setState(repo, RepoScanning)
+			if err := m.ScanRepo(repo); err != nil {
+				invalidateRepo(m.cfg, repo, err)
+				return
+			}
+			m.setState(repo, RepoIdle)
+		}
+	}()
 }
 
 type ConnectionInfo struct {
@@ -240,7 +273,7 @@ func (m *Model) Completion(node protocol.NodeID, repo string) float64 {
 
 	res := 100 * (1 - float64(need)/float64(tot))
 	if debug {
-		l.Debugf("Completion(%s, %q): %f (%d / %d)", node, repo, res, need, tot)
+		l.Debugf("%v Completion(%s, %q): %f (%d / %d)", m, node, repo, res, need, tot)
 	}
 
 	return res
@@ -316,7 +349,7 @@ func (m *Model) NeedSize(repo string) (files int, bytes int64) {
 		})
 	}
 	if debug {
-		l.Debugf("NeedSize(%q): %d %d", repo, files, bytes)
+		l.Debugf("%v NeedSize(%q): %d %d", m, repo, files, bytes)
 	}
 	return
 }
@@ -389,7 +422,7 @@ func (m *Model) Index(nodeID protocol.NodeID, repo string, fs []protocol.FileInf
 // Implements the protocol.Model interface.
 func (m *Model) IndexUpdate(nodeID protocol.NodeID, repo string, fs []protocol.FileInfo) {
 	if debug {
-		l.Debugf("IDXUP(in): %s / %q: %d files", nodeID, repo, len(fs))
+		l.Debugf("%v IDXUP(in): %s / %q: %d files", m, nodeID, repo, len(fs))
 	}
 
 	if !m.repoSharedWith(repo, nodeID) {
@@ -475,7 +508,7 @@ func (m *Model) ClusterConfig(nodeID protocol.NodeID, cm protocol.ClusterConfigM
 				var id protocol.NodeID
 				copy(id[:], node.ID)
 
-				if m.cfg.GetNodeConfiguration(id)==nil {
+				if m.cfg.GetNodeConfiguration(id) == nil {
 					// The node is currently unknown. Add it to the config.
 
 					l.Infof("Adding node %v to config (vouched for by introducer %v)", id, nodeID)
@@ -574,20 +607,20 @@ func (m *Model) Request(nodeID protocol.NodeID, repo, name string, offset int64,
 	lf := r.Get(protocol.LocalNodeID, name)
 	if protocol.IsInvalid(lf.Flags) || protocol.IsDeleted(lf.Flags) {
 		if debug {
-			l.Debugf("REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", nodeID, repo, name, offset, size, lf)
+			l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, nodeID, repo, name, offset, size, lf)
 		}
 		return nil, ErrInvalid
 	}
 
 	if offset > lf.Size() {
 		if debug {
-			l.Debugf("REQ(in; nonexistent): %s: %q o=%d s=%d", nodeID, name, offset, size)
+			l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, nodeID, name, offset, size)
 		}
 		return nil, ErrNoSuchFile
 	}
 
 	if debug && nodeID != protocol.LocalNodeID {
-		l.Debugf("REQ(in): %s: %q / %q o=%d s=%d", nodeID, repo, name, offset, size)
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, nodeID, repo, name, offset, size)
 	}
 	m.rmut.RLock()
 	fn := filepath.Join(m.repoCfgs[repo].Directory, name)
@@ -768,14 +801,8 @@ func sendIndexes(conn protocol.Connection, repo string, fs *files.Set, ignores i
 	var err error
 
 	if debug {
-		l.Debugf("sendIndexes for %s-%s@/%q starting", nodeID, name, repo)
+		l.Debugf("sendIndexes for %s-%s/%q starting", nodeID, name, repo)
 	}
-
-	defer func() {
-		if debug {
-			l.Debugf("sendIndexes for %s-%s@/%q exiting: %v", nodeID, name, repo, err)
-		}
-	}()
 
 	minLocalVer, err := sendIndexTo(true, 0, conn, repo, fs, ignores)
 
@@ -786,6 +813,10 @@ func sendIndexes(conn protocol.Connection, repo string, fs *files.Set, ignores i
 		}
 
 		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, repo, fs, ignores)
+	}
+
+	if debug {
+		l.Debugf("sendIndexes for %s-%s/%q exiting: %v", nodeID, name, repo, err)
 	}
 }
 
@@ -877,7 +908,7 @@ func (m *Model) requestGlobal(nodeID protocol.NodeID, repo, name string, offset 
 	}
 
 	if debug {
-		l.Debugf("REQ(out): %s: %q / %q o=%d s=%d h=%x", nodeID, repo, name, offset, size, hash)
+		l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x", m, nodeID, repo, name, offset, size, hash)
 	}
 
 	return nc.Request(repo, name, offset, size)
@@ -1175,10 +1206,10 @@ func (m *Model) Override(repo string) {
 	m.setState(repo, RepoIdle)
 }
 
-// Version returns the change version for the given repository. This is
-// guaranteed to increment if the contents of the local or global repository
-// has changed.
-func (m *Model) LocalVersion(repo string) uint64 {
+// CurrentLocalVersion returns the change version for the given repository.
+// This is guaranteed to increment if the contents of the local repository has
+// changed.
+func (m *Model) CurrentLocalVersion(repo string) uint64 {
 	m.rmut.Lock()
 	defer m.rmut.Unlock()
 
@@ -1187,10 +1218,41 @@ func (m *Model) LocalVersion(repo string) uint64 {
 		panic("bug: LocalVersion called for nonexistent repo " + repo)
 	}
 
-	ver := fs.LocalVersion(protocol.LocalNodeID)
+	return fs.LocalVersion(protocol.LocalNodeID)
+}
+
+// RemoteLocalVersion returns the change version for the given repository, as
+// sent by remote peers. This is guaranteed to increment if the contents of
+// the remote or global repository has changed.
+func (m *Model) RemoteLocalVersion(repo string) uint64 {
+	m.rmut.Lock()
+	defer m.rmut.Unlock()
+
+	fs, ok := m.repoFiles[repo]
+	if !ok {
+		panic("bug: LocalVersion called for nonexistent repo " + repo)
+	}
+
+	var ver uint64
 	for _, n := range m.repoNodes[repo] {
 		ver += fs.LocalVersion(n)
 	}
 
 	return ver
+}
+
+func (m *Model) availability(repo string, file string) []protocol.NodeID {
+	m.rmut.Lock()
+	defer m.rmut.Unlock()
+
+	fs, ok := m.repoFiles[repo]
+	if !ok {
+		return nil
+	}
+
+	return fs.Availability(file)
+}
+
+func (m *Model) String() string {
+	return fmt.Sprintf("model@%p", m)
 }

@@ -442,7 +442,7 @@ nextRepo:
 		m.AddRepo(repo)
 
 		fi, err := os.Stat(repo.Directory)
-		if m.LocalVersion(repo.ID) > 0 {
+		if m.CurrentLocalVersion(repo.ID) > 0 {
 			// Safety check. If the cached index contains files but the
 			// repository doesn't exist, we have a problem. We would assume
 			// that all files have been deleted which might not be the case,
@@ -453,8 +453,8 @@ nextRepo:
 				continue nextRepo
 			}
 		} else if os.IsNotExist(err) {
-			// If we don't have ny files in the index, and the directory does
-			// exist, try creating it.
+			// If we don't have any files in the index, and the directory
+			// doesn't exist, try creating it.
 			err = os.MkdirAll(repo.Directory, 0700)
 		}
 
@@ -582,7 +582,7 @@ nextRepo:
 			m.StartRepoRO(repo.ID)
 		} else {
 			l.Okf("Ready to synchronize %s (read-write)", repo.ID)
-			m.StartRepoRW(repo.ID, cfg.Options.ParallelRequests)
+			m.StartRepoRW(repo.ID)
 		}
 	}
 
@@ -1159,7 +1159,7 @@ func standbyMonitor() {
 	for {
 		time.Sleep(10 * time.Second)
 		if time.Since(now) > 2*time.Minute {
-			l.Infoln("Paused state detected, possibly woke up from standby. Restarting in", restartDelay)
+			l.Infof("Paused state detected, possibly woke up from standby. Restarting in %v.", restartDelay)
 
 			// We most likely just woke from standby. If we restart
 			// immediately chances are we won't have networking ready. Give

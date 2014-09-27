@@ -87,7 +87,6 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/ignores", withModel(m, restGetIgnores))
 	getRestMux.HandleFunc("/rest/lang", restGetLang)
 	getRestMux.HandleFunc("/rest/model", withModel(m, restGetModel))
-	getRestMux.HandleFunc("/rest/model/version", withModel(m, restGetModelVersion))
 	getRestMux.HandleFunc("/rest/need", withModel(m, restGetNeed))
 	getRestMux.HandleFunc("/rest/nodeid", restGetNodeID)
 	getRestMux.HandleFunc("/rest/report", withModel(m, restGetReport))
@@ -238,17 +237,6 @@ func restGetCompletion(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func restGetModelVersion(m *model.Model, w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var repo = qs.Get("repo")
-	var res = make(map[string]interface{})
-
-	res["version"] = m.LocalVersion(repo)
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(res)
-}
-
 func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var repo = qs.Get("repo")
@@ -273,7 +261,7 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	res["inSyncFiles"], res["inSyncBytes"] = globalFiles-needFiles, globalBytes-needBytes
 
 	res["state"], res["stateChanged"] = m.State(repo)
-	res["version"] = m.LocalVersion(repo)
+	res["version"] = m.CurrentLocalVersion(repo) + m.RemoteLocalVersion(repo)
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)

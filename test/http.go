@@ -36,7 +36,6 @@ var jsonEndpoints = []string{
 	"/rest/errors",
 	"/rest/events",
 	"/rest/lang",
-	"/rest/model/version?repo=default",
 	"/rest/model?repo=default",
 	"/rest/need",
 	"/rest/nodeid?id=I6KAH7666SLLLB5PFXSOAUFJCDZCYAOMLEKCP2GB32BV5RQST3PSROAU",
