@@ -272,25 +272,50 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
-	var err error
-	if info, err := os.Stat(realName); err != nil && os.IsNotExist(err) {
-		err = os.MkdirAll(realName, mode)
+	if info, err := os.Stat(realName); err != nil {
+		if os.IsNotExist(err) {
+			// The directory doesn't exist, so we create it with the right
+			// mode bits from the start.
+
+			mkdir := func(path string) error {
+				// We declare a function that acts on only the path name, so
+				// we can pass it to InWritableDir. We use a regular Mkdir and
+				// not MkdirAll because the parent should already exist.
+				return os.Mkdir(path, mode)
+			}
+
+			if err = osutil.InWritableDir(mkdir, realName); err == nil {
+				p.model.updateLocal(p.repo, file)
+			} else {
+				l.Infof("Puller (repo %q, file %q): %v", p.repo, file.Name, err)
+			}
+			return
+		}
+
+		// Weird error when stat()'ing the dir. Probably won't work to do
+		// anything else with it if we can't even stat() it.
+		l.Infof("Puller (repo %q, file %q): %v", p.repo, file.Name, err)
+		return
 	} else if !info.IsDir() {
 		l.Infof("Puller (repo %q, file %q): should be dir, but is not", p.repo, file.Name)
 		return
-	} else {
-		err = os.Chmod(realName, mode)
 	}
 
-	if err == nil {
+	// The directory already exists, so we just correct the mode bits. (We
+	// don't handle modification times on directories, because that sucks...)
+	// It's OK to change mode bits on stuff within non-writable directories.
+
+	if err := os.Chmod(realName, mode); err == nil {
 		p.model.updateLocal(p.repo, file)
+	} else {
+		l.Infof("Puller (repo %q, file %q): %v", p.repo, file.Name, err)
 	}
 }
 
 // deleteDir attempts to delete the given directory
 func (p *Puller) deleteDir(file protocol.FileInfo) {
 	realName := filepath.Join(p.dir, file.Name)
-	err := os.Remove(realName)
+	err := osutil.InWritableDir(os.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
 		p.model.updateLocal(p.repo, file)
 	}
@@ -299,27 +324,12 @@ func (p *Puller) deleteDir(file protocol.FileInfo) {
 // deleteFile attempts to delete the given file
 func (p *Puller) deleteFile(file protocol.FileInfo) {
 	realName := filepath.Join(p.dir, file.Name)
-	realDir := filepath.Dir(realName)
-	if info, err := os.Stat(realDir); err == nil && info.IsDir() && info.Mode()&04 == 0 {
-		// A non-writeable directory (for this user; we assume that's the
-		// relevant part). Temporarily change the mode so we can delete the
-		// file inside it.
-		err = os.Chmod(realDir, 0755)
-		if err == nil {
-			defer func() {
-				err = os.Chmod(realDir, info.Mode())
-				if err != nil {
-					panic(err)
-				}
-			}()
-		}
-	}
 
 	var err error
 	if p.versioner != nil {
-		err = p.versioner.Archive(realName)
+		err = osutil.InWritableDir(p.versioner.Archive, realName)
 	} else {
-		err = os.Remove(realName)
+		err = osutil.InWritableDir(os.Remove, realName)
 	}
 
 	if err != nil {

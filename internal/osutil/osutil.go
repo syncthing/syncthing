@@ -45,3 +45,28 @@ func Rename(from, to string) error {
 	defer os.Remove(from)
 	return os.Rename(from, to)
 }
+
+// InWritableDir calls fn(path), while making sure that the directory
+// containing `path` is writable for the duration of the call.
+func InWritableDir(fn func(string) error, path string) error {
+	dir := filepath.Dir(path)
+	if info, err := os.Stat(dir); err == nil && info.IsDir() && info.Mode()&04 == 0 {
+		// A non-writeable directory (for this user; we assume that's the
+		// relevant part). Temporarily change the mode so we can delete the
+		// file or directory inside it.
+		err = os.Chmod(dir, 0755)
+		if err == nil {
+			defer func() {
+				err = os.Chmod(dir, info.Mode())
+				if err != nil {
+					// We managed to change the permission bits like a
+					// millisecond ago, so it'd be bizarre if we couldn't
+					// change it back.
+					panic(err)
+				}
+			}()
+		}
+	}
+
+	return fn(path)
+}

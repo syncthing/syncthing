@@ -5,7 +5,6 @@
 package model
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -47,20 +46,12 @@ func (s *sharedPullerState) tempFile() (*os.File, error) {
 		return s.fd, nil
 	}
 
-	// Ensure that the parent directory exists or can be created
+	// Ensure that the parent directory is writable. This is
+	// osutil.InWritableDir except we need to do more stuff so we duplicate it
+	// here.
 	dir := filepath.Dir(s.tempName)
-	if info, err := os.Stat(dir); err != nil && os.IsNotExist(err) {
-		err = os.MkdirAll(dir, 0755)
-		if err != nil {
-			s.earlyCloseLocked("dst mkdir", err)
-			return nil, err
-		}
-	} else if err != nil {
+	if info, err := os.Stat(dir); err != nil {
 		s.earlyCloseLocked("dst stat dir", err)
-		return nil, err
-	} else if !info.IsDir() {
-		err = fmt.Errorf("%q: not a directory", dir)
-		s.earlyCloseLocked("dst mkdir", err)
 		return nil, err
 	} else if info.Mode()&04 == 0 {
 		err := os.Chmod(dir, 0755)
