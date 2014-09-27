@@ -19,8 +19,8 @@ import (
 
 	"github.com/golang/groupcache/lru"
 	"github.com/juju/ratelimit"
-	"github.com/syncthing/syncthing/discover"
-	"github.com/syncthing/syncthing/protocol"
+	"github.com/syncthing/syncthing/internal/discover"
+	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
