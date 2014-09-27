@@ -8,8 +8,10 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"mime"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"os"
@@ -43,6 +45,8 @@ var (
 	modt         = time.Now().UTC().Format(http.TimeFormat)
 	eventSub     *events.BufferedSubscription
 )
+
+const MIME_TYPE_DIR = "inode/directory"
 
 func init() {
 	l.AddHandler(logger.LevelWarn, showGuiError)
@@ -94,6 +98,8 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
 	getRestMux.HandleFunc("/rest/version", restGetVersion)
 	getRestMux.HandleFunc("/rest/stats/node", withModel(m, restGetNodeStats))
+	getRestMux.HandleFunc("/rest/file/list", restGetFolderContents)
+	getRestMux.HandleFunc("/rest/file/read", restGetFile)
 
 	// Debug endpoints, not for general use
 	getRestMux.HandleFunc("/rest/debug/peerCompletion", withModel(m, restGetPeerCompletion))
@@ -112,6 +118,9 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/shutdown", restPostShutdown)
 	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
 	postRestMux.HandleFunc("/rest/scan", withModel(m, restPostScan))
+	postRestMux.HandleFunc("/rest/file/create", withModel(m, restPostCreateFile))
+	postRestMux.HandleFunc("/rest/file/delete", withModel(m, restPostDeleteFile))
+	postRestMux.HandleFunc("/rest/file/write", restPostFile)
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -614,6 +623,186 @@ func restGetPeerCompletion(m *model.Model, w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(comp)
+}
+
+func restPostCreateFile(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var repoId = qs.Get("repo")
+	var repo, repoExists = cfg.RepoMap()[repoId]
+	var path = qs.Get("path")
+	var isDir = path[len(path)-1] == '/'
+	path = filepath.Clean(filepath.Join(repo.Directory, qs.Get("path")))
+
+	if !repoExists {
+		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
+		return
+	}
+
+	if !strings.HasPrefix(path, repo.Directory) {
+		flushResponse(`{"error": "Must not create file outside repository"}`, w)
+		return
+	}
+
+	var err error
+	if isDir {
+		err = os.Mkdir(path, 0775)
+	} else {
+		_, err = os.Create(path)
+	}
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	m.ScanRepoSub(repoId, path)
+	flushResponse(`{"ok": "file created"}`, w)
+}
+
+func restPostDeleteFile(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var repoId = qs.Get("repo")
+	var repo, repoExists = cfg.RepoMap()[repoId]
+	var path = filepath.Clean(filepath.Join(repo.Directory, qs.Get("path")))
+
+	if !repoExists {
+		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
+		return
+	}
+
+	if !strings.HasPrefix(path, repo.Directory) {
+		flushResponse(`{"error": "Must not delete file outside repository"}`, w)
+		return
+	}
+
+	var err = os.Remove(path)
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	m.ScanRepoSub(repoId, path)
+	flushResponse(`{"ok": "file deleted"}`, w)
+}
+
+func restGetFolderContents(w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var repoId = qs.Get("repo")
+	var repo, repoExists = cfg.RepoMap()[repoId]
+	var path = filepath.Clean(filepath.Join(repo.Directory, qs.Get("path")))
+
+	if !repoExists {
+		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
+		return
+	}
+
+	if !strings.HasPrefix(path, repo.Directory) {
+		flushResponse(`{"error": "Must not access file outside repository"}`, w)
+		return
+	}
+
+	var fi, err = ioutil.ReadDir(path)
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	var contents = make([]map[string]string, len(fi))
+	for i, f := range fi {
+		var mimetype string
+		if f.IsDir() {
+			mimetype = MIME_TYPE_DIR
+		} else {
+			mimetype = mimeTypeForFile(f.Name())
+		}
+		contents[i] = map[string]string{
+			"name":     f.Name(),
+			"size":     fmt.Sprintf("%d", f.Size()),
+			"modified": fmt.Sprintf("%d", f.ModTime().Unix()),
+			"mime":     mimetype,
+		}
+	}
+	json.NewEncoder(w).Encode(contents)
+}
+
+func restGetFile(w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var repoId = qs.Get("repo")
+	var repo, repoExists = cfg.RepoMap()[repoId]
+	var path = filepath.Clean(filepath.Join(repo.Directory, qs.Get("path")))
+
+	if !repoExists {
+		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
+		return
+	}
+
+	if !strings.HasPrefix(path, repo.Directory) {
+		flushResponse(`{"error": "Must not access file outside repository"}`, w)
+		return
+	}
+
+	var f, err = os.Stat(path)
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	http.ServeFile(w, r, path)
+	mtype := mimeTypeForFile(path)
+	if len(mtype) != 0 {
+		w.Header().Set("Content-Type", mtype)
+	}
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", f.Size()))
+	w.Header().Set("Last-Modified", fmt.Sprintf("%d", f.ModTime()))
+}
+
+func restPostFile(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var qs = r.URL.Query()
+	var repoId = qs.Get("repo")
+	var repo, repoExists = cfg.RepoMap()[repoId]
+	var path = filepath.Clean(filepath.Join(repo.Directory, qs.Get("path")))
+
+	if !repoExists {
+		flushResponse(`{"error": "Repository `+repoId+` does not exist"}`, w)
+		return
+	}
+
+	if !strings.HasPrefix(path, repo.Directory) {
+		flushResponse(`{"error": "Must not access file outside repository"}`, w)
+		return
+	}
+
+	_, err = os.Stat(path)
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	var f *os.File
+	f, err = os.OpenFile(path, os.O_WRONLY, 0)
+	defer f.Close()
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	var file multipart.File
+	file, _, err = r.FormFile("file")
+	defer file.Close()
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	_, err = io.Copy(f, file)
+	if err != nil {
+		flushResponse(`{"error": "`+err.Error()+`"}`, w)
+		return
+	}
+
+	flushResponse(`{"ok": "file written"}`, w)
 }
 
 func embeddedStatic(assetDir string) http.Handler {
