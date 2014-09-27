@@ -606,26 +606,36 @@
                   <label translate for="MaxSendKbps">Outgoing Rate Limit (KiB/s)</label>
                   <input id="MaxSendKbps" class="form-control" type="number" ng-model="tmpOptions.MaxSendKbps">
                 </div>
-                <div class="form-group">
-                  <div class="checkbox">
-                    <label>
-                      <span translate>Enable UPnP</span> <input id="UPnPEnabled" type="checkbox" ng-model="tmpOptions.UPnPEnabled">
-                    </label>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <div class="checkbox">
+                      <label>
+                        <span translate>Enable UPnP</span> <input id="UPnPEnabled" type="checkbox" ng-model="tmpOptions.UPnPEnabled">
+                      </label>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <div class="checkbox">
+                      <label>
+                        <span translate>Global Discovery</span> <input id="GlobalAnnEnabled" type="checkbox" ng-model="tmpOptions.GlobalAnnEnabled">
+                      </label>
+                    </div>
                   </div>
                 </div>
-
-                <div class="form-group">
-                  <div class="checkbox">
-                    <label>
-                      <span translate>Local Discovery</span> <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.LocalAnnEnabled">
-                    </label>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <div class="checkbox">
+                      <label>
+                        <span translate>Automatic upgrades</span> <input id="AutoUpgradeEnabled" type="checkbox" ng-model="tmpOptions.AutoUpgradeEnabled">
+                      </label>
+                    </div>
                   </div>
-                </div>
-                <div class="form-group">
-                  <div class="checkbox">
-                    <label>
-                      <span translate>Global Discovery</span> <input id="GlobalAnnEnabled" type="checkbox" ng-model="tmpOptions.GlobalAnnEnabled">
-                    </label>
+                  <div class="form-group">
+                    <div class="checkbox">
+                      <label>
+                        <span translate>Local Discovery</span> <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.LocalAnnEnabled">
+                      </label>
+                    </div>
                   </div>
                 </div>
                 <div class="form-group">
