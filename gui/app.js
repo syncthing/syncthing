@@ -533,6 +533,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.tmpOptions = angular.copy($scope.config.Options);
         $scope.tmpOptions.UREnabled = ($scope.tmpOptions.URAccepted > 0);
         $scope.tmpOptions.NodeName = $scope.thisNode().Name;
+        $scope.tmpOptions.AutoUpgradeEnabled = ($scope.tmpOptions.AutoUpgradeIntervalH > 0);
         $scope.tmpGUI = angular.copy($scope.config.GUI);
         $('#settings').modal();
     };
@@ -561,6 +562,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
                 $scope.tmpOptions.URAccepted = 1000;
             } else if (!$scope.tmpOptions.UREnabled && $scope.tmpOptions.URAccepted > 0) {
                 $scope.tmpOptions.URAccepted = -1;
+            }
+
+            // Check if auto-upgrade has been enabled or disabled
+            if ($scope.tmpOptions.AutoUpgradeEnabled) {
+                $scope.tmpOptions.AutoUpgradeIntervalH = $scope.tmpOptions.AutoUpgradeIntervalH || 12;
+            } else {
+                $scope.tmpOptions.AutoUpgradeIntervalH = 0;
             }
 
             // Check if protocol will need to be changed on restart
