@@ -16,5 +16,6 @@
         <upnpLeaseMinutes>60</upnpLeaseMinutes>
         <upnpRenewalMinutes>15</upnpRenewalMinutes>
         <restartOnWakeup>false</restartOnWakeup>
+        <autoUpgradeIntervalH>24</autoUpgradeIntervalH>
     </options>
 </configuration>
