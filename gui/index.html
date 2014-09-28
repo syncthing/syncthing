@@ -102,7 +102,7 @@
                 <table class="table table-condensed table-striped">
                   <tbody>
                     <tr>
-                      <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Repository ID</span></th>
+                      <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Folder ID</span></th>
                       <td class="text-right">{{repo.ID}}</td>
                     </tr>
                     <tr>
@@ -114,11 +114,11 @@
                       <td class="text-right">{{model[repo.ID].invalid}}</td>
                     </tr>
                     <tr>
-                      <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global Repository</span></th>
+                      <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global Folder</span></th>
                       <td class="text-right">{{model[repo.ID].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].globalBytes | binary}}B</td>
                     </tr>
                     <tr>
-                      <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local Repository</span></th>
+                      <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local Folder</span></th>
                       <td class="text-right">{{model[repo.ID].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].localBytes | binary}}B</td>
                     </tr>
                     <tr>
@@ -165,7 +165,7 @@
           </div>
         </div>
         <div class="form-group">
-          <button class="btn btn-sm btn-default pull-right" ng-click="addRepo()"><span class="glyphicon glyphicon-plus"></span>&emsp;<span translate>Add Repository</span></button>
+          <button class="btn btn-sm btn-default pull-right" ng-click="addRepo()"><span class="glyphicon glyphicon-plus"></span>&emsp;<span translate>Add Folder</span></button>
           <div class="clearfix"></div>
         </div>
         <hr class="visible-sm"/>
@@ -287,7 +287,7 @@
           </div>
         </div>
         <div class="form-group">
-          <button class="btn btn-sm btn-default pull-right" ng-click="addNode()"><span class="glyphicon glyphicon-plus"></span>&emsp;<span translate>Add Node</span></button>
+          <button class="btn btn-sm btn-default pull-right" ng-click="addNode()"><span class="glyphicon glyphicon-plus"></span>&emsp;<span translate>Add Device</span></button>
           <div class="clearfix"></div>
         </div>
       </div>
@@ -354,7 +354,7 @@
 
   <!-- ID modal -->
 
-  <modal id="idqr" large="yes" status="info" close="yes" icon="qrcode" title="{{'Node Identification' | translate}} &mdash; {{nodeName(thisNode())}}">
+  <modal id="idqr" large="yes" status="info" close="yes" icon="qrcode" title="{{'Device Identification' | translate}} &mdash; {{nodeName(thisNode())}}">
     <div class="well well-sm text-monospace text-center">{{myID}}</div>
     <img ng-if="myID" class="center-block img-thumbnail" src="qr/?text={{myID}}"/>
   </modal>
@@ -365,27 +365,27 @@
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h4 translate ng-show="!editingExisting" class="modal-title">Add Node</h4>
-          <h4 translate ng-show="editingExisting" class="modal-title">Edit Node</h4>
+          <h4 translate ng-show="!editingExisting" class="modal-title">Add Device</h4>
+          <h4 translate ng-show="editingExisting" class="modal-title">Edit Device</h4>
         </div>
         <div class="modal-body">
           <form role="form" name="nodeEditor">
             <div class="form-group" ng-class="{'has-error': nodeEditor.nodeID.$invalid && nodeEditor.nodeID.$dirty}">
-              <label translate for="nodeID">Node ID</label>
+              <label translate for="nodeID">Device ID</label>
               <input ng-if="!editingExisting" name="nodeID" id="nodeID" class="form-control text-monospace" type="text" ng-model="currentNode.NodeID" required valid-nodeid></input>
               <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentNode.NodeID}}</div>
               <p class="help-block">
-                <span translate ng-if="nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine">The node ID to enter here can be found in the "Edit > Show ID" dialog on the other node. Spaces and dashes are optional (ignored).</span>
-                <span translate ng-show="!editingExisting && (nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine)">When adding a new node, keep in mind that this node must be added on the other side too.</span>
-                <span translate ng-if="nodeEditor.nodeID.$error.required && nodeEditor.nodeID.$dirty">The node ID cannot be blank.</span>
-                <span translate ng-if="nodeEditor.nodeID.$error.validNodeid && nodeEditor.nodeID.$dirty">The entered node ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.</span>
+                <span translate ng-if="nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine">The device ID to enter here can be found in the "Edit > Show ID" dialog on the other device. Spaces and dashes are optional (ignored).</span>
+                <span translate ng-show="!editingExisting && (nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine)">When adding a new device, keep in mind that this device must be added on the other side too.</span>
+                <span translate ng-if="nodeEditor.nodeID.$error.required && nodeEditor.nodeID.$dirty">The device ID cannot be blank.</span>
+                <span translate ng-if="nodeEditor.nodeID.$error.validNodeid && nodeEditor.nodeID.$dirty">The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.</span>
               </p>
             </div>
             <div class="form-group">
-              <label translate for="name">Node Name</label>
+              <label translate for="name">Device Name</label>
               <input placeholder="Home Server" id="name" class="form-control" type="text" ng-model="currentNode.Name"></input>
-              <p translate ng-if="currentNode.NodeID == myID" class="help-block">Shown instead of Node ID in the cluster status. Will be advertised to other nodes as an optional default name.</p>
-              <p translate ng-if="currentNode.NodeID != myID" class="help-block">Shown instead of Node ID in the cluster status. Will be updated to the name the node advertises if left empty.</p>
+              <p translate ng-if="currentNode.NodeID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.</p>
+              <p translate ng-if="currentNode.NodeID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
             </div>
             <div class="form-group">
               <label translate for="addresses">Addresses</label>
@@ -405,7 +405,7 @@
                 <label>
                   <input type="checkbox" ng-model="currentNode.Introducer"> <span translate>Introducer</span>
                 </label>
-                <p translate class="help-block">Any nodes configured on an introducer node will be added to this node as well.</p>
+                <p translate class="help-block">Any devices configured on an introducer device will be added to this device as well.</p>
               </div>
             </div>
           </form>
@@ -425,29 +425,29 @@
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h4 ng-show="!editingExisting" class="modal-title"><span translate>Add Repository</span></h4>
-          <h4 ng-show="editingExisting" class="modal-title"><span translate>Edit Repository</span></h4>
+          <h4 ng-show="!editingExisting" class="modal-title"><span translate>Add Folder</span></h4>
+          <h4 ng-show="editingExisting" class="modal-title"><span translate>Edit Folder</span></h4>
         </div>
         <div class="modal-body">
           <form role="form" name="repoEditor">
             <div class="row">
               <div class="col-md-12">
                 <div class="form-group" ng-class="{'has-error': repoEditor.repoID.$invalid && repoEditor.repoID.$dirty}">
-                  <label for="repoID"><span translate>Repository ID</span></label>
+                  <label for="repoID"><span translate>Folder ID</span></label>
                   <input name="repoID" placeholder="documents" ng-disabled="editingExisting" id="repoID" class="form-control" type="text" ng-model="currentRepo.ID" required unique-repo ng-pattern="/^[a-zA-Z0-9-_.]{1,64}$/"></input>
                   <p class="help-block">
-                    <span translate ng-if="repoEditor.repoID.$valid || repoEditor.repoID.$pristine">Short identifier for the repository. Must be the same on all cluster nodes.</span>
-                    <span translate ng-if="repoEditor.repoID.$error.uniqueRepo">The repository ID must be unique.</span>
-                    <span translate ng-if="repoEditor.repoID.$error.required && repoEditor.repoID.$dirty">The repository ID cannot be blank.</span>
-                    <span translate ng-if="repoEditor.repoID.$error.pattern && repoEditor.repoID.$dirty">The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.</span>
+                    <span translate ng-if="repoEditor.repoID.$valid || repoEditor.repoID.$pristine">Short identifier for the folder. Must be the same on all devices.</span>
+                    <span translate ng-if="repoEditor.repoID.$error.uniqueRepo">The folder ID must be unique.</span>
+                    <span translate ng-if="repoEditor.repoID.$error.required && repoEditor.repoID.$dirty">The folder ID cannot be blank.</span>
+                    <span translate ng-if="repoEditor.repoID.$error.pattern && repoEditor.repoID.$dirty">The folder ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.</span>
                   </p>
                 </div>
                 <div class="form-group" ng-class="{'has-error': repoEditor.repoPath.$invalid && repoEditor.repoPath.$dirty}">
-                  <label translate for="repoPath">Repository Path</label>
+                  <label translate for="repoPath">Folder Path</label>
                   <input name="repoPath" placeholder="~/Documents" ng-disabled="editingExisting" id="repoPath" class="form-control" type="text" ng-model="currentRepo.Directory" required></input>
                   <p class="help-block">
-                    <span translate ng-if="repoEditor.repoPath.$valid || repoEditor.repoPath.$pristine">Path to the repository on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.
-                    <span translate ng-if="repoEditor.repoPath.$error.required && repoEditor.repoPath.$dirty">The repository path cannot be blank.</span>
+                    <span translate ng-if="repoEditor.repoPath.$valid || repoEditor.repoPath.$pristine">Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.
+                    <span translate ng-if="repoEditor.repoPath.$error.required && repoEditor.repoPath.$dirty">The folder path cannot be blank.</span>
                   </p>
                 </div>
                 <div class="form-group" ng-class="{'has-error': repoEditor.rescanIntervalS.$invalid && repoEditor.rescanIntervalS.$dirty}">
@@ -464,10 +464,10 @@
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <input type="checkbox" ng-model="currentRepo.ReadOnly"> <span translate>Repository Master</span>
+                      <input type="checkbox" ng-model="currentRepo.ReadOnly"> <span translate>Folder Master</span>
                     </label>
                   </div>
-                  <p translate class="help-block">Files are protected from changes made on other nodes, but changes made on this node will be sent to the rest of the cluster.</p>
+                  <p translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
                 </div>
                 <div class="form-group">
                   <div class="checkbox">
@@ -478,13 +478,13 @@
                   <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT filesystems.</p>
                 </div>
                 <div class="form-group">
-                  <label translate for="nodes">Share With Nodes</label>
+                  <label translate for="nodes">Share With Devices</label>
                   <div class="checkbox" ng-repeat="node in otherNodes()">
                     <label>
                       <input type="checkbox" ng-model="currentRepo.selectedNodes[node.NodeID]"> {{nodeName(node)}}
                     </label>
                   </div>
-                  <p translate class="help-block">Select the nodes to share this repository with.</p>
+                  <p translate class="help-block">Select the devices to share this folder with.</p>
                 </div>
               </div>
               <div class="col-md-6">
@@ -529,12 +529,12 @@
                 <div class="form-group" ng-if="currentRepo.FileVersioningSelector == 'staggered'">
                   <label translate for="staggeredVersionsPath">Versions Path</label>
                   <input name="staggeredVersionsPath" placeholder="" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentRepo.staggeredVersionsPath"></input>
-                  <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions folder in the repository).</p>
+                  <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions subfolder).</p>
                 </div>
               </div>
             </div>
           </form>
-          <div translate ng-show="!editingExisting">When adding a new repository, keep in mind that the Repository ID is used to tie repositories together between nodes. They are case sensitive and must match exactly between all nodes.</div>
+          <div translate ng-show="!editingExisting">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary btn-sm" ng-click="saveRepo()" ng-disabled="repoEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
@@ -591,7 +591,7 @@
 
               <div class="col-md-6">
                 <div class="form-group">
-                  <label translate for="NodeName">Node Name</label>
+                  <label translate for="NodeName">Device Name</label>
                   <input id="NodeName" class="form-control" type="text" ng-model="tmpOptions.NodeName">
                 </div>
                 <div class="form-group">
