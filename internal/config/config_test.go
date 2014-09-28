@@ -57,20 +57,20 @@ func TestDeviceConfig(t *testing.T) {
 			{
 				ID:              "test",
 				Directory:       "~/Sync",
-				Devices:           []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
+				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				ReadOnly:        true,
 				RescanIntervalS: 600,
 			},
 		}
 		expectedDevices := []DeviceConfiguration{
 			{
-				DeviceID:      device1,
+				DeviceID:    device1,
 				Name:        "device one",
 				Addresses:   []string{"a"},
 				Compression: true,
 			},
 			{
-				DeviceID:      device4,
+				DeviceID:    device4,
 				Name:        "device two",
 				Addresses:   []string{"b"},
 				Compression: true,
@@ -144,22 +144,22 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 	name, _ := os.Hostname()
 	expected := []DeviceConfiguration{
 		{
-			DeviceID:      device1,
+			DeviceID:    device1,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
 		{
-			DeviceID:      device2,
+			DeviceID:    device2,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
 		{
-			DeviceID:      device3,
+			DeviceID:    device3,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
 		{
-			DeviceID:    device4,
+			DeviceID:  device4,
 			Name:      name, // Set when auto created
 			Addresses: []string{"dynamic"},
 		},
@@ -179,19 +179,19 @@ func TestDeviceAddressesStatic(t *testing.T) {
 	name, _ := os.Hostname()
 	expected := []DeviceConfiguration{
 		{
-			DeviceID:    device1,
+			DeviceID:  device1,
 			Addresses: []string{"192.0.2.1", "192.0.2.2"},
 		},
 		{
-			DeviceID:    device2,
+			DeviceID:  device2,
 			Addresses: []string{"192.0.2.3:6070", "[2001:db8::42]:4242"},
 		},
 		{
-			DeviceID:    device3,
+			DeviceID:  device3,
 			Addresses: []string{"[2001:db8::44]:4444", "192.0.2.4:6090"},
 		},
 		{
-			DeviceID:    device4,
+			DeviceID:  device4,
 			Name:      name, // Set when auto created
 			Addresses: []string{"dynamic"},
 		},

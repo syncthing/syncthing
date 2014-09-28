@@ -20,7 +20,7 @@ func init() {
 
 // The type holds our configuration
 type Simple struct {
-	keep     int
+	keep       int
 	folderPath string
 }
 
@@ -32,7 +32,7 @@ func NewSimple(folderID, folderPath string, params map[string]string) Versioner 
 	}
 
 	s := Simple{
-		keep:     keep,
+		keep:       keep,
 		folderPath: folderPath,
 	}
 

@@ -23,24 +23,24 @@ import (
 var l = logger.DefaultLogger
 
 type Configuration struct {
-	Location     string                    `xml:"-" json:"-"`
-	Version      int                       `xml:"version,attr" default:"3"`
-	Folders []FolderConfiguration `xml:"folder"`
-	Devices        []DeviceConfiguration       `xml:"device"`
-	GUI          GUIConfiguration          `xml:"gui"`
-	Options      OptionsConfiguration      `xml:"options"`
-	XMLName      xml.Name                  `xml:"configuration" json:"-"`
+	Location string                `xml:"-" json:"-"`
+	Version  int                   `xml:"version,attr" default:"3"`
+	Folders  []FolderConfiguration `xml:"folder"`
+	Devices  []DeviceConfiguration `xml:"device"`
+	GUI      GUIConfiguration      `xml:"gui"`
+	Options  OptionsConfiguration  `xml:"options"`
+	XMLName  xml.Name              `xml:"configuration" json:"-"`
 }
 
 type FolderConfiguration struct {
-	ID              string                        `xml:"id,attr"`
-	Directory       string                        `xml:"directory,attr"`
-	Devices           []FolderDeviceConfiguration `xml:"device"`
-	ReadOnly        bool                          `xml:"ro,attr"`
-	RescanIntervalS int                           `xml:"rescanIntervalS,attr" default:"60"`
-	IgnorePerms     bool                          `xml:"ignorePerms,attr"`
-	Invalid         string                        `xml:"-"` // Set at runtime when there is an error, not saved
-	Versioning      VersioningConfiguration       `xml:"versioning"`
+	ID              string                      `xml:"id,attr"`
+	Directory       string                      `xml:"directory,attr"`
+	Devices         []FolderDeviceConfiguration `xml:"device"`
+	ReadOnly        bool                        `xml:"ro,attr"`
+	RescanIntervalS int                         `xml:"rescanIntervalS,attr" default:"60"`
+	IgnorePerms     bool                        `xml:"ignorePerms,attr"`
+	Invalid         string                      `xml:"-"` // Set at runtime when there is an error, not saved
+	Versioning      VersioningConfiguration     `xml:"versioning"`
 
 	deviceIDs []protocol.DeviceID
 }
@@ -96,12 +96,12 @@ func (r *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 }
 
 type DeviceConfiguration struct {
-	DeviceID      protocol.DeviceID `xml:"id,attr"`
-	Name        string          `xml:"name,attr,omitempty"`
-	Addresses   []string        `xml:"address,omitempty"`
-	Compression bool            `xml:"compression,attr"`
-	CertName    string          `xml:"certName,attr,omitempty"`
-	Introducer  bool            `xml:"introducer,attr"`
+	DeviceID    protocol.DeviceID `xml:"id,attr"`
+	Name        string            `xml:"name,attr,omitempty"`
+	Addresses   []string          `xml:"address,omitempty"`
+	Compression bool              `xml:"compression,attr"`
+	CertName    string            `xml:"certName,attr,omitempty"`
+	Introducer  bool              `xml:"introducer,attr"`
 }
 
 type FolderDeviceConfiguration struct {
@@ -375,7 +375,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		myName, _ := os.Hostname()
 		cfg.Devices = append(cfg.Devices, DeviceConfiguration{
 			DeviceID: myID,
-			Name:   myName,
+			Name:     myName,
 		})
 	}
 	sort.Sort(DeviceConfigurationList(cfg.Devices))
@@ -527,7 +527,7 @@ func convertV1V2(cfg *Configuration) {
 	// Set and sort the list of devices.
 	for _, device := range devices {
 		cfg.Devices = append(cfg.Devices, DeviceConfiguration{
-			DeviceID:    device.DeviceID,
+			DeviceID:  device.DeviceID,
 			Name:      device.Deprecated_Name,
 			Addresses: device.Deprecated_Addresses,
 		})

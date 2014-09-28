@@ -69,29 +69,29 @@ type Model struct {
 	cfg      *config.Configuration
 	db       *leveldb.DB
 
-	deviceName      string
+	deviceName    string
 	clientName    string
 	clientVersion string
 
-	folderCfgs     map[string]config.FolderConfiguration          // folder -> cfg
-	folderFiles    map[string]*files.Set                              // folder -> files
-	folderDevices    map[string][]protocol.DeviceID                       // folder -> deviceIDs
-	deviceFolders    map[protocol.DeviceID][]string                       // deviceID -> folders
+	folderCfgs     map[string]config.FolderConfiguration                  // folder -> cfg
+	folderFiles    map[string]*files.Set                                  // folder -> files
+	folderDevices  map[string][]protocol.DeviceID                         // folder -> deviceIDs
+	deviceFolders  map[protocol.DeviceID][]string                         // deviceID -> folders
 	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
-	folderIgnores  map[string]ignore.Patterns                         // folder -> list of ignore patterns
-	rmut         sync.RWMutex                                       // protects the above
+	folderIgnores  map[string]ignore.Patterns                             // folder -> list of ignore patterns
+	rmut           sync.RWMutex                                           // protects the above
 
 	folderState        map[string]folderState // folder -> state
-	folderStateChanged map[string]time.Time // folder -> time when state changed
-	smut             sync.RWMutex
+	folderStateChanged map[string]time.Time   // folder -> time when state changed
+	smut               sync.RWMutex
 
 	protoConn map[protocol.DeviceID]protocol.Connection
 	rawConn   map[protocol.DeviceID]io.Closer
-	deviceVer   map[protocol.DeviceID]string
+	deviceVer map[protocol.DeviceID]string
 	pmut      sync.RWMutex // protects protoConn and rawConn
 
 	addedFolder bool
-	started   bool
+	started     bool
 }
 
 var (
@@ -104,22 +104,22 @@ var (
 // for file data without altering the local folder in any way.
 func NewModel(indexDir string, cfg *config.Configuration, deviceName, clientName, clientVersion string, db *leveldb.DB) *Model {
 	m := &Model{
-		indexDir:         indexDir,
-		cfg:              cfg,
-		db:               db,
+		indexDir:           indexDir,
+		cfg:                cfg,
+		db:                 db,
 		deviceName:         deviceName,
-		clientName:       clientName,
-		clientVersion:    clientVersion,
+		clientName:         clientName,
+		clientVersion:      clientVersion,
 		folderCfgs:         make(map[string]config.FolderConfiguration),
 		folderFiles:        make(map[string]*files.Set),
-		folderDevices:        make(map[string][]protocol.DeviceID),
-		deviceFolders:        make(map[protocol.DeviceID][]string),
+		folderDevices:      make(map[string][]protocol.DeviceID),
+		deviceFolders:      make(map[protocol.DeviceID][]string),
 		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:      make(map[string]ignore.Patterns),
 		folderState:        make(map[string]folderState),
 		folderStateChanged: make(map[string]time.Time),
-		protoConn:        make(map[protocol.DeviceID]protocol.Connection),
-		rawConn:          make(map[protocol.DeviceID]io.Closer),
+		protoConn:          make(map[protocol.DeviceID]protocol.Connection),
+		rawConn:            make(map[protocol.DeviceID]io.Closer),
 		deviceVer:          make(map[protocol.DeviceID]string),
 	}
 
@@ -149,7 +149,7 @@ func (m *Model) StartFolderRW(folder string) {
 	}
 
 	p := Puller{
-		folder:     folder,
+		folder:   folder,
 		dir:      cfg.Directory,
 		scanIntv: time.Duration(cfg.RescanIntervalS) * time.Second,
 		model:    m,
@@ -411,8 +411,8 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	files.Replace(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
-		"device":    deviceID.String(),
-		"folder":    folder,
+		"device":  deviceID.String(),
+		"folder":  folder,
 		"items":   len(fs),
 		"version": files.LocalVersion(deviceID),
 	})
@@ -452,8 +452,8 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
-		"device":    deviceID.String(),
-		"folder":    folder,
+		"device":  deviceID.String(),
+		"folder":  folder,
 		"items":   len(fs),
 		"version": files.LocalVersion(deviceID),
 	})
@@ -890,7 +890,7 @@ func (m *Model) updateLocal(folder string, f protocol.FileInfo) {
 	m.folderFiles[folder].Update(protocol.LocalDeviceID, []protocol.FileInfo{f})
 	m.rmut.RUnlock()
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-		"folder":     folder,
+		"folder":   folder,
 		"name":     f.Name,
 		"modified": time.Unix(f.Modified, 0),
 		"flags":    fmt.Sprintf("0%o", f.Flags),
@@ -1022,7 +1022,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	batch := make([]protocol.FileInfo, 0, 00)
 	for f := range fchan {
 		events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-			"folder":     folder,
+			"folder":   folder,
 			"name":     f.Name,
 			"modified": time.Unix(f.Modified, 0),
 			"flags":    fmt.Sprintf("0%o", f.Flags),
@@ -1070,7 +1070,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 					Version:  f.Version, // The file is still the same, so don't bump version
 				}
 				events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-					"folder":     folder,
+					"folder":   folder,
 					"name":     f.Name,
 					"modified": time.Unix(f.Modified, 0),
 					"flags":    fmt.Sprintf("0%o", f.Flags),
@@ -1086,7 +1086,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 					Version:  lamport.Default.Tick(f.Version),
 				}
 				events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-					"folder":     folder,
+					"folder":   folder,
 					"name":     f.Name,
 					"modified": time.Unix(f.Modified, 0),
 					"flags":    fmt.Sprintf("0%o", f.Flags),
@@ -1153,7 +1153,7 @@ func (m *Model) setState(folder string, state folderState) {
 		m.folderStateChanged[folder] = time.Now()
 		eventData := map[string]interface{}{
 			"folder": folder,
-			"to":   state.String(),
+			"to":     state.String(),
 		}
 		if ok {
 			eventData["duration"] = time.Since(changed).Seconds()

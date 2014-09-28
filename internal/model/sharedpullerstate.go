@@ -17,7 +17,7 @@ import (
 type sharedPullerState struct {
 	// Immutable, does not require locking
 	file     protocol.FileInfo
-	folder     string
+	folder   string
 	tempName string
 	realName string
 

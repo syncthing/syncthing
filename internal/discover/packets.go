@@ -10,7 +10,7 @@ const (
 )
 
 type Query struct {
-	Magic  uint32
+	Magic    uint32
 	DeviceID []byte // max:32
 }
 

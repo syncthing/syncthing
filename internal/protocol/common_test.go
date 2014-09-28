@@ -11,7 +11,7 @@ import (
 
 type TestModel struct {
 	data     []byte
-	folder     string
+	folder   string
 	name     string
 	offset   int64
 	size     int

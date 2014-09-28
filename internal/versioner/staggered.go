@@ -30,7 +30,7 @@ type Interval struct {
 type Staggered struct {
 	versionsPath  string
 	cleanInterval int64
-	folderPath      string
+	folderPath    string
 	interval      [4]Interval
 	mutex         *sync.Mutex
 }
@@ -111,7 +111,7 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 	s := Staggered{
 		versionsPath:  versionsDir,
 		cleanInterval: cleanInterval,
-		folderPath:      folderPath,
+		folderPath:    folderPath,
 		interval: [4]Interval{
 			Interval{30, 3600},               // first hour -> 30 sec between versions
 			Interval{3600, 86400},            // next day -> 1 h between versions

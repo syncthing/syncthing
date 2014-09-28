@@ -26,9 +26,9 @@ const (
 	copiersPerFolder   = 1
 	pullersPerFolder   = 16
 	finishersPerFolder = 2
-	pauseIntv        = 60 * time.Second
-	nextPullIntv     = 10 * time.Second
-	checkPullIntv    = 1 * time.Second
+	pauseIntv          = 60 * time.Second
+	nextPullIntv       = 10 * time.Second
+	checkPullIntv      = 1 * time.Second
 )
 
 // A pullBlockState is passed to the puller routine for each block that needs
@@ -46,12 +46,12 @@ type copyBlocksState struct {
 }
 
 var (
-	activity  = newDeviceActivity()
+	activity    = newDeviceActivity()
 	errNoDevice = errors.New("no available source device")
 )
 
 type Puller struct {
-	folder      string
+	folder    string
 	dir       string
 	scanIntv  time.Duration
 	model     *Model
@@ -129,7 +129,7 @@ loop:
 						// version that includes those files in curVer. So we
 						// catch the case that localVersion might have
 						// decresed here.
-						l.Debugln(p,"adjusting curVer",lv)
+						l.Debugln(p, "adjusting curVer", lv)
 						curVer = lv
 					}
 					prevVer = curVer
@@ -241,7 +241,7 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 
 		events.Default.Log(events.ItemStarted, map[string]string{
 			"folder": p.folder,
-			"item": file.Name,
+			"item":   file.Name,
 		})
 
 		if debug {
@@ -384,7 +384,7 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 
 	s := sharedPullerState{
 		file:       file,
-		folder:       p.folder,
+		folder:     p.folder,
 		tempName:   tempName,
 		realName:   realName,
 		pullNeeded: len(pullBlocks),

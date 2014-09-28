@@ -380,8 +380,8 @@ func (d *Discoverer) registerDevice(addr net.Addr, device Device) bool {
 			addrs[i] = current[i].addr
 		}
 		events.Default.Log(events.DeviceDiscovered, map[string]interface{}{
-			"device":  id.String(),
-			"addrs": addrs,
+			"device": id.String(),
+			"addrs":  addrs,
 		})
 	}
 

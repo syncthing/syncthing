@@ -287,7 +287,7 @@ func TestClusterConfig(t *testing.T) {
 	cfg := config.New("/tmp/test", device1)
 	cfg.Devices = []config.DeviceConfiguration{
 		{
-			DeviceID:     device1,
+			DeviceID:   device1,
 			Introducer: true,
 		},
 		{

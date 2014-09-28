@@ -29,14 +29,14 @@ type bitset uint64
 type Set struct {
 	localVersion map[protocol.DeviceID]uint64
 	mutex        sync.Mutex
-	folder         string
+	folder       string
 	db           *leveldb.DB
 }
 
 func NewSet(folder string, db *leveldb.DB) *Set {
 	var s = Set{
 		localVersion: make(map[protocol.DeviceID]uint64),
-		folder:         folder,
+		folder:       folder,
 		db:           db,
 	}
 

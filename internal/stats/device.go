@@ -24,13 +24,13 @@ type DeviceStatistics struct {
 }
 
 type DeviceStatisticsReference struct {
-	db   *leveldb.DB
+	db     *leveldb.DB
 	device protocol.DeviceID
 }
 
 func NewDeviceStatisticsReference(db *leveldb.DB, device protocol.DeviceID) *DeviceStatisticsReference {
 	return &DeviceStatisticsReference{
-		db:   db,
+		db:     db,
 		device: device,
 	}
 }

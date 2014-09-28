@@ -353,12 +353,12 @@ func syncthingMain() {
 				ID:              "default",
 				Directory:       defaultFolder,
 				RescanIntervalS: 60,
-				Devices:           []config.FolderDeviceConfiguration{{DeviceID: myID}},
+				Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
 			},
 		}
 		cfg.Devices = []config.DeviceConfiguration{
 			{
-				DeviceID:    myID,
+				DeviceID:  myID,
 				Addresses: []string{"dynamic"},
 				Name:      myName,
 			},
@@ -856,7 +856,7 @@ next:
 		}
 
 		events.Default.Log(events.DeviceRejected, map[string]string{
-			"device":    remoteID.String(),
+			"device":  remoteID.String(),
 			"address": conn.RemoteAddr().String(),
 		})
 		l.Infof("Connection from %s with unknown device ID %s; ignoring", conn.RemoteAddr(), remoteID)

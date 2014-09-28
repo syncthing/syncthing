@@ -41,7 +41,7 @@ const (
 
 type fileVersion struct {
 	version uint64
-	device    []byte
+	device  []byte
 }
 
 type versionList struct {
@@ -355,7 +355,7 @@ func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device, file []byte, v
 
 	var fl versionList
 	nv := fileVersion{
-		device:    device,
+		device:  device,
 		version: version,
 	}
 	if svl != nil {
@@ -455,7 +455,7 @@ func ldbWithHave(db *leveldb.DB, folder, device []byte, truncate bool, fn fileIt
 func ldbWithAllFolderTruncated(db *leveldb.DB, folder []byte, fn func(device []byte, f protocol.FileInfoTruncated) bool) {
 	runtime.GC()
 
-	start := deviceKey(folder, nil, nil)                                                // before all folder/device files
+	start := deviceKey(folder, nil, nil)                                                  // before all folder/device files
 	limit := deviceKey(folder, protocol.LocalDeviceID[:], []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
 	snap, err := db.GetSnapshot()
 	if err != nil {
