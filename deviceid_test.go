@@ -20,14 +20,14 @@ var formatCases = []string{
 	"p561017mzjnu2yiqgdreydm2mgtimgl3bxnpq6w5bmt88z4tjxzwicq2",
 }
 
-func TestFormatNodeID(t *testing.T) {
+func TestFormatDeviceID(t *testing.T) {
 	for i, tc := range formatCases {
-		var id NodeID
+		var id DeviceID
 		err := id.UnmarshalText([]byte(tc))
 		if err != nil {
 			t.Errorf("#%d UnmarshalText(%q); %v", i, tc, err)
 		} else if f := id.String(); f != formatted {
-			t.Errorf("#%d FormatNodeID(%q)\n\t%q !=\n\t%q", i, tc, f, formatted)
+			t.Errorf("#%d FormatDeviceID(%q)\n\t%q !=\n\t%q", i, tc, f, formatted)
 		}
 	}
 }
@@ -46,20 +46,20 @@ var validateCases = []struct {
 	{"p56ioi7mzjnu2iqgdreydm2mgtmgl3bxnpq6w5btbbz4tjxzwicqCCCC", false},
 }
 
-func TestValidateNodeID(t *testing.T) {
+func TestValidateDeviceID(t *testing.T) {
 	for _, tc := range validateCases {
-		var id NodeID
+		var id DeviceID
 		err := id.UnmarshalText([]byte(tc.s))
 		if (err == nil && !tc.ok) || (err != nil && tc.ok) {
-			t.Errorf("ValidateNodeID(%q); %v != %v", tc.s, err, tc.ok)
+			t.Errorf("ValidateDeviceID(%q); %v != %v", tc.s, err, tc.ok)
 		}
 	}
 }
 
-func TestMarshallingNodeID(t *testing.T) {
-	n0 := NodeID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 10, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}
-	n1 := NodeID{}
-	n2 := NodeID{}
+func TestMarshallingDeviceID(t *testing.T) {
+	n0 := DeviceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 10, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}
+	n1 := DeviceID{}
+	n2 := DeviceID{}
 
 	bs, _ := n0.MarshalText()
 	n1.UnmarshalText(bs)

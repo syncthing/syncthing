@@ -57,30 +57,30 @@ var (
 )
 
 type Model interface {
-	// An index was received from the peer node
-	Index(nodeID NodeID, repo string, files []FileInfo)
-	// An index update was received from the peer node
-	IndexUpdate(nodeID NodeID, repo string, files []FileInfo)
-	// A request was made by the peer node
-	Request(nodeID NodeID, repo string, name string, offset int64, size int) ([]byte, error)
+	// An index was received from the peer device
+	Index(deviceID DeviceID, folder string, files []FileInfo)
+	// An index update was received from the peer device
+	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo)
+	// A request was made by the peer device
+	Request(deviceID DeviceID, folder string, name string, offset int64, size int) ([]byte, error)
 	// A cluster configuration message was received
-	ClusterConfig(nodeID NodeID, config ClusterConfigMessage)
-	// The peer node closed the connection
-	Close(nodeID NodeID, err error)
+	ClusterConfig(deviceID DeviceID, config ClusterConfigMessage)
+	// The peer device closed the connection
+	Close(deviceID DeviceID, err error)
 }
 
 type Connection interface {
-	ID() NodeID
+	ID() DeviceID
 	Name() string
-	Index(repo string, files []FileInfo) error
-	IndexUpdate(repo string, files []FileInfo) error
-	Request(repo string, name string, offset int64, size int) ([]byte, error)
+	Index(folder string, files []FileInfo) error
+	IndexUpdate(folder string, files []FileInfo) error
+	Request(folder string, name string, offset int64, size int) ([]byte, error)
 	ClusterConfig(config ClusterConfigMessage)
 	Statistics() Statistics
 }
 
 type rawConnection struct {
-	id       NodeID
+	id       DeviceID
 	name     string
 	receiver Model
 	state    int
@@ -123,7 +123,7 @@ const (
 	pingIdleTime = 60 * time.Second
 )
 
-func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver Model, name string, compress bool) Connection {
+func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress bool) Connection {
 	cr := &countingReader{Reader: reader}
 	cw := &countingWriter{Writer: writer}
 
@@ -132,7 +132,7 @@ func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver M
 		compThres = 128 // compress messages that are 128 bytes long or larger
 	}
 	c := rawConnection{
-		id:                   nodeID,
+		id:                   deviceID,
 		name:                 name,
 		receiver:             nativeModel{receiver},
 		state:                stateInitial,
@@ -152,7 +152,7 @@ func NewConnection(nodeID NodeID, reader io.Reader, writer io.Writer, receiver M
 	return wireFormatConnection{&c}
 }
 
-func (c *rawConnection) ID() NodeID {
+func (c *rawConnection) ID() DeviceID {
 	return c.id
 }
 
@@ -160,34 +160,34 @@ func (c *rawConnection) Name() string {
 	return c.name
 }
 
-// Index writes the list of file information to the connected peer node
-func (c *rawConnection) Index(repo string, idx []FileInfo) error {
+// Index writes the list of file information to the connected peer device
+func (c *rawConnection) Index(folder string, idx []FileInfo) error {
 	select {
 	case <-c.closed:
 		return ErrClosed
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(-1, messageTypeIndex, IndexMessage{repo, idx})
+	c.send(-1, messageTypeIndex, IndexMessage{folder, idx})
 	c.idxMut.Unlock()
 	return nil
 }
 
-// IndexUpdate writes the list of file information to the connected peer node as an update
-func (c *rawConnection) IndexUpdate(repo string, idx []FileInfo) error {
+// IndexUpdate writes the list of file information to the connected peer device as an update
+func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo) error {
 	select {
 	case <-c.closed:
 		return ErrClosed
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(-1, messageTypeIndexUpdate, IndexMessage{repo, idx})
+	c.send(-1, messageTypeIndexUpdate, IndexMessage{folder, idx})
 	c.idxMut.Unlock()
 	return nil
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
-func (c *rawConnection) Request(repo string, name string, offset int64, size int) ([]byte, error) {
+func (c *rawConnection) Request(folder string, name string, offset int64, size int) ([]byte, error) {
 	var id int
 	select {
 	case id = <-c.nextID:
@@ -203,7 +203,7 @@ func (c *rawConnection) Request(repo string, name string, offset int64, size int
 	c.awaiting[id] = rc
 	c.awaitingMut.Unlock()
 
-	ok := c.send(id, messageTypeRequest, RequestMessage{repo, name, uint64(offset), uint32(size)})
+	ok := c.send(id, messageTypeRequest, RequestMessage{folder, name, uint64(offset), uint32(size)})
 	if !ok {
 		return nil, ErrClosed
 	}
@@ -399,20 +399,20 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 
 func (c *rawConnection) handleIndex(im IndexMessage) {
 	if debug {
-		l.Debugf("Index(%v, %v, %d files)", c.id, im.Repository, len(im.Files))
+		l.Debugf("Index(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
 	}
-	c.receiver.Index(c.id, im.Repository, im.Files)
+	c.receiver.Index(c.id, im.Folder, im.Files)
 }
 
 func (c *rawConnection) handleIndexUpdate(im IndexMessage) {
 	if debug {
-		l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.id, im.Repository, len(im.Files))
+		l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
 	}
-	c.receiver.IndexUpdate(c.id, im.Repository, im.Files)
+	c.receiver.IndexUpdate(c.id, im.Folder, im.Files)
 }
 
 func (c *rawConnection) handleRequest(msgID int, req RequestMessage) {
-	data, _ := c.receiver.Request(c.id, req.Repository, req.Name, int64(req.Offset), int(req.Size))
+	data, _ := c.receiver.Request(c.id, req.Folder, req.Name, int64(req.Offset), int(req.Size))
 
 	c.send(msgID, messageTypeResponse, ResponseMessage{data})
 }

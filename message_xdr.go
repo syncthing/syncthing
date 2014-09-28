@@ -18,10 +18,10 @@ IndexMessage Structure:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     Length of Repository                      |
+|                       Length of Folder                        |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                 Repository (variable length)                  \
+\                   Folder (variable length)                    \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                        Number of Files                        |
@@ -33,7 +33,7 @@ IndexMessage Structure:
 
 
 struct IndexMessage {
-	string Repository<64>;
+	string Folder<64>;
 	FileInfo Files<>;
 }
 
@@ -56,10 +56,10 @@ func (o IndexMessage) AppendXDR(bs []byte) []byte {
 }
 
 func (o IndexMessage) encodeXDR(xw *xdr.Writer) (int, error) {
-	if len(o.Repository) > 64 {
+	if len(o.Folder) > 64 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
-	xw.WriteString(o.Repository)
+	xw.WriteString(o.Folder)
 	xw.WriteUint32(uint32(len(o.Files)))
 	for i := range o.Files {
 		_, err := o.Files[i].encodeXDR(xw)
@@ -82,7 +82,7 @@ func (o *IndexMessage) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *IndexMessage) decodeXDR(xr *xdr.Reader) error {
-	o.Repository = xr.ReadStringMax(64)
+	o.Folder = xr.ReadStringMax(64)
 	_FilesSize := int(xr.ReadUint32())
 	o.Files = make([]FileInfo, _FilesSize)
 	for i := range o.Files {
@@ -362,10 +362,10 @@ RequestMessage Structure:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     Length of Repository                      |
+|                       Length of Folder                        |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                 Repository (variable length)                  \
+\                   Folder (variable length)                    \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                        Length of Name                         |
@@ -383,7 +383,7 @@ RequestMessage Structure:
 
 
 struct RequestMessage {
-	string Repository<64>;
+	string Folder<64>;
 	string Name<8192>;
 	unsigned hyper Offset;
 	unsigned int Size;
@@ -408,10 +408,10 @@ func (o RequestMessage) AppendXDR(bs []byte) []byte {
 }
 
 func (o RequestMessage) encodeXDR(xw *xdr.Writer) (int, error) {
-	if len(o.Repository) > 64 {
+	if len(o.Folder) > 64 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
-	xw.WriteString(o.Repository)
+	xw.WriteString(o.Folder)
 	if len(o.Name) > 8192 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
@@ -433,7 +433,7 @@ func (o *RequestMessage) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *RequestMessage) decodeXDR(xr *xdr.Reader) error {
-	o.Repository = xr.ReadStringMax(64)
+	o.Folder = xr.ReadStringMax(64)
 	o.Name = xr.ReadStringMax(8192)
 	o.Offset = xr.ReadUint64()
 	o.Size = xr.ReadUint32()
@@ -517,10 +517,10 @@ ClusterConfigMessage Structure:
 \               Client Version (variable length)                \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Number of Repositories                     |
+|                       Number of Folders                       |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\              Zero or more Repository Structures               \
+\                Zero or more Folder Structures                 \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                       Number of Options                       |
@@ -534,7 +534,7 @@ ClusterConfigMessage Structure:
 struct ClusterConfigMessage {
 	string ClientName<64>;
 	string ClientVersion<64>;
-	Repository Repositories<64>;
+	Folder Folders<64>;
 	Option Options<64>;
 }
 
@@ -565,12 +565,12 @@ func (o ClusterConfigMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteString(o.ClientVersion)
-	if len(o.Repositories) > 64 {
+	if len(o.Folders) > 64 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
-	xw.WriteUint32(uint32(len(o.Repositories)))
-	for i := range o.Repositories {
-		_, err := o.Repositories[i].encodeXDR(xw)
+	xw.WriteUint32(uint32(len(o.Folders)))
+	for i := range o.Folders {
+		_, err := o.Folders[i].encodeXDR(xw)
 		if err != nil {
 			return xw.Tot(), err
 		}
@@ -602,13 +602,13 @@ func (o *ClusterConfigMessage) UnmarshalXDR(bs []byte) error {
 func (o *ClusterConfigMessage) decodeXDR(xr *xdr.Reader) error {
 	o.ClientName = xr.ReadStringMax(64)
 	o.ClientVersion = xr.ReadStringMax(64)
-	_RepositoriesSize := int(xr.ReadUint32())
-	if _RepositoriesSize > 64 {
+	_FoldersSize := int(xr.ReadUint32())
+	if _FoldersSize > 64 {
 		return xdr.ErrElementSizeExceeded
 	}
-	o.Repositories = make([]Repository, _RepositoriesSize)
-	for i := range o.Repositories {
-		(&o.Repositories[i]).decodeXDR(xr)
+	o.Folders = make([]Folder, _FoldersSize)
+	for i := range o.Folders {
+		(&o.Folders[i]).decodeXDR(xr)
 	}
 	_OptionsSize := int(xr.ReadUint32())
 	if _OptionsSize > 64 {
@@ -623,7 +623,7 @@ func (o *ClusterConfigMessage) decodeXDR(xr *xdr.Reader) error {
 
 /*
 
-Repository Structure:
+Folder Structure:
 
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -634,48 +634,48 @@ Repository Structure:
 \                     ID (variable length)                      \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Number of Nodes                        |
+|                       Number of Devices                       |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                 Zero or more Node Structures                  \
+\                Zero or more Device Structures                 \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
-struct Repository {
+struct Folder {
 	string ID<64>;
-	Node Nodes<64>;
+	Device Devices<64>;
 }
 
 */
 
-func (o Repository) EncodeXDR(w io.Writer) (int, error) {
+func (o Folder) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
 	return o.encodeXDR(xw)
 }
 
-func (o Repository) MarshalXDR() []byte {
+func (o Folder) MarshalXDR() []byte {
 	return o.AppendXDR(make([]byte, 0, 128))
 }
 
-func (o Repository) AppendXDR(bs []byte) []byte {
+func (o Folder) AppendXDR(bs []byte) []byte {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
 }
 
-func (o Repository) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o Folder) encodeXDR(xw *xdr.Writer) (int, error) {
 	if len(o.ID) > 64 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteString(o.ID)
-	if len(o.Nodes) > 64 {
+	if len(o.Devices) > 64 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
-	xw.WriteUint32(uint32(len(o.Nodes)))
-	for i := range o.Nodes {
-		_, err := o.Nodes[i].encodeXDR(xw)
+	xw.WriteUint32(uint32(len(o.Devices)))
+	for i := range o.Devices {
+		_, err := o.Devices[i].encodeXDR(xw)
 		if err != nil {
 			return xw.Tot(), err
 		}
@@ -683,33 +683,33 @@ func (o Repository) encodeXDR(xw *xdr.Writer) (int, error) {
 	return xw.Tot(), xw.Error()
 }
 
-func (o *Repository) DecodeXDR(r io.Reader) error {
+func (o *Folder) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
 	return o.decodeXDR(xr)
 }
 
-func (o *Repository) UnmarshalXDR(bs []byte) error {
+func (o *Folder) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
 	return o.decodeXDR(xr)
 }
 
-func (o *Repository) decodeXDR(xr *xdr.Reader) error {
+func (o *Folder) decodeXDR(xr *xdr.Reader) error {
 	o.ID = xr.ReadStringMax(64)
-	_NodesSize := int(xr.ReadUint32())
-	if _NodesSize > 64 {
+	_DevicesSize := int(xr.ReadUint32())
+	if _DevicesSize > 64 {
 		return xdr.ErrElementSizeExceeded
 	}
-	o.Nodes = make([]Node, _NodesSize)
-	for i := range o.Nodes {
-		(&o.Nodes[i]).decodeXDR(xr)
+	o.Devices = make([]Device, _DevicesSize)
+	for i := range o.Devices {
+		(&o.Devices[i]).decodeXDR(xr)
 	}
 	return xr.Error()
 }
 
 /*
 
-Node Structure:
+Device Structure:
 
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -728,7 +728,7 @@ Node Structure:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
-struct Node {
+struct Device {
 	opaque ID<32>;
 	unsigned int Flags;
 	unsigned hyper MaxLocalVersion;
@@ -736,23 +736,23 @@ struct Node {
 
 */
 
-func (o Node) EncodeXDR(w io.Writer) (int, error) {
+func (o Device) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
 	return o.encodeXDR(xw)
 }
 
-func (o Node) MarshalXDR() []byte {
+func (o Device) MarshalXDR() []byte {
 	return o.AppendXDR(make([]byte, 0, 128))
 }
 
-func (o Node) AppendXDR(bs []byte) []byte {
+func (o Device) AppendXDR(bs []byte) []byte {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
 }
 
-func (o Node) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o Device) encodeXDR(xw *xdr.Writer) (int, error) {
 	if len(o.ID) > 32 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
@@ -762,18 +762,18 @@ func (o Node) encodeXDR(xw *xdr.Writer) (int, error) {
 	return xw.Tot(), xw.Error()
 }
 
-func (o *Node) DecodeXDR(r io.Reader) error {
+func (o *Device) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
 	return o.decodeXDR(xr)
 }
 
-func (o *Node) UnmarshalXDR(bs []byte) error {
+func (o *Device) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
 	return o.decodeXDR(xr)
 }
 
-func (o *Node) decodeXDR(xr *xdr.Reader) error {
+func (o *Device) decodeXDR(xr *xdr.Reader) error {
 	o.ID = xr.ReadBytesMax(32)
 	o.Flags = xr.ReadUint32()
 	o.MaxLocalVersion = xr.ReadUint64()

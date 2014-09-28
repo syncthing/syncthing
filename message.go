@@ -7,7 +7,7 @@ package protocol
 import "fmt"
 
 type IndexMessage struct {
-	Repository string // max:64
+	Folder string // max:64
 	Files      []FileInfo
 }
 
@@ -90,7 +90,7 @@ func (b BlockInfo) String() string {
 }
 
 type RequestMessage struct {
-	Repository string // max:64
+	Folder string // max:64
 	Name       string // max:8192
 	Offset     uint64
 	Size       uint32
@@ -103,7 +103,7 @@ type ResponseMessage struct {
 type ClusterConfigMessage struct {
 	ClientName    string       // max:64
 	ClientVersion string       // max:64
-	Repositories  []Repository // max:64
+	Folders  []Folder // max:64
 	Options       []Option     // max:64
 }
 
@@ -116,12 +116,12 @@ func (o *ClusterConfigMessage) GetOption(key string) string {
 	return ""
 }
 
-type Repository struct {
+type Folder struct {
 	ID    string // max:64
-	Nodes []Node // max:64
+	Devices []Device // max:64
 }
 
-type Node struct {
+type Device struct {
 	ID              []byte // max:32
 	Flags           uint32
 	MaxLocalVersion uint64
