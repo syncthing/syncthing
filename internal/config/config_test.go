@@ -47,7 +47,7 @@ func TestDefaultValues(t *testing.T) {
 }
 
 func TestDeviceConfig(t *testing.T) {
-	for i, ver := range []string{"v1", "v2", "v3", "v4"} {
+	for i, ver := range []string{"v1", "v2", "v3", "v4", "v5"} {
 		cfg, err := Load("testdata/"+ver+".xml", device1)
 		if err != nil {
 			t.Error(err)
@@ -65,21 +65,21 @@ func TestDeviceConfig(t *testing.T) {
 		expectedDevices := []DeviceConfiguration{
 			{
 				DeviceID:    device1,
-				Name:        "device one",
+				Name:        "node one",
 				Addresses:   []string{"a"},
 				Compression: true,
 			},
 			{
 				DeviceID:    device4,
-				Name:        "device two",
+				Name:        "node two",
 				Addresses:   []string{"b"},
 				Compression: true,
 			},
 		}
 		expectedDeviceIDs := []protocol.DeviceID{device1, device4}
 
-		if cfg.Version != 4 {
-			t.Errorf("%d: Incorrect version %d != 3", i, cfg.Version)
+		if cfg.Version != 5 {
+			t.Errorf("%d: Incorrect version %d != 5", i, cfg.Version)
 		}
 		if !reflect.DeepEqual(cfg.Folders, expectedFolders) {
 			t.Errorf("%d: Incorrect Folders\n  A: %#v\n  E: %#v", i, cfg.Folders, expectedFolders)

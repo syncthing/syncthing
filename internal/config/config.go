@@ -30,6 +30,9 @@ type Configuration struct {
 	GUI      GUIConfiguration      `xml:"gui"`
 	Options  OptionsConfiguration  `xml:"options"`
 	XMLName  xml.Name              `xml:"configuration" json:"-"`
+
+	Deprecated_Repositories []FolderConfiguration `xml:"repository" json:"-"`
+	Deprecated_Nodes        []DeviceConfiguration `xml:"node" json:"-"`
 }
 
 type FolderConfiguration struct {
@@ -43,6 +46,9 @@ type FolderConfiguration struct {
 	Versioning      VersioningConfiguration     `xml:"versioning"`
 
 	deviceIDs []protocol.DeviceID
+
+	Depreceted_Directory string                      `xml:"directory,omitempty,attr" json:"-"`
+	Depreceted_Nodes     []FolderDeviceConfiguration `xml:"node" json:"-"`
 }
 
 type VersioningConfiguration struct {
@@ -352,6 +358,11 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		convertV3V4(cfg)
 	}
 
+	// Upgrade to v5 configuration if appropriate
+	if cfg.Version == 4 {
+		convertV4V5(cfg)
+	}
+
 	// Hash old cleartext passwords
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
 		hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
@@ -465,12 +476,38 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 	return false
 }
 
+func convertV4V5(cfg *Configuration) {
+	// Renamed a bunch of fields in the structs.
+	if cfg.Deprecated_Nodes == nil {
+		cfg.Deprecated_Nodes = []DeviceConfiguration{}
+	}
+
+	if cfg.Deprecated_Repositories == nil {
+		cfg.Deprecated_Repositories = []FolderConfiguration{}
+	}
+
+	cfg.Devices = cfg.Deprecated_Nodes
+	cfg.Folders = cfg.Deprecated_Repositories
+
+	for i := range cfg.Folders {
+		cfg.Folders[i].Path = cfg.Folders[i].Depreceted_Directory
+		cfg.Folders[i].Depreceted_Directory = ""
+		cfg.Folders[i].Devices = cfg.Folders[i].Depreceted_Nodes
+		cfg.Folders[i].Depreceted_Nodes = nil
+	}
+
+	cfg.Deprecated_Nodes = nil
+	cfg.Deprecated_Repositories = nil
+
+	cfg.Version = 5
+}
+
 func convertV3V4(cfg *Configuration) {
 	// In previous versions, rescan interval was common for each folder.
 	// From now, it can be set independently. We have to make sure, that after upgrade
 	// the individual rescan interval will be defined for every existing folder.
-	for i := range cfg.Folders {
-		cfg.Folders[i].RescanIntervalS = cfg.Options.Deprecated_RescanIntervalS
+	for i := range cfg.Deprecated_Repositories {
+		cfg.Deprecated_Repositories[i].RescanIntervalS = cfg.Options.Deprecated_RescanIntervalS
 	}
 
 	cfg.Options.Deprecated_RescanIntervalS = 0
@@ -478,10 +515,10 @@ func convertV3V4(cfg *Configuration) {
 	// In previous versions, folders held full device configurations.
 	// Since that's the only place where device configs were in V1, we still have
 	// to define the deprecated fields to be able to upgrade from V1 to V4.
-	for i, folder := range cfg.Folders {
+	for i, folder := range cfg.Deprecated_Repositories {
 
-		for j := range folder.Devices {
-			rncfg := cfg.Folders[i].Devices[j]
+		for j := range folder.Depreceted_Nodes {
+			rncfg := cfg.Deprecated_Repositories[i].Depreceted_Nodes[j]
 			rncfg.Deprecated_Name = ""
 			rncfg.Deprecated_Addresses = nil
 		}
@@ -494,8 +531,8 @@ func convertV2V3(cfg *Configuration) {
 	// In previous versions, compression was always on. When upgrading, enable
 	// compression on all existing new. New devices will get compression on by
 	// default by the GUI.
-	for i := range cfg.Devices {
-		cfg.Devices[i].Compression = true
+	for i := range cfg.Deprecated_Nodes {
+		cfg.Deprecated_Nodes[i].Compression = true
 	}
 
 	// The global discovery format and port number changed in v0.9. Having the
@@ -513,27 +550,27 @@ func convertV1V2(cfg *Configuration) {
 	// device ID. Set all folders to read only if the global read only flag is
 	// set.
 	var devices = map[string]FolderDeviceConfiguration{}
-	for i, folder := range cfg.Folders {
-		cfg.Folders[i].ReadOnly = cfg.Options.Deprecated_ReadOnly
-		for j, device := range folder.Devices {
+	for i, folder := range cfg.Deprecated_Repositories {
+		cfg.Deprecated_Repositories[i].ReadOnly = cfg.Options.Deprecated_ReadOnly
+		for j, device := range folder.Depreceted_Nodes {
 			id := device.DeviceID.String()
 			if _, ok := devices[id]; !ok {
 				devices[id] = device
 			}
-			cfg.Folders[i].Devices[j] = FolderDeviceConfiguration{DeviceID: device.DeviceID}
+			cfg.Deprecated_Repositories[i].Depreceted_Nodes[j] = FolderDeviceConfiguration{DeviceID: device.DeviceID}
 		}
 	}
 	cfg.Options.Deprecated_ReadOnly = false
 
 	// Set and sort the list of devices.
 	for _, device := range devices {
-		cfg.Devices = append(cfg.Devices, DeviceConfiguration{
+		cfg.Deprecated_Nodes = append(cfg.Deprecated_Nodes, DeviceConfiguration{
 			DeviceID:  device.DeviceID,
 			Name:      device.Deprecated_Name,
 			Addresses: device.Deprecated_Addresses,
 		})
 	}
-	sort.Sort(DeviceConfigurationList(cfg.Devices))
+	sort.Sort(DeviceConfigurationList(cfg.Deprecated_Nodes))
 
 	// GUI
 	cfg.GUI.Address = cfg.Options.Deprecated_GUIAddress
