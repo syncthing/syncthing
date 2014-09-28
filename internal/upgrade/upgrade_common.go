@@ -9,6 +9,8 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+
+	"bitbucket.org/kardianos/osext"
 )
 
 type Release struct {
@@ -38,7 +40,12 @@ func init() {
 func UpgradeTo(rel Release, archExtra string) error {
 	select {
 	case <-upgradeUnlocked:
-		err := upgradeTo(rel, archExtra)
+		path, err := osext.Executable()
+		if err != nil {
+			upgradeUnlocked <- true
+			return err
+		}
+		err = upgradeTo(path, rel, archExtra)
 		// If we've failed to upgrade, unlock so that another attempt could be made
 		if err != nil {
 			upgradeUnlocked <- true

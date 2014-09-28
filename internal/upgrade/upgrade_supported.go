@@ -19,16 +19,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"bitbucket.org/kardianos/osext"
 )
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
-func upgradeTo(rel Release, archExtra string) error {
-	path, err := osext.Executable()
-	if err != nil {
-		return err
-	}
+func upgradeTo(path string, rel Release, archExtra string) error {
 	osName := runtime.GOOS
 	if osName == "darwin" {
 		// We call the darwin release bundles macosx because that makes more
