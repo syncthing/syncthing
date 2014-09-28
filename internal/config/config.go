@@ -509,8 +509,9 @@ func convertV2V3(cfg *Configuration) {
 
 func convertV1V2(cfg *Configuration) {
 	// Collect the list of devices.
-	// Replace device configs inside folders with only a reference to the nide ID.
-	// Set all folders to read only if the global read only flag is set.
+	// Replace device configs inside folders with only a reference to the
+	// device ID. Set all folders to read only if the global read only flag is
+	// set.
 	var devices = map[string]FolderDeviceConfiguration{}
 	for i, folder := range cfg.Folders {
 		cfg.Folders[i].ReadOnly = cfg.Options.Deprecated_ReadOnly

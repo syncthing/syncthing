@@ -79,7 +79,7 @@ type Model struct {
 	deviceFolders  map[protocol.DeviceID][]string                         // deviceID -> folders
 	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
 	folderIgnores  map[string]ignore.Patterns                             // folder -> list of ignore patterns
-	rmut           sync.RWMutex                                           // protects the above
+	fmut           sync.RWMutex                                           // protects the above
 
 	folderState        map[string]folderState // folder -> state
 	folderStateChanged map[string]time.Time   // folder -> time when state changed
@@ -130,7 +130,7 @@ func NewModel(indexDir string, cfg *config.Configuration, deviceName, clientName
 			timeout = it
 		}
 	}
-	deadlockDetect(&m.rmut, time.Duration(timeout)*time.Second)
+	deadlockDetect(&m.fmut, time.Duration(timeout)*time.Second)
 	deadlockDetect(&m.smut, time.Duration(timeout)*time.Second)
 	deadlockDetect(&m.pmut, time.Duration(timeout)*time.Second)
 	return m
@@ -140,9 +140,9 @@ func NewModel(indexDir string, cfg *config.Configuration, deviceName, clientName
 // read/write mode the model will attempt to keep in sync with the cluster by
 // pulling needed files from peer devices.
 func (m *Model) StartFolderRW(folder string) {
-	m.rmut.Lock()
+	m.fmut.Lock()
 	cfg, ok := m.folderCfgs[folder]
-	m.rmut.Unlock()
+	m.fmut.Unlock()
 
 	if !ok {
 		panic("cannot start nonexistent folder " + folder)
@@ -202,7 +202,7 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	}
 
 	m.pmut.RLock()
-	m.rmut.RLock()
+	m.fmut.RLock()
 
 	var res = make(map[string]ConnectionInfo)
 	for device, conn := range m.protoConn {
@@ -217,7 +217,7 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 		res[device.String()] = ci
 	}
 
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 	m.pmut.RUnlock()
 
 	in, out := protocol.TotalInOut()
@@ -245,9 +245,9 @@ func (m *Model) DeviceStatistics() map[string]stats.DeviceStatistics {
 func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 	var tot int64
 
-	m.rmut.RLock()
+	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 	if !ok {
 		return 0 // Folder doesn't exist, so we hardly have any of it
 	}
@@ -302,8 +302,8 @@ func sizeOfFile(f protocol.FileIntf) (files, deleted int, bytes int64) {
 // GlobalSize returns the number of files, deleted files and total bytes for all
 // files in the global model.
 func (m *Model) GlobalSize(folder string) (files, deleted int, bytes int64) {
-	m.rmut.RLock()
-	defer m.rmut.RUnlock()
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
 		rf.WithGlobalTruncated(func(f protocol.FileIntf) bool {
 			fs, de, by := sizeOfFile(f)
@@ -319,8 +319,8 @@ func (m *Model) GlobalSize(folder string) (files, deleted int, bytes int64) {
 // LocalSize returns the number of files, deleted files and total bytes for all
 // files in the local folder.
 func (m *Model) LocalSize(folder string) (files, deleted int, bytes int64) {
-	m.rmut.RLock()
-	defer m.rmut.RUnlock()
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
 		rf.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
 			if f.IsInvalid() {
@@ -338,8 +338,8 @@ func (m *Model) LocalSize(folder string) (files, deleted int, bytes int64) {
 
 // NeedSize returns the number and total size of currently needed files.
 func (m *Model) NeedSize(folder string) (files int, bytes int64) {
-	m.rmut.RLock()
-	defer m.rmut.RUnlock()
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
 		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
 			fs, de, by := sizeOfFile(f)
@@ -356,9 +356,9 @@ func (m *Model) NeedSize(folder string) (files int, bytes int64) {
 
 // NeedFiles returns the list of currently needed files, stopping at maxFiles
 // files or maxBlocks blocks. Limits <= 0 are ignored.
-func (m *Model) NeedFilesFolderLimited(folder string, maxFiles, maxBlocks int) []protocol.FileInfo {
-	m.rmut.RLock()
-	defer m.rmut.RUnlock()
+func (m *Model) NeedFolderFilesLimited(folder string, maxFiles, maxBlocks int) []protocol.FileInfo {
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
 	nblocks := 0
 	if rf, ok := m.folderFiles[folder]; ok {
 		fs := make([]protocol.FileInfo, 0, maxFiles)
@@ -389,10 +389,10 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 		return
 	}
 
-	m.rmut.RLock()
+	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
 	ignores, _ := m.folderIgnores[folder]
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 
 	if !ok {
 		l.Fatalf("Index for nonexistant folder %q", folder)
@@ -430,10 +430,10 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 		return
 	}
 
-	m.rmut.RLock()
+	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
 	ignores, _ := m.folderIgnores[folder]
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 
 	if !ok {
 		l.Fatalf("IndexUpdate for nonexistant folder %q", folder)
@@ -460,8 +460,8 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 }
 
 func (m *Model) folderSharedWith(folder string, deviceID protocol.DeviceID) bool {
-	m.rmut.RLock()
-	defer m.rmut.RUnlock()
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
 	for _, nfolder := range m.deviceFolders[deviceID] {
 		if nfolder == folder {
 			return true
@@ -568,11 +568,11 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 	})
 
 	m.pmut.Lock()
-	m.rmut.RLock()
+	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
 		m.folderFiles[folder].Replace(device, nil)
 	}
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 
 	conn, ok := m.rawConn[device]
 	if ok {
@@ -595,9 +595,9 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 // Implements the protocol.Model interface.
 func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, size int) ([]byte, error) {
 	// Verify that the requested file exists in the local model.
-	m.rmut.RLock()
+	m.fmut.RLock()
 	r, ok := m.folderFiles[folder]
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 
 	if !ok {
 		l.Warnf("Request from %s for file %s in nonexistent folder %q", deviceID, name, folder)
@@ -622,9 +622,9 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	if debug && deviceID != protocol.LocalDeviceID {
 		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 	}
-	m.rmut.RLock()
+	m.fmut.RLock()
 	fn := filepath.Join(m.folderCfgs[folder].Directory, name)
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 	fd, err := os.Open(fn) // XXX: Inefficient, should cache fd?
 	if err != nil {
 		return nil, err
@@ -642,22 +642,22 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 // ReplaceLocal replaces the local folder index with the given list of files.
 func (m *Model) ReplaceLocal(folder string, fs []protocol.FileInfo) {
-	m.rmut.RLock()
+	m.fmut.RLock()
 	m.folderFiles[folder].ReplaceWithDelete(protocol.LocalDeviceID, fs)
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 }
 
 func (m *Model) CurrentFolderFile(folder string, file string) protocol.FileInfo {
-	m.rmut.RLock()
+	m.fmut.RLock()
 	f := m.folderFiles[folder].Get(protocol.LocalDeviceID, file)
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 	return f
 }
 
 func (m *Model) CurrentGlobalFile(folder string, file string) protocol.FileInfo {
-	m.rmut.RLock()
+	m.fmut.RLock()
 	f := m.folderFiles[folder].GetGlobal(file)
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 	return f
 }
 
@@ -690,8 +690,8 @@ func (m *Model) GetIgnores(folder string) ([]string, error) {
 		return lines, fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	m.rmut.Lock()
-	defer m.rmut.Unlock()
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
 
 	fd, err := os.Open(filepath.Join(cfg.Directory, ".stignore"))
 	if err != nil {
@@ -767,20 +767,20 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	cm := m.clusterConfig(deviceID)
 	protoConn.ClusterConfig(cm)
 
-	m.rmut.RLock()
+	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[deviceID] {
 		fs := m.folderFiles[folder]
 		go sendIndexes(protoConn, folder, fs, m.folderIgnores[folder])
 	}
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 	m.pmut.Unlock()
 
 	m.deviceWasSeen(deviceID)
 }
 
 func (m *Model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatisticsReference {
-	m.rmut.Lock()
-	defer m.rmut.Unlock()
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
 
 	if sr, ok := m.deviceStatRefs[deviceID]; ok {
 		return sr
@@ -886,9 +886,9 @@ func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, fol
 
 func (m *Model) updateLocal(folder string, f protocol.FileInfo) {
 	f.LocalVersion = 0
-	m.rmut.RLock()
+	m.fmut.RLock()
 	m.folderFiles[folder].Update(protocol.LocalDeviceID, []protocol.FileInfo{f})
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":   folder,
 		"name":     f.Name,
@@ -922,7 +922,7 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 		panic("cannot add empty folder id")
 	}
 
-	m.rmut.Lock()
+	m.fmut.Lock()
 	m.folderCfgs[cfg.ID] = cfg
 	m.folderFiles[cfg.ID] = files.NewSet(cfg.ID, m.db)
 
@@ -933,16 +933,16 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 	}
 
 	m.addedFolder = true
-	m.rmut.Unlock()
+	m.fmut.Unlock()
 }
 
 func (m *Model) ScanFolders() {
-	m.rmut.RLock()
+	m.fmut.RLock()
 	var folders = make([]string, 0, len(m.folderCfgs))
 	for folder := range m.folderCfgs {
 		folders = append(folders, folder)
 	}
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 
 	var wg sync.WaitGroup
 	wg.Add(len(folders))
@@ -960,12 +960,12 @@ func (m *Model) ScanFolders() {
 }
 
 func (m *Model) CleanFolders() {
-	m.rmut.RLock()
+	m.fmut.RLock()
 	var dirs = make([]string, 0, len(m.folderCfgs))
 	for _, cfg := range m.folderCfgs {
 		dirs = append(dirs, cfg.Directory)
 	}
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 
 	var wg sync.WaitGroup
 	wg.Add(len(dirs))
@@ -991,7 +991,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		return errors.New("invalid subpath")
 	}
 
-	m.rmut.RLock()
+	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	dir := m.folderCfgs[folder].Directory
 
@@ -1007,7 +1007,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		CurrentFiler: cFiler{m, folder},
 		IgnorePerms:  m.folderCfgs[folder].IgnorePerms,
 	}
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 	if !ok {
 		return errors.New("no such folder")
 	}
@@ -1118,7 +1118,7 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 		},
 	}
 
-	m.rmut.RLock()
+	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
 		cr := protocol.Folder{
 			ID: folder,
@@ -1139,7 +1139,7 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 		}
 		cm.Folders = append(cm.Folders, cr)
 	}
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 
 	return cm
 }
@@ -1173,9 +1173,9 @@ func (m *Model) State(folder string) (string, time.Time) {
 }
 
 func (m *Model) Override(folder string) {
-	m.rmut.RLock()
+	m.fmut.RLock()
 	fs := m.folderFiles[folder]
-	m.rmut.RUnlock()
+	m.fmut.RUnlock()
 
 	m.setState(folder, FolderScanning)
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -1210,8 +1210,8 @@ func (m *Model) Override(folder string) {
 // This is guaranteed to increment if the contents of the local folder has
 // changed.
 func (m *Model) CurrentLocalVersion(folder string) uint64 {
-	m.rmut.Lock()
-	defer m.rmut.Unlock()
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
 
 	fs, ok := m.folderFiles[folder]
 	if !ok {
@@ -1225,8 +1225,8 @@ func (m *Model) CurrentLocalVersion(folder string) uint64 {
 // sent by remote peers. This is guaranteed to increment if the contents of
 // the remote or global folder has changed.
 func (m *Model) RemoteLocalVersion(folder string) uint64 {
-	m.rmut.Lock()
-	defer m.rmut.Unlock()
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
 
 	fs, ok := m.folderFiles[folder]
 	if !ok {
@@ -1242,8 +1242,8 @@ func (m *Model) RemoteLocalVersion(folder string) uint64 {
 }
 
 func (m *Model) availability(folder string, file string) []protocol.DeviceID {
-	m.rmut.Lock()
-	defer m.rmut.Unlock()
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
 
 	fs, ok := m.folderFiles[folder]
 	if !ok {

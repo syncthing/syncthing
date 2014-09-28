@@ -158,10 +158,10 @@ Cluster Config messages MUST NOT be sent after the initial exchange.
     \                ClientVersion (variable length)                \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                    Number of Folders                     |
+    |                       Number of Folders                       |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \              Zero or more Folder Structures               \
+    \                Zero or more Folder Structures                 \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                       Number of Options                       |
@@ -183,10 +183,10 @@ Cluster Config messages MUST NOT be sent after the initial exchange.
     \                     ID (variable length)                      \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                        Number of Devices                        |
+    |                       Number of Devices                       |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                 Zero or more Device Structures                  \
+    \                Zero or more Device Structures                 \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
@@ -350,10 +350,10 @@ Index message MUST be sent. There is no response to the Index message.
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                     Length of Folder                      |
+    |                       Length of Folder                        |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                 Folder (variable length)                  \
+    \                   Folder (variable length)                    \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                        Number of Files                        |
@@ -513,10 +513,10 @@ corresponding to a part of a certain file in the peer's folder.
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                     Length of Folder                      |
+    |                       Length of Folder                        |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                 Folder (variable length)                  \
+    \                   Folder (variable length)                    \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                        Length of Name                         |
@@ -624,7 +624,7 @@ directions.
 
     +------------+     Updates      /---------\
     |            |  ----------->   /           \
-    |    Device    |                 |  Cluster  |
+    |   Device   |                 |  Cluster  |
     |            |  <-----------   \           /
     +------------+     Updates      \---------/
 
@@ -637,7 +637,7 @@ affected by the actions of other cluster devices.
 
     +------------+     Updates      /---------\
     |            |  ----------->   /           \
-    |    Device    |                 |  Cluster  |
+    |   Device   |                 |  Cluster  |
     |            |                 \           /
     +------------+                  \---------/
 

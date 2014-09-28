@@ -217,9 +217,9 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 		}()
 	}
 
-	p.model.rmut.RLock()
+	p.model.fmut.RLock()
 	files := p.model.folderFiles[p.folder]
-	p.model.rmut.RUnlock()
+	p.model.fmut.RUnlock()
 
 	// !!!
 	// WithNeed takes a database snapshot (by necessity). By the time we've

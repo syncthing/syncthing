@@ -277,7 +277,7 @@ func restGetNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 
-	files := m.NeedFilesFolderLimited(folder, 100, 2500) // max 100 files or 2500 blocks
+	files := m.NeedFolderFilesLimited(folder, 100, 2500) // max 100 files or 2500 blocks
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(files)

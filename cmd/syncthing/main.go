@@ -448,8 +448,8 @@ nextFolder:
 			// that all files have been deleted which might not be the case,
 			// so mark it as invalid instead.
 			if err != nil || !fi.IsDir() {
-				l.Warnf("Stopping folder %q - directory missing, but has files in index", folder.ID)
-				cfg.Folders[i].Invalid = "folder directory missing"
+				l.Warnf("Stopping folder %q - path does not exist, but has files in index", folder.ID)
+				cfg.Folders[i].Invalid = "folder path missing"
 				continue nextFolder
 			}
 		} else if os.IsNotExist(err) {
@@ -460,7 +460,7 @@ nextFolder:
 
 		if err != nil {
 			// If there was another error or we could not create the
-			// directory, the folder is invalid.
+			// path, the folder is invalid.
 			l.Warnf("Stopping folder %q - %v", err)
 			cfg.Folders[i].Invalid = err.Error()
 			continue nextFolder
