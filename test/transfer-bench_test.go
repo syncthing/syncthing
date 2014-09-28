@@ -14,6 +14,11 @@ import (
 )
 
 func TestBenchmarkTransfer(t *testing.T) {
+	nfiles := 10000
+	if testing.Short() {
+		nfiles = 1000
+	}
+
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s2", "h1/index", "h2/index")
 	if err != nil {
@@ -21,7 +26,7 @@ func TestBenchmarkTransfer(t *testing.T) {
 	}
 
 	log.Println("Generating files...")
-	err = generateFiles("s1", 10000, 22, "../bin/syncthing")
+	err = generateFiles("s1", nfiles, 22, "../bin/syncthing")
 	if err != nil {
 		t.Fatal(err)
 	}
