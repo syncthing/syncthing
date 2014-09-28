@@ -17,10 +17,6 @@ import (
 	"time"
 )
 
-func init() {
-	rand.Seed(42)
-}
-
 func ReadRand(bs []byte) (int, error) {
 	var r uint32
 	for i := range bs {
@@ -42,11 +38,19 @@ func main() {
 	var files int
 	var maxexp int
 	var srcname string
+	var random bool
 
 	flag.IntVar(&files, "files", 1000, "Number of files")
 	flag.IntVar(&maxexp, "maxexp", 20, "Maximum file size (max = 2^n + 128*1024 B)")
 	flag.StringVar(&srcname, "src", "/usr/share/dict/words", "Source material")
+	flag.BoolVar(&random, "random", true, "When false, always generate the same set of file")
 	flag.Parse()
+
+	if random {
+		rand.Seed(time.Now().UnixNano())
+	} else {
+		rand.Seed(42)
+	}
 
 	fd, err := os.Open(srcname)
 	if err != nil {
