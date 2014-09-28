@@ -67,73 +67,60 @@ func main() {
 
 	checkRequiredGoVersion()
 
-	if check() != nil {
-		setup()
-	}
-
 	if flag.NArg() == 0 {
 		install("./cmd/...")
 		return
 	}
 
-	switch flag.Arg(0) {
-	case "install":
-		pkg := "./cmd/..."
-		if flag.NArg() > 2 {
-			pkg = flag.Arg(1)
+	for _, cmd := range flag.Args() {
+		switch cmd {
+		case "setup":
+			setup()
+
+		case "install":
+			pkg := "./cmd/..."
+			install(pkg)
+
+		case "build":
+			pkg := "./cmd/syncthing"
+			var tags []string
+			if noupgrade {
+				tags = []string{"noupgrade"}
+			}
+			build(pkg, tags)
+
+		case "test":
+			pkg := "./..."
+			test(pkg)
+
+		case "assets":
+			assets()
+
+		case "xdr":
+			xdr()
+
+		case "translate":
+			translate()
+
+		case "transifex":
+			transifex()
+
+		case "deps":
+			deps()
+
+		case "tar":
+			buildTar()
+
+		case "zip":
+			buildZip()
+
+		case "clean":
+			clean()
+
+		default:
+			log.Fatalf("Unknown command %q", cmd)
 		}
-		install(pkg)
-
-	case "build":
-		pkg := "./cmd/syncthing"
-		if flag.NArg() > 2 {
-			pkg = flag.Arg(1)
-		}
-		var tags []string
-		if noupgrade {
-			tags = []string{"noupgrade"}
-		}
-		build(pkg, tags)
-
-	case "test":
-		pkg := "./..."
-		if flag.NArg() > 2 {
-			pkg = flag.Arg(1)
-		}
-		test(pkg)
-
-	case "assets":
-		assets()
-
-	case "xdr":
-		xdr()
-
-	case "translate":
-		translate()
-
-	case "transifex":
-		transifex()
-
-	case "deps":
-		deps()
-
-	case "tar":
-		buildTar()
-
-	case "zip":
-		buildZip()
-
-	case "clean":
-		clean()
-
-	default:
-		log.Fatalf("Unknown command %q", flag.Arg(0))
 	}
-}
-
-func check() error {
-	_, err := exec.LookPath("godep")
-	return err
 }
 
 func checkRequiredGoVersion() {
@@ -163,24 +150,25 @@ func setup() {
 }
 
 func test(pkg string) {
-	runPrint("godep", "go", "test", "-short", "-timeout", "10s", pkg)
+	setBuildEnv()
+	runPrint("go", "test", "-short", "-timeout", "10s", pkg)
 }
 
 func install(pkg string) {
 	os.Setenv("GOBIN", "./bin")
 	setBuildEnv()
-	runPrint("godep", "go", "install", "-ldflags", ldflags(), pkg)
+	runPrint("go", "install", "-ldflags", ldflags(), pkg)
 }
 
 func build(pkg string, tags []string) {
 	rmr("syncthing", "syncthing.exe")
-	args := []string{"go", "build", "-ldflags", ldflags()}
+	args := []string{"build", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
 	}
 	args = append(args, pkg)
 	setBuildEnv()
-	runPrint("godep", args...)
+	runPrint("go", args...)
 }
 
 func buildTar() {
@@ -230,10 +218,18 @@ func setBuildEnv() {
 	if goarch == "386" {
 		os.Setenv("GO386", "387")
 	}
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Println("Warning: can't determine current dir:", err)
+		log.Println("Build might not work as expected")
+	}
+	os.Setenv("GOPATH", fmt.Sprintf("%s%c%s", filepath.Join(wd, "Godeps", "_workspace"), os.PathListSeparator, os.Getenv("GOPATH")))
+	log.Println("GOPATH=" + os.Getenv("GOPATH"))
 }
 
 func assets() {
-	runPipe("internal/auto/gui.files.go", "godep", "go", "run", "cmd/genassets/main.go", "gui")
+	setBuildEnv()
+	runPipe("internal/auto/gui.files.go", "go", "run", "cmd/genassets/main.go", "gui")
 }
 
 func xdr() {
