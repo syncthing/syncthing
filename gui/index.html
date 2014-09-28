@@ -107,7 +107,7 @@
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder</span></th>
-                      <td class="text-right">{{folder.Directory}}</td>
+                      <td class="text-right">{{folder.Path}}</td>
                     </tr>
                     <tr ng-if="model[folder.ID].invalid">
                       <th><span class="glyphicon glyphicon-warning-sign"></span>&emsp;<span translate>Error</span></th>
@@ -569,7 +569,7 @@
           </dl>
         </div>
         <div class="modal-footer">
-          <div class="pull-left"><span translate>Editing</span> <code>{{currentFolder.Directory}}/.stignore</code></div>
+          <div class="pull-left"><span translate>Editing</span> <code>{{currentFolder.Path}}/.stignore</code></div>
           <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal" ng-click="saveIgnores()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
           <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
         </div>

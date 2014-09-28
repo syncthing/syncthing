@@ -34,7 +34,7 @@ type Configuration struct {
 
 type FolderConfiguration struct {
 	ID              string                      `xml:"id,attr"`
-	Directory       string                      `xml:"directory,attr"`
+	Path            string                      `xml:"path,attr"`
 	Devices         []FolderDeviceConfiguration `xml:"device"`
 	ReadOnly        bool                        `xml:"ro,attr"`
 	RescanIntervalS int                         `xml:"rescanIntervalS,attr" default:"60"`
@@ -306,7 +306,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	for i := range cfg.Folders {
 		folder := &cfg.Folders[i]
 
-		if len(folder.Directory) == 0 {
+		if len(folder.Path) == 0 {
 			folder.Invalid = "no directory configured"
 			continue
 		}

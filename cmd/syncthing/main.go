@@ -351,7 +351,7 @@ func syncthingMain() {
 		cfg.Folders = []config.FolderConfiguration{
 			{
 				ID:              "default",
-				Directory:       defaultFolder,
+				Path:            defaultFolder,
 				RescanIntervalS: 60,
 				Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
 			},
@@ -438,10 +438,10 @@ nextFolder:
 		if folder.Invalid != "" {
 			continue
 		}
-		folder.Directory = expandTilde(folder.Directory)
+		folder.Path = expandTilde(folder.Path)
 		m.AddFolder(folder)
 
-		fi, err := os.Stat(folder.Directory)
+		fi, err := os.Stat(folder.Path)
 		if m.CurrentLocalVersion(folder.ID) > 0 {
 			// Safety check. If the cached index contains files but the
 			// folder doesn't exist, we have a problem. We would assume
@@ -455,7 +455,7 @@ nextFolder:
 		} else if os.IsNotExist(err) {
 			// If we don't have any files in the index, and the directory
 			// doesn't exist, try creating it.
-			err = os.MkdirAll(folder.Directory, 0700)
+			err = os.MkdirAll(folder.Path, 0700)
 		}
 
 		if err != nil {
@@ -533,7 +533,7 @@ nextFolder:
 
 	validIndexes := make(map[string]bool)
 	for _, folder := range cfg.Folders {
-		dir := expandTilde(folder.Directory)
+		dir := expandTilde(folder.Path)
 		id := fmt.Sprintf("%x", sha1.Sum([]byte(dir)))
 		validIndexes[id] = true
 	}
@@ -717,9 +717,9 @@ func renewUPnP(port int) {
 func resetFolders() {
 	suffix := fmt.Sprintf(".syncthing-reset-%d", time.Now().UnixNano())
 	for _, folder := range cfg.Folders {
-		if _, err := os.Stat(folder.Directory); err == nil {
-			l.Infof("Reset: Moving %s -> %s", folder.Directory, folder.Directory+suffix)
-			os.Rename(folder.Directory, folder.Directory+suffix)
+		if _, err := os.Stat(folder.Path); err == nil {
+			l.Infof("Reset: Moving %s -> %s", folder.Path, folder.Path+suffix)
+			os.Rename(folder.Path, folder.Path+suffix)
 		}
 	}
 

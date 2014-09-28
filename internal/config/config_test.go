@@ -56,7 +56,7 @@ func TestDeviceConfig(t *testing.T) {
 		expectedFolders := []FolderConfiguration{
 			{
 				ID:              "test",
-				Directory:       "~/Sync",
+				Path:            "~/Sync",
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				ReadOnly:        true,
 				RescanIntervalS: 600,

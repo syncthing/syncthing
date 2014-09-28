@@ -150,7 +150,7 @@ func (m *Model) StartFolderRW(folder string) {
 
 	p := Puller{
 		folder:   folder,
-		dir:      cfg.Directory,
+		dir:      cfg.Path,
 		scanIntv: time.Duration(cfg.RescanIntervalS) * time.Second,
 		model:    m,
 	}
@@ -160,7 +160,7 @@ func (m *Model) StartFolderRW(folder string) {
 		if !ok {
 			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
 		}
-		p.versioner = factory(folder, cfg.Directory, cfg.Versioning.Params)
+		p.versioner = factory(folder, cfg.Path, cfg.Versioning.Params)
 	}
 
 	go p.Serve()
@@ -623,7 +623,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 	}
 	m.fmut.RLock()
-	fn := filepath.Join(m.folderCfgs[folder].Directory, name)
+	fn := filepath.Join(m.folderCfgs[folder].Path, name)
 	m.fmut.RUnlock()
 	fd, err := os.Open(fn) // XXX: Inefficient, should cache fd?
 	if err != nil {
@@ -693,7 +693,7 @@ func (m *Model) GetIgnores(folder string) ([]string, error) {
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
-	fd, err := os.Open(filepath.Join(cfg.Directory, ".stignore"))
+	fd, err := os.Open(filepath.Join(cfg.Path, ".stignore"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return lines, nil
@@ -717,7 +717,7 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	fd, err := ioutil.TempFile(cfg.Directory, ".syncthing.stignore-"+folder)
+	fd, err := ioutil.TempFile(cfg.Path, ".syncthing.stignore-"+folder)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
@@ -738,7 +738,7 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return err
 	}
 
-	file := filepath.Join(cfg.Directory, ".stignore")
+	file := filepath.Join(cfg.Path, ".stignore")
 	err = osutil.Rename(fd.Name(), file)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
@@ -963,7 +963,7 @@ func (m *Model) CleanFolders() {
 	m.fmut.RLock()
 	var dirs = make([]string, 0, len(m.folderCfgs))
 	for _, cfg := range m.folderCfgs {
-		dirs = append(dirs, cfg.Directory)
+		dirs = append(dirs, cfg.Path)
 	}
 	m.fmut.RUnlock()
 
@@ -993,7 +993,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
-	dir := m.folderCfgs[folder].Directory
+	dir := m.folderCfgs[folder].Path
 
 	ignores, _ := ignore.Load(filepath.Join(dir, ".stignore"))
 	m.folderIgnores[folder] = ignores
