@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"bitbucket.org/kardianos/osext"
+	"github.com/calmh/osext"
 )
 
 type Release struct {
