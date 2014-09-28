@@ -213,7 +213,7 @@ func handleAnnounceV2(db *leveldb.DB, addr *net.UDPAddr, buf []byte) error {
 		})
 	}
 
-	var id protocol.NodeID
+	var id protocol.DeviceID
 	if len(pkt.This.ID) == 32 {
 		// Raw node ID
 		copy(id[:], pkt.This.ID)
@@ -238,12 +238,12 @@ func handleQueryV2(db *leveldb.DB, conn *net.UDPConn, addr *net.UDPAddr, buf []b
 		log.Printf("<- %v %#v", addr, pkt)
 	}
 
-	var id protocol.NodeID
-	if len(pkt.NodeID) == 32 {
+	var id protocol.DeviceID
+	if len(pkt.DeviceID) == 32 {
 		// Raw node ID
-		copy(id[:], pkt.NodeID)
+		copy(id[:], pkt.DeviceID)
 	} else {
-		err = id.UnmarshalText(pkt.NodeID)
+		err = id.UnmarshalText(pkt.DeviceID)
 		if err != nil {
 			return err
 		}
@@ -259,8 +259,8 @@ func handleQueryV2(db *leveldb.DB, conn *net.UDPConn, addr *net.UDPAddr, buf []b
 	if len(addrs) > 0 {
 		ann := discover.Announce{
 			Magic: discover.AnnouncementMagic,
-			This: discover.Node{
-				ID: pkt.NodeID,
+			This: discover.Device{
+				ID: pkt.DeviceID,
 			},
 		}
 		for _, addr := range addrs {
@@ -318,7 +318,7 @@ func logStats(statsLog io.Writer, intv int) {
 	}
 }
 
-func get(db *leveldb.DB, id protocol.NodeID) []address {
+func get(db *leveldb.DB, id protocol.DeviceID) []address {
 	var addrs addressList
 	val, err := db.Get(id[:], nil)
 	if err == nil {
@@ -327,7 +327,7 @@ func get(db *leveldb.DB, id protocol.NodeID) []address {
 	return addrs.addresses
 }
 
-func update(db *leveldb.DB, id protocol.NodeID, addrs []address) {
+func update(db *leveldb.DB, id protocol.DeviceID, addrs []address) {
 	var newAddrs addressList
 
 	val, err := db.Get(id[:], nil)
