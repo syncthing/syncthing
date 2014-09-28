@@ -17,15 +17,15 @@ const (
 	Ping = 1 << iota
 	Starting
 	StartupComplete
-	NodeDiscovered
-	NodeConnected
-	NodeDisconnected
-	NodeRejected
+	DeviceDiscovered
+	DeviceConnected
+	DeviceDisconnected
+	DeviceRejected
 	LocalIndexUpdated
 	RemoteIndexUpdated
 	ItemStarted
 	StateChanged
-	RepoRejected
+	FolderRejected
 	ConfigSaved
 
 	AllEvents = ^EventType(0)
@@ -39,14 +39,14 @@ func (t EventType) String() string {
 		return "Starting"
 	case StartupComplete:
 		return "StartupComplete"
-	case NodeDiscovered:
-		return "NodeDiscovered"
-	case NodeConnected:
-		return "NodeConnected"
-	case NodeDisconnected:
-		return "NodeDisconnected"
-	case NodeRejected:
-		return "NodeRejected"
+	case DeviceDiscovered:
+		return "DeviceDiscovered"
+	case DeviceConnected:
+		return "DeviceConnected"
+	case DeviceDisconnected:
+		return "DeviceDisconnected"
+	case DeviceRejected:
+		return "DeviceRejected"
 	case LocalIndexUpdated:
 		return "LocalIndexUpdated"
 	case RemoteIndexUpdated:
@@ -55,8 +55,8 @@ func (t EventType) String() string {
 		return "ItemStarted"
 	case StateChanged:
 		return "StateChanged"
-	case RepoRejected:
-		return "RepoRejected"
+	case FolderRejected:
+		return "FolderRejected"
 	case ConfigSaved:
 		return "ConfigSaved"
 	default:

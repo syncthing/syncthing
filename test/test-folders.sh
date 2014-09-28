@@ -55,7 +55,7 @@ testConvergence() {
 		tot=$(($s1comp + $s2comp))
 		echo $tot / 200
 		if [[ $tot == 200 ]] ; then
-			# when fixing up directories, a node will announce completion
+			# when fixing up directories, a device will announce completion
 			# slightly before it's actually complete. this is arguably a bug,
 			# but we let it slide for the moment as long as it gets there
 			# eventually.
@@ -71,7 +71,7 @@ testConvergence() {
 	popd >/dev/null
 
 	if ! cmp dirs-1 dirs-2 ; then
-		echo Repos differ
+		echo Folders differ
 		stop
 		exit 1
 	fi

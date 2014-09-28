@@ -11,7 +11,7 @@ import (
 
 type TestModel struct {
 	data     []byte
-	repo     string
+	folder     string
 	name     string
 	offset   int64
 	size     int
@@ -24,25 +24,25 @@ func newTestModel() *TestModel {
 	}
 }
 
-func (t *TestModel) Index(nodeID NodeID, repo string, files []FileInfo) {
+func (t *TestModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
 }
 
-func (t *TestModel) IndexUpdate(nodeID NodeID, repo string, files []FileInfo) {
+func (t *TestModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
 }
 
-func (t *TestModel) Request(nodeID NodeID, repo, name string, offset int64, size int) ([]byte, error) {
-	t.repo = repo
+func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64, size int) ([]byte, error) {
+	t.folder = folder
 	t.name = name
 	t.offset = offset
 	t.size = size
 	return t.data, nil
 }
 
-func (t *TestModel) Close(nodeID NodeID, err error) {
+func (t *TestModel) Close(deviceID DeviceID, err error) {
 	close(t.closedCh)
 }
 
-func (t *TestModel) ClusterConfig(nodeID NodeID, config ClusterConfigMessage) {
+func (t *TestModel) ClusterConfig(deviceID DeviceID, config ClusterConfigMessage) {
 }
 
 func (t *TestModel) isClosed() bool {

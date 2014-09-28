@@ -17,11 +17,11 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
-var node1, node2 protocol.NodeID
+var device1, device2 protocol.DeviceID
 
 func init() {
-	node1, _ = protocol.NodeIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
-	node2, _ = protocol.NodeIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
+	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
+	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 }
 
 var testDataExpected = map[string]protocol.FileInfo{
@@ -57,11 +57,11 @@ func init() {
 
 func TestRequest(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", &config.Configuration{}, "node", "syncthing", "dev", db)
-	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
-	m.ScanRepo("default")
+	m := NewModel("/tmp", &config.Configuration{}, "device", "syncthing", "dev", db)
+	m.AddFolder(config.FolderConfiguration{ID: "default", Directory: "testdata"})
+	m.ScanFolder("default")
 
-	bs, err := m.Request(node1, "default", "foo", 0, 6)
+	bs, err := m.Request(device1, "default", "foo", 0, 6)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestRequest(t *testing.T) {
 		t.Errorf("Incorrect data from request: %q", string(bs))
 	}
 
-	bs, err = m.Request(node1, "default", "../walk.go", 0, 6)
+	bs, err = m.Request(device1, "default", "../walk.go", 0, 6)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -94,76 +94,76 @@ func genFiles(n int) []protocol.FileInfo {
 
 func BenchmarkIndex10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
-	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
-	m.ScanRepo("default")
+	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m.AddFolder(config.FolderConfiguration{ID: "default", Directory: "testdata"})
+	m.ScanFolder("default")
 	files := genFiles(10000)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.Index(node1, "default", files)
+		m.Index(device1, "default", files)
 	}
 }
 
 func BenchmarkIndex00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
-	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
-	m.ScanRepo("default")
+	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m.AddFolder(config.FolderConfiguration{ID: "default", Directory: "testdata"})
+	m.ScanFolder("default")
 	files := genFiles(100)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.Index(node1, "default", files)
+		m.Index(device1, "default", files)
 	}
 }
 
 func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
-	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
-	m.ScanRepo("default")
+	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m.AddFolder(config.FolderConfiguration{ID: "default", Directory: "testdata"})
+	m.ScanFolder("default")
 	files := genFiles(10000)
-	m.Index(node1, "default", files)
+	m.Index(device1, "default", files)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate(node1, "default", files)
+		m.IndexUpdate(device1, "default", files)
 	}
 }
 
 func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
-	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
-	m.ScanRepo("default")
+	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m.AddFolder(config.FolderConfiguration{ID: "default", Directory: "testdata"})
+	m.ScanFolder("default")
 	files := genFiles(10000)
-	m.Index(node1, "default", files)
+	m.Index(device1, "default", files)
 
 	ufiles := genFiles(100)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate(node1, "default", ufiles)
+		m.IndexUpdate(device1, "default", ufiles)
 	}
 }
 
 func BenchmarkIndexUpdate10000f00001(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
-	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
-	m.ScanRepo("default")
+	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m.AddFolder(config.FolderConfiguration{ID: "default", Directory: "testdata"})
+	m.ScanFolder("default")
 	files := genFiles(10000)
-	m.Index(node1, "default", files)
+	m.Index(device1, "default", files)
 
 	ufiles := genFiles(1)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate(node1, "default", ufiles)
+		m.IndexUpdate(device1, "default", ufiles)
 	}
 }
 
 type FakeConnection struct {
-	id          protocol.NodeID
+	id          protocol.DeviceID
 	requestData []byte
 }
 
@@ -171,7 +171,7 @@ func (FakeConnection) Close() error {
 	return nil
 }
 
-func (f FakeConnection) ID() protocol.NodeID {
+func (f FakeConnection) ID() protocol.DeviceID {
 	return f.id
 }
 
@@ -191,7 +191,7 @@ func (FakeConnection) IndexUpdate(string, []protocol.FileInfo) error {
 	return nil
 }
 
-func (f FakeConnection) Request(repo, name string, offset int64, size int) ([]byte, error) {
+func (f FakeConnection) Request(folder, name string, offset int64, size int) ([]byte, error) {
 	return f.requestData, nil
 }
 
@@ -207,9 +207,9 @@ func (FakeConnection) Statistics() protocol.Statistics {
 
 func BenchmarkRequest(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
-	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
-	m.ScanRepo("default")
+	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m.AddFolder(config.FolderConfiguration{ID: "default", Directory: "testdata"})
+	m.ScanFolder("default")
 
 	const n = 1000
 	files := make([]protocol.FileInfo, n)
@@ -223,15 +223,15 @@ func BenchmarkRequest(b *testing.B) {
 	}
 
 	fc := FakeConnection{
-		id:          node1,
+		id:          device1,
 		requestData: []byte("some data to return"),
 	}
 	m.AddConnection(fc, fc)
-	m.Index(node1, "default", files)
+	m.Index(device1, "default", files)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		data, err := m.requestGlobal(node1, "default", files[i%n].Name, 0, 32, nil)
+		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil)
 		if err != nil {
 			b.Error(err)
 		}
@@ -241,28 +241,28 @@ func BenchmarkRequest(b *testing.B) {
 	}
 }
 
-func TestNodeRename(t *testing.T) {
+func TestDeviceRename(t *testing.T) {
 	ccm := protocol.ClusterConfigMessage{
 		ClientName:    "syncthing",
 		ClientVersion: "v0.9.4",
 	}
 
-	cfg := config.New("/tmp/test", node1)
-	cfg.Nodes = []config.NodeConfiguration{
+	cfg := config.New("/tmp/test", device1)
+	cfg.Devices = []config.DeviceConfiguration{
 		{
-			NodeID: node1,
+			DeviceID: device1,
 		},
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", &cfg, "node", "syncthing", "dev", db)
-	if cfg.Nodes[0].Name != "" {
-		t.Errorf("Node already has a name")
+	m := NewModel("/tmp", &cfg, "device", "syncthing", "dev", db)
+	if cfg.Devices[0].Name != "" {
+		t.Errorf("Device already has a name")
 	}
 
-	m.ClusterConfig(node1, ccm)
-	if cfg.Nodes[0].Name != "" {
-		t.Errorf("Node already has a name")
+	m.ClusterConfig(device1, ccm)
+	if cfg.Devices[0].Name != "" {
+		t.Errorf("Device already has a name")
 	}
 
 	ccm.Options = []protocol.Option{
@@ -271,96 +271,96 @@ func TestNodeRename(t *testing.T) {
 			Value: "tester",
 		},
 	}
-	m.ClusterConfig(node1, ccm)
-	if cfg.Nodes[0].Name != "tester" {
-		t.Errorf("Node did not get a name")
+	m.ClusterConfig(device1, ccm)
+	if cfg.Devices[0].Name != "tester" {
+		t.Errorf("Device did not get a name")
 	}
 
 	ccm.Options[0].Value = "tester2"
-	m.ClusterConfig(node1, ccm)
-	if cfg.Nodes[0].Name != "tester" {
-		t.Errorf("Node name got overwritten")
+	m.ClusterConfig(device1, ccm)
+	if cfg.Devices[0].Name != "tester" {
+		t.Errorf("Device name got overwritten")
 	}
 }
 
 func TestClusterConfig(t *testing.T) {
-	cfg := config.New("/tmp/test", node1)
-	cfg.Nodes = []config.NodeConfiguration{
+	cfg := config.New("/tmp/test", device1)
+	cfg.Devices = []config.DeviceConfiguration{
 		{
-			NodeID:     node1,
+			DeviceID:     device1,
 			Introducer: true,
 		},
 		{
-			NodeID: node2,
+			DeviceID: device2,
 		},
 	}
-	cfg.Repositories = []config.RepositoryConfiguration{
+	cfg.Folders = []config.FolderConfiguration{
 		{
-			ID: "repo1",
-			Nodes: []config.RepositoryNodeConfiguration{
-				{NodeID: node1},
-				{NodeID: node2},
+			ID: "folder1",
+			Devices: []config.FolderDeviceConfiguration{
+				{DeviceID: device1},
+				{DeviceID: device2},
 			},
 		},
 		{
-			ID: "repo2",
-			Nodes: []config.RepositoryNodeConfiguration{
-				{NodeID: node1},
-				{NodeID: node2},
+			ID: "folder2",
+			Devices: []config.FolderDeviceConfiguration{
+				{DeviceID: device1},
+				{DeviceID: device2},
 			},
 		},
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 
-	m := NewModel("/tmp", &cfg, "node", "syncthing", "dev", db)
-	m.AddRepo(cfg.Repositories[0])
-	m.AddRepo(cfg.Repositories[1])
+	m := NewModel("/tmp", &cfg, "device", "syncthing", "dev", db)
+	m.AddFolder(cfg.Folders[0])
+	m.AddFolder(cfg.Folders[1])
 
-	cm := m.clusterConfig(node2)
+	cm := m.clusterConfig(device2)
 
-	if l := len(cm.Repositories); l != 2 {
-		t.Fatalf("Incorrect number of repos %d != 2", l)
-	}
-
-	r := cm.Repositories[0]
-	if r.ID != "repo1" {
-		t.Errorf("Incorrect repo %q != repo1", r.ID)
-	}
-	if l := len(r.Nodes); l != 2 {
-		t.Errorf("Incorrect number of nodes %d != 2", l)
-	}
-	if id := r.Nodes[0].ID; bytes.Compare(id, node1[:]) != 0 {
-		t.Errorf("Incorrect node ID %x != %x", id, node1)
-	}
-	if r.Nodes[0].Flags&protocol.FlagIntroducer == 0 {
-		t.Error("Node1 should be flagged as Introducer")
-	}
-	if id := r.Nodes[1].ID; bytes.Compare(id, node2[:]) != 0 {
-		t.Errorf("Incorrect node ID %x != %x", id, node2)
-	}
-	if r.Nodes[1].Flags&protocol.FlagIntroducer != 0 {
-		t.Error("Node2 should not be flagged as Introducer")
+	if l := len(cm.Folders); l != 2 {
+		t.Fatalf("Incorrect number of folders %d != 2", l)
 	}
 
-	r = cm.Repositories[1]
-	if r.ID != "repo2" {
-		t.Errorf("Incorrect repo %q != repo2", r.ID)
+	r := cm.Folders[0]
+	if r.ID != "folder1" {
+		t.Errorf("Incorrect folder %q != folder1", r.ID)
 	}
-	if l := len(r.Nodes); l != 2 {
-		t.Errorf("Incorrect number of nodes %d != 2", l)
+	if l := len(r.Devices); l != 2 {
+		t.Errorf("Incorrect number of devices %d != 2", l)
 	}
-	if id := r.Nodes[0].ID; bytes.Compare(id, node1[:]) != 0 {
-		t.Errorf("Incorrect node ID %x != %x", id, node1)
+	if id := r.Devices[0].ID; bytes.Compare(id, device1[:]) != 0 {
+		t.Errorf("Incorrect device ID %x != %x", id, device1)
 	}
-	if r.Nodes[0].Flags&protocol.FlagIntroducer == 0 {
-		t.Error("Node1 should be flagged as Introducer")
+	if r.Devices[0].Flags&protocol.FlagIntroducer == 0 {
+		t.Error("Device1 should be flagged as Introducer")
 	}
-	if id := r.Nodes[1].ID; bytes.Compare(id, node2[:]) != 0 {
-		t.Errorf("Incorrect node ID %x != %x", id, node2)
+	if id := r.Devices[1].ID; bytes.Compare(id, device2[:]) != 0 {
+		t.Errorf("Incorrect device ID %x != %x", id, device2)
 	}
-	if r.Nodes[1].Flags&protocol.FlagIntroducer != 0 {
-		t.Error("Node2 should not be flagged as Introducer")
+	if r.Devices[1].Flags&protocol.FlagIntroducer != 0 {
+		t.Error("Device2 should not be flagged as Introducer")
+	}
+
+	r = cm.Folders[1]
+	if r.ID != "folder2" {
+		t.Errorf("Incorrect folder %q != folder2", r.ID)
+	}
+	if l := len(r.Devices); l != 2 {
+		t.Errorf("Incorrect number of devices %d != 2", l)
+	}
+	if id := r.Devices[0].ID; bytes.Compare(id, device1[:]) != 0 {
+		t.Errorf("Incorrect device ID %x != %x", id, device1)
+	}
+	if r.Devices[0].Flags&protocol.FlagIntroducer == 0 {
+		t.Error("Device1 should be flagged as Introducer")
+	}
+	if id := r.Devices[1].ID; bytes.Compare(id, device2[:]) != 0 {
+		t.Errorf("Incorrect device ID %x != %x", id, device2)
+	}
+	if r.Devices[1].Flags&protocol.FlagIntroducer != 0 {
+		t.Error("Device2 should not be flagged as Introducer")
 	}
 }
 
@@ -379,8 +379,8 @@ func TestIgnores(t *testing.T) {
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "node", "syncthing", "dev", db)
-	m.AddRepo(config.RepositoryConfiguration{ID: "default", Directory: "testdata"})
+	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m.AddFolder(config.FolderConfiguration{ID: "default", Directory: "testdata"})
 
 	expected := []string{
 		".*",
@@ -440,7 +440,7 @@ func TestIgnores(t *testing.T) {
 		t.Error("No error")
 	}
 
-	m.AddRepo(config.RepositoryConfiguration{ID: "fresh", Directory: "XXX"})
+	m.AddFolder(config.FolderConfiguration{ID: "fresh", Directory: "XXX"})
 	ignores, err = m.GetIgnores("fresh")
 	if err != nil {
 		t.Error(err)

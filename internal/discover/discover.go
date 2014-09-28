@@ -20,7 +20,7 @@ import (
 )
 
 type Discoverer struct {
-	myID             protocol.NodeID
+	myID             protocol.DeviceID
 	listenAddrs      []string
 	localBcastIntv   time.Duration
 	globalBcastIntv  time.Duration
@@ -28,7 +28,7 @@ type Discoverer struct {
 	cacheLifetime    time.Duration
 	broadcastBeacon  beacon.Interface
 	multicastBeacon  beacon.Interface
-	registry         map[protocol.NodeID][]cacheEntry
+	registry         map[protocol.DeviceID][]cacheEntry
 	registryLock     sync.RWMutex
 	extServer        string
 	extPort          uint16
@@ -49,7 +49,7 @@ var (
 	ErrIncorrectMagic = errors.New("incorrect magic number")
 )
 
-func NewDiscoverer(id protocol.NodeID, addresses []string) *Discoverer {
+func NewDiscoverer(id protocol.DeviceID, addresses []string) *Discoverer {
 	return &Discoverer{
 		myID:            id,
 		listenAddrs:     addresses,
@@ -57,7 +57,7 @@ func NewDiscoverer(id protocol.NodeID, addresses []string) *Discoverer {
 		globalBcastIntv: 1800 * time.Second,
 		errorRetryIntv:  60 * time.Second,
 		cacheLifetime:   5 * time.Minute,
-		registry:        make(map[protocol.NodeID][]cacheEntry),
+		registry:        make(map[protocol.DeviceID][]cacheEntry),
 	}
 }
 
@@ -120,9 +120,9 @@ func (d *Discoverer) ExtAnnounceOK() bool {
 	return d.extAnnounceOK
 }
 
-func (d *Discoverer) Lookup(node protocol.NodeID) []string {
+func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
 	d.registryLock.Lock()
-	cached := d.filterCached(d.registry[node])
+	cached := d.filterCached(d.registry[device])
 	d.registryLock.Unlock()
 
 	if len(cached) > 0 {
@@ -132,7 +132,7 @@ func (d *Discoverer) Lookup(node protocol.NodeID) []string {
 		}
 		return addrs
 	} else if len(d.extServer) != 0 {
-		addrs := d.externalLookup(node)
+		addrs := d.externalLookup(device)
 		cached = make([]cacheEntry, len(addrs))
 		for i := range addrs {
 			cached[i] = cacheEntry{
@@ -142,32 +142,32 @@ func (d *Discoverer) Lookup(node protocol.NodeID) []string {
 		}
 
 		d.registryLock.Lock()
-		d.registry[node] = cached
+		d.registry[device] = cached
 		d.registryLock.Unlock()
 	}
 	return nil
 }
 
-func (d *Discoverer) Hint(node string, addrs []string) {
+func (d *Discoverer) Hint(device string, addrs []string) {
 	resAddrs := resolveAddrs(addrs)
-	var id protocol.NodeID
-	id.UnmarshalText([]byte(node))
-	d.registerNode(nil, Node{
+	var id protocol.DeviceID
+	id.UnmarshalText([]byte(device))
+	d.registerDevice(nil, Device{
 		Addresses: resAddrs,
 		ID:        id[:],
 	})
 }
 
-func (d *Discoverer) All() map[protocol.NodeID][]cacheEntry {
+func (d *Discoverer) All() map[protocol.DeviceID][]cacheEntry {
 	d.registryLock.RLock()
-	nodes := make(map[protocol.NodeID][]cacheEntry, len(d.registry))
-	for node, addrs := range d.registry {
+	devices := make(map[protocol.DeviceID][]cacheEntry, len(d.registry))
+	for device, addrs := range d.registry {
 		addrsCopy := make([]cacheEntry, len(addrs))
 		copy(addrsCopy, addrs)
-		nodes[node] = addrsCopy
+		devices[device] = addrsCopy
 	}
 	d.registryLock.RUnlock()
-	return nodes
+	return devices
 }
 
 func (d *Discoverer) announcementPkt() []byte {
@@ -190,7 +190,7 @@ func (d *Discoverer) announcementPkt() []byte {
 	}
 	var pkt = Announce{
 		Magic: AnnouncementMagic,
-		This:  Node{d.myID[:], addrs},
+		This:  Device{d.myID[:], addrs},
 	}
 	return pkt.MarshalXDR()
 }
@@ -200,7 +200,7 @@ func (d *Discoverer) sendLocalAnnouncements() {
 
 	var pkt = Announce{
 		Magic: AnnouncementMagic,
-		This:  Node{d.myID[:], addrs},
+		This:  Device{d.myID[:], addrs},
 	}
 	msg := pkt.MarshalXDR()
 
@@ -240,7 +240,7 @@ func (d *Discoverer) sendExternalAnnouncements() {
 	if d.extPort != 0 {
 		var pkt = Announce{
 			Magic: AnnouncementMagic,
-			This:  Node{d.myID[:], []Address{{Port: d.extPort}}},
+			This:  Device{d.myID[:], []Address{{Port: d.extPort}}},
 		}
 		buf = pkt.MarshalXDR()
 	} else {
@@ -264,7 +264,7 @@ func (d *Discoverer) sendExternalAnnouncements() {
 			}
 			ok = false
 		} else {
-			// Verify that the announce server responds positively for our node ID
+			// Verify that the announce server responds positively for our device ID
 
 			time.Sleep(1 * time.Second)
 			res := d.externalLookup(d.myID)
@@ -321,12 +321,12 @@ func (d *Discoverer) recvAnnouncements(b beacon.Interface) {
 			continue
 		}
 
-		var newNode bool
+		var newDevice bool
 		if bytes.Compare(pkt.This.ID, d.myID[:]) != 0 {
-			newNode = d.registerNode(addr, pkt.This)
+			newDevice = d.registerDevice(addr, pkt.This)
 		}
 
-		if newNode {
+		if newDevice {
 			select {
 			case d.forcedBcastTick <- time.Now():
 			}
@@ -334,9 +334,9 @@ func (d *Discoverer) recvAnnouncements(b beacon.Interface) {
 	}
 }
 
-func (d *Discoverer) registerNode(addr net.Addr, node Node) bool {
-	var id protocol.NodeID
-	copy(id[:], node.ID)
+func (d *Discoverer) registerDevice(addr net.Addr, device Device) bool {
+	var id protocol.DeviceID
+	copy(id[:], device.ID)
 
 	d.registryLock.RLock()
 	current := d.filterCached(d.registry[id])
@@ -344,23 +344,23 @@ func (d *Discoverer) registerNode(addr net.Addr, node Node) bool {
 
 	orig := current
 
-	for _, a := range node.Addresses {
-		var nodeAddr string
+	for _, a := range device.Addresses {
+		var deviceAddr string
 		if len(a.IP) > 0 {
-			nodeAddr = net.JoinHostPort(net.IP(a.IP).String(), strconv.Itoa(int(a.Port)))
+			deviceAddr = net.JoinHostPort(net.IP(a.IP).String(), strconv.Itoa(int(a.Port)))
 		} else if addr != nil {
 			ua := addr.(*net.UDPAddr)
 			ua.Port = int(a.Port)
-			nodeAddr = ua.String()
+			deviceAddr = ua.String()
 		}
 		for i := range current {
-			if current[i].addr == nodeAddr {
+			if current[i].addr == deviceAddr {
 				current[i].seen = time.Now()
 				goto done
 			}
 		}
 		current = append(current, cacheEntry{
-			addr: nodeAddr,
+			addr: deviceAddr,
 			seen: time.Now(),
 		})
 	done:
@@ -379,8 +379,8 @@ func (d *Discoverer) registerNode(addr net.Addr, node Node) bool {
 		for i := range current {
 			addrs[i] = current[i].addr
 		}
-		events.Default.Log(events.NodeDiscovered, map[string]interface{}{
-			"node":  id.String(),
+		events.Default.Log(events.DeviceDiscovered, map[string]interface{}{
+			"device":  id.String(),
 			"addrs": addrs,
 		})
 	}
@@ -388,7 +388,7 @@ func (d *Discoverer) registerNode(addr net.Addr, node Node) bool {
 	return len(current) > len(orig)
 }
 
-func (d *Discoverer) externalLookup(node protocol.NodeID) []string {
+func (d *Discoverer) externalLookup(device protocol.DeviceID) []string {
 	extIP, err := net.ResolveUDPAddr("udp", d.extServer)
 	if err != nil {
 		if debug {
@@ -414,7 +414,7 @@ func (d *Discoverer) externalLookup(node protocol.NodeID) []string {
 		return nil
 	}
 
-	buf := Query{QueryMagic, node[:]}.MarshalXDR()
+	buf := Query{QueryMagic, device[:]}.MarshalXDR()
 	_, err = conn.Write(buf)
 	if err != nil {
 		if debug {
@@ -427,7 +427,7 @@ func (d *Discoverer) externalLookup(node protocol.NodeID) []string {
 	n, err := conn.Read(buf)
 	if err != nil {
 		if err, ok := err.(net.Error); ok && err.Timeout() {
-			// Expected if the server doesn't know about requested node ID
+			// Expected if the server doesn't know about requested device ID
 			return nil
 		}
 		if debug {
@@ -451,8 +451,8 @@ func (d *Discoverer) externalLookup(node protocol.NodeID) []string {
 
 	var addrs []string
 	for _, a := range pkt.This.Addresses {
-		nodeAddr := net.JoinHostPort(net.IP(a.IP).String(), strconv.Itoa(int(a.Port)))
-		addrs = append(addrs, nodeAddr)
+		deviceAddr := net.JoinHostPort(net.IP(a.IP).String(), strconv.Itoa(int(a.Port)))
+		addrs = append(addrs, deviceAddr)
 	}
 	return addrs
 }

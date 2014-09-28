@@ -48,7 +48,7 @@ type CurrentFiler interface {
 	CurrentFile(name string) protocol.FileInfo
 }
 
-// Walk returns the list of files found in the local repository by scanning the
+// Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
 func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	if debug {

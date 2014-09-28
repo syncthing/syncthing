@@ -6,5 +6,5 @@ package stats
 
 // Same key space as files/leveldb.go keyType* constants
 const (
-	keyTypeNodeStatistic = iota + 30
+	keyTypeDeviceStatistic = iota + 30
 )

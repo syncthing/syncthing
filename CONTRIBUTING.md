@@ -12,7 +12,7 @@ least the following:
  - What operating system, operating system version and version of
    Syncthing you are running
 
- - The same for other connected nodes, where relevant
+ - The same for other connected devices, where relevant
 
  - Screenshot if the issue concerns something visible in the GUI
 

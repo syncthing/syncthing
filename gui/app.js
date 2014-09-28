@@ -83,11 +83,11 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.errors = [];
     $scope.model = {};
     $scope.myID = '';
-    $scope.nodes = [];
+    $scope.devices = [];
     $scope.protocolChanged = false;
     $scope.reportData = {};
     $scope.reportPreview = false;
-    $scope.repos = {};
+    $scope.folders = {};
     $scope.seenError = '';
     $scope.upgradeInfo = {};
     $scope.stats = {};
@@ -180,33 +180,33 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     $scope.$on('StateChanged', function (event, arg) {
         var data = arg.data;
-        if ($scope.model[data.repo]) {
-            $scope.model[data.repo].state = data.to;
+        if ($scope.model[data.folder]) {
+            $scope.model[data.folder].state = data.to;
         }
     });
 
     $scope.$on('LocalIndexUpdated', function (event, arg) {
         var data = arg.data;
-        refreshRepo(data.repo);
+        refreshFolder(data.folder);
 
-        // Update completion status for all nodes that we share this repo with.
-        $scope.repos[data.repo].Nodes.forEach(function (nodeCfg) {
-            refreshCompletion(nodeCfg.NodeID, data.repo);
+        // Update completion status for all devices that we share this folder with.
+        $scope.folders[data.folder].Devices.forEach(function (deviceCfg) {
+            refreshCompletion(deviceCfg.DeviceID, data.folder);
         });
     });
 
     $scope.$on('RemoteIndexUpdated', function (event, arg) {
         var data = arg.data;
-        refreshRepo(data.repo);
-        refreshCompletion(data.node, data.repo);
+        refreshFolder(data.folder);
+        refreshCompletion(data.device, data.folder);
     });
 
-    $scope.$on('NodeDisconnected', function (event, arg) {
+    $scope.$on('DeviceDisconnected', function (event, arg) {
         delete $scope.connections[arg.data.id];
-        refreshNodeStats();
+        refreshDeviceStats();
     });
 
-    $scope.$on('NodeConnected', function (event, arg) {
+    $scope.$on('DeviceConnected', function (event, arg) {
         if (!$scope.connections[arg.data.id]) {
             $scope.connections[arg.data.id] = {
                 inbps: 0,
@@ -251,13 +251,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     var debouncedFuncs = {};
 
-    function refreshRepo(repo) {
-        var key = "refreshRepo" + repo;
+    function refreshFolder(folder) {
+        var key = "refreshFolder" + folder;
         if (!debouncedFuncs[key]) {
             debouncedFuncs[key] = debounce(function () {
-                $http.get(urlbase + '/model?repo=' + encodeURIComponent(repo)).success(function (data) {
-                    $scope.model[repo] = data;
-                    console.log("refreshRepo", repo, data);
+                $http.get(urlbase + '/model?folder=' + encodeURIComponent(folder)).success(function (data) {
+                    $scope.model[folder] = data;
+                    console.log("refreshFolder", folder, data);
                 });
             }, 1000, true);
         }
@@ -270,19 +270,19 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.config = config;
         $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
 
-        $scope.nodes = $scope.config.Nodes;
-        $scope.nodes.forEach(function (nodeCfg) {
-            $scope.completion[nodeCfg.NodeID] = {
+        $scope.devices = $scope.config.Devices;
+        $scope.devices.forEach(function (deviceCfg) {
+            $scope.completion[deviceCfg.DeviceID] = {
                 _total: 100,
             };
         });
-        $scope.nodes.sort(nodeCompare);
+        $scope.devices.sort(deviceCompare);
 
-        $scope.repos = repoMap($scope.config.Repositories);
-        Object.keys($scope.repos).forEach(function (repo) {
-            refreshRepo(repo);
-            $scope.repos[repo].Nodes.forEach(function (nodeCfg) {
-                refreshCompletion(nodeCfg.NodeID, repo);
+        $scope.folders = folderMap($scope.config.Folders);
+        Object.keys($scope.folders).forEach(function (folder) {
+            refreshFolder(folder);
+            $scope.folders[folder].Devices.forEach(function (deviceCfg) {
+                refreshCompletion(deviceCfg.DeviceID, folder);
             });
         });
 
@@ -299,32 +299,32 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         });
     }
 
-    function refreshCompletion(node, repo) {
-        if (node === $scope.myID) {
+    function refreshCompletion(device, folder) {
+        if (device === $scope.myID) {
             return;
         }
 
-        var key = "refreshCompletion" + node + repo;
+        var key = "refreshCompletion" + device + folder;
         if (!debouncedFuncs[key]) {
             debouncedFuncs[key] = debounce(function () {
-                $http.get(urlbase + '/completion?node=' + node + '&repo=' + encodeURIComponent(repo)).success(function (data) {
-                    if (!$scope.completion[node]) {
-                        $scope.completion[node] = {};
+                $http.get(urlbase + '/completion?device=' + device + '&folder=' + encodeURIComponent(folder)).success(function (data) {
+                    if (!$scope.completion[device]) {
+                        $scope.completion[device] = {};
                     }
-                    $scope.completion[node][repo] = data.completion;
+                    $scope.completion[device][folder] = data.completion;
 
                     var tot = 0,
                         cnt = 0;
-                    for (var cmp in $scope.completion[node]) {
+                    for (var cmp in $scope.completion[device]) {
                         if (cmp === "_total") {
                             continue;
                         }
-                        tot += $scope.completion[node][cmp];
+                        tot += $scope.completion[device][cmp];
                         cnt += 1;
                     }
-                    $scope.completion[node]._total = tot / cnt;
+                    $scope.completion[device]._total = tot / cnt;
 
-                    console.log("refreshCompletion", node, repo, $scope.completion[node]);
+                    console.log("refreshCompletion", device, folder, $scope.completion[device]);
                 });
             }, 1000, true);
         }
@@ -373,14 +373,14 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         });
     }
 
-    var refreshNodeStats = debounce(function () {
-        $http.get(urlbase + "/stats/node").success(function (data) {
+    var refreshDeviceStats = debounce(function () {
+        $http.get(urlbase + "/stats/device").success(function (data) {
             $scope.stats = data;
-            for (var node in $scope.stats) {
-                $scope.stats[node].LastSeen = new Date($scope.stats[node].LastSeen);
-                $scope.stats[node].LastSeenDays = (new Date() - $scope.stats[node].LastSeen) / 1000 / 86400;
+            for (var device in $scope.stats) {
+                $scope.stats[device].LastSeen = new Date($scope.stats[device].LastSeen);
+                $scope.stats[device].LastSeenDays = (new Date() - $scope.stats[device].LastSeen) / 1000 / 86400;
             }
-            console.log("refreshNodeStats", data);
+            console.log("refreshDeviceStats", data);
         });
     }, 500);
 
@@ -388,7 +388,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         refreshSystem();
         refreshConfig();
         refreshConnectionStats();
-        refreshNodeStats();
+        refreshDeviceStats();
 
         $http.get(urlbase + '/version').success(function (data) {
             $scope.version = data.version;
@@ -411,28 +411,28 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         refreshErrors();
     };
 
-    $scope.repoStatus = function (repo) {
-        if (typeof $scope.model[repo] === 'undefined') {
+    $scope.folderStatus = function (folder) {
+        if (typeof $scope.model[folder] === 'undefined') {
             return 'unknown';
         }
 
-        if ($scope.model[repo].invalid !== '') {
+        if ($scope.model[folder].invalid !== '') {
             return 'stopped';
         }
 
-        return '' + $scope.model[repo].state;
+        return '' + $scope.model[folder].state;
     };
 
-    $scope.repoClass = function (repo) {
-        if (typeof $scope.model[repo] === 'undefined') {
+    $scope.folderClass = function (folder) {
+        if (typeof $scope.model[folder] === 'undefined') {
             return 'info';
         }
 
-        if ($scope.model[repo].invalid !== '') {
+        if ($scope.model[folder].invalid !== '') {
             return 'danger';
         }
 
-        var state = '' + $scope.model[repo].state;
+        var state = '' + $scope.model[folder].state;
         if (state == 'idle') {
             return 'success';
         }
@@ -445,21 +445,21 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         return 'info';
     };
 
-    $scope.syncPercentage = function (repo) {
-        if (typeof $scope.model[repo] === 'undefined') {
+    $scope.syncPercentage = function (folder) {
+        if (typeof $scope.model[folder] === 'undefined') {
             return 100;
         }
-        if ($scope.model[repo].globalBytes === 0) {
+        if ($scope.model[folder].globalBytes === 0) {
             return 100;
         }
 
-        var pct = 100 * $scope.model[repo].inSyncBytes / $scope.model[repo].globalBytes;
+        var pct = 100 * $scope.model[folder].inSyncBytes / $scope.model[folder].globalBytes;
         return Math.floor(pct);
     };
 
-    $scope.nodeIcon = function (nodeCfg) {
-        if ($scope.connections[nodeCfg.NodeID]) {
-            if ($scope.completion[nodeCfg.NodeID] && $scope.completion[nodeCfg.NodeID]._total === 100) {
+    $scope.deviceIcon = function (deviceCfg) {
+        if ($scope.connections[deviceCfg.DeviceID]) {
+            if ($scope.completion[deviceCfg.DeviceID] && $scope.completion[deviceCfg.DeviceID]._total === 100) {
                 return 'ok';
             } else {
                 return 'refresh';
@@ -469,9 +469,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         return 'minus';
     };
 
-    $scope.nodeClass = function (nodeCfg) {
-        if ($scope.connections[nodeCfg.NodeID]) {
-            if ($scope.completion[nodeCfg.NodeID] && $scope.completion[nodeCfg.NodeID]._total === 100) {
+    $scope.deviceClass = function (deviceCfg) {
+        if ($scope.connections[deviceCfg.DeviceID]) {
+            if ($scope.completion[deviceCfg.DeviceID] && $scope.completion[deviceCfg.DeviceID]._total === 100) {
                 return 'success';
             } else {
                 return 'primary';
@@ -481,25 +481,25 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         return 'info';
     };
 
-    $scope.nodeAddr = function (nodeCfg) {
-        var conn = $scope.connections[nodeCfg.NodeID];
+    $scope.deviceAddr = function (deviceCfg) {
+        var conn = $scope.connections[deviceCfg.DeviceID];
         if (conn) {
             return conn.Address;
         }
         return '?';
     };
 
-    $scope.nodeCompletion = function (nodeCfg) {
-        var conn = $scope.connections[nodeCfg.NodeID];
+    $scope.deviceCompletion = function (deviceCfg) {
+        var conn = $scope.connections[deviceCfg.DeviceID];
         if (conn) {
             return conn.Completion + '%';
         }
         return '';
     };
 
-    $scope.findNode = function (nodeID) {
-        var matches = $scope.nodes.filter(function (n) {
-            return n.NodeID == nodeID;
+    $scope.findDevice = function (deviceID) {
+        var matches = $scope.devices.filter(function (n) {
+            return n.DeviceID == deviceID;
         });
         if (matches.length != 1) {
             return undefined;
@@ -507,32 +507,32 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         return matches[0];
     };
 
-    $scope.nodeName = function (nodeCfg) {
-        if (typeof nodeCfg === 'undefined') {
+    $scope.deviceName = function (deviceCfg) {
+        if (typeof deviceCfg === 'undefined') {
             return "";
         }
-        if (nodeCfg.Name) {
-            return nodeCfg.Name;
+        if (deviceCfg.Name) {
+            return deviceCfg.Name;
         }
-        return nodeCfg.NodeID.substr(0, 6);
+        return deviceCfg.DeviceID.substr(0, 6);
     };
 
-    $scope.thisNodeName = function () {
-        var node = $scope.thisNode();
-        if (typeof node === 'undefined') {
-            return "(unknown node)";
+    $scope.thisDeviceName = function () {
+        var device = $scope.thisDevice();
+        if (typeof device === 'undefined') {
+            return "(unknown device)";
         }
-        if (node.Name) {
-            return node.Name;
+        if (device.Name) {
+            return device.Name;
         }
-        return node.NodeID.substr(0, 6);
+        return device.DeviceID.substr(0, 6);
     };
 
     $scope.editSettings = function () {
         // Make a working copy
         $scope.tmpOptions = angular.copy($scope.config.Options);
         $scope.tmpOptions.UREnabled = ($scope.tmpOptions.URAccepted > 0);
-        $scope.tmpOptions.NodeName = $scope.thisNode().Name;
+        $scope.tmpOptions.DeviceName = $scope.thisDevice().Name;
         $scope.tmpGUI = angular.copy($scope.config.GUI);
         $('#settings').modal();
     };
@@ -569,7 +569,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             }
 
             // Apply new settings locally
-            $scope.thisNode().Name = $scope.tmpOptions.NodeName;
+            $scope.thisDevice().Name = $scope.tmpOptions.DeviceName;
             $scope.config.Options = angular.copy($scope.tmpOptions);
             $scope.config.GUI = angular.copy($scope.tmpGUI);
             $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) {
@@ -623,100 +623,100 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.configInSync = true;
     };
 
-    $scope.editNode = function (nodeCfg) {
-        $scope.currentNode = $.extend({}, nodeCfg);
+    $scope.editDevice = function (deviceCfg) {
+        $scope.currentDevice = $.extend({}, deviceCfg);
         $scope.editingExisting = true;
-        $scope.editingSelf = (nodeCfg.NodeID == $scope.myID);
-        $scope.currentNode.AddressesStr = nodeCfg.Addresses.join(', ');
-        $scope.nodeEditor.$setPristine();
-        $('#editNode').modal();
+        $scope.editingSelf = (deviceCfg.DeviceID == $scope.myID);
+        $scope.currentDevice.AddressesStr = deviceCfg.Addresses.join(', ');
+        $scope.deviceEditor.$setPristine();
+        $('#editDevice').modal();
     };
 
-    $scope.idNode = function () {
+    $scope.idDevice = function () {
         $('#idqr').modal('show');
     };
 
-    $scope.addNode = function () {
-        $scope.currentNode = {
+    $scope.addDevice = function () {
+        $scope.currentDevice = {
             AddressesStr: 'dynamic',
             Compression: true,
             Introducer: true
         };
         $scope.editingExisting = false;
         $scope.editingSelf = false;
-        $scope.nodeEditor.$setPristine();
-        $('#editNode').modal();
+        $scope.deviceEditor.$setPristine();
+        $('#editDevice').modal();
     };
 
-    $scope.deleteNode = function () {
-        $('#editNode').modal('hide');
+    $scope.deleteDevice = function () {
+        $('#editDevice').modal('hide');
         if (!$scope.editingExisting) {
             return;
         }
 
-        $scope.nodes = $scope.nodes.filter(function (n) {
-            return n.NodeID !== $scope.currentNode.NodeID;
+        $scope.devices = $scope.devices.filter(function (n) {
+            return n.DeviceID !== $scope.currentDevice.DeviceID;
         });
-        $scope.config.Nodes = $scope.nodes;
+        $scope.config.Devices = $scope.devices;
 
-        for (var id in $scope.repos) {
-            $scope.repos[id].Nodes = $scope.repos[id].Nodes.filter(function (n) {
-                return n.NodeID !== $scope.currentNode.NodeID;
+        for (var id in $scope.folders) {
+            $scope.folders[id].Devices = $scope.folders[id].Devices.filter(function (n) {
+                return n.DeviceID !== $scope.currentDevice.DeviceID;
             });
         }
 
         $scope.saveConfig();
     };
 
-    $scope.saveNode = function () {
-        var nodeCfg, done, i;
+    $scope.saveDevice = function () {
+        var deviceCfg, done, i;
 
-        $('#editNode').modal('hide');
-        nodeCfg = $scope.currentNode;
-        nodeCfg.Addresses = nodeCfg.AddressesStr.split(',').map(function (x) {
+        $('#editDevice').modal('hide');
+        deviceCfg = $scope.currentDevice;
+        deviceCfg.Addresses = deviceCfg.AddressesStr.split(',').map(function (x) {
             return x.trim();
         });
 
         done = false;
-        for (i = 0; i < $scope.nodes.length; i++) {
-            if ($scope.nodes[i].NodeID === nodeCfg.NodeID) {
-                $scope.nodes[i] = nodeCfg;
+        for (i = 0; i < $scope.devices.length; i++) {
+            if ($scope.devices[i].DeviceID === deviceCfg.DeviceID) {
+                $scope.devices[i] = deviceCfg;
                 done = true;
                 break;
             }
         }
 
         if (!done) {
-            $scope.nodes.push(nodeCfg);
+            $scope.devices.push(deviceCfg);
         }
 
-        $scope.nodes.sort(nodeCompare);
-        $scope.config.Nodes = $scope.nodes;
+        $scope.devices.sort(deviceCompare);
+        $scope.config.Devices = $scope.devices;
 
         $scope.saveConfig();
     };
 
-    $scope.otherNodes = function () {
-        return $scope.nodes.filter(function (n) {
-            return n.NodeID !== $scope.myID;
+    $scope.otherDevices = function () {
+        return $scope.devices.filter(function (n) {
+            return n.DeviceID !== $scope.myID;
         });
     };
 
-    $scope.thisNode = function () {
+    $scope.thisDevice = function () {
         var i, n;
 
-        for (i = 0; i < $scope.nodes.length; i++) {
-            n = $scope.nodes[i];
-            if (n.NodeID === $scope.myID) {
+        for (i = 0; i < $scope.devices.length; i++) {
+            n = $scope.devices[i];
+            if (n.DeviceID === $scope.myID) {
                 return n;
             }
         }
     };
 
-    $scope.allNodes = function () {
-        var nodes = $scope.otherNodes();
-        nodes.push($scope.thisNode());
-        return nodes;
+    $scope.allDevices = function () {
+        var devices = $scope.otherDevices();
+        devices.push($scope.thisDevice());
+        return devices;
     };
 
     $scope.errorList = function () {
@@ -730,134 +730,134 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $http.post(urlbase + '/error/clear');
     };
 
-    $scope.friendlyNodes = function (str) {
-        for (var i = 0; i < $scope.nodes.length; i++) {
-            var cfg = $scope.nodes[i];
-            str = str.replace(cfg.NodeID, $scope.nodeName(cfg));
+    $scope.friendlyDevices = function (str) {
+        for (var i = 0; i < $scope.devices.length; i++) {
+            var cfg = $scope.devices[i];
+            str = str.replace(cfg.DeviceID, $scope.deviceName(cfg));
         }
         return str;
     };
 
-    $scope.repoList = function () {
-        return repoList($scope.repos);
+    $scope.folderList = function () {
+        return folderList($scope.folders);
     };
 
-    $scope.editRepo = function (nodeCfg) {
-        $scope.currentRepo = angular.copy(nodeCfg);
-        $scope.currentRepo.selectedNodes = {};
-        $scope.currentRepo.Nodes.forEach(function (n) {
-            $scope.currentRepo.selectedNodes[n.NodeID] = true;
+    $scope.editFolder = function (deviceCfg) {
+        $scope.currentFolder = angular.copy(deviceCfg);
+        $scope.currentFolder.selectedDevices = {};
+        $scope.currentFolder.Devices.forEach(function (n) {
+            $scope.currentFolder.selectedDevices[n.DeviceID] = true;
         });
-        if ($scope.currentRepo.Versioning && $scope.currentRepo.Versioning.Type === "simple") {
-            $scope.currentRepo.simpleFileVersioning = true;
-            $scope.currentRepo.FileVersioningSelector = "simple";
-            $scope.currentRepo.simpleKeep = +$scope.currentRepo.Versioning.Params.keep;
-        } else if ($scope.currentRepo.Versioning && $scope.currentRepo.Versioning.Type === "staggered") {
-            $scope.currentRepo.staggeredFileVersioning = true;
-            $scope.currentRepo.FileVersioningSelector = "staggered";
-            $scope.currentRepo.staggeredMaxAge = Math.floor(+$scope.currentRepo.Versioning.Params.maxAge / 86400);
-            $scope.currentRepo.staggeredCleanInterval = +$scope.currentRepo.Versioning.Params.cleanInterval;
-            $scope.currentRepo.staggeredVersionsPath = $scope.currentRepo.Versioning.Params.versionsPath;
+        if ($scope.currentFolder.Versioning && $scope.currentFolder.Versioning.Type === "simple") {
+            $scope.currentFolder.simpleFileVersioning = true;
+            $scope.currentFolder.FileVersioningSelector = "simple";
+            $scope.currentFolder.simpleKeep = +$scope.currentFolder.Versioning.Params.keep;
+        } else if ($scope.currentFolder.Versioning && $scope.currentFolder.Versioning.Type === "staggered") {
+            $scope.currentFolder.staggeredFileVersioning = true;
+            $scope.currentFolder.FileVersioningSelector = "staggered";
+            $scope.currentFolder.staggeredMaxAge = Math.floor(+$scope.currentFolder.Versioning.Params.maxAge / 86400);
+            $scope.currentFolder.staggeredCleanInterval = +$scope.currentFolder.Versioning.Params.cleanInterval;
+            $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.Versioning.Params.versionsPath;
         } else {
-            $scope.currentRepo.FileVersioningSelector = "none";
+            $scope.currentFolder.FileVersioningSelector = "none";
         }
-        $scope.currentRepo.simpleKeep = $scope.currentRepo.simpleKeep || 5;
-        $scope.currentRepo.staggeredCleanInterval = $scope.currentRepo.staggeredCleanInterval || 3600;
-        $scope.currentRepo.staggeredVersionsPath = $scope.currentRepo.staggeredVersionsPath || "";
+        $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
+        $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
+        $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
 
         // staggeredMaxAge can validly be zero, which we should not replace
         // with the default value of 365. So only set the default if it's
         // actually undefined.
-        if (typeof $scope.currentRepo.staggeredMaxAge === 'undefined') {
-            $scope.currentRepo.staggeredMaxAge = 365;
+        if (typeof $scope.currentFolder.staggeredMaxAge === 'undefined') {
+            $scope.currentFolder.staggeredMaxAge = 365;
         }
 
         $scope.editingExisting = true;
-        $scope.repoEditor.$setPristine();
-        $('#editRepo').modal();
+        $scope.folderEditor.$setPristine();
+        $('#editFolder').modal();
     };
 
-    $scope.addRepo = function () {
-        $scope.currentRepo = {
-            selectedNodes: {}
+    $scope.addFolder = function () {
+        $scope.currentFolder = {
+            selectedDevices: {}
         };
-        $scope.currentRepo.RescanIntervalS = 60;
-        $scope.currentRepo.FileVersioningSelector = "none";
-        $scope.currentRepo.simpleKeep = 5;
-        $scope.currentRepo.staggeredMaxAge = 365;
-        $scope.currentRepo.staggeredCleanInterval = 3600;
-        $scope.currentRepo.staggeredVersionsPath = "";
+        $scope.currentFolder.RescanIntervalS = 60;
+        $scope.currentFolder.FileVersioningSelector = "none";
+        $scope.currentFolder.simpleKeep = 5;
+        $scope.currentFolder.staggeredMaxAge = 365;
+        $scope.currentFolder.staggeredCleanInterval = 3600;
+        $scope.currentFolder.staggeredVersionsPath = "";
         $scope.editingExisting = false;
-        $scope.repoEditor.$setPristine();
-        $('#editRepo').modal();
+        $scope.folderEditor.$setPristine();
+        $('#editFolder').modal();
     };
 
-    $scope.saveRepo = function () {
-        var repoCfg, done, i;
+    $scope.saveFolder = function () {
+        var folderCfg, done, i;
 
-        $('#editRepo').modal('hide');
-        repoCfg = $scope.currentRepo;
-        repoCfg.Nodes = [];
-        repoCfg.selectedNodes[$scope.myID] = true;
-        for (var nodeID in repoCfg.selectedNodes) {
-            if (repoCfg.selectedNodes[nodeID] === true) {
-                repoCfg.Nodes.push({
-                    NodeID: nodeID
+        $('#editFolder').modal('hide');
+        folderCfg = $scope.currentFolder;
+        folderCfg.Devices = [];
+        folderCfg.selectedDevices[$scope.myID] = true;
+        for (var deviceID in folderCfg.selectedDevices) {
+            if (folderCfg.selectedDevices[deviceID] === true) {
+                folderCfg.Devices.push({
+                    DeviceID: deviceID
                 });
             }
         }
-        delete repoCfg.selectedNodes;
+        delete folderCfg.selectedDevices;
 
-        if (repoCfg.FileVersioningSelector === "simple") {
-            repoCfg.Versioning = {
+        if (folderCfg.FileVersioningSelector === "simple") {
+            folderCfg.Versioning = {
                 'Type': 'simple',
                 'Params': {
-                    'keep': '' + repoCfg.simpleKeep,
+                    'keep': '' + folderCfg.simpleKeep,
                 }
             };
-            delete repoCfg.simpleFileVersioning;
-            delete repoCfg.simpleKeep;
-        } else if (repoCfg.FileVersioningSelector === "staggered") {
-            repoCfg.Versioning = {
+            delete folderCfg.simpleFileVersioning;
+            delete folderCfg.simpleKeep;
+        } else if (folderCfg.FileVersioningSelector === "staggered") {
+            folderCfg.Versioning = {
                 'Type': 'staggered',
                 'Params': {
-                    'maxAge': '' + (repoCfg.staggeredMaxAge * 86400),
-                    'cleanInterval': '' + repoCfg.staggeredCleanInterval,
-                    'versionsPath': '' + repoCfg.staggeredVersionsPath,
+                    'maxAge': '' + (folderCfg.staggeredMaxAge * 86400),
+                    'cleanInterval': '' + folderCfg.staggeredCleanInterval,
+                    'versionsPath': '' + folderCfg.staggeredVersionsPath,
                 }
             };
-            delete repoCfg.staggeredFileVersioning;
-            delete repoCfg.staggeredMaxAge;
-            delete repoCfg.staggeredCleanInterval;
-            delete repoCfg.staggeredVersionsPath;
+            delete folderCfg.staggeredFileVersioning;
+            delete folderCfg.staggeredMaxAge;
+            delete folderCfg.staggeredCleanInterval;
+            delete folderCfg.staggeredVersionsPath;
 
         } else {
-            delete repoCfg.Versioning;
+            delete folderCfg.Versioning;
         }
 
-        $scope.repos[repoCfg.ID] = repoCfg;
-        $scope.config.Repositories = repoList($scope.repos);
+        $scope.folders[folderCfg.ID] = folderCfg;
+        $scope.config.Folders = folderList($scope.folders);
 
         $scope.saveConfig();
     };
 
-    $scope.sharesRepo = function (repoCfg) {
+    $scope.sharesFolder = function (folderCfg) {
         var names = [];
-        repoCfg.Nodes.forEach(function (node) {
-            names.push($scope.nodeName($scope.findNode(node.NodeID)));
+        folderCfg.Devices.forEach(function (device) {
+            names.push($scope.deviceName($scope.findDevice(device.DeviceID)));
         });
         names.sort();
         return names.join(", ");
     };
 
-    $scope.deleteRepo = function () {
-        $('#editRepo').modal('hide');
+    $scope.deleteFolder = function () {
+        $('#editFolder').modal('hide');
         if (!$scope.editingExisting) {
             return;
         }
 
-        delete $scope.repos[$scope.currentRepo.ID];
-        $scope.config.Repositories = repoList($scope.repos);
+        delete $scope.folders[$scope.currentFolder.ID];
+        $scope.config.Folders = folderList($scope.folders);
 
         $scope.saveConfig();
     };
@@ -868,18 +868,18 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
 
         $('#editIgnoresButton').attr('disabled', 'disabled');
-        $http.get(urlbase + '/ignores?repo=' + encodeURIComponent($scope.currentRepo.ID))
+        $http.get(urlbase + '/ignores?folder=' + encodeURIComponent($scope.currentFolder.ID))
             .success(function (data) {
                 data.ignore = data.ignore || [];
 
-                $('#editRepo').modal('hide');
+                $('#editFolder').modal('hide');
                 var textArea = $('#editIgnores textarea');
 
                 textArea.val(data.ignore.join('\n'));
 
                 $('#editIgnores').modal()
                     .on('hidden.bs.modal', function () {
-                        $('#editRepo').modal();
+                        $('#editFolder').modal();
                     })
                     .on('shown.bs.modal', function () {
                         textArea.focus();
@@ -895,7 +895,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             return;
         }
 
-        $http.post(urlbase + '/ignores?repo=' + encodeURIComponent($scope.currentRepo.ID), {
+        $http.post(urlbase + '/ignores?folder=' + encodeURIComponent($scope.currentFolder.ID), {
             ignore: $('#editIgnores textarea').val().split('\n')
         });
     };
@@ -923,10 +923,10 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $('#ur').modal('hide');
     };
 
-    $scope.showNeed = function (repo) {
+    $scope.showNeed = function (folder) {
         $scope.neededLoaded = false;
         $('#needed').modal();
-        $http.get(urlbase + "/need?repo=" + encodeURIComponent(repo)).success(function (data) {
+        $http.get(urlbase + "/need?folder=" + encodeURIComponent(folder)).success(function (data) {
             $scope.needed = data;
             $scope.neededLoaded = true;
         });
@@ -947,8 +947,8 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
     };
 
-    $scope.override = function (repo) {
-        $http.post(urlbase + "/model/override?repo=" + encodeURIComponent(repo));
+    $scope.override = function (folder) {
+        $http.post(urlbase + "/model/override?folder=" + encodeURIComponent(folder));
     };
 
     $scope.about = function () {
@@ -959,34 +959,34 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.reportPreview = true;
     };
 
-    $scope.rescanRepo = function (repo) {
-        $http.post(urlbase + "/scan?repo=" + encodeURIComponent(repo));
+    $scope.rescanFolder = function (folder) {
+        $http.post(urlbase + "/scan?folder=" + encodeURIComponent(folder));
     };
 
     $scope.init();
     setInterval($scope.refresh, 10000);
 });
 
-function nodeCompare(a, b) {
+function deviceCompare(a, b) {
     if (typeof a.Name !== 'undefined' && typeof b.Name !== 'undefined') {
         if (a.Name < b.Name)
             return -1;
         return a.Name > b.Name;
     }
-    if (a.NodeID < b.NodeID) {
+    if (a.DeviceID < b.DeviceID) {
         return -1;
     }
-    return a.NodeID > b.NodeID;
+    return a.DeviceID > b.DeviceID;
 }
 
-function repoCompare(a, b) {
+function folderCompare(a, b) {
     if (a.ID < b.ID) {
         return -1;
     }
     return a.ID > b.ID;
 }
 
-function repoMap(l) {
+function folderMap(l) {
     var m = {};
     l.forEach(function (r) {
         m[r.ID] = r;
@@ -994,12 +994,12 @@ function repoMap(l) {
     return m;
 }
 
-function repoList(m) {
+function folderList(m) {
     var l = [];
     for (var id in m) {
         l.push(m[id]);
     }
-    l.sort(repoCompare);
+    l.sort(folderCompare);
     return l;
 }
 
@@ -1137,20 +1137,20 @@ syncthing.filter('basename', function () {
     };
 });
 
-syncthing.directive('uniqueRepo', function () {
+syncthing.directive('uniqueFolder', function () {
     return {
         require: 'ngModel',
         link: function (scope, elm, attrs, ctrl) {
             ctrl.$parsers.unshift(function (viewValue) {
                 if (scope.editingExisting) {
                     // we shouldn't validate
-                    ctrl.$setValidity('uniqueRepo', true);
-                } else if (scope.repos[viewValue]) {
-                    // the repo exists already
-                    ctrl.$setValidity('uniqueRepo', false);
+                    ctrl.$setValidity('uniqueFolder', true);
+                } else if (scope.folders[viewValue]) {
+                    // the folder exists already
+                    ctrl.$setValidity('uniqueFolder', false);
                 } else {
-                    // the repo is unique
-                    ctrl.$setValidity('uniqueRepo', true);
+                    // the folder is unique
+                    ctrl.$setValidity('uniqueFolder', true);
                 }
                 return viewValue;
             });
@@ -1158,20 +1158,20 @@ syncthing.directive('uniqueRepo', function () {
     };
 });
 
-syncthing.directive('validNodeid', function ($http) {
+syncthing.directive('validDeviceid', function ($http) {
     return {
         require: 'ngModel',
         link: function (scope, elm, attrs, ctrl) {
             ctrl.$parsers.unshift(function (viewValue) {
                 if (scope.editingExisting) {
                     // we shouldn't validate
-                    ctrl.$setValidity('validNodeid', true);
+                    ctrl.$setValidity('validDeviceid', true);
                 } else {
-                    $http.get(urlbase + '/nodeid?id=' + viewValue).success(function (resp) {
+                    $http.get(urlbase + '/deviceid?id=' + viewValue).success(function (resp) {
                         if (resp.error) {
-                            ctrl.$setValidity('validNodeid', false);
+                            ctrl.$setValidity('validDeviceid', false);
                         } else {
-                            ctrl.$setValidity('validNodeid', true);
+                            ctrl.$setValidity('validDeviceid', true);
                         }
                     });
                 }

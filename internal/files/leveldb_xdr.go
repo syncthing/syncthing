@@ -22,17 +22,17 @@ fileVersion Structure:
 +                       version (64 bits)                       +
 |                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Length of node                         |
+|                       Length of device                        |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                    node (variable length)                     \
+\                   device (variable length)                    \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct fileVersion {
 	unsigned hyper version;
-	opaque node<>;
+	opaque device<>;
 }
 
 */
@@ -55,7 +55,7 @@ func (o fileVersion) AppendXDR(bs []byte) []byte {
 
 func (o fileVersion) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint64(o.version)
-	xw.WriteBytes(o.node)
+	xw.WriteBytes(o.device)
 	return xw.Tot(), xw.Error()
 }
 
@@ -72,7 +72,7 @@ func (o *fileVersion) UnmarshalXDR(bs []byte) error {
 
 func (o *fileVersion) decodeXDR(xr *xdr.Reader) error {
 	o.version = xr.ReadUint64()
-	o.node = xr.ReadBytes()
+	o.device = xr.ReadBytes()
 	return xr.Error()
 }
 

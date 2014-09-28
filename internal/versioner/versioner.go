@@ -10,4 +10,4 @@ type Versioner interface {
 	Archive(filePath string) error
 }
 
-var Factories = map[string]func(repoID string, repoDir string, params map[string]string) Versioner{}
+var Factories = map[string]func(folderID string, folderDir string, params map[string]string) Versioner{}

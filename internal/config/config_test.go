@@ -12,13 +12,13 @@ import (
 	"github.com/syncthing/syncthing/internal/protocol"
 )
 
-var node1, node2, node3, node4 protocol.NodeID
+var device1, device2, device3, device4 protocol.DeviceID
 
 func init() {
-	node1, _ = protocol.NodeIDFromString("AIR6LPZ7K4PTTUXQSMUUCPQ5YWOEDFIIQJUG7772YQXXR5YD6AWQ")
-	node2, _ = protocol.NodeIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
-	node3, _ = protocol.NodeIDFromString("LGFPDIT-7SKNNJL-VJZA4FC-7QNCRKA-CE753K7-2BW5QDK-2FOZ7FR-FEP57QJ")
-	node4, _ = protocol.NodeIDFromString("P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2")
+	device1, _ = protocol.DeviceIDFromString("AIR6LPZ7K4PTTUXQSMUUCPQ5YWOEDFIIQJUG7772YQXXR5YD6AWQ")
+	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
+	device3, _ = protocol.DeviceIDFromString("LGFPDIT-7SKNNJL-VJZA4FC-7QNCRKA-CE753K7-2BW5QDK-2FOZ7FR-FEP57QJ")
+	device4, _ = protocol.DeviceIDFromString("P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2")
 }
 
 func TestDefaultValues(t *testing.T) {
@@ -39,69 +39,69 @@ func TestDefaultValues(t *testing.T) {
 		RestartOnWakeup:    true,
 	}
 
-	cfg := New("test", node1)
+	cfg := New("test", device1)
 
 	if !reflect.DeepEqual(cfg.Options, expected) {
 		t.Errorf("Default config differs;\n  E: %#v\n  A: %#v", expected, cfg.Options)
 	}
 }
 
-func TestNodeConfig(t *testing.T) {
+func TestDeviceConfig(t *testing.T) {
 	for i, ver := range []string{"v1", "v2", "v3", "v4"} {
-		cfg, err := Load("testdata/"+ver+".xml", node1)
+		cfg, err := Load("testdata/"+ver+".xml", device1)
 		if err != nil {
 			t.Error(err)
 		}
 
-		expectedRepos := []RepositoryConfiguration{
+		expectedFolders := []FolderConfiguration{
 			{
 				ID:              "test",
 				Directory:       "~/Sync",
-				Nodes:           []RepositoryNodeConfiguration{{NodeID: node1}, {NodeID: node4}},
+				Devices:           []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				ReadOnly:        true,
 				RescanIntervalS: 600,
 			},
 		}
-		expectedNodes := []NodeConfiguration{
+		expectedDevices := []DeviceConfiguration{
 			{
-				NodeID:      node1,
-				Name:        "node one",
+				DeviceID:      device1,
+				Name:        "device one",
 				Addresses:   []string{"a"},
 				Compression: true,
 			},
 			{
-				NodeID:      node4,
-				Name:        "node two",
+				DeviceID:      device4,
+				Name:        "device two",
 				Addresses:   []string{"b"},
 				Compression: true,
 			},
 		}
-		expectedNodeIDs := []protocol.NodeID{node1, node4}
+		expectedDeviceIDs := []protocol.DeviceID{device1, device4}
 
 		if cfg.Version != 4 {
 			t.Errorf("%d: Incorrect version %d != 3", i, cfg.Version)
 		}
-		if !reflect.DeepEqual(cfg.Repositories, expectedRepos) {
-			t.Errorf("%d: Incorrect Repositories\n  A: %#v\n  E: %#v", i, cfg.Repositories, expectedRepos)
+		if !reflect.DeepEqual(cfg.Folders, expectedFolders) {
+			t.Errorf("%d: Incorrect Folders\n  A: %#v\n  E: %#v", i, cfg.Folders, expectedFolders)
 		}
-		if !reflect.DeepEqual(cfg.Nodes, expectedNodes) {
-			t.Errorf("%d: Incorrect Nodes\n  A: %#v\n  E: %#v", i, cfg.Nodes, expectedNodes)
+		if !reflect.DeepEqual(cfg.Devices, expectedDevices) {
+			t.Errorf("%d: Incorrect Devices\n  A: %#v\n  E: %#v", i, cfg.Devices, expectedDevices)
 		}
-		if !reflect.DeepEqual(cfg.Repositories[0].NodeIDs(), expectedNodeIDs) {
-			t.Errorf("%d: Incorrect NodeIDs\n  A: %#v\n  E: %#v", i, cfg.Repositories[0].NodeIDs(), expectedNodeIDs)
+		if !reflect.DeepEqual(cfg.Folders[0].DeviceIDs(), expectedDeviceIDs) {
+			t.Errorf("%d: Incorrect DeviceIDs\n  A: %#v\n  E: %#v", i, cfg.Folders[0].DeviceIDs(), expectedDeviceIDs)
 		}
 
-		if len(cfg.NodeMap()) != len(expectedNodes) {
-			t.Errorf("Unexpected number of NodeMap() entries")
+		if len(cfg.DeviceMap()) != len(expectedDevices) {
+			t.Errorf("Unexpected number of DeviceMap() entries")
 		}
-		if len(cfg.RepoMap()) != len(expectedRepos) {
-			t.Errorf("Unexpected number of RepoMap() entries")
+		if len(cfg.FolderMap()) != len(expectedFolders) {
+			t.Errorf("Unexpected number of FolderMap() entries")
 		}
 	}
 }
 
 func TestNoListenAddress(t *testing.T) {
-	cfg, err := Load("testdata/nolistenaddress.xml", node1)
+	cfg, err := Load("testdata/nolistenaddress.xml", device1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -130,7 +130,7 @@ func TestOverriddenValues(t *testing.T) {
 		RestartOnWakeup:    false,
 	}
 
-	cfg, err := Load("testdata/overridenvalues.xml", node1)
+	cfg, err := Load("testdata/overridenvalues.xml", device1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -140,80 +140,80 @@ func TestOverriddenValues(t *testing.T) {
 	}
 }
 
-func TestNodeAddressesDynamic(t *testing.T) {
+func TestDeviceAddressesDynamic(t *testing.T) {
 	name, _ := os.Hostname()
-	expected := []NodeConfiguration{
+	expected := []DeviceConfiguration{
 		{
-			NodeID:      node1,
+			DeviceID:      device1,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
 		{
-			NodeID:      node2,
+			DeviceID:      device2,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
 		{
-			NodeID:      node3,
+			DeviceID:      device3,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
 		{
-			NodeID:    node4,
+			DeviceID:    device4,
 			Name:      name, // Set when auto created
 			Addresses: []string{"dynamic"},
 		},
 	}
 
-	cfg, err := Load("testdata/nodeaddressesdynamic.xml", node4)
+	cfg, err := Load("testdata/deviceaddressesdynamic.xml", device4)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg.Nodes, expected) {
-		t.Errorf("Nodes differ;\n  E: %#v\n  A: %#v", expected, cfg.Nodes)
+	if !reflect.DeepEqual(cfg.Devices, expected) {
+		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, cfg.Devices)
 	}
 }
 
-func TestNodeAddressesStatic(t *testing.T) {
+func TestDeviceAddressesStatic(t *testing.T) {
 	name, _ := os.Hostname()
-	expected := []NodeConfiguration{
+	expected := []DeviceConfiguration{
 		{
-			NodeID:    node1,
+			DeviceID:    device1,
 			Addresses: []string{"192.0.2.1", "192.0.2.2"},
 		},
 		{
-			NodeID:    node2,
+			DeviceID:    device2,
 			Addresses: []string{"192.0.2.3:6070", "[2001:db8::42]:4242"},
 		},
 		{
-			NodeID:    node3,
+			DeviceID:    device3,
 			Addresses: []string{"[2001:db8::44]:4444", "192.0.2.4:6090"},
 		},
 		{
-			NodeID:    node4,
+			DeviceID:    device4,
 			Name:      name, // Set when auto created
 			Addresses: []string{"dynamic"},
 		},
 	}
 
-	cfg, err := Load("testdata/nodeaddressesstatic.xml", node4)
+	cfg, err := Load("testdata/deviceaddressesstatic.xml", device4)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg.Nodes, expected) {
-		t.Errorf("Nodes differ;\n  E: %#v\n  A: %#v", expected, cfg.Nodes)
+	if !reflect.DeepEqual(cfg.Devices, expected) {
+		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, cfg.Devices)
 	}
 }
 
 func TestVersioningConfig(t *testing.T) {
-	cfg, err := Load("testdata/versioningconfig.xml", node4)
+	cfg, err := Load("testdata/versioningconfig.xml", device4)
 	if err != nil {
 		t.Error(err)
 	}
 
-	vc := cfg.Repositories[0].Versioning
+	vc := cfg.Folders[0].Versioning
 	if vc.Type != "simple" {
 		t.Errorf(`vc.Type %q != "simple"`, vc.Type)
 	}
@@ -239,7 +239,7 @@ func TestNewSaveLoad(t *testing.T) {
 		return err == nil
 	}
 
-	cfg := New(path, node1)
+	cfg := New(path, device1)
 
 	// To make the equality pass later
 	cfg.XMLName.Local = "configuration"
@@ -256,7 +256,7 @@ func TestNewSaveLoad(t *testing.T) {
 		t.Error(path, "does not exist")
 	}
 
-	cfg2, err := Load(path, node1)
+	cfg2, err := Load(path, device1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -268,7 +268,7 @@ func TestNewSaveLoad(t *testing.T) {
 	cfg.GUI.User = "test"
 	cfg.Save()
 
-	cfg2, err = Load(path, node1)
+	cfg2, err = Load(path, device1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -283,13 +283,13 @@ func TestNewSaveLoad(t *testing.T) {
 func TestPrepare(t *testing.T) {
 	var cfg Configuration
 
-	if cfg.Repositories != nil || cfg.Nodes != nil || cfg.Options.ListenAddress != nil {
+	if cfg.Folders != nil || cfg.Devices != nil || cfg.Options.ListenAddress != nil {
 		t.Error("Expected nil")
 	}
 
-	cfg.prepare(node1)
+	cfg.prepare(device1)
 
-	if cfg.Repositories == nil || cfg.Nodes == nil || cfg.Options.ListenAddress == nil {
+	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.ListenAddress == nil {
 		t.Error("Unexpected nil")
 	}
 }

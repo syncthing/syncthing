@@ -74,7 +74,7 @@ loop:
 		for _, ev := range evs {
 			if ev.Type == "StateChanged" {
 				data := ev.Data.(map[string]interface{})
-				if data["repo"].(string) != "default" {
+				if data["folder"].(string) != "default" {
 					continue
 				}
 				log.Println(ev)

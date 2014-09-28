@@ -11,16 +11,16 @@ const (
 
 type Query struct {
 	Magic  uint32
-	NodeID []byte // max:32
+	DeviceID []byte // max:32
 }
 
 type Announce struct {
 	Magic uint32
-	This  Node
-	Extra []Node // max:16
+	This  Device
+	Extra []Device // max:16
 }
 
-type Node struct {
+type Device struct {
 	ID        []byte    // max:32
 	Addresses []Address // max:16
 }

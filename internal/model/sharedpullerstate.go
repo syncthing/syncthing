@@ -17,7 +17,7 @@ import (
 type sharedPullerState struct {
 	// Immutable, does not require locking
 	file     protocol.FileInfo
-	repo     string
+	folder     string
 	tempName string
 	realName string
 
@@ -113,7 +113,7 @@ func (s *sharedPullerState) earlyCloseLocked(context string, err error) {
 		return
 	}
 
-	l.Infof("Puller (repo %q, file %q): %s: %v", s.repo, s.file.Name, context, err)
+	l.Infof("Puller (folder %q, file %q): %s: %v", s.folder, s.file.Name, context, err)
 	s.err = err
 	if s.fd != nil {
 		s.fd.Close()
@@ -133,7 +133,7 @@ func (s *sharedPullerState) copyDone() {
 	s.mut.Lock()
 	s.copyNeeded--
 	if debug {
-		l.Debugln("sharedPullerState", s.repo, s.file.Name, "copyNeeded ->", s.pullNeeded)
+		l.Debugln("sharedPullerState", s.folder, s.file.Name, "copyNeeded ->", s.pullNeeded)
 	}
 	s.mut.Unlock()
 }
@@ -142,7 +142,7 @@ func (s *sharedPullerState) pullDone() {
 	s.mut.Lock()
 	s.pullNeeded--
 	if debug {
-		l.Debugln("sharedPullerState", s.repo, s.file.Name, "pullNeeded ->", s.pullNeeded)
+		l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded ->", s.pullNeeded)
 	}
 	s.mut.Unlock()
 }

@@ -21,8 +21,8 @@ import (
 )
 
 var (
-	c0ID = NewNodeID([]byte{1})
-	c1ID = NewNodeID([]byte{2})
+	c0ID = NewDeviceID([]byte{1})
+	c1ID = NewDeviceID([]byte{2})
 )
 
 func TestHeaderFunctions(t *testing.T) {
@@ -140,8 +140,8 @@ func TestPingErr(t *testing.T) {
 // 			if string(d) != "response data" {
 // 				t.Fatalf("Incorrect response data %q", string(d))
 // 			}
-// 			if m0.repo != "default" {
-// 				t.Fatalf("Incorrect repo %q", m0.repo)
+// 			if m0.folder != "default" {
+// 				t.Fatalf("Incorrect folder %q", m0.folder)
 // 			}
 // 			if m0.name != "tn" {
 // 				t.Fatalf("Incorrect name %q", m0.name)
@@ -240,13 +240,13 @@ func TestClose(t *testing.T) {
 
 func TestElementSizeExceededNested(t *testing.T) {
 	m := ClusterConfigMessage{
-		Repositories: []Repository{
+		Folders: []Folder{
 			{ID: "longstringlongstringlongstringinglongstringlongstringlonlongstringlongstringlon"},
 		},
 	}
 	_, err := m.EncodeXDR(ioutil.Discard)
 	if err == nil {
-		t.Errorf("ID length %d > max 64, but no error", len(m.Repositories[0].ID))
+		t.Errorf("ID length %d > max 64, but no error", len(m.Folders[0].ID))
 	}
 }
 

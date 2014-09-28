@@ -1,15 +1,15 @@
 <configuration version="2">
-    <repository id="default" directory="s1" ro="true" ignorePerms="false">
-        <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA"></node>
-        <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ"></node>
+    <folder id="default" directory="s1" ro="true" ignorePerms="false">
+        <device id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA"></device>
+        <device id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ"></device>
         <versioning></versioning>
-    </repository>
-    <node id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA" name="f1">
+    </folder>
+    <device id="I6KAH7666SLLL5PFXSOAUFJCDZYAOMLEKCP2GB3BV5RQST3PSROA" name="f1">
         <address>127.0.0.1:22001</address>
-    </node>
-    <node id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ" name="f2">
+    </device>
+    <device id="JMFJCXBGZDE4BOCJE3VF65GYZNAIVJRET3J6HMRAUQIGJOFKNHMQ" name="f2">
         <address>127.0.0.1:22002</address>
-    </node>
+    </device>
     <gui enabled="true" tls="false">
         <address>127.0.0.1:8081</address>
         <apikey>abc123</apikey>

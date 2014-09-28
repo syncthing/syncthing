@@ -27,147 +27,147 @@ type fileRecord struct {
 type bitset uint64
 
 type Set struct {
-	localVersion map[protocol.NodeID]uint64
+	localVersion map[protocol.DeviceID]uint64
 	mutex        sync.Mutex
-	repo         string
+	folder         string
 	db           *leveldb.DB
 }
 
-func NewSet(repo string, db *leveldb.DB) *Set {
+func NewSet(folder string, db *leveldb.DB) *Set {
 	var s = Set{
-		localVersion: make(map[protocol.NodeID]uint64),
-		repo:         repo,
+		localVersion: make(map[protocol.DeviceID]uint64),
+		folder:         folder,
 		db:           db,
 	}
 
-	var nodeID protocol.NodeID
-	ldbWithAllRepoTruncated(db, []byte(repo), func(node []byte, f protocol.FileInfoTruncated) bool {
-		copy(nodeID[:], node)
-		if f.LocalVersion > s.localVersion[nodeID] {
-			s.localVersion[nodeID] = f.LocalVersion
+	var deviceID protocol.DeviceID
+	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f protocol.FileInfoTruncated) bool {
+		copy(deviceID[:], device)
+		if f.LocalVersion > s.localVersion[deviceID] {
+			s.localVersion[deviceID] = f.LocalVersion
 		}
 		lamport.Default.Tick(f.Version)
 		return true
 	})
 	if debug {
-		l.Debugf("loaded localVersion for %q: %#v", repo, s.localVersion)
+		l.Debugf("loaded localVersion for %q: %#v", folder, s.localVersion)
 	}
-	clock(s.localVersion[protocol.LocalNodeID])
+	clock(s.localVersion[protocol.LocalDeviceID])
 
 	return &s
 }
 
-func (s *Set) Replace(node protocol.NodeID, fs []protocol.FileInfo) {
+func (s *Set) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 	if debug {
-		l.Debugf("%s Replace(%v, [%d])", s.repo, node, len(fs))
+		l.Debugf("%s Replace(%v, [%d])", s.folder, device, len(fs))
 	}
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.localVersion[node] = ldbReplace(s.db, []byte(s.repo), node[:], fs)
+	s.localVersion[device] = ldbReplace(s.db, []byte(s.folder), device[:], fs)
 	if len(fs) == 0 {
 		// Reset the local version if all files were removed.
-		s.localVersion[node] = 0
+		s.localVersion[device] = 0
 	}
 }
 
-func (s *Set) ReplaceWithDelete(node protocol.NodeID, fs []protocol.FileInfo) {
+func (s *Set) ReplaceWithDelete(device protocol.DeviceID, fs []protocol.FileInfo) {
 	if debug {
-		l.Debugf("%s ReplaceWithDelete(%v, [%d])", s.repo, node, len(fs))
+		l.Debugf("%s ReplaceWithDelete(%v, [%d])", s.folder, device, len(fs))
 	}
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if lv := ldbReplaceWithDelete(s.db, []byte(s.repo), node[:], fs); lv > s.localVersion[node] {
-		s.localVersion[node] = lv
+	if lv := ldbReplaceWithDelete(s.db, []byte(s.folder), device[:], fs); lv > s.localVersion[device] {
+		s.localVersion[device] = lv
 	}
 }
 
-func (s *Set) Update(node protocol.NodeID, fs []protocol.FileInfo) {
+func (s *Set) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	if debug {
-		l.Debugf("%s Update(%v, [%d])", s.repo, node, len(fs))
+		l.Debugf("%s Update(%v, [%d])", s.folder, device, len(fs))
 	}
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if lv := ldbUpdate(s.db, []byte(s.repo), node[:], fs); lv > s.localVersion[node] {
-		s.localVersion[node] = lv
+	if lv := ldbUpdate(s.db, []byte(s.folder), device[:], fs); lv > s.localVersion[device] {
+		s.localVersion[device] = lv
 	}
 }
 
-func (s *Set) WithNeed(node protocol.NodeID, fn fileIterator) {
+func (s *Set) WithNeed(device protocol.DeviceID, fn fileIterator) {
 	if debug {
-		l.Debugf("%s WithNeed(%v)", s.repo, node)
+		l.Debugf("%s WithNeed(%v)", s.folder, device)
 	}
-	ldbWithNeed(s.db, []byte(s.repo), node[:], false, nativeFileIterator(fn))
+	ldbWithNeed(s.db, []byte(s.folder), device[:], false, nativeFileIterator(fn))
 }
 
-func (s *Set) WithNeedTruncated(node protocol.NodeID, fn fileIterator) {
+func (s *Set) WithNeedTruncated(device protocol.DeviceID, fn fileIterator) {
 	if debug {
-		l.Debugf("%s WithNeedTruncated(%v)", s.repo, node)
+		l.Debugf("%s WithNeedTruncated(%v)", s.folder, device)
 	}
-	ldbWithNeed(s.db, []byte(s.repo), node[:], true, nativeFileIterator(fn))
+	ldbWithNeed(s.db, []byte(s.folder), device[:], true, nativeFileIterator(fn))
 }
 
-func (s *Set) WithHave(node protocol.NodeID, fn fileIterator) {
+func (s *Set) WithHave(device protocol.DeviceID, fn fileIterator) {
 	if debug {
-		l.Debugf("%s WithHave(%v)", s.repo, node)
+		l.Debugf("%s WithHave(%v)", s.folder, device)
 	}
-	ldbWithHave(s.db, []byte(s.repo), node[:], false, nativeFileIterator(fn))
+	ldbWithHave(s.db, []byte(s.folder), device[:], false, nativeFileIterator(fn))
 }
 
-func (s *Set) WithHaveTruncated(node protocol.NodeID, fn fileIterator) {
+func (s *Set) WithHaveTruncated(device protocol.DeviceID, fn fileIterator) {
 	if debug {
-		l.Debugf("%s WithHaveTruncated(%v)", s.repo, node)
+		l.Debugf("%s WithHaveTruncated(%v)", s.folder, device)
 	}
-	ldbWithHave(s.db, []byte(s.repo), node[:], true, nativeFileIterator(fn))
+	ldbWithHave(s.db, []byte(s.folder), device[:], true, nativeFileIterator(fn))
 }
 
 func (s *Set) WithGlobal(fn fileIterator) {
 	if debug {
-		l.Debugf("%s WithGlobal()", s.repo)
+		l.Debugf("%s WithGlobal()", s.folder)
 	}
-	ldbWithGlobal(s.db, []byte(s.repo), false, nativeFileIterator(fn))
+	ldbWithGlobal(s.db, []byte(s.folder), false, nativeFileIterator(fn))
 }
 
 func (s *Set) WithGlobalTruncated(fn fileIterator) {
 	if debug {
-		l.Debugf("%s WithGlobalTruncated()", s.repo)
+		l.Debugf("%s WithGlobalTruncated()", s.folder)
 	}
-	ldbWithGlobal(s.db, []byte(s.repo), true, nativeFileIterator(fn))
+	ldbWithGlobal(s.db, []byte(s.folder), true, nativeFileIterator(fn))
 }
 
-func (s *Set) Get(node protocol.NodeID, file string) protocol.FileInfo {
-	f := ldbGet(s.db, []byte(s.repo), node[:], []byte(normalizedFilename(file)))
+func (s *Set) Get(device protocol.DeviceID, file string) protocol.FileInfo {
+	f := ldbGet(s.db, []byte(s.folder), device[:], []byte(normalizedFilename(file)))
 	f.Name = nativeFilename(f.Name)
 	return f
 }
 
 func (s *Set) GetGlobal(file string) protocol.FileInfo {
-	f := ldbGetGlobal(s.db, []byte(s.repo), []byte(normalizedFilename(file)))
+	f := ldbGetGlobal(s.db, []byte(s.folder), []byte(normalizedFilename(file)))
 	f.Name = nativeFilename(f.Name)
 	return f
 }
 
-func (s *Set) Availability(file string) []protocol.NodeID {
-	return ldbAvailability(s.db, []byte(s.repo), []byte(normalizedFilename(file)))
+func (s *Set) Availability(file string) []protocol.DeviceID {
+	return ldbAvailability(s.db, []byte(s.folder), []byte(normalizedFilename(file)))
 }
 
-func (s *Set) LocalVersion(node protocol.NodeID) uint64 {
+func (s *Set) LocalVersion(device protocol.DeviceID) uint64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.localVersion[node]
+	return s.localVersion[device]
 }
 
-// ListRepos returns the repository IDs seen in the database.
-func ListRepos(db *leveldb.DB) []string {
-	return ldbListRepos(db)
+// ListFolders returns the folder IDs seen in the database.
+func ListFolders(db *leveldb.DB) []string {
+	return ldbListFolders(db)
 }
 
-// DropRepo clears out all information related to the given repo from the
+// DropFolder clears out all information related to the given folder from the
 // database.
-func DropRepo(db *leveldb.DB, repo string) {
-	ldbDropRepo(db, []byte(repo))
+func DropFolder(db *leveldb.DB, folder string) {
+	ldbDropFolder(db, []byte(folder))
 }
 
 func normalizeFilenames(fs []protocol.FileInfo) {

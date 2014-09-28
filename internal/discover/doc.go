@@ -2,5 +2,5 @@
 // All rights reserved. Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-// Package discover implements the node discovery protocol.
+// Package discover implements the device discovery protocol.
 package discover

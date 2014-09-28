@@ -30,7 +30,7 @@ type Interval struct {
 type Staggered struct {
 	versionsPath  string
 	cleanInterval int64
-	repoPath      string
+	folderPath      string
 	interval      [4]Interval
 	mutex         *sync.Mutex
 }
@@ -83,7 +83,7 @@ func (v Staggered) renameOld() {
 }
 
 // The constructor function takes a map of parameters and creates the type.
-func NewStaggered(repoID, repoPath string, params map[string]string) Versioner {
+func NewStaggered(folderID, folderPath string, params map[string]string) Versioner {
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
 		maxAge = 31536000 // Default: ~1 year
@@ -93,13 +93,13 @@ func NewStaggered(repoID, repoPath string, params map[string]string) Versioner {
 		cleanInterval = 3600 // Default: clean once per hour
 	}
 
-	// Use custom path if set, otherwise .stversions in repoPath
+	// Use custom path if set, otherwise .stversions in folderPath
 	var versionsDir string
 	if params["versionsPath"] == "" {
 		if debug {
 			l.Debugln("using default dir .stversions")
 		}
-		versionsDir = filepath.Join(repoPath, ".stversions")
+		versionsDir = filepath.Join(folderPath, ".stversions")
 	} else {
 		if debug {
 			l.Debugln("using dir", params["versionsPath"])
@@ -111,7 +111,7 @@ func NewStaggered(repoID, repoPath string, params map[string]string) Versioner {
 	s := Staggered{
 		versionsPath:  versionsDir,
 		cleanInterval: cleanInterval,
-		repoPath:      repoPath,
+		folderPath:      folderPath,
 		interval: [4]Interval{
 			Interval{30, 3600},               // first hour -> 30 sec between versions
 			Interval{3600, 86400},            // next day -> 1 h between versions
@@ -320,12 +320,12 @@ func (v Staggered) Archive(filePath string) error {
 	}
 
 	file := filepath.Base(filePath)
-	inRepoPath, err := filepath.Rel(v.repoPath, filepath.Dir(filePath))
+	inFolderPath, err := filepath.Rel(v.folderPath, filepath.Dir(filePath))
 	if err != nil {
 		return err
 	}
 
-	dir := filepath.Join(v.versionsPath, inRepoPath)
+	dir := filepath.Join(v.versionsPath, inFolderPath)
 	err = os.MkdirAll(dir, 0755)
 	if err != nil && !os.IsExist(err) {
 		return err

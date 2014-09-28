@@ -41,7 +41,7 @@ func TestTimeout(t *testing.T) {
 func TestEventBeforeSubscribe(t *testing.T) {
 	l := events.NewLogger()
 
-	l.Log(events.NodeConnected, "foo")
+	l.Log(events.DeviceConnected, "foo")
 	s := l.Subscribe(0)
 
 	_, err := s.Poll(timeout)
@@ -54,14 +54,14 @@ func TestEventAfterSubscribe(t *testing.T) {
 	l := events.NewLogger()
 
 	s := l.Subscribe(events.AllEvents)
-	l.Log(events.NodeConnected, "foo")
+	l.Log(events.DeviceConnected, "foo")
 
 	ev, err := s.Poll(timeout)
 
 	if err != nil {
 		t.Fatal("Unexpected error:", err)
 	}
-	if ev.Type != events.NodeConnected {
+	if ev.Type != events.DeviceConnected {
 		t.Error("Incorrect event type", ev.Type)
 	}
 	switch v := ev.Data.(type) {
@@ -77,8 +77,8 @@ func TestEventAfterSubscribe(t *testing.T) {
 func TestEventAfterSubscribeIgnoreMask(t *testing.T) {
 	l := events.NewLogger()
 
-	s := l.Subscribe(events.NodeDisconnected)
-	l.Log(events.NodeConnected, "foo")
+	s := l.Subscribe(events.DeviceDisconnected)
+	l.Log(events.DeviceConnected, "foo")
 
 	_, err := s.Poll(timeout)
 	if err != events.ErrTimeout {
@@ -93,7 +93,7 @@ func TestBufferOverflow(t *testing.T) {
 
 	t0 := time.Now()
 	for i := 0; i < events.BufferSize*2; i++ {
-		l.Log(events.NodeConnected, "foo")
+		l.Log(events.DeviceConnected, "foo")
 	}
 	if time.Since(t0) > timeout {
 		t.Fatalf("Logging took too long")
@@ -104,7 +104,7 @@ func TestUnsubscribe(t *testing.T) {
 	l := events.NewLogger()
 
 	s := l.Subscribe(events.AllEvents)
-	l.Log(events.NodeConnected, "foo")
+	l.Log(events.DeviceConnected, "foo")
 
 	_, err := s.Poll(timeout)
 	if err != nil {
@@ -112,7 +112,7 @@ func TestUnsubscribe(t *testing.T) {
 	}
 
 	l.Unsubscribe(s)
-	l.Log(events.NodeConnected, "foo")
+	l.Log(events.DeviceConnected, "foo")
 
 	_, err = s.Poll(timeout)
 	if err != events.ErrClosed {
@@ -124,8 +124,8 @@ func TestIDs(t *testing.T) {
 	l := events.NewLogger()
 
 	s := l.Subscribe(events.AllEvents)
-	l.Log(events.NodeConnected, "foo")
-	l.Log(events.NodeConnected, "bar")
+	l.Log(events.DeviceConnected, "foo")
+	l.Log(events.DeviceConnected, "bar")
 
 	ev, err := s.Poll(timeout)
 	if err != nil {
@@ -156,7 +156,7 @@ func TestBufferedSub(t *testing.T) {
 
 	go func() {
 		for i := 0; i < 10*events.BufferSize; i++ {
-			l.Log(events.NodeConnected, fmt.Sprintf("event-%d", i))
+			l.Log(events.DeviceConnected, fmt.Sprintf("event-%d", i))
 			if i%30 == 0 {
 				// Give the buffer routine time to pick up the events
 				time.Sleep(20 * time.Millisecond)

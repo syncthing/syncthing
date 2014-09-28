@@ -7,8 +7,8 @@ syncthing
 
 This is the `syncthing` project. The following are the project goals:
 
- 1. Define a protocol for synchronization of a file repository between a
-    number of collaborating nodes. The protocol should be well defined,
+ 1. Define a protocol for synchronization of a file folder between a
+    number of collaborating devices. The protocol should be well defined,
     unambiguous, easily understood, free to use, efficient, secure and
     language neutral. This is the [Block Exchange
     Protocol](https://github.com/syncthing/syncthing/blob/master/protocol/PROTOCOL.md).

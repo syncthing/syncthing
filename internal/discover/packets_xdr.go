@@ -20,17 +20,17 @@ Query Structure:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                             Magic                             |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Length of Node ID                       |
+|                      Length of Device ID                      |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                   Node ID (variable length)                   \
+\                  Device ID (variable length)                  \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct Query {
 	unsigned int Magic;
-	opaque NodeID<32>;
+	opaque DeviceID<32>;
 }
 
 */
@@ -53,10 +53,10 @@ func (o Query) AppendXDR(bs []byte) []byte {
 
 func (o Query) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint32(o.Magic)
-	if len(o.NodeID) > 32 {
+	if len(o.DeviceID) > 32 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
-	xw.WriteBytes(o.NodeID)
+	xw.WriteBytes(o.DeviceID)
 	return xw.Tot(), xw.Error()
 }
 
@@ -73,7 +73,7 @@ func (o *Query) UnmarshalXDR(bs []byte) error {
 
 func (o *Query) decodeXDR(xr *xdr.Reader) error {
 	o.Magic = xr.ReadUint32()
-	o.NodeID = xr.ReadBytesMax(32)
+	o.DeviceID = xr.ReadBytesMax(32)
 	return xr.Error()
 }
 
@@ -86,20 +86,20 @@ Announce Structure:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                             Magic                             |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             Node                              |
+|                            Device                             |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                        Number of Extra                        |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                 Zero or more Node Structures                  \
+\                Zero or more Device Structures                 \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct Announce {
 	unsigned int Magic;
-	Node This;
-	Node Extra<16>;
+	Device This;
+	Device Extra<16>;
 }
 
 */
@@ -157,7 +157,7 @@ func (o *Announce) decodeXDR(xr *xdr.Reader) error {
 	if _ExtraSize > 16 {
 		return xdr.ErrElementSizeExceeded
 	}
-	o.Extra = make([]Node, _ExtraSize)
+	o.Extra = make([]Device, _ExtraSize)
 	for i := range o.Extra {
 		(&o.Extra[i]).decodeXDR(xr)
 	}
@@ -166,7 +166,7 @@ func (o *Announce) decodeXDR(xr *xdr.Reader) error {
 
 /*
 
-Node Structure:
+Device Structure:
 
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -185,30 +185,30 @@ Node Structure:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
-struct Node {
+struct Device {
 	opaque ID<32>;
 	Address Addresses<16>;
 }
 
 */
 
-func (o Node) EncodeXDR(w io.Writer) (int, error) {
+func (o Device) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
 	return o.encodeXDR(xw)
 }
 
-func (o Node) MarshalXDR() []byte {
+func (o Device) MarshalXDR() []byte {
 	return o.AppendXDR(make([]byte, 0, 128))
 }
 
-func (o Node) AppendXDR(bs []byte) []byte {
+func (o Device) AppendXDR(bs []byte) []byte {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
 	o.encodeXDR(xw)
 	return []byte(aw)
 }
 
-func (o Node) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o Device) encodeXDR(xw *xdr.Writer) (int, error) {
 	if len(o.ID) > 32 {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
@@ -226,18 +226,18 @@ func (o Node) encodeXDR(xw *xdr.Writer) (int, error) {
 	return xw.Tot(), xw.Error()
 }
 
-func (o *Node) DecodeXDR(r io.Reader) error {
+func (o *Device) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
 	return o.decodeXDR(xr)
 }
 
-func (o *Node) UnmarshalXDR(bs []byte) error {
+func (o *Device) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
 	return o.decodeXDR(xr)
 }
 
-func (o *Node) decodeXDR(xr *xdr.Reader) error {
+func (o *Device) decodeXDR(xr *xdr.Reader) error {
 	o.ID = xr.ReadBytesMax(32)
 	_AddressesSize := int(xr.ReadUint32())
 	if _AddressesSize > 16 {

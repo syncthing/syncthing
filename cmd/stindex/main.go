@@ -19,8 +19,8 @@ func main() {
 	log.SetFlags(0)
 	log.SetOutput(os.Stdout)
 
-	repo := flag.String("repo", "default", "Repository ID")
-	node := flag.String("node", "", "Node ID (blank for global)")
+	folder := flag.String("folder", "default", "Folder ID")
+	device := flag.String("device", "", "Device ID (blank for global)")
 	flag.Parse()
 
 	db, err := leveldb.OpenFile(flag.Arg(0), nil)
@@ -28,10 +28,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fs := files.NewSet(*repo, db)
+	fs := files.NewSet(*folder, db)
 
-	if *node == "" {
-		log.Printf("*** Global index for repo %q", *repo)
+	if *device == "" {
+		log.Printf("*** Global index for folder %q", *folder)
 		fs.WithGlobalTruncated(func(fi protocol.FileIntf) bool {
 			f := fi.(protocol.FileInfoTruncated)
 			fmt.Println(f)
@@ -39,11 +39,11 @@ func main() {
 			return true
 		})
 	} else {
-		n, err := protocol.NodeIDFromString(*node)
+		n, err := protocol.DeviceIDFromString(*device)
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("*** Have index for repo %q node %q", *repo, n)
+		log.Printf("*** Have index for folder %q device %q", *folder, n)
 		fs.WithHaveTruncated(n, func(fi protocol.FileIntf) bool {
 			f := fi.(protocol.FileInfoTruncated)
 			fmt.Println(f)

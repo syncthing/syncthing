@@ -16,36 +16,36 @@ import (
 	"github.com/syncthing/syncthing/internal/luhn"
 )
 
-type NodeID [32]byte
+type DeviceID [32]byte
 
-var LocalNodeID = NodeID{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+var LocalDeviceID = DeviceID{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
-// NewNodeID generates a new node ID from the raw bytes of a certificate
-func NewNodeID(rawCert []byte) NodeID {
-	var n NodeID
+// NewDeviceID generates a new device ID from the raw bytes of a certificate
+func NewDeviceID(rawCert []byte) DeviceID {
+	var n DeviceID
 	hf := sha256.New()
 	hf.Write(rawCert)
 	hf.Sum(n[:0])
 	return n
 }
 
-func NodeIDFromString(s string) (NodeID, error) {
-	var n NodeID
+func DeviceIDFromString(s string) (DeviceID, error) {
+	var n DeviceID
 	err := n.UnmarshalText([]byte(s))
 	return n, err
 }
 
-func NodeIDFromBytes(bs []byte) NodeID {
-	var n NodeID
+func DeviceIDFromBytes(bs []byte) DeviceID {
+	var n DeviceID
 	if len(bs) != len(n) {
-		panic("incorrect length of byte slice representing node ID")
+		panic("incorrect length of byte slice representing device ID")
 	}
 	copy(n[:], bs)
 	return n
 }
 
-// String returns the canonical string representation of the node ID
-func (n NodeID) String() string {
+// String returns the canonical string representation of the device ID
+func (n DeviceID) String() string {
 	id := base32.StdEncoding.EncodeToString(n[:])
 	id = strings.Trim(id, "=")
 	id, err := luhnify(id)
@@ -57,23 +57,23 @@ func (n NodeID) String() string {
 	return id
 }
 
-func (n NodeID) GoString() string {
+func (n DeviceID) GoString() string {
 	return n.String()
 }
 
-func (n NodeID) Compare(other NodeID) int {
+func (n DeviceID) Compare(other DeviceID) int {
 	return bytes.Compare(n[:], other[:])
 }
 
-func (n NodeID) Equals(other NodeID) bool {
+func (n DeviceID) Equals(other DeviceID) bool {
 	return bytes.Compare(n[:], other[:]) == 0
 }
 
-func (n *NodeID) MarshalText() ([]byte, error) {
+func (n *DeviceID) MarshalText() ([]byte, error) {
 	return []byte(n.String()), nil
 }
 
-func (n *NodeID) UnmarshalText(bs []byte) error {
+func (n *DeviceID) UnmarshalText(bs []byte) error {
 	id := string(bs)
 	id = strings.Trim(id, "=")
 	id = strings.ToUpper(id)
@@ -98,7 +98,7 @@ func (n *NodeID) UnmarshalText(bs []byte) error {
 		copy(n[:], dec)
 		return nil
 	default:
-		return errors.New("node ID invalid: incorrect length")
+		return errors.New("device ID invalid: incorrect length")
 	}
 }
 

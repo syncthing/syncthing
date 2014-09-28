@@ -21,11 +21,11 @@ func init() {
 // The type holds our configuration
 type Simple struct {
 	keep     int
-	repoPath string
+	folderPath string
 }
 
 // The constructor function takes a map of parameters and creates the type.
-func NewSimple(repoID, repoPath string, params map[string]string) Versioner {
+func NewSimple(folderID, folderPath string, params map[string]string) Versioner {
 	keep, err := strconv.Atoi(params["keep"])
 	if err != nil {
 		keep = 5 // A reasonable default
@@ -33,7 +33,7 @@ func NewSimple(repoID, repoPath string, params map[string]string) Versioner {
 
 	s := Simple{
 		keep:     keep,
-		repoPath: repoPath,
+		folderPath: folderPath,
 	}
 
 	if debug {
@@ -57,7 +57,7 @@ func (v Simple) Archive(filePath string) error {
 		}
 	}
 
-	versionsDir := filepath.Join(v.repoPath, ".stversions")
+	versionsDir := filepath.Join(v.folderPath, ".stversions")
 	_, err = os.Stat(versionsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -76,12 +76,12 @@ func (v Simple) Archive(filePath string) error {
 	}
 
 	file := filepath.Base(filePath)
-	inRepoPath, err := filepath.Rel(v.repoPath, filepath.Dir(filePath))
+	inFolderPath, err := filepath.Rel(v.folderPath, filepath.Dir(filePath))
 	if err != nil {
 		return err
 	}
 
-	dir := filepath.Join(versionsDir, inRepoPath)
+	dir := filepath.Join(versionsDir, inFolderPath)
 	err = os.MkdirAll(dir, 0755)
 	if err != nil && !os.IsExist(err) {
 		return err

@@ -29,16 +29,16 @@ var (
 )
 
 var jsonEndpoints = []string{
-	"/rest/completion?node=I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU&repo=default",
+	"/rest/completion?device=I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU&folder=default",
 	"/rest/config",
 	"/rest/config/sync",
 	"/rest/connections",
 	"/rest/errors",
 	"/rest/events",
 	"/rest/lang",
-	"/rest/model?repo=default",
+	"/rest/model?folder=default",
 	"/rest/need",
-	"/rest/nodeid?id=I6KAH7666SLLLB5PFXSOAUFJCDZCYAOMLEKCP2GB32BV5RQST3PSROAU",
+	"/rest/deviceid?id=I6KAH7666SLLLB5PFXSOAUFJCDZCYAOMLEKCP2GB32BV5RQST3PSROAU",
 	"/rest/report",
 	"/rest/system",
 }

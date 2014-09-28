@@ -23,9 +23,9 @@ import (
 // TODO: Stop on errors
 
 const (
-	copiersPerRepo   = 1
-	pullersPerRepo   = 16
-	finishersPerRepo = 2
+	copiersPerFolder   = 1
+	pullersPerFolder   = 16
+	finishersPerFolder = 2
 	pauseIntv        = 60 * time.Second
 	nextPullIntv     = 10 * time.Second
 	checkPullIntv    = 1 * time.Second
@@ -46,12 +46,12 @@ type copyBlocksState struct {
 }
 
 var (
-	activity  = newNodeActivity()
-	errNoNode = errors.New("no available source node")
+	activity  = newDeviceActivity()
+	errNoDevice = errors.New("no available source device")
 )
 
 type Puller struct {
-	repo      string
+	folder      string
 	dir       string
 	scanIntv  time.Duration
 	model     *Model
@@ -75,8 +75,8 @@ func (p *Puller) Serve() {
 	defer func() {
 		pullTimer.Stop()
 		scanTimer.Stop()
-		// TODO: Should there be an actual RepoStopped state?
-		p.model.setState(p.repo, RepoIdle)
+		// TODO: Should there be an actual FolderStopped state?
+		p.model.setState(p.folder, FolderIdle)
 	}()
 
 	var prevVer uint64
@@ -94,10 +94,10 @@ loop:
 		// Index(), so that we immediately start a pull when new index
 		// information is available. Before that though, I'd like to build a
 		// repeatable benchmark of how long it takes to sync a change from
-		// node A to node B, so we have something to work against.
+		// device A to device B, so we have something to work against.
 		case <-pullTimer.C:
 			// RemoteLocalVersion() is a fast call, doesn't touch the database.
-			curVer := p.model.RemoteLocalVersion(p.repo)
+			curVer := p.model.RemoteLocalVersion(p.folder)
 			if curVer == prevVer {
 				pullTimer.Reset(checkPullIntv)
 				continue
@@ -106,11 +106,11 @@ loop:
 			if debug {
 				l.Debugln(p, "pulling", prevVer, curVer)
 			}
-			p.model.setState(p.repo, RepoSyncing)
+			p.model.setState(p.folder, FolderSyncing)
 			tries := 0
 			for {
 				tries++
-				changed := p.pullerIteration(copiersPerRepo, pullersPerRepo, finishersPerRepo)
+				changed := p.pullerIteration(copiersPerFolder, pullersPerFolder, finishersPerFolder)
 				if debug {
 					l.Debugln(p, "changed", changed)
 				}
@@ -120,8 +120,8 @@ loop:
 					// sync. Remember the local version number and
 					// schedule a resync a little bit into the future.
 
-					if lv := p.model.RemoteLocalVersion(p.repo); lv < curVer {
-						// There's a corner case where the node we needed
+					if lv := p.model.RemoteLocalVersion(p.folder); lv < curVer {
+						// There's a corner case where the device we needed
 						// files from disconnected during the puller
 						// iteration. The files will have been removed from
 						// the index, so we've concluded that we don't need
@@ -142,12 +142,12 @@ loop:
 					// we're not making it. Probably there are write
 					// errors preventing us. Flag this with a warning and
 					// wait a bit longer before retrying.
-					l.Warnf("Repo %q isn't making progress - check logs for possible root cause. Pausing puller for %v.", p.repo, pauseIntv)
+					l.Warnf("Folder %q isn't making progress - check logs for possible root cause. Pausing puller for %v.", p.folder, pauseIntv)
 					pullTimer.Reset(pauseIntv)
 					break
 				}
 			}
-			p.model.setState(p.repo, RepoIdle)
+			p.model.setState(p.folder, FolderIdle)
 
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
@@ -156,12 +156,12 @@ loop:
 			if debug {
 				l.Debugln(p, "rescan")
 			}
-			p.model.setState(p.repo, RepoScanning)
-			if err := p.model.ScanRepo(p.repo); err != nil {
-				invalidateRepo(p.model.cfg, p.repo, err)
+			p.model.setState(p.folder, FolderScanning)
+			if err := p.model.ScanFolder(p.folder); err != nil {
+				invalidateFolder(p.model.cfg, p.folder, err)
 				break loop
 			}
-			p.model.setState(p.repo, RepoIdle)
+			p.model.setState(p.folder, FolderIdle)
 			scanTimer.Reset(p.scanIntv)
 		}
 	}
@@ -172,13 +172,13 @@ func (p *Puller) Stop() {
 }
 
 func (p *Puller) String() string {
-	return fmt.Sprintf("puller/%s@%p", p.repo, p)
+	return fmt.Sprintf("puller/%s@%p", p.folder, p)
 }
 
-// pullerIteration runs a single puller iteration for the given repo and
+// pullerIteration runs a single puller iteration for the given folder and
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
-// flagged as needed in the repo. The specified number of copier, puller and
+// flagged as needed in the folder. The specified number of copier, puller and
 // finisher routines are used. It's seldom efficient to use more than one
 // copier routine, while multiple pullers are essential and multiple finishers
 // may be useful (they are primarily CPU bound due to hashing).
@@ -218,7 +218,7 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 	}
 
 	p.model.rmut.RLock()
-	files := p.model.repoFiles[p.repo]
+	files := p.model.folderFiles[p.folder]
 	p.model.rmut.RUnlock()
 
 	// !!!
@@ -228,7 +228,7 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 	// !!!
 
 	changed := 0
-	files.WithNeed(protocol.LocalNodeID, func(intf protocol.FileIntf) bool {
+	files.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 
 		// Needed items are delivered sorted lexicographically. This isn't
 		// really optimal from a performance point of view - it would be
@@ -240,7 +240,7 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 		file := intf.(protocol.FileInfo)
 
 		events.Default.Log(events.ItemStarted, map[string]string{
-			"repo": p.repo,
+			"folder": p.folder,
 			"item": file.Name,
 		})
 
@@ -290,7 +290,7 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 	mode := os.FileMode(file.Flags & 0777)
 
 	if debug {
-		curFile := p.model.CurrentRepoFile(p.repo, file.Name)
+		curFile := p.model.CurrentFolderFile(p.folder, file.Name)
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
@@ -307,19 +307,19 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 			}
 
 			if err = osutil.InWritableDir(mkdir, realName); err == nil {
-				p.model.updateLocal(p.repo, file)
+				p.model.updateLocal(p.folder, file)
 			} else {
-				l.Infof("Puller (repo %q, file %q): %v", p.repo, file.Name, err)
+				l.Infof("Puller (folder %q, file %q): %v", p.folder, file.Name, err)
 			}
 			return
 		}
 
 		// Weird error when stat()'ing the dir. Probably won't work to do
 		// anything else with it if we can't even stat() it.
-		l.Infof("Puller (repo %q, file %q): %v", p.repo, file.Name, err)
+		l.Infof("Puller (folder %q, file %q): %v", p.folder, file.Name, err)
 		return
 	} else if !info.IsDir() {
-		l.Infof("Puller (repo %q, file %q): should be dir, but is not", p.repo, file.Name)
+		l.Infof("Puller (folder %q, file %q): should be dir, but is not", p.folder, file.Name)
 		return
 	}
 
@@ -328,9 +328,9 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 	// It's OK to change mode bits on stuff within non-writable directories.
 
 	if err := os.Chmod(realName, mode); err == nil {
-		p.model.updateLocal(p.repo, file)
+		p.model.updateLocal(p.folder, file)
 	} else {
-		l.Infof("Puller (repo %q, file %q): %v", p.repo, file.Name, err)
+		l.Infof("Puller (folder %q, file %q): %v", p.folder, file.Name, err)
 	}
 }
 
@@ -339,7 +339,7 @@ func (p *Puller) deleteDir(file protocol.FileInfo) {
 	realName := filepath.Join(p.dir, file.Name)
 	err := osutil.InWritableDir(os.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
-		p.model.updateLocal(p.repo, file)
+		p.model.updateLocal(p.folder, file)
 	}
 }
 
@@ -355,16 +355,16 @@ func (p *Puller) deleteFile(file protocol.FileInfo) {
 	}
 
 	if err != nil {
-		l.Infof("Puller (repo %q, file %q): delete: %v", p.repo, file.Name, err)
+		l.Infof("Puller (folder %q, file %q): delete: %v", p.folder, file.Name, err)
 	} else {
-		p.model.updateLocal(p.repo, file)
+		p.model.updateLocal(p.folder, file)
 	}
 }
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
 func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, pullChan chan<- pullBlockState) {
-	curFile := p.model.CurrentRepoFile(p.repo, file.Name)
+	curFile := p.model.CurrentFolderFile(p.folder, file.Name)
 	copyBlocks, pullBlocks := scanner.BlockDiff(curFile.Blocks, file.Blocks)
 
 	if len(copyBlocks) == len(curFile.Blocks) && len(pullBlocks) == 0 {
@@ -384,7 +384,7 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 
 	s := sharedPullerState{
 		file:       file,
-		repo:       p.repo,
+		folder:       p.folder,
 		tempName:   tempName,
 		realName:   realName,
 		pullNeeded: len(pullBlocks),
@@ -422,18 +422,18 @@ func (p *Puller) shortcutFile(file protocol.FileInfo) {
 	realName := filepath.Join(p.dir, file.Name)
 	err := os.Chmod(realName, os.FileMode(file.Flags&0777))
 	if err != nil {
-		l.Infof("Puller (repo %q, file %q): shortcut: %v", p.repo, file.Name, err)
+		l.Infof("Puller (folder %q, file %q): shortcut: %v", p.folder, file.Name, err)
 		return
 	}
 
 	t := time.Unix(file.Modified, 0)
 	err = os.Chtimes(realName, t, t)
 	if err != nil {
-		l.Infof("Puller (repo %q, file %q): shortcut: %v", p.repo, file.Name, err)
+		l.Infof("Puller (folder %q, file %q): shortcut: %v", p.folder, file.Name, err)
 		return
 	}
 
-	p.model.updateLocal(p.repo, file)
+	p.model.updateLocal(p.folder, file)
 }
 
 // copierRoutine reads pullerStates until the in channel closes and performs
@@ -487,13 +487,13 @@ nextBlock:
 			continue nextBlock
 		}
 
-		// Select the least busy node to pull the block frop.model. If we found no
-		// feasible node at all, fail the block (and in the long run, the
+		// Select the least busy device to pull the block frop.model. If we found no
+		// feasible device at all, fail the block (and in the long run, the
 		// file).
-		potentialNodes := p.model.availability(p.repo, state.file.Name)
-		selected := activity.leastBusy(potentialNodes)
-		if selected == (protocol.NodeID{}) {
-			state.earlyClose("pull", errNoNode)
+		potentialDevices := p.model.availability(p.folder, state.file.Name)
+		selected := activity.leastBusy(potentialDevices)
+		if selected == (protocol.DeviceID{}) {
+			state.earlyClose("pull", errNoDevice)
 			continue nextBlock
 		}
 
@@ -505,10 +505,10 @@ nextBlock:
 			continue nextBlock
 		}
 
-		// Fetch the block, while marking the selected node as in use so that
-		// leastBusy can select another node when someone else asks.
+		// Fetch the block, while marking the selected device as in use so that
+		// leastBusy can select another device when someone else asks.
 		activity.using(selected)
-		buf, err := p.model.requestGlobal(selected, p.repo, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash)
+		buf, err := p.model.requestGlobal(selected, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash)
 		activity.done(selected)
 		if err != nil {
 			state.earlyClose("pull", err)
@@ -589,7 +589,7 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			}
 
 			// Record the updated file in the index
-			p.model.updateLocal(p.repo, state.file)
+			p.model.updateLocal(p.folder, state.file)
 		}
 	}
 }
@@ -609,11 +609,11 @@ func (p *Puller) clean() {
 	})
 }
 
-func invalidateRepo(cfg *config.Configuration, repoID string, err error) {
-	for i := range cfg.Repositories {
-		repo := &cfg.Repositories[i]
-		if repo.ID == repoID {
-			repo.Invalid = err.Error()
+func invalidateFolder(cfg *config.Configuration, folderID string, err error) {
+	for i := range cfg.Folders {
+		folder := &cfg.Folders[i]
+		if folder.ID == folderID {
+			folder.Invalid = err.Error()
 			return
 		}
 	}

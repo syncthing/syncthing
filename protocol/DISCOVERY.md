@@ -1,4 +1,4 @@
-Node Discovery Protocol v2
+Device Discovery Protocol v2
 ==========================
 
 Mode of Operation
@@ -9,19 +9,19 @@ segment (broadcast domain) and "global discovery" performed over the
 Internet in general with the support of a well known server.
 
 Local discovery does not use Query packets. Instead Announcement packets
-are sent periodically and each participating node keeps a table of the
+are sent periodically and each participating device keeps a table of the
 announcements it has seen. On multihomed hosts the announcement packets
 should be sent on each interface that syncthing will accept connections.
 
 It is recommended that local discovery Announcement packets are sent on
 a 30 to 60 second interval, possibly with forced transmissions when a
-previously unknown node is discovered.
+previously unknown device is discovered.
 
 Global discovery is made possible by periodically updating a global server
 using Announcement packets indentical to those transmitted for local
-discovery. The node performing discovery will transmit a Query packet to
+discovery. The device performing discovery will transmit a Query packet to
 the global server and expect an Announcement packet in response. In case
-the global server has no knowledge of the queried node ID, there will be
+the global server has no knowledge of the queried device ID, there will be
 no response. A timeout is to be used to determine lookup failure.
 
 There is no message to unregister from the global server; instead
@@ -39,17 +39,17 @@ The Announcement packet has the following structure:
     |                      Magic (0x9D79BC39)                       |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                        Node Structure                         \
+    \                        Device Structure                         \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                     Number of Extra Nodes                     |
+    |                     Number of Extra Devices                     |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                 Zero or more Node Structures                  \
+    \                 Zero or more Device Structures                  \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-    Node Structure:
+    Device Structure:
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -85,11 +85,11 @@ This is the XDR encoding of:
 
     struct Announcement {
         unsigned int Magic;
-        Node This;
-        Node Extra<>;
+        Device This;
+        Device Extra<>;
     }
 
-    struct Node {
+    struct Device {
         string ID<>;
         Address Addresses<>;
     }
@@ -99,16 +99,16 @@ This is the XDR encoding of:
         unsigned short Port;
     }
 
-The first Node structure contains information about the sending node.
-The following zero or more Extra nodes contain information about other
-nodes known to the sending node.
+The first Device structure contains information about the sending device.
+The following zero or more Extra devices contain information about other
+devices known to the sending device.
 
 In the Address structure, the IP field can be of three differnt kinds;
 
  - A zero length indicates that the IP address should be taken from the
    source address of the announcement packet, be it IPv4 or IPv6. The
    source address must be a valid unicast address. This is only valid
-   in the first node structure, not in the list of extras.
+   in the first device structure, not in the list of extras.
 
  - A four byte length indicates that the address is an IPv4 unicast
    address.
@@ -123,10 +123,10 @@ The Query packet has the following structure:
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                   Magic Number (0x2CA856F5)                   |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                       Length of Node ID                       |
+    |                       Length of Device ID                       |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                   Node ID (variable length)                   \
+    \                   Device ID (variable length)                   \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
@@ -134,5 +134,5 @@ This is the XDR encoding of:
 
     struct Announcement {
         unsigned int MagicNumber;
-        string NodeID<>;
+        string DeviceID<>;
     }
