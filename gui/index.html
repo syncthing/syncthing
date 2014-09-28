@@ -383,13 +383,13 @@
             </div>
             <div class="form-group">
               <label translate for="name">Node Name</label>
-              <input placeholder="Home Server" id="name" class="form-control" type="text" ng-model="currentNode.Name"></input>
+              <input id="name" class="form-control" type="text" ng-model="currentNode.Name"></input>
               <p translate ng-if="currentNode.NodeID == myID" class="help-block">Shown instead of Node ID in the cluster status. Will be advertised to other nodes as an optional default name.</p>
               <p translate ng-if="currentNode.NodeID != myID" class="help-block">Shown instead of Node ID in the cluster status. Will be updated to the name the node advertises if left empty.</p>
             </div>
             <div class="form-group">
               <label translate for="addresses">Addresses</label>
-              <input placeholder="dynamic" ng-disabled="currentNode.NodeID == myID" id="addresses" class="form-control" type="text" ng-model="currentNode.AddressesStr"></input>
+              <input ng-disabled="currentNode.NodeID == myID" id="addresses" class="form-control" type="text" ng-model="currentNode.AddressesStr"></input>
               <p translate class="help-block">Enter comma separated "ip:port" addresses or "dynamic" to perform automatic discovery of the address.</p>
             </div>
             <div ng-if="!editingSelf" class="form-group">
@@ -434,7 +434,7 @@
               <div class="col-md-12">
                 <div class="form-group" ng-class="{'has-error': repoEditor.repoID.$invalid && repoEditor.repoID.$dirty}">
                   <label for="repoID"><span translate>Repository ID</span></label>
-                  <input name="repoID" placeholder="documents" ng-disabled="editingExisting" id="repoID" class="form-control" type="text" ng-model="currentRepo.ID" required unique-repo ng-pattern="/^[a-zA-Z0-9-_.]{1,64}$/"></input>
+                  <input name="repoID" ng-disabled="editingExisting" id="repoID" class="form-control" type="text" ng-model="currentRepo.ID" required unique-repo ng-pattern="/^[a-zA-Z0-9-_.]{1,64}$/"></input>
                   <p class="help-block">
                     <span translate ng-if="repoEditor.repoID.$valid || repoEditor.repoID.$pristine">Short identifier for the repository. Must be the same on all cluster nodes.</span>
                     <span translate ng-if="repoEditor.repoID.$error.uniqueRepo">The repository ID must be unique.</span>
@@ -444,7 +444,7 @@
                 </div>
                 <div class="form-group" ng-class="{'has-error': repoEditor.repoPath.$invalid && repoEditor.repoPath.$dirty}">
                   <label translate for="repoPath">Repository Path</label>
-                  <input name="repoPath" placeholder="~/Documents" ng-disabled="editingExisting" id="repoPath" class="form-control" type="text" ng-model="currentRepo.Directory" required></input>
+                  <input name="repoPath" ng-disabled="editingExisting" id="repoPath" class="form-control" type="text" ng-model="currentRepo.Directory" required></input>
                   <p class="help-block">
                     <span translate ng-if="repoEditor.repoPath.$valid || repoEditor.repoPath.$pristine">Path to the repository on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.
                     <span translate ng-if="repoEditor.repoPath.$error.required && repoEditor.repoPath.$dirty">The repository path cannot be blank.</span>
@@ -452,7 +452,7 @@
                 </div>
                 <div class="form-group" ng-class="{'has-error': repoEditor.rescanIntervalS.$invalid && repoEditor.rescanIntervalS.$dirty}">
                   <label for="rescanIntervalS"><span translate>Rescan Interval</span> (s)</label>
-                  <input name="rescanIntervalS" placeholder="60" id="rescanIntervalS" class="form-control" type="number" ng-model="currentRepo.RescanIntervalS" required min="5"></input>
+                  <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentRepo.RescanIntervalS" required min="5"></input>
                   <p class="help-block">
                     <span translate ng-if="!repoEditor.rescanIntervalS.$valid && repoEditor.rescanIntervalS.$dirty">The rescan interval must be at least 5 seconds.</span>
                   </p>
@@ -528,7 +528,7 @@
                 </div>
                 <div class="form-group" ng-if="currentRepo.FileVersioningSelector == 'staggered'">
                   <label translate for="staggeredVersionsPath">Versions Path</label>
-                  <input name="staggeredVersionsPath" placeholder="" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentRepo.staggeredVersionsPath"></input>
+                  <input name="staggeredVersionsPath" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentRepo.staggeredVersionsPath"></input>
                   <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions folder in the repository).</p>
                 </div>
               </div>
