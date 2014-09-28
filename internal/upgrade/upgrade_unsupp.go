@@ -6,7 +6,7 @@
 
 package upgrade
 
-func UpgradeTo(rel Release, extra string) error {
+func upgradeTo(path string, rel Release, extra string) error {
 	return ErrUpgradeUnsupported
 }
 

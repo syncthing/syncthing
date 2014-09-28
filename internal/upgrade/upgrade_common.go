@@ -9,6 +9,8 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+
+	"bitbucket.org/kardianos/osext"
 )
 
 type Release struct {
@@ -26,7 +28,33 @@ var (
 	ErrVersionUpToDate    = errors.New("current version is up to date")
 	ErrVersionUnknown     = errors.New("couldn't fetch release information")
 	ErrUpgradeUnsupported = errors.New("upgrade unsupported")
+	ErrUpgradeInProgress  = errors.New("upgrade already in progress")
+	upgradeUnlocked       = make(chan bool, 1)
 )
+
+func init() {
+	upgradeUnlocked <- true
+}
+
+// A wrapper around actual implementations
+func UpgradeTo(rel Release, archExtra string) error {
+	select {
+	case <-upgradeUnlocked:
+		path, err := osext.Executable()
+		if err != nil {
+			upgradeUnlocked <- true
+			return err
+		}
+		err = upgradeTo(path, rel, archExtra)
+		// If we've failed to upgrade, unlock so that another attempt could be made
+		if err != nil {
+			upgradeUnlocked <- true
+		}
+		return err
+	default:
+		return ErrUpgradeInProgress
+	}
+}
 
 // Returns 1 if a>b, -1 if a<b and 0 if they are equal
 func CompareVersions(a, b string) int {
