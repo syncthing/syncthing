@@ -369,11 +369,11 @@ func TestLocalDeleted(t *testing.T) {
 	lamport.Default = lamport.Clock{}
 
 	local1 := []protocol.FileInfo{
-		protocol.FileInfo{Name: "a", Version: 1000},
-		protocol.FileInfo{Name: "b", Version: 1000},
-		protocol.FileInfo{Name: "c", Version: 1000},
-		protocol.FileInfo{Name: "d", Version: 1000},
-		protocol.FileInfo{Name: "z", Version: 1000, Flags: protocol.FlagDirectory},
+		{Name: "a", Version: 1000},
+		{Name: "b", Version: 1000},
+		{Name: "c", Version: 1000},
+		{Name: "d", Version: 1000},
+		{Name: "z", Version: 1000, Flags: protocol.FlagDirectory},
 	}
 
 	m.ReplaceWithDelete(protocol.LocalDeviceID, local1)
@@ -399,10 +399,10 @@ func TestLocalDeleted(t *testing.T) {
 
 	expectedGlobal1 := []protocol.FileInfo{
 		local1[0],
-		protocol.FileInfo{Name: "b", Version: 1001, Flags: protocol.FlagDeleted},
+		{Name: "b", Version: 1001, Flags: protocol.FlagDeleted},
 		local1[2],
-		protocol.FileInfo{Name: "d", Version: 1002, Flags: protocol.FlagDeleted},
-		protocol.FileInfo{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
+		{Name: "d", Version: 1002, Flags: protocol.FlagDeleted},
+		{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
 	}
 
 	g := globalList(m)
@@ -420,10 +420,10 @@ func TestLocalDeleted(t *testing.T) {
 
 	expectedGlobal2 := []protocol.FileInfo{
 		local1[0],
-		protocol.FileInfo{Name: "b", Version: 1001, Flags: protocol.FlagDeleted},
-		protocol.FileInfo{Name: "c", Version: 1004, Flags: protocol.FlagDeleted},
-		protocol.FileInfo{Name: "d", Version: 1002, Flags: protocol.FlagDeleted},
-		protocol.FileInfo{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
+		{Name: "b", Version: 1001, Flags: protocol.FlagDeleted},
+		{Name: "c", Version: 1004, Flags: protocol.FlagDeleted},
+		{Name: "d", Version: 1002, Flags: protocol.FlagDeleted},
+		{Name: "z", Version: 1003, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
 	}
 
 	g = globalList(m)
@@ -619,17 +619,17 @@ func TestGlobalReset(t *testing.T) {
 	m := files.NewSet("test", db)
 
 	local := []protocol.FileInfo{
-		protocol.FileInfo{Name: "a", Version: 1000},
-		protocol.FileInfo{Name: "b", Version: 1000},
-		protocol.FileInfo{Name: "c", Version: 1000},
-		protocol.FileInfo{Name: "d", Version: 1000},
+		{Name: "a", Version: 1000},
+		{Name: "b", Version: 1000},
+		{Name: "c", Version: 1000},
+		{Name: "d", Version: 1000},
 	}
 
 	remote := []protocol.FileInfo{
-		protocol.FileInfo{Name: "a", Version: 1000},
-		protocol.FileInfo{Name: "b", Version: 1001},
-		protocol.FileInfo{Name: "c", Version: 1002},
-		protocol.FileInfo{Name: "e", Version: 1000},
+		{Name: "a", Version: 1000},
+		{Name: "b", Version: 1001},
+		{Name: "c", Version: 1002},
+		{Name: "e", Version: 1000},
 	}
 
 	m.ReplaceWithDelete(protocol.LocalDeviceID, local)
@@ -660,23 +660,23 @@ func TestNeed(t *testing.T) {
 	m := files.NewSet("test", db)
 
 	local := []protocol.FileInfo{
-		protocol.FileInfo{Name: "a", Version: 1000},
-		protocol.FileInfo{Name: "b", Version: 1000},
-		protocol.FileInfo{Name: "c", Version: 1000},
-		protocol.FileInfo{Name: "d", Version: 1000},
+		{Name: "a", Version: 1000},
+		{Name: "b", Version: 1000},
+		{Name: "c", Version: 1000},
+		{Name: "d", Version: 1000},
 	}
 
 	remote := []protocol.FileInfo{
-		protocol.FileInfo{Name: "a", Version: 1000},
-		protocol.FileInfo{Name: "b", Version: 1001},
-		protocol.FileInfo{Name: "c", Version: 1002},
-		protocol.FileInfo{Name: "e", Version: 1000},
+		{Name: "a", Version: 1000},
+		{Name: "b", Version: 1001},
+		{Name: "c", Version: 1002},
+		{Name: "e", Version: 1000},
 	}
 
 	shouldNeed := []protocol.FileInfo{
-		protocol.FileInfo{Name: "b", Version: 1001},
-		protocol.FileInfo{Name: "c", Version: 1002},
-		protocol.FileInfo{Name: "e", Version: 1000},
+		{Name: "b", Version: 1001},
+		{Name: "c", Version: 1002},
+		{Name: "e", Version: 1000},
 	}
 
 	m.ReplaceWithDelete(protocol.LocalDeviceID, local)
@@ -701,18 +701,18 @@ func TestLocalVersion(t *testing.T) {
 	m := files.NewSet("test", db)
 
 	local1 := []protocol.FileInfo{
-		protocol.FileInfo{Name: "a", Version: 1000},
-		protocol.FileInfo{Name: "b", Version: 1000},
-		protocol.FileInfo{Name: "c", Version: 1000},
-		protocol.FileInfo{Name: "d", Version: 1000},
+		{Name: "a", Version: 1000},
+		{Name: "b", Version: 1000},
+		{Name: "c", Version: 1000},
+		{Name: "d", Version: 1000},
 	}
 
 	local2 := []protocol.FileInfo{
 		local1[0],
 		// [1] deleted
 		local1[2],
-		protocol.FileInfo{Name: "d", Version: 1002},
-		protocol.FileInfo{Name: "e", Version: 1000},
+		{Name: "d", Version: 1002},
+		{Name: "e", Version: 1000},
 	}
 
 	m.ReplaceWithDelete(protocol.LocalDeviceID, local1)
@@ -739,17 +739,17 @@ func TestListDropFolder(t *testing.T) {
 
 	s0 := files.NewSet("test0", db)
 	local1 := []protocol.FileInfo{
-		protocol.FileInfo{Name: "a", Version: 1000},
-		protocol.FileInfo{Name: "b", Version: 1000},
-		protocol.FileInfo{Name: "c", Version: 1000},
+		{Name: "a", Version: 1000},
+		{Name: "b", Version: 1000},
+		{Name: "c", Version: 1000},
 	}
 	s0.Replace(protocol.LocalDeviceID, local1)
 
 	s1 := files.NewSet("test1", db)
 	local2 := []protocol.FileInfo{
-		protocol.FileInfo{Name: "d", Version: 1002},
-		protocol.FileInfo{Name: "e", Version: 1002},
-		protocol.FileInfo{Name: "f", Version: 1002},
+		{Name: "d", Version: 1002},
+		{Name: "e", Version: 1002},
+		{Name: "f", Version: 1002},
 	}
 	s1.Replace(remoteDevice0, local2)
 
@@ -837,7 +837,7 @@ func TestLongPath(t *testing.T) {
 	name := b.String() // 5000 characters
 
 	local := []protocol.FileInfo{
-		protocol.FileInfo{Name: string(name), Version: 1000},
+		{Name: string(name), Version: 1000},
 	}
 
 	s.ReplaceWithDelete(protocol.LocalDeviceID, local)
