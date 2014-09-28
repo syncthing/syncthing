@@ -119,6 +119,19 @@ loop:
 					// No files were changed by the puller, so we are in
 					// sync. Remember the local version number and
 					// schedule a resync a little bit into the future.
+
+					if lv := p.model.RemoteLocalVersion(p.repo); lv < curVer {
+						// There's a corner case where the node we needed
+						// files from disconnected during the puller
+						// iteration. The files will have been removed from
+						// the index, so we've concluded that we don't need
+						// them, but at the same time we have the local
+						// version that includes those files in curVer. So we
+						// catch the case that localVersion might have
+						// decresed here.
+						l.Debugln(p,"adjusting curVer",lv)
+						curVer = lv
+					}
 					prevVer = curVer
 					pullTimer.Reset(nextPullIntv)
 					break
@@ -216,6 +229,14 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 
 	changed := 0
 	files.WithNeed(protocol.LocalNodeID, func(intf protocol.FileIntf) bool {
+
+		// Needed items are delivered sorted lexicographically. This isn't
+		// really optimal from a performance point of view - it would be
+		// better if files were handled in random order, to spread the load
+		// over the cluster. But it means that we can be sure that we fully
+		// handle directories before the files that go inside them, which is
+		// nice.
+
 		file := intf.(protocol.FileInfo)
 
 		events.Default.Log(events.ItemStarted, map[string]string{
@@ -238,7 +259,8 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 			// A deleted file
 			p.deleteFile(file)
 		default:
-			// A new or changed file
+			// A new or changed file. This is the only case where we do stuff
+			// in the background; the other three are done synchronously.
 			p.handleFile(file, copyChan, pullChan)
 		}
 

@@ -65,6 +65,10 @@ func (s *Set) Replace(node protocol.NodeID, fs []protocol.FileInfo) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.localVersion[node] = ldbReplace(s.db, []byte(s.repo), node[:], fs)
+	if len(fs) == 0 {
+		// Reset the local version if all files were removed.
+		s.localVersion[node] = 0
+	}
 }
 
 func (s *Set) ReplaceWithDelete(node protocol.NodeID, fs []protocol.FileInfo) {
