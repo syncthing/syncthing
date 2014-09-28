@@ -106,7 +106,7 @@
                       <td class="text-right">{{folder.ID}}</td>
                     </tr>
                     <tr>
-                      <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder</span></th>
+                      <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder Path</span></th>
                       <td class="text-right">{{folder.Path}}</td>
                     </tr>
                     <tr ng-if="model[folder.ID].invalid">
@@ -114,11 +114,11 @@
                       <td class="text-right">{{model[folder.ID].invalid}}</td>
                     </tr>
                     <tr>
-                      <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global Folder</span></th>
+                      <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global State</span></th>
                       <td class="text-right">{{model[folder.ID].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].globalBytes | binary}}B</td>
                     </tr>
                     <tr>
-                      <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local Folder</span></th>
+                      <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local State</span></th>
                       <td class="text-right">{{model[folder.ID].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].localBytes | binary}}B</td>
                     </tr>
                     <tr>
@@ -129,7 +129,7 @@
                       </td>
                     </tr>
                     <tr>
-                      <th><span class="glyphicon glyphicon-lock"></span>&emsp;<span translate>Master Folder</span></th>
+                      <th><span class="glyphicon glyphicon-lock"></span>&emsp;<span translate>Folder Master</span></th>
                       <td class="text-right">
                         <span translate ng-if="folder.ReadOnly">Yes</span>
                         <span translate ng-if="!folder.ReadOnly">No</span>
