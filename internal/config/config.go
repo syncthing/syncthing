@@ -47,8 +47,8 @@ type FolderConfiguration struct {
 
 	deviceIDs []protocol.DeviceID
 
-	Depreceted_Directory string                      `xml:"directory,omitempty,attr" json:"-"`
-	Depreceted_Nodes     []FolderDeviceConfiguration `xml:"node" json:"-"`
+	Deprecated_Directory string                      `xml:"directory,omitempty,attr" json:"-"`
+	Deprecated_Nodes     []FolderDeviceConfiguration `xml:"node" json:"-"`
 }
 
 type VersioningConfiguration struct {
@@ -491,10 +491,10 @@ func convertV4V5(cfg *Configuration) {
 	cfg.Folders = cfg.Deprecated_Repositories
 
 	for i := range cfg.Folders {
-		cfg.Folders[i].Path = cfg.Folders[i].Depreceted_Directory
-		cfg.Folders[i].Depreceted_Directory = ""
-		cfg.Folders[i].Devices = cfg.Folders[i].Depreceted_Nodes
-		cfg.Folders[i].Depreceted_Nodes = nil
+		cfg.Folders[i].Path = cfg.Folders[i].Deprecated_Directory
+		cfg.Folders[i].Deprecated_Directory = ""
+		cfg.Folders[i].Devices = cfg.Folders[i].Deprecated_Nodes
+		cfg.Folders[i].Deprecated_Nodes = nil
 	}
 
 	cfg.Deprecated_Nodes = nil
@@ -518,8 +518,8 @@ func convertV3V4(cfg *Configuration) {
 	// to define the deprecated fields to be able to upgrade from V1 to V4.
 	for i, folder := range cfg.Deprecated_Repositories {
 
-		for j := range folder.Depreceted_Nodes {
-			rncfg := cfg.Deprecated_Repositories[i].Depreceted_Nodes[j]
+		for j := range folder.Deprecated_Nodes {
+			rncfg := cfg.Deprecated_Repositories[i].Deprecated_Nodes[j]
 			rncfg.Deprecated_Name = ""
 			rncfg.Deprecated_Addresses = nil
 		}
@@ -553,12 +553,12 @@ func convertV1V2(cfg *Configuration) {
 	var devices = map[string]FolderDeviceConfiguration{}
 	for i, folder := range cfg.Deprecated_Repositories {
 		cfg.Deprecated_Repositories[i].ReadOnly = cfg.Options.Deprecated_ReadOnly
-		for j, device := range folder.Depreceted_Nodes {
+		for j, device := range folder.Deprecated_Nodes {
 			id := device.DeviceID.String()
 			if _, ok := devices[id]; !ok {
 				devices[id] = device
 			}
-			cfg.Deprecated_Repositories[i].Depreceted_Nodes[j] = FolderDeviceConfiguration{DeviceID: device.DeviceID}
+			cfg.Deprecated_Repositories[i].Deprecated_Nodes[j] = FolderDeviceConfiguration{DeviceID: device.DeviceID}
 		}
 	}
 	cfg.Options.Deprecated_ReadOnly = false
