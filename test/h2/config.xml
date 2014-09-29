@@ -1,16 +1,16 @@
-<configuration version="4">
-    <folder id="default" directory="s2" ro="false" rescanIntervalS="15" ignorePerms="false">
+<configuration version="5">
+    <folder id="default" path="s2" ro="false" rescanIntervalS="15" ignorePerms="false">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
         <versioning></versioning>
     </folder>
-    <folder id="s12" directory="s12-2" ro="false" rescanIntervalS="15" ignorePerms="false">
+    <folder id="s12" path="s12-2" ro="false" rescanIntervalS="15" ignorePerms="false">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <versioning></versioning>
     </folder>
-    <folder id="s23" directory="s23-2" ro="false" rescanIntervalS="15" ignorePerms="false">
+    <folder id="s23" path="s23-2" ro="false" rescanIntervalS="15" ignorePerms="false">
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
         <versioning></versioning>

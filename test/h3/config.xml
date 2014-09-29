@@ -1,10 +1,10 @@
-<configuration version="4">
-    <folder id="s23" directory="s23-3" ro="false" rescanIntervalS="20" ignorePerms="false">
+<configuration version="5">
+    <folder id="s23" path="s23-3" ro="false" rescanIntervalS="20" ignorePerms="false">
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
         <versioning></versioning>
     </folder>
-    <folder id="default" directory="s3" ro="false" rescanIntervalS="20" ignorePerms="false">
+    <folder id="default" path="s3" ro="false" rescanIntervalS="20" ignorePerms="false">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>

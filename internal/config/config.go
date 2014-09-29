@@ -24,7 +24,7 @@ var l = logger.DefaultLogger
 
 type Configuration struct {
 	Location string                `xml:"-" json:"-"`
-	Version  int                   `xml:"version,attr" default:"3"`
+	Version  int                   `xml:"version,attr" default:"5"`
 	Folders  []FolderConfiguration `xml:"folder"`
 	Devices  []DeviceConfiguration `xml:"device"`
 	GUI      GUIConfiguration      `xml:"gui"`

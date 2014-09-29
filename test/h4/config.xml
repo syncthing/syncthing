@@ -1,12 +1,12 @@
-<configuration version="4">
-    <folder id="unique" directory="s4" ro="false" rescanIntervalS="60" ignorePerms="false">
+<configuration version="5">
+    <folder id="unique" path="s4" ro="false" rescanIntervalS="60" ignorePerms="false">
         <device id="EJHMPAQ-OGCVORE-ISB4IS3-SYYVJXF-TKJGLTU-66DIQPF-GJ5D2GX-GQ3OWQK"></device>
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
         <versioning></versioning>
     </folder>
-    <folder id="default" directory="s4d" ro="false" rescanIntervalS="60" ignorePerms="false">
+    <folder id="default" path="s4d" ro="false" rescanIntervalS="60" ignorePerms="false">
         <device id="EJHMPAQ-OGCVORE-ISB4IS3-SYYVJXF-TKJGLTU-66DIQPF-GJ5D2GX-GQ3OWQK"></device>
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <versioning></versioning>
