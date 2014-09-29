@@ -469,7 +469,7 @@ func (p *Puller) shortcutFile(file protocol.FileInfo) {
 // copierRoutine reads pullerStates until the in channel closes and performs
 // the relevant copy.
 func (p *Puller) copierRoutine(in <-chan copyBlocksState, out chan<- *sharedPullerState) {
-	buf := make([]byte, scanner.StandardBlockSize)
+	buf := make([]byte, protocol.BlockSize)
 
 nextFile:
 	for state := range in {
@@ -575,7 +575,7 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 				l.Warnln("puller: final:", err)
 				continue
 			}
-			err = scanner.Verify(fd, scanner.StandardBlockSize, state.file.Blocks)
+			err = scanner.Verify(fd, protocol.BlockSize, state.file.Blocks)
 			fd.Close()
 			if err != nil {
 				os.Remove(state.tempName)
