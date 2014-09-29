@@ -1003,7 +1003,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		Dir:          dir,
 		Sub:          sub,
 		Ignores:      ignores,
-		BlockSize:    scanner.StandardBlockSize,
+		BlockSize:    protocol.BlockSize,
 		TempNamer:    defTempNamer,
 		CurrentFiler: cFiler{m, folder},
 		IgnorePerms:  m.folderCfgs[folder].IgnorePerms,
