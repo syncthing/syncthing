@@ -9,6 +9,7 @@
 
 var syncthing = angular.module('syncthing', ['pascalprecht.translate']);
 var urlbase = 'rest';
+var debounceTimeout = 10000;
 
 syncthing.config(function ($httpProvider, $translateProvider) {
     $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
@@ -251,15 +252,15 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     var pendingCalls = {};
 
-    function promiseHttpGet(key, url, refreshTimeout) {
+    function promiseHttpGet(key, url, debounceTimeout) {
         return new Promise(function(resolve, reject) {
 			var call = function() {
 				var executeNextCall = function() {
 					var pendingCall = pendingCalls[key];
-					pendingCalls[key] = null;
                     if (pendingCall) {
                         if (pendingCall == call) {
                             console.log("Same debounce call: "+key);
+                            pendingCalls[key] = null;
                         } else {
                             console.log("Rebounced call: "+key);
                             pendingCall();
@@ -269,13 +270,17 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
                     }
 				}
 				var promise = $http.get(url);
+                var timeout = debounceTimeout;
+                if ($scope && $scope.system && $scope.system.cpuPercent) {
+                    timeout = $scope.system.cpuPercent > 90 ? debounceTimeout * 10 : debounceTimeout;
+                }
 				promise.then(function(data) {
 					resolve(data.data);
                     console.log("Finished call: "+key);
-					setTimeout(executeNextCall, refreshTimeout);
-				}, function() {
+					setTimeout(executeNextCall, timeout);
+				}, function(data) {
 					reject(data);
-					setTimeout(executeNextCall, refreshTimeout);
+					setTimeout(executeNextCall, timeout);
 				});
 			}
 			var pendingCall = pendingCalls[key];
@@ -292,7 +297,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     function refreshFolder(folder) {
         var key = "refreshFolder" + folder;
         promiseHttpGet(key, urlbase + '/model?folder=' + encodeURIComponent(folder),
-                       refreshTimeout).then(function (data) {
+                       debounceTimeout).then(function (data) {
                 $scope.model[folder] = data;
                 console.log("refreshFolder", folder, data)
         });
@@ -340,7 +345,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
         var key = "refreshCompletion" + device + folder;
         promiseHttpGet(key, urlbase + '/completion?device=' + device + '&folder=' + encodeURIComponent(folder),
-                       refreshTimeout).then(function (data) {
+                       debounceTimeout).then(function (data) {
             if (!$scope.completion[device]) {
                 $scope.completion[device] = {};
             }
@@ -405,7 +410,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
 
     var refreshDeviceStats = function () {
         var key = "refreshDevice";
-        promiseHttpGet(key, urlbase + "/stats/device", refreshTimeout).then(function (data) {
+        promiseHttpGet(key, urlbase + "/stats/device", debounceTimeout).then(function (data) {
             $scope.stats = data;
             for (var device in $scope.stats) {
                 $scope.stats[device].LastSeen = new Date($scope.stats[device].LastSeen);
