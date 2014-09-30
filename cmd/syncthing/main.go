@@ -1182,7 +1182,9 @@ func autoUpgrade() {
 
 		rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
 		if err != nil {
-			l.Warnln("Automatic upgrade:", err)
+			// Don't complain too loudly here; we might simply not have
+			// internet connectivity, or the upgrade server might be down.
+			l.Infoln("Automatic upgrade:", err)
 			continue
 		}
 
