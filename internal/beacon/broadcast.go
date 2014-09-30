@@ -51,7 +51,7 @@ func (b *Broadcast) writer() {
 
 		var dsts []net.IP
 		for _, addr := range addrs {
-			if iaddr, ok := addr.(*net.IPNet); ok && iaddr.IP.IsGlobalUnicast() && iaddr.IP.To4() != nil {
+			if iaddr, ok := addr.(*net.IPNet); ok && len(iaddr.IP) >= 4 && iaddr.IP.IsGlobalUnicast() && iaddr.IP.To4() != nil {
 				baddr := bcast(iaddr)
 				dsts = append(dsts, baddr.IP)
 			}
