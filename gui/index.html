@@ -40,7 +40,7 @@
       <span class="navbar-brand"><img class="logo" src="img/logo-text-64.png" height="32" width="117"/></span>
       <p class="navbar-text hidden-xs">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
-        <li ng-if="upgradeInfo.newer">
+        <li ng-if="upgradeInfo && upgradeInfo.newer">
           <button type="button" class="btn navbar-btn btn-primary btn-sm" href="" ng-click="upgrade()">
             <span class="glyphicon glyphicon-chevron-up"></span>&emsp;
             <span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
@@ -636,7 +636,7 @@
                 <div class="col-md-6">
                   <div class="form-group">
                     <div class="checkbox">
-                      <label>
+                      <label ng-if="upgradeInfo">
                         <span translate>Automatic upgrades</span> <input id="AutoUpgradeEnabled" type="checkbox" ng-model="tmpOptions.AutoUpgradeEnabled">
                       </label>
                     </div>

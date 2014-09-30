@@ -1192,6 +1192,9 @@ func autoUpgrade() {
 		}
 
 		rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
+		if err == upgrade.ErrUpgradeUnsupported {
+			return
+		}
 		if err != nil {
 			// Don't complain too loudly here; we might simply not have
 			// internet connectivity, or the upgrade server might be down.
