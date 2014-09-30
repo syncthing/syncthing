@@ -73,11 +73,6 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	return hashedFiles, nil
 }
 
-// CleanTempFiles removes all files that match the temporary filename pattern.
-func (w *Walker) CleanTempFiles() {
-	filepath.Walk(w.Dir, w.cleanTempFile)
-}
-
 func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFunc {
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -179,16 +174,6 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 		return nil
 	}
-}
-
-func (w *Walker) cleanTempFile(path string, info os.FileInfo, err error) error {
-	if err != nil {
-		return err
-	}
-	if info.Mode()&os.ModeType == 0 && w.TempNamer.IsTemporary(path) {
-		os.Remove(path)
-	}
-	return nil
 }
 
 func checkDir(dir string) error {

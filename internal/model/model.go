@@ -171,10 +171,9 @@ func (m *Model) StartFolderRW(folder string) {
 // pull in any external changes.
 func (m *Model) StartFolderRO(folder string) {
 	intv := time.Duration(m.folderCfgs[folder].RescanIntervalS) * time.Second
+	initialScanCompleted := false
 	go func() {
 		for {
-			time.Sleep(intv)
-
 			if debug {
 				l.Debugln(m, "rescan", folder)
 			}
@@ -185,6 +184,11 @@ func (m *Model) StartFolderRO(folder string) {
 				return
 			}
 			m.setState(folder, FolderIdle)
+			if !initialScanCompleted {
+				l.Infoln("Completed initial scan (ro) of folder", folder)
+				initialScanCompleted = true
+			}
+			time.Sleep(intv)
 		}
 	}()
 }
@@ -953,29 +957,6 @@ func (m *Model) ScanFolders() {
 			if err != nil {
 				invalidateFolder(m.cfg, folder, err)
 			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-}
-
-func (m *Model) CleanFolders() {
-	m.fmut.RLock()
-	var dirs = make([]string, 0, len(m.folderCfgs))
-	for _, cfg := range m.folderCfgs {
-		dirs = append(dirs, cfg.Path)
-	}
-	m.fmut.RUnlock()
-
-	var wg sync.WaitGroup
-	wg.Add(len(dirs))
-	for _, dir := range dirs {
-		w := &scanner.Walker{
-			Dir:       dir,
-			TempNamer: defTempNamer,
-		}
-		go func() {
-			w.CleanTempFiles()
 			wg.Done()
 		}()
 	}

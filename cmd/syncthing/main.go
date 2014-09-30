@@ -522,13 +522,6 @@ nextFolder:
 		}
 	}
 
-	// Walk the folder and update the local model before establishing any
-	// connections to other devices.
-
-	m.CleanFolders()
-	l.Infoln("Performing initial folder scan")
-	m.ScanFolders()
-
 	// Remove all .idx* files that don't belong to an active folder.
 
 	validIndexes := make(map[string]bool)

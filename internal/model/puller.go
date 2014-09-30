@@ -70,7 +70,7 @@ func (p *Puller) Serve() {
 	p.stop = make(chan struct{})
 
 	pullTimer := time.NewTimer(checkPullIntv)
-	scanTimer := time.NewTimer(p.scanIntv)
+	scanTimer := time.NewTimer(time.Millisecond) // The first scan should be done immediately.
 
 	defer func() {
 		pullTimer.Stop()
@@ -84,6 +84,9 @@ func (p *Puller) Serve() {
 	// Clean out old temporaries before we start pulling
 	p.clean()
 
+	// We don't start pulling files until a scan has been completed.
+	initialScanCompleted := false
+
 loop:
 	for {
 		select {
@@ -96,6 +99,10 @@ loop:
 		// repeatable benchmark of how long it takes to sync a change from
 		// device A to device B, so we have something to work against.
 		case <-pullTimer.C:
+			if !initialScanCompleted {
+				continue
+			}
+
 			// RemoteLocalVersion() is a fast call, doesn't touch the database.
 			curVer := p.model.RemoteLocalVersion(p.folder)
 			if curVer == prevVer {
@@ -163,6 +170,10 @@ loop:
 			}
 			p.model.setState(p.folder, FolderIdle)
 			scanTimer.Reset(p.scanIntv)
+			if !initialScanCompleted {
+				l.Infoln("Completed initial scan (rw) of folder", p.folder)
+				initialScanCompleted = true
+			}
 		}
 	}
 }
