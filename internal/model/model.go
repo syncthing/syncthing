@@ -64,6 +64,11 @@ const (
 	indexBatchSize    = 1000       // Either way, don't include more files than this
 )
 
+type service interface {
+	Serve()
+	Stop()
+}
+
 type Model struct {
 	indexDir string
 	cfg      *config.Configuration
@@ -79,6 +84,7 @@ type Model struct {
 	deviceFolders  map[protocol.DeviceID][]string                         // deviceID -> folders
 	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
 	folderIgnores  map[string]ignore.Patterns                             // folder -> list of ignore patterns
+	folderRunners  map[string]service                                     // folder -> puller or scanner
 	fmut           sync.RWMutex                                           // protects the above
 
 	folderState        map[string]folderState // folder -> state
@@ -116,6 +122,7 @@ func NewModel(indexDir string, cfg *config.Configuration, deviceName, clientName
 		deviceFolders:      make(map[protocol.DeviceID][]string),
 		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:      make(map[string]ignore.Patterns),
+		folderRunners:      make(map[string]service),
 		folderState:        make(map[string]folderState),
 		folderStateChanged: make(map[string]time.Time),
 		protoConn:          make(map[protocol.DeviceID]protocol.Connection),
@@ -142,18 +149,22 @@ func NewModel(indexDir string, cfg *config.Configuration, deviceName, clientName
 func (m *Model) StartFolderRW(folder string) {
 	m.fmut.Lock()
 	cfg, ok := m.folderCfgs[folder]
-	m.fmut.Unlock()
-
 	if !ok {
 		panic("cannot start nonexistent folder " + folder)
 	}
 
-	p := Puller{
+	_, ok = m.folderRunners[folder]
+	if ok {
+		panic("cannot start already running folder " + folder)
+	}
+	p := &Puller{
 		folder:   folder,
 		dir:      cfg.Path,
 		scanIntv: time.Duration(cfg.RescanIntervalS) * time.Second,
 		model:    m,
 	}
+	m.folderRunners[folder] = p
+	m.fmut.Unlock()
 
 	if len(cfg.Versioning.Type) > 0 {
 		factory, ok := versioner.Factories[cfg.Versioning.Type]
@@ -170,27 +181,25 @@ func (m *Model) StartFolderRW(folder string) {
 // read only mode the model will announce files to the cluster but not
 // pull in any external changes.
 func (m *Model) StartFolderRO(folder string) {
-	intv := time.Duration(m.folderCfgs[folder].RescanIntervalS) * time.Second
-	initialScanCompleted := false
-	go func() {
-		for {
-			if debug {
-				l.Debugln(m, "rescan", folder)
-			}
+	m.fmut.Lock()
+	cfg, ok := m.folderCfgs[folder]
+	if !ok {
+		panic("cannot start nonexistent folder " + folder)
+	}
 
-			m.setState(folder, FolderScanning)
-			if err := m.ScanFolder(folder); err != nil {
-				invalidateFolder(m.cfg, folder, err)
-				return
-			}
-			m.setState(folder, FolderIdle)
-			if !initialScanCompleted {
-				l.Infoln("Completed initial scan (ro) of folder", folder)
-				initialScanCompleted = true
-			}
-			time.Sleep(intv)
-		}
-	}()
+	_, ok = m.folderRunners[folder]
+	if ok {
+		panic("cannot start already running folder " + folder)
+	}
+	s := &Scanner{
+		folder: folder,
+		intv:   time.Duration(cfg.RescanIntervalS) * time.Second,
+		model:  m,
+	}
+	m.folderRunners[folder] = s
+	m.fmut.Unlock()
+
+	go s.Serve()
 }
 
 type ConnectionInfo struct {
