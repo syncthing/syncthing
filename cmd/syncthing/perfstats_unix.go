@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"syscall"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/protocol"
 )
 
 func init() {
@@ -30,6 +32,7 @@ func savePerfStats(file string) {
 	var prevTime int64
 	var rusage syscall.Rusage
 	var memstats runtime.MemStats
+	var prevIn, prevOut uint64
 
 	t0 := time.Now()
 	for t := range time.NewTicker(250 * time.Millisecond).C {
@@ -41,11 +44,18 @@ func savePerfStats(file string) {
 		cpuUsagePercent := 100 * float64(usageDiff) / float64(timeDiff)
 		prevTime = curTime
 		prevUsage = curUsage
+		in, out := protocol.TotalInOut()
+		var inRate, outRate float64
+		if timeDiff > 0 {
+			inRate = float64(in-prevIn) / (float64(timeDiff) / 1e9)    // bytes per second
+			outRate = float64(out-prevOut) / (float64(timeDiff) / 1e9) // bytes per second
+		}
+		prevIn, prevOut = in, out
 
 		runtime.ReadMemStats(&memstats)
 
 		startms := int(t.Sub(t0).Seconds() * 1000)
 
-		fmt.Fprintf(fd, "%d\t%f\t%d\t%d\n", startms, cpuUsagePercent, memstats.Alloc, memstats.Sys-memstats.HeapReleased)
+		fmt.Fprintf(fd, "%d\t%f\t%d\t%d\t%.0f\t%.0f\n", startms, cpuUsagePercent, memstats.Alloc, memstats.Sys-memstats.HeapReleased, inRate, outRate)
 	}
 }

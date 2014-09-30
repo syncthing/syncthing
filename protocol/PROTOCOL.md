@@ -4,14 +4,14 @@ Block Exchange Protocol v1
 Introduction and Definitions
 ----------------------------
 
-BEP is used between two or more _nodes_ thus forming a _cluster_. Each
-node has one or more _repositories_ of files described by the _local
+BEP is used between two or more _devices_ thus forming a _cluster_. Each
+device has one or more _folders_ of files described by the _local
 model_, containing metadata and block hashes. The local model is sent to
-the other nodes in the cluster. The union of all files in the local
+the other devices in the cluster. The union of all files in the local
 models, with files selected for highest change version, forms the
-_global model_. Each node strives to get its repositories in sync with
+_global model_. Each device strives to get its folders in sync with
 the global model by requesting missing or outdated blocks from the other
-nodes in the cluster.
+devices in the cluster.
 
 File data is described and transferred in units of _blocks_, each being
 128 KiB (131072 bytes) in size.
@@ -50,7 +50,7 @@ connection. Possibilities include certificates signed by a common
 trusted CA, preshared certificates, preshared certificate fingerprints
 or certificate pinning combined with some out of band first
 verification. The reference implementation uses preshared certificate
-fingerprints (SHA-256) referred to as "Node IDs".
+fingerprints (SHA-256) referred to as "Device IDs".
 
 There is no required order or synchronization among BEP messages except
 as noted per message type - any message type may be sent at any time and
@@ -158,10 +158,10 @@ Cluster Config messages MUST NOT be sent after the initial exchange.
     \                ClientVersion (variable length)                \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                    Number of Repositories                     |
+    |                       Number of Folders                       |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \              Zero or more Repository Structures               \
+    \                Zero or more Folder Structures                 \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                       Number of Options                       |
@@ -172,7 +172,7 @@ Cluster Config messages MUST NOT be sent after the initial exchange.
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
-    Repository Structure:
+    Folder Structure:
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -183,15 +183,15 @@ Cluster Config messages MUST NOT be sent after the initial exchange.
     \                     ID (variable length)                      \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                        Number of Nodes                        |
+    |                       Number of Devices                       |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                 Zero or more Node Structures                  \
+    \                Zero or more Device Structures                 \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
-    Node Structure:
+    Device Structure:
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -238,13 +238,13 @@ ClientVersion is "v0.7.2". The ClientVersion field SHOULD follow the
 patterns laid out in the [Semantic Versioning](http://semver.org/)
 standard.
 
-The Repositories field lists all repositories that will be synchronized
-over the current connection. Each repository has a list of participating
-Nodes. Each node has an associated Flags field to indicate the sharing
-mode of that node for the repository in question. See the discussion on
+The Folders field lists all folders that will be synchronized
+over the current connection. Each folder has a list of participating
+Devices. Each device has an associated Flags field to indicate the sharing
+mode of that device for the folder in question. See the discussion on
 Sharing Modes.
 
-The Node Flags field contains the following single bit flags:
+The Device Flags field contains the following single bit flags:
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -252,40 +252,40 @@ The Node Flags field contains the following single bit flags:
     |          Reserved         |Pri|          Reserved       |I|R|T|
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
- - Bit 31 ("T", Trusted) is set for nodes that participate in trusted
+ - Bit 31 ("T", Trusted) is set for devices that participate in trusted
    mode.
 
- - Bit 30 ("R", Read Only) is set for nodes that participate in read
+ - Bit 30 ("R", Read Only) is set for devices that participate in read
    only mode.
 
- - Bit 29 ("I", Introducer) is set for nodes that are trusted as cluster
+ - Bit 29 ("I", Introducer) is set for devices that are trusted as cluster
    introducers.
 
  - Bits 16 through 28 are reserved and MUST be set to zero.
 
- - Bits 14-15 ("Pri) indicate the node's upload priority for this
-   repository. Possible values are:
+ - Bits 14-15 ("Pri) indicate the device's upload priority for this
+   folder. Possible values are:
 
     - 00: The default. Normal priority.
 
-    - 01: High priority. Other nodes SHOULD favour requesting files from
-      this node over nodes with normal or low priority.
+    - 01: High priority. Other devices SHOULD favour requesting files from
+      this device over devices with normal or low priority.
 
-    - 10: Low priority. Other nodes SHOULD avoid requesting files from
-      this node when they are available from other nodes.
+    - 10: Low priority. Other devices SHOULD avoid requesting files from
+      this device when they are available from other devices.
 
-    - 11: Sharing disabled. Other nodes SHOULD NOT request files from
-      this node.
+    - 11: Sharing disabled. Other devices SHOULD NOT request files from
+      this device.
 
  - Bits 0 through 14 are reserved and MUST be set to zero.
 
 Exactly one of the T and R bits MUST be set.
 
-The per node Max Local Version field contains the highest local file
+The per device Max Local Version field contains the highest local file
 version number of the files already known to be in the index sent by
-this node. If nothing is known about the index of a given node, this
+this device. If nothing is known about the index of a given device, this
 field MUST be set to zero. When receiving a Cluster Config message with
-a non-zero Max Local Version for the local node ID, a node MAY elect to
+a non-zero Max Local Version for the local device ID, a device MAY elect to
 send an Index Update message containing only files with higher local
 version numbers in place of the initial Index message.
 
@@ -295,10 +295,10 @@ items, although it is transmitted in the form of a list of (Key, Value)
 pairs, both of string type. Key ID:s are implementation specific. An
 implementation MUST ignore unknown keys. An implementation MAY impose
 limits on the length keys and values. The options list may be used to
-inform nodes of relevant local configuration options such as rate
-limiting or make recommendations about request parallelism, node
-priorities, etc. An empty options list is valid for nodes not having any
-such information to share. Nodes MAY NOT make any assumptions about
+inform devices of relevant local configuration options such as rate
+limiting or make recommendations about request parallelism, device
+priorities, etc. An empty options list is valid for devices not having any
+such information to share. Devices MAY NOT make any assumptions about
 peers acting in a specific manner as a result of sent options.
 
 #### XDR
@@ -306,16 +306,16 @@ peers acting in a specific manner as a result of sent options.
     struct ClusterConfigMessage {
         string ClientName<>;
         string ClientVersion<>;
-        Repository Repositories<>;
+        Folder Folders<>;
         Option Options<>;
     }
 
-    struct Repository {
+    struct Folder {
         string ID<>;
-        Node Nodes<>;
+        Device Devices<>;
     }
 
-    struct Node {
+    struct Device {
         string ID<>;
         unsigned int Flags;
         unsigned hyper MaxLocalVersion;
@@ -329,18 +329,18 @@ peers acting in a specific manner as a result of sent options.
 ### Index (Type = 1) and Index Update (Type = 6)
 
 The Index and Index Update messages define the contents of the senders
-repository. An Index message represents the full contents of the
-repository and thus supersedes any previous index. An Index Update
+folder. An Index message represents the full contents of the
+folder and thus supersedes any previous index. An Index Update
 amends an existing index with new information, not affecting any entries
 not included in the message. An Index Update MAY NOT be sent unless
 preceded by an Index, unless a non-zero Max Local Version has been
-announced for the given repository by the peer node.
+announced for the given folder by the peer device.
 
-An Index or Index Update message MUST be sent for each repository
+An Index or Index Update message MUST be sent for each folder
 included in the Cluster Config message, and MUST be sent before any
-other message referring to that repository. A node with no data to
+other message referring to that folder. A device with no data to
 advertise MUST send an empty Index message (a file list of zero length).
-If the repository contents change from non-empty to empty, an empty
+If the folder contents change from non-empty to empty, an empty
 Index message MUST be sent. There is no response to the Index message.
 
 #### Graphical Representation
@@ -350,10 +350,10 @@ Index message MUST be sent. There is no response to the Index message.
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                     Length of Repository                      |
+    |                       Length of Folder                        |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                 Repository (variable length)                  \
+    \                   Folder (variable length)                    \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                        Number of Files                        |
@@ -413,24 +413,24 @@ Index message MUST be sent. There is no response to the Index message.
 
 #### Fields
 
-The Repository field identifies the repository that the index message
-pertains to. For single repository implementations the node MAY send an
-empty repository ID or use the string "default".
+The Folder field identifies the folder that the index message
+pertains to. For single folder implementations the device MAY send an
+empty folder ID or use the string "default".
 
-The Name is the file name path relative to the repository root. Like all
+The Name is the file name path relative to the folder root. Like all
 strings in BEP, the Name is always in UTF-8 NFC regardless of operating
 system or file system specific conventions. The Name field uses the
 slash character ("/") as path separator, regardless of the
 implementation's operating system conventions. The combination of
-Repository and Name uniquely identifies each file in a cluster.
+Folder and Name uniquely identifies each file in a cluster.
 
 The Version field is the value of a cluster wide Lamport clock
 indicating when the change was detected. The clock ticks on every
-detected and received change. The combination of Repository, Name and
+detected and received change. The combination of Folder, Name and
 Version uniquely identifies the contents of a file at a given point in
 time.
 
-The Local Version field is the value of a node local monotonic clock at
+The Local Version field is the value of a device local monotonic clock at
 the time of last local database update to a file. The clock ticks on
 every local database update.
 
@@ -471,7 +471,7 @@ The Modified time is expressed as the number of seconds since the Unix
 Epoch (1970-01-01 00:00:00 UTC).
 
 In the rare occasion that a file is simultaneously and independently
-modified by two nodes in the same cluster and thus end up on the same
+modified by two devices in the same cluster and thus end up on the same
 Version number after modification, the Modified field is used as a tie
 breaker (higher being better), followed by the hash values of the file
 blocks (lower being better).
@@ -483,7 +483,7 @@ block which may represent a smaller amount of data.
 #### XDR
 
     struct IndexMessage {
-        string Repository<>;
+        string Folder<>;
         FileInfo Files<>;
     }
 
@@ -504,7 +504,7 @@ block which may represent a smaller amount of data.
 ### Request (Type = 2)
 
 The Request message expresses the desire to receive a data block
-corresponding to a part of a certain file in the peer's repository.
+corresponding to a part of a certain file in the peer's folder.
 
 #### Graphical Representation
 
@@ -513,10 +513,10 @@ corresponding to a part of a certain file in the peer's repository.
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                     Length of Repository                      |
+    |                       Length of Folder                        |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                 Repository (variable length)                  \
+    \                   Folder (variable length)                    \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                        Length of Name                         |
@@ -534,7 +534,7 @@ corresponding to a part of a certain file in the peer's repository.
 
 #### Fields
 
-The Repository and Name fields are as documented for the Index message.
+The Folder and Name fields are as documented for the Index message.
 The Offset and Size fields specify the region of the file to be
 transferred. This SHOULD equate to exactly one block as seen in an Index
 message.
@@ -542,7 +542,7 @@ message.
 #### XDR
 
     struct RequestMessage {
-        string Repository<>;
+        string Folder<>;
         string Name<>;
         unsigned hyper Offset;
         unsigned int Size;
@@ -624,20 +624,20 @@ directions.
 
     +------------+     Updates      /---------\
     |            |  ----------->   /           \
-    |    Node    |                 |  Cluster  |
+    |   Device   |                 |  Cluster  |
     |            |  <-----------   \           /
     +------------+     Updates      \---------/
 
 ### Read Only
 
-In read only mode, a node does not synchronize the local repository to
-the cluster, but publishes changes to its local repository contents as
-usual. The local repository can be seen as a "master copy" that is never
-affected by the actions of other cluster nodes.
+In read only mode, a device does not synchronize the local folder to
+the cluster, but publishes changes to its local folder contents as
+usual. The local folder can be seen as a "master copy" that is never
+affected by the actions of other cluster devices.
 
     +------------+     Updates      /---------\
     |            |  ----------->   /           \
-    |    Node    |                 |  Cluster  |
+    |   Device   |                 |  Cluster  |
     |            |                 \           /
     +------------+                  \---------/
 
@@ -651,7 +651,7 @@ restrictive than the following:
 
 ### Index and Index Update Messages
 
- - Repository: 64 bytes
+ - Folder: 64 bytes
  - Number of Files: 10.000.000
  - Name: 1024 bytes
  - Number of Blocks: 1.000.000
@@ -659,7 +659,7 @@ restrictive than the following:
 
 ### Request Messages
 
- - Repository: 64 bytes
+ - Folder: 64 bytes
  - Name: 1024 bytes
 
 ### Response Messages
@@ -695,8 +695,8 @@ The Index records are received and both peers recompute their knowledge
 of the data in the cluster. In this example, peer A has four missing or
 outdated blocks. At 2 through 5 peer A sends requests for these blocks.
 The requests are received by peer B, who retrieves the data from the
-repository and transmits Response records (6 through 9). Node A updates
-their repository contents and transmits an Index Update message (10).
+folder and transmits Response records (6 through 9). Device A updates
+their folder contents and transmits an Index Update message (10).
 Both peers enter idle state after 10. At some later time 11, peer A
 determines that it has not seen data from B for some time and sends a
 Ping request. A response is sent at 12.

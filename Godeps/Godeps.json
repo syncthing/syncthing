@@ -6,11 +6,6 @@
 	],
 	"Deps": [
 		{
-			"ImportPath": "bitbucket.org/kardianos/osext",
-			"Comment": "null-13",
-			"Rev": "5d3ddcf53a508cc2f7404eaebf546ef2cb5cdb6e"
-		},
-		{
 			"ImportPath": "code.google.com/p/go.crypto/bcrypt",
 			"Comment": "null-216",
 			"Rev": "41cd4647fccc72b0b79ef1bd1fe6735e718257cd"
@@ -38,6 +33,10 @@
 		{
 			"ImportPath": "github.com/bkaradzic/go-lz4",
 			"Rev": "93a831dcee242be64a9cc9803dda84af25932de7"
+		},
+		{
+			"ImportPath": "github.com/calmh/osext",
+			"Rev": "9bf61584e5f1f172e8766ddc9022d9c401faaa5e"
 		},
 		{
 			"ImportPath": "github.com/calmh/xdr",

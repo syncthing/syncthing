@@ -27,15 +27,15 @@ import (
 
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/juju/ratelimit"
-	"github.com/syncthing/syncthing/config"
-	"github.com/syncthing/syncthing/discover"
-	"github.com/syncthing/syncthing/events"
-	"github.com/syncthing/syncthing/files"
-	"github.com/syncthing/syncthing/logger"
-	"github.com/syncthing/syncthing/model"
-	"github.com/syncthing/syncthing/protocol"
-	"github.com/syncthing/syncthing/upgrade"
-	"github.com/syncthing/syncthing/upnp"
+	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/discover"
+	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/internal/files"
+	"github.com/syncthing/syncthing/internal/logger"
+	"github.com/syncthing/syncthing/internal/model"
+	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/syncthing/internal/upgrade"
+	"github.com/syncthing/syncthing/internal/upnp"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
@@ -84,7 +84,7 @@ func init() {
 
 var (
 	cfg            config.Configuration
-	myID           protocol.NodeID
+	myID           protocol.DeviceID
 	confDir        string
 	logFlags       int = log.Ltime
 	writeRateLimit *ratelimit.Bucket
@@ -208,7 +208,7 @@ func main() {
 		cert, err := loadCert(dir, "")
 		if err == nil {
 			l.Warnln("Key exists; will not overwrite.")
-			l.Infoln("Node ID:", protocol.NewNodeID(cert.Certificate[0]))
+			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 			return
 		}
 
@@ -218,10 +218,19 @@ func main() {
 			l.Fatalln("load cert:", err)
 		}
 		if err == nil {
-			l.Infoln("Node ID:", protocol.NewNodeID(cert.Certificate[0]))
+			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 		}
 		return
 	}
+
+	confDir = expandTilde(confDir)
+
+	if info, err := os.Stat(confDir); err == nil && !info.IsDir() {
+		l.Fatalln("Config directory", confDir, "is not a directory")
+	}
+
+	// Ensure that our home directory exists.
+	ensureDir(confDir, 0700)
 
 	if doUpgrade || doUpgradeCheck {
 		rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
@@ -237,6 +246,12 @@ func main() {
 		l.Infof("Upgrade available (current %q < latest %q)", Version, rel.Tag)
 
 		if doUpgrade {
+			// Use leveldb database locks to protect against concurrent upgrades
+			_, err = leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{CachedOpenFiles: 100})
+			if err != nil {
+				l.Fatalln("Cannot upgrade, database seems to be locked. Is another copy of Syncthing already running?")
+			}
+
 			err = upgrade.UpgradeTo(rel, GoArchExtra)
 			if err != nil {
 				l.Fatalln("Upgrade:", err) // exits 1
@@ -249,14 +264,8 @@ func main() {
 	}
 
 	if reset {
-		resetRepositories()
+		resetFolders()
 		return
-	}
-
-	confDir = expandTilde(confDir)
-
-	if info, err := os.Stat(confDir); err == nil && !info.IsDir() {
-		l.Fatalln("Config directory", confDir, "is not a directory")
 	}
 
 	if os.Getenv("STNORESTART") != "" {
@@ -300,9 +309,7 @@ func syncthingMain() {
 		}
 	}
 
-	// Ensure that our home directory exists and that we have a certificate and key.
-
-	ensureDir(confDir, 0700)
+	// Ensure that that we have a certificate and key.
 	cert, err = loadCert(confDir, "")
 	if err != nil {
 		newCertificate(confDir, "")
@@ -312,7 +319,7 @@ func syncthingMain() {
 		}
 	}
 
-	myID = protocol.NewNodeID(cert.Certificate[0])
+	myID = protocol.NewDeviceID(cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
 
 	l.Infoln(LongVersion)
@@ -329,7 +336,7 @@ func syncthingMain() {
 
 	cfg, err = config.Load(cfgFile, myID)
 	if err == nil {
-		myCfg := cfg.GetNodeConfiguration(myID)
+		myCfg := cfg.GetDeviceConfiguration(myID)
 		if myCfg == nil || myCfg.Name == "" {
 			myName, _ = os.Hostname()
 		} else {
@@ -338,20 +345,20 @@ func syncthingMain() {
 	} else {
 		l.Infoln("No config file; starting with empty defaults")
 		myName, _ = os.Hostname()
-		defaultRepo := filepath.Join(getHomeDir(), "Sync")
+		defaultFolder := filepath.Join(getHomeDir(), "Sync")
 
 		cfg = config.New(cfgFile, myID)
-		cfg.Repositories = []config.RepositoryConfiguration{
+		cfg.Folders = []config.FolderConfiguration{
 			{
 				ID:              "default",
-				Directory:       defaultRepo,
+				Path:            defaultFolder,
 				RescanIntervalS: 60,
-				Nodes:           []config.RepositoryNodeConfiguration{{NodeID: myID}},
+				Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
 			},
 		}
-		cfg.Nodes = []config.NodeConfiguration{
+		cfg.Devices = []config.DeviceConfiguration{
 			{
-				NodeID:    myID,
+				DeviceID:  myID,
 				Addresses: []string{"dynamic"},
 				Name:      myName,
 			},
@@ -415,48 +422,48 @@ func syncthingMain() {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
 
-	// Remove database entries for repos that no longer exist in the config
-	repoMap := cfg.RepoMap()
-	for _, repo := range files.ListRepos(db) {
-		if _, ok := repoMap[repo]; !ok {
-			l.Infof("Cleaning data for dropped repo %q", repo)
-			files.DropRepo(db, repo)
+	// Remove database entries for folders that no longer exist in the config
+	folderMap := cfg.FolderMap()
+	for _, folder := range files.ListFolders(db) {
+		if _, ok := folderMap[folder]; !ok {
+			l.Infof("Cleaning data for dropped folder %q", folder)
+			files.DropFolder(db, folder)
 		}
 	}
 
 	m := model.NewModel(confDir, &cfg, myName, "syncthing", Version, db)
 
-nextRepo:
-	for i, repo := range cfg.Repositories {
-		if repo.Invalid != "" {
+nextFolder:
+	for i, folder := range cfg.Folders {
+		if folder.Invalid != "" {
 			continue
 		}
-		repo.Directory = expandTilde(repo.Directory)
-		m.AddRepo(repo)
+		folder.Path = expandTilde(folder.Path)
+		m.AddFolder(folder)
 
-		fi, err := os.Stat(repo.Directory)
-		if m.LocalVersion(repo.ID) > 0 {
+		fi, err := os.Stat(folder.Path)
+		if m.CurrentLocalVersion(folder.ID) > 0 {
 			// Safety check. If the cached index contains files but the
-			// repository doesn't exist, we have a problem. We would assume
+			// folder doesn't exist, we have a problem. We would assume
 			// that all files have been deleted which might not be the case,
 			// so mark it as invalid instead.
 			if err != nil || !fi.IsDir() {
-				l.Warnf("Stopping repository %q - directory missing, but has files in index", repo.ID)
-				cfg.Repositories[i].Invalid = "repo directory missing"
-				continue nextRepo
+				l.Warnf("Stopping folder %q - path does not exist, but has files in index", folder.ID)
+				cfg.Folders[i].Invalid = "folder path missing"
+				continue nextFolder
 			}
 		} else if os.IsNotExist(err) {
-			// If we don't have ny files in the index, and the directory does
-			// exist, try creating it.
-			err = os.MkdirAll(repo.Directory, 0700)
+			// If we don't have any files in the index, and the directory
+			// doesn't exist, try creating it.
+			err = os.MkdirAll(folder.Path, 0700)
 		}
 
 		if err != nil {
 			// If there was another error or we could not create the
-			// directory, the repository is invalid.
-			l.Warnf("Stopping repository %q - %v", err)
-			cfg.Repositories[i].Invalid = err.Error()
-			continue nextRepo
+			// path, the folder is invalid.
+			l.Warnf("Stopping folder %q - %v", err)
+			cfg.Folders[i].Invalid = err.Error()
+			continue nextFolder
 		}
 	}
 
@@ -500,33 +507,26 @@ nextRepo:
 		}
 	}
 
-	// Clear out old indexes for other nodes. Otherwise we'll start up and
+	// Clear out old indexes for other devices. Otherwise we'll start up and
 	// start needing a bunch of files which are nowhere to be found. This
 	// needs to be changed when we correctly do persistent indexes.
-	for _, repoCfg := range cfg.Repositories {
-		if repoCfg.Invalid != "" {
+	for _, folderCfg := range cfg.Folders {
+		if folderCfg.Invalid != "" {
 			continue
 		}
-		for _, node := range repoCfg.NodeIDs() {
-			if node == myID {
+		for _, device := range folderCfg.DeviceIDs() {
+			if device == myID {
 				continue
 			}
-			m.Index(node, repoCfg.ID, nil)
+			m.Index(device, folderCfg.ID, nil)
 		}
 	}
 
-	// Walk the repository and update the local model before establishing any
-	// connections to other nodes.
-
-	m.CleanRepos()
-	l.Infoln("Performing initial repository scan")
-	m.ScanRepos()
-
-	// Remove all .idx* files that don't belong to an active repo.
+	// Remove all .idx* files that don't belong to an active folder.
 
 	validIndexes := make(map[string]bool)
-	for _, repo := range cfg.Repositories {
-		dir := expandTilde(repo.Directory)
+	for _, folder := range cfg.Folders {
+		dir := expandTilde(folder.Path)
 		id := fmt.Sprintf("%x", sha1.Sum([]byte(dir)))
 		validIndexes[id] = true
 	}
@@ -559,23 +559,23 @@ nextRepo:
 		setupUPnP()
 	}
 
-	// Routine to connect out to configured nodes
+	// Routine to connect out to configured devices
 	discoverer = discovery(externalPort)
 	go listenConnect(myID, m, tlsCfg)
 
-	for _, repo := range cfg.Repositories {
-		if repo.Invalid != "" {
+	for _, folder := range cfg.Folders {
+		if folder.Invalid != "" {
 			continue
 		}
 
-		// Routine to pull blocks from other nodes to synchronize the local
-		// repository. Does not run when we are in read only (publish only) mode.
-		if repo.ReadOnly {
-			l.Okf("Ready to synchronize %s (read only; no external updates accepted)", repo.ID)
-			m.StartRepoRO(repo.ID)
+		// Routine to pull blocks from other devices to synchronize the local
+		// folder. Does not run when we are in read only (publish only) mode.
+		if folder.ReadOnly {
+			l.Okf("Ready to synchronize %s (read only; no external updates accepted)", folder.ID)
+			m.StartFolderRO(folder.ID)
 		} else {
-			l.Okf("Ready to synchronize %s (read-write)", repo.ID)
-			m.StartRepoRW(repo.ID, cfg.Options.ParallelRequests)
+			l.Okf("Ready to synchronize %s (read-write)", folder.ID)
+			m.StartFolderRW(folder.ID)
 		}
 	}
 
@@ -588,9 +588,9 @@ nextRepo:
 		defer pprof.StopCPUProfile()
 	}
 
-	for _, node := range cfg.Nodes {
-		if len(node.Name) > 0 {
-			l.Infof("Node %s is %q at %v", node.NodeID, node.Name, node.Addresses)
+	for _, device := range cfg.Devices {
+		if len(device.Name) > 0 {
+			l.Infof("Device %s is %q at %v", device.DeviceID, device.Name, device.Addresses)
 		}
 	}
 
@@ -611,6 +611,10 @@ nextRepo:
 
 	if cfg.Options.RestartOnWakeup {
 		go standbyMonitor()
+	}
+
+	if cfg.Options.AutoUpgradeIntervalH > 0 {
+		go autoUpgrade()
 	}
 
 	events.Default.Log(events.StartupComplete, nil)
@@ -661,7 +665,7 @@ func setupUPnP() {
 }
 
 func setupExternalPort(igd *upnp.IGD, port int) int {
-	// We seed the random number generator with the node ID to get a
+	// We seed the random number generator with the device ID to get a
 	// repeatable sequence of random external ports.
 	rnd := rand.NewSource(certSeed(cert.Certificate[0]))
 	for i := 0; i < 10; i++ {
@@ -707,12 +711,12 @@ func renewUPnP(port int) {
 	}
 }
 
-func resetRepositories() {
+func resetFolders() {
 	suffix := fmt.Sprintf(".syncthing-reset-%d", time.Now().UnixNano())
-	for _, repo := range cfg.Repositories {
-		if _, err := os.Stat(repo.Directory); err == nil {
-			l.Infof("Reset: Moving %s -> %s", repo.Directory, repo.Directory+suffix)
-			os.Rename(repo.Directory, repo.Directory+suffix)
+	for _, folder := range cfg.Folders {
+		if _, err := os.Stat(folder.Path); err == nil {
+			l.Infof("Reset: Moving %s -> %s", folder.Path, folder.Path+suffix)
+			os.Rename(folder.Path, folder.Path+suffix)
 		}
 	}
 
@@ -766,7 +770,7 @@ func shutdown() {
 	stop <- exitSuccess
 }
 
-func listenConnect(myID protocol.NodeID, m *model.Model, tlsCfg *tls.Config) {
+func listenConnect(myID protocol.DeviceID, m *model.Model, tlsCfg *tls.Config) {
 	var conns = make(chan *tls.Conn)
 
 	// Listen
@@ -786,7 +790,7 @@ next:
 			continue
 		}
 		remoteCert := certs[0]
-		remoteID := protocol.NewNodeID(remoteCert.Raw)
+		remoteID := protocol.NewDeviceID(remoteCert.Raw)
 
 		if remoteID == myID {
 			l.Infof("Connected to myself (%s) - should not happen", remoteID)
@@ -795,17 +799,17 @@ next:
 		}
 
 		if m.ConnectedTo(remoteID) {
-			l.Infof("Connected to already connected node (%s)", remoteID)
+			l.Infof("Connected to already connected device (%s)", remoteID)
 			conn.Close()
 			continue
 		}
 
-		for _, nodeCfg := range cfg.Nodes {
-			if nodeCfg.NodeID == remoteID {
+		for _, deviceCfg := range cfg.Devices {
+			if deviceCfg.DeviceID == remoteID {
 				// Verify the name on the certificate. By default we set it to
 				// "syncthing" when generating, but the user may have replaced
 				// the certificate and used another name.
-				certName := nodeCfg.CertName
+				certName := deviceCfg.CertName
 				if certName == "" {
 					certName = "syncthing"
 				}
@@ -832,13 +836,13 @@ next:
 				}
 
 				name := fmt.Sprintf("%s-%s", conn.LocalAddr(), conn.RemoteAddr())
-				protoConn := protocol.NewConnection(remoteID, rd, wr, m, name, nodeCfg.Compression)
+				protoConn := protocol.NewConnection(remoteID, rd, wr, m, name, deviceCfg.Compression)
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
 				if debugNet {
 					l.Debugf("cipher suite %04X", conn.ConnectionState().CipherSuite)
 				}
-				events.Default.Log(events.NodeConnected, map[string]string{
+				events.Default.Log(events.DeviceConnected, map[string]string{
 					"id":   remoteID.String(),
 					"addr": conn.RemoteAddr().String(),
 				})
@@ -848,11 +852,11 @@ next:
 			}
 		}
 
-		events.Default.Log(events.NodeRejected, map[string]string{
-			"node":    remoteID.String(),
+		events.Default.Log(events.DeviceRejected, map[string]string{
+			"device":  remoteID.String(),
 			"address": conn.RemoteAddr().String(),
 		})
-		l.Infof("Connection from %s with unknown node ID %s; ignoring", conn.RemoteAddr(), remoteID)
+		l.Infof("Connection from %s with unknown device ID %s; ignoring", conn.RemoteAddr(), remoteID)
 		conn.Close()
 	}
 }
@@ -901,21 +905,21 @@ func listenTLS(conns chan *tls.Conn, addr string, tlsCfg *tls.Config) {
 func dialTLS(m *model.Model, conns chan *tls.Conn, tlsCfg *tls.Config) {
 	var delay time.Duration = 1 * time.Second
 	for {
-	nextNode:
-		for _, nodeCfg := range cfg.Nodes {
-			if nodeCfg.NodeID == myID {
+	nextDevice:
+		for _, deviceCfg := range cfg.Devices {
+			if deviceCfg.DeviceID == myID {
 				continue
 			}
 
-			if m.ConnectedTo(nodeCfg.NodeID) {
+			if m.ConnectedTo(deviceCfg.DeviceID) {
 				continue
 			}
 
 			var addrs []string
-			for _, addr := range nodeCfg.Addresses {
+			for _, addr := range deviceCfg.Addresses {
 				if addr == "dynamic" {
 					if discoverer != nil {
-						t := discoverer.Lookup(nodeCfg.NodeID)
+						t := discoverer.Lookup(deviceCfg.DeviceID)
 						if len(t) == 0 {
 							continue
 						}
@@ -936,7 +940,7 @@ func dialTLS(m *model.Model, conns chan *tls.Conn, tlsCfg *tls.Config) {
 					addr = net.JoinHostPort(host, "22000")
 				}
 				if debugNet {
-					l.Debugln("dial", nodeCfg.NodeID, addr)
+					l.Debugln("dial", deviceCfg.DeviceID, addr)
 				}
 
 				raddr, err := net.ResolveTCPAddr("tcp", addr)
@@ -966,7 +970,7 @@ func dialTLS(m *model.Model, conns chan *tls.Conn, tlsCfg *tls.Config) {
 				}
 
 				conns <- tc
-				continue nextNode
+				continue nextDevice
 			}
 		}
 
@@ -1152,7 +1156,7 @@ func standbyMonitor() {
 	for {
 		time.Sleep(10 * time.Second)
 		if time.Since(now) > 2*time.Minute {
-			l.Infoln("Paused state detected, possibly woke up from standby. Restarting in", restartDelay)
+			l.Infof("Paused state detected, possibly woke up from standby. Restarting in %v.", restartDelay)
 
 			// We most likely just woke from standby. If we restart
 			// immediately chances are we won't have networking ready. Give
@@ -1163,5 +1167,40 @@ func standbyMonitor() {
 			return
 		}
 		now = time.Now()
+	}
+}
+
+func autoUpgrade() {
+	var skipped bool
+	interval := time.Duration(cfg.Options.AutoUpgradeIntervalH) * time.Hour
+	for {
+		if skipped {
+			time.Sleep(interval)
+		} else {
+			skipped = true
+		}
+
+		rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
+		if err != nil {
+			// Don't complain too loudly here; we might simply not have
+			// internet connectivity, or the upgrade server might be down.
+			l.Infoln("Automatic upgrade:", err)
+			continue
+		}
+
+		if upgrade.CompareVersions(rel.Tag, Version) <= 0 {
+			continue
+		}
+
+		l.Infof("Automatic upgrade (current %q < latest %q)", Version, rel.Tag)
+		err = upgrade.UpgradeTo(rel, GoArchExtra)
+		if err != nil {
+			l.Warnln("Automatic upgrade:", err)
+			continue
+		}
+		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
+		time.Sleep(time.Minute)
+		stop <- exitUpgrading
+		return
 	}
 }

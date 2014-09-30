@@ -13,7 +13,7 @@
   <meta name="author" content="">
   <link rel="shortcut icon" href="img/favicon.png">
 
-  <title>Syncthing | {{thisNodeName()}}</title>
+  <title>Syncthing | {{thisDeviceName()}}</title>
   <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="font/raleway.css" rel="stylesheet">
   <link href="overrides.css" rel="stylesheet">
@@ -27,7 +27,7 @@
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
       <span class="navbar-brand"><img class="logo" src="img/logo-text-64.png" height="32" width="117"/></span>
-      <p class="navbar-text hidden-xs">{{thisNodeName()}}</p>
+      <p class="navbar-text hidden-xs">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo.newer">
           <button type="button" class="btn navbar-btn btn-primary btn-sm" href="" ng-click="upgrade()">
@@ -39,7 +39,7 @@
           <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog"></span></a>
           <ul class="dropdown-menu">
             <li><a href="" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span>&emsp;<span translate>Settings</span></a></li>
-            <li><a href="" ng-click="idNode()"><span class="glyphicon glyphicon-qrcode"></span>&emsp;<span translate>Show ID</span></a></li>
+            <li><a href="" ng-click="idDevice()"><span class="glyphicon glyphicon-qrcode"></span>&emsp;<span translate>Show ID</span></a></li>
             <li class="divider"></li>
             <li><a href="" ng-click="shutdown()"><span class="glyphicon glyphicon-off"></span>&emsp;<span translate>Shutdown</span></a></li>
             <li><a href="" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Restart</span></a></li>
@@ -74,113 +74,115 @@
 
     <div class="row">
 
-      <!-- Repository list (top left) -->
+      <!-- Folder list (top left) -->
 
       <div class="col-md-6">
-        <div class="panel-group" id="repositories">
-          <div class="panel panel-{{repoClass(repo.ID)}}" ng-repeat="repo in repoList()">
-            <div class="panel-heading" data-toggle="collapse" data-parent="#repositories" href="#repo-{{$index}}" style="cursor: pointer">
+        <div class="panel-group" id="folders">
+          <div class="panel panel-{{folderClass(folder.ID)}}" ng-repeat="folder in folderList()">
+            <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
               <h3 class="panel-title">
-                <span class="glyphicon glyphicon-hdd"></span>&emsp;{{repo.ID}}
-                <span class="pull-right hidden-xs" ng-switch="repoStatus(repo.ID)">
+                <span class="glyphicon glyphicon-hdd"></span>&emsp;{{folder.ID}}
+                <span class="pull-right hidden-xs" ng-switch="folderStatus(folder.ID)">
                   <span translate ng-switch-when="unknown">Unknown</span>
                   <span translate ng-switch-when="stopped">Stopped</span>
                   <span translate ng-switch-when="scanning">Scanning</span>
                   <span ng-switch-when="syncing">
                     <span translate>Syncing</span>
-                    ({{syncPercentage(repo.ID)}}%)
+                    ({{syncPercentage(folder.ID)}}%)
                   </span>
                   <span ng-switch-when="idle">
                     <span translate>Idle</span>
-                    ({{syncPercentage(repo.ID)}}%)
+                    ({{syncPercentage(folder.ID)}}%)
                   </span>
                 </span>
               </h3>
             </div>
-            <div id="repo-{{$index}}" class="panel-collapse collapse" ng-class="{in: $index === 0}">
+            <div id="folder-{{$index}}" class="panel-collapse collapse" ng-class="{in: $index === 0}">
               <div class="panel-body">
                 <table class="table table-condensed table-striped">
                   <tbody>
                     <tr>
-                      <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Repository ID</span></th>
-                      <td class="text-right">{{repo.ID}}</td>
+                      <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Folder ID</span></th>
+                      <td class="text-right">{{folder.ID}}</td>
                     </tr>
                     <tr>
-                      <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder</span></th>
-                      <td class="text-right">{{repo.Directory}}</td>
+                      <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder Path</span></th>
+                      <td class="text-right">{{folder.Path}}</td>
                     </tr>
-                    <tr ng-if="model[repo.ID].invalid">
+                    <tr ng-if="model[folder.ID].invalid">
                       <th><span class="glyphicon glyphicon-warning-sign"></span>&emsp;<span translate>Error</span></th>
-                      <td class="text-right">{{model[repo.ID].invalid}}</td>
+                      <td class="text-right">{{model[folder.ID].invalid}}</td>
                     </tr>
                     <tr>
-                      <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global Repository</span></th>
-                      <td class="text-right">{{model[repo.ID].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].globalBytes | binary}}B</td>
+                      <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global State</span></th>
+                      <td class="text-right">{{model[folder.ID].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].globalBytes | binary}}B</td>
                     </tr>
                     <tr>
-                      <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local Repository</span></th>
-                      <td class="text-right">{{model[repo.ID].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].localBytes | binary}}B</td>
+                      <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local State</span></th>
+                      <td class="text-right">{{model[folder.ID].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].localBytes | binary}}B</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Out Of Sync</span></th>
                       <td class="text-right">
-                        <a ng-if="model[repo.ID].needFiles > 0" ng-click="showNeed(repo.ID)" href="">{{model[repo.ID].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[repo.ID].needBytes | binary}}B</a>
-                        <span ng-if="model[repo.ID].needFiles == 0">0 <span translate>items</span>, 0 B</span>
+                        <a ng-if="model[folder.ID].needFiles > 0" ng-click="showNeed(folder.ID)" href="">{{model[folder.ID].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].needBytes | binary}}B</a>
+                        <span ng-if="model[folder.ID].needFiles == 0">0 <span translate>items</span>, 0 B</span>
                       </td>
                     </tr>
                     <tr>
-                      <th><span class="glyphicon glyphicon-lock"></span>&emsp;<span translate>Master Repo</span></th>
+                      <th><span class="glyphicon glyphicon-lock"></span>&emsp;<span translate>Folder Master</span></th>
                       <td class="text-right">
-                        <span translate ng-if="repo.ReadOnly">Yes</span>
-                        <span translate ng-if="!repo.ReadOnly">No</span>
+                        <span translate ng-if="folder.ReadOnly">Yes</span>
+                        <span translate ng-if="!folder.ReadOnly">No</span>
                       </td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-unchecked"></span>&emsp;<span translate>Ignore Permissions</span></th>
                       <td class="text-right">
-                        <span translate ng-if="repo.IgnorePerms">Yes</span>
-                        <span translate ng-if="!repo.IgnorePerms">No</span>
+                        <span translate ng-if="folder.IgnorePerms">Yes</span>
+                        <span translate ng-if="!folder.IgnorePerms">No</span>
                       </td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan Interval</span></th>
-                      <td class="text-right">{{repo.RescanIntervalS}} s</td>
+                      <td class="text-right">{{folder.RescanIntervalS}} s</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;<span translate>Shared With</span></th>
-                      <td class="text-right">{{sharesRepo(repo)}}</td>
+                      <td class="text-right">{{sharesFolder(folder)}}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               <div class="panel-footer">
-                <button class="btn btn-sm btn-danger" ng-if="repo.ReadOnly && model[repo.ID].needFiles > 0" ng-click="override(repo.ID)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
+                <button class="btn btn-sm btn-danger" ng-if="folder.ReadOnly && model[folder.ID].needFiles > 0" ng-click="override(folder.ID)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
                 <span class="pull-right">
-                  <button class="btn btn-sm btn-default" href="" ng-show="repoStatus(repo.ID) == 'idle'" ng-click="rescanRepo(repo.ID)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></button>
-                  <button class="btn btn-sm btn-default" href="" ng-click="editRepo(repo)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></button>
+                  <button class="btn btn-sm btn-default" href="" ng-show="folderStatus(folder.ID) == 'idle'" ng-click="rescanFolder(folder.ID)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></button>
+                  <button class="btn btn-sm btn-default" href="" ng-click="editFolder(folder)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></button>
                 </span>
                 <div class="clearfix"></div>
               </div>
             </div>
           </div>
         </div>
-        <button class="btn btn-sm btn-default pull-right" ng-click="addRepo()"><span class="glyphicon glyphicon-plus"></span>&emsp;<span translate>Add Repository</span></button>
-        <div class="clearfix"></div>
+        <div class="form-group">
+          <button class="btn btn-sm btn-default pull-right" ng-click="addFolder()"><span class="glyphicon glyphicon-plus"></span>&emsp;<span translate>Add Folder</span></button>
+          <div class="clearfix"></div>
+        </div>
         <hr class="visible-sm"/>
       </div>
 
-      <!-- Node list (top right) -->
+      <!-- Device list (top right) -->
 
-      <!-- This node -->
+      <!-- This device -->
 
       <div class="col-md-6">
-        <div class="panel panel-default" ng-repeat="nodeCfg in [thisNode()]">
-          <div class="panel-heading" data-toggle="collapse" href="#node-this" style="cursor: pointer">
+        <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
+          <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
             <h3 class="panel-title">
-              <span class="glyphicon glyphicon-home"></span>&emsp;{{nodeName(nodeCfg)}}
+              <span class="glyphicon glyphicon-home"></span>&emsp;{{deviceName(deviceCfg)}}
             </h3>
           </div>
-          <div id="node-this" class="panel-collapse collapse in">
+          <div id="device-this" class="panel-collapse collapse in">
             <div class="panel-body">
               <table class="table table-condensed table-striped">
                 <tbody>
@@ -217,75 +219,77 @@
           </div>
         </div>
 
-        <!-- Remote nodes -->
+        <!-- Remote devices -->
 
-        <div class="panel-group" id="nodes">
-          <div class="panel panel-{{nodeClass(nodeCfg)}}" ng-repeat="nodeCfg in otherNodes()">
-            <div class="panel-heading" data-toggle="collapse" data-parent="#nodes" href="#node-{{$index}}" style="cursor: pointer">
+        <div class="panel-group" id="devices">
+          <div class="panel panel-{{deviceClass(deviceCfg)}}" ng-repeat="deviceCfg in otherDevices()">
+            <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
               <h3 class="panel-title">
-                <span class="glyphicon glyphicon-retweet"></span>&emsp;{{nodeName(nodeCfg)}}
+                <span class="glyphicon glyphicon-retweet"></span>&emsp;{{deviceName(deviceCfg)}}
                 <span class="pull-right hidden-xs">
-                  <span ng-if="connections[nodeCfg.NodeID] && completion[nodeCfg.NodeID]._total == 100">
+                  <span ng-if="connections[deviceCfg.DeviceID] && completion[deviceCfg.DeviceID]._total == 100">
                     <span translate>Up to Date</span> (100%)
                   </span>
-                  <span ng-if="connections[nodeCfg.NodeID] && completion[nodeCfg.NodeID]._total < 100">
-                    <span translate>Syncing</span> ({{completion[nodeCfg.NodeID]._total | number:0}}%)
+                  <span ng-if="connections[deviceCfg.DeviceID] && completion[deviceCfg.DeviceID]._total < 100">
+                    <span translate>Syncing</span> ({{completion[deviceCfg.DeviceID]._total | number:0}}%)
                   </span>
-                  <span translate ng-if="!connections[nodeCfg.NodeID]">Disconnected</span>
+                  <span translate ng-if="!connections[deviceCfg.DeviceID]">Disconnected</span>
                 </span>
               </h3>
             </div>
-            <div id="node-{{$index}}" class="panel-collapse collapse">
+            <div id="device-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
                 <table class="table table-condensed table-striped">
                   <tbody>
-                    <tr ng-if="connections[nodeCfg.NodeID]">
+                    <tr ng-if="connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
-                      <td class="text-right">{{connections[nodeCfg.NodeID].inbps | metric}}bps ({{connections[nodeCfg.NodeID].InBytesTotal | binary}}B)</td>
+                      <td class="text-right">{{connections[deviceCfg.DeviceID].inbps | metric}}bps ({{connections[deviceCfg.DeviceID].InBytesTotal | binary}}B)</td>
                     </tr>
-                    <tr ng-if="connections[nodeCfg.NodeID]">
+                    <tr ng-if="connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
-                      <td class="text-right">{{connections[nodeCfg.NodeID].outbps | metric}}bps ({{connections[nodeCfg.NodeID].OutBytesTotal | binary}}B)</td>
+                      <td class="text-right">{{connections[deviceCfg.DeviceID].outbps | metric}}bps ({{connections[deviceCfg.DeviceID].OutBytesTotal | binary}}B)</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-link"></span>&emsp;<span translate>Address</span></th>
-                      <td class="text-right">{{nodeAddr(nodeCfg)}}</td>
+                      <td class="text-right">{{deviceAddr(deviceCfg)}}</td>
                     </tr>
-                    <tr ng-if="connections[nodeCfg.NodeID]">
+                    <tr ng-if="connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-comment"></span>&emsp;<span translate>Synchronization</span></th>
-                      <td class="text-right">{{completion[nodeCfg.NodeID]._total | alwaysNumber | number:0}}%</td>
+                      <td class="text-right">{{completion[deviceCfg.DeviceID]._total | alwaysNumber | number:0}}%</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-compressed"></span>&emsp;<span translate>Use Compression</span></th>
-                      <td translate ng-if="nodeCfg.Compression" class="text-right">Yes</td>
-                      <td translate ng-if="!nodeCfg.Compression" class="text-right">No</td>
+                      <td translate ng-if="deviceCfg.Compression" class="text-right">Yes</td>
+                      <td translate ng-if="!deviceCfg.Compression" class="text-right">No</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-thumbs-up"></span>&emsp;<span translate>Introducer</span></th>
-                      <td translate ng-if="nodeCfg.Introducer" class="text-right">Yes</td>
-                      <td translate ng-if="!nodeCfg.Introducer" class="text-right">No</td>
+                      <td translate ng-if="deviceCfg.Introducer" class="text-right">Yes</td>
+                      <td translate ng-if="!deviceCfg.Introducer" class="text-right">No</td>
                     </tr>
-                    <tr ng-if="connections[nodeCfg.NodeID]">
+                    <tr ng-if="connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Version</span></th>
-                      <td class="text-right">{{connections[nodeCfg.NodeID].ClientVersion}}</td>
+                      <td class="text-right">{{connections[deviceCfg.DeviceID].ClientVersion}}</td>
                     </tr>
-                    <tr ng-if="!connections[nodeCfg.NodeID]">
+                    <tr ng-if="!connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-eye-open"></span>&emsp;<span translate>Last seen</span></th>
-                      <td translate ng-if="!stats[nodeCfg.NodeID].LastSeenDays || stats[nodeCfg.NodeID].LastSeenDays >= 365" class="text-right">Never</td>
-                      <td ng-if="stats[nodeCfg.NodeID].LastSeenDays < 365" class="text-right">{{stats[nodeCfg.NodeID].LastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
+                      <td translate ng-if="!stats[deviceCfg.DeviceID].LastSeenDays || stats[deviceCfg.DeviceID].LastSeenDays >= 365" class="text-right">Never</td>
+                      <td ng-if="stats[deviceCfg.DeviceID].LastSeenDays < 365" class="text-right">{{stats[deviceCfg.DeviceID].LastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               <div class="panel-footer">
-                <span class="pull-right"><a class="btn btn-sm btn-default" href="" ng-click="editNode(nodeCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></a></span>
+                <span class="pull-right"><a class="btn btn-sm btn-default" href="" ng-click="editDevice(deviceCfg)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></a></span>
                 <div class="clearfix"></div>
               </div>
             </div>
           </div>
         </div>
-        <button class="btn btn-sm btn-default pull-right" ng-click="addNode()"><span class="glyphicon glyphicon-plus"></span>&emsp;<span translate>Add Node</span></button>
-        <div class="clearfix"></div>
+        <div class="form-group">
+          <button class="btn btn-sm btn-default pull-right" ng-click="addDevice()"><span class="glyphicon glyphicon-plus"></span>&emsp;<span translate>Add Device</span></button>
+          <div class="clearfix"></div>
+        </div>
       </div>
     </div> <!-- /row -->
 
@@ -296,7 +300,7 @@
         <div class="panel panel-warning">
           <div class="panel-heading"><h3 class="panel-title"><span translate>Notice</span></h3></div>
           <div class="panel-body">
-            <p ng-repeat="err in errorList()"><small>{{err.Time | date:"H:mm:ss"}}:</small> {{friendlyNodes(err.Error)}}</p>
+            <p ng-repeat="err in errorList()"><small>{{err.Time | date:"H:mm:ss"}}:</small> {{friendlyDevices(err.Error)}}</p>
           </div>
           <div class="panel-footer">
             <button type="button" class="pull-right btn btn-sm btn-default" ng-click="clearErrors()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>OK</span></button>
@@ -350,48 +354,48 @@
 
   <!-- ID modal -->
 
-  <modal id="idqr" large="yes" status="info" close="yes" icon="qrcode" title="{{'Node Identification' | translate}} &mdash; {{nodeName(thisNode())}}">
+  <modal id="idqr" large="yes" status="info" close="yes" icon="qrcode" title="{{'Device Identification' | translate}} &mdash; {{deviceName(thisDevice())}}">
     <div class="well well-sm text-monospace text-center">{{myID}}</div>
     <img ng-if="myID" class="center-block img-thumbnail" src="qr/?text={{myID}}"/>
   </modal>
 
-  <!-- Node editor modal -->
+  <!-- Device editor modal -->
 
-  <div id="editNode" class="modal fade" tabindex="-1">
+  <div id="editDevice" class="modal fade" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h4 translate ng-show="!editingExisting" class="modal-title">Add Node</h4>
-          <h4 translate ng-show="editingExisting" class="modal-title">Edit Node</h4>
+          <h4 translate ng-show="!editingExisting" class="modal-title">Add Device</h4>
+          <h4 translate ng-show="editingExisting" class="modal-title">Edit Device</h4>
         </div>
         <div class="modal-body">
-          <form role="form" name="nodeEditor">
-            <div class="form-group" ng-class="{'has-error': nodeEditor.nodeID.$invalid && nodeEditor.nodeID.$dirty}">
-              <label translate for="nodeID">Node ID</label>
-              <input ng-if="!editingExisting" name="nodeID" id="nodeID" class="form-control text-monospace" type="text" ng-model="currentNode.NodeID" required valid-nodeid></input>
-              <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentNode.NodeID}}</div>
+          <form role="form" name="deviceEditor">
+            <div class="form-group" ng-class="{'has-error': deviceEditor.deviceID.$invalid && deviceEditor.deviceID.$dirty}">
+              <label translate for="deviceID">Device ID</label>
+              <input ng-if="!editingExisting" name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.DeviceID" required valid-deviceid></input>
+              <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentDevice.DeviceID}}</div>
               <p class="help-block">
-                <span translate ng-if="nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine">The node ID to enter here can be found in the "Edit > Show ID" dialog on the other node. Spaces and dashes are optional (ignored).</span>
-                <span translate ng-show="!editingExisting && (nodeEditor.nodeID.$valid || nodeEditor.nodeID.$pristine)">When adding a new node, keep in mind that this node must be added on the other side too.</span>
-                <span translate ng-if="nodeEditor.nodeID.$error.required && nodeEditor.nodeID.$dirty">The node ID cannot be blank.</span>
-                <span translate ng-if="nodeEditor.nodeID.$error.validNodeid && nodeEditor.nodeID.$dirty">The entered node ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.</span>
+                <span translate ng-if="deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine">The device ID to enter here can be found in the "Edit > Show ID" dialog on the other device. Spaces and dashes are optional (ignored).</span>
+                <span translate ng-show="!editingExisting && (deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine)">When adding a new device, keep in mind that this device must be added on the other side too.</span>
+                <span translate ng-if="deviceEditor.deviceID.$error.required && deviceEditor.deviceID.$dirty">The device ID cannot be blank.</span>
+                <span translate ng-if="deviceEditor.deviceID.$error.validDeviceid && deviceEditor.deviceID.$dirty">The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.</span>
               </p>
             </div>
             <div class="form-group">
-              <label translate for="name">Node Name</label>
-              <input placeholder="Home Server" id="name" class="form-control" type="text" ng-model="currentNode.Name"></input>
-              <p translate ng-if="currentNode.NodeID == myID" class="help-block">Shown instead of Node ID in the cluster status. Will be advertised to other nodes as an optional default name.</p>
-              <p translate ng-if="currentNode.NodeID != myID" class="help-block">Shown instead of Node ID in the cluster status. Will be updated to the name the node advertises if left empty.</p>
+              <label translate for="name">Device Name</label>
+              <input id="name" class="form-control" type="text" ng-model="currentDevice.Name"></input>
+              <p translate ng-if="currentDevice.DeviceID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.</p>
+              <p translate ng-if="currentDevice.DeviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
             </div>
             <div class="form-group">
               <label translate for="addresses">Addresses</label>
-              <input placeholder="dynamic" ng-disabled="currentNode.NodeID == myID" id="addresses" class="form-control" type="text" ng-model="currentNode.AddressesStr"></input>
+              <input ng-disabled="currentDevice.DeviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice.AddressesStr"></input>
               <p translate class="help-block">Enter comma separated "ip:port" addresses or "dynamic" to perform automatic discovery of the address.</p>
             </div>
             <div ng-if="!editingSelf" class="form-group">
               <div class="checkbox">
                 <label>
-                  <input type="checkbox" ng-model="currentNode.Compression"> <span translate>Use Compression</span>
+                  <input type="checkbox" ng-model="currentDevice.Compression"> <span translate>Use Compression</span>
                 </label>
                 <p translate class="help-block">Compression is recommended in most setups.</p>
               </div>
@@ -399,58 +403,58 @@
             <div ng-if="!editingSelf" class="form-group">
               <div class="checkbox">
                 <label>
-                  <input type="checkbox" ng-model="currentNode.Introducer"> <span translate>Introducer</span>
+                  <input type="checkbox" ng-model="currentDevice.Introducer"> <span translate>Introducer</span>
                 </label>
-                <p translate class="help-block">Any nodes configured on an introducer node will be added to this node as well.</p>
+                <p translate class="help-block">Any devices configured on an introducer device will be added to this device as well.</p>
               </div>
             </div>
           </form>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary btn-sm" ng-click="saveNode()" ng-disabled="nodeEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
+          <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
           <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
-          <button ng-if="editingExisting && !editingSelf" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteNode()"><span class="glyphicon glyphicon-minus"></span>&emsp;<span translate>Delete</span></button>
+          <button ng-if="editingExisting && !editingSelf" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteDevice()"><span class="glyphicon glyphicon-minus"></span>&emsp;<span translate>Delete</span></button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Repo editor modal -->
+  <!-- Folder editor modal -->
 
-  <div id="editRepo" class="modal fade" tabindex="-1">
+  <div id="editFolder" class="modal fade" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h4 ng-show="!editingExisting" class="modal-title"><span translate>Add Repository</span></h4>
-          <h4 ng-show="editingExisting" class="modal-title"><span translate>Edit Repository</span></h4>
+          <h4 ng-show="!editingExisting" class="modal-title"><span translate>Add Folder</span></h4>
+          <h4 ng-show="editingExisting" class="modal-title"><span translate>Edit Folder</span></h4>
         </div>
         <div class="modal-body">
-          <form role="form" name="repoEditor">
+          <form role="form" name="folderEditor">
             <div class="row">
               <div class="col-md-12">
-                <div class="form-group" ng-class="{'has-error': repoEditor.repoID.$invalid && repoEditor.repoID.$dirty}">
-                  <label for="repoID"><span translate>Repository ID</span></label>
-                  <input name="repoID" placeholder="documents" ng-disabled="editingExisting" id="repoID" class="form-control" type="text" ng-model="currentRepo.ID" required unique-repo ng-pattern="/^[a-zA-Z0-9-_.]{1,64}$/"></input>
+                <div class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">
+                  <label for="folderID"><span translate>Folder ID</span></label>
+                  <input name="folderID" ng-disabled="editingExisting" id="folderID" class="form-control" type="text" ng-model="currentFolder.ID" required unique-folder ng-pattern="/^[a-zA-Z0-9-_.]{1,64}$/"></input>
                   <p class="help-block">
-                    <span translate ng-if="repoEditor.repoID.$valid || repoEditor.repoID.$pristine">Short identifier for the repository. Must be the same on all cluster nodes.</span>
-                    <span translate ng-if="repoEditor.repoID.$error.uniqueRepo">The repository ID must be unique.</span>
-                    <span translate ng-if="repoEditor.repoID.$error.required && repoEditor.repoID.$dirty">The repository ID cannot be blank.</span>
-                    <span translate ng-if="repoEditor.repoID.$error.pattern && repoEditor.repoID.$dirty">The repository ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.</span>
+                    <span translate ng-if="folderEditor.folderID.$valid || folderEditor.folderID.$pristine">Short identifier for the folder. Must be the same on all cluster devices.</span>
+                    <span translate ng-if="folderEditor.folderID.$error.uniqueFolder">The folder ID must be unique.</span>
+                    <span translate ng-if="folderEditor.folderID.$error.required && folderEditor.folderID.$dirty">The folder ID cannot be blank.</span>
+                    <span translate ng-if="folderEditor.folderID.$error.pattern && folderEditor.folderID.$dirty">The folder ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.</span>
                   </p>
                 </div>
-                <div class="form-group" ng-class="{'has-error': repoEditor.repoPath.$invalid && repoEditor.repoPath.$dirty}">
-                  <label translate for="repoPath">Repository Path</label>
-                  <input name="repoPath" placeholder="~/Documents" ng-disabled="editingExisting" id="repoPath" class="form-control" type="text" ng-model="currentRepo.Directory" required></input>
+                <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty}">
+                  <label translate for="folderPath">Folder Path</label>
+                  <input name="folderPath" ng-disabled="editingExisting" id="folderPath" class="form-control" type="text" ng-model="currentFolder.Directory" required></input>
                   <p class="help-block">
-                    <span translate ng-if="repoEditor.repoPath.$valid || repoEditor.repoPath.$pristine">Path to the repository on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.
-                    <span translate ng-if="repoEditor.repoPath.$error.required && repoEditor.repoPath.$dirty">The repository path cannot be blank.</span>
+                    <span translate ng-if="folderEditor.folderPath.$valid || folderEditor.folderPath.$pristine">Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.
+                    <span translate ng-if="folderEditor.folderPath.$error.required && folderEditor.folderPath.$dirty">The folder path cannot be blank.</span>
                   </p>
                 </div>
-                <div class="form-group" ng-class="{'has-error': repoEditor.rescanIntervalS.$invalid && repoEditor.rescanIntervalS.$dirty}">
+                <div class="form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
                   <label for="rescanIntervalS"><span translate>Rescan Interval</span> (s)</label>
-                  <input name="rescanIntervalS" placeholder="60" id="rescanIntervalS" class="form-control" type="number" ng-model="currentRepo.RescanIntervalS" required min="5"></input>
+                  <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.RescanIntervalS" required min="5"></input>
                   <p class="help-block">
-                    <span translate ng-if="!repoEditor.rescanIntervalS.$valid && repoEditor.rescanIntervalS.$dirty">The rescan interval must be at least 5 seconds.</span>
+                    <span translate ng-if="!folderEditor.rescanIntervalS.$valid && folderEditor.rescanIntervalS.$dirty">The rescan interval must be at least 5 seconds.</span>
                   </p>
                 </div>
               </div>
@@ -460,27 +464,27 @@
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <input type="checkbox" ng-model="currentRepo.ReadOnly"> <span translate>Repository Master</span>
+                      <input type="checkbox" ng-model="currentFolder.ReadOnly"> <span translate>Folder Master</span>
                     </label>
                   </div>
-                  <p translate class="help-block">Files are protected from changes made on other nodes, but changes made on this node will be sent to the rest of the cluster.</p>
+                  <p translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
                 </div>
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <input type="checkbox" ng-model="currentRepo.IgnorePerms"> <span translate>Ignore Permissions</span>
+                      <input type="checkbox" ng-model="currentFolder.IgnorePerms"> <span translate>Ignore Permissions</span>
                     </label>
                   </div>
                   <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT filesystems.</p>
                 </div>
                 <div class="form-group">
-                  <label translate for="nodes">Share With Nodes</label>
-                  <div class="checkbox" ng-repeat="node in otherNodes()">
+                  <label translate for="devices">Share With Devices</label>
+                  <div class="checkbox" ng-repeat="device in otherDevices()">
                     <label>
-                      <input type="checkbox" ng-model="currentRepo.selectedNodes[node.NodeID]"> {{nodeName(node)}}
+                      <input type="checkbox" ng-model="currentFolder.selectedDevices[device.DeviceID]"> {{deviceName(device)}}
                     </label>
                   </div>
-                  <p translate class="help-block">Select the nodes to share this repository with.</p>
+                  <p translate class="help-block">Select the devices to share this folder with.</p>
                 </div>
               </div>
               <div class="col-md-6">
@@ -488,54 +492,54 @@
                   <label translate>File Versioning</label>
                   <div class="radio">
                     <label>
-                      <input type="radio" ng-model="currentRepo.FileVersioningSelector" value="none"> <span translate>No File Versioning</span>
+                      <input type="radio" ng-model="currentFolder.FileVersioningSelector" value="none"> <span translate>No File Versioning</span>
                     </label>
                   </div>
                   <div class="radio">
                     <label>
-                      <input type="radio" ng-model="currentRepo.FileVersioningSelector" value="simple"> <span translate>Simple File Versioning</span>
+                      <input type="radio" ng-model="currentFolder.FileVersioningSelector" value="simple"> <span translate>Simple File Versioning</span>
                     </label>
                   </div>
                   <div class="radio">
                     <label>
-                      <input type="radio" ng-model="currentRepo.FileVersioningSelector" value="staggered"> <span translate>Staggered File Versioning</span>
+                      <input type="radio" ng-model="currentFolder.FileVersioningSelector" value="staggered"> <span translate>Staggered File Versioning</span>
                     </label>
                   </div>
                 </div>
-                <div class="form-group" ng-if="currentRepo.FileVersioningSelector=='simple'" ng-class="{'has-error': repoEditor.simpleKeep.$invalid && repoEditor.simpleKeep.$dirty}">
+                <div class="form-group" ng-if="currentFolder.FileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.simpleKeep.$invalid && folderEditor.simpleKeep.$dirty}">
                   <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</p>
                   <label translate for="simpleKeep">Keep Versions</label>
-                  <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentRepo.simpleKeep" required min="1"></input>
+                  <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentFolder.simpleKeep" required min="1"></input>
                   <p class="help-block">
-                    <span translate ng-if="repoEditor.simpleKeep.$valid || repoEditor.simpleKeep.$pristine">The number of old versions to keep, per file.</span>
-                    <span translate ng-if="repoEditor.simpleKeep.$error.required && repoEditor.simpleKeep.$dirty">The number of versions must be a number and cannot be blank.</span>
-                    <span translate ng-if="repoEditor.simpleKeep.$error.min && repoEditor.simpleKeep.$dirty">You must keep at least one version.</span>
+                    <span translate ng-if="folderEditor.simpleKeep.$valid || folderEditor.simpleKeep.$pristine">The number of old versions to keep, per file.</span>
+                    <span translate ng-if="folderEditor.simpleKeep.$error.required && folderEditor.simpleKeep.$dirty">The number of versions must be a number and cannot be blank.</span>
+                    <span translate ng-if="folderEditor.simpleKeep.$error.min && folderEditor.simpleKeep.$dirty">You must keep at least one version.</span>
                   </p>
                 </div>
-                <div class="form-group" ng-if="currentRepo.FileVersioningSelector=='staggered'" ng-class="{'has-error': repoEditor.staggeredMaxAge.$invalid && repoEditor.staggeredMaxAge.$dirty}">
+                <div class="form-group" ng-if="currentFolder.FileVersioningSelector=='staggered'" ng-class="{'has-error': folderEditor.staggeredMaxAge.$invalid && folderEditor.staggeredMaxAge.$dirty}">
                   <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
                   <p translate class="help-block">The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.</p>
                   <label translate for="staggeredMaxAge">Maximum Age</label>
-                  <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentRepo.staggeredMaxAge" required></input>
+                  <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentFolder.staggeredMaxAge" required></input>
                   <p class="help-block">
-                    <span translate ng-if="repoEditor.staggeredMaxAge.$valid || repoEditor.staggeredMaxAge.$pristine">The maximum time to keep a version (in days, set to 0 to keep versions forever).</span>
-                    <span translate ng-if="repoEditor.staggeredMaxAge.$error.required && repoEditor.staggeredMaxAge.$dirty">The maximum age must be a number and cannot be blank.</span>
+                    <span translate ng-if="folderEditor.staggeredMaxAge.$valid || folderEditor.staggeredMaxAge.$pristine">The maximum time to keep a version (in days, set to 0 to keep versions forever).</span>
+                    <span translate ng-if="folderEditor.staggeredMaxAge.$error.required && folderEditor.staggeredMaxAge.$dirty">The maximum age must be a number and cannot be blank.</span>
                   </p>
                 </div>
-                <div class="form-group" ng-if="currentRepo.FileVersioningSelector == 'staggered'">
+                <div class="form-group" ng-if="currentFolder.FileVersioningSelector == 'staggered'">
                   <label translate for="staggeredVersionsPath">Versions Path</label>
-                  <input name="staggeredVersionsPath" placeholder="" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentRepo.staggeredVersionsPath"></input>
-                  <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions folder in the repository).</p>
+                  <input name="staggeredVersionsPath" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentFolder.staggeredVersionsPath"></input>
+                  <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions folder in the folder).</p>
                 </div>
               </div>
             </div>
           </form>
-          <div translate ng-show="!editingExisting">When adding a new repository, keep in mind that the Repository ID is used to tie repositories together between nodes. They are case sensitive and must match exactly between all nodes.</div>
+          <div translate ng-show="!editingExisting">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary btn-sm" ng-click="saveRepo()" ng-disabled="repoEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
+          <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
           <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
-          <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteRepo()"><span class="glyphicon glyphicon-minus"></span>&emsp;<span translate>Delete</span></button>
+          <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteFolder()"><span class="glyphicon glyphicon-minus"></span>&emsp;<span translate>Delete</span></button>
           <button id="editIgnoresButton" ng-if="editingExisting" type="button" class="btn btn-default pull-left btn-sm" ng-click="editIgnores()"><span class="glyphicon glyphicon-eye-close"></span>&emsp;<span translate>Ignore Patterns</span></button>
         </div>
       </div>
@@ -565,7 +569,7 @@
           </dl>
         </div>
         <div class="modal-footer">
-          <div class="pull-left"><span translate>Editing</span> <code>{{currentRepo.Directory}}/.stignore</code></div>
+          <div class="pull-left"><span translate>Editing</span> <code>{{currentFolder.Path}}/.stignore</code></div>
           <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal" ng-click="saveIgnores()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
           <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
         </div>
@@ -587,8 +591,8 @@
 
               <div class="col-md-6">
                 <div class="form-group">
-                  <label translate for="NodeName">Node Name</label>
-                  <input id="NodeName" class="form-control" type="text" ng-model="tmpOptions.NodeName">
+                  <label translate for="DeviceName">Device Name</label>
+                  <input id="DeviceName" class="form-control" type="text" ng-model="tmpOptions.DeviceName">
                 </div>
                 <div class="form-group">
                   <label translate for="ListenStr">Sync Protocol Listen Addresses</label>
@@ -602,26 +606,36 @@
                   <label translate for="MaxSendKbps">Outgoing Rate Limit (KiB/s)</label>
                   <input id="MaxSendKbps" class="form-control" type="number" ng-model="tmpOptions.MaxSendKbps">
                 </div>
-                <div class="form-group">
-                  <div class="checkbox">
-                    <label>
-                      <span translate>Enable UPnP</span> <input id="UPnPEnabled" type="checkbox" ng-model="tmpOptions.UPnPEnabled">
-                    </label>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <div class="checkbox">
+                      <label>
+                        <span translate>Enable UPnP</span> <input id="UPnPEnabled" type="checkbox" ng-model="tmpOptions.UPnPEnabled">
+                      </label>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <div class="checkbox">
+                      <label>
+                        <span translate>Global Discovery</span> <input id="GlobalAnnEnabled" type="checkbox" ng-model="tmpOptions.GlobalAnnEnabled">
+                      </label>
+                    </div>
                   </div>
                 </div>
-
-                <div class="form-group">
-                  <div class="checkbox">
-                    <label>
-                      <span translate>Local Discovery</span> <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.LocalAnnEnabled">
-                    </label>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <div class="checkbox">
+                      <label>
+                        <span translate>Automatic upgrades</span> <input id="AutoUpgradeEnabled" type="checkbox" ng-model="tmpOptions.AutoUpgradeEnabled">
+                      </label>
+                    </div>
                   </div>
-                </div>
-                <div class="form-group">
-                  <div class="checkbox">
-                    <label>
-                      <span translate>Global Discovery</span> <input id="GlobalAnnEnabled" type="checkbox" ng-model="tmpOptions.GlobalAnnEnabled">
-                    </label>
+                  <div class="form-group">
+                    <div class="checkbox">
+                      <label>
+                        <span translate>Local Discovery</span> <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.LocalAnnEnabled">
+                      </label>
+                    </div>
                   </div>
                 </div>
                 <div class="form-group">
@@ -694,7 +708,7 @@
           <h4 translate class="modal-title">Allow Anonymous Usage Reporting?</h4>
         </div>
         <div class="modal-body">
-          <p translate>The encrypted usage report is sent daily. It is used to track common platforms, repo sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.</p>
+          <p translate>The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.</p>
           <p translate translate-value-url="https://data.syncthing.net">The aggregated statistics are publicly available at {%url%}.</p>
           <button translate type="button" class="btn btn-default btn-sm" ng-show="!reportPreview" ng-click="showReportPreview()">Preview Usage Report</button>
           <pre ng-if="reportPreview"><small>{{reportData | json}}</small></pre>
@@ -716,7 +730,7 @@
           <h4 translate class="modal-title">Anonymous Usage Reporting</h4>
         </div>
         <div class="modal-body">
-          <p translate>The encrypted usage report is sent daily. It is used to track common platforms, repo sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.</p>
+          <p translate>The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.</p>
           <p translate translate-value-url="https://data.syncthing.net">The aggregated statistics are publicly available at {%url%}.</p>
           <pre><small>{{reportData | json}}</small></pre>
         </div>

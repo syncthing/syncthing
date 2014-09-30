@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/model"
+	"github.com/syncthing/syncthing/internal/model"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
@@ -31,13 +31,13 @@ func reportData(m *model.Model) map[string]interface{} {
 	res["version"] = Version
 	res["longVersion"] = LongVersion
 	res["platform"] = runtime.GOOS + "-" + runtime.GOARCH
-	res["numRepos"] = len(cfg.Repositories)
-	res["numNodes"] = len(cfg.Nodes)
+	res["numFolders"] = len(cfg.Folders)
+	res["numDevices"] = len(cfg.Devices)
 
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
-	for _, repo := range cfg.Repositories {
-		files, _, bytes := m.GlobalSize(repo.ID)
+	for _, folder := range cfg.Folders {
+		files, _, bytes := m.GlobalSize(folder.ID)
 		totFiles += files
 		totBytes += bytes
 		if files > maxFiles {
@@ -49,9 +49,9 @@ func reportData(m *model.Model) map[string]interface{} {
 	}
 
 	res["totFiles"] = totFiles
-	res["repoMaxFiles"] = maxFiles
+	res["folderMaxFiles"] = maxFiles
 	res["totMiB"] = totBytes / 1024 / 1024
-	res["repoMaxMiB"] = maxBytes / 1024 / 1024
+	res["folderMaxMiB"] = maxBytes / 1024 / 1024
 
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
