@@ -563,12 +563,14 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			// Verify the file against expected hashes
 			fd, err := os.Open(state.tempName)
 			if err != nil {
+				os.Remove(state.tempName)
 				l.Warnln("puller: final:", err)
 				continue
 			}
 			err = scanner.Verify(fd, scanner.StandardBlockSize, state.file.Blocks)
 			fd.Close()
 			if err != nil {
+				os.Remove(state.tempName)
 				l.Warnln("puller: final:", state.file.Name, err)
 				continue
 			}
