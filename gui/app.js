@@ -100,7 +100,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.reportPreview = false;
     $scope.folders = {};
     $scope.seenError = '';
-    $scope.upgradeInfo = {};
+    $scope.upgradeInfo = null;
     $scope.stats = {};
 
     $http.get(urlbase + "/lang").success(function (langs) {
@@ -412,7 +412,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $http.get(urlbase + '/upgrade').success(function (data) {
             $scope.upgradeInfo = data;
         }).error(function () {
-            $scope.upgradeInfo = {};
+            $scope.upgradeInfo = null;
         });
     };
 
