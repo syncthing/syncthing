@@ -111,6 +111,10 @@ loop:
 		// device A to device B, so we have something to work against.
 		case <-pullTimer.C:
 			if !initialScanCompleted {
+				// How did we even get here?
+				if debug {
+					l.Debugln(p, "skip (initial)")
+				}
 				pullTimer.Reset(nextPullIntv)
 				continue
 			}
@@ -118,6 +122,9 @@ loop:
 			// RemoteLocalVersion() is a fast call, doesn't touch the database.
 			curVer := p.model.RemoteLocalVersion(p.folder)
 			if curVer == prevVer {
+				if debug {
+					l.Debugln(p, "skip (curVer == prevVer)", prevVer)
+				}
 				pullTimer.Reset(checkPullIntv)
 				continue
 			}
