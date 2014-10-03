@@ -49,6 +49,7 @@ func TestDefaultValues(t *testing.T) {
 		UPnPRenewal:          30,
 		RestartOnWakeup:      true,
 		AutoUpgradeIntervalH: 12,
+		KeepTemporariesH:     24,
 	}
 
 	cfg := New("test", device1)
@@ -141,6 +142,7 @@ func TestOverriddenValues(t *testing.T) {
 		UPnPRenewal:          15,
 		RestartOnWakeup:      false,
 		AutoUpgradeIntervalH: 24,
+		KeepTemporariesH:     48,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)

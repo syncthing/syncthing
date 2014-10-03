@@ -31,6 +31,7 @@ type sharedPullerState struct {
 	folder   string
 	tempName string
 	realName string
+	reuse    bool
 
 	// Mutable, must be locked for access
 	err        error      // The first error we hit
@@ -77,7 +78,11 @@ func (s *sharedPullerState) tempFile() (*os.File, error) {
 	}
 
 	// Attempt to create the temp file
-	fd, err := os.OpenFile(s.tempName, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0644)
+	flags := os.O_WRONLY
+	if !s.reuse {
+		flags |= os.O_CREATE | os.O_EXCL
+	}
+	fd, err := os.OpenFile(s.tempName, flags, 0644)
 	if err != nil {
 		s.earlyCloseLocked("dst create", err)
 		return nil, err
