@@ -111,6 +111,7 @@ loop:
 		// device A to device B, so we have something to work against.
 		case <-pullTimer.C:
 			if !initialScanCompleted {
+				pullTimer.Reset(nextPullIntv)
 				continue
 			}
 
