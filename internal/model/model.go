@@ -81,9 +81,8 @@ type service interface {
 }
 
 type Model struct {
-	indexDir string
-	cfg      *config.Configuration
-	db       *leveldb.DB
+	cfg *config.Configuration
+	db  *leveldb.DB
 
 	deviceName    string
 	clientName    string
@@ -119,9 +118,8 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(indexDir string, cfg *config.Configuration, deviceName, clientName, clientVersion string, db *leveldb.DB) *Model {
+func NewModel(cfg *config.Configuration, deviceName, clientName, clientVersion string, db *leveldb.DB) *Model {
 	m := &Model{
-		indexDir:           indexDir,
 		cfg:                cfg,
 		db:                 db,
 		deviceName:         deviceName,

@@ -442,7 +442,7 @@ func syncthingMain() {
 		}
 	}
 
-	m := model.NewModel(confDir, &cfg, myName, "syncthing", Version, db)
+	m := model.NewModel(&cfg, myName, "syncthing", Version, db)
 
 nextFolder:
 	for i, folder := range cfg.Folders {

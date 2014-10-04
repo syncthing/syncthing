@@ -68,7 +68,7 @@ func init() {
 
 func TestRequest(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", &config.Configuration{}, "device", "syncthing", "dev", db)
+	m := NewModel(&config.Configuration{}, "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 	m.ScanFolder("default")
 
@@ -105,7 +105,7 @@ func genFiles(n int) []protocol.FileInfo {
 
 func BenchmarkIndex10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m := NewModel(nil, "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 	m.ScanFolder("default")
 	files := genFiles(10000)
@@ -118,7 +118,7 @@ func BenchmarkIndex10000(b *testing.B) {
 
 func BenchmarkIndex00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m := NewModel(nil, "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 	m.ScanFolder("default")
 	files := genFiles(100)
@@ -131,7 +131,7 @@ func BenchmarkIndex00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m := NewModel(nil, "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 	m.ScanFolder("default")
 	files := genFiles(10000)
@@ -145,7 +145,7 @@ func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m := NewModel(nil, "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 	m.ScanFolder("default")
 	files := genFiles(10000)
@@ -160,7 +160,7 @@ func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00001(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m := NewModel(nil, "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 	m.ScanFolder("default")
 	files := genFiles(10000)
@@ -218,7 +218,7 @@ func (FakeConnection) Statistics() protocol.Statistics {
 
 func BenchmarkRequest(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m := NewModel(nil, "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 	m.ScanFolder("default")
 
@@ -266,7 +266,7 @@ func TestDeviceRename(t *testing.T) {
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", &cfg, "device", "syncthing", "dev", db)
+	m := NewModel(&cfg, "device", "syncthing", "dev", db)
 	if cfg.Devices[0].Name != "" {
 		t.Errorf("Device already has a name")
 	}
@@ -324,7 +324,7 @@ func TestClusterConfig(t *testing.T) {
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 
-	m := NewModel("/tmp", &cfg, "device", "syncthing", "dev", db)
+	m := NewModel(&cfg, "device", "syncthing", "dev", db)
 	m.AddFolder(cfg.Folders[0])
 	m.AddFolder(cfg.Folders[1])
 
@@ -390,7 +390,7 @@ func TestIgnores(t *testing.T) {
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel("/tmp", nil, "device", "syncthing", "dev", db)
+	m := NewModel(nil, "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 
 	expected := []string{
