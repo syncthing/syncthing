@@ -1,6 +1,17 @@
 // Copyright (C) 2014 Jakob Borg and Contributors (see the CONTRIBUTORS file).
-// All rights reserved. Use of this source code is governed by an MIT-style
-// license that can be found in the LICENSE file.
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package model
 
@@ -100,12 +111,20 @@ loop:
 		// device A to device B, so we have something to work against.
 		case <-pullTimer.C:
 			if !initialScanCompleted {
+				// How did we even get here?
+				if debug {
+					l.Debugln(p, "skip (initial)")
+				}
+				pullTimer.Reset(nextPullIntv)
 				continue
 			}
 
 			// RemoteLocalVersion() is a fast call, doesn't touch the database.
 			curVer := p.model.RemoteLocalVersion(p.folder)
 			if curVer == prevVer {
+				if debug {
+					l.Debugln(p, "skip (curVer == prevVer)", prevVer)
+				}
 				pullTimer.Reset(checkPullIntv)
 				continue
 			}
@@ -552,12 +571,14 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			// Verify the file against expected hashes
 			fd, err := os.Open(state.tempName)
 			if err != nil {
+				os.Remove(state.tempName)
 				l.Warnln("puller: final:", err)
 				continue
 			}
 			err = scanner.Verify(fd, scanner.StandardBlockSize, state.file.Blocks)
 			fd.Close()
 			if err != nil {
+				os.Remove(state.tempName)
 				l.Warnln("puller: final:", state.file.Name, err)
 				continue
 			}

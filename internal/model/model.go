@@ -1,6 +1,17 @@
 // Copyright (C) 2014 Jakob Borg and Contributors (see the CONTRIBUTORS file).
-// All rights reserved. Use of this source code is governed by an MIT-style
-// license that can be found in the LICENSE file.
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package model
 
@@ -70,9 +81,8 @@ type service interface {
 }
 
 type Model struct {
-	indexDir string
-	cfg      *config.Configuration
-	db       *leveldb.DB
+	cfg *config.Configuration
+	db  *leveldb.DB
 
 	deviceName    string
 	clientName    string
@@ -108,9 +118,8 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(indexDir string, cfg *config.Configuration, deviceName, clientName, clientVersion string, db *leveldb.DB) *Model {
+func NewModel(cfg *config.Configuration, deviceName, clientName, clientVersion string, db *leveldb.DB) *Model {
 	m := &Model{
-		indexDir:           indexDir,
 		cfg:                cfg,
 		db:                 db,
 		deviceName:         deviceName,
