@@ -131,7 +131,7 @@ func (l *Logger) Log(t EventType, data interface{}) {
 			select {
 			case s.events <- e:
 			default:
-				//log.Println("Dropping event:", e)
+				// dl.Debugln("dropping event:", e)
 			}
 		}
 	}
@@ -157,7 +157,7 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 func (l *Logger) Unsubscribe(s *Subscription) {
 	l.mutex.Lock()
 	if debug {
-		dl.Debugln("unsubsribe")
+		dl.Debugln("unsubscribe")
 	}
 	delete(l.subs, s.id)
 	close(s.events)
