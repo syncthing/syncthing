@@ -129,3 +129,15 @@ func Verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
 
 	return nil
 }
+
+func BlocksEqual(src, dst []protocol.BlockInfo) bool {
+	if len(src) != len(dst) {
+		return false
+	}
+	for i := range src {
+		if !bytes.Equal(src[i].Hash, dst[i].Hash) {
+			return false
+		}
+	}
+	return true
+}

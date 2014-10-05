@@ -17,6 +17,7 @@
 package osutil
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -80,4 +81,24 @@ func InWritableDir(fn func(string) error, path string) error {
 	}
 
 	return fn(path)
+}
+
+func Copy(from, to string) error {
+	src, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dst, err := os.Create(to)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		dst.Close()
+		return err
+	}
+	return dst.Close()
 }
