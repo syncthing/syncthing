@@ -25,7 +25,7 @@ import (
 type EventType uint64
 
 const (
-	Ping = 1 << iota
+	Ping EventType = 1 << iota
 	Starting
 	StartupComplete
 	DeviceDiscovered
@@ -39,7 +39,7 @@ const (
 	FolderRejected
 	ConfigSaved
 
-	AllEvents = ^EventType(0)
+	AllEvents = (1 << iota) - 1
 )
 
 func (t EventType) String() string {
