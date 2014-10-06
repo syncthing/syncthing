@@ -168,7 +168,7 @@ func test(pkg string) {
 func install(pkg string) {
 	os.Setenv("GOBIN", "./bin")
 	setBuildEnv()
-	runPrint("go", "install", "-ldflags", ldflags(), pkg)
+	runPrint("go", "install", "-v", "-ldflags", ldflags(), pkg)
 }
 
 func build(pkg string, tags []string) {
