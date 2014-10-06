@@ -14,6 +14,10 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
+var (
+	ErrIterReleased = errors.New("leveldb/iterator: iterator released")
+)
+
 // IteratorSeeker is the interface that wraps the 'seeks method'.
 type IteratorSeeker interface {
 	// First moves the iterator to the first key/value pair. If the iterator
@@ -100,28 +104,13 @@ type ErrorCallbackSetter interface {
 }
 
 type emptyIterator struct {
-	releaser util.Releaser
-	released bool
-	err      error
+	util.BasicReleaser
+	err error
 }
 
 func (i *emptyIterator) rErr() {
-	if i.err == nil && i.released {
-		i.err = errors.New("leveldb/iterator: iterator released")
-	}
-}
-
-func (i *emptyIterator) Release() {
-	if i.releaser != nil {
-		i.releaser.Release()
-		i.releaser = nil
-	}
-	i.released = true
-}
-
-func (i *emptyIterator) SetReleaser(releaser util.Releaser) {
-	if !i.released {
-		i.releaser = releaser
+	if i.err == nil && i.Released() {
+		i.err = ErrIterReleased
 	}
 }
 

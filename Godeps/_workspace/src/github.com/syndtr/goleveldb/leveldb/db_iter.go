@@ -321,9 +321,13 @@ func (i *dbIter) Release() {
 }
 
 func (i *dbIter) SetReleaser(releaser util.Releaser) {
-	if i.dir != dirReleased {
-		i.releaser = releaser
+	if i.dir == dirReleased {
+		panic(util.ErrReleased)
 	}
+	if i.releaser != nil && releaser != nil {
+		panic(util.ErrHasReleaser)
+	}
+	i.releaser = releaser
 }
 
 func (i *dbIter) Error() error {

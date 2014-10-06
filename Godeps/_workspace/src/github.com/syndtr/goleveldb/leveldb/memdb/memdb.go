@@ -8,6 +8,7 @@
 package memdb
 
 import (
+	"errors"
 	"math/rand"
 	"sync"
 
@@ -17,7 +18,8 @@ import (
 )
 
 var (
-	ErrNotFound = util.ErrNotFound
+	ErrNotFound     = util.ErrNotFound
+	ErrIterReleased = errors.New("leveldb/memdb: iterator released")
 )
 
 const tMaxHeight = 12
@@ -29,6 +31,7 @@ type dbIter struct {
 	node       int
 	forward    bool
 	key, value []byte
+	err        error
 }
 
 func (i *dbIter) fill(checkStart, checkLimit bool) bool {
@@ -59,6 +62,11 @@ func (i *dbIter) Valid() bool {
 }
 
 func (i *dbIter) First() bool {
+	if i.Released() {
+		i.err = ErrIterReleased
+		return false
+	}
+
 	i.forward = true
 	i.p.mu.RLock()
 	defer i.p.mu.RUnlock()
@@ -71,9 +79,11 @@ func (i *dbIter) First() bool {
 }
 
 func (i *dbIter) Last() bool {
-	if i.p == nil {
+	if i.Released() {
+		i.err = ErrIterReleased
 		return false
 	}
+
 	i.forward = false
 	i.p.mu.RLock()
 	defer i.p.mu.RUnlock()
@@ -86,9 +96,11 @@ func (i *dbIter) Last() bool {
 }
 
 func (i *dbIter) Seek(key []byte) bool {
-	if i.p == nil {
+	if i.Released() {
+		i.err = ErrIterReleased
 		return false
 	}
+
 	i.forward = true
 	i.p.mu.RLock()
 	defer i.p.mu.RUnlock()
@@ -100,9 +112,11 @@ func (i *dbIter) Seek(key []byte) bool {
 }
 
 func (i *dbIter) Next() bool {
-	if i.p == nil {
+	if i.Released() {
+		i.err = ErrIterReleased
 		return false
 	}
+
 	if i.node == 0 {
 		if !i.forward {
 			return i.First()
@@ -117,9 +131,11 @@ func (i *dbIter) Next() bool {
 }
 
 func (i *dbIter) Prev() bool {
-	if i.p == nil {
+	if i.Released() {
+		i.err = ErrIterReleased
 		return false
 	}
+
 	if i.node == 0 {
 		if i.forward {
 			return i.Last()
@@ -141,10 +157,10 @@ func (i *dbIter) Value() []byte {
 	return i.value
 }
 
-func (i *dbIter) Error() error { return nil }
+func (i *dbIter) Error() error { return i.err }
 
 func (i *dbIter) Release() {
-	if i.p != nil {
+	if !i.Released() {
 		i.p = nil
 		i.node = 0
 		i.key = nil

@@ -124,6 +124,9 @@ func (c *lruCache) Zap() {
 func (c *lruCache) evict() {
 	top := &c.recent
 	for n := c.recent.rPrev; c.used > c.capacity && n != top; {
+		if n.state != nodeEffective {
+			panic("evicting non effective node")
+		}
 		n.state = nodeEvicted
 		n.rRemove()
 		n.derefNB()
@@ -324,6 +327,10 @@ func (ns *lruNs) Get(key uint64, setf SetFunc) Handle {
 		// Bump to front.
 		n.rRemove()
 		n.rInsert(&ns.lru.recent)
+	case nodeDeleted:
+		// Do nothing.
+	default:
+		panic("invalid state")
 	}
 	n.ref++
 
@@ -472,8 +479,10 @@ func (n *lruNode) fin() {
 		r.Release()
 	}
 	if n.purgefin != nil {
+		if n.delfin != nil {
+			panic("conflicting delete and purge fin")
+		}
 		n.purgefin(n.ns.id, n.key)
-		n.delfin = nil
 		n.purgefin = nil
 	} else if n.delfin != nil {
 		n.delfin(true, false)

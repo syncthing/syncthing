@@ -260,7 +260,7 @@ func (db *DB) memCompaction() {
 		return c.commit(db.journalFile.Num(), db.frozenSeq)
 	}, nil)
 
-	db.logf("mem@flush commited F·%d T·%v", len(c.rec.addedTables), stats.duration)
+	db.logf("mem@flush committed F·%d T·%v", len(c.rec.addedTables), stats.duration)
 
 	for _, r := range c.rec.addedTables {
 		stats.write += r.size
@@ -478,7 +478,7 @@ func (db *DB) tableCompaction(c *compaction, noTrivial bool) {
 	}, nil)
 
 	resultSize := int(stats[1].write)
-	db.logf("table@compaction commited F%s S%s D·%d T·%v", sint(len(rec.addedTables)-len(rec.deletedTables)), sshortenb(resultSize-sourceSize), dropCnt, stats[1].duration)
+	db.logf("table@compaction committed F%s S%s D·%d T·%v", sint(len(rec.addedTables)-len(rec.deletedTables)), sshortenb(resultSize-sourceSize), dropCnt, stats[1].duration)
 
 	// Save compaction stats
 	for i := range stats {
