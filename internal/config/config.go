@@ -145,6 +145,7 @@ type OptionsConfiguration struct {
 	URAccepted           int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
 	RestartOnWakeup      bool     `xml:"restartOnWakeup" default:"true"`
 	AutoUpgradeIntervalH int      `xml:"autoUpgradeIntervalH" default:"12"` // 0 for off
+	KeepTemporariesH     int      `xml:"keepTemporariesH" default:"24"`     // 0 for off
 
 	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
 	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`
