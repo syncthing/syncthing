@@ -132,9 +132,9 @@ func (d *Discoverer) ExtAnnounceOK() bool {
 }
 
 func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
-	d.registryLock.Lock()
+	d.registryLock.RLock()
 	cached := d.filterCached(d.registry[device])
-	d.registryLock.Unlock()
+	d.registryLock.RUnlock()
 
 	if len(cached) > 0 {
 		addrs := make([]string, len(cached))
