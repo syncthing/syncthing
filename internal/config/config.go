@@ -51,8 +51,9 @@ type FolderConfiguration struct {
 	ReadOnly        bool                        `xml:"ro,attr"`
 	RescanIntervalS int                         `xml:"rescanIntervalS,attr" default:"60"`
 	IgnorePerms     bool                        `xml:"ignorePerms,attr"`
-	Invalid         string                      `xml:"-"` // Set at runtime when there is an error, not saved
 	Versioning      VersioningConfiguration     `xml:"versioning"`
+
+	Invalid string `xml:"-"` // Set at runtime when there is an error, not saved
 
 	deviceIDs []protocol.DeviceID
 
@@ -277,25 +278,18 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
-	existingDevices[myID] = true
 	for _, device := range cfg.Devices {
 		existingDevices[device.DeviceID] = true
 	}
 
-	// Ensure this device is present in all relevant places
-	myIDExists := false
-	for _, dev := range cfg.Devices {
-		if dev.DeviceID == myID {
-			myIDExists = true
-			break
-		}
-	}
-	if !myIDExists {
+	// Ensure this device is present in the config
+	if !existingDevices[myID] {
 		myName, _ := os.Hostname()
 		cfg.Devices = append(cfg.Devices, DeviceConfiguration{
 			DeviceID: myID,
 			Name:     myName,
 		})
+		existingDevices[myID] = true
 	}
 
 	sort.Sort(DeviceConfigurationList(cfg.Devices))

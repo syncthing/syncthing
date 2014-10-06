@@ -60,7 +60,7 @@ func TestDefaultValues(t *testing.T) {
 }
 
 func TestDeviceConfig(t *testing.T) {
-	for i, ver := range []string{"v3", "v4", "v5"} {
+	for i, ver := range []string{"v1", "v2", "v3", "v4", "v5"} {
 		wr, err := Load("testdata/"+ver+".xml", device1)
 		if err != nil {
 			t.Fatal(err)
