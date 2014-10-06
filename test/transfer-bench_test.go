@@ -99,6 +99,8 @@ loop:
 				}
 			}
 		}
+
+		time.Sleep(250 * time.Millisecond)
 	}
 
 	sender.stop()

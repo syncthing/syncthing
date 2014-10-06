@@ -132,6 +132,8 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 
 			prevComp = curComp
 		}
+
+		time.Sleep(250 * time.Millisecond)
 	}
 
 	sender.stop()
