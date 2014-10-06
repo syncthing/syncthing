@@ -54,6 +54,10 @@ func (f FileInfo) IsInvalid() bool {
 	return IsInvalid(f.Flags)
 }
 
+func (f FileInfo) IsDirectory() bool {
+	return IsDirectory(f.Flags)
+}
+
 // Used for unmarshalling a FileInfo structure but skipping the actual block list
 type FileInfoTruncated struct {
 	Name         string // max:8192
