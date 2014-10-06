@@ -257,16 +257,10 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 	// be attempting to sync with an old version of a file...
 	// !!!
 
-	changed := 0
+	var dirsChanged, dirsDeleted, filesDeleted []protocol.FileInfo
+	filesChanged := map[string]protocol.FileInfo{}
+
 	files.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
-
-		// Needed items are delivered sorted lexicographically. This isn't
-		// really optimal from a performance point of view - it would be
-		// better if files were handled in random order, to spread the load
-		// over the cluster. But it means that we can be sure that we fully
-		// handle directories before the files that go inside them, which is
-		// nice.
-
 		file := intf.(protocol.FileInfo)
 
 		events.Default.Log(events.ItemStarted, map[string]string{
@@ -281,22 +275,97 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 		switch {
 		case protocol.IsDirectory(file.Flags) && protocol.IsDeleted(file.Flags):
 			// A deleted directory
-			p.deleteDir(file)
+			dirsDeleted = append(dirsDeleted, file)
 		case protocol.IsDirectory(file.Flags):
 			// A new or changed directory
-			p.handleDir(file)
+			dirsChanged = append(dirsChanged, file)
 		case protocol.IsDeleted(file.Flags):
 			// A deleted file
-			p.deleteFile(file)
+			filesDeleted = append(filesDeleted, file)
 		default:
-			// A new or changed file. This is the only case where we do stuff
-			// in the background; the other three are done synchronously.
-			p.handleFile(file, copyChan, pullChan)
+			// A new or changed file. This is the only case where we will do
+			// stuff in the background; the other three + copying will be done
+			// synchronously.
+			filesChanged[file.Name] = file
 		}
 
-		changed++
 		return true
 	})
+
+	// Create all directories first, as we need to make sure they exist prior
+	// trying to copy something into them.
+	for _, dir := range dirsChanged {
+		p.handleDir(dir)
+	}
+
+	buckets := make(map[string][]protocol.FileInfo, len(filesChanged))
+	// Setup a minimal search space
+	for _, file := range filesChanged {
+		if len(file.Blocks) > 0 {
+			buckets[string(file.Blocks[0].Hash)] = []protocol.FileInfo{}
+		}
+	}
+
+	// Figure out which of the existing files could be potential candidates
+	files.WithHave(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
+		file := intf.(protocol.FileInfo)
+		if len(file.Blocks) > 0 {
+			key := string(file.Blocks[0].Hash)
+			_, ok := buckets[key]
+			if ok {
+				if debug {
+					l.Debugln(file.Name, "marked as potential copy candidate")
+				}
+				buckets[key] = append(buckets[key], file)
+			}
+		}
+		return true
+	})
+
+	filesCopied := [][]protocol.FileInfo{}
+
+	// For every file that we are changing, check if any of the existing files
+	// is the desired result. If any, mark the pair as copies.
+	// In an ideal world this should be more efficient, as we should be able to
+	// build files from multiple different existing files.
+nextChange:
+	for _, file := range filesChanged {
+		if len(file.Blocks) == 0 {
+			continue
+		}
+		for _, candidate := range buckets[string(file.Blocks[0].Hash)] {
+			if scanner.BlocksEqual(file.Blocks, candidate.Blocks) {
+				filesCopied = append(filesCopied, []protocol.FileInfo{
+					file, candidate,
+				})
+				continue nextChange
+			}
+		}
+	}
+
+	// Handle copies
+	for _, pair := range filesCopied {
+		err := p.copyFile(pair[1], pair[0])
+		// Discard the file from filesChanged list, as we already know that the
+		// blocks are are identical, and we've done the work handleFile would
+		// do.
+		if err == nil {
+			delete(filesChanged, pair[0].Name)
+		}
+	}
+
+	// Do the rest of the work
+	for _, file := range filesChanged {
+		p.handleFile(file, copyChan, pullChan)
+	}
+
+	for _, file := range filesDeleted {
+		p.deleteFile(file)
+	}
+
+	for _, dir := range dirsDeleted {
+		p.deleteDir(dir)
+	}
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration
@@ -311,6 +380,8 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 	// Wait for the finisherChan to finish.
 	doneWg.Wait()
 
+	changed := len(dirsChanged) + len(dirsDeleted) + len(filesChanged)
+	changed += len(filesCopied) + len(filesDeleted)
 	return changed
 }
 
@@ -389,6 +460,30 @@ func (p *Puller) deleteFile(file protocol.FileInfo) {
 	} else {
 		p.model.updateLocal(p.folder, file)
 	}
+}
+
+// copyFile attempts to copy from source to destination, maintaining the
+// flags specified by destination, returning an error on failure.
+func (p *Puller) copyFile(src, dst protocol.FileInfo) error {
+	srcName := filepath.Join(p.dir, src.Name)
+
+	if debug {
+		l.Debugln(p, "copying", src.Name, "to", dst.Name)
+	}
+
+	// Hackish curry function
+	curry := func(dstName string) error {
+		return osutil.Copy(srcName, dstName)
+	}
+
+	err := osutil.InWritableDir(curry, filepath.Join(p.dir, dst.Name))
+	if err != nil {
+		l.Infof("Puller (folder %q, src %q, dst %q): copy: %v", p.folder, src.Name, dst.Name, err)
+		return err
+	}
+
+	p.shortcutFile(dst)
+	return nil
 }
 
 // handleFile queues the copies and pulls as necessary for a single new or
