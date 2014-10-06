@@ -76,7 +76,7 @@ func TestHandleFile(t *testing.T) {
 	copyChan := make(chan copyBlocksState, 1) // Copy chan gets all blocks needed to copy in a wrapper struct
 	pullChan := make(chan pullBlockState, 5)  // Pull chan gets blocks one by one
 
-	p.handleFile(requiredFile, copyChan, pullChan)
+	p.handleFile(requiredFile, copyChan, pullChan, nil)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -143,7 +143,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	copyChan := make(chan copyBlocksState, 1) // Copy chan gets all blocks needed to copy in a wrapper struct
 	pullChan := make(chan pullBlockState, 2)  // Pull chan gets blocks one by one
 
-	p.handleFile(requiredFile, copyChan, pullChan)
+	p.handleFile(requiredFile, copyChan, pullChan, nil)
 
 	// Receive the results
 	toCopy := <-copyChan
