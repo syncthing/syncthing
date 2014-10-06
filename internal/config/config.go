@@ -198,40 +198,6 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 	return err
 }
 
-func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration {
-	m := make(map[protocol.DeviceID]DeviceConfiguration, len(cfg.Devices))
-	for _, n := range cfg.Devices {
-		m[n.DeviceID] = n
-	}
-	return m
-}
-
-func (cfg *Configuration) GetDeviceConfiguration(deviceID protocol.DeviceID) *DeviceConfiguration {
-	for i, device := range cfg.Devices {
-		if device.DeviceID == deviceID {
-			return &cfg.Devices[i]
-		}
-	}
-	return nil
-}
-
-func (cfg *Configuration) GetFolderConfiguration(folderID string) *FolderConfiguration {
-	for i, folder := range cfg.Folders {
-		if folder.ID == folderID {
-			return &cfg.Folders[i]
-		}
-	}
-	return nil
-}
-
-func (cfg *Configuration) FolderMap() map[string]FolderConfiguration {
-	m := make(map[string]FolderConfiguration, len(cfg.Folders))
-	for _, r := range cfg.Folders {
-		m[r.ID] = r
-	}
-	return m
-}
-
 func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	fillNilSlices(&cfg.Options)
 
@@ -317,14 +283,21 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 
 	// Ensure this device is present in all relevant places
-	me := cfg.GetDeviceConfiguration(myID)
-	if me == nil {
+	myIDExists := false
+	for _, dev := range cfg.Devices {
+		if dev.DeviceID == myID {
+			myIDExists = true
+			break
+		}
+	}
+	if !myIDExists {
 		myName, _ := os.Hostname()
 		cfg.Devices = append(cfg.Devices, DeviceConfiguration{
 			DeviceID: myID,
 			Name:     myName,
 		})
 	}
+
 	sort.Sort(DeviceConfigurationList(cfg.Devices))
 	// Ensure that any loose devices are not present in the wrong places
 	// Ensure that there are no duplicate devices
@@ -348,23 +321,17 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 // complete restart.
 func ChangeRequiresRestart(from, to Configuration) bool {
 	// Adding, removing or changing folders requires restart
-	if len(from.Folders) != len(to.Folders) {
+	if !reflect.DeepEqual(from.Folders, to.Folders) {
 		return true
 	}
-	fromFolders := from.FolderMap()
-	toFolders := to.FolderMap()
-	for id := range fromFolders {
-		if !reflect.DeepEqual(fromFolders[id], toFolders[id]) {
-			return true
-		}
-	}
 
-	// Removing a device requires a restart. Adding one does not. Changing
-	// address or name does not.
-	fromDevices := from.DeviceMap()
-	toDevices := to.DeviceMap()
-	for deviceID := range fromDevices {
-		if _, ok := toDevices[deviceID]; !ok {
+	// Removing a device requres restart
+	toDevs := make(map[protocol.DeviceID]bool, len(from.Devices))
+	for _, dev := range to.Devices {
+		toDevs[dev.DeviceID] = true
+	}
+	for _, dev := range from.Devices {
+		if _, ok := toDevs[dev.DeviceID]; !ok {
 			return true
 		}
 	}
@@ -481,6 +448,7 @@ func convertV1V2(cfg *Configuration) {
 
 	cfg.Version = 2
 }
+
 func setDefaults(data interface{}) error {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()

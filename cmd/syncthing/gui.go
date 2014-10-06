@@ -346,6 +346,7 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 		// Activate and save
 
+		configInSync = config.ChangeRequiresRestart(cfg.Raw(), newCfg)
 		cfg.Replace(newCfg)
 		cfg.Save()
 	}
