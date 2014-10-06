@@ -104,13 +104,6 @@ func TestDeviceConfig(t *testing.T) {
 		if !reflect.DeepEqual(cfg.Folders[0].DeviceIDs(), expectedDeviceIDs) {
 			t.Errorf("%d: Incorrect DeviceIDs\n  A: %#v\n  E: %#v", i, cfg.Folders[0].DeviceIDs(), expectedDeviceIDs)
 		}
-
-		if len(cfg.DeviceMap()) != len(expectedDevices) {
-			t.Errorf("Unexpected number of DeviceMap() entries")
-		}
-		if len(cfg.FolderMap()) != len(expectedFolders) {
-			t.Errorf("Unexpected number of FolderMap() entries")
-		}
 	}
 }
 
