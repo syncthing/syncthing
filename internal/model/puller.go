@@ -291,7 +291,7 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 		default:
 			// A new or changed file. This is the only case where we do stuff
 			// in the background; the other three are done synchronously.
-			p.handleFile(file, copyChan, pullChan)
+			p.handleFile(file, copyChan, pullChan, finisherChan)
 		}
 
 		changed++
@@ -393,7 +393,7 @@ func (p *Puller) deleteFile(file protocol.FileInfo) {
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, pullChan chan<- pullBlockState) {
+func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, pullChan chan<- pullBlockState, finisherChan chan<- *sharedPullerState) {
 	curFile := p.model.CurrentFolderFile(p.folder, file.Name)
 	copyBlocks, pullBlocks := scanner.BlockDiff(curFile.Blocks, file.Blocks)
 
@@ -474,7 +474,7 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 	}
 
 	if debug {
-		l.Debugf("%v need file %s; copy %d, pull %d", p, file.Name, len(copyBlocks), len(pullBlocks))
+		l.Debugf("%v need file %s; copy %d, pull %d, reuse %v", p, file.Name, len(copyBlocks), len(pullBlocks), reuse)
 	}
 
 	if len(copyBlocks) > 0 {
@@ -493,6 +493,15 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 			}
 			pullChan <- ps
 		}
+	}
+
+	if len(pullBlocks) == 0 && len(copyBlocks) == 0 {
+		if !reuse {
+			panic("bug: nothing to do with file?")
+		}
+		// We have a temp file that we can reuse totally. Jump directly to the
+		// finisher stage.
+		finisherChan <- &s
 	}
 }
 
