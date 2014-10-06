@@ -384,7 +384,7 @@ func (p *Puller) deleteFile(file protocol.FileInfo) {
 		err = osutil.InWritableDir(os.Remove, realName)
 	}
 
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		l.Infof("Puller (folder %q, file %q): delete: %v", p.folder, file.Name, err)
 	} else {
 		p.model.updateLocal(p.folder, file)
