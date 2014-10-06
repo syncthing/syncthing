@@ -26,6 +26,7 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -44,6 +45,7 @@ import (
 	"github.com/syncthing/syncthing/internal/files"
 	"github.com/syncthing/syncthing/internal/logger"
 	"github.com/syncthing/syncthing/internal/model"
+	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/syncthing/syncthing/internal/upnp"
@@ -94,7 +96,7 @@ func init() {
 }
 
 var (
-	cfg            config.Configuration
+	cfg            *config.ConfigWrapper
 	myID           protocol.DeviceID
 	confDir        string
 	logFlags       int = log.Ltime
@@ -184,7 +186,11 @@ var (
 )
 
 func main() {
-	flag.StringVar(&confDir, "home", getDefaultConfDir(), "Set configuration directory")
+	defConfDir, err := getDefaultConfDir()
+	if err != nil {
+		l.Fatalln("home:", err)
+	}
+	flag.StringVar(&confDir, "home", defConfDir, "Set configuration directory")
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
@@ -206,7 +212,10 @@ func main() {
 	l.SetFlags(logFlags)
 
 	if generateDir != "" {
-		dir := expandTilde(generateDir)
+		dir, err := osutil.ExpandTilde(generateDir)
+		if err != nil {
+			l.Fatalln("generate:", err)
+		}
 
 		info, err := os.Stat(dir)
 		if err != nil {
@@ -234,7 +243,10 @@ func main() {
 		return
 	}
 
-	confDir = expandTilde(confDir)
+	confDir, err := osutil.ExpandTilde(confDir)
+	if err != nil {
+		l.Fatalln("home:", err)
+	}
 
 	if info, err := os.Stat(confDir); err == nil && !info.IsDir() {
 		l.Fatalln("Config directory", confDir, "is not a directory")
@@ -299,27 +311,6 @@ func syncthingMain() {
 
 	events.Default.Log(events.Starting, map[string]string{"home": confDir})
 
-	if _, err = os.Stat(confDir); err != nil && confDir == getDefaultConfDir() {
-		// We are supposed to use the default configuration directory. It
-		// doesn't exist. In the past our default has been ~/.syncthing, so if
-		// that directory exists we move it to the new default location and
-		// continue. We don't much care if this fails at this point, we will
-		// be checking that later.
-
-		var oldDefault string
-		if runtime.GOOS == "windows" {
-			oldDefault = filepath.Join(os.Getenv("AppData"), "Syncthing")
-		} else {
-			oldDefault = expandTilde("~/.syncthing")
-		}
-		if _, err := os.Stat(oldDefault); err == nil {
-			os.MkdirAll(filepath.Dir(confDir), 0700)
-			if err := os.Rename(oldDefault, confDir); err == nil {
-				l.Infoln("Moved config dir", oldDefault, "to", confDir)
-			}
-		}
-	}
-
 	// Ensure that that we have a certificate and key.
 	cert, err = loadCert(confDir, "")
 	if err != nil {
@@ -347,8 +338,8 @@ func syncthingMain() {
 
 	cfg, err = config.Load(cfgFile, myID)
 	if err == nil {
-		myCfg := cfg.GetDeviceConfiguration(myID)
-		if myCfg == nil || myCfg.Name == "" {
+		myCfg := cfg.Devices()[myID]
+		if myCfg.Name == "" {
 			myName, _ = os.Hostname()
 		} else {
 			myName = myCfg.Name
@@ -356,10 +347,13 @@ func syncthingMain() {
 	} else {
 		l.Infoln("No config file; starting with empty defaults")
 		myName, _ = os.Hostname()
-		defaultFolder := filepath.Join(getHomeDir(), "Sync")
+		defaultFolder, err := osutil.ExpandTilde("~/Sync")
+		if err != nil {
+			l.Fatalln("home:", err)
+		}
 
-		cfg = config.New(cfgFile, myID)
-		cfg.Folders = []config.FolderConfiguration{
+		newCfg := config.New(myID)
+		newCfg.Folders = []config.FolderConfiguration{
 			{
 				ID:              "default",
 				Path:            defaultFolder,
@@ -367,7 +361,7 @@ func syncthingMain() {
 				Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
 			},
 		}
-		cfg.Devices = []config.DeviceConfiguration{
+		newCfg.Devices = []config.DeviceConfiguration{
 			{
 				DeviceID:  myID,
 				Addresses: []string{"dynamic"},
@@ -379,14 +373,15 @@ func syncthingMain() {
 		if err != nil {
 			l.Fatalln("get free port (GUI):", err)
 		}
-		cfg.GUI.Address = fmt.Sprintf("127.0.0.1:%d", port)
+		newCfg.GUI.Address = fmt.Sprintf("127.0.0.1:%d", port)
 
 		port, err = getFreePort("0.0.0.0", 22000)
 		if err != nil {
 			l.Fatalln("get free port (BEP):", err)
 		}
-		cfg.Options.ListenAddress = []string{fmt.Sprintf("0.0.0.0:%d", port)}
+		newCfg.Options.ListenAddress = []string{fmt.Sprintf("0.0.0.0:%d", port)}
 
+		cfg = config.Wrap(cfgFile, newCfg)
 		cfg.Save()
 		l.Infof("Edit %s to taste or use the GUI\n", cfgFile)
 	}
@@ -418,11 +413,13 @@ func syncthingMain() {
 	// If the read or write rate should be limited, set up a rate limiter for it.
 	// This will be used on connections created in the connect and listen routines.
 
-	if cfg.Options.MaxSendKbps > 0 {
-		writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*cfg.Options.MaxSendKbps), int64(5*1000*cfg.Options.MaxSendKbps))
+	opts := cfg.Options()
+
+	if opts.MaxSendKbps > 0 {
+		writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxSendKbps), int64(5*1000*opts.MaxSendKbps))
 	}
-	if cfg.Options.MaxRecvKbps > 0 {
-		readRateLimit = ratelimit.NewBucketWithRate(float64(1000*cfg.Options.MaxRecvKbps), int64(5*1000*cfg.Options.MaxRecvKbps))
+	if opts.MaxRecvKbps > 0 {
+		readRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxRecvKbps), int64(5*1000*opts.MaxRecvKbps))
 	}
 
 	// If this is the first time the user runs v0.9, archive the old indexes and config.
@@ -434,33 +431,36 @@ func syncthingMain() {
 	}
 
 	// Remove database entries for folders that no longer exist in the config
-	folderMap := cfg.FolderMap()
+	folders := cfg.Folders()
 	for _, folder := range files.ListFolders(db) {
-		if _, ok := folderMap[folder]; !ok {
+		if _, ok := folders[folder]; !ok {
 			l.Infof("Cleaning data for dropped folder %q", folder)
 			files.DropFolder(db, folder)
 		}
 	}
 
-	m := model.NewModel(&cfg, myName, "syncthing", Version, db)
+	m := model.NewModel(cfg, myName, "syncthing", Version, db)
 
 nextFolder:
-	for i, folder := range cfg.Folders {
+	for id, folder := range cfg.Folders() {
 		if folder.Invalid != "" {
 			continue
 		}
-		folder.Path = expandTilde(folder.Path)
+		folder.Path, err = osutil.ExpandTilde(folder.Path)
+		if err != nil {
+			l.Fatalln("home:", err)
+		}
 		m.AddFolder(folder)
 
 		fi, err := os.Stat(folder.Path)
-		if m.CurrentLocalVersion(folder.ID) > 0 {
+		if m.CurrentLocalVersion(id) > 0 {
 			// Safety check. If the cached index contains files but the
 			// folder doesn't exist, we have a problem. We would assume
 			// that all files have been deleted which might not be the case,
 			// so mark it as invalid instead.
 			if err != nil || !fi.IsDir() {
 				l.Warnf("Stopping folder %q - path does not exist, but has files in index", folder.ID)
-				cfg.Folders[i].Invalid = "folder path missing"
+				cfg.InvalidateFolder(id, "folder path missing")
 				continue nextFolder
 			}
 		} else if os.IsNotExist(err) {
@@ -473,14 +473,14 @@ nextFolder:
 			// If there was another error or we could not create the
 			// path, the folder is invalid.
 			l.Warnf("Stopping folder %q - %v", err)
-			cfg.Folders[i].Invalid = err.Error()
+			cfg.InvalidateFolder(id, err.Error())
 			continue nextFolder
 		}
 	}
 
 	// GUI
 
-	guiCfg := overrideGUIConfig(cfg.GUI, guiAddress, guiAuthentication, guiAPIKey)
+	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
 
 	if guiCfg.Enabled && guiCfg.Address != "" {
 		addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address)
@@ -511,7 +511,7 @@ nextFolder:
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
-			if !noBrowser && cfg.Options.StartBrowser && len(os.Getenv("STRESTART")) == 0 {
+			if !noBrowser && opts.StartBrowser && len(os.Getenv("STRESTART")) == 0 {
 				urlOpen := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostOpen, strconv.Itoa(addr.Port)))
 				openURL(urlOpen)
 			}
@@ -521,7 +521,7 @@ nextFolder:
 	// Clear out old indexes for other devices. Otherwise we'll start up and
 	// start needing a bunch of files which are nowhere to be found. This
 	// needs to be changed when we correctly do persistent indexes.
-	for _, folderCfg := range cfg.Folders {
+	for _, folderCfg := range cfg.Folders() {
 		if folderCfg.Invalid != "" {
 			continue
 		}
@@ -536,8 +536,11 @@ nextFolder:
 	// Remove all .idx* files that don't belong to an active folder.
 
 	validIndexes := make(map[string]bool)
-	for _, folder := range cfg.Folders {
-		dir := expandTilde(folder.Path)
+	for _, folder := range cfg.Folders() {
+		dir, err := osutil.ExpandTilde(folder.Path)
+		if err != nil {
+			l.Fatalln("home:", err)
+		}
 		id := fmt.Sprintf("%x", sha1.Sum([]byte(dir)))
 		validIndexes[id] = true
 	}
@@ -558,7 +561,7 @@ nextFolder:
 
 	// The default port we announce, possibly modified by setupUPnP next.
 
-	addr, err := net.ResolveTCPAddr("tcp", cfg.Options.ListenAddress[0])
+	addr, err := net.ResolveTCPAddr("tcp", opts.ListenAddress[0])
 	if err != nil {
 		l.Fatalln("Bad listen address:", err)
 	}
@@ -566,7 +569,7 @@ nextFolder:
 
 	// UPnP
 
-	if cfg.Options.UPnPEnabled {
+	if opts.UPnPEnabled {
 		setupUPnP()
 	}
 
@@ -574,7 +577,7 @@ nextFolder:
 	discoverer = discovery(externalPort)
 	go listenConnect(myID, m, tlsCfg)
 
-	for _, folder := range cfg.Folders {
+	for _, folder := range cfg.Folders() {
 		if folder.Invalid != "" {
 			continue
 		}
@@ -599,17 +602,18 @@ nextFolder:
 		defer pprof.StopCPUProfile()
 	}
 
-	for _, device := range cfg.Devices {
+	for _, device := range cfg.Devices() {
 		if len(device.Name) > 0 {
 			l.Infof("Device %s is %q at %v", device.DeviceID, device.Name, device.Addresses)
 		}
 	}
 
-	if cfg.Options.URAccepted > 0 && cfg.Options.URAccepted < usageReportVersion {
+	if opts.URAccepted > 0 && opts.URAccepted < usageReportVersion {
 		l.Infoln("Anonymous usage report has changed; revoking acceptance")
-		cfg.Options.URAccepted = 0
+		opts.URAccepted = 0
+		cfg.SetOptions(opts)
 	}
-	if cfg.Options.URAccepted >= usageReportVersion {
+	if opts.URAccepted >= usageReportVersion {
 		go usageReportingLoop(m)
 		go func() {
 			time.Sleep(10 * time.Minute)
@@ -620,11 +624,11 @@ nextFolder:
 		}()
 	}
 
-	if cfg.Options.RestartOnWakeup {
+	if opts.RestartOnWakeup {
 		go standbyMonitor()
 	}
 
-	if cfg.Options.AutoUpgradeIntervalH > 0 {
+	if opts.AutoUpgradeIntervalH > 0 {
 		go autoUpgrade()
 	}
 
@@ -645,8 +649,8 @@ func generateEvents() {
 }
 
 func setupUPnP() {
-	if len(cfg.Options.ListenAddress) == 1 {
-		_, portStr, err := net.SplitHostPort(cfg.Options.ListenAddress[0])
+	if opts := cfg.Options(); len(opts.ListenAddress) == 1 {
+		_, portStr, err := net.SplitHostPort(opts.ListenAddress[0])
 		if err != nil {
 			l.Warnln("Bad listen address:", err)
 		} else {
@@ -666,7 +670,7 @@ func setupUPnP() {
 					l.Debugf("UPnP: %v", err)
 				}
 			}
-			if cfg.Options.UPnPRenewal > 0 {
+			if opts.UPnPRenewal > 0 {
 				go renewUPnP(port)
 			}
 		}
@@ -681,7 +685,7 @@ func setupExternalPort(igd *upnp.IGD, port int) int {
 	rnd := rand.NewSource(certSeed(cert.Certificate[0]))
 	for i := 0; i < 10; i++ {
 		r := 1024 + int(rnd.Int63()%(65535-1024))
-		err := igd.AddPortMapping(upnp.TCP, r, port, "syncthing", cfg.Options.UPnPLease*60)
+		err := igd.AddPortMapping(upnp.TCP, r, port, "syncthing", cfg.Options().UPnPLease*60)
 		if err == nil {
 			return r
 		}
@@ -691,7 +695,8 @@ func setupExternalPort(igd *upnp.IGD, port int) int {
 
 func renewUPnP(port int) {
 	for {
-		time.Sleep(time.Duration(cfg.Options.UPnPRenewal) * time.Minute)
+		opts := cfg.Options()
+		time.Sleep(time.Duration(opts.UPnPRenewal) * time.Minute)
 
 		igd, err := upnp.Discover()
 		if err != nil {
@@ -700,7 +705,7 @@ func renewUPnP(port int) {
 
 		// Just renew the same port that we already have
 		if externalPort != 0 {
-			err = igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", cfg.Options.UPnPLease*60)
+			err = igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", opts.UPnPLease*60)
 			if err == nil {
 				l.Infoln("Renewed UPnP port mapping - external port", externalPort)
 				continue
@@ -715,7 +720,7 @@ func renewUPnP(port int) {
 			externalPort = r
 			l.Infoln("Updated UPnP port mapping - external port", externalPort)
 			discoverer.StopGlobal()
-			discoverer.StartGlobal(cfg.Options.GlobalAnnServer, uint16(r))
+			discoverer.StartGlobal(opts.GlobalAnnServer, uint16(r))
 			continue
 		}
 		l.Warnln("Failed to update UPnP port mapping - external port", externalPort)
@@ -724,7 +729,7 @@ func renewUPnP(port int) {
 
 func resetFolders() {
 	suffix := fmt.Sprintf(".syncthing-reset-%d", time.Now().UnixNano())
-	for _, folder := range cfg.Folders {
+	for _, folder := range cfg.Folders() {
 		if _, err := os.Stat(folder.Path); err == nil {
 			l.Infof("Reset: Moving %s -> %s", folder.Path, folder.Path+suffix)
 			os.Rename(folder.Path, folder.Path+suffix)
@@ -785,7 +790,7 @@ func listenConnect(myID protocol.DeviceID, m *model.Model, tlsCfg *tls.Config) {
 	var conns = make(chan *tls.Conn)
 
 	// Listen
-	for _, addr := range cfg.Options.ListenAddress {
+	for _, addr := range cfg.Options().ListenAddress {
 		go listenTLS(conns, addr, tlsCfg)
 	}
 
@@ -815,8 +820,8 @@ next:
 			continue
 		}
 
-		for _, deviceCfg := range cfg.Devices {
-			if deviceCfg.DeviceID == remoteID {
+		for deviceID, deviceCfg := range cfg.Devices() {
+			if deviceID == remoteID {
 				// Verify the name on the certificate. By default we set it to
 				// "syncthing" when generating, but the user may have replaced
 				// the certificate and used another name.
@@ -917,12 +922,12 @@ func dialTLS(m *model.Model, conns chan *tls.Conn, tlsCfg *tls.Config) {
 	var delay time.Duration = 1 * time.Second
 	for {
 	nextDevice:
-		for _, deviceCfg := range cfg.Devices {
-			if deviceCfg.DeviceID == myID {
+		for deviceID, deviceCfg := range cfg.Devices() {
+			if deviceID == myID {
 				continue
 			}
 
-			if m.ConnectedTo(deviceCfg.DeviceID) {
+			if m.ConnectedTo(deviceID) {
 				continue
 			}
 
@@ -930,7 +935,7 @@ func dialTLS(m *model.Model, conns chan *tls.Conn, tlsCfg *tls.Config) {
 			for _, addr := range deviceCfg.Addresses {
 				if addr == "dynamic" {
 					if discoverer != nil {
-						t := discoverer.Lookup(deviceCfg.DeviceID)
+						t := discoverer.Lookup(deviceID)
 						if len(t) == 0 {
 							continue
 						}
@@ -987,7 +992,7 @@ func dialTLS(m *model.Model, conns chan *tls.Conn, tlsCfg *tls.Config) {
 
 		time.Sleep(delay)
 		delay *= 2
-		if maxD := time.Duration(cfg.Options.ReconnectIntervalS) * time.Second; delay > maxD {
+		if maxD := time.Duration(cfg.Options().ReconnectIntervalS) * time.Second; delay > maxD {
 			delay = maxD
 		}
 	}
@@ -1010,16 +1015,17 @@ func setTCPOptions(conn *net.TCPConn) {
 }
 
 func discovery(extPort int) *discover.Discoverer {
-	disc := discover.NewDiscoverer(myID, cfg.Options.ListenAddress)
+	opts := cfg.Options()
+	disc := discover.NewDiscoverer(myID, opts.ListenAddress)
 
-	if cfg.Options.LocalAnnEnabled {
+	if opts.LocalAnnEnabled {
 		l.Infoln("Starting local discovery announcements")
-		disc.StartLocal(cfg.Options.LocalAnnPort, cfg.Options.LocalAnnMCAddr)
+		disc.StartLocal(opts.LocalAnnPort, opts.LocalAnnMCAddr)
 	}
 
-	if cfg.Options.GlobalAnnEnabled {
+	if opts.GlobalAnnEnabled {
 		l.Infoln("Starting global discovery announcements")
-		disc.StartGlobal(cfg.Options.GlobalAnnServer, uint16(extPort))
+		disc.StartGlobal(opts.GlobalAnnServer, uint16(extPort))
 	}
 
 	return disc
@@ -1041,54 +1047,21 @@ func ensureDir(dir string, mode int) {
 	}
 }
 
-func getDefaultConfDir() string {
+func getDefaultConfDir() (string, error) {
 	switch runtime.GOOS {
 	case "windows":
-		return filepath.Join(os.Getenv("LocalAppData"), "Syncthing")
+		return filepath.Join(os.Getenv("LocalAppData"), "Syncthing"), nil
 
 	case "darwin":
-		return expandTilde("~/Library/Application Support/Syncthing")
+		return osutil.ExpandTilde("~/Library/Application Support/Syncthing")
 
 	default:
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
-			return filepath.Join(xdgCfg, "syncthing")
+			return filepath.Join(xdgCfg, "syncthing"), nil
 		} else {
-			return expandTilde("~/.config/syncthing")
+			return osutil.ExpandTilde("~/.config/syncthing")
 		}
 	}
-}
-
-func expandTilde(p string) string {
-	if p == "~" {
-		return getHomeDir()
-	}
-
-	p = filepath.FromSlash(p)
-	if !strings.HasPrefix(p, fmt.Sprintf("~%c", os.PathSeparator)) {
-		return p
-	}
-
-	return filepath.Join(getHomeDir(), p[2:])
-}
-
-func getHomeDir() string {
-	var home string
-
-	switch runtime.GOOS {
-	case "windows":
-		home = filepath.Join(os.Getenv("HomeDrive"), os.Getenv("HomePath"))
-		if home == "" {
-			home = os.Getenv("UserProfile")
-		}
-	default:
-		home = os.Getenv("HOME")
-	}
-
-	if home == "" {
-		l.Fatalln("No home directory found - set $HOME (or the platform equivalent).")
-	}
-
-	return home
 }
 
 // getFreePort returns a free TCP port fort listening on. The ports given are
@@ -1112,10 +1085,7 @@ func getFreePort(host string, ports ...int) (int, error) {
 	return addr.Port, nil
 }
 
-func overrideGUIConfig(originalCfg config.GUIConfiguration, address, authentication, apikey string) config.GUIConfiguration {
-	// Make a copy of the config
-	cfg := originalCfg
-
+func overrideGUIConfig(cfg config.GUIConfiguration, address, authentication, apikey string) config.GUIConfiguration {
 	if address == "" {
 		address = os.Getenv("STGUIADDRESS")
 	}
@@ -1123,16 +1093,25 @@ func overrideGUIConfig(originalCfg config.GUIConfiguration, address, authenticat
 	if address != "" {
 		cfg.Enabled = true
 
-		addressParts := strings.SplitN(address, "://", 2)
-		switch addressParts[0] {
-		case "http":
-			cfg.UseTLS = false
-		case "https":
-			cfg.UseTLS = true
-		default:
-			l.Fatalln("Unidentified protocol", addressParts[0])
+		if !strings.Contains(address, "//") {
+			// Assume just an IP was given. Don't touch he TLS setting.
+			cfg.Address = address
+		} else {
+			parsed, err := url.Parse(address)
+			if err != nil {
+				l.Fatalln(err)
+			}
+			l.Debugf("%#v", parsed)
+			switch parsed.Scheme {
+			case "http":
+				cfg.UseTLS = false
+			case "https":
+				cfg.UseTLS = true
+			default:
+				l.Fatalln("Unknown scheme:", parsed.Scheme)
+			}
+			cfg.Address = parsed.Host
 		}
-		cfg.Address = addressParts[1]
 	}
 
 	if authentication == "" {
@@ -1183,7 +1162,7 @@ func standbyMonitor() {
 
 func autoUpgrade() {
 	var skipped bool
-	interval := time.Duration(cfg.Options.AutoUpgradeIntervalH) * time.Hour
+	interval := time.Duration(cfg.Options().AutoUpgradeIntervalH) * time.Hour
 	for {
 		if skipped {
 			time.Sleep(interval)

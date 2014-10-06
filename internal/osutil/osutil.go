@@ -17,11 +17,16 @@
 package osutil
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 )
+
+var ErrNoHome = errors.New("No home directory found - set $HOME (or the platform equivalent).")
 
 // Try to keep this entire operation atomic-like. We shouldn't be doing this
 // often enough that there is any contention on this lock.
@@ -80,4 +85,41 @@ func InWritableDir(fn func(string) error, path string) error {
 	}
 
 	return fn(path)
+}
+
+func ExpandTilde(path string) (string, error) {
+	if path == "~" {
+		return getHomeDir()
+	}
+
+	path = filepath.FromSlash(path)
+	if !strings.HasPrefix(path, fmt.Sprintf("~%c", os.PathSeparator)) {
+		return path, nil
+	}
+
+	home, err := getHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, path[2:]), nil
+}
+
+func getHomeDir() (string, error) {
+	var home string
+
+	switch runtime.GOOS {
+	case "windows":
+		home = filepath.Join(os.Getenv("HomeDrive"), os.Getenv("HomePath"))
+		if home == "" {
+			home = os.Getenv("UserProfile")
+		}
+	default:
+		home = os.Getenv("HOME")
+	}
+
+	if home == "" {
+		return "", ErrNoHome
+	}
+
+	return home, nil
 }

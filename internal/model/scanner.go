@@ -49,7 +49,7 @@ func (s *Scanner) Serve() {
 
 			s.model.setState(s.folder, FolderScanning)
 			if err := s.model.ScanFolder(s.folder); err != nil {
-				invalidateFolder(s.model.cfg, s.folder, err)
+				s.model.cfg.InvalidateFolder(s.folder, err.Error())
 				return
 			}
 			s.model.setState(s.folder, FolderIdle)

@@ -68,7 +68,7 @@ func init() {
 
 func TestRequest(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(&config.Configuration{}, "device", "syncthing", "dev", db)
+	m := NewModel(config.Wrap("/tmp/test", config.Configuration{}), "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 	m.ScanFolder("default")
 
@@ -258,7 +258,7 @@ func TestDeviceRename(t *testing.T) {
 		ClientVersion: "v0.9.4",
 	}
 
-	cfg := config.New("/tmp/test", device1)
+	cfg := config.New(device1)
 	cfg.Devices = []config.DeviceConfiguration{
 		{
 			DeviceID: device1,
@@ -266,7 +266,7 @@ func TestDeviceRename(t *testing.T) {
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(&cfg, "device", "syncthing", "dev", db)
+	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
 	if cfg.Devices[0].Name != "" {
 		t.Errorf("Device already has a name")
 	}
@@ -295,7 +295,7 @@ func TestDeviceRename(t *testing.T) {
 }
 
 func TestClusterConfig(t *testing.T) {
-	cfg := config.New("/tmp/test", device1)
+	cfg := config.New(device1)
 	cfg.Devices = []config.DeviceConfiguration{
 		{
 			DeviceID:   device1,
@@ -324,7 +324,7 @@ func TestClusterConfig(t *testing.T) {
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 
-	m := NewModel(&cfg, "device", "syncthing", "dev", db)
+	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
 	m.AddFolder(cfg.Folders[0])
 	m.AddFolder(cfg.Folders[1])
 

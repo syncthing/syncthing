@@ -52,7 +52,7 @@ func TestDefaultValues(t *testing.T) {
 		KeepTemporariesH:     24,
 	}
 
-	cfg := New("test", device1)
+	cfg := New(device1)
 
 	if !reflect.DeepEqual(cfg.Options, expected) {
 		t.Errorf("Default config differs;\n  E: %#v\n  A: %#v", expected, cfg.Options)
@@ -60,11 +60,12 @@ func TestDefaultValues(t *testing.T) {
 }
 
 func TestDeviceConfig(t *testing.T) {
-	for i, ver := range []string{"v1", "v2", "v3", "v4", "v5"} {
-		cfg, err := Load("testdata/"+ver+".xml", device1)
+	for i, ver := range []string{"v3", "v4", "v5"} {
+		wr, err := Load("testdata/"+ver+".xml", device1)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
+		cfg := wr.cfg
 
 		expectedFolders := []FolderConfiguration{
 			{
@@ -120,8 +121,9 @@ func TestNoListenAddress(t *testing.T) {
 	}
 
 	expected := []string{""}
-	if !reflect.DeepEqual(cfg.Options.ListenAddress, expected) {
-		t.Errorf("Unexpected ListenAddress %#v", cfg.Options.ListenAddress)
+	actual := cfg.Options().ListenAddress
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Unexpected ListenAddress %#v", actual)
 	}
 }
 
@@ -150,30 +152,30 @@ func TestOverriddenValues(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg.Options, expected) {
+	if !reflect.DeepEqual(cfg.Options(), expected) {
 		t.Errorf("Overridden config differs;\n  E: %#v\n  A: %#v", expected, cfg.Options)
 	}
 }
 
 func TestDeviceAddressesDynamic(t *testing.T) {
 	name, _ := os.Hostname()
-	expected := []DeviceConfiguration{
-		{
+	expected := map[protocol.DeviceID]DeviceConfiguration{
+		device1: {
 			DeviceID:    device1,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
-		{
+		device2: {
 			DeviceID:    device2,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
-		{
+		device3: {
 			DeviceID:    device3,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
-		{
+		device4: {
 			DeviceID:  device4,
 			Name:      name, // Set when auto created
 			Addresses: []string{"dynamic"},
@@ -185,27 +187,28 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg.Devices, expected) {
-		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, cfg.Devices)
+	actual := cfg.Devices()
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, actual)
 	}
 }
 
 func TestDeviceAddressesStatic(t *testing.T) {
 	name, _ := os.Hostname()
-	expected := []DeviceConfiguration{
-		{
+	expected := map[protocol.DeviceID]DeviceConfiguration{
+		device1: {
 			DeviceID:  device1,
 			Addresses: []string{"192.0.2.1", "192.0.2.2"},
 		},
-		{
+		device2: {
 			DeviceID:  device2,
 			Addresses: []string{"192.0.2.3:6070", "[2001:db8::42]:4242"},
 		},
-		{
+		device3: {
 			DeviceID:  device3,
 			Addresses: []string{"[2001:db8::44]:4444", "192.0.2.4:6090"},
 		},
-		{
+		device4: {
 			DeviceID:  device4,
 			Name:      name, // Set when auto created
 			Addresses: []string{"dynamic"},
@@ -217,8 +220,9 @@ func TestDeviceAddressesStatic(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg.Devices, expected) {
-		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, cfg.Devices)
+	actual := cfg.Devices()
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, actual)
 	}
 }
 
@@ -228,7 +232,7 @@ func TestVersioningConfig(t *testing.T) {
 		t.Error(err)
 	}
 
-	vc := cfg.Folders[0].Versioning
+	vc := cfg.Folders()["test"].Versioning
 	if vc.Type != "simple" {
 		t.Errorf(`vc.Type %q != "simple"`, vc.Type)
 	}
@@ -254,10 +258,11 @@ func TestNewSaveLoad(t *testing.T) {
 		return err == nil
 	}
 
-	cfg := New(path, device1)
+	intCfg := New(device1)
+	cfg := Wrap(path, intCfg)
 
 	// To make the equality pass later
-	cfg.XMLName.Local = "configuration"
+	cfg.cfg.XMLName.Local = "configuration"
 
 	if exists(path) {
 		t.Error(path, "exists")
@@ -276,20 +281,8 @@ func TestNewSaveLoad(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg, cfg2) {
-		t.Errorf("Configs are not equal;\n  E:  %#v\n  A:  %#v", cfg, cfg2)
-	}
-
-	cfg.GUI.User = "test"
-	cfg.Save()
-
-	cfg2, err = Load(path, device1)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if cfg2.GUI.User != "test" || !reflect.DeepEqual(cfg, cfg2) {
-		t.Errorf("Configs are not equal;\n  E:  %#v\n  A:  %#v", cfg, cfg2)
+	if !reflect.DeepEqual(cfg.Raw(), cfg2.Raw()) {
+		t.Errorf("Configs are not equal;\n  E:  %#v\n  A:  %#v", cfg.Raw(), cfg2.Raw())
 	}
 
 	os.Remove(path)

@@ -63,7 +63,7 @@ func TestHandleFile(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(&config.Configuration{}, "device", "syncthing", "dev", db)
+	m := NewModel(config.Wrap("/tmp/test", config.Configuration{}), "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 	m.updateLocal("default", existingFile)
 
@@ -130,7 +130,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(&config.Configuration{}, "device", "syncthing", "dev", db)
+	m := NewModel(config.Wrap("/tmp/test", config.Configuration{}), "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 	m.updateLocal("default", existingFile)
 

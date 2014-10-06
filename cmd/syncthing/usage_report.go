@@ -42,13 +42,13 @@ func reportData(m *model.Model) map[string]interface{} {
 	res["version"] = Version
 	res["longVersion"] = LongVersion
 	res["platform"] = runtime.GOOS + "-" + runtime.GOARCH
-	res["numFolders"] = len(cfg.Folders)
-	res["numDevices"] = len(cfg.Devices)
+	res["numFolders"] = len(cfg.Folders())
+	res["numDevices"] = len(cfg.Devices())
 
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
-	for _, folder := range cfg.Folders {
-		files, _, bytes := m.GlobalSize(folder.ID)
+	for folderID := range cfg.Folders() {
+		files, _, bytes := m.GlobalSize(folderID)
 		totFiles += files
 		totBytes += bytes
 		if files > maxFiles {

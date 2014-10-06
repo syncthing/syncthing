@@ -184,7 +184,7 @@ loop:
 			}
 			p.model.setState(p.folder, FolderScanning)
 			if err := p.model.ScanFolder(p.folder); err != nil {
-				invalidateFolder(p.model.cfg, p.folder, err)
+				p.model.cfg.InvalidateFolder(p.folder, err.Error())
 				break loop
 			}
 			p.model.setState(p.folder, FolderIdle)
@@ -687,7 +687,7 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 
 // clean deletes orphaned temporary files
 func (p *Puller) clean() {
-	keep := time.Duration(p.model.cfg.Options.KeepTemporariesH) * time.Hour
+	keep := time.Duration(p.model.cfg.Options().KeepTemporariesH) * time.Hour
 	now := time.Now()
 	filepath.Walk(p.dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
