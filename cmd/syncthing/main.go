@@ -73,7 +73,6 @@ const (
 )
 
 var l = logger.DefaultLogger
-var innerProcess = os.Getenv("STNORESTART") != ""
 
 func init() {
 	if Version != "unknown-dev" {
@@ -110,7 +109,13 @@ var (
 
 const (
 	usage      = "syncthing [options]"
-	extraUsage = `The value for the -logflags option is a sum of the following:
+	extraUsage = `
+The default configuration directory is:
+
+  %s
+
+
+The -logflags value is a sum of the following:
 
    1  Date
    2  Time
@@ -122,23 +127,18 @@ I.e. to prefix each log line with date and time, set -logflags=3 (1 + 2 from
 above). The value 0 is used to disable all of the above. The default is to
 show time only (2).
 
-The following enviroment variables are interpreted by syncthing:
 
- STGUIADDRESS  Override GUI listen address set in config. Expects protocol type
-               followed by hostname or an IP address, followed by a port, such
-               as "https://127.0.0.1:8888".
+Development Settings
+--------------------
 
- STGUIAUTH     Override GUI authentication credentials set in config. Expects
-               a colon separated username and password, such as "admin:secret".
+The following environment variables modify syncthing's behavior in ways that
+are mostly useful for developers. Use with care.
 
- STGUIAPIKEY   Override GUI API key set in config.
-
- STNORESTART   Do not attempt to restart when requested to, instead just exit.
-               Set this variable when running under a service manager such as
-               runit, launchd, etc.
+ STGUIASSETS   Directory to load GUI assets from. Overrides compiled in assets.
 
  STTRACE       A comma separated string of facilities to trace. The valid
-               facility strings:
+               facility strings are:
+
                - "beacon"   (the beacon package)
                - "discover" (the discover package)
                - "events"   (the events package)
@@ -150,8 +150,6 @@ The following enviroment variables are interpreted by syncthing:
                - "upnp"     (the upnp package)
                - "xdr"      (the xdr package)
                - "all"      (all of the above)
-
- STGUIASSETS   Directory to load GUI assets from. Overrides compiled in assets.
 
  STPROFILER    Set to a listen address such as "127.0.0.1:9090" to start the
                profiler with HTTP access.
@@ -172,7 +170,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// Command line options
+// Command line and environment options
 var (
 	reset             bool
 	showVersion       bool
@@ -180,9 +178,15 @@ var (
 	doUpgradeCheck    bool
 	noBrowser         bool
 	generateDir       string
-	guiAddress        string
-	guiAuthentication string
-	guiAPIKey         string
+	noRestart         = os.Getenv("STNORESTART") != ""
+	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
+	guiAuthentication = os.Getenv("STGUIAUTH")    // legacy
+	guiAPIKey         = os.Getenv("STGUIAPIKEY")  // legacy
+	profiler          = os.Getenv("STPROFILER")
+	guiAssets         = os.Getenv("STGUIASSETS")
+	cpuProfile        = os.Getenv("STCPUPROFILE") != ""
+	stRestarting      = os.Getenv("STRESTART") != ""
+	innerProcess      = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
 )
 
 func main() {
@@ -190,19 +194,26 @@ func main() {
 	if err != nil {
 		l.Fatalln("home:", err)
 	}
-	flag.StringVar(&confDir, "home", defConfDir, "Set configuration directory")
+	flag.StringVar(&generateDir, "generate", "", "Generate key in specified dir, then exit")
+	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address")
+	flag.StringVar(&guiAuthentication, "gui-authentication", guiAuthentication, "Override GUI authentication; username:password")
+	flag.StringVar(&guiAPIKey, "gui-apikey", guiAPIKey, "Override GUI API key")
+	flag.StringVar(&confDir, "home", "", "Set configuration directory")
+	flag.IntVar(&logFlags, "logflags", logFlags, "Select information in log line prefix")
+	flag.BoolVar(&noBrowser, "no-browser", false, "Do not start browser")
+	flag.BoolVar(&noRestart, "no-restart", noRestart, "Do not restart; just exit")
 	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
-	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
-	flag.BoolVar(&noBrowser, "no-browser", false, "Do not start browser")
-	flag.StringVar(&generateDir, "generate", "", "Generate key in specified dir")
-	flag.StringVar(&guiAddress, "gui-address", "", "Override GUI address")
-	flag.StringVar(&guiAuthentication, "gui-authentication", "", "Override GUI authentication. Expects 'username:password'")
-	flag.StringVar(&guiAPIKey, "gui-apikey", "", "Override GUI API key")
-	flag.IntVar(&logFlags, "logflags", logFlags, "Set log flags")
-	flag.Usage = usageFor(flag.CommandLine, usage, extraUsage)
+	flag.BoolVar(&showVersion, "version", false, "Show version")
+
+	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, defConfDir))
 	flag.Parse()
+
+	if confDir == "" {
+		// Not set as default above because the string can be really long.
+		confDir = defConfDir
+	}
 
 	if showVersion {
 		fmt.Println(LongVersion)
@@ -291,7 +302,7 @@ func main() {
 		return
 	}
 
-	if os.Getenv("STNORESTART") != "" {
+	if noRestart {
 		syncthingMain()
 	} else {
 		monitorMain()
@@ -386,7 +397,7 @@ func syncthingMain() {
 		l.Infof("Edit %s to taste or use the GUI\n", cfgFile)
 	}
 
-	if profiler := os.Getenv("STPROFILER"); len(profiler) > 0 {
+	if len(profiler) > 0 {
 		go func() {
 			l.Debugln("Starting profiler on", profiler)
 			runtime.SetBlockProfileRate(1)
@@ -507,11 +518,11 @@ nextFolder:
 
 			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			l.Infoln("Starting web GUI on", urlShow)
-			err := startGUI(guiCfg, os.Getenv("STGUIASSETS"), m)
+			err := startGUI(guiCfg, guiAssets, m)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
-			if !noBrowser && opts.StartBrowser && len(os.Getenv("STRESTART")) == 0 {
+			if opts.StartBrowser && !noBrowser && !stRestarting {
 				urlOpen := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostOpen, strconv.Itoa(addr.Port)))
 				openURL(urlOpen)
 			}
@@ -593,7 +604,7 @@ nextFolder:
 		}
 	}
 
-	if cpuprof := os.Getenv("STCPUPROFILE"); len(cpuprof) > 0 {
+	if cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
 			log.Fatal(err)
@@ -1086,10 +1097,6 @@ func getFreePort(host string, ports ...int) (int, error) {
 }
 
 func overrideGUIConfig(cfg config.GUIConfiguration, address, authentication, apikey string) config.GUIConfiguration {
-	if address == "" {
-		address = os.Getenv("STGUIADDRESS")
-	}
-
 	if address != "" {
 		cfg.Enabled = true
 
@@ -1101,7 +1108,7 @@ func overrideGUIConfig(cfg config.GUIConfiguration, address, authentication, api
 			if err != nil {
 				l.Fatalln(err)
 			}
-			l.Debugf("%#v", parsed)
+			cfg.Address = parsed.Host
 			switch parsed.Scheme {
 			case "http":
 				cfg.UseTLS = false
@@ -1110,12 +1117,7 @@ func overrideGUIConfig(cfg config.GUIConfiguration, address, authentication, api
 			default:
 				l.Fatalln("Unknown scheme:", parsed.Scheme)
 			}
-			cfg.Address = parsed.Host
 		}
-	}
-
-	if authentication == "" {
-		authentication = os.Getenv("STGUIAUTH")
 	}
 
 	if authentication != "" {
@@ -1128,10 +1130,6 @@ func overrideGUIConfig(cfg config.GUIConfiguration, address, authentication, api
 
 		cfg.User = authenticationParts[0]
 		cfg.Password = string(hash)
-	}
-
-	if apikey == "" {
-		apikey = os.Getenv("STGUIAPIKEY")
 	}
 
 	if apikey != "" {

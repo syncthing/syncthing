@@ -47,9 +47,8 @@ func usageFor(fs *flag.FlagSet, usage string, extra string) func() {
 			var opt = "  -" + f.Name
 
 			if f.DefValue != "false" {
-				opt += "=" + fmt.Sprintf("%q", f.DefValue)
+				opt += "=" + fmt.Sprintf(`"%s"`, f.DefValue)
 			}
-
 			options = append(options, []string{opt, f.Usage})
 		})
 
