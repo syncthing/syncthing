@@ -60,11 +60,10 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 		port:   8081,
 		apiKey: apiKey,
 	}
-	ver, err := sender.start()
+	err = sender.start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Println(ver)
 
 	receiver := syncthingProcess{ // id2
 		log:    "2.out",
@@ -72,12 +71,11 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 		port:   8082,
 		apiKey: apiKey,
 	}
-	ver, err = receiver.start()
+	err = receiver.start()
 	if err != nil {
 		sender.stop()
 		t.Fatal(err)
 	}
-	log.Println(ver)
 
 	var prevComp int
 	for {
