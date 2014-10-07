@@ -289,7 +289,7 @@ func handleQueryV2(db *leveldb.DB, conn *net.UDPConn, addr *net.UDPAddr, buf []b
 		}
 
 		tb := ann.MarshalXDR()
-		_, _, err = conn.WriteMsgUDP(tb, nil, addr)
+		_, err = conn.WriteToUDP(tb, addr)
 		if err != nil {
 			log.Println("QueryV2 response write:", err)
 			return nil
