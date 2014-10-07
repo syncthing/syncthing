@@ -858,7 +858,8 @@ func TestLongPath(t *testing.T) {
 		t.Fatalf("Incorrect len %d != 1 for global list", l)
 	}
 	if gf[0].Name != local[0].Name {
-		t.Error("Incorrect long filename;\n%q !=\n%q", gf[0].Name, local[0].Name)
+		t.Errorf("Incorrect long filename;\n%q !=\n%q",
+			gf[0].Name, local[0].Name)
 	}
 }
 
