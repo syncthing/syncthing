@@ -49,8 +49,10 @@ type ConfigWrapper struct {
 	deviceMap map[protocol.DeviceID]DeviceConfiguration
 	folderMap map[string]FolderConfiguration
 	replaces  chan Configuration
-	subs      []Handler
 	mut       sync.Mutex
+
+	subs []Handler
+	sMut sync.Mutex
 }
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
@@ -84,26 +86,27 @@ func Load(path string, myID protocol.DeviceID) (*ConfigWrapper, error) {
 // be run manually.
 func (w *ConfigWrapper) Serve() {
 	for cfg := range w.replaces {
-		w.mut.Lock()
+		w.sMut.Lock()
 		subs := w.subs
-		w.mut.Unlock()
+		w.sMut.Unlock()
 		for _, h := range subs {
 			h.Changed(cfg)
 		}
 	}
 }
 
-// Stop stops the Serve() loop.
+// Stop stops the Serve() loop. Set and Replace operations will panic after a
+// Stop.
 func (w *ConfigWrapper) Stop() {
 	close(w.replaces)
 }
 
-// Subscriber registers the given handler to be called on any future
+// Subscribe registers the given handler to be called on any future
 // configuration changes.
 func (w *ConfigWrapper) Subscribe(h Handler) {
-	w.mut.Lock()
+	w.sMut.Lock()
 	w.subs = append(w.subs, h)
-	w.mut.Unlock()
+	w.sMut.Unlock()
 }
 
 // Raw returns the currently wrapped Configuration object.
