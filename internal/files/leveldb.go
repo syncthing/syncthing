@@ -82,50 +82,53 @@ type dbWriter interface {
 	Delete([]byte)
 }
 
-/*
-
-keyTypeDevice (1 byte)
-    folder (64 bytes)
-        device (32 bytes)
-            name (variable size)
-		|
-		scanner.File
-
-keyTypeGlobal (1 byte)
-	folder (64 bytes)
-		name (variable size)
-			|
-			[]fileVersion (sorted)
-
-*/
-
+// deviceKey returns a byte slice encoding the following information:
+//	   keyTypeDevice (1 byte)
+//	   folder (64 bytes)
+//	   device (32 bytes)
+//	   name (variable size)
 func deviceKey(folder, device, file []byte) []byte {
 	k := make([]byte, 1+64+32+len(file))
 	k[0] = keyTypeDevice
+	if len(folder) > 64 {
+		panic("folder name too long")
+	}
 	copy(k[1:], []byte(folder))
 	copy(k[1+64:], device[:])
 	copy(k[1+64+32:], []byte(file))
 	return k
 }
 
-func globalKey(folder, file []byte) []byte {
-	k := make([]byte, 1+64+len(file))
-	k[0] = keyTypeGlobal
-	copy(k[1:], []byte(folder))
-	copy(k[1+64:], []byte(file))
-	return k
-}
-
 func deviceKeyName(key []byte) []byte {
 	return key[1+64+32:]
 }
+
 func deviceKeyFolder(key []byte) []byte {
 	folder := key[1 : 1+64]
 	izero := bytes.IndexByte(folder, 0)
+	if izero < 0 {
+		return folder
+	}
 	return folder[:izero]
 }
+
 func deviceKeyDevice(key []byte) []byte {
 	return key[1+64 : 1+64+32]
+}
+
+// globalKey returns a byte slice encoding the following information:
+//	   keyTypeGlobal (1 byte)
+//	   folder (64 bytes)
+//	   name (variable size)
+func globalKey(folder, file []byte) []byte {
+	k := make([]byte, 1+64+len(file))
+	k[0] = keyTypeGlobal
+	if len(folder) > 64 {
+		panic("folder name too long")
+	}
+	copy(k[1:], []byte(folder))
+	copy(k[1+64:], []byte(file))
+	return k
 }
 
 func globalKeyName(key []byte) []byte {
@@ -135,6 +138,9 @@ func globalKeyName(key []byte) []byte {
 func globalKeyFolder(key []byte) []byte {
 	folder := key[1 : 1+64]
 	izero := bytes.IndexByte(folder, 0)
+	if izero < 0 {
+		return folder
+	}
 	return folder[:izero]
 }
 
