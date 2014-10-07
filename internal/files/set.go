@@ -42,6 +42,7 @@ type Set struct {
 	mutex        sync.Mutex
 	folder       string
 	db           *leveldb.DB
+	blockmap     *BlockMap
 }
 
 func NewSet(folder string, db *leveldb.DB) *Set {
@@ -49,6 +50,7 @@ func NewSet(folder string, db *leveldb.DB) *Set {
 		localVersion: make(map[protocol.DeviceID]uint64),
 		folder:       folder,
 		db:           db,
+		blockmap:     NewBlockMap(db, folder),
 	}
 
 	var deviceID protocol.DeviceID
@@ -80,6 +82,10 @@ func (s *Set) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 		// Reset the local version if all files were removed.
 		s.localVersion[device] = 0
 	}
+	if device == protocol.LocalDeviceID {
+		s.blockmap.Drop()
+		s.blockmap.Add(fs)
+	}
 }
 
 func (s *Set) ReplaceWithDelete(device protocol.DeviceID, fs []protocol.FileInfo) {
@@ -92,6 +98,10 @@ func (s *Set) ReplaceWithDelete(device protocol.DeviceID, fs []protocol.FileInfo
 	if lv := ldbReplaceWithDelete(s.db, []byte(s.folder), device[:], fs); lv > s.localVersion[device] {
 		s.localVersion[device] = lv
 	}
+	if device == protocol.LocalDeviceID {
+		s.blockmap.Drop()
+		s.blockmap.Add(fs)
+	}
 }
 
 func (s *Set) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
@@ -103,6 +113,9 @@ func (s *Set) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	defer s.mutex.Unlock()
 	if lv := ldbUpdate(s.db, []byte(s.folder), device[:], fs); lv > s.localVersion[device] {
 		s.localVersion[device] = lv
+	}
+	if device == protocol.LocalDeviceID {
+		s.blockmap.Update(fs)
 	}
 }
 
@@ -179,6 +192,11 @@ func ListFolders(db *leveldb.DB) []string {
 // database.
 func DropFolder(db *leveldb.DB, folder string) {
 	ldbDropFolder(db, []byte(folder))
+	bm := &BlockMap{
+		db:     db,
+		folder: folder,
+	}
+	bm.Drop()
 }
 
 func normalizeFilenames(fs []protocol.FileInfo) {
