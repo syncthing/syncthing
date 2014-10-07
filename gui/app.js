@@ -20,6 +20,7 @@
 
 var syncthing = angular.module('syncthing', ['pascalprecht.translate']);
 var urlbase = 'rest';
+var debounceTimeout = 10000;
 
 syncthing.config(function ($httpProvider, $translateProvider) {
     $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
@@ -260,19 +261,57 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         });
     });
 
-    var debouncedFuncs = {};
+    var pendingCalls = {};
+
+    function promiseHttpGet(key, url, debounceTimeout) {
+        return new Promise(function(resolve, reject) {
+			var call = function() {
+				var executeNextCall = function() {
+					var pendingCall = pendingCalls[key];
+                    if (pendingCall) {
+                        if (pendingCall == call) {
+                            console.log("Same debounce call: "+key);
+                            pendingCalls[key] = null;
+                        } else {
+                            console.log("Rebounced call: "+key);
+                            pendingCall();
+                        }
+                    } else {
+                        console.log("Did not rebounce call: "+key);
+                    }
+				}
+				var promise = $http.get(url);
+                var timeout = debounceTimeout;
+                if ($scope && $scope.system && $scope.system.cpuPercent) {
+                    timeout = $scope.system.cpuPercent > 90 ? debounceTimeout * 10 : debounceTimeout;
+                }
+				promise.then(function(data) {
+					resolve(data.data);
+                    console.log("Finished call: "+key);
+					setTimeout(executeNextCall, timeout);
+				}, function(data) {
+					reject(data);
+					setTimeout(executeNextCall, timeout);
+				});
+			}
+			var pendingCall = pendingCalls[key];
+            pendingCalls[key] = call;
+			if (!pendingCall) {
+                console.log("Call: "+key);
+				call();
+            } else {
+                console.log("Debounced call: "+key);
+			}
+        });
+    }
 
     function refreshFolder(folder) {
         var key = "refreshFolder" + folder;
-        if (!debouncedFuncs[key]) {
-            debouncedFuncs[key] = debounce(function () {
-                $http.get(urlbase + '/model?folder=' + encodeURIComponent(folder)).success(function (data) {
-                    $scope.model[folder] = data;
-                    console.log("refreshFolder", folder, data);
-                });
-            }, 1000, true);
-        }
-        debouncedFuncs[key]();
+        promiseHttpGet(key, urlbase + '/model?folder=' + encodeURIComponent(folder),
+                       debounceTimeout).then(function (data) {
+                $scope.model[folder] = data;
+                console.log("refreshFolder", folder, data)
+        });
     }
 
     function updateLocalConfig(config) {
@@ -316,30 +355,26 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
 
         var key = "refreshCompletion" + device + folder;
-        if (!debouncedFuncs[key]) {
-            debouncedFuncs[key] = debounce(function () {
-                $http.get(urlbase + '/completion?device=' + device + '&folder=' + encodeURIComponent(folder)).success(function (data) {
-                    if (!$scope.completion[device]) {
-                        $scope.completion[device] = {};
-                    }
-                    $scope.completion[device][folder] = data.completion;
+        promiseHttpGet(key, urlbase + '/completion?device=' + device + '&folder=' + encodeURIComponent(folder),
+                       debounceTimeout).then(function (data) {
+            if (!$scope.completion[device]) {
+                $scope.completion[device] = {};
+            }
+            $scope.completion[device][folder] = data.completion;
 
-                    var tot = 0,
-                        cnt = 0;
-                    for (var cmp in $scope.completion[device]) {
-                        if (cmp === "_total") {
-                            continue;
-                        }
-                        tot += $scope.completion[device][cmp];
-                        cnt += 1;
-                    }
-                    $scope.completion[device]._total = tot / cnt;
+            var tot = 0,
+                cnt = 0;
+            for (var cmp in $scope.completion[device]) {
+                if (cmp === "_total") {
+                    continue;
+                }
+                tot += $scope.completion[device][cmp];
+                cnt += 1;
+            }
+            $scope.completion[device]._total = tot / cnt;
 
-                    console.log("refreshCompletion", device, folder, $scope.completion[device]);
-                });
-            }, 1000, true);
-        }
-        debouncedFuncs[key]();
+            console.log("refreshCompletion", device, folder, $scope.completion[device]);
+        });
     }
 
     function refreshConnectionStats() {
@@ -384,8 +419,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         });
     }
 
-    var refreshDeviceStats = debounce(function () {
-        $http.get(urlbase + "/stats/device").success(function (data) {
+    var refreshDeviceStats = function () {
+        var key = "refreshDevice";
+        promiseHttpGet(key, urlbase + "/stats/device", debounceTimeout).then(function (data) {
             $scope.stats = data;
             for (var device in $scope.stats) {
                 $scope.stats[device].LastSeen = new Date($scope.stats[device].LastSeen);
@@ -393,7 +429,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             }
             console.log("refreshDeviceStats", data);
         });
-    }, 500);
+    }
 
     $scope.init = function () {
         refreshSystem();
@@ -1051,40 +1087,6 @@ function isEmptyObject(obj) {
         return false;
     }
     return true;
-}
-
-function debounce(func, wait) {
-    var timeout, args, context, timestamp, result, again;
-
-    var later = function () {
-        var last = Date.now() - timestamp;
-        if (last < wait) {
-            timeout = setTimeout(later, wait - last);
-        } else {
-            timeout = null;
-            if (again) {
-                again = false;
-                result = func.apply(context, args);
-                context = args = null;
-            }
-        }
-    };
-
-    return function () {
-        context = this;
-        args = arguments;
-        timestamp = Date.now();
-        var callNow = !timeout;
-        if (!timeout) {
-            timeout = setTimeout(later, wait);
-            result = func.apply(context, args);
-            context = args = null;
-        } else {
-            again = true;
-        }
-
-        return result;
-    };
 }
 
 syncthing.filter('natural', function () {
