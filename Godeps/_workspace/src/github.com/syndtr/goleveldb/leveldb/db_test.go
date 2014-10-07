@@ -1125,6 +1125,45 @@ func TestDb_Snapshot(t *testing.T) {
 	})
 }
 
+func TestDb_SnapshotList(t *testing.T) {
+	db := &DB{}
+	db.initSnapshot()
+	e0a := db.acquireSnapshot()
+	e0b := db.acquireSnapshot()
+	db.seq = 1
+	e1 := db.acquireSnapshot()
+	db.seq = 2
+	e2 := db.acquireSnapshot()
+
+	if db.minSeq() != 0 {
+		t.Fatalf("invalid sequence number, got=%d", db.minSeq())
+	}
+	db.releaseSnapshot(e0a)
+	if db.minSeq() != 0 {
+		t.Fatalf("invalid sequence number, got=%d", db.minSeq())
+	}
+	db.releaseSnapshot(e2)
+	if db.minSeq() != 0 {
+		t.Fatalf("invalid sequence number, got=%d", db.minSeq())
+	}
+	db.releaseSnapshot(e0b)
+	if db.minSeq() != 1 {
+		t.Fatalf("invalid sequence number, got=%d", db.minSeq())
+	}
+	e2 = db.acquireSnapshot()
+	if db.minSeq() != 1 {
+		t.Fatalf("invalid sequence number, got=%d", db.minSeq())
+	}
+	db.releaseSnapshot(e1)
+	if db.minSeq() != 2 {
+		t.Fatalf("invalid sequence number, got=%d", db.minSeq())
+	}
+	db.releaseSnapshot(e2)
+	if db.minSeq() != 2 {
+		t.Fatalf("invalid sequence number, got=%d", db.minSeq())
+	}
+}
+
 func TestDb_HiddenValuesAreRemoved(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		s := h.db.s
@@ -1883,4 +1922,103 @@ func TestDb_LeveldbIssue200(t *testing.T) {
 	assertBytes(t, []byte("4"), iter.Key())
 	iter.Next()
 	assertBytes(t, []byte("5"), iter.Key())
+}
+
+func TestDb_GoleveldbIssue74(t *testing.T) {
+	h := newDbHarnessWopt(t, &opt.Options{
+		WriteBuffer: 1 * opt.MiB,
+	})
+	defer h.close()
+
+	const n, dur = 10000, 5 * time.Second
+
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	until := time.Now().Add(dur)
+	wg := new(sync.WaitGroup)
+	wg.Add(2)
+	var done uint32
+	go func() {
+		var i int
+		defer func() {
+			t.Logf("WRITER DONE #%d", i)
+			atomic.StoreUint32(&done, 1)
+			wg.Done()
+		}()
+
+		b := new(Batch)
+		for ; time.Now().Before(until) && atomic.LoadUint32(&done) == 0; i++ {
+			iv := fmt.Sprintf("VAL%010d", i)
+			for k := 0; k < n; k++ {
+				key := fmt.Sprintf("KEY%06d", k)
+				b.Put([]byte(key), []byte(key+iv))
+				b.Put([]byte(fmt.Sprintf("PTR%06d", k)), []byte(key))
+			}
+			h.write(b)
+
+			b.Reset()
+			snap := h.getSnapshot()
+			iter := snap.NewIterator(util.BytesPrefix([]byte("PTR")), nil)
+			var k int
+			for ; iter.Next(); k++ {
+				ptrKey := iter.Key()
+				key := iter.Value()
+
+				if _, err := snap.Get(ptrKey, nil); err != nil {
+					t.Fatalf("WRITER #%d snapshot.Get %q: %v", i, ptrKey, err)
+				}
+				if value, err := snap.Get(key, nil); err != nil {
+					t.Fatalf("WRITER #%d snapshot.Get %q: %v", i, key, err)
+				} else if string(value) != string(key)+iv {
+					t.Fatalf("WRITER #%d snapshot.Get %q got invalid value, want %q got %q", i, key, string(key)+iv, value)
+				}
+
+				b.Delete(key)
+				b.Delete(ptrKey)
+			}
+			h.write(b)
+			iter.Release()
+			snap.Release()
+			if k != n {
+				t.Fatalf("#%d %d != %d", i, k, n)
+			}
+		}
+		t.Logf("writer done after %d iterations", i)
+	}()
+	go func() {
+		var i int
+		defer func() {
+			t.Logf("READER DONE #%d", i)
+			atomic.StoreUint32(&done, 1)
+			wg.Done()
+		}()
+		for ; time.Now().Before(until) && atomic.LoadUint32(&done) == 0; i++ {
+			snap := h.getSnapshot()
+			iter := snap.NewIterator(util.BytesPrefix([]byte("PTR")), nil)
+			var prevValue string
+			var k int
+			for ; iter.Next(); k++ {
+				ptrKey := iter.Key()
+				key := iter.Value()
+
+				if _, err := snap.Get(ptrKey, nil); err != nil {
+					t.Fatalf("READER #%d snapshot.Get %q: %v", i, ptrKey, err)
+				}
+
+				if value, err := snap.Get(key, nil); err != nil {
+					t.Fatalf("READER #%d snapshot.Get %q: %v", i, key, err)
+				} else if prevValue != "" && string(value) != string(key)+prevValue {
+					t.Fatalf("READER #%d snapshot.Get %q got invalid value, want %q got %q", i, key, string(key)+prevValue, value)
+				} else {
+					prevValue = string(value[len(key):])
+				}
+			}
+			iter.Release()
+			snap.Release()
+			if k > 0 && k != n {
+				t.Fatalf("#%d %d != %d", i, k, n)
+			}
+		}
+	}()
+	wg.Wait()
 }

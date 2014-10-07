@@ -71,7 +71,7 @@ func (db *DB) releaseSnapshot(elem *snapshotElement) {
 func (db *DB) minSeq() uint64 {
 	db.snapsMu.Lock()
 	defer db.snapsMu.Unlock()
-	elem := db.snapsRoot.prev
+	elem := db.snapsRoot.next
 	if elem != &db.snapsRoot {
 		return elem.seq
 	}
