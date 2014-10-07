@@ -294,3 +294,80 @@ func TestPrepare(t *testing.T) {
 		t.Error("Unexpected nil")
 	}
 }
+
+func TestRequiresRestart(t *testing.T) {
+	wr, err := Load("testdata/v5.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := wr.cfg
+
+	if ChangeRequiresRestart(cfg, cfg) {
+		t.Error("No change does not require restart")
+	}
+
+	newCfg := cfg
+	newCfg.Devices = append(newCfg.Devices, DeviceConfiguration{
+		DeviceID: device3,
+	})
+	if ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Adding a device does not require restart")
+	}
+
+	newCfg = cfg
+	newCfg.Devices = newCfg.Devices[:len(newCfg.Devices)-1]
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Removing a device requires restart")
+	}
+
+	newCfg = cfg
+	newCfg.Folders = append(newCfg.Folders, FolderConfiguration{
+		ID:   "t1",
+		Path: "t1",
+	})
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Adding a folder requires restart")
+	}
+
+	newCfg = cfg
+	newCfg.Folders = newCfg.Folders[:len(newCfg.Folders)-1]
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Removing a folder requires restart")
+	}
+
+	newCfg = cfg
+	newFolders := make([]FolderConfiguration, len(cfg.Folders))
+	copy(newFolders, cfg.Folders)
+	newCfg.Folders = newFolders
+	if ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("No changes done yet")
+	}
+	newCfg.Folders[0].Path = "different"
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Changing a folder requires restart")
+	}
+
+	newCfg = cfg
+	newDevices := make([]DeviceConfiguration, len(cfg.Devices))
+	copy(newDevices, cfg.Devices)
+	newCfg.Devices = newDevices
+	if ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("No changes done yet")
+	}
+	newCfg.Devices[0].Name = "different"
+	if ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Changing a device does not require restart")
+	}
+
+	newCfg = cfg
+	newCfg.Options.GlobalAnnEnabled = !cfg.Options.GlobalAnnEnabled
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Changing general options requires restart")
+	}
+
+	newCfg = cfg
+	newCfg.GUI.UseTLS = !cfg.GUI.UseTLS
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Changing GUI options requires restart")
+	}
+}
