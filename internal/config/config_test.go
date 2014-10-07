@@ -49,9 +49,10 @@ func TestDefaultValues(t *testing.T) {
 		UPnPRenewal:          30,
 		RestartOnWakeup:      true,
 		AutoUpgradeIntervalH: 12,
+		KeepTemporariesH:     24,
 	}
 
-	cfg := New("test", device1)
+	cfg := New(device1)
 
 	if !reflect.DeepEqual(cfg.Options, expected) {
 		t.Errorf("Default config differs;\n  E: %#v\n  A: %#v", expected, cfg.Options)
@@ -60,10 +61,11 @@ func TestDefaultValues(t *testing.T) {
 
 func TestDeviceConfig(t *testing.T) {
 	for i, ver := range []string{"v1", "v2", "v3", "v4", "v5"} {
-		cfg, err := Load("testdata/"+ver+".xml", device1)
+		wr, err := Load("testdata/"+ver+".xml", device1)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
+		cfg := wr.cfg
 
 		expectedFolders := []FolderConfiguration{
 			{
@@ -102,13 +104,6 @@ func TestDeviceConfig(t *testing.T) {
 		if !reflect.DeepEqual(cfg.Folders[0].DeviceIDs(), expectedDeviceIDs) {
 			t.Errorf("%d: Incorrect DeviceIDs\n  A: %#v\n  E: %#v", i, cfg.Folders[0].DeviceIDs(), expectedDeviceIDs)
 		}
-
-		if len(cfg.DeviceMap()) != len(expectedDevices) {
-			t.Errorf("Unexpected number of DeviceMap() entries")
-		}
-		if len(cfg.FolderMap()) != len(expectedFolders) {
-			t.Errorf("Unexpected number of FolderMap() entries")
-		}
 	}
 }
 
@@ -119,8 +114,9 @@ func TestNoListenAddress(t *testing.T) {
 	}
 
 	expected := []string{""}
-	if !reflect.DeepEqual(cfg.Options.ListenAddress, expected) {
-		t.Errorf("Unexpected ListenAddress %#v", cfg.Options.ListenAddress)
+	actual := cfg.Options().ListenAddress
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Unexpected ListenAddress %#v", actual)
 	}
 }
 
@@ -141,6 +137,7 @@ func TestOverriddenValues(t *testing.T) {
 		UPnPRenewal:          15,
 		RestartOnWakeup:      false,
 		AutoUpgradeIntervalH: 24,
+		KeepTemporariesH:     48,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
@@ -148,30 +145,30 @@ func TestOverriddenValues(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg.Options, expected) {
+	if !reflect.DeepEqual(cfg.Options(), expected) {
 		t.Errorf("Overridden config differs;\n  E: %#v\n  A: %#v", expected, cfg.Options)
 	}
 }
 
 func TestDeviceAddressesDynamic(t *testing.T) {
 	name, _ := os.Hostname()
-	expected := []DeviceConfiguration{
-		{
+	expected := map[protocol.DeviceID]DeviceConfiguration{
+		device1: {
 			DeviceID:    device1,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
-		{
+		device2: {
 			DeviceID:    device2,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
-		{
+		device3: {
 			DeviceID:    device3,
 			Addresses:   []string{"dynamic"},
 			Compression: true,
 		},
-		{
+		device4: {
 			DeviceID:  device4,
 			Name:      name, // Set when auto created
 			Addresses: []string{"dynamic"},
@@ -183,27 +180,28 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg.Devices, expected) {
-		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, cfg.Devices)
+	actual := cfg.Devices()
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, actual)
 	}
 }
 
 func TestDeviceAddressesStatic(t *testing.T) {
 	name, _ := os.Hostname()
-	expected := []DeviceConfiguration{
-		{
+	expected := map[protocol.DeviceID]DeviceConfiguration{
+		device1: {
 			DeviceID:  device1,
 			Addresses: []string{"192.0.2.1", "192.0.2.2"},
 		},
-		{
+		device2: {
 			DeviceID:  device2,
 			Addresses: []string{"192.0.2.3:6070", "[2001:db8::42]:4242"},
 		},
-		{
+		device3: {
 			DeviceID:  device3,
 			Addresses: []string{"[2001:db8::44]:4444", "192.0.2.4:6090"},
 		},
-		{
+		device4: {
 			DeviceID:  device4,
 			Name:      name, // Set when auto created
 			Addresses: []string{"dynamic"},
@@ -215,8 +213,9 @@ func TestDeviceAddressesStatic(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg.Devices, expected) {
-		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, cfg.Devices)
+	actual := cfg.Devices()
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, actual)
 	}
 }
 
@@ -226,7 +225,7 @@ func TestVersioningConfig(t *testing.T) {
 		t.Error(err)
 	}
 
-	vc := cfg.Folders[0].Versioning
+	vc := cfg.Folders()["test"].Versioning
 	if vc.Type != "simple" {
 		t.Errorf(`vc.Type %q != "simple"`, vc.Type)
 	}
@@ -252,10 +251,11 @@ func TestNewSaveLoad(t *testing.T) {
 		return err == nil
 	}
 
-	cfg := New(path, device1)
+	intCfg := New(device1)
+	cfg := Wrap(path, intCfg)
 
 	// To make the equality pass later
-	cfg.XMLName.Local = "configuration"
+	cfg.cfg.XMLName.Local = "configuration"
 
 	if exists(path) {
 		t.Error(path, "exists")
@@ -274,20 +274,8 @@ func TestNewSaveLoad(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg, cfg2) {
-		t.Errorf("Configs are not equal;\n  E:  %#v\n  A:  %#v", cfg, cfg2)
-	}
-
-	cfg.GUI.User = "test"
-	cfg.Save()
-
-	cfg2, err = Load(path, device1)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if cfg2.GUI.User != "test" || !reflect.DeepEqual(cfg, cfg2) {
-		t.Errorf("Configs are not equal;\n  E:  %#v\n  A:  %#v", cfg, cfg2)
+	if !reflect.DeepEqual(cfg.Raw(), cfg2.Raw()) {
+		t.Errorf("Configs are not equal;\n  E:  %#v\n  A:  %#v", cfg.Raw(), cfg2.Raw())
 	}
 
 	os.Remove(path)
@@ -304,5 +292,82 @@ func TestPrepare(t *testing.T) {
 
 	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.ListenAddress == nil {
 		t.Error("Unexpected nil")
+	}
+}
+
+func TestRequiresRestart(t *testing.T) {
+	wr, err := Load("testdata/v5.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := wr.cfg
+
+	if ChangeRequiresRestart(cfg, cfg) {
+		t.Error("No change does not require restart")
+	}
+
+	newCfg := cfg
+	newCfg.Devices = append(newCfg.Devices, DeviceConfiguration{
+		DeviceID: device3,
+	})
+	if ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Adding a device does not require restart")
+	}
+
+	newCfg = cfg
+	newCfg.Devices = newCfg.Devices[:len(newCfg.Devices)-1]
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Removing a device requires restart")
+	}
+
+	newCfg = cfg
+	newCfg.Folders = append(newCfg.Folders, FolderConfiguration{
+		ID:   "t1",
+		Path: "t1",
+	})
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Adding a folder requires restart")
+	}
+
+	newCfg = cfg
+	newCfg.Folders = newCfg.Folders[:len(newCfg.Folders)-1]
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Removing a folder requires restart")
+	}
+
+	newCfg = cfg
+	newFolders := make([]FolderConfiguration, len(cfg.Folders))
+	copy(newFolders, cfg.Folders)
+	newCfg.Folders = newFolders
+	if ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("No changes done yet")
+	}
+	newCfg.Folders[0].Path = "different"
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Changing a folder requires restart")
+	}
+
+	newCfg = cfg
+	newDevices := make([]DeviceConfiguration, len(cfg.Devices))
+	copy(newDevices, cfg.Devices)
+	newCfg.Devices = newDevices
+	if ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("No changes done yet")
+	}
+	newCfg.Devices[0].Name = "different"
+	if ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Changing a device does not require restart")
+	}
+
+	newCfg = cfg
+	newCfg.Options.GlobalAnnEnabled = !cfg.Options.GlobalAnnEnabled
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Changing general options requires restart")
+	}
+
+	newCfg = cfg
+	newCfg.GUI.UseTLS = !cfg.GUI.UseTLS
+	if !ChangeRequiresRestart(cfg, newCfg) {
+		t.Error("Changing GUI options requires restart")
 	}
 }

@@ -184,7 +184,7 @@ loop:
 			}
 			p.model.setState(p.folder, FolderScanning)
 			if err := p.model.ScanFolder(p.folder); err != nil {
-				invalidateFolder(p.model.cfg, p.folder, err)
+				p.model.cfg.InvalidateFolder(p.folder, err.Error())
 				break loop
 			}
 			p.model.setState(p.folder, FolderIdle)
@@ -291,7 +291,7 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 		default:
 			// A new or changed file. This is the only case where we do stuff
 			// in the background; the other three are done synchronously.
-			p.handleFile(file, copyChan, pullChan)
+			p.handleFile(file, copyChan, pullChan, finisherChan)
 		}
 
 		changed++
@@ -384,7 +384,7 @@ func (p *Puller) deleteFile(file protocol.FileInfo) {
 		err = osutil.InWritableDir(os.Remove, realName)
 	}
 
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		l.Infof("Puller (folder %q, file %q): delete: %v", p.folder, file.Name, err)
 	} else {
 		p.model.updateLocal(p.folder, file)
@@ -393,7 +393,7 @@ func (p *Puller) deleteFile(file protocol.FileInfo) {
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, pullChan chan<- pullBlockState) {
+func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, pullChan chan<- pullBlockState, finisherChan chan<- *sharedPullerState) {
 	curFile := p.model.CurrentFolderFile(p.folder, file.Name)
 	copyBlocks, pullBlocks := scanner.BlockDiff(curFile.Blocks, file.Blocks)
 
@@ -412,19 +412,69 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 	tempName := filepath.Join(p.dir, defTempNamer.TempName(file.Name))
 	realName := filepath.Join(p.dir, file.Name)
 
+	var reuse bool
+
+	// Check for an old temporary file which might have some blocks we could
+	// reuse.
+	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize)
+	if err == nil {
+		// Check for any reusable blocks in the temp file
+		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
+
+		// block.String() returns a string unique to the block
+		existingBlocks := make(map[string]bool, len(tempCopyBlocks))
+		for _, block := range tempCopyBlocks {
+			existingBlocks[block.String()] = true
+		}
+
+		// Since the blocks are already there, we don't need to copy them
+		// nor we need to pull them, hence discard blocks which are already
+		// there, if they are exactly the same...
+		var newCopyBlocks []protocol.BlockInfo
+		for _, block := range copyBlocks {
+			_, ok := existingBlocks[block.String()]
+			if !ok {
+				newCopyBlocks = append(newCopyBlocks, block)
+			}
+		}
+
+		var newPullBlocks []protocol.BlockInfo
+		for _, block := range pullBlocks {
+			_, ok := existingBlocks[block.String()]
+			if !ok {
+				newPullBlocks = append(newPullBlocks, block)
+			}
+		}
+
+		// If any blocks could be reused, let the sharedpullerstate know
+		// which flags it is expected to set on the file.
+		// Also update the list of work for the routines.
+		if len(copyBlocks) != len(newCopyBlocks) || len(pullBlocks) != len(newPullBlocks) {
+			reuse = true
+			copyBlocks = newCopyBlocks
+			pullBlocks = newPullBlocks
+		} else {
+			// Otherwise, discard the file ourselves in order for the
+			// sharedpuller not to panic when it fails to exlusively create a
+			// file which already exists
+			os.Remove(tempName)
+		}
+	}
+
 	s := sharedPullerState{
 		file:       file,
 		folder:     p.folder,
 		tempName:   tempName,
 		realName:   realName,
 		pullNeeded: len(pullBlocks),
+		reuse:      reuse,
 	}
 	if len(copyBlocks) > 0 {
 		s.copyNeeded = 1
 	}
 
 	if debug {
-		l.Debugf("%v need file %s; copy %d, pull %d", p, file.Name, len(copyBlocks), len(pullBlocks))
+		l.Debugf("%v need file %s; copy %d, pull %d, reuse %v", p, file.Name, len(copyBlocks), len(pullBlocks), reuse)
 	}
 
 	if len(copyBlocks) > 0 {
@@ -443,6 +493,15 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 			}
 			pullChan <- ps
 		}
+	}
+
+	if len(pullBlocks) == 0 && len(copyBlocks) == 0 {
+		if !reuse {
+			panic("bug: nothing to do with file?")
+		}
+		// We have a temp file that we can reuse totally. Jump directly to the
+		// finisher stage.
+		finisherChan <- &s
 	}
 }
 
@@ -469,7 +528,7 @@ func (p *Puller) shortcutFile(file protocol.FileInfo) {
 // copierRoutine reads pullerStates until the in channel closes and performs
 // the relevant copy.
 func (p *Puller) copierRoutine(in <-chan copyBlocksState, out chan<- *sharedPullerState) {
-	buf := make([]byte, scanner.StandardBlockSize)
+	buf := make([]byte, protocol.BlockSize)
 
 nextFile:
 	for state := range in {
@@ -575,7 +634,7 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 				l.Warnln("puller: final:", err)
 				continue
 			}
-			err = scanner.Verify(fd, scanner.StandardBlockSize, state.file.Blocks)
+			err = scanner.Verify(fd, protocol.BlockSize, state.file.Blocks)
 			fd.Close()
 			if err != nil {
 				os.Remove(state.tempName)
@@ -628,12 +687,14 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 
 // clean deletes orphaned temporary files
 func (p *Puller) clean() {
+	keep := time.Duration(p.model.cfg.Options().KeepTemporariesH) * time.Hour
+	now := time.Now()
 	filepath.Walk(p.dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if info.Mode().IsRegular() && defTempNamer.IsTemporary(path) {
+		if info.Mode().IsRegular() && defTempNamer.IsTemporary(path) && info.ModTime().Add(keep).Before(now) {
 			os.Remove(path)
 		}
 

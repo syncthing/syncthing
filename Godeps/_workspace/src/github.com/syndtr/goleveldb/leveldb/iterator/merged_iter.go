@@ -7,14 +7,8 @@
 package iterator
 
 import (
-	"errors"
-
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/util"
-)
-
-var (
-	ErrIterReleased = errors.New("leveldb/iterator: iterator released")
 )
 
 type dir int
@@ -274,9 +268,13 @@ func (i *mergedIterator) Release() {
 }
 
 func (i *mergedIterator) SetReleaser(releaser util.Releaser) {
-	if i.dir != dirReleased {
-		i.releaser = releaser
+	if i.dir == dirReleased {
+		panic(util.ErrReleased)
 	}
+	if i.releaser != nil && releaser != nil {
+		panic(util.ErrHasReleaser)
+	}
+	i.releaser = releaser
 }
 
 func (i *mergedIterator) Error() error {

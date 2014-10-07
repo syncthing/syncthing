@@ -7,7 +7,9 @@
 package leveldb
 
 import (
+	"fmt"
 	"sort"
+	"sync"
 	"sync/atomic"
 
 	"github.com/syndtr/goleveldb/leveldb/cache"
@@ -276,6 +278,8 @@ type tOps struct {
 	cache   cache.Cache
 	cacheNS cache.Namespace
 	bpool   *util.BufferPool
+	mu      sync.Mutex
+	closed  bool
 }
 
 // Creates an empty table and returns table writer.
@@ -322,9 +326,42 @@ func (t *tOps) createFrom(src iterator.Iterator) (f *tFile, n int, err error) {
 	return
 }
 
+type trWrapper struct {
+	*table.Reader
+	t   *tOps
+	ref int
+}
+
+func (w *trWrapper) Release() {
+	if w.ref != 0 && !w.t.closed {
+		panic(fmt.Sprintf("BUG: invalid ref %d, refer to issue #72", w.ref))
+	}
+	w.Reader.Release()
+}
+
+type trCacheHandleWrapper struct {
+	cache.Handle
+	t        *tOps
+	released bool
+}
+
+func (w *trCacheHandleWrapper) Release() {
+	w.t.mu.Lock()
+	defer w.t.mu.Unlock()
+
+	if !w.released {
+		w.released = true
+		w.Value().(*trWrapper).ref--
+	}
+	w.Handle.Release()
+}
+
 // Opens table. It returns a cache handle, which should
 // be released after use.
 func (t *tOps) open(f *tFile) (ch cache.Handle, err error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	num := f.file.Num()
 	ch = t.cacheNS.Get(num, func() (charge int, value interface{}) {
 		var r storage.Reader
@@ -337,11 +374,13 @@ func (t *tOps) open(f *tFile) (ch cache.Handle, err error) {
 		if bc := t.s.o.GetBlockCache(); bc != nil {
 			bcacheNS = bc.GetNamespace(num)
 		}
-		return 1, table.NewReader(r, int64(f.size), bcacheNS, t.bpool, t.s.o)
+		return 1, &trWrapper{table.NewReader(r, int64(f.size), bcacheNS, t.bpool, t.s.o), t, 0}
 	})
 	if ch == nil && err == nil {
 		err = ErrClosed
 	}
+	ch.Value().(*trWrapper).ref++
+	ch = &trCacheHandleWrapper{ch, t, false}
 	return
 }
 
@@ -353,7 +392,7 @@ func (t *tOps) find(f *tFile, key []byte, ro *opt.ReadOptions) (rkey, rvalue []b
 		return nil, nil, err
 	}
 	defer ch.Release()
-	return ch.Value().(*table.Reader).Find(key, ro)
+	return ch.Value().(*trWrapper).Find(key, ro)
 }
 
 // Returns approximate offset of the given key.
@@ -363,7 +402,7 @@ func (t *tOps) offsetOf(f *tFile, key []byte) (offset uint64, err error) {
 		return
 	}
 	defer ch.Release()
-	offset_, err := ch.Value().(*table.Reader).OffsetOf(key)
+	offset_, err := ch.Value().(*trWrapper).OffsetOf(key)
 	return uint64(offset_), err
 }
 
@@ -373,7 +412,7 @@ func (t *tOps) newIterator(f *tFile, slice *util.Range, ro *opt.ReadOptions) ite
 	if err != nil {
 		return iterator.NewEmptyIterator(err)
 	}
-	iter := ch.Value().(*table.Reader).NewIterator(slice, ro)
+	iter := ch.Value().(*trWrapper).NewIterator(slice, ro)
 	iter.SetReleaser(ch)
 	return iter
 }
@@ -381,6 +420,9 @@ func (t *tOps) newIterator(f *tFile, slice *util.Range, ro *opt.ReadOptions) ite
 // Removes table from persistent storage. It waits until
 // no one use the the table.
 func (t *tOps) remove(f *tFile) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	num := f.file.Num()
 	t.cacheNS.Delete(num, func(exist, pending bool) {
 		if !pending {
@@ -399,6 +441,10 @@ func (t *tOps) remove(f *tFile) {
 // Closes the table ops instance. It will close all tables,
 // regadless still used or not.
 func (t *tOps) close() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.closed = true
 	t.cache.Zap()
 	t.bpool.Close()
 }

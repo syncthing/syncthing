@@ -19,28 +19,26 @@ package config
 import (
 	"encoding/xml"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"sort"
 	"strconv"
 
 	"code.google.com/p/go.crypto/bcrypt"
-	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/logger"
-	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
 )
 
 var l = logger.DefaultLogger
 
 type Configuration struct {
-	Location string                `xml:"-" json:"-"`
-	Version  int                   `xml:"version,attr" default:"5"`
-	Folders  []FolderConfiguration `xml:"folder"`
-	Devices  []DeviceConfiguration `xml:"device"`
-	GUI      GUIConfiguration      `xml:"gui"`
-	Options  OptionsConfiguration  `xml:"options"`
-	XMLName  xml.Name              `xml:"configuration" json:"-"`
+	Version int                   `xml:"version,attr" default:"5"`
+	Folders []FolderConfiguration `xml:"folder"`
+	Devices []DeviceConfiguration `xml:"device"`
+	GUI     GUIConfiguration      `xml:"gui"`
+	Options OptionsConfiguration  `xml:"options"`
+	XMLName xml.Name              `xml:"configuration" json:"-"`
 
 	Deprecated_Repositories []FolderConfiguration `xml:"repository" json:"-"`
 	Deprecated_Nodes        []DeviceConfiguration `xml:"node" json:"-"`
@@ -53,13 +51,23 @@ type FolderConfiguration struct {
 	ReadOnly        bool                        `xml:"ro,attr"`
 	RescanIntervalS int                         `xml:"rescanIntervalS,attr" default:"60"`
 	IgnorePerms     bool                        `xml:"ignorePerms,attr"`
-	Invalid         string                      `xml:"-"` // Set at runtime when there is an error, not saved
 	Versioning      VersioningConfiguration     `xml:"versioning"`
+
+	Invalid string `xml:"-"` // Set at runtime when there is an error, not saved
 
 	deviceIDs []protocol.DeviceID
 
 	Deprecated_Directory string                      `xml:"directory,omitempty,attr" json:"-"`
 	Deprecated_Nodes     []FolderDeviceConfiguration `xml:"node" json:"-"`
+}
+
+func (r *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
+	if r.deviceIDs == nil {
+		for _, n := range r.Devices {
+			r.deviceIDs = append(r.deviceIDs, n.DeviceID)
+		}
+	}
+	return r.deviceIDs
 }
 
 type VersioningConfiguration struct {
@@ -103,15 +111,6 @@ func (c *VersioningConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartEl
 	return nil
 }
 
-func (r *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
-	if r.deviceIDs == nil {
-		for _, n := range r.Devices {
-			r.deviceIDs = append(r.deviceIDs, n.DeviceID)
-		}
-	}
-	return r.deviceIDs
-}
-
 type DeviceConfiguration struct {
 	DeviceID    protocol.DeviceID `xml:"id,attr"`
 	Name        string            `xml:"name,attr,omitempty"`
@@ -145,6 +144,7 @@ type OptionsConfiguration struct {
 	URAccepted           int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
 	RestartOnWakeup      bool     `xml:"restartOnWakeup" default:"true"`
 	AutoUpgradeIntervalH int      `xml:"autoUpgradeIntervalH" default:"12"` // 0 for off
+	KeepTemporariesH     int      `xml:"keepTemporariesH" default:"24"`     // 0 for off
 
 	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
 	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`
@@ -163,149 +163,40 @@ type GUIConfiguration struct {
 	APIKey   string `xml:"apikey,omitempty"`
 }
 
-func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration {
-	m := make(map[protocol.DeviceID]DeviceConfiguration, len(cfg.Devices))
-	for _, n := range cfg.Devices {
-		m[n.DeviceID] = n
-	}
-	return m
+func New(myID protocol.DeviceID) Configuration {
+	var cfg Configuration
+
+	setDefaults(&cfg)
+	setDefaults(&cfg.Options)
+	setDefaults(&cfg.GUI)
+
+	cfg.prepare(myID)
+
+	return cfg
 }
 
-func (cfg *Configuration) GetDeviceConfiguration(deviceID protocol.DeviceID) *DeviceConfiguration {
-	for i, device := range cfg.Devices {
-		if device.DeviceID == deviceID {
-			return &cfg.Devices[i]
-		}
-	}
-	return nil
+func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
+	var cfg Configuration
+
+	setDefaults(&cfg)
+	setDefaults(&cfg.Options)
+	setDefaults(&cfg.GUI)
+
+	err := xml.NewDecoder(r).Decode(&cfg)
+
+	cfg.prepare(myID)
+	return cfg, err
 }
 
-func (cfg *Configuration) GetFolderConfiguration(folderID string) *FolderConfiguration {
-	for i, folder := range cfg.Folders {
-		if folder.ID == folderID {
-			return &cfg.Folders[i]
-		}
-	}
-	return nil
-}
-
-func (cfg *Configuration) FolderMap() map[string]FolderConfiguration {
-	m := make(map[string]FolderConfiguration, len(cfg.Folders))
-	for _, r := range cfg.Folders {
-		m[r.ID] = r
-	}
-	return m
-}
-
-func setDefaults(data interface{}) error {
-	s := reflect.ValueOf(data).Elem()
-	t := s.Type()
-
-	for i := 0; i < s.NumField(); i++ {
-		f := s.Field(i)
-		tag := t.Field(i).Tag
-
-		v := tag.Get("default")
-		if len(v) > 0 {
-			switch f.Interface().(type) {
-			case string:
-				f.SetString(v)
-
-			case int:
-				i, err := strconv.ParseInt(v, 10, 64)
-				if err != nil {
-					return err
-				}
-				f.SetInt(i)
-
-			case bool:
-				f.SetBool(v == "true")
-
-			case []string:
-				// We don't do anything with string slices here. Any default
-				// we set will be appended to by the XML decoder, so we fill
-				// those after decoding.
-
-			default:
-				panic(f.Type())
-			}
-		}
-	}
-	return nil
-}
-
-// fillNilSlices sets default value on slices that are still nil.
-func fillNilSlices(data interface{}) error {
-	s := reflect.ValueOf(data).Elem()
-	t := s.Type()
-
-	for i := 0; i < s.NumField(); i++ {
-		f := s.Field(i)
-		tag := t.Field(i).Tag
-
-		v := tag.Get("default")
-		if len(v) > 0 {
-			switch f.Interface().(type) {
-			case []string:
-				if f.IsNil() {
-					rv := reflect.MakeSlice(reflect.TypeOf([]string{}), 1, 1)
-					rv.Index(0).SetString(v)
-					f.Set(rv)
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (cfg *Configuration) Save() error {
-	fd, err := os.Create(cfg.Location + ".tmp")
-	if err != nil {
-		l.Warnln("Saving config:", err)
-		return err
-	}
-
-	e := xml.NewEncoder(fd)
+func (cfg *Configuration) WriteXML(w io.Writer) error {
+	e := xml.NewEncoder(w)
 	e.Indent("", "    ")
-	err = e.Encode(cfg)
+	err := e.Encode(cfg)
 	if err != nil {
-		fd.Close()
 		return err
 	}
-	_, err = fd.Write([]byte("\n"))
-
-	if err != nil {
-		l.Warnln("Saving config:", err)
-		fd.Close()
-		return err
-	}
-
-	err = fd.Close()
-	if err != nil {
-		l.Warnln("Saving config:", err)
-		return err
-	}
-
-	err = osutil.Rename(cfg.Location+".tmp", cfg.Location)
-	if err != nil {
-		l.Warnln("Saving config:", err)
-	}
-	events.Default.Log(events.ConfigSaved, cfg)
+	_, err = w.Write([]byte("\n"))
 	return err
-}
-
-func uniqueStrings(ss []string) []string {
-	var m = make(map[string]bool, len(ss))
-	for _, s := range ss {
-		m[s] = true
-	}
-
-	var us = make([]string, 0, len(m))
-	for k := range m {
-		us = append(us, k)
-	}
-
-	return us
 }
 
 func (cfg *Configuration) prepare(myID protocol.DeviceID) {
@@ -355,7 +246,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	cfg.Options.Deprecated_URDeclined = false
 	cfg.Options.Deprecated_UREnabled = false
 
-	// Upgrade to v2 configuration if appropriate
+	// Upgrade to v1 configuration if appropriate
 	if cfg.Version == 1 {
 		convertV1V2(cfg)
 	}
@@ -387,20 +278,20 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
-	existingDevices[myID] = true
 	for _, device := range cfg.Devices {
 		existingDevices[device.DeviceID] = true
 	}
 
-	// Ensure this device is present in all relevant places
-	me := cfg.GetDeviceConfiguration(myID)
-	if me == nil {
+	// Ensure this device is present in the config
+	if !existingDevices[myID] {
 		myName, _ := os.Hostname()
 		cfg.Devices = append(cfg.Devices, DeviceConfiguration{
 			DeviceID: myID,
 			Name:     myName,
 		})
+		existingDevices[myID] = true
 	}
+
 	sort.Sort(DeviceConfigurationList(cfg.Devices))
 	// Ensure that any loose devices are not present in the wrong places
 	// Ensure that there are no duplicate devices
@@ -420,62 +311,21 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 }
 
-func New(location string, myID protocol.DeviceID) Configuration {
-	var cfg Configuration
-
-	cfg.Location = location
-
-	setDefaults(&cfg)
-	setDefaults(&cfg.Options)
-	setDefaults(&cfg.GUI)
-
-	cfg.prepare(myID)
-
-	return cfg
-}
-
-func Load(location string, myID protocol.DeviceID) (Configuration, error) {
-	var cfg Configuration
-
-	cfg.Location = location
-
-	setDefaults(&cfg)
-	setDefaults(&cfg.Options)
-	setDefaults(&cfg.GUI)
-
-	fd, err := os.Open(location)
-	if err != nil {
-		return Configuration{}, err
-	}
-	err = xml.NewDecoder(fd).Decode(&cfg)
-	fd.Close()
-
-	cfg.prepare(myID)
-
-	return cfg, err
-}
-
 // ChangeRequiresRestart returns true if updating the configuration requires a
 // complete restart.
 func ChangeRequiresRestart(from, to Configuration) bool {
 	// Adding, removing or changing folders requires restart
-	if len(from.Folders) != len(to.Folders) {
+	if !reflect.DeepEqual(from.Folders, to.Folders) {
 		return true
 	}
-	fromFolders := from.FolderMap()
-	toFolders := to.FolderMap()
-	for id := range fromFolders {
-		if !reflect.DeepEqual(fromFolders[id], toFolders[id]) {
-			return true
-		}
-	}
 
-	// Removing a device requires a restart. Adding one does not. Changing
-	// address or name does not.
-	fromDevices := from.DeviceMap()
-	toDevices := to.DeviceMap()
-	for deviceID := range fromDevices {
-		if _, ok := toDevices[deviceID]; !ok {
+	// Removing a device requres restart
+	toDevs := make(map[protocol.DeviceID]bool, len(from.Devices))
+	for _, dev := range to.Devices {
+		toDevs[dev.DeviceID] = true
+	}
+	for _, dev := range from.Devices {
+		if _, ok := toDevs[dev.DeviceID]; !ok {
 			return true
 		}
 	}
@@ -593,28 +443,79 @@ func convertV1V2(cfg *Configuration) {
 	cfg.Version = 2
 }
 
-type DeviceConfigurationList []DeviceConfiguration
+func setDefaults(data interface{}) error {
+	s := reflect.ValueOf(data).Elem()
+	t := s.Type()
 
-func (l DeviceConfigurationList) Less(a, b int) bool {
-	return l[a].DeviceID.Compare(l[b].DeviceID) == -1
-}
-func (l DeviceConfigurationList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
-}
-func (l DeviceConfigurationList) Len() int {
-	return len(l)
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		tag := t.Field(i).Tag
+
+		v := tag.Get("default")
+		if len(v) > 0 {
+			switch f.Interface().(type) {
+			case string:
+				f.SetString(v)
+
+			case int:
+				i, err := strconv.ParseInt(v, 10, 64)
+				if err != nil {
+					return err
+				}
+				f.SetInt(i)
+
+			case bool:
+				f.SetBool(v == "true")
+
+			case []string:
+				// We don't do anything with string slices here. Any default
+				// we set will be appended to by the XML decoder, so we fill
+				// those after decoding.
+
+			default:
+				panic(f.Type())
+			}
+		}
+	}
+	return nil
 }
 
-type FolderDeviceConfigurationList []FolderDeviceConfiguration
+// fillNilSlices sets default value on slices that are still nil.
+func fillNilSlices(data interface{}) error {
+	s := reflect.ValueOf(data).Elem()
+	t := s.Type()
 
-func (l FolderDeviceConfigurationList) Less(a, b int) bool {
-	return l[a].DeviceID.Compare(l[b].DeviceID) == -1
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		tag := t.Field(i).Tag
+
+		v := tag.Get("default")
+		if len(v) > 0 {
+			switch f.Interface().(type) {
+			case []string:
+				if f.IsNil() {
+					rv := reflect.MakeSlice(reflect.TypeOf([]string{}), 1, 1)
+					rv.Index(0).SetString(v)
+					f.Set(rv)
+				}
+			}
+		}
+	}
+	return nil
 }
-func (l FolderDeviceConfigurationList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
-}
-func (l FolderDeviceConfigurationList) Len() int {
-	return len(l)
+
+func uniqueStrings(ss []string) []string {
+	var m = make(map[string]bool, len(ss))
+	for _, s := range ss {
+		m[s] = true
+	}
+
+	var us = make([]string, 0, len(m))
+	for k := range m {
+		us = append(us, k)
+	}
+
+	return us
 }
 
 func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.DeviceID) []FolderDeviceConfiguration {
@@ -662,4 +563,28 @@ loop:
 		i++
 	}
 	return devices[0:count]
+}
+
+type DeviceConfigurationList []DeviceConfiguration
+
+func (l DeviceConfigurationList) Less(a, b int) bool {
+	return l[a].DeviceID.Compare(l[b].DeviceID) == -1
+}
+func (l DeviceConfigurationList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+func (l DeviceConfigurationList) Len() int {
+	return len(l)
+}
+
+type FolderDeviceConfigurationList []FolderDeviceConfiguration
+
+func (l FolderDeviceConfigurationList) Less(a, b int) bool {
+	return l[a].DeviceID.Compare(l[b].DeviceID) == -1
+}
+func (l FolderDeviceConfigurationList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+func (l FolderDeviceConfigurationList) Len() int {
+	return len(l)
 }

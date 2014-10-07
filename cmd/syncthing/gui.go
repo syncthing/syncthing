@@ -37,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/logger"
 	"github.com/syncthing/syncthing/internal/model"
+	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/vitrun/qart/qr"
@@ -253,12 +254,7 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var folder = qs.Get("folder")
 	var res = make(map[string]interface{})
 
-	for _, cr := range cfg.Folders {
-		if cr.ID == folder {
-			res["invalid"] = cr.Invalid
-			break
-		}
-	}
+	res["invalid"] = cfg.Folders()[folder].Invalid
 
 	globalFiles, globalDeleted, globalBytes := m.GlobalSize(folder)
 	res["globalFiles"], res["globalDeleted"], res["globalBytes"] = globalFiles, globalDeleted, globalBytes
@@ -308,7 +304,7 @@ func restGetDeviceStats(m *model.Model, w http.ResponseWriter, r *http.Request) 
 
 func restGetConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(cfg)
+	json.NewEncoder(w).Encode(cfg.Raw())
 }
 
 func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
@@ -319,7 +315,7 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	} else {
-		if newCfg.GUI.Password != cfg.GUI.Password {
+		if newCfg.GUI.Password != cfg.GUI().Password {
 			if newCfg.GUI.Password != "" {
 				hash, err := bcrypt.GenerateFromPassword([]byte(newCfg.GUI.Password), 0)
 				if err != nil {
@@ -334,7 +330,7 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 		// Start or stop usage reporting as appropriate
 
-		if newCfg.Options.URAccepted > cfg.Options.URAccepted {
+		if curAcc := cfg.Options().URAccepted; newCfg.Options.URAccepted > curAcc {
 			// UR was enabled
 			newCfg.Options.URAccepted = usageReportVersion
 			err := sendUsageReport(m)
@@ -342,7 +338,7 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 				l.Infoln("Usage report:", err)
 			}
 			go usageReportingLoop(m)
-		} else if newCfg.Options.URAccepted < cfg.Options.URAccepted {
+		} else if newCfg.Options.URAccepted < curAcc {
 			// UR was disabled
 			newCfg.Options.URAccepted = -1
 			stopUsageReporting()
@@ -350,10 +346,9 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 		// Activate and save
 
-		configInSync = !config.ChangeRequiresRestart(cfg, newCfg)
-		newCfg.Location = cfg.Location
-		newCfg.Save()
-		cfg = newCfg
+		configInSync = config.ChangeRequiresRestart(cfg.Raw(), newCfg)
+		cfg.Replace(newCfg)
+		cfg.Save()
 	}
 }
 
@@ -391,13 +386,14 @@ func restGetSystem(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
+	tilde, _ := osutil.ExpandTilde("~")
 	res := make(map[string]interface{})
 	res["myID"] = myID.String()
 	res["goroutines"] = runtime.NumGoroutine()
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys - m.HeapReleased
-	res["tilde"] = expandTilde("~")
-	if cfg.Options.GlobalAnnEnabled && discoverer != nil {
+	res["tilde"] = tilde
+	if cfg.Options().GlobalAnnEnabled && discoverer != nil {
 		res["extAnnounceOK"] = discoverer.ExtAnnounceOK()
 	}
 	cpuUsageLock.RLock()
@@ -606,7 +602,7 @@ func restGetPeerCompletion(m *model.Model, w http.ResponseWriter, r *http.Reques
 	tot := map[string]float64{}
 	count := map[string]float64{}
 
-	for _, folder := range cfg.Folders {
+	for _, folder := range cfg.Folders() {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
 			if m.ConnectedTo(device) {

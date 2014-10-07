@@ -26,9 +26,10 @@ type indexedIterator struct {
 	strict    bool
 	strictGet bool
 
-	data Iterator
-	err  error
-	errf func(err error)
+	data   Iterator
+	err    error
+	errf   func(err error)
+	closed bool
 }
 
 func (i *indexedIterator) setData() {
@@ -48,6 +49,15 @@ func (i *indexedIterator) clearData() {
 		i.data.Release()
 	}
 	i.data = nil
+}
+
+func (i *indexedIterator) indexErr() {
+	if err := i.index.Error(); err != nil {
+		if i.errf != nil {
+			i.errf(err)
+		}
+		i.err = err
+	}
 }
 
 func (i *indexedIterator) dataErr() bool {
@@ -72,9 +82,13 @@ func (i *indexedIterator) Valid() bool {
 func (i *indexedIterator) First() bool {
 	if i.err != nil {
 		return false
+	} else if i.Released() {
+		i.err = ErrIterReleased
+		return false
 	}
 
 	if !i.index.First() {
+		i.indexErr()
 		i.clearData()
 		return false
 	}
@@ -85,9 +99,13 @@ func (i *indexedIterator) First() bool {
 func (i *indexedIterator) Last() bool {
 	if i.err != nil {
 		return false
+	} else if i.Released() {
+		i.err = ErrIterReleased
+		return false
 	}
 
 	if !i.index.Last() {
+		i.indexErr()
 		i.clearData()
 		return false
 	}
@@ -105,9 +123,13 @@ func (i *indexedIterator) Last() bool {
 func (i *indexedIterator) Seek(key []byte) bool {
 	if i.err != nil {
 		return false
+	} else if i.Released() {
+		i.err = ErrIterReleased
+		return false
 	}
 
 	if !i.index.Seek(key) {
+		i.indexErr()
 		i.clearData()
 		return false
 	}
@@ -125,6 +147,9 @@ func (i *indexedIterator) Seek(key []byte) bool {
 func (i *indexedIterator) Next() bool {
 	if i.err != nil {
 		return false
+	} else if i.Released() {
+		i.err = ErrIterReleased
+		return false
 	}
 
 	switch {
@@ -136,6 +161,7 @@ func (i *indexedIterator) Next() bool {
 		fallthrough
 	case i.data == nil:
 		if !i.index.Next() {
+			i.indexErr()
 			return false
 		}
 		i.setData()
@@ -146,6 +172,9 @@ func (i *indexedIterator) Next() bool {
 
 func (i *indexedIterator) Prev() bool {
 	if i.err != nil {
+		return false
+	} else if i.Released() {
+		i.err = ErrIterReleased
 		return false
 	}
 
@@ -158,6 +187,7 @@ func (i *indexedIterator) Prev() bool {
 		fallthrough
 	case i.data == nil:
 		if !i.index.Prev() {
+			i.indexErr()
 			return false
 		}
 		i.setData()

@@ -7,10 +7,8 @@
 package cache
 
 import (
-	"fmt"
 	"math/rand"
 	"runtime"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -225,16 +223,16 @@ func TestLRUCache_Purge(t *testing.T) {
 }
 
 type testingCacheObjectCounter struct {
-	created  uint32
-	released uint32
+	created  uint
+	released uint
 }
 
 func (c *testingCacheObjectCounter) createOne() {
-	atomic.AddUint32(&c.created, 1)
+	c.created++
 }
 
 func (c *testingCacheObjectCounter) releaseOne() {
-	atomic.AddUint32(&c.released, 1)
+	c.released++
 }
 
 type testingCacheObject struct {
@@ -243,15 +241,73 @@ type testingCacheObject struct {
 
 	ns, key uint64
 
-	releaseCalled uint32
+	releaseCalled bool
 }
 
 func (x *testingCacheObject) Release() {
-	if atomic.CompareAndSwapUint32(&x.releaseCalled, 0, 1) {
+	if !x.releaseCalled {
+		x.releaseCalled = true
 		x.cnt.releaseOne()
 	} else {
 		x.t.Errorf("duplicate setfin NS#%d KEY#%s", x.ns, x.key)
 	}
+}
+
+func TestLRUCache_ConcurrentSetGet(t *testing.T) {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	seed := time.Now().UnixNano()
+	t.Logf("seed=%d", seed)
+
+	const (
+		N = 2000000
+		M = 4000
+		C = 3
+	)
+
+	var set, get uint32
+
+	wg := &sync.WaitGroup{}
+	c := NewLRUCache(M / 4)
+	for ni := uint64(0); ni < C; ni++ {
+		r0 := rand.New(rand.NewSource(seed + int64(ni)))
+		r1 := rand.New(rand.NewSource(seed + int64(ni) + 1))
+		ns := c.GetNamespace(ni)
+
+		wg.Add(2)
+		go func(ns Namespace, r *rand.Rand) {
+			for i := 0; i < N; i++ {
+				x := uint64(r.Int63n(M))
+				o := ns.Get(x, func() (int, interface{}) {
+					atomic.AddUint32(&set, 1)
+					return 1, x
+				})
+				if v := o.Value().(uint64); v != x {
+					t.Errorf("#%d invalid value, got=%d", x, v)
+				}
+				o.Release()
+			}
+			wg.Done()
+		}(ns, r0)
+		go func(ns Namespace, r *rand.Rand) {
+			for i := 0; i < N; i++ {
+				x := uint64(r.Int63n(M))
+				o := ns.Get(x, nil)
+				if o != nil {
+					atomic.AddUint32(&get, 1)
+					if v := o.Value().(uint64); v != x {
+						t.Errorf("#%d invalid value, got=%d", x, v)
+					}
+					o.Release()
+				}
+			}
+			wg.Done()
+		}(ns, r1)
+	}
+
+	wg.Wait()
+
+	t.Logf("set=%d get=%d", set, get)
 }
 
 func TestLRUCache_Finalizer(t *testing.T) {
@@ -262,10 +318,6 @@ func TestLRUCache_Finalizer(t *testing.T) {
 		keymax     = 8000
 	)
 
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	defer runtime.GOMAXPROCS(1)
-
-	wg := &sync.WaitGroup{}
 	cnt := &testingCacheObjectCounter{}
 
 	c := NewLRUCache(capacity)
@@ -273,38 +325,40 @@ func TestLRUCache_Finalizer(t *testing.T) {
 	type instance struct {
 		seed       int64
 		rnd        *rand.Rand
-		ns         uint64
-		effective  int32
+		nsid       uint64
+		ns         Namespace
+		effective  int
 		handles    []Handle
 		handlesMap map[uint64]int
 
 		delete          bool
 		purge           bool
 		zap             bool
-		wantDel         int32
-		delfinCalledAll int32
-		delfinCalledEff int32
-		purgefinCalled  int32
+		wantDel         int
+		delfinCalled    int
+		delfinCalledAll int
+		delfinCalledEff int
+		purgefinCalled  int
 	}
 
-	instanceGet := func(p *instance, ns Namespace, key uint64) {
-		h := ns.Get(key, func() (charge int, value interface{}) {
+	instanceGet := func(p *instance, key uint64) {
+		h := p.ns.Get(key, func() (charge int, value interface{}) {
 			to := &testingCacheObject{
 				t: t, cnt: cnt,
-				ns:  p.ns,
+				ns:  p.nsid,
 				key: key,
 			}
-			atomic.AddInt32(&p.effective, 1)
+			p.effective++
 			cnt.createOne()
 			return 1, releaserFunc{func() {
 				to.Release()
-				atomic.AddInt32(&p.effective, -1)
+				p.effective--
 			}, to}
 		})
 		p.handles = append(p.handles, h)
 		p.handlesMap[key] = p.handlesMap[key] + 1
 	}
-	instanceRelease := func(p *instance, ns Namespace, i int) {
+	instanceRelease := func(p *instance, i int) {
 		h := p.handles[i]
 		key := h.Value().(releaserFunc).value.(*testingCacheObject).key
 		if n := p.handlesMap[key]; n == 0 {
@@ -319,55 +373,71 @@ func TestLRUCache_Finalizer(t *testing.T) {
 		p.handles[len(p.handles) : len(p.handles)+1][0] = nil
 	}
 
-	seeds := make([]int64, goroutines)
-	instances := make([]instance, goroutines)
+	seed := time.Now().UnixNano()
+	t.Logf("seed=%d", seed)
+
+	instances := make([]*instance, goroutines)
 	for i := range instances {
-		p := &instances[i]
+		p := &instance{}
 		p.handlesMap = make(map[uint64]int)
-		if seeds[i] == 0 {
-			seeds[i] = time.Now().UnixNano()
-		}
-		p.seed = seeds[i]
+		p.seed = seed + int64(i)
 		p.rnd = rand.New(rand.NewSource(p.seed))
-		p.ns = uint64(i)
+		p.nsid = uint64(i)
+		p.ns = c.GetNamespace(p.nsid)
 		p.delete = i%6 == 0
 		p.purge = i%8 == 0
 		p.zap = i%12 == 0 || i%3 == 0
+		instances[i] = p
 	}
 
-	seedsStr := make([]string, len(seeds))
-	for i, seed := range seeds {
-		seedsStr[i] = fmt.Sprint(seed)
-	}
-	t.Logf("seeds := []int64{%s}", strings.Join(seedsStr, ", "))
-
-	// Get and release.
-	for i := range instances {
-		p := &instances[i]
-
-		wg.Add(1)
-		go func(p *instance) {
-			defer wg.Done()
-
-			ns := c.GetNamespace(p.ns)
-			for i := 0; i < iterations; i++ {
-				if len(p.handles) == 0 || p.rnd.Int()%2 == 0 {
-					instanceGet(p, ns, uint64(p.rnd.Intn(keymax)))
-				} else {
-					instanceRelease(p, ns, p.rnd.Intn(len(p.handles)))
+	runr := rand.New(rand.NewSource(seed - 1))
+	run := func(rnd *rand.Rand, x []*instance, init func(p *instance) bool, fn func(p *instance, i int) bool) {
+		var (
+			rx []*instance
+			rn []int
+		)
+		if init == nil {
+			rx = append([]*instance{}, x...)
+			rn = make([]int, len(x))
+		} else {
+			for _, p := range x {
+				if init(p) {
+					rx = append(rx, p)
+					rn = append(rn, 0)
 				}
 			}
-		}(p)
+		}
+		for len(rx) > 0 {
+			i := rand.Intn(len(rx))
+			if fn(rx[i], rn[i]) {
+				rn[i]++
+			} else {
+				rx = append(rx[:i], rx[i+1:]...)
+				rn = append(rn[:i], rn[i+1:]...)
+			}
+		}
 	}
-	wg.Wait()
+
+	// Get and release.
+	run(runr, instances, nil, func(p *instance, i int) bool {
+		if i < iterations {
+			if len(p.handles) == 0 || p.rnd.Int()%2 == 0 {
+				instanceGet(p, uint64(p.rnd.Intn(keymax)))
+			} else {
+				instanceRelease(p, p.rnd.Intn(len(p.handles)))
+			}
+			return true
+		} else {
+			return false
+		}
+	})
 
 	if used, cap := c.Used(), c.Capacity(); used > cap {
 		t.Errorf("Used > capacity, used=%d cap=%d", used, cap)
 	}
 
 	// Check effective objects.
-	for i := range instances {
-		p := &instances[i]
+	for i, p := range instances {
 		if int(p.effective) < len(p.handlesMap) {
 			t.Errorf("#%d effective objects < acquired handle, eo=%d ah=%d", i, p.effective, len(p.handlesMap))
 		}
@@ -377,103 +447,93 @@ func TestLRUCache_Finalizer(t *testing.T) {
 		t.Errorf("Invalid cache size, want=%d got=%d", want, c.Size())
 	}
 
-	// Delete and purge.
-	for i := range instances {
-		p := &instances[i]
+	// First delete.
+	run(runr, instances, func(p *instance) bool {
 		p.wantDel = p.effective
-
-		wg.Add(1)
-		go func(p *instance) {
-			defer wg.Done()
-
-			ns := c.GetNamespace(p.ns)
-
-			if p.delete {
-				for key := uint64(0); key < keymax; key++ {
-					_, wantExist := p.handlesMap[key]
-					gotExist := ns.Delete(key, func(exist, pending bool) {
-						atomic.AddInt32(&p.delfinCalledAll, 1)
-						if exist {
-							atomic.AddInt32(&p.delfinCalledEff, 1)
-						}
-					})
-					if !gotExist && wantExist {
-						t.Errorf("delete on NS#%d KEY#%d not found", p.ns, key)
-					}
+		return p.delete
+	}, func(p *instance, i int) bool {
+		key := uint64(i)
+		if key < keymax {
+			_, wantExist := p.handlesMap[key]
+			gotExist := p.ns.Delete(key, func(exist, pending bool) {
+				p.delfinCalledAll++
+				if exist {
+					p.delfinCalledEff++
 				}
-
-				var delfinCalled int
-				for key := uint64(0); key < keymax; key++ {
-					func(key uint64) {
-						gotExist := ns.Delete(key, func(exist, pending bool) {
-							if exist && !pending {
-								t.Errorf("delete fin on NS#%d KEY#%d exist and not pending for deletion", p.ns, key)
-							}
-							delfinCalled++
-						})
-						if gotExist {
-							t.Errorf("delete on NS#%d KEY#%d found", p.ns, key)
-						}
-					}(key)
-				}
-				if delfinCalled != keymax {
-					t.Errorf("(2) #%d not all delete fin called, diff=%d", p.ns, keymax-delfinCalled)
-				}
+			})
+			if !gotExist && wantExist {
+				t.Errorf("delete on NS#%d KEY#%d not found", p.nsid, key)
 			}
+			return true
+		} else {
+			return false
+		}
+	})
 
-			if p.purge {
-				ns.Purge(func(ns, key uint64) {
-					atomic.AddInt32(&p.purgefinCalled, 1)
-				})
+	// Second delete.
+	run(runr, instances, func(p *instance) bool {
+		p.delfinCalled = 0
+		return p.delete
+	}, func(p *instance, i int) bool {
+		key := uint64(i)
+		if key < keymax {
+			gotExist := p.ns.Delete(key, func(exist, pending bool) {
+				if exist && !pending {
+					t.Errorf("delete fin on NS#%d KEY#%d exist and not pending for deletion", p.nsid, key)
+				}
+				p.delfinCalled++
+			})
+			if gotExist {
+				t.Errorf("delete on NS#%d KEY#%d found", p.nsid, key)
 			}
-		}(p)
-	}
-	wg.Wait()
+			return true
+		} else {
+			if p.delfinCalled != keymax {
+				t.Errorf("(2) #%d not all delete fin called, diff=%d", p.ns, keymax-p.delfinCalled)
+			}
+			return false
+		}
+	})
+
+	// Purge.
+	run(runr, instances, func(p *instance) bool {
+		return p.purge
+	}, func(p *instance, i int) bool {
+		p.ns.Purge(func(ns, key uint64) {
+			p.purgefinCalled++
+		})
+		return false
+	})
 
 	if want := int(cnt.created - cnt.released); c.Size() != want {
 		t.Errorf("Invalid cache size, want=%d got=%d", want, c.Size())
 	}
 
 	// Release.
-	for i := range instances {
-		p := &instances[i]
-
-		if !p.zap {
-			wg.Add(1)
-			go func(p *instance) {
-				defer wg.Done()
-
-				ns := c.GetNamespace(p.ns)
-				for i := len(p.handles) - 1; i >= 0; i-- {
-					instanceRelease(p, ns, i)
-				}
-			}(p)
+	run(runr, instances, func(p *instance) bool {
+		return !p.zap
+	}, func(p *instance, i int) bool {
+		if len(p.handles) > 0 {
+			instanceRelease(p, len(p.handles)-1)
+			return true
+		} else {
+			return false
 		}
-	}
-	wg.Wait()
+	})
 
 	if want := int(cnt.created - cnt.released); c.Size() != want {
 		t.Errorf("Invalid cache size, want=%d got=%d", want, c.Size())
 	}
 
 	// Zap.
-	for i := range instances {
-		p := &instances[i]
-
-		if p.zap {
-			wg.Add(1)
-			go func(p *instance) {
-				defer wg.Done()
-
-				ns := c.GetNamespace(p.ns)
-				ns.Zap()
-
-				p.handles = nil
-				p.handlesMap = nil
-			}(p)
-		}
-	}
-	wg.Wait()
+	run(runr, instances, func(p *instance) bool {
+		return p.zap
+	}, func(p *instance, i int) bool {
+		p.ns.Zap()
+		p.handles = nil
+		p.handlesMap = nil
+		return false
+	})
 
 	if want := int(cnt.created - cnt.released); c.Size() != want {
 		t.Errorf("Invalid cache size, want=%d got=%d", want, c.Size())
@@ -485,23 +545,21 @@ func TestLRUCache_Finalizer(t *testing.T) {
 
 	c.Purge(nil)
 
-	for i := range instances {
-		p := &instances[i]
-
+	for _, p := range instances {
 		if p.delete {
 			if p.delfinCalledAll != keymax {
-				t.Errorf("#%d not all delete fin called, purge=%v zap=%v diff=%d", p.ns, p.purge, p.zap, keymax-p.delfinCalledAll)
+				t.Errorf("#%d not all delete fin called, purge=%v zap=%v diff=%d", p.nsid, p.purge, p.zap, keymax-p.delfinCalledAll)
 			}
 			if p.delfinCalledEff != p.wantDel {
-				t.Errorf("#%d not all effective delete fin called, diff=%d", p.ns, p.wantDel-p.delfinCalledEff)
+				t.Errorf("#%d not all effective delete fin called, diff=%d", p.nsid, p.wantDel-p.delfinCalledEff)
 			}
 			if p.purge && p.purgefinCalled > 0 {
-				t.Errorf("#%d some purge fin called, delete=%v zap=%v n=%d", p.ns, p.delete, p.zap, p.purgefinCalled)
+				t.Errorf("#%d some purge fin called, delete=%v zap=%v n=%d", p.nsid, p.delete, p.zap, p.purgefinCalled)
 			}
 		} else {
 			if p.purge {
 				if p.purgefinCalled != p.wantDel {
-					t.Errorf("#%d not all purge fin called, delete=%v zap=%v diff=%d", p.ns, p.delete, p.zap, p.wantDel-p.purgefinCalled)
+					t.Errorf("#%d not all purge fin called, delete=%v zap=%v diff=%d", p.nsid, p.delete, p.zap, p.wantDel-p.purgefinCalled)
 				}
 			}
 		}

@@ -81,7 +81,7 @@ type service interface {
 }
 
 type Model struct {
-	cfg *config.Configuration
+	cfg *config.ConfigWrapper
 	db  *leveldb.DB
 
 	deviceName    string
@@ -118,7 +118,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Configuration, deviceName, clientName, clientVersion string, db *leveldb.DB) *Model {
+func NewModel(cfg *config.ConfigWrapper, deviceName, clientName, clientVersion string, db *leveldb.DB) *Model {
 	m := &Model{
 		cfg:                cfg,
 		db:                 db,
@@ -257,8 +257,8 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 // Returns statistics about each device
 func (m *Model) DeviceStatistics() map[string]stats.DeviceStatistics {
 	var res = make(map[string]stats.DeviceStatistics)
-	for _, device := range m.cfg.Devices {
-		res[device.DeviceID.String()] = m.deviceStatRef(device.DeviceID).GetStatistics()
+	for id := range m.cfg.Devices() {
+		res[id.String()] = m.deviceStatRef(id).GetStatistics()
 	}
 	return res
 }
@@ -505,14 +505,14 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	if name := cm.GetOption("name"); name != "" {
 		l.Infof("Device %s name is %q", deviceID, name)
-		device := m.cfg.GetDeviceConfiguration(deviceID)
-		if device != nil && device.Name == "" {
+		device, ok := m.cfg.Devices()[deviceID]
+		if ok && device.Name == "" {
 			device.Name = name
-			m.cfg.Save()
+			m.cfg.SetDevice(device)
 		}
 	}
 
-	if m.cfg.GetDeviceConfiguration(deviceID).Introducer {
+	if m.cfg.Devices()[deviceID].Introducer {
 		// This device is an introducer. Go through the announced lists of folders
 		// and devices and add what we are missing.
 
@@ -530,12 +530,13 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				var id protocol.DeviceID
 				copy(id[:], device.ID)
 
-				if m.cfg.GetDeviceConfiguration(id) == nil {
+				if _, ok := m.cfg.Devices()[id]; !ok {
 					// The device is currently unknown. Add it to the config.
 
 					l.Infof("Adding device %v to config (vouched for by introducer %v)", id, deviceID)
 					newDeviceCfg := config.DeviceConfiguration{
-						DeviceID: id,
+						DeviceID:    id,
+						Compression: true,
 					}
 
 					// The introducers' introducers are also our introducers.
@@ -544,8 +545,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 						newDeviceCfg.Introducer = true
 					}
 
-					m.cfg.Devices = append(m.cfg.Devices, newDeviceCfg)
-
+					m.cfg.SetDevice(newDeviceCfg)
 					changed = true
 				}
 
@@ -565,10 +565,11 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				m.deviceFolders[id] = append(m.deviceFolders[id], folder.ID)
 				m.folderDevices[folder.ID] = append(m.folderDevices[folder.ID], id)
 
-				folderCfg := m.cfg.GetFolderConfiguration(folder.ID)
+				folderCfg := m.cfg.Folders()[folder.ID]
 				folderCfg.Devices = append(folderCfg.Devices, config.FolderDeviceConfiguration{
 					DeviceID: id,
 				})
+				m.cfg.SetFolder(folderCfg)
 
 				changed = true
 			}
@@ -973,7 +974,7 @@ func (m *Model) ScanFolders() {
 		go func() {
 			err := m.ScanFolder(folder)
 			if err != nil {
-				invalidateFolder(m.cfg, folder, err)
+				m.cfg.InvalidateFolder(folder, err.Error())
 			}
 			wg.Done()
 		}()
@@ -1001,7 +1002,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		Dir:          dir,
 		Sub:          sub,
 		Ignores:      ignores,
-		BlockSize:    scanner.StandardBlockSize,
+		BlockSize:    protocol.BlockSize,
 		TempNamer:    defTempNamer,
 		CurrentFiler: cFiler{m, folder},
 		IgnorePerms:  m.folderCfgs[folder].IgnorePerms,
@@ -1131,7 +1132,7 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 				ID:    device[:],
 				Flags: protocol.FlagShareTrusted,
 			}
-			if deviceCfg := m.cfg.GetDeviceConfiguration(device); deviceCfg.Introducer {
+			if deviceCfg := m.cfg.Devices()[device]; deviceCfg.Introducer {
 				cn.Flags |= protocol.FlagIntroducer
 			}
 			cr.Devices = append(cr.Devices, cn)

@@ -44,11 +44,10 @@ func TestStressHTTP(t *testing.T) {
 		port:   8082,
 		apiKey: apiKey,
 	}
-	ver, err := sender.start()
+	err = sender.start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Println(ver)
 
 	tc := &tls.Config{InsecureSkipVerify: true}
 	tr := &http.Transport{

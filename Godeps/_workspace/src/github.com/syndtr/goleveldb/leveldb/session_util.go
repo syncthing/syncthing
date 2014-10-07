@@ -147,7 +147,7 @@ func (s *session) fillRecord(r *sessionRecord, snapshot bool) {
 	}
 }
 
-// Mark if record has been commited, this will update session state;
+// Mark if record has been committed, this will update session state;
 // need external synchronization.
 func (s *session) recordCommited(r *sessionRecord) {
 	if r.has(recJournalNum) {

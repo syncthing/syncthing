@@ -34,7 +34,7 @@ func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan pr
 
 	for i := 0; i < workers; i++ {
 		go func() {
-			hashFile(dir, blockSize, outbox, inbox)
+			hashFiles(dir, blockSize, outbox, inbox)
 			wg.Done()
 		}()
 	}
@@ -45,32 +45,35 @@ func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan pr
 	}()
 }
 
-func hashFile(dir string, blockSize int, outbox, inbox chan protocol.FileInfo) {
+func HashFile(path string, blockSize int) ([]protocol.BlockInfo, error) {
+	fd, err := os.Open(path)
+	if err != nil {
+		if debug {
+			l.Debugln("open:", err)
+		}
+		return []protocol.BlockInfo{}, err
+	}
+
+	fi, err := fd.Stat()
+	if err != nil {
+		fd.Close()
+		if debug {
+			l.Debugln("stat:", err)
+		}
+		return []protocol.BlockInfo{}, err
+	}
+	defer fd.Close()
+	return Blocks(fd, blockSize, fi.Size())
+}
+
+func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo) {
 	for f := range inbox {
 		if protocol.IsDirectory(f.Flags) || protocol.IsDeleted(f.Flags) {
 			outbox <- f
 			continue
 		}
 
-		fd, err := os.Open(filepath.Join(dir, f.Name))
-		if err != nil {
-			if debug {
-				l.Debugln("open:", err)
-			}
-			continue
-		}
-
-		fi, err := fd.Stat()
-		if err != nil {
-			fd.Close()
-			if debug {
-				l.Debugln("stat:", err)
-			}
-			continue
-		}
-		blocks, err := Blocks(fd, blockSize, fi.Size())
-		fd.Close()
-
+		blocks, err := HashFile(filepath.Join(dir, f.Name), blockSize)
 		if err != nil {
 			if debug {
 				l.Debugln("hash error:", f.Name, err)

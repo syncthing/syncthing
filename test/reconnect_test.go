@@ -19,6 +19,7 @@ package integration_test
 
 import (
 	"log"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -59,11 +60,10 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 		port:   8081,
 		apiKey: apiKey,
 	}
-	ver, err := sender.start()
+	err = sender.start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Println(ver)
 
 	receiver := syncthingProcess{ // id2
 		log:    "2.out",
@@ -71,17 +71,20 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 		port:   8082,
 		apiKey: apiKey,
 	}
-	ver, err = receiver.start()
+	err = receiver.start()
 	if err != nil {
 		sender.stop()
 		t.Fatal(err)
 	}
-	log.Println(ver)
 
 	var prevComp int
 	for {
 		comp, err := sender.peerCompletion()
 		if err != nil {
+			if strings.Contains(err.Error(), "use of closed network connection") {
+				time.Sleep(250 * time.Millisecond)
+				continue
+			}
 			sender.stop()
 			receiver.stop()
 			t.Fatal(err)
@@ -132,6 +135,8 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 
 			prevComp = curComp
 		}
+
+		time.Sleep(250 * time.Millisecond)
 	}
 
 	sender.stop()

@@ -41,6 +41,7 @@ const (
 
 func monitorMain() {
 	os.Setenv("STNORESTART", "yes")
+	os.Setenv("STMONITORED", "yes")
 	l.SetPrefix("[monitor] ")
 
 	args := os.Args

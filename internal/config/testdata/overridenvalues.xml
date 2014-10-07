@@ -17,5 +17,6 @@
         <upnpRenewalMinutes>15</upnpRenewalMinutes>
         <restartOnWakeup>false</restartOnWakeup>
         <autoUpgradeIntervalH>24</autoUpgradeIntervalH>
+        <keepTemporariesH>48</keepTemporariesH>
     </options>
 </configuration>

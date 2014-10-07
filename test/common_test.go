@@ -62,11 +62,11 @@ type syncthingProcess struct {
 	logfd *os.File
 }
 
-func (p *syncthingProcess) start() (string, error) {
+func (p *syncthingProcess) start() error {
 	if p.logfd == nil {
 		logfd, err := os.Create(p.log)
 		if err != nil {
-			return "", err
+			return err
 		}
 		p.logfd = logfd
 	}
@@ -78,14 +78,15 @@ func (p *syncthingProcess) start() (string, error) {
 
 	err := cmd.Start()
 	if err != nil {
-		return "", err
+		return err
 	}
 	p.cmd = cmd
 
 	for {
-		ver, err := p.version()
+		resp, err := p.get("/")
 		if err == nil {
-			return ver, nil
+			resp.Body.Close()
+			return nil
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
@@ -99,6 +100,9 @@ func (p *syncthingProcess) stop() {
 func (p *syncthingProcess) get(path string) (*http.Response, error) {
 	client := &http.Client{
 		Timeout: 2 * time.Second,
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+		},
 	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://127.0.0.1:%d%s", p.port, path), nil)
 	if err != nil {

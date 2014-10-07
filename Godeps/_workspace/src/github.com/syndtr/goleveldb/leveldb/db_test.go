@@ -1577,11 +1577,7 @@ func TestDb_BloomFilter(t *testing.T) {
 		return fmt.Sprintf("key%06d", i)
 	}
 
-	const (
-		n              = 10000
-		indexOverhead  = 19898
-		filterOverhead = 19799
-	)
+	const n = 10000
 
 	// Populate multiple layers
 	for i := 0; i < n; i++ {
@@ -1605,7 +1601,7 @@ func TestDb_BloomFilter(t *testing.T) {
 	cnt := int(h.stor.ReadCounter())
 	t.Logf("lookup of %d present keys yield %d sstable I/O reads", n, cnt)
 
-	if min, max := n+indexOverhead+filterOverhead, n+indexOverhead+filterOverhead+2*n/100; cnt < min || cnt > max {
+	if min, max := n, n+2*n/100; cnt < min || cnt > max {
 		t.Errorf("num of sstable I/O reads of present keys not in range of %d - %d, got %d", min, max, cnt)
 	}
 
@@ -1616,7 +1612,7 @@ func TestDb_BloomFilter(t *testing.T) {
 	}
 	cnt = int(h.stor.ReadCounter())
 	t.Logf("lookup of %d missing keys yield %d sstable I/O reads", n, cnt)
-	if max := 3*n/100 + indexOverhead + filterOverhead; cnt > max {
+	if max := 3 * n / 100; cnt > max {
 		t.Errorf("num of sstable I/O reads of missing keys was more than %d, got %d", max, cnt)
 	}
 
