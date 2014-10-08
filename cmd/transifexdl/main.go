@@ -63,12 +63,11 @@ func main() {
 	var langs []string
 	for code, stat := range stats {
 		code = strings.Replace(code, "_", "-", 1)
-		if !curValidLangs[code] {
-			if pct := 100 * stat.Translated / (stat.Translated + stat.Untranslated); pct < 95 {
-				log.Printf("Skipping language %q (too low completion ratio %d%%)", code, pct)
-				os.Remove("lang-" + code + ".json")
-				continue
-			}
+		pct := 100 * stat.Translated / (stat.Translated + stat.Untranslated)
+		if pct < 75 || !curValidLangs[code] && pct < 95 {
+			log.Printf("Skipping language %q (too low completion ratio %d%%)", code, pct)
+			os.Remove("lang-" + code + ".json")
+			continue
 		}
 
 		langs = append(langs, code)
