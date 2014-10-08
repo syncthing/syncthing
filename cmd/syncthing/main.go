@@ -397,6 +397,14 @@ func syncthingMain() {
 		l.Infof("Edit %s to taste or use the GUI\n", cfgFile)
 	}
 
+	if cfg.Raw().OriginalVersion != config.CurrentVersion {
+		l.Infoln("Archiving a copy of old config file format")
+		// Archive a copy
+		osutil.Rename(cfgFile, cfgFile+fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion))
+		// Save the new version
+		cfg.Save()
+	}
+
 	if len(profiler) > 0 {
 		go func() {
 			l.Debugln("Starting profiler on", profiler)

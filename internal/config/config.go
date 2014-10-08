@@ -32,14 +32,17 @@ import (
 
 var l = logger.DefaultLogger
 
+const CurrentVersion = 5
+
 type Configuration struct {
-	Version int                   `xml:"version,attr" default:"5"`
+	Version int                   `xml:"version,attr"`
 	Folders []FolderConfiguration `xml:"folder"`
 	Devices []DeviceConfiguration `xml:"device"`
 	GUI     GUIConfiguration      `xml:"gui"`
 	Options OptionsConfiguration  `xml:"options"`
 	XMLName xml.Name              `xml:"configuration" json:"-"`
 
+	OriginalVersion         int                   `xml:"-" json:"-"` // The version we read from disk, before any conversion
 	Deprecated_Repositories []FolderConfiguration `xml:"repository" json:"-"`
 	Deprecated_Nodes        []DeviceConfiguration `xml:"node" json:"-"`
 }
@@ -165,6 +168,8 @@ type GUIConfiguration struct {
 
 func New(myID protocol.DeviceID) Configuration {
 	var cfg Configuration
+	cfg.Version = CurrentVersion
+	cfg.OriginalVersion = CurrentVersion
 
 	setDefaults(&cfg)
 	setDefaults(&cfg.Options)
@@ -183,6 +188,7 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	setDefaults(&cfg.GUI)
 
 	err := xml.NewDecoder(r).Decode(&cfg)
+	cfg.OriginalVersion = cfg.Version
 
 	cfg.prepare(myID)
 	return cfg, err
