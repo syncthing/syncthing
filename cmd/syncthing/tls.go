@@ -124,6 +124,7 @@ func (l *DowngradingListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
+	conn.SetReadDeadline(time.Now().Add(20 * time.Second))
 	br := bufio.NewReader(conn)
 	bs, err := br.Peek(1)
 	if err != nil {
