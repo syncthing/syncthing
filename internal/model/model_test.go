@@ -390,8 +390,12 @@ func TestIgnores(t *testing.T) {
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(config.Wrap("", config.Configuration{}), "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	fcfg := config.FolderConfiguration{ID: "default", Path: "testdata"}
+	cfg := config.Wrap("/tmp", config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+	})
+	m := NewModel(cfg, "device", "syncthing", "dev", db)
+	m.AddFolder(fcfg)
 
 	expected := []string{
 		".*",
