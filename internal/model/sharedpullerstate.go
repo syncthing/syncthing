@@ -149,7 +149,16 @@ func (s *sharedPullerState) copyDone() {
 	s.mut.Lock()
 	s.copyNeeded--
 	if debug {
-		l.Debugln("sharedPullerState", s.folder, s.file.Name, "copyNeeded ->", s.pullNeeded)
+		l.Debugln("sharedPullerState", s.folder, s.file.Name, "copyNeeded ->", s.copyNeeded)
+	}
+	s.mut.Unlock()
+}
+
+func (s *sharedPullerState) pullStarted() {
+	s.mut.Lock()
+	s.pullNeeded++
+	if debug {
+		l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded start ->", s.pullNeeded)
 	}
 	s.mut.Unlock()
 }
@@ -158,7 +167,7 @@ func (s *sharedPullerState) pullDone() {
 	s.mut.Lock()
 	s.pullNeeded--
 	if debug {
-		l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded ->", s.pullNeeded)
+		l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded done ->", s.pullNeeded)
 	}
 	s.mut.Unlock()
 }
