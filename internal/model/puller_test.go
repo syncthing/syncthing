@@ -73,34 +73,20 @@ func TestHandleFile(t *testing.T) {
 		model:  m,
 	}
 
-	copyChan := make(chan copyBlocksState, 1) // Copy chan gets all blocks needed to copy in a wrapper struct
-	pullChan := make(chan pullBlockState, 5)  // Pull chan gets blocks one by one
+	copyChan := make(chan copyBlocksState, 1)
 
-	p.handleFile(requiredFile, copyChan, pullChan, nil)
+	p.handleFile(requiredFile, copyChan, nil)
 
 	// Receive the results
 	toCopy := <-copyChan
-	toPull := []pullBlockState{<-pullChan, <-pullChan, <-pullChan, <-pullChan, <-pullChan}
 
-	select {
-	case <-pullChan:
-		t.Error("Channel not empty!")
-	default:
+	if len(toCopy.blocks) != 8 {
+		t.Errorf("Unexpected count of copy blocks: %d != 8", len(toCopy.blocks))
 	}
 
-	if len(toCopy.blocks) != 3 {
-		t.Errorf("Unexpected count of copy blocks: %d != 3", len(toCopy.blocks))
-	}
-
-	for i, eq := range []int{2, 5, 8} {
-		if string(toCopy.blocks[i].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block mismatch: %s != %s", toCopy.blocks[i].String(), blocks[eq].String())
-		}
-	}
-
-	for i, eq := range []int{1, 3, 4, 6, 7} {
-		if string(toPull[i].block.Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block mismatch: %s != %s", toPull[i].block.String(), blocks[eq].String())
+	for i, block := range toCopy.blocks {
+		if string(block.Hash) != string(blocks[i+1].Hash) {
+			t.Errorf("Block mismatch: %s != %s", block.String(), blocks[i+1].String())
 		}
 	}
 }
@@ -140,34 +126,20 @@ func TestHandleFileWithTemp(t *testing.T) {
 		model:  m,
 	}
 
-	copyChan := make(chan copyBlocksState, 1) // Copy chan gets all blocks needed to copy in a wrapper struct
-	pullChan := make(chan pullBlockState, 2)  // Pull chan gets blocks one by one
+	copyChan := make(chan copyBlocksState, 1)
 
-	p.handleFile(requiredFile, copyChan, pullChan, nil)
+	p.handleFile(requiredFile, copyChan, nil)
 
 	// Receive the results
 	toCopy := <-copyChan
-	toPull := []pullBlockState{<-pullChan, <-pullChan}
 
-	select {
-	case <-pullChan:
-		t.Error("Channel not empty!")
-	default:
+	if len(toCopy.blocks) != 4 {
+		t.Errorf("Unexpected count of copy blocks: %d != 4", len(toCopy.blocks))
 	}
 
-	if len(toCopy.blocks) != 2 {
-		t.Errorf("Unexpected count of copy blocks: %d != 2", len(toCopy.blocks))
-	}
-
-	for i, eq := range []int{5, 8} {
+	for i, eq := range []int{1, 5, 6, 8} {
 		if string(toCopy.blocks[i].Hash) != string(blocks[eq].Hash) {
 			t.Errorf("Block mismatch: %s != %s", toCopy.blocks[i].String(), blocks[eq].String())
-		}
-	}
-
-	for i, eq := range []int{1, 6} {
-		if string(toPull[i].block.Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block mismatch: %s != %s", toPull[i].block.String(), blocks[eq].String())
 		}
 	}
 }
