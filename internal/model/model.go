@@ -81,8 +81,9 @@ type service interface {
 }
 
 type Model struct {
-	cfg *config.ConfigWrapper
-	db  *leveldb.DB
+	cfg    *config.ConfigWrapper
+	db     *leveldb.DB
+	finder *files.BlockFinder
 
 	deviceName    string
 	clientName    string
@@ -137,6 +138,7 @@ func NewModel(cfg *config.ConfigWrapper, deviceName, clientName, clientVersion s
 		protoConn:          make(map[protocol.DeviceID]protocol.Connection),
 		rawConn:            make(map[protocol.DeviceID]io.Closer),
 		deviceVer:          make(map[protocol.DeviceID]string),
+		finder:             files.NewBlockFinder(db, cfg),
 	}
 
 	var timeout = 20 * 60 // seconds
