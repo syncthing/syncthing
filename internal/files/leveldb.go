@@ -232,7 +232,8 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 			// marked a file as invalid, so handle that too.
 			var ef protocol.FileInfoTruncated
 			ef.UnmarshalXDR(dbi.Value())
-			if fs[fsi].Version > ef.Version || fs[fsi].Version != ef.Version {
+			if fs[fsi].Version > ef.Version ||
+				(fs[fsi].Version == ef.Version && fs[fsi].Flags != ef.Flags) {
 				if lv := ldbInsert(batch, folder, device, newName, fs[fsi]); lv > maxLocalVer {
 					maxLocalVer = lv
 				}
