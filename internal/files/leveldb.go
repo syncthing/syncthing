@@ -17,6 +17,7 @@ package files
 
 import (
 	"bytes"
+	"fmt"
 	"runtime"
 	"sort"
 	"sync"
@@ -57,6 +58,21 @@ type fileVersion struct {
 
 type versionList struct {
 	versions []fileVersion
+}
+
+func (l versionList) String() string {
+	var b bytes.Buffer
+	var id protocol.DeviceID
+	b.WriteString("{")
+	for i, v := range l.versions {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		copy(id[:], v.device)
+		fmt.Fprintf(&b, "{%d, %v}", v.version, id)
+	}
+	b.WriteString("}")
+	return b.String()
 }
 
 type fileList []protocol.FileInfo
@@ -576,9 +592,15 @@ func ldbWithGlobal(db *leveldb.DB, folder []byte, truncate bool, fn fileIterator
 			l.Debugln(dbi.Key())
 			panic("no versions?")
 		}
-		fk := deviceKey(folder, vl.versions[0].device, globalKeyName(dbi.Key()))
+		name := globalKeyName(dbi.Key())
+		fk := deviceKey(folder, vl.versions[0].device, name)
 		bs, err := snap.Get(fk, nil)
 		if err != nil {
+			l.Debugf("folder: %q (%x)", folder, folder)
+			l.Debugf("key: %q (%x)", dbi.Key(), dbi.Key())
+			l.Debugf("vl: %v", vl)
+			l.Debugf("name: %q (%x)", name, name)
+			l.Debugf("fk: %q (%x)", fk, fk)
 			panic(err)
 		}
 
@@ -670,6 +692,15 @@ outer:
 				fk := deviceKey(folder, vl.versions[i].device, name)
 				bs, err := snap.Get(fk, nil)
 				if err != nil {
+					var id protocol.DeviceID
+					copy(id[:], device)
+					l.Debugf("device: %v", id)
+					l.Debugf("need: %v, have: %v", need, have)
+					l.Debugf("key: %q (%x)", dbi.Key(), dbi.Key())
+					l.Debugf("vl: %v", vl)
+					l.Debugf("i: %v", i)
+					l.Debugf("fk: %q (%x)", fk, fk)
+					l.Debugf("name: %q (%x)", name, name)
 					panic(err)
 				}
 
