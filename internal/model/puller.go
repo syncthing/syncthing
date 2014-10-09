@@ -62,12 +62,13 @@ var (
 )
 
 type Puller struct {
-	folder    string
-	dir       string
-	scanIntv  time.Duration
-	model     *Model
-	stop      chan struct{}
-	versioner versioner.Versioner
+	folder      string
+	dir         string
+	scanIntv    time.Duration
+	model       *Model
+	stop        chan struct{}
+	versioner   versioner.Versioner
+	ignorePerms bool
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
@@ -318,6 +319,9 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 func (p *Puller) handleDir(file protocol.FileInfo) {
 	realName := filepath.Join(p.dir, file.Name)
 	mode := os.FileMode(file.Flags & 0777)
+	if p.ignorePerms {
+		mode = 0755
+	}
 
 	if debug {
 		curFile := p.model.CurrentFolderFile(p.folder, file.Name)
@@ -357,7 +361,9 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 	// don't handle modification times on directories, because that sucks...)
 	// It's OK to change mode bits on stuff within non-writable directories.
 
-	if err := os.Chmod(realName, mode); err == nil {
+	if p.ignorePerms {
+		p.model.updateLocal(p.folder, file)
+	} else if err := os.Chmod(realName, mode); err == nil {
 		p.model.updateLocal(p.folder, file)
 	} else {
 		l.Infof("Puller (folder %q, file %q): %v", p.folder, file.Name, err)
@@ -509,14 +515,16 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 // thing that has changed.
 func (p *Puller) shortcutFile(file protocol.FileInfo) {
 	realName := filepath.Join(p.dir, file.Name)
-	err := os.Chmod(realName, os.FileMode(file.Flags&0777))
-	if err != nil {
-		l.Infof("Puller (folder %q, file %q): shortcut: %v", p.folder, file.Name, err)
-		return
+	if !p.ignorePerms {
+		err := os.Chmod(realName, os.FileMode(file.Flags&0777))
+		if err != nil {
+			l.Infof("Puller (folder %q, file %q): shortcut: %v", p.folder, file.Name, err)
+			return
+		}
 	}
 
 	t := time.Unix(file.Modified, 0)
-	err = os.Chtimes(realName, t, t)
+	err := os.Chtimes(realName, t, t)
 	if err != nil {
 		l.Infof("Puller (folder %q, file %q): shortcut: %v", p.folder, file.Name, err)
 		return
@@ -643,11 +651,13 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			}
 
 			// Set the correct permission bits on the new file
-			err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
-			if err != nil {
-				os.Remove(state.tempName)
-				l.Warnln("puller: final:", err)
-				continue
+			if !p.ignorePerms {
+				err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
+				if err != nil {
+					os.Remove(state.tempName)
+					l.Warnln("puller: final:", err)
+					continue
+				}
 			}
 
 			// Set the correct timestamp on the new file

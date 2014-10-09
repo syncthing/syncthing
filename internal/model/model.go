@@ -167,10 +167,11 @@ func (m *Model) StartFolderRW(folder string) {
 		panic("cannot start already running folder " + folder)
 	}
 	p := &Puller{
-		folder:   folder,
-		dir:      cfg.Path,
-		scanIntv: time.Duration(cfg.RescanIntervalS) * time.Second,
-		model:    m,
+		folder:      folder,
+		dir:         cfg.Path,
+		scanIntv:    time.Duration(cfg.RescanIntervalS) * time.Second,
+		model:       m,
+		ignorePerms: cfg.IgnorePerms,
 	}
 	m.folderRunners[folder] = p
 	m.fmut.Unlock()
