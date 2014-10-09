@@ -153,7 +153,6 @@ func copyStderr(stderr io.ReadCloser) {
 				l.Warnf("Panic detected, writing to \"%s\"", panicFd.Name())
 				l.Warnln("Please create an issue at https://github.com/syncthing/syncthing/issues/ with the panic log attached")
 
-				panicFd.WriteString("Panic at " + time.Now().Format(time.RFC1123) + "\n")
 				stdoutMut.Lock()
 				for _, line := range stdoutFirstLines {
 					panicFd.WriteString(line)
@@ -163,6 +162,8 @@ func copyStderr(stderr io.ReadCloser) {
 					panicFd.WriteString(line)
 				}
 			}
+
+			panicFd.WriteString("Panic at " + time.Now().Format(time.RFC3339) + "\n")
 		}
 
 		if panicFd != nil {
@@ -182,11 +183,12 @@ func copyStdout(stderr io.ReadCloser) {
 		stdoutMut.Lock()
 		if len(stdoutFirstLines) < cap(stdoutFirstLines) {
 			stdoutFirstLines = append(stdoutFirstLines, line)
+		} else {
+			if l := len(stdoutLastLines); l == cap(stdoutLastLines) {
+				stdoutLastLines = stdoutLastLines[:l-1]
+			}
+			stdoutLastLines = append(stdoutLastLines, line)
 		}
-		if l := len(stdoutLastLines); l == cap(stdoutLastLines) {
-			stdoutLastLines = stdoutLastLines[:l-1]
-		}
-		stdoutLastLines = append(stdoutLastLines, line)
 		stdoutMut.Unlock()
 
 		os.Stdout.WriteString(line)
