@@ -343,17 +343,17 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 			if err = osutil.InWritableDir(mkdir, realName); err == nil {
 				p.model.updateLocal(p.folder, file)
 			} else {
-				l.Infof("Puller (folder %q, file %q): %v", p.folder, file.Name, err)
+				l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
 			}
 			return
 		}
 
 		// Weird error when stat()'ing the dir. Probably won't work to do
 		// anything else with it if we can't even stat() it.
-		l.Infof("Puller (folder %q, file %q): %v", p.folder, file.Name, err)
+		l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
 		return
 	} else if !info.IsDir() {
-		l.Infof("Puller (folder %q, file %q): should be dir, but is not", p.folder, file.Name)
+		l.Infof("Puller (folder %q, dir %q): should be dir, but is not", p.folder, file.Name)
 		return
 	}
 
@@ -366,7 +366,7 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 	} else if err := os.Chmod(realName, mode); err == nil {
 		p.model.updateLocal(p.folder, file)
 	} else {
-		l.Infof("Puller (folder %q, file %q): %v", p.folder, file.Name, err)
+		l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
 	}
 }
 
@@ -376,6 +376,8 @@ func (p *Puller) deleteDir(file protocol.FileInfo) {
 	err := osutil.InWritableDir(os.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
 		p.model.updateLocal(p.folder, file)
+	} else {
+		l.Infof("Puller (folder %q, dir %q): delete: %v", p.folder, file.Name, err)
 	}
 }
 
