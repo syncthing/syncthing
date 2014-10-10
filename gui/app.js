@@ -669,7 +669,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         $scope.currentDevice = {
             AddressesStr: 'dynamic',
             Compression: true,
-            Introducer: true
+            Introducer: false
         };
         $scope.editingExisting = false;
         $scope.editingSelf = false;
