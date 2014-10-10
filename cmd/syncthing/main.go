@@ -16,7 +16,6 @@
 package main
 
 import (
-	"crypto/sha1"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -358,40 +357,7 @@ func syncthingMain() {
 	} else {
 		l.Infoln("No config file; starting with empty defaults")
 		myName, _ = os.Hostname()
-		defaultFolder, err := osutil.ExpandTilde("~/Sync")
-		if err != nil {
-			l.Fatalln("home:", err)
-		}
-
-		newCfg := config.New(myID)
-		newCfg.Folders = []config.FolderConfiguration{
-			{
-				ID:              "default",
-				Path:            defaultFolder,
-				RescanIntervalS: 60,
-				Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
-			},
-		}
-		newCfg.Devices = []config.DeviceConfiguration{
-			{
-				DeviceID:  myID,
-				Addresses: []string{"dynamic"},
-				Name:      myName,
-			},
-		}
-
-		port, err := getFreePort("127.0.0.1", 8080)
-		if err != nil {
-			l.Fatalln("get free port (GUI):", err)
-		}
-		newCfg.GUI.Address = fmt.Sprintf("127.0.0.1:%d", port)
-
-		port, err = getFreePort("0.0.0.0", 22000)
-		if err != nil {
-			l.Fatalln("get free port (BEP):", err)
-		}
-		newCfg.Options.ListenAddress = []string{fmt.Sprintf("0.0.0.0:%d", port)}
-
+		newCfg := defaultConfig(myName)
 		cfg = config.Wrap(cfgFile, newCfg)
 		cfg.Save()
 		l.Infof("Edit %s to taste or use the GUI\n", cfgFile)
@@ -441,9 +407,6 @@ func syncthingMain() {
 		readRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxRecvKbps), int64(5*1000*opts.MaxRecvKbps))
 	}
 
-	// If this is the first time the user runs v0.9, archive the old indexes and config.
-	archiveLegacyConfig()
-
 	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{CachedOpenFiles: 100})
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
@@ -460,82 +423,11 @@ func syncthingMain() {
 
 	m := model.NewModel(cfg, myName, "syncthing", Version, db)
 
-nextFolder:
-	for id, folder := range cfg.Folders() {
-		if folder.Invalid != "" {
-			continue
-		}
-		folder.Path, err = osutil.ExpandTilde(folder.Path)
-		if err != nil {
-			l.Fatalln("home:", err)
-		}
-		m.AddFolder(folder)
-
-		fi, err := os.Stat(folder.Path)
-		if m.CurrentLocalVersion(id) > 0 {
-			// Safety check. If the cached index contains files but the
-			// folder doesn't exist, we have a problem. We would assume
-			// that all files have been deleted which might not be the case,
-			// so mark it as invalid instead.
-			if err != nil || !fi.IsDir() {
-				l.Warnf("Stopping folder %q - path does not exist, but has files in index", folder.ID)
-				cfg.InvalidateFolder(id, "folder path missing")
-				continue nextFolder
-			}
-		} else if os.IsNotExist(err) {
-			// If we don't have any files in the index, and the directory
-			// doesn't exist, try creating it.
-			err = os.MkdirAll(folder.Path, 0700)
-		}
-
-		if err != nil {
-			// If there was another error or we could not create the
-			// path, the folder is invalid.
-			l.Warnf("Stopping folder %q - %v", err)
-			cfg.InvalidateFolder(id, err.Error())
-			continue nextFolder
-		}
-	}
+	sanityCheckFolders(cfg, m)
 
 	// GUI
 
-	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
-
-	if guiCfg.Enabled && guiCfg.Address != "" {
-		addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address)
-		if err != nil {
-			l.Fatalf("Cannot start GUI on %q: %v", guiCfg.Address, err)
-		} else {
-			var hostOpen, hostShow string
-			switch {
-			case addr.IP == nil:
-				hostOpen = "localhost"
-				hostShow = "0.0.0.0"
-			case addr.IP.IsUnspecified():
-				hostOpen = "localhost"
-				hostShow = addr.IP.String()
-			default:
-				hostOpen = addr.IP.String()
-				hostShow = hostOpen
-			}
-
-			var proto = "http"
-			if guiCfg.UseTLS {
-				proto = "https"
-			}
-
-			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
-			l.Infoln("Starting web GUI on", urlShow)
-			err := startGUI(guiCfg, guiAssets, m)
-			if err != nil {
-				l.Fatalln("Cannot start GUI:", err)
-			}
-			if opts.StartBrowser && !noBrowser && !stRestarting {
-				urlOpen := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostOpen, strconv.Itoa(addr.Port)))
-				openURL(urlOpen)
-			}
-		}
-	}
+	setupGUI(cfg, m)
 
 	// Clear out old indexes for other devices. Otherwise we'll start up and
 	// start needing a bunch of files which are nowhere to be found. This
@@ -549,32 +441,6 @@ nextFolder:
 				continue
 			}
 			m.Index(device, folderCfg.ID, nil)
-		}
-	}
-
-	// Remove all .idx* files that don't belong to an active folder.
-
-	validIndexes := make(map[string]bool)
-	for _, folder := range cfg.Folders() {
-		dir, err := osutil.ExpandTilde(folder.Path)
-		if err != nil {
-			l.Fatalln("home:", err)
-		}
-		id := fmt.Sprintf("%x", sha1.Sum([]byte(dir)))
-		validIndexes[id] = true
-	}
-
-	allIndexes, err := filepath.Glob(filepath.Join(confDir, "*.idx*"))
-	if err == nil {
-		for _, idx := range allIndexes {
-			bn := filepath.Base(idx)
-			fs := strings.Split(bn, ".")
-			if len(fs) > 1 {
-				if _, ok := validIndexes[fs[0]]; !ok {
-					l.Infoln("Removing old index", bn)
-					os.Remove(idx)
-				}
-			}
 		}
 	}
 
@@ -658,6 +524,125 @@ nextFolder:
 
 	l.Okln("Exiting")
 	os.Exit(code)
+}
+
+func setupGUI(cfg *config.ConfigWrapper, m *model.Model) {
+	opts := cfg.Options()
+	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
+
+	if guiCfg.Enabled && guiCfg.Address != "" {
+		addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address)
+		if err != nil {
+			l.Fatalf("Cannot start GUI on %q: %v", guiCfg.Address, err)
+		} else {
+			var hostOpen, hostShow string
+			switch {
+			case addr.IP == nil:
+				hostOpen = "localhost"
+				hostShow = "0.0.0.0"
+			case addr.IP.IsUnspecified():
+				hostOpen = "localhost"
+				hostShow = addr.IP.String()
+			default:
+				hostOpen = addr.IP.String()
+				hostShow = hostOpen
+			}
+
+			var proto = "http"
+			if guiCfg.UseTLS {
+				proto = "https"
+			}
+
+			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
+			l.Infoln("Starting web GUI on", urlShow)
+			err := startGUI(guiCfg, guiAssets, m)
+			if err != nil {
+				l.Fatalln("Cannot start GUI:", err)
+			}
+			if opts.StartBrowser && !noBrowser && !stRestarting {
+				urlOpen := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostOpen, strconv.Itoa(addr.Port)))
+				openURL(urlOpen)
+			}
+		}
+	}
+}
+
+func sanityCheckFolders(cfg *config.ConfigWrapper, m *model.Model) {
+	var err error
+
+nextFolder:
+	for id, folder := range cfg.Folders() {
+		if folder.Invalid != "" {
+			continue
+		}
+		folder.Path, err = osutil.ExpandTilde(folder.Path)
+		if err != nil {
+			l.Fatalln("home:", err)
+		}
+		m.AddFolder(folder)
+
+		fi, err := os.Stat(folder.Path)
+		if m.CurrentLocalVersion(id) > 0 {
+			// Safety check. If the cached index contains files but the
+			// folder doesn't exist, we have a problem. We would assume
+			// that all files have been deleted which might not be the case,
+			// so mark it as invalid instead.
+			if err != nil || !fi.IsDir() {
+				l.Warnf("Stopping folder %q - path does not exist, but has files in index", folder.ID)
+				cfg.InvalidateFolder(id, "folder path missing")
+				continue nextFolder
+			}
+		} else if os.IsNotExist(err) {
+			// If we don't have any files in the index, and the directory
+			// doesn't exist, try creating it.
+			err = os.MkdirAll(folder.Path, 0700)
+		}
+
+		if err != nil {
+			// If there was another error or we could not create the
+			// path, the folder is invalid.
+			l.Warnf("Stopping folder %q - %v", err)
+			cfg.InvalidateFolder(id, err.Error())
+			continue nextFolder
+		}
+	}
+}
+
+func defaultConfig(myName string) config.Configuration {
+	defaultFolder, err := osutil.ExpandTilde("~/Sync")
+	if err != nil {
+		l.Fatalln("home:", err)
+	}
+
+	newCfg := config.New(myID)
+	newCfg.Folders = []config.FolderConfiguration{
+		{
+			ID:              "default",
+			Path:            defaultFolder,
+			RescanIntervalS: 60,
+			Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
+		},
+	}
+	newCfg.Devices = []config.DeviceConfiguration{
+		{
+			DeviceID:  myID,
+			Addresses: []string{"dynamic"},
+			Name:      myName,
+		},
+	}
+
+	port, err := getFreePort("127.0.0.1", 8080)
+	if err != nil {
+		l.Fatalln("get free port (GUI):", err)
+	}
+	newCfg.GUI.Address = fmt.Sprintf("127.0.0.1:%d", port)
+
+	port, err = getFreePort("0.0.0.0", 22000)
+	if err != nil {
+		l.Fatalln("get free port (BEP):", err)
+	}
+	newCfg.Options.ListenAddress = []string{fmt.Sprintf("0.0.0.0:%d", port)}
+	return newCfg
 }
 
 func generateEvents() {
@@ -757,42 +742,6 @@ func resetFolders() {
 
 	idx := filepath.Join(confDir, "index")
 	os.RemoveAll(idx)
-}
-
-func archiveLegacyConfig() {
-	pat := filepath.Join(confDir, "*.idx.gz*")
-	idxs, err := filepath.Glob(pat)
-	if err == nil && len(idxs) > 0 {
-		// There are legacy indexes. This is probably the first time we run as v0.9.
-		backupDir := filepath.Join(confDir, "backup-of-v0.8")
-		err = os.MkdirAll(backupDir, 0700)
-		if err != nil {
-			l.Warnln("Cannot archive config/indexes:", err)
-			return
-		}
-
-		for _, idx := range idxs {
-			l.Infof("Archiving %s", filepath.Base(idx))
-			os.Rename(idx, filepath.Join(backupDir, filepath.Base(idx)))
-		}
-
-		src, err := os.Open(filepath.Join(confDir, "config.xml"))
-		if err != nil {
-			l.Warnf("Cannot archive config:", err)
-			return
-		}
-		defer src.Close()
-
-		dst, err := os.Create(filepath.Join(backupDir, "config.xml"))
-		if err != nil {
-			l.Warnf("Cannot archive config:", err)
-			return
-		}
-		defer dst.Close()
-
-		l.Infoln("Archiving config.xml")
-		io.Copy(dst, src)
-	}
 }
 
 func restart() {
