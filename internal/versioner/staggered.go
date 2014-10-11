@@ -127,7 +127,7 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 			{30, 3600},               // first hour -> 30 sec between versions
 			{3600, 86400},            // next day -> 1 h between versions
 			{86400, 592000},          // next 30 days -> 1 day between versions
-			{604800, maxAge * 86400}, // next year -> 1 week between versions
+			{604800, maxAge},         // next year -> 1 week between versions
 		},
 		mutex: &mutex,
 	}
