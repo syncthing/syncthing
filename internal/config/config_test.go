@@ -16,6 +16,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -60,17 +61,26 @@ func TestDefaultValues(t *testing.T) {
 }
 
 func TestDeviceConfig(t *testing.T) {
-	for i, ver := range []string{"v1", "v2", "v3", "v4", "v5"} {
-		wr, err := Load("testdata/"+ver+".xml", device1)
+	for i := 1; i <= CurrentVersion; i++ {
+		os.Remove("testdata/.stfolder")
+		wr, err := Load(fmt.Sprintf("testdata/v%d.xml", i), device1)
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		_, err = os.Stat("testdata/.stfolder")
+		if i < 6 && err != nil {
+			t.Fatal(err)
+		} else if i >= 6 && err == nil {
+			t.Fatal("Unexpected file")
+		}
+
 		cfg := wr.cfg
 
 		expectedFolders := []FolderConfiguration{
 			{
 				ID:              "test",
-				Path:            "~/Sync",
+				Path:            "testdata/",
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				ReadOnly:        true,
 				RescanIntervalS: 600,
@@ -92,8 +102,8 @@ func TestDeviceConfig(t *testing.T) {
 		}
 		expectedDeviceIDs := []protocol.DeviceID{device1, device4}
 
-		if cfg.Version != 5 {
-			t.Errorf("%d: Incorrect version %d != 5", i, cfg.Version)
+		if cfg.Version != CurrentVersion {
+			t.Errorf("%d: Incorrect version %d != %d", i, cfg.Version, CurrentVersion)
 		}
 		if !reflect.DeepEqual(cfg.Folders, expectedFolders) {
 			t.Errorf("%d: Incorrect Folders\n  A: %#v\n  E: %#v", i, cfg.Folders, expectedFolders)
@@ -296,7 +306,7 @@ func TestPrepare(t *testing.T) {
 }
 
 func TestRequiresRestart(t *testing.T) {
-	wr, err := Load("testdata/v5.xml", device1)
+	wr, err := Load("testdata/v6.xml", device1)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -21,18 +21,20 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
 
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/syncthing/syncthing/internal/logger"
+	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
 )
 
 var l = logger.DefaultLogger
 
-const CurrentVersion = 5
+const CurrentVersion = 6
 
 type Configuration struct {
 	Version int                   `xml:"version,attr"`
@@ -62,6 +64,28 @@ type FolderConfiguration struct {
 
 	Deprecated_Directory string                      `xml:"directory,omitempty,attr" json:"-"`
 	Deprecated_Nodes     []FolderDeviceConfiguration `xml:"node" json:"-"`
+}
+
+func (f *FolderConfiguration) CreateMarker() error {
+	if !f.HasMarker() {
+		marker := filepath.Join(f.Path, ".stfolder")
+		fd, err := os.Create(marker)
+		if err != nil {
+			return err
+		}
+		fd.Close()
+		osutil.HideFile(marker)
+	}
+
+	return nil
+}
+
+func (f *FolderConfiguration) HasMarker() bool {
+	_, err := os.Stat(filepath.Join(f.Path, ".stfolder"))
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 func (r *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
@@ -272,6 +296,11 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		convertV4V5(cfg)
 	}
 
+	// Upgrade to v6 configuration if appropriate
+	if cfg.Version == 5 {
+		convertV5V6(cfg)
+	}
+
 	// Hash old cleartext passwords
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
 		hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
@@ -342,6 +371,20 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 	}
 
 	return false
+}
+
+func convertV5V6(cfg *Configuration) {
+	// Added ".stfolder" file at folder roots to identify mount issues
+	// Doesn't affect the config itself, but uses config migrations to identify
+	// the migration point.
+	for _, folder := range cfg.Folders {
+		err := folder.CreateMarker()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	cfg.Version = 6
 }
 
 func convertV4V5(cfg *Configuration) {
