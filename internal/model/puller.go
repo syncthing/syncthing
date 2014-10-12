@@ -281,6 +281,9 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 	// !!!
 
 	changed := 0
+
+	var deletions []protocol.FileInfo
+
 	files.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 
 		// Needed items are delivered sorted lexicographically. This isn't
@@ -302,15 +305,12 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 		}
 
 		switch {
-		case protocol.IsDirectory(file.Flags) && protocol.IsDeleted(file.Flags):
-			// A deleted directory
-			p.deleteDir(file)
+		case protocol.IsDeleted(file.Flags):
+			// A deleted file or directory
+			deletions = append(deletions, file)
 		case protocol.IsDirectory(file.Flags):
 			// A new or changed directory
 			p.handleDir(file)
-		case protocol.IsDeleted(file.Flags):
-			// A deleted file
-			p.deleteFile(file)
 		default:
 			// A new or changed file. This is the only case where we do stuff
 			// in the background; the other three are done synchronously.
@@ -333,6 +333,15 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 
 	// Wait for the finisherChan to finish.
 	doneWg.Wait()
+
+	for i := range deletions {
+		deletion := deletions[len(deletions)-i-1]
+		if deletion.IsDirectory() {
+			p.deleteDir(deletion)
+		} else {
+			p.deleteFile(deletion)
+		}
+	}
 
 	return changed
 }
