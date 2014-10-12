@@ -31,13 +31,16 @@ type sharedPullerState struct {
 	folder   string
 	tempName string
 	realName string
-	reuse    bool
+	reused   int // Number of blocks reused from temporary file
 
 	// Mutable, must be locked for access
 	err        error      // The first error we hit
 	fd         *os.File   // The fd of the temp file
-	copyNeeded int        // Number of copy actions we expect to happen
-	pullNeeded int        // Number of block pulls we expect to happen
+	copyTotal  int        // Total number of copy actions for the whole job
+	pullTotal  int        // Total number of pull actions for the whole job
+	copyNeeded int        // Number of copy actions still pending
+	pullNeeded int        // Number of block pulls still pending
+	copyOrigin int        // Number of blocks copied from the original file
 	closed     bool       // Set when the file has been closed
 	mut        sync.Mutex // Protects the above
 }
@@ -79,7 +82,7 @@ func (s *sharedPullerState) tempFile() (*os.File, error) {
 
 	// Attempt to create the temp file
 	flags := os.O_WRONLY
-	if !s.reuse {
+	if s.reused == 0 {
 		flags |= os.O_CREATE | os.O_EXCL
 	}
 	fd, err := os.OpenFile(s.tempName, flags, 0644)
@@ -154,8 +157,17 @@ func (s *sharedPullerState) copyDone() {
 	s.mut.Unlock()
 }
 
+func (s *sharedPullerState) copiedFromOrigin() {
+	s.mut.Lock()
+	s.copyOrigin++
+	s.mut.Unlock()
+}
+
 func (s *sharedPullerState) pullStarted() {
 	s.mut.Lock()
+	s.copyTotal--
+	s.copyNeeded--
+	s.pullTotal++
 	s.pullNeeded++
 	if debug {
 		l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded start ->", s.pullNeeded)
