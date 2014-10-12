@@ -377,7 +377,7 @@ func convertV5V6(cfg *Configuration) {
 	// Added ".stfolder" file at folder roots to identify mount issues
 	// Doesn't affect the config itself, but uses config migrations to identify
 	// the migration point.
-	for _, folder := range cfg.Folders {
+	for _, folder := range Wrap("", *cfg).Folders() {
 		err := folder.CreateMarker()
 		if err != nil {
 			panic(err)

@@ -575,16 +575,10 @@ func setupGUI(cfg *config.ConfigWrapper, m *model.Model) {
 }
 
 func sanityCheckFolders(cfg *config.ConfigWrapper, m *model.Model) {
-	var err error
-
 nextFolder:
 	for id, folder := range cfg.Folders() {
 		if folder.Invalid != "" {
 			continue
-		}
-		folder.Path, err = osutil.ExpandTilde(folder.Path)
-		if err != nil {
-			l.Fatalln("home:", err)
 		}
 		m.AddFolder(folder)
 
