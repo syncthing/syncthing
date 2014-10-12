@@ -93,7 +93,7 @@ type Model struct {
 	folderDevices  map[string][]protocol.DeviceID                         // folder -> deviceIDs
 	deviceFolders  map[protocol.DeviceID][]string                         // deviceID -> folders
 	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
-	folderIgnores  map[string]ignore.Patterns                             // folder -> list of ignore patterns
+	folderIgnores  map[string]*ignore.Matcher                             // folder -> matcher object
 	folderRunners  map[string]service                                     // folder -> puller or scanner
 	fmut           sync.RWMutex                                           // protects the above
 
@@ -130,7 +130,7 @@ func NewModel(cfg *config.ConfigWrapper, deviceName, clientName, clientVersion s
 		folderDevices:      make(map[string][]protocol.DeviceID),
 		deviceFolders:      make(map[protocol.DeviceID][]string),
 		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
-		folderIgnores:      make(map[string]ignore.Patterns),
+		folderIgnores:      make(map[string]*ignore.Matcher),
 		folderRunners:      make(map[string]service),
 		folderState:        make(map[string]folderState),
 		folderStateChanged: make(map[string]time.Time),
@@ -829,7 +829,7 @@ func (m *Model) deviceWasSeen(deviceID protocol.DeviceID) {
 	m.deviceStatRef(deviceID).WasSeen()
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *files.Set, ignores ignore.Patterns) {
+func sendIndexes(conn protocol.Connection, folder string, fs *files.Set, ignores *ignore.Matcher) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	var err error
@@ -854,7 +854,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *files.Set, ignores
 	}
 }
 
-func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, folder string, fs *files.Set, ignores ignore.Patterns) (uint64, error) {
+func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, folder string, fs *files.Set, ignores *ignore.Matcher) (uint64, error) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -1006,7 +1006,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	fs, ok := m.folderFiles[folder]
 	dir := m.folderCfgs[folder].Path
 
-	ignores, _ := ignore.Load(filepath.Join(dir, ".stignore"))
+	ignores, _ := ignore.Load(filepath.Join(dir, ".stignore"), m.cfg.Options().CacheIgnoredFiles)
 	m.folderIgnores[folder] = ignores
 
 	w := &scanner.Walker{

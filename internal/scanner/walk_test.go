@@ -58,7 +58,7 @@ func init() {
 }
 
 func TestWalkSub(t *testing.T) {
-	ignores, err := ignore.Load("testdata/.stignore")
+	ignores, err := ignore.Load("testdata/.stignore", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestWalkSub(t *testing.T) {
 }
 
 func TestWalk(t *testing.T) {
-	ignores, err := ignore.Load("testdata/.stignore")
+	ignores, err := ignore.Load("testdata/.stignore", false)
 	if err != nil {
 		t.Fatal(err)
 	}

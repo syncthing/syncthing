@@ -148,6 +148,7 @@ type OptionsConfiguration struct {
 	RestartOnWakeup      bool     `xml:"restartOnWakeup" default:"true"`
 	AutoUpgradeIntervalH int      `xml:"autoUpgradeIntervalH" default:"12"` // 0 for off
 	KeepTemporariesH     int      `xml:"keepTemporariesH" default:"24"`     // 0 for off
+	CacheIgnoredFiles    bool     `xml:"cacheIgnoredFiles" default:"true"`
 
 	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
 	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`

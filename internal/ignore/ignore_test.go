@@ -13,19 +13,19 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-package ignore_test
+package ignore
 
 import (
 	"bytes"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
-
-	"github.com/syncthing/syncthing/internal/ignore"
 )
 
 func TestIgnore(t *testing.T) {
-	pats, err := ignore.Load("testdata/.stignore")
+	pats, err := Load("testdata/.stignore", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestExcludes(t *testing.T) {
 	i*2
 	!ign2
 	`
-	pats, err := ignore.Parse(bytes.NewBufferString(stignore), ".stignore")
+	pats, err := Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestBadPatterns(t *testing.T) {
 	}
 
 	for _, pat := range badPatterns {
-		parsed, err := ignore.Parse(bytes.NewBufferString(pat), ".stignore")
+		parsed, err := Parse(bytes.NewBufferString(pat), ".stignore")
 		if err == nil {
 			t.Errorf("No error for pattern %q: %v", pat, parsed)
 		}
@@ -120,7 +120,7 @@ func TestBadPatterns(t *testing.T) {
 }
 
 func TestCaseSensitivity(t *testing.T) {
-	ign, _ := ignore.Parse(bytes.NewBufferString("test"), ".stignore")
+	ign, _ := Parse(bytes.NewBufferString("test"), ".stignore")
 
 	match := []string{"test"}
 	dontMatch := []string{"foo"}
@@ -145,6 +145,144 @@ func TestCaseSensitivity(t *testing.T) {
 	}
 }
 
+func TestCaching(t *testing.T) {
+	fd1, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fd2, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer fd1.Close()
+	defer fd2.Close()
+	defer os.Remove(fd1.Name())
+	defer os.Remove(fd2.Name())
+
+	_, err = fd1.WriteString("/x/\n#include " + filepath.Base(fd2.Name()) + "\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fd2.WriteString("/y/\n")
+
+	pats, err := Load(fd1.Name(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if pats.oldMatches == nil || len(pats.oldMatches) != 0 {
+		t.Fatal("Expected empty map")
+	}
+
+	if pats.newMatches == nil || len(pats.newMatches) != 0 {
+		t.Fatal("Expected empty map")
+	}
+
+	if len(pats.patterns) != 4 {
+		t.Fatal("Incorrect number of patterns loaded", len(pats.patterns), "!=", 4)
+	}
+
+	// Cache some outcomes
+
+	for _, letter := range []string{"a", "b", "x", "y"} {
+		pats.Match(letter)
+	}
+
+	if len(pats.newMatches) != 4 {
+		t.Fatal("Expected 4 cached results")
+	}
+
+	// Reload file, expect old outcomes to be provided
+
+	pats, err = Load(fd1.Name(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pats.oldMatches) != 4 {
+		t.Fatal("Expected 4 cached results")
+	}
+
+	// Match less this time
+
+	for _, letter := range []string{"b", "x", "y"} {
+		pats.Match(letter)
+	}
+
+	if len(pats.newMatches) != 3 {
+		t.Fatal("Expected 3 cached results")
+	}
+
+	// Reload file, expect the new outcomes to be provided
+
+	pats, err = Load(fd1.Name(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pats.oldMatches) != 3 {
+		t.Fatal("Expected 3 cached results", len(pats.oldMatches))
+	}
+
+	// Modify the include file, expect empty cache
+
+	fd2.WriteString("/z/\n")
+
+	pats, err = Load(fd1.Name(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(pats.oldMatches) != 0 {
+		t.Fatal("Expected 0 cached results")
+	}
+
+	// Cache some outcomes again
+
+	for _, letter := range []string{"b", "x", "y"} {
+		pats.Match(letter)
+	}
+
+	// Verify that outcomes provided on next laod
+
+	pats, err = Load(fd1.Name(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pats.oldMatches) != 3 {
+		t.Fatal("Expected 3 cached results")
+	}
+
+	// Modify the root file, expect cache to be invalidated
+
+	fd1.WriteString("/a/\n")
+
+	pats, err = Load(fd1.Name(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pats.oldMatches) != 0 {
+		t.Fatal("Expected cache invalidation")
+	}
+
+	// Cache some outcomes again
+
+	for _, letter := range []string{"b", "x", "y"} {
+		pats.Match(letter)
+	}
+
+	// Verify that outcomes provided on next laod
+
+	pats, err = Load(fd1.Name(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pats.oldMatches) != 3 {
+		t.Fatal("Expected 3 cached results")
+	}
+}
+
 func TestCommentsAndBlankLines(t *testing.T) {
 	stignore := `
 	// foo
@@ -157,8 +295,8 @@ func TestCommentsAndBlankLines(t *testing.T) {
 
 
 	`
-	pats, _ := ignore.Parse(bytes.NewBufferString(stignore), ".stignore")
-	if len(pats) > 0 {
+	pats, _ := Parse(bytes.NewBufferString(stignore), ".stignore")
+	if len(pats.patterns) > 0 {
 		t.Errorf("Expected no patterns")
 	}
 }
@@ -181,8 +319,57 @@ flamingo
 *.crow
 *.crow
 	`
-	pats, _ := ignore.Parse(bytes.NewBufferString(stignore), ".stignore")
+	pats, _ := Parse(bytes.NewBufferString(stignore), ".stignore")
 
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		result = pats.Match("filename")
+	}
+}
+
+func BenchmarkMatchCached(b *testing.B) {
+	stignore := `
+.frog
+.frog*
+.frogfox
+.whale
+.whale/*
+.dolphin
+.dolphin/*
+~ferret~.*
+.ferret.*
+flamingo.*
+flamingo
+*.crow
+*.crow
+	`
+	// Caches per file, hence write the patterns to a file.
+	fd, err := ioutil.TempFile("", "")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	_, err = fd.WriteString(stignore)
+	defer fd.Close()
+	defer os.Remove(fd.Name())
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	// Load the patterns
+	pats, err := Load(fd.Name(), true)
+	if err != nil {
+		b.Fatal(err)
+	}
+	// Cache the outcome for "filename"
+	pats.Match("filename")
+
+	// This load should now load the cached outcomes as the set of patterns
+	// has not changed.
+	pats, err = Load(fd.Name(), true)
+	if err != nil {
+		b.Fatal(err)
+	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		result = pats.Match("filename")
