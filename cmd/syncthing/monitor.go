@@ -161,6 +161,7 @@ func copyStderr(stderr io.ReadCloser) {
 				for _, line := range stdoutLastLines {
 					panicFd.WriteString(line)
 				}
+				stdoutMut.Unlock()
 			}
 
 			panicFd.WriteString("Panic at " + time.Now().Format(time.RFC3339) + "\n")
