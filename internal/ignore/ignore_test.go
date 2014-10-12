@@ -162,3 +162,29 @@ func TestCommentsAndBlankLines(t *testing.T) {
 		t.Errorf("Expected no patterns")
 	}
 }
+
+var result bool
+
+func BenchmarkMatch(b *testing.B) {
+	stignore := `
+.frog
+.frog*
+.frogfox
+.whale
+.whale/*
+.dolphin
+.dolphin/*
+~ferret~.*
+.ferret.*
+flamingo.*
+flamingo
+*.crow
+*.crow
+	`
+	pats, _ := ignore.Parse(bytes.NewBufferString(stignore), ".stignore")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		result = pats.Match("filename")
+	}
+}
