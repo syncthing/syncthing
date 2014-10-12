@@ -167,7 +167,7 @@ type fileIterator func(f protocol.FileIntf) bool
 func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo, deleteFn deletionHandler) uint64 {
 	runtime.GC()
 
-	sort.Sort(fileList(fs)) // sort list on name, same as on disk
+	sort.Sort(fileList(fs)) // sort list on name, same as in the database
 
 	start := deviceKey(folder, device, nil)                            // before all folder/device files
 	limit := deviceKey(folder, device, []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
@@ -193,12 +193,6 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 			break
 		}
 
-		if !moreFs && deleteFn == nil {
-			// We don't have any more updated files to process and deletion
-			// has not been requested, so we can exit early
-			break
-		}
-
 		if moreFs {
 			newName = []byte(fs[fsi].Name)
 		}
@@ -215,8 +209,8 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 
 		switch {
 		case moreFs && (!moreDb || cmp == -1):
-			// Disk is missing this file. Insert it.
-			if lv := ldbInsert(batch, folder, device, newName, fs[fsi]); lv > maxLocalVer {
+			// Database is missing this file. Insert it.
+			if lv := ldbInsert(batch, folder, device, fs[fsi]); lv > maxLocalVer {
 				maxLocalVer = lv
 			}
 			if fs[fsi].IsInvalid() {
@@ -234,7 +228,7 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 			ef.UnmarshalXDR(dbi.Value())
 			if fs[fsi].Version > ef.Version ||
 				(fs[fsi].Version == ef.Version && fs[fsi].Flags != ef.Flags) {
-				if lv := ldbInsert(batch, folder, device, newName, fs[fsi]); lv > maxLocalVer {
+				if lv := ldbInsert(batch, folder, device, fs[fsi]); lv > maxLocalVer {
 					maxLocalVer = lv
 				}
 				if fs[fsi].IsInvalid() {
@@ -243,15 +237,12 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 					ldbUpdateGlobal(snap, batch, folder, device, newName, fs[fsi].Version)
 				}
 			}
-			// Iterate both sides.
 			fsi++
 			moreDb = dbi.Next()
 
 		case moreDb && (!moreFs || cmp == 1):
-			if deleteFn != nil {
-				if lv := deleteFn(snap, batch, folder, device, oldName, dbi); lv > maxLocalVer {
-					maxLocalVer = lv
-				}
+			if lv := deleteFn(snap, batch, folder, device, oldName, dbi); lv > maxLocalVer {
+				maxLocalVer = lv
 			}
 			moreDb = dbi.Next()
 		}
@@ -268,7 +259,7 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 func ldbReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) uint64 {
 	// TODO: Return the remaining maxLocalVer?
 	return ldbGenericReplace(db, folder, device, fs, func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) uint64 {
-		// Disk has files that we are missing. Remove it.
+		// Database has a file that we are missing. Remove it.
 		if debug {
 			l.Debugf("delete; folder=%q device=%v name=%q", folder, protocol.DeviceIDFromBytes(device), name)
 		}
@@ -321,7 +312,7 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) ui
 		fk := deviceKey(folder, device, name)
 		bs, err := snap.Get(fk, nil)
 		if err == leveldb.ErrNotFound {
-			if lv := ldbInsert(batch, folder, device, name, f); lv > maxLocalVer {
+			if lv := ldbInsert(batch, folder, device, f); lv > maxLocalVer {
 				maxLocalVer = lv
 			}
 			if f.IsInvalid() {
@@ -340,7 +331,7 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) ui
 		// Flags might change without the version being bumped when we set the
 		// invalid flag on an existing file.
 		if ef.Version != f.Version || ef.Flags != f.Flags {
-			if lv := ldbInsert(batch, folder, device, name, f); lv > maxLocalVer {
+			if lv := ldbInsert(batch, folder, device, f); lv > maxLocalVer {
 				maxLocalVer = lv
 			}
 			if f.IsInvalid() {
@@ -359,7 +350,7 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) ui
 	return maxLocalVer
 }
 
-func ldbInsert(batch dbWriter, folder, device, name []byte, file protocol.FileInfo) uint64 {
+func ldbInsert(batch dbWriter, folder, device []byte, file protocol.FileInfo) uint64 {
 	if debug {
 		l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
 	}
@@ -368,6 +359,7 @@ func ldbInsert(batch dbWriter, folder, device, name []byte, file protocol.FileIn
 		file.LocalVersion = clock(0)
 	}
 
+	name := []byte(file.Name)
 	nk := deviceKey(folder, device, name)
 	batch.Put(nk, file.MarshalXDR())
 
