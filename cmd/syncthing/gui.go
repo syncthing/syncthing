@@ -154,8 +154,13 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		handler = redirectToHTTPSMiddleware(handler)
 	}
 
+	srv := http.Server{
+		Handler:     handler,
+		ReadTimeout: 2 * time.Second,
+	}
+
 	go func() {
-		err := http.Serve(listener, handler)
+		err := srv.Serve(listener)
 		if err != nil {
 			panic(err)
 		}
