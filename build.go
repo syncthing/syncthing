@@ -35,6 +35,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -301,7 +302,11 @@ func rmr(paths ...string) {
 }
 
 func getVersion() string {
-	v := run("git", "describe", "--always", "--dirty")
+	ecmd := exec.Command("git", "describe", "--always", "--dirty")
+	v, err := ecmd.CombinedOutput()
+	if err != nil {
+		return "unknown-dev"
+	}
 	v = versionRe.ReplaceAllFunc(v, func(s []byte) []byte {
 		s[0] = '+'
 		return s
@@ -310,7 +315,11 @@ func getVersion() string {
 }
 
 func buildStamp() int64 {
-	bs := run("git", "show", "-s", "--format=%ct")
+	ecmd := exec.Command("git", "show", "-s", "--format=%ct")
+	bs, err := ecmd.CombinedOutput()
+	if err != nil {
+		return time.Now().Unix()
+	}
 	s, _ := strconv.ParseInt(string(bs), 10, 64)
 	return s
 }
