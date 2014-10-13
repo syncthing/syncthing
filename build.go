@@ -42,6 +42,7 @@ var (
 	goarch    string
 	goos      string
 	noupgrade bool
+	version   string
 )
 
 const minGoVersion = 1.3
@@ -64,6 +65,7 @@ func main() {
 	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
 	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
 	flag.BoolVar(&noupgrade, "no-upgrade", false, "Disable upgrade functionality")
+	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.Parse()
 
 	switch goarch {
@@ -280,7 +282,7 @@ func clean() {
 func ldflags() string {
 	var b bytes.Buffer
 	b.WriteString("-w")
-	b.WriteString(fmt.Sprintf(" -X main.Version %s", version()))
+	b.WriteString(fmt.Sprintf(" -X main.Version %s", version))
 	b.WriteString(fmt.Sprintf(" -X main.BuildStamp %d", buildStamp()))
 	b.WriteString(fmt.Sprintf(" -X main.BuildUser %s", buildUser()))
 	b.WriteString(fmt.Sprintf(" -X main.BuildHost %s", buildHost()))
@@ -298,7 +300,7 @@ func rmr(paths ...string) {
 	}
 }
 
-func version() string {
+func getVersion() string {
 	v := run("git", "describe", "--always", "--dirty")
 	v = versionRe.ReplaceAllFunc(v, func(s []byte) []byte {
 		s[0] = '+'
@@ -345,7 +347,7 @@ func buildArch() string {
 }
 
 func archiveName() string {
-	return fmt.Sprintf("syncthing-%s-%s", buildArch(), version())
+	return fmt.Sprintf("syncthing-%s-%s", buildArch(), version)
 }
 
 func run(cmd string, args ...string) []byte {
