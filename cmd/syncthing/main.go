@@ -346,13 +346,20 @@ func syncthingMain() {
 	// Load the configuration file, if it exists.
 	// If it does not, create a template.
 
-	cfg, err = config.Load(cfgFile, myID)
-	if err == nil {
-		myCfg := cfg.Devices()[myID]
-		if myCfg.Name == "" {
-			myName, _ = os.Hostname()
+	if info, err := os.Stat(cfgFile); err == nil {
+		if info.IsDir() {
+			l.Fatalln("config file is a directory!")
+		}
+		cfg, err = config.Load(cfgFile, myID)
+		if err == nil {
+			myCfg := cfg.Devices()[myID]
+			if myCfg.Name == "" {
+				myName, _ = os.Hostname()
+			} else {
+				myName = myCfg.Name
+			}
 		} else {
-			myName = myCfg.Name
+			l.Fatalln("Could not load config file, refusing to replace with empty defaults")
 		}
 	} else {
 		l.Infoln("No config file; starting with empty defaults")
