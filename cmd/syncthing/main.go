@@ -347,8 +347,8 @@ func syncthingMain() {
 	// If it does not, create a template.
 
 	if info, err := os.Stat(cfgFile); err == nil {
-		if info.IsDir() {
-			l.Fatalln("config file is a directory!")
+		if !info.Mode().IsRegular() {
+			l.Fatalln("Config file is not a file?")
 		}
 		cfg, err = config.Load(cfgFile, myID)
 		if err == nil {
@@ -359,7 +359,7 @@ func syncthingMain() {
 				myName = myCfg.Name
 			}
 		} else {
-			l.Fatalln("Could not load config file, refusing to replace with empty defaults")
+			l.Fatalln("Configuration:", err)
 		}
 	} else {
 		l.Infoln("No config file; starting with empty defaults")
