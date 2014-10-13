@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -51,7 +52,27 @@ func main() {
 	http.HandleFunc("/report", reportHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-	err = http.ListenAndServeTLS(fmt.Sprintf(":%d", *port), *certFile, *keyFile, nil)
+	cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cfg := &tls.Config{
+		Certificates:           []tls.Certificate{cert},
+		SessionTicketsDisabled: true,
+	}
+
+	listener, err := tls.Listen("tcp", fmt.Sprintf(":%d", *port), cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	srv := http.Server{
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+	}
+
+	err = srv.Serve(listener)
 	if err != nil {
 		log.Fatal(err)
 	}
