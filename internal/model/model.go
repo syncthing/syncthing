@@ -266,6 +266,8 @@ func (m *Model) DeviceStatistics() map[string]stats.DeviceStatistics {
 
 // Returns the completion status, in percent, for the given device and folder.
 func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
+	defer m.leveldbPanicWorkaround()
+
 	var tot int64
 
 	m.fmut.RLock()
@@ -325,6 +327,8 @@ func sizeOfFile(f protocol.FileIntf) (files, deleted int, bytes int64) {
 // GlobalSize returns the number of files, deleted files and total bytes for all
 // files in the global model.
 func (m *Model) GlobalSize(folder string) (files, deleted int, bytes int64) {
+	defer m.leveldbPanicWorkaround()
+
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
@@ -342,6 +346,8 @@ func (m *Model) GlobalSize(folder string) (files, deleted int, bytes int64) {
 // LocalSize returns the number of files, deleted files and total bytes for all
 // files in the local folder.
 func (m *Model) LocalSize(folder string) (files, deleted int, bytes int64) {
+	defer m.leveldbPanicWorkaround()
+
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
@@ -361,6 +367,8 @@ func (m *Model) LocalSize(folder string) (files, deleted int, bytes int64) {
 
 // NeedSize returns the number and total size of currently needed files.
 func (m *Model) NeedSize(folder string) (files int, bytes int64) {
+	defer m.leveldbPanicWorkaround()
+
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
@@ -380,6 +388,8 @@ func (m *Model) NeedSize(folder string) (files int, bytes int64) {
 // NeedFiles returns the list of currently needed files, stopping at maxFiles
 // files or maxBlocks blocks. Limits <= 0 are ignored.
 func (m *Model) NeedFolderFilesLimited(folder string, maxFiles, maxBlocks int) []protocol.FileInfo {
+	defer m.leveldbPanicWorkaround()
+
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	nblocks := 0
@@ -1258,4 +1268,25 @@ func (m *Model) availability(folder string, file string) []protocol.DeviceID {
 
 func (m *Model) String() string {
 	return fmt.Sprintf("model@%p", m)
+}
+
+func (m *Model) leveldbPanicWorkaround() {
+	// When an inconsistency is detected in leveldb we panic(). This is
+	// appropriate because it should never happen, but currently it does for
+	// some reason. However it only seems to trigger in the asynchronous full-
+	// database scans that happen due to REST and usage-reporting calls. In
+	// those places we defer to this workaround to catch the panic instead of
+	// taking down syncthing.
+
+	// This is just a band-aid and should be removed as soon as we have found
+	// a real root cause.
+
+	if pnc := recover(); pnc != nil {
+		if err, ok := pnc.(error); ok && strings.Contains(err.Error(), "leveldb") {
+			l.Warnln("recovered:", err)
+		} else {
+			// Any non-leveldb error is genuine and should continue panicing.
+			panic(err)
+		}
+	}
 }
