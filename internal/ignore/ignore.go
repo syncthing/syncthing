@@ -120,13 +120,13 @@ func (m *Matcher) Match(file string) (result bool) {
 
 func loadIgnoreFile(file string, seen map[string]bool) (*Matcher, error) {
 	if seen[file] {
-		return nil, fmt.Errorf("Multiple include of ignore file %q", file)
+		return &Matcher{}, fmt.Errorf("Multiple include of ignore file %q", file)
 	}
 	seen[file] = true
 
 	fd, err := os.Open(file)
 	if err != nil {
-		return nil, err
+		return &Matcher{}, err
 	}
 	defer fd.Close()
 
@@ -134,7 +134,7 @@ func loadIgnoreFile(file string, seen map[string]bool) (*Matcher, error) {
 }
 
 func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) (*Matcher, error) {
-	var exps Matcher
+	exps := Matcher{}
 
 	addPattern := func(line string) error {
 		include := true
