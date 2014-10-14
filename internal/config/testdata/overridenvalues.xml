@@ -18,5 +18,6 @@
         <restartOnWakeup>false</restartOnWakeup>
         <autoUpgradeIntervalH>24</autoUpgradeIntervalH>
         <keepTemporariesH>48</keepTemporariesH>
+        <cacheIgnoredFiles>false</cacheIgnoredFiles>
     </options>
 </configuration>

@@ -390,7 +390,7 @@ func TestIgnores(t *testing.T) {
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(nil, "device", "syncthing", "dev", db)
+	m := NewModel(config.Wrap("", config.Configuration{}), "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 
 	expected := []string{

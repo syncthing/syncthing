@@ -36,7 +36,7 @@ type Walker struct {
 	// BlockSize controls the size of the block used when hashing.
 	BlockSize int
 	// List of patterns to ignore
-	Ignores ignore.Patterns
+	Ignores *ignore.Matcher
 	// If TempNamer is not nil, it is used to ignore tempory files when walking.
 	TempNamer TempNamer
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
