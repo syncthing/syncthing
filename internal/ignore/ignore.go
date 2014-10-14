@@ -214,7 +214,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) (*M
 			}
 		}
 		if err != nil {
-			return nil, err
+			return &exps, err
 		}
 	}
 
