@@ -575,16 +575,10 @@ func setupGUI(cfg *config.ConfigWrapper, m *model.Model) {
 }
 
 func sanityCheckFolders(cfg *config.ConfigWrapper, m *model.Model) {
-	var err error
-
 nextFolder:
 	for id, folder := range cfg.Folders() {
 		if folder.Invalid != "" {
 			continue
-		}
-		folder.Path, err = osutil.ExpandTilde(folder.Path)
-		if err != nil {
-			l.Fatalln("home:", err)
 		}
 		m.AddFolder(folder)
 
@@ -598,11 +592,25 @@ nextFolder:
 				l.Warnf("Stopping folder %q - path does not exist, but has files in index", folder.ID)
 				cfg.InvalidateFolder(id, "folder path missing")
 				continue nextFolder
+			} else if !folder.HasMarker() {
+				l.Warnf("Stopping folder %q - path exists, but folder marker missing, check for mount issues", folder.ID)
+				cfg.InvalidateFolder(id, "folder marker missing")
+				continue nextFolder
 			}
 		} else if os.IsNotExist(err) {
 			// If we don't have any files in the index, and the directory
 			// doesn't exist, try creating it.
 			err = os.MkdirAll(folder.Path, 0700)
+			if err != nil {
+				l.Warnf("Stopping folder %q - %v", err)
+				cfg.InvalidateFolder(id, err.Error())
+				continue nextFolder
+			}
+			err = folder.CreateMarker()
+		} else if !folder.HasMarker() {
+			// If we don't have any files in the index, and the path does exist
+			// but the marker is not there, create it.
+			err = folder.CreateMarker()
 		}
 
 		if err != nil {

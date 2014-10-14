@@ -1,5 +1,5 @@
 <configuration version="2">
-    <repository id="test" directory="~/Sync" ro="true">
+    <repository id="test" directory="testdata/" ro="true">
         <versioning type="simple">
             <param key="foo" val="bar"/>
             <param key="baz" val="quux"/>

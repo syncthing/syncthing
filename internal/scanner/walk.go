@@ -113,7 +113,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			return nil
 		}
 
-		if sn := filepath.Base(rn); sn == ".stignore" || sn == ".stversions" || w.Ignores.Match(rn) {
+		if sn := filepath.Base(rn); sn == ".stignore" || sn == ".stversions" || sn == ".stfolder" || w.Ignores.Match(rn) {
 			// An ignored file
 			if debug {
 				l.Debugln("ignored:", rn)
