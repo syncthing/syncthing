@@ -1017,7 +1017,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	w := &scanner.Walker{
 		Dir:          dir,
 		Sub:          sub,
-		Ignores:      ignores,
+		Matcher:      ignores,
 		BlockSize:    protocol.BlockSize,
 		TempNamer:    defTempNamer,
 		CurrentFiler: cFiler{m, folder},
