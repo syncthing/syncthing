@@ -94,9 +94,6 @@ func (p *Puller) Serve() {
 
 	var prevVer uint64
 
-	// Clean out old temporaries before we start pulling
-	p.clean()
-
 	// We don't start pulling files until a scan has been completed.
 	initialScanCompleted := false
 
@@ -130,6 +127,9 @@ loop:
 				pullTimer.Reset(checkPullIntv)
 				continue
 			}
+
+			// Clean out old temporaries before we start pulling
+			p.clean()
 
 			if debug {
 				l.Debugln(p, "pulling", prevVer, curVer)
@@ -649,14 +649,12 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			// Verify the file against expected hashes
 			fd, err := os.Open(state.tempName)
 			if err != nil {
-				os.Remove(state.tempName)
 				l.Warnln("puller: final:", err)
 				continue
 			}
 			err = scanner.Verify(fd, protocol.BlockSize, state.file.Blocks)
 			fd.Close()
 			if err != nil {
-				os.Remove(state.tempName)
 				l.Warnln("puller: final:", state.file.Name, err)
 				continue
 			}
@@ -665,7 +663,6 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			if !p.ignorePerms {
 				err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
 				if err != nil {
-					os.Remove(state.tempName)
 					l.Warnln("puller: final:", err)
 					continue
 				}
@@ -682,7 +679,6 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 					// sync.
 					l.Infof("Puller (folder %q, file %q): final: %v (continuing anyway as requested)", p.folder, state.file.Name, err)
 				} else {
-					os.Remove(state.tempName)
 					l.Warnln("puller: final:", err)
 					continue
 				}
@@ -694,7 +690,6 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			if p.versioner != nil {
 				err = p.versioner.Archive(state.realName)
 				if err != nil {
-					os.Remove(state.tempName)
 					l.Warnln("puller: final:", err)
 					continue
 				}
@@ -703,7 +698,6 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			// Replace the original file with the new one
 			err = osutil.Rename(state.tempName, state.realName)
 			if err != nil {
-				os.Remove(state.tempName)
 				l.Warnln("puller: final:", err)
 				continue
 			}
