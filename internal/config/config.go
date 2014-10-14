@@ -57,6 +57,7 @@ type FolderConfiguration struct {
 	RescanIntervalS int                         `xml:"rescanIntervalS,attr" default:"60"`
 	IgnorePerms     bool                        `xml:"ignorePerms,attr"`
 	Versioning      VersioningConfiguration     `xml:"versioning"`
+	LenientMtimes   bool                        `xml:"lenientMtimes"`
 
 	Invalid string `xml:"-"` // Set at runtime when there is an error, not saved
 

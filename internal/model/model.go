@@ -167,11 +167,12 @@ func (m *Model) StartFolderRW(folder string) {
 		panic("cannot start already running folder " + folder)
 	}
 	p := &Puller{
-		folder:      folder,
-		dir:         cfg.Path,
-		scanIntv:    time.Duration(cfg.RescanIntervalS) * time.Second,
-		model:       m,
-		ignorePerms: cfg.IgnorePerms,
+		folder:        folder,
+		dir:           cfg.Path,
+		scanIntv:      time.Duration(cfg.RescanIntervalS) * time.Second,
+		model:         m,
+		ignorePerms:   cfg.IgnorePerms,
+		lenientMtimes: cfg.LenientMtimes,
 	}
 	m.folderRunners[folder] = p
 	m.fmut.Unlock()
@@ -182,6 +183,10 @@ func (m *Model) StartFolderRW(folder string) {
 			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
 		}
 		p.versioner = factory(folder, cfg.Path, cfg.Versioning.Params)
+	}
+
+	if cfg.LenientMtimes {
+		l.Infof("Folder %q is running with LenientMtimes workaround. Syncing may not work properly.", folder)
 	}
 
 	go p.Serve()

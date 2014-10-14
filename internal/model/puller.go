@@ -62,13 +62,14 @@ var (
 )
 
 type Puller struct {
-	folder      string
-	dir         string
-	scanIntv    time.Duration
-	model       *Model
-	stop        chan struct{}
-	versioner   versioner.Versioner
-	ignorePerms bool
+	folder        string
+	dir           string
+	scanIntv      time.Duration
+	model         *Model
+	stop          chan struct{}
+	versioner     versioner.Versioner
+	ignorePerms   bool
+	lenientMtimes bool
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
@@ -528,8 +529,16 @@ func (p *Puller) shortcutFile(file protocol.FileInfo) {
 	t := time.Unix(file.Modified, 0)
 	err := os.Chtimes(realName, t, t)
 	if err != nil {
-		l.Infof("Puller (folder %q, file %q): shortcut: %v", p.folder, file.Name, err)
-		return
+		if p.lenientMtimes {
+			// We accept the failure with a warning here and allow the sync to
+			// continue. We'll sync the new mtime back to the other devices later.
+			// If they have the same problem & setting, we might never get in
+			// sync.
+			l.Infof("Puller (folder %q, file %q): shortcut: %v (continuing anyway as requested)", p.folder, file.Name, err)
+		} else {
+			l.Infof("Puller (folder %q, file %q): shortcut: %v", p.folder, file.Name, err)
+			return
+		}
 	}
 
 	p.model.updateLocal(p.folder, file)
@@ -666,9 +675,17 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			t := time.Unix(state.file.Modified, 0)
 			err = os.Chtimes(state.tempName, t, t)
 			if err != nil {
-				os.Remove(state.tempName)
-				l.Warnln("puller: final:", err)
-				continue
+				if p.lenientMtimes {
+					// We accept the failure with a warning here and allow the sync to
+					// continue. We'll sync the new mtime back to the other devices later.
+					// If they have the same problem & setting, we might never get in
+					// sync.
+					l.Infof("Puller (folder %q, file %q): final: %v (continuing anyway as requested)", p.folder, state.file.Name, err)
+				} else {
+					os.Remove(state.tempName)
+					l.Warnln("puller: final:", err)
+					continue
+				}
 			}
 
 			// If we should use versioning, let the versioner archive the old
