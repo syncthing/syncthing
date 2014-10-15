@@ -380,10 +380,9 @@ func convertV5V6(cfg *Configuration) {
 	// Doesn't affect the config itself, but uses config migrations to identify
 	// the migration point.
 	for _, folder := range Wrap("", *cfg).Folders() {
-		err := folder.CreateMarker()
-		if err != nil {
-			panic(err)
-		}
+		// Best attempt, if it fails, it fails, the user will have to fix
+		// it up manually, as the repo will not get started.
+		folder.CreateMarker()
 	}
 
 	cfg.Version = 6
