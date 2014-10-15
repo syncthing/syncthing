@@ -43,9 +43,9 @@ stop() {
 
 clean() {
 	if [[ $(uname -s) == "Linux" ]] ; then
-		grep -v .stversions | grep -v utf8-nfd
+		grep -v .stversions | grep -v .stfolder | grep -v utf8-nfd
 	else
-		grep -v .stversions
+		grep -v .stversions | grep -v .stfolder
 	fi
 }
 

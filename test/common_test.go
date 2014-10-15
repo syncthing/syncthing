@@ -324,7 +324,7 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) {
 		}
 
 		rn, _ := filepath.Rel(dir, path)
-		if rn == "." {
+		if rn == "." || rn == ".stfolder" {
 			return nil
 		}
 

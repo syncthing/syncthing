@@ -64,7 +64,7 @@ testConvergence() {
 
 	for i in 1 2 3 12-1 12-2 23-2 23-3; do
 		pushd "s$i" >/dev/null
-		../md5r -l | sort | grep -v .stversions > ../md5-$i
+		../md5r -l | sort | grep -v .stversions | grep -v .stfolder > ../md5-$i
 		popd >/dev/null
 	done
 
@@ -126,7 +126,7 @@ alterFiles() {
 		chmod 500 ro-test
 		touch "timechanged-$i"
 
-		../md5r -l | sort | grep -v .stversions > ../md5-$i
+		../md5r -l | sort | grep -v .stversions | grep -v .stfolder > ../md5-$i
 		popd >/dev/null
 	done
 
