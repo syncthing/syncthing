@@ -84,15 +84,20 @@ func (p *Puller) Serve() {
 
 	pullTimer := time.NewTimer(checkPullIntv)
 	scanTimer := time.NewTimer(time.Millisecond) // The first scan should be done immediately.
+	cleanTimer := time.NewTicker(time.Hour)
 
 	defer func() {
 		pullTimer.Stop()
 		scanTimer.Stop()
+		cleanTimer.Stop()
 		// TODO: Should there be an actual FolderStopped state?
 		p.model.setState(p.folder, FolderIdle)
 	}()
 
 	var prevVer uint64
+
+	// Clean out old temporaries before we start pulling
+	p.clean()
 
 	// We don't start pulling files until a scan has been completed.
 	initialScanCompleted := false
@@ -127,9 +132,6 @@ loop:
 				pullTimer.Reset(checkPullIntv)
 				continue
 			}
-
-			// Clean out old temporaries before we start pulling
-			p.clean()
 
 			if debug {
 				l.Debugln(p, "pulling", prevVer, curVer)
@@ -197,6 +199,9 @@ loop:
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
 				initialScanCompleted = true
 			}
+		// Clean out old temporaries
+		case <-cleanTimer.C:
+			p.clean()
 		}
 	}
 }
