@@ -30,7 +30,7 @@ go build json.go
 start() {
 	echo "Starting..."
 	for i in 1 2 3 ; do
-		STTRACE=model,scanner STPROFILER=":909$i" syncthing -home "h$i" > "$i.out" 2>&1 &
+		STTRACE=model,scanner STPROFILER=":909$i" ../bin/syncthing -home "h$i" > "$i.out" 2>&1 &
 	done
 }
 
