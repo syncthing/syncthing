@@ -451,6 +451,7 @@ func restPostDiscoveryHint(w http.ResponseWriter, r *http.Request) {
 }
 
 func restGetDiscovery(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	registry := discoverer.All()
 	devices := make(map[string][]struct{}, len(registry))
 	for device, addrs := range registry {
