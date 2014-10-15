@@ -190,7 +190,7 @@
         <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
           <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
             <h3 class="panel-title">
-              <span class="glyphicon glyphicon-home"></span>&emsp;{{deviceName(deviceCfg)}}
+              <identicon data-value="deviceCfg.DeviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
             </h3>
           </div>
           <div id="device-this" class="panel-collapse collapse in">
@@ -236,7 +236,7 @@
           <div class="panel panel-{{deviceClass(deviceCfg)}}" ng-repeat="deviceCfg in otherDevices()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
               <h3 class="panel-title">
-                <span class="glyphicon glyphicon-retweet"></span>&emsp;{{deviceName(deviceCfg)}}
+                <identicon data-value="deviceCfg.DeviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
                 <span class="pull-right hidden-xs">
                   <span ng-if="connections[deviceCfg.DeviceID] && completion[deviceCfg.DeviceID]._total == 100">
                     <span translate>Up to Date</span> (100%)
@@ -821,7 +821,6 @@
       <li><a href="http://getbootstrap.com/">Bootstrap</a>, Copyright &copy; 2011-2014 Twitter, Inc.</li>
     </ul>
   </modal>
-
 
   <script src="angular/angular.min.js"></script>
   <script src="angular/angular-translate.min.js"></script>
