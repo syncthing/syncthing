@@ -438,7 +438,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 
 	for i := 0; i < len(fs); {
 		lamport.Default.Tick(fs[i].Version)
-		if ignores.Match(fs[i].Name) {
+		if ignores != nil && ignores.Match(fs[i].Name) {
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
 		} else {
@@ -479,7 +479,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 
 	for i := 0; i < len(fs); {
 		lamport.Default.Tick(fs[i].Version)
-		if ignores.Match(fs[i].Name) {
+		if ignores != nil && ignores.Match(fs[i].Name) {
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
 		} else {
@@ -877,7 +877,7 @@ func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, fol
 			maxLocalVer = f.LocalVersion
 		}
 
-		if ignores.Match(f.Name) {
+		if ignores != nil && ignores.Match(f.Name) {
 			return true
 		}
 
@@ -1077,7 +1077,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 				batch = batch[:0]
 			}
 
-			if ignores.Match(f.Name) {
+			if ignores != nil && ignores.Match(f.Name) {
 				// File has been ignored. Set invalid bit.
 				nf := protocol.FileInfo{
 					Name:     f.Name,
