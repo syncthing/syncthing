@@ -307,6 +307,7 @@ func getVersion() string {
 	if err != nil {
 		return "unknown-dev"
 	}
+	v = v[:len(v)-1]
 	v = versionRe.ReplaceAllFunc(v, func(s []byte) []byte {
 		s[0] = '+'
 		return s
