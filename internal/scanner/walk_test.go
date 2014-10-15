@@ -67,7 +67,7 @@ func TestWalkSub(t *testing.T) {
 		Dir:       "testdata",
 		Sub:       "dir2",
 		BlockSize: 128 * 1024,
-		Ignores:   ignores,
+		Matcher:   ignores,
 	}
 	fchan, err := w.Walk()
 	var files []protocol.FileInfo
@@ -102,7 +102,7 @@ func TestWalk(t *testing.T) {
 	w := Walker{
 		Dir:       "testdata",
 		BlockSize: 128 * 1024,
-		Ignores:   ignores,
+		Matcher:   ignores,
 	}
 
 	fchan, err := w.Walk()
