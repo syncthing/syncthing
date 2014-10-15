@@ -26,8 +26,8 @@ go build json.go
 
 start() {
 	echo "Starting..."
-	STTRACE=model,scanner STPROFILER=":9091" syncthing -home "f1" > 1.out 2>&1 &
-	STTRACE=model,scanner STPROFILER=":9092" syncthing -home "f2" > 2.out 2>&1 &
+	STTRACE=model,scanner STPROFILER=":9091" ../bin/syncthing -home "f1" > 1.out 2>&1 &
+	STTRACE=model,scanner STPROFILER=":9092" ../bin/syncthing -home "f2" > 2.out 2>&1 &
 	sleep 1
 }
 
