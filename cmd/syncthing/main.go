@@ -193,7 +193,7 @@ func main() {
 	if err != nil {
 		l.Fatalln("home:", err)
 	}
-	flag.StringVar(&generateDir, "generate", "", "Generate key in specified dir, then exit")
+	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address")
 	flag.StringVar(&guiAuthentication, "gui-authentication", guiAuthentication, "Override GUI authentication; username:password")
 	flag.StringVar(&guiAPIKey, "gui-apikey", guiAPIKey, "Override GUI API key")
@@ -239,17 +239,31 @@ func main() {
 		if err == nil {
 			l.Warnln("Key exists; will not overwrite.")
 			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
-			return
+		} else {
+			newCertificate(dir, "")
+			cert, err = loadCert(dir, "")
+			myID = protocol.NewDeviceID(cert.Certificate[0])
+			if err != nil {
+				l.Fatalln("load cert:", err)
+			}
+			if err == nil {
+				l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
+			}
 		}
 
-		newCertificate(dir, "")
-		cert, err = loadCert(dir, "")
+		cfgFile := filepath.Join(dir, "config.xml")
+		if _, err := os.Stat(cfgFile); err == nil {
+			l.Warnln("Config exists; will not overwrite.")
+			return
+		}
+		var myName, _ = os.Hostname()
+		var newCfg = defaultConfig(myName)
+		var cfg = config.Wrap(cfgFile, newCfg)
+		err = cfg.Save()
 		if err != nil {
-			l.Fatalln("load cert:", err)
+			l.Warnln("Failed to save config", err)
 		}
-		if err == nil {
-			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
-		}
+
 		return
 	}
 
