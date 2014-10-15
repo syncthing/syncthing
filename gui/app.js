@@ -666,15 +666,21 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     };
 
     $scope.addDevice = function () {
-        $scope.currentDevice = {
-            AddressesStr: 'dynamic',
-            Compression: true,
-            Introducer: false
-        };
-        $scope.editingExisting = false;
-        $scope.editingSelf = false;
-        $scope.deviceEditor.$setPristine();
-        $('#editDevice').modal();
+        $http.get(urlbase + '/discovery')
+		.success(function (registry) {
+			$scope.discovery = registry;
+		})
+		.then(function () {
+			$scope.currentDevice = {
+			    AddressesStr: 'dynamic',
+			    Compression: true,
+			    Introducer: false
+			};
+			$scope.editingExisting = false;
+			$scope.editingSelf = false;
+			$scope.deviceEditor.$setPristine();
+			$('#editDevice').modal();
+		});
     };
 
     $scope.deleteDevice = function () {
