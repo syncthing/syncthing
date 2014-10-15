@@ -59,6 +59,10 @@ func (s *Scanner) Serve() {
 				initialScanCompleted = true
 			}
 
+			if s.intv == 0 {
+				return
+			}
+
 			timer.Reset(s.intv)
 		}
 	}

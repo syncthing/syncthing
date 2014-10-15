@@ -190,7 +190,9 @@ loop:
 				break loop
 			}
 			p.model.setState(p.folder, FolderIdle)
-			scanTimer.Reset(p.scanIntv)
+			if p.scanIntv > 0 {
+				scanTimer.Reset(p.scanIntv)
+			}
 			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
 				initialScanCompleted = true
