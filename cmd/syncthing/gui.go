@@ -451,7 +451,12 @@ func restPostDiscoveryHint(w http.ResponseWriter, r *http.Request) {
 }
 
 func restGetDiscovery(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(discoverer.All())
+	registry := discoverer.All()
+	devices := make(map[string][]struct{}, len(registry))
+	for device, addrs := range registry {
+		devices[device.String()] = make([]struct{}, len(addrs))
+	}
+	json.NewEncoder(w).Encode(devices)
 }
 
 func restGetReport(m *model.Model, w http.ResponseWriter, r *http.Request) {
