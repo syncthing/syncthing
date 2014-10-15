@@ -302,8 +302,7 @@ func rmr(paths ...string) {
 }
 
 func getVersion() string {
-	ecmd := exec.Command("git", "describe", "--always", "--dirty")
-	v, err := ecmd.CombinedOutput()
+	v, err := runError("git", "describe", "--always", "--dirty")
 	if err != nil {
 		return "unknown-dev"
 	}
@@ -315,8 +314,7 @@ func getVersion() string {
 }
 
 func buildStamp() int64 {
-	ecmd := exec.Command("git", "show", "-s", "--format=%ct")
-	bs, err := ecmd.CombinedOutput()
+	bs, err := runError("git", "show", "-s", "--format=%ct")
 	if err != nil {
 		return time.Now().Unix()
 	}
@@ -360,14 +358,22 @@ func archiveName() string {
 }
 
 func run(cmd string, args ...string) []byte {
-	ecmd := exec.Command(cmd, args...)
-	bs, err := ecmd.CombinedOutput()
+	bs, err := runError(cmd, args...)
 	if err != nil {
 		log.Println(cmd, strings.Join(args, " "))
 		log.Println(string(bs))
 		log.Fatal(err)
 	}
 	return bytes.TrimSpace(bs)
+}
+
+func runError(cmd string, args ...string) ([]byte, error) {
+	ecmd := exec.Command(cmd, args...)
+	bs, err := ecmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	return bytes.TrimSpace(bs), nil
 }
 
 func runPrint(cmd string, args ...string) {
