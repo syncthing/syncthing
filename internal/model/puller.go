@@ -163,6 +163,9 @@ loop:
 						curVer = lv
 					}
 					prevVer = curVer
+					if debug {
+						l.Debugln(p, "next pull in", nextPullIntv)
+					}
 					pullTimer.Reset(nextPullIntv)
 					break
 				}
@@ -173,6 +176,9 @@ loop:
 					// errors preventing us. Flag this with a warning and
 					// wait a bit longer before retrying.
 					l.Warnf("Folder %q isn't making progress - check logs for possible root cause. Pausing puller for %v.", p.folder, pauseIntv)
+					if debug {
+						l.Debugln(p, "next pull in", pauseIntv)
+					}
 					pullTimer.Reset(pauseIntv)
 					break
 				}
@@ -193,12 +199,16 @@ loop:
 			}
 			p.model.setState(p.folder, FolderIdle)
 			if p.scanIntv > 0 {
+				if debug {
+					l.Debugln(p, "next rescan in", p.scanIntv)
+				}
 				scanTimer.Reset(p.scanIntv)
 			}
 			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
 				initialScanCompleted = true
 			}
+
 		// Clean out old temporaries
 		case <-cleanTimer.C:
 			p.clean()

@@ -439,6 +439,9 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	for i := 0; i < len(fs); {
 		lamport.Default.Tick(fs[i].Version)
 		if ignores != nil && ignores.Match(fs[i].Name) {
+			if debug{
+				l.Debugln("dropping update for ignored",fs[i])
+			}
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
 		} else {
@@ -480,6 +483,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	for i := 0; i < len(fs); {
 		lamport.Default.Tick(fs[i].Version)
 		if ignores != nil && ignores.Match(fs[i].Name) {
+				l.Debugln("dropping update for ignored",fs[i])
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
 		} else {
@@ -878,6 +882,7 @@ func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, fol
 		}
 
 		if ignores != nil && ignores.Match(f.Name) {
+				l.Debugln("not sending update for ignored",f)
 			return true
 		}
 
@@ -1079,6 +1084,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 
 			if ignores != nil && ignores.Match(f.Name) {
 				// File has been ignored. Set invalid bit.
+				l.Debugln("setting invalid bit on ignored",f)
 				nf := protocol.FileInfo{
 					Name:     f.Name,
 					Flags:    f.Flags | protocol.FlagInvalid,

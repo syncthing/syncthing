@@ -152,7 +152,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				Modified: info.ModTime().Unix(),
 			}
 			if debug {
-				l.Debugln("dir:", f)
+				l.Debugln("dir:", p, f)
 			}
 			fchan <- f
 			return nil
@@ -176,12 +176,16 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				flags = protocol.FlagNoPermBits | 0666
 			}
 
-			fchan <- protocol.FileInfo{
+			f := protocol.FileInfo{
 				Name:     rn,
 				Version:  lamport.Default.Tick(0),
 				Flags:    flags,
 				Modified: info.ModTime().Unix(),
 			}
+			if debug {
+				l.Debugln("to hash:", p, f)
+			}
+			fchan <- f
 		}
 
 		return nil
