@@ -31,6 +31,10 @@
 			"Rev": "12e4b4183793ac4b061921e7980845e750679fd0"
 		},
 		{
+			"ImportPath": "github.com/AudriusButkevicius/lfu-go",
+			"Rev": "164bcecceb92fd6037f4d18a8d97b495ec6ef669"
+		},
+		{
 			"ImportPath": "github.com/bkaradzic/go-lz4",
 			"Rev": "93a831dcee242be64a9cc9803dda84af25932de7"
 		},
