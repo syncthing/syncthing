@@ -112,6 +112,7 @@ alterFiles() {
 			set +o pipefail
 			find . -type f \
 				| grep -v timechanged \
+				| grep -v .stfolder \
 				| sort -k 1.16 \
 				| head -n "$todelete" \
 				| xargs rm -f
@@ -157,7 +158,7 @@ done
 echo "MD5-summing..."
 for i in 1 12-2 23-3 ; do
 	pushd "s$i" >/dev/null
-	../md5r -l | sort > ../md5-$i
+	../md5r -l | grep -v .stfolder | sort > ../md5-$i
 	popd >/dev/null
 done
 
