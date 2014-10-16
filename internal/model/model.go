@@ -1300,7 +1300,7 @@ func (m *Model) leveldbPanicWorkaround() {
 
 	if pnc := recover(); pnc != nil {
 		if err, ok := pnc.(error); ok && strings.Contains(err.Error(), "leveldb") {
-			l.Warnln("recovered:", err)
+			l.Infoln("recovered:", err)
 		} else {
 			// Any non-leveldb error is genuine and should continue panicing.
 			panic(err)
