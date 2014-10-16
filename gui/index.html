@@ -383,7 +383,10 @@
           <form role="form" name="deviceEditor">
             <div class="form-group" ng-class="{'has-error': deviceEditor.deviceID.$invalid && deviceEditor.deviceID.$dirty}">
               <label translate for="deviceID">Device ID</label>
-              <input ng-if="!editingExisting" name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.DeviceID" required valid-deviceid></input>
+              <input ng-if="!editingExisting" name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.DeviceID" required valid-deviceid list="discovery-list" />
+              <datalist id="discovery-list" ng-if="!editingExisting">
+                <option ng-repeat="(id,address) in discovery" value="{{ id }}" />
+              </datalist>
               <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentDevice.DeviceID}}</div>
               <p class="help-block">
                 <span translate ng-if="deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine">The device ID to enter here can be found in the "Edit > Show ID" dialog on the other device. Spaces and dashes are optional (ignored).</span>

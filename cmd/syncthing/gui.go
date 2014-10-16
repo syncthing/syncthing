@@ -34,6 +34,7 @@ import (
 	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/syncthing/syncthing/internal/auto"
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/discover"
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/logger"
 	"github.com/syncthing/syncthing/internal/model"
@@ -451,7 +452,17 @@ func restPostDiscoveryHint(w http.ResponseWriter, r *http.Request) {
 }
 
 func restGetDiscovery(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(discoverer.All())
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	registry := discoverer.All()
+
+	// Device ids can't be marshalled as keys so we need to manually
+	// rebuild this map using strings.
+	devices := make(map[string][]discover.CacheEntry, len(registry))
+	for device, _ := range registry {
+		devices[device.String()] = registry[device]
+	}
+
+	json.NewEncoder(w).Encode(devices)
 }
 
 func restGetReport(m *model.Model, w http.ResponseWriter, r *http.Request) {

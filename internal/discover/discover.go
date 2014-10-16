@@ -39,7 +39,7 @@ type Discoverer struct {
 	cacheLifetime    time.Duration
 	broadcastBeacon  beacon.Interface
 	multicastBeacon  beacon.Interface
-	registry         map[protocol.DeviceID][]cacheEntry
+	registry         map[protocol.DeviceID][]CacheEntry
 	registryLock     sync.RWMutex
 	extServer        string
 	extPort          uint16
@@ -51,9 +51,9 @@ type Discoverer struct {
 	extAnnounceOKmut sync.Mutex
 }
 
-type cacheEntry struct {
-	addr string
-	seen time.Time
+type CacheEntry struct {
+	Address string
+	Seen    time.Time
 }
 
 var (
@@ -68,7 +68,7 @@ func NewDiscoverer(id protocol.DeviceID, addresses []string) *Discoverer {
 		globalBcastIntv: 1800 * time.Second,
 		errorRetryIntv:  60 * time.Second,
 		cacheLifetime:   5 * time.Minute,
-		registry:        make(map[protocol.DeviceID][]cacheEntry),
+		registry:        make(map[protocol.DeviceID][]CacheEntry),
 	}
 }
 
@@ -139,16 +139,16 @@ func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
 	if len(cached) > 0 {
 		addrs := make([]string, len(cached))
 		for i := range cached {
-			addrs[i] = cached[i].addr
+			addrs[i] = cached[i].Address
 		}
 		return addrs
 	} else if len(d.extServer) != 0 {
 		addrs := d.externalLookup(device)
-		cached = make([]cacheEntry, len(addrs))
+		cached = make([]CacheEntry, len(addrs))
 		for i := range addrs {
-			cached[i] = cacheEntry{
-				addr: addrs[i],
-				seen: time.Now(),
+			cached[i] = CacheEntry{
+				Address: addrs[i],
+				Seen:    time.Now(),
 			}
 		}
 
@@ -169,11 +169,11 @@ func (d *Discoverer) Hint(device string, addrs []string) {
 	})
 }
 
-func (d *Discoverer) All() map[protocol.DeviceID][]cacheEntry {
+func (d *Discoverer) All() map[protocol.DeviceID][]CacheEntry {
 	d.registryLock.RLock()
-	devices := make(map[protocol.DeviceID][]cacheEntry, len(d.registry))
+	devices := make(map[protocol.DeviceID][]CacheEntry, len(d.registry))
 	for device, addrs := range d.registry {
-		addrsCopy := make([]cacheEntry, len(addrs))
+		addrsCopy := make([]CacheEntry, len(addrs))
 		copy(addrsCopy, addrs)
 		devices[device] = addrsCopy
 	}
@@ -365,14 +365,14 @@ func (d *Discoverer) registerDevice(addr net.Addr, device Device) bool {
 			deviceAddr = ua.String()
 		}
 		for i := range current {
-			if current[i].addr == deviceAddr {
-				current[i].seen = time.Now()
+			if current[i].Address == deviceAddr {
+				current[i].Seen = time.Now()
 				goto done
 			}
 		}
-		current = append(current, cacheEntry{
-			addr: deviceAddr,
-			seen: time.Now(),
+		current = append(current, CacheEntry{
+			Address: deviceAddr,
+			Seen:    time.Now(),
 		})
 	done:
 	}
@@ -388,7 +388,7 @@ func (d *Discoverer) registerDevice(addr net.Addr, device Device) bool {
 	if len(current) > len(orig) {
 		addrs := make([]string, len(current))
 		for i := range current {
-			addrs[i] = current[i].addr
+			addrs[i] = current[i].Address
 		}
 		events.Default.Log(events.DeviceDiscovered, map[string]interface{}{
 			"device": id.String(),
@@ -468,11 +468,11 @@ func (d *Discoverer) externalLookup(device protocol.DeviceID) []string {
 	return addrs
 }
 
-func (d *Discoverer) filterCached(c []cacheEntry) []cacheEntry {
+func (d *Discoverer) filterCached(c []CacheEntry) []CacheEntry {
 	for i := 0; i < len(c); {
-		if ago := time.Since(c[i].seen); ago > d.cacheLifetime {
+		if ago := time.Since(c[i].Seen); ago > d.cacheLifetime {
 			if debug {
-				l.Debugf("removing cached address %s: seen %v ago", c[i].addr, ago)
+				l.Debugf("removing cached address %s: seen %v ago", c[i].Address, ago)
 			}
 			c[i] = c[len(c)-1]
 			c = c[:len(c)-1]
