@@ -103,6 +103,7 @@ var (
 	stop           = make(chan int)
 	discoverer     *discover.Discoverer
 	externalPort   int
+	igd            *upnp.IGD
 	cert           tls.Certificate
 )
 
@@ -474,6 +475,7 @@ func syncthingMain() {
 	externalPort = addr.Port
 
 	// UPnP
+	igd = nil
 
 	if opts.UPnPEnabled {
 		setupUPnP()
@@ -689,20 +691,20 @@ func setupUPnP() {
 		} else {
 			// Set up incoming port forwarding, if necessary and possible
 			port, _ := strconv.Atoi(portStr)
-			igd, err := upnp.Discover()
-			if err == nil {
+			igds := upnp.Discover()
+			if len(igds) > 0 {
+				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
+				// for handling multiple IGDs, which will require changes to the global discovery service
+				igd = igds[0]
+
 				externalPort = setupExternalPort(igd, port)
 				if externalPort == 0 {
 					l.Warnln("Failed to create UPnP port mapping")
 				} else {
-					l.Infoln("Created UPnP port mapping - external port", externalPort)
-				}
-			} else {
-				l.Infof("No UPnP gateway detected")
-				if debugNet {
-					l.Debugf("UPnP: %v", err)
+					l.Infof("Created UPnP port mapping for external port %d on UPnP device %s.", externalPort, igd.FriendlyIdentifier())
 				}
 			}
+
 			if opts.UPnPRenewal > 0 {
 				go renewUPnP(port)
 			}
@@ -713,7 +715,11 @@ func setupUPnP() {
 }
 
 func setupExternalPort(igd *upnp.IGD, port int) int {
-	// We seed the random number generator with the device ID to get a
+	if igd == nil {
+		return 0
+	}
+
+	// We seed the random number generator with the node ID to get a
 	// repeatable sequence of random external ports.
 	rnd := rand.NewSource(certSeed(cert.Certificate[0]))
 	for i := 0; i < 10; i++ {
@@ -731,32 +737,46 @@ func renewUPnP(port int) {
 		opts := cfg.Options()
 		time.Sleep(time.Duration(opts.UPnPRenewal) * time.Minute)
 
-		igd, err := upnp.Discover()
-		if err != nil {
-			continue
+		// Make sure our IGD reference isn't nil
+		if igd == nil {
+			l.Infoln("Undefined IGD during UPnP port renewal. Re-discovering...")
+			igds := upnp.Discover()
+			if len(igds) > 0 {
+				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
+				// for handling multiple IGDs, which will require changes to the global discovery service
+				igd = igds[0]
+			} else {
+				l.Infof("Failed to re-discover IGD during UPnP port mapping renewal.")
+				continue
+			}
 		}
 
 		// Just renew the same port that we already have
 		if externalPort != 0 {
-			err = igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", opts.UPnPLease*60)
+			err := igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", opts.UPnPLease*60)
 			if err == nil {
-				l.Infoln("Renewed UPnP port mapping - external port", externalPort)
-				continue
+				l.Infof("Renewed UPnP port mapping for external port %d on device %s.", externalPort, igd.FriendlyIdentifier())
+			} else {
+				l.Warnf("Error renewing UPnP port mapping for external port %d on device %s: %s", externalPort, igd.FriendlyIdentifier(), err.Error())
 			}
+
+			continue
 		}
 
 		// Something strange has happened. We didn't have an external port before?
 		// Or perhaps the gateway has changed?
 		// Retry the same port sequence from the beginning.
+		l.Infoln("No UPnP port mapping defined, updating...")
+
 		r := setupExternalPort(igd, port)
 		if r != 0 {
 			externalPort = r
-			l.Infoln("Updated UPnP port mapping - external port", externalPort)
+			l.Infof("Updated UPnP port mapping for external port %d on device %s.", externalPort, igd.FriendlyIdentifier())
 			discoverer.StopGlobal()
 			discoverer.StartGlobal(opts.GlobalAnnServer, uint16(r))
-			continue
+		} else {
+			l.Warnf("Failed to update UPnP port mapping for external port on device " + igd.FriendlyIdentifier() + ".")
 		}
-		l.Warnln("Failed to update UPnP port mapping - external port", externalPort)
 	}
 }
 
