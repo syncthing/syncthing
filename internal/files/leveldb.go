@@ -49,6 +49,7 @@ func clock(v uint64) uint64 {
 const (
 	keyTypeDevice = iota
 	keyTypeGlobal
+	keyTypeBlock
 )
 
 type fileVersion struct {

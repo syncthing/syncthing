@@ -16,10 +16,13 @@
 package model
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/syncthing/internal/scanner"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
@@ -47,7 +50,7 @@ func TestHandleFile(t *testing.T) {
 	// Copy: 2, 5, 8
 	// Pull: 1, 3, 4, 6, 7
 
-	// Create existing file, and update local index
+	// Create existing file
 	existingFile := protocol.FileInfo{
 		Name:     "filex",
 		Flags:    0,
@@ -65,6 +68,7 @@ func TestHandleFile(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(config.Wrap("/tmp/test", config.Configuration{}), "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	// Update index
 	m.updateLocal("default", existingFile)
 
 	p := Puller{
@@ -73,34 +77,20 @@ func TestHandleFile(t *testing.T) {
 		model:  m,
 	}
 
-	copyChan := make(chan copyBlocksState, 1) // Copy chan gets all blocks needed to copy in a wrapper struct
-	pullChan := make(chan pullBlockState, 5)  // Pull chan gets blocks one by one
+	copyChan := make(chan copyBlocksState, 1)
 
-	p.handleFile(requiredFile, copyChan, pullChan, nil)
+	p.handleFile(requiredFile, copyChan, nil)
 
 	// Receive the results
 	toCopy := <-copyChan
-	toPull := []pullBlockState{<-pullChan, <-pullChan, <-pullChan, <-pullChan, <-pullChan}
 
-	select {
-	case <-pullChan:
-		t.Error("Channel not empty!")
-	default:
+	if len(toCopy.blocks) != 8 {
+		t.Errorf("Unexpected count of copy blocks: %d != 8", len(toCopy.blocks))
 	}
 
-	if len(toCopy.blocks) != 3 {
-		t.Errorf("Unexpected count of copy blocks: %d != 3", len(toCopy.blocks))
-	}
-
-	for i, eq := range []int{2, 5, 8} {
-		if string(toCopy.blocks[i].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block mismatch: %s != %s", toCopy.blocks[i].String(), blocks[eq].String())
-		}
-	}
-
-	for i, eq := range []int{1, 3, 4, 6, 7} {
-		if string(toPull[i].block.Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block mismatch: %s != %s", toPull[i].block.String(), blocks[eq].String())
+	for i, block := range toCopy.blocks {
+		if string(block.Hash) != string(blocks[i+1].Hash) {
+			t.Errorf("Block mismatch: %s != %s", block.String(), blocks[i+1].String())
 		}
 	}
 }
@@ -114,7 +104,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	// Copy: 5, 8
 	// Pull: 1, 6
 
-	// Create existing file, and update local index
+	// Create existing file
 	existingFile := protocol.FileInfo{
 		Name:     "file",
 		Flags:    0,
@@ -132,6 +122,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(config.Wrap("/tmp/test", config.Configuration{}), "device", "syncthing", "dev", db)
 	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	// Update index
 	m.updateLocal("default", existingFile)
 
 	p := Puller{
@@ -140,34 +131,122 @@ func TestHandleFileWithTemp(t *testing.T) {
 		model:  m,
 	}
 
-	copyChan := make(chan copyBlocksState, 1) // Copy chan gets all blocks needed to copy in a wrapper struct
-	pullChan := make(chan pullBlockState, 2)  // Pull chan gets blocks one by one
+	copyChan := make(chan copyBlocksState, 1)
 
-	p.handleFile(requiredFile, copyChan, pullChan, nil)
+	p.handleFile(requiredFile, copyChan, nil)
 
 	// Receive the results
 	toCopy := <-copyChan
-	toPull := []pullBlockState{<-pullChan, <-pullChan}
 
-	select {
-	case <-pullChan:
-		t.Error("Channel not empty!")
-	default:
+	if len(toCopy.blocks) != 4 {
+		t.Errorf("Unexpected count of copy blocks: %d != 4", len(toCopy.blocks))
 	}
 
-	if len(toCopy.blocks) != 2 {
-		t.Errorf("Unexpected count of copy blocks: %d != 2", len(toCopy.blocks))
-	}
-
-	for i, eq := range []int{5, 8} {
+	for i, eq := range []int{1, 5, 6, 8} {
 		if string(toCopy.blocks[i].Hash) != string(blocks[eq].Hash) {
 			t.Errorf("Block mismatch: %s != %s", toCopy.blocks[i].String(), blocks[eq].String())
 		}
 	}
+}
 
-	for i, eq := range []int{1, 6} {
-		if string(toPull[i].block.Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block mismatch: %s != %s", toPull[i].block.String(), blocks[eq].String())
+func TestCopierFinder(t *testing.T) {
+	// After diff between required and existing we should:
+	// Copy: 1, 2, 3, 4, 6, 7, 8
+	// Since there is no existing file, nor a temp file
+
+	// After dropping out blocks found locally:
+	// Pull: 1, 5, 6, 8
+
+	tempFile := filepath.Join("testdata", defTempNamer.TempName("file2"))
+	err := os.Remove(tempFile)
+	if err != nil && !os.IsNotExist(err) {
+		t.Error(err)
+	}
+
+	// Create existing file
+	existingFile := protocol.FileInfo{
+		Name:     defTempNamer.TempName("file"),
+		Flags:    0,
+		Modified: 0,
+		Blocks: []protocol.BlockInfo{
+			blocks[0], blocks[2], blocks[3], blocks[4],
+			blocks[0], blocks[0], blocks[7], blocks[0],
+		},
+	}
+
+	// Create target file
+	requiredFile := existingFile
+	requiredFile.Blocks = blocks[1:]
+	requiredFile.Name = "file2"
+
+	fcfg := config.FolderConfiguration{ID: "default", Path: "testdata"}
+	cfg := config.Configuration{Folders: []config.FolderConfiguration{fcfg}}
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
+	m.AddFolder(fcfg)
+	// Update index
+	m.updateLocal("default", existingFile)
+
+	iterFn := func(folder, file string, index uint32) bool {
+		return true
+	}
+
+	// Verify that the blocks we say exist on file, really exist in the db.
+	for _, idx := range []int{2, 3, 4, 7} {
+		if m.finder.Iterate(blocks[idx].Hash, iterFn) == false {
+			t.Error("Didn't find block")
 		}
 	}
+
+	p := Puller{
+		folder: "default",
+		dir:    "testdata",
+		model:  m,
+	}
+
+	copyChan := make(chan copyBlocksState)
+	pullChan := make(chan pullBlockState, 4)
+	finisherChan := make(chan *sharedPullerState, 1)
+
+	// Run a single fetcher routine
+	go p.copierRoutine(copyChan, pullChan, finisherChan)
+
+	p.handleFile(requiredFile, copyChan, finisherChan)
+
+	pulls := []pullBlockState{<-pullChan, <-pullChan, <-pullChan, <-pullChan}
+	finish := <-finisherChan
+
+	select {
+	case <-pullChan:
+		t.Fatal("Finisher channel has data to be read")
+	case <-finisherChan:
+		t.Fatal("Finisher channel has data to be read")
+	default:
+	}
+
+	// Verify that the right blocks went into the pull list
+	for i, eq := range []int{1, 5, 6, 8} {
+		if string(pulls[i].block.Hash) != string(blocks[eq].Hash) {
+			t.Errorf("Block %d mismatch: %s != %s", eq, pulls[i].block.String(), blocks[eq].String())
+		}
+		if string(finish.file.Blocks[eq-1].Hash) != string(blocks[eq].Hash) {
+			t.Errorf("Block %d mismatch: %s != %s", eq, finish.file.Blocks[eq-1].String(), blocks[eq].String())
+		}
+	}
+
+	// Verify that the fetched blocks have actually been written to the temp file
+	blks, err := scanner.HashFile(tempFile, protocol.BlockSize)
+	if err != nil {
+		t.Log(err)
+	}
+
+	for _, eq := range []int{2, 3, 4, 7} {
+		if string(blks[eq-1].Hash) != string(blocks[eq].Hash) {
+			t.Errorf("Block %d mismatch: %s != %s", eq, blks[eq-1].String(), blocks[eq].String())
+		}
+	}
+	finish.fd.Close()
+
+	os.Remove(tempFile)
 }
