@@ -43,8 +43,8 @@ identicon {
 }
 
 .identicon rect {
-    opacity: 0.5;
-    fill: #aaa;
+    opacity: 0.85;
+    fill: #888;
 }
 
 .panel-heading .identicon {
