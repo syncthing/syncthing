@@ -694,7 +694,7 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			err = scanner.Verify(fd, protocol.BlockSize, state.file.Blocks)
 			fd.Close()
 			if err != nil {
-				l.Warnln("puller: final:", state.file.Name, err)
+				l.Infoln("puller:", state.file.Name, err, "(file changed during pull?)")
 				continue
 			}
 
