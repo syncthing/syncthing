@@ -171,26 +171,26 @@ func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, uint32) b
 // m.blockKey returns a byte slice encoding the following information:
 //	   keyTypeBlock (1 byte)
 //	   folder (64 bytes)
-//	   block hash (64 bytes)
+//	   block hash (32 bytes)
 //	   file name (variable size)
 func toBlockKey(hash []byte, folder, file string) []byte {
-	o := make([]byte, 1+64+64+len(file))
+	o := make([]byte, 1+64+32+len(file))
 	o[0] = keyTypeBlock
 	copy(o[1:], []byte(folder))
 	copy(o[1+64:], []byte(hash))
-	copy(o[1+64+64:], []byte(file))
+	copy(o[1+64+32:], []byte(file))
 	return o
 }
 
 func fromBlockKey(data []byte) (string, string) {
-	if len(data) < 1+64+64+1 {
+	if len(data) < 1+64+32+1 {
 		panic("Incorrect key length")
 	}
 	if data[0] != keyTypeBlock {
 		panic("Incorrect key type")
 	}
 
-	file := string(data[1+64+64:])
+	file := string(data[1+64+32:])
 
 	slice := data[1 : 1+64]
 	izero := bytes.IndexByte(slice, 0)
