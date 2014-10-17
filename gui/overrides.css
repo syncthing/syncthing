@@ -28,6 +28,43 @@ ul+h5 {
     margin-top: 1.5em;
 }
 
+identicon {
+  display: inline-block;
+  position: relative;
+  width: 1em;
+  height: 1em;
+  line-height: 1em;
+  overflow: visible;
+}
+
+.identicon {
+    width: 30px;
+    height: 30px;
+}
+
+.identicon rect {
+    opacity: 0.85;
+    fill: #888;
+}
+
+.panel-heading .identicon {
+    display: block;
+    position: absolute;
+    top: -4px;
+    left: -9px;
+}
+
+.panel-heading {
+    position: relative;
+    overflow: hidden;
+}
+
+[class*="-info"] .identicon rect,
+[class*="-success"] .identicon rect,
+[class*="-primary"] .identicon rect {
+    fill: #fff;
+}
+
 .text-monospace {
     font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
 }
