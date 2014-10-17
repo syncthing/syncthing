@@ -68,18 +68,20 @@ func Blocks(r io.Reader, blocksize int, sizehint int64) ([]protocol.BlockInfo, e
 	return blocks, nil
 }
 
+// Set the Offset field on each block
+func PopulateOffsets(blocks []protocol.BlockInfo) {
+	var offset int64
+	for i := range blocks {
+		blocks[i].Offset = offset
+		offset += int64(blocks[i].Size)
+	}
+}
+
 // BlockDiff returns lists of common and missing (to transform src into tgt)
 // blocks. Both block lists must have been created with the same block size.
 func BlockDiff(src, tgt []protocol.BlockInfo) (have, need []protocol.BlockInfo) {
 	if len(tgt) == 0 && len(src) != 0 {
 		return nil, nil
-	}
-
-	// Set the Offset field on each target block
-	var offset int64
-	for i := range tgt {
-		tgt[i].Offset = offset
-		offset += int64(tgt[i].Size)
 	}
 
 	if len(tgt) != 0 && len(src) == 0 {

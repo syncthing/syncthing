@@ -453,6 +453,8 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 
 FilesAreDifferent:
 
+	scanner.PopulateOffsets(file.Blocks)
+
 	// Figure out the absolute filenames we need once and for all
 	tempName := filepath.Join(p.dir, defTempNamer.TempName(file.Name))
 	realName := filepath.Join(p.dir, file.Name)
