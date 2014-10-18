@@ -26,6 +26,7 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"io"
+	"io/ioutil"
 	"math/big"
 	mr "math/rand"
 	"net"
@@ -43,6 +44,22 @@ func loadCert(dir string, prefix string) (tls.Certificate, error) {
 	cf := filepath.Join(dir, prefix+"cert.pem")
 	kf := filepath.Join(dir, prefix+"key.pem")
 	return tls.LoadX509KeyPair(cf, kf)
+}
+
+func loadCACert(dir string, prefix string) (*x509.CertPool) {
+	CAPool := x509.NewCertPool()
+	cf := filepath.Join(dir, prefix+"ca.pem")
+	severCert, err := ioutil.ReadFile(cf)
+
+	if err != nil {
+		l.Infoln("Could not load server CA chain!")
+		return CAPool
+	}
+	ok := CAPool.AppendCertsFromPEM(severCert)
+	if !ok {
+		l.Infoln("Failed to parse PEM data for CA chain")
+	}
+	return CAPool
 }
 
 func certSeed(bs []byte) int64 {

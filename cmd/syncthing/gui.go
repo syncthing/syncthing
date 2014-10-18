@@ -76,9 +76,14 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	if err != nil {
 		return err
 	}
+
+	CAPool := loadCACert(confDir, "https-")
+
 	tlsCfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ServerName:   "syncthing",
+		RootCAs: CAPool,
+		ClientCAs: CAPool,
 	}
 
 	rawListener, err := net.Listen("tcp", cfg.Address)
