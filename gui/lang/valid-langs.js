@@ -1,1 +1,1 @@
-var validLangs = ["bg","de","en","fr","it","lt","pt-PT","sv","zh-CN","zh-TW"]
+var validLangs = ["bg","de","en","fr","hu","it","lt","pl","pt-PT","sv","zh-CN","zh-TW"]
