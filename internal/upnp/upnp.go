@@ -472,22 +472,12 @@ func soapRequest(url, device, function, message string) ([]byte, error) {
 	return resp, nil
 }
 
-// Add a port mapping to the specified InternetGatewayDevice.
+// Add a port mapping to all relevant services on the specified InternetGatewayDevice.
+// Port mapping will fail and return an error if action is fails for _any_ of the relevant services.
+// For this reason, it is generally better to configure port mapping for each individual service instead. 
 func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
 	for _, service := range n.services {
-		tpl := `<u:AddPortMapping xmlns:u="%s">
-	<NewRemoteHost></NewRemoteHost>
-	<NewExternalPort>%d</NewExternalPort>
-	<NewProtocol>%s</NewProtocol>
-	<NewInternalPort>%d</NewInternalPort>
-	<NewInternalClient>%s</NewInternalClient>
-	<NewEnabled>1</NewEnabled>
-	<NewPortMappingDescription>%s</NewPortMappingDescription>
-	<NewLeaseDuration>%d</NewLeaseDuration>
-	</u:AddPortMapping>`
-		body := fmt.Sprintf(tpl, service.serviceURN, externalPort, protocol, internalPort, n.localIPAddress, description, timeout)
-
-		_, err := soapRequest(service.serviceURL, service.serviceURN, "AddPortMapping", body)
+		err := service.AddPortMapping(n.localIPAddress, protocol, externalPort, internalPort, description, timeout)
 		if err != nil {
 			return err
 		}
@@ -495,17 +485,12 @@ func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, 
 	return nil
 }
 
-// Delete a port mapping from the specified InternetGatewayDevice.
-func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) (err error) {
+// Delete a port mapping from all relevant services on the specified InternetGatewayDevice.
+// Port mapping will fail and return an error if action is fails for _any_ of the relevant services.
+// For this reason, it is generally better to configure port mapping for each individual service instead. 
+func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) error {
 	for _, service := range n.services {
-		tpl := `<u:DeletePortMapping xmlns:u="%s">
-	<NewRemoteHost></NewRemoteHost>
-	<NewExternalPort>%d</NewExternalPort>
-	<NewProtocol>%s</NewProtocol>
-	</u:DeletePortMapping>`
-		body := fmt.Sprintf(tpl, service.serviceURN, externalPort, protocol)
-
-		_, err := soapRequest(service.serviceURL, service.serviceURN, "DeletePortMapping", body)
+		err := service.DeletePortMapping(protocol, externalPort)
 		if err != nil {
 			return err
 		}
@@ -545,6 +530,46 @@ type soapGetExternalIPAddressResponseBody struct {
 
 type getExternalIPAddressResponse struct {
 	NewExternalIPAddress string `xml:"NewExternalIPAddress"`
+}
+
+// Add a port mapping to the specified IGD service.
+func (s *IGDService) AddPortMapping(localIPAddress string, protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
+	tpl := `<u:AddPortMapping xmlns:u="%s">
+	<NewRemoteHost></NewRemoteHost>
+	<NewExternalPort>%d</NewExternalPort>
+	<NewProtocol>%s</NewProtocol>
+	<NewInternalPort>%d</NewInternalPort>
+	<NewInternalClient>%s</NewInternalClient>
+	<NewEnabled>1</NewEnabled>
+	<NewPortMappingDescription>%s</NewPortMappingDescription>
+	<NewLeaseDuration>%d</NewLeaseDuration>
+	</u:AddPortMapping>`
+	body := fmt.Sprintf(tpl, s.serviceURN, externalPort, protocol, internalPort, localIPAddress, description, timeout)
+
+	_, err := soapRequest(s.serviceURL, s.serviceURN, "AddPortMapping", body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Delete a port mapping from the specified IGD service.
+func (s *IGDService) DeletePortMapping(protocol Protocol, externalPort int) error {
+	tpl := `<u:DeletePortMapping xmlns:u="%s">
+	<NewRemoteHost></NewRemoteHost>
+	<NewExternalPort>%d</NewExternalPort>
+	<NewProtocol>%s</NewProtocol>
+	</u:DeletePortMapping>`
+	body := fmt.Sprintf(tpl, s.serviceURN, externalPort, protocol)
+
+	_, err := soapRequest(s.serviceURL, s.serviceURN, "DeletePortMapping", body)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Query the IGD service for its external IP address.
