@@ -39,13 +39,13 @@ import (
 type IGD struct {
 	uuid           string
 	friendlyName   string
-	services       []IGDServiceDescription
+	services       []IGDService
 	url            *url.URL
 	localIPAddress string
 }
 
 // A container for relevant properties of a UPnP service of an IGD.
-type IGDServiceDescription struct {
+type IGDService struct {
 	serviceURL string
 	serviceURN string
 }
@@ -335,18 +335,18 @@ func getChildServices(d upnpDevice, serviceType string) []upnpService {
 	return result
 }
 
-func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDServiceDescription, error) {
-	result := make([]IGDServiceDescription, 0)
+func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDService, error) {
+	result := make([]IGDService, 0)
 
 	if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
-		descriptions := getIGDServiceDescriptions(rootURL, device,
+		descriptions := getIGDServices(rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:1",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
 			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1"})
 
 		result = append(result, descriptions...)
 	} else if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
-		descriptions := getIGDServiceDescriptions(rootURL, device,
+		descriptions := getIGDServices(rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:2",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
 			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:1"})
@@ -363,8 +363,8 @@ func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDServiceDesc
 	}
 }
 
-func getIGDServiceDescriptions(rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, serviceURNs []string) []IGDServiceDescription {
-	result := make([]IGDServiceDescription, 0)
+func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, serviceURNs []string) []IGDService {
+	result := make([]IGDService, 0)
 
 	devices := getChildDevices(device, wanDeviceURN)
 
@@ -399,7 +399,9 @@ func getIGDServiceDescriptions(rootURL string, device upnpDevice, wanDeviceURN s
 							l.Debugln("[" + rootURL + "] Found " + service.ServiceType + " with URL " + u.String())
 						}
 
-						result = append(result, IGDServiceDescription{serviceURL: u.String(), serviceURN: service.ServiceType})
+						service := IGDService{serviceURL: u.String(), serviceURN: service.ServiceType}
+
+						result = append(result, service)
 					}
 				}
 			}
@@ -425,17 +427,19 @@ func replaceRawPath(u *url.URL, rp string) {
 	u.RawQuery = q
 }
 
-func soapRequest(url, device, function, message string) error {
+func soapRequest(url, device, function, message string) ([]byte, error) {
 	tpl := `	<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
 	</s:Envelope>
 `
+	var resp []byte
+
 	body := fmt.Sprintf(tpl, message)
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(body))
 	if err != nil {
-		return err
+		return resp, err
 	}
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")
@@ -451,21 +455,21 @@ func soapRequest(url, device, function, message string) error {
 
 	r, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return resp, err
 	}
 
+	resp, _ = ioutil.ReadAll(r.Body)
 	if debug {
-		resp, _ := ioutil.ReadAll(r.Body)
 		l.Debugln("SOAP Response:\n\n" + string(resp) + "\n")
 	}
 
 	r.Body.Close()
 
 	if r.StatusCode >= 400 {
-		return errors.New(function + ": " + r.Status)
+		return resp, errors.New(function + ": " + r.Status)
 	}
 
-	return nil
+	return resp, nil
 }
 
 // Add a port mapping to the specified InternetGatewayDevice.
@@ -483,7 +487,7 @@ func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, 
 	</u:AddPortMapping>`
 		body := fmt.Sprintf(tpl, service.serviceURN, externalPort, protocol, internalPort, n.localIPAddress, description, timeout)
 
-		err := soapRequest(service.serviceURL, service.serviceURN, "AddPortMapping", body)
+		_, err := soapRequest(service.serviceURL, service.serviceURN, "AddPortMapping", body)
 		if err != nil {
 			return err
 		}
@@ -501,7 +505,7 @@ func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) (err error)
 	</u:DeletePortMapping>`
 		body := fmt.Sprintf(tpl, service.serviceURN, externalPort, protocol)
 
-		err := soapRequest(service.serviceURL, service.serviceURN, "DeletePortMapping", body)
+		_, err := soapRequest(service.serviceURL, service.serviceURN, "DeletePortMapping", body)
 		if err != nil {
 			return err
 		}
@@ -527,4 +531,42 @@ func (n *IGD) FriendlyIdentifier() string {
 // The URL of the InternetGatewayDevice's root device description.
 func (n *IGD) URL() *url.URL {
 	return n.url
+}
+
+type soapGetExternalIPAddressResponseEnvelope struct {
+	XMLName xml.Name
+	Body    soapGetExternalIPAddressResponseBody `xml:"Body"`
+}
+
+type soapGetExternalIPAddressResponseBody struct {
+	XMLName                      xml.Name
+	GetExternalIPAddressResponse getExternalIPAddressResponse `xml:"GetExternalIPAddressResponse"`
+}
+
+type getExternalIPAddressResponse struct {
+	NewExternalIPAddress string `xml:"NewExternalIPAddress"`
+}
+
+// Query the IGD service for its external IP address.
+// Returns nil if the external IP address is invalid or undefined, along with any relevant errors
+func (s *IGDService) GetExternalIPAddress() (net.IP, error) {
+	tpl := `<u:GetExternalIPAddress xmlns:u="%s" />`
+
+	body := fmt.Sprintf(tpl, s.serviceURN)
+
+	response, err := soapRequest(s.serviceURL, s.serviceURN, "GetExternalIPAddress", body)
+
+	if err != nil {
+		return nil, err
+	}
+
+	envelope := &soapGetExternalIPAddressResponseEnvelope{}
+	err = xml.Unmarshal(response, envelope)
+	if err != nil {
+		return nil, err
+	}
+
+	result := net.ParseIP(envelope.Body.GetExternalIPAddressResponse.NewExternalIPAddress)
+
+	return result, nil
 }
