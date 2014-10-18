@@ -16,7 +16,7 @@
 // Adapted from https://github.com/jackpal/Taipei-Torrent/blob/dd88a8bfac6431c01d959ce3c745e74b8a911793/IGD.go
 // Copyright (c) 2010 Jack Palevich (https://github.com/jackpal/Taipei-Torrent/blob/dd88a8bfac6431c01d959ce3c745e74b8a911793/LICENSE)
 
-// Package upnp implements UPnP Internet Gateway upnpDevice port mappings
+// Package upnp implements UPnP InternetGatewayDevice discovery, querying, and port mapping.
 package upnp
 
 import (
@@ -35,15 +35,17 @@ import (
 	"time"
 )
 
+// A container for relevant properties of a UPnP InternetGatewayDevice.
 type IGD struct {
 	uuid           string
 	friendlyName   string
-	services       []IGDServiceDescription
+	services       []IGDService
 	url            *url.URL
 	localIPAddress string
 }
 
-type IGDServiceDescription struct {
+// A container for relevant properties of a UPnP service of an IGD.
+type IGDService struct {
 	serviceURL string
 	serviceURN string
 }
@@ -71,8 +73,8 @@ type upnpRoot struct {
 	Device upnpDevice `xml:"device"`
 }
 
-// Discover UPnP InternetGatewayDevices
-// The order in which the devices appear in the result list is not deterministic
+// Discover discovers UPnP InternetGatewayDevices.
+// The order in which the devices appear in the result list is not deterministic.
 func Discover() []*IGD {
 	result := make([]*IGD, 0)
 	l.Infoln("Starting UPnP discovery...")
@@ -107,8 +109,7 @@ func Discover() []*IGD {
 	return result
 }
 
-// Search for UPnP InternetGatewayDevices for <timeout> seconds
-// Ignore responses from any devices listed in <knownDevices>
+// Search for UPnP InternetGatewayDevices for <timeout> seconds, ignoring responses from any devices listed in knownDevices.
 // The order in which the devices appear in the result list is not deterministic
 func discover(deviceType string, timeout int, knownDevices []*IGD) []*IGD {
 	ssdp := &net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
@@ -334,18 +335,18 @@ func getChildServices(d upnpDevice, serviceType string) []upnpService {
 	return result
 }
 
-func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDServiceDescription, error) {
-	result := make([]IGDServiceDescription, 0)
+func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDService, error) {
+	result := make([]IGDService, 0)
 
 	if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
-		descriptions := getIGDServiceDescriptions(rootURL, device,
+		descriptions := getIGDServices(rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:1",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
 			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1"})
 
 		result = append(result, descriptions...)
 	} else if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
-		descriptions := getIGDServiceDescriptions(rootURL, device,
+		descriptions := getIGDServices(rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:2",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
 			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:1"})
@@ -362,8 +363,8 @@ func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDServiceDesc
 	}
 }
 
-func getIGDServiceDescriptions(rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, serviceURNs []string) []IGDServiceDescription {
-	result := make([]IGDServiceDescription, 0)
+func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, serviceURNs []string) []IGDService {
+	result := make([]IGDService, 0)
 
 	devices := getChildDevices(device, wanDeviceURN)
 
@@ -398,7 +399,9 @@ func getIGDServiceDescriptions(rootURL string, device upnpDevice, wanDeviceURN s
 							l.Debugln("[" + rootURL + "] Found " + service.ServiceType + " with URL " + u.String())
 						}
 
-						result = append(result, IGDServiceDescription{serviceURL: u.String(), serviceURN: service.ServiceType})
+						service := IGDService{serviceURL: u.String(), serviceURN: service.ServiceType}
+
+						result = append(result, service)
 					}
 				}
 			}
@@ -424,17 +427,19 @@ func replaceRawPath(u *url.URL, rp string) {
 	u.RawQuery = q
 }
 
-func soapRequest(url, device, function, message string) error {
+func soapRequest(url, device, function, message string) ([]byte, error) {
 	tpl := `	<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
 	</s:Envelope>
 `
+	var resp []byte
+
 	body := fmt.Sprintf(tpl, message)
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(body))
 	if err != nil {
-		return err
+		return resp, err
 	}
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")
@@ -450,26 +455,86 @@ func soapRequest(url, device, function, message string) error {
 
 	r, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return resp, err
 	}
 
+	resp, _ = ioutil.ReadAll(r.Body)
 	if debug {
-		resp, _ := ioutil.ReadAll(r.Body)
 		l.Debugln("SOAP Response:\n\n" + string(resp) + "\n")
 	}
 
 	r.Body.Close()
 
 	if r.StatusCode >= 400 {
-		return errors.New(function + ": " + r.Status)
+		return resp, errors.New(function + ": " + r.Status)
 	}
 
+	return resp, nil
+}
+
+// Add a port mapping to all relevant services on the specified InternetGatewayDevice.
+// Port mapping will fail and return an error if action is fails for _any_ of the relevant services.
+// For this reason, it is generally better to configure port mapping for each individual service instead. 
+func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
+	for _, service := range n.services {
+		err := service.AddPortMapping(n.localIPAddress, protocol, externalPort, internalPort, description, timeout)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
+// Delete a port mapping from all relevant services on the specified InternetGatewayDevice.
+// Port mapping will fail and return an error if action is fails for _any_ of the relevant services.
+// For this reason, it is generally better to configure port mapping for each individual service instead. 
+func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) error {
 	for _, service := range n.services {
-		tpl := `<u:AddPortMapping xmlns:u="%s">
+		err := service.DeletePortMapping(protocol, externalPort)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// The InternetGatewayDevice's UUID.
+func (n *IGD) UUID() string {
+	return n.uuid
+}
+
+// The InternetGatewayDevice's friendly name.
+func (n *IGD) FriendlyName() string {
+	return n.friendlyName
+}
+
+// The InternetGatewayDevice's friendly identifier (friendly name + IP address).
+func (n *IGD) FriendlyIdentifier() string {
+	return "'" + n.FriendlyName() + "' (" + strings.Split(n.URL().Host, ":")[0] + ")"
+}
+
+// The URL of the InternetGatewayDevice's root device description.
+func (n *IGD) URL() *url.URL {
+	return n.url
+}
+
+type soapGetExternalIPAddressResponseEnvelope struct {
+	XMLName xml.Name
+	Body    soapGetExternalIPAddressResponseBody `xml:"Body"`
+}
+
+type soapGetExternalIPAddressResponseBody struct {
+	XMLName                      xml.Name
+	GetExternalIPAddressResponse getExternalIPAddressResponse `xml:"GetExternalIPAddressResponse"`
+}
+
+type getExternalIPAddressResponse struct {
+	NewExternalIPAddress string `xml:"NewExternalIPAddress"`
+}
+
+// Add a port mapping to the specified IGD service.
+func (s *IGDService) AddPortMapping(localIPAddress string, protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
+	tpl := `<u:AddPortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>
 	<NewProtocol>%s</NewProtocol>
@@ -479,45 +544,54 @@ func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, 
 	<NewPortMappingDescription>%s</NewPortMappingDescription>
 	<NewLeaseDuration>%d</NewLeaseDuration>
 	</u:AddPortMapping>`
-		body := fmt.Sprintf(tpl, service.serviceURN, externalPort, protocol, internalPort, n.localIPAddress, description, timeout)
+	body := fmt.Sprintf(tpl, s.serviceURN, externalPort, protocol, internalPort, localIPAddress, description, timeout)
 
-		err := soapRequest(service.serviceURL, service.serviceURN, "AddPortMapping", body)
-		if err != nil {
-			return err
-		}
+	_, err := soapRequest(s.serviceURL, s.serviceURN, "AddPortMapping", body)
+	if err != nil {
+		return err
 	}
+
 	return nil
 }
 
-func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) (err error) {
-	for _, service := range n.services {
-		tpl := `<u:DeletePortMapping xmlns:u="%s">
+// Delete a port mapping from the specified IGD service.
+func (s *IGDService) DeletePortMapping(protocol Protocol, externalPort int) error {
+	tpl := `<u:DeletePortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>
 	<NewProtocol>%s</NewProtocol>
 	</u:DeletePortMapping>`
-		body := fmt.Sprintf(tpl, service.serviceURN, externalPort, protocol)
+	body := fmt.Sprintf(tpl, s.serviceURN, externalPort, protocol)
 
-		err := soapRequest(service.serviceURL, service.serviceURN, "DeletePortMapping", body)
-		if err != nil {
-			return err
-		}
+	_, err := soapRequest(s.serviceURL, s.serviceURN, "DeletePortMapping", body)
+
+	if err != nil {
+		return err
 	}
+
 	return nil
 }
 
-func (n *IGD) UUID() string {
-	return n.uuid
-}
+// Query the IGD service for its external IP address.
+// Returns nil if the external IP address is invalid or undefined, along with any relevant errors
+func (s *IGDService) GetExternalIPAddress() (net.IP, error) {
+	tpl := `<u:GetExternalIPAddress xmlns:u="%s" />`
 
-func (n *IGD) FriendlyName() string {
-	return n.friendlyName
-}
+	body := fmt.Sprintf(tpl, s.serviceURN)
 
-func (n *IGD) FriendlyIdentifier() string {
-	return "'" + n.FriendlyName() + "' (" + strings.Split(n.URL().Host, ":")[0] + ")"
-}
+	response, err := soapRequest(s.serviceURL, s.serviceURN, "GetExternalIPAddress", body)
 
-func (n *IGD) URL() *url.URL {
-	return n.url
+	if err != nil {
+		return nil, err
+	}
+
+	envelope := &soapGetExternalIPAddressResponseEnvelope{}
+	err = xml.Unmarshal(response, envelope)
+	if err != nil {
+		return nil, err
+	}
+
+	result := net.ParseIP(envelope.Body.GetExternalIPAddressResponse.NewExternalIPAddress)
+
+	return result, nil
 }
