@@ -561,6 +561,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					newDeviceCfg := config.DeviceConfiguration{
 						DeviceID:    id,
 						Compression: true,
+						Addresses:   []string{"dynamic"},
 					}
 
 					// The introducers' introducers are also our introducers.
