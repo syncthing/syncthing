@@ -16,7 +16,7 @@
 // Adapted from https://github.com/jackpal/Taipei-Torrent/blob/dd88a8bfac6431c01d959ce3c745e74b8a911793/IGD.go
 // Copyright (c) 2010 Jack Palevich (https://github.com/jackpal/Taipei-Torrent/blob/dd88a8bfac6431c01d959ce3c745e74b8a911793/LICENSE)
 
-// Package upnp implements UPnP Internet Gateway upnpDevice port mappings
+// Package upnp implements UPnP InternetGatewayDevice discovery, querying, and port mapping.
 package upnp
 
 import (
@@ -35,6 +35,7 @@ import (
 	"time"
 )
 
+// A container for relevant properties of a UPnP InternetGatewayDevice.
 type IGD struct {
 	uuid           string
 	friendlyName   string
@@ -43,6 +44,7 @@ type IGD struct {
 	localIPAddress string
 }
 
+// A container for relevant properties of a UPnP service of an IGD.
 type IGDServiceDescription struct {
 	serviceURL string
 	serviceURN string
@@ -71,8 +73,8 @@ type upnpRoot struct {
 	Device upnpDevice `xml:"device"`
 }
 
-// Discover UPnP InternetGatewayDevices
-// The order in which the devices appear in the result list is not deterministic
+// Discover discovers UPnP InternetGatewayDevices.
+// The order in which the devices appear in the result list is not deterministic.
 func Discover() []*IGD {
 	result := make([]*IGD, 0)
 	l.Infoln("Starting UPnP discovery...")
@@ -107,8 +109,7 @@ func Discover() []*IGD {
 	return result
 }
 
-// Search for UPnP InternetGatewayDevices for <timeout> seconds
-// Ignore responses from any devices listed in <knownDevices>
+// Search for UPnP InternetGatewayDevices for <timeout> seconds, ignoring responses from any devices listed in knownDevices.
 // The order in which the devices appear in the result list is not deterministic
 func discover(deviceType string, timeout int, knownDevices []*IGD) []*IGD {
 	ssdp := &net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
@@ -467,6 +468,7 @@ func soapRequest(url, device, function, message string) error {
 	return nil
 }
 
+// Add a port mapping to the specified InternetGatewayDevice.
 func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
 	for _, service := range n.services {
 		tpl := `<u:AddPortMapping xmlns:u="%s">
@@ -489,6 +491,7 @@ func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, 
 	return nil
 }
 
+// Delete a port mapping from the specified InternetGatewayDevice.
 func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) (err error) {
 	for _, service := range n.services {
 		tpl := `<u:DeletePortMapping xmlns:u="%s">
@@ -506,18 +509,22 @@ func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) (err error)
 	return nil
 }
 
+// The InternetGatewayDevice's UUID.
 func (n *IGD) UUID() string {
 	return n.uuid
 }
 
+// The InternetGatewayDevice's friendly name.
 func (n *IGD) FriendlyName() string {
 	return n.friendlyName
 }
 
+// The InternetGatewayDevice's friendly identifier (friendly name + IP address).
 func (n *IGD) FriendlyIdentifier() string {
 	return "'" + n.FriendlyName() + "' (" + strings.Split(n.URL().Host, ":")[0] + ")"
 }
 
+// The URL of the InternetGatewayDevice's root device description.
 func (n *IGD) URL() *url.URL {
 	return n.url
 }
