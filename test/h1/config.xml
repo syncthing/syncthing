@@ -1,25 +1,27 @@
-<configuration version="5">
+<configuration version="6">
     <folder id="default" path="s1" ro="false" rescanIntervalS="10" ignorePerms="false">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
         <versioning></versioning>
+        <lenientMtimes>false</lenientMtimes>
     </folder>
     <folder id="s12" path="s12-1" ro="false" rescanIntervalS="10" ignorePerms="false">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <versioning></versioning>
+        <lenientMtimes>false</lenientMtimes>
     </folder>
-    <device id="EJHMPAQ-OGCVORE-ISB4IS3-SYYVJXF-TKJGLTU-66DIQPF-GJ5D2GX-GQ3OWQK" name="s4" compression="true">
+    <device id="EJHMPAQ-OGCVORE-ISB4IS3-SYYVJXF-TKJGLTU-66DIQPF-GJ5D2GX-GQ3OWQK" name="s4" compression="true" introducer="false">
         <address>127.0.0.1:22004</address>
     </device>
-    <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="true">
+    <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="true" introducer="false">
         <address>127.0.0.1:22001</address>
     </device>
-    <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU" name="s2" compression="true">
+    <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU" name="s2" compression="true" introducer="false">
         <address>127.0.0.1:22002</address>
     </device>
-    <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="true">
+    <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="true" introducer="false">
         <address>127.0.0.1:22003</address>
     </device>
     <gui enabled="true" tls="false">
@@ -35,7 +37,6 @@
         <localAnnounceEnabled>true</localAnnounceEnabled>
         <localAnnouncePort>21025</localAnnouncePort>
         <localAnnounceMCAddr>[ff32::5222]:21026</localAnnounceMCAddr>
-        <parallelRequests>16</parallelRequests>
         <maxSendKbps>50000</maxSendKbps>
         <maxRecvKbps>50000</maxRecvKbps>
         <reconnectionIntervalS>5</reconnectionIntervalS>
@@ -45,5 +46,8 @@
         <upnpRenewalMinutes>30</upnpRenewalMinutes>
         <urAccepted>-1</urAccepted>
         <restartOnWakeup>true</restartOnWakeup>
+        <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
+        <keepTemporariesH>24</keepTemporariesH>
+        <cacheIgnoredFiles>true</cacheIgnoredFiles>
     </options>
 </configuration>

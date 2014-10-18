@@ -1,8 +1,9 @@
-<configuration version="5">
+<configuration version="6">
     <folder id="s23" path="s23-3" ro="false" rescanIntervalS="20" ignorePerms="false">
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
         <versioning></versioning>
+        <lenientMtimes>false</lenientMtimes>
     </folder>
     <folder id="default" path="s3" ro="false" rescanIntervalS="20" ignorePerms="false">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
@@ -11,14 +12,15 @@
         <versioning type="simple">
             <param key="keep" val="5"></param>
         </versioning>
+        <lenientMtimes>false</lenientMtimes>
     </folder>
-    <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="true">
+    <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="true" introducer="false">
         <address>127.0.0.1:22001</address>
     </device>
-    <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU" name="s2" compression="true">
+    <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU" name="s2" compression="true" introducer="false">
         <address>127.0.0.1:22002</address>
     </device>
-    <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="true">
+    <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="true" introducer="false">
         <address>127.0.0.1:22003</address>
     </device>
     <gui enabled="true" tls="false">
@@ -32,7 +34,6 @@
         <localAnnounceEnabled>false</localAnnounceEnabled>
         <localAnnouncePort>21025</localAnnouncePort>
         <localAnnounceMCAddr>[ff32::5222]:21026</localAnnounceMCAddr>
-        <parallelRequests>16</parallelRequests>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>5</reconnectionIntervalS>
@@ -42,5 +43,8 @@
         <upnpRenewalMinutes>30</upnpRenewalMinutes>
         <urAccepted>-1</urAccepted>
         <restartOnWakeup>true</restartOnWakeup>
+        <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
+        <keepTemporariesH>24</keepTemporariesH>
+        <cacheIgnoredFiles>true</cacheIgnoredFiles>
     </options>
 </configuration>
