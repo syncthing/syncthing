@@ -57,6 +57,9 @@ case "${1:-default}" in
 		go run build.go -goos freebsd -goarch amd64 tar
 		go run build.go -goos freebsd -goarch 386 tar
 
+		go run build.go -goos openbsd -goarch amd64 tar
+		go run build.go -goos openbsd -goarch 386 tar
+
 		go run build.go -goos darwin -goarch amd64 tar
 
 		go run build.go -goos windows -goarch amd64 zip
