@@ -44,10 +44,35 @@ type IGD struct {
 	localIPAddress string
 }
 
+// The InternetGatewayDevice's UUID.
+func (n *IGD) UUID() string {
+	return n.uuid
+}
+
+// The InternetGatewayDevice's friendly name.
+func (n *IGD) FriendlyName() string {
+	return n.friendlyName
+}
+
+// The InternetGatewayDevice's friendly identifier (friendly name + IP address).
+func (n *IGD) FriendlyIdentifier() string {
+	return "'" + n.FriendlyName() + "' (" + strings.Split(n.URL().Host, ":")[0] + ")"
+}
+
+// The URL of the InternetGatewayDevice's root device description.
+func (n *IGD) URL() *url.URL {
+	return n.url
+}
+
 // A container for relevant properties of a UPnP service of an IGD.
 type IGDService struct {
+	serviceID  string
 	serviceURL string
 	serviceURN string
+}
+
+func (s *IGDService) ID() string {
+	return s.serviceID
 }
 
 type Protocol string
@@ -58,6 +83,7 @@ const (
 )
 
 type upnpService struct {
+	ServiceID   string `xml:"serviceId"`
 	ServiceType string `xml:"serviceType"`
 	ControlURL  string `xml:"controlURL"`
 }
@@ -94,7 +120,7 @@ func Discover() []*IGD {
 			l.Debugln("[" + resultDevice.uuid + "]")
 
 			for _, resultService := range resultDevice.services {
-				l.Debugln("* " + resultService.serviceURL)
+				l.Debugln("* [" + resultService.serviceID + "] " + resultService.serviceURL)
 			}
 		}
 	}
@@ -398,7 +424,7 @@ func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanC
 							l.Debugln("[" + rootURL + "] Found " + service.ServiceType + " with URL " + u.String())
 						}
 
-						service := IGDService{serviceURL: u.String(), serviceURN: service.ServiceType}
+						service := IGDService{serviceID: service.ServiceID, serviceURL: u.String(), serviceURN: service.ServiceType}
 
 						result = append(result, service)
 					}
@@ -496,26 +522,6 @@ func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) error {
 		}
 	}
 	return nil
-}
-
-// The InternetGatewayDevice's UUID.
-func (n *IGD) UUID() string {
-	return n.uuid
-}
-
-// The InternetGatewayDevice's friendly name.
-func (n *IGD) FriendlyName() string {
-	return n.friendlyName
-}
-
-// The InternetGatewayDevice's friendly identifier (friendly name + IP address).
-func (n *IGD) FriendlyIdentifier() string {
-	return "'" + n.FriendlyName() + "' (" + strings.Split(n.URL().Host, ":")[0] + ")"
-}
-
-// The URL of the InternetGatewayDevice's root device description.
-func (n *IGD) URL() *url.URL {
-	return n.url
 }
 
 type soapGetExternalIPAddressResponseEnvelope struct {
