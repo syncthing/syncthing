@@ -178,6 +178,7 @@ var (
 	doUpgradeCheck    bool
 	noBrowser         bool
 	generateDir       string
+	logFile           string
 	noRestart         = os.Getenv("STNORESTART") != ""
 	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
 	guiAuthentication = os.Getenv("STGUIAUTH")    // legacy
@@ -194,6 +195,15 @@ func main() {
 	if err != nil {
 		l.Fatalln("home:", err)
 	}
+
+	if runtime.GOOS == "windows" {
+		// On Windows, we use a log file by default. Setting the -logfile flag
+		// to the empty string disables this behavior.
+
+		logFile = filepath.Join(defConfDir, "syncthing.log")
+		flag.StringVar(&logFile, "logfile", logFile, "Log file name (blank for stdout)")
+	}
+
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address")
 	flag.StringVar(&guiAuthentication, "gui-authentication", guiAuthentication, "Override GUI authentication; username:password")

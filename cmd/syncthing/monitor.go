@@ -44,6 +44,19 @@ func monitorMain() {
 	os.Setenv("STMONITORED", "yes")
 	l.SetPrefix("[monitor] ")
 
+	var err error
+	var dst io.Writer
+
+	if logFile == "" {
+		dst = os.Stdout
+	} else {
+		dst, err = os.Create(logFile)
+		if err != nil {
+			l.Fatalln("log file:", err)
+		}
+		l.Infof(`Log output directed to file "%s"`, logFile)
+	}
+
 	args := os.Args
 	var restarts [countRestarts]time.Time
 
@@ -64,12 +77,12 @@ func monitorMain() {
 
 		stderr, err := cmd.StderrPipe()
 		if err != nil {
-			l.Fatalln(err)
+			l.Fatalln("stderr:", err)
 		}
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			l.Fatalln(err)
+			l.Fatalln("stdout:", err)
 		}
 
 		l.Infoln("Starting syncthing")
@@ -87,8 +100,8 @@ func monitorMain() {
 		stdoutLastLines = make([]string, 0, 50)
 		stdoutMut.Unlock()
 
-		go copyStderr(stderr)
-		go copyStdout(stdout)
+		go copyStderr(stderr, dst)
+		go copyStdout(stdout, dst)
 
 		exit := make(chan error)
 
@@ -130,7 +143,7 @@ func monitorMain() {
 	}
 }
 
-func copyStderr(stderr io.ReadCloser) {
+func copyStderr(stderr io.ReadCloser, dst io.Writer) {
 	br := bufio.NewReader(stderr)
 
 	var panicFd *os.File
@@ -141,7 +154,7 @@ func copyStderr(stderr io.ReadCloser) {
 		}
 
 		if panicFd == nil {
-			os.Stderr.WriteString(line)
+			dst.Write([]byte(line))
 
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
 				panicFd, err = os.Create(filepath.Join(confDir, time.Now().Format("panic-20060102-150405.log")))
@@ -173,8 +186,8 @@ func copyStderr(stderr io.ReadCloser) {
 	}
 }
 
-func copyStdout(stderr io.ReadCloser) {
-	br := bufio.NewReader(stderr)
+func copyStdout(stdout io.ReadCloser, dst io.Writer) {
+	br := bufio.NewReader(stdout)
 	for {
 		line, err := br.ReadString('\n')
 		if err != nil {
@@ -192,6 +205,6 @@ func copyStdout(stderr io.ReadCloser) {
 		}
 		stdoutMut.Unlock()
 
-		os.Stdout.WriteString(line)
+		dst.Write([]byte(line))
 	}
 }
