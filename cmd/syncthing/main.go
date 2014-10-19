@@ -739,14 +739,18 @@ func renewUPnP(port int) {
 
 		// Make sure our IGD reference isn't nil
 		if igd == nil {
-			l.Infoln("Undefined IGD during UPnP port renewal. Re-discovering...")
+			if debugNet {
+				l.Debugln("Undefined IGD during UPnP port renewal. Re-discovering...")
+			}
 			igds := upnp.Discover()
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
 				igd = igds[0]
 			} else {
-				l.Infof("Failed to re-discover IGD during UPnP port mapping renewal.")
+				if debugNet {
+					l.Debugln("Failed to discover IGD during UPnP port mapping renewal.")
+				}
 				continue
 			}
 		}
@@ -754,10 +758,10 @@ func renewUPnP(port int) {
 		// Just renew the same port that we already have
 		if externalPort != 0 {
 			err := igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", opts.UPnPLease*60)
-			if err == nil {
-				l.Infof("Renewed UPnP port mapping for external port %d on device %s.", externalPort, igd.FriendlyIdentifier())
-			} else {
+			if err != nil {
 				l.Warnf("Error renewing UPnP port mapping for external port %d on device %s: %s", externalPort, igd.FriendlyIdentifier(), err.Error())
+			} else if debugNet {
+				l.Debugf("Renewed UPnP port mapping for external port %d on device %s.", externalPort, igd.FriendlyIdentifier())
 			}
 
 			continue
@@ -766,14 +770,18 @@ func renewUPnP(port int) {
 		// Something strange has happened. We didn't have an external port before?
 		// Or perhaps the gateway has changed?
 		// Retry the same port sequence from the beginning.
-		l.Infoln("No UPnP port mapping defined, updating...")
+		if debugNet {
+			l.Debugln("No UPnP port mapping defined, updating...")
+		}
 
-		r := setupExternalPort(igd, port)
-		if r != 0 {
-			externalPort = r
-			l.Infof("Updated UPnP port mapping for external port %d on device %s.", externalPort, igd.FriendlyIdentifier())
+		forwardedPort := setupExternalPort(igd, port)
+		if forwardedPort != 0 {
+			externalPort = forwardedPort
 			discoverer.StopGlobal()
-			discoverer.StartGlobal(opts.GlobalAnnServer, uint16(r))
+			discoverer.StartGlobal(opts.GlobalAnnServer, uint16(forwardedPort))
+			if debugNet {
+				l.Debugf("Updated UPnP port mapping for external port %d on device %s.", forwardedPort, igd.FriendlyIdentifier())
+			}
 		} else {
 			l.Warnf("Failed to update UPnP port mapping for external port on device " + igd.FriendlyIdentifier() + ".")
 		}
