@@ -452,7 +452,7 @@ func replaceRawPath(u *url.URL, rp string) {
 	u.RawQuery = q
 }
 
-func soapRequest(url, device, function, message string) ([]byte, error) {
+func soapRequest(url, service, function, message string) ([]byte, error) {
 	tpl := `	<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
@@ -468,7 +468,7 @@ func soapRequest(url, device, function, message string) ([]byte, error) {
 	}
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")
-	req.Header.Set("SOAPAction", fmt.Sprintf(`"%s#%s"`, device, function))
+	req.Header.Set("SOAPAction", fmt.Sprintf(`"%s#%s"`, service, function))
 	req.Header.Set("Connection", "Close")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Pragma", "no-cache")
