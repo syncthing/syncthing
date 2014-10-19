@@ -448,7 +448,8 @@ func soapRequest(url, device, function, message string) ([]byte, error) {
 	req.Header.Set("Pragma", "no-cache")
 
 	if debug {
-		l.Debugln(req.Header.Get("SOAPAction"))
+		l.Debugln("SOAP Request URL: " + url)
+		l.Debugln("SOAP Action: " + req.Header.Get("SOAPAction"))
 		l.Debugln("SOAP Request:\n\n" + body)
 	}
 
