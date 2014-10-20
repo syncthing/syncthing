@@ -137,8 +137,8 @@ func (o *ClusterConfigMessage) GetOption(key string) string {
 }
 
 type Folder struct {
-	ID      string   // max:64
-	Devices []Device // max:64
+	ID      string // max:64
+	Devices []Device
 }
 
 type Device struct {
