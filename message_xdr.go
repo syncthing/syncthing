@@ -644,7 +644,7 @@ Folder Structure:
 
 struct Folder {
 	string ID<64>;
-	Device Devices<64>;
+	Device Devices<>;
 }
 
 */
@@ -670,9 +670,6 @@ func (o Folder) encodeXDR(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ErrElementSizeExceeded
 	}
 	xw.WriteString(o.ID)
-	if len(o.Devices) > 64 {
-		return xw.Tot(), xdr.ErrElementSizeExceeded
-	}
 	xw.WriteUint32(uint32(len(o.Devices)))
 	for i := range o.Devices {
 		_, err := o.Devices[i].encodeXDR(xw)
@@ -697,9 +694,6 @@ func (o *Folder) UnmarshalXDR(bs []byte) error {
 func (o *Folder) decodeXDR(xr *xdr.Reader) error {
 	o.ID = xr.ReadStringMax(64)
 	_DevicesSize := int(xr.ReadUint32())
-	if _DevicesSize > 64 {
-		return xdr.ErrElementSizeExceeded
-	}
 	o.Devices = make([]Device, _DevicesSize)
 	for i := range o.Devices {
 		(&o.Devices[i]).decodeXDR(xr)
