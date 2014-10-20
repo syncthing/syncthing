@@ -618,7 +618,7 @@ nextFolder:
 			// doesn't exist, try creating it.
 			err = os.MkdirAll(folder.Path, 0700)
 			if err != nil {
-				l.Warnf("Stopping folder %q - %v", err)
+				l.Warnf("Stopping folder %q - %v", folder.ID, err)
 				cfg.InvalidateFolder(id, err.Error())
 				continue nextFolder
 			}
@@ -632,7 +632,7 @@ nextFolder:
 		if err != nil {
 			// If there was another error or we could not create the
 			// path, the folder is invalid.
-			l.Warnf("Stopping folder %q - %v", err)
+			l.Warnf("Stopping folder %q - %v", folder.ID, err)
 			cfg.InvalidateFolder(id, err.Error())
 			continue nextFolder
 		}
