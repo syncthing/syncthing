@@ -22,10 +22,13 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/osutil"
 )
 
 var (
@@ -45,16 +48,29 @@ func monitorMain() {
 	l.SetPrefix("[monitor] ")
 
 	var err error
-	var dst io.Writer
+	var dst io.Writer = os.Stdout
 
-	if logFile == "" {
-		dst = os.Stdout
-	} else {
-		dst, err = os.Create(logFile)
+	if logFile != "" {
+		var fileDst io.Writer
+
+		fileDst, err = os.Create(logFile)
 		if err != nil {
 			l.Fatalln("log file:", err)
 		}
-		l.Infof(`Log output directed to file "%s"`, logFile)
+
+		if runtime.GOOS == "windows" {
+			// Translate line breaks to Windows standard
+			fileDst = osutil.ReplacingWriter{
+				Writer: fileDst,
+				From:   '\n',
+				To:     []byte{'\r', '\n'},
+			}
+		}
+
+		// Log to both stdout and file.
+		dst = io.MultiWriter(dst, fileDst)
+
+		l.Infof(`Log output saved to file "%s"`, logFile)
 	}
 
 	args := os.Args
