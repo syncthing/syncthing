@@ -44,7 +44,7 @@ const (
 
 var env = []string{
 	"HOME=.",
-	"STTRACE=model",
+	"STTRACE=model,protocol",
 	"STGUIAPIKEY=" + apiKey,
 	"STNORESTART=1",
 	"STPERFSTATS=1",
@@ -114,6 +114,32 @@ func (p *syncthingProcess) get(path string) (*http.Response, error) {
 	if p.csrfToken != "" {
 		req.Header.Add("X-CSRF-Token", p.csrfToken)
 	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (p *syncthingProcess) post(path string, data io.Reader) (*http.Response, error) {
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+		},
+	}
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://127.0.0.1:%d%s", p.port, path), data)
+	if err != nil {
+		return nil, err
+	}
+	if p.apiKey != "" {
+		req.Header.Add("X-API-Key", p.apiKey)
+	}
+	if p.csrfToken != "" {
+		req.Header.Add("X-CSRF-Token", p.csrfToken)
+	}
+	req.Header.Add("Content-Type", "application/json")
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
