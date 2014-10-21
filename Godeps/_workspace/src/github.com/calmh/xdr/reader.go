@@ -5,13 +5,11 @@
 package xdr
 
 import (
-	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"unsafe"
 )
-
-var ErrElementSizeExceeded = errors.New("element size exceeded")
 
 type Reader struct {
 	r   io.Reader
@@ -71,7 +69,7 @@ func (r *Reader) ReadBytesMaxInto(max int, dst []byte) []byte {
 		return nil
 	}
 	if max > 0 && l > max {
-		r.err = ErrElementSizeExceeded
+		r.err = ElementSizeExceeded("bytes field", l, max)
 		return nil
 	}
 
@@ -161,4 +159,8 @@ func (r *Reader) Error() error {
 		return nil
 	}
 	return XDRError{"read", r.err}
+}
+
+func ElementSizeExceeded(field string, size, limit int) error {
+	return fmt.Errorf("%s exceeds size limit; %d > %d", field, size, limit)
 }

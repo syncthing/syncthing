@@ -42,15 +42,23 @@ func (o fileVersion) EncodeXDR(w io.Writer) (int, error) {
 	return o.encodeXDR(xw)
 }
 
-func (o fileVersion) MarshalXDR() []byte {
+func (o fileVersion) MarshalXDR() ([]byte, error) {
 	return o.AppendXDR(make([]byte, 0, 128))
 }
 
-func (o fileVersion) AppendXDR(bs []byte) []byte {
+func (o fileVersion) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o fileVersion) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	o.encodeXDR(xw)
-	return []byte(aw)
+	_, err := o.encodeXDR(xw)
+	return []byte(aw), err
 }
 
 func (o fileVersion) encodeXDR(xw *xdr.Writer) (int, error) {
@@ -102,15 +110,23 @@ func (o versionList) EncodeXDR(w io.Writer) (int, error) {
 	return o.encodeXDR(xw)
 }
 
-func (o versionList) MarshalXDR() []byte {
+func (o versionList) MarshalXDR() ([]byte, error) {
 	return o.AppendXDR(make([]byte, 0, 128))
 }
 
-func (o versionList) AppendXDR(bs []byte) []byte {
+func (o versionList) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o versionList) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	o.encodeXDR(xw)
-	return []byte(aw)
+	_, err := o.encodeXDR(xw)
+	return []byte(aw), err
 }
 
 func (o versionList) encodeXDR(xw *xdr.Writer) (int, error) {

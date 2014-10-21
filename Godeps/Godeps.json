@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/syncthing/syncthing",
-	"GoVersion": "go1.3.1",
+	"GoVersion": "go1.3.3",
 	"Packages": [
 		"./cmd/..."
 	],
@@ -44,7 +44,7 @@
 		},
 		{
 			"ImportPath": "github.com/calmh/xdr",
-			"Rev": "a597b63b87d6140f79084c8aab214b4d533833a1"
+			"Rev": "ec3d404f43731551258977b38dd72cf557d00398"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",

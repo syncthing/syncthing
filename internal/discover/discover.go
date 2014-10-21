@@ -203,7 +203,7 @@ func (d *Discoverer) announcementPkt() []byte {
 		Magic: AnnouncementMagic,
 		This:  Device{d.myID[:], addrs},
 	}
-	return pkt.MarshalXDR()
+	return pkt.MustMarshalXDR()
 }
 
 func (d *Discoverer) sendLocalAnnouncements() {
@@ -213,7 +213,7 @@ func (d *Discoverer) sendLocalAnnouncements() {
 		Magic: AnnouncementMagic,
 		This:  Device{d.myID[:], addrs},
 	}
-	msg := pkt.MarshalXDR()
+	msg := pkt.MustMarshalXDR()
 
 	for {
 		if d.multicastBeacon != nil {
@@ -253,7 +253,7 @@ func (d *Discoverer) sendExternalAnnouncements() {
 			Magic: AnnouncementMagic,
 			This:  Device{d.myID[:], []Address{{Port: d.extPort}}},
 		}
-		buf = pkt.MarshalXDR()
+		buf = pkt.MustMarshalXDR()
 	} else {
 		buf = d.announcementPkt()
 	}
@@ -425,7 +425,7 @@ func (d *Discoverer) externalLookup(device protocol.DeviceID) []string {
 		return nil
 	}
 
-	buf := Query{QueryMagic, device[:]}.MarshalXDR()
+	buf := Query{QueryMagic, device[:]}.MustMarshalXDR()
 	_, err = conn.Write(buf)
 	if err != nil {
 		if debug {

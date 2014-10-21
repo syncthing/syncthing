@@ -289,7 +289,8 @@ func ldbReplaceWithDelete(db *leveldb.DB, folder, device []byte, fs []protocol.F
 				Flags:        tf.Flags | protocol.FlagDeleted,
 				Modified:     tf.Modified,
 			}
-			batch.Put(dbi.Key(), f.MarshalXDR())
+			bs, _ := f.MarshalXDR()
+			batch.Put(dbi.Key(), bs)
 			ldbUpdateGlobal(db, batch, folder, device, deviceKeyName(dbi.Key()), f.Version)
 			return ts
 		}
@@ -362,7 +363,7 @@ func ldbInsert(batch dbWriter, folder, device []byte, file protocol.FileInfo) ui
 
 	name := []byte(file.Name)
 	nk := deviceKey(folder, device, name)
-	batch.Put(nk, file.MarshalXDR())
+	batch.Put(nk, file.MustMarshalXDR())
 
 	return file.LocalVersion
 }
@@ -416,7 +417,7 @@ func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device, file []byte, v
 	fl.versions = append(fl.versions, nv)
 
 done:
-	batch.Put(gk, fl.MarshalXDR())
+	batch.Put(gk, fl.MustMarshalXDR())
 
 	return true
 }
@@ -453,7 +454,7 @@ func ldbRemoveFromGlobal(db dbReader, batch dbWriter, folder, device, file []byt
 	if len(fl.versions) == 0 {
 		batch.Delete(gk)
 	} else {
-		batch.Put(gk, fl.MarshalXDR())
+		batch.Put(gk, fl.MustMarshalXDR())
 	}
 }
 

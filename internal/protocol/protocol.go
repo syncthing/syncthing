@@ -126,7 +126,7 @@ type hdrMsg struct {
 }
 
 type encodable interface {
-	AppendXDR([]byte) []byte
+	AppendXDR([]byte) ([]byte, error)
 }
 
 const (
@@ -483,7 +483,11 @@ func (c *rawConnection) writerLoop() {
 		case hm := <-c.outbox:
 			if hm.msg != nil {
 				// Uncompressed message in uncBuf
-				uncBuf = hm.msg.AppendXDR(uncBuf[:0])
+				uncBuf, err = hm.msg.AppendXDR(uncBuf[:0])
+				if err != nil {
+					c.close(err)
+					return
+				}
 
 				if len(uncBuf) >= c.compressionThreshold {
 					// Use compression for large messages

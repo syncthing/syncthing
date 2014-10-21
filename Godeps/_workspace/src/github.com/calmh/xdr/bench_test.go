@@ -33,11 +33,15 @@ var s = XDRBenchStruct{
 	S0:  "Hello World! String one.",
 	S1:  "Hello World! String two.",
 }
-var e = s.MarshalXDR()
+var e []byte
+
+func init() {
+	e, _ = s.MarshalXDR()
+}
 
 func BenchmarkThisMarshal(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		res = s.MarshalXDR()
+		res, _ = s.MarshalXDR()
 	}
 }
 
