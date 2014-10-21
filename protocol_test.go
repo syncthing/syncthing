@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/quick"
 
@@ -369,7 +370,7 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 	}
 
 	_, err := m1.EncodeXDR(&buf)
-	if err == xdr.ErrElementSizeExceeded {
+	if err != nil && strings.Contains(err.Error(), "exceeds size") {
 		return true
 	}
 	if err != nil {
