@@ -236,8 +236,7 @@ func handleSearchResponse(deviceType string, knownDevices []*IGD, resp []byte, l
 	deviceUUID := strings.TrimLeft(strings.Split(deviceUSN, "::")[0], "uuid:")
 	matched, err := regexp.MatchString("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}", deviceUUID)
 	if !matched {
-		l.Infoln("Invalid IGD response: invalid device UUID " + deviceUUID)
-		return
+		l.Infoln("Invalid IGD response: invalid device UUID", deviceUUID, "(continuing anyway)")
 	}
 
 	// Don't re-add devices that are already known
@@ -474,7 +473,7 @@ func soapRequest(url, device, function, message string) ([]byte, error) {
 
 // Add a port mapping to all relevant services on the specified InternetGatewayDevice.
 // Port mapping will fail and return an error if action is fails for _any_ of the relevant services.
-// For this reason, it is generally better to configure port mapping for each individual service instead. 
+// For this reason, it is generally better to configure port mapping for each individual service instead.
 func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
 	for _, service := range n.services {
 		err := service.AddPortMapping(n.localIPAddress, protocol, externalPort, internalPort, description, timeout)
@@ -487,7 +486,7 @@ func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, 
 
 // Delete a port mapping from all relevant services on the specified InternetGatewayDevice.
 // Port mapping will fail and return an error if action is fails for _any_ of the relevant services.
-// For this reason, it is generally better to configure port mapping for each individual service instead. 
+// For this reason, it is generally better to configure port mapping for each individual service instead.
 func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) error {
 	for _, service := range n.services {
 		err := service.DeletePortMapping(protocol, externalPort)

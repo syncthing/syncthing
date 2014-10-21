@@ -636,7 +636,7 @@ nextBlock:
 			continue nextBlock
 		}
 
-		// Select the least busy device to pull the block frop.model. If we found no
+		// Select the least busy device to pull the block from. If we found no
 		// feasible device at all, fail the block (and in the long run, the
 		// file).
 		potentialDevices := p.model.availability(p.folder, state.file.Name)
