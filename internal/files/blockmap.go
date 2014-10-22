@@ -90,6 +90,17 @@ func (m *BlockMap) Update(files []protocol.FileInfo) error {
 	return m.db.Write(batch, nil)
 }
 
+// Discard block map state, removing the given files
+func (m *BlockMap) Discard(files []protocol.FileInfo) error {
+	batch := new(leveldb.Batch)
+	for _, file := range files {
+		for _, block := range file.Blocks {
+			batch.Delete(m.blockKey(block.Hash, file.Name))
+		}
+	}
+	return m.db.Write(batch, nil)
+}
+
 // Drop block map, removing all entries related to this block map from the db.
 func (m *BlockMap) Drop() error {
 	batch := new(leveldb.Batch)
