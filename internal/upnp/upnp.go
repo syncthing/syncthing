@@ -210,6 +210,17 @@ Mx: %d
 
 	// Collect our results from the result handlers using the result channel
 	for result := range resultChannel {
+		// Check for existing results (some routers send multiple response packets)
+		for _, existingResult := range results {
+			if existingResult.uuid == result.uuid {
+				if debug {
+					l.Debugln("Already processed device with UUID", existingResult.uuid, "continuing...")
+				}
+				continue
+			}
+		}
+
+		// No existing results, okay to append
 		results = append(results, result)
 	}
 
