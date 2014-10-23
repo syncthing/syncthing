@@ -712,11 +712,11 @@ func setupUPnP() {
 					l.Warnln("Failed to create UPnP port mapping")
 				} else {
 					l.Infof("Created UPnP port mapping for external port %d on UPnP device %s.", externalPort, igd.FriendlyIdentifier())
-				}
-			}
 
-			if opts.UPnPRenewal > 0 {
-				go renewUPnP(port)
+					if opts.UPnPRenewal > 0 {
+						go renewUPnP(port)
+					}
+				}
 			}
 		}
 	} else {

@@ -44,10 +44,35 @@ type IGD struct {
 	localIPAddress string
 }
 
+// The InternetGatewayDevice's UUID.
+func (n *IGD) UUID() string {
+	return n.uuid
+}
+
+// The InternetGatewayDevice's friendly name.
+func (n *IGD) FriendlyName() string {
+	return n.friendlyName
+}
+
+// The InternetGatewayDevice's friendly identifier (friendly name + IP address).
+func (n *IGD) FriendlyIdentifier() string {
+	return "'" + n.FriendlyName() + "' (" + strings.Split(n.URL().Host, ":")[0] + ")"
+}
+
+// The URL of the InternetGatewayDevice's root device description.
+func (n *IGD) URL() *url.URL {
+	return n.url
+}
+
 // A container for relevant properties of a UPnP service of an IGD.
 type IGDService struct {
+	serviceID  string
 	serviceURL string
 	serviceURN string
+}
+
+func (s *IGDService) ID() string {
+	return s.serviceID
 }
 
 type Protocol string
@@ -58,6 +83,7 @@ const (
 )
 
 type upnpService struct {
+	ServiceID   string `xml:"serviceId"`
 	ServiceType string `xml:"serviceType"`
 	ControlURL  string `xml:"controlURL"`
 }
@@ -94,7 +120,7 @@ func Discover() []*IGD {
 			l.Debugln("[" + resultDevice.uuid + "]")
 
 			for _, resultService := range resultDevice.services {
-				l.Debugln("* " + resultService.serviceURL)
+				l.Debugln("* [" + resultService.serviceID + "] " + resultService.serviceURL)
 			}
 		}
 	}
@@ -184,6 +210,17 @@ Mx: %d
 
 	// Collect our results from the result handlers using the result channel
 	for result := range resultChannel {
+		// Check for existing results (some routers send multiple response packets)
+		for _, existingResult := range results {
+			if existingResult.uuid == result.uuid {
+				if debug {
+					l.Debugln("Already processed device with UUID", existingResult.uuid, "continuing...")
+				}
+				continue
+			}
+		}
+
+		// No existing results, okay to append
 		results = append(results, result)
 	}
 
@@ -398,7 +435,7 @@ func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanC
 							l.Debugln("[" + rootURL + "] Found " + service.ServiceType + " with URL " + u.String())
 						}
 
-						service := IGDService{serviceURL: u.String(), serviceURN: service.ServiceType}
+						service := IGDService{serviceID: service.ServiceID, serviceURL: u.String(), serviceURN: service.ServiceType}
 
 						result = append(result, service)
 					}
@@ -426,7 +463,7 @@ func replaceRawPath(u *url.URL, rp string) {
 	u.RawQuery = q
 }
 
-func soapRequest(url, device, function, message string) ([]byte, error) {
+func soapRequest(url, service, function, message string) ([]byte, error) {
 	tpl := `	<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
@@ -442,13 +479,14 @@ func soapRequest(url, device, function, message string) ([]byte, error) {
 	}
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")
-	req.Header.Set("SOAPAction", fmt.Sprintf(`"%s#%s"`, device, function))
+	req.Header.Set("SOAPAction", fmt.Sprintf(`"%s#%s"`, service, function))
 	req.Header.Set("Connection", "Close")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Pragma", "no-cache")
 
 	if debug {
-		l.Debugln(req.Header.Get("SOAPAction"))
+		l.Debugln("SOAP Request URL: " + url)
+		l.Debugln("SOAP Action: " + req.Header.Get("SOAPAction"))
 		l.Debugln("SOAP Request:\n\n" + body)
 	}
 
@@ -495,26 +533,6 @@ func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) error {
 		}
 	}
 	return nil
-}
-
-// The InternetGatewayDevice's UUID.
-func (n *IGD) UUID() string {
-	return n.uuid
-}
-
-// The InternetGatewayDevice's friendly name.
-func (n *IGD) FriendlyName() string {
-	return n.friendlyName
-}
-
-// The InternetGatewayDevice's friendly identifier (friendly name + IP address).
-func (n *IGD) FriendlyIdentifier() string {
-	return "'" + n.FriendlyName() + "' (" + strings.Split(n.URL().Host, ":")[0] + ")"
-}
-
-// The URL of the InternetGatewayDevice's root device description.
-func (n *IGD) URL() *url.URL {
-	return n.url
 }
 
 type soapGetExternalIPAddressResponseEnvelope struct {
