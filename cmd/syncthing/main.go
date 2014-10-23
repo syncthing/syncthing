@@ -59,6 +59,8 @@ var (
 	BuildDate   time.Time
 	BuildHost   = "unknown"
 	BuildUser   = "unknown"
+	IsRelease   bool
+	IsBeta      bool
 	LongVersion string
 	GoArchExtra string // "", "v5", "v6", "v7"
 )
@@ -81,6 +83,13 @@ func init() {
 			l.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, exp)
 		}
 	}
+
+	// Check for a clean release build.
+	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-beta[\d\.]+)?$`)
+	IsRelease = exp.MatchString(Version)
+
+	// Check for a beta build
+	IsBeta = strings.Contains(Version, "-beta")
 
 	stamp, _ := strconv.Atoi(BuildStamp)
 	BuildDate = time.Unix(int64(stamp), 0)
@@ -291,7 +300,7 @@ func main() {
 	ensureDir(confDir, 0700)
 
 	if doUpgrade || doUpgradeCheck {
-		rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
+		rel, err := upgrade.LatestRelease(IsBeta)
 		if err != nil {
 			l.Fatalln("Upgrade:", err) // exits 1
 		}
@@ -547,7 +556,11 @@ func syncthingMain() {
 	}
 
 	if opts.AutoUpgradeIntervalH > 0 {
-		go autoUpgrade()
+		if IsRelease {
+			go autoUpgrade()
+		} else {
+			l.Infof("No automatic upgrades; %s is not a relase version.", Version)
+		}
 	}
 
 	events.Default.Log(events.StartupComplete, nil)
@@ -1192,7 +1205,7 @@ func autoUpgrade() {
 			skipped = true
 		}
 
-		rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
+		rel, err := upgrade.LatestRelease(IsBeta)
 		if err == upgrade.ErrUpgradeUnsupported {
 			return
 		}
