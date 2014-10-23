@@ -111,11 +111,21 @@ func (s *Set) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if device == protocol.LocalDeviceID {
+		discards := make([]protocol.FileInfo, 0, len(fs))
+		updates := make([]protocol.FileInfo, 0, len(fs))
+		for _, newFile := range fs {
+			existingFile := ldbGet(s.db, []byte(s.folder), device[:], []byte(newFile.Name))
+			if existingFile.Version <= newFile.Version {
+				discards = append(discards, existingFile)
+				updates = append(updates, newFile)
+			}
+		}
+		s.blockmap.Discard(discards)
+		s.blockmap.Update(updates)
+	}
 	if lv := ldbUpdate(s.db, []byte(s.folder), device[:], fs); lv > s.localVersion[device] {
 		s.localVersion[device] = lv
-	}
-	if device == protocol.LocalDeviceID {
-		s.blockmap.Update(fs)
 	}
 }
 

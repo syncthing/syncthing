@@ -250,3 +250,58 @@ func TestCopierFinder(t *testing.T) {
 
 	os.Remove(tempFile)
 }
+
+// Test that updating a file removes it's old blocks from the blockmap
+func TestCopierCleanup(t *testing.T) {
+	iterFn := func(folder, file string, index uint32) bool {
+		return true
+	}
+
+	fcfg := config.FolderConfiguration{ID: "default", Path: "testdata"}
+	cfg := config.Configuration{Folders: []config.FolderConfiguration{fcfg}}
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
+	m.AddFolder(fcfg)
+
+	// Create a file
+	file := protocol.FileInfo{
+		Name:     "test",
+		Flags:    0,
+		Modified: 0,
+		Blocks:   []protocol.BlockInfo{blocks[0]},
+	}
+
+	// Add file to index
+	m.updateLocal("default", file)
+
+	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
+		t.Error("Expected block not found")
+	}
+
+	file.Blocks = []protocol.BlockInfo{blocks[1]}
+	file.Version++
+	// Update index (removing old blocks)
+	m.updateLocal("default", file)
+
+	if m.finder.Iterate(blocks[0].Hash, iterFn) {
+		t.Error("Unexpected block found")
+	}
+
+	if !m.finder.Iterate(blocks[1].Hash, iterFn) {
+		t.Error("Expected block not found")
+	}
+
+	file.Blocks = []protocol.BlockInfo{blocks[0]}
+	file.Version++
+	// Update index (removing old blocks)
+	m.updateLocal("default", file)
+
+	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
+		t.Error("Unexpected block found")
+	}
+
+	if m.finder.Iterate(blocks[1].Hash, iterFn) {
+		t.Error("Expected block not found")
+	}
+}
