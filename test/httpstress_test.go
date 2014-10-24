@@ -51,7 +51,10 @@ func TestStressHTTP(t *testing.T) {
 
 	tc := &tls.Config{InsecureSkipVerify: true}
 	tr := &http.Transport{
-		TLSClientConfig: tc,
+		TLSClientConfig:       tc,
+		DisableKeepAlives:     true,
+		ResponseHeaderTimeout: time.Second,
+		TLSHandshakeTimeout:   time.Second,
 	}
 	client := &http.Client{
 		Transport: tr,
