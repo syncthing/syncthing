@@ -39,7 +39,7 @@
     "Folder Path": "Ścieżka folderu",
     "GUI Authentication Password": "Hasło",
     "GUI Authentication User": "Użytkownik",
-    "GUI Listen Addresses": "Adres nasłuchu",
+    "GUI Listen Addresses": "Adres nasłuchiwania",
     "Generate": "Generuj",
     "Global Discovery": "Globalne odnajdywanie",
     "Global Discovery Server": "Globalny serwer rozgłoszeniowy",
@@ -82,7 +82,7 @@
     "Save": "Zapisz",
     "Scanning": "Skanowanie",
     "Select the devices to share this folder with.": "Wybierz urządzenie, któremu udostępnić folder.",
-    "Settings": "Ustrawienia",
+    "Settings": "Ustawienia",
     "Share With Devices": "Udostępnij dla urządzenia",
     "Shared With": "Współdzielony z",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Krótki identyfikator folderu. Musi być taki sam na wszystkich urządzeniach.",
@@ -136,5 +136,5 @@
     "Yes": "Tak",
     "You must keep at least one version.": "Musisz posiadać przynajmniej jedną wersję",
     "full documentation": "pełna dokumentacja",
-    "items": "pozycji."
+    "items": "pozycji"
 }
