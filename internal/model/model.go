@@ -1261,7 +1261,9 @@ func (m *Model) RemoteLocalVersion(folder string) uint64 {
 
 	fs, ok := m.folderFiles[folder]
 	if !ok {
-		panic("bug: LocalVersion called for nonexistent folder " + folder)
+		// The folder might not exist, since this can be called with a user
+		// specified folder name from the REST interface.
+		return 0
 	}
 
 	var ver uint64
