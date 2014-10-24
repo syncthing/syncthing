@@ -173,7 +173,7 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 	f3.Flags = 0
 }
 
-func TestBlockMapFinderLookup(t *testing.T) {
+func TestBlockFinderLookup(t *testing.T) {
 	db, f := setup()
 
 	m1 := NewBlockMap(db, "folder1")
@@ -232,4 +232,6 @@ func TestBlockMapFinderLookup(t *testing.T) {
 	if counter != 1 {
 		t.Fatal("Incorrect count")
 	}
+
+	f1.Flags = 0
 }
