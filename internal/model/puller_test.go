@@ -210,7 +210,7 @@ func TestCopierFinder(t *testing.T) {
 	finisherChan := make(chan *sharedPullerState, 1)
 
 	// Run a single fetcher routine
-	go p.copierRoutine(copyChan, pullChan, finisherChan)
+	go p.copierRoutine(copyChan, pullChan, finisherChan, false)
 
 	p.handleFile(requiredFile, copyChan, finisherChan)
 
@@ -304,4 +304,71 @@ func TestCopierCleanup(t *testing.T) {
 	if m.finder.Iterate(blocks[1].Hash, iterFn) {
 		t.Error("Expected block not found")
 	}
+}
+
+// On the 10th iteration, we start hashing the content which we receive by
+// following blockfinder's instructions. Make sure that the copier routine
+// hashes the content when asked, and pulls if it fails to find the block.
+func TestLastResortPulling(t *testing.T) {
+	fcfg := config.FolderConfiguration{ID: "default", Path: "testdata"}
+	cfg := config.Configuration{Folders: []config.FolderConfiguration{fcfg}}
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
+	m.AddFolder(fcfg)
+
+	// Add a file to index (with the incorrect block representation, as content
+	// doesn't actually match the block list)
+	file := protocol.FileInfo{
+		Name:     "empty",
+		Flags:    0,
+		Modified: 0,
+		Blocks:   []protocol.BlockInfo{blocks[0]},
+	}
+	m.updateLocal("default", file)
+
+	// Pretend that we are handling a new file of the same content but
+	// with a different name (causing to copy that particular block)
+	file.Name = "newfile"
+
+	iterFn := func(folder, file string, index uint32) bool {
+		return true
+	}
+
+	// Check that that particular block is there
+	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
+		t.Error("Expected block not found")
+	}
+
+	p := Puller{
+		folder: "default",
+		dir:    "testdata",
+		model:  m,
+	}
+
+	copyChan := make(chan copyBlocksState)
+	pullChan := make(chan pullBlockState, 1)
+	finisherChan := make(chan *sharedPullerState, 1)
+
+	// Run a single copier routine with checksumming enabled
+	go p.copierRoutine(copyChan, pullChan, finisherChan, true)
+
+	p.handleFile(file, copyChan, finisherChan)
+
+	// Copier should hash empty file, realise that the region it has read
+	// doesn't match the hash which was advertised by the block map, fix it
+	// and ask to pull the block.
+	<-pullChan
+
+	// Verify that it did fix the incorrect hash.
+	if m.finder.Iterate(blocks[0].Hash, iterFn) {
+		t.Error("Found unexpected block")
+	}
+
+	if !m.finder.Iterate(scanner.SHA256OfNothing, iterFn) {
+		t.Error("Expected block not found")
+	}
+
+	(<-finisherChan).fd.Close()
+	os.Remove(filepath.Join("testdata", defTempNamer.TempName("newfile")))
 }

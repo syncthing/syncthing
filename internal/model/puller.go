@@ -17,6 +17,7 @@ package model
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -141,9 +142,16 @@ loop:
 			}
 			p.model.setState(p.folder, FolderSyncing)
 			tries := 0
+			checksum := false
 			for {
 				tries++
-				changed := p.pullerIteration(copiersPerFolder, pullersPerFolder, finishersPerFolder)
+				// Last resort mode, to get around corrupt/invalid block maps.
+				if tries == 10 {
+					l.Infoln("Desperation mode ON")
+					checksum = true
+				}
+
+				changed := p.pullerIteration(copiersPerFolder, pullersPerFolder, finishersPerFolder, checksum)
 				if debug {
 					l.Debugln(p, "changed", changed)
 				}
@@ -234,7 +242,7 @@ func (p *Puller) String() string {
 // finisher routines are used. It's seldom efficient to use more than one
 // copier routine, while multiple pullers are essential and multiple finishers
 // may be useful (they are primarily CPU bound due to hashing).
-func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
+func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int, checksum bool) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -247,7 +255,7 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int) int {
 		copyWg.Add(1)
 		go func() {
 			// copierRoutine finishes when copyChan is closed
-			p.copierRoutine(copyChan, pullChan, finisherChan)
+			p.copierRoutine(copyChan, pullChan, finisherChan, checksum)
 			copyWg.Done()
 		}()
 	}
@@ -549,7 +557,7 @@ func (p *Puller) shortcutFile(file protocol.FileInfo) {
 
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
-func (p *Puller) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
+func (p *Puller) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState, checksum bool) {
 	buf := make([]byte, protocol.BlockSize)
 
 nextFile:
@@ -574,10 +582,10 @@ nextFile:
 			}
 		}()
 
+		hasher := sha256.New()
 		for _, block := range state.blocks {
 			buf = buf[:int(block.Size)]
-
-			success := p.model.finder.Iterate(block.Hash, func(folder, file string, index uint32) bool {
+			found := p.model.finder.Iterate(block.Hash, func(folder, file string, index uint32) bool {
 				path := filepath.Join(p.model.folderCfgs[folder].Path, file)
 
 				var fd *os.File
@@ -598,6 +606,23 @@ nextFile:
 					return false
 				}
 
+				// Only done on second to last puller attempt
+				if checksum {
+					hasher.Write(buf)
+					hash := hasher.Sum(nil)
+					hasher.Reset()
+					if !bytes.Equal(hash, block.Hash) {
+						if debug {
+							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
+						}
+						err = p.model.finder.Fix(folder, file, index, block.Hash, hash)
+						if err != nil {
+							l.Warnln("finder fix:", err)
+						}
+						return false
+					}
+				}
+
 				_, err = dstFd.WriteAt(buf, block.Offset)
 				if err != nil {
 					state.earlyClose("dst write", err)
@@ -612,7 +637,7 @@ nextFile:
 				break
 			}
 
-			if !success {
+			if !found {
 				state.pullStarted()
 				ps := pullBlockState{
 					sharedPullerState: state.sharedPullerState,

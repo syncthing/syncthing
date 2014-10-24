@@ -179,6 +179,18 @@ func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, uint32) b
 	return false
 }
 
+// A method for repairing incorrect blockmap entries, removes the old entry
+// and replaces it with a new entry for the given block
+func (f *BlockFinder) Fix(folder, file string, index uint32, oldHash, newHash []byte) error {
+	buf := make([]byte, 4)
+	binary.BigEndian.PutUint32(buf, uint32(index))
+
+	batch := new(leveldb.Batch)
+	batch.Delete(toBlockKey(oldHash, folder, file))
+	batch.Put(toBlockKey(newHash, folder, file), buf)
+	return f.db.Write(batch, nil)
+}
+
 // m.blockKey returns a byte slice encoding the following information:
 //	   keyTypeBlock (1 byte)
 //	   folder (64 bytes)
