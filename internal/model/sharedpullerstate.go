@@ -20,7 +20,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
 )
 
@@ -137,8 +136,6 @@ func (s *sharedPullerState) earlyCloseLocked(context string, err error) {
 	s.err = err
 	if s.fd != nil {
 		s.fd.Close()
-		// Delete temporary file, even if parent dir is read-only
-		osutil.InWritableDir(func(string) error { os.Remove(s.tempName); return nil }, s.tempName)
 	}
 	s.closed = true
 }
