@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"code.google.com/p/go.text/unicode/norm"
 
@@ -113,8 +114,8 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			return nil
 		}
 
-		if sn := filepath.Base(rn); sn == ".stignore" || sn == ".stversions" ||
-			sn == ".stfolder" || (w.Matcher != nil && w.Matcher.Match(rn)) {
+		if sn := filepath.Base(rn); sn == ".stignore" || sn == ".stfolder" ||
+			strings.HasPrefix(rn, ".stversions") || (w.Matcher != nil && w.Matcher.Match(rn)) {
 			// An ignored file
 			if debug {
 				l.Debugln("ignored:", rn)
