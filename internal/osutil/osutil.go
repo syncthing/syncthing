@@ -66,7 +66,7 @@ func Rename(from, to string) error {
 // containing `path` is writable for the duration of the call.
 func InWritableDir(fn func(string) error, path string) error {
 	dir := filepath.Dir(path)
-	if info, err := os.Stat(dir); err == nil && info.IsDir() && info.Mode()&04 == 0 {
+	if info, err := os.Stat(dir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
 		// A non-writeable directory (for this user; we assume that's the
 		// relevant part). Temporarily change the mode so we can delete the
 		// file or directory inside it.

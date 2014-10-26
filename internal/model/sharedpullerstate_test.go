@@ -15,7 +15,11 @@
 
 package model
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestSourceFileOK(t *testing.T) {
 	s := sharedPullerState{
@@ -60,4 +64,24 @@ func TestSourceFileBad(t *testing.T) {
 	if err := s.failed(); err == nil {
 		t.Fatal("Unexpected nil failed()")
 	}
+}
+
+// Test creating temporary file inside read-only directory
+func TestReadOnlyDir(t *testing.T) {
+	s := sharedPullerState{
+		tempName: "testdata/read_only_dir/.temp_name",
+	}
+
+	// Ensure dir is read-only (git doesn't store full permissions)
+	os.Chmod(filepath.Dir(s.tempName), 0555)
+
+	fd, err := s.tempFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fd == nil {
+		t.Fatal("Unexpected nil fd")
+	}
+
+	s.earlyClose("Test done", nil)
 }
