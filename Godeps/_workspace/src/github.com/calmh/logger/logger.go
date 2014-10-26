@@ -1,17 +1,5 @@
-// Copyright (C) 2014 Jakob Borg and Contributors (see the CONTRIBUTORS file).
-//
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// Copyright (C) 2014 Jakob Borg. All rights reserved. Use of this source code
+// is governed by an MIT-style license that can be found in the LICENSE file.
 
 // Package logger implements a standardized logger with callback functionality
 package logger
@@ -35,6 +23,7 @@ const (
 	NumLevels
 )
 
+// A MessageHandler is called with the log level and message text.
 type MessageHandler func(l LogLevel, msg string)
 
 type Logger struct {
@@ -43,6 +32,7 @@ type Logger struct {
 	mut      sync.Mutex
 }
 
+// The default logger logs to standard output with a time prefix.
 var DefaultLogger = New()
 
 func New() *Logger {
@@ -51,16 +41,20 @@ func New() *Logger {
 	}
 }
 
+// AddHandler registers a new MessageHandler to receive messages with the
+// specified log level or above.
 func (l *Logger) AddHandler(level LogLevel, h MessageHandler) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
 	l.handlers[level] = append(l.handlers[level], h)
 }
 
+// See log.SetFlags
 func (l *Logger) SetFlags(flag int) {
 	l.logger.SetFlags(flag)
 }
 
+// See log.SetPrefix
 func (l *Logger) SetPrefix(prefix string) {
 	l.logger.SetPrefix(prefix)
 }
@@ -71,6 +65,7 @@ func (l *Logger) callHandlers(level LogLevel, s string) {
 	}
 }
 
+// Debugln logs a line with a DEBUG prefix.
 func (l *Logger) Debugln(vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -79,6 +74,7 @@ func (l *Logger) Debugln(vals ...interface{}) {
 	l.callHandlers(LevelDebug, s)
 }
 
+// Debugf logs a formatted line with a DEBUG prefix.
 func (l *Logger) Debugf(format string, vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -86,6 +82,8 @@ func (l *Logger) Debugf(format string, vals ...interface{}) {
 	l.logger.Output(2, "DEBUG: "+s)
 	l.callHandlers(LevelDebug, s)
 }
+
+// Infoln logs a line with an INFO prefix.
 func (l *Logger) Infoln(vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -94,6 +92,7 @@ func (l *Logger) Infoln(vals ...interface{}) {
 	l.callHandlers(LevelInfo, s)
 }
 
+// Infof logs a formatted line with an INFO prefix.
 func (l *Logger) Infof(format string, vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -102,6 +101,7 @@ func (l *Logger) Infof(format string, vals ...interface{}) {
 	l.callHandlers(LevelInfo, s)
 }
 
+// Okln logs a line with an OK prefix.
 func (l *Logger) Okln(vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -110,6 +110,7 @@ func (l *Logger) Okln(vals ...interface{}) {
 	l.callHandlers(LevelOK, s)
 }
 
+// Okf logs a formatted line with an OK prefix.
 func (l *Logger) Okf(format string, vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -118,6 +119,7 @@ func (l *Logger) Okf(format string, vals ...interface{}) {
 	l.callHandlers(LevelOK, s)
 }
 
+// Warnln logs a formatted line with a WARNING prefix.
 func (l *Logger) Warnln(vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -126,6 +128,7 @@ func (l *Logger) Warnln(vals ...interface{}) {
 	l.callHandlers(LevelWarn, s)
 }
 
+// Warnf logs a formatted line with a WARNING prefix.
 func (l *Logger) Warnf(format string, vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -134,6 +137,8 @@ func (l *Logger) Warnf(format string, vals ...interface{}) {
 	l.callHandlers(LevelWarn, s)
 }
 
+// Fatalln logs a line with a FATAL prefix and exits the process with exit
+// code 1.
 func (l *Logger) Fatalln(vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -143,6 +148,8 @@ func (l *Logger) Fatalln(vals ...interface{}) {
 	os.Exit(1)
 }
 
+// Fatalf logs a formatted line with a FATAL prefix and exits the process with
+// exit code 1.
 func (l *Logger) Fatalf(format string, vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()

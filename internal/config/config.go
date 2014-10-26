@@ -27,7 +27,7 @@ import (
 	"strconv"
 
 	"code.google.com/p/go.crypto/bcrypt"
-	"github.com/syncthing/syncthing/internal/logger"
+	"github.com/calmh/logger"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
 )

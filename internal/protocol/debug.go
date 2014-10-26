@@ -19,7 +19,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/syncthing/syncthing/internal/logger"
+	"github.com/calmh/logger"
 )
 
 var (
