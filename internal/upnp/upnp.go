@@ -464,7 +464,7 @@ func replaceRawPath(u *url.URL, rp string) {
 }
 
 func soapRequest(url, service, function, message string) ([]byte, error) {
-	tpl := `	<?xml version="1.0" ?>
+	tpl := `<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
 	</s:Envelope>
