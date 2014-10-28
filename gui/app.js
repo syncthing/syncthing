@@ -879,7 +879,9 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.sharesFolder = function (folderCfg) {
         var names = [];
         folderCfg.Devices.forEach(function (device) {
-            names.push($scope.deviceName($scope.findDevice(device.DeviceID)));
+            if (device.DeviceID != $scope.myID) {
+                names.push($scope.deviceName($scope.findDevice(device.DeviceID)));
+            }
         });
         names.sort();
         return names.join(", ");
