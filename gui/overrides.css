@@ -192,6 +192,6 @@ table.table-condensed td {
     border-color: #c41515;
 }
 
-.panel-danger>.panel-heading {
+.panel-danger>.panel-heading, .alert-danger {
     background-color: #c41515;
 }
