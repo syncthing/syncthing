@@ -133,10 +133,17 @@ table.table-condensed td {
     }
 }
 
+.logo {
+    display:block;
+    width:170px;
+    margin-top:-6px;
+}
+
 .navbar-text {
+    font-size: 22px;
+    line-height:42px;
+    margin-bottom:0;
     margin-left: 0px;
-    margin-top: 18px;
-    font-size: 18px;
 }
 
 .navbar-right {
