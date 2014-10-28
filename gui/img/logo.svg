@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="1000px" height="300px" viewBox="0 0 1000 300" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:sketch="http://www.bohemiancoding.com/sketch/ns">
+    <!-- Generator: Sketch 3.1.1 (8761) - http://www.bohemiancoding.com/sketch -->
+    <title>full logo</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
+        <g id="full-logo" sketch:type="MSArtboardGroup">
+            <text id="Pulse" sketch:type="MSTextLayer" font-family="Avenir Next" font-size="210" font-weight="normal" fill="#4A4A4A">
+                <tspan x="329" y="226">Pulse</tspan>
+            </text>
+            <g id="logo-mark" sketch:type="MSLayerGroup" transform="translate(47.000000, 31.000000)">
+                <g id="orbit" transform="translate(122.368199, 118.632885) rotate(-80.000000) translate(-122.368199, -118.632885) translate(20.868199, 12.132885)" sketch:type="MSShapeGroup">
+                    <path d="M52.1916156,185.4153 C99.9672222,212.853844 161.057654,196.570593 188.640913,149.045639 C216.224172,101.520686 199.855041,40.7507641 152.079434,13.3122196 C104.303827,-14.126325 43.2133959,2.15692654 15.6301365,49.6818798 C-11.9531228,97.206833 4.41600891,157.976755 52.1916156,185.4153 Z M149.582238,17.6147966 C194.969065,43.6814139 210.51974,101.41284 184.315643,146.561545 C158.111547,191.710251 100.075637,207.17934 54.688811,181.112723 C9.3019847,155.046105 -6.24869045,97.3146794 19.955406,52.1659738 C46.1595024,7.0172682 104.195412,-8.45182075 149.582238,17.6147966 Z" id="outer-ring" fill="#4A4A4A"></path>
+                    <ellipse id="node" fill="#C41515" transform="translate(185.541853, 51.172336) rotate(-240.000000) translate(-185.541853, -51.172336) " cx="185.541853" cy="51.1723362" rx="12.4859773" ry="12.4204699"></ellipse>
+                    <ellipse id="node" fill="#C41515" transform="translate(17.124206, 49.349539) rotate(-240.000000) translate(-17.124206, -49.349539) " cx="17.1242058" cy="49.3495392" rx="12.4859773" ry="12.4204699"></ellipse>
+                    <ellipse id="node" fill="#C41515" transform="translate(102.634964, 196.243425) rotate(-240.000000) translate(-102.634964, -196.243425) " cx="102.634964" cy="196.243425" rx="12.4859773" ry="12.4204699"></ellipse>
+                </g>
+                <path d="M116.117053,177.785079 C149.216964,177.785079 176.049744,151.093076 176.049744,118.166823 C176.049744,85.2405695 149.216964,58.5485672 116.117053,58.5485672 C83.0171419,58.5485672 56.1843622,85.2405695 56.1843622,118.166823 C56.1843622,151.093076 83.0171419,177.785079 116.117053,177.785079 Z M116.616492,132.077749 C124.615637,132.077749 131.100226,125.627182 131.100226,117.670004 C131.100226,109.712826 124.615637,103.262259 116.616492,103.262259 C108.617347,103.262259 102.132759,109.712826 102.132759,117.670004 C102.132759,125.627182 108.617347,132.077749 116.616492,132.077749 Z" id="middle-ring" fill="#B2B2B2" sketch:type="MSShapeGroup"></path>
+            </g>
+        </g>
+    </g>
+</svg>
