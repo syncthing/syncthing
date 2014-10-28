@@ -234,6 +234,13 @@ func main() {
 		confDir = defConfDir
 	}
 
+	if confDir != defConfDir && filepath.Dir(logFile) == defConfDir {
+		// The user changed the config dir with -home, but not the log file
+		// location. In this case we assume they meant for the logfile to
+		// still live in it's default location *relative to the config dir*.
+		logFile = filepath.Join(confDir, "syncthing.log")
+	}
+
 	if showVersion {
 		fmt.Println(LongVersion)
 		return
