@@ -38,7 +38,7 @@
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
       <span class="navbar-brand"><img class="logo" src="img/logo.svg" /></span>
-      <p class="navbar-text hidden-xs">{{thisDeviceName()}}</p>
+      <p class="navbar-text hidden-xs">Running on: <strong>{{thisDeviceName()}}</strong></p>
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo && upgradeInfo.newer">
           <button type="button" class="btn navbar-btn btn-primary btn-sm" href="" ng-click="upgrade()">
@@ -88,6 +88,7 @@
       <!-- Folder list (top left) -->
 
       <div class="col-md-6">
+        <h2>Folders</h2>
         <div class="panel-group" id="folders">
           <div class="panel panel-{{folderClass(folder.ID)}}" ng-repeat="folder in folderList()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
@@ -187,6 +188,7 @@
       <!-- This device -->
 
       <div class="col-md-6">
+        <h2>Devices</h2>
         <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
           <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
             <h3 class="panel-title">

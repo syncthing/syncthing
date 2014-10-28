@@ -24,6 +24,11 @@ h1, h2, h3, h4, h5 {
     font-family: "Avenir Next", "Avenir", "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
+h2 {
+    font-size: 24px;
+    color: #4a4a4a;
+}
+
 ul+h5 {
     margin-top: 1.5em;
 }
@@ -75,6 +80,7 @@ identicon {
 
 .logo {
     margin: 0;
+    margin-left: -16px;
     padding: 0;
     top: -5px;
     position: relative;
@@ -143,7 +149,11 @@ table.table-condensed td {
     font-size: 22px;
     line-height:42px;
     margin-bottom:0;
-    margin-left: 0px;
+    margin-left: -10px;
+}
+
+.navbar-text strong {
+    font-weight: 600;
 }
 
 .navbar-right {
