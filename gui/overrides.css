@@ -185,3 +185,13 @@ table.table-condensed td {
     background-color: #d0d0d0;
     border-bottom: 1px solid #c2c2c2;
 }
+
+/* Panels */
+
+.panel-danger, .panel-danger>.panel-heading {
+    border-color: #c41515;
+}
+
+.panel-danger>.panel-heading {
+    background-color: #c41515;
+}
