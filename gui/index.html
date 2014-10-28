@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 -->
-<html lang="en" ng-app="syncthing" ng-controller="PulseCtrl" class="ng-cloak">
+<html lang="en" ng-app="pulse" ng-controller="PulseCtrl" class="ng-cloak">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -330,9 +330,9 @@
   <nav class="navbar navbar-default navbar-fixed-bottom hidden-xs">
     <div class="container">
       <ul class="nav navbar-nav">
-        <li><a class="navbar-link" href="http://discourse.syncthing.net/"><span translate>Support / Forum</span></a></li>
+        <li><a class="navbar-link" href="https://pulse-forum.ind.ie/"><span translate>Support / Forum</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/releases"><span translate>Latest Release</span></a></li>
-        <li><a class="navbar-link" href="http://discourse.syncthing.net/category/documentation"><span translate>Documentation</span></a></li>
+        <li><a class="navbar-link" href="https://pulse-forum.ind.ie/c/documentation"><span translate>Documentation</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/issues"><span translate>Bugs</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing"><span translate>Source Code</span></a></li>
       </ul>
@@ -523,7 +523,7 @@
                   </div>
                 </div>
                 <div class="form-group" ng-if="currentFolder.FileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.simpleKeep.$invalid && folderEditor.simpleKeep.$dirty}">
-                  <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</p>
+                  <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Pulse</p>
                   <label translate for="simpleKeep">Keep Versions</label>
                   <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentFolder.simpleKeep" required min="1"></input>
                   <p class="help-block">
@@ -533,7 +533,7 @@
                   </p>
                 </div>
                 <div class="form-group" ng-if="currentFolder.FileVersioningSelector=='staggered'" ng-class="{'has-error': folderEditor.staggeredMaxAge.$invalid && folderEditor.staggeredMaxAge.$dirty}">
-                  <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
+                  <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Pulse.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
                   <p translate class="help-block">The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.</p>
                   <label translate for="staggeredMaxAge">Maximum Age</label>
                   <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentFolder.staggeredMaxAge" required></input>
@@ -576,7 +576,7 @@
 
           <hr/>
 
-          <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://discourse.syncthing.net/t/80" translate>full documentation</a>):</p>
+          <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://pulse-forum.ind.ie/t/80" translate>full documentation</a>):</p>
           <dl class="dl-horizontal dl-narrow small">
             <dt><code>!</code></dt> <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
             <dt><code>*</code></dt> <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>

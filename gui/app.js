@@ -18,16 +18,17 @@
 
 'use strict';
 
-var syncthing = angular.module('syncthing', ['pascalprecht.translate']);
+var pulse = angular.module('pulse', ['pascalprecht.translate']);
 var urlbase = 'rest';
 var guiVersion = null;
 
-syncthing.config(function ($httpProvider, $translateProvider) {
+pulse.config(function ($httpProvider, $translateProvider) {
     $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
     $httpProvider.defaults.xsrfCookieName = 'CSRF-Token';
     $httpProvider.interceptors.push(function() {
       return {
         response: function(response) {
+            // TODO: Replace with x-pulse-version
             var responseVersion = response.headers()['x-syncthing-version'];
             if (!guiVersion) {
                 guiVersion = responseVersion;
@@ -45,7 +46,7 @@ syncthing.config(function ($httpProvider, $translateProvider) {
     });
 });
 
-syncthing.controller('EventCtrl', function ($scope, $http) {
+pulse.controller('EventCtrl', function ($scope, $http) {
     $scope.lastEvent = null;
     var lastID = 0;
 
@@ -94,7 +95,7 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
         .error(errorFn);
 });
 
-syncthing.controller('PulseCtrl', function ($scope, $http, $translate, $location) {
+pulse.controller('PulseCtrl', function ($scope, $http, $translate, $location) {
     var prevDate = 0;
     var getOK = true;
     var navigatingAway = false;
@@ -1103,13 +1104,13 @@ function debounce(func, wait) {
     };
 }
 
-syncthing.filter('natural', function () {
+pulse.filter('natural', function () {
     return function (input, valid) {
         return input.toFixed(decimals(input, valid));
     };
 });
 
-syncthing.filter('binary', function () {
+pulse.filter('binary', function () {
     return function (input) {
         if (input === undefined) {
             return '0 ';
@@ -1130,7 +1131,7 @@ syncthing.filter('binary', function () {
     };
 });
 
-syncthing.filter('metric', function () {
+pulse.filter('metric', function () {
     return function (input) {
         if (input === undefined) {
             return '0 ';
@@ -1151,7 +1152,7 @@ syncthing.filter('metric', function () {
     };
 });
 
-syncthing.filter('alwaysNumber', function () {
+pulse.filter('alwaysNumber', function () {
     return function (input) {
         if (input === undefined) {
             return 0;
@@ -1160,7 +1161,7 @@ syncthing.filter('alwaysNumber', function () {
     };
 });
 
-syncthing.filter('basename', function () {
+pulse.filter('basename', function () {
     return function (input) {
         if (input === undefined)
             return "";
@@ -1172,7 +1173,7 @@ syncthing.filter('basename', function () {
     };
 });
 
-syncthing.directive('uniqueFolder', function () {
+pulse.directive('uniqueFolder', function () {
     return {
         require: 'ngModel',
         link: function (scope, elm, attrs, ctrl) {
@@ -1193,7 +1194,7 @@ syncthing.directive('uniqueFolder', function () {
     };
 });
 
-syncthing.directive('validDeviceid', function ($http) {
+pulse.directive('validDeviceid', function ($http) {
     return {
         require: 'ngModel',
         link: function (scope, elm, attrs, ctrl) {
@@ -1216,7 +1217,7 @@ syncthing.directive('validDeviceid', function ($http) {
     };
 });
 
-syncthing.directive('modal', function () {
+pulse.directive('modal', function () {
     return {
         restrict: 'E',
         templateUrl: 'modal.html',
@@ -1232,7 +1233,7 @@ syncthing.directive('modal', function () {
     };
 });
 
-syncthing.directive('identicon', ['$window', function ($window) {
+pulse.directive('identicon', ['$window', function ($window) {
   var svgNS = 'http://www.w3.org/2000/svg';
 
   function Identicon (value, size) {
