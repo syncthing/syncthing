@@ -453,13 +453,15 @@ func restPostDiscoveryHint(w http.ResponseWriter, r *http.Request) {
 
 func restGetDiscovery(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	registry := discoverer.All()
+	devices := map[string][]discover.CacheEntry{}
 
-	// Device ids can't be marshalled as keys so we need to manually
-	// rebuild this map using strings.
-	devices := make(map[string][]discover.CacheEntry, len(registry))
-	for device, _ := range registry {
-		devices[device.String()] = registry[device]
+	if discoverer != nil {
+		// Device ids can't be marshalled as keys so we need to manually
+		// rebuild this map using strings. Discoverer may be nil if discovery
+		// has not started yet.
+		for device, entries := range discoverer.All() {
+			devices[device.String()] = entries
+		}
 	}
 
 	json.NewEncoder(w).Encode(devices)
