@@ -168,3 +168,20 @@ table.table-condensed td {
 .dl-horizontal.dl-narrow dd {
     margin-left: 60px;
 }
+
+/* Alert modal */
+
+.alert {
+    /* Fixes ugly few pixel glitch at the corners */
+    border-radius:0;
+}
+
+.alert-info {
+    background-color: #4a4a4a;
+    border-color: #4a4a4a;
+}
+
+#settings .modal-header {
+    background-color: #d0d0d0;
+    border-bottom: 1px solid #c2c2c2;
+}
