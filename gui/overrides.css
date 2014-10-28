@@ -133,9 +133,21 @@ table.table-condensed td {
     }
 }
 
+.navbar-text {
+    margin-left: 0px;
+    margin-top: 18px;
+    font-size: 18px;
+}
+
 .navbar-right {
     /* to align with panel */
     padding-right: 15px;
+}
+
+#pulse-menu {
+    display: block;
+    font-size: 24px;
+    top: 2px;
 }
 
 .panel-body .table-condensed {
