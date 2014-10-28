@@ -50,7 +50,7 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
     var lastID = 0;
 
     var successFn = function (data) {
-        // When Syncthing restarts while the long polling connection is in
+        // When Pulse restarts while the long polling connection is in
         // progress the browser on some platforms returns a 200 (since the
         // headers has been flushed with the return code 200), with no data.
         // This basically means that the connection has been reset, and the call
@@ -94,7 +94,7 @@ syncthing.controller('EventCtrl', function ($scope, $http) {
         .error(errorFn);
 });
 
-syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $location) {
+syncthing.controller('PulseCtrl', function ($scope, $http, $translate, $location) {
     var prevDate = 0;
     var getOK = true;
     var navigatingAway = false;
