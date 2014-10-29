@@ -412,6 +412,16 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 // deleteDir attempts to delete the given directory
 func (p *Puller) deleteDir(file protocol.FileInfo) {
 	realName := filepath.Join(p.dir, file.Name)
+	// Delete any temporary files lying around in the directory
+	dir, _ := os.Open(realName)
+	if dir != nil {
+		files, _ := dir.Readdirnames(-1)
+		for _, file := range files {
+			if defTempNamer.IsTemporary(file) {
+				osutil.InWritableDir(os.Remove, filepath.Join(realName, file))
+			}
+		}
+	}
 	err := osutil.InWritableDir(os.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
 		p.model.updateLocal(p.folder, file)
