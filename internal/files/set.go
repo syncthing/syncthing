@@ -53,6 +53,8 @@ func NewSet(folder string, db *leveldb.DB) *Set {
 		blockmap:     NewBlockMap(db, folder),
 	}
 
+	ldbCheckGlobals(db, []byte(folder))
+
 	var deviceID protocol.DeviceID
 	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f protocol.FileInfoTruncated) bool {
 		copy(deviceID[:], device)

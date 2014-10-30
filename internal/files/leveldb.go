@@ -940,3 +940,67 @@ func unmarshalTrunc(bs []byte, truncate bool) (protocol.FileIntf, error) {
 		return tf, err
 	}
 }
+
+func ldbCheckGlobals(db *leveldb.DB, folder []byte) {
+	defer runtime.GC()
+
+	snap, err := db.GetSnapshot()
+	if err != nil {
+		panic(err)
+	}
+	if debugDB {
+		l.Debugf("created snapshot %p", snap)
+	}
+	defer func() {
+		if debugDB {
+			l.Debugf("close snapshot %p", snap)
+		}
+		snap.Release()
+	}()
+
+	start := globalKey(folder, nil)
+	limit := globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
+	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	defer dbi.Release()
+
+	batch := &leveldb.Batch{}
+	for dbi.Next() {
+		gk := dbi.Key()
+		var vl versionList
+		err := vl.UnmarshalXDR(dbi.Value())
+		if err != nil {
+			panic(err)
+		}
+
+		// Check the global version list for consistency. An issue in previous
+		// versions of goleveldb could result in reordered writes so that
+		// there are global entries pointing to no longer existing files. Here
+		// we find those and clear them out.
+
+		name := globalKeyName(gk)
+		var newVL versionList
+		for _, version := range vl.versions {
+			fk := deviceKey(folder, version.device, name)
+			if debugDB {
+				l.Debugf("snap.Get %p %x", snap, fk)
+			}
+			_, err := snap.Get(fk, nil)
+			if err == leveldb.ErrNotFound {
+				continue
+			}
+			if err != nil {
+				panic(err)
+			}
+			newVL.versions = append(newVL.versions, version)
+		}
+
+		if len(newVL.versions) != len(vl.versions) {
+			l.Infof("db repair: rewriting global version list for %x %x", gk[1:1+64], gk[1+64:])
+			batch.Put(dbi.Key(), newVL.MustMarshalXDR())
+		}
+	}
+	if debugDB {
+		l.Infoln("db check completed for %q", folder)
+	}
+	db.Write(batch, nil)
+}
