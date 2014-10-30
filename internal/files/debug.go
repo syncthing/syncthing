@@ -23,6 +23,7 @@ import (
 )
 
 var (
-	debug = strings.Contains(os.Getenv("STTRACE"), "files") || os.Getenv("STTRACE") == "all"
-	l     = logger.DefaultLogger
+	debug   = strings.Contains(os.Getenv("STTRACE"), "files") || os.Getenv("STTRACE") == "all"
+	debugDB = strings.Contains(os.Getenv("STTRACE"), "db") || os.Getenv("STTRACE") == "all"
+	l       = logger.DefaultLogger
 )
