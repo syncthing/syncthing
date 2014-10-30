@@ -174,6 +174,9 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 	limit := deviceKey(folder, device, []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
 
 	batch := new(leveldb.Batch)
+	if debugDB {
+		l.Debugf("new batch %p", batch)
+	}
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
@@ -335,6 +338,9 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) ui
 	runtime.GC()
 
 	batch := new(leveldb.Batch)
+	if debugDB {
+		l.Debugf("new batch %p", batch)
+	}
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
@@ -963,7 +969,10 @@ func ldbCheckGlobals(db *leveldb.DB, folder []byte) {
 	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
 	defer dbi.Release()
 
-	batch := &leveldb.Batch{}
+	batch := new(leveldb.Batch)
+	if debugDB {
+		l.Debugf("new batch %p", batch)
+	}
 	for dbi.Next() {
 		gk := dbi.Key()
 		var vl versionList
