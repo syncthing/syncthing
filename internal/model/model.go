@@ -1273,6 +1273,11 @@ func (m *Model) RemoteLocalVersion(folder string) uint64 {
 }
 
 func (m *Model) availability(folder string, file string) []protocol.DeviceID {
+	// Acquire this lock first, as the value returned from foldersFiles can
+	// gen heavily modified on Close()
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
+
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
@@ -1280,7 +1285,14 @@ func (m *Model) availability(folder string, file string) []protocol.DeviceID {
 		return nil
 	}
 
-	return fs.Availability(file)
+	availableDevices := []protocol.DeviceID{}
+	for _, device := range fs.Availability(file) {
+		_, ok := m.protoConn[device]
+		if ok {
+			availableDevices = append(availableDevices, device)
+		}
+	}
+	return availableDevices
 }
 
 func (m *Model) String() string {
