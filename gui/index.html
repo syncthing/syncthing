@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 -->
-<html lang="en" ng-app="syncthing" ng-controller="SyncthingCtrl" class="ng-cloak">
+<html lang="en" ng-app="pulse" ng-controller="PulseCtrl" class="ng-cloak">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -24,7 +24,7 @@
   <meta name="author" content="">
   <link rel="shortcut icon" href="img/favicon.png">
 
-  <title>Syncthing | {{thisDeviceName()}}</title>
+  <title>Pulse | {{thisDeviceName()}}</title>
   <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="font/raleway.css" rel="stylesheet">
   <link href="overrides.css" rel="stylesheet">
@@ -37,8 +37,8 @@
 
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
-      <span class="navbar-brand"><img class="logo" src="img/logo-text-64.png" height="32" width="117"/></span>
-      <p class="navbar-text hidden-xs">{{thisDeviceName()}}</p>
+      <span class="navbar-brand"><img class="logo" src="img/logo.svg" /></span>
+      <p class="navbar-text hidden-xs">Running on: <strong>{{thisDeviceName()}}</strong></p>
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo && upgradeInfo.newer">
           <button type="button" class="btn navbar-btn btn-primary btn-sm" href="" ng-click="upgrade()">
@@ -47,7 +47,7 @@
           </button>
         </li>
         <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog"></span></a>
+          <a href="#" id="pulse-menu" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog"></span></a>
           <ul class="dropdown-menu">
             <li><a href="" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span>&emsp;<span translate>Settings</span></a></li>
             <li><a href="" ng-click="idDevice()"><span class="glyphicon glyphicon-qrcode"></span>&emsp;<span translate>Show ID</span></a></li>
@@ -71,7 +71,7 @@
         <div class="panel panel-warning">
           <div class="panel-heading"><h3 translate class="panel-title">Restart Needed</h3></div>
           <div class="panel-body">
-            <p translate>The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.</p>
+            <p translate>The configuration has been saved but not activated. Pulse must restart to activate the new configuration.</p>
           </div>
           <div class="panel-footer">
             <button type="button" class="btn btn-sm btn-default pull-right" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Restart</span></button>
@@ -88,6 +88,7 @@
       <!-- Folder list (top left) -->
 
       <div class="col-md-6">
+        <h2>Folders</h2>
         <div class="panel-group" id="folders">
           <div class="panel panel-{{folderClass(folder.ID)}}" ng-repeat="folder in folderList()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
@@ -187,6 +188,7 @@
       <!-- This device -->
 
       <div class="col-md-6">
+        <h2>Devices</h2>
         <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
           <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
             <h3 class="panel-title">
@@ -328,9 +330,9 @@
   <nav class="navbar navbar-default navbar-fixed-bottom hidden-xs">
     <div class="container">
       <ul class="nav navbar-nav">
-        <li><a class="navbar-link" href="http://discourse.syncthing.net/"><span translate>Support / Forum</span></a></li>
+        <li><a class="navbar-link" href="https://pulse-forum.ind.ie/"><span translate>Support / Forum</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/releases"><span translate>Latest Release</span></a></li>
-        <li><a class="navbar-link" href="http://discourse.syncthing.net/category/documentation"><span translate>Documentation</span></a></li>
+        <li><a class="navbar-link" href="https://pulse-forum.ind.ie/c/documentation"><span translate>Documentation</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/issues"><span translate>Bugs</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing"><span translate>Source Code</span></a></li>
       </ul>
@@ -341,26 +343,26 @@
 
   <modal id="networkError" status="danger" icon="exclamation-sign" title="{{'Connection Error' | translate}}">
     <p translate>
-      Syncthing seems to be down, or there is a problem with your Internet connection. Retrying&hellip;
+      Pulse seems to be down, or there is a problem with your Internet connection. Retrying&hellip;
     </p>
   </modal>
 
   <!-- Restarting modal -->
 
   <modal id="restarting" icon="refresh" title="{{'Restarting' | translate}}" status="info">
-    <p><span translate>Syncthing is restarting.</span> <span translate>Please wait</span>...</p>
+    <p><span translate>Pulse is restarting.</span> <span translate>Please wait</span>...</p>
   </modal>
 
   <!-- Upgrading modal -->
 
   <modal id="upgrading" icon="refresh" title="{{'Upgrading' | translate}}" status="info">
-    <p><span translate>Syncthing is upgrading.</span> <span translate>Please wait</span>...</p>
+    <p><span translate>Pulse is upgrading.</span> <span translate>Please wait</span>...</p>
   </modal>
 
   <!-- Shutdown modal -->
 
   <modal id="shutdown" icon="off" status="success" title="Shutdown Complete">
-    <p translate>Syncthing has been shut down.</p>
+    <p translate>Pulse has been shut down.</p>
   </modal>
 
   <!-- ID modal -->
@@ -521,7 +523,7 @@
                   </div>
                 </div>
                 <div class="form-group" ng-if="currentFolder.FileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.simpleKeep.$invalid && folderEditor.simpleKeep.$dirty}">
-                  <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</p>
+                  <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Pulse</p>
                   <label translate for="simpleKeep">Keep Versions</label>
                   <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentFolder.simpleKeep" required min="1"></input>
                   <p class="help-block">
@@ -531,7 +533,7 @@
                   </p>
                 </div>
                 <div class="form-group" ng-if="currentFolder.FileVersioningSelector=='staggered'" ng-class="{'has-error': folderEditor.staggeredMaxAge.$invalid && folderEditor.staggeredMaxAge.$dirty}">
-                  <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
+                  <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Pulse.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
                   <p translate class="help-block">The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.</p>
                   <label translate for="staggeredMaxAge">Maximum Age</label>
                   <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentFolder.staggeredMaxAge" required></input>
@@ -574,7 +576,7 @@
 
           <hr/>
 
-          <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://discourse.syncthing.net/t/80" translate>full documentation</a>):</p>
+          <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://pulse-forum.ind.ie/t/80" translate>full documentation</a>):</p>
           <dl class="dl-horizontal dl-narrow small">
             <dt><code>!</code></dt> <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
             <dt><code>*</code></dt> <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
@@ -770,7 +772,7 @@
   <!-- About modal -->
 
   <modal id="about" large="yes" close="yes" status="info" title="About">
-    <h1 class="text-center"><img alt="Syncthing" title="Syncthing" src="img/logo-text-256.png" style="vertical-align: -16px" height="100" width="366"/><br/><small>{{version}}</small></h1>
+    <h1 class="text-center"><img alt="Pulse" title="Pulse" src="img/logo.svg" style="vertical-align: -16px" height="100" width="366"/><br/><small>{{version}}</small></h1>
     <hr/>
 
     <p translate>Copyright &copy; 2014 Jakob Borg and the following Contributors:</p>
@@ -811,7 +813,7 @@
     </div>
     <hr/>
 
-    <p translate>Syncthing includes the following software or portions thereof:</p>
+    <p translate>Pulse includes the following software or portions thereof:</p>
     <ul>
       <li><a href="http://golang.org/">The Go Programming Language</a>, Copyright &copy; 2012 The Go Authors.</li>
       <li><a href="https://bitbucket.org/kardianos/osext">kardianos/osext</a>, Copyright &copy; 2012 Daniel Theophanes.</li>

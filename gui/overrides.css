@@ -17,11 +17,16 @@
 
 body {
     padding-bottom: 70px;
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: "Avenir Next", "Avenir", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 h1, h2, h3, h4, h5 {
-    font-family: "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: "Avenir Next", "Avenir", "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+h2 {
+    font-size: 24px;
+    color: #4a4a4a;
 }
 
 ul+h5 {
@@ -75,6 +80,7 @@ identicon {
 
 .logo {
     margin: 0;
+    margin-left: -16px;
     padding: 0;
     top: -5px;
     position: relative;
@@ -133,9 +139,32 @@ table.table-condensed td {
     }
 }
 
+.logo {
+    display:block;
+    width:170px;
+    margin-top:-6px;
+}
+
+.navbar-text {
+    font-size: 22px;
+    line-height:42px;
+    margin-bottom:0;
+    margin-left: -10px;
+}
+
+.navbar-text strong {
+    font-weight: 600;
+}
+
 .navbar-right {
     /* to align with panel */
     padding-right: 15px;
+}
+
+#pulse-menu {
+    display: block;
+    font-size: 24px;
+    top: 2px;
 }
 
 .panel-body .table-condensed {
@@ -148,4 +177,31 @@ table.table-condensed td {
 
 .dl-horizontal.dl-narrow dd {
     margin-left: 60px;
+}
+
+/* Alert modal */
+
+.alert {
+    /* Fixes ugly few pixel glitch at the corners */
+    border-radius:0;
+}
+
+.alert-info {
+    background-color: #4a4a4a;
+    border-color: #4a4a4a;
+}
+
+#settings .modal-header {
+    background-color: #d0d0d0;
+    border-bottom: 1px solid #c2c2c2;
+}
+
+/* Panels */
+
+.panel-danger, .panel-danger>.panel-heading {
+    border-color: #c41515;
+}
+
+.panel-danger>.panel-heading, .alert-danger {
+    background-color: #c41515;
 }
