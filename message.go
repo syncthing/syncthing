@@ -37,7 +37,7 @@ func (f FileInfo) String() string {
 }
 
 func (f FileInfo) Size() (bytes int64) {
-	if IsDeleted(f.Flags) || IsDirectory(f.Flags) {
+	if f.IsDeleted() || f.IsDirectory() {
 		return 128
 	}
 	for _, b := range f.Blocks {
@@ -47,15 +47,19 @@ func (f FileInfo) Size() (bytes int64) {
 }
 
 func (f FileInfo) IsDeleted() bool {
-	return IsDeleted(f.Flags)
+	return f.Flags&FlagDeleted != 0
 }
 
 func (f FileInfo) IsInvalid() bool {
-	return IsInvalid(f.Flags)
+	return f.Flags&FlagInvalid != 0
 }
 
 func (f FileInfo) IsDirectory() bool {
-	return IsDirectory(f.Flags)
+	return f.Flags&FlagDirectory != 0
+}
+
+func (f FileInfo) HasPermissionBits() bool {
+	return f.Flags&FlagNoPermBits == 0
 }
 
 // Used for unmarshalling a FileInfo structure but skipping the actual block list
@@ -75,7 +79,7 @@ func (f FileInfoTruncated) String() string {
 
 // Returns a statistical guess on the size, not the exact figure
 func (f FileInfoTruncated) Size() int64 {
-	if IsDeleted(f.Flags) || IsDirectory(f.Flags) {
+	if f.IsDeleted() || f.IsDirectory() {
 		return 128
 	}
 	if f.NumBlocks < 2 {
@@ -86,17 +90,27 @@ func (f FileInfoTruncated) Size() int64 {
 }
 
 func (f FileInfoTruncated) IsDeleted() bool {
-	return IsDeleted(f.Flags)
+	return f.Flags&FlagDeleted != 0
 }
 
 func (f FileInfoTruncated) IsInvalid() bool {
-	return IsInvalid(f.Flags)
+	return f.Flags&FlagInvalid != 0
+}
+
+func (f FileInfoTruncated) IsDirectory() bool {
+	return f.Flags&FlagDirectory != 0
+}
+
+func (f FileInfoTruncated) HasPermissionBits() bool {
+	return f.Flags&FlagNoPermBits == 0
 }
 
 type FileIntf interface {
 	Size() int64
 	IsDeleted() bool
 	IsInvalid() bool
+	IsDirectory() bool
+	HasPermissionBits() bool
 }
 
 type BlockInfo struct {

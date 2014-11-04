@@ -637,19 +637,3 @@ func (c *rawConnection) Statistics() Statistics {
 		OutBytesTotal: c.cw.Tot(),
 	}
 }
-
-func IsDeleted(bits uint32) bool {
-	return bits&FlagDeleted != 0
-}
-
-func IsInvalid(bits uint32) bool {
-	return bits&FlagInvalid != 0
-}
-
-func IsDirectory(bits uint32) bool {
-	return bits&FlagDirectory != 0
-}
-
-func HasPermissionBits(bits uint32) bool {
-	return bits&FlagNoPermBits == 0
-}
