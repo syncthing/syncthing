@@ -733,13 +733,12 @@ func (m *Model) ConnectedTo(deviceID protocol.DeviceID) bool {
 func (m *Model) GetIgnores(folder string) ([]string, error) {
 	var lines []string
 
+	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
+	m.fmut.RUnlock()
 	if !ok {
 		return lines, fmt.Errorf("Folder %s does not exist", folder)
 	}
-
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
 
 	fd, err := os.Open(filepath.Join(cfg.Path, ".stignore"))
 	if err != nil {
@@ -1239,10 +1238,9 @@ func (m *Model) Override(folder string) {
 // This is guaranteed to increment if the contents of the local folder has
 // changed.
 func (m *Model) CurrentLocalVersion(folder string) uint64 {
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
-
+	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
 	if !ok {
 		// The folder might not exist, since this can be called with a user
 		// specified folder name from the REST interface.
@@ -1256,8 +1254,8 @@ func (m *Model) CurrentLocalVersion(folder string) uint64 {
 // sent by remote peers. This is guaranteed to increment if the contents of
 // the remote or global folder has changed.
 func (m *Model) RemoteLocalVersion(folder string) uint64 {
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
 
 	fs, ok := m.folderFiles[folder]
 	if !ok {
@@ -1275,15 +1273,26 @@ func (m *Model) RemoteLocalVersion(folder string) uint64 {
 }
 
 func (m *Model) availability(folder string, file string) []protocol.DeviceID {
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
+	// Acquire this lock first, as the value returned from foldersFiles can
+	// gen heavily modified on Close()
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
 
+	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
 	if !ok {
 		return nil
 	}
 
-	return fs.Availability(file)
+	availableDevices := []protocol.DeviceID{}
+	for _, device := range fs.Availability(file) {
+		_, ok := m.protoConn[device]
+		if ok {
+			availableDevices = append(availableDevices, device)
+		}
+	}
+	return availableDevices
 }
 
 func (m *Model) String() string {
