@@ -156,6 +156,9 @@ func (p *BufferPool) Put(b []byte) {
 	atomic.AddUint32(&p.put, 1)
 
 	pool := p.pool[p.poolNum(cap(b))]
+	defer func() {
+		recover()
+	}()
 	select {
 	case pool <- b:
 	default:

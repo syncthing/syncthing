@@ -538,6 +538,9 @@ type cIdle struct {
 }
 
 func (r cIdle) ack(err error) {
+	defer func() {
+		recover()
+	}()
 	r.ackC <- err
 }
 
@@ -548,27 +551,33 @@ type cRange struct {
 }
 
 func (r cRange) ack(err error) {
-	defer func() {
-		recover()
-	}()
 	if r.ackC != nil {
+		defer func() {
+			recover()
+		}()
 		r.ackC <- err
 	}
 }
 
-func (db *DB) compSendIdle(compC chan<- cCmd) error {
+func (db *DB) compSendIdle(compC chan<- cCmd) (err error) {
 	ch := make(chan error)
 	defer close(ch)
 	// Send cmd.
 	select {
 	case compC <- cIdle{ch}:
-	case err := <-db.compErrC:
-		return err
+	case err = <-db.compErrC:
+		return
 	case _, _ = <-db.closeC:
 		return ErrClosed
 	}
 	// Wait cmd.
-	return <-ch
+	select {
+	case err = <-ch:
+	case err = <-db.compErrC:
+	case _, _ = <-db.closeC:
+		return ErrClosed
+	}
+	return err
 }
 
 func (db *DB) compSendRange(compC chan<- cCmd, level int, min, max []byte) (err error) {
@@ -584,8 +593,10 @@ func (db *DB) compSendRange(compC chan<- cCmd, level int, min, max []byte) (err 
 	}
 	// Wait cmd.
 	select {
-	case err = <-db.compErrC:
 	case err = <-ch:
+	case err = <-db.compErrC:
+	case _, _ = <-db.closeC:
+		return ErrClosed
 	}
 	return err
 }

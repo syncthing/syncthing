@@ -7,6 +7,7 @@
 package leveldb
 
 import (
+	"container/list"
 	"errors"
 	"fmt"
 	"io"
@@ -46,7 +47,7 @@ type DB struct {
 
 	// Snapshot.
 	snapsMu   sync.Mutex
-	snapsRoot snapshotElement
+	snapsList *list.List
 
 	// Stats.
 	aliveSnaps, aliveIters int32
@@ -85,6 +86,8 @@ func openDB(s *session) (*DB, error) {
 		seq: s.stSeq,
 		// MemDB
 		memPool: make(chan *memdb.DB, 1),
+		// Snapshot
+		snapsList: list.New(),
 		// Write
 		writeC:       make(chan *Batch),
 		writeMergedC: make(chan bool),
@@ -103,7 +106,6 @@ func openDB(s *session) (*DB, error) {
 		// Close
 		closeC: make(chan struct{}),
 	}
-	db.initSnapshot()
 
 	if err := db.recoverJournal(); err != nil {
 		return nil, err
@@ -609,7 +611,9 @@ func (db *DB) Get(key []byte, ro *opt.ReadOptions) (value []byte, err error) {
 		return
 	}
 
-	return db.get(key, db.getSeq(), ro)
+	se := db.acquireSnapshot()
+	defer db.releaseSnapshot(se)
+	return db.get(key, se.seq, ro)
 }
 
 // NewIterator returns an iterator for the latest snapshot of the
@@ -633,9 +637,11 @@ func (db *DB) NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Itera
 		return iterator.NewEmptyIterator(err)
 	}
 
-	snap := db.newSnapshot()
-	defer snap.Release()
-	return snap.NewIterator(slice, ro)
+	se := db.acquireSnapshot()
+	defer db.releaseSnapshot(se)
+	// Iterator holds 'version' lock, 'version' is immutable so snapshot
+	// can be released after iterator created.
+	return db.newIterator(se.seq, slice, ro)
 }
 
 // GetSnapshot returns a latest snapshot of the underlying DB. A snapshot
@@ -655,7 +661,7 @@ func (db *DB) GetSnapshot() (*Snapshot, error) {
 //
 // Property names:
 //	leveldb.num-files-at-level{n}
-//		Returns the number of filer at level 'n'.
+//		Returns the number of files at level 'n'.
 //	leveldb.stats
 //		Returns statistics of the underlying DB.
 //	leveldb.sstables
@@ -685,11 +691,12 @@ func (db *DB) GetProperty(name string) (value string, err error) {
 	v := db.s.version()
 	defer v.release()
 
+	numFilesPrefix := "num-files-at-level"
 	switch {
-	case strings.HasPrefix(p, "num-files-at-level"):
+	case strings.HasPrefix(p, numFilesPrefix):
 		var level uint
 		var rest string
-		n, _ := fmt.Scanf("%d%s", &level, &rest)
+		n, _ := fmt.Sscanf(p[len(numFilesPrefix):], "%d%s", &level, &rest)
 		if n != 1 || level >= kNumLevels {
 			err = errors.New("leveldb: GetProperty: invalid property: " + name)
 		} else {
@@ -796,12 +803,13 @@ func (db *DB) Close() error {
 	default:
 	}
 
+	// Signal all goroutines.
 	close(db.closeC)
 
-	// Wait for the close WaitGroup.
+	// Wait for all gorotines to exit.
 	db.closeW.Wait()
 
-	// Close journal.
+	// Lock writer and closes journal.
 	db.writeLockC <- struct{}{}
 	if db.journal != nil {
 		db.journal.Close()
@@ -827,7 +835,6 @@ func (db *DB) Close() error {
 	db.journalWriter = nil
 	db.journalFile = nil
 	db.frozenJournalFile = nil
-	db.snapsRoot = snapshotElement{}
 	db.closer = nil
 
 	return err

@@ -7,6 +7,7 @@
 package leveldb
 
 import (
+	"container/list"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -19,51 +20,41 @@ import (
 type snapshotElement struct {
 	seq uint64
 	ref int
-	// Next and previous pointers in the doubly-linked list of elements.
-	next, prev *snapshotElement
-}
-
-// Initialize the snapshot.
-func (db *DB) initSnapshot() {
-	db.snapsRoot.next = &db.snapsRoot
-	db.snapsRoot.prev = &db.snapsRoot
+	e   *list.Element
 }
 
 // Acquires a snapshot, based on latest sequence.
 func (db *DB) acquireSnapshot() *snapshotElement {
 	db.snapsMu.Lock()
+	defer db.snapsMu.Unlock()
+
 	seq := db.getSeq()
-	elem := db.snapsRoot.prev
-	if elem == &db.snapsRoot || elem.seq != seq {
-		at := db.snapsRoot.prev
-		next := at.next
-		elem = &snapshotElement{
-			seq:  seq,
-			prev: at,
-			next: next,
+
+	if e := db.snapsList.Back(); e != nil {
+		se := e.Value.(*snapshotElement)
+		if se.seq == seq {
+			se.ref++
+			return se
+		} else if seq < se.seq {
+			panic("leveldb: sequence number is not increasing")
 		}
-		at.next = elem
-		next.prev = elem
 	}
-	elem.ref++
-	db.snapsMu.Unlock()
-	return elem
+	se := &snapshotElement{seq: seq, ref: 1}
+	se.e = db.snapsList.PushBack(se)
+	return se
 }
 
 // Releases given snapshot element.
-func (db *DB) releaseSnapshot(elem *snapshotElement) {
-	if !db.isClosed() {
-		db.snapsMu.Lock()
-		elem.ref--
-		if elem.ref == 0 {
-			elem.prev.next = elem.next
-			elem.next.prev = elem.prev
-			elem.next = nil
-			elem.prev = nil
-		} else if elem.ref < 0 {
-			panic("leveldb: Snapshot: negative element reference")
-		}
-		db.snapsMu.Unlock()
+func (db *DB) releaseSnapshot(se *snapshotElement) {
+	db.snapsMu.Lock()
+	defer db.snapsMu.Unlock()
+
+	se.ref--
+	if se.ref == 0 {
+		db.snapsList.Remove(se.e)
+		se.e = nil
+	} else if se.ref < 0 {
+		panic("leveldb: Snapshot: negative element reference")
 	}
 }
 
@@ -71,10 +62,11 @@ func (db *DB) releaseSnapshot(elem *snapshotElement) {
 func (db *DB) minSeq() uint64 {
 	db.snapsMu.Lock()
 	defer db.snapsMu.Unlock()
-	elem := db.snapsRoot.next
-	if elem != &db.snapsRoot {
-		return elem.seq
+
+	if e := db.snapsList.Front(); e != nil {
+		return e.Value.(*snapshotElement).seq
 	}
+
 	return db.getSeq()
 }
 

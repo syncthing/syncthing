@@ -28,11 +28,12 @@ var (
 )
 
 var (
-	tsFSEnv  = os.Getenv("GOLEVELDB_USEFS")
-	tsKeepFS = tsFSEnv == "2"
-	tsFS     = tsKeepFS || tsFSEnv == "" || tsFSEnv == "1"
-	tsMU     = &sync.Mutex{}
-	tsNum    = 0
+	tsFSEnv   = os.Getenv("GOLEVELDB_USEFS")
+	tsTempdir = os.Getenv("GOLEVELDB_TEMPDIR")
+	tsKeepFS  = tsFSEnv == "2"
+	tsFS      = tsKeepFS || tsFSEnv == "" || tsFSEnv == "1"
+	tsMU      = &sync.Mutex{}
+	tsNum     = 0
 )
 
 type tsLock struct {
@@ -413,7 +414,11 @@ func newTestStorage(t *testing.T) *testStorage {
 			num := tsNum
 			tsNum++
 			tsMU.Unlock()
-			path := filepath.Join(os.TempDir(), fmt.Sprintf("goleveldb-test%d0%d0%d", os.Getuid(), os.Getpid(), num))
+			tempdir := tsTempdir
+			if tempdir == "" {
+				tempdir = os.TempDir()
+			}
+			path := filepath.Join(tempdir, fmt.Sprintf("goleveldb-test%d0%d0%d", os.Getuid(), os.Getpid(), num))
 			if _, err := os.Stat(path); err != nil {
 				stor, err = storage.OpenFile(path)
 				if err != nil {

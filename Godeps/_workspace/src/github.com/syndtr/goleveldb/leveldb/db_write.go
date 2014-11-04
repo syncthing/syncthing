@@ -127,21 +127,24 @@ func (db *DB) Write(b *Batch, wo *opt.WriteOptions) (err error) {
 	b.init(wo.GetSync())
 
 	// The write happen synchronously.
-retry:
 	select {
 	case db.writeC <- b:
 		if <-db.writeMergedC {
 			return <-db.writeAckC
 		}
-		goto retry
 	case db.writeLockC <- struct{}{}:
 	case _, _ = <-db.closeC:
 		return ErrClosed
 	}
 
 	merged := 0
+	danglingMerge := false
 	defer func() {
-		<-db.writeLockC
+		if danglingMerge {
+			db.writeMergedC <- false
+		} else {
+			<-db.writeLockC
+		}
 		for i := 0; i < merged; i++ {
 			db.writeAckC <- err
 		}
@@ -170,7 +173,7 @@ drain:
 				db.writeMergedC <- true
 				merged++
 			} else {
-				db.writeMergedC <- false
+				danglingMerge = true
 				break drain
 			}
 		default:
@@ -262,6 +265,7 @@ func (db *DB) CompactRange(r util.Range) error {
 		return err
 	}
 
+	// Lock writer.
 	select {
 	case db.writeLockC <- struct{}{}:
 	case _, _ = <-db.closeC:

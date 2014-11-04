@@ -92,7 +92,7 @@ const (
 
 	// DefaultStrict is the default strict flags. Specify any strict flags
 	// will override default strict flags as whole (i.e. not OR'ed).
-	DefaultStrict = StrictJournalChecksum | StrictBlockChecksum
+	DefaultStrict = StrictJournalChecksum | StrictIterator | StrictBlockChecksum
 
 	// NoStrict disables all strict flags. Override default strict flags.
 	NoStrict = ^StrictAll
