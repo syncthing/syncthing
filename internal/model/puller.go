@@ -313,10 +313,10 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int, checksum bo
 		}
 
 		switch {
-		case protocol.IsDeleted(file.Flags):
+		case file.IsDeleted():
 			// A deleted file or directory
 			deletions = append(deletions, file)
-		case protocol.IsDirectory(file.Flags):
+		case file.IsDirectory():
 			// A new or changed directory
 			p.handleDir(file)
 		default:

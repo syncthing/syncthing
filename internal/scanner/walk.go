@@ -134,8 +134,8 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 		if info.Mode().IsDir() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				permUnchanged := w.IgnorePerms || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if !protocol.IsDeleted(cf.Flags) && protocol.IsDirectory(cf.Flags) && permUnchanged {
+				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
+				if !cf.IsDeleted() && cf.IsDirectory() && permUnchanged {
 					return nil
 				}
 			}
@@ -162,8 +162,8 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 		if info.Mode().IsRegular() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
-				permUnchanged := w.IgnorePerms || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if !protocol.IsDeleted(cf.Flags) && cf.Modified == info.ModTime().Unix() && permUnchanged {
+				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
+				if !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && permUnchanged {
 					return nil
 				}
 

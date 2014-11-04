@@ -655,7 +655,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	}
 
 	lf := r.Get(protocol.LocalDeviceID, name)
-	if protocol.IsInvalid(lf.Flags) || protocol.IsDeleted(lf.Flags) {
+	if lf.IsInvalid() || lf.IsDeleted() {
 		if debug {
 			l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, size, lf)
 		}
@@ -1085,7 +1085,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		}
 
 		seenPrefix = true
-		if !protocol.IsDeleted(f.Flags) {
+		if !f.IsDeleted() {
 			if f.IsInvalid() {
 				return true
 			}

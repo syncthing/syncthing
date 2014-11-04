@@ -68,7 +68,7 @@ func HashFile(path string, blockSize int) ([]protocol.BlockInfo, error) {
 
 func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo) {
 	for f := range inbox {
-		if protocol.IsDirectory(f.Flags) || protocol.IsDeleted(f.Flags) {
+		if f.IsDirectory() || f.IsDeleted() {
 			outbox <- f
 			continue
 		}
