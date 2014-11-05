@@ -13,16 +13,14 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-// +build !windows,!darwin
-
-package files
+package osutil
 
 import "code.google.com/p/go.text/unicode/norm"
 
-func normalizedFilename(s string) string {
+func NormalizedFilename(s string) string {
 	return norm.NFC.String(s)
 }
 
-func nativeFilename(s string) string {
-	return s
+func NativeFilename(s string) string {
+	return norm.NFD.String(s)
 }
