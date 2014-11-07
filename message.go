@@ -58,6 +58,10 @@ func (f FileInfo) IsDirectory() bool {
 	return f.Flags&FlagDirectory != 0
 }
 
+func (f FileInfo) IsSymlink() bool {
+	return f.Flags&FlagSymlink != 0
+}
+
 func (f FileInfo) HasPermissionBits() bool {
 	return f.Flags&FlagNoPermBits == 0
 }
@@ -101,6 +105,10 @@ func (f FileInfoTruncated) IsDirectory() bool {
 	return f.Flags&FlagDirectory != 0
 }
 
+func (f FileInfoTruncated) IsSymlink() bool {
+	return f.Flags&FlagSymlink != 0
+}
+
 func (f FileInfoTruncated) HasPermissionBits() bool {
 	return f.Flags&FlagNoPermBits == 0
 }
@@ -110,6 +118,7 @@ type FileIntf interface {
 	IsDeleted() bool
 	IsInvalid() bool
 	IsDirectory() bool
+	IsSymlink() bool
 	HasPermissionBits() bool
 }
 

@@ -49,10 +49,14 @@ const (
 )
 
 const (
-	FlagDeleted    uint32 = 1 << 12
-	FlagInvalid           = 1 << 13
-	FlagDirectory         = 1 << 14
-	FlagNoPermBits        = 1 << 15
+	FlagDeleted              uint32 = 1 << 12
+	FlagInvalid                     = 1 << 13
+	FlagDirectory                   = 1 << 14
+	FlagNoPermBits                  = 1 << 15
+	FlagSymlink                     = 1 << 16
+	FlagSymlinkMissingTarget        = 1 << 17
+
+	SymlinkTypeMask = FlagDirectory | FlagSymlinkMissingTarget
 )
 
 const (
