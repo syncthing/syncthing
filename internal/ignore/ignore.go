@@ -118,6 +118,19 @@ func (m *Matcher) Match(file string) (result bool) {
 	return false
 }
 
+// Patterns return a list of the loaded regexp patterns, as strings
+func (m *Matcher) Patterns() []string {
+	patterns := make([]string, len(m.patterns))
+	for i, pat := range m.patterns {
+		if pat.include {
+			patterns[i] = pat.match.String()
+		} else {
+			patterns[i] = "(?exclude)" + pat.match.String()
+		}
+	}
+	return patterns
+}
+
 func loadIgnoreFile(file string, seen map[string]bool) (*Matcher, error) {
 	if seen[file] {
 		return nil, fmt.Errorf("Multiple include of ignore file %q", file)

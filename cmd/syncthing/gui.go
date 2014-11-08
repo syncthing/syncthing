@@ -476,13 +476,15 @@ func restGetIgnores(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	ignores, err := m.GetIgnores(qs.Get("folder"))
+	ignores, patterns, err := m.GetIgnores(qs.Get("folder"))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
 	json.NewEncoder(w).Encode(map[string][]string{
-		"ignore": ignores,
+		"ignore":   ignores,
+		"patterns": patterns,
 	})
 }
 

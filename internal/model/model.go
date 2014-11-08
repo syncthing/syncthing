@@ -730,23 +730,23 @@ func (m *Model) ConnectedTo(deviceID protocol.DeviceID) bool {
 	return ok
 }
 
-func (m *Model) GetIgnores(folder string) ([]string, error) {
+func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 	var lines []string
 
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 	if !ok {
-		return lines, fmt.Errorf("Folder %s does not exist", folder)
+		return lines, nil, fmt.Errorf("Folder %s does not exist", folder)
 	}
 
 	fd, err := os.Open(filepath.Join(cfg.Path, ".stignore"))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return lines, nil
+			return lines, nil, nil
 		}
 		l.Warnln("Loading .stignore:", err)
-		return lines, err
+		return lines, nil, err
 	}
 	defer fd.Close()
 
@@ -755,7 +755,12 @@ func (m *Model) GetIgnores(folder string) ([]string, error) {
 		lines = append(lines, strings.TrimSpace(scanner.Text()))
 	}
 
-	return lines, nil
+	var patterns []string
+	if matcher := m.folderIgnores[folder]; matcher != nil {
+		patterns = matcher.Patterns()
+	}
+
+	return lines, patterns, nil
 }
 
 func (m *Model) SetIgnores(folder string, content []string) error {
