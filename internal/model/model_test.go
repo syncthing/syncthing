@@ -402,7 +402,7 @@ func TestIgnores(t *testing.T) {
 		"quux",
 	}
 
-	ignores, err := m.GetIgnores("default")
+	ignores, _, err := m.GetIgnores("default")
 	if err != nil {
 		t.Error(err)
 	}
@@ -418,7 +418,7 @@ func TestIgnores(t *testing.T) {
 		t.Error(err)
 	}
 
-	ignores2, err := m.GetIgnores("default")
+	ignores2, _, err := m.GetIgnores("default")
 	if err != nil {
 		t.Error(err)
 	}
@@ -436,7 +436,7 @@ func TestIgnores(t *testing.T) {
 		t.Error(err)
 	}
 
-	ignores, err = m.GetIgnores("default")
+	ignores, _, err = m.GetIgnores("default")
 	if err != nil {
 		t.Error(err)
 	}
@@ -445,7 +445,7 @@ func TestIgnores(t *testing.T) {
 		t.Errorf("Incorrect ignores: %v != %v", ignores, expected)
 	}
 
-	ignores, err = m.GetIgnores("doesnotexist")
+	ignores, _, err = m.GetIgnores("doesnotexist")
 	if err == nil {
 		t.Error("No error")
 	}
@@ -456,7 +456,7 @@ func TestIgnores(t *testing.T) {
 	}
 
 	m.AddFolder(config.FolderConfiguration{ID: "fresh", Path: "XXX"})
-	ignores, err = m.GetIgnores("fresh")
+	ignores, _, err = m.GetIgnores("fresh")
 	if err != nil {
 		t.Error(err)
 	}
