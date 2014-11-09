@@ -129,3 +129,18 @@ func Verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
 
 	return nil
 }
+
+// BlockEqual returns whether two slices of blocks are exactly the same hash
+// and index pair wise.
+func BlocksEqual(src, tgt []protocol.BlockInfo) bool {
+	if len(tgt) != len(src) {
+		return false
+	}
+
+	for i, sblk := range src {
+		if !bytes.Equal(sblk.Hash, tgt[i].Hash) {
+			return false
+		}
+	}
+	return true
+}

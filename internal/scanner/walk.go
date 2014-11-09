@@ -27,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/internal/ignore"
 	"github.com/syncthing/syncthing/internal/lamport"
 	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/syncthing/internal/symlinks"
 )
 
 type Walker struct {
@@ -131,6 +132,70 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			return nil
 		}
 
+		// We must perform this check, as symlinks on Windows are always
+		// .IsRegular or .IsDir unlike on Unix.
+		// Index wise symlinks are always files, regardless of what the target
+		// is, because symlinks carry their target path as their content.
+		isSymlink, _ := symlinks.IsSymlink(p)
+		if isSymlink {
+			var rval error
+			// If the target is a directory, do NOT descend down there.
+			// This will cause files to get tracked, and removing the symlink
+			// will as a result remove files in their real location.
+			// But do not SkipDir if the target is not a directory, as it will
+			// stop scanning the current directory.
+			if info.IsDir() {
+				rval = filepath.SkipDir
+			}
+
+			// We always rehash symlinks as they have no modtime or
+			// permissions.
+			// We check if they point to the old target by checking that
+			// their existing blocks match with the blocks in the index.
+			// If we don't have a filer or don't support symlinks, skip.
+			if w.CurrentFiler == nil || !symlinks.Supported {
+				return rval
+			}
+
+			target, flags, err := symlinks.Read(p)
+			flags = flags & protocol.SymlinkTypeMask
+			if err != nil {
+				if debug {
+					l.Debugln("readlink error:", p, err)
+				}
+				return rval
+			}
+
+			blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0)
+			if err != nil {
+				if debug {
+					l.Debugln("hash link error:", p, err)
+				}
+				return rval
+			}
+
+			cf := w.CurrentFiler.CurrentFile(rn)
+			if !cf.IsDeleted() && cf.IsSymlink() && SymlinkTypeEqual(flags, cf.Flags) && BlocksEqual(cf.Blocks, blocks) {
+				return rval
+			}
+
+			f := protocol.FileInfo{
+				Name:     rn,
+				Version:  lamport.Default.Tick(0),
+				Flags:    protocol.FlagSymlink | flags | protocol.FlagNoPermBits | 0666,
+				Modified: 0,
+				Blocks:   blocks,
+			}
+
+			if debug {
+				l.Debugln("symlink to hash:", p, f)
+			}
+
+			fchan <- f
+
+			return rval
+		}
+
 		if info.Mode().IsDir() {
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
@@ -214,4 +279,20 @@ func PermsEqual(a, b uint32) bool {
 		// All bits count
 		return a&0777 == b&0777
 	}
+}
+
+// If the target is missing, Unix never knows what type of symlink it is
+// and Windows always knows even if there is no target.
+// Which means that without this special check a Unix node would be fighting
+// with a Windows node about whether or not the target is known.
+// Basically, if you don't know and someone else knows, just accept it.
+// The fact that you don't know means you are on Unix, and on Unix you don't
+// really care what the target type is. The moment you do know, and if something
+// doesn't match, that will propogate throught the cluster.
+func SymlinkTypeEqual(disk, index uint32) bool {
+	if disk&protocol.FlagSymlinkMissingTarget != 0 && index&protocol.FlagSymlinkMissingTarget == 0 {
+		return true
+	}
+	return disk&protocol.SymlinkTypeMask == index&protocol.SymlinkTypeMask
+
 }

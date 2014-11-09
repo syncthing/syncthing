@@ -39,6 +39,7 @@ import (
 	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syncthing/syncthing/internal/scanner"
 	"github.com/syncthing/syncthing/internal/stats"
+	"github.com/syncthing/syncthing/internal/symlinks"
 	"github.com/syncthing/syncthing/internal/versioner"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -114,6 +115,8 @@ type Model struct {
 var (
 	ErrNoSuchFile = errors.New("no such file")
 	ErrInvalid    = errors.New("file is invalid")
+
+	SymlinkWarning = sync.Once{}
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -440,9 +443,9 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 
 	for i := 0; i < len(fs); {
 		lamport.Default.Tick(fs[i].Version)
-		if ignores != nil && ignores.Match(fs[i].Name) {
+		if (ignores != nil && ignores.Match(fs[i].Name)) || symlinkInvalid(fs[i].IsSymlink()) {
 			if debug {
-				l.Debugln("dropping update for ignored", fs[i])
+				l.Debugln("dropping update for ignored/unsupported symlink", fs[i])
 			}
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
@@ -484,9 +487,9 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 
 	for i := 0; i < len(fs); {
 		lamport.Default.Tick(fs[i].Version)
-		if ignores != nil && ignores.Match(fs[i].Name) {
+		if (ignores != nil && ignores.Match(fs[i].Name)) || symlinkInvalid(fs[i].IsSymlink()) {
 			if debug {
-				l.Debugln("dropping update for ignored", fs[i])
+				l.Debugln("dropping update for ignored/unsupported symlink", fs[i])
 			}
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
@@ -675,14 +678,26 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	m.fmut.RLock()
 	fn := filepath.Join(m.folderCfgs[folder].Path, name)
 	m.fmut.RUnlock()
-	fd, err := os.Open(fn) // XXX: Inefficient, should cache fd?
-	if err != nil {
-		return nil, err
+
+	var reader io.ReaderAt
+	var err error
+	if lf.IsSymlink() {
+		target, _, err := symlinks.Read(fn)
+		if err != nil {
+			return nil, err
+		}
+		reader = strings.NewReader(target)
+	} else {
+		reader, err = os.Open(fn) // XXX: Inefficient, should cache fd?
+		if err != nil {
+			return nil, err
+		}
+
+		defer reader.(*os.File).Close()
 	}
-	defer fd.Close()
 
 	buf := make([]byte, size)
-	_, err = fd.ReadAt(buf, offset)
+	_, err = reader.ReadAt(buf, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -892,9 +907,9 @@ func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, fol
 			maxLocalVer = f.LocalVersion
 		}
 
-		if ignores != nil && ignores.Match(f.Name) {
+		if (ignores != nil && ignores.Match(f.Name)) || symlinkInvalid(f.IsSymlink()) {
 			if debug {
-				l.Debugln("not sending update for ignored", f)
+				l.Debugln("not sending update for ignored/unsupported symlink", f)
 			}
 			return true
 		}
@@ -1095,8 +1110,8 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 				batch = batch[:0]
 			}
 
-			if ignores != nil && ignores.Match(f.Name) {
-				// File has been ignored. Set invalid bit.
+			if (ignores != nil && ignores.Match(f.Name)) || symlinkInvalid(f.IsSymlink()) {
+				// File has been ignored or an unsupported symlink. Set invalid bit.
 				l.Debugln("setting invalid bit on ignored", f)
 				nf := protocol.FileInfo{
 					Name:     f.Name,
@@ -1112,7 +1127,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 					"size":     f.Size(),
 				})
 				batch = append(batch, nf)
-			} else if _, err := os.Stat(filepath.Join(dir, f.Name)); err != nil && os.IsNotExist(err) {
+			} else if _, err := os.Lstat(filepath.Join(dir, f.Name)); err != nil && os.IsNotExist(err) {
 				// File has been deleted
 				nf := protocol.FileInfo{
 					Name:     f.Name,
@@ -1325,4 +1340,14 @@ func (m *Model) leveldbPanicWorkaround() {
 			panic(err)
 		}
 	}
+}
+
+func symlinkInvalid(isLink bool) bool {
+	if !symlinks.Supported && isLink {
+		SymlinkWarning.Do(func() {
+			l.Warnln("Symlinks are unsupported as they require Administrator priviledges. This might cause your folder to appear out of sync.")
+		})
+		return true
+	}
+	return false
 }
