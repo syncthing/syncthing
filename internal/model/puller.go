@@ -592,11 +592,18 @@ nextFile:
 			}
 		}()
 
+		folderRoots := make(map[string]string)
+		p.model.fmut.RLock()
+		for folder, cfg := range p.model.folderCfgs {
+			folderRoots[folder] = cfg.Path
+		}
+		p.model.fmut.RUnlock()
+
 		hasher := sha256.New()
 		for _, block := range state.blocks {
 			buf = buf[:int(block.Size)]
 			found := p.model.finder.Iterate(block.Hash, func(folder, file string, index uint32) bool {
-				path := filepath.Join(p.model.folderCfgs[folder].Path, file)
+				path := filepath.Join(folderRoots[folder], file)
 
 				var fd *os.File
 
