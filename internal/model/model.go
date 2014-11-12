@@ -527,12 +527,15 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	l.Infof(`Device %s client is "%s %s"`, deviceID, cm.ClientName, cm.ClientVersion)
 
+	var changed bool
+
 	if name := cm.GetOption("name"); name != "" {
 		l.Infof("Device %s name is %q", deviceID, name)
 		device, ok := m.cfg.Devices()[deviceID]
 		if ok && device.Name == "" {
 			device.Name = name
 			m.cfg.SetDevice(device)
+			changed = true
 		}
 	}
 
@@ -540,7 +543,6 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		// This device is an introducer. Go through the announced lists of folders
 		// and devices and add what we are missing.
 
-		var changed bool
 		for _, folder := range cm.Folders {
 			// If we don't have this folder yet, skip it. Ideally, we'd
 			// offer up something in the GUI to create the folder, but for the
@@ -599,10 +601,10 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				changed = true
 			}
 		}
+	}
 
-		if changed {
-			m.cfg.Save()
-		}
+	if changed {
+		m.cfg.Save()
 	}
 }
 

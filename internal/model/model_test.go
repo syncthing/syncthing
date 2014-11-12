@@ -258,6 +258,8 @@ func TestDeviceRename(t *testing.T) {
 		ClientVersion: "v0.9.4",
 	}
 
+	defer os.Remove("tmpconfig.xml")
+
 	cfg := config.New(device1)
 	cfg.Devices = []config.DeviceConfiguration{
 		{
@@ -266,7 +268,7 @@ func TestDeviceRename(t *testing.T) {
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
+	m := NewModel(config.Wrap("tmpconfig.xml", cfg), "device", "syncthing", "dev", db)
 	if cfg.Devices[0].Name != "" {
 		t.Errorf("Device already has a name")
 	}
@@ -291,6 +293,15 @@ func TestDeviceRename(t *testing.T) {
 	m.ClusterConfig(device1, ccm)
 	if cfg.Devices[0].Name != "tester" {
 		t.Errorf("Device name got overwritten")
+	}
+
+	cfgw, err := config.Load("tmpconfig.xml", protocol.LocalDeviceID)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if cfgw.Devices()[device1].Name != "tester" {
+		t.Errorf("Device name not saved in config")
 	}
 }
 
