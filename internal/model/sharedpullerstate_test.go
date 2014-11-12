@@ -38,10 +38,10 @@ func TestSourceFileOK(t *testing.T) {
 	n, err := fd.Read(bs)
 
 	if n != len(bs) {
-		t.Fatal("Wrong read length %d != %d", n, len(bs))
+		t.Fatalf("Wrong read length %d != %d", n, len(bs))
 	}
 	if string(bs) != "foobar" {
-		t.Fatal("Wrong contents %s != foobar", bs)
+		t.Fatalf("Wrong contents %s != foobar", string(bs))
 	}
 
 	if err := s.failed(); err != nil {
