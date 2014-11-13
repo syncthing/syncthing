@@ -367,32 +367,38 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
-	if info, err := os.Stat(realName); err != nil {
-		if os.IsNotExist(err) {
-			// The directory doesn't exist, so we create it with the right
-			// mode bits from the start.
-
-			mkdir := func(path string) error {
-				// We declare a function that acts on only the path name, so
-				// we can pass it to InWritableDir. We use a regular Mkdir and
-				// not MkdirAll because the parent should already exist.
-				return os.Mkdir(path, mode)
-			}
-
-			if err = osutil.InWritableDir(mkdir, realName); err == nil {
-				p.model.updateLocal(p.folder, file)
-			} else {
-				l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
-			}
+	info, err := os.Stat(realName)
+	switch {
+	// There is already something under that name, but it's a file.
+	// Most likely a file is getting replaced with a directory.
+	// Remove the file and fall through to directory creation.
+	case err == nil && !info.IsDir():
+		err = osutil.InWritableDir(os.Remove, realName)
+		if err != nil {
+			l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
 			return
 		}
+		fallthrough
+	// The directory doesn't exist, so we create it with the right
+	// mode bits from the start.
+	case err != nil && os.IsNotExist(err):
+		// We declare a function that acts on only the path name, so
+		// we can pass it to InWritableDir. We use a regular Mkdir and
+		// not MkdirAll because the parent should already exist.
+		mkdir := func(path string) error {
+			return os.Mkdir(path, mode)
+		}
 
-		// Weird error when stat()'ing the dir. Probably won't work to do
-		// anything else with it if we can't even stat() it.
-		l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
+		if err = osutil.InWritableDir(mkdir, realName); err == nil {
+			p.model.updateLocal(p.folder, file)
+		} else {
+			l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
+		}
 		return
-	} else if !info.IsDir() {
-		l.Infof("Puller (folder %q, dir %q): should be dir, but is not", p.folder, file.Name)
+	// Weird error when stat()'ing the dir. Probably won't work to do
+	// anything else with it if we can't even stat() it.
+	case err != nil:
+		l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
 		return
 	}
 
