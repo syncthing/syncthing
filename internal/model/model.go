@@ -1053,7 +1053,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		return err
 	}
 	batchSize := 100
-	batch := make([]protocol.FileInfo, 0, 00)
+	batch := make([]protocol.FileInfo, 0, batchSize)
 	for f := range fchan {
 		events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
 			"folder":   folder,
