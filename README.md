@@ -25,13 +25,13 @@ for incompatible changes.
 Getting Started
 ---------------
 
-Take a look at the [getting started guide](http://discourse.syncthing.net/t/46).
+Take a look at the [getting started guide](https:///pulse-forum.ind.ie/t/46).
 
 Building
 --------
 
 Building Syncthing from source is easy, and there's a
-[guide](http://discourse.syncthing.net/t/44)
+[guide](https:///pulse-forum.ind.ie/t/44)
 that describes it for both Unix and Windows.
 
 Signed Releases
@@ -45,8 +45,7 @@ md5sum.txt.asc and sha1sum.txt.asc files.
 Documentation
 =============
 
-The [syncthing
-documentation](http://discourse.syncthing.net/category/documentation) is
+The [syncthing documentation](https://pulse-forum.ind.ie/category/documentation) is
 on the discourse site.
 
 License
