@@ -26,8 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AudriusButkevicius/lfu-go"
-
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/osutil"
@@ -603,19 +601,6 @@ nextFile:
 			p.progressEmitter.Register(state.sharedPullerState)
 		}
 
-		evictionChan := make(chan lfu.Eviction)
-
-		fdCache := lfu.New()
-		fdCache.UpperBound = 50
-		fdCache.LowerBound = 20
-		fdCache.EvictionChannel = evictionChan
-
-		go func() {
-			for item := range evictionChan {
-				item.Value.(*os.File).Close()
-			}
-		}()
-
 		folderRoots := make(map[string]string)
 		p.model.fmut.RLock()
 		for folder, cfg := range p.model.folderCfgs {
@@ -629,18 +614,11 @@ nextFile:
 			found := p.model.finder.Iterate(block.Hash, func(folder, file string, index uint32) bool {
 				path := filepath.Join(folderRoots[folder], file)
 
-				var fd *os.File
-
-				fdi := fdCache.Get(path)
-				if fdi != nil {
-					fd = fdi.(*os.File)
-				} else {
-					fd, err = os.Open(path)
-					if err != nil {
-						return false
-					}
-					fdCache.Set(path, fd)
+				fd, err := p.model.cache.Open(path)
+				if err != nil {
+					return false
 				}
+				defer fd.Close()
 
 				_, err = fd.ReadAt(buf, protocol.BlockSize*int64(index))
 				if err != nil {
@@ -689,8 +667,6 @@ nextFile:
 				state.copyDone()
 			}
 		}
-		fdCache.Evict(fdCache.Len())
-		close(evictionChan)
 		out <- state.sharedPullerState
 	}
 }
