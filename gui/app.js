@@ -777,6 +777,19 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         return folderList($scope.folders);
     };
 
+    $scope.directoryList = [];
+
+    $scope.$watch('currentFolder.Path', function (newvalue) {
+      $http.get(
+        urlbase + '/autocomplete/directory',
+        {
+          params: { current: newvalue }
+        }
+      ).success(function (data) {
+        $scope.directoryList = data;
+      });
+    });
+
     $scope.editFolder = function (deviceCfg) {
         $scope.currentFolder = angular.copy(deviceCfg);
         $scope.currentFolder.selectedDevices = {};
