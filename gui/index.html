@@ -765,9 +765,29 @@
       <tr ng-repeat="f in needed" ng-init="a = needAction(f)">
         <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
         <td title="{{f.Name}}">{{f.Name | basename}}</td>
-        <td class="text-right small-data"><span ng-if="f.Size > 0">{{f.Size | binary}}B</span></td>
+        <td>
+          <span ng-if="a == 'sync' && progress[neededFolder] && progress[neededFolder][f.Name]">
+            <div class="progress progress-striped active">
+              <div class="progress-bar progress-bar-success" style="width: {{progress[neededFolder][f.Name].Reused}}%"></div>
+              <div class="progress-bar" style="width: {{progress[neededFolder][f.Name].CopiedFromOrigin}}%"></div>
+              <div class="progress-bar progress-bar-info" style="width: {{progress[neededFolder][f.Name].CopiedFromElsewhere}}%"></div>
+              <div class="progress-bar progress-bar-warning" style="width: {{progress[neededFolder][f.Name].Pulled}}%"></div>
+              <div class="progress-bar progress-bar-danger" style="width: {{progress[neededFolder][f.Name].Pulling}}%"></div>
+              <span class="show frontal">{{progress[neededFolder][f.Name].BytesDone | binary}}B / {{progress[neededFolder][f.Name].BytesTotal | binary}}B</span>
+            </div>
+          </span>
+        </td>
       </tr>
     </table>
+    <span translate>Legend:</span>
+    <div class="progress progress-striped active">
+      <div class="progress-bar progress-bar-success" style="width: 20%"><span translate class="show">Reused</span></div>
+      <div class="progress-bar" style="width: 20%"><span translate class="show">Copied from original</span></div>
+      <div class="progress-bar progress-bar-info" style="width: 20%"><span translate class="show">Copied from elsewhere</span></div>
+      <div class="progress-bar progress-bar-warning" style="width: 20%"><span translate class="show">Downloaded</span></div>
+      <div class="progress-bar progress-bar-danger" style="width: 20%"><span translate class="show">Downloading</span></div>
+    </div>
+
   </modal>
 
   <!-- About modal -->
@@ -793,11 +813,11 @@
           <li>Emil Hessman</li>
           <li>Felix Ableitner</li>
           <li>Felix Unterpaintner</li>
+          <li>Gilli Sigurdsson</li>
         </ul>
       </div>
       <div class="col-md-6">
         <ul>
-          <li>Gilli Sigurdsson</li>
           <li>James Patterson</li>
           <li>Jens Diemer</li>
           <li>Jochen Voss</li>
@@ -806,6 +826,7 @@
           <li>Michael Tilli</li>
           <li>Philippe Schommers</li>
           <li>Phill Luby</li>
+          <li>Piotr Bejda</li>
           <li>Ryan Sullivan</li>
           <li>Tully Robinson</li>
           <li>Veeti Paananen</li>

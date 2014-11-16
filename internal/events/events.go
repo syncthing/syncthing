@@ -38,6 +38,7 @@ const (
 	StateChanged
 	FolderRejected
 	ConfigSaved
+	DownloadProgress
 
 	AllEvents = (1 << iota) - 1
 )
@@ -70,6 +71,8 @@ func (t EventType) String() string {
 		return "FolderRejected"
 	case ConfigSaved:
 		return "ConfigSaved"
+	case DownloadProgress:
+		return "DownloadProgress"
 	default:
 		return "Unknown"
 	}

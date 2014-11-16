@@ -149,3 +149,19 @@ table.table-condensed td {
 .dl-horizontal.dl-narrow dd {
     margin-left: 60px;
 }
+
+/**
+ * Progress bars with centered text
+ */
+
+.progress {
+    margin-bottom: 0px;
+    position: relative;
+}
+
+.progress span.frontal {
+    text-align: center;
+    position: absolute;
+    display: block;
+    width: 100%;
+}
