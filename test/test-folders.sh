@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-# Copyright (C) 2014 Jakob Borg and Contributors (see the CONTRIBUTORS file).
+# Copyright (C) 2014 The Syncthing Authors.
 #
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free

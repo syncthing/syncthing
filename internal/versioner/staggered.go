@@ -1,4 +1,4 @@
-// Copyright (C) 2014 Jakob Borg and Contributors (see the CONTRIBUTORS file).
+// Copyright (C) 2014 The Syncthing Authors.
 //
 // This program is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -124,10 +124,10 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 		cleanInterval: cleanInterval,
 		folderPath:    folderPath,
 		interval: [4]Interval{
-			{30, 3600},               // first hour -> 30 sec between versions
-			{3600, 86400},            // next day -> 1 h between versions
-			{86400, 592000},          // next 30 days -> 1 day between versions
-			{604800, maxAge},         // next year -> 1 week between versions
+			{30, 3600},       // first hour -> 30 sec between versions
+			{3600, 86400},    // next day -> 1 h between versions
+			{86400, 592000},  // next 30 days -> 1 day between versions
+			{604800, maxAge}, // next year -> 1 week between versions
 		},
 		mutex: &mutex,
 	}

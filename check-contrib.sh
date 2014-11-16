@@ -1,8 +1,8 @@
 #!/bin/bash
 
 missing-contribs() {
-	for email in $(git log --format=%ae master | grep -v jakob@nym.se | sort | uniq) ; do
-		grep -q "$email" CONTRIBUTORS || echo $email
+	for email in $(git log --format=%ae master | sort | uniq) ; do
+		grep -q "$email" AUTHORS || echo $email
 	done
 }
 
