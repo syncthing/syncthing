@@ -191,8 +191,6 @@ func TestSymlinks(t *testing.T) {
 	}
 	fd.Close()
 
-	/* Currently fails, to be fixed with #80
-
 	// Replace one with a directory
 
 	err = os.Remove("s1/repDirLink")
@@ -204,7 +202,6 @@ func TestSymlinks(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	*/
 
 	// Replace a file with a symlink
 
@@ -217,8 +214,6 @@ func TestSymlinks(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	/* Currently fails, to be fixed with #80
-
 	// Replace a directory with a symlink
 
 	err = os.RemoveAll("s1/dirToReplace")
@@ -229,7 +224,6 @@ func TestSymlinks(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	*/
 
 	// Sync these changes and recheck
 
