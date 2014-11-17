@@ -82,7 +82,7 @@ func main() {
 	checkRequiredGoVersion()
 
 	if flag.NArg() == 0 {
-		install("./cmd/...")
+		install("./cmd/...", nil)
 		return
 	}
 
@@ -93,7 +93,11 @@ func main() {
 
 		case "install":
 			pkg := "./cmd/..."
-			install(pkg)
+			var tags []string
+			if noupgrade {
+				tags = []string{"noupgrade"}
+			}
+			install(pkg, tags)
 
 		case "build":
 			pkg := "./cmd/syncthing"
@@ -168,10 +172,15 @@ func test(pkg string) {
 	runPrint("go", "test", "-short", "-timeout", "10s", pkg)
 }
 
-func install(pkg string) {
+func install(pkg string, tags []string) {
 	os.Setenv("GOBIN", "./bin")
+	args := []string{"install", "-v", "-ldflags", ldflags()}
+	if len(tags) > 0 {
+		args = append(args, "-tags", strings.Join(tags, ","))
+	}
+	args = append(args, pkg)
 	setBuildEnv()
-	runPrint("go", "install", "-v", "-ldflags", ldflags(), pkg)
+	runPrint("go", args...)
 }
 
 func build(pkg string, tags []string) {
