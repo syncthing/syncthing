@@ -82,7 +82,11 @@ func main() {
 	checkRequiredGoVersion()
 
 	if flag.NArg() == 0 {
-		install("./cmd/...", nil)
+		var tags []string
+		if noupgrade {
+			tags = []string{"noupgrade"}
+		}
+		install("./cmd/...", tags)
 		return
 	}
 
