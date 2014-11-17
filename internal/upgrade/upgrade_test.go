@@ -42,6 +42,10 @@ var testcases = []struct {
 	{"1.0.0+45", "1.0.0+23-dev-foo", 0},
 	{"1.0.0-beta.23+45", "1.0.0-beta.23+23-dev-foo", 0},
 	{"1.0.0-beta.3+99", "1.0.0-beta.24+0", -1},
+
+	{"v1.1.2", "1.1.2", 0},
+	{"v1.1.2", "V1.1.2", 0},
+	{"1.1.2", "V1.1.2", 0},
 }
 
 func TestCompareVersions(t *testing.T) {

@@ -153,6 +153,10 @@ func CompareVersions(a, b string) int {
 // Split a version into parts.
 // "1.2.3-beta.2" -> []int{1, 2, 3}, []interface{}{"beta", 2}
 func versionParts(v string) ([]int, []interface{}) {
+	if strings.HasPrefix(v, "v") || strings.HasPrefix(v, "V") {
+		// Strip initial 'v' or 'V' prefix if present.
+		v = v[1:]
+	}
 	parts := strings.SplitN(v, "+", 2)
 	parts = strings.SplitN(parts[0], "-", 2)
 	fields := strings.Split(parts[0], ".")
