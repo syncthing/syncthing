@@ -197,7 +197,7 @@ func buildTar() {
 	tarGz(filename, []archiveFile{
 		{"README.md", name + "/README.txt"},
 		{"LICENSE", name + "/LICENSE.txt"},
-		{"CONTRIBUTORS", name + "/CONTRIBUTORS.txt"},
+		{"AUTHORS", name + "/AUTHORS.txt"},
 		{"syncthing", name + "/syncthing"},
 	})
 	log.Println(filename)
@@ -215,7 +215,7 @@ func buildZip() {
 	zipFile(filename, []archiveFile{
 		{"README.md", name + "/README.txt"},
 		{"LICENSE", name + "/LICENSE.txt"},
-		{"CONTRIBUTORS", name + "/CONTRIBUTORS.txt"},
+		{"AUTHORS", name + "/AUTHORS.txt"},
 		{"syncthing.exe", name + "/syncthing.exe"},
 	})
 	log.Println(filename)
