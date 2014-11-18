@@ -31,24 +31,35 @@ latest info on Transifex.
 
 ## Contributing Code
 
-Please do contribute! If you want to contribute but are unsure where to
-start, the [Contributions Needed
-topic](http://discourse.syncthing.net/t/49) lists areas in need of
-attention. In general, any open issues are fair game! Be prepared for a
-[certain amount of
-review](https://discourse.syncthing.net/t/733); it's all in the name of
-quality. :)
+Every contribution is welcome. If you want to contribute but are unsure
+where to start, any open issues are fair game! Be prepared for a
+[certain amount of review](https://discourse.syncthing.net/t/733); it's
+all in the name of quality. :) Following the points below will make this
+a smoother process.
 
-You may be asked to "rebase" or "squash" your pull request before it's
-accepted. This means to make sure that the pull request:
+## Coding Style
 
- - Is based on the latest commit on `master`.
+- Follow the conventions laid out in [Effective Go](https://golang.org/doc/effective_go.html)
+  as much as makes sense.
 
- - Only contains a single commit (exceptions to be made where
-   appropriate).
+- All text files use Unix line endings.
 
- - Has a descriptive commit message, ending in `(fixes #123)` if it
-   resolves an existing issue.
+- Each commit should be `go fmt` clean.
+
+- The commit message subject should be a single short sentence
+  describing the change, starting with a capital letter.
+
+- Commits that resolve an existing issue must include the issue number
+  as `(fixes #123)` at the end of the commit message subject.
+
+- Imports are grouped per `goimports` standard; that is, standard
+  library first, then third party libraries after a blank line.
+
+- A contribution solving a single issue or introducing a single new
+  feature should probably be a single commit based on the current
+  `master` branch. You may be asked to "rebase" or "squash" your pull
+  request to make sure this is the case, especially if there have been
+  amendments during review. 
 
 ## Licensing
 
