@@ -36,7 +36,7 @@ func init() {
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		ListenAddress:           []string{"0.0.0.0:22000"},
-		GlobalAnnServer:         "announce.syncthing.net:22026",
+		GlobalAnnServers:        []string{"announce.syncthing.net:22026"},
 		GlobalAnnEnabled:        true,
 		LocalAnnEnabled:         true,
 		LocalAnnPort:            21025,
@@ -138,7 +138,7 @@ func TestNoListenAddress(t *testing.T) {
 func TestOverriddenValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		ListenAddress:           []string{":23000"},
-		GlobalAnnServer:         "syncthing.nym.se:22026",
+		GlobalAnnServers:        []string{"syncthing.nym.se:22026"},
 		GlobalAnnEnabled:        false,
 		LocalAnnEnabled:         false,
 		LocalAnnPort:            42123,
@@ -163,7 +163,7 @@ func TestOverriddenValues(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(cfg.Options(), expected) {
-		t.Errorf("Overridden config differs;\n  E: %#v\n  A: %#v", expected, cfg.Options)
+		t.Errorf("Overridden config differs;\n  E: %#v\n  A: %#v", expected, cfg.Options())
 	}
 }
 

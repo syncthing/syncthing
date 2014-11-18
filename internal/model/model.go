@@ -1125,7 +1125,9 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 
 			if (ignores != nil && ignores.Match(f.Name)) || symlinkInvalid(f.IsSymlink()) {
 				// File has been ignored or an unsupported symlink. Set invalid bit.
-				l.Debugln("setting invalid bit on ignored", f)
+				if debug {
+					l.Debugln("setting invalid bit on ignored", f)
+				}
 				nf := protocol.FileInfo{
 					Name:     f.Name,
 					Flags:    f.Flags | protocol.FlagInvalid,

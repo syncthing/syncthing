@@ -826,7 +826,7 @@ func renewUPnP(port int) {
 		if forwardedPort != 0 {
 			externalPort = forwardedPort
 			discoverer.StopGlobal()
-			discoverer.StartGlobal(opts.GlobalAnnServer, uint16(forwardedPort))
+			discoverer.StartGlobal(opts.GlobalAnnServers, uint16(forwardedPort))
 			if debugNet {
 				l.Debugf("Updated UPnP port mapping for external port %d on device %s.", forwardedPort, igd.FriendlyIdentifier())
 			}
@@ -1098,7 +1098,7 @@ func discovery(extPort int) *discover.Discoverer {
 
 	if opts.GlobalAnnEnabled {
 		l.Infoln("Starting global discovery announcements")
-		disc.StartGlobal(opts.GlobalAnnServer, uint16(extPort))
+		disc.StartGlobal(opts.GlobalAnnServers, uint16(extPort))
 	}
 
 	return disc

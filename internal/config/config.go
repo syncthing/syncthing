@@ -160,7 +160,7 @@ type FolderDeviceConfiguration struct {
 
 type OptionsConfiguration struct {
 	ListenAddress           []string `xml:"listenAddress" default:"0.0.0.0:22000"`
-	GlobalAnnServer         string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22026"`
+	GlobalAnnServers        []string `xml:"globalAnnounceServer" default:"announce.syncthing.net:22026"`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort            int      `xml:"localAnnouncePort" default:"21025"`
@@ -238,8 +238,6 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 
 func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	fillNilSlices(&cfg.Options)
-
-	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 
 	// Initialize an empty slice for folders if the config has none
 	if cfg.Folders == nil {
@@ -362,6 +360,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 			n.Addresses = []string{"dynamic"}
 		}
 	}
+
+	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
+	cfg.Options.GlobalAnnServers = uniqueStrings(cfg.Options.GlobalAnnServers)
 }
 
 // ChangeRequiresRestart returns true if updating the configuration requires a
@@ -469,8 +470,8 @@ func convertV2V3(cfg *Configuration) {
 
 	// The global discovery format and port number changed in v0.9. Having the
 	// default announce server but old port number is guaranteed to be legacy.
-	if cfg.Options.GlobalAnnServer == "announce.syncthing.net:22025" {
-		cfg.Options.GlobalAnnServer = "announce.syncthing.net:22026"
+	if len(cfg.Options.GlobalAnnServers) == 1 && cfg.Options.GlobalAnnServers[0] == "announce.syncthing.net:22025" {
+		cfg.Options.GlobalAnnServers = []string{"announce.syncthing.net:22026"}
 	}
 
 	cfg.Version = 3
