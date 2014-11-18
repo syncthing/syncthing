@@ -245,7 +245,8 @@ angular.module('syncthing.core')
             var hasConfig = !isEmptyObject($scope.config);
 
             $scope.config = config;
-            $scope.config.Options.ListenStr = $scope.config.Options.ListenAddress.join(', ');
+            $scope.config.Options.ListenAddressStr = $scope.config.Options.ListenAddress.join(', ');
+            $scope.config.Options.GlobalAnnServersStr = $scope.config.Options.GlobalAnnServers.join(', ');
 
             $scope.devices = $scope.config.Devices;
             $scope.devices.forEach(function (deviceCfg) {
@@ -272,6 +273,14 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/system').success(function (data) {
                 $scope.myID = data.myID;
                 $scope.system = data;
+                $scope.announceServersTotal = Object.keys(data.extAnnounceOK).length;
+                var failed = [];
+                for (var server in data.extAnnounceOK) {
+                    if (!data.extAnnounceOK[server]) {
+                        failed.push(server);
+                    }
+                }
+                $scope.announceServersFailed = failed;
                 console.log("refreshSystem", data);
             });
         }
@@ -599,8 +608,11 @@ angular.module('syncthing.core')
                 $scope.thisDevice().Name = $scope.tmpOptions.DeviceName;
                 $scope.config.Options = angular.copy($scope.tmpOptions);
                 $scope.config.GUI = angular.copy($scope.tmpGUI);
-                $scope.config.Options.ListenAddress = $scope.config.Options.ListenStr.split(',').map(function (x) {
-                    return x.trim();
+
+                ['ListenAddress', 'GlobalAnnServers'].forEach(function (key) {
+                   $scope.config.Options[key] = $scope.config.Options[key + "Str"].split(/[ ,]+/).map(function (x) {
+                        return x.trim();
+                    });
                 });
 
                 $scope.saveConfig();

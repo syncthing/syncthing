@@ -203,11 +203,17 @@
                     <th><span class="glyphicon glyphicon-dashboard"></span>&emsp;<span translate>CPU Utilization</span></th>
                     <td class="text-right">{{system.cpuPercent | alwaysNumber | natural:1}}%</td>
                   </tr>
-                  <tr ng-if="system.extAnnounceOK != undefined">
-                    <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;<span translate>Global Discovery Server</span></th>
+                  <tr ng-if="system.extAnnounceOK != undefined && announceServersTotal > 0">
+                    <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;<span translate>Global Discovery Servers</span></th>
                     <td class="text-right">
-                      <span class="data text-success" ng-if="system.extAnnounceOK"><span translate>Online</span></span>
-                      <span class="data text-danger" ng-if="!system.extAnnounceOK"><span translate>Offline</span></span>
+                      <span ng-if="announceServersFailed.length == 0" class="data text-success">
+                        <span>OK</span>
+                      </span>
+                      <span ng-if="announceServersFailed.length != 0" class="data text-danger">
+                        <span popover data-trigger="hover" data-placement="bottom" data-content="{{announceServersFailed.join('\n')}}">
+                          {{announceServersTotal-announceServersFailed.length}}/{{announceServersTotal}}
+                        </span>
+                      </span>
                     </td>
                   </tr>
                   <tr>
@@ -609,8 +615,8 @@
                   <input id="DeviceName" class="form-control" type="text" ng-model="tmpOptions.DeviceName">
                 </div>
                 <div class="form-group">
-                  <label translate for="ListenStr">Sync Protocol Listen Addresses</label>
-                  <input id="ListenStr" class="form-control" type="text" ng-model="tmpOptions.ListenStr">
+                  <label translate for="ListenAddressStr">Sync Protocol Listen Addresses</label>
+                  <input id="ListenAddressStr" class="form-control" type="text" ng-model="tmpOptions.ListenAddressStr">
                 </div>
                 <div class="form-group">
                   <label translate for="MaxRecvKbps">Incoming Rate Limit (KiB/s)</label>
@@ -653,8 +659,8 @@
                   </div>
                 </div>
                 <div class="form-group">
-                  <label translate for="GlobalAnnServer">Global Discovery Server</label>
-                  <input ng-disabled="!tmpOptions.GlobalAnnEnabled" id="GlobalAnnServer" class="form-control" type="text" ng-model="tmpOptions.GlobalAnnServer">
+                  <label translate for="GlobalAnnServersStr">Global Discovery Server</label>
+                  <input ng-disabled="!tmpOptions.GlobalAnnEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions.GlobalAnnServersStr">
                 </div>
               </div>
 
@@ -865,6 +871,7 @@
   <script src="scripts/syncthing/core/directives/modalDirective.js"></script>
   <script src="scripts/syncthing/core/directives/uniqueFolderDirective.js"></script>
   <script src="scripts/syncthing/core/directives/validDeviceidDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/popoverDirective.js"></script>
   <script src="scripts/syncthing/core/filters/alwaysNumberFilter.js"></script>
   <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
   <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>

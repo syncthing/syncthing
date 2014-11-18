@@ -42,13 +42,13 @@ type Discoverer struct {
 	multicastBeacon  beacon.Interface
 	registry         map[protocol.DeviceID][]CacheEntry
 	registryLock     sync.RWMutex
-	extServer        string
+	extServers       []string
 	extPort          uint16
 	localBcastTick   <-chan time.Time
 	stopGlobal       chan struct{}
 	globalWG         sync.WaitGroup
 	forcedBcastTick  chan time.Time
-	extAnnounceOK    bool
+	extAnnounceOK    map[string]bool
 	extAnnounceOKmut sync.Mutex
 }
 
@@ -70,6 +70,7 @@ func NewDiscoverer(id protocol.DeviceID, addresses []string) *Discoverer {
 		errorRetryIntv:  60 * time.Second,
 		cacheLifetime:   5 * time.Minute,
 		registry:        make(map[protocol.DeviceID][]CacheEntry),
+		extAnnounceOK:   make(map[string]bool),
 	}
 }
 
@@ -110,14 +111,26 @@ func (d *Discoverer) StartLocal(localPort int, localMCAddr string) {
 	}
 }
 
-func (d *Discoverer) StartGlobal(server string, extPort uint16) {
+func (d *Discoverer) StartGlobal(servers []string, extPort uint16) {
 	// Wait for any previous announcer to stop before starting a new one.
 	d.globalWG.Wait()
-	d.extServer = server
+	d.extServers = servers
 	d.extPort = extPort
 	d.stopGlobal = make(chan struct{})
 	d.globalWG.Add(1)
-	go d.sendExternalAnnouncements()
+	go func() {
+		defer d.globalWG.Done()
+
+		buf := d.announcementPkt()
+
+		for _, extServer := range d.extServers {
+			d.globalWG.Add(1)
+			go func(server string) {
+				d.sendExternalAnnouncements(server, buf)
+				d.globalWG.Done()
+			}(extServer)
+		}
+	}()
 }
 
 func (d *Discoverer) StopGlobal() {
@@ -127,7 +140,7 @@ func (d *Discoverer) StopGlobal() {
 	}
 }
 
-func (d *Discoverer) ExtAnnounceOK() bool {
+func (d *Discoverer) ExtAnnounceOK() map[string]bool {
 	d.extAnnounceOKmut.Lock()
 	defer d.extAnnounceOKmut.Unlock()
 	return d.extAnnounceOK
@@ -144,7 +157,7 @@ func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
 			addrs[i] = cached[i].Address
 		}
 		return addrs
-	} else if len(d.extServer) != 0 && time.Since(d.localBcastStart) > d.localBcastIntv {
+	} else if len(d.extServers) != 0 && time.Since(d.localBcastStart) > d.localBcastIntv {
 		// Only perform external lookups if we have at least one external
 		// server and one local announcement interval has passed. This is to
 		// avoid finding local peers on their remote address at startup.
@@ -188,20 +201,24 @@ func (d *Discoverer) All() map[protocol.DeviceID][]CacheEntry {
 
 func (d *Discoverer) announcementPkt() []byte {
 	var addrs []Address
-	for _, astr := range d.listenAddrs {
-		addr, err := net.ResolveTCPAddr("tcp", astr)
-		if err != nil {
-			l.Warnln("%v: not announcing %s", err, astr)
-			continue
-		} else if debug {
-			l.Debugf("discover: announcing %s: %#v", astr, addr)
-		}
-		if len(addr.IP) == 0 || addr.IP.IsUnspecified() {
-			addrs = append(addrs, Address{Port: uint16(addr.Port)})
-		} else if bs := addr.IP.To4(); bs != nil {
-			addrs = append(addrs, Address{IP: bs, Port: uint16(addr.Port)})
-		} else if bs := addr.IP.To16(); bs != nil {
-			addrs = append(addrs, Address{IP: bs, Port: uint16(addr.Port)})
+	if d.extPort != 0 {
+		addrs = []Address{{Port: d.extPort}}
+	} else {
+		for _, astr := range d.listenAddrs {
+			addr, err := net.ResolveTCPAddr("tcp", astr)
+			if err != nil {
+				l.Warnln("%v: not announcing %s", err, astr)
+				continue
+			} else if debug {
+				l.Debugf("discover: announcing %s: %#v", astr, addr)
+			}
+			if len(addr.IP) == 0 || addr.IP.IsUnspecified() {
+				addrs = append(addrs, Address{Port: uint16(addr.Port)})
+			} else if bs := addr.IP.To4(); bs != nil {
+				addrs = append(addrs, Address{IP: bs, Port: uint16(addr.Port)})
+			} else if bs := addr.IP.To16(); bs != nil {
+				addrs = append(addrs, Address{IP: bs, Port: uint16(addr.Port)})
+			}
 		}
 	}
 	var pkt = Announce{
@@ -235,44 +252,43 @@ func (d *Discoverer) sendLocalAnnouncements() {
 	}
 }
 
-func (d *Discoverer) sendExternalAnnouncements() {
-	defer d.globalWG.Done()
-
-	remote, err := net.ResolveUDPAddr("udp", d.extServer)
-	for err != nil {
-		l.Warnf("Global discovery: %v; trying again in %v", err, d.errorRetryIntv)
-		time.Sleep(d.errorRetryIntv)
-		remote, err = net.ResolveUDPAddr("udp", d.extServer)
-	}
+func (d *Discoverer) sendExternalAnnouncements(extServer string, buf []byte) {
+	timer := time.NewTimer(0)
 
 	conn, err := net.ListenUDP("udp", nil)
 	for err != nil {
+		timer.Reset(d.errorRetryIntv)
 		l.Warnf("Global discovery: %v; trying again in %v", err, d.errorRetryIntv)
-		time.Sleep(d.errorRetryIntv)
+		select {
+		case <-d.stopGlobal:
+			return
+		case <-timer.C:
+		}
 		conn, err = net.ListenUDP("udp", nil)
 	}
 
-	var buf []byte
-	if d.extPort != 0 {
-		var pkt = Announce{
-			Magic: AnnouncementMagic,
-			This:  Device{d.myID[:], []Address{{Port: d.extPort}}},
+	remote, err := net.ResolveUDPAddr("udp", extServer)
+	for err != nil {
+		timer.Reset(d.errorRetryIntv)
+		l.Warnf("Global discovery: %s: %v; trying again in %v", extServer, err, d.errorRetryIntv)
+		select {
+		case <-d.stopGlobal:
+			return
+		case <-timer.C:
 		}
-		buf = pkt.MustMarshalXDR()
-	} else {
-		buf = d.announcementPkt()
+		remote, err = net.ResolveUDPAddr("udp", extServer)
 	}
 
 	// Delay the first announcement until after a full local announcement
 	// cycle, to increase the chance of other peers finding us locally first.
-	nextAnnouncement := time.NewTimer(d.localBcastIntv)
+	timer.Reset(d.localBcastIntv)
 
 	for {
 		select {
 		case <-d.stopGlobal:
 			return
 
-		case <-nextAnnouncement.C:
+		case <-timer.C:
 			var ok bool
 
 			if debug {
@@ -282,28 +298,29 @@ func (d *Discoverer) sendExternalAnnouncements() {
 			_, err := conn.WriteTo(buf, remote)
 			if err != nil {
 				if debug {
-					l.Debugln("discover: warning:", err)
+					l.Debugln("discover: %s: warning:", extServer, err)
 				}
 				ok = false
 			} else {
 				// Verify that the announce server responds positively for our device ID
 
 				time.Sleep(1 * time.Second)
-				res := d.externalLookup(d.myID)
+				res := d.externalLookupOnServer(extServer, d.myID)
+
 				if debug {
-					l.Debugln("discover: external lookup check:", res)
+					l.Debugln("discover:", extServer, "external lookup check:", res)
 				}
 				ok = len(res) > 0
 			}
 
 			d.extAnnounceOKmut.Lock()
-			d.extAnnounceOK = ok
+			d.extAnnounceOK[extServer] = ok
 			d.extAnnounceOKmut.Unlock()
 
 			if ok {
-				nextAnnouncement.Reset(d.globalBcastIntv)
+				timer.Reset(d.globalBcastIntv)
 			} else {
-				nextAnnouncement.Reset(d.errorRetryIntv)
+				timer.Reset(d.errorRetryIntv)
 			}
 		}
 	}
@@ -391,10 +408,39 @@ func (d *Discoverer) registerDevice(addr net.Addr, device Device) bool {
 }
 
 func (d *Discoverer) externalLookup(device protocol.DeviceID) []string {
-	extIP, err := net.ResolveUDPAddr("udp", d.extServer)
+	// Buffer up to as many answers as we have servers to query.
+	results := make(chan []string, len(d.extServers))
+
+	// Query all servers.
+	wg := sync.WaitGroup{}
+	for _, extServer := range d.extServers {
+		wg.Add(1)
+		go func(server string) {
+			result := d.externalLookupOnServer(server, device)
+			if debug {
+				l.Debugln("discover:", result, "from", server, "for", device)
+			}
+			results <- result
+			wg.Done()
+		}(extServer)
+	}
+
+	wg.Wait()
+	close(results)
+
+	addrs := []string{}
+	for result := range results {
+		addrs = append(addrs, result...)
+	}
+
+	return addrs
+}
+
+func (d *Discoverer) externalLookupOnServer(extServer string, device protocol.DeviceID) []string {
+	extIP, err := net.ResolveUDPAddr("udp", extServer)
 	if err != nil {
 		if debug {
-			l.Debugf("discover: %v; no external lookup", err)
+			l.Debugf("discover: %s: %v; no external lookup", extServer, err)
 		}
 		return nil
 	}
@@ -402,7 +448,7 @@ func (d *Discoverer) externalLookup(device protocol.DeviceID) []string {
 	conn, err := net.DialUDP("udp", nil, extIP)
 	if err != nil {
 		if debug {
-			l.Debugf("discover: %v; no external lookup", err)
+			l.Debugf("discover: %s: %v; no external lookup", extServer, err)
 		}
 		return nil
 	}
@@ -411,7 +457,7 @@ func (d *Discoverer) externalLookup(device protocol.DeviceID) []string {
 	err = conn.SetDeadline(time.Now().Add(5 * time.Second))
 	if err != nil {
 		if debug {
-			l.Debugf("discover: %v; no external lookup", err)
+			l.Debugf("discover: %s: %v; no external lookup", extServer, err)
 		}
 		return nil
 	}
@@ -420,7 +466,7 @@ func (d *Discoverer) externalLookup(device protocol.DeviceID) []string {
 	_, err = conn.Write(buf)
 	if err != nil {
 		if debug {
-			l.Debugf("discover: %v; no external lookup", err)
+			l.Debugf("discover: %s: %v; no external lookup", extServer, err)
 		}
 		return nil
 	}
@@ -433,20 +479,20 @@ func (d *Discoverer) externalLookup(device protocol.DeviceID) []string {
 			return nil
 		}
 		if debug {
-			l.Debugf("discover: %v; no external lookup", err)
+			l.Debugf("discover: %s: %v; no external lookup", extServer, err)
 		}
 		return nil
 	}
 
 	if debug {
-		l.Debugf("discover: read external:\n%s", hex.Dump(buf[:n]))
+		l.Debugf("discover: %s: read external:\n%s", extServer, hex.Dump(buf[:n]))
 	}
 
 	var pkt Announce
 	err = pkt.UnmarshalXDR(buf[:n])
 	if err != nil && err != io.EOF {
 		if debug {
-			l.Debugln("discover:", err)
+			l.Debugln("discover:", extServer, err)
 		}
 		return nil
 	}
