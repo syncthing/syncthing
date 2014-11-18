@@ -258,63 +258,46 @@ func (d *Discoverer) sendExternalAnnouncements() {
 		buf = d.announcementPkt()
 	}
 
-	var bcastTick = time.Tick(d.globalBcastIntv)
-	var errTick <-chan time.Time
-
-	sendOneAnnouncement := func() {
-		var ok bool
-
-		if debug {
-			l.Debugf("discover: send announcement -> %v\n%s", remote, hex.Dump(buf))
-		}
-
-		_, err := conn.WriteTo(buf, remote)
-		if err != nil {
-			if debug {
-				l.Debugln("discover: warning:", err)
-			}
-			ok = false
-		} else {
-			// Verify that the announce server responds positively for our device ID
-
-			time.Sleep(1 * time.Second)
-			res := d.externalLookup(d.myID)
-			if debug {
-				l.Debugln("discover: external lookup check:", res)
-			}
-			ok = len(res) > 0
-		}
-
-		d.extAnnounceOKmut.Lock()
-		d.extAnnounceOK = ok
-		d.extAnnounceOKmut.Unlock()
-
-		if ok {
-			errTick = nil
-		} else if errTick != nil {
-			errTick = time.Tick(d.errorRetryIntv)
-		}
-	}
-
-	// Announce once, immediately
-	sendOneAnnouncement()
-
-loop:
+	nextAnnouncement := time.NewTimer(0)
 	for {
 		select {
 		case <-d.stopGlobal:
-			break loop
+			return
 
-		case <-errTick:
-			sendOneAnnouncement()
+		case <-nextAnnouncement.C:
+			var ok bool
 
-		case <-bcastTick:
-			sendOneAnnouncement()
+			if debug {
+				l.Debugf("discover: send announcement -> %v\n%s", remote, hex.Dump(buf))
+			}
+
+			_, err := conn.WriteTo(buf, remote)
+			if err != nil {
+				if debug {
+					l.Debugln("discover: warning:", err)
+				}
+				ok = false
+			} else {
+				// Verify that the announce server responds positively for our device ID
+
+				time.Sleep(1 * time.Second)
+				res := d.externalLookup(d.myID)
+				if debug {
+					l.Debugln("discover: external lookup check:", res)
+				}
+				ok = len(res) > 0
+			}
+
+			d.extAnnounceOKmut.Lock()
+			d.extAnnounceOK = ok
+			d.extAnnounceOKmut.Unlock()
+
+			if ok {
+				nextAnnouncement.Reset(d.globalBcastIntv)
+			} else {
+				nextAnnouncement.Reset(d.errorRetryIntv)
+			}
 		}
-	}
-
-	if debug {
-		l.Debugln("discover: stopping global")
 	}
 }
 
