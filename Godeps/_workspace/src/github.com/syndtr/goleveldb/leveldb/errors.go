@@ -7,32 +7,12 @@
 package leveldb
 
 import (
-	"errors"
-
-	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 )
 
 var (
-	ErrNotFound         = util.ErrNotFound
+	ErrNotFound         = errors.ErrNotFound
 	ErrSnapshotReleased = errors.New("leveldb: snapshot released")
 	ErrIterReleased     = errors.New("leveldb: iterator released")
 	ErrClosed           = errors.New("leveldb: closed")
 )
-
-type CorruptionType int
-
-const (
-	CorruptedManifest CorruptionType = iota
-	MissingFiles
-)
-
-// ErrCorrupted is the type that wraps errors that indicate corruption in
-// the database.
-type ErrCorrupted struct {
-	Type CorruptionType
-	Err  error
-}
-
-func (e ErrCorrupted) Error() string {
-	return e.Err.Error()
-}

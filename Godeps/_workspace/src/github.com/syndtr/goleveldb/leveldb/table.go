@@ -7,6 +7,7 @@
 package leveldb
 
 import (
+	"fmt"
 	"sort"
 	"sync/atomic"
 
@@ -82,6 +83,18 @@ type tFiles []*tFile
 func (tf tFiles) Len() int      { return len(tf) }
 func (tf tFiles) Swap(i, j int) { tf[i], tf[j] = tf[j], tf[i] }
 
+func (tf tFiles) nums() string {
+	x := "[ "
+	for i, f := range tf {
+		if i != 0 {
+			x += ", "
+		}
+		x += fmt.Sprint(f.file.Num())
+	}
+	x += " ]"
+	return x
+}
+
 // Returns true if i smallest key is less than j.
 // This used for sort by key in ascending order.
 func (tf tFiles) lessByKey(icmp *iComparer, i, j int) bool {
@@ -149,7 +162,7 @@ func (tf tFiles) overlaps(icmp *iComparer, umin, umax []byte, unsorted bool) boo
 	i := 0
 	if len(umin) > 0 {
 		// Find the earliest possible internal key for min.
-		i = tf.searchMax(icmp, newIKey(umin, kMaxSeq, tSeek))
+		i = tf.searchMax(icmp, newIkey(umin, kMaxSeq, ktSeek))
 	}
 	if i >= len(tf) {
 		// Beginning of range is after all files, so no overlap.
@@ -159,24 +172,25 @@ func (tf tFiles) overlaps(icmp *iComparer, umin, umax []byte, unsorted bool) boo
 }
 
 // Returns tables whose its key range overlaps with given key range.
-// If overlapped is true then the search will be expanded to tables that
-// overlaps with each other.
+// Range will be expanded if ukey found hop across tables.
+// If overlapped is true then the search will be restarted if umax
+// expanded.
+// The dst content will be overwritten.
 func (tf tFiles) getOverlaps(dst tFiles, icmp *iComparer, umin, umax []byte, overlapped bool) tFiles {
-	x := len(dst)
+	dst = dst[:0]
 	for i := 0; i < len(tf); {
 		t := tf[i]
 		if t.overlaps(icmp, umin, umax) {
-			if overlapped {
-				// For overlapped files, check if the newly added file has
-				// expanded the range. If so, restart search.
-				if umin != nil && icmp.uCompare(t.imin.ukey(), umin) < 0 {
-					umin = t.imin.ukey()
-					dst = dst[:x]
-					i = 0
-					continue
-				} else if umax != nil && icmp.uCompare(t.imax.ukey(), umax) > 0 {
-					umax = t.imax.ukey()
-					dst = dst[:x]
+			if umin != nil && icmp.uCompare(t.imin.ukey(), umin) < 0 {
+				umin = t.imin.ukey()
+				dst = dst[:0]
+				i = 0
+				continue
+			} else if umax != nil && icmp.uCompare(t.imax.ukey(), umax) > 0 {
+				umax = t.imax.ukey()
+				// Restart search if it is overlapped.
+				if overlapped {
+					dst = dst[:0]
 					i = 0
 					continue
 				}
@@ -289,7 +303,7 @@ func (t *tOps) create() (*tWriter, error) {
 		t:    t,
 		file: file,
 		w:    fw,
-		tw:   table.NewWriter(fw, t.s.o),
+		tw:   table.NewWriter(fw, t.s.o.Options),
 	}, nil
 }
 
@@ -337,7 +351,13 @@ func (t *tOps) open(f *tFile) (ch cache.Handle, err error) {
 		if bc := t.s.o.GetBlockCache(); bc != nil {
 			bcacheNS = bc.GetNamespace(num)
 		}
-		return 1, table.NewReader(r, int64(f.size), bcacheNS, t.bpool, t.s.o)
+		var tr *table.Reader
+		tr, err = table.NewReader(r, int64(f.size), storage.NewFileInfo(f.file), bcacheNS, t.bpool, t.s.o.Options)
+		if err != nil {
+			r.Close()
+			return 0, nil
+		}
+		return 1, tr
 	})
 	if ch == nil && err == nil {
 		err = ErrClosed
@@ -440,28 +460,34 @@ func (w *tWriter) empty() bool {
 	return w.first == nil
 }
 
+// Closes the storage.Writer.
+func (w *tWriter) close() {
+	if w.w != nil {
+		w.w.Close()
+		w.w = nil
+	}
+}
+
 // Finalizes the table and returns table file.
 func (w *tWriter) finish() (f *tFile, err error) {
+	defer w.close()
 	err = w.tw.Close()
 	if err != nil {
 		return
 	}
 	err = w.w.Sync()
 	if err != nil {
-		w.w.Close()
 		return
 	}
-	w.w.Close()
 	f = newTableFile(w.file, uint64(w.tw.BytesLen()), iKey(w.first), iKey(w.last))
 	return
 }
 
 // Drops the table.
 func (w *tWriter) drop() {
-	w.w.Close()
+	w.close()
 	w.file.Remove()
 	w.t.s.reuseFileNum(w.file.Num())
-	w.w = nil
 	w.file = nil
 	w.tw = nil
 	w.first = nil

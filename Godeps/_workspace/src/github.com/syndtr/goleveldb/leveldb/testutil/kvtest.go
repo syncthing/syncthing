@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -59,7 +60,7 @@ func KeyValueTesting(rnd *rand.Rand, kv KeyValue, p DB, setup func(KeyValue) DB,
 			}
 			rkey, _, err := db.TestFind(key)
 			Expect(err).Should(HaveOccurred(), "Find for key %q yield key %q", key, rkey)
-			Expect(err).Should(Equal(util.ErrNotFound))
+			Expect(err).Should(Equal(errors.ErrNotFound))
 		}
 	})
 
@@ -77,7 +78,7 @@ func KeyValueTesting(rnd *rand.Rand, kv KeyValue, p DB, setup func(KeyValue) DB,
 				if len(key_) > 0 {
 					_, err = db.TestGet(key_)
 					Expect(err).Should(HaveOccurred(), "Error for key %q", key_)
-					Expect(err).Should(Equal(util.ErrNotFound))
+					Expect(err).Should(Equal(errors.ErrNotFound))
 				}
 			})
 		}

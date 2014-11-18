@@ -79,10 +79,10 @@ package journal
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -109,7 +109,7 @@ type ErrCorrupted struct {
 	Reason string
 }
 
-func (e ErrCorrupted) Error() string {
+func (e *ErrCorrupted) Error() string {
 	return fmt.Sprintf("leveldb/journal: block/chunk corrupted: %s (%d bytes)", e.Reason, e.Size)
 }
 
@@ -162,10 +162,10 @@ var errSkip = errors.New("leveldb/journal: skipped")
 
 func (r *Reader) corrupt(n int, reason string, skip bool) error {
 	if r.dropper != nil {
-		r.dropper.Drop(ErrCorrupted{n, reason})
+		r.dropper.Drop(&ErrCorrupted{n, reason})
 	}
 	if r.strict && !skip {
-		r.err = ErrCorrupted{n, reason}
+		r.err = errors.NewErrCorrupted(nil, &ErrCorrupted{n, reason})
 		return r.err
 	}
 	return errSkip

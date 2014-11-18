@@ -22,7 +22,7 @@ type dropper struct {
 }
 
 func (d dropper) Drop(err error) {
-	if e, ok := err.(journal.ErrCorrupted); ok {
+	if e, ok := err.(*journal.ErrCorrupted); ok {
 		d.s.logf("journal@drop %s-%d S·%s %q", d.file.Type(), d.file.Num(), shortenb(e.Size), e.Reason)
 	} else {
 		d.s.logf("journal@drop %s-%d %q", d.file.Type(), d.file.Num(), err)
@@ -51,9 +51,14 @@ func (s *session) newTemp() storage.File {
 	return s.stor.GetFile(num, storage.TypeTemp)
 }
 
+func (s *session) tableFileFromRecord(r atRecord) *tFile {
+	return newTableFile(s.getTableFile(r.num), r.size, r.imin, r.imax)
+}
+
 // Session state.
 
-// Get current version.
+// Get current version. This will incr version ref, must call
+// version.release (exactly once) after use.
 func (s *session) version() *version {
 	s.vmu.Lock()
 	defer s.vmu.Unlock()
@@ -61,61 +66,56 @@ func (s *session) version() *version {
 	return s.stVersion
 }
 
-// Get current version; no barrier.
-func (s *session) version_NB() *version {
-	return s.stVersion
-}
-
 // Set current version to v.
 func (s *session) setVersion(v *version) {
 	s.vmu.Lock()
-	v.ref = 1
+	v.ref = 1 // Holds by session.
 	if old := s.stVersion; old != nil {
-		v.ref++
+		v.ref++ // Holds by old version.
 		old.next = v
-		old.release_NB()
+		old.releaseNB()
 	}
 	s.stVersion = v
 	s.vmu.Unlock()
 }
 
 // Get current unused file number.
-func (s *session) fileNum() uint64 {
-	return atomic.LoadUint64(&s.stFileNum)
+func (s *session) nextFileNum() uint64 {
+	return atomic.LoadUint64(&s.stNextFileNum)
 }
 
-// Get current unused file number to num.
-func (s *session) setFileNum(num uint64) {
-	atomic.StoreUint64(&s.stFileNum, num)
+// Set current unused file number to num.
+func (s *session) setNextFileNum(num uint64) {
+	atomic.StoreUint64(&s.stNextFileNum, num)
 }
 
 // Mark file number as used.
 func (s *session) markFileNum(num uint64) {
-	num += 1
+	nextFileNum := num + 1
 	for {
-		old, x := s.stFileNum, num
+		old, x := s.stNextFileNum, nextFileNum
 		if old > x {
 			x = old
 		}
-		if atomic.CompareAndSwapUint64(&s.stFileNum, old, x) {
+		if atomic.CompareAndSwapUint64(&s.stNextFileNum, old, x) {
 			break
 		}
 	}
 }
 
 // Allocate a file number.
-func (s *session) allocFileNum() (num uint64) {
-	return atomic.AddUint64(&s.stFileNum, 1) - 1
+func (s *session) allocFileNum() uint64 {
+	return atomic.AddUint64(&s.stNextFileNum, 1) - 1
 }
 
 // Reuse given file number.
 func (s *session) reuseFileNum(num uint64) {
 	for {
-		old, x := s.stFileNum, num
+		old, x := s.stNextFileNum, num
 		if old != x+1 {
 			x = old
 		}
-		if atomic.CompareAndSwapUint64(&s.stFileNum, old, x) {
+		if atomic.CompareAndSwapUint64(&s.stNextFileNum, old, x) {
 			break
 		}
 	}
@@ -126,20 +126,20 @@ func (s *session) reuseFileNum(num uint64) {
 // Fill given session record obj with current states; need external
 // synchronization.
 func (s *session) fillRecord(r *sessionRecord, snapshot bool) {
-	r.setNextNum(s.fileNum())
+	r.setNextFileNum(s.nextFileNum())
 
 	if snapshot {
 		if !r.has(recJournalNum) {
 			r.setJournalNum(s.stJournalNum)
 		}
 
-		if !r.has(recSeq) {
-			r.setSeq(s.stSeq)
+		if !r.has(recSeqNum) {
+			r.setSeqNum(s.stSeqNum)
 		}
 
-		for level, ik := range s.stCptrs {
+		for level, ik := range s.stCompPtrs {
 			if ik != nil {
-				r.addCompactionPointer(level, ik)
+				r.addCompPtr(level, ik)
 			}
 		}
 
@@ -158,12 +158,12 @@ func (s *session) recordCommited(r *sessionRecord) {
 		s.stPrevJournalNum = r.prevJournalNum
 	}
 
-	if r.has(recSeq) {
-		s.stSeq = r.seq
+	if r.has(recSeqNum) {
+		s.stSeqNum = r.seqNum
 	}
 
-	for _, p := range r.compactionPointers {
-		s.stCptrs[p.level] = iKey(p.ikey)
+	for _, p := range r.compPtrs {
+		s.stCompPtrs[p.level] = iKey(p.ikey)
 	}
 }
 
@@ -178,10 +178,11 @@ func (s *session) newManifest(rec *sessionRecord, v *version) (err error) {
 	jw := journal.NewWriter(writer)
 
 	if v == nil {
-		v = s.version_NB()
+		v = s.version()
+		defer v.release()
 	}
 	if rec == nil {
-		rec = new(sessionRecord)
+		rec = &sessionRecord{numLevel: s.o.GetNumLevel()}
 	}
 	s.fillRecord(rec, true)
 	v.fillRecord(rec)

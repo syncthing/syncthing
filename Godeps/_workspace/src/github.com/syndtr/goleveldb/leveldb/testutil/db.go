@@ -12,6 +12,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
@@ -110,7 +111,7 @@ func (t *DBTesting) TestAllPresent() {
 
 func (t *DBTesting) TestDeletedKey(key []byte) {
 	_, err := t.DB.TestGet(key)
-	Expect(err).Should(Equal(util.ErrNotFound), "Get on deleted key %q, %s", key, t.text())
+	Expect(err).Should(Equal(errors.ErrNotFound), "Get on deleted key %q, %s", key, t.text())
 }
 
 func (t *DBTesting) TestAllDeleted() {

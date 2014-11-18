@@ -7,8 +7,7 @@
 package leveldb
 
 import (
-	"errors"
-
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/storage"
@@ -38,7 +37,9 @@ func (db *DB) logf(format string, v ...interface{}) { db.s.logf(format, v...) }
 
 // Check and clean files.
 func (db *DB) checkAndCleanFiles() error {
-	v := db.s.version_NB()
+	v := db.s.version()
+	defer v.release()
+
 	tablesMap := make(map[uint64]bool)
 	for _, tables := range v.tables {
 		for _, t := range tables {
@@ -78,12 +79,14 @@ func (db *DB) checkAndCleanFiles() error {
 	}
 
 	if nTables != len(tablesMap) {
+		var missing []*storage.FileInfo
 		for num, present := range tablesMap {
 			if !present {
+				missing = append(missing, &storage.FileInfo{Type: storage.TypeTable, Num: num})
 				db.logf("db@janitor table missing @%d", num)
 			}
 		}
-		return ErrCorrupted{Type: MissingFiles, Err: errors.New("leveldb: table files missing")}
+		return errors.NewErrCorrupted(nil, &errors.ErrMissingFiles{Files: missing})
 	}
 
 	db.logf("db@janitor F·%d G·%d", len(files), len(rem))

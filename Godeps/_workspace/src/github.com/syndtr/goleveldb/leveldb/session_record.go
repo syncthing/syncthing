@@ -9,11 +9,11 @@ package leveldb
 import (
 	"bufio"
 	"encoding/binary"
-	"errors"
 	"io"
-)
+	"strings"
 
-var errCorruptManifest = errors.New("leveldb: corrupt manifest")
+	"github.com/syndtr/goleveldb/leveldb/errors"
+)
 
 type byteReader interface {
 	io.Reader
@@ -22,13 +22,13 @@ type byteReader interface {
 
 // These numbers are written to disk and should not be changed.
 const (
-	recComparer          = 1
-	recJournalNum        = 2
-	recNextNum           = 3
-	recSeq               = 4
-	recCompactionPointer = 5
-	recDeletedTable      = 6
-	recNewTable          = 7
+	recComparer    = 1
+	recJournalNum  = 2
+	recNextFileNum = 3
+	recSeqNum      = 4
+	recCompPtr     = 5
+	recDelTable    = 6
+	recAddTable    = 7
 	// 8 was used for large value refs
 	recPrevJournalNum = 9
 )
@@ -38,16 +38,12 @@ type cpRecord struct {
 	ikey  iKey
 }
 
-type ntRecord struct {
+type atRecord struct {
 	level int
 	num   uint64
 	size  uint64
 	imin  iKey
 	imax  iKey
-}
-
-func (r ntRecord) makeFile(s *session) *tFile {
-	return newTableFile(s.getTableFile(r.num), r.size, r.imin, r.imax)
 }
 
 type dtRecord struct {
@@ -56,17 +52,20 @@ type dtRecord struct {
 }
 
 type sessionRecord struct {
-	hasRec             int
-	comparer           string
-	journalNum         uint64
-	prevJournalNum     uint64
-	nextNum            uint64
-	seq                uint64
-	compactionPointers []cpRecord
-	addedTables        []ntRecord
-	deletedTables      []dtRecord
-	scratch            [binary.MaxVarintLen64]byte
-	err                error
+	numLevel int
+
+	hasRec         int
+	comparer       string
+	journalNum     uint64
+	prevJournalNum uint64
+	nextFileNum    uint64
+	seqNum         uint64
+	compPtrs       []cpRecord
+	addedTables    []atRecord
+	deletedTables  []dtRecord
+
+	scratch [binary.MaxVarintLen64]byte
+	err     error
 }
 
 func (p *sessionRecord) has(rec int) bool {
@@ -88,29 +87,29 @@ func (p *sessionRecord) setPrevJournalNum(num uint64) {
 	p.prevJournalNum = num
 }
 
-func (p *sessionRecord) setNextNum(num uint64) {
-	p.hasRec |= 1 << recNextNum
-	p.nextNum = num
+func (p *sessionRecord) setNextFileNum(num uint64) {
+	p.hasRec |= 1 << recNextFileNum
+	p.nextFileNum = num
 }
 
-func (p *sessionRecord) setSeq(seq uint64) {
-	p.hasRec |= 1 << recSeq
-	p.seq = seq
+func (p *sessionRecord) setSeqNum(num uint64) {
+	p.hasRec |= 1 << recSeqNum
+	p.seqNum = num
 }
 
-func (p *sessionRecord) addCompactionPointer(level int, ikey iKey) {
-	p.hasRec |= 1 << recCompactionPointer
-	p.compactionPointers = append(p.compactionPointers, cpRecord{level, ikey})
+func (p *sessionRecord) addCompPtr(level int, ikey iKey) {
+	p.hasRec |= 1 << recCompPtr
+	p.compPtrs = append(p.compPtrs, cpRecord{level, ikey})
 }
 
-func (p *sessionRecord) resetCompactionPointers() {
-	p.hasRec &= ^(1 << recCompactionPointer)
-	p.compactionPointers = p.compactionPointers[:0]
+func (p *sessionRecord) resetCompPtrs() {
+	p.hasRec &= ^(1 << recCompPtr)
+	p.compPtrs = p.compPtrs[:0]
 }
 
 func (p *sessionRecord) addTable(level int, num, size uint64, imin, imax iKey) {
-	p.hasRec |= 1 << recNewTable
-	p.addedTables = append(p.addedTables, ntRecord{level, num, size, imin, imax})
+	p.hasRec |= 1 << recAddTable
+	p.addedTables = append(p.addedTables, atRecord{level, num, size, imin, imax})
 }
 
 func (p *sessionRecord) addTableFile(level int, t *tFile) {
@@ -118,17 +117,17 @@ func (p *sessionRecord) addTableFile(level int, t *tFile) {
 }
 
 func (p *sessionRecord) resetAddedTables() {
-	p.hasRec &= ^(1 << recNewTable)
+	p.hasRec &= ^(1 << recAddTable)
 	p.addedTables = p.addedTables[:0]
 }
 
-func (p *sessionRecord) deleteTable(level int, num uint64) {
-	p.hasRec |= 1 << recDeletedTable
+func (p *sessionRecord) delTable(level int, num uint64) {
+	p.hasRec |= 1 << recDelTable
 	p.deletedTables = append(p.deletedTables, dtRecord{level, num})
 }
 
 func (p *sessionRecord) resetDeletedTables() {
-	p.hasRec &= ^(1 << recDeletedTable)
+	p.hasRec &= ^(1 << recDelTable)
 	p.deletedTables = p.deletedTables[:0]
 }
 
@@ -161,26 +160,26 @@ func (p *sessionRecord) encode(w io.Writer) error {
 		p.putUvarint(w, recJournalNum)
 		p.putUvarint(w, p.journalNum)
 	}
-	if p.has(recNextNum) {
-		p.putUvarint(w, recNextNum)
-		p.putUvarint(w, p.nextNum)
+	if p.has(recNextFileNum) {
+		p.putUvarint(w, recNextFileNum)
+		p.putUvarint(w, p.nextFileNum)
 	}
-	if p.has(recSeq) {
-		p.putUvarint(w, recSeq)
-		p.putUvarint(w, p.seq)
+	if p.has(recSeqNum) {
+		p.putUvarint(w, recSeqNum)
+		p.putUvarint(w, p.seqNum)
 	}
-	for _, r := range p.compactionPointers {
-		p.putUvarint(w, recCompactionPointer)
+	for _, r := range p.compPtrs {
+		p.putUvarint(w, recCompPtr)
 		p.putUvarint(w, uint64(r.level))
 		p.putBytes(w, r.ikey)
 	}
 	for _, r := range p.deletedTables {
-		p.putUvarint(w, recDeletedTable)
+		p.putUvarint(w, recDelTable)
 		p.putUvarint(w, uint64(r.level))
 		p.putUvarint(w, r.num)
 	}
 	for _, r := range p.addedTables {
-		p.putUvarint(w, recNewTable)
+		p.putUvarint(w, recAddTable)
 		p.putUvarint(w, uint64(r.level))
 		p.putUvarint(w, r.num)
 		p.putUvarint(w, r.size)
@@ -190,14 +189,16 @@ func (p *sessionRecord) encode(w io.Writer) error {
 	return p.err
 }
 
-func (p *sessionRecord) readUvarint(r io.ByteReader) uint64 {
+func (p *sessionRecord) readUvarintMayEOF(field string, r io.ByteReader, mayEOF bool) uint64 {
 	if p.err != nil {
 		return 0
 	}
 	x, err := binary.ReadUvarint(r)
 	if err != nil {
-		if err == io.EOF {
-			p.err = errCorruptManifest
+		if err == io.ErrUnexpectedEOF || (mayEOF == false && err == io.EOF) {
+			p.err = errors.NewErrCorrupted(nil, &ErrManifestCorrupted{field, "short read"})
+		} else if strings.HasPrefix(err.Error(), "binary:") {
+			p.err = errors.NewErrCorrupted(nil, &ErrManifestCorrupted{field, err.Error()})
 		} else {
 			p.err = err
 		}
@@ -206,35 +207,39 @@ func (p *sessionRecord) readUvarint(r io.ByteReader) uint64 {
 	return x
 }
 
-func (p *sessionRecord) readBytes(r byteReader) []byte {
+func (p *sessionRecord) readUvarint(field string, r io.ByteReader) uint64 {
+	return p.readUvarintMayEOF(field, r, false)
+}
+
+func (p *sessionRecord) readBytes(field string, r byteReader) []byte {
 	if p.err != nil {
 		return nil
 	}
-	n := p.readUvarint(r)
+	n := p.readUvarint(field, r)
 	if p.err != nil {
 		return nil
 	}
 	x := make([]byte, n)
 	_, p.err = io.ReadFull(r, x)
 	if p.err != nil {
-		if p.err == io.EOF {
-			p.err = errCorruptManifest
+		if p.err == io.ErrUnexpectedEOF {
+			p.err = errors.NewErrCorrupted(nil, &ErrManifestCorrupted{field, "short read"})
 		}
 		return nil
 	}
 	return x
 }
 
-func (p *sessionRecord) readLevel(r io.ByteReader) int {
+func (p *sessionRecord) readLevel(field string, r io.ByteReader) int {
 	if p.err != nil {
 		return 0
 	}
-	x := p.readUvarint(r)
+	x := p.readUvarint(field, r)
 	if p.err != nil {
 		return 0
 	}
-	if x >= kNumLevels {
-		p.err = errCorruptManifest
+	if x >= uint64(p.numLevel) {
+		p.err = errors.NewErrCorrupted(nil, &ErrManifestCorrupted{field, "invalid level number"})
 		return 0
 	}
 	return int(x)
@@ -247,59 +252,59 @@ func (p *sessionRecord) decode(r io.Reader) error {
 	}
 	p.err = nil
 	for p.err == nil {
-		rec, err := binary.ReadUvarint(br)
-		if err != nil {
-			if err == io.EOF {
-				err = nil
+		rec := p.readUvarintMayEOF("field-header", br, true)
+		if p.err != nil {
+			if p.err == io.EOF {
+				return nil
 			}
-			return err
+			return p.err
 		}
 		switch rec {
 		case recComparer:
-			x := p.readBytes(br)
+			x := p.readBytes("comparer", br)
 			if p.err == nil {
 				p.setComparer(string(x))
 			}
 		case recJournalNum:
-			x := p.readUvarint(br)
+			x := p.readUvarint("journal-num", br)
 			if p.err == nil {
 				p.setJournalNum(x)
 			}
 		case recPrevJournalNum:
-			x := p.readUvarint(br)
+			x := p.readUvarint("prev-journal-num", br)
 			if p.err == nil {
 				p.setPrevJournalNum(x)
 			}
-		case recNextNum:
-			x := p.readUvarint(br)
+		case recNextFileNum:
+			x := p.readUvarint("next-file-num", br)
 			if p.err == nil {
-				p.setNextNum(x)
+				p.setNextFileNum(x)
 			}
-		case recSeq:
-			x := p.readUvarint(br)
+		case recSeqNum:
+			x := p.readUvarint("seq-num", br)
 			if p.err == nil {
-				p.setSeq(x)
+				p.setSeqNum(x)
 			}
-		case recCompactionPointer:
-			level := p.readLevel(br)
-			ikey := p.readBytes(br)
+		case recCompPtr:
+			level := p.readLevel("comp-ptr.level", br)
+			ikey := p.readBytes("comp-ptr.ikey", br)
 			if p.err == nil {
-				p.addCompactionPointer(level, iKey(ikey))
+				p.addCompPtr(level, iKey(ikey))
 			}
-		case recNewTable:
-			level := p.readLevel(br)
-			num := p.readUvarint(br)
-			size := p.readUvarint(br)
-			imin := p.readBytes(br)
-			imax := p.readBytes(br)
+		case recAddTable:
+			level := p.readLevel("add-table.level", br)
+			num := p.readUvarint("add-table.num", br)
+			size := p.readUvarint("add-table.size", br)
+			imin := p.readBytes("add-table.imin", br)
+			imax := p.readBytes("add-table.imax", br)
 			if p.err == nil {
 				p.addTable(level, num, size, imin, imax)
 			}
-		case recDeletedTable:
-			level := p.readLevel(br)
-			num := p.readUvarint(br)
+		case recDelTable:
+			level := p.readLevel("del-table.level", br)
+			num := p.readUvarint("del-table.num", br)
 			if p.err == nil {
-				p.deleteTable(level, num)
+				p.delTable(level, num)
 			}
 		}
 	}

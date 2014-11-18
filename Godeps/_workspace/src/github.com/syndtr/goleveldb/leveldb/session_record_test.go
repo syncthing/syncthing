@@ -9,6 +9,8 @@ package leveldb
 import (
 	"bytes"
 	"testing"
+
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 func decodeEncode(v *sessionRecord) (res bool, err error) {
@@ -17,7 +19,7 @@ func decodeEncode(v *sessionRecord) (res bool, err error) {
 	if err != nil {
 		return
 	}
-	v2 := new(sessionRecord)
+	v2 := &sessionRecord{numLevel: opt.DefaultNumLevel}
 	err = v.decode(b)
 	if err != nil {
 		return
@@ -32,7 +34,7 @@ func decodeEncode(v *sessionRecord) (res bool, err error) {
 
 func TestSessionRecord_EncodeDecode(t *testing.T) {
 	big := uint64(1) << 50
-	v := new(sessionRecord)
+	v := &sessionRecord{numLevel: opt.DefaultNumLevel}
 	i := uint64(0)
 	test := func() {
 		res, err := decodeEncode(v)
@@ -47,16 +49,16 @@ func TestSessionRecord_EncodeDecode(t *testing.T) {
 	for ; i < 4; i++ {
 		test()
 		v.addTable(3, big+300+i, big+400+i,
-			newIKey([]byte("foo"), big+500+1, tVal),
-			newIKey([]byte("zoo"), big+600+1, tDel))
-		v.deleteTable(4, big+700+i)
-		v.addCompactionPointer(int(i), newIKey([]byte("x"), big+900+1, tVal))
+			newIkey([]byte("foo"), big+500+1, ktVal),
+			newIkey([]byte("zoo"), big+600+1, ktDel))
+		v.delTable(4, big+700+i)
+		v.addCompPtr(int(i), newIkey([]byte("x"), big+900+1, ktVal))
 	}
 
 	v.setComparer("foo")
 	v.setJournalNum(big + 100)
 	v.setPrevJournalNum(big + 99)
-	v.setNextNum(big + 200)
-	v.setSeq(big + 1000)
+	v.setNextFileNum(big + 200)
+	v.setSeqNum(big + 1000)
 	test()
 }

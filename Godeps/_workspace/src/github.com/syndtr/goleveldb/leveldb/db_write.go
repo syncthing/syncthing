@@ -59,7 +59,7 @@ func (db *DB) rotateMem(n int) (mem *memDB, err error) {
 	}
 
 	// Schedule memdb compaction.
-	db.compTrigger(db.mcompTriggerC)
+	db.compSendTrigger(db.mcompCmdC)
 	return
 }
 
@@ -77,12 +77,12 @@ func (db *DB) flush(n int) (mem *memDB, nn int, err error) {
 		}()
 		nn = mem.mdb.Free()
 		switch {
-		case v.tLen(0) >= kL0_SlowdownWritesTrigger && !delayed:
+		case v.tLen(0) >= db.s.o.GetWriteL0SlowdownTrigger() && !delayed:
 			delayed = true
 			time.Sleep(time.Millisecond)
 		case nn >= n:
 			return false
-		case v.tLen(0) >= kL0_StopWritesTrigger:
+		case v.tLen(0) >= db.s.o.GetWriteL0PauseTrigger():
 			delayed = true
 			err = db.compSendIdle(db.tcompCmdC)
 			if err != nil {
@@ -109,7 +109,12 @@ func (db *DB) flush(n int) (mem *memDB, nn int, err error) {
 	for flush() {
 	}
 	if delayed {
-		db.logf("db@write delayed T·%v", time.Since(start))
+		db.writeDelay += time.Since(start)
+		db.writeDelayN++
+	} else if db.writeDelayN > 0 {
+		db.writeDelay = 0
+		db.writeDelayN = 0
+		db.logf("db@write was delayed N·%d T·%v", db.writeDelayN, db.writeDelay)
 	}
 	return
 }
@@ -120,7 +125,7 @@ func (db *DB) flush(n int) (mem *memDB, nn int, err error) {
 // It is safe to modify the contents of the arguments after Write returns.
 func (db *DB) Write(b *Batch, wo *opt.WriteOptions) (err error) {
 	err = db.ok()
-	if err != nil || b == nil || b.len() == 0 {
+	if err != nil || b == nil || b.Len() == 0 {
 		return
 	}
 
@@ -133,6 +138,8 @@ func (db *DB) Write(b *Batch, wo *opt.WriteOptions) (err error) {
 			return <-db.writeAckC
 		}
 	case db.writeLockC <- struct{}{}:
+	case err = <-db.compPerErrC:
+		return
 	case _, _ = <-db.closeC:
 		return ErrClosed
 	}
@@ -188,35 +195,43 @@ drain:
 	if b.size() >= (128 << 10) {
 		// Push the write batch to the journal writer
 		select {
+		case db.journalC <- b:
+			// Write into memdb
+			if berr := b.memReplay(mem.mdb); berr != nil {
+				panic(berr)
+			}
+		case err = <-db.compPerErrC:
+			return
 		case _, _ = <-db.closeC:
 			err = ErrClosed
 			return
-		case db.journalC <- b:
-			// Write into memdb
-			b.memReplay(mem.mdb)
 		}
 		// Wait for journal writer
 		select {
-		case _, _ = <-db.closeC:
-			err = ErrClosed
-			return
 		case err = <-db.journalAckC:
 			if err != nil {
 				// Revert memdb if error detected
-				b.revertMemReplay(mem.mdb)
+				if berr := b.revertMemReplay(mem.mdb); berr != nil {
+					panic(berr)
+				}
 				return
 			}
+		case _, _ = <-db.closeC:
+			err = ErrClosed
+			return
 		}
 	} else {
 		err = db.writeJournal(b)
 		if err != nil {
 			return
 		}
-		b.memReplay(mem.mdb)
+		if berr := b.memReplay(mem.mdb); berr != nil {
+			panic(berr)
+		}
 	}
 
 	// Set last seq number.
-	db.addSeq(uint64(b.len()))
+	db.addSeq(uint64(b.Len()))
 
 	if b.size() >= memFree {
 		db.rotateMem(0)
@@ -268,6 +283,8 @@ func (db *DB) CompactRange(r util.Range) error {
 	// Lock writer.
 	select {
 	case db.writeLockC <- struct{}{}:
+	case err := <-db.compPerErrC:
+		return err
 	case _, _ = <-db.closeC:
 		return ErrClosed
 	}

@@ -26,11 +26,6 @@
 			"Rev": "d65bffbc88a153d23a6d2a864531e6e7c2cde59b"
 		},
 		{
-			"ImportPath": "code.google.com/p/snappy-go/snappy",
-			"Comment": "null-15",
-			"Rev": "12e4b4183793ac4b061921e7980845e750679fd0"
-		},
-		{
 			"ImportPath": "github.com/AudriusButkevicius/lfu-go",
 			"Rev": "164bcecceb92fd6037f4d18a8d97b495ec6ef669"
 		},
@@ -56,7 +51,11 @@
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "cd2b8f743192883ab9fbc5f070ebda1dc90f3732"
+			"Rev": "d8d1d2a5cc2d34c950dffa2f554525415d59f737"
+		},
+		{
+			"ImportPath": "github.com/syndtr/gosnappy/snappy",
+			"Rev": "ce8acff4829e0c2458a67ead32390ac0a381c862"
 		},
 		{
 			"ImportPath": "github.com/vitrun/qart/coding",

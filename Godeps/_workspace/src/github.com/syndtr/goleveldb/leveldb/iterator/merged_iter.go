@@ -8,6 +8,7 @@ package iterator
 
 import (
 	"github.com/syndtr/goleveldb/leveldb/comparer"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -42,13 +43,11 @@ func assertKey(key []byte) []byte {
 }
 
 func (i *mergedIterator) iterErr(iter Iterator) bool {
-	if i.errf != nil {
-		if err := iter.Error(); err != nil {
+	if err := iter.Error(); err != nil {
+		if i.errf != nil {
 			i.errf(err)
 		}
-	}
-	if i.strict {
-		if err := iter.Error(); err != nil {
+		if i.strict || !errors.IsCorrupted(err) {
 			i.err = err
 			return true
 		}
@@ -292,9 +291,9 @@ func (i *mergedIterator) SetErrorCallback(f func(err error)) {
 // keys: if iters[i] contains a key k then iters[j] will not contain that key k.
 // None of the iters may be nil.
 //
-// If strict is true then error yield by any iterators will halt the merged
-// iterator, on contrary if strict is false then the merged iterator will
-// ignore those error and move on to the next iterator.
+// If strict is true the any 'corruption errors' (i.e errors.IsCorrupted(err) == true)
+// won't be ignored and will halt 'merged iterator', otherwise the iterator will
+// continue to the next 'input iterator'.
 func NewMergedIterator(iters []Iterator, cmp comparer.Comparer, strict bool) Iterator {
 	return &mergedIterator{
 		iters:  iters,

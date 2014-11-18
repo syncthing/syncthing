@@ -15,8 +15,8 @@ import (
 
 var defaultIComparer = &iComparer{comparer.DefaultComparer}
 
-func ikey(key string, seq uint64, t vType) iKey {
-	return newIKey([]byte(key), uint64(seq), t)
+func ikey(key string, seq uint64, kt kType) iKey {
+	return newIkey([]byte(key), uint64(seq), kt)
 }
 
 func shortSep(a, b []byte) []byte {
@@ -37,27 +37,37 @@ func shortSuccessor(b []byte) []byte {
 	return dst
 }
 
-func testSingleKey(t *testing.T, key string, seq uint64, vt vType) {
-	ik := ikey(key, seq, vt)
+func testSingleKey(t *testing.T, key string, seq uint64, kt kType) {
+	ik := ikey(key, seq, kt)
 
 	if !bytes.Equal(ik.ukey(), []byte(key)) {
 		t.Errorf("user key does not equal, got %v, want %v", string(ik.ukey()), key)
 	}
 
-	if rseq, rt, ok := ik.parseNum(); ok {
+	rseq, rt := ik.parseNum()
+	if rseq != seq {
+		t.Errorf("seq number does not equal, got %v, want %v", rseq, seq)
+	}
+	if rt != kt {
+		t.Errorf("type does not equal, got %v, want %v", rt, kt)
+	}
+
+	if rukey, rseq, rt, kerr := parseIkey(ik); kerr == nil {
+		if !bytes.Equal(rukey, []byte(key)) {
+			t.Errorf("user key does not equal, got %v, want %v", string(ik.ukey()), key)
+		}
 		if rseq != seq {
 			t.Errorf("seq number does not equal, got %v, want %v", rseq, seq)
 		}
-
-		if rt != vt {
-			t.Errorf("type does not equal, got %v, want %v", rt, vt)
+		if rt != kt {
+			t.Errorf("type does not equal, got %v, want %v", rt, kt)
 		}
 	} else {
-		t.Error("cannot parse seq and type")
+		t.Errorf("key error: %v", kerr)
 	}
 }
 
-func TestIKey_EncodeDecode(t *testing.T) {
+func TestIkey_EncodeDecode(t *testing.T) {
 	keys := []string{"", "k", "hello", "longggggggggggggggggggggg"}
 	seqs := []uint64{
 		1, 2, 3,
@@ -67,8 +77,8 @@ func TestIKey_EncodeDecode(t *testing.T) {
 	}
 	for _, key := range keys {
 		for _, seq := range seqs {
-			testSingleKey(t, key, seq, tVal)
-			testSingleKey(t, "hello", 1, tDel)
+			testSingleKey(t, key, seq, ktVal)
+			testSingleKey(t, "hello", 1, ktDel)
 		}
 	}
 }
@@ -79,45 +89,45 @@ func assertBytes(t *testing.T, want, got []byte) {
 	}
 }
 
-func TestIKeyShortSeparator(t *testing.T) {
+func TestIkeyShortSeparator(t *testing.T) {
 	// When user keys are same
-	assertBytes(t, ikey("foo", 100, tVal),
-		shortSep(ikey("foo", 100, tVal),
-			ikey("foo", 99, tVal)))
-	assertBytes(t, ikey("foo", 100, tVal),
-		shortSep(ikey("foo", 100, tVal),
-			ikey("foo", 101, tVal)))
-	assertBytes(t, ikey("foo", 100, tVal),
-		shortSep(ikey("foo", 100, tVal),
-			ikey("foo", 100, tVal)))
-	assertBytes(t, ikey("foo", 100, tVal),
-		shortSep(ikey("foo", 100, tVal),
-			ikey("foo", 100, tDel)))
+	assertBytes(t, ikey("foo", 100, ktVal),
+		shortSep(ikey("foo", 100, ktVal),
+			ikey("foo", 99, ktVal)))
+	assertBytes(t, ikey("foo", 100, ktVal),
+		shortSep(ikey("foo", 100, ktVal),
+			ikey("foo", 101, ktVal)))
+	assertBytes(t, ikey("foo", 100, ktVal),
+		shortSep(ikey("foo", 100, ktVal),
+			ikey("foo", 100, ktVal)))
+	assertBytes(t, ikey("foo", 100, ktVal),
+		shortSep(ikey("foo", 100, ktVal),
+			ikey("foo", 100, ktDel)))
 
 	// When user keys are misordered
-	assertBytes(t, ikey("foo", 100, tVal),
-		shortSep(ikey("foo", 100, tVal),
-			ikey("bar", 99, tVal)))
+	assertBytes(t, ikey("foo", 100, ktVal),
+		shortSep(ikey("foo", 100, ktVal),
+			ikey("bar", 99, ktVal)))
 
 	// When user keys are different, but correctly ordered
-	assertBytes(t, ikey("g", uint64(kMaxSeq), tSeek),
-		shortSep(ikey("foo", 100, tVal),
-			ikey("hello", 200, tVal)))
+	assertBytes(t, ikey("g", uint64(kMaxSeq), ktSeek),
+		shortSep(ikey("foo", 100, ktVal),
+			ikey("hello", 200, ktVal)))
 
 	// When start user key is prefix of limit user key
-	assertBytes(t, ikey("foo", 100, tVal),
-		shortSep(ikey("foo", 100, tVal),
-			ikey("foobar", 200, tVal)))
+	assertBytes(t, ikey("foo", 100, ktVal),
+		shortSep(ikey("foo", 100, ktVal),
+			ikey("foobar", 200, ktVal)))
 
 	// When limit user key is prefix of start user key
-	assertBytes(t, ikey("foobar", 100, tVal),
-		shortSep(ikey("foobar", 100, tVal),
-			ikey("foo", 200, tVal)))
+	assertBytes(t, ikey("foobar", 100, ktVal),
+		shortSep(ikey("foobar", 100, ktVal),
+			ikey("foo", 200, ktVal)))
 }
 
-func TestIKeyShortestSuccessor(t *testing.T) {
-	assertBytes(t, ikey("g", uint64(kMaxSeq), tSeek),
-		shortSuccessor(ikey("foo", 100, tVal)))
-	assertBytes(t, ikey("\xff\xff", 100, tVal),
-		shortSuccessor(ikey("\xff\xff", 100, tVal)))
+func TestIkeyShortestSuccessor(t *testing.T) {
+	assertBytes(t, ikey("g", uint64(kMaxSeq), ktSeek),
+		shortSuccessor(ikey("foo", 100, ktVal)))
+	assertBytes(t, ikey("\xff\xff", 100, ktVal),
+		shortSuccessor(ikey("\xff\xff", 100, ktVal)))
 }

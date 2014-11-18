@@ -14,10 +14,10 @@ import (
 )
 
 func shorten(str string) string {
-	if len(str) <= 4 {
+	if len(str) <= 8 {
 		return str
 	}
-	return str[:1] + ".." + str[len(str)-1:]
+	return str[:3] + ".." + str[len(str)-3:]
 }
 
 var bunits = [...]string{"", "Ki", "Mi", "Gi"}

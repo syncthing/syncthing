@@ -249,7 +249,7 @@ func (x *testingCacheObject) Release() {
 		x.releaseCalled = true
 		x.cnt.releaseOne()
 	} else {
-		x.t.Errorf("duplicate setfin NS#%d KEY#%s", x.ns, x.key)
+		x.t.Errorf("duplicate setfin NS#%d KEY#%d", x.ns, x.key)
 	}
 }
 
@@ -489,7 +489,7 @@ func TestLRUCache_Finalizer(t *testing.T) {
 			return true
 		} else {
 			if p.delfinCalled != keymax {
-				t.Errorf("(2) #%d not all delete fin called, diff=%d", p.ns, keymax-p.delfinCalled)
+				t.Errorf("(2) NS#%d not all delete fin called, diff=%d", p.nsid, keymax-p.delfinCalled)
 			}
 			return false
 		}

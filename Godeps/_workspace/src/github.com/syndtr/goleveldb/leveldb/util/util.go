@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	ErrNotFound    = errors.New("leveldb: not found")
 	ErrReleased    = errors.New("leveldb: resource already relesed")
 	ErrHasReleaser = errors.New("leveldb: releaser already defined")
 )
