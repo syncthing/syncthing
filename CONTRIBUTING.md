@@ -101,12 +101,6 @@ signed by GPG key BCE524C7.
 
 Yes please!
 
-## Style
-
- - `go fmt`
-
- - Unix line breaks
-
 ## Documentation
 
 [Over here!](http://discourse.syncthing.net/category/documentation)
