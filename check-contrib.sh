@@ -1,6 +1,6 @@
 #!/bin/bash
 
-missing-contribs() {
+missing-authors() {
 	for email in $(git log --format=%ae master | sort | uniq) ; do
 		grep -q "$email" AUTHORS || echo $email
 	done
@@ -16,8 +16,8 @@ no-docs-typos() {
 	grep -v f1120d7aa936c0658429edef0037792520b46334
 }
 
-print-missing-contribs() {
-	for email in $(missing-contribs) ; do
+print-missing-authors() {
+	for email in $(missing-authors) ; do
 		git log --author="$email" --format="%H %ae %s" | no-docs-typos
 	done
 }
@@ -31,8 +31,8 @@ print-line-blame() {
 		git blame --line-porcelain $f | grep author-mail
 	done | sort | uniq -c | sort -n
 }
-echo Author emails missing in CONTRIBUTORS:
-print-missing-contribs
+echo Author emails missing in AUTHORS file:
+print-missing-authors
 echo
 
 echo Files missing copyright notice:
