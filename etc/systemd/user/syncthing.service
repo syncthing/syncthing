@@ -1,0 +1,12 @@
+[Unit]
+Description=Syncthing service
+
+[Service]
+Environment=STARGS=
+EnvironmentFile=-%h/.config/syncthing/environment
+Environment=STNORESTART=yes
+ExecStart=/usr/bin/syncthing ${STARGS}
+Restart=always
+
+[Install]
+WantedBy=cmdline.target
