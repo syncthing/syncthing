@@ -2,6 +2,8 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+DOCKERIMGV=1.3.3-1
+
 case "${1:-default}" in
 	default)
 		go run build.go
@@ -100,6 +102,18 @@ case "${1:-default}" in
 		if [[ "${WORKSPACE:-default}" != "default" ]] ; then
 			sed "s#$WORKSPACE##g" < coverage.xml > coverage.xml.new && mv coverage.xml.new coverage.xml
 		fi
+		;;
+
+	docker-init)
+		docker build -q -t syncthing/build:$DOCKERIMGV docker
+		;;
+
+	docker)
+		docker run --rm -h syncthing-builder -u $(id -u) -t \
+			-v $(pwd):/go/src/github.com/syncthing/syncthing \
+			-w /go/src/github.com/syncthing/syncthing \
+			syncthing/build:$DOCKERIMGV \
+			sh -c './build.sh clean && ./build.sh && STTRACE=all ./build.sh test-cov && ./build.sh all'
 		;;
 
 	*)
