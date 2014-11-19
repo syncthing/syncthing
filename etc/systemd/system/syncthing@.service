@@ -8,7 +8,7 @@ Environment=STARGS=
 EnvironmentFile=-/etc/default/syncthing
 Environment=STNORESTART=yes
 ExecStart=/usr/bin/syncthing ${STARGS}
-Restart=always
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
