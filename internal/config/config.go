@@ -34,7 +34,7 @@ import (
 
 var l = logger.DefaultLogger
 
-const CurrentVersion = 6
+const CurrentVersion = 7
 
 type Configuration struct {
 	Version int                   `xml:"version,attr"`
@@ -160,7 +160,7 @@ type FolderDeviceConfiguration struct {
 
 type OptionsConfiguration struct {
 	ListenAddress           []string `xml:"listenAddress" default:"0.0.0.0:22000"`
-	GlobalAnnServers        []string `xml:"globalAnnounceServer" default:"announce.syncthing.net:22026"`
+	GlobalAnnServers        []string `xml:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22026"`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort            int      `xml:"localAnnouncePort" default:"21025"`
@@ -308,6 +308,11 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		convertV5V6(cfg)
 	}
 
+	// Upgrade to v7 configuration if appropriate
+	if cfg.Version == 6 {
+		convertV6V7(cfg)
+	}
+
 	// Hash old cleartext passwords
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
 		hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
@@ -395,6 +400,15 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 	}
 
 	return false
+}
+
+func convertV6V7(cfg *Configuration) {
+	// Migrate announce server addresses to the new URL based format
+	for i := range cfg.Options.GlobalAnnServers {
+		cfg.Options.GlobalAnnServers[i] = "udp4://" + cfg.Options.GlobalAnnServers[i]
+	}
+
+	cfg.Version = 7
 }
 
 func convertV5V6(cfg *Configuration) {
