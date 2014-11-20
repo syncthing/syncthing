@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 -->
-<html lang="en" ng-app="syncthing" ng-controller="SyncthingCtrl" class="ng-cloak">
+<html lang="en" ng-app="syncthing" ng-controller="SyncthingController" class="ng-cloak">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -31,7 +31,7 @@
 </head>
 
 <body>
-  <div ng-controller="EventCtrl"></div>
+  <div ng-controller="EventController"></div>
 
   <!-- Top bar -->
 
@@ -838,7 +838,21 @@
   <!-- / vendor scripts -->
 
   <!-- gui application code -->
-  <script src="app.js"></script>
+  <script src="scripts/syncthing/core/module.js"></script>
+  <script src="scripts/syncthing/core/controllers/eventController.js"></script>
+  <script src="scripts/syncthing/core/controllers/syncthingController.js"></script>
+  <script src="scripts/syncthing/core/directives/identiconDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/modalDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/uniqueFolderDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/validDeviceidDirective.js"></script>
+  <script src="scripts/syncthing/core/filters/alwaysNumberfilter.js"></script>
+  <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/metricFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/naturalFilter.js"></script>
+
+  <script src="assets/lang/valid-langs.js"></script>
+  <script src="scripts/syncthing/app.js"></script>
   <!-- / gui application code -->
 
 </body>
