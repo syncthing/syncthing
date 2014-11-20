@@ -658,7 +658,7 @@ func restGetAutocompleteDirectory(w http.ResponseWriter, r *http.Request) {
 	for _, subdirectory := range subdirectories {
 		info, err := os.Stat(subdirectory)
 		if err == nil && info.IsDir() {
-			ret = append(ret, subdirectory)
+			ret = append(ret, subdirectory + pathSeparator)
 			if len(ret) > 9 {
 				break
 			}
