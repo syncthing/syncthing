@@ -25,9 +25,9 @@
   <link rel="shortcut icon" href="img/favicon.png">
 
   <title>Syncthing | {{thisDeviceName()}}</title>
-  <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
-  <link href="font/raleway.css" rel="stylesheet">
-  <link href="overrides.css" rel="stylesheet">
+  <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/font/raleway.css" rel="stylesheet">
+  <link href="assets/css/overrides.css" rel="stylesheet">
 </head>
 
 <body>
@@ -829,12 +829,17 @@
     </ul>
   </modal>
 
-  <script src="angular/angular.min.js"></script>
-  <script src="angular/angular-translate.min.js"></script>
-  <script src="angular/angular-translate-loader.min.js"></script>
-  <script src="jquery/jquery-2.0.3.min.js"></script>
-  <script src="bootstrap/js/bootstrap.min.js"></script>
-  <script src="lang/valid-langs.js"></script>
+  <!-- vendor scripts -->
+  <script src="vendor/angular/angular.min.js"></script>
+  <script src="vendor/angular/angular-translate.min.js"></script>
+  <script src="vendor/angular/angular-translate-loader.min.js"></script>
+  <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
+  <script src="vendor/bootstrap/js/bootstrap.min.js"></script>
+  <!-- / vendor scripts -->
+
+  <!-- gui application code -->
   <script src="app.js"></script>
+  <!-- / gui application code -->
+
 </body>
 </html>
