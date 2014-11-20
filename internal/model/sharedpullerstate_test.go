@@ -17,7 +17,6 @@ package model
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -68,12 +67,16 @@ func TestSourceFileBad(t *testing.T) {
 
 // Test creating temporary file inside read-only directory
 func TestReadOnlyDir(t *testing.T) {
+	// Create a read only directory, clean it up afterwards.
+	os.Mkdir("testdata/read_only_dir", 0555)
+	defer func() {
+		os.Chmod("testdata/read_only_dir", 0755)
+		os.RemoveAll("testdata/read_only_dir")
+	}()
+
 	s := sharedPullerState{
 		tempName: "testdata/read_only_dir/.temp_name",
 	}
-
-	// Ensure dir is read-only (git doesn't store full permissions)
-	os.Chmod(filepath.Dir(s.tempName), 0555)
 
 	fd, err := s.tempFile()
 	if err != nil {
