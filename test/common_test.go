@@ -30,6 +30,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/symlinks"
 )
 
 func init() {
@@ -355,7 +357,22 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) {
 		}
 
 		var f fileInfo
-		if info.IsDir() {
+		if ok, err := symlinks.IsSymlink(path); err == nil && ok {
+			f = fileInfo{
+				name: rn,
+				mode: os.ModeSymlink,
+			}
+
+			tgt, _, err := symlinks.Read(path)
+			if err != nil {
+				return err
+			}
+			h := md5.New()
+			h.Write([]byte(tgt))
+			hash := h.Sum(nil)
+
+			copy(f.hash[:], hash)
+		} else if info.IsDir() {
 			f = fileInfo{
 				name: rn,
 				mode: info.Mode(),

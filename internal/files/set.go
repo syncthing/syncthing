@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/syncthing/syncthing/internal/lamport"
+	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -174,19 +175,19 @@ func (s *Set) WithGlobalTruncated(fn fileIterator) {
 }
 
 func (s *Set) Get(device protocol.DeviceID, file string) protocol.FileInfo {
-	f := ldbGet(s.db, []byte(s.folder), device[:], []byte(normalizedFilename(file)))
-	f.Name = nativeFilename(f.Name)
+	f := ldbGet(s.db, []byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
+	f.Name = osutil.NativeFilename(f.Name)
 	return f
 }
 
 func (s *Set) GetGlobal(file string) protocol.FileInfo {
-	f := ldbGetGlobal(s.db, []byte(s.folder), []byte(normalizedFilename(file)))
-	f.Name = nativeFilename(f.Name)
+	f := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
+	f.Name = osutil.NativeFilename(f.Name)
 	return f
 }
 
 func (s *Set) Availability(file string) []protocol.DeviceID {
-	return ldbAvailability(s.db, []byte(s.folder), []byte(normalizedFilename(file)))
+	return ldbAvailability(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
 }
 
 func (s *Set) LocalVersion(device protocol.DeviceID) uint64 {
@@ -213,7 +214,7 @@ func DropFolder(db *leveldb.DB, folder string) {
 
 func normalizeFilenames(fs []protocol.FileInfo) {
 	for i := range fs {
-		fs[i].Name = normalizedFilename(fs[i].Name)
+		fs[i].Name = osutil.NormalizedFilename(fs[i].Name)
 	}
 }
 
@@ -221,10 +222,10 @@ func nativeFileIterator(fn fileIterator) fileIterator {
 	return func(fi protocol.FileIntf) bool {
 		switch f := fi.(type) {
 		case protocol.FileInfo:
-			f.Name = nativeFilename(f.Name)
+			f.Name = osutil.NativeFilename(f.Name)
 			return fn(f)
 		case protocol.FileInfoTruncated:
-			f.Name = nativeFilename(f.Name)
+			f.Name = osutil.NativeFilename(f.Name)
 			return fn(f)
 		default:
 			panic("unknown interface type")

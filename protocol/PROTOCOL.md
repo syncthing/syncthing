@@ -439,7 +439,7 @@ The Flags field is made up of the following single bit flags:
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |              Reserved           |P|I|D|   Unix Perm. & Mode   |
+    |              Reserved       |U|S|P|I|D|   Unix Perm. & Mode   |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
  - The lower 12 bits hold the common Unix permission and mode bits. An
@@ -461,7 +461,16 @@ The Flags field is made up of the following single bit flags:
    disregarded on files with this bit set. The permissions bits MUST be
    set to the octal value 0666.
 
- - Bit 0 through 16 are reserved for future use and SHALL be set to
+ - Bit 16 ("S") is set when the file is a symbolic link. The block list
+   SHALL be of one or more blocks since the target of the symlink is
+   stored within the blocks of the file.
+
+ - Bit 15 ("U") is set when the symbolic links target does not exist.
+   On systems where symbolic links have types, this bit being means
+   that the default file symlink SHALL be used. If this bit is unset
+   bit 19 will decide the type of symlink to be created.
+
+ - Bit 0 through 14 are reserved for future use and SHALL be set to
    zero.
 
 The hash algorithm is implied by the Hash length. Currently, the hash
