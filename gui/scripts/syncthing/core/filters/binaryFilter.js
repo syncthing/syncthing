@@ -18,4 +18,4 @@ angular.module('syncthing.core')
             }
             return Math.round(input) + ' ';
         };
-});
+    });

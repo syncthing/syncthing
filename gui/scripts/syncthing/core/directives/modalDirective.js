@@ -10,7 +10,7 @@ angular.module('syncthing.core')
                 status: '@',
                 icon: '@',
                 close: '@',
-                large: '@',
-            },
+                large: '@'
+            }
         };
-});
+    });

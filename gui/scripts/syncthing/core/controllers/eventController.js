@@ -1,54 +1,51 @@
-(function() {
-'use strict';
-
 angular.module('syncthing.core')
     .controller('EventController', function ($scope, $http) {
-    $scope.lastEvent = null;
-    var lastID = 0;
+        'use strict';
 
-    var successFn = function (data) {
-        // When Syncthing restarts while the long polling connection is in
-        // progress the browser on some platforms returns a 200 (since the
-        // headers has been flushed with the return code 200), with no data.
-        // This basically means that the connection has been reset, and the call
-        // was not actually sucessful.
-        if (!data) {
-            errorFn(data);
-            return;
-        }
+        $scope.lastEvent = null;
+        var lastID = 0;
 
-        $scope.$emit('UIOnline');
+        var successFn = function (data) {
+            // When Syncthing restarts while the long polling connection is in
+            // progress the browser on some platforms returns a 200 (since the
+            // headers has been flushed with the return code 200), with no data.
+            // This basically means that the connection has been reset, and the call
+            // was not actually sucessful.
+            if (!data) {
+                errorFn(data);
+                return;
+            }
 
-        if (lastID > 0) {
-            data.forEach(function (event) {
-                console.log("event", event.id, event.type, event.data);
-                $scope.$emit(event.type, event);
-            });
-        }
+            $scope.$emit('UIOnline');
 
-        $scope.lastEvent = data[data.length - 1];
-        lastID = $scope.lastEvent.id;
+            if (lastID > 0) {
+                data.forEach(function (event) {
+                    console.log("event", event.id, event.type, event.data);
+                    $scope.$emit(event.type, event);
+                });
+            }
 
-        setTimeout(function () {
-            $http.get(urlbase + '/events?since=' + lastID)
-                .success(successFn)
-                .error(errorFn);
-        }, 500);
-    };
+            $scope.lastEvent = data[data.length - 1];
+            lastID = $scope.lastEvent.id;
 
-    var errorFn = function (data) {
-        $scope.$emit('UIOffline');
+            setTimeout(function () {
+                $http.get(urlbase + '/events?since=' + lastID)
+                    .success(successFn)
+                    .error(errorFn);
+            }, 500);
+        };
 
-        setTimeout(function () {
-            $http.get(urlbase + '/events?limit=1')
-                .success(successFn)
-                .error(errorFn);
-        }, 1000);
-    };
+        var errorFn = function (data) {
+            $scope.$emit('UIOffline');
 
-    $http.get(urlbase + '/events?limit=1')
-        .success(successFn)
-        .error(errorFn);
-});
+            setTimeout(function () {
+                $http.get(urlbase + '/events?limit=1')
+                    .success(successFn)
+                    .error(errorFn);
+            }, 1000);
+        };
 
-})();
+        $http.get(urlbase + '/events?limit=1')
+            .success(successFn)
+            .error(errorFn);
+    });

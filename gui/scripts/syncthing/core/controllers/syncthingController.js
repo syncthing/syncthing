@@ -1,8 +1,6 @@
-(function() {
-'use strict';
-
 angular.module('syncthing.core')
     .controller('SyncthingController', function ($scope, $http, $translate, $location) {
+        'use strict';
 
         var prevDate = 0;
         var getOK = true;
@@ -73,13 +71,13 @@ angular.module('syncthing.core')
             'rm': 'Del',
             'rmdir': 'Del (dir)',
             'sync': 'Sync',
-            'touch': 'Update',
+            'touch': 'Update'
         };
         $scope.needIcons = {
             'rm': 'remove',
             'rmdir': 'remove',
             'sync': 'download',
-            'touch': 'asterisk',
+            'touch': 'asterisk'
         };
 
         $scope.$on('UIOnline', function (event, arg) {
@@ -143,10 +141,10 @@ angular.module('syncthing.core')
                     outbps: 0,
                     InBytesTotal: 0,
                     OutBytesTotal: 0,
-                    Address: arg.data.addr,
+                    Address: arg.data.addr
                 };
                 $scope.completion[arg.data.id] = {
-                    _total: 100,
+                    _total: 100
                 };
             }
         });
@@ -203,7 +201,7 @@ angular.module('syncthing.core')
             $scope.devices = $scope.config.Devices;
             $scope.devices.forEach(function (deviceCfg) {
                 $scope.completion[deviceCfg.DeviceID] = {
-                    _total: 100,
+                    _total: 100
                 };
             });
             $scope.devices.sort(deviceCompare);
@@ -484,8 +482,7 @@ angular.module('syncthing.core')
 
         $scope.saveSettings = function () {
             // Make sure something changed
-            var changed = !angular.equals($scope.config.Options, $scope.tmpOptions) ||
-                !angular.equals($scope.config.GUI, $scope.tmpGUI);
+            var changed = !angular.equals($scope.config.Options, $scope.tmpOptions) || !angular.equals($scope.config.GUI, $scope.tmpGUI);
             if (changed) {
                 // Check if usage reporting has been enabled or disabled
                 if ($scope.tmpOptions.UREnabled && $scope.tmpOptions.URAccepted <= 0) {
@@ -576,20 +573,20 @@ angular.module('syncthing.core')
 
         $scope.addDevice = function () {
             $http.get(urlbase + '/discovery')
-            .success(function (registry) {
-                $scope.discovery = registry;
-            })
-            .then(function () {
-                $scope.currentDevice = {
-                    AddressesStr: 'dynamic',
-                    Compression: true,
-                    Introducer: false
-                };
-                $scope.editingExisting = false;
-                $scope.editingSelf = false;
-                $scope.deviceEditor.$setPristine();
-                $('#editDevice').modal();
-            });
+                .success(function (registry) {
+                    $scope.discovery = registry;
+                })
+                .then(function () {
+                    $scope.currentDevice = {
+                        AddressesStr: 'dynamic',
+                        Compression: true,
+                        Introducer: false
+                    };
+                    $scope.editingExisting = false;
+                    $scope.editingSelf = false;
+                    $scope.deviceEditor.$setPristine();
+                    $('#editDevice').modal();
+                });
         };
 
         $scope.deleteDevice = function () {
@@ -689,14 +686,11 @@ angular.module('syncthing.core')
         $scope.directoryList = [];
 
         $scope.$watch('currentFolder.Path', function (newvalue) {
-          $http.get(
-            urlbase + '/autocomplete/directory',
-            {
-              params: { current: newvalue }
-            }
-          ).success(function (data) {
-            $scope.directoryList = data;
-          });
+            $http.get(urlbase + '/autocomplete/directory', {
+                    params: { current: newvalue }
+            }).success(function (data) {
+                    $scope.directoryList = data;
+            });
         });
 
         $scope.editFolder = function (deviceCfg) {
@@ -769,7 +763,7 @@ angular.module('syncthing.core')
                 folderCfg.Versioning = {
                     'Type': 'simple',
                     'Params': {
-                        'keep': '' + folderCfg.simpleKeep,
+                        'keep': '' + folderCfg.simpleKeep
                     }
                 };
                 delete folderCfg.simpleFileVersioning;
@@ -780,7 +774,7 @@ angular.module('syncthing.core')
                     'Params': {
                         'maxAge': '' + (folderCfg.staggeredMaxAge * 86400),
                         'cleanInterval': '' + folderCfg.staggeredCleanInterval,
-                        'versionsPath': '' + folderCfg.staggeredVersionsPath,
+                        'versionsPath': '' + folderCfg.staggeredVersionsPath
                     }
                 };
                 delete folderCfg.staggeredFileVersioning;
@@ -925,5 +919,3 @@ angular.module('syncthing.core')
         $scope.init();
         setInterval($scope.refresh, 10000);
     });
-
-})();

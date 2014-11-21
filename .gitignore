@@ -4,6 +4,7 @@ syncthing.exe
 *.zip
 *.asc
 *.sublime*
+.idea/
 .jshintrc
 coverage.out
 files/pidx

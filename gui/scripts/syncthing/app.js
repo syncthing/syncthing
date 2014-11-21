@@ -28,25 +28,25 @@ var guiVersion = null;
 syncthing.config(function ($httpProvider, $translateProvider) {
     $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
     $httpProvider.defaults.xsrfCookieName = 'CSRF-Token';
-    $httpProvider.interceptors.push(function() {
-      return {
-        response: function(response) {
-            var responseVersion = response.headers()['x-syncthing-version'];
-            if (!guiVersion) {
-                guiVersion = responseVersion;
-            } else if (guiVersion != responseVersion) {
-                document.location.reload(true);
+    $httpProvider.interceptors.push(function () {
+        return {
+            response: function (response) {
+                var responseVersion = response.headers()['x-syncthing-version'];
+                if (!guiVersion) {
+                    guiVersion = responseVersion;
+                } else if (guiVersion != responseVersion) {
+                    document.location.reload(true);
+                }
+                return response;
             }
-            return response;
-        }
-      };
+        };
     });
 
     $translateProvider.useStaticFilesLoader({
         prefix: 'assets/lang/lang-',
         suffix: '.json'
     });
-    
+
 });
 
 // @TODO: extract global level functions into seperate service(s)

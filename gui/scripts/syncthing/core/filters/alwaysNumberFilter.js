@@ -6,4 +6,4 @@ angular.module('syncthing.core')
             }
             return input;
         };
-});
+    });

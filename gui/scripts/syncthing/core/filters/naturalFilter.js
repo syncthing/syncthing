@@ -3,4 +3,4 @@ angular.module('syncthing.core')
         return function (input, valid) {
             return input.toFixed(decimals(input, valid));
         };
-});
+    });

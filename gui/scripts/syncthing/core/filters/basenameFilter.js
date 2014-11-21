@@ -9,4 +9,4 @@ angular.module('syncthing.core')
             }
             return parts[parts.length - 1];
         };
-});
+    });
