@@ -687,9 +687,9 @@ angular.module('syncthing.core')
 
         $scope.$watch('currentFolder.Path', function (newvalue) {
             $http.get(urlbase + '/autocomplete/directory', {
-                    params: { current: newvalue }
+                params: { current: newvalue }
             }).success(function (data) {
-                    $scope.directoryList = data;
+                $scope.directoryList = data;
             });
         });
 
