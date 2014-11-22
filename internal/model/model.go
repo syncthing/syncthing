@@ -1004,6 +1004,9 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 		m.deviceFolders[device.DeviceID] = append(m.deviceFolders[device.DeviceID], cfg.ID)
 	}
 
+	ignores, _ := ignore.Load(filepath.Join(cfg.Path, ".stignore"), m.cfg.Options().CacheIgnoredFiles)
+	m.folderIgnores[cfg.ID] = ignores
+
 	m.addedFolder = true
 	m.fmut.Unlock()
 }
