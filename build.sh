@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-DOCKERIMGV=1.3.3-1
+DOCKERIMGV=1.3.3-2
 
 case "${1:-default}" in
 	default)
@@ -108,12 +108,12 @@ case "${1:-default}" in
 		docker build -q -t syncthing/build:$DOCKERIMGV docker
 		;;
 
-	docker)
+	docker-all)
 		docker run --rm -h syncthing-builder -u $(id -u) -t \
 			-v $(pwd):/go/src/github.com/syncthing/syncthing \
 			-w /go/src/github.com/syncthing/syncthing \
 			syncthing/build:$DOCKERIMGV \
-			sh -c './build.sh clean && ./build.sh && STTRACE=all ./build.sh test-cov && ./build.sh all'
+			sh -c './build.sh clean && STTRACE=all ./build.sh test-cov && ./build.sh all'
 		;;
 
 	*)

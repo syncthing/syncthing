@@ -1,17 +1,19 @@
-FROM debian:jessie
+FROM debian:squeeze
+MAINTAINER Jakob Borg <jakob@nym.se>
+
+ENV GOLANG_VERSION 1.3.3
 
 # SCMs for "go get", gcc for cgo
 RUN apt-get update && apt-get install -y \
         ca-certificates curl gcc libc6-dev make \
         bzr git mercurial unzip \
         --no-install-recommends \
+	&& apt-get clean \
         && rm -rf /var/lib/apt/lists/*
-
-ENV GOLANG_VERSION 1.3.3
 
 # Get the binary dist of Go to be able to bootstrap gonative.
 
-RUN curl -sSL https://golang.org/dl/go$GOLANG_VERSION.linux-amd64.tar.gz \
+RUN curl -sSL https://golang.org/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz \
         | tar -v -C /usr/local -xz
 
 ENV PATH /usr/local/go/bin:$PATH
@@ -22,14 +24,15 @@ WORKDIR /go
 
 # Use gonative to install native Go for most arch/OS combos
 
-RUN go get github.com/calmh/gonative
-RUN cd /usr/local \
+RUN go get github.com/calmh/gonative \
+	&& cd /usr/local \
         && rm -rf go \
         && gonative -version $GOLANG_VERSION
 
-# Random build users needs to be able to create stuff in /go/pkg
+# Random build users needs to be able to create stuff in /go
 
-RUN chmod -R 777 /go/pkg
+RUN rm -rf /go/pkg \
+	&& chmod 777 /go
 
 # Rebuild the special and missing versions
 
@@ -43,14 +46,13 @@ RUN bash -xec '\
                         CGO_ENABLED=0 \
                         ./make.bash --no-clean 2>&1; \
                 done \
+		&& ./make.bash --no-clean \
         '
-
-# And rebuild native without the flags above
-
-RUN cd /usr/local/go/src \
-        && ./make.bash --no-clean
 
 # Install packages needed for test coverage
 
-RUN go get github.com/tools/godep && go get code.google.com/p/go.tools/cmd/cover && go get github.com/axw/gocov/gocov && go get github.com/AlekSi/gocov-xml
+RUN go get github.com/tools/godep \
+	&& go get code.google.com/p/go.tools/cmd/cover \
+	&& go get github.com/axw/gocov/gocov \
+	&& go get github.com/AlekSi/gocov-xml
 
