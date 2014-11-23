@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-DOCKERIMGV=1.3.3-2
+DOCKERIMGV=1.3.3-3
 
 case "${1:-default}" in
 	default)
@@ -114,6 +114,21 @@ case "${1:-default}" in
 			-w /go/src/github.com/syncthing/syncthing \
 			syncthing/build:$DOCKERIMGV \
 			sh -c './build.sh clean && STTRACE=all ./build.sh test-cov && ./build.sh all'
+		;;
+
+	docker-test)
+		docker run --rm -h syncthing-builder -u $(id -u) -t \
+			-v $(pwd):/tmp/syncthing \
+			syncthing/build:$DOCKERIMGV \
+			sh -euxc 'mkdir -p /go/src/github.com/syncthing \
+				&& cd /go/src/github.com/syncthing \
+				&& cp -r /tmp/syncthing syncthing \
+				&& cd syncthing \
+				&& ./build.sh clean \
+				&& ./build.sh \
+				&& export GOPATH=$(pwd)/Godeps/_workspace:$GOPATH \
+				&& cd test \
+				&& ./all.sh'
 		;;
 
 	*)

@@ -29,11 +29,6 @@ RUN go get github.com/calmh/gonative \
         && rm -rf go \
         && gonative -version $GOLANG_VERSION
 
-# Random build users needs to be able to create stuff in /go
-
-RUN rm -rf /go/pkg \
-	&& chmod 777 /go
-
 # Rebuild the special and missing versions
 
 RUN bash -xec '\
@@ -56,3 +51,6 @@ RUN go get github.com/tools/godep \
 	&& go get github.com/axw/gocov/gocov \
 	&& go get github.com/AlekSi/gocov-xml
 
+# Random build users needs to be able to create stuff in /go
+
+RUN chmod -R 777 /go/bin /go/pkg /go/src
