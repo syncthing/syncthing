@@ -113,7 +113,7 @@ case "${1:-default}" in
 			-v $(pwd):/go/src/github.com/syncthing/syncthing \
 			-w /go/src/github.com/syncthing/syncthing \
 			syncthing/build:$DOCKERIMGV \
-			sh -c './build.sh clean && STTRACE=all ./build.sh test-cov && ./build.sh all'
+			sh -c './build.sh clean && ./build.sh all && STTRACE=all ./build.sh test-cov'
 		;;
 
 	docker-test)
