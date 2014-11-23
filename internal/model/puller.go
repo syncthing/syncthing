@@ -40,12 +40,9 @@ import (
 // TODO: Stop on errors
 
 const (
-	copiersPerFolder   = 1
-	pullersPerFolder   = 16
-	finishersPerFolder = 2
-	pauseIntv          = 60 * time.Second
-	nextPullIntv       = 10 * time.Second
-	checkPullIntv      = 1 * time.Second
+	pauseIntv     = 60 * time.Second
+	nextPullIntv  = 10 * time.Second
+	checkPullIntv = 1 * time.Second
 )
 
 // A pullBlockState is passed to the puller routine for each block that needs
@@ -76,6 +73,9 @@ type Puller struct {
 	versioner     versioner.Versioner
 	ignorePerms   bool
 	lenientMtimes bool
+	copiers       int
+	pullers       int
+	finishers     int
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
@@ -153,7 +153,7 @@ loop:
 					checksum = true
 				}
 
-				changed := p.pullerIteration(copiersPerFolder, pullersPerFolder, finishersPerFolder, checksum)
+				changed := p.pullerIteration(checksum)
 				if debug {
 					l.Debugln(p, "changed", changed)
 				}
@@ -240,11 +240,8 @@ func (p *Puller) String() string {
 // pullerIteration runs a single puller iteration for the given folder and
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
-// flagged as needed in the folder. The specified number of copier, puller and
-// finisher routines are used. It's seldom efficient to use more than one
-// copier routine, while multiple pullers are essential and multiple finishers
-// may be useful (they are primarily CPU bound due to hashing).
-func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int, checksum bool) int {
+// flagged as needed in the folder.
+func (p *Puller) pullerIteration(checksum bool) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -253,7 +250,7 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int, checksum bo
 	var pullWg sync.WaitGroup
 	var doneWg sync.WaitGroup
 
-	for i := 0; i < ncopiers; i++ {
+	for i := 0; i < p.copiers; i++ {
 		copyWg.Add(1)
 		go func() {
 			// copierRoutine finishes when copyChan is closed
@@ -262,7 +259,7 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int, checksum bo
 		}()
 	}
 
-	for i := 0; i < npullers; i++ {
+	for i := 0; i < p.pullers; i++ {
 		pullWg.Add(1)
 		go func() {
 			// pullerRoutine finishes when pullChan is closed
@@ -271,7 +268,7 @@ func (p *Puller) pullerIteration(ncopiers, npullers, nfinishers int, checksum bo
 		}()
 	}
 
-	for i := 0; i < nfinishers; i++ {
+	for i := 0; i < p.finishers; i++ {
 		doneWg.Add(1)
 		// finisherRoutine finishes when finisherChan is closed
 		go func() {
