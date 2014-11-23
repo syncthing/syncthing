@@ -73,7 +73,7 @@ case "${1:-default}" in
 		;;
 
 	test-cov)
-		ulimit -t 60 &>/dev/null || true
+		ulimit -t 600 &>/dev/null || true
 		ulimit -d 512000 &>/dev/null || true
 		ulimit -m 512000 &>/dev/null || true
 
