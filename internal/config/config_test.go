@@ -85,6 +85,9 @@ func TestDeviceConfig(t *testing.T) {
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				ReadOnly:        true,
 				RescanIntervalS: 600,
+				Copiers:         1,
+				Pullers:         16,
+				Finishers:       1,
 			},
 		}
 		expectedDevices := []DeviceConfiguration{
