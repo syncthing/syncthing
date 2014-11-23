@@ -81,16 +81,19 @@ func (f FileInfoTruncated) String() string {
 		f.Name, f.Flags, f.Modified, f.Version, f.Size(), f.NumBlocks)
 }
 
+func BlocksToSize(num uint32) int64 {
+	if num < 2 {
+		return BlockSize / 2
+	}
+	return int64(num-1)*BlockSize + BlockSize/2
+}
+
 // Returns a statistical guess on the size, not the exact figure
 func (f FileInfoTruncated) Size() int64 {
 	if f.IsDeleted() || f.IsDirectory() {
 		return 128
 	}
-	if f.NumBlocks < 2 {
-		return BlockSize / 2
-	} else {
-		return int64(f.NumBlocks-1)*BlockSize + BlockSize/2
-	}
+	return BlocksToSize(f.NumBlocks)
 }
 
 func (f FileInfoTruncated) IsDeleted() bool {
