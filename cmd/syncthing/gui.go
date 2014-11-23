@@ -291,10 +291,23 @@ func restGetNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 
-	files := m.NeedFolderFilesLimited(folder, 100, 2500) // max 100 files or 2500 blocks
+	files := m.NeedFolderFilesLimited(folder, 100) // max 100 files
+	// Convert the struct to a more loose structure, and inject the size.
+	output := make([]map[string]interface{}, 0, len(files))
+	for _, file := range files {
+		output = append(output, map[string]interface{}{
+			"Name":         file.Name,
+			"Flags":        file.Flags,
+			"Modified":     file.Modified,
+			"Version":      file.Version,
+			"LocalVersion": file.LocalVersion,
+			"NumBlocks":    file.NumBlocks,
+			"Size":         protocol.BlocksToSize(file.NumBlocks),
+		})
+	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(files)
+	json.NewEncoder(w).Encode(output)
 }
 
 func restGetConnections(m *model.Model, w http.ResponseWriter, r *http.Request) {
@@ -658,7 +671,7 @@ func restGetAutocompleteDirectory(w http.ResponseWriter, r *http.Request) {
 	for _, subdirectory := range subdirectories {
 		info, err := os.Stat(subdirectory)
 		if err == nil && info.IsDir() {
-			ret = append(ret, subdirectory + pathSeparator)
+			ret = append(ret, subdirectory+pathSeparator)
 			if len(ret) > 9 {
 				break
 			}

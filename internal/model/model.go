@@ -396,20 +396,17 @@ func (m *Model) NeedSize(folder string) (files int, bytes int64) {
 }
 
 // NeedFiles returns the list of currently needed files, stopping at maxFiles
-// files or maxBlocks blocks. Limits <= 0 are ignored.
-func (m *Model) NeedFolderFilesLimited(folder string, maxFiles, maxBlocks int) []protocol.FileInfo {
+// files. Limit <= 0 is ignored.
+func (m *Model) NeedFolderFilesLimited(folder string, maxFiles int) []protocol.FileInfoTruncated {
 	defer m.leveldbPanicWorkaround()
 
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
-	nblocks := 0
 	if rf, ok := m.folderFiles[folder]; ok {
-		fs := make([]protocol.FileInfo, 0, maxFiles)
-		rf.WithNeed(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
-			fi := f.(protocol.FileInfo)
-			fs = append(fs, fi)
-			nblocks += len(fi.Blocks)
-			return (maxFiles <= 0 || len(fs) < maxFiles) && (maxBlocks <= 0 || nblocks < maxBlocks)
+		fs := make([]protocol.FileInfoTruncated, 0, maxFiles)
+		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
+			fs = append(fs, f.(protocol.FileInfoTruncated))
+			return maxFiles <= 0 || len(fs) < maxFiles
 		})
 		return fs
 	}
