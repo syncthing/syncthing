@@ -178,6 +178,9 @@ func (m *Model) StartFolderRW(folder string) {
 		model:         m,
 		ignorePerms:   cfg.IgnorePerms,
 		lenientMtimes: cfg.LenientMtimes,
+		copiers:       cfg.Copiers,
+		pullers:       cfg.Pullers,
+		finishers:     cfg.Finishers,
 	}
 	m.folderRunners[folder] = p
 	m.fmut.Unlock()

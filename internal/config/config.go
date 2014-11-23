@@ -58,6 +58,9 @@ type FolderConfiguration struct {
 	IgnorePerms     bool                        `xml:"ignorePerms,attr"`
 	Versioning      VersioningConfiguration     `xml:"versioning"`
 	LenientMtimes   bool                        `xml:"lenientMtimes"`
+	Copiers         int                         `xml:"copiers" default:"1"`   // This defines how many files are handled concurrently.
+	Pullers         int                         `xml:"pullers" default:"16"`  // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
+	Finishers       int                         `xml:"finishers" default:"1"` // Most of the time, should be equal to the number of copiers. These are CPU bound due to hashing.
 
 	Invalid string `xml:"-"` // Set at runtime when there is an error, not saved
 
