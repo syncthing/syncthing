@@ -21,7 +21,7 @@ Create an image called `syncthing/build` with the build environment.
 Build the full set of supported binaries.
 
 ```
-./build.sh docker
+./build.sh docker-all
 ```
 
 > This uses a temporary container with the image from above and a volume
