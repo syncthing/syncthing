@@ -367,12 +367,13 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
-	info, err := os.Stat(realName)
+	info, err := os.Lstat(realName)
+	isLink, _ := symlinks.IsSymlink(realName)
 	switch {
-	// There is already something under that name, but it's a file.
-	// Most likely a file is getting replaced with a directory.
-	// Remove the file and fall through to directory creation.
-	case err == nil && !info.IsDir():
+	// There is already something under that name, but it's a file/link.
+	// Most likely a file/link is getting replaced with a directory.
+	// Remove the file/link and fall through to directory creation.
+	case isLink || (err == nil && !info.IsDir()):
 		err = osutil.InWritableDir(os.Remove, realName)
 		if err != nil {
 			l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
@@ -792,7 +793,14 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 				}
 			}
 
-			// Replace the original file with the new one
+			// If the target path is a symlink or a directory, we cannot copy
+			// over it, hence remove it before proceeding.
+			stat, err := os.Lstat(state.realName)
+			isLink, _ := symlinks.IsSymlink(state.realName)
+			if isLink || (err == nil && stat.IsDir()) {
+				osutil.InWritableDir(os.Remove, state.realName)
+			}
+			// Replace the original content with the new one
 			err = osutil.Rename(state.tempName, state.realName)
 			if err != nil {
 				l.Warnln("puller: final:", err)

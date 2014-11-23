@@ -16,7 +16,7 @@
 // +build integration
 
 // This currently fails; it should be fixed
-package integration_test_disabled
+package integration_test
 
 import (
 	"log"
