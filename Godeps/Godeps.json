@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/syncthing/syncthing",
-	"GoVersion": "go1.3.3",
+	"GoVersion": "go1.4rc1",
 	"Packages": [
 		"./cmd/..."
 	],
@@ -51,7 +51,7 @@
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "d8d1d2a5cc2d34c950dffa2f554525415d59f737"
+			"Rev": "97e257099d2ab9578151ba85e2641e2cd14d3ca8"
 		},
 		{
 			"ImportPath": "github.com/syndtr/gosnappy/snappy",

@@ -397,6 +397,7 @@ func (s *Storage) logI(format string, args ...interface{}) {
 
 func (s *Storage) Log(str string) {
 	s.log(1, "Log: "+str)
+	s.Storage.Log(str)
 }
 
 func (s *Storage) Lock() (r util.Releaser, err error) {

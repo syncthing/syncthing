@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/syndtr/goleveldb/leveldb/cache"
+	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
@@ -96,20 +97,21 @@ func (h *dbCorruptHarness) deleteRand(n, max int, rnd *rand.Rand) {
 	}
 }
 
-func (h *dbCorruptHarness) corrupt(ft storage.FileType, offset, n int) {
+func (h *dbCorruptHarness) corrupt(ft storage.FileType, fi, offset, n int) {
 	p := &h.dbHarness
 	t := p.t
 
-	var file storage.File
 	ff, _ := p.stor.GetFiles(ft)
-	for _, f := range ff {
-		if file == nil || f.Num() > file.Num() {
-			file = f
-		}
+	sff := files(ff)
+	sff.sort()
+	if fi < 0 {
+		fi = len(sff) - 1
 	}
-	if file == nil {
-		t.Fatalf("no such file with type %q", ft)
+	if fi >= len(sff) {
+		t.Fatalf("no such file with type %q with index %d", ft, fi)
 	}
+
+	file := sff[fi]
 
 	r, err := file.Open()
 	if err != nil {
@@ -225,8 +227,8 @@ func TestCorruptDB_Journal(t *testing.T) {
 	h.build(100)
 	h.check(100, 100)
 	h.closeDB()
-	h.corrupt(storage.TypeJournal, 19, 1)
-	h.corrupt(storage.TypeJournal, 32*1024+1000, 1)
+	h.corrupt(storage.TypeJournal, -1, 19, 1)
+	h.corrupt(storage.TypeJournal, -1, 32*1024+1000, 1)
 
 	h.openDB()
 	h.check(36, 36)
@@ -242,7 +244,7 @@ func TestCorruptDB_Table(t *testing.T) {
 	h.compactRangeAt(0, "", "")
 	h.compactRangeAt(1, "", "")
 	h.closeDB()
-	h.corrupt(storage.TypeTable, 100, 1)
+	h.corrupt(storage.TypeTable, -1, 100, 1)
 
 	h.openDB()
 	h.check(99, 99)
@@ -256,7 +258,7 @@ func TestCorruptDB_TableIndex(t *testing.T) {
 	h.build(10000)
 	h.compactMem()
 	h.closeDB()
-	h.corrupt(storage.TypeTable, -2000, 500)
+	h.corrupt(storage.TypeTable, -1, -2000, 500)
 
 	h.openDB()
 	h.check(5000, 9999)
@@ -355,7 +357,7 @@ func TestCorruptDB_CorruptedManifest(t *testing.T) {
 	h.compactMem()
 	h.compactRange("", "")
 	h.closeDB()
-	h.corrupt(storage.TypeManifest, 0, 1000)
+	h.corrupt(storage.TypeManifest, -1, 0, 1000)
 	h.openAssert(false)
 
 	h.recover()
@@ -370,7 +372,7 @@ func TestCorruptDB_CompactionInputError(t *testing.T) {
 	h.build(10)
 	h.compactMem()
 	h.closeDB()
-	h.corrupt(storage.TypeTable, 100, 1)
+	h.corrupt(storage.TypeTable, -1, 100, 1)
 
 	h.openDB()
 	h.check(9, 9)
@@ -387,7 +389,7 @@ func TestCorruptDB_UnrelatedKeys(t *testing.T) {
 	h.build(10)
 	h.compactMem()
 	h.closeDB()
-	h.corrupt(storage.TypeTable, 100, 1)
+	h.corrupt(storage.TypeTable, -1, 100, 1)
 
 	h.openDB()
 	h.put(string(tkey(1000)), string(tval(1000, ctValSize)))
@@ -467,6 +469,34 @@ func TestCorruptDB_MissingTableFiles(t *testing.T) {
 
 	h.removeOne(storage.TypeTable)
 	h.openAssert(false)
+
+	h.close()
+}
+
+func TestCorruptDB_RecoverTable(t *testing.T) {
+	h := newDbCorruptHarnessWopt(t, &opt.Options{
+		WriteBuffer:         112 * opt.KiB,
+		CompactionTableSize: 90 * opt.KiB,
+		Filter:              filter.NewBloomFilter(10),
+	})
+
+	h.build(1000)
+	h.compactMem()
+	h.compactRangeAt(0, "", "")
+	h.compactRangeAt(1, "", "")
+	seq := h.db.seq
+	h.closeDB()
+	h.corrupt(storage.TypeTable, 0, 1000, 1)
+	h.corrupt(storage.TypeTable, 3, 10000, 1)
+	// Corrupted filter shouldn't affect recovery.
+	h.corrupt(storage.TypeTable, 3, 113888, 10)
+	h.corrupt(storage.TypeTable, -1, 20000, 1)
+
+	h.recover()
+	if h.db.seq != seq {
+		t.Errorf("invalid seq, want=%d got=%d", seq, h.db.seq)
+	}
+	h.check(985, 985)
 
 	h.close()
 }

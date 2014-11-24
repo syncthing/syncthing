@@ -17,6 +17,9 @@ func dupOptions(o *opt.Options) *opt.Options {
 	if o != nil {
 		*newo = *o
 	}
+	if newo.Strict == 0 {
+		newo.Strict = opt.DefaultStrict
+	}
 	return newo
 }
 
@@ -32,7 +35,7 @@ func (s *session) setOptions(o *opt.Options) {
 	// Block cache.
 	switch o.GetBlockCache() {
 	case nil:
-		no.BlockCache = cache.NewLRUCache(opt.DefaultBlockCacheSize)
+		no.BlockCache = cache.NewLRUCache(o.GetBlockCacheSize())
 	case opt.NoCache:
 		no.BlockCache = nil
 	}

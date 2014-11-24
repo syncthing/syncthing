@@ -233,6 +233,23 @@ func (tf tsFile) Create() (w storage.Writer, err error) {
 	return
 }
 
+func (tf tsFile) Replace(newfile storage.File) (err error) {
+	ts := tf.ts
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	err = tf.checkOpen("replace")
+	if err != nil {
+		return
+	}
+	err = tf.File.Replace(newfile.(tsFile).File)
+	if err != nil {
+		ts.t.Errorf("E: cannot replace file, num=%d type=%v: %v", tf.Num(), tf.Type(), err)
+	} else {
+		ts.t.Logf("I: file replace, num=%d type=%v", tf.Num(), tf.Type())
+	}
+	return
+}
+
 func (tf tsFile) Remove() (err error) {
 	ts := tf.ts
 	ts.mu.Lock()
@@ -491,6 +508,10 @@ func newTestStorage(t *testing.T) *testStorage {
 							t.Logf("---------------------- %s ----------------------", name)
 						}
 						f.Close()
+					}
+					if t.Failed() {
+						t.Logf("testing failed, test DB preserved at %s", path)
+						return nil
 					}
 					if tsKeepFS {
 						return nil

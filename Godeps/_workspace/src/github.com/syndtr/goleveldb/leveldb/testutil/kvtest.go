@@ -26,9 +26,11 @@ func KeyValueTesting(rnd *rand.Rand, kv KeyValue, p DB, setup func(KeyValue) DB,
 		BeforeEach(func() {
 			p = setup(kv)
 		})
-		AfterEach(func() {
-			teardown(p)
-		})
+		if teardown != nil {
+			AfterEach(func() {
+				teardown(p)
+			})
+		}
 	}
 
 	It("Should find all keys with Find", func() {
@@ -84,6 +86,26 @@ func KeyValueTesting(rnd *rand.Rand, kv KeyValue, p DB, setup func(KeyValue) DB,
 		}
 	})
 
+	It("Should only find present key with Has", func() {
+		if db, ok := p.(Has); ok {
+			ShuffledIndex(nil, kv.Len(), 1, func(i int) {
+				key_, key, _ := kv.IndexInexact(i)
+
+				// Using exact key.
+				ret, err := db.TestHas(key)
+				Expect(err).ShouldNot(HaveOccurred(), "Error for key %q", key)
+				Expect(ret).Should(BeTrue(), "False for key %q", key)
+
+				// Using inexact key.
+				if len(key_) > 0 {
+					ret, err = db.TestHas(key_)
+					Expect(err).ShouldNot(HaveOccurred(), "Error for key %q", key_)
+					Expect(ret).ShouldNot(BeTrue(), "True for key %q", key)
+				}
+			})
+		}
+	})
+
 	TestIter := func(r *util.Range, _kv KeyValue) {
 		if db, ok := p.(NewIterator); ok {
 			iter := db.TestNewIterator(r)
@@ -95,6 +117,7 @@ func KeyValueTesting(rnd *rand.Rand, kv KeyValue, p DB, setup func(KeyValue) DB,
 			}
 
 			DoIteratorTesting(&t)
+			iter.Release()
 		}
 	}
 
@@ -103,7 +126,7 @@ func KeyValueTesting(rnd *rand.Rand, kv KeyValue, p DB, setup func(KeyValue) DB,
 		done <- true
 	}, 3.0)
 
-	RandomIndex(rnd, kv.Len(), kv.Len(), func(i int) {
+	RandomIndex(rnd, kv.Len(), Min(kv.Len(), 50), func(i int) {
 		type slice struct {
 			r            *util.Range
 			start, limit int
@@ -121,7 +144,7 @@ func KeyValueTesting(rnd *rand.Rand, kv KeyValue, p DB, setup func(KeyValue) DB,
 		}
 	})
 
-	RandomRange(rnd, kv.Len(), kv.Len(), func(start, limit int) {
+	RandomRange(rnd, kv.Len(), Min(kv.Len(), 50), func(start, limit int) {
 		It(fmt.Sprintf("Should iterates and seeks correctly of a slice %d .. %d", start, limit), func(done Done) {
 			r := kv.Range(start, limit)
 			TestIter(&r, kv.Slice(start, limit))
@@ -134,10 +157,22 @@ func AllKeyValueTesting(rnd *rand.Rand, body, setup func(KeyValue) DB, teardown 
 	Test := func(kv *KeyValue) func() {
 		return func() {
 			var p DB
+			if setup != nil {
+				Defer("setup", func() {
+					p = setup(*kv)
+				})
+			}
+			if teardown != nil {
+				Defer("teardown", func() {
+					teardown(p)
+				})
+			}
 			if body != nil {
 				p = body(*kv)
 			}
-			KeyValueTesting(rnd, *kv, p, setup, teardown)
+			KeyValueTesting(rnd, *kv, p, func(KeyValue) DB {
+				return p
+			}, nil)
 		}
 	}
 
@@ -148,4 +183,5 @@ func AllKeyValueTesting(rnd *rand.Rand, body, setup func(KeyValue) DB, teardown 
 	Describe("with big value", Test(KeyValue_BigValue()))
 	Describe("with special key", Test(KeyValue_SpecialKey()))
 	Describe("with multiple key/value", Test(KeyValue_MultipleKeyValue()))
+	Describe("with generated key/value", Test(KeyValue_Generate(nil, 120, 1, 50, 10, 120)))
 }

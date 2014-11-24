@@ -35,6 +35,10 @@ type Get interface {
 	TestGet(key []byte) (value []byte, err error)
 }
 
+type Has interface {
+	TestHas(key []byte) (ret bool, err error)
+}
+
 type NewIterator interface {
 	TestNewIterator(slice *util.Range) iterator.Iterator
 }
@@ -213,5 +217,6 @@ func DoDBTesting(t *DBTesting) {
 		}
 
 		DoIteratorTesting(&it)
+		iter.Release()
 	}
 }
