@@ -46,6 +46,15 @@ var (
 )
 
 func init() {
+	defer func() {
+		if err := recover(); err != nil {
+			// Ensure that the supported flag is disabled when we hit an
+			// error, even though it should already be. Also, silently swallow
+			// the error since it's fine for a system not to support symlinks.
+			Supported = false
+		}
+	}()
+
 	// Needs administrator priviledges.
 	// Let's check that everything works.
 	// This could be done more officially:
