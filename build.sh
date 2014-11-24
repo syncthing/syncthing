@@ -128,7 +128,7 @@ case "${1:-default}" in
 				&& ./build.sh \
 				&& export GOPATH=$(pwd)/Godeps/_workspace:$GOPATH \
 				&& cd test \
-				&& ./all.sh'
+				&& go test -tags integration -v'
 		;;
 
 	*)
