@@ -56,17 +56,6 @@ func isFile(path string) bool {
 	return fileInfo.Mode().IsRegular()
 }
 
-const TimeLayout = "20060102-150405"
-
-func versionExt(path string) string {
-	pathSplit := strings.Split(path, "~")
-	if len(pathSplit) > 1 {
-		return pathSplit[len(pathSplit)-1]
-	} else {
-		return ""
-	}
-}
-
 // Rename versions with old version format
 func (v Staggered) renameOld() {
 	err := filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
@@ -79,7 +68,7 @@ func (v Staggered) renameOld() {
 				l.Infoln("Renaming file", path, "from old to new version format")
 				versiondate := time.Unix(versionUnix, 0)
 				name := path[:len(path)-len(filepath.Ext(path))]
-				err = osutil.Rename(path, name+"~"+versiondate.Format(TimeLayout))
+				err = osutil.Rename(path, taggedFilename(name, versiondate.Format(TimeFormat)))
 				if err != nil {
 					l.Infoln("Error renaming to new format", err)
 				}
@@ -187,7 +176,7 @@ func (v Staggered) clean() {
 				filesPerDir[dir]++
 			}
 		case mode.IsRegular():
-			extension := versionExt(path)
+			extension := filenameTag(path)
 			dir := filepath.Dir(path)
 			name := path[:len(path)-len(extension)-1]
 
@@ -240,7 +229,7 @@ func (v Staggered) expire(versions []string) {
 	firstFile := true
 	for _, file := range versions {
 		if isFile(file) {
-			versionTime, err := time.Parse(TimeLayout, versionExt(file))
+			versionTime, err := time.Parse(TimeFormat, filenameTag(file))
 			if err != nil {
 				l.Infof("Versioner: file name %q is invalid: %v", file, err)
 				continue
@@ -342,7 +331,7 @@ func (v Staggered) Archive(filePath string) error {
 		return err
 	}
 
-	ver := file + "~" + fileInfo.ModTime().Format(TimeLayout)
+	ver := taggedFilename(file, fileInfo.ModTime().Format(TimeFormat))
 	dst := filepath.Join(dir, ver)
 	if debug {
 		l.Debugln("moving to", dst)
@@ -352,11 +341,22 @@ func (v Staggered) Archive(filePath string) error {
 		return err
 	}
 
-	versions, err := filepath.Glob(filepath.Join(dir, file+"~[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]"))
+	// Glob according to the new file~timestamp.ext pattern.
+	newVersions, err := filepath.Glob(filepath.Join(dir, taggedFilename(file, TimeGlob)))
 	if err != nil {
-		l.Warnln("Versioner: error finding versions for", file, err)
+		l.Warnln("globbing:", err)
 		return nil
 	}
+
+	// Also according to the old file.ext~timestamp pattern.
+	oldVersions, err := filepath.Glob(filepath.Join(dir, file+"~"+TimeGlob))
+	if err != nil {
+		l.Warnln("globbing:", err)
+		return nil
+	}
+
+	// Use all the found filenames.
+	versions := append(oldVersions, newVersions...)
 
 	sort.Strings(versions)
 	v.expire(versions)

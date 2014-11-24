@@ -13,6 +13,34 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-package versioner_test
+package versioner
 
-// Empty test file to generate 0% coverage rather than no coverage
+import "testing"
+
+func TestTaggedFilename(t *testing.T) {
+	cases := [][3]string{
+		{"foo/bar.baz", "tag", "foo/bar~tag.baz"},
+		{"bar.baz", "tag", "bar~tag.baz"},
+		{"bar", "tag", "bar~tag"},
+
+		// Parsing test only
+		{"", "tag-only", "foo/bar.baz~tag-only"},
+		{"", "tag-only", "bar.baz~tag-only"},
+	}
+
+	for _, tc := range cases {
+		if tc[0] != "" {
+			// Test tagger
+			tf := taggedFilename(tc[0], tc[1])
+			if tf != tc[2] {
+				t.Errorf("%s != %s", tf, tc[2])
+			}
+		}
+
+		// Test parser
+		tag := filenameTag(tc[2])
+		if tag != tc[1] {
+			t.Errorf("%s != %s", tag, tc[1])
+		}
+	}
+}
