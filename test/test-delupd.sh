@@ -121,7 +121,7 @@ alterFiles() {
 
 		# Create some new files and alter existing ones
 		echo "  $i: random nonoverlapping"
-		../genfiles -maxexp 22 -files 200
+		../genfiles -maxexp 22 -files 200 -src ../genfiles
 		echo "  $i: new files in ro directory"
 		uuidgen > ro-test/$(uuidgen)
 		chmod 500 ro-test
@@ -146,7 +146,7 @@ echo "Setting up files..."
 for i in 1 12-2 23-3; do
 	pushd "s$i" >/dev/null
 	echo "  $i: random nonoverlapping"
-	../genfiles -maxexp 22 -files 400
+	../genfiles -maxexp 22 -files 400 -src ../genfiles
 	echo "  $i: ro directory"
 	mkdir ro-test
 	uuidgen > ro-test/$(uuidgen)

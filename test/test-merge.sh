@@ -115,7 +115,7 @@ alterFiles() {
 		pushd "s$i" >/dev/null
 
 		echo "  $i: random nonoverlapping"
-		../genfiles -maxexp 22 -files 200
+		../genfiles -maxexp 22 -files 200 -src ../genfiles
 		echo "  $i: append to large file"
 		dd if=large-$i bs=1024k count=4 >> large-$i 2>/dev/null
 		../md5r -l > ../md5-tmp
@@ -135,7 +135,7 @@ for i in 1 2 3 12-1 12-2 23-2 23-3; do
 	mkdir "s$i"
 	pushd "s$i" >/dev/null
 	echo "  $i: random nonoverlapping"
-	../genfiles -maxexp 22 -files 200
+	../genfiles -maxexp 22 -files 200 -src ../genfiles
 	echo "  $i: empty file"
 	touch "empty-$i"
 	echo "  $i: large file"
