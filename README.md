@@ -27,6 +27,9 @@ Getting Started
 
 Take a look at the [getting started guide](http://discourse.syncthing.net/t/46).
 
+There are a few examples for keeping syncthing running in the background
+on your system in [the etc directory](https://github.com/syncthing/syncthing/blob/master/etc).
+
 Building
 --------
 
