@@ -250,6 +250,10 @@ func (p *Puller) pullerIteration(checksum bool) int {
 	var pullWg sync.WaitGroup
 	var doneWg sync.WaitGroup
 
+	if debug {
+		l.Debugln(p, "c", p.copiers, "p", p.pullers, "f", p.finishers)
+	}
+
 	for i := 0; i < p.copiers; i++ {
 		copyWg.Add(1)
 		go func() {
