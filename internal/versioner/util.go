@@ -13,17 +13,30 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-// Package versioner implements common interfaces for file versioning and a
-// simple default versioning scheme.
 package versioner
 
-type Versioner interface {
-	Archive(filePath string) error
+import (
+	"path/filepath"
+	"regexp"
+)
+
+// Inserts ~tag just before the extension of the filename.
+func taggedFilename(name, tag string) string {
+	dir, file := filepath.Dir(name), filepath.Base(name)
+	ext := filepath.Ext(file)
+	withoutExt := file[:len(file)-len(ext)]
+	return filepath.Join(dir, withoutExt+"~"+tag+ext)
 }
 
-var Factories = map[string]func(folderID string, folderDir string, params map[string]string) Versioner{}
+var tagExp = regexp.MustCompile(`~([^~.]+)(?:\.[^.]+)?$`)
 
-const (
-	TimeFormat = "20060102-150405"
-	TimeGlob   = "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]" // glob pattern matching TimeFormat
-)
+// Returns the tag from a filename, whether at the end or middle.
+func filenameTag(path string) string {
+	match := tagExp.FindStringSubmatch(path)
+	// match is []string{"whole match", "submatch"} when successfull
+
+	if len(match) != 2 {
+		return ""
+	}
+	return match[1]
+}

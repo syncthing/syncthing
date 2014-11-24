@@ -98,7 +98,7 @@ func (v Simple) Archive(filePath string) error {
 		return err
 	}
 
-	ver := file + "~" + fileInfo.ModTime().Format("20060102-150405")
+	ver := taggedFilename(file, fileInfo.ModTime().Format(TimeFormat))
 	dst := filepath.Join(dir, ver)
 	if debug {
 		l.Debugln("moving to", dst)
@@ -108,11 +108,23 @@ func (v Simple) Archive(filePath string) error {
 		return err
 	}
 
-	versions, err := filepath.Glob(filepath.Join(dir, file+"~[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]"))
+	// Glob according to the new file~timestamp.ext pattern.
+	newVersions, err := filepath.Glob(filepath.Join(dir, taggedFilename(file, TimeGlob)))
 	if err != nil {
 		l.Warnln("globbing:", err)
 		return nil
 	}
+
+	// Also according to the old file.ext~timestamp pattern.
+	oldVersions, err := filepath.Glob(filepath.Join(dir, file+"~"+TimeGlob))
+	if err != nil {
+		l.Warnln("globbing:", err)
+		return nil
+	}
+
+	// Use all the found filenames. "~" sorts after "." so all old pattern
+	// files will be deleted before any new, which is as it should be.
+	versions := append(oldVersions, newVersions...)
 
 	if len(versions) > v.keep {
 		sort.Strings(versions)
