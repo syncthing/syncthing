@@ -207,12 +207,16 @@ func buildTar() {
 	}
 	build("./cmd/syncthing", tags)
 	filename := name + ".tar.gz"
-	tarGz(filename, []archiveFile{
+	files := []archiveFile{
 		{"README.md", name + "/README.txt"},
 		{"LICENSE", name + "/LICENSE.txt"},
 		{"AUTHORS", name + "/AUTHORS.txt"},
 		{"syncthing", name + "/syncthing"},
-	})
+	}
+	for _, file := range listFiles("etc") {
+		files = append(files, archiveFile{file, name + "/" + file})
+	}
+	tarGz(filename, files)
 	log.Println(filename)
 }
 
@@ -225,13 +229,28 @@ func buildZip() {
 	}
 	build("./cmd/syncthing", tags)
 	filename := name + ".zip"
-	zipFile(filename, []archiveFile{
+	files := []archiveFile{
 		{"README.md", name + "/README.txt"},
 		{"LICENSE", name + "/LICENSE.txt"},
 		{"AUTHORS", name + "/AUTHORS.txt"},
 		{"syncthing.exe", name + "/syncthing.exe"},
-	})
+	}
+	zipFile(filename, files)
 	log.Println(filename)
+}
+
+func listFiles(dir string) []string {
+	var res []string
+	filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if fi.Mode().IsRegular() {
+			res = append(res, path)
+		}
+		return nil
+	})
+	return res
 }
 
 func setBuildEnv() {
