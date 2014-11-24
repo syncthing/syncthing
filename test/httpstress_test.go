@@ -53,12 +53,12 @@ func TestStressHTTP(t *testing.T) {
 	tr := &http.Transport{
 		TLSClientConfig:       tc,
 		DisableKeepAlives:     true,
-		ResponseHeaderTimeout: time.Second,
-		TLSHandshakeTimeout:   time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
 	}
 	client := &http.Client{
 		Transport: tr,
-		Timeout:   2 * time.Second,
+		Timeout:   10 * time.Second,
 	}
 	var wg sync.WaitGroup
 	t0 := time.Now()
