@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 -->
-<html lang="en" ng-app="syncthing" ng-controller="SyncthingCtrl" class="ng-cloak">
+<html lang="en" ng-app="syncthing" ng-controller="SyncthingController" class="ng-cloak">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -25,13 +25,13 @@
   <link rel="shortcut icon" href="img/favicon.png">
 
   <title>Syncthing | {{thisDeviceName()}}</title>
-  <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
-  <link href="font/raleway.css" rel="stylesheet">
-  <link href="overrides.css" rel="stylesheet">
+  <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/font/raleway.css" rel="stylesheet">
+  <link href="assets/css/overrides.css" rel="stylesheet">
 </head>
 
 <body>
-  <div ng-controller="EventCtrl"></div>
+  <div ng-controller="EventController"></div>
 
   <!-- Top bar -->
 
@@ -829,12 +829,31 @@
     </ul>
   </modal>
 
-  <script src="angular/angular.min.js"></script>
-  <script src="angular/angular-translate.min.js"></script>
-  <script src="angular/angular-translate-loader.min.js"></script>
-  <script src="jquery/jquery-2.0.3.min.js"></script>
-  <script src="bootstrap/js/bootstrap.min.js"></script>
-  <script src="lang/valid-langs.js"></script>
-  <script src="app.js"></script>
+  <!-- vendor scripts -->
+  <script src="vendor/angular/angular.min.js"></script>
+  <script src="vendor/angular/angular-translate.min.js"></script>
+  <script src="vendor/angular/angular-translate-loader.min.js"></script>
+  <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
+  <script src="vendor/bootstrap/js/bootstrap.min.js"></script>
+  <!-- / vendor scripts -->
+
+  <!-- gui application code -->
+  <script src="scripts/syncthing/core/module.js"></script>
+  <script src="scripts/syncthing/core/controllers/eventController.js"></script>
+  <script src="scripts/syncthing/core/controllers/syncthingController.js"></script>
+  <script src="scripts/syncthing/core/directives/identiconDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/modalDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/uniqueFolderDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/validDeviceidDirective.js"></script>
+  <script src="scripts/syncthing/core/filters/alwaysNumberfilter.js"></script>
+  <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/metricFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/naturalFilter.js"></script>
+
+  <script src="assets/lang/valid-langs.js"></script>
+  <script src="scripts/syncthing/app.js"></script>
+  <!-- / gui application code -->
+
 </body>
 </html>
