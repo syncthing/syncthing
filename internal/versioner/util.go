@@ -28,7 +28,7 @@ func taggedFilename(name, tag string) string {
 	return filepath.Join(dir, withoutExt+"~"+tag+ext)
 }
 
-var tagExp = regexp.MustCompile(`~([^~.]+)(?:\.[^.]+)?$`)
+var tagExp = regexp.MustCompile(`.*~([^~.]+)(?:\.[^.]+)?$`)
 
 // Returns the tag from a filename, whether at the end or middle.
 func filenameTag(path string) string {
