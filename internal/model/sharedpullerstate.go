@@ -31,18 +31,30 @@ type sharedPullerState struct {
 	folder   string
 	tempName string
 	realName string
-	reused   int // Number of blocks reused from temporary file
+	reused   uint32 // Number of blocks reused from temporary file
 
 	// Mutable, must be locked for access
 	err        error      // The first error we hit
 	fd         *os.File   // The fd of the temp file
-	copyTotal  int        // Total number of copy actions for the whole job
-	pullTotal  int        // Total number of pull actions for the whole job
-	copyNeeded int        // Number of copy actions still pending
-	pullNeeded int        // Number of block pulls still pending
-	copyOrigin int        // Number of blocks copied from the original file
+	copyTotal  uint32     // Total number of copy actions for the whole job
+	pullTotal  uint32     // Total number of pull actions for the whole job
+	copyOrigin uint32     // Number of blocks copied from the original file
+	copyNeeded uint32     // Number of copy actions still pending
+	pullNeeded uint32     // Number of block pulls still pending
 	closed     bool       // Set when the file has been closed
 	mut        sync.Mutex // Protects the above
+}
+
+// A momentary state representing the progress of the puller
+type pullerProgress struct {
+	Total               uint32
+	Reused              uint32
+	CopiedFromOrigin    uint32
+	CopiedFromElsewhere uint32
+	Pulled              uint32
+	Pulling             uint32
+	BytesDone           int64
+	BytesTotal          int64
 }
 
 // tempFile returns the fd for the temporary file, reusing an open fd
@@ -207,4 +219,22 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 		return true, fd.Close()
 	}
 	return true, nil
+}
+
+// Returns the momentarily progress for the puller
+func (s *sharedPullerState) Progress() *pullerProgress {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	total := s.reused + s.copyTotal + s.pullTotal
+	done := total - s.copyNeeded - s.pullNeeded
+	return &pullerProgress{
+		Total:               total,
+		Reused:              s.reused,
+		CopiedFromOrigin:    s.copyOrigin,
+		CopiedFromElsewhere: s.copyTotal - s.copyNeeded - s.copyOrigin,
+		Pulled:              s.pullTotal - s.pullNeeded,
+		Pulling:             s.pullNeeded,
+		BytesTotal:          protocol.BlocksToSize(total),
+		BytesDone:           protocol.BlocksToSize(done),
+	}
 }

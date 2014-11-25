@@ -159,24 +159,25 @@ type FolderDeviceConfiguration struct {
 }
 
 type OptionsConfiguration struct {
-	ListenAddress        []string `xml:"listenAddress" default:"0.0.0.0:22000"`
-	GlobalAnnServer      string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22026"`
-	GlobalAnnEnabled     bool     `xml:"globalAnnounceEnabled" default:"true"`
-	LocalAnnEnabled      bool     `xml:"localAnnounceEnabled" default:"true"`
-	LocalAnnPort         int      `xml:"localAnnouncePort" default:"21025"`
-	LocalAnnMCAddr       string   `xml:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
-	MaxSendKbps          int      `xml:"maxSendKbps"`
-	MaxRecvKbps          int      `xml:"maxRecvKbps"`
-	ReconnectIntervalS   int      `xml:"reconnectionIntervalS" default:"60"`
-	StartBrowser         bool     `xml:"startBrowser" default:"true"`
-	UPnPEnabled          bool     `xml:"upnpEnabled" default:"true"`
-	UPnPLease            int      `xml:"upnpLeaseMinutes" default:"0"`
-	UPnPRenewal          int      `xml:"upnpRenewalMinutes" default:"30"`
-	URAccepted           int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
-	RestartOnWakeup      bool     `xml:"restartOnWakeup" default:"true"`
-	AutoUpgradeIntervalH int      `xml:"autoUpgradeIntervalH" default:"12"` // 0 for off
-	KeepTemporariesH     int      `xml:"keepTemporariesH" default:"24"`     // 0 for off
-	CacheIgnoredFiles    bool     `xml:"cacheIgnoredFiles" default:"true"`
+	ListenAddress           []string `xml:"listenAddress" default:"0.0.0.0:22000"`
+	GlobalAnnServer         string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22026"`
+	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" default:"true"`
+	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" default:"true"`
+	LocalAnnPort            int      `xml:"localAnnouncePort" default:"21025"`
+	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
+	MaxSendKbps             int      `xml:"maxSendKbps"`
+	MaxRecvKbps             int      `xml:"maxRecvKbps"`
+	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" default:"60"`
+	StartBrowser            bool     `xml:"startBrowser" default:"true"`
+	UPnPEnabled             bool     `xml:"upnpEnabled" default:"true"`
+	UPnPLease               int      `xml:"upnpLeaseMinutes" default:"0"`
+	UPnPRenewal             int      `xml:"upnpRenewalMinutes" default:"30"`
+	URAccepted              int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
+	RestartOnWakeup         bool     `xml:"restartOnWakeup" default:"true"`
+	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" default:"12"` // 0 for off
+	KeepTemporariesH        int      `xml:"keepTemporariesH" default:"24"`     // 0 for off
+	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" default:"true"`
+	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" default:"5"`
 
 	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
 	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`

@@ -82,9 +82,10 @@ type service interface {
 }
 
 type Model struct {
-	cfg    *config.ConfigWrapper
-	db     *leveldb.DB
-	finder *files.BlockFinder
+	cfg             *config.ConfigWrapper
+	db              *leveldb.DB
+	finder          *files.BlockFinder
+	progressEmitter *ProgressEmitter
 
 	deviceName    string
 	clientName    string
@@ -142,7 +143,9 @@ func NewModel(cfg *config.ConfigWrapper, deviceName, clientName, clientVersion s
 		rawConn:            make(map[protocol.DeviceID]io.Closer),
 		deviceVer:          make(map[protocol.DeviceID]string),
 		finder:             files.NewBlockFinder(db, cfg),
+		progressEmitter:    NewProgressEmitter(cfg),
 	}
+	go m.progressEmitter.Serve()
 
 	var timeout = 20 * 60 // seconds
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
@@ -172,15 +175,16 @@ func (m *Model) StartFolderRW(folder string) {
 		panic("cannot start already running folder " + folder)
 	}
 	p := &Puller{
-		folder:        folder,
-		dir:           cfg.Path,
-		scanIntv:      time.Duration(cfg.RescanIntervalS) * time.Second,
-		model:         m,
-		ignorePerms:   cfg.IgnorePerms,
-		lenientMtimes: cfg.LenientMtimes,
-		copiers:       cfg.Copiers,
-		pullers:       cfg.Pullers,
-		finishers:     cfg.Finishers,
+		folder:          folder,
+		dir:             cfg.Path,
+		scanIntv:        time.Duration(cfg.RescanIntervalS) * time.Second,
+		model:           m,
+		ignorePerms:     cfg.IgnorePerms,
+		lenientMtimes:   cfg.LenientMtimes,
+		progressEmitter: m.progressEmitter,
+		copiers:         cfg.Copiers,
+		pullers:         cfg.Pullers,
+		finishers:       cfg.Finishers,
 	}
 	m.folderRunners[folder] = p
 	m.fmut.Unlock()
@@ -392,6 +396,7 @@ func (m *Model) NeedSize(folder string) (files int, bytes int64) {
 			return true
 		})
 	}
+	bytes -= m.progressEmitter.BytesCompleted(folder)
 	if debug {
 		l.Debugf("%v NeedSize(%q): %d %d", m, folder, files, bytes)
 	}
