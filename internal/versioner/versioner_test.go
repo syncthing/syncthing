@@ -15,11 +15,14 @@
 
 package versioner
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestTaggedFilename(t *testing.T) {
 	cases := [][3]string{
-		{"foo/bar.baz", "tag", "foo/bar~tag.baz"},
+		{filepath.Join("foo", "bar.baz"), "tag", filepath.Join("foo", "bar~tag.baz")},
 		{"bar.baz", "tag", "bar~tag.baz"},
 		{"bar", "tag", "bar~tag"},
 
