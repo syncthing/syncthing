@@ -120,10 +120,9 @@ func (t *ProgressEmitter) BytesCompleted(folder string) (bytes int64) {
 	t.mut.Lock()
 	defer t.mut.Unlock()
 
-	files, ok := t.last[folder]
-	if ok {
-		for _, s := range files {
-			bytes += s.BytesDone
+	for _, s := range t.registry {
+		if s.folder == folder {
+			bytes += s.Progress().BytesDone
 		}
 	}
 	if debug {

@@ -145,7 +145,9 @@ func NewModel(cfg *config.ConfigWrapper, deviceName, clientName, clientVersion s
 		finder:             files.NewBlockFinder(db, cfg),
 		progressEmitter:    NewProgressEmitter(cfg),
 	}
-	go m.progressEmitter.Serve()
+	if cfg.Options().ProgressUpdateIntervalS > -1 {
+		go m.progressEmitter.Serve()
+	}
 
 	var timeout = 20 * 60 // seconds
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {

@@ -301,19 +301,18 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
             }
         }
         for(var folder in $scope.progress){
-            var refresh = false;
             if (!(folder in progress)) {
-                refresh = true;
                 refreshFolder(folder);
-            } else {
+                if ($scope.neededFolder == folder) {
+                    refreshNeed(folder);
+                }
+            } else if ($scope.neededFolder == folder) {
                 for(file in $scope.progress[folder]){
                     if (!(file in progress[folder])) {
-                        refresh = true;
+                        refreshNeed(folder);
+                        break;
                     }
                 }
-            }
-            if (refresh) {
-                refreshNeed(folder);
             }
         }
         $scope.progress = progress;
@@ -444,15 +443,13 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         });
     }
 
-    function refreshNeed (folder) {
-        if ($scope.neededFolder == folder) {
-            $http.get(urlbase + "/need?folder=" + encodeURIComponent(folder)).success(function (data) {
-                if ($scope.neededFolder == folder) {
-                    console.log("refreshNeed", folder, data);
-                    $scope.needed = data;
-                }
-            });
-        }
+    function refreshNeed(folder) {
+        $http.get(urlbase + "/need?folder=" + encodeURIComponent(folder)).success(function (data) {
+            if ($scope.neededFolder == folder) {
+                console.log("refreshNeed", folder, data);
+                $scope.needed = data;
+            }
+        });
     }
 
     var refreshDeviceStats = debounce(function () {
@@ -536,7 +533,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
         }
 
         var pct = 100 * $scope.model[folder].inSyncBytes / $scope.model[folder].globalBytes;
-        return Math.min(Math.floor(pct), 100);
+        return Math.floor(pct);
     };
 
     $scope.deviceIcon = function (deviceCfg) {
@@ -1037,7 +1034,7 @@ syncthing.controller('SyncthingCtrl', function ($scope, $http, $translate, $loca
     $scope.showNeed = function (folder) {
         $scope.neededFolder = folder;
         refreshNeed(folder);
-        $('#needed').modal().result.finally(function(){
+        $('#needed').modal().on('hidden.bs.modal', function(){
             $scope.neededFolder = undefined;
             $scope.needed = undefined;
         });
