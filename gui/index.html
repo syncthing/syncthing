@@ -199,11 +199,11 @@
                 <tbody>
                   <tr>
                     <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
-                    <td class="text-right">{{connections['total'].inbps | metric}}bps ({{connections['total'].InBytesTotal | binary}}B)</td>
+                    <td class="text-right">{{connections['total'].inbps | binary}}B/s ({{connections['total'].InBytesTotal | binary}}B)</td>
                   </tr>
                   <tr>
                     <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
-                    <td class="text-right">{{connections['total'].outbps | metric}}bps ({{connections['total'].OutBytesTotal | binary}}B)</td>
+                    <td class="text-right">{{connections['total'].outbps | binary}}B/s ({{connections['total'].OutBytesTotal | binary}}B)</td>
                   </tr>
                   <tr>
                     <th><span class="glyphicon glyphicon-th"></span>&emsp;<span translate>RAM Utilization</span></th>
@@ -254,11 +254,11 @@
                   <tbody>
                     <tr ng-if="connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
-                      <td class="text-right">{{connections[deviceCfg.DeviceID].inbps | metric}}bps ({{connections[deviceCfg.DeviceID].InBytesTotal | binary}}B)</td>
+                      <td class="text-right">{{connections[deviceCfg.DeviceID].inbps | binary}}B/s ({{connections[deviceCfg.DeviceID].InBytesTotal | binary}}B)</td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
-                      <td class="text-right">{{connections[deviceCfg.DeviceID].outbps | metric}}bps ({{connections[deviceCfg.DeviceID].OutBytesTotal | binary}}B)</td>
+                      <td class="text-right">{{connections[deviceCfg.DeviceID].outbps | binary}}B/s ({{connections[deviceCfg.DeviceID].OutBytesTotal | binary}}B)</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-link"></span>&emsp;<span translate>Address</span></th>
@@ -870,7 +870,6 @@
   <script src="scripts/syncthing/core/filters/alwaysNumberFilter.js"></script>
   <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
   <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>
-  <script src="scripts/syncthing/core/filters/metricFilter.js"></script>
   <script src="scripts/syncthing/core/filters/naturalFilter.js"></script>
 
   <script src="assets/lang/valid-langs.js"></script>

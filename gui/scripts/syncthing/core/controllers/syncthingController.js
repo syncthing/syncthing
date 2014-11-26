@@ -320,8 +320,8 @@ angular.module('syncthing.core')
                         continue;
                     }
                     try {
-                        data[id].inbps = Math.max(0, 8 * (data[id].InBytesTotal - $scope.connections[id].InBytesTotal) / td);
-                        data[id].outbps = Math.max(0, 8 * (data[id].OutBytesTotal - $scope.connections[id].OutBytesTotal) / td);
+                        data[id].inbps = Math.max(0, (data[id].InBytesTotal - $scope.connections[id].InBytesTotal) / td);
+                        data[id].outbps = Math.max(0, (data[id].OutBytesTotal - $scope.connections[id].OutBytesTotal) / td);
                     } catch (e) {
                         data[id].inbps = 0;
                         data[id].outbps = 0;
