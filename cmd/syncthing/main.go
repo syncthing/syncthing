@@ -171,6 +171,8 @@ are mostly useful for developers. Use with care.
  STPERFSTATS   Write running performance statistics to perf-$pid.csv. Not
                supported on Windows.
 
+ STNOUPGRADE   Disable automatic upgrades.
+
  GOMAXPROCS    Set the maximum number of CPU cores to use. Defaults to all
                available CPU cores.`
 )
@@ -189,6 +191,7 @@ var (
 	generateDir       string
 	logFile           string
 	noRestart         = os.Getenv("STNORESTART") != ""
+	noUpgrade         = os.Getenv("STNOUPGRADE") != ""
 	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
 	guiAuthentication = os.Getenv("STGUIAUTH")    // legacy
 	guiAPIKey         = os.Getenv("STGUIAPIKEY")  // legacy
@@ -571,7 +574,9 @@ func syncthingMain() {
 	}
 
 	if opts.AutoUpgradeIntervalH > 0 {
-		if IsRelease {
+		if noUpgrade {
+			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
+		} else if IsRelease {
 			go autoUpgrade()
 		} else {
 			l.Infof("No automatic upgrades; %s is not a relase version.", Version)
