@@ -34,6 +34,7 @@ type Discoverer struct {
 	myID             protocol.DeviceID
 	listenAddrs      []string
 	localBcastIntv   time.Duration
+	localBcastStart  time.Time
 	globalBcastIntv  time.Duration
 	errorRetryIntv   time.Duration
 	cacheLifetime    time.Duration
@@ -104,6 +105,7 @@ func (d *Discoverer) StartLocal(localPort int, localMCAddr string) {
 	} else {
 		d.localBcastTick = time.Tick(d.localBcastIntv)
 		d.forcedBcastTick = make(chan time.Time)
+		d.localBcastStart = time.Now()
 		go d.sendLocalAnnouncements()
 	}
 }
@@ -142,7 +144,10 @@ func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
 			addrs[i] = cached[i].Address
 		}
 		return addrs
-	} else if len(d.extServer) != 0 {
+	} else if len(d.extServer) != 0 && time.Since(d.localBcastStart) > d.localBcastIntv {
+		// Only perform external lookups if we have at least one external
+		// server and one local announcement interval has passed. This is to
+		// avoid finding local peers on their remote address at startup.
 		addrs := d.externalLookup(device)
 		cached = make([]CacheEntry, len(addrs))
 		for i := range addrs {
@@ -258,7 +263,10 @@ func (d *Discoverer) sendExternalAnnouncements() {
 		buf = d.announcementPkt()
 	}
 
-	nextAnnouncement := time.NewTimer(0)
+	// Delay the first announcement until after a full local announcement
+	// cycle, to increase the chance of other peers finding us locally first.
+	nextAnnouncement := time.NewTimer(d.localBcastIntv)
+
 	for {
 		select {
 		case <-d.stopGlobal:
