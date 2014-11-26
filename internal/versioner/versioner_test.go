@@ -25,10 +25,14 @@ func TestTaggedFilename(t *testing.T) {
 		{filepath.Join("foo", "bar.baz"), "tag", filepath.Join("foo", "bar~tag.baz")},
 		{"bar.baz", "tag", "bar~tag.baz"},
 		{"bar", "tag", "bar~tag"},
+		{"~$ufheft2.docx", "20140612-200554", "~$ufheft2~20140612-200554.docx"},
+		{"alle~4.mgz", "20141106-094415", "alle~4~20141106-094415.mgz"},
 
 		// Parsing test only
 		{"", "tag-only", "foo/bar.baz~tag-only"},
 		{"", "tag-only", "bar.baz~tag-only"},
+		{"", "20140612-200554", "~$ufheft2.docx~20140612-200554"},
+		{"", "20141106-094415", "alle~4.mgz~20141106-094415"},
 	}
 
 	for _, tc := range cases {
