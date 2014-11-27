@@ -253,19 +253,13 @@
                       <th><span class="glyphicon glyphicon-link"></span>&emsp;<span translate>Address</span></th>
                       <td class="text-right">{{deviceAddr(deviceCfg)}}</td>
                     </tr>
-                    <tr ng-if="connections[deviceCfg.DeviceID]">
-                      <th><span class="glyphicon glyphicon-comment"></span>&emsp;<span translate>Synchronization</span></th>
-                      <td class="text-right">{{completion[deviceCfg.DeviceID]._total | alwaysNumber | number:0}}%</td>
-                    </tr>
-                    <tr>
+                    <tr ng-if="!deviceCfg.Compression">
                       <th><span class="glyphicon glyphicon-compressed"></span>&emsp;<span translate>Use Compression</span></th>
-                      <td translate ng-if="deviceCfg.Compression" class="text-right">Yes</td>
-                      <td translate ng-if="!deviceCfg.Compression" class="text-right">No</td>
+                      <td translate class="text-right">No</td>
                     </tr>
-                    <tr>
+                    <tr ng-if="deviceCfg.Introducer">
                       <th><span class="glyphicon glyphicon-thumbs-up"></span>&emsp;<span translate>Introducer</span></th>
-                      <td translate ng-if="deviceCfg.Introducer" class="text-right">Yes</td>
-                      <td translate ng-if="!deviceCfg.Introducer" class="text-right">No</td>
+                      <td translate class="text-right">Yes</td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Version</span></th>
