@@ -353,6 +353,7 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		if curAcc := cfg.Options().URAccepted; newCfg.Options.URAccepted > curAcc {
 			// UR was enabled
 			newCfg.Options.URAccepted = usageReportVersion
+			newCfg.Options.URUniqueID = randomString(6)
 			err := sendUsageReport(m)
 			if err != nil {
 				l.Infoln("Usage report:", err)
@@ -361,6 +362,7 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		} else if newCfg.Options.URAccepted < curAcc {
 			// UR was disabled
 			newCfg.Options.URAccepted = -1
+			newCfg.Options.URUniqueID = ""
 			stopUsageReporting()
 		}
 

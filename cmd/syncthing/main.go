@@ -556,9 +556,15 @@ func syncthingMain() {
 	if opts.URAccepted > 0 && opts.URAccepted < usageReportVersion {
 		l.Infoln("Anonymous usage report has changed; revoking acceptance")
 		opts.URAccepted = 0
+		opts.URUniqueID = ""
 		cfg.SetOptions(opts)
 	}
 	if opts.URAccepted >= usageReportVersion {
+		if opts.URUniqueID == "" {
+			// Previously the ID was generated from the node ID. We now need
+			// to generate a new one.
+			opts.URUniqueID = randomString(6)
+		}
 		go usageReportingLoop(m)
 		go func() {
 			time.Sleep(10 * time.Minute)

@@ -23,7 +23,6 @@ import (
 	"net"
 	"net/http"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/model"
@@ -38,7 +37,7 @@ var stopUsageReportingCh = make(chan struct{})
 
 func reportData(m *model.Model) map[string]interface{} {
 	res := make(map[string]interface{})
-	res["uniqueID"] = strings.ToLower(myID.String()[:6])
+	res["uniqueID"] = cfg.Options().URUniqueID
 	res["version"] = Version
 	res["longVersion"] = LongVersion
 	res["platform"] = runtime.GOOS + "-" + runtime.GOARCH

@@ -173,6 +173,7 @@ type OptionsConfiguration struct {
 	UPnPLease               int      `xml:"upnpLeaseMinutes" default:"0"`
 	UPnPRenewal             int      `xml:"upnpRenewalMinutes" default:"30"`
 	URAccepted              int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
+	URUniqueID              string   `xml:"urUniqueID"` // Unique ID for reporting purposes, regenerated when UR is turned on.
 	RestartOnWakeup         bool     `xml:"restartOnWakeup" default:"true"`
 	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" default:"12"` // 0 for off
 	KeepTemporariesH        int      `xml:"keepTemporariesH" default:"24"`     // 0 for off
@@ -278,6 +279,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 
 	if cfg.Options.Deprecated_URDeclined {
 		cfg.Options.URAccepted = -1
+		cfg.Options.URUniqueID = ""
 	}
 	cfg.Options.Deprecated_URDeclined = false
 	cfg.Options.Deprecated_UREnabled = false
@@ -380,6 +382,10 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 			return true
 		}
 	}
+
+	// Changing usage reporting to on or off does not require a restart.
+	to.Options.URAccepted = from.Options.URAccepted
+	to.Options.URUniqueID = from.Options.URUniqueID
 
 	// All of the generic options require restart
 	if !reflect.DeepEqual(from.Options, to.Options) || !reflect.DeepEqual(from.GUI, to.GUI) {
