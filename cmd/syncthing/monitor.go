@@ -38,8 +38,8 @@ var (
 )
 
 const (
-	countRestarts = 5
-	loopThreshold = 15 * time.Second
+	countRestarts = 4
+	loopThreshold = 60 * time.Second
 )
 
 func monitorMain() {
