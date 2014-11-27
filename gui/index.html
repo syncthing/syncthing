@@ -477,15 +477,6 @@
                   </div>
                   <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT filesystems.</p>
                 </div>
-                <div class="form-group">
-                  <label translate for="devices">Share With Devices</label>
-                  <div class="checkbox" ng-repeat="device in otherDevices()">
-                    <label>
-                      <input type="checkbox" ng-model="currentFolder.selectedDevices[device.DeviceID]"> {{deviceName(device)}}
-                    </label>
-                  </div>
-                  <p translate class="help-block">Select the devices to share this folder with.</p>
-                </div>
               </div>
               <div class="col-md-6">
                 <div class="form-group">
@@ -533,6 +524,23 @@
                 </div>
               </div>
             </div>
+
+            <div class="row">
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label translate for="devices">Share With Devices</label>
+                  <p translate class="help-block">Select the devices to share this folder with.</p>
+                  <div style="-webkit-column-count: 3; -moz-column-count: 3; column-count: 3; vertical-align: top;">
+                    <div class="checkbox" ng-repeat="device in otherDevices()">
+                      <label>
+                        <input type="checkbox" ng-model="currentFolder.selectedDevices[device.DeviceID]"> {{deviceName(device)}}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </form>
           <div translate ng-show="!editingExisting">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
         </div>
