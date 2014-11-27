@@ -113,10 +113,6 @@
                 <table class="table table-condensed table-striped">
                   <tbody>
                     <tr>
-                      <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Folder ID</span></th>
-                      <td class="text-right">{{folder.ID}}</td>
-                    </tr>
-                    <tr>
                       <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder Path</span></th>
                       <td class="text-right">{{folder.Path}}</td>
                     </tr>
@@ -132,34 +128,27 @@
                       <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local State</span></th>
                       <td class="text-right">{{model[folder.ID].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].localBytes | binary}}B</td>
                     </tr>
-                    <tr>
+                    <tr ng-if="model[folder.ID].needFiles > 0">
                       <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Out Of Sync</span></th>
                       <td class="text-right">
-                        <a ng-if="model[folder.ID].needFiles > 0" ng-click="showNeed(folder.ID)" href="">{{model[folder.ID].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].needBytes | binary}}B</a>
-                        <span ng-if="model[folder.ID].needFiles == 0">0 <span translate>items</span>, 0 B</span>
+                        <a ng-click="showNeed(folder.ID)" href="">{{model[folder.ID].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].needBytes | binary}}B</a>
                       </td>
                     </tr>
-                    <tr>
+                    <tr ng-if="folder.ReadOnly">
                       <th><span class="glyphicon glyphicon-lock"></span>&emsp;<span translate>Folder Master</span></th>
                       <td class="text-right">
-                        <span translate ng-if="folder.ReadOnly">Yes</span>
-                        <span translate ng-if="!folder.ReadOnly">No</span>
+                        <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr>
+                    <tr ng-if="folder.IgnorePerms">
                       <th><span class="glyphicon glyphicon-unchecked"></span>&emsp;<span translate>Ignore Permissions</span></th>
                       <td class="text-right">
-                        <span translate ng-if="folder.IgnorePerms">Yes</span>
-                        <span translate ng-if="!folder.IgnorePerms">No</span>
+                        <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr>
+                    <tr ng-if="folder.RescanIntervalS != 60">
                       <th><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan Interval</span></th>
                       <td class="text-right">{{folder.RescanIntervalS}} s</td>
-                    </tr>
-                    <tr>
-                      <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;<span translate>Shared With</span></th>
-                      <td class="text-right">{{sharesFolder(folder)}}</td>
                     </tr>
                   </tbody>
                 </table>
