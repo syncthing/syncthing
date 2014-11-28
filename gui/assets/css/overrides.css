@@ -29,12 +29,16 @@ ul+h5 {
 }
 
 identicon {
-  display: inline-block;
-  position: relative;
-  width: 1em;
-  height: 1em;
-  line-height: 1em;
-  overflow: visible;
+    display: inline-block;
+    position: relative;
+    width: 1em;
+    height: 1em;
+    line-height: 1em;
+    overflow: visible;
+}
+
+.checkbox {
+    margin-top: 0px;
 }
 
 .identicon {
