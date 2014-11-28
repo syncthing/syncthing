@@ -1,12 +1,42 @@
 angular.module('syncthing.core')
-    .controller('SyncthingController', function ($scope, $http, $translate, $location) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService) {
         'use strict';
 
+        // private/helper definitions
+
         var prevDate = 0;
-        var getOK = true;
         var navigatingAway = false;
         var online = false;
         var restarting = false;
+
+        function initController() {
+
+            LocaleService.autoConfigLocale();
+
+            refreshSystem();
+            refreshConfig();
+            refreshConnectionStats();
+            refreshDeviceStats();
+
+            $http.get(urlbase + '/version').success(function (data) {
+                $scope.version = data.version;
+            });
+
+            $http.get(urlbase + '/report').success(function (data) {
+                $scope.reportData = data;
+            });
+
+            $http.get(urlbase + '/upgrade').success(function (data) {
+                $scope.upgradeInfo = data;
+            }).error(function () {
+                $scope.upgradeInfo = null;
+            });
+
+            setInterval($scope.refresh, 10000);
+        }
+
+
+        // pubic/scope definitions
 
         $scope.completion = {};
         $scope.config = {};
@@ -25,47 +55,12 @@ angular.module('syncthing.core')
         $scope.stats = {};
         $scope.progress = {};
 
-        $http.get(urlbase + "/lang").success(function (langs) {
-            // Find the first language in the list provided by the user's browser
-            // that is a prefix of a language we have available. That is, "en"
-            // sent by the browser will match "en" or "en-US", while "zh-TW" will
-            // match only "zh-TW" and not "zh-CN".
-
-            var lang, matching;
-            for (var i = 0; i < langs.length; i++) {
-                lang = langs[i];
-                if (lang.length < 2) {
-                    continue;
-                }
-                matching = validLangs.filter(function (possibleLang) {
-                    // The langs returned by the /rest/langs call will be in lower
-                    // case. We compare to the lowercase version of the language
-                    // code we have as well.
-                    possibleLang = possibleLang.toLowerCase();
-                    if (possibleLang.length > lang.length) {
-                        return possibleLang.indexOf(lang) === 0;
-                    } else {
-                        return lang.indexOf(possibleLang) === 0;
-                    }
-                });
-                if (matching.length >= 1) {
-                    $translate.use(matching[0]);
-                    return;
-                }
-            }
-            // Fallback if nothing matched
-            $translate.use("en");
-        });
-
         $(window).bind('beforeunload', function () {
             navigatingAway = true;
         });
 
         $scope.$on("$locationChangeSuccess", function () {
-            var lang = $location.search().lang;
-            if (lang) {
-                $translate.use(lang);
-            }
+            LocaleService.useLocale($location.search().lang);
         });
 
         $scope.needActions = {
@@ -87,7 +82,7 @@ angular.module('syncthing.core')
             }
 
             console.log('UIOnline');
-            $scope.init();
+            initController();
             online = true;
             restarting = false;
             $('#networkError').modal('hide');
@@ -181,10 +176,10 @@ angular.module('syncthing.core')
         $scope.$on('DownloadProgress', function (event, arg) {
             var stats = arg.data;
             var progress = {};
-            for(var folder in stats){
+            for (var folder in stats) {
                 refreshFolder(folder);
                 progress[folder] = {};
-                for(var file in stats[folder]){
+                for (var file in stats[folder]) {
                     var s = stats[folder][file];
                     var reused = Math.floor(100 * s.Reused / s.Total);
                     var copiedFromOrigin = Math.floor(100 * s.CopiedFromOrigin / s.Total);
@@ -197,24 +192,24 @@ angular.module('syncthing.core')
                         pulling = 1;
                     }
                     progress[folder][file] = {
-                        Reused:              reused,
-                        CopiedFromOrigin:    copiedFromOrigin,
+                        Reused: reused,
+                        CopiedFromOrigin: copiedFromOrigin,
                         CopiedFromElsewhere: copiedFromElsewhere,
-                        Pulled:              pulled,
-                        Pulling:             pulling,
-                        BytesTotal:          s.BytesTotal,
-                        BytesDone:           s.BytesDone,
+                        Pulled: pulled,
+                        Pulling: pulling,
+                        BytesTotal: s.BytesTotal,
+                        BytesDone: s.BytesDone,
                     };
                 }
             }
-            for(var folder in $scope.progress){
+            for (var folder in $scope.progress) {
                 if (!(folder in progress)) {
                     refreshFolder(folder);
                     if ($scope.neededFolder == folder) {
                         refreshNeed(folder);
                     }
                 } else if ($scope.neededFolder == folder) {
-                    for(file in $scope.progress[folder]){
+                    for (file in $scope.progress[folder]) {
                         if (!(file in progress[folder])) {
                             refreshNeed(folder);
                             break;
@@ -378,27 +373,6 @@ angular.module('syncthing.core')
                 console.log("refreshDeviceStats", data);
             });
         }, 500);
-
-        $scope.init = function () {
-            refreshSystem();
-            refreshConfig();
-            refreshConnectionStats();
-            refreshDeviceStats();
-
-            $http.get(urlbase + '/version').success(function (data) {
-                $scope.version = data.version;
-            });
-
-            $http.get(urlbase + '/report').success(function (data) {
-                $scope.reportData = data;
-            });
-
-            $http.get(urlbase + '/upgrade').success(function (data) {
-                $scope.upgradeInfo = data;
-            }).error(function () {
-                $scope.upgradeInfo = null;
-            });
-        };
 
         $scope.refresh = function () {
             refreshSystem();
@@ -987,7 +961,7 @@ angular.module('syncthing.core')
         $scope.showNeed = function (folder) {
             $scope.neededFolder = folder;
             refreshNeed(folder);
-            $('#needed').modal().on('hidden.bs.modal', function(){
+            $('#needed').modal().on('hidden.bs.modal', function () {
                 $scope.neededFolder = undefined;
                 $scope.needed = undefined;
             });
@@ -1024,6 +998,6 @@ angular.module('syncthing.core')
             $http.post(urlbase + "/scan?folder=" + encodeURIComponent(folder));
         };
 
-        $scope.init();
-        setInterval($scope.refresh, 10000);
+        // pseudo main. called on all definitions assigned
+        initController();
     });
