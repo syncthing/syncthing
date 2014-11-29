@@ -51,6 +51,10 @@ RUN go get github.com/tools/godep \
 	&& go get github.com/axw/gocov/gocov \
 	&& go get github.com/AlekSi/gocov-xml
 
+# Build standard library for race
+
+RUN go install -race std
+
 # Random build users needs to be able to create stuff in /go
 
 RUN chmod -R 777 /go/bin /go/pkg /go/src
