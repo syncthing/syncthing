@@ -102,18 +102,27 @@
         <device id="7TVCUYX-MLZH6GF-GDLVMJ6-REPXXUD-DCLPXP2-67HS7VR-QTTABOA-4ZXJOQD"></device>
         <versioning></versioning>
         <lenientMtimes>false</lenientMtimes>
+        <copiers>1</copiers>
+        <pullers>16</pullers>
+        <finishers>1</finishers>
     </folder>
     <folder id="s12" path="s12-2" ro="false" rescanIntervalS="15" ignorePerms="false">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <versioning></versioning>
         <lenientMtimes>false</lenientMtimes>
+        <copiers>1</copiers>
+        <pullers>16</pullers>
+        <finishers>1</finishers>
     </folder>
     <folder id="s23" path="s23-2" ro="false" rescanIntervalS="15" ignorePerms="false">
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
         <versioning></versioning>
         <lenientMtimes>false</lenientMtimes>
+        <copiers>1</copiers>
+        <pullers>16</pullers>
+        <finishers>1</finishers>
     </folder>
     <device id="AF2HXQA-DOKKIMI-PKOG4RE-E25UTJ7-PSGQ7T5-WEY7YT5-SG6N7W5-NNA4BQM" compression="false" introducer="false">
         <address>dynamic</address>
@@ -434,9 +443,11 @@
         <upnpLeaseMinutes>0</upnpLeaseMinutes>
         <upnpRenewalMinutes>30</upnpRenewalMinutes>
         <urAccepted>-1</urAccepted>
+        <urUniqueID></urUniqueID>
         <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
         <keepTemporariesH>24</keepTemporariesH>
         <cacheIgnoredFiles>true</cacheIgnoredFiles>
+        <progressUpdateIntervalS>5</progressUpdateIntervalS>
     </options>
 </configuration>

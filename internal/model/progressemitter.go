@@ -46,11 +46,11 @@ func (t *ProgressEmitter) Serve() {
 			}
 			return
 		case <-t.timer.C:
+			t.mut.Lock()
 			if debug {
 				l.Debugln("progress emitter: timer - looking after", len(t.registry))
 			}
 			output := make(map[string]map[string]*pullerProgress)
-			t.mut.Lock()
 			for _, puller := range t.registry {
 				if output[puller.folder] == nil {
 					output[puller.folder] = make(map[string]*pullerProgress)
