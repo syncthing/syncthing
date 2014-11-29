@@ -105,7 +105,7 @@ case "${1:-default}" in
 		;;
 
 	docker-init)
-		docker build -q -t syncthing/build:$DOCKERIMGV docker
+		docker build -q -t syncthing/build:$DOCKERIMGV docker >/dev/null
 		;;
 
 	docker-all)
