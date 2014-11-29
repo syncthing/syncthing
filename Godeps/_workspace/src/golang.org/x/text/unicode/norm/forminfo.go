@@ -201,17 +201,17 @@ func lookupInfoNFKC(b input, i int) Properties {
 // Properties returns properties for the first rune in s.
 func (f Form) Properties(s []byte) Properties {
 	if f == NFC || f == NFD {
-		return compInfo(nfcTrie.lookup(s))
+		return compInfo(nfcData.lookup(s))
 	}
-	return compInfo(nfkcTrie.lookup(s))
+	return compInfo(nfkcData.lookup(s))
 }
 
 // PropertiesString returns properties for the first rune in s.
 func (f Form) PropertiesString(s string) Properties {
 	if f == NFC || f == NFD {
-		return compInfo(nfcTrie.lookupString(s))
+		return compInfo(nfcData.lookupString(s))
 	}
-	return compInfo(nfkcTrie.lookupString(s))
+	return compInfo(nfkcData.lookupString(s))
 }
 
 // compInfo converts the information contained in v and sz

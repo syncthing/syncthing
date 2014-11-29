@@ -16,7 +16,7 @@ import (
 	"unicode/utf8"
 )
 
-type lowerCaseASCII struct{}
+type lowerCaseASCII struct{ transform.NopResetter }
 
 func (lowerCaseASCII) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	n := len(src)
@@ -34,7 +34,7 @@ func (lowerCaseASCII) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, er
 
 var errYouMentionedX = errors.New("you mentioned X")
 
-type dontMentionX struct{}
+type dontMentionX struct{ transform.NopResetter }
 
 func (dontMentionX) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	n := len(src)
@@ -52,7 +52,7 @@ func (dontMentionX) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err 
 
 // doublerAtEOF is a strange Transformer that transforms "this" to "tthhiiss",
 // but only if atEOF is true.
-type doublerAtEOF struct{}
+type doublerAtEOF struct{ transform.NopResetter }
 
 func (doublerAtEOF) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	if !atEOF {
@@ -71,7 +71,7 @@ func (doublerAtEOF) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err 
 // rleDecode and rleEncode implement a toy run-length encoding: "aabbbbbbbbbb"
 // is encoded as "2a10b". The decoding is assumed to not contain any numbers.
 
-type rleDecode struct{}
+type rleDecode struct{ transform.NopResetter }
 
 func (rleDecode) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 loop:
@@ -104,6 +104,8 @@ loop:
 }
 
 type rleEncode struct {
+	transform.NopResetter
+
 	// allowStutter means that "xxxxxxxx" can be encoded as "5x3x"
 	// instead of always as "8x".
 	allowStutter bool
@@ -136,6 +138,10 @@ func (e rleEncode) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err e
 // trickler consumes all input bytes, but writes a single byte at a time to dst.
 type trickler []byte
 
+func (t *trickler) Reset() {
+	*t = nil
+}
+
 func (t *trickler) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	*t = append(*t, src...)
 	if len(*t) == 0 {
@@ -157,6 +163,9 @@ func (t *trickler) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err e
 // to have some tolerance as long as progress can be detected.
 type delayedTrickler []byte
 
+func (t *delayedTrickler) Reset() {
+	*t = nil
+}
 func (t *delayedTrickler) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	if len(*t) > 0 && len(dst) > 0 {
 		dst[0] = (*t)[0]
@@ -447,7 +456,6 @@ var testCases = []testCase{
 
 func TestReader(t *testing.T) {
 	for _, tc := range testCases {
-		reset(tc.t)
 		r := NewReader(strings.NewReader(tc.src), tc.t)
 		// Differently sized dst and src buffers are not part of the
 		// exported API. We override them manually.
@@ -461,13 +469,6 @@ func TestReader(t *testing.T) {
 	}
 }
 
-func reset(t Transformer) {
-	var dst [128]byte
-	for err := ErrShortDst; err != nil; {
-		_, _, err = t.Transform(dst[:], nil, true)
-	}
-}
-
 func TestWriter(t *testing.T) {
 	tests := append(testCases, chainTests()...)
 	for _, tc := range tests {
@@ -477,7 +478,6 @@ func TestWriter(t *testing.T) {
 		}
 		for _, sz := range sizes {
 			bb := &bytes.Buffer{}
-			reset(tc.t)
 			w := NewWriter(bb, tc.t)
 			// Differently sized dst and src buffers are not part of the
 			// exported API. We override them manually.
@@ -735,7 +735,7 @@ func chainTests() []testCase {
 }
 
 func doTransform(tc testCase) (res string, iter int, err error) {
-	reset(tc.t)
+	tc.t.Reset()
 	dst := make([]byte, tc.dstSize)
 	out, in := make([]byte, 0, 2*len(tc.src)), []byte(tc.src)
 	for {
@@ -885,6 +885,14 @@ func TestRemoveFunc(t *testing.T) {
 		},
 
 		{
+			// Test a long buffer greater than the internal buffer size
+			src:      "hello\xcc\xcc\xccworld",
+			srcSize:  13,
+			wantStr:  "hello\uFFFD\uFFFD\uFFFDworld",
+			wantIter: 1,
+		},
+
+		{
 			src:     "\u2345",
 			dstSize: 2,
 			wantStr: "",
@@ -947,7 +955,6 @@ func testString(t *testing.T, f func(Transformer, string) (string, int, error)) 
 			// that depend on a specific buffer size being set.
 			continue
 		}
-		reset(tt.t)
 		if tt.wantErr == ErrShortDst || tt.wantErr == ErrShortSrc {
 			// The result string will be different.
 			continue

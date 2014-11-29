@@ -22,12 +22,11 @@ import (
 	"runtime"
 	"strings"
 
-	"code.google.com/p/go.text/unicode/norm"
-
 	"github.com/syncthing/syncthing/internal/ignore"
 	"github.com/syncthing/syncthing/internal/lamport"
 	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syncthing/syncthing/internal/symlinks"
+	"golang.org/x/text/unicode/norm"
 )
 
 type Walker struct {

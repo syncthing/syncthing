@@ -77,16 +77,16 @@ func (in *input) copySlice(buf []byte, b, e int) int {
 
 func (in *input) charinfoNFC(p int) (uint16, int) {
 	if in.bytes == nil {
-		return nfcTrie.lookupString(in.str[p:])
+		return nfcData.lookupString(in.str[p:])
 	}
-	return nfcTrie.lookup(in.bytes[p:])
+	return nfcData.lookup(in.bytes[p:])
 }
 
 func (in *input) charinfoNFKC(p int) (uint16, int) {
 	if in.bytes == nil {
-		return nfkcTrie.lookupString(in.str[p:])
+		return nfkcData.lookupString(in.str[p:])
 	}
-	return nfkcTrie.lookup(in.bytes[p:])
+	return nfkcData.lookup(in.bytes[p:])
 }
 
 func (in *input) hangul(p int) (r rune) {

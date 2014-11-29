@@ -24,7 +24,8 @@ import (
 	"strings"
 	"unicode"
 
-	"code.google.com/p/go.text/internal/ucd"
+	"golang.org/x/text/internal/triegen"
+	"golang.org/x/text/internal/ucd"
 )
 
 func main() {
@@ -714,13 +715,14 @@ func printCharInfoTables() int {
 
 	varnames := []string{"nfc", "nfkc"}
 	for i := 0; i < FNumberOfFormTypes; i++ {
-		trie := newNode()
+		trie := triegen.NewTrie(varnames[i])
+
 		for r, c := range chars {
 			f := c.forms[i]
 			d := f.expandedDecomp
 			if len(d) != 0 {
 				_, key := mkstr(c.codePoint, &f)
-				trie.insert(rune(r), positionMap[key])
+				trie.Insert(rune(r), uint64(positionMap[key]))
 				if c.ccc != ccc(d[0]) {
 					// We assume the lead ccc of a decomposition !=0 in this case.
 					if ccc(d[0]) == 0 {
@@ -730,12 +732,16 @@ func printCharInfoTables() int {
 			} else if c.nLeadingNonStarters > 0 && len(f.expandedDecomp) == 0 && c.ccc == 0 && !f.combinesBackward {
 				// Handle cases where it can't be detected that the nLead should be equal
 				// to nTrail.
-				trie.insert(c.codePoint, positionMap[nLeadStr])
+				trie.Insert(c.codePoint, uint64(positionMap[nLeadStr]))
 			} else if v := makeEntry(&f, &c)<<8 | uint16(c.ccc); v != 0 {
-				trie.insert(c.codePoint, 0x8000|v)
+				trie.Insert(c.codePoint, uint64(0x8000|v))
 			}
 		}
-		size += trie.printTables(varnames[i])
+		sz, err := trie.Gen(os.Stdout, triegen.Compact(&normCompacter{name: varnames[i]}))
+		if err != nil {
+			logger.Fatal(err)
+		}
+		size += sz
 	}
 	return size
 }

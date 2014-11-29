@@ -9,6 +9,8 @@ import (
 	"unicode/utf8"
 )
 
+// MaxSegmentSize is the maximum size of a byte buffer needed to consider any
+// sequence of starter and non-starter runes for the purpose of normalization.
 const MaxSegmentSize = maxByteBufferSize
 
 // An Iter iterates over a string or byte slice, while normalizing it

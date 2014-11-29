@@ -15,7 +15,7 @@
 
 package osutil
 
-import "code.google.com/p/go.text/unicode/norm"
+import "golang.org/x/text/unicode/norm"
 
 func NormalizedFilename(s string) string {
 	return norm.NFC.String(s)

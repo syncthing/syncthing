@@ -19,7 +19,7 @@ package protocol
 
 // Darwin uses NFD normalization
 
-import "code.google.com/p/go.text/unicode/norm"
+import "golang.org/x/text/unicode/norm"
 
 type nativeModel struct {
 	next Model

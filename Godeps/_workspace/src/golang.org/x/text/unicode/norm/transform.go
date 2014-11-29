@@ -7,13 +7,16 @@ package norm
 import (
 	"unicode/utf8"
 
-	"code.google.com/p/go.text/transform"
+	"golang.org/x/text/transform"
 )
 
-// Transform implements the transform.Transformer interface. It may need to
-// write segments of up to MaxSegmentSize at once. Users should either catch
-// ErrShortDst and allow dst to grow or have dst be at least of size
-// MaxTransformChunkSize to be guaranteed of progress.
+// Reset implements the Reset method of the transform.Transformer interface.
+func (Form) Reset() {}
+
+// Transform implements the Transform method of the transform.Transformer
+// interface. It may need to write segments of up to MaxSegmentSize at once.
+// Users should either catch ErrShortDst and allow dst to grow or have dst be at
+// least of size MaxTransformChunkSize to be guaranteed of progress.
 func (f Form) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	n := 0
 	// Cap the maximum number of src bytes to check.

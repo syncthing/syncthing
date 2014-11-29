@@ -26,10 +26,10 @@ import (
 	"sort"
 	"strconv"
 
-	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/logger"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var l = logger.DefaultLogger

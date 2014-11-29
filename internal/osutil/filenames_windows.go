@@ -18,7 +18,7 @@ package osutil
 import (
 	"path/filepath"
 
-	"code.google.com/p/go.text/unicode/norm"
+	"golang.org/x/text/unicode/norm"
 )
 
 func NormalizedFilename(s string) string {

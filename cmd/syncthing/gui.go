@@ -31,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/logger"
 	"github.com/syncthing/syncthing/internal/auto"
 	"github.com/syncthing/syncthing/internal/config"
@@ -42,6 +41,7 @@ import (
 	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/vitrun/qart/qr"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type guiError struct {

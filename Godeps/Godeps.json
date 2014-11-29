@@ -6,26 +6,6 @@
 	],
 	"Deps": [
 		{
-			"ImportPath": "code.google.com/p/go.crypto/bcrypt",
-			"Comment": "null-216",
-			"Rev": "41cd4647fccc72b0b79ef1bd1fe6735e718257cd"
-		},
-		{
-			"ImportPath": "code.google.com/p/go.crypto/blowfish",
-			"Comment": "null-216",
-			"Rev": "41cd4647fccc72b0b79ef1bd1fe6735e718257cd"
-		},
-		{
-			"ImportPath": "code.google.com/p/go.text/transform",
-			"Comment": "null-90",
-			"Rev": "d65bffbc88a153d23a6d2a864531e6e7c2cde59b"
-		},
-		{
-			"ImportPath": "code.google.com/p/go.text/unicode/norm",
-			"Comment": "null-90",
-			"Rev": "d65bffbc88a153d23a6d2a864531e6e7c2cde59b"
-		},
-		{
 			"ImportPath": "github.com/AudriusButkevicius/lfu-go",
 			"Rev": "164bcecceb92fd6037f4d18a8d97b495ec6ef669"
 		},
@@ -68,6 +48,26 @@
 		{
 			"ImportPath": "github.com/vitrun/qart/qr",
 			"Rev": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/bcrypt",
+			"Comment": "null-236",
+			"Rev": "69e2a90ed92d03812364aeb947b7068dc42e561e"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/blowfish",
+			"Comment": "null-236",
+			"Rev": "69e2a90ed92d03812364aeb947b7068dc42e561e"
+		},
+		{
+			"ImportPath": "golang.org/x/text/transform",
+			"Comment": "null-112",
+			"Rev": "2f707e0ad64637ca1318279be7201f5ed19c4050"
+		},
+		{
+			"ImportPath": "golang.org/x/text/unicode/norm",
+			"Comment": "null-112",
+			"Rev": "2f707e0ad64637ca1318279be7201f5ed19c4050"
 		}
 	]
 }

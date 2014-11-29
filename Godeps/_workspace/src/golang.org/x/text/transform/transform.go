@@ -55,10 +55,17 @@ type Transformer interface {
 	// either error may be returned. Other than the error conditions listed
 	// here, implementations are free to report other errors that arise.
 	Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error)
+
+	// Reset resets the state and allows a Transformer to be reused.
+	Reset()
 }
 
-// TODO: Do we require that a Transformer be reusable if it returns a nil error
-// or do we always require a reset after use?  Is Reset mandatory or optional?
+// NopResetter can be embedded by implementations of Transformer to add a nop
+// Reset method.
+type NopResetter struct{}
+
+// Reset implements the Reset method of the Transformer interface.
+func (NopResetter) Reset() {}
 
 // Reader wraps another io.Reader by transforming the bytes read.
 type Reader struct {
@@ -84,8 +91,9 @@ type Reader struct {
 const defaultBufSize = 4096
 
 // NewReader returns a new Reader that wraps r by transforming the bytes read
-// via t.
+// via t. It calls Reset on t.
 func NewReader(r io.Reader, t Transformer) *Reader {
+	t.Reset()
 	return &Reader{
 		r:   r,
 		t:   t,
@@ -170,8 +178,9 @@ type Writer struct {
 }
 
 // NewWriter returns a new Writer that wraps w by transforming the bytes written
-// via t.
+// via t. It calls Reset on t.
 func NewWriter(w io.Writer, t Transformer) *Writer {
+	t.Reset()
 	return &Writer{
 		w:   w,
 		t:   t,
@@ -247,7 +256,7 @@ func (w *Writer) Close() error {
 	return nil
 }
 
-type nop struct{}
+type nop struct{ NopResetter }
 
 func (nop) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	n := copy(dst, src)
@@ -257,7 +266,7 @@ func (nop) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	return n, n, err
 }
 
-type discard struct{}
+type discard struct{ NopResetter }
 
 func (discard) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	return 0, len(src), nil
@@ -325,6 +334,16 @@ func Chain(t ...Transformer) Transformer {
 		c.link[i+1].b = b[i][:]
 	}
 	return c
+}
+
+// Reset resets the state of Chain. It calls Reset on all the Transformers.
+func (c *chain) Reset() {
+	for i, l := range c.link {
+		if l.t != nil {
+			l.t.Reset()
+		}
+		c.link[i].p, c.link[i].n = 0, 0
+	}
 }
 
 // Transform applies the transformers of c in sequence.
@@ -425,6 +444,8 @@ func RemoveFunc(f func(r rune) bool) Transformer {
 
 type removeF func(r rune) bool
 
+func (removeF) Reset() {}
+
 // Transform implements the Transformer interface.
 func (t removeF) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	for r, sz := rune(0), 0; len(src) > 0; src = src[sz:] {
@@ -436,7 +457,7 @@ func (t removeF) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err err
 
 			if sz == 1 {
 				// Invalid rune.
-				if !atEOF && !utf8.FullRune(src[nSrc:]) {
+				if !atEOF && !utf8.FullRune(src) {
 					err = ErrShortSrc
 					break
 				}
@@ -485,11 +506,13 @@ func grow(b []byte, n int) []byte {
 const initialBufSize = 128
 
 // String returns a string with the result of converting s[:n] using t, where
-// n <= len(s). If err == nil, n will be len(s).
+// n <= len(s). If err == nil, n will be len(s). It calls Reset on t.
 func String(t Transformer, s string) (result string, n int, err error) {
 	if s == "" {
 		return "", 0, nil
 	}
+
+	t.Reset()
 
 	// Allocate only once. Note that both dst and src escape when passed to
 	// Transform.
@@ -571,8 +594,9 @@ func String(t Transformer, s string) (result string, n int, err error) {
 }
 
 // Bytes returns a new byte slice with the result of converting b[:n] using t,
-// where n <= len(b). If err == nil, n will be len(b).
+// where n <= len(b). If err == nil, n will be len(b). It calls Reset on t.
 func Bytes(t Transformer, b []byte) (result []byte, n int, err error) {
+	t.Reset()
 	dst := make([]byte, len(b))
 	pDst, pSrc := 0, 0
 	for {
