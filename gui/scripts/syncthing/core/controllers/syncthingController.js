@@ -466,7 +466,29 @@ angular.module('syncthing.core')
             return 'minus';
         };
 
+        $scope.deviceStatus = function (deviceCfg) {
+            if ($scope.deviceFolders(deviceCfg).length === 0) {
+                return 'unused';
+            }
+
+            if ($scope.connections[deviceCfg.DeviceID]) {
+                if ($scope.completion[deviceCfg.DeviceID] && $scope.completion[deviceCfg.DeviceID]._total === 100) {
+                    return 'insync';
+                } else {
+                    return 'syncing';
+                }
+            }
+
+            // Disconnected
+            return 'disconnected';
+        };
+
         $scope.deviceClass = function (deviceCfg) {
+            if ($scope.deviceFolders(deviceCfg).length === 0) {
+                // Unused
+                return 'warning';
+            }
+
             if ($scope.connections[deviceCfg.DeviceID]) {
                 if ($scope.completion[deviceCfg.DeviceID] && $scope.completion[deviceCfg.DeviceID]._total === 100) {
                     return 'success';
@@ -475,6 +497,7 @@ angular.module('syncthing.core')
                 }
             }
 
+            // Disconnected
             return 'info';
         };
 
@@ -861,15 +884,19 @@ angular.module('syncthing.core')
             $scope.saveConfig();
         };
 
-        $scope.sharesFolder = function (folderCfg) {
-            var names = [];
-            folderCfg.Devices.forEach(function (device) {
-                if (device.DeviceID != $scope.myID) {
-                    names.push($scope.deviceName($scope.findDevice(device.DeviceID)));
+        $scope.deviceFolders = function (deviceCfg) {
+            var folders = [];
+            for (var folderID in $scope.folders) {
+                var devices = $scope.folders[folderID].Devices
+                for (var i = 0; i < devices.length; i++) {
+                    if (devices[i].DeviceID == deviceCfg.DeviceID) {
+                        folders.push(folderID)
+                        break
+                    }
                 }
-            });
-            names.sort();
-            return names.join(", ");
+            };
+            folders.sort();
+            return folders;
         };
 
         $scope.deleteFolder = function () {

@@ -227,14 +227,15 @@
             <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
               <h3 class="panel-title">
                 <identicon data-value="deviceCfg.DeviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
-                <span class="pull-right hidden-xs">
-                  <span ng-if="connections[deviceCfg.DeviceID] && completion[deviceCfg.DeviceID]._total == 100">
+                <span ng-switch="deviceStatus(deviceCfg)" class="pull-right hidden-xs">
+                  <span ng-switch-when="insync">
                     <span translate>Up to Date</span> (100%)
                   </span>
-                  <span ng-if="connections[deviceCfg.DeviceID] && completion[deviceCfg.DeviceID]._total < 100">
+                  <span ng-switch-when="syncing">
                     <span translate>Syncing</span> ({{completion[deviceCfg.DeviceID]._total | number:0}}%)
                   </span>
-                  <span translate ng-if="!connections[deviceCfg.DeviceID]">Disconnected</span>
+                  <span translate ng-switch-when="disconnected">Disconnected</span>
+                  <span translate ng-switch-when="unused">Unused</span>
                 </span>
               </h3>
             </div>
@@ -270,6 +271,10 @@
                       <th><span class="glyphicon glyphicon-eye-open"></span>&emsp;<span translate>Last seen</span></th>
                       <td translate ng-if="!stats[deviceCfg.DeviceID].LastSeenDays || stats[deviceCfg.DeviceID].LastSeenDays >= 365" class="text-right">Never</td>
                       <td ng-if="stats[deviceCfg.DeviceID].LastSeenDays < 365" class="text-right">{{stats[deviceCfg.DeviceID].LastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
+                    </tr>
+                    <tr ng-if="deviceFolders(deviceCfg).length > 0">
+                      <th><span class="glyphicon glyphicon-hdd"></span>&emsp;<span translate>Folders</span></th>
+                      <td class="text-right">{{deviceFolders(deviceCfg).join(", ")}}</td>
                     </tr>
                   </tbody>
                 </table>
