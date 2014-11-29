@@ -35,7 +35,7 @@ func TestSymlinks(t *testing.T) {
 	}
 
 	log.Println("Generating files...")
-	err = generateFiles("s1", 100, 20, "../bin/syncthing")
+	err = generateFiles("s1", 100, 20, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -227,12 +227,6 @@ func (p *syncthingProcess) version() (string, error) {
 	return v.Version, nil
 }
 
-type fileGenerator struct {
-	files   int
-	maxexp  int
-	srcname string
-}
-
 func generateFiles(dir string, files, maxexp int, srcname string) error {
 	fd, err := os.Open(srcname)
 	if err != nil {

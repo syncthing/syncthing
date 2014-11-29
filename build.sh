@@ -128,7 +128,7 @@ case "${1:-default}" in
 				&& go run build.go -race \
 				&& export GOPATH=$(pwd)/Godeps/_workspace:$GOPATH \
 				&& cd test \
-				&& go test -tags integration -v'
+				&& go test -tags integration -v -timeout 30m'
 		;;
 
 	*)
