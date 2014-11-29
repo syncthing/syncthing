@@ -397,28 +397,39 @@ angular.module('syncthing.core')
             refreshErrors();
         };
 
-        $scope.folderStatus = function (folder) {
-            if (typeof $scope.model[folder] === 'undefined') {
+        $scope.folderStatus = function (folderCfg) {
+            if (typeof $scope.model[folderCfg.ID] === 'undefined') {
                 return 'unknown';
             }
 
-            if ($scope.model[folder].invalid !== '') {
+            if (folderCfg.Devices.length <= 1) {
+                return 'unshared';
+            }
+
+            if ($scope.model[folderCfg.ID].invalid !== '') {
                 return 'stopped';
             }
 
-            return '' + $scope.model[folder].state;
+            return '' + $scope.model[folderCfg.ID].state;
         };
 
-        $scope.folderClass = function (folder) {
-            if (typeof $scope.model[folder] === 'undefined') {
+        $scope.folderClass = function (folderCfg) {
+            if (typeof $scope.model[folderCfg.ID] === 'undefined') {
+                // Unknown
                 return 'info';
             }
 
-            if ($scope.model[folder].invalid !== '') {
+            if (folderCfg.Devices.length <= 1) {
+                // Unshared
+                return 'warning';
+            }
+
+            if ($scope.model[folderCfg.ID].invalid !== '') {
+                // Errored
                 return 'danger';
             }
 
-            var state = '' + $scope.model[folder].state;
+            var state = '' + $scope.model[folderCfg.ID].state;
             if (state == 'idle') {
                 return 'success';
             }

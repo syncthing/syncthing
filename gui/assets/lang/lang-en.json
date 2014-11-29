@@ -130,6 +130,7 @@
    "The rescan interval must be a non-negative number of seconds.": "The rescan interval must be a non-negative number of seconds.",
    "The rescan interval must be at least 5 seconds.": "The rescan interval must be at least 5 seconds.",
    "Unknown": "Unknown",
+   "Unshared": "Unshared",
    "Up to Date": "Up to Date",
    "Upgrade To {%version%}": "Upgrade To {{version}}",
    "Upgrading": "Upgrading",

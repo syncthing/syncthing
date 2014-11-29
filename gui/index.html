@@ -89,12 +89,13 @@
 
       <div class="col-md-6">
         <div class="panel-group" id="folders">
-          <div class="panel panel-{{folderClass(folder.ID)}}" ng-repeat="folder in folderList()">
+          <div class="panel panel-{{folderClass(folder)}}" ng-repeat="folder in folderList()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
               <h3 class="panel-title">
                 <span class="glyphicon glyphicon-hdd"></span>&emsp;{{folder.ID}}
-                <span class="pull-right hidden-xs" ng-switch="folderStatus(folder.ID)">
+                <span class="pull-right hidden-xs" ng-switch="folderStatus(folder)">
                   <span translate ng-switch-when="unknown">Unknown</span>
+                  <span translate ng-switch-when="unshared">Unshared</span>
                   <span translate ng-switch-when="stopped">Stopped</span>
                   <span translate ng-switch-when="scanning">Scanning</span>
                   <span ng-switch-when="syncing">
