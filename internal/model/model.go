@@ -779,10 +779,12 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 		lines = append(lines, strings.TrimSpace(scanner.Text()))
 	}
 
+	m.fmut.RLock()
 	var patterns []string
 	if matcher := m.folderIgnores[folder]; matcher != nil {
 		patterns = matcher.Patterns()
 	}
+	m.fmut.RUnlock()
 
 	return lines, patterns, nil
 }
@@ -1050,7 +1052,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		return errors.New("invalid subpath")
 	}
 
-	m.fmut.RLock()
+	m.fmut.Lock()
 	fs, ok := m.folderFiles[folder]
 	dir := m.folderCfgs[folder].Path
 
@@ -1066,7 +1068,8 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		CurrentFiler: cFiler{m, folder},
 		IgnorePerms:  m.folderCfgs[folder].IgnorePerms,
 	}
-	m.fmut.RUnlock()
+	m.fmut.Unlock()
+
 	if !ok {
 		return errors.New("no such folder")
 	}
