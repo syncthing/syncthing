@@ -47,7 +47,7 @@ RUN bash -xec '\
 # Install packages needed for test coverage
 
 RUN go get github.com/tools/godep \
-	&& go get code.google.com/p/go.tools/cmd/cover \
+	&& go get golang.org/x/tools/cmd/cover \
 	&& go get github.com/axw/gocov/gocov \
 	&& go get github.com/AlekSi/gocov-xml
 
