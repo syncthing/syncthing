@@ -743,108 +743,107 @@ nextBlock:
 }
 
 func (p *Puller) performFinish(state *sharedPullerState) {
-	if closed, err := state.finalClose(); closed {
-		if debug {
-			l.Debugln(p, "closing", state.file.Name)
-		}
-		if err != nil {
-			l.Warnln("puller: final:", err)
-			return
-		}
-
-		// Verify the file against expected hashes
-		fd, err := os.Open(state.tempName)
-		if err != nil {
-			l.Warnln("puller: final:", err)
-			return
-		}
-		err = scanner.Verify(fd, protocol.BlockSize, state.file.Blocks)
-		fd.Close()
-		if err != nil {
-			l.Infoln("puller:", state.file.Name, err, "(file changed during pull?)")
-			return
-		}
-
-		// Set the correct permission bits on the new file
-		if !p.ignorePerms {
-			err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
-			if err != nil {
-				l.Warnln("puller: final:", err)
-				return
-			}
-		}
-
-		// Set the correct timestamp on the new file
-		t := time.Unix(state.file.Modified, 0)
-		err = os.Chtimes(state.tempName, t, t)
-		if err != nil {
-			if p.lenientMtimes {
-				// We accept the failure with a warning here and allow the sync to
-				// continue. We'll sync the new mtime back to the other devices later.
-				// If they have the same problem & setting, we might never get in
-				// sync.
-				l.Infof("Puller (folder %q, file %q): final: %v (continuing anyway as requested)", p.folder, state.file.Name, err)
-			} else {
-				l.Warnln("puller: final:", err)
-				return
-			}
-		}
-
-		// If we should use versioning, let the versioner archive the old
-		// file before we replace it. Archiving a non-existent file is not
-		// an error.
-		if p.versioner != nil {
-			err = p.versioner.Archive(state.realName)
-			if err != nil {
-				l.Warnln("puller: final:", err)
-				return
-			}
-		}
-
-		// If the target path is a symlink or a directory, we cannot copy
-		// over it, hence remove it before proceeding.
-		stat, err := os.Lstat(state.realName)
-		isLink, _ := symlinks.IsSymlink(state.realName)
-		if isLink || (err == nil && stat.IsDir()) {
-			osutil.InWritableDir(os.Remove, state.realName)
-		}
-		// Replace the original content with the new one
-		err = osutil.Rename(state.tempName, state.realName)
-		if err != nil {
-			l.Warnln("puller: final:", err)
-			return
-		}
-
-		// If it's a symlink, the target of the symlink is inside the file.
-		if state.file.IsSymlink() {
-			content, err := ioutil.ReadFile(state.realName)
-			if err != nil {
-				l.Warnln("puller: final: reading symlink:", err)
-				return
-			}
-
-			// Remove the file, and replace it with a symlink.
-			err = osutil.InWritableDir(func(path string) error {
-				os.Remove(path)
-				return symlinks.Create(path, string(content), state.file.Flags)
-			}, state.realName)
-			if err != nil {
-				l.Warnln("puller: final: creating symlink:", err)
-				return
-			}
-		}
-
-		// Record the updated file in the index
-		p.model.updateLocal(p.folder, state.file)
-
+	// Verify the file against expected hashes
+	fd, err := os.Open(state.tempName)
+	if err != nil {
+		l.Warnln("puller: final:", err)
+		return
 	}
+	err = scanner.Verify(fd, protocol.BlockSize, state.file.Blocks)
+	fd.Close()
+	if err != nil {
+		l.Infoln("puller:", state.file.Name, err, "(file changed during pull?)")
+		return
+	}
+
+	// Set the correct permission bits on the new file
+	if !p.ignorePerms {
+		err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
+		if err != nil {
+			l.Warnln("puller: final:", err)
+			return
+		}
+	}
+
+	// Set the correct timestamp on the new file
+	t := time.Unix(state.file.Modified, 0)
+	err = os.Chtimes(state.tempName, t, t)
+	if err != nil {
+		if p.lenientMtimes {
+			// We accept the failure with a warning here and allow the sync to
+			// continue. We'll sync the new mtime back to the other devices later.
+			// If they have the same problem & setting, we might never get in
+			// sync.
+			l.Infof("Puller (folder %q, file %q): final: %v (continuing anyway as requested)", p.folder, state.file.Name, err)
+		} else {
+			l.Warnln("puller: final:", err)
+			return
+		}
+	}
+
+	// If we should use versioning, let the versioner archive the old
+	// file before we replace it. Archiving a non-existent file is not
+	// an error.
+	if p.versioner != nil {
+		err = p.versioner.Archive(state.realName)
+		if err != nil {
+			l.Warnln("puller: final:", err)
+			return
+		}
+	}
+
+	// If the target path is a symlink or a directory, we cannot copy
+	// over it, hence remove it before proceeding.
+	stat, err := os.Lstat(state.realName)
+	isLink, _ := symlinks.IsSymlink(state.realName)
+	if isLink || (err == nil && stat.IsDir()) {
+		osutil.InWritableDir(os.Remove, state.realName)
+	}
+	// Replace the original content with the new one
+	err = osutil.Rename(state.tempName, state.realName)
+	if err != nil {
+		l.Warnln("puller: final:", err)
+		return
+	}
+
+	// If it's a symlink, the target of the symlink is inside the file.
+	if state.file.IsSymlink() {
+		content, err := ioutil.ReadFile(state.realName)
+		if err != nil {
+			l.Warnln("puller: final: reading symlink:", err)
+			return
+		}
+
+		// Remove the file, and replace it with a symlink.
+		err = osutil.InWritableDir(func(path string) error {
+			os.Remove(path)
+			return symlinks.Create(path, string(content), state.file.Flags)
+		}, state.realName)
+		if err != nil {
+			l.Warnln("puller: final: creating symlink:", err)
+			return
+		}
+	}
+
+	// Record the updated file in the index
+	p.model.updateLocal(p.folder, state.file)
 }
 
 func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 	for state := range in {
-		p.performFinish(state)
-		if state.closed && p.progressEmitter != nil {
-			p.progressEmitter.Deregister(state)
+		if closed, err := state.finalClose(); closed {
+			if debug {
+				l.Debugln(p, "closing", state.file.Name)
+			}
+			if err != nil {
+				l.Warnln("puller: final:", err)
+				continue
+			}
+
+			p.performFinish(state)
+			if p.progressEmitter != nil {
+				p.progressEmitter.Deregister(state)
+			}
 		}
 	}
 }
