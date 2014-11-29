@@ -18,6 +18,8 @@
 package integration_test
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/md5"
 	"encoding/json"
 	"errors"
@@ -94,9 +96,31 @@ func (p *syncthingProcess) start() error {
 	}
 }
 
-func (p *syncthingProcess) stop() {
+func (p *syncthingProcess) stop() error {
 	p.cmd.Process.Signal(os.Interrupt)
 	p.cmd.Wait()
+
+	fd, err := os.Open(p.log)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+
+	raceCondition := []byte("DATA RACE")
+	sc := bufio.NewScanner(fd)
+	for sc.Scan() {
+		line := sc.Bytes()
+		if bytes.Contains(line, raceCondition) {
+			name := fmt.Sprintf("race-%d.out", time.Now().Unix())
+			cp, _ := os.Create(name)
+			fd.Seek(0, os.SEEK_SET)
+			io.Copy(cp, fd)
+			cp.Close()
+
+			return errors.New("Race condition detected in " + name)
+		}
+	}
+	return nil
 }
 
 func (p *syncthingProcess) get(path string) (*http.Response, error) {

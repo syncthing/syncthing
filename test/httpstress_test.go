@@ -120,10 +120,13 @@ func TestStressHTTP(t *testing.T) {
 	}()
 
 	err = <-errChan
+	if err != nil {
+		t.Error(err)
+	}
 
 	t.Logf("%.01f reqs/sec", float64(counter)/time.Since(t0).Seconds())
 
-	sender.stop()
+	err = sender.stop()
 	if err != nil {
 		t.Error(err)
 	}

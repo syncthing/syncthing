@@ -125,7 +125,7 @@ case "${1:-default}" in
 				&& cp -r /tmp/syncthing syncthing \
 				&& cd syncthing \
 				&& ./build.sh clean \
-				&& ./build.sh \
+				&& go run build.go -race \
 				&& export GOPATH=$(pwd)/Godeps/_workspace:$GOPATH \
 				&& cd test \
 				&& go test -tags integration -v'

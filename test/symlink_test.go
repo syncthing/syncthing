@@ -122,7 +122,7 @@ func TestSymlinks(t *testing.T) {
 	}
 	err = receiver.start()
 	if err != nil {
-		sender.stop()
+		_ = sender.stop()
 		t.Fatal(err)
 	}
 
@@ -133,24 +133,28 @@ func TestSymlinks(t *testing.T) {
 				time.Sleep(time.Second)
 				continue
 			}
-			sender.stop()
-			receiver.stop()
+			_ = sender.stop()
+			_ = receiver.stop()
 			t.Fatal(err)
 		}
 
 		curComp := comp[id2]
 
 		if curComp == 100 {
-			sender.stop()
-			receiver.stop()
 			break
 		}
 
 		time.Sleep(time.Second)
 	}
 
-	sender.stop()
-	receiver.stop()
+	err = sender.stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = receiver.stop()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	log.Println("Comparing directories...")
 	err = compareDirectories("s1", "s2")
@@ -236,7 +240,7 @@ func TestSymlinks(t *testing.T) {
 
 	err = receiver.start()
 	if err != nil {
-		sender.stop()
+		_ = sender.stop()
 		t.Fatal(err)
 	}
 
@@ -247,24 +251,28 @@ func TestSymlinks(t *testing.T) {
 				time.Sleep(time.Second)
 				continue
 			}
-			sender.stop()
-			receiver.stop()
+			_ = sender.stop()
+			_ = receiver.stop()
 			t.Fatal(err)
 		}
 
 		curComp := comp[id2]
 
 		if curComp == 100 {
-			sender.stop()
-			receiver.stop()
 			break
 		}
 
 		time.Sleep(time.Second)
 	}
 
-	sender.stop()
-	receiver.stop()
+	err = sender.stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = receiver.stop()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	log.Println("Comparing directories...")
 	err = compareDirectories("s1", "s2")

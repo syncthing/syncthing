@@ -44,6 +44,7 @@ var (
 	goos      string
 	noupgrade bool
 	version   string
+	race      bool
 )
 
 const minGoVersion = 1.3
@@ -65,8 +66,9 @@ func main() {
 
 	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
 	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
-	flag.BoolVar(&noupgrade, "no-upgrade", false, "Disable upgrade functionality")
+	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
+	flag.BoolVar(&race, "race", race, "Use race detector")
 	flag.Parse()
 
 	switch goarch {
@@ -182,6 +184,9 @@ func install(pkg string, tags []string) {
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
 	}
+	if race {
+		args = append(args, "-race")
+	}
 	args = append(args, pkg)
 	setBuildEnv()
 	runPrint("go", args...)
@@ -192,6 +197,9 @@ func build(pkg string, tags []string) {
 	args := []string{"build", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
+	}
+	if race {
+		args = append(args, "-race")
 	}
 	args = append(args, pkg)
 	setBuildEnv()
