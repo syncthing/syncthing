@@ -46,11 +46,6 @@ identicon {
     height: 30px;
 }
 
-.identicon rect {
-    opacity: 0.85;
-    fill: #888;
-}
-
 .panel-heading .identicon {
     display: block;
     position: absolute;
@@ -63,10 +58,20 @@ identicon {
     overflow: hidden;
 }
 
-[class*="-info"] .identicon rect,
-[class*="-success"] .identicon rect,
-[class*="-primary"] .identicon rect {
-    fill: #fff;
+.identicon rect {
+    fill: #666;
+}
+.identicon-success rect {
+    fill: #2ecc71;
+}
+.identicon-info rect {
+    fill: #9b59b6;
+}
+.identicon-warning rect {
+    fill: #f1c40f;
+}
+.identicon-primary rect {
+    fill: #3498db;
 }
 
 .text-monospace {

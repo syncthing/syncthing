@@ -89,11 +89,11 @@
 
       <div class="col-md-6">
         <div class="panel-group" id="folders">
-          <div class="panel panel-{{folderClass(folder)}}" ng-repeat="folder in folderList()">
+          <div class="panel panel-default" ng-repeat="folder in folderList()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
               <h3 class="panel-title">
                 <span class="glyphicon glyphicon-hdd"></span>&emsp;{{folder.ID}}
-                <span class="pull-right hidden-xs" ng-switch="folderStatus(folder)">
+                <span class="pull-right hidden-xs text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span translate ng-switch-when="unknown">Unknown</span>
                   <span translate ng-switch-when="unshared">Unshared</span>
                   <span translate ng-switch-when="stopped">Stopped</span>
@@ -223,11 +223,11 @@
         <!-- Remote devices -->
 
         <div class="panel-group" id="devices">
-          <div class="panel panel-{{deviceClass(deviceCfg)}}" ng-repeat="deviceCfg in otherDevices()">
+          <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
               <h3 class="panel-title">
                 <identicon data-value="deviceCfg.DeviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
-                <span ng-switch="deviceStatus(deviceCfg)" class="pull-right hidden-xs">
+                <span ng-switch="deviceStatus(deviceCfg)" class="pull-right hidden-xs text-{{deviceClass(deviceCfg)}}">
                   <span ng-switch-when="insync">
                     <span translate>Up to Date</span> (100%)
                   </span>
