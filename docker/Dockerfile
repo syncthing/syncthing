@@ -1,7 +1,7 @@
 FROM debian:squeeze
 MAINTAINER Jakob Borg <jakob@nym.se>
 
-ENV GOLANG_VERSION 1.3.3
+ENV GOLANG_VERSION 1.4rc2
 
 # SCMs for "go get", gcc for cgo
 RUN apt-get update && apt-get install -y \
@@ -47,7 +47,7 @@ RUN bash -xec '\
 # Install packages needed for test coverage
 
 RUN go get github.com/tools/godep \
-	&& go get code.google.com/p/go.tools/cmd/cover \
+	&& go get golang.org/x/tools/cmd/cover \
 	&& go get github.com/axw/gocov/gocov \
 	&& go get github.com/AlekSi/gocov-xml
 
