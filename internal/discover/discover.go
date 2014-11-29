@@ -340,9 +340,10 @@ func (d *Discoverer) registerDevice(addr net.Addr, device Device) bool {
 	var id protocol.DeviceID
 	copy(id[:], device.ID)
 
-	d.registryLock.RLock()
+	d.registryLock.Lock()
+	defer d.registryLock.Unlock()
+
 	current := d.filterCached(d.registry[id])
-	d.registryLock.RUnlock()
 
 	orig := current
 
@@ -372,9 +373,7 @@ func (d *Discoverer) registerDevice(addr net.Addr, device Device) bool {
 		l.Debugf("discover: register: %v -> %v", id, current)
 	}
 
-	d.registryLock.Lock()
 	d.registry[id] = current
-	d.registryLock.Unlock()
 
 	if len(current) > len(orig) {
 		addrs := make([]string, len(current))
