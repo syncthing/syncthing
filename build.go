@@ -75,8 +75,14 @@ func main() {
 	case "386", "amd64", "armv5", "armv6", "armv7":
 		break
 	case "arm":
-		log.Println("Invalid goarch \"arm\". Use one of \"armv5\", \"armv6\", \"armv7\".")
-		log.Fatalln("Note that producing a correct \"armv5\" binary requires a rebuilt stdlib.")
+		switch os.Getenv("GOARM") {
+		case "5", "6", "7":
+			goarch += "v" + os.Getenv("GOARM")
+			break
+		default:
+			log.Println("Invalid goarch \"arm\". Use one of \"armv5\", \"armv6\", \"armv7\".")
+			log.Fatalln("Note that producing a correct \"armv5\" binary requires a rebuilt stdlib.")
+		}
 	default:
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
 	}
