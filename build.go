@@ -72,11 +72,8 @@ func main() {
 	flag.Parse()
 
 	switch goarch {
-	case "386", "amd64", "armv5", "armv6", "armv7":
+	case "386", "amd64", "arm":
 		break
-	case "arm":
-		log.Println("Invalid goarch \"arm\". Use one of \"armv5\", \"armv6\", \"armv7\".")
-		log.Fatalln("Note that producing a correct \"armv5\" binary requires a rebuilt stdlib.")
 	default:
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
 	}
@@ -263,12 +260,7 @@ func listFiles(dir string) []string {
 
 func setBuildEnv() {
 	os.Setenv("GOOS", goos)
-	if strings.HasPrefix(goarch, "arm") {
-		os.Setenv("GOARCH", "arm")
-		os.Setenv("GOARM", goarch[4:])
-	} else {
-		os.Setenv("GOARCH", goarch)
-	}
+	os.Setenv("GOARCH", goarch)
 	if goarch == "386" {
 		os.Setenv("GO386", "387")
 	}
@@ -328,9 +320,6 @@ func ldflags() string {
 	b.WriteString(fmt.Sprintf(" -X main.BuildUser %s", buildUser()))
 	b.WriteString(fmt.Sprintf(" -X main.BuildHost %s", buildHost()))
 	b.WriteString(fmt.Sprintf(" -X main.BuildEnv %s", buildEnvironment()))
-	if strings.HasPrefix(goarch, "arm") {
-		b.WriteString(fmt.Sprintf(" -X main.GoArchExtra %s", goarch[3:]))
-	}
 	return b.String()
 }
 
