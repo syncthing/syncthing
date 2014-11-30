@@ -179,6 +179,7 @@ type OptionsConfiguration struct {
 	KeepTemporariesH        int      `xml:"keepTemporariesH" default:"24"`     // 0 for off
 	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" default:"true"`
 	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" default:"5"`
+	DisableSymlinks         bool     `xml:"disableSymlinks" default:"false"`
 
 	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
 	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`
