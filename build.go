@@ -181,7 +181,7 @@ func setup() {
 
 func test(pkg string) {
 	setBuildEnv()
-	runPrint("go", "test", "-short", "-timeout", "10s", pkg)
+	runPrint("go", "test", "-short", "-timeout", "60s", pkg)
 }
 
 func install(pkg string, tags []string) {
