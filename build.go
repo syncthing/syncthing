@@ -20,6 +20,7 @@ package main
 import (
 	"archive/tar"
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"flag"
@@ -75,12 +76,18 @@ func main() {
 	case "386", "amd64", "armv5", "armv6", "armv7":
 		break
 	case "arm":
-		switch os.Getenv("GOARM") {
+		// Grab GOARM from the environment
+		origGoArm := os.Getenv("GOARM")
+		if origGoArm == "" {
+			// Not found there, run "go env" to try to figure it out.
+			origGoArm = getGoEnv("GOARM")
+		}
+		switch origGoArm {
 		case "5", "6", "7":
-			goarch += "v" + os.Getenv("GOARM")
+			goarch += "v" + origGoArm
 			break
 		default:
-			log.Println("Invalid goarch \"arm\". Use one of \"armv5\", \"armv6\", \"armv7\".")
+			log.Println("Invalid -goarch \"arm\". Use one of \"armv5\", \"armv6\", \"armv7\" or set GOARM.")
 			log.Fatalln("Note that producing a correct \"armv5\" binary requires a rebuilt stdlib.")
 		}
 	default:
@@ -447,6 +454,24 @@ func runPipe(file, cmd string, args ...string) {
 		log.Fatal(err)
 	}
 	fd.Close()
+}
+
+func getGoEnv(key string) string {
+	bs, err := runError("go", "env")
+	if err != nil {
+		log.Fatal(err)
+	}
+	s := bufio.NewScanner(bytes.NewReader(bs))
+	for s.Scan() {
+		fields := strings.SplitN(s.Text(), "=", 2)
+		if len(fields) != 2 {
+			continue
+		}
+		if fields[0] == key {
+			return strings.Trim(fields[1], `"`)
+		}
+	}
+	return ""
 }
 
 type archiveFile struct {
