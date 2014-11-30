@@ -98,12 +98,9 @@
                   <span translate ng-switch-when="unshared">Unshared</span>
                   <span translate ng-switch-when="stopped">Stopped</span>
                   <span translate ng-switch-when="scanning">Scanning</span>
+                  <span translate ng-switch-when="idle">Up to Date</span>
                   <span ng-switch-when="syncing">
                     <span translate>Syncing</span>
-                    ({{syncPercentage(folder.ID)}}%)
-                  </span>
-                  <span ng-switch-when="idle">
-                    <span translate>Idle</span>
                     ({{syncPercentage(folder.ID)}}%)
                   </span>
                 </span>
@@ -234,9 +231,7 @@
               <h3 class="panel-title">
                 <identicon data-value="deviceCfg.DeviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
                 <span ng-switch="deviceStatus(deviceCfg)" class="pull-right hidden-xs text-{{deviceClass(deviceCfg)}}">
-                  <span ng-switch-when="insync">
-                    <span translate>Up to Date</span> (100%)
-                  </span>
+                  <span translate ng-switch-when="insync">Up to Date</span>
                   <span ng-switch-when="syncing">
                     <span translate>Syncing</span> ({{completion[deviceCfg.DeviceID]._total | number:0}}%)
                   </span>
