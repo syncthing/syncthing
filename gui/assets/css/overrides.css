@@ -174,3 +174,20 @@ table.table-condensed td {
     display: block;
     width: 100%;
 }
+
+.three-columns {
+    -webkit-column-count: 3;
+    -moz-column-count: 3;
+    column-count: 3;
+}
+
+.two-columns {
+    -webkit-column-count: 2;
+    -moz-column-count: 2;
+    column-count: 2;
+}
+
+ul.three-columns li, ul.two-columns li {
+    padding-left: 0.5em;
+    text-indent: -0.5em;
+}

@@ -537,7 +537,7 @@
                 <div class="form-group">
                   <label translate for="devices">Share With Devices</label>
                   <p translate class="help-block">Select the devices to share this folder with.</p>
-                  <div style="-webkit-column-count: 3; -moz-column-count: 3; column-count: 3; vertical-align: top;">
+                  <div class="three-columns">
                     <div class="checkbox" ng-repeat="device in otherDevices()">
                       <label>
                         <input type="checkbox" ng-model="currentFolder.selectedDevices[device.DeviceID]"> {{deviceName(device)}}
@@ -796,8 +796,8 @@
 
     <p translate>Copyright &copy; 2014 Jakob Borg and the following Contributors:</p>
     <div class="row">
-      <div class="col-md-6">
-        <ul>
+      <div class="col-md-12">
+        <ul class="list-unstyled three-columns">
           <li>Aaron Bieber</li>
           <li>Andrew Dunham</li>
           <li>Alexander Graf</li>
@@ -813,10 +813,6 @@
           <li>Felix Ableitner</li>
           <li>Felix Unterpaintner</li>
           <li>Gilli Sigurdsson</li>
-        </ul>
-      </div>
-      <div class="col-md-6">
-        <ul>
           <li>James Patterson</li>
           <li>Jens Diemer</li>
           <li>Jochen Voss</li>
@@ -837,7 +833,7 @@
     <hr/>
 
     <p translate>Syncthing includes the following software or portions thereof:</p>
-    <ul>
+    <ul class="list-unstyled two-columns">
       <li><a href="http://golang.org/">The Go Programming Language</a>, Copyright &copy; 2012 The Go Authors.</li>
       <li><a href="https://bitbucket.org/kardianos/osext">kardianos/osext</a>, Copyright &copy; 2012 Daniel Theophanes.</li>
       <li><a href="https://code.google.com/p/snappy-go/">snappy-go</a>, Copyright &copy; 2011 The Snappy-Go Authors.</li>
