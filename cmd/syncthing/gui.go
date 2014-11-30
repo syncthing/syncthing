@@ -158,7 +158,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 
 	srv := http.Server{
 		Handler:     handler,
-		ReadTimeout: 2 * time.Second,
+		ReadTimeout: 10 * time.Second,
 	}
 
 	go func() {
