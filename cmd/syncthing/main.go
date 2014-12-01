@@ -458,7 +458,7 @@ func syncthingMain() {
 
 	opts := cfg.Options()
 
-	if opts.DisableSymlinks {
+	if !opts.SymlinksEnabled {
 		symlinks.Supported = false
 	}
 

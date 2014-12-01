@@ -429,6 +429,7 @@
         <apikey>abc123</apikey>
     </gui>
     <options>
+	    <disableSymlinks>true</disableSymlinks>
         <listenAddress>127.0.0.1:22002</listenAddress>
         <globalAnnounceServer>announce.syncthing.net:22026</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>

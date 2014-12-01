@@ -31,15 +31,15 @@ func expectEvent(w *events.Subscription, t *testing.T, size int) {
 		t.Fatal("Unexpected error:", err)
 	}
 	if event.Type != events.DownloadProgress {
-		t.Fatal("Unexpected event:", event)		
+		t.Fatal("Unexpected event:", event)
 	}
 	data := event.Data.(map[string]map[string]*pullerProgress)
 	if len(data) != size {
-		t.Fatal("Unexpected event data size:", data)				
+		t.Fatal("Unexpected event data size:", data)
 	}
 }
 
-func expectTimeout(w *events.Subscription, t *testing.T){
+func expectTimeout(w *events.Subscription, t *testing.T) {
 	_, err := w.Poll(timeout)
 	if err != events.ErrTimeout {
 		t.Fatal("Unexpected non-Timeout error:", err)
@@ -78,7 +78,7 @@ func TestProgressEmitter(t *testing.T) {
 	expectTimeout(w, t)
 
 	s.pullStarted()
-	
+
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
 
