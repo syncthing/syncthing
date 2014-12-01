@@ -77,6 +77,7 @@ type Puller struct {
 	copiers         int
 	pullers         int
 	finishers       int
+	queue           *JobQueue
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
@@ -88,6 +89,7 @@ func (p *Puller) Serve() {
 	}
 
 	p.stop = make(chan struct{})
+	p.queue = NewJobQueue()
 
 	pullTimer := time.NewTimer(checkPullIntv)
 	scanTimer := time.NewTimer(time.Millisecond) // The first scan should be done immediately.
@@ -325,14 +327,21 @@ func (p *Puller) pullerIteration(checksum bool) int {
 			p.handleDir(file)
 		default:
 			// A new or changed file or symlink. This is the only case where we
-			// do stuff in the background; the other three are done
-			// synchronously.
-			p.handleFile(file, copyChan, finisherChan)
+			// do stuff concurrently in the background
+			p.queue.Push(&file)
 		}
 
 		changed++
 		return true
 	})
+
+	for {
+		f := p.queue.Pop()
+		if f == nil {
+			break
+		}
+		p.handleFile(*f, copyChan, finisherChan)
+	}
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -472,6 +481,7 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 		if debug {
 			l.Debugln(p, "taking shortcut on", file.Name)
 		}
+		p.queue.Done(&file)
 		if file.IsSymlink() {
 			p.shortcutSymlink(curFile, file)
 		} else {
@@ -840,12 +850,22 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 				continue
 			}
 
+			p.queue.Done(&state.file)
 			p.performFinish(state)
 			if p.progressEmitter != nil {
 				p.progressEmitter.Deregister(state)
 			}
 		}
 	}
+}
+
+// Moves the given filename to the front of the job queue
+func (p *Puller) Bump(filename string) {
+	p.queue.Bump(filename)
+}
+
+func (p *Puller) Jobs() ([]protocol.FileInfoTruncated, []protocol.FileInfoTruncated) {
+	return p.queue.Jobs()
 }
 
 // clean deletes orphaned temporary files
