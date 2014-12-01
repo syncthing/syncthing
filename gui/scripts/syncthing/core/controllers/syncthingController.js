@@ -870,6 +870,17 @@ angular.module('syncthing.core')
             $scope.saveConfig();
         };
 
+        $scope.sharesFolder = function (folderCfg) {
+            var names = [];
+            folderCfg.Devices.forEach(function (device) {
+                if (device.DeviceID != $scope.myID) {
+                    names.push($scope.deviceName($scope.findDevice(device.DeviceID)));
+                }
+            });
+            names.sort();
+            return names.join(", ");
+        }
+
         $scope.deviceFolders = function (deviceCfg) {
             var folders = [];
             for (var folderID in $scope.folders) {
