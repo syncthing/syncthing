@@ -61,18 +61,6 @@ identicon {
 .identicon rect {
     fill: #666;
 }
-.identicon-success rect {
-    fill: #2ecc71;
-}
-.identicon-info rect {
-    fill: #9b59b6;
-}
-.identicon-warning rect {
-    fill: #f1c40f;
-}
-.identicon-primary rect {
-    fill: #3498db;
-}
 
 .text-monospace {
     font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
