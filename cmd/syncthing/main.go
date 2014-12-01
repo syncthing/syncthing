@@ -45,6 +45,7 @@ import (
 	"github.com/syncthing/syncthing/internal/model"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/syncthing/internal/symlinks"
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/syncthing/syncthing/internal/upnp"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -456,6 +457,10 @@ func syncthingMain() {
 	// This will be used on connections created in the connect and listen routines.
 
 	opts := cfg.Options()
+
+	if opts.DisableSymlinks {
+		symlinks.Supported = false
+	}
 
 	if opts.MaxSendKbps > 0 {
 		writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxSendKbps), int64(5*1000*opts.MaxSendKbps))

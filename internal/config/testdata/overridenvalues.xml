@@ -20,5 +20,6 @@
         <keepTemporariesH>48</keepTemporariesH>
         <cacheIgnoredFiles>false</cacheIgnoredFiles>
         <progressUpdateIntervalS>10</progressUpdateIntervalS>
+        <disableSymlinks>true</disableSymlinks>
     </options>
 </configuration>
