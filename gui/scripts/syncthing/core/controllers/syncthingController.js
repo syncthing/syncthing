@@ -268,7 +268,7 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/system').success(function (data) {
                 $scope.myID = data.myID;
                 $scope.system = data;
-                $scope.announceServersTotal = Object.keys(data.extAnnounceOK).length;
+                $scope.announceServersTotal = data.extAnnounceOK ? Object.keys(data.extAnnounceOK).length : 0;
                 var failed = [];
                 for (var server in data.extAnnounceOK) {
                     if (!data.extAnnounceOK[server]) {
