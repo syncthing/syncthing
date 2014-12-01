@@ -1056,6 +1056,15 @@ angular.module('syncthing.core')
             $http.post(urlbase + "/scan?folder=" + encodeURIComponent(folder));
         };
 
+        $scope.bumpFile = function (folder, file) {
+            $http.post(urlbase + "/bump?folder=" + encodeURIComponent(folder) + "&file=" + encodeURIComponent(file)).success(function (data) {
+                if ($scope.neededFolder == folder) {
+                    console.log("bumpFile", folder, data);
+                    $scope.needed = data;
+                }
+            });
+        };
+
         // pseudo main. called on all definitions assigned
         initController();
     });

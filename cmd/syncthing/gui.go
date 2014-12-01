@@ -149,6 +149,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/shutdown", restPostShutdown)
 	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
 	postRestMux.HandleFunc("/rest/scan", withModel(m, restPostScan))
+	postRestMux.HandleFunc("/rest/bump", withModel(m, restPostBump))
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -314,19 +315,12 @@ func restGetNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 
-	files := m.NeedFolderFilesLimited(folder, 100) // max 100 files
+	progress, queued, rest := m.NeedFolderFiles(folder, 100)
 	// Convert the struct to a more loose structure, and inject the size.
-	output := make([]map[string]interface{}, 0, len(files))
-	for _, file := range files {
-		output = append(output, map[string]interface{}{
-			"Name":         file.Name,
-			"Flags":        file.Flags,
-			"Modified":     file.Modified,
-			"Version":      file.Version,
-			"LocalVersion": file.LocalVersion,
-			"NumBlocks":    file.NumBlocks,
-			"Size":         protocol.BlocksToSize(file.NumBlocks),
-		})
+	output := map[string][]map[string]interface{}{
+		"progress": toNeedSlice(progress),
+		"queued":   toNeedSlice(queued),
+		"rest":     toNeedSlice(rest),
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -650,6 +644,14 @@ func restPostScan(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func restPostBump(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	file := qs.Get("file")
+	m.Bump(folder, file)
+	restGetNeed(m, w, r)
+}
+
 func getQR(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var text = qs.Get("text")
@@ -774,4 +776,20 @@ func mimeTypeForFile(file string) string {
 	default:
 		return mime.TypeByExtension(ext)
 	}
+}
+
+func toNeedSlice(files []protocol.FileInfoTruncated) []map[string]interface{} {
+	output := make([]map[string]interface{}, len(files))
+	for i, file := range files {
+		output[i] = map[string]interface{}{
+			"Name":         file.Name,
+			"Flags":        file.Flags,
+			"Modified":     file.Modified,
+			"Version":      file.Version,
+			"LocalVersion": file.LocalVersion,
+			"NumBlocks":    file.NumBlocks,
+			"Size":         protocol.BlocksToSize(file.NumBlocks),
+		}
+	}
+	return output
 }
