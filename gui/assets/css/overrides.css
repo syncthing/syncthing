@@ -41,6 +41,10 @@ identicon {
     margin-top: 0px;
 }
 
+.popover {
+    max-width: none;
+}
+
 .identicon {
     width: 30px;
     height: 30px;
