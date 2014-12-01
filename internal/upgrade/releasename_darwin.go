@@ -13,14 +13,13 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-// +build noupgrade
-
 package upgrade
 
-func upgradeTo(path string, rel Release) error {
-	return ErrUpgradeUnsupported
-}
+import (
+	"fmt"
+	"runtime"
+)
 
-func LatestRelease(prerelease bool) (Release, error) {
-	return Release{}, ErrUpgradeUnsupported
+func releaseName(tag string) string {
+	return fmt.Sprintf("syncthing-macosx-%s-%s.", runtime.GOARCH, tag)
 }

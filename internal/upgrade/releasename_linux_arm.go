@@ -13,14 +13,26 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-// +build noupgrade
-
 package upgrade
 
-func upgradeTo(path string, rel Release) error {
-	return ErrUpgradeUnsupported
+import (
+	"fmt"
+	"strings"
+	"syscall"
+)
+
+func releaseName(tag string) string {
+	return fmt.Sprintf("syncthing-linux-armv%s-%s.", goARM(), tag)
 }
 
-func LatestRelease(prerelease bool) (Release, error) {
-	return Release{}, ErrUpgradeUnsupported
+// Get the current ARM architecture version for upgrade purposes. If we can't
+// figure it out from the uname, default to ARMv6 (same as Go distribution).
+func goARM() string {
+	var name syscall.Utsname
+	syscall.Uname(&name)
+	machine := string(name.Machine[:5])
+	if strings.HasPrefix(machine, "armv") {
+		return machine[4:]
+	}
+	return "6"
 }

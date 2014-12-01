@@ -28,13 +28,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
-func upgradeTo(path string, rel Release, archExtra string) error {
-	expectedRelease := fmt.Sprintf("syncthing-%s-%s%s-%s.", runtime.GOOS, runtime.GOARCH, archExtra, rel.Tag)
+func upgradeTo(path string, rel Release) error {
+	expectedRelease := releaseName(rel.Tag)
 	if debug {
 		l.Debugf("expected release asset %q", expectedRelease)
 	}

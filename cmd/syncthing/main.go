@@ -62,7 +62,6 @@ var (
 	IsRelease   bool
 	IsBeta      bool
 	LongVersion string
-	GoArchExtra string // "", "v5", "v6", "v7"
 )
 
 const (
@@ -329,7 +328,7 @@ func main() {
 				l.Fatalln("Cannot upgrade, database seems to be locked. Is another copy of Syncthing already running?")
 			}
 
-			err = upgrade.UpgradeTo(rel, GoArchExtra)
+			err = upgrade.UpgradeTo(rel)
 			if err != nil {
 				l.Fatalln("Upgrade:", err) // exits 1
 			}
@@ -1246,7 +1245,7 @@ func autoUpgrade() {
 		}
 
 		l.Infof("Automatic upgrade (current %q < latest %q)", Version, rel.Tag)
-		err = upgrade.UpgradeTo(rel, GoArchExtra)
+		err = upgrade.UpgradeTo(rel)
 		if err != nil {
 			l.Warnln("Automatic upgrade:", err)
 			continue

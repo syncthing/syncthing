@@ -72,17 +72,8 @@ func main() {
 	flag.Parse()
 
 	switch goarch {
-	case "386", "amd64", "armv5", "armv6", "armv7":
+	case "386", "amd64", "arm", "armv5", "armv6", "armv7":
 		break
-	case "arm":
-		switch os.Getenv("GOARM") {
-		case "5", "6", "7":
-			goarch += "v" + os.Getenv("GOARM")
-			break
-		default:
-			log.Println("Invalid goarch \"arm\". Use one of \"armv5\", \"armv6\", \"armv7\".")
-			log.Fatalln("Note that producing a correct \"armv5\" binary requires a rebuilt stdlib.")
-		}
 	default:
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
 	}
@@ -161,7 +152,7 @@ func checkRequiredGoVersion() {
 		// This is a standard go build. Verify that it's new enough.
 		f, err := strconv.ParseFloat(vs, 64)
 		if err != nil {
-			log.Printf("*** Could parse Go version out of %q.\n*** This isn't known to work, proceed on your own risk.", vs)
+			log.Printf("*** Couldn't parse Go version out of %q.\n*** This isn't known to work, proceed on your own risk.", vs)
 			return
 		}
 		if f < minGoVersion {
@@ -269,7 +260,7 @@ func listFiles(dir string) []string {
 
 func setBuildEnv() {
 	os.Setenv("GOOS", goos)
-	if strings.HasPrefix(goarch, "arm") {
+	if strings.HasPrefix(goarch, "armv") {
 		os.Setenv("GOARCH", "arm")
 		os.Setenv("GOARM", goarch[4:])
 	} else {
@@ -334,9 +325,6 @@ func ldflags() string {
 	b.WriteString(fmt.Sprintf(" -X main.BuildUser %s", buildUser()))
 	b.WriteString(fmt.Sprintf(" -X main.BuildHost %s", buildHost()))
 	b.WriteString(fmt.Sprintf(" -X main.BuildEnv %s", buildEnvironment()))
-	if strings.HasPrefix(goarch, "arm") {
-		b.WriteString(fmt.Sprintf(" -X main.GoArchExtra %s", goarch[3:]))
-	}
 	return b.String()
 }
 

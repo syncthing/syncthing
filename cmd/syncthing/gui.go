@@ -598,7 +598,7 @@ func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if upgrade.CompareVersions(rel.Tag, Version) == 1 {
-		err = upgrade.UpgradeTo(rel, GoArchExtra)
+		err = upgrade.UpgradeTo(rel)
 		if err != nil {
 			l.Warnln("upgrading:", err)
 			http.Error(w, err.Error(), 500)

@@ -48,7 +48,7 @@ func init() {
 }
 
 // A wrapper around actual implementations
-func UpgradeTo(rel Release, archExtra string) error {
+func UpgradeTo(rel Release) error {
 	select {
 	case <-upgradeUnlocked:
 		path, err := osext.Executable()
@@ -56,7 +56,7 @@ func UpgradeTo(rel Release, archExtra string) error {
 			upgradeUnlocked <- true
 			return err
 		}
-		err = upgradeTo(path, rel, archExtra)
+		err = upgradeTo(path, rel)
 		// If we've failed to upgrade, unlock so that another attempt could be made
 		if err != nil {
 			upgradeUnlocked <- true

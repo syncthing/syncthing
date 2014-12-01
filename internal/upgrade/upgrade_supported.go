@@ -28,19 +28,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
-func upgradeTo(path string, rel Release, archExtra string) error {
-	osName := runtime.GOOS
-	if osName == "darwin" {
-		// We call the darwin release bundles macosx because that makes more
-		// sense for people downloading them
-		osName = "macosx"
-	}
-	expectedRelease := fmt.Sprintf("syncthing-%s-%s%s-%s.", osName, runtime.GOARCH, archExtra, rel.Tag)
+func upgradeTo(path string, rel Release) error {
+	expectedRelease := releaseName(rel.Tag)
 	if debug {
 		l.Debugf("expected release asset %q", expectedRelease)
 	}
