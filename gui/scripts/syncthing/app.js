@@ -25,7 +25,7 @@ var syncthing = angular.module('syncthing', [
 var urlbase = 'rest';
 var guiVersion = null;
 
-syncthing.config(function ($httpProvider, $translateProvider) {
+syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
     $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
     $httpProvider.defaults.xsrfCookieName = 'CSRF-Token';
     $httpProvider.interceptors.push(function () {
@@ -42,10 +42,15 @@ syncthing.config(function ($httpProvider, $translateProvider) {
         };
     });
 
+    // language and localisation
+
     $translateProvider.useStaticFilesLoader({
         prefix: 'assets/lang/lang-',
         suffix: '.json'
     });
+
+    LocaleServiceProvider.setAvailableLocales(validLangs);
+    LocaleServiceProvider.setDefaultLocale('en');
 
 });
 
