@@ -149,7 +149,7 @@ func (p *syncthingProcess) get(path string) (*http.Response, error) {
 
 func (p *syncthingProcess) post(path string, data io.Reader) (*http.Response, error) {
 	client := &http.Client{
-		Timeout: 2 * time.Second,
+		Timeout: 600 * time.Second,
 		Transport: &http.Transport{
 			DisableKeepAlives: true,
 		},
