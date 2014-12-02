@@ -38,14 +38,13 @@ type Pattern struct {
 type Matcher struct {
 	patterns   []Pattern
 	oldMatches map[string]bool
-
 	newMatches map[string]bool
 	mut        sync.Mutex
 }
 
 type MatcherCache struct {
 	patterns []Pattern
-	matches  *map[string]bool
+	matches  map[string]bool
 }
 
 func Load(file string, cache bool) (*Matcher, error) {
@@ -66,7 +65,7 @@ func Load(file string, cache bool) (*Matcher, error) {
 		matcher.newMatches = make(map[string]bool)
 		caches[file] = MatcherCache{
 			patterns: matcher.patterns,
-			matches:  &matcher.newMatches,
+			matches:  matcher.newMatches,
 		}
 		return matcher, nil
 	}
@@ -75,9 +74,9 @@ func Load(file string, cache bool) (*Matcher, error) {
 	// matches map and update the pointer. (This prevents matches map from
 	// growing indefinately, as we only cache whatever we've matched in the last
 	// iteration, rather than through runtime history)
-	matcher.oldMatches = *cached.matches
+	matcher.oldMatches = cached.matches
 	matcher.newMatches = make(map[string]bool)
-	cached.matches = &matcher.newMatches
+	cached.matches = matcher.newMatches
 	caches[file] = cached
 	return matcher, nil
 }
