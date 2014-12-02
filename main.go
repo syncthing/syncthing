@@ -126,6 +126,9 @@ func newDataHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// The ID is base64 encoded, so can contain slashes. Replace those with dots instead.
+		idStr = strings.Replace(idStr, "/", ".", -1)
+
 		f, err := os.Create(path.Join(dir, idStr+".json"))
 		if err != nil {
 			log.Println(err)
