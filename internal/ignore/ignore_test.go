@@ -173,12 +173,8 @@ func TestCaching(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if pats.oldMatches == nil || len(pats.oldMatches) != 0 {
-		t.Fatal("Expected empty map")
-	}
-
-	if pats.newMatches == nil || len(pats.newMatches) != 0 {
-		t.Fatal("Expected empty map")
+	if pats.matches.len() != 0 {
+		t.Fatal("Expected empty cache")
 	}
 
 	if len(pats.patterns) != 4 {
@@ -191,7 +187,7 @@ func TestCaching(t *testing.T) {
 		pats.Match(letter)
 	}
 
-	if len(pats.newMatches) != 4 {
+	if pats.matches.len() != 4 {
 		t.Fatal("Expected 4 cached results")
 	}
 
@@ -201,28 +197,8 @@ func TestCaching(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pats.oldMatches) != 4 {
+	if pats.matches.len() != 4 {
 		t.Fatal("Expected 4 cached results")
-	}
-
-	// Match less this time
-
-	for _, letter := range []string{"b", "x", "y"} {
-		pats.Match(letter)
-	}
-
-	if len(pats.newMatches) != 3 {
-		t.Fatal("Expected 3 cached results")
-	}
-
-	// Reload file, expect the new outcomes to be provided
-
-	pats, err = Load(fd1.Name(), true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(pats.oldMatches) != 3 {
-		t.Fatal("Expected 3 cached results", len(pats.oldMatches))
 	}
 
 	// Modify the include file, expect empty cache
@@ -234,7 +210,7 @@ func TestCaching(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(pats.oldMatches) != 0 {
+	if pats.matches.len() != 0 {
 		t.Fatal("Expected 0 cached results")
 	}
 
@@ -250,7 +226,7 @@ func TestCaching(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pats.oldMatches) != 3 {
+	if pats.matches.len() != 3 {
 		t.Fatal("Expected 3 cached results")
 	}
 
@@ -262,7 +238,7 @@ func TestCaching(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pats.oldMatches) != 0 {
+	if pats.matches.len() != 0 {
 		t.Fatal("Expected cache invalidation")
 	}
 
@@ -278,7 +254,7 @@ func TestCaching(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pats.oldMatches) != 3 {
+	if pats.matches.len() != 3 {
 		t.Fatal("Expected 3 cached results")
 	}
 }
