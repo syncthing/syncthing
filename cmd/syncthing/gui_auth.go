@@ -71,10 +71,6 @@ func basicAuthAndSessionMiddleware(cfg config.GUIConfiguration, next http.Handle
 		}
 
 		fields := bytes.SplitN(bs, []byte(":"), 2)
-		if len(fields) != 2 {
-			error()
-			return
-		}
 
 		if string(fields[0]) != cfg.User {
 			error()
