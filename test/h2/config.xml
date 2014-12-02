@@ -1,4 +1,4 @@
-<configuration version="6">
+<configuration version="7">
     <folder id="default" path="s2" ro="false" rescanIntervalS="15" ignorePerms="false">
         <device id="AF2HXQA-DOKKIMI-PKOG4RE-E25UTJ7-PSGQ7T5-WEY7YT5-SG6N7W5-NNA4BQM"></device>
         <device id="AND7GW6-DZN66F2-TKYJSTC-ACI7MYT-75X4T63-SE5S4MQ-GBSDHDL-4CLHJA6"></device>
@@ -429,9 +429,8 @@
         <apikey>abc123</apikey>
     </gui>
     <options>
-	    <disableSymlinks>true</disableSymlinks>
         <listenAddress>127.0.0.1:22002</listenAddress>
-        <globalAnnounceServer>announce.syncthing.net:22026</globalAnnounceServer>
+        <globalAnnounceServer>udp4://announce.syncthing.net:22026</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
         <localAnnouncePort>21025</localAnnouncePort>
@@ -450,5 +449,6 @@
         <keepTemporariesH>24</keepTemporariesH>
         <cacheIgnoredFiles>true</cacheIgnoredFiles>
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
+        <symlinksEnabled>true</symlinksEnabled>
     </options>
 </configuration>
