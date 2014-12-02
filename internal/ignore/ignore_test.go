@@ -22,10 +22,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 )
 
 func TestIgnore(t *testing.T) {
-	pats, err := Load("testdata/.stignore", true)
+	pats, err := Load("testdata/.stignore", time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,17 +169,13 @@ func TestCaching(t *testing.T) {
 
 	fd2.WriteString("/y/\n")
 
-	pats, err := Load(fd1.Name(), true)
+	pats, err := Load(fd1.Name(), time.Millisecond*100)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if pats.oldMatches == nil || len(pats.oldMatches) != 0 {
-		t.Fatal("Expected empty map")
-	}
-
-	if pats.newMatches == nil || len(pats.newMatches) != 0 {
-		t.Fatal("Expected empty map")
+	if pats.cache == nil {
+		t.Fatal("Expected cache")
 	}
 
 	if len(pats.patterns) != 4 {
@@ -191,50 +188,55 @@ func TestCaching(t *testing.T) {
 		pats.Match(letter)
 	}
 
-	if len(pats.newMatches) != 4 {
+	if len(pats.cache.matches) != 4 {
 		t.Fatal("Expected 4 cached results")
 	}
 
 	// Reload file, expect old outcomes to be provided
 
-	pats, err = Load(fd1.Name(), true)
+	pats, err = Load(fd1.Name(), time.Millisecond*100)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pats.oldMatches) != 4 {
+	if len(pats.cache.matches) != 4 {
 		t.Fatal("Expected 4 cached results")
 	}
 
-	// Match less this time
+	// Wait a bit to make sure that entries below get a bump quite late into
+	// the recheck period.
+	time.Sleep(150 * time.Millisecond)
 
+	// Match less this time, bumping the 'at' time for these entries
 	for _, letter := range []string{"b", "x", "y"} {
 		pats.Match(letter)
 	}
 
-	if len(pats.newMatches) != 3 {
-		t.Fatal("Expected 3 cached results")
+	// Wait for cleanup to happen, should evict 'a' as 100+150 > 100*2
+	time.Sleep(100 * time.Millisecond)
+	if len(pats.cache.matches) != 3 {
+		t.Fatal("Expected 3 cached results", len(pats.cache.matches))
 	}
 
 	// Reload file, expect the new outcomes to be provided
 
-	pats, err = Load(fd1.Name(), true)
+	pats, err = Load(fd1.Name(), time.Millisecond*100)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pats.oldMatches) != 3 {
-		t.Fatal("Expected 3 cached results", len(pats.oldMatches))
+	if len(pats.cache.matches) != 3 {
+		t.Fatal("Expected 3 cached results", len(pats.cache.matches))
 	}
 
 	// Modify the include file, expect empty cache
 
 	fd2.WriteString("/z/\n")
 
-	pats, err = Load(fd1.Name(), true)
+	pats, err = Load(fd1.Name(), time.Millisecond*100)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(pats.oldMatches) != 0 {
+	if len(pats.cache.matches) != 0 {
 		t.Fatal("Expected 0 cached results")
 	}
 
@@ -246,11 +248,11 @@ func TestCaching(t *testing.T) {
 
 	// Verify that outcomes provided on next laod
 
-	pats, err = Load(fd1.Name(), true)
+	pats, err = Load(fd1.Name(), time.Millisecond*100)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pats.oldMatches) != 3 {
+	if len(pats.cache.matches) != 3 {
 		t.Fatal("Expected 3 cached results")
 	}
 
@@ -258,11 +260,11 @@ func TestCaching(t *testing.T) {
 
 	fd1.WriteString("/a/\n")
 
-	pats, err = Load(fd1.Name(), true)
+	pats, err = Load(fd1.Name(), time.Millisecond*100)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pats.oldMatches) != 0 {
+	if len(pats.cache.matches) != 0 {
 		t.Fatal("Expected cache invalidation")
 	}
 
@@ -274,11 +276,11 @@ func TestCaching(t *testing.T) {
 
 	// Verify that outcomes provided on next laod
 
-	pats, err = Load(fd1.Name(), true)
+	pats, err = Load(fd1.Name(), time.Millisecond*100)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pats.oldMatches) != 3 {
+	if len(pats.cache.matches) != 3 {
 		t.Fatal("Expected 3 cached results")
 	}
 }
@@ -357,7 +359,7 @@ flamingo
 	}
 
 	// Load the patterns
-	pats, err := Load(fd.Name(), true)
+	pats, err := Load(fd.Name(), time.Millisecond*100)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -366,7 +368,7 @@ flamingo
 
 	// This load should now load the cached outcomes as the set of patterns
 	// has not changed.
-	pats, err = Load(fd.Name(), true)
+	pats, err = Load(fd.Name(), time.Millisecond*100)
 	if err != nil {
 		b.Fatal(err)
 	}
