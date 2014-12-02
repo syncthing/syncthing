@@ -1013,7 +1013,12 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 		m.deviceFolders[device.DeviceID] = append(m.deviceFolders[device.DeviceID], cfg.ID)
 	}
 
-	ignores, _ := ignore.Load(filepath.Join(cfg.Path, ".stignore"), m.cfg.Options().CacheIgnoredFiles)
+	var cacheLifetime time.Duration
+	if m.cfg.Options().CacheIgnoredFiles {
+		cacheLifetime = time.Duration(cfg.RescanIntervalS) * time.Second
+	}
+
+	ignores, _ := ignore.Load(filepath.Join(cfg.Path, ".stignore"), cacheLifetime)
 	m.folderIgnores[cfg.ID] = ignores
 
 	m.addedFolder = true
@@ -1056,7 +1061,12 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	fs, ok := m.folderFiles[folder]
 	dir := m.folderCfgs[folder].Path
 
-	ignores, _ := ignore.Load(filepath.Join(dir, ".stignore"), m.cfg.Options().CacheIgnoredFiles)
+	var cacheLifetime time.Duration
+	if m.cfg.Options().CacheIgnoredFiles {
+		cacheLifetime = time.Duration(m.folderCfgs[folder].RescanIntervalS) * time.Second
+	}
+
+	ignores, _ := ignore.Load(filepath.Join(dir, ".stignore"), cacheLifetime)
 	m.folderIgnores[folder] = ignores
 
 	w := &scanner.Walker{
