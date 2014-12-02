@@ -18,7 +18,6 @@ package versioner
 import (
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 
 	"github.com/syncthing/syncthing/internal/osutil"
@@ -124,10 +123,9 @@ func (v Simple) Archive(filePath string) error {
 
 	// Use all the found filenames. "~" sorts after "." so all old pattern
 	// files will be deleted before any new, which is as it should be.
-	versions := append(oldVersions, newVersions...)
+	versions := uniqueSortedStrings(append(oldVersions, newVersions...))
 
 	if len(versions) > v.keep {
-		sort.Strings(versions)
 		for _, toRemove := range versions[:len(versions)-v.keep] {
 			if debug {
 				l.Debugln("cleaning out", toRemove)
