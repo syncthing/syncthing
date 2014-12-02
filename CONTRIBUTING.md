@@ -37,6 +37,22 @@ where to start, any open issues are fair game! Be prepared for a
 all in the name of quality. :) Following the points below will make this
 a smoother process.
 
+Individuals making significant and valuable contributions are given
+commit-access to the project. If you make a significant contribution and
+are not considered for commit-access, please contact any of the
+Syncthing core team members.
+
+All nontrivial contributions should go through the pull request
+mechanism for internal review. Determining what is "nontrivial" is left
+at the discretion of the contributor.
+
+### Core Team
+
+The Syncthing core team currently consists of the following members;
+
+ - Jakob Borg (@calmh)
+ - Audrius Butkevicius (@AudriusButkevicius)
+
 ## Coding Style
 
 - Follow the conventions laid out in [Effective Go](https://golang.org/doc/effective_go.html)
@@ -59,7 +75,7 @@ a smoother process.
   feature should probably be a single commit based on the current
   `master` branch. You may be asked to "rebase" or "squash" your pull
   request to make sure this is the case, especially if there have been
-  amendments during review. 
+  amendments during review.
 
 ## Licensing
 
