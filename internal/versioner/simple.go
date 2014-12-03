@@ -55,7 +55,7 @@ func NewSimple(folderID, folderPath string, params map[string]string) Versioner 
 // Move away the named file to a version archive. If this function returns
 // nil, the named file does not exist any more (has been archived).
 func (v Simple) Archive(filePath string) error {
-	fileInfo, err := os.Stat(filePath)
+	fileInfo, err := os.Lstat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if debug {
