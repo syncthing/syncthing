@@ -106,21 +106,27 @@ func (p *syncthingProcess) stop() error {
 	}
 	defer fd.Close()
 
-	raceCondition := []byte("DATA RACE")
+	raceConditionStart := []byte("WARNING: DATA RACE")
+	raceConditionSep := []byte("==================")
 	sc := bufio.NewScanner(fd)
+	race := false
 	for sc.Scan() {
 		line := sc.Bytes()
-		if bytes.Contains(line, raceCondition) {
-			name := fmt.Sprintf("race-%d.out", time.Now().Unix())
-			cp, _ := os.Create(name)
-			fd.Seek(0, os.SEEK_SET)
-			io.Copy(cp, fd)
-			cp.Close()
-
-			return errors.New("Race condition detected in " + name)
+		if race {
+			fmt.Printf("%s\n", line)
+			if bytes.Contains(line, raceConditionSep) {
+				race = false
+			}
+		} else if bytes.Contains(line, raceConditionStart) {
+			fmt.Printf("%s\n", raceConditionSep)
+			fmt.Printf("%s\n", raceConditionStart)
+			race = true
+			if err == nil {
+				err = errors.New("Race condition detected")
+			}
 		}
 	}
-	return nil
+	return err
 }
 
 func (p *syncthingProcess) get(path string) (*http.Response, error) {
