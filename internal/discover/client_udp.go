@@ -91,16 +91,14 @@ func (d *UDPClient) Start(uri *url.URL, pkt *Announce) error {
 
 func (d *UDPClient) broadcast(pkt []byte) {
 	defer d.wg.Done()
-	timer := time.NewTimer(0)
 
 	conn, err := net.ListenUDP(d.url.Scheme, d.listenAddress)
 	for err != nil {
-		timer.Reset(d.errorRetryInterval)
 		l.Warnf("Global UDP discovery (%s): %v; trying again in %v", d.url, err, d.errorRetryInterval)
 		select {
 		case <-d.stop:
 			return
-		case <-timer.C:
+		case <-time.After(d.errorRetryInterval):
 		}
 		conn, err = net.ListenUDP(d.url.Scheme, d.listenAddress)
 	}
@@ -108,18 +106,16 @@ func (d *UDPClient) broadcast(pkt []byte) {
 
 	remote, err := net.ResolveUDPAddr(d.url.Scheme, d.url.Host)
 	for err != nil {
-		timer.Reset(d.errorRetryInterval)
 		l.Warnf("Global UDP discovery (%s): %v; trying again in %v", d.url, err, d.errorRetryInterval)
 		select {
 		case <-d.stop:
 			return
-		case <-timer.C:
+		case <-time.After(d.errorRetryInterval):
 		}
 		remote, err = net.ResolveUDPAddr(d.url.Scheme, d.url.Host)
 	}
 
-	timer.Reset(0)
-
+	timer := time.NewTimer(0)
 	for {
 		select {
 		case <-d.stop:
