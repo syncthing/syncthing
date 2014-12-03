@@ -28,24 +28,15 @@ import (
 	"github.com/syncthing/syncthing/internal/fnmatch"
 )
 
-var caches = make(map[string]MatcherCache)
-
 type Pattern struct {
 	match   *regexp.Regexp
 	include bool
 }
 
 type Matcher struct {
-	patterns   []Pattern
-	oldMatches map[string]bool
-
-	newMatches map[string]bool
-	mut        sync.Mutex
-}
-
-type MatcherCache struct {
 	patterns []Pattern
-	matches  *map[string]bool
+	matches  *cache
+	mut      sync.Mutex
 }
 
 func Load(file string, cache bool) (*Matcher, error) {
@@ -55,6 +46,9 @@ func Load(file string, cache bool) (*Matcher, error) {
 		return matcher, err
 	}
 
+	cacheMut.Lock()
+	defer cacheMut.Unlock()
+
 	// Get the current cache object for the given file
 	cached, ok := caches[file]
 	if !ok || !patternsEqual(cached.patterns, matcher.patterns) {
@@ -62,12 +56,9 @@ func Load(file string, cache bool) (*Matcher, error) {
 		// store matches for the given set of patterns.
 		// Initialize oldMatches to indicate that we are interested in
 		// caching.
-		matcher.oldMatches = make(map[string]bool)
-		matcher.newMatches = make(map[string]bool)
-		caches[file] = MatcherCache{
-			patterns: matcher.patterns,
-			matches:  &matcher.newMatches,
-		}
+		cached = newCache(matcher.patterns)
+		matcher.matches = cached
+		caches[file] = cached
 		return matcher, nil
 	}
 
@@ -75,10 +66,7 @@ func Load(file string, cache bool) (*Matcher, error) {
 	// matches map and update the pointer. (This prevents matches map from
 	// growing indefinately, as we only cache whatever we've matched in the last
 	// iteration, rather than through runtime history)
-	matcher.oldMatches = *cached.matches
-	matcher.newMatches = make(map[string]bool)
-	cached.matches = &matcher.newMatches
-	caches[file] = cached
+	matcher.matches = cached
 	return matcher, nil
 }
 
@@ -94,27 +82,27 @@ func (m *Matcher) Match(file string) (result bool) {
 		return false
 	}
 
-	// We have old matches map set, means we should do caching
-	if m.oldMatches != nil {
-		// Capture the result to the new matches regardless of who returns it
-		defer func() {
-			m.mut.Lock()
-			m.newMatches[file] = result
-			m.mut.Unlock()
-		}()
-		// Check perhaps we've seen this file before, and we already know
-		// what the outcome is going to be.
-		result, ok := m.oldMatches[file]
+	if m.matches != nil {
+		// Check the cache for a known result.
+		res, ok := m.matches.get(file)
 		if ok {
-			return result
+			return res
 		}
+
+		// Update the cache with the result at return time
+		defer func() {
+			m.matches.set(file, result)
+		}()
 	}
 
+	// Check all the patterns for a match.
 	for _, pattern := range m.patterns {
 		if pattern.match.MatchString(file) {
 			return pattern.include
 		}
 	}
+
+	// Default to false.
 	return false
 }
 
