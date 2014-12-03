@@ -24,9 +24,53 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/protocol"
 )
 
-func TestFiletypeChange(t *testing.T) {
+func TestFileTypeChange(t *testing.T) {
+	// Use no versioning
+	id, _ := protocol.DeviceIDFromString(id2)
+	cfg, _ := config.Load("h2/config.xml", id)
+	fld := cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{}
+	cfg.SetFolder(fld)
+	cfg.Save()
+
+	testFileTypeChange(t)
+}
+
+func TestFileTypeChangeSimpleVersioning(t *testing.T) {
+	// Use simple versioning
+	id, _ := protocol.DeviceIDFromString(id2)
+	cfg, _ := config.Load("h2/config.xml", id)
+	fld := cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{
+		Type:   "simple",
+		Params: map[string]string{"keep": "5"},
+	}
+	cfg.SetFolder(fld)
+	cfg.Save()
+
+	testFileTypeChange(t)
+}
+
+func TestFileTypeChangeStaggeredVersioning(t *testing.T) {
+	// Use staggered versioning
+	id, _ := protocol.DeviceIDFromString(id2)
+	cfg, _ := config.Load("h2/config.xml", id)
+	fld := cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{
+		Type: "staggered",
+	}
+	cfg.SetFolder(fld)
+	cfg.Save()
+
+	testFileTypeChange(t)
+}
+
+func testFileTypeChange(t *testing.T) {
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s2", "h1/index", "h2/index")
 	if err != nil {
