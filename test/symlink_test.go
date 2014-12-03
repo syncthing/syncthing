@@ -99,6 +99,13 @@ func TestSymlinks(t *testing.T) {
 		log.Fatal(err)
 	}
 
+	// A link we will remove later
+
+	err = symlinks.Create("s1/removeLink", "does/not/exist", 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Verify that the files and symlinks sync to the other side
 
 	log.Println("Syncing...")
@@ -225,6 +232,13 @@ func TestSymlinks(t *testing.T) {
 		log.Fatal(err)
 	}
 	err = symlinks.Create("s1/dirToReplace", "somewhere/non/existent", 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Remove a symlink
+
+	err = os.Remove("s1/removeLink")
 	if err != nil {
 		log.Fatal(err)
 	}
