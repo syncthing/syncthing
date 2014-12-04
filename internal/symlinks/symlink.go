@@ -48,7 +48,7 @@ func IsSymlink(path string) (bool, error) {
 	return lstat.Mode()&os.ModeSymlink != 0, nil
 }
 
-func Create(source, target string, flags uint32) error {
+func Create(target, source string, flags uint32) error {
 	return os.Symlink(osutil.NativeFilename(target), source)
 }
 
@@ -77,6 +77,6 @@ func ChangeType(path string, flags uint32) error {
 		// It should be a symlink as well hence no need to change permissions
 		// on the file.
 		os.Remove(path)
-		return Create(path, target, flags)
+		return Create(target, path, flags)
 	}, path)
 }
