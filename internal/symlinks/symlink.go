@@ -13,12 +13,11 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-// +build !windows
-
 package symlinks
 
 import (
 	"os"
+	"runtime"
 
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
@@ -54,5 +53,30 @@ func Create(source, target string, flags uint32) error {
 }
 
 func ChangeType(path string, flags uint32) error {
-	return nil
+	if runtime.GOOS != "windows" {
+		// This is a Windows-only concept.
+		return nil
+	}
+
+	target, cflags, err := Read(path)
+	if err != nil {
+		return err
+	}
+
+	// If it's the same type, nothing to do.
+	if cflags&protocol.SymlinkTypeMask == flags&protocol.SymlinkTypeMask {
+		return nil
+	}
+
+	// If the actual type is unknown, but the new type is file, nothing to do
+	if cflags&protocol.FlagSymlinkMissingTarget != 0 && flags&protocol.FlagDirectory == 0 {
+		return nil
+	}
+
+	return osutil.InWritableDir(func(path string) error {
+		// It should be a symlink as well hence no need to change permissions
+		// on the file.
+		os.Remove(path)
+		return Create(path, target, flags)
+	}, path)
 }
