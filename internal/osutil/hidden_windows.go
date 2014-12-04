@@ -48,3 +48,14 @@ func ShowFile(path string) error {
 	attrs &^= syscall.FILE_ATTRIBUTE_HIDDEN
 	return syscall.SetFileAttributes(p, attrs)
 }
+
+func HideConsole() {
+	getConsoleWindow := syscall.NewLazyDLL("kernel32.dll").NewProc("GetConsoleWindow")
+	showWindow := syscall.NewLazyDLL("user32.dll").NewProc("ShowWindow")
+	if getConsoleWindow.Find() == nil && showWindow.Find() == nil {
+		hwnd, _, _ := getConsoleWindow.Call()
+		if hwnd != 0 {
+			showWindow.Call(hwnd, 0)
+		}
+	}
+}

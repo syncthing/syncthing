@@ -188,6 +188,7 @@ var (
 	doUpgrade         bool
 	doUpgradeCheck    bool
 	noBrowser         bool
+	noConsole         bool
 	generateDir       string
 	logFile           string
 	noRestart         = os.Getenv("STNORESTART") != ""
@@ -214,6 +215,9 @@ func main() {
 
 		logFile = filepath.Join(defConfDir, "syncthing.log")
 		flag.StringVar(&logFile, "logfile", logFile, "Log file name (blank for stdout)")
+
+		// We also add an option to hide the console window
+		flag.BoolVar(&noConsole, "no-console", false, "Hide console window")
 	}
 
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
@@ -231,6 +235,10 @@ func main() {
 
 	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, defConfDir))
 	flag.Parse()
+
+	if noConsole {
+		osutil.HideConsole()
+	}
 
 	if confDir == "" {
 		// Not set as default above because the string can be really long.

@@ -24,3 +24,5 @@ func HideFile(path string) error {
 func ShowFile(path string) error {
 	return nil
 }
+
+func HideConsole() {}
