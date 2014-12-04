@@ -41,14 +41,6 @@ func Read(path string) (string, uint32, error) {
 	return osutil.NormalizedFilename(path), mode, err
 }
 
-func IsSymlink(path string) (bool, error) {
-	lstat, err := os.Lstat(path)
-	if err != nil {
-		return false, err
-	}
-	return lstat.Mode()&os.ModeSymlink != 0, nil
-}
-
 func Create(source, target string, flags uint32) error {
 	return os.Symlink(osutil.NativeFilename(target), source)
 }
