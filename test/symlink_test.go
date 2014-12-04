@@ -62,7 +62,7 @@ func TestSymlinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	fd.Close()
-	err = symlinks.Create("file", "s1/fileLink", 0)
+	err = symlinks.Create("s1/fileLink", "file", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,35 +73,35 @@ func TestSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = symlinks.Create("dir", "s1/dirLink", 0)
+	err = symlinks.Create("s1/dirLink", "dir", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link to something in the repo that does not exist
 
-	err = symlinks.Create("does/not/exist", "s1/noneLink", 0)
+	err = symlinks.Create("s1/noneLink", "does/not/exist", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link we will replace with a file later
 
-	err = symlinks.Create("does/not/exist", "s1/repFileLink", 0)
+	err = symlinks.Create("s1/repFileLink", "does/not/exist", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link we will replace with a directory later
 
-	err = symlinks.Create("does/not/exist", "s1/repDirLink", 0)
+	err = symlinks.Create("s1/repDirLink", "does/not/exist", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link we will remove later
 
-	err = symlinks.Create("does/not/exist", "s1/removeLink", 0)
+	err = symlinks.Create("s1/removeLink", "does/not/exist", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestSymlinks(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = symlinks.Create("file", "s1/dirLink", 0)
+	err = symlinks.Create("s1/dirLink", "file", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestSymlinks(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = symlinks.Create("somewhere/non/existent", "s1/fileToReplace", 0)
+	err = symlinks.Create("s1/fileToReplace", "somewhere/non/existent", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -231,7 +231,7 @@ func TestSymlinks(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = symlinks.Create("somewhere/non/existent", "s1/dirToReplace", 0)
+	err = symlinks.Create("s1/dirToReplace", "somewhere/non/existent", 0)
 	if err != nil {
 		log.Fatal(err)
 	}

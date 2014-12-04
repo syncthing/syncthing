@@ -817,7 +817,7 @@ func (p *Puller) performFinish(state *sharedPullerState) {
 		// Remove the file, and replace it with a symlink.
 		err = osutil.InWritableDir(func(path string) error {
 			os.Remove(path)
-			return symlinks.Create(string(content), path, state.file.Flags)
+			return symlinks.Create(path, string(content), state.file.Flags)
 		}, state.realName)
 		if err != nil {
 			l.Warnln("puller: final: creating symlink:", err)
