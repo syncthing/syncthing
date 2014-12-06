@@ -289,8 +289,7 @@ func (v Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	fileInfo, err := os.Stat(filePath)
-	if err != nil {
+	if _, err := os.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {
 			if debug {
 				l.Debugln("not archiving nonexistent file", filePath)
@@ -301,8 +300,7 @@ func (v Staggered) Archive(filePath string) error {
 		}
 	}
 
-	_, err = os.Stat(v.versionsPath)
-	if err != nil {
+	if _, err := os.Stat(v.versionsPath); err != nil {
 		if os.IsNotExist(err) {
 			if debug {
 				l.Debugln("creating versions dir", v.versionsPath)
@@ -330,7 +328,7 @@ func (v Staggered) Archive(filePath string) error {
 		return err
 	}
 
-	ver := taggedFilename(file, fileInfo.ModTime().Format(TimeFormat))
+	ver := taggedFilename(file, time.Now().Format(TimeFormat))
 	dst := filepath.Join(dir, ver)
 	if debug {
 		l.Debugln("moving to", dst)
