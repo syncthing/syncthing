@@ -91,6 +91,7 @@
         <div class="panel-group" id="folders">
           <div class="panel panel-default" ng-repeat="folder in folderList()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
+              <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.ID)}}%"></div>
               <h3 class="panel-title">
                 <span class="glyphicon glyphicon-hdd"></span>&emsp;{{folder.ID}}
                 <span class="pull-right hidden-xs text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
@@ -232,6 +233,7 @@
         <div class="panel-group" id="devices">
           <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
+              <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.DeviceID]._total | number:0}}%"></div>
               <h3 class="panel-title">
                 <identicon data-value="deviceCfg.DeviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
                 <span ng-switch="deviceStatus(deviceCfg)" class="pull-right hidden-xs text-{{deviceClass(deviceCfg)}}">
@@ -824,6 +826,7 @@
           <li>Alexander Graf</li>
           <li>Arthur Axel fREW Schmidt</li>
           <li>Audrius Butkevicius</li>
+          <li>Ben Schulz</li>
           <li>Ben Sidhom</li>
           <li>Brandon Philips</li>
           <li>Caleb Callaway</li>

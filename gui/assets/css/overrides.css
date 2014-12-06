@@ -28,6 +28,19 @@ ul+h5 {
     margin-top: 1.5em;
 }
 
+.panel-progress {
+    background: #3498db;
+    height: 3px;
+    left: 0;
+    position: absolute;
+    top: 0;
+    display: block;
+}
+
+.panel-title {
+    position: relative;
+}
+
 identicon {
     display: inline-block;
     position: relative;
@@ -46,15 +59,14 @@ identicon {
 }
 
 .identicon {
-    width: 30px;
-    height: 30px;
+    width: 20px;
+    height: 20px;
 }
 
 .panel-heading .identicon {
     display: block;
     position: absolute;
-    top: -4px;
-    left: -9px;
+    top: 1px;
 }
 
 .panel-heading {
