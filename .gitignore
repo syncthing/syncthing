@@ -12,3 +12,4 @@ bin
 perfstats*.csv
 coverage.xml
 !gui/scripts/syncthing
+.DS_Store

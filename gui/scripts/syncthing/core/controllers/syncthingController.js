@@ -583,7 +583,7 @@ angular.module('syncthing.core')
                 $scope.config.GUI = angular.copy($scope.tmpGUI);
 
                 ['ListenAddress', 'GlobalAnnServers'].forEach(function (key) {
-                   $scope.config.Options[key] = $scope.config.Options[key + "Str"].split(/[ ,]+/).map(function (x) {
+                    $scope.config.Options[key] = $scope.config.Options[key + "Str"].split(/[ ,]+/).map(function (x) {
                         return x.trim();
                     });
                 });
@@ -918,11 +918,12 @@ angular.module('syncthing.core')
                 var devices = $scope.folders[folderID].Devices
                 for (var i = 0; i < devices.length; i++) {
                     if (devices[i].DeviceID == deviceCfg.DeviceID) {
-                        folders.push(folderID)
-                        break
+                        folders.push(folderID);
+                        break;
                     }
                 }
             };
+
             folders.sort();
             return folders;
         };
