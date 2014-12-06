@@ -131,12 +131,9 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			return nil
 		}
 
-		// We must perform this check, as symlinks on Windows are always
-		// .IsRegular or .IsDir unlike on Unix.
 		// Index wise symlinks are always files, regardless of what the target
 		// is, because symlinks carry their target path as their content.
-		isSymlink, _ := symlinks.IsSymlink(p)
-		if isSymlink {
+		if info.Mode()&os.ModeSymlink != 0 {
 			var rval error
 			// If the target is a directory, do NOT descend down there.
 			// This will cause files to get tracked, and removing the symlink
@@ -199,7 +196,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			if w.CurrentFiler != nil {
 				cf := w.CurrentFiler.CurrentFile(rn)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if !cf.IsDeleted() && cf.IsDirectory() && permUnchanged {
+				if !cf.IsDeleted() && cf.IsDirectory() && permUnchanged && !cf.IsSymlink() {
 					return nil
 				}
 			}

@@ -69,8 +69,8 @@ func init() {
 		return
 	}
 
-	isLink, err := IsSymlink(path)
-	if err != nil || !isLink {
+	stat, err := os.Lstat(path)
+	if err != nil || stat.Mode()&os.ModeSymlink == 0 {
 		return
 	}
 
@@ -137,19 +137,6 @@ func Read(path string) (string, uint32, error) {
 	}
 
 	return osutil.NormalizedFilename(data.PrintName()), flags, nil
-}
-
-func IsSymlink(path string) (bool, error) {
-	ptr, err := syscall.UTF16PtrFromString(path)
-	if err != nil {
-		return false, err
-	}
-
-	attr, err := syscall.GetFileAttributes(ptr)
-	if err != nil {
-		return false, err
-	}
-	return attr&FILE_ATTRIBUTE_REPARSE_POINT != 0, nil
 }
 
 func Create(source, target string, flags uint32) error {
