@@ -26,6 +26,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 )
 
@@ -63,6 +64,11 @@ func walkerFor(basePath string) filepath.WalkFunc {
 	return func(name string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		if strings.HasPrefix(filepath.Base(name), ".") {
+			// Skip dotfiles
+			return nil
 		}
 
 		if info.Mode().IsRegular() {
