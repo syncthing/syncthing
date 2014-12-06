@@ -24,10 +24,53 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syncthing/syncthing/internal/symlinks"
 )
 
 func TestSymlinks(t *testing.T) {
+	// Use no versioning
+	id, _ := protocol.DeviceIDFromString(id2)
+	cfg, _ := config.Load("h2/config.xml", id)
+	fld := cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{}
+	cfg.SetFolder(fld)
+	cfg.Save()
+
+	testSymlinks(t)
+}
+
+func TestSymlinksSimpleVersioning(t *testing.T) {
+	// Use no versioning
+	id, _ := protocol.DeviceIDFromString(id2)
+	cfg, _ := config.Load("h2/config.xml", id)
+	fld := cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{
+		Type:   "simple",
+		Params: map[string]string{"keep": "5"},
+	}
+	cfg.SetFolder(fld)
+	cfg.Save()
+
+	testSymlinks(t)
+}
+
+func TestSymlinksStaggeredVersioning(t *testing.T) {
+	// Use no versioning
+	id, _ := protocol.DeviceIDFromString(id2)
+	cfg, _ := config.Load("h2/config.xml", id)
+	fld := cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{
+		Type: "staggered",
+	}
+	cfg.SetFolder(fld)
+	cfg.Save()
+
+	testSymlinks(t)
+}
+
+func testSymlinks(t *testing.T) {
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s2", "h1/index", "h2/index")
 	if err != nil {
@@ -236,7 +279,7 @@ func TestSymlinks(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	// Remove a symlink
+	// Remove a broken symlink
 
 	err = os.Remove("s1/removeLink")
 	if err != nil {

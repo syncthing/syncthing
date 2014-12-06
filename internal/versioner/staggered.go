@@ -45,16 +45,6 @@ type Staggered struct {
 	mutex         *sync.Mutex
 }
 
-// Check if file or dir
-func isFile(path string) bool {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		l.Infoln("versioner isFile:", err)
-		return false
-	}
-	return fileInfo.Mode().IsRegular()
-}
-
 // Rename versions with old version format
 func (v Staggered) renameOld() {
 	err := filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
@@ -167,14 +157,16 @@ func (v Staggered) clean() {
 		if err != nil {
 			return err
 		}
-		switch mode := f.Mode(); {
-		case mode.IsDir():
+
+		if f.Mode().IsDir() && f.Mode()&os.ModeSymlink == 0 {
 			filesPerDir[path] = 0
 			if path != v.versionsPath {
 				dir := filepath.Dir(path)
 				filesPerDir[dir]++
 			}
-		case mode.IsRegular():
+		} else {
+			// Regular file, or possibly a symlink.
+
 			extension := filenameTag(path)
 			dir := filepath.Dir(path)
 			name := path[:len(path)-len(extension)-1]
@@ -227,56 +219,63 @@ func (v Staggered) expire(versions []string) {
 	var prevAge int64
 	firstFile := true
 	for _, file := range versions {
-		if isFile(file) {
-			versionTime, err := time.Parse(TimeFormat, filenameTag(file))
-			if err != nil {
-				l.Infof("Versioner: file name %q is invalid: %v", file, err)
-				continue
-			}
-			age := int64(time.Since(versionTime).Seconds())
-
-			// If the file is older than the max age of the last interval, remove it
-			if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
-				if debug {
-					l.Debugln("Versioner: File over maximum age -> delete ", file)
-				}
-				err = os.Remove(file)
-				if err != nil {
-					l.Warnf("Versioner: can't remove %q: %v", file, err)
-				}
-				continue
-			}
-
-			// If it's the first (oldest) file in the list we can skip the interval checks
-			if firstFile {
-				prevAge = age
-				firstFile = false
-				continue
-			}
-
-			// Find the interval the file fits in
-			var usedInterval Interval
-			for _, usedInterval = range v.interval {
-				if age < usedInterval.end {
-					break
-				}
-			}
-
-			if prevAge-age < usedInterval.step {
-				if debug {
-					l.Debugln("too many files in step -> delete", file)
-				}
-				err = os.Remove(file)
-				if err != nil {
-					l.Warnf("Versioner: can't remove %q: %v", file, err)
-				}
-				continue
-			}
-
-			prevAge = age
-		} else {
-			l.Infof("non-file %q is named like a file version", file)
+		fi, err := os.Stat(file)
+		if err != nil {
+			l.Warnln("versioner:", err)
+			continue
 		}
+
+		if fi.IsDir() {
+			l.Infof("non-file %q is named like a file version", file)
+			continue
+		}
+
+		versionTime, err := time.Parse(TimeFormat, filenameTag(file))
+		if err != nil {
+			l.Infof("Versioner: file name %q is invalid: %v", file, err)
+			continue
+		}
+		age := int64(time.Since(versionTime).Seconds())
+
+		// If the file is older than the max age of the last interval, remove it
+		if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
+			if debug {
+				l.Debugln("Versioner: File over maximum age -> delete ", file)
+			}
+			err = os.Remove(file)
+			if err != nil {
+				l.Warnf("Versioner: can't remove %q: %v", file, err)
+			}
+			continue
+		}
+
+		// If it's the first (oldest) file in the list we can skip the interval checks
+		if firstFile {
+			prevAge = age
+			firstFile = false
+			continue
+		}
+
+		// Find the interval the file fits in
+		var usedInterval Interval
+		for _, usedInterval = range v.interval {
+			if age < usedInterval.end {
+				break
+			}
+		}
+
+		if prevAge-age < usedInterval.step {
+			if debug {
+				l.Debugln("too many files in step -> delete", file)
+			}
+			err = os.Remove(file)
+			if err != nil {
+				l.Warnf("Versioner: can't remove %q: %v", file, err)
+			}
+			continue
+		}
+
+		prevAge = age
 	}
 }
 
@@ -289,7 +288,7 @@ func (v Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	if _, err := os.Stat(filePath); err != nil {
+	if _, err := os.Lstat(filePath); err != nil {
 		if os.IsNotExist(err) {
 			if debug {
 				l.Debugln("not archiving nonexistent file", filePath)

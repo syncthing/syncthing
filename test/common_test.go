@@ -379,9 +379,12 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) {
 		if rn == "." || rn == ".stfolder" {
 			return nil
 		}
+		if rn == ".stversions" {
+			return filepath.SkipDir
+		}
 
 		var f fileInfo
-		if ok, err := symlinks.IsSymlink(path); err == nil && ok {
+		if info.Mode()&os.ModeSymlink != 0 {
 			f = fileInfo{
 				name: rn,
 				mode: os.ModeSymlink,
