@@ -284,9 +284,7 @@ func assets() {
 }
 
 func xdr() {
-	for _, f := range []string{"internal/discover/packets", "internal/files/leveldb", "internal/protocol/message"} {
-		runPipe(f+"_xdr.go", "go", "run", "./Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go", "--", f+".go")
-	}
+	runPrint("go", "generate", "./internal/discover", "./internal/files", "./internal/protocol")
 }
 
 func translate() {

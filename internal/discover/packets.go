@@ -13,6 +13,9 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
+//go:generate -command genxdr go run ../../Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
+//go:generate genxdr -o packets_xdr.go packets.go
+
 package discover
 
 const (
