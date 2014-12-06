@@ -640,6 +640,12 @@ angular.module('syncthing.core')
             $scope.editingExisting = true;
             $scope.editingSelf = (deviceCfg.DeviceID == $scope.myID);
             $scope.currentDevice.AddressesStr = deviceCfg.Addresses.join(', ');
+            if (!$scope.editingSelf) {
+                $scope.currentDevice.selectedFolders = {};
+                $scope.deviceFolders($scope.currentDevice).forEach(function (folder) {
+                    $scope.currentDevice.selectedFolders[folder] = true;
+                });
+            }
             $scope.deviceEditor.$setPristine();
             $('#editDevice').modal();
         };
@@ -657,7 +663,8 @@ angular.module('syncthing.core')
                     $scope.currentDevice = {
                         AddressesStr: 'dynamic',
                         Compression: true,
-                        Introducer: false
+                        Introducer: false,
+                        selectedFolders: {}
                     };
                     $scope.editingExisting = false;
                     $scope.editingSelf = false;
@@ -710,6 +717,31 @@ angular.module('syncthing.core')
 
             $scope.devices.sort(deviceCompare);
             $scope.config.Devices = $scope.devices;
+
+            if (!$scope.editingSelf) {
+                for (var id in deviceCfg.selectedFolders) {
+                    if (deviceCfg.selectedFolders[id]) {
+                        var found = false;
+                        for (i = 0; i < $scope.folders[id].Devices.length; i++) {
+                            if ($scope.folders[id].Devices[i].DeviceID == deviceCfg.DeviceID) {
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found) {
+                            $scope.folders[id].Devices.push({
+                                DeviceID: deviceCfg.DeviceID
+                            });
+                        }
+                        continue
+                    } else {
+                        $scope.folders[id].Devices = $scope.folders[id].Devices.filter(function (n) {
+                            return n.DeviceID != deviceCfg.DeviceID;
+                        });
+                    }
+                }
+            }
 
             $scope.saveConfig();
         };

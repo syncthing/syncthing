@@ -416,6 +416,23 @@
                 <p translate class="help-block">Any devices configured on an introducer device will be added to this device as well.</p>
               </div>
             </div>
+
+            <div class="row" ng-if="!editingSelf">
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label translate for="folders">Share Folders With Device</label>
+                  <p translate class="help-block">Select the folders to share with this device.</p>
+                  <div class="three-columns">
+                    <div class="checkbox" ng-repeat="folder in folderList()">
+                      <label>
+                        <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.ID]"> {{folder.ID}}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </form>
         </div>
         <div class="modal-footer">
