@@ -576,7 +576,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					l.Infof("Adding device %v to config (vouched for by introducer %v)", id, deviceID)
 					newDeviceCfg := config.DeviceConfiguration{
 						DeviceID:    id,
-						Compression: true,
+						Compression: m.cfg.Devices()[deviceID].Compression,
 						Addresses:   []string{"dynamic"},
 					}
 
