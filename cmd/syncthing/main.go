@@ -575,6 +575,8 @@ func syncthingMain() {
 			// Previously the ID was generated from the node ID. We now need
 			// to generate a new one.
 			opts.URUniqueID = randomString(6)
+			cfg.SetOptions(opts)
+			cfg.Save()
 		}
 		go usageReportingLoop(m)
 		go func() {
