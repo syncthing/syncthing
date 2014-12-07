@@ -41,6 +41,8 @@ import (
 	"github.com/syncthing/syncthing/internal/stats"
 	"github.com/syncthing/syncthing/internal/symlinks"
 	"github.com/syncthing/syncthing/internal/versioner"
+
+	"github.com/AudriusButkevicius/lrufdcache"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -86,6 +88,7 @@ type Model struct {
 	db              *leveldb.DB
 	finder          *files.BlockFinder
 	progressEmitter *ProgressEmitter
+	cache           *lrufdcache.FileCache
 
 	deviceName    string
 	clientName    string
@@ -127,6 +130,7 @@ func NewModel(cfg *config.ConfigWrapper, deviceName, clientName, clientVersion s
 	m := &Model{
 		cfg:                cfg,
 		db:                 db,
+		cache:              lrufdcache.NewCache(25),
 		deviceName:         deviceName,
 		clientName:         clientName,
 		clientVersion:      clientVersion,
@@ -695,12 +699,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		}
 		reader = strings.NewReader(target)
 	} else {
-		reader, err = os.Open(fn) // XXX: Inefficient, should cache fd?
+		reader, err = m.cache.Open(fn)
 		if err != nil {
 			return nil, err
 		}
-
-		defer reader.(*os.File).Close()
+		defer reader.(*lrufdcache.CachedFile).Close()
 	}
 
 	buf := make([]byte, size)
