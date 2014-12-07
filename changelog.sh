@@ -5,5 +5,5 @@ if [[ -z $since ]] ; then
 	since="$(git describe --abbrev=0 HEAD^).."
 fi
 
-git log --pretty=format:'* %h %s (%an)' "$since" | grep '(fixes #'
+git log --pretty=format:'* %s (%h, @%aN)' "$since" | egrep 'fixes #\d|ref #\d'
 
