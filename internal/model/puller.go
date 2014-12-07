@@ -839,6 +839,7 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			}
 
 			p.performFinish(state)
+			p.model.receivedFile(p.folder, state.file.Name)
 			if p.progressEmitter != nil {
 				p.progressEmitter.Deregister(state)
 			}

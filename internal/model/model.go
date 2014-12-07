@@ -98,6 +98,7 @@ type Model struct {
 	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
 	folderIgnores  map[string]*ignore.Matcher                             // folder -> matcher object
 	folderRunners  map[string]service                                     // folder -> puller or scanner
+	folderStatRefs map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut           sync.RWMutex                                           // protects the above
 
 	folderState        map[string]folderState // folder -> state
@@ -137,6 +138,7 @@ func NewModel(cfg *config.Wrapper, deviceName, clientName, clientVersion string,
 		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:      make(map[string]*ignore.Matcher),
 		folderRunners:      make(map[string]service),
+		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
 		folderState:        make(map[string]folderState),
 		folderStateChanged: make(map[string]time.Time),
 		protoConn:          make(map[protocol.DeviceID]protocol.Connection),
@@ -279,6 +281,15 @@ func (m *Model) DeviceStatistics() map[string]stats.DeviceStatistics {
 	var res = make(map[string]stats.DeviceStatistics)
 	for id := range m.cfg.Devices() {
 		res[id.String()] = m.deviceStatRef(id).GetStatistics()
+	}
+	return res
+}
+
+// Returns statistics about each folder
+func (m *Model) FolderStatistics() map[string]stats.FolderStatistics {
+	var res = make(map[string]stats.FolderStatistics)
+	for id := range m.cfg.Folders() {
+		res[id] = m.folderStatRef(id).GetStatistics()
 	}
 	return res
 }
@@ -871,6 +882,23 @@ func (m *Model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatistic
 
 func (m *Model) deviceWasSeen(deviceID protocol.DeviceID) {
 	m.deviceStatRef(deviceID).WasSeen()
+}
+
+func (m *Model) folderStatRef(folder string) *stats.FolderStatisticsReference {
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
+
+	if sr, ok := m.folderStatRefs[folder]; ok {
+		return sr
+	} else {
+		sr = stats.NewFolderStatisticsReference(m.db, folder)
+		m.folderStatRefs[folder] = sr
+		return sr
+	}
+}
+
+func (m *Model) receivedFile(folder, filename string) {
+	m.folderStatRef(folder).ReceivedFile(filename)
 }
 
 func sendIndexes(conn protocol.Connection, folder string, fs *files.Set, ignores *ignore.Matcher) {

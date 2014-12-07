@@ -17,6 +17,7 @@ angular.module('syncthing.core')
             refreshConfig();
             refreshConnectionStats();
             refreshDeviceStats();
+            refreshFolderStats();
 
             $http.get(urlbase + '/version').success(function (data) {
                 $scope.version = data.version;
@@ -52,7 +53,8 @@ angular.module('syncthing.core')
         $scope.folders = {};
         $scope.seenError = '';
         $scope.upgradeInfo = null;
-        $scope.stats = {};
+        $scope.deviceStats = {};
+        $scope.folderStats = {};
         $scope.progress = {};
 
         $(window).bind('beforeunload', function () {
@@ -112,6 +114,7 @@ angular.module('syncthing.core')
         $scope.$on('LocalIndexUpdated', function (event, arg) {
             var data = arg.data;
             refreshFolder(data.folder);
+            refreshFolderStats();
 
             // Update completion status for all devices that we share this folder with.
             $scope.folders[data.folder].Devices.forEach(function (deviceCfg) {
@@ -364,12 +367,24 @@ angular.module('syncthing.core')
 
         var refreshDeviceStats = debounce(function () {
             $http.get(urlbase + "/stats/device").success(function (data) {
-                $scope.stats = data;
-                for (var device in $scope.stats) {
-                    $scope.stats[device].LastSeen = new Date($scope.stats[device].LastSeen);
-                    $scope.stats[device].LastSeenDays = (new Date() - $scope.stats[device].LastSeen) / 1000 / 86400;
+                $scope.deviceStats = data;
+                for (var device in $scope.deviceStats) {
+                    $scope.deviceStats[device].LastSeen = new Date($scope.deviceStats[device].LastSeen);
+                    $scope.deviceStats[device].LastSeenDays = (new Date() - $scope.deviceStats[device].LastSeen) / 1000 / 86400;
                 }
                 console.log("refreshDeviceStats", data);
+            });
+        }, 500);
+
+        var refreshFolderStats = debounce(function () {
+            $http.get(urlbase + "/stats/folder").success(function (data) {
+                $scope.folderStats = data;
+                for (var folder in $scope.folderStats) {
+                    if ($scope.folderStats[folder].LastFile) {
+                        $scope.folderStats[folder].LastFile.At = new Date($scope.folderStats[folder].LastFile.At);
+                    }
+                }
+                console.log("refreshfolderStats", data);
             });
         }, 500);
 
