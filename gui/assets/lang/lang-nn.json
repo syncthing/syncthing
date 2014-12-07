@@ -117,7 +117,7 @@
     "The folder ID must be unique.": "Mappe ID må vera unik.",
     "The folder path cannot be blank.": "Mappeplasseringa kan ikkje vera tom.",
     "The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.": "Fylgjande intervall vert brukt: den fyrste timen vert ein versjon lagra kvart 30. sekund, den fyrste dagen vert ein versjon lagra kvar time, dei fyrste 30 dagane vert ein versjon lagra kvar dag, og inntil høgaste levetid vert ein versjon lagra kvar uke.",
-    "The maximum age must be a number and cannot be blank.": "Maksimal levetid må vera eit tal og kan ikkje vera blankt.",
+    "The maximum age must be a number and cannot be blank.": "Maksimal levetid må vera eit tal og kan ikkje vera tomt.",
     "The maximum time to keep a version (in days, set to 0 to keep versions forever).": "Maksimalt tidsrom å behalda ein versjon (i dagar, set til 0 for å behalda versjonar for ubegrensa tid.)",
     "The number of old versions to keep, per file.": "Tal på gamle versjonar ein skal behalda, per fil.",
     "The number of versions must be a number and cannot be blank.": "Tal på versjonar må vera eit tal og kan ikkje vera tomt.",
