@@ -55,6 +55,8 @@ func TestIgnore(t *testing.T) {
 
 		{filepath.Join("dir3"), true},
 		{filepath.Join("dir3", "afile"), true},
+
+		{"lost+found", true},
 	}
 
 	for i, tc := range tests {
