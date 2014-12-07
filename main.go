@@ -33,8 +33,9 @@ var funcs = map[string]interface{}{
 }
 
 func main() {
+	log.SetFlags(log.Lshortfile)
+	log.SetOutput(os.Stdout)
 	flag.Parse()
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
 	fd, err := os.Open("static/index.html")
 	if err != nil {
@@ -66,6 +67,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Println("Listening on", listener.Addr())
 
 	srv := http.Server{
 		ReadTimeout:  5 * time.Second,
@@ -120,10 +123,15 @@ func newDataHandler(w http.ResponseWriter, r *http.Request) {
 		idStr, ok := id.(string)
 		if !ok {
 			if err != nil {
-				log.Println("No ID")
+				log.Printf("No ID (type was %T)", id)
 				http.Error(w, "No ID", 500)
 				return
 			}
+		}
+		if idStr == "" {
+			log.Println("No ID (empty)")
+			http.Error(w, "No ID", 500)
+			return
 		}
 
 		// The ID is base64 encoded, so can contain slashes. Replace those with dots instead.
@@ -135,10 +143,22 @@ func newDataHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		json.NewEncoder(f).Encode(m)
-		f.Close()
+		err = json.NewEncoder(f).Encode(m)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		err = f.Close()
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		log.Printf("Report from %q", id)
 	} else {
-		log.Println("No ID")
+		log.Println("No ID (missing)")
 		http.Error(w, "No ID", 500)
 		return
 	}
