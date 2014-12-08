@@ -19,6 +19,7 @@ import (
 	"crypto/md5"
 	cryptoRand "crypto/rand"
 	"encoding/binary"
+	"io"
 	mathRand "math/rand"
 )
 
@@ -48,7 +49,7 @@ func randomString(l int) string {
 // randomInt64 returns a strongly random int64, slowly
 func randomInt64() int64 {
 	var bs [8]byte
-	n, err := cryptoRand.Reader.Read(bs[:])
+	n, err := io.ReadFull(cryptoRand.Reader, bs[:])
 	if n != 8 || err != nil {
 		panic("randomness failure")
 	}
