@@ -46,7 +46,7 @@ func TestRandomString(t *testing.T) {
 	for _, l := range []int{0, 1, 2, 3, 4, 8, 42} {
 		s := randomString(l)
 		if len(s) != l {
-			t.Errorf("Incorrect length %d != %s", len(s), l)
+			t.Errorf("Incorrect length %d != %d", len(s), l)
 		}
 	}
 

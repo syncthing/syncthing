@@ -294,9 +294,8 @@ func (v Staggered) Archive(filePath string) error {
 				l.Debugln("not archiving nonexistent file", filePath)
 			}
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	if _, err := os.Stat(v.versionsPath); err != nil {

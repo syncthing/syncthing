@@ -38,7 +38,7 @@ type ProgressEmitter struct {
 
 // Creates a new progress emitter which emits DownloadProgress events every
 // interval.
-func NewProgressEmitter(cfg *config.ConfigWrapper) *ProgressEmitter {
+func NewProgressEmitter(cfg *config.Wrapper) *ProgressEmitter {
 	t := &ProgressEmitter{
 		stop:     make(chan struct{}),
 		registry: make(map[string]*sharedPullerState),

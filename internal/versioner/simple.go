@@ -62,9 +62,8 @@ func (v Simple) Archive(filePath string) error {
 				l.Debugln("not archiving nonexistent file", filePath)
 			}
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	versionsDir := filepath.Join(v.folderPath, ".stversions")

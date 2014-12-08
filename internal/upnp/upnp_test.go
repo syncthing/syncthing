@@ -21,7 +21,7 @@ import (
 )
 
 func TestExternalIPParsing(t *testing.T) {
-	soap_response :=
+	soapResponse :=
 		[]byte(`<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 		<s:Body>
 			<u:GetExternalIPAddressResponse xmlns:u="urn:schemas-upnp-org:service:WANIPConnection:1">
@@ -31,7 +31,7 @@ func TestExternalIPParsing(t *testing.T) {
 		</s:Envelope>`)
 
 	envelope := &soapGetExternalIPAddressResponseEnvelope{}
-	err := xml.Unmarshal(soap_response, envelope)
+	err := xml.Unmarshal(soapResponse, envelope)
 	if err != nil {
 		t.Error(err)
 	}

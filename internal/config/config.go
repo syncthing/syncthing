@@ -92,13 +92,13 @@ func (f *FolderConfiguration) HasMarker() bool {
 	return true
 }
 
-func (r *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
-	if r.deviceIDs == nil {
-		for _, n := range r.Devices {
-			r.deviceIDs = append(r.deviceIDs, n.DeviceID)
+func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
+	if f.deviceIDs == nil {
+		for _, n := range f.Devices {
+			f.deviceIDs = append(f.deviceIDs, n.DeviceID)
 		}
 	}
-	return r.deviceIDs
+	return f.deviceIDs
 }
 
 type VersioningConfiguration struct {

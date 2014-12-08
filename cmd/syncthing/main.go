@@ -102,10 +102,10 @@ func init() {
 }
 
 var (
-	cfg            *config.ConfigWrapper
+	cfg            *config.Wrapper
 	myID           protocol.DeviceID
 	confDir        string
-	logFlags       int = log.Ltime
+	logFlags       = log.Ltime
 	writeRateLimit *ratelimit.Bucket
 	readRateLimit  *ratelimit.Bucket
 	stop           = make(chan int)
@@ -332,15 +332,14 @@ func main() {
 				l.Fatalln("Cannot upgrade, database seems to be locked. Is another copy of Syncthing already running?")
 			}
 
-			err = upgrade.UpgradeTo(rel)
+			err = upgrade.To(rel)
 			if err != nil {
 				l.Fatalln("Upgrade:", err) // exits 1
 			}
 			l.Okf("Upgraded to %q", rel.Tag)
-			return
-		} else {
-			return
 		}
+
+		return
 	}
 
 	if reset {
@@ -610,7 +609,7 @@ func syncthingMain() {
 	os.Exit(code)
 }
 
-func setupGUI(cfg *config.ConfigWrapper, m *model.Model) {
+func setupGUI(cfg *config.Wrapper, m *model.Model) {
 	opts := cfg.Options()
 	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
 
@@ -651,7 +650,7 @@ func setupGUI(cfg *config.ConfigWrapper, m *model.Model) {
 	}
 }
 
-func sanityCheckFolders(cfg *config.ConfigWrapper, m *model.Model) {
+func sanityCheckFolders(cfg *config.Wrapper, m *model.Model) {
 nextFolder:
 	for id, folder := range cfg.Folders() {
 		if folder.Invalid != "" {
@@ -756,7 +755,7 @@ func setupUPnP() {
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
-				igd = igds[0]
+				igd = &igds[0]
 
 				externalPort = setupExternalPort(igd, port)
 				if externalPort == 0 {
@@ -804,7 +803,7 @@ func renewUPnP(port int) {
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
-				igd = igds[0]
+				igd = &igds[0]
 			} else {
 				if debugNet {
 					l.Debugln("Failed to discover IGD during UPnP port mapping renewal.")
@@ -1256,7 +1255,7 @@ func autoUpgrade() {
 		}
 
 		l.Infof("Automatic upgrade (current %q < latest %q)", Version, rel.Tag)
-		err = upgrade.UpgradeTo(rel)
+		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("Automatic upgrade:", err)
 			continue
