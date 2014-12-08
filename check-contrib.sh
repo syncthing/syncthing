@@ -1,7 +1,7 @@
 #!/bin/bash
 
 missing-authors() {
-	for email in $(git log --format=%ae master | sort | uniq) ; do
+	for email in $(git log --format=%ae HEAD | sort | uniq) ; do
 		grep -q "$email" AUTHORS || echo $email
 	done
 }
@@ -28,15 +28,19 @@ print-missing-copyright() {
 
 authors=$(print-missing-authors)
 if [[ ! -z $authors ]] ; then
+	echo ***
 	echo Author emails not in AUTHORS:
 	echo $authors
+	echo ***
 	exit 1
 fi
 
 copy=$(print-missing-copyright)
 if [[ ! -z $copy ]] ; then
+	echo ***
 	echo Files missing copyright notice:
 	echo $copy
+	echo ***
 	exit 1
 fi
 
