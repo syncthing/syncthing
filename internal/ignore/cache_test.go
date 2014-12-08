@@ -25,7 +25,7 @@ func TestCache(t *testing.T) {
 
 	res, ok := c.get("nonexistent")
 	if res != false || ok != false {
-		t.Error("res %v, ok %v for nonexistent item", res, ok)
+		t.Errorf("res %v, ok %v for nonexistent item", res, ok)
 	}
 
 	// Set and check some items
