@@ -102,7 +102,7 @@ func init() {
 }
 
 var (
-	cfg            *config.ConfigWrapper
+	cfg            *config.Wrapper
 	myID           protocol.DeviceID
 	confDir        string
 	logFlags       = log.Ltime
@@ -609,7 +609,7 @@ func syncthingMain() {
 	os.Exit(code)
 }
 
-func setupGUI(cfg *config.ConfigWrapper, m *model.Model) {
+func setupGUI(cfg *config.Wrapper, m *model.Model) {
 	opts := cfg.Options()
 	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
 
@@ -650,7 +650,7 @@ func setupGUI(cfg *config.ConfigWrapper, m *model.Model) {
 	}
 }
 
-func sanityCheckFolders(cfg *config.ConfigWrapper, m *model.Model) {
+func sanityCheckFolders(cfg *config.Wrapper, m *model.Model) {
 nextFolder:
 	for id, folder := range cfg.Folders() {
 		if folder.Invalid != "" {

@@ -82,7 +82,7 @@ type service interface {
 }
 
 type Model struct {
-	cfg             *config.ConfigWrapper
+	cfg             *config.Wrapper
 	db              *leveldb.DB
 	finder          *files.BlockFinder
 	progressEmitter *ProgressEmitter
@@ -123,7 +123,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.ConfigWrapper, deviceName, clientName, clientVersion string, db *leveldb.DB) *Model {
+func NewModel(cfg *config.Wrapper, deviceName, clientName, clientVersion string, db *leveldb.DB) *Model {
 	m := &Model{
 		cfg:                cfg,
 		db:                 db,

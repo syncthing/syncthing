@@ -126,7 +126,7 @@ type BlockFinder struct {
 	mut     sync.RWMutex
 }
 
-func NewBlockFinder(db *leveldb.DB, cfg *config.ConfigWrapper) *BlockFinder {
+func NewBlockFinder(db *leveldb.DB, cfg *config.Wrapper) *BlockFinder {
 	if blockFinder != nil {
 		return blockFinder
 	}

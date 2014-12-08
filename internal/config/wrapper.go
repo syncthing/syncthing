@@ -42,7 +42,7 @@ func (fn HandlerFunc) Changed(cfg Configuration) error {
 // A wrapper around a Configuration that manages loads, saves and published
 // notifications of changes to registered Handlers
 
-type ConfigWrapper struct {
+type Wrapper struct {
 	cfg  Configuration
 	path string
 
@@ -57,8 +57,8 @@ type ConfigWrapper struct {
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
 // disk.
-func Wrap(path string, cfg Configuration) *ConfigWrapper {
-	w := &ConfigWrapper{cfg: cfg, path: path}
+func Wrap(path string, cfg Configuration) *Wrapper {
+	w := &Wrapper{cfg: cfg, path: path}
 	w.replaces = make(chan Configuration)
 	go w.Serve()
 	return w
@@ -66,7 +66,7 @@ func Wrap(path string, cfg Configuration) *ConfigWrapper {
 
 // Load loads an existing file on disk and returns a new configuration
 // wrapper.
-func Load(path string, myID protocol.DeviceID) (*ConfigWrapper, error) {
+func Load(path string, myID protocol.DeviceID) (*Wrapper, error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func Load(path string, myID protocol.DeviceID) (*ConfigWrapper, error) {
 // Serve handles configuration replace events and calls any interested
 // handlers. It is started automatically by Wrap() and Load() and should not
 // be run manually.
-func (w *ConfigWrapper) Serve() {
+func (w *Wrapper) Serve() {
 	for cfg := range w.replaces {
 		w.sMut.Lock()
 		subs := w.subs
@@ -97,25 +97,25 @@ func (w *ConfigWrapper) Serve() {
 
 // Stop stops the Serve() loop. Set and Replace operations will panic after a
 // Stop.
-func (w *ConfigWrapper) Stop() {
+func (w *Wrapper) Stop() {
 	close(w.replaces)
 }
 
 // Subscribe registers the given handler to be called on any future
 // configuration changes.
-func (w *ConfigWrapper) Subscribe(h Handler) {
+func (w *Wrapper) Subscribe(h Handler) {
 	w.sMut.Lock()
 	w.subs = append(w.subs, h)
 	w.sMut.Unlock()
 }
 
 // Raw returns the currently wrapped Configuration object.
-func (w *ConfigWrapper) Raw() Configuration {
+func (w *Wrapper) Raw() Configuration {
 	return w.cfg
 }
 
 // Replace swaps the current configuration object for the given one.
-func (w *ConfigWrapper) Replace(cfg Configuration) {
+func (w *Wrapper) Replace(cfg Configuration) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -127,7 +127,7 @@ func (w *ConfigWrapper) Replace(cfg Configuration) {
 
 // Devices returns a map of devices. Device structures should not be changed,
 // other than for the purpose of updating via SetDevice().
-func (w *ConfigWrapper) Devices() map[protocol.DeviceID]DeviceConfiguration {
+func (w *Wrapper) Devices() map[protocol.DeviceID]DeviceConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	if w.deviceMap == nil {
@@ -141,7 +141,7 @@ func (w *ConfigWrapper) Devices() map[protocol.DeviceID]DeviceConfiguration {
 
 // SetDevice adds a new device to the configuration, or overwrites an existing
 // device with the same ID.
-func (w *ConfigWrapper) SetDevice(dev DeviceConfiguration) {
+func (w *Wrapper) SetDevice(dev DeviceConfiguration) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -161,7 +161,7 @@ func (w *ConfigWrapper) SetDevice(dev DeviceConfiguration) {
 
 // Devices returns a map of folders. Folder structures should not be changed,
 // other than for the purpose of updating via SetFolder().
-func (w *ConfigWrapper) Folders() map[string]FolderConfiguration {
+func (w *Wrapper) Folders() map[string]FolderConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	if w.folderMap == nil {
@@ -181,7 +181,7 @@ func (w *ConfigWrapper) Folders() map[string]FolderConfiguration {
 
 // SetFolder adds a new folder to the configuration, or overwrites an existing
 // folder with the same ID.
-func (w *ConfigWrapper) SetFolder(fld FolderConfiguration) {
+func (w *Wrapper) SetFolder(fld FolderConfiguration) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -200,14 +200,14 @@ func (w *ConfigWrapper) SetFolder(fld FolderConfiguration) {
 }
 
 // Options returns the current options configuration object.
-func (w *ConfigWrapper) Options() OptionsConfiguration {
+func (w *Wrapper) Options() OptionsConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	return w.cfg.Options
 }
 
 // SetOptions replaces the current options configuration object.
-func (w *ConfigWrapper) SetOptions(opts OptionsConfiguration) {
+func (w *Wrapper) SetOptions(opts OptionsConfiguration) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	w.cfg.Options = opts
@@ -215,14 +215,14 @@ func (w *ConfigWrapper) SetOptions(opts OptionsConfiguration) {
 }
 
 // GUI returns the current GUI configuration object.
-func (w *ConfigWrapper) GUI() GUIConfiguration {
+func (w *Wrapper) GUI() GUIConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	return w.cfg.GUI
 }
 
 // SetGUI replaces the current GUI configuration object.
-func (w *ConfigWrapper) SetGUI(gui GUIConfiguration) {
+func (w *Wrapper) SetGUI(gui GUIConfiguration) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	w.cfg.GUI = gui
@@ -230,7 +230,7 @@ func (w *ConfigWrapper) SetGUI(gui GUIConfiguration) {
 }
 
 // InvalidateFolder sets the invalid marker on the given folder.
-func (w *ConfigWrapper) InvalidateFolder(id string, err string) {
+func (w *Wrapper) InvalidateFolder(id string, err string) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -246,7 +246,7 @@ func (w *ConfigWrapper) InvalidateFolder(id string, err string) {
 }
 
 // Save writes the configuration to disk, and generates a ConfigSaved event.
-func (w *ConfigWrapper) Save() error {
+func (w *Wrapper) Save() error {
 	fd, err := ioutil.TempFile(filepath.Dir(w.path), "cfg")
 	if err != nil {
 		return err
