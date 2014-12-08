@@ -51,6 +51,11 @@ RUN go get github.com/tools/godep \
 	&& go get github.com/axw/gocov/gocov \
 	&& go get github.com/AlekSi/gocov-xml
 
+# Install tools "go vet" and "golint"
+
+RUN go get golang.org/x/tools/cmd/vet \
+        && go get github.com/golang/lint/golint
+
 # Build standard library for race
 
 RUN go install -race std

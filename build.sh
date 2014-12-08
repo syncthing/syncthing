@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-DOCKERIMGV=1.4-1
+DOCKERIMGV=1.4-2
 
 case "${1:-default}" in
 	default)
@@ -113,7 +113,11 @@ case "${1:-default}" in
 			-v $(pwd):/go/src/github.com/syncthing/syncthing \
 			-w /go/src/github.com/syncthing/syncthing \
 			syncthing/build:$DOCKERIMGV \
-			sh -c './build.sh clean && ./build.sh all && STTRACE=all ./build.sh test-cov'
+			sh -c './build.sh clean \
+				&& go vet ./cmd/... ./internal/... \
+				&& ( golint ./cmd/... ; golint ./internal/... ) | egrep -v "comment on exported|should have comment" \
+				&& ./build.sh all \
+				&& STTRACE=all ./build.sh test-cov'
 		;;
 
 	docker-test)
