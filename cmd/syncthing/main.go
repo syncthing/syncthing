@@ -755,7 +755,7 @@ func setupUPnP() {
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
-				igd = igds[0]
+				igd = &igds[0]
 
 				externalPort = setupExternalPort(igd, port)
 				if externalPort == 0 {
@@ -803,7 +803,7 @@ func renewUPnP(port int) {
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
-				igd = igds[0]
+				igd = &igds[0]
 			} else {
 				if debugNet {
 					l.Debugln("Failed to discover IGD during UPnP port mapping renewal.")
