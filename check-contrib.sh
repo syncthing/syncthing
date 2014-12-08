@@ -23,22 +23,20 @@ print-missing-authors() {
 }
 
 print-missing-copyright() {
-	find . -name \*.go | xargs grep -L 'Copyright (C)' | grep -v Godeps
+	find . -name \*.go | xargs egrep -L 'Copyright \(C\)|automatically generated' | grep -v Godeps | grep -v internal/auto/
 }
 
-print-line-blame() {
-	for f in $(find . -name \*.go | grep -v Godep) gui/app.js gui/index.html ; do
-		git blame --line-porcelain $f | grep author-mail
-	done | sort | uniq -c | sort -n
-}
-echo Author emails missing in AUTHORS file:
-print-missing-authors
-echo
+authors=$(print-missing-authors)
+if [[ ! -z $authors ]] ; then
+	echo Author emails not in AUTHORS:
+	echo $authors
+	exit 1
+fi
 
-echo Files missing copyright notice:
-print-missing-copyright
-echo
-
-echo Blame lines per author:
-print-line-blame
+copy=$(print-missing-copyright)
+if [[ ! -z $copy ]] ; then
+	echo Files missing copyright notice:
+	echo $copy
+	exit 1
+fi
 
