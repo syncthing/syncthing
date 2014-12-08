@@ -6,8 +6,8 @@
 	],
 	"Deps": [
 		{
-			"ImportPath": "github.com/AudriusButkevicius/lrufdcache",
-			"Rev": "9bddff8f67224ab3e7d80525a6ae9bcf1ce10769"
+			"ImportPath": "github.com/AudriusButkevicius/lfu-go",
+			"Rev": "164bcecceb92fd6037f4d18a8d97b495ec6ef669"
 		},
 		{
 			"ImportPath": "github.com/bkaradzic/go-lz4",
@@ -24,10 +24,6 @@
 		{
 			"ImportPath": "github.com/calmh/xdr",
 			"Rev": "45c46b7db7ff83b8b9ee09bbd95f36ab50043ece"
-		},
-		{
-			"ImportPath": "github.com/golang/groupcache/lru",
-			"Rev": "f391194b967ae0d21deadc861ea87120d9687447"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
