@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -176,10 +175,6 @@ are mostly useful for developers. Use with care.
  GOMAXPROCS    Set the maximum number of CPU cores to use. Defaults to all
                available CPU cores.`
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 // Command line and environment options
 var (
@@ -383,6 +378,10 @@ func syncthingMain() {
 		}
 	}
 
+	// We reinitialize the predictable RNG with our device ID, to get a
+	// sequence that is always the same but unique to this syncthing instance.
+	predictableRandom.Seed(seedFromBytes(cert.Certificate[0]))
+
 	myID = protocol.NewDeviceID(cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
 
@@ -574,7 +573,7 @@ func syncthingMain() {
 		if opts.URUniqueID == "" {
 			// Previously the ID was generated from the node ID. We now need
 			// to generate a new one.
-			opts.URUniqueID = randomString(6)
+			opts.URUniqueID = randomString(8)
 			cfg.SetOptions(opts)
 			cfg.Save()
 		}
@@ -781,11 +780,8 @@ func setupExternalPort(igd *upnp.IGD, port int) int {
 		return 0
 	}
 
-	// We seed the random number generator with the node ID to get a
-	// repeatable sequence of random external ports.
-	rnd := rand.NewSource(certSeed(cert.Certificate[0]))
 	for i := 0; i < 10; i++ {
-		r := 1024 + int(rnd.Int63()%(65535-1024))
+		r := 1024 + predictableRandom.Intn(65535-1024)
 		err := igd.AddPortMapping(upnp.TCP, r, port, "syncthing", cfg.Options().UPnPLease*60)
 		if err == nil {
 			return r

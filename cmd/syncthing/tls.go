@@ -19,11 +19,9 @@ import (
 	"bufio"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/binary"
 	"encoding/pem"
 	"io"
 	"math/big"
@@ -43,13 +41,6 @@ func loadCert(dir string, prefix string) (tls.Certificate, error) {
 	cf := filepath.Join(dir, prefix+"cert.pem")
 	kf := filepath.Join(dir, prefix+"key.pem")
 	return tls.LoadX509KeyPair(cf, kf)
-}
-
-func certSeed(bs []byte) int64 {
-	hf := sha256.New()
-	hf.Write(bs)
-	id := hf.Sum(nil)
-	return int64(binary.BigEndian.Uint64(id))
 }
 
 func newCertificate(dir string, prefix string) {
