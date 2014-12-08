@@ -48,7 +48,7 @@ func init() {
 }
 
 // A wrapper around actual implementations
-func UpgradeTo(rel Release) error {
+func To(rel Release) error {
 	select {
 	case <-upgradeUnlocked:
 		path, err := osext.Executable()

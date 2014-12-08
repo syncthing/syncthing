@@ -201,7 +201,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				}
 			}
 
-			var flags uint32 = protocol.FlagDirectory
+			flags := uint32(protocol.FlagDirectory)
 			if w.IgnorePerms {
 				flags |= protocol.FlagNoPermBits | 0777
 			} else {

@@ -862,11 +862,11 @@ func (m *Model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatistic
 
 	if sr, ok := m.deviceStatRefs[deviceID]; ok {
 		return sr
-	} else {
-		sr = stats.NewDeviceStatisticsReference(m.db, deviceID)
-		m.deviceStatRefs[deviceID] = sr
-		return sr
 	}
+
+	sr := stats.NewDeviceStatisticsReference(m.db, deviceID)
+	m.deviceStatRefs[deviceID] = sr
+	return sr
 }
 
 func (m *Model) deviceWasSeen(deviceID protocol.DeviceID) {

@@ -105,7 +105,7 @@ var (
 	cfg            *config.ConfigWrapper
 	myID           protocol.DeviceID
 	confDir        string
-	logFlags       int = log.Ltime
+	logFlags       = log.Ltime
 	writeRateLimit *ratelimit.Bucket
 	readRateLimit  *ratelimit.Bucket
 	stop           = make(chan int)
@@ -332,15 +332,14 @@ func main() {
 				l.Fatalln("Cannot upgrade, database seems to be locked. Is another copy of Syncthing already running?")
 			}
 
-			err = upgrade.UpgradeTo(rel)
+			err = upgrade.To(rel)
 			if err != nil {
 				l.Fatalln("Upgrade:", err) // exits 1
 			}
 			l.Okf("Upgraded to %q", rel.Tag)
-			return
-		} else {
-			return
 		}
+
+		return
 	}
 
 	if reset {
@@ -1256,7 +1255,7 @@ func autoUpgrade() {
 		}
 
 		l.Infof("Automatic upgrade (current %q < latest %q)", Version, rel.Tag)
-		err = upgrade.UpgradeTo(rel)
+		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("Automatic upgrade:", err)
 			continue

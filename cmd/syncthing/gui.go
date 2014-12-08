@@ -334,44 +334,44 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		l.Warnln("decoding posted config:", err)
 		http.Error(w, err.Error(), 500)
 		return
-	} else {
-		if newCfg.GUI.Password != cfg.GUI().Password {
-			if newCfg.GUI.Password != "" {
-				hash, err := bcrypt.GenerateFromPassword([]byte(newCfg.GUI.Password), 0)
-				if err != nil {
-					l.Warnln("bcrypting password:", err)
-					http.Error(w, err.Error(), 500)
-					return
-				} else {
-					newCfg.GUI.Password = string(hash)
-				}
-			}
-		}
-
-		// Start or stop usage reporting as appropriate
-
-		if curAcc := cfg.Options().URAccepted; newCfg.Options.URAccepted > curAcc {
-			// UR was enabled
-			newCfg.Options.URAccepted = usageReportVersion
-			newCfg.Options.URUniqueID = randomString(8)
-			err := sendUsageReport(m)
-			if err != nil {
-				l.Infoln("Usage report:", err)
-			}
-			go usageReportingLoop(m)
-		} else if newCfg.Options.URAccepted < curAcc {
-			// UR was disabled
-			newCfg.Options.URAccepted = -1
-			newCfg.Options.URUniqueID = ""
-			stopUsageReporting()
-		}
-
-		// Activate and save
-
-		configInSync = !config.ChangeRequiresRestart(cfg.Raw(), newCfg)
-		cfg.Replace(newCfg)
-		cfg.Save()
 	}
+
+	if newCfg.GUI.Password != cfg.GUI().Password {
+		if newCfg.GUI.Password != "" {
+			hash, err := bcrypt.GenerateFromPassword([]byte(newCfg.GUI.Password), 0)
+			if err != nil {
+				l.Warnln("bcrypting password:", err)
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			newCfg.GUI.Password = string(hash)
+		}
+	}
+
+	// Start or stop usage reporting as appropriate
+
+	if curAcc := cfg.Options().URAccepted; newCfg.Options.URAccepted > curAcc {
+		// UR was enabled
+		newCfg.Options.URAccepted = usageReportVersion
+		newCfg.Options.URUniqueID = randomString(8)
+		err := sendUsageReport(m)
+		if err != nil {
+			l.Infoln("Usage report:", err)
+		}
+		go usageReportingLoop(m)
+	} else if newCfg.Options.URAccepted < curAcc {
+		// UR was disabled
+		newCfg.Options.URAccepted = -1
+		newCfg.Options.URUniqueID = ""
+		stopUsageReporting()
+	}
+
+	// Activate and save
+
+	configInSync = !config.ChangeRequiresRestart(cfg.Raw(), newCfg)
+	cfg.Replace(newCfg)
+	cfg.Save()
 }
 
 func restGetConfigInSync(w http.ResponseWriter, r *http.Request) {
@@ -598,7 +598,7 @@ func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if upgrade.CompareVersions(rel.Tag, Version) == 1 {
-		err = upgrade.UpgradeTo(rel)
+		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("upgrading:", err)
 			http.Error(w, err.Error(), 500)

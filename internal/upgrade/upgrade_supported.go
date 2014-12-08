@@ -86,15 +86,15 @@ func LatestRelease(prerelease bool) (Release, error) {
 	if prerelease {
 		// We are a beta version. Use the latest.
 		return rels[0], nil
-	} else {
-		// We are a regular release. Only consider non-prerelease versions for upgrade.
-		for _, rel := range rels {
-			if !rel.Prerelease {
-				return rel, nil
-			}
-		}
-		return Release{}, ErrVersionUnknown
 	}
+
+	// We are a regular release. Only consider non-prerelease versions for upgrade.
+	for _, rel := range rels {
+		if !rel.Prerelease {
+			return rel, nil
+		}
+	}
+	return Release{}, ErrVersionUnknown
 }
 
 func readTarGZ(url string, dir string) (string, error) {

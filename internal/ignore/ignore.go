@@ -169,9 +169,8 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) (*M
 			includes, err := loadIgnoreFile(includeFile, seen)
 			if err != nil {
 				return err
-			} else {
-				exps.patterns = append(exps.patterns, includes.patterns...)
 			}
+			exps.patterns = append(exps.patterns, includes.patterns...)
 		} else {
 			// Path name or pattern, add it so it matches files both in
 			// current directory and subdirs.
