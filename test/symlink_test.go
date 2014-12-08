@@ -18,8 +18,10 @@
 package integration_test
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +31,21 @@ import (
 	"github.com/syncthing/syncthing/internal/symlinks"
 )
 
+func symlinksSupported() bool {
+	tmp, err := ioutil.TempDir("", "symlink-test")
+	if err != nil {
+		return false
+	}
+	defer os.RemoveAll(tmp)
+	err = os.Symlink("tmp", filepath.Join(tmp, "link"))
+	return err == nil
+}
+
 func TestSymlinks(t *testing.T) {
+	if !symlinksSupported() {
+		t.Skip("symlinks unsupported")
+	}
+
 	// Use no versioning
 	id, _ := protocol.DeviceIDFromString(id2)
 	cfg, _ := config.Load("h2/config.xml", id)
@@ -42,6 +58,10 @@ func TestSymlinks(t *testing.T) {
 }
 
 func TestSymlinksSimpleVersioning(t *testing.T) {
+	if !symlinksSupported() {
+		t.Skip("symlinks unsupported")
+	}
+
 	// Use no versioning
 	id, _ := protocol.DeviceIDFromString(id2)
 	cfg, _ := config.Load("h2/config.xml", id)
@@ -57,6 +77,10 @@ func TestSymlinksSimpleVersioning(t *testing.T) {
 }
 
 func TestSymlinksStaggeredVersioning(t *testing.T) {
+	if !symlinksSupported() {
+		t.Skip("symlinks unsupported")
+	}
+
 	// Use no versioning
 	id, _ := protocol.DeviceIDFromString(id2)
 	cfg, _ := config.Load("h2/config.xml", id)

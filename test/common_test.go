@@ -48,10 +48,8 @@ const (
 
 var env = []string{
 	"HOME=.",
-	"STTRACE=model,protocol",
 	"STGUIAPIKEY=" + apiKey,
 	"STNORESTART=1",
-	"STPERFSTATS=1",
 }
 
 type syncthingProcess struct {
@@ -78,7 +76,7 @@ func (p *syncthingProcess) start() error {
 	cmd := exec.Command("../bin/syncthing", p.argv...)
 	cmd.Stdout = p.logfd
 	cmd.Stderr = p.logfd
-	cmd.Env = append(env, fmt.Sprintf("STPROFILER=:%d", p.port+1000))
+	cmd.Env = append(os.Environ(), env...)
 
 	err := cmd.Start()
 	if err != nil {
@@ -97,7 +95,7 @@ func (p *syncthingProcess) start() error {
 }
 
 func (p *syncthingProcess) stop() error {
-	p.cmd.Process.Signal(os.Interrupt)
+	p.cmd.Process.Signal(os.Kill)
 	p.cmd.Wait()
 
 	fd, err := os.Open(p.log)
@@ -320,6 +318,16 @@ func (i *inifiteReader) Read(bs []byte) (int, error) {
 // rm -rf
 func removeAll(dirs ...string) error {
 	for _, dir := range dirs {
+		// Set any non-writeable files and dirs to writeable. This is necessary for os.RemoveAll to work on Windows.
+		filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.Mode()&0700 != 0700 {
+				os.Chmod(path, 0777)
+			}
+			return nil
+		})
 		os.RemoveAll(dir)
 	}
 	return nil

@@ -81,7 +81,8 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 	for {
 		comp, err := sender.peerCompletion()
 		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
+			if strings.Contains(err.Error(), "use of closed network connection") ||
+				strings.Contains(err.Error(), "request cancelled while waiting") {
 				time.Sleep(250 * time.Millisecond)
 				continue
 			}
