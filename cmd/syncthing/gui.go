@@ -70,7 +70,15 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
 		l.Infoln("Creating new HTTPS certificate")
-		newCertificate(confDir, "https-")
+
+		// When generating the HTTPS certificate, use the system host name per
+		// default. If that isn't available, use the "syncthing" default.
+		name, err := os.Hostname()
+		if err != nil {
+			name = tlsDefaultCommonName
+		}
+
+		newCertificate(confDir, "https-", name)
 		cert, err = loadCert(confDir, "https-")
 	}
 	if err != nil {
@@ -78,7 +86,20 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	}
 	tlsCfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ServerName:   "syncthing",
+		MinVersion:   tls.VersionTLS10, // No SSLv3
+		CipherSuites: []uint16{
+			// No RC4
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+			tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+		},
 	}
 
 	rawListener, err := net.Listen("tcp", cfg.Address)

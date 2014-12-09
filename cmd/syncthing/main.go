@@ -273,7 +273,7 @@ func main() {
 			l.Warnln("Key exists; will not overwrite.")
 			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 		} else {
-			newCertificate(dir, "")
+			newCertificate(dir, "", tlsDefaultCommonName)
 			cert, err = loadCert(dir, "")
 			myID = protocol.NewDeviceID(cert.Certificate[0])
 			if err != nil {
@@ -370,7 +370,7 @@ func syncthingMain() {
 	// Ensure that that we have a certificate and key.
 	cert, err = loadCert(confDir, "")
 	if err != nil {
-		newCertificate(confDir, "")
+		newCertificate(confDir, "", tlsDefaultCommonName)
 		cert, err = loadCert(confDir, "")
 		if err != nil {
 			l.Fatalln("load cert:", err)
@@ -909,7 +909,7 @@ next:
 				// the certificate and used another name.
 				certName := deviceCfg.CertName
 				if certName == "" {
-					certName = "syncthing"
+					certName = tlsDefaultCommonName
 				}
 				err := remoteCert.VerifyHostname(certName)
 				if err != nil {
