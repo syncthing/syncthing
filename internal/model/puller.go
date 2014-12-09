@@ -91,20 +91,15 @@ func (p *Puller) Serve() {
 
 	pullTimer := time.NewTimer(checkPullIntv)
 	scanTimer := time.NewTimer(time.Millisecond) // The first scan should be done immediately.
-	cleanTimer := time.NewTicker(time.Hour)
 
 	defer func() {
 		pullTimer.Stop()
 		scanTimer.Stop()
-		cleanTimer.Stop()
 		// TODO: Should there be an actual FolderStopped state?
 		p.model.setState(p.folder, FolderIdle)
 	}()
 
 	var prevVer uint64
-
-	// Clean out old temporaries before we start pulling
-	p.clean()
 
 	// We don't start pulling files until a scan has been completed.
 	initialScanCompleted := false
@@ -222,10 +217,6 @@ loop:
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
 				initialScanCompleted = true
 			}
-
-		// Clean out old temporaries
-		case <-cleanTimer.C:
-			p.clean()
 		}
 	}
 }
@@ -844,23 +835,6 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			}
 		}
 	}
-}
-
-// clean deletes orphaned temporary files
-func (p *Puller) clean() {
-	keep := time.Duration(p.model.cfg.Options().KeepTemporariesH) * time.Hour
-	now := time.Now()
-	filepath.Walk(p.dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if info.Mode().IsRegular() && defTempNamer.IsTemporary(path) && info.ModTime().Add(keep).Before(now) {
-			os.Remove(path)
-		}
-
-		return nil
-	})
 }
 
 func invalidateFolder(cfg *config.Configuration, folderID string, err error) {

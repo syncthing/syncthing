@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/internal/ignore"
 	"github.com/syncthing/syncthing/internal/lamport"
@@ -40,6 +41,8 @@ type Walker struct {
 	Matcher *ignore.Matcher
 	// If TempNamer is not nil, it is used to ignore tempory files when walking.
 	TempNamer TempNamer
+	// Number of hours to keep temporary files for
+	TempLifetime time.Duration
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
 	CurrentFiler CurrentFiler
 	// If IgnorePerms is true, changes to permission bits will not be
@@ -86,6 +89,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 }
 
 func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFunc {
+	now := time.Now()
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			if debug {
@@ -110,6 +114,12 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			// A temporary file
 			if debug {
 				l.Debugln("temporary:", rn)
+			}
+			if info.Mode().IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
+				os.Remove(p)
+				if debug {
+					l.Debugln("removing temporary:", rn, info.ModTime())
+				}
 			}
 			return nil
 		}
