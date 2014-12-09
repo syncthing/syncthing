@@ -395,6 +395,18 @@ func transformVersion(v string) string {
 	if m := vRe.FindStringSubmatch(v); len(m) > 0 {
 		return m[1] + " (+dev)"
 	}
+
+	// Truncate old versions to just the generation part
+	if strings.HasPrefix(v, "v0.7") {
+		return "v0.7.x"
+	}
+	if strings.HasPrefix(v, "v0.8") {
+		return "v0.8.x"
+	}
+	if strings.HasPrefix(v, "v0.9") {
+		return "v0.9.x"
+	}
+
 	return v
 }
 
