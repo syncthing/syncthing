@@ -23,7 +23,7 @@ func (l analyticList) Len() int {
 }
 
 // Returns a list of frequency analytics for a given list of strings.
-func analyticsFor(ss []string) []analytic {
+func analyticsFor(ss []string, cutoff int) []analytic {
 	m := make(map[string]int)
 	t := 0
 	for _, s := range ss {
@@ -37,6 +37,15 @@ func analyticsFor(ss []string) []analytic {
 	}
 
 	sort.Sort(analyticList(l))
+
+	if cutoff > 0 && len(l) > cutoff {
+		c := 0
+		for _, i := range l[cutoff:] {
+			c += i.Count
+		}
+		l = append(l[:cutoff], analytic{"Others", c, 100 * float64(c) / float64(t)})
+	}
+
 	return l
 }
 

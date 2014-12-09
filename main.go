@@ -363,9 +363,9 @@ func getReport(key string) map[string]interface{} {
 	r["key"] = key
 	r["nodes"] = nodes
 	r["categories"] = categories
-	r["versions"] = analyticsFor(versions)
-	r["platforms"] = analyticsFor(platforms)
-	r["os"] = analyticsFor(oses)
+	r["versions"] = analyticsFor(versions, 10)
+	r["platforms"] = analyticsFor(platforms, 0)
+	r["os"] = analyticsFor(oses, 0)
 
 	reportCache = r
 
