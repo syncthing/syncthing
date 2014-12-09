@@ -33,8 +33,8 @@ import (
 )
 
 const (
-	tlsRSABits = 3072
-	tlsName    = "syncthing"
+	tlsRSABits           = 3072
+	tlsDefaultCommonName = "syncthing"
 )
 
 func loadCert(dir string, prefix string) (tls.Certificate, error) {
@@ -43,8 +43,8 @@ func loadCert(dir string, prefix string) (tls.Certificate, error) {
 	return tls.LoadX509KeyPair(cf, kf)
 }
 
-func newCertificate(dir string, prefix string) {
-	l.Infoln("Generating RSA key and certificate...")
+func newCertificate(dir, prefix, name string) {
+	l.Infof("Generating RSA key and certificate for %s...", name)
 
 	priv, err := rsa.GenerateKey(rand.Reader, tlsRSABits)
 	if err != nil {
@@ -57,7 +57,7 @@ func newCertificate(dir string, prefix string) {
 	template := x509.Certificate{
 		SerialNumber: new(big.Int).SetInt64(mr.Int63()),
 		Subject: pkix.Name{
-			CommonName: tlsName,
+			CommonName: name,
 		},
 		NotBefore: notBefore,
 		NotAfter:  notAfter,
