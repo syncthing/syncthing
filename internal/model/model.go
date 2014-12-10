@@ -1065,6 +1065,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		Matcher:      ignores,
 		BlockSize:    protocol.BlockSize,
 		TempNamer:    defTempNamer,
+		TempLifetime: time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler: cFiler{m, folder},
 		IgnorePerms:  m.folderCfgs[folder].IgnorePerms,
 	}
