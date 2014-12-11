@@ -1,7 +1,7 @@
 FROM debian:squeeze
 MAINTAINER Jakob Borg <jakob@nym.se>
 
-ENV GOLANG_VERSION 1.4rc2
+ENV GOLANG_VERSION 1.4
 
 # SCMs for "go get", gcc for cgo
 RUN apt-get update && apt-get install -y \

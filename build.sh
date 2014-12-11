@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-DOCKERIMGV=1.4-2
+DOCKERIMGV=1.4-3
 
 case "${1:-default}" in
 	default)
