@@ -93,7 +93,7 @@ func main() {
 		}
 	}
 
-	db, err := leveldb.OpenFile(dbDir, &opt.Options{CachedOpenFiles: 32})
+	db, err := leveldb.OpenFile(dbDir, &opt.Options{OpenFilesCacheCapacity: 32})
 	if err != nil {
 		log.Fatal(err)
 	}
