@@ -16,3 +16,4 @@ csrftokens.txt
 s4d
 http
 index
+*.syncthing-reset*

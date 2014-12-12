@@ -846,6 +846,17 @@ func renewUPnP(port int) {
 }
 
 func resetFolders() {
+	confDir, err := osutil.ExpandTilde(confDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cfgFile := filepath.Join(confDir, "config.xml")
+	cfg, err := config.Load(cfgFile, myID)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	suffix := fmt.Sprintf(".syncthing-reset-%d", time.Now().UnixNano())
 	for _, folder := range cfg.Folders() {
 		if _, err := os.Stat(folder.Path); err == nil {
