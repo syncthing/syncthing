@@ -54,3 +54,29 @@ func TestCLIReset(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIGenerate(t *testing.T) {
+	err := os.RemoveAll("home.out")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// -generate should create a bunch of stuff
+
+	cmd := exec.Command("../bin/syncthing", "-generate", "home.out")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stdout
+	err = cmd.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify that the files that should have been created have been
+
+	for _, f := range []string{"home.out/config.xml", "home.out/cert.pem", "home.out/key.pem"} {
+		_, err := os.Stat(f)
+		if err != nil {
+			t.Errorf("%s is not correctly generated", f)
+		}
+	}
+}
