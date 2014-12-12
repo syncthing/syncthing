@@ -153,6 +153,14 @@
                       <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;<span translate>Shared With</span></th>
                       <td class="text-right">{{sharesFolder(folder)}}</td>
                     </tr>
+                    <tr ng-if="folderStats[folder.ID].LastFile">
+                      <th><span class="glyphicon glyphicon-transfer"></span>&emsp;<span translate>Last File Synced</span></th>
+                      <td class="text-right">
+                        <span title="{{folderStats[folder.ID].LastFile.Filename}} @ {{folderStats[folder.ID].LastFile.At | date:'yyyy-MM-dd HH:mm'}}">
+                          {{folderStats[folder.ID].LastFile.Filename | basename}}
+                        </span>
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -276,8 +284,8 @@
                     </tr>
                     <tr ng-if="!connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-eye-open"></span>&emsp;<span translate>Last seen</span></th>
-                      <td translate ng-if="!stats[deviceCfg.DeviceID].LastSeenDays || stats[deviceCfg.DeviceID].LastSeenDays >= 365" class="text-right">Never</td>
-                      <td ng-if="stats[deviceCfg.DeviceID].LastSeenDays < 365" class="text-right">{{stats[deviceCfg.DeviceID].LastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
+                      <td translate ng-if="!deviceStats[deviceCfg.DeviceID].LastSeenDays || deviceStats[deviceCfg.DeviceID].LastSeenDays >= 365" class="text-right">Never</td>
+                      <td ng-if="deviceStats[deviceCfg.DeviceID].LastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.DeviceID].LastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
                     </tr>
                     <tr ng-if="deviceFolders(deviceCfg).length > 0">
                       <th><span class="glyphicon glyphicon-hdd"></span>&emsp;<span translate>Folders</span></th>

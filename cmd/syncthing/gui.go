@@ -129,6 +129,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
 	getRestMux.HandleFunc("/rest/version", restGetVersion)
 	getRestMux.HandleFunc("/rest/stats/device", withModel(m, restGetDeviceStats))
+	getRestMux.HandleFunc("/rest/stats/folder", withModel(m, restGetFolderStats))
 
 	// Debug endpoints, not for general use
 	getRestMux.HandleFunc("/rest/debug/peerCompletion", withModel(m, restGetPeerCompletion))
@@ -339,6 +340,12 @@ func restGetConnections(m *model.Model, w http.ResponseWriter, r *http.Request) 
 
 func restGetDeviceStats(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var res = m.DeviceStatistics()
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(res)
+}
+
+func restGetFolderStats(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	var res = m.FolderStatistics()
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
