@@ -154,9 +154,9 @@
                       <td class="text-right">{{sharesFolder(folder)}}</td>
                     </tr>
                     <tr ng-if="folderStats[folder.ID].LastFile">
-                      <th><span class="glyphicon glyphicon-transfer"></span>&emsp;<span translate>Last change received</span></th>
+                      <th><span class="glyphicon glyphicon-transfer"></span>&emsp;<span translate>Last File Synced</span></th>
                       <td class="text-right">
-                        <span popover data-trigger="hover" data-placement="bottom" data-content="{{folderStats[folder.ID].LastFile.At | date:'yyyy-MM-dd HH:mm'}}">
+                        <span title="{{folderStats[folder.ID].LastFile.Filename}} @ {{folderStats[folder.ID].LastFile.At | date:'yyyy-MM-dd HH:mm'}}">
                           {{folderStats[folder.ID].LastFile.Filename | basename}}
                         </span>
                       </td>
