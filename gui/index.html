@@ -790,6 +790,15 @@
   <!-- Needed files modal -->
 
   <modal id="needed" large="yes" status="info" icon="cloud-download" close="yes" title="Out of Sync Items">
+    <span translate>Legend:</span>
+    <div class="progress progress-striped active">
+      <div class="progress-bar progress-bar-success" style="width: 20%"><span translate class="show">Reused</span></div>
+      <div class="progress-bar" style="width: 20%"><span translate class="show">Copied from original</span></div>
+      <div class="progress-bar progress-bar-info" style="width: 20%"><span translate class="show">Copied from elsewhere</span></div>
+      <div class="progress-bar progress-bar-warning" style="width: 20%"><span translate class="show">Downloaded</span></div>
+      <div class="progress-bar progress-bar-danger" style="width: 20%"><span translate class="show">Downloading</span></div>
+    </div>
+    
     <table class="table table-striped table-condensed">
       <tr ng-repeat="f in needed" ng-init="a = needAction(f)">
         <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
@@ -808,14 +817,6 @@
         </td>
       </tr>
     </table>
-    <span translate>Legend:</span>
-    <div class="progress progress-striped active">
-      <div class="progress-bar progress-bar-success" style="width: 20%"><span translate class="show">Reused</span></div>
-      <div class="progress-bar" style="width: 20%"><span translate class="show">Copied from original</span></div>
-      <div class="progress-bar progress-bar-info" style="width: 20%"><span translate class="show">Copied from elsewhere</span></div>
-      <div class="progress-bar progress-bar-warning" style="width: 20%"><span translate class="show">Downloaded</span></div>
-      <div class="progress-bar progress-bar-danger" style="width: 20%"><span translate class="show">Downloading</span></div>
-    </div>
 
   </modal>
 
