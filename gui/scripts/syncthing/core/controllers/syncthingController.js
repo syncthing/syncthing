@@ -889,6 +889,9 @@ angular.module('syncthing.core')
 
         $scope.editFolder = function (folderCfg) {
             $scope.currentFolder = angular.copy(folderCfg);
+            if ($scope.currentFolder.Path.slice(-1) == $scope.system.pathSeparator) {
+                $scope.currentFolder.Path = $scope.currentFolder.Path.slice(0, -1);
+            }
             $scope.currentFolder.selectedDevices = {};
             $scope.currentFolder.Devices.forEach(function (n) {
                 $scope.currentFolder.selectedDevices[n.DeviceID] = true;

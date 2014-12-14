@@ -449,6 +449,7 @@ func restGetSystem(w http.ResponseWriter, r *http.Request) {
 	}
 	cpuUsageLock.RUnlock()
 	res["cpuPercent"] = cpusum / 10
+	res["pathSeparator"] = string(filepath.Separator)
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
