@@ -264,10 +264,10 @@ func main() {
 		if err == nil && !info.IsDir() {
 			l.Fatalln(dir, "is not a directory")
 		}
-		if err!=nil&&os.IsNotExist(err){
-			err=os.MkdirAll(dir, 0700)
+		if err != nil && os.IsNotExist(err) {
+			err = os.MkdirAll(dir, 0700)
 			if err != nil {
-				l.Fatalln("generate:",err)
+				l.Fatalln("generate:", err)
 			}
 		}
 
