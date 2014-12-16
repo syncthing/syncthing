@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 )
 
 func TestCLIReset(t *testing.T) {
@@ -78,5 +79,65 @@ func TestCLIGenerate(t *testing.T) {
 		if err != nil {
 			t.Errorf("%s is not correctly generated", f)
 		}
+	}
+}
+
+func TestCLIFirstStartup(t *testing.T) {
+	err := os.RemoveAll("home.out")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// First startup should create config, BEP certificate, and HTTP certificate.
+
+	cmd := exec.Command("../bin/syncthing", "-home", "home.out")
+	cmd.Env = append(os.Environ(), "STNORESTART=1")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stdout
+	err = cmd.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	exitError := make(chan error, 1)
+	filesOk := make(chan struct{})
+	processDone := make(chan struct{})
+
+	go func() {
+		// Wait for process exit.
+		exitError <- cmd.Wait()
+		close(processDone)
+	}()
+
+	go func() {
+	again:
+		for {
+			select {
+			case <-processDone:
+				return
+			default:
+				// Verify that the files that should have been created have been
+				for _, f := range []string{"home.out/config.xml", "home.out/cert.pem", "home.out/key.pem", "home.out/https-cert.pem", "home.out/https-key.pem"} {
+					_, err := os.Stat(f)
+					if err != nil {
+						time.Sleep(500 * time.Millisecond)
+						continue again
+					}
+				}
+
+				// Make sure the process doesn't exit with an error just after creating certificates.
+				time.Sleep(time.Second)
+				filesOk <- struct{}{}
+				return
+			}
+		}
+	}()
+
+	select {
+	case e := <-exitError:
+		t.Error(e)
+	case <-filesOk:
+		cmd.Process.Kill()
+		return
 	}
 }

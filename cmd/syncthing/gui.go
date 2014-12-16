@@ -73,7 +73,8 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 
 		// When generating the HTTPS certificate, use the system host name per
 		// default. If that isn't available, use the "syncthing" default.
-		name, err := os.Hostname()
+		var name string
+		name, err = os.Hostname()
 		if err != nil {
 			name = tlsDefaultCommonName
 		}
