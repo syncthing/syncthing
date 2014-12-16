@@ -888,13 +888,12 @@ func (m *Model) folderStatRef(folder string) *stats.FolderStatisticsReference {
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
-	if sr, ok := m.folderStatRefs[folder]; ok {
-		return sr
-	} else {
+	sr, ok := m.folderStatRefs[folder]
+	if !ok {
 		sr = stats.NewFolderStatisticsReference(m.db, folder)
 		m.folderStatRefs[folder] = sr
-		return sr
 	}
+	return sr
 }
 
 func (m *Model) receivedFile(folder, filename string) {

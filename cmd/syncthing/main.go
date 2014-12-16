@@ -937,12 +937,12 @@ next:
 
 				// If rate limiting is set, we wrap the connection in a
 				// limiter.
-				var wr io.Writer = conn
+				wr := io.Writer(conn)
 				if writeRateLimit != nil {
 					wr = &limitedWriter{conn, writeRateLimit}
 				}
 
-				var rd io.Reader = conn
+				rd := io.Reader(conn)
 				if readRateLimit != nil {
 					rd = &limitedReader{conn, readRateLimit}
 				}
@@ -1015,7 +1015,7 @@ func listenTLS(conns chan *tls.Conn, addr string, tlsCfg *tls.Config) {
 }
 
 func dialTLS(m *model.Model, conns chan *tls.Conn, tlsCfg *tls.Config) {
-	var delay time.Duration = 1 * time.Second
+	delay := time.Second
 	for {
 	nextDevice:
 		for deviceID, deviceCfg := range cfg.Devices() {
@@ -1154,9 +1154,8 @@ func getDefaultConfDir() (string, error) {
 	default:
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
 			return filepath.Join(xdgCfg, "syncthing"), nil
-		} else {
-			return osutil.ExpandTilde("~/.config/syncthing")
 		}
+		return osutil.ExpandTilde("~/.config/syncthing")
 	}
 }
 
