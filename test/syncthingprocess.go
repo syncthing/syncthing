@@ -15,35 +15,19 @@
 
 // +build integration
 
-package integration_test
+package integration
 
 import (
 	"bufio"
 	"bytes"
-	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
-
-	"github.com/syncthing/syncthing/internal/symlinks"
-)
-
-func init() {
-	rand.Seed(42)
-}
-
-const (
-	id1    = "I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"
-	id2    = "JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"
-	apiKey = "abc123"
 )
 
 var env = []string{
@@ -129,7 +113,7 @@ func (p *syncthingProcess) stop() error {
 
 func (p *syncthingProcess) get(path string) (*http.Response, error) {
 	client := &http.Client{
-		Timeout: 2 * time.Second,
+		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			DisableKeepAlives: true,
 		},
@@ -229,227 +213,4 @@ func (p *syncthingProcess) version() (string, error) {
 		return "", err
 	}
 	return v.Version, nil
-}
-
-func generateFiles(dir string, files, maxexp int, srcname string) error {
-	fd, err := os.Open(srcname)
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < files; i++ {
-		n := randomName()
-		p0 := filepath.Join(dir, string(n[0]), n[0:2])
-		err = os.MkdirAll(p0, 0755)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		s := 1 << uint(rand.Intn(maxexp))
-		a := 128 * 1024
-		if a > s {
-			a = s
-		}
-		s += rand.Intn(a)
-
-		src := io.LimitReader(&inifiteReader{fd}, int64(s))
-
-		p1 := filepath.Join(p0, n)
-		dst, err := os.Create(p1)
-		if err != nil {
-			return err
-		}
-
-		_, err = io.Copy(dst, src)
-		if err != nil {
-			return err
-		}
-
-		err = dst.Close()
-		if err != nil {
-			return err
-		}
-
-		err = os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
-		if err != nil {
-			return err
-		}
-
-		t := time.Now().Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
-		err = os.Chtimes(p1, t, t)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func ReadRand(bs []byte) (int, error) {
-	var r uint32
-	for i := range bs {
-		if i%4 == 0 {
-			r = uint32(rand.Int63())
-		}
-		bs[i] = byte(r >> uint((i%4)*8))
-	}
-	return len(bs), nil
-}
-
-func randomName() string {
-	var b [16]byte
-	ReadRand(b[:])
-	return fmt.Sprintf("%x", b[:])
-}
-
-type inifiteReader struct {
-	rd io.ReadSeeker
-}
-
-func (i *inifiteReader) Read(bs []byte) (int, error) {
-	n, err := i.rd.Read(bs)
-	if err == io.EOF {
-		err = nil
-		i.rd.Seek(0, 0)
-	}
-	return n, err
-}
-
-// rm -rf
-func removeAll(dirs ...string) error {
-	for _, dir := range dirs {
-		// Set any non-writeable files and dirs to writeable. This is necessary for os.RemoveAll to work on Windows.
-		filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.Mode()&0700 != 0700 {
-				os.Chmod(path, 0777)
-			}
-			return nil
-		})
-		os.RemoveAll(dir)
-	}
-	return nil
-}
-
-// Compare a number of directories. Returns nil if the contents are identical,
-// otherwise an error describing the first found difference.
-func compareDirectories(dirs ...string) error {
-	chans := make([]chan fileInfo, len(dirs))
-	for i := range chans {
-		chans[i] = make(chan fileInfo)
-	}
-	abort := make(chan struct{})
-
-	for i := range dirs {
-		startWalker(dirs[i], chans[i], abort)
-	}
-
-	res := make([]fileInfo, len(dirs))
-	for {
-		numDone := 0
-		for i := range chans {
-			fi, ok := <-chans[i]
-			if !ok {
-				numDone++
-			}
-			res[i] = fi
-		}
-
-		for i := 1; i < len(res); i++ {
-			if res[i] != res[0] {
-				close(abort)
-				return fmt.Errorf("Mismatch; %#v (%s) != %#v (%s)", res[i], dirs[i], res[0], dirs[0])
-			}
-		}
-
-		if numDone == len(dirs) {
-			return nil
-		}
-	}
-}
-
-type fileInfo struct {
-	name string
-	mode os.FileMode
-	mod  int64
-	hash [16]byte
-}
-
-func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) {
-	walker := func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		rn, _ := filepath.Rel(dir, path)
-		if rn == "." || rn == ".stfolder" {
-			return nil
-		}
-		if rn == ".stversions" {
-			return filepath.SkipDir
-		}
-
-		var f fileInfo
-		if info.Mode()&os.ModeSymlink != 0 {
-			f = fileInfo{
-				name: rn,
-				mode: os.ModeSymlink,
-			}
-
-			tgt, _, err := symlinks.Read(path)
-			if err != nil {
-				return err
-			}
-			h := md5.New()
-			h.Write([]byte(tgt))
-			hash := h.Sum(nil)
-
-			copy(f.hash[:], hash)
-		} else if info.IsDir() {
-			f = fileInfo{
-				name: rn,
-				mode: info.Mode(),
-				// hash and modtime zero for directories
-			}
-		} else {
-			f = fileInfo{
-				name: rn,
-				mode: info.Mode(),
-				mod:  info.ModTime().Unix(),
-			}
-			sum, err := md5file(path)
-			if err != nil {
-				return err
-			}
-			f.hash = sum
-		}
-
-		select {
-		case res <- f:
-			return nil
-		case <-abort:
-			return errors.New("abort")
-		}
-	}
-	go func() {
-		filepath.Walk(dir, walker)
-		close(res)
-	}()
-}
-
-func md5file(fname string) (hash [16]byte, err error) {
-	f, err := os.Open(fname)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	h := md5.New()
-	io.Copy(h, f)
-	hb := h.Sum(nil)
-	copy(hash[:], hb)
-
-	return
 }

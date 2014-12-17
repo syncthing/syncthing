@@ -13,23 +13,17 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-// +build integration
+// +build integration,benchmark
 
-package integration_test
+package integration
 
 import (
 	"log"
-	"strings"
 	"testing"
 	"time"
 )
 
 func TestBenchmarkTransfer(t *testing.T) {
-	nfiles := 10000
-	if testing.Short() {
-		nfiles = 1000
-	}
-
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s2", "h1/index", "h2/index")
 	if err != nil {
@@ -37,12 +31,13 @@ func TestBenchmarkTransfer(t *testing.T) {
 	}
 
 	log.Println("Generating files...")
-	err = generateFiles("s1", nfiles, 22, "../LICENSE")
+	err = generateFiles("s1", 10000, 22, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}
+	expected := directoryContents("s1")
 
-	log.Println("Starting up...")
+	log.Println("Starting sender...")
 	sender := syncthingProcess{ // id1
 		log:    "1.out",
 		argv:   []string{"-home", "h1"},
@@ -54,6 +49,10 @@ func TestBenchmarkTransfer(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Make sure the sender has the full index before they connect
+	sender.post("/rest/scan?folder=default", nil)
+
+	log.Println("Starting receiver...")
 	receiver := syncthingProcess{ // id2
 		log:    "2.out",
 		argv:   []string{"-home", "h2"},
@@ -66,13 +65,12 @@ func TestBenchmarkTransfer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var t0 time.Time
+	var t0, t1 time.Time
 loop:
 	for {
 		evs, err := receiver.events()
 		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
-				log.Println("...")
+			if isTimeout(err) {
 				continue
 			}
 			sender.stop()
@@ -91,8 +89,8 @@ loop:
 					t0 = ev.Time
 					continue
 				}
-				if t0 != (time.Time{}) && data["to"].(string) == "idle" {
-					log.Println("Sync took", ev.Time.Sub(t0))
+				if !t0.IsZero() && data["to"].(string) == "idle" {
+					t1 = ev.Time
 					break loop
 				}
 			}
@@ -103,4 +101,14 @@ loop:
 
 	sender.stop()
 	receiver.stop()
+
+	log.Println("Verifying...")
+
+	actual := directoryContents("s2")
+	err = compareDirectoryContents(actual, expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	log.Println("Sync took", t1.Sub(t0))
 }

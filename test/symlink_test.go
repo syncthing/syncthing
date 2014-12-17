@@ -15,14 +15,13 @@
 
 // +build integration
 
-package integration_test
+package integration
 
 import (
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -62,7 +61,7 @@ func TestSymlinksSimpleVersioning(t *testing.T) {
 		t.Skip("symlinks unsupported")
 	}
 
-	// Use no versioning
+	// Use simple versioning
 	id, _ := protocol.DeviceIDFromString(id2)
 	cfg, _ := config.Load("h2/config.xml", id)
 	fld := cfg.Folders()["default"]
@@ -81,7 +80,7 @@ func TestSymlinksStaggeredVersioning(t *testing.T) {
 		t.Skip("symlinks unsupported")
 	}
 
-	// Use no versioning
+	// Use staggered versioning
 	id, _ := protocol.DeviceIDFromString(id2)
 	cfg, _ := config.Load("h2/config.xml", id)
 	fld := cfg.Folders()["default"]
@@ -203,7 +202,7 @@ func testSymlinks(t *testing.T) {
 	for {
 		comp, err := sender.peerCompletion()
 		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
+			if isTimeout(err) {
 				time.Sleep(time.Second)
 				continue
 			}
@@ -328,7 +327,7 @@ func testSymlinks(t *testing.T) {
 	for {
 		comp, err := sender.peerCompletion()
 		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
+			if isTimeout(err) {
 				time.Sleep(time.Second)
 				continue
 			}

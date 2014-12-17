@@ -105,7 +105,7 @@ case "${1:-default}" in
 		;;
 
 	docker-init)
-		docker build -q -t syncthing/build:$DOCKERIMGV docker >/dev/null
+		docker build -q -t syncthing/build:$DOCKERIMGV docker
 		;;
 
 	docker-all)
@@ -122,17 +122,15 @@ case "${1:-default}" in
 
 	docker-test)
 		docker run --rm -h syncthing-builder -u $(id -u) -t \
-			-v $(pwd):/tmp/syncthing \
+			-v $(pwd):/go/src/github.com/syncthing/syncthing \
+			-w /go/src/github.com/syncthing/syncthing \
 			syncthing/build:$DOCKERIMGV \
-			sh -euxc 'mkdir -p /go/src/github.com/syncthing \
-				&& cd /go/src/github.com/syncthing \
-				&& cp -r /tmp/syncthing syncthing \
-				&& cd syncthing \
-				&& ./build.sh clean \
+			sh -euxc './build.sh clean \
 				&& go run build.go -race \
 				&& export GOPATH=$(pwd)/Godeps/_workspace:$GOPATH \
 				&& cd test \
-				&& go test -tags integration -v -timeout 60m -short'
+				&& go test -tags integration -v -timeout 60m -short \
+				&& git clean -fxd .'
 		;;
 
 	*)

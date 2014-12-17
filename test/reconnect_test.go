@@ -15,11 +15,10 @@
 
 // +build integration
 
-package integration_test
+package integration
 
 import (
 	"log"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -81,8 +80,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 	for {
 		comp, err := sender.peerCompletion()
 		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") ||
-				strings.Contains(err.Error(), "request cancelled while waiting") {
+			if isTimeout(err) {
 				time.Sleep(250 * time.Millisecond)
 				continue
 			}

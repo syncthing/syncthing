@@ -15,13 +15,11 @@
 
 // +build integration
 
-// This currently fails; it should be fixed
-package integration_test
+package integration
 
 import (
 	"log"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -128,7 +126,7 @@ func testFileTypeChange(t *testing.T) {
 	for {
 		comp, err := sender.peerCompletion()
 		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
+			if isTimeout(err) {
 				time.Sleep(time.Second)
 				continue
 			}
@@ -200,7 +198,7 @@ func testFileTypeChange(t *testing.T) {
 	for {
 		comp, err := sender.peerCompletion()
 		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
+			if isTimeout(err) {
 				time.Sleep(time.Second)
 				continue
 			}
