@@ -72,7 +72,7 @@ func (d *Discoverer) StartLocal(localPort int, localMCAddr string) {
 		bb, err := beacon.NewBroadcast(localPort)
 		if err != nil {
 			if debug {
-				l.Debugln(err)
+				l.Debugln("discover: Start local v4:", err)
 			}
 			l.Infoln("Local discovery over IPv4 unavailable")
 		} else {
@@ -85,7 +85,7 @@ func (d *Discoverer) StartLocal(localPort int, localMCAddr string) {
 		mb, err := beacon.NewMulticast(localMCAddr)
 		if err != nil {
 			if debug {
-				l.Debugln(err)
+				l.Debugln("discover: Start local v6:", err)
 			}
 			l.Infoln("Local discovery over IPv6 unavailable")
 		} else {
@@ -247,10 +247,10 @@ func (d *Discoverer) announcementPkt() *Announce {
 		for _, astr := range d.listenAddrs {
 			addr, err := net.ResolveTCPAddr("tcp", astr)
 			if err != nil {
-				l.Warnln("%v: not announcing %s", err, astr)
+				l.Warnln("discover: %v: not announcing %s", err, astr)
 				continue
 			} else if debug {
-				l.Debugf("discover: announcing %s: %#v", astr, addr)
+				l.Debugf("discover: resolved %s as %#v", astr, addr)
 			}
 			if len(addr.IP) == 0 || addr.IP.IsUnspecified() {
 				addrs = append(addrs, Address{Port: uint16(addr.Port)})
@@ -295,14 +295,17 @@ func (d *Discoverer) recvAnnouncements(b beacon.Interface) {
 	for {
 		buf, addr := b.Recv()
 
-		if debug {
-			l.Debugf("discover: read announcement from %s:\n%s", addr, hex.Dump(buf))
-		}
-
 		var pkt Announce
 		err := pkt.UnmarshalXDR(buf)
 		if err != nil && err != io.EOF {
+			if debug {
+				l.Debugf("discover: Failed to unmarshal local announcement from %s:\n%s", addr, hex.Dump(buf))
+			}
 			continue
+		}
+
+		if debug {
+			l.Debugf("discover: Received local announcement from %s for %s", addr, protocol.DeviceIDFromBytes(pkt.This.ID))
 		}
 
 		var newDevice bool
@@ -352,7 +355,7 @@ func (d *Discoverer) registerDevice(addr net.Addr, device Device) bool {
 	}
 
 	if debug {
-		l.Debugf("discover: register: %v -> %v", id, current)
+		l.Debugf("discover: Caching %s addresses: %v", id, current)
 	}
 
 	d.registry[id] = current
@@ -375,7 +378,7 @@ func (d *Discoverer) filterCached(c []CacheEntry) []CacheEntry {
 	for i := 0; i < len(c); {
 		if ago := time.Since(c[i].Seen); ago > d.cacheLifetime {
 			if debug {
-				l.Debugf("removing cached address %s: seen %v ago", c[i].Address, ago)
+				l.Debugf("discover: Removing cached address %s - seen %v ago", c[i].Address, ago)
 			}
 			c[i] = c[len(c)-1]
 			c = c[:len(c)-1]
