@@ -46,6 +46,20 @@ All nontrivial contributions should go through the pull request
 mechanism for internal review. Determining what is "nontrivial" is left
 at the discretion of the contributor.
 
+### Authorship
+
+All code authors are listed in the AUTHORS file. Commits must be made
+with the same name and email as listed in the AUTHORS file. To
+accomplish this, ensure that your git configuration is set correctly
+prior to making your first commit;
+
+    $ git config --global user.name "Jane Doe"
+    $ git config --global user.email janedoe@example.com
+
+You must be reachable on the given email address. If you do not wish to
+use your real name for whatever reason, using a nickname or pseudonym is
+perfectly acceptable.
+
 ### Core Team
 
 The Syncthing core team currently consists of the following members;
