@@ -297,7 +297,9 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 
 	changed := 0
 
-	var deletions []protocol.FileInfo
+	fileDeletions := map[string]protocol.FileInfo{}
+	dirDeletions := []protocol.FileInfo{}
+	buckets := map[string][]protocol.FileInfo{}
 
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 
@@ -327,7 +329,20 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 		switch {
 		case file.IsDeleted():
 			// A deleted file, directory or symlink
-			deletions = append(deletions, file)
+			if file.IsDirectory() {
+				dirDeletions = append(dirDeletions, file)
+			} else {
+				fileDeletions[file.Name] = file
+				df, ok := p.model.CurrentFolderFile(p.folder, file.Name)
+				// Local file can be already deleted, but with a lower version
+				// number, hence the deletion coming in again as part of
+				// WithNeed
+				if ok && !df.IsDeleted() {
+					// Put files into buckets per first hash
+					key := string(df.Blocks[0].Hash)
+					buckets[key] = append(buckets[key], df)
+				}
+			}
 		case file.IsDirectory() && !file.IsSymlink():
 			// A new or changed directory
 			p.handleDir(file)
@@ -341,17 +356,41 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 		return true
 	})
 
+nextFile:
 	for {
 		fileName, ok := p.queue.Pop()
 		if !ok {
 			break
 		}
-		if f, ok := p.model.CurrentGlobalFile(p.folder, fileName); ok {
-			p.handleFile(f, copyChan, finisherChan)
-		} else {
+
+		f, ok := p.model.CurrentGlobalFile(p.folder, fileName)
+		if !ok {
 			// File is no longer in the index. Mark it as done and drop it.
 			p.queue.Done(fileName)
+			continue
 		}
+
+		if !f.IsSymlink() {
+			key := string(f.Blocks[0].Hash)
+			for i, candidate := range buckets[key] {
+				if scanner.BlocksEqual(candidate.Blocks, f.Blocks) {
+					// Remove the candidate from the bucket
+					l := len(buckets[key]) - 1
+					buckets[key][i] = buckets[key][l]
+					buckets[key] = buckets[key][:l]
+					// Remove the pending deletion (as we perform it by renaming)
+					delete(fileDeletions, candidate.Name)
+
+					p.renameFile(candidate, f)
+
+					p.queue.Done(fileName)
+					continue nextFile
+				}
+			}
+		}
+
+		// Not a rename or a symlink, deal with it.
+		p.handleFile(f, copyChan, finisherChan)
 	}
 
 	// Signal copy and puller routines that we are done with the in data for
@@ -367,13 +406,12 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 	// Wait for the finisherChan to finish.
 	doneWg.Wait()
 
-	for i := range deletions {
-		deletion := deletions[len(deletions)-i-1]
-		if deletion.IsDirectory() {
-			p.deleteDir(deletion)
-		} else {
-			p.deleteFile(deletion)
-		}
+	for _, file := range fileDeletions {
+		p.deleteFile(file)
+	}
+
+	for i := range dirDeletions {
+		p.deleteDir(dirDeletions[len(dirDeletions)-i-1])
 	}
 
 	return changed
@@ -479,6 +517,40 @@ func (p *Puller) deleteFile(file protocol.FileInfo) {
 	}
 }
 
+// renameFile attempts to rename an existing file to a destination
+// and set the right attributes on it.
+func (p *Puller) renameFile(source, target protocol.FileInfo) {
+	if debug {
+		l.Debugln(p, "taking rename shortcut", source.Name, "->", target.Name)
+	}
+
+	from := filepath.Join(p.dir, source.Name)
+	to := filepath.Join(p.dir, target.Name)
+
+	var err error
+	if p.versioner != nil {
+		err = osutil.Copy(from, to)
+		if err == nil {
+			err = osutil.InWritableDir(p.versioner.Archive, from)
+		}
+	} else {
+		err = osutil.TryRename(from, to)
+	}
+
+	if err != nil {
+		l.Infof("Puller (folder %q, file %q): rename from %q: %v", p.folder, target.Name, source.Name, err)
+		return
+	}
+
+	// Fix-up the metadata, and update the local index of the target file
+	p.shortcutFile(target)
+
+	// Source file already has the delete bit set.
+	// Because we got rid of the file (by renaming it), we just need to update
+	// the index, and we're done with it.
+	p.model.updateLocal(p.folder, source)
+}
+
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
 func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
@@ -493,7 +565,7 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 		}
 		p.queue.Done(file.Name)
 		if file.IsSymlink() {
-			p.shortcutSymlink(curFile, file)
+			p.shortcutSymlink(file)
 		} else {
 			p.shortcutFile(file)
 		}
@@ -595,7 +667,7 @@ func (p *Puller) shortcutFile(file protocol.FileInfo) {
 }
 
 // shortcutSymlink changes the symlinks type if necessery.
-func (p *Puller) shortcutSymlink(curFile, file protocol.FileInfo) {
+func (p *Puller) shortcutSymlink(file protocol.FileInfo) {
 	err := symlinks.ChangeType(filepath.Join(p.dir, file.Name), file.Flags)
 	if err != nil {
 		l.Infof("Puller (folder %q, file %q): symlink shortcut: %v", p.folder, file.Name, err)
