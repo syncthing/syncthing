@@ -173,6 +173,38 @@ func (p *syncthingProcess) peerCompletion() (map[string]int, error) {
 	return comp, err
 }
 
+type model struct {
+	GlobalBytes   int
+	GlobalDeleted int
+	GlobalFiles   int
+	InSyncBytes   int
+	InSyncFiles   int
+	Invalid       string
+	LocalBytes    int
+	LocalDeleted  int
+	LocalFiles    int
+	NeedBytes     int
+	NeedFiles     int
+	State         string
+	StateChanged  time.Time
+	Version       int
+}
+
+func (p *syncthingProcess) model(folder string) (model, error) {
+	resp, err := p.get("/rest/model?folder=" + folder)
+	if err != nil {
+		return model{}, err
+	}
+
+	var res model
+	err = json.NewDecoder(resp.Body).Decode(&res)
+	if err != nil {
+		return model{}, err
+	}
+
+	return res, nil
+}
+
 type event struct {
 	ID   int
 	Time time.Time

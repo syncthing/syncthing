@@ -353,3 +353,69 @@ flamingo
 		result = pats.Match("filename")
 	}
 }
+
+func TestCacheReload(t *testing.T) {
+	fd, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer fd.Close()
+	defer os.Remove(fd.Name())
+
+	// Ignore file matches f1 and f2
+
+	_, err = fd.WriteString("f1\nf2\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pats, err := Load(fd.Name(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify that both are ignored
+
+	if !pats.Match("f1") {
+		t.Error("Unexpected non-match for f1")
+	}
+	if !pats.Match("f2") {
+		t.Error("Unexpected non-match for f2")
+	}
+	if pats.Match("f3") {
+		t.Error("Unexpected match for f3")
+	}
+
+	// Rewrite file to match f1 and f3
+
+	err = fd.Truncate(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fd.Seek(0, os.SEEK_SET)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fd.WriteString("f1\nf3\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pats, err = Load(fd.Name(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify that the new patterns are in effect
+
+	if !pats.Match("f1") {
+		t.Error("Unexpected non-match for f1")
+	}
+	if pats.Match("f2") {
+		t.Error("Unexpected match for f2")
+	}
+	if !pats.Match("f3") {
+		t.Error("Unexpected non-match for f3")
+	}
+}

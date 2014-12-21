@@ -143,25 +143,26 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 		// Index wise symlinks are always files, regardless of what the target
 		// is, because symlinks carry their target path as their content.
-		if info.Mode()&os.ModeSymlink != 0 {
+		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
 			var rval error
-			// If the target is a directory, do NOT descend down there.
-			// This will cause files to get tracked, and removing the symlink
-			// will as a result remove files in their real location.
-			// But do not SkipDir if the target is not a directory, as it will
-			// stop scanning the current directory.
+			// If the target is a directory, do NOT descend down there. This
+			// will cause files to get tracked, and removing the symlink will
+			// as a result remove files in their real location. But do not
+			// SkipDir if the target is not a directory, as it will stop
+			// scanning the current directory.
 			if info.IsDir() {
 				rval = filepath.SkipDir
 			}
 
-			// We always rehash symlinks as they have no modtime or
-			// permissions.
-			// We check if they point to the old target by checking that
-			// their existing blocks match with the blocks in the index.
-			// If we don't have a filer or don't support symlinks, skip.
-			if w.CurrentFiler == nil || !symlinks.Supported {
+			// If we don't support symlinks, skip.
+			if !symlinks.Supported {
 				return rval
 			}
+
+			// We always rehash symlinks as they have no modtime or
+			// permissions. We check if they point to the old target by
+			// checking that their existing blocks match with the blocks in
+			// the index.
 
 			target, flags, err := symlinks.Read(p)
 			flags = flags & protocol.SymlinkTypeMask
@@ -180,9 +181,17 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				return rval
 			}
 
-			cf := w.CurrentFiler.CurrentFile(rn)
-			if !cf.IsDeleted() && cf.IsSymlink() && SymlinkTypeEqual(flags, cf.Flags) && BlocksEqual(cf.Blocks, blocks) {
-				return rval
+			if w.CurrentFiler != nil {
+				// A symlink is "unchanged", if
+				//  - it wasn't deleted (because it isn't now)
+				//  - it was a symlink
+				//  - it wasn't invalid
+				//  - the symlink type (file/dir) was the same
+				//  - the block list (i.e. hash of target) was the same
+				cf := w.CurrentFiler.CurrentFile(rn)
+				if !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(flags, cf.Flags) && BlocksEqual(cf.Blocks, blocks) {
+					return rval
+				}
 			}
 
 			f := protocol.FileInfo{
@@ -204,9 +213,15 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 		if info.Mode().IsDir() {
 			if w.CurrentFiler != nil {
+				// A directory is "unchanged", if it
+				//  - has the same permissions as previously, unless we are ignoring permissions
+				//  - was not marked deleted (since it apparently exists now)
+				//  - was a directory previously (not a file or something else)
+				//  - was not a symlink (since it's a directory now)
+				//  - was not invalid (since it looks valid now)
 				cf := w.CurrentFiler.CurrentFile(rn)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if !cf.IsDeleted() && cf.IsDirectory() && permUnchanged && !cf.IsSymlink() {
+				if permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 					return nil
 				}
 			}
@@ -232,9 +247,16 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 		if info.Mode().IsRegular() {
 			if w.CurrentFiler != nil {
+				// A file is "unchanged", if it
+				//  - has the same permissions as previously, unless we are ignoring permissions
+				//  - was not marked deleted (since it apparently exists now)
+				//  - had the same modification time as it has now
+				//  - was not a directory previously (since it's a file now)
+				//  - was not a symlink (since it's a file now)
+				//  - was not invalid (since it looks valid now)
 				cf := w.CurrentFiler.CurrentFile(rn)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && permUnchanged {
+				if permUnchanged && !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && !cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 					return nil
 				}
 
