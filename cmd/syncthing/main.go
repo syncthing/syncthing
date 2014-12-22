@@ -182,6 +182,7 @@ var (
 	showVersion       bool
 	doUpgrade         bool
 	doUpgradeCheck    bool
+	upgradeTo         string
 	noBrowser         bool
 	noConsole         bool
 	generateDir       string
@@ -227,6 +228,7 @@ func main() {
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
+	flag.StringVar(&upgradeTo, "upgrade-to", upgradeTo, "Force upgrade directly from specified URL")
 
 	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, defConfDir))
 	flag.Parse()
@@ -314,6 +316,15 @@ func main() {
 
 	// Ensure that our home directory exists.
 	ensureDir(confDir, 0700)
+
+	if upgradeTo != "" {
+		err := upgrade.ToURL(upgradeTo)
+		if err != nil {
+			l.Fatalln("Upgrade:", err) // exits 1
+		}
+		l.Okln("Upgraded from", upgradeTo)
+		return
+	}
 
 	if doUpgrade || doUpgradeCheck {
 		rel, err := upgrade.LatestRelease(IsBeta)

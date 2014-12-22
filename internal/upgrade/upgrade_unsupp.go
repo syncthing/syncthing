@@ -17,7 +17,11 @@
 
 package upgrade
 
-func upgradeTo(path string, rel Release) error {
+func upgradeTo(binary string, rel Release) error {
+	return ErrUpgradeUnsupported
+}
+
+func upgradeToURL(binary, url string) error {
 	return ErrUpgradeUnsupported
 }
 

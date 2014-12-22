@@ -80,26 +80,31 @@ func upgradeTo(binary string, rel Release) error {
 		}
 
 		if strings.HasPrefix(assetName, expectedRelease) {
-			fname, err := readRelease(filepath.Dir(binary), asset.URL)
-			if err != nil {
-				return err
-			}
-
-			old := binary + ".old"
-			_ = os.Remove(old)
-			err = os.Rename(binary, old)
-			if err != nil {
-				return err
-			}
-			err = os.Rename(fname, binary)
-			if err != nil {
-				return err
-			}
-			return nil
+			upgradeToURL(binary, asset.URL)
 		}
 	}
 
 	return ErrVersionUnknown
+}
+
+// Upgrade to the given release, saving the previous binary with a ".old" extension.
+func upgradeToURL(binary string, url string) error {
+	fname, err := readRelease(filepath.Dir(binary), url)
+	if err != nil {
+		return err
+	}
+
+	old := binary + ".old"
+	_ = os.Remove(old)
+	err = os.Rename(binary, old)
+	if err != nil {
+		return err
+	}
+	err = os.Rename(fname, binary)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func readRelease(dir, url string) (string, error) {
