@@ -120,9 +120,6 @@ func readTarGZ(url string, dir string) (string, error) {
 	}
 
 	tr := tar.NewReader(gr)
-	if err != nil {
-		return "", err
-	}
 
 	// Iterate through the files in the archive.
 	for {
@@ -143,14 +140,25 @@ func readTarGZ(url string, dir string) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			io.Copy(of, tr)
+
+			_, err = io.Copy(of, tr)
+			if err != nil {
+				os.Remove(of.Name())
+				return "", err
+			}
+
 			err = of.Close()
 			if err != nil {
 				os.Remove(of.Name())
 				return "", err
 			}
 
-			os.Chmod(of.Name(), os.FileMode(hdr.Mode))
+			err = os.Chmod(of.Name(), os.FileMode(hdr.Mode))
+			if err != nil {
+				os.Remove(of.Name())
+				return "", err
+			}
+
 			return of.Name(), nil
 		}
 	}
