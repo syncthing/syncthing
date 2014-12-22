@@ -67,6 +67,26 @@ func To(rel Release) error {
 	}
 }
 
+// A wrapper around actual implementations
+func ToURL(url string) error {
+	select {
+	case <-upgradeUnlocked:
+		path, err := osext.Executable()
+		if err != nil {
+			upgradeUnlocked <- true
+			return err
+		}
+		err = upgradeToURL(path, url)
+		// If we've failed to upgrade, unlock so that another attempt could be made
+		if err != nil {
+			upgradeUnlocked <- true
+		}
+		return err
+	default:
+		return ErrUpgradeInProgress
+	}
+}
+
 // Returns 1 if a>b, -1 if a<b and 0 if they are equal
 func CompareVersions(a, b string) int {
 	arel, apre := versionParts(a)
