@@ -1080,25 +1080,25 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 
 	m.fmut.Lock()
 	fs, ok := m.folderFiles[folder]
-	dir := m.folderCfgs[folder].Path
-
+	folderCfg := m.folderCfgs[folder]
 	ignores := m.folderIgnores[folder]
-	_ = ignores.Load(filepath.Join(dir, ".stignore")) // Ignore error, there might not be an .stignore
+	m.fmut.Unlock()
+
+	if !ok {
+		return errors.New("no such folder")
+	}
+
+	_ = ignores.Load(filepath.Join(folderCfg.Path, ".stignore")) // Ignore error, there might not be an .stignore
 
 	w := &scanner.Walker{
-		Dir:          dir,
+		Dir:          folderCfg.Path,
 		Sub:          sub,
 		Matcher:      ignores,
 		BlockSize:    protocol.BlockSize,
 		TempNamer:    defTempNamer,
 		TempLifetime: time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler: cFiler{m, folder},
-		IgnorePerms:  m.folderCfgs[folder].IgnorePerms,
-	}
-	m.fmut.Unlock()
-
-	if !ok {
-		return errors.New("no such folder")
+		IgnorePerms:  folderCfg.IgnorePerms,
 	}
 
 	m.setState(folder, FolderScanning)
@@ -1169,7 +1169,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 					"size":     f.Size(),
 				})
 				batch = append(batch, nf)
-			} else if _, err := os.Lstat(filepath.Join(dir, f.Name)); err != nil && os.IsNotExist(err) {
+			} else if _, err := os.Lstat(filepath.Join(folderCfg.Path, f.Name)); err != nil && os.IsNotExist(err) {
 				// File has been deleted
 				nf := protocol.FileInfo{
 					Name:     f.Name,
