@@ -1040,7 +1040,8 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 		m.deviceFolders[device.DeviceID] = append(m.deviceFolders[device.DeviceID], cfg.ID)
 	}
 
-	ignores, _ := ignore.Load(filepath.Join(cfg.Path, ".stignore"), m.cfg.Options().CacheIgnoredFiles)
+	ignores := ignore.New(m.cfg.Options().CacheIgnoredFiles)
+	_ = ignores.Load(filepath.Join(cfg.Path, ".stignore")) // Ignore error, there might not be an .stignore
 	m.folderIgnores[cfg.ID] = ignores
 
 	m.addedFolder = true
@@ -1083,8 +1084,8 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	fs, ok := m.folderFiles[folder]
 	dir := m.folderCfgs[folder].Path
 
-	ignores, _ := ignore.Load(filepath.Join(dir, ".stignore"), m.cfg.Options().CacheIgnoredFiles)
-	m.folderIgnores[folder] = ignores
+	ignores := m.folderIgnores[folder]
+	_ = ignores.Load(filepath.Join(dir, ".stignore")) // Ignore error, there might not be an .stignore
 
 	w := &scanner.Walker{
 		Dir:          dir,

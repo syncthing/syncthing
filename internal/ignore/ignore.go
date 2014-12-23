@@ -17,6 +17,8 @@ package ignore
 
 import (
 	"bufio"
+	"bytes"
+	"crypto/md5"
 	"fmt"
 	"io"
 	"os"
@@ -24,6 +26,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/syncthing/syncthing/internal/fnmatch"
 )
@@ -33,51 +36,76 @@ type Pattern struct {
 	include bool
 }
 
+func (p Pattern) String() string {
+	if p.include {
+		return p.match.String()
+	} else {
+		return "(?exclude)" + p.match.String()
+	}
+}
+
 type Matcher struct {
-	patterns []Pattern
-	matches  *cache
-	mut      sync.Mutex
+	patterns  []Pattern
+	withCache bool
+	matches   *cache
+	curHash   string
+	stop      chan struct{}
+	mut       sync.Mutex
 }
 
-func Load(file string, cache bool) (*Matcher, error) {
-	seen := make(map[string]bool)
-	matcher, err := loadIgnoreFile(file, seen)
-	if !cache || err != nil {
-		return matcher, err
+func New(withCache bool) *Matcher {
+	m := &Matcher{
+		withCache: withCache,
+		stop:      make(chan struct{}),
 	}
-
-	cacheMut.Lock()
-	defer cacheMut.Unlock()
-
-	// Get the current cache object for the given file
-	cached, ok := caches[file]
-	if !ok || !patternsEqual(cached.patterns, matcher.patterns) {
-		// Nothing in cache or a cache mismatch, create a new cache which will
-		// store matches for the given set of patterns.
-		// Initialize oldMatches to indicate that we are interested in
-		// caching.
-		cached = newCache(matcher.patterns)
-		matcher.matches = cached
-		caches[file] = cached
-		return matcher, nil
+	if withCache {
+		go m.clean(2 * time.Hour)
 	}
-
-	// Patterns haven't changed, so we can reuse the old matches, create a new
-	// matches map and update the pointer. (This prevents matches map from
-	// growing indefinately, as we only cache whatever we've matched in the last
-	// iteration, rather than through runtime history)
-	matcher.matches = cached
-	return matcher, nil
+	return m
 }
 
-func Parse(r io.Reader, file string) (*Matcher, error) {
-	seen := map[string]bool{
-		file: true,
+func (m *Matcher) Load(file string) error {
+	// No locking, Parse() does the locking
+
+	fd, err := os.Open(file)
+	if err != nil {
+		// We do a parse with empty patterns to clear out the hash, cache etc.
+		m.Parse(&bytes.Buffer{}, file)
+		return err
 	}
-	return parseIgnoreFile(r, file, seen)
+	defer fd.Close()
+
+	return m.Parse(fd, file)
+}
+
+func (m *Matcher) Parse(r io.Reader, file string) error {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	seen := map[string]bool{file: true}
+	patterns, err := parseIgnoreFile(r, file, seen)
+	// Error is saved and returned at the end. We process the patterns
+	// (possibly blank) anyway.
+
+	newHash := hashPatterns(patterns)
+	if newHash == m.curHash {
+		// We've already loaded exactly these patterns.
+		return err
+	}
+
+	m.curHash = newHash
+	m.patterns = patterns
+	if m.withCache {
+		m.matches = newCache(patterns)
+	}
+
+	return err
 }
 
 func (m *Matcher) Match(file string) (result bool) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
 	if len(m.patterns) == 0 {
 		return false
 	}
@@ -108,18 +136,53 @@ func (m *Matcher) Match(file string) (result bool) {
 
 // Patterns return a list of the loaded regexp patterns, as strings
 func (m *Matcher) Patterns() []string {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
 	patterns := make([]string, len(m.patterns))
 	for i, pat := range m.patterns {
-		if pat.include {
-			patterns[i] = pat.match.String()
-		} else {
-			patterns[i] = "(?exclude)" + pat.match.String()
-		}
+		patterns[i] = pat.String()
 	}
 	return patterns
 }
 
-func loadIgnoreFile(file string, seen map[string]bool) (*Matcher, error) {
+func (m *Matcher) Hash() string {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+	return m.curHash
+}
+
+func (m *Matcher) Stop() {
+	close(m.stop)
+}
+
+func (m *Matcher) clean(d time.Duration) {
+	t := time.NewTimer(d / 2)
+	for {
+		select {
+		case <-m.stop:
+			return
+		case <-t.C:
+			m.mut.Lock()
+			if m.matches != nil {
+				m.matches.clean(d)
+			}
+			t.Reset(d / 2)
+			m.mut.Unlock()
+		}
+	}
+}
+
+func hashPatterns(patterns []Pattern) string {
+	h := md5.New()
+	for _, pat := range patterns {
+		h.Write([]byte(pat.String()))
+		h.Write([]byte("\n"))
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func loadIgnoreFile(file string, seen map[string]bool) ([]Pattern, error) {
 	if seen[file] {
 		return nil, fmt.Errorf("Multiple include of ignore file %q", file)
 	}
@@ -134,8 +197,8 @@ func loadIgnoreFile(file string, seen map[string]bool) (*Matcher, error) {
 	return parseIgnoreFile(fd, file, seen)
 }
 
-func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) (*Matcher, error) {
-	var exps Matcher
+func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]Pattern, error) {
+	var patterns []Pattern
 
 	addPattern := func(line string) error {
 		include := true
@@ -150,27 +213,27 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) (*M
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
-			exps.patterns = append(exps.patterns, Pattern{exp, include})
+			patterns = append(patterns, Pattern{exp, include})
 		} else if strings.HasPrefix(line, "**/") {
 			// Add the pattern as is, and without **/ so it matches in current dir
 			exp, err := fnmatch.Convert(line, fnmatch.FNM_PATHNAME)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
-			exps.patterns = append(exps.patterns, Pattern{exp, include})
+			patterns = append(patterns, Pattern{exp, include})
 
 			exp, err = fnmatch.Convert(line[3:], fnmatch.FNM_PATHNAME)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
-			exps.patterns = append(exps.patterns, Pattern{exp, include})
+			patterns = append(patterns, Pattern{exp, include})
 		} else if strings.HasPrefix(line, "#include ") {
 			includeFile := filepath.Join(filepath.Dir(currentFile), line[len("#include "):])
 			includes, err := loadIgnoreFile(includeFile, seen)
 			if err != nil {
 				return err
 			}
-			exps.patterns = append(exps.patterns, includes.patterns...)
+			patterns = append(patterns, includes...)
 		} else {
 			// Path name or pattern, add it so it matches files both in
 			// current directory and subdirs.
@@ -178,13 +241,13 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) (*M
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
-			exps.patterns = append(exps.patterns, Pattern{exp, include})
+			patterns = append(patterns, Pattern{exp, include})
 
 			exp, err = fnmatch.Convert("**/"+line, fnmatch.FNM_PATHNAME)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
-			exps.patterns = append(exps.patterns, Pattern{exp, include})
+			patterns = append(patterns, Pattern{exp, include})
 		}
 		return nil
 	}
@@ -218,17 +281,5 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) (*M
 		}
 	}
 
-	return &exps, nil
-}
-
-func patternsEqual(a, b []Pattern) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].include != b[i].include || a[i].match.String() != b[i].match.String() {
-			return false
-		}
-	}
-	return true
+	return patterns, nil
 }
