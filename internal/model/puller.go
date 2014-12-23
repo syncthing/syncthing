@@ -30,6 +30,7 @@ import (
 
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/internal/ignore"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syncthing/syncthing/internal/scanner"
@@ -100,6 +101,7 @@ func (p *Puller) Serve() {
 	}()
 
 	var prevVer uint64
+	var prevIgnoreHash string
 
 	// We don't start pulling files until a scan has been completed.
 	initialScanCompleted := false
@@ -123,6 +125,20 @@ loop:
 				}
 				pullTimer.Reset(nextPullIntv)
 				continue
+			}
+
+			p.model.fmut.RLock()
+			curIgnores := p.model.folderIgnores[p.folder]
+			p.model.fmut.RUnlock()
+
+			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
+				// The ignore patterns have changed. We need to re-evaluate if
+				// there are files we need now that were ignored before.
+				if debug {
+					l.Debugln(p, "ignore patterns have changed, resetting prevVer")
+				}
+				prevVer = 0
+				prevIgnoreHash = newHash
 			}
 
 			// RemoteLocalVersion() is a fast call, doesn't touch the database.
@@ -149,7 +165,7 @@ loop:
 					checksum = true
 				}
 
-				changed := p.pullerIteration(checksum)
+				changed := p.pullerIteration(checksum, curIgnores)
 				if debug {
 					l.Debugln(p, "changed", changed)
 				}
@@ -167,7 +183,7 @@ loop:
 						// them, but at the same time we have the local
 						// version that includes those files in curVer. So we
 						// catch the case that localVersion might have
-						// decresed here.
+						// decreased here.
 						l.Debugln(p, "adjusting curVer", lv)
 						curVer = lv
 					}
@@ -233,7 +249,7 @@ func (p *Puller) String() string {
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (p *Puller) pullerIteration(checksum bool) int {
+func (p *Puller) pullerIteration(checksum bool, ignores *ignore.Matcher) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -297,6 +313,11 @@ func (p *Puller) pullerIteration(checksum bool) int {
 		// nice.
 
 		file := intf.(protocol.FileInfo)
+
+		if ignores.Match(file.Name) {
+			// This is an ignored file. Skip it, continue iteration.
+			return true
+		}
 
 		events.Default.Log(events.ItemStarted, map[string]string{
 			"folder": p.folder,

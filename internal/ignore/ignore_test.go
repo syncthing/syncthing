@@ -25,7 +25,8 @@ import (
 )
 
 func TestIgnore(t *testing.T) {
-	pats, err := Load("testdata/.stignore", true)
+	pats := New(true)
+	err := pats.Load("testdata/.stignore")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +75,8 @@ func TestExcludes(t *testing.T) {
 	i*2
 	!ign2
 	`
-	pats, err := Parse(bytes.NewBufferString(stignore), ".stignore")
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,15 +116,19 @@ func TestBadPatterns(t *testing.T) {
 	}
 
 	for _, pat := range badPatterns {
-		parsed, err := Parse(bytes.NewBufferString(pat), ".stignore")
+		err := New(true).Parse(bytes.NewBufferString(pat), ".stignore")
 		if err == nil {
-			t.Errorf("No error for pattern %q: %v", pat, parsed)
+			t.Errorf("No error for pattern %q", pat)
 		}
 	}
 }
 
 func TestCaseSensitivity(t *testing.T) {
-	ign, _ := Parse(bytes.NewBufferString("test"), ".stignore")
+	ign := New(true)
+	err := ign.Parse(bytes.NewBufferString("test"), ".stignore")
+	if err != nil {
+		t.Error(err)
+	}
 
 	match := []string{"test"}
 	dontMatch := []string{"foo"}
@@ -170,7 +176,8 @@ func TestCaching(t *testing.T) {
 
 	fd2.WriteString("/y/\n")
 
-	pats, err := Load(fd1.Name(), true)
+	pats := New(true)
+	err = pats.Load(fd1.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,9 +200,9 @@ func TestCaching(t *testing.T) {
 		t.Fatal("Expected 4 cached results")
 	}
 
-	// Reload file, expect old outcomes to be provided
+	// Reload file, expect old outcomes to be preserved
 
-	pats, err = Load(fd1.Name(), true)
+	err = pats.Load(fd1.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +214,7 @@ func TestCaching(t *testing.T) {
 
 	fd2.WriteString("/z/\n")
 
-	pats, err = Load(fd1.Name(), true)
+	err = pats.Load(fd1.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,9 +229,9 @@ func TestCaching(t *testing.T) {
 		pats.Match(letter)
 	}
 
-	// Verify that outcomes provided on next laod
+	// Verify that outcomes preserved on next laod
 
-	pats, err = Load(fd1.Name(), true)
+	err = pats.Load(fd1.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +243,7 @@ func TestCaching(t *testing.T) {
 
 	fd1.WriteString("/a/\n")
 
-	pats, err = Load(fd1.Name(), true)
+	err = pats.Load(fd1.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +259,7 @@ func TestCaching(t *testing.T) {
 
 	// Verify that outcomes provided on next laod
 
-	pats, err = Load(fd1.Name(), true)
+	err = pats.Load(fd1.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +280,11 @@ func TestCommentsAndBlankLines(t *testing.T) {
 
 
 	`
-	pats, _ := Parse(bytes.NewBufferString(stignore), ".stignore")
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Error(err)
+	}
 	if len(pats.patterns) > 0 {
 		t.Errorf("Expected no patterns")
 	}
@@ -297,7 +308,11 @@ flamingo
 *.crow
 *.crow
 	`
-	pats, _ := Parse(bytes.NewBufferString(stignore), ".stignore")
+	pats := New(false)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		b.Error(err)
+	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -335,7 +350,8 @@ flamingo
 	}
 
 	// Load the patterns
-	pats, err := Load(fd.Name(), true)
+	pats := New(true)
+	err = pats.Load(fd.Name())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -344,7 +360,7 @@ flamingo
 
 	// This load should now load the cached outcomes as the set of patterns
 	// has not changed.
-	pats, err = Load(fd.Name(), true)
+	err = pats.Load(fd.Name())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -370,7 +386,8 @@ func TestCacheReload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pats, err := Load(fd.Name(), true)
+	pats := New(true)
+	err = pats.Load(fd.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -402,7 +419,7 @@ func TestCacheReload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pats, err = Load(fd.Name(), true)
+	err = pats.Load(fd.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -417,5 +434,87 @@ func TestCacheReload(t *testing.T) {
 	}
 	if !pats.Match("f3") {
 		t.Error("Unexpected non-match for f3")
+	}
+}
+
+func TestHash(t *testing.T) {
+	p1 := New(true)
+	err := p1.Load("testdata/.stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Same list of patterns as testdata/.stignore, after expansion
+	stignore := `
+	dir2/dfile
+	dir3
+	bfile
+	dir1/cfile
+	**/efile
+	/ffile
+	lost+found
+	`
+	p2 := New(true)
+	err = p2.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Not same list of patterns
+	stignore = `
+	dir2/dfile
+	dir3
+	bfile
+	dir1/cfile
+	/ffile
+	lost+found
+	`
+	p3 := New(true)
+	err = p3.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if p1.Hash() == "" {
+		t.Error("p1 hash blank")
+	}
+	if p2.Hash() == "" {
+		t.Error("p2 hash blank")
+	}
+	if p3.Hash() == "" {
+		t.Error("p3 hash blank")
+	}
+	if p1.Hash() != p2.Hash() {
+		t.Error("p1-p2 hashes differ")
+	}
+	if p1.Hash() == p3.Hash() {
+		t.Error("p1-p3 hashes same")
+	}
+}
+
+func TestHashOfEmpty(t *testing.T) {
+	p1 := New(true)
+	err := p1.Load("testdata/.stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	firstHash := p1.Hash()
+
+	// Reloading with a non-existent file should empty the patterns and
+	// recalculate the hash. d41d8cd98f00b204e9800998ecf8427e is the md5 of
+	// nothing.
+
+	p1.Load("file/does/not/exist")
+	secondHash := p1.Hash()
+
+	if firstHash == secondHash {
+		t.Error("hash did not change")
+	}
+	if secondHash != "d41d8cd98f00b204e9800998ecf8427e" {
+		t.Error("second hash is not hash of empty string")
+	}
+	if len(p1.patterns) != 0 {
+		t.Error("there are more than zero patterns")
 	}
 }

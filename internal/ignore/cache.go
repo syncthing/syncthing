@@ -15,26 +15,11 @@
 
 package ignore
 
-import (
-	"sync"
-	"time"
-)
-
-var (
-	caches   = make(map[string]*cache)
-	cacheMut sync.Mutex
-)
-
-func init() {
-	// Periodically go through the cache and remove cache entries that have
-	// not been touched in the last two hours.
-	go cleanIgnoreCaches(2 * time.Hour)
-}
+import "time"
 
 type cache struct {
 	patterns []Pattern
 	entries  map[string]cacheEntry
-	mut      sync.Mutex
 }
 
 type cacheEntry struct {
@@ -50,46 +35,27 @@ func newCache(patterns []Pattern) *cache {
 }
 
 func (c *cache) clean(d time.Duration) {
-	c.mut.Lock()
 	for k, v := range c.entries {
 		if time.Since(v.access) > d {
 			delete(c.entries, k)
 		}
 	}
-	c.mut.Unlock()
 }
 
 func (c *cache) get(key string) (result, ok bool) {
-	c.mut.Lock()
 	res, ok := c.entries[key]
 	if ok {
 		res.access = time.Now()
 		c.entries[key] = res
 	}
-	c.mut.Unlock()
 	return res.value, ok
 }
 
 func (c *cache) set(key string, val bool) {
-	c.mut.Lock()
 	c.entries[key] = cacheEntry{val, time.Now()}
-	c.mut.Unlock()
 }
 
 func (c *cache) len() int {
-	c.mut.Lock()
 	l := len(c.entries)
-	c.mut.Unlock()
 	return l
-}
-
-func cleanIgnoreCaches(dur time.Duration) {
-	for {
-		time.Sleep(dur)
-		cacheMut.Lock()
-		for _, v := range caches {
-			v.clean(dur)
-		}
-		cacheMut.Unlock()
-	}
 }

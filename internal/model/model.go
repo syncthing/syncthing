@@ -452,7 +452,6 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
-	ignores, _ := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
 	if !ok {
@@ -461,9 +460,9 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 
 	for i := 0; i < len(fs); {
 		lamport.Default.Tick(fs[i].Version)
-		if (ignores != nil && ignores.Match(fs[i].Name)) || symlinkInvalid(fs[i].IsSymlink()) {
+		if symlinkInvalid(fs[i].IsSymlink()) {
 			if debug {
-				l.Debugln("dropping update for ignored/unsupported symlink", fs[i])
+				l.Debugln("dropping update for unsupported symlink", fs[i])
 			}
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
@@ -496,7 +495,6 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
-	ignores, _ := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
 	if !ok {
@@ -505,9 +503,9 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 
 	for i := 0; i < len(fs); {
 		lamport.Default.Tick(fs[i].Version)
-		if (ignores != nil && ignores.Match(fs[i].Name)) || symlinkInvalid(fs[i].IsSymlink()) {
+		if symlinkInvalid(fs[i].IsSymlink()) {
 			if debug {
-				l.Debugln("dropping update for ignored/unsupported symlink", fs[i])
+				l.Debugln("dropping update for unsupported symlink", fs[i])
 			}
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
@@ -1040,7 +1038,8 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 		m.deviceFolders[device.DeviceID] = append(m.deviceFolders[device.DeviceID], cfg.ID)
 	}
 
-	ignores, _ := ignore.Load(filepath.Join(cfg.Path, ".stignore"), m.cfg.Options().CacheIgnoredFiles)
+	ignores := ignore.New(m.cfg.Options().CacheIgnoredFiles)
+	_ = ignores.Load(filepath.Join(cfg.Path, ".stignore")) // Ignore error, there might not be an .stignore
 	m.folderIgnores[cfg.ID] = ignores
 
 	m.addedFolder = true
@@ -1083,8 +1082,8 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	fs, ok := m.folderFiles[folder]
 	dir := m.folderCfgs[folder].Path
 
-	ignores, _ := ignore.Load(filepath.Join(dir, ".stignore"), m.cfg.Options().CacheIgnoredFiles)
-	m.folderIgnores[folder] = ignores
+	ignores := m.folderIgnores[folder]
+	_ = ignores.Load(filepath.Join(dir, ".stignore")) // Ignore error, there might not be an .stignore
 
 	w := &scanner.Walker{
 		Dir:          dir,
