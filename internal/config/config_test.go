@@ -89,7 +89,7 @@ func TestDeviceConfig(t *testing.T) {
 				RescanIntervalS: 600,
 				Copiers:         1,
 				Pullers:         16,
-				Finishers:       1,
+				Hashers:         0,
 			},
 		}
 		expectedDevices := []DeviceConfiguration{
