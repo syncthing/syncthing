@@ -577,7 +577,20 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	} else {
 		m.deviceVer[deviceID] = cm.ClientName + " " + cm.ClientVersion
 	}
+
+	event := map[string]string{
+		"id":            deviceID.String(),
+		"clientName":    cm.ClientName,
+		"clientVersion": cm.ClientVersion,
+	}
+
+	if conn, ok := m.rawConn[deviceID].(*tls.Conn); ok {
+		event["addr"] = conn.RemoteAddr().String()
+	}
+
 	m.pmut.Unlock()
+
+	events.Default.Log(events.DeviceConnected, event)
 
 	l.Infof(`Device %s client is "%s %s"`, deviceID, cm.ClientName, cm.ClientVersion)
 
