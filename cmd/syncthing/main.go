@@ -975,11 +975,16 @@ next:
 			}
 		}
 
-		events.Default.Log(events.DeviceRejected, map[string]string{
-			"device":  remoteID.String(),
-			"address": conn.RemoteAddr().String(),
-		})
-		l.Infof("Connection from %s with unknown device ID %s; ignoring", conn.RemoteAddr(), remoteID)
+		if !cfg.IgnoredDevice(remoteID) {
+			events.Default.Log(events.DeviceRejected, map[string]string{
+				"device":  remoteID.String(),
+				"address": conn.RemoteAddr().String(),
+			})
+			l.Infof("Connection from %s with unknown device ID %s", conn.RemoteAddr(), remoteID)
+		} else {
+			l.Infof("Connection from %s with ignored device ID %s", conn.RemoteAddr(), remoteID)
+		}
+
 		conn.Close()
 	}
 }

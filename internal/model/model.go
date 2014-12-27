@@ -477,7 +477,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 			"folder": folder,
 			"device": deviceID.String(),
 		})
-		l.Warnf("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
+		l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
 		return
 	}
 

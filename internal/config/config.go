@@ -38,12 +38,13 @@ var l = logger.DefaultLogger
 const CurrentVersion = 7
 
 type Configuration struct {
-	Version int                   `xml:"version,attr"`
-	Folders []FolderConfiguration `xml:"folder"`
-	Devices []DeviceConfiguration `xml:"device"`
-	GUI     GUIConfiguration      `xml:"gui"`
-	Options OptionsConfiguration  `xml:"options"`
-	XMLName xml.Name              `xml:"configuration" json:"-"`
+	Version        int                   `xml:"version,attr"`
+	Folders        []FolderConfiguration `xml:"folder"`
+	Devices        []DeviceConfiguration `xml:"device"`
+	GUI            GUIConfiguration      `xml:"gui"`
+	Options        OptionsConfiguration  `xml:"options"`
+	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice"`
+	XMLName        xml.Name              `xml:"configuration" json:"-"`
 
 	OriginalVersion         int                   `xml:"-" json:"-"` // The version we read from disk, before any conversion
 	Deprecated_Repositories []FolderConfiguration `xml:"repository" json:"-"`
@@ -241,9 +242,12 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	fillNilSlices(&cfg.Options)
 
-	// Initialize an empty slice for folders if the config has none
+	// Initialize an empty slices
 	if cfg.Folders == nil {
 		cfg.Folders = []FolderConfiguration{}
+	}
+	if cfg.IgnoredDevices == nil {
+		cfg.IgnoredDevices = []protocol.DeviceID{}
 	}
 
 	// Check for missing, bad or duplicate folder ID:s

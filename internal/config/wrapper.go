@@ -245,6 +245,19 @@ func (w *Wrapper) InvalidateFolder(id string, err string) {
 	}
 }
 
+// Returns whether or not connection attempts from the given device should be
+// silently ignored.
+func (w *Wrapper) IgnoredDevice(id protocol.DeviceID) bool {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	for _, device := range w.cfg.IgnoredDevices {
+		if device == id {
+			return true
+		}
+	}
+	return false
+}
+
 // Save writes the configuration to disk, and generates a ConfigSaved event.
 func (w *Wrapper) Save() error {
 	fd, err := ioutil.TempFile(filepath.Dir(w.path), "cfg")
