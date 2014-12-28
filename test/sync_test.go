@@ -28,7 +28,7 @@ import (
 	"github.com/syncthing/syncthing/internal/protocol"
 )
 
-func TestSyncCluster(t *testing.T) {
+func TestSyncClusterWithoutVersioning(t *testing.T) {
 	// Use no versioning
 	id, _ := protocol.DeviceIDFromString(id2)
 	cfg, _ := config.Load("h2/config.xml", id)
