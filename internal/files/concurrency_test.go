@@ -144,7 +144,7 @@ func TestConcurrentSetClear(t *testing.T) {
 	var wg sync.WaitGroup
 
 	os.RemoveAll("testdata/concurrent-set-clear.db")
-	db, err := leveldb.OpenFile("testdata/concurrent-set-clear.db", &opt.Options{CachedOpenFiles: 10})
+	db, err := leveldb.OpenFile("testdata/concurrent-set-clear.db", &opt.Options{OpenFilesCacheCapacity: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +200,7 @@ func TestConcurrentSetOnly(t *testing.T) {
 	var wg sync.WaitGroup
 
 	os.RemoveAll("testdata/concurrent-set-only.db")
-	db, err := leveldb.OpenFile("testdata/concurrent-set-only.db", &opt.Options{CachedOpenFiles: 10})
+	db, err := leveldb.OpenFile("testdata/concurrent-set-only.db", &opt.Options{OpenFilesCacheCapacity: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
