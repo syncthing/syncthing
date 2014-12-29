@@ -1274,7 +1274,8 @@ func autoUpgrade() {
 			continue
 		}
 
-		if upgrade.CompareVersions(rel.Tag, Version) <= 0 {
+		if upgrade.CompareVersions(rel.Tag, Version) != upgrade.Newer {
+			// Skip equal, older or majorly newer (incompatible) versions
 			continue
 		}
 
