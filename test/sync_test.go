@@ -20,6 +20,7 @@ package integration
 import (
 	"fmt"
 	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -103,6 +104,20 @@ func testSyncCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// We'll use this file for appending data without modifying the time stamp.
+	fd, err := os.Create("s1/appendfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fd.WriteString("hello\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = fd.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	err = generateFiles("s2", 1000, 21, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
@@ -168,6 +183,32 @@ func testSyncCluster(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 			break
+		}
+
+		// Alter the "appendfile" without changing it's modification time. Sneaky!
+		fi, err := os.Stat("s1/appendfile")
+		if err != nil {
+			t.Fatal(err)
+		}
+		fd, err := os.OpenFile("s1/appendfile", os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = fd.Seek(0, os.SEEK_END)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = fd.WriteString("more data\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = fd.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = os.Chtimes("s1/appendfile", fi.ModTime(), fi.ModTime())
+		if err != nil {
+			t.Fatal(err)
 		}
 
 		// Prepare the expected state of folders after the sync

@@ -254,9 +254,11 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - was not a directory previously (since it's a file now)
 				//  - was not a symlink (since it's a file now)
 				//  - was not invalid (since it looks valid now)
+				//  - has the same size as previously
 				cf := w.CurrentFiler.CurrentFile(rn)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if permUnchanged && !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && !cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
+				if permUnchanged && !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && !cf.IsDirectory() &&
+					!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
 					return nil
 				}
 
