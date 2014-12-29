@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/syncthing/syncthing",
-	"GoVersion": "go1.4rc1",
+	"GoVersion": "go1.4",
 	"Packages": [
 		"./cmd/..."
 	],
@@ -31,7 +31,7 @@
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "97e257099d2ab9578151ba85e2641e2cd14d3ca8"
+			"Rev": "63c9e642efad852f49e20a6f90194cae112fd2ac"
 		},
 		{
 			"ImportPath": "github.com/syndtr/gosnappy/snappy",
@@ -51,23 +51,19 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/bcrypt",
-			"Comment": "null-236",
-			"Rev": "69e2a90ed92d03812364aeb947b7068dc42e561e"
+			"Rev": "731db29863ea7213d9556d0170afb38987f401d4"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/blowfish",
-			"Comment": "null-236",
-			"Rev": "69e2a90ed92d03812364aeb947b7068dc42e561e"
+			"Rev": "731db29863ea7213d9556d0170afb38987f401d4"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",
-			"Comment": "null-112",
-			"Rev": "2f707e0ad64637ca1318279be7201f5ed19c4050"
+			"Rev": "985ee5acfaf1ff6712c7c99438752f8e09416ccb"
 		},
 		{
 			"ImportPath": "golang.org/x/text/unicode/norm",
-			"Comment": "null-112",
-			"Rev": "2f707e0ad64637ca1318279be7201f5ed19c4050"
+			"Rev": "985ee5acfaf1ff6712c7c99438752f8e09416ccb"
 		}
 	]
 }

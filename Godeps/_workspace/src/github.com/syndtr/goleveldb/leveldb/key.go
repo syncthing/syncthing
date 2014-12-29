@@ -106,7 +106,7 @@ func (ik iKey) assert() {
 		panic("leveldb: nil iKey")
 	}
 	if len(ik) < 8 {
-		panic(fmt.Sprintf("leveldb: iKey %q, len=%d: invalid length", ik, len(ik)))
+		panic(fmt.Sprintf("leveldb: iKey %q, len=%d: invalid length", []byte(ik), len(ik)))
 	}
 }
 
@@ -124,7 +124,7 @@ func (ik iKey) parseNum() (seq uint64, kt kType) {
 	num := ik.num()
 	seq, kt = uint64(num>>8), kType(num&0xff)
 	if kt > ktVal {
-		panic(fmt.Sprintf("leveldb: iKey %q, len=%d: invalid type %#x", ik, len(ik), kt))
+		panic(fmt.Sprintf("leveldb: iKey %q, len=%d: invalid type %#x", []byte(ik), len(ik), kt))
 	}
 	return
 }

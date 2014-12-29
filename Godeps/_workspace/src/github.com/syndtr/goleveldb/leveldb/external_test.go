@@ -17,14 +17,14 @@ import (
 var _ = testutil.Defer(func() {
 	Describe("Leveldb external", func() {
 		o := &opt.Options{
-			BlockCache:           opt.NoCache,
-			BlockRestartInterval: 5,
-			BlockSize:            80,
-			Compression:          opt.NoCompression,
-			CachedOpenFiles:      -1,
-			Strict:               opt.StrictAll,
-			WriteBuffer:          1000,
-			CompactionTableSize:  2000,
+			DisableBlockCache:      true,
+			BlockRestartInterval:   5,
+			BlockSize:              80,
+			Compression:            opt.NoCompression,
+			OpenFilesCacheCapacity: -1,
+			Strict:                 opt.StrictAll,
+			WriteBuffer:            1000,
+			CompactionTableSize:    2000,
 		}
 
 		Describe("write test", func() {

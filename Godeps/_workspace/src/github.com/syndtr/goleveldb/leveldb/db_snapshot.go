@@ -8,6 +8,7 @@ package leveldb
 
 import (
 	"container/list"
+	"fmt"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -87,6 +88,10 @@ func (db *DB) newSnapshot() *Snapshot {
 	atomic.AddInt32(&db.aliveSnaps, 1)
 	runtime.SetFinalizer(snap, (*Snapshot).Release)
 	return snap
+}
+
+func (snap *Snapshot) String() string {
+	return fmt.Sprintf("leveldb.Snapshot{%d}", snap.elem.seq)
 }
 
 // Get gets the value for the given key. It returns ErrNotFound if

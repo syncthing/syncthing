@@ -823,8 +823,8 @@ func (db *DB) GetProperty(name string) (value string, err error) {
 	case p == "blockpool":
 		value = fmt.Sprintf("%v", db.s.tops.bpool)
 	case p == "cachedblock":
-		if bc := db.s.o.GetBlockCache(); bc != nil {
-			value = fmt.Sprintf("%d", bc.Size())
+		if db.s.tops.bcache != nil {
+			value = fmt.Sprintf("%d", db.s.tops.bcache.Size())
 		} else {
 			value = "<nil>"
 		}

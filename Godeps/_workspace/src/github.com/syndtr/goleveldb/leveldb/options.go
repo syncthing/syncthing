@@ -7,7 +7,6 @@
 package leveldb
 
 import (
-	"github.com/syndtr/goleveldb/leveldb/cache"
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
@@ -31,13 +30,6 @@ func (s *session) setOptions(o *opt.Options) {
 		for i, filter := range filters {
 			no.AltFilters[i] = &iFilter{filter}
 		}
-	}
-	// Block cache.
-	switch o.GetBlockCache() {
-	case nil:
-		no.BlockCache = cache.NewLRUCache(o.GetBlockCacheSize())
-	case opt.NoCache:
-		no.BlockCache = nil
 	}
 	// Comparer.
 	s.icmp = &iComparer{o.GetComparer()}

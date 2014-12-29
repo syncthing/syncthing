@@ -286,10 +286,10 @@ func (x *tFilesSortByNum) Less(i, j int) bool {
 
 // Table operations.
 type tOps struct {
-	s       *session
-	cache   cache.Cache
-	cacheNS cache.Namespace
-	bpool   *util.BufferPool
+	s      *session
+	cache  *cache.Cache
+	bcache *cache.Cache
+	bpool  *util.BufferPool
 }
 
 // Creates an empty table and returns table writer.
@@ -338,26 +338,28 @@ func (t *tOps) createFrom(src iterator.Iterator) (f *tFile, n int, err error) {
 
 // Opens table. It returns a cache handle, which should
 // be released after use.
-func (t *tOps) open(f *tFile) (ch cache.Handle, err error) {
+func (t *tOps) open(f *tFile) (ch *cache.Handle, err error) {
 	num := f.file.Num()
-	ch = t.cacheNS.Get(num, func() (charge int, value interface{}) {
+	ch = t.cache.Get(0, num, func() (size int, value cache.Value) {
 		var r storage.Reader
 		r, err = f.file.Open()
 		if err != nil {
 			return 0, nil
 		}
 
-		var bcacheNS cache.Namespace
-		if bc := t.s.o.GetBlockCache(); bc != nil {
-			bcacheNS = bc.GetNamespace(num)
+		var bcache *cache.CacheGetter
+		if t.bcache != nil {
+			bcache = &cache.CacheGetter{Cache: t.bcache, NS: num}
 		}
+
 		var tr *table.Reader
-		tr, err = table.NewReader(r, int64(f.size), storage.NewFileInfo(f.file), bcacheNS, t.bpool, t.s.o.Options)
+		tr, err = table.NewReader(r, int64(f.size), storage.NewFileInfo(f.file), bcache, t.bpool, t.s.o.Options)
 		if err != nil {
 			r.Close()
 			return 0, nil
 		}
 		return 1, tr
+
 	})
 	if ch == nil && err == nil {
 		err = ErrClosed
@@ -412,16 +414,14 @@ func (t *tOps) newIterator(f *tFile, slice *util.Range, ro *opt.ReadOptions) ite
 // no one use the the table.
 func (t *tOps) remove(f *tFile) {
 	num := f.file.Num()
-	t.cacheNS.Delete(num, func(exist, pending bool) {
-		if !pending {
-			if err := f.file.Remove(); err != nil {
-				t.s.logf("table@remove removing @%d %q", num, err)
-			} else {
-				t.s.logf("table@remove removed @%d", num)
-			}
-			if bc := t.s.o.GetBlockCache(); bc != nil {
-				bc.ZapNamespace(num)
-			}
+	t.cache.Delete(0, num, func() {
+		if err := f.file.Remove(); err != nil {
+			t.s.logf("table@remove removing @%d %q", num, err)
+		} else {
+			t.s.logf("table@remove removed @%d", num)
+		}
+		if t.bcache != nil {
+			t.bcache.EvictNS(num)
 		}
 	})
 }
@@ -429,18 +429,34 @@ func (t *tOps) remove(f *tFile) {
 // Closes the table ops instance. It will close all tables,
 // regadless still used or not.
 func (t *tOps) close() {
-	t.cache.Zap()
 	t.bpool.Close()
+	t.cache.Close()
+	if t.bcache != nil {
+		t.bcache.Close()
+	}
 }
 
 // Creates new initialized table ops instance.
-func newTableOps(s *session, cacheCap int) *tOps {
-	c := cache.NewLRUCache(cacheCap)
+func newTableOps(s *session) *tOps {
+	var (
+		cacher cache.Cacher
+		bcache *cache.Cache
+	)
+	if s.o.GetOpenFilesCacheCapacity() > 0 {
+		cacher = cache.NewLRU(s.o.GetOpenFilesCacheCapacity())
+	}
+	if !s.o.DisableBlockCache {
+		var bcacher cache.Cacher
+		if s.o.GetBlockCacheCapacity() > 0 {
+			bcacher = cache.NewLRU(s.o.GetBlockCacheCapacity())
+		}
+		bcache = cache.NewCache(bcacher)
+	}
 	return &tOps{
-		s:       s,
-		cache:   c,
-		cacheNS: c.GetNamespace(0),
-		bpool:   util.NewBufferPool(s.o.GetBlockSize() + 5),
+		s:      s,
+		cache:  cache.NewCache(cacher),
+		bcache: bcache,
+		bpool:  util.NewBufferPool(s.o.GetBlockSize() + 5),
 	}
 }
 

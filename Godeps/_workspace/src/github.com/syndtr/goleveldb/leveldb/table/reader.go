@@ -509,7 +509,7 @@ type Reader struct {
 	mu     sync.RWMutex
 	fi     *storage.FileInfo
 	reader io.ReaderAt
-	cache  cache.Namespace
+	cache  *cache.CacheGetter
 	err    error
 	bpool  *util.BufferPool
 	// Options
@@ -613,18 +613,22 @@ func (r *Reader) readBlock(bh blockHandle, verifyChecksum bool) (*block, error) 
 
 func (r *Reader) readBlockCached(bh blockHandle, verifyChecksum, fillCache bool) (*block, util.Releaser, error) {
 	if r.cache != nil {
-		var err error
-		ch := r.cache.Get(bh.offset, func() (charge int, value interface{}) {
-			if !fillCache {
-				return 0, nil
-			}
-			var b *block
-			b, err = r.readBlock(bh, verifyChecksum)
-			if err != nil {
-				return 0, nil
-			}
-			return cap(b.data), b
-		})
+		var (
+			err error
+			ch  *cache.Handle
+		)
+		if fillCache {
+			ch = r.cache.Get(bh.offset, func() (size int, value cache.Value) {
+				var b *block
+				b, err = r.readBlock(bh, verifyChecksum)
+				if err != nil {
+					return 0, nil
+				}
+				return cap(b.data), b
+			})
+		} else {
+			ch = r.cache.Get(bh.offset, nil)
+		}
 		if ch != nil {
 			b, ok := ch.Value().(*block)
 			if !ok {
@@ -667,18 +671,22 @@ func (r *Reader) readFilterBlock(bh blockHandle) (*filterBlock, error) {
 
 func (r *Reader) readFilterBlockCached(bh blockHandle, fillCache bool) (*filterBlock, util.Releaser, error) {
 	if r.cache != nil {
-		var err error
-		ch := r.cache.Get(bh.offset, func() (charge int, value interface{}) {
-			if !fillCache {
-				return 0, nil
-			}
-			var b *filterBlock
-			b, err = r.readFilterBlock(bh)
-			if err != nil {
-				return 0, nil
-			}
-			return cap(b.data), b
-		})
+		var (
+			err error
+			ch  *cache.Handle
+		)
+		if fillCache {
+			ch = r.cache.Get(bh.offset, func() (size int, value cache.Value) {
+				var b *filterBlock
+				b, err = r.readFilterBlock(bh)
+				if err != nil {
+					return 0, nil
+				}
+				return cap(b.data), b
+			})
+		} else {
+			ch = r.cache.Get(bh.offset, nil)
+		}
 		if ch != nil {
 			b, ok := ch.Value().(*filterBlock)
 			if !ok {
@@ -980,7 +988,7 @@ func (r *Reader) Release() {
 // The fi, cache and bpool is optional and can be nil.
 //
 // The returned table reader instance is goroutine-safe.
-func NewReader(f io.ReaderAt, size int64, fi *storage.FileInfo, cache cache.Namespace, bpool *util.BufferPool, o *opt.Options) (*Reader, error) {
+func NewReader(f io.ReaderAt, size int64, fi *storage.FileInfo, cache *cache.CacheGetter, bpool *util.BufferPool, o *opt.Options) (*Reader, error) {
 	if f == nil {
 		return nil, errors.New("leveldb/table: nil file")
 	}

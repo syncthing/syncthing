@@ -9,14 +9,12 @@ package leveldb
 import (
 	"bytes"
 	"fmt"
-	"io"
-	"math/rand"
-	"testing"
-
-	"github.com/syndtr/goleveldb/leveldb/cache"
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/storage"
+	"io"
+	"math/rand"
+	"testing"
 )
 
 const ctValSize = 1000
@@ -33,8 +31,8 @@ func newDbCorruptHarnessWopt(t *testing.T, o *opt.Options) *dbCorruptHarness {
 
 func newDbCorruptHarness(t *testing.T) *dbCorruptHarness {
 	return newDbCorruptHarnessWopt(t, &opt.Options{
-		BlockCache: cache.NewLRUCache(100),
-		Strict:     opt.StrictJournalChecksum,
+		BlockCacheCapacity: 100,
+		Strict:             opt.StrictJournalChecksum,
 	})
 }
 
@@ -269,9 +267,9 @@ func TestCorruptDB_TableIndex(t *testing.T) {
 func TestCorruptDB_MissingManifest(t *testing.T) {
 	rnd := rand.New(rand.NewSource(0x0badda7a))
 	h := newDbCorruptHarnessWopt(t, &opt.Options{
-		BlockCache:  cache.NewLRUCache(100),
-		Strict:      opt.StrictJournalChecksum,
-		WriteBuffer: 1000 * 60,
+		BlockCacheCapacity: 100,
+		Strict:             opt.StrictJournalChecksum,
+		WriteBuffer:        1000 * 60,
 	})
 
 	h.build(1000)

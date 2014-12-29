@@ -1271,7 +1271,7 @@ func TestDB_DeletionMarkers2(t *testing.T) {
 }
 
 func TestDB_CompactionTableOpenError(t *testing.T) {
-	h := newDbHarnessWopt(t, &opt.Options{CachedOpenFiles: -1})
+	h := newDbHarnessWopt(t, &opt.Options{OpenFilesCacheCapacity: -1})
 	defer h.close()
 
 	im := 10
@@ -1629,8 +1629,8 @@ func TestDB_ManualCompaction(t *testing.T) {
 
 func TestDB_BloomFilter(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{
-		BlockCache: opt.NoCache,
-		Filter:     filter.NewBloomFilter(10),
+		DisableBlockCache: true,
+		Filter:            filter.NewBloomFilter(10),
 	})
 	defer h.close()
 
@@ -2066,8 +2066,8 @@ func TestDB_GetProperties(t *testing.T) {
 
 func TestDB_GoleveldbIssue72and83(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{
-		WriteBuffer:     1 * opt.MiB,
-		CachedOpenFiles: 3,
+		WriteBuffer:            1 * opt.MiB,
+		OpenFilesCacheCapacity: 3,
 	})
 	defer h.close()
 
@@ -2200,7 +2200,7 @@ func TestDB_GoleveldbIssue72and83(t *testing.T) {
 func TestDB_TransientError(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{
 		WriteBuffer:              128 * opt.KiB,
-		CachedOpenFiles:          3,
+		OpenFilesCacheCapacity:   3,
 		DisableCompactionBackoff: true,
 	})
 	defer h.close()
@@ -2410,7 +2410,7 @@ func TestDB_TableCompactionBuilder(t *testing.T) {
 		CompactionTableSize:         43 * opt.KiB,
 		CompactionExpandLimitFactor: 1,
 		CompactionGPOverlapsFactor:  1,
-		BlockCache:                  opt.NoCache,
+		DisableBlockCache:           true,
 	}
 	s, err := newSession(stor, o)
 	if err != nil {

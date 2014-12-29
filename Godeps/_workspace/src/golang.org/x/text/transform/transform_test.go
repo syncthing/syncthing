@@ -16,7 +16,7 @@ import (
 	"unicode/utf8"
 )
 
-type lowerCaseASCII struct{ transform.NopResetter }
+type lowerCaseASCII struct{ NopResetter }
 
 func (lowerCaseASCII) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	n := len(src)
@@ -34,7 +34,7 @@ func (lowerCaseASCII) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, er
 
 var errYouMentionedX = errors.New("you mentioned X")
 
-type dontMentionX struct{ transform.NopResetter }
+type dontMentionX struct{ NopResetter }
 
 func (dontMentionX) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	n := len(src)
@@ -52,7 +52,7 @@ func (dontMentionX) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err 
 
 // doublerAtEOF is a strange Transformer that transforms "this" to "tthhiiss",
 // but only if atEOF is true.
-type doublerAtEOF struct{ transform.NopResetter }
+type doublerAtEOF struct{ NopResetter }
 
 func (doublerAtEOF) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	if !atEOF {
@@ -71,7 +71,7 @@ func (doublerAtEOF) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err 
 // rleDecode and rleEncode implement a toy run-length encoding: "aabbbbbbbbbb"
 // is encoded as "2a10b". The decoding is assumed to not contain any numbers.
 
-type rleDecode struct{ transform.NopResetter }
+type rleDecode struct{ NopResetter }
 
 func (rleDecode) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 loop:
@@ -104,7 +104,7 @@ loop:
 }
 
 type rleEncode struct {
-	transform.NopResetter
+	NopResetter
 
 	// allowStutter means that "xxxxxxxx" can be encoded as "5x3x"
 	// instead of always as "8x".

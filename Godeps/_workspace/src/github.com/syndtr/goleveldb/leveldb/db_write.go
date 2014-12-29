@@ -112,9 +112,9 @@ func (db *DB) flush(n int) (mem *memDB, nn int, err error) {
 		db.writeDelay += time.Since(start)
 		db.writeDelayN++
 	} else if db.writeDelayN > 0 {
+		db.logf("db@write was delayed N·%d T·%v", db.writeDelayN, db.writeDelay)
 		db.writeDelay = 0
 		db.writeDelayN = 0
-		db.logf("db@write was delayed N·%d T·%v", db.writeDelayN, db.writeDelay)
 	}
 	return
 }

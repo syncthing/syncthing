@@ -20,8 +20,9 @@ const (
 	GiB = MiB * 1024
 )
 
-const (
-	DefaultBlockCacheSize                = 8 * MiB
+var (
+	DefaultBlockCacher                   = LRUCacher
+	DefaultBlockCacheCapacity            = 8 * MiB
 	DefaultBlockRestartInterval          = 16
 	DefaultBlockSize                     = 4 * KiB
 	DefaultCompactionExpandLimitFactor   = 25
@@ -33,7 +34,8 @@ const (
 	DefaultCompactionTotalSize           = 10 * MiB
 	DefaultCompactionTotalSizeMultiplier = 10.0
 	DefaultCompressionType               = SnappyCompression
-	DefaultCachedOpenFiles               = 500
+	DefaultOpenFilesCacher               = LRUCacher
+	DefaultOpenFilesCacheCapacity        = 500
 	DefaultMaxMemCompationLevel          = 2
 	DefaultNumLevel                      = 7
 	DefaultWriteBuffer                   = 4 * MiB
@@ -41,22 +43,33 @@ const (
 	DefaultWriteL0SlowdownTrigger        = 8
 )
 
-type noCache struct{}
+// Cacher is a caching algorithm.
+type Cacher interface {
+	New(capacity int) cache.Cacher
+}
 
-func (noCache) SetCapacity(capacity int)                     {}
-func (noCache) Capacity() int                                { return 0 }
-func (noCache) Used() int                                    { return 0 }
-func (noCache) Size() int                                    { return 0 }
-func (noCache) NumObjects() int                              { return 0 }
-func (noCache) GetNamespace(id uint64) cache.Namespace       { return nil }
-func (noCache) PurgeNamespace(id uint64, fin cache.PurgeFin) {}
-func (noCache) ZapNamespace(id uint64)                       {}
-func (noCache) Purge(fin cache.PurgeFin)                     {}
-func (noCache) Zap()                                         {}
+type CacherFunc struct {
+	NewFunc func(capacity int) cache.Cacher
+}
 
-var NoCache cache.Cache = noCache{}
+func (f *CacherFunc) New(capacity int) cache.Cacher {
+	if f.NewFunc != nil {
+		return f.NewFunc(capacity)
+	}
+	return nil
+}
 
-// Compression is the per-block compression algorithm to use.
+func noCacher(int) cache.Cacher { return nil }
+
+var (
+	// LRUCacher is the LRU-cache algorithm.
+	LRUCacher = &CacherFunc{cache.NewLRU}
+
+	// NoCacher is the value to disable caching algorithm.
+	NoCacher = &CacherFunc{}
+)
+
+// Compression is the 'sorted table' block compression algorithm to use.
 type Compression uint
 
 func (c Compression) String() string {
@@ -133,16 +146,17 @@ type Options struct {
 	// The default value is nil
 	AltFilters []filter.Filter
 
-	// BlockCache provides per-block caching for LevelDB. Specify NoCache to
-	// disable block caching.
+	// BlockCacher provides cache algorithm for LevelDB 'sorted table' block caching.
+	// Specify NoCacher to disable caching algorithm.
 	//
-	// By default LevelDB will create LRU-cache with capacity of BlockCacheSize.
-	BlockCache cache.Cache
+	// The default value is LRUCacher.
+	BlockCacher Cacher
 
-	// BlockCacheSize defines the capacity of the default 'block cache'.
+	// BlockCacheCapacity defines the capacity of the 'sorted table' block caching.
+	// Use -1 for zero, this has same effect with specifying NoCacher to BlockCacher.
 	//
 	// The default value is 8MiB.
-	BlockCacheSize int
+	BlockCacheCapacity int
 
 	// BlockRestartInterval is the number of keys between restart points for
 	// delta encoding of keys.
@@ -155,13 +169,6 @@ type Options struct {
 	//
 	// The default value is 4KiB.
 	BlockSize int
-
-	// CachedOpenFiles defines number of open files to kept around when not
-	// in-use, the counting includes still in-use files.
-	// Set this to negative value to disable caching.
-	//
-	// The default value is 500.
-	CachedOpenFiles int
 
 	// CompactionExpandLimitFactor limits compaction size after expanded.
 	// This will be multiplied by table size limit at compaction target level.
@@ -237,10 +244,16 @@ type Options struct {
 	// The default value uses the same ordering as bytes.Compare.
 	Comparer comparer.Comparer
 
-	// Compression defines the per-block compression to use.
+	// Compression defines the 'sorted table' block compression to use.
 	//
 	// The default value (DefaultCompression) uses snappy compression.
 	Compression Compression
+
+	// DisableBlockCache allows disable use of cache.Cache functionality on
+	// 'sorted table' block.
+	//
+	// The default value is false.
+	DisableBlockCache bool
 
 	// DisableCompactionBackoff allows disable compaction retry backoff.
 	//
@@ -288,6 +301,18 @@ type Options struct {
 	// The default is 7.
 	NumLevel int
 
+	// OpenFilesCacher provides cache algorithm for open files caching.
+	// Specify NoCacher to disable caching algorithm.
+	//
+	// The default value is LRUCacher.
+	OpenFilesCacher Cacher
+
+	// OpenFilesCacheCapacity defines the capacity of the open files caching.
+	// Use -1 for zero, this has same effect with specifying NoCacher to OpenFilesCacher.
+	//
+	// The default value is 500.
+	OpenFilesCacheCapacity int
+
 	// Strict defines the DB strict level.
 	Strict Strict
 
@@ -320,18 +345,22 @@ func (o *Options) GetAltFilters() []filter.Filter {
 	return o.AltFilters
 }
 
-func (o *Options) GetBlockCache() cache.Cache {
-	if o == nil {
+func (o *Options) GetBlockCacher() Cacher {
+	if o == nil || o.BlockCacher == nil {
+		return DefaultBlockCacher
+	} else if o.BlockCacher == NoCacher {
 		return nil
 	}
-	return o.BlockCache
+	return o.BlockCacher
 }
 
-func (o *Options) GetBlockCacheSize() int {
-	if o == nil || o.BlockCacheSize <= 0 {
-		return DefaultBlockCacheSize
+func (o *Options) GetBlockCacheCapacity() int {
+	if o == nil || o.BlockCacheCapacity <= 0 {
+		return DefaultBlockCacheCapacity
+	} else if o.BlockCacheCapacity == -1 {
+		return 0
 	}
-	return o.BlockCacheSize
+	return o.BlockCacheCapacity
 }
 
 func (o *Options) GetBlockRestartInterval() int {
@@ -346,15 +375,6 @@ func (o *Options) GetBlockSize() int {
 		return DefaultBlockSize
 	}
 	return o.BlockSize
-}
-
-func (o *Options) GetCachedOpenFiles() int {
-	if o == nil || o.CachedOpenFiles == 0 {
-		return DefaultCachedOpenFiles
-	} else if o.CachedOpenFiles < 0 {
-		return 0
-	}
-	return o.CachedOpenFiles
 }
 
 func (o *Options) GetCompactionExpandLimit(level int) int {
@@ -492,6 +512,25 @@ func (o *Options) GetNumLevel() int {
 		return DefaultNumLevel
 	}
 	return o.NumLevel
+}
+
+func (o *Options) GetOpenFilesCacher() Cacher {
+	if o == nil || o.OpenFilesCacher == nil {
+		return DefaultOpenFilesCacher
+	}
+	if o.OpenFilesCacher == NoCacher {
+		return nil
+	}
+	return o.OpenFilesCacher
+}
+
+func (o *Options) GetOpenFilesCacheCapacity() int {
+	if o == nil || o.OpenFilesCacheCapacity <= 0 {
+		return DefaultOpenFilesCacheCapacity
+	} else if o.OpenFilesCacheCapacity == -1 {
+		return 0
+	}
+	return o.OpenFilesCacheCapacity
 }
 
 func (o *Options) GetStrict(strict Strict) bool {
