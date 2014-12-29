@@ -994,7 +994,7 @@ angular.module('syncthing.core')
         };
 
         $scope.setAPIKey = function (cfg) {
-            cfg.APIKey = randomString(30, 32);
+            cfg.APIKey = randomString(32);
         };
 
         $scope.showURPreview = function () {
