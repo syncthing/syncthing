@@ -87,8 +87,18 @@ func ToURL(url string) error {
 	}
 }
 
-// Returns 1 if a>b, -1 if a<b and 0 if they are equal
-func CompareVersions(a, b string) int {
+type Relation int
+
+const (
+	MajorOlder Relation = -2 // Older by a major version (x in x.y.z or 0.x.y).
+	Older               = -1 // Older by a minor version (y or z in x.y.z, or y in 0.x.y)
+	Equal               = 0  // Versions are semantically equal
+	Newer               = 1  // Newer by a minor version (y or z in x.y.z, or y in 0.x.y)
+	MajorNewer          = 2  // Newer by a major version (x in x.y.z or 0.x.y).
+)
+
+// Returns a relation describing how a compares to b.
+func CompareVersions(a, b string) Relation {
 	arel, apre := versionParts(a)
 	brel, bpre := versionParts(b)
 
@@ -100,27 +110,39 @@ func CompareVersions(a, b string) int {
 	// First compare major-minor-patch versions
 	for i := 0; i < minlen; i++ {
 		if arel[i] < brel[i] {
-			return -1
+			if i == 0 {
+				return MajorOlder
+			}
+			if i == 1 && arel[0] == 0 {
+				return MajorOlder
+			}
+			return Older
 		}
 		if arel[i] > brel[i] {
-			return 1
+			if i == 0 {
+				return MajorNewer
+			}
+			if i == 1 && arel[0] == 0 {
+				return MajorNewer
+			}
+			return Newer
 		}
 	}
 
 	// Longer version is newer, when the preceding parts are equal
 	if len(arel) < len(brel) {
-		return -1
+		return Older
 	}
 	if len(arel) > len(brel) {
-		return 1
+		return Newer
 	}
 
 	// Prerelease versions are older, if the versions are the same
 	if len(apre) == 0 && len(bpre) > 0 {
-		return 1
+		return Newer
 	}
 	if len(apre) > 0 && len(bpre) == 0 {
-		return -1
+		return Older
 	}
 
 	minlen = len(apre)
@@ -135,24 +157,24 @@ func CompareVersions(a, b string) int {
 			switch bv := bpre[i].(type) {
 			case int:
 				if av < bv {
-					return -1
+					return Older
 				}
 				if av > bv {
-					return 1
+					return Newer
 				}
 			case string:
-				return -1
+				return Older
 			}
 		case string:
 			switch bv := bpre[i].(type) {
 			case int:
-				return 1
+				return Newer
 			case string:
 				if av < bv {
-					return -1
+					return Older
 				}
 				if av > bv {
-					return 1
+					return Newer
 				}
 			}
 		}
@@ -160,14 +182,14 @@ func CompareVersions(a, b string) int {
 
 	// If all else is equal, longer prerelease string is newer
 	if len(apre) < len(bpre) {
-		return -1
+		return Older
 	}
 	if len(apre) > len(bpre) {
-		return 1
+		return Newer
 	}
 
 	// Looks like they're actually the same
-	return 0
+	return Equal
 }
 
 // Split a version into parts.
