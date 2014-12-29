@@ -20,6 +20,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -369,6 +370,10 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 	cfg.Options.GlobalAnnServers = uniqueStrings(cfg.Options.GlobalAnnServers)
+
+	if cfg.GUI.APIKey == "" {
+		cfg.GUI.APIKey = randomString(32)
+	}
 }
 
 // ChangeRequiresRestart returns true if updating the configuration requires a
@@ -673,4 +678,17 @@ func (l FolderDeviceConfigurationList) Swap(a, b int) {
 }
 func (l FolderDeviceConfigurationList) Len() int {
 	return len(l)
+}
+
+// randomCharset contains the characters that can make up a randomString().
+const randomCharset = "01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-"
+
+// randomString returns a string of random characters (taken from
+// randomCharset) of the specified length.
+func randomString(l int) string {
+	bs := make([]byte, l)
+	for i := range bs {
+		bs[i] = randomCharset[rand.Intn(len(randomCharset))]
+	}
+	return string(bs)
 }

@@ -104,15 +104,12 @@ function decimals(val, num) {
     return decs;
 }
 
-function randomString(len, bits) {
-    bits = bits || 36;
-    var outStr = "",
-        newStr;
-    while (outStr.length < len) {
-        newStr = Math.random().toString(bits).slice(2);
-        outStr += newStr.slice(0, Math.min(newStr.length, (len - outStr.length)));
+function randomString(len) {
+    var i, result = '', chars = '01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-';
+    for (i = 0; i < len; i++) {
+        result += chars[Math.round(Math.random() * (chars.length - 1))];
     }
-    return outStr.toLowerCase();
+    return result;
 }
 
 function isEmptyObject(obj) {
