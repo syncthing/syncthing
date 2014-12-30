@@ -15,15 +15,11 @@
 
 package model
 
-import (
-	"sync"
-
-	"github.com/syncthing/syncthing/internal/protocol"
-)
+import "sync"
 
 type JobQueue struct {
-	progress []*protocol.FileInfo
-	queued   []*protocol.FileInfo
+	progress []string
+	queued   []string
 	mut      sync.Mutex
 }
 
@@ -31,26 +27,26 @@ func NewJobQueue() *JobQueue {
 	return &JobQueue{}
 }
 
-func (q *JobQueue) Push(file *protocol.FileInfo) {
+func (q *JobQueue) Push(file string) {
 	q.mut.Lock()
 	q.queued = append(q.queued, file)
 	q.mut.Unlock()
 }
 
-func (q *JobQueue) Pop() *protocol.FileInfo {
+func (q *JobQueue) Pop() (string, bool) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
 	if len(q.queued) == 0 {
-		return nil
+		return "", false
 	}
 
-	var f *protocol.FileInfo
-	f, q.queued[0] = q.queued[0], nil
+	var f string
+	f = q.queued[0]
 	q.queued = q.queued[1:]
 	q.progress = append(q.progress, f)
 
-	return f
+	return f, true
 }
 
 func (q *JobQueue) Bump(filename string) {
@@ -58,40 +54,35 @@ func (q *JobQueue) Bump(filename string) {
 	defer q.mut.Unlock()
 
 	for i := range q.queued {
-		if q.queued[i].Name == filename {
+		if q.queued[i] == filename {
 			q.queued[0], q.queued[i] = q.queued[i], q.queued[0]
 			return
 		}
 	}
 }
 
-func (q *JobQueue) Done(file *protocol.FileInfo) {
+func (q *JobQueue) Done(file string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
 	for i := range q.progress {
-		if q.progress[i].Name == file.Name {
+		if q.progress[i] == file {
 			copy(q.progress[i:], q.progress[i+1:])
-			q.progress[len(q.progress)-1] = nil
 			q.progress = q.progress[:len(q.progress)-1]
 			return
 		}
 	}
 }
 
-func (q *JobQueue) Jobs() ([]protocol.FileInfoTruncated, []protocol.FileInfoTruncated) {
+func (q *JobQueue) Jobs() ([]string, []string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	progress := make([]protocol.FileInfoTruncated, len(q.progress))
-	for i := range q.progress {
-		progress[i] = q.progress[i].ToTruncated()
-	}
+	progress := make([]string, len(q.progress))
+	copy(progress, q.progress)
 
-	queued := make([]protocol.FileInfoTruncated, len(q.queued))
-	for i := range q.queued {
-		queued[i] = q.queued[i].ToTruncated()
-	}
+	queued := make([]string, len(q.queued))
+	copy(queued, q.queued)
 
 	return progress, queued
 }

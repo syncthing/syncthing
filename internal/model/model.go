@@ -79,7 +79,7 @@ const (
 type service interface {
 	Serve()
 	Stop()
-	Jobs() ([]protocol.FileInfoTruncated, []protocol.FileInfoTruncated) // In progress, Queued
+	Jobs() ([]string, []string) // In progress, Queued
 	Bump(string)
 }
 
@@ -427,20 +427,25 @@ func (m *Model) NeedFolderFiles(folder string, max int) ([]protocol.FileInfoTrun
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		progress := []protocol.FileInfoTruncated{}
-		queued := []protocol.FileInfoTruncated{}
-		rest := []protocol.FileInfoTruncated{}
-		seen := map[string]struct{}{}
+		var progress, queued, rest []protocol.FileInfoTruncated
+		var seen map[string]bool
 
 		runner, ok := m.folderRunners[folder]
 		if ok {
-			progress, queued = runner.Jobs()
-			seen = make(map[string]struct{}, len(progress)+len(queued))
-			for _, file := range progress {
-				seen[file.Name] = struct{}{}
+			progressNames, queuedNames := runner.Jobs()
+
+			progress = make([]protocol.FileInfoTruncated, len(progressNames))
+			queued = make([]protocol.FileInfoTruncated, len(queuedNames))
+			seen = make(map[string]bool, len(progressNames)+len(queuedNames))
+
+			for i, name := range progressNames {
+				progress[i] = rf.GetGlobal(name).ToTruncated() /// XXX: Should implement GetGlobalTruncated directly
+				seen[name] = true
 			}
-			for _, file := range queued {
-				seen[file.Name] = struct{}{}
+
+			for i, name := range queuedNames {
+				queued[i] = rf.GetGlobal(name).ToTruncated() /// XXX: Should implement GetGlobalTruncated directly
+				seen[name] = true
 			}
 		}
 		left := max - len(progress) - len(queued)
@@ -448,8 +453,7 @@ func (m *Model) NeedFolderFiles(folder string, max int) ([]protocol.FileInfoTrun
 			rf.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
 				left--
 				ft := f.(protocol.FileInfoTruncated)
-				_, ok := seen[ft.Name]
-				if !ok {
+				if !seen[ft.Name] {
 					rest = append(rest, ft)
 				}
 				return max < 1 || left > 0

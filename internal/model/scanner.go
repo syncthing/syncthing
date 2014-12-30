@@ -18,8 +18,6 @@ package model
 import (
 	"fmt"
 	"time"
-
-	"github.com/syncthing/syncthing/internal/protocol"
 )
 
 type Scanner struct {
@@ -80,6 +78,6 @@ func (s *Scanner) String() string {
 
 func (s *Scanner) Bump(string) {}
 
-func (s *Scanner) Jobs() ([]protocol.FileInfoTruncated, []protocol.FileInfoTruncated) {
+func (s *Scanner) Jobs() ([]string, []string) {
 	return nil, nil
 }
