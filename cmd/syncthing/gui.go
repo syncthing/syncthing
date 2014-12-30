@@ -648,7 +648,7 @@ func restPostBump(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	file := qs.Get("file")
-	m.Bump(folder, file)
+	m.BringToFront(folder, file)
 	restGetNeed(m, w, r)
 }
 

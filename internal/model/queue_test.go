@@ -17,12 +17,13 @@ package model
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 )
 
 func TestJobQueue(t *testing.T) {
 	// Some random actions
-	q := NewJobQueue()
+	q := newJobQueue()
 	q.Push("f1")
 	q.Push("f2")
 	q.Push("f3")
@@ -40,6 +41,8 @@ func TestJobQueue(t *testing.T) {
 		}
 		progress, queued = q.Jobs()
 		if len(progress) != 1 || len(queued) != 3 {
+			t.Log(progress)
+			t.Log(queued)
 			t.Fatal("Wrong length")
 		}
 
@@ -74,7 +77,7 @@ func TestJobQueue(t *testing.T) {
 
 		s := fmt.Sprintf("f%d", i)
 
-		q.Bump(s)
+		q.BringToFront(s)
 		progress, queued = q.Jobs()
 		if len(progress) != 4-i || len(queued) != i {
 			t.Fatal("Wrong length")
@@ -116,7 +119,7 @@ func TestJobQueue(t *testing.T) {
 	if len(progress) != 0 || len(queued) != 0 {
 		t.Fatal("Wrong length")
 	}
-	q.Bump("")
+	q.BringToFront("")
 	q.Done("f5") // Does not exist
 	progress, queued = q.Jobs()
 	if len(progress) != 0 || len(queued) != 0 {
@@ -124,59 +127,58 @@ func TestJobQueue(t *testing.T) {
 	}
 }
 
-/*
-func BenchmarkJobQueuePush(b *testing.B) {
-	files := genFiles(b.N)
+func TestBringToFront(t *testing.T) {
+	q := newJobQueue()
+	q.Push("f1")
+	q.Push("f2")
+	q.Push("f3")
+	q.Push("f4")
 
-	q := NewJobQueue()
+	_, queued := q.Jobs()
+	if !reflect.DeepEqual(queued, []string{"f1", "f2", "f3", "f4"}) {
+		t.Errorf("Incorrect order %v at start", queued)
+	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		q.Push(&files[i])
+	q.BringToFront("f1") // corner case: does nothing
+
+	_, queued = q.Jobs()
+	if !reflect.DeepEqual(queued, []string{"f1", "f2", "f3", "f4"}) {
+		t.Errorf("Incorrect order %v", queued)
+	}
+
+	q.BringToFront("f3")
+
+	_, queued = q.Jobs()
+	if !reflect.DeepEqual(queued, []string{"f3", "f1", "f2", "f4"}) {
+		t.Errorf("Incorrect order %v", queued)
+	}
+
+	q.BringToFront("f2")
+
+	_, queued = q.Jobs()
+	if !reflect.DeepEqual(queued, []string{"f2", "f3", "f1", "f4"}) {
+		t.Errorf("Incorrect order %v", queued)
+	}
+
+	q.BringToFront("f4") // corner case: last element
+
+	_, queued = q.Jobs()
+	if !reflect.DeepEqual(queued, []string{"f4", "f2", "f3", "f1"}) {
+		t.Errorf("Incorrect order %v", queued)
 	}
 }
-
-func BenchmarkJobQueuePop(b *testing.B) {
-	files := genFiles(b.N)
-
-	q := NewJobQueue()
-	for j := range files {
-		q.Push(&files[j])
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		q.Pop()
-	}
-}
-
-func BenchmarkJobQueuePopDone(b *testing.B) {
-	files := genFiles(b.N)
-
-	q := NewJobQueue()
-	for j := range files {
-		q.Push(&files[j])
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		n := q.Pop()
-		q.Done(n)
-	}
-}
-*/
 
 func BenchmarkJobQueueBump(b *testing.B) {
 	files := genFiles(b.N)
 
-	q := NewJobQueue()
+	q := newJobQueue()
 	for _, f := range files {
 		q.Push(f.Name)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		q.Bump(files[i].Name)
+		q.BringToFront(files[i].Name)
 	}
 }
 
@@ -185,7 +187,7 @@ func BenchmarkJobQueuePushPopDone10k(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		q := NewJobQueue()
+		q := newJobQueue()
 		for _, f := range files {
 			q.Push(f.Name)
 		}

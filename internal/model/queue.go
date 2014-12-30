@@ -17,23 +17,23 @@ package model
 
 import "sync"
 
-type JobQueue struct {
+type jobQueue struct {
 	progress []string
 	queued   []string
 	mut      sync.Mutex
 }
 
-func NewJobQueue() *JobQueue {
-	return &JobQueue{}
+func newJobQueue() *jobQueue {
+	return &jobQueue{}
 }
 
-func (q *JobQueue) Push(file string) {
+func (q *jobQueue) Push(file string) {
 	q.mut.Lock()
 	q.queued = append(q.queued, file)
 	q.mut.Unlock()
 }
 
-func (q *JobQueue) Pop() (string, bool) {
+func (q *jobQueue) Pop() (string, bool) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
@@ -49,7 +49,7 @@ func (q *JobQueue) Pop() (string, bool) {
 	return f, true
 }
 
-func (q *JobQueue) Bump(filename string) {
+func (q *jobQueue) BringToFront(filename string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
@@ -61,7 +61,7 @@ func (q *JobQueue) Bump(filename string) {
 	}
 }
 
-func (q *JobQueue) Done(file string) {
+func (q *jobQueue) Done(file string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
@@ -74,7 +74,7 @@ func (q *JobQueue) Done(file string) {
 	}
 }
 
-func (q *JobQueue) Jobs() ([]string, []string) {
+func (q *jobQueue) Jobs() ([]string, []string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 

@@ -78,7 +78,7 @@ type Puller struct {
 	copiers         int
 	pullers         int
 	finishers       int
-	queue           *JobQueue
+	queue           *jobQueue
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
@@ -90,7 +90,6 @@ func (p *Puller) Serve() {
 	}
 
 	p.stop = make(chan struct{})
-	p.queue = NewJobQueue()
 
 	pullTimer := time.NewTimer(checkPullIntv)
 	scanTimer := time.NewTimer(time.Millisecond) // The first scan should be done immediately.
@@ -872,29 +871,12 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 }
 
 // Moves the given filename to the front of the job queue
-func (p *Puller) Bump(filename string) {
-	p.queue.Bump(filename)
+func (p *Puller) BringToFront(filename string) {
+	p.queue.BringToFront(filename)
 }
 
 func (p *Puller) Jobs() ([]string, []string) {
 	return p.queue.Jobs()
-}
-
-// clean deletes orphaned temporary files
-func (p *Puller) clean() {
-	keep := time.Duration(p.model.cfg.Options().KeepTemporariesH) * time.Hour
-	now := time.Now()
-	filepath.Walk(p.dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if info.Mode().IsRegular() && defTempNamer.IsTemporary(path) && info.ModTime().Add(keep).Before(now) {
-			os.Remove(path)
-		}
-
-		return nil
-	})
 }
 
 func invalidateFolder(cfg *config.Configuration, folderID string, err error) {
