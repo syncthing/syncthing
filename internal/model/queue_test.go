@@ -72,7 +72,7 @@ func TestJobQueue(t *testing.T) {
 		}
 	}
 
-	if len(q.progress) > 0 || len(q.lookup) != 4 || q.queued.Len() != 4 {
+	if len(q.progress) > 0 || q.queued.Len() != 4 {
 		t.Fatal("Wrong length")
 	}
 
@@ -106,7 +106,7 @@ func TestJobQueue(t *testing.T) {
 		}
 	}
 
-	if len(q.progress) != 4 || q.Pop() != nil || len(q.lookup) != 0 {
+	if len(q.progress) != 4 || q.Pop() != nil {
 		t.Fatal("Wrong length")
 	}
 
@@ -116,7 +116,7 @@ func TestJobQueue(t *testing.T) {
 	q.Done(f4)
 	q.Done(f5) // Does not exist
 
-	if len(q.progress) != 0 || q.Pop() != nil || len(q.lookup) != 0 {
+	if len(q.progress) != 0 || q.Pop() != nil {
 		t.Fatal("Wrong length")
 	}
 
@@ -130,4 +130,77 @@ func TestJobQueue(t *testing.T) {
 	if len(progress) != 0 || len(queued) != 0 {
 		t.Fatal("Wrong length")
 	}
+}
+
+/*
+func BenchmarkJobQueuePush(b *testing.B) {
+	files := genFiles(b.N)
+
+	q := NewJobQueue()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		q.Push(&files[i])
+	}
+}
+
+func BenchmarkJobQueuePop(b *testing.B) {
+	files := genFiles(b.N)
+
+	q := NewJobQueue()
+	for j := range files {
+		q.Push(&files[j])
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		q.Pop()
+	}
+}
+
+func BenchmarkJobQueuePopDone(b *testing.B) {
+	files := genFiles(b.N)
+
+	q := NewJobQueue()
+	for j := range files {
+		q.Push(&files[j])
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		n := q.Pop()
+		q.Done(n)
+	}
+}
+*/
+
+func BenchmarkJobQueueBump(b *testing.B) {
+	files := genFiles(b.N)
+
+	q := NewJobQueue()
+	for j := range files {
+		q.Push(&files[j])
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		q.Bump(files[i].Name)
+	}
+}
+
+func BenchmarkJobQueuePushPopDone10k(b *testing.B) {
+	files := genFiles(10000)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		q := NewJobQueue()
+		for j := range files {
+			q.Push(&files[j])
+		}
+		for range files {
+			n := q.Pop()
+			q.Done(n)
+		}
+	}
+
 }
