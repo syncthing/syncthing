@@ -20,6 +20,7 @@ package integration
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -54,6 +55,14 @@ func TestCLIReset(t *testing.T) {
 			t.Errorf("%s still exists", dir)
 		}
 	}
+
+	// Clean up
+
+	dirs, err = filepath.Glob("*.syncthing-reset-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	removeAll(dirs...)
 }
 
 func TestCLIGenerate(t *testing.T) {
