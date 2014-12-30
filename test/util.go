@@ -317,6 +317,10 @@ type fileInfo struct {
 	hash [16]byte
 }
 
+func (f fileInfo) String() string {
+	return fmt.Sprintf("%s %04o %d %x", f.name, f.mode, f.mod, f.hash)
+}
+
 type fileInfoList []fileInfo
 
 func (l fileInfoList) Len() int {
