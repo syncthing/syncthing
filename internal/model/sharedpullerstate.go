@@ -110,6 +110,17 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	flags := os.O_WRONLY
 	if s.reused == 0 {
 		flags |= os.O_CREATE | os.O_EXCL
+	} else {
+		// With sufficiently bad luck when exiting or crashing, we may have
+		// had time to chmod the temp file to read only state but not yet
+		// moved it to it's final name. This leaves us with a read only temp
+		// file that we're going to try to reuse. To handle that, we need to
+		// make sure we have write permissions on the file before opening it.
+		err := os.Chmod(s.tempName, 0644)
+		if err != nil {
+			s.earlyCloseLocked("dst create chmod", err)
+			return nil, err
+		}
 	}
 	fd, err := os.OpenFile(s.tempName, flags, 0644)
 	if err != nil {
