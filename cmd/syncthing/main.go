@@ -795,7 +795,7 @@ func setupExternalPort(igd *upnp.IGD, port int) int {
 
 	for i := 0; i < 10; i++ {
 		r := 1024 + predictableRandom.Intn(65535-1024)
-		err := igd.AddPortMapping(upnp.TCP, r, port, "syncthing", cfg.Options().UPnPLease*60)
+		err := igd.AddPortMapping(upnp.TCP, r, port, fmt.Sprintf("syncthing-%d", r), cfg.Options().UPnPLease*60)
 		if err == nil {
 			return r
 		}
