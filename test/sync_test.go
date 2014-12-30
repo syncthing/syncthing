@@ -132,11 +132,6 @@ func testSyncCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, err := scStartProcesses()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// Prepare the expected state of folders after the sync
 	c1, err := directoryContents("s1")
 	if err != nil {
@@ -160,6 +155,17 @@ func testSyncCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := [][]fileInfo{e1, e2, e3}
+
+	// Start the syncers
+	p, err := scStartProcesses()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		for i := range p {
+			p[i].stop()
+		}
+	}()
 
 	for count := 0; count < 5; count++ {
 		log.Println("Forcing rescan...")
@@ -241,10 +247,6 @@ func testSyncCluster(t *testing.T) {
 			t.Fatal(err)
 		}
 		expected = [][]fileInfo{e1, e2, e3}
-	}
-
-	for i := range p {
-		p[i].stop()
 	}
 }
 
