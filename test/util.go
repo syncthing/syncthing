@@ -227,10 +227,11 @@ func compareDirectories(dirs ...string) error {
 	for i := range chans {
 		chans[i] = make(chan fileInfo)
 	}
+	errcs := make([]chan error, len(dirs))
 	abort := make(chan struct{})
 
 	for i := range dirs {
-		startWalker(dirs[i], chans[i], abort)
+		errcs[i] = startWalker(dirs[i], chans[i], abort)
 	}
 
 	res := make([]fileInfo, len(dirs))
@@ -239,6 +240,11 @@ func compareDirectories(dirs ...string) error {
 		for i := range chans {
 			fi, ok := <-chans[i]
 			if !ok {
+				err, hasError := <-errcs[i]
+				if hasError {
+					close(abort)
+					return err
+				}
 				numDone++
 			}
 			res[i] = fi
@@ -257,16 +263,16 @@ func compareDirectories(dirs ...string) error {
 	}
 }
 
-func directoryContents(dir string) []fileInfo {
+func directoryContents(dir string) ([]fileInfo, error) {
 	res := make(chan fileInfo)
-	startWalker(dir, res, nil)
+	errc := startWalker(dir, res, nil)
 
 	var files []fileInfo
 	for f := range res {
 		files = append(files, f)
 	}
 
-	return files
+	return files, <-errc
 }
 
 func mergeDirectoryContents(c ...[]fileInfo) []fileInfo {
@@ -325,7 +331,7 @@ func (l fileInfoList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
 }
 
-func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) {
+func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan error {
 	walker := func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -381,10 +387,17 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) {
 			return errors.New("abort")
 		}
 	}
+
+	errc := make(chan error)
 	go func() {
-		filepath.Walk(dir, walker)
+		err := filepath.Walk(dir, walker)
 		close(res)
+		if err != nil {
+			errc <- err
+		}
+		close(errc)
 	}()
+	return errc
 }
 
 func md5file(fname string) (hash [16]byte, err error) {

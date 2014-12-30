@@ -138,11 +138,27 @@ func testSyncCluster(t *testing.T) {
 	}
 
 	// Prepare the expected state of folders after the sync
-	e1 := mergeDirectoryContents(directoryContents("s1"),
-		directoryContents("s2"),
-		directoryContents("s3"))
-	e2 := directoryContents("s12-1")
-	e3 := directoryContents("s23-2")
+	c1, err := directoryContents("s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c2, err := directoryContents("s2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c3, err := directoryContents("s3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e1 := mergeDirectoryContents(c1, c2, c3)
+	e2, err := directoryContents("s12-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e3, err := directoryContents("s23-2")
+	if err != nil {
+		t.Fatal(err)
+	}
 	expected := [][]fileInfo{e1, e2, e3}
 
 	for count := 0; count < 5; count++ {
@@ -212,9 +228,18 @@ func testSyncCluster(t *testing.T) {
 		}
 
 		// Prepare the expected state of folders after the sync
-		e1 = directoryContents("s1")
-		e2 = directoryContents("s12-1")
-		e3 = directoryContents("s23-2")
+		e1, err = directoryContents("s1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		e2, err = directoryContents("s12-1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		e3, err = directoryContents("s23-2")
+		if err != nil {
+			t.Fatal(err)
+		}
 		expected = [][]fileInfo{e1, e2, e3}
 	}
 
@@ -301,21 +326,30 @@ mainLoop:
 	log.Println("Checking...")
 
 	for _, dir := range []string{"s1", "s2", "s3"} {
-		actual := directoryContents(dir)
+		actual, err := directoryContents(dir)
+		if err != nil {
+			return err
+		}
 		if err := compareDirectoryContents(actual, expected[0]); err != nil {
 			return fmt.Errorf("%s: %v", dir, err)
 		}
 	}
 
 	for _, dir := range []string{"s12-1", "s12-2"} {
-		actual := directoryContents(dir)
+		actual, err := directoryContents(dir)
+		if err != nil {
+			return err
+		}
 		if err := compareDirectoryContents(actual, expected[1]); err != nil {
 			return fmt.Errorf("%s: %v", dir, err)
 		}
 	}
 
 	for _, dir := range []string{"s23-2", "s23-3"} {
-		actual := directoryContents(dir)
+		actual, err := directoryContents(dir)
+		if err != nil {
+			return err
+		}
 		if err := compareDirectoryContents(actual, expected[2]); err != nil {
 			return fmt.Errorf("%s: %v", dir, err)
 		}
