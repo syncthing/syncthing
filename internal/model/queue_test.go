@@ -72,7 +72,7 @@ func TestJobQueue(t *testing.T) {
 		}
 	}
 
-	if len(q.progress) > 0 || q.queued.Len() != 4 {
+	if len(q.progress) > 0 || len(q.queued) != 4 {
 		t.Fatal("Wrong length")
 	}
 

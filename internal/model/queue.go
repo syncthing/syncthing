@@ -16,7 +16,6 @@
 package model
 
 import (
-	"container/list"
 	"sync"
 
 	"github.com/syncthing/syncthing/internal/protocol"
@@ -24,38 +23,31 @@ import (
 
 type JobQueue struct {
 	progress []*protocol.FileInfo
-
-	queued *list.List
-	lookup map[string]*list.Element // O(1) lookups
-
-	mut sync.Mutex
+	queued   []*protocol.FileInfo
+	mut      sync.Mutex
 }
 
 func NewJobQueue() *JobQueue {
-	return &JobQueue{
-		progress: []*protocol.FileInfo{},
-		queued:   list.New(),
-		lookup:   make(map[string]*list.Element),
-	}
+	return &JobQueue{}
 }
 
 func (q *JobQueue) Push(file *protocol.FileInfo) {
 	q.mut.Lock()
-	defer q.mut.Unlock()
-
-	q.lookup[file.Name] = q.queued.PushBack(file)
+	q.queued = append(q.queued, file)
+	q.mut.Unlock()
 }
 
 func (q *JobQueue) Pop() *protocol.FileInfo {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	if q.queued.Len() == 0 {
+	if len(q.queued) == 0 {
 		return nil
 	}
 
-	f := q.queued.Remove(q.queued.Front()).(*protocol.FileInfo)
-	delete(q.lookup, f.Name)
+	var f *protocol.FileInfo
+	f, q.queued[0] = q.queued[0], nil
+	q.queued = q.queued[1:]
 	q.progress = append(q.progress, f)
 
 	return f
@@ -65,9 +57,11 @@ func (q *JobQueue) Bump(filename string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	ele, ok := q.lookup[filename]
-	if ok {
-		q.queued.MoveToFront(ele)
+	for i := range q.queued {
+		if q.queued[i].Name == filename {
+			q.queued[0], q.queued[i] = q.queued[i], q.queued[0]
+			return
+		}
 	}
 }
 
@@ -94,12 +88,9 @@ func (q *JobQueue) Jobs() ([]protocol.FileInfoTruncated, []protocol.FileInfoTrun
 		progress[i] = q.progress[i].ToTruncated()
 	}
 
-	queued := make([]protocol.FileInfoTruncated, q.queued.Len())
-	i := 0
-	for e := q.queued.Front(); e != nil; e = e.Next() {
-		fi := e.Value.(*protocol.FileInfo)
-		queued[i] = fi.ToTruncated()
-		i++
+	queued := make([]protocol.FileInfoTruncated, len(q.queued))
+	for i := range q.queued {
+		queued[i] = q.queued[i].ToTruncated()
 	}
 
 	return progress, queued
