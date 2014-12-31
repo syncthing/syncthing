@@ -232,7 +232,9 @@ func (v Staggered) expire(versions []string) {
 
 		versionTime, err := time.Parse(TimeFormat, filenameTag(file))
 		if err != nil {
-			l.Infof("Versioner: file name %q is invalid: %v", file, err)
+			if debug {
+				l.Debugf("Versioner: file name %q is invalid: %v", file, err)
+			}
 			continue
 		}
 		age := int64(time.Since(versionTime).Seconds())
