@@ -158,7 +158,7 @@ Mx: %d
 	var results []IGD
 	resultChannel := make(chan IGD, 8)
 
-	socket, err := net.ListenUDP("udp4", &net.UDPAddr{})
+	socket, err := net.ListenMulticastUDP("udp4", nil, &net.UDPAddr{IP: ssdp.IP})
 	if err != nil {
 		l.Infoln(err)
 		return results
