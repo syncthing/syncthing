@@ -53,9 +53,15 @@ func (q *jobQueue) BringToFront(filename string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	for i := range q.queued {
-		if q.queued[i] == filename {
-			q.queued[0], q.queued[i] = q.queued[i], q.queued[0]
+	for i, cur := range q.queued {
+		if cur == filename {
+			if i > 0 {
+				// Shift the elements before the selected element one step to
+				// the right, overwriting the selected element
+				copy(q.queued[1:i+1], q.queued[0:])
+				// Put the selected element at the front
+				q.queued[0] = cur
+			}
 			return
 		}
 	}
