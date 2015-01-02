@@ -79,6 +79,8 @@ const (
 type service interface {
 	Serve()
 	Stop()
+	Jobs() ([]string, []string) // In progress, Queued
+	BringToFront(string)
 }
 
 type Model struct {
@@ -189,6 +191,7 @@ func (m *Model) StartFolderRW(folder string) {
 		copiers:         cfg.Copiers,
 		pullers:         cfg.Pullers,
 		finishers:       cfg.Finishers,
+		queue:           newJobQueue(),
 	}
 	m.folderRunners[folder] = p
 	m.fmut.Unlock()
@@ -416,22 +419,50 @@ func (m *Model) NeedSize(folder string) (files int, bytes int64) {
 	return
 }
 
-// NeedFiles returns the list of currently needed files, stopping at maxFiles
-// files. Limit <= 0 is ignored.
-func (m *Model) NeedFolderFilesLimited(folder string, maxFiles int) []protocol.FileInfoTruncated {
+// NeedFiles returns the list of currently needed files in progress, queued,
+// and to be queued on next puller iteration. Also takes a soft cap which is
+// only respected when adding files from the model rather than the runner queue.
+func (m *Model) NeedFolderFiles(folder string, max int) ([]protocol.FileInfoTruncated, []protocol.FileInfoTruncated, []protocol.FileInfoTruncated) {
 	defer m.leveldbPanicWorkaround()
 
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		fs := make([]protocol.FileInfoTruncated, 0, maxFiles)
-		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
-			fs = append(fs, f.(protocol.FileInfoTruncated))
-			return maxFiles <= 0 || len(fs) < maxFiles
-		})
-		return fs
+		var progress, queued, rest []protocol.FileInfoTruncated
+		var seen map[string]bool
+
+		runner, ok := m.folderRunners[folder]
+		if ok {
+			progressNames, queuedNames := runner.Jobs()
+
+			progress = make([]protocol.FileInfoTruncated, len(progressNames))
+			queued = make([]protocol.FileInfoTruncated, len(queuedNames))
+			seen = make(map[string]bool, len(progressNames)+len(queuedNames))
+
+			for i, name := range progressNames {
+				progress[i] = rf.GetGlobal(name).ToTruncated() /// XXX: Should implement GetGlobalTruncated directly
+				seen[name] = true
+			}
+
+			for i, name := range queuedNames {
+				queued[i] = rf.GetGlobal(name).ToTruncated() /// XXX: Should implement GetGlobalTruncated directly
+				seen[name] = true
+			}
+		}
+		left := max - len(progress) - len(queued)
+		if max < 1 || left > 0 {
+			rf.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
+				left--
+				ft := f.(protocol.FileInfoTruncated)
+				if !seen[ft.Name] {
+					rest = append(rest, ft)
+				}
+				return max < 1 || left > 0
+			})
+		}
+		return progress, queued, rest
 	}
-	return nil
+	return nil, nil, nil
 }
 
 // Index is called when a new device is connected and we receive their full index.
@@ -1336,7 +1367,7 @@ func (m *Model) RemoteLocalVersion(folder string) uint64 {
 	return ver
 }
 
-func (m *Model) availability(folder string, file string) []protocol.DeviceID {
+func (m *Model) availability(folder, file string) []protocol.DeviceID {
 	// Acquire this lock first, as the value returned from foldersFiles can
 	// gen heavily modified on Close()
 	m.pmut.RLock()
@@ -1357,6 +1388,17 @@ func (m *Model) availability(folder string, file string) []protocol.DeviceID {
 		}
 	}
 	return availableDevices
+}
+
+// Bump the given files priority in the job queue
+func (m *Model) BringToFront(folder, file string) {
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
+
+	runner, ok := m.folderRunners[folder]
+	if ok {
+		runner.BringToFront(file)
+	}
 }
 
 func (m *Model) String() string {

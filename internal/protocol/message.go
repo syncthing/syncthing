@@ -69,6 +69,17 @@ func (f FileInfo) HasPermissionBits() bool {
 	return f.Flags&FlagNoPermBits == 0
 }
 
+func (f FileInfo) ToTruncated() FileInfoTruncated {
+	return FileInfoTruncated{
+		Name:         f.Name,
+		Flags:        f.Flags,
+		Modified:     f.Modified,
+		Version:      f.Version,
+		LocalVersion: f.LocalVersion,
+		NumBlocks:    uint32(len(f.Blocks)),
+	}
+}
+
 // Used for unmarshalling a FileInfo structure but skipping the actual block list
 type FileInfoTruncated struct {
 	Name         string // max:8192

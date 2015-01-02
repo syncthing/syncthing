@@ -801,21 +801,37 @@
     <hr/>
 
     <table class="table table-striped table-condensed">
-      <tr ng-repeat="f in needed" ng-init="a = needAction(f)">
+      <tr ng-repeat="f in needed.progress" ng-init="a = needAction(f)">
         <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
         <td title="{{f.Name}}">{{f.Name | basename}}</td>
-        <td>
-          <span ng-if="a == 'sync' && progress[neededFolder] && progress[neededFolder][f.Name]">
-            <div class="progress">
-              <div class="progress-bar progress-bar-success" style="width: {{progress[neededFolder][f.Name].Reused}}%"></div>
-              <div class="progress-bar" style="width: {{progress[neededFolder][f.Name].CopiedFromOrigin}}%"></div>
-              <div class="progress-bar progress-bar-info" style="width: {{progress[neededFolder][f.Name].CopiedFromElsewhere}}%"></div>
-              <div class="progress-bar progress-bar-warning" style="width: {{progress[neededFolder][f.Name].Pulled}}%"></div>
-              <div class="progress-bar progress-bar-danger progress-bar-striped active" style="width: {{progress[neededFolder][f.Name].Pulling}}%"></div>
-              <span class="show frontal">{{progress[neededFolder][f.Name].BytesDone | binary}}B / {{progress[neededFolder][f.Name].BytesTotal | binary}}B</span>
-            </div>
-          </span>
+        <td ng-if="a == 'sync' && progress[neededFolder] && progress[neededFolder][f.Name]">
+          <div class="progress">
+            <div class="progress-bar progress-bar-success" style="width: {{progress[neededFolder][f.Name].Reused}}%"></div>
+            <div class="progress-bar" style="width: {{progress[neededFolder][f.Name].CopiedFromOrigin}}%"></div>
+            <div class="progress-bar progress-bar-info" style="width: {{progress[neededFolder][f.Name].CopiedFromElsewhere}}%"></div>
+            <div class="progress-bar progress-bar-warning" style="width: {{progress[neededFolder][f.Name].Pulled}}%"></div>
+            <div class="progress-bar progress-bar-danger progress-bar-striped active" style="width: {{progress[neededFolder][f.Name].Pulling}}%"></div>
+            <span class="show frontal">
+              {{progress[neededFolder][f.Name].BytesDone | binary}}B / {{progress[neededFolder][f.Name].BytesTotal | binary}}B
+            </span>
+          </div>
         </td>
+        <td class="text-right small-data" ng-if="a != 'sync' || !progress[neededFolder] || !progress[neededFolder][f.Name]">
+          <span ng-if="f.Size > 0">{{f.Size | binary}}B</span>
+        </td>
+      </tr>
+      <tr ng-repeat="f in needed.queued" ng-init="a = needAction(f)">
+        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
+        <td title="{{f.Name}}">{{f.Name | basename}}</td>
+        <td class="text-right small-data">
+          <span ng-if="$index != 0" class="glyphicon glyphicon-chevron-up" ng-click="bumpFile(neededFolder, f.Name)"></span>
+          <span ng-if="f.Size > 0">{{f.Size | binary}}B</span>
+         </td>
+      </tr>
+      <tr ng-repeat="f in needed.rest" ng-init="a = needAction(f)">
+        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
+        <td title="{{f.Name}}">{{f.Name | basename}}</td>
+        <td class="text-right small-data"><span ng-if="f.Size > 0">{{f.Size | binary}}B</span></td>
       </tr>
     </table>
 

@@ -78,6 +78,7 @@ type Puller struct {
 	copiers         int
 	pullers         int
 	finishers       int
+	queue           *jobQueue
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
@@ -337,14 +338,22 @@ func (p *Puller) pullerIteration(checksum bool, ignores *ignore.Matcher) int {
 			p.handleDir(file)
 		default:
 			// A new or changed file or symlink. This is the only case where we
-			// do stuff in the background; the other three are done
-			// synchronously.
-			p.handleFile(file, copyChan, finisherChan)
+			// do stuff concurrently in the background
+			p.queue.Push(file.Name)
 		}
 
 		changed++
 		return true
 	})
+
+	for {
+		fileName, ok := p.queue.Pop()
+		if !ok {
+			break
+		}
+		f := p.model.CurrentGlobalFile(p.folder, fileName)
+		p.handleFile(f, copyChan, finisherChan)
+	}
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -483,6 +492,7 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 		if debug {
 			l.Debugln(p, "taking shortcut on", file.Name)
 		}
+		p.queue.Done(file.Name)
 		if file.IsSymlink() {
 			p.shortcutSymlink(curFile, file)
 		} else {
@@ -850,6 +860,7 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 				continue
 			}
 
+			p.queue.Done(state.file.Name)
 			p.performFinish(state)
 			p.model.receivedFile(p.folder, state.file.Name)
 			if p.progressEmitter != nil {
@@ -857,6 +868,15 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			}
 		}
 	}
+}
+
+// Moves the given filename to the front of the job queue
+func (p *Puller) BringToFront(filename string) {
+	p.queue.BringToFront(filename)
+}
+
+func (p *Puller) Jobs() ([]string, []string) {
+	return p.queue.Jobs()
 }
 
 func invalidateFolder(cfg *config.Configuration, folderID string, err error) {

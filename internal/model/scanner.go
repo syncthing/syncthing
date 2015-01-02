@@ -75,3 +75,9 @@ func (s *Scanner) Stop() {
 func (s *Scanner) String() string {
 	return fmt.Sprintf("scanner/%s@%p", s.folder, s)
 }
+
+func (s *Scanner) BringToFront(string) {}
+
+func (s *Scanner) Jobs() ([]string, []string) {
+	return nil, nil
+}
