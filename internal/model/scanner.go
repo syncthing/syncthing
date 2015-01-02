@@ -17,6 +17,7 @@ package model
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 )
 
@@ -63,7 +64,9 @@ func (s *Scanner) Serve() {
 				return
 			}
 
-			timer.Reset(s.intv)
+			// Sleep a random time between 3/4 and 5/4 of the configured interval.
+			sleepNanos := (s.intv.Nanoseconds()*3 + rand.Int63n(2*s.intv.Nanoseconds())) / 4
+			timer.Reset(time.Duration(sleepNanos) * time.Nanosecond)
 		}
 	}
 }
