@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -224,10 +225,14 @@ loop:
 			}
 			p.model.setState(p.folder, FolderIdle)
 			if p.scanIntv > 0 {
+				// Sleep a random time between 3/4 and 5/4 of the configured interval.
+				sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
+				intv := time.Duration(sleepNanos) * time.Nanosecond
+
 				if debug {
-					l.Debugln(p, "next rescan in", p.scanIntv)
+					l.Debugln(p, "next rescan in", intv)
 				}
-				scanTimer.Reset(p.scanIntv)
+				scanTimer.Reset(intv)
 			}
 			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
