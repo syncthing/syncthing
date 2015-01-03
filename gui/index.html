@@ -313,7 +313,11 @@
     <div ng-repeat="(device, event) in deviceRejections" class="row">
       <div class="col-md-12">
         <div class="panel panel-warning">
-          <div class="panel-heading"><h3 class="panel-title"><span translate>New Device</span></h3></div>
+          <div class="panel-heading">
+            <h3 class="panel-title">
+              <identicon data-value="device"></identicon>&emsp;<span translate>New Device</span>
+            </h3>
+          </div>
           <div class="panel-body">
             <p>
               <small>{{ event.time | date:"H:mm:ss" }}:</small>
