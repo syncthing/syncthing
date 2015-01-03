@@ -25,7 +25,8 @@ for incompatible changes.
 Getting Started
 ---------------
 
-Take a look at the [getting started guide](http://discourse.syncthing.net/t/46).
+Take a look at the [getting started
+guide](https://github.com/syncthing/syncthing/wiki/Getting-Started).
 
 There are a few examples for keeping syncthing running in the background
 on your system in [the etc directory](https://github.com/syncthing/syncthing/blob/master/etc).
@@ -37,7 +38,7 @@ Building
 --------
 
 Building Syncthing from source is easy, and there's a
-[guide](http://discourse.syncthing.net/t/44)
+[guide](https://github.com/syncthing/syncthing/wiki/Building).
 that describes it for both Unix and Windows.
 
 Signed Releases
@@ -52,8 +53,8 @@ Documentation
 =============
 
 The [syncthing
-documentation](http://discourse.syncthing.net/category/documentation) is
-on the discourse site.
+documentation](https://github.com/syncthing/syncthing/wiki/) is on the
+Github wiki.
 
 All code is licensed under the
 [GPL](https://github.com/syncthing/syncthing/blob/master/LICENSE), v3 or
