@@ -221,7 +221,7 @@ func TestCopierFinder(t *testing.T) {
 	finisherChan := make(chan *sharedPullerState, 1)
 
 	// Run a single fetcher routine
-	go p.copierRoutine(copyChan, pullChan, finisherChan, false)
+	go p.copierRoutine(copyChan, pullChan, finisherChan)
 
 	p.handleFile(requiredFile, copyChan, finisherChan)
 
@@ -317,9 +317,8 @@ func TestCopierCleanup(t *testing.T) {
 	}
 }
 
-// On the 10th iteration, we start hashing the content which we receive by
-// following blockfinder's instructions. Make sure that the copier routine
-// hashes the content when asked, and pulls if it fails to find the block.
+// Make sure that the copier routine hashes the content when asked, and pulls
+// if it fails to find the block.
 func TestLastResortPulling(t *testing.T) {
 	fcfg := config.FolderConfiguration{ID: "default", Path: "testdata"}
 	cfg := config.Configuration{Folders: []config.FolderConfiguration{fcfg}}
@@ -361,8 +360,8 @@ func TestLastResortPulling(t *testing.T) {
 	pullChan := make(chan pullBlockState, 1)
 	finisherChan := make(chan *sharedPullerState, 1)
 
-	// Run a single copier routine with checksumming enabled
-	go p.copierRoutine(copyChan, pullChan, finisherChan, true)
+	// Run a single copier routine
+	go p.copierRoutine(copyChan, pullChan, finisherChan)
 
 	p.handleFile(file, copyChan, finisherChan)
 
