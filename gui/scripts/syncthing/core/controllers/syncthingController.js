@@ -47,6 +47,8 @@ angular.module('syncthing.core')
         $scope.model = {};
         $scope.myID = '';
         $scope.devices = [];
+        $scope.deviceRejections = {};
+        $scope.folderRejections = {};
         $scope.protocolChanged = false;
         $scope.reportData = {};
         $scope.reportPreview = false;
@@ -166,6 +168,14 @@ angular.module('syncthing.core')
                     }
                 }
             }
+        });
+
+        $scope.$on('DeviceRejected', function (event, arg) {
+            $scope.deviceRejections[arg.data.device] = arg;
+        });
+
+        $scope.$on('FolderRejected', function (event, arg) {
+            $scope.folderRejections[arg.data.folder + "-" + arg.data.device] = arg;
         });
 
         $scope.$on('ConfigSaved', function (event, arg) {
@@ -698,6 +708,11 @@ angular.module('syncthing.core')
                 return n.DeviceID !== $scope.currentDevice.DeviceID;
             });
             $scope.config.Devices = $scope.devices;
+            // In case we later added the device manually, remove the ignoral
+            // record.
+            $scope.config.IgnoredDevices = $scope.config.IgnoredDevices.filter(function (id) {
+                return id !== $scope.currentDevice.DeviceID;
+            });
 
             for (var id in $scope.folders) {
                 $scope.folders[id].Devices = $scope.folders[id].Devices.filter(function (n) {
@@ -709,10 +724,24 @@ angular.module('syncthing.core')
         };
 
         $scope.saveDevice = function () {
-            var deviceCfg, done, i;
-
             $('#editDevice').modal('hide');
-            deviceCfg = $scope.currentDevice;
+            $scope.saveDeviceConfig($scope.currentDevice);
+        };
+
+        $scope.addNewDeviceID = function (device) {
+            var deviceCfg = {
+                DeviceID: device,
+                AddressesStr: 'dynamic',
+                Compression: true,
+                Introducer: false,
+                selectedFolders: {}
+            };
+            $scope.saveDeviceConfig(deviceCfg);
+            $scope.dismissDeviceRejection(device);
+        };
+
+        $scope.saveDeviceConfig = function (deviceCfg) {
+            var done, i;
             deviceCfg.Addresses = deviceCfg.AddressesStr.split(',').map(function (x) {
                 return x.trim();
             });
@@ -732,6 +761,11 @@ angular.module('syncthing.core')
 
             $scope.devices.sort(deviceCompare);
             $scope.config.Devices = $scope.devices;
+            // In case we are adding the device manually, remove the ignoral
+            // record.
+            $scope.config.IgnoredDevices = $scope.config.IgnoredDevices.filter(function (id) {
+                return id !== deviceCfg.DeviceID;
+            });
 
             if (!$scope.editingSelf) {
                 for (var id in deviceCfg.selectedFolders) {
@@ -749,7 +783,6 @@ angular.module('syncthing.core')
                                 DeviceID: deviceCfg.DeviceID
                             });
                         }
-                        continue
                     } else {
                         $scope.folders[id].Devices = $scope.folders[id].Devices.filter(function (n) {
                             return n.DeviceID != deviceCfg.DeviceID;
@@ -759,6 +792,16 @@ angular.module('syncthing.core')
             }
 
             $scope.saveConfig();
+        };
+
+        $scope.dismissDeviceRejection = function (device) {
+            delete $scope.deviceRejections[device];
+        };
+
+        $scope.ignoreRejectedDevice = function (device) {
+            $scope.config.IgnoredDevices.push(device);
+            $scope.saveConfig();
+            $scope.dismissDeviceRejection(device);
         };
 
         $scope.otherDevices = function () {
@@ -817,8 +860,8 @@ angular.module('syncthing.core')
             });
         });
 
-        $scope.editFolder = function (deviceCfg) {
-            $scope.currentFolder = angular.copy(deviceCfg);
+        $scope.editFolder = function (folderCfg) {
+            $scope.currentFolder = angular.copy(folderCfg);
             $scope.currentFolder.selectedDevices = {};
             $scope.currentFolder.Devices.forEach(function (n) {
                 $scope.currentFolder.selectedDevices[n.DeviceID] = true;
@@ -865,6 +908,34 @@ angular.module('syncthing.core')
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
+        };
+
+        $scope.addFolderAndShare = function (folder, device) {
+            $scope.dismissFolderRejection(folder, device);
+            $scope.currentFolder = {
+                ID: folder,
+                selectedDevices: {}
+            };
+            $scope.currentFolder.selectedDevices[device] = true;
+
+            $scope.currentFolder.RescanIntervalS = 60;
+            $scope.currentFolder.FileVersioningSelector = "none";
+            $scope.currentFolder.simpleKeep = 5;
+            $scope.currentFolder.staggeredMaxAge = 365;
+            $scope.currentFolder.staggeredCleanInterval = 3600;
+            $scope.currentFolder.staggeredVersionsPath = "";
+            $scope.editingExisting = false;
+            $scope.folderEditor.$setPristine();
+            $('#editFolder').modal();
+        };
+
+        $scope.shareFolderWithDevice = function (folder, device) {
+            $scope.folders[folder].Devices.push({
+                DeviceID: device
+            });
+            $scope.config.Folders = folderList($scope.folders);
+            $scope.saveConfig();
+            $scope.dismissFolderRejection(folder, device);
         };
 
         $scope.saveFolder = function () {
@@ -914,6 +985,10 @@ angular.module('syncthing.core')
             $scope.config.Folders = folderList($scope.folders);
 
             $scope.saveConfig();
+        };
+
+        $scope.dismissFolderRejection = function (folder, device) {
+            delete $scope.folderRejections[folder + "-" + device];
         };
 
         $scope.sharesFolder = function (folderCfg) {
