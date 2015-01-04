@@ -80,7 +80,7 @@ func upgradeTo(binary string, rel Release) error {
 		}
 
 		if strings.HasPrefix(assetName, expectedRelease) {
-			upgradeToURL(binary, asset.URL)
+			return upgradeToURL(binary, asset.URL)
 		}
 	}
 
