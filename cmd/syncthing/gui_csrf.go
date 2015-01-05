@@ -17,8 +17,6 @@ package main
 
 import (
 	"bufio"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -88,7 +86,7 @@ func validCsrfToken(token string) bool {
 }
 
 func newCsrfToken() string {
-	token := randomString(30)
+	token := randomString(32)
 
 	csrfMut.Lock()
 	csrfTokens = append(csrfTokens, token)
@@ -139,14 +137,4 @@ func loadCsrfTokens() {
 	for s.Scan() {
 		csrfTokens = append(csrfTokens, s.Text())
 	}
-}
-
-func randomString(len int) string {
-	bs := make([]byte, len)
-	_, err := rand.Reader.Read(bs)
-	if err != nil {
-		l.Fatalln(err)
-	}
-
-	return base64.StdEncoding.EncodeToString(bs)
 }

@@ -15,7 +15,7 @@
 
 // +build integration
 
-package integration_test
+package integration
 
 import (
 	"encoding/json"

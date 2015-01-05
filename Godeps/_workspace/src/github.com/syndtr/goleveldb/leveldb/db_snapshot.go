@@ -8,6 +8,7 @@ package leveldb
 
 import (
 	"container/list"
+	"fmt"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -89,8 +90,12 @@ func (db *DB) newSnapshot() *Snapshot {
 	return snap
 }
 
+func (snap *Snapshot) String() string {
+	return fmt.Sprintf("leveldb.Snapshot{%d}", snap.elem.seq)
+}
+
 // Get gets the value for the given key. It returns ErrNotFound if
-// the DB does not contain the key.
+// the DB does not contains the key.
 //
 // The caller should not modify the contents of the returned slice, but
 // it is safe to modify the contents of the argument after Get returns.
@@ -106,6 +111,23 @@ func (snap *Snapshot) Get(key []byte, ro *opt.ReadOptions) (value []byte, err er
 		return
 	}
 	return snap.db.get(key, snap.elem.seq, ro)
+}
+
+// Has returns true if the DB does contains the given key.
+//
+// It is safe to modify the contents of the argument after Get returns.
+func (snap *Snapshot) Has(key []byte, ro *opt.ReadOptions) (ret bool, err error) {
+	err = snap.db.ok()
+	if err != nil {
+		return
+	}
+	snap.mu.RLock()
+	defer snap.mu.RUnlock()
+	if snap.released {
+		err = ErrSnapshotReleased
+		return
+	}
+	return snap.db.has(key, snap.elem.seq, ro)
 }
 
 // NewIterator returns an iterator for the snapshot of the uderlying DB.

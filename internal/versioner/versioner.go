@@ -22,3 +22,8 @@ type Versioner interface {
 }
 
 var Factories = map[string]func(folderID string, folderDir string, params map[string]string) Versioner{}
+
+const (
+	TimeFormat = "20060102-150405"
+	TimeGlob   = "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]" // glob pattern matching TimeFormat
+)

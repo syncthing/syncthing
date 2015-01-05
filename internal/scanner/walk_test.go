@@ -58,7 +58,8 @@ func init() {
 }
 
 func TestWalkSub(t *testing.T) {
-	ignores, err := ignore.Load("testdata/.stignore", false)
+	ignores := ignore.New(false)
+	err := ignores.Load("testdata/.stignore")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +94,8 @@ func TestWalkSub(t *testing.T) {
 }
 
 func TestWalk(t *testing.T) {
-	ignores, err := ignore.Load("testdata/.stignore", false)
+	ignores := ignore.New(false)
+	err := ignores.Load("testdata/.stignore")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,16 +192,16 @@ func TestVerify(t *testing.T) {
 
 type fileList []protocol.FileInfo
 
-func (f fileList) Len() int {
-	return len(f)
+func (l fileList) Len() int {
+	return len(l)
 }
 
-func (f fileList) Less(a, b int) bool {
-	return f[a].Name < f[b].Name
+func (l fileList) Less(a, b int) bool {
+	return l[a].Name < l[b].Name
 }
 
-func (f fileList) Swap(a, b int) {
-	f[a], f[b] = f[b], f[a]
+func (l fileList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
 }
 
 func (l fileList) testfiles() testfileList {

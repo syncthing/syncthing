@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/syncthing/syncthing/internal/config"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (

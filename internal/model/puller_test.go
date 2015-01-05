@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/protocol"
@@ -27,6 +28,16 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
+
+func init() {
+	// We do this to make sure that the temp file required for the tests does
+	// not get removed during the tests.
+	future := time.Now().Add(time.Hour)
+	err := os.Chtimes(filepath.Join("testdata", defTempNamer.TempName("file")), future, future)
+	if err != nil {
+		panic(err)
+	}
+}
 
 var blocks = []protocol.BlockInfo{
 	{Hash: []uint8{0xfa, 0x43, 0x23, 0x9b, 0xce, 0xe7, 0xb9, 0x7c, 0xa6, 0x2f, 0x0, 0x7c, 0xc6, 0x84, 0x87, 0x56, 0xa, 0x39, 0xe1, 0x9f, 0x74, 0xf3, 0xdd, 0xe7, 0x48, 0x6d, 0xb3, 0xf9, 0x8d, 0xf8, 0xe4, 0x71}}, // Zero'ed out block
@@ -210,7 +221,7 @@ func TestCopierFinder(t *testing.T) {
 	finisherChan := make(chan *sharedPullerState, 1)
 
 	// Run a single fetcher routine
-	go p.copierRoutine(copyChan, pullChan, finisherChan, false)
+	go p.copierRoutine(copyChan, pullChan, finisherChan)
 
 	p.handleFile(requiredFile, copyChan, finisherChan)
 
@@ -306,9 +317,8 @@ func TestCopierCleanup(t *testing.T) {
 	}
 }
 
-// On the 10th iteration, we start hashing the content which we receive by
-// following blockfinder's instructions. Make sure that the copier routine
-// hashes the content when asked, and pulls if it fails to find the block.
+// Make sure that the copier routine hashes the content when asked, and pulls
+// if it fails to find the block.
 func TestLastResortPulling(t *testing.T) {
 	fcfg := config.FolderConfiguration{ID: "default", Path: "testdata"}
 	cfg := config.Configuration{Folders: []config.FolderConfiguration{fcfg}}
@@ -350,8 +360,8 @@ func TestLastResortPulling(t *testing.T) {
 	pullChan := make(chan pullBlockState, 1)
 	finisherChan := make(chan *sharedPullerState, 1)
 
-	// Run a single copier routine with checksumming enabled
-	go p.copierRoutine(copyChan, pullChan, finisherChan, true)
+	// Run a single copier routine
+	go p.copierRoutine(copyChan, pullChan, finisherChan)
 
 	p.handleFile(file, copyChan, finisherChan)
 

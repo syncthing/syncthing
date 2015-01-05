@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -36,7 +35,6 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/logger"
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/internal/config"
@@ -46,10 +44,12 @@ import (
 	"github.com/syncthing/syncthing/internal/model"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/syncthing/internal/symlinks"
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/syncthing/syncthing/internal/upnp"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -62,7 +62,6 @@ var (
 	IsRelease   bool
 	IsBeta      bool
 	LongVersion string
-	GoArchExtra string // "", "v5", "v6", "v7"
 )
 
 const (
@@ -103,10 +102,10 @@ func init() {
 }
 
 var (
-	cfg            *config.ConfigWrapper
+	cfg            *config.Wrapper
 	myID           protocol.DeviceID
 	confDir        string
-	logFlags       int = log.Ltime
+	logFlags       = log.Ltime
 	writeRateLimit *ratelimit.Bucket
 	readRateLimit  *ratelimit.Bucket
 	stop           = make(chan int)
@@ -171,13 +170,11 @@ are mostly useful for developers. Use with care.
  STPERFSTATS   Write running performance statistics to perf-$pid.csv. Not
                supported on Windows.
 
+ STNOUPGRADE   Disable automatic upgrades.
+
  GOMAXPROCS    Set the maximum number of CPU cores to use. Defaults to all
                available CPU cores.`
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 // Command line and environment options
 var (
@@ -185,10 +182,13 @@ var (
 	showVersion       bool
 	doUpgrade         bool
 	doUpgradeCheck    bool
+	upgradeTo         string
 	noBrowser         bool
+	noConsole         bool
 	generateDir       string
 	logFile           string
 	noRestart         = os.Getenv("STNORESTART") != ""
+	noUpgrade         = os.Getenv("STNOUPGRADE") != ""
 	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
 	guiAuthentication = os.Getenv("STGUIAUTH")    // legacy
 	guiAPIKey         = os.Getenv("STGUIAPIKEY")  // legacy
@@ -211,6 +211,9 @@ func main() {
 
 		logFile = filepath.Join(defConfDir, "syncthing.log")
 		flag.StringVar(&logFile, "logfile", logFile, "Log file name (blank for stdout)")
+
+		// We also add an option to hide the console window
+		flag.BoolVar(&noConsole, "no-console", false, "Hide console window")
 	}
 
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
@@ -225,9 +228,14 @@ func main() {
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
+	flag.StringVar(&upgradeTo, "upgrade-to", upgradeTo, "Force upgrade directly from specified URL")
 
 	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, defConfDir))
 	flag.Parse()
+
+	if noConsole {
+		osutil.HideConsole()
+	}
 
 	if confDir == "" {
 		// Not set as default above because the string can be really long.
@@ -255,11 +263,14 @@ func main() {
 		}
 
 		info, err := os.Stat(dir)
-		if err != nil {
-			l.Fatalln("generate:", err)
-		}
-		if !info.IsDir() {
+		if err == nil && !info.IsDir() {
 			l.Fatalln(dir, "is not a directory")
+		}
+		if err != nil && os.IsNotExist(err) {
+			err = os.MkdirAll(dir, 0700)
+			if err != nil {
+				l.Fatalln("generate:", err)
+			}
 		}
 
 		cert, err := loadCert(dir, "")
@@ -267,7 +278,7 @@ func main() {
 			l.Warnln("Key exists; will not overwrite.")
 			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 		} else {
-			newCertificate(dir, "")
+			newCertificate(dir, "", tlsDefaultCommonName)
 			cert, err = loadCert(dir, "")
 			myID = protocol.NewDeviceID(cert.Certificate[0])
 			if err != nil {
@@ -306,6 +317,15 @@ func main() {
 	// Ensure that our home directory exists.
 	ensureDir(confDir, 0700)
 
+	if upgradeTo != "" {
+		err := upgrade.ToURL(upgradeTo)
+		if err != nil {
+			l.Fatalln("Upgrade:", err) // exits 1
+		}
+		l.Okln("Upgraded from", upgradeTo)
+		return
+	}
+
 	if doUpgrade || doUpgradeCheck {
 		rel, err := upgrade.LatestRelease(IsBeta)
 		if err != nil {
@@ -321,20 +341,19 @@ func main() {
 
 		if doUpgrade {
 			// Use leveldb database locks to protect against concurrent upgrades
-			_, err = leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{CachedOpenFiles: 100})
+			_, err = leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{OpenFilesCacheCapacity: 100})
 			if err != nil {
 				l.Fatalln("Cannot upgrade, database seems to be locked. Is another copy of Syncthing already running?")
 			}
 
-			err = upgrade.UpgradeTo(rel, GoArchExtra)
+			err = upgrade.To(rel)
 			if err != nil {
 				l.Fatalln("Upgrade:", err) // exits 1
 			}
 			l.Okf("Upgraded to %q", rel.Tag)
-			return
-		} else {
-			return
 		}
+
+		return
 	}
 
 	if reset {
@@ -365,12 +384,16 @@ func syncthingMain() {
 	// Ensure that that we have a certificate and key.
 	cert, err = loadCert(confDir, "")
 	if err != nil {
-		newCertificate(confDir, "")
+		newCertificate(confDir, "", tlsDefaultCommonName)
 		cert, err = loadCert(confDir, "")
 		if err != nil {
 			l.Fatalln("load cert:", err)
 		}
 	}
+
+	// We reinitialize the predictable RNG with our device ID, to get a
+	// sequence that is always the same but unique to this syncthing instance.
+	predictableRandom.Seed(seedFromBytes(cert.Certificate[0]))
 
 	myID = protocol.NewDeviceID(cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
@@ -436,7 +459,6 @@ func syncthingMain() {
 	tlsCfg := &tls.Config{
 		Certificates:           []tls.Certificate{cert},
 		NextProtos:             []string{"bep/1.0"},
-		ServerName:             myID.String(),
 		ClientAuth:             tls.RequestClientCert,
 		SessionTicketsDisabled: true,
 		InsecureSkipVerify:     true,
@@ -456,6 +478,10 @@ func syncthingMain() {
 
 	opts := cfg.Options()
 
+	if !opts.SymlinksEnabled {
+		symlinks.Supported = false
+	}
+
 	if opts.MaxSendKbps > 0 {
 		writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxSendKbps), int64(5*1000*opts.MaxSendKbps))
 	}
@@ -463,7 +489,7 @@ func syncthingMain() {
 		readRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxRecvKbps), int64(5*1000*opts.MaxRecvKbps))
 	}
 
-	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{CachedOpenFiles: 100})
+	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{OpenFilesCacheCapacity: 100})
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
@@ -553,9 +579,17 @@ func syncthingMain() {
 	if opts.URAccepted > 0 && opts.URAccepted < usageReportVersion {
 		l.Infoln("Anonymous usage report has changed; revoking acceptance")
 		opts.URAccepted = 0
+		opts.URUniqueID = ""
 		cfg.SetOptions(opts)
 	}
 	if opts.URAccepted >= usageReportVersion {
+		if opts.URUniqueID == "" {
+			// Previously the ID was generated from the node ID. We now need
+			// to generate a new one.
+			opts.URUniqueID = randomString(8)
+			cfg.SetOptions(opts)
+			cfg.Save()
+		}
 		go usageReportingLoop(m)
 		go func() {
 			time.Sleep(10 * time.Minute)
@@ -571,7 +605,9 @@ func syncthingMain() {
 	}
 
 	if opts.AutoUpgradeIntervalH > 0 {
-		if IsRelease {
+		if noUpgrade {
+			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
+		} else if IsRelease {
 			go autoUpgrade()
 		} else {
 			l.Infof("No automatic upgrades; %s is not a relase version.", Version)
@@ -587,7 +623,7 @@ func syncthingMain() {
 	os.Exit(code)
 }
 
-func setupGUI(cfg *config.ConfigWrapper, m *model.Model) {
+func setupGUI(cfg *config.Wrapper, m *model.Model) {
 	opts := cfg.Options()
 	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
 
@@ -628,7 +664,7 @@ func setupGUI(cfg *config.ConfigWrapper, m *model.Model) {
 	}
 }
 
-func sanityCheckFolders(cfg *config.ConfigWrapper, m *model.Model) {
+func sanityCheckFolders(cfg *config.Wrapper, m *model.Model) {
 nextFolder:
 	for id, folder := range cfg.Folders() {
 		if folder.Invalid != "" {
@@ -733,7 +769,7 @@ func setupUPnP() {
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
-				igd = igds[0]
+				igd = &igds[0]
 
 				externalPort = setupExternalPort(igd, port)
 				if externalPort == 0 {
@@ -757,12 +793,9 @@ func setupExternalPort(igd *upnp.IGD, port int) int {
 		return 0
 	}
 
-	// We seed the random number generator with the node ID to get a
-	// repeatable sequence of random external ports.
-	rnd := rand.NewSource(certSeed(cert.Certificate[0]))
 	for i := 0; i < 10; i++ {
-		r := 1024 + int(rnd.Int63()%(65535-1024))
-		err := igd.AddPortMapping(upnp.TCP, r, port, "syncthing", cfg.Options().UPnPLease*60)
+		r := 1024 + predictableRandom.Intn(65535-1024)
+		err := igd.AddPortMapping(upnp.TCP, r, port, fmt.Sprintf("syncthing-%d", r), cfg.Options().UPnPLease*60)
 		if err == nil {
 			return r
 		}
@@ -784,7 +817,7 @@ func renewUPnP(port int) {
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
-				igd = igds[0]
+				igd = &igds[0]
 			} else {
 				if debugNet {
 					l.Debugln("Failed to discover IGD during UPnP port mapping renewal.")
@@ -816,7 +849,7 @@ func renewUPnP(port int) {
 		if forwardedPort != 0 {
 			externalPort = forwardedPort
 			discoverer.StopGlobal()
-			discoverer.StartGlobal(opts.GlobalAnnServer, uint16(forwardedPort))
+			discoverer.StartGlobal(opts.GlobalAnnServers, uint16(forwardedPort))
 			if debugNet {
 				l.Debugf("Updated UPnP port mapping for external port %d on device %s.", forwardedPort, igd.FriendlyIdentifier())
 			}
@@ -827,6 +860,17 @@ func renewUPnP(port int) {
 }
 
 func resetFolders() {
+	confDir, err := osutil.ExpandTilde(confDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cfgFile := filepath.Join(confDir, "config.xml")
+	cfg, err := config.Load(cfgFile, myID)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	suffix := fmt.Sprintf(".syncthing-reset-%d", time.Now().UnixNano())
 	for _, folder := range cfg.Folders() {
 		if _, err := os.Stat(folder.Path); err == nil {
@@ -890,7 +934,7 @@ next:
 				// the certificate and used another name.
 				certName := deviceCfg.CertName
 				if certName == "" {
-					certName = "syncthing"
+					certName = tlsDefaultCommonName
 				}
 				err := remoteCert.VerifyHostname(certName)
 				if err != nil {
@@ -904,12 +948,12 @@ next:
 
 				// If rate limiting is set, we wrap the connection in a
 				// limiter.
-				var wr io.Writer = conn
+				wr := io.Writer(conn)
 				if writeRateLimit != nil {
 					wr = &limitedWriter{conn, writeRateLimit}
 				}
 
-				var rd io.Reader = conn
+				rd := io.Reader(conn)
 				if readRateLimit != nil {
 					rd = &limitedReader{conn, readRateLimit}
 				}
@@ -931,11 +975,16 @@ next:
 			}
 		}
 
-		events.Default.Log(events.DeviceRejected, map[string]string{
-			"device":  remoteID.String(),
-			"address": conn.RemoteAddr().String(),
-		})
-		l.Infof("Connection from %s with unknown device ID %s; ignoring", conn.RemoteAddr(), remoteID)
+		if !cfg.IgnoredDevice(remoteID) {
+			events.Default.Log(events.DeviceRejected, map[string]string{
+				"device":  remoteID.String(),
+				"address": conn.RemoteAddr().String(),
+			})
+			l.Infof("Connection from %s with unknown device ID %s", conn.RemoteAddr(), remoteID)
+		} else {
+			l.Infof("Connection from %s with ignored device ID %s", conn.RemoteAddr(), remoteID)
+		}
+
 		conn.Close()
 	}
 }
@@ -982,7 +1031,7 @@ func listenTLS(conns chan *tls.Conn, addr string, tlsCfg *tls.Config) {
 }
 
 func dialTLS(m *model.Model, conns chan *tls.Conn, tlsCfg *tls.Config) {
-	var delay time.Duration = 1 * time.Second
+	delay := time.Second
 	for {
 	nextDevice:
 		for deviceID, deviceCfg := range cfg.Devices() {
@@ -1088,7 +1137,7 @@ func discovery(extPort int) *discover.Discoverer {
 
 	if opts.GlobalAnnEnabled {
 		l.Infoln("Starting global discovery announcements")
-		disc.StartGlobal(opts.GlobalAnnServer, uint16(extPort))
+		disc.StartGlobal(opts.GlobalAnnServers, uint16(extPort))
 	}
 
 	return disc
@@ -1121,9 +1170,8 @@ func getDefaultConfDir() (string, error) {
 	default:
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
 			return filepath.Join(xdgCfg, "syncthing"), nil
-		} else {
-			return osutil.ExpandTilde("~/.config/syncthing")
 		}
+		return osutil.ExpandTilde("~/.config/syncthing")
 	}
 }
 
@@ -1231,12 +1279,13 @@ func autoUpgrade() {
 			continue
 		}
 
-		if upgrade.CompareVersions(rel.Tag, Version) <= 0 {
+		if upgrade.CompareVersions(rel.Tag, Version) != upgrade.Newer {
+			// Skip equal, older or majorly newer (incompatible) versions
 			continue
 		}
 
 		l.Infof("Automatic upgrade (current %q < latest %q)", Version, rel.Tag)
-		err = upgrade.UpgradeTo(rel, GoArchExtra)
+		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("Automatic upgrade:", err)
 			continue

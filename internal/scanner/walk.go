@@ -21,12 +21,13 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"code.google.com/p/go.text/unicode/norm"
+	"time"
 
 	"github.com/syncthing/syncthing/internal/ignore"
 	"github.com/syncthing/syncthing/internal/lamport"
 	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/syncthing/internal/symlinks"
+	"golang.org/x/text/unicode/norm"
 )
 
 type Walker struct {
@@ -40,6 +41,8 @@ type Walker struct {
 	Matcher *ignore.Matcher
 	// If TempNamer is not nil, it is used to ignore tempory files when walking.
 	TempNamer TempNamer
+	// Number of hours to keep temporary files for
+	TempLifetime time.Duration
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
 	CurrentFiler CurrentFiler
 	// If IgnorePerms is true, changes to permission bits will not be
@@ -86,6 +89,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 }
 
 func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFunc {
+	now := time.Now()
 	return func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			if debug {
@@ -111,6 +115,12 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			if debug {
 				l.Debugln("temporary:", rn)
 			}
+			if info.Mode().IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
+				os.Remove(p)
+				if debug {
+					l.Debugln("removing temporary:", rn, info.ModTime())
+				}
+			}
 			return nil
 		}
 
@@ -131,16 +141,92 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			return nil
 		}
 
+		// Index wise symlinks are always files, regardless of what the target
+		// is, because symlinks carry their target path as their content.
+		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
+			var rval error
+			// If the target is a directory, do NOT descend down there. This
+			// will cause files to get tracked, and removing the symlink will
+			// as a result remove files in their real location. But do not
+			// SkipDir if the target is not a directory, as it will stop
+			// scanning the current directory.
+			if info.IsDir() {
+				rval = filepath.SkipDir
+			}
+
+			// If we don't support symlinks, skip.
+			if !symlinks.Supported {
+				return rval
+			}
+
+			// We always rehash symlinks as they have no modtime or
+			// permissions. We check if they point to the old target by
+			// checking that their existing blocks match with the blocks in
+			// the index.
+
+			target, flags, err := symlinks.Read(p)
+			flags = flags & protocol.SymlinkTypeMask
+			if err != nil {
+				if debug {
+					l.Debugln("readlink error:", p, err)
+				}
+				return rval
+			}
+
+			blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0)
+			if err != nil {
+				if debug {
+					l.Debugln("hash link error:", p, err)
+				}
+				return rval
+			}
+
+			if w.CurrentFiler != nil {
+				// A symlink is "unchanged", if
+				//  - it wasn't deleted (because it isn't now)
+				//  - it was a symlink
+				//  - it wasn't invalid
+				//  - the symlink type (file/dir) was the same
+				//  - the block list (i.e. hash of target) was the same
+				cf := w.CurrentFiler.CurrentFile(rn)
+				if !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(flags, cf.Flags) && BlocksEqual(cf.Blocks, blocks) {
+					return rval
+				}
+			}
+
+			f := protocol.FileInfo{
+				Name:     rn,
+				Version:  lamport.Default.Tick(0),
+				Flags:    protocol.FlagSymlink | flags | protocol.FlagNoPermBits | 0666,
+				Modified: 0,
+				Blocks:   blocks,
+			}
+
+			if debug {
+				l.Debugln("symlink to hash:", p, f)
+			}
+
+			fchan <- f
+
+			return rval
+		}
+
 		if info.Mode().IsDir() {
 			if w.CurrentFiler != nil {
+				// A directory is "unchanged", if it
+				//  - has the same permissions as previously, unless we are ignoring permissions
+				//  - was not marked deleted (since it apparently exists now)
+				//  - was a directory previously (not a file or something else)
+				//  - was not a symlink (since it's a directory now)
+				//  - was not invalid (since it looks valid now)
 				cf := w.CurrentFiler.CurrentFile(rn)
-				permUnchanged := w.IgnorePerms || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if !protocol.IsDeleted(cf.Flags) && protocol.IsDirectory(cf.Flags) && permUnchanged {
+				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
+				if permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 					return nil
 				}
 			}
 
-			var flags uint32 = protocol.FlagDirectory
+			flags := uint32(protocol.FlagDirectory)
 			if w.IgnorePerms {
 				flags |= protocol.FlagNoPermBits | 0777
 			} else {
@@ -161,9 +247,18 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 		if info.Mode().IsRegular() {
 			if w.CurrentFiler != nil {
+				// A file is "unchanged", if it
+				//  - has the same permissions as previously, unless we are ignoring permissions
+				//  - was not marked deleted (since it apparently exists now)
+				//  - had the same modification time as it has now
+				//  - was not a directory previously (since it's a file now)
+				//  - was not a symlink (since it's a file now)
+				//  - was not invalid (since it looks valid now)
+				//  - has the same size as previously
 				cf := w.CurrentFiler.CurrentFile(rn)
-				permUnchanged := w.IgnorePerms || !protocol.HasPermissionBits(cf.Flags) || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if !protocol.IsDeleted(cf.Flags) && cf.Modified == info.ModTime().Unix() && permUnchanged {
+				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
+				if permUnchanged && !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && !cf.IsDirectory() &&
+					!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
 					return nil
 				}
 
@@ -214,4 +309,20 @@ func PermsEqual(a, b uint32) bool {
 		// All bits count
 		return a&0777 == b&0777
 	}
+}
+
+// If the target is missing, Unix never knows what type of symlink it is
+// and Windows always knows even if there is no target.
+// Which means that without this special check a Unix node would be fighting
+// with a Windows node about whether or not the target is known.
+// Basically, if you don't know and someone else knows, just accept it.
+// The fact that you don't know means you are on Unix, and on Unix you don't
+// really care what the target type is. The moment you do know, and if something
+// doesn't match, that will propogate throught the cluster.
+func SymlinkTypeEqual(disk, index uint32) bool {
+	if disk&protocol.FlagSymlinkMissingTarget != 0 && index&protocol.FlagSymlinkMissingTarget == 0 {
+		return true
+	}
+	return disk&protocol.SymlinkTypeMask == index&protocol.SymlinkTypeMask
+
 }

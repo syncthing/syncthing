@@ -4,9 +4,14 @@ syncthing.exe
 *.zip
 *.asc
 *.sublime*
+.idea/
 .jshintrc
 coverage.out
 files/pidx
 bin
 perfstats*.csv
 coverage.xml
+!gui/scripts/syncthing
+.DS_Store
+syncthing.md5
+syncthing.exe.md5

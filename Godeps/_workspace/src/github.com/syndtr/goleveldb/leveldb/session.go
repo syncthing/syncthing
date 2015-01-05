@@ -73,7 +73,7 @@ func newSession(stor storage.Storage, o *opt.Options) (s *session, err error) {
 		stCompPtrs: make([]iKey, o.GetNumLevel()),
 	}
 	s.setOptions(o)
-	s.tops = newTableOps(s, s.o.GetCachedOpenFiles())
+	s.tops = newTableOps(s)
 	s.setVersion(newVersion(s))
 	s.log("log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed")
 	return
@@ -82,9 +82,6 @@ func newSession(stor storage.Storage, o *opt.Options) (s *session, err error) {
 // Close session.
 func (s *session) close() {
 	s.tops.close()
-	if bc := s.o.GetBlockCache(); bc != nil {
-		bc.Purge(nil)
-	}
 	if s.manifest != nil {
 		s.manifest.Close()
 	}

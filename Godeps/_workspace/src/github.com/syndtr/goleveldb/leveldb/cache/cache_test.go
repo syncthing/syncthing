@@ -13,11 +13,26 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unsafe"
 )
+
+type int32o int32
+
+func (o *int32o) acquire() {
+	if atomic.AddInt32((*int32)(o), 1) != 1 {
+		panic("BUG: invalid ref")
+	}
+}
+
+func (o *int32o) Release() {
+	if atomic.AddInt32((*int32)(o), -1) != 0 {
+		panic("BUG: invalid ref")
+	}
+}
 
 type releaserFunc struct {
 	fn    func()
-	value interface{}
+	value Value
 }
 
 func (r releaserFunc) Release() {
@@ -26,8 +41,8 @@ func (r releaserFunc) Release() {
 	}
 }
 
-func set(ns Namespace, key uint64, value interface{}, charge int, relf func()) Handle {
-	return ns.Get(key, func() (int, interface{}) {
+func set(c *Cache, ns, key uint64, value Value, charge int, relf func()) *Handle {
+	return c.Get(ns, key, func() (int, Value) {
 		if relf != nil {
 			return charge, releaserFunc{relf, value}
 		} else {
@@ -36,7 +51,246 @@ func set(ns Namespace, key uint64, value interface{}, charge int, relf func()) H
 	})
 }
 
-func TestCache_HitMiss(t *testing.T) {
+func TestCacheMap(t *testing.T) {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	nsx := []struct {
+		nobjects, nhandles, concurrent, repeat int
+	}{
+		{10000, 400, 50, 3},
+		{100000, 1000, 100, 10},
+	}
+
+	var (
+		objects [][]int32o
+		handles [][]unsafe.Pointer
+	)
+
+	for _, x := range nsx {
+		objects = append(objects, make([]int32o, x.nobjects))
+		handles = append(handles, make([]unsafe.Pointer, x.nhandles))
+	}
+
+	c := NewCache(nil)
+
+	wg := new(sync.WaitGroup)
+	var done int32
+
+	for ns, x := range nsx {
+		for i := 0; i < x.concurrent; i++ {
+			wg.Add(1)
+			go func(ns, i, repeat int, objects []int32o, handles []unsafe.Pointer) {
+				defer wg.Done()
+				r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+				for j := len(objects) * repeat; j >= 0; j-- {
+					key := uint64(r.Intn(len(objects)))
+					h := c.Get(uint64(ns), key, func() (int, Value) {
+						o := &objects[key]
+						o.acquire()
+						return 1, o
+					})
+					if v := h.Value().(*int32o); v != &objects[key] {
+						t.Fatalf("#%d invalid value: want=%p got=%p", ns, &objects[key], v)
+					}
+					if objects[key] != 1 {
+						t.Fatalf("#%d invalid object %d: %d", ns, key, objects[key])
+					}
+					if !atomic.CompareAndSwapPointer(&handles[r.Intn(len(handles))], nil, unsafe.Pointer(h)) {
+						h.Release()
+					}
+				}
+			}(ns, i, x.repeat, objects[ns], handles[ns])
+		}
+
+		go func(handles []unsafe.Pointer) {
+			r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+			for atomic.LoadInt32(&done) == 0 {
+				i := r.Intn(len(handles))
+				h := (*Handle)(atomic.LoadPointer(&handles[i]))
+				if h != nil && atomic.CompareAndSwapPointer(&handles[i], unsafe.Pointer(h), nil) {
+					h.Release()
+				}
+				time.Sleep(time.Millisecond)
+			}
+		}(handles[ns])
+	}
+
+	go func() {
+		handles := make([]*Handle, 100000)
+		for atomic.LoadInt32(&done) == 0 {
+			for i := range handles {
+				handles[i] = c.Get(999999999, uint64(i), func() (int, Value) {
+					return 1, 1
+				})
+			}
+			for _, h := range handles {
+				h.Release()
+			}
+		}
+	}()
+
+	wg.Wait()
+
+	atomic.StoreInt32(&done, 1)
+
+	for _, handles0 := range handles {
+		for i := range handles0 {
+			h := (*Handle)(atomic.LoadPointer(&handles0[i]))
+			if h != nil && atomic.CompareAndSwapPointer(&handles0[i], unsafe.Pointer(h), nil) {
+				h.Release()
+			}
+		}
+	}
+
+	for ns, objects0 := range objects {
+		for i, o := range objects0 {
+			if o != 0 {
+				t.Fatalf("invalid object #%d.%d: ref=%d", ns, i, o)
+			}
+		}
+	}
+}
+
+func TestCacheMap_NodesAndSize(t *testing.T) {
+	c := NewCache(nil)
+	if c.Nodes() != 0 {
+		t.Errorf("invalid nodes counter: want=%d got=%d", 0, c.Nodes())
+	}
+	if c.Size() != 0 {
+		t.Errorf("invalid size counter: want=%d got=%d", 0, c.Size())
+	}
+	set(c, 0, 1, 1, 1, nil)
+	set(c, 0, 2, 2, 2, nil)
+	set(c, 1, 1, 3, 3, nil)
+	set(c, 2, 1, 4, 1, nil)
+	if c.Nodes() != 4 {
+		t.Errorf("invalid nodes counter: want=%d got=%d", 4, c.Nodes())
+	}
+	if c.Size() != 7 {
+		t.Errorf("invalid size counter: want=%d got=%d", 4, c.Size())
+	}
+}
+
+func TestLRUCache_Capacity(t *testing.T) {
+	c := NewCache(NewLRU(10))
+	if c.Capacity() != 10 {
+		t.Errorf("invalid capacity: want=%d got=%d", 10, c.Capacity())
+	}
+	set(c, 0, 1, 1, 1, nil).Release()
+	set(c, 0, 2, 2, 2, nil).Release()
+	set(c, 1, 1, 3, 3, nil).Release()
+	set(c, 2, 1, 4, 1, nil).Release()
+	set(c, 2, 2, 5, 1, nil).Release()
+	set(c, 2, 3, 6, 1, nil).Release()
+	set(c, 2, 4, 7, 1, nil).Release()
+	set(c, 2, 5, 8, 1, nil).Release()
+	if c.Nodes() != 7 {
+		t.Errorf("invalid nodes counter: want=%d got=%d", 7, c.Nodes())
+	}
+	if c.Size() != 10 {
+		t.Errorf("invalid size counter: want=%d got=%d", 10, c.Size())
+	}
+	c.SetCapacity(9)
+	if c.Capacity() != 9 {
+		t.Errorf("invalid capacity: want=%d got=%d", 9, c.Capacity())
+	}
+	if c.Nodes() != 6 {
+		t.Errorf("invalid nodes counter: want=%d got=%d", 6, c.Nodes())
+	}
+	if c.Size() != 8 {
+		t.Errorf("invalid size counter: want=%d got=%d", 8, c.Size())
+	}
+}
+
+func TestCacheMap_NilValue(t *testing.T) {
+	c := NewCache(NewLRU(10))
+	h := c.Get(0, 0, func() (size int, value Value) {
+		return 1, nil
+	})
+	if h != nil {
+		t.Error("cache handle is non-nil")
+	}
+	if c.Nodes() != 0 {
+		t.Errorf("invalid nodes counter: want=%d got=%d", 0, c.Nodes())
+	}
+	if c.Size() != 0 {
+		t.Errorf("invalid size counter: want=%d got=%d", 0, c.Size())
+	}
+}
+
+func TestLRUCache_GetLatency(t *testing.T) {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	const (
+		concurrentSet = 30
+		concurrentGet = 3
+		duration      = 3 * time.Second
+		delay         = 3 * time.Millisecond
+		maxkey        = 100000
+	)
+
+	var (
+		set, getHit, getAll        int32
+		getMaxLatency, getDuration int64
+	)
+
+	c := NewCache(NewLRU(5000))
+	wg := &sync.WaitGroup{}
+	until := time.Now().Add(duration)
+	for i := 0; i < concurrentSet; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			r := rand.New(rand.NewSource(time.Now().UnixNano()))
+			for time.Now().Before(until) {
+				c.Get(0, uint64(r.Intn(maxkey)), func() (int, Value) {
+					time.Sleep(delay)
+					atomic.AddInt32(&set, 1)
+					return 1, 1
+				}).Release()
+			}
+		}(i)
+	}
+	for i := 0; i < concurrentGet; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			r := rand.New(rand.NewSource(time.Now().UnixNano()))
+			for {
+				mark := time.Now()
+				if mark.Before(until) {
+					h := c.Get(0, uint64(r.Intn(maxkey)), nil)
+					latency := int64(time.Now().Sub(mark))
+					m := atomic.LoadInt64(&getMaxLatency)
+					if latency > m {
+						atomic.CompareAndSwapInt64(&getMaxLatency, m, latency)
+					}
+					atomic.AddInt64(&getDuration, latency)
+					if h != nil {
+						atomic.AddInt32(&getHit, 1)
+						h.Release()
+					}
+					atomic.AddInt32(&getAll, 1)
+				} else {
+					break
+				}
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	getAvglatency := time.Duration(getDuration) / time.Duration(getAll)
+	t.Logf("set=%d getHit=%d getAll=%d getMaxLatency=%v getAvgLatency=%v",
+		set, getHit, getAll, time.Duration(getMaxLatency), getAvglatency)
+
+	if getAvglatency > delay/3 {
+		t.Errorf("get avg latency > %v: got=%v", delay/3, getAvglatency)
+	}
+}
+
+func TestLRUCache_HitMiss(t *testing.T) {
 	cases := []struct {
 		key   uint64
 		value string
@@ -54,14 +308,13 @@ func TestCache_HitMiss(t *testing.T) {
 	}
 
 	setfin := 0
-	c := NewLRUCache(1000)
-	ns := c.GetNamespace(0)
+	c := NewCache(NewLRU(1000))
 	for i, x := range cases {
-		set(ns, x.key, x.value, len(x.value), func() {
+		set(c, 0, x.key, x.value, len(x.value), func() {
 			setfin++
 		}).Release()
 		for j, y := range cases {
-			h := ns.Get(y.key, nil)
+			h := c.Get(0, y.key, nil)
 			if j <= i {
 				// should hit
 				if h == nil {
@@ -85,7 +338,7 @@ func TestCache_HitMiss(t *testing.T) {
 
 	for i, x := range cases {
 		finalizerOk := false
-		ns.Delete(x.key, func(exist, pending bool) {
+		c.Delete(0, x.key, func() {
 			finalizerOk = true
 		})
 
@@ -94,7 +347,7 @@ func TestCache_HitMiss(t *testing.T) {
 		}
 
 		for j, y := range cases {
-			h := ns.Get(y.key, nil)
+			h := c.Get(0, y.key, nil)
 			if j > i {
 				// should hit
 				if h == nil {
@@ -122,20 +375,19 @@ func TestCache_HitMiss(t *testing.T) {
 }
 
 func TestLRUCache_Eviction(t *testing.T) {
-	c := NewLRUCache(12)
-	ns := c.GetNamespace(0)
-	o1 := set(ns, 1, 1, 1, nil)
-	set(ns, 2, 2, 1, nil).Release()
-	set(ns, 3, 3, 1, nil).Release()
-	set(ns, 4, 4, 1, nil).Release()
-	set(ns, 5, 5, 1, nil).Release()
-	if h := ns.Get(2, nil); h != nil { // 1,3,4,5,2
+	c := NewCache(NewLRU(12))
+	o1 := set(c, 0, 1, 1, 1, nil)
+	set(c, 0, 2, 2, 1, nil).Release()
+	set(c, 0, 3, 3, 1, nil).Release()
+	set(c, 0, 4, 4, 1, nil).Release()
+	set(c, 0, 5, 5, 1, nil).Release()
+	if h := c.Get(0, 2, nil); h != nil { // 1,3,4,5,2
 		h.Release()
 	}
-	set(ns, 9, 9, 10, nil).Release() // 5,2,9
+	set(c, 0, 9, 9, 10, nil).Release() // 5,2,9
 
 	for _, key := range []uint64{9, 2, 5, 1} {
-		h := ns.Get(key, nil)
+		h := c.Get(0, key, nil)
 		if h == nil {
 			t.Errorf("miss for key '%d'", key)
 		} else {
@@ -147,7 +399,7 @@ func TestLRUCache_Eviction(t *testing.T) {
 	}
 	o1.Release()
 	for _, key := range []uint64{1, 2, 5} {
-		h := ns.Get(key, nil)
+		h := c.Get(0, key, nil)
 		if h == nil {
 			t.Errorf("miss for key '%d'", key)
 		} else {
@@ -158,7 +410,7 @@ func TestLRUCache_Eviction(t *testing.T) {
 		}
 	}
 	for _, key := range []uint64{3, 4, 9} {
-		h := ns.Get(key, nil)
+		h := c.Get(0, key, nil)
 		if h != nil {
 			t.Errorf("hit for key '%d'", key)
 			if x := h.Value().(int); x != int(key) {
@@ -169,487 +421,150 @@ func TestLRUCache_Eviction(t *testing.T) {
 	}
 }
 
-func TestLRUCache_SetGet(t *testing.T) {
-	c := NewLRUCache(13)
-	ns := c.GetNamespace(0)
-	for i := 0; i < 200; i++ {
-		n := uint64(rand.Intn(99999) % 20)
-		set(ns, n, n, 1, nil).Release()
-		if h := ns.Get(n, nil); h != nil {
-			if h.Value() == nil {
-				t.Errorf("key '%d' contains nil value", n)
+func TestLRUCache_Evict(t *testing.T) {
+	c := NewCache(NewLRU(6))
+	set(c, 0, 1, 1, 1, nil).Release()
+	set(c, 0, 2, 2, 1, nil).Release()
+	set(c, 1, 1, 4, 1, nil).Release()
+	set(c, 1, 2, 5, 1, nil).Release()
+	set(c, 2, 1, 6, 1, nil).Release()
+	set(c, 2, 2, 7, 1, nil).Release()
+
+	for ns := 0; ns < 3; ns++ {
+		for key := 1; key < 3; key++ {
+			if h := c.Get(uint64(ns), uint64(key), nil); h != nil {
+				h.Release()
 			} else {
-				if x := h.Value().(uint64); x != n {
-					t.Errorf("invalid value for key '%d' want '%d', got '%d'", n, n, x)
-				}
+				t.Errorf("Cache.Get on #%d.%d return nil", ns, key)
 			}
+		}
+	}
+
+	if ok := c.Evict(0, 1); !ok {
+		t.Error("first Cache.Evict on #0.1 return false")
+	}
+	if ok := c.Evict(0, 1); ok {
+		t.Error("second Cache.Evict on #0.1 return true")
+	}
+	if h := c.Get(0, 1, nil); h != nil {
+		t.Errorf("Cache.Get on #0.1 return non-nil: %v", h.Value())
+	}
+
+	c.EvictNS(1)
+	if h := c.Get(1, 1, nil); h != nil {
+		t.Errorf("Cache.Get on #1.1 return non-nil: %v", h.Value())
+	}
+	if h := c.Get(1, 2, nil); h != nil {
+		t.Errorf("Cache.Get on #1.2 return non-nil: %v", h.Value())
+	}
+
+	c.EvictAll()
+	for ns := 0; ns < 3; ns++ {
+		for key := 1; key < 3; key++ {
+			if h := c.Get(uint64(ns), uint64(key), nil); h != nil {
+				t.Errorf("Cache.Get on #%d.%d return non-nil: %v", ns, key, h.Value())
+			}
+		}
+	}
+}
+
+func TestLRUCache_Delete(t *testing.T) {
+	delFuncCalled := 0
+	delFunc := func() {
+		delFuncCalled++
+	}
+
+	c := NewCache(NewLRU(2))
+	set(c, 0, 1, 1, 1, nil).Release()
+	set(c, 0, 2, 2, 1, nil).Release()
+
+	if ok := c.Delete(0, 1, delFunc); !ok {
+		t.Error("Cache.Delete on #1 return false")
+	}
+	if h := c.Get(0, 1, nil); h != nil {
+		t.Errorf("Cache.Get on #1 return non-nil: %v", h.Value())
+	}
+	if ok := c.Delete(0, 1, delFunc); ok {
+		t.Error("Cache.Delete on #1 return true")
+	}
+
+	h2 := c.Get(0, 2, nil)
+	if h2 == nil {
+		t.Error("Cache.Get on #2 return nil")
+	}
+	if ok := c.Delete(0, 2, delFunc); !ok {
+		t.Error("(1) Cache.Delete on #2 return false")
+	}
+	if ok := c.Delete(0, 2, delFunc); !ok {
+		t.Error("(2) Cache.Delete on #2 return false")
+	}
+
+	set(c, 0, 3, 3, 1, nil).Release()
+	set(c, 0, 4, 4, 1, nil).Release()
+	c.Get(0, 2, nil).Release()
+
+	for key := 2; key <= 4; key++ {
+		if h := c.Get(0, uint64(key), nil); h != nil {
 			h.Release()
 		} else {
-			t.Errorf("key '%d' doesn't exist", n)
-		}
-	}
-}
-
-func TestLRUCache_Purge(t *testing.T) {
-	c := NewLRUCache(3)
-	ns1 := c.GetNamespace(0)
-	o1 := set(ns1, 1, 1, 1, nil)
-	o2 := set(ns1, 2, 2, 1, nil)
-	ns1.Purge(nil)
-	set(ns1, 3, 3, 1, nil).Release()
-	for _, key := range []uint64{1, 2, 3} {
-		h := ns1.Get(key, nil)
-		if h == nil {
-			t.Errorf("miss for key '%d'", key)
-		} else {
-			if x := h.Value().(int); x != int(key) {
-				t.Errorf("invalid value for key '%d' want '%d', got '%d'", key, key, x)
-			}
-			h.Release()
-		}
-	}
-	o1.Release()
-	o2.Release()
-	for _, key := range []uint64{1, 2} {
-		h := ns1.Get(key, nil)
-		if h != nil {
-			t.Errorf("hit for key '%d'", key)
-			if x := h.Value().(int); x != int(key) {
-				t.Errorf("invalid value for key '%d' want '%d', got '%d'", key, key, x)
-			}
-			h.Release()
-		}
-	}
-}
-
-type testingCacheObjectCounter struct {
-	created  uint
-	released uint
-}
-
-func (c *testingCacheObjectCounter) createOne() {
-	c.created++
-}
-
-func (c *testingCacheObjectCounter) releaseOne() {
-	c.released++
-}
-
-type testingCacheObject struct {
-	t   *testing.T
-	cnt *testingCacheObjectCounter
-
-	ns, key uint64
-
-	releaseCalled bool
-}
-
-func (x *testingCacheObject) Release() {
-	if !x.releaseCalled {
-		x.releaseCalled = true
-		x.cnt.releaseOne()
-	} else {
-		x.t.Errorf("duplicate setfin NS#%d KEY#%d", x.ns, x.key)
-	}
-}
-
-func TestLRUCache_ConcurrentSetGet(t *testing.T) {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	seed := time.Now().UnixNano()
-	t.Logf("seed=%d", seed)
-
-	const (
-		N = 2000000
-		M = 4000
-		C = 3
-	)
-
-	var set, get uint32
-
-	wg := &sync.WaitGroup{}
-	c := NewLRUCache(M / 4)
-	for ni := uint64(0); ni < C; ni++ {
-		r0 := rand.New(rand.NewSource(seed + int64(ni)))
-		r1 := rand.New(rand.NewSource(seed + int64(ni) + 1))
-		ns := c.GetNamespace(ni)
-
-		wg.Add(2)
-		go func(ns Namespace, r *rand.Rand) {
-			for i := 0; i < N; i++ {
-				x := uint64(r.Int63n(M))
-				o := ns.Get(x, func() (int, interface{}) {
-					atomic.AddUint32(&set, 1)
-					return 1, x
-				})
-				if v := o.Value().(uint64); v != x {
-					t.Errorf("#%d invalid value, got=%d", x, v)
-				}
-				o.Release()
-			}
-			wg.Done()
-		}(ns, r0)
-		go func(ns Namespace, r *rand.Rand) {
-			for i := 0; i < N; i++ {
-				x := uint64(r.Int63n(M))
-				o := ns.Get(x, nil)
-				if o != nil {
-					atomic.AddUint32(&get, 1)
-					if v := o.Value().(uint64); v != x {
-						t.Errorf("#%d invalid value, got=%d", x, v)
-					}
-					o.Release()
-				}
-			}
-			wg.Done()
-		}(ns, r1)
-	}
-
-	wg.Wait()
-
-	t.Logf("set=%d get=%d", set, get)
-}
-
-func TestLRUCache_Finalizer(t *testing.T) {
-	const (
-		capacity   = 100
-		goroutines = 100
-		iterations = 10000
-		keymax     = 8000
-	)
-
-	cnt := &testingCacheObjectCounter{}
-
-	c := NewLRUCache(capacity)
-
-	type instance struct {
-		seed       int64
-		rnd        *rand.Rand
-		nsid       uint64
-		ns         Namespace
-		effective  int
-		handles    []Handle
-		handlesMap map[uint64]int
-
-		delete          bool
-		purge           bool
-		zap             bool
-		wantDel         int
-		delfinCalled    int
-		delfinCalledAll int
-		delfinCalledEff int
-		purgefinCalled  int
-	}
-
-	instanceGet := func(p *instance, key uint64) {
-		h := p.ns.Get(key, func() (charge int, value interface{}) {
-			to := &testingCacheObject{
-				t: t, cnt: cnt,
-				ns:  p.nsid,
-				key: key,
-			}
-			p.effective++
-			cnt.createOne()
-			return 1, releaserFunc{func() {
-				to.Release()
-				p.effective--
-			}, to}
-		})
-		p.handles = append(p.handles, h)
-		p.handlesMap[key] = p.handlesMap[key] + 1
-	}
-	instanceRelease := func(p *instance, i int) {
-		h := p.handles[i]
-		key := h.Value().(releaserFunc).value.(*testingCacheObject).key
-		if n := p.handlesMap[key]; n == 0 {
-			t.Fatal("key ref == 0")
-		} else if n > 1 {
-			p.handlesMap[key] = n - 1
-		} else {
-			delete(p.handlesMap, key)
-		}
-		h.Release()
-		p.handles = append(p.handles[:i], p.handles[i+1:]...)
-		p.handles[len(p.handles) : len(p.handles)+1][0] = nil
-	}
-
-	seed := time.Now().UnixNano()
-	t.Logf("seed=%d", seed)
-
-	instances := make([]*instance, goroutines)
-	for i := range instances {
-		p := &instance{}
-		p.handlesMap = make(map[uint64]int)
-		p.seed = seed + int64(i)
-		p.rnd = rand.New(rand.NewSource(p.seed))
-		p.nsid = uint64(i)
-		p.ns = c.GetNamespace(p.nsid)
-		p.delete = i%6 == 0
-		p.purge = i%8 == 0
-		p.zap = i%12 == 0 || i%3 == 0
-		instances[i] = p
-	}
-
-	runr := rand.New(rand.NewSource(seed - 1))
-	run := func(rnd *rand.Rand, x []*instance, init func(p *instance) bool, fn func(p *instance, i int) bool) {
-		var (
-			rx []*instance
-			rn []int
-		)
-		if init == nil {
-			rx = append([]*instance{}, x...)
-			rn = make([]int, len(x))
-		} else {
-			for _, p := range x {
-				if init(p) {
-					rx = append(rx, p)
-					rn = append(rn, 0)
-				}
-			}
-		}
-		for len(rx) > 0 {
-			i := rand.Intn(len(rx))
-			if fn(rx[i], rn[i]) {
-				rn[i]++
-			} else {
-				rx = append(rx[:i], rx[i+1:]...)
-				rn = append(rn[:i], rn[i+1:]...)
-			}
+			t.Errorf("Cache.Get on #%d return nil", key)
 		}
 	}
 
-	// Get and release.
-	run(runr, instances, nil, func(p *instance, i int) bool {
-		if i < iterations {
-			if len(p.handles) == 0 || p.rnd.Int()%2 == 0 {
-				instanceGet(p, uint64(p.rnd.Intn(keymax)))
-			} else {
-				instanceRelease(p, p.rnd.Intn(len(p.handles)))
-			}
-			return true
-		} else {
-			return false
+	h2.Release()
+	if h := c.Get(0, 2, nil); h != nil {
+		t.Errorf("Cache.Get on #2 return non-nil: %v", h.Value())
+	}
+
+	if delFuncCalled != 4 {
+		t.Errorf("delFunc isn't called 4 times: got=%d", delFuncCalled)
+	}
+}
+
+func TestLRUCache_Close(t *testing.T) {
+	relFuncCalled := 0
+	relFunc := func() {
+		relFuncCalled++
+	}
+	delFuncCalled := 0
+	delFunc := func() {
+		delFuncCalled++
+	}
+
+	c := NewCache(NewLRU(2))
+	set(c, 0, 1, 1, 1, relFunc).Release()
+	set(c, 0, 2, 2, 1, relFunc).Release()
+
+	h3 := set(c, 0, 3, 3, 1, relFunc)
+	if h3 == nil {
+		t.Error("Cache.Get on #3 return nil")
+	}
+	if ok := c.Delete(0, 3, delFunc); !ok {
+		t.Error("Cache.Delete on #3 return false")
+	}
+
+	c.Close()
+
+	if relFuncCalled != 3 {
+		t.Errorf("relFunc isn't called 3 times: got=%d", relFuncCalled)
+	}
+	if delFuncCalled != 1 {
+		t.Errorf("delFunc isn't called 1 times: got=%d", delFuncCalled)
+	}
+}
+
+func BenchmarkLRUCache(b *testing.B) {
+	c := NewCache(NewLRU(10000))
+
+	b.SetParallelism(10)
+	b.RunParallel(func(pb *testing.PB) {
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+		for pb.Next() {
+			key := uint64(r.Intn(1000000))
+			c.Get(0, key, func() (int, Value) {
+				return 1, key
+			}).Release()
 		}
 	})
-
-	if used, cap := c.Used(), c.Capacity(); used > cap {
-		t.Errorf("Used > capacity, used=%d cap=%d", used, cap)
-	}
-
-	// Check effective objects.
-	for i, p := range instances {
-		if int(p.effective) < len(p.handlesMap) {
-			t.Errorf("#%d effective objects < acquired handle, eo=%d ah=%d", i, p.effective, len(p.handlesMap))
-		}
-	}
-
-	if want := int(cnt.created - cnt.released); c.Size() != want {
-		t.Errorf("Invalid cache size, want=%d got=%d", want, c.Size())
-	}
-
-	// First delete.
-	run(runr, instances, func(p *instance) bool {
-		p.wantDel = p.effective
-		return p.delete
-	}, func(p *instance, i int) bool {
-		key := uint64(i)
-		if key < keymax {
-			_, wantExist := p.handlesMap[key]
-			gotExist := p.ns.Delete(key, func(exist, pending bool) {
-				p.delfinCalledAll++
-				if exist {
-					p.delfinCalledEff++
-				}
-			})
-			if !gotExist && wantExist {
-				t.Errorf("delete on NS#%d KEY#%d not found", p.nsid, key)
-			}
-			return true
-		} else {
-			return false
-		}
-	})
-
-	// Second delete.
-	run(runr, instances, func(p *instance) bool {
-		p.delfinCalled = 0
-		return p.delete
-	}, func(p *instance, i int) bool {
-		key := uint64(i)
-		if key < keymax {
-			gotExist := p.ns.Delete(key, func(exist, pending bool) {
-				if exist && !pending {
-					t.Errorf("delete fin on NS#%d KEY#%d exist and not pending for deletion", p.nsid, key)
-				}
-				p.delfinCalled++
-			})
-			if gotExist {
-				t.Errorf("delete on NS#%d KEY#%d found", p.nsid, key)
-			}
-			return true
-		} else {
-			if p.delfinCalled != keymax {
-				t.Errorf("(2) NS#%d not all delete fin called, diff=%d", p.nsid, keymax-p.delfinCalled)
-			}
-			return false
-		}
-	})
-
-	// Purge.
-	run(runr, instances, func(p *instance) bool {
-		return p.purge
-	}, func(p *instance, i int) bool {
-		p.ns.Purge(func(ns, key uint64) {
-			p.purgefinCalled++
-		})
-		return false
-	})
-
-	if want := int(cnt.created - cnt.released); c.Size() != want {
-		t.Errorf("Invalid cache size, want=%d got=%d", want, c.Size())
-	}
-
-	// Release.
-	run(runr, instances, func(p *instance) bool {
-		return !p.zap
-	}, func(p *instance, i int) bool {
-		if len(p.handles) > 0 {
-			instanceRelease(p, len(p.handles)-1)
-			return true
-		} else {
-			return false
-		}
-	})
-
-	if want := int(cnt.created - cnt.released); c.Size() != want {
-		t.Errorf("Invalid cache size, want=%d got=%d", want, c.Size())
-	}
-
-	// Zap.
-	run(runr, instances, func(p *instance) bool {
-		return p.zap
-	}, func(p *instance, i int) bool {
-		p.ns.Zap()
-		p.handles = nil
-		p.handlesMap = nil
-		return false
-	})
-
-	if want := int(cnt.created - cnt.released); c.Size() != want {
-		t.Errorf("Invalid cache size, want=%d got=%d", want, c.Size())
-	}
-
-	if notrel, used := int(cnt.created-cnt.released), c.Used(); notrel != used {
-		t.Errorf("Invalid used value, want=%d got=%d", notrel, used)
-	}
-
-	c.Purge(nil)
-
-	for _, p := range instances {
-		if p.delete {
-			if p.delfinCalledAll != keymax {
-				t.Errorf("#%d not all delete fin called, purge=%v zap=%v diff=%d", p.nsid, p.purge, p.zap, keymax-p.delfinCalledAll)
-			}
-			if p.delfinCalledEff != p.wantDel {
-				t.Errorf("#%d not all effective delete fin called, diff=%d", p.nsid, p.wantDel-p.delfinCalledEff)
-			}
-			if p.purge && p.purgefinCalled > 0 {
-				t.Errorf("#%d some purge fin called, delete=%v zap=%v n=%d", p.nsid, p.delete, p.zap, p.purgefinCalled)
-			}
-		} else {
-			if p.purge {
-				if p.purgefinCalled != p.wantDel {
-					t.Errorf("#%d not all purge fin called, delete=%v zap=%v diff=%d", p.nsid, p.delete, p.zap, p.wantDel-p.purgefinCalled)
-				}
-			}
-		}
-	}
-
-	if cnt.created != cnt.released {
-		t.Errorf("Some cache object weren't released, created=%d released=%d", cnt.created, cnt.released)
-	}
-}
-
-func BenchmarkLRUCache_Set(b *testing.B) {
-	c := NewLRUCache(0)
-	ns := c.GetNamespace(0)
-	b.ResetTimer()
-	for i := uint64(0); i < uint64(b.N); i++ {
-		set(ns, i, "", 1, nil)
-	}
-}
-
-func BenchmarkLRUCache_Get(b *testing.B) {
-	c := NewLRUCache(0)
-	ns := c.GetNamespace(0)
-	b.ResetTimer()
-	for i := uint64(0); i < uint64(b.N); i++ {
-		set(ns, i, "", 1, nil)
-	}
-	b.ResetTimer()
-	for i := uint64(0); i < uint64(b.N); i++ {
-		ns.Get(i, nil)
-	}
-}
-
-func BenchmarkLRUCache_Get2(b *testing.B) {
-	c := NewLRUCache(0)
-	ns := c.GetNamespace(0)
-	b.ResetTimer()
-	for i := uint64(0); i < uint64(b.N); i++ {
-		set(ns, i, "", 1, nil)
-	}
-	b.ResetTimer()
-	for i := uint64(0); i < uint64(b.N); i++ {
-		ns.Get(i, func() (charge int, value interface{}) {
-			return 0, nil
-		})
-	}
-}
-
-func BenchmarkLRUCache_Release(b *testing.B) {
-	c := NewLRUCache(0)
-	ns := c.GetNamespace(0)
-	handles := make([]Handle, b.N)
-	for i := uint64(0); i < uint64(b.N); i++ {
-		handles[i] = set(ns, i, "", 1, nil)
-	}
-	b.ResetTimer()
-	for _, h := range handles {
-		h.Release()
-	}
-}
-
-func BenchmarkLRUCache_SetRelease(b *testing.B) {
-	capacity := b.N / 100
-	if capacity <= 0 {
-		capacity = 10
-	}
-	c := NewLRUCache(capacity)
-	ns := c.GetNamespace(0)
-	b.ResetTimer()
-	for i := uint64(0); i < uint64(b.N); i++ {
-		set(ns, i, "", 1, nil).Release()
-	}
-}
-
-func BenchmarkLRUCache_SetReleaseTwice(b *testing.B) {
-	capacity := b.N / 100
-	if capacity <= 0 {
-		capacity = 10
-	}
-	c := NewLRUCache(capacity)
-	ns := c.GetNamespace(0)
-	b.ResetTimer()
-
-	na := b.N / 2
-	nb := b.N - na
-
-	for i := uint64(0); i < uint64(na); i++ {
-		set(ns, i, "", 1, nil).Release()
-	}
-
-	for i := uint64(0); i < uint64(nb); i++ {
-		set(ns, i, "", 1, nil).Release()
-	}
 }

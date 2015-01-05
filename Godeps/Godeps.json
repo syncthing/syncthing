@@ -1,30 +1,10 @@
 {
 	"ImportPath": "github.com/syncthing/syncthing",
-	"GoVersion": "go1.3.3",
+	"GoVersion": "go1.4",
 	"Packages": [
 		"./cmd/..."
 	],
 	"Deps": [
-		{
-			"ImportPath": "code.google.com/p/go.crypto/bcrypt",
-			"Comment": "null-216",
-			"Rev": "41cd4647fccc72b0b79ef1bd1fe6735e718257cd"
-		},
-		{
-			"ImportPath": "code.google.com/p/go.crypto/blowfish",
-			"Comment": "null-216",
-			"Rev": "41cd4647fccc72b0b79ef1bd1fe6735e718257cd"
-		},
-		{
-			"ImportPath": "code.google.com/p/go.text/transform",
-			"Comment": "null-90",
-			"Rev": "d65bffbc88a153d23a6d2a864531e6e7c2cde59b"
-		},
-		{
-			"ImportPath": "code.google.com/p/go.text/unicode/norm",
-			"Comment": "null-90",
-			"Rev": "d65bffbc88a153d23a6d2a864531e6e7c2cde59b"
-		},
 		{
 			"ImportPath": "github.com/AudriusButkevicius/lfu-go",
 			"Rev": "164bcecceb92fd6037f4d18a8d97b495ec6ef669"
@@ -43,7 +23,7 @@
 		},
 		{
 			"ImportPath": "github.com/calmh/xdr",
-			"Rev": "ec3d404f43731551258977b38dd72cf557d00398"
+			"Rev": "45c46b7db7ff83b8b9ee09bbd95f36ab50043ece"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
@@ -51,7 +31,7 @@
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "d8d1d2a5cc2d34c950dffa2f554525415d59f737"
+			"Rev": "63c9e642efad852f49e20a6f90194cae112fd2ac"
 		},
 		{
 			"ImportPath": "github.com/syndtr/gosnappy/snappy",
@@ -68,6 +48,22 @@
 		{
 			"ImportPath": "github.com/vitrun/qart/qr",
 			"Rev": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/bcrypt",
+			"Rev": "731db29863ea7213d9556d0170afb38987f401d4"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/blowfish",
+			"Rev": "731db29863ea7213d9556d0170afb38987f401d4"
+		},
+		{
+			"ImportPath": "golang.org/x/text/transform",
+			"Rev": "985ee5acfaf1ff6712c7c99438752f8e09416ccb"
+		},
+		{
+			"ImportPath": "golang.org/x/text/unicode/norm",
+			"Rev": "985ee5acfaf1ff6712c7c99438752f8e09416ccb"
 		}
 	]
 }

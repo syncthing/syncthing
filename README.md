@@ -11,7 +11,7 @@ This is the `syncthing` project. The following are the project goals:
     collaborating devices. The protocol should be well defined, unambiguous,
     easily understood, free to use, efficient, secure and language neutral.
     This is the [Block Exchange
-    Protocol](https://github.com/syncthing/syncthing/blob/master/protocol/PROTOCOL.md).
+    Protocol](https://github.com/syncthing/protocol/blob/master/BEPv1.md).
 
  2. Provide the reference implementation to demonstrate the usability of
     said protocol. This is the `syncthing` utility. It is the hope that
@@ -25,13 +25,20 @@ for incompatible changes.
 Getting Started
 ---------------
 
-Take a look at the [getting started guide](http://discourse.syncthing.net/t/46).
+Take a look at the [getting started
+guide](https://github.com/syncthing/syncthing/wiki/Getting-Started).
+
+There are a few examples for keeping syncthing running in the background
+on your system in [the etc directory](https://github.com/syncthing/syncthing/blob/master/etc).
+
+There is an IRC channel, `#syncthing` on Freenode, for talking directly
+to developers and users (when awake and present, etc.).
 
 Building
 --------
 
 Building Syncthing from source is easy, and there's a
-[guide](http://discourse.syncthing.net/t/44)
+[guide](https://github.com/syncthing/syncthing/wiki/Building).
 that describes it for both Unix and Windows.
 
 Signed Releases
@@ -46,15 +53,8 @@ Documentation
 =============
 
 The [syncthing
-documentation](http://discourse.syncthing.net/category/documentation) is
-on the discourse site.
-
-License
-=======
-
-All documentation and protocol specifications are licensed
-under the [Creative Commons Attribution 4.0 International
-License](http://creativecommons.org/licenses/by/4.0/).
+documentation](https://github.com/syncthing/syncthing/wiki/) is on the
+Github wiki.
 
 All code is licensed under the
 [GPL](https://github.com/syncthing/syncthing/blob/master/LICENSE), v3 or

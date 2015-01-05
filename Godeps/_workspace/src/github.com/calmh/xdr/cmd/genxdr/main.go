@@ -11,6 +11,8 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"io"
+	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -269,7 +271,7 @@ func handleStruct(t *ast.StructType) []fieldInfo {
 	return fs
 }
 
-func generateCode(s structInfo) {
+func generateCode(output io.Writer, s structInfo) {
 	name := s.Name
 	fs := s.Fields
 
@@ -286,7 +288,7 @@ func generateCode(s structInfo) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(string(bs))
+	fmt.Fprintln(output, string(bs))
 }
 
 func uncamelize(s string) string {
@@ -295,16 +297,16 @@ func uncamelize(s string) string {
 	})
 }
 
-func generateDiagram(s structInfo) {
+func generateDiagram(output io.Writer, s structInfo) {
 	sn := s.Name
 	fs := s.Fields
 
-	fmt.Println(sn + " Structure:")
-	fmt.Println()
-	fmt.Println(" 0                   1                   2                   3")
-	fmt.Println(" 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1")
+	fmt.Fprintln(output, sn+" Structure:")
+	fmt.Fprintln(output)
+	fmt.Fprintln(output, " 0                   1                   2                   3")
+	fmt.Fprintln(output, " 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1")
 	line := "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+"
-	fmt.Println(line)
+	fmt.Fprintln(output, line)
 
 	for _, f := range fs {
 		tn := f.FieldType
@@ -312,52 +314,52 @@ func generateDiagram(s structInfo) {
 		name := uncamelize(f.Name)
 
 		if sl {
-			fmt.Printf("| %s |\n", center("Number of "+name, 61))
-			fmt.Println(line)
+			fmt.Fprintf(output, "| %s |\n", center("Number of "+name, 61))
+			fmt.Fprintln(output, line)
 		}
 		switch tn {
 		case "bool":
-			fmt.Printf("| %s |V|\n", center(name+" (V=0 or 1)", 59))
-			fmt.Println(line)
+			fmt.Fprintf(output, "| %s |V|\n", center(name+" (V=0 or 1)", 59))
+			fmt.Fprintln(output, line)
 		case "uint16":
-			fmt.Printf("| %s | %s |\n", center("0x0000", 29), center(name, 29))
-			fmt.Println(line)
+			fmt.Fprintf(output, "| %s | %s |\n", center("0x0000", 29), center(name, 29))
+			fmt.Fprintln(output, line)
 		case "uint32":
-			fmt.Printf("| %s |\n", center(name, 61))
-			fmt.Println(line)
+			fmt.Fprintf(output, "| %s |\n", center(name, 61))
+			fmt.Fprintln(output, line)
 		case "int64", "uint64":
-			fmt.Printf("| %-61s |\n", "")
-			fmt.Printf("+ %s +\n", center(name+" (64 bits)", 61))
-			fmt.Printf("| %-61s |\n", "")
-			fmt.Println(line)
+			fmt.Fprintf(output, "| %-61s |\n", "")
+			fmt.Fprintf(output, "+ %s +\n", center(name+" (64 bits)", 61))
+			fmt.Fprintf(output, "| %-61s |\n", "")
+			fmt.Fprintln(output, line)
 		case "string", "byte": // XXX We assume slice of byte!
-			fmt.Printf("| %s |\n", center("Length of "+name, 61))
-			fmt.Println(line)
-			fmt.Printf("/ %61s /\n", "")
-			fmt.Printf("\\ %s \\\n", center(name+" (variable length)", 61))
-			fmt.Printf("/ %61s /\n", "")
-			fmt.Println(line)
+			fmt.Fprintf(output, "| %s |\n", center("Length of "+name, 61))
+			fmt.Fprintln(output, line)
+			fmt.Fprintf(output, "/ %61s /\n", "")
+			fmt.Fprintf(output, "\\ %s \\\n", center(name+" (variable length)", 61))
+			fmt.Fprintf(output, "/ %61s /\n", "")
+			fmt.Fprintln(output, line)
 		default:
 			if sl {
 				tn = "Zero or more " + tn + " Structures"
-				fmt.Printf("/ %s /\n", center("", 61))
-				fmt.Printf("\\ %s \\\n", center(tn, 61))
-				fmt.Printf("/ %s /\n", center("", 61))
+				fmt.Fprintf(output, "/ %s /\n", center("", 61))
+				fmt.Fprintf(output, "\\ %s \\\n", center(tn, 61))
+				fmt.Fprintf(output, "/ %s /\n", center("", 61))
 			} else {
-				fmt.Printf("| %s |\n", center(tn, 61))
+				fmt.Fprintf(output, "| %s |\n", center(tn, 61))
 			}
-			fmt.Println(line)
+			fmt.Fprintln(output, line)
 		}
 	}
-	fmt.Println()
-	fmt.Println()
+	fmt.Fprintln(output)
+	fmt.Fprintln(output)
 }
 
-func generateXdr(s structInfo) {
+func generateXdr(output io.Writer, s structInfo) {
 	sn := s.Name
 	fs := s.Fields
 
-	fmt.Printf("struct %s {\n", sn)
+	fmt.Fprintf(output, "struct %s {\n", sn)
 
 	for _, f := range fs {
 		tn := f.FieldType
@@ -373,21 +375,21 @@ func generateXdr(s structInfo) {
 
 		switch tn {
 		case "uint16", "uint32":
-			fmt.Printf("\tunsigned int %s%s;\n", fn, suf)
+			fmt.Fprintf(output, "\tunsigned int %s%s;\n", fn, suf)
 		case "int64":
-			fmt.Printf("\thyper %s%s;\n", fn, suf)
+			fmt.Fprintf(output, "\thyper %s%s;\n", fn, suf)
 		case "uint64":
-			fmt.Printf("\tunsigned hyper %s%s;\n", fn, suf)
+			fmt.Fprintf(output, "\tunsigned hyper %s%s;\n", fn, suf)
 		case "string":
-			fmt.Printf("\tstring %s<%s>;\n", fn, l)
+			fmt.Fprintf(output, "\tstring %s<%s>;\n", fn, l)
 		case "byte":
-			fmt.Printf("\topaque %s<%s>;\n", fn, l)
+			fmt.Fprintf(output, "\topaque %s<%s>;\n", fn, l)
 		default:
-			fmt.Printf("\t%s %s%s;\n", tn, fn, suf)
+			fmt.Fprintf(output, "\t%s %s%s;\n", tn, fn, suf)
 		}
 	}
-	fmt.Println("}")
-	fmt.Println()
+	fmt.Fprintln(output, "}")
+	fmt.Fprintln(output)
 }
 
 func center(s string, w int) string {
@@ -418,25 +420,35 @@ func inspector(structs *[]structInfo) func(ast.Node) bool {
 }
 
 func main() {
+	outputFile := flag.String("o", "", "Output file, blank for stdout")
 	flag.Parse()
 	fname := flag.Arg(0)
 
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, fname, nil, parser.ParseComments)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	var structs []structInfo
 	i := inspector(&structs)
 	ast.Inspect(f, i)
 
-	headerTpl.Execute(os.Stdout, map[string]string{"Package": f.Name.Name})
+	var output io.Writer = os.Stdout
+	if *outputFile != "" {
+		fd, err := os.Create(*outputFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		output = fd
+	}
+
+	headerTpl.Execute(output, map[string]string{"Package": f.Name.Name})
 	for _, s := range structs {
-		fmt.Printf("\n/*\n\n")
-		generateDiagram(s)
-		generateXdr(s)
-		fmt.Printf("*/\n")
-		generateCode(s)
+		fmt.Fprintf(output, "\n/*\n\n")
+		generateDiagram(output, s)
+		generateXdr(output, s)
+		fmt.Fprintf(output, "*/\n")
+		generateCode(output, s)
 	}
 }

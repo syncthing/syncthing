@@ -22,6 +22,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"crypto/md5"
 	"flag"
 	"fmt"
 	"io"
@@ -44,6 +45,7 @@ var (
 	goos      string
 	noupgrade bool
 	version   string
+	race      bool
 )
 
 const minGoVersion = 1.3
@@ -65,16 +67,14 @@ func main() {
 
 	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
 	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
-	flag.BoolVar(&noupgrade, "no-upgrade", false, "Disable upgrade functionality")
+	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
+	flag.BoolVar(&race, "race", race, "Use race detector")
 	flag.Parse()
 
 	switch goarch {
-	case "386", "amd64", "armv5", "armv6", "armv7":
+	case "386", "amd64", "arm", "armv5", "armv6", "armv7":
 		break
-	case "arm":
-		log.Println("Invalid goarch \"arm\". Use one of \"armv5\", \"armv6\", \"armv7\".")
-		log.Fatalln("Note that producing a correct \"armv5\" binary requires a rebuilt stdlib.")
 	default:
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
 	}
@@ -153,7 +153,7 @@ func checkRequiredGoVersion() {
 		// This is a standard go build. Verify that it's new enough.
 		f, err := strconv.ParseFloat(vs, 64)
 		if err != nil {
-			log.Printf("*** Could parse Go version out of %q.\n*** This isn't known to work, proceed on your own risk.", vs)
+			log.Printf("*** Couldn't parse Go version out of %q.\n*** This isn't known to work, proceed on your own risk.", vs)
 			return
 		}
 		if f < minGoVersion {
@@ -165,15 +165,15 @@ func checkRequiredGoVersion() {
 }
 
 func setup() {
-	runPrint("go", "get", "-v", "code.google.com/p/go.tools/cmd/cover")
-	runPrint("go", "get", "-v", "code.google.com/p/go.tools/cmd/vet")
-	runPrint("go", "get", "-v", "code.google.com/p/go.net/html")
+	runPrint("go", "get", "-v", "golang.org/x/tools/cmd/cover")
+	runPrint("go", "get", "-v", "golang.org/x/tools/cmd/vet")
+	runPrint("go", "get", "-v", "golang.org/x/net/html")
 	runPrint("go", "get", "-v", "github.com/tools/godep")
 }
 
 func test(pkg string) {
 	setBuildEnv()
-	runPrint("go", "test", "-short", "-timeout", "10s", pkg)
+	runPrint("go", "test", "-short", "-timeout", "60s", pkg)
 }
 
 func install(pkg string, tags []string) {
@@ -182,20 +182,38 @@ func install(pkg string, tags []string) {
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
 	}
+	if race {
+		args = append(args, "-race")
+	}
 	args = append(args, pkg)
 	setBuildEnv()
 	runPrint("go", args...)
 }
 
 func build(pkg string, tags []string) {
-	rmr("syncthing", "syncthing.exe")
+	binary := "syncthing"
+	if goos == "windows" {
+		binary += ".exe"
+	}
+
+	rmr(binary, binary+".md5")
 	args := []string{"build", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
 	}
+	if race {
+		args = append(args, "-race")
+	}
 	args = append(args, pkg)
 	setBuildEnv()
 	runPrint("go", args...)
+
+	// Create an md5 checksum of the binary, to be included in the archive for
+	// automatic upgrades.
+	err := md5File(binary)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func buildTar() {
@@ -207,12 +225,17 @@ func buildTar() {
 	}
 	build("./cmd/syncthing", tags)
 	filename := name + ".tar.gz"
-	tarGz(filename, []archiveFile{
+	files := []archiveFile{
 		{"README.md", name + "/README.txt"},
 		{"LICENSE", name + "/LICENSE.txt"},
 		{"AUTHORS", name + "/AUTHORS.txt"},
 		{"syncthing", name + "/syncthing"},
-	})
+		{"syncthing.md5", name + "/syncthing.md5"},
+	}
+	for _, file := range listFiles("etc") {
+		files = append(files, archiveFile{file, name + "/" + file})
+	}
+	tarGz(filename, files)
 	log.Println(filename)
 }
 
@@ -225,18 +248,34 @@ func buildZip() {
 	}
 	build("./cmd/syncthing", tags)
 	filename := name + ".zip"
-	zipFile(filename, []archiveFile{
+	files := []archiveFile{
 		{"README.md", name + "/README.txt"},
 		{"LICENSE", name + "/LICENSE.txt"},
 		{"AUTHORS", name + "/AUTHORS.txt"},
 		{"syncthing.exe", name + "/syncthing.exe"},
-	})
+		{"syncthing.exe.md5", name + "/syncthing.exe.md5"},
+	}
+	zipFile(filename, files)
 	log.Println(filename)
+}
+
+func listFiles(dir string) []string {
+	var res []string
+	filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if fi.Mode().IsRegular() {
+			res = append(res, path)
+		}
+		return nil
+	})
+	return res
 }
 
 func setBuildEnv() {
 	os.Setenv("GOOS", goos)
-	if strings.HasPrefix(goarch, "arm") {
+	if strings.HasPrefix(goarch, "armv") {
 		os.Setenv("GOARCH", "arm")
 		os.Setenv("GOARM", goarch[4:])
 	} else {
@@ -260,26 +299,24 @@ func assets() {
 }
 
 func xdr() {
-	for _, f := range []string{"internal/discover/packets", "internal/files/leveldb", "internal/protocol/message"} {
-		runPipe(f+"_xdr.go", "go", "run", "./Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go", "--", f+".go")
-	}
+	runPrint("go", "generate", "./internal/discover", "./internal/files", "./internal/protocol")
 }
 
 func translate() {
-	os.Chdir("gui/lang")
-	runPipe("lang-en-new.json", "go", "run", "../../cmd/translate/main.go", "lang-en.json", "../index.html")
+	os.Chdir("gui/assets/lang")
+	runPipe("lang-en-new.json", "go", "run", "../../../cmd/translate/main.go", "lang-en.json", "../../index.html")
 	os.Remove("lang-en.json")
 	err := os.Rename("lang-en-new.json", "lang-en.json")
 	if err != nil {
 		log.Fatal(err)
 	}
-	os.Chdir("../..")
+	os.Chdir("../../..")
 }
 
 func transifex() {
-	os.Chdir("gui/lang")
-	runPrint("go", "run", "../../cmd/transifexdl/main.go")
-	os.Chdir("../..")
+	os.Chdir("gui/assets/lang")
+	runPrint("go", "run", "../../../cmd/transifexdl/main.go")
+	os.Chdir("../../..")
 	assets()
 }
 
@@ -301,9 +338,6 @@ func ldflags() string {
 	b.WriteString(fmt.Sprintf(" -X main.BuildUser %s", buildUser()))
 	b.WriteString(fmt.Sprintf(" -X main.BuildHost %s", buildHost()))
 	b.WriteString(fmt.Sprintf(" -X main.BuildEnv %s", buildEnvironment()))
-	if strings.HasPrefix(goarch, "arm") {
-		b.WriteString(fmt.Sprintf(" -X main.GoArchExtra %s", goarch[3:]))
-	}
 	return b.String()
 }
 
@@ -534,4 +568,30 @@ func zipFile(out string, files []archiveFile) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func md5File(file string) error {
+	fd, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+
+	h := md5.New()
+	_, err = io.Copy(h, fd)
+	if err != nil {
+		return err
+	}
+
+	out, err := os.Create(file + ".md5")
+	if err != nil {
+		return err
+	}
+
+	_, err = fmt.Fprintf(out, "%x\n", h.Sum(nil))
+	if err != nil {
+		return err
+	}
+
+	return out.Close()
 }

@@ -20,29 +20,31 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
 
-	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/logger"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var l = logger.DefaultLogger
 
-const CurrentVersion = 6
+const CurrentVersion = 7
 
 type Configuration struct {
-	Version int                   `xml:"version,attr"`
-	Folders []FolderConfiguration `xml:"folder"`
-	Devices []DeviceConfiguration `xml:"device"`
-	GUI     GUIConfiguration      `xml:"gui"`
-	Options OptionsConfiguration  `xml:"options"`
-	XMLName xml.Name              `xml:"configuration" json:"-"`
+	Version        int                   `xml:"version,attr"`
+	Folders        []FolderConfiguration `xml:"folder"`
+	Devices        []DeviceConfiguration `xml:"device"`
+	GUI            GUIConfiguration      `xml:"gui"`
+	Options        OptionsConfiguration  `xml:"options"`
+	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice"`
+	XMLName        xml.Name              `xml:"configuration" json:"-"`
 
 	OriginalVersion         int                   `xml:"-" json:"-"` // The version we read from disk, before any conversion
 	Deprecated_Repositories []FolderConfiguration `xml:"repository" json:"-"`
@@ -58,6 +60,9 @@ type FolderConfiguration struct {
 	IgnorePerms     bool                        `xml:"ignorePerms,attr"`
 	Versioning      VersioningConfiguration     `xml:"versioning"`
 	LenientMtimes   bool                        `xml:"lenientMtimes"`
+	Copiers         int                         `xml:"copiers" default:"1"`   // This defines how many files are handled concurrently.
+	Pullers         int                         `xml:"pullers" default:"16"`  // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
+	Finishers       int                         `xml:"finishers" default:"1"` // Most of the time, should be equal to the number of copiers. These are CPU bound due to hashing.
 
 	Invalid string `xml:"-"` // Set at runtime when there is an error, not saved
 
@@ -89,13 +94,13 @@ func (f *FolderConfiguration) HasMarker() bool {
 	return true
 }
 
-func (r *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
-	if r.deviceIDs == nil {
-		for _, n := range r.Devices {
-			r.deviceIDs = append(r.deviceIDs, n.DeviceID)
+func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
+	if f.deviceIDs == nil {
+		for _, n := range f.Devices {
+			f.deviceIDs = append(f.deviceIDs, n.DeviceID)
 		}
 	}
-	return r.deviceIDs
+	return f.deviceIDs
 }
 
 type VersioningConfiguration struct {
@@ -156,24 +161,27 @@ type FolderDeviceConfiguration struct {
 }
 
 type OptionsConfiguration struct {
-	ListenAddress        []string `xml:"listenAddress" default:"0.0.0.0:22000"`
-	GlobalAnnServer      string   `xml:"globalAnnounceServer" default:"announce.syncthing.net:22026"`
-	GlobalAnnEnabled     bool     `xml:"globalAnnounceEnabled" default:"true"`
-	LocalAnnEnabled      bool     `xml:"localAnnounceEnabled" default:"true"`
-	LocalAnnPort         int      `xml:"localAnnouncePort" default:"21025"`
-	LocalAnnMCAddr       string   `xml:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
-	MaxSendKbps          int      `xml:"maxSendKbps"`
-	MaxRecvKbps          int      `xml:"maxRecvKbps"`
-	ReconnectIntervalS   int      `xml:"reconnectionIntervalS" default:"60"`
-	StartBrowser         bool     `xml:"startBrowser" default:"true"`
-	UPnPEnabled          bool     `xml:"upnpEnabled" default:"true"`
-	UPnPLease            int      `xml:"upnpLeaseMinutes" default:"0"`
-	UPnPRenewal          int      `xml:"upnpRenewalMinutes" default:"30"`
-	URAccepted           int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
-	RestartOnWakeup      bool     `xml:"restartOnWakeup" default:"true"`
-	AutoUpgradeIntervalH int      `xml:"autoUpgradeIntervalH" default:"12"` // 0 for off
-	KeepTemporariesH     int      `xml:"keepTemporariesH" default:"24"`     // 0 for off
-	CacheIgnoredFiles    bool     `xml:"cacheIgnoredFiles" default:"true"`
+	ListenAddress           []string `xml:"listenAddress" default:"0.0.0.0:22000"`
+	GlobalAnnServers        []string `xml:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22026"`
+	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" default:"true"`
+	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" default:"true"`
+	LocalAnnPort            int      `xml:"localAnnouncePort" default:"21025"`
+	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
+	MaxSendKbps             int      `xml:"maxSendKbps"`
+	MaxRecvKbps             int      `xml:"maxRecvKbps"`
+	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" default:"60"`
+	StartBrowser            bool     `xml:"startBrowser" default:"true"`
+	UPnPEnabled             bool     `xml:"upnpEnabled" default:"true"`
+	UPnPLease               int      `xml:"upnpLeaseMinutes" default:"0"`
+	UPnPRenewal             int      `xml:"upnpRenewalMinutes" default:"30"`
+	URAccepted              int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
+	URUniqueID              string   `xml:"urUniqueID"` // Unique ID for reporting purposes, regenerated when UR is turned on.
+	RestartOnWakeup         bool     `xml:"restartOnWakeup" default:"true"`
+	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" default:"12"` // 0 for off
+	KeepTemporariesH        int      `xml:"keepTemporariesH" default:"24"`     // 0 for off
+	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" default:"true"`
+	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" default:"5"`
+	SymlinksEnabled         bool     `xml:"symlinksEnabled" default:"true"`
 
 	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
 	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`
@@ -234,11 +242,12 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	fillNilSlices(&cfg.Options)
 
-	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
-
-	// Initialize an empty slice for folders if the config has none
+	// Initialize an empty slices
 	if cfg.Folders == nil {
 		cfg.Folders = []FolderConfiguration{}
+	}
+	if cfg.IgnoredDevices == nil {
+		cfg.IgnoredDevices = []protocol.DeviceID{}
 	}
 
 	// Check for missing, bad or duplicate folder ID:s
@@ -274,6 +283,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 
 	if cfg.Options.Deprecated_URDeclined {
 		cfg.Options.URAccepted = -1
+		cfg.Options.URUniqueID = ""
 	}
 	cfg.Options.Deprecated_URDeclined = false
 	cfg.Options.Deprecated_UREnabled = false
@@ -301,6 +311,11 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	// Upgrade to v6 configuration if appropriate
 	if cfg.Version == 5 {
 		convertV5V6(cfg)
+	}
+
+	// Upgrade to v7 configuration if appropriate
+	if cfg.Version == 6 {
+		convertV6V7(cfg)
 	}
 
 	// Hash old cleartext passwords
@@ -332,10 +347,20 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	sort.Sort(DeviceConfigurationList(cfg.Devices))
 	// Ensure that any loose devices are not present in the wrong places
 	// Ensure that there are no duplicate devices
+	// Ensure that puller settings are sane
 	for i := range cfg.Folders {
 		cfg.Folders[i].Devices = ensureDevicePresent(cfg.Folders[i].Devices, myID)
 		cfg.Folders[i].Devices = ensureExistingDevices(cfg.Folders[i].Devices, existingDevices)
 		cfg.Folders[i].Devices = ensureNoDuplicates(cfg.Folders[i].Devices)
+		if cfg.Folders[i].Copiers == 0 {
+			cfg.Folders[i].Copiers = 1
+		}
+		if cfg.Folders[i].Pullers == 0 {
+			cfg.Folders[i].Pullers = 16
+		}
+		if cfg.Folders[i].Finishers == 0 {
+			cfg.Folders[i].Finishers = 1
+		}
 		sort.Sort(FolderDeviceConfigurationList(cfg.Folders[i].Devices))
 	}
 
@@ -345,6 +370,13 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		if len(n.Addresses) == 0 || len(n.Addresses) == 1 && n.Addresses[0] == "" {
 			n.Addresses = []string{"dynamic"}
 		}
+	}
+
+	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
+	cfg.Options.GlobalAnnServers = uniqueStrings(cfg.Options.GlobalAnnServers)
+
+	if cfg.GUI.APIKey == "" {
+		cfg.GUI.APIKey = randomString(32)
 	}
 }
 
@@ -367,12 +399,25 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 		}
 	}
 
+	// Changing usage reporting to on or off does not require a restart.
+	to.Options.URAccepted = from.Options.URAccepted
+	to.Options.URUniqueID = from.Options.URUniqueID
+
 	// All of the generic options require restart
 	if !reflect.DeepEqual(from.Options, to.Options) || !reflect.DeepEqual(from.GUI, to.GUI) {
 		return true
 	}
 
 	return false
+}
+
+func convertV6V7(cfg *Configuration) {
+	// Migrate announce server addresses to the new URL based format
+	for i := range cfg.Options.GlobalAnnServers {
+		cfg.Options.GlobalAnnServers[i] = "udp4://" + cfg.Options.GlobalAnnServers[i]
+	}
+
+	cfg.Version = 7
 }
 
 func convertV5V6(cfg *Configuration) {
@@ -449,8 +494,8 @@ func convertV2V3(cfg *Configuration) {
 
 	// The global discovery format and port number changed in v0.9. Having the
 	// default announce server but old port number is guaranteed to be legacy.
-	if cfg.Options.GlobalAnnServer == "announce.syncthing.net:22025" {
-		cfg.Options.GlobalAnnServer = "announce.syncthing.net:22026"
+	if len(cfg.Options.GlobalAnnServers) == 1 && cfg.Options.GlobalAnnServers[0] == "announce.syncthing.net:22025" {
+		cfg.Options.GlobalAnnServers = []string{"announce.syncthing.net:22026"}
 	}
 
 	cfg.Version = 3
@@ -637,4 +682,17 @@ func (l FolderDeviceConfigurationList) Swap(a, b int) {
 }
 func (l FolderDeviceConfigurationList) Len() int {
 	return len(l)
+}
+
+// randomCharset contains the characters that can make up a randomString().
+const randomCharset = "01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-"
+
+// randomString returns a string of random characters (taken from
+// randomCharset) of the specified length.
+func randomString(l int) string {
+	bs := make([]byte, l)
+	for i := range bs {
+		bs[i] = randomCharset[rand.Intn(len(randomCharset))]
+	}
+	return string(bs)
 }

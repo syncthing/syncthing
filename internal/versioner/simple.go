@@ -18,7 +18,6 @@ package versioner
 import (
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 
 	"github.com/syncthing/syncthing/internal/osutil"
@@ -56,16 +55,15 @@ func NewSimple(folderID, folderPath string, params map[string]string) Versioner 
 // Move away the named file to a version archive. If this function returns
 // nil, the named file does not exist any more (has been archived).
 func (v Simple) Archive(filePath string) error {
-	fileInfo, err := os.Stat(filePath)
+	fileInfo, err := os.Lstat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if debug {
 				l.Debugln("not archiving nonexistent file", filePath)
 			}
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	versionsDir := filepath.Join(v.folderPath, ".stversions")
@@ -98,7 +96,7 @@ func (v Simple) Archive(filePath string) error {
 		return err
 	}
 
-	ver := file + "~" + fileInfo.ModTime().Format("20060102-150405")
+	ver := taggedFilename(file, fileInfo.ModTime().Format(TimeFormat))
 	dst := filepath.Join(dir, ver)
 	if debug {
 		l.Debugln("moving to", dst)
@@ -108,14 +106,25 @@ func (v Simple) Archive(filePath string) error {
 		return err
 	}
 
-	versions, err := filepath.Glob(filepath.Join(dir, file+"~[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]"))
+	// Glob according to the new file~timestamp.ext pattern.
+	newVersions, err := filepath.Glob(filepath.Join(dir, taggedFilename(file, TimeGlob)))
 	if err != nil {
 		l.Warnln("globbing:", err)
 		return nil
 	}
 
+	// Also according to the old file.ext~timestamp pattern.
+	oldVersions, err := filepath.Glob(filepath.Join(dir, file+"~"+TimeGlob))
+	if err != nil {
+		l.Warnln("globbing:", err)
+		return nil
+	}
+
+	// Use all the found filenames. "~" sorts after "." so all old pattern
+	// files will be deleted before any new, which is as it should be.
+	versions := uniqueSortedStrings(append(oldVersions, newVersions...))
+
 	if len(versions) > v.keep {
-		sort.Strings(versions)
 		for _, toRemove := range versions[:len(versions)-v.keep] {
 			if debug {
 				l.Debugln("cleaning out", toRemove)

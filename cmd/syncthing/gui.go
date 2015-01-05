@@ -31,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"code.google.com/p/go.crypto/bcrypt"
 	"github.com/calmh/logger"
 	"github.com/syncthing/syncthing/internal/auto"
 	"github.com/syncthing/syncthing/internal/config"
@@ -42,6 +41,7 @@ import (
 	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/vitrun/qart/qr"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type guiError struct {
@@ -70,7 +70,16 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
 		l.Infoln("Creating new HTTPS certificate")
-		newCertificate(confDir, "https-")
+
+		// When generating the HTTPS certificate, use the system host name per
+		// default. If that isn't available, use the "syncthing" default.
+		var name string
+		name, err = os.Hostname()
+		if err != nil {
+			name = tlsDefaultCommonName
+		}
+
+		newCertificate(confDir, "https-", name)
 		cert, err = loadCert(confDir, "https-")
 	}
 	if err != nil {
@@ -78,7 +87,20 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	}
 	tlsCfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ServerName:   "syncthing",
+		MinVersion:   tls.VersionTLS10, // No SSLv3
+		CipherSuites: []uint16{
+			// No RC4
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+			tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+		},
 	}
 
 	rawListener, err := net.Listen("tcp", cfg.Address)
@@ -108,6 +130,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
 	getRestMux.HandleFunc("/rest/version", restGetVersion)
 	getRestMux.HandleFunc("/rest/stats/device", withModel(m, restGetDeviceStats))
+	getRestMux.HandleFunc("/rest/stats/folder", withModel(m, restGetFolderStats))
 
 	// Debug endpoints, not for general use
 	getRestMux.HandleFunc("/rest/debug/peerCompletion", withModel(m, restGetPeerCompletion))
@@ -126,6 +149,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/shutdown", restPostShutdown)
 	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
 	postRestMux.HandleFunc("/rest/scan", withModel(m, restPostScan))
+	postRestMux.HandleFunc("/rest/bump", withModel(m, restPostBump))
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -158,7 +182,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 
 	srv := http.Server{
 		Handler:     handler,
-		ReadTimeout: 2 * time.Second,
+		ReadTimeout: 10 * time.Second,
 	}
 
 	go func() {
@@ -291,10 +315,16 @@ func restGetNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 
-	files := m.NeedFolderFilesLimited(folder, 100, 2500) // max 100 files or 2500 blocks
+	progress, queued, rest := m.NeedFolderFiles(folder, 100)
+	// Convert the struct to a more loose structure, and inject the size.
+	output := map[string][]map[string]interface{}{
+		"progress": toNeedSlice(progress),
+		"queued":   toNeedSlice(queued),
+		"rest":     toNeedSlice(rest),
+	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(files)
+	json.NewEncoder(w).Encode(output)
 }
 
 func restGetConnections(m *model.Model, w http.ResponseWriter, r *http.Request) {
@@ -305,6 +335,12 @@ func restGetConnections(m *model.Model, w http.ResponseWriter, r *http.Request) 
 
 func restGetDeviceStats(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var res = m.DeviceStatistics()
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(res)
+}
+
+func restGetFolderStats(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	var res = m.FolderStatistics()
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
@@ -321,42 +357,44 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		l.Warnln("decoding posted config:", err)
 		http.Error(w, err.Error(), 500)
 		return
-	} else {
-		if newCfg.GUI.Password != cfg.GUI().Password {
-			if newCfg.GUI.Password != "" {
-				hash, err := bcrypt.GenerateFromPassword([]byte(newCfg.GUI.Password), 0)
-				if err != nil {
-					l.Warnln("bcrypting password:", err)
-					http.Error(w, err.Error(), 500)
-					return
-				} else {
-					newCfg.GUI.Password = string(hash)
-				}
-			}
-		}
-
-		// Start or stop usage reporting as appropriate
-
-		if curAcc := cfg.Options().URAccepted; newCfg.Options.URAccepted > curAcc {
-			// UR was enabled
-			newCfg.Options.URAccepted = usageReportVersion
-			err := sendUsageReport(m)
-			if err != nil {
-				l.Infoln("Usage report:", err)
-			}
-			go usageReportingLoop(m)
-		} else if newCfg.Options.URAccepted < curAcc {
-			// UR was disabled
-			newCfg.Options.URAccepted = -1
-			stopUsageReporting()
-		}
-
-		// Activate and save
-
-		configInSync = !config.ChangeRequiresRestart(cfg.Raw(), newCfg)
-		cfg.Replace(newCfg)
-		cfg.Save()
 	}
+
+	if newCfg.GUI.Password != cfg.GUI().Password {
+		if newCfg.GUI.Password != "" {
+			hash, err := bcrypt.GenerateFromPassword([]byte(newCfg.GUI.Password), 0)
+			if err != nil {
+				l.Warnln("bcrypting password:", err)
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			newCfg.GUI.Password = string(hash)
+		}
+	}
+
+	// Start or stop usage reporting as appropriate
+
+	if curAcc := cfg.Options().URAccepted; newCfg.Options.URAccepted > curAcc {
+		// UR was enabled
+		newCfg.Options.URAccepted = usageReportVersion
+		newCfg.Options.URUniqueID = randomString(8)
+		err := sendUsageReport(m)
+		if err != nil {
+			l.Infoln("Usage report:", err)
+		}
+		go usageReportingLoop(m)
+	} else if newCfg.Options.URAccepted < curAcc {
+		// UR was disabled
+		newCfg.Options.URAccepted = -1
+		newCfg.Options.URUniqueID = ""
+		stopUsageReporting()
+	}
+
+	// Activate and save
+
+	configInSync = !config.ChangeRequiresRestart(cfg.Raw(), newCfg)
+	cfg.Replace(newCfg)
+	cfg.Save()
 }
 
 func restGetConfigInSync(w http.ResponseWriter, r *http.Request) {
@@ -583,7 +621,7 @@ func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if upgrade.CompareVersions(rel.Tag, Version) == 1 {
-		err = upgrade.UpgradeTo(rel, GoArchExtra)
+		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("upgrading:", err)
 			http.Error(w, err.Error(), 500)
@@ -604,6 +642,14 @@ func restPostScan(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 	}
+}
+
+func restPostBump(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	file := qs.Get("file")
+	m.BringToFront(folder, file)
+	restGetNeed(m, w, r)
 }
 
 func getQR(w http.ResponseWriter, r *http.Request) {
@@ -658,7 +704,7 @@ func restGetAutocompleteDirectory(w http.ResponseWriter, r *http.Request) {
 	for _, subdirectory := range subdirectories {
 		info, err := os.Stat(subdirectory)
 		if err == nil && info.IsDir() {
-			ret = append(ret, subdirectory)
+			ret = append(ret, subdirectory+pathSeparator)
 			if len(ret) > 9 {
 				break
 			}
@@ -730,4 +776,20 @@ func mimeTypeForFile(file string) string {
 	default:
 		return mime.TypeByExtension(ext)
 	}
+}
+
+func toNeedSlice(files []protocol.FileInfoTruncated) []map[string]interface{} {
+	output := make([]map[string]interface{}, len(files))
+	for i, file := range files {
+		output[i] = map[string]interface{}{
+			"Name":         file.Name,
+			"Flags":        file.Flags,
+			"Modified":     file.Modified,
+			"Version":      file.Version,
+			"LocalVersion": file.LocalVersion,
+			"NumBlocks":    file.NumBlocks,
+			"Size":         protocol.BlocksToSize(file.NumBlocks),
+		}
+	}
+	return output
 }

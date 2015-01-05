@@ -22,9 +22,9 @@ import (
 )
 
 func TestDeviceActivity(t *testing.T) {
-	n0 := protocol.DeviceID{1, 2, 3, 4}
-	n1 := protocol.DeviceID{5, 6, 7, 8}
-	n2 := protocol.DeviceID{9, 10, 11, 12}
+	n0 := protocol.DeviceID([32]byte{1, 2, 3, 4})
+	n1 := protocol.DeviceID([32]byte{5, 6, 7, 8})
+	n2 := protocol.DeviceID([32]byte{9, 10, 11, 12})
 	devices := []protocol.DeviceID{n0, n1, n2}
 	na := newDeviceActivity()
 

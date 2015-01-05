@@ -530,7 +530,7 @@ func Test_FieldsAligned(t *testing.T) {
 	testAligned(t, "session.stSeqNum", unsafe.Offsetof(p2.stSeqNum))
 }
 
-func TestDb_Locking(t *testing.T) {
+func TestDB_Locking(t *testing.T) {
 	h := newDbHarness(t)
 	defer h.stor.Close()
 	h.openAssert(false)
@@ -538,7 +538,7 @@ func TestDb_Locking(t *testing.T) {
 	h.openAssert(true)
 }
 
-func TestDb_Empty(t *testing.T) {
+func TestDB_Empty(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		h.get("foo", false)
 
@@ -547,7 +547,7 @@ func TestDb_Empty(t *testing.T) {
 	})
 }
 
-func TestDb_ReadWrite(t *testing.T) {
+func TestDB_ReadWrite(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		h.put("foo", "v1")
 		h.getVal("foo", "v1")
@@ -562,7 +562,7 @@ func TestDb_ReadWrite(t *testing.T) {
 	})
 }
 
-func TestDb_PutDeleteGet(t *testing.T) {
+func TestDB_PutDeleteGet(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		h.put("foo", "v1")
 		h.getVal("foo", "v1")
@@ -576,7 +576,7 @@ func TestDb_PutDeleteGet(t *testing.T) {
 	})
 }
 
-func TestDb_EmptyBatch(t *testing.T) {
+func TestDB_EmptyBatch(t *testing.T) {
 	h := newDbHarness(t)
 	defer h.close()
 
@@ -588,7 +588,7 @@ func TestDb_EmptyBatch(t *testing.T) {
 	h.get("foo", false)
 }
 
-func TestDb_GetFromFrozen(t *testing.T) {
+func TestDB_GetFromFrozen(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{WriteBuffer: 100100})
 	defer h.close()
 
@@ -614,7 +614,7 @@ func TestDb_GetFromFrozen(t *testing.T) {
 	h.get("k2", true)
 }
 
-func TestDb_GetFromTable(t *testing.T) {
+func TestDB_GetFromTable(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		h.put("foo", "v1")
 		h.compactMem()
@@ -622,7 +622,7 @@ func TestDb_GetFromTable(t *testing.T) {
 	})
 }
 
-func TestDb_GetSnapshot(t *testing.T) {
+func TestDB_GetSnapshot(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		bar := strings.Repeat("b", 200)
 		h.put("foo", "v1")
@@ -656,7 +656,7 @@ func TestDb_GetSnapshot(t *testing.T) {
 	})
 }
 
-func TestDb_GetLevel0Ordering(t *testing.T) {
+func TestDB_GetLevel0Ordering(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		for i := 0; i < 4; i++ {
 			h.put("bar", fmt.Sprintf("b%d", i))
@@ -679,7 +679,7 @@ func TestDb_GetLevel0Ordering(t *testing.T) {
 	})
 }
 
-func TestDb_GetOrderedByLevels(t *testing.T) {
+func TestDB_GetOrderedByLevels(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		h.put("foo", "v1")
 		h.compactMem()
@@ -691,7 +691,7 @@ func TestDb_GetOrderedByLevels(t *testing.T) {
 	})
 }
 
-func TestDb_GetPicksCorrectFile(t *testing.T) {
+func TestDB_GetPicksCorrectFile(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		// Arrange to have multiple files in a non-level-0 level.
 		h.put("a", "va")
@@ -715,7 +715,7 @@ func TestDb_GetPicksCorrectFile(t *testing.T) {
 	})
 }
 
-func TestDb_GetEncountersEmptyLevel(t *testing.T) {
+func TestDB_GetEncountersEmptyLevel(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		// Arrange for the following to happen:
 		//   * sstable A in level 0
@@ -770,7 +770,7 @@ func TestDb_GetEncountersEmptyLevel(t *testing.T) {
 	})
 }
 
-func TestDb_IterMultiWithDelete(t *testing.T) {
+func TestDB_IterMultiWithDelete(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		h.put("a", "va")
 		h.put("b", "vb")
@@ -796,7 +796,7 @@ func TestDb_IterMultiWithDelete(t *testing.T) {
 	})
 }
 
-func TestDb_IteratorPinsRef(t *testing.T) {
+func TestDB_IteratorPinsRef(t *testing.T) {
 	h := newDbHarness(t)
 	defer h.close()
 
@@ -820,7 +820,7 @@ func TestDb_IteratorPinsRef(t *testing.T) {
 	iter.Release()
 }
 
-func TestDb_Recover(t *testing.T) {
+func TestDB_Recover(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		h.put("foo", "v1")
 		h.put("baz", "v5")
@@ -842,7 +842,7 @@ func TestDb_Recover(t *testing.T) {
 	})
 }
 
-func TestDb_RecoverWithEmptyJournal(t *testing.T) {
+func TestDB_RecoverWithEmptyJournal(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		h.put("foo", "v1")
 		h.put("foo", "v2")
@@ -856,7 +856,7 @@ func TestDb_RecoverWithEmptyJournal(t *testing.T) {
 	})
 }
 
-func TestDb_RecoverDuringMemtableCompaction(t *testing.T) {
+func TestDB_RecoverDuringMemtableCompaction(t *testing.T) {
 	truno(t, &opt.Options{WriteBuffer: 1000000}, func(h *dbHarness) {
 
 		h.stor.DelaySync(storage.TypeTable)
@@ -872,7 +872,7 @@ func TestDb_RecoverDuringMemtableCompaction(t *testing.T) {
 	})
 }
 
-func TestDb_MinorCompactionsHappen(t *testing.T) {
+func TestDB_MinorCompactionsHappen(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{WriteBuffer: 10000})
 	defer h.close()
 
@@ -896,7 +896,7 @@ func TestDb_MinorCompactionsHappen(t *testing.T) {
 	}
 }
 
-func TestDb_RecoverWithLargeJournal(t *testing.T) {
+func TestDB_RecoverWithLargeJournal(t *testing.T) {
 	h := newDbHarness(t)
 	defer h.close()
 
@@ -921,7 +921,7 @@ func TestDb_RecoverWithLargeJournal(t *testing.T) {
 	v.release()
 }
 
-func TestDb_CompactionsGenerateMultipleFiles(t *testing.T) {
+func TestDB_CompactionsGenerateMultipleFiles(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{
 		WriteBuffer: 10000000,
 		Compression: opt.NoCompression,
@@ -959,7 +959,7 @@ func TestDb_CompactionsGenerateMultipleFiles(t *testing.T) {
 	}
 }
 
-func TestDb_RepeatedWritesToSameKey(t *testing.T) {
+func TestDB_RepeatedWritesToSameKey(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{WriteBuffer: 100000})
 	defer h.close()
 
@@ -975,7 +975,7 @@ func TestDb_RepeatedWritesToSameKey(t *testing.T) {
 	}
 }
 
-func TestDb_RepeatedWritesToSameKeyAfterReopen(t *testing.T) {
+func TestDB_RepeatedWritesToSameKeyAfterReopen(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{WriteBuffer: 100000})
 	defer h.close()
 
@@ -993,7 +993,7 @@ func TestDb_RepeatedWritesToSameKeyAfterReopen(t *testing.T) {
 	}
 }
 
-func TestDb_SparseMerge(t *testing.T) {
+func TestDB_SparseMerge(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{Compression: opt.NoCompression})
 	defer h.close()
 
@@ -1031,7 +1031,7 @@ func TestDb_SparseMerge(t *testing.T) {
 	h.maxNextLevelOverlappingBytes(20 * 1048576)
 }
 
-func TestDb_SizeOf(t *testing.T) {
+func TestDB_SizeOf(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{
 		Compression: opt.NoCompression,
 		WriteBuffer: 10000000,
@@ -1081,7 +1081,7 @@ func TestDb_SizeOf(t *testing.T) {
 	}
 }
 
-func TestDb_SizeOf_MixOfSmallAndLarge(t *testing.T) {
+func TestDB_SizeOf_MixOfSmallAndLarge(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{Compression: opt.NoCompression})
 	defer h.close()
 
@@ -1119,7 +1119,7 @@ func TestDb_SizeOf_MixOfSmallAndLarge(t *testing.T) {
 	}
 }
 
-func TestDb_Snapshot(t *testing.T) {
+func TestDB_Snapshot(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		h.put("foo", "v1")
 		s1 := h.getSnapshot()
@@ -1148,7 +1148,7 @@ func TestDb_Snapshot(t *testing.T) {
 	})
 }
 
-func TestDb_SnapshotList(t *testing.T) {
+func TestDB_SnapshotList(t *testing.T) {
 	db := &DB{snapsList: list.New()}
 	e0a := db.acquireSnapshot()
 	e0b := db.acquireSnapshot()
@@ -1186,7 +1186,7 @@ func TestDb_SnapshotList(t *testing.T) {
 	}
 }
 
-func TestDb_HiddenValuesAreRemoved(t *testing.T) {
+func TestDB_HiddenValuesAreRemoved(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		s := h.db.s
 
@@ -1229,7 +1229,7 @@ func TestDb_HiddenValuesAreRemoved(t *testing.T) {
 	})
 }
 
-func TestDb_DeletionMarkers2(t *testing.T) {
+func TestDB_DeletionMarkers2(t *testing.T) {
 	h := newDbHarness(t)
 	defer h.close()
 	s := h.db.s
@@ -1270,8 +1270,8 @@ func TestDb_DeletionMarkers2(t *testing.T) {
 	h.allEntriesFor("foo", "[ ]")
 }
 
-func TestDb_CompactionTableOpenError(t *testing.T) {
-	h := newDbHarnessWopt(t, &opt.Options{CachedOpenFiles: -1})
+func TestDB_CompactionTableOpenError(t *testing.T) {
+	h := newDbHarnessWopt(t, &opt.Options{OpenFilesCacheCapacity: -1})
 	defer h.close()
 
 	im := 10
@@ -1305,7 +1305,7 @@ func TestDb_CompactionTableOpenError(t *testing.T) {
 	}
 }
 
-func TestDb_OverlapInLevel0(t *testing.T) {
+func TestDB_OverlapInLevel0(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		if h.o.GetMaxMemCompationLevel() != 2 {
 			t.Fatal("fix test to reflect the config")
@@ -1348,7 +1348,7 @@ func TestDb_OverlapInLevel0(t *testing.T) {
 	})
 }
 
-func TestDb_L0_CompactionBug_Issue44_a(t *testing.T) {
+func TestDB_L0_CompactionBug_Issue44_a(t *testing.T) {
 	h := newDbHarness(t)
 	defer h.close()
 
@@ -1368,7 +1368,7 @@ func TestDb_L0_CompactionBug_Issue44_a(t *testing.T) {
 	h.getKeyVal("(a->v)")
 }
 
-func TestDb_L0_CompactionBug_Issue44_b(t *testing.T) {
+func TestDB_L0_CompactionBug_Issue44_b(t *testing.T) {
 	h := newDbHarness(t)
 	defer h.close()
 
@@ -1397,7 +1397,7 @@ func TestDb_L0_CompactionBug_Issue44_b(t *testing.T) {
 	h.getKeyVal("(->)(c->cv)")
 }
 
-func TestDb_SingleEntryMemCompaction(t *testing.T) {
+func TestDB_SingleEntryMemCompaction(t *testing.T) {
 	trun(t, func(h *dbHarness) {
 		for i := 0; i < 10; i++ {
 			h.put("big", strings.Repeat("v", opt.DefaultWriteBuffer))
@@ -1414,7 +1414,7 @@ func TestDb_SingleEntryMemCompaction(t *testing.T) {
 	})
 }
 
-func TestDb_ManifestWriteError(t *testing.T) {
+func TestDB_ManifestWriteError(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		func() {
 			h := newDbHarness(t)
@@ -1464,7 +1464,7 @@ func assertErr(t *testing.T, err error, wanterr bool) {
 	}
 }
 
-func TestDb_ClosedIsClosed(t *testing.T) {
+func TestDB_ClosedIsClosed(t *testing.T) {
 	h := newDbHarness(t)
 	db := h.db
 
@@ -1559,7 +1559,7 @@ func (p numberComparer) Compare(a, b []byte) int {
 func (numberComparer) Separator(dst, a, b []byte) []byte { return nil }
 func (numberComparer) Successor(dst, b []byte) []byte    { return nil }
 
-func TestDb_CustomComparer(t *testing.T) {
+func TestDB_CustomComparer(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{
 		Comparer:    numberComparer{},
 		WriteBuffer: 1000,
@@ -1589,7 +1589,7 @@ func TestDb_CustomComparer(t *testing.T) {
 	}
 }
 
-func TestDb_ManualCompaction(t *testing.T) {
+func TestDB_ManualCompaction(t *testing.T) {
 	h := newDbHarness(t)
 	defer h.close()
 
@@ -1627,10 +1627,10 @@ func TestDb_ManualCompaction(t *testing.T) {
 	h.tablesPerLevel("0,0,1")
 }
 
-func TestDb_BloomFilter(t *testing.T) {
+func TestDB_BloomFilter(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{
-		BlockCache: opt.NoCache,
-		Filter:     filter.NewBloomFilter(10),
+		DisableBlockCache: true,
+		Filter:            filter.NewBloomFilter(10),
 	})
 	defer h.close()
 
@@ -1680,7 +1680,7 @@ func TestDb_BloomFilter(t *testing.T) {
 	h.stor.ReleaseSync(storage.TypeTable)
 }
 
-func TestDb_Concurrent(t *testing.T) {
+func TestDB_Concurrent(t *testing.T) {
 	const n, secs, maxkey = 4, 2, 1000
 
 	runtime.GOMAXPROCS(n)
@@ -1745,7 +1745,7 @@ func TestDb_Concurrent(t *testing.T) {
 	runtime.GOMAXPROCS(1)
 }
 
-func TestDb_Concurrent2(t *testing.T) {
+func TestDB_Concurrent2(t *testing.T) {
 	const n, n2 = 4, 4000
 
 	runtime.GOMAXPROCS(n*2 + 2)
@@ -1816,7 +1816,7 @@ func TestDb_Concurrent2(t *testing.T) {
 	runtime.GOMAXPROCS(1)
 }
 
-func TestDb_CreateReopenDbOnFile(t *testing.T) {
+func TestDB_CreateReopenDbOnFile(t *testing.T) {
 	dbpath := filepath.Join(os.TempDir(), fmt.Sprintf("goleveldbtestCreateReopenDbOnFile-%d", os.Getuid()))
 	if err := os.RemoveAll(dbpath); err != nil {
 		t.Fatal("cannot remove old db: ", err)
@@ -1844,7 +1844,7 @@ func TestDb_CreateReopenDbOnFile(t *testing.T) {
 	}
 }
 
-func TestDb_CreateReopenDbOnFile2(t *testing.T) {
+func TestDB_CreateReopenDbOnFile2(t *testing.T) {
 	dbpath := filepath.Join(os.TempDir(), fmt.Sprintf("goleveldbtestCreateReopenDbOnFile2-%d", os.Getuid()))
 	if err := os.RemoveAll(dbpath); err != nil {
 		t.Fatal("cannot remove old db: ", err)
@@ -1865,7 +1865,7 @@ func TestDb_CreateReopenDbOnFile2(t *testing.T) {
 	}
 }
 
-func TestDb_DeletionMarkersOnMemdb(t *testing.T) {
+func TestDB_DeletionMarkersOnMemdb(t *testing.T) {
 	h := newDbHarness(t)
 	defer h.close()
 
@@ -1876,7 +1876,7 @@ func TestDb_DeletionMarkersOnMemdb(t *testing.T) {
 	h.getKeyVal("")
 }
 
-func TestDb_LeveldbIssue178(t *testing.T) {
+func TestDB_LeveldbIssue178(t *testing.T) {
 	nKeys := (opt.DefaultCompactionTableSize / 30) * 5
 	key1 := func(i int) string {
 		return fmt.Sprintf("my_key_%d", i)
@@ -1919,7 +1919,7 @@ func TestDb_LeveldbIssue178(t *testing.T) {
 	h.assertNumKeys(nKeys)
 }
 
-func TestDb_LeveldbIssue200(t *testing.T) {
+func TestDB_LeveldbIssue200(t *testing.T) {
 	h := newDbHarness(t)
 	defer h.close()
 
@@ -1946,7 +1946,7 @@ func TestDb_LeveldbIssue200(t *testing.T) {
 	assertBytes(t, []byte("5"), iter.Key())
 }
 
-func TestDb_GoleveldbIssue74(t *testing.T) {
+func TestDB_GoleveldbIssue74(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{
 		WriteBuffer: 1 * opt.MiB,
 	})
@@ -2044,7 +2044,7 @@ func TestDb_GoleveldbIssue74(t *testing.T) {
 	wg.Wait()
 }
 
-func TestDb_GetProperties(t *testing.T) {
+func TestDB_GetProperties(t *testing.T) {
 	h := newDbHarness(t)
 	defer h.close()
 
@@ -2064,10 +2064,10 @@ func TestDb_GetProperties(t *testing.T) {
 	}
 }
 
-func TestDb_GoleveldbIssue72and83(t *testing.T) {
+func TestDB_GoleveldbIssue72and83(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{
-		WriteBuffer:     1 * opt.MiB,
-		CachedOpenFiles: 3,
+		WriteBuffer:            1 * opt.MiB,
+		OpenFilesCacheCapacity: 3,
 	})
 	defer h.close()
 
@@ -2077,12 +2077,13 @@ func TestDb_GoleveldbIssue72and83(t *testing.T) {
 
 	randomData := func(prefix byte, i int) []byte {
 		data := make([]byte, 1+4+32+64+32)
-		_, err := crand.Reader.Read(data[1 : len(data)-4])
+		_, err := crand.Reader.Read(data[1 : len(data)-8])
 		if err != nil {
 			panic(err)
 		}
 		data[0] = prefix
-		binary.LittleEndian.PutUint32(data[len(data)-4:], uint32(i))
+		binary.LittleEndian.PutUint32(data[len(data)-8:], uint32(i))
+		binary.LittleEndian.PutUint32(data[len(data)-4:], util.NewCRC(data[:len(data)-4]).Value())
 		return data
 	}
 
@@ -2131,12 +2132,22 @@ func TestDb_GoleveldbIssue72and83(t *testing.T) {
 				continue
 			}
 			iter := snap.NewIterator(util.BytesPrefix([]byte{1}), nil)
-			writei := int(snap.elem.seq/(n*2) - 1)
+			writei := int(seq/(n*2) - 1)
 			var k int
 			for ; iter.Next(); k++ {
 				k1 := iter.Key()
 				k2 := iter.Value()
-				kwritei := int(binary.LittleEndian.Uint32(k2[len(k2)-4:]))
+				k1checksum0 := binary.LittleEndian.Uint32(k1[len(k1)-4:])
+				k1checksum1 := util.NewCRC(k1[:len(k1)-4]).Value()
+				if k1checksum0 != k1checksum1 {
+					t.Fatalf("READER0 #%d.%d W#%d invalid K1 checksum: %#x != %#x", i, k, k1checksum0, k1checksum0)
+				}
+				k2checksum0 := binary.LittleEndian.Uint32(k2[len(k2)-4:])
+				k2checksum1 := util.NewCRC(k2[:len(k2)-4]).Value()
+				if k2checksum0 != k2checksum1 {
+					t.Fatalf("READER0 #%d.%d W#%d invalid K2 checksum: %#x != %#x", i, k, k2checksum0, k2checksum1)
+				}
+				kwritei := int(binary.LittleEndian.Uint32(k2[len(k2)-8:]))
 				if writei != kwritei {
 					t.Fatalf("READER0 #%d.%d W#%d invalid write iteration num: %d", i, k, writei, kwritei)
 				}
@@ -2186,10 +2197,10 @@ func TestDb_GoleveldbIssue72and83(t *testing.T) {
 	wg.Wait()
 }
 
-func TestDb_TransientError(t *testing.T) {
+func TestDB_TransientError(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{
 		WriteBuffer:              128 * opt.KiB,
-		CachedOpenFiles:          3,
+		OpenFilesCacheCapacity:   3,
 		DisableCompactionBackoff: true,
 	})
 	defer h.close()
@@ -2299,7 +2310,7 @@ func TestDb_TransientError(t *testing.T) {
 	wg.Wait()
 }
 
-func TestDb_UkeyShouldntHopAcrossTable(t *testing.T) {
+func TestDB_UkeyShouldntHopAcrossTable(t *testing.T) {
 	h := newDbHarnessWopt(t, &opt.Options{
 		WriteBuffer:                 112 * opt.KiB,
 		CompactionTableSize:         90 * opt.KiB,
@@ -2388,7 +2399,7 @@ func TestDb_UkeyShouldntHopAcrossTable(t *testing.T) {
 	wg.Wait()
 }
 
-func TestDb_TableCompactionBuilder(t *testing.T) {
+func TestDB_TableCompactionBuilder(t *testing.T) {
 	stor := newTestStorage(t)
 	defer stor.Close()
 
@@ -2399,7 +2410,7 @@ func TestDb_TableCompactionBuilder(t *testing.T) {
 		CompactionTableSize:         43 * opt.KiB,
 		CompactionExpandLimitFactor: 1,
 		CompactionGPOverlapsFactor:  1,
-		BlockCache:                  opt.NoCache,
+		DisableBlockCache:           true,
 	}
 	s, err := newSession(stor, o)
 	if err != nil {

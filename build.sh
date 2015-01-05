@@ -2,6 +2,8 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+DOCKERIMGV=1.4-4
+
 case "${1:-default}" in
 	default)
 		go run build.go
@@ -71,7 +73,7 @@ case "${1:-default}" in
 		;;
 
 	test-cov)
-		ulimit -t 60 &>/dev/null || true
+		ulimit -t 600 &>/dev/null || true
 		ulimit -d 512000 &>/dev/null || true
 		ulimit -m 512000 &>/dev/null || true
 
@@ -100,6 +102,35 @@ case "${1:-default}" in
 		if [[ "${WORKSPACE:-default}" != "default" ]] ; then
 			sed "s#$WORKSPACE##g" < coverage.xml > coverage.xml.new && mv coverage.xml.new coverage.xml
 		fi
+		;;
+
+	docker-init)
+		docker build -q -t syncthing/build:$DOCKERIMGV docker
+		;;
+
+	docker-all)
+		docker run --rm -h syncthing-builder -u $(id -u) -t \
+			-v $(pwd):/go/src/github.com/syncthing/syncthing \
+			-w /go/src/github.com/syncthing/syncthing \
+			syncthing/build:$DOCKERIMGV \
+			sh -c './build.sh clean \
+				&& go vet ./cmd/... ./internal/... \
+				&& ( golint ./cmd/... ; golint ./internal/... ) | egrep -v "comment on exported|should have comment" \
+				&& ./build.sh all \
+				&& STTRACE=all ./build.sh test-cov'
+		;;
+
+	docker-test)
+		docker run --rm -h syncthing-builder -u $(id -u) -t \
+			-v $(pwd):/go/src/github.com/syncthing/syncthing \
+			-w /go/src/github.com/syncthing/syncthing \
+			syncthing/build:$DOCKERIMGV \
+			sh -euxc './build.sh clean \
+				&& go run build.go -race \
+				&& export GOPATH=$(pwd)/Godeps/_workspace:$GOPATH \
+				&& cd test \
+				&& go test -tags integration -v -timeout 60m -short \
+				&& git clean -fxd .'
 		;;
 
 	*)

@@ -15,13 +15,12 @@
 
 // +build integration
 
-package integration_test
+package integration
 
 import (
 	"bytes"
 	"encoding/json"
 	"log"
-	"strings"
 	"testing"
 	"time"
 
@@ -38,7 +37,7 @@ func TestManyPeers(t *testing.T) {
 	}
 
 	log.Println("Generating files...")
-	err = generateFiles("s1", 200, 20, "../bin/syncthing")
+	err = generateFiles("s1", 200, 20, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +104,7 @@ func TestManyPeers(t *testing.T) {
 	for {
 		comp, err := sender.peerCompletion()
 		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
+			if isTimeout(err) {
 				time.Sleep(250 * time.Millisecond)
 				continue
 			}

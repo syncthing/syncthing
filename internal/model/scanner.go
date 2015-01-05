@@ -17,6 +17,7 @@ package model
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 )
 
@@ -63,7 +64,9 @@ func (s *Scanner) Serve() {
 				return
 			}
 
-			timer.Reset(s.intv)
+			// Sleep a random time between 3/4 and 5/4 of the configured interval.
+			sleepNanos := (s.intv.Nanoseconds()*3 + rand.Int63n(2*s.intv.Nanoseconds())) / 4
+			timer.Reset(time.Duration(sleepNanos) * time.Nanosecond)
 		}
 	}
 }
@@ -74,4 +77,10 @@ func (s *Scanner) Stop() {
 
 func (s *Scanner) String() string {
 	return fmt.Sprintf("scanner/%s@%p", s.folder, s)
+}
+
+func (s *Scanner) BringToFront(string) {}
+
+func (s *Scanner) Jobs() ([]string, []string) {
+	return nil, nil
 }

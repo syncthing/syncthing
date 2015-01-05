@@ -101,8 +101,8 @@ type upnpRoot struct {
 
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the result list is not deterministic.
-func Discover() []*IGD {
-	result := make([]*IGD, 0)
+func Discover() []IGD {
+	var result []IGD
 	l.Infoln("Starting UPnP discovery...")
 
 	timeout := 3
@@ -137,7 +137,7 @@ func Discover() []*IGD {
 
 // Search for UPnP InternetGatewayDevices for <timeout> seconds, ignoring responses from any devices listed in knownDevices.
 // The order in which the devices appear in the result list is not deterministic
-func discover(deviceType string, timeout int, knownDevices []*IGD) []*IGD {
+func discover(deviceType string, timeout int, knownDevices []IGD) []IGD {
 	ssdp := &net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
 
 	tpl := `M-SEARCH * HTTP/1.1
@@ -155,10 +155,10 @@ Mx: %d
 		l.Debugln("Starting discovery of device type " + deviceType + "...")
 	}
 
-	results := make([]*IGD, 0)
-	resultChannel := make(chan *IGD, 8)
+	var results []IGD
+	resultChannel := make(chan IGD, 8)
 
-	socket, err := net.ListenUDP("udp4", &net.UDPAddr{})
+	socket, err := net.ListenMulticastUDP("udp4", nil, &net.UDPAddr{IP: ssdp.IP})
 	if err != nil {
 		l.Infoln(err)
 		return results
@@ -231,7 +231,7 @@ Mx: %d
 	return results
 }
 
-func handleSearchResponse(deviceType string, knownDevices []*IGD, resp []byte, length int, resultChannel chan<- *IGD, resultWaitGroup *sync.WaitGroup) {
+func handleSearchResponse(deviceType string, knownDevices []IGD, resp []byte, length int, resultChannel chan<- IGD, resultWaitGroup *sync.WaitGroup) {
 	defer resultWaitGroup.Done() // Signal when we've finished processing
 
 	if debug {
@@ -321,7 +321,7 @@ func handleSearchResponse(deviceType string, knownDevices []*IGD, resp []byte, l
 		return
 	}
 
-	igd := &IGD{
+	igd := IGD{
 		uuid:           deviceUUID,
 		friendlyName:   upnpRoot.Device.FriendlyName,
 		url:            deviceDescriptionURL,
@@ -352,7 +352,7 @@ func localIP(url *url.URL) (string, error) {
 }
 
 func getChildDevices(d upnpDevice, deviceType string) []upnpDevice {
-	result := make([]upnpDevice, 0)
+	var result []upnpDevice
 	for _, dev := range d.Devices {
 		if dev.DeviceType == deviceType {
 			result = append(result, dev)
@@ -362,7 +362,7 @@ func getChildDevices(d upnpDevice, deviceType string) []upnpDevice {
 }
 
 func getChildServices(d upnpDevice, serviceType string) []upnpService {
-	result := make([]upnpService, 0)
+	var result []upnpService
 	for _, svc := range d.Services {
 		if svc.ServiceType == serviceType {
 			result = append(result, svc)
@@ -372,7 +372,7 @@ func getChildServices(d upnpDevice, serviceType string) []upnpService {
 }
 
 func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDService, error) {
-	result := make([]IGDService, 0)
+	var result []IGDService
 
 	if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
 		descriptions := getIGDServices(rootURL, device,
@@ -400,7 +400,7 @@ func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDService, er
 }
 
 func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, serviceURNs []string) []IGDService {
-	result := make([]IGDService, 0)
+	var result []IGDService
 
 	devices := getChildDevices(device, wanDeviceURN)
 

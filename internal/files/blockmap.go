@@ -29,6 +29,7 @@ import (
 	"sync"
 
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -125,7 +126,7 @@ type BlockFinder struct {
 	mut     sync.RWMutex
 }
 
-func NewBlockFinder(db *leveldb.DB, cfg *config.ConfigWrapper) *BlockFinder {
+func NewBlockFinder(db *leveldb.DB, cfg *config.Wrapper) *BlockFinder {
 	if blockFinder != nil {
 		return blockFinder
 	}
@@ -171,7 +172,7 @@ func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, uint32) b
 		for iter.Next() && iter.Error() == nil {
 			folder, file := fromBlockKey(iter.Key())
 			index := binary.BigEndian.Uint32(iter.Value())
-			if iterFn(folder, nativeFilename(file), index) {
+			if iterFn(folder, osutil.NativeFilename(file), index) {
 				return true
 			}
 		}

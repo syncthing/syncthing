@@ -15,29 +15,29 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 -->
-<html lang="en" ng-app="syncthing" ng-controller="SyncthingCtrl" class="ng-cloak">
+<html lang="en" ng-app="syncthing" ng-controller="SyncthingController" class="ng-cloak">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="">
   <meta name="author" content="">
-  <link rel="shortcut icon" href="img/favicon.png">
+  <link rel="shortcut icon" href="assets/img/favicon.png">
 
   <title>Syncthing | {{thisDeviceName()}}</title>
-  <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
-  <link href="font/raleway.css" rel="stylesheet">
-  <link href="overrides.css" rel="stylesheet">
+  <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/font/raleway.css" rel="stylesheet">
+  <link href="assets/css/overrides.css" rel="stylesheet">
 </head>
 
 <body>
-  <div ng-controller="EventCtrl"></div>
+  <div ng-controller="EventController"></div>
 
   <!-- Top bar -->
 
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
-      <span class="navbar-brand"><img class="logo" src="img/logo-text-64.png" height="32" width="117"/></span>
+      <span class="navbar-brand"><img class="logo" src="assets/img/logo-text-64.png" height="32" width="117"/></span>
       <p class="navbar-text hidden-xs">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo && upgradeInfo.newer">
@@ -47,7 +47,7 @@
           </button>
         </li>
         <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog"></span></a>
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog" aria-label="Edit"></span></a>
           <ul class="dropdown-menu">
             <li><a href="" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span>&emsp;<span translate>Settings</span></a></li>
             <li><a href="" ng-click="idDevice()"><span class="glyphicon glyphicon-qrcode"></span>&emsp;<span translate>Show ID</span></a></li>
@@ -89,20 +89,19 @@
 
       <div class="col-md-6">
         <div class="panel-group" id="folders">
-          <div class="panel panel-{{folderClass(folder.ID)}}" ng-repeat="folder in folderList()">
+          <div class="panel panel-default" ng-repeat="folder in folderList()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
+              <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.ID)}}%"></div>
               <h3 class="panel-title">
                 <span class="glyphicon glyphicon-hdd"></span>&emsp;{{folder.ID}}
-                <span class="pull-right hidden-xs" ng-switch="folderStatus(folder.ID)">
+                <span class="pull-right hidden-xs text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span translate ng-switch-when="unknown">Unknown</span>
+                  <span translate ng-switch-when="unshared">Unshared</span>
                   <span translate ng-switch-when="stopped">Stopped</span>
                   <span translate ng-switch-when="scanning">Scanning</span>
+                  <span translate ng-switch-when="idle">Up to Date</span>
                   <span ng-switch-when="syncing">
                     <span translate>Syncing</span>
-                    ({{syncPercentage(folder.ID)}}%)
-                  </span>
-                  <span ng-switch-when="idle">
-                    <span translate>Idle</span>
                     ({{syncPercentage(folder.ID)}}%)
                   </span>
                 </span>
@@ -112,10 +111,6 @@
               <div class="panel-body">
                 <table class="table table-condensed table-striped">
                   <tbody>
-                    <tr>
-                      <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Folder ID</span></th>
-                      <td class="text-right">{{folder.ID}}</td>
-                    </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder Path</span></th>
                       <td class="text-right">{{folder.Path}}</td>
@@ -132,28 +127,25 @@
                       <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local State</span></th>
                       <td class="text-right">{{model[folder.ID].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].localBytes | binary}}B</td>
                     </tr>
-                    <tr>
+                    <tr ng-if="model[folder.ID].needFiles > 0">
                       <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Out Of Sync</span></th>
                       <td class="text-right">
-                        <a ng-if="model[folder.ID].needFiles > 0" ng-click="showNeed(folder.ID)" href="">{{model[folder.ID].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].needBytes | binary}}B</a>
-                        <span ng-if="model[folder.ID].needFiles == 0">0 <span translate>items</span>, 0 B</span>
+                        <a ng-click="showNeed(folder.ID)" href="">{{model[folder.ID].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].needBytes | binary}}B</a>
                       </td>
                     </tr>
-                    <tr>
+                    <tr ng-if="folder.ReadOnly">
                       <th><span class="glyphicon glyphicon-lock"></span>&emsp;<span translate>Folder Master</span></th>
                       <td class="text-right">
-                        <span translate ng-if="folder.ReadOnly">Yes</span>
-                        <span translate ng-if="!folder.ReadOnly">No</span>
+                        <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr>
+                    <tr ng-if="folder.IgnorePerms">
                       <th><span class="glyphicon glyphicon-unchecked"></span>&emsp;<span translate>Ignore Permissions</span></th>
                       <td class="text-right">
-                        <span translate ng-if="folder.IgnorePerms">Yes</span>
-                        <span translate ng-if="!folder.IgnorePerms">No</span>
+                        <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr>
+                    <tr ng-if="folder.RescanIntervalS != 60">
                       <th><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan Interval</span></th>
                       <td class="text-right">{{folder.RescanIntervalS}} s</td>
                     </tr>
@@ -161,13 +153,21 @@
                       <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;<span translate>Shared With</span></th>
                       <td class="text-right">{{sharesFolder(folder)}}</td>
                     </tr>
+                    <tr ng-if="folderStats[folder.ID].LastFile">
+                      <th><span class="glyphicon glyphicon-transfer"></span>&emsp;<span translate>Last File Synced</span></th>
+                      <td class="text-right">
+                        <span title="{{folderStats[folder.ID].LastFile.Filename}} @ {{folderStats[folder.ID].LastFile.At | date:'yyyy-MM-dd HH:mm'}}">
+                          {{folderStats[folder.ID].LastFile.Filename | basename}}
+                        </span>
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
               <div class="panel-footer">
                 <button class="btn btn-sm btn-danger" ng-if="folder.ReadOnly && model[folder.ID].needFiles > 0" ng-click="override(folder.ID)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
                 <span class="pull-right">
-                  <button class="btn btn-sm btn-default" href="" ng-show="folderStatus(folder.ID) == 'idle'" ng-click="rescanFolder(folder.ID)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></button>
+                  <button class="btn btn-sm btn-default" href="" ng-show="folderStatus(folder) == 'idle'" ng-click="rescanFolder(folder.ID)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></button>
                   <button class="btn btn-sm btn-default" href="" ng-click="editFolder(folder)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></button>
                 </span>
                 <div class="clearfix"></div>
@@ -199,11 +199,11 @@
                 <tbody>
                   <tr>
                     <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
-                    <td class="text-right">{{connections['total'].inbps | metric}}bps ({{connections['total'].InBytesTotal | binary}}B)</td>
+                    <td class="text-right">{{connections['total'].inbps | binary}}B/s ({{connections['total'].InBytesTotal | binary}}B)</td>
                   </tr>
                   <tr>
                     <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
-                    <td class="text-right">{{connections['total'].outbps | metric}}bps ({{connections['total'].OutBytesTotal | binary}}B)</td>
+                    <td class="text-right">{{connections['total'].outbps | binary}}B/s ({{connections['total'].OutBytesTotal | binary}}B)</td>
                   </tr>
                   <tr>
                     <th><span class="glyphicon glyphicon-th"></span>&emsp;<span translate>RAM Utilization</span></th>
@@ -213,11 +213,17 @@
                     <th><span class="glyphicon glyphicon-dashboard"></span>&emsp;<span translate>CPU Utilization</span></th>
                     <td class="text-right">{{system.cpuPercent | alwaysNumber | natural:1}}%</td>
                   </tr>
-                  <tr ng-if="system.extAnnounceOK != undefined">
-                    <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;<span translate>Global Discovery Server</span></th>
+                  <tr ng-if="system.extAnnounceOK != undefined && announceServersTotal > 0">
+                    <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;<span translate>Global Discovery</span></th>
                     <td class="text-right">
-                      <span class="data text-success" ng-if="system.extAnnounceOK"><span translate>Online</span></span>
-                      <span class="data text-danger" ng-if="!system.extAnnounceOK"><span translate>Offline</span></span>
+                      <span ng-if="announceServersFailed.length == 0" class="data text-success">
+                        <span>OK</span>
+                      </span>
+                      <span ng-if="announceServersFailed.length != 0" class="data text-danger">
+                        <span popover data-trigger="hover" data-placement="bottom" data-content="{{announceServersFailed.join('\n')}}">
+                          {{announceServersTotal-announceServersFailed.length}}/{{announceServersTotal}}
+                        </span>
+                      </span>
                     </td>
                   </tr>
                   <tr>
@@ -233,18 +239,18 @@
         <!-- Remote devices -->
 
         <div class="panel-group" id="devices">
-          <div class="panel panel-{{deviceClass(deviceCfg)}}" ng-repeat="deviceCfg in otherDevices()">
+          <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
+              <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.DeviceID]._total | number:0}}%"></div>
               <h3 class="panel-title">
                 <identicon data-value="deviceCfg.DeviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
-                <span class="pull-right hidden-xs">
-                  <span ng-if="connections[deviceCfg.DeviceID] && completion[deviceCfg.DeviceID]._total == 100">
-                    <span translate>Up to Date</span> (100%)
-                  </span>
-                  <span ng-if="connections[deviceCfg.DeviceID] && completion[deviceCfg.DeviceID]._total < 100">
+                <span ng-switch="deviceStatus(deviceCfg)" class="pull-right hidden-xs text-{{deviceClass(deviceCfg)}}">
+                  <span translate ng-switch-when="insync">Up to Date</span>
+                  <span ng-switch-when="syncing">
                     <span translate>Syncing</span> ({{completion[deviceCfg.DeviceID]._total | number:0}}%)
                   </span>
-                  <span translate ng-if="!connections[deviceCfg.DeviceID]">Disconnected</span>
+                  <span translate ng-switch-when="disconnected">Disconnected</span>
+                  <span translate ng-switch-when="unused">Unused</span>
                 </span>
               </h3>
             </div>
@@ -254,29 +260,23 @@
                   <tbody>
                     <tr ng-if="connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
-                      <td class="text-right">{{connections[deviceCfg.DeviceID].inbps | metric}}bps ({{connections[deviceCfg.DeviceID].InBytesTotal | binary}}B)</td>
+                      <td class="text-right">{{connections[deviceCfg.DeviceID].inbps | binary}}B/s ({{connections[deviceCfg.DeviceID].InBytesTotal | binary}}B)</td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
-                      <td class="text-right">{{connections[deviceCfg.DeviceID].outbps | metric}}bps ({{connections[deviceCfg.DeviceID].OutBytesTotal | binary}}B)</td>
+                      <td class="text-right">{{connections[deviceCfg.DeviceID].outbps | binary}}B/s ({{connections[deviceCfg.DeviceID].OutBytesTotal | binary}}B)</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-link"></span>&emsp;<span translate>Address</span></th>
                       <td class="text-right">{{deviceAddr(deviceCfg)}}</td>
                     </tr>
-                    <tr ng-if="connections[deviceCfg.DeviceID]">
-                      <th><span class="glyphicon glyphicon-comment"></span>&emsp;<span translate>Synchronization</span></th>
-                      <td class="text-right">{{completion[deviceCfg.DeviceID]._total | alwaysNumber | number:0}}%</td>
-                    </tr>
-                    <tr>
+                    <tr ng-if="!deviceCfg.Compression">
                       <th><span class="glyphicon glyphicon-compressed"></span>&emsp;<span translate>Use Compression</span></th>
-                      <td translate ng-if="deviceCfg.Compression" class="text-right">Yes</td>
-                      <td translate ng-if="!deviceCfg.Compression" class="text-right">No</td>
+                      <td translate class="text-right">No</td>
                     </tr>
-                    <tr>
+                    <tr ng-if="deviceCfg.Introducer">
                       <th><span class="glyphicon glyphicon-thumbs-up"></span>&emsp;<span translate>Introducer</span></th>
-                      <td translate ng-if="deviceCfg.Introducer" class="text-right">Yes</td>
-                      <td translate ng-if="!deviceCfg.Introducer" class="text-right">No</td>
+                      <td translate class="text-right">Yes</td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Version</span></th>
@@ -284,8 +284,12 @@
                     </tr>
                     <tr ng-if="!connections[deviceCfg.DeviceID]">
                       <th><span class="glyphicon glyphicon-eye-open"></span>&emsp;<span translate>Last seen</span></th>
-                      <td translate ng-if="!stats[deviceCfg.DeviceID].LastSeenDays || stats[deviceCfg.DeviceID].LastSeenDays >= 365" class="text-right">Never</td>
-                      <td ng-if="stats[deviceCfg.DeviceID].LastSeenDays < 365" class="text-right">{{stats[deviceCfg.DeviceID].LastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
+                      <td translate ng-if="!deviceStats[deviceCfg.DeviceID].LastSeenDays || deviceStats[deviceCfg.DeviceID].LastSeenDays >= 365" class="text-right">Never</td>
+                      <td ng-if="deviceStats[deviceCfg.DeviceID].LastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.DeviceID].LastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
+                    </tr>
+                    <tr ng-if="deviceFolders(deviceCfg).length > 0">
+                      <th><span class="glyphicon glyphicon-hdd"></span>&emsp;<span translate>Folders</span></th>
+                      <td class="text-right">{{deviceFolders(deviceCfg).join(", ")}}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -303,6 +307,73 @@
         </div>
       </div>
     </div> <!-- /row -->
+
+    <!-- Device Rejections -->
+
+    <div ng-repeat="(device, event) in deviceRejections" class="row">
+      <div class="col-md-12">
+        <div class="panel panel-warning">
+          <div class="panel-heading">
+            <h3 class="panel-title">
+              <identicon data-value="device"></identicon>&emsp;<span translate>New Device</span>
+            </h3>
+          </div>
+          <div class="panel-body">
+            <p>
+              <small>{{ event.time | date:"H:mm:ss" }}:</small>
+              <span translate translate-value-device="{{ device }}" translate-value-address="{{ event.data.address }}">
+                Device {%device%} ({%address%}) wants to connect. Add new device?
+              <span>
+            </p>
+          </div>
+          <div class="panel-footer clearfix">
+            <div class="pull-right">
+              <button class="btn btn-sm btn-success" ng-click="addNewDeviceID(device)"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Add</span></button>
+              <button class="btn btn-sm btn-danger" ng-click="ignoreRejectedDevice(device)"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Ignore</span></button>
+              <button class="btn btn-sm btn-default" ng-click="dismissDeviceRejection(device)"><span class="glyphicon glyphicon-time"></span>&emsp;<span translate>Later</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Folder Rejections -->
+
+    <div ng-repeat="(key, event) in folderRejections" class="row reject">
+      <div class="col-md-12">
+        <div class="panel panel-warning">
+          <div class="panel-heading">
+            <h3 class="panel-title">
+              <span translate ng-if="!folders[event.data.folder]">New Folder</span>
+              <span translate ng-if="folders[event.data.folder]">Share Folder</span>
+            </h3>
+          </div>
+          <div class="panel-body">
+            <p>
+              <small>{{ event.time | date:"H:mm:ss" }}:</small>
+              <span translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}">
+                {%device%} wants to share folder "{%folder%}".
+              </span>
+              <span translate ng-if="folders[event.data.folder]">Share this folder?</span>
+              <span translate ng-if="!folders[event.data.folder]">Add new folder?</span>
+            </p>
+          </div>
+          <div class="panel-footer clearfix">
+            <div class="pull-right">
+              <button class="btn btn-sm btn-success" ng-click="addFolderAndShare(event.data.folder, event.data.device)" ng-if="!folders[event.data.folder]">
+                <span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Add</span>
+              </button>
+              <button class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(event.data.folder, event.data.device)" ng-if="folders[event.data.folder]">
+                <span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Share</span>
+              </button>
+              <button class="btn btn-sm btn-default" ng-click="dismissFolderRejection(event.data.folder, event.data.device)">
+                <span class="glyphicon glyphicon-time"></span>&emsp;<span translate>Later</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Errors -->
 
@@ -422,6 +493,23 @@
                 <p translate class="help-block">Any devices configured on an introducer device will be added to this device as well.</p>
               </div>
             </div>
+
+            <div class="row" ng-if="!editingSelf">
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label translate for="folders">Share Folders With Device</label>
+                  <p translate class="help-block">Select the folders to share with this device.</p>
+                  <div class="three-columns">
+                    <div class="checkbox" ng-repeat="folder in folderList()">
+                      <label>
+                        <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.ID]"> {{folder.ID}}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </form>
         </div>
         <div class="modal-footer">
@@ -494,15 +582,6 @@
                   </div>
                   <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT filesystems.</p>
                 </div>
-                <div class="form-group">
-                  <label translate for="devices">Share With Devices</label>
-                  <div class="checkbox" ng-repeat="device in otherDevices()">
-                    <label>
-                      <input type="checkbox" ng-model="currentFolder.selectedDevices[device.DeviceID]"> {{deviceName(device)}}
-                    </label>
-                  </div>
-                  <p translate class="help-block">Select the devices to share this folder with.</p>
-                </div>
               </div>
               <div class="col-md-6">
                 <div class="form-group">
@@ -550,6 +629,23 @@
                 </div>
               </div>
             </div>
+
+            <div class="row">
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label translate for="devices">Share With Devices</label>
+                  <p translate class="help-block">Select the devices to share this folder with.</p>
+                  <div class="three-columns">
+                    <div class="checkbox" ng-repeat="device in otherDevices()">
+                      <label>
+                        <input type="checkbox" ng-model="currentFolder.selectedDevices[device.DeviceID]"> {{deviceName(device)}}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </form>
           <div translate ng-show="!editingExisting">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
         </div>
@@ -612,8 +708,8 @@
                   <input id="DeviceName" class="form-control" type="text" ng-model="tmpOptions.DeviceName">
                 </div>
                 <div class="form-group">
-                  <label translate for="ListenStr">Sync Protocol Listen Addresses</label>
-                  <input id="ListenStr" class="form-control" type="text" ng-model="tmpOptions.ListenStr">
+                  <label translate for="ListenAddressStr">Sync Protocol Listen Addresses</label>
+                  <input id="ListenAddressStr" class="form-control" type="text" ng-model="tmpOptions.ListenAddressStr">
                 </div>
                 <div class="form-group">
                   <label translate for="MaxRecvKbps">Incoming Rate Limit (KiB/s)</label>
@@ -627,14 +723,14 @@
                   <div class="form-group">
                     <div class="checkbox">
                       <label>
-                        <span translate>Enable UPnP</span> <input id="UPnPEnabled" type="checkbox" ng-model="tmpOptions.UPnPEnabled">
+                        <input id="UPnPEnabled" type="checkbox" ng-model="tmpOptions.UPnPEnabled"> <span translate>Enable UPnP</span>
                       </label>
                     </div>
                   </div>
                   <div class="form-group">
                     <div class="checkbox">
                       <label>
-                        <span translate>Global Discovery</span> <input id="GlobalAnnEnabled" type="checkbox" ng-model="tmpOptions.GlobalAnnEnabled">
+                        <input id="GlobalAnnEnabled" type="checkbox" ng-model="tmpOptions.GlobalAnnEnabled"> <span translate>Global Discovery</span>
                       </label>
                     </div>
                   </div>
@@ -643,21 +739,21 @@
                   <div class="form-group">
                     <div class="checkbox">
                       <label ng-if="upgradeInfo">
-                        <span translate>Automatic upgrades</span> <input id="AutoUpgradeEnabled" type="checkbox" ng-model="tmpOptions.AutoUpgradeEnabled">
+                        <input id="AutoUpgradeEnabled" type="checkbox" ng-model="tmpOptions.AutoUpgradeEnabled"> <span translate>Automatic upgrades</span>
                       </label>
                     </div>
                   </div>
                   <div class="form-group">
                     <div class="checkbox">
                       <label>
-                        <span translate>Local Discovery</span> <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.LocalAnnEnabled">
+                        <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.LocalAnnEnabled"> <span translate>Local Discovery</span>
                       </label>
                     </div>
                   </div>
                 </div>
                 <div class="form-group">
-                  <label translate for="GlobalAnnServer">Global Discovery Server</label>
-                  <input ng-disabled="!tmpOptions.GlobalAnnEnabled" id="GlobalAnnServer" class="form-control" type="text" ng-model="tmpOptions.GlobalAnnServer">
+                  <label translate for="GlobalAnnServersStr">Global Discovery Server</label>
+                  <input ng-disabled="!tmpOptions.GlobalAnnEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions.GlobalAnnServersStr">
                 </div>
               </div>
 
@@ -677,21 +773,21 @@
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <span translate>Use HTTPS for GUI</span> <input id="UseTLS" type="checkbox" ng-model="tmpGUI.UseTLS">
+                      <input id="UseTLS" type="checkbox" ng-model="tmpGUI.UseTLS"> <span translate>Use HTTPS for GUI</span>
                     </label>
                   </div>
                 </div>
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <span translate>Start Browser</span> <input id="StartBrowser" type="checkbox" ng-model="tmpOptions.StartBrowser">
+                      <input id="StartBrowser" type="checkbox" ng-model="tmpOptions.StartBrowser"> <span translate>Start Browser</span>
                     </label>
                   </div>
                 </div>
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <span translate>Anonymous Usage Reporting</span> <input id="UREnabled" type="checkbox" ng-model="tmpOptions.UREnabled"> (<a translate ng-click="showURPreview()" href="#">Preview</a>)
+                      <input id="UREnabled" type="checkbox" ng-model="tmpOptions.UREnabled"> <span translate>Anonymous Usage Reporting</span> (<a translate ng-click="showURPreview()" href="#">Preview</a>)
                     </label>
                   </div>
                 </div>
@@ -761,42 +857,80 @@
   <!-- Needed files modal -->
 
   <modal id="needed" large="yes" status="info" icon="cloud-download" close="yes" title="Out of Sync Items">
+    <div class="progress">
+      <div class="progress-bar progress-bar-success" style="width: 20%"><span translate class="show">Reused</span></div>
+      <div class="progress-bar" style="width: 20%"><span translate class="show">Copied from original</span></div>
+      <div class="progress-bar progress-bar-info" style="width: 20%"><span translate class="show">Copied from elsewhere</span></div>
+      <div class="progress-bar progress-bar-warning" style="width: 20%"><span translate class="show">Downloaded</span></div>
+      <div class="progress-bar progress-bar-danger progress-bar-striped active" style="width: 20%"><span translate class="show">Downloading</span></div>
+    </div>
+
+    <hr/>
+
     <table class="table table-striped table-condensed">
-      <tr ng-repeat="f in needed" ng-init="a = needAction(f)">
+      <tr ng-repeat="f in needed.progress" ng-init="a = needAction(f)">
+        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
+        <td title="{{f.Name}}">{{f.Name | basename}}</td>
+        <td ng-if="a == 'sync' && progress[neededFolder] && progress[neededFolder][f.Name]">
+          <div class="progress">
+            <div class="progress-bar progress-bar-success" style="width: {{progress[neededFolder][f.Name].Reused}}%"></div>
+            <div class="progress-bar" style="width: {{progress[neededFolder][f.Name].CopiedFromOrigin}}%"></div>
+            <div class="progress-bar progress-bar-info" style="width: {{progress[neededFolder][f.Name].CopiedFromElsewhere}}%"></div>
+            <div class="progress-bar progress-bar-warning" style="width: {{progress[neededFolder][f.Name].Pulled}}%"></div>
+            <div class="progress-bar progress-bar-danger progress-bar-striped active" style="width: {{progress[neededFolder][f.Name].Pulling}}%"></div>
+            <span class="show frontal">
+              {{progress[neededFolder][f.Name].BytesDone | binary}}B / {{progress[neededFolder][f.Name].BytesTotal | binary}}B
+            </span>
+          </div>
+        </td>
+        <td class="text-right small-data" ng-if="a != 'sync' || !progress[neededFolder] || !progress[neededFolder][f.Name]">
+          <span ng-if="f.Size > 0">{{f.Size | binary}}B</span>
+        </td>
+      </tr>
+      <tr ng-repeat="f in needed.queued" ng-init="a = needAction(f)">
+        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
+        <td title="{{f.Name}}">{{f.Name | basename}}</td>
+        <td class="text-right small-data">
+          <span ng-if="$index != 0" class="glyphicon glyphicon-chevron-up" ng-click="bumpFile(neededFolder, f.Name)"></span>
+          <span ng-if="f.Size > 0">{{f.Size | binary}}B</span>
+         </td>
+      </tr>
+      <tr ng-repeat="f in needed.rest" ng-init="a = needAction(f)">
         <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
         <td title="{{f.Name}}">{{f.Name | basename}}</td>
         <td class="text-right small-data"><span ng-if="f.Size > 0">{{f.Size | binary}}B</span></td>
       </tr>
     </table>
+
   </modal>
 
   <!-- About modal -->
 
   <modal id="about" large="yes" close="yes" status="info" title="About">
-    <h1 class="text-center"><img alt="Syncthing" title="Syncthing" src="img/logo-text-256.png" style="vertical-align: -16px" height="100" width="366"/><br/><small>{{version}}</small></h1>
+    <h1 class="text-center"><img alt="Syncthing" title="Syncthing" src="assets/img/logo-text-256.png" style="vertical-align: -16px" height="100" width="366"/><br/><small>{{version}}</small></h1>
     <hr/>
 
     <p translate>Copyright &copy; 2014 Jakob Borg and the following Contributors:</p>
     <div class="row">
-      <div class="col-md-6">
-        <ul>
+      <div class="col-md-12">
+        <ul class="list-unstyled three-columns">
           <li>Aaron Bieber</li>
           <li>Andrew Dunham</li>
           <li>Alexander Graf</li>
           <li>Arthur Axel fREW Schmidt</li>
           <li>Audrius Butkevicius</li>
+          <li>Ben Schulz</li>
           <li>Ben Sidhom</li>
           <li>Brandon Philips</li>
           <li>Caleb Callaway</li>
+          <li>Cathryne Linenweaver</li>
           <li>Chris Joel</li>
           <li>Daniel Martí</li>
+          <li>Dennis Wilson</li>
+          <li>Dominik Heidler</li>
           <li>Emil Hessman</li>
           <li>Felix Ableitner</li>
           <li>Felix Unterpaintner</li>
-        </ul>
-      </div>
-      <div class="col-md-6">
-        <ul>
           <li>Gilli Sigurdsson</li>
           <li>James Patterson</li>
           <li>Jens Diemer</li>
@@ -806,7 +940,9 @@
           <li>Michael Tilli</li>
           <li>Philippe Schommers</li>
           <li>Phill Luby</li>
+          <li>Piotr Bejda</li>
           <li>Ryan Sullivan</li>
+          <li>Tomas Cerveny</li>
           <li>Tully Robinson</li>
           <li>Veeti Paananen</li>
           <li>Vil Brekin</li>
@@ -816,7 +952,7 @@
     <hr/>
 
     <p translate>Syncthing includes the following software or portions thereof:</p>
-    <ul>
+    <ul class="list-unstyled two-columns">
       <li><a href="http://golang.org/">The Go Programming Language</a>, Copyright &copy; 2012 The Go Authors.</li>
       <li><a href="https://bitbucket.org/kardianos/osext">kardianos/osext</a>, Copyright &copy; 2012 Daniel Theophanes.</li>
       <li><a href="https://code.google.com/p/snappy-go/">snappy-go</a>, Copyright &copy; 2011 The Snappy-Go Authors.</li>
@@ -829,12 +965,32 @@
     </ul>
   </modal>
 
-  <script src="angular/angular.min.js"></script>
-  <script src="angular/angular-translate.min.js"></script>
-  <script src="angular/angular-translate-loader.min.js"></script>
-  <script src="jquery/jquery-2.0.3.min.js"></script>
-  <script src="bootstrap/js/bootstrap.min.js"></script>
-  <script src="lang/valid-langs.js"></script>
-  <script src="app.js"></script>
+  <!-- vendor scripts -->
+  <script src="vendor/angular/angular.min.js"></script>
+  <script src="vendor/angular/angular-translate.min.js"></script>
+  <script src="vendor/angular/angular-translate-loader.min.js"></script>
+  <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
+  <script src="vendor/bootstrap/js/bootstrap.min.js"></script>
+  <!-- / vendor scripts -->
+
+  <!-- gui application code -->
+  <script src="scripts/syncthing/core/module.js"></script>
+  <script src="scripts/syncthing/core/controllers/eventController.js"></script>
+  <script src="scripts/syncthing/core/controllers/syncthingController.js"></script>
+  <script src="scripts/syncthing/core/directives/identiconDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/modalDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/uniqueFolderDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/validDeviceidDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/popoverDirective.js"></script>
+  <script src="scripts/syncthing/core/filters/alwaysNumberFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/naturalFilter.js"></script>
+  <script src="scripts/syncthing/core/services/localeService.js"></script>
+
+  <script src="assets/lang/valid-langs.js"></script>
+  <script src="scripts/syncthing/app.js"></script>
+  <!-- / gui application code -->
+
 </body>
 </html>

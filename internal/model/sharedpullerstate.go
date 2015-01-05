@@ -16,6 +16,7 @@
 package model
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -31,23 +32,48 @@ type sharedPullerState struct {
 	folder   string
 	tempName string
 	realName string
-	reused   int // Number of blocks reused from temporary file
+	reused   uint32 // Number of blocks reused from temporary file
 
 	// Mutable, must be locked for access
 	err        error      // The first error we hit
 	fd         *os.File   // The fd of the temp file
-	copyTotal  int        // Total number of copy actions for the whole job
-	pullTotal  int        // Total number of pull actions for the whole job
-	copyNeeded int        // Number of copy actions still pending
-	pullNeeded int        // Number of block pulls still pending
-	copyOrigin int        // Number of blocks copied from the original file
+	copyTotal  uint32     // Total number of copy actions for the whole job
+	pullTotal  uint32     // Total number of pull actions for the whole job
+	copyOrigin uint32     // Number of blocks copied from the original file
+	copyNeeded uint32     // Number of copy actions still pending
+	pullNeeded uint32     // Number of block pulls still pending
 	closed     bool       // Set when the file has been closed
 	mut        sync.Mutex // Protects the above
 }
 
+// A momentary state representing the progress of the puller
+type pullerProgress struct {
+	Total               uint32
+	Reused              uint32
+	CopiedFromOrigin    uint32
+	CopiedFromElsewhere uint32
+	Pulled              uint32
+	Pulling             uint32
+	BytesDone           int64
+	BytesTotal          int64
+}
+
+// A lockedWriterAt synchronizes WriteAt calls with an external mutex.
+// WriteAt() is goroutine safe by itself, but not against for example Close().
+type lockedWriterAt struct {
+	mut *sync.Mutex
+	wr  io.WriterAt
+}
+
+func (w lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.wr.WriteAt(p, off)
+}
+
 // tempFile returns the fd for the temporary file, reusing an open fd
 // or creating the file as necessary.
-func (s *sharedPullerState) tempFile() (*os.File, error) {
+func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
@@ -58,7 +84,7 @@ func (s *sharedPullerState) tempFile() (*os.File, error) {
 
 	// If the temp file is already open, return the file descriptor
 	if s.fd != nil {
-		return s.fd, nil
+		return lockedWriterAt{&s.mut, s.fd}, nil
 	}
 
 	// Ensure that the parent directory is writable. This is
@@ -84,6 +110,17 @@ func (s *sharedPullerState) tempFile() (*os.File, error) {
 	flags := os.O_WRONLY
 	if s.reused == 0 {
 		flags |= os.O_CREATE | os.O_EXCL
+	} else {
+		// With sufficiently bad luck when exiting or crashing, we may have
+		// had time to chmod the temp file to read only state but not yet
+		// moved it to it's final name. This leaves us with a read only temp
+		// file that we're going to try to reuse. To handle that, we need to
+		// make sure we have write permissions on the file before opening it.
+		err := os.Chmod(s.tempName, 0644)
+		if err != nil {
+			s.earlyCloseLocked("dst create chmod", err)
+			return nil, err
+		}
 	}
 	fd, err := os.OpenFile(s.tempName, flags, 0644)
 	if err != nil {
@@ -94,7 +131,7 @@ func (s *sharedPullerState) tempFile() (*os.File, error) {
 	// Same fd will be used by all writers
 	s.fd = fd
 
-	return fd, nil
+	return lockedWriterAt{&s.mut, s.fd}, nil
 }
 
 // sourceFile opens the existing source file for reading
@@ -207,4 +244,22 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 		return true, fd.Close()
 	}
 	return true, nil
+}
+
+// Returns the momentarily progress for the puller
+func (s *sharedPullerState) Progress() *pullerProgress {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	total := s.reused + s.copyTotal + s.pullTotal
+	done := total - s.copyNeeded - s.pullNeeded
+	return &pullerProgress{
+		Total:               total,
+		Reused:              s.reused,
+		CopiedFromOrigin:    s.copyOrigin,
+		CopiedFromElsewhere: s.copyTotal - s.copyNeeded - s.copyOrigin,
+		Pulled:              s.pullTotal - s.pullNeeded,
+		Pulling:             s.pullNeeded,
+		BytesTotal:          protocol.BlocksToSize(total),
+		BytesDone:           protocol.BlocksToSize(done),
+	}
 }

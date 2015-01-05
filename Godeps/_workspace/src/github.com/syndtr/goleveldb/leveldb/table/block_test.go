@@ -122,6 +122,7 @@ var _ = testutil.Defer(func() {
 							}
 
 							testutil.DoIteratorTesting(&t)
+							iter.Release()
 							done <- true
 						}
 					}

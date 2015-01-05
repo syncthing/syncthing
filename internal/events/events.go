@@ -38,6 +38,7 @@ const (
 	StateChanged
 	FolderRejected
 	ConfigSaved
+	DownloadProgress
 
 	AllEvents = (1 << iota) - 1
 )
@@ -70,6 +71,8 @@ func (t EventType) String() string {
 		return "FolderRejected"
 	case ConfigSaved:
 		return "ConfigSaved"
+	case DownloadProgress:
+		return "DownloadProgress"
 	default:
 		return "Unknown"
 	}
@@ -83,7 +86,7 @@ const BufferSize = 64
 
 type Logger struct {
 	subs   map[int]*Subscription
-	nextId int
+	nextID int
 	mutex  sync.Mutex
 }
 
@@ -117,15 +120,15 @@ func NewLogger() *Logger {
 func (l *Logger) Log(t EventType, data interface{}) {
 	l.mutex.Lock()
 	if debug {
-		dl.Debugln("log", l.nextId, t.String(), data)
+		dl.Debugln("log", l.nextID, t.String(), data)
 	}
 	e := Event{
-		ID:   l.nextId,
+		ID:   l.nextID,
 		Time: time.Now(),
 		Type: t,
 		Data: data,
 	}
-	l.nextId++
+	l.nextID++
 	for _, s := range l.subs {
 		if s.mask&t != 0 {
 			select {
@@ -145,10 +148,10 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 	}
 	s := &Subscription{
 		mask:   mask,
-		id:     l.nextId,
+		id:     l.nextID,
 		events: make(chan Event, BufferSize),
 	}
-	l.nextId++
+	l.nextID++
 	l.subs[s.id] = s
 	l.mutex.Unlock()
 	return s

@@ -15,7 +15,7 @@
 
 // +build integration
 
-package integration_test
+package integration
 
 import (
 	"bytes"
@@ -49,81 +49,115 @@ func TestStressHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Create a client with reasonable timeouts on all stages of the request.
+
 	tc := &tls.Config{InsecureSkipVerify: true}
 	tr := &http.Transport{
 		TLSClientConfig:       tc,
 		DisableKeepAlives:     true,
-		ResponseHeaderTimeout: time.Second,
-		TLSHandshakeTimeout:   time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
 	}
 	client := &http.Client{
 		Transport: tr,
-		Timeout:   2 * time.Second,
+		Timeout:   10 * time.Second,
 	}
+
+	var (
+		requestsOK    = map[string]int{}
+		requestsError = map[string]int{}
+		firstError    error
+		lock          sync.Mutex
+	)
+
+	gotError := func(ctx string, err error) {
+		lock.Lock()
+		requestsError[ctx]++
+		if firstError == nil {
+			firstError = err
+		}
+		lock.Unlock()
+	}
+
+	requestOK := func(ctx string) {
+		lock.Lock()
+		requestsOK[ctx]++
+		lock.Unlock()
+	}
+
+	log.Println("Testing...")
+
 	var wg sync.WaitGroup
 	t0 := time.Now()
-
-	var counter int
-	var lock sync.Mutex
-
-	errChan := make(chan error, 2)
 
 	// One thread with immediately closed connections
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for time.Since(t0).Seconds() < 30 {
 			conn, err := net.Dial("tcp", "localhost:8082")
 			if err != nil {
-				log.Println(err)
-				errChan <- err
-				return
+				gotError("Dial", err)
+			} else {
+				requestOK("Dial")
+				conn.Close()
 			}
-			conn.Close()
+
+			// At most 100 connects/sec
+			time.Sleep(10 * time.Millisecond)
 		}
-		wg.Done()
 	}()
 
-	// 50 threads doing HTTP and HTTPS requests
+	// 50 threads doing mixed HTTP and HTTPS requests
 	for i := 0; i < 50; i++ {
 		i := i
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			for time.Since(t0).Seconds() < 30 {
 				proto := "http"
 				if i%2 == 0 {
 					proto = "https"
 				}
-				resp, err := client.Get(proto + "://localhost:8082/")
+				url := proto + "://localhost:8082/"
+				resp, err := client.Get(url)
+
 				if err != nil {
-					errChan <- err
-					return
-				}
-				bs, _ := ioutil.ReadAll(resp.Body)
-				resp.Body.Close()
-				if !bytes.Contains(bs, []byte("</html>")) {
-					log.Printf("%s", bs)
-					errChan <- errors.New("Incorrect response")
-					return
+					gotError("Get "+proto, err)
+					continue
 				}
 
-				lock.Lock()
-				counter++
-				lock.Unlock()
+				bs, err := ioutil.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				if err != nil {
+					gotError("Read "+proto, err)
+					continue
+				}
+
+				if !bytes.Contains(bs, []byte("</html>")) {
+					err := errors.New("Incorrect response")
+					gotError("Get "+proto, err)
+					continue
+				}
+
+				requestOK(url)
+
+				// At most 100 requests/sec
+				time.Sleep(10 * time.Millisecond)
 			}
-			wg.Done()
 		}()
 	}
 
-	go func() {
-		wg.Wait()
-		errChan <- nil
-	}()
+	wg.Wait()
+	t.Logf("OK: %v reqs", requestsOK)
+	t.Logf("Err: %v reqs", requestsError)
 
-	err = <-errChan
+	if firstError != nil {
+		t.Error(firstError)
+	}
 
-	t.Logf("%.01f reqs/sec", float64(counter)/time.Since(t0).Seconds())
-
-	sender.stop()
+	err = sender.stop()
 	if err != nil {
 		t.Error(err)
 	}

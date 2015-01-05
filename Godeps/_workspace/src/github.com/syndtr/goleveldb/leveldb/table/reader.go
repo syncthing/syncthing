@@ -50,13 +50,6 @@ func max(x, y int) int {
 	return y
 }
 
-func verifyBlockChecksum(data []byte) bool {
-	n := len(data) - 4
-	checksum0 := binary.LittleEndian.Uint32(data[n:])
-	checksum1 := util.NewCRC(data[:n]).Value()
-	return checksum0 == checksum1
-}
-
 type block struct {
 	bpool          *util.BufferPool
 	bh             blockHandle
@@ -516,7 +509,7 @@ type Reader struct {
 	mu     sync.RWMutex
 	fi     *storage.FileInfo
 	reader io.ReaderAt
-	cache  cache.Namespace
+	cache  *cache.CacheGetter
 	err    error
 	bpool  *util.BufferPool
 	// Options
@@ -525,21 +518,24 @@ type Reader struct {
 	filter         filter.Filter
 	verifyChecksum bool
 
-	dataEnd           int64
-	indexBH, filterBH blockHandle
-	indexBlock        *block
-	filterBlock       *filterBlock
+	dataEnd                   int64
+	metaBH, indexBH, filterBH blockHandle
+	indexBlock                *block
+	filterBlock               *filterBlock
 }
 
 func (r *Reader) blockKind(bh blockHandle) string {
 	switch bh.offset {
+	case r.metaBH.offset:
+		return "meta-block"
 	case r.indexBH.offset:
 		return "index-block"
 	case r.filterBH.offset:
-		return "filter-block"
-	default:
-		return "data-block"
+		if r.filterBH.length > 0 {
+			return "filter-block"
+		}
 	}
+	return "data-block"
 }
 
 func (r *Reader) newErrCorrupted(pos, size int64, kind, reason string) error {
@@ -565,10 +561,17 @@ func (r *Reader) readRawBlock(bh blockHandle, verifyChecksum bool) ([]byte, erro
 	if _, err := r.reader.ReadAt(data, int64(bh.offset)); err != nil && err != io.EOF {
 		return nil, err
 	}
-	if verifyChecksum && !verifyBlockChecksum(data) {
-		r.bpool.Put(data)
-		return nil, r.newErrCorruptedBH(bh, "checksum mismatch")
+
+	if verifyChecksum {
+		n := bh.length + 1
+		checksum0 := binary.LittleEndian.Uint32(data[n:])
+		checksum1 := util.NewCRC(data[:n]).Value()
+		if checksum0 != checksum1 {
+			r.bpool.Put(data)
+			return nil, r.newErrCorruptedBH(bh, fmt.Sprintf("checksum mismatch, want=%#x got=%#x", checksum0, checksum1))
+		}
 	}
+
 	switch data[bh.length] {
 	case blockTypeNoCompression:
 		data = data[:bh.length]
@@ -610,18 +613,22 @@ func (r *Reader) readBlock(bh blockHandle, verifyChecksum bool) (*block, error) 
 
 func (r *Reader) readBlockCached(bh blockHandle, verifyChecksum, fillCache bool) (*block, util.Releaser, error) {
 	if r.cache != nil {
-		var err error
-		ch := r.cache.Get(bh.offset, func() (charge int, value interface{}) {
-			if !fillCache {
-				return 0, nil
-			}
-			var b *block
-			b, err = r.readBlock(bh, verifyChecksum)
-			if err != nil {
-				return 0, nil
-			}
-			return cap(b.data), b
-		})
+		var (
+			err error
+			ch  *cache.Handle
+		)
+		if fillCache {
+			ch = r.cache.Get(bh.offset, func() (size int, value cache.Value) {
+				var b *block
+				b, err = r.readBlock(bh, verifyChecksum)
+				if err != nil {
+					return 0, nil
+				}
+				return cap(b.data), b
+			})
+		} else {
+			ch = r.cache.Get(bh.offset, nil)
+		}
 		if ch != nil {
 			b, ok := ch.Value().(*block)
 			if !ok {
@@ -664,18 +671,22 @@ func (r *Reader) readFilterBlock(bh blockHandle) (*filterBlock, error) {
 
 func (r *Reader) readFilterBlockCached(bh blockHandle, fillCache bool) (*filterBlock, util.Releaser, error) {
 	if r.cache != nil {
-		var err error
-		ch := r.cache.Get(bh.offset, func() (charge int, value interface{}) {
-			if !fillCache {
-				return 0, nil
-			}
-			var b *filterBlock
-			b, err = r.readFilterBlock(bh)
-			if err != nil {
-				return 0, nil
-			}
-			return cap(b.data), b
-		})
+		var (
+			err error
+			ch  *cache.Handle
+		)
+		if fillCache {
+			ch = r.cache.Get(bh.offset, func() (size int, value cache.Value) {
+				var b *filterBlock
+				b, err = r.readFilterBlock(bh)
+				if err != nil {
+					return 0, nil
+				}
+				return cap(b.data), b
+			})
+		} else {
+			ch = r.cache.Get(bh.offset, nil)
+		}
 		if ch != nil {
 			b, ok := ch.Value().(*filterBlock)
 			if !ok {
@@ -798,13 +809,7 @@ func (r *Reader) NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.It
 	return iterator.NewIndexedIterator(index, opt.GetStrict(r.o, ro, opt.StrictReader))
 }
 
-// Find finds key/value pair whose key is greater than or equal to the
-// given key. It returns ErrNotFound if the table doesn't contain
-// such pair.
-//
-// The caller should not modify the contents of the returned slice, but
-// it is safe to modify the contents of the argument after Find returns.
-func (r *Reader) Find(key []byte, ro *opt.ReadOptions) (rkey, value []byte, err error) {
+func (r *Reader) find(key []byte, filtered bool, ro *opt.ReadOptions, noValue bool) (rkey, value []byte, err error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -833,14 +838,17 @@ func (r *Reader) Find(key []byte, ro *opt.ReadOptions) (rkey, value []byte, err 
 		r.err = r.newErrCorruptedBH(r.indexBH, "bad data block handle")
 		return
 	}
-	if r.filter != nil {
-		filterBlock, rel, ferr := r.getFilterBlock(true)
+	if filtered && r.filter != nil {
+		filterBlock, frel, ferr := r.getFilterBlock(true)
 		if ferr == nil {
 			if !filterBlock.contains(r.filter, dataBH.offset, key) {
-				rel.Release()
+				frel.Release()
 				return nil, nil, ErrNotFound
 			}
-			rel.Release()
+			frel.Release()
+		} else if !errors.IsCorrupted(ferr) {
+			err = ferr
+			return
 		}
 	}
 	data := r.getDataIter(dataBH, nil, r.verifyChecksum, !ro.GetDontFillCache())
@@ -854,21 +862,52 @@ func (r *Reader) Find(key []byte, ro *opt.ReadOptions) (rkey, value []byte, err 
 	}
 	// Don't use block buffer, no need to copy the buffer.
 	rkey = data.Key()
-	if r.bpool == nil {
-		value = data.Value()
-	} else {
-		// Use block buffer, and since the buffer will be recycled, the buffer
-		// need to be copied.
-		value = append([]byte{}, data.Value()...)
+	if !noValue {
+		if r.bpool == nil {
+			value = data.Value()
+		} else {
+			// Use block buffer, and since the buffer will be recycled, the buffer
+			// need to be copied.
+			value = append([]byte{}, data.Value()...)
+		}
 	}
+	return
+}
+
+// Find finds key/value pair whose key is greater than or equal to the
+// given key. It returns ErrNotFound if the table doesn't contain
+// such pair.
+// If filtered is true then the nearest 'block' will be checked against
+// 'filter data' (if present) and will immediately return ErrNotFound if
+// 'filter data' indicates that such pair doesn't exist.
+//
+// The caller may modify the contents of the returned slice as it is its
+// own copy.
+// It is safe to modify the contents of the argument after Find returns.
+func (r *Reader) Find(key []byte, filtered bool, ro *opt.ReadOptions) (rkey, value []byte, err error) {
+	return r.find(key, filtered, ro, false)
+}
+
+// Find finds key that is greater than or equal to the given key.
+// It returns ErrNotFound if the table doesn't contain such key.
+// If filtered is true then the nearest 'block' will be checked against
+// 'filter data' (if present) and will immediately return ErrNotFound if
+// 'filter data' indicates that such key doesn't exist.
+//
+// The caller may modify the contents of the returned slice as it is its
+// own copy.
+// It is safe to modify the contents of the argument after Find returns.
+func (r *Reader) FindKey(key []byte, filtered bool, ro *opt.ReadOptions) (rkey []byte, err error) {
+	rkey, _, err = r.find(key, filtered, ro, true)
 	return
 }
 
 // Get gets the value for the given key. It returns errors.ErrNotFound
 // if the table does not contain the key.
 //
-// The caller should not modify the contents of the returned slice, but
-// it is safe to modify the contents of the argument after Get returns.
+// The caller may modify the contents of the returned slice as it is its
+// own copy.
+// It is safe to modify the contents of the argument after Find returns.
 func (r *Reader) Get(key []byte, ro *opt.ReadOptions) (value []byte, err error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -878,7 +917,7 @@ func (r *Reader) Get(key []byte, ro *opt.ReadOptions) (value []byte, err error) 
 		return
 	}
 
-	rkey, value, err := r.Find(key, ro)
+	rkey, value, err := r.find(key, false, ro, false)
 	if err == nil && r.cmp.Compare(rkey, key) != 0 {
 		value = nil
 		err = ErrNotFound
@@ -949,7 +988,11 @@ func (r *Reader) Release() {
 // The fi, cache and bpool is optional and can be nil.
 //
 // The returned table reader instance is goroutine-safe.
-func NewReader(f io.ReaderAt, size int64, fi *storage.FileInfo, cache cache.Namespace, bpool *util.BufferPool, o *opt.Options) (*Reader, error) {
+func NewReader(f io.ReaderAt, size int64, fi *storage.FileInfo, cache *cache.CacheGetter, bpool *util.BufferPool, o *opt.Options) (*Reader, error) {
+	if f == nil {
+		return nil, errors.New("leveldb/table: nil file")
+	}
+
 	r := &Reader{
 		fi:             fi,
 		reader:         f,
@@ -959,13 +1002,12 @@ func NewReader(f io.ReaderAt, size int64, fi *storage.FileInfo, cache cache.Name
 		cmp:            o.GetComparer(),
 		verifyChecksum: o.GetStrict(opt.StrictBlockChecksum),
 	}
-	if f == nil {
-		return nil, errors.New("leveldb/table: nil file")
-	}
+
 	if size < footerLen {
 		r.err = r.newErrCorrupted(0, size, "table", "too small")
 		return r, nil
 	}
+
 	footerPos := size - footerLen
 	var footer [footerLen]byte
 	if _, err := r.reader.ReadAt(footer[:], footerPos); err != nil && err != io.EOF {
@@ -975,20 +1017,24 @@ func NewReader(f io.ReaderAt, size int64, fi *storage.FileInfo, cache cache.Name
 		r.err = r.newErrCorrupted(footerPos, footerLen, "table-footer", "bad magic number")
 		return r, nil
 	}
+
+	var n int
 	// Decode the metaindex block handle.
-	metaBH, n := decodeBlockHandle(footer[:])
+	r.metaBH, n = decodeBlockHandle(footer[:])
 	if n == 0 {
 		r.err = r.newErrCorrupted(footerPos, footerLen, "table-footer", "bad metaindex block handle")
 		return r, nil
 	}
+
 	// Decode the index block handle.
 	r.indexBH, n = decodeBlockHandle(footer[n:])
 	if n == 0 {
 		r.err = r.newErrCorrupted(footerPos, footerLen, "table-footer", "bad index block handle")
 		return r, nil
 	}
+
 	// Read metaindex block.
-	metaBlock, err := r.readBlock(metaBH, true)
+	metaBlock, err := r.readBlock(r.metaBH, true)
 	if err != nil {
 		if errors.IsCorrupted(err) {
 			r.err = err
@@ -997,9 +1043,12 @@ func NewReader(f io.ReaderAt, size int64, fi *storage.FileInfo, cache cache.Name
 			return nil, err
 		}
 	}
+
 	// Set data end.
-	r.dataEnd = int64(metaBH.offset)
-	metaIter := r.newBlockIter(metaBlock, nil, nil, false)
+	r.dataEnd = int64(r.metaBH.offset)
+
+	// Read metaindex.
+	metaIter := r.newBlockIter(metaBlock, nil, nil, true)
 	for metaIter.Next() {
 		key := string(metaIter.Key())
 		if !strings.HasPrefix(key, "filter.") {
@@ -1044,13 +1093,12 @@ func NewReader(f io.ReaderAt, size int64, fi *storage.FileInfo, cache cache.Name
 		if r.filter != nil {
 			r.filterBlock, err = r.readFilterBlock(r.filterBH)
 			if err != nil {
-				if !errors.IsCorrupted(r.err) {
+				if !errors.IsCorrupted(err) {
 					return nil, err
 				}
 
 				// Don't use filter then.
 				r.filter = nil
-				r.filterBH = blockHandle{}
 			}
 		}
 	}

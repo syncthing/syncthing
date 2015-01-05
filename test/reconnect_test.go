@@ -15,11 +15,10 @@
 
 // +build integration
 
-package integration_test
+package integration
 
 import (
 	"log"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -48,7 +47,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 	}
 
 	log.Println("Generating files...")
-	err = generateFiles("s1", 1000, 22, "../bin/syncthing")
+	err = generateFiles("s1", 1000, 22, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +72,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 	}
 	err = receiver.start()
 	if err != nil {
-		sender.stop()
+		_ = sender.stop()
 		t.Fatal(err)
 	}
 
@@ -81,32 +80,44 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 	for {
 		comp, err := sender.peerCompletion()
 		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
+			if isTimeout(err) {
 				time.Sleep(250 * time.Millisecond)
 				continue
 			}
-			sender.stop()
-			receiver.stop()
+			_ = sender.stop()
+			_ = receiver.stop()
 			t.Fatal(err)
 		}
 
 		curComp := comp[id2]
 
 		if curComp == 100 {
-			sender.stop()
-			receiver.stop()
+			err = sender.stop()
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = receiver.stop()
+			if err != nil {
+				t.Fatal(err)
+			}
 			break
 		}
 
 		if curComp > prevComp {
 			if restartReceiver {
 				log.Printf("Stopping receiver...")
-				receiver.stop()
+				err = receiver.stop()
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			if restartSender {
 				log.Printf("Stopping sender...")
-				sender.stop()
+				err = sender.stop()
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			var wg sync.WaitGroup
@@ -139,8 +150,14 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 		time.Sleep(250 * time.Millisecond)
 	}
 
-	sender.stop()
-	receiver.stop()
+	err = sender.stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = receiver.stop()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	log.Println("Comparing directories...")
 	err = compareDirectories("s1", "s2")

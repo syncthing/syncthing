@@ -35,23 +35,25 @@ func init() {
 
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
-		ListenAddress:        []string{"0.0.0.0:22000"},
-		GlobalAnnServer:      "announce.syncthing.net:22026",
-		GlobalAnnEnabled:     true,
-		LocalAnnEnabled:      true,
-		LocalAnnPort:         21025,
-		LocalAnnMCAddr:       "[ff32::5222]:21026",
-		MaxSendKbps:          0,
-		MaxRecvKbps:          0,
-		ReconnectIntervalS:   60,
-		StartBrowser:         true,
-		UPnPEnabled:          true,
-		UPnPLease:            0,
-		UPnPRenewal:          30,
-		RestartOnWakeup:      true,
-		AutoUpgradeIntervalH: 12,
-		KeepTemporariesH:     24,
-		CacheIgnoredFiles:    true,
+		ListenAddress:           []string{"0.0.0.0:22000"},
+		GlobalAnnServers:        []string{"udp4://announce.syncthing.net:22026"},
+		GlobalAnnEnabled:        true,
+		LocalAnnEnabled:         true,
+		LocalAnnPort:            21025,
+		LocalAnnMCAddr:          "[ff32::5222]:21026",
+		MaxSendKbps:             0,
+		MaxRecvKbps:             0,
+		ReconnectIntervalS:      60,
+		StartBrowser:            true,
+		UPnPEnabled:             true,
+		UPnPLease:               0,
+		UPnPRenewal:             30,
+		RestartOnWakeup:         true,
+		AutoUpgradeIntervalH:    12,
+		KeepTemporariesH:        24,
+		CacheIgnoredFiles:       true,
+		ProgressUpdateIntervalS: 5,
+		SymlinksEnabled:         true,
 	}
 
 	cfg := New(device1)
@@ -85,6 +87,9 @@ func TestDeviceConfig(t *testing.T) {
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				ReadOnly:        true,
 				RescanIntervalS: 600,
+				Copiers:         1,
+				Pullers:         16,
+				Finishers:       1,
 			},
 		}
 		expectedDevices := []DeviceConfiguration{
@@ -133,23 +138,25 @@ func TestNoListenAddress(t *testing.T) {
 
 func TestOverriddenValues(t *testing.T) {
 	expected := OptionsConfiguration{
-		ListenAddress:        []string{":23000"},
-		GlobalAnnServer:      "syncthing.nym.se:22026",
-		GlobalAnnEnabled:     false,
-		LocalAnnEnabled:      false,
-		LocalAnnPort:         42123,
-		LocalAnnMCAddr:       "quux:3232",
-		MaxSendKbps:          1234,
-		MaxRecvKbps:          2341,
-		ReconnectIntervalS:   6000,
-		StartBrowser:         false,
-		UPnPEnabled:          false,
-		UPnPLease:            60,
-		UPnPRenewal:          15,
-		RestartOnWakeup:      false,
-		AutoUpgradeIntervalH: 24,
-		KeepTemporariesH:     48,
-		CacheIgnoredFiles:    false,
+		ListenAddress:           []string{":23000"},
+		GlobalAnnServers:        []string{"udp4://syncthing.nym.se:22026"},
+		GlobalAnnEnabled:        false,
+		LocalAnnEnabled:         false,
+		LocalAnnPort:            42123,
+		LocalAnnMCAddr:          "quux:3232",
+		MaxSendKbps:             1234,
+		MaxRecvKbps:             2341,
+		ReconnectIntervalS:      6000,
+		StartBrowser:            false,
+		UPnPEnabled:             false,
+		UPnPLease:               60,
+		UPnPRenewal:             15,
+		RestartOnWakeup:         false,
+		AutoUpgradeIntervalH:    24,
+		KeepTemporariesH:        48,
+		CacheIgnoredFiles:       false,
+		ProgressUpdateIntervalS: 10,
+		SymlinksEnabled:         false,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
@@ -158,7 +165,7 @@ func TestOverriddenValues(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(cfg.Options(), expected) {
-		t.Errorf("Overridden config differs;\n  E: %#v\n  A: %#v", expected, cfg.Options)
+		t.Errorf("Overridden config differs;\n  E: %#v\n  A: %#v", expected, cfg.Options())
 	}
 }
 

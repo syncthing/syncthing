@@ -34,6 +34,10 @@ func (t *testingDB) TestGet(key []byte) (value []byte, err error) {
 	return t.Get(key, t.ro)
 }
 
+func (t *testingDB) TestHas(key []byte) (ret bool, err error) {
+	return t.Has(key, t.ro)
+}
+
 func (t *testingDB) TestNewIterator(slice *util.Range) iterator.Iterator {
 	return t.NewIterator(slice, t.ro)
 }

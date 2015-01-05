@@ -49,10 +49,14 @@ const (
 )
 
 const (
-	FlagDeleted    uint32 = 1 << 12
-	FlagInvalid           = 1 << 13
-	FlagDirectory         = 1 << 14
-	FlagNoPermBits        = 1 << 15
+	FlagDeleted              uint32 = 1 << 12
+	FlagInvalid                     = 1 << 13
+	FlagDirectory                   = 1 << 14
+	FlagNoPermBits                  = 1 << 15
+	FlagSymlink                     = 1 << 16
+	FlagSymlinkMissingTarget        = 1 << 17
+
+	SymlinkTypeMask = FlagDirectory | FlagSymlinkMissingTarget
 )
 
 const (
@@ -636,20 +640,4 @@ func (c *rawConnection) Statistics() Statistics {
 		InBytesTotal:  c.cr.Tot(),
 		OutBytesTotal: c.cw.Tot(),
 	}
-}
-
-func IsDeleted(bits uint32) bool {
-	return bits&FlagDeleted != 0
-}
-
-func IsInvalid(bits uint32) bool {
-	return bits&FlagInvalid != 0
-}
-
-func IsDirectory(bits uint32) bool {
-	return bits&FlagDirectory != 0
-}
-
-func HasPermissionBits(bits uint32) bool {
-	return bits&FlagNoPermBits == 0
 }

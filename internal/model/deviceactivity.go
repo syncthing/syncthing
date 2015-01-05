@@ -35,9 +35,9 @@ func newDeviceActivity() *deviceActivity {
 	}
 }
 
-func (m deviceActivity) leastBusy(availability []protocol.DeviceID) protocol.DeviceID {
+func (m *deviceActivity) leastBusy(availability []protocol.DeviceID) protocol.DeviceID {
 	m.mut.Lock()
-	var low int = 2<<30 - 1
+	low := 2<<30 - 1
 	var selected protocol.DeviceID
 	for _, device := range availability {
 		if usage := m.act[device]; usage < low {
@@ -49,14 +49,14 @@ func (m deviceActivity) leastBusy(availability []protocol.DeviceID) protocol.Dev
 	return selected
 }
 
-func (m deviceActivity) using(device protocol.DeviceID) {
+func (m *deviceActivity) using(device protocol.DeviceID) {
 	m.mut.Lock()
-	defer m.mut.Unlock()
 	m.act[device]++
+	m.mut.Unlock()
 }
 
-func (m deviceActivity) done(device protocol.DeviceID) {
+func (m *deviceActivity) done(device protocol.DeviceID) {
 	m.mut.Lock()
-	defer m.mut.Unlock()
 	m.act[device]--
+	m.mut.Unlock()
 }

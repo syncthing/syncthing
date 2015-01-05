@@ -7,7 +7,6 @@
 package leveldb
 
 import (
-	"github.com/syndtr/goleveldb/leveldb/cache"
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
@@ -16,6 +15,9 @@ func dupOptions(o *opt.Options) *opt.Options {
 	newo := &opt.Options{}
 	if o != nil {
 		*newo = *o
+	}
+	if newo.Strict == 0 {
+		newo.Strict = opt.DefaultStrict
 	}
 	return newo
 }
@@ -28,13 +30,6 @@ func (s *session) setOptions(o *opt.Options) {
 		for i, filter := range filters {
 			no.AltFilters[i] = &iFilter{filter}
 		}
-	}
-	// Block cache.
-	switch o.GetBlockCache() {
-	case nil:
-		no.BlockCache = cache.NewLRUCache(opt.DefaultBlockCacheSize)
-	case opt.NoCache:
-		no.BlockCache = nil
 	}
 	// Comparer.
 	s.icmp = &iComparer{o.GetComparer()}
