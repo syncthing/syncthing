@@ -10,7 +10,6 @@ angular.module('syncthing.core')
         var restarting = false;
 
         function initController() {
-
             LocaleService.autoConfigLocale();
 
             refreshSystem();
@@ -21,11 +20,11 @@ angular.module('syncthing.core')
 
             $http.get(urlbase + '/version').success(function (data) {
                 $scope.version = data.version;
-            });
+            }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/report').success(function (data) {
                 $scope.reportData = data;
-            });
+            }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/upgrade').success(function (data) {
                 $scope.upgradeInfo = data;
@@ -106,6 +105,30 @@ angular.module('syncthing.core')
             }
         });
 
+        $scope.$on('HTTPError', function (event, arg) {
+            // Emitted when a HTTP call fails. We use the status code to try
+            // to figure out what's wrong.
+
+            if (navigatingAway || !online) {
+                return;
+            }
+
+            console.log('HTTPError', arg);
+            online = false;
+            if (!restarting) {
+                if (arg.status === 0) {
+                    // A network error, not an HTTP error
+                    $scope.$emit('UIOffline');
+                } else if (arg.status >= 400 && arg.status <= 599) {
+                    // A genuine HTTP error
+                    $('#networkError').modal('hide');
+                    $('#restarting').modal('hide');
+                    $('#shutdown').modal('hide');
+                    $('#httpError').modal();
+                }
+            }
+        });
+
         $scope.$on('StateChanged', function (event, arg) {
             var data = arg.data;
             if ($scope.model[data.folder]) {
@@ -183,7 +206,7 @@ angular.module('syncthing.core')
 
             $http.get(urlbase + '/config/sync').success(function (data) {
                 $scope.configInSync = data.configInSync;
-            });
+            }).error($scope.emitHTTPError);
         });
 
         $scope.$on('DownloadProgress', function (event, arg) {
@@ -233,6 +256,10 @@ angular.module('syncthing.core')
             console.log("DownloadProgress", $scope.progress);
         });
 
+        $scope.emitHTTPError = function (data, status, headers, config) {
+            $scope.$emit('HTTPError', {data: data, status: status, headers: headers, config: config});
+        };
+
         var debouncedFuncs = {};
 
         function refreshFolder(folder) {
@@ -242,7 +269,7 @@ angular.module('syncthing.core')
                     $http.get(urlbase + '/model?folder=' + encodeURIComponent(folder)).success(function (data) {
                         $scope.model[folder] = data;
                         console.log("refreshFolder", folder, data);
-                    });
+                    }).error($scope.emitHTTPError);
                 }, 1000, true);
             }
             debouncedFuncs[key]();
@@ -289,7 +316,7 @@ angular.module('syncthing.core')
                 }
                 $scope.announceServersFailed = failed;
                 console.log("refreshSystem", data);
-            });
+            }).error($scope.emitHTTPError);
         }
 
         function refreshCompletion(device, folder) {
@@ -318,7 +345,7 @@ angular.module('syncthing.core')
                         $scope.completion[device]._total = tot / cnt;
 
                         console.log("refreshCompletion", device, folder, $scope.completion[device]);
-                    });
+                    }).error($scope.emitHTTPError);
                 }, 1000, true);
             }
             debouncedFuncs[key]();
@@ -345,25 +372,25 @@ angular.module('syncthing.core')
                 }
                 $scope.connections = data;
                 console.log("refreshConnections", data);
-            });
+            }).error($scope.emitHTTPError);
         }
 
         function refreshErrors() {
             $http.get(urlbase + '/errors').success(function (data) {
                 $scope.errors = data.errors;
                 console.log("refreshErrors", data);
-            });
+            }).error($scope.emitHTTPError);
         }
 
         function refreshConfig() {
             $http.get(urlbase + '/config').success(function (data) {
                 updateLocalConfig(data);
                 console.log("refreshConfig", data);
-            });
+            }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/config/sync').success(function (data) {
                 $scope.configInSync = data.configInSync;
-            });
+            }).error($scope.emitHTTPError);
         }
 
         function refreshNeed(folder) {
@@ -372,7 +399,7 @@ angular.module('syncthing.core')
                     console.log("refreshNeed", folder, data);
                     $scope.needed = data;
                 }
-            });
+            }).error($scope.emitHTTPError);
         }
 
         var refreshDeviceStats = debounce(function () {
@@ -383,7 +410,7 @@ angular.module('syncthing.core')
                     $scope.deviceStats[device].LastSeenDays = (new Date() - $scope.deviceStats[device].LastSeen) / 1000 / 86400;
                 }
                 console.log("refreshDeviceStats", data);
-            });
+            }).error($scope.emitHTTPError);
         }, 500);
 
         var refreshFolderStats = debounce(function () {
@@ -395,7 +422,7 @@ angular.module('syncthing.core')
                     }
                 }
                 console.log("refreshfolderStats", data);
-            });
+            }).error($scope.emitHTTPError);
         }, 500);
 
         $scope.refresh = function () {
@@ -576,7 +603,7 @@ angular.module('syncthing.core')
                 $http.get(urlbase + '/config/sync').success(function (data) {
                     $scope.configInSync = data.configInSync;
                 });
-            });
+            }).error($scope.emitHTTPError);
         };
 
         $scope.saveSettings = function () {
@@ -656,7 +683,7 @@ angular.module('syncthing.core')
             restarting = true;
             $http.post(urlbase + '/shutdown').success(function () {
                 $('#shutdown').modal();
-            });
+            }).error($scope.emitHTTPError);
             $scope.configInSync = true;
         };
 
@@ -857,7 +884,7 @@ angular.module('syncthing.core')
                 params: { current: newvalue }
             }).success(function (data) {
                 $scope.directoryList = data;
-            });
+            }).error($scope.emitHTTPError);
         });
 
         $scope.editFolder = function (folderCfg) {
@@ -1137,7 +1164,7 @@ angular.module('syncthing.core')
                     console.log("bumpFile", folder, data);
                     $scope.needed = data;
                 }
-            });
+            }).error($scope.emitHTTPError);
         };
 
         // pseudo main. called on all definitions assigned
