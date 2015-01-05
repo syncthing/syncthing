@@ -1,0 +1,14 @@
+[Unit]
+Description=Syncthing service for %i
+After=network.target
+
+[Service]
+User=%i
+Environment=STARGS=
+EnvironmentFile=-/etc/default/syncthing
+Environment=STNORESTART=yes
+ExecStart=/usr/bin/syncthing ${STARGS}
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
