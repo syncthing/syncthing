@@ -130,9 +130,6 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			if debug {
 				l.Debugln("ignored:", rn)
 			}
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
 			return nil
 		}
 
