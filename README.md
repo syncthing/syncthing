@@ -44,10 +44,10 @@ that describes it for both Unix and Windows.
 Signed Releases
 ---------------
 
-As of v0.7.0 and onwards, git tags and release binaries are GPG signed with
-the key BCE524C7 (http://nym.se/gpg.txt). For release binaries, MD5 and
-SHA1 checksums are calculated and signed, available in the
-md5sum.txt.asc and sha1sum.txt.asc files.
+As of v0.10.15 and onwards, git tags and release binaries are GPG signed
+with the key D26E6ED000654A3E (see http://syncthing.net/security.html).
+For release binaries, MD5 and SHA1 checksums are calculated and signed,
+available in the md5sum.txt.asc and sha1sum.txt.asc files.
 
 Documentation
 =============
