@@ -43,8 +43,8 @@ func Rename(from, to string) error {
 
 	// Make sure the destination directory is writeable
 	toDir := filepath.Dir(to)
-	if info, err := os.Stat(toDir); err == nil {
-		os.Chmod(toDir, 0777)
+	if info, err := os.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
+		os.Chmod(toDir, 0755)
 		defer os.Chmod(toDir, info.Mode())
 	}
 
