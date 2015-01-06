@@ -125,6 +125,7 @@
     "Syncthing is restarting.": "Syncthing正在重启",
     "Syncthing is upgrading.": "Syncthing正在升级",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing似乎关闭了，或者您的网络连接存在故障。重试中...",
+    "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing seems to be experiencing a problem processing your request. Please reload your browser or restart Syncthing if the problem persists.",
     "The aggregated statistics are publicly available at {%url%}.": "全局统计公布于 {{url}}",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "设置已经保存，但是还未生效。Syncthing需要重启以启用新的设置。",
     "The device ID cannot be blank.": "设备ID不能为空",

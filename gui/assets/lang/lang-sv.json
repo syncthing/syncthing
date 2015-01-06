@@ -125,6 +125,7 @@
     "Syncthing is restarting.": "Syncthing startar om.",
     "Syncthing is upgrading.": "Syncthing uppgraderas.",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing verkar avstängd, eller så är där ett problem med din Internetanslutning. Försöker igen...",
+    "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing seems to be experiencing a problem processing your request. Please reload your browser or restart Syncthing if the problem persists.",
     "The aggregated statistics are publicly available at {%url%}.": "Aggregerad statistik finns publikt tillgänglig på {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Konfigurationen har sparats men inte aktiverats. Syncthing måste startas om för att aktivera den nya konfigurationen.",
     "The device ID cannot be blank.": "Enhets-ID kan inte vara blankt.",

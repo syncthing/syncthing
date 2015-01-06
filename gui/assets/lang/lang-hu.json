@@ -125,6 +125,7 @@
     "Syncthing is restarting.": "Syncthing újraindul",
     "Syncthing is upgrading.": "Syncthing frissül",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Úgy tűnik, hogy a Syncthing nem működik, vagy valami probléma van az hálózati kapcsolattal. Újra próbálom...",
+    "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing seems to be experiencing a problem processing your request. Please reload your browser or restart Syncthing if the problem persists.",
     "The aggregated statistics are publicly available at {%url%}.": "Az összevont statisztikák nyilvánosan elérhetők a {{url}} címen.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "A beállítások elmentésre kerültek, de nem lettek aktiválva. Indítsd újra a Syncthing-et, hogy aktiváld őket.",
     "The device ID cannot be blank.": "Az eszköz azonosító nem lehet üres.",

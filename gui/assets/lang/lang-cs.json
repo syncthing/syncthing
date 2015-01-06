@@ -125,6 +125,7 @@
     "Syncthing is restarting.": "Syncthing se restartuje.",
     "Syncthing is upgrading.": "Syncthing se aktualizuje.",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing se zdá být nefunkční, nebo je problém s připojením k Internetu. Opakuji...",
+    "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing má nejspíše problém s provedením vašeho požadavku. Pokud problém přetrvává, načtěte znovu data v prohlížeči nebo restartujte Syncthing.",
     "The aggregated statistics are publicly available at {%url%}.": "Souhrnné statistiky jsou veřejně dostupné na {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Konfigurace byla uložena, ale není aktivována. Pro aktivaci nové konfigurace je třeba restartovat Syncthing.",
     "The device ID cannot be blank.": "ID přístroje nemůže být prázdné.",

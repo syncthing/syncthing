@@ -125,6 +125,7 @@
     "Syncthing is restarting.": "Riavvio di Syncthing in corso.",
     "Syncthing is upgrading.": "Aggiornamento di Syncthing in corso.",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing sembra inattivo, oppure c'è un problema con la tua connessione a Internet. Nuovo tentativo…",
+    "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing seems to be experiencing a problem processing your request. Please reload your browser or restart Syncthing if the problem persists.",
     "The aggregated statistics are publicly available at {%url%}.": "Le statistiche aggregate sono disponibili pubblicamente su {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "La configurazione è stata salvata ma non attivata. Devi riavviare Syncthing per attivare la nuova configurazione.",
     "The device ID cannot be blank.": "L'ID del dispositivo non può essere vuoto.",
