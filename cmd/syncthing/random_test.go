@@ -15,14 +15,21 @@
 
 package main
 
-import "testing"
+import (
+	"sync"
+	"testing"
+)
+
+var predictableRandomTest sync.Once
 
 func TestPredictableRandom(t *testing.T) {
-	// predictable random sequence is predictable
-	e := 3440579354231278675
-	if v := predictableRandom.Int(); v != e {
-		t.Errorf("Unexpected random value %d != %d", v, e)
-	}
+	predictableRandomTest.Do(func() {
+		// predictable random sequence is predictable
+		e := 3440579354231278675
+		if v := predictableRandom.Int(); v != e {
+			t.Errorf("Unexpected random value %d != %d", v, e)
+		}
+	})
 }
 
 func TestSeedFromBytes(t *testing.T) {
