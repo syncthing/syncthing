@@ -348,8 +348,12 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 		if !ok {
 			break
 		}
-		f := p.model.CurrentGlobalFile(p.folder, fileName)
-		p.handleFile(f, copyChan, finisherChan)
+		if f, ok := p.model.CurrentGlobalFile(p.folder, fileName); ok {
+			p.handleFile(f, copyChan, finisherChan)
+		} else {
+			// File is no longer in the index. Mark it as done and drop it.
+			p.queue.Done(fileName)
+		}
 	}
 
 	// Signal copy and puller routines that we are done with the in data for
@@ -386,7 +390,7 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 	}
 
 	if debug {
-		curFile := p.model.CurrentFolderFile(p.folder, file.Name)
+		curFile, _ := p.model.CurrentFolderFile(p.folder, file.Name)
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
@@ -480,9 +484,9 @@ func (p *Puller) deleteFile(file protocol.FileInfo) {
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
 func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
-	curFile := p.model.CurrentFolderFile(p.folder, file.Name)
+	curFile, ok := p.model.CurrentFolderFile(p.folder, file.Name)
 
-	if len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
+	if ok && len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
 		// We are supposed to copy the entire file, and then fetch nothing. We
 		// are only updating metadata, so we don't actually *need* to make the
 		// copy.

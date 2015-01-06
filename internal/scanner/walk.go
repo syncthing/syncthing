@@ -60,7 +60,7 @@ type TempNamer interface {
 
 type CurrentFiler interface {
 	// CurrentFile returns the file as seen at last scan.
-	CurrentFile(name string) protocol.FileInfo
+	CurrentFile(name string) (protocol.FileInfo, bool)
 }
 
 // Walk returns the list of files found in the local folder by scanning the
@@ -183,13 +183,14 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 			if w.CurrentFiler != nil {
 				// A symlink is "unchanged", if
+				//  - it exists
 				//  - it wasn't deleted (because it isn't now)
 				//  - it was a symlink
 				//  - it wasn't invalid
 				//  - the symlink type (file/dir) was the same
 				//  - the block list (i.e. hash of target) was the same
-				cf := w.CurrentFiler.CurrentFile(rn)
-				if !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(flags, cf.Flags) && BlocksEqual(cf.Blocks, blocks) {
+				cf, ok := w.CurrentFiler.CurrentFile(rn)
+				if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(flags, cf.Flags) && BlocksEqual(cf.Blocks, blocks) {
 					return rval
 				}
 			}
@@ -214,14 +215,15 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 		if info.Mode().IsDir() {
 			if w.CurrentFiler != nil {
 				// A directory is "unchanged", if it
+				//  - exists
 				//  - has the same permissions as previously, unless we are ignoring permissions
 				//  - was not marked deleted (since it apparently exists now)
 				//  - was a directory previously (not a file or something else)
 				//  - was not a symlink (since it's a directory now)
 				//  - was not invalid (since it looks valid now)
-				cf := w.CurrentFiler.CurrentFile(rn)
+				cf, ok := w.CurrentFiler.CurrentFile(rn)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
+				if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 					return nil
 				}
 			}
@@ -248,6 +250,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 		if info.Mode().IsRegular() {
 			if w.CurrentFiler != nil {
 				// A file is "unchanged", if it
+				//  - exists
 				//  - has the same permissions as previously, unless we are ignoring permissions
 				//  - was not marked deleted (since it apparently exists now)
 				//  - had the same modification time as it has now
@@ -255,9 +258,9 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - was not a symlink (since it's a file now)
 				//  - was not invalid (since it looks valid now)
 				//  - has the same size as previously
-				cf := w.CurrentFiler.CurrentFile(rn)
+				cf, ok := w.CurrentFiler.CurrentFile(rn)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if permUnchanged && !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && !cf.IsDirectory() &&
+				if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && !cf.IsDirectory() &&
 					!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
 					return nil
 				}
