@@ -571,6 +571,10 @@ func restGetEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func restGetUpgrade(w http.ResponseWriter, r *http.Request) {
+	if noUpgrade {
+		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
+		return
+	}
 	rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
