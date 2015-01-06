@@ -440,13 +440,17 @@ func (m *Model) NeedFolderFiles(folder string, max int) ([]protocol.FileInfoTrun
 			seen = make(map[string]bool, len(progressNames)+len(queuedNames))
 
 			for i, name := range progressNames {
-				progress[i] = rf.GetGlobal(name).ToTruncated() /// XXX: Should implement GetGlobalTruncated directly
-				seen[name] = true
+				if f, ok := rf.GetGlobal(name); ok {
+					progress[i] = f.ToTruncated() /// XXX: Should implement GetGlobalTruncated directly
+					seen[name] = true
+				}
 			}
 
 			for i, name := range queuedNames {
-				queued[i] = rf.GetGlobal(name).ToTruncated() /// XXX: Should implement GetGlobalTruncated directly
-				seen[name] = true
+				if f, ok := rf.GetGlobal(name); ok {
+					queued[i] = f.ToTruncated() /// XXX: Should implement GetGlobalTruncated directly
+					seen[name] = true
+				}
 			}
 		}
 		left := max - len(progress) - len(queued)
@@ -704,7 +708,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return nil, ErrNoSuchFile
 	}
 
-	lf := r.Get(protocol.LocalDeviceID, name)
+	lf, ok := r.Get(protocol.LocalDeviceID, name)
+	if !ok {
+		return nil, ErrNoSuchFile
+	}
+
 	if lf.IsInvalid() || lf.IsDeleted() {
 		if debug {
 			l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, size, lf)
@@ -759,18 +767,18 @@ func (m *Model) ReplaceLocal(folder string, fs []protocol.FileInfo) {
 	m.fmut.RUnlock()
 }
 
-func (m *Model) CurrentFolderFile(folder string, file string) protocol.FileInfo {
+func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
 	m.fmut.RLock()
-	f := m.folderFiles[folder].Get(protocol.LocalDeviceID, file)
+	f, ok := m.folderFiles[folder].Get(protocol.LocalDeviceID, file)
 	m.fmut.RUnlock()
-	return f
+	return f, ok
 }
 
-func (m *Model) CurrentGlobalFile(folder string, file string) protocol.FileInfo {
+func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool) {
 	m.fmut.RLock()
-	f := m.folderFiles[folder].GetGlobal(file)
+	f, ok := m.folderFiles[folder].GetGlobal(file)
 	m.fmut.RUnlock()
-	return f
+	return f, ok
 }
 
 type cFiler struct {
@@ -779,7 +787,7 @@ type cFiler struct {
 }
 
 // Implements scanner.CurrentFiler
-func (cf cFiler) CurrentFile(file string) protocol.FileInfo {
+func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
 	return cf.m.CurrentFolderFile(cf.r, file)
 }
 
@@ -1309,8 +1317,8 @@ func (m *Model) Override(folder string) {
 			batch = batch[:0]
 		}
 
-		have := fs.Get(protocol.LocalDeviceID, need.Name)
-		if have.Name != need.Name {
+		have, ok := fs.Get(protocol.LocalDeviceID, need.Name)
+		if !ok || have.Name != need.Name {
 			// We are missing the file
 			need.Flags |= protocol.FlagDeleted
 			need.Blocks = nil

@@ -209,27 +209,42 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", n, expectedRemoteNeed)
 	}
 
-	f := m.Get(protocol.LocalDeviceID, "b")
+	f, ok := m.Get(protocol.LocalDeviceID, "b")
+	if !ok {
+		t.Error("Unexpectedly not OK")
+	}
 	if fmt.Sprint(f) != fmt.Sprint(localTot[1]) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, localTot[1])
 	}
 
-	f = m.Get(remoteDevice0, "b")
+	f, ok = m.Get(remoteDevice0, "b")
+	if !ok {
+		t.Error("Unexpectedly not OK")
+	}
 	if fmt.Sprint(f) != fmt.Sprint(remote1[0]) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, remote1[0])
 	}
 
-	f = m.GetGlobal("b")
+	f, ok = m.GetGlobal("b")
+	if !ok {
+		t.Error("Unexpectedly not OK")
+	}
 	if fmt.Sprint(f) != fmt.Sprint(remote1[0]) {
 		t.Errorf("GetGlobal incorrect;\n A: %v !=\n E: %v", f, remote1[0])
 	}
 
-	f = m.Get(protocol.LocalDeviceID, "zz")
+	f, ok = m.Get(protocol.LocalDeviceID, "zz")
+	if ok {
+		t.Error("Unexpectedly OK")
+	}
 	if f.Name != "" {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, protocol.FileInfo{})
 	}
 
-	f = m.GetGlobal("zz")
+	f, ok = m.GetGlobal("zz")
+	if ok {
+		t.Error("Unexpectedly OK")
+	}
 	if f.Name != "" {
 		t.Errorf("GetGlobal incorrect;\n A: %v !=\n E: %v", f, protocol.FileInfo{})
 	}

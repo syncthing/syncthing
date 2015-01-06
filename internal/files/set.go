@@ -118,8 +118,8 @@ func (s *Set) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		discards := make([]protocol.FileInfo, 0, len(fs))
 		updates := make([]protocol.FileInfo, 0, len(fs))
 		for _, newFile := range fs {
-			existingFile := ldbGet(s.db, []byte(s.folder), device[:], []byte(newFile.Name))
-			if existingFile.Version <= newFile.Version {
+			existingFile, ok := ldbGet(s.db, []byte(s.folder), device[:], []byte(newFile.Name))
+			if !ok || existingFile.Version <= newFile.Version {
 				discards = append(discards, existingFile)
 				updates = append(updates, newFile)
 			}
@@ -174,16 +174,16 @@ func (s *Set) WithGlobalTruncated(fn fileIterator) {
 	ldbWithGlobal(s.db, []byte(s.folder), true, nativeFileIterator(fn))
 }
 
-func (s *Set) Get(device protocol.DeviceID, file string) protocol.FileInfo {
-	f := ldbGet(s.db, []byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
+func (s *Set) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {
+	f, ok := ldbGet(s.db, []byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
 	f.Name = osutil.NativeFilename(f.Name)
-	return f
+	return f, ok
 }
 
-func (s *Set) GetGlobal(file string) protocol.FileInfo {
-	f := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
+func (s *Set) GetGlobal(file string) (protocol.FileInfo, bool) {
+	f, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
 	f.Name = osutil.NativeFilename(f.Name)
-	return f
+	return f, ok
 }
 
 func (s *Set) Availability(file string) []protocol.DeviceID {
