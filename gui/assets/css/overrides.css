@@ -54,6 +54,10 @@ identicon {
     margin-top: 0px;
 }
 
+.checkbox input[type="checkbox"], .radio input[type="radio"] {
+    float: none; /* issue #1197 */
+}
+
 .popover {
     max-width: none;
 }
