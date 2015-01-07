@@ -382,3 +382,172 @@ func TestLastResortPulling(t *testing.T) {
 	(<-finisherChan).fd.Close()
 	os.Remove(filepath.Join("testdata", defTempNamer.TempName("newfile")))
 }
+
+func TestDeregisterOnFailInCopy(t *testing.T) {
+	file := protocol.FileInfo{
+		Name:     "filex",
+		Flags:    0,
+		Modified: 0,
+		Blocks: []protocol.BlockInfo{
+			blocks[0], blocks[2], blocks[0], blocks[0],
+			blocks[5], blocks[0], blocks[0], blocks[8],
+		},
+	}
+	defer os.Remove(defTempNamer.TempName("filex"))
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	cw := config.Wrap("/tmp/test", config.Configuration{})
+	m := NewModel(cw, "device", "syncthing", "dev", db)
+	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+
+	emitter := NewProgressEmitter(cw)
+	go emitter.Serve()
+
+	p := Puller{
+		folder:          "default",
+		dir:             "testdata",
+		model:           m,
+		queue:           newJobQueue(),
+		progressEmitter: emitter,
+	}
+
+	// queue.Done should be called by the finisher routine
+	p.queue.Push("filex")
+	p.queue.Pop()
+
+	if len(p.queue.progress) != 1 {
+		t.Fatal("Expected file in progress")
+	}
+
+	copyChan := make(chan copyBlocksState)
+	pullChan := make(chan pullBlockState)
+	finisherBufferChan := make(chan *sharedPullerState)
+	finisherChan := make(chan *sharedPullerState)
+
+	go p.copierRoutine(copyChan, pullChan, finisherBufferChan)
+	go p.finisherRoutine(finisherChan)
+
+	p.handleFile(file, copyChan, finisherChan)
+
+	// Receive a block at puller, to indicate that atleast a single copier
+	// loop has been performed.
+	toPull := <-pullChan
+	// Wait until copier is trying to pass something down to the puller again
+	time.Sleep(100 * time.Millisecond)
+	// Close the file
+	toPull.sharedPullerState.fail("test", os.ErrNotExist)
+	// Unblock copier
+	<-pullChan
+
+	select {
+	case state := <-finisherBufferChan:
+		// At this point the file should still be registered with both the job
+		// queue, and the progress emitter. Verify this.
+		if len(p.progressEmitter.registry) != 1 || len(p.queue.progress) != 1 || len(p.queue.queued) != 0 {
+			t.Fatal("Could not find file")
+		}
+
+		// Pass the file down the real finisher, and give it time to consume
+		finisherChan <- state
+		time.Sleep(100 * time.Millisecond)
+
+		if state.fd != nil {
+			t.Fatal("File not closed?")
+		}
+
+		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+			t.Fatal("Still registered", len(p.progressEmitter.registry), len(p.queue.progress), len(p.queue.queued))
+		}
+
+		// Doing it again should have no effect
+		finisherChan <- state
+		time.Sleep(100 * time.Millisecond)
+
+		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+			t.Fatal("Still registered")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Didn't get anything to the finisher")
+	}
+}
+
+func TestDeregisterOnFailInPull(t *testing.T) {
+	file := protocol.FileInfo{
+		Name:     "filex",
+		Flags:    0,
+		Modified: 0,
+		Blocks: []protocol.BlockInfo{
+			blocks[0], blocks[2], blocks[0], blocks[0],
+			blocks[5], blocks[0], blocks[0], blocks[8],
+		},
+	}
+	defer os.Remove(defTempNamer.TempName("filex"))
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	cw := config.Wrap("/tmp/test", config.Configuration{})
+	m := NewModel(cw, "device", "syncthing", "dev", db)
+	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+
+	emitter := NewProgressEmitter(cw)
+	go emitter.Serve()
+
+	p := Puller{
+		folder:          "default",
+		dir:             "testdata",
+		model:           m,
+		queue:           newJobQueue(),
+		progressEmitter: emitter,
+	}
+
+	// queue.Done should be called by the finisher routine
+	p.queue.Push("filex")
+	p.queue.Pop()
+
+	if len(p.queue.progress) != 1 {
+		t.Fatal("Expected file in progress")
+	}
+
+	copyChan := make(chan copyBlocksState)
+	pullChan := make(chan pullBlockState)
+	finisherBufferChan := make(chan *sharedPullerState)
+	finisherChan := make(chan *sharedPullerState)
+
+	go p.copierRoutine(copyChan, pullChan, finisherBufferChan)
+	go p.pullerRoutine(pullChan, finisherBufferChan)
+	go p.finisherRoutine(finisherChan)
+
+	p.handleFile(file, copyChan, finisherChan)
+
+	// Receove at finisher, we shoud error out as puller has nowhere to pull
+	// from.
+	select {
+	case state := <-finisherBufferChan:
+		// At this point the file should still be registered with both the job
+		// queue, and the progress emitter. Verify this.
+		if len(p.progressEmitter.registry) != 1 || len(p.queue.progress) != 1 || len(p.queue.queued) != 0 {
+			t.Fatal("Could not find file")
+		}
+
+		// Pass the file down the real finisher, and give it time to consume
+		finisherChan <- state
+		time.Sleep(100 * time.Millisecond)
+
+		if state.fd != nil {
+			t.Fatal("File not closed?")
+		}
+
+		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+			t.Fatal("Still registered", len(p.progressEmitter.registry), len(p.queue.progress), len(p.queue.queued))
+		}
+
+		// Doing it again should have no effect
+		finisherChan <- state
+		time.Sleep(100 * time.Millisecond)
+
+		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+			t.Fatal("Still registered")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Didn't get anything to the finisher")
+	}
+}

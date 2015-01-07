@@ -43,7 +43,6 @@ type sharedPullerState struct {
 	copyOrigin uint32     // Number of blocks copied from the original file
 	copyNeeded uint32     // Number of copy actions still pending
 	pullNeeded uint32     // Number of block pulls still pending
-	closed     bool       // Set when the file has been closed
 	mut        sync.Mutex // Protects the above
 }
 
@@ -93,7 +92,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	// here.
 	dir := filepath.Dir(s.tempName)
 	if info, err := os.Stat(dir); err != nil {
-		s.earlyCloseLocked("dst stat dir", err)
+		s.failLocked("dst stat dir", err)
 		return nil, err
 	} else if info.Mode()&0200 == 0 {
 		err := os.Chmod(dir, 0755)
@@ -119,13 +118,13 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		// make sure we have write permissions on the file before opening it.
 		err := os.Chmod(s.tempName, 0644)
 		if err != nil {
-			s.earlyCloseLocked("dst create chmod", err)
+			s.failLocked("dst create chmod", err)
 			return nil, err
 		}
 	}
 	fd, err := os.OpenFile(s.tempName, flags, 0644)
 	if err != nil {
-		s.earlyCloseLocked("dst create", err)
+		s.failLocked("dst create", err)
 		return nil, err
 	}
 
@@ -148,7 +147,7 @@ func (s *sharedPullerState) sourceFile() (*os.File, error) {
 	// Attempt to open the existing file
 	fd, err := os.Open(s.realName)
 	if err != nil {
-		s.earlyCloseLocked("src open", err)
+		s.failLocked("src open", err)
 		return nil, err
 	}
 
@@ -158,24 +157,20 @@ func (s *sharedPullerState) sourceFile() (*os.File, error) {
 // earlyClose prints a warning message composed of the context and
 // error, and marks the sharedPullerState as failed. Is a no-op when called on
 // an already failed state.
-func (s *sharedPullerState) earlyClose(context string, err error) {
+func (s *sharedPullerState) fail(context string, err error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
-	s.earlyCloseLocked(context, err)
+	s.failLocked(context, err)
 }
 
-func (s *sharedPullerState) earlyCloseLocked(context string, err error) {
+func (s *sharedPullerState) failLocked(context string, err error) {
 	if s.err != nil {
 		return
 	}
 
 	l.Infof("Puller (folder %q, file %q): %s: %v", s.folder, s.file.Name, context, err)
 	s.err = err
-	if s.fd != nil {
-		s.fd.Close()
-	}
-	s.closed = true
 }
 
 func (s *sharedPullerState) failed() error {
@@ -230,21 +225,16 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
-	if s.pullNeeded+s.copyNeeded != 0 {
+	if s.pullNeeded+s.copyNeeded != 0 && s.err == nil {
 		// Not done yet.
 		return false, nil
 	}
-	if s.closed {
-		// Already handled.
-		return false, nil
-	}
 
-	s.closed = true
 	if fd := s.fd; fd != nil {
 		s.fd = nil
 		return true, fd.Close()
 	}
-	return true, nil
+	return false, nil
 }
 
 // Returns the momentarily progress for the puller

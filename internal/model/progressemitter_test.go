@@ -47,8 +47,6 @@ func expectTimeout(w *events.Subscription, t *testing.T) {
 }
 
 func TestProgressEmitter(t *testing.T) {
-	l.Debugln("test progress emitter")
-
 	w := events.Default.Subscribe(events.DownloadProgress)
 
 	c := config.Wrap("/tmp/test", config.Configuration{})
