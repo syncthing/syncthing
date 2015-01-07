@@ -477,14 +477,37 @@ func (c *rawConnection) handleIndex(im IndexMessage) {
 	if debug {
 		l.Debugf("Index(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
 	}
-	c.receiver.Index(c.id, im.Folder, im.Files)
+	c.receiver.Index(c.id, im.Folder, filterIndexMessageFiles(im.Files))
 }
 
 func (c *rawConnection) handleIndexUpdate(im IndexMessage) {
 	if debug {
 		l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
 	}
-	c.receiver.IndexUpdate(c.id, im.Folder, im.Files)
+	c.receiver.IndexUpdate(c.id, im.Folder, filterIndexMessageFiles(im.Files))
+}
+
+func filterIndexMessageFiles(fs []FileInfo) []FileInfo {
+	var out []FileInfo
+	for i, f := range fs {
+		if f.Name == "" {
+			l.Infoln("Dropping nil filename from incoming index")
+			if out == nil {
+				// Most incoming updates won't contain anything invalid, so we
+				// delay the allocation and copy to output slice until we
+				// really need to do it, then copy all the so var valid files
+				// to it.
+				out = make([]FileInfo, i, len(fs)-1)
+				copy(out, fs)
+			}
+		} else if out != nil {
+			out = append(out, f)
+		}
+	}
+	if out != nil {
+		return out
+	}
+	return fs
 }
 
 func (c *rawConnection) handleRequest(msgID int, req RequestMessage) {
