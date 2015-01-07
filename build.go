@@ -226,15 +226,20 @@ func buildTar() {
 	build("./cmd/syncthing", tags)
 	filename := name + ".tar.gz"
 	files := []archiveFile{
-		{"README.md", name + "/README.txt"},
-		{"LICENSE", name + "/LICENSE.txt"},
-		{"AUTHORS", name + "/AUTHORS.txt"},
-		{"syncthing", name + "/syncthing"},
-		{"syncthing.md5", name + "/syncthing.md5"},
+		{src: "README.md", dst: name + "/README.txt"},
+		{src: "LICENSE", dst: name + "/LICENSE.txt"},
+		{src: "AUTHORS", dst: name + "/AUTHORS.txt"},
+		{src: "syncthing", dst: name + "/syncthing"},
+		{src: "syncthing.md5", dst: name + "/syncthing.md5"},
 	}
+
 	for _, file := range listFiles("etc") {
-		files = append(files, archiveFile{file, name + "/" + file})
+		files = append(files, archiveFile{src: file, dst: name + "/" + file})
 	}
+	for _, file := range listFiles("extra") {
+		files = append(files, archiveFile{src: file, dst: name + "/" + filepath.Base(file)})
+	}
+
 	tarGz(filename, files)
 	log.Println(filename)
 }
@@ -249,12 +254,17 @@ func buildZip() {
 	build("./cmd/syncthing", tags)
 	filename := name + ".zip"
 	files := []archiveFile{
-		{"README.md", name + "/README.txt"},
-		{"LICENSE", name + "/LICENSE.txt"},
-		{"AUTHORS", name + "/AUTHORS.txt"},
-		{"syncthing.exe", name + "/syncthing.exe"},
-		{"syncthing.exe.md5", name + "/syncthing.exe.md5"},
+		{src: "README.md", dst: name + "/README.txt"},
+		{src: "LICENSE", dst: name + "/LICENSE.txt"},
+		{src: "AUTHORS", dst: name + "/AUTHORS.txt"},
+		{src: "syncthing.exe", dst: name + "/syncthing.exe"},
+		{src: "syncthing.exe.md5", dst: name + "/syncthing.exe.md5"},
 	}
+
+	for _, file := range listFiles("extra") {
+		files = append(files, archiveFile{src: file, dst: name + "/" + filepath.Base(file)})
+	}
+
 	zipFile(filename, files)
 	log.Println(filename)
 }
