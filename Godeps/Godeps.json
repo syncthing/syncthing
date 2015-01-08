@@ -23,7 +23,7 @@
 		},
 		{
 			"ImportPath": "github.com/calmh/xdr",
-			"Rev": "45c46b7db7ff83b8b9ee09bbd95f36ab50043ece"
+			"Rev": "214788d8fedfc310c18eca9ed12be408a5054cd5"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",

@@ -154,6 +154,10 @@ func (e XDRError) Error() string {
 	return "xdr " + e.op + ": " + e.err.Error()
 }
 
+func (e XDRError) IsEOF() bool {
+	return e.err == io.EOF
+}
+
 func (r *Reader) Error() error {
 	if r.err == nil {
 		return nil

@@ -133,6 +133,10 @@ type encodable interface {
 	AppendXDR([]byte) ([]byte, error)
 }
 
+type isEofer interface {
+	IsEOF() bool
+}
+
 const (
 	pingTimeout  = 30 * time.Second
 	pingIdleTime = 60 * time.Second
@@ -183,7 +187,10 @@ func (c *rawConnection) Index(folder string, idx []FileInfo) error {
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(-1, messageTypeIndex, IndexMessage{folder, idx})
+	c.send(-1, messageTypeIndex, IndexMessage{
+		Folder: folder,
+		Files:  idx,
+	})
 	c.idxMut.Unlock()
 	return nil
 }
@@ -196,7 +203,10 @@ func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo) error {
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(-1, messageTypeIndexUpdate, IndexMessage{folder, idx})
+	c.send(-1, messageTypeIndexUpdate, IndexMessage{
+		Folder: folder,
+		Files:  idx,
+	})
 	c.idxMut.Unlock()
 	return nil
 }
@@ -218,7 +228,12 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 	c.awaiting[id] = rc
 	c.awaitingMut.Unlock()
 
-	ok := c.send(id, messageTypeRequest, RequestMessage{folder, name, uint64(offset), uint32(size)})
+	ok := c.send(id, messageTypeRequest, RequestMessage{
+		Folder: folder,
+		Name:   name,
+		Offset: uint64(offset),
+		Size:   uint32(size),
+	})
 	if !ok {
 		return nil, ErrClosed
 	}
@@ -341,6 +356,11 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 		l.Debugf("read header %v (msglen=%d)", hdr, msglen)
 	}
 
+	if hdr.version != 0 {
+		err = fmt.Errorf("unknown protocol version 0x%x", hdr.version)
+		return
+	}
+
 	if cap(c.rdbuf0) < msglen {
 		c.rdbuf0 = make([]byte, msglen)
 	} else {
@@ -376,20 +396,36 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 		}
 	}
 
+	// We check each returned error for the XDRError.IsEOF() method.
+	// IsEOF()==true here means that the message contained fewer fields than
+	// expected. It does not signify an EOF on the socket, because we've
+	// successfully read a size value and that many bytes already. New fields
+	// we expected but the other peer didn't send should be interpreted as
+	// zero/nil, and if that's not valid we'll verify it somewhere else.
+
 	switch hdr.msgType {
 	case messageTypeIndex, messageTypeIndexUpdate:
 		var idx IndexMessage
 		err = idx.UnmarshalXDR(msgBuf)
+		if xdrErr, ok := err.(isEofer); ok && xdrErr.IsEOF() {
+			err = nil
+		}
 		msg = idx
 
 	case messageTypeRequest:
 		var req RequestMessage
 		err = req.UnmarshalXDR(msgBuf)
+		if xdrErr, ok := err.(isEofer); ok && xdrErr.IsEOF() {
+			err = nil
+		}
 		msg = req
 
 	case messageTypeResponse:
 		var resp ResponseMessage
 		err = resp.UnmarshalXDR(msgBuf)
+		if xdrErr, ok := err.(isEofer); ok && xdrErr.IsEOF() {
+			err = nil
+		}
 		msg = resp
 
 	case messageTypePing, messageTypePong:
@@ -398,11 +434,17 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 	case messageTypeClusterConfig:
 		var cc ClusterConfigMessage
 		err = cc.UnmarshalXDR(msgBuf)
+		if xdrErr, ok := err.(isEofer); ok && xdrErr.IsEOF() {
+			err = nil
+		}
 		msg = cc
 
 	case messageTypeClose:
 		var cm CloseMessage
 		err = cm.UnmarshalXDR(msgBuf)
+		if xdrErr, ok := err.(isEofer); ok && xdrErr.IsEOF() {
+			err = nil
+		}
 		msg = cm
 
 	default:
@@ -429,7 +471,9 @@ func (c *rawConnection) handleIndexUpdate(im IndexMessage) {
 func (c *rawConnection) handleRequest(msgID int, req RequestMessage) {
 	data, _ := c.receiver.Request(c.id, req.Folder, req.Name, int64(req.Offset), int(req.Size))
 
-	c.send(msgID, messageTypeResponse, ResponseMessage{data})
+	c.send(msgID, messageTypeResponse, ResponseMessage{
+		Data: data,
+	})
 }
 
 func (c *rawConnection) handleResponse(msgID int, resp ResponseMessage) {
