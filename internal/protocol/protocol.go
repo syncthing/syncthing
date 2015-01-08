@@ -133,6 +133,10 @@ type encodable interface {
 	AppendXDR([]byte) ([]byte, error)
 }
 
+type isEofer interface {
+	IsEOF() bool
+}
+
 const (
 	pingTimeout  = 30 * time.Second
 	pingIdleTime = 60 * time.Second
@@ -376,20 +380,36 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 		}
 	}
 
+	// We check each returned error for the XDRError.IsEOF() method.
+	// IsEOF()==true here means that the message contained fewer fields than
+	// expected. It does not signify an EOF on the socket, because we've
+	// successfully read a size value and that many bytes already. New fields
+	// we expected but the other peer didn't send should be interpreted as
+	// zero/nil, and if that's not valid we'll verify it somewhere else.
+
 	switch hdr.msgType {
 	case messageTypeIndex, messageTypeIndexUpdate:
 		var idx IndexMessage
 		err = idx.UnmarshalXDR(msgBuf)
+		if xdrErr, ok := err.(isEofer); ok && xdrErr.IsEOF() {
+			err = nil
+		}
 		msg = idx
 
 	case messageTypeRequest:
 		var req RequestMessage
 		err = req.UnmarshalXDR(msgBuf)
+		if xdrErr, ok := err.(isEofer); ok && xdrErr.IsEOF() {
+			err = nil
+		}
 		msg = req
 
 	case messageTypeResponse:
 		var resp ResponseMessage
 		err = resp.UnmarshalXDR(msgBuf)
+		if xdrErr, ok := err.(isEofer); ok && xdrErr.IsEOF() {
+			err = nil
+		}
 		msg = resp
 
 	case messageTypePing, messageTypePong:
@@ -398,11 +418,17 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 	case messageTypeClusterConfig:
 		var cc ClusterConfigMessage
 		err = cc.UnmarshalXDR(msgBuf)
+		if xdrErr, ok := err.(isEofer); ok && xdrErr.IsEOF() {
+			err = nil
+		}
 		msg = cc
 
 	case messageTypeClose:
 		var cm CloseMessage
 		err = cm.UnmarshalXDR(msgBuf)
+		if xdrErr, ok := err.(isEofer); ok && xdrErr.IsEOF() {
+			err = nil
+		}
 		msg = cm
 
 	default:
