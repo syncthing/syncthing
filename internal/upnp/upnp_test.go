@@ -17,6 +17,7 @@ package upnp
 
 import (
 	"encoding/xml"
+	"net/url"
 	"testing"
 )
 
@@ -38,5 +39,27 @@ func TestExternalIPParsing(t *testing.T) {
 
 	if envelope.Body.GetExternalIPAddressResponse.NewExternalIPAddress != "1.2.3.4" {
 		t.Error("Parse of SOAP request failed.")
+	}
+}
+
+func TestControlURLParsing(t *testing.T) {
+	rootURL := "http://192.168.243.1:80/igd.xml"
+
+	u, _ := url.Parse(rootURL)
+	subject := "/upnp?control=WANCommonIFC1"
+	expected := "http://192.168.243.1:80/upnp?control=WANCommonIFC1"
+	replaceRawPath(u, subject)
+
+	if u.String() != expected {
+		t.Error("URL normalization of", subject, "failed; expected", expected, "got", u.String())
+	}
+
+	u, _ = url.Parse(rootURL)
+	subject = "http://192.168.243.1:80/upnp?control=WANCommonIFC1"
+	expected = "http://192.168.243.1:80/upnp?control=WANCommonIFC1"
+	replaceRawPath(u, subject)
+
+	if u.String() != expected {
+		t.Error("URL normalization of", subject, "failed; expected", expected, "got", u.String())
 	}
 }

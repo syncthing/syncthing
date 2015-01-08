@@ -448,19 +448,27 @@ func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanC
 }
 
 func replaceRawPath(u *url.URL, rp string) {
-	var p, q string
-	fs := strings.Split(rp, "?")
-	p = fs[0]
-	if len(fs) > 1 {
-		q = fs[1]
-	}
-
-	if p[0] == '/' {
-		u.Path = p
+	asURL, err := url.Parse(rp)
+	if err != nil {
+		return
+	} else if asURL.IsAbs() {
+		u.Path = asURL.Path
+		u.RawQuery = asURL.RawQuery
 	} else {
-		u.Path += p
+		var p, q string
+		fs := strings.Split(rp, "?")
+		p = fs[0]
+		if len(fs) > 1 {
+			q = fs[1]
+		}
+
+		if p[0] == '/' {
+			u.Path = p
+		} else {
+			u.Path += p
+		}
+		u.RawQuery = q
 	}
-	u.RawQuery = q
 }
 
 func soapRequest(url, service, function, message string) ([]byte, error) {
