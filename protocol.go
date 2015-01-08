@@ -356,6 +356,11 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 		l.Debugf("read header %v (msglen=%d)", hdr, msglen)
 	}
 
+	if hdr.version != 0 {
+		err = fmt.Errorf("unknown protocol version 0x%x", hdr.version)
+		return
+	}
+
 	if cap(c.rdbuf0) < msglen {
 		c.rdbuf0 = make([]byte, msglen)
 	} else {
