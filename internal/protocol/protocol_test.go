@@ -189,7 +189,7 @@ func TestVersionErr(t *testing.T) {
 		msgID:   0,
 		msgType: 0,
 	}))
-	w.WriteUint32(0)
+	w.WriteUint32(0) // Avoids reader closing due to EOF
 
 	if !m1.isClosed() {
 		t.Error("Connection should close due to unknown version")
@@ -212,7 +212,7 @@ func TestTypeErr(t *testing.T) {
 		msgID:   0,
 		msgType: 42,
 	}))
-	w.WriteUint32(0)
+	w.WriteUint32(0) // Avoids reader closing due to EOF
 
 	if !m1.isClosed() {
 		t.Error("Connection should close due to unknown message type")
