@@ -132,15 +132,6 @@ func (f FileInfoTruncated) HasPermissionBits() bool {
 	return f.Flags&FlagNoPermBits == 0
 }
 
-type FileIntf interface {
-	Size() int64
-	IsDeleted() bool
-	IsInvalid() bool
-	IsDirectory() bool
-	IsSymlink() bool
-	HasPermissionBits() bool
-}
-
 type BlockInfo struct {
 	Offset int64 // noencode (cache only)
 	Size   uint32

@@ -43,7 +43,7 @@ func main() {
 
 	if *device == "" {
 		log.Printf("*** Global index for folder %q", *folder)
-		fs.WithGlobalTruncated(func(fi protocol.FileIntf) bool {
+		fs.WithGlobalTruncated(func(fi files.FileIntf) bool {
 			f := fi.(protocol.FileInfoTruncated)
 			fmt.Println(f)
 			fmt.Println("\t", fs.Availability(f.Name))
@@ -55,7 +55,7 @@ func main() {
 			log.Fatal(err)
 		}
 		log.Printf("*** Have index for folder %q device %q", *folder, n)
-		fs.WithHaveTruncated(n, func(fi protocol.FileIntf) bool {
+		fs.WithHaveTruncated(n, func(fi files.FileIntf) bool {
 			f := fi.(protocol.FileInfoTruncated)
 			fmt.Println(f)
 			return true

@@ -166,8 +166,6 @@ func globalKeyFolder(key []byte) []byte {
 
 type deletionHandler func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) uint64
 
-type fileIterator func(f protocol.FileIntf) bool
-
 func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo, deleteFn deletionHandler) uint64 {
 	runtime.GC()
 
@@ -528,7 +526,7 @@ func ldbRemoveFromGlobal(db dbReader, batch dbWriter, folder, device, file []byt
 	}
 }
 
-func ldbWithHave(db *leveldb.DB, folder, device []byte, truncate bool, fn fileIterator) {
+func ldbWithHave(db *leveldb.DB, folder, device []byte, truncate bool, fn Iterator) {
 	start := deviceKey(folder, device, nil)                            // before all folder/device files
 	limit := deviceKey(folder, device, []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
 	snap, err := db.GetSnapshot()
@@ -666,7 +664,7 @@ func ldbGetGlobal(db *leveldb.DB, folder, file []byte) (protocol.FileInfo, bool)
 	return f, true
 }
 
-func ldbWithGlobal(db *leveldb.DB, folder []byte, truncate bool, fn fileIterator) {
+func ldbWithGlobal(db *leveldb.DB, folder []byte, truncate bool, fn Iterator) {
 	runtime.GC()
 
 	start := globalKey(folder, nil)
@@ -754,7 +752,7 @@ func ldbAvailability(db *leveldb.DB, folder, file []byte) []protocol.DeviceID {
 	return devices
 }
 
-func ldbWithNeed(db *leveldb.DB, folder, device []byte, truncate bool, fn fileIterator) {
+func ldbWithNeed(db *leveldb.DB, folder, device []byte, truncate bool, fn Iterator) {
 	runtime.GC()
 
 	start := globalKey(folder, nil)
@@ -938,7 +936,7 @@ func ldbDropFolder(db *leveldb.DB, folder []byte) {
 	dbi.Release()
 }
 
-func unmarshalTrunc(bs []byte, truncate bool) (protocol.FileIntf, error) {
+func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
 	if truncate {
 		var tf protocol.FileInfoTruncated
 		err := tf.UnmarshalXDR(bs)
