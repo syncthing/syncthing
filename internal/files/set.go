@@ -189,9 +189,23 @@ func (s *Set) Get(device protocol.DeviceID, file string) (protocol.FileInfo, boo
 }
 
 func (s *Set) GetGlobal(file string) (protocol.FileInfo, bool) {
-	f, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
+	fi, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
+	if !ok {
+		return protocol.FileInfo{}, false
+	}
+	f := fi.(protocol.FileInfo)
 	f.Name = osutil.NativeFilename(f.Name)
-	return f, ok
+	return f, true
+}
+
+func (s *Set) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
+	fi, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
+	if !ok {
+		return FileInfoTruncated{}, false
+	}
+	f := fi.(FileInfoTruncated)
+	f.Name = osutil.NativeFilename(f.Name)
+	return f, true
 }
 
 func (s *Set) Availability(file string) []protocol.DeviceID {

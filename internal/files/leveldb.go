@@ -610,7 +610,7 @@ func ldbGet(db *leveldb.DB, folder, device, file []byte) (protocol.FileInfo, boo
 	return f, true
 }
 
-func ldbGetGlobal(db *leveldb.DB, folder, file []byte) (protocol.FileInfo, bool) {
+func ldbGetGlobal(db *leveldb.DB, folder, file []byte, truncate bool) (FileIntf, bool) {
 	k := globalKey(folder, file)
 	snap, err := db.GetSnapshot()
 	if err != nil {
@@ -631,7 +631,7 @@ func ldbGetGlobal(db *leveldb.DB, folder, file []byte) (protocol.FileInfo, bool)
 	}
 	bs, err := snap.Get(k, nil)
 	if err == leveldb.ErrNotFound {
-		return protocol.FileInfo{}, false
+		return nil, false
 	}
 	if err != nil {
 		panic(err)
@@ -656,12 +656,11 @@ func ldbGetGlobal(db *leveldb.DB, folder, file []byte) (protocol.FileInfo, bool)
 		panic(err)
 	}
 
-	var f protocol.FileInfo
-	err = f.UnmarshalXDR(bs)
+	fi, err := unmarshalTrunc(bs, truncate)
 	if err != nil {
 		panic(err)
 	}
-	return f, true
+	return fi, true
 }
 
 func ldbWithGlobal(db *leveldb.DB, folder []byte, truncate bool, fn Iterator) {

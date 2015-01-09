@@ -440,15 +440,15 @@ func (m *Model) NeedFolderFiles(folder string, max int) ([]files.FileInfoTruncat
 			seen = make(map[string]bool, len(progressNames)+len(queuedNames))
 
 			for i, name := range progressNames {
-				if f, ok := rf.GetGlobal(name); ok {
-					progress[i] = files.Truncate(f) /// XXX: Should implement GetGlobalTruncated directly
+				if f, ok := rf.GetGlobalTruncated(name); ok {
+					progress[i] = f
 					seen[name] = true
 				}
 			}
 
 			for i, name := range queuedNames {
-				if f, ok := rf.GetGlobal(name); ok {
-					queued[i] = files.Truncate(f) /// XXX: Should implement GetGlobalTruncated directly
+				if f, ok := rf.GetGlobalTruncated(name); ok {
+					queued[i] = f
 					seen[name] = true
 				}
 			}

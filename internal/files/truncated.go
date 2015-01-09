@@ -67,17 +67,6 @@ func (f FileInfoTruncated) HasPermissionBits() bool {
 	return f.Flags&protocol.FlagNoPermBits == 0
 }
 
-func Truncate(f protocol.FileInfo) FileInfoTruncated {
-	return FileInfoTruncated{
-		Name:         f.Name,
-		Flags:        f.Flags,
-		Modified:     f.Modified,
-		Version:      f.Version,
-		LocalVersion: f.LocalVersion,
-		NumBlocks:    uint32(len(f.Blocks)),
-	}
-}
-
 func BlocksToSize(num uint32) int64 {
 	if num < 2 {
 		return protocol.BlockSize / 2
