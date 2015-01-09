@@ -422,33 +422,33 @@ func (m *Model) NeedSize(folder string) (nfiles int, bytes int64) {
 // NeedFiles returns the list of currently needed files in progress, queued,
 // and to be queued on next puller iteration. Also takes a soft cap which is
 // only respected when adding files from the model rather than the runner queue.
-func (m *Model) NeedFolderFiles(folder string, max int) ([]protocol.FileInfoTruncated, []protocol.FileInfoTruncated, []protocol.FileInfoTruncated) {
+func (m *Model) NeedFolderFiles(folder string, max int) ([]files.FileInfoTruncated, []files.FileInfoTruncated, []files.FileInfoTruncated) {
 	defer m.leveldbPanicWorkaround()
 
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		var progress, queued, rest []protocol.FileInfoTruncated
+		var progress, queued, rest []files.FileInfoTruncated
 		var seen map[string]bool
 
 		runner, ok := m.folderRunners[folder]
 		if ok {
 			progressNames, queuedNames := runner.Jobs()
 
-			progress = make([]protocol.FileInfoTruncated, len(progressNames))
-			queued = make([]protocol.FileInfoTruncated, len(queuedNames))
+			progress = make([]files.FileInfoTruncated, len(progressNames))
+			queued = make([]files.FileInfoTruncated, len(queuedNames))
 			seen = make(map[string]bool, len(progressNames)+len(queuedNames))
 
 			for i, name := range progressNames {
 				if f, ok := rf.GetGlobal(name); ok {
-					progress[i] = protocol.Truncate(f) /// XXX: Should implement GetGlobalTruncated directly
+					progress[i] = files.Truncate(f) /// XXX: Should implement GetGlobalTruncated directly
 					seen[name] = true
 				}
 			}
 
 			for i, name := range queuedNames {
 				if f, ok := rf.GetGlobal(name); ok {
-					queued[i] = protocol.Truncate(f) /// XXX: Should implement GetGlobalTruncated directly
+					queued[i] = files.Truncate(f) /// XXX: Should implement GetGlobalTruncated directly
 					seen[name] = true
 				}
 			}
@@ -457,7 +457,7 @@ func (m *Model) NeedFolderFiles(folder string, max int) ([]protocol.FileInfoTrun
 		if max < 1 || left > 0 {
 			rf.WithNeedTruncated(protocol.LocalDeviceID, func(f files.FileIntf) bool {
 				left--
-				ft := f.(protocol.FileInfoTruncated)
+				ft := f.(files.FileInfoTruncated)
 				if !seen[ft.Name] {
 					rest = append(rest, ft)
 				}
@@ -1170,7 +1170,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	// TODO: We should limit the Have scanning to start at sub
 	seenPrefix := false
 	fs.WithHaveTruncated(protocol.LocalDeviceID, func(fi files.FileIntf) bool {
-		f := fi.(protocol.FileInfoTruncated)
+		f := fi.(files.FileInfoTruncated)
 		if !strings.HasPrefix(f.Name, sub) {
 			// Return true so that we keep iterating, until we get to the part
 			// of the tree we are interested in. Then return false so we stop

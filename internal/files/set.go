@@ -65,7 +65,7 @@ func NewSet(folder string, db *leveldb.DB) *Set {
 	ldbCheckGlobals(db, []byte(folder))
 
 	var deviceID protocol.DeviceID
-	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f protocol.FileInfoTruncated) bool {
+	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
 		if f.LocalVersion > s.localVersion[deviceID] {
 			s.localVersion[deviceID] = f.LocalVersion
@@ -232,7 +232,7 @@ func nativeFileIterator(fn Iterator) Iterator {
 		case protocol.FileInfo:
 			f.Name = osutil.NativeFilename(f.Name)
 			return fn(f)
-		case protocol.FileInfoTruncated:
+		case FileInfoTruncated:
 			f.Name = osutil.NativeFilename(f.Name)
 			return fn(f)
 		default:
