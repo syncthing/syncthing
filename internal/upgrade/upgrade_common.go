@@ -18,6 +18,8 @@ package upgrade
 
 import (
 	"errors"
+	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -224,4 +226,13 @@ func versionParts(v string) ([]int, []interface{}) {
 	}
 
 	return release, prerelease
+}
+
+func releaseName(tag string) string {
+	switch runtime.GOOS {
+	case "darwin":
+		return fmt.Sprintf("syncthing-macosx-%s-%s.", runtime.GOARCH, tag)
+	default:
+		return fmt.Sprintf("syncthing-%s-%s-%s.", runtime.GOOS, runtime.GOARCH, tag)
+	}
 }
