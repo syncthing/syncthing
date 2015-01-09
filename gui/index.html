@@ -89,19 +89,20 @@
 
       <div class="col-md-6">
         <div class="panel-group" id="folders">
+        <div class="visible-xs"><h3><span translate>Folders</span></h3><hr></div>
           <div class="panel panel-default" ng-repeat="folder in folderList()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.ID)}}%"></div>
               <h3 class="panel-title">
-                <span class="glyphicon glyphicon-hdd"></span>&emsp;{{folder.ID}}
-                <span class="pull-right hidden-xs text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
-                  <span translate ng-switch-when="unknown">Unknown</span>
-                  <span translate ng-switch-when="unshared">Unshared</span>
-                  <span translate ng-switch-when="stopped">Stopped</span>
-                  <span translate ng-switch-when="scanning">Scanning</span>
-                  <span translate ng-switch-when="idle">Up to Date</span>
+                <span class="glyphicon glyphicon-hdd hidden-xs"></span>{{folder.ID}}
+                <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
+                  <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="scanning"><span class="hidden-xs" translate>Scanning</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
-                    <span translate>Syncing</span>
+                    <span class="hidden-xs" translate>Syncing</span>
                     ({{syncPercentage(folder.ID)}}%)
                   </span>
                 </span>
@@ -187,6 +188,7 @@
       <!-- This device -->
 
       <div class="col-md-6">
+      <div class="visible-xs"><h3><span translate>Devices</span></h3><hr></div>
         <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
           <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
             <h3 class="panel-title">
@@ -244,13 +246,13 @@
               <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.DeviceID]._total | number:0}}%"></div>
               <h3 class="panel-title">
                 <identicon data-value="deviceCfg.DeviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
-                <span ng-switch="deviceStatus(deviceCfg)" class="pull-right hidden-xs text-{{deviceClass(deviceCfg)}}">
-                  <span translate ng-switch-when="insync">Up to Date</span>
+                <span ng-switch="deviceStatus(deviceCfg)" class="pull-right text-{{deviceClass(deviceCfg)}}">
+                  <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
-                    <span translate>Syncing</span> ({{completion[deviceCfg.DeviceID]._total | number:0}}%)
+                    <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.DeviceID]._total | number:0}}%)
                   </span>
-                  <span translate ng-switch-when="disconnected">Disconnected</span>
-                  <span translate ng-switch-when="unused">Unused</span>
+                  <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="unused"><span class="hidden-xs" translate>Unused</span><span class="visible-xs">&#9724;</span></span>
                 </span>
               </h3>
             </div>
