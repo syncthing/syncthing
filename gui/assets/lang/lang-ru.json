@@ -40,7 +40,7 @@
     "Error": "Ошибка",
     "File Versioning": "Управление версиями",
     "File permission bits are ignored when looking for changes. Use on FAT filesystems.": "Права доступа к файлам будут игнорироваться. Используйте на файловых системах типа FAT.",
-    "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.": "Версии файлов с временнОй меткой перемещаются в директорию .stversions, если они удалены или перемещены в процессе синхронизации.",
+    "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.": "Версии файлов с временной меткой перемещаются в директорию .stversions, если они удалены или перемещены в процессе синхронизации.",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "Файлы защищены от изменений сделанных на других устройствах, но изменения сделанные на этом устройстве будут отправлены всему кластеру.",
     "Folder ID": "ID папки",
     "Folder Master": "Папка-оригинал",
