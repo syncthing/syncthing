@@ -59,3 +59,4 @@ Github wiki.
 All code is licensed under the
 [GPL](https://github.com/syncthing/syncthing/blob/master/LICENSE), v3 or
 later.
+HEJHEJ
