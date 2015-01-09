@@ -30,14 +30,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-type fileRecord struct {
-	File   protocol.FileInfo
-	Usage  int
-	Global bool
-}
-
-type bitset uint64
-
 type Set struct {
 	localVersion map[protocol.DeviceID]uint64
 	mutex        sync.Mutex
