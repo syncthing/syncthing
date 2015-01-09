@@ -1,2 +1,2 @@
 Syncthing uses the protocols defined in
-https://github.com/syncthing/protocol/.
+https://github.com/syncthing/specs/.

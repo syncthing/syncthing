@@ -11,7 +11,7 @@ This is the `syncthing` project. The following are the project goals:
     collaborating devices. The protocol should be well defined, unambiguous,
     easily understood, free to use, efficient, secure and language neutral.
     This is the [Block Exchange
-    Protocol](https://github.com/syncthing/protocol/blob/master/BEPv1.md).
+    Protocol](https://github.com/syncthing/specs/blob/master/BEPv1.md).
 
  2. Provide the reference implementation to demonstrate the usability of
     said protocol. This is the `syncthing` utility. It is the hope that
