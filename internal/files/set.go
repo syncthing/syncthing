@@ -30,14 +30,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-type fileRecord struct {
-	File   protocol.FileInfo
-	Usage  int
-	Global bool
-}
-
-type bitset uint64
-
 type Set struct {
 	localVersion map[protocol.DeviceID]uint64
 	mutex        sync.Mutex
@@ -45,6 +37,22 @@ type Set struct {
 	db           *leveldb.DB
 	blockmap     *BlockMap
 }
+
+// FileIntf is the set of methods implemented by both protocol.FileInfo and
+// protocol.FileInfoTruncated.
+type FileIntf interface {
+	Size() int64
+	IsDeleted() bool
+	IsInvalid() bool
+	IsDirectory() bool
+	IsSymlink() bool
+	HasPermissionBits() bool
+}
+
+// The Iterator is called with either a protocol.FileInfo or a
+// protocol.FileInfoTruncated (depending on the method) and returns true to
+// continue iteration, false to stop.
+type Iterator func(f FileIntf) bool
 
 func NewSet(folder string, db *leveldb.DB) *Set {
 	var s = Set{
@@ -57,7 +65,7 @@ func NewSet(folder string, db *leveldb.DB) *Set {
 	ldbCheckGlobals(db, []byte(folder))
 
 	var deviceID protocol.DeviceID
-	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f protocol.FileInfoTruncated) bool {
+	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
 		if f.LocalVersion > s.localVersion[deviceID] {
 			s.localVersion[deviceID] = f.LocalVersion
@@ -132,42 +140,42 @@ func (s *Set) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	}
 }
 
-func (s *Set) WithNeed(device protocol.DeviceID, fn fileIterator) {
+func (s *Set) WithNeed(device protocol.DeviceID, fn Iterator) {
 	if debug {
 		l.Debugf("%s WithNeed(%v)", s.folder, device)
 	}
 	ldbWithNeed(s.db, []byte(s.folder), device[:], false, nativeFileIterator(fn))
 }
 
-func (s *Set) WithNeedTruncated(device protocol.DeviceID, fn fileIterator) {
+func (s *Set) WithNeedTruncated(device protocol.DeviceID, fn Iterator) {
 	if debug {
 		l.Debugf("%s WithNeedTruncated(%v)", s.folder, device)
 	}
 	ldbWithNeed(s.db, []byte(s.folder), device[:], true, nativeFileIterator(fn))
 }
 
-func (s *Set) WithHave(device protocol.DeviceID, fn fileIterator) {
+func (s *Set) WithHave(device protocol.DeviceID, fn Iterator) {
 	if debug {
 		l.Debugf("%s WithHave(%v)", s.folder, device)
 	}
 	ldbWithHave(s.db, []byte(s.folder), device[:], false, nativeFileIterator(fn))
 }
 
-func (s *Set) WithHaveTruncated(device protocol.DeviceID, fn fileIterator) {
+func (s *Set) WithHaveTruncated(device protocol.DeviceID, fn Iterator) {
 	if debug {
 		l.Debugf("%s WithHaveTruncated(%v)", s.folder, device)
 	}
 	ldbWithHave(s.db, []byte(s.folder), device[:], true, nativeFileIterator(fn))
 }
 
-func (s *Set) WithGlobal(fn fileIterator) {
+func (s *Set) WithGlobal(fn Iterator) {
 	if debug {
 		l.Debugf("%s WithGlobal()", s.folder)
 	}
 	ldbWithGlobal(s.db, []byte(s.folder), false, nativeFileIterator(fn))
 }
 
-func (s *Set) WithGlobalTruncated(fn fileIterator) {
+func (s *Set) WithGlobalTruncated(fn Iterator) {
 	if debug {
 		l.Debugf("%s WithGlobalTruncated()", s.folder)
 	}
@@ -181,9 +189,23 @@ func (s *Set) Get(device protocol.DeviceID, file string) (protocol.FileInfo, boo
 }
 
 func (s *Set) GetGlobal(file string) (protocol.FileInfo, bool) {
-	f, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
+	fi, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
+	if !ok {
+		return protocol.FileInfo{}, false
+	}
+	f := fi.(protocol.FileInfo)
 	f.Name = osutil.NativeFilename(f.Name)
-	return f, ok
+	return f, true
+}
+
+func (s *Set) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
+	fi, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
+	if !ok {
+		return FileInfoTruncated{}, false
+	}
+	f := fi.(FileInfoTruncated)
+	f.Name = osutil.NativeFilename(f.Name)
+	return f, true
 }
 
 func (s *Set) Availability(file string) []protocol.DeviceID {
@@ -218,13 +240,13 @@ func normalizeFilenames(fs []protocol.FileInfo) {
 	}
 }
 
-func nativeFileIterator(fn fileIterator) fileIterator {
-	return func(fi protocol.FileIntf) bool {
+func nativeFileIterator(fn Iterator) Iterator {
+	return func(fi FileIntf) bool {
 		switch f := fi.(type) {
 		case protocol.FileInfo:
 			f.Name = osutil.NativeFilename(f.Name)
 			return fn(f)
-		case protocol.FileInfoTruncated:
+		case FileInfoTruncated:
 			f.Name = osutil.NativeFilename(f.Name)
 			return fn(f)
 		default:

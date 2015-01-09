@@ -36,6 +36,7 @@ import (
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/discover"
 	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/internal/files"
 	"github.com/syncthing/syncthing/internal/model"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
@@ -782,9 +783,9 @@ func mimeTypeForFile(file string) string {
 	}
 }
 
-func toNeedSlice(files []protocol.FileInfoTruncated) []map[string]interface{} {
-	output := make([]map[string]interface{}, len(files))
-	for i, file := range files {
+func toNeedSlice(fs []files.FileInfoTruncated) []map[string]interface{} {
+	output := make([]map[string]interface{}, len(fs))
+	for i, file := range fs {
 		output[i] = map[string]interface{}{
 			"Name":         file.Name,
 			"Flags":        file.Flags,
@@ -792,7 +793,7 @@ func toNeedSlice(files []protocol.FileInfoTruncated) []map[string]interface{} {
 			"Version":      file.Version,
 			"LocalVersion": file.LocalVersion,
 			"NumBlocks":    file.NumBlocks,
-			"Size":         protocol.BlocksToSize(file.NumBlocks),
+			"Size":         files.BlocksToSize(file.NumBlocks),
 		}
 	}
 	return output

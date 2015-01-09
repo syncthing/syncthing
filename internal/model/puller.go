@@ -29,6 +29,7 @@ import (
 
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/internal/files"
 	"github.com/syncthing/syncthing/internal/ignore"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
@@ -288,7 +289,7 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 	}
 
 	p.model.fmut.RLock()
-	files := p.model.folderFiles[p.folder]
+	folderFiles := p.model.folderFiles[p.folder]
 	p.model.fmut.RUnlock()
 
 	// !!!
@@ -301,7 +302,7 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 
 	var deletions []protocol.FileInfo
 
-	files.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
+	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf files.FileIntf) bool {
 
 		// Needed items are delivered sorted lexicographically. This isn't
 		// really optimal from a performance point of view - it would be
