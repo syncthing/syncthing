@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-DOCKERIMGV=1.4-4
+DOCKERIMGV=1.4-5
 
 case "${1:-default}" in
 	default)
@@ -52,9 +52,7 @@ case "${1:-default}" in
 	all)
 		go run build.go -goos linux -goarch amd64 tar
 		go run build.go -goos linux -goarch 386 tar
-		go run build.go -goos linux -goarch armv5 tar
-		go run build.go -goos linux -goarch armv6 tar
-		go run build.go -goos linux -goarch armv7 tar
+		go run build.go -goos linux -goarch arm tar
 
 		go run build.go -goos freebsd -goarch amd64 tar
 		go run build.go -goos freebsd -goarch 386 tar

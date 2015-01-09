@@ -73,7 +73,7 @@ func main() {
 	flag.Parse()
 
 	switch goarch {
-	case "386", "amd64", "arm", "armv5", "armv6", "armv7":
+	case "386", "amd64", "arm":
 		break
 	default:
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
@@ -285,15 +285,7 @@ func listFiles(dir string) []string {
 
 func setBuildEnv() {
 	os.Setenv("GOOS", goos)
-	if strings.HasPrefix(goarch, "armv") {
-		os.Setenv("GOARCH", "arm")
-		os.Setenv("GOARM", goarch[4:])
-	} else {
-		os.Setenv("GOARCH", goarch)
-	}
-	if goarch == "386" {
-		os.Setenv("GO386", "387")
-	}
+	os.Setenv("GOARCH", goarch)
 	wd, err := os.Getwd()
 	if err != nil {
 		log.Println("Warning: can't determine current dir:", err)
