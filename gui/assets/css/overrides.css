@@ -39,8 +39,8 @@ ul+h5 {
 
 .panel-title {
     position: relative;
-    text-overflow:ellipsis;
-    overflow:hidden;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
 
 identicon {
@@ -204,4 +204,16 @@ table.table-condensed td {
 ul.three-columns li, ul.two-columns li {
     padding-left: 0.5em;
     text-indent: -0.5em;
+}
+
+/** Footer nav on small devices **/
+
+@media (max-width: 767px) {
+    body {
+        padding-bottom: 0;
+    }
+
+    .navbar-fixed-bottom {
+        position: static;
+    }
 }
