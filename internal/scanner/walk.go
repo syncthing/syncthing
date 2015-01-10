@@ -49,6 +49,8 @@ type Walker struct {
 	// detected. Scanned files will get zero permission bits and the
 	// NoPermissionBits flag set.
 	IgnorePerms bool
+	// Number of routines to use for hashing
+	Hashers int
 }
 
 type TempNamer interface {
@@ -75,9 +77,14 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 		return nil, err
 	}
 
+	workers := w.Hashers
+	if workers < 1 {
+		workers = runtime.NumCPU()
+	}
+
 	files := make(chan protocol.FileInfo)
 	hashedFiles := make(chan protocol.FileInfo)
-	newParallelHasher(w.Dir, w.BlockSize, runtime.NumCPU(), hashedFiles, files)
+	newParallelHasher(w.Dir, w.BlockSize, workers, hashedFiles, files)
 
 	go func() {
 		hashFiles := w.walkAndHashFiles(files)

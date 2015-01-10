@@ -77,7 +77,6 @@ type Puller struct {
 	progressEmitter *ProgressEmitter
 	copiers         int
 	pullers         int
-	finishers       int
 	queue           *jobQueue
 }
 
@@ -258,7 +257,7 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 	var doneWg sync.WaitGroup
 
 	if debug {
-		l.Debugln(p, "c", p.copiers, "p", p.pullers, "f", p.finishers)
+		l.Debugln(p, "c", p.copiers, "p", p.pullers)
 	}
 
 	for i := 0; i < p.copiers; i++ {
@@ -279,14 +278,12 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 		}()
 	}
 
-	for i := 0; i < p.finishers; i++ {
-		doneWg.Add(1)
-		// finisherRoutine finishes when finisherChan is closed
-		go func() {
-			p.finisherRoutine(finisherChan)
-			doneWg.Done()
-		}()
-	}
+	doneWg.Add(1)
+	// finisherRoutine finishes when finisherChan is closed
+	go func() {
+		p.finisherRoutine(finisherChan)
+		doneWg.Done()
+	}()
 
 	p.model.fmut.RLock()
 	folderFiles := p.model.folderFiles[p.folder]

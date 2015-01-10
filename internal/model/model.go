@@ -190,7 +190,6 @@ func (m *Model) StartFolderRW(folder string) {
 		progressEmitter: m.progressEmitter,
 		copiers:         cfg.Copiers,
 		pullers:         cfg.Pullers,
-		finishers:       cfg.Finishers,
 		queue:           newJobQueue(),
 	}
 	m.folderRunners[folder] = p
@@ -1138,6 +1137,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		TempLifetime: time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler: cFiler{m, folder},
 		IgnorePerms:  folderCfg.IgnorePerms,
+		Hashers:      folderCfg.Hashers,
 	}
 
 	m.setState(folder, FolderScanning)
