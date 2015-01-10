@@ -610,17 +610,17 @@ func (p *Puller) shortcutSymlink(curFile, file protocol.FileInfo) {
 func (p *Puller) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
 	buf := make([]byte, protocol.BlockSize)
 
-nextFile:
 	for state := range in {
+		if p.progressEmitter != nil {
+			p.progressEmitter.Register(state.sharedPullerState)
+		}
+
 		dstFd, err := state.tempFile()
 		if err != nil {
 			// Nothing more to do for this failed file (the error was logged
 			// when it happened)
-			continue nextFile
-		}
-
-		if p.progressEmitter != nil {
-			p.progressEmitter.Register(state.sharedPullerState)
+			out <- state.sharedPullerState
+			continue
 		}
 
 		evictionChan := make(chan lfu.Eviction)
@@ -684,7 +684,7 @@ nextFile:
 
 				_, err = dstFd.WriteAt(buf, block.Offset)
 				if err != nil {
-					state.earlyClose("dst write", err)
+					state.fail("dst write", err)
 				}
 				if file == state.file.Name {
 					state.copiedFromOrigin()
@@ -736,9 +736,9 @@ func (p *Puller) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPulle
 			selected := activity.leastBusy(potentialDevices)
 			if selected == (protocol.DeviceID{}) {
 				if lastError != nil {
-					state.earlyClose("pull", lastError)
+					state.fail("pull", lastError)
 				} else {
-					state.earlyClose("pull", errNoDevice)
+					state.fail("pull", errNoDevice)
 				}
 				break
 			}
@@ -764,13 +764,13 @@ func (p *Puller) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPulle
 			// Save the block data we got from the cluster
 			_, err = fd.WriteAt(buf, state.block.Offset)
 			if err != nil {
-				state.earlyClose("save", err)
+				state.fail("save", err)
 			} else {
 				state.pullDone()
-				out <- state.sharedPullerState
 			}
 			break
 		}
+		out <- state.sharedPullerState
 	}
 }
 
@@ -860,7 +860,9 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			}
 
 			p.queue.Done(state.file.Name)
-			p.performFinish(state)
+			if state.failed() == nil {
+				p.performFinish(state)
+			}
 			p.model.receivedFile(p.folder, state.file.Name)
 			if p.progressEmitter != nil {
 				p.progressEmitter.Deregister(state)
