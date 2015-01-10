@@ -94,7 +94,7 @@ func (d *UDPClient) broadcast(pkt []byte) {
 
 	conn, err := net.ListenUDP(d.url.Scheme, d.listenAddress)
 	for err != nil {
-		l.Warnf("Global UDP discovery (%s): %v; trying again in %v", d.url, err, d.errorRetryInterval)
+		l.Warnf("discover %s: broadcast: %v; trying again in %v", d.url, err, d.errorRetryInterval)
 		select {
 		case <-d.stop:
 			return
@@ -106,7 +106,7 @@ func (d *UDPClient) broadcast(pkt []byte) {
 
 	remote, err := net.ResolveUDPAddr(d.url.Scheme, d.url.Host)
 	for err != nil {
-		l.Warnf("Global UDP discovery (%s): %v; trying again in %v", d.url, err, d.errorRetryInterval)
+		l.Warnf("discover %s: broadcast: %v; trying again in %v", d.url, err, d.errorRetryInterval)
 		select {
 		case <-d.stop:
 			return
@@ -125,13 +125,13 @@ func (d *UDPClient) broadcast(pkt []byte) {
 			var ok bool
 
 			if debug {
-				l.Debugf("Global UDP discovery (%s): send announcement -> %v\n%s", d.url, remote, hex.Dump(pkt))
+				l.Debugf("discover %s: broadcast: Sending self announcement to %v", d.url, remote)
 			}
 
 			_, err := conn.WriteTo(pkt, remote)
 			if err != nil {
 				if debug {
-					l.Debugf("discover %s: warning: %s", d.url, err)
+					l.Debugf("discover %s: broadcast: Failed to send self announcement: %s", d.url, err)
 				}
 				ok = false
 			} else {
@@ -141,7 +141,7 @@ func (d *UDPClient) broadcast(pkt []byte) {
 
 				res := d.Lookup(d.id)
 				if debug {
-					l.Debugf("discover %s: external lookup check: %v", d.url, res)
+					l.Debugf("discover %s: broadcast: Self-lookup returned: %v", d.url, res)
 				}
 				ok = len(res) > 0
 			}
@@ -163,7 +163,7 @@ func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
 	extIP, err := net.ResolveUDPAddr(d.url.Scheme, d.url.Host)
 	if err != nil {
 		if debug {
-			l.Debugf("discover %s: %v; no external lookup", d.url, err)
+			l.Debugf("discover %s: Lookup(%s): %s", d.url, device, err)
 		}
 		return nil
 	}
@@ -171,7 +171,7 @@ func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
 	conn, err := net.DialUDP(d.url.Scheme, d.listenAddress, extIP)
 	if err != nil {
 		if debug {
-			l.Debugf("discover %s: %v; no external lookup", d.url, err)
+			l.Debugf("discover %s: Lookup(%s): %s", d.url, device, err)
 		}
 		return nil
 	}
@@ -180,7 +180,7 @@ func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
 	err = conn.SetDeadline(time.Now().Add(5 * time.Second))
 	if err != nil {
 		if debug {
-			l.Debugf("discover %s: %v; no external lookup", d.url, err)
+			l.Debugf("discover %s: Lookup(%s): %s", d.url, device, err)
 		}
 		return nil
 	}
@@ -189,7 +189,7 @@ func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
 	_, err = conn.Write(buf)
 	if err != nil {
 		if debug {
-			l.Debugf("discover %s: %v; no external lookup", d.url, err)
+			l.Debugf("discover %s: Lookup(%s): %s", d.url, device, err)
 		}
 		return nil
 	}
@@ -202,20 +202,16 @@ func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
 			return nil
 		}
 		if debug {
-			l.Debugf("discover %s: %v; no external lookup", d.url, err)
+			l.Debugf("discover %s: Lookup(%s): %s", d.url, device, err)
 		}
 		return nil
-	}
-
-	if debug {
-		l.Debugf("discover %s: read external:\n%s", d.url, hex.Dump(buf[:n]))
 	}
 
 	var pkt Announce
 	err = pkt.UnmarshalXDR(buf[:n])
 	if err != nil && err != io.EOF {
 		if debug {
-			l.Debugln("discover %s:", d.url, err)
+			l.Debugf("discover %s: Lookup(%s): %s\n%s", d.url, device, err, hex.Dump(buf[:n]))
 		}
 		return nil
 	}
@@ -224,6 +220,9 @@ func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
 	for _, a := range pkt.This.Addresses {
 		deviceAddr := net.JoinHostPort(net.IP(a.IP).String(), strconv.Itoa(int(a.Port)))
 		addrs = append(addrs, deviceAddr)
+	}
+	if debug {
+		l.Debugf("discover %s: Lookup(%s) result: %v", d.url, device, addrs)
 	}
 	return addrs
 }
