@@ -1259,28 +1259,35 @@ func standbyMonitor() {
 }
 
 func autoUpgrade() {
-	var skipped bool
-	interval := time.Duration(cfg.Options().AutoUpgradeIntervalH) * time.Hour
+	timer := time.NewTimer(0)
+	sub := events.Default.Subscribe(events.DeviceConnected)
 	for {
-		if skipped {
-			time.Sleep(interval)
-		} else {
-			skipped = true
+		select {
+		case event := <-sub.C():
+			data, ok := event.Data.(map[string]string)
+			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], Version) != upgrade.Newer {
+				continue
+			}
+			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], Version, data["clientVersion"])
+		case <-timer.C:
 		}
 
 		rel, err := upgrade.LatestRelease(IsBeta)
 		if err == upgrade.ErrUpgradeUnsupported {
+			events.Default.Unsubscribe(sub)
 			return
 		}
 		if err != nil {
 			// Don't complain too loudly here; we might simply not have
 			// internet connectivity, or the upgrade server might be down.
 			l.Infoln("Automatic upgrade:", err)
+			timer.Reset(time.Duration(cfg.Options().AutoUpgradeIntervalH) * time.Hour)
 			continue
 		}
 
 		if upgrade.CompareVersions(rel.Tag, Version) != upgrade.Newer {
 			// Skip equal, older or majorly newer (incompatible) versions
+			timer.Reset(time.Duration(cfg.Options().AutoUpgradeIntervalH) * time.Hour)
 			continue
 		}
 
@@ -1288,8 +1295,10 @@ func autoUpgrade() {
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("Automatic upgrade:", err)
+			timer.Reset(time.Duration(cfg.Options().AutoUpgradeIntervalH) * time.Hour)
 			continue
 		}
+		events.Default.Unsubscribe(sub)
 		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
 		time.Sleep(time.Minute)
 		stop <- exitUpgrading

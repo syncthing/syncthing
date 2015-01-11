@@ -187,6 +187,10 @@ func (s *Subscription) Poll(timeout time.Duration) (Event, error) {
 	}
 }
 
+func (s *Subscription) C() <-chan Event {
+	return s.events
+}
+
 type BufferedSubscription struct {
 	sub  *Subscription
 	buf  []Event
