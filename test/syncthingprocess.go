@@ -57,7 +57,19 @@ func (p *syncthingProcess) start() error {
 		p.logfd = logfd
 	}
 
-	cmd := exec.Command("../bin/syncthing", p.argv...)
+	binary := "../bin/syncthing"
+
+	// We check to see if there's an instance specific binary we should run,
+	// for example if we are running integration tests between different
+	// versions. If there isn't, we just go with the default.
+	if _, err := os.Stat(binary + "-" + p.instance); err == nil {
+		binary = binary + "-" + p.instance
+	}
+	if _, err := os.Stat(binary + "-" + p.instance + ".exe"); err == nil {
+		binary = binary + "-" + p.instance + ".exe"
+	}
+
+	cmd := exec.Command(binary, p.argv...)
 	cmd.Stdout = p.logfd
 	cmd.Stderr = p.logfd
 	cmd.Env = append(os.Environ(), env...)
