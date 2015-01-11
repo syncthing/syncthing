@@ -41,9 +41,9 @@ var jsonEndpoints = []string{
 
 func TestGetIndex(t *testing.T) {
 	st := syncthingProcess{
-		argv: []string{"-home", "h2"},
-		port: 8082,
-		log:  "2.out",
+		argv:     []string{"-home", "h2"},
+		port:     8082,
+		instance: "2",
 	}
 	err := st.start()
 	if err != nil {
@@ -84,9 +84,9 @@ func TestGetIndex(t *testing.T) {
 
 func TestGetIndexAuth(t *testing.T) {
 	st := syncthingProcess{
-		argv: []string{"-home", "h1"},
-		port: 8081,
-		log:  "1.out",
+		argv:     []string{"-home", "h1"},
+		port:     8081,
+		instance: "1",
 	}
 	err := st.start()
 	if err != nil {
@@ -142,9 +142,9 @@ func TestGetIndexAuth(t *testing.T) {
 
 func TestGetJSON(t *testing.T) {
 	st := syncthingProcess{
-		argv: []string{"-home", "h2"},
-		port: 8082,
-		log:  "2.out",
+		argv:     []string{"-home", "h2"},
+		port:     8082,
+		instance: "2",
 	}
 	err := st.start()
 	if err != nil {
@@ -174,9 +174,9 @@ func TestGetJSON(t *testing.T) {
 
 func TestPOSTWithoutCSRF(t *testing.T) {
 	st := syncthingProcess{
-		argv: []string{"-home", "h2"},
-		port: 8082,
-		log:  "2.out",
+		argv:     []string{"-home", "h2"},
+		port:     8082,
+		instance: "2",
 	}
 	err := st.start()
 	if err != nil {

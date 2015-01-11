@@ -39,10 +39,10 @@ func TestStressHTTP(t *testing.T) {
 
 	log.Println("Starting up...")
 	sender := syncthingProcess{ // id1
-		log:    "2.out",
-		argv:   []string{"-home", "h2"},
-		port:   8082,
-		apiKey: apiKey,
+		instance: "2",
+		argv:     []string{"-home", "h2"},
+		port:     8082,
+		apiKey:   apiKey,
 	}
 	err = sender.start()
 	if err != nil {

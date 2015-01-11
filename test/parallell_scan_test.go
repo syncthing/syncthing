@@ -46,10 +46,10 @@ func TestParallellScan(t *testing.T) {
 
 	log.Println("Starting up...")
 	st := syncthingProcess{ // id1
-		log:    "1.out",
-		argv:   []string{"-home", "h1"},
-		port:   8081,
-		apiKey: apiKey,
+		instance: "1",
+		argv:     []string{"-home", "h1"},
+		port:     8081,
+		apiKey:   apiKey,
 	}
 	err = st.start()
 	if err != nil {

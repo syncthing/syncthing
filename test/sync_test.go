@@ -254,10 +254,10 @@ func scStartProcesses() ([]syncthingProcess, error) {
 	p := make([]syncthingProcess, 3)
 
 	p[0] = syncthingProcess{ // id1
-		log:    "1.out",
-		argv:   []string{"-home", "h1"},
-		port:   8081,
-		apiKey: apiKey,
+		instance: "1",
+		argv:     []string{"-home", "h1"},
+		port:     8081,
+		apiKey:   apiKey,
 	}
 	err := p[0].start()
 	if err != nil {
@@ -265,10 +265,10 @@ func scStartProcesses() ([]syncthingProcess, error) {
 	}
 
 	p[1] = syncthingProcess{ // id2
-		log:    "2.out",
-		argv:   []string{"-home", "h2"},
-		port:   8082,
-		apiKey: apiKey,
+		instance: "2",
+		argv:     []string{"-home", "h2"},
+		port:     8082,
+		apiKey:   apiKey,
 	}
 	err = p[1].start()
 	if err != nil {
@@ -277,10 +277,10 @@ func scStartProcesses() ([]syncthingProcess, error) {
 	}
 
 	p[2] = syncthingProcess{ // id3
-		log:    "3.out",
-		argv:   []string{"-home", "h3"},
-		port:   8083,
-		apiKey: apiKey,
+		instance: "3",
+		argv:     []string{"-home", "h3"},
+		port:     8083,
+		apiKey:   apiKey,
 	}
 	err = p[2].start()
 	if err != nil {

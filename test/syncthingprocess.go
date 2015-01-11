@@ -37,7 +37,7 @@ var env = []string{
 }
 
 type syncthingProcess struct {
-	log       string
+	instance  string
 	argv      []string
 	port      int
 	apiKey    string
@@ -50,7 +50,7 @@ type syncthingProcess struct {
 
 func (p *syncthingProcess) start() error {
 	if p.logfd == nil {
-		logfd, err := os.Create(p.log)
+		logfd, err := os.Create(p.instance + ".out")
 		if err != nil {
 			return err
 		}
@@ -82,7 +82,7 @@ func (p *syncthingProcess) stop() error {
 	p.cmd.Process.Signal(os.Kill)
 	p.cmd.Wait()
 
-	fd, err := os.Open(p.log)
+	fd, err := os.Open(p.instance + ".out")
 	if err != nil {
 		return err
 	}
