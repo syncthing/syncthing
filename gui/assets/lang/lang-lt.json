@@ -13,7 +13,7 @@
     "Automatic upgrades": "Automatiniai atnaujinimai",
     "Bugs": "Klaidos",
     "CPU Utilization": "Procesoriaus panaudojimas",
-    "Changelog": "Changelog",
+    "Changelog": "Pasikeitimai",
     "Close": "Uždaryti",
     "Comment, when used at the start of a line": "Komentaras naudojamas naujoje eilutėje",
     "Compression is recommended in most setups.": "Daugumoje atvejų spaudimas rekomenduojamas.",
@@ -25,7 +25,7 @@
     "Device ID": "Įrenginio ID",
     "Device Identification": "Įrenginio identifikacija",
     "Device Name": "Įrenginio pavadinimas",
-    "Device {%device%} ({%address%}) wants to connect. Add new device?": "Device {{device}} ({{address}}) wants to connect. Add new device?",
+    "Device {%device%} ({%address%}) wants to connect. Add new device?": "Įrenginys {{device}} ({{address}}) nori prisijungti. Pridėti naują įrenginį?",
     "Devices": "Įrenginiai",
     "Disconnected": "Atsijungęs",
     "Documentation": "Aprašymas",
@@ -119,7 +119,7 @@
     "Staggered File Versioning": "Pakopinis versijų valdymas",
     "Start Browser": "Paleisti naršyklę",
     "Stopped": "Sustabdyta",
-    "Support": "Support",
+    "Support": "Pagalba",
     "Support / Forum": "Palaikymas / Diskusijos",
     "Sync Protocol Listen Addresses": "Sutapatinimo taisyklių adresas",
     "Synchronization": "Sutapatinimas",
@@ -129,7 +129,7 @@
     "Syncthing is restarting.": "Syncthing perleidžiamas",
     "Syncthing is upgrading.": "Syncthing atsinaujina.",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing  išjungta arba problemos su Interneto ryšių. Bandoma iš naujo...",
-    "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing seems to be experiencing a problem processing your request. Please reload your browser or restart Syncthing if the problem persists.",
+    "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing turi problemų su jūsų užklausa. Perkraukite puslapį arba perkraukite Syncthing jei problema nedings.",
     "The aggregated statistics are publicly available at {%url%}.": "Naudojimosi ataskaitą galite peržiūrėti adresu: {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Nauji nustatymai išsaugoti, bet neaktyvuoti. Perleiskite Syncthing programą iš naujo norėdami įgalinti naujus nustatymus.",
     "The device ID cannot be blank.": "Įrenginio ID negali būti tuščias.",
@@ -165,5 +165,5 @@
     "You must keep at least one version.": "Būtina saugoti bent vieną versiją.",
     "full documentation": "pilna dokumentacija",
     "items": "įrašai",
-    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wants to share folder \"{{folder}}\"."
+    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} nori dalintis aplanku \"{{folder}}\""
 }
