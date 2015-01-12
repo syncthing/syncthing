@@ -13,13 +13,13 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-// Package files provides a set type to track local/remote files with newness
+// Package db provides a set type to track local/remote files with newness
 // checks. We must do a certain amount of normalization in here. We will get
 // fed paths with either native or wire-format separators and encodings
 // depending on who calls us. We transform paths to wire-format (NFC and
 // slashes) on the way to the database, and transform to native format
 // (varying separator and encoding) on the way back out.
-package files
+package db
 
 import (
 	"sync"

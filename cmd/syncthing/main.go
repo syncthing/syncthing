@@ -38,9 +38,9 @@ import (
 	"github.com/calmh/logger"
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/discover"
 	"github.com/syncthing/syncthing/internal/events"
-	"github.com/syncthing/syncthing/internal/files"
 	"github.com/syncthing/syncthing/internal/model"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
@@ -489,21 +489,21 @@ func syncthingMain() {
 		readRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxRecvKbps), int64(5*1000*opts.MaxRecvKbps))
 	}
 
-	db, err := leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{OpenFilesCacheCapacity: 100})
+	ldb, err := leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{OpenFilesCacheCapacity: 100})
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
 
 	// Remove database entries for folders that no longer exist in the config
 	folders := cfg.Folders()
-	for _, folder := range files.ListFolders(db) {
+	for _, folder := range db.ListFolders(ldb) {
 		if _, ok := folders[folder]; !ok {
 			l.Infof("Cleaning data for dropped folder %q", folder)
-			files.DropFolder(db, folder)
+			db.DropFolder(ldb, folder)
 		}
 	}
 
-	m := model.NewModel(cfg, myName, "syncthing", Version, db)
+	m := model.NewModel(cfg, myName, "syncthing", Version, ldb)
 
 	sanityCheckFolders(cfg, m)
 

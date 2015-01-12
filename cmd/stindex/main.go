@@ -21,7 +21,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/syncthing/syncthing/internal/files"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -34,17 +34,17 @@ func main() {
 	device := flag.String("device", "", "Device ID (blank for global)")
 	flag.Parse()
 
-	db, err := leveldb.OpenFile(flag.Arg(0), nil)
+	ldb, err := leveldb.OpenFile(flag.Arg(0), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fs := files.NewSet(*folder, db)
+	fs := db.NewSet(*folder, ldb)
 
 	if *device == "" {
 		log.Printf("*** Global index for folder %q", *folder)
-		fs.WithGlobalTruncated(func(fi files.FileIntf) bool {
-			f := fi.(files.FileInfoTruncated)
+		fs.WithGlobalTruncated(func(fi db.FileIntf) bool {
+			f := fi.(db.FileInfoTruncated)
 			fmt.Println(f)
 			fmt.Println("\t", fs.Availability(f.Name))
 			return true
@@ -55,8 +55,8 @@ func main() {
 			log.Fatal(err)
 		}
 		log.Printf("*** Have index for folder %q device %q", *folder, n)
-		fs.WithHaveTruncated(n, func(fi files.FileIntf) bool {
-			f := fi.(files.FileInfoTruncated)
+		fs.WithHaveTruncated(n, func(fi db.FileIntf) bool {
+			f := fi.(db.FileInfoTruncated)
 			fmt.Println(f)
 			return true
 		})

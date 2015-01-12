@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/internal/config"
-	"github.com/syncthing/syncthing/internal/files"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/model"
 	"github.com/syncthing/syncthing/internal/protocol"
 
@@ -44,11 +44,11 @@ func TestSanityCheck(t *testing.T) {
 		}
 	}
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, _ := leveldb.Open(storage.NewMemStorage(), nil)
 
 	// Case 1 - new folder, directory and marker created
 
-	m := model.NewModel(cfg, "device", "syncthing", "dev", db)
+	m := model.NewModel(cfg, "device", "syncthing", "dev", ldb)
 	sanityCheckFolders(cfg, m)
 
 	if cfg.Folders()["folder"].Invalid != "" {
@@ -75,7 +75,7 @@ func TestSanityCheck(t *testing.T) {
 		Folders: []config.FolderConfiguration{fcfg},
 	})
 
-	m = model.NewModel(cfg, "device", "syncthing", "dev", db)
+	m = model.NewModel(cfg, "device", "syncthing", "dev", ldb)
 	sanityCheckFolders(cfg, m)
 
 	if cfg.Folders()["folder"].Invalid != "" {
@@ -91,12 +91,12 @@ func TestSanityCheck(t *testing.T) {
 
 	// Case 3 - marker missing
 
-	set := files.NewSet("folder", db)
+	set := db.NewSet("folder", ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
 	})
 
-	m = model.NewModel(cfg, "device", "syncthing", "dev", db)
+	m = model.NewModel(cfg, "device", "syncthing", "dev", ldb)
 	sanityCheckFolders(cfg, m)
 
 	if cfg.Folders()["folder"].Invalid != "folder marker missing" {
@@ -110,7 +110,7 @@ func TestSanityCheck(t *testing.T) {
 		Folders: []config.FolderConfiguration{fcfg},
 	})
 
-	m = model.NewModel(cfg, "device", "syncthing", "dev", db)
+	m = model.NewModel(cfg, "device", "syncthing", "dev", ldb)
 	sanityCheckFolders(cfg, m)
 
 	if cfg.Folders()["folder"].Invalid != "folder path missing" {
