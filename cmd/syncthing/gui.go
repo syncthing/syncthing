@@ -34,9 +34,9 @@ import (
 	"github.com/calmh/logger"
 	"github.com/syncthing/syncthing/internal/auto"
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/discover"
 	"github.com/syncthing/syncthing/internal/events"
-	"github.com/syncthing/syncthing/internal/files"
 	"github.com/syncthing/syncthing/internal/model"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/protocol"
@@ -784,7 +784,7 @@ func mimeTypeForFile(file string) string {
 	}
 }
 
-func toNeedSlice(fs []files.FileInfoTruncated) []map[string]interface{} {
+func toNeedSlice(fs []db.FileInfoTruncated) []map[string]interface{} {
 	output := make([]map[string]interface{}, len(fs))
 	for i, file := range fs {
 		output[i] = map[string]interface{}{
@@ -794,7 +794,7 @@ func toNeedSlice(fs []files.FileInfoTruncated) []map[string]interface{} {
 			"Version":      file.Version,
 			"LocalVersion": file.LocalVersion,
 			"NumBlocks":    file.NumBlocks,
-			"Size":         files.BlocksToSize(file.NumBlocks),
+			"Size":         db.BlocksToSize(file.NumBlocks),
 		}
 	}
 	return output

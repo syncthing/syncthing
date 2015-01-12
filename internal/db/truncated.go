@@ -16,7 +16,7 @@
 //go:generate -command genxdr go run ../../Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
 //go:generate genxdr -o truncated_xdr.go truncated.go
 
-package files
+package db
 
 import (
 	"fmt"

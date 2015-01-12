@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-package files_test
+package db_test
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/syncthing/syncthing/internal/files"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/lamport"
 	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -49,9 +49,9 @@ func genBlocks(n int) []protocol.BlockInfo {
 	return b
 }
 
-func globalList(s *files.Set) []protocol.FileInfo {
+func globalList(s *db.FileSet) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithGlobal(func(fi files.FileIntf) bool {
+	s.WithGlobal(func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -59,9 +59,9 @@ func globalList(s *files.Set) []protocol.FileInfo {
 	return fs
 }
 
-func haveList(s *files.Set, n protocol.DeviceID) []protocol.FileInfo {
+func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithHave(n, func(fi files.FileIntf) bool {
+	s.WithHave(n, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -69,9 +69,9 @@ func haveList(s *files.Set, n protocol.DeviceID) []protocol.FileInfo {
 	return fs
 }
 
-func needList(s *files.Set, n protocol.DeviceID) []protocol.FileInfo {
+func needList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithNeed(n, func(fi files.FileIntf) bool {
+	s.WithNeed(n, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -106,12 +106,12 @@ func (l fileList) String() string {
 func TestGlobalSet(t *testing.T) {
 	lamport.Default = lamport.Clock{}
 
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	m := files.NewSet("test", db)
+	m := db.NewFileSet("test", ldb)
 
 	local0 := fileList{
 		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
@@ -267,12 +267,12 @@ func TestGlobalSet(t *testing.T) {
 func TestNeedWithInvalid(t *testing.T) {
 	lamport.Default = lamport.Clock{}
 
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := files.NewSet("test", db)
+	s := db.NewFileSet("test", ldb)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
@@ -309,12 +309,12 @@ func TestNeedWithInvalid(t *testing.T) {
 func TestUpdateToInvalid(t *testing.T) {
 	lamport.Default = lamport.Clock{}
 
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := files.NewSet("test", db)
+	s := db.NewFileSet("test", ldb)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
@@ -346,12 +346,12 @@ func TestUpdateToInvalid(t *testing.T) {
 func TestInvalidAvailability(t *testing.T) {
 	lamport.Default = lamport.Clock{}
 
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := files.NewSet("test", db)
+	s := db.NewFileSet("test", ldb)
 
 	remote0Have := fileList{
 		protocol.FileInfo{Name: "both", Version: 1001, Blocks: genBlocks(2)},
@@ -387,11 +387,11 @@ func TestInvalidAvailability(t *testing.T) {
 }
 
 func TestLocalDeleted(t *testing.T) {
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := files.NewSet("test", db)
+	m := db.NewFileSet("test", ldb)
 	lamport.Default = lamport.Clock{}
 
 	local1 := []protocol.FileInfo{
@@ -462,7 +462,7 @@ func TestLocalDeleted(t *testing.T) {
 }
 
 func Benchmark10kReplace(b *testing.B) {
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -474,7 +474,7 @@ func Benchmark10kReplace(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m := files.NewSet("test", db)
+		m := db.NewFileSet("test", ldb)
 		m.ReplaceWithDelete(protocol.LocalDeviceID, local)
 	}
 }
@@ -485,12 +485,12 @@ func Benchmark10kUpdateChg(b *testing.B) {
 		remote = append(remote, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	m := files.NewSet("test", db)
+	m := db.NewFileSet("test", ldb)
 	m.Replace(remoteDevice0, remote)
 
 	var local []protocol.FileInfo
@@ -517,11 +517,11 @@ func Benchmark10kUpdateSme(b *testing.B) {
 		remote = append(remote, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		b.Fatal(err)
 	}
-	m := files.NewSet("test", db)
+	m := db.NewFileSet("test", ldb)
 	m.Replace(remoteDevice0, remote)
 
 	var local []protocol.FileInfo
@@ -543,12 +543,12 @@ func Benchmark10kNeed2k(b *testing.B) {
 		remote = append(remote, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	m := files.NewSet("test", db)
+	m := db.NewFileSet("test", ldb)
 	m.Replace(remoteDevice0, remote)
 
 	var local []protocol.FileInfo
@@ -576,12 +576,12 @@ func Benchmark10kHaveFullList(b *testing.B) {
 		remote = append(remote, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	m := files.NewSet("test", db)
+	m := db.NewFileSet("test", ldb)
 	m.Replace(remoteDevice0, remote)
 
 	var local []protocol.FileInfo
@@ -609,12 +609,12 @@ func Benchmark10kGlobal(b *testing.B) {
 		remote = append(remote, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: 1000})
 	}
 
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	m := files.NewSet("test", db)
+	m := db.NewFileSet("test", ldb)
 	m.Replace(remoteDevice0, remote)
 
 	var local []protocol.FileInfo
@@ -637,12 +637,12 @@ func Benchmark10kGlobal(b *testing.B) {
 }
 
 func TestGlobalReset(t *testing.T) {
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	m := files.NewSet("test", db)
+	m := db.NewFileSet("test", ldb)
 
 	local := []protocol.FileInfo{
 		{Name: "a", Version: 1000},
@@ -678,12 +678,12 @@ func TestGlobalReset(t *testing.T) {
 }
 
 func TestNeed(t *testing.T) {
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	m := files.NewSet("test", db)
+	m := db.NewFileSet("test", ldb)
 
 	local := []protocol.FileInfo{
 		{Name: "a", Version: 1000},
@@ -719,12 +719,12 @@ func TestNeed(t *testing.T) {
 }
 
 func TestLocalVersion(t *testing.T) {
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	m := files.NewSet("test", db)
+	m := db.NewFileSet("test", ldb)
 
 	local1 := []protocol.FileInfo{
 		{Name: "a", Version: 1000},
@@ -758,12 +758,12 @@ func TestLocalVersion(t *testing.T) {
 }
 
 func TestListDropFolder(t *testing.T) {
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s0 := files.NewSet("test0", db)
+	s0 := db.NewFileSet("test0", ldb)
 	local1 := []protocol.FileInfo{
 		{Name: "a", Version: 1000},
 		{Name: "b", Version: 1000},
@@ -771,7 +771,7 @@ func TestListDropFolder(t *testing.T) {
 	}
 	s0.Replace(protocol.LocalDeviceID, local1)
 
-	s1 := files.NewSet("test1", db)
+	s1 := db.NewFileSet("test1", ldb)
 	local2 := []protocol.FileInfo{
 		{Name: "d", Version: 1002},
 		{Name: "e", Version: 1002},
@@ -782,7 +782,7 @@ func TestListDropFolder(t *testing.T) {
 	// Check that we have both folders and their data is in the global list
 
 	expectedFolderList := []string{"test0", "test1"}
-	if actualFolderList := files.ListFolders(db); !reflect.DeepEqual(actualFolderList, expectedFolderList) {
+	if actualFolderList := db.ListFolders(ldb); !reflect.DeepEqual(actualFolderList, expectedFolderList) {
 		t.Fatalf("FolderList mismatch\nE: %v\nA: %v", expectedFolderList, actualFolderList)
 	}
 	if l := len(globalList(s0)); l != 3 {
@@ -794,10 +794,10 @@ func TestListDropFolder(t *testing.T) {
 
 	// Drop one of them and check that it's gone.
 
-	files.DropFolder(db, "test1")
+	db.DropFolder(ldb, "test1")
 
 	expectedFolderList = []string{"test0"}
-	if actualFolderList := files.ListFolders(db); !reflect.DeepEqual(actualFolderList, expectedFolderList) {
+	if actualFolderList := db.ListFolders(ldb); !reflect.DeepEqual(actualFolderList, expectedFolderList) {
 		t.Fatalf("FolderList mismatch\nE: %v\nA: %v", expectedFolderList, actualFolderList)
 	}
 	if l := len(globalList(s0)); l != 3 {
@@ -809,12 +809,12 @@ func TestListDropFolder(t *testing.T) {
 }
 
 func TestGlobalNeedWithInvalid(t *testing.T) {
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := files.NewSet("test1", db)
+	s := db.NewFileSet("test1", ldb)
 
 	rem0 := fileList{
 		protocol.FileInfo{Name: "a", Version: 1002, Blocks: genBlocks(4)},
@@ -849,12 +849,12 @@ func TestGlobalNeedWithInvalid(t *testing.T) {
 }
 
 func TestLongPath(t *testing.T) {
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := files.NewSet("test", db)
+	s := db.NewFileSet("test", ldb)
 
 	var b bytes.Buffer
 	for i := 0; i < 100; i++ {

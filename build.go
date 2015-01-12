@@ -301,7 +301,7 @@ func assets() {
 }
 
 func xdr() {
-	runPrint("go", "generate", "./internal/discover", "./internal/files", "./internal/protocol")
+	runPrint("go", "generate", "./internal/discover", "./internal/db", "./internal/protocol")
 }
 
 func translate() {
