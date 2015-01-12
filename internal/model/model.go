@@ -94,7 +94,7 @@ type Model struct {
 	clientVersion string
 
 	folderCfgs     map[string]config.FolderConfiguration                  // folder -> cfg
-	folderFiles    map[string]*db.Set                                     // folder -> files
+	folderFiles    map[string]*db.FileSet                                 // folder -> files
 	folderDevices  map[string][]protocol.DeviceID                         // folder -> deviceIDs
 	deviceFolders  map[protocol.DeviceID][]string                         // deviceID -> folders
 	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
@@ -134,7 +134,7 @@ func NewModel(cfg *config.Wrapper, deviceName, clientName, clientVersion string,
 		clientName:         clientName,
 		clientVersion:      clientVersion,
 		folderCfgs:         make(map[string]config.FolderConfiguration),
-		folderFiles:        make(map[string]*db.Set),
+		folderFiles:        make(map[string]*db.FileSet),
 		folderDevices:      make(map[string][]protocol.DeviceID),
 		deviceFolders:      make(map[protocol.DeviceID][]string),
 		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
@@ -949,7 +949,7 @@ func (m *Model) receivedFile(folder, filename string) {
 	m.folderStatRef(folder).ReceivedFile(filename)
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.Set, ignores *ignore.Matcher) {
+func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	var err error
@@ -974,7 +974,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.Set, ignores *i
 	}
 }
 
-func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, folder string, fs *db.Set, ignores *ignore.Matcher) (uint64, error) {
+func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (uint64, error) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -1081,7 +1081,7 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 
 	m.fmut.Lock()
 	m.folderCfgs[cfg.ID] = cfg
-	m.folderFiles[cfg.ID] = db.NewSet(cfg.ID, m.db)
+	m.folderFiles[cfg.ID] = db.NewFileSet(cfg.ID, m.db)
 
 	m.folderDevices[cfg.ID] = make([]protocol.DeviceID, len(cfg.Devices))
 	for i, device := range cfg.Devices {

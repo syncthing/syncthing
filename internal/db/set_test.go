@@ -49,7 +49,7 @@ func genBlocks(n int) []protocol.BlockInfo {
 	return b
 }
 
-func globalList(s *db.Set) []protocol.FileInfo {
+func globalList(s *db.FileSet) []protocol.FileInfo {
 	var fs []protocol.FileInfo
 	s.WithGlobal(func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
@@ -59,7 +59,7 @@ func globalList(s *db.Set) []protocol.FileInfo {
 	return fs
 }
 
-func haveList(s *db.Set, n protocol.DeviceID) []protocol.FileInfo {
+func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
 	s.WithHave(n, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
@@ -69,7 +69,7 @@ func haveList(s *db.Set, n protocol.DeviceID) []protocol.FileInfo {
 	return fs
 }
 
-func needList(s *db.Set, n protocol.DeviceID) []protocol.FileInfo {
+func needList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
 	s.WithNeed(n, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
@@ -111,7 +111,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m := db.NewSet("test", ldb)
+	m := db.NewFileSet("test", ldb)
 
 	local0 := fileList{
 		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
@@ -272,7 +272,7 @@ func TestNeedWithInvalid(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := db.NewSet("test", ldb)
+	s := db.NewFileSet("test", ldb)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
@@ -314,7 +314,7 @@ func TestUpdateToInvalid(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := db.NewSet("test", ldb)
+	s := db.NewFileSet("test", ldb)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "a", Version: 1000, Blocks: genBlocks(1)},
@@ -351,7 +351,7 @@ func TestInvalidAvailability(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := db.NewSet("test", ldb)
+	s := db.NewFileSet("test", ldb)
 
 	remote0Have := fileList{
 		protocol.FileInfo{Name: "both", Version: 1001, Blocks: genBlocks(2)},
@@ -391,7 +391,7 @@ func TestLocalDeleted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := db.NewSet("test", ldb)
+	m := db.NewFileSet("test", ldb)
 	lamport.Default = lamport.Clock{}
 
 	local1 := []protocol.FileInfo{
@@ -474,7 +474,7 @@ func Benchmark10kReplace(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m := db.NewSet("test", ldb)
+		m := db.NewFileSet("test", ldb)
 		m.ReplaceWithDelete(protocol.LocalDeviceID, local)
 	}
 }
@@ -490,7 +490,7 @@ func Benchmark10kUpdateChg(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	m := db.NewSet("test", ldb)
+	m := db.NewFileSet("test", ldb)
 	m.Replace(remoteDevice0, remote)
 
 	var local []protocol.FileInfo
@@ -521,7 +521,7 @@ func Benchmark10kUpdateSme(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	m := db.NewSet("test", ldb)
+	m := db.NewFileSet("test", ldb)
 	m.Replace(remoteDevice0, remote)
 
 	var local []protocol.FileInfo
@@ -548,7 +548,7 @@ func Benchmark10kNeed2k(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	m := db.NewSet("test", ldb)
+	m := db.NewFileSet("test", ldb)
 	m.Replace(remoteDevice0, remote)
 
 	var local []protocol.FileInfo
@@ -581,7 +581,7 @@ func Benchmark10kHaveFullList(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	m := db.NewSet("test", ldb)
+	m := db.NewFileSet("test", ldb)
 	m.Replace(remoteDevice0, remote)
 
 	var local []protocol.FileInfo
@@ -614,7 +614,7 @@ func Benchmark10kGlobal(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	m := db.NewSet("test", ldb)
+	m := db.NewFileSet("test", ldb)
 	m.Replace(remoteDevice0, remote)
 
 	var local []protocol.FileInfo
@@ -642,7 +642,7 @@ func TestGlobalReset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m := db.NewSet("test", ldb)
+	m := db.NewFileSet("test", ldb)
 
 	local := []protocol.FileInfo{
 		{Name: "a", Version: 1000},
@@ -683,7 +683,7 @@ func TestNeed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m := db.NewSet("test", ldb)
+	m := db.NewFileSet("test", ldb)
 
 	local := []protocol.FileInfo{
 		{Name: "a", Version: 1000},
@@ -724,7 +724,7 @@ func TestLocalVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m := db.NewSet("test", ldb)
+	m := db.NewFileSet("test", ldb)
 
 	local1 := []protocol.FileInfo{
 		{Name: "a", Version: 1000},
@@ -763,7 +763,7 @@ func TestListDropFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s0 := db.NewSet("test0", ldb)
+	s0 := db.NewFileSet("test0", ldb)
 	local1 := []protocol.FileInfo{
 		{Name: "a", Version: 1000},
 		{Name: "b", Version: 1000},
@@ -771,7 +771,7 @@ func TestListDropFolder(t *testing.T) {
 	}
 	s0.Replace(protocol.LocalDeviceID, local1)
 
-	s1 := db.NewSet("test1", ldb)
+	s1 := db.NewFileSet("test1", ldb)
 	local2 := []protocol.FileInfo{
 		{Name: "d", Version: 1002},
 		{Name: "e", Version: 1002},
@@ -814,7 +814,7 @@ func TestGlobalNeedWithInvalid(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := db.NewSet("test1", ldb)
+	s := db.NewFileSet("test1", ldb)
 
 	rem0 := fileList{
 		protocol.FileInfo{Name: "a", Version: 1002, Blocks: genBlocks(4)},
@@ -854,7 +854,7 @@ func TestLongPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := db.NewSet("test", ldb)
+	s := db.NewFileSet("test", ldb)
 
 	var b bytes.Buffer
 	for i := 0; i < 100; i++ {
