@@ -11,27 +11,6 @@ angular.module('syncthing.core')
 
         function initController() {
             LocaleService.autoConfigLocale();
-
-            refreshSystem();
-            refreshConfig();
-            refreshConnectionStats();
-            refreshDeviceStats();
-            refreshFolderStats();
-
-            $http.get(urlbase + '/version').success(function (data) {
-                $scope.version = data.version;
-            }).error($scope.emitHTTPError);
-
-            $http.get(urlbase + '/report').success(function (data) {
-                $scope.reportData = data;
-            }).error($scope.emitHTTPError);
-
-            $http.get(urlbase + '/upgrade').success(function (data) {
-                $scope.upgradeInfo = data;
-            }).error(function () {
-                $scope.upgradeInfo = null;
-            });
-
             setInterval($scope.refresh, 10000);
         }
 
@@ -85,7 +64,27 @@ angular.module('syncthing.core')
             }
 
             console.log('UIOnline');
-            initController();
+
+            refreshSystem();
+            refreshConfig();
+            refreshConnectionStats();
+            refreshDeviceStats();
+            refreshFolderStats();
+
+            $http.get(urlbase + '/version').success(function (data) {
+                $scope.version = data.version;
+            }).error($scope.emitHTTPError);
+
+            $http.get(urlbase + '/report').success(function (data) {
+                $scope.reportData = data;
+            }).error($scope.emitHTTPError);
+
+            $http.get(urlbase + '/upgrade').success(function (data) {
+                $scope.upgradeInfo = data;
+            }).error(function () {
+                $scope.upgradeInfo = null;
+            });
+
             online = true;
             restarting = false;
             $('#networkError').modal('hide');
