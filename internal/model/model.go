@@ -78,7 +78,9 @@ type Model struct {
 	protoConn map[protocol.DeviceID]protocol.Connection
 	rawConn   map[protocol.DeviceID]io.Closer
 	deviceVer map[protocol.DeviceID]string
-	pmut      sync.RWMutex // protects protoConn and rawConn
+	pmut      sync.RWMutex // protects the above
+
+	features *featureSet
 
 	addedFolder bool
 	started     bool
@@ -97,6 +99,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		db:              ldb,
 		finder:          db.NewBlockFinder(ldb, cfg),
 		progressEmitter: NewProgressEmitter(cfg),
+		features:        newFeatureSet(),
 		id:              id,
 		shortID:         id.Short(),
 		deviceName:      deviceName,
@@ -548,6 +551,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	} else {
 		m.deviceVer[deviceID] = cm.ClientName + " " + cm.ClientVersion
 	}
+	m.features.UpdateFromString(deviceID, cm.GetOption("features"))
 
 	event := map[string]string{
 		"id":            deviceID.String(),
@@ -654,6 +658,8 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 		"id":    device.String(),
 		"error": err.Error(),
 	})
+
+	m.features.Clear(device)
 
 	m.pmut.Lock()
 	m.fmut.RLock()
@@ -1309,6 +1315,10 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 			{
 				Key:   "name",
 				Value: m.deviceName,
+			},
+			{
+				Key:   "features",
+				Value: initFeatures(m.cfg.Options().DisabledFeatures).Marshal(),
 			},
 		},
 	}
