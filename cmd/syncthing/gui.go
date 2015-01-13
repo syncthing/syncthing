@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/calmh/logger"
+	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/auto"
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/db"
@@ -39,7 +40,6 @@ import (
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/model"
 	"github.com/syncthing/syncthing/internal/osutil"
-	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"

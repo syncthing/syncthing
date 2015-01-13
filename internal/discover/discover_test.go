@@ -21,7 +21,7 @@ import (
 
 	"testing"
 
-	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/protocol"
 )
 
 type DummyClient struct {

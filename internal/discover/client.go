@@ -20,7 +20,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/protocol"
 )
 
 type Factory func(*url.URL, *Announce) (Client, error)

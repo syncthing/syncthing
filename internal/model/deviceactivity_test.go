@@ -18,7 +18,7 @@ package model
 import (
 	"testing"
 
-	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/protocol"
 )
 
 func TestDeviceActivity(t *testing.T) {

@@ -24,7 +24,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/syncthing/syncthing/internal/luhn"
+	"github.com/calmh/luhn"
 )
 
 type DeviceID [32]byte

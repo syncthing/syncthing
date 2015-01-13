@@ -20,8 +20,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/discover"
-	"github.com/syncthing/syncthing/internal/protocol"
 )
 
 func main() {

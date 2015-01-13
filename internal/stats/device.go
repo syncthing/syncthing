@@ -18,7 +18,7 @@ package stats
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 

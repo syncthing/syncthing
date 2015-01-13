@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/protocol"
 )
 
 var device1, device2, device3, device4 protocol.DeviceID

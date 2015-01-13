@@ -24,8 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
-	"github.com/syncthing/syncthing/internal/protocol"
 )
 
 func TestSyncClusterWithoutVersioning(t *testing.T) {
