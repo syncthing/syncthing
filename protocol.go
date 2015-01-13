@@ -490,8 +490,9 @@ func (c *rawConnection) handleIndexUpdate(im IndexMessage) {
 func filterIndexMessageFiles(fs []FileInfo) []FileInfo {
 	var out []FileInfo
 	for i, f := range fs {
-		if f.Name == "" {
-			l.Infoln("Dropping nil filename from incoming index")
+		switch f.Name {
+		case "", ".", "..", "/": // A few obviously invalid filenames
+			l.Infof("Dropping invalid filename %q from incoming index", f.Name)
 			if out == nil {
 				// Most incoming updates won't contain anything invalid, so we
 				// delay the allocation and copy to output slice until we
@@ -500,8 +501,10 @@ func filterIndexMessageFiles(fs []FileInfo) []FileInfo {
 				out = make([]FileInfo, i, len(fs)-1)
 				copy(out, fs)
 			}
-		} else if out != nil {
-			out = append(out, f)
+		default:
+			if out != nil {
+				out = append(out, f)
+			}
 		}
 	}
 	if out != nil {
