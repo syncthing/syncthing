@@ -1,4 +1,4 @@
-syncthing
+./syncthing
 syncthing.exe
 *.tar.gz
 *.zip
