@@ -57,7 +57,7 @@ perfectly acceptable.
 
 ## Licensing
 
-All contributions are made under the same GPL license as the rest of the
+All contributions are made under the same MIT license as the rest of the
 project, except documentation, user interface text and translation
 strings which are licensed under the Creative Commons Attribution 4.0
 International License. You retain the copyright to code you have
@@ -73,4 +73,4 @@ Yes please!
 
 ## License
 
-GPLv3
+MIT
