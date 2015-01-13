@@ -19,6 +19,7 @@ package osutil
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -32,34 +33,36 @@ var ErrNoHome = errors.New("No home directory found - set $HOME (or the platform
 // often enough that there is any contention on this lock.
 var renameLock sync.Mutex
 
-// Rename renames a file, while trying hard to succeed on various systems by
-// temporarily tweaking directory permissions and removing the destination
-// file when necessary. Will make sure to delete the from file if the
-// operation fails, so use only for situations like committing a temp file to
-// it's final location.
-func Rename(from, to string) error {
+// TryRename renames a file, leaving source file intact in case of failure.
+// Tries hard to succeed on various systems by temporarily tweaking directory
+// permissions and removing the destination file when necessary.
+func TryRename(from, to string) error {
 	renameLock.Lock()
 	defer renameLock.Unlock()
 
-	// Make sure the destination directory is writeable
-	toDir := filepath.Dir(to)
-	if info, err := os.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
-		os.Chmod(toDir, 0755)
-		defer os.Chmod(toDir, info.Mode())
-	}
+	return withPreparedTarget(to, func() error {
+		return os.Rename(from, to)
+	})
+}
 
-	// On Windows, make sure the destination file is writeable (or we can't delete it)
-	if runtime.GOOS == "windows" {
-		os.Chmod(to, 0666)
-		err := os.Remove(to)
-		if err != nil && !os.IsNotExist(err) {
-			return err
-		}
-	}
-
+// Rename moves a temporary file to it's final place.
+// Will make sure to delete the from file if the operation fails, so use only
+// for situations like committing a temp file to it's final location.
+// Tries hard to succeed on various systems by temporarily tweaking directory
+// permissions and removing the destination file when necessary.
+func Rename(from, to string) error {
 	// Don't leave a dangling temp file in case of rename error
 	defer os.Remove(from)
-	return os.Rename(from, to)
+	return TryRename(from, to)
+}
+
+// Copy copies the file content from source to destination.
+// Tries hard to succeed on various systems by temporarily tweaking directory
+// permissions and removing the destination file when necessary.
+func Copy(from, to string) (err error) {
+	return withPreparedTarget(to, func() error {
+		return copyFileContents(from, to)
+	})
 }
 
 // InWritableDir calls fn(path), while making sure that the directory
@@ -122,4 +125,52 @@ func getHomeDir() (string, error) {
 	}
 
 	return home, nil
+}
+
+// Tries hard to succeed on various systems by temporarily tweaking directory
+// permissions and removing the destination file when necessary.
+func withPreparedTarget(to string, f func() error) error {
+	// Make sure the destination directory is writeable
+	toDir := filepath.Dir(to)
+	if info, err := os.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
+		os.Chmod(toDir, 0755)
+		defer os.Chmod(toDir, info.Mode())
+	}
+
+	// On Windows, make sure the destination file is writeable (or we can't delete it)
+	if runtime.GOOS == "windows" {
+		os.Chmod(to, 0666)
+		err := os.Remove(to)
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return f()
+}
+
+// copyFileContents copies the contents of the file named src to the file named
+// by dst. The file will be created if it does not already exist. If the
+// destination file exists, all it's contents will be replaced by the contents
+// of the source file.
+func copyFileContents(src, dst string) (err error) {
+	in, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer func() {
+		cerr := out.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
+		return
+	}
+	err = out.Sync()
+	return
 }

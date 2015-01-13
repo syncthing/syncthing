@@ -116,6 +116,10 @@ func alterFiles(dir string) error {
 			return err
 		}
 
+		if strings.HasPrefix(filepath.Base(path), "test-") {
+			return nil
+		}
+
 		switch filepath.Base(path) {
 		case ".stfolder":
 			return nil
@@ -158,6 +162,17 @@ func alterFiles(dir string) error {
 				return err
 			}
 			err = fd.Close()
+			if err != nil {
+				return err
+			}
+		case r < 0.3 && comps > 1 && (info.Mode().IsRegular() || rand.Float64() < 0.2):
+			rpath := filepath.Dir(path)
+			if rand.Float64() < 0.2 {
+				for move := rand.Intn(comps - 1); move > 0; move-- {
+					rpath = filepath.Join(rpath, "..")
+				}
+			}
+			err = os.Rename(path, filepath.Join(rpath, randomName()))
 			if err != nil {
 				return err
 			}

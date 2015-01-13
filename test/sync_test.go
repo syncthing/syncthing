@@ -105,7 +105,7 @@ func testSyncCluster(t *testing.T) {
 	}
 
 	// We'll use this file for appending data without modifying the time stamp.
-	fd, err := os.Create("s1/appendfile")
+	fd, err := os.Create("s1/test-appendfile")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,12 +207,12 @@ func testSyncCluster(t *testing.T) {
 			break
 		}
 
-		// Alter the "appendfile" without changing it's modification time. Sneaky!
-		fi, err := os.Stat("s1/appendfile")
+		// Alter the "test-appendfile" without changing it's modification time. Sneaky!
+		fi, err := os.Stat("s1/test-appendfile")
 		if err != nil {
 			t.Fatal(err)
 		}
-		fd, err := os.OpenFile("s1/appendfile", os.O_APPEND|os.O_WRONLY, 0644)
+		fd, err := os.OpenFile("s1/test-appendfile", os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -228,7 +228,7 @@ func testSyncCluster(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = os.Chtimes("s1/appendfile", fi.ModTime(), fi.ModTime())
+		err = os.Chtimes("s1/test-appendfile", fi.ModTime(), fi.ModTime())
 		if err != nil {
 			t.Fatal(err)
 		}
