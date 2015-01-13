@@ -45,7 +45,7 @@ func Assets() map[string][]byte {
 	var gr *gzip.Reader
 {{range $asset := .assets}}
 	bs, _ = base64.StdEncoding.DecodeString("{{$asset.Data}}")
-	gr, _ = gzip.NewReader(bytes.NewBuffer(bs))
+	gr, _ = gzip.NewReader(bytes.NewReader(bs))
 	bs, _ = ioutil.ReadAll(gr)
 	assets["{{$asset.Name}}"] = bs
 {{end}}
