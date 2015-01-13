@@ -21,7 +21,7 @@ package db
 import (
 	"fmt"
 
-	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/protocol"
 )
 
 // Used for unmarshalling a FileInfo structure but skipping the block list.

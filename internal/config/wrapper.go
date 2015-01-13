@@ -21,9 +21,9 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/osutil"
-	"github.com/syncthing/syncthing/internal/protocol"
 )
 
 // An interface to handle configuration changes, and a wrapper type á la

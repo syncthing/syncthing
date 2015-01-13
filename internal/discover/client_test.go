@@ -23,7 +23,7 @@ import (
 
 	"testing"
 
-	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/protocol"
 )
 
 var device protocol.DeviceID

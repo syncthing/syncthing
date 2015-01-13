@@ -18,6 +18,10 @@
 			"Rev": "f50d32b313bec2933a3e1049f7416a29f3413d29"
 		},
 		{
+			"ImportPath": "github.com/calmh/luhn",
+			"Rev": "0c8388ff95fa92d4094011e5a04fc99dea3d1632"
+		},
+		{
 			"ImportPath": "github.com/calmh/osext",
 			"Rev": "9bf61584e5f1f172e8766ddc9022d9c401faaa5e"
 		},
@@ -28,6 +32,10 @@
 		{
 			"ImportPath": "github.com/juju/ratelimit",
 			"Rev": "f9f36d11773655c0485207f0ad30dc2655f69d56"
+		},
+		{
+			"ImportPath": "github.com/syncthing/protocol",
+			"Rev": "4833b6085c5b152914620d5fa70e548fdd019ca7"
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",

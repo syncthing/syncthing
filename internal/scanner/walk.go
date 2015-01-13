@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/ignore"
 	"github.com/syncthing/syncthing/internal/lamport"
-	"github.com/syncthing/syncthing/internal/protocol"
 	"github.com/syncthing/syncthing/internal/symlinks"
 	"golang.org/x/text/unicode/norm"
 )

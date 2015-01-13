@@ -28,9 +28,9 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/osutil"
-	"github.com/syncthing/syncthing/internal/protocol"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"

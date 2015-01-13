@@ -18,7 +18,7 @@ package model
 import (
 	"sync"
 
-	"github.com/syncthing/syncthing/internal/protocol"
+	"github.com/syncthing/protocol"
 )
 
 // deviceActivity tracks the number of outstanding requests per device and can

@@ -28,8 +28,8 @@ import (
 	"strconv"
 
 	"github.com/calmh/logger"
+	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/osutil"
-	"github.com/syncthing/syncthing/internal/protocol"
 	"golang.org/x/crypto/bcrypt"
 )
 
