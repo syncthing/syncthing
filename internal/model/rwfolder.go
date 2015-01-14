@@ -708,9 +708,9 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
 
 		// block.String() returns a string unique to the block
-		existingBlocks := make(map[string]bool, len(tempCopyBlocks))
+		existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
 		for _, block := range tempCopyBlocks {
-			existingBlocks[block.String()] = true
+			existingBlocks[block.String()] = struct{}{}
 		}
 
 		// Since the blocks are already there, we don't need to get them.
