@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/events"
 )
@@ -56,7 +57,7 @@ func TestProgressEmitter(t *testing.T) {
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
 
-	s.copyDone()
+	s.copyDone(protocol.BlockInfo{})
 
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
@@ -71,7 +72,7 @@ func TestProgressEmitter(t *testing.T) {
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
 
-	s.pullDone()
+	s.pullDone(protocol.BlockInfo{})
 
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
