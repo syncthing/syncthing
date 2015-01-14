@@ -264,6 +264,7 @@ func (w *Wrapper) Save() error {
 	if err != nil {
 		return err
 	}
+	defer os.Remove(fd.Name())
 
 	err = w.cfg.WriteXML(fd)
 	if err != nil {
