@@ -424,6 +424,11 @@ func (m *Model) NeedFolderFiles(folder string, max int) ([]db.FileInfoTruncated,
 // Index is called when a new device is connected and we receive their full index.
 // Implements the protocol.Model interface.
 func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, flags uint32, options []protocol.Option) {
+	if flags != 0 {
+		l.Warnln("protocol error: unknown flags 0x%x in Index message", flags)
+		return
+	}
+
 	if debug {
 		l.Debugf("IDX(in): %s %q: %d files", deviceID, folder, len(fs))
 	}
@@ -476,6 +481,11 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
 func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, flags uint32, options []protocol.Option) {
+	if flags != 0 {
+		l.Warnln("protocol error: unknown flags 0x%x in IndexUpdate message", flags)
+		return
+	}
+
 	if debug {
 		l.Debugf("%v IDXUP(in): %s / %q: %d files", m, deviceID, folder, len(fs))
 	}
@@ -680,6 +690,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	if !m.folderSharedWith(folder, deviceID) {
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
 		return nil, ErrNoSuchFile
+	}
+
+	if flags != 0 {
+		// We don't currently support or expect any flags.
+		return nil, fmt.Errorf("protocol error: unknown flags 0x%x in Request message", flags)
 	}
 
 	// Verify that the requested file exists in the local model.
