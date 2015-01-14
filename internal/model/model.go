@@ -85,9 +85,6 @@ type Model struct {
 }
 
 var (
-	ErrNoSuchFile = errors.New("no such file")
-	ErrInvalid    = errors.New("file is invalid")
-
 	SymlinkWarning = sync.Once{}
 )
 
@@ -684,12 +681,12 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 // Implements the protocol.Model interface.
 func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, flags uint32, options []protocol.Option) ([]byte, error) {
 	if offset < 0 || size < 0 {
-		return nil, ErrNoSuchFile
+		return nil, protocol.ErrNoSuchFile
 	}
 
 	if !m.folderSharedWith(folder, deviceID) {
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
-		return nil, ErrNoSuchFile
+		return nil, protocol.ErrNoSuchFile
 	}
 
 	if flags != 0 {
@@ -704,26 +701,26 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 	if !ok {
 		l.Warnf("Request from %s for file %s in nonexistent folder %q", deviceID, name, folder)
-		return nil, ErrNoSuchFile
+		return nil, protocol.ErrNoSuchFile
 	}
 
 	lf, ok := folderFiles.Get(protocol.LocalDeviceID, name)
 	if !ok {
-		return nil, ErrNoSuchFile
+		return nil, protocol.ErrNoSuchFile
 	}
 
 	if lf.IsInvalid() || lf.IsDeleted() {
 		if debug {
 			l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, size, lf)
 		}
-		return nil, ErrInvalid
+		return nil, protocol.ErrInvalid
 	}
 
 	if offset > lf.Size() {
 		if debug {
 			l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, size)
 		}
-		return nil, ErrNoSuchFile
+		return nil, protocol.ErrNoSuchFile
 	}
 
 	if debug && deviceID != protocol.LocalDeviceID {
