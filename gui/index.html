@@ -601,7 +601,7 @@
                       <input type="checkbox" ng-model="currentFolder.ignorePerms"> <span translate>Ignore Permissions</span>
                     </label>
                   </div>
-                  <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT filesystems.</p>
+                  <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
                 </div>
               </div>
               <div class="col-md-6">
@@ -629,7 +629,7 @@
                   </div>
                 </div>
                 <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.simpleKeep.$invalid && folderEditor.simpleKeep.$dirty}">
-                  <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</p>
+                  <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.</p>
                   <label translate for="simpleKeep">Keep Versions</label>
                   <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentFolder.simpleKeep" required min="1"></input>
                   <p class="help-block">
@@ -639,7 +639,7 @@
                   </p>
                 </div>
                 <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='staggered'" ng-class="{'has-error': folderEditor.staggeredMaxAge.$invalid && folderEditor.staggeredMaxAge.$dirty}">
-                  <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
+                  <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
                   <p translate class="help-block">The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.</p>
                   <label translate for="staggeredMaxAge">Maximum Age</label>
                   <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentFolder.staggeredMaxAge" required></input>
