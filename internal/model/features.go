@@ -28,10 +28,14 @@ import (
 type features uint64
 
 const (
+	FeatureTemporaryIndex = 1 << iota
+
 	FeatureAllFeatures features = (1 << iota) - 1
 )
 
-var featureLabels = map[features]string{}
+var featureLabels = map[features]string{
+	FeatureTemporaryIndex: "Temporary Index",
+}
 
 // We provide a features object as part of the ClusterConfig message options
 // field, which accepts pairs of key value strings. Also, Go strings are only

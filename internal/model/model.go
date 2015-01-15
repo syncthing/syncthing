@@ -915,8 +915,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[deviceID] {
-		fs := m.folderFiles[folder]
-		go sendIndexes(protoConn, folder, fs, m.folderIgnores[folder])
+		go m.sendIndexesLoop(protoConn, deviceID, folder, m.folderFiles[folder], m.folderIgnores[folder])
 	}
 	m.fmut.RUnlock()
 	m.pmut.Unlock()
@@ -957,8 +956,7 @@ func (m *Model) receivedFile(folder, filename string) {
 	m.folderStatRef(folder).ReceivedFile(filename)
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
-	deviceID := conn.ID()
+func (m *Model) sendIndexesLoop(conn protocol.Connection, deviceID protocol.DeviceID, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
 	name := conn.Name()
 	var err error
 
@@ -968,13 +966,54 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 
 	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores)
 
-	for err == nil {
-		time.Sleep(5 * time.Second)
-		if fs.LocalVersion(protocol.LocalDeviceID) <= minLocalVer {
-			continue
-		}
+	// ProgressEmitter uses a map to hold sharedPullerState's, which causes
+	// the FileInfo slice returned by GetTemporaryIndex to have random ordering,
+	// causing reflect.DeepEqual to always return false. We tackle the issue by
+	// flattening the file slice into a map with relevant information.
 
-		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
+	lastPull := time.Time{}
+
+	if m.features.HasFeature(deviceID, FeatureTemporaryIndex) {
+		lastPull = m.progressTracker.lastPulled()
+		// Don't really care about this one failing.
+		// No need to batch it either, as it should be fairly small.
+		tempIndex := make([]protocol.FileInfo, 0)
+		for _, puller := range m.progressTracker.getActivePullersForFolder(folder) {
+			// Make a copy, and only leave blocks which are available
+			file := puller.file
+			file.Blocks = puller.getAvailableBlocks()
+			tempIndex = append(tempIndex, file)
+		}
+		conn.IndexUpdate(folder, tempIndex, protocol.FlagIndexTemporary, nil)
+	}
+
+	for err == nil {
+		select {
+		case <-time.After(time.Duration(m.cfg.Options().IndexIntervalS) * time.Second):
+			if fs.LocalVersion(protocol.LocalDeviceID) <= minLocalVer {
+				continue
+			}
+			minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
+		case <-time.After(time.Duration(m.cfg.Options().TemporaryIndexIntervalS) * time.Second):
+			if !m.features.HasFeature(deviceID, FeatureTemporaryIndex) {
+				continue
+			}
+
+			pulledAt := m.progressTracker.lastPulled()
+			if lastPull.Equal(pulledAt) {
+				continue
+			}
+			lastPull = pulledAt
+
+			tempIndex := make([]protocol.FileInfo, 0)
+			for _, puller := range m.progressTracker.getActivePullersForFolder(folder) {
+				// Make a copy, and only leave blocks which are available
+				file := puller.file
+				file.Blocks = puller.getAvailableBlocks()
+				tempIndex = append(tempIndex, file)
+			}
+			conn.IndexUpdate(folder, tempIndex, protocol.FlagIndexTemporary, nil)
+		}
 	}
 
 	if debug {

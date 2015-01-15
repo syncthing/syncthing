@@ -240,6 +240,8 @@ type OptionsConfiguration struct {
 	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
 	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
 	DisabledFeatures        []string `xml:"disabledFeature" json:"disabledFeatures"`
+	IndexIntervalS          int      `xml:"indexAnnounceIntervalS" json:"indexAnnounceIntervalS" default:"5"`
+	TemporaryIndexIntervalS int      `xml:"temporaryIndexAnnounceIntervalS" json:"temporaryIndexAnnounceIntervalS" default:"10"`
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {
