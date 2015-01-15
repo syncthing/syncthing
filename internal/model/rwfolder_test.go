@@ -76,7 +76,7 @@ func TestHandleFile(t *testing.T) {
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
-		progressEmitter: NewProgressEmitter(defaultConfig),
+		progressTracker: newProgressTracker(),
 	}
 
 	copyChan := make(chan copyBlocksState, 1)
@@ -131,7 +131,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
-		progressEmitter: NewProgressEmitter(defaultConfig),
+		progressTracker: newProgressTracker(),
 	}
 
 	copyChan := make(chan copyBlocksState, 1)
@@ -204,7 +204,7 @@ func TestCopierFinder(t *testing.T) {
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
-		progressEmitter: NewProgressEmitter(defaultConfig),
+		progressTracker: newProgressTracker(),
 	}
 
 	copyChan := make(chan copyBlocksState)
@@ -339,7 +339,7 @@ func TestLastResortPulling(t *testing.T) {
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
-		progressEmitter: NewProgressEmitter(defaultConfig),
+		progressTracker: newProgressTracker(),
 	}
 
 	copyChan := make(chan copyBlocksState)
@@ -386,15 +386,12 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
-	emitter := NewProgressEmitter(defaultConfig)
-	go emitter.Serve()
-
 	p := rwFolder{
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
 		queue:           newJobQueue(),
-		progressEmitter: emitter,
+		progressTracker: newProgressTracker(),
 	}
 
 	// queue.Done should be called by the finisher routine
@@ -429,7 +426,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	case state := <-finisherBufferChan:
 		// At this point the file should still be registered with both the job
 		// queue, and the progress emitter. Verify this.
-		if len(p.progressEmitter.registry) != 1 || len(p.queue.progress) != 1 || len(p.queue.queued) != 0 {
+		if len(p.progressTracker.activePullers) != 1 || len(p.queue.progress) != 1 || len(p.queue.queued) != 0 {
 			t.Fatal("Could not find file")
 		}
 
@@ -441,15 +438,15 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 			t.Fatal("File not closed?")
 		}
 
-		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
-			t.Fatal("Still registered", len(p.progressEmitter.registry), len(p.queue.progress), len(p.queue.queued))
+		if len(p.progressTracker.activePullers) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+			t.Fatal("Still registered", len(p.progressTracker.activePullers), len(p.queue.progress), len(p.queue.queued))
 		}
 
 		// Doing it again should have no effect
 		finisherChan <- state
 		time.Sleep(100 * time.Millisecond)
 
-		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+		if len(p.progressTracker.activePullers) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
 			t.Fatal("Still registered")
 		}
 	case <-time.After(time.Second):
@@ -473,15 +470,12 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
-	emitter := NewProgressEmitter(defaultConfig)
-	go emitter.Serve()
-
 	p := rwFolder{
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
 		queue:           newJobQueue(),
-		progressEmitter: emitter,
+		progressTracker: newProgressTracker(),
 	}
 
 	// queue.Done should be called by the finisher routine
@@ -509,7 +503,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	case state := <-finisherBufferChan:
 		// At this point the file should still be registered with both the job
 		// queue, and the progress emitter. Verify this.
-		if len(p.progressEmitter.registry) != 1 || len(p.queue.progress) != 1 || len(p.queue.queued) != 0 {
+		if len(p.progressTracker.activePullers) != 1 || len(p.queue.progress) != 1 || len(p.queue.queued) != 0 {
 			t.Fatal("Could not find file")
 		}
 
@@ -521,15 +515,15 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 			t.Fatal("File not closed?")
 		}
 
-		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
-			t.Fatal("Still registered", len(p.progressEmitter.registry), len(p.queue.progress), len(p.queue.queued))
+		if len(p.progressTracker.activePullers) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+			t.Fatal("Still registered", len(p.progressTracker.activePullers), len(p.queue.progress), len(p.queue.queued))
 		}
 
 		// Doing it again should have no effect
 		finisherChan <- state
 		time.Sleep(100 * time.Millisecond)
 
-		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+		if len(p.progressTracker.activePullers) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
 			t.Fatal("Still registered")
 		}
 	case <-time.After(time.Second):

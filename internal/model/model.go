@@ -57,7 +57,8 @@ type Model struct {
 	cfg             *config.Wrapper
 	db              *leveldb.DB
 	finder          *db.BlockFinder
-	progressEmitter *ProgressEmitter
+	progressTracker *progressTracker
+	progressEmitter *progressEmitter
 	id              protocol.DeviceID
 	shortID         uint64
 
@@ -98,7 +99,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		cfg:             cfg,
 		db:              ldb,
 		finder:          db.NewBlockFinder(ldb, cfg),
-		progressEmitter: NewProgressEmitter(cfg),
+		progressTracker: newProgressTracker(),
 		features:        newFeatureSet(),
 		id:              id,
 		shortID:         id.Short(),
@@ -118,6 +119,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		deviceVer:       make(map[protocol.DeviceID]string),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
+		m.progressEmitter = newProgressEmitter(m.progressTracker, cfg)
 		go m.progressEmitter.Serve()
 	}
 
@@ -367,7 +369,11 @@ func (m *Model) NeedSize(folder string) (nfiles int, bytes int64) {
 			return true
 		})
 	}
-	bytes -= m.progressEmitter.BytesCompleted(folder)
+
+	for _, state := range m.progressTracker.getActivePullersForFolder(folder) {
+		bytes -= state.Progress().BytesDone
+	}
+
 	if debug {
 		l.Debugf("%v NeedSize(%q): %d %d", m, folder, nfiles, bytes)
 	}

@@ -7,6 +7,7 @@
 package model
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ func expectEvent(w *events.Subscription, t *testing.T, size int) {
 	event, err := w.Poll(timeout)
 	if err != nil {
 		t.Fatal("Unexpected error:", err)
+
 	}
 	if event.Type != events.DownloadProgress {
 		t.Fatal("Unexpected event:", event)
@@ -46,13 +48,15 @@ func TestProgressEmitter(t *testing.T) {
 		ProgressUpdateIntervalS: 0,
 	})
 
-	p := NewProgressEmitter(c)
+	tr := newProgressTracker()
+
+	p := newProgressEmitter(tr, c)
 	go p.Serve()
 
 	expectTimeout(w, t)
 
-	s := sharedPullerState{}
-	p.Register(&s)
+	s := tr.newSharedPullerState(protocol.FileInfo{}, "", "", "", 0, 0, false, nil, nil)
+	s.tempFile()
 
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
@@ -77,7 +81,8 @@ func TestProgressEmitter(t *testing.T) {
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
 
-	p.Deregister(&s)
+	s.fd = &os.File{}
+	s.finalClose()
 
 	expectEvent(w, t, 0)
 	expectTimeout(w, t)

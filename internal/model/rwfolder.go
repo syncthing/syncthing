@@ -58,7 +58,7 @@ type rwFolder struct {
 	stateTracker
 
 	model           *Model
-	progressEmitter *ProgressEmitter
+	progressTracker *progressTracker
 
 	folder        string
 	dir           string
@@ -80,7 +80,7 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		stateTracker: stateTracker{folder: cfg.ID},
 
 		model:           m,
-		progressEmitter: m.progressEmitter,
+		progressTracker: m.progressTracker,
 
 		folder:        cfg.ID,
 		dir:           cfg.Path(),
@@ -793,25 +793,14 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		blocks = file.Blocks
 	}
 
-	s := sharedPullerState{
-		file:        file,
-		folder:      p.folder,
-		tempName:    tempName,
-		realName:    realName,
-		copyTotal:   len(blocks),
-		copyNeeded:  len(blocks),
-		reused:      reused,
-		ignorePerms: p.ignorePerms,
-		version:     curFile.Version,
-		available:   availableBlocks,
-	}
+	s := p.progressTracker.newSharedPullerState(file, p.folder, tempName, realName, len(blocks), reused, p.ignorePerms, curFile.Version, availableBlocks)
 
 	if debug {
 		l.Debugf("%v need file %s; copy %d, reused %v", p, file.Name, len(blocks), reused)
 	}
 
 	cs := copyBlocksState{
-		sharedPullerState: &s,
+		sharedPullerState: s,
 		blocks:            blocks,
 	}
 	copyChan <- cs
@@ -872,8 +861,6 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 	buf := make([]byte, protocol.BlockSize)
 
 	for state := range in {
-		p.progressEmitter.Register(state.sharedPullerState)
-
 		dstFd, err := state.tempFile()
 		if err != nil {
 			// Nothing more to do for this failed file (the error was logged
@@ -1126,7 +1113,6 @@ func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 				})
 			}
 			p.model.receivedFile(p.folder, state.file.Name)
-			p.progressEmitter.Deregister(state)
 		}
 	}
 }

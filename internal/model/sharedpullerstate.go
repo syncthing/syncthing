@@ -20,13 +20,14 @@ import (
 // updated along the way.
 type sharedPullerState struct {
 	// Immutable, does not require locking
-	file        protocol.FileInfo // The new file (desired end state)
-	folder      string
-	tempName    string
-	realName    string
-	reused      int // Number of blocks reused from temporary file
-	ignorePerms bool
-	version     protocol.Vector // The current (old) version
+	progressTracker *progressTracker
+	file            protocol.FileInfo // The new file (desired end state)
+	folder          string
+	tempName        string
+	realName        string
+	reused          int // Number of blocks reused from temporary file
+	ignorePerms     bool
+	version         protocol.Vector // The current (old) version
 
 	// Mutable, must be locked for access
 	err        error                // The first error we hit
@@ -80,6 +81,8 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	if s.fd != nil {
 		return lockedWriterAt{&s.mut, s.fd}, nil
 	}
+
+	s.progressTracker.start(s)
 
 	// Ensure that the parent directory is writable. This is
 	// osutil.InWritableDir except we need to do more stuff so we duplicate it
@@ -177,6 +180,7 @@ func (s *sharedPullerState) failed() error {
 func (s *sharedPullerState) copyDone(block protocol.BlockInfo) {
 	s.mut.Lock()
 	s.available = append(s.available, block)
+	s.progressTracker.copied()
 	s.copyNeeded--
 	if debug {
 		l.Debugln("sharedPullerState", s.folder, s.file.Name, "copyNeeded ->", s.copyNeeded)
@@ -186,12 +190,14 @@ func (s *sharedPullerState) copyDone(block protocol.BlockInfo) {
 
 func (s *sharedPullerState) copiedFromOrigin() {
 	s.mut.Lock()
+	s.progressTracker.progressed()
 	s.copyOrigin++
 	s.mut.Unlock()
 }
 
 func (s *sharedPullerState) pullStarted() {
 	s.mut.Lock()
+	s.progressTracker.progressed()
 	s.copyTotal--
 	s.copyNeeded--
 	s.pullTotal++
@@ -205,6 +211,7 @@ func (s *sharedPullerState) pullStarted() {
 func (s *sharedPullerState) pullDone(block protocol.BlockInfo) {
 	s.mut.Lock()
 	s.available = append(s.available, block)
+	s.progressTracker.pulled()
 	s.pullNeeded--
 	if debug {
 		l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded done ->", s.pullNeeded)
@@ -227,6 +234,7 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	}
 
 	if fd := s.fd; fd != nil {
+		s.progressTracker.finished(s)
 		s.fd = nil
 		return true, fd.Close()
 	}
@@ -245,7 +253,6 @@ func (s *sharedPullerState) Progress() *pullerProgress {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	total := s.reused + s.copyTotal + s.pullTotal
-	done := total - s.copyNeeded - s.pullNeeded
 	return &pullerProgress{
 		Total:               total,
 		Reused:              s.reused,
@@ -254,6 +261,6 @@ func (s *sharedPullerState) Progress() *pullerProgress {
 		Pulled:              s.pullTotal - s.pullNeeded,
 		Pulling:             s.pullNeeded,
 		BytesTotal:          db.BlocksToSize(total),
-		BytesDone:           db.BlocksToSize(done),
+		BytesDone:           db.BlocksToSize(len(s.available)),
 	}
 }
