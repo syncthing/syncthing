@@ -1,7 +1,7 @@
 FROM debian:squeeze
 MAINTAINER Jakob Borg <jakob@nym.se>
 
-ENV GOLANG_VERSION 1.4
+ENV GOLANG_VERSION 1.4.1
 
 # SCMs for "go get", gcc for cgo
 RUN apt-get update && apt-get install -y \
@@ -34,14 +34,14 @@ RUN go get github.com/calmh/gonative \
 
 # Rebuild the special and missing versions, using patches as appropriate
 
-RUN mkdir /tmp/patches
-ADD *.patch /tmp/patches/
-RUN bash -xec '\
-	cd /usr/local/go ; \
-	for patch in /tmp/patches/*.patch ; do \
-		patch -p0 < "$patch" ; \
-	done \
-	'
+# RUN mkdir /tmp/patches
+# ADD *.patch /tmp/patches/
+# RUN bash -xec '\
+#	cd /usr/local/go ; \
+#	for patch in /tmp/patches/*.patch ; do \
+#		patch -p0 < "$patch" ; \
+#	done \
+#	'
 
 RUN bash -xec '\
                 cd /usr/local/go/src; \
