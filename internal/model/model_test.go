@@ -68,18 +68,41 @@ func init() {
 
 func TestRequest(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+
 	m := NewModel(config.Wrap("/tmp/test", config.Configuration{}), "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+
+	// device1 shares default, but device2 doesn't
+	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata", Devices: []config.FolderDeviceConfiguration{{DeviceID: device1}}})
 	m.ScanFolder("default")
 
+	// Existing, shared file
 	bs, err := m.Request(device1, "default", "foo", 0, 6)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 	if bytes.Compare(bs, []byte("foobar")) != 0 {
 		t.Errorf("Incorrect data from request: %q", string(bs))
 	}
 
+	// Existing, nonshared file
+	bs, err = m.Request(device2, "default", "foo", 0, 6)
+	if err == nil {
+		t.Error("Unexpected nil error on insecure file read")
+	}
+	if bs != nil {
+		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
+	}
+
+	// Nonexistent file
+	bs, err = m.Request(device1, "default", "nonexistent", 0, 6)
+	if err == nil {
+		t.Error("Unexpected nil error on insecure file read")
+	}
+	if bs != nil {
+		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
+	}
+
+	// Shared folder, but disallowed file name
 	bs, err = m.Request(device1, "default", "../walk.go", 0, 6)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
