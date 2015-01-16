@@ -710,9 +710,14 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
 func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, size int) ([]byte, error) {
+	if !m.folderSharedWith(folder, deviceID) {
+		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
+		return nil, ErrNoSuchFile
+	}
+
 	// Verify that the requested file exists in the local model.
 	m.fmut.RLock()
-	r, ok := m.folderFiles[folder]
+	folderFiles, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
 
 	if !ok {
@@ -720,7 +725,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return nil, ErrNoSuchFile
 	}
 
-	lf, ok := r.Get(protocol.LocalDeviceID, name)
+	lf, ok := folderFiles.Get(protocol.LocalDeviceID, name)
 	if !ok {
 		return nil, ErrNoSuchFile
 	}
