@@ -901,8 +901,6 @@ outer:
 func ldbListFolders(db *leveldb.DB) []string {
 	runtime.GC()
 
-	start := []byte{keyTypeGlobal}
-	limit := []byte{keyTypeGlobal + 1}
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
@@ -917,7 +915,7 @@ func ldbListFolders(db *leveldb.DB) []string {
 		snap.Release()
 	}()
 
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := snap.NewIterator(util.BytesPrefix([]byte{keyTypeGlobal}), nil)
 	defer dbi.Release()
 
 	folderExists := make(map[string]bool)
@@ -955,9 +953,7 @@ func ldbDropFolder(db *leveldb.DB, folder []byte) {
 	}()
 
 	// Remove all items related to the given folder from the device->file bucket
-	start := []byte{keyTypeDevice}
-	limit := []byte{keyTypeDevice + 1}
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := snap.NewIterator(util.BytesPrefix([]byte{keyTypeDevice}), nil)
 	for dbi.Next() {
 		itemFolder := deviceKeyFolder(dbi.Key())
 		if bytes.Compare(folder, itemFolder) == 0 {
@@ -967,9 +963,7 @@ func ldbDropFolder(db *leveldb.DB, folder []byte) {
 	dbi.Release()
 
 	// Remove all items related to the given folder from the global bucket
-	start = []byte{keyTypeGlobal}
-	limit = []byte{keyTypeGlobal + 1}
-	dbi = snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi = snap.NewIterator(util.BytesPrefix([]byte{keyTypeGlobal}), nil)
 	for dbi.Next() {
 		itemFolder := globalKeyFolder(dbi.Key())
 		if bytes.Compare(folder, itemFolder) == 0 {
