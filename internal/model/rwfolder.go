@@ -339,13 +339,6 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 
-		// Needed items are delivered sorted lexicographically. This isn't
-		// really optimal from a performance point of view - it would be
-		// better if files were handled in random order, to spread the load
-		// over the cluster. But it means that we can be sure that we fully
-		// handle directories before the files that go inside them, which is
-		// nice.
-
 		file := intf.(protocol.FileInfo)
 
 		if ignores.Match(file.Name) {
@@ -390,6 +383,8 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		changed++
 		return true
 	})
+
+	p.queue.Shuffle()
 
 nextFile:
 	for {
@@ -753,8 +748,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 	realName := filepath.Join(p.dir, file.Name)
 
 	reused := 0
-	var blocks []protocol.BlockInfo
-
+	blocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
 	availableBlocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
 
 	// Check for an old temporary file which might have some blocks we could
@@ -790,7 +784,14 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 			os.Remove(tempName)
 		}
 	} else {
-		blocks = file.Blocks
+		// Copy the blocks, as we don't want to shuffle the blocks on the file.
+		blocks = append(blocks, file.Blocks...)
+	}
+
+	// Shuffle the blocks
+	for i := range blocks {
+		j := rand.Intn(i + 1)
+		blocks[i], blocks[j] = blocks[j], blocks[i]
 	}
 
 	s := p.progressTracker.newSharedPullerState(file, p.folder, tempName, realName, len(blocks), reused, p.ignorePerms, curFile.Version, availableBlocks)

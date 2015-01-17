@@ -90,9 +90,16 @@ func TestHandleFile(t *testing.T) {
 		t.Errorf("Unexpected count of copy blocks: %d != 8", len(toCopy.blocks))
 	}
 
-	for i, block := range toCopy.blocks {
-		if string(block.Hash) != string(blocks[i+1].Hash) {
-			t.Errorf("Block mismatch: %s != %s", block.String(), blocks[i+1].String())
+	for _, block := range blocks[1:] {
+		found := false
+		for _, cblock := range toCopy.blocks {
+			if string(block.Hash) == string(cblock.Hash) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Could not find block: %s", block.String())
 		}
 	}
 }
@@ -145,9 +152,17 @@ func TestHandleFileWithTemp(t *testing.T) {
 		t.Errorf("Unexpected count of copy blocks: %d != 4", len(toCopy.blocks))
 	}
 
-	for i, eq := range []int{1, 5, 6, 8} {
-		if string(toCopy.blocks[i].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block mismatch: %s != %s", toCopy.blocks[i].String(), blocks[eq].String())
+	for _, eq := range []int{1, 5, 6, 8} {
+		found := false
+		for _, block := range toCopy.blocks {
+			if string(blocks[eq].Hash) == string(block.Hash) {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			t.Errorf("Could not find block: %s", blocks[eq].String())
 		}
 	}
 }
@@ -228,12 +243,24 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the right blocks went into the pull list
-	for i, eq := range []int{1, 5, 6, 8} {
-		if string(pulls[i].block.Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", eq, pulls[i].block.String(), blocks[eq].String())
+	for _, eq := range []int{1, 5, 6, 8} {
+		foundp := false
+		foundf := false
+		for _, block := range pulls {
+			if string(blocks[eq].Hash) == string(block.block.Hash) {
+				foundp = true
+				break
+			}
 		}
-		if string(finish.file.Blocks[eq-1].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", eq, finish.file.Blocks[eq-1].String(), blocks[eq].String())
+
+		for _, block := range finish.file.Blocks {
+			if string(blocks[eq].Hash) == string(block.Hash) {
+				foundf = true
+				break
+			}
+		}
+		if !foundf || !foundp {
+			t.Errorf("Could not find block: %s", blocks[eq].String())
 		}
 	}
 
@@ -244,8 +271,15 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	for _, eq := range []int{2, 3, 4, 7} {
-		if string(blks[eq-1].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", eq, blks[eq-1].String(), blocks[eq].String())
+		found := false
+		for _, block := range blks {
+			if string(blocks[eq].Hash) == string(block.Hash) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Could not find block: %s", blocks[eq].String())
 		}
 	}
 	finish.fd.Close()
