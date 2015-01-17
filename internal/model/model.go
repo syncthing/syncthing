@@ -59,6 +59,7 @@ type Model struct {
 	finder          *db.BlockFinder
 	progressTracker *progressTracker
 	progressEmitter *progressEmitter
+	tempIndex       *tempIndex
 	id              protocol.DeviceID
 	shortID         uint64
 
@@ -101,6 +102,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		finder:          db.NewBlockFinder(ldb, cfg),
 		progressTracker: newProgressTracker(),
 		features:        newFeatureSet(),
+		tempIndex:       newTempIndex(),
 		id:              id,
 		shortID:         id.Short(),
 		deviceName:      deviceName,
@@ -489,7 +491,11 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
 func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, flags uint32, options []protocol.Option) {
-	if flags != 0 {
+	switch {
+	case flags&protocol.FlagIndexTemporary != 0:
+		m.tempIndex.Update(deviceID, folder, fs)
+		return
+	case flags != 0:
 		l.Warnln("protocol error: unknown flags 0x%x in IndexUpdate message", flags)
 		return
 	}
@@ -671,6 +677,7 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
 		m.folderFiles[folder].Replace(device, nil)
+		m.tempIndex.Update(device, folder, nil)
 	}
 	m.fmut.RUnlock()
 
