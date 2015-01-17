@@ -393,7 +393,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 			blocks[5], blocks[0], blocks[0], blocks[8],
 		},
 	}
-	defer os.Remove(defTempNamer.TempName("filex"))
+	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	cw := config.Wrap("/tmp/test", config.Configuration{})
@@ -481,7 +481,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 			blocks[5], blocks[0], blocks[0], blocks[8],
 		},
 	}
-	defer os.Remove(defTempNamer.TempName("filex"))
+	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	cw := config.Wrap("/tmp/test", config.Configuration{})
