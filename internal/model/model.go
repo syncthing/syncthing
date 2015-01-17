@@ -710,39 +710,64 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return nil, protocol.ErrNoSuchFile
 	}
 
-	if flags != 0 {
-		// We don't currently support or expect any flags.
+	var lf protocol.FileInfo
+	switch {
+	case flags&protocol.FlagRequestTemporary != 0:
+		state := m.progressTracker.getActivePullerState(folder, name)
+		if state != nil {
+			name = state.tempName
+			lf = state.file
+
+			// XXX: We should ideally check cross-block bounds, as relying on
+			// requests to be exactly one block size is a naive, given if someone
+			// implements their own client.
+			for _, block := range state.getAvailableBlocks() {
+				if block.Offset == offset && block.Size == int32(size) {
+					goto found
+				}
+			}
+			return nil, protocol.ErrNoSuchFile
+
+		}
+		if debug {
+			l.Debugf("Request from %s for nonexistent temporary file %q in folder %q", deviceID, name, folder)
+		}
+		fallthrough // The block might have been completed already.
+	case flags == 0:
+		// Verify that the requested file exists in the local model.
+		m.fmut.RLock()
+		r, ok := m.folderFiles[folder]
+		m.fmut.RUnlock()
+
+		if !ok {
+			l.Warnf("Request from %s for file %s in nonexistent folder %q", deviceID, name, folder)
+			return nil, protocol.ErrNoSuchFile
+		}
+
+		lf, ok = r.Get(protocol.LocalDeviceID, name)
+		if !ok {
+			return nil, protocol.ErrNoSuchFile
+		}
+
+		if lf.IsInvalid() || lf.IsDeleted() {
+			if debug {
+				l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, size, lf)
+			}
+			return nil, protocol.ErrInvalid
+		}
+
+		if offset > lf.Size() {
+			if debug {
+				l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, size)
+			}
+			return nil, protocol.ErrNoSuchFile
+		}
+	default:
+		// We don't currently support or expect any other flags.
 		return nil, fmt.Errorf("protocol error: unknown flags 0x%x in Request message", flags)
 	}
 
-	// Verify that the requested file exists in the local model.
-	m.fmut.RLock()
-	folderFiles, ok := m.folderFiles[folder]
-	m.fmut.RUnlock()
-
-	if !ok {
-		l.Warnf("Request from %s for file %s in nonexistent folder %q", deviceID, name, folder)
-		return nil, protocol.ErrNoSuchFile
-	}
-
-	lf, ok := folderFiles.Get(protocol.LocalDeviceID, name)
-	if !ok {
-		return nil, protocol.ErrNoSuchFile
-	}
-
-	if lf.IsInvalid() || lf.IsDeleted() {
-		if debug {
-			l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, size, lf)
-		}
-		return nil, protocol.ErrInvalid
-	}
-
-	if offset > lf.Size() {
-		if debug {
-			l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, size)
-		}
-		return nil, protocol.ErrNoSuchFile
-	}
+found:
 
 	if debug && deviceID != protocol.LocalDeviceID {
 		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
