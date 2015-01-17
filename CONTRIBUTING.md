@@ -133,7 +133,7 @@ Yes please!
 
 ## Documentation
 
-[Over here!](http://discourse.syncthing.net/category/documentation)
+[Over here!](https://github.com/syncthing/syncthing/wiki)
 
 ## License
 
