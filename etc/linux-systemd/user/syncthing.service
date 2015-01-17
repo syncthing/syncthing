@@ -7,6 +7,7 @@ EnvironmentFile=-%h/.config/syncthing/environment
 Environment=STNORESTART=yes
 ExecStart=/usr/bin/syncthing ${STARGS}
 Restart=on-failure
+PrivateTmp=true
 
 [Install]
 WantedBy=cmdline.target
