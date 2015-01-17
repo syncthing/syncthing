@@ -199,7 +199,7 @@ func (f *BlockFinder) Fix(folder, file string, index int32, oldHash, newHash []b
 //	   file name (variable size)
 func toBlockKey(hash []byte, folder, file string) []byte {
 	o := make([]byte, 1+64+32+len(file))
-	o[0] = keyTypeBlock
+	o[0] = KeyTypeBlock
 	copy(o[1:], []byte(folder))
 	copy(o[1+64:], []byte(hash))
 	copy(o[1+64+32:], []byte(file))
@@ -210,7 +210,7 @@ func fromBlockKey(data []byte) (string, string) {
 	if len(data) < 1+64+32+1 {
 		panic("Incorrect key length")
 	}
-	if data[0] != keyTypeBlock {
+	if data[0] != KeyTypeBlock {
 		panic("Incorrect key type")
 	}
 
