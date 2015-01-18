@@ -168,8 +168,8 @@ struct FileInfo {
 	string Name<8192>;
 	unsigned int Flags;
 	hyper Modified;
-	unsigned hyper Version;
-	unsigned hyper LocalVersion;
+	hyper Version;
+	hyper LocalVersion;
 	BlockInfo Blocks<>;
 }
 
@@ -206,8 +206,8 @@ func (o FileInfo) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteString(o.Name)
 	xw.WriteUint32(o.Flags)
 	xw.WriteUint64(uint64(o.Modified))
-	xw.WriteUint64(o.Version)
-	xw.WriteUint64(o.LocalVersion)
+	xw.WriteUint64(uint64(o.Version))
+	xw.WriteUint64(uint64(o.LocalVersion))
 	xw.WriteUint32(uint32(len(o.Blocks)))
 	for i := range o.Blocks {
 		_, err := o.Blocks[i].encodeXDR(xw)
@@ -233,8 +233,8 @@ func (o *FileInfo) decodeXDR(xr *xdr.Reader) error {
 	o.Name = xr.ReadStringMax(8192)
 	o.Flags = xr.ReadUint32()
 	o.Modified = int64(xr.ReadUint64())
-	o.Version = xr.ReadUint64()
-	o.LocalVersion = xr.ReadUint64()
+	o.Version = int64(xr.ReadUint64())
+	o.LocalVersion = int64(xr.ReadUint64())
 	_BlocksSize := int(xr.ReadUint32())
 	o.Blocks = make([]BlockInfo, _BlocksSize)
 	for i := range o.Blocks {
@@ -261,7 +261,7 @@ BlockInfo Structure:
 
 
 struct BlockInfo {
-	unsigned int Size;
+	int Size;
 	opaque Hash<64>;
 }
 
@@ -292,7 +292,7 @@ func (o BlockInfo) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o BlockInfo) encodeXDR(xw *xdr.Writer) (int, error) {
-	xw.WriteUint32(o.Size)
+	xw.WriteUint32(uint32(o.Size))
 	if l := len(o.Hash); l > 64 {
 		return xw.Tot(), xdr.ElementSizeExceeded("Hash", l, 64)
 	}
@@ -312,7 +312,7 @@ func (o *BlockInfo) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *BlockInfo) decodeXDR(xr *xdr.Reader) error {
-	o.Size = xr.ReadUint32()
+	o.Size = int32(xr.ReadUint32())
 	o.Hash = xr.ReadBytesMax(64)
 	return xr.Error()
 }
@@ -361,8 +361,8 @@ RequestMessage Structure:
 struct RequestMessage {
 	string Folder<64>;
 	string Name<8192>;
-	unsigned hyper Offset;
-	unsigned int Size;
+	hyper Offset;
+	int Size;
 	opaque Hash<64>;
 	unsigned int Flags;
 	Option Options<64>;
@@ -403,8 +403,8 @@ func (o RequestMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ElementSizeExceeded("Name", l, 8192)
 	}
 	xw.WriteString(o.Name)
-	xw.WriteUint64(o.Offset)
-	xw.WriteUint32(o.Size)
+	xw.WriteUint64(uint64(o.Offset))
+	xw.WriteUint32(uint32(o.Size))
 	if l := len(o.Hash); l > 64 {
 		return xw.Tot(), xdr.ElementSizeExceeded("Hash", l, 64)
 	}
@@ -437,8 +437,8 @@ func (o *RequestMessage) UnmarshalXDR(bs []byte) error {
 func (o *RequestMessage) decodeXDR(xr *xdr.Reader) error {
 	o.Folder = xr.ReadStringMax(64)
 	o.Name = xr.ReadStringMax(8192)
-	o.Offset = xr.ReadUint64()
-	o.Size = xr.ReadUint32()
+	o.Offset = int64(xr.ReadUint64())
+	o.Size = int32(xr.ReadUint32())
 	o.Hash = xr.ReadBytesMax(64)
 	o.Flags = xr.ReadUint32()
 	_OptionsSize := int(xr.ReadUint32())
@@ -471,7 +471,7 @@ ResponseMessage Structure:
 
 struct ResponseMessage {
 	opaque Data<>;
-	unsigned int Error;
+	int Error;
 }
 
 */
@@ -502,7 +502,7 @@ func (o ResponseMessage) AppendXDR(bs []byte) ([]byte, error) {
 
 func (o ResponseMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteBytes(o.Data)
-	xw.WriteUint32(o.Error)
+	xw.WriteUint32(uint32(o.Error))
 	return xw.Tot(), xw.Error()
 }
 
@@ -519,7 +519,7 @@ func (o *ResponseMessage) UnmarshalXDR(bs []byte) error {
 
 func (o *ResponseMessage) decodeXDR(xr *xdr.Reader) error {
 	o.Data = xr.ReadBytes()
-	o.Error = xr.ReadUint32()
+	o.Error = int32(xr.ReadUint32())
 	return xr.Error()
 }
 
@@ -766,7 +766,7 @@ Device Structure:
 struct Device {
 	opaque ID<32>;
 	unsigned int Flags;
-	unsigned hyper MaxLocalVersion;
+	hyper MaxLocalVersion;
 }
 
 */
@@ -801,7 +801,7 @@ func (o Device) encodeXDR(xw *xdr.Writer) (int, error) {
 	}
 	xw.WriteBytes(o.ID)
 	xw.WriteUint32(o.Flags)
-	xw.WriteUint64(o.MaxLocalVersion)
+	xw.WriteUint64(uint64(o.MaxLocalVersion))
 	return xw.Tot(), xw.Error()
 }
 
@@ -819,7 +819,7 @@ func (o *Device) UnmarshalXDR(bs []byte) error {
 func (o *Device) decodeXDR(xr *xdr.Reader) error {
 	o.ID = xr.ReadBytesMax(32)
 	o.Flags = xr.ReadUint32()
-	o.MaxLocalVersion = xr.ReadUint64()
+	o.MaxLocalVersion = int64(xr.ReadUint64())
 	return xr.Error()
 }
 
@@ -923,7 +923,7 @@ CloseMessage Structure:
 
 struct CloseMessage {
 	string Reason<1024>;
-	unsigned int Code;
+	int Code;
 }
 
 */
@@ -957,7 +957,7 @@ func (o CloseMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ElementSizeExceeded("Reason", l, 1024)
 	}
 	xw.WriteString(o.Reason)
-	xw.WriteUint32(o.Code)
+	xw.WriteUint32(uint32(o.Code))
 	return xw.Tot(), xw.Error()
 }
 
@@ -974,7 +974,7 @@ func (o *CloseMessage) UnmarshalXDR(bs []byte) error {
 
 func (o *CloseMessage) decodeXDR(xr *xdr.Reader) error {
 	o.Reason = xr.ReadStringMax(1024)
-	o.Code = xr.ReadUint32()
+	o.Code = int32(xr.ReadUint32())
 	return xr.Error()
 }
 
