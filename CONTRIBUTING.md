@@ -33,7 +33,7 @@ latest info on Transifex.
 
 Every contribution is welcome. If you want to contribute but are unsure
 where to start, any open issues are fair game! Be prepared for a
-[certain amount of review](https://discourse.syncthing.net/t/733); it's
+[certain amount of review](https://github.com/syncthing/syncthing/wiki/FAQ#why-are-you-being-so-hard-on-my-pull-request); it's
 all in the name of quality. :) Following the points below will make this
 a smoother process.
 
@@ -105,7 +105,7 @@ add yourself as a separate commit in your first pull request.
 
 ## Building
 
-[See the documentation](http://discourse.syncthing.net/t/44) on how to
+[See the documentation](https://github.com/syncthing/syncthing/wiki/Building) on how to
 get started with a build environment.
 
 ## Branches
