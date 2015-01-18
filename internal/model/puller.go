@@ -370,7 +370,10 @@ nextFile:
 			continue
 		}
 
-		if !f.IsSymlink() {
+		// Local file can be already deleted, but with a lower version
+		// number, hence the deletion coming in again as part of
+		// WithNeed
+		if !f.IsSymlink() && !f.IsDeleted() {
 			key := string(f.Blocks[0].Hash)
 			for i, candidate := range buckets[key] {
 				if scanner.BlocksEqual(candidate.Blocks, f.Blocks) {
