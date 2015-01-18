@@ -31,7 +31,7 @@ import (
 )
 
 type FileSet struct {
-	localVersion map[protocol.DeviceID]uint64
+	localVersion map[protocol.DeviceID]int64
 	mutex        sync.Mutex
 	folder       string
 	db           *leveldb.DB
@@ -56,7 +56,7 @@ type Iterator func(f FileIntf) bool
 
 func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 	var s = FileSet{
-		localVersion: make(map[protocol.DeviceID]uint64),
+		localVersion: make(map[protocol.DeviceID]int64),
 		folder:       folder,
 		db:           db,
 		blockmap:     NewBlockMap(db, folder),
@@ -212,7 +212,7 @@ func (s *FileSet) Availability(file string) []protocol.DeviceID {
 	return ldbAvailability(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
 }
 
-func (s *FileSet) LocalVersion(device protocol.DeviceID) uint64 {
+func (s *FileSet) LocalVersion(device protocol.DeviceID) int64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.localVersion[device]

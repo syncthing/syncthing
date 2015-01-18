@@ -27,7 +27,7 @@
 		},
 		{
 			"ImportPath": "github.com/calmh/xdr",
-			"Rev": "214788d8fedfc310c18eca9ed12be408a5054cd5"
+			"Rev": "ff948d7666c5e0fd18d398f6278881724d36a90b"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
@@ -35,7 +35,7 @@
 		},
 		{
 			"ImportPath": "github.com/syncthing/protocol",
-			"Rev": "f76b5d800208131015b14cfc1cfd3e6dd1d5e979"
+			"Rev": "15bf5f583a88b7aaf0a5b810fcf5fb21da0a3b3f"
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
@@ -59,19 +59,19 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/bcrypt",
-			"Rev": "731db29863ea7213d9556d0170afb38987f401d4"
+			"Rev": "4ed45ec682102c643324fae5dff8dab085b6c300"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/blowfish",
-			"Rev": "731db29863ea7213d9556d0170afb38987f401d4"
+			"Rev": "4ed45ec682102c643324fae5dff8dab085b6c300"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",
-			"Rev": "985ee5acfaf1ff6712c7c99438752f8e09416ccb"
+			"Rev": "c980adc4a823548817b9c47d38c6ca6b7d7d8b6a"
 		},
 		{
 			"ImportPath": "golang.org/x/text/unicode/norm",
-			"Rev": "985ee5acfaf1ff6712c7c99438752f8e09416ccb"
+			"Rev": "c980adc4a823548817b9c47d38c6ca6b7d7d8b6a"
 		}
 	]
 }

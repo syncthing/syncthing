@@ -43,7 +43,7 @@ func savePerfStats(file string) {
 	var prevTime int64
 	var rusage syscall.Rusage
 	var memstats runtime.MemStats
-	var prevIn, prevOut uint64
+	var prevIn, prevOut int64
 
 	t0 := time.Now()
 	for t := range time.NewTicker(250 * time.Millisecond).C {

@@ -32,7 +32,7 @@ func genBlocks(n int) []protocol.BlockInfo {
 		for j := range h {
 			h[j] = byte(i + j)
 		}
-		b[i].Size = uint32(i)
+		b[i].Size = int32(i)
 		b[i].Hash = h
 	}
 	return b
@@ -103,21 +103,21 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index uint32) bool {
+	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		if folder != "folder1" || file != "f1" || index != 0 {
 			t.Fatal("Mismatch")
 		}
 		return true
 	})
 
-	f.Iterate(f2.Blocks[0].Hash, func(folder, file string, index uint32) bool {
+	f.Iterate(f2.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		if folder != "folder1" || file != "f2" || index != 0 {
 			t.Fatal("Mismatch")
 		}
 		return true
 	})
 
-	f.Iterate(f3.Blocks[0].Hash, func(folder, file string, index uint32) bool {
+	f.Iterate(f3.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		t.Fatal("Unexpected block")
 		return true
 	})
@@ -132,17 +132,17 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index uint32) bool {
+	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		t.Fatal("Unexpected block")
 		return false
 	})
 
-	f.Iterate(f2.Blocks[0].Hash, func(folder, file string, index uint32) bool {
+	f.Iterate(f2.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		t.Fatal("Unexpected block")
 		return false
 	})
 
-	f.Iterate(f3.Blocks[0].Hash, func(folder, file string, index uint32) bool {
+	f.Iterate(f3.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		if folder != "folder1" || file != "f3" || index != 0 {
 			t.Fatal("Mismatch")
 		}
@@ -189,7 +189,7 @@ func TestBlockFinderLookup(t *testing.T) {
 	}
 
 	counter := 0
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index uint32) bool {
+	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		counter++
 		switch counter {
 		case 1:
@@ -217,7 +217,7 @@ func TestBlockFinderLookup(t *testing.T) {
 	}
 
 	counter = 0
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index uint32) bool {
+	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		counter++
 		switch counter {
 		case 1:
@@ -239,7 +239,7 @@ func TestBlockFinderLookup(t *testing.T) {
 func TestBlockFinderFix(t *testing.T) {
 	db, f := setup()
 
-	iterFn := func(folder, file string, index uint32) bool {
+	iterFn := func(folder, file string, index int32) bool {
 		return true
 	}
 

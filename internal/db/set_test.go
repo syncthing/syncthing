@@ -43,7 +43,7 @@ func genBlocks(n int) []protocol.BlockInfo {
 		for j := range h {
 			h[j] = byte(i + j)
 		}
-		b[i].Size = uint32(i)
+		b[i].Size = int32(i)
 		b[i].Hash = h
 	}
 	return b

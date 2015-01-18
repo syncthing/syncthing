@@ -26,7 +26,7 @@ var (
 	globalMemoryStatusEx, _ = syscall.GetProcAddress(kernel32, "GlobalMemoryStatusEx")
 )
 
-func memorySize() (uint64, error) {
+func memorySize() (int64, error) {
 	var memoryStatusEx [64]byte
 	binary.LittleEndian.PutUint32(memoryStatusEx[:], 64)
 	p := uintptr(unsafe.Pointer(&memoryStatusEx[0]))
@@ -36,5 +36,5 @@ func memorySize() (uint64, error) {
 		return 0, callErr
 	}
 
-	return binary.LittleEndian.Uint64(memoryStatusEx[8:]), nil
+	return int64(binary.LittleEndian.Uint64(memoryStatusEx[8:])), nil
 }

@@ -21,11 +21,11 @@ import "sync"
 var Default = Clock{}
 
 type Clock struct {
-	val uint64
+	val int64
 	mut sync.Mutex
 }
 
-func (c *Clock) Tick(v uint64) uint64 {
+func (c *Clock) Tick(v int64) int64 {
 	c.mut.Lock()
 	if v > c.val {
 		c.val = v + 1

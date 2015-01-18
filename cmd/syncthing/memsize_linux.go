@@ -23,7 +23,7 @@ import (
 	"strings"
 )
 
-func memorySize() (uint64, error) {
+func memorySize() (int64, error) {
 	f, err := os.Open("/proc/meminfo")
 	if err != nil {
 		return 0, err
@@ -40,7 +40,7 @@ func memorySize() (uint64, error) {
 		return 0, errors.New("/proc/meminfo parse error 2")
 	}
 
-	kb, err := strconv.ParseUint(fs[1], 10, 64)
+	kb, err := strconv.ParseInt(fs[1], 10, 64)
 	if err != nil {
 		return 0, err
 	}

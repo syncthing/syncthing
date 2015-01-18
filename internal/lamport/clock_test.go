@@ -17,12 +17,12 @@ package lamport
 
 import "testing"
 
-var inputs = []uint64{0, 42, 2, 3, 4, 8, 9, 33, 44, 112, 100}
+var inputs = []int64{0, 42, 2, 3, 4, 8, 9, 33, 44, 112, 100}
 
 func TestClock(t *testing.T) {
 	c := Clock{}
 
-	var prev uint64
+	var prev int64
 	for _, input := range inputs {
 		cur := c.Tick(input)
 		if cur <= prev || cur <= input {

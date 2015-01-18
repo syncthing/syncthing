@@ -33,27 +33,27 @@ type sharedPullerState struct {
 	folder   string
 	tempName string
 	realName string
-	reused   uint32 // Number of blocks reused from temporary file
+	reused   int // Number of blocks reused from temporary file
 
 	// Mutable, must be locked for access
 	err        error      // The first error we hit
 	fd         *os.File   // The fd of the temp file
-	copyTotal  uint32     // Total number of copy actions for the whole job
-	pullTotal  uint32     // Total number of pull actions for the whole job
-	copyOrigin uint32     // Number of blocks copied from the original file
-	copyNeeded uint32     // Number of copy actions still pending
-	pullNeeded uint32     // Number of block pulls still pending
+	copyTotal  int        // Total number of copy actions for the whole job
+	pullTotal  int        // Total number of pull actions for the whole job
+	copyOrigin int        // Number of blocks copied from the original file
+	copyNeeded int        // Number of copy actions still pending
+	pullNeeded int        // Number of block pulls still pending
 	mut        sync.Mutex // Protects the above
 }
 
 // A momentary state representing the progress of the puller
 type pullerProgress struct {
-	Total               uint32
-	Reused              uint32
-	CopiedFromOrigin    uint32
-	CopiedFromElsewhere uint32
-	Pulled              uint32
-	Pulling             uint32
+	Total               int
+	Reused              int
+	CopiedFromOrigin    int
+	CopiedFromElsewhere int
+	Pulled              int
+	Pulling             int
 	BytesDone           int64
 	BytesTotal          int64
 }

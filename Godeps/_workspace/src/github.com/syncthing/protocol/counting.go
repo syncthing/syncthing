@@ -10,25 +10,25 @@ import (
 
 type countingReader struct {
 	io.Reader
-	tot  uint64 // bytes
-	last int64  // unix nanos
+	tot  int64 // bytes
+	last int64 // unix nanos
 }
 
 var (
-	totalIncoming uint64
-	totalOutgoing uint64
+	totalIncoming int64
+	totalOutgoing int64
 )
 
 func (c *countingReader) Read(bs []byte) (int, error) {
 	n, err := c.Reader.Read(bs)
-	atomic.AddUint64(&c.tot, uint64(n))
-	atomic.AddUint64(&totalIncoming, uint64(n))
+	atomic.AddInt64(&c.tot, int64(n))
+	atomic.AddInt64(&totalIncoming, int64(n))
 	atomic.StoreInt64(&c.last, time.Now().UnixNano())
 	return n, err
 }
 
-func (c *countingReader) Tot() uint64 {
-	return atomic.LoadUint64(&c.tot)
+func (c *countingReader) Tot() int64 {
+	return atomic.LoadInt64(&c.tot)
 }
 
 func (c *countingReader) Last() time.Time {
@@ -37,26 +37,26 @@ func (c *countingReader) Last() time.Time {
 
 type countingWriter struct {
 	io.Writer
-	tot  uint64 // bytes
-	last int64  // unix nanos
+	tot  int64 // bytes
+	last int64 // unix nanos
 }
 
 func (c *countingWriter) Write(bs []byte) (int, error) {
 	n, err := c.Writer.Write(bs)
-	atomic.AddUint64(&c.tot, uint64(n))
-	atomic.AddUint64(&totalOutgoing, uint64(n))
+	atomic.AddInt64(&c.tot, int64(n))
+	atomic.AddInt64(&totalOutgoing, int64(n))
 	atomic.StoreInt64(&c.last, time.Now().UnixNano())
 	return n, err
 }
 
-func (c *countingWriter) Tot() uint64 {
-	return atomic.LoadUint64(&c.tot)
+func (c *countingWriter) Tot() int64 {
+	return atomic.LoadInt64(&c.tot)
 }
 
 func (c *countingWriter) Last() time.Time {
 	return time.Unix(0, atomic.LoadInt64(&c.last))
 }
 
-func TotalInOut() (uint64, uint64) {
-	return atomic.LoadUint64(&totalIncoming), atomic.LoadUint64(&totalOutgoing)
+func TotalInOut() (int64, int64) {
+	return atomic.LoadInt64(&totalIncoming), atomic.LoadInt64(&totalOutgoing)
 }

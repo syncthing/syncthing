@@ -46,7 +46,7 @@ func Blocks(r io.Reader, blocksize int, sizehint int64) ([]protocol.BlockInfo, e
 		}
 
 		b := protocol.BlockInfo{
-			Size:   uint32(n),
+			Size:   int32(n),
 			Offset: offset,
 			Hash:   hf.Sum(nil),
 		}

@@ -29,9 +29,9 @@ type FileInfoTruncated struct {
 	Name         string // max:8192
 	Flags        uint32
 	Modified     int64
-	Version      uint64
-	LocalVersion uint64
-	NumBlocks    uint32
+	Version      int64
+	LocalVersion int64
+	NumBlocks    int32
 }
 
 func (f FileInfoTruncated) String() string {
@@ -44,7 +44,7 @@ func (f FileInfoTruncated) Size() int64 {
 	if f.IsDeleted() || f.IsDirectory() {
 		return 128
 	}
-	return BlocksToSize(f.NumBlocks)
+	return BlocksToSize(int(f.NumBlocks))
 }
 
 func (f FileInfoTruncated) IsDeleted() bool {
@@ -67,7 +67,7 @@ func (f FileInfoTruncated) HasPermissionBits() bool {
 	return f.Flags&protocol.FlagNoPermBits == 0
 }
 
-func BlocksToSize(num uint32) int64 {
+func BlocksToSize(num int) int64 {
 	if num < 2 {
 		return protocol.BlockSize / 2
 	}
