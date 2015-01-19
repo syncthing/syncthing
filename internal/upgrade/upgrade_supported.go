@@ -95,7 +95,7 @@ func upgradeToURL(binary string, url string) error {
 	}
 
 	old := binary + ".old"
-	_ = os.Remove(old)
+	os.Remove(old)
 	err = os.Rename(binary, old)
 	if err != nil {
 		return err
@@ -193,20 +193,16 @@ fileLoop:
 		}
 	}
 
-	if tempName != "" && actualMD5 != "" {
+	if tempName != "" {
 		// We found and saved something to disk.
-		if expectedMD5 == "" {
-			if debug {
-				l.Debugln("there is no md5 to compare with")
-			}
-		} else if actualMD5 != expectedMD5 {
-			// There was an md5 file included in the archive, and it doesn't
-			// match what we just wrote to disk.
-			return "", fmt.Errorf("incorrect MD5 checksum")
+		if expectedMD5 == "" || actualMD5 == expectedMD5 {
+			return tempName, nil
 		}
-		return tempName, nil
+		os.Remove(tempName)
+		// There was an md5 file included in the archive, and it doesn't
+		// match what we just wrote to disk.
+		return "", fmt.Errorf("incorrect MD5 checksum")
 	}
-
 	return "", fmt.Errorf("no upgrade found")
 }
 
@@ -274,20 +270,16 @@ fileLoop:
 		}
 	}
 
-	if tempName != "" && actualMD5 != "" {
+	if tempName != "" {
 		// We found and saved something to disk.
-		if expectedMD5 == "" {
-			if debug {
-				l.Debugln("there is no md5 to compare with")
-			}
-		} else if actualMD5 != expectedMD5 {
-			// There was an md5 file included in the archive, and it doesn't
-			// match what we just wrote to disk.
-			return "", fmt.Errorf("incorrect MD5 checksum")
+		if expectedMD5 == "" || actualMD5 == expectedMD5 {
+			return tempName, nil
 		}
-		return tempName, nil
+		os.Remove(tempName)
+		// There was an md5 file included in the archive, and it doesn't
+		// match what we just wrote to disk.
+		return "", fmt.Errorf("incorrect MD5 checksum")
 	}
-
 	return "", fmt.Errorf("No upgrade found")
 }
 
