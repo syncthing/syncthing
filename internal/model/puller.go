@@ -100,7 +100,7 @@ func (p *Puller) Serve() {
 		p.model.setState(p.folder, FolderIdle)
 	}()
 
-	var prevVer uint64
+	var prevVer int64
 	var prevIgnoreHash string
 
 	// We don't start pulling files until a scan has been completed.
@@ -623,9 +623,9 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 		folder:     p.folder,
 		tempName:   tempName,
 		realName:   realName,
-		copyTotal:  uint32(len(blocks)),
-		copyNeeded: uint32(len(blocks)),
-		reused:     uint32(reused),
+		copyTotal:  len(blocks),
+		copyNeeded: len(blocks),
+		reused:     reused,
 	}
 
 	if debug {
@@ -720,7 +720,7 @@ func (p *Puller) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBl
 
 		for _, block := range state.blocks {
 			buf = buf[:int(block.Size)]
-			found := p.model.finder.Iterate(block.Hash, func(folder, file string, index uint32) bool {
+			found := p.model.finder.Iterate(block.Hash, func(folder, file string, index int32) bool {
 				path := filepath.Join(folderRoots[folder], file)
 
 				var fd *os.File

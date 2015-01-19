@@ -34,11 +34,11 @@ import (
 )
 
 var (
-	clockTick uint64
+	clockTick int64
 	clockMut  sync.Mutex
 )
 
-func clock(v uint64) uint64 {
+func clock(v int64) int64 {
 	clockMut.Lock()
 	defer clockMut.Unlock()
 	if v > clockTick {
@@ -56,7 +56,7 @@ const (
 )
 
 type fileVersion struct {
-	version uint64
+	version int64
 	device  []byte
 }
 
@@ -164,9 +164,9 @@ func globalKeyFolder(key []byte) []byte {
 	return folder[:izero]
 }
 
-type deletionHandler func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) uint64
+type deletionHandler func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) int64
 
-func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo, deleteFn deletionHandler) uint64 {
+func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo, deleteFn deletionHandler) int64 {
 	runtime.GC()
 
 	sort.Sort(fileList(fs)) // sort list on name, same as in the database
@@ -197,7 +197,7 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 
 	moreDb := dbi.Next()
 	fsi := 0
-	var maxLocalVer uint64
+	var maxLocalVer int64
 
 	for {
 		var newName, oldName []byte
@@ -288,9 +288,9 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 	return maxLocalVer
 }
 
-func ldbReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) uint64 {
+func ldbReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) int64 {
 	// TODO: Return the remaining maxLocalVer?
-	return ldbGenericReplace(db, folder, device, fs, func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) uint64 {
+	return ldbGenericReplace(db, folder, device, fs, func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) int64 {
 		// Database has a file that we are missing. Remove it.
 		if debugDB {
 			l.Debugf("delete; folder=%q device=%v name=%q", folder, protocol.DeviceIDFromBytes(device), name)
@@ -304,8 +304,8 @@ func ldbReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) u
 	})
 }
 
-func ldbReplaceWithDelete(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) uint64 {
-	return ldbGenericReplace(db, folder, device, fs, func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) uint64 {
+func ldbReplaceWithDelete(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) int64 {
+	return ldbGenericReplace(db, folder, device, fs, func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) int64 {
 		var tf FileInfoTruncated
 		err := tf.UnmarshalXDR(dbi.Value())
 		if err != nil {
@@ -335,7 +335,7 @@ func ldbReplaceWithDelete(db *leveldb.DB, folder, device []byte, fs []protocol.F
 	})
 }
 
-func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) uint64 {
+func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) int64 {
 	runtime.GC()
 
 	batch := new(leveldb.Batch)
@@ -356,7 +356,7 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) ui
 		snap.Release()
 	}()
 
-	var maxLocalVer uint64
+	var maxLocalVer int64
 	for _, f := range fs {
 		name := []byte(f.Name)
 		fk := deviceKey(folder, device, name)
@@ -406,7 +406,7 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) ui
 	return maxLocalVer
 }
 
-func ldbInsert(batch dbWriter, folder, device []byte, file protocol.FileInfo) uint64 {
+func ldbInsert(batch dbWriter, folder, device []byte, file protocol.FileInfo) int64 {
 	if debugDB {
 		l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
 	}
@@ -428,7 +428,7 @@ func ldbInsert(batch dbWriter, folder, device []byte, file protocol.FileInfo) ui
 // ldbUpdateGlobal adds this device+version to the version list for the given
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
-func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device, file []byte, version uint64) bool {
+func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device, file []byte, version int64) bool {
 	if debugDB {
 		l.Debugf("update global; folder=%q device=%v file=%q version=%d", folder, protocol.DeviceIDFromBytes(device), file, version)
 	}
@@ -798,7 +798,7 @@ outer:
 
 		have := false // If we have the file, any version
 		need := false // If we have a lower version of the file
-		var haveVersion uint64
+		var haveVersion int64
 		for _, v := range vl.versions {
 			if bytes.Compare(v.device, device) == 0 {
 				have = true

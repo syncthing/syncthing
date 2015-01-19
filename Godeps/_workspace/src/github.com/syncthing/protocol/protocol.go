@@ -222,8 +222,8 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 	ok := c.send(id, messageTypeRequest, RequestMessage{
 		Folder: folder,
 		Name:   name,
-		Offset: uint64(offset),
-		Size:   uint32(size),
+		Offset: offset,
+		Size:   int32(size),
 	})
 	if !ok {
 		return nil, ErrClosed
@@ -706,8 +706,8 @@ func (c *rawConnection) pingerLoop() {
 
 type Statistics struct {
 	At            time.Time
-	InBytesTotal  uint64
-	OutBytesTotal uint64
+	InBytesTotal  int64
+	OutBytesTotal int64
 }
 
 func (c *rawConnection) Statistics() Statistics {

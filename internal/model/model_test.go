@@ -110,6 +110,33 @@ func TestRequest(t *testing.T) {
 	if bs != nil {
 		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
 	}
+
+	// Larger block than available
+	bs, err = m.Request(device1, "default", "foo", 0, 42)
+	if err == nil {
+		t.Error("Unexpected nil error on insecure file read")
+	}
+	if bs != nil {
+		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
+	}
+
+	// Negative offset
+	bs, err = m.Request(device1, "default", "foo", -4, 6)
+	if err == nil {
+		t.Error("Unexpected nil error on insecure file read")
+	}
+	if bs != nil {
+		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
+	}
+
+	// Negative size
+	bs, err = m.Request(device1, "default", "foo", 4, -4)
+	if err == nil {
+		t.Error("Unexpected nil error on insecure file read")
+	}
+	if bs != nil {
+		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
+	}
 }
 
 func genFiles(n int) []protocol.FileInfo {

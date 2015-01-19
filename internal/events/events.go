@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-type EventType uint64
+type EventType int
 
 const (
 	Ping EventType = 1 << iota

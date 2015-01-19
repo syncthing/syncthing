@@ -22,14 +22,14 @@ import (
 	"strconv"
 )
 
-func memorySize() (uint64, error) {
+func memorySize() (int64, error) {
 	cmd := exec.Command("prtconf", "-m")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return 0, err
 	}
 
-	mb, err := strconv.ParseUint(string(out), 10, 64)
+	mb, err := strconv.ParseInt(string(out), 10, 64)
 	if err != nil {
 		return 0, err
 	}

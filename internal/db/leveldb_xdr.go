@@ -31,7 +31,7 @@ fileVersion Structure:
 
 
 struct fileVersion {
-	unsigned hyper version;
+	hyper version;
 	opaque device<>;
 }
 
@@ -62,7 +62,7 @@ func (o fileVersion) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o fileVersion) encodeXDR(xw *xdr.Writer) (int, error) {
-	xw.WriteUint64(o.version)
+	xw.WriteUint64(uint64(o.version))
 	xw.WriteBytes(o.device)
 	return xw.Tot(), xw.Error()
 }
@@ -79,7 +79,7 @@ func (o *fileVersion) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *fileVersion) decodeXDR(xr *xdr.Reader) error {
-	o.version = xr.ReadUint64()
+	o.version = int64(xr.ReadUint64())
 	o.device = xr.ReadBytes()
 	return xr.Error()
 }

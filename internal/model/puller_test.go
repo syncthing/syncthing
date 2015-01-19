@@ -199,7 +199,7 @@ func TestCopierFinder(t *testing.T) {
 	// Update index
 	m.updateLocal("default", existingFile)
 
-	iterFn := func(folder, file string, index uint32) bool {
+	iterFn := func(folder, file string, index int32) bool {
 		return true
 	}
 
@@ -264,7 +264,7 @@ func TestCopierFinder(t *testing.T) {
 
 // Test that updating a file removes it's old blocks from the blockmap
 func TestCopierCleanup(t *testing.T) {
-	iterFn := func(folder, file string, index uint32) bool {
+	iterFn := func(folder, file string, index int32) bool {
 		return true
 	}
 
@@ -341,7 +341,7 @@ func TestLastResortPulling(t *testing.T) {
 	// with a different name (causing to copy that particular block)
 	file.Name = "newfile"
 
-	iterFn := func(folder, file string, index uint32) bool {
+	iterFn := func(folder, file string, index int32) bool {
 		return true
 	}
 

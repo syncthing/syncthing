@@ -46,9 +46,9 @@ struct FileInfoTruncated {
 	string Name<8192>;
 	unsigned int Flags;
 	hyper Modified;
-	unsigned hyper Version;
-	unsigned hyper LocalVersion;
-	unsigned int NumBlocks;
+	hyper Version;
+	hyper LocalVersion;
+	int NumBlocks;
 }
 
 */
@@ -84,9 +84,9 @@ func (o FileInfoTruncated) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteString(o.Name)
 	xw.WriteUint32(o.Flags)
 	xw.WriteUint64(uint64(o.Modified))
-	xw.WriteUint64(o.Version)
-	xw.WriteUint64(o.LocalVersion)
-	xw.WriteUint32(o.NumBlocks)
+	xw.WriteUint64(uint64(o.Version))
+	xw.WriteUint64(uint64(o.LocalVersion))
+	xw.WriteUint32(uint32(o.NumBlocks))
 	return xw.Tot(), xw.Error()
 }
 
@@ -105,8 +105,8 @@ func (o *FileInfoTruncated) decodeXDR(xr *xdr.Reader) error {
 	o.Name = xr.ReadStringMax(8192)
 	o.Flags = xr.ReadUint32()
 	o.Modified = int64(xr.ReadUint64())
-	o.Version = xr.ReadUint64()
-	o.LocalVersion = xr.ReadUint64()
-	o.NumBlocks = xr.ReadUint32()
+	o.Version = int64(xr.ReadUint64())
+	o.LocalVersion = int64(xr.ReadUint64())
+	o.NumBlocks = int32(xr.ReadUint32())
 	return xr.Error()
 }

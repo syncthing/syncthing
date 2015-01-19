@@ -160,7 +160,7 @@ func (f *BlockFinder) Changed(cfg config.Configuration) error {
 // the block) or false to continue iterating for whatever reason.
 // The iterator finally returns the result, whether or not a satisfying block
 // was eventually found.
-func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, uint32) bool) bool {
+func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, int32) bool) bool {
 	f.mut.RLock()
 	folders := f.folders
 	f.mut.RUnlock()
@@ -171,7 +171,7 @@ func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, uint32) b
 
 		for iter.Next() && iter.Error() == nil {
 			folder, file := fromBlockKey(iter.Key())
-			index := binary.BigEndian.Uint32(iter.Value())
+			index := int32(binary.BigEndian.Uint32(iter.Value()))
 			if iterFn(folder, osutil.NativeFilename(file), index) {
 				return true
 			}
@@ -182,7 +182,7 @@ func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, uint32) b
 
 // A method for repairing incorrect blockmap entries, removes the old entry
 // and replaces it with a new entry for the given block
-func (f *BlockFinder) Fix(folder, file string, index uint32, oldHash, newHash []byte) error {
+func (f *BlockFinder) Fix(folder, file string, index int32, oldHash, newHash []byte) error {
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, uint32(index))
 

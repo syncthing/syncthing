@@ -701,6 +701,10 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
 func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, size int) ([]byte, error) {
+	if offset < 0 || size < 0 {
+		return nil, ErrNoSuchFile
+	}
+
 	if !m.folderSharedWith(folder, deviceID) {
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
 		return nil, ErrNoSuchFile
@@ -970,12 +974,12 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	}
 }
 
-func sendIndexTo(initial bool, minLocalVer uint64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (uint64, error) {
+func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
 	currentBatchSize := 0
-	maxLocalVer := uint64(0)
+	maxLocalVer := int64(0)
 	var err error
 
 	fs.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
@@ -1349,7 +1353,7 @@ func (m *Model) Override(folder string) {
 // CurrentLocalVersion returns the change version for the given folder.
 // This is guaranteed to increment if the contents of the local folder has
 // changed.
-func (m *Model) CurrentLocalVersion(folder string) uint64 {
+func (m *Model) CurrentLocalVersion(folder string) int64 {
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
@@ -1365,7 +1369,7 @@ func (m *Model) CurrentLocalVersion(folder string) uint64 {
 // RemoteLocalVersion returns the change version for the given folder, as
 // sent by remote peers. This is guaranteed to increment if the contents of
 // the remote or global folder has changed.
-func (m *Model) RemoteLocalVersion(folder string) uint64 {
+func (m *Model) RemoteLocalVersion(folder string) int64 {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 
@@ -1376,7 +1380,7 @@ func (m *Model) RemoteLocalVersion(folder string) uint64 {
 		return 0
 	}
 
-	var ver uint64
+	var ver int64
 	for _, n := range m.folderDevices[folder] {
 		ver += fs.LocalVersion(n)
 	}
