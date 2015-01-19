@@ -1,6 +1,5 @@
 // Copyright (C) 2014 The Protocol Authors.
 
-//go:generate -command genxdr go run ../../Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
 //go:generate genxdr -o message_xdr.go message.go
 
 package protocol
@@ -18,8 +17,8 @@ type FileInfo struct {
 	Name         string // max:8192
 	Flags        uint32
 	Modified     int64
-	Version      uint64
-	LocalVersion uint64
+	Version      int64
+	LocalVersion int64
 	Blocks       []BlockInfo
 }
 
@@ -60,7 +59,7 @@ func (f FileInfo) HasPermissionBits() bool {
 
 type BlockInfo struct {
 	Offset int64 // noencode (cache only)
-	Size   uint32
+	Size   int32
 	Hash   []byte // max:64
 }
 
@@ -71,8 +70,8 @@ func (b BlockInfo) String() string {
 type RequestMessage struct {
 	Folder  string // max:64
 	Name    string // max:8192
-	Offset  uint64
-	Size    uint32
+	Offset  int64
+	Size    int32
 	Hash    []byte // max:64
 	Flags   uint32
 	Options []Option // max:64
@@ -80,7 +79,7 @@ type RequestMessage struct {
 
 type ResponseMessage struct {
 	Data  []byte
-	Error uint32
+	Error int32
 }
 
 type ClusterConfigMessage struct {
@@ -107,7 +106,7 @@ type Folder struct {
 type Device struct {
 	ID              []byte // max:32
 	Flags           uint32
-	MaxLocalVersion uint64
+	MaxLocalVersion int64
 }
 
 type Option struct {
@@ -117,7 +116,7 @@ type Option struct {
 
 type CloseMessage struct {
 	Reason string // max:1024
-	Code   uint32
+	Code   int32
 }
 
 type EmptyMessage struct{}
