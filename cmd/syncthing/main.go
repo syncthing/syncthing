@@ -658,7 +658,9 @@ func setupGUI(cfg *config.Wrapper, m *model.Model) {
 			}
 			if opts.StartBrowser && !noBrowser && !stRestarting {
 				urlOpen := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostOpen, strconv.Itoa(addr.Port)))
-				openURL(urlOpen)
+				// Can potentially block if the utility we are invoking doesn't
+				// fork, and just execs, hence keep it in it's own routine.
+				go openURL(urlOpen)
 			}
 		}
 	}
