@@ -1,0 +1,102 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          syncthing
+# Required-Start:    $local_fs $remote_fs $network
+# Required-Stop:     $local_fs $remote_fs $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: syncthing continuous file synchronization 
+### END INIT INFO
+
+NAME=syncthing
+
+DAEMON="/usr/bin/syncthing"
+DAEMON_RUN_NAME=$NAME
+DAEMON_OPTS=""
+
+RUN_AS="UserToRunSyncthingAs"
+
+LOGFILE=/var/log/$NAME.log
+
+#
+# usual stop edit point....
+#
+
+# Source (Debian|Redhat) function library.
+for funcFile in '/lib/lsb/init-functions' '/etc/init.d/functions'; do
+  if [ -f $funcFile ]; then
+    . $funcFile
+  fi
+done
+
+if hash start-stop-daemon 2>/dev/null; then
+  DIST="Debian"
+else
+  DIST="RedHat"
+fi
+
+RETVAL=0
+
+start() {
+  echo -n "Starting $NAME: "
+  
+  PIDS=`pidof $DAEMON_RUN_NAME`
+  if [ -z "$PIDS" ]; then
+  
+    if [ "$DIST" = "Debian" ]; then
+      start-stop-daemon -S -b -c $RUN_AS -x $DAEMON -- $DAEMON_OPTS >> $LOGFILE 2>&1
+    else
+      daemon --user $RUN_AS $DAEMON $DAEMON_OPTS >> /var/log/$NAME.log 2>&1 &
+    fi
+    
+    return $?
+     
+  else
+    echo "$NAME is already running"
+    RETVAL=1
+  fi
+  
+  return $RETVAL
+}
+
+stop() {
+  echo -n "Shutting down $NAME: "
+  
+  PIDS=`pidof $DAEMON_RUN_NAME`
+  if [ -n "$PIDS" ]; then
+    killall $DAEMON_RUN_NAME
+    return $?
+  else
+    echo "$NAME is not running"
+    RETVAL=1
+  fi
+
+  return $RETVAL         
+}
+
+status() {
+  echo -n "status not supported "
+  return 0
+}
+
+case "$1" in
+  start)
+      start
+      ;;
+  stop)
+      stop
+      ;;
+  status)
+      status
+      ;;
+  restart)
+      stop
+      start
+      ;;
+  *)
+      echo "Usage: $NAME {start|stop|status|restart}"
+      exit 1
+      ;;
+esac
+
+exit $RETVAL
