@@ -3,6 +3,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 DOCKERIMGV=1.4.1-1
+STTRACE=${STTRACE:-}
 
 case "${1:-default}" in
 	default)
@@ -110,6 +111,7 @@ case "${1:-default}" in
 		docker run --rm -h syncthing-builder -u $(id -u) -t \
 			-v $(pwd):/go/src/github.com/syncthing/syncthing \
 			-w /go/src/github.com/syncthing/syncthing \
+			-e "STTRACE=$STTRACE" \
 			syncthing/build:$DOCKERIMGV \
 			sh -c './build.sh clean \
 				&& go vet ./cmd/... ./internal/... \
@@ -122,6 +124,7 @@ case "${1:-default}" in
 		docker run --rm -h syncthing-builder -u $(id -u) -t \
 			-v $(pwd):/go/src/github.com/syncthing/syncthing \
 			-w /go/src/github.com/syncthing/syncthing \
+			-e "STTRACE=$STTRACE" \
 			syncthing/build:$DOCKERIMGV \
 			sh -euxc './build.sh clean \
 				&& go run build.go -race \
