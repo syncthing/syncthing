@@ -321,10 +321,10 @@ func generateDiagram(output io.Writer, s structInfo) {
 		case "bool":
 			fmt.Fprintf(output, "| %s |V|\n", center(name+" (V=0 or 1)", 59))
 			fmt.Fprintln(output, line)
-		case "uint16":
+		case "int16", "uint16":
 			fmt.Fprintf(output, "| %s | %s |\n", center("0x0000", 29), center(name, 29))
 			fmt.Fprintln(output, line)
-		case "uint32":
+		case "int32", "uint32":
 			fmt.Fprintf(output, "| %s |\n", center(name, 61))
 			fmt.Fprintln(output, line)
 		case "int64", "uint64":
@@ -374,6 +374,8 @@ func generateXdr(output io.Writer, s structInfo) {
 		}
 
 		switch tn {
+		case "int16", "int32":
+			fmt.Fprintf(output, "\tint %s%s;\n", fn, suf)
 		case "uint16", "uint32":
 			fmt.Fprintf(output, "\tunsigned int %s%s;\n", fn, suf)
 		case "int64":
