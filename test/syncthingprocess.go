@@ -50,7 +50,7 @@ type syncthingProcess struct {
 
 func (p *syncthingProcess) start() error {
 	if p.logfd == nil {
-		logfd, err := os.Create(p.instance + ".out")
+		logfd, err := os.Create("logs/" + getTestName() + "-" + p.instance + ".out")
 		if err != nil {
 			return err
 		}

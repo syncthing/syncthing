@@ -27,6 +27,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -440,4 +441,22 @@ func isTimeout(err error) bool {
 	}
 	return strings.Contains(err.Error(), "use of closed network connection") ||
 		strings.Contains(err.Error(), "request cancelled while waiting")
+}
+
+func getTestName() string {
+	callers := make([]uintptr, 100)
+	runtime.Callers(1, callers)
+	for i, caller := range callers {
+		f := runtime.FuncForPC(caller)
+		if f != nil {
+			if f.Name() == "testing.tRunner" {
+				testf := runtime.FuncForPC(callers[i-1])
+				if testf != nil {
+					path := strings.Split(testf.Name(), ".")
+					return path[len(path)-1]
+				}
+			}
+		}
+	}
+	return time.Now().String()
 }
