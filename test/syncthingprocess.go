@@ -94,7 +94,7 @@ func (p *syncthingProcess) stop() error {
 	p.cmd.Process.Signal(os.Kill)
 	p.cmd.Wait()
 
-	fd, err := os.Open(p.instance + ".out")
+	fd, err := os.Open(p.logfd.Name())
 	if err != nil {
 		return err
 	}
