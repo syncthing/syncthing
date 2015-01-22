@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/calmh/logger"
 	"github.com/syncthing/protocol"
@@ -259,6 +260,10 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		if len(folder.Path) == 0 {
 			folder.Invalid = "no directory configured"
 			continue
+		}
+
+		if !strings.HasSuffix(folder.Path, string(filepath.Separator)) {
+			folder.Path += string(filepath.Separator)
 		}
 
 		if folder.ID == "" {
