@@ -906,9 +906,8 @@
       </tr>
       <tr ng-repeat="f in needed.queued" ng-init="a = needAction(f)">
         <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
-        <td title="{{f.Name}}">{{f.Name | basename}}</td>
+        <td><a href="" ng-if="$index != 0" ng-click="bumpFile(neededFolder, f.Name)" title="{{'Move to top of queue' | translate}}"><span class="glyphicon glyphicon-eject"></span></a><span ng-if="$index != 0">&ensp;</span><span title="{{f.Name}}">{{f.Name | basename}}</span></td>
         <td class="text-right small-data">
-          <span ng-if="$index != 0" class="glyphicon glyphicon-chevron-up" ng-click="bumpFile(neededFolder, f.Name)"></span>
           <span ng-if="f.Size > 0">{{f.Size | binary}}B</span>
          </td>
       </tr>
