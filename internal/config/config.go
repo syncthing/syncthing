@@ -26,7 +26,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
-  "strings"
+	"strings"
 
 	"github.com/calmh/logger"
 	"github.com/syncthing/protocol"
@@ -262,9 +262,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 			continue
 		}
 
-    if !strings.HasSuffix(folder.Path, string(filepath.Separator)) {
-      folder.Path += string(filepath.Separator)
-    }
+		if !strings.HasSuffix(folder.Path, string(filepath.Separator)) {
+			folder.Path += string(filepath.Separator)
+		}
 
 		if folder.ID == "" {
 			folder.ID = "default"
