@@ -1,0 +1,4 @@
+<configuration version="7">
+    <folder id="test" path="e:" ro="true" ignorePerms="false" rescanIntervalS="600">
+    </folder>
+</configuration>

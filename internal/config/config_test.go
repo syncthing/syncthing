@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/syncthing/protocol"
@@ -258,6 +259,23 @@ func TestVersioningConfig(t *testing.T) {
 	}
 	if !reflect.DeepEqual(vc.Params, expected) {
 		t.Errorf("vc.Params differ;\n  E: %#v\n  A: %#v", expected, vc.Params)
+	}
+}
+
+func TestIssue1262(t *testing.T) {
+	cfg, err := Load("testdata/issue-1262.xml", device4)
+	if err != nil {
+		t.Error(err)
+	}
+
+	actual := cfg.Folders()["test"].Path
+	expected := "e:/"
+	if runtime.GOOS == "windows" {
+		expected = `e:\`
+	}
+
+	if actual != expected {
+		t.Errorf("%q != %q", actual, expected)
 	}
 }
 
