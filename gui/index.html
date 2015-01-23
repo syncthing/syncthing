@@ -64,17 +64,101 @@
 
   <div class="container">
 
-    <!-- First row, only shown if necessary; Restart warning -->
+    <!-- Panel: Restart Needed -->
 
     <div ng-if="!configInSync" class="row">
       <div class="col-md-12">
         <div class="panel panel-warning">
-          <div class="panel-heading"><h3 translate class="panel-title">Restart Needed</h3></div>
+          <div class="panel-heading"><h3 class="panel-title"><span class="glyphicon glyphicon-exclamation-sign"></span><span translate>Restart Needed</span></h3></div>
           <div class="panel-body">
             <p translate>The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.</p>
           </div>
           <div class="panel-footer">
             <button type="button" class="btn btn-sm btn-default pull-right" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Restart</span></button>
+            <div class="clearfix"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel: New Device -->
+
+    <div ng-repeat="(device, event) in deviceRejections" class="row">
+      <div class="col-md-12">
+        <div class="panel panel-warning">
+          <div class="panel-heading">
+            <h3 class="panel-title">
+              <identicon data-value="device"></identicon>&emsp;<span translate>New Device</span>
+            </h3>
+          </div>
+          <div class="panel-body">
+            <p>
+              <small>{{ event.time | date:"H:mm:ss" }}:</small>
+              <span translate translate-value-device="{{ device }}" translate-value-address="{{ event.data.address }}">
+                Device {%device%} ({%address%}) wants to connect. Add new device?
+              <span>
+            </p>
+          </div>
+          <div class="panel-footer clearfix">
+            <div class="pull-right">
+              <button class="btn btn-sm btn-success" ng-click="addNewDeviceID(device)"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Add</span></button>
+              <button class="btn btn-sm btn-danger" ng-click="ignoreRejectedDevice(device)"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Ignore</span></button>
+              <button class="btn btn-sm btn-default" ng-click="dismissDeviceRejection(device)"><span class="glyphicon glyphicon-time"></span>&emsp;<span translate>Later</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel: New Folder -->
+
+    <div ng-repeat="(key, event) in folderRejections" class="row reject">
+      <div class="col-md-12">
+        <div class="panel panel-warning">
+          <div class="panel-heading">
+            <h3 class="panel-title"><span class="glyphicon glyphicon-hdd"></span>
+              <span translate ng-if="!folders[event.data.folder]">New Folder</span>
+              <span translate ng-if="folders[event.data.folder]">Share Folder</span>
+            </h3>
+          </div>
+          <div class="panel-body">
+            <p>
+              <small>{{ event.time | date:"H:mm:ss" }}:</small>
+              <span translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}">
+                {%device%} wants to share folder "{%folder%}".
+              </span>
+              <span translate ng-if="folders[event.data.folder]">Share this folder?</span>
+              <span translate ng-if="!folders[event.data.folder]">Add new folder?</span>
+            </p>
+          </div>
+          <div class="panel-footer clearfix">
+            <div class="pull-right">
+              <button class="btn btn-sm btn-success" ng-click="addFolderAndShare(event.data.folder, event.data.device)" ng-if="!folders[event.data.folder]">
+                <span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Add</span>
+              </button>
+              <button class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(event.data.folder, event.data.device)" ng-if="folders[event.data.folder]">
+                <span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Share</span>
+              </button>
+              <button class="btn btn-sm btn-default" ng-click="dismissFolderRejection(event.data.folder, event.data.device)">
+                <span class="glyphicon glyphicon-time"></span>&emsp;<span translate>Later</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel: Notice -->
+
+    <div ng-if="errorList().length > 0" class="row">
+      <div class="col-md-12">
+        <div class="panel panel-warning">
+          <div class="panel-heading"><h3 class="panel-title"><span class="glyphicon glyphicon-exclamation-sign"></span><span translate>Notice</span></h3></div>
+          <div class="panel-body">
+            <p ng-repeat="err in errorList()"><small>{{err.Time | date:"H:mm:ss"}}:</small> {{friendlyDevices(err.Error)}}</p>
+          </div>
+          <div class="panel-footer">
+            <button type="button" class="pull-right btn btn-sm btn-default" ng-click="clearErrors()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>OK</span></button>
             <div class="clearfix"></div>
           </div>
         </div>
@@ -316,90 +400,6 @@
         </div>
       </div>
     </div> <!-- /row -->
-
-    <!-- Device Rejections -->
-
-    <div ng-repeat="(device, event) in deviceRejections" class="row">
-      <div class="col-md-12">
-        <div class="panel panel-warning">
-          <div class="panel-heading">
-            <h3 class="panel-title">
-              <identicon data-value="device"></identicon>&emsp;<span translate>New Device</span>
-            </h3>
-          </div>
-          <div class="panel-body">
-            <p>
-              <small>{{ event.time | date:"H:mm:ss" }}:</small>
-              <span translate translate-value-device="{{ device }}" translate-value-address="{{ event.data.address }}">
-                Device {%device%} ({%address%}) wants to connect. Add new device?
-              <span>
-            </p>
-          </div>
-          <div class="panel-footer clearfix">
-            <div class="pull-right">
-              <button class="btn btn-sm btn-success" ng-click="addNewDeviceID(device)"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Add</span></button>
-              <button class="btn btn-sm btn-danger" ng-click="ignoreRejectedDevice(device)"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Ignore</span></button>
-              <button class="btn btn-sm btn-default" ng-click="dismissDeviceRejection(device)"><span class="glyphicon glyphicon-time"></span>&emsp;<span translate>Later</span></button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Folder Rejections -->
-
-    <div ng-repeat="(key, event) in folderRejections" class="row reject">
-      <div class="col-md-12">
-        <div class="panel panel-warning">
-          <div class="panel-heading">
-            <h3 class="panel-title">
-              <span translate ng-if="!folders[event.data.folder]">New Folder</span>
-              <span translate ng-if="folders[event.data.folder]">Share Folder</span>
-            </h3>
-          </div>
-          <div class="panel-body">
-            <p>
-              <small>{{ event.time | date:"H:mm:ss" }}:</small>
-              <span translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}">
-                {%device%} wants to share folder "{%folder%}".
-              </span>
-              <span translate ng-if="folders[event.data.folder]">Share this folder?</span>
-              <span translate ng-if="!folders[event.data.folder]">Add new folder?</span>
-            </p>
-          </div>
-          <div class="panel-footer clearfix">
-            <div class="pull-right">
-              <button class="btn btn-sm btn-success" ng-click="addFolderAndShare(event.data.folder, event.data.device)" ng-if="!folders[event.data.folder]">
-                <span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Add</span>
-              </button>
-              <button class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(event.data.folder, event.data.device)" ng-if="folders[event.data.folder]">
-                <span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Share</span>
-              </button>
-              <button class="btn btn-sm btn-default" ng-click="dismissFolderRejection(event.data.folder, event.data.device)">
-                <span class="glyphicon glyphicon-time"></span>&emsp;<span translate>Later</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Errors -->
-
-    <div ng-if="errorList().length > 0" class="row">
-      <div class="col-md-12">
-        <div class="panel panel-warning">
-          <div class="panel-heading"><h3 class="panel-title"><span translate>Notice</span></h3></div>
-          <div class="panel-body">
-            <p ng-repeat="err in errorList()"><small>{{err.Time | date:"H:mm:ss"}}:</small> {{friendlyDevices(err.Error)}}</p>
-          </div>
-          <div class="panel-footer">
-            <button type="button" class="pull-right btn btn-sm btn-default" ng-click="clearErrors()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>OK</span></button>
-            <div class="clearfix"></div>
-          </div>
-        </div>
-      </div>
-    </div>
 
   </div> <!-- /container -->
 
