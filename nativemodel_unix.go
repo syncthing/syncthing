@@ -18,8 +18,8 @@ func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileI
 	m.next.IndexUpdate(deviceID, folder, files)
 }
 
-func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, size int) ([]byte, error) {
-	return m.next.Request(deviceID, folder, name, offset, size)
+func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error) {
+	return m.next.Request(deviceID, folder, name, offset, size, hash, flags, options)
 }
 
 func (m nativeModel) ClusterConfig(deviceID DeviceID, config ClusterConfigMessage) {

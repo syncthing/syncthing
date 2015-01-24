@@ -42,9 +42,9 @@ func (c wireFormatConnection) IndexUpdate(folder string, fs []FileInfo) error {
 	return c.next.IndexUpdate(folder, myFs)
 }
 
-func (c wireFormatConnection) Request(folder, name string, offset int64, size int) ([]byte, error) {
+func (c wireFormatConnection) Request(folder, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error) {
 	name = norm.NFC.String(filepath.ToSlash(name))
-	return c.next.Request(folder, name, offset, size)
+	return c.next.Request(folder, name, offset, size, hash, flags, options)
 }
 
 func (c wireFormatConnection) ClusterConfig(config ClusterConfigMessage) {

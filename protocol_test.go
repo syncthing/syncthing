@@ -232,7 +232,7 @@ func TestClose(t *testing.T) {
 	c0.Index("default", nil)
 	c0.Index("default", nil)
 
-	if _, err := c0.Request("default", "foo", 0, 0); err == nil {
+	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, nil); err == nil {
 		t.Error("Request should return an error")
 	}
 }

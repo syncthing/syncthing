@@ -70,7 +70,7 @@ type Model interface {
 	// An index update was received from the peer device
 	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo)
 	// A request was made by the peer device
-	Request(deviceID DeviceID, folder string, name string, offset int64, size int) ([]byte, error)
+	Request(deviceID DeviceID, folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error)
 	// A cluster configuration message was received
 	ClusterConfig(deviceID DeviceID, config ClusterConfigMessage)
 	// The peer device closed the connection
@@ -82,7 +82,7 @@ type Connection interface {
 	Name() string
 	Index(folder string, files []FileInfo) error
 	IndexUpdate(folder string, files []FileInfo) error
-	Request(folder string, name string, offset int64, size int) ([]byte, error)
+	Request(folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error)
 	ClusterConfig(config ClusterConfigMessage)
 	Statistics() Statistics
 }
@@ -201,7 +201,7 @@ func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo) error {
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
-func (c *rawConnection) Request(folder string, name string, offset int64, size int) ([]byte, error) {
+func (c *rawConnection) Request(folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error) {
 	var id int
 	select {
 	case id = <-c.nextID:
@@ -218,10 +218,13 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 	c.awaitingMut.Unlock()
 
 	ok := c.send(id, messageTypeRequest, RequestMessage{
-		Folder: folder,
-		Name:   name,
-		Offset: offset,
-		Size:   int32(size),
+		Folder:  folder,
+		Name:    name,
+		Offset:  offset,
+		Size:    int32(size),
+		Hash:    hash,
+		Flags:   flags,
+		Options: options,
 	})
 	if !ok {
 		return nil, ErrClosed
@@ -499,7 +502,7 @@ func filterIndexMessageFiles(fs []FileInfo) []FileInfo {
 }
 
 func (c *rawConnection) handleRequest(msgID int, req RequestMessage) {
-	data, _ := c.receiver.Request(c.id, req.Folder, req.Name, int64(req.Offset), int(req.Size))
+	data, _ := c.receiver.Request(c.id, req.Folder, req.Name, int64(req.Offset), int(req.Size), req.Hash, req.Flags, req.Options)
 
 	c.send(msgID, messageTypeResponse, ResponseMessage{
 		Data: data,
