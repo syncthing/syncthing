@@ -142,38 +142,41 @@ Development Settings
 The following environment variables modify syncthing's behavior in ways that
 are mostly useful for developers. Use with care.
 
- STGUIASSETS   Directory to load GUI assets from. Overrides compiled in assets.
+ STGUIASSETS     Directory to load GUI assets from. Overrides compiled in assets.
 
- STTRACE       A comma separated string of facilities to trace. The valid
-               facility strings are:
+ STTRACE         A comma separated string of facilities to trace. The valid
+                 facility strings are:
 
-               - "beacon"   (the beacon package)
-               - "discover" (the discover package)
-               - "events"   (the events package)
-               - "files"    (the files package)
-               - "net"      (the main package; connections & network messages)
-               - "model"    (the model package)
-               - "scanner"  (the scanner package)
-               - "stats"    (the stats package)
-               - "upnp"     (the upnp package)
-               - "xdr"      (the xdr package)
-               - "all"      (all of the above)
+                 - "beacon"   (the beacon package)
+                 - "discover" (the discover package)
+                 - "events"   (the events package)
+                 - "files"    (the files package)
+                 - "net"      (the main package; connections & network messages)
+                 - "model"    (the model package)
+                 - "scanner"  (the scanner package)
+                 - "stats"    (the stats package)
+                 - "upnp"     (the upnp package)
+                 - "xdr"      (the xdr package)
+                 - "all"      (all of the above)
 
- STPROFILER    Set to a listen address such as "127.0.0.1:9090" to start the
-               profiler with HTTP access.
+ STPROFILER      Set to a listen address such as "127.0.0.1:9090" to start the
+                 profiler with HTTP access.
 
- STCPUPROFILE  Write a CPU profile to cpu-$pid.pprof on exit.
+ STCPUPROFILE    Write a CPU profile to cpu-$pid.pprof on exit.
 
- STHEAPPROFILE Write heap profiles to heap-$pid-$timestamp.pprof each time
-               heap usage increases.
+ STHEAPPROFILE   Write heap profiles to heap-$pid-$timestamp.pprof each time
+                 heap usage increases.
 
- STPERFSTATS   Write running performance statistics to perf-$pid.csv. Not
-               supported on Windows.
+ STBLOCKPROFILE  Write block profiles to block-$pid-$timestamp.pprof every 20
+                 seconds.
 
- STNOUPGRADE   Disable automatic upgrades.
+ STPERFSTATS     Write running performance statistics to perf-$pid.csv. Not
+                 supported on Windows.
 
- GOMAXPROCS    Set the maximum number of CPU cores to use. Defaults to all
-               available CPU cores.`
+ STNOUPGRADE     Disable automatic upgrades.
+
+ GOMAXPROCS      Set the maximum number of CPU cores to use. Defaults to all
+                 available CPU cores.`
 )
 
 // Command line and environment options
