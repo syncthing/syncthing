@@ -302,6 +302,15 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	res["state"], res["stateChanged"] = m.State(folder)
 	res["version"] = m.CurrentLocalVersion(folder) + m.RemoteLocalVersion(folder)
 
+	ignorePatterns, _, _ := m.GetIgnores(folder)
+	res["ignorePatterns"] = false
+	for _, line := range ignorePatterns {
+		if len(line) > 0 && !strings.HasPrefix(line, "//") {
+			res["ignorePatterns"] = true
+			break
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
