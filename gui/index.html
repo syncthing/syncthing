@@ -263,7 +263,7 @@
                 </table>
               </div>
               <div class="panel-footer">
-                <button class="btn btn-sm btn-danger" ng-if="folder.ReadOnly && model[folder.ID].needFiles > 0" ng-click="override(folder.ID)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
+                <button class="btn btn-sm btn-danger pull-left" ng-if="folder.ReadOnly && model[folder.ID].needFiles > 0" ng-click="override(folder.ID)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
                 <span class="pull-right">
                   <button class="btn btn-sm btn-default" href="" ng-show="folderStatus(folder) == 'idle'" ng-click="rescanFolder(folder.ID)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></button>
                   <button class="btn btn-sm btn-default" href="" ng-click="editFolder(folder)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></button>
