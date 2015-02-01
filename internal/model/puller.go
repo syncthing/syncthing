@@ -317,11 +317,6 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 			return true
 		}
 
-		events.Default.Log(events.ItemStarted, map[string]string{
-			"folder": p.folder,
-			"item":   file.Name,
-		})
-
 		if debug {
 			l.Debugln(p, "handling", file.Name)
 		}
@@ -422,6 +417,20 @@ nextFile:
 
 // handleDir creates or updates the given directory
 func (p *Puller) handleDir(file protocol.FileInfo) {
+	var err error
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
+		"folder":  p.folder,
+		"item":    file.Name,
+		"details": db.ToTruncated(file),
+	})
+	defer func() {
+		events.Default.Log(events.ItemFinished, map[string]interface{}{
+			"folder": p.folder,
+			"item":   file.Name,
+			"error":  err,
+		})
+	}()
+
 	realName := filepath.Join(p.dir, file.Name)
 	mode := os.FileMode(file.Flags & 0777)
 	if p.ignorePerms {
@@ -483,6 +492,20 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 
 // deleteDir attempts to delete the given directory
 func (p *Puller) deleteDir(file protocol.FileInfo) {
+	var err error
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
+		"folder":  p.folder,
+		"item":    file.Name,
+		"details": db.ToTruncated(file),
+	})
+	defer func() {
+		events.Default.Log(events.ItemFinished, map[string]interface{}{
+			"folder": p.folder,
+			"item":   file.Name,
+			"error":  err,
+		})
+	}()
+
 	realName := filepath.Join(p.dir, file.Name)
 	// Delete any temporary files lying around in the directory
 	dir, _ := os.Open(realName)
@@ -494,7 +517,7 @@ func (p *Puller) deleteDir(file protocol.FileInfo) {
 			}
 		}
 	}
-	err := osutil.InWritableDir(os.Remove, realName)
+	err = osutil.InWritableDir(os.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
 		p.model.updateLocal(p.folder, file)
 	} else {
@@ -504,9 +527,22 @@ func (p *Puller) deleteDir(file protocol.FileInfo) {
 
 // deleteFile attempts to delete the given file
 func (p *Puller) deleteFile(file protocol.FileInfo) {
+	var err error
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
+		"folder":  p.folder,
+		"item":    file.Name,
+		"details": db.ToTruncated(file),
+	})
+	defer func() {
+		events.Default.Log(events.ItemFinished, map[string]interface{}{
+			"folder": p.folder,
+			"item":   file.Name,
+			"error":  err,
+		})
+	}()
+
 	realName := filepath.Join(p.dir, file.Name)
 
-	var err error
 	if p.versioner != nil {
 		err = osutil.InWritableDir(p.versioner.Archive, realName)
 	} else {
@@ -523,6 +559,30 @@ func (p *Puller) deleteFile(file protocol.FileInfo) {
 // renameFile attempts to rename an existing file to a destination
 // and set the right attributes on it.
 func (p *Puller) renameFile(source, target protocol.FileInfo) {
+	var err error
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
+		"folder":  p.folder,
+		"item":    source.Name,
+		"details": db.ToTruncated(source),
+	})
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
+		"folder":  p.folder,
+		"item":    target.Name,
+		"details": db.ToTruncated(source),
+	})
+	defer func() {
+		events.Default.Log(events.ItemFinished, map[string]interface{}{
+			"folder": p.folder,
+			"item":   source.Name,
+			"error":  err,
+		})
+		events.Default.Log(events.ItemFinished, map[string]interface{}{
+			"folder": p.folder,
+			"item":   target.Name,
+			"error":  err,
+		})
+	}()
+
 	if debug {
 		l.Debugln(p, "taking rename shortcut", source.Name, "->", target.Name)
 	}
@@ -530,7 +590,6 @@ func (p *Puller) renameFile(source, target protocol.FileInfo) {
 	from := filepath.Join(p.dir, source.Name)
 	to := filepath.Join(p.dir, target.Name)
 
-	var err error
 	if p.versioner != nil {
 		err = osutil.Copy(from, to)
 		if err == nil {
@@ -546,7 +605,11 @@ func (p *Puller) renameFile(source, target protocol.FileInfo) {
 	}
 
 	// Fix-up the metadata, and update the local index of the target file
-	p.shortcutFile(target)
+	err = p.shortcutFile(target)
+	if err != nil {
+		l.Infof("Puller (folder %q, file %q): rename from %q metadata: %v", p.folder, target.Name, source.Name, err)
+		return
+	}
 
 	// Source file already has the delete bit set.
 	// Because we got rid of the file (by renaming it), we just need to update
@@ -557,6 +620,12 @@ func (p *Puller) renameFile(source, target protocol.FileInfo) {
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
 func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
+		"folder":  p.folder,
+		"item":    file.Name,
+		"details": db.ToTruncated(file),
+	})
+
 	curFile, ok := p.model.CurrentFolderFile(p.folder, file.Name)
 
 	if ok && len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
@@ -567,11 +636,17 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 			l.Debugln(p, "taking shortcut on", file.Name)
 		}
 		p.queue.Done(file.Name)
+		var err error
 		if file.IsSymlink() {
-			p.shortcutSymlink(file)
+			err = p.shortcutSymlink(file)
 		} else {
-			p.shortcutFile(file)
+			err = p.shortcutFile(file)
 		}
+		events.Default.Log(events.ItemFinished, map[string]interface{}{
+			"folder": p.folder,
+			"item":   file.Name,
+			"error":  err,
+		})
 		return
 	}
 
@@ -641,10 +716,10 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
-func (p *Puller) shortcutFile(file protocol.FileInfo) {
+func (p *Puller) shortcutFile(file protocol.FileInfo) (err error) {
 	realName := filepath.Join(p.dir, file.Name)
 	if !p.ignorePerms {
-		err := os.Chmod(realName, os.FileMode(file.Flags&0777))
+		err = os.Chmod(realName, os.FileMode(file.Flags&0777))
 		if err != nil {
 			l.Infof("Puller (folder %q, file %q): shortcut: %v", p.folder, file.Name, err)
 			return
@@ -652,9 +727,10 @@ func (p *Puller) shortcutFile(file protocol.FileInfo) {
 	}
 
 	t := time.Unix(file.Modified, 0)
-	err := os.Chtimes(realName, t, t)
+	err = os.Chtimes(realName, t, t)
 	if err != nil {
 		if p.lenientMtimes {
+			err = nil
 			// We accept the failure with a warning here and allow the sync to
 			// continue. We'll sync the new mtime back to the other devices later.
 			// If they have the same problem & setting, we might never get in
@@ -667,17 +743,18 @@ func (p *Puller) shortcutFile(file protocol.FileInfo) {
 	}
 
 	p.model.updateLocal(p.folder, file)
+	return
 }
 
 // shortcutSymlink changes the symlinks type if necessery.
-func (p *Puller) shortcutSymlink(file protocol.FileInfo) {
-	err := symlinks.ChangeType(filepath.Join(p.dir, file.Name), file.Flags)
-	if err != nil {
+func (p *Puller) shortcutSymlink(file protocol.FileInfo) (err error) {
+	err = symlinks.ChangeType(filepath.Join(p.dir, file.Name), file.Flags)
+	if err == nil {
+		p.model.updateLocal(p.folder, file)
+	} else {
 		l.Infof("Puller (folder %q, file %q): symlink shortcut: %v", p.folder, file.Name, err)
-		return
 	}
-
-	p.model.updateLocal(p.folder, file)
+	return
 }
 
 // copierRoutine reads copierStates until the in channel closes and performs
@@ -851,6 +928,13 @@ func (p *Puller) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPulle
 
 func (p *Puller) performFinish(state *sharedPullerState) {
 	var err error
+	defer func() {
+		events.Default.Log(events.ItemFinished, map[string]interface{}{
+			"folder": p.folder,
+			"item":   state.file.Name,
+			"error":  err,
+		})
+	}()
 	// Set the correct permission bits on the new file
 	if !p.ignorePerms {
 		err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
@@ -937,6 +1021,12 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 			p.queue.Done(state.file.Name)
 			if state.failed() == nil {
 				p.performFinish(state)
+			} else {
+				events.Default.Log(events.ItemFinished, map[string]interface{}{
+					"folder": p.folder,
+					"item":   state.file.Name,
+					"error":  state.failed(),
+				})
 			}
 			p.model.receivedFile(p.folder, state.file.Name)
 			if p.progressEmitter != nil {

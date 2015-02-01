@@ -35,6 +35,7 @@ const (
 	LocalIndexUpdated
 	RemoteIndexUpdated
 	ItemStarted
+	ItemFinished
 	StateChanged
 	FolderRejected
 	ConfigSaved
@@ -65,6 +66,8 @@ func (t EventType) String() string {
 		return "RemoteIndexUpdated"
 	case ItemStarted:
 		return "ItemStarted"
+	case ItemFinished:
+		return "ItemFinished"
 	case StateChanged:
 		return "StateChanged"
 	case FolderRejected:
