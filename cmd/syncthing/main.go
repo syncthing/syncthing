@@ -874,8 +874,10 @@ func resetFolders() {
 	suffix := fmt.Sprintf(".syncthing-reset-%d", time.Now().UnixNano())
 	for _, folder := range cfg.Folders() {
 		if _, err := os.Stat(folder.Path); err == nil {
-			l.Infof("Reset: Moving %s -> %s", folder.Path, folder.Path+suffix)
-			os.Rename(folder.Path, folder.Path+suffix)
+			base := filepath.Base(folder.Path)
+			dir := filepath.Dir(filepath.Join(folder.Path, ".."))
+			l.Infof("Reset: Moving %s -> %s", folder.Path, filepath.Join(dir, base+suffix))
+			os.Rename(folder.Path, filepath.Join(dir, base+suffix))
 		}
 	}
 
