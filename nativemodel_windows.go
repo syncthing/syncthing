@@ -24,7 +24,7 @@ type nativeModel struct {
 	next Model
 }
 
-func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
+func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
 	for i, f := range files {
 		if strings.ContainsAny(f.Name, disallowedCharacters) {
 			if f.IsDeleted() {
@@ -37,10 +37,10 @@ func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
 		}
 		files[i].Name = filepath.FromSlash(f.Name)
 	}
-	m.next.Index(deviceID, folder, files)
+	m.next.Index(deviceID, folder, files, flags, options)
 }
 
-func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
+func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
 	for i, f := range files {
 		if strings.ContainsAny(f.Name, disallowedCharacters) {
 			if f.IsDeleted() {
@@ -53,7 +53,7 @@ func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileI
 		}
 		files[i].Name = filepath.FromSlash(files[i].Name)
 	}
-	m.next.IndexUpdate(deviceID, folder, files)
+	m.next.IndexUpdate(deviceID, folder, files, flags, options)
 }
 
 func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error) {

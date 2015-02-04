@@ -66,9 +66,9 @@ type pongMessage struct{ EmptyMessage }
 
 type Model interface {
 	// An index was received from the peer device
-	Index(deviceID DeviceID, folder string, files []FileInfo)
+	Index(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option)
 	// An index update was received from the peer device
-	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo)
+	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option)
 	// A request was made by the peer device
 	Request(deviceID DeviceID, folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error)
 	// A cluster configuration message was received
@@ -80,8 +80,8 @@ type Model interface {
 type Connection interface {
 	ID() DeviceID
 	Name() string
-	Index(folder string, files []FileInfo) error
-	IndexUpdate(folder string, files []FileInfo) error
+	Index(folder string, files []FileInfo, flags uint32, options []Option) error
+	IndexUpdate(folder string, files []FileInfo, flags uint32, options []Option) error
 	Request(folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error)
 	ClusterConfig(config ClusterConfigMessage)
 	Statistics() Statistics
@@ -169,7 +169,7 @@ func (c *rawConnection) Name() string {
 }
 
 // Index writes the list of file information to the connected peer device
-func (c *rawConnection) Index(folder string, idx []FileInfo) error {
+func (c *rawConnection) Index(folder string, idx []FileInfo, flags uint32, options []Option) error {
 	select {
 	case <-c.closed:
 		return ErrClosed
@@ -177,15 +177,17 @@ func (c *rawConnection) Index(folder string, idx []FileInfo) error {
 	}
 	c.idxMut.Lock()
 	c.send(-1, messageTypeIndex, IndexMessage{
-		Folder: folder,
-		Files:  idx,
+		Folder:  folder,
+		Files:   idx,
+		Flags:   flags,
+		Options: options,
 	})
 	c.idxMut.Unlock()
 	return nil
 }
 
 // IndexUpdate writes the list of file information to the connected peer device as an update
-func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo) error {
+func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo, flags uint32, options []Option) error {
 	select {
 	case <-c.closed:
 		return ErrClosed
@@ -193,8 +195,10 @@ func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo) error {
 	}
 	c.idxMut.Lock()
 	c.send(-1, messageTypeIndexUpdate, IndexMessage{
-		Folder: folder,
-		Files:  idx,
+		Folder:  folder,
+		Files:   idx,
+		Flags:   flags,
+		Options: options,
 	})
 	c.idxMut.Unlock()
 	return nil
@@ -463,16 +467,16 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 
 func (c *rawConnection) handleIndex(im IndexMessage) {
 	if debug {
-		l.Debugf("Index(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
+		l.Debugf("Index(%v, %v, %d file, flags %x, opts: %s)", c.id, im.Folder, len(im.Files), im.Flags, im.Options)
 	}
-	c.receiver.Index(c.id, im.Folder, filterIndexMessageFiles(im.Files))
+	c.receiver.Index(c.id, im.Folder, filterIndexMessageFiles(im.Files), im.Flags, im.Options)
 }
 
 func (c *rawConnection) handleIndexUpdate(im IndexMessage) {
 	if debug {
-		l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
+		l.Debugf("queueing IndexUpdate(%v, %v, %d files, flags %x, opts: %s)", c.id, im.Folder, len(im.Files), im.Flags, im.Options)
 	}
-	c.receiver.IndexUpdate(c.id, im.Folder, filterIndexMessageFiles(im.Files))
+	c.receiver.IndexUpdate(c.id, im.Folder, filterIndexMessageFiles(im.Files), im.Flags, im.Options)
 }
 
 func filterIndexMessageFiles(fs []FileInfo) []FileInfo {

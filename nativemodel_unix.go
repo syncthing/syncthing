@@ -10,12 +10,12 @@ type nativeModel struct {
 	next Model
 }
 
-func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
-	m.next.Index(deviceID, folder, files)
+func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
+	m.next.Index(deviceID, folder, files, flags, options)
 }
 
-func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
-	m.next.IndexUpdate(deviceID, folder, files)
+func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
+	m.next.IndexUpdate(deviceID, folder, files, flags, options)
 }
 
 func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error) {
