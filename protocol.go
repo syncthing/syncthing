@@ -287,11 +287,6 @@ func (c *rawConnection) readerLoop() (err error) {
 
 		switch msg := msg.(type) {
 		case IndexMessage:
-			if msg.Flags != 0 {
-				// We don't currently support or expect any flags.
-				return fmt.Errorf("protocol error: unknown flags 0x%x in Index(Update) message", msg.Flags)
-			}
-
 			switch hdr.msgType {
 			case messageTypeIndex:
 				if c.state < stateCCRcvd {
@@ -308,10 +303,6 @@ func (c *rawConnection) readerLoop() (err error) {
 			}
 
 		case RequestMessage:
-			if msg.Flags != 0 {
-				// We don't currently support or expect any flags.
-				return fmt.Errorf("protocol error: unknown flags 0x%x in Request message", msg.Flags)
-			}
 			if c.state < stateIdxRcvd {
 				return fmt.Errorf("protocol error: request message in state %d", c.state)
 			}
