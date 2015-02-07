@@ -130,6 +130,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/system", restGetSystem)
 	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
 	getRestMux.HandleFunc("/rest/version", restGetVersion)
+	getRestMux.HandleFunc("/rest/tree", withModel(m, restGetTree))
 	getRestMux.HandleFunc("/rest/stats/device", withModel(m, restGetDeviceStats))
 	getRestMux.HandleFunc("/rest/stats/folder", withModel(m, restGetFolderStats))
 
@@ -260,6 +261,24 @@ func restGetVersion(w http.ResponseWriter, r *http.Request) {
 		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
 	})
+}
+
+func restGetTree(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	prefix := qs.Get("prefix")
+	dirsonly := qs.Get("dirsonly") != ""
+
+	levels, err := strconv.Atoi(qs.Get("levels"))
+	if err != nil {
+		levels = -1
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	tree := m.GlobalDirectoryTree(folder, prefix, levels, dirsonly)
+
+	json.NewEncoder(w).Encode(tree)
 }
 
 func restGetCompletion(m *model.Model, w http.ResponseWriter, r *http.Request) {

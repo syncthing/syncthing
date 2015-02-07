@@ -172,14 +172,21 @@ func (s *FileSet) WithGlobal(fn Iterator) {
 	if debug {
 		l.Debugf("%s WithGlobal()", s.folder)
 	}
-	ldbWithGlobal(s.db, []byte(s.folder), false, nativeFileIterator(fn))
+	ldbWithGlobal(s.db, []byte(s.folder), nil, false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithGlobalTruncated(fn Iterator) {
 	if debug {
 		l.Debugf("%s WithGlobalTruncated()", s.folder)
 	}
-	ldbWithGlobal(s.db, []byte(s.folder), true, nativeFileIterator(fn))
+	ldbWithGlobal(s.db, []byte(s.folder), nil, true, nativeFileIterator(fn))
+}
+
+func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
+	if debug {
+		l.Debugf("%s WithPrefixedGlobalTruncated()", s.folder, prefix)
+	}
+	ldbWithGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {

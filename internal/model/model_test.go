@@ -17,8 +17,11 @@ package model
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -578,5 +581,425 @@ func TestRefuseUnknownBits(t *testing.T) {
 	f, ok := m.CurrentGlobalFile("default", "valid")
 	if !ok || f.Name != "valid" {
 		t.Error("Valid file not found or name mismatch", ok, f)
+	}
+}
+
+func TestGlobalDirectoryTree(t *testing.T) {
+	fcfg := config.FolderConfiguration{
+		ID:   "default",
+		Path: "testdata",
+		Devices: []config.FolderDeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	}
+	cfg := config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	}
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
+	m.AddFolder(fcfg)
+
+	b := func(isfile bool, path ...string) protocol.FileInfo {
+		var flags uint32 = protocol.FlagDirectory
+		blocks := []protocol.BlockInfo{}
+		if isfile {
+			flags = 0
+			blocks = []protocol.BlockInfo{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}}
+		}
+		return protocol.FileInfo{
+			Name:     filepath.Join(path...),
+			Flags:    flags,
+			Modified: 0x666,
+			Blocks:   blocks,
+		}
+	}
+
+	filedata := []int64{0x666, 0xa}
+
+	testdata := []protocol.FileInfo{
+		b(false, "another"),
+		b(false, "another", "directory"),
+		b(true, "another", "directory", "afile"),
+		b(false, "another", "directory", "with"),
+		b(false, "another", "directory", "with", "a"),
+		b(true, "another", "directory", "with", "a", "file"),
+		b(true, "another", "directory", "with", "file"),
+		b(true, "another", "file"),
+
+		b(false, "other"),
+		b(false, "other", "rand"),
+		b(false, "other", "random"),
+		b(false, "other", "random", "dir"),
+		b(false, "other", "random", "dirx"),
+		b(false, "other", "randomx"),
+
+		b(false, "some"),
+		b(false, "some", "directory"),
+		b(false, "some", "directory", "with"),
+		b(false, "some", "directory", "with", "a"),
+		b(true, "some", "directory", "with", "a", "file"),
+
+		b(true, "rootfile"),
+	}
+	expectedResult := map[string]interface{}{
+		"another": map[string]interface{}{
+			"directory": map[string]interface{}{
+				"afile": filedata,
+				"with": map[string]interface{}{
+					"a": map[string]interface{}{
+						"file": filedata,
+					},
+					"file": filedata,
+				},
+			},
+			"file": filedata,
+		},
+		"other": map[string]interface{}{
+			"rand": map[string]interface{}{},
+			"random": map[string]interface{}{
+				"dir":  map[string]interface{}{},
+				"dirx": map[string]interface{}{},
+			},
+			"randomx": map[string]interface{}{},
+		},
+		"some": map[string]interface{}{
+			"directory": map[string]interface{}{
+				"with": map[string]interface{}{
+					"a": map[string]interface{}{
+						"file": filedata,
+					},
+				},
+			},
+		},
+		"rootfile": filedata,
+	}
+
+	mm := func(data interface{}) string {
+		bytes, err := json.Marshal(data)
+		if err != nil {
+			panic(err)
+		}
+		return string(bytes)
+	}
+
+	m.Index(device1, "default", testdata)
+
+	result := m.GlobalDirectoryTree("default", "", -1, false)
+
+	if !reflect.DeepEqual(result, expectedResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "another", -1, false)
+
+	if !reflect.DeepEqual(result, expectedResult["another"]) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult["another"]))
+	}
+
+	result = m.GlobalDirectoryTree("default", "", 0, false)
+	currentResult := map[string]interface{}{
+		"another":  map[string]interface{}{},
+		"other":    map[string]interface{}{},
+		"some":     map[string]interface{}{},
+		"rootfile": filedata,
+	}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "", 1, false)
+	currentResult = map[string]interface{}{
+		"another": map[string]interface{}{
+			"directory": map[string]interface{}{},
+			"file":      filedata,
+		},
+		"other": map[string]interface{}{
+			"rand":    map[string]interface{}{},
+			"random":  map[string]interface{}{},
+			"randomx": map[string]interface{}{},
+		},
+		"some": map[string]interface{}{
+			"directory": map[string]interface{}{},
+		},
+		"rootfile": filedata,
+	}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "", -1, true)
+	currentResult = map[string]interface{}{
+		"another": map[string]interface{}{
+			"directory": map[string]interface{}{
+				"with": map[string]interface{}{
+					"a": map[string]interface{}{},
+				},
+			},
+		},
+		"other": map[string]interface{}{
+			"rand": map[string]interface{}{},
+			"random": map[string]interface{}{
+				"dir":  map[string]interface{}{},
+				"dirx": map[string]interface{}{},
+			},
+			"randomx": map[string]interface{}{},
+		},
+		"some": map[string]interface{}{
+			"directory": map[string]interface{}{
+				"with": map[string]interface{}{
+					"a": map[string]interface{}{},
+				},
+			},
+		},
+	}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "", 1, true)
+	currentResult = map[string]interface{}{
+		"another": map[string]interface{}{
+			"directory": map[string]interface{}{},
+		},
+		"other": map[string]interface{}{
+			"rand":    map[string]interface{}{},
+			"random":  map[string]interface{}{},
+			"randomx": map[string]interface{}{},
+		},
+		"some": map[string]interface{}{
+			"directory": map[string]interface{}{},
+		},
+	}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "another", 0, false)
+	currentResult = map[string]interface{}{
+		"directory": map[string]interface{}{},
+		"file":      filedata,
+	}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "some/directory", 0, false)
+	currentResult = map[string]interface{}{
+		"with": map[string]interface{}{},
+	}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "some/directory", 1, false)
+	currentResult = map[string]interface{}{
+		"with": map[string]interface{}{
+			"a": map[string]interface{}{},
+		},
+	}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "some/directory", 2, false)
+	currentResult = map[string]interface{}{
+		"with": map[string]interface{}{
+			"a": map[string]interface{}{
+				"file": filedata,
+			},
+		},
+	}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "another", -1, true)
+	currentResult = map[string]interface{}{
+		"directory": map[string]interface{}{
+			"with": map[string]interface{}{
+				"a": map[string]interface{}{},
+			},
+		},
+	}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	// No prefix matching!
+	result = m.GlobalDirectoryTree("default", "som", -1, false)
+	currentResult = map[string]interface{}{}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+}
+
+func TestGlobalDirectorySelfFixing(t *testing.T) {
+	fcfg := config.FolderConfiguration{
+		ID:   "default",
+		Path: "testdata",
+		Devices: []config.FolderDeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	}
+	cfg := config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	}
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
+	m.AddFolder(fcfg)
+
+	b := func(isfile bool, path ...string) protocol.FileInfo {
+		var flags uint32 = protocol.FlagDirectory
+		blocks := []protocol.BlockInfo{}
+		if isfile {
+			flags = 0
+			blocks = []protocol.BlockInfo{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}}
+		}
+		return protocol.FileInfo{
+			Name:     filepath.Join(path...),
+			Flags:    flags,
+			Modified: 0x666,
+			Blocks:   blocks,
+		}
+	}
+
+	filedata := []int64{0x666, 0xa}
+
+	testdata := []protocol.FileInfo{
+		b(true, "another", "directory", "afile"),
+		b(true, "another", "directory", "with", "a", "file"),
+		b(true, "another", "directory", "with", "file"),
+
+		b(false, "other", "random", "dirx"),
+		b(false, "other", "randomx"),
+
+		b(false, "some", "directory", "with", "x"),
+		b(true, "some", "directory", "with", "a", "file"),
+
+		b(false, "this", "is", "a", "deep", "invalid", "directory"),
+
+		b(true, "xthis", "is", "a", "deep", "invalid", "file"),
+	}
+	expectedResult := map[string]interface{}{
+		"another": map[string]interface{}{
+			"directory": map[string]interface{}{
+				"afile": filedata,
+				"with": map[string]interface{}{
+					"a": map[string]interface{}{
+						"file": filedata,
+					},
+					"file": filedata,
+				},
+			},
+		},
+		"other": map[string]interface{}{
+			"random": map[string]interface{}{
+				"dirx": map[string]interface{}{},
+			},
+			"randomx": map[string]interface{}{},
+		},
+		"some": map[string]interface{}{
+			"directory": map[string]interface{}{
+				"with": map[string]interface{}{
+					"a": map[string]interface{}{
+						"file": filedata,
+					},
+					"x": map[string]interface{}{},
+				},
+			},
+		},
+		"this": map[string]interface{}{
+			"is": map[string]interface{}{
+				"a": map[string]interface{}{
+					"deep": map[string]interface{}{
+						"invalid": map[string]interface{}{
+							"directory": map[string]interface{}{},
+						},
+					},
+				},
+			},
+		},
+		"xthis": map[string]interface{}{
+			"is": map[string]interface{}{
+				"a": map[string]interface{}{
+					"deep": map[string]interface{}{
+						"invalid": map[string]interface{}{
+							"file": filedata,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	mm := func(data interface{}) string {
+		bytes, err := json.Marshal(data)
+		if err != nil {
+			panic(err)
+		}
+		return string(bytes)
+	}
+
+	m.Index(device1, "default", testdata)
+
+	result := m.GlobalDirectoryTree("default", "", -1, false)
+
+	if !reflect.DeepEqual(result, expectedResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "xthis/is/a/deep", -1, false)
+	currentResult := map[string]interface{}{
+		"invalid": map[string]interface{}{
+			"file": filedata,
+		},
+	}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "xthis/is/a/deep", -1, true)
+	currentResult = map[string]interface{}{
+		"invalid": map[string]interface{}{},
+	}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	// !!! This is actually BAD, because we don't have enough level allowance
+	// to accept this file, hence the tree is left unbuilt !!!
+	result = m.GlobalDirectoryTree("default", "xthis", 1, false)
+	currentResult = map[string]interface{}{}
+
+	if !reflect.DeepEqual(result, currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 }
