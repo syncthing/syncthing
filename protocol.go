@@ -497,10 +497,11 @@ func filterIndexMessageFiles(fs []FileInfo) []FileInfo {
 }
 
 func (c *rawConnection) handleRequest(msgID int, req RequestMessage) {
-	data, _ := c.receiver.Request(c.id, req.Folder, req.Name, int64(req.Offset), int(req.Size), req.Hash, req.Flags, req.Options)
+	data, err := c.receiver.Request(c.id, req.Folder, req.Name, int64(req.Offset), int(req.Size), req.Hash, req.Flags, req.Options)
 
 	c.send(msgID, messageTypeResponse, ResponseMessage{
 		Data: data,
+		Code: errorToCode(err),
 	})
 }
 
@@ -508,7 +509,7 @@ func (c *rawConnection) handleResponse(msgID int, resp ResponseMessage) {
 	c.awaitingMut.Lock()
 	if rc := c.awaiting[msgID]; rc != nil {
 		c.awaiting[msgID] = nil
-		rc <- asyncResult{resp.Data, nil}
+		rc <- asyncResult{resp.Data, codeToError(resp.Code)}
 		close(rc)
 	}
 	c.awaitingMut.Unlock()
