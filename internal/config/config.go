@@ -26,7 +26,6 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/calmh/logger"
 	"github.com/syncthing/protocol"
@@ -262,9 +261,13 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 			continue
 		}
 
-		if !strings.HasSuffix(folder.Path, string(filepath.Separator)) {
-			folder.Path += string(filepath.Separator)
-		}
+		// The reason it's done like this:
+		// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
+		// C:\somedir  ->  C:\somedir\    ->  C:\somedir
+		// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
+		// This way in the tests, we get away without OS specific separators
+		// in the test configs.
+		folder.Path = filepath.Dir(folder.Path + string(filepath.Separator))
 
 		if folder.ID == "" {
 			folder.ID = "default"
