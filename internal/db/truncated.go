@@ -34,6 +34,17 @@ type FileInfoTruncated struct {
 	NumBlocks    int32
 }
 
+func ToTruncated(file protocol.FileInfo) FileInfoTruncated {
+	return FileInfoTruncated{
+		Name:         file.Name,
+		Flags:        file.Flags,
+		Modified:     file.Modified,
+		Version:      file.Version,
+		LocalVersion: file.LocalVersion,
+		NumBlocks:    int32(len(file.Blocks)),
+	}
+}
+
 func (f FileInfoTruncated) String() string {
 	return fmt.Sprintf("File{Name:%q, Flags:0%o, Modified:%d, Version:%d, Size:%d, NumBlocks:%d}",
 		f.Name, f.Flags, f.Modified, f.Version, f.Size(), f.NumBlocks)
