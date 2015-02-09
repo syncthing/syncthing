@@ -755,7 +755,9 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		}
 		reader = strings.NewReader(target)
 	} else {
-		reader, err = os.Open(fn) // XXX: Inefficient, should cache fd?
+		// Cannot easily cache fd's because we might need to delete the file
+		// at any moment.
+		reader, err = os.Open(fn)
 		if err != nil {
 			return nil, err
 		}
