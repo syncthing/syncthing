@@ -43,6 +43,8 @@ const (
 	FlagSymlink                     = 1 << 16
 	FlagSymlinkMissingTarget        = 1 << 17
 
+	FlagsAll = (1 << iota) - 1
+
 	SymlinkTypeMask = FlagDirectory | FlagSymlinkMissingTarget
 )
 
