@@ -82,7 +82,7 @@
     "Offline": "Desconectado",
     "Online": "Conectado",
     "Out Of Sync": "Não sincronizado",
-    "Out of Sync Items": "Itens dessincronizados",
+    "Out of Sync Items": "Itens não sincronizados",
     "Outgoing Rate Limit (KiB/s)": "Limite da velocidade de envio (KiB/s)",
     "Override Changes": "Sobrepor alterações",
     "Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Caminho para a pasta no computador local. Será criada, caso não exista. O caractere (~) pode ser utilizado como atalho para",

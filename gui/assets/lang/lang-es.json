@@ -166,6 +166,6 @@
     "Yes": "Sí",
     "You must keep at least one version.": "Debe mantener al menos una versión",
     "full documentation": "documentación completa",
-    "items": "Ítems",
+    "items": "ítems",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quiere compartir repositorio \"{{folder}}\"."
 }
