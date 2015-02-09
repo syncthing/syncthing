@@ -334,8 +334,9 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 				df, ok := p.model.CurrentFolderFile(p.folder, file.Name)
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
-				// WithNeed
-				if ok && !df.IsDeleted() {
+				// WithNeed, furthermore, the file can simply be of the wrong
+				// type if we haven't yet managed to pull it.
+				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() {
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
 					buckets[key] = append(buckets[key], df)
@@ -343,6 +344,9 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 			}
 		case file.IsDirectory() && !file.IsSymlink():
 			// A new or changed directory
+			if debug {
+				l.Debugln("Creating directory", file.Name)
+			}
 			p.handleDir(file)
 		default:
 			// A new or changed file or symlink. This is the only case where we
@@ -370,19 +374,25 @@ nextFile:
 
 		// Local file can be already deleted, but with a lower version
 		// number, hence the deletion coming in again as part of
-		// WithNeed
-		if !f.IsSymlink() && !f.IsDeleted() {
+		// WithNeed, furthermore, the file can simply be of the wrong type if
+		// the global index changed while we were processing this iteration.
+		if !f.IsDeleted() && !f.IsSymlink() && !f.IsDirectory() {
 			key := string(f.Blocks[0].Hash)
 			for i, candidate := range buckets[key] {
 				if scanner.BlocksEqual(candidate.Blocks, f.Blocks) {
 					// Remove the candidate from the bucket
-					l := len(buckets[key]) - 1
-					buckets[key][i] = buckets[key][l]
-					buckets[key] = buckets[key][:l]
+					lidx := len(buckets[key]) - 1
+					buckets[key][i] = buckets[key][lidx]
+					buckets[key] = buckets[key][:lidx]
+
+					// candidate is our current state of the file, where as the
+					// desired state with the delete bit set is in the deletion
+					// map.
+					desired := fileDeletions[candidate.Name]
 					// Remove the pending deletion (as we perform it by renaming)
 					delete(fileDeletions, candidate.Name)
 
-					p.renameFile(candidate, f)
+					p.renameFile(desired, f)
 
 					p.queue.Done(fileName)
 					continue nextFile
@@ -408,11 +418,18 @@ nextFile:
 	doneWg.Wait()
 
 	for _, file := range fileDeletions {
+		if debug {
+			l.Debugln("Deleting file", file.Name)
+		}
 		p.deleteFile(file)
 	}
 
 	for i := range dirDeletions {
-		p.deleteDir(dirDeletions[len(dirDeletions)-i-1])
+		dir := dirDeletions[len(dirDeletions)-i-1]
+		if debug {
+			l.Debugln("Deleting dir", dir.Name)
+		}
+		p.deleteDir(dir)
 	}
 
 	return changed
