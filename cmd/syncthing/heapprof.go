@@ -40,12 +40,12 @@ func saveHeapProfiles(rate int) {
 	runtime.MemProfileRate = rate
 	var memstats, prevMemstats runtime.MemStats
 
-	t0 := time.Now()
-	for t := range time.NewTicker(250 * time.Millisecond).C {
-		startms := int(t.Sub(t0).Seconds() * 1000)
+	name := fmt.Sprintf("heap-%05d.pprof", syscall.Getpid())
+	for {
 		runtime.ReadMemStats(&memstats)
+
 		if memstats.HeapInuse > prevMemstats.HeapInuse {
-			fd, err := os.Create(fmt.Sprintf("heap-%05d-%07d.pprof", syscall.Getpid(), startms))
+			fd, err := os.Create(name + ".tmp")
 			if err != nil {
 				panic(err)
 			}
@@ -57,7 +57,16 @@ func saveHeapProfiles(rate int) {
 			if err != nil {
 				panic(err)
 			}
+
+			_ = os.Remove(name) // Error deliberately ignored
+			err = os.Rename(name+".tmp", name)
+			if err != nil {
+				panic(err)
+			}
+
 			prevMemstats = memstats
 		}
+
+		time.Sleep(250 * time.Millisecond)
 	}
 }
