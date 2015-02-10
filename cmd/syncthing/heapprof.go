@@ -20,19 +20,24 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"strconv"
 	"syscall"
 	"time"
 )
 
 func init() {
 	if innerProcess && os.Getenv("STHEAPPROFILE") != "" {
+		rate := 1
+		if i, err := strconv.Atoi(os.Getenv("STHEAPPROFILE")); err == nil {
+			rate = i
+		}
 		l.Debugln("Starting heap profiling")
-		go saveHeapProfiles()
+		go saveHeapProfiles(rate)
 	}
 }
 
-func saveHeapProfiles() {
-	runtime.MemProfileRate = 1
+func saveHeapProfiles(rate int) {
+	runtime.MemProfileRate = rate
 	var memstats, prevMemstats runtime.MemStats
 
 	t0 := time.Now()
