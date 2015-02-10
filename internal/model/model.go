@@ -485,7 +485,13 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 
 	for i := 0; i < len(fs); {
 		lamport.Default.Tick(fs[i].Version)
-		if symlinkInvalid(fs[i].IsSymlink()) {
+		if fs[i].Flags&^protocol.FlagsAll != 0 {
+			if debug {
+				l.Debugln("dropping update for file with unknown bits set", fs[i])
+			}
+			fs[i] = fs[len(fs)-1]
+			fs = fs[:len(fs)-1]
+		} else if symlinkInvalid(fs[i].IsSymlink()) {
 			if debug {
 				l.Debugln("dropping update for unsupported symlink", fs[i])
 			}
@@ -528,7 +534,13 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 
 	for i := 0; i < len(fs); {
 		lamport.Default.Tick(fs[i].Version)
-		if symlinkInvalid(fs[i].IsSymlink()) {
+		if fs[i].Flags&^protocol.FlagsAll != 0 {
+			if debug {
+				l.Debugln("dropping update for file with unknown bits set", fs[i])
+			}
+			fs[i] = fs[len(fs)-1]
+			fs = fs[:len(fs)-1]
+		} else if symlinkInvalid(fs[i].IsSymlink()) {
 			if debug {
 				l.Debugln("dropping update for unsupported symlink", fs[i])
 			}

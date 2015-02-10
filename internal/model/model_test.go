@@ -525,3 +525,58 @@ func TestIgnores(t *testing.T) {
 		t.Errorf("Expected no ignores, got: %v", ignores)
 	}
 }
+
+func TestRefuseUnknownBits(t *testing.T) {
+	fcfg := config.FolderConfiguration{
+		ID:   "default",
+		Path: "testdata",
+		Devices: []config.FolderDeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	}
+	cfg := config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	}
+
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
+	m.AddFolder(fcfg)
+
+	m.ScanFolder("default")
+	m.Index(device1, "default", []protocol.FileInfo{
+		{
+			Name:  "invalid1",
+			Flags: protocol.FlagsAll + 1,
+		},
+		{
+			Name:  "invalid2",
+			Flags: protocol.FlagsAll + 2,
+		},
+		{
+			Name:  "invalid3",
+			Flags: 1 << 31,
+		},
+		{
+			Name:  "valid",
+			Flags: protocol.FlagsAll,
+		},
+	})
+
+	for _, name := range []string{"invalid1", "invalid2", "invalid3"} {
+		f, ok := m.CurrentGlobalFile("default", name)
+		if ok || f.Name == name {
+			t.Error("Invalid file found or name match")
+		}
+	}
+	f, ok := m.CurrentGlobalFile("default", "valid")
+	if !ok || f.Name != "valid" {
+		t.Error("Valid file not found or name mismatch", ok, f)
+	}
+}
