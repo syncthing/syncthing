@@ -102,6 +102,9 @@ type dbWriter interface {
 	Delete([]byte)
 }
 
+// Flush batches to disk when they contain this many records.
+const batchFlushSize = 64
+
 // deviceKey returns a byte slice encoding the following information:
 //	   keyTypeDevice (1 byte)
 //	   folder (64 bytes)
@@ -275,6 +278,21 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 			}
 			moreDb = dbi.Next()
 		}
+
+		// Write out and reuse the batch every few records, to avoid the batch
+		// growing too large and thus allocating unnecessarily much memory.
+		if batch.Len() > batchFlushSize {
+			if debugDB {
+				l.Debugf("db.Write %p", batch)
+			}
+
+			err = db.Write(batch, nil)
+			if err != nil {
+				panic(err)
+			}
+
+			batch.Reset()
+		}
 	}
 
 	if debugDB {
@@ -392,6 +410,21 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) in
 			} else {
 				ldbUpdateGlobal(snap, batch, folder, device, name, f.Version)
 			}
+		}
+
+		// Write out and reuse the batch every few records, to avoid the batch
+		// growing too large and thus allocating unnecessarily much memory.
+		if batch.Len() > batchFlushSize {
+			if debugDB {
+				l.Debugf("db.Write %p", batch)
+			}
+
+			err = db.Write(batch, nil)
+			if err != nil {
+				panic(err)
+			}
+
+			batch.Reset()
 		}
 	}
 
