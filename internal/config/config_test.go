@@ -84,7 +84,7 @@ func TestDeviceConfig(t *testing.T) {
 		expectedFolders := []FolderConfiguration{
 			{
 				ID:              "test",
-				Path:            "testdata/",
+				Path:            "testdata",
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				ReadOnly:        true,
 				RescanIntervalS: 600,
@@ -269,7 +269,7 @@ func TestIssue1262(t *testing.T) {
 	}
 
 	actual := cfg.Folders()["test"].Path
-	expected := "e:/"
+	expected := "e:"
 	if runtime.GOOS == "windows" {
 		expected = `e:\`
 	}
