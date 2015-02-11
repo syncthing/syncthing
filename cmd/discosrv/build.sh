@@ -23,10 +23,10 @@ build() {
 	fi
 }
 
-for goos in linux darwin windows ; do
+for goos in linux darwin windows freebsd solaris ; do
 	build "$goos" amd64
 done
-for goos in linux windows ; do
+for goos in linux windows freebsd ; do
 	build "$goos" 386
 done
 
