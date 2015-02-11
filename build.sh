@@ -2,7 +2,6 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-DOCKERIMGV=1.4.1-1
 STTRACE=${STTRACE:-}
 
 case "${1:-default}" in
@@ -103,16 +102,12 @@ case "${1:-default}" in
 		fi
 		;;
 
-	docker-init)
-		docker build -q -t syncthing/build:$DOCKERIMGV docker
-		;;
-
 	docker-all)
 		docker run --rm -h syncthing-builder -u $(id -u) -t \
 			-v $(pwd):/go/src/github.com/syncthing/syncthing \
 			-w /go/src/github.com/syncthing/syncthing \
 			-e "STTRACE=$STTRACE" \
-			syncthing/build:$DOCKERIMGV \
+			syncthing/build:latest \
 			sh -c './build.sh clean \
 				&& go vet ./cmd/... ./internal/... \
 				&& ( golint ./cmd/... ; golint ./internal/... ) | egrep -v "comment on exported|should have comment" \
@@ -125,7 +120,7 @@ case "${1:-default}" in
 			-v $(pwd):/go/src/github.com/syncthing/syncthing \
 			-w /go/src/github.com/syncthing/syncthing \
 			-e "STTRACE=$STTRACE" \
-			syncthing/build:$DOCKERIMGV \
+			syncthing/build:latest \
 			sh -euxc './build.sh clean \
 				&& go run build.go -race \
 				&& export GOPATH=$(pwd)/Godeps/_workspace:$GOPATH \
