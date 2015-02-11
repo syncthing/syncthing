@@ -25,34 +25,12 @@ type nativeModel struct {
 }
 
 func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
-	for i, f := range files {
-		if strings.ContainsAny(f.Name, disallowedCharacters) {
-			if f.IsDeleted() {
-				// Don't complain if the file is marked as deleted, since it
-				// can't possibly exist here anyway.
-				continue
-			}
-			files[i].Flags |= FlagInvalid
-			l.Warnf("File name %q contains invalid characters; marked as invalid.", f.Name)
-		}
-		files[i].Name = filepath.FromSlash(f.Name)
-	}
+	fixupFiles(files)
 	m.next.Index(deviceID, folder, files, flags, options)
 }
 
 func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
-	for i, f := range files {
-		if strings.ContainsAny(f.Name, disallowedCharacters) {
-			if f.IsDeleted() {
-				// Don't complain if the file is marked as deleted, since it
-				// can't possibly exist here anyway.
-				continue
-			}
-			files[i].Flags |= FlagInvalid
-			l.Warnf("File name %q contains invalid characters; marked as invalid.", f.Name)
-		}
-		files[i].Name = filepath.FromSlash(files[i].Name)
-	}
+	fixupFiles(files)
 	m.next.IndexUpdate(deviceID, folder, files, flags, options)
 }
 
@@ -67,4 +45,19 @@ func (m nativeModel) ClusterConfig(deviceID DeviceID, config ClusterConfigMessag
 
 func (m nativeModel) Close(deviceID DeviceID, err error) {
 	m.next.Close(deviceID, err)
+}
+
+func fixupFiles(files []FileInfo) {
+	for i, f := range files {
+		if strings.ContainsAny(f.Name, disallowedCharacters) {
+			if f.IsDeleted() {
+				// Don't complain if the file is marked as deleted, since it
+				// can't possibly exist here anyway.
+				continue
+			}
+			files[i].Flags |= FlagInvalid
+			l.Warnf("File name %q contains invalid characters; marked as invalid.", f.Name)
+		}
+		files[i].Name = filepath.FromSlash(files[i].Name)
+	}
 }
