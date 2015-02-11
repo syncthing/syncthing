@@ -652,10 +652,18 @@ func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
 func restPostScan(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
-	sub := qs.Get("sub")
-	err := m.ScanFolderSub(folder, sub)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
+	if folder != "" {
+		sub := qs.Get("sub")
+		err := m.ScanFolderSub(folder, sub)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+		}
+	} else {
+		errors := m.ScanFolders()
+		if len(errors) > 0 {
+			http.Error(w, "Error scanning folders", 500)
+			json.NewEncoder(w).Encode(errors)
+		}
 	}
 }
 
