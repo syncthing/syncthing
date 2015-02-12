@@ -1,13 +1,12 @@
 [Unit]
-Description=Syncthing service for %i
+Description=Syncthing - Open Source Continuous File Synchronization for %I
+Documentation=https://github.com/syncthing/syncthing/wiki
 After=network.target
 
 [Service]
 User=%i
-Environment=STARGS=
-EnvironmentFile=-/etc/default/syncthing
 Environment=STNORESTART=yes
-ExecStart=/usr/bin/syncthing ${STARGS}
+ExecStart=/usr/bin/syncthing
 Restart=on-failure
 RestartPreventExitStatus=1
 SuccessExitStatus=2
