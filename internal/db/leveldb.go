@@ -247,7 +247,7 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 			if debugDB {
 				l.Debugln("generic replace; exists - compare")
 			}
-			var ef FileInfoTruncated
+			var ef protocol.FileInfo
 			ef.UnmarshalXDR(dbi.Value())
 			if fs[fsi].Version > ef.Version ||
 				(fs[fsi].Version == ef.Version && fs[fsi].Flags != ef.Flags) {
@@ -324,7 +324,7 @@ func ldbReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) i
 
 func ldbReplaceWithDelete(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) int64 {
 	return ldbGenericReplace(db, folder, device, fs, func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) int64 {
-		var tf FileInfoTruncated
+		var tf protocol.FileInfo
 		err := tf.UnmarshalXDR(dbi.Value())
 		if err != nil {
 			panic(err)
@@ -394,7 +394,7 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) in
 			continue
 		}
 
-		var ef FileInfoTruncated
+		var ef protocol.FileInfo
 		err = ef.UnmarshalXDR(bs)
 		if err != nil {
 			panic(err)
@@ -580,9 +580,13 @@ func ldbWithHave(db *leveldb.DB, folder, device []byte, truncate bool, fn Iterat
 	defer dbi.Release()
 
 	for dbi.Next() {
-		f, err := unmarshalTrunc(dbi.Value(), truncate)
+		var f protocol.FileInfo
+		err := f.UnmarshalXDR(dbi.Value())
 		if err != nil {
 			panic(err)
+		}
+		if truncate {
+			f = f.Truncate()
 		}
 		if cont := fn(f); !cont {
 			return
@@ -590,7 +594,7 @@ func ldbWithHave(db *leveldb.DB, folder, device []byte, truncate bool, fn Iterat
 	}
 }
 
-func ldbWithAllFolderTruncated(db *leveldb.DB, folder []byte, fn func(device []byte, f FileInfoTruncated) bool) {
+func ldbWithAllFolderTruncated(db *leveldb.DB, folder []byte, fn func(device []byte, f protocol.FileInfo) bool) {
 	runtime.GC()
 
 	start := deviceKey(folder, nil, nil)                                                  // before all folder/device files
@@ -614,11 +618,12 @@ func ldbWithAllFolderTruncated(db *leveldb.DB, folder []byte, fn func(device []b
 
 	for dbi.Next() {
 		device := deviceKeyDevice(dbi.Key())
-		var f FileInfoTruncated
+		var f protocol.FileInfo
 		err := f.UnmarshalXDR(dbi.Value())
 		if err != nil {
 			panic(err)
 		}
+		f = f.Truncate()
 
 		switch f.Name {
 		case "", ".", "..", "/": // A few obviously invalid filenames
@@ -654,7 +659,7 @@ func ldbGet(db *leveldb.DB, folder, device, file []byte) (protocol.FileInfo, boo
 	return f, true
 }
 
-func ldbGetGlobal(db *leveldb.DB, folder, file []byte, truncate bool) (FileIntf, bool) {
+func ldbGetGlobal(db *leveldb.DB, folder, file []byte, truncate bool) (protocol.FileInfo, bool) {
 	k := globalKey(folder, file)
 	snap, err := db.GetSnapshot()
 	if err != nil {
@@ -675,7 +680,7 @@ func ldbGetGlobal(db *leveldb.DB, folder, file []byte, truncate bool) (FileIntf,
 	}
 	bs, err := snap.Get(k, nil)
 	if err == leveldb.ErrNotFound {
-		return nil, false
+		return protocol.FileInfo{}, false
 	}
 	if err != nil {
 		panic(err)
@@ -700,11 +705,15 @@ func ldbGetGlobal(db *leveldb.DB, folder, file []byte, truncate bool) (FileIntf,
 		panic(err)
 	}
 
-	fi, err := unmarshalTrunc(bs, truncate)
+	var f protocol.FileInfo
+	err = f.UnmarshalXDR(bs)
 	if err != nil {
 		panic(err)
 	}
-	return fi, true
+	if truncate {
+		f = f.Truncate()
+	}
+	return f, true
 }
 
 func ldbWithGlobal(db *leveldb.DB, folder []byte, truncate bool, fn Iterator) {
@@ -756,9 +765,13 @@ func ldbWithGlobal(db *leveldb.DB, folder []byte, truncate bool, fn Iterator) {
 			panic(err)
 		}
 
-		f, err := unmarshalTrunc(bs, truncate)
+		var f protocol.FileInfo
+		err = f.UnmarshalXDR(bs)
 		if err != nil {
 			panic(err)
+		}
+		if truncate {
+			f = f.Truncate()
 		}
 
 		if cont := fn(f); !cont {
@@ -868,9 +881,13 @@ outer:
 					panic(err)
 				}
 
-				gf, err := unmarshalTrunc(bs, truncate)
+				var gf protocol.FileInfo
+				err = gf.UnmarshalXDR(bs)
 				if err != nil {
 					panic(err)
+				}
+				if truncate {
+					gf = gf.Truncate()
 				}
 
 				if gf.IsInvalid() {
@@ -977,18 +994,6 @@ func ldbDropFolder(db *leveldb.DB, folder []byte) {
 		}
 	}
 	dbi.Release()
-}
-
-func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
-	if truncate {
-		var tf FileInfoTruncated
-		err := tf.UnmarshalXDR(bs)
-		return tf, err
-	} else {
-		var tf protocol.FileInfo
-		err := tf.UnmarshalXDR(bs)
-		return tf, err
-	}
 }
 
 func ldbCheckGlobals(db *leveldb.DB, folder []byte) {

@@ -51,8 +51,7 @@ func genBlocks(n int) []protocol.BlockInfo {
 
 func globalList(s *db.FileSet) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithGlobal(func(fi db.FileIntf) bool {
-		f := fi.(protocol.FileInfo)
+	s.WithGlobal(func(f protocol.FileInfo) bool {
 		fs = append(fs, f)
 		return true
 	})
@@ -61,8 +60,7 @@ func globalList(s *db.FileSet) []protocol.FileInfo {
 
 func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithHave(n, func(fi db.FileIntf) bool {
-		f := fi.(protocol.FileInfo)
+	s.WithHave(n, func(f protocol.FileInfo) bool {
 		fs = append(fs, f)
 		return true
 	})
@@ -71,8 +69,7 @@ func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 
 func needList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithNeed(n, func(fi db.FileIntf) bool {
-		f := fi.(protocol.FileInfo)
+	s.WithNeed(n, func(f protocol.FileInfo) bool {
 		fs = append(fs, f)
 		return true
 	})

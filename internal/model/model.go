@@ -307,7 +307,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 		return 0 // Folder doesn't exist, so we hardly have any of it
 	}
 
-	rf.WithGlobalTruncated(func(f db.FileIntf) bool {
+	rf.WithGlobalTruncated(func(f protocol.FileInfo) bool {
 		if !f.IsDeleted() {
 			tot += f.Size()
 		}
@@ -319,7 +319,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 	}
 
 	var need int64
-	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
+	rf.WithNeedTruncated(device, func(f protocol.FileInfo) bool {
 		if !f.IsDeleted() {
 			need += f.Size()
 		}
@@ -344,7 +344,7 @@ func sizeOf(fs []protocol.FileInfo) (files, deleted int, bytes int64) {
 	return
 }
 
-func sizeOfFile(f db.FileIntf) (files, deleted int, bytes int64) {
+func sizeOfFile(f protocol.FileInfo) (files, deleted int, bytes int64) {
 	if !f.IsDeleted() {
 		files++
 	} else {
@@ -360,7 +360,7 @@ func (m *Model) GlobalSize(folder string) (nfiles, deleted int, bytes int64) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		rf.WithGlobalTruncated(func(f db.FileIntf) bool {
+		rf.WithGlobalTruncated(func(f protocol.FileInfo) bool {
 			fs, de, by := sizeOfFile(f)
 			nfiles += fs
 			deleted += de
@@ -377,7 +377,7 @@ func (m *Model) LocalSize(folder string) (nfiles, deleted int, bytes int64) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		rf.WithHaveTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+		rf.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
 			if f.IsInvalid() {
 				return true
 			}
@@ -396,7 +396,7 @@ func (m *Model) NeedSize(folder string) (nfiles int, bytes int64) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
 			fs, de, by := sizeOfFile(f)
 			nfiles += fs + de
 			bytes += by
@@ -413,20 +413,20 @@ func (m *Model) NeedSize(folder string) (nfiles int, bytes int64) {
 // NeedFiles returns the list of currently needed files in progress, queued,
 // and to be queued on next puller iteration. Also takes a soft cap which is
 // only respected when adding files from the model rather than the runner queue.
-func (m *Model) NeedFolderFiles(folder string, max int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
+func (m *Model) NeedFolderFiles(folder string, max int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 
 	if rf, ok := m.folderFiles[folder]; ok {
-		var progress, queued, rest []db.FileInfoTruncated
+		var progress, queued, rest []protocol.FileInfo
 		var seen map[string]bool
 
 		runner, ok := m.folderRunners[folder]
 		if ok {
 			progressNames, queuedNames := runner.Jobs()
 
-			progress = make([]db.FileInfoTruncated, len(progressNames))
-			queued = make([]db.FileInfoTruncated, len(queuedNames))
+			progress = make([]protocol.FileInfo, len(progressNames))
+			queued = make([]protocol.FileInfo, len(queuedNames))
 			seen = make(map[string]bool, len(progressNames)+len(queuedNames))
 
 			for i, name := range progressNames {
@@ -445,11 +445,10 @@ func (m *Model) NeedFolderFiles(folder string, max int) ([]db.FileInfoTruncated,
 		}
 		left := max - len(progress) - len(queued)
 		if max < 1 || left > 0 {
-			rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+			rf.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
 				left--
-				ft := f.(db.FileInfoTruncated)
-				if !seen[ft.Name] {
-					rest = append(rest, ft)
+				if !seen[f.Name] {
+					rest = append(rest, f)
 				}
 				return max < 1 || left > 0
 			})
@@ -996,8 +995,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 	maxLocalVer := int64(0)
 	var err error
 
-	fs.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
-		f := fi.(protocol.FileInfo)
+	fs.WithHave(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
 		if f.LocalVersion <= minLocalVer {
 			return true
 		}
@@ -1203,8 +1201,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	batch = batch[:0]
 	// TODO: We should limit the Have scanning to start at sub
 	seenPrefix := false
-	fs.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
-		f := fi.(db.FileInfoTruncated)
+	fs.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
 		if !strings.HasPrefix(f.Name, sub) {
 			// Return true so that we keep iterating, until we get to the part
 			// of the tree we are interested in. Then return false so we stop
@@ -1344,8 +1341,7 @@ func (m *Model) Override(folder string) {
 
 	m.setState(folder, FolderScanning)
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
-	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
-		need := fi.(protocol.FileInfo)
+	fs.WithNeed(protocol.LocalDeviceID, func(need protocol.FileInfo) bool {
 		if len(batch) == indexBatchSize {
 			fs.Update(protocol.LocalDeviceID, batch)
 			batch = batch[:0]

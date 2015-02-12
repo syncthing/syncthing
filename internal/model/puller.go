@@ -27,7 +27,6 @@ import (
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
-	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/ignore"
 	"github.com/syncthing/syncthing/internal/osutil"
@@ -299,7 +298,7 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 	dirDeletions := []protocol.FileInfo{}
 	buckets := map[string][]protocol.FileInfo{}
 
-	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+	folderFiles.WithNeed(protocol.LocalDeviceID, func(file protocol.FileInfo) bool {
 
 		// Needed items are delivered sorted lexicographically. This isn't
 		// really optimal from a performance point of view - it would be
@@ -307,8 +306,6 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 		// over the cluster. But it means that we can be sure that we fully
 		// handle directories before the files that go inside them, which is
 		// nice.
-
-		file := intf.(protocol.FileInfo)
 
 		if ignores.Match(file.Name) {
 			// This is an ignored file. Skip it, continue iteration.
@@ -436,7 +433,7 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder":  p.folder,
 		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"details": file.Truncate(),
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
@@ -511,7 +508,7 @@ func (p *Puller) deleteDir(file protocol.FileInfo) {
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder":  p.folder,
 		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"details": file.Truncate(),
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
@@ -546,7 +543,7 @@ func (p *Puller) deleteFile(file protocol.FileInfo) {
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder":  p.folder,
 		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"details": file.Truncate(),
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
@@ -578,12 +575,12 @@ func (p *Puller) renameFile(source, target protocol.FileInfo) {
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder":  p.folder,
 		"item":    source.Name,
-		"details": db.ToTruncated(source),
+		"details": source.Truncate(),
 	})
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder":  p.folder,
 		"item":    target.Name,
-		"details": db.ToTruncated(source),
+		"details": target.Truncate(),
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
@@ -638,7 +635,7 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder":  p.folder,
 		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"details": file.Truncate(),
 	})
 
 	curFile, ok := p.model.CurrentFolderFile(p.folder, file.Name)
