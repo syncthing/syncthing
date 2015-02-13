@@ -1156,6 +1156,10 @@ angular.module('syncthing.core')
             $scope.reportPreview = true;
         };
 
+        $scope.rescanAllFolders = function () {
+            $http.post(urlbase + "/scan");
+        };
+
         $scope.rescanFolder = function (folder) {
             $http.post(urlbase + "/scan?folder=" + encodeURIComponent(folder));
         };

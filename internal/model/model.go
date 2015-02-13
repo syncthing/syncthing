@@ -1111,13 +1111,16 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 	m.fmut.Unlock()
 }
 
-func (m *Model) ScanFolders() {
+func (m *Model) ScanFolders() map[string]error {
 	m.fmut.RLock()
 	var folders = make([]string, 0, len(m.folderCfgs))
 	for folder := range m.folderCfgs {
 		folders = append(folders, folder)
 	}
 	m.fmut.RUnlock()
+
+	var errors = make(map[string]error, len(m.folderCfgs))
+	var errorsMut sync.Mutex
 
 	var wg sync.WaitGroup
 	wg.Add(len(folders))
@@ -1126,12 +1129,16 @@ func (m *Model) ScanFolders() {
 		go func() {
 			err := m.ScanFolder(folder)
 			if err != nil {
+				errorsMut.Lock()
+				errors[folder] = err
+				errorsMut.Unlock()
 				m.cfg.InvalidateFolder(folder, err.Error())
 			}
 			wg.Done()
 		}()
 	}
 	wg.Wait()
+	return errors
 }
 
 func (m *Model) ScanFolder(folder string) error {
