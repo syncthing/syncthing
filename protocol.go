@@ -35,6 +35,7 @@ const (
 	stateIdxRcvd
 )
 
+// FileInfo flags
 const (
 	FlagDeleted              uint32 = 1 << 12
 	FlagInvalid                     = 1 << 13
@@ -48,6 +49,17 @@ const (
 	SymlinkTypeMask = FlagDirectory | FlagSymlinkMissingTarget
 )
 
+// IndexMessage message flags (for IndexUpdate)
+const (
+	FlagIndexTemporary uint32 = 1 << iota
+)
+
+// Request message flags
+const (
+	FlagRequestTemporary uint32 = 1 << iota
+)
+
+// ClusterConfigMessage.Folders.Devices flags
 const (
 	FlagShareTrusted  uint32 = 1 << 0
 	FlagShareReadOnly        = 1 << 1
