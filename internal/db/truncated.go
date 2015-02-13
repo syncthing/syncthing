@@ -13,69 +13,33 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-//go:generate -command genxdr go run ../../Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
-//go:generate genxdr -o truncated_xdr.go truncated.go
-
 package db
 
-import (
-	"fmt"
+import "github.com/syncthing/protocol"
 
-	"github.com/syncthing/protocol"
-)
-
-// Used for unmarshalling a FileInfo structure but skipping the block list.
 type FileInfoTruncated struct {
-	Name         string // max:8192
-	Flags        uint32
-	Modified     int64
-	Version      int64
-	LocalVersion int64
-	NumBlocks    int32
+	protocol.FileInfo
+	ActualSize int64
 }
 
 func ToTruncated(file protocol.FileInfo) FileInfoTruncated {
-	return FileInfoTruncated{
-		Name:         file.Name,
-		Flags:        file.Flags,
-		Modified:     file.Modified,
-		Version:      file.Version,
-		LocalVersion: file.LocalVersion,
-		NumBlocks:    int32(len(file.Blocks)),
+	t := FileInfoTruncated{
+		FileInfo:   file,
+		ActualSize: file.Size(),
 	}
+	t.FileInfo.Blocks = nil
+	return t
 }
 
-func (f FileInfoTruncated) String() string {
-	return fmt.Sprintf("File{Name:%q, Flags:0%o, Modified:%d, Version:%d, Size:%d, NumBlocks:%d}",
-		f.Name, f.Flags, f.Modified, f.Version, f.Size(), f.NumBlocks)
+func (f *FileInfoTruncated) UnmarshalXDR(bs []byte) error {
+	err := f.FileInfo.UnmarshalXDR(bs)
+	f.ActualSize = f.FileInfo.Size()
+	f.FileInfo.Blocks = nil
+	return err
 }
 
-// Returns a statistical guess on the size, not the exact figure
 func (f FileInfoTruncated) Size() int64 {
-	if f.IsDeleted() || f.IsDirectory() {
-		return 128
-	}
-	return BlocksToSize(int(f.NumBlocks))
-}
-
-func (f FileInfoTruncated) IsDeleted() bool {
-	return f.Flags&protocol.FlagDeleted != 0
-}
-
-func (f FileInfoTruncated) IsInvalid() bool {
-	return f.Flags&protocol.FlagInvalid != 0
-}
-
-func (f FileInfoTruncated) IsDirectory() bool {
-	return f.Flags&protocol.FlagDirectory != 0
-}
-
-func (f FileInfoTruncated) IsSymlink() bool {
-	return f.Flags&protocol.FlagSymlink != 0
-}
-
-func (f FileInfoTruncated) HasPermissionBits() bool {
-	return f.Flags&protocol.FlagNoPermBits == 0
+	return f.ActualSize
 }
 
 func BlocksToSize(num int) int64 {
