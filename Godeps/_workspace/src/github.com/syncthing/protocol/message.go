@@ -20,6 +20,8 @@ type FileInfo struct {
 	Version      int64
 	LocalVersion int64
 	Blocks       []BlockInfo
+
+	ActualSize int64 // noencode (cache, for truncated objects)
 }
 
 func (f FileInfo) String() string {
@@ -28,6 +30,9 @@ func (f FileInfo) String() string {
 }
 
 func (f FileInfo) Size() (bytes int64) {
+	if f.ActualSize > 0 {
+		return f.ActualSize
+	}
 	if f.IsDeleted() || f.IsDirectory() {
 		return 128
 	}
@@ -55,6 +60,16 @@ func (f FileInfo) IsSymlink() bool {
 
 func (f FileInfo) HasPermissionBits() bool {
 	return f.Flags&FlagNoPermBits == 0
+}
+
+func (f FileInfo) Truncate() FileInfo {
+	f.ActualSize = f.Size()
+	f.Blocks = nil
+	return f
+}
+
+func (f FileInfo) IsTruncated() bool {
+	return f.ActualSize > 0 && f.Blocks == nil
 }
 
 type BlockInfo struct {

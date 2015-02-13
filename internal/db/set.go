@@ -38,21 +38,10 @@ type FileSet struct {
 	blockmap     *BlockMap
 }
 
-// FileIntf is the set of methods implemented by both protocol.FileInfo and
-// protocol.FileInfoTruncated.
-type FileIntf interface {
-	Size() int64
-	IsDeleted() bool
-	IsInvalid() bool
-	IsDirectory() bool
-	IsSymlink() bool
-	HasPermissionBits() bool
-}
-
 // The Iterator is called with either a protocol.FileInfo or a
 // protocol.FileInfoTruncated (depending on the method) and returns true to
 // continue iteration, false to stop.
-type Iterator func(f FileIntf) bool
+type Iterator func(f protocol.FileInfo) bool
 
 func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 	var s = FileSet{
@@ -65,7 +54,7 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 	ldbCheckGlobals(db, []byte(folder))
 
 	var deviceID protocol.DeviceID
-	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f FileInfoTruncated) bool {
+	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f protocol.FileInfo) bool {
 		copy(deviceID[:], device)
 		if f.LocalVersion > s.localVersion[deviceID] {
 			s.localVersion[deviceID] = f.LocalVersion
@@ -189,21 +178,19 @@ func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo,
 }
 
 func (s *FileSet) GetGlobal(file string) (protocol.FileInfo, bool) {
-	fi, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
+	f, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
 	if !ok {
 		return protocol.FileInfo{}, false
 	}
-	f := fi.(protocol.FileInfo)
 	f.Name = osutil.NativeFilename(f.Name)
 	return f, true
 }
 
-func (s *FileSet) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
-	fi, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
+func (s *FileSet) GetGlobalTruncated(file string) (protocol.FileInfo, bool) {
+	f, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
 	if !ok {
-		return FileInfoTruncated{}, false
+		return protocol.FileInfo{}, false
 	}
-	f := fi.(FileInfoTruncated)
 	f.Name = osutil.NativeFilename(f.Name)
 	return f, true
 }
@@ -241,16 +228,8 @@ func normalizeFilenames(fs []protocol.FileInfo) {
 }
 
 func nativeFileIterator(fn Iterator) Iterator {
-	return func(fi FileIntf) bool {
-		switch f := fi.(type) {
-		case protocol.FileInfo:
-			f.Name = osutil.NativeFilename(f.Name)
-			return fn(f)
-		case FileInfoTruncated:
-			f.Name = osutil.NativeFilename(f.Name)
-			return fn(f)
-		default:
-			panic("unknown interface type")
-		}
+	return func(f protocol.FileInfo) bool {
+		f.Name = osutil.NativeFilename(f.Name)
+		return fn(f)
 	}
 }

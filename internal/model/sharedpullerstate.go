@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/db"
 )
 
 // A sharedPullerState is kept for each file that is being synced and is kept
@@ -250,7 +249,7 @@ func (s *sharedPullerState) Progress() *pullerProgress {
 		CopiedFromElsewhere: s.copyTotal - s.copyNeeded - s.copyOrigin,
 		Pulled:              s.pullTotal - s.pullNeeded,
 		Pulling:             s.pullNeeded,
-		BytesTotal:          db.BlocksToSize(total),
-		BytesDone:           db.BlocksToSize(done),
+		BytesTotal:          int64(protocol.BlockSize * total),
+		BytesDone:           int64(protocol.BlockSize * done),
 	}
 }

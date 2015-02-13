@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"reflect"
 	"strings"
@@ -23,6 +24,17 @@ var (
 	c0ID = NewDeviceID([]byte{1})
 	c1ID = NewDeviceID([]byte{2})
 )
+
+// We implement the quick.Generator interface so that randomly generated
+// objects make sense.
+func (BlockInfo) Generate(rand *rand.Rand, size int) reflect.Value {
+	b := BlockInfo{
+		Offset: 0,
+		Size:   rand.Int31n(BlockSize),
+		Hash:   []byte{byte(rand.Int()), byte(rand.Int()), byte(rand.Int()), byte(rand.Int())},
+	}
+	return reflect.ValueOf(b)
+}
 
 func TestHeaderFunctions(t *testing.T) {
 	f := func(ver, id, typ int) bool {
@@ -256,9 +268,10 @@ func TestMarshalIndexMessage(t *testing.T) {
 	}
 
 	f := func(m1 IndexMessage) bool {
-		for _, f := range m1.Files {
+		for i, f := range m1.Files {
+			m1.Files[i].ActualSize = 0 // not serialized
 			for i := range f.Blocks {
-				f.Blocks[i].Offset = 0
+				f.Blocks[i].Offset = 0 // not serialized
 				if len(f.Blocks[i].Hash) == 0 {
 					f.Blocks[i].Hash = nil
 				}
@@ -379,4 +392,51 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 		failed(bc)
 	}
 	return ok
+}
+
+func TestTruncate(t *testing.T) {
+	f := func(f FileInfo) bool {
+		if f.IsTruncated() {
+			t.Logf("incorrect IsTruncated %#v", f)
+		}
+
+		size := f.Size()
+
+		// Truncating should remove the block list but remember the size
+
+		trunc := f.Truncate()
+
+		if !trunc.IsTruncated() {
+			t.Logf("incorrect non-IsTruncated %#v", trunc)
+		}
+		if trunc.Blocks != nil {
+			t.Logf("non-nil blocks in truncated %#v", trunc)
+			return false
+		}
+		if trunc.Size() != size {
+			t.Logf("incorrect size %d != %d for %#v", trunc.Size(), size, trunc)
+			return false
+		}
+
+		// Truncating again should have no effect
+
+		trunc = trunc.Truncate()
+
+		if !trunc.IsTruncated() {
+			t.Logf("incorrect non-IsTruncated %#v", trunc)
+		}
+		if trunc.Blocks != nil {
+			t.Logf("non-nil blocks in truncated %#v", trunc)
+			return false
+		}
+		if trunc.Size() != size {
+			t.Logf("incorrect size %d != %d for %#v", trunc.Size(), size, trunc)
+			return false
+		}
+		return true
+	}
+	err := quick.Check(f, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
