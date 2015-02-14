@@ -613,7 +613,7 @@ func syncthingMain() {
 		} else if IsRelease {
 			go autoUpgrade()
 		} else {
-			l.Infof("No automatic upgrades; %s is not a relase version.", Version)
+			l.Infof("No automatic upgrades; %s is not a release version.", Version)
 		}
 	}
 
