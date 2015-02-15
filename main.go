@@ -306,36 +306,36 @@ func getReport(key string) map[string]interface{} {
 	var categories []category
 	categories = append(categories, category{
 		Values: statsForInts(totFiles),
-		Descr:  "Files Managed per Node",
+		Descr:  "Files Managed per Device",
 	})
 
 	categories = append(categories, category{
 		Values: statsForInts(maxFiles),
-		Descr:  "Files in Largest Repo",
+		Descr:  "Files in Largest Folder",
 	})
 
 	categories = append(categories, category{
 		Values: statsForInts(totMiB),
-		Descr:  "Data Managed per Node",
+		Descr:  "Data Managed per Device",
 		Unit:   "B",
 		Binary: true,
 	})
 
 	categories = append(categories, category{
 		Values: statsForInts(maxMiB),
-		Descr:  "Data in Largest Repo",
+		Descr:  "Data in Largest Folder",
 		Unit:   "B",
 		Binary: true,
 	})
 
 	categories = append(categories, category{
 		Values: statsForInts(numNodes),
-		Descr:  "Number of Nodes in Cluster",
+		Descr:  "Number of Devices in Cluster",
 	})
 
 	categories = append(categories, category{
 		Values: statsForInts(numRepos),
-		Descr:  "Number of Repositories Configured",
+		Descr:  "Number of Folders Configured",
 	})
 
 	categories = append(categories, category{
