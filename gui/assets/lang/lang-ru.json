@@ -167,5 +167,5 @@
     "You must keep at least one version.": "Вы должны хранить как минимум одну версию.",
     "full documentation": "полная документация",
     "items": "элементы",
-    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wants to share folder \"{{folder}}\"."
+    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хочет поделиться папкой \"{{folder}}\"."
 }
