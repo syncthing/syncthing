@@ -553,19 +553,19 @@ func TestRefuseUnknownBits(t *testing.T) {
 	m.Index(device1, "default", []protocol.FileInfo{
 		{
 			Name:  "invalid1",
-			Flags: protocol.FlagsAll + 1,
+			Flags: (protocol.FlagsAll + 1) &^ protocol.FlagInvalid,
 		},
 		{
 			Name:  "invalid2",
-			Flags: protocol.FlagsAll + 2,
+			Flags: (protocol.FlagsAll + 2) &^ protocol.FlagInvalid,
 		},
 		{
 			Name:  "invalid3",
-			Flags: 1 << 31,
+			Flags: (1 << 31) &^ protocol.FlagInvalid,
 		},
 		{
 			Name:  "valid",
-			Flags: protocol.FlagsAll,
+			Flags: protocol.FlagsAll &^ protocol.FlagInvalid,
 		},
 	})
 
