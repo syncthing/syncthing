@@ -810,8 +810,7 @@ func toNeedSlice(fs []db.FileInfoTruncated) []map[string]interface{} {
 			"Modified":     file.Modified,
 			"Version":      file.Version,
 			"LocalVersion": file.LocalVersion,
-			"NumBlocks":    file.NumBlocks,
-			"Size":         db.BlocksToSize(int(file.NumBlocks)),
+			"Size":         file.Size(),
 		}
 	}
 	return output
