@@ -56,6 +56,8 @@ func Convert(pattern string, flags int) (*regexp.Regexp, error) {
 	}
 	pattern = strings.Replace(pattern, ".", "\\.", -1)
 	pattern = strings.Replace(pattern, "+", "\\+", -1)
+	pattern = strings.Replace(pattern, "$", "\\$", -1)
+	pattern = strings.Replace(pattern, "^", "\\^", -1)
 	pattern = strings.Replace(pattern, "**", "[:doublestar:]", -1)
 	pattern = strings.Replace(pattern, "*", any+"*", -1)
 	pattern = strings.Replace(pattern, "[:doublestar:]", ".*", -1)
