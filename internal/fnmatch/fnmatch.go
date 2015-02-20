@@ -54,17 +54,22 @@ func Convert(pattern string, flags int) (*regexp.Regexp, error) {
 		pattern = strings.Replace(pattern, "\\?", "[:escapedques:]", -1)
 		pattern = strings.Replace(pattern, "\\.", "[:escapeddot:]", -1)
 	}
-	pattern = strings.Replace(pattern, ".", "\\.", -1)
-	pattern = strings.Replace(pattern, "+", "\\+", -1)
-	pattern = strings.Replace(pattern, "$", "\\$", -1)
-	pattern = strings.Replace(pattern, "^", "\\^", -1)
+
+	// Characters that are special in regexps but not in glob, must be
+	// escaped.
+	for _, char := range []string{".", "+", "$", "^", "(", ")", "|"} {
+		pattern = strings.Replace(pattern, char, "\\"+char, -1)
+	}
+
 	pattern = strings.Replace(pattern, "**", "[:doublestar:]", -1)
 	pattern = strings.Replace(pattern, "*", any+"*", -1)
 	pattern = strings.Replace(pattern, "[:doublestar:]", ".*", -1)
 	pattern = strings.Replace(pattern, "?", any, -1)
+
 	pattern = strings.Replace(pattern, "[:escapedstar:]", "\\*", -1)
 	pattern = strings.Replace(pattern, "[:escapedques:]", "\\?", -1)
 	pattern = strings.Replace(pattern, "[:escapeddot:]", "\\.", -1)
+
 	pattern = "^" + pattern + "$"
 	if flags&FNM_CASEFOLD != 0 {
 		pattern = "(?i)" + pattern

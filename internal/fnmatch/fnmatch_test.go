@@ -68,6 +68,10 @@ var testcases = []testcase{
 	{"hey^hello", "hey^hello", 0, true},
 	{"hey{hello", "hey{hello", 0, true},
 	{"hey}hello", "hey}hello", 0, true},
+	{"hey(hello", "hey(hello", 0, true},
+	{"hey)hello", "hey)hello", 0, true},
+	{"hey|hello", "hey|hello", 0, true},
+	{"hey|hello", "hey|other", 0, false},
 }
 
 func TestMatch(t *testing.T) {
