@@ -99,13 +99,13 @@ func TestDeviceConfig(t *testing.T) {
 				DeviceID:    device1,
 				Name:        "node one",
 				Addresses:   []string{"a"},
-				Compression: true,
+				Compression: protocol.CompressMetadata,
 			},
 			{
 				DeviceID:    device4,
 				Name:        "node two",
 				Addresses:   []string{"b"},
-				Compression: true,
+				Compression: protocol.CompressMetadata,
 			},
 		}
 		expectedDeviceIDs := []protocol.DeviceID{device1, device4}
@@ -176,28 +176,63 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 	name, _ := os.Hostname()
 	expected := map[protocol.DeviceID]DeviceConfiguration{
 		device1: {
-			DeviceID:    device1,
-			Addresses:   []string{"dynamic"},
-			Compression: true,
+			DeviceID:  device1,
+			Addresses: []string{"dynamic"},
 		},
 		device2: {
-			DeviceID:    device2,
-			Addresses:   []string{"dynamic"},
-			Compression: true,
+			DeviceID:  device2,
+			Addresses: []string{"dynamic"},
 		},
 		device3: {
-			DeviceID:    device3,
-			Addresses:   []string{"dynamic"},
-			Compression: true,
+			DeviceID:  device3,
+			Addresses: []string{"dynamic"},
 		},
 		device4: {
-			DeviceID:  device4,
-			Name:      name, // Set when auto created
-			Addresses: []string{"dynamic"},
+			DeviceID:    device4,
+			Name:        name, // Set when auto created
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressMetadata,
 		},
 	}
 
 	cfg, err := Load("testdata/deviceaddressesdynamic.xml", device4)
+	if err != nil {
+		t.Error(err)
+	}
+
+	actual := cfg.Devices()
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, actual)
+	}
+}
+
+func TestDeviceCompression(t *testing.T) {
+	name, _ := os.Hostname()
+	expected := map[protocol.DeviceID]DeviceConfiguration{
+		device1: {
+			DeviceID:    device1,
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressMetadata,
+		},
+		device2: {
+			DeviceID:    device2,
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressMetadata,
+		},
+		device3: {
+			DeviceID:    device3,
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressNever,
+		},
+		device4: {
+			DeviceID:    device4,
+			Name:        name, // Set when auto created
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressMetadata,
+		},
+	}
+
+	cfg, err := Load("testdata/devicecompression.xml", device4)
 	if err != nil {
 		t.Error(err)
 	}
@@ -224,9 +259,10 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			Addresses: []string{"[2001:db8::44]:4444", "192.0.2.4:6090"},
 		},
 		device4: {
-			DeviceID:  device4,
-			Name:      name, // Set when auto created
-			Addresses: []string{"dynamic"},
+			DeviceID:    device4,
+			Name:        name, // Set when auto created
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressMetadata,
 		},
 	}
 

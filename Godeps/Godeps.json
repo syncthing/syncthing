@@ -31,7 +31,7 @@
 		},
 		{
 			"ImportPath": "github.com/syncthing/protocol",
-			"Rev": "cd0cce4195105cefab80fce84664188b614032e8"
+			"Rev": "108b4e2e104610bdf416f2f156f35ee769276caf"
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
