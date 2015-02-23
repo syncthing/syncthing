@@ -18,16 +18,16 @@
 			"Rev": "0c8388ff95fa92d4094011e5a04fc99dea3d1632"
 		},
 		{
-			"ImportPath": "github.com/calmh/osext",
-			"Rev": "9bf61584e5f1f172e8766ddc9022d9c401faaa5e"
-		},
-		{
 			"ImportPath": "github.com/calmh/xdr",
 			"Rev": "ff948d7666c5e0fd18d398f6278881724d36a90b"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
 			"Rev": "f9f36d11773655c0485207f0ad30dc2655f69d56"
+		},
+		{
+			"ImportPath": "github.com/kardianos/osext",
+			"Rev": "91292666f7e40f03185cdd1da7d85633c973eca7"
 		},
 		{
 			"ImportPath": "github.com/syncthing/protocol",

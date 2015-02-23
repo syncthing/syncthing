@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/calmh/osext"
+	"github.com/kardianos/osext"
 )
 
 type Release struct {
