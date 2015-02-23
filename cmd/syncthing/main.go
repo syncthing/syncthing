@@ -47,6 +47,7 @@ import (
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/syncthing/syncthing/internal/upnp"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -491,7 +492,12 @@ func syncthingMain() {
 		readRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxRecvKbps), int64(5*1000*opts.MaxRecvKbps))
 	}
 
-	ldb, err := leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{OpenFilesCacheCapacity: 100})
+	dbFile := filepath.Join(confDir, "index")
+	dbOpts := &opt.Options{OpenFilesCacheCapacity: 100}
+	ldb, err := leveldb.OpenFile(dbFile, dbOpts)
+	if err != nil && errors.IsCorrupted(err) {
+		ldb, err = leveldb.RecoverFile(dbFile, dbOpts)
+	}
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
