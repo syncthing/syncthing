@@ -64,6 +64,8 @@ case "${1:-default}" in
 
 		go run build.go -goos windows -goarch amd64 zip
 		go run build.go -goos windows -goarch 386 zip
+
+		go run build.go -goos dragonfly -goarch amd64 tar
 		;;
 
 	setup)
