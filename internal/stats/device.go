@@ -19,91 +19,45 @@ import (
 	"time"
 
 	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syndtr/goleveldb/leveldb"
 )
-
-const (
-	deviceStatisticTypeLastSeen = iota
-)
-
-var deviceStatisticsTypes = []byte{
-	deviceStatisticTypeLastSeen,
-}
 
 type DeviceStatistics struct {
 	LastSeen time.Time
 }
 
 type DeviceStatisticsReference struct {
-	db     *leveldb.DB
+	ns     *db.NamespacedKV
 	device protocol.DeviceID
 }
 
-func NewDeviceStatisticsReference(db *leveldb.DB, device protocol.DeviceID) *DeviceStatisticsReference {
+func NewDeviceStatisticsReference(ldb *leveldb.DB, device protocol.DeviceID) *DeviceStatisticsReference {
+	prefix := string(db.KeyTypeDeviceStatistic) + device.String()
 	return &DeviceStatisticsReference{
-		db:     db,
+		ns:     db.NewNamespacedKV(ldb, prefix),
 		device: device,
 	}
 }
 
-func (s *DeviceStatisticsReference) key(stat byte) []byte {
-	k := make([]byte, 1+1+32)
-	k[0] = keyTypeDeviceStatistic
-	k[1] = stat
-	copy(k[1+1:], s.device[:])
-	return k
-}
-
 func (s *DeviceStatisticsReference) GetLastSeen() time.Time {
-	value, err := s.db.Get(s.key(deviceStatisticTypeLastSeen), nil)
-	if err != nil {
-		if err != leveldb.ErrNotFound {
-			l.Warnln("DeviceStatisticsReference: Failed loading last seen value for", s.device, ":", err)
-		}
-		return time.Unix(0, 0)
-	}
-
-	rtime := time.Time{}
-	err = rtime.UnmarshalBinary(value)
-	if err != nil {
-		l.Warnln("DeviceStatisticsReference: Failed parsing last seen value for", s.device, ":", err)
+	t, ok := s.ns.Time("lastSeen")
+	if !ok {
+		// The default here is 1970-01-01 as opposed to the default
+		// time.Time{} from s.ns
 		return time.Unix(0, 0)
 	}
 	if debug {
-		l.Debugln("stats.DeviceStatisticsReference.GetLastSeen:", s.device, rtime)
+		l.Debugln("stats.DeviceStatisticsReference.GetLastSeen:", s.device, t)
 	}
-	return rtime
+	return t
 }
 
 func (s *DeviceStatisticsReference) WasSeen() {
 	if debug {
 		l.Debugln("stats.DeviceStatisticsReference.WasSeen:", s.device)
 	}
-	value, err := time.Now().MarshalBinary()
-	if err != nil {
-		l.Warnln("DeviceStatisticsReference: Failed serializing last seen value for", s.device, ":", err)
-		return
-	}
-
-	err = s.db.Put(s.key(deviceStatisticTypeLastSeen), value, nil)
-	if err != nil {
-		l.Warnln("Failed serializing last seen value for", s.device, ":", err)
-	}
-}
-
-// Never called, maybe because it's worth while to keep the data
-// or maybe because we have no easy way of knowing that a device has been removed.
-func (s *DeviceStatisticsReference) Delete() error {
-	for _, stype := range deviceStatisticsTypes {
-		err := s.db.Delete(s.key(stype), nil)
-		if debug && err == nil {
-			l.Debugln("stats.DeviceStatisticsReference.Delete:", s.device, stype)
-		}
-		if err != nil && err != leveldb.ErrNotFound {
-			return err
-		}
-	}
-	return nil
+	s.ns.PutTime("lastSeen", time.Now())
 }
 
 func (s *DeviceStatisticsReference) GetStatistics() DeviceStatistics {
