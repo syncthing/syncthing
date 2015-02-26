@@ -50,22 +50,28 @@ case "${1:-default}" in
 		;;
 
 	all)
-		go run build.go -goos linux -goarch amd64 tar
-		go run build.go -goos linux -goarch 386 tar
-		go run build.go -goos linux -goarch arm tar
-
-		go run build.go -goos freebsd -goarch amd64 tar
-		go run build.go -goos freebsd -goarch 386 tar
-
-		go run build.go -goos openbsd -goarch amd64 tar
-		go run build.go -goos openbsd -goarch 386 tar
-
 		go run build.go -goos darwin -goarch amd64 tar
 
-		go run build.go -goos windows -goarch amd64 zip
-		go run build.go -goos windows -goarch 386 zip
-
+		go run build.go -goos dragonfly -goarch 386 tar
 		go run build.go -goos dragonfly -goarch amd64 tar
+
+		go run build.go -goos freebsd -goarch 386 tar
+		go run build.go -goos freebsd -goarch amd64 tar
+
+		go run build.go -goos linux -goarch 386 tar
+		go run build.go -goos linux -goarch amd64 tar
+		go run build.go -goos linux -goarch arm tar
+
+		go run build.go -goos netbsd -goarch 386 tar
+		go run build.go -goos netbsd -goarch amd64 tar
+
+		go run build.go -goos openbsd -goarch 386 tar
+		go run build.go -goos openbsd -goarch amd64 tar
+
+		go run build.go -goos solaris -goarch amd64 tar
+
+		go run build.go -goos windows -goarch 386 zip
+		go run build.go -goos windows -goarch amd64 zip
 		;;
 
 	setup)
