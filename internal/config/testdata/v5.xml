@@ -1,0 +1,12 @@
+<configuration version="5">
+    <folder id="test" path="testdata" ro="true" ignorePerms="false" rescanIntervalS="600">
+        <device id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR"></device>
+        <device id="P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2"></device>
+    </folder>
+    <device id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR" name="node one" compression="true">
+        <address>a</address>
+    </device>
+    <device id="P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2" name="node two" compression="true">
+        <address>b</address>
+    </device>
+</configuration>

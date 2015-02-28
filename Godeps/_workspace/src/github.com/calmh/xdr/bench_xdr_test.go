@@ -72,15 +72,23 @@ func (o XDRBenchStruct) EncodeXDR(w io.Writer) (int, error) {
 	return o.encodeXDR(xw)
 }
 
-func (o XDRBenchStruct) MarshalXDR() []byte {
+func (o XDRBenchStruct) MarshalXDR() ([]byte, error) {
 	return o.AppendXDR(make([]byte, 0, 128))
 }
 
-func (o XDRBenchStruct) AppendXDR(bs []byte) []byte {
+func (o XDRBenchStruct) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o XDRBenchStruct) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	o.encodeXDR(xw)
-	return []byte(aw)
+	_, err := o.encodeXDR(xw)
+	return []byte(aw), err
 }
 
 func (o XDRBenchStruct) encodeXDR(xw *xdr.Writer) (int, error) {
@@ -88,13 +96,13 @@ func (o XDRBenchStruct) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint32(o.I2)
 	xw.WriteUint16(o.I3)
 	xw.WriteUint8(o.I4)
-	if len(o.Bs0) > 128 {
-		return xw.Tot(), xdr.ErrElementSizeExceeded
+	if l := len(o.Bs0); l > 128 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Bs0", l, 128)
 	}
 	xw.WriteBytes(o.Bs0)
 	xw.WriteBytes(o.Bs1)
-	if len(o.S0) > 128 {
-		return xw.Tot(), xdr.ErrElementSizeExceeded
+	if l := len(o.S0); l > 128 {
+		return xw.Tot(), xdr.ElementSizeExceeded("S0", l, 128)
 	}
 	xw.WriteString(o.S0)
 	xw.WriteString(o.S1)
@@ -150,15 +158,23 @@ func (o repeatReader) EncodeXDR(w io.Writer) (int, error) {
 	return o.encodeXDR(xw)
 }
 
-func (o repeatReader) MarshalXDR() []byte {
+func (o repeatReader) MarshalXDR() ([]byte, error) {
 	return o.AppendXDR(make([]byte, 0, 128))
 }
 
-func (o repeatReader) AppendXDR(bs []byte) []byte {
+func (o repeatReader) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o repeatReader) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	o.encodeXDR(xw)
-	return []byte(aw)
+	_, err := o.encodeXDR(xw)
+	return []byte(aw), err
 }
 
 func (o repeatReader) encodeXDR(xw *xdr.Writer) (int, error) {

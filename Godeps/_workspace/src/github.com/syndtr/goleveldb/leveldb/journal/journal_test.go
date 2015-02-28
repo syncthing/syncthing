@@ -12,6 +12,7 @@ package journal
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -324,5 +325,494 @@ func TestStaleWriter(t *testing.T) {
 	}
 	if _, err := w1.Write([]byte("0")); err == nil || !strings.Contains(err.Error(), "stale") {
 		t.Fatalf("stale write #1: unexpected error: %v", err)
+	}
+}
+
+func TestCorrupt_MissingLastBlock(t *testing.T) {
+	buf := new(bytes.Buffer)
+
+	w := NewWriter(buf)
+
+	// First record.
+	ww, err := w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize-1024)); err != nil {
+		t.Fatalf("write #0: unexpected error: %v", err)
+	}
+
+	// Second record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize-headerSize)); err != nil {
+		t.Fatalf("write #1: unexpected error: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Cut the last block.
+	b := buf.Bytes()[:blockSize]
+	r := NewReader(bytes.NewReader(b), dropper{t}, false, true)
+
+	// First read.
+	rr, err := r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #0: %v", err)
+	}
+	if n != blockSize-1024 {
+		t.Fatalf("read #0: got %d bytes want %d", n, blockSize-1024)
+	}
+
+	// Second read.
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != io.ErrUnexpectedEOF {
+		t.Fatalf("read #1: unexpected error: %v", err)
+	}
+
+	if _, err := r.Next(); err != io.EOF {
+		t.Fatalf("last next: unexpected error: %v", err)
+	}
+}
+
+func TestCorrupt_CorruptedFirstBlock(t *testing.T) {
+	buf := new(bytes.Buffer)
+
+	w := NewWriter(buf)
+
+	// First record.
+	ww, err := w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize/2)); err != nil {
+		t.Fatalf("write #0: unexpected error: %v", err)
+	}
+
+	// Second record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize-headerSize)); err != nil {
+		t.Fatalf("write #1: unexpected error: %v", err)
+	}
+
+	// Third record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), (blockSize-headerSize)+1)); err != nil {
+		t.Fatalf("write #2: unexpected error: %v", err)
+	}
+
+	// Fourth record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), (blockSize-headerSize)+2)); err != nil {
+		t.Fatalf("write #3: unexpected error: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	b := buf.Bytes()
+	// Corrupting block #0.
+	for i := 0; i < 1024; i++ {
+		b[i] = '1'
+	}
+
+	r := NewReader(bytes.NewReader(b), dropper{t}, false, true)
+
+	// First read (third record).
+	rr, err := r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #0: %v", err)
+	}
+	if want := int64(blockSize-headerSize) + 1; n != want {
+		t.Fatalf("read #0: got %d bytes want %d", n, want)
+	}
+
+	// Second read (fourth record).
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #1: %v", err)
+	}
+	if want := int64(blockSize-headerSize) + 2; n != want {
+		t.Fatalf("read #1: got %d bytes want %d", n, want)
+	}
+
+	if _, err := r.Next(); err != io.EOF {
+		t.Fatalf("last next: unexpected error: %v", err)
+	}
+}
+
+func TestCorrupt_CorruptedMiddleBlock(t *testing.T) {
+	buf := new(bytes.Buffer)
+
+	w := NewWriter(buf)
+
+	// First record.
+	ww, err := w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize/2)); err != nil {
+		t.Fatalf("write #0: unexpected error: %v", err)
+	}
+
+	// Second record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize-headerSize)); err != nil {
+		t.Fatalf("write #1: unexpected error: %v", err)
+	}
+
+	// Third record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), (blockSize-headerSize)+1)); err != nil {
+		t.Fatalf("write #2: unexpected error: %v", err)
+	}
+
+	// Fourth record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), (blockSize-headerSize)+2)); err != nil {
+		t.Fatalf("write #3: unexpected error: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	b := buf.Bytes()
+	// Corrupting block #1.
+	for i := 0; i < 1024; i++ {
+		b[blockSize+i] = '1'
+	}
+
+	r := NewReader(bytes.NewReader(b), dropper{t}, false, true)
+
+	// First read (first record).
+	rr, err := r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #0: %v", err)
+	}
+	if want := int64(blockSize / 2); n != want {
+		t.Fatalf("read #0: got %d bytes want %d", n, want)
+	}
+
+	// Second read (second record).
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != io.ErrUnexpectedEOF {
+		t.Fatalf("read #1: unexpected error: %v", err)
+	}
+
+	// Third read (fourth record).
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #2: %v", err)
+	}
+	if want := int64(blockSize-headerSize) + 2; n != want {
+		t.Fatalf("read #2: got %d bytes want %d", n, want)
+	}
+
+	if _, err := r.Next(); err != io.EOF {
+		t.Fatalf("last next: unexpected error: %v", err)
+	}
+}
+
+func TestCorrupt_CorruptedLastBlock(t *testing.T) {
+	buf := new(bytes.Buffer)
+
+	w := NewWriter(buf)
+
+	// First record.
+	ww, err := w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize/2)); err != nil {
+		t.Fatalf("write #0: unexpected error: %v", err)
+	}
+
+	// Second record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize-headerSize)); err != nil {
+		t.Fatalf("write #1: unexpected error: %v", err)
+	}
+
+	// Third record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), (blockSize-headerSize)+1)); err != nil {
+		t.Fatalf("write #2: unexpected error: %v", err)
+	}
+
+	// Fourth record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), (blockSize-headerSize)+2)); err != nil {
+		t.Fatalf("write #3: unexpected error: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	b := buf.Bytes()
+	// Corrupting block #3.
+	for i := len(b) - 1; i > len(b)-1024; i-- {
+		b[i] = '1'
+	}
+
+	r := NewReader(bytes.NewReader(b), dropper{t}, false, true)
+
+	// First read (first record).
+	rr, err := r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #0: %v", err)
+	}
+	if want := int64(blockSize / 2); n != want {
+		t.Fatalf("read #0: got %d bytes want %d", n, want)
+	}
+
+	// Second read (second record).
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #1: %v", err)
+	}
+	if want := int64(blockSize - headerSize); n != want {
+		t.Fatalf("read #1: got %d bytes want %d", n, want)
+	}
+
+	// Third read (third record).
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #2: %v", err)
+	}
+	if want := int64(blockSize-headerSize) + 1; n != want {
+		t.Fatalf("read #2: got %d bytes want %d", n, want)
+	}
+
+	// Fourth read (fourth record).
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != io.ErrUnexpectedEOF {
+		t.Fatalf("read #3: unexpected error: %v", err)
+	}
+
+	if _, err := r.Next(); err != io.EOF {
+		t.Fatalf("last next: unexpected error: %v", err)
+	}
+}
+
+func TestCorrupt_FirstChuckLengthOverflow(t *testing.T) {
+	buf := new(bytes.Buffer)
+
+	w := NewWriter(buf)
+
+	// First record.
+	ww, err := w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize/2)); err != nil {
+		t.Fatalf("write #0: unexpected error: %v", err)
+	}
+
+	// Second record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize-headerSize)); err != nil {
+		t.Fatalf("write #1: unexpected error: %v", err)
+	}
+
+	// Third record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), (blockSize-headerSize)+1)); err != nil {
+		t.Fatalf("write #2: unexpected error: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	b := buf.Bytes()
+	// Corrupting record #1.
+	x := blockSize
+	binary.LittleEndian.PutUint16(b[x+4:], 0xffff)
+
+	r := NewReader(bytes.NewReader(b), dropper{t}, false, true)
+
+	// First read (first record).
+	rr, err := r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #0: %v", err)
+	}
+	if want := int64(blockSize / 2); n != want {
+		t.Fatalf("read #0: got %d bytes want %d", n, want)
+	}
+
+	// Second read (second record).
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != io.ErrUnexpectedEOF {
+		t.Fatalf("read #1: unexpected error: %v", err)
+	}
+
+	if _, err := r.Next(); err != io.EOF {
+		t.Fatalf("last next: unexpected error: %v", err)
+	}
+}
+
+func TestCorrupt_MiddleChuckLengthOverflow(t *testing.T) {
+	buf := new(bytes.Buffer)
+
+	w := NewWriter(buf)
+
+	// First record.
+	ww, err := w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize/2)); err != nil {
+		t.Fatalf("write #0: unexpected error: %v", err)
+	}
+
+	// Second record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), blockSize-headerSize)); err != nil {
+		t.Fatalf("write #1: unexpected error: %v", err)
+	}
+
+	// Third record.
+	ww, err = w.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ww.Write(bytes.Repeat([]byte("0"), (blockSize-headerSize)+1)); err != nil {
+		t.Fatalf("write #2: unexpected error: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	b := buf.Bytes()
+	// Corrupting record #1.
+	x := blockSize/2 + headerSize
+	binary.LittleEndian.PutUint16(b[x+4:], 0xffff)
+
+	r := NewReader(bytes.NewReader(b), dropper{t}, false, true)
+
+	// First read (first record).
+	rr, err := r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #0: %v", err)
+	}
+	if want := int64(blockSize / 2); n != want {
+		t.Fatalf("read #0: got %d bytes want %d", n, want)
+	}
+
+	// Second read (third record).
+	rr, err = r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = io.Copy(ioutil.Discard, rr)
+	if err != nil {
+		t.Fatalf("read #1: %v", err)
+	}
+	if want := int64(blockSize-headerSize) + 1; n != want {
+		t.Fatalf("read #1: got %d bytes want %d", n, want)
+	}
+
+	if _, err := r.Next(); err != io.EOF {
+		t.Fatalf("last next: unexpected error: %v", err)
 	}
 }

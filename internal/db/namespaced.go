@@ -1,0 +1,106 @@
+// Copyright (C) 2014 The Syncthing Authors.
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program. If not, see <http://www.gnu.org/licenses/>.
+
+package db
+
+import (
+	"encoding/binary"
+	"time"
+
+	"github.com/syndtr/goleveldb/leveldb"
+)
+
+// NamespacedKV is a simple key-value store using a specific namespace within
+// a leveldb.
+type NamespacedKV struct {
+	db     *leveldb.DB
+	prefix []byte
+}
+
+// NewNamespacedKV returns a new NamespacedKV that lives in the namespace
+// specified by the prefix.
+func NewNamespacedKV(db *leveldb.DB, prefix string) *NamespacedKV {
+	return &NamespacedKV{
+		db:     db,
+		prefix: []byte(prefix),
+	}
+}
+
+// PutInt64 stores a new int64. Any existing value (even if of another type)
+// is overwritten.
+func (n *NamespacedKV) PutInt64(key string, val int64) {
+	keyBs := append(n.prefix, []byte(key)...)
+	var valBs [8]byte
+	binary.BigEndian.PutUint64(valBs[:], uint64(val))
+	n.db.Put(keyBs, valBs[:], nil)
+}
+
+// Int64 returns the stored value interpreted as an int64 and a boolean that
+// is false if no value was stored at the key.
+func (n *NamespacedKV) Int64(key string) (int64, bool) {
+	keyBs := append(n.prefix, []byte(key)...)
+	valBs, err := n.db.Get(keyBs, nil)
+	if err != nil {
+		return 0, false
+	}
+	val := binary.BigEndian.Uint64(valBs)
+	return int64(val), true
+}
+
+// PutTime stores a new time.Time. Any existing value (even if of another
+// type) is overwritten.
+func (n *NamespacedKV) PutTime(key string, val time.Time) {
+	keyBs := append(n.prefix, []byte(key)...)
+	valBs, _ := val.MarshalBinary() // never returns an error
+	n.db.Put(keyBs, valBs, nil)
+}
+
+// Time returns the stored value interpreted as a time.Time and a boolean
+// that is false if no value was stored at the key.
+func (n NamespacedKV) Time(key string) (time.Time, bool) {
+	var t time.Time
+	keyBs := append(n.prefix, []byte(key)...)
+	valBs, err := n.db.Get(keyBs, nil)
+	if err != nil {
+		return t, false
+	}
+	err = t.UnmarshalBinary(valBs)
+	return t, err == nil
+}
+
+// PutString stores a new string. Any existing value (even if of another type)
+// is overwritten.
+func (n *NamespacedKV) PutString(key, val string) {
+	keyBs := append(n.prefix, []byte(key)...)
+	n.db.Put(keyBs, []byte(val), nil)
+}
+
+// String returns the stored value interpreted as a string and a boolean that
+// is false if no value was stored at the key.
+func (n NamespacedKV) String(key string) (string, bool) {
+	keyBs := append(n.prefix, []byte(key)...)
+	valBs, err := n.db.Get(keyBs, nil)
+	if err != nil {
+		return "", false
+	}
+	return string(valBs), true
+}
+
+// Delete deletes the specified key. It is allowed to delete a nonexistent
+// key.
+func (n NamespacedKV) Delete(key string) {
+	keyBs := append(n.prefix, []byte(key)...)
+	n.db.Delete(keyBs, nil)
+}

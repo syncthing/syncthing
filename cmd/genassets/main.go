@@ -1,6 +1,17 @@
-// Copyright (C) 2014 Jakob Borg and Contributors (see the CONTRIBUTORS file).
-// All rights reserved. Use of this source code is governed by an MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (C) 2014 The Syncthing Authors.
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program. If not, see <http://www.gnu.org/licenses/>.
 
 // +build ignore
 
@@ -9,12 +20,13 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/base64"
 	"flag"
-	"fmt"
 	"go/format"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 )
 
@@ -23,27 +35,27 @@ var tpl = template.Must(template.New("assets").Parse(`package auto
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/hex"
+	"encoding/base64"
 	"io/ioutil"
 )
 
-var Assets = make(map[string][]byte)
-
-func init() {
+func Assets() map[string][]byte {
+	var assets = make(map[string][]byte, {{.assets | len}})
 	var bs []byte
 	var gr *gzip.Reader
 {{range $asset := .assets}}
-	bs, _ = hex.DecodeString("{{$asset.HexData}}")
-	gr, _ = gzip.NewReader(bytes.NewBuffer(bs))
+	bs, _ = base64.StdEncoding.DecodeString("{{$asset.Data}}")
+	gr, _ = gzip.NewReader(bytes.NewReader(bs))
 	bs, _ = ioutil.ReadAll(gr)
-	Assets["{{$asset.Name}}"] = bs
+	assets["{{$asset.Name}}"] = bs
 {{end}}
+	return assets
 }
 `))
 
 type asset struct {
-	Name    string
-	HexData string
+	Name string
+	Data string
 }
 
 var assets []asset
@@ -52,6 +64,11 @@ func walkerFor(basePath string) filepath.WalkFunc {
 	return func(name string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		if strings.HasPrefix(filepath.Base(name), ".") {
+			// Skip dotfiles
+			return nil
 		}
 
 		if info.Mode().IsRegular() {
@@ -69,8 +86,8 @@ func walkerFor(basePath string) filepath.WalkFunc {
 
 			name, _ = filepath.Rel(basePath, name)
 			assets = append(assets, asset{
-				Name:    filepath.ToSlash(name),
-				HexData: fmt.Sprintf("%x", buf.Bytes()),
+				Name: filepath.ToSlash(name),
+				Data: base64.StdEncoding.EncodeToString(buf.Bytes()),
 			})
 		}
 

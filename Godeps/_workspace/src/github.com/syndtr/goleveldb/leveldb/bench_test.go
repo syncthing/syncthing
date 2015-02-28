@@ -170,7 +170,7 @@ func (p *dbBench) writes(perBatch int) {
 	b.SetBytes(116)
 }
 
-func (p *dbBench) drop() {
+func (p *dbBench) gc() {
 	p.keys, p.values = nil, nil
 	runtime.GC()
 }
@@ -249,6 +249,9 @@ func (p *dbBench) newIter() iterator.Iterator {
 }
 
 func (p *dbBench) close() {
+	if bp, err := p.db.GetProperty("leveldb.blockpool"); err == nil {
+		p.b.Log("Block pool stats: ", bp)
+	}
 	p.db.Close()
 	p.stor.Close()
 	os.RemoveAll(benchDB)
@@ -331,7 +334,7 @@ func BenchmarkDBRead(b *testing.B) {
 	p := openDBBench(b, false)
 	p.populate(b.N)
 	p.fill()
-	p.drop()
+	p.gc()
 
 	iter := p.newIter()
 	b.ResetTimer()
@@ -362,7 +365,7 @@ func BenchmarkDBReadUncompressed(b *testing.B) {
 	p := openDBBench(b, true)
 	p.populate(b.N)
 	p.fill()
-	p.drop()
+	p.gc()
 
 	iter := p.newIter()
 	b.ResetTimer()
@@ -379,7 +382,7 @@ func BenchmarkDBReadTable(b *testing.B) {
 	p.populate(b.N)
 	p.fill()
 	p.reopen()
-	p.drop()
+	p.gc()
 
 	iter := p.newIter()
 	b.ResetTimer()
@@ -395,7 +398,7 @@ func BenchmarkDBReadReverse(b *testing.B) {
 	p := openDBBench(b, false)
 	p.populate(b.N)
 	p.fill()
-	p.drop()
+	p.gc()
 
 	iter := p.newIter()
 	b.ResetTimer()
@@ -413,7 +416,7 @@ func BenchmarkDBReadReverseTable(b *testing.B) {
 	p.populate(b.N)
 	p.fill()
 	p.reopen()
-	p.drop()
+	p.gc()
 
 	iter := p.newIter()
 	b.ResetTimer()

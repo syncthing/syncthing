@@ -11,6 +11,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/cache"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/filter"
+	"math"
 )
 
 const (
@@ -19,25 +20,56 @@ const (
 	GiB = MiB * 1024
 )
 
-const (
-	DefaultBlockCacheSize       = 8 * MiB
-	DefaultBlockRestartInterval = 16
-	DefaultBlockSize            = 4 * KiB
-	DefaultCompressionType      = SnappyCompression
-	DefaultMaxOpenFiles         = 1000
-	DefaultWriteBuffer          = 4 * MiB
+var (
+	DefaultBlockCacher                   = LRUCacher
+	DefaultBlockCacheCapacity            = 8 * MiB
+	DefaultBlockRestartInterval          = 16
+	DefaultBlockSize                     = 4 * KiB
+	DefaultCompactionExpandLimitFactor   = 25
+	DefaultCompactionGPOverlapsFactor    = 10
+	DefaultCompactionL0Trigger           = 4
+	DefaultCompactionSourceLimitFactor   = 1
+	DefaultCompactionTableSize           = 2 * MiB
+	DefaultCompactionTableSizeMultiplier = 1.0
+	DefaultCompactionTotalSize           = 10 * MiB
+	DefaultCompactionTotalSizeMultiplier = 10.0
+	DefaultCompressionType               = SnappyCompression
+	DefaultOpenFilesCacher               = LRUCacher
+	DefaultOpenFilesCacheCapacity        = 500
+	DefaultMaxMemCompationLevel          = 2
+	DefaultNumLevel                      = 7
+	DefaultWriteBuffer                   = 4 * MiB
+	DefaultWriteL0PauseTrigger           = 12
+	DefaultWriteL0SlowdownTrigger        = 8
 )
 
-type noCache struct{}
+// Cacher is a caching algorithm.
+type Cacher interface {
+	New(capacity int) cache.Cacher
+}
 
-func (noCache) SetCapacity(capacity int)               {}
-func (noCache) GetNamespace(id uint64) cache.Namespace { return nil }
-func (noCache) Purge(fin cache.PurgeFin)               {}
-func (noCache) Zap(closed bool)                        {}
+type CacherFunc struct {
+	NewFunc func(capacity int) cache.Cacher
+}
 
-var NoCache cache.Cache = noCache{}
+func (f *CacherFunc) New(capacity int) cache.Cacher {
+	if f.NewFunc != nil {
+		return f.NewFunc(capacity)
+	}
+	return nil
+}
 
-// Compression is the per-block compression algorithm to use.
+func noCacher(int) cache.Cacher { return nil }
+
+var (
+	// LRUCacher is the LRU-cache algorithm.
+	LRUCacher = &CacherFunc{cache.NewLRU}
+
+	// NoCacher is the value to disable caching algorithm.
+	NoCacher = &CacherFunc{}
+)
+
+// Compression is the 'sorted table' block compression algorithm to use.
 type Compression uint
 
 func (c Compression) String() string {
@@ -59,34 +91,47 @@ const (
 	nCompression
 )
 
-// Strict is the DB strict level.
+// Strict is the DB 'strict level'.
 type Strict uint
 
 const (
 	// If present then a corrupted or invalid chunk or block in manifest
-	// journal will cause an error istead of being dropped.
+	// journal will cause an error instead of being dropped.
+	// This will prevent database with corrupted manifest to be opened.
 	StrictManifest Strict = 1 << iota
-
-	// If present then a corrupted or invalid chunk or block in journal
-	// will cause an error istead of being dropped.
-	StrictJournal
 
 	// If present then journal chunk checksum will be verified.
 	StrictJournalChecksum
 
-	// If present then an invalid key/value pair will cause an error
-	// instead of being skipped.
-	StrictIterator
+	// If present then a corrupted or invalid chunk or block in journal
+	// will cause an error instead of being dropped.
+	// This will prevent database with corrupted journal to be opened.
+	StrictJournal
 
 	// If present then 'sorted table' block checksum will be verified.
+	// This has effect on both 'read operation' and compaction.
 	StrictBlockChecksum
 
+	// If present then a corrupted 'sorted table' will fails compaction.
+	// The database will enter read-only mode.
+	StrictCompaction
+
+	// If present then a corrupted 'sorted table' will halts 'read operation'.
+	StrictReader
+
+	// If present then leveldb.Recover will drop corrupted 'sorted table'.
+	StrictRecovery
+
+	// This only applicable for ReadOptions, if present then this ReadOptions
+	// 'strict level' will override global ones.
+	StrictOverride
+
 	// StrictAll enables all strict flags.
-	StrictAll = StrictManifest | StrictJournal | StrictJournalChecksum | StrictIterator | StrictBlockChecksum
+	StrictAll = StrictManifest | StrictJournalChecksum | StrictJournal | StrictBlockChecksum | StrictCompaction | StrictReader | StrictRecovery
 
 	// DefaultStrict is the default strict flags. Specify any strict flags
 	// will override default strict flags as whole (i.e. not OR'ed).
-	DefaultStrict = StrictJournalChecksum | StrictBlockChecksum
+	DefaultStrict = StrictJournalChecksum | StrictBlockChecksum | StrictCompaction | StrictReader
 
 	// NoStrict disables all strict flags. Override default strict flags.
 	NoStrict = ^StrictAll
@@ -101,11 +146,17 @@ type Options struct {
 	// The default value is nil
 	AltFilters []filter.Filter
 
-	// BlockCache provides per-block caching for LevelDB. Specify NoCache to
-	// disable block caching.
+	// BlockCacher provides cache algorithm for LevelDB 'sorted table' block caching.
+	// Specify NoCacher to disable caching algorithm.
 	//
-	// By default LevelDB will create LRU-cache with capacity of 8MiB.
-	BlockCache cache.Cache
+	// The default value is LRUCacher.
+	BlockCacher Cacher
+
+	// BlockCacheCapacity defines the capacity of the 'sorted table' block caching.
+	// Use -1 for zero, this has same effect with specifying NoCacher to BlockCacher.
+	//
+	// The default value is 8MiB.
+	BlockCacheCapacity int
 
 	// BlockRestartInterval is the number of keys between restart points for
 	// delta encoding of keys.
@@ -119,6 +170,73 @@ type Options struct {
 	// The default value is 4KiB.
 	BlockSize int
 
+	// CompactionExpandLimitFactor limits compaction size after expanded.
+	// This will be multiplied by table size limit at compaction target level.
+	//
+	// The default value is 25.
+	CompactionExpandLimitFactor int
+
+	// CompactionGPOverlapsFactor limits overlaps in grandparent (Level + 2) that a
+	// single 'sorted table' generates.
+	// This will be multiplied by table size limit at grandparent level.
+	//
+	// The default value is 10.
+	CompactionGPOverlapsFactor int
+
+	// CompactionL0Trigger defines number of 'sorted table' at level-0 that will
+	// trigger compaction.
+	//
+	// The default value is 4.
+	CompactionL0Trigger int
+
+	// CompactionSourceLimitFactor limits compaction source size. This doesn't apply to
+	// level-0.
+	// This will be multiplied by table size limit at compaction target level.
+	//
+	// The default value is 1.
+	CompactionSourceLimitFactor int
+
+	// CompactionTableSize limits size of 'sorted table' that compaction generates.
+	// The limits for each level will be calculated as:
+	//   CompactionTableSize * (CompactionTableSizeMultiplier ^ Level)
+	// The multiplier for each level can also fine-tuned using CompactionTableSizeMultiplierPerLevel.
+	//
+	// The default value is 2MiB.
+	CompactionTableSize int
+
+	// CompactionTableSizeMultiplier defines multiplier for CompactionTableSize.
+	//
+	// The default value is 1.
+	CompactionTableSizeMultiplier float64
+
+	// CompactionTableSizeMultiplierPerLevel defines per-level multiplier for
+	// CompactionTableSize.
+	// Use zero to skip a level.
+	//
+	// The default value is nil.
+	CompactionTableSizeMultiplierPerLevel []float64
+
+	// CompactionTotalSize limits total size of 'sorted table' for each level.
+	// The limits for each level will be calculated as:
+	//   CompactionTotalSize * (CompactionTotalSizeMultiplier ^ Level)
+	// The multiplier for each level can also fine-tuned using
+	// CompactionTotalSizeMultiplierPerLevel.
+	//
+	// The default value is 10MiB.
+	CompactionTotalSize int
+
+	// CompactionTotalSizeMultiplier defines multiplier for CompactionTotalSize.
+	//
+	// The default value is 10.
+	CompactionTotalSizeMultiplier float64
+
+	// CompactionTotalSizeMultiplierPerLevel defines per-level multiplier for
+	// CompactionTotalSize.
+	// Use zero to skip a level.
+	//
+	// The default value is nil.
+	CompactionTotalSizeMultiplierPerLevel []float64
+
 	// Comparer defines a total ordering over the space of []byte keys: a 'less
 	// than' relationship. The same comparison algorithm must be used for reads
 	// and writes over the lifetime of the DB.
@@ -126,10 +244,21 @@ type Options struct {
 	// The default value uses the same ordering as bytes.Compare.
 	Comparer comparer.Comparer
 
-	// Compression defines the per-block compression to use.
+	// Compression defines the 'sorted table' block compression to use.
 	//
 	// The default value (DefaultCompression) uses snappy compression.
 	Compression Compression
+
+	// DisableBlockCache allows disable use of cache.Cache functionality on
+	// 'sorted table' block.
+	//
+	// The default value is false.
+	DisableBlockCache bool
+
+	// DisableCompactionBackoff allows disable compaction retry backoff.
+	//
+	// The default value is false.
+	DisableCompactionBackoff bool
 
 	// ErrorIfExist defines whether an error should returned if the DB already
 	// exist.
@@ -159,12 +288,30 @@ type Options struct {
 	// The default value is nil.
 	Filter filter.Filter
 
-	// MaxOpenFiles defines maximum number of open files to kept around
-	// (cached). This is not an hard limit, actual open files may exceed
-	// the defined value.
+	// MaxMemCompationLevel defines maximum level a newly compacted 'memdb'
+	// will be pushed into if doesn't creates overlap. This should less than
+	// NumLevel. Use -1 for level-0.
 	//
-	// The default value is 1000.
-	MaxOpenFiles int
+	// The default is 2.
+	MaxMemCompationLevel int
+
+	// NumLevel defines number of database level. The level shouldn't changed
+	// between opens, or the database will panic.
+	//
+	// The default is 7.
+	NumLevel int
+
+	// OpenFilesCacher provides cache algorithm for open files caching.
+	// Specify NoCacher to disable caching algorithm.
+	//
+	// The default value is LRUCacher.
+	OpenFilesCacher Cacher
+
+	// OpenFilesCacheCapacity defines the capacity of the open files caching.
+	// Use -1 for zero, this has same effect with specifying NoCacher to OpenFilesCacher.
+	//
+	// The default value is 500.
+	OpenFilesCacheCapacity int
 
 	// Strict defines the DB strict level.
 	Strict Strict
@@ -177,6 +324,18 @@ type Options struct {
 	//
 	// The default value is 4MiB.
 	WriteBuffer int
+
+	// WriteL0StopTrigger defines number of 'sorted table' at level-0 that will
+	// pause write.
+	//
+	// The default value is 12.
+	WriteL0PauseTrigger int
+
+	// WriteL0SlowdownTrigger defines number of 'sorted table' at level-0 that
+	// will trigger write slowdown.
+	//
+	// The default value is 8.
+	WriteL0SlowdownTrigger int
 }
 
 func (o *Options) GetAltFilters() []filter.Filter {
@@ -186,11 +345,22 @@ func (o *Options) GetAltFilters() []filter.Filter {
 	return o.AltFilters
 }
 
-func (o *Options) GetBlockCache() cache.Cache {
-	if o == nil {
+func (o *Options) GetBlockCacher() Cacher {
+	if o == nil || o.BlockCacher == nil {
+		return DefaultBlockCacher
+	} else if o.BlockCacher == NoCacher {
 		return nil
 	}
-	return o.BlockCache
+	return o.BlockCacher
+}
+
+func (o *Options) GetBlockCacheCapacity() int {
+	if o == nil || o.BlockCacheCapacity <= 0 {
+		return DefaultBlockCacheCapacity
+	} else if o.BlockCacheCapacity == -1 {
+		return 0
+	}
+	return o.BlockCacheCapacity
 }
 
 func (o *Options) GetBlockRestartInterval() int {
@@ -207,6 +377,79 @@ func (o *Options) GetBlockSize() int {
 	return o.BlockSize
 }
 
+func (o *Options) GetCompactionExpandLimit(level int) int {
+	factor := DefaultCompactionExpandLimitFactor
+	if o != nil && o.CompactionExpandLimitFactor > 0 {
+		factor = o.CompactionExpandLimitFactor
+	}
+	return o.GetCompactionTableSize(level+1) * factor
+}
+
+func (o *Options) GetCompactionGPOverlaps(level int) int {
+	factor := DefaultCompactionGPOverlapsFactor
+	if o != nil && o.CompactionGPOverlapsFactor > 0 {
+		factor = o.CompactionGPOverlapsFactor
+	}
+	return o.GetCompactionTableSize(level+2) * factor
+}
+
+func (o *Options) GetCompactionL0Trigger() int {
+	if o == nil || o.CompactionL0Trigger == 0 {
+		return DefaultCompactionL0Trigger
+	}
+	return o.CompactionL0Trigger
+}
+
+func (o *Options) GetCompactionSourceLimit(level int) int {
+	factor := DefaultCompactionSourceLimitFactor
+	if o != nil && o.CompactionSourceLimitFactor > 0 {
+		factor = o.CompactionSourceLimitFactor
+	}
+	return o.GetCompactionTableSize(level+1) * factor
+}
+
+func (o *Options) GetCompactionTableSize(level int) int {
+	var (
+		base = DefaultCompactionTableSize
+		mult float64
+	)
+	if o != nil {
+		if o.CompactionTableSize > 0 {
+			base = o.CompactionTableSize
+		}
+		if len(o.CompactionTableSizeMultiplierPerLevel) > level && o.CompactionTableSizeMultiplierPerLevel[level] > 0 {
+			mult = o.CompactionTableSizeMultiplierPerLevel[level]
+		} else if o.CompactionTableSizeMultiplier > 0 {
+			mult = math.Pow(o.CompactionTableSizeMultiplier, float64(level))
+		}
+	}
+	if mult == 0 {
+		mult = math.Pow(DefaultCompactionTableSizeMultiplier, float64(level))
+	}
+	return int(float64(base) * mult)
+}
+
+func (o *Options) GetCompactionTotalSize(level int) int64 {
+	var (
+		base = DefaultCompactionTotalSize
+		mult float64
+	)
+	if o != nil {
+		if o.CompactionTotalSize > 0 {
+			base = o.CompactionTotalSize
+		}
+		if len(o.CompactionTotalSizeMultiplierPerLevel) > level && o.CompactionTotalSizeMultiplierPerLevel[level] > 0 {
+			mult = o.CompactionTotalSizeMultiplierPerLevel[level]
+		} else if o.CompactionTotalSizeMultiplier > 0 {
+			mult = math.Pow(o.CompactionTotalSizeMultiplier, float64(level))
+		}
+	}
+	if mult == 0 {
+		mult = math.Pow(DefaultCompactionTotalSizeMultiplier, float64(level))
+	}
+	return int64(float64(base) * mult)
+}
+
 func (o *Options) GetComparer() comparer.Comparer {
 	if o == nil || o.Comparer == nil {
 		return comparer.DefaultComparer
@@ -219,6 +462,13 @@ func (o *Options) GetCompression() Compression {
 		return DefaultCompressionType
 	}
 	return o.Compression
+}
+
+func (o *Options) GetDisableCompactionBackoff() bool {
+	if o == nil {
+		return false
+	}
+	return o.DisableCompactionBackoff
 }
 
 func (o *Options) GetErrorIfExist() bool {
@@ -242,11 +492,45 @@ func (o *Options) GetFilter() filter.Filter {
 	return o.Filter
 }
 
-func (o *Options) GetMaxOpenFiles() int {
-	if o == nil || o.MaxOpenFiles <= 0 {
-		return DefaultMaxOpenFiles
+func (o *Options) GetMaxMemCompationLevel() int {
+	level := DefaultMaxMemCompationLevel
+	if o != nil {
+		if o.MaxMemCompationLevel > 0 {
+			level = o.MaxMemCompationLevel
+		} else if o.MaxMemCompationLevel == -1 {
+			level = 0
+		}
 	}
-	return o.MaxOpenFiles
+	if level >= o.GetNumLevel() {
+		return o.GetNumLevel() - 1
+	}
+	return level
+}
+
+func (o *Options) GetNumLevel() int {
+	if o == nil || o.NumLevel <= 0 {
+		return DefaultNumLevel
+	}
+	return o.NumLevel
+}
+
+func (o *Options) GetOpenFilesCacher() Cacher {
+	if o == nil || o.OpenFilesCacher == nil {
+		return DefaultOpenFilesCacher
+	}
+	if o.OpenFilesCacher == NoCacher {
+		return nil
+	}
+	return o.OpenFilesCacher
+}
+
+func (o *Options) GetOpenFilesCacheCapacity() int {
+	if o == nil || o.OpenFilesCacheCapacity <= 0 {
+		return DefaultOpenFilesCacheCapacity
+	} else if o.OpenFilesCacheCapacity == -1 {
+		return 0
+	}
+	return o.OpenFilesCacheCapacity
 }
 
 func (o *Options) GetStrict(strict Strict) bool {
@@ -263,6 +547,20 @@ func (o *Options) GetWriteBuffer() int {
 	return o.WriteBuffer
 }
 
+func (o *Options) GetWriteL0PauseTrigger() int {
+	if o == nil || o.WriteL0PauseTrigger == 0 {
+		return DefaultWriteL0PauseTrigger
+	}
+	return o.WriteL0PauseTrigger
+}
+
+func (o *Options) GetWriteL0SlowdownTrigger() int {
+	if o == nil || o.WriteL0SlowdownTrigger == 0 {
+		return DefaultWriteL0SlowdownTrigger
+	}
+	return o.WriteL0SlowdownTrigger
+}
+
 // ReadOptions holds the optional parameters for 'read operation'. The
 // 'read operation' includes Get, Find and NewIterator.
 type ReadOptions struct {
@@ -273,8 +571,8 @@ type ReadOptions struct {
 	// The default value is false.
 	DontFillCache bool
 
-	// Strict overrides global DB strict level. Only StrictIterator and
-	// StrictBlockChecksum that does have effects here.
+	// Strict will be OR'ed with global DB 'strict level' unless StrictOverride
+	// is present. Currently only StrictReader that has effect here.
 	Strict Strict
 }
 
@@ -315,4 +613,12 @@ func (wo *WriteOptions) GetSync() bool {
 		return false
 	}
 	return wo.Sync
+}
+
+func GetStrict(o *Options, ro *ReadOptions, strict Strict) bool {
+	if ro.GetStrict(StrictOverride) {
+		return ro.GetStrict(strict)
+	} else {
+		return o.GetStrict(strict) || ro.GetStrict(strict)
+	}
 }

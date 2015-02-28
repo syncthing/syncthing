@@ -129,7 +129,7 @@ var _ = testutil.Defer(func() {
 				}
 
 				return db
-			})
+			}, nil, nil)
 		})
 	})
 })

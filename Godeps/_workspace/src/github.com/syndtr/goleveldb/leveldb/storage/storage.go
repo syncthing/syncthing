@@ -125,3 +125,33 @@ type Storage interface {
 	// Other methods should not be called after the storage has been closed.
 	Close() error
 }
+
+// FileInfo wraps basic file info.
+type FileInfo struct {
+	Type FileType
+	Num  uint64
+}
+
+func (fi FileInfo) String() string {
+	switch fi.Type {
+	case TypeManifest:
+		return fmt.Sprintf("MANIFEST-%06d", fi.Num)
+	case TypeJournal:
+		return fmt.Sprintf("%06d.log", fi.Num)
+	case TypeTable:
+		return fmt.Sprintf("%06d.ldb", fi.Num)
+	case TypeTemp:
+		return fmt.Sprintf("%06d.tmp", fi.Num)
+	default:
+		return fmt.Sprintf("%#x-%d", fi.Type, fi.Num)
+	}
+}
+
+// NewFileInfo creates new FileInfo from the given File. It will returns nil
+// if File is nil.
+func NewFileInfo(f File) *FileInfo {
+	if f == nil {
+		return nil
+	}
+	return &FileInfo{f.Type(), f.Num()}
+}

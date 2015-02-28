@@ -40,13 +40,19 @@ type basicArrayIterator struct {
 	util.BasicReleaser
 	array BasicArray
 	pos   int
+	err   error
 }
 
 func (i *basicArrayIterator) Valid() bool {
-	return i.pos >= 0 && i.pos < i.array.Len()
+	return i.pos >= 0 && i.pos < i.array.Len() && !i.Released()
 }
 
 func (i *basicArrayIterator) First() bool {
+	if i.Released() {
+		i.err = ErrIterReleased
+		return false
+	}
+
 	if i.array.Len() == 0 {
 		i.pos = -1
 		return false
@@ -56,6 +62,11 @@ func (i *basicArrayIterator) First() bool {
 }
 
 func (i *basicArrayIterator) Last() bool {
+	if i.Released() {
+		i.err = ErrIterReleased
+		return false
+	}
+
 	n := i.array.Len()
 	if n == 0 {
 		i.pos = 0
@@ -66,6 +77,11 @@ func (i *basicArrayIterator) Last() bool {
 }
 
 func (i *basicArrayIterator) Seek(key []byte) bool {
+	if i.Released() {
+		i.err = ErrIterReleased
+		return false
+	}
+
 	n := i.array.Len()
 	if n == 0 {
 		i.pos = 0
@@ -79,6 +95,11 @@ func (i *basicArrayIterator) Seek(key []byte) bool {
 }
 
 func (i *basicArrayIterator) Next() bool {
+	if i.Released() {
+		i.err = ErrIterReleased
+		return false
+	}
+
 	i.pos++
 	if n := i.array.Len(); i.pos >= n {
 		i.pos = n
@@ -88,6 +109,11 @@ func (i *basicArrayIterator) Next() bool {
 }
 
 func (i *basicArrayIterator) Prev() bool {
+	if i.Released() {
+		i.err = ErrIterReleased
+		return false
+	}
+
 	i.pos--
 	if i.pos < 0 {
 		i.pos = -1
@@ -96,7 +122,7 @@ func (i *basicArrayIterator) Prev() bool {
 	return true
 }
 
-func (i *basicArrayIterator) Error() error { return nil }
+func (i *basicArrayIterator) Error() error { return i.err }
 
 type arrayIterator struct {
 	basicArrayIterator

@@ -19,13 +19,18 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-func (b *block) TestNewIterator(slice *util.Range) iterator.Iterator {
-	return b.newIterator(slice, false, nil)
+type blockTesting struct {
+	tr *Reader
+	b  *block
+}
+
+func (t *blockTesting) TestNewIterator(slice *util.Range) iterator.Iterator {
+	return t.tr.newBlockIter(t.b, nil, slice, false)
 }
 
 var _ = testutil.Defer(func() {
 	Describe("Block", func() {
-		Build := func(kv *testutil.KeyValue, restartInterval int) *block {
+		Build := func(kv *testutil.KeyValue, restartInterval int) *blockTesting {
 			// Building the block.
 			bw := &blockWriter{
 				restartInterval: restartInterval,
@@ -39,11 +44,13 @@ var _ = testutil.Defer(func() {
 			// Opening the block.
 			data := bw.buf.Bytes()
 			restartsLen := int(binary.LittleEndian.Uint32(data[len(data)-4:]))
-			return &block{
-				cmp:            comparer.DefaultComparer,
-				data:           data,
-				restartsLen:    restartsLen,
-				restartsOffset: len(data) - (restartsLen+1)*4,
+			return &blockTesting{
+				tr: &Reader{cmp: comparer.DefaultComparer},
+				b: &block{
+					data:           data,
+					restartsLen:    restartsLen,
+					restartsOffset: len(data) - (restartsLen+1)*4,
+				},
 			}
 		}
 
@@ -59,7 +66,7 @@ var _ = testutil.Defer(func() {
 						// Make block.
 						br := Build(kv, restartInterval)
 						// Do testing.
-						testutil.KeyValueTesting(nil, br, kv.Clone())
+						testutil.KeyValueTesting(nil, kv.Clone(), br, nil, nil)
 					}
 
 					Describe(Text(), Test)
@@ -102,11 +109,11 @@ var _ = testutil.Defer(func() {
 			for restartInterval := 1; restartInterval <= 5; restartInterval++ {
 				Describe(fmt.Sprintf("with restart interval of %d", restartInterval), func() {
 					// Make block.
-					br := Build(kv, restartInterval)
+					bt := Build(kv, restartInterval)
 
 					Test := func(r *util.Range) func(done Done) {
 						return func(done Done) {
-							iter := br.newIterator(r, false, nil)
+							iter := bt.TestNewIterator(r)
 							Expect(iter.Error()).ShouldNot(HaveOccurred())
 
 							t := testutil.IteratorTesting{
@@ -115,6 +122,7 @@ var _ = testutil.Defer(func() {
 							}
 
 							testutil.DoIteratorTesting(&t)
+							iter.Release()
 							done <- true
 						}
 					}

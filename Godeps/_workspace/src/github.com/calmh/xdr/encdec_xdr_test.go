@@ -54,6 +54,14 @@ TestStruct Structure:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                            Opaque                             |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         Number of SS                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         Length of SS                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                     SS (variable length)                      \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct TestStruct {
@@ -66,9 +74,10 @@ struct TestStruct {
 	unsigned int UI32;
 	hyper I64;
 	unsigned hyper UI64;
-	opaque BS<>;
-	string S<>;
+	opaque BS<1024>;
+	string S<1024>;
 	Opaque C;
+	string SS<1024>;
 }
 
 */
@@ -78,15 +87,23 @@ func (o TestStruct) EncodeXDR(w io.Writer) (int, error) {
 	return o.encodeXDR(xw)
 }
 
-func (o TestStruct) MarshalXDR() []byte {
+func (o TestStruct) MarshalXDR() ([]byte, error) {
 	return o.AppendXDR(make([]byte, 0, 128))
 }
 
-func (o TestStruct) AppendXDR(bs []byte) []byte {
+func (o TestStruct) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o TestStruct) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	o.encodeXDR(xw)
-	return []byte(aw)
+	_, err := o.encodeXDR(xw)
+	return []byte(aw), err
 }
 
 func (o TestStruct) encodeXDR(xw *xdr.Writer) (int, error) {
@@ -99,11 +116,24 @@ func (o TestStruct) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteUint32(o.UI32)
 	xw.WriteUint64(uint64(o.I64))
 	xw.WriteUint64(o.UI64)
+	if l := len(o.BS); l > 1024 {
+		return xw.Tot(), xdr.ElementSizeExceeded("BS", l, 1024)
+	}
 	xw.WriteBytes(o.BS)
+	if l := len(o.S); l > 1024 {
+		return xw.Tot(), xdr.ElementSizeExceeded("S", l, 1024)
+	}
 	xw.WriteString(o.S)
 	_, err := o.C.encodeXDR(xw)
 	if err != nil {
 		return xw.Tot(), err
+	}
+	if l := len(o.SS); l > 1024 {
+		return xw.Tot(), xdr.ElementSizeExceeded("SS", l, 1024)
+	}
+	xw.WriteUint32(uint32(len(o.SS)))
+	for i := range o.SS {
+		xw.WriteString(o.SS[i])
 	}
 	return xw.Tot(), xw.Error()
 }
@@ -129,8 +159,16 @@ func (o *TestStruct) decodeXDR(xr *xdr.Reader) error {
 	o.UI32 = xr.ReadUint32()
 	o.I64 = int64(xr.ReadUint64())
 	o.UI64 = xr.ReadUint64()
-	o.BS = xr.ReadBytes()
-	o.S = xr.ReadString()
+	o.BS = xr.ReadBytesMax(1024)
+	o.S = xr.ReadStringMax(1024)
 	(&o.C).decodeXDR(xr)
+	_SSSize := int(xr.ReadUint32())
+	if _SSSize > 1024 {
+		return xdr.ElementSizeExceeded("SS", _SSSize, 1024)
+	}
+	o.SS = make([]string, _SSSize)
+	for i := range o.SS {
+		o.SS[i] = xr.ReadString()
+	}
 	return xr.Error()
 }

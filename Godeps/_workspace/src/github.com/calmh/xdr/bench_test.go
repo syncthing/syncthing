@@ -7,6 +7,8 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+
+	"github.com/calmh/xdr"
 )
 
 type XDRBenchStruct struct {
@@ -31,11 +33,15 @@ var s = XDRBenchStruct{
 	S0:  "Hello World! String one.",
 	S1:  "Hello World! String two.",
 }
-var e = s.MarshalXDR()
+var e []byte
+
+func init() {
+	e, _ = s.MarshalXDR()
+}
 
 func BenchmarkThisMarshal(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		res = s.MarshalXDR()
+		res, _ = s.MarshalXDR()
 	}
 }
 
@@ -52,6 +58,16 @@ func BenchmarkThisUnmarshal(b *testing.B) {
 func BenchmarkThisEncode(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := s.EncodeXDR(ioutil.Discard)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkThisEncoder(b *testing.B) {
+	w := xdr.NewWriter(ioutil.Discard)
+	for i := 0; i < b.N; i++ {
+		_, err := s.encodeXDR(w)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -80,6 +96,19 @@ func BenchmarkThisDecode(b *testing.B) {
 	var t XDRBenchStruct
 	for i := 0; i < b.N; i++ {
 		err := t.DecodeXDR(rr)
+		if err != nil {
+			b.Fatal(err)
+		}
+		rr.Reset(e)
+	}
+}
+
+func BenchmarkThisDecoder(b *testing.B) {
+	rr := &repeatReader{e}
+	r := xdr.NewReader(rr)
+	var t XDRBenchStruct
+	for i := 0; i < b.N; i++ {
+		err := t.decodeXDR(r)
 		if err != nil {
 			b.Fatal(err)
 		}

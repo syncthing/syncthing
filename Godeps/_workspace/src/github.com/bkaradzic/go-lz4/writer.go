@@ -121,7 +121,7 @@ func Encode(dst, src []byte) ([]byte, error) {
 	)
 
 	for {
-		if int(e.pos)+4 >= len(e.src) {
+		if int(e.pos)+12 >= len(e.src) {
 			e.writeLiterals(uint32(len(e.src))-e.anchor, 0, e.anchor)
 			return e.dst[:e.dpos], nil
 		}
@@ -158,7 +158,7 @@ func Encode(dst, src []byte) ([]byte, error) {
 		ref += minMatch
 		e.anchor = e.pos
 
-		for int(e.pos) < len(e.src) && e.src[e.pos] == e.src[ref] {
+		for int(e.pos) < len(e.src)-5 && e.src[e.pos] == e.src[ref] {
 			e.pos++
 			ref++
 		}

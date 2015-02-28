@@ -221,7 +221,7 @@ func (fs *fileStorage) GetManifest() (f File, err error) {
 					fs.log(fmt.Sprintf("skipping %s: invalid file name", fn))
 					continue
 				}
-				if _, e1 := strconv.ParseUint(fn[7:], 10, 0); e1 != nil {
+				if _, e1 := strconv.ParseUint(fn[8:], 10, 0); e1 != nil {
 					fs.log(fmt.Sprintf("skipping %s: invalid file num: %v", fn, e1))
 					continue
 				}

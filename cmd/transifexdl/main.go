@@ -1,6 +1,17 @@
-// Copyright (C) 2014 Jakob Borg and Contributors (see the CONTRIBUTORS file).
-// All rights reserved. Use of this source code is governed by an MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (C) 2014 The Syncthing Authors.
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program. If not, see <http://www.gnu.org/licenses/>.
 
 // +build ignore
 
@@ -9,10 +20,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
+	"strings"
 )
 
 type stat struct {
@@ -31,6 +45,12 @@ func main() {
 		log.Fatal("Need environment variables TRANSIFEX_USER and TRANSIFEX_PASS")
 	}
 
+	curValidLangs := map[string]bool{}
+	for _, lang := range loadValidLangs() {
+		curValidLangs[lang] = true
+	}
+	log.Println(curValidLangs)
+
 	resp := req("https://www.transifex.com/api/2/project/syncthing/resource/gui/stats")
 
 	var stats map[string]stat
@@ -42,19 +62,20 @@ func main() {
 
 	var langs []string
 	for code, stat := range stats {
-		shortCode := code[:2]
-		if pct := 100 * stat.Translated / (stat.Translated + stat.Untranslated); pct < 95 {
-			log.Printf("Skipping language %q (too low completion ratio %d%%)", shortCode, pct)
-			os.Remove("lang-" + shortCode + ".json")
+		code = strings.Replace(code, "_", "-", 1)
+		pct := 100 * stat.Translated / (stat.Translated + stat.Untranslated)
+		if pct < 75 || !curValidLangs[code] && pct < 95 {
+			log.Printf("Skipping language %q (too low completion ratio %d%%)", code, pct)
+			os.Remove("lang-" + code + ".json")
 			continue
 		}
 
-		langs = append(langs, shortCode)
-		if shortCode == "en" {
+		langs = append(langs, code)
+		if code == "en" {
 			continue
 		}
 
-		log.Printf("Updating language %q", shortCode)
+		log.Printf("Updating language %q", code)
 
 		resp := req("https://www.transifex.com/api/2/project/syncthing/resource/gui/translation/" + code)
 		var t translation
@@ -64,7 +85,7 @@ func main() {
 		}
 		resp.Body.Close()
 
-		fd, err := os.Create("lang-" + shortCode + ".json")
+		fd, err := os.Create("lang-" + code + ".json")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -72,9 +93,18 @@ func main() {
 		fd.Close()
 	}
 
+	saveValidLangs(langs)
+}
+
+func saveValidLangs(langs []string) {
 	sort.Strings(langs)
-	fmt.Print("var validLangs = ")
-	json.NewEncoder(os.Stdout).Encode(langs)
+	fd, err := os.Create("valid-langs.js")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprint(fd, "var validLangs = ")
+	json.NewEncoder(fd).Encode(langs)
+	fd.Close()
 }
 
 func userPass() (string, string) {
@@ -96,4 +126,28 @@ func req(url string) *http.Response {
 		log.Fatal(err)
 	}
 	return resp
+}
+
+func loadValidLangs() []string {
+	fd, err := os.Open("valid-langs.js")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer fd.Close()
+	bs, err := ioutil.ReadAll(fd)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var langs []string
+	exp := regexp.MustCompile(`\[([a-zA-Z",-]+)\]`)
+	if matches := exp.FindSubmatch(bs); len(matches) == 2 {
+		langs = strings.Split(string(matches[1]), ",")
+		for i := range langs {
+			// Remove quotes
+			langs[i] = langs[i][1 : len(langs[i])-1]
+		}
+	}
+
+	return langs
 }

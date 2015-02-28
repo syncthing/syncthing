@@ -155,3 +155,17 @@ func RandomRange(rnd *rand.Rand, n, round int, fn func(start, limit int)) {
 	}
 	return
 }
+
+func Max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+func Min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}

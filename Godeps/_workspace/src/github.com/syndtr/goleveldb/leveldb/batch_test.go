@@ -15,7 +15,7 @@ import (
 )
 
 type tbRec struct {
-	t          vType
+	kt         kType
 	key, value []byte
 }
 
@@ -23,39 +23,39 @@ type testBatch struct {
 	rec []*tbRec
 }
 
-func (p *testBatch) put(key, value []byte, seq uint64) {
-	p.rec = append(p.rec, &tbRec{tVal, key, value})
+func (p *testBatch) Put(key, value []byte) {
+	p.rec = append(p.rec, &tbRec{ktVal, key, value})
 }
 
-func (p *testBatch) delete(key []byte, seq uint64) {
-	p.rec = append(p.rec, &tbRec{tDel, key, nil})
+func (p *testBatch) Delete(key []byte) {
+	p.rec = append(p.rec, &tbRec{ktDel, key, nil})
 }
 
 func compareBatch(t *testing.T, b1, b2 *Batch) {
 	if b1.seq != b2.seq {
 		t.Errorf("invalid seq number want %d, got %d", b1.seq, b2.seq)
 	}
-	if b1.len() != b2.len() {
-		t.Fatalf("invalid record length want %d, got %d", b1.len(), b2.len())
+	if b1.Len() != b2.Len() {
+		t.Fatalf("invalid record length want %d, got %d", b1.Len(), b2.Len())
 	}
 	p1, p2 := new(testBatch), new(testBatch)
-	err := b1.replay(p1)
+	err := b1.Replay(p1)
 	if err != nil {
 		t.Fatal("error when replaying batch 1: ", err)
 	}
-	err = b2.replay(p2)
+	err = b2.Replay(p2)
 	if err != nil {
 		t.Fatal("error when replaying batch 2: ", err)
 	}
 	for i := range p1.rec {
 		r1, r2 := p1.rec[i], p2.rec[i]
-		if r1.t != r2.t {
-			t.Errorf("invalid type on record '%d' want %d, got %d", i, r1.t, r2.t)
+		if r1.kt != r2.kt {
+			t.Errorf("invalid type on record '%d' want %d, got %d", i, r1.kt, r2.kt)
 		}
 		if !bytes.Equal(r1.key, r2.key) {
 			t.Errorf("invalid key on record '%d' want %s, got %s", i, string(r1.key), string(r2.key))
 		}
-		if r1.t == tVal {
+		if r1.kt == ktVal {
 			if !bytes.Equal(r1.value, r2.value) {
 				t.Errorf("invalid value on record '%d' want %s, got %s", i, string(r1.value), string(r2.value))
 			}
@@ -75,7 +75,7 @@ func TestBatch_EncodeDecode(t *testing.T) {
 	b1.Delete([]byte("k"))
 	buf := b1.encode()
 	b2 := new(Batch)
-	err := b2.decode(buf)
+	err := b2.decode(0, buf)
 	if err != nil {
 		t.Error("error when decoding batch: ", err)
 	}

@@ -5,6 +5,7 @@ package xdr
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 	"testing/quick"
 )
@@ -60,7 +61,7 @@ func TestReadBytesMaxInto(t *testing.T) {
 				if read := len(bs); read != tot {
 					t.Errorf("Incorrect read bytes, wrote=%d, buf=%d, max=%d, read=%d", tot, tot+diff, max, read)
 				}
-			} else if r.err != ErrElementSizeExceeded {
+			} else if !strings.Contains(r.err.Error(), "exceeds size") {
 				t.Errorf("Unexpected non-ErrElementSizeExceeded error for wrote=%d, max=%d: %v", tot, max, r.err)
 			}
 		}
@@ -84,7 +85,7 @@ func TestReadStringMax(t *testing.T) {
 				if read != tot {
 					t.Errorf("Incorrect read bytes, wrote=%d, max=%d, read=%d", tot, max, read)
 				}
-			} else if r.err != ErrElementSizeExceeded {
+			} else if !strings.Contains(r.err.Error(), "exceeds size") {
 				t.Errorf("Unexpected non-ErrElementSizeExceeded error for wrote=%d, max=%d, read=%d: %v", tot, max, read, r.err)
 			}
 		}

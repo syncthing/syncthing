@@ -65,7 +65,7 @@ var _ = testutil.Defer(func() {
 					// Test the iterator.
 					t := testutil.IteratorTesting{
 						KeyValue: kv.Clone(),
-						Iter:     NewIndexedIterator(NewArrayIndexer(index), true, true),
+						Iter:     NewIndexedIterator(NewArrayIndexer(index), true),
 					}
 					testutil.DoIteratorTesting(&t)
 					done <- true

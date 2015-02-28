@@ -45,7 +45,7 @@ func (db *DB) jWriter() {
 	}
 }
 
-func (db *DB) rotateMem(n int) (mem *memdb.DB, err error) {
+func (db *DB) rotateMem(n int) (mem *memDB, err error) {
 	// Wait for pending memdb compaction.
 	err = db.compSendIdle(db.mcompCmdC)
 	if err != nil {
@@ -59,24 +59,30 @@ func (db *DB) rotateMem(n int) (mem *memdb.DB, err error) {
 	}
 
 	// Schedule memdb compaction.
-	db.compTrigger(db.mcompTriggerC)
+	db.compSendTrigger(db.mcompCmdC)
 	return
 }
 
-func (db *DB) flush(n int) (mem *memdb.DB, nn int, err error) {
+func (db *DB) flush(n int) (mem *memDB, nn int, err error) {
 	delayed := false
-	flush := func() bool {
+	flush := func() (retry bool) {
 		v := db.s.version()
 		defer v.release()
 		mem = db.getEffectiveMem()
-		nn = mem.Free()
+		defer func() {
+			if retry {
+				mem.decref()
+				mem = nil
+			}
+		}()
+		nn = mem.mdb.Free()
 		switch {
-		case v.tLen(0) >= kL0_SlowdownWritesTrigger && !delayed:
+		case v.tLen(0) >= db.s.o.GetWriteL0SlowdownTrigger() && !delayed:
 			delayed = true
 			time.Sleep(time.Millisecond)
 		case nn >= n:
 			return false
-		case v.tLen(0) >= kL0_StopWritesTrigger:
+		case v.tLen(0) >= db.s.o.GetWriteL0PauseTrigger():
 			delayed = true
 			err = db.compSendIdle(db.tcompCmdC)
 			if err != nil {
@@ -84,12 +90,17 @@ func (db *DB) flush(n int) (mem *memdb.DB, nn int, err error) {
 			}
 		default:
 			// Allow memdb to grow if it has no entry.
-			if mem.Len() == 0 {
+			if mem.mdb.Len() == 0 {
 				nn = n
-				return false
+			} else {
+				mem.decref()
+				mem, err = db.rotateMem(n)
+				if err == nil {
+					nn = mem.mdb.Free()
+				} else {
+					nn = 0
+				}
 			}
-			mem, err = db.rotateMem(n)
-			nn = mem.Free()
 			return false
 		}
 		return true
@@ -98,7 +109,12 @@ func (db *DB) flush(n int) (mem *memdb.DB, nn int, err error) {
 	for flush() {
 	}
 	if delayed {
-		db.logf("db@write delayed T·%v", time.Since(start))
+		db.writeDelay += time.Since(start)
+		db.writeDelayN++
+	} else if db.writeDelayN > 0 {
+		db.logf("db@write was delayed N·%d T·%v", db.writeDelayN, db.writeDelay)
+		db.writeDelay = 0
+		db.writeDelayN = 0
 	}
 	return
 }
@@ -109,28 +125,33 @@ func (db *DB) flush(n int) (mem *memdb.DB, nn int, err error) {
 // It is safe to modify the contents of the arguments after Write returns.
 func (db *DB) Write(b *Batch, wo *opt.WriteOptions) (err error) {
 	err = db.ok()
-	if err != nil || b == nil || b.len() == 0 {
+	if err != nil || b == nil || b.Len() == 0 {
 		return
 	}
 
 	b.init(wo.GetSync())
 
 	// The write happen synchronously.
-retry:
 	select {
 	case db.writeC <- b:
 		if <-db.writeMergedC {
 			return <-db.writeAckC
 		}
-		goto retry
 	case db.writeLockC <- struct{}{}:
+	case err = <-db.compPerErrC:
+		return
 	case _, _ = <-db.closeC:
 		return ErrClosed
 	}
 
 	merged := 0
+	danglingMerge := false
 	defer func() {
-		<-db.writeLockC
+		if danglingMerge {
+			db.writeMergedC <- false
+		} else {
+			<-db.writeLockC
+		}
 		for i := 0; i < merged; i++ {
 			db.writeAckC <- err
 		}
@@ -140,6 +161,7 @@ retry:
 	if err != nil {
 		return
 	}
+	defer mem.decref()
 
 	// Calculate maximum size of the batch.
 	m := 1 << 20
@@ -158,7 +180,7 @@ drain:
 				db.writeMergedC <- true
 				merged++
 			} else {
-				db.writeMergedC <- false
+				danglingMerge = true
 				break drain
 			}
 		default:
@@ -173,35 +195,43 @@ drain:
 	if b.size() >= (128 << 10) {
 		// Push the write batch to the journal writer
 		select {
+		case db.journalC <- b:
+			// Write into memdb
+			if berr := b.memReplay(mem.mdb); berr != nil {
+				panic(berr)
+			}
+		case err = <-db.compPerErrC:
+			return
 		case _, _ = <-db.closeC:
 			err = ErrClosed
 			return
-		case db.journalC <- b:
-			// Write into memdb
-			b.memReplay(mem)
 		}
 		// Wait for journal writer
 		select {
-		case _, _ = <-db.closeC:
-			err = ErrClosed
-			return
 		case err = <-db.journalAckC:
 			if err != nil {
 				// Revert memdb if error detected
-				b.revertMemReplay(mem)
+				if berr := b.revertMemReplay(mem.mdb); berr != nil {
+					panic(berr)
+				}
 				return
 			}
+		case _, _ = <-db.closeC:
+			err = ErrClosed
+			return
 		}
 	} else {
 		err = db.writeJournal(b)
 		if err != nil {
 			return
 		}
-		b.memReplay(mem)
+		if berr := b.memReplay(mem.mdb); berr != nil {
+			panic(berr)
+		}
 	}
 
 	// Set last seq number.
-	db.addSeq(uint64(b.len()))
+	db.addSeq(uint64(b.Len()))
 
 	if b.size() >= memFree {
 		db.rotateMem(0)
@@ -250,15 +280,19 @@ func (db *DB) CompactRange(r util.Range) error {
 		return err
 	}
 
+	// Lock writer.
 	select {
 	case db.writeLockC <- struct{}{}:
+	case err := <-db.compPerErrC:
+		return err
 	case _, _ = <-db.closeC:
 		return ErrClosed
 	}
 
 	// Check for overlaps in memdb.
 	mem := db.getEffectiveMem()
-	if isMemOverlaps(db.s.icmp, mem, r.Start, r.Limit) {
+	defer mem.decref()
+	if isMemOverlaps(db.s.icmp, mem.mdb, r.Start, r.Limit) {
 		// Memdb compaction.
 		if _, err := db.rotateMem(0); err != nil {
 			<-db.writeLockC

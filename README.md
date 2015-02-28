@@ -1,18 +1,17 @@
 syncthing
 =========
 
-[![Build Status](https://img.shields.io/travis/syncthing/syncthing.svg?style=flat)](https://travis-ci.org/syncthing/syncthing)
-[![Coverage Status](https://img.shields.io/coveralls/syncthing/syncthing.svg?style=flat)](https://coveralls.io/r/syncthing/syncthing?branch=master)
-[![API Documentation](http://img.shields.io/badge/api-Godoc-blue.svg?style=flat)](http://godoc.org/github.com/syncthing/syncthing)
-[![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](http://opensource.org/licenses/MIT)
+[![Latest Build](http://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing.svg?style=flat-square)](http://build.syncthing.net/job/syncthing/lastBuild/)
+[![API Documentation](http://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](http://godoc.org/github.com/syncthing/syncthing)
+[![GPL License](http://img.shields.io/badge/license-GPL-blue.svg?style=flat-square)](http://opensource.org/licenses/GPL-3.0)
 
 This is the `syncthing` project. The following are the project goals:
 
- 1. Define a protocol for synchronization of a file repository between a
-    number of collaborating nodes. The protocol should be well defined,
-    unambiguous, easily understood, free to use, efficient, secure and
-    language neutral. This is the [Block Exchange
-    Protocol](https://github.com/syncthing/syncthing/blob/master/protocol/PROTOCOL.md).
+ 1. Define a protocol for synchronization of a folder between a number of
+    collaborating devices. The protocol should be well defined, unambiguous,
+    easily understood, free to use, efficient, secure and language neutral.
+    This is the [Block Exchange
+    Protocol](https://github.com/syncthing/specs/blob/master/BEPv1.md).
 
  2. Provide the reference implementation to demonstrate the usability of
     said protocol. This is the `syncthing` utility. It is the hope that
@@ -26,28 +25,37 @@ for incompatible changes.
 Getting Started
 ---------------
 
-Take a look at the [getting started guide](http://discourse.syncthing.net/t/getting-started/46).
+Take a look at the [getting started
+guide](https://github.com/syncthing/syncthing/wiki/Getting-Started).
+
+There are a few examples for keeping syncthing running in the background
+on your system in [the etc directory](https://github.com/syncthing/syncthing/blob/master/etc).
+
+There is an IRC channel, `#syncthing` on Freenode, for talking directly
+to developers and users (when awake and present, etc.).
+
+Building
+--------
+
+Building Syncthing from source is easy, and there's a
+[guide](https://github.com/syncthing/syncthing/wiki/Building).
+that describes it for both Unix and Windows.
 
 Signed Releases
 ---------------
 
-As of v0.7.0 and onwards, git tags and release binaries are GPG signed with
-the key BCE524C7 (http://nym.se/gpg.txt). The signature is included in the
-normal release bundle as `syncthing.asc` or `syncthing.exe.asc`.
+As of v0.10.15 and onwards, git tags and release binaries are GPG signed
+with the key D26E6ED000654A3E (see http://syncthing.net/security.html).
+For release binaries, MD5 and SHA1 checksums are calculated and signed,
+available in the md5sum.txt.asc and sha1sum.txt.asc files.
 
 Documentation
 =============
 
 The [syncthing
-documentation](http://discourse.syncthing.net/category/documentation) is
-on the discourse site.
+documentation](https://github.com/syncthing/syncthing/wiki/) is on the
+Github wiki.
 
-License
-=======
-
-All documentation and protocol specifications are licensed
-under the [Creative Commons Attribution 4.0 International
-License](http://creativecommons.org/licenses/by/4.0/).
-
-All code is licensed under the [MIT
-License](https://github.com/syncthing/syncthing/blob/master/LICENSE).
+All code is licensed under the
+[GPL](https://github.com/syncthing/syncthing/blob/master/LICENSE), v3 or
+later.

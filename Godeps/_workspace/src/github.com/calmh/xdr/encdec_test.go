@@ -24,9 +24,10 @@ type TestStruct struct {
 	UI32 uint32
 	I64  int64
 	UI64 uint64
-	BS   []byte
-	S    string
+	BS   []byte // max:1024
+	S    string // max:1024
 	C    Opaque
+	SS   []string // max:1024
 }
 
 type Opaque [32]byte
@@ -49,9 +50,12 @@ func (Opaque) Generate(rand *rand.Rand, size int) reflect.Value {
 
 func TestEncDec(t *testing.T) {
 	fn := func(t0 TestStruct) bool {
-		bs := t0.MarshalXDR()
+		bs, err := t0.MarshalXDR()
+		if err != nil {
+			t.Fatal(err)
+		}
 		var t1 TestStruct
-		err := t1.UnmarshalXDR(bs)
+		err = t1.UnmarshalXDR(bs)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -7,6 +7,7 @@
 package iterator
 
 import (
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -22,13 +23,13 @@ type IteratorIndexer interface {
 
 type indexedIterator struct {
 	util.BasicReleaser
-	index     IteratorIndexer
-	strict    bool
-	strictGet bool
+	index  IteratorIndexer
+	strict bool
 
-	data Iterator
-	err  error
-	errf func(err error)
+	data   Iterator
+	err    error
+	errf   func(err error)
+	closed bool
 }
 
 func (i *indexedIterator) setData() {
@@ -36,11 +37,6 @@ func (i *indexedIterator) setData() {
 		i.data.Release()
 	}
 	i.data = i.index.Get()
-	if i.strictGet {
-		if err := i.data.Error(); err != nil {
-			i.err = err
-		}
-	}
 }
 
 func (i *indexedIterator) clearData() {
@@ -50,14 +46,21 @@ func (i *indexedIterator) clearData() {
 	i.data = nil
 }
 
-func (i *indexedIterator) dataErr() bool {
-	if i.errf != nil {
-		if err := i.data.Error(); err != nil {
+func (i *indexedIterator) indexErr() {
+	if err := i.index.Error(); err != nil {
+		if i.errf != nil {
 			i.errf(err)
 		}
+		i.err = err
 	}
-	if i.strict {
-		if err := i.data.Error(); err != nil {
+}
+
+func (i *indexedIterator) dataErr() bool {
+	if err := i.data.Error(); err != nil {
+		if i.errf != nil {
+			i.errf(err)
+		}
+		if i.strict || !errors.IsCorrupted(err) {
 			i.err = err
 			return true
 		}
@@ -72,9 +75,13 @@ func (i *indexedIterator) Valid() bool {
 func (i *indexedIterator) First() bool {
 	if i.err != nil {
 		return false
+	} else if i.Released() {
+		i.err = ErrIterReleased
+		return false
 	}
 
 	if !i.index.First() {
+		i.indexErr()
 		i.clearData()
 		return false
 	}
@@ -85,9 +92,13 @@ func (i *indexedIterator) First() bool {
 func (i *indexedIterator) Last() bool {
 	if i.err != nil {
 		return false
+	} else if i.Released() {
+		i.err = ErrIterReleased
+		return false
 	}
 
 	if !i.index.Last() {
+		i.indexErr()
 		i.clearData()
 		return false
 	}
@@ -105,9 +116,13 @@ func (i *indexedIterator) Last() bool {
 func (i *indexedIterator) Seek(key []byte) bool {
 	if i.err != nil {
 		return false
+	} else if i.Released() {
+		i.err = ErrIterReleased
+		return false
 	}
 
 	if !i.index.Seek(key) {
+		i.indexErr()
 		i.clearData()
 		return false
 	}
@@ -125,6 +140,9 @@ func (i *indexedIterator) Seek(key []byte) bool {
 func (i *indexedIterator) Next() bool {
 	if i.err != nil {
 		return false
+	} else if i.Released() {
+		i.err = ErrIterReleased
+		return false
 	}
 
 	switch {
@@ -136,6 +154,7 @@ func (i *indexedIterator) Next() bool {
 		fallthrough
 	case i.data == nil:
 		if !i.index.Next() {
+			i.indexErr()
 			return false
 		}
 		i.setData()
@@ -146,6 +165,9 @@ func (i *indexedIterator) Next() bool {
 
 func (i *indexedIterator) Prev() bool {
 	if i.err != nil {
+		return false
+	} else if i.Released() {
+		i.err = ErrIterReleased
 		return false
 	}
 
@@ -158,6 +180,7 @@ func (i *indexedIterator) Prev() bool {
 		fallthrough
 	case i.data == nil:
 		if !i.index.Prev() {
+			i.indexErr()
 			return false
 		}
 		i.setData()
@@ -206,16 +229,14 @@ func (i *indexedIterator) SetErrorCallback(f func(err error)) {
 	i.errf = f
 }
 
-// NewIndexedIterator returns an indexed iterator. An index is iterator
-// that returns another iterator, a data iterator. A data iterator is the
+// NewIndexedIterator returns an 'indexed iterator'. An index is iterator
+// that returns another iterator, a 'data iterator'. A 'data iterator' is the
 // iterator that contains actual key/value pairs.
 //
-// If strict is true then error yield by data iterator will halt the indexed
-// iterator, on contrary if strict is false then the indexed iterator will
-// ignore those error and move on to the next index. If strictGet is true and
-// index.Get() yield an 'error iterator' then the indexed iterator will be halted.
-// An 'error iterator' is iterator which its Error() method always return non-nil
-// even before any 'seeks method' is called.
-func NewIndexedIterator(index IteratorIndexer, strict, strictGet bool) Iterator {
-	return &indexedIterator{index: index, strict: strict, strictGet: strictGet}
+// If strict is true the any 'corruption errors' (i.e errors.IsCorrupted(err) == true)
+// won't be ignored and will halt 'indexed iterator', otherwise the iterator will
+// continue to the next 'data iterator'. Corruption on 'index iterator' will not be
+// ignored and will halt the iterator.
+func NewIndexedIterator(index IteratorIndexer, strict bool) Iterator {
+	return &indexedIterator{index: index, strict: strict}
 }

@@ -8,10 +8,35 @@ package leveldb
 
 import (
 	"sync/atomic"
+	"time"
 
 	"github.com/syndtr/goleveldb/leveldb/journal"
 	"github.com/syndtr/goleveldb/leveldb/memdb"
 )
+
+type memDB struct {
+	db  *DB
+	mdb *memdb.DB
+	ref int32
+}
+
+func (m *memDB) incref() {
+	atomic.AddInt32(&m.ref, 1)
+}
+
+func (m *memDB) decref() {
+	if ref := atomic.AddInt32(&m.ref, -1); ref == 0 {
+		// Only put back memdb with std capacity.
+		if m.mdb.Capacity() == m.db.s.o.GetWriteBuffer() {
+			m.mdb.Reset()
+			m.db.mpoolPut(m.mdb)
+		}
+		m.db = nil
+		m.mdb = nil
+	} else if ref < 0 {
+		panic("negative memdb ref")
+	}
+}
 
 // Get latest sequence number.
 func (db *DB) getSeq() uint64 {
@@ -23,9 +48,44 @@ func (db *DB) addSeq(delta uint64) {
 	atomic.AddUint64(&db.seq, delta)
 }
 
+func (db *DB) mpoolPut(mem *memdb.DB) {
+	defer func() {
+		recover()
+	}()
+	select {
+	case db.memPool <- mem:
+	default:
+	}
+}
+
+func (db *DB) mpoolGet() *memdb.DB {
+	select {
+	case mem := <-db.memPool:
+		return mem
+	default:
+		return nil
+	}
+}
+
+func (db *DB) mpoolDrain() {
+	ticker := time.NewTicker(30 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			select {
+			case <-db.memPool:
+			default:
+			}
+		case _, _ = <-db.closeC:
+			close(db.memPool)
+			return
+		}
+	}
+}
+
 // Create new memdb and froze the old one; need external synchronization.
 // newMem only called synchronously by the writer.
-func (db *DB) newMem(n int) (mem *memdb.DB, err error) {
+func (db *DB) newMem(n int) (mem *memDB, err error) {
 	num := db.s.allocFileNum()
 	file := db.s.getJournalFile(num)
 	w, err := file.Create()
@@ -37,6 +97,10 @@ func (db *DB) newMem(n int) (mem *memdb.DB, err error) {
 	db.memMu.Lock()
 	defer db.memMu.Unlock()
 
+	if db.frozenMem != nil {
+		panic("still has frozen mem")
+	}
+
 	if db.journal == nil {
 		db.journal = journal.NewWriter(w)
 	} else {
@@ -47,8 +111,16 @@ func (db *DB) newMem(n int) (mem *memdb.DB, err error) {
 	db.journalWriter = w
 	db.journalFile = file
 	db.frozenMem = db.mem
-	db.mem = memdb.New(db.s.icmp, maxInt(db.s.o.GetWriteBuffer(), n))
-	mem = db.mem
+	mdb := db.mpoolGet()
+	if mdb == nil || mdb.Capacity() < n {
+		mdb = memdb.New(db.s.icmp, maxInt(db.s.o.GetWriteBuffer(), n))
+	}
+	mem = &memDB{
+		db:  db,
+		mdb: mdb,
+		ref: 2,
+	}
+	db.mem = mem
 	// The seq only incremented by the writer. And whoever called newMem
 	// should hold write lock, so no need additional synchronization here.
 	db.frozenSeq = db.seq
@@ -56,16 +128,27 @@ func (db *DB) newMem(n int) (mem *memdb.DB, err error) {
 }
 
 // Get all memdbs.
-func (db *DB) getMems() (e *memdb.DB, f *memdb.DB) {
+func (db *DB) getMems() (e, f *memDB) {
 	db.memMu.RLock()
 	defer db.memMu.RUnlock()
+	if db.mem == nil {
+		panic("nil effective mem")
+	}
+	db.mem.incref()
+	if db.frozenMem != nil {
+		db.frozenMem.incref()
+	}
 	return db.mem, db.frozenMem
 }
 
 // Get frozen memdb.
-func (db *DB) getEffectiveMem() *memdb.DB {
+func (db *DB) getEffectiveMem() *memDB {
 	db.memMu.RLock()
 	defer db.memMu.RUnlock()
+	if db.mem == nil {
+		panic("nil effective mem")
+	}
+	db.mem.incref()
 	return db.mem
 }
 
@@ -77,9 +160,12 @@ func (db *DB) hasFrozenMem() bool {
 }
 
 // Get frozen memdb.
-func (db *DB) getFrozenMem() *memdb.DB {
+func (db *DB) getFrozenMem() *memDB {
 	db.memMu.RLock()
 	defer db.memMu.RUnlock()
+	if db.frozenMem != nil {
+		db.frozenMem.incref()
+	}
 	return db.frozenMem
 }
 
@@ -92,6 +178,7 @@ func (db *DB) dropFrozenMem() {
 		db.logf("journal@remove removed @%d", db.frozenJournalFile.Num())
 	}
 	db.frozenJournalFile = nil
+	db.frozenMem.decref()
 	db.frozenMem = nil
 	db.memMu.Unlock()
 }

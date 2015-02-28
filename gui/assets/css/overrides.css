@@ -1,0 +1,219 @@
+/*
+// Copyright (C) 2014 The Syncthing Authors.
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+body {
+    padding-bottom: 70px;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+h1, h2, h3, h4, h5 {
+    font-family: "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+ul+h5 {
+    margin-top: 1.5em;
+}
+
+.panel-progress {
+    background: #3498db;
+    height: 3px;
+    left: 0;
+    position: absolute;
+    top: 0;
+    display: block;
+}
+
+.panel-title {
+    position: relative;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+identicon {
+    display: inline-block;
+    position: relative;
+    width: 1em;
+    height: 1em;
+    line-height: 1em;
+    overflow: visible;
+}
+
+.checkbox {
+    margin-top: 0px;
+}
+
+.checkbox input[type="checkbox"], .radio input[type="radio"] {
+    float: none; /* issue #1197 */
+}
+
+.popover {
+    max-width: none;
+}
+
+.identicon {
+    width: 20px;
+    height: 20px;
+}
+
+.panel-heading .identicon {
+    display: block;
+    position: absolute;
+    top: 1px;
+}
+
+.panel-heading .glyphicon {
+    margin-right: 15px;
+}
+
+.panel-heading {
+    position: relative;
+    overflow: hidden;
+}
+
+.identicon rect {
+    fill: #666;
+}
+
+.text-monospace {
+    font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+.table-condensed>thead>tr>th, .table-condensed>tbody>tr>th, .table-condensed>tfoot>tr>th, .table-condensed>thead>tr>td, .table-condensed>tbody>tr>td, .table-condensed>tfoot>tr>td {
+    border-top: none;
+}
+
+.logo {
+    margin: 0;
+    padding: 0;
+    top: -5px;
+    position: relative;
+}
+
+.list-no-bullet {
+    list-style-type: none
+}
+
+.li-column {
+    display: inline-block;
+    min-width: 7em;
+    margin-right: 1em;
+    background-color: rgb(236, 240, 241);
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin: 2px 2px;
+}
+.li-column span.data {
+    margin-left: 0.5em;
+    min-width: 10em;
+    text-align: right;
+    display: inline-block;
+}
+
+.ng-cloak {
+    display: none !important;
+}
+
+.table th {
+    white-space: nowrap;
+    font-weight: 400;
+}
+
+.table td {
+    padding-left: 20px !important;
+}
+
+.table td.small-data {
+    white-space: nowrap;
+}
+
+table.table-condensed {
+    table-layout: fixed;
+}
+table.table-condensed td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+@media (max-width:767px) {
+    table.table-condensed td {
+        /* for mobile phones to allow linebreaks in long repro folder/shared with
+        * columns. */
+        white-space: normal;
+    }
+}
+
+.navbar-right {
+    /* to align with panel */
+    padding-right: 15px;
+}
+
+.panel-body .table-condensed {
+    margin-bottom: 0;
+}
+
+.dl-horizontal.dl-narrow dt {
+    width: 40px;
+}
+
+.dl-horizontal.dl-narrow dd {
+    margin-left: 60px;
+}
+
+/**
+ * Progress bars with centered text
+ */
+
+.progress {
+    margin-bottom: 0px;
+    position: relative;
+}
+
+.progress span.frontal {
+    text-align: center;
+    position: absolute;
+    display: block;
+    width: 100%;
+}
+
+.three-columns {
+    -webkit-column-count: 3;
+    -moz-column-count: 3;
+    column-count: 3;
+}
+
+.two-columns {
+    -webkit-column-count: 2;
+    -moz-column-count: 2;
+    column-count: 2;
+}
+
+ul.three-columns li, ul.two-columns li {
+    padding-left: 0.5em;
+    text-indent: -0.5em;
+}
+
+/** Footer nav on small devices **/
+
+@media (max-width: 767px) {
+    body {
+        padding-bottom: 0;
+    }
+
+    .navbar-fixed-bottom {
+        position: static;
+    }
+}

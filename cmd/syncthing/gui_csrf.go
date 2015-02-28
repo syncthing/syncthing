@@ -1,9 +1,22 @@
+// Copyright (C) 2014 The Syncthing Authors.
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program. If not, see <http://www.gnu.org/licenses/>.
+
 package main
 
 import (
 	"bufio"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/syncthing/syncthing/osutil"
+	"github.com/syncthing/syncthing/internal/osutil"
 )
 
 var csrfTokens []string
@@ -21,10 +34,11 @@ var csrfMut sync.Mutex
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
 // is currently set.
-func csrfMiddleware(prefix string, next http.Handler) http.Handler {
+func csrfMiddleware(prefix, apiKey string, next http.Handler) http.Handler {
+	loadCsrfTokens()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Allow requests carrying a valid API key
-		if validAPIKey(r.Header.Get("X-API-Key")) {
+		if apiKey != "" && r.Header.Get("X-API-Key") == apiKey {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -72,13 +86,7 @@ func validCsrfToken(token string) bool {
 }
 
 func newCsrfToken() string {
-	bs := make([]byte, 30)
-	_, err := rand.Reader.Read(bs)
-	if err != nil {
-		l.Fatalln(err)
-	}
-
-	token := base64.StdEncoding.EncodeToString(bs)
+	token := randomString(32)
 
 	csrfMut.Lock()
 	csrfTokens = append(csrfTokens, token)

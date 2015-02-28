@@ -37,6 +37,16 @@
 //	err = iter.Error()
 //	...
 //
+// Iterate over subset of database content with a particular prefix:
+//	iter := db.NewIterator(util.BytesPrefix([]byte("foo-")), nil)
+//	for iter.Next() {
+//		// Use key/value.
+//		...
+//	}
+//	iter.Release()
+//	err = iter.Error()
+//	...
+//
 // Seek-then-Iterate:
 //
 // 	iter := db.NewIterator(nil, nil)

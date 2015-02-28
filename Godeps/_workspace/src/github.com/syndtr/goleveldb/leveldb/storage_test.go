@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -28,11 +29,25 @@ var (
 )
 
 var (
-	tsFSEnv  = os.Getenv("GOLEVELDB_USEFS")
-	tsKeepFS = tsFSEnv == "2"
-	tsFS     = tsKeepFS || tsFSEnv == "" || tsFSEnv == "1"
-	tsMU     = &sync.Mutex{}
-	tsNum    = 0
+	tsFSEnv   = os.Getenv("GOLEVELDB_USEFS")
+	tsTempdir = os.Getenv("GOLEVELDB_TEMPDIR")
+	tsKeepFS  = tsFSEnv == "2"
+	tsFS      = tsKeepFS || tsFSEnv == "" || tsFSEnv == "1"
+	tsMU      = &sync.Mutex{}
+	tsNum     = 0
+)
+
+type tsOp uint
+
+const (
+	tsOpOpen tsOp = iota
+	tsOpCreate
+	tsOpRead
+	tsOpReadAt
+	tsOpWrite
+	tsOpSync
+
+	tsOpNum
 )
 
 type tsLock struct {
@@ -53,6 +68,9 @@ type tsReader struct {
 func (tr tsReader) Read(b []byte) (n int, err error) {
 	ts := tr.tf.ts
 	ts.countRead(tr.tf.Type())
+	if tr.tf.shouldErrLocked(tsOpRead) {
+		return 0, errors.New("leveldb.testStorage: emulated read error")
+	}
 	n, err = tr.Reader.Read(b)
 	if err != nil && err != io.EOF {
 		ts.t.Errorf("E: read error, num=%d type=%v n=%d: %v", tr.tf.Num(), tr.tf.Type(), n, err)
@@ -63,6 +81,9 @@ func (tr tsReader) Read(b []byte) (n int, err error) {
 func (tr tsReader) ReadAt(b []byte, off int64) (n int, err error) {
 	ts := tr.tf.ts
 	ts.countRead(tr.tf.Type())
+	if tr.tf.shouldErrLocked(tsOpReadAt) {
+		return 0, errors.New("leveldb.testStorage: emulated readAt error")
+	}
 	n, err = tr.Reader.ReadAt(b, off)
 	if err != nil && err != io.EOF {
 		ts.t.Errorf("E: readAt error, num=%d type=%v off=%d n=%d: %v", tr.tf.Num(), tr.tf.Type(), off, n, err)
@@ -82,15 +103,12 @@ type tsWriter struct {
 }
 
 func (tw tsWriter) Write(b []byte) (n int, err error) {
-	ts := tw.tf.ts
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-	if ts.emuWriteErr&tw.tf.Type() != 0 {
+	if tw.tf.shouldErrLocked(tsOpWrite) {
 		return 0, errors.New("leveldb.testStorage: emulated write error")
 	}
 	n, err = tw.Writer.Write(b)
 	if err != nil {
-		ts.t.Errorf("E: write error, num=%d type=%v n=%d: %v", tw.tf.Num(), tw.tf.Type(), n, err)
+		tw.tf.ts.t.Errorf("E: write error, num=%d type=%v n=%d: %v", tw.tf.Num(), tw.tf.Type(), n, err)
 	}
 	return
 }
@@ -98,23 +116,23 @@ func (tw tsWriter) Write(b []byte) (n int, err error) {
 func (tw tsWriter) Sync() (err error) {
 	ts := tw.tf.ts
 	ts.mu.Lock()
-	defer ts.mu.Unlock()
 	for ts.emuDelaySync&tw.tf.Type() != 0 {
 		ts.cond.Wait()
 	}
-	if ts.emuSyncErr&tw.tf.Type() != 0 {
+	ts.mu.Unlock()
+	if tw.tf.shouldErrLocked(tsOpSync) {
 		return errors.New("leveldb.testStorage: emulated sync error")
 	}
 	err = tw.Writer.Sync()
 	if err != nil {
-		ts.t.Errorf("E: sync error, num=%d type=%v: %v", tw.tf.Num(), tw.tf.Type(), err)
+		tw.tf.ts.t.Errorf("E: sync error, num=%d type=%v: %v", tw.tf.Num(), tw.tf.Type(), err)
 	}
 	return
 }
 
 func (tw tsWriter) Close() (err error) {
 	err = tw.Writer.Close()
-	tw.tf.close("reader", err)
+	tw.tf.close("writer", err)
 	return
 }
 
@@ -125,6 +143,16 @@ type tsFile struct {
 
 func (tf tsFile) x() uint64 {
 	return tf.Num()<<typeShift | uint64(tf.Type())
+}
+
+func (tf tsFile) shouldErr(op tsOp) bool {
+	return tf.ts.shouldErr(tf, op)
+}
+
+func (tf tsFile) shouldErrLocked(op tsOp) bool {
+	tf.ts.mu.Lock()
+	defer tf.ts.mu.Unlock()
+	return tf.shouldErr(op)
 }
 
 func (tf tsFile) checkOpen(m string) error {
@@ -163,7 +191,7 @@ func (tf tsFile) Open() (r storage.Reader, err error) {
 	if err != nil {
 		return
 	}
-	if ts.emuOpenErr&tf.Type() != 0 {
+	if tf.shouldErr(tsOpOpen) {
 		err = errors.New("leveldb.testStorage: emulated open error")
 		return
 	}
@@ -190,7 +218,7 @@ func (tf tsFile) Create() (w storage.Writer, err error) {
 	if err != nil {
 		return
 	}
-	if ts.emuCreateErr&tf.Type() != 0 {
+	if tf.shouldErr(tsOpCreate) {
 		err = errors.New("leveldb.testStorage: emulated create error")
 		return
 	}
@@ -201,6 +229,23 @@ func (tf tsFile) Create() (w storage.Writer, err error) {
 		ts.t.Logf("I: file created, num=%d type=%v", tf.Num(), tf.Type())
 		ts.opens[tf.x()] = true
 		w = tsWriter{tf, w}
+	}
+	return
+}
+
+func (tf tsFile) Replace(newfile storage.File) (err error) {
+	ts := tf.ts
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	err = tf.checkOpen("replace")
+	if err != nil {
+		return
+	}
+	err = tf.File.Replace(newfile.(tsFile).File)
+	if err != nil {
+		ts.t.Errorf("E: cannot replace file, num=%d type=%v: %v", tf.Num(), tf.Type(), err)
+	} else {
+		ts.t.Logf("I: file replace, num=%d type=%v", tf.Num(), tf.Type())
 	}
 	return
 }
@@ -231,25 +276,61 @@ type testStorage struct {
 	cond sync.Cond
 	// Open files, true=writer, false=reader
 	opens         map[uint64]bool
-	emuOpenErr    storage.FileType
-	emuCreateErr  storage.FileType
 	emuDelaySync  storage.FileType
-	emuWriteErr   storage.FileType
-	emuSyncErr    storage.FileType
 	ignoreOpenErr storage.FileType
 	readCnt       uint64
 	readCntEn     storage.FileType
+
+	emuErr         [tsOpNum]storage.FileType
+	emuErrOnce     [tsOpNum]storage.FileType
+	emuRandErr     [tsOpNum]storage.FileType
+	emuRandErrProb int
+	emuErrOnceMap  map[uint64]uint
+	emuRandRand    *rand.Rand
 }
 
-func (ts *testStorage) SetOpenErr(t storage.FileType) {
+func (ts *testStorage) shouldErr(tf tsFile, op tsOp) bool {
+	if ts.emuErr[op]&tf.Type() != 0 {
+		return true
+	} else if ts.emuRandErr[op]&tf.Type() != 0 || ts.emuErrOnce[op]&tf.Type() != 0 {
+		sop := uint(1) << op
+		eop := ts.emuErrOnceMap[tf.x()]
+		if eop&sop == 0 && (ts.emuRandRand.Int()%ts.emuRandErrProb == 0 || ts.emuErrOnce[op]&tf.Type() != 0) {
+			ts.emuErrOnceMap[tf.x()] = eop | sop
+			ts.t.Logf("I: emulated error: file=%d type=%v op=%v", tf.Num(), tf.Type(), op)
+			return true
+		}
+	}
+	return false
+}
+
+func (ts *testStorage) SetEmuErr(t storage.FileType, ops ...tsOp) {
 	ts.mu.Lock()
-	ts.emuOpenErr = t
+	for _, op := range ops {
+		ts.emuErr[op] = t
+	}
 	ts.mu.Unlock()
 }
 
-func (ts *testStorage) SetCreateErr(t storage.FileType) {
+func (ts *testStorage) SetEmuErrOnce(t storage.FileType, ops ...tsOp) {
 	ts.mu.Lock()
-	ts.emuCreateErr = t
+	for _, op := range ops {
+		ts.emuErrOnce[op] = t
+	}
+	ts.mu.Unlock()
+}
+
+func (ts *testStorage) SetEmuRandErr(t storage.FileType, ops ...tsOp) {
+	ts.mu.Lock()
+	for _, op := range ops {
+		ts.emuRandErr[op] = t
+	}
+	ts.mu.Unlock()
+}
+
+func (ts *testStorage) SetEmuRandErrProb(prob int) {
+	ts.mu.Lock()
+	ts.emuRandErrProb = prob
 	ts.mu.Unlock()
 }
 
@@ -264,18 +345,6 @@ func (ts *testStorage) ReleaseSync(t storage.FileType) {
 	ts.mu.Lock()
 	ts.emuDelaySync &= ^t
 	ts.cond.Broadcast()
-	ts.mu.Unlock()
-}
-
-func (ts *testStorage) SetWriteErr(t storage.FileType) {
-	ts.mu.Lock()
-	ts.emuWriteErr = t
-	ts.mu.Unlock()
-}
-
-func (ts *testStorage) SetSyncErr(t storage.FileType) {
-	ts.mu.Lock()
-	ts.emuSyncErr = t
 	ts.mu.Unlock()
 }
 
@@ -413,7 +482,11 @@ func newTestStorage(t *testing.T) *testStorage {
 			num := tsNum
 			tsNum++
 			tsMU.Unlock()
-			path := filepath.Join(os.TempDir(), fmt.Sprintf("goleveldb-test%d0%d0%d", os.Getuid(), os.Getpid(), num))
+			tempdir := tsTempdir
+			if tempdir == "" {
+				tempdir = os.TempDir()
+			}
+			path := filepath.Join(tempdir, fmt.Sprintf("goleveldb-test%d0%d0%d", os.Getuid(), os.Getpid(), num))
 			if _, err := os.Stat(path); err != nil {
 				stor, err = storage.OpenFile(path)
 				if err != nil {
@@ -436,6 +509,10 @@ func newTestStorage(t *testing.T) *testStorage {
 						}
 						f.Close()
 					}
+					if t.Failed() {
+						t.Logf("testing failed, test DB preserved at %s", path)
+						return nil
+					}
 					if tsKeepFS {
 						return nil
 					}
@@ -449,10 +526,13 @@ func newTestStorage(t *testing.T) *testStorage {
 		stor = storage.NewMemStorage()
 	}
 	ts := &testStorage{
-		t:       t,
-		Storage: stor,
-		closeFn: closeFn,
-		opens:   make(map[uint64]bool),
+		t:              t,
+		Storage:        stor,
+		closeFn:        closeFn,
+		opens:          make(map[uint64]bool),
+		emuErrOnceMap:  make(map[uint64]uint),
+		emuRandErrProb: 0x999,
+		emuRandRand:    rand.New(rand.NewSource(0xfacedead)),
 	}
 	ts.cond.L = &ts.mu
 	return ts

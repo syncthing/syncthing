@@ -3,7 +3,11 @@
 
 package xdr
 
-import "io"
+import (
+	"io"
+	"reflect"
+	"unsafe"
+)
 
 var padBytes = []byte{0, 0, 0}
 
@@ -38,7 +42,13 @@ func (w *Writer) WriteRaw(bs []byte) (int, error) {
 }
 
 func (w *Writer) WriteString(s string) (int, error) {
-	return w.WriteBytes([]byte(s))
+	sh := *((*reflect.StringHeader)(unsafe.Pointer(&s)))
+	bh := reflect.SliceHeader{
+		Data: sh.Data,
+		Len:  sh.Len,
+		Cap:  sh.Len,
+	}
+	return w.WriteBytes(*(*[]byte)(unsafe.Pointer(&bh)))
 }
 
 func (w *Writer) WriteBytes(bs []byte) (int, error) {
