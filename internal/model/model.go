@@ -1242,8 +1242,16 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 					"size":     f.Size(),
 				})
 				batch = append(batch, nf)
-			} else if _, err := os.Lstat(filepath.Join(folderCfg.Path, f.Name)); err != nil && os.IsNotExist(err) {
-				// File has been deleted
+			} else if _, err := os.Lstat(filepath.Join(folderCfg.Path, f.Name)); err != nil {
+				// File has been deleted.
+
+				// We don't specifically verify that the error is
+				// os.IsNotExist because there is a corner case when a
+				// directory is suddenly transformed into a file. When that
+				// happens, files that were in the directory (that is now a
+				// file) are deleted but will return a confusing error ("not a
+				// directory") when we try to Lstat() them.
+
 				nf := protocol.FileInfo{
 					Name:     f.Name,
 					Flags:    f.Flags | protocol.FlagDeleted,
