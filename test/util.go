@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -113,8 +114,10 @@ func alterFiles(dir string) error {
 			return nil
 		}
 
+		info, err = os.Stat(path);
 		if err != nil {
-			return err
+			// Something we deleted while walking. Ignore.
+			return nil
 		}
 
 		if strings.HasPrefix(filepath.Base(path), "test-") {
@@ -165,6 +168,28 @@ func alterFiles(dir string) error {
 			err = fd.Close()
 			if err != nil {
 				return err
+			}
+		case r < 0.3 && comps > 2 && rand.Float64() < 0.2:
+			if !info.Mode().IsRegular() {
+				err = removeAll(path)
+				if err != nil {
+					return err
+				}
+				d1 := []byte("I used to be a dir: "+path)
+				err := ioutil.WriteFile(path, d1, 0644)
+				if err != nil {
+					return err
+				}
+			} else {
+				err := os.Remove(path)
+				if err != nil {
+					return err
+				}
+				err = os.MkdirAll(path, 0755)
+				if err != nil {
+					return err
+				}
+				generateFiles(path, 100, 20, "../LICENSE")
 			}
 		case r < 0.3 && comps > 1 && (info.Mode().IsRegular() || rand.Float64() < 0.2):
 			rpath := filepath.Dir(path)
