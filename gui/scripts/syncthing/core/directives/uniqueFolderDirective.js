@@ -7,7 +7,7 @@ angular.module('syncthing.core')
                     if (scope.editingExisting) {
                         // we shouldn't validate
                         ctrl.$setValidity('uniqueFolder', true);
-                    } else if (scope.folders[viewValue]) {
+                    } else if (scope.folders.hasOwnProperty(viewValue)) {
                         // the folder exists already
                         ctrl.$setValidity('uniqueFolder', false);
                     } else {

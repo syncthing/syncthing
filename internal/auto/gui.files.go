@@ -207,7 +207,7 @@ func Assets() map[string][]byte {
 	bs, _ = ioutil.ReadAll(gr)
 	assets["scripts/syncthing/core/directives/popoverDirective.js"] = bs
 
-	bs, _ = base64.StdEncoding.DecodeString("H4sIAAAJbogA/7SSP28CMQzFdz6Fh0oH0insMLdbV5aqQ3TxcVZDArYDRRXfvQmHgPKnrVT1LSfZfu9+tmLDPHnLZhFd8jisZBsa7SjMTRMZq9EAsowjxkZpnQdSoFXCp+gdclVDm/I8xQDDEXzsh4sYNXE4K/TFVco5E6jC/Dk69FX9pe8pvE3OAqWJS6wB/aIGq8pSQ6PsRxexRaVuHpaWBVlMCtJRq8NT1JpwM7M+4S1zEbWH/xl0pHn9x3eS8r1nKBqPYYMgXUzehUphbT05q3jX0GMK6qxMkm6vzqmcGac3A3b5EoJnpO3eJC/H5V5/gNUOoTcBlvUErGe0bvsH4NZmqO+Jf8tEAn34P93vZvXwUo83vPbuLvJOObvpoDQ/AQAA//8BAAD//3zSfX5DAwAA")
+	bs, _ = base64.StdEncoding.DecodeString("H4sIAAAJbogA/7SSwW4yMQyE7zyFD7+0IK3CHc5/b1V74h5tvKzVkIDtQFHFuzdhUaGwtJWqzgVp4vkYW2vDMnnLZhVd8jiuZB8a7SgsTRMZq8kIsowjxkZpmwdSoE3Ch+gdclVDm/I8xQDjCbwdh4sYNXG4MHpzkzJnBlVYPkaHvqo/vXsKL7MLoDRxjTWgX9VgVVlqaJT95ApbVHzzb21ZkMWkIB21Oj6jtoS7hfUJh8JF1J7+z6Ajzev/fyUpv/cCRdMp7BCki8m7UClsrSdnFe8G+pqCuiiTpPubcyrnjvNBwCFfQvCiaXsMiemsPO3CM2ePM/K86zfdtUPoGYBlWwHrGa3b/6J/a3PHrxf4aScS6OF/dM5B9/ThftzwNnu44p05h/moPL4DAAD//wEAAP//r65WJ1IDAAA=")
 	gr, _ = gzip.NewReader(bytes.NewReader(bs))
 	bs, _ = ioutil.ReadAll(gr)
 	assets["scripts/syncthing/core/directives/uniqueFolderDirective.js"] = bs
