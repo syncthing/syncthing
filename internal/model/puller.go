@@ -614,22 +614,31 @@ func (p *Puller) renameFile(source, target protocol.FileInfo) {
 		err = osutil.TryRename(from, to)
 	}
 
-	if err != nil {
-		l.Infof("Puller (folder %q, file %q): rename from %q: %v", p.folder, target.Name, source.Name, err)
-		return
-	}
+	if err == nil {
+		// The file was renamed, so we have handled both the necessary delete
+		// of the source and the creation of the target. Fix-up the metadata,
+		// and update the local index of the target file.
 
-	// Fix-up the metadata, and update the local index of the target file
-	err = p.shortcutFile(target)
-	if err != nil {
-		l.Infof("Puller (folder %q, file %q): rename from %q metadata: %v", p.folder, target.Name, source.Name, err)
-		return
-	}
+		p.model.updateLocal(p.folder, source)
 
-	// Source file already has the delete bit set.
-	// Because we got rid of the file (by renaming it), we just need to update
-	// the index, and we're done with it.
-	p.model.updateLocal(p.folder, source)
+		err = p.shortcutFile(target)
+		if err != nil {
+			l.Infof("Puller (folder %q, file %q): rename from %q metadata: %v", p.folder, target.Name, source.Name, err)
+			return
+		}
+	} else {
+		// We failed the rename so we have a source file that we still need to
+		// get rid of. Attempt to delete it instead so that we make *some*
+		// progress. The target is unhandled.
+
+		err = osutil.InWritableDir(os.Remove, from)
+		if err != nil {
+			l.Infof("Puller (folder %q, file %q): delete %q after failed rename: %v", p.folder, target.Name, source.Name, err)
+			return
+		}
+
+		p.model.updateLocal(p.folder, source)
+	}
 }
 
 // handleFile queues the copies and pulls as necessary for a single new or
