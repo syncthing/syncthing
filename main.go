@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
@@ -183,18 +184,37 @@ func main() {
 	}
 }
 
+var (
+	cacheData []byte
+	cacheTime time.Time
+	cacheMut  sync.Mutex
+)
+
+const maxCacheTime = 5 * 60 * time.Second
+
 func rootHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" || r.URL.Path == "/index.html" {
-		k := timestamp()
-		rep := getReport(db, k)
+		cacheMut.Lock()
+		defer cacheMut.Unlock()
+
+		if time.Since(cacheTime) > maxCacheTime {
+			rep := getReport(db)
+			buf := new(bytes.Buffer)
+			err := tpl.Execute(buf, rep)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, "Template Error", http.StatusInternalServerError)
+				return
+			}
+			cacheData = buf.Bytes()
+			cacheTime = time.Now()
+		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		err := tpl.Execute(w, rep)
-		if err != nil {
-			log.Println(err)
-		}
+		w.Write(cacheData)
 	} else {
 		http.Error(w, "Not found", 404)
+		return
 	}
 }
 
@@ -234,17 +254,7 @@ type category struct {
 	Binary bool
 }
 
-var reportCache map[string]interface{}
-var reportMutex sync.Mutex
-
-func getReport(db *sql.DB, key string) map[string]interface{} {
-	reportMutex.Lock()
-	defer reportMutex.Unlock()
-
-	if k := reportCache["key"]; k == key {
-		return reportCache
-	}
-
+func getReport(db *sql.DB) map[string]interface{} {
 	nodes := 0
 	var versions []string
 	var platforms []string
@@ -370,14 +380,11 @@ func getReport(db *sql.DB, key string) map[string]interface{} {
 	})
 
 	r := make(map[string]interface{})
-	r["key"] = key
 	r["nodes"] = nodes
 	r["categories"] = categories
 	r["versions"] = analyticsFor(versions, 10)
 	r["platforms"] = analyticsFor(platforms, 0)
 	r["os"] = analyticsFor(oses, 0)
-
-	reportCache = r
 
 	return r
 }
@@ -418,9 +425,4 @@ func transformVersion(v string) string {
 	}
 
 	return v
-}
-
-// timestamp returns a time stamp for the current hour, to be used as a cache key
-func timestamp() string {
-	return time.Now().Format("20060102T15")
 }
