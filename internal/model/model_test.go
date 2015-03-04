@@ -969,3 +969,89 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 }
+
+func genDeepFiles(n, d int) []protocol.FileInfo {
+	rand.Seed(int64(n))
+	files := make([]protocol.FileInfo, n)
+	t := time.Now().Unix()
+	for i := 0; i < n; i++ {
+		path := ""
+		for i := 0; i <= d; i++ {
+			path = filepath.Join(path, strconv.Itoa(rand.Int()))
+		}
+
+		sofar := ""
+		for _, path := range filepath.SplitList(path) {
+			sofar = filepath.Join(sofar, path)
+			files[i] = protocol.FileInfo{
+				Name: sofar,
+			}
+			i++
+		}
+
+		files[i].Modified = t
+		files[i].Blocks = []protocol.BlockInfo{{0, 100, []byte("some hash bytes")}}
+	}
+
+	return files
+}
+
+func BenchmarkTree_10000_50(b *testing.B) {
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
+	m.ScanFolder("default")
+	files := genDeepFiles(10000, 50)
+
+	m.Index(device1, "default", files)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.GlobalDirectoryTree("default", "", -1, false)
+	}
+}
+
+func BenchmarkTree_10000_10(b *testing.B) {
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
+	m.ScanFolder("default")
+	files := genDeepFiles(10000, 10)
+
+	m.Index(device1, "default", files)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.GlobalDirectoryTree("default", "", -1, false)
+	}
+}
+
+func BenchmarkTree_00100_50(b *testing.B) {
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
+	m.ScanFolder("default")
+	files := genDeepFiles(100, 50)
+
+	m.Index(device1, "default", files)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.GlobalDirectoryTree("default", "", -1, false)
+	}
+}
+
+func BenchmarkTree_00100_10(b *testing.B) {
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
+	m.ScanFolder("default")
+	files := genDeepFiles(100, 10)
+
+	m.Index(device1, "default", files)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.GlobalDirectoryTree("default", "", -1, false)
+	}
+}
