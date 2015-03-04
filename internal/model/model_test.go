@@ -565,7 +565,7 @@ func TestRefuseUnknownBits(t *testing.T) {
 		},
 		{
 			Name:  "valid",
-			Flags: protocol.FlagsAll &^ protocol.FlagInvalid,
+			Flags: protocol.FlagsAll &^ (protocol.FlagInvalid | protocol.FlagSymlink),
 		},
 	})
 
