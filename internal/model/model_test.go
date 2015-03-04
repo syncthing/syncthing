@@ -19,9 +19,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -32,10 +34,31 @@ import (
 )
 
 var device1, device2 protocol.DeviceID
+var defaultConfig *config.Wrapper
+var defaultFolderConfig config.FolderConfiguration
 
 func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
+
+	defaultFolderConfig = config.FolderConfiguration{
+		ID:   "default",
+		Path: "testdata",
+		Devices: []config.FolderDeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	}
+	_defaultConfig := config.Configuration{
+		Folders: []config.FolderConfiguration{defaultFolderConfig},
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	}
+	defaultConfig = config.Wrap("/tmp/test", _defaultConfig)
 }
 
 var testDataExpected = map[string]protocol.FileInfo{
@@ -72,10 +95,10 @@ func init() {
 func TestRequest(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 
-	m := NewModel(config.Wrap("/tmp/test", config.Configuration{}), "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
 
 	// device1 shares default, but device2 doesn't
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata", Devices: []config.FolderDeviceConfiguration{{DeviceID: device1}}})
+	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 
 	// Existing, shared file
@@ -158,8 +181,8 @@ func genFiles(n int) []protocol.FileInfo {
 
 func BenchmarkIndex10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(nil, "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genFiles(10000)
 
@@ -171,8 +194,8 @@ func BenchmarkIndex10000(b *testing.B) {
 
 func BenchmarkIndex00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(nil, "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genFiles(100)
 
@@ -184,8 +207,8 @@ func BenchmarkIndex00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(nil, "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genFiles(10000)
 	m.Index(device1, "default", files)
@@ -198,8 +221,8 @@ func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(nil, "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genFiles(10000)
 	m.Index(device1, "default", files)
@@ -213,8 +236,8 @@ func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 
 func BenchmarkIndexUpdate10000f00001(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(nil, "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genFiles(10000)
 	m.Index(device1, "default", files)
@@ -271,8 +294,8 @@ func (FakeConnection) Statistics() protocol.Statistics {
 
 func BenchmarkRequest(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(nil, "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 
 	const n = 1000
@@ -454,12 +477,8 @@ func TestIgnores(t *testing.T) {
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	fcfg := config.FolderConfiguration{ID: "default", Path: "testdata"}
-	cfg := config.Wrap("/tmp", config.Configuration{
-		Folders: []config.FolderConfiguration{fcfg},
-	})
-	m := NewModel(cfg, "device", "syncthing", "dev", db)
-	m.AddFolder(fcfg)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 
 	expected := []string{
 		".*",
@@ -530,27 +549,9 @@ func TestIgnores(t *testing.T) {
 }
 
 func TestRefuseUnknownBits(t *testing.T) {
-	fcfg := config.FolderConfiguration{
-		ID:   "default",
-		Path: "testdata",
-		Devices: []config.FolderDeviceConfiguration{
-			{
-				DeviceID: device1,
-			},
-		},
-	}
-	cfg := config.Configuration{
-		Folders: []config.FolderConfiguration{fcfg},
-		Devices: []config.DeviceConfiguration{
-			{
-				DeviceID: device1,
-			},
-		},
-	}
-
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
-	m.AddFolder(fcfg)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 
 	m.ScanFolder("default")
 	m.Index(device1, "default", []protocol.FileInfo{
@@ -585,27 +586,9 @@ func TestRefuseUnknownBits(t *testing.T) {
 }
 
 func TestGlobalDirectoryTree(t *testing.T) {
-	fcfg := config.FolderConfiguration{
-		ID:   "default",
-		Path: "testdata",
-		Devices: []config.FolderDeviceConfiguration{
-			{
-				DeviceID: device1,
-			},
-		},
-	}
-	cfg := config.Configuration{
-		Folders: []config.FolderConfiguration{fcfg},
-		Devices: []config.DeviceConfiguration{
-			{
-				DeviceID: device1,
-			},
-		},
-	}
-
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
-	m.AddFolder(fcfg)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		var flags uint32 = protocol.FlagDirectory
@@ -852,27 +835,10 @@ func TestGlobalDirectoryTree(t *testing.T) {
 }
 
 func TestGlobalDirectorySelfFixing(t *testing.T) {
-	fcfg := config.FolderConfiguration{
-		ID:   "default",
-		Path: "testdata",
-		Devices: []config.FolderDeviceConfiguration{
-			{
-				DeviceID: device1,
-			},
-		},
-	}
-	cfg := config.Configuration{
-		Folders: []config.FolderConfiguration{fcfg},
-		Devices: []config.DeviceConfiguration{
-			{
-				DeviceID: device1,
-			},
-		},
-	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
-	m.AddFolder(fcfg)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		var flags uint32 = protocol.FlagDirectory
