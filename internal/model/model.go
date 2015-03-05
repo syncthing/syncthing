@@ -1417,6 +1417,69 @@ func (m *Model) RemoteLocalVersion(folder string) int64 {
 	return ver
 }
 
+func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{} {
+	m.fmut.RLock()
+	files, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		return nil
+	}
+
+	output := make(map[string]interface{})
+	sep := string(filepath.Separator)
+	prefix = osutil.NativeFilename(prefix)
+
+	if prefix != "" && !strings.HasSuffix(prefix, sep) {
+		prefix = prefix + sep
+	}
+
+	files.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
+		f := fi.(db.FileInfoTruncated)
+
+		if f.IsInvalid() || f.IsDeleted() || f.Name == prefix {
+			return true
+		}
+
+		f.Name = strings.Replace(f.Name, prefix, "", 1)
+
+		var dir, base string
+		if f.IsDirectory() && !f.IsSymlink() {
+			dir = f.Name
+		} else {
+			dir = filepath.Dir(f.Name)
+			base = filepath.Base(f.Name)
+		}
+
+		if levels > -1 && strings.Count(f.Name, sep) > levels {
+			return true
+		}
+
+		last := output
+		if dir != "." {
+			for _, path := range strings.Split(dir, sep) {
+				directory, ok := last[path]
+				if !ok {
+					newdir := make(map[string]interface{})
+					last[path] = newdir
+					last = newdir
+				} else {
+					last = directory.(map[string]interface{})
+				}
+			}
+		}
+
+		if !dirsonly && base != "" {
+			last[base] = []int64{
+				f.Modified, f.Size(),
+			}
+		}
+
+		return true
+	})
+
+	return output
+}
+
 func (m *Model) availability(folder, file string) []protocol.DeviceID {
 	// Acquire this lock first, as the value returned from foldersFiles can
 	// get heavily modified on Close()

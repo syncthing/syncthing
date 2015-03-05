@@ -709,11 +709,9 @@ func ldbGetGlobal(db *leveldb.DB, folder, file []byte, truncate bool) (FileIntf,
 	return fi, true
 }
 
-func ldbWithGlobal(db *leveldb.DB, folder []byte, truncate bool, fn Iterator) {
+func ldbWithGlobal(db *leveldb.DB, folder, prefix []byte, truncate bool, fn Iterator) {
 	runtime.GC()
 
-	start := globalKey(folder, nil)
-	limit := globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
@@ -728,7 +726,7 @@ func ldbWithGlobal(db *leveldb.DB, folder []byte, truncate bool, fn Iterator) {
 		snap.Release()
 	}()
 
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := snap.NewIterator(util.BytesPrefix(globalKey(folder, prefix)), nil)
 	defer dbi.Release()
 
 	for dbi.Next() {
