@@ -29,11 +29,12 @@ import (
 // updated along the way.
 type sharedPullerState struct {
 	// Immutable, does not require locking
-	file     protocol.FileInfo
-	folder   string
-	tempName string
-	realName string
-	reused   int // Number of blocks reused from temporary file
+	file        protocol.FileInfo
+	folder      string
+	tempName    string
+	realName    string
+	reused      int // Number of blocks reused from temporary file
+	ignorePerms bool
 
 	// Mutable, must be locked for access
 	err        error      // The first error we hit
@@ -96,7 +97,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		return nil, err
 	} else if info.Mode()&0200 == 0 {
 		err := os.Chmod(dir, 0755)
-		if err == nil {
+		if !s.ignorePerms && err == nil {
 			defer func() {
 				err := os.Chmod(dir, info.Mode().Perm())
 				if err != nil {
@@ -117,7 +118,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		// file that we're going to try to reuse. To handle that, we need to
 		// make sure we have write permissions on the file before opening it.
 		err := os.Chmod(s.tempName, 0644)
-		if err != nil {
+		if !s.ignorePerms && err != nil {
 			s.failLocked("dst create chmod", err)
 			return nil, err
 		}
