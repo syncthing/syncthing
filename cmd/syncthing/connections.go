@@ -41,7 +41,14 @@ func listenConnect(myID protocol.DeviceID, m *model.Model, tlsCfg *tls.Config) {
 
 next:
 	for conn := range conns {
-		certs := conn.ConnectionState().PeerCertificates
+		cs := conn.ConnectionState()
+		if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != bepProtocolName {
+			l.Infof("Peer %s did not negotiate bep/1.0", conn.RemoteAddr())
+			conn.Close()
+			continue
+		}
+
+		certs := cs.PeerCertificates
 		if cl := len(certs); cl != 1 {
 			l.Infof("Got peer certificate list of length %d != 1 from %s; protocol error", cl, conn.RemoteAddr())
 			conn.Close()
