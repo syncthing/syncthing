@@ -72,6 +72,8 @@ const (
 	exitUpgrading          = 4
 )
 
+const bepProtocolName = "bep/1.0"
+
 var l = logger.DefaultLogger
 
 func init() {
@@ -461,7 +463,7 @@ func syncthingMain() {
 
 	tlsCfg := &tls.Config{
 		Certificates:           []tls.Certificate{cert},
-		NextProtos:             []string{"bep/1.0"},
+		NextProtos:             []string{bepProtocolName},
 		ClientAuth:             tls.RequestClientCert,
 		SessionTicketsDisabled: true,
 		InsecureSkipVerify:     true,
