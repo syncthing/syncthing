@@ -1,0 +1,8 @@
+<service>
+  <id>Syncthing</id>
+  <name>Syncthing</name>
+  <description>This service runs Syncthing</description>
+  <executable>syncthing.exe</executable>
+  <arguments>-home .\ServiceHome -no-console -no-browser</arguments>
+  <logmode>rotate</logmode>
+</service>
