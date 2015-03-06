@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <Product Id="{0A36A770-1A09-4E04-8961-D2CC314886C7}" Name="Syncthing" Language="1033" Version="0.10.23" Manufacturer="syncthing.net" UpgradeCode="fe8d3029-4c61-426c-a40f-da7aab6203ce">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+    <MediaTemplate CompressionLevel="high" />
+    <util:CloseApplication Id="syncthing.exe" Target="syncthing.exe" CloseMessage="yes" />
+    <!--http://stackoverflow.com/questions/1544990/wix-major-upgrade-doesnt-completely-install-app-on-downgrade-->
+    <!--http://msdn.microsoft.com/en-us/library/aa371182%28v=vs.85%29.aspx-->
+    <!--<Property Id="REINSTALLMODE" Value="amus" />-->
+    <MajorUpgrade AllowDowngrades="yes" />
+
+    <Feature Id="ProductFeature" Title="Syncthing" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="SyncthingComponents" />
+      <ComponentRef Id="ApplicationShortcut" />
+    </Feature>
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="*">
+        <Shortcut Id="ApplicationStartMenuShortcut" Name="Syncthing" Description="Syncthing" Target="[#fil0B92522F3CAC1E538328247E844F69E1]" WorkingDirectory="ProgramFilesFolder" />
+        <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\Microsoft\Syncthing" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Product>
+  <Fragment>
+    <!--silently kill Syncthing start-->
+    <!--<InstallExecuteSequence>
+      <Custom Action='MyProcess.TaskKill' Before='InstallValidate' />
+    </InstallExecuteSequence>
+    <Property Id="QtExecCmdLine" Value='"C:\Windows\System32\taskkill.exe" /F /IM Syncthing.exe' />
+    <CustomAction Id="MyProcess.TaskKill" BinaryKey="WixCA" DllEntry="CAQuietExec" Execute="immediate" Return="ignore" />-->
+    <!--silently kill Syncthing end-->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="Syncthing">
+          <Directory Id="SyncthingComponentsDir" />
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Syncthing" />
+      </Directory>
+    </Directory>
+  </Fragment>
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- TODO: Remove the comments around this Component element and the ComponentRef below in order to add resources to this installer. -->
+    </ComponentGroup>
+  </Fragment>
+</Wix>

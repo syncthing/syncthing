@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <DirectoryRef Id="SyncthingComponentsDir">
+            <Component Id="cmp7C136F5A30A7752E5001F5755DC73F27" Guid="*">
+                <File Id="fil3D862152222D1F4A98F1D2240BC76EC4" KeyPath="yes" Source="$(var.MySource)\stcompdirs.exe" />
+            </Component>
+            <Component Id="cmp728F3E12B2F821EEC6971DD434E6F2B7" Guid="*">
+                <File Id="fil2C0E8082B590069CE973009E1E0E7AD4" KeyPath="yes" Source="$(var.MySource)\stevents.exe" />
+            </Component>
+            <Component Id="cmp3D1CCE31D82D8536701BD91DF0C88DB4" Guid="*">
+                <File Id="fil5CCAE83C57D8A7764D46F96B84088209" KeyPath="yes" Source="$(var.MySource)\stfileinfo.exe" />
+            </Component>
+            <Component Id="cmp5D903DBC40A0141D5A5EE192D008FD3D" Guid="*">
+                <File Id="filA5DD3C34EAD0487116D672F6E4B02605" KeyPath="yes" Source="$(var.MySource)\stfinddevice.exe" />
+            </Component>
+            <Component Id="cmpE452B0730BD374B553591089257A50B0" Guid="*">
+                <File Id="filDC40C5FEB802CC20BE1461BF865A6301" KeyPath="yes" Source="$(var.MySource)\stindex.exe" />
+            </Component>
+            <Component Id="cmpAF17AC26F51DA0C1CBB25DD19D46BC77" Guid="*">
+                <File Id="fil0B92522F3CAC1E538328247E844F69E1" KeyPath="yes" Source="$(var.MySource)\syncthing.exe" />
+            </Component>
+        </DirectoryRef>
+    </Fragment>
+    <Fragment>
+        <ComponentGroup Id="SyncthingComponents">
+            <ComponentRef Id="cmp7C136F5A30A7752E5001F5755DC73F27" />
+            <ComponentRef Id="cmp728F3E12B2F821EEC6971DD434E6F2B7" />
+            <ComponentRef Id="cmp3D1CCE31D82D8536701BD91DF0C88DB4" />
+            <ComponentRef Id="cmp5D903DBC40A0141D5A5EE192D008FD3D" />
+            <ComponentRef Id="cmpE452B0730BD374B553591089257A50B0" />
+            <ComponentRef Id="cmpAF17AC26F51DA0C1CBB25DD19D46BC77" />
+        </ComponentGroup>
+    </Fragment>
+</Wix>
