@@ -718,13 +718,14 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 	}
 
 	s := sharedPullerState{
-		file:       file,
-		folder:     p.folder,
-		tempName:   tempName,
-		realName:   realName,
-		copyTotal:  len(blocks),
-		copyNeeded: len(blocks),
-		reused:     reused,
+		file:        file,
+		folder:      p.folder,
+		tempName:    tempName,
+		realName:    realName,
+		copyTotal:   len(blocks),
+		copyNeeded:  len(blocks),
+		reused:      reused,
+		ignorePerms: p.ignorePerms,
 	}
 
 	if debug {
