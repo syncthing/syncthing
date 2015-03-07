@@ -69,7 +69,14 @@ func Copy(from, to string) (err error) {
 // containing `path` is writable for the duration of the call.
 func InWritableDir(fn func(string) error, path string) error {
 	dir := filepath.Dir(path)
-	if info, err := os.Stat(dir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return errors.New("Not a directory: " + path)
+	}
+	if info.Mode()&0200 == 0 {
 		// A non-writeable directory (for this user; we assume that's the
 		// relevant part). Temporarily change the mode so we can delete the
 		// file or directory inside it.
