@@ -626,6 +626,8 @@ func uniqueStrings(ss []string) []string {
 		us = append(us, k)
 	}
 
+	sort.Strings(us)
+
 	return us
 }
 
