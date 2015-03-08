@@ -92,10 +92,7 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 			return err
 		}
 
-		err = os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
-		if !ignorePerms && err != nil {
-			return err
-		}
+		_ = os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
 
 		t := time.Now().Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
 		err = os.Chtimes(p1, t, t)
@@ -151,8 +148,7 @@ func alterFiles(dir string) error {
 		case r == 1 && info.Mode().IsRegular():
 			if info.Mode()&0200 != 0200 {
 				// Not owner writable. Fix.
-				err = os.Chmod(path, 0644)
-				if !ignorePerms && err != nil {
+				if err = os.Chmod(path, 0644); err != nil {
 					return err
 				}
 			}
