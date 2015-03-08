@@ -55,6 +55,7 @@ func TestDefaultValues(t *testing.T) {
 		CacheIgnoredFiles:       true,
 		ProgressUpdateIntervalS: 5,
 		SymlinksEnabled:         true,
+		LimitBandwidthInLan:     false,
 	}
 
 	cfg := New(device1)
@@ -158,6 +159,7 @@ func TestOverriddenValues(t *testing.T) {
 		CacheIgnoredFiles:       false,
 		ProgressUpdateIntervalS: 10,
 		SymlinksEnabled:         false,
+		LimitBandwidthInLan:     true,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
