@@ -1146,6 +1146,7 @@ func (m *Model) ScanFolder(folder string) error {
 }
 
 func (m *Model) ScanFolderSub(folder, sub string) error {
+	sub = osutil.NativeFilename(sub)
 	if p := filepath.Clean(filepath.Join(folder, sub)); !strings.HasPrefix(p, folder) {
 		return errors.New("invalid subpath")
 	}
@@ -1161,6 +1162,18 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	}
 
 	_ = ignores.Load(filepath.Join(folderCfg.Path, ".stignore")) // Ignore error, there might not be an .stignore
+
+	// Required to make sure that we start indexing at a directory we're already
+	// aware off.
+	for sub != "" {
+		if _, ok = fs.Get(protocol.LocalDeviceID, sub); ok {
+			break
+		}
+		sub = filepath.Dir(sub)
+		if sub == "." || sub == string(filepath.Separator) {
+			sub = ""
+		}
+	}
 
 	w := &scanner.Walker{
 		Dir:          folderCfg.Path,
