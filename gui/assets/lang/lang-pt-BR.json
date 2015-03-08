@@ -149,7 +149,7 @@
     "The number of versions must be a number and cannot be blank.": "O número de versões deve ser um valor numério e não pode estar em branco.",
     "The rescan interval must be a non-negative number of seconds.": "O intervalo entre verificações deve ser um número positivo de segundos.",
     "The rescan interval must be at least 5 seconds.": "O intervalo entre verificações deve ser de pelo menos 5 segundos.",
-    "Unknown": "Desconhecido",
+    "Unknown": "Desconhecida",
     "Unshared": "Não compartilhado",
     "Unused": "Não utilizado",
     "Up to Date": "Sincronizada",
