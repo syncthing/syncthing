@@ -19,6 +19,20 @@
         <Shortcut Id="ApplicationStartMenuShortcut" Name="Syncthing" Description="Syncthing" Target="[#fil0B92522F3CAC1E538328247E844F69E1]" WorkingDirectory="ProgramFilesFolder" />
         <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\Microsoft\Syncthing" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+        <!--<util:User Id="UpdateUserLogonAsService" UpdateIfExists="yes" CreateUser="no" Name="[SERVICECREDENTIALS_USERLOGIN]"
+            LogonAsService="yes" />
+        <ServiceInstall
+          Id="ServiceInstaller"
+          Type="ownProcess"
+          Name="SyncthingService"
+          DisplayName="Syncthingservice - created by Installer (seeland.biz)"
+          Description="Syncthing.net Service"
+          Start="auto"
+         Account="[SERVICECREDENTIALS_USERLOGIN]" Password="[SERVICECREDENTIALS_PASSWORD]"
+              ErrorControl="ignore"
+      />
+        <ServiceControl Id="StartService" Start="install" Stop="both" Remove="uninstall" Name="SyncthingService" Wait="yes" />-->
+
       </Component>
     </DirectoryRef>
   </Product>

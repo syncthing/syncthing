@@ -32,12 +32,15 @@
       <Name>WixUtilExtension</Name>
     </WixExtension>
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Syncthing.xslt" />
+  </ItemGroup>
   <Import Project="$(WixTargetsPath)" />
   <Target Name="BeforeBuild">
     <!--
     <HeatDirectory NoLogo="$(HarvestDirectoryNoLogo)" SuppressAllWarnings="$(HarvestDirectorySuppressAllWarnings)" SuppressSpecificWarnings="$(HarvestDirectorySuppressSpecificWarnings)" ToolPath="$(WixToolPath)" TreatWarningsAsErrors="$(HarvestDirectoryTreatWarningsAsErrors)" TreatSpecificWarningsAsErrors="$(HarvestDirectoryTreatSpecificWarningsAsErrors)" VerboseOutput="$(HarvestDirectoryVerboseOutput)" AutogenerateGuids="$(HarvestDirectoryAutogenerateGuids)" GenerateGuidsNow="$(HarvestDirectoryGenerateGuidsNow)" OutputFile="$(IntermediateOutputPath)_%(HarvestDirectory.Filename)_dir.wxs" SuppressFragments="$(HarvestDirectorySuppressFragments)" SuppressUniqueIds="$(HarvestDirectorySuppressUniqueIds)" Transforms="%(HarvestDirectory.Transforms)" Directory="@(HarvestDirectory)" ComponentGroupName="%(HarvestDirectory.ComponentGroupName)" DirectoryRefId="%(HarvestDirectory.DirectoryRefId)" KeepEmptyDirectories="%(HarvestDirectory.KeepEmptyDirectories)" PreprocessorVariable="%(HarvestDirectory.PreprocessorVariable)" SuppressCom="%(HarvestDirectory.SuppressCom)" SuppressRootDirectory="%(HarvestDirectory.SuppressRootDirectory)" SuppressRegistry="%(HarvestDirectory.SuppressRegistry)" />
     -->
-    <HeatDirectory NoLogo="$(HarvestDirectoryNoLogo)" SuppressAllWarnings="$(HarvestDirectorySuppressAllWarnings)" SuppressSpecificWarnings="$(HarvestDirectorySuppressSpecificWarnings)" ToolPath="$(WixToolPath)" TreatWarningsAsErrors="$(HarvestDirectoryTreatWarningsAsErrors)" TreatSpecificWarningsAsErrors="$(HarvestDirectoryTreatSpecificWarningsAsErrors)" VerboseOutput="$(HarvestDirectoryVerboseOutput)" AutogenerateGuids="true" GenerateGuidsNow="false" OutputFile="Syncthing.wxs" SuppressFragments="$(HarvestDirectorySuppressFragments)" SuppressUniqueIds="$(HarvestDirectorySuppressUniqueIds)" Transforms="%(HarvestDirectory.Transforms)" Directory="..\bin" ComponentGroupName="SyncthingComponents" DirectoryRefId="SyncthingComponentsDir" KeepEmptyDirectories="%(HarvestDirectory.KeepEmptyDirectories)" PreprocessorVariable="var.MySource" SuppressCom="true" SuppressRootDirectory="true" SuppressRegistry="true" />
+    <HeatDirectory NoLogo="$(HarvestDirectoryNoLogo)" SuppressAllWarnings="$(HarvestDirectorySuppressAllWarnings)" SuppressSpecificWarnings="$(HarvestDirectorySuppressSpecificWarnings)" ToolPath="$(WixToolPath)" TreatWarningsAsErrors="$(HarvestDirectoryTreatWarningsAsErrors)" TreatSpecificWarningsAsErrors="$(HarvestDirectoryTreatSpecificWarningsAsErrors)" VerboseOutput="$(HarvestDirectoryVerboseOutput)" AutogenerateGuids="true" GenerateGuidsNow="false" OutputFile="Syncthing.wxs" SuppressFragments="$(HarvestDirectorySuppressFragments)" SuppressUniqueIds="$(HarvestDirectorySuppressUniqueIds)" Transforms="Syncthing.xslt" Directory="..\bin" ComponentGroupName="SyncthingComponents" DirectoryRefId="SyncthingComponentsDir" KeepEmptyDirectories="%(HarvestDirectory.KeepEmptyDirectories)" PreprocessorVariable="var.MySource" SuppressCom="true" SuppressRootDirectory="true" SuppressRegistry="true" />
   </Target>
   <Target Name="AfterBuild">
   </Target>

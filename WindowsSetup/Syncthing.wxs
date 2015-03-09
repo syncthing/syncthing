@@ -20,6 +20,23 @@
             <Component Id="cmpAF17AC26F51DA0C1CBB25DD19D46BC77" Guid="*">
                 <File Id="fil0B92522F3CAC1E538328247E844F69E1" KeyPath="yes" Source="$(var.MySource)\syncthing.exe" />
             </Component>
+            <Component Id="cmp50B779FC0E31876A289A73F7E5875D34" Guid="*">
+                <File Id="fil22E636870E20EA8ED1CC7562A68A7405" KeyPath="yes" Source="$(var.MySource)\SyncthingServiceWrapper.exe" />
+                <wix:ServiceInstall Id="MyServiceInstall" DisplayName="Syncthing Service" Description="Syncthingservice created by installer" Name="Syncthing Service" ErrorControl="ignore" Start="auto" Type="ownProcess" Vital="yes" Interactive="no" Account="[SERVICECREDENTIALS_USERLOGIN]" Password="[SERVICECREDENTIALS_PASSWORD]" xmlns:wix="http://schemas.microsoft.com/wix/2006/wi" xmlns:my="my:my" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension" />
+                <wix:ServiceControl Id="MyServiceControl" Name="Syncthing Service" Start="install" Stop="both" Remove="uninstall" Wait="yes" xmlns:wix="http://schemas.microsoft.com/wix/2006/wi" xmlns:my="my:my" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension" />
+            </Component>
+            <Component Id="cmp7C1CF2B032C3345CF5A69B7766EB107E" Guid="*">
+                <File Id="filABE3AA911CCB0159E8F7EA2129CCF2BF" KeyPath="yes" Source="$(var.MySource)\SyncthingServiceWrapper.exe.config" />
+            </Component>
+            <Component Id="cmpBFF3155C2CE075DAA7995CB3B9A3D83C" Guid="*">
+                <File Id="fil112139404CEB531F793250837AF94DAD" KeyPath="yes" Source="$(var.MySource)\SyncthingServiceWrapper.pdb" />
+            </Component>
+            <Component Id="cmpFBE1E6481B9C2AA9F4F1619E0A48E7B3" Guid="*">
+                <File Id="filD51274CCF6ADC3C01FE7619D3322D6BC" KeyPath="yes" Source="$(var.MySource)\SyncthingServiceWrapper.vshost.exe" />
+            </Component>
+            <Component Id="cmp5C569EC8C6AF211400C93AC7BC25030D" Guid="*">
+                <File Id="fil4D3F2187A429B76E5A3F8DD0E0A04364" KeyPath="yes" Source="$(var.MySource)\SyncthingServiceWrapper.vshost.exe.config" />
+            </Component>
         </DirectoryRef>
     </Fragment>
     <Fragment>
@@ -30,6 +47,11 @@
             <ComponentRef Id="cmp5D903DBC40A0141D5A5EE192D008FD3D" />
             <ComponentRef Id="cmpE452B0730BD374B553591089257A50B0" />
             <ComponentRef Id="cmpAF17AC26F51DA0C1CBB25DD19D46BC77" />
+            <ComponentRef Id="cmp50B779FC0E31876A289A73F7E5875D34" />
+            <ComponentRef Id="cmp7C1CF2B032C3345CF5A69B7766EB107E" />
+            <ComponentRef Id="cmpBFF3155C2CE075DAA7995CB3B9A3D83C" />
+            <ComponentRef Id="cmpFBE1E6481B9C2AA9F4F1619E0A48E7B3" />
+            <ComponentRef Id="cmp5C569EC8C6AF211400C93AC7BC25030D" />
         </ComponentGroup>
     </Fragment>
 </Wix>
