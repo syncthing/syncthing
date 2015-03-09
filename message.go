@@ -83,8 +83,8 @@ type ResponseMessage struct {
 }
 
 type ClusterConfigMessage struct {
-	ClientName    string   // max:64
-	ClientVersion string   // max:64
+	ClientName    string // max:64
+	ClientVersion string // max:64
 	Folders       []Folder
 	Options       []Option // max:64
 }
