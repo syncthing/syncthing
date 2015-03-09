@@ -16,33 +16,20 @@
     </Feature>
     <DirectoryRef Id="ApplicationProgramsFolder">
       <Component Id="ApplicationShortcut" Guid="*">
-        <Shortcut Id="ApplicationStartMenuShortcut" Name="Syncthing" Description="Syncthing" Target="[#fil0B92522F3CAC1E538328247E844F69E1]" WorkingDirectory="ProgramFilesFolder" />
+        <Shortcut Id="ApplicationStartMenuShortcut" Name="Syncthing" Description="Syncthing" Target="[#fil64BE430D0AA55BDFC2E2908FF81F781D]" WorkingDirectory="ProgramFilesFolder" />
         <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\Microsoft\Syncthing" Name="installed" Type="integer" Value="1" KeyPath="yes" />
-        <!--<util:User Id="UpdateUserLogonAsService" UpdateIfExists="yes" CreateUser="no" Name="[SERVICECREDENTIALS_USERLOGIN]"
-            LogonAsService="yes" />
-        <ServiceInstall
-          Id="ServiceInstaller"
-          Type="ownProcess"
-          Name="SyncthingService"
-          DisplayName="Syncthingservice - created by Installer (seeland.biz)"
-          Description="Syncthing.net Service"
-          Start="auto"
-         Account="[SERVICECREDENTIALS_USERLOGIN]" Password="[SERVICECREDENTIALS_PASSWORD]"
-              ErrorControl="ignore"
-      />
-        <ServiceControl Id="StartService" Start="install" Stop="both" Remove="uninstall" Name="SyncthingService" Wait="yes" />-->
-
+        <util:EventSource Log="Application" Name="Syncthing Service" EventMessageFile="[NETFRAMEWORK20INSTALLROOTDIR]EventLogMessages.dll" />
       </Component>
     </DirectoryRef>
   </Product>
   <Fragment>
     <!--silently kill Syncthing start-->
-    <!--<InstallExecuteSequence>
-      <Custom Action='MyProcess.TaskKill' Before='InstallValidate' />
+    <InstallExecuteSequence>
+      <Custom Action='MyProcess.TaskKill' Before='InstallFiles' />
     </InstallExecuteSequence>
     <Property Id="QtExecCmdLine" Value='"C:\Windows\System32\taskkill.exe" /F /IM Syncthing.exe' />
-    <CustomAction Id="MyProcess.TaskKill" BinaryKey="WixCA" DllEntry="CAQuietExec" Execute="immediate" Return="ignore" />-->
+    <CustomAction Id="MyProcess.TaskKill" BinaryKey="WixCA" DllEntry="CAQuietExec" Execute="immediate" Return="ignore" />
     <!--silently kill Syncthing end-->
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
@@ -57,7 +44,8 @@
   </Fragment>
   <Fragment>
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-      <!-- TODO: Remove the comments around this Component element and the ComponentRef below in order to add resources to this installer. -->
+      <!--http://stackoverflow.com/questions/58538/how-do-you-create-an-event-log-source-using-wix-->
+
     </ComponentGroup>
   </Fragment>
 </Wix>

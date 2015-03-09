@@ -46,8 +46,11 @@ namespace SyncthingServiceWrapper
         ///    or not disposing is going on.</param>
         protected override void Dispose(bool disposing)
         {
+            syncthingProcess.Dispose();
             base.Dispose(disposing);
         }
+
+        Process syncthingProcess;
 
         /// <summary>
         /// OnStart(): Put startup code here
@@ -56,18 +59,40 @@ namespace SyncthingServiceWrapper
         /// <param name="args"></param>
         protected override void OnStart(string[] args)
         {
-            Process p = new Process();
-            p.StartInfo.FileName = Path.Combine(GetCurrentExecutingDirectory(), "syncthing.exe");
-            p.StartInfo.RedirectStandardOutput = true;
-            p.StartInfo.RedirectStandardError = true;
-            p.StartInfo.UseShellExecute = false;
-            p.StartInfo.CreateNoWindow = true;
+            syncthingProcess = new Process();
+            syncthingProcess.StartInfo.FileName =  Path.Combine(GetCurrentExecutingDirectory(), "syncthing.exe") ;
+            syncthingProcess.StartInfo.RedirectStandardOutput = true;
+            syncthingProcess.StartInfo.RedirectStandardError = true;
+            syncthingProcess.StartInfo.RedirectStandardInput = true;
+            syncthingProcess.StartInfo.UseShellExecute = false;
+            syncthingProcess.EnableRaisingEvents = true;
+            syncthingProcess.StartInfo.CreateNoWindow = false;
             //p.StartInfo.Arguments = concatedParameterAndSources + "\"" + parameter.Destination.LocalPath + "\""; 
-            p.OutputDataReceived += new DataReceivedEventHandler(proc_OutputDataReceived);
-            p.ErrorDataReceived += new DataReceivedEventHandler(proc_ErrorDataReceived);
-            p.Start();
-
+            syncthingProcess.OutputDataReceived += new DataReceivedEventHandler(proc_OutputDataReceived);
+            syncthingProcess.ErrorDataReceived += new DataReceivedEventHandler(proc_ErrorDataReceived);
+            syncthingProcess.Exited += new EventHandler(proc_SyncthingExited);
+            syncthingProcess.Start();
             base.OnStart(args);
+        }
+
+        private void proc_SyncthingExited(object sender, EventArgs e)
+        {
+            System.Threading.Thread.Sleep(500);
+            var timeout = DateTime.Now;
+            while (Process.GetProcessesByName("syncthing.exe").Count() == 0 || DateTime.Compare( timeout.AddMilliseconds(15000), DateTime.Now)>0)
+            {
+                System.Threading.Thread.Sleep(100); 
+            }
+
+            if (Process.GetProcessesByName("syncthing.exe").Count() > 0)
+            {
+                syncthingProcess = Process.GetProcessesByName("syncthing.exe").Last();
+            }
+            else
+            {
+                this.EventLog.WriteEntry("Syncthing.exe crashed");
+                this.Stop();
+             }
         }
 
         private void proc_ErrorDataReceived(object sender, DataReceivedEventArgs e)
@@ -91,7 +116,19 @@ namespace SyncthingServiceWrapper
         /// </summary>
         protected override void OnStop()
         {
+            shutdownSyncthingExe();
             base.OnStop();
+        }
+
+        private void shutdownSyncthingExe()
+        {
+            foreach (var item in Process.GetProcessesByName("syncthing.exe"))
+            {
+                item.StandardInput.WriteLine("\x3");
+                item.Close();
+                item.Dispose();
+            }
+            syncthingProcess.Dispose();
         }
 
         /// <summary>
@@ -100,6 +137,7 @@ namespace SyncthingServiceWrapper
         /// </summary>
         protected override void OnPause()
         {
+
             base.OnPause();
         }
 
@@ -120,6 +158,7 @@ namespace SyncthingServiceWrapper
         /// </summary>
         protected override void OnShutdown()
         {
+            shutdownSyncthingExe();
             base.OnShutdown();
         }
 

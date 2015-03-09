@@ -20,6 +20,9 @@
             <Component Id="cmpAF17AC26F51DA0C1CBB25DD19D46BC77" Guid="*">
                 <File Id="fil0B92522F3CAC1E538328247E844F69E1" KeyPath="yes" Source="$(var.MySource)\syncthing.exe" />
             </Component>
+            <Component Id="cmpC3CD69362AC2345BEA84C8ECB5DF0682" Guid="*">
+                <File Id="fil64BE430D0AA55BDFC2E2908FF81F781D" KeyPath="yes" Source="$(var.MySource)\Syncthing.website" />
+            </Component>
             <Component Id="cmp50B779FC0E31876A289A73F7E5875D34" Guid="*">
                 <File Id="fil22E636870E20EA8ED1CC7562A68A7405" KeyPath="yes" Source="$(var.MySource)\SyncthingServiceWrapper.exe" />
                 <wix:ServiceInstall Id="MyServiceInstall" DisplayName="Syncthing Service" Description="Syncthingservice created by installer" Name="Syncthing Service" ErrorControl="ignore" Start="auto" Type="ownProcess" Vital="yes" Interactive="no" Account="[SERVICECREDENTIALS_USERLOGIN]" Password="[SERVICECREDENTIALS_PASSWORD]" xmlns:wix="http://schemas.microsoft.com/wix/2006/wi" xmlns:my="my:my" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension" />
@@ -47,6 +50,7 @@
             <ComponentRef Id="cmp5D903DBC40A0141D5A5EE192D008FD3D" />
             <ComponentRef Id="cmpE452B0730BD374B553591089257A50B0" />
             <ComponentRef Id="cmpAF17AC26F51DA0C1CBB25DD19D46BC77" />
+            <ComponentRef Id="cmpC3CD69362AC2345BEA84C8ECB5DF0682" />
             <ComponentRef Id="cmp50B779FC0E31876A289A73F7E5875D34" />
             <ComponentRef Id="cmp7C1CF2B032C3345CF5A69B7766EB107E" />
             <ComponentRef Id="cmpBFF3155C2CE075DAA7995CB3B9A3D83C" />
