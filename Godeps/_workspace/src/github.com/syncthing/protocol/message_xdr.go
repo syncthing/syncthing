@@ -41,7 +41,7 @@ IndexMessage Structure:
 
 
 struct IndexMessage {
-	string Folder<64>;
+	string Folder<>;
 	FileInfo Files<>;
 	unsigned int Flags;
 	Option Options<64>;
@@ -74,9 +74,6 @@ func (o IndexMessage) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o IndexMessage) encodeXDR(xw *xdr.Writer) (int, error) {
-	if l := len(o.Folder); l > 64 {
-		return xw.Tot(), xdr.ElementSizeExceeded("Folder", l, 64)
-	}
 	xw.WriteString(o.Folder)
 	xw.WriteUint32(uint32(len(o.Files)))
 	for i := range o.Files {
@@ -111,7 +108,7 @@ func (o *IndexMessage) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *IndexMessage) decodeXDR(xr *xdr.Reader) error {
-	o.Folder = xr.ReadStringMax(64)
+	o.Folder = xr.ReadString()
 	_FilesSize := int(xr.ReadUint32())
 	o.Files = make([]FileInfo, _FilesSize)
 	for i := range o.Files {
@@ -559,7 +556,7 @@ ClusterConfigMessage Structure:
 struct ClusterConfigMessage {
 	string ClientName<64>;
 	string ClientVersion<64>;
-	Folder Folders<64>;
+	Folder Folders<>;
 	Option Options<64>;
 }
 
@@ -598,9 +595,6 @@ func (o ClusterConfigMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ElementSizeExceeded("ClientVersion", l, 64)
 	}
 	xw.WriteString(o.ClientVersion)
-	if l := len(o.Folders); l > 64 {
-		return xw.Tot(), xdr.ElementSizeExceeded("Folders", l, 64)
-	}
 	xw.WriteUint32(uint32(len(o.Folders)))
 	for i := range o.Folders {
 		_, err := o.Folders[i].encodeXDR(xw)
@@ -636,9 +630,6 @@ func (o *ClusterConfigMessage) decodeXDR(xr *xdr.Reader) error {
 	o.ClientName = xr.ReadStringMax(64)
 	o.ClientVersion = xr.ReadStringMax(64)
 	_FoldersSize := int(xr.ReadUint32())
-	if _FoldersSize > 64 {
-		return xdr.ElementSizeExceeded("Folders", _FoldersSize, 64)
-	}
 	o.Folders = make([]Folder, _FoldersSize)
 	for i := range o.Folders {
 		(&o.Folders[i]).decodeXDR(xr)
