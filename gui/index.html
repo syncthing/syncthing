@@ -319,7 +319,7 @@
                       <span ng-if="announceServersFailed.length == 0" class="data text-success">
                         <span>OK</span>
                       </span>
-                      <span ng-if="announceServersFailed.length != 0" class="data text-danger">
+                      <span ng-if="announceServersFailed.length != 0" class="data" ng-class="{'text-danger': announceServersFailed.length == announceServersTotal}">
                         <span popover data-trigger="hover" data-placement="bottom" data-content="{{announceServersFailed.join('\n')}}">
                           {{announceServersTotal-announceServersFailed.length}}/{{announceServersTotal}}
                         </span>
