@@ -183,6 +183,7 @@ type OptionsConfiguration struct {
 	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" default:"true"`
 	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" default:"5"`
 	SymlinksEnabled         bool     `xml:"symlinksEnabled" default:"true"`
+	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" default:"false"`
 
 	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
 	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`
