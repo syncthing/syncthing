@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?define ProductVersion = "0.10.23"?>
+<?define ProductVersion = "0.10.25"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
   <Product  Id="*" Name="Syncthing" Language="1033" Version="$(var.ProductVersion)" Manufacturer="syncthing.net" UpgradeCode="fe8d3029-4c61-426c-a40f-da7aab6203ce">
     <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />

@@ -34,12 +34,6 @@
             <Component Id="cmpBFF3155C2CE075DAA7995CB3B9A3D83C" Guid="*">
                 <File Id="fil112139404CEB531F793250837AF94DAD" KeyPath="yes" Source="$(var.MySource)\SyncthingServiceWrapper.pdb" />
             </Component>
-            <Component Id="cmpFBE1E6481B9C2AA9F4F1619E0A48E7B3" Guid="*">
-                <File Id="filD51274CCF6ADC3C01FE7619D3322D6BC" KeyPath="yes" Source="$(var.MySource)\SyncthingServiceWrapper.vshost.exe" />
-            </Component>
-            <Component Id="cmp5C569EC8C6AF211400C93AC7BC25030D" Guid="*">
-                <File Id="fil4D3F2187A429B76E5A3F8DD0E0A04364" KeyPath="yes" Source="$(var.MySource)\SyncthingServiceWrapper.vshost.exe.config" />
-            </Component>
         </DirectoryRef>
     </Fragment>
     <Fragment>
@@ -54,8 +48,6 @@
             <ComponentRef Id="cmp50B779FC0E31876A289A73F7E5875D34" />
             <ComponentRef Id="cmp7C1CF2B032C3345CF5A69B7766EB107E" />
             <ComponentRef Id="cmpBFF3155C2CE075DAA7995CB3B9A3D83C" />
-            <ComponentRef Id="cmpFBE1E6481B9C2AA9F4F1619E0A48E7B3" />
-            <ComponentRef Id="cmp5C569EC8C6AF211400C93AC7BC25030D" />
         </ComponentGroup>
     </Fragment>
 </Wix>
