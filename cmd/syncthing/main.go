@@ -72,6 +72,8 @@ const (
 	exitUpgrading          = 4
 )
 
+const bepProtocolName = "bep/1.0"
+
 var l = logger.DefaultLogger
 
 func init() {
@@ -113,6 +115,7 @@ var (
 	externalPort   int
 	igd            *upnp.IGD
 	cert           tls.Certificate
+	lans           []*net.IPNet
 )
 
 const (
@@ -461,7 +464,7 @@ func syncthingMain() {
 
 	tlsCfg := &tls.Config{
 		Certificates:           []tls.Certificate{cert},
-		NextProtos:             []string{"bep/1.0"},
+		NextProtos:             []string{bepProtocolName},
 		ClientAuth:             tls.RequestClientCert,
 		SessionTicketsDisabled: true,
 		InsecureSkipVerify:     true,
@@ -490,6 +493,10 @@ func syncthingMain() {
 	}
 	if opts.MaxRecvKbps > 0 {
 		readRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxRecvKbps), int64(5*1000*opts.MaxRecvKbps))
+	}
+
+	if opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0 {
+		lans, _ = osutil.GetLans()
 	}
 
 	dbFile := filepath.Join(confDir, "index")

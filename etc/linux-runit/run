@@ -4,5 +4,6 @@ export USERNAME=jb
 export HOME="/home/$USERNAME"
 export SYNCTHING="$HOME/bin/syncthing"
 
-setuidgid "$USERNAME" "$SYNCTHING" -logflags 0 2>&1 | logger -t syncthing
+exec 2>&1
+exec chpst -u "$USERNAME" "$SYNCTHING" -logflags 0
 

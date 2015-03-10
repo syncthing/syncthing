@@ -21,5 +21,6 @@
         <cacheIgnoredFiles>false</cacheIgnoredFiles>
         <progressUpdateIntervalS>10</progressUpdateIntervalS>
         <symlinksEnabled>false</symlinksEnabled>
+        <limitBandwidthInLan>true</limitBandwidthInLan>
     </options>
 </configuration>

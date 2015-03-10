@@ -7,7 +7,7 @@ package protocol
 import "fmt"
 
 type IndexMessage struct {
-	Folder  string // max:64
+	Folder  string
 	Files   []FileInfo
 	Flags   uint32
 	Options []Option // max:64
@@ -83,9 +83,9 @@ type ResponseMessage struct {
 }
 
 type ClusterConfigMessage struct {
-	ClientName    string   // max:64
-	ClientVersion string   // max:64
-	Folders       []Folder // max:64
+	ClientName    string // max:64
+	ClientVersion string // max:64
+	Folders       []Folder
 	Options       []Option // max:64
 }
 

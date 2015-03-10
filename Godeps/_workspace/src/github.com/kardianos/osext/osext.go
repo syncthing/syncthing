@@ -25,8 +25,3 @@ func ExecutableFolder() (string, error) {
 	folder, _ := filepath.Split(p)
 	return folder, nil
 }
-
-// Depricated. Same as Executable().
-func GetExePath() (exePath string, err error) {
-	return Executable()
-}

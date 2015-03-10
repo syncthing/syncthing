@@ -50,9 +50,11 @@ func clock(v int64) int64 {
 }
 
 const (
-	keyTypeDevice = iota
-	keyTypeGlobal
-	keyTypeBlock
+	KeyTypeDevice = iota
+	KeyTypeGlobal
+	KeyTypeBlock
+	KeyTypeDeviceStatistic
+	KeyTypeFolderStatistic
 )
 
 type fileVersion struct {
@@ -112,7 +114,7 @@ const batchFlushSize = 64
 //	   name (variable size)
 func deviceKey(folder, device, file []byte) []byte {
 	k := make([]byte, 1+64+32+len(file))
-	k[0] = keyTypeDevice
+	k[0] = KeyTypeDevice
 	if len(folder) > 64 {
 		panic("folder name too long")
 	}
@@ -145,7 +147,7 @@ func deviceKeyDevice(key []byte) []byte {
 //	   name (variable size)
 func globalKey(folder, file []byte) []byte {
 	k := make([]byte, 1+64+len(file))
-	k[0] = keyTypeGlobal
+	k[0] = KeyTypeGlobal
 	if len(folder) > 64 {
 		panic("folder name too long")
 	}
@@ -707,11 +709,9 @@ func ldbGetGlobal(db *leveldb.DB, folder, file []byte, truncate bool) (FileIntf,
 	return fi, true
 }
 
-func ldbWithGlobal(db *leveldb.DB, folder []byte, truncate bool, fn Iterator) {
+func ldbWithGlobal(db *leveldb.DB, folder, prefix []byte, truncate bool, fn Iterator) {
 	runtime.GC()
 
-	start := globalKey(folder, nil)
-	limit := globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
@@ -726,7 +726,7 @@ func ldbWithGlobal(db *leveldb.DB, folder []byte, truncate bool, fn Iterator) {
 		snap.Release()
 	}()
 
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := snap.NewIterator(util.BytesPrefix(globalKey(folder, prefix)), nil)
 	defer dbi.Release()
 
 	for dbi.Next() {
@@ -901,8 +901,6 @@ outer:
 func ldbListFolders(db *leveldb.DB) []string {
 	runtime.GC()
 
-	start := []byte{keyTypeGlobal}
-	limit := []byte{keyTypeGlobal + 1}
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
@@ -917,7 +915,7 @@ func ldbListFolders(db *leveldb.DB) []string {
 		snap.Release()
 	}()
 
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := snap.NewIterator(util.BytesPrefix([]byte{KeyTypeGlobal}), nil)
 	defer dbi.Release()
 
 	folderExists := make(map[string]bool)
@@ -955,9 +953,7 @@ func ldbDropFolder(db *leveldb.DB, folder []byte) {
 	}()
 
 	// Remove all items related to the given folder from the device->file bucket
-	start := []byte{keyTypeDevice}
-	limit := []byte{keyTypeDevice + 1}
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := snap.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
 	for dbi.Next() {
 		itemFolder := deviceKeyFolder(dbi.Key())
 		if bytes.Compare(folder, itemFolder) == 0 {
@@ -967,9 +963,7 @@ func ldbDropFolder(db *leveldb.DB, folder []byte) {
 	dbi.Release()
 
 	// Remove all items related to the given folder from the global bucket
-	start = []byte{keyTypeGlobal}
-	limit = []byte{keyTypeGlobal + 1}
-	dbi = snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi = snap.NewIterator(util.BytesPrefix([]byte{KeyTypeGlobal}), nil)
 	for dbi.Next() {
 		itemFolder := globalKeyFolder(dbi.Key())
 		if bytes.Compare(folder, itemFolder) == 0 {

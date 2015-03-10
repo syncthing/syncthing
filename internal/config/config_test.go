@@ -37,7 +37,7 @@ func init() {
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		ListenAddress:           []string{"0.0.0.0:22000"},
-		GlobalAnnServers:        []string{"udp4://announce.syncthing.net:22026"},
+		GlobalAnnServers:        []string{"udp4://announce.syncthing.net:22026", "udp6://announce-v6.syncthing.net:22026"},
 		GlobalAnnEnabled:        true,
 		LocalAnnEnabled:         true,
 		LocalAnnPort:            21025,
@@ -55,6 +55,7 @@ func TestDefaultValues(t *testing.T) {
 		CacheIgnoredFiles:       true,
 		ProgressUpdateIntervalS: 5,
 		SymlinksEnabled:         true,
+		LimitBandwidthInLan:     false,
 	}
 
 	cfg := New(device1)
@@ -158,6 +159,7 @@ func TestOverriddenValues(t *testing.T) {
 		CacheIgnoredFiles:       false,
 		ProgressUpdateIntervalS: 10,
 		SymlinksEnabled:         false,
+		LimitBandwidthInLan:     true,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)

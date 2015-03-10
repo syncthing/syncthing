@@ -1,4 +1,4 @@
-// Copyright (C) 2014 The Syncthing Authors.
+// Copyright (C) 2015 The Syncthing Authors.
 //
 // This program is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -13,10 +13,27 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-package stats
+// +build !windows
 
-// Same key space as files/leveldb.go keyType* constants
-const (
-	keyTypeDeviceStatistic = iota + 30
-	keyTypeFolderStatistic
+package osutil
+
+import (
+	"net"
 )
+
+func GetLans() ([]*net.IPNet, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+
+	nets := make([]*net.IPNet, 0, len(addrs))
+
+	for _, addr := range addrs {
+		net, ok := addr.(*net.IPNet)
+		if ok {
+			nets = append(nets, net)
+		}
+	}
+	return nets, nil
+}

@@ -91,10 +91,22 @@ func testFileTypeChange(t *testing.T) {
 
 	// A directory that we will replace with a file later
 
+	err = os.Mkdir("s1/emptyDirToReplace", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A directory with files that we will replace with a file later
+
 	err = os.Mkdir("s1/dirToReplace", 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
+	fd, err = os.Create("s1/dirToReplace/emptyFile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
 
 	// Verify that the files and directories sync to the other side
 
@@ -165,15 +177,33 @@ func testFileTypeChange(t *testing.T) {
 
 	// Replace file with directory
 
-	os.RemoveAll("s1/fileToReplace")
+	err = os.RemoveAll("s1/fileToReplace")
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = os.Mkdir("s1/fileToReplace", 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Replace directory with file
+	// Replace empty directory with file
 
-	os.RemoveAll("s1/dirToReplace")
+	err = os.RemoveAll("s1/emptyDirToReplace")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd, err = os.Create("s1/emptyDirToReplace")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	// Clear directory and replace with file
+
+	err = os.RemoveAll("s1/dirToReplace")
+	if err != nil {
+		t.Fatal(err)
+	}
 	fd, err = os.Create("s1/dirToReplace")
 	if err != nil {
 		t.Fatal(err)

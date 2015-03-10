@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/scanner"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -77,8 +76,8 @@ func TestHandleFile(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(config.Wrap("/tmp/test", config.Configuration{}), "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 	// Update index
 	m.updateLocal("default", existingFile)
 
@@ -131,8 +130,8 @@ func TestHandleFileWithTemp(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(config.Wrap("/tmp/test", config.Configuration{}), "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 	// Update index
 	m.updateLocal("default", existingFile)
 
@@ -190,12 +189,9 @@ func TestCopierFinder(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 	requiredFile.Name = "file2"
 
-	fcfg := config.FolderConfiguration{ID: "default", Path: "testdata"}
-	cfg := config.Configuration{Folders: []config.FolderConfiguration{fcfg}}
-
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
-	m.AddFolder(fcfg)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 	// Update index
 	m.updateLocal("default", existingFile)
 
@@ -268,12 +264,9 @@ func TestCopierCleanup(t *testing.T) {
 		return true
 	}
 
-	fcfg := config.FolderConfiguration{ID: "default", Path: "testdata"}
-	cfg := config.Configuration{Folders: []config.FolderConfiguration{fcfg}}
-
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
-	m.AddFolder(fcfg)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 
 	// Create a file
 	file := protocol.FileInfo{
@@ -320,12 +313,9 @@ func TestCopierCleanup(t *testing.T) {
 // Make sure that the copier routine hashes the content when asked, and pulls
 // if it fails to find the block.
 func TestLastResortPulling(t *testing.T) {
-	fcfg := config.FolderConfiguration{ID: "default", Path: "testdata"}
-	cfg := config.Configuration{Folders: []config.FolderConfiguration{fcfg}}
-
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
-	m.AddFolder(fcfg)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 
 	// Add a file to index (with the incorrect block representation, as content
 	// doesn't actually match the block list)
@@ -396,11 +386,11 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	cw := config.Wrap("/tmp/test", config.Configuration{})
-	m := NewModel(cw, "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
 
-	emitter := NewProgressEmitter(cw)
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
+
+	emitter := NewProgressEmitter(defaultConfig)
 	go emitter.Serve()
 
 	p := Puller{
@@ -484,11 +474,10 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	cw := config.Wrap("/tmp/test", config.Configuration{})
-	m := NewModel(cw, "device", "syncthing", "dev", db)
-	m.AddFolder(config.FolderConfiguration{ID: "default", Path: "testdata"})
+	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m.AddFolder(defaultFolderConfig)
 
-	emitter := NewProgressEmitter(cw)
+	emitter := NewProgressEmitter(defaultConfig)
 	go emitter.Serve()
 
 	p := Puller{

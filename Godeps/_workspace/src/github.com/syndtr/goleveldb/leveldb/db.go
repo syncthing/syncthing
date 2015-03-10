@@ -347,12 +347,14 @@ func recoverTable(s *session, o *opt.Options) error {
 			return err
 		}
 		iter := tr.NewIterator(nil, nil)
-		iter.(iterator.ErrorCallbackSetter).SetErrorCallback(func(err error) {
-			if errors.IsCorrupted(err) {
-				s.logf("table@recovery block corruption @%d %q", file.Num(), err)
-				tcorruptedBlock++
-			}
-		})
+		if itererr, ok := iter.(iterator.ErrorCallbackSetter); ok {
+			itererr.SetErrorCallback(func(err error) {
+				if errors.IsCorrupted(err) {
+					s.logf("table@recovery block corruption @%d %q", file.Num(), err)
+					tcorruptedBlock++
+				}
+			})
+		}
 
 		// Scan the table.
 		for iter.Next() {

@@ -1146,6 +1146,7 @@ func (m *Model) ScanFolder(folder string) error {
 }
 
 func (m *Model) ScanFolderSub(folder, sub string) error {
+	sub = osutil.NativeFilename(sub)
 	if p := filepath.Clean(filepath.Join(folder, sub)); !strings.HasPrefix(p, folder) {
 		return errors.New("invalid subpath")
 	}
@@ -1161,6 +1162,18 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	}
 
 	_ = ignores.Load(filepath.Join(folderCfg.Path, ".stignore")) // Ignore error, there might not be an .stignore
+
+	// Required to make sure that we start indexing at a directory we're already
+	// aware off.
+	for sub != "" {
+		if _, ok = fs.Get(protocol.LocalDeviceID, sub); ok {
+			break
+		}
+		sub = filepath.Dir(sub)
+		if sub == "." || sub == string(filepath.Separator) {
+			sub = ""
+		}
+	}
 
 	w := &scanner.Walker{
 		Dir:          folderCfg.Path,
@@ -1242,8 +1255,16 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 					"size":     f.Size(),
 				})
 				batch = append(batch, nf)
-			} else if _, err := os.Lstat(filepath.Join(folderCfg.Path, f.Name)); err != nil && os.IsNotExist(err) {
-				// File has been deleted
+			} else if _, err := os.Lstat(filepath.Join(folderCfg.Path, f.Name)); err != nil {
+				// File has been deleted.
+
+				// We don't specifically verify that the error is
+				// os.IsNotExist because there is a corner case when a
+				// directory is suddenly transformed into a file. When that
+				// happens, files that were in the directory (that is now a
+				// file) are deleted but will return a confusing error ("not a
+				// directory") when we try to Lstat() them.
+
 				nf := protocol.FileInfo{
 					Name:     f.Name,
 					Flags:    f.Flags | protocol.FlagDeleted,
@@ -1407,6 +1428,69 @@ func (m *Model) RemoteLocalVersion(folder string) int64 {
 	}
 
 	return ver
+}
+
+func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{} {
+	m.fmut.RLock()
+	files, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		return nil
+	}
+
+	output := make(map[string]interface{})
+	sep := string(filepath.Separator)
+	prefix = osutil.NativeFilename(prefix)
+
+	if prefix != "" && !strings.HasSuffix(prefix, sep) {
+		prefix = prefix + sep
+	}
+
+	files.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
+		f := fi.(db.FileInfoTruncated)
+
+		if f.IsInvalid() || f.IsDeleted() || f.Name == prefix {
+			return true
+		}
+
+		f.Name = strings.Replace(f.Name, prefix, "", 1)
+
+		var dir, base string
+		if f.IsDirectory() && !f.IsSymlink() {
+			dir = f.Name
+		} else {
+			dir = filepath.Dir(f.Name)
+			base = filepath.Base(f.Name)
+		}
+
+		if levels > -1 && strings.Count(f.Name, sep) > levels {
+			return true
+		}
+
+		last := output
+		if dir != "." {
+			for _, path := range strings.Split(dir, sep) {
+				directory, ok := last[path]
+				if !ok {
+					newdir := make(map[string]interface{})
+					last[path] = newdir
+					last = newdir
+				} else {
+					last = directory.(map[string]interface{})
+				}
+			}
+		}
+
+		if !dirsonly && base != "" {
+			last[base] = []int64{
+				f.Modified, f.Size(),
+			}
+		}
+
+		return true
+	})
+
+	return output
 }
 
 func (m *Model) availability(folder, file string) []protocol.DeviceID {

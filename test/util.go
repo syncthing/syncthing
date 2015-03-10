@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -91,10 +92,7 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 			return err
 		}
 
-		err = os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
-		if err != nil {
-			return err
-		}
+		_ = os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
 
 		t := time.Now().Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
 		err = os.Chtimes(p1, t, t)
@@ -113,8 +111,10 @@ func alterFiles(dir string) error {
 			return nil
 		}
 
+		info, err = os.Stat(path)
 		if err != nil {
-			return err
+			// Something we deleted while walking. Ignore.
+			return nil
 		}
 
 		if strings.HasPrefix(filepath.Base(path), "test-") {
@@ -128,21 +128,27 @@ func alterFiles(dir string) error {
 			return nil
 		}
 
-		r := rand.Float64()
+		// File structure is base/x/xy/xyz12345...
+		// comps == 1: base (don't touch)
+		// comps == 2: base/x (must be dir)
+		// comps == 3: base/x/xy (must be dir)
+		// comps  > 3: base/x/xy/xyz12345... (can be dir or file)
+
 		comps := len(strings.Split(path, string(os.PathSeparator)))
+
+		r := rand.Intn(10)
 		switch {
-		case r < 0.1 && comps > 2:
+		case r == 0 && comps > 2:
 			// Delete every tenth file or directory, except top levels
 			err := removeAll(path)
 			if err != nil {
 				return err
 			}
 
-		case r < 0.2 && info.Mode().IsRegular():
+		case r == 1 && info.Mode().IsRegular():
 			if info.Mode()&0200 != 0200 {
 				// Not owner writable. Fix.
-				err = os.Chmod(path, 0644)
-				if err != nil {
+				if err = os.Chmod(path, 0644); err != nil {
 					return err
 				}
 			}
@@ -166,7 +172,31 @@ func alterFiles(dir string) error {
 			if err != nil {
 				return err
 			}
-		case r < 0.3 && comps > 1 && (info.Mode().IsRegular() || rand.Float64() < 0.2):
+
+		case r == 2 && comps > 3 && rand.Float64() < 0.2:
+			if !info.Mode().IsRegular() {
+				err = removeAll(path)
+				if err != nil {
+					return err
+				}
+				d1 := []byte("I used to be a dir: " + path)
+				err := ioutil.WriteFile(path, d1, 0644)
+				if err != nil {
+					return err
+				}
+			} else {
+				err := os.Remove(path)
+				if err != nil {
+					return err
+				}
+				err = os.MkdirAll(path, 0755)
+				if err != nil {
+					return err
+				}
+				generateFiles(path, 10, 20, "../LICENSE")
+			}
+
+		case r == 3 && comps > 2 && (info.Mode().IsRegular() || rand.Float64() < 0.2):
 			rpath := filepath.Dir(path)
 			if rand.Float64() < 0.2 {
 				for move := rand.Intn(comps - 1); move > 0; move-- {
@@ -184,8 +214,7 @@ func alterFiles(dir string) error {
 		return err
 	}
 
-	// Create 100 new files
-	return generateFiles(dir, 100, 20, "../LICENSE")
+	return generateFiles(dir, 25, 20, "../LICENSE")
 }
 
 func ReadRand(bs []byte) (int, error) {

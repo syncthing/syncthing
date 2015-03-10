@@ -9,7 +9,8 @@ other platforms also using runit.
     recommended to place it in a directory writeable by the running user
     so that automatic upgrades work.
 
- 3. Copy the edited `run` file to `/etc/service/syncthing/run`.
+ 3. Copy this directory (containing the edited `run` file and `log` folder) to
+    `/etc/service/syncthing`.
 
 Log output is sent to syslogd.
 
