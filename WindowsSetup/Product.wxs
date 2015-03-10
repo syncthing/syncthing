@@ -4,6 +4,7 @@
   <Product  Id="*" Name="Syncthing" Language="1033" Version="$(var.ProductVersion)" Manufacturer="syncthing.net" UpgradeCode="fe8d3029-4c61-426c-a40f-da7aab6203ce">
     <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
     <MediaTemplate CompressionLevel="high"  EmbedCab="yes"/>
+    <!--todo: test upgrade without killing syncthing-->
     <util:CloseApplication Id="syncthing.exe" Target="syncthing.exe" CloseMessage="yes" />
     <util:CloseApplication Id="syncthing" Target="syncthing" CloseMessage="yes" />
     <!--http://stackoverflow.com/questions/1544990/wix-major-upgrade-doesnt-completely-install-app-on-downgrade-->
@@ -26,10 +27,19 @@
     </DirectoryRef>
   </Product>
   <Fragment>
+    <!---->
+    <Property Id="MyURL"><![CDATA[http://127.0.0.1:8080/]]></Property>
+    <CustomAction Id="SetOpenURL" Property="WixShellExecTarget" Value="[MyURL]" />
+    <CustomAction Id="OpenURL" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" Return="ignore" />
+
+
     <!--silently kill Syncthing start-->
     <InstallExecuteSequence>
       <Custom Action='MyProcess.TaskKill' Before='InstallFiles' />
+    <Custom Action='SetOpenURL' After='InstallFinalize' />
+    <Custom Action="OpenURL" After="SetOpenURL"/>
     </InstallExecuteSequence>
+    <!--todo: test upgrade without killing syncthing-->
     <Property Id="QtExecCmdLine" Value='"C:\Windows\System32\taskkill.exe" /F /IM Syncthing.exe' />
     <CustomAction Id="MyProcess.TaskKill" BinaryKey="WixCA" DllEntry="CAQuietExec" Execute="immediate" Return="ignore" />
     <!--silently kill Syncthing end-->
