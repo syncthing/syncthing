@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?define ProductVersion = "0.10.23"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
-  <Product Id="{0A36A770-1A09-4E04-8961-D2CC314886C7}" Name="Syncthing" Language="1033" Version="0.10.23" Manufacturer="syncthing.net" UpgradeCode="fe8d3029-4c61-426c-a40f-da7aab6203ce">
+  <Product  Id="*" Name="Syncthing" Language="1033" Version="$(var.ProductVersion)" Manufacturer="syncthing.net" UpgradeCode="fe8d3029-4c61-426c-a40f-da7aab6203ce">
     <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
-    <MediaTemplate CompressionLevel="high" />
+    <MediaTemplate CompressionLevel="high"  EmbedCab="yes"/>
     <util:CloseApplication Id="syncthing.exe" Target="syncthing.exe" CloseMessage="yes" />
+    <util:CloseApplication Id="syncthing" Target="syncthing" CloseMessage="yes" />
     <!--http://stackoverflow.com/questions/1544990/wix-major-upgrade-doesnt-completely-install-app-on-downgrade-->
     <!--http://msdn.microsoft.com/en-us/library/aa371182%28v=vs.85%29.aspx-->
     <!--<Property Id="REINSTALLMODE" Value="amus" />-->

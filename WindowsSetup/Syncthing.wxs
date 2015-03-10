@@ -25,7 +25,7 @@
             </Component>
             <Component Id="cmp50B779FC0E31876A289A73F7E5875D34" Guid="*">
                 <File Id="fil22E636870E20EA8ED1CC7562A68A7405" KeyPath="yes" Source="$(var.MySource)\SyncthingServiceWrapper.exe" />
-                <wix:ServiceInstall Id="MyServiceInstall" DisplayName="Syncthing Service" Description="Syncthingservice created by installer" Name="Syncthing Service" ErrorControl="ignore" Start="auto" Type="ownProcess" Vital="yes" Interactive="no" Account="[SERVICECREDENTIALS_USERLOGIN]" Password="[SERVICECREDENTIALS_PASSWORD]" xmlns:wix="http://schemas.microsoft.com/wix/2006/wi" xmlns:my="my:my" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension" />
+                <wix:ServiceInstall Id="MyServiceInstall" DisplayName="Syncthing Service" Description="Syncthingservice created by installer" Name="Syncthing Service" ErrorControl="ignore" Start="auto" Type="ownProcess" Vital="yes" Interactive="no" Account="LocalSystem" xmlns:wix="http://schemas.microsoft.com/wix/2006/wi" xmlns:my="my:my" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension" />
                 <wix:ServiceControl Id="MyServiceControl" Name="Syncthing Service" Start="install" Stop="both" Remove="uninstall" Wait="yes" xmlns:wix="http://schemas.microsoft.com/wix/2006/wi" xmlns:my="my:my" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension" />
             </Component>
             <Component Id="cmp7C1CF2B032C3345CF5A69B7766EB107E" Guid="*">

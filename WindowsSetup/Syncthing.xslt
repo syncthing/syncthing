@@ -12,7 +12,7 @@
       <xsl:apply-templates select="node() | @*" />
       <!--<util:User Id="UpdateUserLogonAsService" UpdateIfExists="yes" CreateUser="no" Name="[SERVICECREDENTIALS_USERLOGIN]"
             LogonAsService="yes" />-->
-      <wix:ServiceInstall Id="MyServiceInstall" DisplayName="Syncthing Service" Description="Syncthingservice created by installer" Name="Syncthing Service" ErrorControl="ignore" Start="auto" Type="ownProcess" Vital="yes" Interactive="no" Account="[SERVICECREDENTIALS_USERLOGIN]" Password="[SERVICECREDENTIALS_PASSWORD]" />
+      <wix:ServiceInstall Id="MyServiceInstall" DisplayName="Syncthing Service" Description="Syncthingservice created by installer" Name="Syncthing Service" ErrorControl="ignore" Start="auto" Type="ownProcess" Vital="yes" Interactive="no" Account="LocalSystem" />
       <wix:ServiceControl Id="MyServiceControl" Name="Syncthing Service" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
       <!--<util:User Id="user" CreateUser="no" Name ="[SERVICECREDENTIALS_USERLOGIN]" Password="[SERVICECREDENTIALS_PASSWORD]" LogonAsService="yes" />-->
     </xsl:copy>

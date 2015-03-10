@@ -46,7 +46,6 @@ namespace SyncthingServiceWrapper
         ///    or not disposing is going on.</param>
         protected override void Dispose(bool disposing)
         {
-            syncthingProcess.Dispose();
             base.Dispose(disposing);
         }
 
@@ -62,12 +61,13 @@ namespace SyncthingServiceWrapper
             syncthingProcess = new Process();
             syncthingProcess.StartInfo.FileName =  Path.Combine(GetCurrentExecutingDirectory(), "syncthing.exe") ;
             syncthingProcess.StartInfo.RedirectStandardOutput = true;
+            syncthingProcess.StartInfo.Arguments = SyncthingServiceWrapper.Properties.Settings.Default.syncthingArguments;
+            //syncthingProcess.StartInfo.UserName = SyncthingServiceWrapper.Properties.Settings.Default.username;
             syncthingProcess.StartInfo.RedirectStandardError = true;
             syncthingProcess.StartInfo.RedirectStandardInput = true;
             syncthingProcess.StartInfo.UseShellExecute = false;
             syncthingProcess.EnableRaisingEvents = true;
             syncthingProcess.StartInfo.CreateNoWindow = false;
-            //p.StartInfo.Arguments = concatedParameterAndSources + "\"" + parameter.Destination.LocalPath + "\""; 
             syncthingProcess.OutputDataReceived += new DataReceivedEventHandler(proc_OutputDataReceived);
             syncthingProcess.ErrorDataReceived += new DataReceivedEventHandler(proc_ErrorDataReceived);
             syncthingProcess.Exited += new EventHandler(proc_SyncthingExited);
@@ -79,18 +79,18 @@ namespace SyncthingServiceWrapper
         {
             System.Threading.Thread.Sleep(500);
             var timeout = DateTime.Now;
-            while (Process.GetProcessesByName("syncthing.exe").Count() == 0 || DateTime.Compare( timeout.AddMilliseconds(15000), DateTime.Now)>0)
+            while (Process.GetProcessesByName("syncthing").Count() == 0 || DateTime.Compare( timeout.AddMilliseconds(15000), DateTime.Now)==-1)
             {
                 System.Threading.Thread.Sleep(100); 
             }
 
-            if (Process.GetProcessesByName("syncthing.exe").Count() > 0)
+            if (Process.GetProcessesByName("syncthing").Count() > 0)
             {
-                syncthingProcess = Process.GetProcessesByName("syncthing.exe").Last();
+                this.EventLog.WriteEntry("Syncthing.exe starter fisnished", EventLogEntryType.Warning );
             }
             else
             {
-                this.EventLog.WriteEntry("Syncthing.exe crashed");
+                this.EventLog.WriteEntry("Syncthing.exe crashed", EventLogEntryType.Error);
                 this.Stop();
              }
         }
@@ -122,11 +122,23 @@ namespace SyncthingServiceWrapper
 
         private void shutdownSyncthingExe()
         {
-            foreach (var item in Process.GetProcessesByName("syncthing.exe"))
+            //todo: Shutting down by webapi 
+            foreach (var item in Process.GetProcessesByName("syncthing"))
             {
-                item.StandardInput.WriteLine("\x3");
-                item.Close();
-                item.Dispose();
+                if (!item.HasExited)
+                {
+                    this.EventLog.WriteEntry("Killing Syncthing with pid " + item.Id, EventLogEntryType.Information);
+                    item.Kill();
+                }
+            }
+
+            foreach (var item in Process.GetProcessesByName("syncthing"))
+            {
+                if (!item.HasExited)
+                {
+                    this.EventLog.WriteEntry("Killing Syncthing with pid " + item.Id);
+                    item.Kill();
+                }
             }
             syncthingProcess.Dispose();
         }
