@@ -49,14 +49,14 @@ type sharedPullerState struct {
 
 // A momentary state representing the progress of the puller
 type pullerProgress struct {
-	Total               int
-	Reused              int
-	CopiedFromOrigin    int
-	CopiedFromElsewhere int
-	Pulled              int
-	Pulling             int
-	BytesDone           int64
-	BytesTotal          int64
+	Total               int   `json:"total"`
+	Reused              int   `json:"reused"`
+	CopiedFromOrigin    int   `json:"copiedFromOrigin"`
+	CopiedFromElsewhere int   `json:"copiedFromElsewhere"`
+	Pulled              int   `json:"pulled"`
+	Pulling             int   `json:"pulling"`
+	BytesDone           int64 `json:"bytesDone"`
+	BytesTotal          int64 `json:"bytesTotal"`
 }
 
 // A lockedWriterAt synchronizes WriteAt calls with an external mutex.

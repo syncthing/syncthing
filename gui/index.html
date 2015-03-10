@@ -155,7 +155,7 @@
         <div class="panel panel-warning">
           <div class="panel-heading"><h3 class="panel-title"><span class="glyphicon glyphicon-exclamation-sign"></span><span translate>Notice</span></h3></div>
           <div class="panel-body">
-            <p ng-repeat="err in errorList()"><small>{{err.Time | date:"H:mm:ss"}}:</small> {{friendlyDevices(err.Error)}}</p>
+            <p ng-repeat="err in errorList()"><small>{{err.time | date:"H:mm:ss"}}:</small> {{friendlyDevices(err.error)}}</p>
           </div>
           <div class="panel-footer">
             <button type="button" class="pull-right btn btn-sm btn-default" ng-click="clearErrors()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>OK</span></button>
@@ -176,9 +176,9 @@
         <div class="visible-xs"><h3><span translate>Folders</span></h3><hr></div>
           <div class="panel panel-default" ng-repeat="folder in folderList()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
-              <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.ID)}}%"></div>
+              <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
               <h3 class="panel-title">
-                <span class="glyphicon glyphicon-hdd hidden-xs"></span>{{folder.ID}}
+                <span class="glyphicon glyphicon-hdd hidden-xs"></span>{{folder.id}}
                 <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
@@ -187,7 +187,7 @@
                   <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span>
-                    ({{syncPercentage(folder.ID)}}%)
+                    ({{syncPercentage(folder.id)}}%)
                   </span>
                 </span>
               </h3>
@@ -198,49 +198,49 @@
                   <tbody>
                     <tr>
                       <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder Path</span></th>
-                      <td class="text-right">{{folder.Path}}</td>
+                      <td class="text-right">{{folder.path}}</td>
                     </tr>
-                    <tr ng-if="model[folder.ID].invalid">
+                    <tr ng-if="model[folder.id].invalid">
                       <th><span class="glyphicon glyphicon-warning-sign"></span>&emsp;<span translate>Error</span></th>
-                      <td class="text-right">{{model[folder.ID].invalid}}</td>
+                      <td class="text-right">{{model[folder.id].invalid}}</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global State</span></th>
-                      <td class="text-right">{{model[folder.ID].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].globalBytes | binary}}B</td>
+                      <td class="text-right">{{model[folder.id].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].globalBytes | binary}}B</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-home"></span>&emsp;<span translate>Local State</span></th>
-                      <td class="text-right">{{model[folder.ID].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].localBytes | binary}}B</td>
+                      <td class="text-right">{{model[folder.id].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].localBytes | binary}}B</td>
                     </tr>
-                    <tr ng-if="model[folder.ID].needFiles > 0">
+                    <tr ng-if="model[folder.id].needFiles > 0">
                       <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Out Of Sync</span></th>
                       <td class="text-right">
-                        <a ng-click="showNeed(folder.ID)" href="">{{model[folder.ID].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.ID].needBytes | binary}}B</a>
+                        <a ng-click="showNeed(folder.id)" href="">{{model[folder.id].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
                       </td>
                     </tr>
-                    <tr ng-if="folder.ReadOnly">
+                    <tr ng-if="folder.readOnly">
                       <th><span class="glyphicon glyphicon-lock"></span>&emsp;<span translate>Folder Master</span></th>
                       <td class="text-right">
                         <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr ng-if="model[folder.ID].ignorePatterns">
+                    <tr ng-if="model[folder.id].ignorePatterns">
                       <th><span class="glyphicon glyphicon-eye-close"></span>&emsp;<span translate>Ignore Patterns</span></th>
                       <td class="text-right">
                         <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr ng-if="folder.IgnorePerms">
+                    <tr ng-if="folder.ignorePerms">
                       <th><span class="glyphicon glyphicon-unchecked"></span>&emsp;<span translate>Ignore Permissions</span></th>
                       <td class="text-right">
                         <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr ng-if="folder.RescanIntervalS != 60">
+                    <tr ng-if="folder.rescanIntervalS != 60">
                       <th><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan Interval</span></th>
-                      <td class="text-right">{{folder.RescanIntervalS}} s</td>
+                      <td class="text-right">{{folder.rescanIntervalS}} s</td>
                     </tr>
-                    <tr ng-if="folder.Versioning.Type">
+                    <tr ng-if="folder.versioning.type">
                       <th><span class="glyphicon glyphicon-tags"></span>&emsp;<span translate>File Versioning</span></th>
                       <td class="text-right" ng-switch="folder.Versioning.Type">
                         <span ng-switch-when="staggered" translate>Staggered File Versioning</span>
@@ -251,11 +251,11 @@
                       <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;<span translate>Shared With</span></th>
                       <td class="text-right">{{sharesFolder(folder)}}</td>
                     </tr>
-                    <tr ng-if="folderStats[folder.ID].LastFile">
+                    <tr ng-if="folderStats[folder.id].lastFile">
                       <th><span class="glyphicon glyphicon-transfer"></span>&emsp;<span translate>Last File Received</span></th>
                       <td class="text-right">
-                        <span title="{{folderStats[folder.ID].LastFile.Filename}} @ {{folderStats[folder.ID].LastFile.At | date:'yyyy-MM-dd HH:mm'}}">
-                          {{folderStats[folder.ID].LastFile.Filename | basename}}
+                        <span title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm'}}">
+                          {{folderStats[folder.id].lastFile.filename | basename}}
                         </span>
                       </td>
                     </tr>
@@ -263,9 +263,9 @@
                 </table>
               </div>
               <div class="panel-footer">
-                <button class="btn btn-sm btn-danger pull-left" ng-if="folder.ReadOnly && model[folder.ID].needFiles > 0" ng-click="override(folder.ID)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
+                <button class="btn btn-sm btn-danger pull-left" ng-if="folder.readOnly && model[folder.id].needFiles > 0" ng-click="override(folder.id)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
                 <span class="pull-right">
-                  <button class="btn btn-sm btn-default" href="" ng-show="folderStatus(folder) == 'idle'" ng-click="rescanFolder(folder.ID)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></button>
+                  <button class="btn btn-sm btn-default" href="" ng-show="folderStatus(folder) == 'idle'" ng-click="rescanFolder(folder.id)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></button>
                   <button class="btn btn-sm btn-default" href="" ng-click="editFolder(folder)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></button>
                 </span>
                 <div class="clearfix"></div>
@@ -290,7 +290,7 @@
         <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
           <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
             <h3 class="panel-title">
-              <identicon data-value="deviceCfg.DeviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
+              <identicon data-value="deviceCfg.deviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
             </h3>
           </div>
           <div id="device-this" class="panel-collapse collapse in">
@@ -299,11 +299,11 @@
                 <tbody>
                   <tr>
                     <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
-                    <td class="text-right">{{connections['total'].inbps | binary}}B/s ({{connections['total'].InBytesTotal | binary}}B)</td>
+                    <td class="text-right">{{connections['total'].inbps | binary}}B/s ({{connections['total'].inBytesTotal | binary}}B)</td>
                   </tr>
                   <tr>
                     <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
-                    <td class="text-right">{{connections['total'].outbps | binary}}B/s ({{connections['total'].OutBytesTotal | binary}}B)</td>
+                    <td class="text-right">{{connections['total'].outbps | binary}}B/s ({{connections['total'].outBytesTotal | binary}}B)</td>
                   </tr>
                   <tr>
                     <th><span class="glyphicon glyphicon-th"></span>&emsp;<span translate>RAM Utilization</span></th>
@@ -341,13 +341,13 @@
         <div class="panel-group" id="devices">
           <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
-              <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.DeviceID]._total | number:0}}%"></div>
+              <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | number:0}}%"></div>
               <h3 class="panel-title">
-                <identicon data-value="deviceCfg.DeviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
+                <identicon data-value="deviceCfg.deviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
                 <span ng-switch="deviceStatus(deviceCfg)" class="pull-right text-{{deviceClass(deviceCfg)}}">
                   <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
-                    <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.DeviceID]._total | number:0}}%)
+                    <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.deviceID]._total | number:0}}%)
                   </span>
                   <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unused"><span class="hidden-xs" translate>Unused</span><span class="visible-xs">&#9724;</span></span>
@@ -358,37 +358,37 @@
               <div class="panel-body">
                 <table class="table table-condensed table-striped">
                   <tbody>
-                    <tr ng-if="connections[deviceCfg.DeviceID]">
+                    <tr ng-if="connections[deviceCfg.deviceID]">
                       <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
-                      <td class="text-right">{{connections[deviceCfg.DeviceID].inbps | binary}}B/s ({{connections[deviceCfg.DeviceID].InBytesTotal | binary}}B)</td>
+                      <td class="text-right">{{connections[deviceCfg.deviceID].inbps | binary}}B/s ({{connections[deviceCfg.deviceID].inBytesTotal | binary}}B)</td>
                     </tr>
-                    <tr ng-if="connections[deviceCfg.DeviceID]">
+                    <tr ng-if="connections[deviceCfg.deviceID]">
                       <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
-                      <td class="text-right">{{connections[deviceCfg.DeviceID].outbps | binary}}B/s ({{connections[deviceCfg.DeviceID].OutBytesTotal | binary}}B)</td>
+                      <td class="text-right">{{connections[deviceCfg.deviceID].outbps | binary}}B/s ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-link"></span>&emsp;<span translate>Address</span></th>
                       <td class="text-right">{{deviceAddr(deviceCfg)}}</td>
                     </tr>
-                    <tr ng-if="deviceCfg.Compression != 'metadata'">
+                    <tr ng-if="deviceCfg.compression != 'metadata'">
                       <th><span class="glyphicon glyphicon-compressed"></span>&emsp;<span translate>Compression</span></th>
                       <td class="text-right">
-                        <span ng-if="deviceCfg.Compression == 'always'" translate>All Data</span>
-                        <span ng-if="deviceCfg.Compression == 'never'" translate>Off</span>
+                        <span ng-if="deviceCfg.compression == 'always'" translate>All Data</span>
+                        <span ng-if="deviceCfg.compression == 'never'" translate>Off</span>
                       </td>
                     </tr>
-                    <tr ng-if="deviceCfg.Introducer">
+                    <tr ng-if="deviceCfg.introducer">
                       <th><span class="glyphicon glyphicon-thumbs-up"></span>&emsp;<span translate>Introducer</span></th>
                       <td translate class="text-right">Yes</td>
                     </tr>
-                    <tr ng-if="connections[deviceCfg.DeviceID]">
+                    <tr ng-if="connections[deviceCfg.deviceID]">
                       <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Version</span></th>
-                      <td class="text-right">{{connections[deviceCfg.DeviceID].ClientVersion}}</td>
+                      <td class="text-right">{{connections[deviceCfg.deviceID].clientVersion}}</td>
                     </tr>
-                    <tr ng-if="!connections[deviceCfg.DeviceID]">
+                    <tr ng-if="!connections[deviceCfg.deviceID]">
                       <th><span class="glyphicon glyphicon-eye-open"></span>&emsp;<span translate>Last seen</span></th>
-                      <td translate ng-if="!deviceStats[deviceCfg.DeviceID].LastSeenDays || deviceStats[deviceCfg.DeviceID].LastSeenDays >= 365" class="text-right">Never</td>
-                      <td ng-if="deviceStats[deviceCfg.DeviceID].LastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.DeviceID].LastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
+                      <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
+                      <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
                     </tr>
                     <tr ng-if="deviceFolders(deviceCfg).length > 0">
                       <th><span class="glyphicon glyphicon-hdd"></span>&emsp;<span translate>Folders</span></th>
@@ -481,11 +481,11 @@
           <form role="form" name="deviceEditor">
             <div class="form-group" ng-class="{'has-error': deviceEditor.deviceID.$invalid && deviceEditor.deviceID.$dirty}">
               <label translate for="deviceID">Device ID</label>
-              <input ng-if="!editingExisting" name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.DeviceID" required valid-deviceid list="discovery-list" />
+              <input ng-if="!editingExisting" name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.deviceID" required valid-deviceid list="discovery-list" />
               <datalist id="discovery-list" ng-if="!editingExisting">
                 <option ng-repeat="(id,address) in discovery" value="{{ id }}" />
               </datalist>
-              <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentDevice.DeviceID}}</div>
+              <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentDevice.deviceID}}</div>
               <p class="help-block">
                 <span translate ng-if="deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine">The device ID to enter here can be found in the "Edit > Show ID" dialog on the other device. Spaces and dashes are optional (ignored).</span>
                 <span translate ng-show="!editingExisting && (deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine)">When adding a new device, keep in mind that this device must be added on the other side too.</span>
@@ -495,18 +495,18 @@
             </div>
             <div class="form-group">
               <label translate for="name">Device Name</label>
-              <input id="name" class="form-control" type="text" ng-model="currentDevice.Name"></input>
-              <p translate ng-if="currentDevice.DeviceID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.</p>
-              <p translate ng-if="currentDevice.DeviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
+              <input id="name" class="form-control" type="text" ng-model="currentDevice.name"></input>
+              <p translate ng-if="currentDevice.deviceID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.</p>
+              <p translate ng-if="currentDevice.deviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
             </div>
             <div class="form-group">
               <label translate for="addresses">Addresses</label>
-              <input ng-disabled="currentDevice.DeviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice.AddressesStr"></input>
+              <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice.addressesStr"></input>
               <p translate class="help-block">Enter comma separated "ip:port" addresses or "dynamic" to perform automatic discovery of the address.</p>
             </div>
             <div ng-if="!editingSelf" class="form-group">
               <label translate>Compression</label>
-              <select class="form-control" ng-model="currentDevice.Compression">
+              <select class="form-control" ng-model="currentDevice.compression">
                 <option value="always" translate>All Data</option>
                 <option value="metadata" translate>Metadata Only</option>
                 <option value="never" translate>Off</option>
@@ -515,7 +515,7 @@
             <div ng-if="!editingSelf" class="form-group">
               <div class="checkbox">
                 <label>
-                  <input type="checkbox" ng-model="currentDevice.Introducer"> <span translate>Introducer</span>
+                  <input type="checkbox" ng-model="currentDevice.introducer"> <span translate>Introducer</span>
                 </label>
                 <p translate class="help-block">Any devices configured on an introducer device will be added to this device as well.</p>
               </div>
@@ -529,7 +529,7 @@
                   <div class="three-columns">
                     <div class="checkbox" ng-repeat="folder in folderList()">
                       <label>
-                        <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.ID]"> {{folder.ID}}
+                        <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]"> {{folder.id}}
                       </label>
                     </div>
                   </div>
@@ -563,7 +563,7 @@
               <div class="col-md-12">
                 <div class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">
                   <label for="folderID"><span translate>Folder ID</span></label>
-                  <input name="folderID" ng-readonly="editingExisting" id="folderID" class="form-control" type="text" ng-model="currentFolder.ID" required unique-folder ng-pattern="/^[a-zA-Z0-9-_.]{1,64}$/"></input>
+                  <input name="folderID" ng-readonly="editingExisting" id="folderID" class="form-control" type="text" ng-model="currentFolder.id" required unique-folder ng-pattern="/^[a-zA-Z0-9-_.]{1,64}$/"></input>
                   <p class="help-block">
                     <span translate ng-if="folderEditor.folderID.$valid || folderEditor.folderID.$pristine">Short identifier for the folder. Must be the same on all cluster devices.</span>
                     <span translate ng-if="folderEditor.folderID.$error.uniqueFolder">The folder ID must be unique.</span>
@@ -573,7 +573,7 @@
                 </div>
                 <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty}">
                   <label translate for="folderPath">Folder Path</label>
-                  <input name="folderPath" ng-readonly="editingExisting" id="folderPath" class="form-control" type="text" ng-model="currentFolder.Path" list="directory-list" required />
+                  <input name="folderPath" ng-readonly="editingExisting" id="folderPath" class="form-control" type="text" ng-model="currentFolder.path" list="directory-list" required />
                   <datalist id="directory-list">
                     <option ng-repeat="directory in directoryList" value="{{ directory }}" />
                   </datalist>
@@ -584,7 +584,7 @@
                 </div>
                 <div class="form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
                   <label for="rescanIntervalS"><span translate>Rescan Interval</span> (s)</label>
-                  <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.RescanIntervalS" required min="0"></input>
+                  <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.rescanIntervalS" required min="0"></input>
                   <p class="help-block">
                     <span translate ng-if="!folderEditor.rescanIntervalS.$valid && folderEditor.rescanIntervalS.$dirty">The rescan interval must be a non-negative number of seconds.</span>
                   </p>
@@ -596,7 +596,7 @@
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <input type="checkbox" ng-model="currentFolder.ReadOnly"> <span translate>Folder Master</span>
+                      <input type="checkbox" ng-model="currentFolder.readOnly"> <span translate>Folder Master</span>
                     </label>
                   </div>
                   <p translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
@@ -604,7 +604,7 @@
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <input type="checkbox" ng-model="currentFolder.IgnorePerms"> <span translate>Ignore Permissions</span>
+                      <input type="checkbox" ng-model="currentFolder.ignorePerms"> <span translate>Ignore Permissions</span>
                     </label>
                   </div>
                   <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT filesystems.</p>
@@ -615,21 +615,21 @@
                   <label translate>File Versioning</label>
                   <div class="radio">
                     <label>
-                      <input type="radio" ng-model="currentFolder.FileVersioningSelector" value="none"> <span translate>No File Versioning</span>
+                      <input type="radio" ng-model="currentFolder.fileVersioningSelector" value="none"> <span translate>No File Versioning</span>
                     </label>
                   </div>
                   <div class="radio">
                     <label>
-                      <input type="radio" ng-model="currentFolder.FileVersioningSelector" value="simple"> <span translate>Simple File Versioning</span>
+                      <input type="radio" ng-model="currentFolder.fileVersioningSelector" value="simple"> <span translate>Simple File Versioning</span>
                     </label>
                   </div>
                   <div class="radio">
                     <label>
-                      <input type="radio" ng-model="currentFolder.FileVersioningSelector" value="staggered"> <span translate>Staggered File Versioning</span>
+                      <input type="radio" ng-model="currentFolder.fileVersioningSelector" value="staggered"> <span translate>Staggered File Versioning</span>
                     </label>
                   </div>
                 </div>
-                <div class="form-group" ng-if="currentFolder.FileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.simpleKeep.$invalid && folderEditor.simpleKeep.$dirty}">
+                <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.simpleKeep.$invalid && folderEditor.simpleKeep.$dirty}">
                   <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</p>
                   <label translate for="simpleKeep">Keep Versions</label>
                   <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentFolder.simpleKeep" required min="1"></input>
@@ -639,7 +639,7 @@
                     <span translate ng-if="folderEditor.simpleKeep.$error.min && folderEditor.simpleKeep.$dirty">You must keep at least one version.</span>
                   </p>
                 </div>
-                <div class="form-group" ng-if="currentFolder.FileVersioningSelector=='staggered'" ng-class="{'has-error': folderEditor.staggeredMaxAge.$invalid && folderEditor.staggeredMaxAge.$dirty}">
+                <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='staggered'" ng-class="{'has-error': folderEditor.staggeredMaxAge.$invalid && folderEditor.staggeredMaxAge.$dirty}">
                   <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
                   <p translate class="help-block">The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.</p>
                   <label translate for="staggeredMaxAge">Maximum Age</label>
@@ -649,7 +649,7 @@
                     <span translate ng-if="folderEditor.staggeredMaxAge.$error.required && folderEditor.staggeredMaxAge.$dirty">The maximum age must be a number and cannot be blank.</span>
                   </p>
                 </div>
-                <div class="form-group" ng-if="currentFolder.FileVersioningSelector == 'staggered'">
+                <div class="form-group" ng-if="currentFolder.fileVersioningSelector == 'staggered'">
                   <label translate for="staggeredVersionsPath">Versions Path</label>
                   <input name="staggeredVersionsPath" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentFolder.staggeredVersionsPath"></input>
                   <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions folder in the folder).</p>
@@ -665,7 +665,7 @@
                   <div class="three-columns">
                     <div class="checkbox" ng-repeat="device in otherDevices()">
                       <label>
-                        <input type="checkbox" ng-model="currentFolder.selectedDevices[device.DeviceID]"> {{deviceName(device)}}
+                        <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
                       </label>
                     </div>
                   </div>
@@ -709,7 +709,7 @@
           </dl>
         </div>
         <div class="modal-footer">
-          <div class="pull-left"><span translate>Editing</span> <code>{{currentFolder.Path}}{{system.pathSeparator}}.stignore</code></div>
+          <div class="pull-left"><span translate>Editing</span> <code>{{currentFolder.path}}{{system.pathSeparator}}.stignore</code></div>
           <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal" ng-click="saveIgnores()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
           <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
         </div>
@@ -732,32 +732,32 @@
               <div class="col-md-6">
                 <div class="form-group">
                   <label translate for="DeviceName">Device Name</label>
-                  <input id="DeviceName" class="form-control" type="text" ng-model="tmpOptions.DeviceName">
+                  <input id="DeviceName" class="form-control" type="text" ng-model="tmpOptions.deviceName">
                 </div>
                 <div class="form-group">
                   <label translate for="ListenAddressStr">Sync Protocol Listen Addresses</label>
-                  <input id="ListenAddressStr" class="form-control" type="text" ng-model="tmpOptions.ListenAddressStr">
+                  <input id="ListenAddressStr" class="form-control" type="text" ng-model="tmpOptions.listenAddressStr">
                 </div>
                 <div class="form-group">
                   <label translate for="MaxRecvKbps">Incoming Rate Limit (KiB/s)</label>
-                  <input id="MaxRecvKbps" class="form-control" type="number" ng-model="tmpOptions.MaxRecvKbps">
+                  <input id="MaxRecvKbps" class="form-control" type="number" ng-model="tmpOptions.maxRecvKbps">
                 </div>
                 <div class="form-group">
                   <label translate for="MaxSendKbps">Outgoing Rate Limit (KiB/s)</label>
-                  <input id="MaxSendKbps" class="form-control" type="number" ng-model="tmpOptions.MaxSendKbps">
+                  <input id="MaxSendKbps" class="form-control" type="number" ng-model="tmpOptions.maxSendKbps">
                 </div>
                 <div class="col-md-6">
                   <div class="form-group">
                     <div class="checkbox">
                       <label>
-                        <input id="UPnPEnabled" type="checkbox" ng-model="tmpOptions.UPnPEnabled"> <span translate>Enable UPnP</span>
+                        <input id="UPnPEnabled" type="checkbox" ng-model="tmpOptions.upnpEnabled"> <span translate>Enable UPnP</span>
                       </label>
                     </div>
                   </div>
                   <div class="form-group">
                     <div class="checkbox">
                       <label>
-                        <input id="GlobalAnnEnabled" type="checkbox" ng-model="tmpOptions.GlobalAnnEnabled"> <span translate>Global Discovery</span>
+                        <input id="GlobalAnnEnabled" type="checkbox" ng-model="tmpOptions.globalAnnounceEnabled"> <span translate>Global Discovery</span>
                       </label>
                     </div>
                   </div>
@@ -766,55 +766,55 @@
                   <div class="form-group">
                     <div class="checkbox">
                       <label ng-if="upgradeInfo">
-                        <input id="AutoUpgradeEnabled" type="checkbox" ng-model="tmpOptions.AutoUpgradeEnabled"> <span translate>Automatic upgrades</span>
+                        <input id="AutoUpgradeEnabled" type="checkbox" ng-model="tmpOptions.autoUpgradeEnabled"> <span translate>Automatic upgrades</span>
                       </label>
                     </div>
                   </div>
                   <div class="form-group">
                     <div class="checkbox">
                       <label>
-                        <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.LocalAnnEnabled"> <span translate>Local Discovery</span>
+                        <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.localAnnounceEnabled"> <span translate>Local Discovery</span>
                       </label>
                     </div>
                   </div>
                 </div>
                 <div class="form-group">
                   <label translate for="GlobalAnnServersStr">Global Discovery Server</label>
-                  <input ng-disabled="!tmpOptions.GlobalAnnEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions.GlobalAnnServersStr">
+                  <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions.globalAnnounceServersStr">
                 </div>
               </div>
 
               <div class="col-md-6">
                 <div class="form-group">
                   <label translate for="Address">GUI Listen Addresses</label>
-                  <input id="Address" class="form-control" type="text" ng-model="tmpGUI.Address">
+                  <input id="Address" class="form-control" type="text" ng-model="tmpGUI.address">
                 </div>
                 <div class="form-group">
                   <label translate for="User">GUI Authentication User</label>
-                  <input id="User" class="form-control" type="text" ng-model="tmpGUI.User">
+                  <input id="User" class="form-control" type="text" ng-model="tmpGUI.user">
                 </div>
                 <div class="form-group">
                   <label translate for="Password">GUI Authentication Password</label>
-                  <input id="Password" class="form-control" type="password" ng-model="tmpGUI.Password">
+                  <input id="Password" class="form-control" type="password" ng-model="tmpGUI.password">
                 </div>
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <input id="UseTLS" type="checkbox" ng-model="tmpGUI.UseTLS"> <span translate>Use HTTPS for GUI</span>
+                      <input id="UseTLS" type="checkbox" ng-model="tmpGUI.useTLS"> <span translate>Use HTTPS for GUI</span>
                     </label>
                   </div>
                 </div>
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <input id="StartBrowser" type="checkbox" ng-model="tmpOptions.StartBrowser"> <span translate>Start Browser</span>
+                      <input id="StartBrowser" type="checkbox" ng-model="tmpOptions.startBrowser"> <span translate>Start Browser</span>
                     </label>
                   </div>
                 </div>
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <input id="UREnabled" type="checkbox" ng-model="tmpOptions.UREnabled"> <span translate>Anonymous Usage Reporting</span> (<a translate ng-click="showURPreview()" href="#">Preview</a>)
+                      <input id="UREnabled" type="checkbox" ng-model="tmpOptions.urEnabled"> <span translate>Anonymous Usage Reporting</span> (<a translate ng-click="showURPreview()" href="#">Preview</a>)
                     </label>
                   </div>
                 </div>
@@ -823,7 +823,7 @@
 
                 <div class="form-group">
                   <label><span translate>API Key</span></label>
-                  <div class="well well-sm text-monospace">{{tmpGUI.APIKey || "-"}}</div>
+                  <div class="well well-sm text-monospace">{{tmpGUI.apiKey || "-"}}</div>
                   <button translate type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(tmpGUI)">Generate</button>
                 </div>
               </div>
@@ -897,34 +897,34 @@
     <table class="table table-striped table-condensed">
       <tr ng-repeat="f in needed.progress" ng-init="a = needAction(f)">
         <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
-        <td title="{{f.Name}}">{{f.Name | basename}}</td>
-        <td ng-if="a == 'sync' && progress[neededFolder] && progress[neededFolder][f.Name]">
+        <td title="{{f.name}}">{{f.name | basename}}</td>
+        <td ng-if="a == 'sync' && progress[neededFolder] && progress[neededFolder][f.name]">
           <div class="progress">
-            <div class="progress-bar progress-bar-success" style="width: {{progress[neededFolder][f.Name].Reused}}%"></div>
-            <div class="progress-bar" style="width: {{progress[neededFolder][f.Name].CopiedFromOrigin}}%"></div>
-            <div class="progress-bar progress-bar-info" style="width: {{progress[neededFolder][f.Name].CopiedFromElsewhere}}%"></div>
-            <div class="progress-bar progress-bar-warning" style="width: {{progress[neededFolder][f.Name].Pulled}}%"></div>
-            <div class="progress-bar progress-bar-danger progress-bar-striped active" style="width: {{progress[neededFolder][f.Name].Pulling}}%"></div>
+            <div class="progress-bar progress-bar-success" style="width: {{progress[neededFolder][f.name].reused}}%"></div>
+            <div class="progress-bar" style="width: {{progress[neededFolder][f.name].copiedFromOrigin}}%"></div>
+            <div class="progress-bar progress-bar-info" style="width: {{progress[neededFolder][f.name].copiedFromElsewhere}}%"></div>
+            <div class="progress-bar progress-bar-warning" style="width: {{progress[neededFolder][f.name].pulled}}%"></div>
+            <div class="progress-bar progress-bar-danger progress-bar-striped active" style="width: {{progress[neededFolder][f.name].pulling}}%"></div>
             <span class="show frontal">
-              {{progress[neededFolder][f.Name].BytesDone | binary}}B / {{progress[neededFolder][f.Name].BytesTotal | binary}}B
+              {{progress[neededFolder][f.name].bytesDone | binary}}B / {{progress[neededFolder][f.name].bytesTotal | binary}}B
             </span>
           </div>
         </td>
-        <td class="text-right small-data" ng-if="a != 'sync' || !progress[neededFolder] || !progress[neededFolder][f.Name]">
-          <span ng-if="f.Size > 0">{{f.Size | binary}}B</span>
+        <td class="text-right small-data" ng-if="a != 'sync' || !progress[neededFolder] || !progress[neededFolder][f.name]">
+          <span ng-if="f.size > 0">{{f.size | binary}}B</span>
         </td>
       </tr>
       <tr ng-repeat="f in needed.queued" ng-init="a = needAction(f)">
         <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
-        <td><a href="" ng-if="$index != 0" ng-click="bumpFile(neededFolder, f.Name)" title="{{'Move to top of queue' | translate}}"><span class="glyphicon glyphicon-eject"></span></a><span ng-if="$index != 0">&ensp;</span><span title="{{f.Name}}">{{f.Name | basename}}</span></td>
+        <td><a href="" ng-if="$index != 0" ng-click="bumpFile(neededFolder, f.name)" title="{{'Move to top of queue' | translate}}"><span class="glyphicon glyphicon-eject"></span></a><span ng-if="$index != 0">&ensp;</span><span title="{{f.name}}">{{f.name | basename}}</span></td>
         <td class="text-right small-data">
-          <span ng-if="f.Size > 0">{{f.Size | binary}}B</span>
+          <span ng-if="f.size > 0">{{f.size | binary}}B</span>
          </td>
       </tr>
       <tr ng-repeat="f in needed.rest" ng-init="a = needAction(f)">
         <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
-        <td title="{{f.Name}}">{{f.Name | basename}}</td>
-        <td class="text-right small-data"><span ng-if="f.Size > 0">{{f.Size | binary}}B</span></td>
+        <td title="{{f.name}}">{{f.name | basename}}</td>
+        <td class="text-right small-data"><span ng-if="f.size > 0">{{f.size | binary}}B</span></td>
       </tr>
     </table>
 
