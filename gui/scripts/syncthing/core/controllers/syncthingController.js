@@ -713,7 +713,7 @@ angular.module('syncthing.core')
                 .then(function () {
                     $scope.currentDevice = {
                         AddressesStr: 'dynamic',
-                        Compression: true,
+                        Compression: 'metadata',
                         Introducer: false,
                         selectedFolders: {}
                     };
@@ -758,7 +758,7 @@ angular.module('syncthing.core')
             var deviceCfg = {
                 DeviceID: device,
                 AddressesStr: 'dynamic',
-                Compression: true,
+                Compression: 'metadata',
                 Introducer: false,
                 selectedFolders: {}
             };

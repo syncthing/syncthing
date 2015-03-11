@@ -370,9 +370,12 @@
                       <th><span class="glyphicon glyphicon-link"></span>&emsp;<span translate>Address</span></th>
                       <td class="text-right">{{deviceAddr(deviceCfg)}}</td>
                     </tr>
-                    <tr ng-if="!deviceCfg.Compression">
-                      <th><span class="glyphicon glyphicon-compressed"></span>&emsp;<span translate>Use Compression</span></th>
-                      <td translate class="text-right">No</td>
+                    <tr ng-if="deviceCfg.Compression != 'metadata'">
+                      <th><span class="glyphicon glyphicon-compressed"></span>&emsp;<span translate>Compression</span></th>
+                      <td class="text-right">
+                        <span ng-if="deviceCfg.Compression == 'always'" translate>All Data</span>
+                        <span ng-if="deviceCfg.Compression == 'never'" translate>Off</span>
+                      </td>
                     </tr>
                     <tr ng-if="deviceCfg.Introducer">
                       <th><span class="glyphicon glyphicon-thumbs-up"></span>&emsp;<span translate>Introducer</span></th>
@@ -502,12 +505,12 @@
               <p translate class="help-block">Enter comma separated "ip:port" addresses or "dynamic" to perform automatic discovery of the address.</p>
             </div>
             <div ng-if="!editingSelf" class="form-group">
-              <div class="checkbox">
-                <label>
-                  <input type="checkbox" ng-model="currentDevice.Compression"> <span translate>Use Compression</span>
-                </label>
-                <p translate class="help-block">Compression is recommended in most setups.</p>
-              </div>
+              <label translate>Compression</label>
+              <select class="form-control" ng-model="currentDevice.Compression">
+                <option value="always" translate>All Data</option>
+                <option value="metadata" translate>Metadata Only</option>
+                <option value="never" translate>Off</option>
+              </select>
             </div>
             <div ng-if="!editingSelf" class="form-group">
               <div class="checkbox">
