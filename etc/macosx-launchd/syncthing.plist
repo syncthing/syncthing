@@ -19,12 +19,21 @@
 		</dict>
 
 		<key>KeepAlive</key>
-		<true/>
+		<dict>
+			<key>NetworkState</key>
+			<true/>
+		</dict>
 
 		<key>LowPriorityIO</key>
 		<true/>
 
 		<key>ProcessType</key>
 		<string>Background</string>
+
+		<!-- Optional: store logs to troubleshoot any problems.
+		     Change the path to reflect your user!
+		<key>StandardOutPath</key>
+		<string>/Users/jb/Library/Logs/syncthing.log</string>
+		-->
 	</dict>
 </plist>
