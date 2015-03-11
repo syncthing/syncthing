@@ -13,9 +13,8 @@ func TestCompressionMarshal(t *testing.T) {
 		{"false", CompressNever},
 		{"never", CompressNever},
 		{"metadata", CompressMetadata},
-		{"filedata", CompressFiledata},
 		{"always", CompressAlways},
-		{"whatever", CompressNever},
+		{"whatever", CompressMetadata},
 	}
 
 	mTestcases := []struct {
@@ -24,7 +23,6 @@ func TestCompressionMarshal(t *testing.T) {
 	}{
 		{"never", CompressNever},
 		{"metadata", CompressMetadata},
-		{"filedata", CompressFiledata},
 		{"always", CompressAlways},
 	}
 
