@@ -53,7 +53,6 @@ import (
 )
 
 var (
-	Version     = "unknown-dev"
 	BuildEnv    = "default"
 	BuildStamp  = "0"
 	BuildDate   time.Time
