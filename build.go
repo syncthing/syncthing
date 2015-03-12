@@ -333,13 +333,15 @@ func clean() {
 }
 
 func ldflags() string {
-	var b bytes.Buffer
+	b := new(bytes.Buffer)
 	b.WriteString("-w")
-	b.WriteString(fmt.Sprintf(" -X main.Version %s", version))
-	b.WriteString(fmt.Sprintf(" -X main.BuildStamp %d", buildStamp()))
-	b.WriteString(fmt.Sprintf(" -X main.BuildUser %s", buildUser()))
-	b.WriteString(fmt.Sprintf(" -X main.BuildHost %s", buildHost()))
-	b.WriteString(fmt.Sprintf(" -X main.BuildEnv %s", buildEnvironment()))
+	if version != "" {
+		fmt.Fprintf(b, " -X main.Version %s", version)
+	}
+	fmt.Fprintf(b, " -X main.BuildStamp %d", buildStamp())
+	fmt.Fprintf(b, " -X main.BuildUser %s", buildUser())
+	fmt.Fprintf(b, " -X main.BuildHost %s", buildHost())
+	fmt.Fprintf(b, " -X main.BuildEnv %s", buildEnvironment())
 	return b.String()
 }
 
@@ -353,7 +355,7 @@ func rmr(paths ...string) {
 func getVersion() string {
 	v, err := runError("git", "describe", "--always", "--dirty")
 	if err != nil {
-		return "unknown-dev"
+		return ""
 	}
 	v = versionRe.ReplaceAllFunc(v, func(s []byte) []byte {
 		s[0] = '+'
