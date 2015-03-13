@@ -905,6 +905,10 @@ angular.module('syncthing.core')
                 $scope.currentFolder.staggeredMaxAge = Math.floor(+$scope.currentFolder.Versioning.Params.maxAge / 86400);
                 $scope.currentFolder.staggeredCleanInterval = +$scope.currentFolder.Versioning.Params.cleanInterval;
                 $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.Versioning.Params.versionsPath;
+            } else if ($scope.currentFolder.Versioning && $scope.currentFolder.Versioning.Type === "external") {
+                $scope.currentFolder.externalFileVersioning = true;
+                $scope.currentFolder.FileVersioningSelector = "external";
+                $scope.currentFolder.externalCommand = $scope.currentFolder.Versioning.Params.command;
             } else {
                 $scope.currentFolder.FileVersioningSelector = "none";
             }
@@ -918,6 +922,8 @@ angular.module('syncthing.core')
             if (typeof $scope.currentFolder.staggeredMaxAge === 'undefined') {
                 $scope.currentFolder.staggeredMaxAge = 365;
             }
+            
+            $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
             $scope.editingExisting = true;
             $scope.folderEditor.$setPristine();
@@ -934,6 +940,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.staggeredMaxAge = 365;
             $scope.currentFolder.staggeredCleanInterval = 3600;
             $scope.currentFolder.staggeredVersionsPath = "";
+            $scope.currentFolder.externalCommand = "";
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
@@ -953,6 +960,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.staggeredMaxAge = 365;
             $scope.currentFolder.staggeredCleanInterval = 3600;
             $scope.currentFolder.staggeredVersionsPath = "";
+            $scope.currentFolder.externalCommand = "";
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
@@ -1006,6 +1014,15 @@ angular.module('syncthing.core')
                 delete folderCfg.staggeredCleanInterval;
                 delete folderCfg.staggeredVersionsPath;
 
+            } else if (folderCfg.FileVersioningSelector === "external") {
+                folderCfg.Versioning = {
+                    'Type': 'external',
+                    'Params': {
+                        'command': '' + folderCfg.externalCommand
+                    }
+                };
+                delete folderCfg.externalFileVersioning;
+                delete folderCfg.externalCommand;
             } else {
                 delete folderCfg.Versioning;
             }
