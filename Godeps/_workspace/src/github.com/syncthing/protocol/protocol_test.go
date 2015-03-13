@@ -67,8 +67,8 @@ func TestPing(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, nil, "name", true).(wireFormatConnection).next.(*rawConnection)
-	c1 := NewConnection(c1ID, br, aw, nil, "name", true).(wireFormatConnection).next.(*rawConnection)
+	c0 := NewConnection(c0ID, ar, bw, nil, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	c1 := NewConnection(c1ID, br, aw, nil, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
 
 	if ok := c0.ping(); !ok {
 		t.Error("c0 ping failed")
@@ -91,8 +91,8 @@ func TestPingErr(t *testing.T) {
 			eaw := &ErrPipe{PipeWriter: *aw, max: i, err: e}
 			ebw := &ErrPipe{PipeWriter: *bw, max: j, err: e}
 
-			c0 := NewConnection(c0ID, ar, ebw, m0, "name", true).(wireFormatConnection).next.(*rawConnection)
-			NewConnection(c1ID, br, eaw, m1, "name", true)
+			c0 := NewConnection(c0ID, ar, ebw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+			NewConnection(c1ID, br, eaw, m1, "name", CompressAlways)
 
 			res := c0.ping()
 			if (i < 8 || j < 8) && res {
@@ -167,8 +167,8 @@ func TestVersionErr(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, m0, "name", true).(wireFormatConnection).next.(*rawConnection)
-	NewConnection(c1ID, br, aw, m1, "name", true)
+	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
 
 	w := xdr.NewWriter(c0.cw)
 	w.WriteUint32(encodeHeader(header{
@@ -190,8 +190,8 @@ func TestTypeErr(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, m0, "name", true).(wireFormatConnection).next.(*rawConnection)
-	NewConnection(c1ID, br, aw, m1, "name", true)
+	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
 
 	w := xdr.NewWriter(c0.cw)
 	w.WriteUint32(encodeHeader(header{
@@ -213,8 +213,8 @@ func TestClose(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, m0, "name", true).(wireFormatConnection).next.(*rawConnection)
-	NewConnection(c1ID, br, aw, m1, "name", true)
+	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
 
 	c0.close(nil)
 

@@ -948,7 +948,10 @@ func ensureDir(dir string, mode int) {
 func getDefaultConfDir() (string, error) {
 	switch runtime.GOOS {
 	case "windows":
-		return filepath.Join(os.Getenv("LocalAppData"), "Syncthing"), nil
+		if p := os.Getenv("LocalAppData"); p != "" {
+			return filepath.Join(p, "Syncthing"), nil
+		}
+		return filepath.Join(os.Getenv("AppData"), "Syncthing"), nil
 
 	case "darwin":
 		return osutil.ExpandTilde("~/Library/Application Support/Syncthing")
