@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/md5"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -377,36 +376,13 @@ func getGitVersion() (string, error) {
 	return string(v), nil
 }
 
-func getDirectoryVersion() (string, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	base := filepath.Base(filepath.Clean(wd))
-
-	re := regexp.MustCompile(`syncthing-(v?\d+\.\d+\.\d+)`)
-	parts := re.FindStringSubmatch(base)
-
-	if len(parts) != 2 {
-		return "", errors.New("not a release directory")
-	}
-	if strings.HasPrefix(parts[1], "v") {
-		return parts[1], nil
-	}
-	return "v" + parts[1], nil
-}
-
 func getVersion() string {
 	// First try for a RELEASE file,
 	if ver, err := getReleaseVersion(); err == nil {
 		return ver
 	}
-	// ... then see if we have a Git tag,
+	// ... then see if we have a Git tag.
 	if ver, err := getGitVersion(); err == nil {
-		return ver
-	}
-	// ... otherwise try to guess from the directory name.
-	if ver, err := getDirectoryVersion(); err == nil {
 		return ver
 	}
 	// This seems to be a dev build.
