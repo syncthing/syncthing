@@ -94,7 +94,9 @@ func (d *UDPClient) broadcast(pkt []byte) {
 
 	conn, err := net.ListenUDP(d.url.Scheme, d.listenAddress)
 	for err != nil {
-		l.Warnf("discover %s: broadcast listen: %v; trying again in %v", d.url, err, d.errorRetryInterval)
+		if debug {
+			l.Debugf("discover %s: broadcast listen: %v; trying again in %v", d.url, err, d.errorRetryInterval)
+		}
 		select {
 		case <-d.stop:
 			return
@@ -106,9 +108,7 @@ func (d *UDPClient) broadcast(pkt []byte) {
 
 	remote, err := net.ResolveUDPAddr(d.url.Scheme, d.url.Host)
 	for err != nil {
-		if d.url.Scheme != "udp6" {
-			l.Warnf("discover %s: broadcast resolve: %v; trying again in %v", d.url, err, d.errorRetryInterval)
-		} else if debug {
+		if debug {
 			l.Debugf("discover %s: broadcast resolve: %v; trying again in %v", d.url, err, d.errorRetryInterval)
 		}
 		select {

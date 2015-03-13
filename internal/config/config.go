@@ -36,7 +36,7 @@ import (
 
 var l = logger.DefaultLogger
 
-const CurrentVersion = 8
+const CurrentVersion = 9
 
 type Configuration struct {
 	Version        int                   `xml:"version,attr"`
@@ -146,12 +146,12 @@ func (c *VersioningConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartEl
 }
 
 type DeviceConfiguration struct {
-	DeviceID    protocol.DeviceID `xml:"id,attr"`
-	Name        string            `xml:"name,attr,omitempty"`
-	Addresses   []string          `xml:"address,omitempty"`
-	Compression bool              `xml:"compression,attr"`
-	CertName    string            `xml:"certName,attr,omitempty"`
-	Introducer  bool              `xml:"introducer,attr"`
+	DeviceID    protocol.DeviceID    `xml:"id,attr"`
+	Name        string               `xml:"name,attr,omitempty"`
+	Addresses   []string             `xml:"address,omitempty"`
+	Compression protocol.Compression `xml:"compression,attr"`
+	CertName    string               `xml:"certName,attr,omitempty"`
+	Introducer  bool                 `xml:"introducer,attr"`
 }
 
 type FolderDeviceConfiguration struct {
@@ -320,6 +320,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 7 {
 		convertV7V8(cfg)
 	}
+	if cfg.Version == 8 {
+		convertV8V9(cfg)
+	}
 
 	// Hash old cleartext passwords
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
@@ -411,6 +414,13 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 	return false
 }
 
+func convertV8V9(cfg *Configuration) {
+	// Compression is interpreted and serialized differently, but no enforced
+	// changes. Still need a new version number since the compression stuff
+	// isn't understandable by earlier versions.
+	cfg.Version = 9
+}
+
 func convertV7V8(cfg *Configuration) {
 	// Add IPv6 announce server
 	if len(cfg.Options.GlobalAnnServers) == 1 && cfg.Options.GlobalAnnServers[0] == "udp4://announce.syncthing.net:22026" {
@@ -498,7 +508,7 @@ func convertV2V3(cfg *Configuration) {
 	// compression on all existing new. New devices will get compression on by
 	// default by the GUI.
 	for i := range cfg.Deprecated_Nodes {
-		cfg.Deprecated_Nodes[i].Compression = true
+		cfg.Deprecated_Nodes[i].Compression = protocol.CompressMetadata
 	}
 
 	// The global discovery format and port number changed in v0.9. Having the
