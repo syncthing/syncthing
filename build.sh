@@ -51,6 +51,7 @@ case "${1:-default}" in
 
 	all)
 		go run build.go -goos darwin -goarch amd64 tar
+		go run build.go -goos darwin -goarch 386 tar
 
 		go run build.go -goos dragonfly -goarch 386 tar
 		go run build.go -goos dragonfly -goarch amd64 tar
