@@ -44,12 +44,11 @@ next:
 		cs := conn.ConnectionState()
 
 		// We should have negotiated the next level protocol "bep/1.0" as part
-		// of the TLS handshake. If we didn't, we're not speaking to another
-		// BEP-speaker so drop the connection.
+		// of the TLS handshake. Unfortunately this can't be a hard error,
+		// because there are implementations out there that don't support
+		// protocol negotiation (iOS for one...).
 		if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != bepProtocolName {
 			l.Infof("Peer %s did not negotiate bep/1.0", conn.RemoteAddr())
-			conn.Close()
-			continue
 		}
 
 		// We should have received exactly one certificate from the other
