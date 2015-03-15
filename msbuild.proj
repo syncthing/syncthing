@@ -1,36 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build"  xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <!-- Variables -->
   <PropertyGroup>
     <DevRoot>$(MSBuildProjectDirectory)</DevRoot>
     <OutputDir>$(DevRoot)\bin</OutputDir>
   </PropertyGroup>
- 
- <Target Name="BuildMsiPack" DependsOnTargets="RemoveTargetDirectory;
-  CreateDirectories;
-  CreateSyncthingBins;
- CreateServiceWrapper;
- CreateMsi;" />
-  
+
+  <Target Name="BuildMsiPack" DependsOnTargets="RemoveTargetDirectory;
+CreateDirectories;
+CreateSyncthingBins;
+CreateServiceWrapper;
+CreateMsi;" />
+  <Target Name="RemoveTargetDirectory">
+    <RemoveDir Condition="Exists('$(OutputDir)')" Directories="$(OutputDir)" />
+  </Target>
+
   <Target Name="CreateDirectories">
     <MakeDir Directories="$(OutputDirectory)" ContinueOnError="false" />
   </Target>
-  
-  <Target Name="CreateSyncthingBins">
-	<Message Text="Building Syncthing" />
-	<Exec Command="build.sh" />
-  </Target>
 
-  
-  <Target Name="RemoveTargetDirectory">
-    <RemoveDir Condition="Exists('$(OutputDir)')" Directories="$(OutputDir)" />
+  <Target Name="CreateSyncthingBins">
+    <Message Text="Building Syncthing" />
+    <Exec WorkingDirectory="$(DevRoot)" Command="go run build.go" />
   </Target>
 
   <Target Name="CreateServiceWrapper">
     <MSBuild Projects="$(DevRoot)\SyncthingServiceWrapper\SyncthingServiceWrapper.csproj" Properties="PostBuildEvent=;Configuration=Release;OutputPath=$(OutputDir)" />
   </Target>
-  
-   <Target Name="CreateMsi">
+
+  <Target Name="CreateMsi">
     <MSBuild Projects="$(DevRoot)\WindowsSetup\Syncthing.wixproj" Properties="PostBuildEvent=;Configuration=Release;OutputPath=$(OutputDir)" />
   </Target>
 </Project>

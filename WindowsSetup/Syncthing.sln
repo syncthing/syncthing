@@ -7,6 +7,11 @@ Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "Syncthing", "Syncthing.wixp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SyncthingServiceWrapper", "..\SyncthingServiceWrapper\SyncthingServiceWrapper.csproj", "{3D5FD92D-300F-4166-B91F-8CFC8E924FA1}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{811C667E-E3F4-4861-BEF8-88917E4CE680}"
+	ProjectSection(SolutionItems) = preProject
+		..\msbuild.proj = ..\msbuild.proj
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
