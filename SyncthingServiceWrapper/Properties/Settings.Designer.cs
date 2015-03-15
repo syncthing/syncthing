@@ -25,7 +25,7 @@ namespace SyncthingServiceWrapper.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("-no-console")]
+        [global::System.Configuration.DefaultSettingValueAttribute("-no-console  -no-browser ")]
         public string syncthingArguments {
             get {
                 return ((string)(this["syncthingArguments"]));

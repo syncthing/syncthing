@@ -3,7 +3,7 @@
   <Profiles />
   <Settings>
     <Setting Name="syncthingArguments" Type="System.String" Scope="User">
-      <Value Profile="(Default)">-no-console</Value>
+      <Value Profile="(Default)">-no-console  -no-browser </Value>
     </Setting>
     <Setting Name="username" Type="System.String" Scope="User">
       <Value Profile="(Default)">stefan</Value>
