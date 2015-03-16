@@ -59,7 +59,9 @@ func (b *Multicast) writer() {
 	for bs := range b.inbox {
 		intfs, err := net.Interfaces()
 		if err != nil {
-			l.Warnln("multicast interfaces:", err)
+			if debug {
+				l.Debugln("multicast interfaces:", err)
+			}
 			continue
 		}
 		for _, intf := range intfs {
