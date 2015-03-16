@@ -54,30 +54,52 @@ var (
 	errNoDevice = errors.New("no available source device")
 )
 
-type Puller struct {
-	folder          string
-	dir             string
-	scanIntv        time.Duration
+type rwFolder struct {
+	stateTracker
+
 	model           *Model
-	stop            chan struct{}
-	versioner       versioner.Versioner
-	ignorePerms     bool
-	lenientMtimes   bool
 	progressEmitter *ProgressEmitter
-	copiers         int
-	pullers         int
-	queue           *jobQueue
+
+	folder        string
+	dir           string
+	scanIntv      time.Duration
+	versioner     versioner.Versioner
+	ignorePerms   bool
+	lenientMtimes bool
+	copiers       int
+	pullers       int
+
+	stop  chan struct{}
+	queue *jobQueue
+}
+
+func newRWFolder(m *Model, cfg config.FolderConfiguration) *rwFolder {
+	return &rwFolder{
+		stateTracker: stateTracker{folder: cfg.ID},
+
+		model:           m,
+		progressEmitter: m.progressEmitter,
+
+		folder:        cfg.ID,
+		dir:           cfg.Path,
+		scanIntv:      time.Duration(cfg.RescanIntervalS) * time.Second,
+		ignorePerms:   cfg.IgnorePerms,
+		lenientMtimes: cfg.LenientMtimes,
+		copiers:       cfg.Copiers,
+		pullers:       cfg.Pullers,
+
+		stop:  make(chan struct{}),
+		queue: newJobQueue(),
+	}
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
 // critical error.
-func (p *Puller) Serve() {
+func (p *rwFolder) Serve() {
 	if debug {
 		l.Debugln(p, "starting")
 		defer l.Debugln(p, "exiting")
 	}
-
-	p.stop = make(chan struct{})
 
 	pullTimer := time.NewTimer(checkPullIntv)
 	scanTimer := time.NewTimer(time.Millisecond) // The first scan should be done immediately.
@@ -86,7 +108,7 @@ func (p *Puller) Serve() {
 		pullTimer.Stop()
 		scanTimer.Stop()
 		// TODO: Should there be an actual FolderStopped state?
-		p.model.setState(p.folder, FolderIdle)
+		p.setState(FolderIdle)
 	}()
 
 	var prevVer int64
@@ -143,7 +165,7 @@ loop:
 			if debug {
 				l.Debugln(p, "pulling", prevVer, curVer)
 			}
-			p.model.setState(p.folder, FolderSyncing)
+			p.setState(FolderSyncing)
 			tries := 0
 			for {
 				tries++
@@ -191,7 +213,7 @@ loop:
 					break
 				}
 			}
-			p.model.setState(p.folder, FolderIdle)
+			p.setState(FolderIdle)
 
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
@@ -200,12 +222,12 @@ loop:
 			if debug {
 				l.Debugln(p, "rescan")
 			}
-			p.model.setState(p.folder, FolderScanning)
+			p.setState(FolderScanning)
 			if err := p.model.ScanFolder(p.folder); err != nil {
 				p.model.cfg.InvalidateFolder(p.folder, err.Error())
 				break loop
 			}
-			p.model.setState(p.folder, FolderIdle)
+			p.setState(FolderIdle)
 			if p.scanIntv > 0 {
 				// Sleep a random time between 3/4 and 5/4 of the configured interval.
 				sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
@@ -224,19 +246,19 @@ loop:
 	}
 }
 
-func (p *Puller) Stop() {
+func (p *rwFolder) Stop() {
 	close(p.stop)
 }
 
-func (p *Puller) String() string {
-	return fmt.Sprintf("puller/%s@%p", p.folder, p)
+func (p *rwFolder) String() string {
+	return fmt.Sprintf("rwFolder/%s@%p", p.folder, p)
 }
 
 // pullerIteration runs a single puller iteration for the given folder and
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
+func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -422,7 +444,7 @@ nextFile:
 }
 
 // handleDir creates or updates the given directory
-func (p *Puller) handleDir(file protocol.FileInfo) {
+func (p *rwFolder) handleDir(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder":  p.folder,
@@ -497,7 +519,7 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 }
 
 // deleteDir attempts to delete the given directory
-func (p *Puller) deleteDir(file protocol.FileInfo) {
+func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder":  p.folder,
@@ -532,7 +554,7 @@ func (p *Puller) deleteDir(file protocol.FileInfo) {
 }
 
 // deleteFile attempts to delete the given file
-func (p *Puller) deleteFile(file protocol.FileInfo) {
+func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder":  p.folder,
@@ -564,7 +586,7 @@ func (p *Puller) deleteFile(file protocol.FileInfo) {
 
 // renameFile attempts to rename an existing file to a destination
 // and set the right attributes on it.
-func (p *Puller) renameFile(source, target protocol.FileInfo) {
+func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder":  p.folder,
@@ -634,7 +656,7 @@ func (p *Puller) renameFile(source, target protocol.FileInfo) {
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
+func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder":  p.folder,
 		"item":    file.Name,
@@ -732,7 +754,7 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
-func (p *Puller) shortcutFile(file protocol.FileInfo) (err error) {
+func (p *rwFolder) shortcutFile(file protocol.FileInfo) (err error) {
 	realName := filepath.Join(p.dir, file.Name)
 	if !p.ignorePerms {
 		err = os.Chmod(realName, os.FileMode(file.Flags&0777))
@@ -763,7 +785,7 @@ func (p *Puller) shortcutFile(file protocol.FileInfo) (err error) {
 }
 
 // shortcutSymlink changes the symlinks type if necessery.
-func (p *Puller) shortcutSymlink(file protocol.FileInfo) (err error) {
+func (p *rwFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
 	err = symlinks.ChangeType(filepath.Join(p.dir, file.Name), file.Flags)
 	if err == nil {
 		p.model.updateLocal(p.folder, file)
@@ -775,7 +797,7 @@ func (p *Puller) shortcutSymlink(file protocol.FileInfo) (err error) {
 
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
-func (p *Puller) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
+func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
 	buf := make([]byte, protocol.BlockSize)
 
 	for state := range in {
@@ -857,7 +879,7 @@ func (p *Puller) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBl
 	}
 }
 
-func (p *Puller) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
+func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	for state := range in {
 		if state.failed() != nil {
 			continue
@@ -918,7 +940,7 @@ func (p *Puller) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPulle
 	}
 }
 
-func (p *Puller) performFinish(state *sharedPullerState) {
+func (p *rwFolder) performFinish(state *sharedPullerState) {
 	var err error
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
@@ -931,7 +953,7 @@ func (p *Puller) performFinish(state *sharedPullerState) {
 	if !p.ignorePerms {
 		err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
 		if err != nil {
-			l.Warnln("puller: final:", err)
+			l.Warnln("Puller: final:", err)
 			return
 		}
 	}
@@ -947,7 +969,7 @@ func (p *Puller) performFinish(state *sharedPullerState) {
 			// sync.
 			l.Infof("Puller (folder %q, file %q): final: %v (continuing anyway as requested)", p.folder, state.file.Name, err)
 		} else {
-			l.Warnln("puller: final:", err)
+			l.Warnln("Puller: final:", err)
 			return
 		}
 	}
@@ -958,7 +980,7 @@ func (p *Puller) performFinish(state *sharedPullerState) {
 	if p.versioner != nil {
 		err = p.versioner.Archive(state.realName)
 		if err != nil {
-			l.Warnln("puller: final:", err)
+			l.Warnln("Puller: final:", err)
 			return
 		}
 	}
@@ -972,7 +994,7 @@ func (p *Puller) performFinish(state *sharedPullerState) {
 	// Replace the original content with the new one
 	err = osutil.Rename(state.tempName, state.realName)
 	if err != nil {
-		l.Warnln("puller: final:", err)
+		l.Warnln("Puller: final:", err)
 		return
 	}
 
@@ -980,7 +1002,7 @@ func (p *Puller) performFinish(state *sharedPullerState) {
 	if state.file.IsSymlink() {
 		content, err := ioutil.ReadFile(state.realName)
 		if err != nil {
-			l.Warnln("puller: final: reading symlink:", err)
+			l.Warnln("Puller: final: reading symlink:", err)
 			return
 		}
 
@@ -990,7 +1012,7 @@ func (p *Puller) performFinish(state *sharedPullerState) {
 			return symlinks.Create(path, string(content), state.file.Flags)
 		}, state.realName)
 		if err != nil {
-			l.Warnln("puller: final: creating symlink:", err)
+			l.Warnln("Puller: final: creating symlink:", err)
 			return
 		}
 	}
@@ -999,14 +1021,14 @@ func (p *Puller) performFinish(state *sharedPullerState) {
 	p.model.updateLocal(p.folder, state.file)
 }
 
-func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
+func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 	for state := range in {
 		if closed, err := state.finalClose(); closed {
 			if debug {
 				l.Debugln(p, "closing", state.file.Name)
 			}
 			if err != nil {
-				l.Warnln("puller: final:", err)
+				l.Warnln("Puller: final:", err)
 				continue
 			}
 
@@ -1029,11 +1051,11 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 }
 
 // Moves the given filename to the front of the job queue
-func (p *Puller) BringToFront(filename string) {
+func (p *rwFolder) BringToFront(filename string) {
 	p.queue.BringToFront(filename)
 }
 
-func (p *Puller) Jobs() ([]string, []string) {
+func (p *rwFolder) Jobs() ([]string, []string) {
 	return p.queue.Jobs()
 }
 

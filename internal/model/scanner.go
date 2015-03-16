@@ -12,14 +12,26 @@ import (
 	"time"
 )
 
-type Scanner struct {
+type roFolder struct {
+	stateTracker
+
 	folder string
 	intv   time.Duration
 	model  *Model
 	stop   chan struct{}
 }
 
-func (s *Scanner) Serve() {
+func newROFolder(model *Model, folder string, interval time.Duration) *roFolder {
+	return &roFolder{
+		stateTracker: stateTracker{folder: folder},
+		folder:       folder,
+		intv:         interval,
+		model:        model,
+		stop:         make(chan struct{}),
+	}
+}
+
+func (s *roFolder) Serve() {
 	if debug {
 		l.Debugln(s, "starting")
 		defer l.Debugln(s, "exiting")
@@ -39,12 +51,12 @@ func (s *Scanner) Serve() {
 				l.Debugln(s, "rescan")
 			}
 
-			s.model.setState(s.folder, FolderScanning)
+			s.setState(FolderScanning)
 			if err := s.model.ScanFolder(s.folder); err != nil {
 				s.model.cfg.InvalidateFolder(s.folder, err.Error())
 				return
 			}
-			s.model.setState(s.folder, FolderIdle)
+			s.setState(FolderIdle)
 
 			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (ro) of folder", s.folder)
@@ -62,16 +74,16 @@ func (s *Scanner) Serve() {
 	}
 }
 
-func (s *Scanner) Stop() {
+func (s *roFolder) Stop() {
 	close(s.stop)
 }
 
-func (s *Scanner) String() string {
-	return fmt.Sprintf("scanner/%s@%p", s.folder, s)
+func (s *roFolder) String() string {
+	return fmt.Sprintf("roFolder/%s@%p", s.folder, s)
 }
 
-func (s *Scanner) BringToFront(string) {}
+func (s *roFolder) BringToFront(string) {}
 
-func (s *Scanner) Jobs() ([]string, []string) {
+func (s *roFolder) Jobs() ([]string, []string) {
 	return nil, nil
 }

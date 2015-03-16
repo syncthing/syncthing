@@ -43,8 +43,22 @@ func TestBenchmarkTransfer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Make sure the sender has the full index before they connect
-	sender.post("/rest/scan?folder=default", nil)
+	// Wait for one scan to succeed, or up to 20 seconds... This is to let
+	// startup, UPnP etc complete and make sure the sender has the full index
+	// before they connect.
+	for i := 0; i < 20; i++ {
+		resp, err := sender.post("/rest/scan?folder=default", nil)
+		if err != nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
 
 	log.Println("Starting receiver...")
 	receiver := syncthingProcess{ // id2
