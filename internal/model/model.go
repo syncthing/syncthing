@@ -18,6 +18,7 @@ package model
 import (
 	"bufio"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -239,6 +240,16 @@ type ConnectionInfo struct {
 	protocol.Statistics
 	Address       string
 	ClientVersion string
+}
+
+func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"at":            info.At,
+		"inBytesTotal":  info.InBytesTotal,
+		"outBytesTotal": info.OutBytesTotal,
+		"address":       info.Address,
+		"clientVersion": info.ClientVersion,
+	})
 }
 
 // ConnectionStats returns a map with connection statistics for each connected device.

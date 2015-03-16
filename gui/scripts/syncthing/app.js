@@ -78,7 +78,7 @@ function folderCompare(a, b) {
 function folderMap(l) {
     var m = {};
     l.forEach(function (r) {
-        m[r.ID] = r;
+        m[r.id] = r;
     });
     return m;
 }

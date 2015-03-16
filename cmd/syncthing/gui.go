@@ -46,8 +46,8 @@ import (
 )
 
 type guiError struct {
-	Time  time.Time
-	Error string
+	Time  time.Time `json:"time"`
+	Error string    `json:"error"`
 }
 
 var (
@@ -824,12 +824,12 @@ func toNeedSlice(fs []db.FileInfoTruncated) []map[string]interface{} {
 	output := make([]map[string]interface{}, len(fs))
 	for i, file := range fs {
 		output[i] = map[string]interface{}{
-			"Name":         file.Name,
-			"Flags":        file.Flags,
-			"Modified":     file.Modified,
-			"Version":      file.Version,
-			"LocalVersion": file.LocalVersion,
-			"Size":         file.Size(),
+			"name":         file.Name,
+			"flags":        file.Flags,
+			"modified":     file.Modified,
+			"version":      file.Version,
+			"localVersion": file.LocalVersion,
+			"size":         file.Size(),
 		}
 	}
 	return output

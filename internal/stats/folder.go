@@ -23,7 +23,7 @@ import (
 )
 
 type FolderStatistics struct {
-	LastFile LastFile
+	LastFile LastFile `json:"lastFile"`
 }
 
 type FolderStatisticsReference struct {
@@ -32,8 +32,8 @@ type FolderStatisticsReference struct {
 }
 
 type LastFile struct {
-	At       time.Time
-	Filename string
+	At       time.Time `json:"at"`
+	Filename string    `json:"filename"`
 }
 
 func NewFolderStatisticsReference(ldb *leveldb.DB, folder string) *FolderStatisticsReference {

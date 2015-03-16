@@ -39,12 +39,12 @@ var l = logger.DefaultLogger
 const CurrentVersion = 9
 
 type Configuration struct {
-	Version        int                   `xml:"version,attr"`
-	Folders        []FolderConfiguration `xml:"folder"`
-	Devices        []DeviceConfiguration `xml:"device"`
-	GUI            GUIConfiguration      `xml:"gui"`
-	Options        OptionsConfiguration  `xml:"options"`
-	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice"`
+	Version        int                   `xml:"version,attr" json:"version"`
+	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
+	Devices        []DeviceConfiguration `xml:"device" json:"devices"`
+	GUI            GUIConfiguration      `xml:"gui" json:"gui"`
+	Options        OptionsConfiguration  `xml:"options" json:"options"`
+	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice" json:"ignoredDevices"`
 	XMLName        xml.Name              `xml:"configuration" json:"-"`
 
 	OriginalVersion         int                   `xml:"-" json:"-"` // The version we read from disk, before any conversion
@@ -53,19 +53,19 @@ type Configuration struct {
 }
 
 type FolderConfiguration struct {
-	ID              string                      `xml:"id,attr"`
-	Path            string                      `xml:"path,attr"`
-	Devices         []FolderDeviceConfiguration `xml:"device"`
-	ReadOnly        bool                        `xml:"ro,attr"`
-	RescanIntervalS int                         `xml:"rescanIntervalS,attr" default:"60"`
-	IgnorePerms     bool                        `xml:"ignorePerms,attr"`
-	Versioning      VersioningConfiguration     `xml:"versioning"`
-	LenientMtimes   bool                        `xml:"lenientMtimes"`
-	Copiers         int                         `xml:"copiers" default:"1"`  // This defines how many files are handled concurrently.
-	Pullers         int                         `xml:"pullers" default:"16"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
-	Hashers         int                         `xml:"hashers" default:"0"`  // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
+	ID              string                      `xml:"id,attr" json:"id"`
+	Path            string                      `xml:"path,attr" json:"path"`
+	Devices         []FolderDeviceConfiguration `xml:"device" json:"devices"`
+	ReadOnly        bool                        `xml:"ro,attr" json:"readOnly"`
+	RescanIntervalS int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS" default:"60"`
+	IgnorePerms     bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
+	Versioning      VersioningConfiguration     `xml:"versioning" json:"versioning"`
+	LenientMtimes   bool                        `xml:"lenientMtimes" json:"lenientMTimes"`
+	Copiers         int                         `xml:"copiers" json:"copiers" default:"1"`  // This defines how many files are handled concurrently.
+	Pullers         int                         `xml:"pullers" json:"pullers" default:"16"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
+	Hashers         int                         `xml:"hashers" json:"hashers" default:"0"`  // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
 
-	Invalid string `xml:"-"` // Set at runtime when there is an error, not saved
+	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 
 	deviceIDs []protocol.DeviceID
 
@@ -105,8 +105,8 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 }
 
 type VersioningConfiguration struct {
-	Type   string `xml:"type,attr"`
-	Params map[string]string
+	Type   string            `xml:"type,attr" json:"type"`
+	Params map[string]string `json:"params"`
 }
 
 type InternalVersioningConfiguration struct {
@@ -146,44 +146,44 @@ func (c *VersioningConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartEl
 }
 
 type DeviceConfiguration struct {
-	DeviceID    protocol.DeviceID    `xml:"id,attr"`
-	Name        string               `xml:"name,attr,omitempty"`
-	Addresses   []string             `xml:"address,omitempty"`
-	Compression protocol.Compression `xml:"compression,attr"`
-	CertName    string               `xml:"certName,attr,omitempty"`
-	Introducer  bool                 `xml:"introducer,attr"`
+	DeviceID    protocol.DeviceID    `xml:"id,attr" json:"deviceID"`
+	Name        string               `xml:"name,attr,omitempty" json:"name"`
+	Addresses   []string             `xml:"address,omitempty" json:"addresses"`
+	Compression protocol.Compression `xml:"compression,attr" json:"compression"`
+	CertName    string               `xml:"certName,attr,omitempty" json:"certName"`
+	Introducer  bool                 `xml:"introducer,attr" json:"introducer"`
 }
 
 type FolderDeviceConfiguration struct {
-	DeviceID protocol.DeviceID `xml:"id,attr"`
+	DeviceID protocol.DeviceID `xml:"id,attr" json:"deviceID"`
 
 	Deprecated_Name      string   `xml:"name,attr,omitempty" json:"-"`
 	Deprecated_Addresses []string `xml:"address,omitempty" json:"-"`
 }
 
 type OptionsConfiguration struct {
-	ListenAddress           []string `xml:"listenAddress" default:"0.0.0.0:22000"`
-	GlobalAnnServers        []string `xml:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22026, udp6://announce-v6.syncthing.net:22026"`
-	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" default:"true"`
-	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" default:"true"`
-	LocalAnnPort            int      `xml:"localAnnouncePort" default:"21025"`
-	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
-	MaxSendKbps             int      `xml:"maxSendKbps"`
-	MaxRecvKbps             int      `xml:"maxRecvKbps"`
-	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" default:"60"`
-	StartBrowser            bool     `xml:"startBrowser" default:"true"`
-	UPnPEnabled             bool     `xml:"upnpEnabled" default:"true"`
-	UPnPLease               int      `xml:"upnpLeaseMinutes" default:"0"`
-	UPnPRenewal             int      `xml:"upnpRenewalMinutes" default:"30"`
-	URAccepted              int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
-	URUniqueID              string   `xml:"urUniqueID"` // Unique ID for reporting purposes, regenerated when UR is turned on.
-	RestartOnWakeup         bool     `xml:"restartOnWakeup" default:"true"`
-	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" default:"12"` // 0 for off
-	KeepTemporariesH        int      `xml:"keepTemporariesH" default:"24"`     // 0 for off
-	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" default:"true"`
-	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" default:"5"`
-	SymlinksEnabled         bool     `xml:"symlinksEnabled" default:"true"`
-	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" default:"false"`
+	ListenAddress           []string `xml:"listenAddress" json:"listenAddress" default:"0.0.0.0:22000"`
+	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22026, udp6://announce-v6.syncthing.net:22026"`
+	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
+	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
+	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21025"`
+	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
+	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
+	MaxRecvKbps             int      `xml:"maxRecvKbps" json:"maxRecvKbps"`
+	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
+	StartBrowser            bool     `xml:"startBrowser" json:"startBrowser" default:"true"`
+	UPnPEnabled             bool     `xml:"upnpEnabled" json:"upnpEnabled" default:"true"`
+	UPnPLease               int      `xml:"upnpLeaseMinutes" json:"upnpLeaseMinutes" default:"0"`
+	UPnPRenewal             int      `xml:"upnpRenewalMinutes" json:"upnpRenewalMinutes" default:"30"`
+	URAccepted              int      `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
+	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
+	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true"`
+	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12"` // 0 for off
+	KeepTemporariesH        int      `xml:"keepTemporariesH" json:"keepTemporariesH" default:"24"`         // 0 for off
+	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" json:"cacheIgnoredFiles" default:"true"`
+	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" json:"progressUpdateIntervalS" default:"5"`
+	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
+	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
 
 	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
 	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`
@@ -194,12 +194,12 @@ type OptionsConfiguration struct {
 }
 
 type GUIConfiguration struct {
-	Enabled  bool   `xml:"enabled,attr" default:"true"`
-	Address  string `xml:"address" default:"127.0.0.1:8080"`
-	User     string `xml:"user,omitempty"`
-	Password string `xml:"password,omitempty"`
-	UseTLS   bool   `xml:"tls,attr"`
-	APIKey   string `xml:"apikey,omitempty"`
+	Enabled  bool   `xml:"enabled,attr" json:"enabled" default:"true"`
+	Address  string `xml:"address" json:"address" default:"127.0.0.1:8080"`
+	User     string `xml:"user,omitempty" json:"user"`
+	Password string `xml:"password,omitempty" json:"password"`
+	UseTLS   bool   `xml:"tls,attr" json:"useTLS"`
+	APIKey   string `xml:"apikey,omitempty" json:"apiKey"`
 }
 
 func New(myID protocol.DeviceID) Configuration {
