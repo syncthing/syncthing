@@ -90,6 +90,7 @@ func TestRequest(t *testing.T) {
 
 	// device1 shares default, but device2 doesn't
 	m.AddFolder(defaultFolderConfig)
+	m.StartFolderRO("default")
 	m.ScanFolder("default")
 
 	// Existing, shared file
@@ -470,6 +471,7 @@ func TestIgnores(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
+	m.StartFolderRO("default")
 
 	expected := []string{
 		".*",
