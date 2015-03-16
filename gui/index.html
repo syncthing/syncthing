@@ -251,7 +251,7 @@
                       <th><span class="glyphicon glyphicon-share-alt"></span>&emsp;<span translate>Shared With</span></th>
                       <td class="text-right">{{sharesFolder(folder)}}</td>
                     </tr>
-                    <tr ng-if="folderStats[folder.ID].LastFile">
+                    <tr ng-if="!folder.ReadOnly && folderStats[folder.ID].LastFile">
                       <th><span class="glyphicon glyphicon-transfer"></span>&emsp;<span translate>Last File Received</span></th>
                       <td class="text-right">
                         <span title="{{folderStats[folder.ID].LastFile.Filename}} @ {{folderStats[folder.ID].LastFile.At | date:'yyyy-MM-dd HH:mm'}}">
@@ -965,6 +965,7 @@
           <li>James Patterson</li>
           <li>Jens Diemer</li>
           <li>Jochen Voss</li>
+          <li>Johan Vromans</li>
           <li>Kamada Ken'ichi</li>
           <li>Karol Różycki</li>
           <li>Lode Hoste</li>
