@@ -124,6 +124,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/tree", withModel(m, restGetTree))
 	getRestMux.HandleFunc("/rest/stats/device", withModel(m, restGetDeviceStats))
 	getRestMux.HandleFunc("/rest/stats/folder", withModel(m, restGetFolderStats))
+	getRestMux.HandleFunc("/rest/filestatus", withModel(m, restGetFileStatus))
 
 	// Debug endpoints, not for general use
 	getRestMux.HandleFunc("/rest/debug/peerCompletion", withModel(m, restGetPeerCompletion))
@@ -363,6 +364,27 @@ func restGetFolderStats(m *model.Model, w http.ResponseWriter, r *http.Request) 
 	var res = m.FolderStatistics()
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
+}
+
+func restGetFileStatus(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	file := qs.Get("file")
+	withBlocks := qs.Get("blocks") != ""
+	gf, _ := m.CurrentGlobalFile(folder, file)
+	lf, _ := m.CurrentFolderFile(folder, file)
+
+	if !withBlocks {
+		gf.Blocks = nil
+		lf.Blocks = nil
+	}
+
+	av := m.Availability(folder, file)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"global":       gf,
+		"local":        lf,
+		"availability": av,
+	})
 }
 
 func restGetConfig(w http.ResponseWriter, r *http.Request) {
