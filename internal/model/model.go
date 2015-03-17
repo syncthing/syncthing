@@ -1495,7 +1495,7 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 	return output
 }
 
-func (m *Model) availability(folder, file string) []protocol.DeviceID {
+func (m *Model) Availability(folder, file string) []protocol.DeviceID {
 	// Acquire this lock first, as the value returned from foldersFiles can
 	// get heavily modified on Close()
 	m.pmut.RLock()

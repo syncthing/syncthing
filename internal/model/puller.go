@@ -872,7 +872,7 @@ func (p *Puller) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPulle
 		}
 
 		var lastError error
-		potentialDevices := p.model.availability(p.folder, state.file.Name)
+		potentialDevices := p.model.Availability(p.folder, state.file.Name)
 		for {
 			// Select the least busy device to pull the block from. If we found no
 			// feasible device at all, fail the block (and in the long run, the
