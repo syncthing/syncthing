@@ -29,7 +29,7 @@ func TestParallellScan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Println("Generaing .stignore...")
+	log.Println("Generating .stignore...")
 	err = ioutil.WriteFile("s1/.stignore", []byte("some ignore data\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -46,7 +46,25 @@ func TestParallellScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(5 * time.Second)
+
+	// Wait for one scan to succeed, or up to 20 seconds...
+	// This is to let startup, UPnP etc complete.
+	for i := 0; i < 20; i++ {
+		resp, err := st.post("/rest/scan?folder=default", nil)
+		if err != nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
+
+	// Wait for UPnP and stuff
+	time.Sleep(10 * time.Second)
 
 	var wg sync.WaitGroup
 	log.Println("Starting scans...")
