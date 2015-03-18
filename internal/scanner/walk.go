@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/ignore"
@@ -55,6 +56,9 @@ type Walker struct {
 	// detected. Scanned files will get zero permission bits and the
 	// NoPermissionBits flag set.
 	IgnorePerms bool
+	// When AutoNormalize is set, file names that are in UTF8 but incorrect
+	// normalization form will be corrected.
+	AutoNormalize bool
 	// Number of routines to use for hashing
 	Hashers int
 }
@@ -149,9 +153,61 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			return nil
 		}
 
-		if (runtime.GOOS == "linux" || runtime.GOOS == "windows") && !norm.NFC.IsNormalString(rn) {
-			l.Warnf("File %q contains non-NFC UTF-8 sequences and cannot be synced. Consider renaming.", rn)
+		if !utf8.ValidString(rn) {
+			l.Warnf("File name %q is not in UTF8 encoding; skipping.", rn)
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
+		}
+
+		var normalizedRn string
+		if runtime.GOOS == "darwin" {
+			// Mac OS X file names should always be NFD normalized.
+			normalizedRn = norm.NFD.String(rn)
+		} else {
+			// Every other OS in the known universe uses NFC or just plain
+			// doesn't bother to define an encoding. In our case *we* do care,
+			// so we enforce NFC regardless.
+			normalizedRn = norm.NFC.String(rn)
+		}
+
+		if rn != normalizedRn {
+			// The file name was not normalized.
+
+			if !w.AutoNormalize {
+				// We're not authorized to do anything about it, so complain and skip.
+
+				l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", rn)
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			// We will attempt to normalize it.
+			normalizedPath := filepath.Join(w.Dir, normalizedRn)
+			if _, err := os.Lstat(normalizedPath); os.IsNotExist(err) {
+				// Nothing exists with the normalized filename. Good.
+				if err = os.Rename(p, normalizedPath); err != nil {
+					l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, rn, err)
+					if info.IsDir() {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+				l.Infof(`Normalized UTF8 encoding of file name "%s".`, rn)
+			} else {
+				// There is something already in the way at the normalized
+				// file name.
+				l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, rn)
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			rn = normalizedRn
 		}
 
 		// Index wise symlinks are always files, regardless of what the target

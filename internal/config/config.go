@@ -50,6 +50,7 @@ type FolderConfiguration struct {
 	ReadOnly        bool                        `xml:"ro,attr" json:"readOnly"`
 	RescanIntervalS int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS" default:"60"`
 	IgnorePerms     bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
+	AutoNormalize   bool                        `xml:"autoNormalize,attr" json:"autoNormalize" default:"true"`
 	Versioning      VersioningConfiguration     `xml:"versioning" json:"versioning"`
 	LenientMtimes   bool                        `xml:"lenientMtimes" json:"lenientMTimes"`
 	Copiers         int                         `xml:"copiers" json:"copiers" default:"1"`  // This defines how many files are handled concurrently.
