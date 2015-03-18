@@ -44,12 +44,14 @@ type Configuration struct {
 }
 
 type FolderConfiguration struct {
+<<<<<<< HEAD
 	ID              string                      `xml:"id,attr"`
 	Path            string                      `xml:"path,attr"`
 	Devices         []FolderDeviceConfiguration `xml:"device"`
 	ReadOnly        bool                        `xml:"ro,attr"`
 	RescanIntervalS int                         `xml:"rescanIntervalS,attr" default:"60"`
 	IgnorePerms     bool                        `xml:"ignorePerms,attr"`
+	AutoNormalize   bool                        `xml:"autoNormalize,attr" default:"true"`
 	Versioning      VersioningConfiguration     `xml:"versioning"`
 	LenientMtimes   bool                        `xml:"lenientMtimes"`
 	Copiers         int                         `xml:"copiers" default:"1"`  // This defines how many files are handled concurrently.

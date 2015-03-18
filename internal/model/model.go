@@ -1128,15 +1128,16 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	}
 
 	w := &scanner.Walker{
-		Dir:          folderCfg.Path,
-		Sub:          sub,
-		Matcher:      ignores,
-		BlockSize:    protocol.BlockSize,
-		TempNamer:    defTempNamer,
-		TempLifetime: time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler: cFiler{m, folder},
-		IgnorePerms:  folderCfg.IgnorePerms,
-		Hashers:      folderCfg.Hashers,
+		Dir:           folderCfg.Path,
+		Sub:           sub,
+		Matcher:       ignores,
+		BlockSize:     protocol.BlockSize,
+		TempNamer:     defTempNamer,
+		TempLifetime:  time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
+		CurrentFiler:  cFiler{m, folder},
+		IgnorePerms:   folderCfg.IgnorePerms,
+		AutoNormalize: folderCfg.AutoNormalize,
+		Hashers:       folderCfg.Hashers,
 	}
 
 	runner.setState(FolderScanning)
