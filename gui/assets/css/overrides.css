@@ -99,8 +99,12 @@ identicon {
 .logo {
     margin: 0;
     padding: 0;
-    top: -5px;
     position: relative;
+}
+
+.navbar-brand {
+  height: auto;
+  padding: 0;
 }
 
 .list-no-bullet {
