@@ -486,8 +486,13 @@ func syncthingMain() {
 		readRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxRecvKbps), int64(5*1000*opts.MaxRecvKbps))
 	}
 
-	if opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0 {
+	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
 		lans, _ = osutil.GetLans()
+		networks := make([]string, 0, len(lans))
+		for _, lan := range lans {
+			networks = append(networks, lan.String())
+		}
+		l.Infoln("Local networks:", strings.Join(networks, ", "))
 	}
 
 	dbFile := filepath.Join(confDir, "index")
