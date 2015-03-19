@@ -210,7 +210,7 @@ func (v Staggered) expire(versions []string) {
 	var prevAge int64
 	firstFile := true
 	for _, file := range versions {
-		fi, err := os.Stat(file)
+		fi, err := os.Lstat(file)
 		if err != nil {
 			l.Warnln("versioner:", err)
 			continue
