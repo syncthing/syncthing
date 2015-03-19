@@ -108,11 +108,18 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFunc {
 	now := time.Now()
 	return func(p string, info os.FileInfo, err error) error {
+		// Return value used when we are returning early and don't want to
+		// process the item. For directories, this means do-not-descend.
+		var skip error // nil
+		if info.IsDir() {
+			skip = filepath.SkipDir
+		}
+
 		if err != nil {
 			if debug {
 				l.Debugln("error:", p, info, err)
 			}
-			return nil
+			return skip
 		}
 
 		rn, err := filepath.Rel(w.Dir, p)
@@ -120,7 +127,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			if debug {
 				l.Debugln("rel error:", p, err)
 			}
-			return nil
+			return skip
 		}
 
 		if rn == "." {
@@ -147,18 +154,12 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			if debug {
 				l.Debugln("ignored:", rn)
 			}
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
+			return skip
 		}
 
 		if !utf8.ValidString(rn) {
 			l.Warnf("File name %q is not in UTF8 encoding; skipping.", rn)
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
+			return skip
 		}
 
 		var normalizedRn string
@@ -179,10 +180,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				// We're not authorized to do anything about it, so complain and skip.
 
 				l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", rn)
-				if info.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
+				return skip
 			}
 
 			// We will attempt to normalize it.
@@ -191,20 +189,14 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				// Nothing exists with the normalized filename. Good.
 				if err = os.Rename(p, normalizedPath); err != nil {
 					l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, rn, err)
-					if info.IsDir() {
-						return filepath.SkipDir
-					}
-					return nil
+					return skip
 				}
 				l.Infof(`Normalized UTF8 encoding of file name "%s".`, rn)
 			} else {
 				// There is something already in the way at the normalized
 				// file name.
 				l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, rn)
-				if info.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
+				return skip
 			}
 
 			rn = normalizedRn
@@ -213,19 +205,11 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 		// Index wise symlinks are always files, regardless of what the target
 		// is, because symlinks carry their target path as their content.
 		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
-			var rval error
 			// If the target is a directory, do NOT descend down there. This
 			// will cause files to get tracked, and removing the symlink will
-			// as a result remove files in their real location. But do not
-			// SkipDir if the target is not a directory, as it will stop
-			// scanning the current directory.
-			if info.IsDir() {
-				rval = filepath.SkipDir
-			}
-
-			// If we don't support symlinks, skip.
+			// as a result remove files in their real location.
 			if !symlinks.Supported {
-				return rval
+				return skip
 			}
 
 			// We always rehash symlinks as they have no modtime or
@@ -239,7 +223,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				if debug {
 					l.Debugln("readlink error:", p, err)
 				}
-				return rval
+				return skip
 			}
 
 			blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0)
@@ -247,7 +231,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				if debug {
 					l.Debugln("hash link error:", p, err)
 				}
-				return rval
+				return skip
 			}
 
 			if w.CurrentFiler != nil {
@@ -260,7 +244,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - the block list (i.e. hash of target) was the same
 				cf, ok := w.CurrentFiler.CurrentFile(rn)
 				if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(flags, cf.Flags) && BlocksEqual(cf.Blocks, blocks) {
-					return rval
+					return skip
 				}
 			}
 
@@ -278,7 +262,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 			fchan <- f
 
-			return rval
+			return skip
 		}
 
 		if info.Mode().IsDir() {
