@@ -281,13 +281,13 @@ func (v Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	if _, err := os.Lstat(filePath); err != nil {
-		if os.IsNotExist(err) {
-			if debug {
-				l.Debugln("not archiving nonexistent file", filePath)
-			}
-			return nil
+	_, err := os.Lstat(filePath)
+	if os.IsNotExist(err) {
+		if debug {
+			l.Debugln("not archiving nonexistent file", filePath)
 		}
+		return nil
+	} else if err != nil {
 		return err
 	}
 
