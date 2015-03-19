@@ -61,9 +61,13 @@ func GetLans() ([]*net.IPNet, error) {
 				for ; ipl != nil; ipl = ipl.Next {
 					ipStr := strings.Trim(string(ipl.IpAddress.String[:]), "\x00")
 					maskStr := strings.Trim(string(ipl.IpMask.String[:]), "\x00")
+					ip := net.ParseIP(ipStr)
 					maskip := net.ParseIP(maskStr)
+					if ip.IsUnspecified() || maskip.IsUnspecified() {
+						continue
+					}
 					nets = append(nets, &net.IPNet{
-						IP: net.ParseIP(ipStr),
+						IP: ip,
 						Mask: net.IPv4Mask(
 							maskip[net.IPv6len-net.IPv4len],
 							maskip[net.IPv6len-net.IPv4len+1],
