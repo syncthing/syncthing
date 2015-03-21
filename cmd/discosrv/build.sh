@@ -23,12 +23,13 @@ build() {
 	fi
 }
 
-for goos in linux darwin windows freebsd solaris ; do
+for goos in linux darwin windows freebsd openbsd netbsd solaris ; do
 	build "$goos" amd64
 done
-for goos in linux windows freebsd ; do
+for goos in linux windows freebsd openbsd netbsd ; do
 	build "$goos" 386
 done
+build linux arm
 
 # Hack used because we run as root under Docker
 if [[ ${CHOWN_USER:-} != "" ]] ; then
