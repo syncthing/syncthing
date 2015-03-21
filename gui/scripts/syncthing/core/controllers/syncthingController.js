@@ -934,6 +934,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.staggeredMaxAge = 365;
             $scope.currentFolder.staggeredCleanInterval = 3600;
             $scope.currentFolder.staggeredVersionsPath = "";
+            $scope.currentFolder.autoNormalize = true;
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
@@ -953,6 +954,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.staggeredMaxAge = 365;
             $scope.currentFolder.staggeredCleanInterval = 3600;
             $scope.currentFolder.staggeredVersionsPath = "";
+            $scope.currentFolder.autoNormalize = true;
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();

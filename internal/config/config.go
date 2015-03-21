@@ -27,7 +27,7 @@ import (
 
 var l = logger.DefaultLogger
 
-const CurrentVersion = 9
+const CurrentVersion = 10
 
 type Configuration struct {
 	Version        int                   `xml:"version,attr"`
@@ -44,19 +44,18 @@ type Configuration struct {
 }
 
 type FolderConfiguration struct {
-<<<<<<< HEAD
 	ID              string                      `xml:"id,attr"`
 	Path            string                      `xml:"path,attr"`
 	Devices         []FolderDeviceConfiguration `xml:"device"`
 	ReadOnly        bool                        `xml:"ro,attr"`
-	RescanIntervalS int                         `xml:"rescanIntervalS,attr" default:"60"`
+	RescanIntervalS int                         `xml:"rescanIntervalS,attr"`
 	IgnorePerms     bool                        `xml:"ignorePerms,attr"`
-	AutoNormalize   bool                        `xml:"autoNormalize,attr" default:"true"`
+	AutoNormalize   bool                        `xml:"autoNormalize,attr"`
 	Versioning      VersioningConfiguration     `xml:"versioning"`
 	LenientMtimes   bool                        `xml:"lenientMtimes"`
-	Copiers         int                         `xml:"copiers" default:"1"`  // This defines how many files are handled concurrently.
-	Pullers         int                         `xml:"pullers" default:"16"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
-	Hashers         int                         `xml:"hashers" default:"0"`  // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
+	Copiers         int                         `xml:"copiers"` // This defines how many files are handled concurrently.
+	Pullers         int                         `xml:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
+	Hashers         int                         `xml:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
 
 	Invalid string `xml:"-"` // Set at runtime when there is an error, not saved
 
@@ -316,6 +315,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 8 {
 		convertV8V9(cfg)
 	}
+	if cfg.Version == 9 {
+		convertV9V10(cfg)
+	}
 
 	// Hash old cleartext passwords
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
@@ -405,6 +407,14 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 	}
 
 	return false
+}
+
+func convertV9V10(cfg *Configuration) {
+	// Enable auto normalization on existing folders.
+	for i := range cfg.Folders {
+		cfg.Folders[i].AutoNormalize = true
+	}
+	cfg.Version = 10
 }
 
 func convertV8V9(cfg *Configuration) {
