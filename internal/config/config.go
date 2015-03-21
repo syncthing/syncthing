@@ -27,7 +27,7 @@ import (
 
 var l = logger.DefaultLogger
 
-const CurrentVersion = 9
+const CurrentVersion = 10
 
 type Configuration struct {
 	Version        int                   `xml:"version,attr" json:"version"`
@@ -48,14 +48,14 @@ type FolderConfiguration struct {
 	Path            string                      `xml:"path,attr" json:"path"`
 	Devices         []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	ReadOnly        bool                        `xml:"ro,attr" json:"readOnly"`
-	RescanIntervalS int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS" default:"60"`
+	RescanIntervalS int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
 	IgnorePerms     bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
-	AutoNormalize   bool                        `xml:"autoNormalize,attr" json:"autoNormalize" default:"true"`
+	AutoNormalize   bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
 	Versioning      VersioningConfiguration     `xml:"versioning" json:"versioning"`
 	LenientMtimes   bool                        `xml:"lenientMtimes" json:"lenientMTimes"`
-	Copiers         int                         `xml:"copiers" json:"copiers" default:"1"`  // This defines how many files are handled concurrently.
-	Pullers         int                         `xml:"pullers" json:"pullers" default:"16"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
-	Hashers         int                         `xml:"hashers" json:"hashers" default:"0"`  // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
+	Copiers         int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
+	Pullers         int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
+	Hashers         int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
 
 	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 
@@ -315,6 +315,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 8 {
 		convertV8V9(cfg)
 	}
+	if cfg.Version == 9 {
+		convertV9V10(cfg)
+	}
 
 	// Hash old cleartext passwords
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
@@ -404,6 +407,14 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 	}
 
 	return false
+}
+
+func convertV9V10(cfg *Configuration) {
+	// Enable auto normalization on existing folders.
+	for i := range cfg.Folders {
+		cfg.Folders[i].AutoNormalize = true
+	}
+	cfg.Version = 10
 }
 
 func convertV8V9(cfg *Configuration) {
