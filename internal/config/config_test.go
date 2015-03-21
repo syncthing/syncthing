@@ -83,6 +83,7 @@ func TestDeviceConfig(t *testing.T) {
 				Copiers:         1,
 				Pullers:         16,
 				Hashers:         0,
+				AutoNormalize:   true,
 			},
 		}
 		expectedDevices := []DeviceConfiguration{
