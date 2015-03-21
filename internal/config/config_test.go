@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package config
 
@@ -37,7 +28,7 @@ func init() {
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		ListenAddress:           []string{"0.0.0.0:22000"},
-		GlobalAnnServers:        []string{"udp4://announce.syncthing.net:22026"},
+		GlobalAnnServers:        []string{"udp4://announce.syncthing.net:22026", "udp6://announce-v6.syncthing.net:22026"},
 		GlobalAnnEnabled:        true,
 		LocalAnnEnabled:         true,
 		LocalAnnPort:            21025,
@@ -55,6 +46,7 @@ func TestDefaultValues(t *testing.T) {
 		CacheIgnoredFiles:       true,
 		ProgressUpdateIntervalS: 5,
 		SymlinksEnabled:         true,
+		LimitBandwidthInLan:     false,
 	}
 
 	cfg := New(device1)
@@ -91,6 +83,7 @@ func TestDeviceConfig(t *testing.T) {
 				Copiers:         1,
 				Pullers:         16,
 				Hashers:         0,
+				AutoNormalize:   true,
 			},
 		}
 		expectedDevices := []DeviceConfiguration{
@@ -98,13 +91,13 @@ func TestDeviceConfig(t *testing.T) {
 				DeviceID:    device1,
 				Name:        "node one",
 				Addresses:   []string{"a"},
-				Compression: true,
+				Compression: protocol.CompressMetadata,
 			},
 			{
 				DeviceID:    device4,
 				Name:        "node two",
 				Addresses:   []string{"b"},
-				Compression: true,
+				Compression: protocol.CompressMetadata,
 			},
 		}
 		expectedDeviceIDs := []protocol.DeviceID{device1, device4}
@@ -158,6 +151,7 @@ func TestOverriddenValues(t *testing.T) {
 		CacheIgnoredFiles:       false,
 		ProgressUpdateIntervalS: 10,
 		SymlinksEnabled:         false,
+		LimitBandwidthInLan:     true,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
@@ -174,28 +168,63 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 	name, _ := os.Hostname()
 	expected := map[protocol.DeviceID]DeviceConfiguration{
 		device1: {
-			DeviceID:    device1,
-			Addresses:   []string{"dynamic"},
-			Compression: true,
+			DeviceID:  device1,
+			Addresses: []string{"dynamic"},
 		},
 		device2: {
-			DeviceID:    device2,
-			Addresses:   []string{"dynamic"},
-			Compression: true,
+			DeviceID:  device2,
+			Addresses: []string{"dynamic"},
 		},
 		device3: {
-			DeviceID:    device3,
-			Addresses:   []string{"dynamic"},
-			Compression: true,
+			DeviceID:  device3,
+			Addresses: []string{"dynamic"},
 		},
 		device4: {
-			DeviceID:  device4,
-			Name:      name, // Set when auto created
-			Addresses: []string{"dynamic"},
+			DeviceID:    device4,
+			Name:        name, // Set when auto created
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressMetadata,
 		},
 	}
 
 	cfg, err := Load("testdata/deviceaddressesdynamic.xml", device4)
+	if err != nil {
+		t.Error(err)
+	}
+
+	actual := cfg.Devices()
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, actual)
+	}
+}
+
+func TestDeviceCompression(t *testing.T) {
+	name, _ := os.Hostname()
+	expected := map[protocol.DeviceID]DeviceConfiguration{
+		device1: {
+			DeviceID:    device1,
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressMetadata,
+		},
+		device2: {
+			DeviceID:    device2,
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressMetadata,
+		},
+		device3: {
+			DeviceID:    device3,
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressNever,
+		},
+		device4: {
+			DeviceID:    device4,
+			Name:        name, // Set when auto created
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressMetadata,
+		},
+	}
+
+	cfg, err := Load("testdata/devicecompression.xml", device4)
 	if err != nil {
 		t.Error(err)
 	}
@@ -222,9 +251,10 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			Addresses: []string{"[2001:db8::44]:4444", "192.0.2.4:6090"},
 		},
 		device4: {
-			DeviceID:  device4,
-			Name:      name, // Set when auto created
-			Addresses: []string{"dynamic"},
+			DeviceID:    device4,
+			Name:        name, // Set when auto created
+			Addresses:   []string{"dynamic"},
+			Compression: protocol.CompressMetadata,
 		},
 	}
 

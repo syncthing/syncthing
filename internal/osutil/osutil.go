@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // Package osutil implements utilities for native OS support.
 package osutil
@@ -69,7 +60,14 @@ func Copy(from, to string) (err error) {
 // containing `path` is writable for the duration of the call.
 func InWritableDir(fn func(string) error, path string) error {
 	dir := filepath.Dir(path)
-	if info, err := os.Stat(dir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return errors.New("Not a directory: " + path)
+	}
+	if info.Mode()&0200 == 0 {
 		// A non-writeable directory (for this user; we assume that's the
 		// relevant part). Temporarily change the mode so we can delete the
 		// file or directory inside it.

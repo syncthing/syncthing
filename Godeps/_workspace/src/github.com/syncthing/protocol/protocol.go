@@ -106,7 +106,7 @@ type rawConnection struct {
 	closed chan struct{}
 	once   sync.Once
 
-	compressionThreshold int // compress messages larger than this many bytes
+	compression Compression
 
 	rdbuf0 []byte // used & reused by readMessage
 	rdbuf1 []byte // used & reused by readMessage
@@ -135,25 +135,21 @@ const (
 	pingIdleTime = 60 * time.Second
 )
 
-func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress bool) Connection {
+func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
 	cr := &countingReader{Reader: reader}
 	cw := &countingWriter{Writer: writer}
 
-	compThres := 1<<31 - 1 // compression disabled
-	if compress {
-		compThres = 128 // compress messages that are 128 bytes long or larger
-	}
 	c := rawConnection{
-		id:                   deviceID,
-		name:                 name,
-		receiver:             nativeModel{receiver},
-		state:                stateInitial,
-		cr:                   cr,
-		cw:                   cw,
-		outbox:               make(chan hdrMsg),
-		nextID:               make(chan int),
-		closed:               make(chan struct{}),
-		compressionThreshold: compThres,
+		id:          deviceID,
+		name:        name,
+		receiver:    nativeModel{receiver},
+		state:       stateInitial,
+		cr:          cr,
+		cw:          cw,
+		outbox:      make(chan hdrMsg),
+		nextID:      make(chan int),
+		closed:      make(chan struct{}),
+		compression: compress,
 	}
 
 	go c.readerLoop()
@@ -571,7 +567,15 @@ func (c *rawConnection) writerLoop() {
 					return
 				}
 
-				if len(uncBuf) >= c.compressionThreshold {
+				compress := false
+				switch c.compression {
+				case CompressAlways:
+					compress = true
+				case CompressMetadata:
+					compress = hm.hdr.msgType != messageTypeResponse
+				}
+
+				if compress && len(uncBuf) >= compressionThreshold {
 					// Use compression for large messages
 					hm.hdr.compression = true
 

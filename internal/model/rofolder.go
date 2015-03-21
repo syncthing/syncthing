@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package model
 
@@ -21,14 +12,26 @@ import (
 	"time"
 )
 
-type Scanner struct {
+type roFolder struct {
+	stateTracker
+
 	folder string
 	intv   time.Duration
 	model  *Model
 	stop   chan struct{}
 }
 
-func (s *Scanner) Serve() {
+func newROFolder(model *Model, folder string, interval time.Duration) *roFolder {
+	return &roFolder{
+		stateTracker: stateTracker{folder: folder},
+		folder:       folder,
+		intv:         interval,
+		model:        model,
+		stop:         make(chan struct{}),
+	}
+}
+
+func (s *roFolder) Serve() {
 	if debug {
 		l.Debugln(s, "starting")
 		defer l.Debugln(s, "exiting")
@@ -48,12 +51,12 @@ func (s *Scanner) Serve() {
 				l.Debugln(s, "rescan")
 			}
 
-			s.model.setState(s.folder, FolderScanning)
+			s.setState(FolderScanning)
 			if err := s.model.ScanFolder(s.folder); err != nil {
 				s.model.cfg.InvalidateFolder(s.folder, err.Error())
 				return
 			}
-			s.model.setState(s.folder, FolderIdle)
+			s.setState(FolderIdle)
 
 			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (ro) of folder", s.folder)
@@ -71,16 +74,16 @@ func (s *Scanner) Serve() {
 	}
 }
 
-func (s *Scanner) Stop() {
+func (s *roFolder) Stop() {
 	close(s.stop)
 }
 
-func (s *Scanner) String() string {
-	return fmt.Sprintf("scanner/%s@%p", s.folder, s)
+func (s *roFolder) String() string {
+	return fmt.Sprintf("roFolder/%s@%p", s.folder, s)
 }
 
-func (s *Scanner) BringToFront(string) {}
+func (s *roFolder) BringToFront(string) {}
 
-func (s *Scanner) Jobs() ([]string, []string) {
+func (s *roFolder) Jobs() ([]string, []string) {
 	return nil, nil
 }

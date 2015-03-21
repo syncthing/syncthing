@@ -1,17 +1,8 @@
 // Copyright (C) 2015 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package main
 
@@ -41,7 +32,20 @@ func listenConnect(myID protocol.DeviceID, m *model.Model, tlsCfg *tls.Config) {
 
 next:
 	for conn := range conns {
-		certs := conn.ConnectionState().PeerCertificates
+		cs := conn.ConnectionState()
+
+		// We should have negotiated the next level protocol "bep/1.0" as part
+		// of the TLS handshake. Unfortunately this can't be a hard error,
+		// because there are implementations out there that don't support
+		// protocol negotiation (iOS for one...).
+		if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != bepProtocolName {
+			l.Infof("Peer %s did not negotiate bep/1.0", conn.RemoteAddr())
+		}
+
+		// We should have received exactly one certificate from the other
+		// side. If we didn't, they don't have a device ID and we drop the
+		// connection.
+		certs := cs.PeerCertificates
 		if cl := len(certs); cl != 1 {
 			l.Infof("Got peer certificate list of length %d != 1 from %s; protocol error", cl, conn.RemoteAddr())
 			conn.Close()
@@ -50,12 +54,21 @@ next:
 		remoteCert := certs[0]
 		remoteID := protocol.NewDeviceID(remoteCert.Raw)
 
+		// The device ID should not be that of ourselves. It can happen
+		// though, especially in the presense of NAT hairpinning, multiple
+		// clients between the same NAT gateway, and global discovery.
 		if remoteID == myID {
 			l.Infof("Connected to myself (%s) - should not happen", remoteID)
 			conn.Close()
 			continue
 		}
 
+		// We should not already be connected to the other party. TODO: This
+		// could use some better handling. If the old connection is dead but
+		// hasn't timed out yet we may want to drop *that* connection and keep
+		// this one. But in case we are two devices connecting to each other
+		// in parallell we don't want to do that or we end up with no
+		// connections still established...
 		if m.ConnectedTo(remoteID) {
 			l.Infof("Connected to already connected device (%s)", remoteID)
 			conn.Close()
@@ -81,15 +94,18 @@ next:
 					continue next
 				}
 
-				// If rate limiting is set, we wrap the connection in a
-				// limiter.
+				// If rate limiting is set, and based on the address we should
+				// limit the connection, then we wrap it in a limiter.
+
+				limit := shouldLimit(conn.RemoteAddr())
+
 				wr := io.Writer(conn)
-				if writeRateLimit != nil {
+				if limit && writeRateLimit != nil {
 					wr = &limitedWriter{conn, writeRateLimit}
 				}
 
 				rd := io.Reader(conn)
-				if readRateLimit != nil {
+				if limit && readRateLimit != nil {
 					rd = &limitedReader{conn, readRateLimit}
 				}
 
@@ -98,7 +114,7 @@ next:
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
 				if debugNet {
-					l.Debugf("cipher suite %04X", conn.ConnectionState().CipherSuite)
+					l.Debugf("cipher suite: %04X in lan: %t", conn.ConnectionState().CipherSuite, !limit)
 				}
 				events.Default.Log(events.DeviceConnected, map[string]string{
 					"id":   remoteID.String(),
@@ -259,4 +275,21 @@ func setTCPOptions(conn *net.TCPConn) {
 	if err = conn.SetKeepAlive(true); err != nil {
 		l.Infoln(err)
 	}
+}
+
+func shouldLimit(addr net.Addr) bool {
+	if cfg.Options().LimitBandwidthInLan {
+		return true
+	}
+
+	tcpaddr, ok := addr.(*net.TCPAddr)
+	if !ok {
+		return true
+	}
+	for _, lan := range lans {
+		if lan.Contains(tcpaddr.IP) {
+			return false
+		}
+	}
+	return !tcpaddr.IP.IsLoopback()
 }

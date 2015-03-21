@@ -31,11 +31,11 @@
 		},
 		{
 			"ImportPath": "github.com/syncthing/protocol",
-			"Rev": "2e2d479103df8fb721d55d59b0198d6c24f4865b"
+			"Rev": "1a4398cc55c8fe82a964097eaf59f2475b020a49"
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "63c9e642efad852f49e20a6f90194cae112fd2ac"
+			"Rev": "e3f32eb300aa1e514fe8ba58d008da90a062273d"
 		},
 		{
 			"ImportPath": "github.com/syndtr/gosnappy/snappy",

@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // +build integration
 
@@ -91,10 +82,22 @@ func testFileTypeChange(t *testing.T) {
 
 	// A directory that we will replace with a file later
 
+	err = os.Mkdir("s1/emptyDirToReplace", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A directory with files that we will replace with a file later
+
 	err = os.Mkdir("s1/dirToReplace", 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
+	fd, err = os.Create("s1/dirToReplace/emptyFile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
 
 	// Verify that the files and directories sync to the other side
 
@@ -165,15 +168,33 @@ func testFileTypeChange(t *testing.T) {
 
 	// Replace file with directory
 
-	os.RemoveAll("s1/fileToReplace")
+	err = os.RemoveAll("s1/fileToReplace")
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = os.Mkdir("s1/fileToReplace", 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Replace directory with file
+	// Replace empty directory with file
 
-	os.RemoveAll("s1/dirToReplace")
+	err = os.RemoveAll("s1/emptyDirToReplace")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd, err = os.Create("s1/emptyDirToReplace")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	// Clear directory and replace with file
+
+	err = os.RemoveAll("s1/dirToReplace")
+	if err != nil {
+		t.Fatal(err)
+	}
 	fd, err = os.Create("s1/dirToReplace")
 	if err != nil {
 		t.Fatal(err)

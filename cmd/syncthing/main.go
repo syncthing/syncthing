@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package main
 
@@ -72,6 +63,8 @@ const (
 	exitUpgrading          = 4
 )
 
+const bepProtocolName = "bep/1.0"
+
 var l = logger.DefaultLogger
 
 func init() {
@@ -113,6 +106,7 @@ var (
 	externalPort   int
 	igd            *upnp.IGD
 	cert           tls.Certificate
+	lans           []*net.IPNet
 )
 
 const (
@@ -461,7 +455,7 @@ func syncthingMain() {
 
 	tlsCfg := &tls.Config{
 		Certificates:           []tls.Certificate{cert},
-		NextProtos:             []string{"bep/1.0"},
+		NextProtos:             []string{bepProtocolName},
 		ClientAuth:             tls.RequestClientCert,
 		SessionTicketsDisabled: true,
 		InsecureSkipVerify:     true,
@@ -490,6 +484,15 @@ func syncthingMain() {
 	}
 	if opts.MaxRecvKbps > 0 {
 		readRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxRecvKbps), int64(5*1000*opts.MaxRecvKbps))
+	}
+
+	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
+		lans, _ = osutil.GetLans()
+		networks := make([]string, 0, len(lans))
+		for _, lan := range lans {
+			networks = append(networks, lan.String())
+		}
+		l.Infoln("Local networks:", strings.Join(networks, ", "))
 	}
 
 	dbFile := filepath.Join(confDir, "index")
@@ -941,7 +944,10 @@ func ensureDir(dir string, mode int) {
 func getDefaultConfDir() (string, error) {
 	switch runtime.GOOS {
 	case "windows":
-		return filepath.Join(os.Getenv("LocalAppData"), "Syncthing"), nil
+		if p := os.Getenv("LocalAppData"); p != "" {
+			return filepath.Join(p, "Syncthing"), nil
+		}
+		return filepath.Join(os.Getenv("AppData"), "Syncthing"), nil
 
 	case "darwin":
 		return osutil.ExpandTilde("~/Library/Application Support/Syncthing")

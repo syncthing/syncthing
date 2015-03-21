@@ -1,23 +1,15 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package model
 
 import (
 	"bufio"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -44,30 +36,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-type folderState int
-
-const (
-	FolderIdle folderState = iota
-	FolderScanning
-	FolderSyncing
-	FolderCleaning
-)
-
-func (s folderState) String() string {
-	switch s {
-	case FolderIdle:
-		return "idle"
-	case FolderScanning:
-		return "scanning"
-	case FolderCleaning:
-		return "cleaning"
-	case FolderSyncing:
-		return "syncing"
-	default:
-		return "unknown"
-	}
-}
-
 // How many files to send in each Index/IndexUpdate message.
 const (
 	indexTargetSize   = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
@@ -81,6 +49,9 @@ type service interface {
 	Stop()
 	Jobs() ([]string, []string) // In progress, Queued
 	BringToFront(string)
+
+	setState(folderState)
+	getState() (folderState, time.Time)
 }
 
 type Model struct {
@@ -103,10 +74,6 @@ type Model struct {
 	folderStatRefs map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut           sync.RWMutex                                           // protects the above
 
-	folderState        map[string]folderState // folder -> state
-	folderStateChanged map[string]time.Time   // folder -> time when state changed
-	smut               sync.RWMutex
-
 	protoConn map[protocol.DeviceID]protocol.Connection
 	rawConn   map[protocol.DeviceID]io.Closer
 	deviceVer map[protocol.DeviceID]string
@@ -128,26 +95,24 @@ var (
 // for file data without altering the local folder in any way.
 func NewModel(cfg *config.Wrapper, deviceName, clientName, clientVersion string, ldb *leveldb.DB) *Model {
 	m := &Model{
-		cfg:                cfg,
-		db:                 ldb,
-		deviceName:         deviceName,
-		clientName:         clientName,
-		clientVersion:      clientVersion,
-		folderCfgs:         make(map[string]config.FolderConfiguration),
-		folderFiles:        make(map[string]*db.FileSet),
-		folderDevices:      make(map[string][]protocol.DeviceID),
-		deviceFolders:      make(map[protocol.DeviceID][]string),
-		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
-		folderIgnores:      make(map[string]*ignore.Matcher),
-		folderRunners:      make(map[string]service),
-		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
-		folderState:        make(map[string]folderState),
-		folderStateChanged: make(map[string]time.Time),
-		protoConn:          make(map[protocol.DeviceID]protocol.Connection),
-		rawConn:            make(map[protocol.DeviceID]io.Closer),
-		deviceVer:          make(map[protocol.DeviceID]string),
-		finder:             db.NewBlockFinder(ldb, cfg),
-		progressEmitter:    NewProgressEmitter(cfg),
+		cfg:             cfg,
+		db:              ldb,
+		deviceName:      deviceName,
+		clientName:      clientName,
+		clientVersion:   clientVersion,
+		folderCfgs:      make(map[string]config.FolderConfiguration),
+		folderFiles:     make(map[string]*db.FileSet),
+		folderDevices:   make(map[string][]protocol.DeviceID),
+		deviceFolders:   make(map[protocol.DeviceID][]string),
+		deviceStatRefs:  make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
+		folderIgnores:   make(map[string]*ignore.Matcher),
+		folderRunners:   make(map[string]service),
+		folderStatRefs:  make(map[string]*stats.FolderStatisticsReference),
+		protoConn:       make(map[protocol.DeviceID]protocol.Connection),
+		rawConn:         make(map[protocol.DeviceID]io.Closer),
+		deviceVer:       make(map[protocol.DeviceID]string),
+		finder:          db.NewBlockFinder(ldb, cfg),
+		progressEmitter: NewProgressEmitter(cfg),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -161,7 +126,6 @@ func NewModel(cfg *config.Wrapper, deviceName, clientName, clientVersion string,
 		}
 	}
 	deadlockDetect(&m.fmut, time.Duration(timeout)*time.Second)
-	deadlockDetect(&m.smut, time.Duration(timeout)*time.Second)
 	deadlockDetect(&m.pmut, time.Duration(timeout)*time.Second)
 	return m
 }
@@ -180,18 +144,7 @@ func (m *Model) StartFolderRW(folder string) {
 	if ok {
 		panic("cannot start already running folder " + folder)
 	}
-	p := &Puller{
-		folder:          folder,
-		dir:             cfg.Path,
-		scanIntv:        time.Duration(cfg.RescanIntervalS) * time.Second,
-		model:           m,
-		ignorePerms:     cfg.IgnorePerms,
-		lenientMtimes:   cfg.LenientMtimes,
-		progressEmitter: m.progressEmitter,
-		copiers:         cfg.Copiers,
-		pullers:         cfg.Pullers,
-		queue:           newJobQueue(),
-	}
+	p := newRWFolder(m, cfg)
 	m.folderRunners[folder] = p
 	m.fmut.Unlock()
 
@@ -224,11 +177,7 @@ func (m *Model) StartFolderRO(folder string) {
 	if ok {
 		panic("cannot start already running folder " + folder)
 	}
-	s := &Scanner{
-		folder: folder,
-		intv:   time.Duration(cfg.RescanIntervalS) * time.Second,
-		model:  m,
-	}
+	s := newROFolder(m, folder, time.Duration(cfg.RescanIntervalS)*time.Second)
 	m.folderRunners[folder] = s
 	m.fmut.Unlock()
 
@@ -239,6 +188,16 @@ type ConnectionInfo struct {
 	protocol.Statistics
 	Address       string
 	ClientVersion string
+}
+
+func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"at":            info.At,
+		"inBytesTotal":  info.InBytesTotal,
+		"outBytesTotal": info.OutBytesTotal,
+		"address":       info.Address,
+		"clientVersion": info.ClientVersion,
+	})
 }
 
 // ConnectionStats returns a map with connection statistics for each connected device.
@@ -1146,35 +1105,53 @@ func (m *Model) ScanFolder(folder string) error {
 }
 
 func (m *Model) ScanFolderSub(folder, sub string) error {
+	sub = osutil.NativeFilename(sub)
 	if p := filepath.Clean(filepath.Join(folder, sub)); !strings.HasPrefix(p, folder) {
 		return errors.New("invalid subpath")
 	}
 
 	m.fmut.Lock()
-	fs, ok := m.folderFiles[folder]
+	fs := m.folderFiles[folder]
 	folderCfg := m.folderCfgs[folder]
 	ignores := m.folderIgnores[folder]
+	runner, ok := m.folderRunners[folder]
 	m.fmut.Unlock()
 
+	// Folders are added to folderRunners only when they are started. We can't
+	// scan them before they have started, so that's what we need to check for
+	// here.
 	if !ok {
 		return errors.New("no such folder")
 	}
 
 	_ = ignores.Load(filepath.Join(folderCfg.Path, ".stignore")) // Ignore error, there might not be an .stignore
 
-	w := &scanner.Walker{
-		Dir:          folderCfg.Path,
-		Sub:          sub,
-		Matcher:      ignores,
-		BlockSize:    protocol.BlockSize,
-		TempNamer:    defTempNamer,
-		TempLifetime: time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler: cFiler{m, folder},
-		IgnorePerms:  folderCfg.IgnorePerms,
-		Hashers:      folderCfg.Hashers,
+	// Required to make sure that we start indexing at a directory we're already
+	// aware off.
+	for sub != "" {
+		if _, ok = fs.Get(protocol.LocalDeviceID, sub); ok {
+			break
+		}
+		sub = filepath.Dir(sub)
+		if sub == "." || sub == string(filepath.Separator) {
+			sub = ""
+		}
 	}
 
-	m.setState(folder, FolderScanning)
+	w := &scanner.Walker{
+		Dir:           folderCfg.Path,
+		Sub:           sub,
+		Matcher:       ignores,
+		BlockSize:     protocol.BlockSize,
+		TempNamer:     defTempNamer,
+		TempLifetime:  time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
+		CurrentFiler:  cFiler{m, folder},
+		IgnorePerms:   folderCfg.IgnorePerms,
+		AutoNormalize: folderCfg.AutoNormalize,
+		Hashers:       folderCfg.Hashers,
+	}
+
+	runner.setState(FolderScanning)
 	fchan, err := w.Walk()
 
 	if err != nil {
@@ -1242,8 +1219,16 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 					"size":     f.Size(),
 				})
 				batch = append(batch, nf)
-			} else if _, err := os.Lstat(filepath.Join(folderCfg.Path, f.Name)); err != nil && os.IsNotExist(err) {
-				// File has been deleted
+			} else if _, err := os.Lstat(filepath.Join(folderCfg.Path, f.Name)); err != nil {
+				// File has been deleted.
+
+				// We don't specifically verify that the error is
+				// os.IsNotExist because there is a corner case when a
+				// directory is suddenly transformed into a file. When that
+				// happens, files that were in the directory (that is now a
+				// file) are deleted but will return a confusing error ("not a
+				// directory") when we try to Lstat() them.
+
 				nf := protocol.FileInfo{
 					Name:     f.Name,
 					Flags:    f.Flags | protocol.FlagDeleted,
@@ -1266,7 +1251,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		fs.Update(protocol.LocalDeviceID, batch)
 	}
 
-	m.setState(folder, FolderIdle)
+	runner.setState(FolderIdle)
 	return nil
 }
 
@@ -1309,40 +1294,24 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 	return cm
 }
 
-func (m *Model) setState(folder string, state folderState) {
-	m.smut.Lock()
-	oldState := m.folderState[folder]
-	changed, ok := m.folderStateChanged[folder]
-	if state != oldState {
-		m.folderState[folder] = state
-		m.folderStateChanged[folder] = time.Now()
-		eventData := map[string]interface{}{
-			"folder": folder,
-			"to":     state.String(),
-		}
-		if ok {
-			eventData["duration"] = time.Since(changed).Seconds()
-			eventData["from"] = oldState.String()
-		}
-		events.Default.Log(events.StateChanged, eventData)
-	}
-	m.smut.Unlock()
-}
-
 func (m *Model) State(folder string) (string, time.Time) {
-	m.smut.RLock()
-	state := m.folderState[folder]
-	changed := m.folderStateChanged[folder]
-	m.smut.RUnlock()
+	m.fmut.RLock()
+	runner, ok := m.folderRunners[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		return "", time.Time{}
+	}
+	state, changed := runner.getState()
 	return state.String(), changed
 }
 
 func (m *Model) Override(folder string) {
 	m.fmut.RLock()
 	fs := m.folderFiles[folder]
+	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
-	m.setState(folder, FolderScanning)
+	runner.setState(FolderScanning)
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
 	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
@@ -1368,7 +1337,7 @@ func (m *Model) Override(folder string) {
 	if len(batch) > 0 {
 		fs.Update(protocol.LocalDeviceID, batch)
 	}
-	m.setState(folder, FolderIdle)
+	runner.setState(FolderIdle)
 }
 
 // CurrentLocalVersion returns the change version for the given folder.
@@ -1409,7 +1378,70 @@ func (m *Model) RemoteLocalVersion(folder string) int64 {
 	return ver
 }
 
-func (m *Model) availability(folder, file string) []protocol.DeviceID {
+func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{} {
+	m.fmut.RLock()
+	files, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		return nil
+	}
+
+	output := make(map[string]interface{})
+	sep := string(filepath.Separator)
+	prefix = osutil.NativeFilename(prefix)
+
+	if prefix != "" && !strings.HasSuffix(prefix, sep) {
+		prefix = prefix + sep
+	}
+
+	files.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
+		f := fi.(db.FileInfoTruncated)
+
+		if f.IsInvalid() || f.IsDeleted() || f.Name == prefix {
+			return true
+		}
+
+		f.Name = strings.Replace(f.Name, prefix, "", 1)
+
+		var dir, base string
+		if f.IsDirectory() && !f.IsSymlink() {
+			dir = f.Name
+		} else {
+			dir = filepath.Dir(f.Name)
+			base = filepath.Base(f.Name)
+		}
+
+		if levels > -1 && strings.Count(f.Name, sep) > levels {
+			return true
+		}
+
+		last := output
+		if dir != "." {
+			for _, path := range strings.Split(dir, sep) {
+				directory, ok := last[path]
+				if !ok {
+					newdir := make(map[string]interface{})
+					last[path] = newdir
+					last = newdir
+				} else {
+					last = directory.(map[string]interface{})
+				}
+			}
+		}
+
+		if !dirsonly && base != "" {
+			last[base] = []int64{
+				f.Modified, f.Size(),
+			}
+		}
+
+		return true
+	})
+
+	return output
+}
+
+func (m *Model) Availability(folder, file string) []protocol.DeviceID {
 	// Acquire this lock first, as the value returned from foldersFiles can
 	// get heavily modified on Close()
 	m.pmut.RLock()

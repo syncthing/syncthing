@@ -3,7 +3,7 @@ syncthing
 
 [![Latest Build](http://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing.svg?style=flat-square)](http://build.syncthing.net/job/syncthing/lastBuild/)
 [![API Documentation](http://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](http://godoc.org/github.com/syncthing/syncthing)
-[![GPL License](http://img.shields.io/badge/license-GPL-blue.svg?style=flat-square)](http://opensource.org/licenses/GPL-3.0)
+[![MPLv2 License](http://img.shields.io/badge/license-MPLv2-blue.svg?style=flat-square)](https://www.mozilla.org/MPL/2.0/)
 
 This is the `syncthing` project. The following are the project goals:
 
@@ -57,5 +57,4 @@ documentation](https://github.com/syncthing/syncthing/wiki/) is on the
 Github wiki.
 
 All code is licensed under the
-[GPL](https://github.com/syncthing/syncthing/blob/master/LICENSE), v3 or
-later.
+[MPLv2](https://github.com/syncthing/syncthing/blob/master/LICENSE).

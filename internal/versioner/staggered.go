@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package versioner
 
@@ -219,7 +210,7 @@ func (v Staggered) expire(versions []string) {
 	var prevAge int64
 	firstFile := true
 	for _, file := range versions {
-		fi, err := os.Stat(file)
+		fi, err := os.Lstat(file)
 		if err != nil {
 			l.Warnln("versioner:", err)
 			continue
@@ -290,13 +281,13 @@ func (v Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	if _, err := os.Lstat(filePath); err != nil {
-		if os.IsNotExist(err) {
-			if debug {
-				l.Debugln("not archiving nonexistent file", filePath)
-			}
-			return nil
+	_, err := os.Lstat(filePath)
+	if os.IsNotExist(err) {
+		if debug {
+			l.Debugln("not archiving nonexistent file", filePath)
 		}
+		return nil
+	} else if err != nil {
 		return err
 	}
 

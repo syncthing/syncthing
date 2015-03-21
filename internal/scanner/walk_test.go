@@ -1,31 +1,25 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package scanner
 
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	rdebug "runtime/debug"
 	"sort"
 	"testing"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/ignore"
+	"golang.org/x/text/unicode/norm"
 )
 
 type testfile struct {
@@ -188,6 +182,102 @@ func TestVerify(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected verify success")
 	}
+}
+
+func TestNormalization(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Normalization test not possible on darwin")
+		return
+	}
+
+	os.RemoveAll("testdata/normalization")
+	defer os.RemoveAll("testdata/normalization")
+
+	tests := []string{
+		"0-A",            // ASCII A -- accepted
+		"1-\xC3\x84",     // NFC 'Ä' -- conflicts with the entry below, accepted
+		"1-\x41\xCC\x88", // NFD 'Ä' -- conflicts with the entry above, ignored
+		"2-\xC3\x85",     // NFC 'Å' -- accepted
+		"3-\x41\xCC\x83", // NFD 'Ã' -- converted to NFC
+		"4-\xE2\x98\x95", // U+2615 HOT BEVERAGE (☕) -- accepted
+		"5-\xCD\xE2",     // EUC-CN "wài" (外) -- ignored (not UTF8)
+	}
+	numInvalid := 2
+	numValid := len(tests) - numInvalid
+
+	for _, s1 := range tests {
+		// Create a directory for each of the interesting strings above
+		if err := os.MkdirAll(filepath.Join("testdata/normalization", s1), 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		for _, s2 := range tests {
+			// Within each dir, create a file with each of the interesting
+			// file names. Ensure that the file doesn't exist when it's
+			// created. This detects and fails if there's file name
+			// normalization stuff at the filesystem level.
+			if fd, err := os.OpenFile(filepath.Join("testdata/normalization", s1, s2), os.O_CREATE|os.O_EXCL, 0644); err != nil {
+				t.Fatal(err)
+			} else {
+				fd.WriteString("test")
+				fd.Close()
+			}
+		}
+	}
+
+	// We can normalize a directory name, but we can't descend into it in the
+	// same pass due to how filepath.Walk works. So we run the scan twice to
+	// make sure it all gets done. In production, things will be correct
+	// eventually...
+
+	_, err := walkDir("testdata/normalization")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmp, err := walkDir("testdata/normalization")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	files := fileList(tmp).testfiles()
+
+	// We should have one file per combination, plus the directories
+	// themselves
+
+	expectedNum := numValid*numValid + numValid
+	if len(files) != expectedNum {
+		t.Errorf("Expected %d files, got %d", expectedNum, len(files))
+	}
+
+	// The file names should all be in NFC form.
+
+	for _, f := range files {
+		t.Logf("%q (% x) %v", f.name, f.name, norm.NFC.IsNormalString(f.name))
+		if !norm.NFC.IsNormalString(f.name) {
+			t.Errorf("File name %q is not NFC normalized", f.name)
+		}
+	}
+}
+
+func walkDir(dir string) ([]protocol.FileInfo, error) {
+	w := Walker{
+		Dir:           dir,
+		BlockSize:     128 * 1024,
+		AutoNormalize: true,
+	}
+
+	fchan, err := w.Walk()
+	if err != nil {
+		return nil, err
+	}
+
+	var tmp []protocol.FileInfo
+	for f := range fchan {
+		tmp = append(tmp, f)
+	}
+	sort.Sort(fileList(tmp))
+
+	return tmp, nil
 }
 
 type fileList []protocol.FileInfo

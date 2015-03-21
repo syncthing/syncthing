@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // Package db provides a set type to track local/remote files with newness
 // checks. We must do a certain amount of normalization in here. We will get
@@ -172,14 +163,21 @@ func (s *FileSet) WithGlobal(fn Iterator) {
 	if debug {
 		l.Debugf("%s WithGlobal()", s.folder)
 	}
-	ldbWithGlobal(s.db, []byte(s.folder), false, nativeFileIterator(fn))
+	ldbWithGlobal(s.db, []byte(s.folder), nil, false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithGlobalTruncated(fn Iterator) {
 	if debug {
 		l.Debugf("%s WithGlobalTruncated()", s.folder)
 	}
-	ldbWithGlobal(s.db, []byte(s.folder), true, nativeFileIterator(fn))
+	ldbWithGlobal(s.db, []byte(s.folder), nil, true, nativeFileIterator(fn))
+}
+
+func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
+	if debug {
+		l.Debugf("%s WithPrefixedGlobalTruncated()", s.folder, prefix)
+	}
+	ldbWithGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {

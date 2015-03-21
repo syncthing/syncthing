@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package main
 
@@ -46,8 +37,8 @@ import (
 )
 
 type guiError struct {
-	Time  time.Time
-	Error string
+	Time  time.Time `json:"time"`
+	Error string    `json:"error"`
 }
 
 var (
@@ -130,8 +121,10 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/system", restGetSystem)
 	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
 	getRestMux.HandleFunc("/rest/version", restGetVersion)
+	getRestMux.HandleFunc("/rest/tree", withModel(m, restGetTree))
 	getRestMux.HandleFunc("/rest/stats/device", withModel(m, restGetDeviceStats))
 	getRestMux.HandleFunc("/rest/stats/folder", withModel(m, restGetFolderStats))
+	getRestMux.HandleFunc("/rest/filestatus", withModel(m, restGetFileStatus))
 
 	// Debug endpoints, not for general use
 	getRestMux.HandleFunc("/rest/debug/peerCompletion", withModel(m, restGetPeerCompletion))
@@ -262,6 +255,24 @@ func restGetVersion(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func restGetTree(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	prefix := qs.Get("prefix")
+	dirsonly := qs.Get("dirsonly") != ""
+
+	levels, err := strconv.Atoi(qs.Get("levels"))
+	if err != nil {
+		levels = -1
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	tree := m.GlobalDirectoryTree(folder, prefix, levels, dirsonly)
+
+	json.NewEncoder(w).Encode(tree)
+}
+
 func restGetCompletion(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
@@ -353,6 +364,27 @@ func restGetFolderStats(m *model.Model, w http.ResponseWriter, r *http.Request) 
 	var res = m.FolderStatistics()
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
+}
+
+func restGetFileStatus(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	file := qs.Get("file")
+	withBlocks := qs.Get("blocks") != ""
+	gf, _ := m.CurrentGlobalFile(folder, file)
+	lf, _ := m.CurrentFolderFile(folder, file)
+
+	if !withBlocks {
+		gf.Blocks = nil
+		lf.Blocks = nil
+	}
+
+	av := m.Availability(folder, file)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"global":       gf,
+		"local":        lf,
+		"availability": av,
+	})
 }
 
 func restGetConfig(w http.ResponseWriter, r *http.Request) {
@@ -805,12 +837,12 @@ func toNeedSlice(fs []db.FileInfoTruncated) []map[string]interface{} {
 	output := make([]map[string]interface{}, len(fs))
 	for i, file := range fs {
 		output[i] = map[string]interface{}{
-			"Name":         file.Name,
-			"Flags":        file.Flags,
-			"Modified":     file.Modified,
-			"Version":      file.Version,
-			"LocalVersion": file.LocalVersion,
-			"Size":         file.Size(),
+			"name":         file.Name,
+			"flags":        file.Flags,
+			"modified":     file.Modified,
+			"version":      file.Version,
+			"localVersion": file.LocalVersion,
+			"size":         file.Size(),
 		}
 	}
 	return output
