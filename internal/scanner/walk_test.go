@@ -259,6 +259,14 @@ func TestNormalization(t *testing.T) {
 	}
 }
 
+func TestIssue1507(t *testing.T) {
+	w := Walker{}
+	c := make(chan protocol.FileInfo, 100)
+	fn := w.walkAndHashFiles(c)
+
+	fn("", nil, protocol.ErrClosed)
+}
+
 func walkDir(dir string) ([]protocol.FileInfo, error) {
 	w := Walker{
 		Dir:           dir,
