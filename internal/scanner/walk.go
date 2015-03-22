@@ -111,7 +111,8 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 		// Return value used when we are returning early and don't want to
 		// process the item. For directories, this means do-not-descend.
 		var skip error // nil
-		if info.IsDir() {
+		// info nil when error is not nil
+		if info != nil && info.IsDir() {
 			skip = filepath.SkipDir
 		}
 
