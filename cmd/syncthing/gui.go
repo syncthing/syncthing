@@ -828,6 +828,8 @@ func mimeTypeForFile(file string) string {
 		return "application/x-font-ttf"
 	case ".woff":
 		return "application/x-font-woff"
+	case ".svg":
+		return "image/svg+xml"
 	default:
 		return mime.TypeByExtension(ext)
 	}
