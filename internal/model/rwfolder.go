@@ -489,7 +489,11 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 		// we can pass it to InWritableDir. We use a regular Mkdir and
 		// not MkdirAll because the parent should already exist.
 		mkdir := func(path string) error {
-			return os.Mkdir(path, mode)
+			err = os.Mkdir(path, mode)
+			if err != nil || p.ignorePerms {
+				return err
+			}
+			return os.Chmod(path, mode)
 		}
 
 		if err = osutil.InWritableDir(mkdir, realName); err == nil {
