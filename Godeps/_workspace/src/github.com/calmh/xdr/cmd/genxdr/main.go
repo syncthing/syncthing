@@ -263,6 +263,13 @@ func handleStruct(t *ast.StructType) []fieldInfo {
 					Max:       max,
 				}
 			}
+
+		case *ast.SelectorExpr:
+			f = fieldInfo{
+				Name:      fn,
+				FieldType: ft.Sel.Name,
+				Max:       max,
+			}
 		}
 
 		fs = append(fs, f)
@@ -346,7 +353,10 @@ func generateDiagram(output io.Writer, s structInfo) {
 				fmt.Fprintf(output, "\\ %s \\\n", center(tn, 61))
 				fmt.Fprintf(output, "/ %s /\n", center("", 61))
 			} else {
-				fmt.Fprintf(output, "| %s |\n", center(tn, 61))
+				tn = tn + " Structure"
+				fmt.Fprintf(output, "/ %s /\n", center("", 61))
+				fmt.Fprintf(output, "\\ %s \\\n", center(tn, 61))
+				fmt.Fprintf(output, "/ %s /\n", center("", 61))
 			}
 			fmt.Fprintln(output, line)
 		}
