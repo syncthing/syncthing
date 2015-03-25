@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base32"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"regexp"
@@ -65,6 +66,11 @@ func (n DeviceID) Compare(other DeviceID) int {
 
 func (n DeviceID) Equals(other DeviceID) bool {
 	return bytes.Compare(n[:], other[:]) == 0
+}
+
+// Short returns an integer representing bits 0-63 of the device ID.
+func (n DeviceID) Short() uint64 {
+	return binary.BigEndian.Uint64(n[:])
 }
 
 func (n *DeviceID) MarshalText() ([]byte, error) {
