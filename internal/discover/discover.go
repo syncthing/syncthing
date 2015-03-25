@@ -27,13 +27,16 @@ type Discoverer struct {
 	localBcastIntv  time.Duration
 	localBcastStart time.Time
 	cacheLifetime   time.Duration
+	negCacheCutoff  time.Duration
 	broadcastBeacon beacon.Interface
 	multicastBeacon beacon.Interface
-	registry        map[protocol.DeviceID][]CacheEntry
-	registryLock    sync.RWMutex
 	extPort         uint16
 	localBcastTick  <-chan time.Time
 	forcedBcastTick chan time.Time
+
+	registryLock sync.RWMutex
+	registry     map[protocol.DeviceID][]CacheEntry
+	lastLookup   map[protocol.DeviceID]time.Time
 
 	clients []Client
 	mut     sync.RWMutex
@@ -54,7 +57,9 @@ func NewDiscoverer(id protocol.DeviceID, addresses []string) *Discoverer {
 		listenAddrs:    addresses,
 		localBcastIntv: 30 * time.Second,
 		cacheLifetime:  5 * time.Minute,
+		negCacheCutoff: 3 * time.Minute,
 		registry:       make(map[protocol.DeviceID][]CacheEntry),
+		lastLookup:     make(map[protocol.DeviceID]time.Time),
 	}
 }
 
@@ -155,18 +160,28 @@ func (d *Discoverer) ExtAnnounceOK() map[string]bool {
 func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
 	d.registryLock.RLock()
 	cached := d.filterCached(d.registry[device])
+	lastLookup := d.lastLookup[device]
 	d.registryLock.RUnlock()
 
 	d.mut.RLock()
 	defer d.mut.RUnlock()
 
-	var addrs []string
 	if len(cached) > 0 {
-		addrs = make([]string, len(cached))
+		// There are cached address entries.
+		addrs := make([]string, len(cached))
 		for i := range cached {
 			addrs[i] = cached[i].Address
 		}
-	} else if len(d.clients) != 0 && time.Since(d.localBcastStart) > d.localBcastIntv {
+		return addrs
+	}
+
+	if time.Since(lastLookup) < d.negCacheCutoff {
+		// We have recently tried to lookup this address and failed. Lets
+		// chill for a while.
+		return nil
+	}
+
+	if len(d.clients) != 0 && time.Since(d.localBcastStart) > d.localBcastIntv {
 		// Only perform external lookups if we have at least one external
 		// server client and one local announcement interval has passed. This is
 		// to avoid finding local peers on their remote address at startup.
@@ -187,6 +202,7 @@ func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
 		seen := make(map[string]struct{})
 		now := time.Now()
 
+		var addrs []string
 		for result := range results {
 			for _, addr := range result {
 				_, ok := seen[addr]
@@ -203,9 +219,13 @@ func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
 
 		d.registryLock.Lock()
 		d.registry[device] = cached
+		d.lastLookup[device] = time.Now()
 		d.registryLock.Unlock()
+
+		return addrs
 	}
-	return addrs
+
+	return nil
 }
 
 func (d *Discoverer) Hint(device string, addrs []string) {
