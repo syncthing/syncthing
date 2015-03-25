@@ -514,7 +514,7 @@ func syncthingMain() {
 		}
 	}
 
-	m := model.NewModel(cfg, myName, "syncthing", Version, ldb)
+	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb)
 
 	sanityCheckFolders(cfg, m)
 

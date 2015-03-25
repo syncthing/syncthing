@@ -27,7 +27,6 @@ import (
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/ignore"
-	"github.com/syncthing/syncthing/internal/lamport"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/scanner"
 	"github.com/syncthing/syncthing/internal/stats"
@@ -59,6 +58,8 @@ type Model struct {
 	db              *leveldb.DB
 	finder          *db.BlockFinder
 	progressEmitter *ProgressEmitter
+	id              protocol.DeviceID
+	shortID         uint64
 
 	deviceName    string
 	clientName    string
@@ -93,10 +94,14 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Wrapper, deviceName, clientName, clientVersion string, ldb *leveldb.DB) *Model {
+func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB) *Model {
 	m := &Model{
 		cfg:             cfg,
 		db:              ldb,
+		finder:          db.NewBlockFinder(ldb, cfg),
+		progressEmitter: NewProgressEmitter(cfg),
+		id:              id,
+		shortID:         id.Short(),
 		deviceName:      deviceName,
 		clientName:      clientName,
 		clientVersion:   clientVersion,
@@ -111,8 +116,6 @@ func NewModel(cfg *config.Wrapper, deviceName, clientName, clientVersion string,
 		protoConn:       make(map[protocol.DeviceID]protocol.Connection),
 		rawConn:         make(map[protocol.DeviceID]io.Closer),
 		deviceVer:       make(map[protocol.DeviceID]string),
-		finder:          db.NewBlockFinder(ldb, cfg),
-		progressEmitter: NewProgressEmitter(cfg),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -443,7 +446,6 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	}
 
 	for i := 0; i < len(fs); {
-		lamport.Default.Tick(fs[i].Version)
 		if fs[i].Flags&^protocol.FlagsAll != 0 {
 			if debug {
 				l.Debugln("dropping update for file with unknown bits set", fs[i])
@@ -492,7 +494,6 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	}
 
 	for i := 0; i < len(fs); {
-		lamport.Default.Tick(fs[i].Version)
 		if fs[i].Flags&^protocol.FlagsAll != 0 {
 			if debug {
 				l.Debugln("dropping update for file with unknown bits set", fs[i])
@@ -748,7 +749,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 // ReplaceLocal replaces the local folder index with the given list of files.
 func (m *Model) ReplaceLocal(folder string, fs []protocol.FileInfo) {
 	m.fmut.RLock()
-	m.folderFiles[folder].ReplaceWithDelete(protocol.LocalDeviceID, fs)
+	m.folderFiles[folder].ReplaceWithDelete(protocol.LocalDeviceID, fs, m.shortID)
 	m.fmut.RUnlock()
 }
 
@@ -1149,6 +1150,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 		IgnorePerms:   folderCfg.IgnorePerms,
 		AutoNormalize: folderCfg.AutoNormalize,
 		Hashers:       folderCfg.Hashers,
+		ShortID:       m.shortID,
 	}
 
 	runner.setState(FolderScanning)
@@ -1233,7 +1235,7 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 					Name:     f.Name,
 					Flags:    f.Flags | protocol.FlagDeleted,
 					Modified: f.Modified,
-					Version:  lamport.Default.Tick(f.Version),
+					Version:  f.Version.Update(m.shortID),
 				}
 				events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
 					"folder":   folder,
@@ -1329,7 +1331,7 @@ func (m *Model) Override(folder string) {
 			// We have the file, replace with our version
 			need = have
 		}
-		need.Version = lamport.Default.Tick(need.Version)
+		need.Version = need.Version.Update(m.shortID)
 		need.LocalVersion = 0
 		batch = append(batch, need)
 		return true
