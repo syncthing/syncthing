@@ -664,11 +664,21 @@ Folder Structure:
 \                Zero or more Device Structures                 \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                             Flags                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Number of Options                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                Zero or more Option Structures                 \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct Folder {
 	string ID<64>;
 	Device Devices<>;
+	unsigned int Flags;
+	Option Options<64>;
 }
 
 */
@@ -709,6 +719,17 @@ func (o Folder) encodeXDR(xw *xdr.Writer) (int, error) {
 			return xw.Tot(), err
 		}
 	}
+	xw.WriteUint32(o.Flags)
+	if l := len(o.Options); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Options", l, 64)
+	}
+	xw.WriteUint32(uint32(len(o.Options)))
+	for i := range o.Options {
+		_, err := o.Options[i].encodeXDR(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
+	}
 	return xw.Tot(), xw.Error()
 }
 
@@ -730,6 +751,15 @@ func (o *Folder) decodeXDR(xr *xdr.Reader) error {
 	for i := range o.Devices {
 		(&o.Devices[i]).decodeXDR(xr)
 	}
+	o.Flags = xr.ReadUint32()
+	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize > 64 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
+	o.Options = make([]Option, _OptionsSize)
+	for i := range o.Options {
+		(&o.Options[i]).decodeXDR(xr)
+	}
 	return xr.Error()
 }
 
@@ -746,18 +776,25 @@ Device Structure:
 \                     ID (variable length)                      \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             Flags                             |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                  Max Local Version (64 bits)                  +
 |                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                             Flags                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Number of Options                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                Zero or more Option Structures                 \
+/                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct Device {
 	opaque ID<32>;
-	unsigned int Flags;
 	hyper MaxLocalVersion;
+	unsigned int Flags;
+	Option Options<64>;
 }
 
 */
@@ -791,8 +828,18 @@ func (o Device) encodeXDR(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 32)
 	}
 	xw.WriteBytes(o.ID)
-	xw.WriteUint32(o.Flags)
 	xw.WriteUint64(uint64(o.MaxLocalVersion))
+	xw.WriteUint32(o.Flags)
+	if l := len(o.Options); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Options", l, 64)
+	}
+	xw.WriteUint32(uint32(len(o.Options)))
+	for i := range o.Options {
+		_, err := o.Options[i].encodeXDR(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
+	}
 	return xw.Tot(), xw.Error()
 }
 
@@ -809,8 +856,16 @@ func (o *Device) UnmarshalXDR(bs []byte) error {
 
 func (o *Device) decodeXDR(xr *xdr.Reader) error {
 	o.ID = xr.ReadBytesMax(32)
-	o.Flags = xr.ReadUint32()
 	o.MaxLocalVersion = int64(xr.ReadUint64())
+	o.Flags = xr.ReadUint32()
+	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize > 64 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
+	o.Options = make([]Option, _OptionsSize)
+	for i := range o.Options {
+		(&o.Options[i]).decodeXDR(xr)
+	}
 	return xr.Error()
 }
 
