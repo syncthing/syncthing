@@ -39,7 +39,7 @@ func TestSanityCheck(t *testing.T) {
 
 	// Case 1 - new folder, directory and marker created
 
-	m := model.NewModel(cfg, "device", "syncthing", "dev", ldb)
+	m := model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
 	sanityCheckFolders(cfg, m)
 
 	if cfg.Folders()["folder"].Invalid != "" {
@@ -66,7 +66,7 @@ func TestSanityCheck(t *testing.T) {
 		Folders: []config.FolderConfiguration{fcfg},
 	})
 
-	m = model.NewModel(cfg, "device", "syncthing", "dev", ldb)
+	m = model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
 	sanityCheckFolders(cfg, m)
 
 	if cfg.Folders()["folder"].Invalid != "" {
@@ -87,7 +87,7 @@ func TestSanityCheck(t *testing.T) {
 		{Name: "dummyfile"},
 	})
 
-	m = model.NewModel(cfg, "device", "syncthing", "dev", ldb)
+	m = model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
 	sanityCheckFolders(cfg, m)
 
 	if cfg.Folders()["folder"].Invalid != "folder marker missing" {
@@ -101,7 +101,7 @@ func TestSanityCheck(t *testing.T) {
 		Folders: []config.FolderConfiguration{fcfg},
 	})
 
-	m = model.NewModel(cfg, "device", "syncthing", "dev", ldb)
+	m = model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
 	sanityCheckFolders(cfg, m)
 
 	if cfg.Folders()["folder"].Invalid != "folder path missing" {
