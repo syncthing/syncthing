@@ -101,12 +101,15 @@ func (o *ClusterConfigMessage) GetOption(key string) string {
 type Folder struct {
 	ID      string // max:64
 	Devices []Device
+	Flags   uint32
+	Options []Option // max:64
 }
 
 type Device struct {
 	ID              []byte // max:32
-	Flags           uint32
 	MaxLocalVersion int64
+	Flags           uint32
+	Options         []Option // max:64
 }
 
 type Option struct {
