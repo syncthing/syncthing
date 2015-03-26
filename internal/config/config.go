@@ -187,7 +187,7 @@ type OptionsConfiguration struct {
 
 type GUIConfiguration struct {
 	Enabled  bool   `xml:"enabled,attr" json:"enabled" default:"true"`
-	Address  string `xml:"address" json:"address" default:"127.0.0.1:8080"`
+	Address  string `xml:"address" json:"address" default:"127.0.0.1:8384"`
 	User     string `xml:"user,omitempty" json:"user"`
 	Password string `xml:"password,omitempty" json:"password"`
 	UseTLS   bool   `xml:"tls,attr" json:"useTLS"`

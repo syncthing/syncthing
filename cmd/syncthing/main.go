@@ -749,7 +749,7 @@ func defaultConfig(myName string) config.Configuration {
 		},
 	}
 
-	port, err := getFreePort("127.0.0.1", 8080)
+	port, err := getFreePort("127.0.0.1", 8384)
 	if err != nil {
 		l.Fatalln("get free port (GUI):", err)
 	}
