@@ -1,5 +1,6 @@
 // Copyright (C) 2014 The Protocol Authors.
 
+//go:generate -command genxdr go run ../syncthing/Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
 //go:generate genxdr -o message_xdr.go message.go
 
 package protocol
@@ -78,8 +79,8 @@ type RequestMessage struct {
 }
 
 type ResponseMessage struct {
-	Data  []byte
-	Error int32
+	Data []byte
+	Code int32
 }
 
 type ClusterConfigMessage struct {
