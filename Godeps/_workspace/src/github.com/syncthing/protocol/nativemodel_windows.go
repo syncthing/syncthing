@@ -24,23 +24,30 @@ type nativeModel struct {
 	next Model
 }
 
-func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
-	for i, f := range files {
-		if strings.ContainsAny(f.Name, disallowedCharacters) {
-			if f.IsDeleted() {
-				// Don't complain if the file is marked as deleted, since it
-				// can't possibly exist here anyway.
-				continue
-			}
-			files[i].Flags |= FlagInvalid
-			l.Warnf("File name %q contains invalid characters; marked as invalid.", f.Name)
-		}
-		files[i].Name = filepath.FromSlash(f.Name)
-	}
-	m.next.Index(deviceID, folder, files)
+func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
+	fixupFiles(files)
+	m.next.Index(deviceID, folder, files, flags, options)
 }
 
-func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
+func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
+	fixupFiles(files)
+	m.next.IndexUpdate(deviceID, folder, files, flags, options)
+}
+
+func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error) {
+	name = filepath.FromSlash(name)
+	return m.next.Request(deviceID, folder, name, offset, size, hash, flags, options)
+}
+
+func (m nativeModel) ClusterConfig(deviceID DeviceID, config ClusterConfigMessage) {
+	m.next.ClusterConfig(deviceID, config)
+}
+
+func (m nativeModel) Close(deviceID DeviceID, err error) {
+	m.next.Close(deviceID, err)
+}
+
+func fixupFiles(files []FileInfo) {
 	for i, f := range files {
 		if strings.ContainsAny(f.Name, disallowedCharacters) {
 			if f.IsDeleted() {
@@ -53,18 +60,4 @@ func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileI
 		}
 		files[i].Name = filepath.FromSlash(files[i].Name)
 	}
-	m.next.IndexUpdate(deviceID, folder, files)
-}
-
-func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, size int) ([]byte, error) {
-	name = filepath.FromSlash(name)
-	return m.next.Request(deviceID, folder, name, offset, size)
-}
-
-func (m nativeModel) ClusterConfig(deviceID DeviceID, config ClusterConfigMessage) {
-	m.next.ClusterConfig(deviceID, config)
-}
-
-func (m nativeModel) Close(deviceID DeviceID, err error) {
-	m.next.Close(deviceID, err)
 }
