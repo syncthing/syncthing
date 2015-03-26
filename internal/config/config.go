@@ -370,6 +370,11 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		}
 	}
 
+	// Very short reconnection intervals are annoying
+	if cfg.Options.ReconnectIntervalS < 5 {
+		cfg.Options.ReconnectIntervalS = 5
+	}
+
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 	cfg.Options.GlobalAnnServers = uniqueStrings(cfg.Options.GlobalAnnServers)
 
