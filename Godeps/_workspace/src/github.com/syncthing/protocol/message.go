@@ -17,13 +17,13 @@ type FileInfo struct {
 	Name         string // max:8192
 	Flags        uint32
 	Modified     int64
-	Version      int64
+	Version      Vector
 	LocalVersion int64
 	Blocks       []BlockInfo
 }
 
 func (f FileInfo) String() string {
-	return fmt.Sprintf("File{Name:%q, Flags:0%o, Modified:%d, Version:%d, Size:%d, Blocks:%v}",
+	return fmt.Sprintf("File{Name:%q, Flags:0%o, Modified:%d, Version:%v, Size:%d, Blocks:%v}",
 		f.Name, f.Flags, f.Modified, f.Version, f.Size(), f.Blocks)
 }
 

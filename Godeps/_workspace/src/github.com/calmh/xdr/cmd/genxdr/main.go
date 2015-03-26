@@ -52,7 +52,7 @@ import (
 var encodeTpl = template.Must(template.New("encoder").Parse(`
 func (o {{.TypeName}}) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }//+n
 
 func (o {{.TypeName}}) MarshalXDR() ([]byte, error) {
@@ -70,11 +70,11 @@ func (o {{.TypeName}}) MustMarshalXDR() []byte {
 func (o {{.TypeName}}) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }//+n
 
-func (o {{.TypeName}}) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o {{.TypeName}}) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	{{range $fieldInfo := .Fields}}
 		{{if not $fieldInfo.IsSlice}}
 			{{if ne $fieldInfo.Convert ""}}
@@ -87,7 +87,7 @@ func (o {{.TypeName}}) encodeXDR(xw *xdr.Writer) (int, error) {
 				{{end}}
 				xw.Write{{$fieldInfo.Encoder}}(o.{{$fieldInfo.Name}})
 			{{else}}
-				_, err := o.{{$fieldInfo.Name}}.encodeXDR(xw)
+				_, err := o.{{$fieldInfo.Name}}.EncodeXDRInto(xw)
 				if err != nil {
 					return xw.Tot(), err
 				}
@@ -105,7 +105,7 @@ func (o {{.TypeName}}) encodeXDR(xw *xdr.Writer) (int, error) {
 			{{else if $fieldInfo.IsBasic}}
 				xw.Write{{$fieldInfo.Encoder}}(o.{{$fieldInfo.Name}}[i])
 			{{else}}
-				_, err := o.{{$fieldInfo.Name}}[i].encodeXDR(xw)
+				_, err := o.{{$fieldInfo.Name}}[i].EncodeXDRInto(xw)
 				if err != nil {
 					return xw.Tot(), err
 				}
@@ -118,16 +118,16 @@ func (o {{.TypeName}}) encodeXDR(xw *xdr.Writer) (int, error) {
 
 func (o *{{.TypeName}}) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }//+n
 
 func (o *{{.TypeName}}) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }//+n
 
-func (o *{{.TypeName}}) decodeXDR(xr *xdr.Reader) error {
+func (o *{{.TypeName}}) DecodeXDRFrom(xr *xdr.Reader) error {
 	{{range $fieldInfo := .Fields}}
 		{{if not $fieldInfo.IsSlice}}
 			{{if ne $fieldInfo.Convert ""}}
@@ -139,7 +139,7 @@ func (o *{{.TypeName}}) decodeXDR(xr *xdr.Reader) error {
 					o.{{$fieldInfo.Name}} = xr.Read{{$fieldInfo.Encoder}}()
 				{{end}}
 			{{else}}
-				(&o.{{$fieldInfo.Name}}).decodeXDR(xr)
+				(&o.{{$fieldInfo.Name}}).DecodeXDRFrom(xr)
 			{{end}}
 		{{else}}
 			_{{$fieldInfo.Name}}Size := int(xr.ReadUint32())
@@ -155,7 +155,7 @@ func (o *{{.TypeName}}) decodeXDR(xr *xdr.Reader) error {
 				{{else if $fieldInfo.IsBasic}}
 					o.{{$fieldInfo.Name}}[i] = xr.Read{{$fieldInfo.Encoder}}()
 				{{else}}
-					(&o.{{$fieldInfo.Name}}[i]).decodeXDR(xr)
+					(&o.{{$fieldInfo.Name}}[i]).DecodeXDRFrom(xr)
 				{{end}}
 			}
 		{{end}}
@@ -257,7 +257,6 @@ func handleStruct(t *ast.StructType) []fieldInfo {
 			} else {
 				f = fieldInfo{
 					Name:      fn,
-					IsBasic:   false,
 					IsSlice:   true,
 					FieldType: tn,
 					Max:       max,
@@ -317,10 +316,9 @@ func generateDiagram(output io.Writer, s structInfo) {
 
 	for _, f := range fs {
 		tn := f.FieldType
-		sl := f.IsSlice
 		name := uncamelize(f.Name)
 
-		if sl {
+		if f.IsSlice {
 			fmt.Fprintf(output, "| %s |\n", center("Number of "+name, 61))
 			fmt.Fprintln(output, line)
 		}
@@ -347,7 +345,7 @@ func generateDiagram(output io.Writer, s structInfo) {
 			fmt.Fprintf(output, "/ %61s /\n", "")
 			fmt.Fprintln(output, line)
 		default:
-			if sl {
+			if f.IsSlice {
 				tn = "Zero or more " + tn + " Structures"
 				fmt.Fprintf(output, "/ %s /\n", center("", 61))
 				fmt.Fprintf(output, "\\ %s \\\n", center(tn, 61))

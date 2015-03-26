@@ -118,7 +118,7 @@ case "${1:-default}" in
 			-e "STTRACE=$STTRACE" \
 			syncthing/build:latest \
 			sh -c './build.sh clean \
-				&& go vet ./cmd/... ./internal/... \
+				&& go tool vet -composites=false cmd/*/*.go internal/*/*.go \
 				&& ( golint ./cmd/... ; golint ./internal/... ) | egrep -v "comment on exported|should have comment" \
 				&& ./build.sh all \
 				&& STTRACE=all ./build.sh test-cov'
