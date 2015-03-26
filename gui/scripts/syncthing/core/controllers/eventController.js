@@ -1,3 +1,5 @@
+var debugEvents = false;
+
 angular.module('syncthing.core')
     .controller('EventController', function ($scope, $http) {
         'use strict';
@@ -20,7 +22,9 @@ angular.module('syncthing.core')
 
             if (lastID > 0) {
                 data.forEach(function (event) {
-                    console.log("event", event.id, event.type, event.data);
+                    if (debugEvents) {
+                        console.log("event", event.id, event.type, event.data);
+                    }
                     $scope.$emit(event.type, event);
                 });
             }
