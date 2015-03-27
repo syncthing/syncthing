@@ -708,9 +708,9 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
 
 		// block.String() returns a string unique to the block
-		existingBlocks := make(map[string]bool, len(tempCopyBlocks))
+		existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
 		for _, block := range tempCopyBlocks {
-			existingBlocks[block.String()] = true
+			existingBlocks[block.String()] = struct{}{}
 		}
 
 		// Since the blocks are already there, we don't need to get them.
@@ -918,7 +918,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			// Fetch the block, while marking the selected device as in use so that
 			// leastBusy can select another device when someone else asks.
 			activity.using(selected)
-			buf, lastError := p.model.requestGlobal(selected, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash)
+			buf, lastError := p.model.requestGlobal(selected, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, 0, nil)
 			activity.done(selected)
 			if lastError != nil {
 				continue

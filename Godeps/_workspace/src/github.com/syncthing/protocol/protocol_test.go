@@ -229,10 +229,10 @@ func TestClose(t *testing.T) {
 		t.Error("Ping should not return true")
 	}
 
-	c0.Index("default", nil)
-	c0.Index("default", nil)
+	c0.Index("default", nil, 0, nil)
+	c0.Index("default", nil, 0, nil)
 
-	if _, err := c0.Request("default", "foo", 0, 0); err == nil {
+	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, nil); err == nil {
 		t.Error("Request should return an error")
 	}
 }

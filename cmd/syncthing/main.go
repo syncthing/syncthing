@@ -533,7 +533,7 @@ func syncthingMain() {
 			if device == myID {
 				continue
 			}
-			m.Index(device, folderCfg.ID, nil)
+			m.Index(device, folderCfg.ID, nil, 0, nil)
 		}
 	}
 

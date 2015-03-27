@@ -13,6 +13,9 @@ type TestModel struct {
 	name     string
 	offset   int64
 	size     int
+	hash     []byte
+	flags    uint32
+	options  []Option
 	closedCh chan bool
 }
 
@@ -22,17 +25,20 @@ func newTestModel() *TestModel {
 	}
 }
 
-func (t *TestModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
+func (t *TestModel) Index(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
 }
 
-func (t *TestModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
+func (t *TestModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
 }
 
-func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64, size int) ([]byte, error) {
+func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error) {
 	t.folder = folder
 	t.name = name
 	t.offset = offset
 	t.size = size
+	t.hash = hash
+	t.flags = flags
+	t.options = options
 	return t.data, nil
 }
 
