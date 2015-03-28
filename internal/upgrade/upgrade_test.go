@@ -15,9 +15,13 @@
 
 package upgrade
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"testing"
+)
 
-var testcases = []struct {
+var versions = []struct {
 	a, b string
 	r    Relation
 }{
@@ -36,6 +40,7 @@ var testcases = []struct {
 	{"0.10.0", "0.2.0", MajorNewer},
 	{"30.10.0", "4.9.0", MajorNewer},
 	{"0.9.0-beta7", "0.9.0-beta6", Newer},
+	{"0.9.0-beta7", "1.0.0-alpha", MajorOlder},
 	{"1.0.0-alpha", "1.0.0-alpha.1", Older},
 	{"1.0.0-alpha.1", "1.0.0-alpha.beta", Older},
 	{"1.0.0-alpha.beta", "1.0.0-beta", Older},
@@ -53,9 +58,39 @@ var testcases = []struct {
 }
 
 func TestCompareVersions(t *testing.T) {
-	for _, tc := range testcases {
-		if r := CompareVersions(tc.a, tc.b); r != tc.r {
-			t.Errorf("compareVersions(%q, %q): %d != %d", tc.a, tc.b, r, tc.r)
+	for _, v := range versions {
+		if r := CompareVersions(v.a, v.b); r != v.r {
+			t.Errorf("compareVersions(%q, %q): %d != %d", v.a, v.b, r, v.r)
+		}
+	}
+}
+
+var upgrades = map[string]string{
+	"v0.10.21":                        "v0.10.30",
+	"v0.10.29":                        "v0.10.30",
+	"v0.10.31":                        "v0.10.30",
+	"v0.10.0-alpha":                   "v0.10.30",
+	"v0.10.0-beta":                    "v0.11.0-beta0",
+	"v0.11.0-beta0+40-g53cb66e-dirty": "v0.11.0-beta0",
+}
+
+func TestRelease(t *testing.T) {
+	fd, err := os.Open("testdata/github-releases.json")
+	if err != nil {
+		t.Errorf("Missing github-release test data")
+	}
+	defer fd.Close()
+
+	var rels []Release
+	json.NewDecoder(fd).Decode(&rels)
+
+	for old, target := range upgrades {
+		upgrade, err := LatestRelease(old, rels)
+		if err != nil {
+			t.Errorf("error retrieving latest version", err)
+		}
+		if upgrade.Tag != target {
+			t.Errorf("Invalid upgrade release: %v -> %v, but got %v", old, target, upgrade.Tag)
 		}
 	}
 }

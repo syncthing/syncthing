@@ -60,7 +60,6 @@ var (
 	BuildHost   = "unknown"
 	BuildUser   = "unknown"
 	IsRelease   bool
-	IsBeta      bool
 	LongVersion string
 )
 
@@ -86,9 +85,6 @@ func init() {
 	// Check for a clean release build.
 	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-beta[\d\.]+)?$`)
 	IsRelease = exp.MatchString(Version)
-
-	// Check for a beta build
-	IsBeta = strings.Contains(Version, "-beta")
 
 	stamp, _ := strconv.Atoi(BuildStamp)
 	BuildDate = time.Unix(int64(stamp), 0)
@@ -330,7 +326,7 @@ func main() {
 	}
 
 	if doUpgrade || doUpgradeCheck {
-		rel, err := upgrade.LatestRelease(IsBeta)
+		rel, err := upgrade.LatestGithubRelease(Version)
 		if err != nil {
 			l.Fatalln("Upgrade:", err) // exits 1
 		}
@@ -1051,7 +1047,7 @@ func autoUpgrade() {
 		case <-timer.C:
 		}
 
-		rel, err := upgrade.LatestRelease(IsBeta)
+		rel, err := upgrade.LatestGithubRelease(Version)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return

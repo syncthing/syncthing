@@ -32,11 +32,12 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 )
 
 // Returns the latest release, including prereleases or not depending on the argument
-func LatestRelease(prerelease bool) (Release, error) {
+func LatestGithubRelease(version string) (Release, error) {
 	resp, err := http.Get("https://api.github.com/repos/syncthing/syncthing/releases?per_page=10")
 	if err != nil {
 		return Release{}, err
@@ -49,19 +50,47 @@ func LatestRelease(prerelease bool) (Release, error) {
 	json.NewDecoder(resp.Body).Decode(&rels)
 	resp.Body.Close()
 
+	return LatestRelease(version, rels)
+}
+
+type SortByRelease []Release
+
+func (s SortByRelease) Len() int {
+	return len(s)
+}
+func (s SortByRelease) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s SortByRelease) Less(i, j int) bool {
+	return CompareVersions(s[i].Tag, s[j].Tag) > 0
+}
+
+func LatestRelease(version string, rels []Release) (Release, error) {
 	if len(rels) == 0 {
 		return Release{}, ErrVersionUnknown
 	}
 
-	if prerelease {
-		// We are a beta version. Use the latest.
-		return rels[0], nil
-	}
+	sort.Sort(SortByRelease(rels))
+	// Check for a beta build
+	beta := strings.Contains(version, "-beta")
 
-	// We are a regular release. Only consider non-prerelease versions for upgrade.
 	for _, rel := range rels {
-		if !rel.Prerelease {
-			return rel, nil
+		if rel.Prerelease && !beta {
+			continue
+		}
+		for _, asset := range rel.Assets {
+			assetName := path.Base(asset.Name)
+			// Check for the architecture
+			expectedRelease := releaseName(rel.Tag)
+			if debug {
+				l.Debugf("expected release asset %q", expectedRelease)
+			}
+			if debug {
+				l.Debugln("considering release", assetName)
+			}
+			if strings.HasPrefix(assetName, expectedRelease) {
+				return rel, nil
+			}
 		}
 	}
 	return Release{}, ErrVersionUnknown
