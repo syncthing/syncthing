@@ -114,10 +114,20 @@ func (p *rwFolder) Serve() {
 	var prevVer int64
 	var prevIgnoreHash string
 
+	rescheduleScan := func() {
+		// Sleep a random time between 3/4 and 5/4 of the configured interval.
+		sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
+		intv := time.Duration(sleepNanos) * time.Nanosecond
+
+		if debug {
+			l.Debugln(p, "next rescan in", intv)
+		}
+		scanTimer.Reset(intv)
+	}
+
 	// We don't start pulling files until a scan has been completed.
 	initialScanCompleted := false
 
-loop:
 	for {
 		select {
 		case <-p.stop:
@@ -130,7 +140,6 @@ loop:
 		// device A to device B, so we have something to work against.
 		case <-pullTimer.C:
 			if !initialScanCompleted {
-				// How did we even get here?
 				if debug {
 					l.Debugln(p, "skip (initial)")
 				}
@@ -219,24 +228,28 @@ loop:
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
 		case <-scanTimer.C:
+			if err := p.model.CheckFolderHealth(p.folder); err != nil {
+				l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
+				rescheduleScan()
+				continue
+			}
+
 			if debug {
 				l.Debugln(p, "rescan")
 			}
-			p.setState(FolderScanning)
-			if err := p.model.ScanFolder(p.folder); err != nil {
-				p.model.cfg.InvalidateFolder(p.folder, err.Error())
-				break loop
-			}
-			p.setState(FolderIdle)
-			if p.scanIntv > 0 {
-				// Sleep a random time between 3/4 and 5/4 of the configured interval.
-				sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
-				intv := time.Duration(sleepNanos) * time.Nanosecond
 
-				if debug {
-					l.Debugln(p, "next rescan in", intv)
-				}
-				scanTimer.Reset(intv)
+			if err := p.model.ScanFolder(p.folder); err != nil {
+				// Potentially sets the error twice, once in the scanner just
+				// by doing a check, and once here, if the error returned is
+				// the same one as returned by CheckFolderHealth, though
+				// duplicate set is handled by SetFolderError
+				p.model.cfg.SetFolderError(p.folder, err)
+				rescheduleScan()
+				continue
+			}
+
+			if p.scanIntv > 0 {
+				rescheduleScan()
 			}
 			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)

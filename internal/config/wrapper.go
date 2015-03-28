@@ -220,8 +220,8 @@ func (w *Wrapper) SetGUI(gui GUIConfiguration) {
 	w.replaces <- w.cfg
 }
 
-// InvalidateFolder sets the invalid marker on the given folder.
-func (w *Wrapper) InvalidateFolder(id string, err string) {
+// Sets the folder error state. Emits ConfigSaved to cause a GUI refresh.
+func (w *Wrapper) SetFolderError(id string, err error) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -229,8 +229,15 @@ func (w *Wrapper) InvalidateFolder(id string, err string) {
 
 	for i := range w.cfg.Folders {
 		if w.cfg.Folders[i].ID == id {
-			w.cfg.Folders[i].Invalid = err
-			w.replaces <- w.cfg
+			errstr := ""
+			if err != nil {
+				errstr = err.Error()
+			}
+			if errstr != w.cfg.Folders[i].Invalid {
+				w.cfg.Folders[i].Invalid = errstr
+				events.Default.Log(events.ConfigSaved, w.cfg)
+				w.replaces <- w.cfg
+			}
 			return
 		}
 	}

@@ -37,6 +37,24 @@ func TestIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// Wait for one scan to succeed, or up to 20 seconds... This is to let
+	// startup, UPnP etc complete and make sure that we've performed folder
+	// error checking which creates the folder path if it's missing.
+	for i := 0; i < 20; i++ {
+		resp, err := p.post("/rest/scan?folder=default", nil)
+		if err != nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
+
 	defer p.stop()
 
 	// Create eight empty files and directories
