@@ -1114,13 +1114,16 @@ func (m *Model) ScanFolders() map[string]error {
 }
 
 func (m *Model) ScanFolder(folder string) error {
-	return m.ScanFolderSub(folder, "")
+	return m.ScanFolderSubs(folder, nil)
 }
 
-func (m *Model) ScanFolderSub(folder, sub string) error {
-	sub = osutil.NativeFilename(sub)
-	if p := filepath.Clean(filepath.Join(folder, sub)); !strings.HasPrefix(p, folder) {
-		return errors.New("invalid subpath")
+func (m *Model) ScanFolderSubs(folder string, subs []string) error {
+	for i, sub := range subs {
+		sub = osutil.NativeFilename(sub)
+		if p := filepath.Clean(filepath.Join(folder, sub)); !strings.HasPrefix(p, folder) {
+			return errors.New("invalid subpath")
+		}
+		subs[i] = sub
 	}
 
 	m.fmut.Lock()
@@ -1141,19 +1144,30 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 
 	// Required to make sure that we start indexing at a directory we're already
 	// aware off.
-	for sub != "" {
-		if _, ok = fs.Get(protocol.LocalDeviceID, sub); ok {
-			break
+	var unifySubs []string
+nextSub:
+	for _, sub := range subs {
+		for sub != "" {
+			if _, ok = fs.Get(protocol.LocalDeviceID, sub); ok {
+				break
+			}
+			sub = filepath.Dir(sub)
+			if sub == "." || sub == string(filepath.Separator) {
+				sub = ""
+			}
 		}
-		sub = filepath.Dir(sub)
-		if sub == "." || sub == string(filepath.Separator) {
-			sub = ""
+		for _, us := range unifySubs {
+			if strings.HasPrefix(sub, us) {
+				continue nextSub
+			}
 		}
+		unifySubs = append(unifySubs, sub)
 	}
+	subs = unifySubs
 
 	w := &scanner.Walker{
 		Dir:           folderCfg.Path,
-		Sub:           sub,
+		Subs:          subs,
 		Matcher:       ignores,
 		BlockSize:     protocol.BlockSize,
 		TempNamer:     defTempNamer,
@@ -1196,10 +1210,17 @@ func (m *Model) ScanFolderSub(folder, sub string) error {
 	seenPrefix := false
 	fs.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
-		if !strings.HasPrefix(f.Name, sub) {
-			// Return true so that we keep iterating, until we get to the part
-			// of the tree we are interested in. Then return false so we stop
-			// iterating when we've passed the end of the subtree.
+		hasPrefix := len(subs) == 0
+		for _, sub := range subs {
+			if strings.HasPrefix(f.Name, sub) {
+				hasPrefix = true
+				break
+			}
+		}
+		// Return true so that we keep iterating, until we get to the part
+		// of the tree we are interested in. Then return false so we stop
+		// iterating when we've passed the end of the subtree.
+		if !hasPrefix {
 			return !seenPrefix
 		}
 

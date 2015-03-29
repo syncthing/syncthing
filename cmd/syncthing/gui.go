@@ -685,8 +685,8 @@ func restPostScan(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	if folder != "" {
-		sub := qs.Get("sub")
-		err := m.ScanFolderSub(folder, sub)
+		subs := qs["sub"]
+		err := m.ScanFolderSubs(folder, subs)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 		}

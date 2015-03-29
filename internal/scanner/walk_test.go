@@ -60,7 +60,7 @@ func TestWalkSub(t *testing.T) {
 
 	w := Walker{
 		Dir:       "testdata",
-		Sub:       "dir2",
+		Subs:      []string{"dir2"},
 		BlockSize: 128 * 1024,
 		Matcher:   ignores,
 	}

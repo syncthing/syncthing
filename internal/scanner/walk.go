@@ -39,8 +39,8 @@ func init() {
 type Walker struct {
 	// Dir is the base directory for the walk
 	Dir string
-	// Limit walking to this path within Dir, or no limit if Sub is blank
-	Sub string
+	// Limit walking to these paths within Dir, or no limit if Sub is empty
+	Subs []string
 	// BlockSize controls the size of the block used when hashing.
 	BlockSize int
 	// If Matcher is not nil, it is used to identify files to ignore which were specified by the user.
@@ -80,7 +80,7 @@ type CurrentFiler interface {
 // file system. Files are blockwise hashed.
 func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	if debug {
-		l.Debugln("Walk", w.Dir, w.Sub, w.BlockSize, w.Matcher)
+		l.Debugln("Walk", w.Dir, w.Subs, w.BlockSize, w.Matcher)
 	}
 
 	err := checkDir(w.Dir)
@@ -99,7 +99,13 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 
 	go func() {
 		hashFiles := w.walkAndHashFiles(files)
-		filepath.Walk(filepath.Join(w.Dir, w.Sub), hashFiles)
+		if len(w.Subs) == 0 {
+			filepath.Walk(w.Dir, hashFiles)
+		} else {
+			for _, sub := range w.Subs {
+				filepath.Walk(filepath.Join(w.Dir, sub), hashFiles)
+			}
+		}
 		close(files)
 	}()
 
