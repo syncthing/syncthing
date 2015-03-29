@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:generate go run maketables.go triegen.go
+//go:generate go run maketables.go triegen.go -test
+
 // Package norm contains types and functions for normalizing Unicode strings.
 package norm
 
