@@ -575,7 +575,11 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 
 	realName := filepath.Join(p.dir, file.Name)
 
-	if p.versioner != nil {
+	cur, ok := p.model.CurrentFolderFile(p.folder, file.Name)
+	if ok && cur.Version.Concurrent(file.Version) {
+		// There is a conflict here. Move the file to a conflict copy instead of deleting.
+		err = osutil.InWritableDir(moveForConflict, realName)
+	} else if p.versioner != nil {
 		err = osutil.InWritableDir(p.versioner.Archive, realName)
 	} else {
 		err = osutil.InWritableDir(os.Remove, realName)
@@ -743,6 +747,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		copyNeeded:  len(blocks),
 		reused:      reused,
 		ignorePerms: p.ignorePerms,
+		version:     curFile.Version,
 	}
 
 	if debug {
@@ -953,6 +958,7 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 			"error":  err,
 		})
 	}()
+
 	// Set the correct permission bits on the new file
 	if !p.ignorePerms {
 		err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
@@ -978,15 +984,22 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 		}
 	}
 
-	// If we should use versioning, let the versioner archive the old
-	// file before we replace it. Archiving a non-existent file is not
-	// an error.
-	if p.versioner != nil {
+	if state.version.Concurrent(state.file.Version) {
+		// The new file has been changed in conflict with the existing one. We
+		// should file it away as a conflict instead of just removing or
+		// archiving.
+		err = osutil.InWritableDir(moveForConflict, state.realName)
+	} else if p.versioner != nil {
+		// If we should use versioning, let the versioner archive the old
+		// file before we replace it. Archiving a non-existent file is not
+		// an error.
 		err = p.versioner.Archive(state.realName)
-		if err != nil {
-			l.Warnln("Puller: final:", err)
-			return
-		}
+	} else {
+		err = nil
+	}
+	if err != nil {
+		l.Warnln("Puller: final:", err)
+		return
 	}
 
 	// If the target path is a symlink or a directory, we cannot copy
@@ -1081,4 +1094,11 @@ func removeDevice(devices []protocol.DeviceID, device protocol.DeviceID) []proto
 		}
 	}
 	return devices
+}
+
+func moveForConflict(name string) error {
+	ext := filepath.Ext(name)
+	withoutExt := name[:len(name)-len(ext)]
+	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405") + ext
+	return os.Rename(name, newName)
 }
