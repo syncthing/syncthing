@@ -79,7 +79,7 @@ func testSyncCluster(t *testing.T) {
 	err := removeAll("s1", "s12-1",
 		"s2", "s12-2", "s23-2",
 		"s3", "s23-3",
-		"h1/index", "h2/index", "h3/index")
+		"h1/index*", "h2/index*", "h3/index*")
 	if err != nil {
 		t.Fatal(err)
 	}

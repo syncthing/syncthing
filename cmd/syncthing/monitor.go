@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -164,7 +163,7 @@ func copyStderr(stderr io.ReadCloser, dst io.Writer) {
 			dst.Write([]byte(line))
 
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
-				panicFd, err = os.Create(filepath.Join(confDir, time.Now().Format("panic-20060102-150405.log")))
+				panicFd, err = os.Create(time.Now().Format(locations[locPanicLog]))
 				if err != nil {
 					l.Warnln("Create panic log:", err)
 					continue

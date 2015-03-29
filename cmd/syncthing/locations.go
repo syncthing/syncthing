@@ -1,0 +1,109 @@
+// Copyright (C) 2015 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
+
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/syncthing/syncthing/internal/osutil"
+)
+
+type locationEnum string
+
+// Use strings as keys to make printout and serialization of the locations map
+// more meaningful.
+const (
+	locConfigFile    locationEnum = "config"
+	locCertFile                   = "certFile"
+	locKeyFile                    = "keyFile"
+	locHttpsCertFile              = "httpsCertFile"
+	locHttpsKeyFile               = "httpsKeyFile"
+	locDatabase                   = "database"
+	locLogFile                    = "logFile"
+	locCsrfTokens                 = "csrfTokens"
+	locPanicLog                   = "panicLog"
+	locDefFolder                  = "defFolder"
+)
+
+// Platform dependent directories
+var baseDirs = map[string]string{
+	"config": defaultConfigDir(), // Overridden by -home flag
+	"home":   homeDir(),          // User's home directory, *not* -home flag
+}
+
+// Use the variables from baseDirs here
+var locations = map[locationEnum]string{
+	locConfigFile:    "${config}/config.xml",
+	locCertFile:      "${config}/cert.pem",
+	locKeyFile:       "${config}/key.pem",
+	locHttpsCertFile: "${config}/https-cert.pem",
+	locHttpsKeyFile:  "${config}/https-key.pem",
+	locDatabase:      "${config}/index-v0.11.0.db",
+	locLogFile:       "${config}/syncthing.log", // -logfile on Windows
+	locCsrfTokens:    "${config}/csrftokens.txt",
+	locPanicLog:      "${config}/panic-20060102-150405.log", // passed through time.Format()
+	locDefFolder:     "${home}/Sync",
+}
+
+// expandLocations replaces the variables in the location map with actual
+// directory locations.
+func expandLocations() error {
+	for key, dir := range locations {
+		for varName, value := range baseDirs {
+			dir = strings.Replace(dir, "${"+varName+"}", value, -1)
+		}
+		var err error
+		dir, err = osutil.ExpandTilde(dir)
+		if err != nil {
+			return err
+		}
+		locations[key] = dir
+	}
+	return nil
+}
+
+// defaultConfigDir returns the default configuration directory, as figured
+// out by various the environment variables present on each platform, or dies
+// trying.
+func defaultConfigDir() string {
+	switch runtime.GOOS {
+	case "windows":
+		if p := os.Getenv("LocalAppData"); p != "" {
+			return filepath.Join(p, "Syncthing")
+		}
+		return filepath.Join(os.Getenv("AppData"), "Syncthing")
+
+	case "darwin":
+		dir, err := osutil.ExpandTilde("~/Library/Application Support/Syncthing")
+		if err != nil {
+			l.Fatalln(err)
+		}
+		return dir
+
+	default:
+		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
+			return filepath.Join(xdgCfg, "syncthing")
+		}
+		dir, err := osutil.ExpandTilde("~/.config/syncthing")
+		if err != nil {
+			l.Fatalln(err)
+		}
+		return dir
+	}
+}
+
+// homeDir returns the user's home directory, or dies trying.
+func homeDir() string {
+	home, err := osutil.ExpandTilde("~")
+	if err != nil {
+		l.Fatalln(err)
+	}
+	return home
+}

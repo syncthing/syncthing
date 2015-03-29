@@ -22,7 +22,7 @@ import (
 
 func TestManyPeers(t *testing.T) {
 	log.Println("Cleaning...")
-	err := removeAll("s1", "s2", "h1/index", "h2/index")
+	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
 	if err != nil {
 		t.Fatal(err)
 	}

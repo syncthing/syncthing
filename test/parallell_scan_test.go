@@ -18,7 +18,7 @@ import (
 
 func TestParallellScan(t *testing.T) {
 	log.Println("Cleaning...")
-	err := removeAll("s1", "h1/index")
+	err := removeAll("s1", "h1/index*")
 	if err != nil {
 		t.Fatal(err)
 	}
