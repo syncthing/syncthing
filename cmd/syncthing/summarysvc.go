@@ -18,9 +18,10 @@ import (
 // The folderSummarySvc adds summary information events (FolderSummary and
 // FolderCompletion) into the event stream at certain intervals.
 type folderSummarySvc struct {
-	model *model.Model
-	srv   suture.Service
-	stop  chan struct{}
+	model     *model.Model
+	srv       suture.Service
+	stop      chan struct{}
+	immediate chan string
 
 	// For keeping track of folders to recalculate for
 	foldersMut sync.Mutex
@@ -32,6 +33,7 @@ func (c *folderSummarySvc) Serve() {
 	srv.Add(serviceFunc(c.listenForUpdates))
 	srv.Add(serviceFunc(c.calculateSummaries))
 
+	c.immediate = make(chan string)
 	c.stop = make(chan struct{})
 	c.folders = make(map[string]struct{})
 	c.srv = srv
@@ -50,7 +52,7 @@ func (c *folderSummarySvc) Stop() {
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
 func (c *folderSummarySvc) listenForUpdates() {
-	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated)
+	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged)
 	defer events.Default.Unsubscribe(sub)
 
 	for {
@@ -63,9 +65,29 @@ func (c *folderSummarySvc) listenForUpdates() {
 
 			data := ev.Data.(map[string]interface{})
 			folder := data["folder"].(string)
-			c.foldersMut.Lock()
-			c.folders[folder] = struct{}{}
-			c.foldersMut.Unlock()
+
+			if ev.Type == events.StateChanged && data["to"].(string) == "idle" && data["from"].(string) == "syncing" {
+				// The folder changed to idle from syncing. We should do an
+				// immediate refresh to update the GUI. The send to
+				// c.immediate must be nonblocking so that we can continue
+				// handling events.
+
+				select {
+				case c.immediate <- folder:
+					c.foldersMut.Lock()
+					delete(c.folders, folder)
+					c.foldersMut.Unlock()
+
+				default:
+				}
+			} else {
+				// This folder needs to be refreshed whenever we do the next
+				// refresh.
+
+				c.foldersMut.Lock()
+				c.folders[folder] = struct{}{}
+				c.foldersMut.Unlock()
+			}
 
 		case <-c.stop:
 			return
@@ -82,48 +104,9 @@ func (c *folderSummarySvc) calculateSummaries() {
 	for {
 		select {
 		case <-pump.C:
-			// We only recalculate sumamries if someone is listening to events
-			// (a request to /rest/events has been made within the last
-			// pingEventInterval).
-
-			lastEventRequestMut.Lock()
-			// XXX: Reaching out to a global var here is very ugly :( Should
-			// we make the gui stuff a proper object with methods on it that
-			// we can query about this kind of thing?
-			last := lastEventRequest
-			lastEventRequestMut.Unlock()
-
 			t0 := time.Now()
-			if time.Since(last) < pingEventInterval {
-				for _, folder := range c.foldersToHandle() {
-					// The folder summary contains how many bytes, files etc
-					// are in the folder and how in sync we are.
-					data := folderSummary(c.model, folder)
-					events.Default.Log(events.FolderSummary, map[string]interface{}{
-						"folder":  folder,
-						"summary": data,
-					})
-
-					for _, devCfg := range cfg.Folders()[folder].Devices {
-						if devCfg.DeviceID.Equals(myID) {
-							// We already know about ourselves.
-							continue
-						}
-						if !c.model.ConnectedTo(devCfg.DeviceID) {
-							// We're not interested in disconnected devices.
-							continue
-						}
-
-						// Get completion percentage of this folder for the
-						// remote device.
-						comp := c.model.Completion(devCfg.DeviceID, folder)
-						events.Default.Log(events.FolderCompletion, map[string]interface{}{
-							"folder":     folder,
-							"device":     devCfg.DeviceID.String(),
-							"completion": comp,
-						})
-					}
-				}
+			for _, folder := range c.foldersToHandle() {
+				c.sendSummary(folder)
 			}
 
 			// We don't want to spend all our time calculating summaries. Lets
@@ -131,6 +114,9 @@ func (c *folderSummarySvc) calculateSummaries() {
 			// our time here...
 			wait := 2*time.Since(t0) + pumpInterval
 			pump.Reset(wait)
+
+		case folder := <-c.immediate:
+			c.sendSummary(folder)
 
 		case <-c.stop:
 			return
@@ -141,6 +127,20 @@ func (c *folderSummarySvc) calculateSummaries() {
 // foldersToHandle returns the list of folders needing a summary update, and
 // clears the list.
 func (c *folderSummarySvc) foldersToHandle() []string {
+	// We only recalculate sumamries if someone is listening to events
+	// (a request to /rest/events has been made within the last
+	// pingEventInterval).
+
+	lastEventRequestMut.Lock()
+	// XXX: Reaching out to a global var here is very ugly :( Should
+	// we make the gui stuff a proper object with methods on it that
+	// we can query about this kind of thing?
+	last := lastEventRequest
+	lastEventRequestMut.Unlock()
+	if time.Since(last) < pingEventInterval {
+		return nil
+	}
+
 	c.foldersMut.Lock()
 	res := make([]string, 0, len(c.folders))
 	for folder := range c.folders {
@@ -149,6 +149,37 @@ func (c *folderSummarySvc) foldersToHandle() []string {
 	}
 	c.foldersMut.Unlock()
 	return res
+}
+
+// sendSummary send the summary events for a single folder
+func (c *folderSummarySvc) sendSummary(folder string) {
+	// The folder summary contains how many bytes, files etc
+	// are in the folder and how in sync we are.
+	data := folderSummary(c.model, folder)
+	events.Default.Log(events.FolderSummary, map[string]interface{}{
+		"folder":  folder,
+		"summary": data,
+	})
+
+	for _, devCfg := range cfg.Folders()[folder].Devices {
+		if devCfg.DeviceID.Equals(myID) {
+			// We already know about ourselves.
+			continue
+		}
+		if !c.model.ConnectedTo(devCfg.DeviceID) {
+			// We're not interested in disconnected devices.
+			continue
+		}
+
+		// Get completion percentage of this folder for the
+		// remote device.
+		comp := c.model.Completion(devCfg.DeviceID, folder)
+		events.Default.Log(events.FolderCompletion, map[string]interface{}{
+			"folder":     folder,
+			"device":     devCfg.DeviceID.String(),
+			"completion": comp,
+		})
+	}
 }
 
 // serviceFunc wraps a function to create a suture.Service without stop
