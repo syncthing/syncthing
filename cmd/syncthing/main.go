@@ -19,7 +19,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"runtime/debug"
 	"runtime/pprof"
 	"strconv"
 	"strings"
@@ -170,7 +169,11 @@ are mostly useful for developers. Use with care.
  STNOUPGRADE     Disable automatic upgrades.
 
  GOMAXPROCS      Set the maximum number of CPU cores to use. Defaults to all
-                 available CPU cores.`
+                 available CPU cores.
+
+ GOGC            Percentage of heap growth at which to trigger GC. Default is
+                 100. Lower numbers keep peak memory usage down, at the price
+                 of CPU usage (ie. performance).`
 )
 
 // Command line and environment options
@@ -367,10 +370,6 @@ func main() {
 
 func syncthingMain() {
 	var err error
-
-	if len(os.Getenv("GOGC")) == 0 {
-		debug.SetGCPercent(25)
-	}
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
