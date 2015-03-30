@@ -7,8 +7,7 @@ After=network.target
 Environment=STNORESTART=yes
 ExecStart=/usr/bin/syncthing -no-browser -logflags=0
 Restart=on-failure
-RestartPreventExitStatus=1
-SuccessExitStatus=2
+SuccessExitStatus=2 3 4
 RestartForceExitStatus=3 4
 
 [Install]
