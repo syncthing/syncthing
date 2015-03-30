@@ -53,6 +53,8 @@ var testcases = []testcase{
 	{"**/foo.txt", "bar/baz/foo.txt", FNM_PATHNAME, true},
 
 	{"foo.txt", "foo.TXT", FNM_CASEFOLD, true},
+	{"foo.txt", "foo.TXT", 0, false},
+	{"(?i)foo.txt", "foo.TXT", 0, true},
 
 	// These characters are literals in glob, but not in regexp.
 	{"hey$hello", "hey$hello", 0, true},

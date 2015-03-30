@@ -38,6 +38,13 @@ func Convert(pattern string, flags int) (*regexp.Regexp, error) {
 		}
 	}
 
+	// Support case insensitive ignores
+	ignore := strings.TrimPrefix(pattern, "(?i)")
+	if ignore != pattern {
+		flags |= FNM_CASEFOLD
+		pattern = ignore
+	}
+
 	if flags&FNM_NOESCAPE != 0 {
 		pattern = strings.Replace(pattern, "\\", "\\\\", -1)
 	} else {
