@@ -20,12 +20,13 @@ import (
 // updated along the way.
 type sharedPullerState struct {
 	// Immutable, does not require locking
-	file        protocol.FileInfo
+	file        protocol.FileInfo // The new file (desired end state)
 	folder      string
 	tempName    string
 	realName    string
 	reused      int // Number of blocks reused from temporary file
 	ignorePerms bool
+	version     protocol.Vector // The current (old) version
 
 	// Mutable, must be locked for access
 	err        error      // The first error we hit
