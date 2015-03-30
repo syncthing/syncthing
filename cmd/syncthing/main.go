@@ -830,7 +830,7 @@ func resetFolders() {
 	for _, folder := range cfg.Folders() {
 		if _, err := os.Stat(folder.Path); err == nil {
 			base := filepath.Base(folder.Path)
-			dir := filepath.Dir(filepath.Join(folder.Path, ".."))
+			dir := filepath.Dir(folder.Path)
 			l.Infof("Reset: Moving %s -> %s", folder.Path, filepath.Join(dir, base+suffix))
 			os.Rename(folder.Path, filepath.Join(dir, base+suffix))
 		}
