@@ -19,7 +19,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
-func TestSanityCheck(t *testing.T) {
+func TestFolderErrors(t *testing.T) {
 	fcfg := config.FolderConfiguration{
 		ID:   "folder",
 		Path: "testdata/testfolder",
@@ -28,7 +28,8 @@ func TestSanityCheck(t *testing.T) {
 		Folders: []config.FolderConfiguration{fcfg},
 	})
 
-	for _, file := range []string{".stfolder", "testfolder", "testfolder/.stfolder"} {
+	for _, file := range []string{".stfolder", "testfolder/.stfolder", "testfolder"} {
+		os.Remove("testdata/" + file)
 		_, err := os.Stat("testdata/" + file)
 		if err == nil {
 			t.Error("Found unexpected file")
@@ -40,9 +41,9 @@ func TestSanityCheck(t *testing.T) {
 	// Case 1 - new folder, directory and marker created
 
 	m := model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
-	sanityCheckFolders(cfg, m)
+	m.AddFolder(fcfg)
 
-	if cfg.Folders()["folder"].Invalid != "" {
+	if err := m.CheckFolderHealth("folder"); err != nil {
 		t.Error("Unexpected error", cfg.Folders()["folder"].Invalid)
 	}
 
@@ -67,9 +68,9 @@ func TestSanityCheck(t *testing.T) {
 	})
 
 	m = model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
-	sanityCheckFolders(cfg, m)
+	m.AddFolder(fcfg)
 
-	if cfg.Folders()["folder"].Invalid != "" {
+	if err := m.CheckFolderHealth("folder"); err != nil {
 		t.Error("Unexpected error", cfg.Folders()["folder"].Invalid)
 	}
 
@@ -80,7 +81,7 @@ func TestSanityCheck(t *testing.T) {
 
 	os.Remove("testdata/.stfolder")
 
-	// Case 3 - marker missing
+	// Case 3 - Folder marker missing
 
 	set := db.NewFileSet("folder", ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
@@ -88,23 +89,54 @@ func TestSanityCheck(t *testing.T) {
 	})
 
 	m = model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
-	sanityCheckFolders(cfg, m)
+	m.AddFolder(fcfg)
 
-	if cfg.Folders()["folder"].Invalid != "folder marker missing" {
-		t.Error("Incorrect error")
+	if err := m.CheckFolderHealth("folder"); err == nil || err.Error() != "Folder marker missing" {
+		t.Error("Incorrect error: Folder marker missing !=", m.CheckFolderHealth("folder"))
 	}
 
-	// Case 4 - path missing
+	// Case 3.1 - recover after folder marker missing
+
+	if err = fcfg.CreateMarker(); err != nil {
+		t.Error(err)
+	}
+
+	if err := m.CheckFolderHealth("folder"); err != nil {
+		t.Error("Unexpected error", cfg.Folders()["folder"].Invalid)
+	}
+
+	// Case 4 - Folder path missing
+
+	os.Remove("testdata/testfolder/.stfolder")
+	os.Remove("testdata/testfolder/")
 
 	fcfg.Path = "testdata/testfolder"
-	cfg = config.Wrap("/tmp/test", config.Configuration{
+	cfg = config.Wrap("testdata/subfolder", config.Configuration{
 		Folders: []config.FolderConfiguration{fcfg},
 	})
 
 	m = model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
-	sanityCheckFolders(cfg, m)
+	m.AddFolder(fcfg)
 
-	if cfg.Folders()["folder"].Invalid != "folder path missing" {
-		t.Error("Incorrect error")
+	if err := m.CheckFolderHealth("folder"); err == nil || err.Error() != "Folder path missing" {
+		t.Error("Incorrect error: Folder path missing !=", m.CheckFolderHealth("folder"))
+	}
+
+	// Case 4.1 - recover after folder path missing
+
+	os.Mkdir("testdata/testfolder", 0700)
+
+	if err := m.CheckFolderHealth("folder"); err == nil || err.Error() != "Folder marker missing" {
+		t.Error("Incorrect error: Folder marker missing !=", m.CheckFolderHealth("folder"))
+	}
+
+	// Case 4.2 - recover after missing marker
+
+	if err = fcfg.CreateMarker(); err != nil {
+		t.Error(err)
+	}
+
+	if err := m.CheckFolderHealth("folder"); err != nil {
+		t.Error("Unexpected error", cfg.Folders()["folder"].Invalid)
 	}
 }

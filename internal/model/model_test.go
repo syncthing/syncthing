@@ -20,6 +20,7 @@ import (
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
@@ -575,6 +576,166 @@ func TestRefuseUnknownBits(t *testing.T) {
 	f, ok := m.CurrentGlobalFile("default", "valid")
 	if !ok || f.Name != "valid" {
 		t.Error("Valid file not found or name mismatch", ok, f)
+	}
+}
+
+func TestROScanRecovery(t *testing.T) {
+	ldb, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	set := db.NewFileSet("default", ldb)
+	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+		{Name: "dummyfile"},
+	})
+
+	fcfg := config.FolderConfiguration{
+		ID:              "default",
+		Path:            "testdata/rotestfolder",
+		RescanIntervalS: 1,
+	}
+	cfg := config.Wrap("/tmp/test", config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	})
+
+	os.RemoveAll(fcfg.Path)
+
+	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
+
+	m.AddFolder(fcfg)
+	m.StartFolderRO("default")
+
+	waitFor := func(status string) error {
+		timeout := time.Now().Add(2 * time.Second)
+		for {
+			if time.Now().After(timeout) {
+				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
+			}
+			if m.cfg.Folders()["default"].Invalid == status {
+				return nil
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
+	if err := waitFor("Folder path missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Mkdir(fcfg.Path, 0700)
+
+	if err := waitFor("Folder marker missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	fd, err := os.Create(filepath.Join(fcfg.Path, ".stfolder"))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fd.Close()
+
+	if err := waitFor(""); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Remove(filepath.Join(fcfg.Path, ".stfolder"))
+
+	if err := waitFor("Folder marker missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Remove(fcfg.Path)
+
+	if err := waitFor("Folder path missing"); err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func TestRWScanRecovery(t *testing.T) {
+	ldb, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	set := db.NewFileSet("default", ldb)
+	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+		{Name: "dummyfile"},
+	})
+
+	fcfg := config.FolderConfiguration{
+		ID:              "default",
+		Path:            "testdata/rwtestfolder",
+		RescanIntervalS: 1,
+	}
+	cfg := config.Wrap("/tmp/test", config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	})
+
+	os.RemoveAll(fcfg.Path)
+
+	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
+
+	m.AddFolder(fcfg)
+	m.StartFolderRW("default")
+
+	waitFor := func(status string) error {
+		timeout := time.Now().Add(2 * time.Second)
+		for {
+			if time.Now().After(timeout) {
+				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
+			}
+			if m.cfg.Folders()["default"].Invalid == status {
+				return nil
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
+	if err := waitFor("Folder path missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Mkdir(fcfg.Path, 0700)
+
+	if err := waitFor("Folder marker missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	fd, err := os.Create(filepath.Join(fcfg.Path, ".stfolder"))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fd.Close()
+
+	if err := waitFor(""); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Remove(filepath.Join(fcfg.Path, ".stfolder"))
+
+	if err := waitFor("Folder marker missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Remove(fcfg.Path)
+
+	if err := waitFor("Folder path missing"); err != nil {
+		t.Error(err)
+		return
 	}
 }
 

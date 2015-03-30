@@ -515,8 +515,6 @@ func syncthingMain() {
 
 	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb)
 
-	sanityCheckFolders(cfg, m)
-
 	// GUI
 
 	setupGUI(cfg, m)
@@ -525,9 +523,7 @@ func syncthingMain() {
 	// start needing a bunch of files which are nowhere to be found. This
 	// needs to be changed when we correctly do persistent indexes.
 	for _, folderCfg := range cfg.Folders() {
-		if folderCfg.Invalid != "" {
-			continue
-		}
+		m.AddFolder(folderCfg)
 		for _, device := range folderCfg.DeviceIDs() {
 			if device == myID {
 				continue
@@ -556,10 +552,6 @@ func syncthingMain() {
 	go listenConnect(myID, m, tlsCfg)
 
 	for _, folder := range cfg.Folders() {
-		if folder.Invalid != "" {
-			continue
-		}
-
 		// Routine to pull blocks from other devices to synchronize the local
 		// folder. Does not run when we are in read only (publish only) mode.
 		if folder.ReadOnly {
@@ -672,55 +664,6 @@ func setupGUI(cfg *config.Wrapper, m *model.Model) {
 				// fork, and just execs, hence keep it in it's own routine.
 				go openURL(urlOpen)
 			}
-		}
-	}
-}
-
-func sanityCheckFolders(cfg *config.Wrapper, m *model.Model) {
-nextFolder:
-	for id, folder := range cfg.Folders() {
-		if folder.Invalid != "" {
-			continue
-		}
-		m.AddFolder(folder)
-
-		fi, err := os.Stat(folder.Path)
-		if m.CurrentLocalVersion(id) > 0 {
-			// Safety check. If the cached index contains files but the
-			// folder doesn't exist, we have a problem. We would assume
-			// that all files have been deleted which might not be the case,
-			// so mark it as invalid instead.
-			if err != nil || !fi.IsDir() {
-				l.Warnf("Stopping folder %q - path does not exist, but has files in index", folder.ID)
-				cfg.InvalidateFolder(id, "folder path missing")
-				continue nextFolder
-			} else if !folder.HasMarker() {
-				l.Warnf("Stopping folder %q - path exists, but folder marker missing, check for mount issues", folder.ID)
-				cfg.InvalidateFolder(id, "folder marker missing")
-				continue nextFolder
-			}
-		} else if os.IsNotExist(err) {
-			// If we don't have any files in the index, and the directory
-			// doesn't exist, try creating it.
-			err = os.MkdirAll(folder.Path, 0700)
-			if err != nil {
-				l.Warnf("Stopping folder %q - %v", folder.ID, err)
-				cfg.InvalidateFolder(id, err.Error())
-				continue nextFolder
-			}
-			err = folder.CreateMarker()
-		} else if !folder.HasMarker() {
-			// If we don't have any files in the index, and the path does exist
-			// but the marker is not there, create it.
-			err = folder.CreateMarker()
-		}
-
-		if err != nil {
-			// If there was another error or we could not create the
-			// path, the folder is invalid.
-			l.Warnf("Stopping folder %q - %v", folder.ID, err)
-			cfg.InvalidateFolder(id, err.Error())
-			continue nextFolder
 		}
 	}
 }
