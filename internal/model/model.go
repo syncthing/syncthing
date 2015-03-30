@@ -1203,7 +1203,7 @@ nextSub:
 		})
 		if len(batch) == batchSize {
 			if err := m.CheckFolderHealth(folder); err != nil {
-				l.Infoln("Stopping folder %s mid-scan due to folder error: %s", folder, err)
+				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 				return err
 			}
 			fs.Update(protocol.LocalDeviceID, batch)
@@ -1213,7 +1213,7 @@ nextSub:
 	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
-		l.Infoln("Stopping folder %s mid-scan due to folder error: %s", folder, err)
+		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
 		fs.Update(protocol.LocalDeviceID, batch)
