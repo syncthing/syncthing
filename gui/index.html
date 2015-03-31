@@ -653,7 +653,7 @@
                   <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions folder in the folder).</p>
                 </div>
                 <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='external'" ng-class="{'has-error': folderEditor.externalCommand.$invalid && folderEditor.externalCommand.$dirty}">
-                  <p translate class="help-block">A external command handles the versioning. It has to remove the file from the synced folder.</p>
+                  <p translate class="help-block">An external command handles the versioning. It has to remove the file from the synced folder.</p>
                   <label translate for="externalCommand">Command</label>
                   <input name="externalCommand" id="externalCommand" class="form-control" type="text" ng-model="currentFolder.externalCommand" required></input>
                   <p class="help-block">
