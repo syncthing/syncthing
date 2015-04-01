@@ -31,6 +31,8 @@ const (
 	FolderRejected
 	ConfigSaved
 	DownloadProgress
+	FolderSummary
+	FolderCompletion
 
 	AllEvents = (1 << iota) - 1
 )
@@ -67,6 +69,10 @@ func (t EventType) String() string {
 		return "ConfigSaved"
 	case DownloadProgress:
 		return "DownloadProgress"
+	case FolderSummary:
+		return "FolderSummary"
+	case FolderCompletion:
+		return "FolderCompletion"
 	default:
 		return "Unknown"
 	}

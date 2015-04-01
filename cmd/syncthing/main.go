@@ -61,7 +61,10 @@ const (
 	exitUpgrading          = 4
 )
 
-const bepProtocolName = "bep/1.0"
+const (
+	bepProtocolName   = "bep/1.0"
+	pingEventInterval = time.Minute
+)
 
 var l = logger.DefaultLogger
 
@@ -613,7 +616,7 @@ func syncthingMain() {
 	}
 
 	events.Default.Log(events.StartupComplete, nil)
-	go generateEvents()
+	go generatePingEvents()
 
 	code := <-stop
 
@@ -701,9 +704,9 @@ func defaultConfig(myName string) config.Configuration {
 	return newCfg
 }
 
-func generateEvents() {
+func generatePingEvents() {
 	for {
-		time.Sleep(300 * time.Second)
+		time.Sleep(pingEventInterval)
 		events.Default.Log(events.Ping, nil)
 	}
 }

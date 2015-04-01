@@ -11,12 +11,18 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 )
 
 func executable() (string, error) {
 	switch runtime.GOOS {
 	case "linux":
-		return os.Readlink("/proc/self/exe")
+		const deletedSuffix = " (deleted)"
+		execpath, err := os.Readlink("/proc/self/exe")
+		if err != nil {
+			return execpath, err
+		}
+		return strings.TrimSuffix(execpath, deletedSuffix), nil
 	case "netbsd":
 		return os.Readlink("/proc/curproc/exe")
 	case "openbsd", "dragonfly":

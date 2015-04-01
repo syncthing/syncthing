@@ -23,11 +23,11 @@
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
-			"Rev": "f9f36d11773655c0485207f0ad30dc2655f69d56"
+			"Rev": "c5abe513796336ee2869745bff0638508450e9c5"
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",
-			"Rev": "91292666f7e40f03185cdd1da7d85633c973eca7"
+			"Rev": "efacde03154693404c65e7aa7d461ac9014acd0c"
 		},
 		{
 			"ImportPath": "github.com/syncthing/protocol",
@@ -35,11 +35,15 @@
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "e3f32eb300aa1e514fe8ba58d008da90a062273d"
+			"Rev": "87e4e645d80ae9c537e8f2dee52b28036a5dd75e"
 		},
 		{
 			"ImportPath": "github.com/syndtr/gosnappy/snappy",
-			"Rev": "ce8acff4829e0c2458a67ead32390ac0a381c862"
+			"Rev": "156a073208e131d7d2e212cb749feae7c339e846"
+		},
+		{
+			"ImportPath": "github.com/thejerf/suture",
+			"Rev": "ff19fb384c3fe30f42717967eaa69da91e5f317c"
 		},
 		{
 			"ImportPath": "github.com/vitrun/qart/coding",
@@ -55,19 +59,19 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/bcrypt",
-			"Rev": "4ed45ec682102c643324fae5dff8dab085b6c300"
+			"Rev": "c57d4a71915a248dbad846d60825145062b4c18e"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/blowfish",
-			"Rev": "4ed45ec682102c643324fae5dff8dab085b6c300"
+			"Rev": "c57d4a71915a248dbad846d60825145062b4c18e"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",
-			"Rev": "c980adc4a823548817b9c47d38c6ca6b7d7d8b6a"
+			"Rev": "2076e9cab4147459c82bc81169e46c139d358547"
 		},
 		{
 			"ImportPath": "golang.org/x/text/unicode/norm",
-			"Rev": "c980adc4a823548817b9c47d38c6ca6b7d7d8b6a"
+			"Rev": "2076e9cab4147459c82bc81169e46c139d358547"
 		}
 	]
 }

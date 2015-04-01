@@ -49,6 +49,11 @@ var (
 	eventSub     *events.BufferedSubscription
 )
 
+var (
+	lastEventRequest    time.Time
+	lastEventRequestMut sync.Mutex
+)
+
 func init() {
 	l.AddHandler(logger.LevelWarn, showGuiError)
 	sub := events.Default.Subscribe(events.AllEvents)
@@ -179,6 +184,9 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		ReadTimeout: 10 * time.Second,
 	}
 
+	csrv := &folderSummarySvc{model: m}
+	go csrv.Serve()
+
 	go func() {
 		err := srv.Serve(listener)
 		if err != nil {
@@ -293,8 +301,14 @@ func restGetCompletion(m *model.Model, w http.ResponseWriter, r *http.Request) {
 }
 
 func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var folder = qs.Get("folder")
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	res := folderSummary(m, folder)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(res)
+}
+
+func folderSummary(m *model.Model, folder string) map[string]interface{} {
 	var res = make(map[string]interface{})
 
 	res["invalid"] = cfg.Folders()[folder].Invalid
@@ -322,8 +336,7 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(res)
+	return res
 }
 
 func restPostOverride(m *model.Model, w http.ResponseWriter, r *http.Request) {
@@ -597,6 +610,10 @@ func restGetEvents(w http.ResponseWriter, r *http.Request) {
 	limitStr := qs.Get("limit")
 	since, _ := strconv.Atoi(sinceStr)
 	limit, _ := strconv.Atoi(limitStr)
+
+	lastEventRequestMut.Lock()
+	lastEventRequest = time.Now()
+	lastEventRequestMut.Unlock()
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 

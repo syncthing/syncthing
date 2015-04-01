@@ -140,19 +140,11 @@ angular.module('syncthing.core')
 
         $scope.$on('LocalIndexUpdated', function (event, arg) {
             var data = arg.data;
-            refreshFolder(data.folder);
             refreshFolderStats();
-
-            // Update completion status for all devices that we share this folder with.
-            $scope.folders[data.folder].devices.forEach(function (deviceCfg) {
-                refreshCompletion(deviceCfg.deviceID, data.folder);
-            });
         });
 
         $scope.$on('RemoteIndexUpdated', function (event, arg) {
-            var data = arg.data;
-            refreshFolder(data.folder);
-            refreshCompletion(data.device, data.folder);
+            // Nothing
         });
 
         $scope.$on('DeviceDisconnected', function (event, arg) {
@@ -215,7 +207,6 @@ angular.module('syncthing.core')
             var stats = arg.data;
             var progress = {};
             for (var folder in stats) {
-                refreshFolder(folder);
                 progress[folder] = {};
                 for (var file in stats[folder]) {
                     var s = stats[folder][file];
@@ -241,7 +232,6 @@ angular.module('syncthing.core')
             }
             for (var folder in $scope.progress) {
                 if (!(folder in progress)) {
-                    refreshFolder(folder);
                     if ($scope.neededFolder == folder) {
                         refreshNeed(folder);
                     }
@@ -256,6 +246,30 @@ angular.module('syncthing.core')
             }
             $scope.progress = progress;
             console.log("DownloadProgress", $scope.progress);
+        });
+
+        $scope.$on('FolderSummary', function (event, arg) {
+            var data = arg.data;
+            $scope.model[data.folder] = data.summary;
+        });
+
+        $scope.$on('FolderCompletion', function (event, arg) {
+            var data = arg.data;
+            if (!$scope.completion[data.device]) {
+                $scope.completion[data.device] = {};
+            }
+            $scope.completion[data.device][data.folder] = data.completion;
+
+            var tot = 0,
+                cnt = 0;
+            for (var cmp in $scope.completion[data.device]) {
+                if (cmp === "_total") {
+                    continue;
+                }
+                tot += $scope.completion[data.device][cmp];
+                cnt += 1;
+            }
+            $scope.completion[data.device]._total = tot / cnt;
         });
 
         $scope.emitHTTPError = function (data, status, headers, config) {
@@ -325,31 +339,25 @@ angular.module('syncthing.core')
                 return;
             }
 
-            var key = "refreshCompletion" + device + folder;
-            if (!debouncedFuncs[key]) {
-                debouncedFuncs[key] = debounce(function () {
-                    $http.get(urlbase + '/completion?device=' + device + '&folder=' + encodeURIComponent(folder)).success(function (data) {
-                        if (!$scope.completion[device]) {
-                            $scope.completion[device] = {};
-                        }
-                        $scope.completion[device][folder] = data.completion;
+            $http.get(urlbase + '/completion?device=' + device + '&folder=' + encodeURIComponent(folder)).success(function (data) {
+                if (!$scope.completion[device]) {
+                    $scope.completion[device] = {};
+                }
+                $scope.completion[device][folder] = data.completion;
 
-                        var tot = 0,
-                            cnt = 0;
-                        for (var cmp in $scope.completion[device]) {
-                            if (cmp === "_total") {
-                                continue;
-                            }
-                            tot += $scope.completion[device][cmp];
-                            cnt += 1;
-                        }
-                        $scope.completion[device]._total = tot / cnt;
+                var tot = 0,
+                    cnt = 0;
+                for (var cmp in $scope.completion[device]) {
+                    if (cmp === "_total") {
+                        continue;
+                    }
+                    tot += $scope.completion[device][cmp];
+                    cnt += 1;
+                }
+                $scope.completion[device]._total = tot / cnt;
 
-                        console.log("refreshCompletion", device, folder, $scope.completion[device]);
-                    }).error($scope.emitHTTPError);
-                }, 1000, true);
-            }
-            debouncedFuncs[key]();
+                console.log("refreshCompletion", device, folder, $scope.completion[device]);
+            }).error($scope.emitHTTPError);
         }
 
         function refreshConnectionStats() {
@@ -412,7 +420,7 @@ angular.module('syncthing.core')
                 }
                 console.log("refreshDeviceStats", data);
             }).error($scope.emitHTTPError);
-        }, 500);
+        }, 2500);
 
         var refreshFolderStats = debounce(function () {
             $http.get(urlbase + "/stats/folder").success(function (data) {
@@ -424,7 +432,7 @@ angular.module('syncthing.core')
                 }
                 console.log("refreshfolderStats", data);
             }).error($scope.emitHTTPError);
-        }, 500);
+        }, 2500);
 
         $scope.refresh = function () {
             refreshSystem();
