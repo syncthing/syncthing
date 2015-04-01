@@ -50,13 +50,8 @@ func TestParallellScan(t *testing.T) {
 	// Wait for one scan to succeed, or up to 20 seconds...
 	// This is to let startup, UPnP etc complete.
 	for i := 0; i < 20; i++ {
-		resp, err := st.post("/rest/scan?folder=default", nil)
+		err := st.rescan("default")
 		if err != nil {
-			time.Sleep(time.Second)
-			continue
-		}
-		if resp.StatusCode != 200 {
-			resp.Body.Close()
 			time.Sleep(time.Second)
 			continue
 		}
@@ -73,16 +68,12 @@ func TestParallellScan(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			resp, err := st.post("/rest/scan?folder=default", nil)
+			err := st.rescan("default")
 			log.Println(j)
 			if err != nil {
 				log.Println(err)
 				t.Fatal(err)
 			}
-			if resp.StatusCode != 200 {
-				t.Fatalf("%d != 200", resp.StatusCode)
-			}
-			resp.Body.Close()
 		}()
 	}
 

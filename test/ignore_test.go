@@ -42,13 +42,8 @@ func TestIgnores(t *testing.T) {
 	// startup, UPnP etc complete and make sure that we've performed folder
 	// error checking which creates the folder path if it's missing.
 	for i := 0; i < 20; i++ {
-		resp, err := p.post("/rest/scan?folder=default", nil)
+		err := p.rescan("default")
 		if err != nil {
-			time.Sleep(time.Second)
-			continue
-		}
-		if resp.StatusCode != 200 {
-			resp.Body.Close()
 			time.Sleep(time.Second)
 			continue
 		}
@@ -93,13 +88,8 @@ func TestIgnores(t *testing.T) {
 	// Wait for one scan to succeed, or up to 20 seconds...
 	// This is to let startup, UPnP etc complete.
 	for i := 0; i < 20; i++ {
-		resp, err := p.post("/rest/scan?folder=default", nil)
+		err := p.rescan("default")
 		if err != nil {
-			time.Sleep(time.Second)
-			continue
-		}
-		if resp.StatusCode != 200 {
-			resp.Body.Close()
 			time.Sleep(time.Second)
 			continue
 		}
@@ -132,7 +122,7 @@ func TestIgnores(t *testing.T) {
 
 	// Rescan and verify that we see them
 
-	p.post("/rest/scan?folder=default", nil)
+	p.rescan("default")
 	m, err = p.model("default")
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +149,7 @@ func TestIgnores(t *testing.T) {
 
 	// Rescan and verify that we see them
 
-	p.post("/rest/scan?folder=default", nil)
+	p.rescan("default")
 	m, err = p.model("default")
 	if err != nil {
 		t.Fatal(err)

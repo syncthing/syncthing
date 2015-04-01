@@ -15,10 +15,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/syncthing/protocol"
 )
 
 var env = []string{
@@ -34,6 +38,7 @@ type syncthingProcess struct {
 	apiKey    string
 	csrfToken string
 	lastEvent int
+	id        protocol.DeviceID
 
 	cmd   *exec.Cmd
 	logfd *os.File
@@ -72,12 +77,32 @@ func (p *syncthingProcess) start() error {
 	p.cmd = cmd
 
 	for {
-		resp, err := p.get("/")
-		if err == nil {
-			resp.Body.Close()
-			return nil
-		}
 		time.Sleep(250 * time.Millisecond)
+
+		resp, err := p.get("/rest/system")
+		if err != nil {
+			continue
+		}
+
+		var sysData map[string]interface{}
+		err = json.NewDecoder(resp.Body).Decode(&sysData)
+		resp.Body.Close()
+		if err != nil {
+			// This one is unexpected. Print it.
+			log.Println("/rest/system (JSON):", err)
+			continue
+		}
+
+		id, err := protocol.DeviceIDFromString(sysData["myID"].(string))
+		if err != nil {
+			// This one is unexpected. Print it.
+			log.Println("/rest/system (myID):", err)
+			continue
+		}
+
+		p.id = id
+
+		return nil
 	}
 }
 
@@ -173,7 +198,29 @@ func (p *syncthingProcess) peerCompletion() (map[string]int, error) {
 
 	comp := map[string]int{}
 	err = json.NewDecoder(resp.Body).Decode(&comp)
+
+	// Remove ourselves from the set. In the remaining map, all peers should
+	// be att 100% if we're in sync.
+	for id := range comp {
+		if id == p.id.String() {
+			delete(comp, id)
+		}
+	}
+
 	return comp, err
+}
+
+func (p *syncthingProcess) allPeersInSync() error {
+	comp, err := p.peerCompletion()
+	if err != nil {
+		return err
+	}
+	for id, val := range comp {
+		if val != 100 {
+			return fmt.Errorf("%.7s at %d%%", id, val)
+		}
+	}
+	return nil
 }
 
 type model struct {
@@ -248,4 +295,26 @@ func (p *syncthingProcess) version() (string, error) {
 		return "", err
 	}
 	return v.Version, nil
+}
+
+func (p *syncthingProcess) rescan(folder string) error {
+	resp, err := p.post("/rest/scan?folder="+folder, nil)
+	if err != nil {
+		return err
+	}
+	data, _ := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("Rescan %q: status code %d: %s", folder, resp.StatusCode, data)
+	}
+	return nil
+}
+
+func allDevicesInSync(p []syncthingProcess) error {
+	for _, device := range p {
+		if err := device.allPeersInSync(); err != nil {
+			return fmt.Errorf("%.7s: %v", device.id.String(), err)
+		}
+	}
+	return nil
 }

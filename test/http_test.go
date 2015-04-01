@@ -78,6 +78,7 @@ func TestGetIndexAuth(t *testing.T) {
 		argv:     []string{"-home", "h1"},
 		port:     8081,
 		instance: "1",
+		apiKey:   "abc123",
 	}
 	err := st.start()
 	if err != nil {
