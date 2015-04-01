@@ -142,7 +142,6 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/error/clear", restClearErrors)
 	postRestMux.HandleFunc("/rest/ignores", withModel(m, restPostIgnores))
 	postRestMux.HandleFunc("/rest/model/override", withModel(m, restPostOverride))
-	postRestMux.HandleFunc("/rest/reset", restPostReset)
 	postRestMux.HandleFunc("/rest/restart", restPostRestart)
 	postRestMux.HandleFunc("/rest/shutdown", restPostShutdown)
 	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
@@ -458,12 +457,6 @@ func restGetConfigInSync(w http.ResponseWriter, r *http.Request) {
 
 func restPostRestart(w http.ResponseWriter, r *http.Request) {
 	flushResponse(`{"ok": "restarting"}`, w)
-	go restart()
-}
-
-func restPostReset(w http.ResponseWriter, r *http.Request) {
-	flushResponse(`{"ok": "resetting folders"}`, w)
-	resetFolders()
 	go restart()
 }
 
