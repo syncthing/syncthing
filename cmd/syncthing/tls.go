@@ -19,7 +19,6 @@ import (
 	mr "math/rand"
 	"net"
 	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -28,13 +27,7 @@ const (
 	tlsDefaultCommonName = "syncthing"
 )
 
-func loadCert(dir string, prefix string) (tls.Certificate, error) {
-	cf := filepath.Join(dir, prefix+"cert.pem")
-	kf := filepath.Join(dir, prefix+"key.pem")
-	return tls.LoadX509KeyPair(cf, kf)
-}
-
-func newCertificate(dir, prefix, name string) {
+func newCertificate(certFile, keyFile, name string) (tls.Certificate, error) {
 	l.Infof("Generating RSA key and certificate for %s...", name)
 
 	priv, err := rsa.GenerateKey(rand.Reader, tlsRSABits)
@@ -63,7 +56,7 @@ func newCertificate(dir, prefix, name string) {
 		l.Fatalln("create cert:", err)
 	}
 
-	certOut, err := os.Create(filepath.Join(dir, prefix+"cert.pem"))
+	certOut, err := os.Create(certFile)
 	if err != nil {
 		l.Fatalln("save cert:", err)
 	}
@@ -76,7 +69,7 @@ func newCertificate(dir, prefix, name string) {
 		l.Fatalln("save cert:", err)
 	}
 
-	keyOut, err := os.OpenFile(filepath.Join(dir, prefix+"key.pem"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		l.Fatalln("save key:", err)
 	}
@@ -88,6 +81,8 @@ func newCertificate(dir, prefix, name string) {
 	if err != nil {
 		l.Fatalln("save key:", err)
 	}
+
+	return tls.LoadX509KeyPair(certFile, keyFile)
 }
 
 type DowngradingListener struct {

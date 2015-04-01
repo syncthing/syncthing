@@ -22,7 +22,7 @@ func TestIgnores(t *testing.T) {
 	// Clean and start a syncthing instance
 
 	log.Println("Cleaning...")
-	err := removeAll("s1", "h1/index")
+	err := removeAll("s1", "h1/index*")
 	if err != nil {
 		t.Fatal(err)
 	}

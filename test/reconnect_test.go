@@ -32,7 +32,7 @@ func TestRestartSenderAndReceiverDuringTransfer(t *testing.T) {
 
 func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool, senderDelay, receiverDelay time.Duration) {
 	log.Println("Cleaning...")
-	err := removeAll("s1", "s2", "h1/index", "h2/index")
+	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
 	if err != nil {
 		t.Fatal(err)
 	}

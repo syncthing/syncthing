@@ -15,5 +15,5 @@ dirs-*
 csrftokens.txt
 s4d
 http
-index
+h*/index*
 *.syncthing-reset*

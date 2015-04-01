@@ -17,7 +17,7 @@ import (
 )
 
 func TestCLIReset(t *testing.T) {
-	dirs := []string{"s1", "s12-1", "h1/index"}
+	dirs := []string{"s1", "s12-1", "h1/index-v0.11.0.db"}
 
 	// Create directories that reset will remove
 

@@ -18,7 +18,7 @@ import (
 
 func TestConflict(t *testing.T) {
 	log.Println("Cleaning...")
-	err := removeAll("s1", "s2", "h1/index", "h2/index")
+	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,13 +64,8 @@ func TestConflict(t *testing.T) {
 	// startup, UPnP etc complete and make sure the sender has the full index
 	// before they connect.
 	for i := 0; i < 20; i++ {
-		resp, err := sender.post("/rest/scan?folder=default", nil)
+		err := sender.rescan("default")
 		if err != nil {
-			time.Sleep(time.Second)
-			continue
-		}
-		if resp.StatusCode != 200 {
-			resp.Body.Close()
 			time.Sleep(time.Second)
 			continue
 		}

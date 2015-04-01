@@ -199,17 +199,11 @@ var (
 )
 
 func main() {
-	defConfDir, err := getDefaultConfDir()
-	if err != nil {
-		l.Fatalln("home:", err)
-	}
-
 	if runtime.GOOS == "windows" {
 		// On Windows, we use a log file by default. Setting the -logfile flag
-		// to the empty string disables this behavior.
+		// to "-" disables this behavior.
 
-		logFile = filepath.Join(defConfDir, "syncthing.log")
-		flag.StringVar(&logFile, "logfile", logFile, "Log file name (blank for stdout)")
+		flag.StringVar(&logFile, "logfile", "", "Log file name (use \"-\" for stdout)")
 
 		// We also add an option to hide the console window
 		flag.BoolVar(&noConsole, "no-console", false, "Hide console window")
@@ -229,23 +223,30 @@ func main() {
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.StringVar(&upgradeTo, "upgrade-to", upgradeTo, "Force upgrade directly from specified URL")
 
-	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, defConfDir))
+	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, baseDirs["config"]))
 	flag.Parse()
 
 	if noConsole {
 		osutil.HideConsole()
 	}
 
-	if confDir == "" {
+	if confDir != "" {
 		// Not set as default above because the string can be really long.
-		confDir = defConfDir
+		baseDirs["config"] = confDir
 	}
 
-	if confDir != defConfDir && filepath.Dir(logFile) == defConfDir {
-		// The user changed the config dir with -home, but not the log file
-		// location. In this case we assume they meant for the logfile to
-		// still live in it's default location *relative to the config dir*.
-		logFile = filepath.Join(confDir, "syncthing.log")
+	if runtime.GOOS == "windows" {
+		if logFile == "" {
+			// Use the default log file location
+			logFile = locations[locLogFile]
+		} else if logFile == "-" {
+			// Don't use a logFile
+			logFile = ""
+		}
+	}
+
+	if err := expandLocations(); err != nil {
+		l.Fatalln(err)
 	}
 
 	if showVersion {
@@ -272,13 +273,13 @@ func main() {
 			}
 		}
 
-		cert, err := loadCert(dir, "")
+		certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 		if err == nil {
 			l.Warnln("Key exists; will not overwrite.")
 			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 		} else {
-			newCertificate(dir, "", tlsDefaultCommonName)
-			cert, err = loadCert(dir, "")
+			cert, err = newCertificate(certFile, keyFile, tlsDefaultCommonName)
 			myID = protocol.NewDeviceID(cert.Certificate[0])
 			if err != nil {
 				l.Fatalln("load cert:", err)
@@ -304,17 +305,12 @@ func main() {
 		return
 	}
 
-	confDir, err := osutil.ExpandTilde(confDir)
-	if err != nil {
-		l.Fatalln("home:", err)
-	}
-
-	if info, err := os.Stat(confDir); err == nil && !info.IsDir() {
-		l.Fatalln("Config directory", confDir, "is not a directory")
+	if info, err := os.Stat(baseDirs["config"]); err == nil && !info.IsDir() {
+		l.Fatalln("Config directory", baseDirs["config"], "is not a directory")
 	}
 
 	// Ensure that our home directory exists.
-	ensureDir(confDir, 0700)
+	ensureDir(baseDirs["config"], 0700)
 
 	if upgradeTo != "" {
 		err := upgrade.ToURL(upgradeTo)
@@ -340,7 +336,7 @@ func main() {
 
 		if doUpgrade {
 			// Use leveldb database locks to protect against concurrent upgrades
-			_, err = leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{OpenFilesCacheCapacity: 100})
+			_, err = leveldb.OpenFile(locations[locDatabase], &opt.Options{OpenFilesCacheCapacity: 100})
 			if err != nil {
 				l.Fatalln("Cannot upgrade, database seems to be locked. Is another copy of Syncthing already running?")
 			}
@@ -374,13 +370,12 @@ func syncthingMain() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
-	events.Default.Log(events.Starting, map[string]string{"home": confDir})
+	events.Default.Log(events.Starting, map[string]string{"home": baseDirs["config"]})
 
 	// Ensure that that we have a certificate and key.
-	cert, err = loadCert(confDir, "")
+	cert, err = tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
-		newCertificate(confDir, "", tlsDefaultCommonName)
-		cert, err = loadCert(confDir, "")
+		cert, err = newCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
 		if err != nil {
 			l.Fatalln("load cert:", err)
 		}
@@ -398,7 +393,7 @@ func syncthingMain() {
 
 	// Prepare to be able to save configuration
 
-	cfgFile := filepath.Join(confDir, "config.xml")
+	cfgFile := locations[locConfigFile]
 
 	var myName string
 
@@ -493,7 +488,7 @@ func syncthingMain() {
 		l.Infoln("Local networks:", strings.Join(networks, ", "))
 	}
 
-	dbFile := filepath.Join(confDir, "index")
+	dbFile := locations[locDatabase]
 	dbOpts := &opt.Options{OpenFilesCacheCapacity: 100}
 	ldb, err := leveldb.OpenFile(dbFile, dbOpts)
 	if err != nil && errors.IsCorrupted(err) {
@@ -668,16 +663,11 @@ func setupGUI(cfg *config.Wrapper, m *model.Model) {
 }
 
 func defaultConfig(myName string) config.Configuration {
-	defaultFolder, err := osutil.ExpandTilde("~/Sync")
-	if err != nil {
-		l.Fatalln("home:", err)
-	}
-
 	newCfg := config.New(myID)
 	newCfg.Folders = []config.FolderConfiguration{
 		{
 			ID:              "default",
-			Path:            defaultFolder,
+			Path:            locations[locDefFolder],
 			RescanIntervalS: 60,
 			Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
 		},
@@ -814,12 +804,7 @@ func renewUPnP(port int) {
 }
 
 func resetFolders() {
-	confDir, err := osutil.ExpandTilde(confDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	cfgFile := filepath.Join(confDir, "config.xml")
+	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)
 	if err != nil {
 		log.Fatal(err)
@@ -835,8 +820,7 @@ func resetFolders() {
 		}
 	}
 
-	idx := filepath.Join(confDir, "index")
-	os.RemoveAll(idx)
+	os.RemoveAll(locations[locDatabase])
 }
 
 func restart() {
@@ -879,25 +863,6 @@ func ensureDir(dir string, mode int) {
 		if err != nil {
 			l.Warnln(err)
 		}
-	}
-}
-
-func getDefaultConfDir() (string, error) {
-	switch runtime.GOOS {
-	case "windows":
-		if p := os.Getenv("LocalAppData"); p != "" {
-			return filepath.Join(p, "Syncthing"), nil
-		}
-		return filepath.Join(os.Getenv("AppData"), "Syncthing"), nil
-
-	case "darwin":
-		return osutil.ExpandTilde("~/Library/Application Support/Syncthing")
-
-	default:
-		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
-			return filepath.Join(xdgCfg, "syncthing"), nil
-		}
-		return osutil.ExpandTilde("~/.config/syncthing")
 	}
 }
 
