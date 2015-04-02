@@ -28,8 +28,7 @@ type Discoverer struct {
 	localBcastStart time.Time
 	cacheLifetime   time.Duration
 	negCacheCutoff  time.Duration
-	broadcastBeacon beacon.Interface
-	multicastBeacon beacon.Interface
+	beacons         []beacon.Interface
 	extPort         uint16
 	localBcastTick  <-chan time.Time
 	forcedBcastTick chan time.Time
@@ -65,38 +64,69 @@ func NewDiscoverer(id protocol.DeviceID, addresses []string) *Discoverer {
 
 func (d *Discoverer) StartLocal(localPort int, localMCAddr string) {
 	if localPort > 0 {
-		bb, err := beacon.NewBroadcast(localPort)
-		if err != nil {
-			if debug {
-				l.Debugln("discover: Start local v4:", err)
-			}
-			l.Infoln("Local discovery over IPv4 unavailable")
-		} else {
-			d.broadcastBeacon = bb
-			go d.recvAnnouncements(bb)
-		}
+		d.startLocalIPv4Broadcasts(localPort)
 	}
 
 	if len(localMCAddr) > 0 {
-		mb, err := beacon.NewMulticast(localMCAddr)
+		d.startLocalIPv6Multicasts(localMCAddr)
+	}
+
+	if len(d.beacons) == 0 {
+		l.Warnln("Local discovery unavailable")
+		return
+	}
+
+	d.localBcastTick = time.Tick(d.localBcastIntv)
+	d.forcedBcastTick = make(chan time.Time)
+	d.localBcastStart = time.Now()
+	go d.sendLocalAnnouncements()
+}
+
+func (d *Discoverer) startLocalIPv4Broadcasts(localPort int) {
+	bb, err := beacon.NewBroadcast(localPort)
+	if err != nil {
+		if debug {
+			l.Debugln("discover: Start local v4:", err)
+		}
+		l.Infoln("Local discovery over IPv4 unavailable")
+		return
+	}
+
+	d.beacons = append(d.beacons, bb)
+	go d.recvAnnouncements(bb)
+}
+
+func (d *Discoverer) startLocalIPv6Multicasts(localMCAddr string) {
+	intfs, err := net.Interfaces()
+	if err != nil {
+		if debug {
+			l.Debugln("discover: interfaces:", err)
+		}
+		l.Infoln("Local discovery over IPv6 unavailable")
+		return
+	}
+
+	v6Intfs := 0
+	for _, intf := range intfs {
+		if intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0 {
+			continue
+		}
+
+		mb, err := beacon.NewMulticast(localMCAddr, intf.Name)
 		if err != nil {
 			if debug {
 				l.Debugln("discover: Start local v6:", err)
 			}
-			l.Infoln("Local discovery over IPv6 unavailable")
-		} else {
-			d.multicastBeacon = mb
-			go d.recvAnnouncements(mb)
+			continue
 		}
+
+		d.beacons = append(d.beacons, mb)
+		go d.recvAnnouncements(mb)
+		v6Intfs++
 	}
 
-	if d.broadcastBeacon == nil && d.multicastBeacon == nil {
-		l.Warnln("Local discovery unavailable")
-	} else {
-		d.localBcastTick = time.Tick(d.localBcastIntv)
-		d.forcedBcastTick = make(chan time.Time)
-		d.localBcastStart = time.Now()
-		go d.sendLocalAnnouncements()
+	if v6Intfs == 0 {
+		l.Infoln("Local discovery over IPv6 unavailable")
 	}
 }
 
@@ -288,11 +318,8 @@ func (d *Discoverer) sendLocalAnnouncements() {
 	msg := pkt.MustMarshalXDR()
 
 	for {
-		if d.multicastBeacon != nil {
-			d.multicastBeacon.Send(msg)
-		}
-		if d.broadcastBeacon != nil {
-			d.broadcastBeacon.Send(msg)
+		for _, b := range d.beacons {
+			b.Send(msg)
 		}
 
 		select {

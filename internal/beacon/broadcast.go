@@ -16,7 +16,7 @@ type Broadcast struct {
 }
 
 func NewBroadcast(port int) (*Broadcast, error) {
-	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{Port: port})
 	if err != nil {
 		return nil, err
 	}
