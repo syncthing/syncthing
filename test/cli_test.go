@@ -16,46 +16,6 @@ import (
 	"time"
 )
 
-func TestCLIReset(t *testing.T) {
-	dirs := []string{"s1", "s12-1", "h1/index-v0.11.0.db"}
-
-	// Create directories that reset will remove
-
-	for _, dir := range dirs {
-		err := os.Mkdir(dir, 0755)
-		if err != nil && !os.IsExist(err) {
-			t.Fatal(err)
-		}
-	}
-
-	// Run reset to clean up
-
-	cmd := exec.Command("../bin/syncthing", "-home", "h1", "-reset")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stdout
-	err := cmd.Run()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Verify that they're gone
-
-	for _, dir := range dirs {
-		_, err := os.Stat(dir)
-		if err == nil {
-			t.Errorf("%s still exists", dir)
-		}
-	}
-
-	// Clean up
-
-	dirs, err = filepath.Glob("*.syncthing-reset-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	removeAll(dirs...)
-}
-
 func TestCLIGenerate(t *testing.T) {
 	err := os.RemoveAll("home.out")
 	if err != nil {
