@@ -137,7 +137,7 @@ func (c *folderSummarySvc) foldersToHandle() []string {
 	// we can query about this kind of thing?
 	last := lastEventRequest
 	lastEventRequestMut.Unlock()
-	if time.Since(last) < pingEventInterval {
+	if time.Since(last) > pingEventInterval {
 		return nil
 	}
 
