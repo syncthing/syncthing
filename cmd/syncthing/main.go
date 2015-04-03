@@ -235,6 +235,10 @@ func main() {
 		baseDirs["config"] = confDir
 	}
 
+	if err := expandLocations(); err != nil {
+		l.Fatalln(err)
+	}
+
 	if runtime.GOOS == "windows" {
 		if logFile == "" {
 			// Use the default log file location
@@ -243,10 +247,6 @@ func main() {
 			// Don't use a logFile
 			logFile = ""
 		}
-	}
-
-	if err := expandLocations(); err != nil {
-		l.Fatalln(err)
 	}
 
 	if showVersion {
