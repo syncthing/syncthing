@@ -45,7 +45,7 @@ var (
 	configInSync = true
 	guiErrors    = []guiError{}
 	guiErrorsMut sync.Mutex
-	modt         = time.Now().UTC().Format(http.TimeFormat)
+	startTime    = time.Now()
 	eventSub     *events.BufferedSubscription
 )
 
@@ -518,6 +518,7 @@ func restGetSystem(w http.ResponseWriter, r *http.Request) {
 	cpuUsageLock.RUnlock()
 	res["cpuPercent"] = cpusum / float64(len(cpuUsagePercent)) / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
+	res["uptime"] = int(time.Since(startTime).Seconds())
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
@@ -833,7 +834,7 @@ func embeddedStatic(assetDir string) http.Handler {
 			w.Header().Set("Content-Type", mtype)
 		}
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-		w.Header().Set("Last-Modified", modt)
+		w.Header().Set("Last-Modified", startTime.UTC().Format(http.TimeFormat))
 
 		w.Write(bs)
 	})
