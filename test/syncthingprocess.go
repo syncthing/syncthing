@@ -310,6 +310,19 @@ func (p *syncthingProcess) rescan(folder string) error {
 	return nil
 }
 
+func (p *syncthingProcess) reset(folder string) error {
+	resp, err := p.post("/rest/reset?folder="+folder, nil)
+	if err != nil {
+		return err
+	}
+	data, _ := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("Reset %q: status code %d: %s", folder, resp.StatusCode, data)
+	}
+	return nil
+}
+
 func allDevicesInSync(p []syncthingProcess) error {
 	for _, device := range p {
 		if err := device.allPeersInSync(); err != nil {
