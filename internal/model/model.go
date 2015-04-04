@@ -1590,6 +1590,17 @@ func (m *Model) CheckFolderHealth(id string) error {
 	return err
 }
 
+func (m *Model) ResetFolder(folder string) error {
+	for _, f := range db.ListFolders(m.db) {
+		if f == folder {
+			l.Infof("Cleaning data for folder %q", folder)
+			db.DropFolder(m.db, folder)
+			return nil
+		}
+	}
+	return fmt.Errorf("Unknown folder %q", folder)
+}
+
 func (m *Model) String() string {
 	return fmt.Sprintf("model@%p", m)
 }

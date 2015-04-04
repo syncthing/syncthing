@@ -142,7 +142,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/error/clear", restClearErrors)
 	postRestMux.HandleFunc("/rest/ignores", withModel(m, restPostIgnores))
 	postRestMux.HandleFunc("/rest/model/override", withModel(m, restPostOverride))
-	postRestMux.HandleFunc("/rest/reset", restPostReset)
+	postRestMux.HandleFunc("/rest/reset", withModel(m, restPostReset))
 	postRestMux.HandleFunc("/rest/restart", restPostRestart)
 	postRestMux.HandleFunc("/rest/shutdown", restPostShutdown)
 	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
@@ -461,9 +461,24 @@ func restPostRestart(w http.ResponseWriter, r *http.Request) {
 	go restart()
 }
 
-func restPostReset(w http.ResponseWriter, r *http.Request) {
-	flushResponse(`{"ok": "resetting folders"}`, w)
-	resetFolders()
+func restPostReset(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	folder := qs.Get("folder")
+	var err error
+	if len(folder) == 0 {
+		err = resetDB()
+	} else {
+		err = m.ResetFolder(folder)
+	}
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(folder) == 0 {
+		flushResponse(`{"ok": "resetting database"}`, w)
+	} else {
+		flushResponse(`{"ok": "resetting folder " + folder}`, w)
+	}
 	go restart()
 }
 

@@ -217,7 +217,7 @@ func main() {
 	flag.IntVar(&logFlags, "logflags", logFlags, "Select information in log line prefix")
 	flag.BoolVar(&noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&noRestart, "no-restart", noRestart, "Do not restart; just exit")
-	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
+	flag.BoolVar(&reset, "reset", false, "Reset the database")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
@@ -352,7 +352,7 @@ func main() {
 	}
 
 	if reset {
-		resetFolders()
+		resetDB()
 		return
 	}
 
@@ -803,24 +803,8 @@ func renewUPnP(port int) {
 	}
 }
 
-func resetFolders() {
-	cfgFile := locations[locConfigFile]
-	cfg, err := config.Load(cfgFile, myID)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	suffix := fmt.Sprintf(".syncthing-reset-%d", time.Now().UnixNano())
-	for _, folder := range cfg.Folders() {
-		if _, err := os.Stat(folder.Path); err == nil {
-			base := filepath.Base(folder.Path)
-			dir := filepath.Dir(folder.Path)
-			l.Infof("Reset: Moving %s -> %s", folder.Path, filepath.Join(dir, base+suffix))
-			os.Rename(folder.Path, filepath.Join(dir, base+suffix))
-		}
-	}
-
-	os.RemoveAll(locations[locDatabase])
+func resetDB() error {
+	return os.RemoveAll(locations[locDatabase])
 }
 
 func restart() {
