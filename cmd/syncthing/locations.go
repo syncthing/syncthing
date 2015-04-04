@@ -23,8 +23,8 @@ const (
 	locConfigFile    locationEnum = "config"
 	locCertFile                   = "certFile"
 	locKeyFile                    = "keyFile"
-	locHttpsCertFile              = "httpsCertFile"
-	locHttpsKeyFile               = "httpsKeyFile"
+	locHTTPSCertFile              = "httpsCertFile"
+	locHTTPSKeyFile               = "httpsKeyFile"
 	locDatabase                   = "database"
 	locLogFile                    = "logFile"
 	locCsrfTokens                 = "csrfTokens"
@@ -43,8 +43,8 @@ var locations = map[locationEnum]string{
 	locConfigFile:    "${config}/config.xml",
 	locCertFile:      "${config}/cert.pem",
 	locKeyFile:       "${config}/key.pem",
-	locHttpsCertFile: "${config}/https-cert.pem",
-	locHttpsKeyFile:  "${config}/https-key.pem",
+	locHTTPSCertFile: "${config}/https-cert.pem",
+	locHTTPSKeyFile:  "${config}/https-key.pem",
 	locDatabase:      "${config}/index-v0.11.0.db",
 	locLogFile:       "${config}/syncthing.log", // -logfile on Windows
 	locCsrfTokens:    "${config}/csrftokens.txt",

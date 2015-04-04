@@ -63,7 +63,7 @@ func init() {
 func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
 	var err error
 
-	cert, err := tls.LoadX509KeyPair(locations[locHttpsCertFile], locations[locHttpsKeyFile])
+	cert, err := tls.LoadX509KeyPair(locations[locHTTPSCertFile], locations[locHTTPSKeyFile])
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
 		l.Infoln("Creating new HTTPS certificate")
@@ -76,7 +76,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 			name = tlsDefaultCommonName
 		}
 
-		cert, err = newCertificate(locations[locHttpsCertFile], locations[locHttpsKeyFile], name)
+		cert, err = newCertificate(locations[locHTTPSCertFile], locations[locHTTPSKeyFile], name)
 	}
 	if err != nil {
 		return err
