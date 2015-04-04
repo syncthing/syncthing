@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	subjectIssues = regexp.MustCompile(`^([^(]+)\s+\((?:fixes|ref) ([^)]+)\)$`)
+	subjectIssues = regexp.MustCompile(`^([^(]+)\s+\((?:fixes|ref) ([^)]+)\)(?:[^\w])?$`)
 	issueNumbers  = regexp.MustCompile(`(#\d+)`)
 )
 
