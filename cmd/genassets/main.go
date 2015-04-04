@@ -15,33 +15,32 @@ import (
 	"flag"
 	"go/format"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 )
 
 var tpl = template.Must(template.New("assets").Parse(`package auto
 
 import (
-	"bytes"
-	"compress/gzip"
 	"encoding/base64"
-	"io/ioutil"
+)
+
+const (
+	AssetsBuildDate = "{{.BuildDate}}"
 )
 
 func Assets() map[string][]byte {
-	var assets = make(map[string][]byte, {{.assets | len}})
-	var bs []byte
-	var gr *gzip.Reader
-{{range $asset := .assets}}
-	bs, _ = base64.StdEncoding.DecodeString("{{$asset.Data}}")
-	gr, _ = gzip.NewReader(bytes.NewReader(bs))
-	bs, _ = ioutil.ReadAll(gr)
-	assets["{{$asset.Name}}"] = bs
+	var assets = make(map[string][]byte, {{.Assets | len}})
+{{range $asset := .Assets}}
+	assets["{{$asset.Name}}"], _ = base64.StdEncoding.DecodeString("{{$asset.Data}}")
 {{end}}
 	return assets
 }
+
 `))
 
 type asset struct {
@@ -86,12 +85,20 @@ func walkerFor(basePath string) filepath.WalkFunc {
 	}
 }
 
+type templateVars struct {
+	Assets    []asset
+	BuildDate string
+}
+
 func main() {
 	flag.Parse()
 
 	filepath.Walk(flag.Arg(0), walkerFor(flag.Arg(0)))
 	var buf bytes.Buffer
-	tpl.Execute(&buf, map[string][]asset{"assets": assets})
+	tpl.Execute(&buf, templateVars{
+		Assets:    assets,
+		BuildDate: time.Now().UTC().Format(http.TimeFormat),
+	})
 	bs, err := format.Source(buf.Bytes())
 	if err != nil {
 		panic(err)

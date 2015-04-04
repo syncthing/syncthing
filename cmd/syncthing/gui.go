@@ -7,6 +7,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -45,7 +47,6 @@ var (
 	configInSync = true
 	guiErrors    = []guiError{}
 	guiErrorsMut sync.Mutex
-	modt         = time.Now().UTC().Format(http.TimeFormat)
 	eventSub     *events.BufferedSubscription
 )
 
@@ -832,8 +833,17 @@ func embeddedStatic(assetDir string) http.Handler {
 		if len(mtype) != 0 {
 			w.Header().Set("Content-Type", mtype)
 		}
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			w.Header().Set("Content-Encoding", "gzip")
+		} else {
+			// ungzip if browser not send gzip accepted header
+			var gr *gzip.Reader
+			gr, _ = gzip.NewReader(bytes.NewReader(bs))
+			bs, _ = ioutil.ReadAll(gr)
+			gr.Close()
+		}
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-		w.Header().Set("Last-Modified", modt)
+		w.Header().Set("Last-Modified", auto.AssetsBuildDate)
 
 		w.Write(bs)
 	})
