@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -48,6 +49,10 @@ func init() {
 			{
 				DeviceID: device1,
 			},
+		},
+		Options: config.OptionsConfiguration{
+			// Don't remove temporaries directly on startup
+			KeepTemporariesH: 1,
 		},
 	}
 	defaultConfig = config.Wrap("/tmp/test", _defaultConfig)
@@ -468,6 +473,9 @@ func TestIgnores(t *testing.T) {
 		}
 		return true
 	}
+
+	// Assure a clean start state
+	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
@@ -989,7 +997,6 @@ func TestGlobalDirectoryTree(t *testing.T) {
 }
 
 func TestGlobalDirectorySelfFixing(t *testing.T) {
-
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
