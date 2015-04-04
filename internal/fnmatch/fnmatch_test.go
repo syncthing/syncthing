@@ -53,7 +53,6 @@ var testcases = []testcase{
 	{"**/foo.txt", "bar/baz/foo.txt", PathName, true},
 
 	{"foo.txt", "foo.TXT", CaseFold, true},
-	{"foo.txt", "foo.TXT", 0, false},
 	{"(?i)foo.txt", "foo.TXT", 0, true},
 
 	// These characters are literals in glob, but not in regexp.
@@ -69,9 +68,7 @@ var testcases = []testcase{
 
 func TestMatch(t *testing.T) {
 	switch runtime.GOOS {
-	case "windows":
-		testcases = append(testcases, testcase{"foo.txt", "foo.TXT", 0, true})
-	case "darwin":
+	case "windows", "darwin":
 		testcases = append(testcases, testcase{"foo.txt", "foo.TXT", 0, true})
 		fallthrough
 	default:
