@@ -200,20 +200,20 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 
 		if strings.HasPrefix(line, "/") {
 			// Pattern is rooted in the current dir only
-			exp, err := fnmatch.Convert(line[1:], fnmatch.FNM_PATHNAME)
+			exp, err := fnmatch.Convert(line[1:], fnmatch.PathName)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
 			patterns = append(patterns, Pattern{exp, include})
 		} else if strings.HasPrefix(line, "**/") {
 			// Add the pattern as is, and without **/ so it matches in current dir
-			exp, err := fnmatch.Convert(line, fnmatch.FNM_PATHNAME)
+			exp, err := fnmatch.Convert(line, fnmatch.PathName)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
 			patterns = append(patterns, Pattern{exp, include})
 
-			exp, err = fnmatch.Convert(line[3:], fnmatch.FNM_PATHNAME)
+			exp, err = fnmatch.Convert(line[3:], fnmatch.PathName)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
@@ -228,13 +228,13 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 		} else {
 			// Path name or pattern, add it so it matches files both in
 			// current directory and subdirs.
-			exp, err := fnmatch.Convert(line, fnmatch.FNM_PATHNAME)
+			exp, err := fnmatch.Convert(line, fnmatch.PathName)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
 			patterns = append(patterns, Pattern{exp, include})
 
-			exp, err = fnmatch.Convert("**/"+line, fnmatch.FNM_PATHNAME)
+			exp, err = fnmatch.Convert("**/"+line, fnmatch.PathName)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
