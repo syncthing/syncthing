@@ -78,7 +78,7 @@ func TestRelease(t *testing.T) {
 	for old, target := range upgrades {
 		upgrade, err := LatestRelease(old, rels)
 		if err != nil {
-			t.Errorf("error retrieving latest version", err)
+			t.Error("Error retrieving latest version", err)
 		}
 		if upgrade.Tag != target {
 			t.Errorf("Invalid upgrade release: %v -> %v, but got %v", old, target, upgrade.Tag)
