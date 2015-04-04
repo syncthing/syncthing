@@ -30,7 +30,7 @@
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
       <span class="navbar-brand"><img class="logo" src="assets/img/logo-horizontal.svg" height="32" width="117"/></span>
-      <p class="navbar-text hidden-xs">{{thisDeviceName()}}</p>
+      <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo && upgradeInfo.newer">
           <button type="button" class="btn navbar-btn btn-primary btn-sm" href="" ng-click="upgrade()">
@@ -38,6 +38,7 @@
             <span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
+        <li class="dropdown" language-select></li>
         <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog" aria-label="Edit"></span></a>
           <ul class="dropdown-menu">
@@ -1026,6 +1027,7 @@
   <script src="scripts/syncthing/core/controllers/eventController.js"></script>
   <script src="scripts/syncthing/core/controllers/syncthingController.js"></script>
   <script src="scripts/syncthing/core/directives/identiconDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/languageSelectDirective.js"></script>
   <script src="scripts/syncthing/core/directives/modalDirective.js"></script>
   <script src="scripts/syncthing/core/directives/uniqueFolderDirective.js"></script>
   <script src="scripts/syncthing/core/directives/validDeviceidDirective.js"></script>
