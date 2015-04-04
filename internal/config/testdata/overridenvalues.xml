@@ -1,6 +1,6 @@
 <configuration version="2">
     <options>
-       <listenAddress>:23000</listenAddress>
+        <listenAddress>:23000</listenAddress>
         <allowDelete>false</allowDelete>
         <globalAnnounceServer>syncthing.nym.se:22026</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>

@@ -1,8 +1,8 @@
-<configuration version="2">
-    <repository id="test" directory="testdata/" ro="true">
+<configuration version="10">
+    <folder id="test" directory="testdata/" ro="true">
         <versioning type="simple">
             <param key="foo" val="bar"/>
             <param key="baz" val="quux"/>
         </versioning>
-    </repository>
+    </folder>
 </configuration>

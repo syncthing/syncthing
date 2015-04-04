@@ -57,7 +57,7 @@ func TestDefaultValues(t *testing.T) {
 }
 
 func TestDeviceConfig(t *testing.T) {
-	for i := 1; i <= CurrentVersion; i++ {
+	for i := OldestHandledVersion; i <= CurrentVersion; i++ {
 		os.Remove("testdata/.stfolder")
 		wr, err := Load(fmt.Sprintf("testdata/v%d.xml", i), device1)
 		if err != nil {
