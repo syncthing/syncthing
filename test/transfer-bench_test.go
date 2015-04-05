@@ -14,7 +14,15 @@ import (
 	"time"
 )
 
-func TestBenchmarkTransfer(t *testing.T) {
+func TestBenchmarkTransferManyFiles(t *testing.T) {
+	benchmarkTransfer(t, 50000, 15)
+}
+
+func TestBenchmarkTransferLargeFiles(t *testing.T) {
+	benchmarkTransfer(t, 200, 24)
+}
+
+func benchmarkTransfer(t *testing.T, files, sizeExp int) {
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
 	if err != nil {
@@ -22,7 +30,7 @@ func TestBenchmarkTransfer(t *testing.T) {
 	}
 
 	log.Println("Generating files...")
-	err = generateFiles("s1", 10000, 22, "../LICENSE")
+	err = generateFiles("s1", files, sizeExp, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}

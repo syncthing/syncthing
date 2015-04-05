@@ -70,7 +70,7 @@ func TestHandleFile(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
-	m.updateLocal("default", existingFile)
+	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
 	p := rwFolder{
 		folder: "default",
@@ -124,7 +124,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
-	m.updateLocal("default", existingFile)
+	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
 	p := rwFolder{
 		folder: "default",
@@ -184,7 +184,7 @@ func TestCopierFinder(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
-	m.updateLocal("default", existingFile)
+	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
 	iterFn := func(folder, file string, index int32) bool {
 		return true
@@ -268,7 +268,7 @@ func TestCopierCleanup(t *testing.T) {
 	}
 
 	// Add file to index
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
 		t.Error("Expected block not found")
@@ -277,7 +277,7 @@ func TestCopierCleanup(t *testing.T) {
 	file.Blocks = []protocol.BlockInfo{blocks[1]}
 	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
 	// Update index (removing old blocks)
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	if m.finder.Iterate(blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
@@ -290,7 +290,7 @@ func TestCopierCleanup(t *testing.T) {
 	file.Blocks = []protocol.BlockInfo{blocks[0]}
 	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
 	// Update index (removing old blocks)
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
@@ -316,7 +316,7 @@ func TestLastResortPulling(t *testing.T) {
 		Modified: 0,
 		Blocks:   []protocol.BlockInfo{blocks[0]},
 	}
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	// Pretend that we are handling a new file of the same content but
 	// with a different name (causing to copy that particular block)
