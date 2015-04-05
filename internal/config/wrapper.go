@@ -80,6 +80,7 @@ func (w *Wrapper) Serve() {
 		w.sMut.Lock()
 		subs := w.subs
 		w.sMut.Unlock()
+
 		for _, h := range subs {
 			h.Changed(cfg)
 		}
@@ -113,7 +114,7 @@ func (w *Wrapper) Replace(cfg Configuration) {
 	w.cfg = cfg
 	w.deviceMap = nil
 	w.folderMap = nil
-	w.replaces <- cfg
+	w.replaces <- cfg.Copy()
 }
 
 // Devices returns a map of devices. Device structures should not be changed,
@@ -141,13 +142,13 @@ func (w *Wrapper) SetDevice(dev DeviceConfiguration) {
 	for i := range w.cfg.Devices {
 		if w.cfg.Devices[i].DeviceID == dev.DeviceID {
 			w.cfg.Devices[i] = dev
-			w.replaces <- w.cfg
+			w.replaces <- w.cfg.Copy()
 			return
 		}
 	}
 
 	w.cfg.Devices = append(w.cfg.Devices, dev)
-	w.replaces <- w.cfg
+	w.replaces <- w.cfg.Copy()
 }
 
 // Devices returns a map of folders. Folder structures should not be changed,
@@ -181,13 +182,13 @@ func (w *Wrapper) SetFolder(fld FolderConfiguration) {
 	for i := range w.cfg.Folders {
 		if w.cfg.Folders[i].ID == fld.ID {
 			w.cfg.Folders[i] = fld
-			w.replaces <- w.cfg
+			w.replaces <- w.cfg.Copy()
 			return
 		}
 	}
 
 	w.cfg.Folders = append(w.cfg.Folders, fld)
-	w.replaces <- w.cfg
+	w.replaces <- w.cfg.Copy()
 }
 
 // Options returns the current options configuration object.
@@ -202,7 +203,7 @@ func (w *Wrapper) SetOptions(opts OptionsConfiguration) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	w.cfg.Options = opts
-	w.replaces <- w.cfg
+	w.replaces <- w.cfg.Copy()
 }
 
 // GUI returns the current GUI configuration object.
@@ -217,7 +218,7 @@ func (w *Wrapper) SetGUI(gui GUIConfiguration) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	w.cfg.GUI = gui
-	w.replaces <- w.cfg
+	w.replaces <- w.cfg.Copy()
 }
 
 // Sets the folder error state. Emits ConfigSaved to cause a GUI refresh.
@@ -236,7 +237,7 @@ func (w *Wrapper) SetFolderError(id string, err error) {
 			if errstr != w.cfg.Folders[i].Invalid {
 				w.cfg.Folders[i].Invalid = errstr
 				events.Default.Log(events.ConfigSaved, w.cfg)
-				w.replaces <- w.cfg
+				w.replaces <- w.cfg.Copy()
 			}
 			return
 		}
