@@ -35,8 +35,8 @@ func init() {
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 
 	defaultFolderConfig = config.FolderConfiguration{
-		ID:   "default",
-		Path: "testdata",
+		ID:      "default",
+		RawPath: "testdata",
 		Devices: []config.FolderDeviceConfiguration{
 			{
 				DeviceID: device1,
@@ -540,7 +540,7 @@ func TestIgnores(t *testing.T) {
 		t.Error("No error")
 	}
 
-	m.AddFolder(config.FolderConfiguration{ID: "fresh", Path: "XXX"})
+	m.AddFolder(config.FolderConfiguration{ID: "fresh", RawPath: "XXX"})
 	ignores, _, err = m.GetIgnores("fresh")
 	if err != nil {
 		t.Error(err)
@@ -596,7 +596,7 @@ func TestROScanRecovery(t *testing.T) {
 
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
-		Path:            "testdata/rotestfolder",
+		RawPath:         "testdata/rotestfolder",
 		RescanIntervalS: 1,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
@@ -608,7 +608,7 @@ func TestROScanRecovery(t *testing.T) {
 		},
 	})
 
-	os.RemoveAll(fcfg.Path)
+	os.RemoveAll(fcfg.RawPath)
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
 
@@ -633,14 +633,14 @@ func TestROScanRecovery(t *testing.T) {
 		return
 	}
 
-	os.Mkdir(fcfg.Path, 0700)
+	os.Mkdir(fcfg.RawPath, 0700)
 
 	if err := waitFor("Folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
-	fd, err := os.Create(filepath.Join(fcfg.Path, ".stfolder"))
+	fd, err := os.Create(filepath.Join(fcfg.RawPath, ".stfolder"))
 	if err != nil {
 		t.Error(err)
 		return
@@ -652,14 +652,14 @@ func TestROScanRecovery(t *testing.T) {
 		return
 	}
 
-	os.Remove(filepath.Join(fcfg.Path, ".stfolder"))
+	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
 
 	if err := waitFor("Folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
-	os.Remove(fcfg.Path)
+	os.Remove(fcfg.RawPath)
 
 	if err := waitFor("Folder path missing"); err != nil {
 		t.Error(err)
@@ -676,7 +676,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
-		Path:            "testdata/rwtestfolder",
+		RawPath:         "testdata/rwtestfolder",
 		RescanIntervalS: 1,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
@@ -688,7 +688,7 @@ func TestRWScanRecovery(t *testing.T) {
 		},
 	})
 
-	os.RemoveAll(fcfg.Path)
+	os.RemoveAll(fcfg.RawPath)
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
 
@@ -713,14 +713,14 @@ func TestRWScanRecovery(t *testing.T) {
 		return
 	}
 
-	os.Mkdir(fcfg.Path, 0700)
+	os.Mkdir(fcfg.RawPath, 0700)
 
 	if err := waitFor("Folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
-	fd, err := os.Create(filepath.Join(fcfg.Path, ".stfolder"))
+	fd, err := os.Create(filepath.Join(fcfg.RawPath, ".stfolder"))
 	if err != nil {
 		t.Error(err)
 		return
@@ -732,14 +732,14 @@ func TestRWScanRecovery(t *testing.T) {
 		return
 	}
 
-	os.Remove(filepath.Join(fcfg.Path, ".stfolder"))
+	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
 
 	if err := waitFor("Folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
-	os.Remove(fcfg.Path)
+	os.Remove(fcfg.RawPath)
 
 	if err := waitFor("Folder path missing"); err != nil {
 		t.Error(err)

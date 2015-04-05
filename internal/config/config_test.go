@@ -11,8 +11,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/syncthing/protocol"
@@ -78,7 +80,7 @@ func TestDeviceConfig(t *testing.T) {
 		expectedFolders := []FolderConfiguration{
 			{
 				ID:              "test",
-				Path:            "testdata",
+				RawPath:         "testdata",
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				ReadOnly:        true,
 				RescanIntervalS: 600,
@@ -297,10 +299,10 @@ func TestVersioningConfig(t *testing.T) {
 func TestIssue1262(t *testing.T) {
 	cfg, err := Load("testdata/issue-1262.xml", device4)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
-	actual := cfg.Folders()["test"].Path
+	actual := cfg.Folders()["test"].RawPath
 	expected := "e:"
 	if runtime.GOOS == "windows" {
 		expected = `e:\`
@@ -308,6 +310,51 @@ func TestIssue1262(t *testing.T) {
 
 	if actual != expected {
 		t.Errorf("%q != %q", actual, expected)
+	}
+}
+
+func TestWindowsPaths(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Not useful on non-Windows")
+		return
+	}
+
+	folder := FolderConfiguration{
+		RawPath: `e:\`,
+	}
+
+	expected := `\\?\e:\`
+	actual := folder.Path()
+	if actual != expected {
+		t.Errorf("%q != %q", actual, expected)
+	}
+
+	folder.RawPath = `\\192.0.2.22\network\share`
+	expected = folder.RawPath
+	actual = folder.Path()
+	if actual != expected {
+		t.Errorf("%q != %q", actual, expected)
+	}
+
+	folder.RawPath = `relative\path`
+	expected = folder.RawPath
+	actual = folder.Path()
+	if actual != expected {
+		t.Errorf("%q != %q", actual, expected)
+	}
+}
+
+func TestFolderPath(t *testing.T) {
+	folder := FolderConfiguration{
+		RawPath: "~/tmp",
+	}
+
+	realPath := folder.Path()
+	if !filepath.IsAbs(realPath) {
+		t.Error(realPath, "should be absolute")
+	}
+	if strings.Contains(realPath, "~") {
+		t.Error(realPath, "should not contain ~")
 	}
 }
 
@@ -391,8 +438,8 @@ func TestRequiresRestart(t *testing.T) {
 
 	newCfg = cfg
 	newCfg.Folders = append(newCfg.Folders, FolderConfiguration{
-		ID:   "t1",
-		Path: "t1",
+		ID:      "t1",
+		RawPath: "t1",
 	})
 	if !ChangeRequiresRestart(cfg, newCfg) {
 		t.Error("Adding a folder requires restart")
@@ -411,7 +458,7 @@ func TestRequiresRestart(t *testing.T) {
 	if ChangeRequiresRestart(cfg, newCfg) {
 		t.Error("No changes done yet")
 	}
-	newCfg.Folders[0].Path = "different"
+	newCfg.Folders[0].RawPath = "different"
 	if !ChangeRequiresRestart(cfg, newCfg) {
 		t.Error("Changing a folder requires restart")
 	}

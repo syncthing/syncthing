@@ -153,7 +153,7 @@ func (m *Model) StartFolderRW(folder string) {
 		if !ok {
 			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
 		}
-		p.versioner = factory(folder, cfg.Path, cfg.Versioning.Params)
+		p.versioner = factory(folder, cfg.Path(), cfg.Versioning.Params)
 	}
 
 	if cfg.LenientMtimes {
@@ -730,7 +730,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 	}
 	m.fmut.RLock()
-	fn := filepath.Join(m.folderCfgs[folder].Path, name)
+	fn := filepath.Join(m.folderCfgs[folder].Path(), name)
 	m.fmut.RUnlock()
 
 	var reader io.ReaderAt
@@ -813,7 +813,7 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 		return lines, nil, fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	fd, err := os.Open(filepath.Join(cfg.Path, ".stignore"))
+	fd, err := os.Open(filepath.Join(cfg.Path(), ".stignore"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return lines, nil, nil
@@ -844,7 +844,7 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	fd, err := ioutil.TempFile(cfg.Path, ".syncthing.stignore-"+folder)
+	fd, err := ioutil.TempFile(cfg.Path(), ".syncthing.stignore-"+folder)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
@@ -865,7 +865,7 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return err
 	}
 
-	file := filepath.Join(cfg.Path, ".stignore")
+	file := filepath.Join(cfg.Path(), ".stignore")
 	err = osutil.Rename(fd.Name(), file)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
@@ -1076,7 +1076,7 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 	}
 
 	ignores := ignore.New(m.cfg.Options().CacheIgnoredFiles)
-	_ = ignores.Load(filepath.Join(cfg.Path, ".stignore")) // Ignore error, there might not be an .stignore
+	_ = ignores.Load(filepath.Join(cfg.Path(), ".stignore")) // Ignore error, there might not be an .stignore
 	m.folderIgnores[cfg.ID] = ignores
 
 	m.addedFolder = true
@@ -1144,7 +1144,7 @@ func (m *Model) ScanFolderSubs(folder string, subs []string) error {
 		return errors.New("no such folder")
 	}
 
-	_ = ignores.Load(filepath.Join(folderCfg.Path, ".stignore")) // Ignore error, there might not be an .stignore
+	_ = ignores.Load(filepath.Join(folderCfg.Path(), ".stignore")) // Ignore error, there might not be an .stignore
 
 	// Required to make sure that we start indexing at a directory we're already
 	// aware off.
@@ -1170,7 +1170,7 @@ nextSub:
 	subs = unifySubs
 
 	w := &scanner.Walker{
-		Dir:           folderCfg.Path,
+		Dir:           folderCfg.Path(),
 		Subs:          subs,
 		Matcher:       ignores,
 		BlockSize:     protocol.BlockSize,
@@ -1268,7 +1268,7 @@ nextSub:
 					"size":     f.Size(),
 				})
 				batch = append(batch, nf)
-			} else if _, err := os.Lstat(filepath.Join(folderCfg.Path, f.Name)); err != nil {
+			} else if _, err := os.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
 				// File has been deleted.
 
 				// We don't specifically verify that the error is
@@ -1533,7 +1533,7 @@ func (m *Model) CheckFolderHealth(id string) error {
 		return errors.New("Folder does not exist")
 	}
 
-	fi, err := os.Stat(folder.Path)
+	fi, err := os.Stat(folder.Path())
 	if m.CurrentLocalVersion(id) > 0 {
 		// Safety check. If the cached index contains files but the
 		// folder doesn't exist, we have a problem. We would assume
@@ -1547,7 +1547,7 @@ func (m *Model) CheckFolderHealth(id string) error {
 	} else if os.IsNotExist(err) {
 		// If we don't have any files in the index, and the directory
 		// doesn't exist, try creating it.
-		err = os.MkdirAll(folder.Path, 0700)
+		err = os.MkdirAll(folder.Path(), 0700)
 		if err == nil {
 			err = folder.CreateMarker()
 		}

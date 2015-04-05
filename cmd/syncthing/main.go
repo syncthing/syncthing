@@ -670,7 +670,7 @@ func defaultConfig(myName string) config.Configuration {
 	newCfg.Folders = []config.FolderConfiguration{
 		{
 			ID:              "default",
-			Path:            locations[locDefFolder],
+			RawPath:         locations[locDefFolder],
 			RescanIntervalS: 60,
 			Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
 		},

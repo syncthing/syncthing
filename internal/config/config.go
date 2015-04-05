@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -70,7 +71,7 @@ func (orig Configuration) Copy() Configuration {
 
 type FolderConfiguration struct {
 	ID              string                      `xml:"id,attr" json:"id"`
-	Path            string                      `xml:"path,attr" json:"path"`
+	RawPath         string                      `xml:"path,attr" json:"path"`
 	Devices         []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	ReadOnly        bool                        `xml:"ro,attr" json:"readOnly"`
 	RescanIntervalS int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
@@ -94,9 +95,37 @@ func (orig FolderConfiguration) Copy() FolderConfiguration {
 	return c
 }
 
+func (f FolderConfiguration) Path() string {
+	// This is intentionally not a pointer method, because things like
+	// cfg.Folders["default"].Path() should be valid.
+
+	// Attempt tilde expansion; leave unchanged in case of error
+	if path, err := osutil.ExpandTilde(f.RawPath); err == nil {
+		f.RawPath = path
+	}
+
+	// Attempt absolutification; leave unchanged in case of error
+	if !filepath.IsAbs(f.RawPath) {
+		// Abs() looks like a fairly expensive syscall on Windows, while
+		// IsAbs() is a whole bunch of string mangling. I think IsAbs() may be
+		// somewhat faster in the general case, hence the outer if...
+		if path, err := filepath.Abs(f.RawPath); err == nil {
+			f.RawPath = path
+		}
+	}
+
+	// Attempt to enable long filename support on Windows. We may still not
+	// have an absolute path here if the previous steps failed.
+	if runtime.GOOS == "windows" && filepath.IsAbs(f.RawPath) && !strings.HasPrefix(f.RawPath, `\\`) {
+		return `\\?\` + f.RawPath
+	}
+
+	return f.RawPath
+}
+
 func (f *FolderConfiguration) CreateMarker() error {
 	if !f.HasMarker() {
-		marker := filepath.Join(f.Path, ".stfolder")
+		marker := filepath.Join(f.Path(), ".stfolder")
 		fd, err := os.Create(marker)
 		if err != nil {
 			return err
@@ -109,7 +138,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 }
 
 func (f *FolderConfiguration) HasMarker() bool {
-	_, err := os.Stat(filepath.Join(f.Path, ".stfolder"))
+	_, err := os.Stat(filepath.Join(f.Path(), ".stfolder"))
 	if err != nil {
 		return false
 	}
@@ -285,7 +314,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	for i := range cfg.Folders {
 		folder := &cfg.Folders[i]
 
-		if len(folder.Path) == 0 {
+		if len(folder.RawPath) == 0 {
 			folder.Invalid = "no directory configured"
 			continue
 		}
@@ -296,7 +325,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
 		// This way in the tests, we get away without OS specific separators
 		// in the test configs.
-		folder.Path = filepath.Dir(folder.Path + string(filepath.Separator))
+		folder.RawPath = filepath.Dir(folder.RawPath + string(filepath.Separator))
 
 		if folder.ID == "" {
 			folder.ID = "default"

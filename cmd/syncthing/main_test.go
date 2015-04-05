@@ -21,8 +21,8 @@ import (
 
 func TestFolderErrors(t *testing.T) {
 	fcfg := config.FolderConfiguration{
-		ID:   "folder",
-		Path: "testdata/testfolder",
+		ID:      "folder",
+		RawPath: "testdata/testfolder",
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
 		Folders: []config.FolderConfiguration{fcfg},
@@ -62,7 +62,7 @@ func TestFolderErrors(t *testing.T) {
 
 	// Case 2 - new folder, marker created
 
-	fcfg.Path = "testdata/"
+	fcfg.RawPath = "testdata/"
 	cfg = config.Wrap("/tmp/test", config.Configuration{
 		Folders: []config.FolderConfiguration{fcfg},
 	})
@@ -110,7 +110,7 @@ func TestFolderErrors(t *testing.T) {
 	os.Remove("testdata/testfolder/.stfolder")
 	os.Remove("testdata/testfolder/")
 
-	fcfg.Path = "testdata/testfolder"
+	fcfg.RawPath = "testdata/testfolder"
 	cfg = config.Wrap("testdata/subfolder", config.Configuration{
 		Folders: []config.FolderConfiguration{fcfg},
 	})

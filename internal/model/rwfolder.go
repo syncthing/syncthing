@@ -82,7 +82,7 @@ func newRWFolder(m *Model, cfg config.FolderConfiguration) *rwFolder {
 		progressEmitter: m.progressEmitter,
 
 		folder:        cfg.ID,
-		dir:           cfg.Path,
+		dir:           cfg.Path(),
 		scanIntv:      time.Duration(cfg.RescanIntervalS) * time.Second,
 		ignorePerms:   cfg.IgnorePerms,
 		lenientMtimes: cfg.LenientMtimes,
@@ -852,7 +852,7 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 		folderRoots := make(map[string]string)
 		p.model.fmut.RLock()
 		for folder, cfg := range p.model.folderCfgs {
-			folderRoots[folder] = cfg.Path
+			folderRoots[folder] = cfg.Path()
 		}
 		p.model.fmut.RUnlock()
 

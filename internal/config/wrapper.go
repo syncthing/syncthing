@@ -159,12 +159,6 @@ func (w *Wrapper) Folders() map[string]FolderConfiguration {
 	if w.folderMap == nil {
 		w.folderMap = make(map[string]FolderConfiguration, len(w.cfg.Folders))
 		for _, fld := range w.cfg.Folders {
-			path, err := osutil.ExpandTilde(fld.Path)
-			if err != nil {
-				l.Warnln("home:", err)
-				continue
-			}
-			fld.Path = path
 			w.folderMap[fld.ID] = fld
 		}
 	}
