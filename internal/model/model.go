@@ -1041,6 +1041,24 @@ func (m *Model) updateLocal(folder string, f protocol.FileInfo) {
 	})
 }
 
+func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
+	m.fmut.RLock()
+	m.folderFiles[folder].Update(protocol.LocalDeviceID, fs)
+	m.fmut.RUnlock()
+
+	for _, f := range fs {
+		// Maybe we should introduce a new event type here for a bulk of
+		// files...
+		events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
+			"folder":   folder,
+			"name":     f.Name,
+			"modified": time.Unix(f.Modified, 0),
+			"flags":    fmt.Sprintf("0%o", f.Flags),
+			"size":     f.Size(),
+		})
+	}
+}
+
 func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, flags uint32, options []protocol.Option) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.protoConn[deviceID]
