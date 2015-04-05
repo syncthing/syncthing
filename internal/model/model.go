@@ -1027,17 +1027,14 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 	return maxLocalVer, err
 }
 
-func (m *Model) updateLocal(folder string, f protocol.FileInfo) {
-	f.LocalVersion = 0
+func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	m.fmut.RLock()
-	m.folderFiles[folder].Update(protocol.LocalDeviceID, []protocol.FileInfo{f})
+	m.folderFiles[folder].Update(protocol.LocalDeviceID, fs)
 	m.fmut.RUnlock()
+
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":   folder,
-		"name":     f.Name,
-		"modified": time.Unix(f.Modified, 0),
-		"flags":    fmt.Sprintf("0%o", f.Flags),
-		"size":     f.Size(),
+		"numFiles": len(fs),
 	})
 }
 
