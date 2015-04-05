@@ -7,6 +7,8 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -436,5 +438,44 @@ func TestRequiresRestart(t *testing.T) {
 	newCfg.GUI.UseTLS = !cfg.GUI.UseTLS
 	if !ChangeRequiresRestart(cfg, newCfg) {
 		t.Error("Changing GUI options requires restart")
+	}
+}
+
+func TestCopy(t *testing.T) {
+	wrapper, err := Load("testdata/example.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := wrapper.Raw()
+
+	bsOrig, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	copy := cfg.Copy()
+
+	cfg.Devices[0].Addresses[0] = "wrong"
+	cfg.Folders[0].Devices[0].DeviceID = protocol.DeviceID{0, 1, 2, 3}
+	cfg.Options.ListenAddress[0] = "wrong"
+	cfg.GUI.APIKey = "wrong"
+
+	bsChanged, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bsCopy, err := json.MarshalIndent(copy, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bytes.Compare(bsOrig, bsChanged) == 0 {
+		t.Error("Config should have changed")
+	}
+	if bytes.Compare(bsOrig, bsCopy) != 0 {
+		//ioutil.WriteFile("a", bsOrig, 0644)
+		//ioutil.WriteFile("b", bsCopy, 0644)
+		t.Error("Copy should be unchanged")
 	}
 }

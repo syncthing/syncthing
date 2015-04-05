@@ -44,6 +44,30 @@ type Configuration struct {
 	OriginalVersion int `xml:"-" json:"-"` // The version we read from disk, before any conversion
 }
 
+func (orig Configuration) Copy() Configuration {
+	c := orig
+
+	// Deep copy FolderConfigurations
+	c.Folders = make([]FolderConfiguration, len(orig.Folders))
+	for i := range c.Folders {
+		c.Folders[i] = orig.Folders[i].Copy()
+	}
+
+	// Deep copy DeviceConfigurations
+	c.Devices = make([]DeviceConfiguration, len(orig.Devices))
+	for i := range c.Devices {
+		c.Devices[i] = orig.Devices[i].Copy()
+	}
+
+	c.Options = orig.Options.Copy()
+
+	// DeviceIDs are values
+	c.IgnoredDevices = make([]protocol.DeviceID, len(orig.IgnoredDevices))
+	copy(c.IgnoredDevices, orig.IgnoredDevices)
+
+	return c
+}
+
 type FolderConfiguration struct {
 	ID              string                      `xml:"id,attr" json:"id"`
 	Path            string                      `xml:"path,attr" json:"path"`
@@ -61,6 +85,13 @@ type FolderConfiguration struct {
 	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 
 	deviceIDs []protocol.DeviceID
+}
+
+func (orig FolderConfiguration) Copy() FolderConfiguration {
+	c := orig
+	c.Devices = make([]FolderDeviceConfiguration, len(orig.Devices))
+	copy(c.Devices, orig.Devices)
+	return c
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
@@ -144,11 +175,15 @@ type DeviceConfiguration struct {
 	Introducer  bool                 `xml:"introducer,attr" json:"introducer"`
 }
 
+func (orig DeviceConfiguration) Copy() DeviceConfiguration {
+	c := orig
+	c.Addresses = make([]string, len(orig.Addresses))
+	copy(c.Addresses, orig.Addresses)
+	return c
+}
+
 type FolderDeviceConfiguration struct {
 	DeviceID protocol.DeviceID `xml:"id,attr" json:"deviceID"`
-
-	Deprecated_Name      string   `xml:"name,attr,omitempty" json:"-"`
-	Deprecated_Addresses []string `xml:"address,omitempty" json:"-"`
 }
 
 type OptionsConfiguration struct {
@@ -174,6 +209,15 @@ type OptionsConfiguration struct {
 	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" json:"progressUpdateIntervalS" default:"5"`
 	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
 	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
+}
+
+func (orig OptionsConfiguration) Copy() OptionsConfiguration {
+	c := orig
+	c.ListenAddress = make([]string, len(orig.ListenAddress))
+	copy(c.ListenAddress, orig.ListenAddress)
+	c.GlobalAnnServers = make([]string, len(orig.GlobalAnnServers))
+	copy(c.GlobalAnnServers, orig.GlobalAnnServers)
+	return c
 }
 
 type GUIConfiguration struct {
