@@ -277,6 +277,15 @@ func listFiles(dir string) []string {
 func setBuildEnv() {
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
+	if goarch == "arm" {
+		if len(os.Getenv("GOARM")) == 0 {
+			os.Setenv("GOARM", "5")
+		}
+	} else if goarch == "386" {
+		if len(os.Getenv("GO386")) == 0 {
+			os.Setenv("GO386", "387")
+		}
+	}
 	wd, err := os.Getwd()
 	if err != nil {
 		log.Println("Warning: can't determine current dir:", err)
