@@ -321,6 +321,10 @@
                     </td>
                   </tr>
                   <tr>
+                    <th><span class="glyphicon glyphicon-time"></span>&emsp;<span translate>Uptime</span></th>
+                    <td class="text-right">{{system.uptime | duration:"m"}}</td>
+                  </tr>
+                  <tr>
                     <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Version</span></th>
                     <td class="text-right">{{version}}</td>
                   </tr>
@@ -1038,6 +1042,7 @@
   <script src="scripts/syncthing/core/filters/alwaysNumberFilter.js"></script>
   <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
   <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/durationFilter.js"></script>
   <script src="scripts/syncthing/core/filters/naturalFilter.js"></script>
   <script src="scripts/syncthing/core/services/localeService.js"></script>
 

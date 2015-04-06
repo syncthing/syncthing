@@ -47,6 +47,7 @@ var (
 	configInSync = true
 	guiErrors    = []guiError{}
 	guiErrorsMut sync.Mutex
+	startTime    = time.Now()
 	eventSub     *events.BufferedSubscription
 )
 
@@ -519,6 +520,7 @@ func restGetSystem(w http.ResponseWriter, r *http.Request) {
 	cpuUsageLock.RUnlock()
 	res["cpuPercent"] = cpusum / float64(len(cpuUsagePercent)) / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
+	res["uptime"] = int(time.Since(startTime).Seconds())
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)

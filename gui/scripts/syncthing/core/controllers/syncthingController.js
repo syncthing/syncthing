@@ -1069,7 +1069,7 @@ angular.module('syncthing.core')
                         break;
                     }
                 }
-            };
+            }
 
             folders.sort();
             return folders;
