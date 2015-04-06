@@ -18,18 +18,27 @@ import (
 )
 
 var jsonEndpoints = []string{
-	"/rest/completion?device=I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU&folder=default",
-	"/rest/config",
-	"/rest/config/sync",
-	"/rest/connections",
-	"/rest/errors",
-	"/rest/events",
-	"/rest/lang",
-	"/rest/model?folder=default",
-	"/rest/need",
-	"/rest/deviceid?id=I6KAH7666SLLLB5PFXSOAUFJCDZCYAOMLEKCP2GB32BV5RQST3PSROAU",
-	"/rest/report",
-	"/rest/system",
+	"/rest/db/completion?device=I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU&folder=default",
+	"/rest/db/ignores?folder=default",
+	"/rest/db/need?folder=default",
+	"/rest/db/status?folder=default",
+	"/rest/db/browse?folder=default",
+	"/rest/events?since=-1&limit=5",
+	"/rest/stats/device",
+	"/rest/stats/folder",
+	"/rest/svc/deviceid?id=I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU",
+	"/rest/svc/lang",
+	"/rest/svc/report",
+	"/rest/system/browse?current=.",
+	"/rest/system/config",
+	"/rest/system/config/insync",
+	"/rest/system/connections",
+	"/rest/system/discovery",
+	"/rest/system/error",
+	"/rest/system/ping",
+	"/rest/system/status",
+	"/rest/system/upgrade",
+	"/rest/system/version",
 }
 
 func TestGetIndex(t *testing.T) {
@@ -194,7 +203,7 @@ func TestPOSTWithoutCSRF(t *testing.T) {
 
 	// Should fail without CSRF
 
-	req, err := http.NewRequest("POST", "http://127.0.0.1:8082/rest/error/clear", nil)
+	req, err := http.NewRequest("POST", "http://127.0.0.1:8082/rest/system/error/clear", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +250,7 @@ func TestPOSTWithoutCSRF(t *testing.T) {
 
 	// Should fail with incorrect CSRF
 
-	req, err = http.NewRequest("POST", "http://127.0.0.1:8082/rest/error/clear", nil)
+	req, err = http.NewRequest("POST", "http://127.0.0.1:8082/rest/system/error/clear", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
