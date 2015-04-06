@@ -9,7 +9,9 @@
 package integration
 
 import (
+	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -49,8 +51,15 @@ func TestGetIndex(t *testing.T) {
 	if res.StatusCode != 200 {
 		t.Errorf("Status %d != 200", res.StatusCode)
 	}
-	if res.ContentLength < 1024 {
-		t.Errorf("Length %d < 1024", res.ContentLength)
+	bs, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bs) < 1024 {
+		t.Errorf("Length %d < 1024", len(bs))
+	}
+	if !bytes.Contains(bs, []byte("</html>")) {
+		t.Error("Incorrect response")
 	}
 	if res.Header.Get("Set-Cookie") == "" {
 		t.Error("No set-cookie header")
@@ -64,8 +73,15 @@ func TestGetIndex(t *testing.T) {
 	if res.StatusCode != 200 {
 		t.Errorf("Status %d != 200", res.StatusCode)
 	}
-	if res.ContentLength < 1024 {
-		t.Errorf("Length %d < 1024", res.ContentLength)
+	bs, err = ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bs) < 1024 {
+		t.Errorf("Length %d < 1024", len(bs))
+	}
+	if !bytes.Contains(bs, []byte("</html>")) {
+		t.Error("Incorrect response")
 	}
 	if res.Header.Get("Set-Cookie") == "" {
 		t.Error("No set-cookie header")
