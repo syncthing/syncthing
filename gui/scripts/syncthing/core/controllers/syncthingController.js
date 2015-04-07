@@ -78,7 +78,7 @@ angular.module('syncthing.core')
                 $scope.version = data.version;
             }).error($scope.emitHTTPError);
 
-            $http.get(urlbase + '/system/report').success(function (data) {
+            $http.get(urlbase + '/svc/report').success(function (data) {
                 $scope.reportData = data;
             }).error($scope.emitHTTPError);
 
