@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -180,6 +181,10 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		handler = redirectToHTTPSMiddleware(handler)
 	}
 
+	if debugHTTP {
+		handler = debugMiddleware(handler)
+	}
+
 	srv := http.Server{
 		Handler:     handler,
 		ReadTimeout: 10 * time.Second,
@@ -207,6 +212,30 @@ func getPostHandler(get, post http.Handler) http.Handler {
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
+	})
+}
+
+func debugMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t0 := time.Now()
+		h.ServeHTTP(w, r)
+		ms := 1000 * time.Since(t0).Seconds()
+
+		// The variable `w` is most likely a *http.response, which we can't do
+		// much with since it's a non exported type. We can however peek into
+		// it with reflection to get at the status code and number of bytes
+		// written.
+		var status, written int64
+		if rw := reflect.Indirect(reflect.ValueOf(w)); rw.IsValid() && rw.Kind() == reflect.Struct {
+			if rf := rw.FieldByName("status"); rf.IsValid() && rf.Kind() == reflect.Int {
+				status = rf.Int()
+			}
+			if rf := rw.FieldByName("written"); rf.IsValid() && rf.Kind() == reflect.Int64 {
+				written = rf.Int()
+			}
+		}
+
+		l.Debugf("http: %s %q: status %d, %d bytes in %.02f ms", r.Method, r.URL.String(), status, written, ms)
 	})
 }
 
