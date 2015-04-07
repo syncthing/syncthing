@@ -1370,11 +1370,12 @@ func (m *Model) Override(folder string) {
 			// We are missing the file
 			need.Flags |= protocol.FlagDeleted
 			need.Blocks = nil
+			need.Version = need.Version.Update(m.shortID)
 		} else {
 			// We have the file, replace with our version
+			have.Version = have.Version.Merge(need.Version).Update(m.shortID)
 			need = have
 		}
-		need.Version = need.Version.Update(m.shortID)
 		need.LocalVersion = 0
 		batch = append(batch, need)
 		return true
