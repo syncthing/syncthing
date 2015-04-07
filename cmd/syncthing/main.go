@@ -613,6 +613,8 @@ func syncthingMain() {
 	events.Default.Log(events.StartupComplete, nil)
 	go generatePingEvents()
 
+	cleanConfigDirectory()
+
 	code := <-stop
 
 	l.Okln("Exiting")
@@ -978,5 +980,42 @@ func autoUpgrade() {
 		time.Sleep(time.Minute)
 		stop <- exitUpgrading
 		return
+	}
+}
+
+// cleanConfigDirectory removes old, unused configuration and index formats, a
+// suitable time after they have gone out of fashion.
+func cleanConfigDirectory() {
+	patterns := map[string]time.Duration{
+		"panic-*.log":    7 * 24 * time.Hour,  // keep panic logs for a week
+		"index":          14 * 24 * time.Hour, // keep old index format for two weeks
+		"config.xml.v*":  30 * 24 * time.Hour, // old config versions for a month
+		"*.idx.gz":       30 * 24 * time.Hour, // these should for sure no longer exist
+		"backup-of-v0.8": 30 * 24 * time.Hour, // these neither
+	}
+
+	for pat, dur := range patterns {
+		pat = filepath.Join(baseDirs["config"], pat)
+		files, err := filepath.Glob(pat)
+		if err != nil {
+			l.Infoln("Cleaning:", err)
+			continue
+		}
+
+		for _, file := range files {
+			info, err := os.Lstat(file)
+			if err != nil {
+				l.Infoln("Cleaning:", err)
+				continue
+			}
+
+			if time.Since(info.ModTime()) > dur {
+				if err = os.RemoveAll(file); err != nil {
+					l.Infoln("Cleaning:", err)
+				} else {
+					l.Infoln("Cleaned away old file", filepath.Base(file))
+				}
+			}
+		}
 	}
 }
