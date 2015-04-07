@@ -293,11 +293,11 @@
                 <tbody>
                   <tr>
                     <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
-                    <td class="text-right">{{connections['total'].inbps | binary}}B/s ({{connections['total'].inBytesTotal | binary}}B)</td>
+                    <td class="text-right">{{connections_total.inbps | binary}}B/s ({{connections_total.inBytesTotal | binary}}B)</td>
                   </tr>
                   <tr>
                     <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
-                    <td class="text-right">{{connections['total'].outbps | binary}}B/s ({{connections['total'].outBytesTotal | binary}}B)</td>
+                    <td class="text-right">{{connections_total.outbps | binary}}B/s ({{connections_total.outBytesTotal | binary}}B)</td>
                   </tr>
                   <tr>
                     <th><span class="glyphicon glyphicon-th"></span>&emsp;<span translate>RAM Utilization</span></th>

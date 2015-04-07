@@ -24,6 +24,7 @@ angular.module('syncthing.core')
         $scope.config = {};
         $scope.configInSync = true;
         $scope.connections = {};
+        $scope.connections_total = {};
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
@@ -367,6 +368,8 @@ angular.module('syncthing.core')
                     id;
 
                 prevDate = now;
+                $scope.connections_total = data['total'];
+                data = data.connections;
                 for (id in data) {
                     if (!data.hasOwnProperty(id)) {
                         continue;

@@ -28,7 +28,7 @@ angular.module('syncthing.core')
             function readBrowserLocales() {
                 // @TODO: check if there is nice way to utilize window.navigator.languages or similiar api.
 
-                return $http.get(urlbase + "/lang");
+                return $http.get(urlbase + "/svc/lang");
             }
 
             function autoConfigLocale() {
@@ -84,7 +84,7 @@ angular.module('syncthing.core')
             function useLocale(language, save2Storage) {
                 if (language) {
                    $translate.use(language).then(function () {
-                       if (save2Storage && typeof(localStorage) != 'undefined') 
+                       if (save2Storage && typeof(localStorage) != 'undefined')
                             localStorage[_SYNLANG] = language;
                     });
                 }
