@@ -201,7 +201,7 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 }
 
 // ConnectionStats returns a map with connection statistics for each connected device.
-func (m *Model) ConnectionStats() map[string]ConnectionInfo {
+func (m *Model) ConnectionStats() map[string]interface{} {
 	type remoteAddrer interface {
 		RemoteAddr() net.Addr
 	}
@@ -209,7 +209,8 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 	m.pmut.RLock()
 	m.fmut.RLock()
 
-	var res = make(map[string]ConnectionInfo)
+	var res = make(map[string]interface{})
+	conns := make(map[string]ConnectionInfo, len(m.protoConn))
 	for device, conn := range m.protoConn {
 		ci := ConnectionInfo{
 			Statistics:    conn.Statistics(),
@@ -219,8 +220,10 @@ func (m *Model) ConnectionStats() map[string]ConnectionInfo {
 			ci.Address = nc.RemoteAddr().String()
 		}
 
-		res[device.String()] = ci
+		conns[device.String()] = ci
 	}
+
+	res["connections"] = conns
 
 	m.fmut.RUnlock()
 	m.pmut.RUnlock()
