@@ -12,5 +12,6 @@ import (
 )
 
 var (
-	debugNet = strings.Contains(os.Getenv("STTRACE"), "net") || os.Getenv("STTRACE") == "all"
+	debugNet  = strings.Contains(os.Getenv("STTRACE"), "net") || os.Getenv("STTRACE") == "all"
+	debugHTTP = strings.Contains(os.Getenv("STTRACE"), "http") || os.Getenv("STTRACE") == "all"
 )

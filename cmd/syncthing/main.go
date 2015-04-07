@@ -143,6 +143,7 @@ are mostly useful for developers. Use with care.
                  - "discover" (the discover package)
                  - "events"   (the events package)
                  - "files"    (the files package)
+                 - "http"     (the main package; HTTP requests)
                  - "net"      (the main package; connections & network messages)
                  - "model"    (the model package)
                  - "scanner"  (the scanner package)
