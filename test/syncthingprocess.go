@@ -79,7 +79,7 @@ func (p *syncthingProcess) start() error {
 	for {
 		time.Sleep(250 * time.Millisecond)
 
-		resp, err := p.get("/rest/system")
+		resp, err := p.get("/rest/system/status")
 		if err != nil {
 			continue
 		}
@@ -89,14 +89,14 @@ func (p *syncthingProcess) start() error {
 		resp.Body.Close()
 		if err != nil {
 			// This one is unexpected. Print it.
-			log.Println("/rest/system (JSON):", err)
+			log.Println("/rest/system/status (JSON):", err)
 			continue
 		}
 
 		id, err := protocol.DeviceIDFromString(sysData["myID"].(string))
 		if err != nil {
 			// This one is unexpected. Print it.
-			log.Println("/rest/system (myID):", err)
+			log.Println("/rest/system/status (myID):", err)
 			continue
 		}
 
@@ -241,7 +241,7 @@ type model struct {
 }
 
 func (p *syncthingProcess) model(folder string) (model, error) {
-	resp, err := p.get("/rest/model?folder=" + folder)
+	resp, err := p.get("/rest/db/status?folder=" + folder)
 	if err != nil {
 		return model{}, err
 	}
@@ -283,7 +283,7 @@ type versionResp struct {
 }
 
 func (p *syncthingProcess) version() (string, error) {
-	resp, err := p.get("/rest/version")
+	resp, err := p.get("/rest/system/version")
 	if err != nil {
 		return "", err
 	}
@@ -298,7 +298,7 @@ func (p *syncthingProcess) version() (string, error) {
 }
 
 func (p *syncthingProcess) rescan(folder string) error {
-	resp, err := p.post("/rest/scan?folder="+folder, nil)
+	resp, err := p.post("/rest/db/scan?folder="+folder, nil)
 	if err != nil {
 		return err
 	}
@@ -311,7 +311,7 @@ func (p *syncthingProcess) rescan(folder string) error {
 }
 
 func (p *syncthingProcess) reset(folder string) error {
-	resp, err := p.post("/rest/reset?folder="+folder, nil)
+	resp, err := p.post("/rest/system/reset?folder="+folder, nil)
 	if err != nil {
 		return err
 	}

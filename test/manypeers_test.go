@@ -45,7 +45,7 @@ func TestManyPeers(t *testing.T) {
 	}
 	defer receiver.stop()
 
-	resp, err := receiver.get("/rest/config")
+	resp, err := receiver.get("/rest/system/config")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestManyPeers(t *testing.T) {
 
 	var buf bytes.Buffer
 	json.NewEncoder(&buf).Encode(cfg)
-	resp, err = receiver.post("/rest/config", &buf)
+	resp, err = receiver.post("/rest/system/config", &buf)
 	if err != nil {
 		t.Fatal(err)
 	}

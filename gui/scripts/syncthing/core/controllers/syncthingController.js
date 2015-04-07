@@ -74,15 +74,15 @@ angular.module('syncthing.core')
             refreshDeviceStats();
             refreshFolderStats();
 
-            $http.get(urlbase + '/version').success(function (data) {
+            $http.get(urlbase + '/system/version').success(function (data) {
                 $scope.version = data.version;
             }).error($scope.emitHTTPError);
 
-            $http.get(urlbase + '/report').success(function (data) {
+            $http.get(urlbase + '/system/report').success(function (data) {
                 $scope.reportData = data;
             }).error($scope.emitHTTPError);
 
-            $http.get(urlbase + '/upgrade').success(function (data) {
+            $http.get(urlbase + '/system/upgrade').success(function (data) {
                 $scope.upgradeInfo = data;
             }).error(function () {
                 $scope.upgradeInfo = null;
@@ -198,7 +198,7 @@ angular.module('syncthing.core')
         $scope.$on('ConfigSaved', function (event, arg) {
             updateLocalConfig(arg.data);
 
-            $http.get(urlbase + '/config/sync').success(function (data) {
+            $http.get(urlbase + '/system/config/insync').success(function (data) {
                 $scope.configInSync = data.configInSync;
             }).error($scope.emitHTTPError);
         });
@@ -282,7 +282,7 @@ angular.module('syncthing.core')
             var key = "refreshFolder" + folder;
             if (!debouncedFuncs[key]) {
                 debouncedFuncs[key] = debounce(function () {
-                    $http.get(urlbase + '/model?folder=' + encodeURIComponent(folder)).success(function (data) {
+                    $http.get(urlbase + '/db/status?folder=' + encodeURIComponent(folder)).success(function (data) {
                         $scope.model[folder] = data;
                         console.log("refreshFolder", folder, data);
                     }).error($scope.emitHTTPError);
@@ -319,7 +319,7 @@ angular.module('syncthing.core')
         }
 
         function refreshSystem() {
-            $http.get(urlbase + '/system').success(function (data) {
+            $http.get(urlbase + '/system/status').success(function (data) {
                 $scope.myID = data.myID;
                 $scope.system = data;
                 $scope.announceServersTotal = data.extAnnounceOK ? Object.keys(data.extAnnounceOK).length : 0;
@@ -339,7 +339,7 @@ angular.module('syncthing.core')
                 return;
             }
 
-            $http.get(urlbase + '/completion?device=' + device + '&folder=' + encodeURIComponent(folder)).success(function (data) {
+            $http.get(urlbase + '/db/completion?device=' + device + '&folder=' + encodeURIComponent(folder)).success(function (data) {
                 if (!$scope.completion[device]) {
                     $scope.completion[device] = {};
                 }
@@ -361,7 +361,7 @@ angular.module('syncthing.core')
         }
 
         function refreshConnectionStats() {
-            $http.get(urlbase + '/connections').success(function (data) {
+            $http.get(urlbase + '/system/connections').success(function (data) {
                 var now = Date.now(),
                     td = (now - prevDate) / 1000,
                     id;
@@ -385,25 +385,25 @@ angular.module('syncthing.core')
         }
 
         function refreshErrors() {
-            $http.get(urlbase + '/errors').success(function (data) {
+            $http.get(urlbase + '/system/errors').success(function (data) {
                 $scope.errors = data.errors;
                 console.log("refreshErrors", data);
             }).error($scope.emitHTTPError);
         }
 
         function refreshConfig() {
-            $http.get(urlbase + '/config').success(function (data) {
+            $http.get(urlbase + '/system/config').success(function (data) {
                 updateLocalConfig(data);
                 console.log("refreshConfig", data);
             }).error($scope.emitHTTPError);
 
-            $http.get(urlbase + '/config/sync').success(function (data) {
+            $http.get(urlbase + '/system/config/insync').success(function (data) {
                 $scope.configInSync = data.configInSync;
             }).error($scope.emitHTTPError);
         }
 
         function refreshNeed(folder) {
-            $http.get(urlbase + "/need?folder=" + encodeURIComponent(folder)).success(function (data) {
+            $http.get(urlbase + "/db/need?folder=" + encodeURIComponent(folder)).success(function (data) {
                 if ($scope.neededFolder == folder) {
                     console.log("refreshNeed", folder, data);
                     $scope.needed = data;
@@ -608,8 +608,8 @@ angular.module('syncthing.core')
                     'Content-Type': 'application/json'
                 }
             };
-            $http.post(urlbase + '/config', cfg, opts).success(function () {
-                $http.get(urlbase + '/config/sync').success(function (data) {
+            $http.post(urlbase + '/system/config', cfg, opts).success(function () {
+                $http.get(urlbase + '/system/config/insync').success(function (data) {
                     $scope.configInSync = data.configInSync;
                 });
             }).error($scope.emitHTTPError);
@@ -658,7 +658,7 @@ angular.module('syncthing.core')
         $scope.restart = function () {
             restarting = true;
             $('#restarting').modal();
-            $http.post(urlbase + '/restart');
+            $http.post(urlbase + '/system/restart');
             $scope.configInSync = true;
 
             // Switch webpage protocol if needed
@@ -680,7 +680,7 @@ angular.module('syncthing.core')
         $scope.upgrade = function () {
             restarting = true;
             $('#upgrading').modal();
-            $http.post(urlbase + '/upgrade').success(function () {
+            $http.post(urlbase + '/system/upgrade').success(function () {
                 $('#restarting').modal();
                 $('#upgrading').modal('hide');
             }).error(function () {
@@ -690,7 +690,7 @@ angular.module('syncthing.core')
 
         $scope.shutdown = function () {
             restarting = true;
-            $http.post(urlbase + '/shutdown').success(function () {
+            $http.post(urlbase + '/system/shutdown').success(function () {
                 $('#shutdown').modal();
             }).error($scope.emitHTTPError);
             $scope.configInSync = true;
@@ -716,7 +716,7 @@ angular.module('syncthing.core')
         };
 
         $scope.addDevice = function () {
-            $http.get(urlbase + '/discovery')
+            $http.get(urlbase + '/system/discovery')
                 .success(function (registry) {
                     $scope.discovery = registry;
                 })
@@ -871,7 +871,7 @@ angular.module('syncthing.core')
 
         $scope.clearErrors = function () {
             $scope.seenError = $scope.errors[$scope.errors.length - 1].time;
-            $http.post(urlbase + '/error/clear');
+            $http.post(urlbase + '/system/error/clear');
         };
 
         $scope.friendlyDevices = function (str) {
@@ -889,7 +889,7 @@ angular.module('syncthing.core')
         $scope.directoryList = [];
 
         $scope.$watch('currentFolder.path', function (newvalue) {
-            $http.get(urlbase + '/autocomplete/directory', {
+            $http.get(urlbase + '/system/browse', {
                 params: { current: newvalue }
             }).success(function (data) {
                 $scope.directoryList = data;
@@ -1093,7 +1093,7 @@ angular.module('syncthing.core')
             }
 
             $('#editIgnoresButton').attr('disabled', 'disabled');
-            $http.get(urlbase + '/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
+            $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
                 .success(function (data) {
                     data.ignore = data.ignore || [];
 
@@ -1120,7 +1120,7 @@ angular.module('syncthing.core')
                 return;
             }
 
-            $http.post(urlbase + '/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
+            $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
                 ignore: $('#editIgnores textarea').val().split('\n')
             });
         };
@@ -1173,7 +1173,7 @@ angular.module('syncthing.core')
         };
 
         $scope.override = function (folder) {
-            $http.post(urlbase + "/model/override?folder=" + encodeURIComponent(folder));
+            $http.post(urlbase + "/db/override?folder=" + encodeURIComponent(folder));
         };
 
         $scope.about = function () {
@@ -1185,15 +1185,15 @@ angular.module('syncthing.core')
         };
 
         $scope.rescanAllFolders = function () {
-            $http.post(urlbase + "/scan");
+            $http.post(urlbase + "/db/scan");
         };
 
         $scope.rescanFolder = function (folder) {
-            $http.post(urlbase + "/scan?folder=" + encodeURIComponent(folder));
+            $http.post(urlbase + "/db/scan?folder=" + encodeURIComponent(folder));
         };
 
         $scope.bumpFile = function (folder, file) {
-            $http.post(urlbase + "/bump?folder=" + encodeURIComponent(folder) + "&file=" + encodeURIComponent(file)).success(function (data) {
+            $http.post(urlbase + "/db/prio?folder=" + encodeURIComponent(folder) + "&file=" + encodeURIComponent(file)).success(function (data) {
                 if ($scope.neededFolder == folder) {
                     console.log("bumpFile", folder, data);
                     $scope.needed = data;
