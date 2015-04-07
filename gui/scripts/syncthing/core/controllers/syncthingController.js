@@ -385,7 +385,7 @@ angular.module('syncthing.core')
         }
 
         function refreshErrors() {
-            $http.get(urlbase + '/system/errors').success(function (data) {
+            $http.get(urlbase + '/system/error').success(function (data) {
                 $scope.errors = data.errors;
                 console.log("refreshErrors", data);
             }).error($scope.emitHTTPError);
