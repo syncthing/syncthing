@@ -148,7 +148,7 @@ func TestOverride(t *testing.T) {
 
 	log.Println("Hitting Override on master...")
 
-	resp, err := master.post("/rest/model/override?folder=default", nil)
+	resp, err := master.post("/rest/db/override?folder=default", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
