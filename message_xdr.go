@@ -110,12 +110,18 @@ func (o *IndexMessage) UnmarshalXDR(bs []byte) error {
 func (o *IndexMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.Folder = xr.ReadString()
 	_FilesSize := int(xr.ReadUint32())
+	if _FilesSize < 0 {
+		return xdr.ElementSizeExceeded("Files", _FilesSize, 0)
+	}
 	o.Files = make([]FileInfo, _FilesSize)
 	for i := range o.Files {
 		(&o.Files[i]).DecodeXDRFrom(xr)
 	}
 	o.Flags = xr.ReadUint32()
 	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
 	if _OptionsSize > 64 {
 		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
 	}
@@ -236,6 +242,9 @@ func (o *FileInfo) DecodeXDRFrom(xr *xdr.Reader) error {
 	(&o.Version).DecodeXDRFrom(xr)
 	o.LocalVersion = int64(xr.ReadUint64())
 	_BlocksSize := int(xr.ReadUint32())
+	if _BlocksSize < 0 {
+		return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 0)
+	}
 	o.Blocks = make([]BlockInfo, _BlocksSize)
 	for i := range o.Blocks {
 		(&o.Blocks[i]).DecodeXDRFrom(xr)
@@ -442,6 +451,9 @@ func (o *RequestMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.Hash = xr.ReadBytesMax(64)
 	o.Flags = xr.ReadUint32()
 	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
 	if _OptionsSize > 64 {
 		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
 	}
@@ -633,11 +645,17 @@ func (o *ClusterConfigMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.ClientName = xr.ReadStringMax(64)
 	o.ClientVersion = xr.ReadStringMax(64)
 	_FoldersSize := int(xr.ReadUint32())
+	if _FoldersSize < 0 {
+		return xdr.ElementSizeExceeded("Folders", _FoldersSize, 0)
+	}
 	o.Folders = make([]Folder, _FoldersSize)
 	for i := range o.Folders {
 		(&o.Folders[i]).DecodeXDRFrom(xr)
 	}
 	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
 	if _OptionsSize > 64 {
 		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
 	}
@@ -750,12 +768,18 @@ func (o *Folder) UnmarshalXDR(bs []byte) error {
 func (o *Folder) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.ID = xr.ReadStringMax(64)
 	_DevicesSize := int(xr.ReadUint32())
+	if _DevicesSize < 0 {
+		return xdr.ElementSizeExceeded("Devices", _DevicesSize, 0)
+	}
 	o.Devices = make([]Device, _DevicesSize)
 	for i := range o.Devices {
 		(&o.Devices[i]).DecodeXDRFrom(xr)
 	}
 	o.Flags = xr.ReadUint32()
 	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
 	if _OptionsSize > 64 {
 		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
 	}
@@ -862,6 +886,9 @@ func (o *Device) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.MaxLocalVersion = int64(xr.ReadUint64())
 	o.Flags = xr.ReadUint32()
 	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
 	if _OptionsSize > 64 {
 		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
 	}
