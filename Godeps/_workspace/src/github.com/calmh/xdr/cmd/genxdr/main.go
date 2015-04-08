@@ -143,6 +143,9 @@ func (o *{{.TypeName}}) DecodeXDRFrom(xr *xdr.Reader) error {
 			{{end}}
 		{{else}}
 			_{{$fieldInfo.Name}}Size := int(xr.ReadUint32())
+			if _{{$fieldInfo.Name}}Size < 0 {
+				return xdr.ElementSizeExceeded("{{$fieldInfo.Name}}", _{{$fieldInfo.Name}}Size, {{$fieldInfo.Max}})
+			}
 			{{if ge $fieldInfo.Max 1}}
 				if _{{$fieldInfo.Name}}Size > {{$fieldInfo.Max}} {
 					return xdr.ElementSizeExceeded("{{$fieldInfo.Name}}", _{{$fieldInfo.Name}}Size, {{$fieldInfo.Max}})

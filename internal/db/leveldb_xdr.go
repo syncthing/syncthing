@@ -156,6 +156,9 @@ func (o *versionList) UnmarshalXDR(bs []byte) error {
 
 func (o *versionList) DecodeXDRFrom(xr *xdr.Reader) error {
 	_versionsSize := int(xr.ReadUint32())
+	if _versionsSize < 0 {
+		return xdr.ElementSizeExceeded("versions", _versionsSize, 0)
+	}
 	o.versions = make([]fileVersion, _versionsSize)
 	for i := range o.versions {
 		(&o.versions[i]).DecodeXDRFrom(xr)

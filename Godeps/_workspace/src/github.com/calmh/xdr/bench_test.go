@@ -67,7 +67,7 @@ func BenchmarkThisEncode(b *testing.B) {
 func BenchmarkThisEncoder(b *testing.B) {
 	w := xdr.NewWriter(ioutil.Discard)
 	for i := 0; i < b.N; i++ {
-		_, err := s.encodeXDR(w)
+		_, err := s.EncodeXDRInto(w)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -108,7 +108,7 @@ func BenchmarkThisDecoder(b *testing.B) {
 	r := xdr.NewReader(rr)
 	var t XDRBenchStruct
 	for i := 0; i < b.N; i++ {
-		err := t.decodeXDR(r)
+		err := t.DecodeXDRFrom(r)
 		if err != nil {
 			b.Fatal(err)
 		}
