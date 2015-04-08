@@ -17,7 +17,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -118,16 +117,15 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		go m.progressEmitter.Serve()
 	}
 
-	var timeout = 20 * 60 // seconds
-	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
-		it, err := strconv.Atoi(t)
-		if err == nil {
-			timeout = it
-		}
-	}
-	deadlockDetect(&m.fmut, time.Duration(timeout)*time.Second)
-	deadlockDetect(&m.pmut, time.Duration(timeout)*time.Second)
 	return m
+}
+
+// Starts deadlock detector on the models locks which causes panics in case
+// the locks cannot be acquired in the given timeout period.
+func (m *Model) StartDeadlockDetector(timeout time.Duration) {
+	l.Infof("Starting deadlock detector with %v timeout", timeout)
+	deadlockDetect(&m.fmut, timeout)
+	deadlockDetect(&m.pmut, timeout)
 }
 
 // StartRW starts read/write processing on the current model. When in
