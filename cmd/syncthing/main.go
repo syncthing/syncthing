@@ -50,6 +50,7 @@ var (
 	BuildHost   = "unknown"
 	BuildUser   = "unknown"
 	IsRelease   bool
+	IsBeta      bool
 	LongVersion string
 )
 
@@ -80,6 +81,7 @@ func init() {
 	// Check for a clean release build.
 	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-beta[\d\.]+)?$`)
 	IsRelease = exp.MatchString(Version)
+	IsBeta = strings.Contains(Version, "beta")
 
 	stamp, _ := strconv.Atoi(BuildStamp)
 	BuildDate = time.Unix(int64(stamp), 0)
@@ -509,6 +511,15 @@ func syncthingMain() {
 	}
 
 	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb)
+
+	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
+		it, err := strconv.Atoi(t)
+		if err == nil {
+			m.StartDeadlockDetector(time.Duration(it) * time.Second)
+		}
+	} else if !IsRelease || IsBeta {
+		m.StartDeadlockDetector(20 * 60 * time.Second)
+	}
 
 	// GUI
 
