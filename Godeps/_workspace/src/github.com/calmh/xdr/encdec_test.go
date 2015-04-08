@@ -32,11 +32,11 @@ type TestStruct struct {
 
 type Opaque [32]byte
 
-func (u *Opaque) encodeXDR(w *xdr.Writer) (int, error) {
+func (u *Opaque) EncodeXDRInto(w *xdr.Writer) (int, error) {
 	return w.WriteRaw(u[:])
 }
 
-func (u *Opaque) decodeXDR(r *xdr.Reader) (int, error) {
+func (u *Opaque) DecodeXDRFrom(r *xdr.Reader) (int, error) {
 	return r.ReadRaw(u[:])
 }
 

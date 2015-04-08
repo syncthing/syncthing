@@ -172,6 +172,9 @@ func (o *Announce) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.Magic = xr.ReadUint32()
 	(&o.This).DecodeXDRFrom(xr)
 	_ExtraSize := int(xr.ReadUint32())
+	if _ExtraSize < 0 {
+		return xdr.ElementSizeExceeded("Extra", _ExtraSize, 16)
+	}
 	if _ExtraSize > 16 {
 		return xdr.ElementSizeExceeded("Extra", _ExtraSize, 16)
 	}
@@ -266,6 +269,9 @@ func (o *Device) UnmarshalXDR(bs []byte) error {
 func (o *Device) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.ID = xr.ReadBytesMax(32)
 	_AddressesSize := int(xr.ReadUint32())
+	if _AddressesSize < 0 {
+		return xdr.ElementSizeExceeded("Addresses", _AddressesSize, 16)
+	}
 	if _AddressesSize > 16 {
 		return xdr.ElementSizeExceeded("Addresses", _AddressesSize, 16)
 	}

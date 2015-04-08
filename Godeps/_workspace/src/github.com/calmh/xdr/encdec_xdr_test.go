@@ -18,17 +18,23 @@ TestStruct Structure:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                              int                              |
+/                                                               /
+\                         int Structure                         \
+/                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             int8                              |
+/                                                               /
+\                        int8 Structure                         \
+/                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             uint8                             |
+/                                                               /
+\                        uint8 Structure                        \
+/                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             int16                             |
+|            0x0000             |              I16              |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |            0x0000             |             UI16              |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             int32                             |
+|                              I32                              |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                             UI32                              |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -52,7 +58,9 @@ TestStruct Structure:
 \                      S (variable length)                      \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                            Opaque                             |
+/                                                               /
+\                       Opaque Structure                        \
+/                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Number of SS                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -68,9 +76,9 @@ struct TestStruct {
 	int I;
 	int8 I8;
 	uint8 UI8;
-	int16 I16;
+	int I16;
 	unsigned int UI16;
-	int32 I32;
+	int I32;
 	unsigned int UI32;
 	hyper I64;
 	unsigned hyper UI64;
@@ -84,7 +92,7 @@ struct TestStruct {
 
 func (o TestStruct) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o TestStruct) MarshalXDR() ([]byte, error) {
@@ -102,11 +110,11 @@ func (o TestStruct) MustMarshalXDR() []byte {
 func (o TestStruct) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o TestStruct) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o TestStruct) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	xw.WriteUint64(uint64(o.I))
 	xw.WriteUint8(uint8(o.I8))
 	xw.WriteUint8(o.UI8)
@@ -124,7 +132,7 @@ func (o TestStruct) encodeXDR(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ElementSizeExceeded("S", l, 1024)
 	}
 	xw.WriteString(o.S)
-	_, err := o.C.encodeXDR(xw)
+	_, err := o.C.EncodeXDRInto(xw)
 	if err != nil {
 		return xw.Tot(), err
 	}
@@ -140,16 +148,16 @@ func (o TestStruct) encodeXDR(xw *xdr.Writer) (int, error) {
 
 func (o *TestStruct) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *TestStruct) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *TestStruct) decodeXDR(xr *xdr.Reader) error {
+func (o *TestStruct) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.I = int(xr.ReadUint64())
 	o.I8 = int8(xr.ReadUint8())
 	o.UI8 = xr.ReadUint8()
@@ -161,8 +169,11 @@ func (o *TestStruct) decodeXDR(xr *xdr.Reader) error {
 	o.UI64 = xr.ReadUint64()
 	o.BS = xr.ReadBytesMax(1024)
 	o.S = xr.ReadStringMax(1024)
-	(&o.C).decodeXDR(xr)
+	(&o.C).DecodeXDRFrom(xr)
 	_SSSize := int(xr.ReadUint32())
+	if _SSSize < 0 {
+		return xdr.ElementSizeExceeded("SS", _SSSize, 1024)
+	}
 	if _SSSize > 1024 {
 		return xdr.ElementSizeExceeded("SS", _SSSize, 1024)
 	}
