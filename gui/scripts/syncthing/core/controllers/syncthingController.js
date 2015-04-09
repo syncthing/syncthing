@@ -24,7 +24,6 @@ angular.module('syncthing.core')
         $scope.config = {};
         $scope.configInSync = true;
         $scope.connections = {};
-        $scope.connections_total = {};
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
@@ -368,7 +367,16 @@ angular.module('syncthing.core')
                     id;
 
                 prevDate = now;
-                $scope.connections_total = data['total'];
+
+                try {
+                    data.total.inbps = Math.max(0, (data.total.inBytesTotal - $scope.connectionsTotal.inBytesTotal) / td);
+                    data.total.outbps = Math.max(0, (data.total.outBytesTotal - $scope.connectionsTotal.outBytesTotal) / td);
+                } catch (e) {
+                    data.total.inbps = 0;
+                    data.total.outbps = 0;
+                }
+                $scope.connectionsTotal = data.total;
+
                 data = data.connections;
                 for (id in data) {
                     if (!data.hasOwnProperty(id)) {
