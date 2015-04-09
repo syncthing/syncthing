@@ -9,6 +9,7 @@
 package integration
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -47,43 +48,8 @@ func TestConflict(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Println("Starting sender...")
-	sender := syncthingProcess{ // id1
-		instance: "1",
-		argv:     []string{"-home", "h1"},
-		port:     8081,
-		apiKey:   apiKey,
-	}
-	err = sender.start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	sender, receiver := coSenderReceiver(t)
 	defer sender.stop()
-
-	// Wait for one scan to succeed, or up to 20 seconds... This is to let
-	// startup, UPnP etc complete and make sure the sender has the full index
-	// before they connect.
-	for i := 0; i < 20; i++ {
-		err := sender.rescan("default")
-		if err != nil {
-			time.Sleep(time.Second)
-			continue
-		}
-		break
-	}
-
-	log.Println("Starting receiver...")
-	receiver := syncthingProcess{ // id2
-		instance: "2",
-		argv:     []string{"-home", "h2"},
-		port:     8082,
-		apiKey:   apiKey,
-	}
-	err = receiver.start()
-	if err != nil {
-		sender.stop()
-		t.Fatal(err)
-	}
 	defer receiver.stop()
 
 	if err = coCompletion(sender, receiver); err != nil {
@@ -211,6 +177,294 @@ func TestConflict(t *testing.T) {
 	if len(files) != 2 {
 		t.Errorf("Expected 2 conflicted files instead of %d", len(files))
 	}
+}
+
+func TestInitialMergeConflicts(t *testing.T) {
+	log.Println("Cleaning...")
+	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.Mkdir("s1", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.Mkdir("s2", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// File 1 is a conflict
+
+	err = ioutil.WriteFile("s1/file1", []byte("hello\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ioutil.WriteFile("s2/file1", []byte("goodbye\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// File 2 exists on s1 only
+
+	err = ioutil.WriteFile("s1/file2", []byte("hello\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// File 3 exists on s2 only
+
+	err = ioutil.WriteFile("s2/file3", []byte("goodbye\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Let them sync
+
+	sender, receiver := coSenderReceiver(t)
+	defer sender.stop()
+	defer receiver.stop()
+
+	log.Println("Syncing...")
+
+	if err = coCompletion(sender, receiver); err != nil {
+		t.Fatal(err)
+	}
+
+	sender.stop()
+	receiver.stop()
+
+	log.Println("Verifying...")
+
+	// s1 should have three-four files (there's a conflict from s2 which may or may not have synced yet)
+
+	files, err := filepath.Glob("s1/file*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) < 3 || len(files) > 4 {
+		t.Errorf("Expected 3-4 files in s1 instead of %d", len(files))
+	}
+
+	// s2 should have four files (there's a conflict)
+
+	files, err = filepath.Glob("s2/file*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 4 {
+		t.Errorf("Expected 4 files in s2 instead of %d", len(files))
+	}
+
+	// file1 is in conflict, so there's two versions of that one
+
+	files, err = filepath.Glob("s2/file1*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 2 {
+		t.Errorf("Expected 2 'file1' files in s2 instead of %d", len(files))
+	}
+}
+
+func TestResetConflicts(t *testing.T) {
+	log.Println("Cleaning...")
+	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.Mkdir("s1", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.Mkdir("s2", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Three files on s1
+
+	err = ioutil.WriteFile("s1/file1", []byte("hello\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ioutil.WriteFile("s1/file2", []byte("hello\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ioutil.WriteFile("s2/file3", []byte("hello\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Let them sync
+
+	sender, receiver := coSenderReceiver(t)
+	defer sender.stop()
+	defer receiver.stop()
+
+	log.Println("Syncing...")
+
+	if err = coCompletion(sender, receiver); err != nil {
+		t.Fatal(err)
+	}
+
+	log.Println("Verifying...")
+
+	// s1 should have three files
+
+	files, err := filepath.Glob("s1/file*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 3 {
+		t.Errorf("Expected 3 files in s1 instead of %d", len(files))
+	}
+
+	// s2 should have three
+
+	files, err = filepath.Glob("s2/file*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 3 {
+		t.Errorf("Expected 3 files in s2 instead of %d", len(files))
+	}
+
+	log.Println("Updating...")
+
+	// change s2/file2 a few times, so that it's version counter increases.
+	// This will make the file on the cluster look newer than what we have
+	// locally after we rest the index, unless we have a fix for that.
+
+	err = ioutil.WriteFile("s2/file2", []byte("hello1\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = receiver.rescan("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Second)
+	err = ioutil.WriteFile("s2/file2", []byte("hello2\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = receiver.rescan("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Second)
+	err = ioutil.WriteFile("s2/file2", []byte("hello3\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = receiver.rescan("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Second)
+
+	if err = coCompletion(sender, receiver); err != nil {
+		t.Fatal(err)
+	}
+
+	// Now nuke the index
+
+	log.Println("Resetting...")
+
+	receiver.stop()
+	removeAll("h2/index*")
+
+	// s1/file1 (remote) changes while receiver is down
+
+	err = ioutil.WriteFile("s1/file1", []byte("goodbye\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// s1 must know about it
+	err = sender.rescan("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// s2/file2 (local) changes while receiver is down
+
+	err = ioutil.WriteFile("s2/file2", []byte("goodbye\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	receiver.start()
+
+	log.Println("Syncing...")
+
+	if err = coCompletion(sender, receiver); err != nil {
+		t.Fatal(err)
+	}
+
+	// s2 should have five files (three plus two conflicts)
+
+	files, err = filepath.Glob("s2/file*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 5 {
+		t.Errorf("Expected 5 files in s2 instead of %d", len(files))
+	}
+
+	// file1 is in conflict, so there's two versions of that one
+
+	files, err = filepath.Glob("s2/file1*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 2 {
+		t.Errorf("Expected 2 'file1' files in s2 instead of %d", len(files))
+	}
+
+	// file2 is in conflict, so there's two versions of that one
+
+	files, err = filepath.Glob("s2/file2*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 2 {
+		t.Errorf("Expected 2 'file2' files in s2 instead of %d", len(files))
+	}
+}
+
+func coSenderReceiver(t *testing.T) (syncthingProcess, syncthingProcess) {
+	log.Println("Starting sender...")
+	sender := syncthingProcess{ // id1
+		instance: "1",
+		argv:     []string{"-home", "h1"},
+		port:     8081,
+		apiKey:   apiKey,
+	}
+	err := sender.start()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	log.Println("Starting receiver...")
+	receiver := syncthingProcess{ // id2
+		instance: "2",
+		argv:     []string{"-home", "h2"},
+		port:     8082,
+		apiKey:   apiKey,
+	}
+	err = receiver.start()
+	if err != nil {
+		sender.stop()
+		t.Fatal(err)
+	}
+
+	return sender, receiver
 }
 
 func coCompletion(p ...syncthingProcess) error {

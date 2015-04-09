@@ -142,7 +142,7 @@ func (m *Model) StartFolderRW(folder string) {
 	if ok {
 		panic("cannot start already running folder " + folder)
 	}
-	p := newRWFolder(m, cfg)
+	p := newRWFolder(m, m.shortID, cfg)
 	m.folderRunners[folder] = p
 	m.fmut.Unlock()
 
