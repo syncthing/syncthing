@@ -118,11 +118,18 @@ func (p *syncthingProcess) stop() error {
 
 	raceConditionStart := []byte("WARNING: DATA RACE")
 	raceConditionSep := []byte("==================")
+	panicConditionStart := []byte("panic:")
+	panicConditionSep := []byte(p.id.String()[:5])
 	sc := bufio.NewScanner(fd)
 	race := false
+	_panic := false
 	for sc.Scan() {
 		line := sc.Bytes()
-		if race {
+		if race || _panic {
+			if bytes.Contains(line, panicConditionSep) {
+				_panic = false
+				continue
+			}
 			fmt.Printf("%s\n", line)
 			if bytes.Contains(line, raceConditionSep) {
 				race = false
@@ -133,6 +140,11 @@ func (p *syncthingProcess) stop() error {
 			race = true
 			if err == nil {
 				err = errors.New("Race condition detected")
+			}
+		} else if bytes.Contains(line, panicConditionStart) {
+			_panic = true
+			if err == nil {
+				err = errors.New("Panic detected")
 			}
 		}
 	}
