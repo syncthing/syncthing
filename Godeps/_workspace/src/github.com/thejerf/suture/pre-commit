@@ -9,3 +9,4 @@ if [ ! -z "$GOLINTOUT" -o "$?" != 0 ]; then
 fi
 
 go test
+

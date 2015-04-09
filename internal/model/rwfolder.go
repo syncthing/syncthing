@@ -68,13 +68,14 @@ type rwFolder struct {
 	lenientMtimes bool
 	copiers       int
 	pullers       int
+	shortID       uint64
 
 	stop      chan struct{}
 	queue     *jobQueue
 	dbUpdates chan protocol.FileInfo
 }
 
-func newRWFolder(m *Model, cfg config.FolderConfiguration) *rwFolder {
+func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
 	return &rwFolder{
 		stateTracker: stateTracker{folder: cfg.ID},
 
@@ -88,6 +89,7 @@ func newRWFolder(m *Model, cfg config.FolderConfiguration) *rwFolder {
 		lenientMtimes: cfg.LenientMtimes,
 		copiers:       cfg.Copiers,
 		pullers:       cfg.Pullers,
+		shortID:       shortID,
 
 		stop:  make(chan struct{}),
 		queue: newJobQueue(),
@@ -603,8 +605,11 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 	realName := filepath.Join(p.dir, file.Name)
 
 	cur, ok := p.model.CurrentFolderFile(p.folder, file.Name)
-	if ok && cur.Version.Concurrent(file.Version) {
-		// There is a conflict here. Move the file to a conflict copy instead of deleting.
+	if ok && p.inConflict(cur.Version, file.Version) {
+		// There is a conflict here. Move the file to a conflict copy instead
+		// of deleting. Also merge with the version vector we had, to indicate
+		// we have resolved the conflict.
+		file.Version = file.Version.Merge(cur.Version)
 		err = osutil.InWritableDir(moveForConflict, realName)
 	} else if p.versioner != nil {
 		err = osutil.InWritableDir(p.versioner.Archive, realName)
@@ -816,6 +821,12 @@ func (p *rwFolder) shortcutFile(file protocol.FileInfo) (err error) {
 		}
 	}
 
+	// This may have been a conflict. We should merge the version vectors so
+	// that our clock doesn't move backwards.
+	if cur, ok := p.model.CurrentFolderFile(p.folder, file.Name); ok {
+		file.Version = file.Version.Merge(cur.Version)
+	}
+
 	p.dbUpdates <- file
 	return
 }
@@ -1011,10 +1022,12 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 		}
 	}
 
-	if state.version.Concurrent(state.file.Version) {
+	if p.inConflict(state.version, state.file.Version) {
 		// The new file has been changed in conflict with the existing one. We
 		// should file it away as a conflict instead of just removing or
-		// archiving.
+		// archiving. Also merge with the version vector we had, to indicate
+		// we have resolved the conflict.
+		state.file.Version = state.file.Version.Merge(state.version)
 		err = osutil.InWritableDir(moveForConflict, state.realName)
 	} else if p.versioner != nil {
 		// If we should use versioning, let the versioner archive the old
@@ -1142,6 +1155,22 @@ loop:
 	if len(batch) > 0 {
 		p.model.updateLocals(p.folder, batch)
 	}
+}
+
+func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
+	if current.Concurrent(replacement) {
+		// Obvious case
+		return true
+	}
+	if replacement.Counter(p.shortID) > current.Counter(p.shortID) {
+		// The replacement file contains a higher version for ourselves than
+		// what we have. This isn't supposed to be possible, since it's only
+		// we who can increment that counter. We take it as a sign that
+		// something is wrong (our index may have been corrupted or removed)
+		// and flag it as a conflict.
+		return true
+	}
+	return false
 }
 
 func invalidateFolder(cfg *config.Configuration, folderID string, err error) {
