@@ -234,7 +234,7 @@ func TestPOSTWithoutCSRF(t *testing.T) {
 
 	// Should succeed with CSRF
 
-	req, err = http.NewRequest("POST", "http://127.0.0.1:8082/rest/error/clear", nil)
+	req, err = http.NewRequest("POST", "http://127.0.0.1:8082/rest/system/error/clear", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
