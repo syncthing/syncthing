@@ -325,7 +325,7 @@ func main() {
 	}
 
 	if doUpgrade || doUpgradeCheck {
-		rel, err := upgrade.LatestGithubRelease(Version)
+		rel, err := upgrade.LatestRelease(Version)
 		if err != nil {
 			l.Fatalln("Upgrade:", err) // exits 1
 		}
@@ -965,7 +965,7 @@ func autoUpgrade() {
 		case <-timer.C:
 		}
 
-		rel, err := upgrade.LatestGithubRelease(Version)
+		rel, err := upgrade.LatestRelease(Version)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return

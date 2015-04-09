@@ -681,7 +681,7 @@ func restGetSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
 		return
 	}
-	rel, err := upgrade.LatestGithubRelease(Version)
+	rel, err := upgrade.LatestRelease(Version)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -723,7 +723,7 @@ func restGetLang(w http.ResponseWriter, r *http.Request) {
 }
 
 func restPostSystemUpgrade(w http.ResponseWriter, r *http.Request) {
-	rel, err := upgrade.LatestGithubRelease(Version)
+	rel, err := upgrade.LatestRelease(Version)
 	if err != nil {
 		l.Warnln("getting latest release:", err)
 		http.Error(w, err.Error(), 500)
