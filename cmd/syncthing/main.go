@@ -435,6 +435,10 @@ func syncthingMain() {
 		cfg.Save()
 	}
 
+	if err := checkShortIDs(cfg); err != nil {
+		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one if the following:\n  ", err)
+	}
+
 	if len(profiler) > 0 {
 		go func() {
 			l.Debugln("Starting profiler on", profiler)
@@ -1030,4 +1034,19 @@ func cleanConfigDirectory() {
 			}
 		}
 	}
+}
+
+// checkShortIDs verifies that the configuration won't result in duplicate
+// short ID:s; that is, that the devices in the cluster all have unique
+// initial 64 bits.
+func checkShortIDs(cfg *config.Wrapper) error {
+	exists := make(map[uint64]protocol.DeviceID)
+	for deviceID := range cfg.Devices() {
+		shortID := deviceID.Short()
+		if otherID, ok := exists[shortID]; ok {
+			return fmt.Errorf("%v in conflict with %v", deviceID, otherID)
+		}
+		exists[shortID] = deviceID
+	}
+	return nil
 }
