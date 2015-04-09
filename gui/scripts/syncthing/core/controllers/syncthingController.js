@@ -40,6 +40,7 @@ angular.module('syncthing.core')
         $scope.deviceStats = {};
         $scope.folderStats = {};
         $scope.progress = {};
+        $scope.version = {};
 
         $(window).bind('beforeunload', function () {
             navigatingAway = true;
@@ -76,7 +77,7 @@ angular.module('syncthing.core')
             refreshFolderStats();
 
             $http.get(urlbase + '/system/version').success(function (data) {
-                $scope.version = data.version;
+                $scope.version = data;
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/svc/report').success(function (data) {
@@ -1202,6 +1203,30 @@ angular.module('syncthing.core')
                     $scope.needed = data;
                 }
             }).error($scope.emitHTTPError);
+        };
+
+        $scope.versionString = function () {
+            if (!$scope.version.version) {
+                return '';
+            }
+
+            var os = {
+                'darwin': 'Mac OS X',
+                'dragonfly': 'DragonFly BSD',
+                'freebsd': 'FreeBSD',
+                'openbsd': 'OpenBSD',
+                'netbsd': 'NetBSD',
+                'linux': 'Linux',
+                'windows': 'Windows',
+                'solaris': 'Solaris',
+            }[$scope.version.os];
+
+            var arch ={
+                '386': '32 bit',
+                'amd64': '64 bit',
+            }[$scope.version.arch];
+
+            return $scope.version.version + ', ' + os + ' (' + arch + ')';
         };
 
         // pseudo main. called on all definitions assigned
