@@ -1230,12 +1230,13 @@ angular.module('syncthing.core')
                 'linux': 'Linux',
                 'windows': 'Windows',
                 'solaris': 'Solaris',
-            }[$scope.version.os];
+            }[$scope.version.os] || $scope.version.os;
 
             var arch ={
                 '386': '32 bit',
                 'amd64': '64 bit',
-            }[$scope.version.arch];
+                'arm': 'ARM',
+            }[$scope.version.arch] || $scope.version.arch;
 
             return $scope.version.version + ', ' + os + ' (' + arch + ')';
         };
