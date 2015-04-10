@@ -27,21 +27,21 @@ import (
 	"strings"
 )
 
-// Returns the latest release, including prereleases or not depending on the argument
-func LatestGithubRelease(version string) (Release, error) {
-	resp, err := http.Get("https://api.github.com/repos/syncthing/syncthing/releases?per_page=10")
+// Returns the latest releases, including prereleases or not depending on the argument
+func LatestGithubReleases(version string) ([]Release, error) {
+	resp, err := http.Get("https://api.github.com/repos/syncthing/syncthing/releases?per_page=30")
 	if err != nil {
-		return Release{}, err
+		return nil, err
 	}
 	if resp.StatusCode > 299 {
-		return Release{}, fmt.Errorf("API call returned HTTP error: %s", resp.Status)
+		return nil, fmt.Errorf("API call returned HTTP error: %s", resp.Status)
 	}
 
 	var rels []Release
 	json.NewDecoder(resp.Body).Decode(&rels)
 	resp.Body.Close()
 
-	return LatestRelease(version, rels)
+	return rels, nil
 }
 
 type SortByRelease []Release
@@ -56,7 +56,12 @@ func (s SortByRelease) Less(i, j int) bool {
 	return CompareVersions(s[i].Tag, s[j].Tag) > 0
 }
 
-func LatestRelease(version string, rels []Release) (Release, error) {
+func LatestRelease(version string) (Release, error) {
+	rels, _ := LatestGithubReleases(version)
+	return SelectLatestRelease(version, rels)
+}
+
+func SelectLatestRelease(version string, rels []Release) (Release, error) {
 	if len(rels) == 0 {
 		return Release{}, ErrVersionUnknown
 	}
