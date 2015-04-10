@@ -901,6 +901,9 @@ angular.module('syncthing.core')
         $scope.directoryList = [];
 
         $scope.$watch('currentFolder.path', function (newvalue) {
+            if (newvalue && newvalue.trim().charAt(0) == '~') {
+                $scope.currentFolder.path = $scope.system.tilde + newvalue.trim().substring(1)
+            }
             $http.get(urlbase + '/system/browse', {
                 params: { current: newvalue }
             }).success(function (data) {
