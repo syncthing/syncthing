@@ -67,8 +67,8 @@ func (s *roFolder) Serve() {
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by SetFolderError
-				s.model.cfg.SetFolderError(s.folder, err)
+				// duplicate set is handled by setError.
+				s.setError(err)
 				reschedule()
 				continue
 			}

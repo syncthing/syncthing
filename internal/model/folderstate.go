@@ -1,17 +1,8 @@
 // Copyright (C) 2015 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package model
 
@@ -28,7 +19,7 @@ const (
 	FolderIdle folderState = iota
 	FolderScanning
 	FolderSyncing
-	FolderCleaning
+	FolderError
 )
 
 func (s folderState) String() string {
@@ -37,10 +28,10 @@ func (s folderState) String() string {
 		return "idle"
 	case FolderScanning:
 		return "scanning"
-	case FolderCleaning:
-		return "cleaning"
 	case FolderSyncing:
 		return "syncing"
+	case FolderError:
+		return "error"
 	default:
 		return "unknown"
 	}
@@ -51,10 +42,16 @@ type stateTracker struct {
 
 	mut     sync.Mutex
 	current folderState
+	err     error
 	changed time.Time
 }
 
+// setState sets the new folder state, for states other than FolderError.
 func (s *stateTracker) setState(newState folderState) {
+	if newState == FolderError {
+		panic("must use setError")
+	}
+
 	s.mut.Lock()
 	if newState != s.current {
 		/* This should hold later...
@@ -74,6 +71,7 @@ func (s *stateTracker) setState(newState folderState) {
 		}
 
 		s.current = newState
+		s.err = nil
 		s.changed = time.Now()
 
 		events.Default.Log(events.StateChanged, eventData)
@@ -81,9 +79,35 @@ func (s *stateTracker) setState(newState folderState) {
 	s.mut.Unlock()
 }
 
-func (s *stateTracker) getState() (current folderState, changed time.Time) {
+// getState returns the current state, the time when it last changed, and the
+// current error or nil.
+func (s *stateTracker) getState() (current folderState, changed time.Time, err error) {
 	s.mut.Lock()
-	current, changed = s.current, s.changed
+	current, changed, err = s.current, s.changed, s.err
 	s.mut.Unlock()
 	return
+}
+
+// setError sets the folder state to FolderError with the specified error.
+func (s *stateTracker) setError(err error) {
+	s.mut.Lock()
+	if s.current != FolderError || s.err.Error() != err.Error() {
+		eventData := map[string]interface{}{
+			"folder": s.folder,
+			"to":     FolderError.String(),
+			"from":   s.current.String(),
+			"error":  err.Error(),
+		}
+
+		if !s.changed.IsZero() {
+			eventData["duration"] = time.Since(s.changed).Seconds()
+		}
+
+		s.current = FolderError
+		s.err = err
+		s.changed = time.Now()
+
+		events.Default.Log(events.StateChanged, eventData)
+	}
+	s.mut.Unlock()
 }

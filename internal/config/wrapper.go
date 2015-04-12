@@ -215,29 +215,6 @@ func (w *Wrapper) SetGUI(gui GUIConfiguration) {
 	w.replaces <- w.cfg.Copy()
 }
 
-// Sets the folder error state. Emits ConfigSaved to cause a GUI refresh.
-func (w *Wrapper) SetFolderError(id string, err error) {
-	w.mut.Lock()
-	defer w.mut.Unlock()
-
-	w.folderMap = nil
-
-	for i := range w.cfg.Folders {
-		if w.cfg.Folders[i].ID == id {
-			errstr := ""
-			if err != nil {
-				errstr = err.Error()
-			}
-			if errstr != w.cfg.Folders[i].Invalid {
-				w.cfg.Folders[i].Invalid = errstr
-				events.Default.Log(events.ConfigSaved, w.cfg)
-				w.replaces <- w.cfg.Copy()
-			}
-			return
-		}
-	}
-}
-
 // Returns whether or not connection attempts from the given device should be
 // silently ignored.
 func (w *Wrapper) IgnoredDevice(id protocol.DeviceID) bool {

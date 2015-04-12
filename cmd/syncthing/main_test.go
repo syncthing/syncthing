@@ -42,6 +42,7 @@ func TestFolderErrors(t *testing.T) {
 
 	m := model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
 	m.AddFolder(fcfg)
+	m.StartFolderRW("folder")
 
 	if err := m.CheckFolderHealth("folder"); err != nil {
 		t.Error("Unexpected error", cfg.Folders()["folder"].Invalid)
@@ -69,6 +70,7 @@ func TestFolderErrors(t *testing.T) {
 
 	m = model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
 	m.AddFolder(fcfg)
+	m.StartFolderRW("folder")
 
 	if err := m.CheckFolderHealth("folder"); err != nil {
 		t.Error("Unexpected error", cfg.Folders()["folder"].Invalid)
@@ -90,8 +92,9 @@ func TestFolderErrors(t *testing.T) {
 
 	m = model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
 	m.AddFolder(fcfg)
+	m.StartFolderRW("folder")
 
-	if err := m.CheckFolderHealth("folder"); err == nil || err.Error() != "Folder marker missing" {
+	if err := m.CheckFolderHealth("folder"); err == nil || err.Error() != "folder marker missing" {
 		t.Error("Incorrect error: Folder marker missing !=", m.CheckFolderHealth("folder"))
 	}
 
@@ -117,8 +120,9 @@ func TestFolderErrors(t *testing.T) {
 
 	m = model.NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
 	m.AddFolder(fcfg)
+	m.StartFolderRW("folder")
 
-	if err := m.CheckFolderHealth("folder"); err == nil || err.Error() != "Folder path missing" {
+	if err := m.CheckFolderHealth("folder"); err == nil || err.Error() != "folder path missing" {
 		t.Error("Incorrect error: Folder path missing !=", m.CheckFolderHealth("folder"))
 	}
 
@@ -126,7 +130,7 @@ func TestFolderErrors(t *testing.T) {
 
 	os.Mkdir("testdata/testfolder", 0700)
 
-	if err := m.CheckFolderHealth("folder"); err == nil || err.Error() != "Folder marker missing" {
+	if err := m.CheckFolderHealth("folder"); err == nil || err.Error() != "folder marker missing" {
 		t.Error("Incorrect error: Folder marker missing !=", m.CheckFolderHealth("folder"))
 	}
 

@@ -193,9 +193,9 @@
                       <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder Path</span></th>
                       <td class="text-right">{{folder.path}}</td>
                     </tr>
-                    <tr ng-if="model[folder.id].invalid">
+                    <tr ng-if="model[folder.id].invalid || model[folder.id].error">
                       <th><span class="glyphicon glyphicon-warning-sign"></span>&emsp;<span translate>Error</span></th>
-                      <td class="text-right">{{model[folder.id].invalid}}</td>
+                      <td class="text-right">{{model[folder.id].invalid || model[folder.id].error}}</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global State</span></th>

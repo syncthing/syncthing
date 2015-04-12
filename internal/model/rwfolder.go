@@ -245,8 +245,8 @@ func (p *rwFolder) Serve() {
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by SetFolderError
-				p.model.cfg.SetFolderError(p.folder, err)
+				// duplicate set is handled by setError.
+				p.setError(err)
 				rescheduleScan()
 				continue
 			}

@@ -461,8 +461,12 @@ angular.module('syncthing.core')
                 return 'unshared';
             }
 
-            if ($scope.model[folderCfg.id].invalid !== '') {
+            if ($scope.model[folderCfg.id].invalid) {
                 return 'stopped';
+            }
+
+            if ($scope.model[folderCfg.id].state == 'error') {
+                return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
 
             return '' + $scope.model[folderCfg.id].state;
@@ -493,6 +497,9 @@ angular.module('syncthing.core')
             }
             if (state == 'scanning') {
                 return 'primary';
+            }
+            if (state == 'error') {
+                return 'danger';
             }
             return 'info';
         };
