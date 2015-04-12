@@ -32,8 +32,23 @@ angular.module('syncthing.core')
             }
 
             function autoConfigLocale() {
+                // Feature detect localStorage; https://mathiasbynens.be/notes/localstorage-pattern
+                var storage;
+                var fail;
+                var uid;
+                try {
+                    uid = new Date;
+                    (storage = window.localStorage).setItem(uid, uid);
+                    fail = storage.getItem(uid) != uid;
+                    storage.removeItem(uid);
+                    fail && (storage = false);
+                } catch (exception) {}
+
                 var params = $location.search();
-                var savedLang = typeof(localStorage) != 'undefined' && localStorage[_SYNLANG];
+                var savedLang;
+                if (storage) {
+                    savedLang = storage[_SYNLANG];
+                }
 
                 if(params.lang) {
                     useLocale(params.lang, true);
