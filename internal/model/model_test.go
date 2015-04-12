@@ -621,21 +621,25 @@ func TestROScanRecovery(t *testing.T) {
 			if time.Now().After(timeout) {
 				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
 			}
-			if m.cfg.Folders()["default"].Invalid == status {
+			_, _, err := m.State("default")
+			if err == nil && status == "" {
+				return nil
+			}
+			if err != nil && err.Error() == status {
 				return nil
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
 
-	if err := waitFor("Folder path missing"); err != nil {
+	if err := waitFor("folder path missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
 	os.Mkdir(fcfg.RawPath, 0700)
 
-	if err := waitFor("Folder marker missing"); err != nil {
+	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
@@ -654,14 +658,14 @@ func TestROScanRecovery(t *testing.T) {
 
 	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
 
-	if err := waitFor("Folder marker missing"); err != nil {
+	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
 	os.Remove(fcfg.RawPath)
 
-	if err := waitFor("Folder path missing"); err != nil {
+	if err := waitFor("folder path missing"); err != nil {
 		t.Error(err)
 		return
 	}
@@ -701,21 +705,25 @@ func TestRWScanRecovery(t *testing.T) {
 			if time.Now().After(timeout) {
 				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
 			}
-			if m.cfg.Folders()["default"].Invalid == status {
+			_, _, err := m.State("default")
+			if err == nil && status == "" {
+				return nil
+			}
+			if err != nil && err.Error() == status {
 				return nil
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
 
-	if err := waitFor("Folder path missing"); err != nil {
+	if err := waitFor("folder path missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
 	os.Mkdir(fcfg.RawPath, 0700)
 
-	if err := waitFor("Folder marker missing"); err != nil {
+	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
@@ -734,14 +742,14 @@ func TestRWScanRecovery(t *testing.T) {
 
 	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
 
-	if err := waitFor("Folder marker missing"); err != nil {
+	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
 	os.Remove(fcfg.RawPath)
 
-	if err := waitFor("Folder path missing"); err != nil {
+	if err := waitFor("folder path missing"); err != nil {
 		t.Error(err)
 		return
 	}

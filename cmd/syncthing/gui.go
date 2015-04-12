@@ -354,7 +354,12 @@ func folderSummary(m *model.Model, folder string) map[string]interface{} {
 
 	res["inSyncFiles"], res["inSyncBytes"] = globalFiles-needFiles, globalBytes-needBytes
 
-	res["state"], res["stateChanged"] = m.State(folder)
+	var err error
+	res["state"], res["stateChanged"], err = m.State(folder)
+	if err != nil {
+		res["error"] = err.Error()
+	}
+
 	res["version"] = m.CurrentLocalVersion(folder) + m.RemoteLocalVersion(folder)
 
 	ignorePatterns, _, _ := m.GetIgnores(folder)

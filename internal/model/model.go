@@ -48,8 +48,9 @@ type service interface {
 	Jobs() ([]string, []string) // In progress, Queued
 	BringToFront(string)
 
-	setState(folderState)
-	getState() (folderState, time.Time)
+	setState(state folderState)
+	setError(err error)
+	getState() (folderState, time.Time, error)
 }
 
 type Model struct {
@@ -1083,13 +1084,13 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 
 func (m *Model) ScanFolders() map[string]error {
 	m.fmut.RLock()
-	var folders = make([]string, 0, len(m.folderCfgs))
+	folders := make([]string, 0, len(m.folderCfgs))
 	for folder := range m.folderCfgs {
 		folders = append(folders, folder)
 	}
 	m.fmut.RUnlock()
 
-	var errors = make(map[string]error, len(m.folderCfgs))
+	errors := make(map[string]error, len(m.folderCfgs))
 	var errorsMut sync.Mutex
 
 	var wg sync.WaitGroup
@@ -1102,11 +1103,15 @@ func (m *Model) ScanFolders() map[string]error {
 				errorsMut.Lock()
 				errors[folder] = err
 				errorsMut.Unlock()
+
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by SetFolderError
-				m.cfg.SetFolderError(folder, err)
+				// duplicate set is handled by setError.
+				m.fmut.RLock()
+				srv := m.folderRunners[folder]
+				m.fmut.RUnlock()
+				srv.setError(err)
 			}
 			wg.Done()
 		}()
@@ -1182,13 +1187,13 @@ nextSub:
 	}
 
 	runner.setState(FolderScanning)
-	defer runner.setState(FolderIdle)
-	fchan, err := w.Walk()
 
+	fchan, err := w.Walk()
 	if err != nil {
-		m.cfg.SetFolderError(folder, err)
+		runner.setError(err)
 		return err
 	}
+
 	batchSize := 100
 	batch := make([]protocol.FileInfo, 0, batchSize)
 	for f := range fchan {
@@ -1298,6 +1303,7 @@ nextSub:
 		fs.Update(protocol.LocalDeviceID, batch)
 	}
 
+	runner.setState(FolderIdle)
 	return nil
 }
 
@@ -1340,15 +1346,18 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 	return cm
 }
 
-func (m *Model) State(folder string) (string, time.Time) {
+func (m *Model) State(folder string) (string, time.Time, error) {
 	m.fmut.RLock()
 	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
 	if !ok {
-		return "", time.Time{}
+		// The returned error should be an actual folder error, so returning
+		// errors.New("does not exist") or similar here would be
+		// inappropriate.
+		return "", time.Time{}, nil
 	}
-	state, changed := runner.getState()
-	return state.String(), changed
+	state, changed, err := runner.getState()
+	return state.String(), changed, err
 }
 
 func (m *Model) Override(folder string) {
@@ -1528,7 +1537,7 @@ func (m *Model) BringToFront(folder, file string) {
 func (m *Model) CheckFolderHealth(id string) error {
 	folder, ok := m.cfg.Folders()[id]
 	if !ok {
-		return errors.New("Folder does not exist")
+		return errors.New("folder does not exist")
 	}
 
 	fi, err := os.Stat(folder.Path())
@@ -1538,9 +1547,9 @@ func (m *Model) CheckFolderHealth(id string) error {
 		// that all files have been deleted which might not be the case,
 		// so mark it as invalid instead.
 		if err != nil || !fi.IsDir() {
-			err = errors.New("Folder path missing")
+			err = errors.New("folder path missing")
 		} else if !folder.HasMarker() {
-			err = errors.New("Folder marker missing")
+			err = errors.New("folder marker missing")
 		}
 	} else if os.IsNotExist(err) {
 		// If we don't have any files in the index, and the directory
@@ -1555,35 +1564,21 @@ func (m *Model) CheckFolderHealth(id string) error {
 		err = folder.CreateMarker()
 	}
 
-	if err == nil {
-		if folder.Invalid != "" {
-			l.Infof("Starting folder %q after error %q", folder.ID, folder.Invalid)
-			m.cfg.SetFolderError(id, nil)
+	m.fmut.RLock()
+	runner := m.folderRunners[folder.ID]
+	m.fmut.RUnlock()
+	_, _, oldErr := runner.getState()
+
+	if err != nil {
+		if oldErr != nil && oldErr.Error() != err.Error() {
+			l.Infof("Folder %q error changed: %q -> %q", folder.ID, oldErr, err)
+		} else if oldErr == nil {
+			l.Warnf("Stopping folder %q - %v", folder.ID, err)
 		}
-
-		if folder, ok := m.cfg.Folders()[id]; !ok || folder.Invalid != "" {
-			panic("Unable to unset folder \"" + id + "\" error.")
-		}
-
-		return nil
-	}
-
-	if folder.Invalid == err.Error() {
-		return err
-	}
-
-	// folder is a copy of the original struct, hence Invalid value is
-	// preserved after the set.
-	m.cfg.SetFolderError(id, err)
-
-	if folder.Invalid == "" {
-		l.Warnf("Stopping folder %q - %v", folder.ID, err)
-	} else {
-		l.Infof("Folder %q error changed: %q -> %q", folder.ID, folder.Invalid, err)
-	}
-
-	if folder, ok := m.cfg.Folders()[id]; !ok || folder.Invalid != err.Error() {
-		panic("Unable to set folder \"" + id + "\" error.")
+		runner.setError(err)
+	} else if oldErr != nil {
+		l.Infof("Folder %q error is cleared, restarting", folder.ID)
+		runner.setState(FolderIdle)
 	}
 
 	return err
