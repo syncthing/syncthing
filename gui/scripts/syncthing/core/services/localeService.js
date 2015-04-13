@@ -18,6 +18,20 @@ angular.module('syncthing.core')
             _availableLocales = locales;
         };
 
+        function isLocalStorageEnabled () {
+            // Feature detect localStorage; https://mathiasbynens.be/notes/localstorage-pattern
+            try {
+                var uid = new Date();
+                var storage = window.localStorage;
+                storage.setItem(uid, uid);
+                var success = storage.getItem(uid) == uid;
+                storage.removeItem(uid);
+                return success;
+            } catch (exception) {
+                return false;
+            }
+        }
+
         this.$get = ['$http', '$translate', '$location', function ($http, $translate, $location) {
 
             /**
@@ -32,22 +46,10 @@ angular.module('syncthing.core')
             }
 
             function autoConfigLocale() {
-                // Feature detect localStorage; https://mathiasbynens.be/notes/localstorage-pattern
-                var storage;
-                var fail;
-                var uid;
-                try {
-                    uid = new Date;
-                    (storage = window.localStorage).setItem(uid, uid);
-                    fail = storage.getItem(uid) != uid;
-                    storage.removeItem(uid);
-                    fail && (storage = false);
-                } catch (exception) {}
-
                 var params = $location.search();
                 var savedLang;
-                if (storage) {
-                    savedLang = storage[_SYNLANG];
+                if (isLocalStorageEnabled()) {
+                    savedLang = localStorage[_SYNLANG];
                 }
 
                 if(params.lang) {
@@ -99,7 +101,7 @@ angular.module('syncthing.core')
             function useLocale(language, save2Storage) {
                 if (language) {
                    $translate.use(language).then(function () {
-                       if (save2Storage && typeof(localStorage) != 'undefined')
+                       if (save2Storage && isLocalStorageEnabled())
                             localStorage[_SYNLANG] = language;
                     });
                 }
