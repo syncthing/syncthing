@@ -60,7 +60,7 @@ func init() {
 		return
 	}
 
-	stat, err := os.Lstat(path)
+	stat, err := osutil.Lstat(path)
 	if err != nil || stat.Mode()&os.ModeSymlink == 0 {
 		return
 	}

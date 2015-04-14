@@ -499,7 +499,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
-	info, err := os.Lstat(realName)
+	info, err := osutil.Lstat(realName)
 	switch {
 	// There is already something under that name, but it's a file/link.
 	// Most likely a file/link is getting replaced with a directory.
@@ -1044,7 +1044,7 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 
 	// If the target path is a symlink or a directory, we cannot copy
 	// over it, hence remove it before proceeding.
-	stat, err := os.Lstat(state.realName)
+	stat, err := osutil.Lstat(state.realName)
 	if err == nil && (stat.IsDir() || stat.Mode()&os.ModeSymlink != 0) {
 		osutil.InWritableDir(os.Remove, state.realName)
 	}

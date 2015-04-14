@@ -17,6 +17,7 @@ import (
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/ignore"
+	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/symlinks"
 	"golang.org/x/text/unicode/norm"
 )
@@ -193,7 +194,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 			// We will attempt to normalize it.
 			normalizedPath := filepath.Join(w.Dir, normalizedRn)
-			if _, err := os.Lstat(normalizedPath); os.IsNotExist(err) {
+			if _, err := osutil.Lstat(normalizedPath); os.IsNotExist(err) {
 				// Nothing exists with the normalized filename. Good.
 				if err = os.Rename(p, normalizedPath); err != nil {
 					l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, rn, err)
@@ -356,7 +357,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 }
 
 func checkDir(dir string) error {
-	if info, err := os.Lstat(dir); err != nil {
+	if info, err := osutil.Lstat(dir); err != nil {
 		return err
 	} else if !info.IsDir() {
 		return errors.New(dir + ": not a directory")
