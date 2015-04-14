@@ -476,15 +476,19 @@ nextFile:
 func (p *rwFolder) handleDir(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "dir",
+		"action": "update",
 	})
+
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "dir",
+			"action": "update",
 		})
 	}()
 
@@ -555,15 +559,18 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "dir",
+		"action": "delete",
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "dir",
+			"action": "delete",
 		})
 	}()
 
@@ -590,15 +597,18 @@ func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "file",
+		"action": "delete",
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "delete",
 		})
 	}()
 
@@ -629,25 +639,31 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    source.Name,
-		"details": db.ToTruncated(source),
+		"folder": p.folder,
+		"item":   source.Name,
+		"type":   "file",
+		"action": "delete",
 	})
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    target.Name,
-		"details": db.ToTruncated(source),
+		"folder": p.folder,
+		"item":   target.Name,
+		"type":   "file",
+		"action": "update",
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   source.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "delete",
 		})
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   target.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "update",
 		})
 	}()
 
@@ -698,9 +714,10 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 // changed file.
 func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "file",
+		"action": "update",
 	})
 
 	curFile, ok := p.model.CurrentFolderFile(p.folder, file.Name)
@@ -723,6 +740,8 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "update",
 		})
 		return
 	}
@@ -994,6 +1013,8 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 			"folder": p.folder,
 			"item":   state.file.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "update",
 		})
 	}()
 
@@ -1097,6 +1118,8 @@ func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 					"folder": p.folder,
 					"item":   state.file.Name,
 					"error":  state.failed(),
+					"type":   "file",
+					"action": "update",
 				})
 			}
 			p.model.receivedFile(p.folder, state.file.Name)
