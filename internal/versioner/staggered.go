@@ -210,7 +210,7 @@ func (v Staggered) expire(versions []string) {
 	var prevAge int64
 	firstFile := true
 	for _, file := range versions {
-		fi, err := os.Lstat(file)
+		fi, err := osutil.Lstat(file)
 		if err != nil {
 			l.Warnln("versioner:", err)
 			continue
@@ -281,7 +281,7 @@ func (v Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	_, err := os.Lstat(filePath)
+	_, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {
 		if debug {
 			l.Debugln("not archiving nonexistent file", filePath)

@@ -1019,7 +1019,7 @@ func cleanConfigDirectory() {
 		}
 
 		for _, file := range files {
-			info, err := os.Lstat(file)
+			info, err := osutil.Lstat(file)
 			if err != nil {
 				l.Infoln("Cleaning:", err)
 				continue

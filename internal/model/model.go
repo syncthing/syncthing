@@ -1271,7 +1271,7 @@ nextSub:
 					"size":     f.Size(),
 				})
 				batch = append(batch, nf)
-			} else if _, err := os.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
+			} else if _, err := osutil.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
 				// File has been deleted.
 
 				// We don't specifically verify that the error is
