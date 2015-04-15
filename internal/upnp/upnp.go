@@ -92,11 +92,9 @@ type upnpRoot struct {
 
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the result list is not deterministic.
-func Discover() []IGD {
+func Discover(timeout time.Duration) []IGD {
 	var result []IGD
 	l.Infoln("Starting UPnP discovery...")
-
-	timeout := 3
 
 	// Search for InternetGatewayDevice:2 devices
 	result = append(result, discover("urn:schemas-upnp-org:device:InternetGatewayDevice:2", timeout, result)...)
@@ -128,7 +126,7 @@ func Discover() []IGD {
 
 // Search for UPnP InternetGatewayDevices for <timeout> seconds, ignoring responses from any devices listed in knownDevices.
 // The order in which the devices appear in the result list is not deterministic
-func discover(deviceType string, timeout int, knownDevices []IGD) []IGD {
+func discover(deviceType string, timeout time.Duration, knownDevices []IGD) []IGD {
 	ssdp := &net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
 
 	tpl := `M-SEARCH * HTTP/1.1
@@ -138,7 +136,7 @@ Man: "ssdp:discover"
 Mx: %d
 
 `
-	searchStr := fmt.Sprintf(tpl, deviceType, timeout)
+	searchStr := fmt.Sprintf(tpl, deviceType, timeout/time.Second)
 
 	search := []byte(strings.Replace(searchStr, "\n", "\r\n", -1))
 
@@ -156,7 +154,7 @@ Mx: %d
 	}
 	defer socket.Close() // Make sure our socket gets closed
 
-	err = socket.SetDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
+	err = socket.SetDeadline(time.Now().Add(timeout))
 	if err != nil {
 		l.Infoln(err)
 		return results

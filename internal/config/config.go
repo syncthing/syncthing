@@ -229,6 +229,7 @@ type OptionsConfiguration struct {
 	UPnPEnabled             bool     `xml:"upnpEnabled" json:"upnpEnabled" default:"true"`
 	UPnPLease               int      `xml:"upnpLeaseMinutes" json:"upnpLeaseMinutes" default:"0"`
 	UPnPRenewal             int      `xml:"upnpRenewalMinutes" json:"upnpRenewalMinutes" default:"30"`
+	UPnPTimeoutS            int      `xml:"upnpTimeoutSeconds" json:"upnpTimeoutSeconds" default:"3"`
 	URAccepted              int      `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
 	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
 	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true"`

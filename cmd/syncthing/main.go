@@ -727,7 +727,7 @@ func setupUPnP() {
 		} else {
 			// Set up incoming port forwarding, if necessary and possible
 			port, _ := strconv.Atoi(portStr)
-			igds := upnp.Discover()
+			igds := upnp.Discover(time.Duration(cfg.Options().UPnPTimeoutS) * time.Second)
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
@@ -769,13 +769,15 @@ func renewUPnP(port int) {
 	for {
 		opts := cfg.Options()
 		time.Sleep(time.Duration(opts.UPnPRenewal) * time.Minute)
+		// Some values might have changed while we were sleeping
+		opts = cfg.Options()
 
 		// Make sure our IGD reference isn't nil
 		if igd == nil {
 			if debugNet {
 				l.Debugln("Undefined IGD during UPnP port renewal. Re-discovering...")
 			}
-			igds := upnp.Discover()
+			igds := upnp.Discover(time.Duration(opts.UPnPTimeoutS) * time.Second)
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
