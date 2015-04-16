@@ -2,8 +2,23 @@ angular.module('syncthing.core')
     .provider('LocaleService', function () {
         'use strict';
 
+        function detectLocalStorage() {
+            // Feature detect localStorage; https://mathiasbynens.be/notes/localstorage-pattern
+            try {
+                var uid = new Date();
+                var storage = window.localStorage;
+                storage.setItem(uid, uid);
+                var success = storage.getItem(uid) == uid;
+                storage.removeItem(uid);
+                return storage;
+            } catch (exception) {
+                return undefined;
+            }
+        }
+
         var _defaultLocale,
-            _availableLocales;
+            _availableLocales,
+            _localStorage = detectLocalStorage();
 
         var _SYNLANG = "SYN_LANG"; // const key for localStorage
 
@@ -18,19 +33,6 @@ angular.module('syncthing.core')
             _availableLocales = locales;
         };
 
-        function isLocalStorageEnabled () {
-            // Feature detect localStorage; https://mathiasbynens.be/notes/localstorage-pattern
-            try {
-                var uid = new Date();
-                var storage = window.localStorage;
-                storage.setItem(uid, uid);
-                var success = storage.getItem(uid) == uid;
-                storage.removeItem(uid);
-                return success;
-            } catch (exception) {
-                return false;
-            }
-        }
 
         this.$get = ['$http', '$translate', '$location', function ($http, $translate, $location) {
 
@@ -48,8 +50,8 @@ angular.module('syncthing.core')
             function autoConfigLocale() {
                 var params = $location.search();
                 var savedLang;
-                if (isLocalStorageEnabled()) {
-                    savedLang = localStorage[_SYNLANG];
+                if (_localStorage) {
+                    savedLang = _localStorage[_SYNLANG];
                 }
 
                 if(params.lang) {
@@ -101,8 +103,8 @@ angular.module('syncthing.core')
             function useLocale(language, save2Storage) {
                 if (language) {
                    $translate.use(language).then(function () {
-                       if (save2Storage && isLocalStorageEnabled())
-                            localStorage[_SYNLANG] = language;
+                       if (save2Storage && _localStorage)
+                            _localStorage[_SYNLANG] = language;
                     });
                 }
             }
