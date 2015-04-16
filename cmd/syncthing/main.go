@@ -727,7 +727,7 @@ func setupUPnP() {
 		} else {
 			// Set up incoming port forwarding, if necessary and possible
 			port, _ := strconv.Atoi(portStr)
-			igds := upnp.Discover()
+			igds := upnp.Discover(time.Duration(cfg.Options().UPnPTimeoutS) * time.Second)
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
@@ -739,7 +739,7 @@ func setupUPnP() {
 				} else {
 					l.Infof("Created UPnP port mapping for external port %d on UPnP device %s.", externalPort, igd.FriendlyIdentifier())
 
-					if opts.UPnPRenewal > 0 {
+					if opts.UPnPRenewalM > 0 {
 						go renewUPnP(port)
 					}
 				}
@@ -757,7 +757,7 @@ func setupExternalPort(igd *upnp.IGD, port int) int {
 
 	for i := 0; i < 10; i++ {
 		r := 1024 + predictableRandom.Intn(65535-1024)
-		err := igd.AddPortMapping(upnp.TCP, r, port, fmt.Sprintf("syncthing-%d", r), cfg.Options().UPnPLease*60)
+		err := igd.AddPortMapping(upnp.TCP, r, port, fmt.Sprintf("syncthing-%d", r), cfg.Options().UPnPLeaseM*60)
 		if err == nil {
 			return r
 		}
@@ -768,14 +768,16 @@ func setupExternalPort(igd *upnp.IGD, port int) int {
 func renewUPnP(port int) {
 	for {
 		opts := cfg.Options()
-		time.Sleep(time.Duration(opts.UPnPRenewal) * time.Minute)
+		time.Sleep(time.Duration(opts.UPnPRenewalM) * time.Minute)
+		// Some values might have changed while we were sleeping
+		opts = cfg.Options()
 
 		// Make sure our IGD reference isn't nil
 		if igd == nil {
 			if debugNet {
 				l.Debugln("Undefined IGD during UPnP port renewal. Re-discovering...")
 			}
-			igds := upnp.Discover()
+			igds := upnp.Discover(time.Duration(opts.UPnPTimeoutS) * time.Second)
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
@@ -790,7 +792,7 @@ func renewUPnP(port int) {
 
 		// Just renew the same port that we already have
 		if externalPort != 0 {
-			err := igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", opts.UPnPLease*60)
+			err := igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", opts.UPnPLeaseM*60)
 			if err != nil {
 				l.Warnf("Error renewing UPnP port mapping for external port %d on device %s: %s", externalPort, igd.FriendlyIdentifier(), err.Error())
 			} else if debugNet {
