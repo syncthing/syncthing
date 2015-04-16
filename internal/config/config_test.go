@@ -341,8 +341,8 @@ func TestWindowsPaths(t *testing.T) {
 	folder.RawPath = `relative\path`
 	expected = folder.RawPath
 	actual = folder.Path()
-	if actual != expected {
-		t.Errorf("%q != %q", actual, expected)
+	if actual == expected || !strings.HasPrefix(actual, "\\\\?\\") {
+		t.Errorf("%q == %q, expected absolutification", actual, expected)
 	}
 }
 
