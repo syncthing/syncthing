@@ -509,7 +509,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 	// Most likely a file/link is getting replaced with a directory.
 	// Remove the file/link and fall through to directory creation.
 	case err == nil && (!info.IsDir() || info.Mode()&os.ModeSymlink != 0):
-		err = osutil.InWritableDir(os.Remove, realName)
+		err = osutil.InWritableDir(osutil.Remove, realName)
 		if err != nil {
 			l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
 			return
@@ -581,11 +581,11 @@ func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 		files, _ := dir.Readdirnames(-1)
 		for _, file := range files {
 			if defTempNamer.IsTemporary(file) {
-				osutil.InWritableDir(os.Remove, filepath.Join(realName, file))
+				osutil.InWritableDir(osutil.Remove, filepath.Join(realName, file))
 			}
 		}
 	}
-	err = osutil.InWritableDir(os.Remove, realName)
+	err = osutil.InWritableDir(osutil.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
 		p.dbUpdates <- file
 	} else {
@@ -624,7 +624,7 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 	} else if p.versioner != nil {
 		err = osutil.InWritableDir(p.versioner.Archive, realName)
 	} else {
-		err = osutil.InWritableDir(os.Remove, realName)
+		err = osutil.InWritableDir(osutil.Remove, realName)
 	}
 
 	if err != nil && !os.IsNotExist(err) {
@@ -700,7 +700,7 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 		// get rid of. Attempt to delete it instead so that we make *some*
 		// progress. The target is unhandled.
 
-		err = osutil.InWritableDir(os.Remove, from)
+		err = osutil.InWritableDir(osutil.Remove, from)
 		if err != nil {
 			l.Infof("Puller (folder %q, file %q): delete %q after failed rename: %v", p.folder, target.Name, source.Name, err)
 			return
@@ -1067,7 +1067,7 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 	// over it, hence remove it before proceeding.
 	stat, err := osutil.Lstat(state.realName)
 	if err == nil && (stat.IsDir() || stat.Mode()&os.ModeSymlink != 0) {
-		osutil.InWritableDir(os.Remove, state.realName)
+		osutil.InWritableDir(osutil.Remove, state.realName)
 	}
 	// Replace the original content with the new one
 	err = osutil.Rename(state.tempName, state.realName)

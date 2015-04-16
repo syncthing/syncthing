@@ -88,6 +88,20 @@ func InWritableDir(fn func(string) error, path string) error {
 	return fn(path)
 }
 
+// On Windows, removes the read-only attribute from the target prior deletion.
+func Remove(path string) error {
+	if runtime.GOOS == "windows" {
+		info, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+		if info.Mode()&0200 == 0 {
+			os.Chmod(path, 0700)
+		}
+	}
+	return os.Remove(path)
+}
+
 func ExpandTilde(path string) (string, error) {
 	if path == "~" {
 		return getHomeDir()
