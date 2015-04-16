@@ -175,7 +175,9 @@ Mx: %d
 
 	socket, err := net.ListenMulticastUDP("udp4", intf, &net.UDPAddr{IP: ssdp.IP})
 	if err != nil {
-		l.Infoln(err)
+		if debug {
+			l.Debugln(err)
+		}
 		return
 	}
 	defer socket.Close() // Make sure our socket gets closed
@@ -206,13 +208,13 @@ Mx: %d
 		n, _, err := socket.ReadFrom(resp)
 		if err != nil {
 			if e, ok := err.(net.Error); !ok || !e.Timeout() {
-				l.Infoln(err) //legitimate error, not a timeout.
+				l.Infoln("UPnP read:", err) //legitimate error, not a timeout.
 			}
 			break
 		}
 		igd, err := parseResponse(deviceType, resp[:n])
 		if err != nil {
-			l.Infoln(err)
+			l.Infoln("UPnP parse:", err)
 			continue
 		}
 		results <- igd
