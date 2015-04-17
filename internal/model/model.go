@@ -1194,18 +1194,24 @@ nextSub:
 		return err
 	}
 
-	batchSize := 100
-	batch := make([]protocol.FileInfo, 0, batchSize)
+	batchSizeFiles := 100
+	batchSizeBlocks := 2048 // about 256 MB
+
+	batch := make([]protocol.FileInfo, 0, batchSizeFiles)
+	blocksHandled := 0
+
 	for f := range fchan {
-		if len(batch) == batchSize {
+		if len(batch) == batchSizeFiles || blocksHandled > batchSizeBlocks {
 			if err := m.CheckFolderHealth(folder); err != nil {
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 				return err
 			}
 			m.updateLocals(folder, batch)
 			batch = batch[:0]
+			blocksHandled = 0
 		}
 		batch = append(batch, f)
+		blocksHandled += len(f.Blocks)
 	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
@@ -1240,7 +1246,7 @@ nextSub:
 				return true
 			}
 
-			if len(batch) == batchSize {
+			if len(batch) == batchSizeFiles {
 				m.updateLocals(folder, batch)
 				batch = batch[:0]
 			}
