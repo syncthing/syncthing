@@ -78,4 +78,5 @@ func TestReadOnlyDir(t *testing.T) {
 	}
 
 	s.fail("Test done", nil)
+	s.finalClose()
 }

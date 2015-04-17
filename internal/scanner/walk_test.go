@@ -203,6 +203,14 @@ func TestNormalization(t *testing.T) {
 		"5-\xCD\xE2",     // EUC-CN "wài" (外) -- ignored (not UTF8)
 	}
 	numInvalid := 2
+
+	if runtime.GOOS == "windows" {
+		// On Windows, in case 5 the character gets replaced with a
+		// replacement character \xEF\xBF\xBD at the point it's written to disk,
+		// which means it suddenly becomes valid (sort of).
+		numInvalid--
+	}
+
 	numValid := len(tests) - numInvalid
 
 	for _, s1 := range tests {

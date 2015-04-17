@@ -69,7 +69,9 @@ var testcases = []testcase{
 
 func TestMatch(t *testing.T) {
 	switch runtime.GOOS {
-	case "windows", "darwin":
+	case "windows":
+		testcases = append(testcases, testcase{"foo.txt", "foo.TXT", 0, true})
+	case "darwin":
 		testcases = append(testcases, testcase{"foo.txt", "foo.TXT", 0, true})
 		fallthrough
 	default:
