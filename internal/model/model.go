@@ -1035,8 +1035,8 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	m.fmut.RUnlock()
 
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-		"folder":   folder,
-		"numFiles": len(fs),
+		"folder": folder,
+		"items":  len(fs),
 	})
 }
 
@@ -1197,19 +1197,12 @@ nextSub:
 	batchSize := 100
 	batch := make([]protocol.FileInfo, 0, batchSize)
 	for f := range fchan {
-		events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-			"folder":   folder,
-			"name":     f.Name,
-			"modified": time.Unix(f.Modified, 0),
-			"flags":    fmt.Sprintf("0%o", f.Flags),
-			"size":     f.Size(),
-		})
 		if len(batch) == batchSize {
 			if err := m.CheckFolderHealth(folder); err != nil {
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 				return err
 			}
-			fs.Update(protocol.LocalDeviceID, batch)
+			m.updateLocals(folder, batch)
 			batch = batch[:0]
 		}
 		batch = append(batch, f)
@@ -1248,7 +1241,7 @@ nextSub:
 			}
 
 			if len(batch) == batchSize {
-				fs.Update(protocol.LocalDeviceID, batch)
+				m.updateLocals(folder, batch)
 				batch = batch[:0]
 			}
 
@@ -1263,13 +1256,6 @@ nextSub:
 					Modified: f.Modified,
 					Version:  f.Version, // The file is still the same, so don't bump version
 				}
-				events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-					"folder":   folder,
-					"name":     f.Name,
-					"modified": time.Unix(f.Modified, 0),
-					"flags":    fmt.Sprintf("0%o", f.Flags),
-					"size":     f.Size(),
-				})
 				batch = append(batch, nf)
 			} else if _, err := osutil.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
 				// File has been deleted.
@@ -1287,20 +1273,13 @@ nextSub:
 					Modified: f.Modified,
 					Version:  f.Version.Update(m.shortID),
 				}
-				events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-					"folder":   folder,
-					"name":     f.Name,
-					"modified": time.Unix(f.Modified, 0),
-					"flags":    fmt.Sprintf("0%o", f.Flags),
-					"size":     f.Size(),
-				})
 				batch = append(batch, nf)
 			}
 		}
 		return true
 	})
 	if len(batch) > 0 {
-		fs.Update(protocol.LocalDeviceID, batch)
+		m.updateLocals(folder, batch)
 	}
 
 	runner.setState(FolderIdle)
