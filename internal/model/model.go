@@ -769,15 +769,23 @@ func (m *Model) ReplaceLocal(folder string, fs []protocol.FileInfo) {
 
 func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
 	m.fmut.RLock()
-	f, ok := m.folderFiles[folder].Get(protocol.LocalDeviceID, file)
+	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
+	if !ok {
+		return protocol.FileInfo{}, false
+	}
+	f, ok := fs.Get(protocol.LocalDeviceID, file)
 	return f, ok
 }
 
 func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool) {
 	m.fmut.RLock()
-	f, ok := m.folderFiles[folder].GetGlobal(file)
+	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
+	if !ok {
+		return protocol.FileInfo{}, false
+	}
+	f, ok := fs.GetGlobal(file)
 	return f, ok
 }
 
@@ -1347,9 +1355,12 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 
 func (m *Model) Override(folder string) {
 	m.fmut.RLock()
-	fs := m.folderFiles[folder]
+	fs, ok := m.folderFiles[folder]
 	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
+	if !ok {
+		return
+	}
 
 	runner.setState(FolderScanning)
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
