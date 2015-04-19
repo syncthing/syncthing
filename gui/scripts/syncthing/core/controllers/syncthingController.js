@@ -981,7 +981,7 @@ angular.module('syncthing.core')
         $scope.addFolderAndShare = function (folder, device) {
             $scope.dismissFolderRejection(folder, device);
             $scope.currentFolder = {
-                ID: folder,
+                id: folder,
                 selectedDevices: {}
             };
             $scope.currentFolder.selectedDevices[device] = true;
