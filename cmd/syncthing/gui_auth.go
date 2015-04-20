@@ -42,6 +42,10 @@ func basicAuthAndSessionMiddleware(cfg config.GUIConfiguration, next http.Handle
 			}
 		}
 
+		if debugHTTP {
+			l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
+		}
+
 		error := func() {
 			time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
 			w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
