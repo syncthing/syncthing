@@ -14,7 +14,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -775,7 +774,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		}
 	}
 
-	filedata := []int64{0x666, 0xa}
+	filedata := []interface{}{time.Unix(0x666, 0), 0xa}
 
 	testdata := []protocol.FileInfo{
 		b(false, "another"),
@@ -847,13 +846,13 @@ func TestGlobalDirectoryTree(t *testing.T) {
 
 	result := m.GlobalDirectoryTree("default", "", -1, false)
 
-	if !reflect.DeepEqual(result, expectedResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult))
+	if mm(result) != mm(expectedResult) {
+		t.Errorf("Does not match:\n%#v\n%#v", result, expectedResult)
 	}
 
 	result = m.GlobalDirectoryTree("default", "another", -1, false)
 
-	if !reflect.DeepEqual(result, expectedResult["another"]) {
+	if mm(result) != mm(expectedResult["another"]) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult["another"]))
 	}
 
@@ -865,7 +864,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"rootfile": filedata,
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -886,7 +885,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"rootfile": filedata,
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -916,7 +915,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -935,7 +934,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -945,7 +944,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"file":      filedata,
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -954,7 +953,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"with": map[string]interface{}{},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -965,7 +964,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -978,7 +977,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -991,7 +990,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -999,7 +998,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	result = m.GlobalDirectoryTree("default", "som", -1, false)
 	currentResult = map[string]interface{}{}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 }
@@ -1024,7 +1023,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		}
 	}
 
-	filedata := []int64{0x666, 0xa}
+	filedata := []interface{}{time.Unix(0x666, 0).Format(time.RFC3339), 0xa}
 
 	testdata := []protocol.FileInfo{
 		b(true, "another", "directory", "afile"),
@@ -1105,7 +1104,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 
 	result := m.GlobalDirectoryTree("default", "", -1, false)
 
-	if !reflect.DeepEqual(result, expectedResult) {
+	if mm(result) != mm(expectedResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult))
 	}
 
@@ -1116,7 +1115,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -1125,7 +1124,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		"invalid": map[string]interface{}{},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -1134,7 +1133,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 	result = m.GlobalDirectoryTree("default", "xthis", 1, false)
 	currentResult = map[string]interface{}{}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 }

@@ -1482,8 +1482,8 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		}
 
 		if !dirsonly && base != "" {
-			last[base] = []int64{
-				f.Modified, f.Size(),
+			last[base] = []interface{}{
+				time.Unix(f.Modified, 0), f.Size(),
 			}
 		}
 
