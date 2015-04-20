@@ -52,7 +52,7 @@ function deviceCompare(a, b) {
     if (typeof a.name !== 'undefined' && typeof b.name !== 'undefined') {
         if (a.name < b.name)
             return -1;
-        return a.name > b.bame;
+        return a.name > b.name;
     }
     if (a.deviceID < b.deviceID) {
         return -1;
