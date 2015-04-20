@@ -57,14 +57,12 @@ var (
 	lastEventRequestMut sync.Mutex
 )
 
-func init() {
+func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
+	var err error
+
 	l.AddHandler(logger.LevelWarn, showGuiError)
 	sub := events.Default.Subscribe(events.AllEvents)
 	eventSub = events.NewBufferedSubscription(sub, 1000)
-}
-
-func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
-	var err error
 
 	cert, err := tls.LoadX509KeyPair(locations[locHTTPSCertFile], locations[locHTTPSKeyFile])
 	if err != nil {
