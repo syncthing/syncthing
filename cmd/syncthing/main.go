@@ -78,10 +78,15 @@ func init() {
 		}
 	}
 
-	// Check for a clean release build.
-	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-beta[\d\.]+)?$`)
+	// Check for a clean release build. A release is something like "v0.1.2",
+	// with an optional suffix of letters and dot separated numbers like
+	// "-beta3.47". If there's more stuff, like a plus sign and a commit hash
+	// and so on, then it's not a release. If there's a dash anywhere in
+	// there, it's some kind of beta or prerelease version.
+
+	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z]+[\d\.]+)?$`)
 	IsRelease = exp.MatchString(Version)
-	IsBeta = strings.Contains(Version, "beta")
+	IsBeta = strings.Contains(Version, "-")
 
 	stamp, _ := strconv.Atoi(BuildStamp)
 	BuildDate = time.Unix(int64(stamp), 0)
