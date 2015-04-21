@@ -109,7 +109,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	// The GET handlers
 	getRestMux := http.NewServeMux()
 	getRestMux.HandleFunc("/rest/db/completion", withModel(m, restGetDBCompletion))           // device folder
-	getRestMux.HandleFunc("/rest/db/file", withModel(m, restGetDBFile))                       // folder file [blocks]
+	getRestMux.HandleFunc("/rest/db/file", withModel(m, restGetDBFile))                       // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", withModel(m, restGetDBIgnores))                 // folder
 	getRestMux.HandleFunc("/rest/db/need", withModel(m, restGetDBNeed))                       // folder
 	getRestMux.HandleFunc("/rest/db/status", withModel(m, restGetDBStatus))                   // folder
@@ -384,7 +384,7 @@ func restGetDBNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 	progress, queued, rest := m.NeedFolderFiles(folder, 100)
 	// Convert the struct to a more loose structure, and inject the size.
-	output := map[string][]map[string]interface{}{
+	output := map[string][]jsonDBFileInfo{
 		"progress": toNeedSlice(progress),
 		"queued":   toNeedSlice(queued),
 		"rest":     toNeedSlice(rest),
@@ -416,19 +416,13 @@ func restGetDBFile(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	file := qs.Get("file")
-	withBlocks := qs.Get("blocks") != ""
 	gf, _ := m.CurrentGlobalFile(folder, file)
 	lf, _ := m.CurrentFolderFile(folder, file)
 
-	if !withBlocks {
-		gf.Blocks = nil
-		lf.Blocks = nil
-	}
-
 	av := m.Availability(folder, file)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"global":       gf,
-		"local":        lf,
+		"global":       jsonFileInfo(gf),
+		"local":        jsonFileInfo(lf),
 		"availability": av,
 	})
 }
@@ -910,17 +904,49 @@ func mimeTypeForFile(file string) string {
 	}
 }
 
-func toNeedSlice(fs []db.FileInfoTruncated) []map[string]interface{} {
-	output := make([]map[string]interface{}, len(fs))
-	for i, file := range fs {
-		output[i] = map[string]interface{}{
-			"name":         file.Name,
-			"flags":        file.Flags,
-			"modified":     file.Modified,
-			"version":      file.Version,
-			"localVersion": file.LocalVersion,
-			"size":         file.Size(),
-		}
+func toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
+	res := make([]jsonDBFileInfo, len(fs))
+	for i, f := range fs {
+		res[i] = jsonDBFileInfo(f)
 	}
-	return output
+	return res
+}
+
+// Type wrappers for nice JSON serialization
+
+type jsonFileInfo protocol.FileInfo
+
+func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"name":         f.Name,
+		"size":         protocol.FileInfo(f).Size(),
+		"flags":        fmt.Sprintf("%#o", f.Flags),
+		"modified":     time.Unix(f.Modified, 0),
+		"localVersion": f.LocalVersion,
+		"numBlocks":    len(f.Blocks),
+		"version":      jsonVersionVector(f.Version),
+	})
+}
+
+type jsonDBFileInfo db.FileInfoTruncated
+
+func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"name":         f.Name,
+		"size":         db.FileInfoTruncated(f).Size(),
+		"flags":        fmt.Sprintf("%#o", f.Flags),
+		"modified":     time.Unix(f.Modified, 0),
+		"localVersion": f.LocalVersion,
+		"version":      jsonVersionVector(f.Version),
+	})
+}
+
+type jsonVersionVector protocol.Vector
+
+func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
+	res := make([]string, len(v))
+	for i, c := range v {
+		res[i] = fmt.Sprintf("%d:%d", c.ID, c.Value)
+	}
+	return json.Marshal(res)
 }
