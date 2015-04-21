@@ -425,7 +425,7 @@ func restGetDBFile(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		lf.Blocks = nil
 	}
 
-	av := m.Availability(folder, file)
+	av := m.Availability(folder, file, nil)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"global":       gf,
 		"local":        lf,

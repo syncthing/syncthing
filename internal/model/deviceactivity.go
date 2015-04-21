@@ -26,18 +26,20 @@ func newDeviceActivity() *deviceActivity {
 	}
 }
 
-func (m *deviceActivity) leastBusy(availability []protocol.DeviceID) protocol.DeviceID {
+func (m *deviceActivity) leastBusy(availability map[protocol.DeviceID]uint32) (protocol.DeviceID, uint32) {
 	m.mut.Lock()
 	low := 2<<30 - 1
 	var selected protocol.DeviceID
-	for _, device := range availability {
+	var selectedFlags uint32 = 0
+	for device, flags := range availability {
 		if usage := m.act[device]; usage < low {
 			low = usage
 			selected = device
+			selectedFlags = flags
 		}
 	}
 	m.mut.Unlock()
-	return selected
+	return selected, selectedFlags
 }
 
 func (m *deviceActivity) using(device protocol.DeviceID) {

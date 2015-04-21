@@ -57,7 +57,9 @@ type Model struct {
 	cfg             *config.Wrapper
 	db              *leveldb.DB
 	finder          *db.BlockFinder
-	progressEmitter *ProgressEmitter
+	progressTracker *progressTracker
+	progressEmitter *progressEmitter
+	tempIndex       *tempIndex
 	id              protocol.DeviceID
 	shortID         uint64
 
@@ -78,7 +80,9 @@ type Model struct {
 	protoConn map[protocol.DeviceID]protocol.Connection
 	rawConn   map[protocol.DeviceID]io.Closer
 	deviceVer map[protocol.DeviceID]string
-	pmut      sync.RWMutex // protects protoConn and rawConn
+	pmut      sync.RWMutex // protects the above
+
+	features *featureSet
 
 	addedFolder bool
 	started     bool
@@ -96,7 +100,9 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		cfg:             cfg,
 		db:              ldb,
 		finder:          db.NewBlockFinder(ldb, cfg),
-		progressEmitter: NewProgressEmitter(cfg),
+		progressTracker: newProgressTracker(),
+		features:        newFeatureSet(),
+		tempIndex:       newTempIndex(),
 		id:              id,
 		shortID:         id.Short(),
 		deviceName:      deviceName,
@@ -115,6 +121,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		deviceVer:       make(map[protocol.DeviceID]string),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
+		m.progressEmitter = newProgressEmitter(m.progressTracker, cfg)
 		go m.progressEmitter.Serve()
 	}
 
@@ -364,7 +371,11 @@ func (m *Model) NeedSize(folder string) (nfiles int, bytes int64) {
 			return true
 		})
 	}
-	bytes -= m.progressEmitter.BytesCompleted(folder)
+
+	for _, state := range m.progressTracker.getActivePullersForFolder(folder) {
+		bytes -= state.Progress().BytesDone
+	}
+
 	if debug {
 		l.Debugf("%v NeedSize(%q): %d %d", m, folder, nfiles, bytes)
 	}
@@ -480,7 +491,11 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
 func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, flags uint32, options []protocol.Option) {
-	if flags != 0 {
+	switch {
+	case flags&protocol.FlagIndexTemporary != 0:
+		m.tempIndex.Update(deviceID, folder, fs)
+		return
+	case flags != 0:
 		l.Warnln("protocol error: unknown flags 0x%x in IndexUpdate message", flags)
 		return
 	}
@@ -548,6 +563,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	} else {
 		m.deviceVer[deviceID] = cm.ClientName + " " + cm.ClientVersion
 	}
+	m.features.UpdateFromString(deviceID, cm.GetOption("features"))
 
 	event := map[string]string{
 		"id":            deviceID.String(),
@@ -655,10 +671,13 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 		"error": err.Error(),
 	})
 
+	m.features.Clear(device)
+
 	m.pmut.Lock()
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
 		m.folderFiles[folder].Replace(device, nil)
+		m.tempIndex.Update(device, folder, nil)
 	}
 	m.fmut.RUnlock()
 
@@ -691,39 +710,64 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return nil, protocol.ErrNoSuchFile
 	}
 
-	if flags != 0 {
-		// We don't currently support or expect any flags.
+	var lf protocol.FileInfo
+	switch {
+	case flags&protocol.FlagRequestTemporary != 0:
+		state := m.progressTracker.getActivePullerState(folder, name)
+		if state != nil {
+			name = state.tempName
+			lf = state.file
+
+			// XXX: We should ideally check cross-block bounds, as relying on
+			// requests to be exactly one block size is a naive, given if someone
+			// implements their own client.
+			for _, block := range state.getAvailableBlocks() {
+				if block.Offset == offset && block.Size == int32(size) {
+					goto found
+				}
+			}
+			return nil, protocol.ErrNoSuchFile
+
+		}
+		if debug {
+			l.Debugf("Request from %s for nonexistent temporary file %q in folder %q", deviceID, name, folder)
+		}
+		fallthrough // The block might have been completed already.
+	case flags == 0:
+		// Verify that the requested file exists in the local model.
+		m.fmut.RLock()
+		r, ok := m.folderFiles[folder]
+		m.fmut.RUnlock()
+
+		if !ok {
+			l.Warnf("Request from %s for file %s in nonexistent folder %q", deviceID, name, folder)
+			return nil, protocol.ErrNoSuchFile
+		}
+
+		lf, ok = r.Get(protocol.LocalDeviceID, name)
+		if !ok {
+			return nil, protocol.ErrNoSuchFile
+		}
+
+		if lf.IsInvalid() || lf.IsDeleted() {
+			if debug {
+				l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, size, lf)
+			}
+			return nil, protocol.ErrInvalid
+		}
+
+		if offset > lf.Size() {
+			if debug {
+				l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, size)
+			}
+			return nil, protocol.ErrNoSuchFile
+		}
+	default:
+		// We don't currently support or expect any other flags.
 		return nil, fmt.Errorf("protocol error: unknown flags 0x%x in Request message", flags)
 	}
 
-	// Verify that the requested file exists in the local model.
-	m.fmut.RLock()
-	folderFiles, ok := m.folderFiles[folder]
-	m.fmut.RUnlock()
-
-	if !ok {
-		l.Warnf("Request from %s for file %s in nonexistent folder %q", deviceID, name, folder)
-		return nil, protocol.ErrNoSuchFile
-	}
-
-	lf, ok := folderFiles.Get(protocol.LocalDeviceID, name)
-	if !ok {
-		return nil, protocol.ErrNoSuchFile
-	}
-
-	if lf.IsInvalid() || lf.IsDeleted() {
-		if debug {
-			l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, size, lf)
-		}
-		return nil, protocol.ErrInvalid
-	}
-
-	if offset > lf.Size() {
-		if debug {
-			l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, size)
-		}
-		return nil, protocol.ErrNoSuchFile
-	}
+found:
 
 	if debug && deviceID != protocol.LocalDeviceID {
 		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
@@ -903,8 +947,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[deviceID] {
-		fs := m.folderFiles[folder]
-		go sendIndexes(protoConn, folder, fs, m.folderIgnores[folder])
+		go m.sendIndexesLoop(protoConn, deviceID, folder, m.folderFiles[folder], m.folderIgnores[folder])
 	}
 	m.fmut.RUnlock()
 	m.pmut.Unlock()
@@ -945,8 +988,7 @@ func (m *Model) receivedFile(folder, filename string) {
 	m.folderStatRef(folder).ReceivedFile(filename)
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
-	deviceID := conn.ID()
+func (m *Model) sendIndexesLoop(conn protocol.Connection, deviceID protocol.DeviceID, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
 	name := conn.Name()
 	var err error
 
@@ -956,13 +998,54 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 
 	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores)
 
-	for err == nil {
-		time.Sleep(5 * time.Second)
-		if fs.LocalVersion(protocol.LocalDeviceID) <= minLocalVer {
-			continue
-		}
+	// ProgressEmitter uses a map to hold sharedPullerState's, which causes
+	// the FileInfo slice returned by GetTemporaryIndex to have random ordering,
+	// causing reflect.DeepEqual to always return false. We tackle the issue by
+	// flattening the file slice into a map with relevant information.
 
-		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
+	lastPull := time.Time{}
+
+	if m.features.HasFeature(deviceID, FeatureTemporaryIndex) {
+		lastPull = m.progressTracker.lastPulled()
+		// Don't really care about this one failing.
+		// No need to batch it either, as it should be fairly small.
+		tempIndex := make([]protocol.FileInfo, 0)
+		for _, puller := range m.progressTracker.getActivePullersForFolder(folder) {
+			// Make a copy, and only leave blocks which are available
+			file := puller.file
+			file.Blocks = puller.getAvailableBlocks()
+			tempIndex = append(tempIndex, file)
+		}
+		conn.IndexUpdate(folder, tempIndex, protocol.FlagIndexTemporary, nil)
+	}
+
+	for err == nil {
+		select {
+		case <-time.After(time.Duration(m.cfg.Options().IndexIntervalS) * time.Second):
+			if fs.LocalVersion(protocol.LocalDeviceID) <= minLocalVer {
+				continue
+			}
+			minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
+		case <-time.After(time.Duration(m.cfg.Options().TemporaryIndexIntervalS) * time.Second):
+			if !m.features.HasFeature(deviceID, FeatureTemporaryIndex) {
+				continue
+			}
+
+			pulledAt := m.progressTracker.lastPulled()
+			if lastPull.Equal(pulledAt) {
+				continue
+			}
+			lastPull = pulledAt
+
+			tempIndex := make([]protocol.FileInfo, 0)
+			for _, puller := range m.progressTracker.getActivePullersForFolder(folder) {
+				// Make a copy, and only leave blocks which are available
+				file := puller.file
+				file.Blocks = puller.getAvailableBlocks()
+				tempIndex = append(tempIndex, file)
+			}
+			conn.IndexUpdate(folder, tempIndex, protocol.FlagIndexTemporary, nil)
+		}
 	}
 
 	if debug {
@@ -1310,6 +1393,10 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 				Key:   "name",
 				Value: m.deviceName,
 			},
+			{
+				Key:   "features",
+				Value: initFeatures(m.cfg.Options().DisabledFeatures).Marshal(),
+			},
 		},
 	}
 
@@ -1493,7 +1580,7 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 	return output
 }
 
-func (m *Model) Availability(folder, file string) []protocol.DeviceID {
+func (m *Model) Availability(folder, file string, hash []byte) map[protocol.DeviceID]uint32 {
 	// Acquire this lock first, as the value returned from foldersFiles can
 	// get heavily modified on Close()
 	m.pmut.RLock()
@@ -1506,13 +1593,18 @@ func (m *Model) Availability(folder, file string) []protocol.DeviceID {
 		return nil
 	}
 
-	availableDevices := []protocol.DeviceID{}
+	availableDevices := make(map[protocol.DeviceID]uint32)
 	for _, device := range fs.Availability(file) {
 		_, ok := m.protoConn[device]
 		if ok {
-			availableDevices = append(availableDevices, device)
+			availableDevices[device] = 0
 		}
 	}
+
+	for _, device := range m.tempIndex.Lookup(folder, file, hash) {
+		availableDevices[device] = protocol.FlagRequestTemporary
+	}
+
 	return availableDevices
 }
 

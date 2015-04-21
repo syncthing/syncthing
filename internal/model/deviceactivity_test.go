@@ -16,43 +16,27 @@ func TestDeviceActivity(t *testing.T) {
 	n0 := protocol.DeviceID([32]byte{1, 2, 3, 4})
 	n1 := protocol.DeviceID([32]byte{5, 6, 7, 8})
 	n2 := protocol.DeviceID([32]byte{9, 10, 11, 12})
-	devices := []protocol.DeviceID{n0, n1, n2}
+	devices := map[protocol.DeviceID]uint32{
+		n0: 0,
+		n1: 0,
+		n2: 0,
+	}
 	na := newDeviceActivity()
 
-	if lb := na.leastBusy(devices); lb != n0 {
-		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
-	}
-	if lb := na.leastBusy(devices); lb != n0 {
-		t.Errorf("Least busy device should still be n0 (%v) not %v", n0, lb)
-	}
-
-	na.using(na.leastBusy(devices))
-	if lb := na.leastBusy(devices); lb != n1 {
-		t.Errorf("Least busy device should be n1 (%v) not %v", n1, lb)
+	d1, _ := na.leastBusy(devices)
+	na.using(d1)
+	if lb, _ := na.leastBusy(devices); lb == d1 {
+		t.Errorf("Least busy device should not be %v", d1)
 	}
 
-	na.using(na.leastBusy(devices))
-	if lb := na.leastBusy(devices); lb != n2 {
-		t.Errorf("Least busy device should be n2 (%v) not %v", n2, lb)
+	d2, _ := na.leastBusy(devices)
+	na.using(d2)
+	if lb, _ := na.leastBusy(devices); lb == d1 || lb == d2 {
+		t.Errorf("Least busy device should not be %v or %v", d1, d2)
 	}
 
-	na.using(na.leastBusy(devices))
-	if lb := na.leastBusy(devices); lb != n0 {
-		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
-	}
-
-	na.done(n1)
-	if lb := na.leastBusy(devices); lb != n1 {
-		t.Errorf("Least busy device should be n1 (%v) not %v", n1, lb)
-	}
-
-	na.done(n2)
-	if lb := na.leastBusy(devices); lb != n1 {
-		t.Errorf("Least busy device should still be n1 (%v) not %v", n1, lb)
-	}
-
-	na.done(n0)
-	if lb := na.leastBusy(devices); lb != n0 {
-		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
+	na.done(d1)
+	if lb, _ := na.leastBusy(devices); lb == d2 {
+		t.Errorf("Least busy device should not be %v", d2)
 	}
 }

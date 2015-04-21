@@ -52,6 +52,9 @@ func TestDefaultValues(t *testing.T) {
 		ProgressUpdateIntervalS: 5,
 		SymlinksEnabled:         true,
 		LimitBandwidthInLan:     false,
+		DisabledFeatures:        []string{},
+		IndexIntervalS:          5,
+		TemporaryIndexIntervalS: 10,
 	}
 
 	cfg := New(device1)
@@ -158,6 +161,9 @@ func TestOverriddenValues(t *testing.T) {
 		ProgressUpdateIntervalS: 10,
 		SymlinksEnabled:         false,
 		LimitBandwidthInLan:     true,
+		DisabledFeatures:        []string{"A", "B"},
+		IndexIntervalS:          60,
+		TemporaryIndexIntervalS: 60,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
@@ -402,13 +408,13 @@ func TestNewSaveLoad(t *testing.T) {
 func TestPrepare(t *testing.T) {
 	var cfg Configuration
 
-	if cfg.Folders != nil || cfg.Devices != nil || cfg.Options.ListenAddress != nil {
+	if cfg.Folders != nil || cfg.Devices != nil || cfg.Options.ListenAddress != nil && cfg.Options.DisabledFeatures != nil {
 		t.Error("Expected nil")
 	}
 
 	cfg.prepare(device1)
 
-	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.ListenAddress == nil {
+	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.ListenAddress == nil || cfg.Options.DisabledFeatures == nil {
 		t.Error("Unexpected nil")
 	}
 }

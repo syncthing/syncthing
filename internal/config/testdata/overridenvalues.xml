@@ -23,5 +23,9 @@
         <progressUpdateIntervalS>10</progressUpdateIntervalS>
         <symlinksEnabled>false</symlinksEnabled>
         <limitBandwidthInLan>true</limitBandwidthInLan>
+        <disabledFeature>A</disabledFeature>
+        <disabledFeature>B</disabledFeature>
+        <indexAnnounceIntervalS>60</indexAnnounceIntervalS>
+        <temporaryIndexAnnounceIntervalS>60</temporaryIndexAnnounceIntervalS>
     </options>
 </configuration>

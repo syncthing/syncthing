@@ -73,9 +73,10 @@ func TestHandleFile(t *testing.T) {
 	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:          "default",
+		dir:             "testdata",
+		model:           m,
+		progressTracker: newProgressTracker(),
 	}
 
 	copyChan := make(chan copyBlocksState, 1)
@@ -89,9 +90,16 @@ func TestHandleFile(t *testing.T) {
 		t.Errorf("Unexpected count of copy blocks: %d != 8", len(toCopy.blocks))
 	}
 
-	for i, block := range toCopy.blocks {
-		if string(block.Hash) != string(blocks[i+1].Hash) {
-			t.Errorf("Block mismatch: %s != %s", block.String(), blocks[i+1].String())
+	for _, block := range blocks[1:] {
+		found := false
+		for _, cblock := range toCopy.blocks {
+			if string(block.Hash) == string(cblock.Hash) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Could not find block: %s", block.String())
 		}
 	}
 }
@@ -127,9 +135,10 @@ func TestHandleFileWithTemp(t *testing.T) {
 	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:          "default",
+		dir:             "testdata",
+		model:           m,
+		progressTracker: newProgressTracker(),
 	}
 
 	copyChan := make(chan copyBlocksState, 1)
@@ -143,9 +152,17 @@ func TestHandleFileWithTemp(t *testing.T) {
 		t.Errorf("Unexpected count of copy blocks: %d != 4", len(toCopy.blocks))
 	}
 
-	for i, eq := range []int{1, 5, 6, 8} {
-		if string(toCopy.blocks[i].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block mismatch: %s != %s", toCopy.blocks[i].String(), blocks[eq].String())
+	for _, eq := range []int{1, 5, 6, 8} {
+		found := false
+		for _, block := range toCopy.blocks {
+			if string(blocks[eq].Hash) == string(block.Hash) {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			t.Errorf("Could not find block: %s", blocks[eq].String())
 		}
 	}
 }
@@ -183,6 +200,7 @@ func TestCopierFinder(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
+
 	// Update index
 	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
@@ -198,9 +216,10 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:          "default",
+		dir:             "testdata",
+		model:           m,
+		progressTracker: newProgressTracker(),
 	}
 
 	copyChan := make(chan copyBlocksState)
@@ -224,12 +243,24 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the right blocks went into the pull list
-	for i, eq := range []int{1, 5, 6, 8} {
-		if string(pulls[i].block.Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", eq, pulls[i].block.String(), blocks[eq].String())
+	for _, eq := range []int{1, 5, 6, 8} {
+		foundp := false
+		foundf := false
+		for _, block := range pulls {
+			if string(blocks[eq].Hash) == string(block.block.Hash) {
+				foundp = true
+				break
+			}
 		}
-		if string(finish.file.Blocks[eq-1].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", eq, finish.file.Blocks[eq-1].String(), blocks[eq].String())
+
+		for _, block := range finish.file.Blocks {
+			if string(blocks[eq].Hash) == string(block.Hash) {
+				foundf = true
+				break
+			}
+		}
+		if !foundf || !foundp {
+			t.Errorf("Could not find block: %s", blocks[eq].String())
 		}
 	}
 
@@ -240,8 +271,15 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	for _, eq := range []int{2, 3, 4, 7} {
-		if string(blks[eq-1].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", eq, blks[eq-1].String(), blocks[eq].String())
+		found := false
+		for _, block := range blks {
+			if string(blocks[eq].Hash) == string(block.Hash) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Could not find block: %s", blocks[eq].String())
 		}
 	}
 	finish.fd.Close()
@@ -332,9 +370,10 @@ func TestLastResortPulling(t *testing.T) {
 	}
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:          "default",
+		dir:             "testdata",
+		model:           m,
+		progressTracker: newProgressTracker(),
 	}
 
 	copyChan := make(chan copyBlocksState)
@@ -381,15 +420,12 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
-	emitter := NewProgressEmitter(defaultConfig)
-	go emitter.Serve()
-
 	p := rwFolder{
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
 		queue:           newJobQueue(),
-		progressEmitter: emitter,
+		progressTracker: newProgressTracker(),
 	}
 
 	// queue.Done should be called by the finisher routine
@@ -424,7 +460,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	case state := <-finisherBufferChan:
 		// At this point the file should still be registered with both the job
 		// queue, and the progress emitter. Verify this.
-		if len(p.progressEmitter.registry) != 1 || len(p.queue.progress) != 1 || len(p.queue.queued) != 0 {
+		if len(p.progressTracker.activePullers) != 1 || len(p.queue.progress) != 1 || len(p.queue.queued) != 0 {
 			t.Fatal("Could not find file")
 		}
 
@@ -436,15 +472,15 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 			t.Fatal("File not closed?")
 		}
 
-		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
-			t.Fatal("Still registered", len(p.progressEmitter.registry), len(p.queue.progress), len(p.queue.queued))
+		if len(p.progressTracker.activePullers) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+			t.Fatal("Still registered", len(p.progressTracker.activePullers), len(p.queue.progress), len(p.queue.queued))
 		}
 
 		// Doing it again should have no effect
 		finisherChan <- state
 		time.Sleep(100 * time.Millisecond)
 
-		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+		if len(p.progressTracker.activePullers) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
 			t.Fatal("Still registered")
 		}
 	case <-time.After(time.Second):
@@ -468,15 +504,12 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
-	emitter := NewProgressEmitter(defaultConfig)
-	go emitter.Serve()
-
 	p := rwFolder{
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
 		queue:           newJobQueue(),
-		progressEmitter: emitter,
+		progressTracker: newProgressTracker(),
 	}
 
 	// queue.Done should be called by the finisher routine
@@ -504,7 +537,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	case state := <-finisherBufferChan:
 		// At this point the file should still be registered with both the job
 		// queue, and the progress emitter. Verify this.
-		if len(p.progressEmitter.registry) != 1 || len(p.queue.progress) != 1 || len(p.queue.queued) != 0 {
+		if len(p.progressTracker.activePullers) != 1 || len(p.queue.progress) != 1 || len(p.queue.queued) != 0 {
 			t.Fatal("Could not find file")
 		}
 
@@ -516,15 +549,15 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 			t.Fatal("File not closed?")
 		}
 
-		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
-			t.Fatal("Still registered", len(p.progressEmitter.registry), len(p.queue.progress), len(p.queue.queued))
+		if len(p.progressTracker.activePullers) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+			t.Fatal("Still registered", len(p.progressTracker.activePullers), len(p.queue.progress), len(p.queue.queued))
 		}
 
 		// Doing it again should have no effect
 		finisherChan <- state
 		time.Sleep(100 * time.Millisecond)
 
-		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+		if len(p.progressTracker.activePullers) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
 			t.Fatal("Still registered")
 		}
 	case <-time.After(time.Second):

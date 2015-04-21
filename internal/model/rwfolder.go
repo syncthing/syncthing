@@ -58,7 +58,7 @@ type rwFolder struct {
 	stateTracker
 
 	model           *Model
-	progressEmitter *ProgressEmitter
+	progressTracker *progressTracker
 
 	folder        string
 	dir           string
@@ -80,7 +80,7 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		stateTracker: stateTracker{folder: cfg.ID},
 
 		model:           m,
-		progressEmitter: m.progressEmitter,
+		progressTracker: m.progressTracker,
 
 		folder:        cfg.ID,
 		dir:           cfg.Path(),
@@ -339,13 +339,6 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 
-		// Needed items are delivered sorted lexicographically. This isn't
-		// really optimal from a performance point of view - it would be
-		// better if files were handled in random order, to spread the load
-		// over the cluster. But it means that we can be sure that we fully
-		// handle directories before the files that go inside them, which is
-		// nice.
-
 		file := intf.(protocol.FileInfo)
 
 		if ignores.Match(file.Name) {
@@ -390,6 +383,8 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		changed++
 		return true
 	})
+
+	p.queue.Shuffle()
 
 nextFile:
 	for {
@@ -753,7 +748,8 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 	realName := filepath.Join(p.dir, file.Name)
 
 	reused := 0
-	var blocks []protocol.BlockInfo
+	blocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
+	availableBlocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
@@ -773,6 +769,8 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 			_, ok := existingBlocks[block.String()]
 			if !ok {
 				blocks = append(blocks, block)
+			} else {
+				availableBlocks = append(availableBlocks, block)
 			}
 		}
 
@@ -786,27 +784,24 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 			os.Remove(tempName)
 		}
 	} else {
-		blocks = file.Blocks
+		// Copy the blocks, as we don't want to shuffle the blocks on the file.
+		blocks = append(blocks, file.Blocks...)
 	}
 
-	s := sharedPullerState{
-		file:        file,
-		folder:      p.folder,
-		tempName:    tempName,
-		realName:    realName,
-		copyTotal:   len(blocks),
-		copyNeeded:  len(blocks),
-		reused:      reused,
-		ignorePerms: p.ignorePerms,
-		version:     curFile.Version,
+	// Shuffle the blocks
+	for i := range blocks {
+		j := rand.Intn(i + 1)
+		blocks[i], blocks[j] = blocks[j], blocks[i]
 	}
+
+	s := p.progressTracker.newSharedPullerState(file, p.folder, tempName, realName, len(blocks), reused, p.ignorePerms, curFile.Version, availableBlocks)
 
 	if debug {
 		l.Debugf("%v need file %s; copy %d, reused %v", p, file.Name, len(blocks), reused)
 	}
 
 	cs := copyBlocksState{
-		sharedPullerState: &s,
+		sharedPullerState: s,
 		blocks:            blocks,
 	}
 	copyChan <- cs
@@ -867,10 +862,6 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 	buf := make([]byte, protocol.BlockSize)
 
 	for state := range in {
-		if p.progressEmitter != nil {
-			p.progressEmitter.Register(state.sharedPullerState)
-		}
-
 		dstFd, err := state.tempFile()
 		if err != nil {
 			// Nothing more to do for this failed file (the error was logged
@@ -938,7 +929,7 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 				}
 				pullChan <- ps
 			} else {
-				state.copyDone()
+				state.copyDone(block)
 			}
 		}
 		out <- state.sharedPullerState
@@ -960,12 +951,12 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 		}
 
 		var lastError error
-		potentialDevices := p.model.Availability(p.folder, state.file.Name)
+		potentialDevices := p.model.Availability(p.folder, state.file.Name, state.block.Hash)
 		for {
 			// Select the least busy device to pull the block from. If we found no
 			// feasible device at all, fail the block (and in the long run, the
 			// file).
-			selected := activity.leastBusy(potentialDevices)
+			selected, flags := activity.leastBusy(potentialDevices)
 			if selected == (protocol.DeviceID{}) {
 				if lastError != nil {
 					state.fail("pull", lastError)
@@ -975,12 +966,12 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 				break
 			}
 
-			potentialDevices = removeDevice(potentialDevices, selected)
+			delete(potentialDevices, selected)
 
 			// Fetch the block, while marking the selected device as in use so that
 			// leastBusy can select another device when someone else asks.
 			activity.using(selected)
-			buf, lastError := p.model.requestGlobal(selected, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, 0, nil)
+			buf, lastError := p.model.requestGlobal(selected, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, flags, nil)
 			activity.done(selected)
 			if lastError != nil {
 				continue
@@ -998,7 +989,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			if err != nil {
 				state.fail("save", err)
 			} else {
-				state.pullDone()
+				state.pullDone(state.block)
 			}
 			break
 		}
@@ -1123,9 +1114,6 @@ func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 				})
 			}
 			p.model.receivedFile(p.folder, state.file.Name)
-			if p.progressEmitter != nil {
-				p.progressEmitter.Deregister(state)
-			}
 		}
 	}
 }

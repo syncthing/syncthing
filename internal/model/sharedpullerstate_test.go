@@ -9,6 +9,8 @@ package model
 import (
 	"os"
 	"testing"
+
+	"github.com/syncthing/protocol"
 )
 
 func TestSourceFileOK(t *testing.T) {
@@ -65,9 +67,9 @@ func TestReadOnlyDir(t *testing.T) {
 		os.RemoveAll("testdata/read_only_dir")
 	}()
 
-	s := sharedPullerState{
-		tempName: "testdata/read_only_dir/.temp_name",
-	}
+	tr := newProgressTracker()
+
+	s := tr.newSharedPullerState(protocol.FileInfo{}, "", "testdata/read_only_dir/.temp_name", "", 0, 0, false, nil, nil)
 
 	fd, err := s.tempFile()
 	if err != nil {

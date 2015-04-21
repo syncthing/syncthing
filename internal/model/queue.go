@@ -6,7 +6,10 @@
 
 package model
 
-import "sync"
+import (
+	"math/rand"
+	"sync"
+)
 
 type jobQueue struct {
 	progress []string
@@ -82,4 +85,14 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 	copy(queued, q.queued)
 
 	return progress, queued
+}
+
+func (q *jobQueue) Shuffle() {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+
+	for i := range q.queued {
+		j := rand.Intn(i + 1)
+		q.queued[i], q.queued[j] = q.queued[j], q.queued[i]
+	}
 }
