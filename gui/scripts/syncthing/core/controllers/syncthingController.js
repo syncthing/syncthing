@@ -672,6 +672,7 @@ angular.module('syncthing.core')
 
         $scope.upgrade = function () {
             restarting = true;
+            $('#majorUpgrade').modal('hide');
             $('#upgrading').modal();
             $http.post(urlbase + '/upgrade').success(function () {
                 $('#restarting').modal();
@@ -679,6 +680,10 @@ angular.module('syncthing.core')
             }).error(function () {
                 $('#upgrading').modal('hide');
             });
+        };
+
+        $scope.upgradeMajor = function () {
+            $('#majorUpgrade').modal();
         };
 
         $scope.shutdown = function () {
