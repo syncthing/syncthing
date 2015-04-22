@@ -22,7 +22,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/calmh/logger"
@@ -34,6 +33,7 @@ import (
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/model"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
@@ -45,16 +45,16 @@ type guiError struct {
 }
 
 var (
-	configInSync = true
-	guiErrors    = []guiError{}
-	guiErrorsMut sync.Mutex
-	startTime    = time.Now()
+	configInSync            = true
+	guiErrors               = []guiError{}
+	guiErrorsMut sync.Mutex = sync.NewMutex()
+	startTime               = time.Now()
 	eventSub     *events.BufferedSubscription
 )
 
 var (
 	lastEventRequest    time.Time
-	lastEventRequestMut sync.Mutex
+	lastEventRequestMut sync.Mutex = sync.NewMutex()
 )
 
 func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
@@ -522,7 +522,7 @@ func flushResponse(s string, w http.ResponseWriter) {
 }
 
 var cpuUsagePercent [10]float64 // The last ten seconds
-var cpuUsageLock sync.RWMutex
+var cpuUsageLock sync.RWMutex = sync.NewRWMutex()
 
 func restGetSystemStatus(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats

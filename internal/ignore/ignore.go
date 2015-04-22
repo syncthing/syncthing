@@ -16,10 +16,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/fnmatch"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type Pattern struct {
@@ -48,6 +48,7 @@ func New(withCache bool) *Matcher {
 	m := &Matcher{
 		withCache: withCache,
 		stop:      make(chan struct{}),
+		mut:       sync.NewMutex(),
 	}
 	if withCache {
 		go m.clean(2 * time.Hour)

@@ -18,7 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/protocol"
@@ -30,6 +30,7 @@ import (
 	"github.com/syncthing/syncthing/internal/scanner"
 	"github.com/syncthing/syncthing/internal/stats"
 	"github.com/syncthing/syncthing/internal/symlinks"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syncthing/syncthing/internal/versioner"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -85,7 +86,7 @@ type Model struct {
 }
 
 var (
-	SymlinkWarning = sync.Once{}
+	SymlinkWarning = stdsync.Once{}
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -113,6 +114,9 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		protoConn:       make(map[protocol.DeviceID]protocol.Connection),
 		rawConn:         make(map[protocol.DeviceID]io.Closer),
 		deviceVer:       make(map[protocol.DeviceID]string),
+
+		fmut: sync.NewRWMutex(),
+		pmut: sync.NewRWMutex(),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -125,8 +129,8 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 // the locks cannot be acquired in the given timeout period.
 func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 	l.Infof("Starting deadlock detector with %v timeout", timeout)
-	deadlockDetect(&m.fmut, timeout)
-	deadlockDetect(&m.pmut, timeout)
+	deadlockDetect(m.fmut, timeout)
+	deadlockDetect(m.pmut, timeout)
 }
 
 // StartRW starts read/write processing on the current model. When in
@@ -1099,9 +1103,9 @@ func (m *Model) ScanFolders() map[string]error {
 	m.fmut.RUnlock()
 
 	errors := make(map[string]error, len(m.folderCfgs))
-	var errorsMut sync.Mutex
+	errorsMut := sync.NewMutex()
 
-	var wg sync.WaitGroup
+	wg := sync.NewWaitGroup()
 	wg.Add(len(folders))
 	for _, folder := range folders {
 		folder := folder

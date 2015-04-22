@@ -9,9 +9,9 @@ package scanner
 import (
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 // The parallell hasher reads FileInfo structures from the inbox, hashes the
@@ -20,7 +20,7 @@ import (
 // is closed and all items handled.
 
 func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan protocol.FileInfo) {
-	var wg sync.WaitGroup
+	wg := sync.NewWaitGroup()
 	wg.Add(workers)
 
 	for i := 0; i < workers; i++ {

@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 func init() {
@@ -33,7 +33,7 @@ type Staggered struct {
 	cleanInterval int64
 	folderPath    string
 	interval      [4]Interval
-	mutex         *sync.Mutex
+	mutex         sync.Mutex
 }
 
 // Rename versions with old version format
@@ -87,7 +87,6 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 		versionsDir = params["versionsPath"]
 	}
 
-	var mutex sync.Mutex
 	s := Staggered{
 		versionsPath:  versionsDir,
 		cleanInterval: cleanInterval,
@@ -98,7 +97,7 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 			{86400, 592000},  // next 30 days -> 1 day between versions
 			{604800, maxAge}, // next year -> 1 week between versions
 		},
-		mutex: &mutex,
+		mutex: sync.NewMutex(),
 	}
 
 	if debug {

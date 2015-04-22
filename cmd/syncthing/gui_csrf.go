@@ -12,14 +12,14 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 var csrfTokens []string
-var csrfMut sync.Mutex
+var csrfMut sync.Mutex = sync.NewMutex()
 
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none

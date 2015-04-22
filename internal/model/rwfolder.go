@@ -13,7 +13,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/syncthing/protocol"
@@ -24,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/scanner"
 	"github.com/syncthing/syncthing/internal/symlinks"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syncthing/syncthing/internal/versioner"
 )
 
@@ -77,7 +77,10 @@ type rwFolder struct {
 
 func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
 	return &rwFolder{
-		stateTracker: stateTracker{folder: cfg.ID},
+		stateTracker: stateTracker{
+			folder: cfg.ID,
+			mut:    sync.NewMutex(),
+		},
 
 		model:           m,
 		progressEmitter: m.progressEmitter,
@@ -279,10 +282,10 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
 
-	var updateWg sync.WaitGroup
-	var copyWg sync.WaitGroup
-	var pullWg sync.WaitGroup
-	var doneWg sync.WaitGroup
+	updateWg := sync.NewWaitGroup()
+	copyWg := sync.NewWaitGroup()
+	pullWg := sync.NewWaitGroup()
+	doneWg := sync.NewWaitGroup()
 
 	if debug {
 		l.Debugln(p, "c", p.copiers, "p", p.pullers)
@@ -799,6 +802,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		reused:      reused,
 		ignorePerms: p.ignorePerms,
 		version:     curFile.Version,
+		mut:         sync.NewMutex(),
 	}
 
 	if debug {

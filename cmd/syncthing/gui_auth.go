@@ -12,16 +12,16 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/sync"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var (
-	sessions    = make(map[string]bool)
-	sessionsMut sync.Mutex
+	sessions               = make(map[string]bool)
+	sessionsMut sync.Mutex = sync.NewMutex()
 )
 
 func basicAuthAndSessionMiddleware(cfg config.GUIConfiguration, next http.Handler) http.Handler {
