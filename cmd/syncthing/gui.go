@@ -686,7 +686,8 @@ func restGetSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 	res := make(map[string]interface{})
 	res["running"] = Version
 	res["latest"] = rel.Tag
-	res["newer"] = upgrade.CompareVersions(rel.Tag, Version) == 1
+	res["newer"] = upgrade.CompareVersions(rel.Tag, Version) == upgrade.Newer
+	res["majorNewer"] = upgrade.CompareVersions(rel.Tag, Version) == upgrade.MajorNewer
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
@@ -727,7 +728,7 @@ func restPostSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if upgrade.CompareVersions(rel.Tag, Version) == 1 {
+	if upgrade.CompareVersions(rel.Tag, Version) > upgrade.Equal {
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("upgrading:", err)

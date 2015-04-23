@@ -38,6 +38,12 @@
             <span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
+        <li ng-if="upgradeInfo && upgradeInfo.majorNewer">
+          <button type="button" class="btn navbar-btn btn-danger btn-sm" href="" ng-click="upgradeMajor()">
+            <span class="glyphicon glyphicon-chevron-up"></span>&emsp;
+            <span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
+          </button>
+        </li>
         <li class="dropdown" language-select></li>
         <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog" aria-label="Edit"></span></a>
@@ -465,6 +471,35 @@
     <div class="well well-sm text-monospace text-center">{{myID}}</div>
     <img ng-if="myID" class="center-block img-thumbnail" ng-src="qr/?text={{myID}}"/>
   </modal>
+
+  <!-- Major upgrade modal -->
+
+  <div id="majorUpgrade" class="modal fade" tabindex="-1" data-backdrop="true" data-keyboard="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header alert alert-danger">
+          <h4 class="modal-title">
+            <span ng-if="icon" class="glyphicon glyphicon-chevron-up"></span>
+            <span translate>Major Upgrade</span>
+          </h4>
+        </div>
+        <div class="modal-body">
+          <p>
+            <span translate>This is a major version upgrade.</span>
+            <span translate>A new major version may not be compatible with previous versions.</span>
+            <span translate>Please consult the release notes before performing a major upgrade.</span>
+          </p>
+          <p>
+            <a href="https://github.com/syncthing/syncthing/releases/latest" target="_blank" translate>Release Notes</a>
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary btn-sm" ng-click="upgrade()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Upgrade</span></button>
+          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Device editor modal -->
 
