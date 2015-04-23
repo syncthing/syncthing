@@ -22,8 +22,9 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 // A container for relevant properties of a UPnP InternetGatewayDevice.
@@ -129,7 +130,7 @@ func Discover(timeout time.Duration) []IGD {
 		}
 	}()
 
-	var wg sync.WaitGroup
+	wg := sync.NewWaitGroup()
 	for _, intf := range interfaces {
 		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
 			wg.Add(1)

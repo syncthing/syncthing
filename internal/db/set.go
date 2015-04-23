@@ -13,10 +13,9 @@
 package db
 
 import (
-	"sync"
-
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -50,6 +49,7 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 		folder:       folder,
 		db:           db,
 		blockmap:     NewBlockMap(db, folder),
+		mutex:        sync.NewMutex(),
 	}
 
 	ldbCheckGlobals(db, []byte(folder))

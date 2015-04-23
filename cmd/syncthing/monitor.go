@@ -14,17 +14,17 @@ import (
 	"os/signal"
 	"runtime"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 var (
-	stdoutFirstLines []string // The first 10 lines of stdout
-	stdoutLastLines  []string // The last 50 lines of stdout
-	stdoutMut        sync.Mutex
+	stdoutFirstLines []string   // The first 10 lines of stdout
+	stdoutLastLines  []string   // The last 50 lines of stdout
+	stdoutMut        sync.Mutex = sync.NewMutex()
 )
 
 const (

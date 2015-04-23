@@ -6,7 +6,7 @@
 
 package model
 
-import "sync"
+import "github.com/syncthing/syncthing/internal/sync"
 
 type jobQueue struct {
 	progress []string
@@ -15,7 +15,9 @@ type jobQueue struct {
 }
 
 func newJobQueue() *jobQueue {
-	return &jobQueue{}
+	return &jobQueue{
+		mut: sync.NewMutex(),
+	}
 }
 
 func (q *jobQueue) Push(file string) {

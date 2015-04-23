@@ -7,11 +7,11 @@
 package main
 
 import (
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/model"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/thejerf/suture"
 )
 
@@ -37,6 +37,7 @@ func (c *folderSummarySvc) Serve() {
 	c.stop = make(chan struct{})
 	c.folders = make(map[string]struct{})
 	c.srv = srv
+	c.foldersMut = sync.NewMutex()
 
 	srv.Serve()
 }

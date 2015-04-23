@@ -9,8 +9,10 @@ package events
 
 import (
 	"errors"
-	"sync"
+	stdsync "sync"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type EventType int
@@ -113,7 +115,8 @@ var (
 
 func NewLogger() *Logger {
 	return &Logger{
-		subs: make(map[int]*Subscription),
+		subs:  make(map[int]*Subscription),
+		mutex: sync.NewMutex(),
 	}
 }
 
@@ -150,6 +153,7 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 		mask:   mask,
 		id:     l.nextID,
 		events: make(chan Event, BufferSize),
+		mutex:  sync.NewMutex(),
 	}
 	l.nextID++
 	l.subs[s.id] = s
@@ -197,15 +201,16 @@ type BufferedSubscription struct {
 	next int
 	cur  int
 	mut  sync.Mutex
-	cond *sync.Cond
+	cond *stdsync.Cond
 }
 
 func NewBufferedSubscription(s *Subscription, size int) *BufferedSubscription {
 	bs := &BufferedSubscription{
 		sub: s,
 		buf: make([]Event, size),
+		mut: sync.NewMutex(),
 	}
-	bs.cond = sync.NewCond(&bs.mut)
+	bs.cond = stdsync.NewCond(bs.mut)
 	go bs.pollingLoop()
 	return bs
 }

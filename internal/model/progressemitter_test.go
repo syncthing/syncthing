@@ -12,6 +12,7 @@ import (
 
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 var timeout = 10 * time.Millisecond
@@ -50,7 +51,9 @@ func TestProgressEmitter(t *testing.T) {
 
 	expectTimeout(w, t)
 
-	s := sharedPullerState{}
+	s := sharedPullerState{
+		mut: sync.NewMutex(),
+	}
 	p.Register(&s)
 
 	expectEvent(w, t, 1)

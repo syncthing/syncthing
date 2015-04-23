@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type roFolder struct {
@@ -23,11 +25,14 @@ type roFolder struct {
 
 func newROFolder(model *Model, folder string, interval time.Duration) *roFolder {
 	return &roFolder{
-		stateTracker: stateTracker{folder: folder},
-		folder:       folder,
-		intv:         interval,
-		model:        model,
-		stop:         make(chan struct{}),
+		stateTracker: stateTracker{
+			folder: folder,
+			mut:    sync.NewMutex(),
+		},
+		folder: folder,
+		intv:   interval,
+		model:  model,
+		stop:   make(chan struct{}),
 	}
 }
 
