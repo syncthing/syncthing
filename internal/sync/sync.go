@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -40,7 +42,9 @@ func NewMutex() Mutex {
 
 func NewRWMutex() RWMutex {
 	if debug {
-		return &loggedRWMutex{}
+		return &loggedRWMutex{
+			unlockers: make([]string, 0),
+		}
 	}
 	return &sync.RWMutex{}
 }
@@ -76,20 +80,28 @@ type loggedRWMutex struct {
 	sync.RWMutex
 	start    time.Time
 	lockedAt string
+
+	logUnlockers uint32
+
+	unlockers    []string
+	unlockersMut sync.Mutex
 }
 
 func (m *loggedRWMutex) Lock() {
 	start := time.Now()
 
+	atomic.StoreUint32(&m.logUnlockers, 1)
 	m.RWMutex.Lock()
+	m.logUnlockers = 0
 
 	m.start = time.Now()
 	duration := m.start.Sub(start)
 
 	m.lockedAt = getCaller()
 	if duration > threshold {
-		l.Debugf("RWMutex took %v to lock. Locked at %s", duration, m.lockedAt)
+		l.Debugf("RWMutex took %v to lock. Locked at %s. RUnlockers while locking: %s", duration, m.lockedAt, strings.Join(m.unlockers, ", "))
 	}
+	m.unlockers = m.unlockers[0:]
 }
 
 func (m *loggedRWMutex) Unlock() {
@@ -98,6 +110,15 @@ func (m *loggedRWMutex) Unlock() {
 		l.Debugf("RWMutex held for %v. Locked at %s: unlocked at %s", duration, m.lockedAt, getCaller())
 	}
 	m.RWMutex.Unlock()
+}
+
+func (m *loggedRWMutex) RUnlock() {
+	if atomic.LoadUint32(&m.logUnlockers) == 1 {
+		m.unlockersMut.Lock()
+		m.unlockers = append(m.unlockers, getCaller())
+		m.unlockersMut.Unlock()
+	}
+	m.RWMutex.RUnlock()
 }
 
 type loggedWaitGroup struct {
