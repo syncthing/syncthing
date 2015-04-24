@@ -15,6 +15,12 @@ import (
 	"github.com/calmh/logger"
 )
 
+const (
+	logThreshold = 100 * time.Millisecond
+	shortWait    = 5 * time.Millisecond
+	longWait     = 125 * time.Millisecond
+)
+
 func TestTypes(t *testing.T) {
 	debug = false
 
@@ -49,7 +55,7 @@ func TestTypes(t *testing.T) {
 
 func TestMutex(t *testing.T) {
 	debug = true
-	threshold = time.Millisecond * 5
+	threshold = logThreshold
 
 	msgmut := sync.Mutex{}
 	messages := make([]string, 0)
@@ -62,7 +68,7 @@ func TestMutex(t *testing.T) {
 
 	mut := NewMutex()
 	mut.Lock()
-	time.Sleep(2 * time.Millisecond)
+	time.Sleep(shortWait)
 	mut.Unlock()
 
 	if len(messages) > 0 {
@@ -70,7 +76,7 @@ func TestMutex(t *testing.T) {
 	}
 
 	mut.Lock()
-	time.Sleep(6 * time.Millisecond)
+	time.Sleep(longWait)
 	mut.Unlock()
 
 	if len(messages) != 1 {
@@ -82,7 +88,7 @@ func TestMutex(t *testing.T) {
 
 func TestRWMutex(t *testing.T) {
 	debug = true
-	threshold = time.Millisecond * 5
+	threshold = logThreshold
 
 	msgmut := sync.Mutex{}
 	messages := make([]string, 0)
@@ -95,7 +101,7 @@ func TestRWMutex(t *testing.T) {
 
 	mut := NewRWMutex()
 	mut.Lock()
-	time.Sleep(2 * time.Millisecond)
+	time.Sleep(shortWait)
 	mut.Unlock()
 
 	if len(messages) > 0 {
@@ -103,7 +109,7 @@ func TestRWMutex(t *testing.T) {
 	}
 
 	mut.Lock()
-	time.Sleep(6 * time.Millisecond)
+	time.Sleep(longWait)
 	mut.Unlock()
 
 	if len(messages) != 1 {
@@ -113,7 +119,7 @@ func TestRWMutex(t *testing.T) {
 	// Testing rlocker logging
 	mut.RLock()
 	go func() {
-		time.Sleep(7 * time.Millisecond)
+		time.Sleep(longWait)
 		mut.RUnlock()
 	}()
 
@@ -140,7 +146,7 @@ func TestRWMutex(t *testing.T) {
 
 func TestWaitGroup(t *testing.T) {
 	debug = true
-	threshold = time.Millisecond * 5
+	threshold = logThreshold
 
 	msgmut := sync.Mutex{}
 	messages := make([]string, 0)
@@ -154,7 +160,7 @@ func TestWaitGroup(t *testing.T) {
 	wg := NewWaitGroup()
 	wg.Add(1)
 	go func() {
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(shortWait)
 		wg.Done()
 	}()
 	wg.Wait()
@@ -166,7 +172,7 @@ func TestWaitGroup(t *testing.T) {
 	wg = NewWaitGroup()
 	wg.Add(1)
 	go func() {
-		time.Sleep(6 * time.Millisecond)
+		time.Sleep(longWait)
 		wg.Done()
 	}()
 	wg.Wait()
