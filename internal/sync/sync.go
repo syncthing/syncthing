@@ -125,20 +125,17 @@ type loggedWaitGroup struct {
 	sync.WaitGroup
 }
 
-func (wg *loggedWaitGroup) Done() {
+func (wg *loggedWaitGroup) Wait() {
 	start := time.Now()
-	wg.WaitGroup.Done()
+	wg.WaitGroup.Wait()
 	duration := time.Now().Sub(start)
-	if duration > threshold {
+	if duration >= threshold {
 		l.Debugf("WaitGroup took %v at %s", duration, getCaller())
 	}
 }
 
 func getCaller() string {
-	pc := make([]uintptr, 10)
-	runtime.Callers(3, pc)
-	f := runtime.FuncForPC(pc[0])
-	file, line := f.FileLine(pc[0])
+	_, file, line, _ := runtime.Caller(2)
 	file = filepath.Join(filepath.Base(filepath.Dir(file)), filepath.Base(file))
 	return fmt.Sprintf("%s:%d", file, line)
 }
