@@ -103,7 +103,6 @@ type Subscription struct {
 	mask   EventType
 	id     int
 	events chan Event
-	mutex  sync.Mutex
 }
 
 var Default = NewLogger()
@@ -153,7 +152,6 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 		mask:   mask,
 		id:     l.nextID,
 		events: make(chan Event, BufferSize),
-		mutex:  sync.NewMutex(),
 	}
 	l.nextID++
 	l.subs[s.id] = s
@@ -172,9 +170,6 @@ func (l *Logger) Unsubscribe(s *Subscription) {
 }
 
 func (s *Subscription) Poll(timeout time.Duration) (Event, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	if debug {
 		dl.Debugln("poll", timeout)
 	}
