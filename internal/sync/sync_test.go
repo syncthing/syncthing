@@ -16,6 +16,8 @@ import (
 )
 
 func TestTypes(t *testing.T) {
+	debug = false
+
 	if _, ok := NewMutex().(*sync.Mutex); !ok {
 		t.Error("Wrong type")
 	}

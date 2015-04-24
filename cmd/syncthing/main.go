@@ -151,6 +151,7 @@ are mostly useful for developers. Use with care.
                  - "events"   (the events package)
                  - "files"    (the files package)
                  - "http"     (the main package; HTTP requests)
+                 - "locks"    (the sync package; trace long held locks)
                  - "net"      (the main package; connections & network messages)
                  - "model"    (the model package)
                  - "scanner"  (the scanner package)
