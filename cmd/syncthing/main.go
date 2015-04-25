@@ -39,6 +39,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/thejerf/suture"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -373,7 +374,15 @@ func main() {
 }
 
 func syncthingMain() {
-	var err error
+	// Create a main service manager. We'll add things to this as we go along.
+	// We want any logging it does to go through our log system, with INFO
+	// severity.
+	mainSvc := suture.New("main", suture.Spec{
+		Log: func(line string) {
+			l.Infoln(line)
+		},
+	})
+	mainSvc.ServeBackground()
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -382,7 +391,7 @@ func syncthingMain() {
 	events.Default.Log(events.Starting, map[string]string{"home": baseDirs["config"]})
 
 	// Ensure that that we have a certificate and key.
-	cert, err = tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
+	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
 		cert, err = newCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
 		if err != nil {
@@ -638,6 +647,8 @@ func syncthingMain() {
 	cleanConfigDirectory()
 
 	code := <-stop
+
+	mainSvc.Stop()
 
 	l.Okln("Exiting")
 	os.Exit(code)
