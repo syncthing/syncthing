@@ -163,7 +163,7 @@ func copyStderr(stderr io.ReadCloser, dst io.Writer) {
 			dst.Write([]byte(line))
 
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
-				panicFd, err = os.Create(time.Now().Format(locations[locPanicLog]))
+				panicFd, err = os.Create(timestampedLoc(locPanicLog))
 				if err != nil {
 					l.Warnln("Create panic log:", err)
 					continue
