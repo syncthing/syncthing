@@ -196,6 +196,7 @@ var (
 	noConsole         bool
 	generateDir       string
 	logFile           string
+	auditEnabled      bool
 	noRestart         = os.Getenv("STNORESTART") != ""
 	noUpgrade         = os.Getenv("STNOUPGRADE") != ""
 	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
@@ -232,6 +233,7 @@ func main() {
 	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.StringVar(&upgradeTo, "upgrade-to", upgradeTo, "Force upgrade directly from specified URL")
+	flag.BoolVar(&auditEnabled, "audit", false, "Write events to audit file")
 
 	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, baseDirs["config"]))
 	flag.Parse()
@@ -383,6 +385,14 @@ func syncthingMain() {
 		},
 	})
 	mainSvc.ServeBackground()
+
+	// Set a log prefix similar to the ID we will have later on, or early log
+	// lines look ugly.
+	l.SetPrefix("[start] ")
+
+	if auditEnabled {
+		startAuditing(mainSvc)
+	}
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -652,6 +662,23 @@ func syncthingMain() {
 
 	l.Okln("Exiting")
 	os.Exit(code)
+}
+
+func startAuditing(mainSvc *suture.Supervisor) {
+	auditFile := timestampedLoc(locAuditLog)
+	fd, err := os.OpenFile(auditFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		l.Fatalln("Audit:", err)
+	}
+
+	auditSvc := newAuditSvc(fd)
+	mainSvc.Add(auditSvc)
+
+	// We wait for the audit service to fully start before we return, to
+	// ensure we capture all events from the start.
+	auditSvc.WaitForStart()
+
+	l.Infoln("Audit log in", auditFile)
 }
 
 func setupGUI(cfg *config.Wrapper, m *model.Model) {
@@ -1023,6 +1050,7 @@ func autoUpgrade() {
 func cleanConfigDirectory() {
 	patterns := map[string]time.Duration{
 		"panic-*.log":    7 * 24 * time.Hour,  // keep panic logs for a week
+		"audit-*.log":    7 * 24 * time.Hour,  // keep audit logs for a week
 		"index":          14 * 24 * time.Hour, // keep old index format for two weeks
 		"config.xml.v*":  30 * 24 * time.Hour, // old config versions for a month
 		"*.idx.gz":       30 * 24 * time.Hour, // these should for sure no longer exist
