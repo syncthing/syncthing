@@ -15,10 +15,10 @@ import (
 func TestJobQueue(t *testing.T) {
 	// Some random actions
 	q := newJobQueue()
-	q.Push("f1")
-	q.Push("f2")
-	q.Push("f3")
-	q.Push("f4")
+	q.Push("f1", 0, 0)
+	q.Push("f2", 0, 0)
+	q.Push("f3", 0, 0)
+	q.Push("f4", 0, 0)
 
 	progress, queued := q.Jobs()
 	if len(progress) != 0 || len(queued) != 4 {
@@ -43,7 +43,7 @@ func TestJobQueue(t *testing.T) {
 			t.Fatal("Wrong length", len(progress), len(queued))
 		}
 
-		q.Push(n)
+		q.Push(n, 0, 0)
 		progress, queued = q.Jobs()
 		if len(progress) != 0 || len(queued) != 4 {
 			t.Fatal("Wrong length")
@@ -120,10 +120,10 @@ func TestJobQueue(t *testing.T) {
 
 func TestBringToFront(t *testing.T) {
 	q := newJobQueue()
-	q.Push("f1")
-	q.Push("f2")
-	q.Push("f3")
-	q.Push("f4")
+	q.Push("f1", 0, 0)
+	q.Push("f2", 0, 0)
+	q.Push("f3", 0, 0)
+	q.Push("f4", 0, 0)
 
 	_, queued := q.Jobs()
 	if !reflect.DeepEqual(queued, []string{"f1", "f2", "f3", "f4"}) {
@@ -159,12 +159,101 @@ func TestBringToFront(t *testing.T) {
 	}
 }
 
+func TestShuffle(t *testing.T) {
+	q := newJobQueue()
+	q.Push("f1", 0, 0)
+	q.Push("f2", 0, 0)
+	q.Push("f3", 0, 0)
+	q.Push("f4", 0, 0)
+
+	// This test will fail once in eight million times (1 / (4!)^5) :)
+	for i := 0; i < 5; i++ {
+		q.Shuffle()
+		_, queued := q.Jobs()
+		if l := len(queued); l != 4 {
+			t.Fatalf("Weird length %d returned from Jobs()", l)
+		}
+
+		t.Logf("%v", queued)
+		if !reflect.DeepEqual(queued, []string{"f1", "f2", "f3", "f4"}) {
+			// The queue was shuffled
+			return
+		}
+	}
+
+	t.Error("Queue was not shuffled after five attempts.")
+}
+
+func TestSortBySize(t *testing.T) {
+	q := newJobQueue()
+	q.Push("f1", 20, 0)
+	q.Push("f2", 40, 0)
+	q.Push("f3", 30, 0)
+	q.Push("f4", 10, 0)
+
+	q.SortSmallestFirst()
+
+	_, actual := q.Jobs()
+	if l := len(actual); l != 4 {
+		t.Fatalf("Weird length %d returned from Jobs()", l)
+	}
+	expected := []string{"f4", "f1", "f3", "f2"}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("SortSmallestFirst(): %#v != %#v", actual, expected)
+	}
+
+	q.SortLargestFirst()
+
+	_, actual = q.Jobs()
+	if l := len(actual); l != 4 {
+		t.Fatalf("Weird length %d returned from Jobs()", l)
+	}
+	expected = []string{"f2", "f3", "f1", "f4"}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("SortLargestFirst(): %#v != %#v", actual, expected)
+	}
+}
+
+func TestSortByAge(t *testing.T) {
+	q := newJobQueue()
+	q.Push("f1", 0, 20)
+	q.Push("f2", 0, 40)
+	q.Push("f3", 0, 30)
+	q.Push("f4", 0, 10)
+
+	q.SortOldestFirst()
+
+	_, actual := q.Jobs()
+	if l := len(actual); l != 4 {
+		t.Fatalf("Weird length %d returned from Jobs()", l)
+	}
+	expected := []string{"f4", "f1", "f3", "f2"}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("SortOldestFirst(): %#v != %#v", actual, expected)
+	}
+
+	q.SortNewestFirst()
+
+	_, actual = q.Jobs()
+	if l := len(actual); l != 4 {
+		t.Fatalf("Weird length %d returned from Jobs()", l)
+	}
+	expected = []string{"f2", "f3", "f1", "f4"}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("SortNewestFirst(): %#v != %#v", actual, expected)
+	}
+}
+
 func BenchmarkJobQueueBump(b *testing.B) {
 	files := genFiles(b.N)
 
 	q := newJobQueue()
 	for _, f := range files {
-		q.Push(f.Name)
+		q.Push(f.Name, 0, 0)
 	}
 
 	b.ResetTimer()
@@ -180,7 +269,7 @@ func BenchmarkJobQueuePushPopDone10k(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		q := newJobQueue()
 		for _, f := range files {
-			q.Push(f.Name)
+			q.Push(f.Name, 0, 0)
 		}
 		for _ = range files {
 			n, _ := q.Pop()
