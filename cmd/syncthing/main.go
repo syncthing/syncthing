@@ -584,7 +584,9 @@ func syncthingMain() {
 
 	// Routine to connect out to configured devices
 	discoverer = discovery(externalPort)
-	go listenConnect(myID, m, tlsCfg)
+
+	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
+	mainSvc.Add(connectionSvc)
 
 	for _, folder := range cfg.Folders() {
 		// Routine to pull blocks from other devices to synchronize the local
