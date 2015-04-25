@@ -121,6 +121,11 @@ func (p *rwFolder) Serve() {
 	var prevIgnoreHash string
 
 	rescheduleScan := func() {
+		if p.scanIntv == 0 {
+			// We should not run scans, so it should not be rescheduled.
+			return
+		}
+
 		// Sleep a random time between 3/4 and 5/4 of the configured interval.
 		sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
 		intv := time.Duration(sleepNanos) * time.Nanosecond

@@ -1565,9 +1565,13 @@ func (m *Model) CheckFolderHealth(id string) error {
 	}
 
 	m.fmut.RLock()
-	runner := m.folderRunners[folder.ID]
+	runner, runnerExists := m.folderRunners[folder.ID]
 	m.fmut.RUnlock()
-	_, _, oldErr := runner.getState()
+
+	var oldErr error
+	if runnerExists {
+		_, _, oldErr = runner.getState()
+	}
 
 	if err != nil {
 		if oldErr != nil && oldErr.Error() != err.Error() {
@@ -1575,10 +1579,14 @@ func (m *Model) CheckFolderHealth(id string) error {
 		} else if oldErr == nil {
 			l.Warnf("Stopping folder %q - %v", folder.ID, err)
 		}
-		runner.setError(err)
+		if runnerExists {
+			runner.setError(err)
+		}
 	} else if oldErr != nil {
 		l.Infof("Folder %q error is cleared, restarting", folder.ID)
-		runner.setState(FolderIdle)
+		if runnerExists {
+			runner.setState(FolderIdle)
+		}
 	}
 
 	return err
