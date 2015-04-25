@@ -54,9 +54,9 @@
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>5</reconnectionIntervalS>
         <startBrowser>false</startBrowser>
-        <upnpEnabled>false</upnpEnabled>
+        <upnpEnabled>true</upnpEnabled>
         <upnpLeaseMinutes>0</upnpLeaseMinutes>
-        <upnpRenewalMinutes>30</upnpRenewalMinutes>
+        <upnpRenewalMinutes>1</upnpRenewalMinutes>
         <urAccepted>-1</urAccepted>
         <urUniqueID></urUniqueID>
         <restartOnWakeup>true</restartOnWakeup>

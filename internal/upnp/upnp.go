@@ -95,7 +95,6 @@ type upnpRoot struct {
 // The order in which the devices appear in the results list is not deterministic.
 func Discover(timeout time.Duration) []IGD {
 	var results []IGD
-	l.Infoln("Starting UPnP discovery...")
 
 	interfaces, err := net.Interfaces()
 	if err != nil {
@@ -143,13 +142,6 @@ func Discover(timeout time.Duration) []IGD {
 
 	wg.Wait()
 	close(resultChan)
-
-	suffix := "devices"
-	if len(results) == 1 {
-		suffix = "device"
-	}
-
-	l.Infof("UPnP discovery complete (found %d %s).", len(results), suffix)
 
 	return results
 }
