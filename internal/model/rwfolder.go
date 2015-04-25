@@ -69,6 +69,7 @@ type rwFolder struct {
 	copiers       int
 	pullers       int
 	shortID       uint64
+	order         config.PullOrder
 
 	stop      chan struct{}
 	queue     *jobQueue
@@ -93,6 +94,7 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		copiers:       cfg.Copiers,
 		pullers:       cfg.Pullers,
 		shortID:       shortID,
+		order:         cfg.Order,
 
 		stop:  make(chan struct{}),
 		queue: newJobQueue(),
@@ -346,13 +348,9 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	buckets := map[string][]protocol.FileInfo{}
 
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-
-		// Needed items are delivered sorted lexicographically. This isn't
-		// really optimal from a performance point of view - it would be
-		// better if files were handled in random order, to spread the load
-		// over the cluster. But it means that we can be sure that we fully
-		// handle directories before the files that go inside them, which is
-		// nice.
+		// Needed items are delivered sorted lexicographically. We'll handle
+		// directories as they come along, so parents before children. Files
+		// are queued and the order may be changed later.
 
 		file := intf.(protocol.FileInfo)
 
@@ -392,12 +390,31 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		default:
 			// A new or changed file or symlink. This is the only case where we
 			// do stuff concurrently in the background
-			p.queue.Push(file.Name)
+			p.queue.Push(file.Name, file.Size(), file.Modified)
 		}
 
 		changed++
 		return true
 	})
+
+	// Reorder the file queue according to configuration
+
+	switch p.order {
+	case config.OrderRandom:
+		p.queue.Shuffle()
+	case config.OrderAlphabetic:
+		// The queue is already in alphabetic order.
+	case config.OrderSmallestFirst:
+		p.queue.SortSmallestFirst()
+	case config.OrderLargestFirst:
+		p.queue.SortLargestFirst()
+	case config.OrderOldestFirst:
+		p.queue.SortOldestFirst()
+	case config.OrderNewestFirst:
+		p.queue.SortOldestFirst()
+	}
+
+	// Process the file queue
 
 nextFile:
 	for {

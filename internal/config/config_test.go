@@ -528,3 +528,51 @@ func TestCopy(t *testing.T) {
 		t.Error("Copy should be unchanged")
 	}
 }
+
+func TestPullOrder(t *testing.T) {
+	wrapper, err := Load("testdata/pullorder.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	folders := wrapper.Folders()
+
+	expected := []struct {
+		name  string
+		order PullOrder
+	}{
+		{"f1", OrderRandom},        // empty value, default
+		{"f2", OrderRandom},        // explicit
+		{"f3", OrderAlphabetic},    // explicit
+		{"f4", OrderRandom},        // unknown value, default
+		{"f5", OrderSmallestFirst}, // explicit
+		{"f6", OrderLargestFirst},  // explicit
+		{"f7", OrderOldestFirst},   // explicit
+		{"f8", OrderNewestFirst},   // explicit
+	}
+
+	// Verify values are deserialized correctly
+
+	for _, tc := range expected {
+		if actual := folders[tc.name].Order; actual != tc.order {
+			t.Errorf("Incorrect pull order for %q: %v != %v", tc.name, actual, tc.order)
+		}
+	}
+
+	// Serialize and deserialize again to verify it survives the transformation
+
+	buf := new(bytes.Buffer)
+	cfg := wrapper.Raw()
+	cfg.WriteXML(buf)
+
+	t.Logf("%s", buf.Bytes())
+
+	cfg, err = ReadXML(buf, device1)
+	wrapper = Wrap("testdata/pullorder.xml", cfg)
+	folders = wrapper.Folders()
+
+	for _, tc := range expected {
+		if actual := folders[tc.name].Order; actual != tc.order {
+			t.Errorf("Incorrect pull order for %q: %v != %v", tc.name, actual, tc.order)
+		}
+	}
+}

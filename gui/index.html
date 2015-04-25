@@ -239,6 +239,17 @@
                       <th><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan Interval</span></th>
                       <td class="text-right">{{folder.rescanIntervalS}} s</td>
                     </tr>
+                    <tr ng-if="folder.order != 'random'">
+                      <th><span class="glyphicon glyphicon-sort"></span>&emsp;<span translate>File Pull Order</span></th>
+                      <td class="text-right" ng-switch="folder.order">
+                        <span ng-switch-when="random" translate>Random</span>
+                        <span ng-switch-when="alphabetic" translate>Alphabetic</span>
+                        <span ng-switch-when="smallestFirst" translate>Smallest First</span>
+                        <span ng-switch-when="largestFirst" translate>Largest First</span>
+                        <span ng-switch-when="oldestFirst" translate>Oldest First</span>
+                        <span ng-switch-when="newestFirst" translate>Newest First</span>
+                      </td>
+                    </tr>
                     <tr ng-if="folder.versioning.type">
                       <th><span class="glyphicon glyphicon-tags"></span>&emsp;<span translate>File Versioning</span></th>
                       <td class="text-right" ng-switch="folder.versioning.type">
@@ -625,6 +636,7 @@
               </div>
             </div>
             <div class="row">
+              <!-- Left column -->
               <div class="col-md-6">
                 <div class="form-group">
                   <div class="checkbox">
@@ -643,7 +655,20 @@
                   <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
                 </div>
               </div>
+
+              <!-- Right column-->
               <div class="col-md-6">
+                <div class="form-group">
+                  <label translate>File Pull Order</label>
+                  <select class="form-control" ng-model="currentFolder.order">
+                    <option value="random" translate>Random</option>
+                    <option value="alphabetic" translate>Alphabetic</option>
+                    <option value="smallestFirst" translate>Smallest First</option>
+                    <option value="largestFirst" translate>Largest First</option>
+                    <option value="oldestFirst" translate>Oldest First</option>
+                    <option value="newestFirst" translate>Newest First</option>
+                  </select>
+                </div>
                 <div class="form-group">
                   <label translate>File Versioning</label>
                   <div class="radio">
