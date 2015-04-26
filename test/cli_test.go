@@ -49,7 +49,7 @@ func TestCLIReset(t *testing.T) {
 
 	// Clean up
 
-	dirs, err = filepath.Glob("*.syncthing-reset-*")
+	dirs, err = osutil.Glob("*.syncthing-reset-*")
 	if err != nil {
 		t.Fatal(err)
 	}

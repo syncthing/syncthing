@@ -1061,7 +1061,7 @@ func cleanConfigDirectory() {
 
 	for pat, dur := range patterns {
 		pat = filepath.Join(baseDirs["config"], pat)
-		files, err := filepath.Glob(pat)
+		files, err := osutil.Glob(pat)
 		if err != nil {
 			l.Infoln("Cleaning:", err)
 			continue

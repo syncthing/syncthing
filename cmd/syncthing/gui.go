@@ -829,7 +829,7 @@ func restGetSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(current, pathSeparator) && !strings.HasSuffix(search, pathSeparator) {
 		search = search + pathSeparator
 	}
-	subdirectories, _ := filepath.Glob(search + "*")
+	subdirectories, _ := osutil.Glob(search + "*")
 	ret := make([]string, 0, 10)
 	for _, subdirectory := range subdirectories {
 		info, err := os.Stat(subdirectory)
