@@ -1,22 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.ServiceProcess;
-using System.IO;
-using System.Reflection;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Management;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.ServiceProcess;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+//show internal classes to unittests
+[assembly: InternalsVisibleTo("UnitTestSyncthingServiceWrapper")]
 
 namespace SyncthingServiceWrapper
 {
-    class WindowsService : ServiceBase
+    internal class SyncthingService : ServiceBase
     {
         /// <summary>
         /// Public Constructor for WindowsService.
         /// - Put all of your Initialization code here.
         /// </summary>
-        public WindowsService()
+        public SyncthingService()
         {
             this.ServiceName = "Syncthing Service";
             this.EventLog.Log = "Application";
@@ -24,9 +30,10 @@ namespace SyncthingServiceWrapper
 
             // These Flags set whether or not to handle that specific
             //  type of event. Set to true if you need it, false otherwise.
-            this.CanHandlePowerEvent = true;
-            this.CanHandleSessionChangeEvent = true;
-            this.CanPauseAndContinue = true;
+            this.CanHandlePowerEvent = false;
+            this.CanHandleSessionChangeEvent = false;
+            //Need to implement Restapi to get PauseAndContinue working
+            this.CanPauseAndContinue = false;
             this.CanShutdown = true;
             this.CanStop = true;
         }
@@ -34,9 +41,9 @@ namespace SyncthingServiceWrapper
         /// <summary>
         /// The Main Thread: This is where your Service is Run.
         /// </summary>
-        static void Main()
+        private static void Main()
         {
-            ServiceBase.Run(new WindowsService());
+            ServiceBase.Run(new SyncthingService());
         }
 
         /// <summary>
@@ -49,20 +56,19 @@ namespace SyncthingServiceWrapper
             base.Dispose(disposing);
         }
 
-        Process syncthingProcess;
+        private Process syncthingProcess;
 
         /// <summary>
         /// OnStart(): Put startup code here
-        ///  - Start threads, get inital data, etc.
+        /// - Start threads, get inital data, etc.
         /// </summary>
-        /// <param name="args"></param>
+        /// <param name="args">Data passed by the start command.</param>
         protected override void OnStart(string[] args)
         {
             syncthingProcess = new Process();
-            syncthingProcess.StartInfo.FileName =  Path.Combine(GetCurrentExecutingDirectory(), "syncthing.exe") ;
+            syncthingProcess.StartInfo.FileName = Path.Combine(GetCurrentExecutingDirectory(), "syncthing.exe");
             syncthingProcess.StartInfo.RedirectStandardOutput = true;
             syncthingProcess.StartInfo.Arguments = SyncthingServiceWrapper.Properties.Settings.Default.syncthingArguments;
-            //syncthingProcess.StartInfo.UserName = SyncthingServiceWrapper.Properties.Settings.Default.username;
             syncthingProcess.StartInfo.RedirectStandardError = true;
             syncthingProcess.StartInfo.RedirectStandardInput = true;
             syncthingProcess.StartInfo.UseShellExecute = false;
@@ -75,36 +81,86 @@ namespace SyncthingServiceWrapper
             base.OnStart(args);
         }
 
+        /// <summary>
+        /// Handles the SyncthingExited event of the proc control. Syncthing.exe starts itself in a new process when started. Exiting the invoking process is an event which can be waiting for before marking service as started up.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         private void proc_SyncthingExited(object sender, EventArgs e)
         {
-            System.Threading.Thread.Sleep(500);
             var timeout = DateTime.Now;
-            while (Process.GetProcessesByName("syncthing").Count() == 0 || DateTime.Compare( timeout.AddMilliseconds(15000), DateTime.Now)==-1)
+            while (getSyncthingExeProcesses().Count() == 0 || DateTime.Compare(timeout.AddMilliseconds(15000), DateTime.Now) == -1)
             {
-                System.Threading.Thread.Sleep(100); 
+                System.Threading.Thread.Sleep(100);
             }
 
-            if (Process.GetProcessesByName("syncthing").Count() > 0)
+            if (getSyncthingExeProcesses().Count() > 0)
             {
-                this.EventLog.WriteEntry("Syncthing.exe starter fisnished", EventLogEntryType.Warning );
+                this.EventLog.WriteEntry("Syncthing.exe starter fisnished", EventLogEntryType.Warning);
+                //todo: add waiting for startup https://github.com/syncthing/syncthing/wiki/REST-Interface
             }
             else
             {
                 this.EventLog.WriteEntry("Syncthing.exe crashed", EventLogEntryType.Error);
                 this.Stop();
-             }
+            }
         }
 
+        private Process[] getSyncthingExeProcesses()
+        {
+            string userName = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
+            return Process.GetProcessesByName("syncthing").Where(o => GetProcessOwner(o.Id) == userName).ToArray();
+        }
+
+        /// <summary>
+        /// Gets the process owner.
+        /// </summary>
+        /// <param name="processId">The process identifier.</param>
+        /// <returns></returns>
+        private static string GetProcessOwner(int processId)
+        {
+            string query = "Select * From Win32_Process Where ProcessID = " + processId;
+            ManagementObjectSearcher searcher = new ManagementObjectSearcher(query);
+            ManagementObjectCollection processList = searcher.Get();
+
+            foreach (ManagementObject obj in processList)
+            {
+                string[] argList = new string[] { string.Empty, string.Empty };
+                int returnVal = Convert.ToInt32(obj.InvokeMethod("GetOwner", argList));
+                if (returnVal == 0)
+                {
+                    // return DOMAIN\user
+                    return argList[1] + "\\" + argList[0];
+                }
+            }
+
+            return "NO OWNER";
+        }
+
+        /// <summary>
+        /// Handles the ErrorDataReceived event of the proc control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="DataReceivedEventArgs"/> instance containing the event data.</param>
         private void proc_ErrorDataReceived(object sender, DataReceivedEventArgs e)
         {
             this.EventLog.WriteEntry(e.Data);
         }
 
+        /// <summary>
+        /// Handles the OutputDataReceived event of the proc control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="DataReceivedEventArgs"/> instance containing the event data.</param>
         private void proc_OutputDataReceived(object sender, DataReceivedEventArgs e)
         {
             this.EventLog.WriteEntry(e.Data);
         }
 
+        /// <summary>
+        /// Gets the current executing directory.
+        /// </summary>
+        /// <returns></returns>
         private static string GetCurrentExecutingDirectory()
         {
             return Path.GetDirectoryName(new System.Uri(System.Reflection.Assembly.GetExecutingAssembly().CodeBase).LocalPath);
@@ -120,27 +176,34 @@ namespace SyncthingServiceWrapper
             base.OnStop();
         }
 
+        /// <summary>
+        /// Shutdowns the syncthing executable.
+        /// </summary>
         private void shutdownSyncthingExe()
         {
-            //todo: Shutting down by webapi 
-            foreach (var item in Process.GetProcessesByName("syncthing"))
+            this.EventLog.WriteEntry("Shuting down Syncthing ", EventLogEntryType.Information);
+            Thread.Sleep(300);
+            foreach (var item in getSyncthingExeProcesses())
             {
                 if (!item.HasExited)
                 {
                     this.EventLog.WriteEntry("Killing Syncthing with pid " + item.Id, EventLogEntryType.Information);
                     item.Kill();
+                    Thread.Sleep(300);
                 }
             }
-
-            foreach (var item in Process.GetProcessesByName("syncthing"))
+            Thread.Sleep(300);
+            foreach (var item in getSyncthingExeProcesses())
             {
                 if (!item.HasExited)
                 {
-                    this.EventLog.WriteEntry("Killing Syncthing with pid " + item.Id);
+                    this.EventLog.WriteEntry("Killing -still running syncthing with pid " + item.Id, EventLogEntryType.Warning);
                     item.Kill();
+                    Thread.Sleep(300);
                 }
             }
-            syncthingProcess.Dispose();
+            //syncthingProcess.Dispose();
+            this.EventLog.WriteEntry("Shutting down Syncthing finished", EventLogEntryType.Information);
         }
 
         /// <summary>
@@ -149,7 +212,6 @@ namespace SyncthingServiceWrapper
         /// </summary>
         protected override void OnPause()
         {
-
             base.OnPause();
         }
 

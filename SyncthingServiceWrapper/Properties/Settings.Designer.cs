@@ -37,13 +37,14 @@ namespace SyncthingServiceWrapper.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("stefan")]
-        public string username {
+        [global::System.Configuration.SpecialSettingAttribute(global::System.Configuration.SpecialSetting.WebServiceUrl)]
+        [global::System.Configuration.DefaultSettingValueAttribute("http://127.0.0.1:8080/")]
+        public string baseUrl {
             get {
-                return ((string)(this["username"]));
+                return ((string)(this["baseUrl"]));
             }
             set {
-                this["username"] = value;
+                this["baseUrl"] = value;
             }
         }
     }

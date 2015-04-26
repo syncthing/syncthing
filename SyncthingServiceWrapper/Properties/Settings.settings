@@ -5,8 +5,8 @@
     <Setting Name="syncthingArguments" Type="System.String" Scope="User">
       <Value Profile="(Default)">-no-console  -no-browser </Value>
     </Setting>
-    <Setting Name="username" Type="System.String" Scope="User">
-      <Value Profile="(Default)">stefan</Value>
+    <Setting Name="baseUrl" Type="(Web Service URL)" Scope="User">
+      <Value Profile="(Default)">http://127.0.0.1:8080/</Value>
     </Setting>
   </Settings>
 </SettingsFile>

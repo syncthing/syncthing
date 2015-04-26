@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?define ProductVersion = "0.10.25"?>
+<?define ProductVersion = "0.10.26"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
-  <Product  Id="*" Name="Syncthing" Language="1033" Version="$(var.ProductVersion)" Manufacturer="syncthing.net" UpgradeCode="fe8d3029-4c61-426c-a40f-da7aab6203ce">
+  <Product  Id="*" Name="Syncthing Service" Language="1033" Version="$(var.ProductVersion)" Manufacturer="syncthing.net, coductivity" UpgradeCode="fe8d3029-4c61-426c-a40f-da7aab6203ce">
     <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
-    <MediaTemplate CompressionLevel="high"  EmbedCab="yes"/>
-    <!--todo: test upgrade without killing syncthing-->
-    <!--<util:CloseApplication Id="syncthing.exe" Target="syncthing.exe" CloseMessage="yes" />
-    <util:CloseApplication Id="syncthing" Target="syncthing" CloseMessage="yes" />-->
+    <MediaTemplate CompressionLevel="high"  EmbedCab="yes" />
     <MajorUpgrade AllowDowngrades="yes" />
     <Feature Id="ProductFeature" Title="Syncthing" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
@@ -15,7 +12,7 @@
     </Feature>
     <DirectoryRef Id="ApplicationProgramsFolder">
       <Component Id="ApplicationShortcut" Guid="*">
-        <Shortcut Id="ApplicationStartMenuShortcut" Name="Syncthing" Description="Syncthing" Target="[#fil64BE430D0AA55BDFC2E2908FF81F781D]" WorkingDirectory="ProgramFilesFolder" />
+        <Shortcut Id="ApplicationStartMenuShortcut" Name="Syncthing Service" Description="Syncthing installed as Service see http://127.0.0.1:8080/ for configuration" Target="[#fil64BE430D0AA55BDFC2E2908FF81F781D]" WorkingDirectory="ProgramFilesFolder" />
         <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\Microsoft\Syncthing" Name="installed" Type="integer" Value="1" KeyPath="yes" />
         <util:EventSource Log="Application" Name="Syncthing Service" EventMessageFile="[NETFRAMEWORK20INSTALLROOTDIR]EventLogMessages.dll" />
@@ -23,22 +20,14 @@
     </DirectoryRef>
   </Product>
   <Fragment>
-    <!---->
     <Property Id="MyURL"><![CDATA[http://127.0.0.1:8080/]]></Property>
     <CustomAction Id="SetOpenURL" Property="WixShellExecTarget" Value="[MyURL]" />
     <CustomAction Id="OpenURL" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" Return="ignore" />
-
-
-    <!--silently kill Syncthing start-->
     <InstallExecuteSequence>
-      <!--<Custom Action='MyProcess.TaskKill' Before='InstallFiles' />-->
-    <Custom Action='SetOpenURL' After='InstallFinalize' />
-    <Custom Action="OpenURL" After="SetOpenURL"/>
+      <Custom Action='SetOpenURL' After='InstallFinalize' />
+      <!--http://stackoverflow.com/questions/9535047/wix-custom-actions-on-install-but-not-on-uninstall-or-upgrade-->
+      <Custom Action="OpenURL" After="SetOpenURL" > <![CDATA[NOT Installed]]></Custom>
     </InstallExecuteSequence>
-    <!--todo: test upgrade without killing syncthing-->
-    <Property Id="QtExecCmdLine" Value='"C:\Windows\System32\taskkill.exe" /F /IM Syncthing.exe' />
-    <!--<CustomAction Id="MyProcess.TaskKill" BinaryKey="WixCA" DllEntry="CAQuietExec" Execute="immediate" Return="ignore" />-->
-    <!--silently kill Syncthing end-->
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
         <Directory Id="INSTALLFOLDER" Name="Syncthing">
@@ -53,7 +42,6 @@
   <Fragment>
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <!--http://stackoverflow.com/questions/58538/how-do-you-create-an-event-log-source-using-wix-->
-
     </ComponentGroup>
   </Fragment>
 </Wix>
