@@ -20,14 +20,8 @@
             <Component Id="cmpAF17AC26F51DA0C1CBB25DD19D46BC77" Guid="*">
                 <File Id="fil0B92522F3CAC1E538328247E844F69E1" KeyPath="yes" Source="$(var.MySource)\syncthing.exe" />
             </Component>
-            <Component Id="cmpB8406F655D91EAC8C4C225EB016B8E9C" Guid="*">
-                <File Id="fil5D8F7867D55D58FBC3E208977845F6F1" KeyPath="yes" Source="$(var.MySource)\Syncthing.msi" />
-            </Component>
             <Component Id="cmpC3CD69362AC2345BEA84C8ECB5DF0682" Guid="*">
                 <File Id="fil64BE430D0AA55BDFC2E2908FF81F781D" KeyPath="yes" Source="$(var.MySource)\Syncthing.website" />
-            </Component>
-            <Component Id="cmpD74D7DF2E9FC9BE56E280C5B76F7187C" Guid="*">
-                <File Id="fil610CF84226060F7B01B44BBB3CBCF485" KeyPath="yes" Source="$(var.MySource)\Syncthing.wixpdb" />
             </Component>
             <Component Id="cmp50B779FC0E31876A289A73F7E5875D34" Guid="*">
                 <File Id="fil22E636870E20EA8ED1CC7562A68A7405" KeyPath="yes" Source="$(var.MySource)\SyncthingServiceWrapper.exe" />
@@ -50,9 +44,7 @@
             <ComponentRef Id="cmp5D903DBC40A0141D5A5EE192D008FD3D" />
             <ComponentRef Id="cmpE452B0730BD374B553591089257A50B0" />
             <ComponentRef Id="cmpAF17AC26F51DA0C1CBB25DD19D46BC77" />
-            <ComponentRef Id="cmpB8406F655D91EAC8C4C225EB016B8E9C" />
             <ComponentRef Id="cmpC3CD69362AC2345BEA84C8ECB5DF0682" />
-            <ComponentRef Id="cmpD74D7DF2E9FC9BE56E280C5B76F7187C" />
             <ComponentRef Id="cmp50B779FC0E31876A289A73F7E5875D34" />
             <ComponentRef Id="cmp7C1CF2B032C3345CF5A69B7766EB107E" />
             <ComponentRef Id="cmpBFF3155C2CE075DAA7995CB3B9A3D83C" />
