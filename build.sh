@@ -51,6 +51,7 @@ case "${1:-default}" in
 
 	all)
 		go run build.go -goos darwin -goarch amd64 tar
+		go run build.go -goos darwin -goarch 386 tar
 
 		go run build.go -goos dragonfly -goarch 386 tar
 		go run build.go -goos dragonfly -goarch amd64 tar
@@ -117,7 +118,7 @@ case "${1:-default}" in
 			-e "STTRACE=$STTRACE" \
 			syncthing/build:latest \
 			sh -c './build.sh clean \
-				&& go vet ./cmd/... ./internal/... \
+				&& go tool vet -composites=false cmd/*/*.go internal/*/*.go \
 				&& ( golint ./cmd/... ; golint ./internal/... ) | egrep -v "comment on exported|should have comment" \
 				&& ./build.sh all \
 				&& STTRACE=all ./build.sh test-cov'
@@ -133,7 +134,7 @@ case "${1:-default}" in
 				&& go run build.go -race \
 				&& export GOPATH=$(pwd)/Godeps/_workspace:$GOPATH \
 				&& cd test \
-				&& go test -tags integration -v -timeout 60m -short \
+				&& go test -tags integration -v -timeout 90m -short \
 				&& git clean -fxd .'
 		;;
 

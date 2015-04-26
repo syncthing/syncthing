@@ -1,25 +1,18 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // Package events provides event subscription and polling functionality.
 package events
 
 import (
 	"errors"
-	"sync"
+	stdsync "sync"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type EventType int
@@ -40,6 +33,8 @@ const (
 	FolderRejected
 	ConfigSaved
 	DownloadProgress
+	FolderSummary
+	FolderCompletion
 
 	AllEvents = (1 << iota) - 1
 )
@@ -76,6 +71,10 @@ func (t EventType) String() string {
 		return "ConfigSaved"
 	case DownloadProgress:
 		return "DownloadProgress"
+	case FolderSummary:
+		return "FolderSummary"
+	case FolderCompletion:
+		return "FolderCompletion"
 	default:
 		return "Unknown"
 	}
@@ -104,7 +103,6 @@ type Subscription struct {
 	mask   EventType
 	id     int
 	events chan Event
-	mutex  sync.Mutex
 }
 
 var Default = NewLogger()
@@ -116,7 +114,8 @@ var (
 
 func NewLogger() *Logger {
 	return &Logger{
-		subs: make(map[int]*Subscription),
+		subs:  make(map[int]*Subscription),
+		mutex: sync.NewMutex(),
 	}
 }
 
@@ -171,9 +170,6 @@ func (l *Logger) Unsubscribe(s *Subscription) {
 }
 
 func (s *Subscription) Poll(timeout time.Duration) (Event, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	if debug {
 		dl.Debugln("poll", timeout)
 	}
@@ -200,15 +196,16 @@ type BufferedSubscription struct {
 	next int
 	cur  int
 	mut  sync.Mutex
-	cond *sync.Cond
+	cond *stdsync.Cond
 }
 
 func NewBufferedSubscription(s *Subscription, size int) *BufferedSubscription {
 	bs := &BufferedSubscription{
 		sub: s,
 		buf: make([]Event, size),
+		mut: sync.NewMutex(),
 	}
-	bs.cond = sync.NewCond(&bs.mut)
+	bs.cond = stdsync.NewCond(bs.mut)
 	go bs.pollingLoop()
 	return bs
 }

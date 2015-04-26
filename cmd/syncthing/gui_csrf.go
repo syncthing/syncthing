@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package main
 
@@ -20,16 +11,15 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 var csrfTokens []string
-var csrfMut sync.Mutex
+var csrfMut sync.Mutex = sync.NewMutex()
 
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
@@ -101,7 +91,7 @@ func newCsrfToken() string {
 }
 
 func saveCsrfTokens() {
-	name := filepath.Join(confDir, "csrftokens.txt")
+	name := locations[locCsrfTokens]
 	tmp := fmt.Sprintf("%s.tmp.%d", name, time.Now().UnixNano())
 
 	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
@@ -126,8 +116,7 @@ func saveCsrfTokens() {
 }
 
 func loadCsrfTokens() {
-	name := filepath.Join(confDir, "csrftokens.txt")
-	f, err := os.Open(name)
+	f, err := os.Open(locations[locCsrfTokens])
 	if err != nil {
 		return
 	}

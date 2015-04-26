@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // Package db provides a set type to track local/remote files with newness
 // checks. We must do a certain amount of normalization in here. We will get
@@ -22,11 +13,9 @@
 package db
 
 import (
-	"sync"
-
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/lamport"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -60,6 +49,7 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 		folder:       folder,
 		db:           db,
 		blockmap:     NewBlockMap(db, folder),
+		mutex:        sync.NewMutex(),
 	}
 
 	ldbCheckGlobals(db, []byte(folder))
@@ -70,7 +60,6 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 		if f.LocalVersion > s.localVersion[deviceID] {
 			s.localVersion[deviceID] = f.LocalVersion
 		}
-		lamport.Default.Tick(f.Version)
 		return true
 	})
 	if debug {
@@ -99,14 +88,14 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 	}
 }
 
-func (s *FileSet) ReplaceWithDelete(device protocol.DeviceID, fs []protocol.FileInfo) {
+func (s *FileSet) ReplaceWithDelete(device protocol.DeviceID, fs []protocol.FileInfo, myID uint64) {
 	if debug {
 		l.Debugf("%s ReplaceWithDelete(%v, [%d])", s.folder, device, len(fs))
 	}
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if lv := ldbReplaceWithDelete(s.db, []byte(s.folder), device[:], fs); lv > s.localVersion[device] {
+	if lv := ldbReplaceWithDelete(s.db, []byte(s.folder), device[:], fs, myID); lv > s.localVersion[device] {
 		s.localVersion[device] = lv
 	}
 	if device == protocol.LocalDeviceID {
@@ -127,7 +116,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		updates := make([]protocol.FileInfo, 0, len(fs))
 		for _, newFile := range fs {
 			existingFile, ok := ldbGet(s.db, []byte(s.folder), device[:], []byte(newFile.Name))
-			if !ok || existingFile.Version <= newFile.Version {
+			if !ok || !existingFile.Version.Equal(newFile.Version) {
 				discards = append(discards, existingFile)
 				updates = append(updates, newFile)
 			}

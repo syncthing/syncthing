@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // +build integration
 
@@ -22,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/syncthing/syncthing/internal/symlinks"
 )
@@ -30,7 +22,7 @@ func TestIgnores(t *testing.T) {
 	// Clean and start a syncthing instance
 
 	log.Println("Cleaning...")
-	err := removeAll("s1", "h1/index")
+	err := removeAll("s1", "h1/index*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,6 +37,19 @@ func TestIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// Wait for one scan to succeed, or up to 20 seconds... This is to let
+	// startup, UPnP etc complete and make sure that we've performed folder
+	// error checking which creates the folder path if it's missing.
+	for i := 0; i < 20; i++ {
+		err := p.rescan("default")
+		if err != nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
+
 	defer p.stop()
 
 	// Create eight empty files and directories
@@ -80,7 +85,17 @@ func TestIgnores(t *testing.T) {
 
 	// Rescan and verify that we see them all
 
-	p.post("/rest/scan?folder=default", nil)
+	// Wait for one scan to succeed, or up to 20 seconds...
+	// This is to let startup, UPnP etc complete.
+	for i := 0; i < 20; i++ {
+		err := p.rescan("default")
+		if err != nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
+
 	m, err := p.model("default")
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +122,7 @@ func TestIgnores(t *testing.T) {
 
 	// Rescan and verify that we see them
 
-	p.post("/rest/scan?folder=default", nil)
+	p.rescan("default")
 	m, err = p.model("default")
 	if err != nil {
 		t.Fatal(err)
@@ -134,7 +149,7 @@ func TestIgnores(t *testing.T) {
 
 	// Rescan and verify that we see them
 
-	p.post("/rest/scan?folder=default", nil)
+	p.rescan("default")
 	m, err = p.model("default")
 	if err != nil {
 		t.Fatal(err)

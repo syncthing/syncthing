@@ -1,26 +1,17 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package scanner
 
 import (
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 // The parallell hasher reads FileInfo structures from the inbox, hashes the
@@ -29,7 +20,7 @@ import (
 // is closed and all items handled.
 
 func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan protocol.FileInfo) {
-	var wg sync.WaitGroup
+	wg := sync.NewWaitGroup()
 	wg.Add(workers)
 
 	for i := 0; i < workers; i++ {

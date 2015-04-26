@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package discover
 
@@ -22,12 +13,12 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/beacon"
 	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type Discoverer struct {
@@ -36,13 +27,15 @@ type Discoverer struct {
 	localBcastIntv  time.Duration
 	localBcastStart time.Time
 	cacheLifetime   time.Duration
-	broadcastBeacon beacon.Interface
-	multicastBeacon beacon.Interface
-	registry        map[protocol.DeviceID][]CacheEntry
-	registryLock    sync.RWMutex
+	negCacheCutoff  time.Duration
+	beacons         []beacon.Interface
 	extPort         uint16
 	localBcastTick  <-chan time.Time
 	forcedBcastTick chan time.Time
+
+	registryLock sync.RWMutex
+	registry     map[protocol.DeviceID][]CacheEntry
+	lastLookup   map[protocol.DeviceID]time.Time
 
 	clients []Client
 	mut     sync.RWMutex
@@ -63,44 +56,79 @@ func NewDiscoverer(id protocol.DeviceID, addresses []string) *Discoverer {
 		listenAddrs:    addresses,
 		localBcastIntv: 30 * time.Second,
 		cacheLifetime:  5 * time.Minute,
+		negCacheCutoff: 3 * time.Minute,
 		registry:       make(map[protocol.DeviceID][]CacheEntry),
+		lastLookup:     make(map[protocol.DeviceID]time.Time),
+		registryLock:   sync.NewRWMutex(),
+		mut:            sync.NewRWMutex(),
 	}
 }
 
 func (d *Discoverer) StartLocal(localPort int, localMCAddr string) {
 	if localPort > 0 {
-		bb, err := beacon.NewBroadcast(localPort)
-		if err != nil {
-			if debug {
-				l.Debugln("discover: Start local v4:", err)
-			}
-			l.Infoln("Local discovery over IPv4 unavailable")
-		} else {
-			d.broadcastBeacon = bb
-			go d.recvAnnouncements(bb)
-		}
+		d.startLocalIPv4Broadcasts(localPort)
 	}
 
 	if len(localMCAddr) > 0 {
-		mb, err := beacon.NewMulticast(localMCAddr)
+		d.startLocalIPv6Multicasts(localMCAddr)
+	}
+
+	if len(d.beacons) == 0 {
+		l.Warnln("Local discovery unavailable")
+		return
+	}
+
+	d.localBcastTick = time.Tick(d.localBcastIntv)
+	d.forcedBcastTick = make(chan time.Time)
+	d.localBcastStart = time.Now()
+	go d.sendLocalAnnouncements()
+}
+
+func (d *Discoverer) startLocalIPv4Broadcasts(localPort int) {
+	bb, err := beacon.NewBroadcast(localPort)
+	if err != nil {
+		if debug {
+			l.Debugln("discover: Start local v4:", err)
+		}
+		l.Infoln("Local discovery over IPv4 unavailable")
+		return
+	}
+
+	d.beacons = append(d.beacons, bb)
+	go d.recvAnnouncements(bb)
+}
+
+func (d *Discoverer) startLocalIPv6Multicasts(localMCAddr string) {
+	intfs, err := net.Interfaces()
+	if err != nil {
+		if debug {
+			l.Debugln("discover: interfaces:", err)
+		}
+		l.Infoln("Local discovery over IPv6 unavailable")
+		return
+	}
+
+	v6Intfs := 0
+	for _, intf := range intfs {
+		if intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0 {
+			continue
+		}
+
+		mb, err := beacon.NewMulticast(localMCAddr, intf.Name)
 		if err != nil {
 			if debug {
 				l.Debugln("discover: Start local v6:", err)
 			}
-			l.Infoln("Local discovery over IPv6 unavailable")
-		} else {
-			d.multicastBeacon = mb
-			go d.recvAnnouncements(mb)
+			continue
 		}
+
+		d.beacons = append(d.beacons, mb)
+		go d.recvAnnouncements(mb)
+		v6Intfs++
 	}
 
-	if d.broadcastBeacon == nil && d.multicastBeacon == nil {
-		l.Warnln("Local discovery unavailable")
-	} else {
-		d.localBcastTick = time.Tick(d.localBcastIntv)
-		d.forcedBcastTick = make(chan time.Time)
-		d.localBcastStart = time.Now()
-		go d.sendLocalAnnouncements()
+	if v6Intfs == 0 {
+		l.Infoln("Local discovery over IPv6 unavailable")
 	}
 }
 
@@ -114,7 +142,7 @@ func (d *Discoverer) StartGlobal(servers []string, extPort uint16) {
 
 	d.extPort = extPort
 	pkt := d.announcementPkt()
-	wg := sync.WaitGroup{}
+	wg := sync.NewWaitGroup()
 	clients := make(chan Client, len(servers))
 	for _, address := range servers {
 		wg.Add(1)
@@ -164,23 +192,33 @@ func (d *Discoverer) ExtAnnounceOK() map[string]bool {
 func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
 	d.registryLock.RLock()
 	cached := d.filterCached(d.registry[device])
+	lastLookup := d.lastLookup[device]
 	d.registryLock.RUnlock()
 
 	d.mut.RLock()
 	defer d.mut.RUnlock()
 
-	var addrs []string
 	if len(cached) > 0 {
-		addrs = make([]string, len(cached))
+		// There are cached address entries.
+		addrs := make([]string, len(cached))
 		for i := range cached {
 			addrs[i] = cached[i].Address
 		}
-	} else if len(d.clients) != 0 && time.Since(d.localBcastStart) > d.localBcastIntv {
+		return addrs
+	}
+
+	if time.Since(lastLookup) < d.negCacheCutoff {
+		// We have recently tried to lookup this address and failed. Lets
+		// chill for a while.
+		return nil
+	}
+
+	if len(d.clients) != 0 && time.Since(d.localBcastStart) > d.localBcastIntv {
 		// Only perform external lookups if we have at least one external
 		// server client and one local announcement interval has passed. This is
 		// to avoid finding local peers on their remote address at startup.
 		results := make(chan []string, len(d.clients))
-		wg := sync.WaitGroup{}
+		wg := sync.NewWaitGroup()
 		for _, client := range d.clients {
 			wg.Add(1)
 			go func(c Client) {
@@ -196,6 +234,7 @@ func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
 		seen := make(map[string]struct{})
 		now := time.Now()
 
+		var addrs []string
 		for result := range results {
 			for _, addr := range result {
 				_, ok := seen[addr]
@@ -212,9 +251,13 @@ func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
 
 		d.registryLock.Lock()
 		d.registry[device] = cached
+		d.lastLookup[device] = time.Now()
 		d.registryLock.Unlock()
+
+		return addrs
 	}
-	return addrs
+
+	return nil
 }
 
 func (d *Discoverer) Hint(device string, addrs []string) {
@@ -277,11 +320,8 @@ func (d *Discoverer) sendLocalAnnouncements() {
 	msg := pkt.MustMarshalXDR()
 
 	for {
-		if d.multicastBeacon != nil {
-			d.multicastBeacon.Send(msg)
-		}
-		if d.broadcastBeacon != nil {
-			d.broadcastBeacon.Send(msg)
+		for _, b := range d.beacons {
+			b.Send(msg)
 		}
 
 		select {

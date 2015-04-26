@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package model
 
@@ -22,7 +13,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/syncthing/protocol"
@@ -33,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/scanner"
 	"github.com/syncthing/syncthing/internal/symlinks"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syncthing/syncthing/internal/versioner"
 )
 
@@ -63,30 +54,60 @@ var (
 	errNoDevice = errors.New("no available source device")
 )
 
-type Puller struct {
-	folder          string
-	dir             string
-	scanIntv        time.Duration
+type rwFolder struct {
+	stateTracker
+
 	model           *Model
-	stop            chan struct{}
-	versioner       versioner.Versioner
-	ignorePerms     bool
-	lenientMtimes   bool
 	progressEmitter *ProgressEmitter
-	copiers         int
-	pullers         int
-	queue           *jobQueue
+
+	folder        string
+	dir           string
+	scanIntv      time.Duration
+	versioner     versioner.Versioner
+	ignorePerms   bool
+	lenientMtimes bool
+	copiers       int
+	pullers       int
+	shortID       uint64
+	order         config.PullOrder
+
+	stop      chan struct{}
+	queue     *jobQueue
+	dbUpdates chan protocol.FileInfo
+}
+
+func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
+	return &rwFolder{
+		stateTracker: stateTracker{
+			folder: cfg.ID,
+			mut:    sync.NewMutex(),
+		},
+
+		model:           m,
+		progressEmitter: m.progressEmitter,
+
+		folder:        cfg.ID,
+		dir:           cfg.Path(),
+		scanIntv:      time.Duration(cfg.RescanIntervalS) * time.Second,
+		ignorePerms:   cfg.IgnorePerms,
+		lenientMtimes: cfg.LenientMtimes,
+		copiers:       cfg.Copiers,
+		pullers:       cfg.Pullers,
+		shortID:       shortID,
+		order:         cfg.Order,
+
+		stop:  make(chan struct{}),
+		queue: newJobQueue(),
+	}
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
 // critical error.
-func (p *Puller) Serve() {
+func (p *rwFolder) Serve() {
 	if debug {
 		l.Debugln(p, "starting")
 		defer l.Debugln(p, "exiting")
 	}
-
-	p.stop = make(chan struct{})
 
 	pullTimer := time.NewTimer(checkPullIntv)
 	scanTimer := time.NewTimer(time.Millisecond) // The first scan should be done immediately.
@@ -95,16 +116,31 @@ func (p *Puller) Serve() {
 		pullTimer.Stop()
 		scanTimer.Stop()
 		// TODO: Should there be an actual FolderStopped state?
-		p.model.setState(p.folder, FolderIdle)
+		p.setState(FolderIdle)
 	}()
 
 	var prevVer int64
 	var prevIgnoreHash string
 
+	rescheduleScan := func() {
+		if p.scanIntv == 0 {
+			// We should not run scans, so it should not be rescheduled.
+			return
+		}
+
+		// Sleep a random time between 3/4 and 5/4 of the configured interval.
+		sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
+		intv := time.Duration(sleepNanos) * time.Nanosecond
+
+		if debug {
+			l.Debugln(p, "next rescan in", intv)
+		}
+		scanTimer.Reset(intv)
+	}
+
 	// We don't start pulling files until a scan has been completed.
 	initialScanCompleted := false
 
-loop:
 	for {
 		select {
 		case <-p.stop:
@@ -117,7 +153,6 @@ loop:
 		// device A to device B, so we have something to work against.
 		case <-pullTimer.C:
 			if !initialScanCompleted {
-				// How did we even get here?
 				if debug {
 					l.Debugln(p, "skip (initial)")
 				}
@@ -152,7 +187,7 @@ loop:
 			if debug {
 				l.Debugln(p, "pulling", prevVer, curVer)
 			}
-			p.model.setState(p.folder, FolderSyncing)
+			p.setState(FolderSyncing)
 			tries := 0
 			for {
 				tries++
@@ -200,30 +235,34 @@ loop:
 					break
 				}
 			}
-			p.model.setState(p.folder, FolderIdle)
+			p.setState(FolderIdle)
 
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
 		case <-scanTimer.C:
+			if err := p.model.CheckFolderHealth(p.folder); err != nil {
+				l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
+				rescheduleScan()
+				continue
+			}
+
 			if debug {
 				l.Debugln(p, "rescan")
 			}
-			p.model.setState(p.folder, FolderScanning)
-			if err := p.model.ScanFolder(p.folder); err != nil {
-				p.model.cfg.InvalidateFolder(p.folder, err.Error())
-				break loop
-			}
-			p.model.setState(p.folder, FolderIdle)
-			if p.scanIntv > 0 {
-				// Sleep a random time between 3/4 and 5/4 of the configured interval.
-				sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
-				intv := time.Duration(sleepNanos) * time.Nanosecond
 
-				if debug {
-					l.Debugln(p, "next rescan in", intv)
-				}
-				scanTimer.Reset(intv)
+			if err := p.model.ScanFolder(p.folder); err != nil {
+				// Potentially sets the error twice, once in the scanner just
+				// by doing a check, and once here, if the error returned is
+				// the same one as returned by CheckFolderHealth, though
+				// duplicate set is handled by setError.
+				p.setError(err)
+				rescheduleScan()
+				continue
+			}
+
+			if p.scanIntv > 0 {
+				rescheduleScan()
 			}
 			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
@@ -233,30 +272,39 @@ loop:
 	}
 }
 
-func (p *Puller) Stop() {
+func (p *rwFolder) Stop() {
 	close(p.stop)
 }
 
-func (p *Puller) String() string {
-	return fmt.Sprintf("puller/%s@%p", p.folder, p)
+func (p *rwFolder) String() string {
+	return fmt.Sprintf("rwFolder/%s@%p", p.folder, p)
 }
 
 // pullerIteration runs a single puller iteration for the given folder and
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
+func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
 
-	var copyWg sync.WaitGroup
-	var pullWg sync.WaitGroup
-	var doneWg sync.WaitGroup
+	updateWg := sync.NewWaitGroup()
+	copyWg := sync.NewWaitGroup()
+	pullWg := sync.NewWaitGroup()
+	doneWg := sync.NewWaitGroup()
 
 	if debug {
 		l.Debugln(p, "c", p.copiers, "p", p.pullers)
 	}
+
+	p.dbUpdates = make(chan protocol.FileInfo)
+	updateWg.Add(1)
+	go func() {
+		// dbUpdaterRoutine finishes when p.dbUpdates is closed
+		p.dbUpdaterRoutine()
+		updateWg.Done()
+	}()
 
 	for i := 0; i < p.copiers; i++ {
 		copyWg.Add(1)
@@ -300,13 +348,9 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 	buckets := map[string][]protocol.FileInfo{}
 
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-
-		// Needed items are delivered sorted lexicographically. This isn't
-		// really optimal from a performance point of view - it would be
-		// better if files were handled in random order, to spread the load
-		// over the cluster. But it means that we can be sure that we fully
-		// handle directories before the files that go inside them, which is
-		// nice.
+		// Needed items are delivered sorted lexicographically. We'll handle
+		// directories as they come along, so parents before children. Files
+		// are queued and the order may be changed later.
 
 		file := intf.(protocol.FileInfo)
 
@@ -346,12 +390,31 @@ func (p *Puller) pullerIteration(ignores *ignore.Matcher) int {
 		default:
 			// A new or changed file or symlink. This is the only case where we
 			// do stuff concurrently in the background
-			p.queue.Push(file.Name)
+			p.queue.Push(file.Name, file.Size(), file.Modified)
 		}
 
 		changed++
 		return true
 	})
+
+	// Reorder the file queue according to configuration
+
+	switch p.order {
+	case config.OrderRandom:
+		p.queue.Shuffle()
+	case config.OrderAlphabetic:
+		// The queue is already in alphabetic order.
+	case config.OrderSmallestFirst:
+		p.queue.SortSmallestFirst()
+	case config.OrderLargestFirst:
+		p.queue.SortLargestFirst()
+	case config.OrderOldestFirst:
+		p.queue.SortOldestFirst()
+	case config.OrderNewestFirst:
+		p.queue.SortOldestFirst()
+	}
+
+	// Process the file queue
 
 nextFile:
 	for {
@@ -427,22 +490,30 @@ nextFile:
 		p.deleteDir(dir)
 	}
 
+	// Wait for db updates to complete
+	close(p.dbUpdates)
+	updateWg.Wait()
+
 	return changed
 }
 
 // handleDir creates or updates the given directory
-func (p *Puller) handleDir(file protocol.FileInfo) {
+func (p *rwFolder) handleDir(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "dir",
+		"action": "update",
 	})
+
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "dir",
+			"action": "update",
 		})
 	}()
 
@@ -457,13 +528,13 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
-	info, err := os.Lstat(realName)
+	info, err := osutil.Lstat(realName)
 	switch {
 	// There is already something under that name, but it's a file/link.
 	// Most likely a file/link is getting replaced with a directory.
 	// Remove the file/link and fall through to directory creation.
 	case err == nil && (!info.IsDir() || info.Mode()&os.ModeSymlink != 0):
-		err = osutil.InWritableDir(os.Remove, realName)
+		err = osutil.InWritableDir(osutil.Remove, realName)
 		if err != nil {
 			l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
 			return
@@ -476,11 +547,15 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 		// we can pass it to InWritableDir. We use a regular Mkdir and
 		// not MkdirAll because the parent should already exist.
 		mkdir := func(path string) error {
-			return os.Mkdir(path, mode)
+			err = os.Mkdir(path, mode)
+			if err != nil || p.ignorePerms {
+				return err
+			}
+			return os.Chmod(path, mode)
 		}
 
 		if err = osutil.InWritableDir(mkdir, realName); err == nil {
-			p.model.updateLocal(p.folder, file)
+			p.dbUpdates <- file
 		} else {
 			l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
 		}
@@ -497,27 +572,30 @@ func (p *Puller) handleDir(file protocol.FileInfo) {
 	// It's OK to change mode bits on stuff within non-writable directories.
 
 	if p.ignorePerms {
-		p.model.updateLocal(p.folder, file)
+		p.dbUpdates <- file
 	} else if err := os.Chmod(realName, mode); err == nil {
-		p.model.updateLocal(p.folder, file)
+		p.dbUpdates <- file
 	} else {
 		l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
 	}
 }
 
 // deleteDir attempts to delete the given directory
-func (p *Puller) deleteDir(file protocol.FileInfo) {
+func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "dir",
+		"action": "delete",
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "dir",
+			"action": "delete",
 		})
 	}()
 
@@ -528,73 +606,89 @@ func (p *Puller) deleteDir(file protocol.FileInfo) {
 		files, _ := dir.Readdirnames(-1)
 		for _, file := range files {
 			if defTempNamer.IsTemporary(file) {
-				osutil.InWritableDir(os.Remove, filepath.Join(realName, file))
+				osutil.InWritableDir(osutil.Remove, filepath.Join(realName, file))
 			}
 		}
 	}
-	err = osutil.InWritableDir(os.Remove, realName)
+	err = osutil.InWritableDir(osutil.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
-		p.model.updateLocal(p.folder, file)
+		p.dbUpdates <- file
 	} else {
 		l.Infof("Puller (folder %q, dir %q): delete: %v", p.folder, file.Name, err)
 	}
 }
 
 // deleteFile attempts to delete the given file
-func (p *Puller) deleteFile(file protocol.FileInfo) {
+func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "file",
+		"action": "delete",
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "delete",
 		})
 	}()
 
 	realName := filepath.Join(p.dir, file.Name)
 
-	if p.versioner != nil {
+	cur, ok := p.model.CurrentFolderFile(p.folder, file.Name)
+	if ok && p.inConflict(cur.Version, file.Version) {
+		// There is a conflict here. Move the file to a conflict copy instead
+		// of deleting. Also merge with the version vector we had, to indicate
+		// we have resolved the conflict.
+		file.Version = file.Version.Merge(cur.Version)
+		err = osutil.InWritableDir(moveForConflict, realName)
+	} else if p.versioner != nil {
 		err = osutil.InWritableDir(p.versioner.Archive, realName)
 	} else {
-		err = osutil.InWritableDir(os.Remove, realName)
+		err = osutil.InWritableDir(osutil.Remove, realName)
 	}
 
 	if err != nil && !os.IsNotExist(err) {
 		l.Infof("Puller (folder %q, file %q): delete: %v", p.folder, file.Name, err)
 	} else {
-		p.model.updateLocal(p.folder, file)
+		p.dbUpdates <- file
 	}
 }
 
 // renameFile attempts to rename an existing file to a destination
 // and set the right attributes on it.
-func (p *Puller) renameFile(source, target protocol.FileInfo) {
+func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    source.Name,
-		"details": db.ToTruncated(source),
+		"folder": p.folder,
+		"item":   source.Name,
+		"type":   "file",
+		"action": "delete",
 	})
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    target.Name,
-		"details": db.ToTruncated(source),
+		"folder": p.folder,
+		"item":   target.Name,
+		"type":   "file",
+		"action": "update",
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   source.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "delete",
 		})
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   target.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "update",
 		})
 	}()
 
@@ -619,7 +713,7 @@ func (p *Puller) renameFile(source, target protocol.FileInfo) {
 		// of the source and the creation of the target. Fix-up the metadata,
 		// and update the local index of the target file.
 
-		p.model.updateLocal(p.folder, source)
+		p.dbUpdates <- source
 
 		err = p.shortcutFile(target)
 		if err != nil {
@@ -631,23 +725,24 @@ func (p *Puller) renameFile(source, target protocol.FileInfo) {
 		// get rid of. Attempt to delete it instead so that we make *some*
 		// progress. The target is unhandled.
 
-		err = osutil.InWritableDir(os.Remove, from)
+		err = osutil.InWritableDir(osutil.Remove, from)
 		if err != nil {
 			l.Infof("Puller (folder %q, file %q): delete %q after failed rename: %v", p.folder, target.Name, source.Name, err)
 			return
 		}
 
-		p.model.updateLocal(p.folder, source)
+		p.dbUpdates <- source
 	}
 }
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
+func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "file",
+		"action": "update",
 	})
 
 	curFile, ok := p.model.CurrentFolderFile(p.folder, file.Name)
@@ -670,6 +765,8 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "update",
 		})
 		return
 	}
@@ -691,9 +788,9 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
 
 		// block.String() returns a string unique to the block
-		existingBlocks := make(map[string]bool, len(tempCopyBlocks))
+		existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
 		for _, block := range tempCopyBlocks {
-			existingBlocks[block.String()] = true
+			existingBlocks[block.String()] = struct{}{}
 		}
 
 		// Since the blocks are already there, we don't need to get them.
@@ -726,6 +823,8 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 		copyNeeded:  len(blocks),
 		reused:      reused,
 		ignorePerms: p.ignorePerms,
+		version:     curFile.Version,
+		mut:         sync.NewMutex(),
 	}
 
 	if debug {
@@ -741,7 +840,7 @@ func (p *Puller) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksSt
 
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
-func (p *Puller) shortcutFile(file protocol.FileInfo) (err error) {
+func (p *rwFolder) shortcutFile(file protocol.FileInfo) (err error) {
 	realName := filepath.Join(p.dir, file.Name)
 	if !p.ignorePerms {
 		err = os.Chmod(realName, os.FileMode(file.Flags&0777))
@@ -767,15 +866,21 @@ func (p *Puller) shortcutFile(file protocol.FileInfo) (err error) {
 		}
 	}
 
-	p.model.updateLocal(p.folder, file)
+	// This may have been a conflict. We should merge the version vectors so
+	// that our clock doesn't move backwards.
+	if cur, ok := p.model.CurrentFolderFile(p.folder, file.Name); ok {
+		file.Version = file.Version.Merge(cur.Version)
+	}
+
+	p.dbUpdates <- file
 	return
 }
 
 // shortcutSymlink changes the symlinks type if necessery.
-func (p *Puller) shortcutSymlink(file protocol.FileInfo) (err error) {
+func (p *rwFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
 	err = symlinks.ChangeType(filepath.Join(p.dir, file.Name), file.Flags)
 	if err == nil {
-		p.model.updateLocal(p.folder, file)
+		p.dbUpdates <- file
 	} else {
 		l.Infof("Puller (folder %q, file %q): symlink shortcut: %v", p.folder, file.Name, err)
 	}
@@ -784,7 +889,7 @@ func (p *Puller) shortcutSymlink(file protocol.FileInfo) (err error) {
 
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
-func (p *Puller) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
+func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
 	buf := make([]byte, protocol.BlockSize)
 
 	for state := range in {
@@ -803,7 +908,7 @@ func (p *Puller) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBl
 		folderRoots := make(map[string]string)
 		p.model.fmut.RLock()
 		for folder, cfg := range p.model.folderCfgs {
-			folderRoots[folder] = cfg.Path
+			folderRoots[folder] = cfg.Path()
 		}
 		p.model.fmut.RUnlock()
 
@@ -866,7 +971,7 @@ func (p *Puller) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBl
 	}
 }
 
-func (p *Puller) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
+func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	for state := range in {
 		if state.failed() != nil {
 			continue
@@ -881,7 +986,7 @@ func (p *Puller) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPulle
 		}
 
 		var lastError error
-		potentialDevices := p.model.availability(p.folder, state.file.Name)
+		potentialDevices := p.model.Availability(p.folder, state.file.Name)
 		for {
 			// Select the least busy device to pull the block from. If we found no
 			// feasible device at all, fail the block (and in the long run, the
@@ -901,7 +1006,7 @@ func (p *Puller) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPulle
 			// Fetch the block, while marking the selected device as in use so that
 			// leastBusy can select another device when someone else asks.
 			activity.using(selected)
-			buf, lastError := p.model.requestGlobal(selected, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash)
+			buf, lastError := p.model.requestGlobal(selected, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, 0, nil)
 			activity.done(selected)
 			if lastError != nil {
 				continue
@@ -927,20 +1032,23 @@ func (p *Puller) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPulle
 	}
 }
 
-func (p *Puller) performFinish(state *sharedPullerState) {
+func (p *rwFolder) performFinish(state *sharedPullerState) {
 	var err error
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   state.file.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "update",
 		})
 	}()
+
 	// Set the correct permission bits on the new file
 	if !p.ignorePerms {
 		err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
 		if err != nil {
-			l.Warnln("puller: final:", err)
+			l.Warnln("Puller: final:", err)
 			return
 		}
 	}
@@ -956,32 +1064,41 @@ func (p *Puller) performFinish(state *sharedPullerState) {
 			// sync.
 			l.Infof("Puller (folder %q, file %q): final: %v (continuing anyway as requested)", p.folder, state.file.Name, err)
 		} else {
-			l.Warnln("puller: final:", err)
+			l.Warnln("Puller: final:", err)
 			return
 		}
 	}
 
-	// If we should use versioning, let the versioner archive the old
-	// file before we replace it. Archiving a non-existent file is not
-	// an error.
-	if p.versioner != nil {
+	if p.inConflict(state.version, state.file.Version) {
+		// The new file has been changed in conflict with the existing one. We
+		// should file it away as a conflict instead of just removing or
+		// archiving. Also merge with the version vector we had, to indicate
+		// we have resolved the conflict.
+		state.file.Version = state.file.Version.Merge(state.version)
+		err = osutil.InWritableDir(moveForConflict, state.realName)
+	} else if p.versioner != nil {
+		// If we should use versioning, let the versioner archive the old
+		// file before we replace it. Archiving a non-existent file is not
+		// an error.
 		err = p.versioner.Archive(state.realName)
-		if err != nil {
-			l.Warnln("puller: final:", err)
-			return
-		}
+	} else {
+		err = nil
+	}
+	if err != nil {
+		l.Warnln("Puller: final:", err)
+		return
 	}
 
 	// If the target path is a symlink or a directory, we cannot copy
 	// over it, hence remove it before proceeding.
-	stat, err := os.Lstat(state.realName)
+	stat, err := osutil.Lstat(state.realName)
 	if err == nil && (stat.IsDir() || stat.Mode()&os.ModeSymlink != 0) {
-		osutil.InWritableDir(os.Remove, state.realName)
+		osutil.InWritableDir(osutil.Remove, state.realName)
 	}
 	// Replace the original content with the new one
 	err = osutil.Rename(state.tempName, state.realName)
 	if err != nil {
-		l.Warnln("puller: final:", err)
+		l.Warnln("Puller: final:", err)
 		return
 	}
 
@@ -989,7 +1106,7 @@ func (p *Puller) performFinish(state *sharedPullerState) {
 	if state.file.IsSymlink() {
 		content, err := ioutil.ReadFile(state.realName)
 		if err != nil {
-			l.Warnln("puller: final: reading symlink:", err)
+			l.Warnln("Puller: final: reading symlink:", err)
 			return
 		}
 
@@ -999,23 +1116,23 @@ func (p *Puller) performFinish(state *sharedPullerState) {
 			return symlinks.Create(path, string(content), state.file.Flags)
 		}, state.realName)
 		if err != nil {
-			l.Warnln("puller: final: creating symlink:", err)
+			l.Warnln("Puller: final: creating symlink:", err)
 			return
 		}
 	}
 
 	// Record the updated file in the index
-	p.model.updateLocal(p.folder, state.file)
+	p.dbUpdates <- state.file
 }
 
-func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
+func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 	for state := range in {
 		if closed, err := state.finalClose(); closed {
 			if debug {
 				l.Debugln(p, "closing", state.file.Name)
 			}
 			if err != nil {
-				l.Warnln("puller: final:", err)
+				l.Warnln("Puller: final:", err)
 				continue
 			}
 
@@ -1027,6 +1144,8 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 					"folder": p.folder,
 					"item":   state.file.Name,
 					"error":  state.failed(),
+					"type":   "file",
+					"action": "update",
 				})
 			}
 			p.model.receivedFile(p.folder, state.file.Name)
@@ -1038,12 +1157,69 @@ func (p *Puller) finisherRoutine(in <-chan *sharedPullerState) {
 }
 
 // Moves the given filename to the front of the job queue
-func (p *Puller) BringToFront(filename string) {
+func (p *rwFolder) BringToFront(filename string) {
 	p.queue.BringToFront(filename)
 }
 
-func (p *Puller) Jobs() ([]string, []string) {
+func (p *rwFolder) Jobs() ([]string, []string) {
 	return p.queue.Jobs()
+}
+
+// dbUpdaterRoutine aggregates db updates and commits them in batches no
+// larger than 1000 items, and no more delayed than 2 seconds.
+func (p *rwFolder) dbUpdaterRoutine() {
+	const (
+		maxBatchSize = 1000
+		maxBatchTime = 2 * time.Second
+	)
+
+	batch := make([]protocol.FileInfo, 0, maxBatchSize)
+	tick := time.NewTicker(maxBatchTime)
+	defer tick.Stop()
+
+loop:
+	for {
+		select {
+		case file, ok := <-p.dbUpdates:
+			if !ok {
+				break loop
+			}
+
+			file.LocalVersion = 0
+			batch = append(batch, file)
+
+			if len(batch) == maxBatchSize {
+				p.model.updateLocals(p.folder, batch)
+				batch = batch[:0]
+			}
+
+		case <-tick.C:
+			if len(batch) > 0 {
+				p.model.updateLocals(p.folder, batch)
+				batch = batch[:0]
+			}
+		}
+	}
+
+	if len(batch) > 0 {
+		p.model.updateLocals(p.folder, batch)
+	}
+}
+
+func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
+	if current.Concurrent(replacement) {
+		// Obvious case
+		return true
+	}
+	if replacement.Counter(p.shortID) > current.Counter(p.shortID) {
+		// The replacement file contains a higher version for ourselves than
+		// what we have. This isn't supposed to be possible, since it's only
+		// we who can increment that counter. We take it as a sign that
+		// something is wrong (our index may have been corrupted or removed)
+		// and flag it as a conflict.
+		return true
+	}
+	return false
 }
 
 func invalidateFolder(cfg *config.Configuration, folderID string, err error) {
@@ -1064,4 +1240,11 @@ func removeDevice(devices []protocol.DeviceID, device protocol.DeviceID) []proto
 		}
 	}
 	return devices
+}
+
+func moveForConflict(name string) error {
+	ext := filepath.Ext(name)
+	withoutExt := name[:len(name)-len(ext)]
+	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405") + ext
+	return os.Rename(name, newName)
 }

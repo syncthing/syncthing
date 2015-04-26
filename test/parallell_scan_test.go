@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // +build integration
 
@@ -27,7 +18,7 @@ import (
 
 func TestParallellScan(t *testing.T) {
 	log.Println("Cleaning...")
-	err := removeAll("s1", "h1/index")
+	err := removeAll("s1", "h1/index*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +29,7 @@ func TestParallellScan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Println("Generaing .stignore...")
+	log.Println("Generating .stignore...")
 	err = ioutil.WriteFile("s1/.stignore", []byte("some ignore data\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -55,7 +46,20 @@ func TestParallellScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(5 * time.Second)
+
+	// Wait for one scan to succeed, or up to 20 seconds...
+	// This is to let startup, UPnP etc complete.
+	for i := 0; i < 20; i++ {
+		err := st.rescan("default")
+		if err != nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
+
+	// Wait for UPnP and stuff
+	time.Sleep(10 * time.Second)
 
 	var wg sync.WaitGroup
 	log.Println("Starting scans...")
@@ -64,16 +68,12 @@ func TestParallellScan(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			resp, err := st.post("/rest/scan?folder=default", nil)
+			err := st.rescan("default")
 			log.Println(j)
 			if err != nil {
 				log.Println(err)
 				t.Fatal(err)
 			}
-			if resp.StatusCode != 200 {
-				t.Fatalf("%d != 200", resp.StatusCode)
-			}
-			resp.Body.Close()
 		}()
 	}
 

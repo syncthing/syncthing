@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package main
 
@@ -28,7 +19,6 @@ import (
 	mr "math/rand"
 	"net"
 	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -37,13 +27,7 @@ const (
 	tlsDefaultCommonName = "syncthing"
 )
 
-func loadCert(dir string, prefix string) (tls.Certificate, error) {
-	cf := filepath.Join(dir, prefix+"cert.pem")
-	kf := filepath.Join(dir, prefix+"key.pem")
-	return tls.LoadX509KeyPair(cf, kf)
-}
-
-func newCertificate(dir, prefix, name string) {
+func newCertificate(certFile, keyFile, name string) (tls.Certificate, error) {
 	l.Infof("Generating RSA key and certificate for %s...", name)
 
 	priv, err := rsa.GenerateKey(rand.Reader, tlsRSABits)
@@ -72,7 +56,7 @@ func newCertificate(dir, prefix, name string) {
 		l.Fatalln("create cert:", err)
 	}
 
-	certOut, err := os.Create(filepath.Join(dir, prefix+"cert.pem"))
+	certOut, err := os.Create(certFile)
 	if err != nil {
 		l.Fatalln("save cert:", err)
 	}
@@ -85,7 +69,7 @@ func newCertificate(dir, prefix, name string) {
 		l.Fatalln("save cert:", err)
 	}
 
-	keyOut, err := os.OpenFile(filepath.Join(dir, prefix+"key.pem"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		l.Fatalln("save key:", err)
 	}
@@ -97,6 +81,8 @@ func newCertificate(dir, prefix, name string) {
 	if err != nil {
 		l.Fatalln("save key:", err)
 	}
+
+	return tls.LoadX509KeyPair(certFile, keyFile)
 }
 
 type DowngradingListener struct {

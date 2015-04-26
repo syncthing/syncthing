@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package main
 
@@ -21,20 +12,19 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 var (
-	stdoutFirstLines []string // The first 10 lines of stdout
-	stdoutLastLines  []string // The last 50 lines of stdout
-	stdoutMut        sync.Mutex
+	stdoutFirstLines []string   // The first 10 lines of stdout
+	stdoutLastLines  []string   // The last 50 lines of stdout
+	stdoutMut        sync.Mutex = sync.NewMutex()
 )
 
 const (
@@ -173,7 +163,7 @@ func copyStderr(stderr io.ReadCloser, dst io.Writer) {
 			dst.Write([]byte(line))
 
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
-				panicFd, err = os.Create(filepath.Join(confDir, time.Now().Format("panic-20060102-150405.log")))
+				panicFd, err = os.Create(timestampedLoc(locPanicLog))
 				if err != nil {
 					l.Warnln("Create panic log:", err)
 					continue

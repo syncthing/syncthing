@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package model
 
@@ -19,22 +10,23 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 // A sharedPullerState is kept for each file that is being synced and is kept
 // updated along the way.
 type sharedPullerState struct {
 	// Immutable, does not require locking
-	file        protocol.FileInfo
+	file        protocol.FileInfo // The new file (desired end state)
 	folder      string
 	tempName    string
 	realName    string
 	reused      int // Number of blocks reused from temporary file
 	ignorePerms bool
+	version     protocol.Vector // The current (old) version
 
 	// Mutable, must be locked for access
 	err        error      // The first error we hit
@@ -49,14 +41,14 @@ type sharedPullerState struct {
 
 // A momentary state representing the progress of the puller
 type pullerProgress struct {
-	Total               int
-	Reused              int
-	CopiedFromOrigin    int
-	CopiedFromElsewhere int
-	Pulled              int
-	Pulling             int
-	BytesDone           int64
-	BytesTotal          int64
+	Total               int   `json:"total"`
+	Reused              int   `json:"reused"`
+	CopiedFromOrigin    int   `json:"copiedFromOrigin"`
+	CopiedFromElsewhere int   `json:"copiedFromElsewhere"`
+	Pulled              int   `json:"pulled"`
+	Pulling             int   `json:"pulling"`
+	BytesDone           int64 `json:"bytesDone"`
+	BytesTotal          int64 `json:"bytesTotal"`
 }
 
 // A lockedWriterAt synchronizes WriteAt calls with an external mutex.
@@ -67,8 +59,8 @@ type lockedWriterAt struct {
 }
 
 func (w lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
-	w.mut.Lock()
-	defer w.mut.Unlock()
+	(*w.mut).Lock()
+	defer (*w.mut).Unlock()
 	return w.wr.WriteAt(p, off)
 }
 

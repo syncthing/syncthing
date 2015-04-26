@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package scanner
 
@@ -22,19 +13,35 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/ignore"
-	"github.com/syncthing/syncthing/internal/lamport"
+	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/symlinks"
 	"golang.org/x/text/unicode/norm"
 )
 
+var maskModePerm os.FileMode
+
+func init() {
+	if runtime.GOOS == "windows" {
+		// There is no user/group/others in Windows' read-only
+		// attribute, and all "w" bits are set in os.FileInfo
+		// if the file is not read-only.  Do not send these
+		// group/others-writable bits to other devices in order to
+		// avoid unexpected world-writable files on other platforms.
+		maskModePerm = os.ModePerm & 0755
+	} else {
+		maskModePerm = os.ModePerm
+	}
+}
+
 type Walker struct {
 	// Dir is the base directory for the walk
 	Dir string
-	// Limit walking to this path within Dir, or no limit if Sub is blank
-	Sub string
+	// Limit walking to these paths within Dir, or no limit if Sub is empty
+	Subs []string
 	// BlockSize controls the size of the block used when hashing.
 	BlockSize int
 	// If Matcher is not nil, it is used to identify files to ignore which were specified by the user.
@@ -49,8 +56,13 @@ type Walker struct {
 	// detected. Scanned files will get zero permission bits and the
 	// NoPermissionBits flag set.
 	IgnorePerms bool
+	// When AutoNormalize is set, file names that are in UTF8 but incorrect
+	// normalization form will be corrected.
+	AutoNormalize bool
 	// Number of routines to use for hashing
 	Hashers int
+	// Our vector clock id
+	ShortID uint64
 }
 
 type TempNamer interface {
@@ -69,7 +81,7 @@ type CurrentFiler interface {
 // file system. Files are blockwise hashed.
 func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	if debug {
-		l.Debugln("Walk", w.Dir, w.Sub, w.BlockSize, w.Matcher)
+		l.Debugln("Walk", w.Dir, w.Subs, w.BlockSize, w.Matcher)
 	}
 
 	err := checkDir(w.Dir)
@@ -88,7 +100,13 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 
 	go func() {
 		hashFiles := w.walkAndHashFiles(files)
-		filepath.Walk(filepath.Join(w.Dir, w.Sub), hashFiles)
+		if len(w.Subs) == 0 {
+			filepath.Walk(w.Dir, hashFiles)
+		} else {
+			for _, sub := range w.Subs {
+				filepath.Walk(filepath.Join(w.Dir, sub), hashFiles)
+			}
+		}
 		close(files)
 	}()
 
@@ -98,11 +116,19 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFunc {
 	now := time.Now()
 	return func(p string, info os.FileInfo, err error) error {
+		// Return value used when we are returning early and don't want to
+		// process the item. For directories, this means do-not-descend.
+		var skip error // nil
+		// info nil when error is not nil
+		if info != nil && info.IsDir() {
+			skip = filepath.SkipDir
+		}
+
 		if err != nil {
 			if debug {
 				l.Debugln("error:", p, info, err)
 			}
-			return nil
+			return skip
 		}
 
 		rn, err := filepath.Rel(w.Dir, p)
@@ -110,7 +136,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			if debug {
 				l.Debugln("rel error:", p, err)
 			}
-			return nil
+			return skip
 		}
 
 		if rn == "." {
@@ -137,33 +163,65 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			if debug {
 				l.Debugln("ignored:", rn)
 			}
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
+			return skip
 		}
 
-		if (runtime.GOOS == "linux" || runtime.GOOS == "windows") && !norm.NFC.IsNormalString(rn) {
-			l.Warnf("File %q contains non-NFC UTF-8 sequences and cannot be synced. Consider renaming.", rn)
-			return nil
+		if !utf8.ValidString(rn) {
+			l.Warnf("File name %q is not in UTF8 encoding; skipping.", rn)
+			return skip
 		}
+
+		var normalizedRn string
+		if runtime.GOOS == "darwin" {
+			// Mac OS X file names should always be NFD normalized.
+			normalizedRn = norm.NFD.String(rn)
+		} else {
+			// Every other OS in the known universe uses NFC or just plain
+			// doesn't bother to define an encoding. In our case *we* do care,
+			// so we enforce NFC regardless.
+			normalizedRn = norm.NFC.String(rn)
+		}
+
+		if rn != normalizedRn {
+			// The file name was not normalized.
+
+			if !w.AutoNormalize {
+				// We're not authorized to do anything about it, so complain and skip.
+
+				l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", rn)
+				return skip
+			}
+
+			// We will attempt to normalize it.
+			normalizedPath := filepath.Join(w.Dir, normalizedRn)
+			if _, err := osutil.Lstat(normalizedPath); os.IsNotExist(err) {
+				// Nothing exists with the normalized filename. Good.
+				if err = os.Rename(p, normalizedPath); err != nil {
+					l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, rn, err)
+					return skip
+				}
+				l.Infof(`Normalized UTF8 encoding of file name "%s".`, rn)
+			} else {
+				// There is something already in the way at the normalized
+				// file name.
+				l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, rn)
+				return skip
+			}
+
+			rn = normalizedRn
+		}
+
+		var cf protocol.FileInfo
+		var ok bool
 
 		// Index wise symlinks are always files, regardless of what the target
 		// is, because symlinks carry their target path as their content.
 		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
-			var rval error
 			// If the target is a directory, do NOT descend down there. This
 			// will cause files to get tracked, and removing the symlink will
-			// as a result remove files in their real location. But do not
-			// SkipDir if the target is not a directory, as it will stop
-			// scanning the current directory.
-			if info.IsDir() {
-				rval = filepath.SkipDir
-			}
-
-			// If we don't support symlinks, skip.
+			// as a result remove files in their real location.
 			if !symlinks.Supported {
-				return rval
+				return skip
 			}
 
 			// We always rehash symlinks as they have no modtime or
@@ -177,7 +235,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				if debug {
 					l.Debugln("readlink error:", p, err)
 				}
-				return rval
+				return skip
 			}
 
 			blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0)
@@ -185,7 +243,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				if debug {
 					l.Debugln("hash link error:", p, err)
 				}
-				return rval
+				return skip
 			}
 
 			if w.CurrentFiler != nil {
@@ -196,15 +254,15 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - it wasn't invalid
 				//  - the symlink type (file/dir) was the same
 				//  - the block list (i.e. hash of target) was the same
-				cf, ok := w.CurrentFiler.CurrentFile(rn)
+				cf, ok = w.CurrentFiler.CurrentFile(rn)
 				if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(flags, cf.Flags) && BlocksEqual(cf.Blocks, blocks) {
-					return rval
+					return skip
 				}
 			}
 
 			f := protocol.FileInfo{
 				Name:     rn,
-				Version:  lamport.Default.Tick(0),
+				Version:  cf.Version.Update(w.ShortID),
 				Flags:    protocol.FlagSymlink | flags | protocol.FlagNoPermBits | 0666,
 				Modified: 0,
 				Blocks:   blocks,
@@ -216,7 +274,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 			fchan <- f
 
-			return rval
+			return skip
 		}
 
 		if info.Mode().IsDir() {
@@ -228,7 +286,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - was a directory previously (not a file or something else)
 				//  - was not a symlink (since it's a directory now)
 				//  - was not invalid (since it looks valid now)
-				cf, ok := w.CurrentFiler.CurrentFile(rn)
+				cf, ok = w.CurrentFiler.CurrentFile(rn)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
 				if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 					return nil
@@ -239,11 +297,11 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			if w.IgnorePerms {
 				flags |= protocol.FlagNoPermBits | 0777
 			} else {
-				flags |= uint32(info.Mode() & os.ModePerm)
+				flags |= uint32(info.Mode() & maskModePerm)
 			}
 			f := protocol.FileInfo{
 				Name:     rn,
-				Version:  lamport.Default.Tick(0),
+				Version:  cf.Version.Update(w.ShortID),
 				Flags:    flags,
 				Modified: info.ModTime().Unix(),
 			}
@@ -265,7 +323,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - was not a symlink (since it's a file now)
 				//  - was not invalid (since it looks valid now)
 				//  - has the same size as previously
-				cf, ok := w.CurrentFiler.CurrentFile(rn)
+				cf, ok = w.CurrentFiler.CurrentFile(rn)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
 				if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && !cf.IsDirectory() &&
 					!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
@@ -277,14 +335,14 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				}
 			}
 
-			var flags = uint32(info.Mode() & os.ModePerm)
+			var flags = uint32(info.Mode() & maskModePerm)
 			if w.IgnorePerms {
 				flags = protocol.FlagNoPermBits | 0666
 			}
 
 			f := protocol.FileInfo{
 				Name:     rn,
-				Version:  lamport.Default.Tick(0),
+				Version:  cf.Version.Update(w.ShortID),
 				Flags:    flags,
 				Modified: info.ModTime().Unix(),
 			}
@@ -299,7 +357,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 }
 
 func checkDir(dir string) error {
-	if info, err := os.Lstat(dir); err != nil {
+	if info, err := osutil.Lstat(dir); err != nil {
 		return err
 	} else if !info.IsDir() {
 		return errors.New(dir + ": not a directory")

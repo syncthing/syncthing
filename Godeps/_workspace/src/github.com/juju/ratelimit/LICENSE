@@ -1,3 +1,6 @@
+This package contains an efficient token-bucket-based rate limiter.
+Copyright (C) 2015 Canonical Ltd.
+
 This software is licensed under the LGPLv3, included below.
 
 As a special exception to the GNU Lesser General Public License version 3

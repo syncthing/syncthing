@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // +build ignore
 
@@ -24,33 +15,32 @@ import (
 	"flag"
 	"go/format"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 )
 
 var tpl = template.Must(template.New("assets").Parse(`package auto
 
 import (
-	"bytes"
-	"compress/gzip"
 	"encoding/base64"
-	"io/ioutil"
+)
+
+const (
+	AssetsBuildDate = "{{.BuildDate}}"
 )
 
 func Assets() map[string][]byte {
-	var assets = make(map[string][]byte, {{.assets | len}})
-	var bs []byte
-	var gr *gzip.Reader
-{{range $asset := .assets}}
-	bs, _ = base64.StdEncoding.DecodeString("{{$asset.Data}}")
-	gr, _ = gzip.NewReader(bytes.NewReader(bs))
-	bs, _ = ioutil.ReadAll(gr)
-	assets["{{$asset.Name}}"] = bs
+	var assets = make(map[string][]byte, {{.Assets | len}})
+{{range $asset := .Assets}}
+	assets["{{$asset.Name}}"], _ = base64.StdEncoding.DecodeString("{{$asset.Data}}")
 {{end}}
 	return assets
 }
+
 `))
 
 type asset struct {
@@ -95,12 +85,20 @@ func walkerFor(basePath string) filepath.WalkFunc {
 	}
 }
 
+type templateVars struct {
+	Assets    []asset
+	BuildDate string
+}
+
 func main() {
 	flag.Parse()
 
 	filepath.Walk(flag.Arg(0), walkerFor(flag.Arg(0)))
 	var buf bytes.Buffer
-	tpl.Execute(&buf, map[string][]asset{"assets": assets})
+	tpl.Execute(&buf, templateVars{
+		Assets:    assets,
+		BuildDate: time.Now().UTC().Format(http.TimeFormat),
+	})
 	bs, err := format.Source(buf.Bytes())
 	if err != nil {
 		panic(err)

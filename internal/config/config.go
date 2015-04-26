@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // Package config implements reading and writing of the syncthing configuration file.
 package config
@@ -24,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,46 +28,105 @@ import (
 
 var l = logger.DefaultLogger
 
-const CurrentVersion = 9
+const (
+	OldestHandledVersion = 5
+	CurrentVersion       = 10
+)
 
 type Configuration struct {
-	Version        int                   `xml:"version,attr"`
-	Folders        []FolderConfiguration `xml:"folder"`
-	Devices        []DeviceConfiguration `xml:"device"`
-	GUI            GUIConfiguration      `xml:"gui"`
-	Options        OptionsConfiguration  `xml:"options"`
-	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice"`
+	Version        int                   `xml:"version,attr" json:"version"`
+	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
+	Devices        []DeviceConfiguration `xml:"device" json:"devices"`
+	GUI            GUIConfiguration      `xml:"gui" json:"gui"`
+	Options        OptionsConfiguration  `xml:"options" json:"options"`
+	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice" json:"ignoredDevices"`
 	XMLName        xml.Name              `xml:"configuration" json:"-"`
 
-	OriginalVersion         int                   `xml:"-" json:"-"` // The version we read from disk, before any conversion
-	Deprecated_Repositories []FolderConfiguration `xml:"repository" json:"-"`
-	Deprecated_Nodes        []DeviceConfiguration `xml:"node" json:"-"`
+	OriginalVersion int `xml:"-" json:"-"` // The version we read from disk, before any conversion
+}
+
+func (orig Configuration) Copy() Configuration {
+	c := orig
+
+	// Deep copy FolderConfigurations
+	c.Folders = make([]FolderConfiguration, len(orig.Folders))
+	for i := range c.Folders {
+		c.Folders[i] = orig.Folders[i].Copy()
+	}
+
+	// Deep copy DeviceConfigurations
+	c.Devices = make([]DeviceConfiguration, len(orig.Devices))
+	for i := range c.Devices {
+		c.Devices[i] = orig.Devices[i].Copy()
+	}
+
+	c.Options = orig.Options.Copy()
+
+	// DeviceIDs are values
+	c.IgnoredDevices = make([]protocol.DeviceID, len(orig.IgnoredDevices))
+	copy(c.IgnoredDevices, orig.IgnoredDevices)
+
+	return c
 }
 
 type FolderConfiguration struct {
-	ID              string                      `xml:"id,attr"`
-	Path            string                      `xml:"path,attr"`
-	Devices         []FolderDeviceConfiguration `xml:"device"`
-	ReadOnly        bool                        `xml:"ro,attr"`
-	RescanIntervalS int                         `xml:"rescanIntervalS,attr" default:"60"`
-	IgnorePerms     bool                        `xml:"ignorePerms,attr"`
-	Versioning      VersioningConfiguration     `xml:"versioning"`
-	LenientMtimes   bool                        `xml:"lenientMtimes"`
-	Copiers         int                         `xml:"copiers" default:"1"`  // This defines how many files are handled concurrently.
-	Pullers         int                         `xml:"pullers" default:"16"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
-	Hashers         int                         `xml:"hashers" default:"0"`  // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
+	ID              string                      `xml:"id,attr" json:"id"`
+	RawPath         string                      `xml:"path,attr" json:"path"`
+	Devices         []FolderDeviceConfiguration `xml:"device" json:"devices"`
+	ReadOnly        bool                        `xml:"ro,attr" json:"readOnly"`
+	RescanIntervalS int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
+	IgnorePerms     bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
+	AutoNormalize   bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
+	Versioning      VersioningConfiguration     `xml:"versioning" json:"versioning"`
+	LenientMtimes   bool                        `xml:"lenientMtimes" json:"lenientMTimes"`
+	Copiers         int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
+	Pullers         int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
+	Hashers         int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
+	Order           PullOrder                   `xml:"order" json:"order"`
 
-	Invalid string `xml:"-"` // Set at runtime when there is an error, not saved
+	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 
 	deviceIDs []protocol.DeviceID
+}
 
-	Deprecated_Directory string                      `xml:"directory,omitempty,attr" json:"-"`
-	Deprecated_Nodes     []FolderDeviceConfiguration `xml:"node" json:"-"`
+func (orig FolderConfiguration) Copy() FolderConfiguration {
+	c := orig
+	c.Devices = make([]FolderDeviceConfiguration, len(orig.Devices))
+	copy(c.Devices, orig.Devices)
+	return c
+}
+
+func (f FolderConfiguration) Path() string {
+	// This is intentionally not a pointer method, because things like
+	// cfg.Folders["default"].Path() should be valid.
+
+	// Attempt tilde expansion; leave unchanged in case of error
+	if path, err := osutil.ExpandTilde(f.RawPath); err == nil {
+		f.RawPath = path
+	}
+
+	// Attempt absolutification; leave unchanged in case of error
+	if !filepath.IsAbs(f.RawPath) {
+		// Abs() looks like a fairly expensive syscall on Windows, while
+		// IsAbs() is a whole bunch of string mangling. I think IsAbs() may be
+		// somewhat faster in the general case, hence the outer if...
+		if path, err := filepath.Abs(f.RawPath); err == nil {
+			f.RawPath = path
+		}
+	}
+
+	// Attempt to enable long filename support on Windows. We may still not
+	// have an absolute path here if the previous steps failed.
+	if runtime.GOOS == "windows" && filepath.IsAbs(f.RawPath) && !strings.HasPrefix(f.RawPath, `\\`) {
+		return `\\?\` + f.RawPath
+	}
+
+	return f.RawPath
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
 	if !f.HasMarker() {
-		marker := filepath.Join(f.Path, ".stfolder")
+		marker := filepath.Join(f.Path(), ".stfolder")
 		fd, err := os.Create(marker)
 		if err != nil {
 			return err
@@ -88,7 +139,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 }
 
 func (f *FolderConfiguration) HasMarker() bool {
-	_, err := os.Stat(filepath.Join(f.Path, ".stfolder"))
+	_, err := os.Stat(filepath.Join(f.Path(), ".stfolder"))
 	if err != nil {
 		return false
 	}
@@ -105,8 +156,8 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 }
 
 type VersioningConfiguration struct {
-	Type   string `xml:"type,attr"`
-	Params map[string]string
+	Type   string            `xml:"type,attr" json:"type"`
+	Params map[string]string `json:"params"`
 }
 
 type InternalVersioningConfiguration struct {
@@ -146,60 +197,67 @@ func (c *VersioningConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartEl
 }
 
 type DeviceConfiguration struct {
-	DeviceID    protocol.DeviceID    `xml:"id,attr"`
-	Name        string               `xml:"name,attr,omitempty"`
-	Addresses   []string             `xml:"address,omitempty"`
-	Compression protocol.Compression `xml:"compression,attr"`
-	CertName    string               `xml:"certName,attr,omitempty"`
-	Introducer  bool                 `xml:"introducer,attr"`
+	DeviceID    protocol.DeviceID    `xml:"id,attr" json:"deviceID"`
+	Name        string               `xml:"name,attr,omitempty" json:"name"`
+	Addresses   []string             `xml:"address,omitempty" json:"addresses"`
+	Compression protocol.Compression `xml:"compression,attr" json:"compression"`
+	CertName    string               `xml:"certName,attr,omitempty" json:"certName"`
+	Introducer  bool                 `xml:"introducer,attr" json:"introducer"`
+}
+
+func (orig DeviceConfiguration) Copy() DeviceConfiguration {
+	c := orig
+	c.Addresses = make([]string, len(orig.Addresses))
+	copy(c.Addresses, orig.Addresses)
+	return c
 }
 
 type FolderDeviceConfiguration struct {
-	DeviceID protocol.DeviceID `xml:"id,attr"`
-
-	Deprecated_Name      string   `xml:"name,attr,omitempty" json:"-"`
-	Deprecated_Addresses []string `xml:"address,omitempty" json:"-"`
+	DeviceID protocol.DeviceID `xml:"id,attr" json:"deviceID"`
 }
 
 type OptionsConfiguration struct {
-	ListenAddress           []string `xml:"listenAddress" default:"0.0.0.0:22000"`
-	GlobalAnnServers        []string `xml:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22026, udp6://announce-v6.syncthing.net:22026"`
-	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" default:"true"`
-	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" default:"true"`
-	LocalAnnPort            int      `xml:"localAnnouncePort" default:"21025"`
-	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
-	MaxSendKbps             int      `xml:"maxSendKbps"`
-	MaxRecvKbps             int      `xml:"maxRecvKbps"`
-	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" default:"60"`
-	StartBrowser            bool     `xml:"startBrowser" default:"true"`
-	UPnPEnabled             bool     `xml:"upnpEnabled" default:"true"`
-	UPnPLease               int      `xml:"upnpLeaseMinutes" default:"0"`
-	UPnPRenewal             int      `xml:"upnpRenewalMinutes" default:"30"`
-	URAccepted              int      `xml:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
-	URUniqueID              string   `xml:"urUniqueID"` // Unique ID for reporting purposes, regenerated when UR is turned on.
-	RestartOnWakeup         bool     `xml:"restartOnWakeup" default:"true"`
-	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" default:"12"` // 0 for off
-	KeepTemporariesH        int      `xml:"keepTemporariesH" default:"24"`     // 0 for off
-	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" default:"true"`
-	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" default:"5"`
-	SymlinksEnabled         bool     `xml:"symlinksEnabled" default:"true"`
-	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" default:"false"`
+	ListenAddress           []string `xml:"listenAddress" json:"listenAddress" default:"0.0.0.0:22000"`
+	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22026, udp6://announce-v6.syncthing.net:22026"`
+	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
+	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
+	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21025"`
+	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
+	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
+	MaxRecvKbps             int      `xml:"maxRecvKbps" json:"maxRecvKbps"`
+	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
+	StartBrowser            bool     `xml:"startBrowser" json:"startBrowser" default:"true"`
+	UPnPEnabled             bool     `xml:"upnpEnabled" json:"upnpEnabled" default:"true"`
+	UPnPLeaseM              int      `xml:"upnpLeaseMinutes" json:"upnpLeaseMinutes" default:"0"`
+	UPnPRenewalM            int      `xml:"upnpRenewalMinutes" json:"upnpRenewalMinutes" default:"30"`
+	UPnPTimeoutS            int      `xml:"upnpTimeoutSeconds" json:"upnpTimeoutSeconds" default:"3"`
+	URAccepted              int      `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
+	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
+	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true"`
+	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12"` // 0 for off
+	KeepTemporariesH        int      `xml:"keepTemporariesH" json:"keepTemporariesH" default:"24"`         // 0 for off
+	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" json:"cacheIgnoredFiles" default:"true"`
+	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" json:"progressUpdateIntervalS" default:"5"`
+	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
+	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
+}
 
-	Deprecated_RescanIntervalS int    `xml:"rescanIntervalS,omitempty" json:"-"`
-	Deprecated_UREnabled       bool   `xml:"urEnabled,omitempty" json:"-"`
-	Deprecated_URDeclined      bool   `xml:"urDeclined,omitempty" json:"-"`
-	Deprecated_ReadOnly        bool   `xml:"readOnly,omitempty" json:"-"`
-	Deprecated_GUIEnabled      bool   `xml:"guiEnabled,omitempty" json:"-"`
-	Deprecated_GUIAddress      string `xml:"guiAddress,omitempty" json:"-"`
+func (orig OptionsConfiguration) Copy() OptionsConfiguration {
+	c := orig
+	c.ListenAddress = make([]string, len(orig.ListenAddress))
+	copy(c.ListenAddress, orig.ListenAddress)
+	c.GlobalAnnServers = make([]string, len(orig.GlobalAnnServers))
+	copy(c.GlobalAnnServers, orig.GlobalAnnServers)
+	return c
 }
 
 type GUIConfiguration struct {
-	Enabled  bool   `xml:"enabled,attr" default:"true"`
-	Address  string `xml:"address" default:"127.0.0.1:8080"`
-	User     string `xml:"user,omitempty"`
-	Password string `xml:"password,omitempty"`
-	UseTLS   bool   `xml:"tls,attr"`
-	APIKey   string `xml:"apikey,omitempty"`
+	Enabled  bool   `xml:"enabled,attr" json:"enabled" default:"true"`
+	Address  string `xml:"address" json:"address" default:"127.0.0.1:8384"`
+	User     string `xml:"user,omitempty" json:"user"`
+	Password string `xml:"password,omitempty" json:"password"`
+	UseTLS   bool   `xml:"tls,attr" json:"useTLS"`
+	APIKey   string `xml:"apikey,omitempty" json:"apiKey"`
 }
 
 func New(myID protocol.DeviceID) Configuration {
@@ -258,7 +316,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	for i := range cfg.Folders {
 		folder := &cfg.Folders[i]
 
-		if len(folder.Path) == 0 {
+		if len(folder.RawPath) == 0 {
 			folder.Invalid = "no directory configured"
 			continue
 		}
@@ -269,7 +327,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
 		// This way in the tests, we get away without OS specific separators
 		// in the test configs.
-		folder.Path = filepath.Dir(folder.Path + string(filepath.Separator))
+		folder.RawPath = filepath.Dir(folder.RawPath + string(filepath.Separator))
 
 		if folder.ID == "" {
 			folder.ID = "default"
@@ -291,27 +349,12 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		}
 	}
 
-	if cfg.Options.Deprecated_URDeclined {
-		cfg.Options.URAccepted = -1
-		cfg.Options.URUniqueID = ""
+	if cfg.Version < OldestHandledVersion {
+		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
 	}
-	cfg.Options.Deprecated_URDeclined = false
-	cfg.Options.Deprecated_UREnabled = false
 
 	// Upgrade configuration versions as appropriate
-	if cfg.Version == 1 {
-		convertV1V2(cfg)
-	}
-	if cfg.Version == 2 {
-		convertV2V3(cfg)
-	}
-	if cfg.Version == 3 {
-		convertV3V4(cfg)
-	}
-	if cfg.Version == 4 {
-		convertV4V5(cfg)
-	}
-	if cfg.Version == 5 {
+	if cfg.Version <= 5 {
 		convertV5V6(cfg)
 	}
 	if cfg.Version == 6 {
@@ -322,6 +365,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 	if cfg.Version == 8 {
 		convertV8V9(cfg)
+	}
+	if cfg.Version == 9 {
+		convertV9V10(cfg)
 	}
 
 	// Hash old cleartext passwords
@@ -375,6 +421,11 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		}
 	}
 
+	// Very short reconnection intervals are annoying
+	if cfg.Options.ReconnectIntervalS < 5 {
+		cfg.Options.ReconnectIntervalS = 5
+	}
+
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 	cfg.Options.GlobalAnnServers = uniqueStrings(cfg.Options.GlobalAnnServers)
 
@@ -414,6 +465,14 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 	return false
 }
 
+func convertV9V10(cfg *Configuration) {
+	// Enable auto normalization on existing folders.
+	for i := range cfg.Folders {
+		cfg.Folders[i].AutoNormalize = true
+	}
+	cfg.Version = 10
+}
+
 func convertV8V9(cfg *Configuration) {
 	// Compression is interpreted and serialized differently, but no enforced
 	// changes. Still need a new version number since the compression stuff
@@ -450,111 +509,6 @@ func convertV5V6(cfg *Configuration) {
 	}
 
 	cfg.Version = 6
-}
-
-func convertV4V5(cfg *Configuration) {
-	// Renamed a bunch of fields in the structs.
-	if cfg.Deprecated_Nodes == nil {
-		cfg.Deprecated_Nodes = []DeviceConfiguration{}
-	}
-
-	if cfg.Deprecated_Repositories == nil {
-		cfg.Deprecated_Repositories = []FolderConfiguration{}
-	}
-
-	cfg.Devices = cfg.Deprecated_Nodes
-	cfg.Folders = cfg.Deprecated_Repositories
-
-	for i := range cfg.Folders {
-		cfg.Folders[i].Path = cfg.Folders[i].Deprecated_Directory
-		cfg.Folders[i].Deprecated_Directory = ""
-		cfg.Folders[i].Devices = cfg.Folders[i].Deprecated_Nodes
-		cfg.Folders[i].Deprecated_Nodes = nil
-	}
-
-	cfg.Deprecated_Nodes = nil
-	cfg.Deprecated_Repositories = nil
-
-	cfg.Version = 5
-}
-
-func convertV3V4(cfg *Configuration) {
-	// In previous versions, rescan interval was common for each folder.
-	// From now, it can be set independently. We have to make sure, that after upgrade
-	// the individual rescan interval will be defined for every existing folder.
-	for i := range cfg.Deprecated_Repositories {
-		cfg.Deprecated_Repositories[i].RescanIntervalS = cfg.Options.Deprecated_RescanIntervalS
-	}
-
-	cfg.Options.Deprecated_RescanIntervalS = 0
-
-	// In previous versions, folders held full device configurations.
-	// Since that's the only place where device configs were in V1, we still have
-	// to define the deprecated fields to be able to upgrade from V1 to V4.
-	for i, folder := range cfg.Deprecated_Repositories {
-
-		for j := range folder.Deprecated_Nodes {
-			rncfg := cfg.Deprecated_Repositories[i].Deprecated_Nodes[j]
-			rncfg.Deprecated_Name = ""
-			rncfg.Deprecated_Addresses = nil
-		}
-	}
-
-	cfg.Version = 4
-}
-
-func convertV2V3(cfg *Configuration) {
-	// In previous versions, compression was always on. When upgrading, enable
-	// compression on all existing new. New devices will get compression on by
-	// default by the GUI.
-	for i := range cfg.Deprecated_Nodes {
-		cfg.Deprecated_Nodes[i].Compression = protocol.CompressMetadata
-	}
-
-	// The global discovery format and port number changed in v0.9. Having the
-	// default announce server but old port number is guaranteed to be legacy.
-	if len(cfg.Options.GlobalAnnServers) == 1 && cfg.Options.GlobalAnnServers[0] == "announce.syncthing.net:22025" {
-		cfg.Options.GlobalAnnServers = []string{"announce.syncthing.net:22026"}
-	}
-
-	cfg.Version = 3
-}
-
-func convertV1V2(cfg *Configuration) {
-	// Collect the list of devices.
-	// Replace device configs inside folders with only a reference to the
-	// device ID. Set all folders to read only if the global read only flag is
-	// set.
-	var devices = map[string]FolderDeviceConfiguration{}
-	for i, folder := range cfg.Deprecated_Repositories {
-		cfg.Deprecated_Repositories[i].ReadOnly = cfg.Options.Deprecated_ReadOnly
-		for j, device := range folder.Deprecated_Nodes {
-			id := device.DeviceID.String()
-			if _, ok := devices[id]; !ok {
-				devices[id] = device
-			}
-			cfg.Deprecated_Repositories[i].Deprecated_Nodes[j] = FolderDeviceConfiguration{DeviceID: device.DeviceID}
-		}
-	}
-	cfg.Options.Deprecated_ReadOnly = false
-
-	// Set and sort the list of devices.
-	for _, device := range devices {
-		cfg.Deprecated_Nodes = append(cfg.Deprecated_Nodes, DeviceConfiguration{
-			DeviceID:  device.DeviceID,
-			Name:      device.Deprecated_Name,
-			Addresses: device.Deprecated_Addresses,
-		})
-	}
-	sort.Sort(DeviceConfigurationList(cfg.Deprecated_Nodes))
-
-	// GUI
-	cfg.GUI.Address = cfg.Options.Deprecated_GUIAddress
-	cfg.GUI.Enabled = cfg.Options.Deprecated_GUIEnabled
-	cfg.Options.Deprecated_GUIEnabled = false
-	cfg.Options.Deprecated_GUIAddress = ""
-
-	cfg.Version = 2
 }
 
 func setDefaults(data interface{}) error {
@@ -724,4 +678,58 @@ func randomString(l int) string {
 		bs[i] = randomCharset[rand.Intn(len(randomCharset))]
 	}
 	return string(bs)
+}
+
+type PullOrder int
+
+const (
+	OrderRandom PullOrder = iota // default is random
+	OrderAlphabetic
+	OrderSmallestFirst
+	OrderLargestFirst
+	OrderOldestFirst
+	OrderNewestFirst
+)
+
+func (o PullOrder) String() string {
+	switch o {
+	case OrderRandom:
+		return "random"
+	case OrderAlphabetic:
+		return "alphabetic"
+	case OrderSmallestFirst:
+		return "smallestFirst"
+	case OrderLargestFirst:
+		return "largestFirst"
+	case OrderOldestFirst:
+		return "oldestFirst"
+	case OrderNewestFirst:
+		return "newestFirst"
+	default:
+		return "unknown"
+	}
+}
+
+func (o PullOrder) MarshalText() ([]byte, error) {
+	return []byte(o.String()), nil
+}
+
+func (o *PullOrder) UnmarshalText(bs []byte) error {
+	switch string(bs) {
+	case "random":
+		*o = OrderRandom
+	case "alphabetic":
+		*o = OrderAlphabetic
+	case "smallestFirst":
+		*o = OrderSmallestFirst
+	case "largestFirst":
+		*o = OrderLargestFirst
+	case "oldestFirst":
+		*o = OrderOldestFirst
+	case "newestFirst":
+		*o = OrderNewestFirst
+	default:
+		*o = OrderRandom
+	}
+	return nil
 }

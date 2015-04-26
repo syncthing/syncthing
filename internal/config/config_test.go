@@ -1,25 +1,20 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/syncthing/protocol"
@@ -47,8 +42,9 @@ func TestDefaultValues(t *testing.T) {
 		ReconnectIntervalS:      60,
 		StartBrowser:            true,
 		UPnPEnabled:             true,
-		UPnPLease:               0,
-		UPnPRenewal:             30,
+		UPnPLeaseM:              0,
+		UPnPRenewalM:            30,
+		UPnPTimeoutS:            3,
 		RestartOnWakeup:         true,
 		AutoUpgradeIntervalH:    12,
 		KeepTemporariesH:        24,
@@ -66,7 +62,7 @@ func TestDefaultValues(t *testing.T) {
 }
 
 func TestDeviceConfig(t *testing.T) {
-	for i := 1; i <= CurrentVersion; i++ {
+	for i := OldestHandledVersion; i <= CurrentVersion; i++ {
 		os.Remove("testdata/.stfolder")
 		wr, err := Load(fmt.Sprintf("testdata/v%d.xml", i), device1)
 		if err != nil {
@@ -85,13 +81,14 @@ func TestDeviceConfig(t *testing.T) {
 		expectedFolders := []FolderConfiguration{
 			{
 				ID:              "test",
-				Path:            "testdata",
+				RawPath:         "testdata",
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				ReadOnly:        true,
 				RescanIntervalS: 600,
 				Copiers:         1,
 				Pullers:         16,
 				Hashers:         0,
+				AutoNormalize:   true,
 			},
 		}
 		expectedDevices := []DeviceConfiguration{
@@ -151,8 +148,9 @@ func TestOverriddenValues(t *testing.T) {
 		ReconnectIntervalS:      6000,
 		StartBrowser:            false,
 		UPnPEnabled:             false,
-		UPnPLease:               60,
-		UPnPRenewal:             15,
+		UPnPLeaseM:              60,
+		UPnPRenewalM:            15,
+		UPnPTimeoutS:            15,
 		RestartOnWakeup:         false,
 		AutoUpgradeIntervalH:    24,
 		KeepTemporariesH:        48,
@@ -303,10 +301,10 @@ func TestVersioningConfig(t *testing.T) {
 func TestIssue1262(t *testing.T) {
 	cfg, err := Load("testdata/issue-1262.xml", device4)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
-	actual := cfg.Folders()["test"].Path
+	actual := cfg.Folders()["test"].RawPath
 	expected := "e:"
 	if runtime.GOOS == "windows" {
 		expected = `e:\`
@@ -314,6 +312,51 @@ func TestIssue1262(t *testing.T) {
 
 	if actual != expected {
 		t.Errorf("%q != %q", actual, expected)
+	}
+}
+
+func TestWindowsPaths(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Not useful on non-Windows")
+		return
+	}
+
+	folder := FolderConfiguration{
+		RawPath: `e:\`,
+	}
+
+	expected := `\\?\e:\`
+	actual := folder.Path()
+	if actual != expected {
+		t.Errorf("%q != %q", actual, expected)
+	}
+
+	folder.RawPath = `\\192.0.2.22\network\share`
+	expected = folder.RawPath
+	actual = folder.Path()
+	if actual != expected {
+		t.Errorf("%q != %q", actual, expected)
+	}
+
+	folder.RawPath = `relative\path`
+	expected = folder.RawPath
+	actual = folder.Path()
+	if actual == expected || !strings.HasPrefix(actual, "\\\\?\\") {
+		t.Errorf("%q == %q, expected absolutification", actual, expected)
+	}
+}
+
+func TestFolderPath(t *testing.T) {
+	folder := FolderConfiguration{
+		RawPath: "~/tmp",
+	}
+
+	realPath := folder.Path()
+	if !filepath.IsAbs(realPath) {
+		t.Error(realPath, "should be absolute")
+	}
+	if strings.Contains(realPath, "~") {
+		t.Error(realPath, "should not contain ~")
 	}
 }
 
@@ -397,8 +440,8 @@ func TestRequiresRestart(t *testing.T) {
 
 	newCfg = cfg
 	newCfg.Folders = append(newCfg.Folders, FolderConfiguration{
-		ID:   "t1",
-		Path: "t1",
+		ID:      "t1",
+		RawPath: "t1",
 	})
 	if !ChangeRequiresRestart(cfg, newCfg) {
 		t.Error("Adding a folder requires restart")
@@ -417,7 +460,7 @@ func TestRequiresRestart(t *testing.T) {
 	if ChangeRequiresRestart(cfg, newCfg) {
 		t.Error("No changes done yet")
 	}
-	newCfg.Folders[0].Path = "different"
+	newCfg.Folders[0].RawPath = "different"
 	if !ChangeRequiresRestart(cfg, newCfg) {
 		t.Error("Changing a folder requires restart")
 	}
@@ -444,5 +487,92 @@ func TestRequiresRestart(t *testing.T) {
 	newCfg.GUI.UseTLS = !cfg.GUI.UseTLS
 	if !ChangeRequiresRestart(cfg, newCfg) {
 		t.Error("Changing GUI options requires restart")
+	}
+}
+
+func TestCopy(t *testing.T) {
+	wrapper, err := Load("testdata/example.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := wrapper.Raw()
+
+	bsOrig, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	copy := cfg.Copy()
+
+	cfg.Devices[0].Addresses[0] = "wrong"
+	cfg.Folders[0].Devices[0].DeviceID = protocol.DeviceID{0, 1, 2, 3}
+	cfg.Options.ListenAddress[0] = "wrong"
+	cfg.GUI.APIKey = "wrong"
+
+	bsChanged, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bsCopy, err := json.MarshalIndent(copy, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bytes.Compare(bsOrig, bsChanged) == 0 {
+		t.Error("Config should have changed")
+	}
+	if bytes.Compare(bsOrig, bsCopy) != 0 {
+		//ioutil.WriteFile("a", bsOrig, 0644)
+		//ioutil.WriteFile("b", bsCopy, 0644)
+		t.Error("Copy should be unchanged")
+	}
+}
+
+func TestPullOrder(t *testing.T) {
+	wrapper, err := Load("testdata/pullorder.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	folders := wrapper.Folders()
+
+	expected := []struct {
+		name  string
+		order PullOrder
+	}{
+		{"f1", OrderRandom},        // empty value, default
+		{"f2", OrderRandom},        // explicit
+		{"f3", OrderAlphabetic},    // explicit
+		{"f4", OrderRandom},        // unknown value, default
+		{"f5", OrderSmallestFirst}, // explicit
+		{"f6", OrderLargestFirst},  // explicit
+		{"f7", OrderOldestFirst},   // explicit
+		{"f8", OrderNewestFirst},   // explicit
+	}
+
+	// Verify values are deserialized correctly
+
+	for _, tc := range expected {
+		if actual := folders[tc.name].Order; actual != tc.order {
+			t.Errorf("Incorrect pull order for %q: %v != %v", tc.name, actual, tc.order)
+		}
+	}
+
+	// Serialize and deserialize again to verify it survives the transformation
+
+	buf := new(bytes.Buffer)
+	cfg := wrapper.Raw()
+	cfg.WriteXML(buf)
+
+	t.Logf("%s", buf.Bytes())
+
+	cfg, err = ReadXML(buf, device1)
+	wrapper = Wrap("testdata/pullorder.xml", cfg)
+	folders = wrapper.Folders()
+
+	for _, tc := range expected {
+		if actual := folders[tc.name].Order; actual != tc.order {
+			t.Errorf("Incorrect pull order for %q: %v != %v", tc.name, actual, tc.order)
+		}
 	}
 }

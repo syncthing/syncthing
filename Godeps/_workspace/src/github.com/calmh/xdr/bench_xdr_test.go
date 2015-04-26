@@ -26,7 +26,9 @@ XDRBenchStruct Structure:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |            0x0000             |              I3               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             uint8                             |
+/                                                               /
+\                        uint8 Structure                        \
+/                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Length of Bs0                         |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -69,7 +71,7 @@ struct XDRBenchStruct {
 
 func (o XDRBenchStruct) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o XDRBenchStruct) MarshalXDR() ([]byte, error) {
@@ -87,11 +89,11 @@ func (o XDRBenchStruct) MustMarshalXDR() []byte {
 func (o XDRBenchStruct) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o XDRBenchStruct) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o XDRBenchStruct) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	xw.WriteUint64(o.I1)
 	xw.WriteUint32(o.I2)
 	xw.WriteUint16(o.I3)
@@ -111,16 +113,16 @@ func (o XDRBenchStruct) encodeXDR(xw *xdr.Writer) (int, error) {
 
 func (o *XDRBenchStruct) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *XDRBenchStruct) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *XDRBenchStruct) decodeXDR(xr *xdr.Reader) error {
+func (o *XDRBenchStruct) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.I1 = xr.ReadUint64()
 	o.I2 = xr.ReadUint32()
 	o.I3 = xr.ReadUint16()
@@ -155,7 +157,7 @@ struct repeatReader {
 
 func (o repeatReader) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o repeatReader) MarshalXDR() ([]byte, error) {
@@ -173,27 +175,27 @@ func (o repeatReader) MustMarshalXDR() []byte {
 func (o repeatReader) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o repeatReader) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o repeatReader) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	xw.WriteBytes(o.data)
 	return xw.Tot(), xw.Error()
 }
 
 func (o *repeatReader) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *repeatReader) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *repeatReader) decodeXDR(xr *xdr.Reader) error {
+func (o *repeatReader) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.data = xr.ReadBytes()
 	return xr.Error()
 }

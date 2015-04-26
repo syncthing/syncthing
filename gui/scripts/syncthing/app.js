@@ -1,22 +1,15 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
+
 
 /*jslint browser: true, continue: true, plusplus: true */
 /*global $: false, angular: false, console: false, validLangs: false */
 
 var syncthing = angular.module('syncthing', [
+    'angularUtils.directives.dirPagination',
     'pascalprecht.translate',
 
     'syncthing.core'
@@ -57,28 +50,28 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
 // @TODO: extract global level functions into seperate service(s)
 
 function deviceCompare(a, b) {
-    if (typeof a.Name !== 'undefined' && typeof b.Name !== 'undefined') {
-        if (a.Name < b.Name)
+    if (typeof a.name !== 'undefined' && typeof b.name !== 'undefined') {
+        if (a.name < b.name)
             return -1;
-        return a.Name > b.Name;
+        return a.name > b.name;
     }
-    if (a.DeviceID < b.DeviceID) {
+    if (a.deviceID < b.deviceID) {
         return -1;
     }
-    return a.DeviceID > b.DeviceID;
+    return a.deviceID > b.deviceID;
 }
 
 function folderCompare(a, b) {
-    if (a.ID < b.ID) {
+    if (a.id < b.id) {
         return -1;
     }
-    return a.ID > b.ID;
+    return a.id > b.id;
 }
 
 function folderMap(l) {
     var m = {};
     l.forEach(function (r) {
-        m[r.ID] = r;
+        m[r.id] = r;
     });
     return m;
 }

@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package fnmatch
 
@@ -23,9 +14,9 @@ import (
 )
 
 const (
-	FNM_NOESCAPE = (1 << iota)
-	FNM_PATHNAME
-	FNM_CASEFOLD
+	NoEscape = (1 << iota)
+	PathName
+	CaseFold
 )
 
 func Convert(pattern string, flags int) (*regexp.Regexp, error) {
@@ -33,21 +24,28 @@ func Convert(pattern string, flags int) (*regexp.Regexp, error) {
 
 	switch runtime.GOOS {
 	case "windows":
-		flags |= FNM_NOESCAPE | FNM_CASEFOLD
+		flags |= NoEscape | CaseFold
 		pattern = filepath.FromSlash(pattern)
-		if flags&FNM_PATHNAME != 0 {
+		if flags&PathName != 0 {
 			any = "[^\\\\]"
 		}
 	case "darwin":
-		flags |= FNM_CASEFOLD
+		flags |= CaseFold
 		fallthrough
 	default:
-		if flags&FNM_PATHNAME != 0 {
+		if flags&PathName != 0 {
 			any = "[^/]"
 		}
 	}
 
-	if flags&FNM_NOESCAPE != 0 {
+	// Support case insensitive ignores
+	ignore := strings.TrimPrefix(pattern, "(?i)")
+	if ignore != pattern {
+		flags |= CaseFold
+		pattern = ignore
+	}
+
+	if flags&NoEscape != 0 {
 		pattern = strings.Replace(pattern, "\\", "\\\\", -1)
 	} else {
 		pattern = strings.Replace(pattern, "\\*", "[:escapedstar:]", -1)
@@ -71,7 +69,7 @@ func Convert(pattern string, flags int) (*regexp.Regexp, error) {
 	pattern = strings.Replace(pattern, "[:escapeddot:]", "\\.", -1)
 
 	pattern = "^" + pattern + "$"
-	if flags&FNM_CASEFOLD != 0 {
+	if flags&CaseFold != 0 {
 		pattern = "(?i)" + pattern
 	}
 	return regexp.Compile(pattern)

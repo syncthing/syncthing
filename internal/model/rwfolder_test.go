@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package model
 
@@ -76,12 +67,12 @@ func TestHandleFile(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
-	m.updateLocal("default", existingFile)
+	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
-	p := Puller{
+	p := rwFolder{
 		folder: "default",
 		dir:    "testdata",
 		model:  m,
@@ -130,12 +121,12 @@ func TestHandleFileWithTemp(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
-	m.updateLocal("default", existingFile)
+	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
-	p := Puller{
+	p := rwFolder{
 		folder: "default",
 		dir:    "testdata",
 		model:  m,
@@ -190,10 +181,10 @@ func TestCopierFinder(t *testing.T) {
 	requiredFile.Name = "file2"
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
-	m.updateLocal("default", existingFile)
+	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
 	iterFn := func(folder, file string, index int32) bool {
 		return true
@@ -206,7 +197,7 @@ func TestCopierFinder(t *testing.T) {
 		}
 	}
 
-	p := Puller{
+	p := rwFolder{
 		folder: "default",
 		dir:    "testdata",
 		model:  m,
@@ -265,7 +256,7 @@ func TestCopierCleanup(t *testing.T) {
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
 	// Create a file
@@ -277,16 +268,16 @@ func TestCopierCleanup(t *testing.T) {
 	}
 
 	// Add file to index
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
 		t.Error("Expected block not found")
 	}
 
 	file.Blocks = []protocol.BlockInfo{blocks[1]}
-	file.Version++
+	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
 	// Update index (removing old blocks)
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	if m.finder.Iterate(blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
@@ -297,9 +288,9 @@ func TestCopierCleanup(t *testing.T) {
 	}
 
 	file.Blocks = []protocol.BlockInfo{blocks[0]}
-	file.Version++
+	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
 	// Update index (removing old blocks)
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
@@ -314,7 +305,7 @@ func TestCopierCleanup(t *testing.T) {
 // if it fails to find the block.
 func TestLastResortPulling(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
 	// Add a file to index (with the incorrect block representation, as content
@@ -325,7 +316,7 @@ func TestLastResortPulling(t *testing.T) {
 		Modified: 0,
 		Blocks:   []protocol.BlockInfo{blocks[0]},
 	}
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	// Pretend that we are handling a new file of the same content but
 	// with a different name (causing to copy that particular block)
@@ -340,7 +331,7 @@ func TestLastResortPulling(t *testing.T) {
 		t.Error("Expected block not found")
 	}
 
-	p := Puller{
+	p := rwFolder{
 		folder: "default",
 		dir:    "testdata",
 		model:  m,
@@ -387,13 +378,13 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
 	emitter := NewProgressEmitter(defaultConfig)
 	go emitter.Serve()
 
-	p := Puller{
+	p := rwFolder{
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
@@ -402,7 +393,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	}
 
 	// queue.Done should be called by the finisher routine
-	p.queue.Push("filex")
+	p.queue.Push("filex", 0, 0)
 	p.queue.Pop()
 
 	if len(p.queue.progress) != 1 {
@@ -474,13 +465,13 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
 	emitter := NewProgressEmitter(defaultConfig)
 	go emitter.Serve()
 
-	p := Puller{
+	p := rwFolder{
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
@@ -489,7 +480,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	}
 
 	// queue.Done should be called by the finisher routine
-	p.queue.Push("filex")
+	p.queue.Push("filex", 0, 0)
 	p.queue.Pop()
 
 	if len(p.queue.progress) != 1 {

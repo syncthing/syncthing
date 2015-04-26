@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // +build integration
 
@@ -70,21 +61,25 @@ func TestSyncClusterStaggeredVersioning(t *testing.T) {
 }
 
 func testSyncCluster(t *testing.T) {
-	/*
+	// This tests syncing files back and forth between three cluster members.
+	// Their configs are in h1, h2 and h3. The folder "default" is shared
+	// between all and stored in s1, s2 and s3 respectively.
+	//
+	// Another folder is shared between 1 and 2 only, in s12-1 and s12-2. A
+	// third folders is shared between 2 and 3, in s23-2 and s23-3.
 
-		This tests syncing files back and forth between three cluster members.
-		Their configs are in h1, h2 and h3. The folder "default" is shared
-		between all and stored in s1, s2 and s3 respectively.
+	const (
+		numFiles    = 100
+		fileSizeExp = 20
+		iterations  = 3
+	)
+	log.Printf("Testing with numFiles=%d, fileSizeExp=%d, iterations=%d", numFiles, fileSizeExp, iterations)
 
-		Another folder is shared between 1 and 2 only, in s12-1 and s12-2. A
-		third folders is shared between 2 and 3, in s23-2 and s23-3.
-
-	*/
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s12-1",
 		"s2", "s12-2", "s23-2",
 		"s3", "s23-3",
-		"h1/index", "h2/index", "h3/index")
+		"h1/index*", "h2/index*", "h3/index*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,11 +90,11 @@ func testSyncCluster(t *testing.T) {
 
 	log.Println("Generating files...")
 
-	err = generateFiles("s1", 1000, 21, "../LICENSE")
+	err = generateFiles("s1", numFiles, fileSizeExp, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = generateFiles("s12-1", 1000, 21, "../LICENSE")
+	err = generateFiles("s12-1", numFiles, fileSizeExp, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,16 +113,16 @@ func testSyncCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = generateFiles("s2", 1000, 21, "../LICENSE")
+	err = generateFiles("s2", numFiles, fileSizeExp, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = generateFiles("s23-2", 1000, 21, "../LICENSE")
+	err = generateFiles("s23-2", numFiles, fileSizeExp, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = generateFiles("s3", 1000, 21, "../LICENSE")
+	err = generateFiles("s3", numFiles, fileSizeExp, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,17 +162,37 @@ func testSyncCluster(t *testing.T) {
 		}
 	}()
 
-	for count := 0; count < 5; count++ {
+	log.Println("Waiting for startup...")
+	// Wait for one scan to succeed, or up to 20 seconds...
+	// This is to let startup, UPnP etc complete.
+	for _, device := range p {
+		for i := 0; i < 20; i++ {
+			err := device.rescan("default")
+			if err != nil {
+				time.Sleep(time.Second)
+				continue
+			}
+			break
+		}
+	}
+
+	for count := 0; count < iterations; count++ {
 		log.Println("Forcing rescan...")
 
 		// Force rescan of folders
-		for i := range p {
-			p[i].post("/rest/scan?folder=default", nil)
-			if i < 3 {
-				p[i].post("/rest/scan?folder=s12", nil)
+		for i, device := range p {
+			if err := device.rescan("default"); err != nil {
+				t.Fatal(err)
+			}
+			if i < 2 {
+				if err := device.rescan("s12"); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if i > 1 {
-				p[i].post("/rest/scan?folder=s23", nil)
+				if err := device.rescan("s23"); err != nil {
+					t.Fatal(err)
+				}
 			}
 		}
 
@@ -293,37 +308,22 @@ func scStartProcesses() ([]syncthingProcess, error) {
 }
 
 func scSyncAndCompare(p []syncthingProcess, expected [][]fileInfo) error {
-	ids := []string{id1, id2, id3}
-
 	log.Println("Syncing...")
 
-mainLoop:
 	for {
-		time.Sleep(2500 * time.Millisecond)
+		time.Sleep(2 * time.Second)
 
-		for i := range p {
-			comp, err := p[i].peerCompletion()
-			if err != nil {
-				if isTimeout(err) {
-					continue mainLoop
-				}
-				return err
-			}
-
-			for id, pct := range comp {
-				if id == ids[i] {
-					// Don't check for self, which will be 0%
-					continue
-				}
-				if pct != 100 {
-					log.Printf("%s not done yet: %d%%", id, pct)
-					continue mainLoop
-				}
-			}
+		if err := allDevicesInSync(p); err != nil {
+			log.Println(err)
+			continue
 		}
 
 		break
 	}
+
+	// This is necessary, or all files won't be in place even when everything
+	// is already reported in sync. Why?!
+	time.Sleep(5 * time.Second)
 
 	log.Println("Checking...")
 

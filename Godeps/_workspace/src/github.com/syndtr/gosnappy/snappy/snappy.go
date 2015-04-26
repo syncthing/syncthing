@@ -8,6 +8,10 @@
 // The C++ snappy implementation is at http://code.google.com/p/snappy/
 package snappy
 
+import (
+	"hash/crc32"
+)
+
 /*
 Each encoded block begins with the varint-encoded length of the decoded data,
 followed by a sequence of chunks. Chunks begin and end on byte boundaries. The
@@ -36,3 +40,29 @@ const (
 	tagCopy2   = 0x02
 	tagCopy4   = 0x03
 )
+
+const (
+	checksumSize    = 4
+	chunkHeaderSize = 4
+	magicChunk      = "\xff\x06\x00\x00" + magicBody
+	magicBody       = "sNaPpY"
+	// https://code.google.com/p/snappy/source/browse/trunk/framing_format.txt says
+	// that "the uncompressed data in a chunk must be no longer than 65536 bytes".
+	maxUncompressedChunkLen = 65536
+)
+
+const (
+	chunkTypeCompressedData   = 0x00
+	chunkTypeUncompressedData = 0x01
+	chunkTypePadding          = 0xfe
+	chunkTypeStreamIdentifier = 0xff
+)
+
+var crcTable = crc32.MakeTable(crc32.Castagnoli)
+
+// crc implements the checksum specified in section 3 of
+// https://code.google.com/p/snappy/source/browse/trunk/framing_format.txt
+func crc(b []byte) uint32 {
+	c := crc32.Update(0, crcTable, b)
+	return uint32(c>>15|c<<17) + 0xa282ead8
+}

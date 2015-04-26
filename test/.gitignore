@@ -15,5 +15,8 @@ dirs-*
 csrftokens.txt
 s4d
 http
-index
+h*/index*
 *.syncthing-reset*
+panic-*.log
+audit-*.log
+h*/config.xml.v*

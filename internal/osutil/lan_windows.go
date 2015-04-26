@@ -1,17 +1,8 @@
 // Copyright (C) 2015 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // +build windows
 
@@ -70,9 +61,13 @@ func GetLans() ([]*net.IPNet, error) {
 				for ; ipl != nil; ipl = ipl.Next {
 					ipStr := strings.Trim(string(ipl.IpAddress.String[:]), "\x00")
 					maskStr := strings.Trim(string(ipl.IpMask.String[:]), "\x00")
+					ip := net.ParseIP(ipStr)
 					maskip := net.ParseIP(maskStr)
+					if ip.IsUnspecified() || maskip.IsUnspecified() {
+						continue
+					}
 					nets = append(nets, &net.IPNet{
-						IP: net.ParseIP(ipStr),
+						IP: ip,
 						Mask: net.IPv4Mask(
 							maskip[net.IPv6len-net.IPv4len],
 							maskip[net.IPv6len-net.IPv4len+1],

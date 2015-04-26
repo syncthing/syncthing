@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // +build integration
 
@@ -41,13 +32,13 @@ func TestRestartSenderAndReceiverDuringTransfer(t *testing.T) {
 
 func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool, senderDelay, receiverDelay time.Duration) {
 	log.Println("Cleaning...")
-	err := removeAll("s1", "s2", "h1/index", "h2/index")
+	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	log.Println("Generating files...")
-	err = generateFiles("s1", 1000, 22, "../LICENSE")
+	err = generateFiles("s1", 250, 20, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +138,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 			prevComp = curComp
 		}
 
-		time.Sleep(250 * time.Millisecond)
+		time.Sleep(time.Second)
 	}
 
 	err = sender.stop()

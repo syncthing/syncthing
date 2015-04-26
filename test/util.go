@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // +build integration
 
@@ -250,17 +241,23 @@ func (i *inifiteReader) Read(bs []byte) (int, error) {
 // rm -rf
 func removeAll(dirs ...string) error {
 	for _, dir := range dirs {
-		// Set any non-writeable files and dirs to writeable. This is necessary for os.RemoveAll to work on Windows.
-		filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.Mode()&0700 != 0700 {
-				os.Chmod(path, 0777)
-			}
-			return nil
-		})
-		os.RemoveAll(dir)
+		files, err := filepath.Glob(dir)
+		if err != nil {
+			return err
+		}
+		for _, file := range files {
+			// Set any non-writeable files and dirs to writeable. This is necessary for os.RemoveAll to work on Windows.
+			filepath.Walk(file, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if info.Mode()&0700 != 0700 {
+					os.Chmod(path, 0777)
+				}
+				return nil
+			})
+			os.RemoveAll(file)
+		}
 	}
 	return nil
 }

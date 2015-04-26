@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package ignore
 
@@ -25,10 +16,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/fnmatch"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type Pattern struct {
@@ -57,6 +48,7 @@ func New(withCache bool) *Matcher {
 	m := &Matcher{
 		withCache: withCache,
 		stop:      make(chan struct{}),
+		mut:       sync.NewMutex(),
 	}
 	if withCache {
 		go m.clean(2 * time.Hour)
@@ -209,20 +201,20 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 
 		if strings.HasPrefix(line, "/") {
 			// Pattern is rooted in the current dir only
-			exp, err := fnmatch.Convert(line[1:], fnmatch.FNM_PATHNAME)
+			exp, err := fnmatch.Convert(line[1:], fnmatch.PathName)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
 			patterns = append(patterns, Pattern{exp, include})
 		} else if strings.HasPrefix(line, "**/") {
 			// Add the pattern as is, and without **/ so it matches in current dir
-			exp, err := fnmatch.Convert(line, fnmatch.FNM_PATHNAME)
+			exp, err := fnmatch.Convert(line, fnmatch.PathName)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
 			patterns = append(patterns, Pattern{exp, include})
 
-			exp, err = fnmatch.Convert(line[3:], fnmatch.FNM_PATHNAME)
+			exp, err = fnmatch.Convert(line[3:], fnmatch.PathName)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
@@ -237,13 +229,13 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 		} else {
 			// Path name or pattern, add it so it matches files both in
 			// current directory and subdirs.
-			exp, err := fnmatch.Convert(line, fnmatch.FNM_PATHNAME)
+			exp, err := fnmatch.Convert(line, fnmatch.PathName)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}
 			patterns = append(patterns, Pattern{exp, include})
 
-			exp, err = fnmatch.Convert("**/"+line, fnmatch.FNM_PATHNAME)
+			exp, err = fnmatch.Convert("**/"+line, fnmatch.PathName)
 			if err != nil {
 				return fmt.Errorf("Invalid pattern %q in ignore file", line)
 			}

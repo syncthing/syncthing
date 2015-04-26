@@ -1,17 +1,8 @@
 // Copyright (C) 2014 The Syncthing Authors.
 //
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option)
-// any later version.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <http://www.gnu.org/licenses/>.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
 
 package beacon
 
@@ -20,22 +11,28 @@ import "net"
 type Multicast struct {
 	conn   *net.UDPConn
 	addr   *net.UDPAddr
+	intf   *net.Interface
 	inbox  chan []byte
 	outbox chan recv
 }
 
-func NewMulticast(addr string) (*Multicast, error) {
-	gaddr, err := net.ResolveUDPAddr("udp", addr)
+func NewMulticast(addr, ifname string) (*Multicast, error) {
+	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.ListenMulticastUDP("udp", nil, gaddr)
+	intf, err := net.InterfaceByName(ifname)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := net.ListenMulticastUDP("udp6", intf, gaddr)
 	if err != nil {
 		return nil, err
 	}
 	b := &Multicast{
 		conn:   conn,
 		addr:   gaddr,
+		intf:   intf,
 		inbox:  make(chan []byte),
 		outbox: make(chan recv, 16),
 	}
@@ -56,25 +53,14 @@ func (b *Multicast) Recv() ([]byte, net.Addr) {
 }
 
 func (b *Multicast) writer() {
+	addr := *b.addr
+	addr.Zone = b.intf.Name
 	for bs := range b.inbox {
-		intfs, err := net.Interfaces()
-		if err != nil {
-			l.Warnln("multicast interfaces:", err)
-			continue
-		}
-		for _, intf := range intfs {
-			if intf.Flags&net.FlagUp != 0 && intf.Flags&net.FlagMulticast != 0 {
-				addr := *b.addr
-				addr.Zone = intf.Name
-				_, err = b.conn.WriteTo(bs, &addr)
-				if err != nil {
-					if debug {
-						l.Debugln(err, "on write to", addr)
-					}
-				} else if debug {
-					l.Debugf("sent %d bytes to %s", len(bs), addr.String())
-				}
-			}
+		_, err := b.conn.WriteTo(bs, &addr)
+		if err != nil && debug {
+			l.Debugln(err, "on write to", addr)
+		} else if debug {
+			l.Debugf("sent %d bytes to %s", len(bs), addr.String())
 		}
 	}
 }

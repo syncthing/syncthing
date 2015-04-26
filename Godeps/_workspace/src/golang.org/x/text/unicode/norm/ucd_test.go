@@ -2,51 +2,36 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build ignore
-
-package main
+package norm
 
 import (
 	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
-	"log"
-	"net/http"
-	"os"
-	"path"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
+	"testing"
 	"time"
-	"unicode"
 	"unicode/utf8"
 
-	"golang.org/x/text/unicode/norm"
+	"golang.org/x/text/internal/gen"
 )
 
-func main() {
-	flag.Parse()
-	loadTestData()
-	CharacterByCharacterTests()
-	StandardTests()
-	PerformanceTest()
-	if errorCount == 0 {
-		fmt.Println("PASS")
+var long = flag.Bool("long", false,
+	"run time-consuming tests, such as tests that fetch data online")
+
+var once sync.Once
+
+func skipShort(t *testing.T) {
+	if !gen.IsLocal() && !*long {
+		t.Skip("skipping test to prevent downloading; to run use -long or use -local to specify a local source")
 	}
+	once.Do(func() { loadTestData(t) })
 }
-
-const file = "NormalizationTest.txt"
-
-var url = flag.String("url",
-	"http://www.unicode.org/Public/"+unicode.Version+"/ucd/"+file,
-	"URL of Unicode database directory")
-var localFiles = flag.Bool("local",
-	false,
-	"data files have been copied to the current directory; for debugging only")
-
-var logger = log.New(os.Stderr, "", log.Lshortfile)
 
 // This regression test runs the test set in NormalizationTest.txt
 // (taken from http://www.unicode.org/Public/<unicode.Version>/ucd/).
@@ -124,22 +109,8 @@ var testRe = regexp.MustCompile(`^` + strings.Repeat(`([\dA-F ]+);`, 5) + ` # (.
 var counter int
 
 // Load the data form NormalizationTest.txt
-func loadTestData() {
-	if *localFiles {
-		pwd, _ := os.Getwd()
-		*url = "file://" + path.Join(pwd, file)
-	}
-	t := &http.Transport{}
-	t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-	c := &http.Client{Transport: t}
-	resp, err := c.Get(*url)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	if resp.StatusCode != 200 {
-		logger.Fatal("bad GET status for "+file, resp.Status)
-	}
-	f := resp.Body
+func loadTestData(t *testing.T) {
+	f := gen.OpenUCDFile("NormalizationTest.txt")
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -150,11 +121,11 @@ func loadTestData() {
 		m := partRe.FindStringSubmatch(line)
 		if m != nil {
 			if len(m) < 3 {
-				logger.Fatal("Failed to parse Part: ", line)
+				t.Fatal("Failed to parse Part: ", line)
 			}
 			i, err := strconv.Atoi(m[1])
 			if err != nil {
-				logger.Fatal(err)
+				t.Fatal(err)
 			}
 			name := m[2]
 			part = append(part, Part{name: name[:len(name)-1], number: i})
@@ -162,7 +133,7 @@ func loadTestData() {
 		}
 		m = testRe.FindStringSubmatch(line)
 		if m == nil || len(m) < 7 {
-			logger.Fatalf(`Failed to parse: "%s" result: %#v`, line, m)
+			t.Fatalf(`Failed to parse: "%s" result: %#v`, line, m)
 		}
 		test := Test{name: m[6], partnr: len(part) - 1, number: counter}
 		counter++
@@ -170,7 +141,7 @@ func loadTestData() {
 			for _, split := range strings.Split(m[j], " ") {
 				r, err := strconv.ParseUint(split, 16, 64)
 				if err != nil {
-					logger.Fatal(err)
+					t.Fatal(err)
 				}
 				if test.r == 0 {
 					// save for CharacterByCharacterTests
@@ -185,50 +156,38 @@ func loadTestData() {
 		part.tests = append(part.tests, test)
 	}
 	if scanner.Err() != nil {
-		logger.Fatal(scanner.Err())
+		t.Fatal(scanner.Err())
 	}
 }
 
-var fstr = []string{"NFC", "NFD", "NFKC", "NFKD"}
-
-var errorCount int
-
-func cmpResult(t *Test, name string, f norm.Form, gold, test, result string) {
+func cmpResult(t *testing.T, tc *Test, name string, f Form, gold, test, result string) {
 	if gold != result {
-		errorCount++
-		if errorCount > 20 {
-			return
-		}
-		logger.Printf("%s:%s: %s(%+q)=%+q; want %+q: %s",
-			t.Name(), name, fstr[f], test, result, gold, t.name)
+		t.Errorf("%s:%s: %s(%+q)=%+q; want %+q: %s",
+			tc.Name(), name, fstr[f], test, result, gold, tc.name)
 	}
 }
 
-func cmpIsNormal(t *Test, name string, f norm.Form, test string, result, want bool) {
+func cmpIsNormal(t *testing.T, tc *Test, name string, f Form, test string, result, want bool) {
 	if result != want {
-		errorCount++
-		if errorCount > 20 {
-			return
-		}
-		logger.Printf("%s:%s: %s(%+q)=%v; want %v", t.Name(), name, fstr[f], test, result, want)
+		t.Errorf("%s:%s: %s(%+q)=%v; want %v", tc.Name(), name, fstr[f], test, result, want)
 	}
 }
 
-func doTest(t *Test, f norm.Form, gold, test string) {
+func doTest(t *testing.T, tc *Test, f Form, gold, test string) {
 	testb := []byte(test)
 	result := f.Bytes(testb)
-	cmpResult(t, "Bytes", f, gold, test, string(result))
+	cmpResult(t, tc, "Bytes", f, gold, test, string(result))
 
 	sresult := f.String(test)
-	cmpResult(t, "String", f, gold, test, sresult)
+	cmpResult(t, tc, "String", f, gold, test, sresult)
 
 	acc := []byte{}
-	i := norm.Iter{}
+	i := Iter{}
 	i.InitString(f, test)
 	for !i.Done() {
 		acc = append(acc, i.Next()...)
 	}
-	cmpResult(t, "Iter.Next", f, gold, test, string(acc))
+	cmpResult(t, tc, "Iter.Next", f, gold, test, string(acc))
 
 	buf := make([]byte, 128)
 	acc = nil
@@ -237,32 +196,33 @@ func doTest(t *Test, f norm.Form, gold, test string) {
 		acc = append(acc, buf[:nDst]...)
 		p += nSrc
 	}
-	cmpResult(t, "Transform", f, gold, test, string(acc))
+	cmpResult(t, tc, "Transform", f, gold, test, string(acc))
 
 	for i := range test {
 		out := f.Append(f.Bytes([]byte(test[:i])), []byte(test[i:])...)
-		cmpResult(t, fmt.Sprintf(":Append:%d", i), f, gold, test, string(out))
+		cmpResult(t, tc, fmt.Sprintf(":Append:%d", i), f, gold, test, string(out))
 	}
-	cmpIsNormal(t, "IsNormal", f, test, f.IsNormal([]byte(test)), test == gold)
-	cmpIsNormal(t, "IsNormalString", f, test, f.IsNormalString(test), test == gold)
+	cmpIsNormal(t, tc, "IsNormal", f, test, f.IsNormal([]byte(test)), test == gold)
+	cmpIsNormal(t, tc, "IsNormalString", f, test, f.IsNormalString(test), test == gold)
 }
 
-func doConformanceTests(t *Test, partn int) {
+func doConformanceTests(t *testing.T, tc *Test, partn int) {
 	for i := 0; i <= 2; i++ {
-		doTest(t, norm.NFC, t.cols[1], t.cols[i])
-		doTest(t, norm.NFD, t.cols[2], t.cols[i])
-		doTest(t, norm.NFKC, t.cols[3], t.cols[i])
-		doTest(t, norm.NFKD, t.cols[4], t.cols[i])
+		doTest(t, tc, NFC, tc.cols[1], tc.cols[i])
+		doTest(t, tc, NFD, tc.cols[2], tc.cols[i])
+		doTest(t, tc, NFKC, tc.cols[3], tc.cols[i])
+		doTest(t, tc, NFKD, tc.cols[4], tc.cols[i])
 	}
 	for i := 3; i <= 4; i++ {
-		doTest(t, norm.NFC, t.cols[3], t.cols[i])
-		doTest(t, norm.NFD, t.cols[4], t.cols[i])
-		doTest(t, norm.NFKC, t.cols[3], t.cols[i])
-		doTest(t, norm.NFKD, t.cols[4], t.cols[i])
+		doTest(t, tc, NFC, tc.cols[3], tc.cols[i])
+		doTest(t, tc, NFD, tc.cols[4], tc.cols[i])
+		doTest(t, tc, NFKC, tc.cols[3], tc.cols[i])
+		doTest(t, tc, NFKD, tc.cols[4], tc.cols[i])
 	}
 }
 
-func CharacterByCharacterTests() {
+func TestCharacterByCharacter(t *testing.T) {
+	skipShort(t)
 	tests := part[1].tests
 	var last rune = 0
 	for i := 0; i <= len(tests); i++ { // last one is special case
@@ -274,37 +234,39 @@ func CharacterByCharacterTests() {
 		}
 		for last++; last < r; last++ {
 			// Check all characters that were not explicitly listed in the test.
-			t := &Test{partnr: 1, number: -1}
+			tc := &Test{partnr: 1, number: -1}
 			char := string(last)
-			doTest(t, norm.NFC, char, char)
-			doTest(t, norm.NFD, char, char)
-			doTest(t, norm.NFKC, char, char)
-			doTest(t, norm.NFKD, char, char)
+			doTest(t, tc, NFC, char, char)
+			doTest(t, tc, NFD, char, char)
+			doTest(t, tc, NFKC, char, char)
+			doTest(t, tc, NFKD, char, char)
 		}
 		if i < len(tests) {
-			doConformanceTests(&tests[i], 1)
+			doConformanceTests(t, &tests[i], 1)
 		}
 	}
 }
 
-func StandardTests() {
+func TestStandardTests(t *testing.T) {
+	skipShort(t)
 	for _, j := range []int{0, 2, 3} {
 		for _, test := range part[j].tests {
-			doConformanceTests(&test, j)
+			doConformanceTests(t, &test, j)
 		}
 	}
 }
 
-// PerformanceTest verifies that normalization is O(n). If any of the
+// TestPerformance verifies that normalization is O(n). If any of the
 // code does not properly check for maxCombiningChars, normalization
 // may exhibit O(n**2) behavior.
-func PerformanceTest() {
+func TestPerformance(t *testing.T) {
+	skipShort(t)
 	runtime.GOMAXPROCS(2)
 	success := make(chan bool, 1)
 	go func() {
 		buf := bytes.Repeat([]byte("\u035D"), 1024*1024)
 		buf = append(buf, "\u035B"...)
-		norm.NFC.Append(nil, buf...)
+		NFC.Append(nil, buf...)
 		success <- true
 	}()
 	timeout := time.After(1 * time.Second)
@@ -312,7 +274,6 @@ func PerformanceTest() {
 	case <-success:
 		// test completed before the timeout
 	case <-timeout:
-		errorCount++
-		logger.Printf(`unexpectedly long time to complete PerformanceTest`)
+		t.Errorf(`unexpectedly long time to complete PerformanceTest`)
 	}
 }
