@@ -111,7 +111,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/db/completion", withModel(m, restGetDBCompletion))           // device folder
 	getRestMux.HandleFunc("/rest/db/file", withModel(m, restGetDBFile))                       // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", withModel(m, restGetDBIgnores))                 // folder
-	getRestMux.HandleFunc("/rest/db/need", withModel(m, restGetDBNeed))                       // folder
+	getRestMux.HandleFunc("/rest/db/need", withModel(m, restGetDBNeed))                       // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", withModel(m, restGetDBStatus))                   // folder
 	getRestMux.HandleFunc("/rest/db/browse", withModel(m, restGetDBBrowse))                   // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/events", restGetEvents)                                      // since [limit]
@@ -133,7 +133,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
-	postRestMux.HandleFunc("/rest/db/prio", withModel(m, restPostDBPrio))             // folder file
+	postRestMux.HandleFunc("/rest/db/prio", withModel(m, restPostDBPrio))             // folder file [perpage] [page]
 	postRestMux.HandleFunc("/rest/db/ignores", withModel(m, restPostDBIgnores))       // folder
 	postRestMux.HandleFunc("/rest/db/override", withModel(m, restPostDBOverride))     // folder
 	postRestMux.HandleFunc("/rest/db/scan", withModel(m, restPostDBScan))             // folder [sub...]
@@ -379,15 +379,29 @@ func restPostDBOverride(m *model.Model, w http.ResponseWriter, r *http.Request) 
 }
 
 func restGetDBNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var folder = qs.Get("folder")
+	qs := r.URL.Query()
 
-	progress, queued, rest := m.NeedFolderFiles(folder, 100)
+	folder := qs.Get("folder")
+
+	page, err := strconv.Atoi(qs.Get("page"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	perpage, err := strconv.Atoi(qs.Get("perpage"))
+	if err != nil || perpage < 1 {
+		perpage = 1 << 16
+	}
+
+	progress, queued, rest, total := m.NeedFolderFiles(folder, page, perpage)
+
 	// Convert the struct to a more loose structure, and inject the size.
-	output := map[string][]jsonDBFileInfo{
+	output := map[string]interface{}{
 		"progress": toNeedSlice(progress),
 		"queued":   toNeedSlice(queued),
 		"rest":     toNeedSlice(rest),
+		"total":    total,
+		"page":     page,
+		"perpage":  perpage,
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

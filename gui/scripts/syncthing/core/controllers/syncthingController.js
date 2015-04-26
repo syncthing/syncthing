@@ -40,6 +40,10 @@ angular.module('syncthing.core')
         $scope.folderStats = {};
         $scope.progress = {};
         $scope.version = {};
+        $scope.needed = [];
+        $scope.neededTotal = 0;
+        $scope.neededCurrentPage = 1;
+        $scope.neededPageSize = 10;
 
         $(window).bind('beforeunload', function () {
             navigatingAway = true;
@@ -415,12 +419,61 @@ angular.module('syncthing.core')
         }
 
         function refreshNeed(folder) {
-            $http.get(urlbase + "/db/need?folder=" + encodeURIComponent(folder)).success(function (data) {
+            var url = urlbase + "/db/need?folder=" + encodeURIComponent(folder);
+            url += "&page=" + $scope.neededCurrentPage;
+            url += "&perpage=" + $scope.neededPageSize;
+            $http.get(url).success(function (data) {
                 if ($scope.neededFolder == folder) {
                     console.log("refreshNeed", folder, data);
-                    $scope.needed = data;
+                    parseNeeded(data);
                 }
             }).error($scope.emitHTTPError);
+        }
+
+        function needAction(file) {
+            var fDelete = 4096;
+            var fDirectory = 16384;
+
+            if ((file.flags & (fDelete + fDirectory)) === fDelete + fDirectory) {
+                return 'rmdir';
+            } else if ((file.flags & fDelete) === fDelete) {
+                return 'rm';
+            } else if ((file.flags & fDirectory) === fDirectory) {
+                return 'touch';
+            } else {
+                return 'sync';
+            }
+        };
+
+        function parseNeeded(data) {
+            var merged = [];
+            data.progress.forEach(function (item) {
+                item.type = "progress";
+                item.action = needAction(item);
+                merged.push(item);
+            });
+            data.queued.forEach(function (item) {
+                item.type = "queued";
+                item.action = needAction(item);
+                merged.push(item);
+            });
+            data.rest.forEach(function (item) {
+                item.type = "rest";
+                item.action = needAction(item);
+                merged.push(item);
+            });
+            $scope.needed = merged;
+            $scope.neededTotal = data.total;
+        }
+
+        $scope.neededPageChanged = function (page) {
+            $scope.neededCurrentPage = page;
+            refreshNeed($scope.neededFolder);
+        };
+
+        $scope.neededChangePageSize = function (perpage) {
+            $scope.neededPageSize = perpage;
+            refreshNeed($scope.neededFolder);
         }
 
         var refreshDeviceStats = debounce(function () {
@@ -1181,22 +1234,9 @@ angular.module('syncthing.core')
             $('#needed').modal().on('hidden.bs.modal', function () {
                 $scope.neededFolder = undefined;
                 $scope.needed = undefined;
+                $scope.neededTotal = 0;
+                $scope.neededCurrentPage = 1;
             });
-        };
-
-        $scope.needAction = function (file) {
-            var fDelete = 4096;
-            var fDirectory = 16384;
-
-            if ((file.flags & (fDelete + fDirectory)) === fDelete + fDirectory) {
-                return 'rmdir';
-            } else if ((file.flags & fDelete) === fDelete) {
-                return 'rm';
-            } else if ((file.flags & fDirectory) === fDirectory) {
-                return 'touch';
-            } else {
-                return 'sync';
-            }
         };
 
         $scope.override = function (folder) {
@@ -1220,10 +1260,14 @@ angular.module('syncthing.core')
         };
 
         $scope.bumpFile = function (folder, file) {
-            $http.post(urlbase + "/db/prio?folder=" + encodeURIComponent(folder) + "&file=" + encodeURIComponent(file)).success(function (data) {
+            var url = urlbase + "/db/prio?folder=" + encodeURIComponent(folder) + "&file=" + encodeURIComponent(file);
+            // In order to get the right view of data in the response.
+            url += "&page=" + $scope.neededCurrentPage;
+            url += "&perpage=" + $scope.neededPageSize;
+            $http.post(url).success(function (data) {
                 if ($scope.neededFolder == folder) {
                     console.log("bumpFile", folder, data);
-                    $scope.needed = data;
+                    parseNeeded(data);
                 }
             }).error($scope.emitHTTPError);
         };
