@@ -147,3 +147,26 @@ function debounce(func, wait) {
     };
 }
 
+
+function buildDirectoryChildren(parent, key, data) {
+    var children = [];
+
+    if (parent) {
+        parent += "/";
+    }
+
+    children.push({
+        id: parent + "[^/]+",
+        text: 'Files in "' + key + '"',
+        icon: "glyphicon glyphicon-file",
+    });
+
+    return children.concat($.map(data, function (value, key) {
+        return {
+            id: parent + key,
+            text: key,
+            icon: "glyphicon glyphicon-folder-open",
+            children: Object.keys(value).length > 0,
+        };
+    }));
+}
