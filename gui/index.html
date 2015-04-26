@@ -18,6 +18,7 @@
 
   <title>Syncthing | {{thisDeviceName()}}</title>
   <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="vendor/jquery/jquery-jstree.min.css" rel="stylesheet">
   <link href="assets/font/raleway.css" rel="stylesheet">
   <link href="assets/css/overrides.css" rel="stylesheet">
 </head>
@@ -654,6 +655,14 @@
                   </div>
                   <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
                 </div>
+                <div class="form-group" ng-show="!editingExisting">
+                  <div class="checkbox">
+                    <label>
+                      <input type="checkbox" ng-model="currentFolder.SelectiveEnabled"> <span translate>Selective synchronization</span>
+                    </label>
+                  </div>
+                  <p translate class="help-block">You will be able to select which subfolders to synchronize after adding the folder.</p>
+                </div>
               </div>
 
               <!-- Right column-->
@@ -753,6 +762,7 @@
           <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
           <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteFolder()"><span class="glyphicon glyphicon-minus"></span>&emsp;<span translate>Delete</span></button>
           <button id="editIgnoresButton" ng-if="editingExisting" type="button" class="btn btn-default pull-left btn-sm" ng-click="editIgnores()"><span class="glyphicon glyphicon-eye-close"></span>&emsp;<span translate>Ignore Patterns</span></button>
+          <button id="selectiveSyncButton" ng-if="editingExisting" type="button" class="btn btn-default pull-left btn-sm" ng-click="selectiveSync()"><span class="glyphicon glyphicon-check"></span>&emsp;<span translate>Selective synchronization</span></button>
         </div>
       </div>
     </div>
@@ -788,6 +798,40 @@
       </div>
     </div>
   </div>
+
+  <!-- Selective sync modal -->
+
+  <div id="selectiveSync" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title" translate>Selective synchronization</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <div class="checkbox">
+              <label>
+                <input type="checkbox" ng-model="currentFolder.selectiveEnabled">
+                <span translate>Enable selective synchronization.</span>
+              </label>
+            </div>
+          </div>
+
+          <div id="folderTreeSection">
+            <p translate>Choose folders which you would like to synchronize:</p>
+            <div id="selectiveSyncTree"></div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal" ng-click="saveSelectiveSync(false)"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
+          <button type="button" class="btn btn-danger btn-sm" data-dismiss="modal" ng-click="saveSelectiveSync(true)" ng-if="currentFolder.selectiveEnabled"><span class="glyphicon glyphicon-exclamation-sign"></span>&emsp;<span translate>Save and remove unselected files</span></button>
+          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Settings modal -->
 
@@ -1093,11 +1137,12 @@
   </modal>
 
   <!-- vendor scripts -->
+  <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
+  <script src="vendor/jquery/jquery-jstree.min.js"></script>
   <script src="vendor/angular/angular.min.js"></script>
   <script src="vendor/angular/angular-translate.min.js"></script>
   <script src="vendor/angular/angular-translate-loader.min.js"></script>
   <script src="vendor/angular/angular-dirPagination.js"></script>
-  <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
   <script src="vendor/bootstrap/js/bootstrap.min.js"></script>
   <!-- / vendor scripts -->
 

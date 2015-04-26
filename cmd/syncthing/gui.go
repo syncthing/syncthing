@@ -114,6 +114,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/db/need", withModel(m, restGetDBNeed))                       // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", withModel(m, restGetDBStatus))                   // folder
 	getRestMux.HandleFunc("/rest/db/browse", withModel(m, restGetDBBrowse))                   // folder [prefix] [dirsonly] [levels]
+	getRestMux.HandleFunc("/rest/db/selections", withModel(m, restGetSelections))             // folder [tree]
 	getRestMux.HandleFunc("/rest/events", restGetEvents)                                      // since [limit]
 	getRestMux.HandleFunc("/rest/stats/device", withModel(m, restGetDeviceStats))             // -
 	getRestMux.HandleFunc("/rest/stats/folder", withModel(m, restGetFolderStats))             // -
@@ -137,6 +138,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	postRestMux.HandleFunc("/rest/db/ignores", withModel(m, restPostDBIgnores))       // folder
 	postRestMux.HandleFunc("/rest/db/override", withModel(m, restPostDBOverride))     // folder
 	postRestMux.HandleFunc("/rest/db/scan", withModel(m, restPostDBScan))             // folder [sub...]
+	postRestMux.HandleFunc("/rest/db/selections", withModel(m, restPostSelections))   // folder [remove]
 	postRestMux.HandleFunc("/rest/system/config", withModel(m, restPostSystemConfig)) // <body>
 	postRestMux.HandleFunc("/rest/system/discovery", restPostSystemDiscovery)         // device addr
 	postRestMux.HandleFunc("/rest/system/error", restPostSystemError)                 // <body>
@@ -843,6 +845,41 @@ func restGetSystemBrowse(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	json.NewEncoder(w).Encode(ret)
+}
+
+func restGetSelections(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	data, err := m.GetSelections(qs.Get("folder"), qs.Get("tree") != "")
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(data)
+}
+
+func restPostSelections(m *model.Model, w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	var data map[string][]string
+	err := json.NewDecoder(r.Body).Decode(&data)
+	r.Body.Close()
+
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = m.SetSelections(qs.Get("folder"), data["patterns"], qs.Get("remove") != "")
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(data)
 }
 
 func embeddedStatic(assetDir string) http.Handler {
