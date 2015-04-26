@@ -452,6 +452,7 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 	if err != nil {
 		return resp, err
 	}
+	req.Close = true
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")
 	req.Header["SOAPAction"] = []string{fmt.Sprintf(`"%s#%s"`, service, function)} // Enforce capitalization in header-entry for sensitive routers. See issue #1696
@@ -467,6 +468,9 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 
 	r, err := http.DefaultClient.Do(req)
 	if err != nil {
+		if debug {
+			l.Debugln(err)
+		}
 		return resp, err
 	}
 
