@@ -7,10 +7,10 @@
 package model
 
 import (
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type folderState int

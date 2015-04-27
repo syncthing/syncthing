@@ -9,11 +9,11 @@ package model
 import (
 	"path/filepath"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type ProgressEmitter struct {
@@ -35,6 +35,7 @@ func NewProgressEmitter(cfg *config.Wrapper) *ProgressEmitter {
 		registry: make(map[string]*sharedPullerState),
 		last:     make(map[string]map[string]*pullerProgress),
 		timer:    time.NewTimer(time.Millisecond),
+		mut:      sync.NewMutex(),
 	}
 	t.Changed(cfg.Raw())
 	cfg.Subscribe(t)

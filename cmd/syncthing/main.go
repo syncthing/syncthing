@@ -39,6 +39,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/thejerf/suture"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -151,6 +152,7 @@ are mostly useful for developers. Use with care.
                  - "events"   (the events package)
                  - "files"    (the files package)
                  - "http"     (the main package; HTTP requests)
+                 - "locks"    (the sync package; trace long held locks)
                  - "net"      (the main package; connections & network messages)
                  - "model"    (the model package)
                  - "scanner"  (the scanner package)
@@ -194,6 +196,7 @@ var (
 	noConsole         bool
 	generateDir       string
 	logFile           string
+	auditEnabled      bool
 	noRestart         = os.Getenv("STNORESTART") != ""
 	noUpgrade         = os.Getenv("STNOUPGRADE") != ""
 	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
@@ -230,6 +233,7 @@ func main() {
 	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.StringVar(&upgradeTo, "upgrade-to", upgradeTo, "Force upgrade directly from specified URL")
+	flag.BoolVar(&auditEnabled, "audit", false, "Write events to audit file")
 
 	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, baseDirs["config"]))
 	flag.Parse()
@@ -372,7 +376,23 @@ func main() {
 }
 
 func syncthingMain() {
-	var err error
+	// Create a main service manager. We'll add things to this as we go along.
+	// We want any logging it does to go through our log system, with INFO
+	// severity.
+	mainSvc := suture.New("main", suture.Spec{
+		Log: func(line string) {
+			l.Infoln(line)
+		},
+	})
+	mainSvc.ServeBackground()
+
+	// Set a log prefix similar to the ID we will have later on, or early log
+	// lines look ugly.
+	l.SetPrefix("[start] ")
+
+	if auditEnabled {
+		startAuditing(mainSvc)
+	}
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -381,7 +401,7 @@ func syncthingMain() {
 	events.Default.Log(events.Starting, map[string]string{"home": baseDirs["config"]})
 
 	// Ensure that that we have a certificate and key.
-	cert, err = tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
+	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
 		cert, err = newCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
 		if err != nil {
@@ -564,7 +584,9 @@ func syncthingMain() {
 
 	// Routine to connect out to configured devices
 	discoverer = discovery(externalPort)
-	go listenConnect(myID, m, tlsCfg)
+
+	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
+	mainSvc.Add(connectionSvc)
 
 	for _, folder := range cfg.Folders() {
 		// Routine to pull blocks from other devices to synchronize the local
@@ -638,8 +660,27 @@ func syncthingMain() {
 
 	code := <-stop
 
+	mainSvc.Stop()
+
 	l.Okln("Exiting")
 	os.Exit(code)
+}
+
+func startAuditing(mainSvc *suture.Supervisor) {
+	auditFile := timestampedLoc(locAuditLog)
+	fd, err := os.OpenFile(auditFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		l.Fatalln("Audit:", err)
+	}
+
+	auditSvc := newAuditSvc(fd)
+	mainSvc.Add(auditSvc)
+
+	// We wait for the audit service to fully start before we return, to
+	// ensure we capture all events from the start.
+	auditSvc.WaitForStart()
+
+	l.Infoln("Audit log in", auditFile)
 }
 
 func setupGUI(cfg *config.Wrapper, m *model.Model) {
@@ -1011,6 +1052,7 @@ func autoUpgrade() {
 func cleanConfigDirectory() {
 	patterns := map[string]time.Duration{
 		"panic-*.log":    7 * 24 * time.Hour,  // keep panic logs for a week
+		"audit-*.log":    7 * 24 * time.Hour,  // keep audit logs for a week
 		"index":          14 * 24 * time.Hour, // keep old index format for two weeks
 		"config.xml.v*":  30 * 24 * time.Hour, // old config versions for a month
 		"*.idx.gz":       30 * 24 * time.Hour, // these should for sure no longer exist
@@ -1019,7 +1061,7 @@ func cleanConfigDirectory() {
 
 	for pat, dur := range patterns {
 		pat = filepath.Join(baseDirs["config"], pat)
-		files, err := filepath.Glob(pat)
+		files, err := osutil.Glob(pat)
 		if err != nil {
 			l.Infoln("Cleaning:", err)
 			continue

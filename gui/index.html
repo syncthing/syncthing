@@ -38,6 +38,12 @@
             <span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
+        <li ng-if="upgradeInfo && upgradeInfo.majorNewer">
+          <button type="button" class="btn navbar-btn btn-danger btn-sm" href="" ng-click="upgradeMajor()">
+            <span class="glyphicon glyphicon-chevron-up"></span>&emsp;
+            <span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
+          </button>
+        </li>
         <li class="dropdown" language-select></li>
         <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog" aria-label="Edit"></span></a>
@@ -233,6 +239,17 @@
                     <tr ng-if="folder.rescanIntervalS != 60">
                       <th><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan Interval</span></th>
                       <td class="text-right">{{folder.rescanIntervalS}} s</td>
+                    </tr>
+                    <tr ng-if="folder.order != 'random'">
+                      <th><span class="glyphicon glyphicon-sort"></span>&emsp;<span translate>File Pull Order</span></th>
+                      <td class="text-right" ng-switch="folder.order">
+                        <span ng-switch-when="random" translate>Random</span>
+                        <span ng-switch-when="alphabetic" translate>Alphabetic</span>
+                        <span ng-switch-when="smallestFirst" translate>Smallest First</span>
+                        <span ng-switch-when="largestFirst" translate>Largest First</span>
+                        <span ng-switch-when="oldestFirst" translate>Oldest First</span>
+                        <span ng-switch-when="newestFirst" translate>Newest First</span>
+                      </td>
                     </tr>
                     <tr ng-if="folder.versioning.type">
                       <th><span class="glyphicon glyphicon-tags"></span>&emsp;<span translate>File Versioning</span></th>
@@ -464,14 +481,43 @@
 
   <modal id="idqr" large="yes" status="info" close="yes" icon="qrcode" title="{{'Device Identification' | translate}} &mdash; {{deviceName(thisDevice())}}">
     <div class="well well-sm text-monospace text-center">{{myID}}</div>
-    <img ng-if="myID" class="center-block hidden-xs img-thumbnail" src="qr/?text={{myID}}"/>
+    <img ng-if="myID" class="center-block hidden-xs img-thumbnail" ng-src="qr/?text={{myID}}"/>
   </modal>
 
   <!-- QR modal -->
 
   <modal id="qrxs" large="yes" status="info" close="yes" icon="qrcode" title="{{'Device Identification' | translate}} &mdash; {{deviceName(thisDevice())}}">
-    <img ng-if="myID" class="center-block img-thumbnail" src="qr/?text={{myID}}"/>
+    <img ng-if="myID" class="center-block img-thumbnail" ng-src="qr/?text={{myID}}"/>
   </modal>
+
+  <!-- Major upgrade modal -->
+
+  <div id="majorUpgrade" class="modal fade" tabindex="-1" data-backdrop="true" data-keyboard="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header alert alert-danger">
+          <h4 class="modal-title">
+            <span ng-if="icon" class="glyphicon glyphicon-chevron-up"></span>
+            <span translate>Major Upgrade</span>
+          </h4>
+        </div>
+        <div class="modal-body">
+          <p>
+            <span translate>This is a major version upgrade.</span>
+            <span translate>A new major version may not be compatible with previous versions.</span>
+            <span translate>Please consult the release notes before performing a major upgrade.</span>
+          </p>
+          <p>
+            <a href="https://github.com/syncthing/syncthing/releases/latest" target="_blank" translate>Release Notes</a>
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary btn-sm" ng-click="upgrade()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Upgrade</span></button>
+          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Device editor modal -->
 
@@ -597,6 +643,7 @@
               </div>
             </div>
             <div class="row">
+              <!-- Left column -->
               <div class="col-md-6">
                 <div class="form-group">
                   <div class="checkbox">
@@ -615,7 +662,20 @@
                   <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
                 </div>
               </div>
+
+              <!-- Right column-->
               <div class="col-md-6">
+                <div class="form-group">
+                  <label translate>File Pull Order</label>
+                  <select class="form-control" ng-model="currentFolder.order">
+                    <option value="random" translate>Random</option>
+                    <option value="alphabetic" translate>Alphabetic</option>
+                    <option value="smallestFirst" translate>Smallest First</option>
+                    <option value="largestFirst" translate>Largest First</option>
+                    <option value="oldestFirst" translate>Oldest First</option>
+                    <option value="newestFirst" translate>Newest First</option>
+                  </select>
+                </div>
                 <div class="form-group">
                   <label translate>File Versioning</label>
                   <div class="radio">
@@ -914,10 +974,22 @@
     <hr/>
 
     <table class="table table-striped table-condensed">
-      <tr ng-repeat="f in needed.progress" ng-init="a = needAction(f)">
-        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
-        <td title="{{f.name}}">{{f.name | basename}}</td>
-        <td ng-if="a == 'sync' && progress[neededFolder] && progress[neededFolder][f.name]">
+
+      <tr dir-paginate="f in needed | itemsPerPage: neededPageSize" current-page="neededCurrentPage" total-items="neededTotal">
+        <!-- Icon -->
+        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[f.action]}}"></span> {{needActions[f.action]}}</td>
+
+        <!-- Name -->
+        <td ng-if="f.type != 'queued'" title="{{f.name}}">{{f.name | basename}}</td>
+        <td ng-if="f.type == 'queued'">
+          <a href="" ng-click="bumpFile(neededFolder, f.name)" title="{{'Move to top of queue' | translate}}">
+            <span class="glyphicon glyphicon-eject"></span>
+          </a>
+          <span title="{{f.name}}">&ensp;{{f.name | basename}}</span>
+        </td>
+
+        <!-- Size/Progress -->
+        <td ng-if="f.type == 'progress' && f.action == 'sync' && progress[neededFolder] && progress[neededFolder][f.name]">
           <div class="progress">
             <div class="progress-bar progress-bar-success" style="width: {{progress[neededFolder][f.name].reused}}%"></div>
             <div class="progress-bar" style="width: {{progress[neededFolder][f.name].copiedFromOrigin}}%"></div>
@@ -929,24 +1001,20 @@
             </span>
           </div>
         </td>
-        <td class="text-right small-data" ng-if="a != 'sync' || !progress[neededFolder] || !progress[neededFolder][f.name]">
+        <td class="text-right small-data" ng-if="f.type != 'progress' || f.action != 'sync' || !progress[neededFolder] || !progress[neededFolder][f.name]">
           <span ng-if="f.size > 0">{{f.size | binary}}B</span>
         </td>
-      </tr>
-      <tr ng-repeat="f in needed.queued" ng-init="a = needAction(f)">
-        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
-        <td><a href="" ng-if="$index != 0" ng-click="bumpFile(neededFolder, f.name)" title="{{'Move to top of queue' | translate}}"><span class="glyphicon glyphicon-eject"></span></a><span ng-if="$index != 0">&ensp;</span><span title="{{f.name}}">{{f.name | basename}}</span></td>
-        <td class="text-right small-data">
-          <span ng-if="f.size > 0">{{f.size | binary}}B</span>
-         </td>
-      </tr>
-      <tr ng-repeat="f in needed.rest" ng-init="a = needAction(f)">
-        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
-        <td title="{{f.name}}">{{f.name | basename}}</td>
-        <td class="text-right small-data"><span ng-if="f.size > 0">{{f.size | binary}}B</span></td>
+
       </tr>
     </table>
 
+    <dir-pagination-controls on-page-change="neededPageChanged(newPageNumber)"></dir-pagination-controls>
+    <ul class="pagination pull-right">
+      <li ng-repeat="option in [10, 20, 30, 50, 100]" ng-class="{ active: neededPageSize == option }">
+        <a href="#" ng-click="neededChangePageSize(option)">{{option}}</a>
+      <li>
+    </ul>
+    <div class="clearfix"></div>
   </modal>
 
   <!-- About modal -->
@@ -977,6 +1045,7 @@
           <li class="auto-generated">Daniel Martí</li>
           <li class="auto-generated">Dennis Wilson</li>
           <li class="auto-generated">Dominik Heidler</li>
+          <li class="auto-generated">Elias Jarlebring</li>
           <li class="auto-generated">Emil Hessman</li>
           <li class="auto-generated">Federico Castagnini</li>
           <li class="auto-generated">Felix Ableitner</li>
@@ -1034,6 +1103,7 @@
   <script src="vendor/angular/angular.min.js"></script>
   <script src="vendor/angular/angular-translate.min.js"></script>
   <script src="vendor/angular/angular-translate-loader.min.js"></script>
+  <script src="vendor/angular/angular-dirPagination.js"></script>
   <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
   <script src="vendor/bootstrap/js/bootstrap.min.js"></script>
   <!-- / vendor scripts -->

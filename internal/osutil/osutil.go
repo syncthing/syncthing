@@ -15,14 +15,15 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 var ErrNoHome = errors.New("No home directory found - set $HOME (or the platform equivalent).")
 
 // Try to keep this entire operation atomic-like. We shouldn't be doing this
 // often enough that there is any contention on this lock.
-var renameLock sync.Mutex
+var renameLock sync.Mutex = sync.NewMutex()
 
 // TryRename renames a file, leaving source file intact in case of failure.
 // Tries hard to succeed on various systems by temporarily tweaking directory

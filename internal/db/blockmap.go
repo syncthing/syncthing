@@ -17,11 +17,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"sort"
-	"sync"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -123,7 +123,8 @@ func NewBlockFinder(db *leveldb.DB, cfg *config.Wrapper) *BlockFinder {
 	}
 
 	f := &BlockFinder{
-		db: db,
+		db:  db,
+		mut: sync.NewRWMutex(),
 	}
 	f.Changed(cfg.Raw())
 	cfg.Subscribe(f)

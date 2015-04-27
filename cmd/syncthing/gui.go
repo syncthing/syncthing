@@ -22,7 +22,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/calmh/logger"
@@ -34,6 +33,7 @@ import (
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/model"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
@@ -45,16 +45,16 @@ type guiError struct {
 }
 
 var (
-	configInSync = true
-	guiErrors    = []guiError{}
-	guiErrorsMut sync.Mutex
-	startTime    = time.Now()
+	configInSync            = true
+	guiErrors               = []guiError{}
+	guiErrorsMut sync.Mutex = sync.NewMutex()
+	startTime               = time.Now()
 	eventSub     *events.BufferedSubscription
 )
 
 var (
 	lastEventRequest    time.Time
-	lastEventRequestMut sync.Mutex
+	lastEventRequestMut sync.Mutex = sync.NewMutex()
 )
 
 func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
@@ -111,7 +111,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	getRestMux.HandleFunc("/rest/db/completion", withModel(m, restGetDBCompletion))           // device folder
 	getRestMux.HandleFunc("/rest/db/file", withModel(m, restGetDBFile))                       // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", withModel(m, restGetDBIgnores))                 // folder
-	getRestMux.HandleFunc("/rest/db/need", withModel(m, restGetDBNeed))                       // folder
+	getRestMux.HandleFunc("/rest/db/need", withModel(m, restGetDBNeed))                       // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", withModel(m, restGetDBStatus))                   // folder
 	getRestMux.HandleFunc("/rest/db/browse", withModel(m, restGetDBBrowse))                   // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/events", restGetEvents)                                      // since [limit]
@@ -133,7 +133,7 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
-	postRestMux.HandleFunc("/rest/db/prio", withModel(m, restPostDBPrio))             // folder file
+	postRestMux.HandleFunc("/rest/db/prio", withModel(m, restPostDBPrio))             // folder file [perpage] [page]
 	postRestMux.HandleFunc("/rest/db/ignores", withModel(m, restPostDBIgnores))       // folder
 	postRestMux.HandleFunc("/rest/db/override", withModel(m, restPostDBOverride))     // folder
 	postRestMux.HandleFunc("/rest/db/scan", withModel(m, restPostDBScan))             // folder [sub...]
@@ -256,7 +256,9 @@ func redirectToHTTPSMiddleware(h http.Handler) http.Handler {
 
 func noCacheMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store")
+		w.Header().Set("Expires", time.Now().UTC().Format(http.TimeFormat))
+		w.Header().Set("Pragma", "no-cache")
 		h.ServeHTTP(w, r)
 	})
 }
@@ -379,15 +381,29 @@ func restPostDBOverride(m *model.Model, w http.ResponseWriter, r *http.Request) 
 }
 
 func restGetDBNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var folder = qs.Get("folder")
+	qs := r.URL.Query()
 
-	progress, queued, rest := m.NeedFolderFiles(folder, 100)
+	folder := qs.Get("folder")
+
+	page, err := strconv.Atoi(qs.Get("page"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	perpage, err := strconv.Atoi(qs.Get("perpage"))
+	if err != nil || perpage < 1 {
+		perpage = 1 << 16
+	}
+
+	progress, queued, rest, total := m.NeedFolderFiles(folder, page, perpage)
+
 	// Convert the struct to a more loose structure, and inject the size.
-	output := map[string][]jsonDBFileInfo{
+	output := map[string]interface{}{
 		"progress": toNeedSlice(progress),
 		"queued":   toNeedSlice(queued),
 		"rest":     toNeedSlice(rest),
+		"total":    total,
+		"page":     page,
+		"perpage":  perpage,
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -522,7 +538,7 @@ func flushResponse(s string, w http.ResponseWriter) {
 }
 
 var cpuUsagePercent [10]float64 // The last ten seconds
-var cpuUsageLock sync.RWMutex
+var cpuUsageLock sync.RWMutex = sync.NewRWMutex()
 
 func restGetSystemStatus(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
@@ -686,7 +702,8 @@ func restGetSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 	res := make(map[string]interface{})
 	res["running"] = Version
 	res["latest"] = rel.Tag
-	res["newer"] = upgrade.CompareVersions(rel.Tag, Version) == 1
+	res["newer"] = upgrade.CompareVersions(rel.Tag, Version) == upgrade.Newer
+	res["majorNewer"] = upgrade.CompareVersions(rel.Tag, Version) == upgrade.MajorNewer
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
@@ -727,7 +744,7 @@ func restPostSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if upgrade.CompareVersions(rel.Tag, Version) == 1 {
+	if upgrade.CompareVersions(rel.Tag, Version) > upgrade.Equal {
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("upgrading:", err)
@@ -814,7 +831,7 @@ func restGetSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(current, pathSeparator) && !strings.HasSuffix(search, pathSeparator) {
 		search = search + pathSeparator
 	}
-	subdirectories, _ := filepath.Glob(search + "*")
+	subdirectories, _ := osutil.Glob(search + "*")
 	ret := make([]string, 0, 10)
 	for _, subdirectory := range subdirectories {
 		info, err := os.Stat(subdirectory)

@@ -10,11 +10,11 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 // An interface to handle configuration changes, and a wrapper type á la
@@ -49,7 +49,12 @@ type Wrapper struct {
 // Wrap wraps an existing Configuration structure and ties it to a file on
 // disk.
 func Wrap(path string, cfg Configuration) *Wrapper {
-	w := &Wrapper{cfg: cfg, path: path}
+	w := &Wrapper{
+		cfg:  cfg,
+		path: path,
+		mut:  sync.NewMutex(),
+		sMut: sync.NewMutex(),
+	}
 	w.replaces = make(chan Configuration)
 	go w.Serve()
 	return w

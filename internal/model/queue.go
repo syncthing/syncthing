@@ -6,21 +6,34 @@
 
 package model
 
-import "sync"
+import (
+	"math/rand"
+	"sort"
+
+	"github.com/syncthing/syncthing/internal/sync"
+)
 
 type jobQueue struct {
 	progress []string
-	queued   []string
+	queued   []jobQueueEntry
 	mut      sync.Mutex
 }
 
-func newJobQueue() *jobQueue {
-	return &jobQueue{}
+type jobQueueEntry struct {
+	name     string
+	size     int64
+	modified int64
 }
 
-func (q *jobQueue) Push(file string) {
+func newJobQueue() *jobQueue {
+	return &jobQueue{
+		mut: sync.NewMutex(),
+	}
+}
+
+func (q *jobQueue) Push(file string, size, modified int64) {
 	q.mut.Lock()
-	q.queued = append(q.queued, file)
+	q.queued = append(q.queued, jobQueueEntry{file, size, modified})
 	q.mut.Unlock()
 }
 
@@ -32,8 +45,7 @@ func (q *jobQueue) Pop() (string, bool) {
 		return "", false
 	}
 
-	var f string
-	f = q.queued[0]
+	f := q.queued[0].name
 	q.queued = q.queued[1:]
 	q.progress = append(q.progress, f)
 
@@ -45,7 +57,7 @@ func (q *jobQueue) BringToFront(filename string) {
 	defer q.mut.Unlock()
 
 	for i, cur := range q.queued {
-		if cur == filename {
+		if cur.name == filename {
 			if i > 0 {
 				// Shift the elements before the selected element one step to
 				// the right, overwriting the selected element
@@ -79,7 +91,62 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 	copy(progress, q.progress)
 
 	queued := make([]string, len(q.queued))
-	copy(queued, q.queued)
+	for i := range q.queued {
+		queued[i] = q.queued[i].name
+	}
 
 	return progress, queued
 }
+
+func (q *jobQueue) Shuffle() {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+
+	l := len(q.queued)
+	for i := range q.queued {
+		r := rand.Intn(l)
+		q.queued[i], q.queued[r] = q.queued[r], q.queued[i]
+	}
+}
+
+func (q *jobQueue) SortSmallestFirst() {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+
+	sort.Sort(smallestFirst(q.queued))
+}
+
+func (q *jobQueue) SortLargestFirst() {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+
+	sort.Sort(sort.Reverse(smallestFirst(q.queued)))
+}
+
+func (q *jobQueue) SortOldestFirst() {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+
+	sort.Sort(oldestFirst(q.queued))
+}
+
+func (q *jobQueue) SortNewestFirst() {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+
+	sort.Sort(sort.Reverse(oldestFirst(q.queued)))
+}
+
+// The usual sort.Interface boilerplate
+
+type smallestFirst []jobQueueEntry
+
+func (q smallestFirst) Len() int           { return len(q) }
+func (q smallestFirst) Less(a, b int) bool { return q[a].size < q[b].size }
+func (q smallestFirst) Swap(a, b int)      { q[a], q[b] = q[b], q[a] }
+
+type oldestFirst []jobQueueEntry
+
+func (q oldestFirst) Len() int           { return len(q) }
+func (q oldestFirst) Less(a, b int) bool { return q[a].modified < q[b].modified }
+func (q oldestFirst) Swap(a, b int)      { q[a], q[b] = q[b], q[a] }

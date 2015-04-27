@@ -12,16 +12,19 @@ import (
 	"net"
 	"net/url"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 func init() {
 	for _, proto := range []string{"udp", "udp4", "udp6"} {
 		Register(proto, func(uri *url.URL, pkt *Announce) (Client, error) {
-			c := &UDPClient{}
+			c := &UDPClient{
+				wg:  sync.NewWaitGroup(),
+				mut: sync.NewRWMutex(),
+			}
 			err := c.Start(uri, pkt)
 			if err != nil {
 				return nil, err

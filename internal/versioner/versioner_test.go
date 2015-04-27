@@ -7,8 +7,12 @@
 package versioner
 
 import (
+	"io/ioutil"
+	"math"
+	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestTaggedFilename(t *testing.T) {
@@ -40,5 +44,47 @@ func TestTaggedFilename(t *testing.T) {
 		if tag != tc[1] {
 			t.Errorf("%s != %s", tag, tc[1])
 		}
+	}
+}
+
+func TestSimpleVersioningVersionCount(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Test takes some time, skipping.")
+	}
+
+	dir, err := ioutil.TempDir("", "")
+	defer os.RemoveAll(dir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	v := NewSimple("", dir, map[string]string{"keep": "2"})
+	versionDir := filepath.Join(dir, ".stversions")
+
+	path := filepath.Join(dir, "test")
+
+	for i := 1; i <= 3; i++ {
+		f, err := os.Create(path)
+		if err != nil {
+			t.Error(err)
+		}
+		f.Close()
+		v.Archive(path)
+
+		d, err := os.Open(versionDir)
+		if err != nil {
+			t.Error(err)
+		}
+		n, err := d.Readdirnames(-1)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if float64(len(n)) != math.Min(float64(i), 2) {
+			t.Error("Wrong count")
+		}
+		d.Close()
+
+		time.Sleep(time.Second)
 	}
 }

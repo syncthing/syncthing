@@ -13,12 +13,12 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/beacon"
 	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type Discoverer struct {
@@ -59,6 +59,8 @@ func NewDiscoverer(id protocol.DeviceID, addresses []string) *Discoverer {
 		negCacheCutoff: 3 * time.Minute,
 		registry:       make(map[protocol.DeviceID][]CacheEntry),
 		lastLookup:     make(map[protocol.DeviceID]time.Time),
+		registryLock:   sync.NewRWMutex(),
+		mut:            sync.NewRWMutex(),
 	}
 }
 
@@ -140,7 +142,7 @@ func (d *Discoverer) StartGlobal(servers []string, extPort uint16) {
 
 	d.extPort = extPort
 	pkt := d.announcementPkt()
-	wg := sync.WaitGroup{}
+	wg := sync.NewWaitGroup()
 	clients := make(chan Client, len(servers))
 	for _, address := range servers {
 		wg.Add(1)
@@ -216,7 +218,7 @@ func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
 		// server client and one local announcement interval has passed. This is
 		// to avoid finding local peers on their remote address at startup.
 		results := make(chan []string, len(d.clients))
-		wg := sync.WaitGroup{}
+		wg := sync.NewWaitGroup()
 		for _, client := range d.clients {
 			wg.Add(1)
 			go func(c Client) {

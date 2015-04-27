@@ -22,8 +22,9 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 // A container for relevant properties of a UPnP InternetGatewayDevice.
@@ -129,7 +130,7 @@ func Discover(timeout time.Duration) []IGD {
 		}
 	}()
 
-	var wg sync.WaitGroup
+	wg := sync.NewWaitGroup()
 	for _, intf := range interfaces {
 		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
 			wg.Add(1)
@@ -451,9 +452,10 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 	if err != nil {
 		return resp, err
 	}
+	req.Close = true
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")
-	req.Header.Set("SOAPAction", fmt.Sprintf(`"%s#%s"`, service, function))
+	req.Header["SOAPAction"] = []string{fmt.Sprintf(`"%s#%s"`, service, function)} // Enforce capitalization in header-entry for sensitive routers. See issue #1696
 	req.Header.Set("Connection", "Close")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Pragma", "no-cache")
@@ -466,6 +468,9 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 
 	r, err := http.DefaultClient.Do(req)
 	if err != nil {
+		if debug {
+			l.Debugln(err)
+		}
 		return resp, err
 	}
 
