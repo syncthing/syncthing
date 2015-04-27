@@ -256,7 +256,9 @@ func redirectToHTTPSMiddleware(h http.Handler) http.Handler {
 
 func noCacheMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store")
+		w.Header().Set("Expires", time.Now().UTC().Format(http.TimeFormat))
+		w.Header().Set("Pragma", "no-cache")
 		h.ServeHTTP(w, r)
 	})
 }
