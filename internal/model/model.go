@@ -27,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/ignore"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/pruner"
 	"github.com/syncthing/syncthing/internal/scanner"
 	"github.com/syncthing/syncthing/internal/stats"
 	"github.com/syncthing/syncthing/internal/symlinks"
@@ -72,6 +73,7 @@ type Model struct {
 	deviceFolders  map[protocol.DeviceID][]string                         // deviceID -> folders
 	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
 	folderIgnores  map[string]*ignore.Matcher                             // folder -> matcher object
+	folderPruners  map[string]*pruner.Pruner                              // folder -> pruner object
 	folderRunners  map[string]service                                     // folder -> puller or scanner
 	folderStatRefs map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut           sync.RWMutex                                           // protects the above
@@ -109,6 +111,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		deviceFolders:   make(map[protocol.DeviceID][]string),
 		deviceStatRefs:  make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:   make(map[string]*ignore.Matcher),
+		folderPruners:   make(map[string]*pruner.Pruner),
 		folderRunners:   make(map[string]service),
 		folderStatRefs:  make(map[string]*stats.FolderStatisticsReference),
 		protoConn:       make(map[protocol.DeviceID]protocol.Connection),
@@ -122,7 +125,27 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		go m.progressEmitter.Serve()
 	}
 
+	cfg.Subscribe(m)
+	m.Changed(cfg.Raw())
+
 	return m
+}
+
+func (m *Model) Changed(cfg config.Configuration) error {
+	for _, folder := range cfg.Folders {
+		// Patterns are updated at the point they are set.
+		_, ok := m.folderPruners[folder.ID]
+		if !ok && folder.SelectiveEnabled {
+			m.fmut.Lock()
+			m.folderPruners[folder.ID] = pruner.New(folder.SelectivePatterns)
+			m.fmut.Unlock()
+		} else if ok && !folder.SelectiveEnabled {
+			m.fmut.Lock()
+			delete(m.folderPruners, folder.ID)
+			m.fmut.Unlock()
+		}
+	}
+	return nil
 }
 
 // Starts deadlock detector on the models locks which causes panics in case
@@ -923,7 +946,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[deviceID] {
 		fs := m.folderFiles[folder]
-		go sendIndexes(protoConn, folder, fs, m.folderIgnores[folder])
+		go sendIndexes(protoConn, folder, fs, m.folderIgnores[folder], m.folderPruners[folder])
 	}
 	m.fmut.RUnlock()
 	m.pmut.Unlock()
@@ -964,7 +987,7 @@ func (m *Model) receivedFile(folder, filename string) {
 	m.folderStatRef(folder).ReceivedFile(filename)
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
+func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, pruner *pruner.Pruner) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	var err error
@@ -973,7 +996,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 		l.Debugf("sendIndexes for %s-%s/%q starting", deviceID, name, folder)
 	}
 
-	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores)
+	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores, pruner)
 
 	for err == nil {
 		time.Sleep(5 * time.Second)
@@ -981,7 +1004,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 			continue
 		}
 
-		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
+		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores, pruner)
 	}
 
 	if debug {
@@ -989,7 +1012,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	}
 }
 
-func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
+func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, pruner *pruner.Pruner) (int64, error) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -1007,9 +1030,9 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 			maxLocalVer = f.LocalVersion
 		}
 
-		if ignores.Match(f.Name) || symlinkInvalid(f.IsSymlink()) {
+		if symlinkInvalid(f.IsSymlink()) || pruner.ShouldSkip(f) || ignores.Match(f.Name) {
 			if debug {
-				l.Debugln("not sending update for ignored/unsupported symlink", f)
+				l.Debugln("not sending update for ignored/pruned/unsupported symlink", f)
 			}
 			return true
 		}
@@ -1164,6 +1187,7 @@ func (m *Model) ScanFolderSubs(folder string, subs []string) error {
 	fs := m.folderFiles[folder]
 	folderCfg := m.folderCfgs[folder]
 	ignores := m.folderIgnores[folder]
+	pruner := m.folderPruners[folder]
 	runner, ok := m.folderRunners[folder]
 	m.fmut.Unlock()
 
@@ -1203,6 +1227,7 @@ nextSub:
 		Dir:           folderCfg.Path(),
 		Subs:          subs,
 		Matcher:       ignores,
+		Pruner:        pruner,
 		BlockSize:     protocol.BlockSize,
 		TempNamer:     defTempNamer,
 		TempLifetime:  time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
@@ -1278,10 +1303,10 @@ nextSub:
 				batch = batch[:0]
 			}
 
-			if ignores.Match(f.Name) || symlinkInvalid(f.IsSymlink()) {
+			if symlinkInvalid(f.IsSymlink()) || pruner.ShouldSkipTruncated(f) || ignores.Match(f.Name) {
 				// File has been ignored or an unsupported symlink. Set invalid bit.
 				if debug {
-					l.Debugln("setting invalid bit on ignored", f)
+					l.Debugln("setting invalid bit on ignored/pruned/unsupported symlink", f)
 				}
 				nf := protocol.FileInfo{
 					Name:     f.Name,
@@ -1630,7 +1655,46 @@ func (m *Model) SetSelections(folder string, selections []string, remove bool) e
 
 	cfg.SelectivePatterns = selections
 	m.cfg.SetFolder(cfg)
-	return m.cfg.Save()
+	err := m.cfg.Save()
+	if err != nil {
+		return err
+	}
+
+	if !cfg.SelectiveEnabled {
+		return nil
+	}
+
+	pruner := pruner.New(selections)
+
+	m.fmut.Lock()
+	m.folderPruners[folder] = pruner
+	m.fmut.Unlock()
+
+	// Marks files as invalid.
+	err = m.ScanFolder(folder)
+	if !remove || err != nil {
+		return err
+	}
+
+	m.fmut.RLock()
+	files := m.folderFiles[folder]
+	ignores := m.folderIgnores[folder]
+	m.fmut.RUnlock()
+
+	toRemove := make([]string, 0)
+
+	files.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		f := fi.(db.FileInfoTruncated)
+		if pruner.ShouldSkipTruncated(f) && (ignores == nil || !ignores.Match(f.Name)) {
+			toRemove = append(toRemove, f.Name)
+		}
+		return true
+	})
+	for i := len(toRemove) - 1; i >= 0; i-- {
+		// Best attempt I guess.
+		osutil.InWritableDir(osutil.Remove, toRemove[i])
+	}
+	return nil
 }
 
 type jsTreeNode struct {

@@ -439,7 +439,17 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 // ChangeRequiresRestart returns true if updating the configuration requires a
 // complete restart.
 func ChangeRequiresRestart(from, to Configuration) bool {
-	// Adding, removing or changing folders requires restart
+	// Changing selective state or patterns does not require a restart.
+	for _, fromf := range from.Folders {
+		for _, tof := range to.Folders {
+			if fromf.ID == tof.ID {
+				fromf.SelectiveEnabled = tof.SelectiveEnabled
+				fromf.SelectivePatterns = tof.SelectivePatterns
+				break
+			}
+		}
+	}
+	// Adding, removing or changing anything else requires restart
 	if !reflect.DeepEqual(from.Folders, to.Folders) {
 		return true
 	}
