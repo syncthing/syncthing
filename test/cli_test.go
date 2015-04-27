@@ -11,9 +11,10 @@ package integration
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/osutil"
 )
 
 func TestCLIReset(t *testing.T) {

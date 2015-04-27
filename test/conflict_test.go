@@ -12,9 +12,10 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/osutil"
 )
 
 func TestConflict(t *testing.T) {
