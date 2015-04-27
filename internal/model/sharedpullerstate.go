@@ -10,10 +10,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 // A sharedPullerState is kept for each file that is being synced and is kept
@@ -59,8 +59,8 @@ type lockedWriterAt struct {
 }
 
 func (w lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
-	w.mut.Lock()
-	defer w.mut.Unlock()
+	(*w.mut).Lock()
+	defer (*w.mut).Unlock()
 	return w.wr.WriteAt(p, off)
 }
 

@@ -82,6 +82,7 @@ type FolderConfiguration struct {
 	Copiers         int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
 	Pullers         int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
 	Hashers         int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
+	Order           PullOrder                   `xml:"order" json:"order"`
 
 	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 
@@ -227,8 +228,9 @@ type OptionsConfiguration struct {
 	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
 	StartBrowser            bool     `xml:"startBrowser" json:"startBrowser" default:"true"`
 	UPnPEnabled             bool     `xml:"upnpEnabled" json:"upnpEnabled" default:"true"`
-	UPnPLease               int      `xml:"upnpLeaseMinutes" json:"upnpLeaseMinutes" default:"0"`
-	UPnPRenewal             int      `xml:"upnpRenewalMinutes" json:"upnpRenewalMinutes" default:"30"`
+	UPnPLeaseM              int      `xml:"upnpLeaseMinutes" json:"upnpLeaseMinutes" default:"0"`
+	UPnPRenewalM            int      `xml:"upnpRenewalMinutes" json:"upnpRenewalMinutes" default:"30"`
+	UPnPTimeoutS            int      `xml:"upnpTimeoutSeconds" json:"upnpTimeoutSeconds" default:"3"`
 	URAccepted              int      `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
 	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
 	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true"`
@@ -676,4 +678,58 @@ func randomString(l int) string {
 		bs[i] = randomCharset[rand.Intn(len(randomCharset))]
 	}
 	return string(bs)
+}
+
+type PullOrder int
+
+const (
+	OrderRandom PullOrder = iota // default is random
+	OrderAlphabetic
+	OrderSmallestFirst
+	OrderLargestFirst
+	OrderOldestFirst
+	OrderNewestFirst
+)
+
+func (o PullOrder) String() string {
+	switch o {
+	case OrderRandom:
+		return "random"
+	case OrderAlphabetic:
+		return "alphabetic"
+	case OrderSmallestFirst:
+		return "smallestFirst"
+	case OrderLargestFirst:
+		return "largestFirst"
+	case OrderOldestFirst:
+		return "oldestFirst"
+	case OrderNewestFirst:
+		return "newestFirst"
+	default:
+		return "unknown"
+	}
+}
+
+func (o PullOrder) MarshalText() ([]byte, error) {
+	return []byte(o.String()), nil
+}
+
+func (o *PullOrder) UnmarshalText(bs []byte) error {
+	switch string(bs) {
+	case "random":
+		*o = OrderRandom
+	case "alphabetic":
+		*o = OrderAlphabetic
+	case "smallestFirst":
+		*o = OrderSmallestFirst
+	case "largestFirst":
+		*o = OrderLargestFirst
+	case "oldestFirst":
+		*o = OrderOldestFirst
+	case "newestFirst":
+		*o = OrderNewestFirst
+	default:
+		*o = OrderRandom
+	}
+	return nil
 }

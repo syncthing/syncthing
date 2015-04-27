@@ -42,8 +42,9 @@ func TestDefaultValues(t *testing.T) {
 		ReconnectIntervalS:      60,
 		StartBrowser:            true,
 		UPnPEnabled:             true,
-		UPnPLease:               0,
-		UPnPRenewal:             30,
+		UPnPLeaseM:              0,
+		UPnPRenewalM:            30,
+		UPnPTimeoutS:            3,
 		RestartOnWakeup:         true,
 		AutoUpgradeIntervalH:    12,
 		KeepTemporariesH:        24,
@@ -147,8 +148,9 @@ func TestOverriddenValues(t *testing.T) {
 		ReconnectIntervalS:      6000,
 		StartBrowser:            false,
 		UPnPEnabled:             false,
-		UPnPLease:               60,
-		UPnPRenewal:             15,
+		UPnPLeaseM:              60,
+		UPnPRenewalM:            15,
+		UPnPTimeoutS:            15,
 		RestartOnWakeup:         false,
 		AutoUpgradeIntervalH:    24,
 		KeepTemporariesH:        48,
@@ -339,8 +341,8 @@ func TestWindowsPaths(t *testing.T) {
 	folder.RawPath = `relative\path`
 	expected = folder.RawPath
 	actual = folder.Path()
-	if actual != expected {
-		t.Errorf("%q != %q", actual, expected)
+	if actual == expected || !strings.HasPrefix(actual, "\\\\?\\") {
+		t.Errorf("%q == %q, expected absolutification", actual, expected)
 	}
 }
 
@@ -524,5 +526,53 @@ func TestCopy(t *testing.T) {
 		//ioutil.WriteFile("a", bsOrig, 0644)
 		//ioutil.WriteFile("b", bsCopy, 0644)
 		t.Error("Copy should be unchanged")
+	}
+}
+
+func TestPullOrder(t *testing.T) {
+	wrapper, err := Load("testdata/pullorder.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	folders := wrapper.Folders()
+
+	expected := []struct {
+		name  string
+		order PullOrder
+	}{
+		{"f1", OrderRandom},        // empty value, default
+		{"f2", OrderRandom},        // explicit
+		{"f3", OrderAlphabetic},    // explicit
+		{"f4", OrderRandom},        // unknown value, default
+		{"f5", OrderSmallestFirst}, // explicit
+		{"f6", OrderLargestFirst},  // explicit
+		{"f7", OrderOldestFirst},   // explicit
+		{"f8", OrderNewestFirst},   // explicit
+	}
+
+	// Verify values are deserialized correctly
+
+	for _, tc := range expected {
+		if actual := folders[tc.name].Order; actual != tc.order {
+			t.Errorf("Incorrect pull order for %q: %v != %v", tc.name, actual, tc.order)
+		}
+	}
+
+	// Serialize and deserialize again to verify it survives the transformation
+
+	buf := new(bytes.Buffer)
+	cfg := wrapper.Raw()
+	cfg.WriteXML(buf)
+
+	t.Logf("%s", buf.Bytes())
+
+	cfg, err = ReadXML(buf, device1)
+	wrapper = Wrap("testdata/pullorder.xml", cfg)
+	folders = wrapper.Folders()
+
+	for _, tc := range expected {
+		if actual := folders[tc.name].Order; actual != tc.order {
+			t.Errorf("Incorrect pull order for %q: %v != %v", tc.name, actual, tc.order)
+		}
 	}
 }

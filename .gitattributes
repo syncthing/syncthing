@@ -1,0 +1,9 @@
+# Text files use LF line endings in this repository
+*   text=auto
+
+# Except the dependencies, which we leave alone
+Godeps/**   -text=auto
+
+# Diffs on these files are meaningless
+gui.files.go    -diff
+*.svg           -diff

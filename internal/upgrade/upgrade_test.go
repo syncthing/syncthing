@@ -4,6 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
+// +build !noupgrade
+
 package upgrade
 
 import (
@@ -65,7 +67,7 @@ var upgrades = map[string]string{
 	"v0.11.0-beta0+40-g53cb66e-dirty": "v0.11.0-beta0",
 }
 
-func TestRelease(t *testing.T) {
+func TestGithubRelease(t *testing.T) {
 	fd, err := os.Open("testdata/github-releases.json")
 	if err != nil {
 		t.Errorf("Missing github-release test data")
@@ -76,12 +78,19 @@ func TestRelease(t *testing.T) {
 	json.NewDecoder(fd).Decode(&rels)
 
 	for old, target := range upgrades {
-		upgrade, err := LatestRelease(old, rels)
+		upgrade, err := SelectLatestRelease(old, rels)
 		if err != nil {
 			t.Error("Error retrieving latest version", err)
 		}
 		if upgrade.Tag != target {
 			t.Errorf("Invalid upgrade release: %v -> %v, but got %v", old, target, upgrade.Tag)
 		}
+	}
+}
+
+func TestErrorRelease(t *testing.T) {
+	_, err := SelectLatestRelease("v0.11.0-beta", nil)
+	if err == nil {
+		t.Error("Should return an error when no release were available")
 	}
 }

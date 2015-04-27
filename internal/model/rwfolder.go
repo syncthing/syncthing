@@ -13,7 +13,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/syncthing/protocol"
@@ -24,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/scanner"
 	"github.com/syncthing/syncthing/internal/symlinks"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syncthing/syncthing/internal/versioner"
 )
 
@@ -68,15 +68,20 @@ type rwFolder struct {
 	lenientMtimes bool
 	copiers       int
 	pullers       int
+	shortID       uint64
+	order         config.PullOrder
 
 	stop      chan struct{}
 	queue     *jobQueue
 	dbUpdates chan protocol.FileInfo
 }
 
-func newRWFolder(m *Model, cfg config.FolderConfiguration) *rwFolder {
+func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
 	return &rwFolder{
-		stateTracker: stateTracker{folder: cfg.ID},
+		stateTracker: stateTracker{
+			folder: cfg.ID,
+			mut:    sync.NewMutex(),
+		},
 
 		model:           m,
 		progressEmitter: m.progressEmitter,
@@ -88,6 +93,8 @@ func newRWFolder(m *Model, cfg config.FolderConfiguration) *rwFolder {
 		lenientMtimes: cfg.LenientMtimes,
 		copiers:       cfg.Copiers,
 		pullers:       cfg.Pullers,
+		shortID:       shortID,
+		order:         cfg.Order,
 
 		stop:  make(chan struct{}),
 		queue: newJobQueue(),
@@ -116,6 +123,11 @@ func (p *rwFolder) Serve() {
 	var prevIgnoreHash string
 
 	rescheduleScan := func() {
+		if p.scanIntv == 0 {
+			// We should not run scans, so it should not be rescheduled.
+			return
+		}
+
 		// Sleep a random time between 3/4 and 5/4 of the configured interval.
 		sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
 		intv := time.Duration(sleepNanos) * time.Nanosecond
@@ -243,8 +255,8 @@ func (p *rwFolder) Serve() {
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by SetFolderError
-				p.model.cfg.SetFolderError(p.folder, err)
+				// duplicate set is handled by setError.
+				p.setError(err)
 				rescheduleScan()
 				continue
 			}
@@ -277,10 +289,10 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
 
-	var updateWg sync.WaitGroup
-	var copyWg sync.WaitGroup
-	var pullWg sync.WaitGroup
-	var doneWg sync.WaitGroup
+	updateWg := sync.NewWaitGroup()
+	copyWg := sync.NewWaitGroup()
+	pullWg := sync.NewWaitGroup()
+	doneWg := sync.NewWaitGroup()
 
 	if debug {
 		l.Debugln(p, "c", p.copiers, "p", p.pullers)
@@ -336,13 +348,9 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	buckets := map[string][]protocol.FileInfo{}
 
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-
-		// Needed items are delivered sorted lexicographically. This isn't
-		// really optimal from a performance point of view - it would be
-		// better if files were handled in random order, to spread the load
-		// over the cluster. But it means that we can be sure that we fully
-		// handle directories before the files that go inside them, which is
-		// nice.
+		// Needed items are delivered sorted lexicographically. We'll handle
+		// directories as they come along, so parents before children. Files
+		// are queued and the order may be changed later.
 
 		file := intf.(protocol.FileInfo)
 
@@ -382,12 +390,31 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		default:
 			// A new or changed file or symlink. This is the only case where we
 			// do stuff concurrently in the background
-			p.queue.Push(file.Name)
+			p.queue.Push(file.Name, file.Size(), file.Modified)
 		}
 
 		changed++
 		return true
 	})
+
+	// Reorder the file queue according to configuration
+
+	switch p.order {
+	case config.OrderRandom:
+		p.queue.Shuffle()
+	case config.OrderAlphabetic:
+		// The queue is already in alphabetic order.
+	case config.OrderSmallestFirst:
+		p.queue.SortSmallestFirst()
+	case config.OrderLargestFirst:
+		p.queue.SortLargestFirst()
+	case config.OrderOldestFirst:
+		p.queue.SortOldestFirst()
+	case config.OrderNewestFirst:
+		p.queue.SortOldestFirst()
+	}
+
+	// Process the file queue
 
 nextFile:
 	for {
@@ -474,15 +501,19 @@ nextFile:
 func (p *rwFolder) handleDir(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "dir",
+		"action": "update",
 	})
+
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "dir",
+			"action": "update",
 		})
 	}()
 
@@ -497,13 +528,13 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
-	info, err := os.Lstat(realName)
+	info, err := osutil.Lstat(realName)
 	switch {
 	// There is already something under that name, but it's a file/link.
 	// Most likely a file/link is getting replaced with a directory.
 	// Remove the file/link and fall through to directory creation.
 	case err == nil && (!info.IsDir() || info.Mode()&os.ModeSymlink != 0):
-		err = osutil.InWritableDir(os.Remove, realName)
+		err = osutil.InWritableDir(osutil.Remove, realName)
 		if err != nil {
 			l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
 			return
@@ -553,15 +584,18 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "dir",
+		"action": "delete",
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "dir",
+			"action": "delete",
 		})
 	}()
 
@@ -572,11 +606,11 @@ func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 		files, _ := dir.Readdirnames(-1)
 		for _, file := range files {
 			if defTempNamer.IsTemporary(file) {
-				osutil.InWritableDir(os.Remove, filepath.Join(realName, file))
+				osutil.InWritableDir(osutil.Remove, filepath.Join(realName, file))
 			}
 		}
 	}
-	err = osutil.InWritableDir(os.Remove, realName)
+	err = osutil.InWritableDir(osutil.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
 		p.dbUpdates <- file
 	} else {
@@ -588,28 +622,34 @@ func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "file",
+		"action": "delete",
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "delete",
 		})
 	}()
 
 	realName := filepath.Join(p.dir, file.Name)
 
 	cur, ok := p.model.CurrentFolderFile(p.folder, file.Name)
-	if ok && cur.Version.Concurrent(file.Version) {
-		// There is a conflict here. Move the file to a conflict copy instead of deleting.
+	if ok && p.inConflict(cur.Version, file.Version) {
+		// There is a conflict here. Move the file to a conflict copy instead
+		// of deleting. Also merge with the version vector we had, to indicate
+		// we have resolved the conflict.
+		file.Version = file.Version.Merge(cur.Version)
 		err = osutil.InWritableDir(moveForConflict, realName)
 	} else if p.versioner != nil {
 		err = osutil.InWritableDir(p.versioner.Archive, realName)
 	} else {
-		err = osutil.InWritableDir(os.Remove, realName)
+		err = osutil.InWritableDir(osutil.Remove, realName)
 	}
 
 	if err != nil && !os.IsNotExist(err) {
@@ -624,25 +664,31 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    source.Name,
-		"details": db.ToTruncated(source),
+		"folder": p.folder,
+		"item":   source.Name,
+		"type":   "file",
+		"action": "delete",
 	})
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    target.Name,
-		"details": db.ToTruncated(source),
+		"folder": p.folder,
+		"item":   target.Name,
+		"type":   "file",
+		"action": "update",
 	})
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   source.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "delete",
 		})
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   target.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "update",
 		})
 	}()
 
@@ -679,7 +725,7 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 		// get rid of. Attempt to delete it instead so that we make *some*
 		// progress. The target is unhandled.
 
-		err = osutil.InWritableDir(os.Remove, from)
+		err = osutil.InWritableDir(osutil.Remove, from)
 		if err != nil {
 			l.Infof("Puller (folder %q, file %q): delete %q after failed rename: %v", p.folder, target.Name, source.Name, err)
 			return
@@ -693,9 +739,10 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 // changed file.
 func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
 	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder":  p.folder,
-		"item":    file.Name,
-		"details": db.ToTruncated(file),
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "file",
+		"action": "update",
 	})
 
 	curFile, ok := p.model.CurrentFolderFile(p.folder, file.Name)
@@ -718,6 +765,8 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "update",
 		})
 		return
 	}
@@ -775,6 +824,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		reused:      reused,
 		ignorePerms: p.ignorePerms,
 		version:     curFile.Version,
+		mut:         sync.NewMutex(),
 	}
 
 	if debug {
@@ -814,6 +864,12 @@ func (p *rwFolder) shortcutFile(file protocol.FileInfo) (err error) {
 			l.Infof("Puller (folder %q, file %q): shortcut: %v", p.folder, file.Name, err)
 			return
 		}
+	}
+
+	// This may have been a conflict. We should merge the version vectors so
+	// that our clock doesn't move backwards.
+	if cur, ok := p.model.CurrentFolderFile(p.folder, file.Name); ok {
+		file.Version = file.Version.Merge(cur.Version)
 	}
 
 	p.dbUpdates <- file
@@ -983,6 +1039,8 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 			"folder": p.folder,
 			"item":   state.file.Name,
 			"error":  err,
+			"type":   "file",
+			"action": "update",
 		})
 	}()
 
@@ -1011,10 +1069,12 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 		}
 	}
 
-	if state.version.Concurrent(state.file.Version) {
+	if p.inConflict(state.version, state.file.Version) {
 		// The new file has been changed in conflict with the existing one. We
 		// should file it away as a conflict instead of just removing or
-		// archiving.
+		// archiving. Also merge with the version vector we had, to indicate
+		// we have resolved the conflict.
+		state.file.Version = state.file.Version.Merge(state.version)
 		err = osutil.InWritableDir(moveForConflict, state.realName)
 	} else if p.versioner != nil {
 		// If we should use versioning, let the versioner archive the old
@@ -1031,9 +1091,9 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 
 	// If the target path is a symlink or a directory, we cannot copy
 	// over it, hence remove it before proceeding.
-	stat, err := os.Lstat(state.realName)
+	stat, err := osutil.Lstat(state.realName)
 	if err == nil && (stat.IsDir() || stat.Mode()&os.ModeSymlink != 0) {
-		osutil.InWritableDir(os.Remove, state.realName)
+		osutil.InWritableDir(osutil.Remove, state.realName)
 	}
 	// Replace the original content with the new one
 	err = osutil.Rename(state.tempName, state.realName)
@@ -1084,6 +1144,8 @@ func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 					"folder": p.folder,
 					"item":   state.file.Name,
 					"error":  state.failed(),
+					"type":   "file",
+					"action": "update",
 				})
 			}
 			p.model.receivedFile(p.folder, state.file.Name)
@@ -1142,6 +1204,22 @@ loop:
 	if len(batch) > 0 {
 		p.model.updateLocals(p.folder, batch)
 	}
+}
+
+func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
+	if current.Concurrent(replacement) {
+		// Obvious case
+		return true
+	}
+	if replacement.Counter(p.shortID) > current.Counter(p.shortID) {
+		// The replacement file contains a higher version for ourselves than
+		// what we have. This isn't supposed to be possible, since it's only
+		// we who can increment that counter. We take it as a sign that
+		// something is wrong (our index may have been corrupted or removed)
+		// and flag it as a conflict.
+		return true
+	}
+	return false
 }
 
 func invalidateFolder(cfg *config.Configuration, folderID string, err error) {

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
 )
@@ -29,6 +30,7 @@ const (
 	locLogFile                    = "logFile"
 	locCsrfTokens                 = "csrfTokens"
 	locPanicLog                   = "panicLog"
+	locAuditLog                   = "auditLog"
 	locDefFolder                  = "defFolder"
 )
 
@@ -48,7 +50,8 @@ var locations = map[locationEnum]string{
 	locDatabase:      "${config}/index-v0.11.0.db",
 	locLogFile:       "${config}/syncthing.log", // -logfile on Windows
 	locCsrfTokens:    "${config}/csrftokens.txt",
-	locPanicLog:      "${config}/panic-20060102-150405.log", // passed through time.Format()
+	locPanicLog:      "${config}/panic-${timestamp}.log",
+	locAuditLog:      "${config}/audit-${timestamp}.log",
 	locDefFolder:     "${home}/Sync",
 }
 
@@ -106,4 +109,15 @@ func homeDir() string {
 		l.Fatalln(err)
 	}
 	return home
+}
+
+func timestampedLoc(key locationEnum) string {
+	// We take the roundtrip via "${timestamp}" instead of passing the path
+	// directly through time.Format() to avoid issues when the path we are
+	// expanding contains numbers; otherwise for example
+	// /home/user2006/.../panic-20060102-150405.log would get both instances of
+	// 2006 replaced by 2015...
+	tpl := locations[key]
+	now := time.Now().Format("20060102-150405")
+	return strings.Replace(tpl, "${timestamp}", now, -1)
 }

@@ -103,3 +103,13 @@ func (a Vector) Concurrent(b Vector) bool {
 	comp := a.Compare(b)
 	return comp == ConcurrentGreater || comp == ConcurrentLesser
 }
+
+// Counter returns the current value of the given counter ID.
+func (v Vector) Counter(id uint64) uint64 {
+	for _, c := range v {
+		if c.ID == id {
+			return c.Value
+		}
+	}
+	return 0
+}

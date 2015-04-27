@@ -15,14 +15,15 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 var ErrNoHome = errors.New("No home directory found - set $HOME (or the platform equivalent).")
 
 // Try to keep this entire operation atomic-like. We shouldn't be doing this
 // often enough that there is any contention on this lock.
-var renameLock sync.Mutex
+var renameLock sync.Mutex = sync.NewMutex()
 
 // TryRename renames a file, leaving source file intact in case of failure.
 // Tries hard to succeed on various systems by temporarily tweaking directory
@@ -86,6 +87,20 @@ func InWritableDir(fn func(string) error, path string) error {
 	}
 
 	return fn(path)
+}
+
+// On Windows, removes the read-only attribute from the target prior deletion.
+func Remove(path string) error {
+	if runtime.GOOS == "windows" {
+		info, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+		if info.Mode()&0200 == 0 {
+			os.Chmod(path, 0700)
+		}
+	}
+	return os.Remove(path)
 }
 
 func ExpandTilde(path string) (string, error) {

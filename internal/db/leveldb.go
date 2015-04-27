@@ -14,9 +14,9 @@ import (
 	"fmt"
 	"runtime"
 	"sort"
-	"sync"
 
 	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -25,7 +25,7 @@ import (
 
 var (
 	clockTick int64
-	clockMut  sync.Mutex
+	clockMut  sync.Mutex = sync.NewMutex()
 )
 
 func clock(v int64) int64 {

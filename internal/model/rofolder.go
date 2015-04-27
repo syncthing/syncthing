@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type roFolder struct {
@@ -23,11 +25,14 @@ type roFolder struct {
 
 func newROFolder(model *Model, folder string, interval time.Duration) *roFolder {
 	return &roFolder{
-		stateTracker: stateTracker{folder: folder},
-		folder:       folder,
-		intv:         interval,
-		model:        model,
-		stop:         make(chan struct{}),
+		stateTracker: stateTracker{
+			folder: folder,
+			mut:    sync.NewMutex(),
+		},
+		folder: folder,
+		intv:   interval,
+		model:  model,
+		stop:   make(chan struct{}),
 	}
 }
 
@@ -67,8 +72,8 @@ func (s *roFolder) Serve() {
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by SetFolderError
-				s.model.cfg.SetFolderError(s.folder, err)
+				// duplicate set is handled by setError.
+				s.setError(err)
 				reschedule()
 				continue
 			}

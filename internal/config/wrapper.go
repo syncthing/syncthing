@@ -10,11 +10,11 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 // An interface to handle configuration changes, and a wrapper type á la
@@ -49,7 +49,12 @@ type Wrapper struct {
 // Wrap wraps an existing Configuration structure and ties it to a file on
 // disk.
 func Wrap(path string, cfg Configuration) *Wrapper {
-	w := &Wrapper{cfg: cfg, path: path}
+	w := &Wrapper{
+		cfg:  cfg,
+		path: path,
+		mut:  sync.NewMutex(),
+		sMut: sync.NewMutex(),
+	}
 	w.replaces = make(chan Configuration)
 	go w.Serve()
 	return w
@@ -213,29 +218,6 @@ func (w *Wrapper) SetGUI(gui GUIConfiguration) {
 	defer w.mut.Unlock()
 	w.cfg.GUI = gui
 	w.replaces <- w.cfg.Copy()
-}
-
-// Sets the folder error state. Emits ConfigSaved to cause a GUI refresh.
-func (w *Wrapper) SetFolderError(id string, err error) {
-	w.mut.Lock()
-	defer w.mut.Unlock()
-
-	w.folderMap = nil
-
-	for i := range w.cfg.Folders {
-		if w.cfg.Folders[i].ID == id {
-			errstr := ""
-			if err != nil {
-				errstr = err.Error()
-			}
-			if errstr != w.cfg.Folders[i].Invalid {
-				w.cfg.Folders[i].Invalid = errstr
-				events.Default.Log(events.ConfigSaved, w.cfg)
-				w.replaces <- w.cfg.Copy()
-			}
-			return
-		}
-	}
 }
 
 // Returns whether or not connection attempts from the given device should be

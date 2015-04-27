@@ -39,6 +39,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/thejerf/suture"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -78,10 +79,15 @@ func init() {
 		}
 	}
 
-	// Check for a clean release build.
-	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-beta[\d\.]+)?$`)
+	// Check for a clean release build. A release is something like "v0.1.2",
+	// with an optional suffix of letters and dot separated numbers like
+	// "-beta3.47". If there's more stuff, like a plus sign and a commit hash
+	// and so on, then it's not a release. If there's a dash anywhere in
+	// there, it's some kind of beta or prerelease version.
+
+	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z]+[\d\.]+)?$`)
 	IsRelease = exp.MatchString(Version)
-	IsBeta = strings.Contains(Version, "beta")
+	IsBeta = strings.Contains(Version, "-")
 
 	stamp, _ := strconv.Atoi(BuildStamp)
 	BuildDate = time.Unix(int64(stamp), 0)
@@ -146,6 +152,7 @@ are mostly useful for developers. Use with care.
                  - "events"   (the events package)
                  - "files"    (the files package)
                  - "http"     (the main package; HTTP requests)
+                 - "locks"    (the sync package; trace long held locks)
                  - "net"      (the main package; connections & network messages)
                  - "model"    (the model package)
                  - "scanner"  (the scanner package)
@@ -189,6 +196,7 @@ var (
 	noConsole         bool
 	generateDir       string
 	logFile           string
+	auditEnabled      bool
 	noRestart         = os.Getenv("STNORESTART") != ""
 	noUpgrade         = os.Getenv("STNOUPGRADE") != ""
 	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
@@ -225,6 +233,7 @@ func main() {
 	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.StringVar(&upgradeTo, "upgrade-to", upgradeTo, "Force upgrade directly from specified URL")
+	flag.BoolVar(&auditEnabled, "audit", false, "Write events to audit file")
 
 	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, baseDirs["config"]))
 	flag.Parse()
@@ -325,7 +334,7 @@ func main() {
 	}
 
 	if doUpgrade || doUpgradeCheck {
-		rel, err := upgrade.LatestGithubRelease(Version)
+		rel, err := upgrade.LatestRelease(Version)
 		if err != nil {
 			l.Fatalln("Upgrade:", err) // exits 1
 		}
@@ -367,7 +376,23 @@ func main() {
 }
 
 func syncthingMain() {
-	var err error
+	// Create a main service manager. We'll add things to this as we go along.
+	// We want any logging it does to go through our log system, with INFO
+	// severity.
+	mainSvc := suture.New("main", suture.Spec{
+		Log: func(line string) {
+			l.Infoln(line)
+		},
+	})
+	mainSvc.ServeBackground()
+
+	// Set a log prefix similar to the ID we will have later on, or early log
+	// lines look ugly.
+	l.SetPrefix("[start] ")
+
+	if auditEnabled {
+		startAuditing(mainSvc)
+	}
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -376,7 +401,7 @@ func syncthingMain() {
 	events.Default.Log(events.Starting, map[string]string{"home": baseDirs["config"]})
 
 	// Ensure that that we have a certificate and key.
-	cert, err = tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
+	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
 		cert, err = newCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
 		if err != nil {
@@ -433,6 +458,10 @@ func syncthingMain() {
 		osutil.Rename(cfgFile, cfgFile+fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion))
 		// Save the new version
 		cfg.Save()
+	}
+
+	if err := checkShortIDs(cfg); err != nil {
+		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one if the following:\n  ", err)
 	}
 
 	if len(profiler) > 0 {
@@ -555,7 +584,9 @@ func syncthingMain() {
 
 	// Routine to connect out to configured devices
 	discoverer = discovery(externalPort)
-	go listenConnect(myID, m, tlsCfg)
+
+	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
+	mainSvc.Add(connectionSvc)
 
 	for _, folder := range cfg.Folders() {
 		// Routine to pull blocks from other devices to synchronize the local
@@ -629,8 +660,27 @@ func syncthingMain() {
 
 	code := <-stop
 
+	mainSvc.Stop()
+
 	l.Okln("Exiting")
 	os.Exit(code)
+}
+
+func startAuditing(mainSvc *suture.Supervisor) {
+	auditFile := timestampedLoc(locAuditLog)
+	fd, err := os.OpenFile(auditFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		l.Fatalln("Audit:", err)
+	}
+
+	auditSvc := newAuditSvc(fd)
+	mainSvc.Add(auditSvc)
+
+	// We wait for the audit service to fully start before we return, to
+	// ensure we capture all events from the start.
+	auditSvc.WaitForStart()
+
+	l.Infoln("Audit log in", auditFile)
 }
 
 func setupGUI(cfg *config.Wrapper, m *model.Model) {
@@ -723,7 +773,7 @@ func setupUPnP() {
 		} else {
 			// Set up incoming port forwarding, if necessary and possible
 			port, _ := strconv.Atoi(portStr)
-			igds := upnp.Discover()
+			igds := upnp.Discover(time.Duration(cfg.Options().UPnPTimeoutS) * time.Second)
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
@@ -735,7 +785,7 @@ func setupUPnP() {
 				} else {
 					l.Infof("Created UPnP port mapping for external port %d on UPnP device %s.", externalPort, igd.FriendlyIdentifier())
 
-					if opts.UPnPRenewal > 0 {
+					if opts.UPnPRenewalM > 0 {
 						go renewUPnP(port)
 					}
 				}
@@ -753,7 +803,7 @@ func setupExternalPort(igd *upnp.IGD, port int) int {
 
 	for i := 0; i < 10; i++ {
 		r := 1024 + predictableRandom.Intn(65535-1024)
-		err := igd.AddPortMapping(upnp.TCP, r, port, fmt.Sprintf("syncthing-%d", r), cfg.Options().UPnPLease*60)
+		err := igd.AddPortMapping(upnp.TCP, r, port, fmt.Sprintf("syncthing-%d", r), cfg.Options().UPnPLeaseM*60)
 		if err == nil {
 			return r
 		}
@@ -764,14 +814,16 @@ func setupExternalPort(igd *upnp.IGD, port int) int {
 func renewUPnP(port int) {
 	for {
 		opts := cfg.Options()
-		time.Sleep(time.Duration(opts.UPnPRenewal) * time.Minute)
+		time.Sleep(time.Duration(opts.UPnPRenewalM) * time.Minute)
+		// Some values might have changed while we were sleeping
+		opts = cfg.Options()
 
 		// Make sure our IGD reference isn't nil
 		if igd == nil {
 			if debugNet {
 				l.Debugln("Undefined IGD during UPnP port renewal. Re-discovering...")
 			}
-			igds := upnp.Discover()
+			igds := upnp.Discover(time.Duration(opts.UPnPTimeoutS) * time.Second)
 			if len(igds) > 0 {
 				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
 				// for handling multiple IGDs, which will require changes to the global discovery service
@@ -786,7 +838,7 @@ func renewUPnP(port int) {
 
 		// Just renew the same port that we already have
 		if externalPort != 0 {
-			err := igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", opts.UPnPLease*60)
+			err := igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", opts.UPnPLeaseM*60)
 			if err != nil {
 				l.Warnf("Error renewing UPnP port mapping for external port %d on device %s: %s", externalPort, igd.FriendlyIdentifier(), err.Error())
 			} else if debugNet {
@@ -961,7 +1013,7 @@ func autoUpgrade() {
 		case <-timer.C:
 		}
 
-		rel, err := upgrade.LatestGithubRelease(Version)
+		rel, err := upgrade.LatestRelease(Version)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return
@@ -1000,6 +1052,7 @@ func autoUpgrade() {
 func cleanConfigDirectory() {
 	patterns := map[string]time.Duration{
 		"panic-*.log":    7 * 24 * time.Hour,  // keep panic logs for a week
+		"audit-*.log":    7 * 24 * time.Hour,  // keep audit logs for a week
 		"index":          14 * 24 * time.Hour, // keep old index format for two weeks
 		"config.xml.v*":  30 * 24 * time.Hour, // old config versions for a month
 		"*.idx.gz":       30 * 24 * time.Hour, // these should for sure no longer exist
@@ -1008,14 +1061,14 @@ func cleanConfigDirectory() {
 
 	for pat, dur := range patterns {
 		pat = filepath.Join(baseDirs["config"], pat)
-		files, err := filepath.Glob(pat)
+		files, err := osutil.Glob(pat)
 		if err != nil {
 			l.Infoln("Cleaning:", err)
 			continue
 		}
 
 		for _, file := range files {
-			info, err := os.Lstat(file)
+			info, err := osutil.Lstat(file)
 			if err != nil {
 				l.Infoln("Cleaning:", err)
 				continue
@@ -1030,4 +1083,19 @@ func cleanConfigDirectory() {
 			}
 		}
 	}
+}
+
+// checkShortIDs verifies that the configuration won't result in duplicate
+// short ID:s; that is, that the devices in the cluster all have unique
+// initial 64 bits.
+func checkShortIDs(cfg *config.Wrapper) error {
+	exists := make(map[uint64]protocol.DeviceID)
+	for deviceID := range cfg.Devices() {
+		shortID := deviceID.Short()
+		if otherID, ok := exists[shortID]; ok {
+			return fmt.Errorf("%v in conflict with %v", deviceID, otherID)
+		}
+		exists[shortID] = deviceID
+	}
+	return nil
 }

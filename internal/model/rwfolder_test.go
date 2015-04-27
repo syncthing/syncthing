@@ -393,7 +393,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	}
 
 	// queue.Done should be called by the finisher routine
-	p.queue.Push("filex")
+	p.queue.Push("filex", 0, 0)
 	p.queue.Pop()
 
 	if len(p.queue.progress) != 1 {
@@ -480,7 +480,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	}
 
 	// queue.Done should be called by the finisher routine
-	p.queue.Push("filex")
+	p.queue.Push("filex", 0, 0)
 	p.queue.Pop()
 
 	if len(p.queue.progress) != 1 {

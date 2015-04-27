@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 func init() {
@@ -33,7 +33,7 @@ type Staggered struct {
 	cleanInterval int64
 	folderPath    string
 	interval      [4]Interval
-	mutex         *sync.Mutex
+	mutex         sync.Mutex
 }
 
 // Rename versions with old version format
@@ -87,7 +87,6 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 		versionsDir = params["versionsPath"]
 	}
 
-	var mutex sync.Mutex
 	s := Staggered{
 		versionsPath:  versionsDir,
 		cleanInterval: cleanInterval,
@@ -98,7 +97,7 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 			{86400, 592000},  // next 30 days -> 1 day between versions
 			{604800, maxAge}, // next year -> 1 week between versions
 		},
-		mutex: &mutex,
+		mutex: sync.NewMutex(),
 	}
 
 	if debug {
@@ -210,7 +209,7 @@ func (v Staggered) expire(versions []string) {
 	var prevAge int64
 	firstFile := true
 	for _, file := range versions {
-		fi, err := os.Lstat(file)
+		fi, err := osutil.Lstat(file)
 		if err != nil {
 			l.Warnln("versioner:", err)
 			continue
@@ -281,7 +280,7 @@ func (v Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	_, err := os.Lstat(filePath)
+	_, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {
 		if debug {
 			l.Debugln("not archiving nonexistent file", filePath)
@@ -330,14 +329,14 @@ func (v Staggered) Archive(filePath string) error {
 	}
 
 	// Glob according to the new file~timestamp.ext pattern.
-	newVersions, err := filepath.Glob(filepath.Join(dir, taggedFilename(file, TimeGlob)))
+	newVersions, err := osutil.Glob(filepath.Join(dir, taggedFilename(file, TimeGlob)))
 	if err != nil {
 		l.Warnln("globbing:", err)
 		return nil
 	}
 
 	// Also according to the old file.ext~timestamp pattern.
-	oldVersions, err := filepath.Glob(filepath.Join(dir, file+"~"+TimeGlob))
+	oldVersions, err := osutil.Glob(filepath.Join(dir, file+"~"+TimeGlob))
 	if err != nil {
 		l.Warnln("globbing:", err)
 		return nil

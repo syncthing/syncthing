@@ -7,11 +7,11 @@
 package main
 
 import (
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/model"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/thejerf/suture"
 )
 
@@ -37,6 +37,7 @@ func (c *folderSummarySvc) Serve() {
 	c.stop = make(chan struct{})
 	c.folders = make(map[string]struct{})
 	c.srv = srv
+	c.foldersMut = sync.NewMutex()
 
 	srv.Serve()
 }
@@ -66,21 +67,25 @@ func (c *folderSummarySvc) listenForUpdates() {
 			data := ev.Data.(map[string]interface{})
 			folder := data["folder"].(string)
 
-			if ev.Type == events.StateChanged && data["to"].(string) == "idle" && data["from"].(string) == "syncing" {
-				// The folder changed to idle from syncing. We should do an
-				// immediate refresh to update the GUI. The send to
-				// c.immediate must be nonblocking so that we can continue
-				// handling events.
+			switch ev.Type {
+			case events.StateChanged:
+				if data["to"].(string) == "idle" && data["from"].(string) == "syncing" {
+					// The folder changed to idle from syncing. We should do an
+					// immediate refresh to update the GUI. The send to
+					// c.immediate must be nonblocking so that we can continue
+					// handling events.
 
-				select {
-				case c.immediate <- folder:
-					c.foldersMut.Lock()
-					delete(c.folders, folder)
-					c.foldersMut.Unlock()
+					select {
+					case c.immediate <- folder:
+						c.foldersMut.Lock()
+						delete(c.folders, folder)
+						c.foldersMut.Unlock()
 
-				default:
+					default:
+					}
 				}
-			} else {
+
+			default:
 				// This folder needs to be refreshed whenever we do the next
 				// refresh.
 

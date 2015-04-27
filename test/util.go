@@ -241,7 +241,7 @@ func (i *inifiteReader) Read(bs []byte) (int, error) {
 // rm -rf
 func removeAll(dirs ...string) error {
 	for _, dir := range dirs {
-		files, err := filepath.Glob(dir)
+		files, err := osutil.Glob(dir)
 		if err != nil {
 			return err
 		}

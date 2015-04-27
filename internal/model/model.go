@@ -18,7 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/protocol"
@@ -30,6 +30,7 @@ import (
 	"github.com/syncthing/syncthing/internal/scanner"
 	"github.com/syncthing/syncthing/internal/stats"
 	"github.com/syncthing/syncthing/internal/symlinks"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syncthing/syncthing/internal/versioner"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -48,8 +49,9 @@ type service interface {
 	Jobs() ([]string, []string) // In progress, Queued
 	BringToFront(string)
 
-	setState(folderState)
-	getState() (folderState, time.Time)
+	setState(state folderState)
+	setError(err error)
+	getState() (folderState, time.Time, error)
 }
 
 type Model struct {
@@ -84,7 +86,7 @@ type Model struct {
 }
 
 var (
-	SymlinkWarning = sync.Once{}
+	SymlinkWarning = stdsync.Once{}
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -112,6 +114,9 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		protoConn:       make(map[protocol.DeviceID]protocol.Connection),
 		rawConn:         make(map[protocol.DeviceID]io.Closer),
 		deviceVer:       make(map[protocol.DeviceID]string),
+
+		fmut: sync.NewRWMutex(),
+		pmut: sync.NewRWMutex(),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -124,8 +129,8 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 // the locks cannot be acquired in the given timeout period.
 func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 	l.Infof("Starting deadlock detector with %v timeout", timeout)
-	deadlockDetect(&m.fmut, timeout)
-	deadlockDetect(&m.pmut, timeout)
+	deadlockDetect(m.fmut, timeout)
+	deadlockDetect(m.pmut, timeout)
 }
 
 // StartRW starts read/write processing on the current model. When in
@@ -142,7 +147,7 @@ func (m *Model) StartFolderRW(folder string) {
 	if ok {
 		panic("cannot start already running folder " + folder)
 	}
-	p := newRWFolder(m, cfg)
+	p := newRWFolder(m, m.shortID, cfg)
 	m.folderRunners[folder] = p
 	m.fmut.Unlock()
 
@@ -370,53 +375,71 @@ func (m *Model) NeedSize(folder string) (nfiles int, bytes int64) {
 	return
 }
 
-// NeedFiles returns the list of currently needed files in progress, queued,
-// and to be queued on next puller iteration. Also takes a soft cap which is
-// only respected when adding files from the model rather than the runner queue.
-func (m *Model) NeedFolderFiles(folder string, max int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
+// NeedFiles returns paginated list of currently needed files in progress, queued,
+// and to be queued on next puller iteration, as well as the total number of
+// files currently needed.
+func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 
-	if rf, ok := m.folderFiles[folder]; ok {
-		var progress, queued, rest []db.FileInfoTruncated
-		var seen map[string]bool
+	total := 0
 
-		runner, ok := m.folderRunners[folder]
-		if ok {
-			progressNames, queuedNames := runner.Jobs()
-
-			progress = make([]db.FileInfoTruncated, len(progressNames))
-			queued = make([]db.FileInfoTruncated, len(queuedNames))
-			seen = make(map[string]bool, len(progressNames)+len(queuedNames))
-
-			for i, name := range progressNames {
-				if f, ok := rf.GetGlobalTruncated(name); ok {
-					progress[i] = f
-					seen[name] = true
-				}
-			}
-
-			for i, name := range queuedNames {
-				if f, ok := rf.GetGlobalTruncated(name); ok {
-					queued[i] = f
-					seen[name] = true
-				}
-			}
-		}
-		left := max - len(progress) - len(queued)
-		if max < 1 || left > 0 {
-			rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-				left--
-				ft := f.(db.FileInfoTruncated)
-				if !seen[ft.Name] {
-					rest = append(rest, ft)
-				}
-				return max < 1 || left > 0
-			})
-		}
-		return progress, queued, rest
+	rf, ok := m.folderFiles[folder]
+	if !ok {
+		return nil, nil, nil, 0
 	}
-	return nil, nil, nil
+
+	var progress, queued, rest []db.FileInfoTruncated
+	var seen map[string]struct{}
+
+	skip := (page - 1) * perpage
+	get := perpage
+
+	runner, ok := m.folderRunners[folder]
+	if ok {
+		allProgressNames, allQueuedNames := runner.Jobs()
+
+		var progressNames, queuedNames []string
+		progressNames, skip, get = getChunk(allProgressNames, skip, get)
+		queuedNames, skip, get = getChunk(allQueuedNames, skip, get)
+
+		progress = make([]db.FileInfoTruncated, len(progressNames))
+		queued = make([]db.FileInfoTruncated, len(queuedNames))
+		seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
+
+		for i, name := range progressNames {
+			if f, ok := rf.GetGlobalTruncated(name); ok {
+				progress[i] = f
+				seen[name] = struct{}{}
+			}
+		}
+
+		for i, name := range queuedNames {
+			if f, ok := rf.GetGlobalTruncated(name); ok {
+				queued[i] = f
+				seen[name] = struct{}{}
+			}
+		}
+	}
+
+	rest = make([]db.FileInfoTruncated, 0, perpage)
+	rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+		total++
+		if skip > 0 {
+			skip--
+			return true
+		}
+		if get > 0 {
+			ft := f.(db.FileInfoTruncated)
+			if _, ok := seen[ft.Name]; !ok {
+				rest = append(rest, ft)
+				get--
+			}
+		}
+		return true
+	})
+
+	return progress, queued, rest, total
 }
 
 // Index is called when a new device is connected and we receive their full index.
@@ -768,15 +791,23 @@ func (m *Model) ReplaceLocal(folder string, fs []protocol.FileInfo) {
 
 func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
 	m.fmut.RLock()
-	f, ok := m.folderFiles[folder].Get(protocol.LocalDeviceID, file)
+	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
+	if !ok {
+		return protocol.FileInfo{}, false
+	}
+	f, ok := fs.Get(protocol.LocalDeviceID, file)
 	return f, ok
 }
 
 func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool) {
 	m.fmut.RLock()
-	f, ok := m.folderFiles[folder].GetGlobal(file)
+	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
+	if !ok {
+		return protocol.FileInfo{}, false
+	}
+	f, ok := fs.GetGlobal(file)
 	return f, ok
 }
 
@@ -1034,8 +1065,8 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	m.fmut.RUnlock()
 
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-		"folder":   folder,
-		"numFiles": len(fs),
+		"folder": folder,
+		"items":  len(fs),
 	})
 }
 
@@ -1083,16 +1114,16 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 
 func (m *Model) ScanFolders() map[string]error {
 	m.fmut.RLock()
-	var folders = make([]string, 0, len(m.folderCfgs))
+	folders := make([]string, 0, len(m.folderCfgs))
 	for folder := range m.folderCfgs {
 		folders = append(folders, folder)
 	}
 	m.fmut.RUnlock()
 
-	var errors = make(map[string]error, len(m.folderCfgs))
-	var errorsMut sync.Mutex
+	errors := make(map[string]error, len(m.folderCfgs))
+	errorsMut := sync.NewMutex()
 
-	var wg sync.WaitGroup
+	wg := sync.NewWaitGroup()
 	wg.Add(len(folders))
 	for _, folder := range folders {
 		folder := folder
@@ -1102,11 +1133,15 @@ func (m *Model) ScanFolders() map[string]error {
 				errorsMut.Lock()
 				errors[folder] = err
 				errorsMut.Unlock()
+
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by SetFolderError
-				m.cfg.SetFolderError(folder, err)
+				// duplicate set is handled by setError.
+				m.fmut.RLock()
+				srv := m.folderRunners[folder]
+				m.fmut.RUnlock()
+				srv.setError(err)
 			}
 			wg.Done()
 		}()
@@ -1182,32 +1217,31 @@ nextSub:
 	}
 
 	runner.setState(FolderScanning)
-	defer runner.setState(FolderIdle)
-	fchan, err := w.Walk()
 
+	fchan, err := w.Walk()
 	if err != nil {
-		m.cfg.SetFolderError(folder, err)
+		runner.setError(err)
 		return err
 	}
-	batchSize := 100
-	batch := make([]protocol.FileInfo, 0, batchSize)
+
+	batchSizeFiles := 100
+	batchSizeBlocks := 2048 // about 256 MB
+
+	batch := make([]protocol.FileInfo, 0, batchSizeFiles)
+	blocksHandled := 0
+
 	for f := range fchan {
-		events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-			"folder":   folder,
-			"name":     f.Name,
-			"modified": time.Unix(f.Modified, 0),
-			"flags":    fmt.Sprintf("0%o", f.Flags),
-			"size":     f.Size(),
-		})
-		if len(batch) == batchSize {
+		if len(batch) == batchSizeFiles || blocksHandled > batchSizeBlocks {
 			if err := m.CheckFolderHealth(folder); err != nil {
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 				return err
 			}
-			fs.Update(protocol.LocalDeviceID, batch)
+			m.updateLocals(folder, batch)
 			batch = batch[:0]
+			blocksHandled = 0
 		}
 		batch = append(batch, f)
+		blocksHandled += len(f.Blocks)
 	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
@@ -1242,8 +1276,8 @@ nextSub:
 				return true
 			}
 
-			if len(batch) == batchSize {
-				fs.Update(protocol.LocalDeviceID, batch)
+			if len(batch) == batchSizeFiles {
+				m.updateLocals(folder, batch)
 				batch = batch[:0]
 			}
 
@@ -1258,15 +1292,8 @@ nextSub:
 					Modified: f.Modified,
 					Version:  f.Version, // The file is still the same, so don't bump version
 				}
-				events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-					"folder":   folder,
-					"name":     f.Name,
-					"modified": time.Unix(f.Modified, 0),
-					"flags":    fmt.Sprintf("0%o", f.Flags),
-					"size":     f.Size(),
-				})
 				batch = append(batch, nf)
-			} else if _, err := os.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
+			} else if _, err := osutil.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
 				// File has been deleted.
 
 				// We don't specifically verify that the error is
@@ -1282,22 +1309,16 @@ nextSub:
 					Modified: f.Modified,
 					Version:  f.Version.Update(m.shortID),
 				}
-				events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-					"folder":   folder,
-					"name":     f.Name,
-					"modified": time.Unix(f.Modified, 0),
-					"flags":    fmt.Sprintf("0%o", f.Flags),
-					"size":     f.Size(),
-				})
 				batch = append(batch, nf)
 			}
 		}
 		return true
 	})
 	if len(batch) > 0 {
-		fs.Update(protocol.LocalDeviceID, batch)
+		m.updateLocals(folder, batch)
 	}
 
+	runner.setState(FolderIdle)
 	return nil
 }
 
@@ -1340,22 +1361,28 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 	return cm
 }
 
-func (m *Model) State(folder string) (string, time.Time) {
+func (m *Model) State(folder string) (string, time.Time, error) {
 	m.fmut.RLock()
 	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
 	if !ok {
-		return "", time.Time{}
+		// The returned error should be an actual folder error, so returning
+		// errors.New("does not exist") or similar here would be
+		// inappropriate.
+		return "", time.Time{}, nil
 	}
-	state, changed := runner.getState()
-	return state.String(), changed
+	state, changed, err := runner.getState()
+	return state.String(), changed, err
 }
 
 func (m *Model) Override(folder string) {
 	m.fmut.RLock()
-	fs := m.folderFiles[folder]
+	fs, ok := m.folderFiles[folder]
 	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
+	if !ok {
+		return
+	}
 
 	runner.setState(FolderScanning)
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -1477,8 +1504,8 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		}
 
 		if !dirsonly && base != "" {
-			last[base] = []int64{
-				f.Modified, f.Size(),
+			last[base] = []interface{}{
+				time.Unix(f.Modified, 0), f.Size(),
 			}
 		}
 
@@ -1528,7 +1555,7 @@ func (m *Model) BringToFront(folder, file string) {
 func (m *Model) CheckFolderHealth(id string) error {
 	folder, ok := m.cfg.Folders()[id]
 	if !ok {
-		return errors.New("Folder does not exist")
+		return errors.New("folder does not exist")
 	}
 
 	fi, err := os.Stat(folder.Path())
@@ -1538,9 +1565,9 @@ func (m *Model) CheckFolderHealth(id string) error {
 		// that all files have been deleted which might not be the case,
 		// so mark it as invalid instead.
 		if err != nil || !fi.IsDir() {
-			err = errors.New("Folder path missing")
+			err = errors.New("folder path missing")
 		} else if !folder.HasMarker() {
-			err = errors.New("Folder marker missing")
+			err = errors.New("folder marker missing")
 		}
 	} else if os.IsNotExist(err) {
 		// If we don't have any files in the index, and the directory
@@ -1555,35 +1582,29 @@ func (m *Model) CheckFolderHealth(id string) error {
 		err = folder.CreateMarker()
 	}
 
-	if err == nil {
-		if folder.Invalid != "" {
-			l.Infof("Starting folder %q after error %q", folder.ID, folder.Invalid)
-			m.cfg.SetFolderError(id, nil)
+	m.fmut.RLock()
+	runner, runnerExists := m.folderRunners[folder.ID]
+	m.fmut.RUnlock()
+
+	var oldErr error
+	if runnerExists {
+		_, _, oldErr = runner.getState()
+	}
+
+	if err != nil {
+		if oldErr != nil && oldErr.Error() != err.Error() {
+			l.Infof("Folder %q error changed: %q -> %q", folder.ID, oldErr, err)
+		} else if oldErr == nil {
+			l.Warnf("Stopping folder %q - %v", folder.ID, err)
 		}
-
-		if folder, ok := m.cfg.Folders()[id]; !ok || folder.Invalid != "" {
-			panic("Unable to unset folder \"" + id + "\" error.")
+		if runnerExists {
+			runner.setError(err)
 		}
-
-		return nil
-	}
-
-	if folder.Invalid == err.Error() {
-		return err
-	}
-
-	// folder is a copy of the original struct, hence Invalid value is
-	// preserved after the set.
-	m.cfg.SetFolderError(id, err)
-
-	if folder.Invalid == "" {
-		l.Warnf("Stopping folder %q - %v", folder.ID, err)
-	} else {
-		l.Infof("Folder %q error changed: %q -> %q", folder.ID, folder.Invalid, err)
-	}
-
-	if folder, ok := m.cfg.Folders()[id]; !ok || folder.Invalid != err.Error() {
-		panic("Unable to set folder \"" + id + "\" error.")
+	} else if oldErr != nil {
+		l.Infof("Folder %q error is cleared, restarting", folder.ID)
+		if runnerExists {
+			runner.setState(FolderIdle)
+		}
 	}
 
 	return err
@@ -1612,4 +1633,18 @@ func symlinkInvalid(isLink bool) bool {
 		return true
 	}
 	return false
+}
+
+// Skips `skip` elements and retrieves up to `get` elements from a given slice.
+// Returns the resulting slice, plus how much elements are left to skip or
+// copy to satisfy the values which were provided, given the slice is not
+// big enough.
+func getChunk(data []string, skip, get int) ([]string, int, int) {
+	l := len(data)
+	if l <= skip {
+		return []string{}, skip - l, get
+	} else if l < skip+get {
+		return data[skip:l], 0, get - (l - skip)
+	}
+	return data[skip : skip+get], 0, 0
 }

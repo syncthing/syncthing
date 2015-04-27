@@ -118,5 +118,17 @@ func TestMerge(t *testing.T) {
 			t.Errorf("%d: %+v.Merge(%+v) == %+v (expected %+v)", i, tc.a, tc.b, m, tc.m)
 		}
 	}
+}
 
+func TestCounterValue(t *testing.T) {
+	v0 := Vector{Counter{42, 1}, Counter{64, 5}}
+	if v0.Counter(42) != 1 {
+		t.Error("Counter error, %d != %d", v0.Counter(42), 1)
+	}
+	if v0.Counter(64) != 5 {
+		t.Error("Counter error, %d != %d", v0.Counter(64), 5)
+	}
+	if v0.Counter(72) != 0 {
+		t.Error("Counter error, %d != %d", v0.Counter(72), 0)
+	}
 }

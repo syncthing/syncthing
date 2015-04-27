@@ -22,8 +22,9 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 // A container for relevant properties of a UPnP InternetGatewayDevice.
@@ -91,44 +92,71 @@ type upnpRoot struct {
 }
 
 // Discover discovers UPnP InternetGatewayDevices.
-// The order in which the devices appear in the result list is not deterministic.
-func Discover() []IGD {
-	var result []IGD
+// The order in which the devices appear in the results list is not deterministic.
+func Discover(timeout time.Duration) []IGD {
+	var results []IGD
 	l.Infoln("Starting UPnP discovery...")
 
-	timeout := 3
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		l.Infoln("Listing network interfaces:", err)
+		return results
+	}
 
-	// Search for InternetGatewayDevice:2 devices
-	result = append(result, discover("urn:schemas-upnp-org:device:InternetGatewayDevice:2", timeout, result)...)
+	resultChan := make(chan IGD, 16)
 
-	// Search for InternetGatewayDevice:1 devices
-	// InternetGatewayDevice:2 devices that correctly respond to the IGD:1 request as well will not be re-added to the result list
-	result = append(result, discover("urn:schemas-upnp-org:device:InternetGatewayDevice:1", timeout, result)...)
-
-	if len(result) > 0 && debug {
-		l.Debugln("UPnP discovery result:")
-		for _, resultDevice := range result {
-			l.Debugln("[" + resultDevice.uuid + "]")
-
-			for _, resultService := range resultDevice.services {
-				l.Debugln("* [" + resultService.serviceID + "] " + resultService.serviceURL)
+	// Aggregator
+	go func() {
+	next:
+		for result := range resultChan {
+			for _, existingResult := range results {
+				if existingResult.uuid == result.uuid {
+					if debug {
+						l.Debugf("Skipping duplicate result %s with services:", result.uuid)
+						for _, svc := range result.services {
+							l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
+						}
+					}
+					goto next
+				}
 			}
+			results = append(results, result)
+			if debug {
+				l.Debugf("UPnP discovery result %s with services:", result.uuid)
+				for _, svc := range result.services {
+					l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
+				}
+			}
+		}
+	}()
+
+	wg := sync.NewWaitGroup()
+	for _, intf := range interfaces {
+		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
+			wg.Add(1)
+			go func(intf net.Interface, deviceType string) {
+				discover(&intf, deviceType, timeout, resultChan)
+				wg.Done()
+			}(intf, deviceType)
 		}
 	}
 
+	wg.Wait()
+	close(resultChan)
+
 	suffix := "devices"
-	if len(result) == 1 {
+	if len(results) == 1 {
 		suffix = "device"
 	}
 
-	l.Infof("UPnP discovery complete (found %d %s).", len(result), suffix)
+	l.Infof("UPnP discovery complete (found %d %s).", len(results), suffix)
 
-	return result
+	return results
 }
 
 // Search for UPnP InternetGatewayDevices for <timeout> seconds, ignoring responses from any devices listed in knownDevices.
 // The order in which the devices appear in the result list is not deterministic
-func discover(deviceType string, timeout int, knownDevices []IGD) []IGD {
+func discover(intf *net.Interface, deviceType string, timeout time.Duration, results chan<- IGD) {
 	ssdp := &net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
 
 	tpl := `M-SEARCH * HTTP/1.1
@@ -138,44 +166,41 @@ Man: "ssdp:discover"
 Mx: %d
 
 `
-	searchStr := fmt.Sprintf(tpl, deviceType, timeout)
+	searchStr := fmt.Sprintf(tpl, deviceType, timeout/time.Second)
 
 	search := []byte(strings.Replace(searchStr, "\n", "\r\n", -1))
 
 	if debug {
-		l.Debugln("Starting discovery of device type " + deviceType + "...")
+		l.Debugln("Starting discovery of device type " + deviceType + " on " + intf.Name)
 	}
 
-	var results []IGD
-	resultChannel := make(chan IGD, 8)
-
-	socket, err := net.ListenMulticastUDP("udp4", nil, &net.UDPAddr{IP: ssdp.IP})
+	socket, err := net.ListenMulticastUDP("udp4", intf, &net.UDPAddr{IP: ssdp.IP})
 	if err != nil {
-		l.Infoln(err)
-		return results
+		if debug {
+			l.Debugln(err)
+		}
+		return
 	}
 	defer socket.Close() // Make sure our socket gets closed
 
-	err = socket.SetDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
+	err = socket.SetDeadline(time.Now().Add(timeout))
 	if err != nil {
 		l.Infoln(err)
-		return results
+		return
 	}
 
 	if debug {
-		l.Debugln("Sending search request for device type " + deviceType + "...")
+		l.Debugln("Sending search request for device type " + deviceType + " on " + intf.Name)
 	}
-
-	var resultWaitGroup sync.WaitGroup
 
 	_, err = socket.WriteTo(search, ssdp)
 	if err != nil {
 		l.Infoln(err)
-		return results
+		return
 	}
 
 	if debug {
-		l.Debugln("Listening for UPnP response for device type " + deviceType + "...")
+		l.Debugln("Listening for UPnP response for device type " + deviceType + " on " + intf.Name)
 	}
 
 	// Listen for responses until a timeout is reached
@@ -184,69 +209,42 @@ Mx: %d
 		n, _, err := socket.ReadFrom(resp)
 		if err != nil {
 			if e, ok := err.(net.Error); !ok || !e.Timeout() {
-				l.Infoln(err) //legitimate error, not a timeout.
+				l.Infoln("UPnP read:", err) //legitimate error, not a timeout.
 			}
-
 			break
-		} else {
-			// Process results in a separate go routine so we can immediately return to listening for more responses
-			resultWaitGroup.Add(1)
-			go handleSearchResponse(deviceType, knownDevices, resp, n, resultChannel, &resultWaitGroup)
 		}
-	}
-
-	// Wait for all result handlers to finish processing, then close result channel
-	resultWaitGroup.Wait()
-	close(resultChannel)
-
-	// Collect our results from the result handlers using the result channel
-	for result := range resultChannel {
-		// Check for existing results (some routers send multiple response packets)
-		for _, existingResult := range results {
-			if existingResult.uuid == result.uuid {
-				if debug {
-					l.Debugln("Already processed device with UUID", existingResult.uuid, "continuing...")
-				}
-				continue
-			}
+		igd, err := parseResponse(deviceType, resp[:n])
+		if err != nil {
+			l.Infoln("UPnP parse:", err)
+			continue
 		}
-
-		// No existing results, okay to append
-		results = append(results, result)
+		results <- igd
 	}
-
 	if debug {
-		l.Debugln("Discovery for device type " + deviceType + " finished.")
+		l.Debugln("Discovery for device type " + deviceType + " on " + intf.Name + " finished.")
 	}
-
-	return results
 }
 
-func handleSearchResponse(deviceType string, knownDevices []IGD, resp []byte, length int, resultChannel chan<- IGD, resultWaitGroup *sync.WaitGroup) {
-	defer resultWaitGroup.Done() // Signal when we've finished processing
-
+func parseResponse(deviceType string, resp []byte) (IGD, error) {
 	if debug {
-		l.Debugln("Handling UPnP response:\n\n" + string(resp[:length]))
+		l.Debugln("Handling UPnP response:\n\n" + string(resp))
 	}
 
-	reader := bufio.NewReader(bytes.NewBuffer(resp[:length]))
+	reader := bufio.NewReader(bytes.NewBuffer(resp))
 	request := &http.Request{}
 	response, err := http.ReadResponse(reader, request)
 	if err != nil {
-		l.Infoln(err)
-		return
+		return IGD{}, err
 	}
 
 	respondingDeviceType := response.Header.Get("St")
 	if respondingDeviceType != deviceType {
-		l.Infoln("Unrecognized UPnP device of type " + respondingDeviceType)
-		return
+		return IGD{}, errors.New("unrecognized UPnP device of type " + respondingDeviceType)
 	}
 
 	deviceDescriptionLocation := response.Header.Get("Location")
 	if deviceDescriptionLocation == "" {
-		l.Infoln("Invalid IGD response: no location specified.")
-		return
+		return IGD{}, errors.New("invalid IGD response: no location specified.")
 	}
 
 	deviceDescriptionURL, err := url.Parse(deviceDescriptionLocation)
@@ -257,8 +255,7 @@ func handleSearchResponse(deviceType string, knownDevices []IGD, resp []byte, le
 
 	deviceUSN := response.Header.Get("USN")
 	if deviceUSN == "" {
-		l.Infoln("Invalid IGD response: USN not specified.")
-		return
+		return IGD{}, errors.New("invalid IGD response: USN not specified.")
 	}
 
 	deviceUUID := strings.TrimLeft(strings.Split(deviceUSN, "::")[0], "uuid:")
@@ -267,39 +264,25 @@ func handleSearchResponse(deviceType string, knownDevices []IGD, resp []byte, le
 		l.Infoln("Invalid IGD response: invalid device UUID", deviceUUID, "(continuing anyway)")
 	}
 
-	// Don't re-add devices that are already known
-	for _, knownDevice := range knownDevices {
-		if deviceUUID == knownDevice.uuid {
-			if debug {
-				l.Debugln("Ignoring known device with UUID " + deviceUUID)
-			}
-			return
-		}
-	}
-
 	response, err = http.Get(deviceDescriptionLocation)
 	if err != nil {
-		l.Infoln(err)
-		return
+		return IGD{}, err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode >= 400 {
-		l.Infoln(errors.New(response.Status))
-		return
+		return IGD{}, errors.New("bad status code:" + response.Status)
 	}
 
 	var upnpRoot upnpRoot
 	err = xml.NewDecoder(response.Body).Decode(&upnpRoot)
 	if err != nil {
-		l.Infoln(err)
-		return
+		return IGD{}, err
 	}
 
 	services, err := getServiceDescriptions(deviceDescriptionLocation, upnpRoot.Device)
 	if err != nil {
-		l.Infoln(err)
-		return
+		return IGD{}, err
 	}
 
 	// Figure out our IP number, on the network used to reach the IGD.
@@ -308,23 +291,16 @@ func handleSearchResponse(deviceType string, knownDevices []IGD, resp []byte, le
 	// suggestions on a better way to do this...
 	localIPAddress, err := localIP(deviceDescriptionURL)
 	if err != nil {
-		l.Infoln(err)
-		return
+		return IGD{}, err
 	}
 
-	igd := IGD{
+	return IGD{
 		uuid:           deviceUUID,
 		friendlyName:   upnpRoot.Device.FriendlyName,
 		url:            deviceDescriptionURL,
 		services:       services,
 		localIPAddress: localIPAddress,
-	}
-
-	resultChannel <- igd
-
-	if debug {
-		l.Debugln("Finished handling of UPnP response.")
-	}
+	}, nil
 }
 
 func localIP(url *url.URL) (string, error) {
@@ -476,9 +452,10 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 	if err != nil {
 		return resp, err
 	}
+	req.Close = true
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")
-	req.Header.Set("SOAPAction", fmt.Sprintf(`"%s#%s"`, service, function))
+	req.Header["SOAPAction"] = []string{fmt.Sprintf(`"%s#%s"`, service, function)} // Enforce capitalization in header-entry for sensitive routers. See issue #1696
 	req.Header.Set("Connection", "Close")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Pragma", "no-cache")
@@ -491,6 +468,9 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 
 	r, err := http.DefaultClient.Do(req)
 	if err != nil {
+		if debug {
+			l.Debugln(err)
+		}
 		return resp, err
 	}
 

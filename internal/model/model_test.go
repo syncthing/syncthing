@@ -14,7 +14,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -621,21 +620,25 @@ func TestROScanRecovery(t *testing.T) {
 			if time.Now().After(timeout) {
 				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
 			}
-			if m.cfg.Folders()["default"].Invalid == status {
+			_, _, err := m.State("default")
+			if err == nil && status == "" {
+				return nil
+			}
+			if err != nil && err.Error() == status {
 				return nil
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
 
-	if err := waitFor("Folder path missing"); err != nil {
+	if err := waitFor("folder path missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
 	os.Mkdir(fcfg.RawPath, 0700)
 
-	if err := waitFor("Folder marker missing"); err != nil {
+	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
@@ -654,14 +657,14 @@ func TestROScanRecovery(t *testing.T) {
 
 	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
 
-	if err := waitFor("Folder marker missing"); err != nil {
+	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
 	os.Remove(fcfg.RawPath)
 
-	if err := waitFor("Folder path missing"); err != nil {
+	if err := waitFor("folder path missing"); err != nil {
 		t.Error(err)
 		return
 	}
@@ -701,21 +704,25 @@ func TestRWScanRecovery(t *testing.T) {
 			if time.Now().After(timeout) {
 				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
 			}
-			if m.cfg.Folders()["default"].Invalid == status {
+			_, _, err := m.State("default")
+			if err == nil && status == "" {
+				return nil
+			}
+			if err != nil && err.Error() == status {
 				return nil
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
 
-	if err := waitFor("Folder path missing"); err != nil {
+	if err := waitFor("folder path missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
 	os.Mkdir(fcfg.RawPath, 0700)
 
-	if err := waitFor("Folder marker missing"); err != nil {
+	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
@@ -734,14 +741,14 @@ func TestRWScanRecovery(t *testing.T) {
 
 	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
 
-	if err := waitFor("Folder marker missing"); err != nil {
+	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
 	os.Remove(fcfg.RawPath)
 
-	if err := waitFor("Folder path missing"); err != nil {
+	if err := waitFor("folder path missing"); err != nil {
 		t.Error(err)
 		return
 	}
@@ -767,7 +774,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		}
 	}
 
-	filedata := []int64{0x666, 0xa}
+	filedata := []interface{}{time.Unix(0x666, 0), 0xa}
 
 	testdata := []protocol.FileInfo{
 		b(false, "another"),
@@ -839,13 +846,13 @@ func TestGlobalDirectoryTree(t *testing.T) {
 
 	result := m.GlobalDirectoryTree("default", "", -1, false)
 
-	if !reflect.DeepEqual(result, expectedResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult))
+	if mm(result) != mm(expectedResult) {
+		t.Errorf("Does not match:\n%#v\n%#v", result, expectedResult)
 	}
 
 	result = m.GlobalDirectoryTree("default", "another", -1, false)
 
-	if !reflect.DeepEqual(result, expectedResult["another"]) {
+	if mm(result) != mm(expectedResult["another"]) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult["another"]))
 	}
 
@@ -857,7 +864,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"rootfile": filedata,
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -878,7 +885,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"rootfile": filedata,
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -908,7 +915,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -927,7 +934,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -937,7 +944,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"file":      filedata,
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -946,7 +953,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"with": map[string]interface{}{},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -957,7 +964,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -970,7 +977,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -983,7 +990,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -991,7 +998,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	result = m.GlobalDirectoryTree("default", "som", -1, false)
 	currentResult = map[string]interface{}{}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 }
@@ -1016,7 +1023,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		}
 	}
 
-	filedata := []int64{0x666, 0xa}
+	filedata := []interface{}{time.Unix(0x666, 0).Format(time.RFC3339), 0xa}
 
 	testdata := []protocol.FileInfo{
 		b(true, "another", "directory", "afile"),
@@ -1097,7 +1104,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 
 	result := m.GlobalDirectoryTree("default", "", -1, false)
 
-	if !reflect.DeepEqual(result, expectedResult) {
+	if mm(result) != mm(expectedResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult))
 	}
 
@@ -1108,7 +1115,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -1117,7 +1124,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		"invalid": map[string]interface{}{},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -1126,7 +1133,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 	result = m.GlobalDirectoryTree("default", "xthis", 1, false)
 	currentResult = map[string]interface{}{}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 }

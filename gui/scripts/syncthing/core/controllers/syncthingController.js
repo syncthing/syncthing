@@ -24,7 +24,6 @@ angular.module('syncthing.core')
         $scope.config = {};
         $scope.configInSync = true;
         $scope.connections = {};
-        $scope.connections_total = {};
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
@@ -40,6 +39,11 @@ angular.module('syncthing.core')
         $scope.deviceStats = {};
         $scope.folderStats = {};
         $scope.progress = {};
+        $scope.version = {};
+        $scope.needed = [];
+        $scope.neededTotal = 0;
+        $scope.neededCurrentPage = 1;
+        $scope.neededPageSize = 10;
 
         $(window).bind('beforeunload', function () {
             navigatingAway = true;
@@ -76,7 +80,7 @@ angular.module('syncthing.core')
             refreshFolderStats();
 
             $http.get(urlbase + '/system/version').success(function (data) {
-                $scope.version = data.version;
+                $scope.version = data;
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/svc/report').success(function (data) {
@@ -368,7 +372,16 @@ angular.module('syncthing.core')
                     id;
 
                 prevDate = now;
-                $scope.connections_total = data['total'];
+
+                try {
+                    data.total.inbps = Math.max(0, (data.total.inBytesTotal - $scope.connectionsTotal.inBytesTotal) / td);
+                    data.total.outbps = Math.max(0, (data.total.outBytesTotal - $scope.connectionsTotal.outBytesTotal) / td);
+                } catch (e) {
+                    data.total.inbps = 0;
+                    data.total.outbps = 0;
+                }
+                $scope.connectionsTotal = data.total;
+
                 data = data.connections;
                 for (id in data) {
                     if (!data.hasOwnProperty(id)) {
@@ -406,12 +419,61 @@ angular.module('syncthing.core')
         }
 
         function refreshNeed(folder) {
-            $http.get(urlbase + "/db/need?folder=" + encodeURIComponent(folder)).success(function (data) {
+            var url = urlbase + "/db/need?folder=" + encodeURIComponent(folder);
+            url += "&page=" + $scope.neededCurrentPage;
+            url += "&perpage=" + $scope.neededPageSize;
+            $http.get(url).success(function (data) {
                 if ($scope.neededFolder == folder) {
                     console.log("refreshNeed", folder, data);
-                    $scope.needed = data;
+                    parseNeeded(data);
                 }
             }).error($scope.emitHTTPError);
+        }
+
+        function needAction(file) {
+            var fDelete = 4096;
+            var fDirectory = 16384;
+
+            if ((file.flags & (fDelete + fDirectory)) === fDelete + fDirectory) {
+                return 'rmdir';
+            } else if ((file.flags & fDelete) === fDelete) {
+                return 'rm';
+            } else if ((file.flags & fDirectory) === fDirectory) {
+                return 'touch';
+            } else {
+                return 'sync';
+            }
+        };
+
+        function parseNeeded(data) {
+            var merged = [];
+            data.progress.forEach(function (item) {
+                item.type = "progress";
+                item.action = needAction(item);
+                merged.push(item);
+            });
+            data.queued.forEach(function (item) {
+                item.type = "queued";
+                item.action = needAction(item);
+                merged.push(item);
+            });
+            data.rest.forEach(function (item) {
+                item.type = "rest";
+                item.action = needAction(item);
+                merged.push(item);
+            });
+            $scope.needed = merged;
+            $scope.neededTotal = data.total;
+        }
+
+        $scope.neededPageChanged = function (page) {
+            $scope.neededCurrentPage = page;
+            refreshNeed($scope.neededFolder);
+        };
+
+        $scope.neededChangePageSize = function (perpage) {
+            $scope.neededPageSize = perpage;
+            refreshNeed($scope.neededFolder);
         }
 
         var refreshDeviceStats = debounce(function () {
@@ -452,8 +514,12 @@ angular.module('syncthing.core')
                 return 'unshared';
             }
 
-            if ($scope.model[folderCfg.id].invalid !== '') {
+            if ($scope.model[folderCfg.id].invalid) {
                 return 'stopped';
+            }
+
+            if ($scope.model[folderCfg.id].state == 'error') {
+                return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
 
             return '' + $scope.model[folderCfg.id].state;
@@ -484,6 +550,9 @@ angular.module('syncthing.core')
             }
             if (state == 'scanning') {
                 return 'primary';
+            }
+            if (state == 'error') {
+                return 'danger';
             }
             return 'info';
         };
@@ -682,6 +751,7 @@ angular.module('syncthing.core')
 
         $scope.upgrade = function () {
             restarting = true;
+            $('#majorUpgrade').modal('hide');
             $('#upgrading').modal();
             $http.post(urlbase + '/system/upgrade').success(function () {
                 $('#restarting').modal();
@@ -689,6 +759,10 @@ angular.module('syncthing.core')
             }).error(function () {
                 $('#upgrading').modal('hide');
             });
+        };
+
+        $scope.upgradeMajor = function () {
+            $('#majorUpgrade').modal();
         };
 
         $scope.shutdown = function () {
@@ -716,6 +790,10 @@ angular.module('syncthing.core')
 
         $scope.idDevice = function () {
             $('#idqr').modal('show');
+        };
+
+        $scope.qrDevice = function () {
+            $('#qrxs').modal('show');
         };
 
         $scope.addDevice = function () {
@@ -892,6 +970,9 @@ angular.module('syncthing.core')
         $scope.directoryList = [];
 
         $scope.$watch('currentFolder.path', function (newvalue) {
+            if (newvalue && newvalue.trim().charAt(0) == '~') {
+                $scope.currentFolder.path = $scope.system.tilde + newvalue.trim().substring(1)
+            }
             $http.get(urlbase + '/system/browse', {
                 params: { current: newvalue }
             }).success(function (data) {
@@ -962,7 +1043,7 @@ angular.module('syncthing.core')
         $scope.addFolderAndShare = function (folder, device) {
             $scope.dismissFolderRejection(folder, device);
             $scope.currentFolder = {
-                ID: folder,
+                id: folder,
                 selectedDevices: {}
             };
             $scope.currentFolder.selectedDevices[device] = true;
@@ -1157,22 +1238,9 @@ angular.module('syncthing.core')
             $('#needed').modal().on('hidden.bs.modal', function () {
                 $scope.neededFolder = undefined;
                 $scope.needed = undefined;
+                $scope.neededTotal = 0;
+                $scope.neededCurrentPage = 1;
             });
-        };
-
-        $scope.needAction = function (file) {
-            var fDelete = 4096;
-            var fDirectory = 16384;
-
-            if ((file.flags & (fDelete + fDirectory)) === fDelete + fDirectory) {
-                return 'rmdir';
-            } else if ((file.flags & fDelete) === fDelete) {
-                return 'rm';
-            } else if ((file.flags & fDirectory) === fDirectory) {
-                return 'touch';
-            } else {
-                return 'sync';
-            }
         };
 
         $scope.override = function (folder) {
@@ -1196,12 +1264,41 @@ angular.module('syncthing.core')
         };
 
         $scope.bumpFile = function (folder, file) {
-            $http.post(urlbase + "/db/prio?folder=" + encodeURIComponent(folder) + "&file=" + encodeURIComponent(file)).success(function (data) {
+            var url = urlbase + "/db/prio?folder=" + encodeURIComponent(folder) + "&file=" + encodeURIComponent(file);
+            // In order to get the right view of data in the response.
+            url += "&page=" + $scope.neededCurrentPage;
+            url += "&perpage=" + $scope.neededPageSize;
+            $http.post(url).success(function (data) {
                 if ($scope.neededFolder == folder) {
                     console.log("bumpFile", folder, data);
-                    $scope.needed = data;
+                    parseNeeded(data);
                 }
             }).error($scope.emitHTTPError);
+        };
+
+        $scope.versionString = function () {
+            if (!$scope.version.version) {
+                return '';
+            }
+
+            var os = {
+                'darwin': 'Mac OS X',
+                'dragonfly': 'DragonFly BSD',
+                'freebsd': 'FreeBSD',
+                'openbsd': 'OpenBSD',
+                'netbsd': 'NetBSD',
+                'linux': 'Linux',
+                'windows': 'Windows',
+                'solaris': 'Solaris',
+            }[$scope.version.os] || $scope.version.os;
+
+            var arch ={
+                '386': '32 bit',
+                'amd64': '64 bit',
+                'arm': 'ARM',
+            }[$scope.version.arch] || $scope.version.arch;
+
+            return $scope.version.version + ', ' + os + ' (' + arch + ')';
         };
 
         // pseudo main. called on all definitions assigned
