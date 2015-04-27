@@ -792,6 +792,10 @@ angular.module('syncthing.core')
             $('#idqr').modal('show');
         };
 
+        $scope.qrDevice = function () {
+            $('#qrxs').modal('show');
+        };
+
         $scope.addDevice = function () {
             $http.get(urlbase + '/system/discovery')
                 .success(function (registry) {
