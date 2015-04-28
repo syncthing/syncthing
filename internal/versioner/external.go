@@ -21,13 +21,11 @@ func init() {
 	Factories["external"] = NewExternal
 }
 
-// The type holds our configuration
 type External struct {
 	command    string
 	folderPath string
 }
 
-// The constructor function takes a map of parameters and creates the type.
 func NewExternal(folderID, folderPath string, params map[string]string) Versioner {
 	command := params["command"]
 
@@ -42,8 +40,8 @@ func NewExternal(folderID, folderPath string, params map[string]string) Versione
 	return s
 }
 
-// Move away the named file to a version archive. If this function returns
-// nil, the named file does not exist any more (has been archived).
+// Archive moves the named file away to a version archive. If this function
+// returns nil, the named file does not exist any more (has been archived).
 func (v External) Archive(filePath string) error {
 	_, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {

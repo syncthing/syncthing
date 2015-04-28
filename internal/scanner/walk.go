@@ -379,15 +379,15 @@ func PermsEqual(a, b uint32) bool {
 	}
 }
 
-// If the target is missing, Unix never knows what type of symlink it is
-// and Windows always knows even if there is no target.
-// Which means that without this special check a Unix node would be fighting
-// with a Windows node about whether or not the target is known.
-// Basically, if you don't know and someone else knows, just accept it.
-// The fact that you don't know means you are on Unix, and on Unix you don't
-// really care what the target type is. The moment you do know, and if something
-// doesn't match, that will propogate throught the cluster.
 func SymlinkTypeEqual(disk, index uint32) bool {
+	// If the target is missing, Unix never knows what type of symlink it is
+	// and Windows always knows even if there is no target. Which means that
+	// without this special check a Unix node would be fighting with a Windows
+	// node about whether or not the target is known. Basically, if you don't
+	// know and someone else knows, just accept it. The fact that you don't
+	// know means you are on Unix, and on Unix you don't really care what the
+	// target type is. The moment you do know, and if something doesn't match,
+	// that will propogate throught the cluster.
 	if disk&protocol.FlagSymlinkMissingTarget != 0 && index&protocol.FlagSymlinkMissingTarget == 0 {
 		return true
 	}

@@ -58,7 +58,7 @@ func TestMutex(t *testing.T) {
 	threshold = logThreshold
 
 	msgmut := sync.Mutex{}
-	messages := make([]string, 0)
+	var messages []string
 
 	l.AddHandler(logger.LevelDebug, func(_ logger.LogLevel, message string) {
 		msgmut.Lock()
@@ -91,7 +91,7 @@ func TestRWMutex(t *testing.T) {
 	threshold = logThreshold
 
 	msgmut := sync.Mutex{}
-	messages := make([]string, 0)
+	var messages []string
 
 	l.AddHandler(logger.LevelDebug, func(_ logger.LogLevel, message string) {
 		msgmut.Lock()
@@ -149,7 +149,7 @@ func TestWaitGroup(t *testing.T) {
 	threshold = logThreshold
 
 	msgmut := sync.Mutex{}
-	messages := make([]string, 0)
+	var messages []string
 
 	l.AddHandler(logger.LevelDebug, func(_ logger.LogLevel, message string) {
 		msgmut.Lock()

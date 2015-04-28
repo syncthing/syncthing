@@ -27,7 +27,6 @@ type Interval struct {
 	end  int64
 }
 
-// The type holds our configuration
 type Staggered struct {
 	versionsPath  string
 	cleanInterval int64
@@ -62,7 +61,6 @@ func (v Staggered) renameOld() {
 	}
 }
 
-// The constructor function takes a map of parameters and creates the type.
 func NewStaggered(folderID, folderPath string, params map[string]string) Versioner {
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
@@ -271,8 +269,8 @@ func (v Staggered) expire(versions []string) {
 	}
 }
 
-// Move away the named file to a version archive. If this function returns
-// nil, the named file does not exist any more (has been archived).
+// Archive moves the named file away to a version archive. If this function
+// returns nil, the named file does not exist any more (has been archived).
 func (v Staggered) Archive(filePath string) error {
 	if debug {
 		l.Debugln("Waiting for lock on ", v.versionsPath)

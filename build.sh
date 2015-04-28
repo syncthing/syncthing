@@ -118,8 +118,6 @@ case "${1:-default}" in
 			-e "STTRACE=$STTRACE" \
 			syncthing/build:latest \
 			sh -c './build.sh clean \
-				&& go tool vet -composites=false cmd/*/*.go internal/*/*.go \
-				&& ( golint ./cmd/... ; golint ./internal/... ) | egrep -v "comment on exported|should have comment" \
 				&& ./build.sh all \
 				&& STTRACE=all ./build.sh test-cov'
 		;;
@@ -136,6 +134,25 @@ case "${1:-default}" in
 				&& cd test \
 				&& go test -tags integration -v -timeout 90m -short \
 				&& git clean -fxd .'
+		;;
+
+	docker-lint)
+		docker run --rm -h syncthing-builder -u $(id -u) -t \
+			-v $(pwd):/go/src/github.com/syncthing/syncthing \
+			-w /go/src/github.com/syncthing/syncthing \
+			-e "STTRACE=$STTRACE" \
+			syncthing/build:latest \
+			sh -euxc 'go run build.go lint'
+		;;
+
+
+	docker-vet)
+		docker run --rm -h syncthing-builder -u $(id -u) -t \
+			-v $(pwd):/go/src/github.com/syncthing/syncthing \
+			-w /go/src/github.com/syncthing/syncthing \
+			-e "STTRACE=$STTRACE" \
+			syncthing/build:latest \
+			sh -euxc 'go run build.go vet'
 		;;
 
 	*)

@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	sessions               = make(map[string]bool)
-	sessionsMut sync.Mutex = sync.NewMutex()
+	sessions    = make(map[string]bool)
+	sessionsMut = sync.NewMutex()
 )
 
 func basicAuthAndSessionMiddleware(cfg config.GUIConfiguration, next http.Handler) http.Handler {

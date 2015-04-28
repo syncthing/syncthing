@@ -78,6 +78,11 @@ func main() {
 			tags = []string{"noupgrade"}
 		}
 		install("./cmd/...", tags)
+
+		vet("./cmd/syncthing")
+		vet("./internal/...")
+		lint("./cmd/syncthing")
+		lint("./internal/...")
 		return
 	}
 
@@ -103,8 +108,7 @@ func main() {
 			build(pkg, tags)
 
 		case "test":
-			pkg := "./..."
-			test(pkg)
+			test("./...")
 
 		case "assets":
 			assets()
@@ -129,6 +133,14 @@ func main() {
 
 		case "clean":
 			clean()
+
+		case "vet":
+			vet("./cmd/syncthing")
+			vet("./internal/...")
+
+		case "lint":
+			lint("./cmd/syncthing")
+			lint("./internal/...")
 
 		default:
 			log.Fatalf("Unknown command %q", cmd)
@@ -437,10 +449,7 @@ func run(cmd string, args ...string) []byte {
 func runError(cmd string, args ...string) ([]byte, error) {
 	ecmd := exec.Command(cmd, args...)
 	bs, err := ecmd.CombinedOutput()
-	if err != nil {
-		return nil, err
-	}
-	return bytes.TrimSpace(bs), nil
+	return bytes.TrimSpace(bs), err
 }
 
 func runPrint(cmd string, args ...string) {
@@ -614,4 +623,38 @@ func md5File(file string) error {
 	}
 
 	return out.Close()
+}
+
+func vet(pkg string) {
+	bs, err := runError("go", "vet", pkg)
+	if err != nil && err.Error() == "exit status 3" || bytes.Contains(bs, []byte("no such tool \"vet\"")) {
+		// Go said there is no go vet
+		log.Println(`- No go vet, no vetting. Try "go get -u golang.org/x/tools/cmd/vet".`)
+		return
+	}
+
+	falseAlarmComposites := regexp.MustCompile("composite literal uses unkeyed fields")
+	exitStatus := regexp.MustCompile("exit status 1")
+	for _, line := range bytes.Split(bs, []byte("\n")) {
+		if falseAlarmComposites.Match(line) || exitStatus.Match(line) {
+			continue
+		}
+		log.Printf("%s", line)
+	}
+}
+
+func lint(pkg string) {
+	bs, err := runError("golint", pkg)
+	if err != nil {
+		log.Println(`- No golint, not linting. Try "go get -u github.com/golang/lint/golint".`)
+		return
+	}
+
+	analCommentPolicy := regexp.MustCompile(`exported (function|method|const|type|var) [^\s]+ should have comment`)
+	for _, line := range bytes.Split(bs, []byte("\n")) {
+		if analCommentPolicy.Match(line) {
+			continue
+		}
+		log.Printf("%s", line)
+	}
 }
