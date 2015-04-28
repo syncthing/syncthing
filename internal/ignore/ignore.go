@@ -95,6 +95,10 @@ func (m *Matcher) Parse(r io.Reader, file string) error {
 }
 
 func (m *Matcher) Match(file string) (result bool) {
+	if m == nil {
+		return false
+	}
+
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -128,6 +132,10 @@ func (m *Matcher) Match(file string) (result bool) {
 
 // Patterns return a list of the loaded regexp patterns, as strings
 func (m *Matcher) Patterns() []string {
+	if m == nil {
+		return nil
+	}
+
 	m.mut.Lock()
 	defer m.mut.Unlock()
 

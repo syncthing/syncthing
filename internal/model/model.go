@@ -858,10 +858,7 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 	}
 
 	m.fmut.RLock()
-	var patterns []string
-	if matcher := m.folderIgnores[folder]; matcher != nil {
-		patterns = matcher.Patterns()
-	}
+	patterns := m.folderIgnores[folder].Patterns()
 	m.fmut.RUnlock()
 
 	return lines, patterns, nil
@@ -1010,7 +1007,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 			maxLocalVer = f.LocalVersion
 		}
 
-		if (ignores != nil && ignores.Match(f.Name)) || symlinkInvalid(f.IsSymlink()) {
+		if ignores.Match(f.Name) || symlinkInvalid(f.IsSymlink()) {
 			if debug {
 				l.Debugln("not sending update for ignored/unsupported symlink", f)
 			}
@@ -1281,7 +1278,7 @@ nextSub:
 				batch = batch[:0]
 			}
 
-			if (ignores != nil && ignores.Match(f.Name)) || symlinkInvalid(f.IsSymlink()) {
+			if ignores.Match(f.Name) || symlinkInvalid(f.IsSymlink()) {
 				// File has been ignored or an unsupported symlink. Set invalid bit.
 				if debug {
 					l.Debugln("setting invalid bit on ignored", f)
