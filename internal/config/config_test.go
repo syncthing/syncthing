@@ -44,7 +44,7 @@ func TestDefaultValues(t *testing.T) {
 		UPnPEnabled:             true,
 		UPnPLeaseM:              0,
 		UPnPRenewalM:            30,
-		UPnPTimeoutS:            3,
+		UPnPTimeoutS:            10,
 		RestartOnWakeup:         true,
 		AutoUpgradeIntervalH:    12,
 		KeepTemporariesH:        24,

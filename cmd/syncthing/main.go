@@ -35,7 +35,6 @@ import (
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/symlinks"
 	"github.com/syncthing/syncthing/internal/upgrade"
-	"github.com/syncthing/syncthing/internal/upnp"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -109,8 +108,6 @@ var (
 	readRateLimit  *ratelimit.Bucket
 	stop           = make(chan int)
 	discoverer     *discover.Discoverer
-	externalPort   int
-	igd            *upnp.IGD
 	cert           tls.Certificate
 	lans           []*net.IPNet
 )
@@ -573,17 +570,19 @@ func syncthingMain() {
 	if err != nil {
 		l.Fatalln("Bad listen address:", err)
 	}
-	externalPort = addr.Port
 
-	// UPnP
-	igd = nil
+	// Start discovery
+
+	localPort := addr.Port
+	discoverer = discovery(localPort)
+
+	// Start UPnP. The UPnP service will restart global discovery if the
+	// external port changes.
 
 	if opts.UPnPEnabled {
-		setupUPnP()
+		upnpSvc := newUPnPSvc(cfg, localPort)
+		mainSvc.Add(upnpSvc)
 	}
-
-	// Routine to connect out to configured devices
-	discoverer = discovery(externalPort)
 
 	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
 	mainSvc.Add(connectionSvc)
@@ -762,110 +761,6 @@ func generatePingEvents() {
 	for {
 		time.Sleep(pingEventInterval)
 		events.Default.Log(events.Ping, nil)
-	}
-}
-
-func setupUPnP() {
-	if opts := cfg.Options(); len(opts.ListenAddress) == 1 {
-		_, portStr, err := net.SplitHostPort(opts.ListenAddress[0])
-		if err != nil {
-			l.Warnln("Bad listen address:", err)
-		} else {
-			// Set up incoming port forwarding, if necessary and possible
-			port, _ := strconv.Atoi(portStr)
-			igds := upnp.Discover(time.Duration(cfg.Options().UPnPTimeoutS) * time.Second)
-			if len(igds) > 0 {
-				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
-				// for handling multiple IGDs, which will require changes to the global discovery service
-				igd = &igds[0]
-
-				externalPort = setupExternalPort(igd, port)
-				if externalPort == 0 {
-					l.Warnln("Failed to create UPnP port mapping")
-				} else {
-					l.Infof("Created UPnP port mapping for external port %d on UPnP device %s.", externalPort, igd.FriendlyIdentifier())
-
-					if opts.UPnPRenewalM > 0 {
-						go renewUPnP(port)
-					}
-				}
-			}
-		}
-	} else {
-		l.Warnln("Multiple listening addresses; not attempting UPnP port mapping")
-	}
-}
-
-func setupExternalPort(igd *upnp.IGD, port int) int {
-	if igd == nil {
-		return 0
-	}
-
-	for i := 0; i < 10; i++ {
-		r := 1024 + predictableRandom.Intn(65535-1024)
-		err := igd.AddPortMapping(upnp.TCP, r, port, fmt.Sprintf("syncthing-%d", r), cfg.Options().UPnPLeaseM*60)
-		if err == nil {
-			return r
-		}
-	}
-	return 0
-}
-
-func renewUPnP(port int) {
-	for {
-		opts := cfg.Options()
-		time.Sleep(time.Duration(opts.UPnPRenewalM) * time.Minute)
-		// Some values might have changed while we were sleeping
-		opts = cfg.Options()
-
-		// Make sure our IGD reference isn't nil
-		if igd == nil {
-			if debugNet {
-				l.Debugln("Undefined IGD during UPnP port renewal. Re-discovering...")
-			}
-			igds := upnp.Discover(time.Duration(opts.UPnPTimeoutS) * time.Second)
-			if len(igds) > 0 {
-				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
-				// for handling multiple IGDs, which will require changes to the global discovery service
-				igd = &igds[0]
-			} else {
-				if debugNet {
-					l.Debugln("Failed to discover IGD during UPnP port mapping renewal.")
-				}
-				continue
-			}
-		}
-
-		// Just renew the same port that we already have
-		if externalPort != 0 {
-			err := igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", opts.UPnPLeaseM*60)
-			if err != nil {
-				l.Warnf("Error renewing UPnP port mapping for external port %d on device %s: %s", externalPort, igd.FriendlyIdentifier(), err.Error())
-			} else if debugNet {
-				l.Debugf("Renewed UPnP port mapping for external port %d on device %s.", externalPort, igd.FriendlyIdentifier())
-			}
-
-			continue
-		}
-
-		// Something strange has happened. We didn't have an external port before?
-		// Or perhaps the gateway has changed?
-		// Retry the same port sequence from the beginning.
-		if debugNet {
-			l.Debugln("No UPnP port mapping defined, updating...")
-		}
-
-		forwardedPort := setupExternalPort(igd, port)
-		if forwardedPort != 0 {
-			externalPort = forwardedPort
-			discoverer.StopGlobal()
-			discoverer.StartGlobal(opts.GlobalAnnServers, uint16(forwardedPort))
-			if debugNet {
-				l.Debugf("Updated UPnP port mapping for external port %d on device %s.", forwardedPort, igd.FriendlyIdentifier())
-			}
-		} else {
-			l.Warnf("Failed to update UPnP port mapping for external port on device " + igd.FriendlyIdentifier() + ".")
-		}
 	}
 }
 
