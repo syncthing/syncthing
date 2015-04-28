@@ -47,7 +47,7 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
 
 });
 
-// @TODO: extract global level functions into seperate service(s)
+// @TODO: extract global level functions into separate service(s)
 
 function deviceCompare(a, b) {
     if (typeof a.name !== 'undefined' && typeof b.name !== 'undefined') {

@@ -124,7 +124,7 @@ func monitorMain() {
 
 		case err = <-exit:
 			if err == nil {
-				// Successfull exit indicates an intentional shutdown
+				// Successful exit indicates an intentional shutdown
 				return
 			} else if exiterr, ok := err.(*exec.ExitError); ok {
 				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {

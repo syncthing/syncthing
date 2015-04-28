@@ -12,7 +12,7 @@ angular.module('syncthing.core')
             // progress the browser on some platforms returns a 200 (since the
             // headers has been flushed with the return code 200), with no data.
             // This basically means that the connection has been reset, and the call
-            // was not actually sucessful.
+            // was not actually successful.
             if (!data) {
                 errorFn(data);
                 return;
