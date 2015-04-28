@@ -1246,5 +1246,13 @@ func moveForConflict(name string) error {
 	ext := filepath.Ext(name)
 	withoutExt := name[:len(name)-len(ext)]
 	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405") + ext
-	return os.Rename(name, newName)
+	err := os.Rename(name, newName)
+	if os.IsNotExist(err) {
+		// We were supposed to move a file away but it does not exist. Either
+		// the user has already moved it away, or the conflict was between a
+		// remote modification and a local delete. In either way it does not
+		// matter, go ahead as if the move succeeded.
+		return nil
+	}
+	return err
 }
