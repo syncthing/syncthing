@@ -806,7 +806,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		reused = len(file.Blocks) - len(blocks)
 		if reused == 0 {
 			// Otherwise, discard the file ourselves in order for the
-			// sharedpuller not to panic when it fails to exlusively create a
+			// sharedpuller not to panic when it fails to exclusively create a
 			// file which already exists
 			os.Remove(tempName)
 		}
@@ -876,7 +876,7 @@ func (p *rwFolder) shortcutFile(file protocol.FileInfo) (err error) {
 	return
 }
 
-// shortcutSymlink changes the symlinks type if necessery.
+// shortcutSymlink changes the symlinks type if necessary.
 func (p *rwFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
 	err = symlinks.ChangeType(filepath.Join(p.dir, file.Name), file.Flags)
 	if err == nil {
@@ -977,7 +977,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			continue
 		}
 
-		// Get an fd to the temporary file. Tehcnically we don't need it until
+		// Get an fd to the temporary file. Technically we don't need it until
 		// after fetching the block, but if we run into an error here there is
 		// no point in issuing the request to the network.
 		fd, err := state.tempFile()

@@ -25,7 +25,7 @@ var tagExp = regexp.MustCompile(`.*~([^~.]+)(?:\.[^.]+)?$`)
 // Returns the tag from a filename, whether at the end or middle.
 func filenameTag(path string) string {
 	match := tagExp.FindStringSubmatch(path)
-	// match is []string{"whole match", "submatch"} when successfull
+	// match is []string{"whole match", "submatch"} when successful
 
 	if len(match) != 2 {
 		return ""

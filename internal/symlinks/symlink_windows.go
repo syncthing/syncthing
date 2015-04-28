@@ -46,7 +46,7 @@ func init() {
 		}
 	}()
 
-	// Needs administrator priviledges.
+	// Needs administrator privileges.
 	// Let's check that everything works.
 	// This could be done more officially:
 	// http://stackoverflow.com/questions/2094663/determine-if-windows-process-has-privilege-to-create-symbolic-link

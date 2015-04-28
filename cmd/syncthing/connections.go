@@ -22,7 +22,7 @@ import (
 )
 
 // The connection service listens on TLS and dials configured unconnected
-// devices. Successfull connections are handed to the model.
+// devices. Successful connections are handed to the model.
 type connectionSvc struct {
 	*suture.Supervisor
 	cfg    *config.Wrapper
@@ -116,7 +116,7 @@ next:
 		remoteID := protocol.NewDeviceID(remoteCert.Raw)
 
 		// The device ID should not be that of ourselves. It can happen
-		// though, especially in the presense of NAT hairpinning, multiple
+		// though, especially in the presence of NAT hairpinning, multiple
 		// clients between the same NAT gateway, and global discovery.
 		if remoteID == myID {
 			l.Infof("Connected to myself (%s) - should not happen", remoteID)
@@ -128,7 +128,7 @@ next:
 		// could use some better handling. If the old connection is dead but
 		// hasn't timed out yet we may want to drop *that* connection and keep
 		// this one. But in case we are two devices connecting to each other
-		// in parallell we don't want to do that or we end up with no
+		// in parallel we don't want to do that or we end up with no
 		// connections still established...
 		if s.model.ConnectedTo(remoteID) {
 			l.Infof("Connected to already connected device (%s)", remoteID)

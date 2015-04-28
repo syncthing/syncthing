@@ -15,7 +15,7 @@ This is the `syncthing` project which pursues the following goals:
 
  2. Provide the reference implementation to demonstrate the usability of
     said protocol. This is the `syncthing` utility. We hope that
-    alternative, compatible implementations of the protocol will arrise.
+    alternative, compatible implementations of the protocol will arise.
 
 The two are evolving together; the protocol is not to be considered
 stable until syncthing 1.0 is released, at which point it is locked down

@@ -112,7 +112,7 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 	t.registry[filepath.Join(s.folder, s.file.Name)] = s
 }
 
-// Deregister a puller which will stop boardcasting pullers state.
+// Deregister a puller which will stop broadcasting pullers state.
 func (t *ProgressEmitter) Deregister(s *sharedPullerState) {
 	t.mut.Lock()
 	defer t.mut.Unlock()

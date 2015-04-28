@@ -46,7 +46,7 @@ type Walker struct {
 	BlockSize int
 	// If Matcher is not nil, it is used to identify files to ignore which were specified by the user.
 	Matcher *ignore.Matcher
-	// If TempNamer is not nil, it is used to ignore tempory files when walking.
+	// If TempNamer is not nil, it is used to ignore temporary files when walking.
 	TempNamer TempNamer
 	// Number of hours to keep temporary files for
 	TempLifetime time.Duration
@@ -386,7 +386,7 @@ func PermsEqual(a, b uint32) bool {
 // Basically, if you don't know and someone else knows, just accept it.
 // The fact that you don't know means you are on Unix, and on Unix you don't
 // really care what the target type is. The moment you do know, and if something
-// doesn't match, that will propogate throught the cluster.
+// doesn't match, that will propagate through the cluster.
 func SymlinkTypeEqual(disk, index uint32) bool {
 	if disk&protocol.FlagSymlinkMissingTarget != 0 && index&protocol.FlagSymlinkMissingTarget == 0 {
 		return true

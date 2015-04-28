@@ -95,7 +95,7 @@ func TestGlobalDiscovery(t *testing.T) {
 
 	addrs := d.Lookup(device)
 	if len(addrs) != 2 {
-		t.Fatal("Wrong numer of addresses", addrs)
+		t.Fatal("Wrong number of addresses", addrs)
 	}
 
 	for _, addr := range []string{"test.com:1234", "best.com:2345"} {
@@ -119,10 +119,10 @@ func TestGlobalDiscovery(t *testing.T) {
 
 	addrs = d.Lookup(device)
 	if len(addrs) != 2 {
-		t.Fatal("Wrong numer of addresses", addrs)
+		t.Fatal("Wrong number of addresses", addrs)
 	}
 
-	// Answer should be cached, so number of lookups should have not incresed
+	// Answer should be cached, so number of lookups should have not increased
 	for _, c := range []*DummyClient{c1, c2, c3} {
 		if len(c.lookups) != 1 || c.lookups[0] != device {
 			t.Fatal("Wrong lookups")

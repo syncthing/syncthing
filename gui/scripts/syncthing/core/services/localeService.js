@@ -42,7 +42,7 @@ angular.module('syncthing.core')
              * @returns promise which on success resolves with a locales array
              */
             function readBrowserLocales() {
-                // @TODO: check if there is nice way to utilize window.navigator.languages or similiar api.
+                // @TODO: check if there is nice way to utilize window.navigator.languages or similar api.
 
                 return $http.get(urlbase + "/svc/lang");
             }
