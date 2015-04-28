@@ -18,35 +18,40 @@ import (
 // The folderSummarySvc adds summary information events (FolderSummary and
 // FolderCompletion) into the event stream at certain intervals.
 type folderSummarySvc struct {
+	*suture.Supervisor
+
 	model     *model.Model
-	srv       suture.Service
 	stop      chan struct{}
 	immediate chan string
 
 	// For keeping track of folders to recalculate for
 	foldersMut sync.Mutex
 	folders    map[string]struct{}
+
+	// For keeping track of when the last event request on the API was
+	lastEventReq    time.Time
+	lastEventReqMut sync.Mutex
 }
 
-func (c *folderSummarySvc) Serve() {
-	srv := suture.NewSimple("folderSummarySvc")
-	srv.Add(serviceFunc(c.listenForUpdates))
-	srv.Add(serviceFunc(c.calculateSummaries))
+func newFolderSummarySvc(m *model.Model) *folderSummarySvc {
+	svc := &folderSummarySvc{
+		Supervisor:      suture.NewSimple("folderSummarySvc"),
+		model:           m,
+		stop:            make(chan struct{}),
+		immediate:       make(chan string),
+		folders:         make(map[string]struct{}),
+		foldersMut:      sync.NewMutex(),
+		lastEventReqMut: sync.NewMutex(),
+	}
 
-	c.immediate = make(chan string)
-	c.stop = make(chan struct{})
-	c.folders = make(map[string]struct{})
-	c.srv = srv
-	c.foldersMut = sync.NewMutex()
+	svc.Add(serviceFunc(svc.listenForUpdates))
+	svc.Add(serviceFunc(svc.calculateSummaries))
 
-	srv.Serve()
+	return svc
 }
 
 func (c *folderSummarySvc) Stop() {
-	// c.srv.Stop() is mostly a no-op here, but we need to call it anyway so
-	// c.srv doesn't try to restart the serviceFuncs when they exit after we
-	// close the stop channel.
-	c.srv.Stop()
+	c.Supervisor.Stop()
 	close(c.stop)
 }
 
@@ -136,12 +141,9 @@ func (c *folderSummarySvc) foldersToHandle() []string {
 	// (a request to /rest/events has been made within the last
 	// pingEventInterval).
 
-	lastEventRequestMut.Lock()
-	// XXX: Reaching out to a global var here is very ugly :( Should
-	// we make the gui stuff a proper object with methods on it that
-	// we can query about this kind of thing?
-	last := lastEventRequest
-	lastEventRequestMut.Unlock()
+	c.lastEventReqMut.Lock()
+	last := c.lastEventReq
+	c.lastEventReqMut.Unlock()
 	if time.Since(last) > pingEventInterval {
 		return nil
 	}
@@ -185,6 +187,12 @@ func (c *folderSummarySvc) sendSummary(folder string) {
 			"completion": comp,
 		})
 	}
+}
+
+func (c *folderSummarySvc) gotEventRequest() {
+	c.lastEventReqMut.Lock()
+	c.lastEventReq = time.Now()
+	c.lastEventReqMut.Unlock()
 }
 
 // serviceFunc wraps a function to create a suture.Service without stop
