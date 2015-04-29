@@ -3809,6 +3809,6 @@
     ],
     "tarball_url": "https://api.github.com/repos/syncthing/syncthing/tarball/v0.10.26",
     "zipball_url": "https://api.github.com/repos/syncthing/syncthing/zipball/v0.10.26",
-    "body": "* Silence discovery warnings when v6 not available (#1418, @AudriusButkevicius)\r\n* Make sure we start scanning at an indexed location (#1399, @AudriusButkevicius)\r\n* Add missing translation strings (#1430, @AudriusButkevicius)\r\n* Allow not to limit bandwidth in LAN (#1336, @AudriusButkevicius)\r\n* Remove red if we managed to report to atleast one discovery server (#1427, @AudriusButkevicius)\r\n* Compress only metadata by default (#1374, @calmh)\r\n* Don't yell about discovery listening and resolving (#1418, @calmh)\r\n* Fall back to %AppData% if %LocalAppData% is blank (#1446, @calmh)\r\n"
+    "body": "* Silence discovery warnings when v6 not available (#1418, @AudriusButkevicius)\r\n* Make sure we start scanning at an indexed location (#1399, @AudriusButkevicius)\r\n* Add missing translation strings (#1430, @AudriusButkevicius)\r\n* Allow not to limit bandwidth in LAN (#1336, @AudriusButkevicius)\r\n* Remove red if we managed to report to at least one discovery server (#1427, @AudriusButkevicius)\r\n* Compress only metadata by default (#1374, @calmh)\r\n* Don't yell about discovery listening and resolving (#1418, @calmh)\r\n* Fall back to %AppData% if %LocalAppData% is blank (#1446, @calmh)\r\n"
   }
 ]

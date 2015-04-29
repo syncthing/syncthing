@@ -1625,7 +1625,7 @@ func (m *Model) String() string {
 func symlinkInvalid(isLink bool) bool {
 	if !symlinks.Supported && isLink {
 		SymlinkWarning.Do(func() {
-			l.Warnln("Symlinks are disabled, unsupported or require Administrator priviledges. This might cause your folder to appear out of sync.")
+			l.Warnln("Symlinks are disabled, unsupported or require Administrator privileges. This might cause your folder to appear out of sync.")
 		})
 		return true
 	}

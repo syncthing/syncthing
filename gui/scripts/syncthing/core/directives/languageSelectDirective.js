@@ -27,7 +27,7 @@ angular.module('syncthing.core')
                 $scope.localesNames = availableLocaleNames;
                 $scope.visible = $scope.localesNames && $scope.localesNames['en'];
                 
-                // using $watch cause LocaleService.currentLocale will be change after recive async query accpeted-languages
+                // using $watch cause LocaleService.currentLocale will be change after receive async query accepted-languages
                 // in LocaleService.readBrowserLocales
                 var remove_watch = $scope.$watch(LocaleService.getCurrentLocale, function (newValue) {
                     if (newValue) {

@@ -220,7 +220,7 @@ angular.module('syncthing.core')
                     var copiedFromElsewhere = 100 * s.copiedFromElsewhere / s.total;
                     var pulled = 100 * s.pulled / s.total;
                     var pulling = 100 * s.pulling / s.total;
-                    // We try to round up pulling to atleast a percent so that it would be atleast a bit visible.
+                    // We try to round up pulling to at least a percent so that it would be at least a bit visible.
                     if (pulling < 1 && pulled + copiedFromElsewhere + copiedFromOrigin + reused <= 99) {
                         pulling = 1;
                     }
