@@ -63,6 +63,7 @@ func TestWalkSub(t *testing.T) {
 		Subs:      []string{"dir2"},
 		BlockSize: 128 * 1024,
 		Matcher:   ignores,
+		Hashers:   2,
 	}
 	fchan, err := w.Walk()
 	var files []protocol.FileInfo
@@ -99,6 +100,7 @@ func TestWalk(t *testing.T) {
 		Dir:       "testdata",
 		BlockSize: 128 * 1024,
 		Matcher:   ignores,
+		Hashers:   2,
 	}
 
 	fchan, err := w.Walk()
@@ -122,6 +124,7 @@ func TestWalkError(t *testing.T) {
 	w := Walker{
 		Dir:       "testdata-missing",
 		BlockSize: 128 * 1024,
+		Hashers:   2,
 	}
 	_, err := w.Walk()
 
@@ -280,6 +283,7 @@ func walkDir(dir string) ([]protocol.FileInfo, error) {
 		Dir:           dir,
 		BlockSize:     128 * 1024,
 		AutoNormalize: true,
+		Hashers:       2,
 	}
 
 	fchan, err := w.Walk()

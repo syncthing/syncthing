@@ -89,14 +89,9 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 		return nil, err
 	}
 
-	workers := w.Hashers
-	if workers < 1 {
-		workers = runtime.NumCPU()
-	}
-
 	files := make(chan protocol.FileInfo)
 	hashedFiles := make(chan protocol.FileInfo)
-	newParallelHasher(w.Dir, w.BlockSize, workers, hashedFiles, files)
+	newParallelHasher(w.Dir, w.BlockSize, w.Hashers, hashedFiles, files)
 
 	go func() {
 		hashFiles := w.walkAndHashFiles(files)

@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	stdsync "sync"
 	"time"
@@ -1211,7 +1212,7 @@ nextSub:
 		CurrentFiler:  cFiler{m, folder},
 		IgnorePerms:   folderCfg.IgnorePerms,
 		AutoNormalize: folderCfg.AutoNormalize,
-		Hashers:       folderCfg.Hashers,
+		Hashers:       m.numHashers(folder),
 		ShortID:       m.shortID,
 	}
 
@@ -1319,6 +1320,27 @@ nextSub:
 
 	runner.setState(FolderIdle)
 	return nil
+}
+
+// numHashers returns the number of hasher routines to use for a given folder,
+// taking into account configuration and available CPU cores.
+func (m *Model) numHashers(folder string) int {
+	m.fmut.Lock()
+	folderCfg := m.folderCfgs[folder]
+	numFolders := len(m.folderCfgs)
+	m.fmut.Unlock()
+
+	if folderCfg.Hashers > 0 {
+		// Specific value set in the config, use that.
+		return folderCfg.Hashers
+	}
+
+	if perFolder := runtime.GOMAXPROCS(-1) / numFolders; perFolder > 0 {
+		// We have CPUs to spare, divide them per folder.
+		return perFolder
+	}
+
+	return 1
 }
 
 // clusterConfig returns a ClusterConfigMessage that is correct for the given peer device
