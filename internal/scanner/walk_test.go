@@ -46,7 +46,7 @@ var correctIgnores = map[string][]string{
 
 func init() {
 	// This test runs the risk of entering infinite recursion if it fails.
-	// Limit the stack size to 10 megs to creash early in that case instead of
+	// Limit the stack size to 10 megs to crash early in that case instead of
 	// potentially taking down the box...
 	rdebug.SetMaxStack(10 * 1 << 20)
 }

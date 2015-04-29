@@ -132,7 +132,7 @@ func (c *folderSummarySvc) calculateSummaries() {
 // foldersToHandle returns the list of folders needing a summary update, and
 // clears the list.
 func (c *folderSummarySvc) foldersToHandle() []string {
-	// We only recalculate sumamries if someone is listening to events
+	// We only recalculate summaries if someone is listening to events
 	// (a request to /rest/events has been made within the last
 	// pingEventInterval).
 

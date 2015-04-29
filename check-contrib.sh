@@ -17,7 +17,8 @@ no-docs-typos() {
 	grep -v a9339d0627fff439879d157c75077f02c9fac61b |\
 	grep -v 254c63763a3ad42fd82259f1767db526cff94a14 |\
 	grep -v 4b76ec40c07078beaa2c5e250ed7d9bd6276a718 |\
-	grep -v ffc39dfbcb34eacc3ea12327a02b6e7741a2c207
+	grep -v ffc39dfbcb34eacc3ea12327a02b6e7741a2c207 |\
+	grep -v 32a76901a91ff0f663db6f0830e0aedec946e4d0
 }
 
 print-missing-authors() {
