@@ -27,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/ignore"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/pruner"
 	"github.com/syncthing/syncthing/internal/scanner"
 	"github.com/syncthing/syncthing/internal/stats"
 	"github.com/syncthing/syncthing/internal/symlinks"
@@ -72,6 +73,7 @@ type Model struct {
 	deviceFolders  map[protocol.DeviceID][]string                         // deviceID -> folders
 	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
 	folderIgnores  map[string]*ignore.Matcher                             // folder -> matcher object
+	folderPruners  map[string]*pruner.Pruner                              // folder -> pruner object
 	folderRunners  map[string]service                                     // folder -> puller or scanner
 	folderStatRefs map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut           sync.RWMutex                                           // protects the above
@@ -109,6 +111,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		deviceFolders:   make(map[protocol.DeviceID][]string),
 		deviceStatRefs:  make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:   make(map[string]*ignore.Matcher),
+		folderPruners:   make(map[string]*pruner.Pruner),
 		folderRunners:   make(map[string]service),
 		folderStatRefs:  make(map[string]*stats.FolderStatisticsReference),
 		protoConn:       make(map[protocol.DeviceID]protocol.Connection),
@@ -122,7 +125,27 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		go m.progressEmitter.Serve()
 	}
 
+	cfg.Subscribe(m)
+	m.Changed(cfg.Raw())
+
 	return m
+}
+
+func (m *Model) Changed(cfg config.Configuration) error {
+	for _, folder := range cfg.Folders {
+		// Patterns are updated at the point they are set.
+		_, ok := m.folderPruners[folder.ID]
+		if !ok && folder.SelectiveEnabled {
+			m.fmut.Lock()
+			m.folderPruners[folder.ID] = pruner.New(folder.SelectivePatterns)
+			m.fmut.Unlock()
+		} else if ok && !folder.SelectiveEnabled {
+			m.fmut.Lock()
+			delete(m.folderPruners, folder.ID)
+			m.fmut.Unlock()
+		}
+	}
+	return nil
 }
 
 // Starts deadlock detector on the models locks which causes panics in case
@@ -923,7 +946,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[deviceID] {
 		fs := m.folderFiles[folder]
-		go sendIndexes(protoConn, folder, fs, m.folderIgnores[folder])
+		go sendIndexes(protoConn, folder, fs, m.folderIgnores[folder], m.folderPruners[folder])
 	}
 	m.fmut.RUnlock()
 	m.pmut.Unlock()
@@ -964,7 +987,7 @@ func (m *Model) receivedFile(folder, filename string) {
 	m.folderStatRef(folder).ReceivedFile(filename)
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
+func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, pruner *pruner.Pruner) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	var err error
@@ -973,7 +996,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 		l.Debugf("sendIndexes for %s-%s/%q starting", deviceID, name, folder)
 	}
 
-	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores)
+	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores, pruner)
 
 	for err == nil {
 		time.Sleep(5 * time.Second)
@@ -981,7 +1004,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 			continue
 		}
 
-		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
+		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores, pruner)
 	}
 
 	if debug {
@@ -989,7 +1012,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	}
 }
 
-func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
+func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, pruner *pruner.Pruner) (int64, error) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -1007,9 +1030,9 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 			maxLocalVer = f.LocalVersion
 		}
 
-		if ignores.Match(f.Name) || symlinkInvalid(f.IsSymlink()) {
+		if symlinkInvalid(f.IsSymlink()) || pruner.ShouldSkip(f) || ignores.Match(f.Name) {
 			if debug {
-				l.Debugln("not sending update for ignored/unsupported symlink", f)
+				l.Debugln("not sending update for ignored/pruned/unsupported symlink", f)
 			}
 			return true
 		}
@@ -1164,6 +1187,7 @@ func (m *Model) ScanFolderSubs(folder string, subs []string) error {
 	fs := m.folderFiles[folder]
 	folderCfg := m.folderCfgs[folder]
 	ignores := m.folderIgnores[folder]
+	pruner := m.folderPruners[folder]
 	runner, ok := m.folderRunners[folder]
 	m.fmut.Unlock()
 
@@ -1203,6 +1227,7 @@ nextSub:
 		Dir:           folderCfg.Path(),
 		Subs:          subs,
 		Matcher:       ignores,
+		Pruner:        pruner,
 		BlockSize:     protocol.BlockSize,
 		TempNamer:     defTempNamer,
 		TempLifetime:  time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
@@ -1278,10 +1303,10 @@ nextSub:
 				batch = batch[:0]
 			}
 
-			if ignores.Match(f.Name) || symlinkInvalid(f.IsSymlink()) {
+			if symlinkInvalid(f.IsSymlink()) || pruner.ShouldSkipTruncated(f) || ignores.Match(f.Name) {
 				// File has been ignored or an unsupported symlink. Set invalid bit.
 				if debug {
-					l.Debugln("setting invalid bit on ignored", f)
+					l.Debugln("setting invalid bit on ignored/pruned/unsupported symlink", f)
 				}
 				nf := protocol.FileInfo{
 					Name:     f.Name,
@@ -1616,6 +1641,268 @@ func (m *Model) ResetFolder(folder string) error {
 		}
 	}
 	return fmt.Errorf("Unknown folder %q", folder)
+}
+
+// Set selective sync patterns
+func (m *Model) SetSelections(folder string, selections []string, remove bool) error {
+	m.fmut.RLock()
+	cfg, ok := m.cfg.Folders()[folder]
+	m.fmut.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("Folder %s does not exist", folder)
+	}
+
+	cfg.SelectivePatterns = selections
+	m.cfg.SetFolder(cfg)
+	err := m.cfg.Save()
+	if err != nil {
+		return err
+	}
+
+	if !cfg.SelectiveEnabled {
+		return nil
+	}
+
+	pruner := pruner.New(selections)
+
+	m.fmut.Lock()
+	m.folderPruners[folder] = pruner
+	m.fmut.Unlock()
+
+	// Marks files as invalid.
+	err = m.ScanFolder(folder)
+	if !remove || err != nil {
+		return err
+	}
+
+	m.fmut.RLock()
+	files := m.folderFiles[folder]
+	ignores := m.folderIgnores[folder]
+	m.fmut.RUnlock()
+
+	toRemove := make([]string, 0)
+
+	files.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		f := fi.(db.FileInfoTruncated)
+		if pruner.ShouldSkipTruncated(f) && (ignores == nil || !ignores.Match(f.Name)) {
+			toRemove = append(toRemove, f.Name)
+		}
+		return true
+	})
+	for i := len(toRemove) - 1; i >= 0; i-- {
+		// Best attempt I guess.
+		osutil.InWritableDir(osutil.Remove, toRemove[i])
+	}
+	return nil
+}
+
+type jsTreeNode struct {
+	Text     string      `json:"text"`
+	Id       string      `json:"id"`
+	Children interface{} `json:"children"`
+	Icon     string      `json:"icon"`
+	Edge     bool        `json:"-"`
+}
+
+// Get selective sync selection patterns. If tree flag is set, it will also
+// produce a tree to be consumed by jsTree library so that the amount of work
+// to be done in the browser would be minimal.
+func (m *Model) GetSelections(folder string, tree bool) (map[string]interface{}, error) {
+	m.fmut.RLock()
+	cfg, okc := m.folderCfgs[folder]
+	files, okf := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if !okc || !okf {
+		return nil, fmt.Errorf("Folder %s does not exist", folder)
+	}
+
+	output := make(map[string]interface{})
+
+	if tree {
+		// The tree is built down to the previously selected nodes, as well as
+		// all nodes that are not traversed but are visible along the way.
+		// The field Children can hold either other children ([]*jsTreeNode) if
+		// the node was somewhere along the way on one of the patterns, or a
+		// boolean indicating wether or not the node has further children which
+		// could be expanded through a separate AJAX call.
+		//
+		// The resulting JSON value of the tree can be directly consumed by the
+		// jsTree library without any further modifications.
+		//
+		// jsTree accepts 3 states for the field Children.
+		// 1. An array with other children, implying that the node has already
+		//    been expanded.
+		// 2. A boolean, when set to true, implying that the node has children
+		//    and that they should be feteched by further AJAX calls.
+		// 3. False/null/undefined implying that the node does not have any more
+		//    children.
+		//
+		// We care about 3 properties for each of our directories:
+		// 1. If our path is a prefix to any of the patterns (selfMatch)
+		// 2. If our parents path is a prefix to any of the patterns (parentMatch)
+		// 3. If our grandparents path is a prefix to any of the patterns (grandparentMatch)
+		//
+		// Then depending on the properties we do the following:
+		// 1. If grandparentMatch is false, we skip the file.
+		// 2. If grandparentMatch is true but parentMatch is false it means
+		//    our parent has the potential to be expanded, hence we inform the
+		//    parent that it has children: parent.Children -> true.
+		// 3. If grandparentMatch and parentMatch is true, but selfMatch is false
+		//    we know that we are one step away from one of the prefixes.
+		//    We add ourself to our parent: parent.Children.append(self).
+		//    Since we are an edge node with no known children we set:
+		//    self.Children -> false, and hope that later we will find one
+		//    of our children (hitting scenario 2).
+		// 4. If we are a prefix to one of the patterns, we add ourselves as a
+		//    non-edge node with an empty slice of children:
+		//    self.Children -> []*jsTreeNode. Our children (given they are not a
+		//    proper prefix) will then register themselves
+		//    with us (hitting scenario 3) and become edge nodes.
+
+		// Both types reference pointers, as the underlying structs might change.
+		roots := make([]*jsTreeNode, 0)
+		// Quickly accesso parents
+		nodes := make(map[string]*jsTreeNode)
+
+		files.WithGlobalTruncated(func(fi db.FileIntf) bool {
+			f := fi.(db.FileInfoTruncated)
+
+			// Don't care about files.
+			if f.IsInvalid() || f.IsDeleted() || f.IsSymlink() || !f.IsDirectory() {
+				return true
+			}
+
+			parent := filepath.Dir(f.Name)
+			grandparent := filepath.Dir(parent)
+
+			selfMatch := false
+			parentMatch := false
+			grandparentMatch := false
+
+			// Store the parent here, in case we look it up in the else
+			// branch while 'optimizing'.
+			var par *jsTreeNode = nil
+
+			if parent == "." {
+				// There is no parent, hence we are at the root.
+				grandparentMatch = true
+				parentMatch = true
+				selfMatch = true
+			} else if grandparent == "." {
+				// There is no grandparent, hence our parent is at the root.
+				grandparentMatch = true
+				parentMatch = true
+				for _, pat := range cfg.SelectivePatterns {
+					if strings.HasPrefix(pat, f.Name) {
+						selfMatch = true
+						break
+					}
+				}
+			} else {
+				// There is a parent and a grandparent, check if we or our
+				// parent or grandparent are somewhere along the way.
+
+				// Optimization (is it?) potentially checking if parents have
+				// already been traversed. Attempts to avoid string matching in
+				// the loop for parent and grandparent.
+				var ok bool
+				par, ok = nodes[parent]
+				if ok && !par.Edge {
+					parentMatch = true
+					grandparentMatch = true
+				} else if node, ok := nodes[grandparent]; ok && !node.Edge {
+					grandparentMatch = true
+				}
+
+				for _, pat := range cfg.SelectivePatterns {
+					if strings.HasPrefix(pat, f.Name) {
+						selfMatch = true
+						parentMatch = true
+						grandparentMatch = true
+						break
+					}
+					if !parentMatch && strings.HasPrefix(pat, parent) {
+						parentMatch = true
+						grandparentMatch = true
+					}
+					if !grandparentMatch && strings.HasPrefix(pat, grandparent) {
+						grandparentMatch = true
+					}
+				}
+			}
+
+			if !grandparentMatch {
+				// Scenario 1
+				// Our grandparent is not on one of the patterns, hence
+				// our parent is not one of the edge nodes who would needs to
+				// know about our existance.
+				return true
+			}
+
+			self := jsTreeNode{
+				Text: filepath.Base(f.Name),
+				Id:   f.Name,
+				Icon: "glyphicon glyphicon-folder-open",
+			}
+			if selfMatch {
+				self.Edge = false
+				// Slice of pointers, as the underlying children might change.
+				self.Children = make([]*jsTreeNode, 0)
+			} else if parentMatch {
+				self.Edge = true
+				self.Children = false
+			}
+
+			if parent == "." {
+				// We are part of the root, as we have no parent.
+				roots = append(roots, &self)
+				// We are likely to be someone's parent, as we are at the root.
+				nodes[f.Name] = &self
+				return true
+			}
+
+			// If we haven't yet fetched the parent, do it now.
+			if par == nil {
+				par = nodes[parent]
+			}
+
+			// Let our parent know about our presence.
+			if par.Edge {
+				// Scenario 2
+				// If the parent is on the edge (his grandparent is still
+				// on one of the patterns, but the parent is no longer
+				// there) we only need to inform our parent about the fact
+				// that it has children.
+				par.Children = true
+				return true
+			}
+
+			// Scenario 3 and 4, though self.Edge decides if it's 3 or 4
+			// We need to register ourself as a child of our parent.
+
+			children := par.Children.([]*jsTreeNode)
+			// If we are the first child, add the "Files in XYZ" node
+			// before us.
+			if len(children) == 0 {
+				children = append(children, &jsTreeNode{
+					Text:     "Files in \"" + filepath.Base(parent) + "\"",
+					Id:       filepath.Join(par.Id, "[^/]+"),
+					Children: nil,
+					Icon:     "glyphicon glyphicon-file",
+				})
+			}
+			par.Children = append(children, &self)
+
+			// We are likely to be someone's parent, just because our
+			// parent is not an edge node.
+			nodes[f.Name] = &self
+			return true
+		})
+		output["tree"] = roots
+	}
+	output["patterns"] = cfg.SelectivePatterns
+	return output, nil
 }
 
 func (m *Model) String() string {

@@ -237,6 +237,15 @@ ul.three-columns li, ul.two-columns li {
     text-indent: -0.5em;
 }
 
+#selectiveSyncTree {
+    max-height: 480px;
+    overflow-y: auto;
+}
+
+.jstree-container-ul {
+    overflow-y: hidden;
+}
+
 /** Footer nav on small devices **/
 
 @media (max-width: 767px) {
