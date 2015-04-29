@@ -19,13 +19,11 @@ func init() {
 	Factories["simple"] = NewSimple
 }
 
-// The type holds our configuration
 type Simple struct {
 	keep       int
 	folderPath string
 }
 
-// The constructor function takes a map of parameters and creates the type.
 func NewSimple(folderID, folderPath string, params map[string]string) Versioner {
 	keep, err := strconv.Atoi(params["keep"])
 	if err != nil {
@@ -43,8 +41,8 @@ func NewSimple(folderID, folderPath string, params map[string]string) Versioner 
 	return s
 }
 
-// Move away the named file to a version archive. If this function returns
-// nil, the named file does not exist any more (has been archived).
+// Archive moves the named file away to a version archive. If this function
+// returns nil, the named file does not exist any more (has been archived).
 func (v Simple) Archive(filePath string) error {
 	fileInfo, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {

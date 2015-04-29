@@ -760,7 +760,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	m.AddFolder(defaultFolderConfig)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
-		var flags uint32 = protocol.FlagDirectory
+		flags := uint32(protocol.FlagDirectory)
 		blocks := []protocol.BlockInfo{}
 		if isfile {
 			flags = 0
@@ -1009,7 +1009,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 	m.AddFolder(defaultFolderConfig)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
-		var flags uint32 = protocol.FlagDirectory
+		flags := uint32(protocol.FlagDirectory)
 		blocks := []protocol.BlockInfo{}
 		if isfile {
 			flags = 0

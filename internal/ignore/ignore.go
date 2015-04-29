@@ -30,9 +30,8 @@ type Pattern struct {
 func (p Pattern) String() string {
 	if p.include {
 		return p.match.String()
-	} else {
-		return "(?exclude)" + p.match.String()
 	}
+	return "(?exclude)" + p.match.String()
 }
 
 type Matcher struct {

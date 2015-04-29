@@ -19,7 +19,7 @@ import (
 )
 
 var csrfTokens []string
-var csrfMut sync.Mutex = sync.NewMutex()
+var csrfMut = sync.NewMutex()
 
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none

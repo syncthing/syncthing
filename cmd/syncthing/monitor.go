@@ -22,9 +22,9 @@ import (
 )
 
 var (
-	stdoutFirstLines []string   // The first 10 lines of stdout
-	stdoutLastLines  []string   // The last 50 lines of stdout
-	stdoutMut        sync.Mutex = sync.NewMutex()
+	stdoutFirstLines []string // The first 10 lines of stdout
+	stdoutLastLines  []string // The last 50 lines of stdout
+	stdoutMut        = sync.NewMutex()
 )
 
 const (

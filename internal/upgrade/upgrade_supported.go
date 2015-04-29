@@ -27,7 +27,8 @@ import (
 	"strings"
 )
 
-// Returns the latest releases, including prereleases or not depending on the argument
+// LatestGithubReleases returns the latest releases, including prereleases or
+// not depending on the argument
 func LatestGithubReleases(version string) ([]Release, error) {
 	resp, err := http.Get("https://api.github.com/repos/syncthing/syncthing/releases?per_page=30")
 	if err != nil {

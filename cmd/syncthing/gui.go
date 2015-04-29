@@ -45,16 +45,16 @@ type guiError struct {
 }
 
 var (
-	configInSync            = true
-	guiErrors               = []guiError{}
-	guiErrorsMut sync.Mutex = sync.NewMutex()
-	startTime               = time.Now()
+	configInSync = true
+	guiErrors    = []guiError{}
+	guiErrorsMut = sync.NewMutex()
+	startTime    = time.Now()
 	eventSub     *events.BufferedSubscription
 )
 
 var (
 	lastEventRequest    time.Time
-	lastEventRequestMut sync.Mutex = sync.NewMutex()
+	lastEventRequestMut = sync.NewMutex()
 )
 
 func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
@@ -538,7 +538,7 @@ func flushResponse(s string, w http.ResponseWriter) {
 }
 
 var cpuUsagePercent [10]float64 // The last ten seconds
-var cpuUsageLock sync.RWMutex = sync.NewRWMutex()
+var cpuUsageLock = sync.NewRWMutex()
 
 func restGetSystemStatus(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats

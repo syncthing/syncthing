@@ -75,8 +75,8 @@ func Convert(pattern string, flags int) (*regexp.Regexp, error) {
 	return regexp.Compile(pattern)
 }
 
-// Matches the pattern against the string, with the given flags,
-// and returns true if the match is successful.
+// Match matches the pattern against the string, with the given flags, and
+// returns true if the match is successful.
 func Match(pattern, s string, flags int) (bool, error) {
 	exp, err := Convert(pattern, flags)
 	if err != nil {

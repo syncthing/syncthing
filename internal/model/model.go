@@ -125,15 +125,16 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 	return m
 }
 
-// Starts deadlock detector on the models locks which causes panics in case
-// the locks cannot be acquired in the given timeout period.
+// StartDeadlockDetector starts a deadlock detector on the models locks which
+// causes panics in case the locks cannot be acquired in the given timeout
+// period.
 func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 	l.Infof("Starting deadlock detector with %v timeout", timeout)
 	deadlockDetect(m.fmut, timeout)
 	deadlockDetect(m.pmut, timeout)
 }
 
-// StartRW starts read/write processing on the current model. When in
+// StartFolderRW starts read/write processing on the current model. When in
 // read/write mode the model will attempt to keep in sync with the cluster by
 // pulling needed files from peer devices.
 func (m *Model) StartFolderRW(folder string) {
@@ -166,9 +167,9 @@ func (m *Model) StartFolderRW(folder string) {
 	go p.Serve()
 }
 
-// StartRO starts read only processing on the current model. When in
-// read only mode the model will announce files to the cluster but not
-// pull in any external changes.
+// StartFolderRO starts read only processing on the current model. When in
+// read only mode the model will announce files to the cluster but not pull in
+// any external changes.
 func (m *Model) StartFolderRO(folder string) {
 	m.fmut.Lock()
 	cfg, ok := m.folderCfgs[folder]
@@ -243,7 +244,7 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 	return res
 }
 
-// Returns statistics about each device
+// DeviceStatistics returns statistics about each device
 func (m *Model) DeviceStatistics() map[string]stats.DeviceStatistics {
 	var res = make(map[string]stats.DeviceStatistics)
 	for id := range m.cfg.Devices() {
@@ -252,7 +253,7 @@ func (m *Model) DeviceStatistics() map[string]stats.DeviceStatistics {
 	return res
 }
 
-// Returns statistics about each folder
+// FolderStatistics returns statistics about each folder
 func (m *Model) FolderStatistics() map[string]stats.FolderStatistics {
 	var res = make(map[string]stats.FolderStatistics)
 	for id := range m.cfg.Folders() {
@@ -261,7 +262,8 @@ func (m *Model) FolderStatistics() map[string]stats.FolderStatistics {
 	return res
 }
 
-// Returns the completion status, in percent, for the given device and folder.
+// Completion returns the completion status, in percent, for the given device
+// and folder.
 func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 	var tot int64
 
@@ -375,9 +377,9 @@ func (m *Model) NeedSize(folder string) (nfiles int, bytes int64) {
 	return
 }
 
-// NeedFiles returns paginated list of currently needed files in progress, queued,
-// and to be queued on next puller iteration, as well as the total number of
-// files currently needed.
+// NeedFolderFiles returns paginated list of currently needed files in
+// progress, queued, and to be queued on next puller iteration, as well as the
+// total number of files currently needed.
 func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
@@ -1535,7 +1537,7 @@ func (m *Model) Availability(folder, file string) []protocol.DeviceID {
 	return availableDevices
 }
 
-// Bump the given files priority in the job queue
+// BringToFront bumps the given files priority in the job queue.
 func (m *Model) BringToFront(folder, file string) {
 	m.pmut.RLock()
 	defer m.pmut.RUnlock()
@@ -1546,9 +1548,8 @@ func (m *Model) BringToFront(folder, file string) {
 	}
 }
 
-// Returns current folder error, or nil if the folder is healthy.
-// Updates the Invalid field on the folder configuration struct, and emits a
-// ConfigSaved event which causes a GUI refresh.
+// CheckFolderHealth checks the folder for common errors and returns the
+// current folder error, or nil if the folder is healthy.
 func (m *Model) CheckFolderHealth(id string) error {
 	folder, ok := m.cfg.Folders()[id]
 	if !ok {

@@ -156,7 +156,7 @@ func (w *Wrapper) SetDevice(dev DeviceConfiguration) {
 	w.replaces <- w.cfg.Copy()
 }
 
-// Devices returns a map of folders. Folder structures should not be changed,
+// Folders returns a map of folders. Folder structures should not be changed,
 // other than for the purpose of updating via SetFolder().
 func (w *Wrapper) Folders() map[string]FolderConfiguration {
 	w.mut.Lock()
@@ -220,8 +220,8 @@ func (w *Wrapper) SetGUI(gui GUIConfiguration) {
 	w.replaces <- w.cfg.Copy()
 }
 
-// Returns whether or not connection attempts from the given device should be
-// silently ignored.
+// IgnoredDevice returns whether or not connection attempts from the given
+// device should be silently ignored.
 func (w *Wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 	w.mut.Lock()
 	defer w.mut.Unlock()

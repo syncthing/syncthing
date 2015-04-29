@@ -23,7 +23,7 @@ var ErrNoHome = errors.New("No home directory found - set $HOME (or the platform
 
 // Try to keep this entire operation atomic-like. We shouldn't be doing this
 // often enough that there is any contention on this lock.
-var renameLock sync.Mutex = sync.NewMutex()
+var renameLock = sync.NewMutex()
 
 // TryRename renames a file, leaving source file intact in case of failure.
 // Tries hard to succeed on various systems by temporarily tweaking directory
@@ -89,7 +89,8 @@ func InWritableDir(fn func(string) error, path string) error {
 	return fn(path)
 }
 
-// On Windows, removes the read-only attribute from the target prior deletion.
+// Remove removes the given path. On Windows, removes the read-only attribute
+// from the target prior to deletion.
 func Remove(path string) error {
 	if runtime.GOOS == "windows" {
 		info, err := os.Stat(path)

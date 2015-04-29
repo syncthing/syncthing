@@ -27,7 +27,7 @@ import (
 	"github.com/syncthing/syncthing/internal/sync"
 )
 
-// A container for relevant properties of a UPnP InternetGatewayDevice.
+// An IGD is a UPnP InternetGatewayDevice.
 type IGD struct {
 	uuid           string
 	friendlyName   string
@@ -36,27 +36,25 @@ type IGD struct {
 	localIPAddress string
 }
 
-// The InternetGatewayDevice's UUID.
 func (n *IGD) UUID() string {
 	return n.uuid
 }
 
-// The InternetGatewayDevice's friendly name.
 func (n *IGD) FriendlyName() string {
 	return n.friendlyName
 }
 
-// The InternetGatewayDevice's friendly identifier (friendly name + IP address).
+// FriendlyIdentifier returns a friendly identifier (friendly name + IP
+// address) for the IGD.
 func (n *IGD) FriendlyIdentifier() string {
 	return "'" + n.FriendlyName() + "' (" + strings.Split(n.URL().Host, ":")[0] + ")"
 }
 
-// The URL of the InternetGatewayDevice's root device description.
 func (n *IGD) URL() *url.URL {
 	return n.url
 }
 
-// A container for relevant properties of a UPnP service of an IGD.
+// An IGDService is a specific service provided by an IGD.
 type IGDService struct {
 	serviceID  string
 	serviceURL string
@@ -236,7 +234,7 @@ func parseResponse(deviceType string, resp []byte) (IGD, error) {
 
 	deviceDescriptionLocation := response.Header.Get("Location")
 	if deviceDescriptionLocation == "" {
-		return IGD{}, errors.New("invalid IGD response: no location specified.")
+		return IGD{}, errors.New("invalid IGD response: no location specified")
 	}
 
 	deviceDescriptionURL, err := url.Parse(deviceDescriptionLocation)
@@ -247,7 +245,7 @@ func parseResponse(deviceType string, resp []byte) (IGD, error) {
 
 	deviceUSN := response.Header.Get("USN")
 	if deviceUSN == "" {
-		return IGD{}, errors.New("invalid IGD response: USN not specified.")
+		return IGD{}, errors.New("invalid IGD response: USN not specified")
 	}
 
 	deviceUUID := strings.TrimLeft(strings.Split(deviceUSN, "::")[0], "uuid:")
@@ -353,9 +351,8 @@ func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDService, er
 
 	if len(result) < 1 {
 		return result, errors.New("[" + rootURL + "] Malformed device description: no compatible service descriptions found.")
-	} else {
-		return result, nil
 	}
+	return result, nil
 }
 
 func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, serviceURNs []string) []IGDService {
@@ -480,9 +477,11 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 	return resp, nil
 }
 
-// Add a port mapping to all relevant services on the specified InternetGatewayDevice.
-// Port mapping will fail and return an error if action is fails for _any_ of the relevant services.
-// For this reason, it is generally better to configure port mapping for each individual service instead.
+// AddPortMapping adds a port mapping to all relevant services on the
+// specified InternetGatewayDevice. Port mapping will fail and return an error
+// if action is fails for _any_ of the relevant services. For this reason, it
+// is generally better to configure port mapping for each individual service
+// instead.
 func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
 	for _, service := range n.services {
 		err := service.AddPortMapping(n.localIPAddress, protocol, externalPort, internalPort, description, timeout)
@@ -493,9 +492,11 @@ func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, 
 	return nil
 }
 
-// Delete a port mapping from all relevant services on the specified InternetGatewayDevice.
-// Port mapping will fail and return an error if action is fails for _any_ of the relevant services.
-// For this reason, it is generally better to configure port mapping for each individual service instead.
+// DeletePortMapping deletes a port mapping from all relevant services on the
+// specified InternetGatewayDevice. Port mapping will fail and return an error
+// if action is fails for _any_ of the relevant services. For this reason, it
+// is generally better to configure port mapping for each individual service
+// instead.
 func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) error {
 	for _, service := range n.services {
 		err := service.DeletePortMapping(protocol, externalPort)
@@ -520,7 +521,7 @@ type getExternalIPAddressResponse struct {
 	NewExternalIPAddress string `xml:"NewExternalIPAddress"`
 }
 
-// Add a port mapping to the specified IGD service.
+// AddPortMapping adds a port mapping to the specified IGD service.
 func (s *IGDService) AddPortMapping(localIPAddress string, protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
 	tpl := `<u:AddPortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
@@ -542,7 +543,7 @@ func (s *IGDService) AddPortMapping(localIPAddress string, protocol Protocol, ex
 	return nil
 }
 
-// Delete a port mapping from the specified IGD service.
+// DeletePortMapping deletes a port mapping from the specified IGD service.
 func (s *IGDService) DeletePortMapping(protocol Protocol, externalPort int) error {
 	tpl := `<u:DeletePortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
@@ -560,8 +561,9 @@ func (s *IGDService) DeletePortMapping(protocol Protocol, externalPort int) erro
 	return nil
 }
 
-// Query the IGD service for its external IP address.
-// Returns nil if the external IP address is invalid or undefined, along with any relevant errors
+// GetExternalIPAddress queries the IGD service for its external IP address.
+// Returns nil if the external IP address is invalid or undefined, along with
+// any relevant errors
 func (s *IGDService) GetExternalIPAddress() (net.IP, error) {
 	tpl := `<u:GetExternalIPAddress xmlns:u="%s" />`
 

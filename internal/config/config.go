@@ -45,28 +45,28 @@ type Configuration struct {
 	OriginalVersion int `xml:"-" json:"-"` // The version we read from disk, before any conversion
 }
 
-func (orig Configuration) Copy() Configuration {
-	c := orig
+func (cfg Configuration) Copy() Configuration {
+	newCfg := cfg
 
 	// Deep copy FolderConfigurations
-	c.Folders = make([]FolderConfiguration, len(orig.Folders))
-	for i := range c.Folders {
-		c.Folders[i] = orig.Folders[i].Copy()
+	newCfg.Folders = make([]FolderConfiguration, len(cfg.Folders))
+	for i := range newCfg.Folders {
+		newCfg.Folders[i] = cfg.Folders[i].Copy()
 	}
 
 	// Deep copy DeviceConfigurations
-	c.Devices = make([]DeviceConfiguration, len(orig.Devices))
-	for i := range c.Devices {
-		c.Devices[i] = orig.Devices[i].Copy()
+	newCfg.Devices = make([]DeviceConfiguration, len(cfg.Devices))
+	for i := range newCfg.Devices {
+		newCfg.Devices[i] = cfg.Devices[i].Copy()
 	}
 
-	c.Options = orig.Options.Copy()
+	newCfg.Options = cfg.Options.Copy()
 
 	// DeviceIDs are values
-	c.IgnoredDevices = make([]protocol.DeviceID, len(orig.IgnoredDevices))
-	copy(c.IgnoredDevices, orig.IgnoredDevices)
+	newCfg.IgnoredDevices = make([]protocol.DeviceID, len(cfg.IgnoredDevices))
+	copy(newCfg.IgnoredDevices, cfg.IgnoredDevices)
 
-	return c
+	return newCfg
 }
 
 type FolderConfiguration struct {
@@ -89,10 +89,10 @@ type FolderConfiguration struct {
 	deviceIDs []protocol.DeviceID
 }
 
-func (orig FolderConfiguration) Copy() FolderConfiguration {
-	c := orig
-	c.Devices = make([]FolderDeviceConfiguration, len(orig.Devices))
-	copy(c.Devices, orig.Devices)
+func (f FolderConfiguration) Copy() FolderConfiguration {
+	c := f
+	c.Devices = make([]FolderDeviceConfiguration, len(f.Devices))
+	copy(c.Devices, f.Devices)
 	return c
 }
 
