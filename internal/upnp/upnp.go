@@ -100,7 +100,7 @@ func Discover(timeout time.Duration) []IGD {
 		return results
 	}
 
-	resultChan := make(chan IGD, 16)
+	resultChan := make(chan IGD)
 
 	// Aggregator
 	go func() {
@@ -129,6 +129,13 @@ func Discover(timeout time.Duration) []IGD {
 
 	wg := sync.NewWaitGroup()
 	for _, intf := range interfaces {
+		if intf.Flags&net.FlagUp == 0 {
+			continue
+		}
+		if intf.Flags&net.FlagMulticast == 0 {
+			continue
+		}
+
 		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
 			wg.Add(1)
 			go func(intf net.Interface, deviceType string) {
@@ -195,7 +202,7 @@ Mx: %d
 
 	// Listen for responses until a timeout is reached
 	for {
-		resp := make([]byte, 1500)
+		resp := make([]byte, 65536)
 		n, _, err := socket.ReadFrom(resp)
 		if err != nil {
 			if e, ok := err.(net.Error); !ok || !e.Timeout() {
