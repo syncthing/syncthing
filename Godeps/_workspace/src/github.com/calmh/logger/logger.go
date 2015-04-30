@@ -16,6 +16,7 @@ type LogLevel int
 
 const (
 	LevelDebug LogLevel = iota
+	LevelVerbose
 	LevelInfo
 	LevelOK
 	LevelWarn
@@ -81,6 +82,24 @@ func (l *Logger) Debugf(format string, vals ...interface{}) {
 	s := fmt.Sprintf(format, vals...)
 	l.logger.Output(2, "DEBUG: "+s)
 	l.callHandlers(LevelDebug, s)
+}
+
+// Infoln logs a line with a VERBOSE prefix.
+func (l *Logger) Verboseln(vals ...interface{}) {
+	l.mut.Lock()
+	defer l.mut.Unlock()
+	s := fmt.Sprintln(vals...)
+	l.logger.Output(2, "VERBOSE: "+s)
+	l.callHandlers(LevelVerbose, s)
+}
+
+// Infof logs a formatted line with a VERBOSE prefix.
+func (l *Logger) Verbosef(format string, vals ...interface{}) {
+	l.mut.Lock()
+	defer l.mut.Unlock()
+	s := fmt.Sprintf(format, vals...)
+	l.logger.Output(2, "VERBOSE: "+s)
+	l.callHandlers(LevelVerbose, s)
 }
 
 // Infoln logs a line with an INFO prefix.

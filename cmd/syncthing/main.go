@@ -194,6 +194,7 @@ var (
 	generateDir       string
 	logFile           string
 	auditEnabled      bool
+	verbose           bool
 	noRestart         = os.Getenv("STNORESTART") != ""
 	noUpgrade         = os.Getenv("STNOUPGRADE") != ""
 	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
@@ -231,6 +232,7 @@ func main() {
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.StringVar(&upgradeTo, "upgrade-to", upgradeTo, "Force upgrade directly from specified URL")
 	flag.BoolVar(&auditEnabled, "audit", false, "Write events to audit file")
+	flag.BoolVar(&verbose, "verbose", false, "Print verbose log output")
 
 	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, baseDirs["config"]))
 	flag.Parse()
@@ -389,6 +391,10 @@ func syncthingMain() {
 
 	if auditEnabled {
 		startAuditing(mainSvc)
+	}
+
+	if verbose {
+		mainSvc.Add(newVerboseSvc())
 	}
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
