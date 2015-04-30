@@ -287,7 +287,7 @@ func scStartProcesses() ([]syncthingProcess, error) {
 	}
 	err = p[1].start()
 	if err != nil {
-		_ = p[0].stop()
+		p[0].stop()
 		return nil, err
 	}
 
@@ -299,8 +299,8 @@ func scStartProcesses() ([]syncthingProcess, error) {
 	}
 	err = p[2].start()
 	if err != nil {
-		_ = p[0].stop()
-		_ = p[1].stop()
+		p[0].stop()
+		p[1].stop()
 		return nil, err
 	}
 

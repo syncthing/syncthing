@@ -84,7 +84,7 @@ func TestParallellScan(t *testing.T) {
 	// This is where the real test is currently, since stop() checks for data
 	// race output in the log.
 	log.Println("Stopping...")
-	err = st.stop()
+	_, err = st.stop()
 	if err != nil {
 		t.Fatal(err)
 	}

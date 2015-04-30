@@ -106,13 +106,13 @@ func (p *syncthingProcess) start() error {
 	}
 }
 
-func (p *syncthingProcess) stop() error {
+func (p *syncthingProcess) stop() (*os.ProcessState, error) {
 	p.cmd.Process.Signal(os.Kill)
 	p.cmd.Wait()
 
 	fd, err := os.Open(p.logfd.Name())
 	if err != nil {
-		return err
+		return p.cmd.ProcessState, err
 	}
 	defer fd.Close()
 
@@ -148,7 +148,7 @@ func (p *syncthingProcess) stop() error {
 			}
 		}
 	}
-	return err
+	return p.cmd.ProcessState, err
 }
 
 func (p *syncthingProcess) get(path string) (*http.Response, error) {

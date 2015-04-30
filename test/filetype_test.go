@@ -122,7 +122,7 @@ func testFileTypeChange(t *testing.T) {
 	}
 	err = receiver.start()
 	if err != nil {
-		_ = sender.stop()
+		sender.stop()
 		t.Fatal(err)
 	}
 
@@ -133,27 +133,27 @@ func testFileTypeChange(t *testing.T) {
 				time.Sleep(time.Second)
 				continue
 			}
-			_ = sender.stop()
-			_ = receiver.stop()
+			sender.stop()
+			receiver.stop()
 			t.Fatal(err)
 		}
 
 		curComp := comp[id2]
 
 		if curComp == 100 {
-			_ = sender.stop()
-			_ = receiver.stop()
+			sender.stop()
+			receiver.stop()
 			break
 		}
 
 		time.Sleep(time.Second)
 	}
 
-	err = sender.stop()
+	_, err = sender.stop()
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = receiver.stop()
+	_, err = receiver.stop()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +212,7 @@ func testFileTypeChange(t *testing.T) {
 
 	err = receiver.start()
 	if err != nil {
-		_ = sender.stop()
+		sender.stop()
 		t.Fatal(err)
 	}
 
@@ -223,8 +223,8 @@ func testFileTypeChange(t *testing.T) {
 				time.Sleep(time.Second)
 				continue
 			}
-			_ = sender.stop()
-			_ = receiver.stop()
+			sender.stop()
+			receiver.stop()
 			t.Fatal(err)
 		}
 
@@ -237,11 +237,11 @@ func testFileTypeChange(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 
-	err = sender.stop()
+	_, err = sender.stop()
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = receiver.stop()
+	_, err = receiver.stop()
 	if err != nil {
 		t.Fatal(err)
 	}

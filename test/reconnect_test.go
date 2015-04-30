@@ -63,7 +63,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 	}
 	err = receiver.start()
 	if err != nil {
-		_ = sender.stop()
+		sender.stop()
 		t.Fatal(err)
 	}
 
@@ -75,19 +75,19 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 				time.Sleep(250 * time.Millisecond)
 				continue
 			}
-			_ = sender.stop()
-			_ = receiver.stop()
+			sender.stop()
+			receiver.stop()
 			t.Fatal(err)
 		}
 
 		curComp := comp[id2]
 
 		if curComp == 100 {
-			err = sender.stop()
+			_, err = sender.stop()
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = receiver.stop()
+			_, err = receiver.stop()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -97,7 +97,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 		if curComp > prevComp {
 			if restartReceiver {
 				log.Printf("Stopping receiver...")
-				err = receiver.stop()
+				_, err = receiver.stop()
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -105,7 +105,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 
 			if restartSender {
 				log.Printf("Stopping sender...")
-				err = sender.stop()
+				_, err = sender.stop()
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -141,11 +141,11 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 		time.Sleep(time.Second)
 	}
 
-	err = sender.stop()
+	_, err = sender.stop()
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = receiver.stop()
+	_, err = receiver.stop()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -148,7 +148,7 @@ func TestStressHTTP(t *testing.T) {
 		t.Error(firstError)
 	}
 
-	err = sender.stop()
+	_, err = sender.stop()
 	if err != nil {
 		t.Error(err)
 	}
