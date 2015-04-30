@@ -518,10 +518,9 @@ func syncthingMain() {
 	}
 
 	dbFile := locations[locDatabase]
-	dbOpts := &opt.Options{OpenFilesCacheCapacity: 100}
-	ldb, err := leveldb.OpenFile(dbFile, dbOpts)
+	ldb, err := leveldb.OpenFile(dbFile, dbOpts())
 	if err != nil && errors.IsCorrupted(err) {
-		ldb, err = leveldb.RecoverFile(dbFile, dbOpts)
+		ldb, err = leveldb.RecoverFile(dbFile, dbOpts())
 	}
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
@@ -663,6 +662,37 @@ func syncthingMain() {
 
 	l.Okln("Exiting")
 	os.Exit(code)
+}
+
+func dbOpts() *opt.Options {
+	// Calculate a sutiable database block cache capacity. We start at the
+	// default of 8 MiB and use larger values for machines with more memory.
+	// In reality, the database will use twice the amount we calculate here,
+	// as it also has two write buffers each sized at half the block cache.
+
+	blockCacheCapacity := 8 << 20
+	if bytes, err := memorySize(); err == nil {
+		if bytes > 74<<30 {
+			// At 74 GiB of RAM, we hit a 256 MiB block cache (per the
+			// calculations below). There's probably no point in growing the
+			// cache beyond this point.
+			blockCacheCapacity = 256 << 20
+		} else if bytes > 8<<30 {
+			// Slowly grow from 128 MiB at 8 GiB of RAM up to 256 MiB for a
+			// ~74 GiB RAM machine
+			blockCacheCapacity = int(bytes/512) + 128 - 16
+		} else if bytes > 512<<20 {
+			// Grow from 8 MiB at start to 128 MiB of cache at 8 GiB of RAM.
+			blockCacheCapacity = int(bytes / 64)
+		}
+		l.Infoln("Database block cache capacity", blockCacheCapacity/1024, "KiB")
+	}
+
+	return &opt.Options{
+		OpenFilesCacheCapacity: 100,
+		BlockCacheCapacity:     blockCacheCapacity,
+		WriteBuffer:            blockCacheCapacity / 2,
+	}
 }
 
 func startAuditing(mainSvc *suture.Supervisor) {
