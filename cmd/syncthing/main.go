@@ -554,7 +554,7 @@ func syncthingMain() {
 
 	// GUI
 
-	setupGUI(cfg, m)
+	setupGUI(mainSvc, cfg, m)
 
 	// Clear out old indexes for other devices. Otherwise we'll start up and
 	// start needing a bunch of files which are nowhere to be found. This
@@ -718,7 +718,7 @@ func startAuditing(mainSvc *suture.Supervisor) {
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(cfg *config.Wrapper, m *model.Model) {
+func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model) {
 	opts := cfg.Options()
 	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
 
@@ -747,10 +747,12 @@ func setupGUI(cfg *config.Wrapper, m *model.Model) {
 
 			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			l.Infoln("Starting web GUI on", urlShow)
-			err := startGUI(guiCfg, guiAssets, m)
+			api, err := newAPISvc(guiCfg, guiAssets, m)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
+			mainSvc.Add(api)
+
 			if opts.StartBrowser && !noBrowser && !stRestarting {
 				urlOpen := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostOpen, strconv.Itoa(addr.Port)))
 				// Can potentially block if the utility we are invoking doesn't
