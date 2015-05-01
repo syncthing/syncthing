@@ -19,6 +19,8 @@ type roFolder struct {
 
 	folder string
 	intv   time.Duration
+	timer  *time.Timer
+	tmut   sync.Mutex // protects timer
 	model  *Model
 	stop   chan struct{}
 }
@@ -31,6 +33,8 @@ func newROFolder(model *Model, folder string, interval time.Duration) *roFolder 
 		},
 		folder: folder,
 		intv:   interval,
+		timer:  time.NewTimer(time.Millisecond),
+		tmut:   sync.NewMutex(),
 		model:  model,
 		stop:   make(chan struct{}),
 	}
@@ -42,13 +46,18 @@ func (s *roFolder) Serve() {
 		defer l.Debugln(s, "exiting")
 	}
 
-	timer := time.NewTimer(time.Millisecond)
-	defer timer.Stop()
+	defer func() {
+		s.tmut.Lock()
+		s.timer.Stop()
+		s.tmut.Unlock()
+	}()
 
 	reschedule := func() {
 		// Sleep a random time between 3/4 and 5/4 of the configured interval.
 		sleepNanos := (s.intv.Nanoseconds()*3 + rand.Int63n(2*s.intv.Nanoseconds())) / 4
-		timer.Reset(time.Duration(sleepNanos) * time.Nanosecond)
+		s.tmut.Lock()
+		s.timer.Reset(time.Duration(sleepNanos) * time.Nanosecond)
+		s.tmut.Unlock()
 	}
 
 	initialScanCompleted := false
@@ -57,7 +66,7 @@ func (s *roFolder) Serve() {
 		case <-s.stop:
 			return
 
-		case <-timer.C:
+		case <-s.timer.C:
 			if err := s.model.CheckFolderHealth(s.folder); err != nil {
 				l.Infoln("Skipping folder", s.folder, "scan due to folder error:", err)
 				reschedule()
@@ -104,4 +113,10 @@ func (s *roFolder) BringToFront(string) {}
 
 func (s *roFolder) Jobs() ([]string, []string) {
 	return nil, nil
+}
+
+func (s *roFolder) DelayScan(next time.Duration) {
+	s.tmut.Lock()
+	s.timer.Reset(next)
+	s.tmut.Unlock()
 }

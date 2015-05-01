@@ -74,6 +74,9 @@ type rwFolder struct {
 	stop      chan struct{}
 	queue     *jobQueue
 	dbUpdates chan protocol.FileInfo
+	scanTimer *time.Timer
+	pullTimer *time.Timer
+	tmut      sync.Mutex // protects scanTimer and pullTimer
 }
 
 func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
@@ -96,8 +99,11 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		shortID:       shortID,
 		order:         cfg.Order,
 
-		stop:  make(chan struct{}),
-		queue: newJobQueue(),
+		stop:      make(chan struct{}),
+		queue:     newJobQueue(),
+		pullTimer: time.NewTimer(checkPullIntv),
+		scanTimer: time.NewTimer(time.Millisecond), // The first scan should be done immediately.
+		tmut:      sync.NewMutex(),
 	}
 }
 
@@ -109,12 +115,11 @@ func (p *rwFolder) Serve() {
 		defer l.Debugln(p, "exiting")
 	}
 
-	pullTimer := time.NewTimer(checkPullIntv)
-	scanTimer := time.NewTimer(time.Millisecond) // The first scan should be done immediately.
-
 	defer func() {
-		pullTimer.Stop()
-		scanTimer.Stop()
+		p.tmut.Lock()
+		p.pullTimer.Stop()
+		p.scanTimer.Stop()
+		p.tmut.Unlock()
 		// TODO: Should there be an actual FolderStopped state?
 		p.setState(FolderIdle)
 	}()
@@ -135,7 +140,9 @@ func (p *rwFolder) Serve() {
 		if debug {
 			l.Debugln(p, "next rescan in", intv)
 		}
-		scanTimer.Reset(intv)
+		p.tmut.Lock()
+		p.scanTimer.Reset(intv)
+		p.tmut.Unlock()
 	}
 
 	// We don't start pulling files until a scan has been completed.
@@ -151,12 +158,14 @@ func (p *rwFolder) Serve() {
 		// information is available. Before that though, I'd like to build a
 		// repeatable benchmark of how long it takes to sync a change from
 		// device A to device B, so we have something to work against.
-		case <-pullTimer.C:
+		case <-p.pullTimer.C:
 			if !initialScanCompleted {
 				if debug {
 					l.Debugln(p, "skip (initial)")
 				}
-				pullTimer.Reset(nextPullIntv)
+				p.tmut.Lock()
+				p.pullTimer.Reset(nextPullIntv)
+				p.tmut.Unlock()
 				continue
 			}
 
@@ -180,7 +189,9 @@ func (p *rwFolder) Serve() {
 				if debug {
 					l.Debugln(p, "skip (curVer == prevVer)", prevVer)
 				}
-				pullTimer.Reset(checkPullIntv)
+				p.tmut.Lock()
+				p.pullTimer.Reset(checkPullIntv)
+				p.tmut.Unlock()
 				continue
 			}
 
@@ -218,7 +229,9 @@ func (p *rwFolder) Serve() {
 					if debug {
 						l.Debugln(p, "next pull in", nextPullIntv)
 					}
-					pullTimer.Reset(nextPullIntv)
+					p.tmut.Lock()
+					p.pullTimer.Reset(nextPullIntv)
+					p.tmut.Unlock()
 					break
 				}
 
@@ -231,7 +244,9 @@ func (p *rwFolder) Serve() {
 					if debug {
 						l.Debugln(p, "next pull in", pauseIntv)
 					}
-					pullTimer.Reset(pauseIntv)
+					p.tmut.Lock()
+					p.pullTimer.Reset(pauseIntv)
+					p.tmut.Unlock()
 					break
 				}
 			}
@@ -240,7 +255,7 @@ func (p *rwFolder) Serve() {
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
-		case <-scanTimer.C:
+		case <-p.scanTimer.C:
 			if err := p.model.CheckFolderHealth(p.folder); err != nil {
 				l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
 				rescheduleScan()
@@ -1163,6 +1178,12 @@ func (p *rwFolder) BringToFront(filename string) {
 
 func (p *rwFolder) Jobs() ([]string, []string) {
 	return p.queue.Jobs()
+}
+
+func (p *rwFolder) DelayScan(next time.Duration) {
+	p.tmut.Lock()
+	p.scanTimer.Reset(next)
+	p.tmut.Unlock()
 }
 
 // dbUpdaterRoutine aggregates db updates and commits them in batches no
