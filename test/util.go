@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/symlinks"
@@ -165,6 +166,22 @@ func alterFiles(dir string) error {
 				return err
 			}
 
+		// Change capitalization
+		case r == 2 && comps > 3 && rand.Float64() < 0.2:
+			base := []rune(filepath.Base(path))
+			for i, r := range base {
+				if rand.Float64() < 0.5 {
+					base[i] = unicode.ToLower(r)
+				} else {
+					base[i] = unicode.ToUpper(r)
+				}
+			}
+			err = os.Rename(path, strings.Replace(path, filepath.Base(path), string(base), 1))
+			if err != nil {
+				return err
+			}
+
+		// Switch between files and directories
 		case r == 2 && comps > 3 && rand.Float64() < 0.2:
 			if !info.Mode().IsRegular() {
 				err = removeAll(path)
