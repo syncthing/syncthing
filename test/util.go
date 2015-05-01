@@ -134,9 +134,7 @@ func alterFiles(dir string) error {
 		case r == 0 && comps > 2:
 			// Delete every tenth file or directory, except top levels
 			err := removeAll(path)
-			if err != nil {
-				return err
-			}
+			return err
 
 		case r == 1 && info.Mode().IsRegular():
 			if info.Mode()&0200 != 0200 {
@@ -162,9 +160,7 @@ func alterFiles(dir string) error {
 				return err
 			}
 			err = fd.Close()
-			if err != nil {
-				return err
-			}
+			return err
 
 		// Change capitalization
 		case r == 2 && comps > 3 && rand.Float64() < 0.2:
@@ -177,9 +173,7 @@ func alterFiles(dir string) error {
 				}
 			}
 			err = os.Rename(path, strings.Replace(path, filepath.Base(path), string(base), 1))
-			if err != nil {
-				return err
-			}
+			return err
 
 		// Switch between files and directories
 		case r == 2 && comps > 3 && rand.Float64() < 0.2:
@@ -204,6 +198,7 @@ func alterFiles(dir string) error {
 				}
 				generateFiles(path, 10, 20, "../LICENSE")
 			}
+			return err
 
 		case r == 3 && comps > 2 && (info.Mode().IsRegular() || rand.Float64() < 0.2):
 			rpath := filepath.Dir(path)
@@ -213,9 +208,7 @@ func alterFiles(dir string) error {
 				}
 			}
 			err = os.Rename(path, filepath.Join(rpath, randomName()))
-			if err != nil {
-				return err
-			}
+			return err
 		}
 		return nil
 	})
