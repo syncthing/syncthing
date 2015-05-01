@@ -172,7 +172,7 @@ func alterFiles(dir string) error {
 					base[i] = unicode.ToUpper(r)
 				}
 			}
-			err = os.Rename(path, strings.Replace(path, filepath.Base(path), string(base), 1))
+			err = osutil.TryRename(path, strings.Replace(path, filepath.Base(path), string(base), 1))
 			return err
 
 		// Switch between files and directories
@@ -188,7 +188,7 @@ func alterFiles(dir string) error {
 					return err
 				}
 			} else {
-				err := os.Remove(path)
+				err := osutil.Remove(path)
 				if err != nil {
 					return err
 				}
@@ -207,7 +207,7 @@ func alterFiles(dir string) error {
 					rpath = filepath.Join(rpath, "..")
 				}
 			}
-			err = os.Rename(path, filepath.Join(rpath, randomName()))
+			err = osutil.TryRename(path, filepath.Join(rpath, randomName()))
 			return err
 		}
 		return nil

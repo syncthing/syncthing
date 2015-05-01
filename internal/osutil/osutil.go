@@ -32,7 +32,7 @@ func TryRename(from, to string) error {
 	renameLock.Lock()
 	defer renameLock.Unlock()
 
-	return withPreparedTarget(to, func() error {
+	return withPreparedTarget(from, to, func() error {
 		return os.Rename(from, to)
 	})
 }
@@ -44,7 +44,9 @@ func TryRename(from, to string) error {
 // permissions and removing the destination file when necessary.
 func Rename(from, to string) error {
 	// Don't leave a dangling temp file in case of rename error
-	defer os.Remove(from)
+	if !(runtime.GOOS == "windows" && strings.EqualFold(from, to)) {
+		defer os.Remove(from)
+	}
 	return TryRename(from, to)
 }
 
@@ -52,7 +54,7 @@ func Rename(from, to string) error {
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
 func Copy(from, to string) (err error) {
-	return withPreparedTarget(to, func() error {
+	return withPreparedTarget(from, to, func() error {
 		return copyFileContents(from, to)
 	})
 }
@@ -143,7 +145,7 @@ func getHomeDir() (string, error) {
 
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
-func withPreparedTarget(to string, f func() error) error {
+func withPreparedTarget(from, to string, f func() error) error {
 	// Make sure the destination directory is writeable
 	toDir := filepath.Dir(to)
 	if info, err := os.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
@@ -154,9 +156,11 @@ func withPreparedTarget(to string, f func() error) error {
 	// On Windows, make sure the destination file is writeable (or we can't delete it)
 	if runtime.GOOS == "windows" {
 		os.Chmod(to, 0666)
-		err := os.Remove(to)
-		if err != nil && !os.IsNotExist(err) {
-			return err
+		if !strings.EqualFold(from, to) {
+			err := os.Remove(to)
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
 		}
 	}
 	return f()
