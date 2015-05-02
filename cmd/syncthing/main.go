@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -349,7 +350,13 @@ func main() {
 			// Use leveldb database locks to protect against concurrent upgrades
 			_, err = leveldb.OpenFile(locations[locDatabase], &opt.Options{OpenFilesCacheCapacity: 100})
 			if err != nil {
-				l.Fatalln("Cannot upgrade, database seems to be locked. Is another copy of Syncthing already running?")
+				l.Infoln("Attempting upgrade through running Syncthing...")
+				err = upgradeViaRest()
+				if err != nil {
+					l.Fatalln("Upgrade:", err)
+				}
+				l.Okln("Syncthing upgrading")
+				return
 			}
 
 			err = upgrade.To(rel)
@@ -372,6 +379,43 @@ func main() {
 	} else {
 		monitorMain()
 	}
+}
+
+func upgradeViaRest() error {
+	cfg, err := config.Load(locations[locConfigFile], protocol.LocalDeviceID)
+	if err != nil {
+		return err
+	}
+	target := cfg.GUI().Address
+	if cfg.GUI().UseTLS {
+		target = "https://" + target
+	} else {
+		target = "http://" + target
+	}
+	r, _ := http.NewRequest("POST", target+"/rest/system/upgrade", nil)
+	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{
+		Transport: tr,
+		Timeout:   60 * time.Second,
+	}
+	resp, err := client.Do(r)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 200 {
+		bs, err := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+		if err != nil {
+			return err
+		}
+		return errors.New(string(bs))
+	}
+
+	return err
 }
 
 func syncthingMain() {
