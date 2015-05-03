@@ -106,12 +106,24 @@ func monitorMain() {
 		stdoutLastLines = make([]string, 0, 50)
 		stdoutMut.Unlock()
 
-		go copyStderr(stderr, dst)
-		go copyStdout(stdout, dst)
+		wg := sync.NewWaitGroup()
+
+		wg.Add(1)
+		go func() {
+			copyStderr(stderr, dst)
+			wg.Done()
+		}()
+
+		wg.Add(1)
+		go func() {
+			copyStdout(stdout, dst)
+			wg.Done()
+		}()
 
 		exit := make(chan error)
 
 		go func() {
+			wg.Wait()
 			exit <- cmd.Wait()
 		}()
 
@@ -149,7 +161,7 @@ func monitorMain() {
 	}
 }
 
-func copyStderr(stderr io.ReadCloser, dst io.Writer) {
+func copyStderr(stderr io.Reader, dst io.Writer) {
 	br := bufio.NewReader(stderr)
 
 	var panicFd *os.File
@@ -192,7 +204,7 @@ func copyStderr(stderr io.ReadCloser, dst io.Writer) {
 	}
 }
 
-func copyStdout(stdout io.ReadCloser, dst io.Writer) {
+func copyStdout(stdout io.Reader, dst io.Writer) {
 	br := bufio.NewReader(stdout)
 	for {
 		line, err := br.ReadString('\n')
