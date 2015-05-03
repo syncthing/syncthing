@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
@@ -33,32 +32,6 @@ type Staggered struct {
 	folderPath    string
 	interval      [4]Interval
 	mutex         sync.Mutex
-}
-
-// Rename versions with old version format
-func (v Staggered) renameOld() {
-	err := filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if f.Mode().IsRegular() {
-			versionUnix, err := strconv.ParseInt(strings.Replace(filepath.Ext(path), ".v", "", 1), 10, 0)
-			if err == nil {
-				l.Infoln("Renaming file", path, "from old to new version format")
-				versiondate := time.Unix(versionUnix, 0)
-				name := path[:len(path)-len(filepath.Ext(path))]
-				err = osutil.Rename(path, taggedFilename(name, versiondate.Format(TimeFormat)))
-				if err != nil {
-					l.Infoln("Error renaming to new format", err)
-				}
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		l.Infoln("Versioner: error scanning versions dir", err)
-		return
-	}
 }
 
 func NewStaggered(folderID, folderPath string, params map[string]string) Versioner {
@@ -101,9 +74,6 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 	if debug {
 		l.Debugf("instantiated %#v", s)
 	}
-
-	// Rename version with old version format
-	s.renameOld()
 
 	go func() {
 		s.clean()
