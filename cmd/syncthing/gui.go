@@ -775,8 +775,14 @@ func (s *apiSvc) postDBScan(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	if folder != "" {
+		nextStr := qs.Get("next")
+		next, err := strconv.Atoi(nextStr)
+		if err == nil {
+			s.model.DelayScan(folder, time.Duration(next)*time.Second)
+		}
+
 		subs := qs["sub"]
-		err := s.model.ScanFolderSubs(folder, subs)
+		err = s.model.ScanFolderSubs(folder, subs)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -788,11 +794,6 @@ func (s *apiSvc) postDBScan(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(errors)
 			return
 		}
-	}
-	nextStr := qs.Get("next")
-	next, err := strconv.Atoi(nextStr)
-	if err == nil {
-		s.model.DelayScan(folder, time.Duration(next)*time.Second)
 	}
 }
 
