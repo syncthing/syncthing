@@ -116,10 +116,11 @@ func (v Staggered) clean() {
 			}
 		} else {
 			// Regular file, or possibly a symlink.
-
-			extension := filenameTag(path)
+			ext := filepath.Ext(path)
+			versionTag := filenameTag(path)
 			dir := filepath.Dir(path)
-			name := path[:len(path)-len(extension)-1]
+			withoutExt := path[:len(path)-len(ext)-len(versionTag)-1]
+			name := withoutExt + ext
 
 			filesPerDir[dir]++
 			versionsPerFile[name] = append(versionsPerFile[name], path)
