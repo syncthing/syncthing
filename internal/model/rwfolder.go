@@ -76,7 +76,7 @@ type rwFolder struct {
 	dbUpdates chan protocol.FileInfo
 	scanTimer *time.Timer
 	pullTimer *time.Timer
-	tmut      sync.Mutex // protects scanTimer and pullTimer
+	delayScan chan time.Duration
 }
 
 func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
@@ -103,7 +103,7 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		queue:     newJobQueue(),
 		pullTimer: time.NewTimer(checkPullIntv),
 		scanTimer: time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-		tmut:      sync.NewMutex(),
+		delayScan: make(chan time.Duration),
 	}
 }
 
@@ -116,10 +116,8 @@ func (p *rwFolder) Serve() {
 	}
 
 	defer func() {
-		p.tmut.Lock()
 		p.pullTimer.Stop()
 		p.scanTimer.Stop()
-		p.tmut.Unlock()
 		// TODO: Should there be an actual FolderStopped state?
 		p.setState(FolderIdle)
 	}()
@@ -140,9 +138,7 @@ func (p *rwFolder) Serve() {
 		if debug {
 			l.Debugln(p, "next rescan in", intv)
 		}
-		p.tmut.Lock()
 		p.scanTimer.Reset(intv)
-		p.tmut.Unlock()
 	}
 
 	// We don't start pulling files until a scan has been completed.
@@ -163,9 +159,7 @@ func (p *rwFolder) Serve() {
 				if debug {
 					l.Debugln(p, "skip (initial)")
 				}
-				p.tmut.Lock()
 				p.pullTimer.Reset(nextPullIntv)
-				p.tmut.Unlock()
 				continue
 			}
 
@@ -189,9 +183,7 @@ func (p *rwFolder) Serve() {
 				if debug {
 					l.Debugln(p, "skip (curVer == prevVer)", prevVer)
 				}
-				p.tmut.Lock()
 				p.pullTimer.Reset(checkPullIntv)
-				p.tmut.Unlock()
 				continue
 			}
 
@@ -229,9 +221,7 @@ func (p *rwFolder) Serve() {
 					if debug {
 						l.Debugln(p, "next pull in", nextPullIntv)
 					}
-					p.tmut.Lock()
 					p.pullTimer.Reset(nextPullIntv)
-					p.tmut.Unlock()
 					break
 				}
 
@@ -244,9 +234,7 @@ func (p *rwFolder) Serve() {
 					if debug {
 						l.Debugln(p, "next pull in", pauseIntv)
 					}
-					p.tmut.Lock()
 					p.pullTimer.Reset(pauseIntv)
-					p.tmut.Unlock()
 					break
 				}
 			}
@@ -283,6 +271,9 @@ func (p *rwFolder) Serve() {
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
 				initialScanCompleted = true
 			}
+
+		case next := <-p.delayScan:
+			p.scanTimer.Reset(next)
 		}
 	}
 }
@@ -1181,9 +1172,7 @@ func (p *rwFolder) Jobs() ([]string, []string) {
 }
 
 func (p *rwFolder) DelayScan(next time.Duration) {
-	p.tmut.Lock()
-	p.scanTimer.Reset(next)
-	p.tmut.Unlock()
+	p.delayScan <- next
 }
 
 // dbUpdaterRoutine aggregates db updates and commits them in batches no

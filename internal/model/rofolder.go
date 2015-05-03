@@ -17,12 +17,12 @@ import (
 type roFolder struct {
 	stateTracker
 
-	folder string
-	intv   time.Duration
-	timer  *time.Timer
-	tmut   sync.Mutex // protects timer
-	model  *Model
-	stop   chan struct{}
+	folder    string
+	intv      time.Duration
+	timer     *time.Timer
+	model     *Model
+	stop      chan struct{}
+	delayScan chan time.Duration
 }
 
 func newROFolder(model *Model, folder string, interval time.Duration) *roFolder {
@@ -31,12 +31,12 @@ func newROFolder(model *Model, folder string, interval time.Duration) *roFolder 
 			folder: folder,
 			mut:    sync.NewMutex(),
 		},
-		folder: folder,
-		intv:   interval,
-		timer:  time.NewTimer(time.Millisecond),
-		tmut:   sync.NewMutex(),
-		model:  model,
-		stop:   make(chan struct{}),
+		folder:    folder,
+		intv:      interval,
+		timer:     time.NewTimer(time.Millisecond),
+		model:     model,
+		stop:      make(chan struct{}),
+		delayScan: make(chan time.Duration),
 	}
 }
 
@@ -47,17 +47,13 @@ func (s *roFolder) Serve() {
 	}
 
 	defer func() {
-		s.tmut.Lock()
 		s.timer.Stop()
-		s.tmut.Unlock()
 	}()
 
 	reschedule := func() {
 		// Sleep a random time between 3/4 and 5/4 of the configured interval.
 		sleepNanos := (s.intv.Nanoseconds()*3 + rand.Int63n(2*s.intv.Nanoseconds())) / 4
-		s.tmut.Lock()
 		s.timer.Reset(time.Duration(sleepNanos) * time.Nanosecond)
-		s.tmut.Unlock()
 	}
 
 	initialScanCompleted := false
@@ -97,6 +93,9 @@ func (s *roFolder) Serve() {
 			}
 
 			reschedule()
+
+		case next := <-s.delayScan:
+			s.timer.Reset(next)
 		}
 	}
 }
@@ -116,7 +115,5 @@ func (s *roFolder) Jobs() ([]string, []string) {
 }
 
 func (s *roFolder) DelayScan(next time.Duration) {
-	s.tmut.Lock()
-	s.timer.Reset(next)
-	s.tmut.Unlock()
+	s.delayScan <- next
 }
