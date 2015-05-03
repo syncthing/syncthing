@@ -9,7 +9,7 @@
     "Addresses": "Címek",
     "All Data": "Minden adat",
     "Allow Anonymous Usage Reporting?": "Engedélyezed a névtelen felhasználási adatok küldését?",
-    "An external command handles the versioning. It has to remove the file from the synced folder.": "An external command handles the versioning. It has to remove the file from the synced folder.",
+    "An external command handles the versioning. It has to remove the file from the synced folder.": "Egy külső program kezeli a fájl verziózást. El kell távolítsa a fájlt a szinkronizált mappából.",
     "Anonymous Usage Reporting": "Névtelen felhasználási adatok küldése",
     "Any devices configured on an introducer device will be added to this device as well.": "Minden eszköz ami a bevezető eszközön lett beállítva hozzá lesz adva ehhez az eszközhöz is.",
     "Automatic upgrades": "Automatikus frissítés",
