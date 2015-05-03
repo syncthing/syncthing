@@ -95,23 +95,15 @@ func (v Staggered) clean() {
 		l.Debugln("Versioner clean: Cleaning", v.versionsPath)
 	}
 
-	_, err := os.Stat(v.versionsPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if debug {
-				l.Debugln("creating versions dir", v.versionsPath)
-			}
-			os.MkdirAll(v.versionsPath, 0755)
-			osutil.HideFile(v.versionsPath)
-		} else {
-			l.Warnln("Versioner: can't create versions dir", err)
-		}
+	if _, err := os.Stat(v.versionsPath); os.IsNotExist(err) {
+		// There is no need to clean a nonexistent dir.
+		return
 	}
 
 	versionsPerFile := make(map[string][]string)
 	filesPerDir := make(map[string]int)
 
-	err = filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
+	err := filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -165,6 +157,7 @@ func (v Staggered) clean() {
 			l.Warnln("Versioner: can't remove directory", path, err)
 		}
 	}
+
 	if debug {
 		l.Debugln("Cleaner: Finished cleaning", v.versionsPath)
 	}
