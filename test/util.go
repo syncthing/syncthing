@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/symlinks"
@@ -133,9 +134,7 @@ func alterFiles(dir string) error {
 		case r == 0 && comps > 2:
 			// Delete every tenth file or directory, except top levels
 			err := removeAll(path)
-			if err != nil {
-				return err
-			}
+			return err
 
 		case r == 1 && info.Mode().IsRegular():
 			if info.Mode()&0200 != 0200 {
@@ -161,10 +160,22 @@ func alterFiles(dir string) error {
 				return err
 			}
 			err = fd.Close()
-			if err != nil {
-				return err
-			}
+			return err
 
+		// Change capitalization
+		case r == 2 && comps > 3 && rand.Float64() < 0.2:
+			base := []rune(filepath.Base(path))
+			for i, r := range base {
+				if rand.Float64() < 0.5 {
+					base[i] = unicode.ToLower(r)
+				} else {
+					base[i] = unicode.ToUpper(r)
+				}
+			}
+			err = osutil.TryRename(path, strings.Replace(path, filepath.Base(path), string(base), 1))
+			return err
+
+		// Switch between files and directories
 		case r == 2 && comps > 3 && rand.Float64() < 0.2:
 			if !info.Mode().IsRegular() {
 				err = removeAll(path)
@@ -177,7 +188,7 @@ func alterFiles(dir string) error {
 					return err
 				}
 			} else {
-				err := os.Remove(path)
+				err := osutil.Remove(path)
 				if err != nil {
 					return err
 				}
@@ -187,6 +198,7 @@ func alterFiles(dir string) error {
 				}
 				generateFiles(path, 10, 20, "../LICENSE")
 			}
+			return err
 
 		case r == 3 && comps > 2 && (info.Mode().IsRegular() || rand.Float64() < 0.2):
 			rpath := filepath.Dir(path)
@@ -195,10 +207,8 @@ func alterFiles(dir string) error {
 					rpath = filepath.Join(rpath, "..")
 				}
 			}
-			err = os.Rename(path, filepath.Join(rpath, randomName()))
-			if err != nil {
-				return err
-			}
+			err = osutil.TryRename(path, filepath.Join(rpath, randomName()))
+			return err
 		}
 		return nil
 	})
