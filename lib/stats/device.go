@@ -11,7 +11,6 @@ import (
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type DeviceStatistics struct {
@@ -23,10 +22,9 @@ type DeviceStatisticsReference struct {
 	device protocol.DeviceID
 }
 
-func NewDeviceStatisticsReference(ldb *leveldb.DB, device protocol.DeviceID) *DeviceStatisticsReference {
-	prefix := string(db.KeyTypeDeviceStatistic) + device.String()
+func NewDeviceStatisticsReference(ldb *db.BoltDB, device protocol.DeviceID) *DeviceStatisticsReference {
 	return &DeviceStatisticsReference{
-		ns:     db.NewNamespacedKV(ldb, prefix),
+		ns:     db.NewNamespacedKV(ldb, "devstat/"+device.String()),
 		device: device,
 	}
 }
