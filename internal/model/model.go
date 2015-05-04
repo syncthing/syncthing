@@ -49,6 +49,7 @@ type service interface {
 	Stop()
 	Jobs() ([]string, []string) // In progress, Queued
 	BringToFront(string)
+	DelayScan(d time.Duration)
 
 	setState(state folderState)
 	setError(err error)
@@ -1320,6 +1321,16 @@ nextSub:
 
 	runner.setState(FolderIdle)
 	return nil
+}
+
+func (m *Model) DelayScan(folder string, next time.Duration) {
+	m.fmut.Lock()
+	runner, ok := m.folderRunners[folder]
+	m.fmut.Unlock()
+	if !ok {
+		return
+	}
+	runner.DelayScan(next)
 }
 
 // numHashers returns the number of hasher routines to use for a given folder,

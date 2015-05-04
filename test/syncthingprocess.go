@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"github.com/syncthing/protocol"
@@ -311,6 +312,19 @@ func (p *syncthingProcess) version() (string, error) {
 
 func (p *syncthingProcess) rescan(folder string) error {
 	resp, err := p.post("/rest/db/scan?folder="+folder, nil)
+	if err != nil {
+		return err
+	}
+	data, _ := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("Rescan %q: status code %d: %s", folder, resp.StatusCode, data)
+	}
+	return nil
+}
+
+func (p *syncthingProcess) rescanNext(folder string, next time.Duration) error {
+	resp, err := p.post("/rest/db/scan?folder="+folder+"&next="+strconv.Itoa(int(next.Seconds())), nil)
 	if err != nil {
 		return err
 	}
