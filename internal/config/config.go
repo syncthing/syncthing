@@ -240,6 +240,7 @@ type OptionsConfiguration struct {
 	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" json:"progressUpdateIntervalS" default:"5"`
 	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
 	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
+	PanicReporting          int      `xml:"panicReporting" json:"panicReporting" default:"0"` // 1 for on; 0 for off (undecided), -1 for off (permanently)
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {

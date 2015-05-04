@@ -663,6 +663,11 @@ func syncthingMain() {
 		}
 	}
 
+	// This is printed out to inform monitor process about options
+	if opts.PanicReporting > 0 {
+		l.Infoln("Options: PanicReporting: true")
+	}
+
 	if opts.URAccepted > 0 && opts.URAccepted < usageReportVersion {
 		l.Infoln("Anonymous usage report has changed; revoking acceptance")
 		opts.URAccepted = 0

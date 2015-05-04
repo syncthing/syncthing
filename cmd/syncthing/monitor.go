@@ -8,7 +8,9 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -25,6 +27,8 @@ var (
 	stdoutFirstLines []string // The first 10 lines of stdout
 	stdoutLastLines  []string // The last 50 lines of stdout
 	stdoutMut        = sync.NewMutex()
+
+	optPanicReporting bool
 )
 
 const (
@@ -193,6 +197,37 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 					panicFd.WriteString(line)
 				}
 				stdoutMut.Unlock()
+
+				if optPanicReporting {
+					// Prepare query for collecting error log
+					type Report struct {
+						Error           string
+						Time            string
+						Version         string
+						LongVersion     string
+						Os              string
+						Arch            string
+						PrecedingLines  []string
+						SucceedingLines []string
+					}
+					report := &Report{Error: line[:len(line)-1],
+						Time:            time.Now().Format(time.RFC3339),
+						Version:         Version,
+						LongVersion:     LongVersion,
+						Os:              runtime.GOOS,
+						Arch:            runtime.GOARCH,
+						PrecedingLines:  stdoutFirstLines,
+						SucceedingLines: stdoutLastLines}
+					b, err := json.Marshal(report)
+					if err == nil {
+						var jsonString = string(b)
+						// Send error log
+						resp, _ := http.Post("https://data.syncthing.net/panic", "application/json", strings.NewReader(jsonString))
+						defer resp.Body.Close()
+					} else {
+						l.Warnln(err)
+					}
+				}
 			}
 
 			panicFd.WriteString("Panic at " + time.Now().Format(time.RFC3339) + "\n")
@@ -210,6 +245,10 @@ func copyStdout(stdout io.Reader, dst io.Writer) {
 		line, err := br.ReadString('\n')
 		if err != nil {
 			return
+		}
+
+		if strings.Contains(line, "INFO: Options: PanicReporting: true") {
+			optPanicReporting = true
 		}
 
 		stdoutMut.Lock()
