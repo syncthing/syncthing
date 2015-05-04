@@ -44,16 +44,41 @@ func NewBlockMap(db *leveldb.DB, folder string) *BlockMap {
 func (m *BlockMap) Add(files []protocol.FileInfo) error {
 	batch := new(leveldb.Batch)
 	buf := make([]byte, 4)
+	folderBytes := []byte(m.folder)
+
+	// We build the key manually in here (instead of calling m.blockKey) to
+	// reduce the allocations and work done per block, since this is a tight
+	// loop running for every block.
+	var key []byte
+
 	for _, file := range files {
+		keyLen := 1 + 64 + 32 + len(file.Name)
+		if len(key) < keyLen {
+			key = make([]byte, keyLen)
+		}
+
+		key[0] = KeyTypeBlock
+		copy(key[1:], folderBytes)
+		copy(key[1+64+32:], []byte(file.Name))
+
 		if file.IsDirectory() || file.IsDeleted() || file.IsInvalid() {
 			continue
 		}
 
 		for i, block := range file.Blocks {
 			binary.BigEndian.PutUint32(buf, uint32(i))
-			batch.Put(m.blockKey(block.Hash, file.Name), buf)
+			copy(key[1+64:], block.Hash)
+			batch.Put(key[:keyLen], buf)
+
+			if batch.Len() >= 1000 {
+				if err := m.db.Write(batch, nil); err != nil {
+					return err
+				}
+				batch.Reset()
+			}
 		}
 	}
+
 	return m.db.Write(batch, nil)
 }
 
