@@ -7,6 +7,7 @@
 package db
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/syncthing/protocol"
@@ -20,11 +21,20 @@ func genBlocks(n int) []protocol.BlockInfo {
 	b := make([]protocol.BlockInfo, n)
 	for i := range b {
 		h := make([]byte, 32)
-		for j := range h {
-			h[j] = byte(i + j)
+		for i := 0; i < len(h)/4; i += 4 {
+			r := rand.Uint32()
+			h[i*4] = byte(r)
+			h[i*4+1] = byte(r >> 8)
+			h[i*4+2] = byte(r >> 16)
+			h[i*4+3] = byte(r >> 24)
 		}
-		b[i].Size = int32(i)
 		b[i].Hash = h
+
+		if i == n-1 {
+			b[i].Size = 1234
+		} else {
+			b[i].Size = protocol.BlockSize
+		}
 	}
 	return b
 }
@@ -256,4 +266,29 @@ func TestBlockFinderFix(t *testing.T) {
 	if !f.Iterate(f2.Blocks[0].Hash, iterFn) {
 		t.Fatal("Block not found")
 	}
+}
+
+func BenchmarkBlockMapAdd(b *testing.B) {
+	db, _ := setup()
+
+	if !dbEmpty(db) {
+		b.Fatal("db not empty")
+	}
+
+	m := NewBlockMap(db, "folder1")
+
+	f := protocol.FileInfo{
+		Name:   "A moderately long filename such as would be seen when things are a few directories deep or are movie files or something",
+		Blocks: genBlocks(100000), // This is a 12 GB file
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if err := m.Add([]protocol.FileInfo{f}); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	b.ReportAllocs()
 }
