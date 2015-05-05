@@ -192,3 +192,21 @@ func copyFileContents(src, dst string) (err error) {
 	err = out.Sync()
 	return
 }
+
+var execExts map[string]bool
+
+func init() {
+	// PATHEXT contains a list of executable file extensions, on Windows
+	pathext := filepath.SplitList(os.Getenv("PATHEXT"))
+	// We want the extensions in execExts to be lower case
+	execExts = make(map[string]bool, len(pathext))
+	for _, ext := range pathext {
+		execExts[strings.ToLower(ext)] = true
+	}
+}
+
+// IsWindowsExecutable returns true if the given path has an extension that is
+// in the list of executable extensions.
+func IsWindowsExecutable(path string) bool {
+	return execExts[strings.ToLower(filepath.Ext(path))]
+}
