@@ -255,7 +255,7 @@ func parseResponse(deviceType string, resp []byte) (IGD, error) {
 		return IGD{}, errors.New("invalid IGD response: USN not specified")
 	}
 
-	deviceUUID := strings.TrimLeft(strings.Split(deviceUSN, "::")[0], "uuid:")
+	deviceUUID := strings.TrimPrefix(strings.Split(deviceUSN, "::")[0], "uuid:")
 	matched, err := regexp.MatchString("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}", deviceUUID)
 	if !matched {
 		l.Infoln("Invalid IGD response: invalid device UUID", deviceUUID, "(continuing anyway)")
