@@ -308,6 +308,11 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 		}
 
 		if info.Mode().IsRegular() {
+			curMode := uint32(info.Mode())
+			if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(rn) {
+				curMode |= 0111
+			}
+
 			if w.CurrentFiler != nil {
 				// A file is "unchanged", if it
 				//  - exists
@@ -319,7 +324,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - was not invalid (since it looks valid now)
 				//  - has the same size as previously
 				cf, ok = w.CurrentFiler.CurrentFile(rn)
-				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
+				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, curMode)
 				if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && !cf.IsDirectory() &&
 					!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
 					return nil
@@ -330,7 +335,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				}
 			}
 
-			var flags = uint32(info.Mode() & maskModePerm)
+			var flags = curMode & uint32(maskModePerm)
 			if w.IgnorePerms {
 				flags = protocol.FlagNoPermBits | 0666
 			}
@@ -387,5 +392,4 @@ func SymlinkTypeEqual(disk, index uint32) bool {
 		return true
 	}
 	return disk&protocol.SymlinkTypeMask == index&protocol.SymlinkTypeMask
-
 }
