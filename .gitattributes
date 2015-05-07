@@ -1,5 +1,5 @@
 # Text files use LF line endings in this repository
-*   text eol=lf
+*   text=auto
 
 # Except the dependencies, which we leave alone
 Godeps/**   -text=auto
