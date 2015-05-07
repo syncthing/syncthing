@@ -7,6 +7,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"log"
@@ -15,41 +16,71 @@ import (
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 func main() {
 	log.SetFlags(0)
 	log.SetOutput(os.Stdout)
 
-	folder := flag.String("folder", "default", "Folder ID")
-	device := flag.String("device", "", "Device ID (blank for global)")
 	flag.Parse()
 
-	ldb, err := leveldb.OpenFile(flag.Arg(0), nil)
+	ldb, err := leveldb.OpenFile(flag.Arg(0), &opt.Options{
+		ErrorIfMissing:         true,
+		Strict:                 opt.StrictAll,
+		OpenFilesCacheCapacity: 100,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fs := db.NewFileSet(*folder, ldb)
+	it := ldb.NewIterator(nil, nil)
+	var dev protocol.DeviceID
+	for it.Next() {
+		key := it.Key()
+		switch key[0] {
+		case db.KeyTypeDevice:
+			folder := nulString(key[1 : 1+64])
+			devBytes := key[1+64 : 1+64+32]
+			name := nulString(key[1+64+32:])
+			copy(dev[:], devBytes)
+			fmt.Printf("[device] F:%q N:%q D:%v\n", folder, name, dev)
 
-	if *device == "" {
-		log.Printf("*** Global index for folder %q", *folder)
-		fs.WithGlobalTruncated(func(fi db.FileIntf) bool {
-			f := fi.(db.FileInfoTruncated)
-			fmt.Println(f)
-			fmt.Println("\t", fs.Availability(f.Name))
-			return true
-		})
-	} else {
-		n, err := protocol.DeviceIDFromString(*device)
-		if err != nil {
-			log.Fatal(err)
+			var f protocol.FileInfo
+			err := f.UnmarshalXDR(it.Value())
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("  N:%q\n  F:%#o\n  M:%d\n  V:%v\n  S:%d\n  B:%d\n", f.Name, f.Flags, f.Modified, f.Version, f.Size(), len(f.Blocks))
+
+		case db.KeyTypeGlobal:
+			folder := nulString(key[1 : 1+64])
+			name := nulString(key[1+64:])
+			fmt.Printf("[global] F:%q N:%q V:%x\n", folder, name, it.Value())
+
+		case db.KeyTypeBlock:
+			folder := nulString(key[1 : 1+64])
+			hash := key[1+64 : 1+64+32]
+			name := nulString(key[1+64+32:])
+			fmt.Printf("[block] F:%q H:%x N:%q I:%d\n", folder, hash, name, binary.BigEndian.Uint32(it.Value()))
+
+		case db.KeyTypeDeviceStatistic:
+			fmt.Printf("[dstat]\n  %x\n  %x", it.Key(), it.Value())
+
+		case db.KeyTypeFolderStatistic:
+			fmt.Printf("[fstat]\n  %x\n  %x", it.Key(), it.Value())
+
+		default:
+			fmt.Printf("[???]\n  %x\n  %x", it.Key(), it.Value())
 		}
-		log.Printf("*** Have index for folder %q device %q", *folder, n)
-		fs.WithHaveTruncated(n, func(fi db.FileIntf) bool {
-			f := fi.(db.FileInfoTruncated)
-			fmt.Println(f)
-			return true
-		})
 	}
+}
+
+func nulString(bs []byte) string {
+	for i := range bs {
+		if bs[i] == 0 {
+			return string(bs[:i])
+		}
+	}
+	return string(bs)
 }
