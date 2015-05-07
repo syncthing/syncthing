@@ -66,7 +66,8 @@ func (p *syncthingProcess) start() error {
 		binary = binary + "-" + p.instance + ".exe"
 	}
 
-	cmd := exec.Command(binary, p.argv...)
+	argv := append(p.argv, "-no-browser")
+	cmd := exec.Command(binary, argv...)
 	cmd.Stdout = p.logfd
 	cmd.Stderr = p.logfd
 	cmd.Env = append(os.Environ(), env...)
