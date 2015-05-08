@@ -20,7 +20,7 @@ func TestBenchmarkTransferManyFiles(t *testing.T) {
 }
 
 func TestBenchmarkTransferLargeFiles(t *testing.T) {
-	benchmarkTransfer(t, 200, 24)
+	benchmarkTransfer(t, 200, 28)
 }
 
 func benchmarkTransfer(t *testing.T, files, sizeExp int) {
