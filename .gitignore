@@ -4,6 +4,7 @@ syncthing.exe
 *.zip
 *.asc
 *.sublime*
+.*.swp
 .idea/
 .jshintrc
 coverage.out
