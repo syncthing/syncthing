@@ -60,7 +60,6 @@ type service interface {
 type Model struct {
 	cfg             *config.Wrapper
 	db              *leveldb.DB
-	finder          *db.BlockFinder
 	progressEmitter *ProgressEmitter
 	id              protocol.DeviceID
 	shortID         uint64
@@ -99,7 +98,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 	m := &Model{
 		cfg:             cfg,
 		db:              ldb,
-		finder:          db.NewBlockFinder(ldb, cfg),
 		progressEmitter: NewProgressEmitter(cfg),
 		id:              id,
 		shortID:         id.Short(),
@@ -1661,6 +1659,27 @@ func (m *Model) ResetFolder(folder string) error {
 		}
 	}
 	return fmt.Errorf("Unknown folder %q", folder)
+}
+
+func (m *Model) Blocks(hash []byte, fn func(folder, file string, index int) bool) bool {
+	// Copy the folderFiles map so we can operate over it in our own pace
+	m.fmut.Lock()
+	fss := make(map[string]*db.FileSet, len(m.folderFiles))
+	for folder, fs := range m.folderFiles {
+		fss[folder] = fs
+	}
+	m.fmut.Unlock()
+
+	for folder, fs := range fss {
+		found := fs.Iterate(hash, func(file string, index int) bool {
+			return fn(folder, file, index)
+		})
+		if found {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (m *Model) String() string {

@@ -11,10 +11,6 @@ import (
 	"testing"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/config"
-
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 func genBlocks(n int) []protocol.BlockInfo {
@@ -60,65 +56,28 @@ func init() {
 	}
 }
 
-func setup() (*leveldb.DB, *BlockFinder) {
-	// Setup
-
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		panic(err)
-	}
-
-	wrapper := config.Wrap("", config.Configuration{})
-	wrapper.SetFolder(config.FolderConfiguration{
-		ID: "folder1",
-	})
-	wrapper.SetFolder(config.FolderConfiguration{
-		ID: "folder2",
-	})
-
-	return db, NewBlockFinder(db, wrapper)
-}
-
-func dbEmpty(db *leveldb.DB) bool {
-	iter := db.NewIterator(nil, nil)
-	defer iter.Release()
-	if iter.Next() {
-		return false
-	}
-	return true
-}
-
 func TestBlockMapAddUpdateWipe(t *testing.T) {
-	db, f := setup()
-
-	if !dbEmpty(db) {
-		t.Fatal("db not empty")
-	}
-
-	m := NewBlockMap(db, "folder1")
+	m := NewBlockMap()
 
 	f3.Flags |= protocol.FlagDirectory
 
-	err := m.Add([]protocol.FileInfo{f1, f2, f3})
-	if err != nil {
-		t.Fatal(err)
-	}
+	m.Add([]protocol.FileInfo{f1, f2, f3})
 
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
-		if folder != "folder1" || file != "f1" || index != 0 {
+	m.Iterate(f1.Blocks[0].Hash, func(file string, index int) bool {
+		if file != "f1" || index != 0 {
 			t.Fatal("Mismatch")
 		}
 		return true
 	})
 
-	f.Iterate(f2.Blocks[0].Hash, func(folder, file string, index int32) bool {
-		if folder != "folder1" || file != "f2" || index != 0 {
+	m.Iterate(f2.Blocks[0].Hash, func(file string, index int) bool {
+		if file != "f2" || index != 0 {
 			t.Fatal("Mismatch")
 		}
 		return true
 	})
 
-	f.Iterate(f3.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	m.Iterate(f3.Blocks[0].Hash, func(file string, index int) bool {
 		t.Fatal("Unexpected block")
 		return true
 	})
@@ -128,119 +87,35 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 	f2.Flags |= protocol.FlagInvalid
 
 	// Should remove
-	err = m.Update([]protocol.FileInfo{f1, f2, f3})
-	if err != nil {
-		t.Fatal(err)
-	}
+	m.Update([]protocol.FileInfo{f1, f2, f3})
 
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	m.Iterate(f1.Blocks[0].Hash, func(file string, index int) bool {
 		t.Fatal("Unexpected block")
 		return false
 	})
 
-	f.Iterate(f2.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	m.Iterate(f2.Blocks[0].Hash, func(file string, index int) bool {
 		t.Fatal("Unexpected block")
 		return false
 	})
 
-	f.Iterate(f3.Blocks[0].Hash, func(folder, file string, index int32) bool {
-		if folder != "folder1" || file != "f3" || index != 0 {
+	m.Iterate(f3.Blocks[0].Hash, func(file string, index int) bool {
+		if file != "f3" || index != 0 {
 			t.Fatal("Mismatch")
 		}
 		return true
 	})
-
-	err = m.Drop()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !dbEmpty(db) {
-		t.Fatal("db not empty")
-	}
-
-	// Should not add
-	err = m.Add([]protocol.FileInfo{f1, f2})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !dbEmpty(db) {
-		t.Fatal("db not empty")
-	}
 
 	f1.Flags = 0
 	f2.Flags = 0
 	f3.Flags = 0
 }
 
-func TestBlockFinderLookup(t *testing.T) {
-	db, f := setup()
-
-	m1 := NewBlockMap(db, "folder1")
-	m2 := NewBlockMap(db, "folder2")
-
-	err := m1.Add([]protocol.FileInfo{f1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = m2.Add([]protocol.FileInfo{f1})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	counter := 0
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
-		counter++
-		switch counter {
-		case 1:
-			if folder != "folder1" || file != "f1" || index != 0 {
-				t.Fatal("Mismatch")
-			}
-		case 2:
-			if folder != "folder2" || file != "f1" || index != 0 {
-				t.Fatal("Mismatch")
-			}
-		default:
-			t.Fatal("Unexpected block")
-		}
-		return false
-	})
-	if counter != 2 {
-		t.Fatal("Incorrect count", counter)
-	}
-
-	f1.Flags |= protocol.FlagDeleted
-
-	err = m1.Update([]protocol.FileInfo{f1})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	counter = 0
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
-		counter++
-		switch counter {
-		case 1:
-			if folder != "folder2" || file != "f1" || index != 0 {
-				t.Fatal("Mismatch")
-			}
-		default:
-			t.Fatal("Unexpected block")
-		}
-		return false
-	})
-	if counter != 1 {
-		t.Fatal("Incorrect count")
-	}
-
-	f1.Flags = 0
-}
-
+/*
 func TestBlockFinderFix(t *testing.T) {
 	db, f := setup()
 
-	iterFn := func(folder, file string, index int32) bool {
+	iterFn := func(folder, file string, index int) bool {
 		return true
 	}
 
@@ -267,15 +142,10 @@ func TestBlockFinderFix(t *testing.T) {
 		t.Fatal("Block not found")
 	}
 }
+*/
 
 func BenchmarkBlockMapAdd(b *testing.B) {
-	db, _ := setup()
-
-	if !dbEmpty(db) {
-		b.Fatal("db not empty")
-	}
-
-	m := NewBlockMap(db, "folder1")
+	m := NewBlockMap()
 
 	f := protocol.FileInfo{
 		Name:   "A moderately long filename such as would be seen when things are a few directories deep or are movie files or something",
@@ -285,9 +155,7 @@ func BenchmarkBlockMapAdd(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if err := m.Add([]protocol.FileInfo{f}); err != nil {
-			b.Fatal(err)
-		}
+		m.Add([]protocol.FileInfo{f})
 	}
 
 	b.ReportAllocs()
