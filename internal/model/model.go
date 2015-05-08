@@ -50,6 +50,7 @@ type service interface {
 	Jobs() ([]string, []string) // In progress, Queued
 	BringToFront(string)
 	DelayScan(d time.Duration)
+	IndexUpdated() // Remote index was updated notification
 
 	setState(state folderState)
 	setError(err error)
@@ -469,7 +470,14 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
+	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
+
+	if runner != nil {
+		// Runner may legitimately not be set if this is the "cleanup" Index
+		// message at startup.
+		defer runner.IndexUpdated()
+	}
 
 	if !ok {
 		l.Fatalf("Index for nonexistant folder %q", folder)
@@ -521,7 +529,8 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	}
 
 	m.fmut.RLock()
-	files, ok := m.folderFiles[folder]
+	files := m.folderFiles[folder]
+	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
 	if !ok {
@@ -554,6 +563,8 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 		"items":   len(fs),
 		"version": files.LocalVersion(deviceID),
 	})
+
+	runner.IndexUpdated()
 }
 
 func (m *Model) folderSharedWith(folder string, deviceID protocol.DeviceID) bool {

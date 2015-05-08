@@ -104,6 +104,9 @@ func (s *roFolder) Stop() {
 	close(s.stop)
 }
 
+func (s *roFolder) IndexUpdated() {
+}
+
 func (s *roFolder) String() string {
 	return fmt.Sprintf("roFolder/%s@%p", s.folder, s)
 }
