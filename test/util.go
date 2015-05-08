@@ -133,8 +133,7 @@ func alterFiles(dir string) error {
 		switch {
 		case r == 0 && comps > 2:
 			// Delete every tenth file or directory, except top levels
-			err := removeAll(path)
-			return err
+			return removeAll(path)
 
 		case r == 1 && info.Mode().IsRegular():
 			if info.Mode()&0200 != 0200 {
@@ -159,8 +158,7 @@ func alterFiles(dir string) error {
 			if err != nil {
 				return err
 			}
-			err = fd.Close()
-			return err
+			return fd.Close()
 
 		// Change capitalization
 		case r == 2 && comps > 3 && rand.Float64() < 0.2:
@@ -172,11 +170,13 @@ func alterFiles(dir string) error {
 					base[i] = unicode.ToUpper(r)
 				}
 			}
-			err = osutil.TryRename(path, strings.Replace(path, filepath.Base(path), string(base), 1))
-			return err
+			newPath := filepath.Join(filepath.Dir(path), string(base))
+			if newPath != path {
+				return osutil.TryRename(path, newPath)
+			}
 
 		// Switch between files and directories
-		case r == 2 && comps > 3 && rand.Float64() < 0.2:
+		case r == 3 && comps > 3 && rand.Float64() < 0.2:
 			if !info.Mode().IsRegular() {
 				err = removeAll(path)
 				if err != nil {
@@ -200,15 +200,14 @@ func alterFiles(dir string) error {
 			}
 			return err
 
-		case r == 3 && comps > 2 && (info.Mode().IsRegular() || rand.Float64() < 0.2):
+		case r == 4 && comps > 2 && (info.Mode().IsRegular() || rand.Float64() < 0.2):
 			rpath := filepath.Dir(path)
 			if rand.Float64() < 0.2 {
 				for move := rand.Intn(comps - 1); move > 0; move-- {
 					rpath = filepath.Join(rpath, "..")
 				}
 			}
-			err = osutil.TryRename(path, filepath.Join(rpath, randomName()))
-			return err
+			return osutil.TryRename(path, filepath.Join(rpath, randomName()))
 		}
 		return nil
 	})
