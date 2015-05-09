@@ -7,7 +7,10 @@
 package db
 
 import (
+	"fmt"
+	"log"
 	"math/rand"
+	"runtime"
 	"testing"
 
 	"github.com/syncthing/protocol"
@@ -159,4 +162,52 @@ func BenchmarkBlockMapAdd(b *testing.B) {
 	}
 
 	b.ReportAllocs()
+}
+
+func TestBlockMapAdd_12GB(t *testing.T) {
+	testBlockMapAdd(t, 1)
+}
+
+func TestBlockMapAdd_250GB(t *testing.T) {
+	testBlockMapAdd(t, 250/12)
+}
+
+func TestBlockMapAdd_500GB(t *testing.T) {
+	testBlockMapAdd(t, 500/12)
+}
+
+func TestBlockMapAdd_1TB(t *testing.T) {
+	testBlockMapAdd(t, 1000/12)
+}
+
+func TestBlockMapAdd_5TB(t *testing.T) {
+	testBlockMapAdd(t, 5000/12)
+}
+
+func TestBlockMapAdd_8TB(t *testing.T) {
+	testBlockMapAdd(t, 8000/12)
+}
+
+func testBlockMapAdd(t *testing.T, files int) {
+	m := NewBlockMap()
+
+	var ms0, ms1 runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&ms0)
+
+	// We add 500 * 12 GB files to the repository, for a total of 6 TB of data.
+	for i := 0; i < files; i++ {
+		f := protocol.FileInfo{
+			Name:   fmt.Sprintf("A moderately long filename such as would be seen when things are a few directories deep or are movie files or something %d", i),
+			Blocks: genBlocks(100000), // This is a 12 GB file
+		}
+		m.Add([]protocol.FileInfo{f})
+	}
+
+	runtime.GC()
+	runtime.ReadMemStats(&ms1)
+	max, avg, fill := m.Stats()
+
+	log.Println("Heap:", ms1.HeapInuse/1024, "KiB, increase:", (ms1.HeapInuse-ms0.HeapInuse)/1024, "KiB")
+	log.Println("Max len:", max, "Avg len:", avg, "Fill factor:", fill)
 }

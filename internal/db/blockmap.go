@@ -7,24 +7,37 @@
 package db
 
 import (
-	"github.com/Workiva/go-datastructures/trie/ctrie"
+	"encoding/binary"
+
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/osutil"
 )
 
+const (
+	keyBits = 20
+	keyMask = 1<<keyBits - 1
+	idxSize = 1 << keyBits
+)
+
 type BlockMap struct {
-	trie *ctrie.Ctrie
+	sc  *stringCache
+	idx map[int32][]bmEntry
+}
+
+type bmEntry struct {
+	name  int32
+	index int32
 }
 
 func NewBlockMap() *BlockMap {
 	return &BlockMap{
-		trie: ctrie.New(nil),
+		sc:  newStringCache(),
+		idx: make(map[int32][]bmEntry),
 	}
 }
 
-type bmEntry struct {
-	name  string
-	index int
+func keyOf(hash []byte) int32 {
+	return int32(binary.BigEndian.Uint32(hash) & keyMask)
 }
 
 // Add files to the block map, ignoring any deleted or invalid files.
@@ -33,34 +46,35 @@ func (m *BlockMap) Add(files []protocol.FileInfo) {
 		if file.IsDirectory() || file.IsDeleted() || file.IsInvalid() {
 			continue
 		}
+		idx := m.sc.Index(file.Name)
 
 	nextBlock:
 		for i, block := range file.Blocks {
-			val, ok := m.trie.Lookup(block.Hash)
-			if !ok {
+			key := keyOf(block.Hash)
+			entries := m.idx[key]
+			if entries == nil {
 				// New block, add it
-				m.trie.Insert(block.Hash, []bmEntry{{
-					name:  file.Name,
-					index: i,
-				}})
+				m.idx[key] = []bmEntry{{
+					name:  idx,
+					index: int32(i),
+				}}
 				continue
 			}
 
 			// Existing block, add to list, if it's not already there.
-			entries := val.([]bmEntry)
 			for _, e := range entries {
-				if e.index == i && e.name == file.Name {
+				if e.index == int32(i) && e.name == idx {
 					// Block is already in the registry
 					continue nextBlock
 				}
 			}
 
 			entries = append(entries, bmEntry{
-				name:  file.Name,
-				index: i,
+				name:  idx,
+				index: int32(i),
 			})
 
-			m.trie.Insert(block.Hash, entries)
+			m.idx[key] = entries
 		}
 	}
 }
@@ -81,19 +95,21 @@ func (m *BlockMap) Discard(files []protocol.FileInfo) error {
 	for _, file := range files {
 	nextBlock:
 		for i, block := range file.Blocks {
-			val, ok := m.trie.Lookup(block.Hash)
-			if !ok {
+			key := keyOf(block.Hash)
+			entries := m.idx[key]
+			if entries == nil {
 				continue nextBlock
 			}
-			entries := val.([]bmEntry)
 			if len(entries) == 1 {
-				m.trie.Remove(block.Hash)
+				m.idx[key] = nil
 				continue nextBlock
 			}
+
+			idx := m.sc.Index(file.Name)
 			for j, entry := range entries {
-				if entry.index == i && entry.name == file.Name {
+				if entry.index == int32(i) && entry.name == idx {
 					entries = append(entries[:j], entries[j+1:]...)
-					m.trie.Insert(block.Hash, entries)
+					m.idx[key] = entries
 					continue nextBlock
 				}
 			}
@@ -104,7 +120,7 @@ func (m *BlockMap) Discard(files []protocol.FileInfo) error {
 
 // Drop block map, removing all entries related to this block map from the db.
 func (m *BlockMap) Drop() error {
-	m.trie = ctrie.New(nil)
+	m.idx = make(map[int32][]bmEntry)
 	return nil
 }
 
@@ -114,12 +130,10 @@ func (m *BlockMap) Drop() error {
 // reason. The iterator finally returns the result, whether or not a
 // satisfying block was eventually found.
 func (m *BlockMap) Iterate(hash []byte, iterFn func(file string, index int) bool) bool {
-	val, ok := m.trie.Lookup(hash)
-	if !ok {
-		return false
-	}
-	for _, entry := range val.([]bmEntry) {
-		if iterFn(osutil.NativeFilename(entry.name), entry.index) {
+	key := keyOf(hash)
+	entries := m.idx[key]
+	for _, entry := range entries {
+		if iterFn(osutil.NativeFilename(m.sc.Lookup(entry.name)), int(entry.index)) {
 			return true
 		}
 	}
@@ -136,4 +150,20 @@ func (m *BlockMap) Fix(folder, file string, index int, oldHash, newHash []byte) 
 	batch.Delete(toBlockKey(oldHash, folder, file))
 	batch.Put(toBlockKey(newHash, folder, file), buf)
 	return f.db.Write(batch, nil)*/
+}
+
+func (m *BlockMap) Stats() (maxLen int, avgLen, fill float64) {
+	max := 0
+	tot := 0
+	cnt := 0
+	for _, l := range m.idx {
+		if l != nil {
+			cnt++
+			tot += len(l)
+			if len(l) > max {
+				max = len(l)
+			}
+		}
+	}
+	return max, float64(tot) / float64(cnt), float64(cnt) / idxSize
 }
