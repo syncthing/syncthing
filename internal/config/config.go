@@ -228,7 +228,7 @@ type OptionsConfiguration struct {
 	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
 	StartBrowser            bool     `xml:"startBrowser" json:"startBrowser" default:"true"`
 	UPnPEnabled             bool     `xml:"upnpEnabled" json:"upnpEnabled" default:"true"`
-	UPnPLeaseM              int      `xml:"upnpLeaseMinutes" json:"upnpLeaseMinutes" default:"0"`
+	UPnPLeaseM              int      `xml:"upnpLeaseMinutes" json:"upnpLeaseMinutes" default:"60"`
 	UPnPRenewalM            int      `xml:"upnpRenewalMinutes" json:"upnpRenewalMinutes" default:"30"`
 	UPnPTimeoutS            int      `xml:"upnpTimeoutSeconds" json:"upnpTimeoutSeconds" default:"10"`
 	URAccepted              int      `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
