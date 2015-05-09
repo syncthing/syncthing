@@ -13,7 +13,7 @@
         <reconnectionIntervalS>6000</reconnectionIntervalS>
         <startBrowser>false</startBrowser>
         <upnpEnabled>false</upnpEnabled>
-        <upnpLeaseMinutes>60</upnpLeaseMinutes>
+        <upnpLeaseMinutes>90</upnpLeaseMinutes>
         <upnpRenewalMinutes>15</upnpRenewalMinutes>
         <upnpTimeoutSeconds>15</upnpTimeoutSeconds>
         <restartOnWakeup>false</restartOnWakeup>
