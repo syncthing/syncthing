@@ -9,6 +9,7 @@
 package model
 
 import (
+	"crypto/md5"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,9 @@ func (t tempNamer) IsTemporary(name string) bool {
 }
 
 func (t tempNamer) TempName(name string) string {
+	hash := md5.New()
+	hash.Write([]byte(name))
 	tdir := filepath.Dir(name)
-	tname := fmt.Sprintf("%s.%s", t.prefix, filepath.Base(name))
+	tname := fmt.Sprintf("%s.%x", t.prefix, hash.Sum(nil))
 	return filepath.Join(tdir, tname)
 }
