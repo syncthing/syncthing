@@ -190,6 +190,19 @@ angular.module('syncthing.core')
                     }
                 }
             }
+            if ($scope.config.options.panicReporting === 0) {
+                // The same situation as above applies to error log sending
+                // Set to 2 hours this time.
+
+                var firstVisit = document.cookie.replace(/(?:(?:^|.*;\s*)firstVisit\s*\=\s*([^;]*).*$)|^.*$/, "$1");
+                if (!firstVisit) {
+                    document.cookie = "firstVisit=" + Date.now() + ";max-age=" + 30 * 24 * 3600;
+                } else {
+                    if (+firstVisit < Date.now() - 2 * 3600 * 1000) {
+                        $('#pr').modal();
+                    }
+                }
+            }
         });
 
         $scope.$on('DeviceRejected', function (event, arg) {
@@ -667,6 +680,7 @@ angular.module('syncthing.core')
             // Make a working copy
             $scope.tmpOptions = angular.copy($scope.config.options);
             $scope.tmpOptions.urEnabled = ($scope.tmpOptions.urAccepted > 0);
+            $scope.tmpOptions.panicReportingEnabled = ($scope.tmpOptions.panicReporting > 0);
             $scope.tmpOptions.deviceName = $scope.thisDevice().name;
             $scope.tmpOptions.autoUpgradeEnabled = ($scope.tmpOptions.autoUpgradeIntervalH > 0);
             $scope.tmpGUI = angular.copy($scope.config.gui);
@@ -696,6 +710,13 @@ angular.module('syncthing.core')
                     $scope.tmpOptions.urAccepted = 1000;
                 } else if (!$scope.tmpOptions.urEnabled && $scope.tmpOptions.urAccepted > 0) {
                     $scope.tmpOptions.urAccepted = -1;
+                }
+
+                // Check if panic reporting has been enabled or disabled
+                if ($scope.tmpOptions.panicReportingEnabled && $scope.tmpOptions.panicReporting <= 0) {
+                    $scope.tmpOptions.panicReporting = 1;
+                } else if (!$scope.tmpOptions.panicReportingEnabled && $scope.tmpOptions.panicReporting > 0) {
+                    $scope.tmpOptions.panicReporting = -1;
                 }
 
                 // Check if auto-upgrade has been enabled or disabled
@@ -1227,6 +1248,18 @@ angular.module('syncthing.core')
             $scope.saveConfig();
             $('#ur').modal('hide');
         };
+
+        $scope.acceptPR = function () {
+            $scope.config.options.panicReporting = 1;
+            $scope.saveConfig();
+            $('#pr').modal('hide');
+        }
+
+        $scope.declinePR = function () {
+            $scope.config.options.panicReporting = -1;
+            $scope.saveConfig();
+            $('#pr').modal('hide');
+        }
 
         $scope.showNeed = function (folder) {
             $scope.neededFolder = folder;

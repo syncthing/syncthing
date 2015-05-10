@@ -891,6 +891,13 @@
                     </label>
                   </div>
                 </div>
+                <div class="form-group">
+                  <div class="checkbox">
+                    <label>
+                      <input id="PanicReporting" type="checkbox" ng-model="tmpOptions.panicReportingEnabled"> <span translate>Automatically send anonymised fatal error logs to developers</span>
+                    </label>
+                  </div>
+                </div>
 
                 <hr />
 
@@ -907,6 +914,25 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-primary btn-sm" ng-click="saveSettings()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Save</span></button>
           <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panic reporting modal -->
+
+  <div id="pr" class="modal fade" data-backdrop="static" data-keyboard="false" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header alert alert-success">
+          <h4 translate class="modal-title">Allow Anonymous Error Reporting?</h4>
+        </div>
+        <div class="modal-body">
+          <p translate>The anonymous error log will be sent to development team every time error occurs. It will be used to fix bugs and monitor problematic issues. Syncthing is a community project and this is a good first step to get involved and help the project.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-success btn-sm" ng-click="acceptPR()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Yes</span></button>
+          <button type="button" class="btn btn-danger btn-sm" ng-click="declinePR()"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>No</span></button>
         </div>
       </div>
     </div>
