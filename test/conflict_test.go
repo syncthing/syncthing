@@ -474,6 +474,7 @@ mainLoop:
 		time.Sleep(2500 * time.Millisecond)
 
 		tot := 0
+		max := 0
 		for i := range p {
 			comp, err := p[i].peerCompletion()
 			if err != nil {
@@ -482,16 +483,17 @@ mainLoop:
 				}
 				return err
 			}
+			max = max + 100*(len(p)-1)
 
 			for _, pct := range comp {
 				tot += pct
 			}
 		}
 
-		if tot == 100*(len(p)) {
+		if tot == max {
 			return nil
 		}
 
-		log.Printf("%d / %d...", tot, 100*(len(p)))
+		log.Printf("%d / %d...", tot, max)
 	}
 }
