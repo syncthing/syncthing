@@ -19,6 +19,7 @@ import (
 type upnpSvc struct {
 	cfg       *config.Wrapper
 	localPort int
+	stop      chan struct{}
 }
 
 func newUPnPSvc(cfg *config.Wrapper, localPort int) *upnpSvc {
@@ -31,6 +32,7 @@ func newUPnPSvc(cfg *config.Wrapper, localPort int) *upnpSvc {
 func (s *upnpSvc) Serve() {
 	extPort := 0
 	foundIGD := true
+	s.stop = make(chan struct{})
 
 	for {
 		igds := upnp.Discover(time.Duration(s.cfg.Options().UPnPTimeoutS) * time.Second)
@@ -49,12 +51,17 @@ func (s *upnpSvc) Serve() {
 			// We always want to do renewal so lets just pick a nice sane number.
 			d = 30 * time.Minute
 		}
-		time.Sleep(d)
+
+		select {
+		case <-s.stop:
+			return
+		case <-time.After(d):
+		}
 	}
 }
 
 func (s *upnpSvc) Stop() {
-	panic("upnpSvc cannot stop")
+	close(s.stop)
 }
 
 func (s *upnpSvc) tryIGDs(igds []upnp.IGD, prevExtPort int) int {
