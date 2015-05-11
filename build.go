@@ -306,7 +306,7 @@ func buildDeb() {
 Architecture: {{arch}}
 Depends: libc6
 Version: {{version}}
-Maintainer: Jakob Borg <jakob@nym.se>
+Maintainer: Syncthing Release Management <release@syncthing.net>
 Description: Open Source Continuous File Synchronization
 	Syncthing does bidirectional synchronization of files between two or
 	more computers.
