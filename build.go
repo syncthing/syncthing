@@ -297,6 +297,11 @@ func buildDeb() {
 		}
 	}
 
+	debarch := goarch
+	if debarch == "386" {
+		debarch = "i386"
+	}
+
 	control := `Package: syncthing
 Architecture: {{goarch}}
 Depends: libc6
@@ -313,9 +318,9 @@ Description: Open Source Continuous File Synchronization
  -- Jakob Borg <jakob@nym.se>  {{date}}
 `
 
-	control = strings.Replace(control, "{{goarch}}", goarch, -1)
+	control = strings.Replace(control, "{{debarch}}", goarch, -1)
 	control = strings.Replace(control, "{{version}}", version[1:], -1)
-	changelog = strings.Replace(changelog, "{{goarch}}", goarch, -1)
+	changelog = strings.Replace(changelog, "{{debarch}}", goarch, -1)
 	changelog = strings.Replace(changelog, "{{version}}", version[1:], -1)
 	changelog = strings.Replace(changelog, "{{date}}", time.Now().Format(time.RFC1123), -1)
 
