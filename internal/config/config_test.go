@@ -52,6 +52,7 @@ func TestDefaultValues(t *testing.T) {
 		ProgressUpdateIntervalS: 5,
 		SymlinksEnabled:         true,
 		LimitBandwidthInLan:     false,
+		DatabaseBlockCacheMiB:   0,
 	}
 
 	cfg := New(device1)
@@ -158,6 +159,7 @@ func TestOverriddenValues(t *testing.T) {
 		ProgressUpdateIntervalS: 10,
 		SymlinksEnabled:         false,
 		LimitBandwidthInLan:     true,
+		DatabaseBlockCacheMiB:   42,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)

@@ -240,6 +240,7 @@ type OptionsConfiguration struct {
 	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" json:"progressUpdateIntervalS" default:"5"`
 	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
 	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
+	DatabaseBlockCacheMiB   int      `xml:"databaseBlockCacheMiB" json:"databaseBlockCacheMiB" default:"0"`
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {

@@ -715,22 +715,21 @@ func syncthingMain() {
 }
 
 func dbOpts() *opt.Options {
-	// Calculate a sutiable database block cache capacity. We start at the
-	// default of 8 MiB and use larger values for machines with more memory.
+	// Calculate a sutiable database block cache capacity. Default is 8 MiB.
 	// In reality, the database will use twice the amount we calculate here,
 	// as it also has two write buffers each sized at half the block cache.
-
 	blockCacheCapacity := 8 << 20
-	if bytes, err := memorySize(); err == nil {
-		if bytes > 74<<30 {
-			// At 74 GiB of RAM, we hit a 256 MiB block cache (per the
-			// calculations below). There's probably no point in growing the
-			// cache beyond this point.
-			blockCacheCapacity = 256 << 20
-		} else if bytes > 8<<30 {
-			// Slowly grow from 128 MiB at 8 GiB of RAM up to 256 MiB for a
-			// ~74 GiB RAM machine
-			blockCacheCapacity = int(bytes/512) + 128 - 16
+
+	if v := cfg.Options().DatabaseBlockCacheMiB; v != 0 {
+		// Use the value from the config, if it's set.
+		blockCacheCapacity = v << 20
+	} else if bytes, err := memorySize(); err == nil {
+		// We start at the default of 8 MiB and use larger values for machines
+		// with more memory.
+
+		if bytes > 8<<30 {
+			// Cap the cache at 128 MB when we reach 8 GiB of RAM
+			blockCacheCapacity = 128 << 20
 		} else if bytes > 512<<20 {
 			// Grow from 8 MiB at start to 128 MiB of cache at 8 GiB of RAM.
 			blockCacheCapacity = int(bytes / 64)

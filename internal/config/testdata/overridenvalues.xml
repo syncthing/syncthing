@@ -23,5 +23,6 @@
         <progressUpdateIntervalS>10</progressUpdateIntervalS>
         <symlinksEnabled>false</symlinksEnabled>
         <limitBandwidthInLan>true</limitBandwidthInLan>
+        <databaseBlockCacheMiB>42</databaseBlockCacheMiB>
     </options>
 </configuration>
