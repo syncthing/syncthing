@@ -303,7 +303,7 @@ func buildDeb() {
 	}
 
 	control := `Package: syncthing
-Architecture: {{goarch}}
+Architecture: {{arch}}
 Depends: libc6
 Version: {{version}}
 Maintainer: Jakob Borg <jakob@nym.se>
@@ -318,9 +318,9 @@ Description: Open Source Continuous File Synchronization
  -- Jakob Borg <jakob@nym.se>  {{date}}
 `
 
-	control = strings.Replace(control, "{{debarch}}", goarch, -1)
+	control = strings.Replace(control, "{{arch}}", debarch, -1)
 	control = strings.Replace(control, "{{version}}", version[1:], -1)
-	changelog = strings.Replace(changelog, "{{debarch}}", goarch, -1)
+	changelog = strings.Replace(changelog, "{{arch}}", debarch, -1)
 	changelog = strings.Replace(changelog, "{{version}}", version[1:], -1)
 	changelog = strings.Replace(changelog, "{{date}}", time.Now().Format(time.RFC1123), -1)
 
