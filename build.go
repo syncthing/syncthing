@@ -131,6 +131,9 @@ func main() {
 		case "zip":
 			buildZip()
 
+		case "deb":
+			buildDeb()
+
 		case "clean":
 			clean()
 
@@ -270,6 +273,74 @@ func buildZip() {
 
 	zipFile(filename, files)
 	log.Println(filename)
+}
+
+func buildDeb() {
+	os.RemoveAll("deb")
+
+	build("./cmd/syncthing", []string{"noupgrade"})
+
+	files := []archiveFile{
+		{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},
+		{src: "LICENSE", dst: "deb/usr/share/doc/syncthing/LICENSE.txt", perm: 0644},
+		{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing/AUTHORS.txt", perm: 0644},
+		{src: "syncthing", dst: "deb/usr/bin/syncthing", perm: 0755},
+	}
+
+	for _, file := range listFiles("extra") {
+		files = append(files, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
+	}
+
+	for _, af := range files {
+		if err := copyFile(af.src, af.dst, af.perm); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	control := `Package: syncthing
+Architecture: {{goarch}}
+Depends: libc6
+Version: {{version}}
+Maintainer: Jakob Borg <jakob@nym.se>
+Description: Open Source Continuous File Synchronization
+	Syncthing does bidirectional synchronization of files between two or
+	more computers.
+`
+	changelog := `syncthing ({{version}}); urgency=medium
+
+  * Packaging of {{version}}.
+
+ -- Jakob Borg <jakob@nym.se>  {{date}}
+`
+
+	control = strings.Replace(control, "{{goarch}}", goarch, -1)
+	control = strings.Replace(control, "{{version}}", version[1:], -1)
+	changelog = strings.Replace(changelog, "{{goarch}}", goarch, -1)
+	changelog = strings.Replace(changelog, "{{version}}", version[1:], -1)
+	changelog = strings.Replace(changelog, "{{date}}", time.Now().Format(time.RFC1123), -1)
+
+	os.MkdirAll("deb/DEBIAN", 0755)
+	ioutil.WriteFile("deb/DEBIAN/control", []byte(control), 0644)
+	ioutil.WriteFile("deb/DEBIAN/compat", []byte("9\n"), 0644)
+	ioutil.WriteFile("deb/DEBIAN/changelog", []byte(changelog), 0644)
+
+}
+
+func copyFile(src, dst string, perm os.FileMode) error {
+	dstDir := filepath.Dir(dst)
+	os.MkdirAll(dstDir, 0755) // ignore error
+	srcFd, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFd.Close()
+	dstFd, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm)
+	if err != nil {
+		return err
+	}
+	defer dstFd.Close()
+	_, err = io.Copy(dstFd, srcFd)
+	return err
 }
 
 func listFiles(dir string) []string {
@@ -480,8 +551,9 @@ func runPipe(file, cmd string, args ...string) {
 }
 
 type archiveFile struct {
-	src string
-	dst string
+	src  string
+	dst  string
+	perm os.FileMode
 }
 
 func tarGz(out string, files []archiveFile) {
