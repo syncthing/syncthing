@@ -65,13 +65,13 @@ func main() {
 			fmt.Printf("[block] F:%q H:%x N:%q I:%d\n", folder, hash, name, binary.BigEndian.Uint32(it.Value()))
 
 		case db.KeyTypeDeviceStatistic:
-			fmt.Printf("[dstat]\n  %x\n  %x", it.Key(), it.Value())
+			fmt.Printf("[dstat]\n  %x\n  %x\n", it.Key(), it.Value())
 
 		case db.KeyTypeFolderStatistic:
-			fmt.Printf("[fstat]\n  %x\n  %x", it.Key(), it.Value())
+			fmt.Printf("[fstat]\n  %x\n  %x\n", it.Key(), it.Value())
 
 		default:
-			fmt.Printf("[???]\n  %x\n  %x", it.Key(), it.Value())
+			fmt.Printf("[???]\n  %x\n  %x\n", it.Key(), it.Value())
 		}
 	}
 }
