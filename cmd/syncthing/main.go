@@ -677,15 +677,12 @@ func syncthingMain() {
 			cfg.SetOptions(opts)
 			cfg.Save()
 		}
-		go usageReportingLoop(m)
-		go func() {
-			time.Sleep(10 * time.Minute)
-			err := sendUsageReport(m)
-			if err != nil {
-				l.Infoln("Usage report:", err)
-			}
-		}()
 	}
+
+	// The usageReportingManager registers itself to listen to configuration
+	// changes, and there's nothing more we need to tell it from the outside.
+	// Hence we don't keep the returned pointer.
+	newUsageReportingManager(m, cfg)
 
 	if opts.RestartOnWakeup {
 		go standbyMonitor()

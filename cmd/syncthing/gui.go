@@ -485,22 +485,16 @@ func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Start or stop usage reporting as appropriate
+	// Fixup usage reporting settings
 
 	if curAcc := cfg.Options().URAccepted; newCfg.Options.URAccepted > curAcc {
 		// UR was enabled
 		newCfg.Options.URAccepted = usageReportVersion
 		newCfg.Options.URUniqueID = randomString(8)
-		err := sendUsageReport(s.model)
-		if err != nil {
-			l.Infoln("Usage report:", err)
-		}
-		go usageReportingLoop(s.model)
 	} else if newCfg.Options.URAccepted < curAcc {
 		// UR was disabled
 		newCfg.Options.URAccepted = -1
 		newCfg.Options.URUniqueID = ""
-		stopUsageReporting()
 	}
 
 	// Activate and save
