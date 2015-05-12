@@ -79,8 +79,10 @@ func (s *upnpSvc) tryIGDs(igds []upnp.IGD, prevExtPort int) int {
 			// External port changed; refresh the discovery announcement.
 			// TODO: Don't reach out to some magic global here?
 			l.Infof("New UPnP port mapping: external port %d to local port %d.", extPort, s.localPort)
-			discoverer.StopGlobal()
-			discoverer.StartGlobal(s.cfg.Options().GlobalAnnServers, uint16(extPort))
+			if s.cfg.Options().GlobalAnnEnabled {
+				discoverer.StopGlobal()
+				discoverer.StartGlobal(s.cfg.Options().GlobalAnnServers, uint16(extPort))
+			}
 		}
 		if debugNet {
 			l.Debugf("Created/updated UPnP port mapping for external port %d on device %s.", extPort, igd.FriendlyIdentifier())
