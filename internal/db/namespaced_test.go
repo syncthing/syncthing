@@ -90,3 +90,38 @@ func TestNamespacedString(t *testing.T) {
 		t.Errorf("Incorrect return v %q != \"yo\" || ok %v != true", v, ok)
 	}
 }
+
+func TestNamespacedReset(t *testing.T) {
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	n1 := NewNamespacedKV(ldb, "foo")
+
+	n1.PutString("test1", "yo1")
+	n1.PutString("test2", "yo2")
+	n1.PutString("test3", "yo3")
+
+	if v, ok := n1.String("test1"); v != "yo1" || !ok {
+		t.Errorf("Incorrect return v %q != \"yo1\" || ok %v != true", v, ok)
+	}
+	if v, ok := n1.String("test2"); v != "yo2" || !ok {
+		t.Errorf("Incorrect return v %q != \"yo2\" || ok %v != true", v, ok)
+	}
+	if v, ok := n1.String("test3"); v != "yo3" || !ok {
+		t.Errorf("Incorrect return v %q != \"yo3\" || ok %v != true", v, ok)
+	}
+
+	n1.Reset()
+
+	if v, ok := n1.String("test1"); v != "" || ok {
+		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
+	}
+	if v, ok := n1.String("test2"); v != "" || ok {
+		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
+	}
+	if v, ok := n1.String("test3"); v != "" || ok {
+		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
+	}
+}
