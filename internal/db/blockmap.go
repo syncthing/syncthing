@@ -4,145 +4,123 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// Package db provides a set type to track local/remote files with newness
-// checks. We must do a certain amount of normalization in here. We will get
-// fed paths with either native or wire-format separators and encodings
-// depending on who calls us. We transform paths to wire-format (NFC and
-// slashes) on the way to the database, and transform to native format
-// (varying separator and encoding) on the way back out.
 package db
 
 import (
-	"bytes"
 	"encoding/binary"
-	"sort"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/osutil"
-	"github.com/syncthing/syncthing/internal/sync"
-
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-var blockFinder *BlockFinder
+const (
+	keyBits = 20
+	keyMask = 1<<keyBits - 1
+	idxSize = 1 << keyBits
+)
 
 type BlockMap struct {
-	db     *leveldb.DB
-	folder string
+	sc  *stringCache
+	idx map[int32][]bmEntry
 }
 
-func NewBlockMap(db *leveldb.DB, folder string) *BlockMap {
+type bmEntry struct {
+	name  int32
+	index int32
+}
+
+func NewBlockMap() *BlockMap {
 	return &BlockMap{
-		db:     db,
-		folder: folder,
+		sc:  newStringCache(),
+		idx: make(map[int32][]bmEntry),
 	}
 }
 
+func keyOf(hash []byte) int32 {
+	return int32(binary.BigEndian.Uint32(hash) & keyMask)
+}
+
 // Add files to the block map, ignoring any deleted or invalid files.
-func (m *BlockMap) Add(files []protocol.FileInfo) error {
-	batch := new(leveldb.Batch)
-	buf := make([]byte, 4)
+func (m *BlockMap) Add(files []protocol.FileInfo) {
 	for _, file := range files {
 		if file.IsDirectory() || file.IsDeleted() || file.IsInvalid() {
 			continue
 		}
+		idx := m.sc.Index(file.Name)
 
+	nextBlock:
 		for i, block := range file.Blocks {
-			binary.BigEndian.PutUint32(buf, uint32(i))
-			batch.Put(m.blockKey(block.Hash, file.Name), buf)
+			key := keyOf(block.Hash)
+			entries := m.idx[key]
+			if entries == nil {
+				// New block, add it
+				m.idx[key] = []bmEntry{{
+					name:  idx,
+					index: int32(i),
+				}}
+				continue
+			}
+
+			// Existing block, add to list, if it's not already there.
+			for _, e := range entries {
+				if e.index == int32(i) && e.name == idx {
+					// Block is already in the registry
+					continue nextBlock
+				}
+			}
+
+			entries = append(entries, bmEntry{
+				name:  idx,
+				index: int32(i),
+			})
+
+			m.idx[key] = entries
 		}
 	}
-	return m.db.Write(batch, nil)
 }
 
 // Update block map state, removing any deleted or invalid files.
-func (m *BlockMap) Update(files []protocol.FileInfo) error {
-	batch := new(leveldb.Batch)
-	buf := make([]byte, 4)
-	for _, file := range files {
-		if file.IsDirectory() {
-			continue
-		}
-
+func (m *BlockMap) Update(files []protocol.FileInfo) {
+	for i, file := range files {
 		if file.IsDeleted() || file.IsInvalid() {
-			for _, block := range file.Blocks {
-				batch.Delete(m.blockKey(block.Hash, file.Name))
-			}
-			continue
-		}
-
-		for i, block := range file.Blocks {
-			binary.BigEndian.PutUint32(buf, uint32(i))
-			batch.Put(m.blockKey(block.Hash, file.Name), buf)
+			m.Discard(files[i : i+1])
+		} else {
+			m.Add(files[i : i+1])
 		}
 	}
-	return m.db.Write(batch, nil)
 }
 
 // Discard block map state, removing the given files
 func (m *BlockMap) Discard(files []protocol.FileInfo) error {
-	batch := new(leveldb.Batch)
 	for _, file := range files {
-		for _, block := range file.Blocks {
-			batch.Delete(m.blockKey(block.Hash, file.Name))
+	nextBlock:
+		for i, block := range file.Blocks {
+			key := keyOf(block.Hash)
+			entries := m.idx[key]
+			if entries == nil {
+				continue nextBlock
+			}
+			if len(entries) == 1 {
+				m.idx[key] = nil
+				continue nextBlock
+			}
+
+			idx := m.sc.Index(file.Name)
+			for j, entry := range entries {
+				if entry.index == int32(i) && entry.name == idx {
+					entries = append(entries[:j], entries[j+1:]...)
+					m.idx[key] = entries
+					continue nextBlock
+				}
+			}
 		}
 	}
-	return m.db.Write(batch, nil)
+	return nil
 }
 
 // Drop block map, removing all entries related to this block map from the db.
 func (m *BlockMap) Drop() error {
-	batch := new(leveldb.Batch)
-	iter := m.db.NewIterator(util.BytesPrefix(m.blockKey(nil, "")[:1+64]), nil)
-	defer iter.Release()
-	for iter.Next() {
-		batch.Delete(iter.Key())
-	}
-	if iter.Error() != nil {
-		return iter.Error()
-	}
-	return m.db.Write(batch, nil)
-}
-
-func (m *BlockMap) blockKey(hash []byte, file string) []byte {
-	return toBlockKey(hash, m.folder, file)
-}
-
-type BlockFinder struct {
-	db      *leveldb.DB
-	folders []string
-	mut     sync.RWMutex
-}
-
-func NewBlockFinder(db *leveldb.DB, cfg *config.Wrapper) *BlockFinder {
-	if blockFinder != nil {
-		return blockFinder
-	}
-
-	f := &BlockFinder{
-		db:  db,
-		mut: sync.NewRWMutex(),
-	}
-	f.Changed(cfg.Raw())
-	cfg.Subscribe(f)
-	return f
-}
-
-// Changed implements config.Handler interface
-func (f *BlockFinder) Changed(cfg config.Configuration) error {
-	folders := make([]string, len(cfg.Folders))
-	for i, folder := range cfg.Folders {
-		folders[i] = folder.ID
-	}
-
-	sort.Strings(folders)
-
-	f.mut.Lock()
-	f.folders = folders
-	f.mut.Unlock()
-
+	m.idx = make(map[int32][]bmEntry)
 	return nil
 }
 
@@ -151,21 +129,12 @@ func (f *BlockFinder) Changed(cfg config.Configuration) error {
 // they are happy with the block) or false to continue iterating for whatever
 // reason. The iterator finally returns the result, whether or not a
 // satisfying block was eventually found.
-func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, int32) bool) bool {
-	f.mut.RLock()
-	folders := f.folders
-	f.mut.RUnlock()
-	for _, folder := range folders {
-		key := toBlockKey(hash, folder, "")
-		iter := f.db.NewIterator(util.BytesPrefix(key), nil)
-		defer iter.Release()
-
-		for iter.Next() && iter.Error() == nil {
-			folder, file := fromBlockKey(iter.Key())
-			index := int32(binary.BigEndian.Uint32(iter.Value()))
-			if iterFn(folder, osutil.NativeFilename(file), index) {
-				return true
-			}
+func (m *BlockMap) Iterate(hash []byte, iterFn func(file string, index int) bool) bool {
+	key := keyOf(hash)
+	entries := m.idx[key]
+	for _, entry := range entries {
+		if iterFn(osutil.NativeFilename(m.sc.Lookup(entry.name)), int(entry.index)) {
+			return true
 		}
 	}
 	return false
@@ -173,44 +142,28 @@ func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, int32) bo
 
 // Fix repairs incorrect blockmap entries, removing the old entry and
 // replacing it with a new entry for the given block
-func (f *BlockFinder) Fix(folder, file string, index int32, oldHash, newHash []byte) error {
-	buf := make([]byte, 4)
+func (m *BlockMap) Fix(folder, file string, index int, oldHash, newHash []byte) {
+	/*buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, uint32(index))
 
 	batch := new(leveldb.Batch)
 	batch.Delete(toBlockKey(oldHash, folder, file))
 	batch.Put(toBlockKey(newHash, folder, file), buf)
-	return f.db.Write(batch, nil)
+	return f.db.Write(batch, nil)*/
 }
 
-// m.blockKey returns a byte slice encoding the following information:
-//	   keyTypeBlock (1 byte)
-//	   folder (64 bytes)
-//	   block hash (32 bytes)
-//	   file name (variable size)
-func toBlockKey(hash []byte, folder, file string) []byte {
-	o := make([]byte, 1+64+32+len(file))
-	o[0] = KeyTypeBlock
-	copy(o[1:], []byte(folder))
-	copy(o[1+64:], []byte(hash))
-	copy(o[1+64+32:], []byte(file))
-	return o
-}
-
-func fromBlockKey(data []byte) (string, string) {
-	if len(data) < 1+64+32+1 {
-		panic("Incorrect key length")
+func (m *BlockMap) Stats() (maxLen int, avgLen, fill float64) {
+	max := 0
+	tot := 0
+	cnt := 0
+	for _, l := range m.idx {
+		if l != nil {
+			cnt++
+			tot += len(l)
+			if len(l) > max {
+				max = len(l)
+			}
+		}
 	}
-	if data[0] != KeyTypeBlock {
-		panic("Incorrect key type")
-	}
-
-	file := string(data[1+64+32:])
-
-	slice := data[1 : 1+64]
-	izero := bytes.IndexByte(slice, 0)
-	if izero > -1 {
-		return string(slice[:izero]), file
-	}
-	return string(slice), file
+	return max, float64(tot) / float64(cnt), float64(cnt) / idxSize
 }

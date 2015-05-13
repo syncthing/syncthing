@@ -48,7 +48,7 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 		localVersion: make(map[protocol.DeviceID]int64),
 		folder:       folder,
 		db:           db,
-		blockmap:     NewBlockMap(db, folder),
+		blockmap:     NewBlockMap(),
 		mutex:        sync.NewMutex(),
 	}
 
@@ -214,6 +214,10 @@ func (s *FileSet) LocalVersion(device protocol.DeviceID) int64 {
 	return s.localVersion[device]
 }
 
+func (s *FileSet) Iterate(hash []byte, iterFn func(file string, index int) bool) bool {
+	return s.blockmap.Iterate(hash, iterFn)
+}
+
 // ListFolders returns the folder IDs seen in the database.
 func ListFolders(db *leveldb.DB) []string {
 	return ldbListFolders(db)
@@ -223,11 +227,6 @@ func ListFolders(db *leveldb.DB) []string {
 // database.
 func DropFolder(db *leveldb.DB, folder string) {
 	ldbDropFolder(db, []byte(folder))
-	bm := &BlockMap{
-		db:     db,
-		folder: folder,
-	}
-	bm.Drop()
 }
 
 func normalizeFilenames(fs []protocol.FileInfo) {

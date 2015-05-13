@@ -7,24 +7,33 @@
 package db
 
 import (
+	"fmt"
+	"log"
+	"math/rand"
+	"runtime"
 	"testing"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/config"
-
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 func genBlocks(n int) []protocol.BlockInfo {
 	b := make([]protocol.BlockInfo, n)
 	for i := range b {
 		h := make([]byte, 32)
-		for j := range h {
-			h[j] = byte(i + j)
+		for i := 0; i < len(h)/4; i += 4 {
+			r := rand.Uint32()
+			h[i*4] = byte(r)
+			h[i*4+1] = byte(r >> 8)
+			h[i*4+2] = byte(r >> 16)
+			h[i*4+3] = byte(r >> 24)
 		}
-		b[i].Size = int32(i)
 		b[i].Hash = h
+
+		if i == n-1 {
+			b[i].Size = 1234
+		} else {
+			b[i].Size = protocol.BlockSize
+		}
 	}
 	return b
 }
@@ -50,65 +59,28 @@ func init() {
 	}
 }
 
-func setup() (*leveldb.DB, *BlockFinder) {
-	// Setup
-
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		panic(err)
-	}
-
-	wrapper := config.Wrap("", config.Configuration{})
-	wrapper.SetFolder(config.FolderConfiguration{
-		ID: "folder1",
-	})
-	wrapper.SetFolder(config.FolderConfiguration{
-		ID: "folder2",
-	})
-
-	return db, NewBlockFinder(db, wrapper)
-}
-
-func dbEmpty(db *leveldb.DB) bool {
-	iter := db.NewIterator(nil, nil)
-	defer iter.Release()
-	if iter.Next() {
-		return false
-	}
-	return true
-}
-
 func TestBlockMapAddUpdateWipe(t *testing.T) {
-	db, f := setup()
-
-	if !dbEmpty(db) {
-		t.Fatal("db not empty")
-	}
-
-	m := NewBlockMap(db, "folder1")
+	m := NewBlockMap()
 
 	f3.Flags |= protocol.FlagDirectory
 
-	err := m.Add([]protocol.FileInfo{f1, f2, f3})
-	if err != nil {
-		t.Fatal(err)
-	}
+	m.Add([]protocol.FileInfo{f1, f2, f3})
 
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
-		if folder != "folder1" || file != "f1" || index != 0 {
+	m.Iterate(f1.Blocks[0].Hash, func(file string, index int) bool {
+		if file != "f1" || index != 0 {
 			t.Fatal("Mismatch")
 		}
 		return true
 	})
 
-	f.Iterate(f2.Blocks[0].Hash, func(folder, file string, index int32) bool {
-		if folder != "folder1" || file != "f2" || index != 0 {
+	m.Iterate(f2.Blocks[0].Hash, func(file string, index int) bool {
+		if file != "f2" || index != 0 {
 			t.Fatal("Mismatch")
 		}
 		return true
 	})
 
-	f.Iterate(f3.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	m.Iterate(f3.Blocks[0].Hash, func(file string, index int) bool {
 		t.Fatal("Unexpected block")
 		return true
 	})
@@ -118,119 +90,35 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 	f2.Flags |= protocol.FlagInvalid
 
 	// Should remove
-	err = m.Update([]protocol.FileInfo{f1, f2, f3})
-	if err != nil {
-		t.Fatal(err)
-	}
+	m.Update([]protocol.FileInfo{f1, f2, f3})
 
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	m.Iterate(f1.Blocks[0].Hash, func(file string, index int) bool {
 		t.Fatal("Unexpected block")
 		return false
 	})
 
-	f.Iterate(f2.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	m.Iterate(f2.Blocks[0].Hash, func(file string, index int) bool {
 		t.Fatal("Unexpected block")
 		return false
 	})
 
-	f.Iterate(f3.Blocks[0].Hash, func(folder, file string, index int32) bool {
-		if folder != "folder1" || file != "f3" || index != 0 {
+	m.Iterate(f3.Blocks[0].Hash, func(file string, index int) bool {
+		if file != "f3" || index != 0 {
 			t.Fatal("Mismatch")
 		}
 		return true
 	})
-
-	err = m.Drop()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !dbEmpty(db) {
-		t.Fatal("db not empty")
-	}
-
-	// Should not add
-	err = m.Add([]protocol.FileInfo{f1, f2})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !dbEmpty(db) {
-		t.Fatal("db not empty")
-	}
 
 	f1.Flags = 0
 	f2.Flags = 0
 	f3.Flags = 0
 }
 
-func TestBlockFinderLookup(t *testing.T) {
-	db, f := setup()
-
-	m1 := NewBlockMap(db, "folder1")
-	m2 := NewBlockMap(db, "folder2")
-
-	err := m1.Add([]protocol.FileInfo{f1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = m2.Add([]protocol.FileInfo{f1})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	counter := 0
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
-		counter++
-		switch counter {
-		case 1:
-			if folder != "folder1" || file != "f1" || index != 0 {
-				t.Fatal("Mismatch")
-			}
-		case 2:
-			if folder != "folder2" || file != "f1" || index != 0 {
-				t.Fatal("Mismatch")
-			}
-		default:
-			t.Fatal("Unexpected block")
-		}
-		return false
-	})
-	if counter != 2 {
-		t.Fatal("Incorrect count", counter)
-	}
-
-	f1.Flags |= protocol.FlagDeleted
-
-	err = m1.Update([]protocol.FileInfo{f1})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	counter = 0
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
-		counter++
-		switch counter {
-		case 1:
-			if folder != "folder2" || file != "f1" || index != 0 {
-				t.Fatal("Mismatch")
-			}
-		default:
-			t.Fatal("Unexpected block")
-		}
-		return false
-	})
-	if counter != 1 {
-		t.Fatal("Incorrect count")
-	}
-
-	f1.Flags = 0
-}
-
+/*
 func TestBlockFinderFix(t *testing.T) {
 	db, f := setup()
 
-	iterFn := func(folder, file string, index int32) bool {
+	iterFn := func(folder, file string, index int) bool {
 		return true
 	}
 
@@ -256,4 +144,70 @@ func TestBlockFinderFix(t *testing.T) {
 	if !f.Iterate(f2.Blocks[0].Hash, iterFn) {
 		t.Fatal("Block not found")
 	}
+}
+*/
+
+func BenchmarkBlockMapAdd(b *testing.B) {
+	m := NewBlockMap()
+
+	f := protocol.FileInfo{
+		Name:   "A moderately long filename such as would be seen when things are a few directories deep or are movie files or something",
+		Blocks: genBlocks(100000), // This is a 12 GB file
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		m.Add([]protocol.FileInfo{f})
+	}
+
+	b.ReportAllocs()
+}
+
+func TestBlockMapAdd_12GB(t *testing.T) {
+	testBlockMapAdd(t, 1)
+}
+
+func TestBlockMapAdd_250GB(t *testing.T) {
+	testBlockMapAdd(t, 250/12)
+}
+
+func TestBlockMapAdd_500GB(t *testing.T) {
+	testBlockMapAdd(t, 500/12)
+}
+
+func TestBlockMapAdd_1TB(t *testing.T) {
+	testBlockMapAdd(t, 1000/12)
+}
+
+func TestBlockMapAdd_5TB(t *testing.T) {
+	testBlockMapAdd(t, 5000/12)
+}
+
+func TestBlockMapAdd_8TB(t *testing.T) {
+	testBlockMapAdd(t, 8000/12)
+}
+
+func testBlockMapAdd(t *testing.T, files int) {
+	m := NewBlockMap()
+
+	var ms0, ms1 runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&ms0)
+
+	// We add 500 * 12 GB files to the repository, for a total of 6 TB of data.
+	for i := 0; i < files; i++ {
+		f := protocol.FileInfo{
+			Name:   fmt.Sprintf("A moderately long filename such as would be seen when things are a few directories deep or are movie files or something %d", i),
+			Blocks: genBlocks(100000), // This is a 12 GB file
+		}
+		m.Add([]protocol.FileInfo{f})
+	}
+
+	runtime.GC()
+	runtime.ReadMemStats(&ms1)
+	max, avg, fill := m.Stats()
+
+	log.Println("Heap:", ms1.HeapInuse/1024, "KiB, increase:", (ms1.HeapInuse-ms0.HeapInuse)/1024, "KiB")
+	log.Println("Max len:", max, "Avg len:", avg, "Fill factor:", fill)
 }
