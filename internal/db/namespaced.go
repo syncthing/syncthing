@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 // NamespacedKV is a simple key-value store using a specific namespace within
@@ -26,6 +27,27 @@ func NewNamespacedKV(db *leveldb.DB, prefix string) *NamespacedKV {
 	return &NamespacedKV{
 		db:     db,
 		prefix: []byte(prefix),
+	}
+}
+
+// Reset removes all entries in this namespace.
+func (n *NamespacedKV) Reset() {
+	it := n.db.NewIterator(util.BytesPrefix(n.prefix), nil)
+	defer it.Release()
+	batch := new(leveldb.Batch)
+	for it.Next() {
+		batch.Delete(it.Key())
+		if batch.Len() > batchFlushSize {
+			if err := n.db.Write(batch, nil); err != nil {
+				panic(err)
+			}
+			batch.Reset()
+		}
+	}
+	if batch.Len() > 0 {
+		if err := n.db.Write(batch, nil); err != nil {
+			panic(err)
+		}
 	}
 }
 
