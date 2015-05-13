@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/ignore"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/symlinks"
@@ -52,6 +53,8 @@ type Walker struct {
 	TempLifetime time.Duration
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
 	CurrentFiler CurrentFiler
+	// If MtimeRepo is not nil, it is used to provide mtimes on systems that don't support setting arbirtary mtimes.
+	MtimeRepo *db.VirtualMtimeRepo
 	// If IgnorePerms is true, changes to permission bits will not be
 	// detected. Scanned files will get zero permission bits and the
 	// NoPermissionBits flag set.
@@ -138,15 +141,20 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			return nil
 		}
 
+		mtime := info.ModTime()
+		if w.MtimeRepo != nil {
+			mtime = w.MtimeRepo.GetMtime(rn, mtime)
+		}
+
 		if w.TempNamer != nil && w.TempNamer.IsTemporary(rn) {
 			// A temporary file
 			if debug {
 				l.Debugln("temporary:", rn)
 			}
-			if info.Mode().IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
+			if info.Mode().IsRegular() && mtime.Add(w.TempLifetime).Before(now) {
 				os.Remove(p)
 				if debug {
-					l.Debugln("removing temporary:", rn, info.ModTime())
+					l.Debugln("removing temporary:", rn, mtime)
 				}
 			}
 			return nil
@@ -298,7 +306,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				Name:     rn,
 				Version:  cf.Version.Update(w.ShortID),
 				Flags:    flags,
-				Modified: info.ModTime().Unix(),
+				Modified: mtime.Unix(),
 			}
 			if debug {
 				l.Debugln("dir:", p, f)
@@ -325,13 +333,13 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - has the same size as previously
 				cf, ok = w.CurrentFiler.CurrentFile(rn)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, curMode)
-				if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && !cf.IsDirectory() &&
+				if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == mtime.Unix() && !cf.IsDirectory() &&
 					!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
 					return nil
 				}
 
 				if debug {
-					l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&os.ModePerm)
+					l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
 				}
 			}
 
@@ -344,7 +352,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				Name:     rn,
 				Version:  cf.Version.Update(w.ShortID),
 				Flags:    flags,
-				Modified: info.ModTime().Unix(),
+				Modified: mtime.Unix(),
 			}
 			if debug {
 				l.Debugln("to hash:", p, f)

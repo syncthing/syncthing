@@ -78,7 +78,6 @@ type FolderConfiguration struct {
 	IgnorePerms     bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize   bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
 	Versioning      VersioningConfiguration     `xml:"versioning" json:"versioning"`
-	LenientMtimes   bool                        `xml:"lenientMtimes" json:"lenientMTimes"`
 	Copiers         int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
 	Pullers         int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
 	Hashers         int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.

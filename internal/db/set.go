@@ -228,6 +228,7 @@ func DropFolder(db *leveldb.DB, folder string) {
 		folder: folder,
 	}
 	bm.Drop()
+	NewVirtualMtimeRepo(db, folder).Drop()
 }
 
 func normalizeFilenames(fs []protocol.FileInfo) {

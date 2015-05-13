@@ -57,19 +57,19 @@ var (
 type rwFolder struct {
 	stateTracker
 
-	model           *Model
-	progressEmitter *ProgressEmitter
+	model            *Model
+	progressEmitter  *ProgressEmitter
+	virtualMtimeRepo *db.VirtualMtimeRepo
 
-	folder        string
-	dir           string
-	scanIntv      time.Duration
-	versioner     versioner.Versioner
-	ignorePerms   bool
-	lenientMtimes bool
-	copiers       int
-	pullers       int
-	shortID       uint64
-	order         config.PullOrder
+	folder      string
+	dir         string
+	scanIntv    time.Duration
+	versioner   versioner.Versioner
+	ignorePerms bool
+	copiers     int
+	pullers     int
+	shortID     uint64
+	order       config.PullOrder
 
 	stop        chan struct{}
 	queue       *jobQueue
@@ -87,18 +87,18 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 			mut:    sync.NewMutex(),
 		},
 
-		model:           m,
-		progressEmitter: m.progressEmitter,
+		model:            m,
+		progressEmitter:  m.progressEmitter,
+		virtualMtimeRepo: db.NewVirtualMtimeRepo(m.db, cfg.ID),
 
-		folder:        cfg.ID,
-		dir:           cfg.Path(),
-		scanIntv:      time.Duration(cfg.RescanIntervalS) * time.Second,
-		ignorePerms:   cfg.IgnorePerms,
-		lenientMtimes: cfg.LenientMtimes,
-		copiers:       cfg.Copiers,
-		pullers:       cfg.Pullers,
-		shortID:       shortID,
-		order:         cfg.Order,
+		folder:      cfg.ID,
+		dir:         cfg.Path(),
+		scanIntv:    time.Duration(cfg.RescanIntervalS) * time.Second,
+		ignorePerms: cfg.IgnorePerms,
+		copiers:     cfg.Copiers,
+		pullers:     cfg.Pullers,
+		shortID:     shortID,
+		order:       cfg.Order,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -861,30 +861,25 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
-func (p *rwFolder) shortcutFile(file protocol.FileInfo) (err error) {
+func (p *rwFolder) shortcutFile(file protocol.FileInfo) error {
 	realName := filepath.Join(p.dir, file.Name)
 	if !p.ignorePerms {
-		err = os.Chmod(realName, os.FileMode(file.Flags&0777))
-		if err != nil {
-			l.Infof("Puller (folder %q, file %q): shortcut: %v", p.folder, file.Name, err)
-			return
+		if err := os.Chmod(realName, os.FileMode(file.Flags&0777)); err != nil {
+			l.Infof("Puller (folder %q, file %q): shortcut: chmod: %v", p.folder, file.Name, err)
+			return err
 		}
 	}
 
 	t := time.Unix(file.Modified, 0)
-	err = os.Chtimes(realName, t, t)
-	if err != nil {
-		if p.lenientMtimes {
-			err = nil
-			// We accept the failure with a warning here and allow the sync to
-			// continue. We'll sync the new mtime back to the other devices later.
-			// If they have the same problem & setting, we might never get in
-			// sync.
-			l.Infof("Puller (folder %q, file %q): shortcut: %v (continuing anyway as requested)", p.folder, file.Name, err)
-		} else {
-			l.Infof("Puller (folder %q, file %q): shortcut: %v", p.folder, file.Name, err)
-			return
+	if err := os.Chtimes(realName, t, t); err != nil {
+		// Try using virtual mtimes
+		info, err := os.Stat(realName)
+		if err != nil {
+			l.Infof("Puller (folder %q, file %q): shortcut: unable to stat file: %v", p.folder, file.Name, err)
+			return err
 		}
+
+		p.virtualMtimeRepo.UpdateMtime(file.Name, info.ModTime(), t)
 	}
 
 	// This may have been a conflict. We should merge the version vectors so
@@ -894,7 +889,7 @@ func (p *rwFolder) shortcutFile(file protocol.FileInfo) (err error) {
 	}
 
 	p.dbUpdates <- file
-	return
+	return nil
 }
 
 // shortcutSymlink changes the symlinks type if necessary.
@@ -1078,15 +1073,11 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 	t := time.Unix(state.file.Modified, 0)
 	err = os.Chtimes(state.tempName, t, t)
 	if err != nil {
-		if p.lenientMtimes {
-			// We accept the failure with a warning here and allow the sync to
-			// continue. We'll sync the new mtime back to the other devices later.
-			// If they have the same problem & setting, we might never get in
-			// sync.
-			l.Infof("Puller (folder %q, file %q): final: %v (continuing anyway as requested)", p.folder, state.file.Name, err)
+		// First try using virtual mtimes
+		if info, err := os.Stat(state.tempName); err != nil {
+			l.Infof("Puller (folder %q, file %q): final: unable to stat file: %v", p.folder, state.file.Name, err)
 		} else {
-			l.Warnln("Puller: final:", err)
-			return
+			p.virtualMtimeRepo.UpdateMtime(state.file.Name, info.ModTime(), t)
 		}
 	}
 
