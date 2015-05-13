@@ -51,6 +51,9 @@ func (s *roFolder) Serve() {
 	}()
 
 	reschedule := func() {
+		if s.intv == 0 {
+			return
+		}
 		// Sleep a random time between 3/4 and 5/4 of the configured interval.
 		sleepNanos := (s.intv.Nanoseconds()*3 + rand.Int63n(2*s.intv.Nanoseconds())) / 4
 		s.timer.Reset(time.Duration(sleepNanos) * time.Nanosecond)
