@@ -712,10 +712,16 @@ func syncthingMain() {
 }
 
 func dbOpts() *opt.Options {
-	// Calculate a sutiable database block cache capacity. Default is 8 MiB.
-	// In reality, the database will use twice the amount we calculate here,
-	// as it also has two write buffers each sized at half the block cache.
+	// Calculate a suitable database block cache capacity.
+
+	// Default is 8 MiB. In reality, the database will use twice the amount we
+	// calculate here, as it also has two write buffers each sized at half the
+	// block cache.
 	blockCacheCapacity := 8 << 20
+	// Increase block cache up to this maximum:
+	const maxCapacity = 64 << 20
+	// ... which we reach when the box has this much RAM:
+	const maxAtRAM = 8 << 30
 
 	if v := cfg.Options().DatabaseBlockCacheMiB; v != 0 {
 		// Use the value from the config, if it's set.
@@ -724,12 +730,12 @@ func dbOpts() *opt.Options {
 		// We start at the default of 8 MiB and use larger values for machines
 		// with more memory.
 
-		if bytes > 8<<30 {
-			// Cap the cache at 128 MB when we reach 8 GiB of RAM
-			blockCacheCapacity = 128 << 20
-		} else if bytes > 512<<20 {
-			// Grow from 8 MiB at start to 128 MiB of cache at 8 GiB of RAM.
-			blockCacheCapacity = int(bytes / 64)
+		if bytes > maxAtRAM {
+			// Cap the cache at maxCapacity when we reach maxAtRam amount of memory
+			blockCacheCapacity = maxCapacity
+		} else if bytes > maxAtRAM/maxCapacity*int64(blockCacheCapacity) {
+			// Grow from the default to maxCapacity at maxAtRam amount of memory
+			blockCacheCapacity = int(bytes * maxCapacity / maxAtRAM)
 		}
 		l.Infoln("Database block cache capacity", blockCacheCapacity/1024, "KiB")
 	}
