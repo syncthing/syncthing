@@ -474,6 +474,7 @@ func TestIgnores(t *testing.T) {
 	}
 
 	// Assure a clean start state
+	ioutil.WriteFile("testdata/.stfolder", nil, 0644)
 	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
