@@ -163,10 +163,6 @@ func (m *Model) StartFolderRW(folder string) {
 		p.versioner = factory(folder, cfg.Path(), cfg.Versioning.Params)
 	}
 
-	if cfg.LenientMtimes {
-		l.Infof("Folder %q is running with LenientMtimes workaround. Syncing may not work properly.", folder)
-	}
-
 	go p.Serve()
 }
 
@@ -1222,6 +1218,7 @@ nextSub:
 		TempNamer:     defTempNamer,
 		TempLifetime:  time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:  cFiler{m, folder},
+		MtimeRepo:     db.NewVirtualMtimeRepo(m.db, folderCfg.ID),
 		IgnorePerms:   folderCfg.IgnorePerms,
 		AutoNormalize: folderCfg.AutoNormalize,
 		Hashers:       m.numHashers(folder),

@@ -45,6 +45,7 @@ const (
 	KeyTypeBlock
 	KeyTypeDeviceStatistic
 	KeyTypeFolderStatistic
+	KeyTypeVirtualMtime
 )
 
 type fileVersion struct {
@@ -314,6 +315,8 @@ func ldbReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) i
 }
 
 func ldbReplaceWithDelete(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo, myID uint64) int64 {
+	mtimeRepo := NewVirtualMtimeRepo(db, string(folder))
+
 	return ldbGenericReplace(db, folder, device, fs, func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) int64 {
 		var tf FileInfoTruncated
 		err := tf.UnmarshalXDR(dbi.Value())
@@ -337,6 +340,7 @@ func ldbReplaceWithDelete(db *leveldb.DB, folder, device []byte, fs []protocol.F
 				l.Debugf("batch.Put %p %x", batch, dbi.Key())
 			}
 			batch.Put(dbi.Key(), bs)
+			mtimeRepo.DeleteMtime(tf.Name)
 			ldbUpdateGlobal(db, batch, folder, device, deviceKeyName(dbi.Key()), f.Version)
 			return ts
 		}
