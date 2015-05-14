@@ -47,33 +47,31 @@ func (r *VirtualMtimeRepo) UpdateMtime(path string, diskMtime, actualMtime time.
 }
 
 func (r *VirtualMtimeRepo) GetMtime(path string, diskMtime time.Time) time.Time {
-	var debugResult string
+	data, exists := r.ns.Bytes(path)
+	if !exists {
+		// Absense of debug print is significant enough in itself here
+		return diskMtime
+	}
 
-	if data, exists := r.ns.Bytes(path); exists {
-		var mtime time.Time
+	var mtime time.Time
+	if err := mtime.UnmarshalBinary(data[:len(data)/2]); err != nil {
+		panic(fmt.Sprintf("Can't unmarshal stored mtime at path %s: %v", path, err))
+	}
 
-		if err := mtime.UnmarshalBinary(data[:len(data)/2]); err != nil {
-			panic(fmt.Sprintf("Can't unmarshal stored mtime at path %v: %v", path, err))
+	if mtime.Equal(diskMtime) {
+		if err := mtime.UnmarshalBinary(data[len(data)/2:]); err != nil {
+			panic(fmt.Sprintf("Can't unmarshal stored mtime at path %s: %v", path, err))
 		}
 
-		if mtime.Equal(diskMtime) {
-			if err := mtime.UnmarshalBinary(data[len(data)/2:]); err != nil {
-				panic(fmt.Sprintf("Can't unmarshal stored mtime at path %v: %v", path, err))
-			}
-
-			debugResult = "got it"
-			diskMtime = mtime
-		} else if debug {
-			debugResult = fmt.Sprintf("record exists, but mismatch inDisk:%v dbDisk:%v", diskMtime, mtime)
+		if debug {
+			l.Debugf("virtual mtime: return %v instead of %v for path: %s", mtime, diskMtime, path)
 		}
-	} else {
-		debugResult = "record does not exist"
+		return mtime
 	}
 
 	if debug {
-		l.Debugf("virtual mtime: value get result:%v path:%s", debugResult, path)
+		l.Debugf("virtual mtime: record exists, but mismatch inDisk: %v dbDisk: %v for path: %s", diskMtime, mtime, path)
 	}
-
 	return diskMtime
 }
 
