@@ -1252,6 +1252,9 @@ nextSub:
 		batch = append(batch, f)
 		blocksHandled += len(f.Blocks)
 	}
+	if len(batch) > 0 {
+		m.updateLocals(folder, batch)
+	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
