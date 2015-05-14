@@ -1257,7 +1257,7 @@ nextSub:
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
-		fs.Update(protocol.LocalDeviceID, batch)
+		m.updateLocals(folder, batch)
 	}
 
 	batch = batch[:0]
