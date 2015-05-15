@@ -96,7 +96,7 @@
     "Override Changes": "Ignora Modifiche",
     "Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Percorso della cartella nel computer locale. Verrà creata se non esiste già. Il carattere tilde (~) può essere utilizzato come scorciatoia per",
     "Path where versions should be stored (leave empty for the default .stversions folder in the folder).": "Percorso di salvataggio delle versioni (lasciare vuoto per utilizzare la cartella predefinita .stversions in questa cartella).",
-    "Please consult the release notes before performing a major upgrade.": "Si prega di consultare le note di rilascio prima di eseguire un aggiornamento principale",
+    "Please consult the release notes before performing a major upgrade.": "Si prega di consultare le note di rilascio prima di eseguire un aggiornamento principale.",
     "Please wait": "Attendere prego",
     "Preview": "Anteprima",
     "Preview Usage Report": "Anteprima Statistiche di Utilizzo",
