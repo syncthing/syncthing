@@ -12,6 +12,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -110,7 +111,8 @@ func (d *Discoverer) startLocalIPv6Multicasts(localMCAddr string) {
 
 	v6Intfs := 0
 	for _, intf := range intfs {
-		if intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0 {
+		// Interface flags seem to always be 0 on Windows
+		if runtime.GOOS != "windows" && (intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0) {
 			continue
 		}
 
