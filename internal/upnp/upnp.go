@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -129,10 +130,8 @@ func Discover(timeout time.Duration) []IGD {
 
 	wg := sync.NewWaitGroup()
 	for _, intf := range interfaces {
-		if intf.Flags&net.FlagUp == 0 {
-			continue
-		}
-		if intf.Flags&net.FlagMulticast == 0 {
+		// Interface flags seem to always be 0 on Windows
+		if runtime.GOOS != "windows" && (intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0) {
 			continue
 		}
 
