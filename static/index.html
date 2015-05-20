@@ -55,6 +55,7 @@ found in the LICENSE file.
     </div>
 
     <div class="row">
+
       <div class="col-md-4">
         <table class="table table-striped">
           <thead>
@@ -73,6 +74,7 @@ found in the LICENSE file.
           </tbody>
         </table>
       </div>
+
       <div class="col-md-4">
         <table class="table table-striped">
           <thead>
@@ -91,6 +93,7 @@ found in the LICENSE file.
           </tbody>
         </table>
       </div>
+
       <div class="col-md-4">
         <table class="table table-striped">
           <thead>
@@ -109,6 +112,48 @@ found in the LICENSE file.
           </tbody>
         </table>
       </div>
+
+    </div>
+    <div class="row">
+
+      <div class="col-md-6">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Compiler</th><th class="text-right">Devices</th><th class="text-right">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .compilers}}
+            <tr>
+              <td>{{.Key}}</td>
+              <td class="text-right">{{.Count}}</td>
+              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="col-md-6">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Builder</th><th class="text-right">Devices</th><th class="text-right">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .builders}}
+            <tr>
+              <td>{{.Key}}</td>
+              <td class="text-right">{{.Count}}</td>
+              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+
     </div>
   </div>
 </body>
