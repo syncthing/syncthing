@@ -1611,7 +1611,7 @@ func (m *Model) CheckFolderHealth(id string) error {
 	} else if os.IsNotExist(err) {
 		// If we don't have any files in the index, and the directory
 		// doesn't exist, try creating it.
-		err = os.MkdirAll(folder.Path(), 0700)
+		err = osutil.MkdirAll(folder.Path(), 0700)
 		if err == nil {
 			err = folder.CreateMarker()
 		}

@@ -279,7 +279,7 @@ func main() {
 			l.Fatalln(dir, "is not a directory")
 		}
 		if err != nil && os.IsNotExist(err) {
-			err = os.MkdirAll(dir, 0700)
+			err = osutil.MkdirAll(dir, 0700)
 			if err != nil {
 				l.Fatalln("generate:", err)
 			}
@@ -882,7 +882,7 @@ func discovery(extPort int) *discover.Discoverer {
 func ensureDir(dir string, mode int) {
 	fi, err := os.Stat(dir)
 	if os.IsNotExist(err) {
-		err := os.MkdirAll(dir, 0700)
+		err := osutil.MkdirAll(dir, 0700)
 		if err != nil {
 			l.Fatalln(err)
 		}
