@@ -471,7 +471,7 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 
 	resp, _ = ioutil.ReadAll(r.Body)
 	if debug {
-		l.Debugln("SOAP Response:\n\n" + string(resp) + "\n")
+		l.Debugf("SOAP Response: %v\n\n%v\n\n", r.StatusCode, string(resp))
 	}
 
 	r.Body.Close()
