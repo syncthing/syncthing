@@ -92,7 +92,7 @@
           </div>
           <div class="panel-body">
             <p>
-              <small>{{ event.time | date:"H:mm:ss" }}:</small>
+              <small>{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}:</small>
               <span translate translate-value-device="{{ device }}" translate-value-address="{{ event.data.address }}">
                 Device {%device%} ({%address%}) wants to connect. Add new device?
               <span>
@@ -122,7 +122,7 @@
           </div>
           <div class="panel-body">
             <p>
-              <small>{{ event.time | date:"H:mm:ss" }}:</small>
+              <small>{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}:</small>
               <span translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}">
                 {%device%} wants to share folder "{%folder%}".
               </span>
@@ -154,7 +154,7 @@
         <div class="panel panel-warning">
           <div class="panel-heading"><h3 class="panel-title"><span class="glyphicon glyphicon-exclamation-sign"></span><span translate>Notice</span></h3></div>
           <div class="panel-body">
-            <p ng-repeat="err in errorList()"><small>{{err.time | date:"H:mm:ss"}}:</small> {{friendlyDevices(err.error)}}</p>
+            <p ng-repeat="err in errorList()"><small>{{err.time | date:"yyyy-MM-dd HH:mm:ss"}}:</small> {{friendlyDevices(err.error)}}</p>
           </div>
           <div class="panel-footer">
             <button type="button" class="pull-right btn btn-sm btn-default" ng-click="clearErrors()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>OK</span></button>
@@ -265,7 +265,7 @@
                     <tr ng-if="!folder.readOnly && folderStats[folder.id].lastFile">
                       <th><span class="glyphicon glyphicon-transfer"></span>&emsp;<span translate>Last File Received</span></th>
                       <td class="text-right">
-                        <span title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm'}}">
+                        <span title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
                           {{folderStats[folder.id].lastFile.filename | basename}}
                         </span>
                       </td>
@@ -403,7 +403,7 @@
                     <tr ng-if="!connections[deviceCfg.deviceID]">
                       <th><span class="glyphicon glyphicon-eye-open"></span>&emsp;<span translate>Last seen</span></th>
                       <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
-                      <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm"}}</td>
+                      <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
                     </tr>
                     <tr ng-if="deviceFolders(deviceCfg).length > 0">
                       <th><span class="glyphicon glyphicon-hdd"></span>&emsp;<span translate>Folders</span></th>
