@@ -100,8 +100,8 @@ International License. You retain the copyright to code you have
 written.
 
 When accepting your first contribution, the maintainer of the project
-will ensure that you are added to the AUTHORS file. You are welcome to
-add yourself as a separate commit in your first pull request.
+will ensure that you are added to the AUTHORS file, the NICKS file and
+the list of authors in the about box.
 
 ## Building
 
