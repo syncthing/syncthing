@@ -527,6 +527,11 @@ type getExternalIPAddressResponse struct {
 	NewExternalIPAddress string `xml:"NewExternalIPAddress"`
 }
 
+type soapErrorResponse struct {
+	ErrorCode        int    `xml:"Body>Fault>detail>UPnPError>errorCode"`
+	ErrorDescription string `xml:"Body>Fault>detail>UPnPError>errorDescription"`
+}
+
 // AddPortMapping adds a port mapping to the specified IGD service.
 func (s *IGDService) AddPortMapping(localIPAddress string, protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
 	tpl := `<u:AddPortMapping xmlns:u="%s">
@@ -541,12 +546,20 @@ func (s *IGDService) AddPortMapping(localIPAddress string, protocol Protocol, ex
 	</u:AddPortMapping>`
 	body := fmt.Sprintf(tpl, s.serviceURN, externalPort, protocol, internalPort, localIPAddress, description, timeout)
 
-	_, err := soapRequest(s.serviceURL, s.serviceURN, "AddPortMapping", body)
-	if err != nil {
-		return err
+	response, err := soapRequest(s.serviceURL, s.serviceURN, "AddPortMapping", body)
+	if err != nil && timeout > 0 {
+		// Try to repair error code 725 - OnlyPermanentLeasesSupported
+		envelope := &soapErrorResponse{}
+		err = xml.Unmarshal(response, envelope)
+		if err != nil {
+			return err
+		}
+		if envelope.ErrorCode == 725 {
+			return s.AddPortMapping(localIPAddress, protocol, externalPort, internalPort, description, 0)
+		}
 	}
 
-	return nil
+	return err
 }
 
 // DeletePortMapping deletes a port mapping from the specified IGD service.
