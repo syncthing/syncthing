@@ -29,7 +29,7 @@ print-missing-authors() {
 }
 
 print-missing-copyright() {
-	find . -name \*.go | xargs egrep -L 'Copyright \(C\)|automatically generated' | grep -v Godeps | grep -v internal/auto/
+	find . -name \*.go | xargs egrep -L 'Copyright|automatically generated' | grep -v Godeps | grep -v internal/auto/
 }
 
 authors=$(print-missing-authors)
