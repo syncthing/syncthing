@@ -154,7 +154,7 @@
         <div class="panel panel-warning">
           <div class="panel-heading"><h3 class="panel-title"><span class="glyphicon glyphicon-exclamation-sign"></span><span translate>Notice</span></h3></div>
           <div class="panel-body">
-            <p ng-repeat="err in errorList()"><small>{{err.time | date:"H:mm:ss"}}:</small> {{friendlyDevices(err.error)}}</p>
+            <p ng-repeat="err in errorList()"><small>{{err.time | date:"medium"}}:</small> {{friendlyDevices(err.error)}}</p>
           </div>
           <div class="panel-footer">
             <button type="button" class="pull-right btn btn-sm btn-default" ng-click="clearErrors()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>OK</span></button>
