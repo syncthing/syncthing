@@ -22,6 +22,44 @@ found in the LICENSE file.
       font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     }
   </style>
+  <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+  <script type="text/javascript"
+          src="https://www.google.com/jsapi?autoload={
+            'modules':[{
+              'name':'visualization',
+              'version':'1',
+              'packages':['corechart']
+            }]
+          }"></script>
+
+  <script type="text/javascript">
+    google.setOnLoadCallback(drawChart);
+
+    function drawChart() {
+      var jsonData = $.ajax({url: "summary.json", dataType:"json", async: false}).responseText;
+      var rows = JSON.parse(jsonData);
+
+      var data = new google.visualization.DataTable();
+      data.addColumn('date', 'Day');
+      for (var i = 1; i < rows[0].length; i++){
+        data.addColumn('number', rows[0][i]);
+      }
+      for (var i = 1; i < rows.length; i++){
+        rows[i][0] = new Date(rows[i][0]);
+        data.addRow(rows[i]);
+      };
+
+      var options = {
+        legend: { position: 'bottom', alignment: 'center' },
+        isStacked: true,
+        colors: ['rgb(102,194,165)','rgb(252,141,98)','rgb(141,160,203)','rgb(231,138,195)','rgb(166,216,84)','rgb(255,217,47)'],
+        chartArea: {left: 80, top: 20, width: '1040', height: '300'},
+      };
+
+      var chart = new google.visualization.AreaChart(document.getElementById('curve_chart'));
+      chart.draw(data, options);
+    }
+  </script>
 </head>
 
 <body>
@@ -29,6 +67,14 @@ found in the LICENSE file.
     <div class="row">
       <div class="col-md-12">
         <h1>Syncthing Usage Data</h1>
+
+        <h4>Active Users per Day and Version</h4>
+        <p>
+          This is the total number of unique users with reporting enabled, per day. Area color represents the major version.
+        </p>
+        <div class="img-thumbnail" id="curve_chart" style="width: 1120px; height: 400px; padding: 10px;"></div>
+
+        <h4>Usage Metrics</h4>
         <p>
           This is the aggregated usage report data for the last 24 hours. Data based on <b>{{.nodes}}</b> devices that have reported in.
         </p>
