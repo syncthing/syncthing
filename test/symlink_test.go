@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
@@ -177,6 +176,7 @@ func testSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sender.stop()
 
 	receiver := syncthingProcess{ // id2
 		instance: "2",
@@ -186,29 +186,13 @@ func testSymlinks(t *testing.T) {
 	}
 	err = receiver.start()
 	if err != nil {
-		sender.stop()
 		t.Fatal(err)
 	}
+	defer receiver.stop()
 
-	for {
-		comp, err := sender.peerCompletion()
-		if err != nil {
-			if isTimeout(err) {
-				time.Sleep(time.Second)
-				continue
-			}
-			sender.stop()
-			receiver.stop()
-			t.Fatal(err)
-		}
-
-		curComp := comp[id2]
-
-		if curComp == 100 {
-			break
-		}
-
-		time.Sleep(time.Second)
+	err = awaitCompletion("default", sender, receiver)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	_, err = sender.stop()
@@ -311,29 +295,12 @@ func testSymlinks(t *testing.T) {
 
 	err = receiver.start()
 	if err != nil {
-		sender.stop()
 		t.Fatal(err)
 	}
 
-	for {
-		comp, err := sender.peerCompletion()
-		if err != nil {
-			if isTimeout(err) {
-				time.Sleep(time.Second)
-				continue
-			}
-			sender.stop()
-			receiver.stop()
-			t.Fatal(err)
-		}
-
-		curComp := comp[id2]
-
-		if curComp == 100 {
-			break
-		}
-
-		time.Sleep(time.Second)
+	err = awaitCompletion("default", sender, receiver)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	_, err = sender.stop()

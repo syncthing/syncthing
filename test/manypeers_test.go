@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"log"
 	"testing"
-	"time"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
@@ -92,19 +91,9 @@ func TestManyPeers(t *testing.T) {
 	}
 	defer sender.stop()
 
-	for {
-		comp, err := sender.peerCompletion()
-		if err != nil {
-			if isTimeout(err) {
-				time.Sleep(250 * time.Millisecond)
-				continue
-			}
-			t.Fatal(err)
-		}
-		if comp[id2] == 100 {
-			return
-		}
-		time.Sleep(2 * time.Second)
+	err = awaitCompletion("default", sender, receiver)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	log.Println("Comparing directories...")

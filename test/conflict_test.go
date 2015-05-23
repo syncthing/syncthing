@@ -53,7 +53,7 @@ func TestConflict(t *testing.T) {
 	defer sender.stop()
 	defer receiver.stop()
 
-	if err = coCompletion(sender, receiver); err != nil {
+	if err = awaitCompletion("default", sender, receiver); err != nil {
 		t.Fatal(err)
 	}
 
@@ -111,7 +111,7 @@ func TestConflict(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = coCompletion(sender, receiver); err != nil {
+	if err = awaitCompletion("default", sender, receiver); err != nil {
 		t.Fatal(err)
 	}
 
@@ -161,7 +161,7 @@ func TestConflict(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = coCompletion(sender, receiver); err != nil {
+	if err = awaitCompletion("default", sender, receiver); err != nil {
 		t.Fatal(err)
 	}
 
@@ -230,7 +230,7 @@ func TestInitialMergeConflicts(t *testing.T) {
 
 	log.Println("Syncing...")
 
-	if err = coCompletion(sender, receiver); err != nil {
+	if err = awaitCompletion("default", sender, receiver); err != nil {
 		t.Fatal(err)
 	}
 
@@ -309,7 +309,7 @@ func TestResetConflicts(t *testing.T) {
 
 	log.Println("Syncing...")
 
-	if err = coCompletion(sender, receiver); err != nil {
+	if err = awaitCompletion("default", sender, receiver); err != nil {
 		t.Fatal(err)
 	}
 
@@ -369,7 +369,7 @@ func TestResetConflicts(t *testing.T) {
 	}
 	time.Sleep(time.Second)
 
-	if err = coCompletion(sender, receiver); err != nil {
+	if err = awaitCompletion("default", sender, receiver); err != nil {
 		t.Fatal(err)
 	}
 
@@ -404,7 +404,7 @@ func TestResetConflicts(t *testing.T) {
 
 	log.Println("Syncing...")
 
-	if err = coCompletion(sender, receiver); err != nil {
+	if err = awaitCompletion("default", sender, receiver); err != nil {
 		t.Fatal(err)
 	}
 
@@ -466,32 +466,4 @@ func coSenderReceiver(t *testing.T) (syncthingProcess, syncthingProcess) {
 	}
 
 	return sender, receiver
-}
-
-func coCompletion(p ...syncthingProcess) error {
-mainLoop:
-	for {
-		time.Sleep(2500 * time.Millisecond)
-
-		tot := 0
-		for i := range p {
-			comp, err := p[i].peerCompletion()
-			if err != nil {
-				if isTimeout(err) {
-					continue mainLoop
-				}
-				return err
-			}
-
-			for _, pct := range comp {
-				tot += pct
-			}
-		}
-
-		if tot == 100*(len(p)) {
-			return nil
-		}
-
-		log.Printf("%d / %d...", tot, 100*(len(p)))
-	}
 }

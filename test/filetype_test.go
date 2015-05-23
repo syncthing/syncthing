@@ -12,7 +12,6 @@ import (
 	"log"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
@@ -113,6 +112,7 @@ func testFileTypeChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sender.stop()
 
 	receiver := syncthingProcess{ // id2
 		instance: "2",
@@ -125,28 +125,11 @@ func testFileTypeChange(t *testing.T) {
 		sender.stop()
 		t.Fatal(err)
 	}
+	defer receiver.stop()
 
-	for {
-		comp, err := sender.peerCompletion()
-		if err != nil {
-			if isTimeout(err) {
-				time.Sleep(time.Second)
-				continue
-			}
-			sender.stop()
-			receiver.stop()
-			t.Fatal(err)
-		}
-
-		curComp := comp[id2]
-
-		if curComp == 100 {
-			sender.stop()
-			receiver.stop()
-			break
-		}
-
-		time.Sleep(time.Second)
+	err = awaitCompletion("default", sender, receiver)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	_, err = sender.stop()
@@ -212,36 +195,10 @@ func testFileTypeChange(t *testing.T) {
 
 	err = receiver.start()
 	if err != nil {
-		sender.stop()
 		t.Fatal(err)
 	}
 
-	for {
-		comp, err := sender.peerCompletion()
-		if err != nil {
-			if isTimeout(err) {
-				time.Sleep(time.Second)
-				continue
-			}
-			sender.stop()
-			receiver.stop()
-			t.Fatal(err)
-		}
-
-		curComp := comp[id2]
-
-		if curComp == 100 {
-			break
-		}
-
-		time.Sleep(time.Second)
-	}
-
-	_, err = sender.stop()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = receiver.stop()
+	err = awaitCompletion("default", sender, receiver)
 	if err != nil {
 		t.Fatal(err)
 	}

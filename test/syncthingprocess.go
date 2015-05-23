@@ -66,7 +66,7 @@ func (p *syncthingProcess) start() error {
 		binary = binary + "-" + p.instance + ".exe"
 	}
 
-	argv := append(p.argv, "-no-browser")
+	argv := append(p.argv, "-no-browser", "-verbose")
 	cmd := exec.Command(binary, argv...)
 	cmd.Stdout = p.logfd
 	cmd.Stderr = p.logfd
@@ -203,40 +203,6 @@ func (p *syncthingProcess) post(path string, data io.Reader) (*http.Response, er
 	return resp, nil
 }
 
-func (p *syncthingProcess) peerCompletion() (map[string]int, error) {
-	resp, err := p.get("/rest/debug/peerCompletion")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	comp := map[string]int{}
-	err = json.NewDecoder(resp.Body).Decode(&comp)
-
-	// Remove ourselves from the set. In the remaining map, all peers should
-	// be att 100% if we're in sync.
-	for id := range comp {
-		if id == p.id.String() {
-			delete(comp, id)
-		}
-	}
-
-	return comp, err
-}
-
-func (p *syncthingProcess) allPeersInSync() error {
-	comp, err := p.peerCompletion()
-	if err != nil {
-		return err
-	}
-	for id, val := range comp {
-		if val != 100 {
-			return fmt.Errorf("%.7s at %d%%", id, val)
-		}
-	}
-	return nil
-}
-
 type model struct {
 	GlobalBytes   int
 	GlobalDeleted int
@@ -311,6 +277,35 @@ func (p *syncthingProcess) version() (string, error) {
 	return v.Version, nil
 }
 
+type statusResp struct {
+	GlobalBytes int
+	InSyncBytes int
+	Version     int
+}
+
+func (p *syncthingProcess) dbStatus(folder string) (statusResp, error) {
+	resp, err := p.get("/rest/db/status?folder=" + folder)
+	if err != nil {
+		return statusResp{}, err
+	}
+	defer resp.Body.Close()
+
+	var s statusResp
+	err = json.NewDecoder(resp.Body).Decode(&s)
+	if err != nil {
+		return statusResp{}, err
+	}
+	return s, nil
+}
+
+func (p *syncthingProcess) insync(folder string) (bool, int, error) {
+	s, err := p.dbStatus(folder)
+	if err != nil {
+		return false, 0, err
+	}
+	return s.GlobalBytes == s.InSyncBytes, s.Version, nil
+}
+
 func (p *syncthingProcess) rescan(folder string) error {
 	resp, err := p.post("/rest/db/scan?folder="+folder, nil)
 	if err != nil {
@@ -350,11 +345,46 @@ func (p *syncthingProcess) reset(folder string) error {
 	return nil
 }
 
-func allDevicesInSync(p []syncthingProcess) error {
-	for _, device := range p {
-		if err := device.allPeersInSync(); err != nil {
-			return fmt.Errorf("%.7s: %v", device.id.String(), err)
+func awaitCompletion(folder string, ps ...syncthingProcess) error {
+mainLoop:
+	for {
+		time.Sleep(2500 * time.Millisecond)
+
+		expectedVersion := 0
+		for _, p := range ps {
+			insync, version, err := p.insync(folder)
+
+			if err != nil {
+				if isTimeout(err) {
+					continue mainLoop
+				}
+				return err
+			}
+
+			if !insync {
+				continue mainLoop
+			}
+
+			if expectedVersion == 0 {
+				expectedVersion = version
+			} else if version != expectedVersion {
+				// Version number mismatch between devices, so not in sync.
+				continue mainLoop
+			}
 		}
+
+		return nil
 	}
-	return nil
+}
+
+func waitForScan(p syncthingProcess) {
+	// Wait for one scan to succeed, or up to 20 seconds...
+	for i := 0; i < 20; i++ {
+		err := p.rescan("default")
+		if err != nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
 }

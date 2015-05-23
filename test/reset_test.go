@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestReset(t *testing.T) {
@@ -41,13 +40,13 @@ func TestReset(t *testing.T) {
 	// startup, UPnP etc complete and make sure that we've performed folder
 	// error checking which creates the folder path if it's missing.
 	log.Println("Starting...")
-	waitForScan(t, &p)
+	waitForScan(p)
 
 	log.Println("Creating files...")
 	size := createFiles(t)
 
 	log.Println("Scanning files...")
-	waitForScan(t, &p)
+	waitForScan(p)
 
 	m, err := p.model("default")
 	if err != nil {
@@ -90,7 +89,7 @@ func TestReset(t *testing.T) {
 
 	// Wait for ST and scan
 	p.start()
-	waitForScan(t, &p)
+	waitForScan(p)
 
 	// Verify that we see them
 	m, err = p.model("default")
@@ -105,7 +104,7 @@ func TestReset(t *testing.T) {
 	// Recreate the files and scan
 	log.Println("Creating files...")
 	size = createFiles(t)
-	waitForScan(t, &p)
+	waitForScan(p)
 
 	// Verify that we see them
 	m, err = p.model("default")
@@ -126,7 +125,7 @@ func TestReset(t *testing.T) {
 
 	// Wait for ST and scan
 	p.start()
-	waitForScan(t, &p)
+	waitForScan(p)
 
 	m, err = p.model("default")
 	if err != nil {
@@ -135,18 +134,6 @@ func TestReset(t *testing.T) {
 	expected = size
 	if m.LocalFiles != expected {
 		t.Fatalf("Incorrect number of files after initial scan, %d != %d", m.LocalFiles, expected)
-	}
-}
-
-func waitForScan(t *testing.T, p *syncthingProcess) {
-	// Wait for one scan to succeed, or up to 20 seconds...
-	for i := 0; i < 20; i++ {
-		err := p.rescan("default")
-		if err != nil {
-			time.Sleep(time.Second)
-			continue
-		}
-		break
 	}
 }
 
