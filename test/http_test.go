@@ -14,7 +14,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
+	"time"
+
+	"github.com/syncthing/protocol"
 )
 
 var jsonEndpoints = []string{
@@ -263,4 +267,93 @@ func TestPOSTWithoutCSRF(t *testing.T) {
 	if res.StatusCode != 403 {
 		t.Fatalf("Status %d != 403 for POST", res.StatusCode)
 	}
+}
+
+var (
+	initOnce sync.Once
+	proc     syncthingProcess
+)
+
+func setupAPIBench() {
+	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
+	if err != nil {
+		panic(err)
+	}
+
+	err = generateFiles("s1", 25000, 20, "../LICENSE")
+	if err != nil {
+		panic(err)
+	}
+
+	err = ioutil.WriteFile("s1/knownfile", []byte("somedatahere"), 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	proc = syncthingProcess{ // id1
+		instance: "1",
+		argv:     []string{"-home", "h1"},
+		port:     8081,
+		apiKey:   apiKey,
+	}
+	err = proc.start()
+	if err != nil {
+		panic(err)
+	}
+
+	// Wait for one scan to succeed, or up to 20 seconds... This is to let
+	// startup, UPnP etc complete and make sure the sender has the full index
+	// before they connect.
+	for i := 0; i < 20; i++ {
+		resp, err := proc.post("/rest/scan?folder=default", nil)
+		if err != nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
+}
+
+func benchmarkURL(b *testing.B, url string) {
+	initOnce.Do(setupAPIBench)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		resp, err := proc.get(url)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if resp.StatusCode != 200 {
+			b.Fatal(resp.Status)
+		}
+		resp.Body.Close()
+	}
+}
+
+func BenchmarkAPI_db_completion(b *testing.B) {
+	benchmarkURL(b, "/rest/db/completion?folder=default&device="+protocol.LocalDeviceID.String())
+}
+
+func BenchmarkAPI_db_file(b *testing.B) {
+	benchmarkURL(b, "/rest/db/file?folder=default&file=knownfile")
+}
+
+func BenchmarkAPI_db_ignores(b *testing.B) {
+	benchmarkURL(b, "/rest/db/ignores?folder=default")
+}
+
+func BenchmarkAPI_db_need(b *testing.B) {
+	benchmarkURL(b, "/rest/db/need?folder=default")
+}
+
+func BenchmarkAPI_db_status(b *testing.B) {
+	benchmarkURL(b, "/rest/db/status?folder=default")
+}
+
+func BenchmarkAPI_db_browse_dirsonly(b *testing.B) {
+	benchmarkURL(b, "/rest/db/browse?folder=default&dirsonly=true")
 }
