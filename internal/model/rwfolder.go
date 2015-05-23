@@ -631,8 +631,16 @@ func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 			}
 		}
 	}
+
 	err = osutil.InWritableDir(osutil.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
+		// It was removed or it doesn't exist to start with
+		p.dbUpdates <- file
+	} else if _, err = os.Lstat(realName); err != nil && !os.IsPermission(err) {
+		// We get an error just looking at the directory, and it's not a
+		// permission problem. Lets assume the error is in fact some variant
+		// of "file does not exist" (possibly expressed as some parent being a
+		// file and not a directory etc) and that the delete is handled.
 		p.dbUpdates <- file
 	} else {
 		l.Infof("Puller (folder %q, dir %q): delete: %v", p.folder, file.Name, err)
@@ -673,10 +681,17 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 		err = osutil.InWritableDir(osutil.Remove, realName)
 	}
 
-	if err != nil && !os.IsNotExist(err) {
-		l.Infof("Puller (folder %q, file %q): delete: %v", p.folder, file.Name, err)
-	} else {
+	if err == nil || os.IsNotExist(err) {
+		// It was removed or it doesn't exist to start with
 		p.dbUpdates <- file
+	} else if _, err := os.Lstat(realName); err != nil && !os.IsPermission(err) {
+		// We get an error just looking at the file, and it's not a permission
+		// problem. Lets assume the error is in fact some variant of "file
+		// does not exist" (possibly expressed as some parent being a file and
+		// not a directory etc) and that the delete is handled.
+		p.dbUpdates <- file
+	} else {
+		l.Infof("Puller (folder %q, file %q): delete: %v", p.folder, file.Name, err)
 	}
 }
 
