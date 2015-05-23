@@ -17,9 +17,10 @@ case "${1:-default}" in
 		ulimit -t 60 &>/dev/null || true
 		ulimit -d 512000 &>/dev/null || true
 		ulimit -m 512000 &>/dev/null || true
-
 		go run build.go test
-		echo
+		;;
+
+	bench)
 		LOGGER_DISCARD=1 go run build.go bench | go run benchfilter.go
 		;;
 
@@ -120,8 +121,9 @@ case "${1:-default}" in
 			-e "STTRACE=$STTRACE" \
 			syncthing/build:latest \
 			sh -c './build.sh clean \
-				&& ./build.sh all \
-				&& STTRACE=all ./build.sh test-cov'
+				&& ./build.sh test-cov \
+				&& ./build.sh bench \
+				&& ./build.sh all'
 		;;
 
 	docker-test)
