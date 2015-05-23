@@ -103,32 +103,8 @@ func Discover(timeout time.Duration) []IGD {
 
 	resultChan := make(chan IGD)
 
-	// Aggregator
-	go func() {
-	next:
-		for result := range resultChan {
-			for _, existingResult := range results {
-				if existingResult.uuid == result.uuid {
-					if debug {
-						l.Debugf("Skipping duplicate result %s with services:", result.uuid)
-						for _, svc := range result.services {
-							l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
-						}
-					}
-					goto next
-				}
-			}
-			results = append(results, result)
-			if debug {
-				l.Debugf("UPnP discovery result %s with services:", result.uuid)
-				for _, svc := range result.services {
-					l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
-				}
-			}
-		}
-	}()
-
 	wg := sync.NewWaitGroup()
+
 	for _, intf := range interfaces {
 		// Interface flags seem to always be 0 on Windows
 		if runtime.GOOS != "windows" && (intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0) {
@@ -144,8 +120,33 @@ func Discover(timeout time.Duration) []IGD {
 		}
 	}
 
-	wg.Wait()
-	close(resultChan)
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+nextResult:
+	for result := range resultChan {
+		for _, existingResult := range results {
+			if existingResult.uuid == result.uuid {
+				if debug {
+					l.Debugf("Skipping duplicate result %s with services:", result.uuid)
+					for _, svc := range result.services {
+						l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
+					}
+				}
+				continue nextResult
+			}
+		}
+
+		results = append(results, result)
+		if debug {
+			l.Debugf("UPnP discovery result %s with services:", result.uuid)
+			for _, svc := range result.services {
+				l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
+			}
+		}
+	}
 
 	return results
 }
