@@ -100,9 +100,10 @@ type Event struct {
 }
 
 type Subscription struct {
-	mask   EventType
-	id     int
-	events chan Event
+	mask    EventType
+	id      int
+	events  chan Event
+	timeout *time.Timer
 }
 
 var Default = NewLogger()
@@ -149,9 +150,10 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 		dl.Debugln("subscribe", mask)
 	}
 	s := &Subscription{
-		mask:   mask,
-		id:     l.nextID,
-		events: make(chan Event, BufferSize),
+		mask:    mask,
+		id:      l.nextID,
+		events:  make(chan Event, BufferSize),
+		timeout: time.NewTimer(0),
 	}
 	l.nextID++
 	l.subs[s.id] = s
@@ -169,19 +171,22 @@ func (l *Logger) Unsubscribe(s *Subscription) {
 	l.mutex.Unlock()
 }
 
+// Poll returns an event from the subscription or an error if the poll times
+// out of the event channel is closed. Poll should not be called concurrently
+// from multiple goroutines for a single subscription.
 func (s *Subscription) Poll(timeout time.Duration) (Event, error) {
 	if debug {
 		dl.Debugln("poll", timeout)
 	}
 
-	to := time.After(timeout)
+	s.timeout.Reset(timeout)
 	select {
 	case e, ok := <-s.events:
 		if !ok {
 			return e, ErrClosed
 		}
 		return e, nil
-	case <-to:
+	case <-s.timeout.C:
 		return Event{}, ErrTimeout
 	}
 }
