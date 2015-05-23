@@ -9,6 +9,7 @@
 package integration
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -195,6 +196,7 @@ func TestOverride(t *testing.T) {
 
 func TestOverrideIgnores(t *testing.T) {
 	// Enable "Master" on s1/default
+	// Reproduces #1701
 	id, _ := protocol.DeviceIDFromString(id1)
 	cfg, _ := config.Load("h1/config.xml", id)
 	fld := cfg.Folders()["default"]
@@ -305,6 +307,17 @@ func TestOverrideIgnores(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	log.Println("Applying ignore...")
+
+	err = master.rescan("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = slave.rescan("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	log.Println("Modify testfile.txt on master...")
 
 	fd, err = os.Create("s1/testfile.txt")
@@ -334,6 +347,13 @@ func TestOverrideIgnores(t *testing.T) {
 	}
 
 	err = master.rescan("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = slave.rescan("default")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	log.Println("Syncing...")
 
@@ -372,10 +392,14 @@ func TestOverrideIgnores(t *testing.T) {
 		t.Error("Changes should have been synced to slave")
 	}
 
-	log.Println("Removing file on slave side...")
+	log.Println("Removing file on master side...")
 
-	os.Remove("s2/testfile.txt")
+	os.Remove("s1/testfile.txt")
 
+	err = master.rescan("default")
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = slave.rescan("default")
 	if err != nil {
 		t.Fatal(err)
@@ -383,14 +407,23 @@ func TestOverrideIgnores(t *testing.T) {
 
 	log.Println("Syncing...")
 
-	// Expect 100% completion since the change should be invisible to the master side
-	if err = ovCompletion(100, master, slave); err != nil {
+	// Bug triggered: 99% completion with override requests for the ignored file
+	if err = ovCompletion(99, master, slave); err != nil {
 		t.Fatal(err)
+	}
+
+	need, err := master.need("default")
+	if len(need.Rest) > 0 {
+		t.Fatal(fmt.Sprintf("%#v\n", need))
 	}
 
 	// Verify that nothing changed
 
 	fd, err = os.Open("s1/testfile.txt")
+	if err == nil {
+		t.Error("testfile.txt should not exist on master")
+	}
+	fd, err = os.Open("s2/testfile.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,29 +432,8 @@ func TestOverrideIgnores(t *testing.T) {
 		t.Fatal(err)
 	}
 	fd.Close()
-
-	if !strings.Contains(string(bs), "updated on master but ignored") {
-		t.Error("Changes should not have been synced to master")
-	}
-
-	fd, err = os.Open("s2/testfile.txt")
-	if err == nil {
-		t.Error("File should not exist on the slave")
-	}
-
-	log.Println("Creating file on slave...")
-
-	fd, err = os.Create("s2/testfile3.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = fd.WriteString("created on slave, should be removed on override\n")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = fd.Close()
-	if err != nil {
-		t.Fatal(err)
+	if !strings.Contains(string(bs), "original text") {
+		t.Error("Changes should not have been synced to slave")
 	}
 
 	log.Println("Hitting Override on master...")
@@ -436,16 +448,18 @@ func TestOverrideIgnores(t *testing.T) {
 
 	log.Println("Syncing...")
 
-	// Expect ~99% completion since the change will be rejected by the master side
-	if err = ovCompletion(99, master, slave); err != nil {
+	// Bug remains: ~99% completion with override requests for the ignored file
+	if err = ovCompletion(100, master, slave); err != nil {
 		t.Fatal(err)
 	}
 
-	fd, err = os.Open("s2/testfile.txt")
+	// Verify that nothing changed
+
+	fd, err = os.Open("s1/testfile.txt")
 	if err == nil {
-		t.Error("File should not exist on the slave")
+		t.Error("testfile.txt should not exist on master")
 	}
-	fd, err = os.Open("s2/testfile2.txt")
+	fd, err = os.Open("s2/testfile.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,14 +468,33 @@ func TestOverrideIgnores(t *testing.T) {
 		t.Fatal(err)
 	}
 	fd.Close()
-	if !strings.Contains(string(bs), "sync me") {
-		t.Error("Changes should have been synced to slave")
+	if !strings.Contains(string(bs), "original text") {
+		t.Error("Changes should not have been synced to slave")
 	}
-	fd, err = os.Open("s2/testfile3.txt")
+	needmaster, err := master.need("default")
 	if err != nil {
-		t.Error("File should still exist on the slave")
+		t.Fatal(err)
 	}
-	fd.Close()
+	needslave, err := slave.need("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Printf("%#v, %#v\n", needmaster, needslave)
+
+	log.Println("Creating file on slave...")
+
+	fd, err = os.Create("s2/testfile3.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fd.WriteString("created on slave, should not be removed on override\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = fd.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	log.Println("Hitting Override on master (again)...")
 
@@ -476,15 +509,17 @@ func TestOverrideIgnores(t *testing.T) {
 	log.Println("Syncing...")
 
 	// Expect ~99% completion since the change will be rejected by the master side
-	if err = ovCompletion(99, master, slave); err != nil {
+	if err = ovCompletion(100, master, slave); err != nil {
 		t.Fatal(err)
 	}
 
-	fd, err = os.Open("s2/testfile.txt")
+	// Verify that nothing changed and testfile3 is gone
+
+	fd, err = os.Open("s1/testfile.txt")
 	if err == nil {
-		t.Error("File should not exist on the slave")
+		t.Error("testfile.txt should not exist on master")
 	}
-	fd, err = os.Open("s2/testfile2.txt")
+	fd, err = os.Open("s2/testfile.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,8 +528,8 @@ func TestOverrideIgnores(t *testing.T) {
 		t.Fatal(err)
 	}
 	fd.Close()
-	if !strings.Contains(string(bs), "sync me") {
-		t.Error("Changes should have been synced to slave")
+	if !strings.Contains(string(bs), "original text") {
+		t.Error("Changes should not have been synced to slave")
 	}
 	fd, err = os.Open("s2/testfile3.txt")
 	if err != nil {

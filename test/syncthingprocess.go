@@ -85,10 +85,10 @@ func (p *syncthingProcess) start() error {
 		if err != nil {
 			continue
 		}
+		defer resp.Body.Close()
 
 		var sysData map[string]interface{}
 		err = json.NewDecoder(resp.Body).Decode(&sysData)
-		resp.Body.Close()
 		if err != nil {
 			// This one is unexpected. Print it.
 			log.Println("/rest/system/status (JSON):", err)
@@ -259,6 +259,7 @@ func (p *syncthingProcess) model(folder string) (model, error) {
 	if err != nil {
 		return model{}, err
 	}
+	defer resp.Body.Close()
 
 	var res model
 	err = json.NewDecoder(resp.Body).Decode(&res)
@@ -316,8 +317,9 @@ func (p *syncthingProcess) rescan(folder string) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
+
 	data, _ := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("Rescan %q: status code %d: %s", folder, resp.StatusCode, data)
 	}
@@ -329,8 +331,9 @@ func (p *syncthingProcess) rescanNext(folder string, next time.Duration) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
+
 	data, _ := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("Rescan %q: status code %d: %s", folder, resp.StatusCode, data)
 	}
@@ -342,12 +345,47 @@ func (p *syncthingProcess) reset(folder string) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
+
 	data, _ := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("Reset %q: status code %d: %s", folder, resp.StatusCode, data)
 	}
 	return nil
+}
+
+type jsonFileInfoTruncated struct {
+	Name         string
+	Size         int64
+	Flags        string
+	Modified     time.Time
+	Localversion int64
+	Version      []string
+}
+
+type need struct {
+	Progress []jsonFileInfoTruncated
+	Queued   []jsonFileInfoTruncated
+	Rest     []jsonFileInfoTruncated
+	Total    int
+	Page     int
+	Perpage  int
+}
+
+func (p *syncthingProcess) need(folder string) (need, error) {
+	resp, err := p.get("/rest/db/need?folder=" + folder)
+	if err != nil {
+		return need{}, err
+	}
+	defer resp.Body.Close()
+
+	var n need
+	err = json.NewDecoder(resp.Body).Decode(&n)
+	if err != nil {
+		return need{}, err
+	}
+
+	return n, nil
 }
 
 func allDevicesInSync(p []syncthingProcess) error {
