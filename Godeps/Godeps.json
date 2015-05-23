@@ -11,7 +11,7 @@
 		},
 		{
 			"ImportPath": "github.com/calmh/logger",
-			"Rev": "4d4e2801954c5581e4c2a80a3d3beb3b3645fd04"
+			"Rev": "c96f6a1a8c7b6bf2f4860c667867d90174799eb2"
 		},
 		{
 			"ImportPath": "github.com/calmh/luhn",

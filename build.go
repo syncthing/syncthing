@@ -110,6 +110,9 @@ func main() {
 		case "test":
 			test("./...")
 
+		case "bench":
+			bench("./...")
+
 		case "assets":
 			assets()
 
@@ -180,6 +183,11 @@ func setup() {
 func test(pkg string) {
 	setBuildEnv()
 	runPrint("go", "test", "-short", "-timeout", "60s", pkg)
+}
+
+func bench(pkg string) {
+	setBuildEnv()
+	runPrint("go", "test", "-run", "NONE", "-bench", ".", pkg)
 }
 
 func install(pkg string, tags []string) {

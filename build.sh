@@ -18,7 +18,9 @@ case "${1:-default}" in
 		ulimit -d 512000 &>/dev/null || true
 		ulimit -m 512000 &>/dev/null || true
 
-		go run build.go "$1"
+		go run build.go test
+		echo
+		LOGGER_DISCARD=1 go run build.go bench | go run benchfilter.go
 		;;
 
 	tar)
