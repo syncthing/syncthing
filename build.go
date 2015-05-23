@@ -278,6 +278,17 @@ func buildZip() {
 func buildDeb() {
 	os.RemoveAll("deb")
 
+	// "goarch" here is set to whatever the Debian packages expect. We correct
+	// "it to what we actually know how to build and keep the Debian variant
+	// "name in "debarch".
+	debarch := goarch
+	switch goarch {
+	case "i386":
+		goarch = "386"
+	case "armel", "armhf":
+		goarch = "arm"
+	}
+
 	build("./cmd/syncthing", []string{"noupgrade"})
 
 	files := []archiveFile{
@@ -295,11 +306,6 @@ func buildDeb() {
 		if err := copyFile(af.src, af.dst, af.perm); err != nil {
 			log.Fatal(err)
 		}
-	}
-
-	debarch := goarch
-	if debarch == "386" {
-		debarch = "i386"
 	}
 
 	control := `Package: syncthing
