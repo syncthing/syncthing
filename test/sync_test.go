@@ -163,17 +163,8 @@ func testSyncCluster(t *testing.T) {
 	}()
 
 	log.Println("Waiting for startup...")
-	// Wait for one scan to succeed, or up to 20 seconds...
-	// This is to let startup, UPnP etc complete.
-	for _, device := range p {
-		for i := 0; i < 20; i++ {
-			err := device.rescan("default")
-			if err != nil {
-				time.Sleep(time.Second)
-				continue
-			}
-			break
-		}
+	for _, dev := range p {
+		waitForScan(dev)
 	}
 
 	for count := 0; count < iterations; count++ {
@@ -310,15 +301,15 @@ func scStartProcesses() ([]syncthingProcess, error) {
 func scSyncAndCompare(p []syncthingProcess, expected [][]fileInfo) error {
 	log.Println("Syncing...")
 
-	for {
-		time.Sleep(2 * time.Second)
-
-		if err := allDevicesInSync(p); err != nil {
-			log.Println(err)
-			continue
-		}
-
-		break
+	// Special handling because we know which devices share which folders...
+	if err := awaitCompletion("default", p...); err != nil {
+		return err
+	}
+	if err := awaitCompletion("s12", p[0], p[1]); err != nil {
+		return err
+	}
+	if err := awaitCompletion("s23", p[1], p[2]); err != nil {
+		return err
 	}
 
 	// This is necessary, or all files won't be in place even when everything

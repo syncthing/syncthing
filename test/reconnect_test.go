@@ -54,6 +54,9 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sender.stop()
+
+	waitForScan(sender)
 
 	receiver := syncthingProcess{ // id2
 		instance: "2",
@@ -63,38 +66,24 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 	}
 	err = receiver.start()
 	if err != nil {
-		sender.stop()
 		t.Fatal(err)
 	}
+	defer receiver.stop()
 
-	var prevComp int
+	var prevBytes int
 	for {
-		comp, err := sender.peerCompletion()
+		recv, err := receiver.dbStatus("default")
 		if err != nil {
-			if isTimeout(err) {
-				time.Sleep(250 * time.Millisecond)
-				continue
-			}
-			sender.stop()
-			receiver.stop()
 			t.Fatal(err)
 		}
 
-		curComp := comp[id2]
-
-		if curComp == 100 {
-			_, err = sender.stop()
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, err = receiver.stop()
-			if err != nil {
-				t.Fatal(err)
-			}
+		if recv.InSyncBytes > 0 && recv.InSyncBytes == recv.GlobalBytes {
+			// Receiver is done
 			break
-		}
+		} else if recv.InSyncBytes > prevBytes+recv.GlobalBytes/10 {
+			// Receiver has made progress
+			prevBytes = recv.InSyncBytes
 
-		if curComp > prevComp {
 			if restartReceiver {
 				log.Printf("Stopping receiver...")
 				_, err = receiver.stop()
@@ -134,8 +123,6 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 			}
 
 			wg.Wait()
-
-			prevComp = curComp
 		}
 
 		time.Sleep(time.Second)

@@ -176,11 +176,13 @@ func TestGetJSON(t *testing.T) {
 	for _, path := range jsonEndpoints {
 		res, err := st.get(path)
 		if err != nil {
-			t.Error(err)
+			t.Error(path, err)
+			continue
 		}
 
 		if ct := res.Header.Get("Content-Type"); ct != "application/json; charset=utf-8" {
 			t.Errorf("Incorrect Content-Type %q for %q", ct, path)
+			continue
 		}
 
 		var intf interface{}
@@ -188,7 +190,7 @@ func TestGetJSON(t *testing.T) {
 		res.Body.Close()
 
 		if err != nil {
-			t.Error(err)
+			t.Error(path, err)
 		}
 	}
 }
