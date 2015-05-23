@@ -117,13 +117,13 @@ func TestOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Println("Changing file on slave side...")
+	log.Println("Changing file on master side...")
 
-	fd, err = os.OpenFile("s2/testfile.txt", os.O_WRONLY|os.O_APPEND, 0644)
+	fd, err = os.OpenFile("s1/testfile.txt", os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fd.WriteString("text added to s2\n")
+	_, err = fd.WriteString("text added to s1\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,30 +141,14 @@ func TestOverride(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 
-	// Expect ~99% completion since the change will be rejected by the master side
-	if err = ovCompletion(99, master, slave); err != nil {
-		t.Fatal(err)
-	}
-
-	log.Println("Hitting Override on master...")
-
-	resp, err := master.post("/rest/db/override?folder=default", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != 200 {
-		t.Fatal(resp.Status)
-	}
-
-	log.Println("Syncing...")
-
+	// Expect 100% completion since the change should be propagated
 	if err = ovCompletion(100, master, slave); err != nil {
 		t.Fatal(err)
 	}
 
-	// Verify that the override worked
+	// Verify that everything worked
 
-	fd, err = os.Open("s1/testfile.txt")
+	fd, err = os.Open("s2/testfile.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,23 +158,10 @@ func TestOverride(t *testing.T) {
 	}
 	fd.Close()
 
-	if strings.Contains(string(bs), "added to s2") {
-		t.Error("Change should not have been synced to master")
+	if !strings.Contains(string(bs), "added to s1") {
+		t.Error("Change should have been updated on slave")
 	}
-
-	fd, err = os.Open("s2/testfile.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	bs, err = ioutil.ReadAll(fd)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fd.Close()
-
-	if strings.Contains(string(bs), "added to s2") {
-		t.Error("Change should have been overridden on slave")
-	}
+	panic("STOP HERE, CHECK FOLDER")
 }
 
 func TestOverrideIgnores(t *testing.T) {
