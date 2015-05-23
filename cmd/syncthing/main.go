@@ -714,9 +714,7 @@ func syncthingMain() {
 func dbOpts() *opt.Options {
 	// Calculate a suitable database block cache capacity.
 
-	// Default is 8 MiB. In reality, the database will use twice the amount we
-	// calculate here, as it also has two write buffers each sized at half the
-	// block cache.
+	// Default is 8 MiB.
 	blockCacheCapacity := 8 << 20
 	// Increase block cache up to this maximum:
 	const maxCapacity = 64 << 20
@@ -743,7 +741,7 @@ func dbOpts() *opt.Options {
 	return &opt.Options{
 		OpenFilesCacheCapacity: 100,
 		BlockCacheCapacity:     blockCacheCapacity,
-		WriteBuffer:            blockCacheCapacity / 2,
+		WriteBuffer:            4 << 20,
 	}
 }
 
