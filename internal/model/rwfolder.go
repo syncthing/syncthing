@@ -1122,6 +1122,9 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 	if err == nil && (stat.IsDir() || stat.Mode()&os.ModeSymlink != 0) {
 		osutil.InWritableDir(osutil.Remove, state.realName)
 	}
+	if debug {
+		l.Debugln("Puller: final: moving", state.tempName, "to", state.realName, ". Errors:", state.failLocked())
+	}
 	// Replace the original content with the new one
 	err = osutil.Rename(state.tempName, state.realName)
 	if err != nil {
@@ -1156,7 +1159,7 @@ func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 	for state := range in {
 		if closed, err := state.finalClose(); closed {
 			if debug {
-				l.Debugln(p, "closing", state.file.Name)
+				l.Debugln(p, "closing", state.file.Name, state.tempName)
 			}
 			if err != nil {
 				l.Warnln("Puller: final:", err)
@@ -1167,6 +1170,9 @@ func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 			if state.failed() == nil {
 				p.performFinish(state)
 			} else {
+				if debug {
+					l.Debugln(p, "not performing finish:", state.file.Name, state.failed())
+				}
 				events.Default.Log(events.ItemFinished, map[string]interface{}{
 					"folder": p.folder,
 					"item":   state.file.Name,
