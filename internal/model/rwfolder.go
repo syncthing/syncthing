@@ -540,7 +540,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 
 	realName := filepath.Join(p.dir, file.Name)
 	mode := os.FileMode(file.Flags & 0777)
-	if p.ignorePerms {
+	if (protocol.FlagNoPermBits==file.Flags&protocol.FlagNoPermBits) { 
 		mode = 0755
 	}
 
@@ -569,7 +569,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 		// not MkdirAll because the parent should already exist.
 		mkdir := func(path string) error {
 			err = os.Mkdir(path, mode)
-			if err != nil || p.ignorePerms {
+			if err != nil || (protocol.FlagNoPermBits==file.Flags&protocol.FlagNoPermBits) {
 				return err
 			}
 			return os.Chmod(path, mode)
@@ -592,7 +592,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 	// don't handle modification times on directories, because that sucks...)
 	// It's OK to change mode bits on stuff within non-writable directories.
 
-	if p.ignorePerms {
+	if (protocol.FlagNoPermBits==file.Flags&protocol.FlagNoPermBits) {
 		p.dbUpdates <- file
 	} else if err := os.Chmod(realName, mode); err == nil {
 		p.dbUpdates <- file
@@ -858,7 +858,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		copyTotal:   len(blocks),
 		copyNeeded:  len(blocks),
 		reused:      reused,
-		ignorePerms: p.ignorePerms,
+		ignorePerms: (protocol.FlagNoPermBits == file.Flags&protocol.FlagNoPermBits),
 		version:     curFile.Version,
 		mut:         sync.NewMutex(),
 	}
@@ -878,7 +878,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 // thing that has changed.
 func (p *rwFolder) shortcutFile(file protocol.FileInfo) error {
 	realName := filepath.Join(p.dir, file.Name)
-	if !p.ignorePerms {
+	if !(protocol.FlagNoPermBits==file.Flags&protocol.FlagNoPermBits) {
 		if err := os.Chmod(realName, os.FileMode(file.Flags&0777)); err != nil {
 			l.Infof("Puller (folder %q, file %q): shortcut: chmod: %v", p.folder, file.Name, err)
 			return err
@@ -1076,7 +1076,7 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 	}()
 
 	// Set the correct permission bits on the new file
-	if !p.ignorePerms {
+	if !(protocol.FlagNoPermBits==state.file.Flags&protocol.FlagNoPermBits) {
 		err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
 		if err != nil {
 			l.Warnln("Puller: final:", err)
