@@ -304,6 +304,8 @@ func buildDeb() {
 		{src: "LICENSE", dst: "deb/usr/share/doc/syncthing/LICENSE.txt", perm: 0644},
 		{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing/AUTHORS.txt", perm: 0644},
 		{src: "syncthing", dst: "deb/usr/bin/syncthing", perm: 0755},
+		{src: "etc/linux-systemd/system/syncthing@.service", dst:"deb/usr/lib/systemd/system/syncthing@.service", perm: 0644},
+		{src: "etc/linux-systemd/user/syncthing.service", dst:"deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
 	}
 
 	for _, file := range listFiles("extra") {
