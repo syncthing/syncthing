@@ -50,6 +50,7 @@
           <ul class="dropdown-menu">
             <li><a href="" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span>&emsp;<span translate>Settings</span></a></li>
             <li><a href="" ng-click="idDevice()"><span class="glyphicon glyphicon-qrcode"></span>&emsp;<span translate>Show ID</span></a></li>
+            <li><a href="" class="visible-xs" ng-click="qrDevice()"><span class="glyphicon glyphicon-qrcode"></span>&emsp;<span translate>Show QR-Code</span></a></li>
             <li class="divider"></li>
             <li><a href="" ng-click="shutdown()"><span class="glyphicon glyphicon-off"></span>&emsp;<span translate>Shutdown</span></a></li>
             <li><a href="" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Restart</span></a></li>
@@ -481,6 +482,12 @@
 
   <modal id="idqr" large="yes" status="info" close="yes" icon="qrcode" title="{{'Device Identification' | translate}} &mdash; {{deviceName(thisDevice())}}">
     <div class="well well-sm text-monospace text-center">{{myID}}</div>
+    <img ng-if="myID" class="center-block hidden-xs img-thumbnail" ng-src="qr/?text={{myID}}"/>
+  </modal>
+
+  <!-- QR modal -->
+
+  <modal id="qrxs" large="yes" status="info" close="yes" icon="qrcode" title="{{'Device Identification' | translate}} &mdash; {{deviceName(thisDevice())}}">
     <img ng-if="myID" class="center-block img-thumbnail" ng-src="qr/?text={{myID}}"/>
   </modal>
 
