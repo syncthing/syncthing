@@ -541,7 +541,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 	realName := filepath.Join(p.dir, file.Name)
 	mode := os.FileMode(file.Flags & 0777)
 	if p.ignorePerms {
-		mode = 0755
+		mode = 0777
 	}
 
 	if debug {
