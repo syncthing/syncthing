@@ -60,38 +60,46 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 			log.Fatal(err)
 		}
 
-		s := 1 << uint(rand.Intn(maxexp))
-		a := 128 * 1024
+		p1 := filepath.Join(p0, n)
+
+		s := int64(1 << uint(rand.Intn(maxexp)))
+		a := int64(128 * 1024)
 		if a > s {
 			a = s
 		}
-		s += rand.Intn(a)
+		s += rand.Int63n(a)
 
-		src := io.LimitReader(&inifiteReader{fd}, int64(s))
-
-		p1 := filepath.Join(p0, n)
-		dst, err := os.Create(p1)
-		if err != nil {
+		if err := generateOneFile(fd, p1, s); err != nil {
 			return err
 		}
+	}
 
-		_, err = io.Copy(dst, src)
-		if err != nil {
-			return err
-		}
+	return nil
+}
 
-		err = dst.Close()
-		if err != nil {
-			return err
-		}
+func generateOneFile(fd io.ReadSeeker, p1 string, s int64) error {
+	src := io.LimitReader(&inifiteReader{fd}, int64(s))
+	dst, err := os.Create(p1)
+	if err != nil {
+		return err
+	}
 
-		_ = os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return err
+	}
 
-		t := time.Now().Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
-		err = os.Chtimes(p1, t, t)
-		if err != nil {
-			return err
-		}
+	err = dst.Close()
+	if err != nil {
+		return err
+	}
+
+	_ = os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
+
+	t := time.Now().Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
+	err = os.Chtimes(p1, t, t)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -367,6 +375,7 @@ type fileInfo struct {
 	mode os.FileMode
 	mod  int64
 	hash [16]byte
+	size int64
 }
 
 func (f fileInfo) String() string {
@@ -428,6 +437,7 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan er
 				name: rn,
 				mode: info.Mode(),
 				mod:  info.ModTime().Unix(),
+				size: info.Size(),
 			}
 			sum, err := md5file(path)
 			if err != nil {

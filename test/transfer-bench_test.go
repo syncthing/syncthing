@@ -10,6 +10,8 @@ package integration
 
 import (
 	"log"
+	"os"
+	"runtime"
 	"syscall"
 	"testing"
 	"time"
@@ -19,8 +21,23 @@ func TestBenchmarkTransferManyFiles(t *testing.T) {
 	benchmarkTransfer(t, 50000, 15)
 }
 
-func TestBenchmarkTransferLargeFiles(t *testing.T) {
-	benchmarkTransfer(t, 200, 28)
+func TestBenchmarkTransferLargeFile1G(t *testing.T) {
+	benchmarkTransfer(t, 1, 30)
+}
+func TestBenchmarkTransferLargeFile2G(t *testing.T) {
+	benchmarkTransfer(t, 1, 31)
+}
+func TestBenchmarkTransferLargeFile4G(t *testing.T) {
+	benchmarkTransfer(t, 1, 32)
+}
+func TestBenchmarkTransferLargeFile8G(t *testing.T) {
+	benchmarkTransfer(t, 1, 33)
+}
+func TestBenchmarkTransferLargeFile16G(t *testing.T) {
+	benchmarkTransfer(t, 1, 34)
+}
+func TestBenchmarkTransferLargeFile32G(t *testing.T) {
+	benchmarkTransfer(t, 1, 35)
 }
 
 func benchmarkTransfer(t *testing.T, files, sizeExp int) {
@@ -31,7 +48,20 @@ func benchmarkTransfer(t *testing.T, files, sizeExp int) {
 	}
 
 	log.Println("Generating files...")
-	err = generateFiles("s1", files, sizeExp, "../LICENSE")
+	if files == 1 {
+		// Special case. Generate one file with the specified size exactly.
+		fd, err := os.Open("../LICENSE")
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = os.MkdirAll("s1", 0755)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = generateOneFile(fd, "s1/onefile", 1<<uint(sizeExp))
+	} else {
+		err = generateFiles("s1", files, sizeExp, "../LICENSE")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,6 +69,15 @@ func benchmarkTransfer(t *testing.T, files, sizeExp int) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var total int64
+	var nfiles int
+	for _, f := range expected {
+		total += f.size
+		if f.mode.IsRegular() {
+			nfiles++
+		}
+	}
+	log.Printf("Total %.01f MiB in %d files", float64(total)/1024/1024, nfiles)
 
 	log.Println("Starting sender...")
 	sender := syncthingProcess{ // id1
@@ -116,8 +155,11 @@ loop:
 		time.Sleep(250 * time.Millisecond)
 	}
 
-	sender.stop()
-	proc, err := receiver.stop()
+	sendProc, err := sender.stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	recvProc, err := receiver.stop()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,10 +176,26 @@ loop:
 	}
 
 	log.Println("Result: Wall time:", t1.Sub(t0))
+	log.Printf("Result: %.1f MiB/s synced", float64(total)/1024/1024/t1.Sub(t0).Seconds())
 
-	if rusage, ok := proc.SysUsage().(*syscall.Rusage); ok {
-		log.Println("Result: Utime:", time.Duration(rusage.Utime.Nano()))
-		log.Println("Result: Stime:", time.Duration(rusage.Stime.Nano()))
-		log.Println("Result: MaxRSS:", rusage.Maxrss/1024, "KiB")
+	if rusage, ok := recvProc.SysUsage().(*syscall.Rusage); ok {
+		log.Println("Receiver: Utime:", time.Duration(rusage.Utime.Nano()))
+		log.Println("Receiver: Stime:", time.Duration(rusage.Stime.Nano()))
+		if runtime.GOOS == "darwin" {
+			// Darwin reports in bytes, Linux seems to report in KiB even
+			// though the manpage says otherwise.
+			rusage.Maxrss /= 1024
+		}
+		log.Println("Receiver: MaxRSS:", rusage.Maxrss, "KiB")
+	}
+	if rusage, ok := sendProc.SysUsage().(*syscall.Rusage); ok {
+		log.Println("Sender: Utime:", time.Duration(rusage.Utime.Nano()))
+		log.Println("Sender: Stime:", time.Duration(rusage.Stime.Nano()))
+		if runtime.GOOS == "darwin" {
+			// Darwin reports in bytes, Linux seems to report in KiB even
+			// though the manpage says otherwise.
+			rusage.Maxrss /= 1024
+		}
+		log.Println("Sender: MaxRSS:", rusage.Maxrss, "KiB")
 	}
 }
