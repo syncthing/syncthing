@@ -115,7 +115,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 			return nil, err
 		}
 	}
-	fd, err := os.OpenFile(s.tempName, flags, 0644)
+	fd, err := os.OpenFile(s.tempName, flags, 0666)
 	if err != nil {
 		s.failLocked("dst create", err)
 		return nil, err
