@@ -48,6 +48,10 @@ case "${1:-default}" in
 		go run build.go "$1"
 		;;
 
+	deb)
+		go run build.go "$1"
+		;;
+
 	noupgrade)
 		go run build.go -no-upgrade tar
 		;;
