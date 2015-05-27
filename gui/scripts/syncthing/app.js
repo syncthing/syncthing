@@ -9,6 +9,7 @@
 /*global $: false, angular: false, console: false, validLangs: false */
 
 var syncthing = angular.module('syncthing', [
+    'angularUtils.directives.dirPagination',
     'pascalprecht.translate',
 
     'syncthing.core'
@@ -46,25 +47,25 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
 
 });
 
-// @TODO: extract global level functions into seperate service(s)
+// @TODO: extract global level functions into separate service(s)
 
 function deviceCompare(a, b) {
-    if (typeof a.Name !== 'undefined' && typeof b.Name !== 'undefined') {
-        if (a.Name < b.Name)
+    if (typeof a.name !== 'undefined' && typeof b.name !== 'undefined') {
+        if (a.name < b.name)
             return -1;
-        return a.Name > b.Name;
+        return a.name > b.name;
     }
-    if (a.DeviceID < b.DeviceID) {
+    if (a.deviceID < b.deviceID) {
         return -1;
     }
-    return a.DeviceID > b.DeviceID;
+    return a.deviceID > b.deviceID;
 }
 
 function folderCompare(a, b) {
-    if (a.ID < b.ID) {
+    if (a.id < b.id) {
         return -1;
     }
-    return a.ID > b.ID;
+    return a.id > b.id;
 }
 
 function folderMap(l) {

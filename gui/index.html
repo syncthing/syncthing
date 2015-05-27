@@ -34,12 +34,6 @@
 
       <!-- Notifications and settings -->
       <div class="st-head-buttons ">
-        <!-- <li ng-if="upgradeInfo && upgradeInfo.newer">
-          <button type="button" class="btn navbar-btn btn-primary btn-sm" href="" ng-click="upgrade()">
-            <span class="glyphicon glyphicon-chevron-up"></span>
-            <span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
-          </button>
-        </li> -->
         <div class="st-head-notifications dropdown">
           <button type="button" class="st-head-notifications-btn btn btn-default btn-lg dropdown-toggle" data-toggle="dropdown">
             <span class="ion ion-android-notifications" aria-label="Edit"></span>
@@ -59,11 +53,30 @@
             <li><a href="" ng-click="about()"><span class="glyphicon glyphicon-heart-empty"></span><span translate>About</span></a></li>
           </ul>
         </div>
+        <li ng-if="upgradeInfo && upgradeInfo.majorNewer">
+          <button type="button" class="btn navbar-btn btn-danger btn-sm" href="" ng-click="upgradeMajor()">
+            <span class="glyphicon glyphicon-chevron-up"></span>&emsp;
+            <span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
+          </button>
+        </li>
+        <!-- <li class="dropdown" language-select></li>
+        <li class="dropdown">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog" aria-label="Edit"></span></a>
+          <ul class="dropdown-menu">
+            <li><a href="" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span><span translate>Settings</span></a></li>
+            <li><a href="" ng-click="idDevice()"><span class="glyphicon glyphicon-qrcode"></span><span translate>Show ID</span></a></li>
+            <li class="divider"></li>
+            <li><a href="" ng-click="shutdown()"><span class="glyphicon glyphicon-off"></span><span translate>Shutdown</span></a></li>
+            <li><a href="" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span><span translate>Restart</span></a></li>
+            <li class="divider"></li>
+            <li><a href="" ng-click="about()"><span class="glyphicon glyphicon-heart-empty"></span><span translate>About</span></a></li>
+          </ul>
+        </li> -->
       </div>
 
       <!-- This device -->
 
-      <div class="st-head-data " id="device-this" ng-repeat="deviceCfg in [thisDevice()]">
+      <div class="st-head-data " ng-repeat="deviceCfg in [thisDevice()]">
         <div class="st-head-data-container">
           <span class="st-head-data-item">
             <span class="ion ion-arrow-down-a"></span>
@@ -222,7 +235,49 @@
 
       <!-- Folder list (top left) -->
 
-      <div class="col-md-6">
+      <div class="st-table">
+        <div class="st-table-head st-table-row">
+          <div class="st-col">Name</div>
+          <div class="st-col">Size</div>
+          <div class="st-col">Status</div>
+          <div class="st-col">Devices</div>
+          <div class="st-col">Actions</div>
+        </div>
+        <div class="st-table-row" ng-repeat="folder in folderList()">
+          <div class="st-col">{{folder.id}}</div>
+          <div class="st-col">
+            <span class="st-info" translate>Local size / Global size</span>
+            <span class="">{{model[folder.id].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].localBytes | binary}}B</span> /
+            <span class="">{{model[folder.id].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].globalBytes | binary}}B</span>
+          </div>
+          <div class="st-col">
+            <span class="text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
+              <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
+              <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
+              <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs">&#9724;</span></span>
+              <span ng-switch-when="scanning"><span class="hidden-xs" translate>Scanning</span><span class="visible-xs">&#9724;</span></span>
+              <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
+              <span ng-switch-when="syncing">
+                <span class="hidden-xs" translate>Syncing</span>
+                ({{syncPercentage(folder.id)}}%)
+              </span>
+            </span>
+          </div>
+          <div class="st-col">
+            <span translate>Shared With</span>
+            <div class="">{{sharesFolder(folder)}}</div>
+          </div>
+          <div class="st-col">
+              <button class="btn btn-sm btn-danger pull-left" ng-if="folderStatus(folder) == 'idle' && folder.readOnly && model[folder.id].needFiles > 0" ng-click="override(folder.id)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
+              <span class="">
+                <button class="btn btn-sm btn-default" href="" ng-show="folderStatus(folder) == 'idle'" ng-click="rescanFolder(folder.id)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></button>
+                <button class="btn btn-sm btn-default" href="" ng-click="editFolder(folder)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></button>
+              </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-12">
         <div class="panel-group" id="folders">
         <div class="visible-xs"><h3><span translate>Folders</span></h3><hr></div>
           <div class="panel panel-default" ng-repeat="folder in folderList()">
@@ -251,9 +306,9 @@
                       <th><span class="glyphicon glyphicon-folder-open"></span>&emsp;<span translate>Folder Path</span></th>
                       <td class="text-right">{{folder.path}}</td>
                     </tr>
-                    <tr ng-if="model[folder.id].invalid">
+                    <tr ng-if="model[folder.id].invalid || model[folder.id].error">
                       <th><span class="glyphicon glyphicon-warning-sign"></span>&emsp;<span translate>Error</span></th>
-                      <td class="text-right">{{model[folder.id].invalid}}</td>
+                      <td class="text-right">{{model[folder.id].invalid || model[folder.id].error}}</td>
                     </tr>
                     <tr>
                       <th><span class="glyphicon glyphicon-globe"></span>&emsp;<span translate>Global State</span></th>
@@ -293,6 +348,17 @@
                       <th><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan Interval</span></th>
                       <td class="text-right">{{folder.rescanIntervalS}} s</td>
                     </tr>
+                    <tr ng-if="folder.order != 'random'">
+                      <th><span class="glyphicon glyphicon-sort"></span>&emsp;<span translate>File Pull Order</span></th>
+                      <td class="text-right" ng-switch="folder.order">
+                        <span ng-switch-when="random" translate>Random</span>
+                        <span ng-switch-when="alphabetic" translate>Alphabetic</span>
+                        <span ng-switch-when="smallestFirst" translate>Smallest First</span>
+                        <span ng-switch-when="largestFirst" translate>Largest First</span>
+                        <span ng-switch-when="oldestFirst" translate>Oldest First</span>
+                        <span ng-switch-when="newestFirst" translate>Newest First</span>
+                      </td>
+                    </tr>
                     <tr ng-if="folder.versioning.type">
                       <th><span class="glyphicon glyphicon-tags"></span>&emsp;<span translate>File Versioning</span></th>
                       <td class="text-right" ng-switch="folder.versioning.type">
@@ -317,7 +383,7 @@
                 </table>
               </div>
               <div class="panel-footer">
-                <button class="btn btn-sm btn-danger pull-left" ng-if="folder.readOnly && model[folder.id].needFiles > 0" ng-click="override(folder.id)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
+                <button class="btn btn-sm btn-danger pull-left" ng-if="folderStatus(folder) == 'idle' && folder.readOnly && model[folder.id].needFiles > 0" ng-click="override(folder.id)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
                 <span class="pull-right">
                   <button class="btn btn-sm btn-default" href="" ng-show="folderStatus(folder) == 'idle'" ng-click="rescanFolder(folder.id)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></button>
                   <button class="btn btn-sm btn-default" href="" ng-click="editFolder(folder)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></button>
@@ -336,58 +402,6 @@
       </div>
 
       <!-- Device list (top right) -->
-
-
-      <div class="col-md-6">
-      <div class="visible-xs"><h3><span translate>Devices</span></h3><hr></div>
-        <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
-          <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
-            <h3 class="panel-title">
-              <identicon data-value="deviceCfg.deviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
-            </h3>
-          </div>
-          <div id="device-this" class="panel-collapse collapse in">
-            <div class="panel-body">
-              <table class="table table-condensed table-striped">
-                <tbody>
-                  <tr>
-                    <th><span class="glyphicon glyphicon-cloud-download"></span>&emsp;<span translate>Download Rate</span></th>
-                    <td class="text-right">{{connections['total'].inbps | binary}}B/s ({{connections['total'].inBytesTotal | binary}}B)</td>
-                  </tr>
-                  <tr>
-                    <th><span class="glyphicon glyphicon-cloud-upload"></span>&emsp;<span translate>Upload Rate</span></th>
-                    <td class="text-right">{{connections['total'].outbps | binary}}B/s ({{connections['total'].outBytesTotal | binary}}B)</td>
-                  </tr>
-                  <tr>
-                    <th><span class="glyphicon glyphicon-th"></span>&emsp;<span translate>RAM Utilization</span></th>
-                    <td class="text-right">{{system.sys | binary}}B</td>
-                  </tr>
-                  <tr>
-                    <th><span class="glyphicon glyphicon-dashboard"></span>&emsp;<span translate>CPU Utilization</span></th>
-                    <td class="text-right">{{system.cpuPercent | alwaysNumber | natural:1}}%</td>
-                  </tr>
-                  <tr ng-if="system.extAnnounceOK != undefined && announceServersTotal > 0">
-                    <th><span class="glyphicon glyphicon-bullhorn"></span>&emsp;<span translate>Global Discovery</span></th>
-                    <td class="text-right">
-                      <span ng-if="announceServersFailed.length == 0" class="data text-success">
-                        <span>OK</span>
-                      </span>
-                      <span ng-if="announceServersFailed.length != 0" class="data" ng-class="{'text-danger': announceServersFailed.length == announceServersTotal}">
-                        <span popover data-trigger="hover" data-placement="bottom" data-content="{{announceServersFailed.join('\n')}}">
-                          {{announceServersTotal-announceServersFailed.length}}/{{announceServersTotal}}
-                        </span>
-                      </span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th><span class="glyphicon glyphicon-tag"></span>&emsp;<span translate>Version</span></th>
-                    <td class="text-right">{{version}}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
 
         <!-- Remote devices -->
 
@@ -472,10 +486,11 @@
     <div class="container">
       <ul class="nav navbar-nav">
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/wiki" target="_blank"><span class="glyphicon glyphicon-book"></span>&ensp;<span translate>Documentation</span></a></li>
-        <li><a class="navbar-link" href="https://discourse.syncthing.net" target="_blank"><span class="glyphicon glyphicon-question-sign"></span>&ensp;<span translate>Support</span></a></li>
+        <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="glyphicon glyphicon-question-sign"></span>&ensp;<span translate>Support</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/releases" target="_blank"><span class="glyphicon glyphicon-info-sign"></span>&ensp;<span translate>Changelog</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/issues" target="_blank"><span class="glyphicon glyphicon-warning-sign"></span>&ensp;<span translate>Bugs</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing" target="_blank"><span class="glyphicon glyphicon-wrench"></span>&ensp;<span translate>Source Code</span></a></li>
+        <li><a class="navbar-link" href="https://twitter.com/syncthing" target="_blank"><span class="glyphicon glyphicon-send"></span>&ensp;Twitter</a></li>
       </ul>
     </div>
   </nav>
@@ -518,8 +533,37 @@
 
   <modal id="idqr" large="yes" status="info" close="yes" icon="qrcode" title="{{'Device Identification' | translate}} &mdash; {{deviceName(thisDevice())}}">
     <div class="well well-sm text-monospace text-center">{{myID}}</div>
-    <img ng-if="myID" class="center-block img-thumbnail" src="qr/?text={{myID}}"/>
+    <img ng-if="myID" class="center-block img-thumbnail" ng-src="qr/?text={{myID}}"/>
   </modal>
+
+  <!-- Major upgrade modal -->
+
+  <div id="majorUpgrade" class="modal fade" tabindex="-1" data-backdrop="true" data-keyboard="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header alert alert-danger">
+          <h4 class="modal-title">
+            <span ng-if="icon" class="glyphicon glyphicon-chevron-up"></span>
+            <span translate>Major Upgrade</span>
+          </h4>
+        </div>
+        <div class="modal-body">
+          <p>
+            <span translate>This is a major version upgrade.</span>
+            <span translate>A new major version may not be compatible with previous versions.</span>
+            <span translate>Please consult the release notes before performing a major upgrade.</span>
+          </p>
+          <p>
+            <a href="https://github.com/syncthing/syncthing/releases/tag/{{upgradeInfo.latest}}" target="_blank" translate>Release Notes</a>
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary btn-sm" ng-click="upgrade()"><span class="glyphicon glyphicon-ok"></span>&emsp;<span translate>Upgrade</span></button>
+          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Device editor modal -->
 
@@ -645,6 +689,7 @@
               </div>
             </div>
             <div class="row">
+              <!-- Left column -->
               <div class="col-md-6">
                 <div class="form-group">
                   <div class="checkbox">
@@ -660,10 +705,23 @@
                       <input type="checkbox" ng-model="currentFolder.ignorePerms"> <span translate>Ignore Permissions</span>
                     </label>
                   </div>
-                  <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT filesystems.</p>
+                  <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
                 </div>
               </div>
+
+              <!-- Right column-->
               <div class="col-md-6">
+                <div class="form-group">
+                  <label translate>File Pull Order</label>
+                  <select class="form-control" ng-model="currentFolder.order">
+                    <option value="random" translate>Random</option>
+                    <option value="alphabetic" translate>Alphabetic</option>
+                    <option value="smallestFirst" translate>Smallest First</option>
+                    <option value="largestFirst" translate>Largest First</option>
+                    <option value="oldestFirst" translate>Oldest First</option>
+                    <option value="newestFirst" translate>Newest First</option>
+                  </select>
+                </div>
                 <div class="form-group">
                   <label translate>File Versioning</label>
                   <div class="radio">
@@ -688,7 +746,7 @@
                   </div>
                 </div>
                 <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.simpleKeep.$invalid && folderEditor.simpleKeep.$dirty}">
-                  <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</p>
+                  <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.</p>
                   <label translate for="simpleKeep">Keep Versions</label>
                   <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentFolder.simpleKeep" required min="1"></input>
                   <p class="help-block">
@@ -698,7 +756,7 @@
                   </p>
                 </div>
                 <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='staggered'" ng-class="{'has-error': folderEditor.staggeredMaxAge.$invalid && folderEditor.staggeredMaxAge.$dirty}">
-                  <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions folder when replaced or deleted by syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
+                  <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
                   <p translate class="help-block">The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.</p>
                   <label translate for="staggeredMaxAge">Maximum Age</label>
                   <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentFolder.staggeredMaxAge" required></input>
@@ -713,7 +771,7 @@
                   <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions folder in the folder).</p>
                 </div>
                 <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='external'" ng-class="{'has-error': folderEditor.externalCommand.$invalid && folderEditor.externalCommand.$dirty}">
-                  <p translate class="help-block">A external command handles the versioning. It has to remove the file from the synced folder.</p>
+                  <p translate class="help-block">An external command handles the versioning. It has to remove the file from the synced folder.</p>
                   <label translate for="externalCommand">Command</label>
                   <input name="externalCommand" id="externalCommand" class="form-control" type="text" ng-model="currentFolder.externalCommand" required></input>
                   <p class="help-block">
@@ -962,10 +1020,22 @@
     <hr/>
 
     <table class="table table-striped table-condensed">
-      <tr ng-repeat="f in needed.progress" ng-init="a = needAction(f)">
-        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
-        <td title="{{f.name}}">{{f.name | basename}}</td>
-        <td ng-if="a == 'sync' && progress[neededFolder] && progress[neededFolder][f.name]">
+
+      <tr dir-paginate="f in needed | itemsPerPage: neededPageSize" current-page="neededCurrentPage" total-items="neededTotal">
+        <!-- Icon -->
+        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[f.action]}}"></span> {{needActions[f.action]}}</td>
+
+        <!-- Name -->
+        <td ng-if="f.type != 'queued'" title="{{f.name}}">{{f.name | basename}}</td>
+        <td ng-if="f.type == 'queued'">
+          <a href="" ng-click="bumpFile(neededFolder, f.name)" title="{{'Move to top of queue' | translate}}">
+            <span class="glyphicon glyphicon-eject"></span>
+          </a>
+          <span title="{{f.name}}">&ensp;{{f.name | basename}}</span>
+        </td>
+
+        <!-- Size/Progress -->
+        <td ng-if="f.type == 'progress' && f.action == 'sync' && progress[neededFolder] && progress[neededFolder][f.name]">
           <div class="progress">
             <div class="progress-bar progress-bar-success" style="width: {{progress[neededFolder][f.name].reused}}%"></div>
             <div class="progress-bar" style="width: {{progress[neededFolder][f.name].copiedFromOrigin}}%"></div>
@@ -977,83 +1047,87 @@
             </span>
           </div>
         </td>
-        <td class="text-right small-data" ng-if="a != 'sync' || !progress[neededFolder] || !progress[neededFolder][f.name]">
+        <td class="text-right small-data" ng-if="f.type != 'progress' || f.action != 'sync' || !progress[neededFolder] || !progress[neededFolder][f.name]">
           <span ng-if="f.size > 0">{{f.size | binary}}B</span>
         </td>
-      </tr>
-      <tr ng-repeat="f in needed.queued" ng-init="a = needAction(f)">
-        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
-        <td><a href="" ng-if="$index != 0" ng-click="bumpFile(neededFolder, f.name)" title="{{'Move to top of queue' | translate}}"><span class="glyphicon glyphicon-eject"></span></a><span ng-if="$index != 0">&ensp;</span><span title="{{f.name}}">{{f.name | basename}}</span></td>
-        <td class="text-right small-data">
-          <span ng-if="f.size > 0">{{f.size | binary}}B</span>
-         </td>
-      </tr>
-      <tr ng-repeat="f in needed.rest" ng-init="a = needAction(f)">
-        <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[a]}}"></span> {{needActions[a]}}</td>
-        <td title="{{f.name}}">{{f.name | basename}}</td>
-        <td class="text-right small-data"><span ng-if="f.size > 0">{{f.size | binary}}B</span></td>
+
       </tr>
     </table>
 
+    <dir-pagination-controls on-page-change="neededPageChanged(newPageNumber)"></dir-pagination-controls>
+    <ul class="pagination pull-right">
+      <li ng-repeat="option in [10, 20, 30, 50, 100]" ng-class="{ active: neededPageSize == option }">
+        <a href="#" ng-click="neededChangePageSize(option)">{{option}}</a>
+      <li>
+    </ul>
+    <div class="clearfix"></div>
   </modal>
 
   <!-- About modal -->
 
   <modal id="about" large="yes" close="yes" status="info" title="{{'About' | translate}}">
-    <h1 class="text-center"><img alt="Syncthing" title="Syncthing" src="assets/img/logo-horizontal.svg" style="vertical-align: -16px" height="100" width="366"/><br/><small>{{version}}</small></h1>
+    <h1 class="text-center"><img alt="Syncthing" title="Syncthing" src="assets/img/logo-horizontal.svg" style="vertical-align: -16px" height="100" width="366"/><br/><small>{{versionString()}}</small></h1>
     <hr/>
 
-    <p translate>Copyright &copy; 2014 Jakob Borg and the following Contributors:</p>
+    <p translate>Copyright &copy; 2015 the following Contributors:</p>
     <div class="row">
       <div class="col-md-12">
-        <ul class="list-unstyled three-columns">
-          <li>Aaron Bieber</li>
-          <li>Andrew Dunham</li>
-          <li>Alexander Graf</li>
-          <li>Arthur Axel fREW Schmidt</li>
-          <li>Audrius Butkevicius</li>
-          <li>Ben Curthoys</li>
-          <li>Ben Schulz</li>
-          <li>Ben Sidhom</li>
-          <li>Brandon Philips</li>
-          <li>Brendan Long</li>
-          <li>Caleb Callaway</li>
-          <li>Cathryne Linenweaver</li>
-          <li>Colin Kennedy</li>
-          <li>Chris Joel</li>
-          <li>Daniel Martí</li>
-          <li>Dennis Wilson</li>
-          <li>Dominik Heidler</li>
-          <li>Emil Hessman</li>
-          <li>Federico Castagnini</li>
-          <li>Felix Ableitner</li>
-          <li>Felix Unterpaintner</li>
-          <li>Gilli Sigurdsson</li>
-          <li>James Patterson</li>
-          <li>Jens Diemer</li>
-          <li>Jochen Voss</li>
-          <li>Johan Vromans</li>
-          <li>Kamada Ken'ichi</li>
-          <li>Karol Różycki</li>
-          <li>Lode Hoste</li>
-          <li>Marc Laporte</li>
-          <li>Marc Pujol</li>
-          <li>Marcin Dziadus</li>
-          <li>Michael Jephcote</li>
-          <li>Michael Tilli</li>
-          <li>Pascal Jungblut</li>
-          <li>Peter Hoeg</li>
-          <li>Philippe Schommers</li>
-          <li>Phill Luby</li>
-          <li>Piotr Bejda</li>
-          <li>Ryan Sullivan</li>
-          <li>Stefan Tatschner</li>
-          <li>Tim Abell</li>
-          <li>Tobias Nygren</li>
-          <li>Tomas Cerveny</li>
-          <li>Tully Robinson</li>
-          <li>Veeti Paananen</li>
-          <li>Vil Brekin</li>
+        <ul class="list-unstyled three-columns" id="contributor-list">
+          <li class="auto-generated">Aaron Bieber</li>
+          <li class="auto-generated">Alexander Graf</li>
+          <li class="auto-generated">Andrew Dunham</li>
+          <li class="auto-generated">Arthur Axel fREW Schmidt</li>
+          <li class="auto-generated">Audrius Butkevicius</li>
+          <li class="auto-generated">Ben Curthoys</li>
+          <li class="auto-generated">Ben Schulz</li>
+          <li class="auto-generated">Ben Sidhom</li>
+          <li class="auto-generated">Brandon Philips</li>
+          <li class="auto-generated">Brendan Long</li>
+          <li class="auto-generated">Caleb Callaway</li>
+          <li class="auto-generated">Carsten Hagemann</li>
+          <li class="auto-generated">Cathryne Linenweaver</li>
+          <li class="auto-generated">Chris Howie</li>
+          <li class="auto-generated">Chris Joel</li>
+          <li class="auto-generated">Colin Kennedy</li>
+          <li class="auto-generated">Daniel Martí</li>
+          <li class="auto-generated">Dennis Wilson</li>
+          <li class="auto-generated">Dominik Heidler</li>
+          <li class="auto-generated">Elias Jarlebring</li>
+          <li class="auto-generated">Emil Hessman</li>
+          <li class="auto-generated">Federico Castagnini</li>
+          <li class="auto-generated">Felix Ableitner</li>
+          <li class="auto-generated">Felix Unterpaintner</li>
+          <li class="auto-generated">Francois-Xavier Gsell</li>
+          <li class="auto-generated">Gilli Sigurdsson</li>
+          <li class="auto-generated">Jakob Borg</li>
+          <li class="auto-generated">James Patterson</li>
+          <li class="auto-generated">Jaroslav Malec</li>
+          <li class="auto-generated">Jens Diemer</li>
+          <li class="auto-generated">Jochen Voss</li>
+          <li class="auto-generated">Johan Vromans</li>
+          <li class="auto-generated">Karol Różycki</li>
+          <li class="auto-generated">Ken'ichi Kamada</li>
+          <li class="auto-generated">Lode Hoste</li>
+          <li class="auto-generated">Lord Landon Agahnim</li>
+          <li class="auto-generated">Marc Laporte</li>
+          <li class="auto-generated">Marc Pujol</li>
+          <li class="auto-generated">Marcin Dziadus</li>
+          <li class="auto-generated">Michael Jephcote</li>
+          <li class="auto-generated">Michael Tilli</li>
+          <li class="auto-generated">Pascal Jungblut</li>
+          <li class="auto-generated">Peter Hoeg</li>
+          <li class="auto-generated">Philippe Schommers</li>
+          <li class="auto-generated">Phill Luby</li>
+          <li class="auto-generated">Piotr Bejda</li>
+          <li class="auto-generated">Ryan Sullivan</li>
+          <li class="auto-generated">Sergey Mishin</li>
+          <li class="auto-generated">Stefan Tatschner</li>
+          <li class="auto-generated">Tim Abell</li>
+          <li class="auto-generated">Tobias Nygren</li>
+          <li class="auto-generated">Tomas Cerveny</li>
+          <li class="auto-generated">Tully Robinson</li>
+          <li class="auto-generated">Veeti Paananen</li>
+          <li class="auto-generated">Vil Brekin</li>
         </ul>
       </div>
     </div>
@@ -1077,6 +1151,7 @@
   <script src="vendor/angular/angular.min.js"></script>
   <script src="vendor/angular/angular-translate.min.js"></script>
   <script src="vendor/angular/angular-translate-loader.min.js"></script>
+  <script src="vendor/angular/angular-dirPagination.js"></script>
   <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
   <script src="vendor/bootstrap/js/bootstrap.min.js"></script>
   <!-- / vendor scripts -->
@@ -1086,6 +1161,7 @@
   <script src="scripts/syncthing/core/controllers/eventController.js"></script>
   <script src="scripts/syncthing/core/controllers/syncthingController.js"></script>
   <script src="scripts/syncthing/core/directives/identiconDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/languageSelectDirective.js"></script>
   <script src="scripts/syncthing/core/directives/modalDirective.js"></script>
   <script src="scripts/syncthing/core/directives/uniqueFolderDirective.js"></script>
   <script src="scripts/syncthing/core/directives/validDeviceidDirective.js"></script>
@@ -1093,6 +1169,7 @@
   <script src="scripts/syncthing/core/filters/alwaysNumberFilter.js"></script>
   <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
   <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/durationFilter.js"></script>
   <script src="scripts/syncthing/core/filters/naturalFilter.js"></script>
   <script src="scripts/syncthing/core/services/localeService.js"></script>
 

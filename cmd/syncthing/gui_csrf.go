@@ -11,16 +11,15 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 var csrfTokens []string
-var csrfMut sync.Mutex
+var csrfMut = sync.NewMutex()
 
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
@@ -92,7 +91,7 @@ func newCsrfToken() string {
 }
 
 func saveCsrfTokens() {
-	name := filepath.Join(confDir, "csrftokens.txt")
+	name := locations[locCsrfTokens]
 	tmp := fmt.Sprintf("%s.tmp.%d", name, time.Now().UnixNano())
 
 	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
@@ -117,8 +116,7 @@ func saveCsrfTokens() {
 }
 
 func loadCsrfTokens() {
-	name := filepath.Join(confDir, "csrftokens.txt")
-	f, err := os.Open(name)
+	f, err := os.Open(locations[locCsrfTokens])
 	if err != nil {
 		return
 	}

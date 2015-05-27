@@ -12,16 +12,16 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/sync"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var (
 	sessions    = make(map[string]bool)
-	sessionsMut sync.Mutex
+	sessionsMut = sync.NewMutex()
 )
 
 func basicAuthAndSessionMiddleware(cfg config.GUIConfiguration, next http.Handler) http.Handler {
@@ -40,6 +40,10 @@ func basicAuthAndSessionMiddleware(cfg config.GUIConfiguration, next http.Handle
 				next.ServeHTTP(w, r)
 				return
 			}
+		}
+
+		if debugHTTP {
+			l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
 		}
 
 		error := func() {

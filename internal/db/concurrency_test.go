@@ -4,15 +4,18 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
+// +build ignore // this  is a really tedious test for an old issue
+
 package db_test
 
 import (
 	"crypto/rand"
 	"log"
 	"os"
-	"sync"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -132,7 +135,7 @@ func TestConcurrentSetClear(t *testing.T) {
 
 	dur := 30 * time.Second
 	t0 := time.Now()
-	var wg sync.WaitGroup
+	wg := sync.NewWaitGroup()
 
 	os.RemoveAll("testdata/concurrent-set-clear.db")
 	db, err := leveldb.OpenFile("testdata/concurrent-set-clear.db", &opt.Options{OpenFilesCacheCapacity: 10})
@@ -188,7 +191,7 @@ func TestConcurrentSetOnly(t *testing.T) {
 
 	dur := 30 * time.Second
 	t0 := time.Now()
-	var wg sync.WaitGroup
+	wg := sync.NewWaitGroup()
 
 	os.RemoveAll("testdata/concurrent-set-only.db")
 	db, err := leveldb.OpenFile("testdata/concurrent-set-only.db", &opt.Options{OpenFilesCacheCapacity: 10})

@@ -13,15 +13,6 @@ type FileInfoTruncated struct {
 	ActualSize int64
 }
 
-func ToTruncated(file protocol.FileInfo) FileInfoTruncated {
-	t := FileInfoTruncated{
-		FileInfo:   file,
-		ActualSize: file.Size(),
-	}
-	t.FileInfo.Blocks = nil
-	return t
-}
-
 func (f *FileInfoTruncated) UnmarshalXDR(bs []byte) error {
 	err := f.FileInfo.UnmarshalXDR(bs)
 	f.ActualSize = f.FileInfo.Size()

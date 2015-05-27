@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -19,7 +20,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"runtime/debug"
 	"runtime/pprof"
 	"strconv"
 	"strings"
@@ -36,10 +36,10 @@ import (
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/symlinks"
 	"github.com/syncthing/syncthing/internal/upgrade"
-	"github.com/syncthing/syncthing/internal/upnp"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/thejerf/suture"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -63,7 +63,10 @@ const (
 	exitUpgrading          = 4
 )
 
-const bepProtocolName = "bep/1.0"
+const (
+	bepProtocolName   = "bep/1.0"
+	pingEventInterval = time.Minute
+)
 
 var l = logger.DefaultLogger
 
@@ -76,12 +79,15 @@ func init() {
 		}
 	}
 
-	// Check for a clean release build.
-	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-beta[\d\.]+)?$`)
-	IsRelease = exp.MatchString(Version)
+	// Check for a clean release build. A release is something like "v0.1.2",
+	// with an optional suffix of letters and dot separated numbers like
+	// "-beta3.47". If there's more stuff, like a plus sign and a commit hash
+	// and so on, then it's not a release. If there's a dash anywhere in
+	// there, it's some kind of beta or prerelease version.
 
-	// Check for a beta build
-	IsBeta = strings.Contains(Version, "-beta")
+	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z]+[\d\.]+)?$`)
+	IsRelease = exp.MatchString(Version)
+	IsBeta = strings.Contains(Version, "-")
 
 	stamp, _ := strconv.Atoi(BuildStamp)
 	BuildDate = time.Unix(int64(stamp), 0)
@@ -103,8 +109,6 @@ var (
 	readRateLimit  *ratelimit.Bucket
 	stop           = make(chan int)
 	discoverer     *discover.Discoverer
-	externalPort   int
-	igd            *upnp.IGD
 	cert           tls.Certificate
 	lans           []*net.IPNet
 )
@@ -145,6 +149,8 @@ are mostly useful for developers. Use with care.
                  - "discover" (the discover package)
                  - "events"   (the events package)
                  - "files"    (the files package)
+                 - "http"     (the main package; HTTP requests)
+                 - "locks"    (the sync package; trace long held locks)
                  - "net"      (the main package; connections & network messages)
                  - "model"    (the model package)
                  - "scanner"  (the scanner package)
@@ -170,7 +176,11 @@ are mostly useful for developers. Use with care.
  STNOUPGRADE     Disable automatic upgrades.
 
  GOMAXPROCS      Set the maximum number of CPU cores to use. Defaults to all
-                 available CPU cores.`
+                 available CPU cores.
+
+ GOGC            Percentage of heap growth at which to trigger GC. Default is
+                 100. Lower numbers keep peak memory usage down, at the price
+                 of CPU usage (ie. performance).`
 )
 
 // Command line and environment options
@@ -184,6 +194,8 @@ var (
 	noConsole         bool
 	generateDir       string
 	logFile           string
+	auditEnabled      bool
+	verbose           bool
 	noRestart         = os.Getenv("STNORESTART") != ""
 	noUpgrade         = os.Getenv("STNOUPGRADE") != ""
 	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
@@ -197,17 +209,11 @@ var (
 )
 
 func main() {
-	defConfDir, err := getDefaultConfDir()
-	if err != nil {
-		l.Fatalln("home:", err)
-	}
-
 	if runtime.GOOS == "windows" {
 		// On Windows, we use a log file by default. Setting the -logfile flag
-		// to the empty string disables this behavior.
+		// to "-" disables this behavior.
 
-		logFile = filepath.Join(defConfDir, "syncthing.log")
-		flag.StringVar(&logFile, "logfile", logFile, "Log file name (blank for stdout)")
+		flag.StringVar(&logFile, "logfile", "", "Log file name (use \"-\" for stdout)")
 
 		// We also add an option to hide the console window
 		flag.BoolVar(&noConsole, "no-console", false, "Hide console window")
@@ -221,29 +227,38 @@ func main() {
 	flag.IntVar(&logFlags, "logflags", logFlags, "Select information in log line prefix")
 	flag.BoolVar(&noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&noRestart, "no-restart", noRestart, "Do not restart; just exit")
-	flag.BoolVar(&reset, "reset", false, "Prepare to resync from cluster")
+	flag.BoolVar(&reset, "reset", false, "Reset the database")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.StringVar(&upgradeTo, "upgrade-to", upgradeTo, "Force upgrade directly from specified URL")
+	flag.BoolVar(&auditEnabled, "audit", false, "Write events to audit file")
+	flag.BoolVar(&verbose, "verbose", false, "Print verbose log output")
 
-	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, defConfDir))
+	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, baseDirs["config"]))
 	flag.Parse()
 
 	if noConsole {
 		osutil.HideConsole()
 	}
 
-	if confDir == "" {
+	if confDir != "" {
 		// Not set as default above because the string can be really long.
-		confDir = defConfDir
+		baseDirs["config"] = confDir
 	}
 
-	if confDir != defConfDir && filepath.Dir(logFile) == defConfDir {
-		// The user changed the config dir with -home, but not the log file
-		// location. In this case we assume they meant for the logfile to
-		// still live in it's default location *relative to the config dir*.
-		logFile = filepath.Join(confDir, "syncthing.log")
+	if err := expandLocations(); err != nil {
+		l.Fatalln(err)
+	}
+
+	if runtime.GOOS == "windows" {
+		if logFile == "" {
+			// Use the default log file location
+			logFile = locations[locLogFile]
+		} else if logFile == "-" {
+			// Don't use a logFile
+			logFile = ""
+		}
 	}
 
 	if showVersion {
@@ -270,13 +285,13 @@ func main() {
 			}
 		}
 
-		cert, err := loadCert(dir, "")
+		certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 		if err == nil {
 			l.Warnln("Key exists; will not overwrite.")
 			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 		} else {
-			newCertificate(dir, "", tlsDefaultCommonName)
-			cert, err = loadCert(dir, "")
+			cert, err = newCertificate(certFile, keyFile, tlsDefaultCommonName)
 			myID = protocol.NewDeviceID(cert.Certificate[0])
 			if err != nil {
 				l.Fatalln("load cert:", err)
@@ -302,17 +317,12 @@ func main() {
 		return
 	}
 
-	confDir, err := osutil.ExpandTilde(confDir)
-	if err != nil {
-		l.Fatalln("home:", err)
-	}
-
-	if info, err := os.Stat(confDir); err == nil && !info.IsDir() {
-		l.Fatalln("Config directory", confDir, "is not a directory")
+	if info, err := os.Stat(baseDirs["config"]); err == nil && !info.IsDir() {
+		l.Fatalln("Config directory", baseDirs["config"], "is not a directory")
 	}
 
 	// Ensure that our home directory exists.
-	ensureDir(confDir, 0700)
+	ensureDir(baseDirs["config"], 0700)
 
 	if upgradeTo != "" {
 		err := upgrade.ToURL(upgradeTo)
@@ -324,7 +334,7 @@ func main() {
 	}
 
 	if doUpgrade || doUpgradeCheck {
-		rel, err := upgrade.LatestRelease(IsBeta)
+		rel, err := upgrade.LatestRelease(Version)
 		if err != nil {
 			l.Fatalln("Upgrade:", err) // exits 1
 		}
@@ -338,9 +348,15 @@ func main() {
 
 		if doUpgrade {
 			// Use leveldb database locks to protect against concurrent upgrades
-			_, err = leveldb.OpenFile(filepath.Join(confDir, "index"), &opt.Options{OpenFilesCacheCapacity: 100})
+			_, err = leveldb.OpenFile(locations[locDatabase], &opt.Options{OpenFilesCacheCapacity: 100})
 			if err != nil {
-				l.Fatalln("Cannot upgrade, database seems to be locked. Is another copy of Syncthing already running?")
+				l.Infoln("Attempting upgrade through running Syncthing...")
+				err = upgradeViaRest()
+				if err != nil {
+					l.Fatalln("Upgrade:", err)
+				}
+				l.Okln("Syncthing upgrading")
+				return
 			}
 
 			err = upgrade.To(rel)
@@ -354,7 +370,7 @@ func main() {
 	}
 
 	if reset {
-		resetFolders()
+		resetDB()
 		return
 	}
 
@@ -365,24 +381,76 @@ func main() {
 	}
 }
 
-func syncthingMain() {
-	var err error
+func upgradeViaRest() error {
+	cfg, err := config.Load(locations[locConfigFile], protocol.LocalDeviceID)
+	if err != nil {
+		return err
+	}
+	target := cfg.GUI().Address
+	if cfg.GUI().UseTLS {
+		target = "https://" + target
+	} else {
+		target = "http://" + target
+	}
+	r, _ := http.NewRequest("POST", target+"/rest/system/upgrade", nil)
+	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
 
-	if len(os.Getenv("GOGC")) == 0 {
-		debug.SetGCPercent(25)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{
+		Transport: tr,
+		Timeout:   60 * time.Second,
+	}
+	resp, err := client.Do(r)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 200 {
+		bs, err := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+		if err != nil {
+			return err
+		}
+		return errors.New(string(bs))
+	}
+
+	return err
+}
+
+func syncthingMain() {
+	// Create a main service manager. We'll add things to this as we go along.
+	// We want any logging it does to go through our log system, with INFO
+	// severity.
+	mainSvc := suture.New("main", suture.Spec{
+		Log: func(line string) {
+			l.Infoln(line)
+		},
+	})
+	mainSvc.ServeBackground()
+
+	// Set a log prefix similar to the ID we will have later on, or early log
+	// lines look ugly.
+	l.SetPrefix("[start] ")
+
+	if auditEnabled {
+		startAuditing(mainSvc)
+	}
+
+	if verbose {
+		mainSvc.Add(newVerboseSvc())
 	}
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
-	events.Default.Log(events.Starting, map[string]string{"home": confDir})
+	events.Default.Log(events.Starting, map[string]string{"home": baseDirs["config"]})
 
 	// Ensure that that we have a certificate and key.
-	cert, err = loadCert(confDir, "")
+	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
-		newCertificate(confDir, "", tlsDefaultCommonName)
-		cert, err = loadCert(confDir, "")
+		cert, err = newCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
 		if err != nil {
 			l.Fatalln("load cert:", err)
 		}
@@ -400,7 +468,7 @@ func syncthingMain() {
 
 	// Prepare to be able to save configuration
 
-	cfgFile := filepath.Join(confDir, "config.xml")
+	cfgFile := locations[locConfigFile]
 
 	var myName string
 
@@ -437,6 +505,10 @@ func syncthingMain() {
 		osutil.Rename(cfgFile, cfgFile+fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion))
 		// Save the new version
 		cfg.Save()
+	}
+
+	if err := checkShortIDs(cfg); err != nil {
+		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one if the following:\n  ", err)
 	}
 
 	if len(profiler) > 0 {
@@ -495,11 +567,10 @@ func syncthingMain() {
 		l.Infoln("Local networks:", strings.Join(networks, ", "))
 	}
 
-	dbFile := filepath.Join(confDir, "index")
-	dbOpts := &opt.Options{OpenFilesCacheCapacity: 100}
-	ldb, err := leveldb.OpenFile(dbFile, dbOpts)
+	dbFile := locations[locDatabase]
+	ldb, err := leveldb.OpenFile(dbFile, dbOpts())
 	if err != nil && errors.IsCorrupted(err) {
-		ldb, err = leveldb.RecoverFile(dbFile, dbOpts)
+		ldb, err = leveldb.RecoverFile(dbFile, dbOpts())
 	}
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
@@ -514,26 +585,31 @@ func syncthingMain() {
 		}
 	}
 
-	m := model.NewModel(cfg, myName, "syncthing", Version, ldb)
+	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb)
 
-	sanityCheckFolders(cfg, m)
+	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
+		it, err := strconv.Atoi(t)
+		if err == nil {
+			m.StartDeadlockDetector(time.Duration(it) * time.Second)
+		}
+	} else if !IsRelease || IsBeta {
+		m.StartDeadlockDetector(20 * 60 * time.Second)
+	}
 
 	// GUI
 
-	setupGUI(cfg, m)
+	setupGUI(mainSvc, cfg, m)
 
 	// Clear out old indexes for other devices. Otherwise we'll start up and
 	// start needing a bunch of files which are nowhere to be found. This
 	// needs to be changed when we correctly do persistent indexes.
 	for _, folderCfg := range cfg.Folders() {
-		if folderCfg.Invalid != "" {
-			continue
-		}
+		m.AddFolder(folderCfg)
 		for _, device := range folderCfg.DeviceIDs() {
 			if device == myID {
 				continue
 			}
-			m.Index(device, folderCfg.ID, nil)
+			m.Index(device, folderCfg.ID, nil, 0, nil)
 		}
 	}
 
@@ -543,24 +619,24 @@ func syncthingMain() {
 	if err != nil {
 		l.Fatalln("Bad listen address:", err)
 	}
-	externalPort = addr.Port
 
-	// UPnP
-	igd = nil
+	// Start discovery
+
+	localPort := addr.Port
+	discoverer = discovery(localPort)
+
+	// Start UPnP. The UPnP service will restart global discovery if the
+	// external port changes.
 
 	if opts.UPnPEnabled {
-		setupUPnP()
+		upnpSvc := newUPnPSvc(cfg, localPort)
+		mainSvc.Add(upnpSvc)
 	}
 
-	// Routine to connect out to configured devices
-	discoverer = discovery(externalPort)
-	go listenConnect(myID, m, tlsCfg)
+	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
+	mainSvc.Add(connectionSvc)
 
 	for _, folder := range cfg.Folders() {
-		if folder.Invalid != "" {
-			continue
-		}
-
 		// Routine to pull blocks from other devices to synchronize the local
 		// folder. Does not run when we are in read only (publish only) mode.
 		if folder.ReadOnly {
@@ -601,15 +677,12 @@ func syncthingMain() {
 			cfg.SetOptions(opts)
 			cfg.Save()
 		}
-		go usageReportingLoop(m)
-		go func() {
-			time.Sleep(10 * time.Minute)
-			err := sendUsageReport(m)
-			if err != nil {
-				l.Infoln("Usage report:", err)
-			}
-		}()
 	}
+
+	// The usageReportingManager registers itself to listen to configuration
+	// changes, and there's nothing more we need to tell it from the outside.
+	// Hence we don't keep the returned pointer.
+	newUsageReportingManager(m, cfg)
 
 	if opts.RestartOnWakeup {
 		go standbyMonitor()
@@ -626,15 +699,72 @@ func syncthingMain() {
 	}
 
 	events.Default.Log(events.StartupComplete, nil)
-	go generateEvents()
+	go generatePingEvents()
+
+	cleanConfigDirectory()
 
 	code := <-stop
+
+	mainSvc.Stop()
 
 	l.Okln("Exiting")
 	os.Exit(code)
 }
 
-func setupGUI(cfg *config.Wrapper, m *model.Model) {
+func dbOpts() *opt.Options {
+	// Calculate a suitable database block cache capacity.
+
+	// Default is 8 MiB. In reality, the database will use twice the amount we
+	// calculate here, as it also has two write buffers each sized at half the
+	// block cache.
+	blockCacheCapacity := 8 << 20
+	// Increase block cache up to this maximum:
+	const maxCapacity = 64 << 20
+	// ... which we reach when the box has this much RAM:
+	const maxAtRAM = 8 << 30
+
+	if v := cfg.Options().DatabaseBlockCacheMiB; v != 0 {
+		// Use the value from the config, if it's set.
+		blockCacheCapacity = v << 20
+	} else if bytes, err := memorySize(); err == nil {
+		// We start at the default of 8 MiB and use larger values for machines
+		// with more memory.
+
+		if bytes > maxAtRAM {
+			// Cap the cache at maxCapacity when we reach maxAtRam amount of memory
+			blockCacheCapacity = maxCapacity
+		} else if bytes > maxAtRAM/maxCapacity*int64(blockCacheCapacity) {
+			// Grow from the default to maxCapacity at maxAtRam amount of memory
+			blockCacheCapacity = int(bytes * maxCapacity / maxAtRAM)
+		}
+		l.Infoln("Database block cache capacity", blockCacheCapacity/1024, "KiB")
+	}
+
+	return &opt.Options{
+		OpenFilesCacheCapacity: 100,
+		BlockCacheCapacity:     blockCacheCapacity,
+		WriteBuffer:            blockCacheCapacity / 2,
+	}
+}
+
+func startAuditing(mainSvc *suture.Supervisor) {
+	auditFile := timestampedLoc(locAuditLog)
+	fd, err := os.OpenFile(auditFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		l.Fatalln("Audit:", err)
+	}
+
+	auditSvc := newAuditSvc(fd)
+	mainSvc.Add(auditSvc)
+
+	// We wait for the audit service to fully start before we return, to
+	// ensure we capture all events from the start.
+	auditSvc.WaitForStart()
+
+	l.Infoln("Audit log in", auditFile)
+}
+
+func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model) {
 	opts := cfg.Options()
 	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
 
@@ -663,10 +793,12 @@ func setupGUI(cfg *config.Wrapper, m *model.Model) {
 
 			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			l.Infoln("Starting web GUI on", urlShow)
-			err := startGUI(guiCfg, guiAssets, m)
+			api, err := newAPISvc(guiCfg, guiAssets, m)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
+			mainSvc.Add(api)
+
 			if opts.StartBrowser && !noBrowser && !stRestarting {
 				urlOpen := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostOpen, strconv.Itoa(addr.Port)))
 				// Can potentially block if the utility we are invoking doesn't
@@ -677,66 +809,12 @@ func setupGUI(cfg *config.Wrapper, m *model.Model) {
 	}
 }
 
-func sanityCheckFolders(cfg *config.Wrapper, m *model.Model) {
-nextFolder:
-	for id, folder := range cfg.Folders() {
-		if folder.Invalid != "" {
-			continue
-		}
-		m.AddFolder(folder)
-
-		fi, err := os.Stat(folder.Path)
-		if m.CurrentLocalVersion(id) > 0 {
-			// Safety check. If the cached index contains files but the
-			// folder doesn't exist, we have a problem. We would assume
-			// that all files have been deleted which might not be the case,
-			// so mark it as invalid instead.
-			if err != nil || !fi.IsDir() {
-				l.Warnf("Stopping folder %q - path does not exist, but has files in index", folder.ID)
-				cfg.InvalidateFolder(id, "folder path missing")
-				continue nextFolder
-			} else if !folder.HasMarker() {
-				l.Warnf("Stopping folder %q - path exists, but folder marker missing, check for mount issues", folder.ID)
-				cfg.InvalidateFolder(id, "folder marker missing")
-				continue nextFolder
-			}
-		} else if os.IsNotExist(err) {
-			// If we don't have any files in the index, and the directory
-			// doesn't exist, try creating it.
-			err = os.MkdirAll(folder.Path, 0700)
-			if err != nil {
-				l.Warnf("Stopping folder %q - %v", folder.ID, err)
-				cfg.InvalidateFolder(id, err.Error())
-				continue nextFolder
-			}
-			err = folder.CreateMarker()
-		} else if !folder.HasMarker() {
-			// If we don't have any files in the index, and the path does exist
-			// but the marker is not there, create it.
-			err = folder.CreateMarker()
-		}
-
-		if err != nil {
-			// If there was another error or we could not create the
-			// path, the folder is invalid.
-			l.Warnf("Stopping folder %q - %v", folder.ID, err)
-			cfg.InvalidateFolder(id, err.Error())
-			continue nextFolder
-		}
-	}
-}
-
 func defaultConfig(myName string) config.Configuration {
-	defaultFolder, err := osutil.ExpandTilde("~/Sync")
-	if err != nil {
-		l.Fatalln("home:", err)
-	}
-
 	newCfg := config.New(myID)
 	newCfg.Folders = []config.FolderConfiguration{
 		{
 			ID:              "default",
-			Path:            defaultFolder,
+			RawPath:         locations[locDefFolder],
 			RescanIntervalS: 60,
 			Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
 		},
@@ -749,7 +827,7 @@ func defaultConfig(myName string) config.Configuration {
 		},
 	}
 
-	port, err := getFreePort("127.0.0.1", 8080)
+	port, err := getFreePort("127.0.0.1", 8384)
 	if err != nil {
 		l.Fatalln("get free port (GUI):", err)
 	}
@@ -763,139 +841,15 @@ func defaultConfig(myName string) config.Configuration {
 	return newCfg
 }
 
-func generateEvents() {
+func generatePingEvents() {
 	for {
-		time.Sleep(300 * time.Second)
+		time.Sleep(pingEventInterval)
 		events.Default.Log(events.Ping, nil)
 	}
 }
 
-func setupUPnP() {
-	if opts := cfg.Options(); len(opts.ListenAddress) == 1 {
-		_, portStr, err := net.SplitHostPort(opts.ListenAddress[0])
-		if err != nil {
-			l.Warnln("Bad listen address:", err)
-		} else {
-			// Set up incoming port forwarding, if necessary and possible
-			port, _ := strconv.Atoi(portStr)
-			igds := upnp.Discover()
-			if len(igds) > 0 {
-				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
-				// for handling multiple IGDs, which will require changes to the global discovery service
-				igd = &igds[0]
-
-				externalPort = setupExternalPort(igd, port)
-				if externalPort == 0 {
-					l.Warnln("Failed to create UPnP port mapping")
-				} else {
-					l.Infof("Created UPnP port mapping for external port %d on UPnP device %s.", externalPort, igd.FriendlyIdentifier())
-
-					if opts.UPnPRenewal > 0 {
-						go renewUPnP(port)
-					}
-				}
-			}
-		}
-	} else {
-		l.Warnln("Multiple listening addresses; not attempting UPnP port mapping")
-	}
-}
-
-func setupExternalPort(igd *upnp.IGD, port int) int {
-	if igd == nil {
-		return 0
-	}
-
-	for i := 0; i < 10; i++ {
-		r := 1024 + predictableRandom.Intn(65535-1024)
-		err := igd.AddPortMapping(upnp.TCP, r, port, fmt.Sprintf("syncthing-%d", r), cfg.Options().UPnPLease*60)
-		if err == nil {
-			return r
-		}
-	}
-	return 0
-}
-
-func renewUPnP(port int) {
-	for {
-		opts := cfg.Options()
-		time.Sleep(time.Duration(opts.UPnPRenewal) * time.Minute)
-
-		// Make sure our IGD reference isn't nil
-		if igd == nil {
-			if debugNet {
-				l.Debugln("Undefined IGD during UPnP port renewal. Re-discovering...")
-			}
-			igds := upnp.Discover()
-			if len(igds) > 0 {
-				// Configure the first discovered IGD only. This is a work-around until we have a better mechanism
-				// for handling multiple IGDs, which will require changes to the global discovery service
-				igd = &igds[0]
-			} else {
-				if debugNet {
-					l.Debugln("Failed to discover IGD during UPnP port mapping renewal.")
-				}
-				continue
-			}
-		}
-
-		// Just renew the same port that we already have
-		if externalPort != 0 {
-			err := igd.AddPortMapping(upnp.TCP, externalPort, port, "syncthing", opts.UPnPLease*60)
-			if err != nil {
-				l.Warnf("Error renewing UPnP port mapping for external port %d on device %s: %s", externalPort, igd.FriendlyIdentifier(), err.Error())
-			} else if debugNet {
-				l.Debugf("Renewed UPnP port mapping for external port %d on device %s.", externalPort, igd.FriendlyIdentifier())
-			}
-
-			continue
-		}
-
-		// Something strange has happened. We didn't have an external port before?
-		// Or perhaps the gateway has changed?
-		// Retry the same port sequence from the beginning.
-		if debugNet {
-			l.Debugln("No UPnP port mapping defined, updating...")
-		}
-
-		forwardedPort := setupExternalPort(igd, port)
-		if forwardedPort != 0 {
-			externalPort = forwardedPort
-			discoverer.StopGlobal()
-			discoverer.StartGlobal(opts.GlobalAnnServers, uint16(forwardedPort))
-			if debugNet {
-				l.Debugf("Updated UPnP port mapping for external port %d on device %s.", forwardedPort, igd.FriendlyIdentifier())
-			}
-		} else {
-			l.Warnf("Failed to update UPnP port mapping for external port on device " + igd.FriendlyIdentifier() + ".")
-		}
-	}
-}
-
-func resetFolders() {
-	confDir, err := osutil.ExpandTilde(confDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	cfgFile := filepath.Join(confDir, "config.xml")
-	cfg, err := config.Load(cfgFile, myID)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	suffix := fmt.Sprintf(".syncthing-reset-%d", time.Now().UnixNano())
-	for _, folder := range cfg.Folders() {
-		if _, err := os.Stat(folder.Path); err == nil {
-			base := filepath.Base(folder.Path)
-			dir := filepath.Dir(filepath.Join(folder.Path, ".."))
-			l.Infof("Reset: Moving %s -> %s", folder.Path, filepath.Join(dir, base+suffix))
-			os.Rename(folder.Path, filepath.Join(dir, base+suffix))
-		}
-	}
-
-	idx := filepath.Join(confDir, "index")
-	os.RemoveAll(idx)
+func resetDB() error {
+	return os.RemoveAll(locations[locDatabase])
 }
 
 func restart() {
@@ -938,25 +892,6 @@ func ensureDir(dir string, mode int) {
 		if err != nil {
 			l.Warnln(err)
 		}
-	}
-}
-
-func getDefaultConfDir() (string, error) {
-	switch runtime.GOOS {
-	case "windows":
-		if p := os.Getenv("LocalAppData"); p != "" {
-			return filepath.Join(p, "Syncthing"), nil
-		}
-		return filepath.Join(os.Getenv("AppData"), "Syncthing"), nil
-
-	case "darwin":
-		return osutil.ExpandTilde("~/Library/Application Support/Syncthing")
-
-	default:
-		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
-			return filepath.Join(xdgCfg, "syncthing"), nil
-		}
-		return osutil.ExpandTilde("~/.config/syncthing")
 	}
 }
 
@@ -1057,7 +992,7 @@ func autoUpgrade() {
 		case <-timer.C:
 		}
 
-		rel, err := upgrade.LatestRelease(IsBeta)
+		rel, err := upgrade.LatestRelease(Version)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return
@@ -1089,4 +1024,57 @@ func autoUpgrade() {
 		stop <- exitUpgrading
 		return
 	}
+}
+
+// cleanConfigDirectory removes old, unused configuration and index formats, a
+// suitable time after they have gone out of fashion.
+func cleanConfigDirectory() {
+	patterns := map[string]time.Duration{
+		"panic-*.log":    7 * 24 * time.Hour,  // keep panic logs for a week
+		"audit-*.log":    7 * 24 * time.Hour,  // keep audit logs for a week
+		"index":          14 * 24 * time.Hour, // keep old index format for two weeks
+		"config.xml.v*":  30 * 24 * time.Hour, // old config versions for a month
+		"*.idx.gz":       30 * 24 * time.Hour, // these should for sure no longer exist
+		"backup-of-v0.8": 30 * 24 * time.Hour, // these neither
+	}
+
+	for pat, dur := range patterns {
+		pat = filepath.Join(baseDirs["config"], pat)
+		files, err := osutil.Glob(pat)
+		if err != nil {
+			l.Infoln("Cleaning:", err)
+			continue
+		}
+
+		for _, file := range files {
+			info, err := osutil.Lstat(file)
+			if err != nil {
+				l.Infoln("Cleaning:", err)
+				continue
+			}
+
+			if time.Since(info.ModTime()) > dur {
+				if err = os.RemoveAll(file); err != nil {
+					l.Infoln("Cleaning:", err)
+				} else {
+					l.Infoln("Cleaned away old file", filepath.Base(file))
+				}
+			}
+		}
+	}
+}
+
+// checkShortIDs verifies that the configuration won't result in duplicate
+// short ID:s; that is, that the devices in the cluster all have unique
+// initial 64 bits.
+func checkShortIDs(cfg *config.Wrapper) error {
+	exists := make(map[uint64]protocol.DeviceID)
+	for deviceID := range cfg.Devices() {
+		shortID := deviceID.Short()
+		if otherID, ok := exists[shortID]; ok {
+			return fmt.Errorf("%v in conflict with %v", deviceID, otherID)
+		}
+		exists[shortID] = deviceID
+	}
+	return nil
 }

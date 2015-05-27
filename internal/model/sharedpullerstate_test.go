@@ -9,11 +9,14 @@ package model
 import (
 	"os"
 	"testing"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 func TestSourceFileOK(t *testing.T) {
 	s := sharedPullerState{
 		realName: "testdata/foo",
+		mut:      sync.NewMutex(),
 	}
 
 	fd, err := s.sourceFile()
@@ -42,6 +45,7 @@ func TestSourceFileOK(t *testing.T) {
 func TestSourceFileBad(t *testing.T) {
 	s := sharedPullerState{
 		realName: "nonexistent",
+		mut:      sync.NewMutex(),
 	}
 
 	fd, err := s.sourceFile()
@@ -67,6 +71,7 @@ func TestReadOnlyDir(t *testing.T) {
 
 	s := sharedPullerState{
 		tempName: "testdata/read_only_dir/.temp_name",
+		mut:      sync.NewMutex(),
 	}
 
 	fd, err := s.tempFile()
@@ -78,4 +83,5 @@ func TestReadOnlyDir(t *testing.T) {
 	}
 
 	s.fail("Test done", nil)
+	s.finalClose()
 }

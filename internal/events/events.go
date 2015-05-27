@@ -9,8 +9,10 @@ package events
 
 import (
 	"errors"
-	"sync"
+	stdsync "sync"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type EventType int
@@ -31,6 +33,8 @@ const (
 	FolderRejected
 	ConfigSaved
 	DownloadProgress
+	FolderSummary
+	FolderCompletion
 
 	AllEvents = (1 << iota) - 1
 )
@@ -67,6 +71,10 @@ func (t EventType) String() string {
 		return "ConfigSaved"
 	case DownloadProgress:
 		return "DownloadProgress"
+	case FolderSummary:
+		return "FolderSummary"
+	case FolderCompletion:
+		return "FolderCompletion"
 	default:
 		return "Unknown"
 	}
@@ -95,7 +103,6 @@ type Subscription struct {
 	mask   EventType
 	id     int
 	events chan Event
-	mutex  sync.Mutex
 }
 
 var Default = NewLogger()
@@ -107,7 +114,8 @@ var (
 
 func NewLogger() *Logger {
 	return &Logger{
-		subs: make(map[int]*Subscription),
+		subs:  make(map[int]*Subscription),
+		mutex: sync.NewMutex(),
 	}
 }
 
@@ -162,9 +170,6 @@ func (l *Logger) Unsubscribe(s *Subscription) {
 }
 
 func (s *Subscription) Poll(timeout time.Duration) (Event, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	if debug {
 		dl.Debugln("poll", timeout)
 	}
@@ -191,15 +196,16 @@ type BufferedSubscription struct {
 	next int
 	cur  int
 	mut  sync.Mutex
-	cond *sync.Cond
+	cond *stdsync.Cond
 }
 
 func NewBufferedSubscription(s *Subscription, size int) *BufferedSubscription {
 	bs := &BufferedSubscription{
 		sub: s,
 		buf: make([]Event, size),
+		mut: sync.NewMutex(),
 	}
-	bs.cond = sync.NewCond(&bs.mut)
+	bs.cond = stdsync.NewCond(bs.mut)
 	go bs.pollingLoop()
 	return bs
 }

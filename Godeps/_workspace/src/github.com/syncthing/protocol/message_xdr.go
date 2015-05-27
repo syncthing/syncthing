@@ -51,7 +51,7 @@ struct IndexMessage {
 
 func (o IndexMessage) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o IndexMessage) MarshalXDR() ([]byte, error) {
@@ -69,15 +69,15 @@ func (o IndexMessage) MustMarshalXDR() []byte {
 func (o IndexMessage) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o IndexMessage) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o IndexMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	xw.WriteString(o.Folder)
 	xw.WriteUint32(uint32(len(o.Files)))
 	for i := range o.Files {
-		_, err := o.Files[i].encodeXDR(xw)
+		_, err := o.Files[i].EncodeXDRInto(xw)
 		if err != nil {
 			return xw.Tot(), err
 		}
@@ -88,7 +88,7 @@ func (o IndexMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 	}
 	xw.WriteUint32(uint32(len(o.Options)))
 	for i := range o.Options {
-		_, err := o.Options[i].encodeXDR(xw)
+		_, err := o.Options[i].EncodeXDRInto(xw)
 		if err != nil {
 			return xw.Tot(), err
 		}
@@ -98,30 +98,36 @@ func (o IndexMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 
 func (o *IndexMessage) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *IndexMessage) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *IndexMessage) decodeXDR(xr *xdr.Reader) error {
+func (o *IndexMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.Folder = xr.ReadString()
 	_FilesSize := int(xr.ReadUint32())
+	if _FilesSize < 0 {
+		return xdr.ElementSizeExceeded("Files", _FilesSize, 0)
+	}
 	o.Files = make([]FileInfo, _FilesSize)
 	for i := range o.Files {
-		(&o.Files[i]).decodeXDR(xr)
+		(&o.Files[i]).DecodeXDRFrom(xr)
 	}
 	o.Flags = xr.ReadUint32()
 	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
 	if _OptionsSize > 64 {
 		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
 	}
 	o.Options = make([]Option, _OptionsSize)
 	for i := range o.Options {
-		(&o.Options[i]).decodeXDR(xr)
+		(&o.Options[i]).DecodeXDRFrom(xr)
 	}
 	return xr.Error()
 }
@@ -145,9 +151,9 @@ FileInfo Structure:
 +                      Modified (64 bits)                       +
 |                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                                                               |
-+                       Version (64 bits)                       +
-|                                                               |
+/                                                               /
+\                       Vector Structure                        \
+/                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                    Local Version (64 bits)                    +
@@ -165,7 +171,7 @@ struct FileInfo {
 	string Name<8192>;
 	unsigned int Flags;
 	hyper Modified;
-	hyper Version;
+	Vector Version;
 	hyper LocalVersion;
 	BlockInfo Blocks<>;
 }
@@ -174,7 +180,7 @@ struct FileInfo {
 
 func (o FileInfo) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o FileInfo) MarshalXDR() ([]byte, error) {
@@ -192,22 +198,25 @@ func (o FileInfo) MustMarshalXDR() []byte {
 func (o FileInfo) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o FileInfo) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o FileInfo) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	if l := len(o.Name); l > 8192 {
 		return xw.Tot(), xdr.ElementSizeExceeded("Name", l, 8192)
 	}
 	xw.WriteString(o.Name)
 	xw.WriteUint32(o.Flags)
 	xw.WriteUint64(uint64(o.Modified))
-	xw.WriteUint64(uint64(o.Version))
+	_, err := o.Version.EncodeXDRInto(xw)
+	if err != nil {
+		return xw.Tot(), err
+	}
 	xw.WriteUint64(uint64(o.LocalVersion))
 	xw.WriteUint32(uint32(len(o.Blocks)))
 	for i := range o.Blocks {
-		_, err := o.Blocks[i].encodeXDR(xw)
+		_, err := o.Blocks[i].EncodeXDRInto(xw)
 		if err != nil {
 			return xw.Tot(), err
 		}
@@ -217,25 +226,28 @@ func (o FileInfo) encodeXDR(xw *xdr.Writer) (int, error) {
 
 func (o *FileInfo) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *FileInfo) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *FileInfo) decodeXDR(xr *xdr.Reader) error {
+func (o *FileInfo) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.Name = xr.ReadStringMax(8192)
 	o.Flags = xr.ReadUint32()
 	o.Modified = int64(xr.ReadUint64())
-	o.Version = int64(xr.ReadUint64())
+	(&o.Version).DecodeXDRFrom(xr)
 	o.LocalVersion = int64(xr.ReadUint64())
 	_BlocksSize := int(xr.ReadUint32())
+	if _BlocksSize < 0 {
+		return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 0)
+	}
 	o.Blocks = make([]BlockInfo, _BlocksSize)
 	for i := range o.Blocks {
-		(&o.Blocks[i]).decodeXDR(xr)
+		(&o.Blocks[i]).DecodeXDRFrom(xr)
 	}
 	return xr.Error()
 }
@@ -266,7 +278,7 @@ struct BlockInfo {
 
 func (o BlockInfo) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o BlockInfo) MarshalXDR() ([]byte, error) {
@@ -284,11 +296,11 @@ func (o BlockInfo) MustMarshalXDR() []byte {
 func (o BlockInfo) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o BlockInfo) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o BlockInfo) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	xw.WriteUint32(uint32(o.Size))
 	if l := len(o.Hash); l > 64 {
 		return xw.Tot(), xdr.ElementSizeExceeded("Hash", l, 64)
@@ -299,16 +311,16 @@ func (o BlockInfo) encodeXDR(xw *xdr.Writer) (int, error) {
 
 func (o *BlockInfo) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *BlockInfo) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *BlockInfo) decodeXDR(xr *xdr.Reader) error {
+func (o *BlockInfo) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.Size = int32(xr.ReadUint32())
 	o.Hash = xr.ReadBytesMax(64)
 	return xr.Error()
@@ -369,7 +381,7 @@ struct RequestMessage {
 
 func (o RequestMessage) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o RequestMessage) MarshalXDR() ([]byte, error) {
@@ -387,11 +399,11 @@ func (o RequestMessage) MustMarshalXDR() []byte {
 func (o RequestMessage) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o RequestMessage) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o RequestMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	if l := len(o.Folder); l > 64 {
 		return xw.Tot(), xdr.ElementSizeExceeded("Folder", l, 64)
 	}
@@ -412,7 +424,7 @@ func (o RequestMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 	}
 	xw.WriteUint32(uint32(len(o.Options)))
 	for i := range o.Options {
-		_, err := o.Options[i].encodeXDR(xw)
+		_, err := o.Options[i].EncodeXDRInto(xw)
 		if err != nil {
 			return xw.Tot(), err
 		}
@@ -422,16 +434,16 @@ func (o RequestMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 
 func (o *RequestMessage) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *RequestMessage) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *RequestMessage) decodeXDR(xr *xdr.Reader) error {
+func (o *RequestMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.Folder = xr.ReadStringMax(64)
 	o.Name = xr.ReadStringMax(8192)
 	o.Offset = int64(xr.ReadUint64())
@@ -439,12 +451,15 @@ func (o *RequestMessage) decodeXDR(xr *xdr.Reader) error {
 	o.Hash = xr.ReadBytesMax(64)
 	o.Flags = xr.ReadUint32()
 	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
 	if _OptionsSize > 64 {
 		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
 	}
 	o.Options = make([]Option, _OptionsSize)
 	for i := range o.Options {
-		(&o.Options[i]).decodeXDR(xr)
+		(&o.Options[i]).DecodeXDRFrom(xr)
 	}
 	return xr.Error()
 }
@@ -462,20 +477,20 @@ ResponseMessage Structure:
 \                    Data (variable length)                     \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             Error                             |
+|                             Code                              |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct ResponseMessage {
 	opaque Data<>;
-	int Error;
+	int Code;
 }
 
 */
 
 func (o ResponseMessage) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o ResponseMessage) MarshalXDR() ([]byte, error) {
@@ -493,30 +508,30 @@ func (o ResponseMessage) MustMarshalXDR() []byte {
 func (o ResponseMessage) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o ResponseMessage) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o ResponseMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	xw.WriteBytes(o.Data)
-	xw.WriteUint32(uint32(o.Error))
+	xw.WriteUint32(uint32(o.Code))
 	return xw.Tot(), xw.Error()
 }
 
 func (o *ResponseMessage) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *ResponseMessage) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *ResponseMessage) decodeXDR(xr *xdr.Reader) error {
+func (o *ResponseMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.Data = xr.ReadBytes()
-	o.Error = int32(xr.ReadUint32())
+	o.Code = int32(xr.ReadUint32())
 	return xr.Error()
 }
 
@@ -564,7 +579,7 @@ struct ClusterConfigMessage {
 
 func (o ClusterConfigMessage) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o ClusterConfigMessage) MarshalXDR() ([]byte, error) {
@@ -582,11 +597,11 @@ func (o ClusterConfigMessage) MustMarshalXDR() []byte {
 func (o ClusterConfigMessage) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o ClusterConfigMessage) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o ClusterConfigMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	if l := len(o.ClientName); l > 64 {
 		return xw.Tot(), xdr.ElementSizeExceeded("ClientName", l, 64)
 	}
@@ -597,7 +612,7 @@ func (o ClusterConfigMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 	xw.WriteString(o.ClientVersion)
 	xw.WriteUint32(uint32(len(o.Folders)))
 	for i := range o.Folders {
-		_, err := o.Folders[i].encodeXDR(xw)
+		_, err := o.Folders[i].EncodeXDRInto(xw)
 		if err != nil {
 			return xw.Tot(), err
 		}
@@ -607,7 +622,7 @@ func (o ClusterConfigMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 	}
 	xw.WriteUint32(uint32(len(o.Options)))
 	for i := range o.Options {
-		_, err := o.Options[i].encodeXDR(xw)
+		_, err := o.Options[i].EncodeXDRInto(xw)
 		if err != nil {
 			return xw.Tot(), err
 		}
@@ -617,30 +632,36 @@ func (o ClusterConfigMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 
 func (o *ClusterConfigMessage) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *ClusterConfigMessage) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *ClusterConfigMessage) decodeXDR(xr *xdr.Reader) error {
+func (o *ClusterConfigMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.ClientName = xr.ReadStringMax(64)
 	o.ClientVersion = xr.ReadStringMax(64)
 	_FoldersSize := int(xr.ReadUint32())
+	if _FoldersSize < 0 {
+		return xdr.ElementSizeExceeded("Folders", _FoldersSize, 0)
+	}
 	o.Folders = make([]Folder, _FoldersSize)
 	for i := range o.Folders {
-		(&o.Folders[i]).decodeXDR(xr)
+		(&o.Folders[i]).DecodeXDRFrom(xr)
 	}
 	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
 	if _OptionsSize > 64 {
 		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
 	}
 	o.Options = make([]Option, _OptionsSize)
 	for i := range o.Options {
-		(&o.Options[i]).decodeXDR(xr)
+		(&o.Options[i]).DecodeXDRFrom(xr)
 	}
 	return xr.Error()
 }
@@ -664,18 +685,28 @@ Folder Structure:
 \                Zero or more Device Structures                 \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                             Flags                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Number of Options                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                Zero or more Option Structures                 \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct Folder {
 	string ID<64>;
 	Device Devices<>;
+	unsigned int Flags;
+	Option Options<64>;
 }
 
 */
 
 func (o Folder) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o Folder) MarshalXDR() ([]byte, error) {
@@ -693,18 +724,29 @@ func (o Folder) MustMarshalXDR() []byte {
 func (o Folder) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o Folder) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o Folder) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	if l := len(o.ID); l > 64 {
 		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 64)
 	}
 	xw.WriteString(o.ID)
 	xw.WriteUint32(uint32(len(o.Devices)))
 	for i := range o.Devices {
-		_, err := o.Devices[i].encodeXDR(xw)
+		_, err := o.Devices[i].EncodeXDRInto(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
+	}
+	xw.WriteUint32(o.Flags)
+	if l := len(o.Options); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Options", l, 64)
+	}
+	xw.WriteUint32(uint32(len(o.Options)))
+	for i := range o.Options {
+		_, err := o.Options[i].EncodeXDRInto(xw)
 		if err != nil {
 			return xw.Tot(), err
 		}
@@ -714,21 +756,36 @@ func (o Folder) encodeXDR(xw *xdr.Writer) (int, error) {
 
 func (o *Folder) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *Folder) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *Folder) decodeXDR(xr *xdr.Reader) error {
+func (o *Folder) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.ID = xr.ReadStringMax(64)
 	_DevicesSize := int(xr.ReadUint32())
+	if _DevicesSize < 0 {
+		return xdr.ElementSizeExceeded("Devices", _DevicesSize, 0)
+	}
 	o.Devices = make([]Device, _DevicesSize)
 	for i := range o.Devices {
-		(&o.Devices[i]).decodeXDR(xr)
+		(&o.Devices[i]).DecodeXDRFrom(xr)
+	}
+	o.Flags = xr.ReadUint32()
+	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
+	if _OptionsSize > 64 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
+	o.Options = make([]Option, _OptionsSize)
+	for i := range o.Options {
+		(&o.Options[i]).DecodeXDRFrom(xr)
 	}
 	return xr.Error()
 }
@@ -746,25 +803,32 @@ Device Structure:
 \                     ID (variable length)                      \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             Flags                             |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                  Max Local Version (64 bits)                  +
 |                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                             Flags                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Number of Options                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                Zero or more Option Structures                 \
+/                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct Device {
 	opaque ID<32>;
-	unsigned int Flags;
 	hyper MaxLocalVersion;
+	unsigned int Flags;
+	Option Options<64>;
 }
 
 */
 
 func (o Device) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o Device) MarshalXDR() ([]byte, error) {
@@ -782,35 +846,56 @@ func (o Device) MustMarshalXDR() []byte {
 func (o Device) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o Device) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o Device) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	if l := len(o.ID); l > 32 {
 		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 32)
 	}
 	xw.WriteBytes(o.ID)
-	xw.WriteUint32(o.Flags)
 	xw.WriteUint64(uint64(o.MaxLocalVersion))
+	xw.WriteUint32(o.Flags)
+	if l := len(o.Options); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Options", l, 64)
+	}
+	xw.WriteUint32(uint32(len(o.Options)))
+	for i := range o.Options {
+		_, err := o.Options[i].EncodeXDRInto(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
+	}
 	return xw.Tot(), xw.Error()
 }
 
 func (o *Device) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *Device) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *Device) decodeXDR(xr *xdr.Reader) error {
+func (o *Device) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.ID = xr.ReadBytesMax(32)
-	o.Flags = xr.ReadUint32()
 	o.MaxLocalVersion = int64(xr.ReadUint64())
+	o.Flags = xr.ReadUint32()
+	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
+	if _OptionsSize > 64 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
+	o.Options = make([]Option, _OptionsSize)
+	for i := range o.Options {
+		(&o.Options[i]).DecodeXDRFrom(xr)
+	}
 	return xr.Error()
 }
 
@@ -844,7 +929,7 @@ struct Option {
 
 func (o Option) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o Option) MarshalXDR() ([]byte, error) {
@@ -862,11 +947,11 @@ func (o Option) MustMarshalXDR() []byte {
 func (o Option) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o Option) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o Option) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	if l := len(o.Key); l > 64 {
 		return xw.Tot(), xdr.ElementSizeExceeded("Key", l, 64)
 	}
@@ -880,16 +965,16 @@ func (o Option) encodeXDR(xw *xdr.Writer) (int, error) {
 
 func (o *Option) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *Option) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *Option) decodeXDR(xr *xdr.Reader) error {
+func (o *Option) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.Key = xr.ReadStringMax(64)
 	o.Value = xr.ReadStringMax(1024)
 	return xr.Error()
@@ -921,7 +1006,7 @@ struct CloseMessage {
 
 func (o CloseMessage) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o CloseMessage) MarshalXDR() ([]byte, error) {
@@ -939,11 +1024,11 @@ func (o CloseMessage) MustMarshalXDR() []byte {
 func (o CloseMessage) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o CloseMessage) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o CloseMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	if l := len(o.Reason); l > 1024 {
 		return xw.Tot(), xdr.ElementSizeExceeded("Reason", l, 1024)
 	}
@@ -954,16 +1039,16 @@ func (o CloseMessage) encodeXDR(xw *xdr.Writer) (int, error) {
 
 func (o *CloseMessage) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *CloseMessage) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *CloseMessage) decodeXDR(xr *xdr.Reader) error {
+func (o *CloseMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.Reason = xr.ReadStringMax(1024)
 	o.Code = int32(xr.ReadUint32())
 	return xr.Error()
@@ -985,7 +1070,7 @@ struct EmptyMessage {
 
 func (o EmptyMessage) EncodeXDR(w io.Writer) (int, error) {
 	var xw = xdr.NewWriter(w)
-	return o.encodeXDR(xw)
+	return o.EncodeXDRInto(xw)
 }
 
 func (o EmptyMessage) MarshalXDR() ([]byte, error) {
@@ -1003,25 +1088,25 @@ func (o EmptyMessage) MustMarshalXDR() []byte {
 func (o EmptyMessage) AppendXDR(bs []byte) ([]byte, error) {
 	var aw = xdr.AppendWriter(bs)
 	var xw = xdr.NewWriter(&aw)
-	_, err := o.encodeXDR(xw)
+	_, err := o.EncodeXDRInto(xw)
 	return []byte(aw), err
 }
 
-func (o EmptyMessage) encodeXDR(xw *xdr.Writer) (int, error) {
+func (o EmptyMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	return xw.Tot(), xw.Error()
 }
 
 func (o *EmptyMessage) DecodeXDR(r io.Reader) error {
 	xr := xdr.NewReader(r)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
 func (o *EmptyMessage) UnmarshalXDR(bs []byte) error {
 	var br = bytes.NewReader(bs)
 	var xr = xdr.NewReader(br)
-	return o.decodeXDR(xr)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (o *EmptyMessage) decodeXDR(xr *xdr.Reader) error {
+func (o *EmptyMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	return xr.Error()
 }

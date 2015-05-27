@@ -6,6 +6,7 @@ package snappy
 
 import (
 	"encoding/binary"
+	"io"
 )
 
 // We limit how far copy back-references can go, the same as the C++ code.
@@ -171,4 +172,87 @@ func MaxEncodedLen(srcLen int) int {
 	//
 	// This last factor dominates the blowup, so the final estimate is:
 	return 32 + srcLen + srcLen/6
+}
+
+// NewWriter returns a new Writer that compresses to w, using the framing
+// format described at
+// https://code.google.com/p/snappy/source/browse/trunk/framing_format.txt
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{
+		w:   w,
+		enc: make([]byte, MaxEncodedLen(maxUncompressedChunkLen)),
+	}
+}
+
+// Writer is an io.Writer than can write Snappy-compressed bytes.
+type Writer struct {
+	w           io.Writer
+	err         error
+	enc         []byte
+	buf         [checksumSize + chunkHeaderSize]byte
+	wroteHeader bool
+}
+
+// Reset discards the writer's state and switches the Snappy writer to write to
+// w. This permits reusing a Writer rather than allocating a new one.
+func (w *Writer) Reset(writer io.Writer) {
+	w.w = writer
+	w.err = nil
+	w.wroteHeader = false
+}
+
+// Write satisfies the io.Writer interface.
+func (w *Writer) Write(p []byte) (n int, errRet error) {
+	if w.err != nil {
+		return 0, w.err
+	}
+	if !w.wroteHeader {
+		copy(w.enc, magicChunk)
+		if _, err := w.w.Write(w.enc[:len(magicChunk)]); err != nil {
+			w.err = err
+			return n, err
+		}
+		w.wroteHeader = true
+	}
+	for len(p) > 0 {
+		var uncompressed []byte
+		if len(p) > maxUncompressedChunkLen {
+			uncompressed, p = p[:maxUncompressedChunkLen], p[maxUncompressedChunkLen:]
+		} else {
+			uncompressed, p = p, nil
+		}
+		checksum := crc(uncompressed)
+
+		// Compress the buffer, discarding the result if the improvement
+		// isn't at least 12.5%.
+		chunkType := uint8(chunkTypeCompressedData)
+		chunkBody, err := Encode(w.enc, uncompressed)
+		if err != nil {
+			w.err = err
+			return n, err
+		}
+		if len(chunkBody) >= len(uncompressed)-len(uncompressed)/8 {
+			chunkType, chunkBody = chunkTypeUncompressedData, uncompressed
+		}
+
+		chunkLen := 4 + len(chunkBody)
+		w.buf[0] = chunkType
+		w.buf[1] = uint8(chunkLen >> 0)
+		w.buf[2] = uint8(chunkLen >> 8)
+		w.buf[3] = uint8(chunkLen >> 16)
+		w.buf[4] = uint8(checksum >> 0)
+		w.buf[5] = uint8(checksum >> 8)
+		w.buf[6] = uint8(checksum >> 16)
+		w.buf[7] = uint8(checksum >> 24)
+		if _, err = w.w.Write(w.buf[:]); err != nil {
+			w.err = err
+			return n, err
+		}
+		if _, err = w.w.Write(chunkBody); err != nil {
+			w.err = err
+			return n, err
+		}
+		n += len(uncompressed)
+	}
+	return n, nil
 }

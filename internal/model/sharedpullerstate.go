@@ -10,22 +10,23 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 // A sharedPullerState is kept for each file that is being synced and is kept
 // updated along the way.
 type sharedPullerState struct {
 	// Immutable, does not require locking
-	file        protocol.FileInfo
+	file        protocol.FileInfo // The new file (desired end state)
 	folder      string
 	tempName    string
 	realName    string
 	reused      int // Number of blocks reused from temporary file
 	ignorePerms bool
+	version     protocol.Vector // The current (old) version
 
 	// Mutable, must be locked for access
 	err        error      // The first error we hit
@@ -58,8 +59,8 @@ type lockedWriterAt struct {
 }
 
 func (w lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
-	w.mut.Lock()
-	defer w.mut.Unlock()
+	(*w.mut).Lock()
+	defer (*w.mut).Unlock()
 	return w.wr.WriteAt(p, off)
 }
 

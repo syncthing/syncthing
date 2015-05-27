@@ -10,18 +10,17 @@
 // depending on who calls us. We transform paths to wire-format (NFC and
 // slashes) on the way to the database, and transform to native format
 // (varying separator and encoding) on the way back out.
-
 package db
 
 import (
 	"bytes"
 	"encoding/binary"
 	"sort"
-	"sync"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -123,14 +122,15 @@ func NewBlockFinder(db *leveldb.DB, cfg *config.Wrapper) *BlockFinder {
 	}
 
 	f := &BlockFinder{
-		db: db,
+		db:  db,
+		mut: sync.NewRWMutex(),
 	}
 	f.Changed(cfg.Raw())
 	cfg.Subscribe(f)
 	return f
 }
 
-// Implements config.Handler interface
+// Changed implements config.Handler interface
 func (f *BlockFinder) Changed(cfg config.Configuration) error {
 	folders := make([]string, len(cfg.Folders))
 	for i, folder := range cfg.Folders {
@@ -146,11 +146,11 @@ func (f *BlockFinder) Changed(cfg config.Configuration) error {
 	return nil
 }
 
-// An iterator function which iterates over all matching blocks for the given
-// hash. The iterator function has to return either true (if they are happy with
-// the block) or false to continue iterating for whatever reason.
-// The iterator finally returns the result, whether or not a satisfying block
-// was eventually found.
+// Iterate takes an iterator function which iterates over all matching blocks
+// for the given hash. The iterator function has to return either true (if
+// they are happy with the block) or false to continue iterating for whatever
+// reason. The iterator finally returns the result, whether or not a
+// satisfying block was eventually found.
 func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, int32) bool) bool {
 	f.mut.RLock()
 	folders := f.folders
@@ -171,8 +171,8 @@ func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, int32) bo
 	return false
 }
 
-// A method for repairing incorrect blockmap entries, removes the old entry
-// and replaces it with a new entry for the given block
+// Fix repairs incorrect blockmap entries, removing the old entry and
+// replacing it with a new entry for the given block
 func (f *BlockFinder) Fix(folder, file string, index int32, oldHash, newHash []byte) error {
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, uint32(index))

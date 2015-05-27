@@ -10,11 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 func init() {
@@ -27,42 +26,14 @@ type Interval struct {
 	end  int64
 }
 
-// The type holds our configuration
 type Staggered struct {
 	versionsPath  string
 	cleanInterval int64
 	folderPath    string
 	interval      [4]Interval
-	mutex         *sync.Mutex
+	mutex         sync.Mutex
 }
 
-// Rename versions with old version format
-func (v Staggered) renameOld() {
-	err := filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if f.Mode().IsRegular() {
-			versionUnix, err := strconv.ParseInt(strings.Replace(filepath.Ext(path), ".v", "", 1), 10, 0)
-			if err == nil {
-				l.Infoln("Renaming file", path, "from old to new version format")
-				versiondate := time.Unix(versionUnix, 0)
-				name := path[:len(path)-len(filepath.Ext(path))]
-				err = osutil.Rename(path, taggedFilename(name, versiondate.Format(TimeFormat)))
-				if err != nil {
-					l.Infoln("Error renaming to new format", err)
-				}
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		l.Infoln("Versioner: error scanning versions dir", err)
-		return
-	}
-}
-
-// The constructor function takes a map of parameters and creates the type.
 func NewStaggered(folderID, folderPath string, params map[string]string) Versioner {
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
@@ -87,7 +58,6 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 		versionsDir = params["versionsPath"]
 	}
 
-	var mutex sync.Mutex
 	s := Staggered{
 		versionsPath:  versionsDir,
 		cleanInterval: cleanInterval,
@@ -98,15 +68,12 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 			{86400, 592000},  // next 30 days -> 1 day between versions
 			{604800, maxAge}, // next year -> 1 week between versions
 		},
-		mutex: &mutex,
+		mutex: sync.NewMutex(),
 	}
 
 	if debug {
 		l.Debugf("instantiated %#v", s)
 	}
-
-	// Rename version with old version format
-	s.renameOld()
 
 	go func() {
 		s.clean()
@@ -128,23 +95,15 @@ func (v Staggered) clean() {
 		l.Debugln("Versioner clean: Cleaning", v.versionsPath)
 	}
 
-	_, err := os.Stat(v.versionsPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if debug {
-				l.Debugln("creating versions dir", v.versionsPath)
-			}
-			os.MkdirAll(v.versionsPath, 0755)
-			osutil.HideFile(v.versionsPath)
-		} else {
-			l.Warnln("Versioner: can't create versions dir", err)
-		}
+	if _, err := os.Stat(v.versionsPath); os.IsNotExist(err) {
+		// There is no need to clean a nonexistent dir.
+		return
 	}
 
 	versionsPerFile := make(map[string][]string)
 	filesPerDir := make(map[string]int)
 
-	err = filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
+	err := filepath.Walk(v.versionsPath, func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -157,10 +116,11 @@ func (v Staggered) clean() {
 			}
 		} else {
 			// Regular file, or possibly a symlink.
-
-			extension := filenameTag(path)
+			ext := filepath.Ext(path)
+			versionTag := filenameTag(path)
 			dir := filepath.Dir(path)
-			name := path[:len(path)-len(extension)-1]
+			withoutExt := path[:len(path)-len(ext)-len(versionTag)-1]
+			name := withoutExt + ext
 
 			filesPerDir[dir]++
 			versionsPerFile[name] = append(versionsPerFile[name], path)
@@ -198,6 +158,7 @@ func (v Staggered) clean() {
 			l.Warnln("Versioner: can't remove directory", path, err)
 		}
 	}
+
 	if debug {
 		l.Debugln("Cleaner: Finished cleaning", v.versionsPath)
 	}
@@ -210,7 +171,7 @@ func (v Staggered) expire(versions []string) {
 	var prevAge int64
 	firstFile := true
 	for _, file := range versions {
-		fi, err := os.Lstat(file)
+		fi, err := osutil.Lstat(file)
 		if err != nil {
 			l.Warnln("versioner:", err)
 			continue
@@ -272,8 +233,8 @@ func (v Staggered) expire(versions []string) {
 	}
 }
 
-// Move away the named file to a version archive. If this function returns
-// nil, the named file does not exist any more (has been archived).
+// Archive moves the named file away to a version archive. If this function
+// returns nil, the named file does not exist any more (has been archived).
 func (v Staggered) Archive(filePath string) error {
 	if debug {
 		l.Debugln("Waiting for lock on ", v.versionsPath)
@@ -281,7 +242,7 @@ func (v Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	_, err := os.Lstat(filePath)
+	_, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {
 		if debug {
 			l.Debugln("not archiving nonexistent file", filePath)
@@ -330,14 +291,14 @@ func (v Staggered) Archive(filePath string) error {
 	}
 
 	// Glob according to the new file~timestamp.ext pattern.
-	newVersions, err := filepath.Glob(filepath.Join(dir, taggedFilename(file, TimeGlob)))
+	newVersions, err := osutil.Glob(filepath.Join(dir, taggedFilename(file, TimeGlob)))
 	if err != nil {
 		l.Warnln("globbing:", err)
 		return nil
 	}
 
 	// Also according to the old file.ext~timestamp pattern.
-	oldVersions, err := filepath.Glob(filepath.Join(dir, file+"~"+TimeGlob))
+	oldVersions, err := osutil.Glob(filepath.Join(dir, file+"~"+TimeGlob))
 	if err != nil {
 		l.Warnln("globbing:", err)
 		return nil

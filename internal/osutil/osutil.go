@@ -15,14 +15,15 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 var ErrNoHome = errors.New("No home directory found - set $HOME (or the platform equivalent).")
 
 // Try to keep this entire operation atomic-like. We shouldn't be doing this
 // often enough that there is any contention on this lock.
-var renameLock sync.Mutex
+var renameLock = sync.NewMutex()
 
 // TryRename renames a file, leaving source file intact in case of failure.
 // Tries hard to succeed on various systems by temporarily tweaking directory
@@ -31,7 +32,7 @@ func TryRename(from, to string) error {
 	renameLock.Lock()
 	defer renameLock.Unlock()
 
-	return withPreparedTarget(to, func() error {
+	return withPreparedTarget(from, to, func() error {
 		return os.Rename(from, to)
 	})
 }
@@ -43,7 +44,9 @@ func TryRename(from, to string) error {
 // permissions and removing the destination file when necessary.
 func Rename(from, to string) error {
 	// Don't leave a dangling temp file in case of rename error
-	defer os.Remove(from)
+	if !(runtime.GOOS == "windows" && strings.EqualFold(from, to)) {
+		defer os.Remove(from)
+	}
 	return TryRename(from, to)
 }
 
@@ -51,7 +54,7 @@ func Rename(from, to string) error {
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
 func Copy(from, to string) (err error) {
-	return withPreparedTarget(to, func() error {
+	return withPreparedTarget(from, to, func() error {
 		return copyFileContents(from, to)
 	})
 }
@@ -86,6 +89,21 @@ func InWritableDir(fn func(string) error, path string) error {
 	}
 
 	return fn(path)
+}
+
+// Remove removes the given path. On Windows, removes the read-only attribute
+// from the target prior to deletion.
+func Remove(path string) error {
+	if runtime.GOOS == "windows" {
+		info, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+		if info.Mode()&0200 == 0 {
+			os.Chmod(path, 0700)
+		}
+	}
+	return os.Remove(path)
 }
 
 func ExpandTilde(path string) (string, error) {
@@ -127,7 +145,7 @@ func getHomeDir() (string, error) {
 
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
-func withPreparedTarget(to string, f func() error) error {
+func withPreparedTarget(from, to string, f func() error) error {
 	// Make sure the destination directory is writeable
 	toDir := filepath.Dir(to)
 	if info, err := os.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
@@ -138,9 +156,11 @@ func withPreparedTarget(to string, f func() error) error {
 	// On Windows, make sure the destination file is writeable (or we can't delete it)
 	if runtime.GOOS == "windows" {
 		os.Chmod(to, 0666)
-		err := os.Remove(to)
-		if err != nil && !os.IsNotExist(err) {
-			return err
+		if !strings.EqualFold(from, to) {
+			err := os.Remove(to)
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
 		}
 	}
 	return f()
@@ -171,4 +191,22 @@ func copyFileContents(src, dst string) (err error) {
 	}
 	err = out.Sync()
 	return
+}
+
+var execExts map[string]bool
+
+func init() {
+	// PATHEXT contains a list of executable file extensions, on Windows
+	pathext := filepath.SplitList(os.Getenv("PATHEXT"))
+	// We want the extensions in execExts to be lower case
+	execExts = make(map[string]bool, len(pathext))
+	for _, ext := range pathext {
+		execExts[strings.ToLower(ext)] = true
+	}
+}
+
+// IsWindowsExecutable returns true if the given path has an extension that is
+// in the list of executable extensions.
+func IsWindowsExecutable(path string) bool {
+	return execExts[strings.ToLower(filepath.Ext(path))]
 }

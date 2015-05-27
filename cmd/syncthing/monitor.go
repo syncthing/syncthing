@@ -12,20 +12,19 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 var (
 	stdoutFirstLines []string // The first 10 lines of stdout
 	stdoutLastLines  []string // The last 50 lines of stdout
-	stdoutMut        sync.Mutex
+	stdoutMut        = sync.NewMutex()
 )
 
 const (
@@ -107,12 +106,24 @@ func monitorMain() {
 		stdoutLastLines = make([]string, 0, 50)
 		stdoutMut.Unlock()
 
-		go copyStderr(stderr, dst)
-		go copyStdout(stdout, dst)
+		wg := sync.NewWaitGroup()
+
+		wg.Add(1)
+		go func() {
+			copyStderr(stderr, dst)
+			wg.Done()
+		}()
+
+		wg.Add(1)
+		go func() {
+			copyStdout(stdout, dst)
+			wg.Done()
+		}()
 
 		exit := make(chan error)
 
 		go func() {
+			wg.Wait()
 			exit <- cmd.Wait()
 		}()
 
@@ -125,7 +136,7 @@ func monitorMain() {
 
 		case err = <-exit:
 			if err == nil {
-				// Successfull exit indicates an intentional shutdown
+				// Successful exit indicates an intentional shutdown
 				return
 			} else if exiterr, ok := err.(*exec.ExitError); ok {
 				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
@@ -150,7 +161,7 @@ func monitorMain() {
 	}
 }
 
-func copyStderr(stderr io.ReadCloser, dst io.Writer) {
+func copyStderr(stderr io.Reader, dst io.Writer) {
 	br := bufio.NewReader(stderr)
 
 	var panicFd *os.File
@@ -164,7 +175,7 @@ func copyStderr(stderr io.ReadCloser, dst io.Writer) {
 			dst.Write([]byte(line))
 
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
-				panicFd, err = os.Create(filepath.Join(confDir, time.Now().Format("panic-20060102-150405.log")))
+				panicFd, err = os.Create(timestampedLoc(locPanicLog))
 				if err != nil {
 					l.Warnln("Create panic log:", err)
 					continue
@@ -193,7 +204,7 @@ func copyStderr(stderr io.ReadCloser, dst io.Writer) {
 	}
 }
 
-func copyStdout(stdout io.ReadCloser, dst io.Writer) {
+func copyStdout(stdout io.Reader, dst io.Writer) {
 	br := bufio.NewReader(stdout)
 	for {
 		line, err := br.ReadString('\n')

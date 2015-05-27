@@ -153,7 +153,7 @@ type Options struct {
 	BlockCacher Cacher
 
 	// BlockCacheCapacity defines the capacity of the 'sorted table' block caching.
-	// Use -1 for zero, this has same effect with specifying NoCacher to BlockCacher.
+	// Use -1 for zero, this has same effect as specifying NoCacher to BlockCacher.
 	//
 	// The default value is 8MiB.
 	BlockCacheCapacity int
@@ -308,7 +308,7 @@ type Options struct {
 	OpenFilesCacher Cacher
 
 	// OpenFilesCacheCapacity defines the capacity of the open files caching.
-	// Use -1 for zero, this has same effect with specifying NoCacher to OpenFilesCacher.
+	// Use -1 for zero, this has same effect as specifying NoCacher to OpenFilesCacher.
 	//
 	// The default value is 500.
 	OpenFilesCacheCapacity int
@@ -355,9 +355,9 @@ func (o *Options) GetBlockCacher() Cacher {
 }
 
 func (o *Options) GetBlockCacheCapacity() int {
-	if o == nil || o.BlockCacheCapacity <= 0 {
+	if o == nil || o.BlockCacheCapacity == 0 {
 		return DefaultBlockCacheCapacity
-	} else if o.BlockCacheCapacity == -1 {
+	} else if o.BlockCacheCapacity < 0 {
 		return 0
 	}
 	return o.BlockCacheCapacity
@@ -497,7 +497,7 @@ func (o *Options) GetMaxMemCompationLevel() int {
 	if o != nil {
 		if o.MaxMemCompationLevel > 0 {
 			level = o.MaxMemCompationLevel
-		} else if o.MaxMemCompationLevel == -1 {
+		} else if o.MaxMemCompationLevel < 0 {
 			level = 0
 		}
 	}
@@ -525,9 +525,9 @@ func (o *Options) GetOpenFilesCacher() Cacher {
 }
 
 func (o *Options) GetOpenFilesCacheCapacity() int {
-	if o == nil || o.OpenFilesCacheCapacity <= 0 {
+	if o == nil || o.OpenFilesCacheCapacity == 0 {
 		return DefaultOpenFilesCacheCapacity
-	} else if o.OpenFilesCacheCapacity == -1 {
+	} else if o.OpenFilesCacheCapacity < 0 {
 		return 0
 	}
 	return o.OpenFilesCacheCapacity

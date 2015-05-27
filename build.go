@@ -78,6 +78,11 @@ func main() {
 			tags = []string{"noupgrade"}
 		}
 		install("./cmd/...", tags)
+
+		vet("./cmd/syncthing")
+		vet("./internal/...")
+		lint("./cmd/syncthing")
+		lint("./internal/...")
 		return
 	}
 
@@ -103,8 +108,7 @@ func main() {
 			build(pkg, tags)
 
 		case "test":
-			pkg := "./..."
-			test(pkg)
+			test("./...")
 
 		case "assets":
 			assets()
@@ -127,8 +131,19 @@ func main() {
 		case "zip":
 			buildZip()
 
+		case "deb":
+			buildDeb()
+
 		case "clean":
 			clean()
+
+		case "vet":
+			vet("./cmd/syncthing")
+			vet("./internal/...")
+
+		case "lint":
+			lint("./cmd/syncthing")
+			lint("./internal/...")
 
 		default:
 			log.Fatalf("Unknown command %q", cmd)
@@ -258,6 +273,79 @@ func buildZip() {
 
 	zipFile(filename, files)
 	log.Println(filename)
+}
+
+func buildDeb() {
+	os.RemoveAll("deb")
+
+	build("./cmd/syncthing", []string{"noupgrade"})
+
+	files := []archiveFile{
+		{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},
+		{src: "LICENSE", dst: "deb/usr/share/doc/syncthing/LICENSE.txt", perm: 0644},
+		{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing/AUTHORS.txt", perm: 0644},
+		{src: "syncthing", dst: "deb/usr/bin/syncthing", perm: 0755},
+	}
+
+	for _, file := range listFiles("extra") {
+		files = append(files, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
+	}
+
+	for _, af := range files {
+		if err := copyFile(af.src, af.dst, af.perm); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	debarch := goarch
+	if debarch == "386" {
+		debarch = "i386"
+	}
+
+	control := `Package: syncthing
+Architecture: {{arch}}
+Depends: libc6
+Version: {{version}}
+Maintainer: Syncthing Release Management <release@syncthing.net>
+Description: Open Source Continuous File Synchronization
+	Syncthing does bidirectional synchronization of files between two or
+	more computers.
+`
+	changelog := `syncthing ({{version}}); urgency=medium
+
+  * Packaging of {{version}}.
+
+ -- Jakob Borg <jakob@nym.se>  {{date}}
+`
+
+	control = strings.Replace(control, "{{arch}}", debarch, -1)
+	control = strings.Replace(control, "{{version}}", version[1:], -1)
+	changelog = strings.Replace(changelog, "{{arch}}", debarch, -1)
+	changelog = strings.Replace(changelog, "{{version}}", version[1:], -1)
+	changelog = strings.Replace(changelog, "{{date}}", time.Now().Format(time.RFC1123), -1)
+
+	os.MkdirAll("deb/DEBIAN", 0755)
+	ioutil.WriteFile("deb/DEBIAN/control", []byte(control), 0644)
+	ioutil.WriteFile("deb/DEBIAN/compat", []byte("9\n"), 0644)
+	ioutil.WriteFile("deb/DEBIAN/changelog", []byte(changelog), 0644)
+
+}
+
+func copyFile(src, dst string, perm os.FileMode) error {
+	dstDir := filepath.Dir(dst)
+	os.MkdirAll(dstDir, 0755) // ignore error
+	srcFd, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFd.Close()
+	dstFd, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm)
+	if err != nil {
+		return err
+	}
+	defer dstFd.Close()
+	_, err = io.Copy(dstFd, srcFd)
+	return err
 }
 
 func listFiles(dir string) []string {
@@ -437,10 +525,7 @@ func run(cmd string, args ...string) []byte {
 func runError(cmd string, args ...string) ([]byte, error) {
 	ecmd := exec.Command(cmd, args...)
 	bs, err := ecmd.CombinedOutput()
-	if err != nil {
-		return nil, err
-	}
-	return bytes.TrimSpace(bs), nil
+	return bytes.TrimSpace(bs), err
 }
 
 func runPrint(cmd string, args ...string) {
@@ -471,8 +556,9 @@ func runPipe(file, cmd string, args ...string) {
 }
 
 type archiveFile struct {
-	src string
-	dst string
+	src  string
+	dst  string
+	perm os.FileMode
 }
 
 func tarGz(out string, files []archiveFile) {
@@ -614,4 +700,38 @@ func md5File(file string) error {
 	}
 
 	return out.Close()
+}
+
+func vet(pkg string) {
+	bs, err := runError("go", "vet", pkg)
+	if err != nil && err.Error() == "exit status 3" || bytes.Contains(bs, []byte("no such tool \"vet\"")) {
+		// Go said there is no go vet
+		log.Println(`- No go vet, no vetting. Try "go get -u golang.org/x/tools/cmd/vet".`)
+		return
+	}
+
+	falseAlarmComposites := regexp.MustCompile("composite literal uses unkeyed fields")
+	exitStatus := regexp.MustCompile("exit status 1")
+	for _, line := range bytes.Split(bs, []byte("\n")) {
+		if falseAlarmComposites.Match(line) || exitStatus.Match(line) {
+			continue
+		}
+		log.Printf("%s", line)
+	}
+}
+
+func lint(pkg string) {
+	bs, err := runError("golint", pkg)
+	if err != nil {
+		log.Println(`- No golint, not linting. Try "go get -u github.com/golang/lint/golint".`)
+		return
+	}
+
+	analCommentPolicy := regexp.MustCompile(`exported (function|method|const|type|var) [^\s]+ should have comment`)
+	for _, line := range bytes.Split(bs, []byte("\n")) {
+		if analCommentPolicy.Match(line) {
+			continue
+		}
+		log.Printf("%s", line)
+	}
 }

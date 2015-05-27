@@ -23,7 +23,7 @@ import (
 
 func TestStressHTTP(t *testing.T) {
 	log.Println("Cleaning...")
-	err := removeAll("s2", "h2/index")
+	err := removeAll("s2", "h2/index*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestStressHTTP(t *testing.T) {
 		t.Error(firstError)
 	}
 
-	err = sender.stop()
+	_, err = sender.stop()
 	if err != nil {
 		t.Error(err)
 	}

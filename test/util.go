@@ -23,7 +23,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
+	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/symlinks"
 )
 
@@ -131,10 +133,7 @@ func alterFiles(dir string) error {
 		switch {
 		case r == 0 && comps > 2:
 			// Delete every tenth file or directory, except top levels
-			err := removeAll(path)
-			if err != nil {
-				return err
-			}
+			return removeAll(path)
 
 		case r == 1 && info.Mode().IsRegular():
 			if info.Mode()&0200 != 0200 {
@@ -159,12 +158,25 @@ func alterFiles(dir string) error {
 			if err != nil {
 				return err
 			}
-			err = fd.Close()
-			if err != nil {
-				return err
+			return fd.Close()
+
+		// Change capitalization
+		case r == 2 && comps > 3 && rand.Float64() < 0.2:
+			base := []rune(filepath.Base(path))
+			for i, r := range base {
+				if rand.Float64() < 0.5 {
+					base[i] = unicode.ToLower(r)
+				} else {
+					base[i] = unicode.ToUpper(r)
+				}
+			}
+			newPath := filepath.Join(filepath.Dir(path), string(base))
+			if newPath != path {
+				return osutil.TryRename(path, newPath)
 			}
 
-		case r == 2 && comps > 3 && rand.Float64() < 0.2:
+		// Switch between files and directories
+		case r == 3 && comps > 3 && rand.Float64() < 0.2:
 			if !info.Mode().IsRegular() {
 				err = removeAll(path)
 				if err != nil {
@@ -176,7 +188,7 @@ func alterFiles(dir string) error {
 					return err
 				}
 			} else {
-				err := os.Remove(path)
+				err := osutil.Remove(path)
 				if err != nil {
 					return err
 				}
@@ -186,18 +198,16 @@ func alterFiles(dir string) error {
 				}
 				generateFiles(path, 10, 20, "../LICENSE")
 			}
+			return err
 
-		case r == 3 && comps > 2 && (info.Mode().IsRegular() || rand.Float64() < 0.2):
+		case r == 4 && comps > 2 && (info.Mode().IsRegular() || rand.Float64() < 0.2):
 			rpath := filepath.Dir(path)
 			if rand.Float64() < 0.2 {
 				for move := rand.Intn(comps - 1); move > 0; move-- {
 					rpath = filepath.Join(rpath, "..")
 				}
 			}
-			err = os.Rename(path, filepath.Join(rpath, randomName()))
-			if err != nil {
-				return err
-			}
+			return osutil.TryRename(path, filepath.Join(rpath, randomName()))
 		}
 		return nil
 	})
@@ -241,17 +251,23 @@ func (i *inifiteReader) Read(bs []byte) (int, error) {
 // rm -rf
 func removeAll(dirs ...string) error {
 	for _, dir := range dirs {
-		// Set any non-writeable files and dirs to writeable. This is necessary for os.RemoveAll to work on Windows.
-		filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.Mode()&0700 != 0700 {
-				os.Chmod(path, 0777)
-			}
-			return nil
-		})
-		os.RemoveAll(dir)
+		files, err := osutil.Glob(dir)
+		if err != nil {
+			return err
+		}
+		for _, file := range files {
+			// Set any non-writeable files and dirs to writeable. This is necessary for os.RemoveAll to work on Windows.
+			filepath.Walk(file, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if info.Mode()&0700 != 0700 {
+					os.Chmod(path, 0777)
+				}
+				return nil
+			})
+			os.RemoveAll(file)
+		}
 	}
 	return nil
 }
@@ -460,7 +476,7 @@ func isTimeout(err error) bool {
 		return false
 	}
 	return strings.Contains(err.Error(), "use of closed network connection") ||
-		strings.Contains(err.Error(), "request cancelled while waiting")
+		strings.Contains(err.Error(), "request canceled while waiting")
 }
 
 func getTestName() string {

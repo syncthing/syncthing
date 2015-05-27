@@ -46,7 +46,7 @@ var correctIgnores = map[string][]string{
 
 func init() {
 	// This test runs the risk of entering infinite recursion if it fails.
-	// Limit the stack size to 10 megs to creash early in that case instead of
+	// Limit the stack size to 10 megs to crash early in that case instead of
 	// potentially taking down the box...
 	rdebug.SetMaxStack(10 * 1 << 20)
 }
@@ -60,9 +60,10 @@ func TestWalkSub(t *testing.T) {
 
 	w := Walker{
 		Dir:       "testdata",
-		Sub:       "dir2",
+		Subs:      []string{"dir2"},
 		BlockSize: 128 * 1024,
 		Matcher:   ignores,
+		Hashers:   2,
 	}
 	fchan, err := w.Walk()
 	var files []protocol.FileInfo
@@ -99,6 +100,7 @@ func TestWalk(t *testing.T) {
 		Dir:       "testdata",
 		BlockSize: 128 * 1024,
 		Matcher:   ignores,
+		Hashers:   2,
 	}
 
 	fchan, err := w.Walk()
@@ -122,6 +124,7 @@ func TestWalkError(t *testing.T) {
 	w := Walker{
 		Dir:       "testdata-missing",
 		BlockSize: 128 * 1024,
+		Hashers:   2,
 	}
 	_, err := w.Walk()
 
@@ -203,6 +206,14 @@ func TestNormalization(t *testing.T) {
 		"5-\xCD\xE2",     // EUC-CN "wài" (外) -- ignored (not UTF8)
 	}
 	numInvalid := 2
+
+	if runtime.GOOS == "windows" {
+		// On Windows, in case 5 the character gets replaced with a
+		// replacement character \xEF\xBF\xBD at the point it's written to disk,
+		// which means it suddenly becomes valid (sort of).
+		numInvalid--
+	}
+
 	numValid := len(tests) - numInvalid
 
 	for _, s1 := range tests {
@@ -259,11 +270,20 @@ func TestNormalization(t *testing.T) {
 	}
 }
 
+func TestIssue1507(t *testing.T) {
+	w := Walker{}
+	c := make(chan protocol.FileInfo, 100)
+	fn := w.walkAndHashFiles(c)
+
+	fn("", nil, protocol.ErrClosed)
+}
+
 func walkDir(dir string) ([]protocol.FileInfo, error) {
 	w := Walker{
 		Dir:           dir,
 		BlockSize:     128 * 1024,
 		AutoNormalize: true,
+		Hashers:       2,
 	}
 
 	fchan, err := w.Walk()

@@ -9,12 +9,13 @@ package discover
 import (
 	"fmt"
 	"net"
-	"sync"
 	"time"
 
 	"testing"
 
 	"github.com/syncthing/protocol"
+
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 var device protocol.DeviceID
@@ -97,7 +98,7 @@ func TestUDP4Success(t *testing.T) {
 
 	// Do a lookup in a separate routine
 	addrs := []string{}
-	wg := sync.WaitGroup{}
+	wg := sync.NewWaitGroup()
 	wg.Add(1)
 	go func() {
 		addrs = client.Lookup(device)
@@ -193,7 +194,7 @@ func TestUDP4Failure(t *testing.T) {
 
 	// Do a lookup in a separate routine
 	addrs := []string{}
-	wg := sync.WaitGroup{}
+	wg := sync.NewWaitGroup()
 	wg.Add(1)
 	go func() {
 		addrs = client.Lookup(device)

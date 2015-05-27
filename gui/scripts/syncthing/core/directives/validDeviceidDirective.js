@@ -8,7 +8,7 @@ angular.module('syncthing.core')
                         // we shouldn't validate
                         ctrl.$setValidity('validDeviceid', true);
                     } else {
-                        $http.get(urlbase + '/deviceid?id=' + viewValue).success(function (resp) {
+                        $http.get(urlbase + '/svc/deviceid?id=' + viewValue).success(function (resp) {
                             if (resp.error) {
                                 ctrl.$setValidity('validDeviceid', false);
                             } else {

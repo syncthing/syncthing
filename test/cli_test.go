@@ -11,13 +11,14 @@ package integration
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/osutil"
 )
 
 func TestCLIReset(t *testing.T) {
-	dirs := []string{"s1", "s12-1", "h1/index"}
+	dirs := []string{"h1/index-v0.11.0.db"}
 
 	// Create directories that reset will remove
 
@@ -30,7 +31,7 @@ func TestCLIReset(t *testing.T) {
 
 	// Run reset to clean up
 
-	cmd := exec.Command("../bin/syncthing", "-home", "h1", "-reset")
+	cmd := exec.Command("../bin/syncthing", "-no-browser", "-home", "h1", "-reset")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout
 	err := cmd.Run()
@@ -49,7 +50,7 @@ func TestCLIReset(t *testing.T) {
 
 	// Clean up
 
-	dirs, err = filepath.Glob("*.syncthing-reset-*")
+	dirs, err = osutil.Glob("*.syncthing-reset-*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +65,7 @@ func TestCLIGenerate(t *testing.T) {
 
 	// -generate should create a bunch of stuff
 
-	cmd := exec.Command("../bin/syncthing", "-generate", "home.out")
+	cmd := exec.Command("../bin/syncthing", "-no-browser", "-generate", "home.out")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout
 	err = cmd.Run()
@@ -90,7 +91,7 @@ func TestCLIFirstStartup(t *testing.T) {
 
 	// First startup should create config, BEP certificate, and HTTP certificate.
 
-	cmd := exec.Command("../bin/syncthing", "-home", "home.out")
+	cmd := exec.Command("../bin/syncthing", "-no-browser", "-home", "home.out")
 	cmd.Env = append(os.Environ(), "STNORESTART=1")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout

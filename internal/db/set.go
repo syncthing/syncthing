@@ -13,11 +13,9 @@
 package db
 
 import (
-	"sync"
-
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/lamport"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -51,6 +49,7 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 		folder:       folder,
 		db:           db,
 		blockmap:     NewBlockMap(db, folder),
+		mutex:        sync.NewMutex(),
 	}
 
 	ldbCheckGlobals(db, []byte(folder))
@@ -61,7 +60,6 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 		if f.LocalVersion > s.localVersion[deviceID] {
 			s.localVersion[deviceID] = f.LocalVersion
 		}
-		lamport.Default.Tick(f.Version)
 		return true
 	})
 	if debug {
@@ -90,14 +88,14 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 	}
 }
 
-func (s *FileSet) ReplaceWithDelete(device protocol.DeviceID, fs []protocol.FileInfo) {
+func (s *FileSet) ReplaceWithDelete(device protocol.DeviceID, fs []protocol.FileInfo, myID uint64) {
 	if debug {
 		l.Debugf("%s ReplaceWithDelete(%v, [%d])", s.folder, device, len(fs))
 	}
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if lv := ldbReplaceWithDelete(s.db, []byte(s.folder), device[:], fs); lv > s.localVersion[device] {
+	if lv := ldbReplaceWithDelete(s.db, []byte(s.folder), device[:], fs, myID); lv > s.localVersion[device] {
 		s.localVersion[device] = lv
 	}
 	if device == protocol.LocalDeviceID {
@@ -118,7 +116,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		updates := make([]protocol.FileInfo, 0, len(fs))
 		for _, newFile := range fs {
 			existingFile, ok := ldbGet(s.db, []byte(s.folder), device[:], []byte(newFile.Name))
-			if !ok || existingFile.Version <= newFile.Version {
+			if !ok || !existingFile.Version.Equal(newFile.Version) {
 				discards = append(discards, existingFile)
 				updates = append(updates, newFile)
 			}
@@ -230,6 +228,7 @@ func DropFolder(db *leveldb.DB, folder string) {
 		folder: folder,
 	}
 	bm.Drop()
+	NewVirtualMtimeRepo(db, folder).Drop()
 }
 
 func normalizeFilenames(fs []protocol.FileInfo) {

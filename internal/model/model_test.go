@@ -10,16 +10,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
@@ -33,8 +34,8 @@ func init() {
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 
 	defaultFolderConfig = config.FolderConfiguration{
-		ID:   "default",
-		Path: "testdata",
+		ID:      "default",
+		RawPath: "testdata",
 		Devices: []config.FolderDeviceConfiguration{
 			{
 				DeviceID: device1,
@@ -47,6 +48,10 @@ func init() {
 			{
 				DeviceID: device1,
 			},
+		},
+		Options: config.OptionsConfiguration{
+			// Don't remove temporaries directly on startup
+			KeepTemporariesH: 1,
 		},
 	}
 	defaultConfig = config.Wrap("/tmp/test", _defaultConfig)
@@ -86,7 +91,7 @@ func init() {
 func TestRequest(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 
 	// device1 shares default, but device2 doesn't
 	m.AddFolder(defaultFolderConfig)
@@ -94,7 +99,7 @@ func TestRequest(t *testing.T) {
 	m.ScanFolder("default")
 
 	// Existing, shared file
-	bs, err := m.Request(device1, "default", "foo", 0, 6)
+	bs, err := m.Request(device1, "default", "foo", 0, 6, nil, 0, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -103,7 +108,7 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Existing, nonshared file
-	bs, err = m.Request(device2, "default", "foo", 0, 6)
+	bs, err = m.Request(device2, "default", "foo", 0, 6, nil, 0, nil)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -112,7 +117,7 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Nonexistent file
-	bs, err = m.Request(device1, "default", "nonexistent", 0, 6)
+	bs, err = m.Request(device1, "default", "nonexistent", 0, 6, nil, 0, nil)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -121,7 +126,7 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Shared folder, but disallowed file name
-	bs, err = m.Request(device1, "default", "../walk.go", 0, 6)
+	bs, err = m.Request(device1, "default", "../walk.go", 0, 6, nil, 0, nil)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -130,7 +135,7 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Larger block than available
-	bs, err = m.Request(device1, "default", "foo", 0, 42)
+	bs, err = m.Request(device1, "default", "foo", 0, 42, nil, 0, nil)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -139,7 +144,7 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Negative offset
-	bs, err = m.Request(device1, "default", "foo", -4, 6)
+	bs, err = m.Request(device1, "default", "foo", -4, 6, nil, 0, nil)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -148,7 +153,7 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Negative size
-	bs, err = m.Request(device1, "default", "foo", 4, -4)
+	bs, err = m.Request(device1, "default", "foo", 4, -4, nil, 0, nil)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -173,71 +178,71 @@ func genFiles(n int) []protocol.FileInfo {
 
 func BenchmarkIndex10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genFiles(10000)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.Index(device1, "default", files)
+		m.Index(device1, "default", files, 0, nil)
 	}
 }
 
 func BenchmarkIndex00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genFiles(100)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.Index(device1, "default", files)
+		m.Index(device1, "default", files, 0, nil)
 	}
 }
 
 func BenchmarkIndexUpdate10000f10000(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genFiles(10000)
-	m.Index(device1, "default", files)
+	m.Index(device1, "default", files, 0, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate(device1, "default", files)
+		m.IndexUpdate(device1, "default", files, 0, nil)
 	}
 }
 
 func BenchmarkIndexUpdate10000f00100(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genFiles(10000)
-	m.Index(device1, "default", files)
+	m.Index(device1, "default", files, 0, nil)
 
 	ufiles := genFiles(100)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate(device1, "default", ufiles)
+		m.IndexUpdate(device1, "default", ufiles, 0, nil)
 	}
 }
 
 func BenchmarkIndexUpdate10000f00001(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genFiles(10000)
-	m.Index(device1, "default", files)
+	m.Index(device1, "default", files, 0, nil)
 
 	ufiles := genFiles(1)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate(device1, "default", ufiles)
+		m.IndexUpdate(device1, "default", ufiles, 0, nil)
 	}
 }
 
@@ -262,15 +267,15 @@ func (f FakeConnection) Option(string) string {
 	return ""
 }
 
-func (FakeConnection) Index(string, []protocol.FileInfo) error {
+func (FakeConnection) Index(string, []protocol.FileInfo, uint32, []protocol.Option) error {
 	return nil
 }
 
-func (FakeConnection) IndexUpdate(string, []protocol.FileInfo) error {
+func (FakeConnection) IndexUpdate(string, []protocol.FileInfo, uint32, []protocol.Option) error {
 	return nil
 }
 
-func (f FakeConnection) Request(folder, name string, offset int64, size int) ([]byte, error) {
+func (f FakeConnection) Request(folder, name string, offset int64, size int, hash []byte, flags uint32, options []protocol.Option) ([]byte, error) {
 	return f.requestData, nil
 }
 
@@ -286,7 +291,7 @@ func (FakeConnection) Statistics() protocol.Statistics {
 
 func BenchmarkRequest(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 
@@ -306,11 +311,11 @@ func BenchmarkRequest(b *testing.B) {
 		requestData: []byte("some data to return"),
 	}
 	m.AddConnection(fc, fc)
-	m.Index(device1, "default", files)
+	m.Index(device1, "default", files, 0, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil)
+		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil, 0, nil)
 		if err != nil {
 			b.Error(err)
 		}
@@ -336,7 +341,7 @@ func TestDeviceRename(t *testing.T) {
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(config.Wrap("tmpconfig.xml", cfg), "device", "syncthing", "dev", db)
+	m := NewModel(config.Wrap("tmpconfig.xml", cfg), protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	if cfg.Devices[0].Name != "" {
 		t.Errorf("Device already has a name")
 	}
@@ -403,7 +408,7 @@ func TestClusterConfig(t *testing.T) {
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 
-	m := NewModel(config.Wrap("/tmp/test", cfg), "device", "syncthing", "dev", db)
+	m := NewModel(config.Wrap("/tmp/test", cfg), protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(cfg.Folders[0])
 	m.AddFolder(cfg.Folders[1])
 
@@ -468,8 +473,12 @@ func TestIgnores(t *testing.T) {
 		return true
 	}
 
+	// Assure a clean start state
+	ioutil.WriteFile("testdata/.stfolder", nil, 0644)
+	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
+
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolderRO("default")
 
@@ -531,7 +540,7 @@ func TestIgnores(t *testing.T) {
 		t.Error("No error")
 	}
 
-	m.AddFolder(config.FolderConfiguration{ID: "fresh", Path: "XXX"})
+	m.AddFolder(config.FolderConfiguration{ID: "fresh", RawPath: "XXX"})
 	ignores, _, err = m.GetIgnores("fresh")
 	if err != nil {
 		t.Error(err)
@@ -543,7 +552,7 @@ func TestIgnores(t *testing.T) {
 
 func TestRefuseUnknownBits(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
 	m.ScanFolder("default")
@@ -564,7 +573,7 @@ func TestRefuseUnknownBits(t *testing.T) {
 			Name:  "valid",
 			Flags: protocol.FlagsAll &^ (protocol.FlagInvalid | protocol.FlagSymlink),
 		},
-	})
+	}, 0, nil)
 
 	for _, name := range []string{"invalid1", "invalid2", "invalid3"} {
 		f, ok := m.CurrentGlobalFile("default", name)
@@ -578,13 +587,181 @@ func TestRefuseUnknownBits(t *testing.T) {
 	}
 }
 
+func TestROScanRecovery(t *testing.T) {
+	ldb, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	set := db.NewFileSet("default", ldb)
+	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+		{Name: "dummyfile"},
+	})
+
+	fcfg := config.FolderConfiguration{
+		ID:              "default",
+		RawPath:         "testdata/rotestfolder",
+		RescanIntervalS: 1,
+	}
+	cfg := config.Wrap("/tmp/test", config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	})
+
+	os.RemoveAll(fcfg.RawPath)
+
+	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
+
+	m.AddFolder(fcfg)
+	m.StartFolderRO("default")
+
+	waitFor := func(status string) error {
+		timeout := time.Now().Add(2 * time.Second)
+		for {
+			if time.Now().After(timeout) {
+				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
+			}
+			_, _, err := m.State("default")
+			if err == nil && status == "" {
+				return nil
+			}
+			if err != nil && err.Error() == status {
+				return nil
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
+	if err := waitFor("folder path missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Mkdir(fcfg.RawPath, 0700)
+
+	if err := waitFor("folder marker missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	fd, err := os.Create(filepath.Join(fcfg.RawPath, ".stfolder"))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fd.Close()
+
+	if err := waitFor(""); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
+
+	if err := waitFor("folder marker missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Remove(fcfg.RawPath)
+
+	if err := waitFor("folder path missing"); err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func TestRWScanRecovery(t *testing.T) {
+	ldb, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	set := db.NewFileSet("default", ldb)
+	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+		{Name: "dummyfile"},
+	})
+
+	fcfg := config.FolderConfiguration{
+		ID:              "default",
+		RawPath:         "testdata/rwtestfolder",
+		RescanIntervalS: 1,
+	}
+	cfg := config.Wrap("/tmp/test", config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	})
+
+	os.RemoveAll(fcfg.RawPath)
+
+	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
+
+	m.AddFolder(fcfg)
+	m.StartFolderRW("default")
+
+	waitFor := func(status string) error {
+		timeout := time.Now().Add(2 * time.Second)
+		for {
+			if time.Now().After(timeout) {
+				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
+			}
+			_, _, err := m.State("default")
+			if err == nil && status == "" {
+				return nil
+			}
+			if err != nil && err.Error() == status {
+				return nil
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
+	if err := waitFor("folder path missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Mkdir(fcfg.RawPath, 0700)
+
+	if err := waitFor("folder marker missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	fd, err := os.Create(filepath.Join(fcfg.RawPath, ".stfolder"))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fd.Close()
+
+	if err := waitFor(""); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
+
+	if err := waitFor("folder marker missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Remove(fcfg.RawPath)
+
+	if err := waitFor("folder path missing"); err != nil {
+		t.Error(err)
+		return
+	}
+}
+
 func TestGlobalDirectoryTree(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
-		var flags uint32 = protocol.FlagDirectory
+		flags := uint32(protocol.FlagDirectory)
 		blocks := []protocol.BlockInfo{}
 		if isfile {
 			flags = 0
@@ -598,7 +775,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		}
 	}
 
-	filedata := []int64{0x666, 0xa}
+	filedata := []interface{}{time.Unix(0x666, 0), 0xa}
 
 	testdata := []protocol.FileInfo{
 		b(false, "another"),
@@ -666,17 +843,17 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		return string(bytes)
 	}
 
-	m.Index(device1, "default", testdata)
+	m.Index(device1, "default", testdata, 0, nil)
 
 	result := m.GlobalDirectoryTree("default", "", -1, false)
 
-	if !reflect.DeepEqual(result, expectedResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult))
+	if mm(result) != mm(expectedResult) {
+		t.Errorf("Does not match:\n%#v\n%#v", result, expectedResult)
 	}
 
 	result = m.GlobalDirectoryTree("default", "another", -1, false)
 
-	if !reflect.DeepEqual(result, expectedResult["another"]) {
+	if mm(result) != mm(expectedResult["another"]) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult["another"]))
 	}
 
@@ -688,7 +865,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"rootfile": filedata,
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -709,7 +886,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"rootfile": filedata,
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -739,7 +916,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -758,7 +935,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -768,7 +945,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"file":      filedata,
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -777,7 +954,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		"with": map[string]interface{}{},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -788,7 +965,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -801,7 +978,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -814,7 +991,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -822,19 +999,18 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	result = m.GlobalDirectoryTree("default", "som", -1, false)
 	currentResult = map[string]interface{}{}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 }
 
 func TestGlobalDirectorySelfFixing(t *testing.T) {
-
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
-		var flags uint32 = protocol.FlagDirectory
+		flags := uint32(protocol.FlagDirectory)
 		blocks := []protocol.BlockInfo{}
 		if isfile {
 			flags = 0
@@ -848,7 +1024,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		}
 	}
 
-	filedata := []int64{0x666, 0xa}
+	filedata := []interface{}{time.Unix(0x666, 0).Format(time.RFC3339), 0xa}
 
 	testdata := []protocol.FileInfo{
 		b(true, "another", "directory", "afile"),
@@ -925,11 +1101,11 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		return string(bytes)
 	}
 
-	m.Index(device1, "default", testdata)
+	m.Index(device1, "default", testdata, 0, nil)
 
 	result := m.GlobalDirectoryTree("default", "", -1, false)
 
-	if !reflect.DeepEqual(result, expectedResult) {
+	if mm(result) != mm(expectedResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult))
 	}
 
@@ -940,7 +1116,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -949,7 +1125,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		"invalid": map[string]interface{}{},
 	}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
@@ -958,7 +1134,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 	result = m.GlobalDirectoryTree("default", "xthis", 1, false)
 	currentResult = map[string]interface{}{}
 
-	if !reflect.DeepEqual(result, currentResult) {
+	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 }
@@ -991,12 +1167,12 @@ func genDeepFiles(n, d int) []protocol.FileInfo {
 
 func BenchmarkTree_10000_50(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genDeepFiles(10000, 50)
 
-	m.Index(device1, "default", files)
+	m.Index(device1, "default", files, 0, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1006,12 +1182,12 @@ func BenchmarkTree_10000_50(b *testing.B) {
 
 func BenchmarkTree_10000_10(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genDeepFiles(10000, 10)
 
-	m.Index(device1, "default", files)
+	m.Index(device1, "default", files, 0, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1021,12 +1197,12 @@ func BenchmarkTree_10000_10(b *testing.B) {
 
 func BenchmarkTree_00100_50(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genDeepFiles(100, 50)
 
-	m.Index(device1, "default", files)
+	m.Index(device1, "default", files, 0, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1036,12 +1212,12 @@ func BenchmarkTree_00100_50(b *testing.B) {
 
 func BenchmarkTree_00100_10(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ScanFolder("default")
 	files := genDeepFiles(100, 10)
 
-	m.Index(device1, "default", files)
+	m.Index(device1, "default", files, 0, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

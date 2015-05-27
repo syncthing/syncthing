@@ -9,11 +9,11 @@ package model
 import (
 	"path/filepath"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type ProgressEmitter struct {
@@ -27,22 +27,23 @@ type ProgressEmitter struct {
 	stop chan struct{}
 }
 
-// Creates a new progress emitter which emits DownloadProgress events every
-// interval.
+// NewProgressEmitter creates a new progress emitter which emits
+// DownloadProgress events every interval.
 func NewProgressEmitter(cfg *config.Wrapper) *ProgressEmitter {
 	t := &ProgressEmitter{
 		stop:     make(chan struct{}),
 		registry: make(map[string]*sharedPullerState),
 		last:     make(map[string]map[string]*pullerProgress),
 		timer:    time.NewTimer(time.Millisecond),
+		mut:      sync.NewMutex(),
 	}
 	t.Changed(cfg.Raw())
 	cfg.Subscribe(t)
 	return t
 }
 
-// Starts progress emitter which starts emitting DownloadProgress events as
-// the progress happens.
+// Serve starts the progress emitter which starts emitting DownloadProgress
+// events as the progress happens.
 func (t *ProgressEmitter) Serve() {
 	for {
 		select {
@@ -80,7 +81,8 @@ func (t *ProgressEmitter) Serve() {
 	}
 }
 
-// Interface method to handle configuration changes
+// Changed implements the config.Handler Interface to handle configuration
+// changes
 func (t *ProgressEmitter) Changed(cfg config.Configuration) error {
 	t.mut.Lock()
 	defer t.mut.Unlock()
@@ -92,7 +94,7 @@ func (t *ProgressEmitter) Changed(cfg config.Configuration) error {
 	return nil
 }
 
-// Stops the emitter.
+// Stop stops the emitter.
 func (t *ProgressEmitter) Stop() {
 	t.stop <- struct{}{}
 }
@@ -111,7 +113,7 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 	t.registry[filepath.Join(s.folder, s.file.Name)] = s
 }
 
-// Deregister a puller which will stop boardcasting pullers state.
+// Deregister a puller which will stop broadcasting pullers state.
 func (t *ProgressEmitter) Deregister(s *sharedPullerState) {
 	t.mut.Lock()
 	defer t.mut.Unlock()
@@ -121,7 +123,7 @@ func (t *ProgressEmitter) Deregister(s *sharedPullerState) {
 	delete(t.registry, filepath.Join(s.folder, s.file.Name))
 }
 
-// Returns number of bytes completed in the given folder.
+// BytesCompleted returns the number of bytes completed in the given folder.
 func (t *ProgressEmitter) BytesCompleted(folder string) (bytes int64) {
 	t.mut.Lock()
 	defer t.mut.Unlock()

@@ -7,6 +7,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -16,10 +18,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/calmh/logger"
@@ -31,6 +33,7 @@ import (
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/model"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
@@ -44,21 +47,34 @@ type guiError struct {
 var (
 	configInSync = true
 	guiErrors    = []guiError{}
-	guiErrorsMut sync.Mutex
-	modt         = time.Now().UTC().Format(http.TimeFormat)
+	guiErrorsMut = sync.NewMutex()
+	startTime    = time.Now()
 	eventSub     *events.BufferedSubscription
 )
 
-func init() {
-	l.AddHandler(logger.LevelWarn, showGuiError)
-	sub := events.Default.Subscribe(events.AllEvents)
-	eventSub = events.NewBufferedSubscription(sub, 1000)
+type apiSvc struct {
+	cfg      config.GUIConfiguration
+	assetDir string
+	model    *model.Model
+	fss      *folderSummarySvc
+	listener net.Listener
 }
 
-func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) error {
-	var err error
+func newAPISvc(cfg config.GUIConfiguration, assetDir string, m *model.Model) (*apiSvc, error) {
+	svc := &apiSvc{
+		cfg:      cfg,
+		assetDir: assetDir,
+		model:    m,
+		fss:      newFolderSummarySvc(m),
+	}
 
-	cert, err := loadCert(confDir, "https-")
+	var err error
+	svc.listener, err = svc.getListener()
+	return svc, err
+}
+
+func (s *apiSvc) getListener() (net.Listener, error) {
+	cert, err := tls.LoadX509KeyPair(locations[locHTTPSCertFile], locations[locHTTPSKeyFile])
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
 		l.Infoln("Creating new HTTPS certificate")
@@ -71,11 +87,10 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 			name = tlsDefaultCommonName
 		}
 
-		newCertificate(confDir, "https-", name)
-		cert, err = loadCert(confDir, "https-")
+		cert, err = newCertificate(locations[locHTTPSCertFile], locations[locHTTPSKeyFile], name)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tlsCfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
@@ -95,55 +110,64 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		},
 	}
 
-	rawListener, err := net.Listen("tcp", cfg.Address)
+	rawListener, err := net.Listen("tcp", s.cfg.Address)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	listener := &DowngradingListener{rawListener, tlsCfg}
+	return listener, nil
+}
+
+func (s *apiSvc) Serve() {
+	l.AddHandler(logger.LevelWarn, s.showGuiError)
+	sub := events.Default.Subscribe(events.AllEvents)
+	eventSub = events.NewBufferedSubscription(sub, 1000)
+	defer events.Default.Unsubscribe(sub)
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
-	getRestMux.HandleFunc("/rest/ping", restPing)
-	getRestMux.HandleFunc("/rest/completion", withModel(m, restGetCompletion))
-	getRestMux.HandleFunc("/rest/config", restGetConfig)
-	getRestMux.HandleFunc("/rest/config/sync", restGetConfigInSync)
-	getRestMux.HandleFunc("/rest/connections", withModel(m, restGetConnections))
-	getRestMux.HandleFunc("/rest/autocomplete/directory", restGetAutocompleteDirectory)
-	getRestMux.HandleFunc("/rest/discovery", restGetDiscovery)
-	getRestMux.HandleFunc("/rest/errors", restGetErrors)
-	getRestMux.HandleFunc("/rest/events", restGetEvents)
-	getRestMux.HandleFunc("/rest/ignores", withModel(m, restGetIgnores))
-	getRestMux.HandleFunc("/rest/lang", restGetLang)
-	getRestMux.HandleFunc("/rest/model", withModel(m, restGetModel))
-	getRestMux.HandleFunc("/rest/need", withModel(m, restGetNeed))
-	getRestMux.HandleFunc("/rest/deviceid", restGetDeviceID)
-	getRestMux.HandleFunc("/rest/report", withModel(m, restGetReport))
-	getRestMux.HandleFunc("/rest/system", restGetSystem)
-	getRestMux.HandleFunc("/rest/upgrade", restGetUpgrade)
-	getRestMux.HandleFunc("/rest/version", restGetVersion)
-	getRestMux.HandleFunc("/rest/tree", withModel(m, restGetTree))
-	getRestMux.HandleFunc("/rest/stats/device", withModel(m, restGetDeviceStats))
-	getRestMux.HandleFunc("/rest/stats/folder", withModel(m, restGetFolderStats))
-	getRestMux.HandleFunc("/rest/filestatus", withModel(m, restGetFileStatus))
-
-	// Debug endpoints, not for general use
-	getRestMux.HandleFunc("/rest/debug/peerCompletion", withModel(m, restGetPeerCompletion))
+	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
+	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
+	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
+	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
+	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
+	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
+	getRestMux.HandleFunc("/rest/events", s.getEvents)                           // since [limit]
+	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
+	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
+	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
+	getRestMux.HandleFunc("/rest/svc/lang", s.getLang)                           // -
+	getRestMux.HandleFunc("/rest/svc/report", s.getReport)                       // -
+	getRestMux.HandleFunc("/rest/system/browse", s.getSystemBrowse)              // current
+	getRestMux.HandleFunc("/rest/system/config", s.getSystemConfig)              // -
+	getRestMux.HandleFunc("/rest/system/config/insync", s.getSystemConfigInsync) // -
+	getRestMux.HandleFunc("/rest/system/connections", s.getSystemConnections)    // -
+	getRestMux.HandleFunc("/rest/system/discovery", s.getSystemDiscovery)        // -
+	getRestMux.HandleFunc("/rest/system/error", s.getSystemError)                // -
+	getRestMux.HandleFunc("/rest/system/ping", s.restPing)                       // -
+	getRestMux.HandleFunc("/rest/system/status", s.getSystemStatus)              // -
+	getRestMux.HandleFunc("/rest/system/upgrade", s.getSystemUpgrade)            // -
+	getRestMux.HandleFunc("/rest/system/version", s.getSystemVersion)            // -
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
-	postRestMux.HandleFunc("/rest/ping", restPing)
-	postRestMux.HandleFunc("/rest/config", withModel(m, restPostConfig))
-	postRestMux.HandleFunc("/rest/discovery/hint", restPostDiscoveryHint)
-	postRestMux.HandleFunc("/rest/error", restPostError)
-	postRestMux.HandleFunc("/rest/error/clear", restClearErrors)
-	postRestMux.HandleFunc("/rest/ignores", withModel(m, restPostIgnores))
-	postRestMux.HandleFunc("/rest/model/override", withModel(m, restPostOverride))
-	postRestMux.HandleFunc("/rest/reset", restPostReset)
-	postRestMux.HandleFunc("/rest/restart", restPostRestart)
-	postRestMux.HandleFunc("/rest/shutdown", restPostShutdown)
-	postRestMux.HandleFunc("/rest/upgrade", restPostUpgrade)
-	postRestMux.HandleFunc("/rest/scan", withModel(m, restPostScan))
-	postRestMux.HandleFunc("/rest/bump", withModel(m, restPostBump))
+	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                      // folder file [perpage] [page]
+	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                // folder
+	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)              // folder
+	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                      // folder [sub...] [delay]
+	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)          // <body>
+	postRestMux.HandleFunc("/rest/system/discovery", s.postSystemDiscovery)    // device addr
+	postRestMux.HandleFunc("/rest/system/error", s.postSystemError)            // <body>
+	postRestMux.HandleFunc("/rest/system/error/clear", s.postSystemErrorClear) // -
+	postRestMux.HandleFunc("/rest/system/ping", s.restPing)                    // -
+	postRestMux.HandleFunc("/rest/system/reset", s.postSystemReset)            // [folder]
+	postRestMux.HandleFunc("/rest/system/restart", s.postSystemRestart)        // -
+	postRestMux.HandleFunc("/rest/system/shutdown", s.postSystemShutdown)      // -
+	postRestMux.HandleFunc("/rest/system/upgrade", s.postSystemUpgrade)        // -
+
+	// Debug endpoints, not for general use
+	getRestMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -152,26 +176,33 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 	// The main routing handler
 	mux := http.NewServeMux()
 	mux.Handle("/rest/", restMux)
-	mux.HandleFunc("/qr/", getQR)
+	mux.HandleFunc("/qr/", s.getQR)
 
 	// Serve compiled in assets unless an asset directory was set (for development)
-	mux.Handle("/", embeddedStatic(assetDir))
+	mux.Handle("/", embeddedStatic{
+		assetDir: s.assetDir,
+		assets:   auto.Assets(),
+	})
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware("/rest", cfg.APIKey, mux)
+	handler := csrfMiddleware("/rest", s.cfg.APIKey, mux)
 
 	// Add our version as a header to responses
 	handler = withVersionMiddleware(handler)
 
 	// Wrap everything in basic auth, if user/password is set.
-	if len(cfg.User) > 0 && len(cfg.Password) > 0 {
-		handler = basicAuthAndSessionMiddleware(cfg, handler)
+	if len(s.cfg.User) > 0 && len(s.cfg.Password) > 0 {
+		handler = basicAuthAndSessionMiddleware(s.cfg, handler)
 	}
 
 	// Redirect to HTTPS if we are supposed to
-	if cfg.UseTLS {
+	if s.cfg.UseTLS {
 		handler = redirectToHTTPSMiddleware(handler)
+	}
+
+	if debugHTTP {
+		handler = debugMiddleware(handler)
 	}
 
 	srv := http.Server{
@@ -179,13 +210,15 @@ func startGUI(cfg config.GUIConfiguration, assetDir string, m *model.Model) erro
 		ReadTimeout: 10 * time.Second,
 	}
 
-	go func() {
-		err := srv.Serve(listener)
-		if err != nil {
-			panic(err)
-		}
-	}()
-	return nil
+	s.fss.ServeBackground()
+
+	err := srv.Serve(s.listener)
+	l.Warnln("API:", err)
+}
+
+func (s *apiSvc) Stop() {
+	s.listener.Close()
+	s.fss.Stop()
 }
 
 func getPostHandler(get, post http.Handler) http.Handler {
@@ -198,6 +231,30 @@ func getPostHandler(get, post http.Handler) http.Handler {
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
+	})
+}
+
+func debugMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t0 := time.Now()
+		h.ServeHTTP(w, r)
+		ms := 1000 * time.Since(t0).Seconds()
+
+		// The variable `w` is most likely a *http.response, which we can't do
+		// much with since it's a non exported type. We can however peek into
+		// it with reflection to get at the status code and number of bytes
+		// written.
+		var status, written int64
+		if rw := reflect.Indirect(reflect.ValueOf(w)); rw.IsValid() && rw.Kind() == reflect.Struct {
+			if rf := rw.FieldByName("status"); rf.IsValid() && rf.Kind() == reflect.Int {
+				status = rf.Int()
+			}
+			if rf := rw.FieldByName("written"); rf.IsValid() && rf.Kind() == reflect.Int64 {
+				written = rf.Int()
+			}
+		}
+
+		l.Debugf("http: %s %q: status %d, %d bytes in %.02f ms", r.Method, r.URL.String(), status, written, ms)
 	})
 }
 
@@ -220,7 +277,9 @@ func redirectToHTTPSMiddleware(h http.Handler) http.Handler {
 
 func noCacheMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store")
+		w.Header().Set("Expires", time.Now().UTC().Format(http.TimeFormat))
+		w.Header().Set("Pragma", "no-cache")
 		h.ServeHTTP(w, r)
 	})
 }
@@ -232,20 +291,14 @@ func withVersionMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func withModel(m *model.Model, h func(m *model.Model, w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		h(m, w, r)
-	}
-}
-
-func restPing(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) restPing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(map[string]string{
 		"ping": "pong",
 	})
 }
 
-func restGetVersion(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(map[string]string{
 		"version":     Version,
@@ -255,7 +308,7 @@ func restGetVersion(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func restGetTree(m *model.Model, w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getDBBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	prefix := qs.Get("prefix")
@@ -268,12 +321,12 @@ func restGetTree(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	tree := m.GlobalDirectoryTree(folder, prefix, levels, dirsonly)
+	tree := s.model.GlobalDirectoryTree(folder, prefix, levels, dirsonly)
 
 	json.NewEncoder(w).Encode(tree)
 }
 
-func restGetCompletion(m *model.Model, w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 	var deviceStr = qs.Get("device")
@@ -285,16 +338,22 @@ func restGetCompletion(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := map[string]float64{
-		"completion": m.Completion(device, folder),
+		"completion": s.model.Completion(device, folder),
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
 
-func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var folder = qs.Get("folder")
+func (s *apiSvc) getDBStatus(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	res := folderSummary(s.model, folder)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(res)
+}
+
+func folderSummary(m *model.Model, folder string) map[string]interface{} {
 	var res = make(map[string]interface{})
 
 	res["invalid"] = cfg.Folders()[folder].Invalid
@@ -310,7 +369,12 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 
 	res["inSyncFiles"], res["inSyncBytes"] = globalFiles-needFiles, globalBytes-needBytes
 
-	res["state"], res["stateChanged"] = m.State(folder)
+	var err error
+	res["state"], res["stateChanged"], err = m.State(folder)
+	if err != nil {
+		res["error"] = err.Error()
+	}
+
 	res["version"] = m.CurrentLocalVersion(folder) + m.RemoteLocalVersion(folder)
 
 	ignorePatterns, _, _ := m.GetIgnores(folder)
@@ -322,77 +386,84 @@ func restGetModel(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(res)
+	return res
 }
 
-func restPostOverride(m *model.Model, w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) postDBOverride(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
-	go m.Override(folder)
+	go s.model.Override(folder)
 }
 
-func restGetNeed(m *model.Model, w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var folder = qs.Get("folder")
+func (s *apiSvc) getDBNeed(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
 
-	progress, queued, rest := m.NeedFolderFiles(folder, 100)
+	folder := qs.Get("folder")
+
+	page, err := strconv.Atoi(qs.Get("page"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	perpage, err := strconv.Atoi(qs.Get("perpage"))
+	if err != nil || perpage < 1 {
+		perpage = 1 << 16
+	}
+
+	progress, queued, rest, total := s.model.NeedFolderFiles(folder, page, perpage)
+
 	// Convert the struct to a more loose structure, and inject the size.
-	output := map[string][]map[string]interface{}{
-		"progress": toNeedSlice(progress),
-		"queued":   toNeedSlice(queued),
-		"rest":     toNeedSlice(rest),
+	output := map[string]interface{}{
+		"progress": s.toNeedSlice(progress),
+		"queued":   s.toNeedSlice(queued),
+		"rest":     s.toNeedSlice(rest),
+		"total":    total,
+		"page":     page,
+		"perpage":  perpage,
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(output)
 }
 
-func restGetConnections(m *model.Model, w http.ResponseWriter, r *http.Request) {
-	var res = m.ConnectionStats()
+func (s *apiSvc) getSystemConnections(w http.ResponseWriter, r *http.Request) {
+	var res = s.model.ConnectionStats()
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
 
-func restGetDeviceStats(m *model.Model, w http.ResponseWriter, r *http.Request) {
-	var res = m.DeviceStatistics()
+func (s *apiSvc) getDeviceStats(w http.ResponseWriter, r *http.Request) {
+	var res = s.model.DeviceStatistics()
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
 
-func restGetFolderStats(m *model.Model, w http.ResponseWriter, r *http.Request) {
-	var res = m.FolderStatistics()
+func (s *apiSvc) getFolderStats(w http.ResponseWriter, r *http.Request) {
+	var res = s.model.FolderStatistics()
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
 
-func restGetFileStatus(m *model.Model, w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getDBFile(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	file := qs.Get("file")
-	withBlocks := qs.Get("blocks") != ""
-	gf, _ := m.CurrentGlobalFile(folder, file)
-	lf, _ := m.CurrentFolderFile(folder, file)
+	gf, _ := s.model.CurrentGlobalFile(folder, file)
+	lf, _ := s.model.CurrentFolderFile(folder, file)
 
-	if !withBlocks {
-		gf.Blocks = nil
-		lf.Blocks = nil
-	}
-
-	av := m.Availability(folder, file)
+	av := s.model.Availability(folder, file)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"global":       gf,
-		"local":        lf,
+		"global":       jsonFileInfo(gf),
+		"local":        jsonFileInfo(lf),
 		"availability": av,
 	})
 }
 
-func restGetConfig(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getSystemConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(cfg.Raw())
 }
 
-func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	var newCfg config.Configuration
 	err := json.NewDecoder(r.Body).Decode(&newCfg)
 	if err != nil {
@@ -414,22 +485,16 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Start or stop usage reporting as appropriate
+	// Fixup usage reporting settings
 
 	if curAcc := cfg.Options().URAccepted; newCfg.Options.URAccepted > curAcc {
 		// UR was enabled
 		newCfg.Options.URAccepted = usageReportVersion
 		newCfg.Options.URUniqueID = randomString(8)
-		err := sendUsageReport(m)
-		if err != nil {
-			l.Infoln("Usage report:", err)
-		}
-		go usageReportingLoop(m)
 	} else if newCfg.Options.URAccepted < curAcc {
 		// UR was disabled
 		newCfg.Options.URAccepted = -1
 		newCfg.Options.URUniqueID = ""
-		stopUsageReporting()
 	}
 
 	// Activate and save
@@ -439,37 +504,52 @@ func restPostConfig(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	cfg.Save()
 }
 
-func restGetConfigInSync(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getSystemConfigInsync(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(map[string]bool{"configInSync": configInSync})
 }
 
-func restPostRestart(w http.ResponseWriter, r *http.Request) {
-	flushResponse(`{"ok": "restarting"}`, w)
+func (s *apiSvc) postSystemRestart(w http.ResponseWriter, r *http.Request) {
+	s.flushResponse(`{"ok": "restarting"}`, w)
 	go restart()
 }
 
-func restPostReset(w http.ResponseWriter, r *http.Request) {
-	flushResponse(`{"ok": "resetting folders"}`, w)
-	resetFolders()
+func (s *apiSvc) postSystemReset(w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	folder := qs.Get("folder")
+	var err error
+	if len(folder) == 0 {
+		err = resetDB()
+	} else {
+		err = s.model.ResetFolder(folder)
+	}
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(folder) == 0 {
+		s.flushResponse(`{"ok": "resetting database"}`, w)
+	} else {
+		s.flushResponse(`{"ok": "resetting folder " + folder}`, w)
+	}
 	go restart()
 }
 
-func restPostShutdown(w http.ResponseWriter, r *http.Request) {
-	flushResponse(`{"ok": "shutting down"}`, w)
+func (s *apiSvc) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
+	s.flushResponse(`{"ok": "shutting down"}`, w)
 	go shutdown()
 }
 
-func flushResponse(s string, w http.ResponseWriter) {
-	w.Write([]byte(s + "\n"))
+func (s *apiSvc) flushResponse(resp string, w http.ResponseWriter) {
+	w.Write([]byte(resp + "\n"))
 	f := w.(http.Flusher)
 	f.Flush()
 }
 
 var cpuUsagePercent [10]float64 // The last ten seconds
-var cpuUsageLock sync.RWMutex
+var cpuUsageLock = sync.NewRWMutex()
 
-func restGetSystem(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
@@ -491,31 +571,32 @@ func restGetSystem(w http.ResponseWriter, r *http.Request) {
 	cpuUsageLock.RUnlock()
 	res["cpuPercent"] = cpusum / float64(len(cpuUsagePercent)) / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
+	res["uptime"] = int(time.Since(startTime).Seconds())
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
 
-func restGetErrors(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getSystemError(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	guiErrorsMut.Lock()
 	json.NewEncoder(w).Encode(map[string][]guiError{"errors": guiErrors})
 	guiErrorsMut.Unlock()
 }
 
-func restPostError(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) postSystemError(w http.ResponseWriter, r *http.Request) {
 	bs, _ := ioutil.ReadAll(r.Body)
 	r.Body.Close()
-	showGuiError(0, string(bs))
+	s.showGuiError(0, string(bs))
 }
 
-func restClearErrors(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) postSystemErrorClear(w http.ResponseWriter, r *http.Request) {
 	guiErrorsMut.Lock()
 	guiErrors = []guiError{}
 	guiErrorsMut.Unlock()
 }
 
-func showGuiError(l logger.LogLevel, err string) {
+func (s *apiSvc) showGuiError(l logger.LogLevel, err string) {
 	guiErrorsMut.Lock()
 	guiErrors = append(guiErrors, guiError{time.Now(), err})
 	if len(guiErrors) > 5 {
@@ -524,7 +605,7 @@ func showGuiError(l logger.LogLevel, err string) {
 	guiErrorsMut.Unlock()
 }
 
-func restPostDiscoveryHint(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) postSystemDiscovery(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var device = qs.Get("device")
 	var addr = qs.Get("addr")
@@ -533,7 +614,7 @@ func restPostDiscoveryHint(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func restGetDiscovery(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	devices := map[string][]discover.CacheEntry{}
 
@@ -549,16 +630,16 @@ func restGetDiscovery(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(devices)
 }
 
-func restGetReport(m *model.Model, w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getReport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(reportData(m))
+	json.NewEncoder(w).Encode(reportData(s.model))
 }
 
-func restGetIgnores(m *model.Model, w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	ignores, patterns, err := m.GetIgnores(qs.Get("folder"))
+	ignores, patterns, err := s.model.GetIgnores(qs.Get("folder"))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -570,7 +651,7 @@ func restGetIgnores(m *model.Model, w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func restPostIgnores(m *model.Model, w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
 	var data map[string][]string
@@ -582,21 +663,23 @@ func restPostIgnores(m *model.Model, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = m.SetIgnores(qs.Get("folder"), data["ignore"])
+	err = s.model.SetIgnores(qs.Get("folder"), data["ignore"])
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	restGetIgnores(m, w, r)
+	s.getDBIgnores(w, r)
 }
 
-func restGetEvents(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getEvents(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	sinceStr := qs.Get("since")
 	limitStr := qs.Get("limit")
 	since, _ := strconv.Atoi(sinceStr)
 	limit, _ := strconv.Atoi(limitStr)
+
+	s.fss.gotEventRequest()
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
@@ -613,12 +696,12 @@ func restGetEvents(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(evs)
 }
 
-func restGetUpgrade(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 	if noUpgrade {
 		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
 		return
 	}
-	rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
+	rel, err := upgrade.LatestRelease(Version)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -626,13 +709,14 @@ func restGetUpgrade(w http.ResponseWriter, r *http.Request) {
 	res := make(map[string]interface{})
 	res["running"] = Version
 	res["latest"] = rel.Tag
-	res["newer"] = upgrade.CompareVersions(rel.Tag, Version) == 1
+	res["newer"] = upgrade.CompareVersions(rel.Tag, Version) == upgrade.Newer
+	res["majorNewer"] = upgrade.CompareVersions(rel.Tag, Version) == upgrade.MajorNewer
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
 
-func restGetDeviceID(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getDeviceID(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	idStr := qs.Get("id")
 	id, err := protocol.DeviceIDFromString(idStr)
@@ -648,7 +732,7 @@ func restGetDeviceID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func restGetLang(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getLang(w http.ResponseWriter, r *http.Request) {
 	lang := r.Header.Get("Accept-Language")
 	var langs []string
 	for _, l := range strings.Split(lang, ",") {
@@ -659,15 +743,15 @@ func restGetLang(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(langs)
 }
 
-func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
-	rel, err := upgrade.LatestRelease(strings.Contains(Version, "-beta"))
+func (s *apiSvc) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
+	rel, err := upgrade.LatestRelease(Version)
 	if err != nil {
 		l.Warnln("getting latest release:", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	if upgrade.CompareVersions(rel.Tag, Version) == 1 {
+	if upgrade.CompareVersions(rel.Tag, Version) > upgrade.Equal {
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("upgrading:", err)
@@ -675,39 +759,47 @@ func restPostUpgrade(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		flushResponse(`{"ok": "restarting"}`, w)
+		s.flushResponse(`{"ok": "restarting"}`, w)
 		l.Infoln("Upgrading")
 		stop <- exitUpgrading
 	}
 }
 
-func restPostScan(m *model.Model, w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) postDBScan(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	if folder != "" {
-		sub := qs.Get("sub")
-		err := m.ScanFolderSub(folder, sub)
+		nextStr := qs.Get("next")
+		next, err := strconv.Atoi(nextStr)
+		if err == nil {
+			s.model.DelayScan(folder, time.Duration(next)*time.Second)
+		}
+
+		subs := qs["sub"]
+		err = s.model.ScanFolderSubs(folder, subs)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
+			return
 		}
 	} else {
-		errors := m.ScanFolders()
+		errors := s.model.ScanFolders()
 		if len(errors) > 0 {
 			http.Error(w, "Error scanning folders", 500)
 			json.NewEncoder(w).Encode(errors)
+			return
 		}
 	}
 }
 
-func restPostBump(m *model.Model, w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) postDBPrio(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	file := qs.Get("file")
-	m.BringToFront(folder, file)
-	restGetNeed(m, w, r)
+	s.model.BringToFront(folder, file)
+	s.getDBNeed(w, r)
 }
 
-func getQR(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getQR(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var text = qs.Get("text")
 	code, err := qr.Encode(text, qr.M)
@@ -720,15 +812,15 @@ func getQR(w http.ResponseWriter, r *http.Request) {
 	w.Write(code.PNG())
 }
 
-func restGetPeerCompletion(m *model.Model, w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 	tot := map[string]float64{}
 	count := map[string]float64{}
 
 	for _, folder := range cfg.Folders() {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
-			if m.ConnectedTo(device) {
-				tot[deviceStr] += m.Completion(device, folder.ID)
+			if s.model.ConnectedTo(device) {
+				tot[deviceStr] += s.model.Completion(device, folder.ID)
 			} else {
 				tot[deviceStr] = 0
 			}
@@ -745,7 +837,7 @@ func restGetPeerCompletion(m *model.Model, w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(comp)
 }
 
-func restGetAutocompleteDirectory(w http.ResponseWriter, r *http.Request) {
+func (s *apiSvc) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	qs := r.URL.Query()
 	current := qs.Get("current")
@@ -754,7 +846,7 @@ func restGetAutocompleteDirectory(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(current, pathSeparator) && !strings.HasSuffix(search, pathSeparator) {
 		search = search + pathSeparator
 	}
-	subdirectories, _ := filepath.Glob(search + "*")
+	subdirectories, _ := osutil.Glob(search + "*")
 	ret := make([]string, 0, 10)
 	for _, subdirectory := range subdirectories {
 		info, err := os.Stat(subdirectory)
@@ -768,47 +860,57 @@ func restGetAutocompleteDirectory(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ret)
 }
 
-func embeddedStatic(assetDir string) http.Handler {
-	assets := auto.Assets()
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		file := r.URL.Path
-
-		if file[0] == '/' {
-			file = file[1:]
-		}
-
-		if len(file) == 0 {
-			file = "index.html"
-		}
-
-		if assetDir != "" {
-			p := filepath.Join(assetDir, filepath.FromSlash(file))
-			_, err := os.Stat(p)
-			if err == nil {
-				http.ServeFile(w, r, p)
-				return
-			}
-		}
-
-		bs, ok := assets[file]
-		if !ok {
-			http.NotFound(w, r)
-			return
-		}
-
-		mtype := mimeTypeForFile(file)
-		if len(mtype) != 0 {
-			w.Header().Set("Content-Type", mtype)
-		}
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-		w.Header().Set("Last-Modified", modt)
-
-		w.Write(bs)
-	})
+type embeddedStatic struct {
+	assetDir string
+	assets   map[string][]byte
 }
 
-func mimeTypeForFile(file string) string {
+func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	file := r.URL.Path
+
+	if file[0] == '/' {
+		file = file[1:]
+	}
+
+	if len(file) == 0 {
+		file = "index.html"
+	}
+
+	if s.assetDir != "" {
+		p := filepath.Join(s.assetDir, filepath.FromSlash(file))
+		_, err := os.Stat(p)
+		if err == nil {
+			http.ServeFile(w, r, p)
+			return
+		}
+	}
+
+	bs, ok := s.assets[file]
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	mtype := s.mimeTypeForFile(file)
+	if len(mtype) != 0 {
+		w.Header().Set("Content-Type", mtype)
+	}
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+	} else {
+		// ungzip if browser not send gzip accepted header
+		var gr *gzip.Reader
+		gr, _ = gzip.NewReader(bytes.NewReader(bs))
+		bs, _ = ioutil.ReadAll(gr)
+		gr.Close()
+	}
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
+	w.Header().Set("Last-Modified", auto.AssetsBuildDate)
+
+	w.Write(bs)
+}
+
+func (s embeddedStatic) mimeTypeForFile(file string) string {
 	// We use a built in table of the common types since the system
 	// TypeByExtension might be unreliable. But if we don't know, we delegate
 	// to the system.
@@ -828,22 +930,56 @@ func mimeTypeForFile(file string) string {
 		return "application/x-font-ttf"
 	case ".woff":
 		return "application/x-font-woff"
+	case ".svg":
+		return "image/svg+xml"
 	default:
 		return mime.TypeByExtension(ext)
 	}
 }
 
-func toNeedSlice(fs []db.FileInfoTruncated) []map[string]interface{} {
-	output := make([]map[string]interface{}, len(fs))
-	for i, file := range fs {
-		output[i] = map[string]interface{}{
-			"name":         file.Name,
-			"flags":        file.Flags,
-			"modified":     file.Modified,
-			"version":      file.Version,
-			"localVersion": file.LocalVersion,
-			"size":         file.Size(),
-		}
+func (s *apiSvc) toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
+	res := make([]jsonDBFileInfo, len(fs))
+	for i, f := range fs {
+		res[i] = jsonDBFileInfo(f)
 	}
-	return output
+	return res
+}
+
+// Type wrappers for nice JSON serialization
+
+type jsonFileInfo protocol.FileInfo
+
+func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"name":         f.Name,
+		"size":         protocol.FileInfo(f).Size(),
+		"flags":        fmt.Sprintf("%#o", f.Flags),
+		"modified":     time.Unix(f.Modified, 0),
+		"localVersion": f.LocalVersion,
+		"numBlocks":    len(f.Blocks),
+		"version":      jsonVersionVector(f.Version),
+	})
+}
+
+type jsonDBFileInfo db.FileInfoTruncated
+
+func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"name":         f.Name,
+		"size":         db.FileInfoTruncated(f).Size(),
+		"flags":        fmt.Sprintf("%#o", f.Flags),
+		"modified":     time.Unix(f.Modified, 0),
+		"localVersion": f.LocalVersion,
+		"version":      jsonVersionVector(f.Version),
+	})
+}
+
+type jsonVersionVector protocol.Vector
+
+func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
+	res := make([]string, len(v))
+	for i, c := range v {
+		res[i] = fmt.Sprintf("%d:%d", c.ID, c.Value)
+	}
+	return json.Marshal(res)
 }

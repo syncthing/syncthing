@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	FNM_NOESCAPE = (1 << iota)
-	FNM_PATHNAME
-	FNM_CASEFOLD
+	NoEscape = (1 << iota)
+	PathName
+	CaseFold
 )
 
 func Convert(pattern string, flags int) (*regexp.Regexp, error) {
@@ -24,21 +24,28 @@ func Convert(pattern string, flags int) (*regexp.Regexp, error) {
 
 	switch runtime.GOOS {
 	case "windows":
-		flags |= FNM_NOESCAPE | FNM_CASEFOLD
+		flags |= NoEscape | CaseFold
 		pattern = filepath.FromSlash(pattern)
-		if flags&FNM_PATHNAME != 0 {
+		if flags&PathName != 0 {
 			any = "[^\\\\]"
 		}
 	case "darwin":
-		flags |= FNM_CASEFOLD
+		flags |= CaseFold
 		fallthrough
 	default:
-		if flags&FNM_PATHNAME != 0 {
+		if flags&PathName != 0 {
 			any = "[^/]"
 		}
 	}
 
-	if flags&FNM_NOESCAPE != 0 {
+	// Support case insensitive ignores
+	ignore := strings.TrimPrefix(pattern, "(?i)")
+	if ignore != pattern {
+		flags |= CaseFold
+		pattern = ignore
+	}
+
+	if flags&NoEscape != 0 {
 		pattern = strings.Replace(pattern, "\\", "\\\\", -1)
 	} else {
 		pattern = strings.Replace(pattern, "\\*", "[:escapedstar:]", -1)
@@ -62,14 +69,14 @@ func Convert(pattern string, flags int) (*regexp.Regexp, error) {
 	pattern = strings.Replace(pattern, "[:escapeddot:]", "\\.", -1)
 
 	pattern = "^" + pattern + "$"
-	if flags&FNM_CASEFOLD != 0 {
+	if flags&CaseFold != 0 {
 		pattern = "(?i)" + pattern
 	}
 	return regexp.Compile(pattern)
 }
 
-// Matches the pattern against the string, with the given flags,
-// and returns true if the match is successful.
+// Match matches the pattern against the string, with the given flags, and
+// returns true if the match is successful.
 func Match(pattern, s string, flags int) (bool, error) {
 	exp, err := Convert(pattern, flags)
 	if err != nil {

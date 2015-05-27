@@ -67,10 +67,10 @@ func TestHandleFile(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
-	m.updateLocal("default", existingFile)
+	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
 	p := rwFolder{
 		folder: "default",
@@ -121,10 +121,10 @@ func TestHandleFileWithTemp(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
-	m.updateLocal("default", existingFile)
+	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
 	p := rwFolder{
 		folder: "default",
@@ -181,10 +181,10 @@ func TestCopierFinder(t *testing.T) {
 	requiredFile.Name = "file2"
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
-	m.updateLocal("default", existingFile)
+	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
 	iterFn := func(folder, file string, index int32) bool {
 		return true
@@ -256,7 +256,7 @@ func TestCopierCleanup(t *testing.T) {
 	}
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
 	// Create a file
@@ -268,16 +268,16 @@ func TestCopierCleanup(t *testing.T) {
 	}
 
 	// Add file to index
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
 		t.Error("Expected block not found")
 	}
 
 	file.Blocks = []protocol.BlockInfo{blocks[1]}
-	file.Version++
+	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
 	// Update index (removing old blocks)
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	if m.finder.Iterate(blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
@@ -288,9 +288,9 @@ func TestCopierCleanup(t *testing.T) {
 	}
 
 	file.Blocks = []protocol.BlockInfo{blocks[0]}
-	file.Version++
+	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
 	// Update index (removing old blocks)
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
@@ -305,7 +305,7 @@ func TestCopierCleanup(t *testing.T) {
 // if it fails to find the block.
 func TestLastResortPulling(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
 	// Add a file to index (with the incorrect block representation, as content
@@ -316,7 +316,7 @@ func TestLastResortPulling(t *testing.T) {
 		Modified: 0,
 		Blocks:   []protocol.BlockInfo{blocks[0]},
 	}
-	m.updateLocal("default", file)
+	m.updateLocals("default", []protocol.FileInfo{file})
 
 	// Pretend that we are handling a new file of the same content but
 	// with a different name (causing to copy that particular block)
@@ -378,7 +378,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
 	emitter := NewProgressEmitter(defaultConfig)
@@ -393,7 +393,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	}
 
 	// queue.Done should be called by the finisher routine
-	p.queue.Push("filex")
+	p.queue.Push("filex", 0, 0)
 	p.queue.Pop()
 
 	if len(p.queue.progress) != 1 {
@@ -410,7 +410,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 	p.handleFile(file, copyChan, finisherChan)
 
-	// Receive a block at puller, to indicate that atleast a single copier
+	// Receive a block at puller, to indicate that at least a single copier
 	// loop has been performed.
 	toPull := <-pullChan
 	// Wait until copier is trying to pass something down to the puller again
@@ -465,7 +465,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	m := NewModel(defaultConfig, "device", "syncthing", "dev", db)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 
 	emitter := NewProgressEmitter(defaultConfig)
@@ -480,7 +480,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	}
 
 	// queue.Done should be called by the finisher routine
-	p.queue.Push("filex")
+	p.queue.Push("filex", 0, 0)
 	p.queue.Pop()
 
 	if len(p.queue.progress) != 1 {

@@ -1,3 +1,5 @@
+var debugEvents = false;
+
 angular.module('syncthing.core')
     .controller('EventController', function ($scope, $http) {
         'use strict';
@@ -10,7 +12,7 @@ angular.module('syncthing.core')
             // progress the browser on some platforms returns a 200 (since the
             // headers has been flushed with the return code 200), with no data.
             // This basically means that the connection has been reset, and the call
-            // was not actually sucessful.
+            // was not actually successful.
             if (!data) {
                 errorFn(data);
                 return;
@@ -20,7 +22,9 @@ angular.module('syncthing.core')
 
             if (lastID > 0) {
                 data.forEach(function (event) {
-                    console.log("event", event.id, event.type, event.data);
+                    if (debugEvents) {
+                        console.log("event", event.id, event.type, event.data);
+                    }
                     $scope.$emit(event.type, event);
                 });
             }

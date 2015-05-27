@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/syncthing/syncthing/internal/osutil"
 )
 
 func init() {
@@ -19,13 +21,11 @@ func init() {
 	Factories["external"] = NewExternal
 }
 
-// The type holds our configuration
 type External struct {
 	command    string
 	folderPath string
 }
 
-// The constructor function takes a map of parameters and creates the type.
 func NewExternal(folderID, folderPath string, params map[string]string) Versioner {
 	command := params["command"]
 
@@ -40,10 +40,10 @@ func NewExternal(folderID, folderPath string, params map[string]string) Versione
 	return s
 }
 
-// Move away the named file to a version archive. If this function returns
-// nil, the named file does not exist any more (has been archived).
+// Archive moves the named file away to a version archive. If this function
+// returns nil, the named file does not exist any more (has been archived).
 func (v External) Archive(filePath string) error {
-	_, err := os.Lstat(filePath)
+	_, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {
 		if debug {
 			l.Debugln("not archiving nonexistent file", filePath)
@@ -82,7 +82,7 @@ func (v External) Archive(filePath string) error {
 	}
 
 	// return error if the file was not removed
-	if _, err = os.Lstat(filePath); os.IsNotExist(err) {
+	if _, err = osutil.Lstat(filePath); os.IsNotExist(err) {
 		return nil
 	}
 	return errors.New("Versioner: file was not removed by external script")

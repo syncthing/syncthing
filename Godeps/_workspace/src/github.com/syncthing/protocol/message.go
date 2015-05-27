@@ -1,5 +1,6 @@
 // Copyright (C) 2014 The Protocol Authors.
 
+//go:generate -command genxdr go run ../syncthing/Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
 //go:generate genxdr -o message_xdr.go message.go
 
 package protocol
@@ -17,13 +18,13 @@ type FileInfo struct {
 	Name         string // max:8192
 	Flags        uint32
 	Modified     int64
-	Version      int64
+	Version      Vector
 	LocalVersion int64
 	Blocks       []BlockInfo
 }
 
 func (f FileInfo) String() string {
-	return fmt.Sprintf("File{Name:%q, Flags:0%o, Modified:%d, Version:%d, Size:%d, Blocks:%v}",
+	return fmt.Sprintf("File{Name:%q, Flags:0%o, Modified:%d, Version:%v, Size:%d, Blocks:%v}",
 		f.Name, f.Flags, f.Modified, f.Version, f.Size(), f.Blocks)
 }
 
@@ -78,8 +79,8 @@ type RequestMessage struct {
 }
 
 type ResponseMessage struct {
-	Data  []byte
-	Error int32
+	Data []byte
+	Code int32
 }
 
 type ClusterConfigMessage struct {
@@ -101,12 +102,15 @@ func (o *ClusterConfigMessage) GetOption(key string) string {
 type Folder struct {
 	ID      string // max:64
 	Devices []Device
+	Flags   uint32
+	Options []Option // max:64
 }
 
 type Device struct {
 	ID              []byte // max:32
-	Flags           uint32
 	MaxLocalVersion int64
+	Flags           uint32
+	Options         []Option // max:64
 }
 
 type Option struct {

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 // NamespacedKV is a simple key-value store using a specific namespace within
@@ -26,6 +27,27 @@ func NewNamespacedKV(db *leveldb.DB, prefix string) *NamespacedKV {
 	return &NamespacedKV{
 		db:     db,
 		prefix: []byte(prefix),
+	}
+}
+
+// Reset removes all entries in this namespace.
+func (n *NamespacedKV) Reset() {
+	it := n.db.NewIterator(util.BytesPrefix(n.prefix), nil)
+	defer it.Release()
+	batch := new(leveldb.Batch)
+	for it.Next() {
+		batch.Delete(it.Key())
+		if batch.Len() > batchFlushSize {
+			if err := n.db.Write(batch, nil); err != nil {
+				panic(err)
+			}
+			batch.Reset()
+		}
+	}
+	if batch.Len() > 0 {
+		if err := n.db.Write(batch, nil); err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -87,6 +109,24 @@ func (n NamespacedKV) String(key string) (string, bool) {
 		return "", false
 	}
 	return string(valBs), true
+}
+
+// PutBytes stores a new byte slice. Any existing value (even if of another type)
+// is overwritten.
+func (n *NamespacedKV) PutBytes(key string, val []byte) {
+	keyBs := append(n.prefix, []byte(key)...)
+	n.db.Put(keyBs, val, nil)
+}
+
+// Bytes returns the stored value as a raw byte slice and a boolean that
+// is false if no value was stored at the key.
+func (n NamespacedKV) Bytes(key string) ([]byte, bool) {
+	keyBs := append(n.prefix, []byte(key)...)
+	valBs, err := n.db.Get(keyBs, nil)
+	if err != nil {
+		return nil, false
+	}
+	return valBs, true
 }
 
 // Delete deletes the specified key. It is allowed to delete a nonexistent

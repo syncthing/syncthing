@@ -59,7 +59,7 @@ func Blocks(r io.Reader, blocksize int, sizehint int64) ([]protocol.BlockInfo, e
 	return blocks, nil
 }
 
-// Set the Offset field on each block
+// PopulateOffsets sets the Offset field on each block
 func PopulateOffsets(blocks []protocol.BlockInfo) {
 	var offset int64
 	for i := range blocks {
@@ -139,7 +139,7 @@ func VerifyBuffer(buf []byte, block protocol.BlockInfo) ([]byte, error) {
 	return hash, nil
 }
 
-// BlockEqual returns whether two slices of blocks are exactly the same hash
+// BlocksEqual returns whether two slices of blocks are exactly the same hash
 // and index pair wise.
 func BlocksEqual(src, tgt []protocol.BlockInfo) bool {
 	if len(tgt) != len(src) {

@@ -41,18 +41,21 @@ var testcases = []testcase{
 	{"f[ab]o.txt", "fco.txt", 0, false},
 	{"f[ab]o.txt", "fabo.txt", 0, false},
 	{"f[ab]o.txt", "f[ab]o.txt", 0, false},
-	{"f\\[ab\\]o.txt", "f[ab]o.txt", FNM_NOESCAPE, false},
+	{"f\\[ab\\]o.txt", "f[ab]o.txt", NoEscape, false},
 
 	{"*foo.txt", "bar/foo.txt", 0, true},
-	{"*foo.txt", "bar/foo.txt", FNM_PATHNAME, false},
+	{"*foo.txt", "bar/foo.txt", PathName, false},
 	{"*/foo.txt", "bar/foo.txt", 0, true},
-	{"*/foo.txt", "bar/foo.txt", FNM_PATHNAME, true},
+	{"*/foo.txt", "bar/foo.txt", PathName, true},
 	{"*/foo.txt", "bar/baz/foo.txt", 0, true},
-	{"*/foo.txt", "bar/baz/foo.txt", FNM_PATHNAME, false},
+	{"*/foo.txt", "bar/baz/foo.txt", PathName, false},
 	{"**/foo.txt", "bar/baz/foo.txt", 0, true},
-	{"**/foo.txt", "bar/baz/foo.txt", FNM_PATHNAME, true},
+	{"**/foo.txt", "bar/baz/foo.txt", PathName, true},
 
-	{"foo.txt", "foo.TXT", FNM_CASEFOLD, true},
+	{"foo.txt", "foo.TXT", CaseFold, true},
+	{"(?i)foo.txt", "foo.TXT", 0, true},
+	{"(?i)**foo.txt", "/dev/tmp/foo.TXT", 0, true},
+	{"(?i)!**foo.txt", "/dev/tmp/foo.TXT", 0, false},
 
 	// These characters are literals in glob, but not in regexp.
 	{"hey$hello", "hey$hello", 0, true},
@@ -76,7 +79,7 @@ func TestMatch(t *testing.T) {
 		testcases = append(testcases, testcase{"f\\[ab\\]o.txt", "f[ab]o.txt", 0, true})
 		testcases = append(testcases, testcase{"foo\\.txt", "foo.txt", 0, true})
 		testcases = append(testcases, testcase{"foo\\*.txt", "foo*.txt", 0, true})
-		testcases = append(testcases, testcase{"foo\\.txt", "foo.txt", FNM_NOESCAPE, false})
+		testcases = append(testcases, testcase{"foo\\.txt", "foo.txt", NoEscape, false})
 		testcases = append(testcases, testcase{"f\\\\\\[ab\\\\\\]o.txt", "f\\[ab\\]o.txt", 0, true})
 	}
 

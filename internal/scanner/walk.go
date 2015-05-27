@@ -16,8 +16,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/ignore"
-	"github.com/syncthing/syncthing/internal/lamport"
+	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/symlinks"
 	"golang.org/x/text/unicode/norm"
 )
@@ -40,18 +41,20 @@ func init() {
 type Walker struct {
 	// Dir is the base directory for the walk
 	Dir string
-	// Limit walking to this path within Dir, or no limit if Sub is blank
-	Sub string
+	// Limit walking to these paths within Dir, or no limit if Sub is empty
+	Subs []string
 	// BlockSize controls the size of the block used when hashing.
 	BlockSize int
 	// If Matcher is not nil, it is used to identify files to ignore which were specified by the user.
 	Matcher *ignore.Matcher
-	// If TempNamer is not nil, it is used to ignore tempory files when walking.
+	// If TempNamer is not nil, it is used to ignore temporary files when walking.
 	TempNamer TempNamer
 	// Number of hours to keep temporary files for
 	TempLifetime time.Duration
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
 	CurrentFiler CurrentFiler
+	// If MtimeRepo is not nil, it is used to provide mtimes on systems that don't support setting arbirtary mtimes.
+	MtimeRepo *db.VirtualMtimeRepo
 	// If IgnorePerms is true, changes to permission bits will not be
 	// detected. Scanned files will get zero permission bits and the
 	// NoPermissionBits flag set.
@@ -61,6 +64,8 @@ type Walker struct {
 	AutoNormalize bool
 	// Number of routines to use for hashing
 	Hashers int
+	// Our vector clock id
+	ShortID uint64
 }
 
 type TempNamer interface {
@@ -79,7 +84,7 @@ type CurrentFiler interface {
 // file system. Files are blockwise hashed.
 func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	if debug {
-		l.Debugln("Walk", w.Dir, w.Sub, w.BlockSize, w.Matcher)
+		l.Debugln("Walk", w.Dir, w.Subs, w.BlockSize, w.Matcher)
 	}
 
 	err := checkDir(w.Dir)
@@ -87,18 +92,19 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 		return nil, err
 	}
 
-	workers := w.Hashers
-	if workers < 1 {
-		workers = runtime.NumCPU()
-	}
-
 	files := make(chan protocol.FileInfo)
 	hashedFiles := make(chan protocol.FileInfo)
-	newParallelHasher(w.Dir, w.BlockSize, workers, hashedFiles, files)
+	newParallelHasher(w.Dir, w.BlockSize, w.Hashers, hashedFiles, files)
 
 	go func() {
 		hashFiles := w.walkAndHashFiles(files)
-		filepath.Walk(filepath.Join(w.Dir, w.Sub), hashFiles)
+		if len(w.Subs) == 0 {
+			filepath.Walk(w.Dir, hashFiles)
+		} else {
+			for _, sub := range w.Subs {
+				filepath.Walk(filepath.Join(w.Dir, sub), hashFiles)
+			}
+		}
 		close(files)
 	}()
 
@@ -111,7 +117,8 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 		// Return value used when we are returning early and don't want to
 		// process the item. For directories, this means do-not-descend.
 		var skip error // nil
-		if info.IsDir() {
+		// info nil when error is not nil
+		if info != nil && info.IsDir() {
 			skip = filepath.SkipDir
 		}
 
@@ -134,22 +141,27 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			return nil
 		}
 
+		mtime := info.ModTime()
+		if w.MtimeRepo != nil {
+			mtime = w.MtimeRepo.GetMtime(rn, mtime)
+		}
+
 		if w.TempNamer != nil && w.TempNamer.IsTemporary(rn) {
 			// A temporary file
 			if debug {
 				l.Debugln("temporary:", rn)
 			}
-			if info.Mode().IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
+			if info.Mode().IsRegular() && mtime.Add(w.TempLifetime).Before(now) {
 				os.Remove(p)
 				if debug {
-					l.Debugln("removing temporary:", rn, info.ModTime())
+					l.Debugln("removing temporary:", rn, mtime)
 				}
 			}
 			return nil
 		}
 
 		if sn := filepath.Base(rn); sn == ".stignore" || sn == ".stfolder" ||
-			strings.HasPrefix(rn, ".stversions") || (w.Matcher != nil && w.Matcher.Match(rn)) {
+			strings.HasPrefix(rn, ".stversions") || w.Matcher.Match(rn) {
 			// An ignored file
 			if debug {
 				l.Debugln("ignored:", rn)
@@ -185,7 +197,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 			// We will attempt to normalize it.
 			normalizedPath := filepath.Join(w.Dir, normalizedRn)
-			if _, err := os.Lstat(normalizedPath); os.IsNotExist(err) {
+			if _, err := osutil.Lstat(normalizedPath); os.IsNotExist(err) {
 				// Nothing exists with the normalized filename. Good.
 				if err = os.Rename(p, normalizedPath); err != nil {
 					l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, rn, err)
@@ -201,6 +213,9 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 			rn = normalizedRn
 		}
+
+		var cf protocol.FileInfo
+		var ok bool
 
 		// Index wise symlinks are always files, regardless of what the target
 		// is, because symlinks carry their target path as their content.
@@ -242,7 +257,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - it wasn't invalid
 				//  - the symlink type (file/dir) was the same
 				//  - the block list (i.e. hash of target) was the same
-				cf, ok := w.CurrentFiler.CurrentFile(rn)
+				cf, ok = w.CurrentFiler.CurrentFile(rn)
 				if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(flags, cf.Flags) && BlocksEqual(cf.Blocks, blocks) {
 					return skip
 				}
@@ -250,7 +265,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 			f := protocol.FileInfo{
 				Name:     rn,
-				Version:  lamport.Default.Tick(0),
+				Version:  cf.Version.Update(w.ShortID),
 				Flags:    protocol.FlagSymlink | flags | protocol.FlagNoPermBits | 0666,
 				Modified: 0,
 				Blocks:   blocks,
@@ -274,7 +289,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - was a directory previously (not a file or something else)
 				//  - was not a symlink (since it's a directory now)
 				//  - was not invalid (since it looks valid now)
-				cf, ok := w.CurrentFiler.CurrentFile(rn)
+				cf, ok = w.CurrentFiler.CurrentFile(rn)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
 				if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 					return nil
@@ -289,9 +304,9 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			}
 			f := protocol.FileInfo{
 				Name:     rn,
-				Version:  lamport.Default.Tick(0),
+				Version:  cf.Version.Update(w.ShortID),
 				Flags:    flags,
-				Modified: info.ModTime().Unix(),
+				Modified: mtime.Unix(),
 			}
 			if debug {
 				l.Debugln("dir:", p, f)
@@ -301,6 +316,11 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 		}
 
 		if info.Mode().IsRegular() {
+			curMode := uint32(info.Mode())
+			if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(rn) {
+				curMode |= 0111
+			}
+
 			if w.CurrentFiler != nil {
 				// A file is "unchanged", if it
 				//  - exists
@@ -311,28 +331,28 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - was not a symlink (since it's a file now)
 				//  - was not invalid (since it looks valid now)
 				//  - has the same size as previously
-				cf, ok := w.CurrentFiler.CurrentFile(rn)
-				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && !cf.IsDirectory() &&
+				cf, ok = w.CurrentFiler.CurrentFile(rn)
+				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, curMode)
+				if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == mtime.Unix() && !cf.IsDirectory() &&
 					!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
 					return nil
 				}
 
 				if debug {
-					l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&os.ModePerm)
+					l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
 				}
 			}
 
-			var flags = uint32(info.Mode() & maskModePerm)
+			var flags = curMode & uint32(maskModePerm)
 			if w.IgnorePerms {
 				flags = protocol.FlagNoPermBits | 0666
 			}
 
 			f := protocol.FileInfo{
 				Name:     rn,
-				Version:  lamport.Default.Tick(0),
+				Version:  cf.Version.Update(w.ShortID),
 				Flags:    flags,
-				Modified: info.ModTime().Unix(),
+				Modified: mtime.Unix(),
 			}
 			if debug {
 				l.Debugln("to hash:", p, f)
@@ -345,7 +365,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 }
 
 func checkDir(dir string) error {
-	if info, err := os.Lstat(dir); err != nil {
+	if info, err := osutil.Lstat(dir); err != nil {
 		return err
 	} else if !info.IsDir() {
 		return errors.New(dir + ": not a directory")
@@ -367,18 +387,17 @@ func PermsEqual(a, b uint32) bool {
 	}
 }
 
-// If the target is missing, Unix never knows what type of symlink it is
-// and Windows always knows even if there is no target.
-// Which means that without this special check a Unix node would be fighting
-// with a Windows node about whether or not the target is known.
-// Basically, if you don't know and someone else knows, just accept it.
-// The fact that you don't know means you are on Unix, and on Unix you don't
-// really care what the target type is. The moment you do know, and if something
-// doesn't match, that will propogate throught the cluster.
 func SymlinkTypeEqual(disk, index uint32) bool {
+	// If the target is missing, Unix never knows what type of symlink it is
+	// and Windows always knows even if there is no target. Which means that
+	// without this special check a Unix node would be fighting with a Windows
+	// node about whether or not the target is known. Basically, if you don't
+	// know and someone else knows, just accept it. The fact that you don't
+	// know means you are on Unix, and on Unix you don't really care what the
+	// target type is. The moment you do know, and if something doesn't match,
+	// that will propagate through the cluster.
 	if disk&protocol.FlagSymlinkMissingTarget != 0 && index&protocol.FlagSymlinkMissingTarget == 0 {
 		return true
 	}
 	return disk&protocol.SymlinkTypeMask == index&protocol.SymlinkTypeMask
-
 }

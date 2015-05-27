@@ -40,7 +40,6 @@ func init() {
 	upgradeUnlocked <- true
 }
 
-// A wrapper around actual implementations
 func To(rel Release) error {
 	select {
 	case <-upgradeUnlocked:
@@ -60,7 +59,6 @@ func To(rel Release) error {
 	}
 }
 
-// A wrapper around actual implementations
 func ToURL(url string) error {
 	select {
 	case <-upgradeUnlocked:
@@ -90,7 +88,7 @@ const (
 	MajorNewer          = 2  // Newer by a major version (x in x.y.z or 0.x.y).
 )
 
-// Returns a relation describing how a compares to b.
+// CompareVersions returns a relation describing how a compares to b.
 func CompareVersions(a, b string) Relation {
 	arel, apre := versionParts(a)
 	brel, bpre := versionParts(b)

@@ -68,7 +68,8 @@ func (r *Reader) ReadBytesMaxInto(max int, dst []byte) []byte {
 	if r.err != nil {
 		return nil
 	}
-	if max > 0 && l > max {
+	if l < 0 || max > 0 && l > max {
+		// l may be negative on 32 bit builds
 		r.err = ElementSizeExceeded("bytes field", l, max)
 		return nil
 	}
