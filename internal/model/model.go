@@ -1303,6 +1303,7 @@ nextSub:
 	batch = batch[:0]
 	// TODO: We should limit the Have scanning to start at sub
 	seenPrefix := false
+	var iterError error
 	fs.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 		hasPrefix := len(subs) == 0
@@ -1326,6 +1327,10 @@ nextSub:
 			}
 
 			if len(batch) == batchSizeFiles {
+				if err := m.CheckFolderHealth(folder); err != nil {
+					iterError = err
+					return false
+				}
 				m.updateLocals(folder, batch)
 				batch = batch[:0]
 			}
@@ -1363,7 +1368,16 @@ nextSub:
 		}
 		return true
 	})
-	if len(batch) > 0 {
+
+	if iterError != nil {
+		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, iterError)
+		return iterError
+	}
+
+	if err := m.CheckFolderHealth(folder); err != nil {
+		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
+		return err
+	} else if len(batch) > 0 {
 		m.updateLocals(folder, batch)
 	}
 
