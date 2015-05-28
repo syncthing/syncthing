@@ -1,4 +1,4 @@
 #!/bin/sh
 
-git pull && rm -r _build && make html
+git pull && rm -fr _build && make html
 
