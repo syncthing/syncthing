@@ -14,10 +14,9 @@
 
 import sys
 import os
+
 import sphinx_rtd_theme
-
 html_theme = "sphinx_rtd_theme"
-
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -261,6 +260,14 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+
+html_context = {
+'display_github': True,
+'github_user': 'syncthing',
+'github_repo': 'docs',
+'github_version': 'master/',
+'source_suffix': '.rst',
+}
 
 def setup(app):
    app.add_stylesheet("syncthing.css")

@@ -1,3 +1,5 @@
+.. _contributions:
+
 Community Contributions
 =======================
 

@@ -1,3 +1,5 @@
+.. _getting-started:
+
 Getting Started
 ===============
 
@@ -15,18 +17,16 @@ immediately obvious.
 Installing
 ----------
 
-We suggest you have a look to many of the `community contributions`_ which let
+We suggest you have a look to many of the :ref:`contributions` which let
 you pick a flavor of Syncthing that best fits your scenario. For example, if you
 are interested in a cross-platform GUI application you can check out
-`Syncthing-GTK`_. The community has also developed Windows, Android and `many
-more`_ specific flavors that help you run Syncthing on your devices. Currently
+`Syncthing-GTK`_. The community has also developed Windows, Android and many
+more specific flavors that help you run Syncthing on your devices. Currently
 all community flavors run the same Syncthing core underneath, so don't worry
 about changing your flavor at a later point in time. The remainder of this page
 will explain how to set up two devices with the core Syncthing flavor.
 
-.. _`community contributions`: http://docs.syncthing.net/users/contrib.html
 .. _`Syncthing-GTK`: https://github.com/syncthing/syncthing-gtk
-.. _`many more`: http://docs.syncthing.net/users/contrib.html
 
 Syncthing
 ~~~~~~~~~
@@ -111,12 +111,12 @@ need for a restart.
 
 Syncthing needs to be restarted for some configuration changes to take
 effect (such as sharing folders with new devices). When you click
-"Restart" Syncthing will first restartâ€¦
+"Restart" Syncthing will first restart:
 
 .. figure:: gs4.png
    :alt: gs4.png
 
-â€¦ then come back up and after a while (up to a minute) connect to the
+and then come back up and after a while (up to a minute) connect to the
 other device. Remember though that you need to do the above process on
 both devices, and only once you've done this on both devices will they
 be able to connect.
@@ -137,7 +137,6 @@ Good luck and have fun! There is more
 `documentation <http://docs.syncthing.net/>`__ and if you run into
 trouble feel free to post a question in the `support
 forum <http://forum.syncthing.net/category/support>`__. If you have
-problems getting this to connect, first take a look at `Firewalls and
-Port Forwards <http://docs.syncthing.net/users/firewalls.html>`__, then
+problems getting this to connect, first take a look at :ref:`firewall-setup`, then
 look at any error messages in the GUI or on the console and if necessary
-move on to `Debugging <http://docs.syncthing.net/dev/debugging.html>`__.
+move on to :ref:`debugging`.

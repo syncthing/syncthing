@@ -1,6 +1,10 @@
-p {
+.rst-content p, .rst-content p.admonition-title, .rst-content li, .rst-content table.docutils td,
+.rst-content table.docutils th, .rst-content code, .rst-content div[class^='highlight'] pre {
 	font-size: 14pt;
-	line-height: 1.25;
+	line-height: 1.35;
+}
+.rst-content li {
+	margin-bottom: 0.5em;
 }
 .wy-nav-content {
    max-width: 1050px

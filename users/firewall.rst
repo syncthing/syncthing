@@ -1,5 +1,7 @@
-Firewalls
-=========
+.. _firewall-setup:
+
+Firewall Setup
+==============
 
 Port Forwards
 -------------

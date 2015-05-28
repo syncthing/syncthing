@@ -1,3 +1,5 @@
+.. _building:
+
 Building Syncthing
 ==================
 
@@ -48,7 +50,7 @@ Building (Unix)
     # well what you're doing.
     $ mkdir -p ~/src/github.com/syncthing
     $ cd ~/src/github.com/syncthing
-    # Note that if you are building from a source code archive, you need to 
+    # Note that if you are building from a source code archive, you need to
     # rename the directory from syncthing-XX.YY.ZZ to syncthing
     $ git clone https://github.com/syncthing/syncthing
 
@@ -76,7 +78,7 @@ Building (Windows)
     # well what you're doing.
     > mkdir c:\src\github.com\syncthing
     > cd c:\src\github.com\syncthing
-    # Note that if you are building from a source code archive, you need to 
+    # Note that if you are building from a source code archive, you need to
     # rename the directory from syncthing-XX.YY.ZZ to syncthing
     > git clone https://github.com/syncthing/syncthing
 

@@ -1,38 +1,45 @@
-.. Syncthing documentation master file, created by
-   sphinx-quickstart on Thu May 28 08:33:11 2015.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to Syncthing's documentation!
 =====================================
 
-The main documentation for the site is organized into a couple sections:
+As a new user, the :ref:`getting started guide <getting-started>` is a good
+place to start, then perhaps moving on to :ref:`the FAQ <faq>`. If you run
+into trouble getting devices to connect to each other, the page about
+:ref:`firewall setup <firewall-setup>` explains the networking necessary to
+get it to work.
 
-* :ref:`intro-docs`
-* :ref:`user-docs`
-* :ref:`dev-docs`
+As a developer looking to get started with a contribution, see :ref:`how to build <building>`, :ref:`how to debug <debugging>` and the `contribution guidelines <https://github.com/syncthing/syncthing/blob/master/CONTRIBUTING.md>`_. This documentation site can be `edited here <https://github.com/syncthing/docs>`_.
 
-Contents:
+Contact
+-------
 
-.. _intro-docs:
+* To report bugs or request features, please use the `issue tracker <https://github.com/syncthing/syncthing/issues>`_. Before you do so, make sure you are running the `latest version <https://github.com/syncthing/syncthing/releases/latest>`_, and please do a quick search to see if the issue has already been reported.
+
+* To report security issues, please follow the instructions on the `Security page <https://syncthing.net/security.html>`_.
+
+* To get help and support, to discuss scenarios, or just connect with other users and developers you can head over to the `friendly forum <https://forum.syncthing.net/>`_.
+
+* For a more real time experience, there's also an IRC channel ``#syncthing`` on Freenode.
+
+* For other concerns you may reach out to members of the core team, currently `@calmh <https://github.com/calmh>`_, `@AudriusButkevicius <https://github.com/AudriusButkevicius>`_ and `@Zillode <https://github.com/Zillode>`_.
+
+The main documentation for the site is organized into a couple of sections. You can use the heading in the left sidebar to navigate the site.
 
 .. toctree::
    :caption: Introduction
    :maxdepth: 1
    :glob:
 
-   intro/*
-
-.. _user-docs:
+   intro/getting-started
+   intro/gui
 
 .. toctree::
    :caption: For Users
    :maxdepth: 1
    :glob:
 
+   users/faq
+   users/firewall
    users/*
-
-.. _dev-docs:
 
 .. toctree::
    :caption: For Developers
@@ -40,10 +47,3 @@ Contents:
    :glob:
 
    dev/*
-
-
-Indices and tables
-==================
-
-* :ref:`search`
-

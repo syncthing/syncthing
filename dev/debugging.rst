@@ -1,3 +1,5 @@
+.. _debugging:
+
 Debugging Syncthing
 ===================
 
