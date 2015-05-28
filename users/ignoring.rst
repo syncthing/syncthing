@@ -77,7 +77,7 @@ Given a directory layout:
 
 and an ``.stignore`` file with the contents:
 
-.. code:: xml
+::
 
     !frobble
     !quuz
@@ -89,7 +89,7 @@ and an ``.stignore`` file with the contents:
 all files and directories called "foo", ending in a "2" or starting with
 "qu" will be ignored. The end result becomes
 
-.. code:: xml
+::
 
     foo           # ignored, matches "foo"
     foofoo        # synced, does not match "foo" but would match "foo*" or "*foo"
@@ -103,18 +103,11 @@ all files and directories called "foo", ending in a "2" or starting with
     My Pictures/  # ignored, matched case insensitive "(?i)my pictures" pattern
         Img15.PNG # ignored, due to parent being ignored
 
-.. raw:: html
-
-   <p class="message warning">
-
-Please note that directory patterns ending with a slash
-``some/directory/`` matches the content of the directory, but not the
-directory itself. If you want the pattern to match the director and it's
-content, make sure it does not have a ``/`` at the end of the pattern.
-
-.. raw:: html
-
-   </p>
+.. note::
+  Please note that directory patterns ending with a slash
+  ``some/directory/`` matches the content of the directory, but not the
+  directory itself. If you want the pattern to match the director and it's
+  content, make sure it does not have a ``/`` at the end of the pattern.
 
 Effects on "In Sync" Status
 ---------------------------
