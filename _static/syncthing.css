@@ -1,7 +1,11 @@
 .rst-content p, .rst-content p.admonition-title, .rst-content li, .rst-content table.docutils td,
-.rst-content table.docutils th, .rst-content code, .rst-content div[class^='highlight'] pre {
-	font-size: 14pt;
-	line-height: 1.35;
+.rst-content table.docutils th {
+	font-size: 120%;
+	line-height: 1.4;
+}
+.rst-content code, .rst-content div[class^='highlight'] pre {
+	font-size: 110%;
+	line-height: 1.4;
 }
 .rst-content li {
 	margin-bottom: 0.5em;
