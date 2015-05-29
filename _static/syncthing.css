@@ -1,18 +1,3 @@
-.rst-content p, .rst-content p.admonition-title, .rst-content li, .rst-content table.docutils td,
-.rst-content table.docutils th {
-	font-size: 14pt;
-	line-height: 1.4;
-}
-.rst-content code, .rst-content div[class^='highlight'] pre {
-	font-size: 12pt;
-	line-height: 1.4;
-}
-.rst-content li {
-	margin-bottom: 0.5em;
-}
-.wy-nav-content {
-   max-width: 1050px
-}
 .strike {
 	text-decoration: line-through;
 }
