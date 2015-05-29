@@ -3,41 +3,44 @@
 Project Presentation
 ====================
 
-These are the various projects under the Syncthing umbrella and the
-people chiefly responsible for maintaining them.
+These are the various projects under the Syncthing umbrella and the people
+chiefly responsible for maintaining them.
 
-`syncthing <https://github.com/syncthing/syncthing>`__
-------------------------------------------------------
+Syncthing
+---------
 
-``syncthing`` is the core CLI application, used by the Android and
-native UI wrappers.
+Syncthing_ is the core CLI application, used by the Android and native UI
+wrappers.
 
--  Jakob Borg / `@calmh <https://github.com/calmh>`_ (Founder)
--  Audrius Butkevicius /
-   `@AudriusButkevicius <https://github.com/AudriusButkevicius>`_
--  Lode Hoste / `@Zillode <https://github.com/Zillode>`_
+-  Jakob Borg / :user:`calmh` (Founder)
+-  Audrius Butkevicius / :user:`AudriusButkevicius`
+-  Lode Hoste / :user:`Zillode`
 
-`syncthing-android <https://github.com/syncthing/syncthing-android>`__
-----------------------------------------------------------------------
+syncthing-android
+-----------------
 
-``syncthing-android`` is the Android packaging and native UI on top of
-syncthing.
+`syncthing-android`_ is the Android packaging and native UI on top of
+Syncthing.
 
--  Felix Ableitner / `@Nutomic <https://github.com/Nutomic>`_
-   (Founder)
--  Lode Hoste / `@Zillode <https://github.com/Zillode>`_
+-  Felix Ableitner / :user:`Nutomic` (Founder)
+-  Lode Hoste / :user:`Zillode`
 
-`syncthing-inotify <https://github.com/syncthing/syncthing-inotify>`__
-----------------------------------------------------------------------
+syncthing-inotify
+-----------------
 
-``syncthing-inotify``\ is a filesystem notifications watcher on top of
-syncthing.
+`syncthing-inotify`_ is a filesystem notifications watcher on top of
+Syncthing.
 
--  Lode Hoste / `@Zillode <https://github.com/Zillode>`_ (Founder)
+-  Lode Hoste / :user:`Zillode` (Founder)
 
-`syncthing-gtk <https://github.com/syncthing/syncthing-gtk>`__
---------------------------------------------------------------
+Syncthing-GTK
+-------------
 
-``syncthing-gtk`` is a native UI wrapper on top of syncthing
+`Syncthing-GTK`_ is a native UI wrapper on top of Syncthing.
 
--  Tomas Cerveny `@kozec <https://github.com/kozec>`_ (Founder)
+-  Tomas Cerveny / :user:`kozec` (Founder)
+
+.. _Syncthing: https://github.com/syncthing/syncthing
+.. _`syncthing-android`: https://github.com/syncthing/syncthing-android
+.. _`syncthing-inotify`: https://github.com/syncthing/syncthing-inotify
+.. _`Syncthing-GTK`: https://github.com/syncthing/syncthing-gtk
