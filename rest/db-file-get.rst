@@ -4,7 +4,7 @@ GET /rest/db/file
 Returns most data available about a given file, including version and
 availability.
 
-.. code:: json
+.. code-block:: json
 
     {
       "availability": [

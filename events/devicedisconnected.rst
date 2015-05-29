@@ -3,7 +3,7 @@ DeviceDisconnected
 
 Generated each time a connection to a device has been terminated.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 48,

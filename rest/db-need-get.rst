@@ -4,7 +4,7 @@ GET /rest/db/need
 Takes one parameter, ``folder``, and returns lists of files which are
 needed by this device in order for it to become in sync.
 
-.. code:: bash
+.. code-block:: bash
 
     {
       # Files currently being downloaded

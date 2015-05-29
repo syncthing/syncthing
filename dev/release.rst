@@ -29,7 +29,7 @@ happening that should be fixed - requires investigation).
 Create a new, signed tag on master, with the version as comment, and
 push it:
 
-.. code:: bash
+.. code-block:: bash
 
     $ git tag -a -s -u release@syncthing.net -m v0.10.15 v0.10.15
     $ git push --tags

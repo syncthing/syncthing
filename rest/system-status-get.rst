@@ -3,7 +3,7 @@ GET /rest/system/status
 
 Returns information about current system status and resource usage.
 
-.. code:: json
+.. code-block:: json
 
     {
       "alloc": 30618136,

@@ -3,7 +3,7 @@ GET /rest/system/discovery
 
 Returns the contents of the local discovery cache.
 
-.. code:: json
+.. code-block:: json
 
     {
       "LGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q": [

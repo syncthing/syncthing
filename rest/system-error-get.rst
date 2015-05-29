@@ -3,7 +3,7 @@ GET /rest/system/error
 
 Returns the list of recent errors.
 
-.. code:: json
+.. code-block:: json
 
     {
       "errors": [

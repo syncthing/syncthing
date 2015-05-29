@@ -3,7 +3,7 @@ GET /rest/system/ping
 
 Returns a ``{"ping": "pong"}`` object.
 
-.. code:: json
+.. code-block:: json
 
     {
       "ping": "pong"

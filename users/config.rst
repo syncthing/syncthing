@@ -31,7 +31,7 @@ Config File Format
 
 The following is an example default configuration file:
 
-.. code:: xml
+.. code-block:: xml
 
     <configuration version="2">
         <folder id="default" directory="/Users/jb/Sync" ro="false" ignorePerms="false">

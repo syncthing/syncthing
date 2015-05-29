@@ -41,7 +41,7 @@ Building (Unix)
 -  Install the prerequisites.
 -  Open a terminal.
 
-.. code:: bash
+.. code-block:: bash
 
     # This should output "go version go1.3" or higher.
     $ go version
@@ -69,7 +69,7 @@ Building (Windows)
 -  Install the prerequisites.
 -  Open a ``cmd`` Window.
 
-.. code:: bash
+::
 
     # This should output "go version go1.3" or higher.
     > go version

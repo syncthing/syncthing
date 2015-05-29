@@ -4,7 +4,7 @@ GET /rest/stats/folder
 Returns general statistics about folders. Currently, only contains the
 last synced file.
 
-.. code:: bash
+.. code-block:: bash
 
     $ curl -s http://localhost:8384/rest/stats/folder | json
     {

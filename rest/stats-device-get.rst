@@ -4,7 +4,7 @@ GET /rest/stats/device
 Returns general statistics about devices. Currently, only contains the
 time the device was last seen.
 
-.. code:: bash
+.. code-block:: bash
 
     $ curl -s http://localhost:8384/rest/stats/device | json
     {

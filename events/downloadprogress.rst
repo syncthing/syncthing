@@ -5,7 +5,7 @@ Emitted during file downloads for each folder for each file. By default
 only a single file in a folder is handled at the same time, but custom
 configuration can cause multiple files to be shown.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 221,

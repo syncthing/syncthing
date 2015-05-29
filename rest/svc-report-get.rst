@@ -3,7 +3,7 @@ GET /rest/svc/report
 
 Returns the data sent in the anonymous usage report.
 
-.. code:: json
+.. code-block:: json
 
     {
       "folderMaxFiles": 42106,

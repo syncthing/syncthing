@@ -12,7 +12,7 @@ tree we want to dwell down (0 based, defaults to unlimited depth)
 Optional parameter ``prefix`` defines a prefix within the tree where to
 start building the structure.
 
-.. code:: bash
+.. code-block:: bash
 
     $ curl -s http://localhost:8384/rest/db/browse?folder=default | json_pp
     {

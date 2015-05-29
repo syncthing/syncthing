@@ -5,7 +5,7 @@ The Ping event is generated automatically every 60 seconds. This means
 that even in the absence of any other activity, the event polling HTTP
 request will return within a minute.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 46,

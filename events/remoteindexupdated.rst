@@ -3,7 +3,7 @@ RemoteIndexUpdated
 
 Generated each time new index information is received from a device.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 44,

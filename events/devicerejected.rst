@@ -4,7 +4,7 @@ DeviceRejected
 Emitted when there is a connection from a device we are not configured
 to talk to.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 24,

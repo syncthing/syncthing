@@ -193,14 +193,14 @@ the GUI from the same machine. Change the ``GUI listen address`` through
 the web UI from ``127.0.0.1:8384`` to ``0.0.0.0:8384`` or change the
 config.xml:
 
-.. code:: xml
+.. code-block:: xml
 
     <gui enabled="true" tls="false">
       <address>127.0.0.1:8384</address>
 
 to
 
-.. code:: xml
+.. code-block:: xml
 
     <gui enabled="true" tls="false">
       <address>0.0.0.0:8384</address>
@@ -212,7 +212,7 @@ If both your computers are Unixy (Linux, Mac, etc) You can also leave
 the GUI settings at default and use an ssh port forward to access it.
 For example,
 
-.. code:: bash
+.. code-block:: bash
 
     $ ssh -L 9090:127.0.0.1:8384 user@othercomputer.example.com
 

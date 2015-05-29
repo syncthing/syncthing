@@ -3,7 +3,7 @@ DeviceDiscovered
 
 Emitted when a new device is discovered using local discovery.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 13,

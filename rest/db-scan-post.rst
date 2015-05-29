@@ -16,6 +16,6 @@ question.
 Returns status 200 and no content upon success, or status 500 and a
 plain text error if an error occurred during scanning.
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X POST http://127.0.0.1:8384/rest/db/scan?folder=default&sub=foo/bar
