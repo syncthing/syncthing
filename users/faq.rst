@@ -156,10 +156,10 @@ the iOS platform.
 Why does it use so much CPU?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. When new or changed files are detected, or Syncthing starts for the
+#. When new or changed files are detected, or Syncthing starts for the
    first time, your files are hashed using SHA-256.
 
-2. Data that is sent over the network is first compressed and then
+#. Data that is sent over the network is first compressed and then
    encrypted using AES-128. When receiving data, it must be decrypted
    and decompressed.
 
@@ -193,14 +193,14 @@ the GUI from the same machine. Change the ``GUI listen address`` through
 the web UI from ``127.0.0.1:8384`` to ``0.0.0.0:8384`` or change the
 config.xml:
 
-.. code:: xml
+.. code-block:: xml
 
     <gui enabled="true" tls="false">
       <address>127.0.0.1:8384</address>
 
 to
 
-.. code:: xml
+.. code-block:: xml
 
     <gui enabled="true" tls="false">
       <address>0.0.0.0:8384</address>
@@ -212,7 +212,7 @@ If both your computers are Unixy (Linux, Mac, etc) You can also leave
 the GUI settings at default and use an ssh port forward to access it.
 For example,
 
-.. code:: bash
+.. code-block:: bash
 
     $ ssh -L 9090:127.0.0.1:8384 user@othercomputer.example.com
 

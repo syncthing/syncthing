@@ -6,7 +6,7 @@ Verifies and formats a device ID. Accepts all currently valid formats
 with trivial substitutions). Takes one parameter, ``id``, and returns
 either a valid device ID in modern format, or an error.
 
-.. code:: bash
+.. code-block:: bash
 
     $ curl -s http://localhost:8384/rest/svc/deviceid?id=1234 | json
     {

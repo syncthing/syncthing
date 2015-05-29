@@ -119,21 +119,21 @@ TLS handshake performed. As part of the handshake both devices present
 their certificates. Once the handshake has completed and the peer
 certificate is known, the following steps are performed.
 
-1. Calculate the remote device ID by using the process above on the
+#. Calculate the remote device ID by using the process above on the
    received certificate.
 
-2. Weed out a few possible misconfigurations - i.e. if the device ID is
+#. Weed out a few possible misconfigurations - i.e. if the device ID is
    that of the local device or of a device we already have an active
    connection to. Drop the connection in these cases.
 
-3. Verify the remote device ID against the configuration. If it is not a
+#. Verify the remote device ID against the configuration. If it is not a
    device ID we are expecting to talk to, drop the connection.
 
-4. Verify the certificate ``CommonName`` against the configuration. By
+#. Verify the certificate ``CommonName`` against the configuration. By
    default, we expect it to be ``syncthing``, but when using custom
    certificates this can be changed.
 
-5. If everything checks out so far, accept the connection.
+#. If everything checks out so far, accept the connection.
 
 An Aside About Collisions
 -------------------------

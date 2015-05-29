@@ -5,7 +5,7 @@ Returns information about the current status of a folder.
 
 Parameters: ``folder``, the ID of a folder.
 
-.. code:: bash
+.. code-block:: bash
 
     {
       # latest version according to cluster:

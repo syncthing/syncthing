@@ -4,7 +4,7 @@ GET /rest/system/connections
 Returns the list of current connections and some metadata associated
 with the connection/peer.
 
-.. code:: json
+.. code-block:: json
 
     {
       "connections": {

@@ -4,7 +4,7 @@ Starting
 Emitted exactly once, when Syncthing starts, before parsing
 configuration etc.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 1,

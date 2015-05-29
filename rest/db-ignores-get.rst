@@ -7,7 +7,7 @@ provides a compiled version of all included ignore patterns in the form
 of regular expressions. Excluded items in the ``patterns`` field have a
 nonstandard ``(?exclude)`` marker in front of the regular expression.
 
-.. code:: json
+.. code-block:: json
 
     {
       "ignore": [

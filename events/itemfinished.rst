@@ -4,7 +4,7 @@ ItemFinished
 Generated when Syncthing ends synchronizing a file to a newer version. A
 successful operation:
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 93,
@@ -21,7 +21,7 @@ successful operation:
 
 An unsuccessful operation:
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 44,

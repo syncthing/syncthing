@@ -5,7 +5,7 @@ Generated when the local index information has changed, due to
 synchronizing one or more items from the cluster or discovering local
 changes during a scan.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 59,

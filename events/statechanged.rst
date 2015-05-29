@@ -7,7 +7,7 @@ the number of seconds the folder spent in state ``from``. In the example
 below, the folder ``default`` was in state ``scanning`` for 0.198
 seconds and is now in state ``idle``.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 8,

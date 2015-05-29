@@ -4,7 +4,7 @@ FolderRejected
 Emitted when a device sends index information for a folder we do not
 have, or have but do not share with the device in question.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 27,

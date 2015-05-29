@@ -3,7 +3,7 @@ ItemStarted
 
 Generated when Syncthing begins synchronizing a file to a newer version.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 93,

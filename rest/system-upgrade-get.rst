@@ -4,7 +4,7 @@ GET /rest/system/upgrade
 Checks for a possible upgrade and returns an object describing the
 newest version and upgrade possibility.
 
-.. code:: json
+.. code-block:: json
 
     {
       "latest": "v0.10.27",

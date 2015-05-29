@@ -3,7 +3,7 @@ GET /rest/system/version
 
 Returns the current Syncthing version information.
 
-.. code:: json
+.. code-block:: json
 
     {
       "arch": "amd64",

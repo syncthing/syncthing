@@ -5,7 +5,7 @@ The FolderSummary event is emitted when folder contents have changed
 locally. This can be used to calculate the current local completion
 state.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 16,

@@ -3,7 +3,7 @@ DeviceConnected
 
 Generated each time a connection to a device has been established.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 2,

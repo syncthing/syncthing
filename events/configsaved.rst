@@ -4,7 +4,7 @@ ConfigSaved
 Emitted after the config has been saved by the user or by Syncthing
 itself.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 50,

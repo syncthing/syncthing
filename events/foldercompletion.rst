@@ -6,7 +6,7 @@ contents for a folder changes. It contains the completion percentage for
 a given remote device and is emitted once per currently connected remote
 device.
 
-.. code:: json
+.. code-block:: json
 
     {
         "id": 84,
