@@ -210,9 +210,7 @@ settings at default and use an ssh port forward to access it. For example,
 will log you into othercomputer.example.com, and present the *remote* Syncthing
 GUI on http://localhost:9090 on your *local* computer. You should not open more
 than one Syncthing GUI in a single browser due to conflicting X-CSRFTokens. Any
-modification will be rejected. See `Issue 720
-<https://github.com/syncthing/syncthing/issues/720#issuecomment-58159631>`__ to
-work around this limitation.
+modification will be rejected. See :issue:`720` to work around this limitation.
 
 The CSRF tokens are stored using cookies. Therefore, if you get the message
 ``Syncthing seems to be experiencing a problem processing your request``, you

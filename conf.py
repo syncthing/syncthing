@@ -28,7 +28,10 @@ import os
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.todo']
+extensions = [
+    'sphinx.ext.todo',
+    'sphinx.ext.extlinks',
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -95,6 +98,13 @@ pygments_style = 'sphinx'
 
 # Show .. todo:: block.
 todo_include_todos = True
+
+# Configure external links.
+extlinks = {
+    'issue': ('https://github.com/syncthing/syncthing/issues/%s', 'issue #'),
+    'user': ('https://github.com/%s', '@'),
+    'commit': ('https://github.com/syncthing/syncthing/commit/%s', ''),
+}
 
 # -- Options for HTML output ----------------------------------------------
 

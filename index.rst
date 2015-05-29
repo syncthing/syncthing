@@ -31,7 +31,7 @@ Contact
 
 * For a more real time experience, there's also an IRC channel ``#syncthing`` on `Freenode <https://freenode.net/>`_.
 
-* For other concerns you may reach out to members of the core team, currently `@calmh <https://github.com/calmh>`_, `@AudriusButkevicius <https://github.com/AudriusButkevicius>`_ and `@Zillode <https://github.com/Zillode>`_.
+* For other concerns you may reach out to members of the core team, currently :user:`calmh`, :user:`AudriusButkevicius` and :user:`Zillode`.
 
 The main documentation for the site is organized into a couple of sections. You can use the heading in the left sidebar to navigate the site.
 

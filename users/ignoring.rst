@@ -124,16 +124,14 @@ Assume two nodes, Alice and Bob, where Alice has 100 files to share, but
 Bob ignores 25 of these. From Alice's point of view Bob will become
 about 75% in sync (the actual number depends on the sizes of the
 individual files) and remain in "Syncing" state even though it is in
-fact not syncing anything (issue
-`#623 <https://github.com/syncthing/syncthing/issues/623>`__). From
+fact not syncing anything (:issue:`623`). From
 Bob's point of view it's 100% up to date but will show fewer files in
 both the local and global view.
 
 If Bob adds files that have already been synced to the ignore list, they
 will remain in the "global" view but disappear from the "local" view.
 The end result is more files in the global repository than in the local,
-but still 100% in sync (issue
-`#624 <https://github.com/syncthing/syncthing/issues/624>`__). From
+but still 100% in sync (:issue:`624`). From
 Alice's point of view, Bob will remain 100% in sync until the next
 reconnect, because Bob has already announce that he has the files that
 are now suddenly ignored.
