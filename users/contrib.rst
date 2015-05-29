@@ -3,9 +3,9 @@
 Community Contributions
 =======================
 
-This page lists integrations, addons and packagings of syncthing created
-by the community. Like all documentation pages, it's wiki editable so
-feel free to edit and add your own.
+This page lists integrations, addons and packagings of Syncthing created by
+the community. Like all documentation pages, it's wiki editable so please do
+edit and add your own.
 
 GUI Wrappers
 ------------
@@ -34,13 +34,16 @@ Windows
 ~~~~~~~
 
 -  https://github.com/iss0/SyncthingTray
+
 -  https://github.com/bloones/SyncThingWin (Windows service helper and
    tray icon)
+
 -  https://github.com/canton7/SyncTrayzor (Windows host for Syncthing.
    Installer, auto-start, built-in browser, tray icon, folder watcher,
    and more)
+
 -  https://github.com/kreischweide/metrothing (Windows UI to monitor
-   multiple Synchthing instances through the REST API)
+   multiple Syncthing instances through the REST API)
 
 OS X
 ~~~~
@@ -109,7 +112,7 @@ OpenSUSE
 Synology NAS
 ~~~~~~~~~~~~
 
--  http://packages.synocommunity.com/ Add url to Package Center in DSM.
+-  http://packages.synocommunity.com/ Add the URL to Package Center in DSM.
    (NOTE: This page is not readable in your web browser. You can browse
    the files at https://synocommunity.com/packages). Numerous CPU
    architectures are supported. SPK's may be older versions, however you
@@ -144,11 +147,7 @@ Ports
 Configuration management
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
--  Saltstack: https://bitbucket.org/StartledPhoenix/saltstack-syncthing
+-  SaltStack: https://bitbucket.org/StartledPhoenix/saltstack-syncthing
 -  Puppet: https://github.com/whefter/puppet-syncthing
 -  Command line interface: https://github.com/syncthing/syncthing-cli
 
-Other
------
-
-`Pulse <http://ind.ie/pulse/>`__ is a rebranding / fork of syncthing.

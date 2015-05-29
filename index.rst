@@ -12,13 +12,21 @@ As a developer looking to get started with a contribution, see :ref:`how to buil
 Contact
 -------
 
-* To report bugs or request features, please use the `issue tracker <https://github.com/syncthing/syncthing/issues>`_. Before you do so, make sure you are running the `latest version <https://github.com/syncthing/syncthing/releases/latest>`_, and please do a quick search to see if the issue has already been reported.
+* If you're looking for specific people to talk to, check out the :ref:`project-presentation`.
+
+* To report bugs or request features, please use the `issue tracker
+  <https://github.com/syncthing/syncthing/issues>`_. Before you do so, make
+  sure you are running the `latest version
+  <https://github.com/syncthing/syncthing/releases/latest>`_, and please do a
+  quick search to see if the issue has already been reported.
+
+  .. figure:: issues.png
 
 * To report security issues, please follow the instructions on the `Security page <https://syncthing.net/security.html>`_.
 
 * To get help and support, to discuss scenarios, or just connect with other users and developers you can head over to the `friendly forum <https://forum.syncthing.net/>`_.
 
-* For a more real time experience, there's also an IRC channel ``#syncthing`` on Freenode.
+* For a more real time experience, there's also an IRC channel ``#syncthing`` on `Freenode <https://freenode.net/>`_.
 
 * For other concerns you may reach out to members of the core team, currently `@calmh <https://github.com/calmh>`_, `@AudriusButkevicius <https://github.com/AudriusButkevicius>`_ and `@Zillode <https://github.com/Zillode>`_.
 
@@ -31,6 +39,7 @@ The main documentation for the site is organized into a couple of sections. You 
 
    intro/getting-started
    intro/gui
+   intro/project-presentation
 
 .. toctree::
    :caption: For Users

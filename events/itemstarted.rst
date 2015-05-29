@@ -1,7 +1,7 @@
 ItemStarted
 -----------
 
-Generated when syncthing begins synchronizing a file to a newer version.
+Generated when Syncthing begins synchronizing a file to a newer version.
 
 .. code:: json
 
@@ -16,3 +16,5 @@ Generated when syncthing begins synchronizing a file to a newer version.
             "action": "update"
         }
     }
+
+The ``action`` field is either ``update`` or ``delete``.

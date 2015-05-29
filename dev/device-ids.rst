@@ -11,12 +11,12 @@ Keys
 ====
 
 To understand device IDs we need to look at the underlying mechanisms.
-At first startup, syncthing will create an public/private key pair.
+At first startup, Syncthing will create an public/private key pair.
 
 Currently this is a 3072 bit RSA key. The keys are saved in the form of
 the private key (``key.pem``) and a self signed certificate
 (``cert.pem``). The self signing part doesn't actually add any security
-or functionality as far as syncthing is concerned but it enables the use
+or functionality as far as Syncthing is concerned but it enables the use
 of the keys in a standard TLS exchange.
 
 The typical certificate will look something like this, inspected with
@@ -93,8 +93,8 @@ Connection Establishment
 ========================
 
 So now we know what device IDs are, here's how they are used in
-syncthing. When you add a device ID to the syncthing configuration,
-syncthing will attempt to connect to that device. The first thing we
+Syncthing. When you add a device ID to the syncthing configuration,
+Syncthing will attempt to connect to that device. The first thing we
 need to do is figure out the IP and port to connect to. There's three
 possibilities here;
 
@@ -102,12 +102,12 @@ possibilities here;
    can equally well be a hostname, so if you have a static IP or a
    dynamic DNS setup this might be a good option.
 
--  Using local discovery, if enabled. Every syncthing instance on a LAN
+-  Using local discovery, if enabled. Every Syncthing instance on a LAN
    periodically broadcasts information about itself (device ID, address,
    port number). If we've seen one of these broadcasts for a given
    device ID that's where we try to connect.
 
--  Using global discovery, if enabled. Every syncthing instance
+-  Using global discovery, if enabled. Every Syncthing instance
    announces itself to the global discovery service (device ID and
    external port number - the internal address is not announced to the
    global server). If we don't have a static address and haven't seen
@@ -172,7 +172,7 @@ here:
 It's also worth noting that the property of SHA-256 that we are using is
 not simply collision resistance but resistance to a preimage attack.
 I.e. even if you can find two messages that result in a hash collision
-that doesn't help you attack syncthing (or TLS in general). You need to
+that doesn't help you attack Syncthing (or TLS in general). You need to
 create a message that hashes to exactly the hash that my certificate
 already has or you won't get in.
 
@@ -231,7 +231,7 @@ are various possible solutions;
    confirm that this is correct.").
 
 -  Use shorter device IDs with an out of band authentication, a la
-   Bluetooth pairing. You enter a one time PIN into syncthing and give
+   Bluetooth pairing. You enter a one time PIN into Syncthing and give
    that PIN plus a short device ID to another user. On initial connect,
    both sides verify that the other knows the correct PIN before
    accepting the connection.

@@ -3,7 +3,7 @@
 Debugging Syncthing
 ===================
 
-There's a lot that happens behind the covers, and syncthing is generally
+There's a lot that happens behind the covers, and Syncthing is generally
 quite silent about it. A number of environment variables can be used to
 set the logging to verbose for various parts of the program, and to
 enable profiling.
@@ -63,13 +63,13 @@ can be used to enable this extra information on the normal logging
 level, without enabling any debugging: ``STTRACE=somethingnonexistent``
 for example.
 
-Under Unix (including Mac) the easiest way to run syncthing with an
+Under Unix (including Mac) the easiest way to run Syncthing with an
 environment variable set is to prepend the variable to the command line.
 I.e:
 
 ``$ STTRACE=model syncthing``
 
-On windows, it needs to be set prior to running syncthing.
+On windows, it needs to be set prior to running Syncthing.
 
 ::
 

@@ -1,7 +1,7 @@
 Starting
 --------
 
-Emitted exactly once, when syncthing starts, before parsing
+Emitted exactly once, when Syncthing starts, before parsing
 configuration etc.
 
 .. code:: json

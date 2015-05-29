@@ -1,7 +1,7 @@
 GET /rest/system/version
 ========================
 
-Returns the current syncthing version information.
+Returns the current Syncthing version information.
 
 .. code:: json
 

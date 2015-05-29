@@ -68,7 +68,7 @@ Run independent of user login
   Therefore, you **must** ensure that you set a GUI password, or run Syncthing
   as an unprivileged user.
 
-With the above configuration, syncthing only starts when a user logs in
+With the above configuration, Syncthing only starts when a user logs in
 onto the machine. This is not optimal on servers, where a machine can
 run long times after a reboot without anyone logged in. In this case, it
 is best to create a service that runs as soon as Windows starts. This
@@ -80,7 +80,7 @@ as a service makes sense is for (mostly) headless servers, administered
 by a sysadmin who knows enough to understand the security implications.
 
 1. Download and extract `nssm <http://nssm.cc/download>`__ to a folder
-   where it can stay (e.g. *c:Files* or the syncthing folder.
+   where it can stay (e.g. *c:Files* or the Syncthing folder.
 2. run *nssm.exe install syncthing*
 3. Select ``syncthing.exe`` in the first tab and enter
    ``-no-console -no-browser`` as Arguments
@@ -89,7 +89,7 @@ by a sysadmin who knows enough to understand the security implications.
    start it only some time after boot and speed up the boot process
    (optional)
 5. At the *Log On* tab you can enter a username and password for the
-   user to run syncthing as. This user needs to have access to all the
+   user to run Syncthing as. This user needs to have access to all the
    synced folders. Usually, you can leave it as the System account.
 6. At the Process Tab you can change the priority to low if you want a
    more responsive system at the cost of longer sync time
@@ -106,18 +106,18 @@ Using `homebrew <http://brew.sh>`__
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 1. ``brew install syncthing``
-2. Follow the info to autostart syncthing using launchctl. At the moment
+2. Follow the info to autostart Syncthing using launchctl. At the moment
    this is done using this command:
    ``launchctl load ~/Library/LaunchAgents/homebrew.mxcl.syncthing.plist``.
 
 Without homebrew
 ~~~~~~~~~~~~~~~~
 
-Download syncthing for Mac:
+Download Syncthing for Mac:
 https://github.com/syncthing/syncthing/releases/latest.
 
 1. Copy the syncthing binary (the file you would open to launch
-   syncthing) in a directory called ``bin`` in your home directory. If
+   Syncthing) in a directory called ``bin`` in your home directory. If
    "bin" does not exist, create it.
 2. Edit the ``syncthing.plist`` (located in /etc/macosx-launchd) in the
    two places that refer to your home directory; that is, replace
@@ -162,6 +162,7 @@ Add following to your /etc/supervisord.conf.
     directory = /home/some_user/
     autorestart = True
     user = some_user
+    environment = STNORESTART="1"
 
 systemd
 ~~~~~~~
@@ -171,25 +172,27 @@ utilities designed as a central management and configuration platform
 for the Linux computer operating system. It also offers users the
 ability to manage services under the user's control with a per-user
 systemd instance, enabling users to start, stop, enable, and disable
-their own units. Service files for system are provided by syncthing and
+their own units. Service files for system are provided by Syncthing and
 can be found in
 ```etc/linux-systemd`` <https://github.com/syncthing/syncthing/tree/master/etc/linux-systemd>`__.
 Several distros (including arch linux) ship these service files with the
-syncthing package. If your distro provides a systemd service file for
-syncthing you can skip step 2.
+Syncthing package. If your distro provides a systemd service file for
+Syncthing you can skip step 2.
 
 How to use the system instance
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Running synchting as a system service ensures that syncthing is run at
-startup even if the syncthing user has no active session.
+Running Syncthing as a system service ensures that Syncthing is run at startup
+even if the Syncthing user has no active session. Since the system service
+keeps Syncthing running even without an active user session, it is inteded to
+be used on a *server*.
 
 1. Create the user who should run the service, or choose an existing
    one.
 2. Copy the ``system/syncthing@.service`` file into the `load path of
    the system
    instance <http://www.freedesktop.org/software/systemd/man/systemd.unit.html#Unit%20Load%20Path>`__.
-3. Enable and start the service. Append the syncthing user after the
+3. Enable and start the service. Append the Syncthing user after the
    ``@``:
 
 ::
@@ -200,10 +203,10 @@ startup even if the syncthing user has no active session.
 How to use the user instance
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Running synchting as a user service ensures that syncthing is run after
-the syncthing user has created a session (e.g. via the graphical login
-screen or ssh). This could be used e.g. on a multiuser desktop computer
-when you want to avoid unnecessarly running syncthing instances.
+Running Syncthing as a user service ensures that Syncthing is run after the
+Syncthing user has created a session (e.g. via the graphical login screen or
+ssh). Thus, the user service is intended to be used on a *(multiuser) desktop
+computer*. It avoids unnecessarly running Syncthing instances.
 
 1. Create the user who should run the service, or choose an existing
    one.
@@ -219,7 +222,7 @@ when you want to avoid unnecessarly running syncthing instances.
     systemctl --user enable syncthing.service
     systemctl --user start syncthing.service
 
-To check if syncthing runs properly you can use the ``status``
+To check if Syncthing runs properly you can use the ``status``
 subcommand:
 
 ::
@@ -230,7 +233,7 @@ subcommand:
 Using the journal
 ^^^^^^^^^^^^^^^^^
 
-Systemd logs everything into the journal. You can easily acces syncthing
+Systemd logs everything into the journal. You can easily acces Syncthing
 log messages (``-e`` lets the pager jump to the very end):
 
 ::
@@ -241,10 +244,10 @@ log messages (``-e`` lets the pager jump to the very end):
 Debugging
 ^^^^^^^^^
 
-If you are asked on the bugtracker to start syncthing with specific
-environment variables it will not work the easy way. Systemd isolates
-each service and it cannot access global environment variables. The
-solution is to add this variables to the service file instead. Just use:
+If you are asked on the bugtracker to start Syncthing with specific
+environment variables it will not work the easy way. Systemd isolates each
+service and it cannot access global environment variables. The solution is to
+add this variables to the service file instead. Just use:
 
 ::
 

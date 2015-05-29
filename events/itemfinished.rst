@@ -1,7 +1,7 @@
 ItemFinished
 ------------
 
-Generated when syncthing ends synchronizing a file to a newer version. A
+Generated when Syncthing ends synchronizing a file to a newer version. A
 successfull operation:
 
 .. code:: json
@@ -35,3 +35,5 @@ An unsuccessfull operation:
             "type": "file"
         }
     }
+
+The ``action`` field is either ``update`` or ``delete``.

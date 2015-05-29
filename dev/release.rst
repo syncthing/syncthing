@@ -4,7 +4,7 @@ Creating a Release
 Prerequisites
 -------------
 
--  Push access to the syncthing repo, for pushing a new tag.
+-  Push access to the ``syncthing`` repo, for pushing a new tag.
 
 -  SSH account on build server, member of the ``jenkins`` group, for
    accessing and signing the releases.

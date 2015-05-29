@@ -95,7 +95,7 @@ Attributes
 -  ``directory``: The directory where the folder is stored on this
    device; not sent to other devices. (mandatory)
 -  ``ro``: True if the folder is read only (will not be modified by
-   syncthing) on this device. (optional, defaults to ``false``)
+   Syncthing) on this device. (optional, defaults to ``false``)
 -  ``ignorePerms``: True if the folder should `ignore
    permissions <http://forum.syncthing.net/t/v0-8-10-ignore-permissions/263>`__.
 
@@ -109,7 +109,7 @@ device
 
 One or more ``device`` elements must be present in the file. Each
 element describes a device participating in the cluster. It is customary
-to include a ``device`` element for the local device; syncthing will
+to include a ``device`` element for the local device; Syncthing will
 currently add one if it is not present.
 
 Attributes
@@ -194,5 +194,5 @@ configuration settings as children;
 
 -  ``urAccepted``: Whether the user as accepted to submit anonymous
    usage data. The default, ``0``, mean the user has not made a choice,
-   and syncthing will ask at some point in the future. ``-1`` means no,
+   and Syncthing will ask at some point in the future. ``-1`` means no,
    ``1`` means yes.

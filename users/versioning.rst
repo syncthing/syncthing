@@ -32,11 +32,11 @@ sharing the same folder.
 Staggered File Versioning
 -------------------------
 
-With "Staggered File Versioning" files are also moved to the
-".stversions" folder (inside your shared folder) when replaced or
-deleted on a remote device (just like "Simple File Versioning"),
-however, Version are automatically deleted if they are older then the
-maximum age or exceed the number of files allowed in an interval.
+With "Staggered File Versioning" files are also moved to the ".stversions"
+folder (inside your shared folder) when replaced or deleted on a remote device
+(just like "Simple File Versioning"), however, Version are automatically
+deleted if they are older than the maximum age or exceed the number of files
+allowed in an interval.
 
 The following intervals are used and they each have a maximum number of
 files that will be kept for each.
@@ -50,8 +50,8 @@ files that will be kept for each.
 -  Until Maximum Age - Until the maximum age, the most recent version is
    kept every week.
 
-Maxiumum Age
-~~~~~~~~~~~~
+Maximum Age
+~~~~~~~~~~~
 
 The "Maximum Age" input is the maximum time to keep a version in days.
 For example, to keep replaced or deleted files in the ".stversions"

@@ -5,7 +5,7 @@ Building Syncthing
 
 .. note::
     You probably only need to go through the build process if you are going
-    to do development on syncthing or if you need to do a special packaging
+    to do development on Syncthing or if you need to do a special packaging
     of it. For all other purposes we recommend using the the official binary
     releases instead.
 
@@ -21,7 +21,7 @@ You should base your work on the ``master`` branch when doing your
 development. This branch is usually what will be going into the next
 release and always what pull requests should be based on.
 
-If you're looking to build and package a release of syncthing you should
+If you're looking to build and package a release of Syncthing you should
 instead use the latest tag (``vX.Y.Z``) as the contents of ``master``
 may be unstable and unsuitable for general consumption.
 
@@ -107,10 +107,10 @@ The following ``build.go`` subcommands and options exist.
 
 -  ``go run build.go test`` -- run the tests.
 
--  ``go run build.go tar`` -- create a syncthing tar.gz dist file in the
+-  ``go run build.go tar`` -- create a Syncthing tar.gz dist file in the
    current directory. Assumes a Unixy build.
 
--  ``go run build.go zip`` -- create a syncthing zip dist file in the
+-  ``go run build.go zip`` -- create a Syncthing zip dist file in the
    current directory. Assumes a Windows build.
 
 -  ``go run build.go  assets`` -- rebuild the compiled-in GUI assets.
@@ -124,10 +124,10 @@ The options ``-no-upgrade``, ``-goos`` and ``-goarch`` can be given to
 influence ``install``, ``build``, ``tar`` and ``zip``. Examples:
 
 -  ``go run build.go -goos linux -goarch 386 tar`` -- build a tar.gz
-   distribution of syncthing for linux-386.
+   distribution of Syncthing for linux-386.
 
 -  ``go run build.go -goos windows -no-upgrade zip`` -- build a zip
-   distribution of syncthing for Windows (current architecture) with
+   distribution of Syncthing for Windows (current architecture) with
    upgrading disabled.
 
 Building without Git

@@ -86,6 +86,11 @@ efficient manner. This means that renaming a large file will not cause a
 retransmission of that file. Additionally, appending data to existing
 large files should be handled efficiently as well.
 
+Temporary files are used to store partial data downloaded from other devices.
+They are automatically removed whenever a file transfer has been completed or
+after the configured amount of time which is set in the configuration file (24
+hours by default).
+
 Should I keep my device IDs secret?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -230,9 +235,30 @@ makes it easier to handle upgrades from within Syncthing itself, and
 also ensures that we get a nice log file to help us narrow down the
 cause for crashes and other bugs.
 
-Where do syncthing logs go to?
+Where do Syncthing logs go to?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Syncthing logs to stdout by default. On Windows Syncthing by default
 also creates ``syncthing.log`` in Syncthing's home directory (check
 ``-help`` to see where that is).
+
+How do I upgrade Syncthing?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- If automatic upgrades is enabled (which is the default), Sycnthing will upgrade itself automatically within 24 hours of a new release.
+
+- The ugrade button appears in the web GUI when a new version has been released. Pressing it will perform an upgrade.
+
+- To force an upgrade from the command line, run ``syncthing -upgrade``.
+
+Note that your system should have CA certificates installed which allow a secure connection to GitHub (e.g. FreeBSD requires `sudo pkg install ca_root_nss`). If ``curl`` or ``wget`` works with normal HTTPS sites, then so should Syncthing.
+
+Where do I find the latest release?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We release new versions through GitHub. The latest release is always found `on
+the release page <https://github.com/syncthing/syncthing/releases/latest>`_.
+Unfortunately GitHub does not provide a single URL to automatically download
+the latest version. We suggest to use the GitHub API at
+https://api.github.com/repos/syncthing/syncthing/releases/latest and parsing
+the JSON response.

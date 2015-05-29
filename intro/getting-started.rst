@@ -14,6 +14,14 @@ and configure them in parallel. If both machines aren't accessible
 simultaneously that's fine, the results will just be a little less
 immediately obvious.
 
+A film version of this transcript is available on YouTube (contributed by
+@theincogtion). `This video <https://www.youtube.com/watch?v=foTxCfhxVLE>`_
+shows how to install Syncthing on Ubuntu/Debian/Mint using PPA, also available
+in `German <https://www.youtube.com/watch?v=Gh5nUlDzqJc>`_. `This video
+<https://www.youtube.com/watch?v=2QcO8ikxzxA>`_ shows how to install Syncthing
+on Windows, also available in `German
+<https://www.youtube.com/watch?v=7LziT3KDiMU>`_
+
 Installing
 ----------
 
