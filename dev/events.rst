@@ -1,8 +1,11 @@
 Event API
 =========
 
-Syncthing provides a simple long polling interface for exposing events from
-the core utility towards a GUI.
+Description
+-----------
+
+Syncthing provides a simple long polling interface for exposing events from the
+core utility towards a GUI.
 
 To receive events, perform a HTTP GET of ``/rest/events?since=<lastSeenID>``,
 where ``<lastSeenID>`` is the ID of the last event you've already seen or zero.
@@ -26,28 +29,36 @@ Event Structure
 
 Each event is represented by an object similar to the following::
 
-	{
-	    "id": 2,
-	    "type": "DeviceConnected",
-	    "time": "2014-07-13T21:04:33.687836696+02:00",
-	    "data": {
-	        "addr": "172.16.32.25:22000",
-	        "id": "NFGKEKE-7Z6RTH7-I3PRZXS-DEJF3UJ-FRWJBFO-VBBTDND-4SGNGVZ-QUQHJAG"
-	    }
-	}
+    {
+        "id": 2,
+        "type": "DeviceConnected",
+        "time": "2014-07-13T21:04:33.687836696+02:00",
+        "data": {
+            "addr": "172.16.32.25:22000",
+            "id": "NFGKEKE-7Z6RTH7-I3PRZXS-DEJF3UJ-FRWJBFO-VBBTDND-4SGNGVZ-QUQHJAG"
+        }
+    }
 
-The top level keys ``id``, ``time``, ``type`` and ``data`` are always present, though ``data`` may be ``null``.
+The top level keys ``id``, ``time``, ``type`` and ``data`` are always present,
+though ``data`` may be ``null``.
 
-* ``id`` is a monotonically increasing integer. The first event generated has id ``1``, the next has id ``2`` etc.
-* ``time`` is the time the event was generated.
-* ``type`` indicates the type of (i.e. reason for) the event and is one of the event types below.
-* ``data`` is an object containing optional extra information; the exact structure is determined by the event type.
+id
+    A monotonically increasing integer. The first event generated has id ``1``,
+    the next has id ``2`` etc.
+time
+    The time the event was generated.
+type
+    Indicates the type of (i.e. reason for) the event and is one of the event
+    types below.
+data
+    An object containing optional extra information; the exact structure is
+    determined by the event type.
 
 Events
 ------
 
 .. toctree::
-	:maxdepth: 2
-	:glob:
+    :maxdepth: 2
+    :glob:
 
-	../events/*
+    ../events/*
