@@ -1,3 +1,5 @@
+.. _device-ids:
+
 Understanding Device IDs
 ========================
 

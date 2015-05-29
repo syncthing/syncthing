@@ -102,8 +102,8 @@ device ID you need to create a TLS certificate with that specific SHA-256 hash.
 If you can do that, you can spoof any TLS certificate. The world is your
 oyster!)
 
-.. see-also::
-    :ref:`dev/device-ids`
+.. seealso::
+    :ref:`device-ids`
 
 What if there is a conflict?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
