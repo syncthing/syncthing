@@ -49,15 +49,15 @@ Usage
 What things are synced?
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The following is *always* synchronized;
+The following thins are *always* synchronized;
 
 -  File Contents
 -  File Modification Times
 
-The following is synchronized or not, depending;
+The following may be synchronized or not, depending;
 
 -  File Permissions (When supported by file system. On Windows, only the
-   read only bit is synchronized)
+   read only bit is synchronized.)
 -  Symbolic Links (When supported by the OS. On Windows Vista and up,
    requires administrator privileges. Links are synced as is and are not
    followed.)
@@ -70,6 +70,7 @@ The following is *not* synchronized;
 -  Extended Attributes, Resource Forks (not preserved)
 -  Windows, POSIX or NFS ACLs (not preserved)
 -  Devices, FIFOs, and Other Specials (ignored)
+-  Sparse file sparseness (will become unsparse)
 
 Is synchronization fast?
 ~~~~~~~~~~~~~~~~~~~~~~~~
