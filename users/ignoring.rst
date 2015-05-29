@@ -1,12 +1,22 @@
 Ignoring Files
 ==============
 
+Synopsis
+--------
+
+::
+
+    .stignore
+
+Description
+-----------
+
 If some files should not be synchronized to other nodes, a file called
 ``.stignore`` can be created containing file patterns to ignore. The
 ``.stignore`` file must be placed in the root of the repository. The
-``.stignore`` file itself will never be synced to other nodes, although
-it can ``#include`` files that *are* synchronized between nodes. All
-patterns are relative to the repository root.
+``.stignore`` file itself will never be synced to other nodes, although it can
+``#include`` files that *are* synchronized between nodes. All patterns are
+relative to the repository root.
 
 Patterns
 --------
@@ -59,9 +69,7 @@ The ``.stignore`` file contains a list of file or path patterns. The
 Example
 -------
 
-Given a directory layout:
-
-::
+Given a directory layout::
 
     foo
     foofoo
@@ -75,9 +83,7 @@ Given a directory layout:
     My Pictures/
         Img15.PNG
 
-and an ``.stignore`` file with the contents:
-
-::
+and an ``.stignore`` file with the contents::
 
     !frobble
     !quuz
@@ -87,9 +93,7 @@ and an ``.stignore`` file with the contents:
     (?i)my pictures
 
 all files and directories called "foo", ending in a "2" or starting with
-"qu" will be ignored. The end result becomes
-
-::
+"qu" will be ignored. The end result becomes::
 
     foo           # ignored, matches "foo"
     foofoo        # synced, does not match "foo" but would match "foo*" or "*foo"
