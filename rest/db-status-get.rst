@@ -16,7 +16,7 @@ Parameters: ``folder``, the ID of a folder.
       "localBytes": 13173473780,
       "localDeleted": 1847,
       "localFiles": 42106,
-      # which part of what we have locally is the latest cluster verision:
+      # which part of what we have locally is the latest cluster version:
       "inSyncBytes": 13173473780,
       "inSyncFiles": 42106,
       # which part of what we have locally should be fetched from the cluster:

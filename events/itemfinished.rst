@@ -2,7 +2,7 @@ ItemFinished
 ------------
 
 Generated when Syncthing ends synchronizing a file to a newer version. A
-successfull operation:
+successful operation:
 
 .. code:: json
 
@@ -19,7 +19,7 @@ successfull operation:
         }
     }
 
-An unsuccessfull operation:
+An unsuccessful operation:
 
 .. code:: json
 

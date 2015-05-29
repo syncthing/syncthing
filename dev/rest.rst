@@ -2,7 +2,7 @@ REST API
 ========
 
 Syncthing exposes a REST interface over HTTP on the GUI port. This is
-used by the GUI code (Javascript) and can be used by other processes
+used by the GUI code (JavaScript) and can be used by other processes
 wishing to control Syncthing. In most cases both the input and output
 data is in JSON format. The interface is subject to change.
 

@@ -184,7 +184,7 @@ How to use the system instance
 
 Running Syncthing as a system service ensures that Syncthing is run at startup
 even if the Syncthing user has no active session. Since the system service
-keeps Syncthing running even without an active user session, it is inteded to
+keeps Syncthing running even without an active user session, it is intended to
 be used on a *server*.
 
 1. Create the user who should run the service, or choose an existing
@@ -206,7 +206,7 @@ How to use the user instance
 Running Syncthing as a user service ensures that Syncthing is run after the
 Syncthing user has created a session (e.g. via the graphical login screen or
 ssh). Thus, the user service is intended to be used on a *(multiuser) desktop
-computer*. It avoids unnecessarly running Syncthing instances.
+computer*. It avoids unnecessarily running Syncthing instances.
 
 1. Create the user who should run the service, or choose an existing
    one.
@@ -233,7 +233,7 @@ subcommand:
 Using the journal
 ^^^^^^^^^^^^^^^^^
 
-Systemd logs everything into the journal. You can easily acces Syncthing
+Systemd logs everything into the journal. You can easily access Syncthing
 log messages (``-e`` lets the pager jump to the very end):
 
 ::
