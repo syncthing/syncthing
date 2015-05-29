@@ -134,7 +134,7 @@ REST API Bindings
 ~~~~~~~~~~~~~~~~~
 
 -  Ruby: https://github.com/retgoat/syncthing-ruby
--  Python: https://github.com/Astalaseven/syncthing-python
+-  Python: https://github.com/blakev/python-syncthing (https://pypi.python.org/pypi/syncthing)
 
 Ports
 ~~~~~
