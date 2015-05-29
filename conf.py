@@ -32,7 +32,7 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = []
+extensions = ['sphinx.ext.todo']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -97,6 +97,8 @@ pygments_style = 'sphinx'
 # If true, keep warnings as "system message" paragraphs in the built documents.
 #keep_warnings = False
 
+# Show .. todo:: block.
+todo_include_todos = True
 
 # -- Options for HTML output ----------------------------------------------
 
