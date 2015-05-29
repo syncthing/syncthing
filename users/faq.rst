@@ -156,10 +156,10 @@ the iOS platform.
 Why does it use so much CPU?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. When new or changed files are detected, or Syncthing starts for the
+#. When new or changed files are detected, or Syncthing starts for the
    first time, your files are hashed using SHA-256.
 
-2. Data that is sent over the network is first compressed and then
+#. Data that is sent over the network is first compressed and then
    encrypted using AES-128. When receiving data, it must be decrypted
    and decompressed.
 

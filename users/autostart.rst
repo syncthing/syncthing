@@ -27,24 +27,24 @@ Start on Login
 Starting Syncthing on login, without a console window or browser opening
 on start, is relatively easy.
 
-1. Find the correct link of the Windows binary from the `Syncthing
+#. Find the correct link of the Windows binary from the `Syncthing
    website <https://github.com/syncthing/syncthing/releases>`__ (choose
    **amd64** if you have a 64-bit version of Windows)
-2. Extract the files in the folder (``syncthing-windows-*``) in the zip
+#. Extract the files in the folder (``syncthing-windows-*``) in the zip
    to the folder ``C:\syncthing``
-3. Go to the ``C:\syncthing`` folder, make a file named
+#. Go to the ``C:\syncthing`` folder, make a file named
    ``syncthing.bat``
-4. Right-click the file and choose **Edit**. The file should open in
+#. Right-click the file and choose **Edit**. The file should open in
    Notepad or your default text editor.
-5. Paste the following command into the file and save the changes:
+#. Paste the following command into the file and save the changes:
    ``start "Syncthing" syncthing.exe -no-console -no-browser``
-6. Right-click on ``syncthing.bat`` and press "Create Shortcut"
-7. Right-click the shortcut file ``syncthing.bat - Shortcut`` and click
+#. Right-click on ``syncthing.bat`` and press "Create Shortcut"
+#. Right-click the shortcut file ``syncthing.bat - Shortcut`` and click
    **Copy**
-8. Click **Start**, click **All Programs**, then click **Startup**.
+#. Click **Start**, click **All Programs**, then click **Startup**.
    Right-click on **Startup** then click **Open**.
    |Setup Screenshot|
-9. Paste the shortcut (right-click in the folder and choose **Paste**,
+#. Paste the shortcut (right-click in the folder and choose **Paste**,
    or press ``CTRL+V``)
 
 Syncthing will now automatically start the next time Windows boots. No
@@ -79,24 +79,24 @@ almost any end-user scenario. The only scenario where running Syncthing
 as a service makes sense is for (mostly) headless servers, administered
 by a sysadmin who knows enough to understand the security implications.
 
-1. Download and extract `nssm <http://nssm.cc/download>`__ to a folder
+#. Download and extract `nssm <http://nssm.cc/download>`__ to a folder
    where it can stay (e.g. *c:Files* or the Syncthing folder.
-2. run *nssm.exe install syncthing*
-3. Select ``syncthing.exe`` in the first tab and enter
+#. run *nssm.exe install syncthing*
+#. Select ``syncthing.exe`` in the first tab and enter
    ``-no-console -no-browser`` as Arguments
    |Configuration Screenshot|
-4. at the Details tab you can switch to *Automatic (Delayed Start)* to
+#. at the Details tab you can switch to *Automatic (Delayed Start)* to
    start it only some time after boot and speed up the boot process
    (optional)
-5. At the *Log On* tab you can enter a username and password for the
+#. At the *Log On* tab you can enter a username and password for the
    user to run Syncthing as. This user needs to have access to all the
    synced folders. Usually, you can leave it as the System account.
-6. At the Process Tab you can change the priority to low if you want a
+#. At the Process Tab you can change the priority to low if you want a
    more responsive system at the cost of longer sync time
-7. Click the *Install Service* Button
-8. Start the service using the windows service manager, enter
+#. Click the *Install Service* Button
+#. Start the service using the windows service manager, enter
    ``sc start syncthing`` in a console window or restart the PC.
-9. Connect to the Syncthing UI, enable HTTPS, and set a secure username
+#. Connect to the Syncthing UI, enable HTTPS, and set a secure username
    and password.
 
 Mac OS X
@@ -105,8 +105,8 @@ Mac OS X
 Using `homebrew <http://brew.sh>`__
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. ``brew install syncthing``
-2. Follow the info to autostart Syncthing using launchctl. At the moment
+#. ``brew install syncthing``
+#. Follow the info to autostart Syncthing using launchctl. At the moment
    this is done using this command:
    ``launchctl load ~/Library/LaunchAgents/homebrew.mxcl.syncthing.plist``.
 
@@ -116,18 +116,18 @@ Without homebrew
 Download Syncthing for Mac:
 https://github.com/syncthing/syncthing/releases/latest.
 
-1. Copy the syncthing binary (the file you would open to launch
+#. Copy the syncthing binary (the file you would open to launch
    Syncthing) in a directory called ``bin`` in your home directory. If
    "bin" does not exist, create it.
-2. Edit the ``syncthing.plist`` (located in /etc/macosx-launchd) in the
+#. Edit the ``syncthing.plist`` (located in /etc/macosx-launchd) in the
    two places that refer to your home directory; that is, replace
    /Users/jb with your actual home directory location.
-3. Copy the ``syncthing.plist`` file to ``~/Library/LaunchAgents``. If
+#. Copy the ``syncthing.plist`` file to ``~/Library/LaunchAgents``. If
    you have trouble finding this location select the "Go" menu in Finder
    and choose "Go to folder..." and then type
    ``~/Library/LaunchAgents``. Copying to ~/Library/LaunchAgents will
    require admin password in most cases.
-4. Log out and back in again. Or, if you do not want to log out, you can
+#. Log out and back in again. Or, if you do not want to log out, you can
    run this command in terminal:
    ``launchctl load ~/Library/LaunchAgents/syncthing.plist``
 
@@ -141,10 +141,10 @@ Linux
 Ubuntu like systems
 ~~~~~~~~~~~~~~~~~~~
 
-1. Click the dashboard (hit 'Win' button).
-2. Open 'Startup Applications'.
-3. Click 'Add'.
-4. Fill out the form:
+#. Click the dashboard (hit 'Win' button).
+#. Open 'Startup Applications'.
+#. Click 'Add'.
+#. Fill out the form:
 
    -  Name: Syncthing
    -  Command: /path/to/syncthing/binary -no-browser
@@ -187,12 +187,12 @@ even if the Syncthing user has no active session. Since the system service
 keeps Syncthing running even without an active user session, it is intended to
 be used on a *server*.
 
-1. Create the user who should run the service, or choose an existing
+#. Create the user who should run the service, or choose an existing
    one.
-2. Copy the ``system/syncthing@.service`` file into the `load path of
+#. Copy the ``system/syncthing@.service`` file into the `load path of
    the system
    instance <http://www.freedesktop.org/software/systemd/man/systemd.unit.html#Unit%20Load%20Path>`__.
-3. Enable and start the service. Append the Syncthing user after the
+#. Enable and start the service. Append the Syncthing user after the
    ``@``:
 
 ::
@@ -208,14 +208,14 @@ Syncthing user has created a session (e.g. via the graphical login screen or
 ssh). Thus, the user service is intended to be used on a *(multiuser) desktop
 computer*. It avoids unnecessarily running Syncthing instances.
 
-1. Create the user who should run the service, or choose an existing
+#. Create the user who should run the service, or choose an existing
    one.
-2. Copy the ``user/syncthing.service`` file into the `load path of the
+#. Copy the ``user/syncthing.service`` file into the `load path of the
    user
    instance <http://www.freedesktop.org/software/systemd/man/systemd.unit.html#Unit%20Load%20Path>`__.
    To do this without root privileges you can use
    ``~/.config/systemd/user/``.
-3. Enable and start the service:
+#. Enable and start the service:
 
 ::
 
