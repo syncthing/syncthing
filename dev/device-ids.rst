@@ -117,7 +117,7 @@ possibilities here;
 Once we have and address and port a TCP connection is established and a
 TLS handshake performed. As part of the handshake both devices present
 their certificates. Once the handshake has completed and the peer
-certificiate is known, the following steps are performed.
+certificate is known, the following steps are performed.
 
 1. Calculate the remote device ID by using the process above on the
    received certificate.

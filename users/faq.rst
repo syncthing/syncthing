@@ -246,9 +246,9 @@ also creates ``syncthing.log`` in Syncthing's home directory (check
 How do I upgrade Syncthing?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- If automatic upgrades is enabled (which is the default), Sycnthing will upgrade itself automatically within 24 hours of a new release.
+- If automatic upgrades is enabled (which is the default), Syncthing will upgrade itself automatically within 24 hours of a new release.
 
-- The ugrade button appears in the web GUI when a new version has been released. Pressing it will perform an upgrade.
+- The upgrade button appears in the web GUI when a new version has been released. Pressing it will perform an upgrade.
 
 - To force an upgrade from the command line, run ``syncthing -upgrade``.
 

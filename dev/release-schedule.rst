@@ -25,7 +25,7 @@ downgrade to 0.7.x might be trickier.
 Patch Releases
 --------------
 
-A new patch release is made each sunday, if there have been changes
+A new patch release is made each Sunday, if there have been changes
 committed since the last release. Serious bugs, such as would crash the
 client or corrupt data, cause an immediate (out of schedule) patch
 release.

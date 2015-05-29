@@ -23,7 +23,7 @@ Simple File Versioning
 With "Simple File Versioning" files are moved to the ".stversions"
 folder (inside your shared folder) when replaced or deleted on a remote
 device. This option also takes a value in an input titled "Keep
-Versions" which tells SyncThing how many old versions of the file it
+Versions" which tells Syncthing how many old versions of the file it
 should keep. For example, if you set this value to 5, if a file is
 replaced 5 times on a remote device, you will see 5 time-stamped
 versions on that file in the ".stversions" folder on the other devices

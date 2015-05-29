@@ -19,7 +19,7 @@ A folder can be in any one of these states:
  
  - *Stopped* when the folder has experienced an error,
  
- - *Scanning* while the folder is lookign for local changes,
+ - *Scanning* while the folder is looking for local changes,
  
  - *Up to Date* when the folder is in sync with the rest of the cluster,
  
