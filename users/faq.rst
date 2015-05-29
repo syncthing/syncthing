@@ -49,7 +49,7 @@ Usage
 What things are synced?
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The following thins are *always* synchronized;
+The following things are *always* synchronized;
 
 -  File Contents
 -  File Modification Times
