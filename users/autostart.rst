@@ -52,9 +52,9 @@ console or browser window will pop-up. Access the interface by browsing
 to http://localhost:8384/
 
 If you prefer slower indexing but a more responsive system during scans,
-copy the following command instead of the command in step 5:
+copy the following command instead of the command in step 5::
 
-``start "Syncthing" /low syncthing.exe -no-console -no-browser``
+    start "Syncthing" /low syncthing.exe -no-console -no-browser
 
 Run independent of user login
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -147,15 +147,12 @@ Ubuntu like systems
 #. Fill out the form:
 
    -  Name: Syncthing
-   -  Command: /path/to/syncthing/binary -no-browser
-      -home="/home/your\_user/.config/syncthing"
+   -  ``Command: /path/to/syncthing/binary -no-browser -home="/home/your\_user/.config/syncthing"``
 
 Supervisord
 ~~~~~~~~~~~
 
-Add following to your /etc/supervisord.conf.
-
-::
+Add following to your ``/etc/supervisord.conf``::
 
     [program:syncthing]
     command = /path/to/syncthing/binary -no-browser -home="/home/some_user/.config/syncthing"
@@ -174,7 +171,7 @@ ability to manage services under the user's control with a per-user
 systemd instance, enabling users to start, stop, enable, and disable
 their own units. Service files for system are provided by Syncthing and
 can be found in
-```etc/linux-systemd`` <https://github.com/syncthing/syncthing/tree/master/etc/linux-systemd>`__.
+`etc/linux-systemd <https://github.com/syncthing/syncthing/tree/master/etc/linux-systemd>`_.
 Several distros (including arch linux) ship these service files with the
 Syncthing package. If your distro provides a systemd service file for
 Syncthing you can skip step 2.
@@ -193,9 +190,7 @@ be used on a *server*.
    the system
    instance <http://www.freedesktop.org/software/systemd/man/systemd.unit.html#Unit%20Load%20Path>`__.
 #. Enable and start the service. Append the Syncthing user after the
-   ``@``:
-
-::
+   ``@``::
 
     systemctl enable syncthing@myuser.service
     systemctl start syncthing@myuser.service
@@ -215,17 +210,13 @@ computer*. It avoids unnecessarily running Syncthing instances.
    instance <http://www.freedesktop.org/software/systemd/man/systemd.unit.html#Unit%20Load%20Path>`__.
    To do this without root privileges you can use
    ``~/.config/systemd/user/``.
-#. Enable and start the service:
-
-::
+#. Enable and start the service::
 
     systemctl --user enable syncthing.service
     systemctl --user start syncthing.service
 
 To check if Syncthing runs properly you can use the ``status``
-subcommand:
-
-::
+subcommand::
 
     systemctl status syncthing@myuser.service
     systemctl --user status syncthing.service
@@ -234,9 +225,7 @@ Using the journal
 ^^^^^^^^^^^^^^^^^
 
 Systemd logs everything into the journal. You can easily access Syncthing
-log messages (``-e`` lets the pager jump to the very end):
-
-::
+log messages (``-e`` lets the pager jump to the very end)::
 
     journalctl -e -u syncthing@myuser.service
     journalctl -e --user-unit=syncthing.service
@@ -247,9 +236,7 @@ Debugging
 If you are asked on the bugtracker to start Syncthing with specific
 environment variables it will not work the easy way. Systemd isolates each
 service and it cannot access global environment variables. The solution is to
-add this variables to the service file instead. Just use:
-
-::
+add this variables to the service file instead. Just use::
 
     systemctl edit syncthing@myuser.service
     systemctl --user edit syncthing.service

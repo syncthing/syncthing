@@ -67,9 +67,7 @@ Building (Windows)
 ------------------
 
 -  Install the prerequisites.
--  Open a ``cmd`` Window.
-
-::
+-  Open a ``cmd`` Window::
 
     # This should output "go version go1.3" or higher.
     > go version
