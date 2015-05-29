@@ -3328,7 +3328,7 @@ input[type="radio"][disabled], input[type="checkbox"][disabled] {
   position: absolute;
   left: 54px;
   display: block;
-  font-size: 12px;
+  font-size: 15px;
   color: #ccc;
 }
 
@@ -3852,7 +3852,7 @@ div[class^='highlight'] td.code {
   margin: 0;
   padding: 13.5px 13.5px;
   font-family: Consolas, "Andale Mono WT", "Andale Mono", "Lucida Console", "Lucida Sans Typewriter", "DejaVu Sans Mono", "Bitstream Vera Sans Mono", "Liberation Mono", "Nimbus Mono L", Monaco, "Courier New", Courier, monospace;
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1.5;
   color: #d9d9d9;
 }
@@ -3862,7 +3862,7 @@ div[class^='highlight'] pre {
   margin: 0;
   padding: 13.5px 13.5px;
   font-family: Consolas, "Andale Mono WT", "Andale Mono", "Lucida Console", "Lucida Sans Typewriter", "DejaVu Sans Mono", "Bitstream Vera Sans Mono", "Liberation Mono", "Nimbus Mono L", Monaco, "Courier New", Courier, monospace;
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1.5;
   display: block;
   overflow: auto;
