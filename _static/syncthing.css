@@ -13,3 +13,6 @@
 .wy-nav-content {
    max-width: 1050px
 }
+.strike {
+	text-decoration: line-through;
+}

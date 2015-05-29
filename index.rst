@@ -1,3 +1,6 @@
+.. We register the :strike: role for strikethrough text. Use it like :strike:`this is struck out`.
+.. role:: strike
+
 Welcome to Syncthing's documentation!
 =====================================
 
