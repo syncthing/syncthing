@@ -232,12 +232,37 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'syncthing', u'Syncthing Documentation',
-     [u'The Syncthing Authors'], 1)
+    ('users/config', 'syncthing-config',
+     'Syncthing Configuration',
+     ['The Syncthing Authors'], 5),
+    ('users/ignoring', 'syncthing-stignore',
+     'Prevent files from being synchronized to other nodes',
+     ['The Syncthing Authors'], 5),
+    ('dev/rest', 'syncthing-rest-api',
+     'REST API',
+     ['The Syncthing Authors'], 7),
+    ('dev/events', 'syncthing-event-api',
+     'Event API',
+     ['The Syncthing Authors'], 7),
+    ('dev/device-ids', 'syncthing-device-ids',
+     'Understanding Device IDs',
+     ['The Syncthing Authors'], 7),
+    ('users/security', 'syncthing-security',
+     'Security Principles',
+     ['The Syncthing Authors'], 7),
+    ('users/firewall', 'syncthing-networking',
+     'Firewall Setup',
+     ['The Syncthing Authors'], 7),
+    ('users/versioning', 'syncthing-versioning',
+     'Keep automatic backups of deleted files by other nodes',
+     ['The Syncthing Authors'], 7),
+    ('users/faq', 'syncthing-faq',
+     'Frequently Asked Questions',
+     ['The Syncthing Authors'], 7),
 ]
 
 # If true, show URL addresses after external links.
-#man_show_urls = False
+man_show_urls = True
 
 
 # -- Options for Texinfo output -------------------------------------------
