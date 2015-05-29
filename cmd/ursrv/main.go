@@ -527,7 +527,7 @@ func (s *summary) MarshalJSON() ([]byte, error) {
 func getSummary(db *sql.DB) (summary, error) {
 	s := newSummary()
 
-	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary;`)
+	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary WHERE Day > now() - '1 year'::INTERVAL;`)
 	if err != nil {
 		return summary{}, err
 	}

@@ -96,7 +96,7 @@ func aggregate(db *sql.DB, since time.Time) (int64, error) {
 		FROM Reports
 		WHERE
 			DATE_TRUNC('day', Received) > $1
-			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW() - '1 day'::INTERVAL)
+			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
 			AND Version like 'v0.%'
 		GROUP BY Day, Ver
 		);
