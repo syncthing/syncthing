@@ -249,6 +249,9 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
+    ('users/syncthing', 'syncthing',
+     'Syncthing',
+     ['The Syncthing Authors'], 1),
     ('users/config', 'syncthing-config',
      'Syncthing Configuration',
      ['The Syncthing Authors'], 5),
