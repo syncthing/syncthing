@@ -35,6 +35,8 @@ If you're not a Go developer since before, the easiest way to get going
 is to download the latest version of Go as instructed in
 http://golang.org/doc/install and ``export GOPATH=~``.
 
+.. note:: You need to set ``GOPATH`` correctly and the source **must** be checked out into ``$GOPATH/src/github.com/syncthing/syncthing``. The instructions below accomplish this correctly.
+
 Building (Unix)
 ---------------
 
