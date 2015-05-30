@@ -44,8 +44,12 @@ case "${1:-default}" in
 		go run build.go "$1"
 		;;
 
-	transifex)
-		go run build.go "$1"
+	prerelease)
+		go run build.go transifex
+		git add -A gui/assets/ internal/auto/
+		echo
+		echo Changelog:
+		go run changelog.go
 		;;
 
 	noupgrade)
