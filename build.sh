@@ -47,6 +47,8 @@ case "${1:-default}" in
 	prerelease)
 		go run build.go transifex
 		git add -A gui/assets/ internal/auto/
+		pushd man ; ./refresh.sh ; popd
+		git add -A man
 		echo
 		echo Changelog:
 		go run changelog.go
