@@ -2,8 +2,7 @@
 set -euo pipefail
 
 git pull
-rm -fr _build
-make html
+make clean html man
 
 rm -rf _deployed.old
 [ -d _deployed ] && mv _deployed _deployed.old || true
