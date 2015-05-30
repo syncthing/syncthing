@@ -130,6 +130,8 @@ influence ``install``, ``build``, ``tar`` and ``zip``. Examples:
    distribution of Syncthing for Windows (current architecture) with
    upgrading disabled.
 
+.. note:: Building for a different operating system or architecture than your native one requires Go having been set up for cross compilation. The easiest way to get this right is to use the official Docker image, described below.
+
 Building without Git
 --------------------
 
