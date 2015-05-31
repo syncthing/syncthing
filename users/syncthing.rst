@@ -136,7 +136,7 @@ GOGC
     numbers keep peak memory usage down, at the price of CPU usage
     (ie. performance).
 
-See also
+See Also
 --------
 
 :manpage:`syncthing-config(5)`, :manpage:`syncthing-stignore(5)`,
