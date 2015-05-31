@@ -1,5 +1,8 @@
 .. _debugging:
 
+.. todo::
+    This page mostly duplicates syncthing(1). Needs merging.
+
 Debugging Syncthing
 ===================
 
