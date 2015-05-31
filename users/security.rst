@@ -30,7 +30,7 @@ When global discovery is enabled, Syncthing sends an announcement packet every
 your device ID and external IP. Also, when connecting to other devices that have
 not been seen on the local network, a query is sent to the global discovery
 server containing the device ID of the requested device. The discovery server is
-currently **hosted by @calmh**. Global discovery defaults to **on**.
+currently hosted by :user:`calmh`. Global discovery defaults to **on**.
 
 When turned off, devices with dynamic addresses not on the local network cannot
 be found and connected to.
@@ -66,19 +66,20 @@ upgrades disabled.
 
 In effect this exposes the majority of the Syncthing population to tracking by
 the operator of the download site (currently GitHub). That data is not available
-to outside parties (including @calmh etc), except that download counts per
-release binary are available in the GitHub API. The upgrade check (or download)
-requests *do not* contain any identifiable information about the user, device,
-Syncthing version, etc.
+to outside parties (including :user:`calmh` etc), except that download counts
+per release binary are available in the GitHub API. The upgrade check (or
+download) requests *do not* contain any identifiable information about the user,
+device, Syncthing version, etc.
 
 Usage Reporting
 ~~~~~~~~~~~~~~~
 
 When usage reporting is enabled, Syncthing reports usage data at startup and
 then every 24 hours. The report is sent as an HTTPS POST to the usage reporting
-server, currently **hosted by @calmh**. The contents of the usage report can be
-seen behind the "Preview" link in settings. Usage reporting defaults to **off**
-but the GUI will ask once about enabling it, shortly after the first install.
+server, currently hosted by :user:`calmh`. The contents of the usage report can
+be seen behind the "Preview" link in settings. Usage reporting defaults to
+**off** but the GUI will ask once about enabling it, shortly after the first
+install.
 
 The reported data is protected from eavesdroppers, but the connection to the
 usage reporting server itself may expose the client as running Syncthing.
