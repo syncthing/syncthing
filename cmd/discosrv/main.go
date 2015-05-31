@@ -21,6 +21,7 @@ var (
 	limitBurst  = 20
 	dbConn      = getEnvDefault("DISCOSRV_DB", "postgres://user:password@localhost/discosrv")
 	globalStats stats
+	statsFile   string
 )
 
 func main() {
@@ -38,6 +39,7 @@ func main() {
 	flag.IntVar(&lruSize, "limit-cache", lruSize, "Limiter cache entries")
 	flag.IntVar(&limitAvg, "limit-avg", limitAvg, "Allowed average package rate, per 10 s")
 	flag.IntVar(&limitBurst, "limit-burst", limitBurst, "Allowed burst size, packets")
+	flag.StringVar(&statsFile, "stats-file", statsFile, "File to write periodic operation stats to")
 	flag.Parse()
 
 	addr, _ := net.ResolveUDPAddr("udp", listen)
@@ -74,6 +76,8 @@ func main() {
 
 	main.Add(&statssrv{
 		intv: statsIntv,
+		file: statsFile,
+		db:   db,
 	})
 
 	globalStats.Reset()
