@@ -171,7 +171,7 @@
     "Upgrade To {%version%}": "Mettre à jour vers {{version}}",
     "Upgrading": "Mise à jour de Syncthing",
     "Upload Rate": "Débit d'envoi",
-    "Uptime": "Uptime",
+    "Uptime": "Durée de fonctionnement depuis dernier démarrage",
     "Use HTTPS for GUI": "Utiliser l'HTTPS pour le GUI",
     "Version": "Version",
     "Versions Path": "Emplacement des versions",

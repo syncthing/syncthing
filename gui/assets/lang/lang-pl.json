@@ -48,7 +48,7 @@
     "External File Versioning": "Zewnętrzne wersjonowanie pliku",
     "File Pull Order": "Kolejność pobierania plików",
     "File Versioning": "Wersjonowanie plików",
-    "File permission bits are ignored when looking for changes. Use on FAT file systems.": "File permission bits are ignored when looking for changes. Use on FAT file systems.",
+    "File permission bits are ignored when looking for changes. Use on FAT file systems.": "Uprawnienia plików są ignorowane przy poszukiwaniu zmian. Używaj w systemie plików FAT.",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "Pliki są zabezpieczone przed zmianami na innym urządzeniu, jednak zmiany w tym urządzeniu będą wysłane do reszty.",
     "Folder ID": "ID folderu",
