@@ -80,8 +80,7 @@ Configuring
 The admin GUI starts automatically and remains available on
 ``http://localhost:8384/``. It should look something like this:
 
-.. figure:: gs1.png
-   :alt: gs1.png
+.. image:: gs1.png
 
 On the left is the list of "folders", or directories to synchronize. You
 can see the ``default`` folder was created for you, and it's currently
@@ -107,30 +106,26 @@ should also select the folder(s) that you want to share with this
 device. The device name is optional, but you can set it to something
 that makes sense for you to remember what device this is.
 
-.. figure:: gs2.png
-   :alt: gs2.png
+.. image:: gs2.png
 
 Once you click "Save" the new device will appear on right side of the
 GUI (although disconnected) and a prompt will be shown to indicate the
 need for a restart.
 
-.. figure:: gs3.png
-   :alt: gs3.png
+.. image:: gs3.png
 
 Syncthing needs to be restarted for some configuration changes to take
 effect (such as sharing folders with new devices). When you click
 "Restart" Syncthing will first restart:
 
-.. figure:: gs4.png
-   :alt: gs4.png
+.. image:: gs4.png
 
 and then come back up and after a while (up to a minute) connect to the
 other device. Remember though that you need to do the above process on
 both devices, and only once you've done this on both devices will they
 be able to connect.
 
-.. figure:: gs5.png
-   :alt: gs5.png
+.. image:: gs5.png
 
 At this point the two devices share an empty directory. Adding files to
 the Sync directory on either device will synchronize those files to the
