@@ -219,8 +219,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'Syncthing.tex', u'Syncthing Documentation',
-   u'The Syncthing Authors', 'manual'),
+    ('intro/getting-started', u'Getting-Started.tex', u'Getting Started', u'The Syncthing Authors', 'manual'),
+    ('users/faq', u'FAQ.tex', u'FAQ', u'The Syncthing Authors', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
