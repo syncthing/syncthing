@@ -313,9 +313,9 @@ func buildDeb() {
 		{src: "man/syncthing-networking.7", dst: "deb/usr/share/man/man7/syncthing-networking.7", perm: 0644},
 		{src: "man/syncthing-rest-api.7", dst: "deb/usr/share/man/man7/syncthing-rest-api.7", perm: 0644},
 		{src: "man/syncthing-security.7", dst: "deb/usr/share/man/man7/syncthing-security.7", perm: 0644},
+		{src: "man/syncthing-versioning.7", dst: "deb/usr/share/man/man7/syncthing-versioning.7", perm: 0644},
 		{src: "etc/linux-systemd/system/syncthing@.service", dst:"deb/lib/systemd/system/syncthing@.service", perm: 0644},
 		{src: "etc/linux-systemd/user/syncthing.service", dst:"deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
-		{src: "man/syncthing-versioning.7", dst: "deb/usr/share/man/man7/syncthing-versioning.7", perm: 0644},
 	}
 
 	for _, file := range listFiles("extra") {
