@@ -1,11 +1,11 @@
-syncthing
+Syncthing
 =========
 
 [![Latest Build](http://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing.svg?style=flat-square)](http://build.syncthing.net/job/syncthing/lastBuild/)
 [![API Documentation](http://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](http://godoc.org/github.com/syncthing/syncthing)
 [![MPLv2 License](http://img.shields.io/badge/license-MPLv2-blue.svg?style=flat-square)](https://www.mozilla.org/MPL/2.0/)
 
-This is the `syncthing` project which pursues the following goals:
+This is the Syncthing project which pursues the following goals:
 
  1. Define a protocol for synchronization of a folder between a number of
     collaborating devices. This protocol should be well defined, unambiguous,
@@ -18,16 +18,16 @@ This is the `syncthing` project which pursues the following goals:
     alternative, compatible implementations of the protocol will arise.
 
 The two are evolving together; the protocol is not to be considered
-stable until syncthing 1.0 is released, at which point it is locked down
+stable until Syncthing 1.0 is released, at which point it is locked down
 for incompatible changes.
 
 Getting Started
 ---------------
 
 Take a look at the [getting started
-guide](https://github.com/syncthing/syncthing/wiki/Getting-Started).
+guide](http://docs.syncthing.net/intro/getting-started.html).
 
-There are a few examples for keeping syncthing running in the background
+There are a few examples for keeping Syncthing running in the background
 on your system in [the etc directory](https://github.com/syncthing/syncthing/blob/master/etc).
 
 There is an IRC channel, `#syncthing` on Freenode, for talking directly
@@ -37,7 +37,7 @@ Building
 --------
 
 Building Syncthing from source is easy, and there's a
-[guide](https://github.com/syncthing/syncthing/wiki/Building).
+[guide](http://docs.syncthing.net/dev/building.html).
 that describes it for both Unix and Windows systems.
 
 Signed Releases
@@ -51,9 +51,8 @@ available in the md5sum.txt.asc and sha1sum.txt.asc files.
 Documentation
 =============
 
-The [syncthing
-documentation](https://github.com/syncthing/syncthing/wiki/) is on the
-Github wiki.
+Please see the [Syncthing
+documentation site](http://docs.syncthing.net/dev/).
 
 All code is licensed under the
 [MPLv2 License](https://github.com/syncthing/syncthing/blob/master/LICENSE).

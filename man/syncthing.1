@@ -1,0 +1,227 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "SYNCTHING" "1" "May 30, 2015" "v0.11" "Syncthing"
+.SH NAME
+syncthing \- Syncthing
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+syncthing [\-audit] [\-generate=<dir>] [\-gui\-address=<address>]
+          [\-gui\-apikey=<key>] [\-gui\-authentication=<username:password>]
+          [\-home=<dir>] [\-logflags=<flags>] [\-no\-browser] [\-no\-restart]
+          [\-reset] [\-upgrade] [\-upgrade\-check] [\-upgrade\-to=<url>]
+          [\-verbose] [\-version]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH DESCRIPTION
+.sp
+Syncthing is an application that lets you synchronize your files across multiple
+devices. This means the creation, modification or deletion of files on one
+machine will automatically be replicated to your other devices. We believe your
+data is your data alone and you deserve to choose where it is stored. Therefore
+Syncthing does not upload your data to the cloud but exchanges your data across
+your machines as soon as they are online at the same time.
+.SH OPTIONS
+.INDENT 0.0
+.TP
+.B \fB\-audit\fP
+Write events to audit file.
+.TP
+.B \fB\-generate=<dir>\fP
+Generate key and config in specified dir, then exit.
+.TP
+.B \fB\-gui\-address=<address>\fP
+Override GUI address.
+.TP
+.B \fB\-gui\-apikey=<key>\fP
+Override GUI API key.
+.TP
+.B \fB\-gui\-authentication=<username:password>\fP
+Override GUI authentication; username:password.
+.TP
+.B \fB\-home=<dir>\fP
+Set configuration directory. The default configuration directory is:
+\fB$HOME/.config/syncthing\fP\&.
+.TP
+.B \fB\-logflags=<flags>\fP
+Select information in log line prefix, default 2. The \fB\-logflags\fP value is
+a sum of the following:
+.INDENT 7.0
+.IP \(bu 2
+1: Date
+.IP \(bu 2
+2: Time
+.IP \(bu 2
+4: Microsecond time
+.IP \(bu 2
+8: Long filename
+.IP \(bu 2
+16: Short filename
+.UNINDENT
+.sp
+To prefix each log line with date and time, set \fB\-logflags=3\fP (1 + 2 from
+above). The value 0 is used to disable all of the above. The default is to
+show time only (2).
+.TP
+.B \fB\-no\-browser\fP
+Do not start a browser.
+.TP
+.B \fB\-no\-restart\fP
+Do not restart; just exit.
+.TP
+.B \fB\-reset\fP
+Reset the database.
+.TP
+.B \fB\-upgrade\fP
+Perform upgrade.
+.TP
+.B \fB\-upgrade\-check\fP
+Check for available upgrade.
+.TP
+.B \fB\-upgrade\-to=<url>\fP
+Force upgrade directly from specified URL.
+.TP
+.B \fB\-verbose\fP
+Print verbose log output.
+.TP
+.B \fB\-version\fP
+Show version.
+.UNINDENT
+.SH EXIT CODES
+.INDENT 0.0
+.TP
+.B 0
+Success / Shutdown
+.TP
+.B 1
+Error
+.TP
+.B 2
+Upgrade not available
+.TP
+.B 3
+Restarting
+.TP
+.B 5
+Upgrading
+.UNINDENT
+.sp
+Some of these exit codes are only returned when running without a monitor
+process (with environment variable \fBSTNORESTART\fP set). Exit codes over 125 are
+usually returned by the shell/binary loader/default signal handler. Exit codes
+over 128+N on Unix usually represent the signal which caused the process to
+exit. For example, \fB128 + 9 (SIGKILL) = 137\fP\&.
+.SH DEVELOPMENT SETTINGS
+.sp
+The following environment variables modify Syncthing\(aqs behavior in ways that
+are mostly useful for developers. Use with care.
+.INDENT 0.0
+.TP
+.B STGUIASSETS
+Directory to load GUI assets from. Overrides compiled in assets.
+.TP
+.B STTRACE
+A comma separated string of facilities to trace. The valid facility strings
+are:
+.INDENT 7.0
+.IP \(bu 2
+\fBbeacon\fP:   the beacon package
+.IP \(bu 2
+\fBdiscover\fP: the discover package
+.IP \(bu 2
+\fBevents\fP:   the events package
+.IP \(bu 2
+\fBfiles\fP:    the files package
+.IP \(bu 2
+\fBhttp\fP:     the main package; HTTP requests
+.IP \(bu 2
+\fBlocks\fP:    the sync package; trace long held locks
+.IP \(bu 2
+\fBnet\fP:      the main package; connections & network messages
+.IP \(bu 2
+\fBmodel\fP:    the model package
+.IP \(bu 2
+\fBscanner\fP:  the scanner package
+.IP \(bu 2
+\fBstats\fP:    the stats package
+.IP \(bu 2
+\fBupnp\fP:     the upnp package
+.IP \(bu 2
+\fBxdr\fP:      the xdr package
+.IP \(bu 2
+\fBall\fP:      all of the above
+.UNINDENT
+.TP
+.B STPROFILER
+Set to a listen address such as "127.0.0.1:9090" to start the profiler with
+HTTP access.
+.TP
+.B STCPUPROFILE
+Write a CPU profile to cpu\-$pid.pprof on exit.
+.TP
+.B STHEAPPROFILE
+Write heap profiles to heap\-$pid\-$timestamp.pprof each time heap usage
+increases.
+.TP
+.B STBLOCKPROFILE
+Write block profiles to \fBblock\-$pid\-$timestamp.pprof\fP every 20 seconds.
+.TP
+.B STPERFSTATS
+Write running performance statistics to perf\-$pid.csv. Not supported on
+Windows.
+.TP
+.B STNOUPGRADE
+Disable automatic upgrades.
+.TP
+.B GOMAXPROCS
+Set the maximum number of CPU cores to use. Defaults to all available CPU cores.
+.TP
+.B GOGC
+Percentage of heap growth at which to trigger GC. Default is 100. Lower
+numbers keep peak memory usage down, at the price of CPU usage
+(ie. performance).
+.UNINDENT
+.SH SEE ALSO
+.sp
+\fIsyncthing\-config(5)\fP, \fIsyncthing\-stignore(5)\fP,
+\fIsyncthing\-device\-ids(7)\fP, \fIsyncthing\-security(7)\fP,
+\fIsyncthing\-networking(7)\fP, \fIsyncthing\-versioning(7)\fP,
+\fIsyncthing\-faq(7)\fP
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2015, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.

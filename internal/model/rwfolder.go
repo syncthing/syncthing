@@ -109,6 +109,13 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 	}
 }
 
+// Helper function to check whether either the ignorePerm flag has been
+// set on the local host or the FlagNoPermBits has been set on the file/dir
+// which is being pulled.
+func (p *rwFolder) ignorePermissions(file protocol.FileInfo) bool {
+	return p.ignorePerms || file.Flags&protocol.FlagNoPermBits != 0
+}
+
 // Serve will run scans and pulls. It will return when Stop()ed or on a
 // critical error.
 func (p *rwFolder) Serve() {
@@ -540,7 +547,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 
 	realName := filepath.Join(p.dir, file.Name)
 	mode := os.FileMode(file.Flags & 0777)
-	if p.ignorePerms {
+	if p.ignorePermissions(file) {
 		mode = 0777
 	}
 
@@ -569,7 +576,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 		// not MkdirAll because the parent should already exist.
 		mkdir := func(path string) error {
 			err = os.Mkdir(path, mode)
-			if err != nil || p.ignorePerms {
+			if err != nil || p.ignorePermissions(file) {
 				return err
 			}
 			return os.Chmod(path, mode)
@@ -592,7 +599,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 	// don't handle modification times on directories, because that sucks...)
 	// It's OK to change mode bits on stuff within non-writable directories.
 
-	if p.ignorePerms {
+	if p.ignorePermissions(file) {
 		p.dbUpdates <- file
 	} else if err := os.Chmod(realName, mode); err == nil {
 		p.dbUpdates <- file
@@ -858,7 +865,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		copyTotal:   len(blocks),
 		copyNeeded:  len(blocks),
 		reused:      reused,
-		ignorePerms: p.ignorePerms,
+		ignorePerms: p.ignorePermissions(file),
 		version:     curFile.Version,
 		mut:         sync.NewMutex(),
 	}
@@ -878,7 +885,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 // thing that has changed.
 func (p *rwFolder) shortcutFile(file protocol.FileInfo) error {
 	realName := filepath.Join(p.dir, file.Name)
-	if !p.ignorePerms {
+	if !p.ignorePermissions(file) {
 		if err := os.Chmod(realName, os.FileMode(file.Flags&0777)); err != nil {
 			l.Infof("Puller (folder %q, file %q): shortcut: chmod: %v", p.folder, file.Name, err)
 			return err
@@ -1076,7 +1083,7 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 	}()
 
 	// Set the correct permission bits on the new file
-	if !p.ignorePerms {
+	if !p.ignorePermissions(state.file) {
 		err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
 		if err != nil {
 			l.Warnln("Puller: final:", err)
@@ -1175,7 +1182,6 @@ func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 					"action": "update",
 				})
 			}
-			p.model.receivedFile(p.folder, state.file.Name)
 			if p.progressEmitter != nil {
 				p.progressEmitter.Deregister(state)
 			}
@@ -1221,12 +1227,14 @@ loop:
 
 			if len(batch) == maxBatchSize {
 				p.model.updateLocals(p.folder, batch)
+				p.model.receivedFile(p.folder, batch[len(batch)-1].Name)
 				batch = batch[:0]
 			}
 
 		case <-tick.C:
 			if len(batch) > 0 {
 				p.model.updateLocals(p.folder, batch)
+				p.model.receivedFile(p.folder, batch[len(batch)-1].Name)
 				batch = batch[:0]
 			}
 		}
@@ -1234,6 +1242,7 @@ loop:
 
 	if len(batch) > 0 {
 		p.model.updateLocals(p.folder, batch)
+		p.model.receivedFile(p.folder, batch[len(batch)-1].Name)
 	}
 }
 
