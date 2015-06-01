@@ -99,6 +99,22 @@ Fedora
 -  https://copr.fedoraproject.org/coprs/tune2fs/syncthing/ (RPMs, based
    on https://github.com/thunderbirdtr/syncthing\_rpm)
 
+Gentoo
+~~~~~~
+
+Syncthing is available from the [timboudreau overlay](http://github.com/timboudreau/gentoo),
+which contains an ebuild for building syncthing from source, installing it and setting it up
+as a service that runs on startup.
+
+Install layman if you don't have it already.  Then run
+
+- layman -a timboudreau
+- eix-update
+- emerge syncthing
+
+Edit /etc/conf.d/syncthing and set the user who will share files to
+your user name.
+
 FreeBSD
 ~~~~~~~
 
