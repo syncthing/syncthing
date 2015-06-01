@@ -2,7 +2,7 @@ File Versioning
 ===============
 
 .. todo::
-    External versioning requires documenting.
+    External versioning needs example for Windows.
 
 Description
 -----------
@@ -59,3 +59,51 @@ Until Maximum Age
     The maximum time to keep a version in days. For example, to keep replaced or
     deleted files in the ".stversions" folder for an entire year, use 365. If
     only or 10 days, use 10. **Note: Set to 0 to keep versions forever.**
+
+External File Versioning
+------------------------
+
+This versioning method delegates the decision on what to do to an external
+command (program or script). The only configuration option is the name of the
+command. This should be an absolute path name. Just prior to a file being
+replaced, the command will be run with two parameters: the path to the folder,
+and the path to the file within the folder.
+
+Example for Unixes
+~~~~~~~~~~~~~~~~~~
+
+Lets say I want to keep the latest version of each file as they are replaced
+or removed; essentially I want a "trash can"-like behavior. For this, I create
+the following script and store it as ``/Users/jb/bin/onlylatest.sh`` (i.e. the
+``bin`` directory in my home directory):
+
+.. code-block:: bash
+
+    #!/bin/sh
+    set -eu
+
+    # Where I want my versions stored
+    versionspath=~/.trashcan
+
+    # The parameters we get from Syncthing
+    folderpath="$1"
+    filepath="$2"
+
+    # First ensure the dir where we need to store the file exists
+    mkdir -p `dirname "$versionspath/$filepath"`
+    # Then move the file there
+    mv -f "$folderpath/$filepath" "$versionspath/$filepath"
+
+I must ensure that the script has execute permissions (``chmod 755
+onlylatest.sh``), then configure Syncthing with the above path as the command
+name.
+
+Lets assume I have a folder "default" in ~/Sync, and that within that folder
+there is a file ``docs/letter.txt`` that is being replaced or deleted. The
+script will be called as if I ran this from the command line::
+
+    $ /Users/jb/bin/onlylatest.sh /Users/jb/Sync docs/letter.txt
+
+The script will then move the file in question to
+``~/.trashcan/docs/letter.txt``, replacing any previous version of that letter
+that may already have been there.
