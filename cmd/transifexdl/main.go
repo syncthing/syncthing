@@ -51,6 +51,8 @@ func main() {
 	}
 	resp.Body.Close()
 
+	names := make(map[string]string)
+
 	var langs []string
 	for code, stat := range stats {
 		code = strings.Replace(code, "_", "-", 1)
@@ -62,6 +64,7 @@ func main() {
 		}
 
 		langs = append(langs, code)
+		names[code] = languageName(code)
 		if code == "en" {
 			continue
 		}
@@ -85,6 +88,7 @@ func main() {
 	}
 
 	saveValidLangs(langs)
+	saveLanguageNames(names)
 }
 
 func saveValidLangs(langs []string) {
@@ -95,6 +99,16 @@ func saveValidLangs(langs []string) {
 	}
 	fmt.Fprint(fd, "var validLangs = ")
 	json.NewEncoder(fd).Encode(langs)
+	fd.Close()
+}
+
+func saveLanguageNames(names map[string]string) {
+	fd, err := os.Create("prettyprint.js")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprint(fd, "var langPrettyprint = ")
+	json.NewEncoder(fd).Encode(names)
 	fd.Close()
 }
 
@@ -141,4 +155,20 @@ func loadValidLangs() []string {
 	}
 
 	return langs
+}
+
+type languageResponse struct {
+	Code string
+	Name string
+}
+
+func languageName(code string) string {
+	var lang languageResponse
+	resp := req("https://www.transifex.com/api/2/language/" + code)
+	defer resp.Body.Close()
+	json.NewDecoder(resp.Body).Decode(&lang)
+	if lang.Name == "" {
+		return code
+	}
+	return lang.Name
 }
