@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-SECURITY" "7" "May 30, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-SECURITY" "7" "June 01, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-security \- Security Principles
 .
@@ -55,7 +55,7 @@ When global discovery is enabled, Syncthing sends an announcement packet every
 your device ID and external IP. Also, when connecting to other devices that have
 not been seen on the local network, a query is sent to the global discovery
 server containing the device ID of the requested device. The discovery server is
-currently \fBhosted by @calmh\fP\&. Global discovery defaults to \fBon\fP\&.
+currently hosted by \fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\&. Global discovery defaults to \fBon\fP\&.
 .sp
 When turned off, devices with dynamic addresses not on the local network cannot
 be found and connected to.
@@ -87,17 +87,18 @@ upgrades disabled.
 .sp
 In effect this exposes the majority of the Syncthing population to tracking by
 the operator of the download site (currently GitHub). That data is not available
-to outside parties (including @calmh etc), except that download counts per
-release binary are available in the GitHub API. The upgrade check (or download)
-requests \fIdo not\fP contain any identifiable information about the user, device,
-Syncthing version, etc.
+to outside parties (including \fI\%@calmh\fP <\fBhttps://github.com/calmh\fP> etc), except that download counts
+per release binary are available in the GitHub API. The upgrade check (or
+download) requests \fIdo not\fP contain any identifiable information about the user,
+device, Syncthing version, etc.
 .SS Usage Reporting
 .sp
 When usage reporting is enabled, Syncthing reports usage data at startup and
 then every 24 hours. The report is sent as an HTTPS POST to the usage reporting
-server, currently \fBhosted by @calmh\fP\&. The contents of the usage report can be
-seen behind the "Preview" link in settings. Usage reporting defaults to \fBoff\fP
-but the GUI will ask once about enabling it, shortly after the first install.
+server, currently hosted by \fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\&. The contents of the usage report can
+be seen behind the "Preview" link in settings. Usage reporting defaults to
+\fBoff\fP but the GUI will ask once about enabling it, shortly after the first
+install.
 .sp
 The reported data is protected from eavesdroppers, but the connection to the
 usage reporting server itself may expose the client as running Syncthing.

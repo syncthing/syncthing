@@ -131,7 +131,7 @@ func loadValidLangs() []string {
 	}
 
 	var langs []string
-	exp := regexp.MustCompile(`\[([a-zA-Z",-]+)\]`)
+	exp := regexp.MustCompile(`\[([a-zA-Z@",-]+)\]`)
 	if matches := exp.FindSubmatch(bs); len(matches) == 2 {
 		langs = strings.Split(string(matches[1]), ",")
 		for i := range langs {
