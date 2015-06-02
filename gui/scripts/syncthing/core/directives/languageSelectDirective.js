@@ -21,6 +21,9 @@ angular.module('syncthing.core')
                     var a = availableLocales[i];
                     if (localeNames[a]) {
                         availableLocaleNames[a] = localeNames[a];
+                    } else {
+                        // show code lang if it is not in the dict
+                        availableLocaleNames[a] = '[' + a + ']';
                     }
                 }
 
