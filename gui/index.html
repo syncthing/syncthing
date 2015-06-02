@@ -45,10 +45,9 @@
           </button>
         </li>
         <li class="dropdown" language-select></li>
-        <li>
+        <li class="hidden-xs">
           <a href="http://docs.syncthing.net/intro/gui.html" target="_blank">
-            <span class="glyphicon glyphicon-book"></span>&nbsp;
-            <span translate>Help</span>
+            <span class="glyphicon glyphicon-book"></span>&nbsp;<span translate>Help</span>
           </a>
         </li>
         <li class="dropdown">
@@ -60,6 +59,11 @@
             <li><a href="" ng-click="shutdown()"><span class="glyphicon glyphicon-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
             <li><a href="" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
             <li class="divider"></li>
+            <li class="visible-xs">
+              <a href="http://docs.syncthing.net/intro/gui.html" target="_blank">
+                <span class="glyphicon glyphicon-book"></span>&nbsp;<span translate>Help</span>
+              </a>
+            </li>
             <li><a href="" ng-click="about()"><span class="glyphicon glyphicon-heart-empty"></span>&nbsp;<span translate>About</span></a></li>
           </ul>
         </li>
