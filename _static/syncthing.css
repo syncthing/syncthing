@@ -1,3 +1,8 @@
+/* These don't get the default font size from the theme for whatever reason. */
+.rst-content blockquote, .rst-content li {
+	font-size: 18px;
+	line-height: 27px;
+}
 .strike {
 	text-decoration: line-through;
 }
