@@ -24,7 +24,9 @@ const (
 	FSCTL_GET_REPARSE_POINT      = 0x900a8
 	FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000
 	FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+	IO_REPARSE_TAG_MOUNT_POINT   = 0xA0000003
 	IO_REPARSE_TAG_SYMLINK       = 0xA000000C
+	IO_REPARSE_TAG_DEDUP         = 0x80000013
 	SYMBOLIC_LINK_FLAG_DIRECTORY = 0x1
 )
 
@@ -125,6 +127,11 @@ func Read(path string) (string, uint32, error) {
 		flags = protocol.FlagSymlinkMissingTarget
 	} else if attr&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
 		flags = protocol.FlagDirectory
+		// TODO Check mountpoint's reparse point to see if Directory is set.
+	} else if data.reparseTag == IO_REPARSE_TAG_DEDUP {
+		// Treat deduplicated files as regular from the eyes of the protocol.
+		// Note that Lstat output must also be mangled elsewhere to reflect this.
+		return osutil.NormalizedFilename(path), 0, nil
 	}
 
 	return osutil.NormalizedFilename(data.PrintName()), flags, nil

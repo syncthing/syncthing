@@ -117,6 +117,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 		// Return value used when we are returning early and don't want to
 		// process the item. For directories, this means do-not-descend.
 		var skip error // nil
+
 		// info nil when error is not nil
 		if info != nil && info.IsDir() {
 			skip = filepath.SkipDir
@@ -141,6 +142,17 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			return nil
 		}
 
+		// Windows reports all reparse points as symlinks, including mount points
+		// and deduplicated files. Strip the Symlink bit from the file mode
+		// for these otherwise normal files.
+		var fiMode = info.Mode()
+		if fiMode&os.ModeSymlink == os.ModeSymlink && runtime.GOOS == "windows" {
+			_, newFlags, _ := symlinks.Read(p)
+			if newFlags == 0 {
+				fiMode &^= os.ModeSymlink
+			}
+		}
+
 		mtime := info.ModTime()
 		if w.MtimeRepo != nil {
 			mtime = w.MtimeRepo.GetMtime(rn, mtime)
@@ -151,7 +163,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			if debug {
 				l.Debugln("temporary:", rn)
 			}
-			if info.Mode().IsRegular() && mtime.Add(w.TempLifetime).Before(now) {
+			if fiMode.IsRegular() && mtime.Add(w.TempLifetime).Before(now) {
 				os.Remove(p)
 				if debug {
 					l.Debugln("removing temporary:", rn, mtime)
@@ -219,7 +231,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 
 		// Index wise symlinks are always files, regardless of what the target
 		// is, because symlinks carry their target path as their content.
-		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
+		if fiMode&os.ModeSymlink == os.ModeSymlink {
 			// If the target is a directory, do NOT descend down there. This
 			// will cause files to get tracked, and removing the symlink will
 			// as a result remove files in their real location.
@@ -280,7 +292,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			return skip
 		}
 
-		if info.Mode().IsDir() {
+		if fiMode.IsDir() {
 			if w.CurrentFiler != nil {
 				// A directory is "unchanged", if it
 				//  - exists
@@ -290,7 +302,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				//  - was not a symlink (since it's a directory now)
 				//  - was not invalid (since it looks valid now)
 				cf, ok = w.CurrentFiler.CurrentFile(rn)
-				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
+				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(fiMode))
 				if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 					return nil
 				}
@@ -300,7 +312,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			if w.IgnorePerms {
 				flags |= protocol.FlagNoPermBits | 0777
 			} else {
-				flags |= uint32(info.Mode() & maskModePerm)
+				flags |= uint32(fiMode & maskModePerm)
 			}
 			f := protocol.FileInfo{
 				Name:     rn,
@@ -315,8 +327,8 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			return nil
 		}
 
-		if info.Mode().IsRegular() {
-			curMode := uint32(info.Mode())
+		if fiMode.IsRegular() {
+			curMode := uint32(fiMode)
 			if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(rn) {
 				curMode |= 0111
 			}
@@ -339,7 +351,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				}
 
 				if debug {
-					l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
+					l.Debugln("rescan:", cf, mtime.Unix(), fiMode&os.ModePerm)
 				}
 			}
 

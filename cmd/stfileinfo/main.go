@@ -11,9 +11,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/scanner"
+	"github.com/syncthing/syncthing/internal/symlinks"
 )
 
 func main() {
@@ -37,13 +39,27 @@ func main() {
 		log.Fatal(err)
 	}
 
+	var fiMode = fi.Mode()
+
 	log.Println("Lstat:")
 	log.Printf("  Size: %d bytes", fi.Size())
-	log.Printf("  Mode: 0%o", fi.Mode())
+	log.Printf("  Mode: 0%o", fiMode)
 	log.Printf("  Time: %v (%d)", fi.ModTime(), fi.ModTime().Unix())
 	log.Println()
 
-	if !fi.Mode().IsDir() && !fi.Mode().IsRegular() {
+	// Windows reports all reparse points as symlinks. This includes
+	// deduplicated files, mount points, and actual symlinks
+	if fiMode&os.ModeSymlink == os.ModeSymlink && runtime.GOOS == "windows" {
+		_, newFlags, _ := symlinks.Read(path)
+
+		log.Printf("Original Mode: %v", fiMode)
+		if newFlags == 0 {
+			fiMode &^= os.ModeSymlink
+		}
+		log.Printf("Updated Mode: %v", fiMode)
+	}
+
+	if !fiMode.IsDir() && !fiMode.IsRegular() {
 		fi, err = os.Stat(path)
 		if err != nil {
 			log.Fatal(err)
@@ -51,12 +67,12 @@ func main() {
 
 		log.Println("Stat:")
 		log.Printf("  Size: %d bytes", fi.Size())
-		log.Printf("  Mode: 0%o", fi.Mode())
+		log.Printf("  Mode: 0%o", fiMode)
 		log.Printf("  Time: %v (%d)", fi.ModTime(), fi.ModTime().Unix())
 		log.Println()
 	}
 
-	if fi.Mode().IsRegular() {
+	if fiMode.IsRegular() {
 		log.Println("Blocks:")
 
 		fd, err := os.Open(path)
