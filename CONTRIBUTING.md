@@ -33,7 +33,7 @@ latest info on Transifex.
 
 Every contribution is welcome. If you want to contribute but are unsure
 where to start, any open issues are fair game! Be prepared for a
-[certain amount of review](https://github.com/syncthing/syncthing/wiki/FAQ#why-are-you-being-so-hard-on-my-pull-request);
+[certain amount of review](http://docs.syncthing.net/dev/intro.html#why-are-you-being-so-hard-on-my-pull-request);
 it's all in the name of quality. :) Following the points below will make this
 a smoother process.
 
