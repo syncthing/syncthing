@@ -20,13 +20,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/calmh/logger"
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"golang.org/x/crypto/bcrypt"
 )
-
-var l = logger.DefaultLogger
 
 const (
 	OldestHandledVersion = 5
