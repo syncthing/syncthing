@@ -105,7 +105,7 @@ the list of authors in the about box.
 
 ## Building
 
-[See the documentation](https://github.com/syncthing/syncthing/wiki/Building)
+[See the documentation](http://docs.syncthing.net/dev/building.html)
 on how to get started with a build environment.
 
 ## Branches
@@ -133,7 +133,7 @@ Yes please!
 
 ## Documentation
 
-[Over here!](https://github.com/syncthing/syncthing/wiki)
+[Over here!](http://docs.syncthing.net/)
 
 ## License
 
