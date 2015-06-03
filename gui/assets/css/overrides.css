@@ -153,27 +153,33 @@ table.table-condensed td {
     padding-right: 15px;
 }
 
-
 /**
  * Menu for select language
  */
 
-@media (min-width:480px) {
+@media (min-width:480px) and (max-width:649px) {
+    *[language-select] > .dropdown-menu {
+        width: 230px;
+    }
+}
+
+@media (min-width:650px) {
     *[language-select] > .dropdown-menu > li {
         width: 50%;
         float: left;
     }
     *[language-select] > .dropdown-menu {
-        width: 400px;
+        width: 440px;
     }
 }
+
 
 @media (max-width:479px) {
     .dropdown-menu {
         padding-top: 55px;
     }
 
-    *[language-select] > .dropdown-toggle {
+    nav .dropdown-toggle {
         font-size: 14px;
     }
 
