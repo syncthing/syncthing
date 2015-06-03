@@ -1,3 +1,5 @@
+.. _event-api:
+
 Event API
 =========
 
