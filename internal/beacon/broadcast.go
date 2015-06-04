@@ -47,7 +47,9 @@ func (b *Broadcast) writer() {
 
 		addrs, err := net.InterfaceAddrs()
 		if err != nil {
-			l.Warnln("Broadcast: interface addresses:", err)
+			if debug {
+				l.Debugln("Broadcast: interface addresses:", err)
+			}
 			continue
 		}
 
