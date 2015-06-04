@@ -572,7 +572,12 @@ func (s *apiSvc) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 	var err error
 	if len(folder) == 0 {
-		err = resetDB()
+		for folder := range cfg.Folders() {
+			err = s.model.ResetFolder(folder)
+			if err != nil {
+				break
+			}
+		}
 	} else {
 		err = s.model.ResetFolder(folder)
 	}
