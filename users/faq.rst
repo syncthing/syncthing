@@ -216,6 +216,17 @@ The CSRF tokens are stored using cookies. Therefore, if you get the message
 ``Syncthing seems to be experiencing a problem processing your request``, you
 should verify the cookie settings of your browser.
 
+How to resolve "Syncthing seems to be experiencing a problem processing your request"?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The Syncthing GUI uses cookies to maintain a session. You can't have more than one session open against the same website in the same browser, much like you can't log in as two different users on this forum at the same time from the same browser, so that may cause this error message.
+
+In 99% of the cases of this issue are:
+
+1. Using some sort of proxy/SSH tunneling which causes the cookies to be issued under an incorrect domain causing the browser to refuse them. Close your browser and only keep a single Syncthing Web GUI open at each time.
+2. Having some privacy add-on enabled in the browser causing cookies to be refused.
+3. Browser failing to provide the initially provided Basic Auth header to re-authenticate given syncthing was restarted and the session cookie is no longer valid. Refreshing the page usually fixes this.
+4. Having multiple sessions for the same site.
+
 Why do I see Syncthing twice in task manager?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
