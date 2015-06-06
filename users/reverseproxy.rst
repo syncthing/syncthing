@@ -28,9 +28,8 @@ Apache
 
     ProxyPass /syncthing/ http://localhost:8384/
     <Location /syncthing/>
-      ProxyPassReverse http://localhost:8384/
-      Order Allow,Deny
-      Allow from All
+        ProxyPassReverse http://localhost:8384/
+        Require all granted
     </Location>
 
 Nginx
