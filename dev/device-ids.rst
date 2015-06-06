@@ -79,15 +79,17 @@ encodes five bits per character, so we need 256 / 5 = 51.2 characters to encode
 the device ID. This becomes 52 characters in practice, but 52 characters of
 base32 would decode to 260 bits which is not an whole number of bytes. The
 base32 encoding adds padding to 280 bits (the next multiple of both 5 and 8
-bits) so the resulting ID looks something like
-``MFZWI3DBONSGYYLTMRWGC43ENRQXGZDMMFZWI3DBONSGYYLTMRWA====``.
+bits) so the resulting ID looks something like::
+
+    MFZWI3DBONSGYYLTMRWGC43ENRQXGZDMMFZWI3DBONSGYYLTMRWA====
 
 The padding (``====``) is stripped away, the device ID split in four
 groups, and `check
 digits <https://forum.syncthing.net/t/v0-9-0-new-device-id-format/478>`__
 are added for each group. For presentation purposes the device ID is
-grouped with dashes, resulting in the final value:
-``MFZWI3D-BONSGYC-YLTMRWG-C43ENR5 -QXGZDMM-FZWI3DP-BONSGYY-LTMRWAD``.
+grouped with dashes, resulting in the final value::
+
+    MFZWI3D-BONSGYC-YLTMRWG-C43ENR5 -QXGZDMM-FZWI3DP-BONSGYY-LTMRWAD
 
 Connection Establishment
 ~~~~~~~~~~~~~~~~~~~~~~~~
