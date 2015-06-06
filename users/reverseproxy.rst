@@ -66,7 +66,7 @@ behaviour as above
     RewriteCond %{HTTPS} !=on
     RewriteCond %{ENV:HTTPS} !=on
     RewriteRule .* https://%{SERVER_NAME}%{REQUEST_URI} [R=301,L]
-    RewriteRule ^(.*) http://localhost:8080/$1 [P]
+    RewriteRule ^(.*) http://localhost:8384/$1 [P]
 
 
 This method also redirects to HTTPS to prevent opening the GUI unencrypted.
