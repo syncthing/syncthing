@@ -3,13 +3,13 @@
 Reverse Proxy Setup
 ===================
 
-A reverse proxy allow you to "pass" requests to your web server to another
-site or program. The reverse proxy will make it look like Syncthing's WebUI
+A reverse proxy allow you to "pass" requests through your web server to another
+site or program. The reverse proxy will make it look like Syncthing's GUI
 is a page within your existing site.
 
 This is especially useful if:
 
--   You need to access the WebUI through the ports 80/443 but you already host a website.
+-   You need to access the GUI on port 80 or 443 but you already host a website on the same device.
 -   You want to share SSL certificates with an existing site.
 -   You want to share authentification with an existing setup.
 
@@ -18,12 +18,12 @@ Server Configuration
 
 If you have access to your web server's configuration use the following
 examples to pass the location **/syncthing** on your web server to Syncthing's
-WebUI hosted on **localhost:8384**.
+GUI hosted on **localhost:8384**.
 
 Apache
 ~~~~~~
 
-.. code::
+.. code-block::
 
     ProxyPass /syncthing/ http://localhost:8384/
     <Location /syncthing/>
@@ -35,7 +35,7 @@ Apache
 Nginx
 ~~~~~
 
-.. code::
+.. code-block::
 
     location /syncthing/ {
       proxy_set_header        Host $host;
@@ -59,7 +59,7 @@ Add the configuration bellow to a **.htaccess** file in the folder of your
 webroot which should redirect to the WebUI, **/syncthing** to produce the same
 behaviour as above
 
-.. code::
+.. code-block::
 
     RewriteEngine On
     RewriteCond %{HTTPS} !=on
@@ -68,4 +68,4 @@ behaviour as above
     RewriteRule ^(.*) http://localhost:8080/$1 [P]
 
 
-This method also redirects to https to prevent opening the gui unencrypted.
+This method also redirects to HTTPS to prevent opening the GUI unencrypted.
