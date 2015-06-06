@@ -23,7 +23,7 @@ GUI hosted on **localhost:8384**.
 Apache
 ~~~~~~
 
-.. code-block:
+::
 
     ProxyPass /syncthing/ http://localhost:8384/
     <Location /syncthing/>
@@ -35,7 +35,7 @@ Apache
 Nginx
 ~~~~~
 
-.. code-block:
+::
 
     location /syncthing/ {
       proxy_set_header        Host $host;
@@ -59,7 +59,7 @@ Add the configuration bellow to a **.htaccess** file in the folder of your
 webroot which should redirect to the WebUI, **/syncthing** to produce the same
 behaviour as above
 
-.. code-block:
+::
 
     RewriteEngine On
     RewriteCond %{HTTPS} !=on
