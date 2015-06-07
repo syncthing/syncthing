@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-DEVICE-IDS" "7" "June 01, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-DEVICE-IDS" "7" "June 07, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-device-ids \- Understanding Device IDs
 .
@@ -109,15 +109,33 @@ encodes five bits per character, so we need 256 / 5 = 51.2 characters to encode
 the device ID. This becomes 52 characters in practice, but 52 characters of
 base32 would decode to 260 bits which is not an whole number of bytes. The
 base32 encoding adds padding to 280 bits (the next multiple of both 5 and 8
-bits) so the resulting ID looks something like
-\fBMFZWI3DBONSGYYLTMRWGC43ENRQXGZDMMFZWI3DBONSGYYLTMRWA====\fP\&.
+bits) so the resulting ID looks something like:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+MFZWI3DBONSGYYLTMRWGC43ENRQXGZDMMFZWI3DBONSGYYLTMRWA====
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .sp
 The padding (\fB====\fP) is stripped away, the device ID split in four
 groups, and \fI\%check
 digits\fP <\fBhttps://forum.syncthing.net/t/v0-9-0-new-device-id-format/478\fP>
 are added for each group. For presentation purposes the device ID is
 grouped with dashes, resulting in the final value:
-\fBMFZWI3D\-BONSGYC\-YLTMRWG\-C43ENR5 \-QXGZDMM\-FZWI3DP\-BONSGYY\-LTMRWAD\fP\&.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+MFZWI3D\-BONSGYC\-YLTMRWG\-C43ENR5 \-QXGZDMM\-FZWI3DP\-BONSGYY\-LTMRWAD
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS Connection Establishment
 .sp
 So now we know what device IDs are, here\(aqs how they are used in Syncthing. When
