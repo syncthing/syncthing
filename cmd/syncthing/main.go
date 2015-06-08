@@ -596,10 +596,6 @@ func syncthingMain() {
 		m.StartDeadlockDetector(20 * 60 * time.Second)
 	}
 
-	// GUI
-
-	setupGUI(mainSvc, cfg, m)
-
 	// Clear out old indexes for other devices. Otherwise we'll start up and
 	// start needing a bunch of files which are nowhere to be found. This
 	// needs to be changed when we correctly do persistent indexes.
@@ -611,7 +607,20 @@ func syncthingMain() {
 			}
 			m.Index(device, folderCfg.ID, nil, 0, nil)
 		}
+		// Routine to pull blocks from other devices to synchronize the local
+		// folder. Does not run when we are in read only (publish only) mode.
+		if folderCfg.ReadOnly {
+			l.Okf("Ready to synchronize %s (read only; no external updates accepted)", folderCfg.ID)
+			m.StartFolderRO(folderCfg.ID)
+		} else {
+			l.Okf("Ready to synchronize %s (read-write)", folderCfg.ID)
+			m.StartFolderRW(folderCfg.ID)
+		}
 	}
+
+	// GUI
+
+	setupGUI(mainSvc, cfg, m)
 
 	// The default port we announce, possibly modified by setupUPnP next.
 
@@ -635,18 +644,6 @@ func syncthingMain() {
 
 	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
 	mainSvc.Add(connectionSvc)
-
-	for _, folder := range cfg.Folders() {
-		// Routine to pull blocks from other devices to synchronize the local
-		// folder. Does not run when we are in read only (publish only) mode.
-		if folder.ReadOnly {
-			l.Okf("Ready to synchronize %s (read only; no external updates accepted)", folder.ID)
-			m.StartFolderRO(folder.ID)
-		} else {
-			l.Okf("Ready to synchronize %s (read-write)", folder.ID)
-			m.StartFolderRW(folder.ID)
-		}
-	}
 
 	if cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
