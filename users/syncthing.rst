@@ -129,19 +129,32 @@ STTRACE
     A comma separated string of facilities to trace. The valid facility strings
     are:
 
-    - ``beacon``:   the beacon package
-    - ``discover``: the discover package
-    - ``events``:   the events package
-    - ``files``:    the files package
-    - ``http``:     the main package; HTTP requests
-    - ``locks``:    the sync package; trace long held locks
-    - ``net``:      the main package; connections & network messages
-    - ``model``:    the model package
-    - ``scanner``:  the scanner package
-    - ``stats``:    the stats package
-    - ``upnp``:     the upnp package
-    - ``xdr``:      the xdr package
-    - ``all``:      all of the above
+    beacon
+        the beacon package
+    discover
+        the discover package
+    events
+        the events package
+    files
+        the files package
+    http
+        the main package; HTTP requests
+    locks
+        the sync package; trace long held locks
+    net
+        the main package; connections & network messages
+    model
+        the model package
+    scanner
+        the scanner package
+    stats
+        the stats package
+    upnp
+        the upnp package
+    xdr
+        the xdr package
+    all
+        all of the above
 
 STPROFILER
     Set to a listen address such as "127.0.0.1:9090" to start the profiler with
