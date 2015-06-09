@@ -102,12 +102,11 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Started syncing %q / %q (%v %v)", data["folder"], data["item"], data["action"], data["type"])
 	case events.ItemFinished:
 		data := ev.Data.(map[string]interface{})
-		if err := data["error"]; err != nil {
+		if err, ok := data["error"].(*string); ok && err != nil {
 			// If the err interface{} is not nil, it is a string pointer.
 			// Dereference it to get the actual error or Sprintf will print
 			// the pointer value....
-			errStr := *err.(*string)
-			return fmt.Sprintf("Finished syncing %q / %q (%v %v): %v", data["folder"], data["item"], data["action"], data["type"], errStr)
+			return fmt.Sprintf("Finished syncing %q / %q (%v %v): %v", data["folder"], data["item"], data["action"], data["type"], *err)
 		}
 		return fmt.Sprintf("Finished syncing %q / %q (%v %v): Success", data["folder"], data["item"], data["action"], data["type"])
 
