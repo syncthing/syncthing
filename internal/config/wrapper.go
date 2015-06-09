@@ -17,17 +17,39 @@ import (
 	"github.com/syncthing/syncthing/internal/sync"
 )
 
-// An interface to handle configuration changes, and a wrapper type á la
-// http.Handler
-
-type Handler interface {
-	Changed(Configuration) error
+// The Committer interface is implemented by objects that need to know about
+// or have a say in configuration changes.
+//
+// When the configuration is about to be changed, VerifyConfiguration() is
+// called for each subscribing object, with the old and new configuration. A
+// nil error is returned if the new configuration is acceptable (i.e. does not
+// contain any errors that would prevent it from being a valid config).
+// Otherwise an error describing the problem is returned.
+//
+// If any subscriber returns an error from VerifyConfiguration(), the
+// configuration change is not committed and an error is returned to whoever
+// tried to commit the broken config.
+//
+// If all verification calls returns nil, CommitConfiguration() is called for
+// each subscribing object. The callee returns true if the new configuration
+// has been successfully applied, otherwise false. Any Commit() call returning
+// false will result in a "restart needed" respone to the API/user. Note that
+// the new configuration will still have been applied by those who were
+// capable of doing so.
+type Committer interface {
+	VerifyConfiguration(from, to Configuration) error
+	CommitConfiguration(from, to Configuration) (handled bool)
+	String() string
 }
 
-type HandlerFunc func(Configuration) error
+type CommitResponse struct {
+	ValidationError error
+	RequiresRestart bool
+}
 
-func (fn HandlerFunc) Changed(cfg Configuration) error {
-	return fn(cfg)
+var ResponseNoRestart = CommitResponse{
+	ValidationError: nil,
+	RequiresRestart: false,
 }
 
 // A wrapper around a Configuration that manages loads, saves and published
@@ -42,7 +64,7 @@ type Wrapper struct {
 	replaces  chan Configuration
 	mut       sync.Mutex
 
-	subs []Handler
+	subs []Committer
 	sMut sync.Mutex
 }
 
@@ -56,7 +78,6 @@ func Wrap(path string, cfg Configuration) *Wrapper {
 		sMut: sync.NewMutex(),
 	}
 	w.replaces = make(chan Configuration)
-	go w.Serve()
 	return w
 }
 
@@ -77,21 +98,6 @@ func Load(path string, myID protocol.DeviceID) (*Wrapper, error) {
 	return Wrap(path, cfg), nil
 }
 
-// Serve handles configuration replace events and calls any interested
-// handlers. It is started automatically by Wrap() and Load() and should not
-// be run manually.
-func (w *Wrapper) Serve() {
-	for cfg := range w.replaces {
-		w.sMut.Lock()
-		subs := w.subs
-		w.sMut.Unlock()
-
-		for _, h := range subs {
-			h.Changed(cfg)
-		}
-	}
-}
-
 // Stop stops the Serve() loop. Set and Replace operations will panic after a
 // Stop.
 func (w *Wrapper) Stop() {
@@ -100,9 +106,9 @@ func (w *Wrapper) Stop() {
 
 // Subscribe registers the given handler to be called on any future
 // configuration changes.
-func (w *Wrapper) Subscribe(h Handler) {
+func (w *Wrapper) Subscribe(c Committer) {
 	w.sMut.Lock()
-	w.subs = append(w.subs, h)
+	w.subs = append(w.subs, c)
 	w.sMut.Unlock()
 }
 
@@ -112,14 +118,50 @@ func (w *Wrapper) Raw() Configuration {
 }
 
 // Replace swaps the current configuration object for the given one.
-func (w *Wrapper) Replace(cfg Configuration) {
+func (w *Wrapper) Replace(cfg Configuration) CommitResponse {
 	w.mut.Lock()
 	defer w.mut.Unlock()
+	return w.replaceLocked(cfg)
+}
 
-	w.cfg = cfg
+func (w *Wrapper) replaceLocked(to Configuration) CommitResponse {
+	from := w.cfg
+
+	for _, sub := range w.subs {
+		if debug {
+			l.Debugln(sub, "verifying configuration")
+		}
+		if err := sub.VerifyConfiguration(from, to); err != nil {
+			if debug {
+				l.Debugln(sub, "rejected config:", err)
+			}
+			return CommitResponse{
+				ValidationError: err,
+			}
+		}
+	}
+
+	allOk := true
+	for _, sub := range w.subs {
+		if debug {
+			l.Debugln(sub, "committing configuration")
+		}
+		ok := sub.CommitConfiguration(from, to)
+		if !ok {
+			if debug {
+				l.Debugln(sub, "requires restart")
+			}
+			allOk = false
+		}
+	}
+
+	w.cfg = to
 	w.deviceMap = nil
 	w.folderMap = nil
-	w.replaces <- cfg.Copy()
+
+	return CommitResponse{
+		RequiresRestart: !allOk,
+	}
 }
 
 // Devices returns a map of devices. Device structures should not be changed,
@@ -138,22 +180,24 @@ func (w *Wrapper) Devices() map[protocol.DeviceID]DeviceConfiguration {
 
 // SetDevice adds a new device to the configuration, or overwrites an existing
 // device with the same ID.
-func (w *Wrapper) SetDevice(dev DeviceConfiguration) {
+func (w *Wrapper) SetDevice(dev DeviceConfiguration) CommitResponse {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
-	w.deviceMap = nil
-
-	for i := range w.cfg.Devices {
-		if w.cfg.Devices[i].DeviceID == dev.DeviceID {
-			w.cfg.Devices[i] = dev
-			w.replaces <- w.cfg.Copy()
-			return
+	newCfg := w.cfg.Copy()
+	replaced := false
+	for i := range newCfg.Devices {
+		if newCfg.Devices[i].DeviceID == dev.DeviceID {
+			newCfg.Devices[i] = dev
+			replaced = true
+			break
 		}
 	}
+	if !replaced {
+		newCfg.Devices = append(w.cfg.Devices, dev)
+	}
 
-	w.cfg.Devices = append(w.cfg.Devices, dev)
-	w.replaces <- w.cfg.Copy()
+	return w.replaceLocked(newCfg)
 }
 
 // Folders returns a map of folders. Folder structures should not be changed,
@@ -172,22 +216,24 @@ func (w *Wrapper) Folders() map[string]FolderConfiguration {
 
 // SetFolder adds a new folder to the configuration, or overwrites an existing
 // folder with the same ID.
-func (w *Wrapper) SetFolder(fld FolderConfiguration) {
+func (w *Wrapper) SetFolder(fld FolderConfiguration) CommitResponse {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
-	w.folderMap = nil
-
-	for i := range w.cfg.Folders {
-		if w.cfg.Folders[i].ID == fld.ID {
-			w.cfg.Folders[i] = fld
-			w.replaces <- w.cfg.Copy()
-			return
+	newCfg := w.cfg.Copy()
+	replaced := false
+	for i := range newCfg.Folders {
+		if newCfg.Folders[i].ID == fld.ID {
+			newCfg.Folders[i] = fld
+			replaced = true
+			break
 		}
 	}
+	if !replaced {
+		newCfg.Folders = append(w.cfg.Folders, fld)
+	}
 
-	w.cfg.Folders = append(w.cfg.Folders, fld)
-	w.replaces <- w.cfg.Copy()
+	return w.replaceLocked(newCfg)
 }
 
 // Options returns the current options configuration object.
@@ -198,11 +244,12 @@ func (w *Wrapper) Options() OptionsConfiguration {
 }
 
 // SetOptions replaces the current options configuration object.
-func (w *Wrapper) SetOptions(opts OptionsConfiguration) {
+func (w *Wrapper) SetOptions(opts OptionsConfiguration) CommitResponse {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	w.cfg.Options = opts
-	w.replaces <- w.cfg.Copy()
+	newCfg := w.cfg.Copy()
+	newCfg.Options = opts
+	return w.replaceLocked(newCfg)
 }
 
 // GUI returns the current GUI configuration object.
@@ -213,11 +260,12 @@ func (w *Wrapper) GUI() GUIConfiguration {
 }
 
 // SetGUI replaces the current GUI configuration object.
-func (w *Wrapper) SetGUI(gui GUIConfiguration) {
+func (w *Wrapper) SetGUI(gui GUIConfiguration) CommitResponse {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	w.cfg.GUI = gui
-	w.replaces <- w.cfg.Copy()
+	newCfg := w.cfg.Copy()
+	newCfg.GUI = gui
+	return w.replaceLocked(newCfg)
 }
 
 // IgnoredDevice returns whether or not connection attempts from the given

@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	stdsync "sync"
@@ -1716,6 +1717,37 @@ func (m *Model) ResetFolder(folder string) error {
 
 func (m *Model) String() string {
 	return fmt.Sprintf("model@%p", m)
+}
+
+func (m *Model) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
+}
+
+func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
+	// TODO: This should not use reflect, and should take more care to try to handle stuff without restart.
+
+	// Adding, removing or changing folders requires restart
+	if !reflect.DeepEqual(from.Folders, to.Folders) {
+		return false
+	}
+
+	// Removing a device requres restart
+	toDevs := make(map[protocol.DeviceID]bool, len(from.Devices))
+	for _, dev := range to.Devices {
+		toDevs[dev.DeviceID] = true
+	}
+	for _, dev := range from.Devices {
+		if _, ok := toDevs[dev.DeviceID]; !ok {
+			return false
+		}
+	}
+
+	// All of the generic options require restart
+	if !reflect.DeepEqual(from.Options, to.Options) {
+		return false
+	}
+
+	return true
 }
 
 func symlinkInvalid(isLink bool) bool {

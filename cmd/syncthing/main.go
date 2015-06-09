@@ -155,6 +155,7 @@ are mostly useful for developers. Use with care.
                  - "model"    (the model package)
                  - "scanner"  (the scanner package)
                  - "stats"    (the stats package)
+                 - "suture"   (the suture package; service management)
                  - "upnp"     (the upnp package)
                  - "xdr"      (the xdr package)
                  - "all"      (all of the above)
@@ -420,11 +421,12 @@ func upgradeViaRest() error {
 
 func syncthingMain() {
 	// Create a main service manager. We'll add things to this as we go along.
-	// We want any logging it does to go through our log system, with INFO
-	// severity.
+	// We want any logging it does to go through our log system.
 	mainSvc := suture.New("main", suture.Spec{
 		Log: func(line string) {
-			l.Infoln(line)
+			if debugSuture {
+				l.Debugln(line)
+			}
 		},
 	})
 	mainSvc.ServeBackground()
@@ -586,6 +588,7 @@ func syncthingMain() {
 	}
 
 	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb)
+	cfg.Subscribe(m)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
 		it, err := strconv.Atoi(t)
@@ -643,6 +646,7 @@ func syncthingMain() {
 	}
 
 	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
+	cfg.Subscribe(connectionSvc)
 	mainSvc.Add(connectionSvc)
 
 	if cpuProfile {
@@ -792,6 +796,7 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model) {
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
+			cfg.Subscribe(api)
 			mainSvc.Add(api)
 
 			if opts.StartBrowser && !noBrowser && !stRestarting {
