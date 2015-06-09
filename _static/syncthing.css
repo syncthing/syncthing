@@ -3,6 +3,21 @@
 	font-size: 18px;
 	line-height: 27px;
 }
+/* The theme sets this to 75% which seems to small to me. */
+.rst-content code {
+	font-size: 95%;
+}
+/* Bring back some vertical spacing between bullet points. */
+.rst-content li {
+	margin-bottom: 14px;
+}
+/* Make block quotes stand out a bit more. */
+.rst-content blockquote {
+	border-left: 5px solid #f0f0f0;
+	padding-left: 22px;
+	margin-left: 0px;
+}
+/* Add a strike-through class. */
 .strike {
 	text-decoration: line-through;
 }

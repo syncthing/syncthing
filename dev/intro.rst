@@ -1,118 +1,183 @@
 Syncthing Development
 =====================
 
-Here are some notes for getting started with developing for Syncthing.
-The first section discusses the options for building an external
-application using Syncthing as a component. The second section discusses
-the development process of Syncthing itself.
-
 Controlling Syncthing from External Applications
 ------------------------------------------------
 
-Our community has developed a number of `useful
-applications <https://github.com/syncthing/syncthing/wiki/Community-Contributions>`__
-that build around the Syncthing core, such as tray notifications or
-Android support. These are made possible using two APIs:
+The community has developed a number of `useful applications
+<https://github.com/syncthing/syncthing/wiki/Community-Contributions>`__ that
+build around the Syncthing core, such as tray notifications and Android
+support. These are made possible using two APIs:
 
--  Syncthing provides a long polling interface for exposing events from
-   the core utility towards a GUI. This :ref:`event-api` is useful for being
-   notified when changes occur.
+-  A long polling interface for exposing events from
+   the core utility to an external party. This :ref:`event-api` is useful for being
+   notified of when changes to files, network connections or sync status occur.
 
--  Syncthing exposes a :ref:`rest-api` over HTTP on the GUI port. This is
-   used by the GUI code (Javascript) and can be used by other processes
-   wishing to control Syncthing.
+-  A :ref:`rest-api` for controlling the operation of Syncthing and directly
+   querying for current status.
+
+If this covers what you need to do, there is no need to delve deeper. However,
+if you would like to add functionality to Syncthing itself, or correct a bug
+or two in there, please read on.
+
 
 Contributing to the Syncthing Core
 ----------------------------------
 
-Why is it written in Go?
-~~~~~~~~~~~~~~~~~~~~~~~~
+First of all, follow :ref:`building` to get your workspace set up correctly.
+Syncthing is written mainly in `Go <http://golang.org>`__ which has some
+fairly specific opinions on the required directory layout. If you're new to
+Go, don't fear -- it's a small language and easy to learn. There's a `wealth
+of resources <http://dave.cheney.net/resources-for-new-go-programmers>`__ on
+the web to help you get up to speed, and many people joining the project have
+done so with it being their first contact with Go.
 
-.. note:: This is an excerpt from a forum post by :user:`calmh`.
+When you are ready to start hacking, take a quick glance at the `contribution
+guidelines
+<https://github.com/syncthing/syncthing/blob/master/CONTRIBUTING.md>`__ to
+know what to expect and to make the process smoother. The main take away is to
+keep the code clean, base it on the ``master`` branch, and we'll sort out the
+rest once you file a pull request.
 
-Here's a non exhaustive list of the advantages I see in Go. Note that
-these are by no means exclusive to Go - there are other languages that
-are equally good or better each of these things. However, the
-combination is winning.
 
--  The language is modern, small, simple and quite strict. There's a
-   minimalism here that I like - what you see is what you get. Some
-   things that wouldn't even merit a warning in other languages (like
-   unused variables) are errors in Go - your code won't even compile. I
-   like the tidiness this promotes.
+Source Code Layout
+~~~~~~~~~~~~~~~~~~
 
--  Awesome concurrency. Go's concept of goroutines and channels is
-   simple, beautiful and works well. This is essential for something
-   like Syncthing where there's a lot of stuff going on in parallel.
+In the source repository you'll find a tree of various packages and directories. There is some Go code at the top level, but it's basically scripts for the build system. The actual code lives in the ``cmd/syncthing`` and ``internal`` directories. The web GUI lives in ``gui``. The rest is as follows.
 
--  Simple deployment. Go compiles to a single statically linked binary
-   that you just need to copy to the target system and run. It's trivial
-   to cross compile from one os/architecture into all others supported
-   by the Go compiler.
+Godeps/
+   Locally vendored copies of external dependencies.
 
--  Modern standard library, "some batteries included". This includes an
-   HTTP server, a clean (non-OpenSSL) crypto and TLS implementation,
-   JSON and XML serializers, etc.
+assets/
+   Various graphical assets -- the logo.
 
--  Good enough performance. The Go compiler doesn't generate as fast
-   code as the best C or C++ compilers out there, but it's still faster
-   than interpreted languages.
+cmd/
+   Commands either built as end products or used by the build process itself.
 
--  Tooling and community. Go does things somewhat differently than many
-   other languages and this can be a bit of an acquired taste... But for
-   example the existence and adoption of "go fmt" means there is no
-   discussion about formatting or indenting - there is only one
-   standard. "Go get" simplifies fetching and building, plus results in
-   a standardized repo layout. Etc.
+   genassets/
+      Generates asset files that are compiled into ``syncthing`` as part of the build process (build utility).
 
--  I think it's a really nifty language to work with.
+   stcompdirs/
+      Compares two directories (debugging utility).
 
-If you came here by asking "Why didn't you write Syncthing in
-$my\_favourite\_language", the last point above is really all you need.
-Of course you *could* write something like Syncthing in Java, C++ or PHP
-for that matter, but I wouldn't want to.
+   stevents/
+      Displays event trace from a remote ``syncthing`` using the API (debugging utility).
 
-Setting up a Go workspace
-~~~~~~~~~~~~~~~~~~~~~~~~~
+   stfileinfo/
+      Shows information about a file, in the same manner ``syncthing`` would see it (debugging utility).
 
--  Go is particularly picky about file locations; carefully follow the
-   paths used in :ref:`building` unless you know well what you're doing.
+   stfinddevice/
+      Looks up a device on a global discovery server (debugging utility).
 
--  To customize the web GUI without rebuilding, the ``STGUIASSETS``
-   environment parameter can be set to override the default files::
+   stindex/
+      Prints index (database) contents (debugging utility).
 
-      $ STGUIASSETS=gui ./bin/syncthing
+   syncthing/
+      Synchronizes files between devices...
+
+   todos/
+      Converts line endings from Unix to DOS standard (build utility).
+
+   transifexdl/
+      Downloads translations from Transifex (build utility).
+
+   translate/
+      Generates translation source for Transifex based on the HTML source (build utility).
+
+etc/
+   Startup scripts and integration files. Included as-is in the release packages.
+
+gui/
+   The web GUI source. Gets compiled into the ``syncthing`` binary by way of ``genassets`` and the build process.
+
+internal/
+   Contains all packages that make up the parts of ``syncthing``.
+
+   auto/
+      Auto generated asset data, created by ``genassets`` based on the contents of the ``gui`` directory.
+
+   beacon/
+      Multicast and broadcast UDP beacons. Used by the local discovery system.
+
+   config/
+      Parses, validates and saves configuration files.
+
+   db/
+      Stores and processes file index information in a database on disk.
+
+   discover/
+      The local and global device discovery -- maps device IDs to IP and port tuples.
+
+   events/
+      The event subsystem, handles emitting of and subscribing to events accross the other packages.
+
+   fnmatch/
+      Matches strings to glob patterns, used by the ignore package.
+
+   ignore/
+      Parses the ``.stignore`` file and matches it against file paths.
+
+   model/
+      Ties together many parts of ``syncthing`` and handles the main logic of synchronizing files with other devices.
+
+   osutil/
+      Abstracts away certain OS specific quirks.
+
+   scanner/
+      Looks for changes to files and hashes them as appropriate.
+
+   stats/
+      Records statistics about devices and folders.
+
+   symlinks/
+      Handles symlinks in a platform independent manner.
+
+   sync/
+      Provides optional debugging on top of the regular Mutex / RWMutex primitives.
+
+   upgrade/
+      Downloads and performs upgrade of the running binary.
+
+   upnp/
+      Discovers UPnP devices and sets up port mappings for incoming connections.
+
+   versioner/
+      Provides file versioning algorithms; simple, staggered and external.
+
+man/
+   Manual pages, generated from the documentation.
+
+pkg/
+   Compiled packages, generated by the build process.
+
+protocol/
+   Legacy location of the protocol package.
+
+test/
+   The integration test suite.
+
 
 Why are you being so hard on my pull request?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. note:: This is :user:`calmh`'s personal opinion.
+A pull request looks a little different depending on whether you're on the
+"contributor" or "maintainer" side. The contributor says:
 
-This isn't actually a frequently asked question as such, but I've
-*thought* it enough times myself when contributing to other projects
-that I think it's worth answering.
+   I implemented a new feature in your project for you!
 
-The things is, a pull request looks a little bit different depending on
-whether you're on the "contributor" or "maintainer" side. From a
-*contributor* point of view, this is what I might feel when I write and
-submit a pull request:
-
-   I fixed a bug (implemented a new feature) in your project for you!
-
-But here's what I see instead from the *maintainer* point of view:
+However, the maintainer hears:
 
    I wrote some code. I'd like you to test, support, document and
-   maintain it for me forever!
+   maintain it for me forever.
 
-With that in mind, the maintainer will want to make sure that the code
-is something we feel comfortable taking that responsibility for. That
-means well tested, clear implementation, fits into the overall
-architecture, etc.
+The maintainer will want to make sure that the code is something we feel
+comfortable taking that responsibility for. That means well tested, clear
+implementation, fits into the overall architecture, etc.
 
-But perhaps the existing code doesn't fulfill this to start with; is it
-then fair to expect it from a change in a pull request? For example
-asking for a test, where there is no test before. Well, the existing
-code has some advantage just by being legacy;
+But perhaps the existing code doesn't fulfill this to start with; is it then
+fair to expect it from a change in a pull request? For example asking for a
+test or documentation, where there is none before. Well, the existing code has
+some advantage just by being legacy;
 
 -  Perhaps there isn't a test, but we know this code works because it's
    been running in production for a long time without complaints. Then
@@ -122,9 +187,9 @@ code has some advantage just by being legacy;
    That just highlights that there *should have been* a test to start
    with, and this is the optimal time to add one.
 
--  Perhaps how the code works (or what exactly it does) isn't obviously
-   clear to the reviewer. A test will clarify and lock this down, and
-   also prevent us from *inadvertently breaking the code later*.
+-  Perhaps how the code works (or what exactly it does) isn't clear to the
+   reviewer. A test will clarify and lock this down, and also prevent us
+   from *inadvertently breaking it later*.
 
 Another thing that the maintainer might be hard about is whether the
 code actually solves the *entire* problem, or at least enough of it to
@@ -142,6 +207,4 @@ bugfixes and includes questions like;
    the maintainer will have to do after accepting the pull request.
 
 All in all, a great pull request creates less work for the maintainer,
-not more. If the pull request seems like it would add significantly to
-the maintainer workload, there will probably be some resistance to
-accepting it. ;)
+not more.
