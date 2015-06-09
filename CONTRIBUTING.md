@@ -33,7 +33,8 @@ latest info on Transifex.
 
 Every contribution is welcome. If you want to contribute but are unsure
 where to start, any open issues are fair game! See the [Contribution
-Guidelines] for the full story on committing code.
+Guidelines](http://docs.syncthing.net/dev/contributing.html) for the full
+story on committing code.
 
 ## Contributing Documentation
 
