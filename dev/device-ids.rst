@@ -89,7 +89,7 @@ digits <https://forum.syncthing.net/t/v0-9-0-new-device-id-format/478>`__
 are added for each group. For presentation purposes the device ID is
 grouped with dashes, resulting in the final value::
 
-    MFZWI3D-BONSGYC-YLTMRWG-C43ENR5 -QXGZDMM-FZWI3DP-BONSGYY-LTMRWAD
+    MFZWI3D-BONSGYC-YLTMRWG-C43ENR5-QXGZDMM-FZWI3DP-BONSGYY-LTMRWAD
 
 Connection Establishment
 ~~~~~~~~~~~~~~~~~~~~~~~~
