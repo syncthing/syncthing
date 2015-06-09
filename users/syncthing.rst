@@ -25,20 +25,33 @@ your machines as soon as they are online at the same time.
 Options
 -------
 
-``-audit``
+.. cmdoption:: -audit
+
     Write events to audit file.
-``-generate=<dir>``
+
+.. cmdoption:: -generate=<dir>
+
     Generate key and config in specified dir, then exit.
-``-gui-address=<address>``
+
+.. cmdoption:: -gui-address=<address>
+
     Override GUI address.
-``-gui-apikey=<key>``
+
+.. cmdoption:: -gui-apikey=<key>
+
     Override GUI API key.
-``-gui-authentication=<username:password>``
+
+.. cmdoption:: -gui-authentication=<username:password>
+
     Override GUI authentication; username:password.
-``-home=<dir>``
+
+.. cmdoption:: -home=<dir>
+
     Set configuration directory. The default configuration directory is:
     ``$HOME/.config/syncthing``.
-``-logflags=<flags>``
+
+.. cmdoption:: -logflags=<flags>
+
     Select information in log line prefix, default 2. The ``-logflags`` value is
     a sum of the following:
 
@@ -51,21 +64,37 @@ Options
     To prefix each log line with date and time, set ``-logflags=3`` (1 + 2 from
     above). The value 0 is used to disable all of the above. The default is to
     show time only (2).
-``-no-browser``
+
+.. cmdoption:: -no-browser
+
     Do not start a browser.
-``-no-restart``
+
+.. cmdoption:: -no-restart
+
     Do not restart; just exit.
-``-reset``
+
+.. cmdoption:: -reset
+
     Reset the database.
-``-upgrade``
+
+.. cmdoption:: -upgrade
+
     Perform upgrade.
-``-upgrade-check``
+
+.. cmdoption:: -upgrade-check
+
     Check for available upgrade.
-``-upgrade-to=<url>``
+
+.. cmdoption:: -upgrade-to=<url>
+
     Force upgrade directly from specified URL.
-``-verbose``
+
+.. cmdoption:: -verbose
+
     Print verbose log output.
-``-version``
+
+.. cmdoption:: -version
+
     Show version.
 
 Exit Codes
