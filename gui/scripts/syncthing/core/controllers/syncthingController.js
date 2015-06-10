@@ -521,6 +521,11 @@ angular.module('syncthing.core')
             if ($scope.model[folderCfg.id].state == 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
+            
+            // after restart syncthing process state may be empty
+            if (!$scope.model[folderCfg.id].state) {
+                return 'unknown'; 
+            }
 
             return '' + $scope.model[folderCfg.id].state;
         };
