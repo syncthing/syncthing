@@ -86,17 +86,10 @@ func (d *Discoverer) StartLocal(localPort int, localMCAddr string) {
 }
 
 func (d *Discoverer) startLocalIPv4Broadcasts(localPort int) {
-	bb, err := beacon.NewBroadcast(localPort)
-	if err != nil {
-		if debug {
-			l.Debugln("discover: Start local v4:", err)
-		}
-		l.Infoln("Local discovery over IPv4 unavailable")
-		return
-	}
-
+	bb := beacon.NewBroadcast(localPort)
 	d.beacons = append(d.beacons, bb)
 	go d.recvAnnouncements(bb)
+	bb.ServeBackground()
 }
 
 func (d *Discoverer) startLocalIPv6Multicasts(localMCAddr string) {
