@@ -32,12 +32,12 @@ some of the same things, namely syncing files between two or more computers.
 
 BitTorrent Sync by BitTorrent, Inc is a proprietary peer-to-peer file
 synchronization tool available for Windows, Mac, Linux, Android, iOS, Windows
-Phone, Amazon Kindle Fire and BSD. [#btsync]_
+Phone, Amazon Kindle Fire and BSD. [#btsync]_ Syncthing is an open source file
+synchronization tool.
 
-Syncthing is an open source file synchronization tool. Syncthing uses an open
-and documented protocol, and likewise the security mechanisms in use are well
-defined and visible in the source code. BitTorrent Sync uses an undocumented,
-closed protocol with unknown security properties.
+Syncthing uses an open and documented protocol, and likewise the security
+mechanisms in use are well defined and visible in the source code. BitTorrent
+Sync uses an undocumented, closed protocol with unknown security properties.
 
 .. [#btsync] http://en.wikipedia.org/wiki/BitTorrent_Sync
 
