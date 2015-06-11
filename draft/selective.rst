@@ -36,7 +36,7 @@ To only synchronize documents and vacation pictures, the following selection can
       [X] Documents
           [ ] Processes
           [ ] Standards
-      [ ] Pictures
+      [/] Pictures
           [X] Vacation
           [ ] Work
       [ ] Music
@@ -67,7 +67,7 @@ adding patterns to match them. Excluded files are:
   of sync" status or be fetched from the network).
 
 - *Removed* when present in a directory that is marked for deletion by another
-  *device.
+  device.
 
 Patterns are in "glob" form, with the following allowed syntax elements:
 
@@ -117,6 +117,6 @@ Exclude a specific directory only
 Sync only a specific file in a specific directory; i.e. only one movie out of lots
 	Not really possible... Do we need this?
 
-Syncing ingnore and exclusion patterns between devices
+Syncing ignore and exclusion patterns between devices
   Not supported. However not impossible in the future, given that we store the above in the config.
 
