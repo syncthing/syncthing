@@ -116,3 +116,7 @@ Exclude a specific directory only
 
 Sync only a specific file in a specific directory; i.e. only one movie out of lots
 	Not really possible... Do we need this?
+
+Syncing ingnore and exclusion patterns between devices
+  Not supported. However not impossible in the future, given that we store the above in the config.
+
