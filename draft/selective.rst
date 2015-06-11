@@ -1,3 +1,5 @@
+.. note:: This describes an incomplete feature under development.
+
 Selective Sync
 ==============
 
@@ -5,6 +7,7 @@ This is for when you don't want to synchronize *all* files from the cluster
 onto your device, or you want only some directories of your to be synced
 *to* the cluster. There are two mechanisms that support this usage; *Directory
 Selection* and *Excluded Files*.
+
 
 Directory Selection
 -------------------
@@ -46,7 +49,10 @@ and directories no in ~/Sync/Documents or ~/Sync/Pictures/Vacation -- no
 changes will be downloaded from the cluster and local changes will not be
 tracked.
 
-.. note:: When displaying the tree we must merge what we actually have on disk with what is in the global state... Or we will not be able to show new directories to the user as we don't know about them...
+.. note:: When displaying the tree we must merge what we actually have on disk
+	with what is in the global state.Or we will not be able to show new
+	directories to the user as we don't know about them...
+
 
 Excluded Files
 --------------
@@ -74,6 +80,9 @@ Question mark (``?``)
 Ranges (``[a-f]``)
 	Matches any of the characters in the range exactly once.
 
+Exclamation mark (``!``)
+	At the start of a pattern, inverts the pattern (i.e. make matched file *not* be excluded).
+
 Examples:
 
 ``*.jpg``
@@ -82,6 +91,28 @@ Examples:
 ``[0-9]*``
 	Matches all files with names starting with a digit.
 
-File exclusions apply only to files, not to directories, and apply equally in
-all directories in the folder.
+``!*.doc``
+	Do not exclude ``.doc`` files.
 
+File exclusions apply only to files, not to directories, and apply equally in
+all directories in the folder. Patterns are searched in the order given and
+the first match wins.
+
+
+Use Cases
+---------
+
+Sync only specific directories
+	This is covered perfectly by the "directory selection" part
+
+Exclude common crap files like Thumbs.db
+	This is covered perfectly by the "excluded files" part
+
+Sync only a specific file type
+	Covered by ``!``-pattern plus exclude everything
+
+Exclude a specific directory only
+	Possible by using directory selection and selecting all other directories.
+
+Sync only a specific file in a specific directory; i.e. only one movie out of lots
+	Not really possible... Do we need this?
