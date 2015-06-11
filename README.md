@@ -52,7 +52,7 @@ Documentation
 =============
 
 Please see the [Syncthing
-documentation site](http://docs.syncthing.net/dev/).
+documentation site](http://docs.syncthing.net/).
 
 All code is licensed under the
 [MPLv2 License](https://github.com/syncthing/syncthing/blob/master/LICENSE).
