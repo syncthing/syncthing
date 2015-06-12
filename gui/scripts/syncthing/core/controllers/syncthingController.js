@@ -521,10 +521,10 @@ angular.module('syncthing.core')
             if ($scope.model[folderCfg.id].state == 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
-            
+
             // after restart syncthing process state may be empty
             if (!$scope.model[folderCfg.id].state) {
-                return 'unknown'; 
+                return 'unknown';
             }
 
             return '' + $scope.model[folderCfg.id].state;
@@ -990,7 +990,11 @@ angular.module('syncthing.core')
             $scope.currentFolder.devices.forEach(function (n) {
                 $scope.currentFolder.selectedDevices[n.deviceID] = true;
             });
-            if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "simple") {
+            if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "trashcan") {
+                $scope.currentFolder.trashcanFileVersioning = true;
+                $scope.currentFolder.fileVersioningSelector = "trashcan";
+                $scope.currentFolder.trashcanClean = +$scope.currentFolder.versioning.params.cleanoutDays;
+            } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "simple") {
                 $scope.currentFolder.simpleFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "simple";
                 $scope.currentFolder.simpleKeep = +$scope.currentFolder.versioning.params.keep;
@@ -1007,6 +1011,7 @@ angular.module('syncthing.core')
             } else {
                 $scope.currentFolder.fileVersioningSelector = "none";
             }
+            $scope.currentFolder.trashcanClean = $scope.currentFolder.trashcanClean || 0; // weeds out nulls and undefineds
             $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
             $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
             $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
@@ -1030,6 +1035,7 @@ angular.module('syncthing.core')
             };
             $scope.currentFolder.rescanIntervalS = 60;
             $scope.currentFolder.fileVersioningSelector = "none";
+            $scope.currentFolder.trashcanClean = 0;
             $scope.currentFolder.simpleKeep = 5;
             $scope.currentFolder.staggeredMaxAge = 365;
             $scope.currentFolder.staggeredCleanInterval = 3600;
@@ -1051,6 +1057,7 @@ angular.module('syncthing.core')
 
             $scope.currentFolder.rescanIntervalS = 60;
             $scope.currentFolder.fileVersioningSelector = "none";
+            $scope.currentFolder.trashcanClean = 0;
             $scope.currentFolder.simpleKeep = 5;
             $scope.currentFolder.staggeredMaxAge = 365;
             $scope.currentFolder.staggeredCleanInterval = 3600;
@@ -1087,7 +1094,16 @@ angular.module('syncthing.core')
             }
             delete folderCfg.selectedDevices;
 
-            if (folderCfg.fileVersioningSelector === "simple") {
+            if (folderCfg.fileVersioningSelector === "trashcan") {
+                folderCfg.versioning = {
+                    'Type': 'trashcan',
+                    'Params': {
+                        'cleanoutDays': '' + folderCfg.trashcanClean
+                    }
+                };
+                delete folderCfg.trashcanFileVersioning;
+                delete folderCfg.trashcanClean;
+            } else if (folderCfg.fileVersioningSelector === "simple") {
                 folderCfg.versioning = {
                     'Type': 'simple',
                     'Params': {
