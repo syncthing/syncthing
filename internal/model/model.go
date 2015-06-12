@@ -35,6 +35,7 @@ import (
 	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syncthing/syncthing/internal/versioner"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/thejerf/suture"
 )
 
 // How many files to send in each Index/IndexUpdate message.
@@ -61,6 +62,8 @@ type service interface {
 }
 
 type Model struct {
+	*suture.Supervisor
+
 	cfg             *config.Wrapper
 	db              *leveldb.DB
 	finder          *db.BlockFinder
@@ -103,6 +106,13 @@ var (
 // for file data without altering the local folder in any way.
 func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB) *Model {
 	m := &Model{
+		Supervisor: suture.New("model", suture.Spec{
+			Log: func(line string) {
+				if debug {
+					l.Debugln(line)
+				}
+			},
+		}),
 		cfg:                cfg,
 		db:                 ldb,
 		finder:             db.NewBlockFinder(ldb, cfg),
@@ -168,7 +178,14 @@ func (m *Model) StartFolderRW(folder string) {
 		if !ok {
 			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
 		}
-		p.versioner = factory(folder, cfg.Path(), cfg.Versioning.Params)
+		versioner := factory(folder, cfg.Path(), cfg.Versioning.Params)
+		if service, ok := versioner.(suture.Service); ok {
+			// The versioner implements the suture.Service interface, so
+			// expects to be run in the background in addition to being called
+			// when files are going to be archived.
+			m.Add(service)
+		}
+		p.versioner = versioner
 	}
 
 	go p.Serve()

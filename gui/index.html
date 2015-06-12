@@ -263,6 +263,7 @@
                     <tr ng-if="folder.versioning.type">
                       <th><span class="glyphicon glyphicon-tags"></span>&nbsp;<span translate>File Versioning</span></th>
                       <td class="text-right" ng-switch="folder.versioning.type">
+                        <span ng-switch-when="trashcan" translate>Trash Can File Versioning</span>
                         <span ng-switch-when="staggered" translate>Staggered File Versioning</span>
                         <span ng-switch-when="simple" translate>Simple File Versioning</span>
                         <span ng-switch-when="external" translate>External File Versioning</span>
@@ -681,27 +682,27 @@
                   </select>
                 </div>
                 <div class="form-group">
-                  <label translate>File Versioning</label>
-                  <div class="radio">
-                    <label>
-                      <input type="radio" ng-model="currentFolder.fileVersioningSelector" value="none"> <span translate>No File Versioning</span>
-                    </label>
+                  <label translate>File Versioning</label>&emsp;<a href="http://docs.syncthing.net/users/versioning.html" target="_blank"><span class="glyphicon glyphicon-book"></span>&nbsp;<span translate>Help</span></a>
+                  <select class="form-control" ng-model="currentFolder.fileVersioningSelector">
+                    <option value="none" translate>No File Versioning</option>
+                    <option value="trashcan" translate>Trash Can File Versioning</option>
+                    <option value="simple" translate>Simple File Versioning</option>
+                    <option value="staggered" translate>Staggered File Versioning</option>
+                    <option value="external" translate>External File Versioning</option>
+                  </select>
+                </div>
+                <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='trashcan'" ng-class="{'has-error': folderEditor.trashcanClean.$invalid && folderEditor.trashcanClean.$dirty}">
+                  <p translate class="help-block">Files are moved to .stversions folder when replaced or deleted by Syncthing.</p>
+                  <label translate for="trashcanClean">Clean out after</label>
+                  <div class="input-group">
+                    <input name="trashcanClean" id="trashcanClean" class="form-control text-right" type="number" ng-model="currentFolder.trashcanClean" required min="0"></input>
+                    <div class="input-group-addon">days</div>
                   </div>
-                  <div class="radio">
-                    <label>
-                      <input type="radio" ng-model="currentFolder.fileVersioningSelector" value="simple"> <span translate>Simple File Versioning</span>
-                    </label>
-                  </div>
-                  <div class="radio">
-                    <label>
-                      <input type="radio" ng-model="currentFolder.fileVersioningSelector" value="staggered"> <span translate>Staggered File Versioning</span>
-                    </label>
-                  </div>
-                  <div class="radio">
-                    <label>
-                      <input type="radio" ng-model="currentFolder.fileVersioningSelector" value="external"> <span translate>External File Versioning</span>
-                    </label>
-                  </div>
+                  <p class="help-block">
+                    <span translate ng-if="folderEditor.trashcanClean.$valid || folderEditor.trashcanClean.$pristine">The number of days to keep files in the trash can. Zero means forever.</span>
+                    <span translate ng-if="folderEditor.trashcanClean.$error.required && folderEditor.trashcanClean.$dirty">The number of days must be a number and cannot be blank.</span>
+                    <span translate ng-if="folderEditor.trashcanClean.$error.min && folderEditor.trashcanClean.$dirty">A negative number of days doesn't make sense.</span>
+                  </p>
                 </div>
                 <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.simpleKeep.$invalid && folderEditor.simpleKeep.$dirty}">
                   <p translate class="help-block">Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.</p>
