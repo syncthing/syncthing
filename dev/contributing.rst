@@ -1,3 +1,5 @@
+.. _contribution-guidelines:
+
 Contribution Guidelines
 =======================
 
