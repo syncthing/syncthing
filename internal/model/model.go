@@ -58,6 +58,7 @@ type service interface {
 
 	setState(state folderState)
 	setError(err error)
+	clearError()
 	getState() (folderState, time.Time, error)
 }
 
@@ -1287,6 +1288,12 @@ nextSub:
 
 	fchan, err := w.Walk()
 	if err != nil {
+		// The error we get here is likely an OS level error, which might not be
+		// as readable as our health check errors. Check if we can get a health
+		// check error first, and use that if it's available.
+		if ferr := m.CheckFolderHealth(folder); ferr != nil {
+			err = ferr
+		}
 		runner.setError(err)
 		return err
 	}
@@ -1714,7 +1721,7 @@ func (m *Model) CheckFolderHealth(id string) error {
 	} else if oldErr != nil {
 		l.Infof("Folder %q error is cleared, restarting", folder.ID)
 		if runnerExists {
-			runner.setState(FolderIdle)
+			runner.clearError()
 		}
 	}
 
