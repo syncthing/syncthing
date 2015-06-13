@@ -140,6 +140,7 @@ angular.module('syncthing.core')
             var data = arg.data;
             if ($scope.model[data.folder]) {
                 $scope.model[data.folder].state = data.to;
+                $scope.model[data.folder].error = data.error;
             }
         });
 
