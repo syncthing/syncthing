@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function($locationProvider) {
         $locationProvider.html5Mode(true).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events) {
         'use strict';
 
         // private/helper definitions
@@ -15,6 +15,7 @@ angular.module('syncthing.core')
         function initController() {
             LocaleService.autoConfigLocale();
             setInterval($scope.refresh, 10000);
+            Events.start();
         }
 
 
@@ -66,7 +67,7 @@ angular.module('syncthing.core')
             'touch': 'asterisk'
         };
 
-        $scope.$on('UIOnline', function (event, arg) {
+        $scope.$on(Events.ONLINE, function () {
             if (online && !restarting) {
                 return;
             }
@@ -100,7 +101,7 @@ angular.module('syncthing.core')
             $('#shutdown').modal('hide');
         });
 
-        $scope.$on('UIOffline', function (event, arg) {
+        $scope.$on(Events.OFFLINE, function () {
             if (navigatingAway || !online) {
                 return;
             }
@@ -125,7 +126,7 @@ angular.module('syncthing.core')
             if (!restarting) {
                 if (arg.status === 0) {
                     // A network error, not an HTTP error
-                    $scope.$emit('UIOffline');
+                    $scope.$emit(Events.OFFLINE);
                 } else if (arg.status >= 400 && arg.status <= 599) {
                     // A genuine HTTP error
                     $('#networkError').modal('hide');
@@ -136,7 +137,7 @@ angular.module('syncthing.core')
             }
         });
 
-        $scope.$on('StateChanged', function (event, arg) {
+        $scope.$on(Events.STATE_CHANGED, function (event, arg) {
             var data = arg.data;
             if ($scope.model[data.folder]) {
                 $scope.model[data.folder].state = data.to;
@@ -144,21 +145,24 @@ angular.module('syncthing.core')
             }
         });
 
-        $scope.$on('LocalIndexUpdated', function (event, arg) {
-            var data = arg.data;
+        $scope.$on(Events.LOCAL_INDEX_UPDATED, function (event, arg) {
             refreshFolderStats();
         });
 
-        $scope.$on('RemoteIndexUpdated', function (event, arg) {
+        /* currently not using
+
+        $scope.$on('Events.REMOTE_INDEX_UPDATED', function (event, arg) {
             // Nothing
         });
 
-        $scope.$on('DeviceDisconnected', function (event, arg) {
+        */
+
+        $scope.$on(Events.DEVICE_DISCONNECTED, function (event, arg) {
             delete $scope.connections[arg.data.id];
             refreshDeviceStats();
         });
 
-        $scope.$on('DeviceConnected', function (event, arg) {
+        $scope.$on(Events.DEVICE_CONNECTED, function (event, arg) {
             if (!$scope.connections[arg.data.id]) {
                 $scope.connections[arg.data.id] = {
                     inbps: 0,
@@ -173,7 +177,7 @@ angular.module('syncthing.core')
             }
         });
 
-        $scope.$on('ConfigLoaded', function (event) {
+        $scope.$on('ConfigLoaded', function () {
             if ($scope.config.options.urAccepted === 0) {
                 // If usage reporting has been neither accepted nor declined,
                 // we want to ask the user to make a choice. But we don't want
@@ -193,15 +197,15 @@ angular.module('syncthing.core')
             }
         });
 
-        $scope.$on('DeviceRejected', function (event, arg) {
+        $scope.$on(Events.DEVICE_REJECTED, function (event, arg) {
             $scope.deviceRejections[arg.data.device] = arg;
         });
 
-        $scope.$on('FolderRejected', function (event, arg) {
+        $scope.$on(Events.FOLDER_REJECTED, function (event, arg) {
             $scope.folderRejections[arg.data.folder + "-" + arg.data.device] = arg;
         });
 
-        $scope.$on('ConfigSaved', function (event, arg) {
+        $scope.$on(Events.CONFIG_SAVED, function (event, arg) {
             updateLocalConfig(arg.data);
 
             $http.get(urlbase + '/system/config/insync').success(function (data) {
@@ -209,7 +213,7 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         });
 
-        $scope.$on('DownloadProgress', function (event, arg) {
+        $scope.$on(Events.DOWNLOAD_PROGRESS, function (event, arg) {
             var stats = arg.data;
             var progress = {};
             for (var folder in stats) {
@@ -254,12 +258,12 @@ angular.module('syncthing.core')
             console.log("DownloadProgress", $scope.progress);
         });
 
-        $scope.$on('FolderSummary', function (event, arg) {
+        $scope.$on(Events.FOLDER_SUMMARY, function (event, arg) {
             var data = arg.data;
             $scope.model[data.folder] = data.summary;
         });
 
-        $scope.$on('FolderCompletion', function (event, arg) {
+        $scope.$on(Events.FOLDER_COMPLETION, function (event, arg) {
             var data = arg.data;
             if (!$scope.completion[data.device]) {
                 $scope.completion[data.device] = {};
@@ -444,7 +448,7 @@ angular.module('syncthing.core')
             } else {
                 return 'sync';
             }
-        };
+        }
 
         function parseNeeded(data) {
             var merged = [];
@@ -475,7 +479,7 @@ angular.module('syncthing.core')
         $scope.neededChangePageSize = function (perpage) {
             $scope.neededPageSize = perpage;
             refreshNeed($scope.neededFolder);
-        }
+        };
 
         var refreshDeviceStats = debounce(function () {
             $http.get(urlbase + "/stats/device").success(function (data) {
@@ -973,7 +977,7 @@ angular.module('syncthing.core')
 
         $scope.$watch('currentFolder.path', function (newvalue) {
             if (newvalue && newvalue.trim().charAt(0) == '~') {
-                $scope.currentFolder.path = $scope.system.tilde + newvalue.trim().substring(1)
+                $scope.currentFolder.path = $scope.system.tilde + newvalue.trim().substring(1);
             }
             $http.get(urlbase + '/system/browse', {
                 params: { current: newvalue }
@@ -1052,19 +1056,19 @@ angular.module('syncthing.core')
             $scope.dismissFolderRejection(folder, device);
             $scope.currentFolder = {
                 id: folder,
-                selectedDevices: {}
+                selectedDevices: {},
+                rescanIntervalS: 60,
+                fileVersioningSelector: "none",
+                trashcanClean: 0,
+                simpleKeep: 5,
+                staggeredMaxAge: 365,
+                staggeredCleanInterval: 3600,
+                staggeredVersionsPath: "",
+                externalCommand: "",
+                autoNormalize: true
             };
             $scope.currentFolder.selectedDevices[device] = true;
 
-            $scope.currentFolder.rescanIntervalS = 60;
-            $scope.currentFolder.fileVersioningSelector = "none";
-            $scope.currentFolder.trashcanClean = 0;
-            $scope.currentFolder.simpleKeep = 5;
-            $scope.currentFolder.staggeredMaxAge = 365;
-            $scope.currentFolder.staggeredCleanInterval = 3600;
-            $scope.currentFolder.staggeredVersionsPath = "";
-            $scope.currentFolder.externalCommand = "";
-            $scope.currentFolder.autoNormalize = true;
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
@@ -1159,12 +1163,12 @@ angular.module('syncthing.core')
             });
             names.sort();
             return names.join(", ");
-        }
+        };
 
         $scope.deviceFolders = function (deviceCfg) {
             var folders = [];
             for (var folderID in $scope.folders) {
-                var devices = $scope.folders[folderID].devices
+                var devices = $scope.folders[folderID].devices;
                 for (var i = 0; i < devices.length; i++) {
                     if (devices[i].deviceID == deviceCfg.deviceID) {
                         folders.push(folderID);
