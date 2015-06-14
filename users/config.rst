@@ -21,22 +21,22 @@ and index caches. The location defaults to ``$HOME/.config/syncthing``
 (Windows 7+). It can be changed at runtime using the ``-home`` flag. In this
 directory the following files are located:
 
-config.xml
+:file:`config.xml`
     The configuration file, in XML format.
 
-cert.pem, key.pem
+:file:`cert.pem`, :file:`key.pem`
     The device's RSA public and private key. These form the basis for the
     device ID. The key must be kept private.
 
-https-cert.pem, https-key.pem
+:file:`https-cert.pem`, :file:`https-key.pem`
     The certificate and key for HTTPS GUI connections. These may be replaced
     with a custom certificate for HTTPS as desired.
 
-index-v0.11.0.db (and similar)
+:file:`index-{*}.db`
     A directory holding the database with metadata and hashes of the files
     currently on disk and available from peers.
 
-csrftokens.txt
+:file:`csrftokens.txt`
     A list of recently issued CSRF tokens (for protection against browser cross
     site request forgery).
 

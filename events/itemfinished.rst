@@ -37,3 +37,6 @@ An unsuccessful operation:
     }
 
 The ``action`` field is either ``update`` (contents changed), ``metadata`` (file metadata changed but not contents), or ``delete``.
+
+.. versionadded:: 0.11.10
+    The ``metadata`` action.
