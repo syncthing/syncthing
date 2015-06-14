@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "June 07, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING" "1" "June 14, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -56,26 +56,38 @@ your machines as soon as they are online at the same time.
 .SH OPTIONS
 .INDENT 0.0
 .TP
-.B \fB\-audit\fP
+.B \-audit
 Write events to audit file.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-generate=<dir>\fP
+.B \-generate=<dir>
 Generate key and config in specified dir, then exit.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-gui\-address=<address>\fP
+.B \-gui\-address=<address>
 Override GUI address.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-gui\-apikey=<key>\fP
+.B \-gui\-apikey=<key>
 Override GUI API key.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-gui\-authentication=<username:password>\fP
+.B \-gui\-authentication=<username:password>
 Override GUI authentication; username:password.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-home=<dir>\fP
+.B \-home=<dir>
 Set configuration directory. The default configuration directory is:
 \fB$HOME/.config/syncthing\fP\&.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-logflags=<flags>\fP
+.B \-logflags=<flags>
 Select information in log line prefix, default 2. The \fB\-logflags\fP value is
 a sum of the following:
 .INDENT 7.0
@@ -94,29 +106,45 @@ a sum of the following:
 To prefix each log line with date and time, set \fB\-logflags=3\fP (1 + 2 from
 above). The value 0 is used to disable all of the above. The default is to
 show time only (2).
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-no\-browser\fP
+.B \-no\-browser
 Do not start a browser.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-no\-restart\fP
+.B \-no\-restart
 Do not restart; just exit.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-reset\fP
+.B \-reset
 Reset the database.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-upgrade\fP
+.B \-upgrade
 Perform upgrade.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-upgrade\-check\fP
+.B \-upgrade\-check
 Check for available upgrade.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-upgrade\-to=<url>\fP
+.B \-upgrade\-to=<url>
 Force upgrade directly from specified URL.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-verbose\fP
+.B \-verbose
 Print verbose log output.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B \fB\-version\fP
+.B \-version
 Show version.
 .UNINDENT
 .SH EXIT CODES
@@ -156,32 +184,45 @@ Directory to load GUI assets from. Overrides compiled in assets.
 A comma separated string of facilities to trace. The valid facility strings
 are:
 .INDENT 7.0
-.IP \(bu 2
-\fBbeacon\fP:   the beacon package
-.IP \(bu 2
-\fBdiscover\fP: the discover package
-.IP \(bu 2
-\fBevents\fP:   the events package
-.IP \(bu 2
-\fBfiles\fP:    the files package
-.IP \(bu 2
-\fBhttp\fP:     the main package; HTTP requests
-.IP \(bu 2
-\fBlocks\fP:    the sync package; trace long held locks
-.IP \(bu 2
-\fBnet\fP:      the main package; connections & network messages
-.IP \(bu 2
-\fBmodel\fP:    the model package
-.IP \(bu 2
-\fBscanner\fP:  the scanner package
-.IP \(bu 2
-\fBstats\fP:    the stats package
-.IP \(bu 2
-\fBupnp\fP:     the upnp package
-.IP \(bu 2
-\fBxdr\fP:      the xdr package
-.IP \(bu 2
-\fBall\fP:      all of the above
+.TP
+.B beacon
+the beacon package
+.TP
+.B discover
+the discover package
+.TP
+.B events
+the events package
+.TP
+.B files
+the files package
+.TP
+.B http
+the main package; HTTP requests
+.TP
+.B locks
+the sync package; trace long held locks
+.TP
+.B net
+the main package; connections & network messages
+.TP
+.B model
+the model package
+.TP
+.B scanner
+the scanner package
+.TP
+.B stats
+the stats package
+.TP
+.B upnp
+the upnp package
+.TP
+.B xdr
+the xdr package
+.TP
+.B all
+all of the above
 .UNINDENT
 .TP
 .B STPROFILER

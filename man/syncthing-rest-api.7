@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "June 07, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "June 14, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -197,10 +197,20 @@ Due to being a POST request, this method requires using an API key or CSRF token
 .UNINDENT
 .SS POST /rest/system/reset
 .sp
-Post with empty body to immediately \fIreset\fP Syncthing. This means
-renaming all folder directories to temporary, unique names, wiping all
-indexes and restarting. This should probably not be used during normal
-operations...
+Post with empty body to erase the current index database and restart
+Syncthing. With no query parameters, the entire database is erased from disk.
+By specifying the \fBfolder\fP parameter with a valid folder ID, only
+information for that folder will be erased:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/system/reset?folder=default
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS POST /rest/system/restart
 .sp
 Post with empty body to immediately restart Syncthing.
