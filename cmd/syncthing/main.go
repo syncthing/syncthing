@@ -252,6 +252,10 @@ func main() {
 		l.Fatalln(err)
 	}
 
+	if guiAssets == "" {
+		guiAssets = locations[locGUIAssets]
+	}
+
 	if runtime.GOOS == "windows" {
 		if logFile == "" {
 			// Use the default log file location
