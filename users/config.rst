@@ -319,7 +319,7 @@ The ``options`` element contains all other global configuration options.
 
 listenAddress
     The listen address for incoming sync connections. See the ``address``
-    element under the `GUI Element` for allowed syntax.
+    element under the `GUI Element`_ for allowed syntax.
 
 globalAnnounceServer
     A URI to a global announce (discvoery) server. Allowed protocol prefixes
