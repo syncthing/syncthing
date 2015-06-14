@@ -815,13 +815,6 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
 func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
-	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder": p.folder,
-		"item":   file.Name,
-		"type":   "file",
-		"action": "update",
-	})
-
 	curFile, ok := p.model.CurrentFolderFile(p.folder, file.Name)
 
 	if ok && len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
@@ -831,22 +824,39 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		if debug {
 			l.Debugln(p, "taking shortcut on", file.Name)
 		}
+
+		events.Default.Log(events.ItemStarted, map[string]interface{}{
+			"folder": p.folder,
+			"item":   file.Name,
+			"type":   "file",
+			"action": "metadata",
+		})
+
 		p.queue.Done(file.Name)
+
 		var err error
 		if file.IsSymlink() {
 			err = p.shortcutSymlink(file)
 		} else {
 			err = p.shortcutFile(file)
 		}
+
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
 			"error":  events.Error(err),
 			"type":   "file",
-			"action": "update",
+			"action": "metadata",
 		})
 		return
 	}
+
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "file",
+		"action": "update",
+	})
 
 	scanner.PopulateOffsets(file.Blocks)
 
