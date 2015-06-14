@@ -4,14 +4,14 @@ File Versioning
 .. todo::
     External versioning needs example for Windows.
 
-No File Versioning
-------------------
+Description
+-----------
 
-This is the default setting. With no file versioning, files that are replaced or
-deleted on one device are deleted on other devices that the directory is shared
-with. (Note: If a folder is marked "Master Folder" on a device, that device will
-not accept changes to the files in the folder, and therefore will not have files
-replaced or deleted.)
+Syncthing supports archiving the old version of a file when it is deleted or
+replaced with a newer version from the cluster. This is called "file
+versioning" and uses one of the available *versioning strategies* described
+below. File versioning is configured per folder and defaults to "no file
+versioning", i.e. no old copies of files are kept.
 
 Trash Can File Versioning
 -------------------------
