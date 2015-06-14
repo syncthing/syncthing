@@ -17,4 +17,4 @@ Generated when Syncthing begins synchronizing a file to a newer version.
         }
     }
 
-The ``action`` field is either ``update`` or ``delete``.
+The ``action`` field is either ``update`` (contents changed), ``metadata`` (file metadata changed but not contents), or ``delete``.
