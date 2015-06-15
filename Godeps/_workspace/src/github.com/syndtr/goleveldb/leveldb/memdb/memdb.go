@@ -206,6 +206,7 @@ func (p *DB) randHeight() (h int) {
 	return
 }
 
+// Must hold RW-lock if prev == true, as it use shared prevNode slice.
 func (p *DB) findGE(key []byte, prev bool) (int, bool) {
 	node := 0
 	h := p.maxHeight - 1
@@ -302,7 +303,7 @@ func (p *DB) Put(key []byte, value []byte) error {
 	node := len(p.nodeData)
 	p.nodeData = append(p.nodeData, kvOffset, len(key), len(value), h)
 	for i, n := range p.prevNode[:h] {
-		m := n + 4 + i
+		m := n + nNext + i
 		p.nodeData = append(p.nodeData, p.nodeData[m])
 		p.nodeData[m] = node
 	}
@@ -434,20 +435,22 @@ func (p *DB) Len() int {
 
 // Reset resets the DB to initial empty state. Allows reuse the buffer.
 func (p *DB) Reset() {
+	p.mu.Lock()
 	p.rnd = rand.New(rand.NewSource(0xdeadbeef))
 	p.maxHeight = 1
 	p.n = 0
 	p.kvSize = 0
 	p.kvData = p.kvData[:0]
-	p.nodeData = p.nodeData[:4+tMaxHeight]
+	p.nodeData = p.nodeData[:nNext+tMaxHeight]
 	p.nodeData[nKV] = 0
 	p.nodeData[nKey] = 0
 	p.nodeData[nVal] = 0
 	p.nodeData[nHeight] = tMaxHeight
 	for n := 0; n < tMaxHeight; n++ {
-		p.nodeData[4+n] = 0
+		p.nodeData[nNext+n] = 0
 		p.prevNode[n] = 0
 	}
+	p.mu.Unlock()
 }
 
 // New creates a new initalized in-memory key/value DB. The capacity

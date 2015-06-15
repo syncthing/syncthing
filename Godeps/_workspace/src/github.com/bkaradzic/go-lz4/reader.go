@@ -141,7 +141,7 @@ func Decode(dst, src []byte) ([]byte, error) {
 			length += ln
 		}
 
-		if int(d.spos+length) > len(d.src) {
+		if int(d.spos+length) > len(d.src) || int(d.dpos+length) > len(d.dst) {
 			return nil, ErrCorrupt
 		}
 
@@ -179,7 +179,12 @@ func Decode(dst, src []byte) ([]byte, error) {
 		}
 
 		literal := d.dpos - d.ref
+
 		if literal < 4 {
+			if int(d.dpos+4) > len(d.dst) {
+				return nil, ErrCorrupt
+			}
+
 			d.cp(4, decr[literal])
 		} else {
 			length += 4

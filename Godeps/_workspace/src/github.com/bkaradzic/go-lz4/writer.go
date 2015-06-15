@@ -25,8 +25,10 @@
 
 package lz4
 
-import "encoding/binary"
-import "errors"
+import (
+	"encoding/binary"
+	"errors"
+)
 
 const (
 	minMatch              = 4

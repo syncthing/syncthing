@@ -24,6 +24,29 @@ const (
 	executableEnvValueDelete = "delete"
 )
 
+func TestPrintExecutable(t *testing.T) {
+	ef, err := Executable()
+	if err != nil {
+		t.Fatalf("Executable failed: %v", err)
+	}
+	t.Log("Executable:", ef)
+}
+func TestPrintExecutableFolder(t *testing.T) {
+	ef, err := ExecutableFolder()
+	if err != nil {
+		t.Fatalf("ExecutableFolder failed: %v", err)
+	}
+	t.Log("Executable Folder:", ef)
+}
+func TestExecutableFolder(t *testing.T) {
+	ef, err := ExecutableFolder()
+	if err != nil {
+		t.Fatalf("ExecutableFolder failed: %v", err)
+	}
+	if ef[len(ef)-1] == filepath.Separator {
+		t.Fatal("ExecutableFolder ends with a trailing slash.")
+	}
+}
 func TestExecutableMatch(t *testing.T) {
 	ep, err := Executable()
 	if err != nil {

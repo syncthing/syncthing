@@ -15,8 +15,8 @@ import (
 )
 
 type memDB struct {
-	db  *DB
-	mdb *memdb.DB
+	db *DB
+	*memdb.DB
 	ref int32
 }
 
@@ -27,12 +27,12 @@ func (m *memDB) incref() {
 func (m *memDB) decref() {
 	if ref := atomic.AddInt32(&m.ref, -1); ref == 0 {
 		// Only put back memdb with std capacity.
-		if m.mdb.Capacity() == m.db.s.o.GetWriteBuffer() {
-			m.mdb.Reset()
-			m.db.mpoolPut(m.mdb)
+		if m.Capacity() == m.db.s.o.GetWriteBuffer() {
+			m.Reset()
+			m.db.mpoolPut(m.DB)
 		}
 		m.db = nil
-		m.mdb = nil
+		m.DB = nil
 	} else if ref < 0 {
 		panic("negative memdb ref")
 	}
@@ -46,6 +46,15 @@ func (db *DB) getSeq() uint64 {
 // Atomically adds delta to seq.
 func (db *DB) addSeq(delta uint64) {
 	atomic.AddUint64(&db.seq, delta)
+}
+
+func (db *DB) sampleSeek(ikey iKey) {
+	v := db.s.version()
+	if v.sampleSeek(ikey) {
+		// Trigger table compaction.
+		db.compSendTrigger(db.tcompCmdC)
+	}
+	v.release()
 }
 
 func (db *DB) mpoolPut(mem *memdb.DB) {
@@ -117,7 +126,7 @@ func (db *DB) newMem(n int) (mem *memDB, err error) {
 	}
 	mem = &memDB{
 		db:  db,
-		mdb: mdb,
+		DB:  mdb,
 		ref: 2,
 	}
 	db.mem = mem

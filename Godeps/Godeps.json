@@ -7,7 +7,7 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/bkaradzic/go-lz4",
-			"Rev": "93a831dcee242be64a9cc9803dda84af25932de7"
+			"Rev": "4f7c2045dbd17b802370e2e6022200468abf02ba"
 		},
 		{
 			"ImportPath": "github.com/calmh/logger",
@@ -22,12 +22,16 @@
 			"Rev": "5f7208e86762911861c94f1849eddbfc0a60cbf0"
 		},
 		{
+			"ImportPath": "github.com/google/go-snappy/snappy",
+			"Rev": "eaa750b9bf4dcb7cb20454be850613b66cda3273"
+		},
+		{
 			"ImportPath": "github.com/juju/ratelimit",
-			"Rev": "c5abe513796336ee2869745bff0638508450e9c5"
+			"Rev": "faa59ce93750e747b2997635e8b7daf30024b1ac"
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",
-			"Rev": "efacde03154693404c65e7aa7d461ac9014acd0c"
+			"Rev": "6e7f843663477789fac7c02def0d0909e969b4e5"
 		},
 		{
 			"ImportPath": "github.com/syncthing/protocol",
@@ -35,11 +39,7 @@
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "87e4e645d80ae9c537e8f2dee52b28036a5dd75e"
-		},
-		{
-			"ImportPath": "github.com/syndtr/gosnappy/snappy",
-			"Rev": "156a073208e131d7d2e212cb749feae7c339e846"
+			"Rev": "a06509502ca32565bdf74afc1e573050023f261c"
 		},
 		{
 			"ImportPath": "github.com/thejerf/suture",
@@ -59,19 +59,19 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/bcrypt",
-			"Rev": "c57d4a71915a248dbad846d60825145062b4c18e"
+			"Rev": "1e856cbfdf9bc25eefca75f83f25d55e35ae72e0"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/blowfish",
-			"Rev": "c57d4a71915a248dbad846d60825145062b4c18e"
+			"Rev": "1e856cbfdf9bc25eefca75f83f25d55e35ae72e0"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",
-			"Rev": "2076e9cab4147459c82bc81169e46c139d358547"
+			"Rev": "df923bbb63f8ea3a26bb743e2a497abd0ab585f7"
 		},
 		{
 			"ImportPath": "golang.org/x/text/unicode/norm",
-			"Rev": "2076e9cab4147459c82bc81169e46c139d358547"
+			"Rev": "df923bbb63f8ea3a26bb743e2a497abd0ab585f7"
 		}
 	]
 }
