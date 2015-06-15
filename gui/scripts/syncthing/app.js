@@ -11,7 +11,12 @@
 var syncthing = angular.module('syncthing', [
     'angularUtils.directives.dirPagination',
     'pascalprecht.translate',
-    'syncthing.core'
+
+    'syncthing.core',
+    'syncthing.device',
+    'syncthing.folder',
+    'syncthing.settings',
+    'syncthing.usagereport'
 ]);
 
 var urlbase = 'rest';
