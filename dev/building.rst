@@ -94,41 +94,48 @@ Subcommands and Options
 
 The following ``build.go`` subcommands and options exist.
 
--  ``go run build.go install`` -- installs binaries in ``./bin``
-   (default command, this is what happens when build.go is run without
-   any commands or parameters).
+``go run build.go install``
+  Installs binaries in ``./bin`` (default command, this is what happens when
+  build.go is run without any commands or parameters).
 
--  ``go run build.go build`` -- forces a rebuild of the binary to the
-   current directory; similar to ``install`` but slower.
+``go run build.go build``
+  Forces a rebuild of the binary to the current directory; similar to
+  ``install`` but slower.
 
--  ``go run build.go clean`` -- remove build artefacts, guaranteeing a
-   complete rebuild. Use this when switching between normal builds and
-   noupgrade builds.
+``go run build.go clean``
+  Removes build artefacts, guaranteeing a complete rebuild. Use this when
+  switching between normal builds and noupgrade builds.
 
--  ``go run build.go test`` -- run the tests.
+``go run build.go test``
+  Runs the tests.
 
--  ``go run build.go tar`` -- create a Syncthing tar.gz dist file in the
-   current directory. Assumes a Unixy build.
+``go run build.go tar``
+  Creates a Syncthing tar.gz dist file in the current directory. Assumes a
+  Unixy build.
 
--  ``go run build.go zip`` -- create a Syncthing zip dist file in the
-   current directory. Assumes a Windows build.
+``go run build.go zip``
+  Creates a Syncthing zip dist file in the current directory. Assumes a
+  Windows build.
 
--  ``go run build.go  assets`` -- rebuild the compiled-in GUI assets.
+``go run build.go assets``
+  Rebuilds the compiled-in GUI assets.
 
--  ``go run build.go  deps`` -- update the in-repo dependencies.
+``go run build.go deps``
+  Updates the in-repo dependencies.
 
--  ``go run build.go  xdr`` -- regenerate the XDR en/decoders. Only
-   necessary when the protocol has changed.
+``go run build.go xdr``
+  Regenerates the XDR en/decoders. Only necessary when the protocol has
+  changed.
 
 The options ``-no-upgrade``, ``-goos`` and ``-goarch`` can be given to
 influence ``install``, ``build``, ``tar`` and ``zip``. Examples:
 
--  ``go run build.go -goos linux -goarch 386 tar`` -- build a tar.gz
-   distribution of Syncthing for linux-386.
+``go run build.go -goos linux -goarch 386 tar``
+  Builds a tar.gz distribution of Syncthing for linux-386.
 
--  ``go run build.go -goos windows -no-upgrade zip`` -- build a zip
-   distribution of Syncthing for Windows (current architecture) with
-   upgrading disabled.
+``go run build.go -goos windows -no-upgrade zip``
+  Builds a zip distribution of Syncthing for Windows (current architecture) with
+  upgrading disabled.
 
 .. note:: Building for a different operating system or architecture than your native one requires Go having been set up for cross compilation. The easiest way to get this right is to use the official Docker image, described below.
 
@@ -146,9 +153,9 @@ If you are building something that will be installed as a package
 (Debian, RPM, ...) you almost certainly want to use ``-no-upgrade`` as
 well to prevent the built in upgrade system from being activated.
 
--  ``go run build.go -version v0.10.26 -no-upgrade tar`` -- build a
-   tar.gz distribution of syncthing for the current OS/arch, tagged as
-   ``v0.10.26``, with upgrades disabled.
+``go run build.go -version v0.10.26 -no-upgrade tar``
+  Builds a tar.gz distribution of syncthing for the current OS/arch, tagged as
+  ``v0.10.26``, with upgrades disabled.
 
 .. _building-with-docker:
 
