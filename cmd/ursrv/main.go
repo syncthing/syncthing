@@ -22,12 +22,13 @@ import (
 )
 
 var (
-	keyFile    = getEnvDefault("UR_KEY_FILE", "key.pem")
-	certFile   = getEnvDefault("UR_CRT_FILE", "crt.pem")
-	dbConn     = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
-	listenAddr = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
-	tpl        *template.Template
-	compilerRe = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) [\w-]+ \w+\) ([\w@-]+)`)
+	keyFile           = getEnvDefault("UR_KEY_FILE", "key.pem")
+	certFile          = getEnvDefault("UR_CRT_FILE", "crt.pem")
+	dbConn            = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
+	listenAddr        = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
+	tpl               *template.Template
+	compilerRe        = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) [\w-]+ \w+\) ([\w@-]+)`)
+	aggregateVersions = []string{"v0.7", "v0.8", "v0.9", "v0.10"}
 )
 
 var funcs = map[string]interface{}{
@@ -444,14 +445,10 @@ func transformVersion(v string) string {
 	}
 
 	// Truncate old versions to just the generation part
-	if strings.HasPrefix(v, "v0.7") {
-		return "v0.7.x"
-	}
-	if strings.HasPrefix(v, "v0.8") {
-		return "v0.8.x"
-	}
-	if strings.HasPrefix(v, "v0.9") {
-		return "v0.9.x"
+	for _, agg := range aggregateVersions {
+		if strings.HasPrefix(v, agg) {
+			return agg + ".x"
+		}
 	}
 
 	return v
