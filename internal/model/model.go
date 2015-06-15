@@ -99,7 +99,7 @@ type Model struct {
 }
 
 var (
-	SymlinkWarning = stdsync.Once{}
+	symlinkWarning = stdsync.Once{}
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -512,7 +512,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 			}
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
-		} else if symlinkInvalid(fs[i].IsSymlink()) {
+		} else if symlinkInvalid(folder, fs[i]) {
 			if debug {
 				l.Debugln("dropping update for unsupported symlink", fs[i])
 			}
@@ -566,7 +566,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 			}
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
-		} else if symlinkInvalid(fs[i].IsSymlink()) {
+		} else if symlinkInvalid(folder, fs[i]) {
 			if debug {
 				l.Debugln("dropping update for unsupported symlink", fs[i])
 			}
@@ -1072,7 +1072,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 			maxLocalVer = f.LocalVersion
 		}
 
-		if ignores.Match(f.Name) || symlinkInvalid(f.IsSymlink()) {
+		if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
 			if debug {
 				l.Debugln("not sending update for ignored/unsupported symlink", f)
 			}
@@ -1360,7 +1360,7 @@ nextSub:
 				batch = batch[:0]
 			}
 
-			if ignores.Match(f.Name) || symlinkInvalid(f.IsSymlink()) {
+			if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
 				// File has been ignored or an unsupported symlink. Set invalid bit.
 				if debug {
 					l.Debugln("setting invalid bit on ignored", f)
@@ -1774,11 +1774,21 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func symlinkInvalid(isLink bool) bool {
-	if !symlinks.Supported && isLink {
-		SymlinkWarning.Do(func() {
+func symlinkInvalid(folder string, fi db.FileIntf) bool {
+	if !symlinks.Supported && fi.IsSymlink() && !fi.IsInvalid() && !fi.IsDeleted() {
+		symlinkWarning.Do(func() {
 			l.Warnln("Symlinks are disabled, unsupported or require Administrator privileges. This might cause your folder to appear out of sync.")
 		})
+
+		// Need to type switch for the concrete type to be able to access fields...
+		var name string
+		switch fi := fi.(type) {
+		case protocol.FileInfo:
+			name = fi.Name
+		case db.FileInfoTruncated:
+			name = fi.Name
+		}
+		l.Infoln("Unsupported symlink", name, "in folder", folder)
 		return true
 	}
 	return false
