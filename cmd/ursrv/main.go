@@ -512,10 +512,10 @@ func (s *summary) MarshalJSON() ([]byte, error) {
 		row := []interface{}{date}
 		for _, ver := range versions {
 			idx := s.versions[ver]
-			if len(s.rows[date]) > idx {
+			if len(s.rows[date]) > idx && s.rows[date][idx] > 0 {
 				row = append(row, s.rows[date][idx])
 			} else {
-				row = append(row, 0)
+				row = append(row, nil)
 			}
 		}
 		table = append(table, row)
