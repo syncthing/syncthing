@@ -447,6 +447,9 @@ func syncthingMain() {
 		mainSvc.Add(newVerboseSvc())
 	}
 
+	// Event subscription for the API; must start early to catch the early events.
+	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents), 1000)
+
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
@@ -628,7 +631,7 @@ func syncthingMain() {
 
 	// GUI
 
-	setupGUI(mainSvc, cfg, m)
+	setupGUI(mainSvc, cfg, m, apiSub)
 
 	// The default port we announce, possibly modified by setupUPnP next.
 
@@ -768,7 +771,7 @@ func startAuditing(mainSvc *suture.Supervisor) {
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model) {
+func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription) {
 	opts := cfg.Options()
 	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
 
@@ -797,7 +800,7 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model) {
 
 			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			l.Infoln("Starting web GUI on", urlShow)
-			api, err := newAPISvc(guiCfg, guiAssets, m)
+			api, err := newAPISvc(guiCfg, guiAssets, m, apiSub)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}

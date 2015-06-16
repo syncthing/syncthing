@@ -49,7 +49,6 @@ var (
 	guiErrors    = []guiError{}
 	guiErrorsMut = sync.NewMutex()
 	startTime    = time.Now()
-	eventSub     *events.BufferedSubscription
 )
 
 type apiSvc struct {
@@ -60,14 +59,16 @@ type apiSvc struct {
 	fss             *folderSummarySvc
 	stop            chan struct{}
 	systemConfigMut sync.Mutex
+	eventSub        *events.BufferedSubscription
 }
 
-func newAPISvc(cfg config.GUIConfiguration, assetDir string, m *model.Model) (*apiSvc, error) {
+func newAPISvc(cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription) (*apiSvc, error) {
 	svc := &apiSvc{
 		cfg:             cfg,
 		assetDir:        assetDir,
 		model:           m,
 		systemConfigMut: sync.NewMutex(),
+		eventSub:        eventSub,
 	}
 
 	var err error
@@ -125,9 +126,6 @@ func (s *apiSvc) Serve() {
 	s.stop = make(chan struct{})
 
 	l.AddHandler(logger.LevelWarn, s.showGuiError)
-	sub := events.Default.Subscribe(events.AllEvents)
-	eventSub = events.NewBufferedSubscription(sub, 1000)
-	defer events.Default.Unsubscribe(sub)
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
@@ -743,7 +741,7 @@ func (s *apiSvc) getEvents(w http.ResponseWriter, r *http.Request) {
 	f := w.(http.Flusher)
 	f.Flush()
 
-	evs := eventSub.Since(since, nil)
+	evs := s.eventSub.Since(since, nil)
 	if 0 < limit && limit < len(evs) {
 		evs = evs[len(evs)-limit:]
 	}
