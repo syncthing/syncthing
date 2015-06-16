@@ -1025,8 +1025,8 @@ func (m *Model) folderStatRef(folder string) *stats.FolderStatisticsReference {
 	return sr
 }
 
-func (m *Model) receivedFile(folder, filename string) {
-	m.folderStatRef(folder).ReceivedFile(filename)
+func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
+	m.folderStatRef(folder).ReceivedFile(file)
 }
 
 func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {

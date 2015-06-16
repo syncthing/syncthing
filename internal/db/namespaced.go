@@ -129,6 +129,28 @@ func (n NamespacedKV) Bytes(key string) ([]byte, bool) {
 	return valBs, true
 }
 
+// PutBool stores a new boolean. Any existing value (even if of another type)
+// is overwritten.
+func (n *NamespacedKV) PutBool(key string, val bool) {
+	keyBs := append(n.prefix, []byte(key)...)
+	if val {
+		n.db.Put(keyBs, []byte{0x0}, nil)
+	} else {
+		n.db.Put(keyBs, []byte{0x1}, nil)
+	}
+}
+
+// Bool returns the stored value as a boolean and a boolean that
+// is false if no value was stored at the key.
+func (n NamespacedKV) Bool(key string) (bool, bool) {
+	keyBs := append(n.prefix, []byte(key)...)
+	valBs, err := n.db.Get(keyBs, nil)
+	if err != nil {
+		return false, false
+	}
+	return valBs[0] == 0x0, true
+}
+
 // Delete deletes the specified key. It is allowed to delete a nonexistent
 // key.
 func (n NamespacedKV) Delete(key string) {
