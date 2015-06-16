@@ -1256,14 +1256,28 @@ loop:
 
 			if len(batch) == maxBatchSize {
 				p.model.updateLocals(p.folder, batch)
-				p.model.receivedFile(p.folder, batch[len(batch)-1].Name)
+
+				for i := len(batch) - 1; i >= 0; i-- {
+					if !batch[i].IsDeleted() && !batch[i].IsInvalid() && !batch[i].IsDirectory() {
+						p.model.receivedFile(p.folder, batch[i].Name)
+						break
+					}
+				}
+
 				batch = batch[:0]
 			}
 
 		case <-tick.C:
 			if len(batch) > 0 {
 				p.model.updateLocals(p.folder, batch)
-				p.model.receivedFile(p.folder, batch[len(batch)-1].Name)
+
+				for i := len(batch) - 1; i >= 0; i-- {
+					if !batch[i].IsDeleted() && !batch[i].IsInvalid() && !batch[i].IsDirectory() {
+						p.model.receivedFile(p.folder, batch[i].Name)
+						break
+					}
+				}
+
 				batch = batch[:0]
 			}
 		}
@@ -1271,7 +1285,12 @@ loop:
 
 	if len(batch) > 0 {
 		p.model.updateLocals(p.folder, batch)
-		p.model.receivedFile(p.folder, batch[len(batch)-1].Name)
+		for i := len(batch) - 1; i >= 0; i-- {
+			if !batch[i].IsDeleted() && !batch[i].IsInvalid() && !batch[i].IsDirectory() {
+				p.model.receivedFile(p.folder, batch[i].Name)
+				break
+			}
+		}
 	}
 }
 
