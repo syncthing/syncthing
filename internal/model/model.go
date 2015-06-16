@@ -1123,8 +1123,10 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 
 func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	m.fmut.RLock()
-	m.folderFiles[folder].Update(protocol.LocalDeviceID, fs)
+	files := m.folderFiles[folder]
 	m.fmut.RUnlock()
+	files.Update(protocol.LocalDeviceID, fs)
+
 	m.rvmut.Lock()
 	for _, f := range fs {
 		delete(m.reqValidationCache, folder+"/"+f.Name)
@@ -1132,8 +1134,9 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	m.rvmut.Unlock()
 
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-		"folder": folder,
-		"items":  len(fs),
+		"folder":  folder,
+		"items":   len(fs),
+		"version": files.LocalVersion(protocol.LocalDeviceID),
 	})
 }
 
