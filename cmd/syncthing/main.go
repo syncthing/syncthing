@@ -704,7 +704,9 @@ func syncthingMain() {
 		}
 	}
 
-	events.Default.Log(events.StartupComplete, nil)
+	events.Default.Log(events.StartupComplete, map[string]string{
+		"myID": myID.String(),
+	})
 	go generatePingEvents()
 
 	cleanConfigDirectory()
