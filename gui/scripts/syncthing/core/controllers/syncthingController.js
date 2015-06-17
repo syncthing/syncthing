@@ -1039,6 +1039,7 @@ angular.module('syncthing.core')
                 selectedDevices: {}
             };
             $scope.currentFolder.rescanIntervalS = 60;
+            $scope.currentFolder.order = "random";
             $scope.currentFolder.fileVersioningSelector = "none";
             $scope.currentFolder.trashcanClean = 0;
             $scope.currentFolder.simpleKeep = 5;
