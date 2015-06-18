@@ -180,6 +180,83 @@ func TestConflict(t *testing.T) {
 	}
 }
 
+func TestConflictSingleScan(t *testing.T) {
+	log.Println("Cleaning...")
+	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sender, receiver := coSenderReceiver(t)
+
+	log.Println("Waiting for startup...")
+	// Wait for one scan to succeed, or up to 20 seconds...
+	// This is to let startup, UPnP etc complete.
+	for _, device := range [...]syncthingProcess{sender, receiver} {
+		for i := 0; i < 20; i++ {
+			err := device.rescan("default")
+			if err != nil {
+				time.Sleep(time.Second)
+				continue
+			}
+			break
+		}
+	}
+
+	log.Println("Introducing a conflict (simultaneous edit)...")
+
+	fd, err := os.Create("s1/testfile.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fd.WriteString("text added to s1\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = fd.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fd, err = os.Create("s2/testfile.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fd.WriteString("text added to s2\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = fd.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer sender.stop()
+	defer receiver.stop()
+
+	sender.rescan("default")
+
+	log.Println("Syncing...")
+
+	if err = coCompletion(sender, receiver); err != nil {
+		t.Fatal(err)
+	}
+
+	sender.stop()
+	receiver.stop()
+
+	// The conflict is expected on the s2 side due to how we calculate which
+	// file is the winner (based on device ID)
+
+	files, err := osutil.Glob("s2/*sync-conflict*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 {
+		t.Errorf("Expected 1 conflicted files instead of %d", len(files))
+	}
+}
+
 func TestInitialMergeConflicts(t *testing.T) {
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
