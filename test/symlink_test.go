@@ -17,6 +17,7 @@ import (
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/rc"
 	"github.com/syncthing/syncthing/internal/symlinks"
 )
 
@@ -164,45 +165,14 @@ func testSymlinks(t *testing.T) {
 
 	// Verify that the files and symlinks sync to the other side
 
+	sender := startInstance(t, 1)
+	defer checkedStop(t, sender)
+
+	receiver := startInstance(t, 2)
+	defer checkedStop(t, receiver)
+
 	log.Println("Syncing...")
-
-	sender := syncthingProcess{ // id1
-		instance: "1",
-		argv:     []string{"-home", "h1"},
-		port:     8081,
-		apiKey:   apiKey,
-	}
-	err = sender.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer sender.stop()
-
-	receiver := syncthingProcess{ // id2
-		instance: "2",
-		argv:     []string{"-home", "h2"},
-		port:     8082,
-		apiKey:   apiKey,
-	}
-	err = receiver.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer receiver.stop()
-
-	err = awaitCompletion("default", sender, receiver)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = sender.stop()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = receiver.stop()
-	if err != nil {
-		t.Fatal(err)
-	}
+	rc.AwaitSync("default", sender, receiver)
 
 	log.Println("Comparing directories...")
 	err = compareDirectories("s1", "s2")
@@ -288,29 +258,11 @@ func testSymlinks(t *testing.T) {
 
 	log.Println("Syncing...")
 
-	err = sender.start()
-	if err != nil {
+	if err := sender.Rescan("default"); err != nil {
 		t.Fatal(err)
 	}
 
-	err = receiver.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = awaitCompletion("default", sender, receiver)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = sender.stop()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = receiver.stop()
-	if err != nil {
-		t.Fatal(err)
-	}
+	rc.AwaitSync("default", sender, receiver)
 
 	log.Println("Comparing directories...")
 	err = compareDirectories("s1", "s2")

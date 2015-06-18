@@ -11,12 +11,19 @@ package integration
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/rc"
+)
+
+const (
+	longTimeLimit  = 5 * time.Minute
+	shortTimeLimit = 45 * time.Second
 )
 
 func TestSyncClusterWithoutVersioning(t *testing.T) {
@@ -46,6 +53,21 @@ func TestSyncClusterSimpleVersioning(t *testing.T) {
 	testSyncCluster(t)
 }
 
+func TestSyncClusterTrashcanVersioning(t *testing.T) {
+	// Use simple versioning
+	id, _ := protocol.DeviceIDFromString(id2)
+	cfg, _ := config.Load("h2/config.xml", id)
+	fld := cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{
+		Type:   "trashcan",
+		Params: map[string]string{"cleanoutDays": "1"},
+	}
+	cfg.SetFolder(fld)
+	cfg.Save()
+
+	testSyncCluster(t)
+}
+
 func TestSyncClusterStaggeredVersioning(t *testing.T) {
 	// Use staggered versioning
 	id, _ := protocol.DeviceIDFromString(id2)
@@ -68,12 +90,19 @@ func testSyncCluster(t *testing.T) {
 	// Another folder is shared between 1 and 2 only, in s12-1 and s12-2. A
 	// third folders is shared between 2 and 3, in s23-2 and s23-3.
 
+	// When -short is passed, keep it more reasonable.
+	timeLimit := longTimeLimit
+	if testing.Short() {
+		timeLimit = shortTimeLimit
+	}
+
 	const (
 		numFiles    = 100
 		fileSizeExp = 20
-		iterations  = 3
 	)
-	log.Printf("Testing with numFiles=%d, fileSizeExp=%d, iterations=%d", numFiles, fileSizeExp, iterations)
+	rand.Seed(42)
+
+	log.Printf("Testing with numFiles=%d, fileSizeExp=%d, timeLimit=%v", numFiles, fileSizeExp, timeLimit)
 
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s12-1",
@@ -152,36 +181,38 @@ func testSyncCluster(t *testing.T) {
 	expected := [][]fileInfo{e1, e2, e3}
 
 	// Start the syncers
-	p, err := scStartProcesses()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		for i := range p {
-			p[i].stop()
-		}
-	}()
 
-	log.Println("Waiting for startup...")
-	for _, dev := range p {
-		waitForScan(dev)
-	}
+	log.Println("Starting Syncthing...")
 
-	for count := 0; count < iterations; count++ {
+	p0 := startInstance(t, 1)
+	defer checkedStop(t, p0)
+	p1 := startInstance(t, 2)
+	defer checkedStop(t, p1)
+	p2 := startInstance(t, 3)
+	defer checkedStop(t, p2)
+
+	p := []*rc.Process{p0, p1, p2}
+
+	start := time.Now()
+	iteration := 0
+	for time.Since(start) < timeLimit {
+		iteration++
+		log.Println("Iteration", iteration)
+
 		log.Println("Forcing rescan...")
 
 		// Force rescan of folders
 		for i, device := range p {
-			if err := device.rescan("default"); err != nil {
+			if err := device.RescanDelay("default", 86400); err != nil {
 				t.Fatal(err)
 			}
-			if i < 2 {
-				if err := device.rescan("s12"); err != nil {
+			if i == 0 || i == 1 {
+				if err := device.RescanDelay("s12", 86400); err != nil {
 					t.Fatal(err)
 				}
 			}
-			if i > 1 {
-				if err := device.rescan("s23"); err != nil {
+			if i == 1 || i == 2 {
+				if err := device.RescanDelay("s23", 86400); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -256,65 +287,22 @@ func testSyncCluster(t *testing.T) {
 	}
 }
 
-func scStartProcesses() ([]syncthingProcess, error) {
-	p := make([]syncthingProcess, 3)
-
-	p[0] = syncthingProcess{ // id1
-		instance: "1",
-		argv:     []string{"-home", "h1"},
-		port:     8081,
-		apiKey:   apiKey,
-	}
-	err := p[0].start()
-	if err != nil {
-		return nil, err
-	}
-
-	p[1] = syncthingProcess{ // id2
-		instance: "2",
-		argv:     []string{"-home", "h2"},
-		port:     8082,
-		apiKey:   apiKey,
-	}
-	err = p[1].start()
-	if err != nil {
-		p[0].stop()
-		return nil, err
-	}
-
-	p[2] = syncthingProcess{ // id3
-		instance: "3",
-		argv:     []string{"-home", "h3"},
-		port:     8083,
-		apiKey:   apiKey,
-	}
-	err = p[2].start()
-	if err != nil {
-		p[0].stop()
-		p[1].stop()
-		return nil, err
-	}
-
-	return p, nil
-}
-
-func scSyncAndCompare(p []syncthingProcess, expected [][]fileInfo) error {
+func scSyncAndCompare(p []*rc.Process, expected [][]fileInfo) error {
 	log.Println("Syncing...")
 
-	// Special handling because we know which devices share which folders...
-	if err := awaitCompletion("default", p...); err != nil {
-		return err
+	for {
+		time.Sleep(250 * time.Millisecond)
+		if !rc.InSync("default", p...) {
+			continue
+		}
+		if !rc.InSync("s12", p[0], p[1]) {
+			continue
+		}
+		if !rc.InSync("s23", p[1], p[2]) {
+			continue
+		}
+		break
 	}
-	if err := awaitCompletion("s12", p[0], p[1]); err != nil {
-		return err
-	}
-	if err := awaitCompletion("s23", p[1], p[2]); err != nil {
-		return err
-	}
-
-	// This is necessary, or all files won't be in place even when everything
-	// is already reported in sync. Why?!
-	time.Sleep(5 * time.Second)
 
 	log.Println("Checking...")
 
@@ -328,23 +316,27 @@ func scSyncAndCompare(p []syncthingProcess, expected [][]fileInfo) error {
 		}
 	}
 
-	for _, dir := range []string{"s12-1", "s12-2"} {
-		actual, err := directoryContents(dir)
-		if err != nil {
-			return err
-		}
-		if err := compareDirectoryContents(actual, expected[1]); err != nil {
-			return fmt.Errorf("%s: %v", dir, err)
+	if len(expected) > 1 {
+		for _, dir := range []string{"s12-1", "s12-2"} {
+			actual, err := directoryContents(dir)
+			if err != nil {
+				return err
+			}
+			if err := compareDirectoryContents(actual, expected[1]); err != nil {
+				return fmt.Errorf("%s: %v", dir, err)
+			}
 		}
 	}
 
-	for _, dir := range []string{"s23-2", "s23-3"} {
-		actual, err := directoryContents(dir)
-		if err != nil {
-			return err
-		}
-		if err := compareDirectoryContents(actual, expected[2]); err != nil {
-			return fmt.Errorf("%s: %v", dir, err)
+	if len(expected) > 2 {
+		for _, dir := range []string{"s23-2", "s23-3"} {
+			actual, err := directoryContents(dir)
+			if err != nil {
+				return err
+			}
+			if err := compareDirectoryContents(actual, expected[2]); err != nil {
+				return fmt.Errorf("%s: %v", dir, err)
+			}
 		}
 	}
 

@@ -79,58 +79,20 @@ func benchmarkTransfer(t *testing.T, files, sizeExp int) {
 	}
 	log.Printf("Total %.01f MiB in %d files", float64(total)/1024/1024, nfiles)
 
-	log.Println("Starting sender...")
-	sender := syncthingProcess{ // id1
-		instance: "1",
-		argv:     []string{"-home", "h1"},
-		port:     8081,
-		apiKey:   apiKey,
-	}
-	err = sender.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Wait for one scan to succeed, or up to 20 seconds... This is to let
-	// startup, UPnP etc complete and make sure the sender has the full index
-	// before they connect.
-	for i := 0; i < 20; i++ {
-		resp, err := sender.post("/rest/scan?folder=default", nil)
-		if err != nil {
-			time.Sleep(time.Second)
-			continue
-		}
-		if resp.StatusCode != 200 {
-			resp.Body.Close()
-			time.Sleep(time.Second)
-			continue
-		}
-		break
-	}
-
-	log.Println("Starting receiver...")
-	receiver := syncthingProcess{ // id2
-		instance: "2",
-		argv:     []string{"-home", "h2"},
-		port:     8082,
-		apiKey:   apiKey,
-	}
-	err = receiver.start()
-	if err != nil {
-		sender.stop()
-		t.Fatal(err)
-	}
+	sender := startInstance(t, 1)
+	defer checkedStop(t, sender)
+	receiver := startInstance(t, 2)
+	defer checkedStop(t, receiver)
 
 	var t0, t1 time.Time
+	lastEvent := 0
 loop:
 	for {
-		evs, err := receiver.events()
+		evs, err := receiver.Events(lastEvent)
 		if err != nil {
 			if isTimeout(err) {
 				continue
 			}
-			sender.stop()
-			receiver.stop()
 			t.Fatal(err)
 		}
 
@@ -150,16 +112,17 @@ loop:
 					break loop
 				}
 			}
+			lastEvent = ev.ID
 		}
 
 		time.Sleep(250 * time.Millisecond)
 	}
 
-	sendProc, err := sender.stop()
+	sendProc, err := sender.Stop()
 	if err != nil {
 		t.Fatal(err)
 	}
-	recvProc, err := receiver.stop()
+	recvProc, err := receiver.Stop()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,6 +17,7 @@ import (
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/rc"
 )
 
 func TestManyPeers(t *testing.T) {
@@ -32,29 +33,18 @@ func TestManyPeers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	receiver := syncthingProcess{ // id2
-		instance: "2",
-		argv:     []string{"-home", "h2"},
-		port:     8082,
-		apiKey:   apiKey,
-	}
-	err = receiver.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer receiver.stop()
+	receiver := startInstance(t, 2)
+	defer checkedStop(t, receiver)
 
-	resp, err := receiver.get("/rest/system/config")
+	bs, err := receiver.Get("/rest/system/config")
 	if err != nil {
 		t.Fatal(err)
-	}
-	if resp.StatusCode != 200 {
-		t.Fatalf("Code %d != 200", resp.StatusCode)
 	}
 
 	var cfg config.Configuration
-	json.NewDecoder(resp.Body).Decode(&cfg)
-	resp.Body.Close()
+	if err := json.Unmarshal(bs, &cfg); err != nil {
+		t.Fatal(err)
+	}
 
 	for len(cfg.Devices) < 100 {
 		bs := make([]byte, 16)
@@ -69,32 +59,15 @@ func TestManyPeers(t *testing.T) {
 
 	var buf bytes.Buffer
 	json.NewEncoder(&buf).Encode(cfg)
-	resp, err = receiver.post("/rest/system/config", &buf)
+	_, err = receiver.Post("/rest/system/config", &buf)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != 200 {
-		t.Fatalf("Code %d != 200", resp.StatusCode)
-	}
-	resp.Body.Close()
 
-	log.Println("Starting up...")
-	sender := syncthingProcess{ // id1
-		instance: "1",
-		argv:     []string{"-home", "h1"},
-		port:     8081,
-		apiKey:   apiKey,
-	}
-	err = sender.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer sender.stop()
+	sender := startInstance(t, 1)
+	defer checkedStop(t, sender)
 
-	err = awaitCompletion("default", sender, receiver)
-	if err != nil {
-		t.Fatal(err)
-	}
+	rc.AwaitSync("default", sender, receiver)
 
 	log.Println("Comparing directories...")
 	err = compareDirectories("s1", "s2")

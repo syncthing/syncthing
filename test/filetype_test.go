@@ -15,6 +15,7 @@ import (
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/rc"
 )
 
 func TestFileTypeChange(t *testing.T) {
@@ -73,11 +74,11 @@ func testFileTypeChange(t *testing.T) {
 
 	// A file that we will replace with a directory later
 
-	fd, err := os.Create("s1/fileToReplace")
-	if err != nil {
+	if fd, err := os.Create("s1/fileToReplace"); err != nil {
 		t.Fatal(err)
+	} else {
+		fd.Close()
 	}
-	fd.Close()
 
 	// A directory that we will replace with a file later
 
@@ -92,52 +93,26 @@ func testFileTypeChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fd, err = os.Create("s1/dirToReplace/emptyFile")
-	if err != nil {
+	if fd, err := os.Create("s1/dirToReplace/emptyFile"); err != nil {
 		t.Fatal(err)
+	} else {
+		fd.Close()
 	}
-	fd.Close()
 
 	// Verify that the files and directories sync to the other side
 
+	sender := startInstance(t, 1)
+	defer checkedStop(t, sender)
+
+	receiver := startInstance(t, 2)
+	defer checkedStop(t, receiver)
+
 	log.Println("Syncing...")
 
-	sender := syncthingProcess{ // id1
-		instance: "1",
-		argv:     []string{"-home", "h1"},
-		port:     8081,
-		apiKey:   apiKey,
-	}
-	err = sender.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer sender.stop()
+	rc.AwaitSync("default", sender, receiver)
 
-	receiver := syncthingProcess{ // id2
-		instance: "2",
-		argv:     []string{"-home", "h2"},
-		port:     8082,
-		apiKey:   apiKey,
-	}
-	err = receiver.start()
-	if err != nil {
-		sender.stop()
-		t.Fatal(err)
-	}
-	defer receiver.stop()
-
-	err = awaitCompletion("default", sender, receiver)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = sender.stop()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = receiver.stop()
-	if err != nil {
+	// Delay scans for the moment
+	if err := sender.RescanDelay("default", 86400); err != nil {
 		t.Fatal(err)
 	}
 
@@ -166,11 +141,11 @@ func testFileTypeChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fd, err = os.Create("s1/emptyDirToReplace")
-	if err != nil {
+	if fd, err := os.Create("s1/emptyDirToReplace"); err != nil {
 		t.Fatal(err)
+	} else {
+		fd.Close()
 	}
-	fd.Close()
 
 	// Clear directory and replace with file
 
@@ -178,30 +153,21 @@ func testFileTypeChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fd, err = os.Create("s1/dirToReplace")
-	if err != nil {
+	if fd, err := os.Create("s1/dirToReplace"); err != nil {
 		t.Fatal(err)
+	} else {
+		fd.Close()
 	}
-	fd.Close()
 
 	// Sync these changes and recheck
 
 	log.Println("Syncing...")
 
-	err = sender.start()
-	if err != nil {
+	if err := sender.Rescan("default"); err != nil {
 		t.Fatal(err)
 	}
 
-	err = receiver.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = awaitCompletion("default", sender, receiver)
-	if err != nil {
-		t.Fatal(err)
-	}
+	rc.AwaitSync("default", sender, receiver)
 
 	log.Println("Comparing directories...")
 	err = compareDirectories("s1", "s2")

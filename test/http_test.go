@@ -14,11 +14,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/internal/rc"
 )
 
 var jsonEndpoints = []string{
@@ -46,18 +45,12 @@ var jsonEndpoints = []string{
 }
 
 func TestGetIndex(t *testing.T) {
-	st := syncthingProcess{
-		argv:     []string{"-home", "h2"},
-		port:     8082,
-		instance: "2",
-	}
-	err := st.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer st.stop()
+	p := startInstance(t, 2)
+	defer checkedStop(t, p)
 
-	res, err := st.get("/index.html")
+	// Check for explicint index.html
+
+	res, err := http.Get("http://localhost:8082/index.html")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +72,9 @@ func TestGetIndex(t *testing.T) {
 	}
 	res.Body.Close()
 
-	res, err = st.get("/")
+	// Check for implicit index.html
+
+	res, err = http.Get("http://localhost:8082/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,17 +98,8 @@ func TestGetIndex(t *testing.T) {
 }
 
 func TestGetIndexAuth(t *testing.T) {
-	st := syncthingProcess{
-		argv:     []string{"-home", "h1"},
-		port:     8081,
-		instance: "1",
-		apiKey:   "abc123",
-	}
-	err := st.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer st.stop()
+	p := startInstance(t, 1)
+	defer checkedStop(t, p)
 
 	// Without auth should give 401
 
@@ -162,19 +148,11 @@ func TestGetIndexAuth(t *testing.T) {
 }
 
 func TestGetJSON(t *testing.T) {
-	st := syncthingProcess{
-		argv:     []string{"-home", "h2"},
-		port:     8082,
-		instance: "2",
-	}
-	err := st.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer st.stop()
+	p := startInstance(t, 2)
+	defer checkedStop(t, p)
 
 	for _, path := range jsonEndpoints {
-		res, err := st.get(path)
+		res, err := http.Get("http://127.0.0.1:8082" + path)
 		if err != nil {
 			t.Error(path, err)
 			continue
@@ -196,16 +174,8 @@ func TestGetJSON(t *testing.T) {
 }
 
 func TestPOSTWithoutCSRF(t *testing.T) {
-	st := syncthingProcess{
-		argv:     []string{"-home", "h2"},
-		port:     8082,
-		instance: "2",
-	}
-	err := st.start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer st.stop()
+	p := startInstance(t, 2)
+	defer checkedStop(t, p)
 
 	// Should fail without CSRF
 
@@ -271,12 +241,7 @@ func TestPOSTWithoutCSRF(t *testing.T) {
 	}
 }
 
-var (
-	initOnce sync.Once
-	proc     syncthingProcess
-)
-
-func setupAPIBench() {
+func setupAPIBench() *rc.Process {
 	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
 	if err != nil {
 		panic(err)
@@ -292,47 +257,20 @@ func setupAPIBench() {
 		panic(err)
 	}
 
-	proc = syncthingProcess{ // id1
-		instance: "1",
-		argv:     []string{"-home", "h1"},
-		port:     8081,
-		apiKey:   apiKey,
-	}
-	err = proc.start()
-	if err != nil {
-		panic(err)
-	}
-
-	// Wait for one scan to succeed, or up to 20 seconds... This is to let
-	// startup, UPnP etc complete and make sure the sender has the full index
-	// before they connect.
-	for i := 0; i < 20; i++ {
-		resp, err := proc.post("/rest/scan?folder=default", nil)
-		if err != nil {
-			time.Sleep(time.Second)
-			continue
-		}
-		if resp.StatusCode != 200 {
-			resp.Body.Close()
-			time.Sleep(time.Second)
-			continue
-		}
-		break
-	}
+	// This will panic if there is an actual failure to start, when we try to
+	// call nil.Fatal(...)
+	return startInstance(nil, 1)
 }
 
 func benchmarkURL(b *testing.B, url string) {
-	initOnce.Do(setupAPIBench)
+	p := setupAPIBench()
+	defer p.Stop()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		resp, err := proc.get(url)
+		_, err := p.Get(url)
 		if err != nil {
 			b.Fatal(err)
 		}
-		if resp.StatusCode != 200 {
-			b.Fatal(resp.Status)
-		}
-		resp.Body.Close()
 	}
 }
 
