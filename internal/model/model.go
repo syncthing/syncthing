@@ -1511,7 +1511,7 @@ func (m *Model) Override(folder string) {
 	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
 		if len(batch) == indexBatchSize {
-			fs.Update(protocol.LocalDeviceID, batch)
+			m.updateLocals(folder, batch)
 			batch = batch[:0]
 		}
 
@@ -1531,7 +1531,7 @@ func (m *Model) Override(folder string) {
 		return true
 	})
 	if len(batch) > 0 {
-		fs.Update(protocol.LocalDeviceID, batch)
+		m.updateLocals(folder, batch)
 	}
 	runner.setState(FolderIdle)
 }
