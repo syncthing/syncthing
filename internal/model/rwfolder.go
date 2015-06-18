@@ -865,6 +865,8 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		})
 
 		if err != nil {
+			l.Infoln("Puller: shortcut:", err)
+		} else {
 			p.dbUpdates <- dbUpdateJob{file, dbUpdateShortcutFile}
 		}
 
