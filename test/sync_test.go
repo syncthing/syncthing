@@ -11,7 +11,9 @@ package integration
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -28,6 +30,7 @@ func TestSyncClusterWithoutVersioning(t *testing.T) {
 	cfg.SetFolder(fld)
 	cfg.Save()
 
+	testSyncClusterCreatePullAndDeleteEvents(t)
 	testSyncCluster(t)
 }
 
@@ -251,6 +254,161 @@ func testSyncCluster(t *testing.T) {
 		e3, err = directoryContents("s23-2")
 		if err != nil {
 			t.Fatal(err)
+		}
+		expected = [][]fileInfo{e1, e2, e3}
+	}
+}
+
+func testSyncClusterCreatePullAndDeleteEvents(t *testing.T) {
+	/*
+
+		This tests syncs files back and forth between three cluster members.
+		Their configs are in h1, h2 and h3. The folder "default" is shared
+		between all and stored in s1, s2 and s3 respectively.
+
+		Another folder is shared between 1 and 2 only, in s12-1 and s12-2. A
+		third folder is shared between 2 and 3, in s23-2 and s23-3.
+
+		During this test, we create 1K files, remove and then create them again.
+		However, during these operations we will perform scan operations such
+		that other nodes will retrieve these options while data is changing.
+
+	*/
+	log.Println("Cleaning...")
+	err := removeAll("s1", "s12-1",
+		"s2", "s12-2", "s23-2",
+		"s3", "s23-3",
+		"h1/index", "h2/index", "h3/index")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create initial folder contents. All three devices have stuff in
+	// "default", which should be merged. The other two folders are initially
+	// empty on one side.
+
+	log.Println("Generating files...")
+	for _, f := range []string{"s1", "s12-1",
+		"s2", "s12-2", "s23-2",
+		"s3", "s23-3"} {
+		os.Mkdir(f, 0755)
+	}
+
+	// We'll use these files for recreation
+	os.Mkdir("s1/test-stable-files/", 0755)
+	for i := 0; i < 1000; i++ {
+		fd, err := os.Create("s1/test-stable-files/" + strconv.Itoa(i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = fd.WriteString("hello\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = fd.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Prepare the expected state of folders after the sync
+	c1, err := directoryContents("s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c2, err := directoryContents("s2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c3, err := directoryContents("s3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e1 := mergeDirectoryContents(c1, c2, c3)
+	e2, err := directoryContents("s12-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e3, err := directoryContents("s23-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := [][]fileInfo{e1, e2, e3}
+
+	// Start the syncers
+	p, err := scStartProcesses()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		for i := range p {
+			p[i].stop()
+		}
+	}()
+
+	for count := 0; count < 5; count++ {
+		rescan := func() {
+			for i := range p {
+				p[i].post("/rest/scan?folder=default", nil)
+				if i < 3 {
+					p[i].post("/rest/scan?folder=s12", nil)
+				}
+				if i > 1 {
+					p[i].post("/rest/scan?folder=s23", nil)
+				}
+			}
+		}
+		log.Println("Forcing rescan...")
+		rescan()
+
+		// Sync stuff and verify it looks right
+		err = scSyncAndCompare(p, expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		log.Println("Altering...")
+
+		// Delete and recreate stable files while scanners and pullers are active
+		for i := 0; i < 1000; i++ {
+			err = os.Remove("s1/test-stable-files/" + strconv.Itoa(i))
+			if err != nil {
+				t.Fatal("File s1/test-stable-files/" + strconv.Itoa(i) + " missing")
+			}
+			if rand.Intn(10) == 0 {
+				rescan()
+			}
+		}
+		rescan()
+		time.Sleep(50 * time.Millisecond)
+		for i := 0; i < 1000; i++ {
+			fd, err := os.Create("s1/test-stable-files/" + strconv.Itoa(i))
+			if err != nil {
+				t.Fatal("File s1/test-stable-files/" + strconv.Itoa(i) + " could not be created")
+			}
+			fd.WriteString("hello\n")
+			fd.Close()
+			if rand.Intn(10) == 0 {
+				rescan()
+			}
+		}
+		rescan()
+
+		// Prepare the expected state of folders after the sync
+		e1, err = directoryContents("s1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		e2, err = directoryContents("s12-1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		e3, err = directoryContents("s23-2")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(e1) != 1001 {
+			t.Fatal("s1 does not have 1001 files, but only has " + strconv.Itoa(len(e1)))
 		}
 		expected = [][]fileInfo{e1, e2, e3}
 	}
