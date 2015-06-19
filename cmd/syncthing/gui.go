@@ -583,7 +583,7 @@ func (s *apiSvc) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	if len(folder) == 0 {
 		s.flushResponse(`{"ok": "resetting database"}`, w)
 	} else {
-		s.flushResponse(`{"ok": "resetting folder " + folder}`, w)
+		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 	go restart()
 }
