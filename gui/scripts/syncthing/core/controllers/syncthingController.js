@@ -45,6 +45,8 @@ angular.module('syncthing.core')
         $scope.neededTotal = 0;
         $scope.neededCurrentPage = 1;
         $scope.neededPageSize = 10;
+        $scope.foldersTotalLocalBytes = 0;
+        $scope.foldersTotalLocalFiles = 0;
 
         $(window).bind('beforeunload', function () {
             navigatingAway = true;
@@ -340,6 +342,15 @@ angular.module('syncthing.core')
                     }
                 }
                 $scope.announceServersFailed = failed;
+
+                $scope.foldersTotalLocalBytes = 0;
+                $scope.foldersTotalLocalFiles = 0;
+
+                for (var f in $scope.model) {
+                   $scope.foldersTotalLocalBytes += $scope.model[f].localBytes;
+                   $scope.foldersTotalLocalFiles += $scope.model[f].localFiles;
+                };
+
                 console.log("refreshSystem", data);
             }).error($scope.emitHTTPError);
         }
