@@ -411,7 +411,7 @@ func xdr() {
 
 func translate() {
 	os.Chdir("gui/assets/lang")
-	runPipe("lang-en-new.json", "go", "run", "../../../cmd/translate/main.go", "lang-en.json", "../../index.html")
+	runPipe("lang-en-new.json", "go", "run", "../../../cmd/translate/main.go", "lang-en.json", "../../")
 	os.Remove("lang-en.json")
 	err := os.Rename("lang-en-new.json", "lang-en.json")
 	if err != nil {
