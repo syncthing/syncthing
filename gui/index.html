@@ -473,42 +473,11 @@
     </div>
   </nav>
 
-  <!-- @TODO: refactor info/warning/error message modals to be more generic. -->
-  <!-- Network error modal -->
-
-  <modal id="networkError" status="danger" icon="exclamation-sign" title="{{'Connection Error' | translate}}">
-    <p translate>
-      Syncthing seems to be down, or there is a problem with your Internet connection. Retrying&hellip;
-    </p>
-  </modal>
-
-  <!-- HTTP error modal -->
-
-  <modal id="httpError" status="danger" icon="exclamation-sign" title="{{'Connection Error' | translate}}">
-    <p translate>
-      Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.
-    </p>
-  </modal>
-
-  <!-- Restarting modal -->
-
-  <modal id="restarting" icon="refresh" title="{{'Restarting' | translate}}" status="info">
-    <p><span translate>Syncthing is restarting.</span> <span translate>Please wait</span>...</p>
-  </modal>
-
-  <!-- Upgrading modal -->
-
-  <modal id="upgrading" icon="refresh" title="{{'Upgrading' | translate}}" status="info">
-    <p><span translate>Syncthing is upgrading.</span> <span translate>Please wait</span>...</p>
-  </modal>
-
-  <!-- Shutdown modal -->
-
-  <modal id="shutdown" icon="off" status="success" title="{{'Shutdown Complete' | translate}}">
-    <p translate>Syncthing has been shut down.</p>
-  </modal>
-
-  <!-- ID modal -->
+  <div network-error-dialog></div>
+  <div http-error-dialog></div>
+  <div restarting-dialog></div>
+  <div upgrading-dialog></div>
+  <div shutdown-dialog></div>
   <div idqr-modal></div>
   <div major-upgrade-modal></div>
   <div edit-device-modal></div>
@@ -621,6 +590,11 @@
   <script src="scripts/syncthing/core/directives/validDeviceidDirective.js"></script>
   <script src="scripts/syncthing/core/directives/popoverDirective.js"></script>
   <script src="scripts/syncthing/core/directives/selectOnClickDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/messageDialogs/httpErrorDialogDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/messageDialogs/networkErrorDialogDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/messageDialogs/restartingDialogDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/messageDialogs/shutdownDialogDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/messageDialogs/upgradingDialogDirective.js"></script>
   <script src="scripts/syncthing/core/filters/alwaysNumberFilter.js"></script>
   <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
   <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>
