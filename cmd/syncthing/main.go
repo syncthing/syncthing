@@ -601,7 +601,6 @@ func syncthingMain() {
 
 	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb)
 	cfg.Subscribe(m)
-	mainSvc.Add(m)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
 		it, err := strconv.Atoi(t)
@@ -633,6 +632,8 @@ func syncthingMain() {
 			m.StartFolderRW(folderCfg.ID)
 		}
 	}
+
+	mainSvc.Add(m)
 
 	// GUI
 

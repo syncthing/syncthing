@@ -179,6 +179,7 @@ func (m *Model) StartFolderRW(folder string) {
 		if !ok {
 			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
 		}
+
 		versioner := factory(folder, cfg.Path(), cfg.Versioning.Params)
 		if service, ok := versioner.(suture.Service); ok {
 			// The versioner implements the suture.Service interface, so
@@ -189,7 +190,7 @@ func (m *Model) StartFolderRW(folder string) {
 		p.versioner = versioner
 	}
 
-	go p.Serve()
+	m.Add(p)
 }
 
 // StartFolderRO starts read only processing on the current model. When in
