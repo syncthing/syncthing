@@ -328,6 +328,10 @@
                     <td class="text-right">{{connectionsTotal.outbps | binary}}B/s ({{connectionsTotal.outBytesTotal | binary}}B)</td>
                   </tr>
                   <tr>
+                    <th><span class="glyphicon glyphicon-home"></span>&nbsp;<span translate>Local State (Total)</span> </th>
+                    <td class="text-right">{{foldersTotalLocalFiles | alwaysNumber}} <span translate>items</span>, ~{{ foldersTotalLocalBytes | binary}}B</td>
+                  </tr>
+                  <tr>
                     <th><span class="glyphicon glyphicon-th"></span>&nbsp;<span translate>RAM Utilization</span></th>
                     <td class="text-right">{{system.sys | binary}}B</td>
                   </tr>
