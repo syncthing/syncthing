@@ -42,6 +42,8 @@ func TestSymlinks(t *testing.T) {
 	fld := cfg.Folders()["default"]
 	fld.Versioning = config.VersioningConfiguration{}
 	cfg.SetFolder(fld)
+	os.Rename("h2/config.xml", "h2/config.xml.orig")
+	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
 	cfg.Save()
 
 	testSymlinks(t)
@@ -61,6 +63,8 @@ func TestSymlinksSimpleVersioning(t *testing.T) {
 		Params: map[string]string{"keep": "5"},
 	}
 	cfg.SetFolder(fld)
+	os.Rename("h2/config.xml", "h2/config.xml.orig")
+	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
 	cfg.Save()
 
 	testSymlinks(t)
@@ -79,9 +83,116 @@ func TestSymlinksStaggeredVersioning(t *testing.T) {
 		Type: "staggered",
 	}
 	cfg.SetFolder(fld)
+	os.Rename("h2/config.xml", "h2/config.xml.orig")
+	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
 	cfg.Save()
 
 	testSymlinks(t)
+}
+
+func TestFollowSymlinks(t *testing.T) {
+	if !symlinksSupported() {
+		t.Skip("symlinks unsupported")
+	}
+
+	// Enable FollowSymlinks on the sender side
+	id, _ := protocol.DeviceIDFromString(id1)
+	cfg, _ := config.Load("h1/config.xml", id)
+	fld := cfg.Folders()["default"]
+	fld.FollowSymlinks = true
+	cfg.SetFolder(fld)
+	os.Rename("h1/config.xml", "h1/config.xml.orig")
+	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
+	cfg.Save()
+
+	log.Println("Cleaning...")
+	err := removeAll("s1", "s2", "testdata", "h1/index*", "h2/index*")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build the following:
+	// s1/
+	//   f -> ../testdata/file
+	//   d1 -> ../testdata/d1
+	//
+	// testdata/
+	//   file
+	//   d1/
+	//     file1
+	//     file2
+	//     d2 -> ../d1 (causes recursion)
+	//     d3 -> foo (does not exist)
+
+	log.Println("Generating files...")
+	if err := os.Mkdir("s1", 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir("testdata", 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir("testdata/d1", 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile("testdata/file", []byte("file"), 0666); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile("testdata/d1/file1", []byte("file"), 0666); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile("testdata/d1/file2", []byte("file"), 0666); err != nil {
+		t.Fatal(err)
+	}
+	if err := symlinks.Create("s1/f", "../testdata/file", 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := symlinks.Create("s1/d1", "../testdata/d1", 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := symlinks.Create("testdata/d1/d2", "../d1", 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := symlinks.Create("testdata/d1/d3", "foo", 0); err != nil {
+		t.Fatal(err)
+	}
+
+	sender := startInstance(t, 1)
+	defer checkedStop(t, sender)
+	receiver := startInstance(t, 2)
+	defer checkedStop(t, receiver)
+
+	rc.AwaitSync("default", sender, receiver)
+
+	for _, dir := range []string{"s2/d1"} {
+		info, err := os.Lstat(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !info.IsDir() {
+			t.Error(dir, "should be dir")
+		}
+	}
+
+	for _, file := range []string{"s2/f", "s2/d1/file1", "s2/d1/file2"} {
+		info, err := os.Lstat(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.IsDir() {
+			t.Error(file, "should be file")
+		}
+	}
+
+	for _, nonex := range []string{"s2/d1/d2", "s2/d1/d3"} {
+		_, err := os.Lstat(nonex)
+		if !os.IsNotExist(err) {
+			t.Error(nonex, "should not exist")
+		}
+	}
+
+	if info, err := os.Lstat("s1/d1"); err != nil || info.Mode()&os.ModeSymlink != os.ModeSymlink {
+		t.Fatal("s1/d1 should still be a symlink")
+	}
 }
 
 func testSymlinks(t *testing.T) {

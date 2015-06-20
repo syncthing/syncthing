@@ -274,7 +274,7 @@ func TestNormalization(t *testing.T) {
 func TestIssue1507(t *testing.T) {
 	w := Walker{}
 	c := make(chan protocol.FileInfo, 100)
-	fn := w.walkAndHashFiles(c)
+	fn := w.walkAndHashFiles(c, nil)
 
 	fn("", nil, protocol.ErrClosed)
 }

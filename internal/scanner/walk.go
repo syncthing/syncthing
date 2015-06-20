@@ -66,6 +66,8 @@ type Walker struct {
 	Hashers int
 	// Our vector clock id
 	ShortID uint64
+	// When true, symlinks are followed instead of scanned as is
+	FollowSymlinks bool
 }
 
 type TempNamer interface {
@@ -96,8 +98,9 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	hashedFiles := make(chan protocol.FileInfo)
 	newParallelHasher(w.Dir, w.BlockSize, w.Hashers, hashedFiles, files)
 
+	var extraDirs []string
 	go func() {
-		hashFiles := w.walkAndHashFiles(files)
+		hashFiles := w.walkAndHashFiles(files, &extraDirs)
 		if len(w.Subs) == 0 {
 			filepath.Walk(w.Dir, hashFiles)
 		} else {
@@ -105,13 +108,23 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 				filepath.Walk(filepath.Join(w.Dir, sub), hashFiles)
 			}
 		}
+
+		for i := 0; i < len(extraDirs); i++ {
+			if debug {
+				l.Debugln("extra scan of", extraDirs[i])
+			}
+			filepath.Walk(extraDirs[i], hashFiles)
+		}
 		close(files)
 	}()
 
 	return hashedFiles, nil
 }
 
-func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFunc {
+// walkAndHashFiles returns a walk function. It will send files for hashing on
+// fchan and append paths for scanning to *extraDirs. The latter only happens
+// when we find a symlink to a directory and w.FollowSymlinks is true.
+func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo, extraDirs *[]string) filepath.WalkFunc {
 	now := time.Now()
 	return func(p string, info os.FileInfo, err error) error {
 		// Return value used when we are returning early and don't want to
@@ -217,9 +230,48 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 		var cf protocol.FileInfo
 		var ok bool
 
-		// Index wise symlinks are always files, regardless of what the target
-		// is, because symlinks carry their target path as their content.
-		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
+		if info.Mode()&os.ModeSymlink == os.ModeSymlink && w.FollowSymlinks {
+			// The target is a symlink, but we're configured to follow symlinks.
+			// Re-stat the symlink to replace `info` with the data for the
+			// actual target.
+			info, err = os.Stat(p)
+			if err != nil {
+				if debug {
+					l.Debugln(err)
+				}
+				return skip
+			}
+			mtime = info.ModTime()
+
+			// If the target is a directory we must add it to the list of extra
+			// paths to scan.
+			if info.IsDir() {
+				if debug {
+					l.Debugln(p, "is a symlink to a directory")
+				}
+
+				// Check if we've already scanned a parent to this directory. If
+				// we have, then we don't want to go down this path too or we
+				// might create an infinite recursion.
+				for _, dir := range *extraDirs {
+					if filepath.HasPrefix(p, dir) {
+						if debug {
+							l.Debugln(p, "is covered by", dir)
+						}
+						return skip
+					}
+				}
+
+				// The slash after the path name is essential; it makes
+				// filepath.Walk not see the symlink, but the actual
+				// directory on the other side.
+				*extraDirs = append(*extraDirs, p+string(os.PathSeparator))
+			}
+		} else if info.Mode()&os.ModeSymlink == os.ModeSymlink {
+			// Index wise symlinks are always files, regardless of what the
+			// target is, because symlinks carry their target path as their
+			// content.
+
 			// If the target is a directory, do NOT descend down there. This
 			// will cause files to get tracked, and removing the symlink will
 			// as a result remove files in their real location.
