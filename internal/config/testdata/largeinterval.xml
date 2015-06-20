@@ -1,0 +1,4 @@
+<configuration version="10">
+    <folder id="l1" path="~/Sync" rescanIntervalS="60000000000"></folder>
+    <folder id="l2" path="~/Sync" rescanIntervalS="-1"></folder>
+</configuration>
