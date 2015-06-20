@@ -454,8 +454,6 @@ func syncthingMain() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
-	events.Default.Log(events.Starting, map[string]string{"home": baseDirs["config"]})
-
 	// Ensure that that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
@@ -474,6 +472,13 @@ func syncthingMain() {
 
 	l.Infoln(LongVersion)
 	l.Infoln("My ID:", myID)
+
+	// Emit the Starting event, now that we know who we are.
+
+	events.Default.Log(events.Starting, map[string]string{
+		"home": baseDirs["config"],
+		"myID": myID.String(),
+	})
 
 	// Prepare to be able to save configuration
 
