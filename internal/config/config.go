@@ -28,6 +28,7 @@ import (
 const (
 	OldestHandledVersion = 5
 	CurrentVersion       = 10
+	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
 type Configuration struct {
@@ -328,6 +329,12 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 
 		if folder.ID == "" {
 			folder.ID = "default"
+		}
+
+		if folder.RescanIntervalS > MaxRescanIntervalS {
+			folder.RescanIntervalS = MaxRescanIntervalS
+		} else if folder.RescanIntervalS < 0 {
+			folder.RescanIntervalS = 0
 		}
 
 		if seen, ok := seenFolders[folder.ID]; ok {

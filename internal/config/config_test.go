@@ -578,3 +578,17 @@ func TestPullOrder(t *testing.T) {
 		}
 	}
 }
+
+func TestLargeRescanInterval(t *testing.T) {
+	wrapper, err := Load("testdata/largeinterval.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if wrapper.Folders()["l1"].RescanIntervalS != MaxRescanIntervalS {
+		t.Error("too large rescan interval should be maxed out")
+	}
+	if wrapper.Folders()["l2"].RescanIntervalS != 0 {
+		t.Error("negative rescan interval should become zero")
+	}
+}
