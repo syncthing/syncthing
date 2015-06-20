@@ -8,6 +8,7 @@
         <copiers>1</copiers>
         <pullers>16</pullers>
         <hashers>0</hashers>
+	<followSymlinks>true</followSymlinks>
     </folder>
     <folder id="s12" path="s12-1" ro="false" rescanIntervalS="10" ignorePerms="false" autoNormalize="true">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>

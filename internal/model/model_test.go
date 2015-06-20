@@ -97,6 +97,7 @@ func TestRequest(t *testing.T) {
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolderRO("default")
 	m.ScanFolder("default")
+	m.ServeBackground()
 
 	// Existing, shared file
 	bs, err := m.Request(device1, "default", "foo", 0, 6, nil, 0, nil)
@@ -189,6 +190,7 @@ func benchmarkIndex(b *testing.B, nfiles int) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolderRO("default")
+	m.ServeBackground()
 
 	files := genFiles(nfiles)
 	m.Index(device1, "default", files, 0, nil)
@@ -217,6 +219,7 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolderRO("default")
+	m.ServeBackground()
 
 	files := genFiles(nfiles)
 	ufiles := genFiles(nufiles)
@@ -277,6 +280,7 @@ func BenchmarkRequest(b *testing.B) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
+	m.ServeBackground()
 	m.ScanFolder("default")
 
 	const n = 1000
@@ -327,6 +331,7 @@ func TestDeviceRename(t *testing.T) {
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
+	m.ServeBackground()
 	if cfg.Devices()[device1].Name != "" {
 		t.Errorf("Device already has a name")
 	}
@@ -396,6 +401,7 @@ func TestClusterConfig(t *testing.T) {
 	m := NewModel(config.Wrap("/tmp/test", cfg), protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(cfg.Folders[0])
 	m.AddFolder(cfg.Folders[1])
+	m.ServeBackground()
 
 	cm := m.clusterConfig(device2)
 
@@ -466,6 +472,7 @@ func TestIgnores(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolderRO("default")
+	m.ServeBackground()
 
 	expected := []string{
 		".*",
@@ -539,6 +546,7 @@ func TestRefuseUnknownBits(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
+	m.ServeBackground()
 
 	m.ScanFolder("default")
 	m.Index(device1, "default", []protocol.FileInfo{
@@ -596,9 +604,9 @@ func TestROScanRecovery(t *testing.T) {
 	os.RemoveAll(fcfg.RawPath)
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
-
 	m.AddFolder(fcfg)
 	m.StartFolderRO("default")
+	m.ServeBackground()
 
 	waitFor := func(status string) error {
 		timeout := time.Now().Add(2 * time.Second)
@@ -680,9 +688,9 @@ func TestRWScanRecovery(t *testing.T) {
 	os.RemoveAll(fcfg.RawPath)
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
-
 	m.AddFolder(fcfg)
 	m.StartFolderRW("default")
+	m.ServeBackground()
 
 	waitFor := func(status string) error {
 		timeout := time.Now().Add(2 * time.Second)
@@ -744,6 +752,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
+	m.ServeBackground()
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		flags := uint32(protocol.FlagDirectory)
@@ -993,6 +1002,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
+	m.ServeBackground()
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		flags := uint32(protocol.FlagDirectory)
@@ -1166,6 +1176,8 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
+	m.ServeBackground()
+
 	m.ScanFolder("default")
 	files := genDeepFiles(n1, n2)
 
