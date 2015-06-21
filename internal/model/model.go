@@ -55,6 +55,7 @@ type service interface {
 	BringToFront(string)
 	DelayScan(d time.Duration)
 	IndexUpdated() // Remote index was updated notification
+	Scan(subs []string) error
 
 	setState(state folderState)
 	setError(err error)
@@ -1226,6 +1227,21 @@ func (m *Model) ScanFolder(folder string) error {
 }
 
 func (m *Model) ScanFolderSubs(folder string, subs []string) error {
+	m.fmut.Lock()
+	runner, ok := m.folderRunners[folder]
+	m.fmut.Unlock()
+
+	// Folders are added to folderRunners only when they are started. We can't
+	// scan them before they have started, so that's what we need to check for
+	// here.
+	if !ok {
+		return errors.New("no such folder")
+	}
+
+	return runner.Scan(subs)
+}
+
+func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 	for i, sub := range subs {
 		sub = osutil.NativeFilename(sub)
 		if p := filepath.Clean(filepath.Join(folder, sub)); !strings.HasPrefix(p, folder) {
