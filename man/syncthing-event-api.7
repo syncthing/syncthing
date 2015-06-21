@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "June 14, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "June 20, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -444,7 +444,10 @@ An unsuccessful operation:
 .UNINDENT
 .UNINDENT
 .sp
-The \fBaction\fP field is either \fBupdate\fP or \fBdelete\fP\&.
+The \fBaction\fP field is either \fBupdate\fP (contents changed), \fBmetadata\fP (file metadata changed but not contents), or \fBdelete\fP\&.
+.sp
+New in version 0.11.10: The \fBmetadata\fP action.
+
 .SS ItemStarted
 .sp
 Generated when Syncthing begins synchronizing a file to a newer version.
@@ -469,7 +472,10 @@ Generated when Syncthing begins synchronizing a file to a newer version.
 .UNINDENT
 .UNINDENT
 .sp
-The \fBaction\fP field is either \fBupdate\fP or \fBdelete\fP\&.
+The \fBaction\fP field is either \fBupdate\fP (contents changed), \fBmetadata\fP (file metadata changed but not contents), or \fBdelete\fP\&.
+.sp
+New in version 0.11.10: The \fBmetadata\fP action.
+
 .SS LocalIndexUpdated
 .sp
 Generated when the local index information has changed, due to
