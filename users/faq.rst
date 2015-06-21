@@ -217,8 +217,8 @@ The CSRF tokens are stored using cookies. Therefore, if you get the message
 ``Syncthing seems to be experiencing a problem processing your request``, you
 should verify the cookie settings of your browser.
 
-Why can I not open two Syncthing sessions on localhost in the same browser?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Why can't I open two Syncthing sessions on localhost in the same browser?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The Syncthing GUI uses browser cookies to maintain a session. Browser cookies
 are tied to the website domain. When navigating to two different websites on
