@@ -9,6 +9,7 @@
 package integration
 
 import (
+	"bytes"
 	"log"
 	"os"
 	"path/filepath"
@@ -67,17 +68,17 @@ func TestReset(t *testing.T) {
 
 	// Reset indexes of the default folder
 	log.Println("Reset indexes of default folder")
-	_, err = p.Post("/rest/system/reset?folder=default", nil)
+	bs, err := p.Post("/rest/system/reset?folder=default", nil)
 	if err != nil {
-		t.Fatal("Failed to reset indexes of the default folder:", err)
+		t.Fatalf("Failed to reset indexes (default): %v (%s)", err, bytes.TrimSpace(bs))
 	}
 
 	// Syncthing restarts on reset. But we set STNORESTART=1 for the tests. So
 	// we wait for it to exit, then do a stop so the rc.Process is happy and
 	// restart it again.
 	time.Sleep(time.Second)
-	checkedStop(t, p)
 	p = startInstance(t, 1)
+	defer checkedStop(t, p)
 
 	m, err = p.Model("default")
 	if err != nil {
@@ -108,17 +109,14 @@ func TestReset(t *testing.T) {
 
 	// Reset all indexes
 	log.Println("Reset DB...")
-	_, err = p.Post("/rest/system/reset?folder=default", nil)
+	bs, err = p.Post("/rest/system/reset", nil)
 	if err != nil {
-		t.Fatalf("Failed to reset indexes", err)
+		t.Fatalf("Failed to reset indexes (all): %v (%s)", err, bytes.TrimSpace(bs))
 	}
 
 	// Syncthing restarts on reset. But we set STNORESTART=1 for the tests. So
-	// we wait for it to exit, then do a stop so the rc.Process is happy and
-	// restart it again.
+	// we wait for it to exit, then restart it again.
 	time.Sleep(time.Second)
-	checkedStop(t, p)
-
 	p = startInstance(t, 1)
 	defer checkedStop(t, p)
 
