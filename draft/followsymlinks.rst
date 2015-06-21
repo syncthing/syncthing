@@ -7,8 +7,6 @@
   the deletion of your files. Currently it's probably best to only use
   ``FollowSymlinks`` on a folder master.
 
-.. versionadded:: v0.11.10
-
 Symbolic Link Following
 =======================
 
@@ -63,8 +61,12 @@ Disabling
   Disabling ``FollowSymlinks``, once enabled, is not fully supported. Doing so
   by the same mechanism used to enable it is likely to destroy your files.
 
-Disabling ``FollowSymlinks`` on the source results in symlinked directories
-being deleted and replaced with the actual symlink. During the next scan, the
-files previously present in the directory will be noted as having been deleted
-and delete record sent to other devices. The source device will then delete
-the files.
+Disabling ``FollowSymlinks`` is inherently unsafe as it generates delete
+records for all files that were previously accessible via the symlink. Under
+some conditions, these files may be deleted from the reconfigured device
+having the symlink, in addition to the other devices.
+
+The safest course of action is to remove the symlinks themselves, then disable
+``FollowSymlinks``. The files previously reachable via the symlink will be
+deleted from other devices, but (given the symlink was removed) are not
+reachable and hence are preserved on the source device.
