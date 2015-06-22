@@ -628,7 +628,7 @@
                     <span translate ng-if="folderEditor.folderID.$valid || folderEditor.folderID.$pristine">Short identifier for the folder. Must be the same on all cluster devices.</span>
                     <span translate ng-if="folderEditor.folderID.$error.uniqueFolder">The folder ID must be unique.</span>
                     <span translate ng-if="folderEditor.folderID.$error.required && folderEditor.folderID.$dirty">The folder ID cannot be blank.</span>
-                    <span translate ng-if="folderEditor.folderID.$error.pattern && folderEditor.folderID.$dirty">The folder ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscode (_) characters only.</span>
+                    <span translate ng-if="folderEditor.folderID.$error.pattern && folderEditor.folderID.$dirty">The folder ID must be a short identifier (64 characters or less) consisting of letters, numbers and the dot (.), dash (-) and underscore (_) characters only.</span>
                   </p>
                 </div>
                 <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty}">
