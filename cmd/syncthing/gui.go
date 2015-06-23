@@ -52,6 +52,7 @@ var (
 )
 
 type apiSvc struct {
+	id              protocol.DeviceID
 	cfg             config.GUIConfiguration
 	assetDir        string
 	model           *model.Model
@@ -62,8 +63,9 @@ type apiSvc struct {
 	eventSub        *events.BufferedSubscription
 }
 
-func newAPISvc(cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription) (*apiSvc, error) {
+func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription) (*apiSvc, error) {
 	svc := &apiSvc{
+		id:              id,
 		cfg:             cfg,
 		assetDir:        assetDir,
 		model:           m,
@@ -188,14 +190,14 @@ func (s *apiSvc) Serve() {
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware("/rest", s.cfg.APIKey, mux)
+	handler := csrfMiddleware(s.id.String()[:5], "/rest", s.cfg.APIKey, mux)
 
-	// Add our version as a header to responses
-	handler = withVersionMiddleware(handler)
+	// Add our version and ID as a header to responses
+	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
 	if len(s.cfg.User) > 0 && len(s.cfg.Password) > 0 {
-		handler = basicAuthAndSessionMiddleware(s.cfg, handler)
+		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], s.cfg, handler)
 	}
 
 	// Redirect to HTTPS if we are supposed to
@@ -334,9 +336,10 @@ func noCacheMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func withVersionMiddleware(h http.Handler) http.Handler {
+func withDetailsMiddleware(id protocol.DeviceID, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Syncthing-Version", Version)
+		w.Header().Set("X-Syncthing-ID", id.String())
 		h.ServeHTTP(w, r)
 	})
 }

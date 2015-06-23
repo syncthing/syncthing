@@ -808,7 +808,7 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 
 			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			l.Infoln("Starting web GUI on", urlShow)
-			api, err := newAPISvc(guiCfg, guiAssets, m, apiSub)
+			api, err := newAPISvc(myID, guiCfg, guiAssets, m, apiSub)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
