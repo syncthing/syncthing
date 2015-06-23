@@ -9,7 +9,6 @@ package config
 
 import (
 	"encoding/xml"
-	"fmt"
 	"io"
 	"math/rand"
 	"os"
@@ -310,7 +309,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 
 	// Check for missing, bad or duplicate folder ID:s
 	var seenFolders = map[string]*FolderConfiguration{}
-	var uniqueCounter int
 	for i := range cfg.Folders {
 		folder := &cfg.Folders[i]
 
@@ -339,15 +337,8 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 
 		if seen, ok := seenFolders[folder.ID]; ok {
 			l.Warnf("Multiple folders with ID %q; disabling", folder.ID)
-
 			seen.Invalid = "duplicate folder ID"
-			if seen.ID == folder.ID {
-				uniqueCounter++
-				seen.ID = fmt.Sprintf("%s~%d", folder.ID, uniqueCounter)
-			}
 			folder.Invalid = "duplicate folder ID"
-			uniqueCounter++
-			folder.ID = fmt.Sprintf("%s~%d", folder.ID, uniqueCounter)
 		} else {
 			seenFolders[folder.ID] = folder
 		}
