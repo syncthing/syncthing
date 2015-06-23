@@ -217,29 +217,6 @@ The CSRF tokens are stored using cookies. Therefore, if you get the message
 ``Syncthing seems to be experiencing a problem processing your request``, you
 should verify the cookie settings of your browser.
 
-Why can't I open two Syncthing sessions on localhost in the same browser?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The Syncthing GUI uses browser cookies to maintain a session. Browser cookies
-are tied to the website domain. When navigating to two different websites on
-the same domain, such as is the case for two Syncthing instances both
-listening on ``127.0.0.1``, the cookies will get mixed up.
-
-This means you should for example not browse a local Syncthing instance
-(typically localhost:8384) and a remote Syncthing instance (e.g.
-localhost:9090 via an SSH forward) at the same time. Doing so results in
-partial functionality or in an error message such as *Syncthing seems to be
-experiencing a problem processing your request* when saving settings.
-
-There are a few workarounds:
-
-- Use two separate browsers.
-
-- Use the same browser, but one window in "incognito" or private mode.
-
-- Use "reload" on the page prior to making changes, to ensure that the browser
-  has cookies from that instance specifically.
-
 Why do I see Syncthing twice in task manager?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
