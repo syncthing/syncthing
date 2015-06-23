@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/syncthing/protocol"
@@ -19,6 +19,14 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/thejerf/suture"
+)
+
+type DialerFactory func(*url.URL, *tls.Config) (*tls.Conn, error)
+type ListenerFactory func(*url.URL, *tls.Config, chan<- *tls.Conn)
+
+var (
+	dialers   = make(map[string]DialerFactory, 0)
+	listeners = make(map[string]ListenerFactory, 0)
 )
 
 // The connection service listens on TLS and dials configured unconnected
@@ -51,9 +59,9 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, model *model.
 	//
 	//                +-----------------+
 	//    Incoming    | +---------------+-+      +-----------------+
-	//   Connections  | |                 |      |                 |   Outgoing
-	// -------------->| |   svc.listen    |      |                 |  Connections
-	//                | |  (1 per listen  |      |   svc.connect   |-------------->
+	//   Connections  | |                 |      |                 |
+	// -------------->| |    listener     |      |                 |  Outgoing connections via dialers
+	//                | |  (1 per listen  |      |   svc.connect   |----------------------------------->
 	//                | |    address)     |      |                 |
 	//                +-+                 |      |                 |
 	//                  +-----------------+      +-----------------+
@@ -79,11 +87,25 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, model *model.
 
 	svc.Add(serviceFunc(svc.connect))
 	for _, addr := range svc.cfg.Options().ListenAddress {
-		addr := addr
-		listener := serviceFunc(func() {
-			svc.listen(addr)
-		})
-		svc.Add(listener)
+		uri, err := url.Parse(addr)
+		if err != nil {
+			l.Infoln("Failed to parse listen address:", addr, err)
+			continue
+		}
+
+		listener, ok := listeners[uri.Scheme]
+		if !ok {
+			l.Infoln("Unknown listen address scheme:", uri.String())
+			continue
+		}
+
+		if debugNet {
+			l.Debugln("listening on", uri.String())
+		}
+
+		svc.Add(serviceFunc(func() {
+			listener(uri, svc.tlsCfg, svc.conns)
+		}))
 	}
 	svc.Add(serviceFunc(svc.handle))
 
@@ -197,46 +219,6 @@ next:
 	}
 }
 
-func (s *connectionSvc) listen(addr string) {
-	if debugNet {
-		l.Debugln("listening on", addr)
-	}
-
-	tcaddr, err := net.ResolveTCPAddr("tcp", addr)
-	if err != nil {
-		l.Fatalln("listen (BEP):", err)
-	}
-	listener, err := net.ListenTCP("tcp", tcaddr)
-	if err != nil {
-		l.Fatalln("listen (BEP):", err)
-	}
-
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			l.Warnln("Accepting connection:", err)
-			continue
-		}
-
-		if debugNet {
-			l.Debugln("connect from", conn.RemoteAddr())
-		}
-
-		tcpConn := conn.(*net.TCPConn)
-		s.setTCPOptions(tcpConn)
-
-		tc := tls.Server(conn, s.tlsCfg)
-		err = tc.Handshake()
-		if err != nil {
-			l.Infoln("TLS handshake:", err)
-			tc.Close()
-			continue
-		}
-
-		s.conns <- tc
-	}
-}
-
 func (s *connectionSvc) connect() {
 	delay := time.Second
 	for {
@@ -254,7 +236,7 @@ func (s *connectionSvc) connect() {
 			for _, addr := range deviceCfg.Addresses {
 				if addr == "dynamic" {
 					if discoverer != nil {
-						t := discoverer.Lookup(deviceID)
+						t, _ := discoverer.Lookup(deviceID)
 						if len(t) == 0 {
 							continue
 						}
@@ -266,45 +248,30 @@ func (s *connectionSvc) connect() {
 			}
 
 			for _, addr := range addrs {
-				host, port, err := net.SplitHostPort(addr)
-				if err != nil && strings.HasPrefix(err.Error(), "missing port") {
-					// addr is on the form "1.2.3.4"
-					addr = net.JoinHostPort(addr, "22000")
-				} else if err == nil && port == "" {
-					// addr is on the form "1.2.3.4:"
-					addr = net.JoinHostPort(host, "22000")
+				uri, err := url.Parse(addr)
+				if err != nil {
+					l.Infoln("Failed to parse connection url:", addr, err)
+					continue
 				}
+
+				dialer, ok := dialers[uri.Scheme]
+				if !ok {
+					l.Infoln("Unknown address schema", uri.String())
+					continue
+				}
+
 				if debugNet {
-					l.Debugln("dial", deviceCfg.DeviceID, addr)
+					l.Debugln("dial", deviceCfg.DeviceID, uri.String())
 				}
-
-				raddr, err := net.ResolveTCPAddr("tcp", addr)
+				conn, err := dialer(uri, s.tlsCfg)
 				if err != nil {
 					if debugNet {
-						l.Debugln(err)
+						l.Debugln("dial failed", deviceCfg.DeviceID, uri.String(), err)
 					}
 					continue
 				}
 
-				conn, err := net.DialTCP("tcp", nil, raddr)
-				if err != nil {
-					if debugNet {
-						l.Debugln(err)
-					}
-					continue
-				}
-
-				s.setTCPOptions(conn)
-
-				tc := tls.Client(conn, s.tlsCfg)
-				err = tc.Handshake()
-				if err != nil {
-					l.Infoln("TLS handshake:", err)
-					tc.Close()
-					continue
-				}
-
-				s.conns <- tc
+				s.conns <- conn
 				continue nextDevice
 			}
 		}
@@ -314,22 +281,6 @@ func (s *connectionSvc) connect() {
 		if maxD := time.Duration(s.cfg.Options().ReconnectIntervalS) * time.Second; delay > maxD {
 			delay = maxD
 		}
-	}
-}
-
-func (*connectionSvc) setTCPOptions(conn *net.TCPConn) {
-	var err error
-	if err = conn.SetLinger(0); err != nil {
-		l.Infoln(err)
-	}
-	if err = conn.SetNoDelay(false); err != nil {
-		l.Infoln(err)
-	}
-	if err = conn.SetKeepAlivePeriod(60 * time.Second); err != nil {
-		l.Infoln(err)
-	}
-	if err = conn.SetKeepAlive(true); err != nil {
-		l.Infoln(err)
 	}
 }
 
@@ -369,4 +320,20 @@ func (s *connectionSvc) CommitConfiguration(from, to config.Configuration) bool 
 	}
 
 	return true
+}
+
+func setTCPOptions(conn *net.TCPConn) {
+	var err error
+	if err = conn.SetLinger(0); err != nil {
+		l.Infoln(err)
+	}
+	if err = conn.SetNoDelay(false); err != nil {
+		l.Infoln(err)
+	}
+	if err = conn.SetKeepAlivePeriod(60 * time.Second); err != nil {
+		l.Infoln(err)
+	}
+	if err = conn.SetKeepAlive(true); err != nil {
+		l.Infoln(err)
+	}
 }

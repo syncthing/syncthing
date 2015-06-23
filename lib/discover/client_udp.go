@@ -137,11 +137,13 @@ func (d *UDPClient) broadcast(pkt []byte) {
 
 				time.Sleep(1 * time.Second)
 
-				res := d.Lookup(d.id)
-				if debug {
-					l.Debugf("discover %s: broadcast: Self-lookup returned: %v", d.url, res)
+				pkt, err := d.Lookup(d.id)
+				if err != nil && debug {
+					l.Debugf("discover %s: broadcast: Self-lookup failed: %v", d.url, err)
+				} else if debug {
+					l.Debugf("discover %s: broadcast: Self-lookup returned: %v", d.url, pkt.This.Addresses)
 				}
-				ok = len(res) > 0
+				ok = len(pkt.This.Addresses) > 0
 			}
 
 			d.mut.Lock()
@@ -157,13 +159,13 @@ func (d *UDPClient) broadcast(pkt []byte) {
 	}
 }
 
-func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
+func (d *UDPClient) Lookup(device protocol.DeviceID) (Announce, error) {
 	extIP, err := net.ResolveUDPAddr(d.url.Scheme, d.url.Host)
 	if err != nil {
 		if debug {
 			l.Debugf("discover %s: Lookup(%s): %s", d.url, device, err)
 		}
-		return nil
+		return Announce{}, err
 	}
 
 	conn, err := net.DialUDP(d.url.Scheme, d.listenAddress, extIP)
@@ -171,7 +173,7 @@ func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
 		if debug {
 			l.Debugf("discover %s: Lookup(%s): %s", d.url, device, err)
 		}
-		return nil
+		return Announce{}, err
 	}
 	defer conn.Close()
 
@@ -180,7 +182,7 @@ func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
 		if debug {
 			l.Debugf("discover %s: Lookup(%s): %s", d.url, device, err)
 		}
-		return nil
+		return Announce{}, err
 	}
 
 	buf := Query{QueryMagic, device[:]}.MustMarshalXDR()
@@ -189,7 +191,7 @@ func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
 		if debug {
 			l.Debugf("discover %s: Lookup(%s): %s", d.url, device, err)
 		}
-		return nil
+		return Announce{}, err
 	}
 
 	buf = make([]byte, 2048)
@@ -197,12 +199,12 @@ func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
 	if err != nil {
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			// Expected if the server doesn't know about requested device ID
-			return nil
+			return Announce{}, err
 		}
 		if debug {
 			l.Debugf("discover %s: Lookup(%s): %s", d.url, device, err)
 		}
-		return nil
+		return Announce{}, err
 	}
 
 	var pkt Announce
@@ -211,18 +213,13 @@ func (d *UDPClient) Lookup(device protocol.DeviceID) []string {
 		if debug {
 			l.Debugf("discover %s: Lookup(%s): %s\n%s", d.url, device, err, hex.Dump(buf[:n]))
 		}
-		return nil
+		return Announce{}, err
 	}
 
-	var addrs []string
-	for _, a := range pkt.This.Addresses {
-		deviceAddr := net.JoinHostPort(net.IP(a.IP).String(), strconv.Itoa(int(a.Port)))
-		addrs = append(addrs, deviceAddr)
-	}
 	if debug {
-		l.Debugf("discover %s: Lookup(%s) result: %v", d.url, device, addrs)
+		l.Debugf("discover %s: Lookup(%s) result: %v relays: %v", d.url, device, pkt.This.Addresses, pkt.This.Relays)
 	}
-	return addrs
+	return pkt, nil
 }
 
 func (d *UDPClient) Stop() {

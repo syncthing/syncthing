@@ -7,6 +7,8 @@
         <localAnnounceEnabled>false</localAnnounceEnabled>
         <localAnnouncePort>42123</localAnnouncePort>
         <localAnnounceMCAddr>quux:3232</localAnnounceMCAddr>
+        <relayServer>relay://123.123.123.123:1234</relayServer>
+        <relayServer>relay://125.125.125.125:1255</relayServer>
         <parallelRequests>32</parallelRequests>
         <maxSendKbps>1234</maxSendKbps>
         <maxRecvKbps>2341</maxRecvKbps>

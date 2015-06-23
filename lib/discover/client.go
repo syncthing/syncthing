@@ -43,7 +43,7 @@ func New(addr string, pkt *Announce) (Client, error) {
 }
 
 type Client interface {
-	Lookup(device protocol.DeviceID) []string
+	Lookup(device protocol.DeviceID) (Announce, error)
 	StatusOK() bool
 	Address() string
 	Stop()

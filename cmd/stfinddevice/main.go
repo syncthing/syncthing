@@ -21,11 +21,11 @@ func main() {
 
 	var server string
 
-	flag.StringVar(&server, "server", "udp4://announce.syncthing.net:22026", "Announce server")
+	flag.StringVar(&server, "server", "udp4://announce.syncthing.net:22027", "Announce server")
 	flag.Parse()
 
 	if len(flag.Args()) != 1 || server == "" {
-		log.Printf("Usage: %s [-server=\"udp4://announce.syncthing.net:22026\"] <device>", os.Args[0])
+		log.Printf("Usage: %s [-server=\"udp4://announce.syncthing.net:22027\"] <device>", os.Args[0])
 		os.Exit(64)
 	}
 
@@ -35,9 +35,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	discoverer := discover.NewDiscoverer(protocol.LocalDeviceID, nil)
+	discoverer := discover.NewDiscoverer(protocol.LocalDeviceID, nil, nil)
 	discoverer.StartGlobal([]string{server}, 1)
-	for _, addr := range discoverer.Lookup(id) {
-		log.Println(addr)
+	addresses, relays := discoverer.Lookup(id)
+	for _, addr := range addresses {
+		log.Println("address:", addr)
+	}
+	for _, addr := range relays {
+		log.Println("relay:", addr)
 	}
 }

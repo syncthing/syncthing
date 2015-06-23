@@ -658,7 +658,12 @@ func syncthingMain() {
 
 	// The default port we announce, possibly modified by setupUPnP next.
 
-	addr, err := net.ResolveTCPAddr("tcp", opts.ListenAddress[0])
+	uri, err := url.Parse(opts.ListenAddress[0])
+	if err != nil {
+		l.Fatalf("Failed to parse listen address %s: %v", opts.ListenAddress[0], err)
+	}
+
+	addr, err := net.ResolveTCPAddr("tcp", uri.Host)
 	if err != nil {
 		l.Fatalln("Bad listen address:", err)
 	}
@@ -902,7 +907,7 @@ func shutdown() {
 
 func discovery(extPort int) *discover.Discoverer {
 	opts := cfg.Options()
-	disc := discover.NewDiscoverer(myID, opts.ListenAddress)
+	disc := discover.NewDiscoverer(myID, opts.ListenAddress, opts.RelayServers)
 
 	if opts.LocalAnnEnabled {
 		l.Infoln("Starting local discovery announcements")

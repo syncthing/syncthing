@@ -37,10 +37,8 @@ func TestUDP4Success(t *testing.T) {
 		Magic: AnnouncementMagic,
 		This: Device{
 			device[:],
-			[]Address{{
-				IP:   net.IPv4(123, 123, 123, 123),
-				Port: 1234,
-			}},
+			[]string{"tcp://123.123.123.123:1234"},
+			nil,
 		},
 	}
 
@@ -101,7 +99,12 @@ func TestUDP4Success(t *testing.T) {
 	wg := sync.NewWaitGroup()
 	wg.Add(1)
 	go func() {
-		addrs = client.Lookup(device)
+		pkt, err := client.Lookup(device)
+		if err == nil {
+			for _, addr := range pkt.This.Addresses {
+				addrs = append(addrs, addr)
+			}
+		}
 		wg.Done()
 	}()
 
@@ -117,7 +120,7 @@ func TestUDP4Success(t *testing.T) {
 	// Wait for the lookup to arrive, verify that the number of answers is correct
 	wg.Wait()
 
-	if len(addrs) != 1 || addrs[0] != "123.123.123.123:1234" {
+	if len(addrs) != 1 || addrs[0] != "tcp://123.123.123.123:1234" {
 		t.Fatal("Wrong number of answers")
 	}
 
@@ -138,10 +141,8 @@ func TestUDP4Failure(t *testing.T) {
 		Magic: AnnouncementMagic,
 		This: Device{
 			device[:],
-			[]Address{{
-				IP:   net.IPv4(123, 123, 123, 123),
-				Port: 1234,
-			}},
+			[]string{"tcp://123.123.123.123:1234"},
+			nil,
 		},
 	}
 
@@ -197,7 +198,12 @@ func TestUDP4Failure(t *testing.T) {
 	wg := sync.NewWaitGroup()
 	wg.Add(1)
 	go func() {
-		addrs = client.Lookup(device)
+		pkt, err := client.Lookup(device)
+		if err == nil {
+			for _, addr := range pkt.This.Addresses {
+				addrs = append(addrs, addr)
+			}
+		}
 		wg.Done()
 	}()
 
