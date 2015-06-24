@@ -1554,23 +1554,23 @@ func (m *Model) Override(folder string) {
 // CurrentLocalVersion returns the change version for the given folder.
 // This is guaranteed to increment if the contents of the local folder has
 // changed.
-func (m *Model) CurrentLocalVersion(folder string) int64 {
+func (m *Model) CurrentLocalVersion(folder string) (int64, bool) {
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	if !ok {
 		// The folder might not exist, since this can be called with a user
 		// specified folder name from the REST interface.
-		return 0
+		return 0, false
 	}
 
-	return fs.LocalVersion(protocol.LocalDeviceID)
+	return fs.LocalVersion(protocol.LocalDeviceID), true
 }
 
 // RemoteLocalVersion returns the change version for the given folder, as
 // sent by remote peers. This is guaranteed to increment if the contents of
 // the remote or global folder has changed.
-func (m *Model) RemoteLocalVersion(folder string) int64 {
+func (m *Model) RemoteLocalVersion(folder string) (int64, bool) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 
@@ -1578,7 +1578,7 @@ func (m *Model) RemoteLocalVersion(folder string) int64 {
 	if !ok {
 		// The folder might not exist, since this can be called with a user
 		// specified folder name from the REST interface.
-		return 0
+		return 0, false
 	}
 
 	var ver int64
@@ -1586,7 +1586,7 @@ func (m *Model) RemoteLocalVersion(folder string) int64 {
 		ver += fs.LocalVersion(n)
 	}
 
-	return ver
+	return ver, true
 }
 
 func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{} {
@@ -1695,7 +1695,7 @@ func (m *Model) CheckFolderHealth(id string) error {
 	}
 
 	fi, err := os.Stat(folder.Path())
-	if m.CurrentLocalVersion(id) > 0 {
+	if v, ok := m.CurrentLocalVersion(id); ok && v > 0 {
 		// Safety check. If the cached index contains files but the
 		// folder doesn't exist, we have a problem. We would assume
 		// that all files have been deleted which might not be the case,

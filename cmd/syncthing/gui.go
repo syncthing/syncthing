@@ -428,7 +428,10 @@ func folderSummary(m *model.Model, folder string) map[string]interface{} {
 		res["error"] = err.Error()
 	}
 
-	res["version"] = m.CurrentLocalVersion(folder) + m.RemoteLocalVersion(folder)
+	lv, _ := m.CurrentLocalVersion(folder)
+	rv, _ := m.RemoteLocalVersion(folder)
+
+	res["version"] = lv + rv
 
 	ignorePatterns, _, _ := m.GetIgnores(folder)
 	res["ignorePatterns"] = false
