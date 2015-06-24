@@ -92,8 +92,7 @@ type Model struct {
 	deviceVer map[protocol.DeviceID]string
 	pmut      sync.RWMutex // protects protoConn and rawConn
 
-	addedFolder bool
-	started     bool
+	started bool
 
 	reqValidationCache map[string]time.Time // folder / file name => time when confirmed to exist
 	rvmut              sync.RWMutex         // protects reqValidationCache
@@ -1180,7 +1179,6 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 	_ = ignores.Load(filepath.Join(cfg.Path(), ".stignore")) // Ignore error, there might not be an .stignore
 	m.folderIgnores[cfg.ID] = ignores
 
-	m.addedFolder = true
 	m.fmut.Unlock()
 }
 
