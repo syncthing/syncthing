@@ -573,26 +573,26 @@ func (s *apiSvc) postSystemRestart(w http.ResponseWriter, r *http.Request) {
 func (s *apiSvc) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	folder := qs.Get("folder")
-	var err error
-	if len(folder) == 0 {
-		for folder := range cfg.Folders() {
-			err = s.model.ResetFolder(folder)
-			if err != nil {
-				break
-			}
+
+	if len(folder) > 0 {
+		if _, ok := cfg.Folders()[folder]; !ok {
+			http.Error(w, "Invalid folder ID", 500)
+			return
 		}
-	} else {
-		err = s.model.ResetFolder(folder)
 	}
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
+
 	if len(folder) == 0 {
+		// Reset all folders.
+		for folder := range cfg.Folders() {
+			s.model.ResetFolder(folder)
+		}
 		s.flushResponse(`{"ok": "resetting database"}`, w)
 	} else {
+		// Reset a specific folder, assuming it's supposed to exist.
+		s.model.ResetFolder(folder)
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
+
 	go restart()
 }
 
