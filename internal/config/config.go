@@ -578,7 +578,7 @@ func fillNilSlices(data interface{}) error {
 func uniqueStrings(ss []string) []string {
 	var m = make(map[string]bool, len(ss))
 	for _, s := range ss {
-		m[s] = true
+		m[strings.Trim(s, " ")] = true
 	}
 
 	var us = make([]string, 0, len(m))
