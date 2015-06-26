@@ -108,7 +108,7 @@ Exit Codes
     Upgrade not available
 3
     Restarting
-5
+4
     Upgrading
 
 Some of these exit codes are only returned when running without a monitor
