@@ -204,10 +204,10 @@ func (p *rwFolder) Serve() {
 			}
 
 			// RemoteLocalVersion() is a fast call, doesn't touch the database.
-			curVer := p.model.RemoteLocalVersion(p.folder)
-			if curVer == prevVer {
+			curVer, ok := p.model.RemoteLocalVersion(p.folder)
+			if !ok || curVer == prevVer {
 				if debug {
-					l.Debugln(p, "skip (curVer == prevVer)", prevVer)
+					l.Debugln(p, "skip (curVer == prevVer)", prevVer, ok)
 				}
 				p.pullTimer.Reset(nextPullIntv)
 				continue
@@ -231,7 +231,7 @@ func (p *rwFolder) Serve() {
 					// sync. Remember the local version number and
 					// schedule a resync a little bit into the future.
 
-					if lv := p.model.RemoteLocalVersion(p.folder); lv < curVer {
+					if lv, ok := p.model.RemoteLocalVersion(p.folder); ok && lv < curVer {
 						// There's a corner case where the device we needed
 						// files from disconnected during the puller
 						// iteration. The files will have been removed from
