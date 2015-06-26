@@ -1,3 +1,5 @@
+.. _statechanged:
+
 StateChanged
 ------------
 
