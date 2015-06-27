@@ -140,9 +140,9 @@ type isEofer interface {
 	IsEOF() bool
 }
 
-const (
-	pingTimeout  = 30 * time.Second
-	pingIdleTime = 60 * time.Second
+var (
+	PingTimeout  = 30 * time.Second
+	PingIdleTime = 60 * time.Second
 )
 
 func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
@@ -684,17 +684,17 @@ func (c *rawConnection) idGenerator() {
 
 func (c *rawConnection) pingerLoop() {
 	var rc = make(chan bool, 1)
-	ticker := time.Tick(pingIdleTime / 2)
+	ticker := time.Tick(PingIdleTime / 2)
 	for {
 		select {
 		case <-ticker:
-			if d := time.Since(c.cr.Last()); d < pingIdleTime {
+			if d := time.Since(c.cr.Last()); d < PingIdleTime {
 				if debug {
 					l.Debugln(c.id, "ping skipped after rd", d)
 				}
 				continue
 			}
-			if d := time.Since(c.cw.Last()); d < pingIdleTime {
+			if d := time.Since(c.cw.Last()); d < PingIdleTime {
 				if debug {
 					l.Debugln(c.id, "ping skipped after wr", d)
 				}
@@ -714,7 +714,7 @@ func (c *rawConnection) pingerLoop() {
 				if !ok {
 					c.close(fmt.Errorf("ping failure"))
 				}
-			case <-time.After(pingTimeout):
+			case <-time.After(PingTimeout):
 				c.close(fmt.Errorf("ping timeout"))
 			case <-c.closed:
 				return
