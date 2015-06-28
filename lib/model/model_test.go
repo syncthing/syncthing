@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -281,7 +282,11 @@ func BenchmarkRequest(b *testing.B) {
 		id:          device1,
 		requestData: []byte("some data to return"),
 	}
-	m.AddConnection(fc, fc)
+	m.AddConnection(Connection{
+		&net.TCPConn{},
+		fc,
+		ConnectionTypeBasicAccept,
+	})
 	m.Index(device1, "default", files, 0, nil)
 
 	b.ResetTimer()
@@ -314,6 +319,18 @@ func TestDeviceRename(t *testing.T) {
 
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
+
+	fc := FakeConnection{
+		id:          device1,
+		requestData: []byte("some data to return"),
+	}
+
+	m.AddConnection(Connection{
+		&net.TCPConn{},
+		fc,
+		ConnectionTypeBasicAccept,
+	})
+
 	m.ServeBackground()
 	if cfg.Devices()[device1].Name != "" {
 		t.Errorf("Device already has a name")

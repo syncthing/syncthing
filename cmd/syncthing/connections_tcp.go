@@ -11,6 +11,8 @@ import (
 	"net"
 	"net/url"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/model"
 )
 
 func init() {
@@ -56,7 +58,7 @@ func tcpDialer(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
 	return tc, nil
 }
 
-func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- *tls.Conn) {
+func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- intermediateConnection) {
 	tcaddr, err := net.ResolveTCPAddr("tcp", uri.Host)
 	if err != nil {
 		l.Fatalln("listen (BEP/tcp):", err)
@@ -90,6 +92,8 @@ func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- *tls.Conn) {
 			continue
 		}
 
-		conns <- tc
+		conns <- intermediateConnection{
+			tc, model.ConnectionTypeBasicAccept,
+		}
 	}
 }

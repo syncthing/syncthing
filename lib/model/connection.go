@@ -1,0 +1,36 @@
+// Copyright (C) 2015 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
+
+package model
+
+import (
+	"net"
+
+	"github.com/syncthing/protocol"
+)
+
+type Connection struct {
+	net.Conn
+	protocol.Connection
+	Type ConnectionType
+}
+
+const (
+	ConnectionTypeBasicAccept ConnectionType = iota
+	ConnectionTypeBasicDial
+)
+
+type ConnectionType int
+
+func (t ConnectionType) String() string {
+	switch t {
+	case ConnectionTypeBasicAccept:
+		return "basic-accept"
+	case ConnectionTypeBasicDial:
+		return "basic-dial"
+	}
+	return "unknown"
+}

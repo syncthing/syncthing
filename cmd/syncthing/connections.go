@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/syncthing/protocol"
@@ -22,7 +23,7 @@ import (
 )
 
 type DialerFactory func(*url.URL, *tls.Config) (*tls.Conn, error)
-type ListenerFactory func(*url.URL, *tls.Config, chan<- *tls.Conn)
+type ListenerFactory func(*url.URL, *tls.Config, chan<- intermediateConnection)
 
 var (
 	dialers   = make(map[string]DialerFactory, 0)
@@ -37,17 +38,27 @@ type connectionSvc struct {
 	myID   protocol.DeviceID
 	model  *model.Model
 	tlsCfg *tls.Config
-	conns  chan *tls.Conn
+	conns  chan intermediateConnection
+
+	mut      sync.RWMutex
+	connType map[protocol.DeviceID]model.ConnectionType
 }
 
-func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, model *model.Model, tlsCfg *tls.Config) *connectionSvc {
+type intermediateConnection struct {
+	conn     *tls.Conn
+	connType model.ConnectionType
+}
+
+func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Model, tlsCfg *tls.Config) *connectionSvc {
 	svc := &connectionSvc{
 		Supervisor: suture.NewSimple("connectionSvc"),
 		cfg:        cfg,
 		myID:       myID,
-		model:      model,
+		model:      mdl,
 		tlsCfg:     tlsCfg,
-		conns:      make(chan *tls.Conn),
+		conns:      make(chan intermediateConnection),
+
+		connType: make(map[protocol.DeviceID]model.ConnectionType),
 	}
 
 	// There are several moving parts here; one routine per listening address
@@ -114,15 +125,15 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, model *model.
 
 func (s *connectionSvc) handle() {
 next:
-	for conn := range s.conns {
-		cs := conn.ConnectionState()
+	for c := range s.conns {
+		cs := c.conn.ConnectionState()
 
 		// We should have negotiated the next level protocol "bep/1.0" as part
 		// of the TLS handshake. Unfortunately this can't be a hard error,
 		// because there are implementations out there that don't support
 		// protocol negotiation (iOS for one...).
 		if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != bepProtocolName {
-			l.Infof("Peer %s did not negotiate bep/1.0", conn.RemoteAddr())
+			l.Infof("Peer %s did not negotiate bep/1.0", c.conn.RemoteAddr())
 		}
 
 		// We should have received exactly one certificate from the other
@@ -130,8 +141,8 @@ next:
 		// connection.
 		certs := cs.PeerCertificates
 		if cl := len(certs); cl != 1 {
-			l.Infof("Got peer certificate list of length %d != 1 from %s; protocol error", cl, conn.RemoteAddr())
-			conn.Close()
+			l.Infof("Got peer certificate list of length %d != 1 from %s; protocol error", cl, c.conn.RemoteAddr())
+			c.conn.Close()
 			continue
 		}
 		remoteCert := certs[0]
@@ -142,7 +153,7 @@ next:
 		// clients between the same NAT gateway, and global discovery.
 		if remoteID == myID {
 			l.Infof("Connected to myself (%s) - should not happen", remoteID)
-			conn.Close()
+			c.conn.Close()
 			continue
 		}
 
@@ -154,7 +165,7 @@ next:
 		// connections still established...
 		if s.model.ConnectedTo(remoteID) {
 			l.Infof("Connected to already connected device (%s)", remoteID)
-			conn.Close()
+			c.conn.Close()
 			continue
 		}
 
@@ -172,35 +183,42 @@ next:
 					// Incorrect certificate name is something the user most
 					// likely wants to know about, since it's an advanced
 					// config. Warn instead of Info.
-					l.Warnf("Bad certificate from %s (%v): %v", remoteID, conn.RemoteAddr(), err)
-					conn.Close()
+					l.Warnf("Bad certificate from %s (%v): %v", remoteID, c.conn.RemoteAddr(), err)
+					c.conn.Close()
 					continue next
 				}
 
 				// If rate limiting is set, and based on the address we should
 				// limit the connection, then we wrap it in a limiter.
 
-				limit := s.shouldLimit(conn.RemoteAddr())
+				limit := s.shouldLimit(c.conn.RemoteAddr())
 
-				wr := io.Writer(conn)
+				wr := io.Writer(c.conn)
 				if limit && writeRateLimit != nil {
-					wr = &limitedWriter{conn, writeRateLimit}
+					wr = &limitedWriter{c.conn, writeRateLimit}
 				}
 
-				rd := io.Reader(conn)
+				rd := io.Reader(c.conn)
 				if limit && readRateLimit != nil {
-					rd = &limitedReader{conn, readRateLimit}
+					rd = &limitedReader{c.conn, readRateLimit}
 				}
 
-				name := fmt.Sprintf("%s-%s", conn.LocalAddr(), conn.RemoteAddr())
+				name := fmt.Sprintf("%s-%s (%s)", c.conn.LocalAddr(), c.conn.RemoteAddr(), c.connType)
 				protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
 				if debugNet {
-					l.Debugf("cipher suite: %04X in lan: %t", conn.ConnectionState().CipherSuite, !limit)
+					l.Debugf("cipher suite: %04X in lan: %t", c.conn.ConnectionState().CipherSuite, !limit)
 				}
 
-				s.model.AddConnection(conn, protoConn)
+				s.model.AddConnection(model.Connection{
+					c.conn,
+					protoConn,
+					c.connType,
+				})
+				s.mut.Lock()
+				s.connType[remoteID] = c.connType
+				s.mut.Unlock()
 				continue next
 			}
 		}
@@ -208,14 +226,14 @@ next:
 		if !s.cfg.IgnoredDevice(remoteID) {
 			events.Default.Log(events.DeviceRejected, map[string]string{
 				"device":  remoteID.String(),
-				"address": conn.RemoteAddr().String(),
+				"address": c.conn.RemoteAddr().String(),
 			})
-			l.Infof("Connection from %s with unknown device ID %s", conn.RemoteAddr(), remoteID)
+			l.Infof("Connection from %s (%s) with unknown device ID %s", c.conn.RemoteAddr(), c.connType, remoteID)
 		} else {
-			l.Infof("Connection from %s with ignored device ID %s", conn.RemoteAddr(), remoteID)
+			l.Infof("Connection from %s (%s) with ignored device ID %s", c.conn.RemoteAddr(), c.connType, remoteID)
 		}
 
-		conn.Close()
+		c.conn.Close()
 	}
 }
 
@@ -271,7 +289,9 @@ func (s *connectionSvc) connect() {
 					continue
 				}
 
-				s.conns <- conn
+				s.conns <- intermediateConnection{
+					conn, model.ConnectionTypeBasicDial,
+				}
 				continue nextDevice
 			}
 		}
