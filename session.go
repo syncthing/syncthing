@@ -4,23 +4,27 @@ package main
 
 import (
 	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"log"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/syncthing/relaysrv/protocol"
+
+	syncthingprotocol "github.com/syncthing/protocol"
 )
 
 var (
-	sessionmut = sync.Mutex{}
+	sessionMut = sync.Mutex{}
 	sessions   = make(map[string]*session, 0)
 )
 
 type session struct {
-	serverkey string
-	clientkey string
+	serverkey []byte
+	clientkey []byte
 
-	mut   sync.RWMutex
 	conns chan net.Conn
 }
 
@@ -37,16 +41,27 @@ func newSession() *session {
 		return nil
 	}
 
-	return &session{
-		serverkey: string(serverkey),
-		clientkey: string(clientkey),
+	ses := &session{
+		serverkey: serverkey,
+		clientkey: clientkey,
 		conns:     make(chan net.Conn),
 	}
+
+	if debug {
+		log.Println("New session", ses)
+	}
+
+	sessionMut.Lock()
+	sessions[string(ses.serverkey)] = ses
+	sessions[string(ses.clientkey)] = ses
+	sessionMut.Unlock()
+
+	return ses
 }
 
 func findSession(key string) *session {
-	sessionmut.Lock()
-	defer sessionmut.Unlock()
+	sessionMut.Lock()
+	defer sessionMut.Unlock()
 	lob, ok := sessions[key]
 	if !ok {
 		return nil
@@ -56,118 +71,128 @@ func findSession(key string) *session {
 	return lob
 }
 
-func (l *session) AddConnection(conn net.Conn) {
+func (s *session) AddConnection(conn net.Conn) bool {
+	if debug {
+		log.Println("New connection for", s, "from", conn.RemoteAddr())
+	}
+
 	select {
-	case l.conns <- conn:
+	case s.conns <- conn:
+		return true
 	default:
 	}
+	return false
 }
 
-func (l *session) Serve() {
-
+func (s *session) Serve() {
 	timedout := time.After(messageTimeout)
 
-	sessionmut.Lock()
-	sessions[l.serverkey] = l
-	sessions[l.clientkey] = l
-	sessionmut.Unlock()
+	if debug {
+		log.Println("Session", s, "serving")
+	}
 
 	conns := make([]net.Conn, 0, 2)
 	for {
 		select {
-		case conn := <-l.conns:
+		case conn := <-s.conns:
 			conns = append(conns, conn)
 			if len(conns) < 2 {
 				continue
 			}
 
-			close(l.conns)
+			close(s.conns)
+
+			if debug {
+				log.Println("Session", s, "starting between", conns[0].RemoteAddr(), conns[1].RemoteAddr())
+			}
 
 			wg := sync.WaitGroup{}
-
 			wg.Add(2)
 
-			go proxy(conns[0], conns[1], wg)
-			go proxy(conns[1], conns[0], wg)
+			errors := make(chan error, 2)
+
+			go func() {
+				errors <- proxy(conns[0], conns[1])
+				wg.Done()
+			}()
+
+			go func() {
+				errors <- proxy(conns[1], conns[0])
+				wg.Done()
+			}()
 
 			wg.Wait()
 
-			break
-		case <-timedout:
-			sessionmut.Lock()
-			delete(sessions, l.serverkey)
-			delete(sessions, l.clientkey)
-			sessionmut.Unlock()
-
-			for _, conn := range conns {
-				conn.Close()
+			if debug {
+				log.Println("Session", s, "ended, outcomes:", <-errors, <-errors)
 			}
-
-			break
+			goto done
+		case <-timedout:
+			if debug {
+				log.Println("Session", s, "timed out")
+			}
+			goto done
 		}
 	}
+done:
+	sessionMut.Lock()
+	delete(sessions, string(s.serverkey))
+	delete(sessions, string(s.clientkey))
+	sessionMut.Unlock()
+
+	for _, conn := range conns {
+		conn.Close()
+	}
+
+	if debug {
+		log.Println("Session", s, "stopping")
+	}
 }
 
-func (l *session) GetClientInvitationMessage() (message, error) {
-	invitation := protocol.SessionInvitation{
-		Key:          []byte(l.clientkey),
-		Address:      nil,
-		Port:         123,
+func (s *session) GetClientInvitationMessage(from syncthingprotocol.DeviceID) protocol.SessionInvitation {
+	return protocol.SessionInvitation{
+		From:         from[:],
+		Key:          []byte(s.clientkey),
+		Address:      sessionAddress,
+		Port:         sessionPort,
 		ServerSocket: false,
 	}
-	data, err := invitation.MarshalXDR()
-	if err != nil {
-		return message{}, err
-	}
-
-	return message{
-		header: protocol.Header{
-			Magic:         protocol.Magic,
-			MessageType:   protocol.MessageTypeSessionInvitation,
-			MessageLength: int32(len(data)),
-		},
-		payload: data,
-	}, nil
 }
 
-func (l *session) GetServerInvitationMessage() (message, error) {
-	invitation := protocol.SessionInvitation{
-		Key:          []byte(l.serverkey),
-		Address:      nil,
-		Port:         123,
+func (s *session) GetServerInvitationMessage(from syncthingprotocol.DeviceID) protocol.SessionInvitation {
+	return protocol.SessionInvitation{
+		From:         from[:],
+		Key:          []byte(s.serverkey),
+		Address:      sessionAddress,
+		Port:         sessionPort,
 		ServerSocket: true,
 	}
-	data, err := invitation.MarshalXDR()
-	if err != nil {
-		return message{}, err
-	}
-
-	return message{
-		header: protocol.Header{
-			Magic:         protocol.Magic,
-			MessageType:   protocol.MessageTypeSessionInvitation,
-			MessageLength: int32(len(data)),
-		},
-		payload: data,
-	}, nil
 }
 
-func proxy(c1, c2 net.Conn, wg sync.WaitGroup) {
+func proxy(c1, c2 net.Conn) error {
+	if debug {
+		log.Println("Proxy", c1.RemoteAddr(), "->", c2.RemoteAddr())
+	}
+	buf := make([]byte, 1024)
 	for {
-		buf := make([]byte, 1024)
 		c1.SetReadDeadline(time.Now().Add(networkTimeout))
-		n, err := c1.Read(buf)
+		n, err := c1.Read(buf[0:])
 		if err != nil {
-			break
+			return err
+		}
+
+		if debug {
+			log.Printf("%d bytes from %s to %s", n, c1.RemoteAddr(), c2.RemoteAddr())
 		}
 
 		c2.SetWriteDeadline(time.Now().Add(networkTimeout))
 		_, err = c2.Write(buf[:n])
 		if err != nil {
-			break
+			return err
 		}
 	}
-	c1.Close()
-	c2.Close()
-	wg.Done()
+}
+
+func (s *session) String() string {
+	return fmt.Sprintf("<%s/%s>", hex.EncodeToString(s.clientkey)[:5], hex.EncodeToString(s.serverkey)[:5])
 }
