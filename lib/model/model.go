@@ -8,6 +8,7 @@ package model
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -77,11 +78,11 @@ type Model struct {
 	clientName    string
 	clientVersion string
 
-	folderCfgs     map[string]config.FolderConfiguration                  // folder -> cfg
-	folderFiles    map[string]*db.FileSet                                 // folder -> files
-	folderDevices  map[string][]protocol.DeviceID                         // folder -> deviceIDs
 	deviceFolders  map[protocol.DeviceID][]string                         // deviceID -> folders
 	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
+	folderCfgs     map[string]config.FolderConfiguration                  // folder -> cfg
+	folderDevices  map[string][]protocol.DeviceID                         // folder -> deviceIDs
+	folderFiles    map[string]*db.FileSet                                 // folder -> files
 	folderIgnores  map[string]*ignore.Matcher                             // folder -> matcher object
 	folderRunners  map[string]service                                     // folder -> puller or scanner
 	folderStatRefs map[string]*stats.FolderStatisticsReference            // folder -> statsRef
@@ -529,7 +530,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 		"device":  deviceID.String(),
 		"folder":  folder,
 		"items":   len(fs),
-		"version": files.LocalVersion(deviceID),
+		"version": files.MaxLocalVersion(deviceID),
 	})
 }
 
@@ -567,7 +568,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 		"device":  deviceID.String(),
 		"folder":  folder,
 		"items":   len(fs),
-		"version": files.LocalVersion(deviceID),
+		"version": files.MaxLocalVersion(deviceID),
 	})
 
 	runner.IndexUpdated()
@@ -624,73 +625,115 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
-	if m.cfg.Devices()[deviceID].Introducer {
-		// This device is an introducer. Go through the announced lists of folders
-		// and devices and add what we are missing.
-
-		for _, folder := range cm.Folders {
-			// If we don't have this folder yet, skip it. Ideally, we'd
-			// offer up something in the GUI to create the folder, but for the
-			// moment we only handle folders that we already have.
-			if _, ok := m.folderDevices[folder.ID]; !ok {
-				continue
-			}
-
-		nextDevice:
-			for _, device := range folder.Devices {
-				var id protocol.DeviceID
-				copy(id[:], device.ID)
-
-				if _, ok := m.cfg.Devices()[id]; !ok {
-					// The device is currently unknown. Add it to the config.
-
-					l.Infof("Adding device %v to config (vouched for by introducer %v)", id, deviceID)
-					newDeviceCfg := config.DeviceConfiguration{
-						DeviceID:    id,
-						Compression: m.cfg.Devices()[deviceID].Compression,
-						Addresses:   []string{"dynamic"},
-					}
-
-					// The introducers' introducers are also our introducers.
-					if device.Flags&protocol.FlagIntroducer != 0 {
-						l.Infof("Device %v is now also an introducer", id)
-						newDeviceCfg.Introducer = true
-					}
-
-					m.cfg.SetDevice(newDeviceCfg)
-					changed = true
-				}
-
-				for _, er := range m.deviceFolders[id] {
-					if er == folder.ID {
-						// We already share the folder with this device, so
-						// nothing to do.
-						continue nextDevice
-					}
-				}
-
-				// We don't yet share this folder with this device. Add the device
-				// to sharing list of the folder.
-
-				l.Infof("Adding device %v to share %q (vouched for by introducer %v)", id, folder.ID, deviceID)
-
-				m.deviceFolders[id] = append(m.deviceFolders[id], folder.ID)
-				m.folderDevices[folder.ID] = append(m.folderDevices[folder.ID], id)
-
-				folderCfg := m.cfg.Folders()[folder.ID]
-				folderCfg.Devices = append(folderCfg.Devices, config.FolderDeviceConfiguration{
-					DeviceID: id,
-				})
-				m.cfg.SetFolder(folderCfg)
-
-				changed = true
-			}
-		}
+	if m.cfg.Devices()[deviceID].Introducer && m.addDevicesFromIntroducer(deviceID, cm) {
+		changed = true
 	}
 
 	if changed {
 		m.cfg.Save()
 	}
+
+	m.startIndexSenders(deviceID, cm)
+}
+
+func (m *Model) addDevicesFromIntroducer(deviceID protocol.DeviceID, cm protocol.ClusterConfigMessage) (changed bool) {
+	// This device is an introducer. Go through the announced lists of folders
+	// and devices and add what we are missing.
+
+	for _, folder := range cm.Folders {
+		// If we don't have this folder yet, skip it. Ideally, we'd
+		// offer up something in the GUI to create the folder, but for the
+		// moment we only handle folders that we already have.
+		if _, ok := m.folderDevices[folder.ID]; !ok {
+			continue
+		}
+
+	nextDevice:
+		for _, device := range folder.Devices {
+			var id protocol.DeviceID
+			copy(id[:], device.ID)
+
+			if _, ok := m.cfg.Devices()[id]; !ok {
+				// The device is currently unknown. Add it to the config.
+
+				l.Infof("Adding device %v to config (vouched for by introducer %v)", id, deviceID)
+				newDeviceCfg := config.DeviceConfiguration{
+					DeviceID:    id,
+					Compression: m.cfg.Devices()[deviceID].Compression,
+					Addresses:   []string{"dynamic"},
+				}
+
+				// The introducers' introducers are also our introducers.
+				if device.Flags&protocol.FlagIntroducer != 0 {
+					l.Infof("Device %v is now also an introducer", id)
+					newDeviceCfg.Introducer = true
+				}
+
+				m.cfg.SetDevice(newDeviceCfg)
+				changed = true
+			}
+
+			for _, er := range m.deviceFolders[id] {
+				if er == folder.ID {
+					// We already share the folder with this device, so
+					// nothing to do.
+					continue nextDevice
+				}
+			}
+
+			// We don't yet share this folder with this device. Add the device
+			// to sharing list of the folder.
+
+			l.Infof("Adding device %v to share %q (vouched for by introducer %v)", id, folder.ID, deviceID)
+
+			m.deviceFolders[id] = append(m.deviceFolders[id], folder.ID)
+			m.folderDevices[folder.ID] = append(m.folderDevices[folder.ID], id)
+
+			folderCfg := m.cfg.Folders()[folder.ID]
+			folderCfg.Devices = append(folderCfg.Devices, config.FolderDeviceConfiguration{
+				DeviceID: id,
+			})
+			m.cfg.SetFolder(folderCfg)
+
+			changed = true
+		}
+	}
+
+	return
+}
+
+func (m *Model) startIndexSenders(deviceID protocol.DeviceID, cm protocol.ClusterConfigMessage) {
+	m.fmut.RLock()
+	for _, folder := range cm.Folders {
+		fs := m.folderFiles[folder.ID]
+		var initialLocalVer int64
+		for _, device := range folder.Devices {
+			if bytes.Equal(device.ID, m.id[:]) {
+				initialLocalVer = device.MaxLocalVersion
+				break
+			}
+		}
+		if debug {
+			l.Debugf("Device %v starts folder %q with index at %d", deviceID, folder.ID, initialLocalVer)
+		}
+
+		if cur := fs.MaxLocalVersion(protocol.LocalDeviceID); initialLocalVer > cur {
+			if debug {
+				l.Debugf("Device %v has initial index version (%d) higher than current maximum (%d); resetting to zero", deviceID, initialLocalVer, cur)
+			}
+			initialLocalVer = 0
+		}
+
+		if cur := fs.MinLocalVersion(protocol.LocalDeviceID); initialLocalVer > 0 && initialLocalVer < cur {
+			if debug {
+				l.Debugf("Device %v has initial index version (%d) lower than current minimum (%d); resetting to zero", deviceID, initialLocalVer, cur)
+			}
+			initialLocalVer = 0
+		}
+
+		go sendIndexes(m.protoConn[deviceID], folder.ID, fs, m.folderIgnores[folder.ID], initialLocalVer)
+	}
+	m.fmut.RUnlock()
 }
 
 // Close removes the peer from the model and closes the underlying connection if possible.
@@ -953,15 +996,8 @@ func (m *Model) AddConnection(conn Connection) {
 
 	conn.Start()
 
-	cm := m.clusterConfig(deviceID)
-	conn.ClusterConfig(cm)
-
-	m.fmut.RLock()
-	for _, folder := range m.deviceFolders[deviceID] {
-		fs := m.folderFiles[folder]
-		go sendIndexes(conn, folder, fs, m.folderIgnores[folder])
-	}
-	m.fmut.RUnlock()
+	cm := m.generateClusterConfig(deviceID)
+	protoConn.ClusterConfig(cm)
 	m.pmut.Unlock()
 
 	m.deviceWasSeen(deviceID)
@@ -1025,21 +1061,23 @@ func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
 	m.folderStatRef(folder).ReceivedFile(file)
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
+func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, initialLocalVer int64) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	var err error
 
 	if debug {
 		l.Debugf("sendIndexes for %s-%s/%q starting", deviceID, name, folder)
+		defer l.Debugf("sendIndexes for %s-%s/%q exiting: %v", deviceID, name, folder, err)
 	}
 
-	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores)
+	minLocalVer, err := sendIndexTo(initialLocalVer, conn, folder, fs, ignores)
 
 	sub := events.Default.Subscribe(events.LocalIndexUpdated)
 	defer events.Default.Unsubscribe(sub)
 
 	for err == nil {
+<<<<<<< HEAD:lib/model/model.go
 		// While we have sent a localVersion at least equal to the one
 		// currently in the database, wait for the local index to update. The
 		// local index may update for other folders than the one we are
@@ -1059,10 +1097,19 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 
 	if debug {
 		l.Debugf("sendIndexes for %s-%s/%q exiting: %v", deviceID, name, folder, err)
+=======
+		time.Sleep(5 * time.Second)
+		if fs.MaxLocalVersion(protocol.LocalDeviceID) <= minLocalVer {
+			continue
+		}
+
+		minLocalVer, err = sendIndexTo(minLocalVer, conn, folder, fs, ignores)
+>>>>>>> Implement delta indexes:internal/model/model.go
 	}
 }
 
-func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
+func sendIndexTo(minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
+	initial := minLocalVer == 0
 	deviceID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -1144,7 +1191,7 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":  folder,
 		"items":   len(fs),
-		"version": files.LocalVersion(protocol.LocalDeviceID),
+		"version": files.MaxLocalVersion(protocol.LocalDeviceID),
 	})
 }
 
@@ -1470,8 +1517,8 @@ func (m *Model) numHashers(folder string) int {
 	return 1
 }
 
-// clusterConfig returns a ClusterConfigMessage that is correct for the given peer device
-func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
+// generateClusterConfig returns a ClusterConfigMessage that is correct for the given peer device
+func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
 	cm := protocol.ClusterConfigMessage{
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
@@ -1485,6 +1532,7 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
+		fs := m.folderFiles[folder]
 		cr := protocol.Folder{
 			ID: folder,
 		}
@@ -1494,8 +1542,9 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 			device := device
 			// TODO: Set read only bit when relevant
 			cn := protocol.Device{
-				ID:    device[:],
-				Flags: protocol.FlagShareTrusted,
+				ID:              device[:],
+				Flags:           protocol.FlagShareTrusted,
+				MaxLocalVersion: fs.MaxLocalVersion(device),
 			}
 			if deviceCfg := m.cfg.Devices()[device]; deviceCfg.Introducer {
 				cn.Flags |= protocol.FlagIntroducer
@@ -1575,7 +1624,7 @@ func (m *Model) CurrentLocalVersion(folder string) (int64, bool) {
 		return 0, false
 	}
 
-	return fs.LocalVersion(protocol.LocalDeviceID), true
+	return fs.MaxLocalVersion(protocol.LocalDeviceID), true
 }
 
 // RemoteLocalVersion returns the change version for the given folder, as
@@ -1594,7 +1643,7 @@ func (m *Model) RemoteLocalVersion(folder string) (int64, bool) {
 
 	var ver int64
 	for _, n := range m.folderDevices[folder] {
-		ver += fs.LocalVersion(n)
+		ver += fs.MaxLocalVersion(n)
 	}
 
 	return ver, true
