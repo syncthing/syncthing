@@ -114,6 +114,21 @@ func (w *Wrapper) Subscribe(c Committer) {
 	w.sMut.Unlock()
 }
 
+// Unsubscribe de-registers the given handler from any future calls to
+// configuration changes
+func (w *Wrapper) Unsubscribe(c Committer) {
+	w.sMut.Lock()
+	for i := range w.subs {
+		if w.subs[i] == c {
+			copy(w.subs[i:], w.subs[i+1:])
+			w.subs[len(w.subs)-1] = nil
+			w.subs = w.subs[:len(w.subs)-1]
+			break
+		}
+	}
+	w.sMut.Unlock()
+}
+
 // Raw returns the currently wrapped Configuration object.
 func (w *Wrapper) Raw() Configuration {
 	return w.cfg
