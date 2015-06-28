@@ -15,6 +15,10 @@ import (
 )
 
 func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs []tls.Certificate) (protocol.SessionInvitation, error) {
+	if uri.Scheme != "relay" {
+		return protocol.SessionInvitation{}, fmt.Errorf("Unsupported relay schema:", uri.Scheme)
+	}
+
 	conn, err := tls.Dial("tcp", uri.Host, configForCerts(certs))
 	conn.SetDeadline(time.Now().Add(10 * time.Second))
 	if err != nil {
