@@ -16,9 +16,12 @@ import (
 	"time"
 
 	"github.com/syncthing/protocol"
+
+	"github.com/syncthing/relaysrv/client"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
+
 	"github.com/thejerf/suture"
 )
 
@@ -40,6 +43,8 @@ type connectionSvc struct {
 	tlsCfg *tls.Config
 	conns  chan intermediateConnection
 
+	lastRelayCheck map[protocol.DeviceID]time.Time
+
 	mut      sync.RWMutex
 	connType map[protocol.DeviceID]model.ConnectionType
 }
@@ -58,7 +63,8 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Mo
 		tlsCfg:     tlsCfg,
 		conns:      make(chan intermediateConnection),
 
-		connType: make(map[protocol.DeviceID]model.ConnectionType),
+		connType:       make(map[protocol.DeviceID]model.ConnectionType),
+		lastRelayCheck: make(map[protocol.DeviceID]time.Time),
 	}
 	cfg.Subscribe(svc)
 
@@ -135,13 +141,23 @@ next:
 			continue
 		}
 
-		// We should not already be connected to the other party. TODO: This
-		// could use some better handling. If the old connection is dead but
-		// hasn't timed out yet we may want to drop *that* connection and keep
-		// this one. But in case we are two devices connecting to each other
-		// in parallel we don't want to do that or we end up with no
-		// connections still established...
-		if s.model.ConnectedTo(remoteID) {
+		// If we have a relay connection, and the new incoming connection is
+		// not a relay connection, we should drop that, and prefer the this one.
+		s.mut.RLock()
+		ct, ok := s.connType[remoteID]
+		s.mut.RUnlock()
+		if ok && !ct.IsDirect() && c.connType.IsDirect() {
+			if debugNet {
+				l.Debugln("Switching connections", remoteID)
+			}
+			s.model.Close(remoteID, fmt.Errorf("switching connections"))
+		} else if s.model.ConnectedTo(remoteID) {
+			// We should not already be connected to the other party. TODO: This
+			// could use some better handling. If the old connection is dead but
+			// hasn't timed out yet we may want to drop *that* connection and keep
+			// this one. But in case we are two devices connecting to each other
+			// in parallel we don't want to do that or we end up with no
+			// connections still established...
 			l.Infof("Connected to already connected device (%s)", remoteID)
 			c.conn.Close()
 			continue
@@ -224,15 +240,22 @@ func (s *connectionSvc) connect() {
 				continue
 			}
 
-			if s.model.ConnectedTo(deviceID) {
+			connected := s.model.ConnectedTo(deviceID)
+
+			s.mut.RLock()
+			ct, ok := s.connType[deviceID]
+			s.mut.RUnlock()
+			if connected && ok && ct.IsDirect() {
 				continue
 			}
 
 			var addrs []string
+			var relays []string
 			for _, addr := range deviceCfg.Addresses {
 				if addr == "dynamic" {
 					if discoverer != nil {
-						t, _ := discoverer.Lookup(deviceID)
+						t, r := discoverer.Lookup(deviceID)
+						relays = append(relays, r...)
 						if len(t) == 0 {
 							continue
 						}
@@ -267,8 +290,80 @@ func (s *connectionSvc) connect() {
 					continue
 				}
 
+				if connected {
+					s.model.Close(deviceID, fmt.Errorf("switching connections"))
+				}
+
 				s.conns <- intermediateConnection{
 					conn, model.ConnectionTypeBasicDial,
+				}
+				continue nextDevice
+			}
+
+			// Only connect via relays if not already connected
+			// Also, do not set lastRelayCheck time if we have no relays,
+			// as otherwise when we do discover relays, we might have to
+			// wait up to RelayReconnectIntervalM to connect again.
+			if connected || len(relays) == 0 {
+				continue nextDevice
+			}
+
+			reconIntv := time.Duration(s.cfg.Options().RelayReconnectIntervalM) * time.Minute
+			if last, ok := s.lastRelayCheck[deviceID]; ok && time.Since(last) < reconIntv {
+				if debugNet {
+					l.Debugln("Skipping connecting via relay to", deviceID, "last checked at", last)
+				}
+				continue nextDevice
+			} else if debugNet {
+				l.Debugln("Trying relay connections to", deviceID, relays)
+			}
+
+			s.lastRelayCheck[deviceID] = time.Now()
+
+			for _, addr := range relays {
+				uri, err := url.Parse(addr)
+				if err != nil {
+					l.Infoln("Failed to parse relay connection url:", addr, err)
+					continue
+				}
+
+				inv, err := client.GetInvitationFromRelay(uri, deviceID, s.tlsCfg.Certificates)
+				if err != nil {
+					if debugNet {
+						l.Debugf("Failed to get invitation for %s from %s: %v", deviceID, uri, err)
+					}
+					continue
+				} else if debugNet {
+					l.Debugln("Succesfully retrieved relay invitation", inv, "from", uri)
+				}
+
+				conn, err := client.JoinSession(inv)
+				if err != nil {
+					if debugNet {
+						l.Debugf("Failed to join relay session %s: %v", inv, err)
+					}
+					continue
+				} else if debugNet {
+					l.Debugln("Sucessfully joined relay session", inv)
+				}
+
+				setTCPOptions(conn.(*net.TCPConn))
+
+				var tc *tls.Conn
+
+				if inv.ServerSocket {
+					tc = tls.Server(conn, s.tlsCfg)
+				} else {
+					tc = tls.Client(conn, s.tlsCfg)
+				}
+				err = tc.Handshake()
+				if err != nil {
+					l.Infof("TLS handshake (BEP/relay %s): %v", inv, err)
+					tc.Close()
+					continue
+				}
+				s.conns <- intermediateConnection{
+					tc, model.ConnectionTypeRelayDial,
 				}
 				continue nextDevice
 			}
