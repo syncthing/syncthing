@@ -5,39 +5,41 @@
 
 package protocol
 
-import (
-	"unsafe"
-)
-
 const (
-	Magic        = 0x9E79BC40
-	HeaderSize   = unsafe.Sizeof(&Header{})
-	ProtocolName = "bep-relay"
+	messageTypePing int32 = iota
+	messageTypePong
+	messageTypeJoinRelayRequest
+	messageTypeJoinSessionRequest
+	messageTypeResponse
+	messageTypeConnectRequest
+	messageTypeSessionInvitation
 )
 
-const (
-	MessageTypePing int32 = iota
-	MessageTypePong
-	MessageTypeJoinRequest
-	MessageTypeConnectRequest
-	MessageTypeSessionInvitation
-)
-
-type Header struct {
-	Magic         uint32
-	MessageType   int32
-	MessageLength int32
+type header struct {
+	magic         uint32
+	messageType   int32
+	messageLength int32
 }
 
 type Ping struct{}
 type Pong struct{}
-type JoinRequest struct{}
+type JoinRelayRequest struct{}
+
+type JoinSessionRequest struct {
+	Key []byte // max:32
+}
+
+type Response struct {
+	Code    int32
+	Message string
+}
 
 type ConnectRequest struct {
 	ID []byte // max:32
 }
 
 type SessionInvitation struct {
+	From         []byte // max:32
 	Key          []byte // max:32
 	Address      []byte // max:32
 	Port         uint16

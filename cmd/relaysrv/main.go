@@ -6,13 +6,13 @@ import (
 	"crypto/tls"
 	"flag"
 	"log"
-	"os"
+	"net"
 	"path/filepath"
-	"sync"
 	"time"
 
-	syncthingprotocol "github.com/syncthing/protocol"
 	"github.com/syncthing/relaysrv/protocol"
+
+	syncthingprotocol "github.com/syncthing/protocol"
 )
 
 var (
@@ -26,25 +26,10 @@ var (
 	networkTimeout time.Duration
 	pingInterval   time.Duration
 	messageTimeout time.Duration
-
-	pingMessage message
-
-	mut    = sync.RWMutex{}
-	outbox = make(map[syncthingprotocol.DeviceID]chan message)
 )
 
 func main() {
 	var dir, extAddress string
-
-	pingPayload := protocol.Ping{}.MustMarshalXDR()
-	pingMessage = message{
-		header: protocol.Header{
-			Magic:         protocol.Magic,
-			MessageType:   protocol.MessageTypePing,
-			MessageLength: int32(len(pingPayload)),
-		},
-		payload: pingPayload,
-	}
 
 	flag.StringVar(&listenProtocol, "protocol-listen", ":22067", "Protocol listen address")
 	flag.StringVar(&listenSession, "session-listen", ":22068", "Session listen address")
@@ -54,7 +39,20 @@ func main() {
 	flag.DurationVar(&pingInterval, "ping-interval", time.Minute, "How often pings are sent")
 	flag.DurationVar(&messageTimeout, "message-timeout", time.Minute, "Maximum amount of time we wait for relevant messages to arrive")
 
+	if extAddress == "" {
+		extAddress = listenSession
+	}
+
+	addr, err := net.ResolveTCPAddr("tcp", extAddress)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sessionAddress = addr.IP[:]
+	sessionPort = uint16(addr.Port)
+
 	flag.BoolVar(&debug, "debug", false, "Enable debug output")
+
 	flag.Parse()
 
 	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
@@ -80,7 +78,10 @@ func main() {
 		},
 	}
 
-	log.SetOutput(os.Stdout)
+	id := syncthingprotocol.NewDeviceID(cert.Certificate[0])
+	if debug {
+		log.Println("ID:", id)
+	}
 
 	go sessionListener(listenSession)
 

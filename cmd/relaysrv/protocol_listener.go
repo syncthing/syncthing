@@ -4,9 +4,9 @@ package main
 
 import (
 	"crypto/tls"
-	"io"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	syncthingprotocol "github.com/syncthing/protocol"
@@ -14,10 +14,10 @@ import (
 	"github.com/syncthing/relaysrv/protocol"
 )
 
-type message struct {
-	header  protocol.Header
-	payload []byte
-}
+var (
+	outboxesMut = sync.RWMutex{}
+	outboxes    = make(map[syncthingprotocol.DeviceID]chan interface{})
+)
 
 func protocolListener(addr string, config *tls.Config) {
 	listener, err := net.Listen("tcp", addr)
@@ -27,6 +27,7 @@ func protocolListener(addr string, config *tls.Config) {
 
 	for {
 		conn, err := listener.Accept()
+		setTCPOptions(conn)
 		if err != nil {
 			if debug {
 				log.Println(err)
@@ -43,15 +44,12 @@ func protocolListener(addr string, config *tls.Config) {
 }
 
 func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
-	err := setTCPOptions(tcpConn)
-	if err != nil && debug {
-		log.Println("Failed to set TCP options on protocol connection", tcpConn.RemoteAddr(), err)
-	}
-
 	conn := tls.Server(tcpConn, config)
-	err = conn.Handshake()
+	err := conn.Handshake()
 	if err != nil {
-		log.Println("Protocol connection TLS handshake:", conn.RemoteAddr(), err)
+		if debug {
+			log.Println("Protocol connection TLS handshake:", conn.RemoteAddr(), err)
+		}
 		conn.Close()
 		return
 	}
@@ -63,168 +61,147 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 
 	certs := state.PeerCertificates
 	if len(certs) != 1 {
-		log.Println("Certificate list error")
+		if debug {
+			log.Println("Certificate list error")
+		}
 		conn.Close()
 		return
 	}
 
-	deviceId := syncthingprotocol.NewDeviceID(certs[0].Raw)
+	id := syncthingprotocol.NewDeviceID(certs[0].Raw)
 
-	mut.RLock()
-	_, ok := outbox[deviceId]
-	mut.RUnlock()
-	if ok {
-		log.Println("Already have a peer with the same ID", deviceId, conn.RemoteAddr())
-		conn.Close()
-		return
-	}
+	messages := make(chan interface{})
+	errors := make(chan error, 1)
+	outbox := make(chan interface{})
 
-	errorChannel := make(chan error)
-	messageChannel := make(chan message)
-	outboxChannel := make(chan message)
-
-	go readerLoop(conn, messageChannel, errorChannel)
+	go func(conn net.Conn, message chan<- interface{}, errors chan<- error) {
+		for {
+			msg, err := protocol.ReadMessage(conn)
+			if err != nil {
+				errors <- err
+				return
+			}
+			messages <- msg
+		}
+	}(conn, messages, errors)
 
 	pingTicker := time.NewTicker(pingInterval)
-	timeoutTicker := time.NewTimer(messageTimeout * 2)
+	timeoutTicker := time.NewTimer(networkTimeout)
 	joined := false
 
 	for {
 		select {
-		case msg := <-messageChannel:
-			switch msg.header.MessageType {
-			case protocol.MessageTypeJoinRequest:
-				mut.Lock()
-				outbox[deviceId] = outboxChannel
-				mut.Unlock()
-				joined = true
-			case protocol.MessageTypeConnectRequest:
-				// We will disconnect after this message, no matter what,
-				// because, we've either sent out an invitation, or we don't
-				// have the peer available.
-				var fmsg protocol.ConnectRequest
-				err := fmsg.UnmarshalXDR(msg.payload)
-				if err != nil {
-					log.Println(err)
+		case message := <-messages:
+			timeoutTicker.Reset(networkTimeout)
+			if debug {
+				log.Printf("Message %T from %s", message, id)
+			}
+			switch msg := message.(type) {
+			case protocol.JoinRelayRequest:
+				outboxesMut.RLock()
+				_, ok := outboxes[id]
+				outboxesMut.RUnlock()
+				if ok {
+					protocol.WriteMessage(conn, protocol.ResponseAlreadyConnected)
+					if debug {
+						log.Println("Already have a peer with the same ID", id, conn.RemoteAddr())
+					}
 					conn.Close()
 					continue
 				}
 
-				requestedPeer := syncthingprotocol.DeviceIDFromBytes(fmsg.ID)
-				mut.RLock()
-				peerOutbox, ok := outbox[requestedPeer]
-				mut.RUnlock()
+				outboxesMut.Lock()
+				outboxes[id] = outbox
+				outboxesMut.Unlock()
+				joined = true
+
+				protocol.WriteMessage(conn, protocol.ResponseSuccess)
+			case protocol.ConnectRequest:
+				requestedPeer := syncthingprotocol.DeviceIDFromBytes(msg.ID)
+				outboxesMut.RLock()
+				peerOutbox, ok := outboxes[requestedPeer]
+				outboxesMut.RUnlock()
 				if !ok {
 					if debug {
-						log.Println("Do not have", requestedPeer)
+						log.Println(id, "is looking", requestedPeer, "which does not exist")
 					}
+					protocol.WriteMessage(conn, protocol.ResponseNotFound)
 					conn.Close()
 					continue
 				}
 
 				ses := newSession()
 
-				smsg, err := ses.GetServerInvitationMessage()
-				if err != nil {
-					log.Println("Error getting server invitation", requestedPeer)
-					conn.Close()
-					continue
-				}
-				cmsg, err := ses.GetClientInvitationMessage()
-				if err != nil {
-					log.Println("Error getting client invitation", requestedPeer)
-					conn.Close()
-					continue
-				}
-
 				go ses.Serve()
 
-				if err := sendMessage(cmsg, conn); err != nil {
-					log.Println("Failed to send invitation message", err)
-				} else {
-					peerOutbox <- smsg
+				clientInvitation := ses.GetClientInvitationMessage(requestedPeer)
+				serverInvitation := ses.GetServerInvitationMessage(id)
+
+				if err := protocol.WriteMessage(conn, clientInvitation); err != nil {
 					if debug {
-						log.Println("Sent invitation from", deviceId, "to", requestedPeer)
+						log.Printf("Error sending invitation from %s to client: %s", id, err)
 					}
+					conn.Close()
+					continue
+				}
+
+				peerOutbox <- serverInvitation
+
+				if debug {
+					log.Println("Sent invitation from", id, "to", requestedPeer)
 				}
 				conn.Close()
-			case protocol.MessageTypePong:
-				timeoutTicker.Reset(messageTimeout)
+			case protocol.Pong:
+			default:
+				if debug {
+					log.Printf("Unknown message %s: %T", id, message)
+				}
+				protocol.WriteMessage(conn, protocol.ResponseUnexpectedMessage)
+				conn.Close()
 			}
-		case err := <-errorChannel:
-			log.Println("Closing connection:", err)
+		case err := <-errors:
+			if debug {
+				log.Printf("Closing connection %s: %s", id, err)
+			}
+			// Potentially closing a second time.
+			close(outbox)
+			conn.Close()
+			outboxesMut.Lock()
+			delete(outboxes, id)
+			outboxesMut.Unlock()
 			return
 		case <-pingTicker.C:
 			if !joined {
-				log.Println(deviceId, "didn't join within", messageTimeout)
+				if debug {
+					log.Println(id, "didn't join within", pingInterval)
+				}
 				conn.Close()
 				continue
 			}
 
-			if err := sendMessage(pingMessage, conn); err != nil {
-				log.Println(err)
+			if err := protocol.WriteMessage(conn, protocol.Ping{}); err != nil {
+				if debug {
+					log.Println(id, err)
+				}
 				conn.Close()
-				continue
 			}
 		case <-timeoutTicker.C:
-			// We should receive a error, which will cause us to quit the
-			// loop.
-			conn.Close()
-		case msg := <-outboxChannel:
+			// We should receive a error from the reader loop, which will cause
+			// us to quit this loop.
 			if debug {
-				log.Println("Sending message to", deviceId, msg)
+				log.Printf("%s timed out", id)
 			}
-			if err := sendMessage(msg, conn); err == nil {
-				log.Println(err)
+			conn.Close()
+		case msg := <-outbox:
+			if debug {
+				log.Printf("Sending message %T to %s", msg, id)
+			}
+			if err := protocol.WriteMessage(conn, msg); err != nil {
+				if debug {
+					log.Println(id, err)
+				}
 				conn.Close()
-				continue
 			}
 		}
-	}
-}
-
-func readerLoop(conn *tls.Conn, messages chan<- message, errors chan<- error) {
-	header := make([]byte, protocol.HeaderSize)
-	data := make([]byte, 0, 0)
-	for {
-		_, err := io.ReadFull(conn, header)
-		if err != nil {
-			errors <- err
-			conn.Close()
-			return
-		}
-
-		var hdr protocol.Header
-		err = hdr.UnmarshalXDR(header)
-		if err != nil {
-			conn.Close()
-			return
-		}
-
-		if hdr.Magic != protocol.Magic {
-			conn.Close()
-			return
-		}
-
-		if hdr.MessageLength > int32(cap(data)) {
-			data = make([]byte, 0, hdr.MessageLength)
-		} else {
-			data = data[:hdr.MessageLength]
-		}
-
-		_, err = io.ReadFull(conn, data)
-		if err != nil {
-			errors <- err
-			conn.Close()
-			return
-		}
-
-		msg := message{
-			header:  hdr,
-			payload: make([]byte, hdr.MessageLength),
-		}
-		copy(msg.payload, data[:hdr.MessageLength])
-
-		messages <- msg
 	}
 }
