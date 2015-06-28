@@ -53,6 +53,8 @@ func TestDefaultValues(t *testing.T) {
 		SymlinksEnabled:         true,
 		LimitBandwidthInLan:     false,
 		DatabaseBlockCacheMiB:   0,
+		PingTimeoutS:            30,
+		PingIdleTimeS:           60,
 	}
 
 	cfg := New(device1)
@@ -160,6 +162,8 @@ func TestOverriddenValues(t *testing.T) {
 		SymlinksEnabled:         false,
 		LimitBandwidthInLan:     true,
 		DatabaseBlockCacheMiB:   42,
+		PingTimeoutS:            60,
+		PingIdleTimeS:           120,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
