@@ -52,6 +52,10 @@ type ProtocolClient struct {
 }
 
 func (c *ProtocolClient) connect() error {
+	if c.URI.Scheme != "relay" {
+		return fmt.Errorf("Unsupported relay schema:", c.URI.Scheme)
+	}
+
 	conn, err := tls.Dial("tcp", c.URI.Host, c.config)
 	if err != nil {
 		return err
