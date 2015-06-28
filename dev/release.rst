@@ -21,10 +21,15 @@ Process
 -------
 
 Make sure the build seems sane. I.e. the build is clean on the build
-server, the integration tests pass without complaints. (Currently, the
-tests are a bit flaky, specifically the ``TestSyncCluster...`` ones. I'm
-not sure if the tests are weird or there is something actually bad
-happening that should be fixed - requires investigation).
+server, the integration tests pass without complaints.
+
+Update the documentation and translations, and commit the result. 
+
+.. code-block:: bash
+
+    $ ./build.sh prerelease
+    $ git commit -m "Translation and docs update"
+    $ git push
 
 Create a new, signed tag on master, with the version as comment, and
 push it:
@@ -34,11 +39,10 @@ push it:
     $ git tag -a -s -u release@syncthing.net -m v0.10.15 v0.10.15
     $ git push --tags
 
-The build server will build packages under the job
-``syncthing-release``. Wait for this to complete successfully before
-moving on.
+Trigger the ``syncthing-release`` job for the newly created
+tag and wait for it to complete successfully before moving on.
 
-Run ``./changelog.sh`` (in the repo) to create the changelog comparison
+Run ``go run changelog.go`` (in the repo) to create the changelog comparison
 from the previous release. Copy to clipboard.
 
 On the Github releases page, select the newly pushed tag and hit "Edit
