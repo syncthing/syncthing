@@ -60,36 +60,14 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Mo
 
 		connType: make(map[protocol.DeviceID]model.ConnectionType),
 	}
+	cfg.Subscribe(svc)
 
 	// There are several moving parts here; one routine per listening address
 	// to handle incoming connections, one routine to periodically attempt
-	// outgoing connections, and lastly one routine to the the common handling
-	// regardless of whether the connection was incoming or outgoing. It ends
-	// up as in the diagram below. We embed a Supervisor to manage the
-	// routines (i.e. log and restart if they crash or exit, etc).
-	//
-	//                +-----------------+
-	//    Incoming    | +---------------+-+      +-----------------+
-	//   Connections  | |                 |      |                 |
-	// -------------->| |    listener     |      |                 |  Outgoing connections via dialers
-	//                | |  (1 per listen  |      |   svc.connect   |----------------------------------->
-	//                | |    address)     |      |                 |
-	//                +-+                 |      |                 |
-	//                  +-----------------+      +-----------------+
-	//                           v                        v
-	//                           |                        |
-	//                           |                        |
-	//                           +------------+-----------+
-	//                                        |
-	//                                        | svc.conns
-	//                                        v
-	//                               +-----------------+
-	//                               |                 |
-	//                               |                 |
-	//                               |   svc.handle    |------> model.AddConnection()
-	//                               |                 |
-	//                               |                 |
-	//                               +-----------------+
+	// outgoing connections, one routine to the the common handling
+	// regardless of whether the connection was incoming or outgoing.
+	// Furthermore, a relay service which handles incoming requests to connect
+	// via the relays.
 	//
 	// TODO: Clean shutdown, and/or handling config changes on the fly. We
 	// partly do this now - new devices and addresses will be picked up, but
