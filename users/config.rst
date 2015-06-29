@@ -313,6 +313,8 @@ Options Element
         <symlinksEnabled>true</symlinksEnabled>
         <limitBandwidthInLan>false</limitBandwidthInLan>
         <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
+        <pingTimeoutS>60</pingTimeoutS>
+        <pingIdleTimeS>120</pingIdleTimeS>
     </options>
 
 The ``options`` element contains all other global configuration options.
@@ -405,3 +407,9 @@ databaseBlockCacheMiB
     Override the automatically calculated database block cache size. Don't,
     unless you're very short on memory, in which case you want to set this to
     ``8``.
+    
+pingTimeoutS
+    Ping-timeout in seconds. Don't change it unless you are having issues due to slow response time (slow connection/cpu) and large index exchanges
+    
+pingIdleTimeS
+    ping interval in seconds. Don't change it unless you feel it's necessary to do so.
