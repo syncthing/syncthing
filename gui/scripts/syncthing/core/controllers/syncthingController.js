@@ -18,8 +18,7 @@ angular.module('syncthing.core')
             Events.start();
         }
 
-
-        // pubic/scope definitions
+        // public/scope definitions
 
         $scope.completion = {};
         $scope.config = {};
@@ -47,6 +46,10 @@ angular.module('syncthing.core')
         $scope.neededPageSize = 10;
         $scope.foldersTotalLocalBytes = 0;
         $scope.foldersTotalLocalFiles = 0;
+        $scope.failed = {};
+        $scope.failedCurrentPage = 1;
+        $scope.failedCurrentFolder = undefined;
+        $scope.failedPageSize = 10;
 
         $(window).bind('beforeunload', function () {
             navigatingAway = true;
@@ -144,20 +147,19 @@ angular.module('syncthing.core')
             if ($scope.model[data.folder]) {
                 $scope.model[data.folder].state = data.to;
                 $scope.model[data.folder].error = data.error;
+
+                // If a folder has started syncing, then any old list of
+                // errors is obsolete. We may get a new list of errors very
+                // shortly though.
+                if (data.to === 'syncing') {
+                    $scope.failed[data.folder] = [];
+                }
             }
         });
 
         $scope.$on(Events.LOCAL_INDEX_UPDATED, function (event, arg) {
             refreshFolderStats();
         });
-
-        /* currently not using
-
-        $scope.$on('Events.REMOTE_INDEX_UPDATED', function (event, arg) {
-            // Nothing
-        });
-
-        */
 
         $scope.$on(Events.DEVICE_DISCONNECTED, function (event, arg) {
             delete $scope.connections[arg.data.id];
@@ -282,6 +284,11 @@ angular.module('syncthing.core')
                 cnt += 1;
             }
             $scope.completion[data.device]._total = tot / cnt;
+        });
+
+        $scope.$on(Events.FOLDER_ERRORS, function (event, arg) {
+            var data = arg.data;
+            $scope.failed[data.folder] = data.errors;
         });
 
         $scope.emitHTTPError = function (data, status, headers, config) {
@@ -492,6 +499,14 @@ angular.module('syncthing.core')
             refreshNeed($scope.neededFolder);
         };
 
+        $scope.failedPageChanged = function (page) {
+            $scope.failedCurrentPage = page;
+        };
+
+        $scope.failedChangePageSize = function (perpage) {
+            $scope.failedPageSize = perpage;
+        };
+
         var refreshDeviceStats = debounce(function () {
             $http.get(urlbase + "/stats/device").success(function (data) {
                 $scope.deviceStats = data;
@@ -526,6 +541,11 @@ angular.module('syncthing.core')
                 return 'unknown';
             }
 
+            // after restart syncthing process state may be empty
+            if (!$scope.model[folderCfg.id].state) {
+                return 'unknown';
+            }
+
             if (folderCfg.devices.length <= 1) {
                 return 'unshared';
             }
@@ -534,47 +554,36 @@ angular.module('syncthing.core')
                 return 'stopped';
             }
 
-            if ($scope.model[folderCfg.id].state == 'error') {
+            var state = '' + $scope.model[folderCfg.id].state;
+            if (state === 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
-
-            // after restart syncthing process state may be empty
-            if (!$scope.model[folderCfg.id].state) {
-                return 'unknown';
+            if (state === 'idle' && $scope.model[folderCfg.id].needFiles > 0) {
+                return 'outofsync';
             }
 
-            return '' + $scope.model[folderCfg.id].state;
+            return state;
         };
 
         $scope.folderClass = function (folderCfg) {
-            if (typeof $scope.model[folderCfg.id] === 'undefined') {
-                // Unknown
-                return 'info';
-            }
+            var status = $scope.folderStatus(folderCfg);
 
-            if (folderCfg.devices.length <= 1) {
-                // Unshared
-                return 'warning';
-            }
-
-            if ($scope.model[folderCfg.id].invalid !== '') {
-                // Errored
-                return 'danger';
-            }
-
-            var state = '' + $scope.model[folderCfg.id].state;
-            if (state == 'idle') {
+            if (status == 'idle') {
                 return 'success';
             }
-            if (state == 'syncing') {
+            if (status == 'syncing' || status == 'scanning') {
                 return 'primary';
             }
-            if (state == 'scanning') {
-                return 'primary';
+            if (status === 'unknown') {
+                return 'info';
             }
-            if (state == 'error') {
+            if (status === 'unshared') {
+                return 'warning';
+            }
+            if (status === 'stopped' || status === 'outofsync' || status === 'error') {
                 return 'danger';
             }
+
             return 'info';
         };
 
@@ -1275,6 +1284,23 @@ angular.module('syncthing.core')
                 $scope.neededTotal = 0;
                 $scope.neededCurrentPage = 1;
             });
+        };
+
+        $scope.showFailed = function (folder) {
+            $scope.failedCurrent = $scope.failed[folder]
+            $('#failed').modal().on('hidden.bs.modal', function () {
+                $scope.failedCurrent = undefined;
+            });
+        };
+
+        $scope.hasFailedFiles = function (folder) {
+            if (!$scope.failed[folder]) {
+                return false;
+            }
+            if ($scope.failed[folder].length == 0) {
+                return false;
+            }
+            return true
         };
 
         $scope.override = function (folder) {
