@@ -162,17 +162,18 @@ STPROFILER
 STCPUPROFILE
     Write a CPU profile to cpu-$pid.pprof on exit.
 STHEAPPROFILE
-    Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage
+    Write heap profiles to ``heap-$pid-$timestamp.pprof`` each time heap usage
     increases.
 STBLOCKPROFILE
     Write block profiles to ``block-$pid-$timestamp.pprof`` every 20 seconds.
 STPERFSTATS
-    Write running performance statistics to perf-$pid.csv. Not supported on
+    Write running performance statistics to ``perf-$pid.csv``. Not supported on
     Windows.
 STNOUPGRADE
     Disable automatic upgrades.
 GOMAXPROCS
-    Set the maximum number of CPU cores to use. Defaults to all available CPU cores.
+    Set the maximum number of CPU cores to use. Defaults to all available CPU
+    cores.
 GOGC
     Percentage of heap growth at which to trigger GC. Default is 100. Lower
     numbers keep peak memory usage down, at the price of CPU usage
