@@ -3,9 +3,9 @@ FolderErrors
 
 The ``FolderErrors`` event is emitted when a folder cannot be successfully
 synchronized. The event contains the ID of the affected folder and a list of
-errors as the pertain to files or directories therein. This list of errors is
-obsolete once the folder changes state to ``syncing`` - if errors remain after
-the next synchronization attempt, a new ``FolderErrors`` event is emitted.
+errors for files or directories therein. This list of errors is obsolete once
+the folder changes state to ``syncing`` - if errors remain after the next
+synchronization attempt, a new ``FolderErrors`` event is emitted.
 
 .. code-block:: json
 
