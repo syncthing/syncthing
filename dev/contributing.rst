@@ -23,14 +23,23 @@ acceptable.
 Coding Style
 ------------
 
+General
+~~~~~~~
+
+- All text files use Unix line endings. The git settings already present in
+  the repository attempts to enforce this.
+
+- When making changes, follow the brace and paranthesis style of the
+  surrounding code.
+
+Go Specific
+~~~~~~~~~~~
+
 - Follow the conventions laid out in `Effective
   Go <https://golang.org/doc/effective_go.html>`__ as much as makes
   sense. The review guidelines in `Go Code Review Comments
   <https://github.com/golang/go/wiki/CodeReviewComments>`__ should generally
   be followed.
-
-- All text files use Unix line endings. The git settings already present in
-  the repository attempts to enforce this.
 
 - Each commit should be ``go fmt`` clean.
 
