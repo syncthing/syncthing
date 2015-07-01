@@ -507,7 +507,7 @@
   <!-- ID modal -->
 
   <modal id="idqr" large="yes" status="info" close="yes" icon="qrcode" title="{{'Device Identification' | translate}} &mdash; {{deviceName(thisDevice())}}">
-    <div class="well well-sm text-monospace text-center">{{myID}}</div>
+    <div select-on-click class="well well-sm text-monospace text-center">{{myID}}</div>
     <img ng-if="myID" class="center-block img-thumbnail" ng-src="qr/?text={{myID}}"/>
   </modal>
 
@@ -1167,6 +1167,7 @@
   <script src="scripts/syncthing/core/directives/uniqueFolderDirective.js"></script>
   <script src="scripts/syncthing/core/directives/validDeviceidDirective.js"></script>
   <script src="scripts/syncthing/core/directives/popoverDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/selectOnClickDirective.js"></script>
   <script src="scripts/syncthing/core/filters/alwaysNumberFilter.js"></script>
   <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
   <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>
