@@ -28,20 +28,24 @@ presence of three new files, ``foo``, ``bar`` and ``baz``. When ``foo`` is
 discovered, it's index entry gets assigned local version ``1`` and the counter
 is increased. Likewise ``bar`` gets ``2`` and ``foo`` gets ``3``.
 
+====  =============
 File  Local Version
 ====  =============
 foo   1
 bar   2
 baz   3
+====  =============
 
 The next change to happen will be assigned the value ``4``. If the file
 ``bar`` is updated, the index will look like:
 
+====  =============
 File  Local Version
 ====  =============
 foo   1
 bar   4
 baz   3
+====  =============
 
 If we had already given the first index above to another device, and they tell
 us that they see a maximum local version value of ``3``, then we know that we
