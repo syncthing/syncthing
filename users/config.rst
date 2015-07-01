@@ -98,7 +98,8 @@ Configuration Element
 This is the root element.
 
 version
-    The config version. Increments whenever a change is made that requires migration from previous formats.
+    The config version. Increments whenever a change is made that requires
+    migration from previous formats.
 
 Folder Element
 --------------
@@ -160,10 +161,12 @@ copiers, pullers, hashers
     read and understood the code yourself. :)
 
 order
-    The order in which needed files should be pulled from the cluster. The possibles values are:
+    The order in which needed files should be pulled from the cluster.
+    The possibles values are:
 
     random
-        Pull files in random order. This optimizes for balancing resources among the devices in a cluster.
+        Pull files in random order. This optimizes for balancing resources among
+        the devices in a cluster.
 
     alphabetic
         Pull files ordered by file name alphabetically.
@@ -172,7 +175,8 @@ order
         Pull files ordered by file size; smallest and largest first respectively.
 
     oldestFirst, newestFirst
-        Pull files ordered by modification time; oldest and newest first respectively.
+        Pull files ordered by modification time; oldest and newest first
+        respectively.
 
 Device Element
 --------------
@@ -230,10 +234,12 @@ IPv6 address (``2001:db8::23:42``)
     The default port (22000) is used.
 
 IPv6 address and port (``[2001:db8::23:42]:12345``)
-    The address and port is used as given. The address must be enclosed in angled brackets.
+    The address and port is used as given. The address must be enclosed in
+    angled brackets.
 
 ``dynamic``
-    The word ``dynamic`` means to use local and global discovery to find the device.
+    The word ``dynamic`` means to use local and global discovery to find the
+    device.
 
 GUI Element
 -----------
@@ -268,10 +274,12 @@ address
         The address and port is used as given.
 
     IPv6 address and port (``[::1]:8384``)
-        The address and port is used as given. The address must be enclosed in angled brackets.
+        The address and port is used as given. The address must be enclosed in
+        angled brackets.
 
     Wildcard and port (``0.0.0.0:12345``, ``[::]:12345``, ``:12345``)
-        These are equivalent and will result in Syncthing listening on all interfaces and both IPv4 and IPv6.
+        These are equivalent and will result in Syncthing listening on all
+        interfaces and both IPv4 and IPv6.
 
 username
     Set to require authentication.
@@ -356,7 +364,8 @@ startBrowser
     Whether to attempt to start a browser to show the GUI when Syncthing starts.
 
 upnpEnabled
-    Whether to attempt to perform an UPnP port mapping for incoming sync connections.
+    Whether to attempt to perform an UPnP port mapping for incoming sync
+    connections.
 
 upnpLeaseMinutes
     Request a lease for this many minutes; zero to request a permanent lease.
@@ -407,9 +416,10 @@ databaseBlockCacheMiB
     Override the automatically calculated database block cache size. Don't,
     unless you're very short on memory, in which case you want to set this to
     ``8``.
-    
+
 pingTimeoutS
-    Ping-timeout in seconds. Don't change it unless you are having issues due to slow response time (slow connection/cpu) and large index exchanges
-    
+    Ping-timeout in seconds. Don't change it unless you are having issues due to
+    slow response time (slow connection/cpu) and large index exchanges
+
 pingIdleTimeS
-    ping interval in seconds. Don't change it unless you feel it's necessary to do so.
+    ping interval in seconds. Don't change it unless you feel it's necessary.
