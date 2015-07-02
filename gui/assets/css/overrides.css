@@ -245,7 +245,7 @@ ul.three-columns li, ul.two-columns li {
 
 /** Footer nav on small devices **/
 
-@media (max-width: 767px) {
+@media (max-width: 991px) {
     body {
         padding-bottom: 0;
     }
