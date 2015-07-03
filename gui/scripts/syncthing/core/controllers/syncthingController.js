@@ -314,8 +314,8 @@ angular.module('syncthing.core')
             var hasConfig = !isEmptyObject($scope.config);
 
             $scope.config = config;
-            $scope.config.options.listenAddressStr = $scope.config.options.listenAddress.join(', ');
-            $scope.config.options.globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
+            $scope.config.options._listenAddressStr = $scope.config.options.listenAddress.join(', ');
+            $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
 
             $scope.devices = $scope.config.devices;
             $scope.devices.forEach(function (deviceCfg) {
@@ -746,7 +746,7 @@ angular.module('syncthing.core')
                 $scope.config.gui = angular.copy($scope.tmpGUI);
 
                 ['listenAddress', 'globalAnnounceServers'].forEach(function (key) {
-                    $scope.config.options[key] = $scope.config.options[key + "Str"].split(/[ ,]+/).map(function (x) {
+                    $scope.config.options[key] = $scope.config.options["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
                         return x.trim();
                     });
                 });
@@ -755,6 +755,11 @@ angular.module('syncthing.core')
             }
 
             $('#settings').modal("hide");
+        };
+
+        $scope.saveAdvanced = function () {
+            $scope.saveConfig();
+            $('#advanced').modal("hide");
         };
 
         $scope.restart = function () {
@@ -807,7 +812,7 @@ angular.module('syncthing.core')
             $scope.currentDevice = $.extend({}, deviceCfg);
             $scope.editingExisting = true;
             $scope.editingSelf = (deviceCfg.deviceID == $scope.myID);
-            $scope.currentDevice.addressesStr = deviceCfg.addresses.join(', ');
+            $scope.currentDevice._addressesStr = deviceCfg.addresses.join(', ');
             if (!$scope.editingSelf) {
                 $scope.currentDevice.selectedFolders = {};
                 $scope.deviceFolders($scope.currentDevice).forEach(function (folder) {
@@ -829,7 +834,7 @@ angular.module('syncthing.core')
                 })
                 .then(function () {
                     $scope.currentDevice = {
-                        addressesStr: 'dynamic',
+                        _addressesStr: 'dynamic',
                         compression: 'metadata',
                         introducer: false,
                         selectedFolders: {}
@@ -874,7 +879,7 @@ angular.module('syncthing.core')
         $scope.addNewDeviceID = function (device) {
             var deviceCfg = {
                 deviceID: device,
-                addressesStr: 'dynamic',
+                _addressesStr: 'dynamic',
                 compression: 'metadata',
                 introducer: false,
                 selectedFolders: {}
@@ -885,7 +890,7 @@ angular.module('syncthing.core')
 
         $scope.saveDeviceConfig = function (deviceCfg) {
             var done, i;
-            deviceCfg.addresses = deviceCfg.addressesStr.split(',').map(function (x) {
+            deviceCfg.addresses = deviceCfg._addressesStr.split(',').map(function (x) {
                 return x.trim();
             });
 
@@ -1311,6 +1316,10 @@ angular.module('syncthing.core')
             $('#about').modal('show');
         };
 
+        $scope.advanced = function () {
+            $('#advanced').modal('show');
+        };
+
         $scope.showReportPreview = function () {
             $scope.reportPreview = true;
         };
@@ -1359,6 +1368,22 @@ angular.module('syncthing.core')
             }[$scope.version.arch] || $scope.version.arch;
 
             return $scope.version.version + ', ' + os + ' (' + arch + ')';
+        };
+
+        $scope.inputTypeFor = function (key, value) {
+            if (key.substr(0, 1) === '_') {
+                return 'skip';
+            }
+            if (typeof value === 'number') {
+                return 'number';
+            }
+            if (typeof value === 'boolean') {
+                return 'checkbox';
+            }
+            if (typeof value === 'object') {
+                return 'skip';
+            }
+            return 'text';
         };
 
         // pseudo main. called on all definitions assigned

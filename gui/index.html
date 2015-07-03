@@ -63,6 +63,8 @@
               </a>
             </li>
             <li><a href="" ng-click="about()"><span class="glyphicon glyphicon-heart-empty"></span>&nbsp;<span translate>About</span></a></li>
+            <li class="divider"></li>
+            <li><a href="" ng-click="advanced()"><span class="glyphicon glyphicon-cog"></span>&nbsp;<span translate>Advanced</span></a></li>
           </ul>
         </li>
       </ul>
@@ -221,7 +223,7 @@
                       <td class="text-right">{{model[folder.id].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].localBytes | binary}}B</td>
                     </tr>
                     <tr ng-if="model[folder.id].needFiles > 0">
-                      <th><span class="glyphicon glyphicon-cloud-download"></span>&nbsp;<span translate>Out Of Sync</span></th>
+                      <th><span class="glyphicon glyphicon-cloud-download"></span>&nbsp;<span translate>Out of Sync</span></th>
                       <td class="text-right">
                         <a ng-click="showNeed(folder.id)" href="">{{model[folder.id].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
                       </td>
@@ -573,7 +575,7 @@
             </div>
             <div class="form-group">
               <label translate for="addresses">Addresses</label>
-              <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice.addressesStr"></input>
+              <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice._addressesStr"></input>
               <p translate class="help-block">Enter comma separated "ip:port" addresses or "dynamic" to perform automatic discovery of the address.</p>
             </div>
             <div ng-if="!editingSelf" class="form-group">
@@ -837,7 +839,7 @@
                 </div>
                 <div class="form-group">
                   <label translate for="ListenAddressStr">Sync Protocol Listen Addresses</label>
-                  <input id="ListenAddressStr" class="form-control" type="text" ng-model="tmpOptions.listenAddressStr">
+                  <input id="ListenAddressStr" class="form-control" type="text" ng-model="tmpOptions._listenAddressStr">
                 </div>
                 <div class="form-group">
                   <label translate for="MaxRecvKbps">Incoming Rate Limit (KiB/s)</label>
@@ -881,7 +883,7 @@
                 </div>
                 <div class="form-group">
                   <label translate for="GlobalAnnServersStr">Global Discovery Server</label>
-                  <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions.globalAnnounceServersStr">
+                  <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions._globalAnnounceServersStr">
                 </div>
               </div>
 
@@ -1149,12 +1151,95 @@
     </ul>
   </modal>
 
+  <!-- Advanced modal -->
+
+  <div id="advanced" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header alert alert-danger">
+          <h4 translate class="modal-title">Advanced Configuration</h4>
+        </div>
+        <div class="modal-body">
+
+          <p class="text-danger">
+            <b translate>Be careful!</b>
+            <span translate>Incorrect configuration may damage your folder contents and render Syncthing inoperable.</span>
+          </p>
+
+          <div class="panel-group" id="advancedAccordion" role="tablist" aria-multiselectable="true">
+
+            <div class="panel panel-default">
+              <div class="panel-heading" role="tab" id="guiHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#guiConfig" aria-expanded="true" aria-controls="guiConfig" style="cursor: pointer">
+                <h4 class="panel-title" translate>GUI</h4>
+              </div>
+              <div id="guiConfig" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="guiHeading">
+                <div class="panel-body">
+                  <form class="form-horizontal" role="form">
+                    <div ng-repeat="(key, value) in config.gui" ng-init="type = inputTypeFor(key, value)" ng-if="type != 'skip'" class="form-group">
+                      <label for="guiInput{{$index}}" class="col-sm-4 control-label">{{key}}</label>
+                      <div class="col-sm-8">
+                        <input id="guiInput{{$index}}" class="form-control" type="{{type}}" ng-model="config.gui[key]" />
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default">
+              <div class="panel-heading" role="tab" id="optionsHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#optionsConfig" aria-expanded="true" aria-controls="optionsConfig" style="cursor: pointer">
+                <h4 class="panel-title" translate>Options</h4>
+              </div>
+              <div id="optionsConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="optionsHeading">
+                <div class="panel-body">
+                  <form class="form-horizontal" role="form">
+                    <div ng-repeat="(key, value) in config.options" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                      <label for="optionsInput{{$index}}" class="col-sm-4 control-label">{{key}}</label>
+                      <div class="col-sm-8">
+                        <input id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="config.options[key]" />
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default" ng-repeat="(folder, _) in folders">
+              <div class="panel-heading" role="tab" id="folder{{folder}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{folder}}Config" aria-expanded="true" aria-controls="folder{{folder}}Config" style="cursor: pointer">
+                <h4 class="panel-title">
+                  <span translate>Folder</span> "{{folder}}"
+                </h4>
+              </div>
+              <div id="folder{{folder}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{folder}}Heading">
+                <div class="panel-body">
+                  <form class="form-horizontal" role="form">
+                    <div ng-repeat="(key, value) in folders[folder]" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                      <label for="foldre{{folder}}Input{{$index}}" class="col-sm-4 control-label">{{key}}</label>
+                      <div class="col-sm-8">
+                        <input id="folder{{folder}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folders[folder][key]" />
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary btn-sm" ng-click="saveAdvanced()"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Save</span></button>
+            <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- vendor scripts -->
+  <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
   <script src="vendor/angular/angular.min.js"></script>
   <script src="vendor/angular/angular-translate.min.js"></script>
   <script src="vendor/angular/angular-translate-loader.min.js"></script>
   <script src="vendor/angular/angular-dirPagination.js"></script>
-  <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
   <script src="vendor/bootstrap/js/bootstrap.min.js"></script>
   <!-- / vendor scripts -->
 
