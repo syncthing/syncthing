@@ -50,6 +50,9 @@ type copyBlocksState struct {
 	blocks []protocol.BlockInfo
 }
 
+// Which filemode bits to preserve
+const retainBits = os.ModeSetgid | os.ModeSetuid | os.ModeSticky
+
 var (
 	activity    = newDeviceActivity()
 	errNoDevice = errors.New("no available source device")
@@ -644,7 +647,16 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 			if err != nil || p.ignorePermissions(file) {
 				return err
 			}
-			return os.Chmod(path, mode)
+
+			// Stat the directory so we can check its permissions.
+			info, err := osutil.Lstat(path)
+			if err != nil {
+				return err
+			}
+
+			// Mask for the bits we want to preserve and add them in to the
+			// directories permissions.
+			return os.Chmod(path, mode|(info.Mode()&retainBits))
 		}
 
 		if err = osutil.InWritableDir(mkdir, realName); err == nil {
@@ -665,10 +677,9 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 	// The directory already exists, so we just correct the mode bits. (We
 	// don't handle modification times on directories, because that sucks...)
 	// It's OK to change mode bits on stuff within non-writable directories.
-
 	if p.ignorePermissions(file) {
 		p.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
-	} else if err := os.Chmod(realName, mode); err == nil {
+	} else if err := os.Chmod(realName, mode|(info.Mode()&retainBits)); err == nil {
 		p.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
 	} else {
 		l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
