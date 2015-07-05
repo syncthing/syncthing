@@ -601,11 +601,13 @@
                 <div class="form-group">
                   <label translate for="folders">Share Folders With Device</label>
                   <p translate class="help-block">Select the folders to share with this device.</p>
-                  <div class="three-columns">
-                    <div class="checkbox" ng-repeat="folder in folderList()">
-                      <label>
-                        <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]"> {{folder.id}}
-                      </label>
+                  <div class="container-fluid">
+                    <div class="row" ng-repeat="folderGroup in folderList() | group:3">
+                      <div class="checkbox col-md-4" ng-repeat="folder in folderGroup">
+                        <label>
+                          <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]"> {{folder.id}}
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -766,11 +768,13 @@
                 <div class="form-group">
                   <label translate for="devices">Share With Devices</label>
                   <p translate class="help-block">Select the devices to share this folder with.</p>
-                  <div class="three-columns">
-                    <div class="checkbox" ng-repeat="device in otherDevices()">
-                      <label>
-                        <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
-                      </label>
+                  <div class="container-fluid">
+                    <div class="row" ng-repeat="deviceGroup in otherDevices() | group:3">
+                      <div class="checkbox col-md-4" ng-repeat="device in deviceGroup">
+                        <label>
+                          <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1259,9 +1263,12 @@
   <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
   <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>
   <script src="scripts/syncthing/core/filters/durationFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/groupFilter.js"></script>
   <script src="scripts/syncthing/core/filters/naturalFilter.js"></script>
   <script src="scripts/syncthing/core/filters/lastErrorComponentFilter.js"></script>
+  <script src="scripts/syncthing/core/services/filterStabilize.js"></script>
   <script src="scripts/syncthing/core/services/localeService.js"></script>
+  <script src="scripts/syncthing/core/services/memoize.js"></script>
 
   <script src="assets/lang/valid-langs.js"></script>
   <script src="assets/lang/prettyprint.js"></script>
