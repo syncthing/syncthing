@@ -228,7 +228,7 @@
                         <a ng-click="showNeed(folder.id)" href="">{{model[folder.id].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
                       </td>
                     </tr>
-                    <tr ng-if="folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id)">
+                    <tr ng-if="!folder.readOnly && (folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id))">
                       <th><span class="glyphicon glyphicon-exclamation-sign"></span>&nbsp;<span translate>Failed Items</span></th>
                       <!-- Show the number of failed items as a link to bring up the list. -->
                       <td ng-if="hasFailedFiles(folder.id)" class="text-right">
