@@ -257,6 +257,12 @@
                         <span translate>Yes</span>
                       </td>
                     </tr>
+                    <tr ng-if="folder.followSymlinks">
+                      <th><span class="glyphicon glyphicon-import"></span>&nbsp;<span translate>Follow Symlinks</span></th>
+                      <td class="text-right">
+                        <span translate>Yes</span>
+                      </td>
+                    </tr>
                     <tr ng-if="folder.rescanIntervalS != 60">
                       <th><span class="glyphicon glyphicon-refresh"></span>&nbsp;<span translate>Rescan Interval</span></th>
                       <td class="text-right">{{folder.rescanIntervalS}} s</td>

@@ -493,6 +493,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
+	cfg := m.folderCfgs[folder]
 	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
@@ -506,24 +507,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 		l.Fatalf("Index for nonexistant folder %q", folder)
 	}
 
-	for i := 0; i < len(fs); {
-		if fs[i].Flags&^protocol.FlagsAll != 0 {
-			if debug {
-				l.Debugln("dropping update for file with unknown bits set", fs[i])
-			}
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else if symlinkInvalid(folder, fs[i]) {
-			if debug {
-				l.Debugln("dropping update for unsupported symlink", fs[i])
-			}
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else {
-			i++
-		}
-	}
-
+	fs = m.cleanIncomingIndex(folder, fs, cfg.FollowSymlinks)
 	files.Replace(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -553,6 +537,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 
 	m.fmut.RLock()
 	files := m.folderFiles[folder]
+	cfg := m.folderCfgs[folder]
 	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
@@ -560,24 +545,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 		l.Fatalf("IndexUpdate for nonexistant folder %q", folder)
 	}
 
-	for i := 0; i < len(fs); {
-		if fs[i].Flags&^protocol.FlagsAll != 0 {
-			if debug {
-				l.Debugln("dropping update for file with unknown bits set", fs[i])
-			}
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else if symlinkInvalid(folder, fs[i]) {
-			if debug {
-				l.Debugln("dropping update for unsupported symlink", fs[i])
-			}
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else {
-			i++
-		}
-	}
-
+	fs = m.cleanIncomingIndex(folder, fs, cfg.FollowSymlinks)
 	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -588,6 +556,42 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	})
 
 	runner.IndexUpdated()
+}
+
+func (m *Model) cleanIncomingIndex(folder string, fs []protocol.FileInfo, dropSymlinks bool) []protocol.FileInfo {
+	for i := 0; i < len(fs); {
+		switch {
+		case fs[i].Flags&^protocol.FlagsAll != 0:
+			// Flags not in the FlagsAll set are unknown, so we don't know
+			// what to do with this file. Ignore it.
+			if debug {
+				l.Debugln("dropping update for file with unknown bits set", fs[i])
+			}
+			fs[i] = fs[len(fs)-1]
+			fs = fs[:len(fs)-1]
+
+		case dropSymlinks && fs[i].IsSymlink() && !fs[i].IsDeleted():
+			// dropSymlinks is true when we should not accept any symlinks for
+			// creation. We still allow delete records to propagate.
+			if debug {
+				l.Debugln("dropping update for symlink due to dropSymlinks=true", fs[i])
+			}
+			fs[i] = fs[len(fs)-1]
+			fs = fs[:len(fs)-1]
+
+		case symlinkInvalid(folder, fs[i]):
+			if debug {
+				l.Debugln("dropping update for unsupported symlink", fs[i])
+			}
+			fs[i] = fs[len(fs)-1]
+			fs = fs[:len(fs)-1]
+
+		default:
+			i++
+		}
+	}
+
+	return fs
 }
 
 func (m *Model) folderSharedWith(folder string, deviceID protocol.DeviceID) bool {
@@ -817,12 +821,13 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 	}
 	m.fmut.RLock()
-	fn := filepath.Join(m.folderCfgs[folder].Path(), name)
+	fcfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
+	fn := filepath.Join(fcfg.Path(), name)
 
 	var reader io.ReaderAt
 	var err error
-	if info, err := os.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
+	if info, err := os.Lstat(fn); !fcfg.FollowSymlinks && err == nil && info.Mode()&os.ModeSymlink != 0 {
 		target, _, err := symlinks.Read(fn)
 		if err != nil {
 			return nil, err
@@ -836,7 +841,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 			return nil, err
 		}
 
-		defer reader.(*os.File).Close()
+		defer reader.(io.Closer).Close()
 	}
 
 	buf := make([]byte, size)
@@ -1288,18 +1293,19 @@ nextSub:
 	subs = unifySubs
 
 	w := &scanner.Walker{
-		Dir:           folderCfg.Path(),
-		Subs:          subs,
-		Matcher:       ignores,
-		BlockSize:     protocol.BlockSize,
-		TempNamer:     defTempNamer,
-		TempLifetime:  time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:  cFiler{m, folder},
-		MtimeRepo:     db.NewVirtualMtimeRepo(m.db, folderCfg.ID),
-		IgnorePerms:   folderCfg.IgnorePerms,
-		AutoNormalize: folderCfg.AutoNormalize,
-		Hashers:       m.numHashers(folder),
-		ShortID:       m.shortID,
+		Dir:            folderCfg.Path(),
+		Subs:           subs,
+		Matcher:        ignores,
+		BlockSize:      protocol.BlockSize,
+		TempNamer:      defTempNamer,
+		TempLifetime:   time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
+		CurrentFiler:   cFiler{m, folder},
+		MtimeRepo:      db.NewVirtualMtimeRepo(m.db, folderCfg.ID),
+		IgnorePerms:    folderCfg.IgnorePerms,
+		AutoNormalize:  folderCfg.AutoNormalize,
+		Hashers:        m.numHashers(folder),
+		ShortID:        m.shortID,
+		FollowSymlinks: folderCfg.FollowSymlinks,
 	}
 
 	runner.setState(FolderScanning)
