@@ -4,10 +4,9 @@ Syncthing Development
 Controlling Syncthing from External Applications
 ------------------------------------------------
 
-The community has developed a number of `useful applications
-<https://github.com/syncthing/syncthing/wiki/Community-Contributions>`__ that
-build around the Syncthing core, such as tray notifications and Android
-support. These are made possible using two APIs:
+People all over the world have developed a number of :ref:`useful applications
+<contributions>` that build around the Syncthing core, such as tray
+notifications and Android support. These are made possible using two APIs:
 
 -  A long polling interface for exposing events from
    the core utility to an external party. This :ref:`event-api` is useful for being
