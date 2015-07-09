@@ -1181,10 +1181,10 @@
               <div id="guiConfig" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="guiHeading">
                 <div class="panel-body">
                   <form class="form-horizontal" role="form">
-                    <div ng-repeat="(key, value) in config.gui" ng-init="type = inputTypeFor(key, value)" ng-if="type != 'skip'" class="form-group">
+                    <div ng-repeat="(key, value) in advancedConfig.gui" ng-init="type = inputTypeFor(key, value)" ng-if="type != 'skip'" class="form-group">
                       <label for="guiInput{{$index}}" class="col-sm-4 control-label">{{key}}</label>
                       <div class="col-sm-8">
-                        <input id="guiInput{{$index}}" class="form-control" type="{{type}}" ng-model="config.gui[key]" />
+                        <input id="guiInput{{$index}}" class="form-control" type="{{type}}" ng-model="advancedConfig.gui[key]" />
                       </div>
                     </div>
                   </form>
@@ -1199,10 +1199,10 @@
               <div id="optionsConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="optionsHeading">
                 <div class="panel-body">
                   <form class="form-horizontal" role="form">
-                    <div ng-repeat="(key, value) in config.options" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                    <div ng-repeat="(key, value) in advancedConfig.options" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
                       <label for="optionsInput{{$index}}" class="col-sm-4 control-label">{{key}}</label>
                       <div class="col-sm-8">
-                        <input id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="config.options[key]" />
+                        <input id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.options[key]" />
                       </div>
                     </div>
                   </form>
@@ -1210,19 +1210,19 @@
               </div>
             </div>
 
-            <div class="panel panel-default" ng-repeat="(folder, _) in folders">
-              <div class="panel-heading" role="tab" id="folder{{folder}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{folder}}Config" aria-expanded="true" aria-controls="folder{{folder}}Config" style="cursor: pointer">
+            <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders">
+              <div class="panel-heading" role="tab" id="folder{{folder.id}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{folder.id}}Config" aria-expanded="true" aria-controls="folder{{folder.id}}Config" style="cursor: pointer">
                 <h4 class="panel-title">
-                  <span translate>Folder</span> "{{folder}}"
+                  <span translate>Folder</span> "{{folder.id}}"
                 </h4>
               </div>
-              <div id="folder{{folder}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{folder}}Heading">
+              <div id="folder{{folder.id}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{folder.id}}Heading">
                 <div class="panel-body">
                   <form class="form-horizontal" role="form">
-                    <div ng-repeat="(key, value) in folders[folder]" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
-                      <label for="foldre{{folder}}Input{{$index}}" class="col-sm-4 control-label">{{key}}</label>
+                    <div ng-repeat="(key, value) in folder" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                      <label for="folder{{folder.id}}Input{{$index}}" class="col-sm-4 control-label">{{key}}</label>
                       <div class="col-sm-8">
-                        <input id="folder{{folder}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folders[folder][key]" />
+                        <input id="folder{{folder.id}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folder[key]" />
                       </div>
                     </div>
                   </form>

@@ -758,6 +758,7 @@ angular.module('syncthing.core')
         };
 
         $scope.saveAdvanced = function () {
+            $scope.config = $scope.advancedConfig;
             $scope.saveConfig();
             $('#advanced').modal("hide");
         };
@@ -1317,6 +1318,7 @@ angular.module('syncthing.core')
         };
 
         $scope.advanced = function () {
+            $scope.advancedConfig = angular.copy($scope.config);
             $('#advanced').modal('show');
         };
 
