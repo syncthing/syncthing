@@ -30,7 +30,7 @@
   <!-- Top bar -->
 
   <header class="navbar navbar-top navbar-white container st-head" role="navigation">
-      <div class="navbar-brand"><img class="logo" src="assets/img/logo-icon.svg" height="45" width="45"/></div>
+      <img class="logo" src="assets/img/logo-icon.svg" height="45" width="45"/>
 
       <!-- Notifications and settings -->
       <div class="st-head-buttons ">
@@ -78,31 +78,31 @@
 
       <div class="st-head-data " ng-repeat="deviceCfg in [thisDevice()]">
         <div class="st-head-data-container">
-          <span class="st-head-data-item">
-            <span class="ion ion-arrow-down-a"></span>
-            <span class="st-info" translate>Download Rate</span>
+          <span class="st-head-data-item" >
+            <span class="ion ion-arrow-down-a" data-toggle="tooltip" title="Download Rate"></span>
+            <span class="st-info" translate>Upload Rate</span>
             <span class="st-data">{{connections['total'].inbps | binary}}B/s</span>
           </span>
 
-          <span class="st-head-data-item">
+          <span class="st-head-data-item" data-toggle="tooltip" title="Upload Rate">
             <span class="ion ion-arrow-up-a"></span>
             <span class="st-info" translate>Upload Rate</span>
             <span class="st-data">{{connections['total'].outbps | binary}}B/s </span>
           </span>
 
-          <span class="st-head-data-item">
+          <span class="st-head-data-item" data-toggle="tooltip" title="RAM Utilization">
             <span class="ion ion-grid"></span>
             <span class="st-info" translate>RAM Utilization</span>
             <span class="st-data">{{system.sys | binary}}B</span>
           </span>
 
-          <span class="st-head-data-item">
+          <span class="st-head-data-item" data-toggle="tooltip" title="CPU Utilization">
             <span class="ion ion-speedometer"></span>
             <span class="st-info" translate>CPU Utilization</span>
             <span class="st-data">{{system.cpuPercent | alwaysNumber | natural:1}}%</span>
           </span>
 
-          <span class="st-head-data-item" ng-if="system.extAnnounceOK != undefined && announceServersTotal > 0">
+          <span class="st-head-data-item" data-toggle="tooltip" title="Global Discovery" ng-if="system.extAnnounceOK != undefined && announceServersTotal > 0">
             <span class="ion ion-ios-world-outline"></span>
             <span class="st-info" translate>Global Discovery</span>
             <span ng-if="announceServersFailed.length == 0" class="data text-success">
@@ -236,46 +236,83 @@
       <!-- Folder list (top left) -->
 
       <div class="st-table">
-        <div class="st-table-head st-table-row">
-          <div class="st-col">Name</div>
-          <div class="st-col">Size</div>
-          <div class="st-col">Status</div>
-          <div class="st-col">Devices</div>
-          <div class="st-col">Actions</div>
+        <div class="st-table-head st-row">
+          <div class="st-cell" translate>Name</div>
+          <div class="st-cell" translate>Size</div>
+          <div class="st-cell" translate>Status</div>
+          <div class="st-cell" translate>Devices</div>
+          <div class="st-cell" translate>Actions</div>
         </div>
-        <div class="st-table-row" ng-repeat="folder in folderList()">
-          <div class="st-col">{{folder.id}}</div>
-          <div class="st-col">
-            <span class="st-info" translate>Local size / Global size</span>
-            <span class="">{{model[folder.id].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].localBytes | binary}}B</span> /
-            <span class="">{{model[folder.id].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].globalBytes | binary}}B</span>
+        <div class="st-row" ng-repeat="folder in folderList()">
+          <div class="st-cell st-folder-name">
+            <span class="ion ion-folder"></span>{{folder.id}}
           </div>
-          <div class="st-col">
-            <span class="text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
-              <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
-              <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
-              <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs">&#9724;</span></span>
-              <span ng-switch-when="scanning"><span class="hidden-xs" translate>Scanning</span><span class="visible-xs">&#9724;</span></span>
-              <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
-              <span ng-switch-when="syncing">
-                <span class="hidden-xs" translate>Syncing</span>
-                ({{syncPercentage(folder.id)}}%)
-              </span>
+          <div class="st-cell st-folder-size">
+            <span data-toggle="tooltip" title="Local size / Global size">
+              <span class="" >{{model[folder.id].localBytes | binary}}B</span>
+              <span class="st-quiet">{{model[folder.id].globalBytes | binary}}B</span>
             </span>
           </div>
-          <div class="st-col">
-            <span translate>Shared With</span>
-            <div class="">{{sharesFolder(folder)}}</div>
+          <div class="st-cell st-folder-status">
+            <span class="text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
+
+              <span ng-switch-when="unknown">
+                <span class="hidden-xs" data-toggle="tooltip" title="Unknown" translate><span class="ion ion-help-circled"></span></span>
+                <span class="visible-xs">&#9724;</span>
+              </span>
+
+              <span ng-switch-when="unshared">
+                <span class="hidden-xs" data-toggle="tooltip" title="Unshared" translate>Unshared</span>
+                <span class="visible-xs">&#9724;</span>
+              </span>
+
+              <span ng-switch-when="stopped">
+                <span class="hidden-xs" data-toggle="tooltip" title="Stopped" translate>Stopped</span>
+                <span class="visible-xs">&#9724;</span>
+              </span>
+
+              <span ng-switch-when="scanning">
+                <span class="hidden-xs" data-toggle="tooltip" title="Scanning" translate>Scanning</span>
+                <span class="visible-xs">&#9724;</span>
+              </span>
+
+              <span ng-switch-when="idle">
+                <span class="ion ion-checkmark-circled" data-toggle="tooltip" title="Up to Date" translate></span>
+                <span class="visible-xs">&#9724;</span>
+              </span>
+
+              <span ng-switch-when="syncing">
+                <span class="hidden-xs" data-toggle="tooltip" title="Syncing" translate>Syncing</span>
+                ({{syncPercentage(folder.id)}}%)
+              </span>
+
+            </span>
           </div>
-          <div class="st-col">
-              <button class="btn btn-sm btn-danger pull-left" ng-if="folderStatus(folder) == 'idle' && folder.readOnly && model[folder.id].needFiles > 0" ng-click="override(folder.id)" href=""><span class="glyphicon glyphicon-upload"></span>&emsp;<span translate>Override Changes</span></button>
+          <div class="st-cell st-folder-devices">
+            <div class="" data-toggle="tooltip" title="{{sharesFolder(folder)}}">{{sharesFolder(folder)}}</div>
+          </div>
+          <div class="st-cell st-folder-actions">
+              <button class="btn btn-sm btn-danger pull-left" ng-if="folderStatus(folder) == 'idle' && folder.readOnly && model[folder.id].needFiles > 0" ng-click="override(folder.id)" href="">
+                <span class="glyphicon glyphicon-upload"></span>
+                <span class="st-info" translate>Override Changes</span>
+              </button>
               <span class="">
-                <button class="btn btn-sm btn-default" href="" ng-show="folderStatus(folder) == 'idle'" ng-click="rescanFolder(folder.id)"><span class="glyphicon glyphicon-refresh"></span>&emsp;<span translate>Rescan</span></button>
-                <button class="btn btn-sm btn-default" href="" ng-click="editFolder(folder)"><span class="glyphicon glyphicon-pencil"></span>&emsp;<span translate>Edit</span></button>
+                <button class="btn btn-sm btn-default"  ng-click="rescanFolder(folder.id)" data-toggle="tooltip" title="Rescan">
+                  <span class="glyphicon glyphicon-refresh"></span>
+                </button><button class="btn btn-sm btn-default st-info-parent" ng-click="editFolder(folder)" data-toggle="tooltip" title="Edit Folder">
+                  <span class="glyphicon glyphicon-pencil"></span>
+                </button>
               </span>
           </div>
         </div>
       </div>
+
+      <span class="pull-right">
+        <button class="btn btn-sm btn-default" ng-click="rescanAllFolders()"><span class="glyphicon glyphicon-repeat"></span><span translate>Rescan All</span></button>
+        <button class="btn btn-sm btn-default" ng-click="addFolder()"><span class="glyphicon glyphicon-plus"></span><span translate>Add Folder</span></button>
+      </span>
+
+      <button class="btn btn-sm btn-default pull-right" ng-click="addDevice()"><span class="glyphicon glyphicon-plus"></span><span translate>Add Device</span></button>
 
       <div class="col-md-12">
         <div class="panel-group" id="folders">
@@ -1175,6 +1212,7 @@
 
   <script src="assets/lang/valid-langs.js"></script>
   <script src="scripts/syncthing/app.js"></script>
+  <script src="scripts/scripts.js"></script>
   <!-- / gui application code -->
 
 </body>

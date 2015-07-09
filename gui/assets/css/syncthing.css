@@ -1,152 +1,225 @@
 body {
-    padding-bottom: 70px;
-    font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: #333;
+  padding-bottom: 70px;
+  font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #333;
+  padding: 0 1em;
 }
 
 h1, h2, h3, h4, h5 {
-    font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 .container {
-    max-width: 780px;
-    width: auto;
+  max-width: 780px;
+  width: auto;
 }
 .ion {
-    vertical-align: middle;
+  vertical-align: middle;
+  font-size: 22px;
+  color: #0791D1;
 }
 .st-head {
-  padding: 20px 15px;
-}
-.st-head .ion {
-    font-size: 22px;
+  padding: 20px 0;
 }
 .st-head-data {
-    margin: 10px 20px;
-    position: relative;
-    float: right;
-    overflow: hidden;
+  margin: 10px 20px;
+  position: relative;
+  float: right;
+  overflow: hidden;
 }
 .st-head-data-container {
-    white-space: nowrap;
-}
-.st-head-data .ion {
-    color: #0791D1;
+  white-space: nowrap;
 }
 .st-head-data-item {
-    margin-left: 20px;
+  margin-left: 20px;
 }
 .st-head-data-item:first-child {
-    margin-left: 0;
+  margin-left: 0;
 }
 .st-device-name {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 4em;
-    margin: 10px 0;
-    padding-left: 20px;
-    left: 0;
-    -webkit-transition: width 300ms ease-in-out;
-        -moz-transition: width 300ms ease-in-out;
-        -o-transition: width 300ms ease-in-out;
-        transition: width 300ms ease-in-out;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 4em;
+  margin: 10px 0;
+  padding-left: 20px;
+  left: 0;
+  -webkit-transition: width 300ms ease-in-out;
+      -moz-transition: width 300ms ease-in-out;
+      -o-transition: width 300ms ease-in-out;
+      transition: width 300ms ease-in-out;
 }
 .st-device-name:hover {
-    z-index: 10;
-    width: auto;
-    position: absolute;
-    background-color: white;
-    padding-right: 20px;
-    margin-left: 60px;
+  z-index: 10;
+  width: auto;
+  position: absolute;
+  background-color: white;
+  padding-right: 20px;
+  margin-left: 45px;
 }
 .btn {
-    -webkit-transition: all 300ms ease;
-    -moz-transition: all 300ms ease;
-    -o-transition: all 300ms ease;
-    transition: all 300ms ease;
+  border-radius: 3px;
+  -webkit-transition: all 300ms ease;
+  -moz-transition: all 300ms ease;
+  -o-transition: all 300ms ease;
+  transition: all 300ms ease;
 }
-.btn-default {
-    border-color: #0791D1;
-    color: #0791D1;
+.btn .ion {
+  -webkit-transition: all 300ms ease;
+  -moz-transition: all 300ms ease;
+  -o-transition: all 300ms ease;
+  transition: all 300ms ease;
 }
-.btn-default:hover, 
-.btn-default:focus, 
-.btn-default:active, 
-.btn-default.active, 
-.open .dropdown-toggle.btn-default  {
-    border-color: #0791D1;
-    background-color: #0791D1;
-    color: white !important;
-}/*
-.btn-default:hover .ion {
-    color: white;
-}*/
-.dropdown-menu {
-    right: 0;
-    left: initial;
-}
-.st-info {
-    display: none;
-}
-
-.st-head-buttons {
-    float: right;
-}
-.st-head-settings {
-    float: left;
-}
-.st-head-settings .btn {
-    margin-left: 10px;
-}
-.st-head-notifications {
-    float: left;
-}
-.st-head-notifications-btn {
-    border-color: #cbcbcb;
-    color: #DCDCDC;
+.btn-sm {
+  padding: 10px;
 }
 .btn-lg {
-    padding: 11px 16px;
+  padding: 11px 16px;
 }
-.navbar-brand {
-    float: left;
+.open .btn-lg .ion,
+.btn-lg:hover .ion {
+  color: white;
+}
+.btn-default {
+  border-color: #0791D1;
+  color: #0791D1;
+}
+.btn-default:hover,
+.btn-default:focus,
+.btn-default:active,
+.btn-default.active,
+.open .dropdown-toggle.btn-default  {
+  border-color: #0791D1;
+  background-color: #0791D1;
+  color: white;
+}
+.dropdown-menu {
+  right: 0;
+  left: initial;
+}
+.st-info {
+  display: none;
+}
+.st-info-parent {
+  position: relative;
+}
+.st-info-parent:hover .st-info {
+  display: block;
+  position: absolute;
+  padding: 10px;
+  background-color: #333;
+  border-radius: 3px;
+  top: -100%;
 }
 
+.logo {
+  display: block;
+  float: left;
+}
+.st-head-buttons {
+  float: right;
+}
+.st-head-settings {
+  float: left;
+}
+.st-head-settings .btn {
+  margin-left: 10px;
+}
+.st-head-notifications {
+  float: left;
+}
+.st-head-notifications-btn {
+  border-color: #cbcbcb;
+  color: #DCDCDC;
+}
+.st-quiet {
+  color: #dcdcdc;
+}
+
+.tooltip-inner {
+  padding: 8px 10px;
+}
+
+/* Icons */
+.ion-checkmark-circled {
+  color: #72AE6B;
+}
+
+
+/* Table */
+.st-table {
+  display: table;
+  width: 100%;
+  border: 1px solid #dfdfdf;
+  border-radius: 3px;
+  margin-bottom: 100px;
+}
+.st-row {
+  display: table-row;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.st-cell {
+  display: table-cell;
+  text-align: center;
+  padding: 15px;
+  border-bottom: 1px solid #dfdfdf;
+}
+.st-cell:first-child {
+  padding-left: 30px;
+  text-align: left;
+}
+.st-cell:last-child {
+  padding-right: 30px;
+}
+.st-row:last-child .st-cell {
+  border-bottom: 0;
+}
+.st-table-head {
+  font-weight: bold;
+}
+.st-folder-actions .btn-sm {
+  margin: 0 2.5px;
+}
+
+.st-folder-name .ion {
+  margin-right: 10px;
+  font-size: 26px;
+}
 
 @media (max-width:700px) {
-    .st-head-data {
-        float: left;
-        clear: both;   
-        width: 100%;
-        margin: 0;
-    }
-    .st-head-data-container {
-        display: table;
-        width: 100%;
-        margin: 0 auto;
-        border-collapse: collapse;
-    }
-    .st-head-data-item {
-        margin-left: 0;
-        display: table-row;
-        border-bottom: 1px solid #dbdbdb;
-    }/*
-    .st-head-data-item:nth-child(even) {
-        background-color: #cbcbcb;
-    }*/
-    .st-head-data-item > * {
-        display: table-cell;
-        padding: 10px 0;
-    }
-    .st-device-name {
-        text-align: center;
-        padding-right: 20px;
-    }
-    .st-device-name:hover {
-        width: auto;
-        position: relative;
-        background-color: transparent;
-        padding-right: 20px;
-    }
+  .st-head-data {
+    float: left;
+    clear: both;
+    width: 100%;
+    margin: 0;
+  }
+  .st-head-data-container {
+    display: table;
+    width: 100%;
+    margin: 0 auto;
+    border-collapse: collapse;
+  }
+  .st-head-data-item {
+    margin-left: 0;
+    display: table-row;
+    border-bottom: 1px solid #dbdbdb;
+  }/*
+  .st-head-data-item:nth-child(even) {
+      background-color: #cbcbcb;
+  }*/
+  .st-head-data-item > * {
+    display: table-cell;
+    padding: 10px 0;
+  }
+  .st-device-name {
+    text-align: center;
+    padding-right: 20px;
+  }
+  .st-device-name:hover {
+    width: auto;
+    position: relative;
+    background-color: transparent;
+    padding-right: 20px;
+  }
 }

@@ -89,17 +89,6 @@ ul+h5 {
     border-top: none;
 }
 
-.logo {
-    margin: 0;
-    padding: 0;
-    position: relative;
-}
-
-.navbar-brand {
-  height: auto;
-  padding: 0;
-}
-
 .list-no-bullet {
     list-style-type: none
 }
@@ -180,11 +169,6 @@ table.table-condensed td {
 
     .dropdown-toggle {
         float: left;
-    }
-
-    .navbar-brand {
-        padding-left: 0;
-        padding-top: 16px;
     }
 
     .navbar-nav .open .dropdown-menu > li > a {
