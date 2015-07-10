@@ -1185,6 +1185,9 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			buf, lastError := p.model.requestGlobal(selected, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, 0, nil)
 			activity.done(selected)
 			if lastError != nil {
+				if debug {
+					l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)
+				}
 				continue
 			}
 
@@ -1192,6 +1195,9 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			// try pulling it from another device.
 			_, lastError = scanner.VerifyBuffer(buf, state.block)
 			if lastError != nil {
+				if debug {
+					l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
+				}
 				continue
 			}
 
