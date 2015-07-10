@@ -242,6 +242,9 @@ func (FakeConnection) Close() error {
 	return nil
 }
 
+func (f FakeConnection) Start() {
+}
+
 func (f FakeConnection) ID() protocol.DeviceID {
 	return f.id
 }
