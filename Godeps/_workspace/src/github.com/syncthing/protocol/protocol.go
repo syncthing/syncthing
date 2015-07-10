@@ -165,7 +165,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	return wireFormatConnection{&c}
 }
 
-// Start creates the goroutines for sending a receiving of messages. It must
+// Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
 	go c.readerLoop()
