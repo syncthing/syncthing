@@ -89,6 +89,7 @@ type Model interface {
 }
 
 type Connection interface {
+	Start()
 	ID() DeviceID
 	Name() string
 	Index(folder string, files []FileInfo, flags uint32, options []Option) error
@@ -161,12 +162,16 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		compression: compress,
 	}
 
+	return wireFormatConnection{&c}
+}
+
+// Start creates the goroutines for sending and receiving of messages. It must
+// be called exactly once after creating a connection.
+func (c *rawConnection) Start() {
 	go c.readerLoop()
 	go c.writerLoop()
 	go c.pingerLoop()
 	go c.idGenerator()
-
-	return wireFormatConnection{&c}
 }
 
 func (c *rawConnection) ID() DeviceID {

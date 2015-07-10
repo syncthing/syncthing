@@ -68,7 +68,9 @@ func TestPing(t *testing.T) {
 	br, bw := io.Pipe()
 
 	c0 := NewConnection(c0ID, ar, bw, newTestModel(), "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	c0.Start()
 	c1 := NewConnection(c1ID, br, aw, newTestModel(), "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	c1.Start()
 	c0.ClusterConfig(ClusterConfigMessage{})
 	c1.ClusterConfig(ClusterConfigMessage{})
 
@@ -94,7 +96,9 @@ func TestPingErr(t *testing.T) {
 			ebw := &ErrPipe{PipeWriter: *bw, max: j, err: e}
 
 			c0 := NewConnection(c0ID, ar, ebw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+			c0.Start()
 			c1 := NewConnection(c1ID, br, eaw, m1, "name", CompressAlways)
+			c1.Start()
 			c0.ClusterConfig(ClusterConfigMessage{})
 			c1.ClusterConfig(ClusterConfigMessage{})
 
@@ -174,7 +178,9 @@ func TestVersionErr(t *testing.T) {
 	br, bw := io.Pipe()
 
 	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	c0.Start()
 	c1 := NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
+	c1.Start()
 	c0.ClusterConfig(ClusterConfigMessage{})
 	c1.ClusterConfig(ClusterConfigMessage{})
 
@@ -199,7 +205,9 @@ func TestTypeErr(t *testing.T) {
 	br, bw := io.Pipe()
 
 	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	c0.Start()
 	c1 := NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
+	c1.Start()
 	c0.ClusterConfig(ClusterConfigMessage{})
 	c1.ClusterConfig(ClusterConfigMessage{})
 
@@ -224,7 +232,9 @@ func TestClose(t *testing.T) {
 	br, bw := io.Pipe()
 
 	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	c0.Start()
 	c1 := NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
+	c1.Start()
 	c0.ClusterConfig(ClusterConfigMessage{})
 	c1.ClusterConfig(ClusterConfigMessage{})
 
