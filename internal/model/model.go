@@ -983,6 +983,8 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	}
 	m.rawConn[deviceID] = rawConn
 
+	protoConn.Start()
+
 	cm := m.clusterConfig(deviceID)
 	protoConn.ClusterConfig(cm)
 

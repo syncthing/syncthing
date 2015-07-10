@@ -12,6 +12,10 @@ type wireFormatConnection struct {
 	next Connection
 }
 
+func (c wireFormatConnection) Start() {
+	c.next.Start()
+}
+
 func (c wireFormatConnection) ID() DeviceID {
 	return c.next.ID()
 }
