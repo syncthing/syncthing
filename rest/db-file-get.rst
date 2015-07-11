@@ -2,7 +2,7 @@ GET /rest/db/file
 =================
 
 Returns most data available about a given file, including version and
-availability.
+availability. Takes ``folder`` and ``file`` parameters.
 
 .. code-block:: json
 
