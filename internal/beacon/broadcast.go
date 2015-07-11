@@ -29,6 +29,12 @@ func NewBroadcast(port int) *Broadcast {
 			// a while to get solved...
 			FailureThreshold: 2,
 			FailureBackoff:   60 * time.Second,
+			// Only log restarts in debug mode.
+			Log: func(line string) {
+				if debug {
+					l.Debugln(line)
+				}
+			},
 		}),
 		port:   port,
 		inbox:  make(chan []byte),

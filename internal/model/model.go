@@ -107,7 +107,13 @@ var (
 // for file data without altering the local folder in any way.
 func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB) *Model {
 	m := &Model{
-		Supervisor:         suture.NewSimple("model"),
+		Supervisor: suture.New("model", suture.Spec{
+			Log: func(line string) {
+				if debug {
+					l.Debugln(line)
+				}
+			},
+		}),
 		cfg:                cfg,
 		db:                 ldb,
 		finder:             db.NewBlockFinder(ldb, cfg),
