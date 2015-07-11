@@ -425,7 +425,9 @@ func upgradeViaRest() error {
 
 func syncthingMain() {
 	// Create a main service manager. We'll add things to this as we go along.
-	// We want any logging it does to go through our log system.
+	// We want any logging it does to go through our log system. Other
+	// suture.Supervisor:s that are Add()ed to mainSvc will inherit this log
+	// function.
 	mainSvc := suture.New("main", suture.Spec{
 		Log: func(line string) {
 			if debugSuture {
