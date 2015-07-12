@@ -565,6 +565,9 @@ func syncthingMain() {
 		symlinks.Supported = false
 	}
 
+	protocol.PingTimeout = time.Duration(opts.PingTimeoutS) * time.Second
+	protocol.PingIdleTime = time.Duration(opts.PingIdleTimeS) * time.Second
+
 	if opts.MaxSendKbps > 0 {
 		writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxSendKbps), int64(5*1000*opts.MaxSendKbps))
 	}
@@ -808,7 +811,7 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 
 			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			l.Infoln("Starting web GUI on", urlShow)
-			api, err := newAPISvc(guiCfg, guiAssets, m, apiSub)
+			api, err := newAPISvc(myID, guiCfg, guiAssets, m, apiSub)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}

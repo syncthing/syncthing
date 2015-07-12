@@ -18,8 +18,7 @@ angular.module('syncthing.core')
             Events.start();
         }
 
-
-        // pubic/scope definitions
+        // public/scope definitions
 
         $scope.completion = {};
         $scope.config = {};
@@ -47,6 +46,10 @@ angular.module('syncthing.core')
         $scope.neededPageSize = 10;
         $scope.foldersTotalLocalBytes = 0;
         $scope.foldersTotalLocalFiles = 0;
+        $scope.failed = {};
+        $scope.failedCurrentPage = 1;
+        $scope.failedCurrentFolder = undefined;
+        $scope.failedPageSize = 10;
 
         $(window).bind('beforeunload', function () {
             navigatingAway = true;
@@ -144,20 +147,19 @@ angular.module('syncthing.core')
             if ($scope.model[data.folder]) {
                 $scope.model[data.folder].state = data.to;
                 $scope.model[data.folder].error = data.error;
+
+                // If a folder has started syncing, then any old list of
+                // errors is obsolete. We may get a new list of errors very
+                // shortly though.
+                if (data.to === 'syncing') {
+                    $scope.failed[data.folder] = [];
+                }
             }
         });
 
         $scope.$on(Events.LOCAL_INDEX_UPDATED, function (event, arg) {
             refreshFolderStats();
         });
-
-        /* currently not using
-
-        $scope.$on('Events.REMOTE_INDEX_UPDATED', function (event, arg) {
-            // Nothing
-        });
-
-        */
 
         $scope.$on(Events.DEVICE_DISCONNECTED, function (event, arg) {
             delete $scope.connections[arg.data.id];
@@ -284,6 +286,11 @@ angular.module('syncthing.core')
             $scope.completion[data.device]._total = tot / cnt;
         });
 
+        $scope.$on(Events.FOLDER_ERRORS, function (event, arg) {
+            var data = arg.data;
+            $scope.failed[data.folder] = data.errors;
+        });
+
         $scope.emitHTTPError = function (data, status, headers, config) {
             $scope.$emit('HTTPError', {data: data, status: status, headers: headers, config: config});
         };
@@ -307,8 +314,8 @@ angular.module('syncthing.core')
             var hasConfig = !isEmptyObject($scope.config);
 
             $scope.config = config;
-            $scope.config.options.listenAddressStr = $scope.config.options.listenAddress.join(', ');
-            $scope.config.options.globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
+            $scope.config.options._listenAddressStr = $scope.config.options.listenAddress.join(', ');
+            $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
 
             $scope.devices = $scope.config.devices;
             $scope.devices.forEach(function (deviceCfg) {
@@ -492,6 +499,14 @@ angular.module('syncthing.core')
             refreshNeed($scope.neededFolder);
         };
 
+        $scope.failedPageChanged = function (page) {
+            $scope.failedCurrentPage = page;
+        };
+
+        $scope.failedChangePageSize = function (perpage) {
+            $scope.failedPageSize = perpage;
+        };
+
         var refreshDeviceStats = debounce(function () {
             $http.get(urlbase + "/stats/device").success(function (data) {
                 $scope.deviceStats = data;
@@ -526,6 +541,11 @@ angular.module('syncthing.core')
                 return 'unknown';
             }
 
+            // after restart syncthing process state may be empty
+            if (!$scope.model[folderCfg.id].state) {
+                return 'unknown';
+            }
+
             if (folderCfg.devices.length <= 1) {
                 return 'unshared';
             }
@@ -534,47 +554,36 @@ angular.module('syncthing.core')
                 return 'stopped';
             }
 
-            if ($scope.model[folderCfg.id].state == 'error') {
+            var state = '' + $scope.model[folderCfg.id].state;
+            if (state === 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
-
-            // after restart syncthing process state may be empty
-            if (!$scope.model[folderCfg.id].state) {
-                return 'unknown';
+            if (state === 'idle' && $scope.model[folderCfg.id].needFiles > 0) {
+                return 'outofsync';
             }
 
-            return '' + $scope.model[folderCfg.id].state;
+            return state;
         };
 
         $scope.folderClass = function (folderCfg) {
-            if (typeof $scope.model[folderCfg.id] === 'undefined') {
-                // Unknown
-                return 'info';
-            }
+            var status = $scope.folderStatus(folderCfg);
 
-            if (folderCfg.devices.length <= 1) {
-                // Unshared
-                return 'warning';
-            }
-
-            if ($scope.model[folderCfg.id].invalid !== '') {
-                // Errored
-                return 'danger';
-            }
-
-            var state = '' + $scope.model[folderCfg.id].state;
-            if (state == 'idle') {
+            if (status == 'idle') {
                 return 'success';
             }
-            if (state == 'syncing') {
+            if (status == 'syncing' || status == 'scanning') {
                 return 'primary';
             }
-            if (state == 'scanning') {
-                return 'primary';
+            if (status === 'unknown') {
+                return 'info';
             }
-            if (state == 'error') {
+            if (status === 'unshared') {
+                return 'warning';
+            }
+            if (status === 'stopped' || status === 'outofsync' || status === 'error') {
                 return 'danger';
             }
+
             return 'info';
         };
 
@@ -737,7 +746,7 @@ angular.module('syncthing.core')
                 $scope.config.gui = angular.copy($scope.tmpGUI);
 
                 ['listenAddress', 'globalAnnounceServers'].forEach(function (key) {
-                    $scope.config.options[key] = $scope.config.options[key + "Str"].split(/[ ,]+/).map(function (x) {
+                    $scope.config.options[key] = $scope.config.options["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
                         return x.trim();
                     });
                 });
@@ -746,6 +755,12 @@ angular.module('syncthing.core')
             }
 
             $('#settings').modal("hide");
+        };
+
+        $scope.saveAdvanced = function () {
+            $scope.config = $scope.advancedConfig;
+            $scope.saveConfig();
+            $('#advanced').modal("hide");
         };
 
         $scope.restart = function () {
@@ -798,7 +813,7 @@ angular.module('syncthing.core')
             $scope.currentDevice = $.extend({}, deviceCfg);
             $scope.editingExisting = true;
             $scope.editingSelf = (deviceCfg.deviceID == $scope.myID);
-            $scope.currentDevice.addressesStr = deviceCfg.addresses.join(', ');
+            $scope.currentDevice._addressesStr = deviceCfg.addresses.join(', ');
             if (!$scope.editingSelf) {
                 $scope.currentDevice.selectedFolders = {};
                 $scope.deviceFolders($scope.currentDevice).forEach(function (folder) {
@@ -820,7 +835,7 @@ angular.module('syncthing.core')
                 })
                 .then(function () {
                     $scope.currentDevice = {
-                        addressesStr: 'dynamic',
+                        _addressesStr: 'dynamic',
                         compression: 'metadata',
                         introducer: false,
                         selectedFolders: {}
@@ -865,7 +880,7 @@ angular.module('syncthing.core')
         $scope.addNewDeviceID = function (device) {
             var deviceCfg = {
                 deviceID: device,
-                addressesStr: 'dynamic',
+                _addressesStr: 'dynamic',
                 compression: 'metadata',
                 introducer: false,
                 selectedFolders: {}
@@ -876,7 +891,7 @@ angular.module('syncthing.core')
 
         $scope.saveDeviceConfig = function (deviceCfg) {
             var done, i;
-            deviceCfg.addresses = deviceCfg.addressesStr.split(',').map(function (x) {
+            deviceCfg.addresses = deviceCfg._addressesStr.split(',').map(function (x) {
                 return x.trim();
             });
 
@@ -1277,12 +1292,34 @@ angular.module('syncthing.core')
             });
         };
 
+        $scope.showFailed = function (folder) {
+            $scope.failedCurrent = $scope.failed[folder]
+            $('#failed').modal().on('hidden.bs.modal', function () {
+                $scope.failedCurrent = undefined;
+            });
+        };
+
+        $scope.hasFailedFiles = function (folder) {
+            if (!$scope.failed[folder]) {
+                return false;
+            }
+            if ($scope.failed[folder].length == 0) {
+                return false;
+            }
+            return true
+        };
+
         $scope.override = function (folder) {
             $http.post(urlbase + "/db/override?folder=" + encodeURIComponent(folder));
         };
 
         $scope.about = function () {
             $('#about').modal('show');
+        };
+
+        $scope.advanced = function () {
+            $scope.advancedConfig = angular.copy($scope.config);
+            $('#advanced').modal('show');
         };
 
         $scope.showReportPreview = function () {
@@ -1333,6 +1370,22 @@ angular.module('syncthing.core')
             }[$scope.version.arch] || $scope.version.arch;
 
             return $scope.version.version + ', ' + os + ' (' + arch + ')';
+        };
+
+        $scope.inputTypeFor = function (key, value) {
+            if (key.substr(0, 1) === '_') {
+                return 'skip';
+            }
+            if (typeof value === 'number') {
+                return 'number';
+            }
+            if (typeof value === 'boolean') {
+                return 'checkbox';
+            }
+            if (typeof value === 'object') {
+                return 'skip';
+            }
+            return 'text';
         };
 
         // pseudo main. called on all definitions assigned

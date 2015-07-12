@@ -14,6 +14,7 @@ import (
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/scanner"
+	"github.com/syncthing/syncthing/internal/sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
@@ -73,9 +74,11 @@ func TestHandleFile(t *testing.T) {
 	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:    "default",
+		dir:       "testdata",
+		model:     m,
+		errors:    make(map[string]string),
+		errorsMut: sync.NewMutex(),
 	}
 
 	copyChan := make(chan copyBlocksState, 1)
@@ -127,9 +130,11 @@ func TestHandleFileWithTemp(t *testing.T) {
 	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:    "default",
+		dir:       "testdata",
+		model:     m,
+		errors:    make(map[string]string),
+		errorsMut: sync.NewMutex(),
 	}
 
 	copyChan := make(chan copyBlocksState, 1)
@@ -198,9 +203,11 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:    "default",
+		dir:       "testdata",
+		model:     m,
+		errors:    make(map[string]string),
+		errorsMut: sync.NewMutex(),
 	}
 
 	copyChan := make(chan copyBlocksState)
@@ -332,9 +339,11 @@ func TestLastResortPulling(t *testing.T) {
 	}
 
 	p := rwFolder{
-		folder: "default",
-		dir:    "testdata",
-		model:  m,
+		folder:    "default",
+		dir:       "testdata",
+		model:     m,
+		errors:    make(map[string]string),
+		errorsMut: sync.NewMutex(),
 	}
 
 	copyChan := make(chan copyBlocksState)
@@ -390,6 +399,8 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		model:           m,
 		queue:           newJobQueue(),
 		progressEmitter: emitter,
+		errors:          make(map[string]string),
+		errorsMut:       sync.NewMutex(),
 	}
 
 	// queue.Done should be called by the finisher routine
@@ -477,6 +488,8 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		model:           m,
 		queue:           newJobQueue(),
 		progressEmitter: emitter,
+		errors:          make(map[string]string),
+		errorsMut:       sync.NewMutex(),
 	}
 
 	// queue.Done should be called by the finisher routine

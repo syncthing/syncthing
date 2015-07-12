@@ -24,14 +24,15 @@ var (
 	sessionsMut = sync.NewMutex()
 )
 
-func basicAuthAndSessionMiddleware(cfg config.GUIConfiguration, next http.Handler) http.Handler {
+func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguration, next http.Handler) http.Handler {
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if cfg.APIKey != "" && r.Header.Get("X-API-Key") == cfg.APIKey {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		cookie, err := r.Cookie("sessionid")
+		cookie, err := r.Cookie(cookieName)
 		if err == nil && cookie != nil {
 			sessionsMut.Lock()
 			_, ok := sessions[cookie.Value]
@@ -86,7 +87,7 @@ func basicAuthAndSessionMiddleware(cfg config.GUIConfiguration, next http.Handle
 		sessions[sessionid] = true
 		sessionsMut.Unlock()
 		http.SetCookie(w, &http.Cookie{
-			Name:   "sessionid",
+			Name:   cookieName,
 			Value:  sessionid,
 			MaxAge: 0,
 		})

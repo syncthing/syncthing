@@ -75,6 +75,7 @@ angular.module('syncthing.core')
             STARTING:             'Starting',   // Emitted exactly once, when Syncthing starts, before parsing configuration etc
             STARTUP_COMPLETED:    'StartupCompleted',   // Emitted exactly once, when initialization is complete and Syncthing is ready to start exchanging data with other devices
             STATE_CHANGED:        'StateChanged',   // Emitted when a folder changes state
+            FOLDER_ERRORS:        'FolderErrors',   // Emitted when a folder has errors preventing a full sync
 
             start: function() {
                 $http.get(urlbase + '/events?limit=1')

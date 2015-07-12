@@ -177,10 +177,6 @@ next:
 				if debugNet {
 					l.Debugf("cipher suite: %04X in lan: %t", conn.ConnectionState().CipherSuite, !limit)
 				}
-				events.Default.Log(events.DeviceConnected, map[string]string{
-					"id":   remoteID.String(),
-					"addr": conn.RemoteAddr().String(),
-				})
 
 				s.model.AddConnection(conn, protoConn)
 				continue next

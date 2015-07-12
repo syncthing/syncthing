@@ -52,6 +52,7 @@ var (
 )
 
 type apiSvc struct {
+	id              protocol.DeviceID
 	cfg             config.GUIConfiguration
 	assetDir        string
 	model           *model.Model
@@ -62,8 +63,9 @@ type apiSvc struct {
 	eventSub        *events.BufferedSubscription
 }
 
-func newAPISvc(cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription) (*apiSvc, error) {
+func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription) (*apiSvc, error) {
 	svc := &apiSvc{
+		id:              id,
 		cfg:             cfg,
 		assetDir:        assetDir,
 		model:           m,
@@ -188,14 +190,14 @@ func (s *apiSvc) Serve() {
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware("/rest", s.cfg.APIKey, mux)
+	handler := csrfMiddleware(s.id.String()[:5], "/rest", s.cfg.APIKey, mux)
 
-	// Add our version as a header to responses
-	handler = withVersionMiddleware(handler)
+	// Add our version and ID as a header to responses
+	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
 	if len(s.cfg.User) > 0 && len(s.cfg.Password) > 0 {
-		handler = basicAuthAndSessionMiddleware(s.cfg, handler)
+		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], s.cfg, handler)
 	}
 
 	// Redirect to HTTPS if we are supposed to
@@ -334,9 +336,10 @@ func noCacheMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func withVersionMiddleware(h http.Handler) http.Handler {
+func withDetailsMiddleware(id protocol.DeviceID, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Syncthing-Version", Version)
+		w.Header().Set("X-Syncthing-ID", id.String())
 		h.ServeHTTP(w, r)
 	})
 }
@@ -425,7 +428,10 @@ func folderSummary(m *model.Model, folder string) map[string]interface{} {
 		res["error"] = err.Error()
 	}
 
-	res["version"] = m.CurrentLocalVersion(folder) + m.RemoteLocalVersion(folder)
+	lv, _ := m.CurrentLocalVersion(folder)
+	rv, _ := m.RemoteLocalVersion(folder)
+
+	res["version"] = lv + rv
 
 	ignorePatterns, _, _ := m.GetIgnores(folder)
 	res["ignorePatterns"] = false
@@ -570,26 +576,26 @@ func (s *apiSvc) postSystemRestart(w http.ResponseWriter, r *http.Request) {
 func (s *apiSvc) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	folder := qs.Get("folder")
-	var err error
-	if len(folder) == 0 {
-		for folder := range cfg.Folders() {
-			err = s.model.ResetFolder(folder)
-			if err != nil {
-				break
-			}
+
+	if len(folder) > 0 {
+		if _, ok := cfg.Folders()[folder]; !ok {
+			http.Error(w, "Invalid folder ID", 500)
+			return
 		}
-	} else {
-		err = s.model.ResetFolder(folder)
 	}
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
+
 	if len(folder) == 0 {
+		// Reset all folders.
+		for folder := range cfg.Folders() {
+			s.model.ResetFolder(folder)
+		}
 		s.flushResponse(`{"ok": "resetting database"}`, w)
 	} else {
+		// Reset a specific folder, assuming it's supposed to exist.
+		s.model.ResetFolder(folder)
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
+
 	go restart()
 }
 

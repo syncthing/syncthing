@@ -1,0 +1,8 @@
+<configuration version="9">
+    <options>
+        <listenAddress> :23000</listenAddress>
+        <listenAddress>     :23001    </listenAddress>
+        <globalAnnounceServer> udp4://syncthing.nym.se:22026</globalAnnounceServer>
+        <globalAnnounceServer>   udp4://syncthing.nym.se:22027  </globalAnnounceServer>
+    </options>
+</configuration>

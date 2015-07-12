@@ -63,6 +63,8 @@
               </a>
             </li>
             <li><a href="" ng-click="about()"><span class="glyphicon glyphicon-heart-empty"></span>&nbsp;<span translate>About</span></a></li>
+            <li class="divider"></li>
+            <li><a href="" ng-click="advanced()"><span class="glyphicon glyphicon-cog"></span>&nbsp;<span translate>Advanced</span></a></li>
           </ul>
         </li>
       </ul>
@@ -196,6 +198,7 @@
                     <span class="hidden-xs" translate>Syncing</span>
                     ({{syncPercentage(folder.id)}}%)
                   </span>
+                  <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs">&#9724;</span></span>
                 </span>
               </h3>
             </div>
@@ -220,9 +223,20 @@
                       <td class="text-right">{{model[folder.id].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].localBytes | binary}}B</td>
                     </tr>
                     <tr ng-if="model[folder.id].needFiles > 0">
-                      <th><span class="glyphicon glyphicon-cloud-download"></span>&nbsp;<span translate>Out Of Sync</span></th>
+                      <th><span class="glyphicon glyphicon-cloud-download"></span>&nbsp;<span translate>Out of Sync</span></th>
                       <td class="text-right">
                         <a ng-click="showNeed(folder.id)" href="">{{model[folder.id].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
+                      </td>
+                    </tr>
+                    <tr ng-if="!folder.readOnly && (folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id))">
+                      <th><span class="glyphicon glyphicon-exclamation-sign"></span>&nbsp;<span translate>Failed Items</span></th>
+                      <!-- Show the number of failed items as a link to bring up the list. -->
+                      <td ng-if="hasFailedFiles(folder.id)" class="text-right">
+                        <a ng-click="showFailed(folder.id)" href="">{{failed[folder.id].length | alwaysNumber}}&nbsp;<span translate>items</span></a>
+                      </td>
+                      <!-- The list of failed items hasn't loaded yet; show an ellipsis for the time being. -->
+                      <td ng-if="!hasFailedFiles(folder.id)" class="text-right">
+                        ...
                       </td>
                     </tr>
                     <tr ng-if="folder.readOnly">
@@ -285,7 +299,7 @@
                 </table>
               </div>
               <div class="panel-footer">
-                <button class="btn btn-sm btn-danger pull-left" ng-if="folderStatus(folder) == 'idle' && folder.readOnly && model[folder.id].needFiles > 0" ng-click="override(folder.id)" href=""><span class="glyphicon glyphicon-upload"></span>&nbsp;<span translate>Override Changes</span></button>
+                <button class="btn btn-sm btn-danger pull-left" ng-if="folderStatus(folder) == 'outofsync' && folder.readOnly" ng-click="override(folder.id)" href=""><span class="glyphicon glyphicon-upload"></span>&nbsp;<span translate>Override Changes</span></button>
                 <span class="pull-right">
                   <button class="btn btn-sm btn-default" href="" ng-show="['idle', 'stopped'].indexOf(folderStatus(folder)) > -1" ng-click="rescanFolder(folder.id)"><span class="glyphicon glyphicon-refresh"></span>&nbsp;<span translate>Rescan</span></button>
                   <button class="btn btn-sm btn-default" href="" ng-click="editFolder(folder)"><span class="glyphicon glyphicon-pencil"></span>&nbsp;<span translate>Edit</span></button>
@@ -448,6 +462,7 @@
   <nav class="navbar navbar-default navbar-fixed-bottom">
     <div class="container">
       <ul class="nav navbar-nav">
+        <li><a class="navbar-link" href="http://syncthing.net/" target="_blank"><span class="glyphicon glyphicon-home"></span>&nbsp;<span translate>Home page</span></a></li>
         <li><a class="navbar-link" href="http://docs.syncthing.net/" target="_blank"><span class="glyphicon glyphicon-book"></span>&nbsp;<span translate>Documentation</span></a></li>
         <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="glyphicon glyphicon-question-sign"></span>&nbsp;<span translate>Support</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/releases" target="_blank"><span class="glyphicon glyphicon-info-sign"></span>&nbsp;<span translate>Changelog</span></a></li>
@@ -495,7 +510,7 @@
   <!-- ID modal -->
 
   <modal id="idqr" large="yes" status="info" close="yes" icon="qrcode" title="{{'Device Identification' | translate}} &mdash; {{deviceName(thisDevice())}}">
-    <div class="well well-sm text-monospace text-center">{{myID}}</div>
+    <div select-on-click class="well well-sm text-monospace text-center">{{myID}}</div>
     <img ng-if="myID" class="center-block img-thumbnail" ng-src="qr/?text={{myID}}"/>
   </modal>
 
@@ -561,7 +576,7 @@
             </div>
             <div class="form-group">
               <label translate for="addresses">Addresses</label>
-              <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice.addressesStr"></input>
+              <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice._addressesStr"></input>
               <p translate class="help-block">Enter comma separated "ip:port" addresses or "dynamic" to perform automatic discovery of the address.</p>
             </div>
             <div ng-if="!editingSelf" class="form-group">
@@ -586,11 +601,13 @@
                 <div class="form-group">
                   <label translate for="folders">Share Folders With Device</label>
                   <p translate class="help-block">Select the folders to share with this device.</p>
-                  <div class="three-columns">
-                    <div class="checkbox" ng-repeat="folder in folderList()">
-                      <label>
-                        <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]"> {{folder.id}}
-                      </label>
+                  <div class="container-fluid">
+                    <div class="row" ng-repeat="folderGroup in folderList() | group:3">
+                      <div class="checkbox col-md-4" ng-repeat="folder in folderGroup">
+                        <label>
+                          <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]"> {{folder.id}}
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -751,11 +768,13 @@
                 <div class="form-group">
                   <label translate for="devices">Share With Devices</label>
                   <p translate class="help-block">Select the devices to share this folder with.</p>
-                  <div class="three-columns">
-                    <div class="checkbox" ng-repeat="device in otherDevices()">
-                      <label>
-                        <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
-                      </label>
+                  <div class="container-fluid">
+                    <div class="row" ng-repeat="deviceGroup in otherDevices() | group:3">
+                      <div class="checkbox col-md-4" ng-repeat="device in deviceGroup">
+                        <label>
+                          <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -825,7 +844,7 @@
                 </div>
                 <div class="form-group">
                   <label translate for="ListenAddressStr">Sync Protocol Listen Addresses</label>
-                  <input id="ListenAddressStr" class="form-control" type="text" ng-model="tmpOptions.listenAddressStr">
+                  <input id="ListenAddressStr" class="form-control" type="text" ng-model="tmpOptions._listenAddressStr">
                 </div>
                 <div class="form-group">
                   <label translate for="MaxRecvKbps">Incoming Rate Limit (KiB/s)</label>
@@ -869,7 +888,7 @@
                 </div>
                 <div class="form-group">
                   <label translate for="GlobalAnnServersStr">Global Discovery Server</label>
-                  <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions.globalAnnounceServersStr">
+                  <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions._globalAnnounceServersStr">
                 </div>
               </div>
 
@@ -985,7 +1004,7 @@
 
     <table class="table table-striped table-condensed">
 
-      <tr dir-paginate="f in needed | itemsPerPage: neededPageSize" current-page="neededCurrentPage" total-items="neededTotal">
+      <tr dir-paginate="f in needed | itemsPerPage: neededPageSize" current-page="neededCurrentPage" total-items="neededTotal" pagination-id="needed">
         <!-- Icon -->
         <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[f.action]}}"></span> {{needActions[f.action]}}</td>
 
@@ -1018,10 +1037,32 @@
       </tr>
     </table>
 
-    <dir-pagination-controls on-page-change="neededPageChanged(newPageNumber)"></dir-pagination-controls>
+    <dir-pagination-controls on-page-change="neededPageChanged(newPageNumber)" pagination-id="needed"></dir-pagination-controls>
     <ul class="pagination pull-right">
-      <li ng-repeat="option in [10, 20, 30, 50, 100]" ng-class="{ active: neededPageSize == option }">
+      <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: neededPageSize == option }">
         <a href="#" ng-click="neededChangePageSize(option)">{{option}}</a>
+      <li>
+    </ul>
+    <div class="clearfix"></div>
+  </modal>
+
+  <!-- Failed Items modal -->
+
+  <modal id="failed" large="yes" status="warning" icon="exclamation-sign" close="yes" title="{{'Failed Items' | translate}}">
+    <p>
+      <span translate>The following items could not be synchronized.</span>
+      <span translate>They are retried automatically and will be synced when the error is resolved.</span>
+    </p>
+    <table class="table table-striped table-condensed">
+      <tr dir-paginate="e in failedCurrent | itemsPerPage: failedPageSize" current-page="failedCurrentPage" pagination-id="failed">
+        <td><abbr title="{{e.path}}">{{e.path | basename}}</abbr></td>
+        <td><abbr title="{{e.error}}">{{e.error | lastErrorComponent}}</abbr></td>
+      </tr>
+    </table>
+    <dir-pagination-controls on-page-change="failedPageChanged(newPageNumber)" pagination-id="failed"></dir-pagination-controls>
+    <ul class="pagination pull-right">
+      <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: failedPageSize == option }">
+        <a href="#" ng-click="failedChangePageSize(option)">{{option}}</a>
       <li>
     </ul>
     <div class="clearfix"></div>
@@ -1040,6 +1081,7 @@
           <li class="auto-generated">Aaron Bieber</li>
           <li class="auto-generated">Alexander Graf</li>
           <li class="auto-generated">Andrew Dunham</li>
+          <li class="auto-generated">Antony Male</li>
           <li class="auto-generated">Arthur Axel fREW Schmidt</li>
           <li class="auto-generated">Audrius Butkevicius</li>
           <li class="auto-generated">Bart De Vries</li>
@@ -1054,6 +1096,7 @@
           <li class="auto-generated">Chris Howie</li>
           <li class="auto-generated">Chris Joel</li>
           <li class="auto-generated">Colin Kennedy</li>
+          <li class="auto-generated">Daniel Bergmann</li>
           <li class="auto-generated">Daniel Martí</li>
           <li class="auto-generated">Dennis Wilson</li>
           <li class="auto-generated">Dominik Heidler</li>
@@ -1114,12 +1157,95 @@
     </ul>
   </modal>
 
+  <!-- Advanced modal -->
+
+  <div id="advanced" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header alert alert-danger">
+          <h4 translate class="modal-title">Advanced Configuration</h4>
+        </div>
+        <div class="modal-body">
+
+          <p class="text-danger">
+            <b translate>Be careful!</b>
+            <span translate>Incorrect configuration may damage your folder contents and render Syncthing inoperable.</span>
+          </p>
+
+          <div class="panel-group" id="advancedAccordion" role="tablist" aria-multiselectable="true">
+
+            <div class="panel panel-default">
+              <div class="panel-heading" role="tab" id="guiHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#guiConfig" aria-expanded="true" aria-controls="guiConfig" style="cursor: pointer">
+                <h4 class="panel-title" translate>GUI</h4>
+              </div>
+              <div id="guiConfig" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="guiHeading">
+                <div class="panel-body">
+                  <form class="form-horizontal" role="form">
+                    <div ng-repeat="(key, value) in advancedConfig.gui" ng-init="type = inputTypeFor(key, value)" ng-if="type != 'skip'" class="form-group">
+                      <label for="guiInput{{$index}}" class="col-sm-4 control-label">{{key}}</label>
+                      <div class="col-sm-8">
+                        <input id="guiInput{{$index}}" class="form-control" type="{{type}}" ng-model="advancedConfig.gui[key]" />
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default">
+              <div class="panel-heading" role="tab" id="optionsHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#optionsConfig" aria-expanded="true" aria-controls="optionsConfig" style="cursor: pointer">
+                <h4 class="panel-title" translate>Options</h4>
+              </div>
+              <div id="optionsConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="optionsHeading">
+                <div class="panel-body">
+                  <form class="form-horizontal" role="form">
+                    <div ng-repeat="(key, value) in advancedConfig.options" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                      <label for="optionsInput{{$index}}" class="col-sm-4 control-label">{{key}}</label>
+                      <div class="col-sm-8">
+                        <input id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.options[key]" />
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders">
+              <div class="panel-heading" role="tab" id="folder{{folder.id}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{folder.id}}Config" aria-expanded="true" aria-controls="folder{{folder.id}}Config" style="cursor: pointer">
+                <h4 class="panel-title">
+                  <span translate>Folder</span> "{{folder.id}}"
+                </h4>
+              </div>
+              <div id="folder{{folder.id}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{folder.id}}Heading">
+                <div class="panel-body">
+                  <form class="form-horizontal" role="form">
+                    <div ng-repeat="(key, value) in folder" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                      <label for="folder{{folder.id}}Input{{$index}}" class="col-sm-4 control-label">{{key}}</label>
+                      <div class="col-sm-8">
+                        <input id="folder{{folder.id}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folder[key]" />
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary btn-sm" ng-click="saveAdvanced()"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Save</span></button>
+            <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- vendor scripts -->
+  <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
   <script src="vendor/angular/angular.min.js"></script>
   <script src="vendor/angular/angular-translate.min.js"></script>
   <script src="vendor/angular/angular-translate-loader.min.js"></script>
   <script src="vendor/angular/angular-dirPagination.js"></script>
-  <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
   <script src="vendor/bootstrap/js/bootstrap.min.js"></script>
   <!-- / vendor scripts -->
 
@@ -1133,12 +1259,17 @@
   <script src="scripts/syncthing/core/directives/uniqueFolderDirective.js"></script>
   <script src="scripts/syncthing/core/directives/validDeviceidDirective.js"></script>
   <script src="scripts/syncthing/core/directives/popoverDirective.js"></script>
+  <script src="scripts/syncthing/core/directives/selectOnClickDirective.js"></script>
   <script src="scripts/syncthing/core/filters/alwaysNumberFilter.js"></script>
   <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
   <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>
   <script src="scripts/syncthing/core/filters/durationFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/groupFilter.js"></script>
   <script src="scripts/syncthing/core/filters/naturalFilter.js"></script>
+  <script src="scripts/syncthing/core/filters/lastErrorComponentFilter.js"></script>
+  <script src="scripts/syncthing/core/services/filterStabilize.js"></script>
   <script src="scripts/syncthing/core/services/localeService.js"></script>
+  <script src="scripts/syncthing/core/services/memoize.js"></script>
 
   <script src="assets/lang/valid-langs.js"></script>
   <script src="assets/lang/prettyprint.js"></script>

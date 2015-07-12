@@ -11,16 +11,14 @@
 var syncthing = angular.module('syncthing', [
     'angularUtils.directives.dirPagination',
     'pascalprecht.translate',
-
     'syncthing.core'
 ]);
 
 var urlbase = 'rest';
 var guiVersion = null;
+var deviceId = null;
 
 syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
-    $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
-    $httpProvider.defaults.xsrfCookieName = 'CSRF-Token';
     $httpProvider.interceptors.push(function () {
         return {
             response: function (response) {
@@ -29,6 +27,14 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
                     guiVersion = responseVersion;
                 } else if (guiVersion != responseVersion) {
                     document.location.reload(true);
+                }
+                if (!deviceId) {
+                    deviceId = response.headers()['x-syncthing-id'];
+                    if (deviceId) {
+                        var deviceIdShort = deviceId.substring(0, 5);
+                        $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIdShort;
+                        $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIdShort;
+                    }
                 }
                 return response;
             }

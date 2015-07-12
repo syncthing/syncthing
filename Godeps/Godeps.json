@@ -27,7 +27,7 @@
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
-			"Rev": "faa59ce93750e747b2997635e8b7daf30024b1ac"
+			"Rev": "772f5c38e468398c4511514f4f6aa9a4185bc0a0"
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",
@@ -35,7 +35,7 @@
 		},
 		{
 			"ImportPath": "github.com/syncthing/protocol",
-			"Rev": "e7db2648034fb71b051902a02bc25d4468ed492e"
+			"Rev": "7996ef0d45b7743ff930048b6413b37b2c33cd85"
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",

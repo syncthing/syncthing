@@ -204,6 +204,7 @@ func TestPOSTWithoutCSRF(t *testing.T) {
 	}
 	res.Body.Close()
 	hdr := res.Header.Get("Set-Cookie")
+	id := res.Header.Get("X-Syncthing-ID")[:5]
 	if !strings.Contains(hdr, "CSRF-Token") {
 		t.Error("Missing CSRF-Token in", hdr)
 	}
@@ -214,7 +215,8 @@ func TestPOSTWithoutCSRF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Header.Set("X-CSRF-Token", hdr[len("CSRF-Token="):])
+
+	req.Header.Set("X-CSRF-Token-"+id, hdr[len("CSRF-Token-"+id+"="):])
 	res, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -230,7 +232,7 @@ func TestPOSTWithoutCSRF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Header.Set("X-CSRF-Token", hdr[len("CSRF-Token="):]+"X")
+	req.Header.Set("X-CSRF-Token-"+id, hdr[len("CSRF-Token-"+id+"="):]+"X")
 	res, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)

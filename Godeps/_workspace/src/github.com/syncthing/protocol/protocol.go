@@ -31,8 +31,7 @@ const (
 
 const (
 	stateInitial = iota
-	stateCCRcvd
-	stateIdxRcvd
+	stateReady
 )
 
 // FileInfo flags
@@ -90,6 +89,7 @@ type Model interface {
 }
 
 type Connection interface {
+	Start()
 	ID() DeviceID
 	Name() string
 	Index(folder string, files []FileInfo, flags uint32, options []Option) error
@@ -103,7 +103,6 @@ type rawConnection struct {
 	id       DeviceID
 	name     string
 	receiver Model
-	state    int
 
 	cr *countingReader
 	cw *countingWriter
@@ -142,9 +141,9 @@ type isEofer interface {
 	IsEOF() bool
 }
 
-const (
-	pingTimeout  = 30 * time.Second
-	pingIdleTime = 60 * time.Second
+var (
+	PingTimeout  = 30 * time.Second
+	PingIdleTime = 60 * time.Second
 )
 
 func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
@@ -155,7 +154,6 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		id:          deviceID,
 		name:        name,
 		receiver:    nativeModel{receiver},
-		state:       stateInitial,
 		cr:          cr,
 		cw:          cw,
 		outbox:      make(chan hdrMsg),
@@ -164,12 +162,16 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		compression: compress,
 	}
 
+	return wireFormatConnection{&c}
+}
+
+// Start creates the goroutines for sending and receiving of messages. It must
+// be called exactly once after creating a connection.
+func (c *rawConnection) Start() {
 	go c.readerLoop()
 	go c.writerLoop()
 	go c.pingerLoop()
 	go c.idGenerator()
-
-	return wireFormatConnection{&c}
 }
 
 func (c *rawConnection) ID() DeviceID {
@@ -285,6 +287,7 @@ func (c *rawConnection) readerLoop() (err error) {
 		c.close(err)
 	}()
 
+	state := stateInitial
 	for {
 		select {
 		case <-c.closed:
@@ -298,47 +301,54 @@ func (c *rawConnection) readerLoop() (err error) {
 		}
 
 		switch msg := msg.(type) {
+		case ClusterConfigMessage:
+			if state != stateInitial {
+				return fmt.Errorf("protocol error: cluster config message in state %d", state)
+			}
+			go c.receiver.ClusterConfig(c.id, msg)
+			state = stateReady
+
 		case IndexMessage:
 			switch hdr.msgType {
 			case messageTypeIndex:
-				if c.state < stateCCRcvd {
-					return fmt.Errorf("protocol error: index message in state %d", c.state)
+				if state != stateReady {
+					return fmt.Errorf("protocol error: index message in state %d", state)
 				}
 				c.handleIndex(msg)
-				c.state = stateIdxRcvd
+				state = stateReady
 
 			case messageTypeIndexUpdate:
-				if c.state < stateIdxRcvd {
-					return fmt.Errorf("protocol error: index update message in state %d", c.state)
+				if state != stateReady {
+					return fmt.Errorf("protocol error: index update message in state %d", state)
 				}
 				c.handleIndexUpdate(msg)
+				state = stateReady
 			}
 
 		case RequestMessage:
-			if c.state < stateIdxRcvd {
-				return fmt.Errorf("protocol error: request message in state %d", c.state)
+			if state != stateReady {
+				return fmt.Errorf("protocol error: request message in state %d", state)
 			}
 			// Requests are handled asynchronously
 			go c.handleRequest(hdr.msgID, msg)
 
 		case ResponseMessage:
-			if c.state < stateIdxRcvd {
-				return fmt.Errorf("protocol error: response message in state %d", c.state)
+			if state != stateReady {
+				return fmt.Errorf("protocol error: response message in state %d", state)
 			}
 			c.handleResponse(hdr.msgID, msg)
 
 		case pingMessage:
+			if state != stateReady {
+				return fmt.Errorf("protocol error: ping message in state %d", state)
+			}
 			c.send(hdr.msgID, messageTypePong, pongMessage{})
 
 		case pongMessage:
-			c.handlePong(hdr.msgID)
-
-		case ClusterConfigMessage:
-			if c.state != stateInitial {
-				return fmt.Errorf("protocol error: cluster config message in state %d", c.state)
+			if state != stateReady {
+				return fmt.Errorf("protocol error: pong message in state %d", state)
 			}
-			go c.receiver.ClusterConfig(c.id, msg)
-			c.state = stateCCRcvd
+			c.handlePong(hdr.msgID)
 
 		case CloseMessage:
 			return errors.New(msg.Reason)
@@ -679,17 +689,17 @@ func (c *rawConnection) idGenerator() {
 
 func (c *rawConnection) pingerLoop() {
 	var rc = make(chan bool, 1)
-	ticker := time.Tick(pingIdleTime / 2)
+	ticker := time.Tick(PingIdleTime / 2)
 	for {
 		select {
 		case <-ticker:
-			if d := time.Since(c.cr.Last()); d < pingIdleTime {
+			if d := time.Since(c.cr.Last()); d < PingIdleTime {
 				if debug {
 					l.Debugln(c.id, "ping skipped after rd", d)
 				}
 				continue
 			}
-			if d := time.Since(c.cw.Last()); d < pingIdleTime {
+			if d := time.Since(c.cw.Last()); d < PingIdleTime {
 				if debug {
 					l.Debugln(c.id, "ping skipped after wr", d)
 				}
@@ -709,7 +719,7 @@ func (c *rawConnection) pingerLoop() {
 				if !ok {
 					c.close(fmt.Errorf("ping failure"))
 				}
-			case <-time.After(pingTimeout):
+			case <-time.After(PingTimeout):
 				c.close(fmt.Errorf("ping timeout"))
 			case <-c.closed:
 				return

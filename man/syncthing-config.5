@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "June 20, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "July 01, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -135,7 +135,8 @@ This is the root element.
 .INDENT 0.0
 .TP
 .B version
-The config version. Increments whenever a change is made that requires migration from previous formats.
+The config version. Increments whenever a change is made that requires
+migration from previous formats.
 .UNINDENT
 .SH FOLDER ELEMENT
 .INDENT 0.0
@@ -210,11 +211,13 @@ advanced users only; do not change unless requested to or you\(aqve actually
 read and understood the code yourself. :)
 .TP
 .B order
-The order in which needed files should be pulled from the cluster. The possibles values are:
+The order in which needed files should be pulled from the cluster.
+The possibles values are:
 .INDENT 7.0
 .TP
 .B random
-Pull files in random order. This optimizes for balancing resources among the devices in a cluster.
+Pull files in random order. This optimizes for balancing resources among
+the devices in a cluster.
 .TP
 .B alphabetic
 Pull files ordered by file name alphabetically.
@@ -223,7 +226,8 @@ Pull files ordered by file name alphabetically.
 Pull files ordered by file size; smallest and largest first respectively.
 .TP
 .B oldestFirst, newestFirst
-Pull files ordered by modification time; oldest and newest first respectively.
+Pull files ordered by modification time; oldest and newest first
+respectively.
 .UNINDENT
 .UNINDENT
 .SH DEVICE ELEMENT
@@ -292,10 +296,12 @@ The address and port is used as given.
 The default port (22000) is used.
 .TP
 .B IPv6 address and port (\fB[2001:db8::23:42]:12345\fP)
-The address and port is used as given. The address must be enclosed in angled brackets.
+The address and port is used as given. The address must be enclosed in
+angled brackets.
 .TP
 .B \fBdynamic\fP
-The word \fBdynamic\fP means to use local and global discovery to find the device.
+The word \fBdynamic\fP means to use local and global discovery to find the
+device.
 .UNINDENT
 .SH GUI ELEMENT
 .INDENT 0.0
@@ -338,10 +344,12 @@ Allowed address formats are:
 The address and port is used as given.
 .TP
 .B IPv6 address and port (\fB[::1]:8384\fP)
-The address and port is used as given. The address must be enclosed in angled brackets.
+The address and port is used as given. The address must be enclosed in
+angled brackets.
 .TP
 .B Wildcard and port (\fB0.0.0.0:12345\fP, \fB[::]:12345\fP, \fB:12345\fP)
-These are equivalent and will result in Syncthing listening on all interfaces and both IPv4 and IPv6.
+These are equivalent and will result in Syncthing listening on all
+interfaces and both IPv4 and IPv6.
 .UNINDENT
 .TP
 .B username
@@ -385,6 +393,8 @@ If set, this is the API key that enables usage of the REST interface.
     <symlinksEnabled>true</symlinksEnabled>
     <limitBandwidthInLan>false</limitBandwidthInLan>
     <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
+    <pingTimeoutS>60</pingTimeoutS>
+    <pingIdleTimeS>120</pingIdleTimeS>
 </options>
 .ft P
 .fi
@@ -431,7 +441,8 @@ unconnected devices.
 Whether to attempt to start a browser to show the GUI when Syncthing starts.
 .TP
 .B upnpEnabled
-Whether to attempt to perform an UPnP port mapping for incoming sync connections.
+Whether to attempt to perform an UPnP port mapping for incoming sync
+connections.
 .TP
 .B upnpLeaseMinutes
 Request a lease for this many minutes; zero to request a permanent lease.
@@ -488,6 +499,13 @@ as the local device.
 Override the automatically calculated database block cache size. Don\(aqt,
 unless you\(aqre very short on memory, in which case you want to set this to
 \fB8\fP\&.
+.TP
+.B pingTimeoutS
+Ping\-timeout in seconds. Don\(aqt change it unless you are having issues due to
+slow response time (slow connection/cpu) and large index exchanges
+.TP
+.B pingIdleTimeS
+ping interval in seconds. Don\(aqt change it unless you feel it\(aqs necessary.
 .UNINDENT
 .SH AUTHOR
 The Syncthing Authors
