@@ -314,7 +314,7 @@
 
       <button class="btn btn-sm btn-default pull-right" ng-click="addDevice()"><span class="glyphicon glyphicon-plus"></span><span translate>Add Device</span></button>
 
-      <div class="col-md-12">
+      <!-- <div class="col-md-12">
         <div class="panel-group" id="folders">
         <div class="visible-xs"><h3><span translate>Folders</span></h3><hr></div>
           <div class="panel panel-default" ng-repeat="folder in folderList()">
@@ -436,13 +436,13 @@
         </span>
         <div class="clearfix"></div>
         <hr class="visible-sm"/>
-      </div>
+      </div> -->
 
       <!-- Device list (top right) -->
 
         <!-- Remote devices -->
 
-        <div class="panel-group" id="devices">
+        <!-- <div class="panel-group" id="devices">
           <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
               <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | number:0}}%"></div>
@@ -513,13 +513,13 @@
           <div class="clearfix"></div>
         </div>
       </div>
-    </div> <!-- /row -->
+    </div> <!-- /row --> -->
 
   </div> <!-- /container -->
 
   <!-- Bottom bar -->
 
-  <nav class="navbar navbar-default navbar-fixed-bottom">
+  <nav class="navbar navbar-fixed-bottom">
     <div class="container">
       <ul class="nav navbar-nav">
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/wiki" target="_blank"><span class="glyphicon glyphicon-book"></span>&ensp;<span translate>Documentation</span></a></li>
