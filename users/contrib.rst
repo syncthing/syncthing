@@ -42,9 +42,6 @@ Windows
    Installer, auto-start, built-in browser, tray icon, folder watcher,
    and more)
 
--  https://github.com/kreischweide/metrothing (Windows UI to monitor
-   multiple Syncthing instances through the REST API)
-
 OS X
 ~~~~
 
