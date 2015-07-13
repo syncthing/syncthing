@@ -61,7 +61,7 @@ func (v Simple) Archive(filePath string) error {
 			if debug {
 				l.Debugln("creating versions dir", versionsDir)
 			}
-			os.MkdirAll(versionsDir, 0755)
+			osutil.MkdirAll(versionsDir, 0755)
 			osutil.HideFile(versionsDir)
 		} else {
 			return err
@@ -79,7 +79,7 @@ func (v Simple) Archive(filePath string) error {
 	}
 
 	dir := filepath.Join(versionsDir, inFolderPath)
-	err = os.MkdirAll(dir, 0755)
+	err = osutil.MkdirAll(dir, 0755)
 	if err != nil && !os.IsExist(err) {
 		return err
 	}

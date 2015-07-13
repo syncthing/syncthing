@@ -1,0 +1,199 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "SYNCTHING-STIGNORE" "5" "July 01, 2015" "v0.11" "Syncthing"
+.SH NAME
+syncthing-stignore \- Prevent files from being synchronized to other nodes
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+\&.stignore
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH DESCRIPTION
+.sp
+If some files should not be synchronized to other nodes, a file called
+\fB\&.stignore\fP can be created containing file patterns to ignore. The
+\fB\&.stignore\fP file must be placed in the root of the repository. The
+\fB\&.stignore\fP file itself will never be synced to other nodes, although it can
+\fB#include\fP files that \fIare\fP synchronized between nodes. All patterns are
+relative to the repository root.
+.SH PATTERNS
+.sp
+The \fB\&.stignore\fP file contains a list of file or path patterns. The
+\fIfirst\fP pattern that matches will decide the fate of a given file.
+.INDENT 0.0
+.IP \(bu 2
+Regular file names match themselves, i.e. the pattern \fBfoo\fP matches
+the files \fBfoo\fP, \fBsubdir/foo\fP as well as any directory named
+\fBfoo\fP\&. Spaces are treated as regular characters.
+.IP \(bu 2
+Asterisk matches zero or more characters in a filename, but does not
+match the directory separator. \fBte*st\fP matches \fBtest\fP,
+\fBsubdir/telerest\fP but not \fBtele/rest\fP\&.
+.IP \(bu 2
+Double asterisk matches as above, but also directory separators.
+\fBte**st\fP matches \fBtest\fP, \fBsubdir/telerest\fP and
+\fBtele/sub/dir/rest\fP\&.
+.IP \(bu 2
+Question mark matches a single character that is not the directory
+separator. \fBte??st\fP matches \fBtebest\fP but not \fBteb/st\fP or
+\fBtest\fP\&.
+.IP \(bu 2
+A pattern beginning with \fB/\fP matches in the current directory only.
+\fB/foo\fP matches \fBfoo\fP but not \fBsubdir/foo\fP\&.
+.IP \(bu 2
+A pattern beginning with \fB#include\fP results in loading patterns
+from the named file. It is an error for a file to not exist or be
+included more than once. Note that while this can be used to include
+patterns from a file in a subdirectory, the patterns themselves are
+still relative to the repository \fIroot\fP\&. Example:
+\fB#include more\-patterns.txt\fP\&.
+.IP \(bu 2
+A pattern beginning with \fB!\fP negates the pattern: matching files
+are \fIincluded\fP (that is, \fInot\fP ignored). This can be used to override
+more general patterns that follow. Note that files in ignored
+directories can not be re\-included this way. This is due to the fact
+that syncthing stops scanning when it reaches an ignored directory,
+so doesn\(aqt know what files it might contain.
+.IP \(bu 2
+A pattern beginning with \fB(?i)\fP enables case\-insensitive pattern
+matching. \fB(?i)test\fP matches \fBtest\fP, \fBTEST\fP and \fBtEsT\fP\&. The
+\fB(?i)\fP prefix can be combined with other patterns, for example the
+pattern \fB(?i)!picture*.png\fP indicates that \fBPicture1.PNG\fP should
+be synchronized. Note that case\-insensitive patterns must start with
+\fB(?i)\fP when combined with other flags.
+.IP \(bu 2
+A line beginning with \fB//\fP is a comment and has no effect.
+.UNINDENT
+.SH EXAMPLE
+.sp
+Given a directory layout:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+foo
+foofoo
+bar/
+    baz
+    quux
+    quuz
+bar2/
+    baz
+    frobble
+My Pictures/
+    Img15.PNG
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+and an \fB\&.stignore\fP file with the contents:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+!frobble
+!quuz
+foo
+*2
+qu*
+(?i)my pictures
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+all files and directories called "foo", ending in a "2" or starting with
+"qu" will be ignored. The end result becomes:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+foo           # ignored, matches "foo"
+foofoo        # synced, does not match "foo" but would match "foo*" or "*foo"
+bar/          # synced
+    baz       # synced
+    quux      # ignored, matches "qu*"
+    quuz      # synced, matches "qu*" but is excluded by the preceding "!quuz"
+bar2/         # ignored, matched "*2"
+    baz       # ignored, due to parent being ignored
+    frobble   # ignored, due to parent being ignored; "!frobble" doesn\(aqt help
+My Pictures/  # ignored, matched case insensitive "(?i)my pictures" pattern
+    Img15.PNG # ignored, due to parent being ignored
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Please note that directory patterns ending with a slash
+\fBsome/directory/\fP matches the content of the directory, but not the
+directory itself. If you want the pattern to match the director and it\(aqs
+content, make sure it does not have a \fB/\fP at the end of the pattern.
+.UNINDENT
+.UNINDENT
+.SH EFFECTS ON "IN SYNC" STATUS
+.sp
+Currently the effects on who is in sync with what can be a bit confusing
+when using ignore patterns. This should be cleared up in a future
+version...
+.sp
+Assume two nodes, Alice and Bob, where Alice has 100 files to share, but
+Bob ignores 25 of these. From Alice\(aqs point of view Bob will become
+about 75% in sync (the actual number depends on the sizes of the
+individual files) and remain in "Syncing" state even though it is in
+fact not syncing anything (\fI\%issue #623\fP <\fBhttps://github.com/syncthing/syncthing/issues/623\fP>). From
+Bob\(aqs point of view it\(aqs 100% up to date but will show fewer files in
+both the local and global view.
+.sp
+If Bob adds files that have already been synced to the ignore list, they
+will remain in the "global" view but disappear from the "local" view.
+The end result is more files in the global repository than in the local,
+but still 100% in sync (\fI\%issue #624\fP <\fBhttps://github.com/syncthing/syncthing/issues/624\fP>). From
+Alice\(aqs point of view, Bob will remain 100% in sync until the next
+reconnect, because Bob has already announce that he has the files that
+are now suddenly ignored.
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2015, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.

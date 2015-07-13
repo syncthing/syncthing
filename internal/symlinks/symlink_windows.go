@@ -21,11 +21,11 @@ import (
 )
 
 const (
-	FSCTL_GET_REPARSE_POINT      = 0x900a8
-	FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000
-	FILE_ATTRIBUTE_REPARSE_POINT = 0x400
-	IO_REPARSE_TAG_SYMLINK       = 0xA000000C
-	SYMBOLIC_LINK_FLAG_DIRECTORY = 0x1
+	Win32FsctlGetReparsePoint      = 0x900a8
+	Win32FileFlagOpenReparsePoint  = 0x00200000
+	Win32FileAttributeReparsePoint = 0x400
+	Win32IOReparseTagSymlink       = 0xA000000C
+	Win32SymbolicLinkFlagDirectory = 0x1
 )
 
 var (
@@ -106,7 +106,7 @@ func Read(path string) (string, uint32, error) {
 	if err != nil {
 		return "", protocol.FlagSymlinkMissingTarget, err
 	}
-	handle, err := syscall.CreateFile(ptr, 0, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE, nil, syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	handle, err := syscall.CreateFile(ptr, 0, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE, nil, syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS|Win32FileFlagOpenReparsePoint, 0)
 	if err != nil || handle == syscall.InvalidHandle {
 		return "", protocol.FlagSymlinkMissingTarget, err
 	}
@@ -114,12 +114,12 @@ func Read(path string) (string, uint32, error) {
 	var ret uint16
 	var data reparseData
 
-	r1, _, err := syscall.Syscall9(procDeviceIoControl.Addr(), 8, uintptr(handle), FSCTL_GET_REPARSE_POINT, 0, 0, uintptr(unsafe.Pointer(&data)), unsafe.Sizeof(data), uintptr(unsafe.Pointer(&ret)), 0, 0)
+	r1, _, err := syscall.Syscall9(procDeviceIoControl.Addr(), 8, uintptr(handle), Win32FsctlGetReparsePoint, 0, 0, uintptr(unsafe.Pointer(&data)), unsafe.Sizeof(data), uintptr(unsafe.Pointer(&ret)), 0, 0)
 	if r1 == 0 {
 		return "", protocol.FlagSymlinkMissingTarget, err
 	}
 
-	var flags uint32 = 0
+	var flags uint32
 	attr, err := syscall.GetFileAttributes(ptr)
 	if err != nil {
 		flags = protocol.FlagSymlinkMissingTarget
@@ -154,10 +154,10 @@ func Create(source, target string, flags uint32) error {
 
 		stat, err := os.Stat(path)
 		if err == nil && stat.IsDir() {
-			mode = SYMBOLIC_LINK_FLAG_DIRECTORY
+			mode = Win32SymbolicLinkFlagDirectory
 		}
 	} else if flags&protocol.FlagDirectory != 0 {
-		mode = SYMBOLIC_LINK_FLAG_DIRECTORY
+		mode = Win32SymbolicLinkFlagDirectory
 	}
 
 	r0, _, err := syscall.Syscall(procCreateSymbolicLink.Addr(), 3, uintptr(unsafe.Pointer(srcp)), uintptr(unsafe.Pointer(trgp)), uintptr(mode))

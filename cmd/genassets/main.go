@@ -36,8 +36,7 @@ const (
 func Assets() map[string][]byte {
 	var assets = make(map[string][]byte, {{.Assets | len}})
 {{range $asset := .Assets}}
-	assets["{{$asset.Name}}"], _ = base64.StdEncoding.DecodeString("{{$asset.Data}}")
-{{end}}
+	assets["{{$asset.Name}}"], _ = base64.StdEncoding.DecodeString("{{$asset.Data}}"){{end}}
 	return assets
 }
 

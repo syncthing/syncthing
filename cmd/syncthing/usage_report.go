@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"runtime"
@@ -37,7 +38,7 @@ func newUsageReportingManager(m *model.Model, cfg *config.Wrapper) *usageReporti
 	}
 
 	// Start UR if it's enabled.
-	mgr.Changed(cfg.Raw())
+	mgr.CommitConfiguration(config.Configuration{}, cfg.Raw())
 
 	// Listen to future config changes so that we can start and stop as
 	// appropriate.
@@ -46,8 +47,12 @@ func newUsageReportingManager(m *model.Model, cfg *config.Wrapper) *usageReporti
 	return mgr
 }
 
-func (m *usageReportingManager) Changed(cfg config.Configuration) error {
-	if cfg.Options.URAccepted >= usageReportVersion && m.sup == nil {
+func (m *usageReportingManager) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
+}
+
+func (m *usageReportingManager) CommitConfiguration(from, to config.Configuration) bool {
+	if to.Options.URAccepted >= usageReportVersion && m.sup == nil {
 		// Usage reporting was turned on; lets start it.
 		svc := &usageReportingService{
 			model: m.model,
@@ -55,12 +60,17 @@ func (m *usageReportingManager) Changed(cfg config.Configuration) error {
 		m.sup = suture.NewSimple("usageReporting")
 		m.sup.Add(svc)
 		m.sup.ServeBackground()
-	} else if cfg.Options.URAccepted < usageReportVersion && m.sup != nil {
+	} else if to.Options.URAccepted < usageReportVersion && m.sup != nil {
 		// Usage reporting was turned off
 		m.sup.Stop()
 		m.sup = nil
 	}
-	return nil
+
+	return true
+}
+
+func (m *usageReportingManager) String() string {
+	return fmt.Sprintf("usageReportingManager@%p", m)
 }
 
 // reportData returns the data to be sent in a usage report. It's used in

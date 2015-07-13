@@ -257,7 +257,7 @@ func (v Staggered) Archive(filePath string) error {
 			if debug {
 				l.Debugln("creating versions dir", v.versionsPath)
 			}
-			os.MkdirAll(v.versionsPath, 0755)
+			osutil.MkdirAll(v.versionsPath, 0755)
 			osutil.HideFile(v.versionsPath)
 		} else {
 			return err
@@ -275,7 +275,7 @@ func (v Staggered) Archive(filePath string) error {
 	}
 
 	dir := filepath.Join(v.versionsPath, inFolderPath)
-	err = os.MkdirAll(dir, 0755)
+	err = osutil.MkdirAll(dir, 0755)
 	if err != nil && !os.IsExist(err) {
 		return err
 	}

@@ -69,7 +69,7 @@ ul+h5 {
 }
 
 .panel-heading .glyphicon {
-    margin-right: 15px;
+    margin-right: 10px;
 }
 
 .panel-heading {
@@ -143,27 +143,33 @@ table.table-condensed td {
 }
 
 
-
 /**
  * Menu for select language
  */
 
-@media (min-width:480px) {
+@media (min-width:480px) and (max-width:649px) {
+    *[language-select] > .dropdown-menu {
+        width: 230px;
+    }
+}
+
+@media (min-width:650px) {
     *[language-select] > .dropdown-menu > li {
         width: 50%;
         float: left;
     }
     *[language-select] > .dropdown-menu {
-        width: 400px;
+        width: 440px;
     }
 }
+
 
 @media (max-width:479px) {
     .dropdown-menu {
         padding-top: 55px;
     }
 
-    *[language-select] > .dropdown-toggle {
+    nav .dropdown-toggle {
         font-size: 14px;
     }
 
@@ -224,7 +230,7 @@ ul.three-columns li, ul.two-columns li {
 
 /** Footer nav on small devices **/
 
-@media (max-width: 767px) {
+@media (max-width: 991px) {
     body {
         padding-bottom: 0;
     }

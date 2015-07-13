@@ -136,9 +136,8 @@ func (v *version) get(ikey iKey, ro *opt.ReadOptions, noValue bool) (value []byt
 		if !tseek {
 			if tset == nil {
 				tset = &tSet{level, t}
-			} else if tset.table.consumeSeek() <= 0 {
+			} else {
 				tseek = true
-				tcomp = atomic.CompareAndSwapPointer(&v.cSeek, nil, unsafe.Pointer(tset))
 			}
 		}
 
@@ -202,6 +201,28 @@ func (v *version) get(ikey iKey, ro *opt.ReadOptions, noValue bool) (value []byt
 
 		return true
 	})
+
+	if tseek && tset.table.consumeSeek() <= 0 {
+		tcomp = atomic.CompareAndSwapPointer(&v.cSeek, nil, unsafe.Pointer(tset))
+	}
+
+	return
+}
+
+func (v *version) sampleSeek(ikey iKey) (tcomp bool) {
+	var tset *tSet
+
+	v.walkOverlapping(ikey, func(level int, t *tFile) bool {
+		if tset == nil {
+			tset = &tSet{level, t}
+			return true
+		} else {
+			if tset.table.consumeSeek() <= 0 {
+				tcomp = atomic.CompareAndSwapPointer(&v.cSeek, nil, unsafe.Pointer(tset))
+			}
+			return false
+		}
+	}, nil)
 
 	return
 }
@@ -279,7 +300,7 @@ func (v *version) offsetOf(ikey iKey) (n uint64, err error) {
 	return
 }
 
-func (v *version) pickLevel(umin, umax []byte) (level int) {
+func (v *version) pickMemdbLevel(umin, umax []byte) (level int) {
 	if !v.tables[0].overlaps(v.s.icmp, umin, umax, true) {
 		var overlaps tFiles
 		maxLevel := v.s.o.GetMaxMemCompationLevel()

@@ -15,6 +15,7 @@ import (
 	"strings"
 )
 
+// Glob implements filepath.Glob, but works with Windows long path prefixes.
 // Deals with https://github.com/golang/go/issues/10577
 func Glob(pattern string) (matches []string, err error) {
 	if !hasMeta(pattern) {

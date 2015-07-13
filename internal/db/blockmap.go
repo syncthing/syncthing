@@ -15,6 +15,7 @@ package db
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"sort"
 
 	"github.com/syncthing/protocol"
@@ -125,15 +126,22 @@ func NewBlockFinder(db *leveldb.DB, cfg *config.Wrapper) *BlockFinder {
 		db:  db,
 		mut: sync.NewRWMutex(),
 	}
-	f.Changed(cfg.Raw())
+
+	f.CommitConfiguration(config.Configuration{}, cfg.Raw())
 	cfg.Subscribe(f)
+
 	return f
 }
 
-// Changed implements config.Handler interface
-func (f *BlockFinder) Changed(cfg config.Configuration) error {
-	folders := make([]string, len(cfg.Folders))
-	for i, folder := range cfg.Folders {
+// VerifyConfiguration implementes the config.Committer interface
+func (f *BlockFinder) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
+}
+
+// CommitConfiguration implementes the config.Committer interface
+func (f *BlockFinder) CommitConfiguration(from, to config.Configuration) bool {
+	folders := make([]string, len(to.Folders))
+	for i, folder := range to.Folders {
 		folders[i] = folder.ID
 	}
 
@@ -143,7 +151,11 @@ func (f *BlockFinder) Changed(cfg config.Configuration) error {
 	f.folders = folders
 	f.mut.Unlock()
 
-	return nil
+	return true
+}
+
+func (f *BlockFinder) String() string {
+	return fmt.Sprintf("BlockFinder@%p", f)
 }
 
 // Iterate takes an iterator function which iterates over all matching blocks

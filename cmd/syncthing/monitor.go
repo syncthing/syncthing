@@ -182,7 +182,8 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 				}
 
 				l.Warnf("Panic detected, writing to \"%s\"", panicFd.Name())
-				l.Warnln("Please create an issue at https://github.com/syncthing/syncthing/issues/ with the panic log attached")
+				l.Warnln("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
+				l.Warnln("If no issue with similar panic message exists, please create a new issue with the panic log attached")
 
 				stdoutMut.Lock()
 				for _, line := range stdoutFirstLines {

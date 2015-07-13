@@ -67,8 +67,12 @@ func TestPing(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, nil, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
-	c1 := NewConnection(c1ID, br, aw, nil, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	c0 := NewConnection(c0ID, ar, bw, newTestModel(), "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	c0.Start()
+	c1 := NewConnection(c1ID, br, aw, newTestModel(), "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
+	c1.Start()
+	c0.ClusterConfig(ClusterConfigMessage{})
+	c1.ClusterConfig(ClusterConfigMessage{})
 
 	if ok := c0.ping(); !ok {
 		t.Error("c0 ping failed")
@@ -81,8 +85,8 @@ func TestPing(t *testing.T) {
 func TestPingErr(t *testing.T) {
 	e := errors.New("something broke")
 
-	for i := 0; i < 16; i++ {
-		for j := 0; j < 16; j++ {
+	for i := 0; i < 32; i++ {
+		for j := 0; j < 32; j++ {
 			m0 := newTestModel()
 			m1 := newTestModel()
 
@@ -92,12 +96,18 @@ func TestPingErr(t *testing.T) {
 			ebw := &ErrPipe{PipeWriter: *bw, max: j, err: e}
 
 			c0 := NewConnection(c0ID, ar, ebw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
-			NewConnection(c1ID, br, eaw, m1, "name", CompressAlways)
+			c0.Start()
+			c1 := NewConnection(c1ID, br, eaw, m1, "name", CompressAlways)
+			c1.Start()
+			c0.ClusterConfig(ClusterConfigMessage{})
+			c1.ClusterConfig(ClusterConfigMessage{})
 
 			res := c0.ping()
 			if (i < 8 || j < 8) && res {
+				// This should have resulted in failure, as there is no way an empty ClusterConfig plus a Ping message fits in eight bytes.
 				t.Errorf("Unexpected ping success; i=%d, j=%d", i, j)
-			} else if (i >= 12 && j >= 12) && !res {
+			} else if (i >= 28 && j >= 28) && !res {
+				// This should have worked though, as 28 bytes is plenty for both.
 				t.Errorf("Unexpected ping fail; i=%d, j=%d", i, j)
 			}
 		}
@@ -168,7 +178,11 @@ func TestVersionErr(t *testing.T) {
 	br, bw := io.Pipe()
 
 	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
-	NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
+	c0.Start()
+	c1 := NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
+	c1.Start()
+	c0.ClusterConfig(ClusterConfigMessage{})
+	c1.ClusterConfig(ClusterConfigMessage{})
 
 	w := xdr.NewWriter(c0.cw)
 	w.WriteUint32(encodeHeader(header{
@@ -191,7 +205,11 @@ func TestTypeErr(t *testing.T) {
 	br, bw := io.Pipe()
 
 	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
-	NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
+	c0.Start()
+	c1 := NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
+	c1.Start()
+	c0.ClusterConfig(ClusterConfigMessage{})
+	c1.ClusterConfig(ClusterConfigMessage{})
 
 	w := xdr.NewWriter(c0.cw)
 	w.WriteUint32(encodeHeader(header{
@@ -214,7 +232,11 @@ func TestClose(t *testing.T) {
 	br, bw := io.Pipe()
 
 	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
-	NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
+	c0.Start()
+	c1 := NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
+	c1.Start()
+	c0.ClusterConfig(ClusterConfigMessage{})
+	c1.ClusterConfig(ClusterConfigMessage{})
 
 	c0.close(nil)
 

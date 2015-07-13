@@ -1,0 +1,515 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "SYNCTHING-CONFIG" "5" "July 01, 2015" "v0.11" "Syncthing"
+.SH NAME
+syncthing-config \- Syncthing Configuration
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$HOME/.config/syncthing
+$HOME/Library/Application Support/Syncthing
+%AppData%/Syncthing
+%localappdata%/Syncthing
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH DESCRIPTION
+.sp
+Syncthing uses a single directory to store configuration, crypto keys
+and index caches. The location defaults to \fB$HOME/.config/syncthing\fP
+(Unix\-like), \fB$HOME/Library/Application Support/Syncthing\fP (Mac),
+\fB%AppData%/Syncthing\fP (Windows XP) or \fB%LocalAppData%/Syncthing\fP
+(Windows 7+). It can be changed at runtime using the \fB\-home\fP flag. In this
+directory the following files are located:
+.INDENT 0.0
+.TP
+.B \fBconfig.xml\fP
+The configuration file, in XML format.
+.TP
+.B \fBcert.pem\fP, \fBkey.pem\fP
+The device\(aqs RSA public and private key. These form the basis for the
+device ID. The key must be kept private.
+.TP
+.B \fBhttps\-cert.pem\fP, \fBhttps\-key.pem\fP
+The certificate and key for HTTPS GUI connections. These may be replaced
+with a custom certificate for HTTPS as desired.
+.TP
+.B \fBindex\-\fI*\fP\&.db\fP
+A directory holding the database with metadata and hashes of the files
+currently on disk and available from peers.
+.TP
+.B \fBcsrftokens.txt\fP
+A list of recently issued CSRF tokens (for protection against browser cross
+site request forgery).
+.UNINDENT
+.SH CONFIG FILE FORMAT
+.sp
+The following is shows the default configuration file:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<configuration version="10">
+    <folder id="default" path="/Users/jb/Sync" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
+        <device id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU"></device>
+        <versioning></versioning>
+        <copiers>0</copiers>
+        <pullers>0</pullers>
+        <hashers>0</hashers>
+        <order>random</order>
+    </folder>
+    <device id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU" name="syno" compression="metadata" introducer="false">
+        <address>dynamic</address>
+    </device>
+    <gui enabled="true" tls="false">
+        <address>127.0.0.1:8384</address>
+        <apikey>l7jSbCqPD95JYZ0g8vi4ZLAMg3ulnN1b</apikey>
+    </gui>
+    <options>
+        <listenAddress>0.0.0.0:56847</listenAddress>
+        <globalAnnounceServer>udp4://announce.syncthing.net:22026</globalAnnounceServer>
+        <globalAnnounceServer>udp6://announce\-v6.syncthing.net:22026</globalAnnounceServer>
+        <globalAnnounceEnabled>true</globalAnnounceEnabled>
+        <localAnnounceEnabled>true</localAnnounceEnabled>
+        <localAnnouncePort>21025</localAnnouncePort>
+        <localAnnounceMCAddr>[ff32::5222]:21026</localAnnounceMCAddr>
+        <maxSendKbps>0</maxSendKbps>
+        <maxRecvKbps>0</maxRecvKbps>
+        <reconnectionIntervalS>60</reconnectionIntervalS>
+        <startBrowser>true</startBrowser>
+        <upnpEnabled>true</upnpEnabled>
+        <upnpLeaseMinutes>60</upnpLeaseMinutes>
+        <upnpRenewalMinutes>30</upnpRenewalMinutes>
+        <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
+        <urAccepted>0</urAccepted>
+        <urUniqueID></urUniqueID>
+        <restartOnWakeup>true</restartOnWakeup>
+        <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
+        <keepTemporariesH>24</keepTemporariesH>
+        <cacheIgnoredFiles>true</cacheIgnoredFiles>
+        <progressUpdateIntervalS>5</progressUpdateIntervalS>
+        <symlinksEnabled>true</symlinksEnabled>
+        <limitBandwidthInLan>false</limitBandwidthInLan>
+        <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
+    </options>
+</configuration>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH CONFIGURATION ELEMENT
+.sp
+This is the root element.
+.INDENT 0.0
+.TP
+.B version
+The config version. Increments whenever a change is made that requires
+migration from previous formats.
+.UNINDENT
+.SH FOLDER ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<folder id="default" path="/Users/jb/Sync" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
+    <device id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU"></device>
+    <versioning></versioning>
+    <copiers>0</copiers>
+    <pullers>0</pullers>
+    <hashers>0</hashers>
+    <order>random</order>
+</folder>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+One or more \fBfolder\fP elements must be present in the file. Each element
+describes one folder. The following attributes may be set on the \fBfolder\fP
+element:
+.INDENT 0.0
+.TP
+.B id
+The folder ID, must be unique. (mandatory)
+.TP
+.B path
+The oath to the directory where the folder is stored on this
+device; not sent to other devices. (mandatory)
+.TP
+.B ro
+True if the folder is read only (Master mode; will not be modified by
+Syncthing) on this device.
+.TP
+.B rescanIntervalS
+The rescan interval, in seconds.
+.TP
+.B ignorePerms
+True if the folder should ignore permissions.
+.TP
+.B autoNormalize
+Automatically correct UTF\-8 normalization errors found in file names.
+.UNINDENT
+.sp
+The following child elements may exist:
+.INDENT 0.0
+.TP
+.B device
+These must have the \fBid\fP attribute and nothing else. Mentioned devices
+are those that will be sharing the folder in question. Each mentioned
+device must have a separate \fBdevice\fP element later in the file. It is
+customary that the local device ID is included in all repositories.
+Syncthing will currently add this automatically if it is not present in
+the configuration file.
+.TP
+.B versioning
+Specifies a versioning configuration.
+.sp
+\fBNOTE:\fP
+.INDENT 7.0
+.INDENT 3.5
+Needs explanation.
+.UNINDENT
+.UNINDENT
+.TP
+.B copiers, pullers, hashers
+The number of copier, puller and hasher routines to use, or zero for the
+system determined optimum. These are low level performance options for
+advanced users only; do not change unless requested to or you\(aqve actually
+read and understood the code yourself. :)
+.TP
+.B order
+The order in which needed files should be pulled from the cluster.
+The possibles values are:
+.INDENT 7.0
+.TP
+.B random
+Pull files in random order. This optimizes for balancing resources among
+the devices in a cluster.
+.TP
+.B alphabetic
+Pull files ordered by file name alphabetically.
+.TP
+.B smallestFirst, largestFirst
+Pull files ordered by file size; smallest and largest first respectively.
+.TP
+.B oldestFirst, newestFirst
+Pull files ordered by modification time; oldest and newest first
+respectively.
+.UNINDENT
+.UNINDENT
+.SH DEVICE ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<device id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU" name="syno" compression="metadata" introducer="false">
+    <address>dynamic</address>
+</device>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+One or more \fBdevice\fP elements must be present in the file. Each element
+describes a device participating in the cluster. It is customary to include a
+\fBdevice\fP element for the local device; Syncthing will currently add one if
+it is not present. The following attributes may be set on the \fBdevice\fP
+element:
+.INDENT 0.0
+.TP
+.B id
+The device ID. This must be written in canonical form, that is without any
+spaces or dashes. (mandatory)
+.TP
+.B name
+A friendly name for the device. (optional)
+.TP
+.B compression
+Whether to use protocol compression when sending messages to this device.
+The possible values are:
+.INDENT 7.0
+.TP
+.B metadata
+Compress metadata packets, such as index information. Metadata is
+usually very compression friendly so this is a good default.
+.TP
+.B always
+Compress all packets, including file data. This is recommended if the
+folders contents are mainly compressible data such as documents or
+text files.
+.TP
+.B never
+Disable all compression.
+.UNINDENT
+.TP
+.B introducer
+Set to true if this device should be trusted as an introducer, i.e. we
+should copy their list of devices per folder when connecting.
+.UNINDENT
+.sp
+In addition, one or more \fBaddress\fP child elements must be present. Each
+contains an address to use when attempting to connect to this device and will
+be tried in order. Accepted formats are:
+.INDENT 0.0
+.TP
+.B IPv4 address (\fB192.0.2.42\fP)
+The default port (22000) is used.
+.TP
+.B IPv4 address and port (\fB192.0.2.42:12345\fP)
+The address and port is used as given.
+.TP
+.B IPv6 address (\fB2001:db8::23:42\fP)
+The default port (22000) is used.
+.TP
+.B IPv6 address and port (\fB[2001:db8::23:42]:12345\fP)
+The address and port is used as given. The address must be enclosed in
+angled brackets.
+.TP
+.B \fBdynamic\fP
+The word \fBdynamic\fP means to use local and global discovery to find the
+device.
+.UNINDENT
+.SH GUI ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<gui enabled="true" tls="false">
+    <address>127.0.0.1:8384</address>
+    <apikey>l7jSbCqPD95JYZ0g8vi4ZLAMg3ulnN1b</apikey>
+</gui>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+There must be exactly one \fBgui\fP element. The GUI configuration is also used
+by the rest\-api and the event\-api\&. The following attributes may
+be set on the \fBgui\fP element:
+.INDENT 0.0
+.TP
+.B enabled
+If not \fBtrue\fP, the GUI and API will not be started.
+.TP
+.B tls
+If set to \fBtrue\fP, TLS (HTTPS) will be enforced. Non\-HTTPS requests will
+be redirected to HTTPS. When this is set to \fBfalse\fP, TLS connections are
+still possible but it is not mandatory.
+.UNINDENT
+.sp
+The following child elements may be present:
+.INDENT 0.0
+.TP
+.B address
+Set the listen addresses. One or more address elements must be present.
+Allowed address formats are:
+.INDENT 7.0
+.TP
+.B IPv4 address and port (\fB127.0.0.1:8384\fP)
+The address and port is used as given.
+.TP
+.B IPv6 address and port (\fB[::1]:8384\fP)
+The address and port is used as given. The address must be enclosed in
+angled brackets.
+.TP
+.B Wildcard and port (\fB0.0.0.0:12345\fP, \fB[::]:12345\fP, \fB:12345\fP)
+These are equivalent and will result in Syncthing listening on all
+interfaces and both IPv4 and IPv6.
+.UNINDENT
+.TP
+.B username
+Set to require authentication.
+.TP
+.B password
+Contains the bcrypt hash of the real password.
+.TP
+.B apikey
+If set, this is the API key that enables usage of the REST interface.
+.UNINDENT
+.SH OPTIONS ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<options>
+    <listenAddress>0.0.0.0:56847</listenAddress>
+    <globalAnnounceServer>udp4://announce.syncthing.net:22026</globalAnnounceServer>
+    <globalAnnounceServer>udp6://announce\-v6.syncthing.net:22026</globalAnnounceServer>
+    <globalAnnounceEnabled>true</globalAnnounceEnabled>
+    <localAnnounceEnabled>true</localAnnounceEnabled>
+    <localAnnouncePort>21025</localAnnouncePort>
+    <localAnnounceMCAddr>[ff32::5222]:21026</localAnnounceMCAddr>
+    <maxSendKbps>0</maxSendKbps>
+    <maxRecvKbps>0</maxRecvKbps>
+    <reconnectionIntervalS>60</reconnectionIntervalS>
+    <startBrowser>true</startBrowser>
+    <upnpEnabled>true</upnpEnabled>
+    <upnpLeaseMinutes>60</upnpLeaseMinutes>
+    <upnpRenewalMinutes>30</upnpRenewalMinutes>
+    <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
+    <urAccepted>0</urAccepted>
+    <urUniqueID></urUniqueID>
+    <restartOnWakeup>true</restartOnWakeup>
+    <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
+    <keepTemporariesH>24</keepTemporariesH>
+    <cacheIgnoredFiles>true</cacheIgnoredFiles>
+    <progressUpdateIntervalS>5</progressUpdateIntervalS>
+    <symlinksEnabled>true</symlinksEnabled>
+    <limitBandwidthInLan>false</limitBandwidthInLan>
+    <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
+    <pingTimeoutS>60</pingTimeoutS>
+    <pingIdleTimeS>120</pingIdleTimeS>
+</options>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The \fBoptions\fP element contains all other global configuration options.
+.INDENT 0.0
+.TP
+.B listenAddress
+The listen address for incoming sync connections. See the \fBaddress\fP
+element under the \fI\%GUI Element\fP for allowed syntax.
+.TP
+.B globalAnnounceServer
+A URI to a global announce (discvoery) server. Allowed protocol prefixes
+are \fBudp4://\fP (UDP over IPv4), \fBudp6://\fP (UDP over IPv6) and
+\fBudp://\fP (UDP over any available protocol).
+.TP
+.B globalAnnounceEnabled
+Whether to announce this device to the global announce (discovery) server,
+and also use it to look up other device.
+.TP
+.B localAnnounceEnabled
+Whether to send announcements to the local LAN, also use such
+announcements to find other devices.
+.TP
+.B localAnnouncePort
+The port on which to listen and send IPv4 broadcast announcements to.
+.TP
+.B localAnnounceMCAddr
+The group address and port to join and send IPv6 multicast announcements on.
+.TP
+.B maxSendKbps
+Outgoing data rate limit, in kibibits per second.
+.TP
+.B maxRecvKbps
+Incoming data rate limits, in kibibits per second.
+.TP
+.B reconnectionIntervalS
+The number of seconds to wait between each attempt to connect to currently
+unconnected devices.
+.TP
+.B startBrowser
+Whether to attempt to start a browser to show the GUI when Syncthing starts.
+.TP
+.B upnpEnabled
+Whether to attempt to perform an UPnP port mapping for incoming sync
+connections.
+.TP
+.B upnpLeaseMinutes
+Request a lease for this many minutes; zero to request a permanent lease.
+.TP
+.B upnpRenewalMinutes
+Attempt to renew the lease after this many minutes.
+.TP
+.B upnpTimeoutSeconds
+When scanning for UPnP devices, wait this long for responses.
+.TP
+.B urAccepted
+Whether the user as accepted to submit anonymous usage data. The default,
+\fB0\fP, mean the user has not made a choice, and Syncthing will ask at some
+point in the future. \fB\-1\fP means no, a number above zero means that that
+version of usage reporting has been accepted.
+.TP
+.B urUniqueID
+The unique ID sent together with the usage report. Generated when usage
+reporting is enabled.
+.TP
+.B restartOnWakeup
+Whether to perform a restart of Syncthing when it is detected that we are
+waking from sleep mode (i.e. a folded up laptop).
+.TP
+.B autoUpgradeIntervalH
+Check for a newer version after this many hours. Set to zero to disable
+automatic upgrades.
+.TP
+.B keepTemporariesH
+Keep temporary failed transfers for this many hours. While the temporaries
+are kept, the data they contain need not be transferred again.
+.TP
+.B cacheIgnoredFiles
+Whether to cache the results of ignore pattern evaluation. Performance at
+the price of memory.
+.TP
+.B progressUpdateIntervalS
+.
+\fBNOTE:\fP
+.INDENT 7.0
+.INDENT 3.5
+Requires explanation.
+.UNINDENT
+.UNINDENT
+.TP
+.B symlinksEnabled
+Whether to sync symlinks, if supported by the system.
+.TP
+.B limitBandwidthInLan
+Whether to apply bandwidth limits to devices in the same broadcast domain
+as the local device.
+.TP
+.B databaseBlockCacheMiB
+Override the automatically calculated database block cache size. Don\(aqt,
+unless you\(aqre very short on memory, in which case you want to set this to
+\fB8\fP\&.
+.TP
+.B pingTimeoutS
+Ping\-timeout in seconds. Don\(aqt change it unless you are having issues due to
+slow response time (slow connection/cpu) and large index exchanges
+.TP
+.B pingIdleTimeS
+ping interval in seconds. Don\(aqt change it unless you feel it\(aqs necessary.
+.UNINDENT
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2015, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.

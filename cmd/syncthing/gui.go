@@ -49,31 +49,36 @@ var (
 	guiErrors    = []guiError{}
 	guiErrorsMut = sync.NewMutex()
 	startTime    = time.Now()
-	eventSub     *events.BufferedSubscription
 )
 
 type apiSvc struct {
-	cfg      config.GUIConfiguration
-	assetDir string
-	model    *model.Model
-	fss      *folderSummarySvc
-	listener net.Listener
+	id              protocol.DeviceID
+	cfg             config.GUIConfiguration
+	assetDir        string
+	model           *model.Model
+	listener        net.Listener
+	fss             *folderSummarySvc
+	stop            chan struct{}
+	systemConfigMut sync.Mutex
+	eventSub        *events.BufferedSubscription
 }
 
-func newAPISvc(cfg config.GUIConfiguration, assetDir string, m *model.Model) (*apiSvc, error) {
+func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription) (*apiSvc, error) {
 	svc := &apiSvc{
-		cfg:      cfg,
-		assetDir: assetDir,
-		model:    m,
-		fss:      newFolderSummarySvc(m),
+		id:              id,
+		cfg:             cfg,
+		assetDir:        assetDir,
+		model:           m,
+		systemConfigMut: sync.NewMutex(),
+		eventSub:        eventSub,
 	}
 
 	var err error
-	svc.listener, err = svc.getListener()
+	svc.listener, err = svc.getListener(cfg)
 	return svc, err
 }
 
-func (s *apiSvc) getListener() (net.Listener, error) {
+func (s *apiSvc) getListener(cfg config.GUIConfiguration) (net.Listener, error) {
 	cert, err := tls.LoadX509KeyPair(locations[locHTTPSCertFile], locations[locHTTPSKeyFile])
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
@@ -110,7 +115,7 @@ func (s *apiSvc) getListener() (net.Listener, error) {
 		},
 	}
 
-	rawListener, err := net.Listen("tcp", s.cfg.Address)
+	rawListener, err := net.Listen("tcp", cfg.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -120,10 +125,9 @@ func (s *apiSvc) getListener() (net.Listener, error) {
 }
 
 func (s *apiSvc) Serve() {
+	s.stop = make(chan struct{})
+
 	l.AddHandler(logger.LevelWarn, s.showGuiError)
-	sub := events.Default.Subscribe(events.AllEvents)
-	eventSub = events.NewBufferedSubscription(sub, 1000)
-	defer events.Default.Unsubscribe(sub)
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
@@ -186,14 +190,14 @@ func (s *apiSvc) Serve() {
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware("/rest", s.cfg.APIKey, mux)
+	handler := csrfMiddleware(s.id.String()[:5], "/rest", s.cfg.APIKey, mux)
 
-	// Add our version as a header to responses
-	handler = withVersionMiddleware(handler)
+	// Add our version and ID as a header to responses
+	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
 	if len(s.cfg.User) > 0 && len(s.cfg.Password) > 0 {
-		handler = basicAuthAndSessionMiddleware(s.cfg, handler)
+		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], s.cfg, handler)
 	}
 
 	// Redirect to HTTPS if we are supposed to
@@ -210,15 +214,63 @@ func (s *apiSvc) Serve() {
 		ReadTimeout: 10 * time.Second,
 	}
 
+	s.fss = newFolderSummarySvc(s.model)
+	defer s.fss.Stop()
 	s.fss.ServeBackground()
 
+	l.Infoln("API listening on", s.listener.Addr())
 	err := srv.Serve(s.listener)
-	l.Warnln("API:", err)
+
+	// The return could be due to an intentional close. Wait for the stop
+	// signal before returning. IF there is no stop signal within a second, we
+	// assume it was unintentional and log the error before retrying.
+	select {
+	case <-s.stop:
+	case <-time.After(time.Second):
+		l.Warnln("API:", err)
+	}
 }
 
 func (s *apiSvc) Stop() {
+	close(s.stop)
 	s.listener.Close()
-	s.fss.Stop()
+}
+
+func (s *apiSvc) String() string {
+	return fmt.Sprintf("apiSvc@%p", s)
+}
+
+func (s *apiSvc) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
+}
+
+func (s *apiSvc) CommitConfiguration(from, to config.Configuration) bool {
+	if to.GUI == from.GUI {
+		return true
+	}
+
+	// Order here is important. We must close the listener to stop Serve(). We
+	// must create a new listener before Serve() starts again. We can't create
+	// a new listener on the same port before the previous listener is closed.
+	// To assist in this little dance the Serve() method will wait for a
+	// signal on the stop channel after the listener has closed.
+
+	s.listener.Close()
+
+	var err error
+	s.listener, err = s.getListener(to.GUI)
+	if err != nil {
+		// Ideally this should be a verification error, but we check it by
+		// creating a new listener which requires shutting down the previous
+		// one first, which is too destructive for the VerifyConfiguration
+		// method.
+		return false
+	}
+	s.cfg = to.GUI
+
+	close(s.stop)
+
+	return true
 }
 
 func getPostHandler(get, post http.Handler) http.Handler {
@@ -284,9 +336,10 @@ func noCacheMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func withVersionMiddleware(h http.Handler) http.Handler {
+func withDetailsMiddleware(id protocol.DeviceID, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Syncthing-Version", Version)
+		w.Header().Set("X-Syncthing-ID", id.String())
 		h.ServeHTTP(w, r)
 	})
 }
@@ -375,7 +428,10 @@ func folderSummary(m *model.Model, folder string) map[string]interface{} {
 		res["error"] = err.Error()
 	}
 
-	res["version"] = m.CurrentLocalVersion(folder) + m.RemoteLocalVersion(folder)
+	lv, _ := m.CurrentLocalVersion(folder)
+	rv, _ := m.RemoteLocalVersion(folder)
+
+	res["version"] = lv + rv
 
 	ignorePatterns, _, _ := m.GetIgnores(folder)
 	res["ignorePatterns"] = false
@@ -464,43 +520,46 @@ func (s *apiSvc) getSystemConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
-	var newCfg config.Configuration
-	err := json.NewDecoder(r.Body).Decode(&newCfg)
+	s.systemConfigMut.Lock()
+	defer s.systemConfigMut.Unlock()
+
+	var to config.Configuration
+	err := json.NewDecoder(r.Body).Decode(&to)
 	if err != nil {
 		l.Warnln("decoding posted config:", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	if newCfg.GUI.Password != cfg.GUI().Password {
-		if newCfg.GUI.Password != "" {
-			hash, err := bcrypt.GenerateFromPassword([]byte(newCfg.GUI.Password), 0)
+	if to.GUI.Password != cfg.GUI().Password {
+		if to.GUI.Password != "" {
+			hash, err := bcrypt.GenerateFromPassword([]byte(to.GUI.Password), 0)
 			if err != nil {
 				l.Warnln("bcrypting password:", err)
 				http.Error(w, err.Error(), 500)
 				return
 			}
 
-			newCfg.GUI.Password = string(hash)
+			to.GUI.Password = string(hash)
 		}
 	}
 
 	// Fixup usage reporting settings
 
-	if curAcc := cfg.Options().URAccepted; newCfg.Options.URAccepted > curAcc {
+	if curAcc := cfg.Options().URAccepted; to.Options.URAccepted > curAcc {
 		// UR was enabled
-		newCfg.Options.URAccepted = usageReportVersion
-		newCfg.Options.URUniqueID = randomString(8)
-	} else if newCfg.Options.URAccepted < curAcc {
+		to.Options.URAccepted = usageReportVersion
+		to.Options.URUniqueID = randomString(8)
+	} else if to.Options.URAccepted < curAcc {
 		// UR was disabled
-		newCfg.Options.URAccepted = -1
-		newCfg.Options.URUniqueID = ""
+		to.Options.URAccepted = -1
+		to.Options.URUniqueID = ""
 	}
 
 	// Activate and save
 
-	configInSync = !config.ChangeRequiresRestart(cfg.Raw(), newCfg)
-	cfg.Replace(newCfg)
+	resp := cfg.Replace(to)
+	configInSync = !resp.RequiresRestart
 	cfg.Save()
 }
 
@@ -517,21 +576,26 @@ func (s *apiSvc) postSystemRestart(w http.ResponseWriter, r *http.Request) {
 func (s *apiSvc) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	folder := qs.Get("folder")
-	var err error
-	if len(folder) == 0 {
-		err = resetDB()
-	} else {
-		err = s.model.ResetFolder(folder)
+
+	if len(folder) > 0 {
+		if _, ok := cfg.Folders()[folder]; !ok {
+			http.Error(w, "Invalid folder ID", 500)
+			return
+		}
 	}
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
+
 	if len(folder) == 0 {
+		// Reset all folders.
+		for folder := range cfg.Folders() {
+			s.model.ResetFolder(folder)
+		}
 		s.flushResponse(`{"ok": "resetting database"}`, w)
 	} else {
-		s.flushResponse(`{"ok": "resetting folder " + folder}`, w)
+		// Reset a specific folder, assuming it's supposed to exist.
+		s.model.ResetFolder(folder)
+		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
+
 	go restart()
 }
 
@@ -688,7 +752,7 @@ func (s *apiSvc) getEvents(w http.ResponseWriter, r *http.Request) {
 	f := w.(http.Flusher)
 	f.Flush()
 
-	evs := eventSub.Since(since, nil)
+	evs := s.eventSub.Since(since, nil)
 	if 0 < limit && limit < len(evs) {
 		evs = evs[len(evs)-limit:]
 	}

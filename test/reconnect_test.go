@@ -44,71 +44,42 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 	}
 
 	log.Println("Starting up...")
-	sender := syncthingProcess{ // id1
-		instance: "1",
-		argv:     []string{"-home", "h1"},
-		port:     8081,
-		apiKey:   apiKey,
-	}
-	err = sender.start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	sender := startInstance(t, 1)
+	defer func() {
+		// We need a closure over sender, since we'll update it later to point
+		// at another process.
+		checkedStop(t, sender)
+	}()
 
-	receiver := syncthingProcess{ // id2
-		instance: "2",
-		argv:     []string{"-home", "h2"},
-		port:     8082,
-		apiKey:   apiKey,
-	}
-	err = receiver.start()
-	if err != nil {
-		sender.stop()
-		t.Fatal(err)
-	}
+	receiver := startInstance(t, 2)
+	defer func() {
+		// We need a receiver over sender, since we'll update it later to
+		// point at another process.
+		checkedStop(t, receiver)
+	}()
 
-	var prevComp int
+	var prevBytes int
 	for {
-		comp, err := sender.peerCompletion()
+		recv, err := receiver.Model("default")
 		if err != nil {
-			if isTimeout(err) {
-				time.Sleep(250 * time.Millisecond)
-				continue
-			}
-			sender.stop()
-			receiver.stop()
 			t.Fatal(err)
 		}
 
-		curComp := comp[id2]
-
-		if curComp == 100 {
-			_, err = sender.stop()
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, err = receiver.stop()
-			if err != nil {
-				t.Fatal(err)
-			}
+		if recv.InSyncBytes > 0 && recv.InSyncBytes == recv.GlobalBytes {
+			// Receiver is done
 			break
-		}
+		} else if recv.InSyncBytes > prevBytes+recv.GlobalBytes/10 {
+			// Receiver has made progress
+			prevBytes = recv.InSyncBytes
 
-		if curComp > prevComp {
 			if restartReceiver {
 				log.Printf("Stopping receiver...")
-				_, err = receiver.stop()
-				if err != nil {
-					t.Fatal(err)
-				}
+				checkedStop(t, receiver)
 			}
 
 			if restartSender {
 				log.Printf("Stopping sender...")
-				_, err = sender.stop()
-				if err != nil {
-					t.Fatal(err)
-				}
+				checkedStop(t, sender)
 			}
 
 			var wg sync.WaitGroup
@@ -117,8 +88,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 				wg.Add(1)
 				go func() {
 					time.Sleep(receiverDelay)
-					log.Printf("Starting receiver...")
-					receiver.start()
+					receiver = startInstance(t, 2)
 					wg.Done()
 				}()
 			}
@@ -127,28 +97,19 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 				wg.Add(1)
 				go func() {
 					time.Sleep(senderDelay)
-					log.Printf("Starting sender...")
-					sender.start()
+					sender = startInstance(t, 1)
 					wg.Done()
 				}()
 			}
 
 			wg.Wait()
-
-			prevComp = curComp
 		}
 
 		time.Sleep(time.Second)
 	}
 
-	_, err = sender.stop()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = receiver.stop()
-	if err != nil {
-		t.Fatal(err)
-	}
+	checkedStop(t, sender)
+	checkedStop(t, receiver)
 
 	log.Println("Comparing directories...")
 	err = compareDirectories("s1", "s2")

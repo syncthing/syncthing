@@ -110,6 +110,9 @@ func main() {
 		case "test":
 			test("./...")
 
+		case "bench":
+			bench("./...")
+
 		case "assets":
 			assets()
 
@@ -180,6 +183,11 @@ func setup() {
 func test(pkg string) {
 	setBuildEnv()
 	runPrint("go", "test", "-short", "-timeout", "60s", pkg)
+}
+
+func bench(pkg string) {
+	setBuildEnv()
+	runPrint("go", "test", "-run", "NONE", "-bench", ".", pkg)
 }
 
 func install(pkg string, tags []string) {
@@ -278,6 +286,17 @@ func buildZip() {
 func buildDeb() {
 	os.RemoveAll("deb")
 
+	// "goarch" here is set to whatever the Debian packages expect. We correct
+	// "it to what we actually know how to build and keep the Debian variant
+	// "name in "debarch".
+	debarch := goarch
+	switch goarch {
+	case "i386":
+		goarch = "386"
+	case "armel", "armhf":
+		goarch = "arm"
+	}
+
 	build("./cmd/syncthing", []string{"noupgrade"})
 
 	files := []archiveFile{
@@ -285,6 +304,16 @@ func buildDeb() {
 		{src: "LICENSE", dst: "deb/usr/share/doc/syncthing/LICENSE.txt", perm: 0644},
 		{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing/AUTHORS.txt", perm: 0644},
 		{src: "syncthing", dst: "deb/usr/bin/syncthing", perm: 0755},
+		{src: "man/syncthing.1", dst: "deb/usr/share/man/man1/syncthing.1", perm: 0644},
+		{src: "man/syncthing-config.5", dst: "deb/usr/share/man/man5/syncthing-config.5", perm: 0644},
+		{src: "man/syncthing-stignore.5", dst: "deb/usr/share/man/man5/syncthing-stignore.5", perm: 0644},
+		{src: "man/syncthing-device-ids.7", dst: "deb/usr/share/man/man7/syncthing-device-ids.7", perm: 0644},
+		{src: "man/syncthing-event-api.7", dst: "deb/usr/share/man/man7/syncthing-event-api.7", perm: 0644},
+		{src: "man/syncthing-faq.7", dst: "deb/usr/share/man/man7/syncthing-faq.7", perm: 0644},
+		{src: "man/syncthing-networking.7", dst: "deb/usr/share/man/man7/syncthing-networking.7", perm: 0644},
+		{src: "man/syncthing-rest-api.7", dst: "deb/usr/share/man/man7/syncthing-rest-api.7", perm: 0644},
+		{src: "man/syncthing-security.7", dst: "deb/usr/share/man/man7/syncthing-security.7", perm: 0644},
+		{src: "man/syncthing-versioning.7", dst: "deb/usr/share/man/man7/syncthing-versioning.7", perm: 0644},
 	}
 
 	for _, file := range listFiles("extra") {
@@ -295,11 +324,6 @@ func buildDeb() {
 		if err := copyFile(af.src, af.dst, af.perm); err != nil {
 			log.Fatal(err)
 		}
-	}
-
-	debarch := goarch
-	if debarch == "386" {
-		debarch = "i386"
 	}
 
 	control := `Package: syncthing

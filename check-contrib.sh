@@ -19,7 +19,8 @@ no-docs-typos() {
 	grep -v 4b76ec40c07078beaa2c5e250ed7d9bd6276a718 |\
 	grep -v ffc39dfbcb34eacc3ea12327a02b6e7741a2c207 |\
 	grep -v 32a76901a91ff0f663db6f0830e0aedec946e4d0 |\
-	grep -v af3288043a49bcc28f8ae3060852a09de552fe5f
+	grep -v af3288043a49bcc28f8ae3060852a09de552fe5f |\
+	grep -v 3626003f680bad3e63677982576d3a05421e88e9
 }
 
 print-missing-authors() {
@@ -29,7 +30,7 @@ print-missing-authors() {
 }
 
 print-missing-copyright() {
-	find . -name \*.go | xargs egrep -L 'Copyright \(C\)|automatically generated' | grep -v Godeps | grep -v internal/auto/
+	find . -name \*.go | xargs egrep -L 'Copyright|automatically generated' | grep -v Godeps | grep -v internal/auto/
 }
 
 authors=$(print-missing-authors)

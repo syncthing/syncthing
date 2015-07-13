@@ -31,6 +31,7 @@ const (
 	locCsrfTokens                 = "csrfTokens"
 	locPanicLog                   = "panicLog"
 	locAuditLog                   = "auditLog"
+	locGUIAssets                  = "GUIAssets"
 	locDefFolder                  = "defFolder"
 )
 
@@ -52,6 +53,7 @@ var locations = map[locationEnum]string{
 	locCsrfTokens:    "${config}/csrftokens.txt",
 	locPanicLog:      "${config}/panic-${timestamp}.log",
 	locAuditLog:      "${config}/audit-${timestamp}.log",
+	locGUIAssets:     "${config}/gui",
 	locDefFolder:     "${home}/Sync",
 }
 

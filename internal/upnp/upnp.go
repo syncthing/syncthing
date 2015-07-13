@@ -103,32 +103,8 @@ func Discover(timeout time.Duration) []IGD {
 
 	resultChan := make(chan IGD)
 
-	// Aggregator
-	go func() {
-	next:
-		for result := range resultChan {
-			for _, existingResult := range results {
-				if existingResult.uuid == result.uuid {
-					if debug {
-						l.Debugf("Skipping duplicate result %s with services:", result.uuid)
-						for _, svc := range result.services {
-							l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
-						}
-					}
-					goto next
-				}
-			}
-			results = append(results, result)
-			if debug {
-				l.Debugf("UPnP discovery result %s with services:", result.uuid)
-				for _, svc := range result.services {
-					l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
-				}
-			}
-		}
-	}()
-
 	wg := sync.NewWaitGroup()
+
 	for _, intf := range interfaces {
 		// Interface flags seem to always be 0 on Windows
 		if runtime.GOOS != "windows" && (intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0) {
@@ -144,8 +120,33 @@ func Discover(timeout time.Duration) []IGD {
 		}
 	}
 
-	wg.Wait()
-	close(resultChan)
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+nextResult:
+	for result := range resultChan {
+		for _, existingResult := range results {
+			if existingResult.uuid == result.uuid {
+				if debug {
+					l.Debugf("Skipping duplicate result %s with services:", result.uuid)
+					for _, svc := range result.services {
+						l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
+					}
+				}
+				continue nextResult
+			}
+		}
+
+		results = append(results, result)
+		if debug {
+			l.Debugf("UPnP discovery result %s with services:", result.uuid)
+			for _, svc := range result.services {
+				l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
+			}
+		}
+	}
 
 	return results
 }
@@ -471,7 +472,7 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 
 	resp, _ = ioutil.ReadAll(r.Body)
 	if debug {
-		l.Debugln("SOAP Response:\n\n" + string(resp) + "\n")
+		l.Debugf("SOAP Response: %v\n\n%v\n\n", r.StatusCode, string(resp))
 	}
 
 	r.Body.Close()
@@ -527,6 +528,11 @@ type getExternalIPAddressResponse struct {
 	NewExternalIPAddress string `xml:"NewExternalIPAddress"`
 }
 
+type soapErrorResponse struct {
+	ErrorCode        int    `xml:"Body>Fault>detail>UPnPError>errorCode"`
+	ErrorDescription string `xml:"Body>Fault>detail>UPnPError>errorDescription"`
+}
+
 // AddPortMapping adds a port mapping to the specified IGD service.
 func (s *IGDService) AddPortMapping(localIPAddress string, protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
 	tpl := `<u:AddPortMapping xmlns:u="%s">
@@ -541,12 +547,20 @@ func (s *IGDService) AddPortMapping(localIPAddress string, protocol Protocol, ex
 	</u:AddPortMapping>`
 	body := fmt.Sprintf(tpl, s.serviceURN, externalPort, protocol, internalPort, localIPAddress, description, timeout)
 
-	_, err := soapRequest(s.serviceURL, s.serviceURN, "AddPortMapping", body)
-	if err != nil {
-		return err
+	response, err := soapRequest(s.serviceURL, s.serviceURN, "AddPortMapping", body)
+	if err != nil && timeout > 0 {
+		// Try to repair error code 725 - OnlyPermanentLeasesSupported
+		envelope := &soapErrorResponse{}
+		err = xml.Unmarshal(response, envelope)
+		if err != nil {
+			return err
+		}
+		if envelope.ErrorCode == 725 {
+			return s.AddPortMapping(localIPAddress, protocol, externalPort, internalPort, description, 0)
+		}
 	}
 
-	return nil
+	return err
 }
 
 // DeletePortMapping deletes a port mapping from the specified IGD service.

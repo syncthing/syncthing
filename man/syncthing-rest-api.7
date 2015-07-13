@@ -1,0 +1,678 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "SYNCTHING-REST-API" "7" "July 01, 2015" "v0.11" "Syncthing"
+.SH NAME
+syncthing-rest-api \- REST API
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH DESCRIPTION
+.sp
+Syncthing exposes a REST interface over HTTP on the GUI port. This is used by
+the GUI code (JavaScript) and can be used by other processes wishing to control
+Syncthing. In most cases both the input and output data is in JSON format. The
+interface is subject to change.
+.SH API KEY
+.sp
+To use the POST methods, or \fIany\fP method when authentication is enabled, an API
+key must be set and used. The API key can be generated in the GUI, or set in the
+\fBconfiguration/gui/apikey\fP element in the configuration file. To use an API
+key, set the request header \fBX\-API\-Key\fP to the API key value.
+.SH SYSTEM ENDPOINTS
+.SS GET /rest/system/config
+.sp
+Returns the current configuration.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+ # etc
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/system/config/insync
+.sp
+Returns whether the config is in sync, i.e. whether the running
+configuration is the same as that on disk.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "configInSync": true
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS POST /rest/system/config
+.sp
+Post the full contents of the configuration, in the same format as returned by
+the corresponding GET request. The configuration will be saved to disk and the
+\fBconfigInSync\fP flag set to false. Restart Syncthing to activate.
+.SS GET /rest/system/connections
+.sp
+Returns the list of current connections and some metadata associated
+with the connection/peer.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "connections": {
+    "SMAHWLH\-AP74FAB\-QWLDYGV\-Q65ASPL\-GAAR2TB\-KEF5FLB\-DRLZCPN\-DJBFZAG": {
+      "address": "172.21.20.78:22000",
+      "at": "2015\-03\-16T21:51:38.672758819+01:00",
+      "clientVersion": "v0.10.27",
+      "inBytesTotal": 415980,
+      "outBytesTotal": 396300
+    }
+  },
+  "total": {
+    "address": "",
+    "at": "2015\-03\-16T21:51:38.672868814+01:00",
+    "clientVersion": "",
+    "inBytesTotal": 415980,
+    "outBytesTotal": 396300
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/system/discovery
+.sp
+Returns the contents of the local discovery cache.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "LGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q": [
+    "192.162.129.11:22000"
+  ]
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS POST /rest/system/discovery/hint
+.sp
+Post with the query parameters \fBdevice\fP and \fBaddr\fP to add entries to
+the discovery cache.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+curl \-X POST http://127.0.0.1:8384/rest/system/discovery/hint?device=LGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q\e&addr=192.162.129.11:22000
+# Or with the X\-API\-Key header:
+curl \-X POST \-\-header "X\-API\-Key: TcE28kVPdtJ8COws1JdM0b2nodj77WeQ" http://127.0.0.1:8384/rest/system/discovery/hint?device=LGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q\e&addr=192.162.129.11:22000
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS POST /rest/system/error/clear
+.sp
+Post with empty to body to remove all recent errors.
+.SS GET /rest/system/error
+.sp
+Returns the list of recent errors.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "errors": [
+    {
+      "time": "2014\-09\-18T12:59:26.549953186+02:00",
+      "error": "This is an error string"
+    }
+  ]
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS POST /rest/system/error
+.sp
+Post with an error message in the body (plain text) to register a new
+error. The new error will be displayed on any active GUI clients.
+.SS GET /rest/system/ping
+.sp
+Returns a \fB{"ping": "pong"}\fP object.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "ping": "pong"
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS POST /rest/system/ping
+.sp
+Returns a \fB{"ping": "pong"}\fP object.
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Due to being a POST request, this method requires using an API key or CSRF token, as opposed to the GET request to the same URL.
+.UNINDENT
+.UNINDENT
+.SS POST /rest/system/reset
+.sp
+Post with empty body to erase the current index database and restart
+Syncthing. With no query parameters, the entire database is erased from disk.
+By specifying the \fBfolder\fP parameter with a valid folder ID, only
+information for that folder will be erased:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/system/reset?folder=default
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS POST /rest/system/restart
+.sp
+Post with empty body to immediately restart Syncthing.
+.SS POST /rest/system/shutdown
+.sp
+Post with empty body to cause Syncthing to exit and not restart.
+.SS GET /rest/system/status
+.sp
+Returns information about current system status and resource usage.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "alloc": 30618136,
+  "cpuPercent": 0.006944836512046966,
+  "extAnnounceOK": {
+    "udp4://announce.syncthing.net:22026": true,
+    "udp6://announce\-v6.syncthing.net:22026": true
+  },
+  "goroutines": 49,
+  "myID": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2",
+  "pathSeparator": "/",
+  "sys": 42092792,
+  "tilde": "/Users/jb"
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/system/upgrade
+.sp
+Checks for a possible upgrade and returns an object describing the
+newest version and upgrade possibility.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "latest": "v0.10.27",
+  "newer": false,
+  "running": "v0.10.27+5\-g36c93b7"
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS POST /rest/system/upgrade
+.sp
+Perform an upgrade to the newest released version and restart. Does
+nothing if there is no newer version than currently running.
+.SS GET /rest/system/version
+.sp
+Returns the current Syncthing version information.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "arch": "amd64",
+  "longVersion": "syncthing v0.10.27+3\-gea8c3de (go1.4 darwin\-amd64 default) jb@syno 2015\-03\-16 11:01:29 UTC",
+  "os": "darwin",
+  "version": "v0.10.27+3\-gea8c3de"
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH DATABASE ENDPOINTS
+.SS GET /rest/db/browse
+.sp
+Returns the directory tree of the global model. Directories are always
+JSON objects (map/dictionary), and files are always arrays of
+modification time and size. The first integer is the files modification
+time, and the second integer is the file size.
+.sp
+The call takes one mandatory \fBfolder\fP parameter and two optional
+parameters. Optional parameter \fBlevels\fP defines how deep within the
+tree we want to dwell down (0 based, defaults to unlimited depth)
+Optional parameter \fBprefix\fP defines a prefix within the tree where to
+start building the structure.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-s http://localhost:8384/rest/db/browse?folder=default | json_pp
+{
+   "directory": {
+      "file": ["2015\-04\-20T22:20:45+09:00", 130940928],
+      "subdirectory": {
+         "another file": ["2015\-04\-20T22:20:45+09:00", 130940928]
+      }
+   },
+   "rootfile": ["2015\-04\-20T22:20:45+09:00", 130940928]
+}
+
+$ curl \-s http://localhost:8384/rest/db/browse?folder=default&levels=0 | json_pp
+{
+   "directory": {},
+   "rootfile": ["2015\-04\-20T22:20:45+09:00", 130940928]
+}
+
+$ curl \-s http://localhost:8384/rest/db/browse?folder=default&levels=1 | json_pp
+{
+   "directory": {
+      "file": ["2015\-04\-20T22:20:45+09:00", 130940928],
+      "subdirectory": {}
+   },
+   "rootfile": ["2015\-04\-20T22:20:45+09:00", 130940928]
+}
+
+$ curl \-s http://localhost:8384/rest/db/browse?folder=default&prefix=directory/subdirectory | json_pp
+{
+   "another file": ["2015\-04\-20T22:20:45+09:00", 130940928]
+}
+
+$ curl \-s http://localhost:8384/rest/db/browse?folder=default&prefix=directory&levels=0 | json_pp
+{
+   "file": ["2015\-04\-20T22:20:45+09:00", 130940928],
+   "subdirectory": {}
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+This is an expensive call, increasing CPU and RAM usage on the device. Use sparingly.
+.UNINDENT
+.UNINDENT
+.SS GET /rest/db/completion
+.sp
+Returns the completion percentage (0 to 100) for a given device and
+folder.Takes \fBdevice\fP and \fBfolder\fP parameters.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "completion": 0
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+This is an expensive call, increasing CPU and RAM usage on the device. Use sparingly.
+.UNINDENT
+.UNINDENT
+.SS GET /rest/db/file
+.sp
+Returns most data available about a given file, including version and
+availability.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "availability": [
+    "I6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU"
+  ],
+  "global": {
+    "flags": "0644",
+    "localVersion": 3,
+    "modified": "2015\-04\-20T22:20:45+09:00",
+    "name": "util.go",
+    "numBlocks": 1,
+    "size": 9642,
+    "version": [
+      "5407294127585413568:1"
+    ]
+  },
+  "local": {
+    "flags": "0644",
+    "localVersion": 4,
+    "modified": "2015\-04\-20T22:20:45+09:00",
+    "name": "util.go",
+    "numBlocks": 1,
+    "size": 9642,
+    "version": [
+      "5407294127585413568:1"
+    ]
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/db/ignores
+.sp
+Takes one parameter, \fBfolder\fP, and returns the content of the
+\fB\&.stignore\fP as the \fBignore\fP field. A second field, \fBpatterns\fP,
+provides a compiled version of all included ignore patterns in the form
+of regular expressions. Excluded items in the \fBpatterns\fP field have a
+nonstandard \fB(?exclude)\fP marker in front of the regular expression.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "ignore": [
+    "/Backups"
+  ],
+  "patterns": [
+    "(?i)^Backups$",
+    "(?i)^Backups/.*$"
+  ]
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS POST /rest/db/ignores
+.sp
+Expects a format similar to the output of \fBGET\fP call, but only
+containing the \fBignore\fP field (\fBpatterns\fP field should be omitted).
+It takes one parameter, \fBfolder\fP, and either updates the content of
+the \fB\&.stignore\fP echoing it back as a response, or returns an error.
+.SS GET /rest/db/need
+.sp
+Takes one parameter, \fBfolder\fP, and returns lists of files which are
+needed by this device in order for it to become in sync.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  # Files currently being downloaded
+  "progress": [
+    {
+      "flags": "0755",
+      "localVersion": 6,
+      "modified": "2015\-04\-20T23:06:12+09:00",
+      "name": "ls",
+      "size": 34640,
+      "version": [
+        "5157751870738175669:1"
+      ]
+    }
+  ],
+  # Files queued to be downloaded next (as per array order)
+  "queued": [
+      ...
+  ],
+  # Files to be downloaded after all queued files will be downloaded.
+  # This happens when we start downloading files, and new files get added while we are downloading.
+  "rest": [
+      ...
+  ]
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS POST /rest/db/prio
+.sp
+Moves the file to the top of the download queue.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+curl \-X POST http://127.0.0.1:8384/rest/db/prio?folder=default&file=foo/bar
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Response contains the same output as \fBGET /rest/db/need\fP
+.SS POST /rest/db/scan
+.sp
+Request immediate rescan of a folder, or a specific path within a folder.
+Takes the mandatory parameter \fIfolder\fP (folder ID), an optional parameter
+\fBsub\fP (path relative to the folder root) and an optional parameter \fBnext\fP\&. If
+\fBsub\fP is omitted or empty, the entire folder is scanned for changes, otherwise
+only the given path (and children, in case it\(aqs a directory) is scanned. The
+\fBnext\fP argument delays Syncthing\(aqs automated rescan interval for a given
+amount of seconds.
+.sp
+Requesting scan of a path that no longer exists, but previously did, is
+valid and will result in Syncthing noticing the deletion of the path in
+question.
+.sp
+Returns status 200 and no content upon success, or status 500 and a
+plain text error if an error occurred during scanning.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+curl \-X POST http://127.0.0.1:8384/rest/db/scan?folder=default&sub=foo/bar
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/db/status
+.sp
+Returns information about the current status of a folder.
+.sp
+Parameters: \fBfolder\fP, the ID of a folder.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  # latest version according to cluster:
+  "globalBytes": 13173473780,
+  "globalDeleted": 1847,
+  "globalFiles": 42106,
+  # what we have locally:
+  "localBytes": 13173473780,
+  "localDeleted": 1847,
+  "localFiles": 42106,
+  # which part of what we have locally is the latest cluster version:
+  "inSyncBytes": 13173473780,
+  "inSyncFiles": 42106,
+  # which part of what we have locally should be fetched from the cluster:
+  "needBytes": 0,
+  "needFiles": 0,
+  # various other metadata
+  "ignorePatterns": true,
+  "invalid": "",
+  "state": "idle",
+  "stateChanged": "2015\-03\-16T21:47:28.750853241+01:00",
+  "version": 71989
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+This is an expensive call, increasing CPU and RAM usage on the device. Use sparingly.
+.UNINDENT
+.UNINDENT
+.SH STATISTICS ENDPOINTS
+.SS GET /rest/stats/device
+.sp
+Returns general statistics about devices. Currently, only contains the
+time the device was last seen.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-s http://localhost:8384/rest/stats/device | json
+{
+  "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
+    "lastSeen" : "2015\-04\-18T11:21:31.3256277+01:00"
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/stats/folder
+.sp
+Returns general statistics about folders. Currently, only contains the
+last synced file.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-s http://localhost:8384/rest/stats/folder | json
+{
+  "folderid" : {
+    "lastFile" : {
+      "filename" : "file/name",
+        "at" : "2015\-04\-16T22:04:18.3066971+01:00"
+      }
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH MISC SERVICES ENDPOINTS
+.SS GET /rest/svc/deviceid
+.sp
+Verifies and formats a device ID. Accepts all currently valid formats
+(52 or 56 characters with or without separators, upper or lower case,
+with trivial substitutions). Takes one parameter, \fBid\fP, and returns
+either a valid device ID in modern format, or an error.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-s http://localhost:8384/rest/svc/deviceid?id=1234 | json
+{
+  "error": "device ID invalid: incorrect length"
+}
+
+$ curl \-s http://localhost:8384/rest/svc/deviceid?id=p56ioi7m\-\-zjnu2iq\-gdr\-eydm\-2mgtmgl3bxnpq6w5btbbz4tjxzwicq | json
+{
+  "id": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2"
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/svc/lang
+.sp
+Returns a list of canonicalized localization codes, as picked up from
+the \fBAccept\-Language\fP header sent by the browser.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+["sv_sv","sv","en_us","en"]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/svc/report
+.sp
+Returns the data sent in the anonymous usage report.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "folderMaxFiles": 42106,
+  "folderMaxMiB": 12563,
+  "longVersion": "syncthing v0.10.27+5\-g36c93b7 (go1.4 darwin\-amd64 default) jb@syno 2015\-03\-16 20:43:34 UTC",
+  "memorySize": 16384,
+  "memoryUsageMiB": 41,
+  "numDevices": 10,
+  "numFolders": 4,
+  "platform": "darwin\-amd64",
+  "sha256Perf": 122.38,
+  "totFiles": 45180,
+  "totMiB": 18151,
+  "uniqueID": "6vulmdGw",
+  "version": "v0.10.27+5\-g36c93b7"
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2015, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.

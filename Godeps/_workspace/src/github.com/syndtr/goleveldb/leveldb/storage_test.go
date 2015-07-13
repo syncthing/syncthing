@@ -42,6 +42,8 @@ type tsOp uint
 const (
 	tsOpOpen tsOp = iota
 	tsOpCreate
+	tsOpReplace
+	tsOpRemove
 	tsOpRead
 	tsOpReadAt
 	tsOpWrite
@@ -241,6 +243,10 @@ func (tf tsFile) Replace(newfile storage.File) (err error) {
 	if err != nil {
 		return
 	}
+	if tf.shouldErr(tsOpReplace) {
+		err = errors.New("leveldb.testStorage: emulated create error")
+		return
+	}
 	err = tf.File.Replace(newfile.(tsFile).File)
 	if err != nil {
 		ts.t.Errorf("E: cannot replace file, num=%d type=%v: %v", tf.Num(), tf.Type(), err)
@@ -256,6 +262,10 @@ func (tf tsFile) Remove() (err error) {
 	defer ts.mu.Unlock()
 	err = tf.checkOpen("remove")
 	if err != nil {
+		return
+	}
+	if tf.shouldErr(tsOpRemove) {
+		err = errors.New("leveldb.testStorage: emulated create error")
 		return
 	}
 	err = tf.File.Remove()
