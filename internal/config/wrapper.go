@@ -7,7 +7,9 @@
 package config
 
 import (
+	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/events"
@@ -281,20 +283,24 @@ func (w *Wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 
 // Save writes the configuration to disk, and generates a ConfigSaved event.
 func (w *Wrapper) Save() error {
-	fd, err := osutil.CreateAtomic(w.path, 0600)
+	fd, err := ioutil.TempFile(filepath.Dir(w.path), "cfg")
 	if err != nil {
 		return err
 	}
+	defer os.Remove(fd.Name())
 
-	if err := w.cfg.WriteXML(fd); err != nil {
+	err = w.cfg.WriteXML(fd)
+	if err != nil {
 		fd.Close()
 		return err
 	}
 
-	if err := fd.Close(); err != nil {
+	err = fd.Close()
+	if err != nil {
 		return err
 	}
 
 	events.Default.Log(events.ConfigSaved, w.cfg)
-	return nil
+
+	return osutil.Rename(fd.Name(), w.path)
 }

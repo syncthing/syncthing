@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/sync"
@@ -90,20 +91,28 @@ func newCsrfToken() string {
 }
 
 func saveCsrfTokens() {
-	// We're ignoring errors in here. It's not super critical and there's
-	// nothing relevant we can do about them anyway...
-
 	name := locations[locCsrfTokens]
-	f, err := osutil.CreateAtomic(name, 0600)
+	tmp := fmt.Sprintf("%s.tmp.%d", name, time.Now().UnixNano())
+
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer os.Remove(tmp)
+
+	for _, t := range csrfTokens {
+		_, err := fmt.Fprintln(f, t)
+		if err != nil {
+			return
+		}
+	}
+
+	err = f.Close()
 	if err != nil {
 		return
 	}
 
-	for _, t := range csrfTokens {
-		fmt.Fprintln(f, t)
-	}
-
-	f.Close()
+	osutil.Rename(tmp, name)
 }
 
 func loadCsrfTokens() {

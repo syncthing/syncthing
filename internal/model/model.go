@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -935,17 +936,30 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	fd, err := osutil.CreateAtomic(filepath.Join(cfg.Path(), ".stignore"), 0644)
+	fd, err := ioutil.TempFile(cfg.Path(), ".syncthing.stignore-"+folder)
+	if err != nil {
+		l.Warnln("Saving .stignore:", err)
+		return err
+	}
+	defer os.Remove(fd.Name())
+
+	for _, line := range content {
+		_, err = fmt.Fprintln(fd, line)
+		if err != nil {
+			l.Warnln("Saving .stignore:", err)
+			return err
+		}
+	}
+
+	err = fd.Close()
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
 
-	for _, line := range content {
-		fmt.Fprintln(fd, line)
-	}
-
-	if err := fd.Close(); err != nil {
+	file := filepath.Join(cfg.Path(), ".stignore")
+	err = osutil.Rename(fd.Name(), file)
+	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
