@@ -52,14 +52,16 @@ func TestCache(t *testing.T) {
 
 	// Sleep and access, to get some data for clean
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
+
 	c.get("true")
+
 	time.Sleep(100 * time.Millisecond)
 
-	// "false" was accessed 200 ms ago, "true" was accessed 100 ms ago.
+	// "false" was accessed ~600 ms ago, "true" was accessed ~100 ms ago.
 	// This should clean out "false" but not "true"
 
-	c.clean(150 * time.Millisecond)
+	c.clean(300 * time.Millisecond)
 
 	// Same values should exist
 
