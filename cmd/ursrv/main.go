@@ -180,6 +180,7 @@ func main() {
 	http.HandleFunc("/", withDB(db, rootHandler))
 	http.HandleFunc("/newdata", withDB(db, newDataHandler))
 	http.HandleFunc("/summary.json", withDB(db, summaryHandler))
+	http.HandleFunc("/movement.json", withDB(db, movementHandler))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	err = srv.Serve(listener)
@@ -261,6 +262,25 @@ func summaryHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	bs, err := s.MarshalJSON()
 	if err != nil {
 		log.Println("summaryHandler:", err)
+		http.Error(w, "JSON Encode Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(bs)
+}
+
+func movementHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+	s, err := getMovement(db)
+	if err != nil {
+		log.Println("movementHandler:", err)
+		http.Error(w, "Database Error", http.StatusInternalServerError)
+		return
+	}
+
+	bs, err := json.Marshal(s)
+	if err != nil {
+		log.Println("movementHandler:", err)
 		http.Error(w, "JSON Encode Error", http.StatusInternalServerError)
 		return
 	}
@@ -553,4 +573,34 @@ func getSummary(db *sql.DB) (summary, error) {
 	}
 
 	return s, nil
+}
+
+func getMovement(db *sql.DB) ([][]interface{}, error) {
+	rows, err := db.Query(`SELECT Day, Added, Removed FROM UserMovement WHERE Day > now() - '1 year'::INTERVAL ORDER BY Day`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := [][]interface{}{
+		{"Day", "Joined", "Left"},
+	}
+
+	for rows.Next() {
+		var day time.Time
+		var added, removed int
+		err := rows.Scan(&day, &added, &removed)
+		if err != nil {
+			return nil, err
+		}
+
+		row := []interface{}{day.Format("2006-01-02"), added, -removed}
+		if removed == 0 {
+			row[2] = nil
+		}
+
+		res = append(res, row)
+	}
+
+	return res, nil
 }
