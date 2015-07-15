@@ -75,6 +75,7 @@ func setupDB(db *sql.DB) error {
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS UserMovement (
 		Day TIMESTAMP NOT NULL,
 		Added INTEGER NOT NULL,
+		Bounced INTEGER NOT NULL,
 		Removed INTEGER NOT NULL
 	)`)
 	if err != nil {
@@ -169,20 +170,26 @@ func aggregateUserMovement(db *sql.DB) (int64, error) {
 		day     time.Time
 		added   int
 		removed int
+		bounced int
 	}
 	var sumRows []sumRow
 	for t := minTs; t.Before(time.Now().Truncate(24 * time.Hour)); t = t.AddDate(0, 0, 1) {
-		var added, removed int
+		var added, removed, bounced int
+		old := t.Before(time.Now().AddDate(0, 0, -14))
 		for id, first := range firstSeen {
 			last := lastSeen[id]
+			if first.Equal(t) && last.Equal(t) && old {
+				bounced++
+				continue
+			}
 			if first.Equal(t) {
 				added++
 			}
-			if last == t && t.Before(time.Now().AddDate(0, 0, -14)) {
+			if last == t && old {
 				removed++
 			}
 		}
-		sumRows = append(sumRows, sumRow{t, added, removed})
+		sumRows = append(sumRows, sumRow{t, added, removed, bounced})
 	}
 
 	tx, err := db.Begin()
@@ -194,7 +201,7 @@ func aggregateUserMovement(db *sql.DB) (int64, error) {
 		return 0, err
 	}
 	for _, r := range sumRows {
-		if _, err := tx.Exec("INSERT INTO UserMovement (Day, Added, Removed) VALUES ($1, $2, $3)", r.day, r.added, r.removed); err != nil {
+		if _, err := tx.Exec("INSERT INTO UserMovement (Day, Added, Removed, Bounced) VALUES ($1, $2, $3, $4)", r.day, r.added, r.removed, r.bounced); err != nil {
 			tx.Rollback()
 			return 0, err
 		}

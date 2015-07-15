@@ -576,27 +576,30 @@ func getSummary(db *sql.DB) (summary, error) {
 }
 
 func getMovement(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, Added, Removed FROM UserMovement WHERE Day > now() - '1 year'::INTERVAL ORDER BY Day`)
+	rows, err := db.Query(`SELECT Day, Added, Removed, Bounced FROM UserMovement WHERE Day > now() - '1 year'::INTERVAL ORDER BY Day`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	res := [][]interface{}{
-		{"Day", "Joined", "Left"},
+		{"Day", "Joined", "Left", "Bounced"},
 	}
 
 	for rows.Next() {
 		var day time.Time
-		var added, removed int
-		err := rows.Scan(&day, &added, &removed)
+		var added, removed, bounced int
+		err := rows.Scan(&day, &added, &removed, &bounced)
 		if err != nil {
 			return nil, err
 		}
 
-		row := []interface{}{day.Format("2006-01-02"), added, -removed}
+		row := []interface{}{day.Format("2006-01-02"), added, -removed, bounced}
 		if removed == 0 {
 			row[2] = nil
+		}
+		if bounced == 0 {
+			row[3] = nil
 		}
 
 		res = append(res, row)

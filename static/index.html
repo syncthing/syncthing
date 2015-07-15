@@ -70,6 +70,7 @@ found in the LICENSE file.
       for (var i = 1; i < rows[0].length; i++){
         data.addColumn('number', rows[0][i]);
       }
+
       for (var i = 1; i < rows.length; i++){
         rows[i][0] = new Date(rows[i][0]);
         if (rows[i][1] > 500) {
@@ -107,7 +108,7 @@ found in the LICENSE file.
 
         <h4>Users Joining and Leaving per Day</h4>
         <p>
-          This is the total number of unique users joining and leaving per day. A user is counted as "joined" on first the day their unique ID is seen, and as "left" on the last day the unique ID was seen before a two weeks or longer absence.
+          This is the total number of unique users joining and leaving per day. A user is counted as "joined" on first the day their unique ID is seen, and as "left" on the last day the unique ID was seen before a two weeks or longer absence. "Bounced" refers to users who joined and left on the same day.
         </p>
         <div class="img-thumbnail" id="movementChart" style="width: 1130px; height: 400px; padding: 10px;"></div>
         <p class="text-muted">
