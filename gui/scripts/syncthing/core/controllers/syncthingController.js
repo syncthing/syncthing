@@ -1230,17 +1230,19 @@ angular.module('syncthing.core')
                 .success(function (data) {
                     data.ignore = data.ignore || [];
 
-                    $('#editFolder').modal('hide');
-                    var textArea = $('#editIgnores textarea');
+                    $('#editFolder').modal('hide')
+                        .one('hidden.bs.modal', function() {
+                            var textArea = $('#editIgnores textarea');
 
-                    textArea.val(data.ignore.join('\n'));
+                            textArea.val(data.ignore.join('\n'));
 
-                    $('#editIgnores').modal()
-                        .on('hidden.bs.modal', function () {
-                            $('#editFolder').modal();
-                        })
-                        .on('shown.bs.modal', function () {
-                            textArea.focus();
+                            $('#editIgnores').modal()
+                                .one('hidden.bs.modal', function () {
+                                    $('#editFolder').modal();
+                                })
+                                .one('shown.bs.modal', function () {
+                                    textArea.focus();
+                                });
                         });
                 })
                 .then(function () {
