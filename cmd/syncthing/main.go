@@ -837,6 +837,7 @@ func defaultConfig(myName string) config.Configuration {
 			ID:              "default",
 			RawPath:         locations[locDefFolder],
 			RescanIntervalS: 60,
+			MinDiskFreePct:  1,
 			Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
 		},
 	}

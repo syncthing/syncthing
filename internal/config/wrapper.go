@@ -96,6 +96,10 @@ func Load(path string, myID protocol.DeviceID) (*Wrapper, error) {
 	return Wrap(path, cfg), nil
 }
 
+func (w *Wrapper) ConfigPath() string {
+	return w.path
+}
+
 // Stop stops the Serve() loop. Set and Replace operations will panic after a
 // Stop.
 func (w *Wrapper) Stop() {

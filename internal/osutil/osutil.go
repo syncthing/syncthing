@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/calmh/du"
 	"github.com/syncthing/syncthing/internal/sync"
 )
 
@@ -209,4 +210,14 @@ func init() {
 // in the list of executable extensions.
 func IsWindowsExecutable(path string) bool {
 	return execExts[strings.ToLower(filepath.Ext(path))]
+}
+
+func DiskFreeBytes(path string) (free int64, err error) {
+	u, err := du.Get(path)
+	return u.FreeBytes, err
+}
+
+func DiskFreePercentage(path string) (freePct float64, err error) {
+	u, err := du.Get(path)
+	return (float64(u.FreeBytes) / float64(u.TotalBytes)) * 100, err
 }

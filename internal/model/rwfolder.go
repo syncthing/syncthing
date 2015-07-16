@@ -437,6 +437,7 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	// !!!
 
 	changed := 0
+	pullFileSize := int64(0)
 
 	fileDeletions := map[string]protocol.FileInfo{}
 	dirDeletions := []protocol.FileInfo{}
@@ -485,12 +486,24 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		default:
 			// A new or changed file or symlink. This is the only case where we
 			// do stuff concurrently in the background
+			pullFileSize += file.Size()
 			p.queue.Push(file.Name, file.Size(), file.Modified)
 		}
 
 		changed++
 		return true
 	})
+
+	// Check if we are able to store all files on disk
+	if pullFileSize > 0 {
+		folder, ok := p.model.cfg.Folders()[p.folder]
+		if ok {
+			if free, err := osutil.DiskFreeBytes(folder.Path()); err == nil && free < pullFileSize {
+				l.Infof("Puller (folder %q): insufficient disk space available to pull %d files (%.2fMB)", p.folder, changed, float64(pullFileSize)/1024/1024)
+				return 0
+			}
+		}
+	}
 
 	// Reorder the file queue according to configuration
 
