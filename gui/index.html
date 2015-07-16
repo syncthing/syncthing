@@ -1211,18 +1211,18 @@
             </div>
 
             <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders">
-              <div class="panel-heading" role="tab" id="folder{{folder.id}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{folder.id}}Config" aria-expanded="true" aria-controls="folder{{folder.id}}Config" style="cursor: pointer">
+              <div class="panel-heading" role="tab" id="folder{{$index}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{$index}}Config" aria-expanded="true" aria-controls="folder{{$index}}Config" style="cursor: pointer">
                 <h4 class="panel-title">
                   <span translate>Folder</span> "{{folder.id}}"
                 </h4>
               </div>
-              <div id="folder{{folder.id}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{folder.id}}Heading">
+              <div id="folder{{$index}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{$index}}Heading">
                 <div class="panel-body">
                   <form class="form-horizontal" role="form">
                     <div ng-repeat="(key, value) in folder" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
-                      <label for="folder{{folder.id}}Input{{$index}}" class="col-sm-4 control-label">{{key}}</label>
+                      <label for="folder{{$index}}Input{{$index}}" class="col-sm-4 control-label">{{key}}</label>
                       <div class="col-sm-8">
-                        <input id="folder{{folder.id}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folder[key]" />
+                        <input id="folder{{$index}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folder[key]" />
                       </div>
                     </div>
                   </form>
