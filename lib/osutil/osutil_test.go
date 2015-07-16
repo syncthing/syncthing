@@ -164,3 +164,18 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 		}
 	}
 }
+
+func TestDiskUsage(t *testing.T) {
+	free, err := osutil.DiskFreePercentage(".")
+	if err != nil {
+		if runtime.GOOS == "netbsd" ||
+			runtime.GOOS == "openbsd" ||
+			runtime.GOOS == "solaris" {
+			t.Skip()
+		}
+		t.Errorf("Unexpected error: %s", err)
+	}
+	if free < 1 {
+		t.Error("Disk is full?", free)
+	}
+}

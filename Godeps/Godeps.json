@@ -10,6 +10,10 @@
 			"Rev": "4f7c2045dbd17b802370e2e6022200468abf02ba"
 		},
 		{
+			"ImportPath": "github.com/calmh/du",
+			"Rev": "3c0690cca16228b97741327b1b6781397afbdb24"
+		},
+		{
 			"ImportPath": "github.com/calmh/logger",
 			"Rev": "c96f6a1a8c7b6bf2f4860c667867d90174799eb2"
 		},

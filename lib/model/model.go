@@ -45,6 +45,7 @@ const (
 	indexBatchSize         = 1000       // Either way, don't include more files than this
 	reqValidationTime      = time.Hour  // How long to cache validation entries for Request messages
 	reqValidationCacheSize = 1000       // How many entries to aim for in the validation cache size
+	minHomeDiskFreePct     = 1.0        // Stop when less space than this is available on the home (config & db) disk
 )
 
 type service interface {
@@ -1230,6 +1231,10 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 		return errors.New("no such folder")
 	}
 
+	if err := m.CheckFolderHealth(folder); err != nil {
+		return err
+	}
+
 	_ = ignores.Load(filepath.Join(folderCfg.Path(), ".stignore")) // Ignore error, there might not be an .stignore
 
 	// Required to make sure that we start indexing at a directory we're already
@@ -1658,6 +1663,10 @@ func (m *Model) BringToFront(folder, file string) {
 // CheckFolderHealth checks the folder for common errors and returns the
 // current folder error, or nil if the folder is healthy.
 func (m *Model) CheckFolderHealth(id string) error {
+	if free, err := osutil.DiskFreePercentage(m.cfg.ConfigPath()); err == nil && free < minHomeDiskFreePct {
+		return errors.New("out of disk space")
+	}
+
 	folder, ok := m.cfg.Folders()[id]
 	if !ok {
 		return errors.New("folder does not exist")
@@ -1673,6 +1682,8 @@ func (m *Model) CheckFolderHealth(id string) error {
 			err = errors.New("folder path missing")
 		} else if !folder.HasMarker() {
 			err = errors.New("folder marker missing")
+		} else if free, errDfp := osutil.DiskFreePercentage(folder.Path()); errDfp == nil && free < float64(folder.MinDiskFreePct) {
+			err = errors.New("out of disk space")
 		}
 	} else if os.IsNotExist(err) {
 		// If we don't have any files in the index, and the directory
