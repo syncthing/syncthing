@@ -52,10 +52,14 @@ type SessionInvitation struct {
 	ServerSocket bool
 }
 
-func (i *SessionInvitation) String() string {
+func (i SessionInvitation) String() string {
 	return fmt.Sprintf("%s@%s", syncthingprotocol.DeviceIDFromBytes(i.From), i.AddressString())
 }
 
-func (i *SessionInvitation) AddressString() string {
+func (i SessionInvitation) GoString() string {
+	return i.String()
+}
+
+func (i SessionInvitation) AddressString() string {
 	return fmt.Sprintf("%s:%d", net.IP(i.Address), i.Port)
 }
