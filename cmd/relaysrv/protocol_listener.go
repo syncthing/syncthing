@@ -166,9 +166,13 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 			// Potentially closing a second time.
 			close(outbox)
 			conn.Close()
-			outboxesMut.Lock()
-			delete(outboxes, id)
-			outboxesMut.Unlock()
+			// Only delete the outbox if the client join, as it migth be a
+			// lookup request coming from the same client.
+			if joined {
+				outboxesMut.Lock()
+				delete(outboxes, id)
+				outboxesMut.Unlock()
+			}
 			return
 		case <-pingTicker.C:
 			if !joined {
