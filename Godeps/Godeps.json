@@ -42,6 +42,14 @@
 			"Rev": "ebcdea63c07327a342f65415bbadc497462b8f1f"
 		},
 		{
+			"ImportPath": "github.com/syncthing/relaysrv/client",
+			"Rev": "7c6a31017968e7c1a69148db1ca3dea71eba8236"
+		},
+		{
+			"ImportPath": "github.com/syncthing/relaysrv/protocol",
+			"Rev": "7c6a31017968e7c1a69148db1ca3dea71eba8236"
+		},
+		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
 			"Rev": "b743d92d3215f11c9b5ce8830fafe1f16786adf4"
 		},
