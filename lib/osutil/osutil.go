@@ -11,10 +11,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/calmh/du"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -220,4 +222,22 @@ func DiskFreeBytes(path string) (free int64, err error) {
 func DiskFreePercentage(path string) (freePct float64, err error) {
 	u, err := du.Get(path)
 	return (float64(u.FreeBytes) / float64(u.TotalBytes)) * 100, err
+}
+
+// SetTCPOptions sets syncthings default TCP options on a TCP connection
+func SetTCPOptions(conn *net.TCPConn) error {
+	var err error
+	if err = conn.SetLinger(0); err != nil {
+		return err
+	}
+	if err = conn.SetNoDelay(false); err != nil {
+		return err
+	}
+	if err = conn.SetKeepAlivePeriod(60 * time.Second); err != nil {
+		return err
+	}
+	if err = conn.SetKeepAlive(true); err != nil {
+		return err
+	}
+	return nil
 }

@@ -34,8 +34,10 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/upgrade"
+
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -110,6 +112,7 @@ var (
 	readRateLimit  *ratelimit.Bucket
 	stop           = make(chan int)
 	discoverer     *discover.Discoverer
+	relaySvc       *relay.Svc
 	cert           tls.Certificate
 	lans           []*net.IPNet
 )
@@ -671,14 +674,14 @@ func syncthingMain() {
 	// Start the relevant services
 
 	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
-	relaySvc := newRelaySvc(cfg, tlsCfg, connectionSvc.conns)
+	relaySvc = relay.NewSvc(cfg, tlsCfg, connectionSvc.conns)
 	connectionSvc.Add(relaySvc)
 	mainSvc.Add(connectionSvc)
 
 	// Start discovery
 
 	localPort := addr.Port
-	discoverer = discovery(localPort)
+	discoverer = discovery(localPort, relaySvc)
 
 	// Start UPnP. The UPnP service will restart global discovery if the
 	// external port changes.
@@ -908,10 +911,9 @@ func shutdown() {
 	stop <- exitSuccess
 }
 
-func discovery(extPort int) *discover.Discoverer {
+func discovery(extPort int, relaySvc *relay.Svc) *discover.Discoverer {
 	opts := cfg.Options()
-	disc := discover.NewDiscoverer(myID, opts.ListenAddress, opts.RelayServers)
-
+	disc := discover.NewDiscoverer(myID, opts.ListenAddress, relaySvc)
 	if opts.LocalAnnEnabled {
 		l.Infoln("Starting local discovery announcements")
 		disc.StartLocal(opts.LocalAnnPort, opts.LocalAnnMCAddr)

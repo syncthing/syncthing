@@ -16,17 +16,17 @@ import (
 	"time"
 
 	"github.com/syncthing/protocol"
-
 	"github.com/syncthing/relaysrv/client"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/osutil"
 
 	"github.com/thejerf/suture"
 )
 
 type DialerFactory func(*url.URL, *tls.Config) (*tls.Conn, error)
-type ListenerFactory func(*url.URL, *tls.Config, chan<- intermediateConnection)
+type ListenerFactory func(*url.URL, *tls.Config, chan<- model.IntermediateConnection)
 
 var (
 	dialers   = make(map[string]DialerFactory, 0)
@@ -41,17 +41,12 @@ type connectionSvc struct {
 	myID   protocol.DeviceID
 	model  *model.Model
 	tlsCfg *tls.Config
-	conns  chan intermediateConnection
+	conns  chan model.IntermediateConnection
 
 	lastRelayCheck map[protocol.DeviceID]time.Time
 
 	mut      sync.RWMutex
 	connType map[protocol.DeviceID]model.ConnectionType
-}
-
-type intermediateConnection struct {
-	conn     *tls.Conn
-	connType model.ConnectionType
 }
 
 func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Model, tlsCfg *tls.Config) *connectionSvc {
@@ -61,7 +56,7 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Mo
 		myID:       myID,
 		model:      mdl,
 		tlsCfg:     tlsCfg,
-		conns:      make(chan intermediateConnection),
+		conns:      make(chan model.IntermediateConnection),
 
 		connType:       make(map[protocol.DeviceID]model.ConnectionType),
 		lastRelayCheck: make(map[protocol.DeviceID]time.Time),
@@ -110,14 +105,14 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Mo
 func (s *connectionSvc) handle() {
 next:
 	for c := range s.conns {
-		cs := c.conn.ConnectionState()
+		cs := c.Conn.ConnectionState()
 
 		// We should have negotiated the next level protocol "bep/1.0" as part
 		// of the TLS handshake. Unfortunately this can't be a hard error,
 		// because there are implementations out there that don't support
 		// protocol negotiation (iOS for one...).
 		if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != bepProtocolName {
-			l.Infof("Peer %s did not negotiate bep/1.0", c.conn.RemoteAddr())
+			l.Infof("Peer %s did not negotiate bep/1.0", c.Conn.RemoteAddr())
 		}
 
 		// We should have received exactly one certificate from the other
@@ -125,8 +120,8 @@ next:
 		// connection.
 		certs := cs.PeerCertificates
 		if cl := len(certs); cl != 1 {
-			l.Infof("Got peer certificate list of length %d != 1 from %s; protocol error", cl, c.conn.RemoteAddr())
-			c.conn.Close()
+			l.Infof("Got peer certificate list of length %d != 1 from %s; protocol error", cl, c.Conn.RemoteAddr())
+			c.Conn.Close()
 			continue
 		}
 		remoteCert := certs[0]
@@ -137,7 +132,7 @@ next:
 		// clients between the same NAT gateway, and global discovery.
 		if remoteID == myID {
 			l.Infof("Connected to myself (%s) - should not happen", remoteID)
-			c.conn.Close()
+			c.Conn.Close()
 			continue
 		}
 
@@ -146,7 +141,7 @@ next:
 		s.mut.RLock()
 		ct, ok := s.connType[remoteID]
 		s.mut.RUnlock()
-		if ok && !ct.IsDirect() && c.connType.IsDirect() {
+		if ok && !ct.IsDirect() && c.ConnType.IsDirect() {
 			if debugNet {
 				l.Debugln("Switching connections", remoteID)
 			}
@@ -159,7 +154,7 @@ next:
 			// in parallel we don't want to do that or we end up with no
 			// connections still established...
 			l.Infof("Connected to already connected device (%s)", remoteID)
-			c.conn.Close()
+			c.Conn.Close()
 			continue
 		}
 
@@ -177,41 +172,41 @@ next:
 					// Incorrect certificate name is something the user most
 					// likely wants to know about, since it's an advanced
 					// config. Warn instead of Info.
-					l.Warnf("Bad certificate from %s (%v): %v", remoteID, c.conn.RemoteAddr(), err)
-					c.conn.Close()
+					l.Warnf("Bad certificate from %s (%v): %v", remoteID, c.Conn.RemoteAddr(), err)
+					c.Conn.Close()
 					continue next
 				}
 
 				// If rate limiting is set, and based on the address we should
 				// limit the connection, then we wrap it in a limiter.
 
-				limit := s.shouldLimit(c.conn.RemoteAddr())
+				limit := s.shouldLimit(c.Conn.RemoteAddr())
 
-				wr := io.Writer(c.conn)
+				wr := io.Writer(c.Conn)
 				if limit && writeRateLimit != nil {
-					wr = &limitedWriter{c.conn, writeRateLimit}
+					wr = &limitedWriter{c.Conn, writeRateLimit}
 				}
 
-				rd := io.Reader(c.conn)
+				rd := io.Reader(c.Conn)
 				if limit && readRateLimit != nil {
-					rd = &limitedReader{c.conn, readRateLimit}
+					rd = &limitedReader{c.Conn, readRateLimit}
 				}
 
-				name := fmt.Sprintf("%s-%s (%s)", c.conn.LocalAddr(), c.conn.RemoteAddr(), c.connType)
+				name := fmt.Sprintf("%s-%s (%s)", c.Conn.LocalAddr(), c.Conn.RemoteAddr(), c.ConnType)
 				protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
 				if debugNet {
-					l.Debugf("cipher suite: %04X in lan: %t", c.conn.ConnectionState().CipherSuite, !limit)
+					l.Debugf("cipher suite: %04X in lan: %t", c.Conn.ConnectionState().CipherSuite, !limit)
 				}
 
 				s.model.AddConnection(model.Connection{
-					c.conn,
+					c.Conn,
 					protoConn,
-					c.connType,
+					c.ConnType,
 				})
 				s.mut.Lock()
-				s.connType[remoteID] = c.connType
+				s.connType[remoteID] = c.ConnType
 				s.mut.Unlock()
 				continue next
 			}
@@ -220,14 +215,14 @@ next:
 		if !s.cfg.IgnoredDevice(remoteID) {
 			events.Default.Log(events.DeviceRejected, map[string]string{
 				"device":  remoteID.String(),
-				"address": c.conn.RemoteAddr().String(),
+				"address": c.Conn.RemoteAddr().String(),
 			})
-			l.Infof("Connection from %s (%s) with unknown device ID %s", c.conn.RemoteAddr(), c.connType, remoteID)
+			l.Infof("Connection from %s (%s) with unknown device ID %s", c.Conn.RemoteAddr(), c.ConnType, remoteID)
 		} else {
-			l.Infof("Connection from %s (%s) with ignored device ID %s", c.conn.RemoteAddr(), c.connType, remoteID)
+			l.Infof("Connection from %s (%s) with ignored device ID %s", c.Conn.RemoteAddr(), c.ConnType, remoteID)
 		}
 
-		c.conn.Close()
+		c.Conn.Close()
 	}
 }
 
@@ -294,7 +289,7 @@ func (s *connectionSvc) connect() {
 					s.model.Close(deviceID, fmt.Errorf("switching connections"))
 				}
 
-				s.conns <- intermediateConnection{
+				s.conns <- model.IntermediateConnection{
 					conn, model.ConnectionTypeBasicDial,
 				}
 				continue nextDevice
@@ -347,7 +342,10 @@ func (s *connectionSvc) connect() {
 					l.Debugln("Sucessfully joined relay session", inv)
 				}
 
-				setTCPOptions(conn.(*net.TCPConn))
+				err = osutil.SetTCPOptions(conn.(*net.TCPConn))
+				if err != nil {
+					l.Infoln(err)
+				}
 
 				var tc *tls.Conn
 
@@ -362,7 +360,7 @@ func (s *connectionSvc) connect() {
 					tc.Close()
 					continue
 				}
-				s.conns <- intermediateConnection{
+				s.conns <- model.IntermediateConnection{
 					tc, model.ConnectionTypeRelayDial,
 				}
 				continue nextDevice
@@ -413,20 +411,4 @@ func (s *connectionSvc) CommitConfiguration(from, to config.Configuration) bool 
 	}
 
 	return true
-}
-
-func setTCPOptions(conn *net.TCPConn) {
-	var err error
-	if err = conn.SetLinger(0); err != nil {
-		l.Infoln(err)
-	}
-	if err = conn.SetNoDelay(false); err != nil {
-		l.Infoln(err)
-	}
-	if err = conn.SetKeepAlivePeriod(60 * time.Second); err != nil {
-		l.Infoln(err)
-	}
-	if err = conn.SetKeepAlive(true); err != nil {
-		l.Infoln(err)
-	}
 }

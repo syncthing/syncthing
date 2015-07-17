@@ -22,13 +22,14 @@ import (
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type Discoverer struct {
 	myID            protocol.DeviceID
 	listenAddrs     []string
-	relays          []Relay
+	relaySvc        *relay.Svc
 	localBcastIntv  time.Duration
 	localBcastStart time.Time
 	cacheLifetime   time.Duration
@@ -56,11 +57,11 @@ var (
 	ErrIncorrectMagic = errors.New("incorrect magic number")
 )
 
-func NewDiscoverer(id protocol.DeviceID, addresses []string, relayAdresses []string) *Discoverer {
+func NewDiscoverer(id protocol.DeviceID, addresses []string, relaySvc *relay.Svc) *Discoverer {
 	return &Discoverer{
 		myID:            id,
 		listenAddrs:     addresses,
-		relays:          measureLatency(relayAdresses),
+		relaySvc:        relaySvc,
 		localBcastIntv:  30 * time.Second,
 		cacheLifetime:   5 * time.Minute,
 		negCacheCutoff:  3 * time.Minute,
@@ -143,7 +144,7 @@ func (d *Discoverer) StartGlobal(servers []string, extPort uint16) {
 	}
 
 	d.extPort = extPort
-	pkt := d.announcementPkt()
+	pkt := d.announcementPkt(true)
 	wg := sync.NewWaitGroup()
 	clients := make(chan Client, len(servers))
 	for _, address := range servers {
@@ -317,49 +318,32 @@ func (d *Discoverer) All() map[protocol.DeviceID][]CacheEntry {
 	return devices
 }
 
-func (d *Discoverer) announcementPkt() *Announce {
+func (d *Discoverer) announcementPkt(allowExternal bool) *Announce {
 	var addrs []string
-	if d.extPort != 0 {
+	if d.extPort != 0 && allowExternal {
 		addrs = []string{fmt.Sprintf("tcp://:%d", d.extPort)}
 	} else {
-		for _, aurl := range d.listenAddrs {
-			uri, err := url.Parse(aurl)
-			if err != nil {
-				if debug {
-					l.Debugf("discovery: failed to parse listen address %s: %s", aurl, err)
-				}
-				continue
+		addrs = resolveAddrs(d.listenAddrs)
+	}
+
+	relayAddrs := make([]string, 0)
+	if d.relaySvc != nil {
+		status := d.relaySvc.ClientStatus()
+		for uri, ok := range status {
+			if ok {
+				relayAddrs = append(relayAddrs, uri)
 			}
-			addr, err := net.ResolveTCPAddr("tcp", uri.Host)
-			if err != nil {
-				l.Warnln("discover: %v: not announcing %s", err, aurl)
-				continue
-			} else if debug {
-				l.Debugf("discover: resolved %s as %#v", aurl, uri.Host)
-			}
-			if len(addr.IP) == 0 || addr.IP.IsUnspecified() {
-				uri.Host = fmt.Sprintf(":%d", addr.Port)
-			} else if bs := addr.IP.To4(); bs != nil {
-				uri.Host = fmt.Sprintf("%s:%d", bs.String(), addr.Port)
-			} else if bs := addr.IP.To16(); bs != nil {
-				uri.Host = fmt.Sprintf("[%s]:%d", bs.String(), addr.Port)
-			}
-			addrs = append(addrs, uri.String())
 		}
 	}
+
 	return &Announce{
 		Magic: AnnouncementMagic,
-		This:  Device{d.myID[:], addrs, d.relays},
+		This:  Device{d.myID[:], addrs, measureLatency(relayAddrs)},
 	}
 }
 
 func (d *Discoverer) sendLocalAnnouncements() {
-	var addrs = resolveAddrs(d.listenAddrs)
-
-	var pkt = Announce{
-		Magic: AnnouncementMagic,
-		This:  Device{d.myID[:], addrs, d.relays},
-	}
+	var pkt = d.announcementPkt(false)
 	msg := pkt.MustMarshalXDR()
 
 	for {

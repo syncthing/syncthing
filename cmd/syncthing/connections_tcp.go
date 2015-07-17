@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func init() {
@@ -46,7 +47,10 @@ func tcpDialer(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
 		return nil, err
 	}
 
-	setTCPOptions(conn)
+	err = osutil.SetTCPOptions(conn)
+	if err != nil {
+		l.Infoln(err)
+	}
 
 	tc := tls.Client(conn, tlsCfg)
 	err = tc.Handshake()
@@ -58,7 +62,7 @@ func tcpDialer(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
 	return tc, nil
 }
 
-func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- intermediateConnection) {
+func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- model.IntermediateConnection) {
 	tcaddr, err := net.ResolveTCPAddr("tcp", uri.Host)
 	if err != nil {
 		l.Fatalln("listen (BEP/tcp):", err)
@@ -81,8 +85,10 @@ func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- intermediateConn
 			l.Debugln("connect from", conn.RemoteAddr())
 		}
 
-		tcpConn := conn.(*net.TCPConn)
-		setTCPOptions(tcpConn)
+		err = osutil.SetTCPOptions(conn.(*net.TCPConn))
+		if err != nil {
+			l.Infoln(err)
+		}
 
 		tc := tls.Server(conn, tlsCfg)
 		err = tc.Handshake()
@@ -92,7 +98,7 @@ func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- intermediateConn
 			continue
 		}
 
-		conns <- intermediateConnection{
+		conns <- model.IntermediateConnection{
 			tc, model.ConnectionTypeBasicAccept,
 		}
 	}

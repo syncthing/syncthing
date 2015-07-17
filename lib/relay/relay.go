@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package main
+package relay
 
 import (
 	"crypto/tls"
@@ -16,16 +16,17 @@ import (
 	"github.com/syncthing/relaysrv/protocol"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/thejerf/suture"
 )
 
-func newRelaySvc(cfg *config.Wrapper, tlsCfg *tls.Config, conns chan<- intermediateConnection) *relaySvc {
-	svc := &relaySvc{
-		Supervisor: suture.New("relaySvc", suture.Spec{
+func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config, conns chan<- model.IntermediateConnection) *Svc {
+	svc := &Svc{
+		Supervisor: suture.New("Svc", suture.Spec{
 			Log: func(log string) {
-				if debugNet {
+				if debug {
 					l.Infoln(log)
 				}
 			},
@@ -58,7 +59,7 @@ func newRelaySvc(cfg *config.Wrapper, tlsCfg *tls.Config, conns chan<- intermedi
 	return svc
 }
 
-type relaySvc struct {
+type Svc struct {
 	*suture.Supervisor
 	cfg    *config.Wrapper
 	tlsCfg *tls.Config
@@ -70,7 +71,7 @@ type relaySvc struct {
 	invitations   chan protocol.SessionInvitation
 }
 
-func (s *relaySvc) VerifyConfiguration(from, to config.Configuration) error {
+func (s *Svc) VerifyConfiguration(from, to config.Configuration) error {
 	for _, addr := range to.Options.RelayServers {
 		_, err := url.Parse(addr)
 		if err != nil {
@@ -80,12 +81,12 @@ func (s *relaySvc) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
-func (s *relaySvc) CommitConfiguration(from, to config.Configuration) bool {
+func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 	existing := make(map[string]struct{}, len(to.Options.RelayServers))
 	for _, addr := range to.Options.RelayServers {
 		uri, err := url.Parse(addr)
 		if err != nil {
-			if debugNet {
+			if debug {
 				l.Debugln("Failed to parse relay address", addr, err)
 			}
 			continue
@@ -95,7 +96,7 @@ func (s *relaySvc) CommitConfiguration(from, to config.Configuration) bool {
 
 		_, ok := s.tokens[uri.String()]
 		if !ok {
-			if debugNet {
+			if debug {
 				l.Debugln("Connecting to relay", uri)
 			}
 			c := client.NewProtocolClient(uri, s.tlsCfg.Certificates, s.invitations)
@@ -114,7 +115,7 @@ func (s *relaySvc) CommitConfiguration(from, to config.Configuration) bool {
 			s.mut.Lock()
 			delete(s.clients, uri)
 			s.mut.Unlock()
-			if debugNet {
+			if debug {
 				l.Debugln("Disconnecting from relay", uri, err)
 			}
 		}
@@ -123,7 +124,7 @@ func (s *relaySvc) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (s *relaySvc) ClientStatus() map[string]bool {
+func (s *Svc) ClientStatus() map[string]bool {
 	s.mut.RLock()
 	status := make(map[string]bool, len(s.clients))
 	for uri, client := range s.clients {
@@ -136,7 +137,7 @@ func (s *relaySvc) ClientStatus() map[string]bool {
 type invitationReceiver struct {
 	invitations chan protocol.SessionInvitation
 	tlsCfg      *tls.Config
-	conns       chan<- intermediateConnection
+	conns       chan<- model.IntermediateConnection
 	stop        chan struct{}
 }
 
@@ -149,18 +150,21 @@ func (r *invitationReceiver) Serve() {
 	for {
 		select {
 		case inv := <-r.invitations:
-			if debugNet {
+			if debug {
 				l.Debugln("Received relay invitation", inv)
 			}
 			conn, err := client.JoinSession(inv)
 			if err != nil {
-				if debugNet {
+				if debug {
 					l.Debugf("Failed to join relay session %s: %v", inv, err)
 				}
 				continue
 			}
 
-			setTCPOptions(conn.(*net.TCPConn))
+			err = osutil.SetTCPOptions(conn.(*net.TCPConn))
+			if err != nil {
+				l.Infoln(err)
+			}
 
 			var tc *tls.Conn
 
@@ -175,7 +179,7 @@ func (r *invitationReceiver) Serve() {
 				tc.Close()
 				continue
 			}
-			r.conns <- intermediateConnection{
+			r.conns <- model.IntermediateConnection{
 				tc, model.ConnectionTypeRelayAccept,
 			}
 		case <-r.stop:

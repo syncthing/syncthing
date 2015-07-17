@@ -385,6 +385,19 @@
                       </span>
                     </td>
                   </tr>
+                  <tr ng-if="system.relayClientStatus != undefined && relayClientsTotal > 0">
+                    <th><span class="fa fa-fw fa-sitemap"></span>&nbsp;<span translate>Relays</span></th>
+                    <td class="text-right">
+                      <span ng-if="relayClientsFailed.length == 0" class="data text-success">
+                        <span>OK</span>
+                      </span>
+                      <span ng-if="relayClientsFailed.length != 0" class="data" ng-class="{'text-danger': relayClientsFailed.length == relayClientsTotal}">
+                        <span popover data-trigger="hover" data-placement="bottom" data-content="{{relayClientsFailed.join('\n')}}">
+                          {{relayClientsTotal-relayClientsFailed.length}}/{{relayClientsTotal}}
+                        </span>
+                      </span>
+                    </td>
+                  </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-clock-o"></span>&nbsp;<span translate>Uptime</span></th>
                     <td class="text-right">{{system.uptime | duration:"m"}}</td>
@@ -430,7 +443,11 @@
                       <td class="text-right">{{connections[deviceCfg.deviceID].outbps | binary}}B/s ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</td>
                     </tr>
                     <tr>
-                      <th><span class="fa fa-fw fa-link"></span>&nbsp;<span translate>Address</span></th>
+                      <th>
+												<span class="fa fa-fw fa-link"></span>
+                        <span translate ng-if="connections[deviceCfg.deviceID].type.indexOf('basic') == 0" >Address</span>
+                        <span translate ng-if="connections[deviceCfg.deviceID].type.indexOf('relay') == 0" >Relayed via</span>
+                      </th>
                       <td class="text-right">{{deviceAddr(deviceCfg)}}</td>
                     </tr>
                     <tr ng-if="deviceCfg.compression != 'metadata'">

@@ -7,10 +7,16 @@
 package model
 
 import (
+	"crypto/tls"
 	"net"
 
 	"github.com/syncthing/protocol"
 )
+
+type IntermediateConnection struct {
+	Conn     *tls.Conn
+	ConnType ConnectionType
+}
 
 type Connection struct {
 	net.Conn

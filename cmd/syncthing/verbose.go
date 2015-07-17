@@ -74,7 +74,7 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Discovered device %v at %v", data["device"], data["addrs"])
 	case events.DeviceConnected:
 		data := ev.Data.(map[string]string)
-		return fmt.Sprintf("Connected to device %v at %v", data["id"], data["addr"])
+		return fmt.Sprintf("Connected to device %v at %v (type %s)", data["id"], data["addr"], data["type"])
 	case events.DeviceDisconnected:
 		data := ev.Data.(map[string]string)
 		return fmt.Sprintf("Disconnected from device %v", data["id"])
