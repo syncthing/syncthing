@@ -5,6 +5,12 @@
 
 package protocol
 
+import (
+	"fmt"
+	syncthingprotocol "github.com/syncthing/protocol"
+	"net"
+)
+
 const (
 	messageTypePing int32 = iota
 	messageTypePong
@@ -44,4 +50,12 @@ type SessionInvitation struct {
 	Address      []byte // max:32
 	Port         uint16
 	ServerSocket bool
+}
+
+func (i *SessionInvitation) String() string {
+	return fmt.Sprintf("%s@%s", syncthingprotocol.DeviceIDFromBytes(i.From), i.AddressString())
+}
+
+func (i *SessionInvitation) AddressString() string {
+	return fmt.Sprintf("%s:%d", net.IP(i.Address), i.Port)
 }

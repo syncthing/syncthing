@@ -16,7 +16,7 @@ import (
 
 func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs []tls.Certificate) (protocol.SessionInvitation, error) {
 	if uri.Scheme != "relay" {
-		return protocol.SessionInvitation{}, fmt.Errorf("Unsupported relay schema:", uri.Scheme)
+		return protocol.SessionInvitation{}, fmt.Errorf("Unsupported relay scheme:", uri.Scheme)
 	}
 
 	conn, err := tls.Dial("tcp", uri.Host, configForCerts(certs))
@@ -49,7 +49,7 @@ func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs [
 		return protocol.SessionInvitation{}, fmt.Errorf("Incorrect response code %d: %s", msg.Code, msg.Message)
 	case protocol.SessionInvitation:
 		if debug {
-			l.Debugln("Received invitation via", conn.LocalAddr())
+			l.Debugln("Received invitation", msg, "via", conn.LocalAddr())
 		}
 		ip := net.IP(msg.Address)
 		if len(ip) == 0 || ip.IsUnspecified() {
