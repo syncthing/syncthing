@@ -51,9 +51,9 @@ func main() {
 	go stdinReader(stdin)
 
 	if join {
-		log.Printf("Creating client")
+		log.Println("Creating client")
 		relay := client.NewProtocolClient(uri, []tls.Certificate{cert}, nil)
-		log.Printf("Created client")
+		log.Println("Created client")
 
 		go relay.Serve()
 
@@ -64,9 +64,9 @@ func main() {
 			for invite := range relay.Invitations {
 				select {
 				case recv <- invite:
-					log.Printf("Received invitation from %s on %s:%d", syncthingprotocol.DeviceIDFromBytes(invite.From), net.IP(invite.Address), invite.Port)
+					log.Println("Received invitation", invite)
 				default:
-					log.Printf("Discarding invitation", invite)
+					log.Println("Discarding invitation", invite)
 				}
 			}
 		}()
@@ -91,7 +91,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		log.Printf("Received invitation from %s on %s:%d", syncthingprotocol.DeviceIDFromBytes(invite.From), net.IP(invite.Address), invite.Port)
+		log.Println("Received invitation", invite)
 		conn, err := client.JoinSession(invite)
 		if err != nil {
 			log.Fatalln("Failed to join", err)
