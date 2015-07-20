@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/ratelimit"
 	"github.com/syncthing/relaysrv/protocol"
 
 	syncthingprotocol "github.com/syncthing/protocol"
@@ -26,6 +27,11 @@ var (
 	networkTimeout time.Duration
 	pingInterval   time.Duration
 	messageTimeout time.Duration
+
+	sessionLimitBps int
+	globalLimitBps  int
+	sessionLimiter  *ratelimit.Bucket
+	globalLimiter   *ratelimit.Bucket
 )
 
 func main() {
@@ -38,6 +44,11 @@ func main() {
 	flag.DurationVar(&networkTimeout, "network-timeout", 2*time.Minute, "Timeout for network operations")
 	flag.DurationVar(&pingInterval, "ping-interval", time.Minute, "How often pings are sent")
 	flag.DurationVar(&messageTimeout, "message-timeout", time.Minute, "Maximum amount of time we wait for relevant messages to arrive")
+	flag.IntVar(&sessionLimitBps, "per-session-rate", sessionLimitBps, "Per session rate limit, in bytes/s")
+	flag.IntVar(&globalLimitBps, "global-rate", globalLimitBps, "Global rate limit, in bytes/s")
+	flag.BoolVar(&debug, "debug", false, "Enable debug output")
+
+	flag.Parse()
 
 	if extAddress == "" {
 		extAddress = listenSession
@@ -50,10 +61,6 @@ func main() {
 
 	sessionAddress = addr.IP[:]
 	sessionPort = uint16(addr.Port)
-
-	flag.BoolVar(&debug, "debug", false, "Enable debug output")
-
-	flag.Parse()
 
 	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
@@ -81,6 +88,13 @@ func main() {
 	id := syncthingprotocol.NewDeviceID(cert.Certificate[0])
 	if debug {
 		log.Println("ID:", id)
+	}
+
+	if sessionLimitBps > 0 {
+		sessionLimiter = ratelimit.NewBucketWithRate(float64(sessionLimitBps), int64(2*sessionLimitBps))
+	}
+	if globalLimitBps > 0 {
+		globalLimiter = ratelimit.NewBucketWithRate(float64(globalLimitBps), int64(2*globalLimitBps))
 	}
 
 	go sessionListener(listenSession)

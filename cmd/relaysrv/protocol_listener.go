@@ -130,7 +130,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 					continue
 				}
 
-				ses := newSession()
+				ses := newSession(sessionLimiter, globalLimiter)
 
 				go ses.Serve()
 
