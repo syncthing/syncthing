@@ -808,6 +808,20 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 					delete(m.reqValidationCache, name)
 				}
 			}
+
+			if len(m.reqValidationCache) > reqValidationCacheSize*9/10 {
+				// The first clean didn't help much, we're still over 90%
+				// full; we may have synced a lot of files lately. Prune the
+				// cache more aggressively by removing every other item so we
+				// don't get stuck doing useless cache cleaning.
+				i := 0
+				for name := range m.reqValidationCache {
+					if i%2 == 0 {
+						delete(m.reqValidationCache, name)
+					}
+					i++
+				}
+			}
 		}
 		m.rvmut.Unlock()
 	}
