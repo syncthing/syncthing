@@ -129,7 +129,7 @@ func (p *Process) Stop() (*os.ProcessState, error) {
 	p.stop = true
 	p.eventMut.Unlock()
 
-	if err := p.cmd.Process.Signal(os.Kill); err != nil {
+	if _, err := p.Post("/rest/system/shutdown", nil); err != nil {
 		return nil, err
 	}
 	p.cmd.Wait()
