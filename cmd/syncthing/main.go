@@ -672,7 +672,6 @@ func syncthingMain() {
 			log.Fatal(err)
 		}
 		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
 	}
 
 	for _, device := range cfg.Devices() {
@@ -728,6 +727,11 @@ func syncthingMain() {
 	mainSvc.Stop()
 
 	l.Okln("Exiting")
+
+	if cpuProfile {
+		pprof.StopCPUProfile()
+	}
+
 	os.Exit(code)
 }
 
