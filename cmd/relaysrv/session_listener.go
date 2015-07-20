@@ -18,13 +18,14 @@ func sessionListener(addr string) {
 
 	for {
 		conn, err := listener.Accept()
-		setTCPOptions(conn)
 		if err != nil {
 			if debug {
 				log.Println(err)
 			}
 			continue
 		}
+
+		setTCPOptions(conn)
 
 		if debug {
 			log.Println("Session listener accepted connection from", conn.RemoteAddr())
@@ -35,10 +36,17 @@ func sessionListener(addr string) {
 }
 
 func sessionConnectionHandler(conn net.Conn) {
-	conn.SetDeadline(time.Now().Add(messageTimeout))
+	defer conn.Close()
+
+	if err := conn.SetDeadline(time.Now().Add(messageTimeout)); err != nil {
+		if debug {
+			log.Println("Weird error setting deadline:", err, "on", conn.RemoteAddr())
+		}
+		return
+	}
+
 	message, err := protocol.ReadMessage(conn)
 	if err != nil {
-		conn.Close()
 		return
 	}
 
@@ -51,7 +59,6 @@ func sessionConnectionHandler(conn net.Conn) {
 
 		if ses == nil {
 			protocol.WriteMessage(conn, protocol.ResponseNotFound)
-			conn.Close()
 			return
 		}
 
@@ -60,24 +67,26 @@ func sessionConnectionHandler(conn net.Conn) {
 				log.Println("Failed to add", conn.RemoteAddr(), "to session", ses)
 			}
 			protocol.WriteMessage(conn, protocol.ResponseAlreadyConnected)
-			conn.Close()
 			return
 		}
 
-		err := protocol.WriteMessage(conn, protocol.ResponseSuccess)
-		if err != nil {
+		if err := protocol.WriteMessage(conn, protocol.ResponseSuccess); err != nil {
 			if debug {
 				log.Println("Failed to send session join response to ", conn.RemoteAddr(), "for", ses)
 			}
-			conn.Close()
 			return
 		}
-		conn.SetDeadline(time.Time{})
+
+		if err := conn.SetDeadline(time.Time{}); err != nil {
+			if debug {
+				log.Println("Weird error setting deadline:", err, "on", conn.RemoteAddr())
+			}
+			return
+		}
 	default:
 		if debug {
 			log.Println("Unexpected message from", conn.RemoteAddr(), message)
 		}
 		protocol.WriteMessage(conn, protocol.ResponseUnexpectedMessage)
-		conn.Close()
 	}
 }
