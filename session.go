@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/ratelimit"
 	"github.com/syncthing/relaysrv/protocol"
 
 	syncthingprotocol "github.com/syncthing/protocol"
@@ -25,10 +26,12 @@ type session struct {
 	serverkey []byte
 	clientkey []byte
 
+	rateLimit func(bytes int64)
+
 	conns chan net.Conn
 }
 
-func newSession() *session {
+func newSession(sessionRateLimit, globalRateLimit *ratelimit.Bucket) *session {
 	serverkey := make([]byte, 32)
 	_, err := rand.Read(serverkey)
 	if err != nil {
@@ -44,6 +47,7 @@ func newSession() *session {
 	ses := &session{
 		serverkey: serverkey,
 		clientkey: clientkey,
+		rateLimit: makeRateLimitFunc(sessionRateLimit, globalRateLimit),
 		conns:     make(chan net.Conn),
 	}
 
@@ -112,12 +116,12 @@ func (s *session) Serve() {
 			errors := make(chan error, 2)
 
 			go func() {
-				errors <- proxy(conns[0], conns[1])
+				errors <- s.proxy(conns[0], conns[1])
 				wg.Done()
 			}()
 
 			go func() {
-				errors <- proxy(conns[1], conns[0])
+				errors <- s.proxy(conns[1], conns[0])
 				wg.Done()
 			}()
 
@@ -169,20 +173,25 @@ func (s *session) GetServerInvitationMessage(from syncthingprotocol.DeviceID) pr
 	}
 }
 
-func proxy(c1, c2 net.Conn) error {
+func (s *session) proxy(c1, c2 net.Conn) error {
 	if debug {
 		log.Println("Proxy", c1.RemoteAddr(), "->", c2.RemoteAddr())
 	}
-	buf := make([]byte, 1024)
+
+	buf := make([]byte, 65536)
 	for {
 		c1.SetReadDeadline(time.Now().Add(networkTimeout))
-		n, err := c1.Read(buf[0:])
+		n, err := c1.Read(buf)
 		if err != nil {
 			return err
 		}
 
 		if debug {
 			log.Printf("%d bytes from %s to %s", n, c1.RemoteAddr(), c2.RemoteAddr())
+		}
+
+		if s.rateLimit != nil {
+			s.rateLimit(int64(n))
 		}
 
 		c2.SetWriteDeadline(time.Now().Add(networkTimeout))
@@ -195,4 +204,46 @@ func proxy(c1, c2 net.Conn) error {
 
 func (s *session) String() string {
 	return fmt.Sprintf("<%s/%s>", hex.EncodeToString(s.clientkey)[:5], hex.EncodeToString(s.serverkey)[:5])
+}
+
+func makeRateLimitFunc(sessionRateLimit, globalRateLimit *ratelimit.Bucket) func(int64) {
+	// This may be a case of super duper premature optimization... We build an
+	// optimized function to do the rate limiting here based on what we need
+	// to do and then use it in the loop.
+
+	if sessionRateLimit == nil && globalRateLimit == nil {
+		// No limiting needed. We could equally well return a func(int64){} and
+		// not do a nil check were we use it, but I think the nil check there
+		// makes it clear that there will be no limiting if none is
+		// configured...
+		return nil
+	}
+
+	if sessionRateLimit == nil {
+		// We only have a global limiter
+		return func(bytes int64) {
+			globalRateLimit.Wait(bytes)
+		}
+	}
+
+	if globalRateLimit == nil {
+		// We only have a session limiter
+		return func(bytes int64) {
+			sessionRateLimit.Wait(bytes)
+		}
+	}
+
+	// We have both. Queue the bytes on both the global and session specific
+	// rate limiters. Wait for both in parallell, so that the actual send
+	// happens when both conditions are satisfied. In practice this just means
+	// wait the longer of the two times.
+	return func(bytes int64) {
+		t0 := sessionRateLimit.Take(bytes)
+		t1 := globalRateLimit.Take(bytes)
+		if t0 > t1 {
+			time.Sleep(t0)
+		} else {
+			time.Sleep(t1)
+		}
+	}
 }
