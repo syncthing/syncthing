@@ -49,7 +49,7 @@
           </a>
         </li>
         <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog" aria-label="Edit"></span>&nbsp;<span translate>Actions</span><span class="caret"></span></a>
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog"></span>&nbsp;<span translate>Actions</span> <span class="caret"></span></a>
           <ul class="dropdown-menu">
             <li><a href="" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span>&nbsp;<span translate>Settings</span></a></li>
             <li><a href="" ng-click="idDevice()"><span class="glyphicon glyphicon-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
@@ -342,8 +342,8 @@
                     <td class="text-right">{{connectionsTotal.outbps | binary}}B/s ({{connectionsTotal.outBytesTotal | binary}}B)</td>
                   </tr>
                   <tr>
-                    <th><span class="glyphicon glyphicon-home"></span>&nbsp;<span translate>Local State (Total)</span> </th>
-                    <td class="text-right">{{foldersTotalLocalFiles | alwaysNumber}} <span translate>items</span>, ~{{ foldersTotalLocalBytes | binary}}B</td>
+                    <th><span class="glyphicon glyphicon-home"></span>&nbsp;<span translate>Local State (Total)</span></th>
+                    <td class="text-right">{{localStateTotal.files | alwaysNumber}} <span translate>items</span>, ~{{localStateTotal.bytes | binary}}B</td>
                   </tr>
                   <tr>
                     <th><span class="glyphicon glyphicon-th"></span>&nbsp;<span translate>RAM Utilization</span></th>
@@ -579,7 +579,7 @@
               <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice._addressesStr"></input>
               <p translate class="help-block">Enter comma separated addresses ("ip:port", "host:port") or "dynamic" to perform automatic discovery of the address.</p>
             </div>
-            <div ng-if="!editingSelf" class="form-group">
+            <div class="form-group">
               <label translate>Compression</label>
               <select class="form-control" ng-model="currentDevice.compression">
                 <option value="always" translate>All Data</option>
@@ -587,7 +587,7 @@
                 <option value="never" translate>Off</option>
               </select>
             </div>
-            <div ng-if="!editingSelf" class="form-group">
+            <div class="form-group">
               <div class="checkbox">
                 <label>
                   <input type="checkbox" ng-model="currentDevice.introducer"> <span translate>Introducer</span>
@@ -596,7 +596,7 @@
               </div>
             </div>
 
-            <div class="row" ng-if="!editingSelf">
+            <div class="row">
               <div class="col-md-12">
                 <div class="form-group">
                   <label translate for="folders">Share Folders With Device</label>
@@ -619,7 +619,7 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Save</span></button>
           <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
-          <button ng-if="editingExisting && !editingSelf" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteDevice()"><span class="glyphicon glyphicon-minus"></span>&nbsp;<span translate>Delete</span></button>
+          <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteDevice()"><span class="glyphicon glyphicon-minus"></span>&nbsp;<span translate>Delete</span></button>
         </div>
       </div>
     </div>
@@ -787,7 +787,7 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Save</span></button>
           <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
-          <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteFolder()"><span class="glyphicon glyphicon-minus"></span>&nbsp;<span translate>Delete</span></button>
+          <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteFolder(currentFolder.id)"><span class="glyphicon glyphicon-minus"></span>&nbsp;<span translate>Delete</span></button>
           <button id="editIgnoresButton" ng-if="editingExisting" type="button" class="btn btn-default pull-left btn-sm" ng-click="editIgnores()"><span class="glyphicon glyphicon-eye-close"></span>&nbsp;<span translate>Ignore Patterns</span></button>
         </div>
       </div>
