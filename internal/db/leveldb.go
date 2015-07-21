@@ -236,7 +236,7 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 			if fs[fsi].IsInvalid() {
 				ldbRemoveFromGlobal(snap, batch, folder, device, newName)
 			} else {
-				ldbUpdateGlobal(snap, batch, folder, device, newName, fs[fsi].Version)
+				ldbUpdateGlobal(snap, batch, folder, device, fs[fsi])
 			}
 			fsi++
 
@@ -259,7 +259,7 @@ func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.File
 				if fs[fsi].IsInvalid() {
 					ldbRemoveFromGlobal(snap, batch, folder, device, newName)
 				} else {
-					ldbUpdateGlobal(snap, batch, folder, device, newName, fs[fsi].Version)
+					ldbUpdateGlobal(snap, batch, folder, device, fs[fsi])
 				}
 			} else if debugDB {
 				l.Debugln("generic replace; equal - ignore")
@@ -348,7 +348,7 @@ func ldbReplaceWithDelete(db *leveldb.DB, folder, device []byte, fs []protocol.F
 			}
 			batch.Put(dbi.Key(), bs)
 			mtimeRepo.DeleteMtime(tf.Name)
-			ldbUpdateGlobal(db, batch, folder, device, deviceKeyName(dbi.Key()), f.Version)
+			ldbUpdateGlobal(db, batch, folder, device, f)
 			return ts
 		}
 		return 0
@@ -392,7 +392,7 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) in
 			if f.IsInvalid() {
 				ldbRemoveFromGlobal(snap, batch, folder, device, name)
 			} else {
-				ldbUpdateGlobal(snap, batch, folder, device, name, f.Version)
+				ldbUpdateGlobal(snap, batch, folder, device, f)
 			}
 			continue
 		}
@@ -411,7 +411,7 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) in
 			if f.IsInvalid() {
 				ldbRemoveFromGlobal(snap, batch, folder, device, name)
 			} else {
-				ldbUpdateGlobal(snap, batch, folder, device, name, f.Version)
+				ldbUpdateGlobal(snap, batch, folder, device, f)
 			}
 		}
 
@@ -464,11 +464,12 @@ func ldbInsert(batch dbWriter, folder, device []byte, file protocol.FileInfo) in
 // ldbUpdateGlobal adds this device+version to the version list for the given
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
-func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device, file []byte, version protocol.Vector) bool {
+func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device []byte, file protocol.FileInfo) bool {
 	if debugDB {
-		l.Debugf("update global; folder=%q device=%v file=%q version=%d", folder, protocol.DeviceIDFromBytes(device), file, version)
+		l.Debugf("update global; folder=%q device=%v file=%q version=%d", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
 	}
-	gk := globalKey(folder, file)
+	name := []byte(file.Name)
+	gk := globalKey(folder, name)
 	svl, err := db.Get(gk, nil)
 	if err != nil && err != leveldb.ErrNotFound {
 		panic(err)
@@ -485,7 +486,7 @@ func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device, file []byte, v
 
 		for i := range fl.versions {
 			if bytes.Compare(fl.versions[i].device, device) == 0 {
-				if fl.versions[i].version.Equal(version) {
+				if fl.versions[i].version.Equal(file.Version) {
 					// No need to do anything
 					return false
 				}
@@ -497,21 +498,38 @@ func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device, file []byte, v
 
 	nv := fileVersion{
 		device:  device,
-		version: version,
+		version: file.Version,
 	}
+
+	// Find a position in the list to insert this file. The file at the front
+	// of the list is the newer, the "global".
 	for i := range fl.versions {
-		// We compare  against ConcurrentLesser as well here because we need
-		// to enforce a consistent ordering of versions even in the case of
-		// conflicts.
-		if comp := fl.versions[i].version.Compare(version); comp == protocol.Equal || comp == protocol.Lesser || comp == protocol.ConcurrentLesser {
-			t := append(fl.versions, fileVersion{})
-			copy(t[i+1:], t[i:])
-			t[i] = nv
-			fl.versions = t
+		switch fl.versions[i].version.Compare(file.Version) {
+		case protocol.Equal, protocol.Lesser:
+			// The version at this point in the list is equal to or lesser
+			// ("older") than us. We insert ourselves in front of it.
+			fl.versions = insertVersion(fl.versions, i, nv)
 			goto done
+
+		case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
+			// The version at this point is in conflict with us. We must pull
+			// the actual file metadata to determine who wins. If we win, we
+			// insert ourselves in front of the loser here. (The "Lesser" and
+			// "Greater" in the condition above is just based on the device
+			// IDs in the version vector, which is not the only thing we use
+			// to determine the winner.)
+			of, ok := ldbGet(db, folder, fl.versions[i].device, name)
+			if !ok {
+				panic("file referenced in version list does not exist")
+			}
+			if file.WinsConflict(of) {
+				fl.versions = insertVersion(fl.versions, i, nv)
+				goto done
+			}
 		}
 	}
 
+	// We didn't find a position for an insert above, so append to the end.
 	fl.versions = append(fl.versions, nv)
 
 done:
@@ -522,6 +540,13 @@ done:
 	batch.Put(gk, fl.MustMarshalXDR())
 
 	return true
+}
+
+func insertVersion(vl []fileVersion, i int, v fileVersion) []fileVersion {
+	t := append(vl, fileVersion{})
+	copy(t[i+1:], t[i:])
+	t[i] = v
+	return t
 }
 
 // ldbRemoveFromGlobal removes the device from the global version list for the
@@ -644,7 +669,7 @@ func ldbWithAllFolderTruncated(db *leveldb.DB, folder []byte, fn func(device []b
 	}
 }
 
-func ldbGet(db *leveldb.DB, folder, device, file []byte) (protocol.FileInfo, bool) {
+func ldbGet(db dbReader, folder, device, file []byte) (protocol.FileInfo, bool) {
 	nk := deviceKey(folder, device, file)
 	bs, err := db.Get(nk, nil)
 	if err == leveldb.ErrNotFound {
