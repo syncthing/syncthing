@@ -79,6 +79,7 @@ type FolderConfiguration struct {
 	Pullers         int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
 	Hashers         int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
 	Order           PullOrder                   `xml:"order" json:"order"`
+	SkipHashOnCopy  bool                        `xml:"skipHashOnCopy" json:"skipHashOnCopy"`
 
 	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 
