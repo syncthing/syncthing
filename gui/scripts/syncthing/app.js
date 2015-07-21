@@ -22,20 +22,26 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
     $httpProvider.interceptors.push(function () {
         return {
             response: function (response) {
-                var responseVersion = response.headers()['x-syncthing-version'];
-                if (!guiVersion) {
-                    guiVersion = responseVersion;
-                } else if (guiVersion != responseVersion) {
-                    document.location.reload(true);
-                }
-                if (!deviceId) {
-                    deviceId = response.headers()['x-syncthing-id'];
-                    if (deviceId) {
-                        var deviceIdShort = deviceId.substring(0, 5);
-                        $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIdShort;
-                        $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIdShort;
+                var headers = response.headers();
+                
+                // angular template cache sends no headers
+                if(Object.keys(headers).length > 0) {
+                    var responseVersion = headers['x-syncthing-version'];
+                    if (!guiVersion) {
+                        guiVersion = responseVersion;
+                    } else if (guiVersion != responseVersion) {
+                        document.location.reload(true);
+                    }
+                    if (!deviceId) {
+                        deviceId = headers['x-syncthing-id'];
+                        if (deviceId) {
+                            var deviceIdShort = deviceId.substring(0, 5);
+                            $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIdShort;
+                            $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIdShort;
+                        }
                     }
                 }
+                
                 return response;
             }
         };
