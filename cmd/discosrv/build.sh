@@ -3,7 +3,7 @@ set -euo pipefail
 set nullglob
 
 echo Get dependencies
-go get -d
+go get -d -tags purego
 
 rm -rf discosrv-*-*
 
@@ -15,7 +15,7 @@ build() {
 	mkdir "$target"
 	if [ -f discosrv ] ; then
 		mv discosrv "$target"
-		tar zcvf "$target.tar.gz" "$target" 
+		tar zcvf "$target.tar.gz" "$target"
 	fi
 	if [ -f discosrv.exe ] ; then
 	      	mv discosrv.exe "$target"

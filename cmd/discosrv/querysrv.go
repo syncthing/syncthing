@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/url"
 	"time"
 
 	"github.com/golang/groupcache/lru"
@@ -70,7 +71,7 @@ func (s *querysrv) Serve() {
 
 		switch magic {
 		case discover.AnnouncementMagic:
-			err := s.handleAnnounceV2(addr, buf)
+			err := s.handleAnnounce(addr, buf)
 			globalStats.Announce()
 			if err != nil {
 				log.Println("Announce:", err)
@@ -78,7 +79,7 @@ func (s *querysrv) Serve() {
 			}
 
 		case discover.QueryMagic:
-			err := s.handleQueryV2(conn, addr, buf)
+			err := s.handleQuery(conn, addr, buf)
 			globalStats.Query()
 			if err != nil {
 				log.Println("Query:", err)
@@ -95,7 +96,7 @@ func (s *querysrv) Stop() {
 	panic("stop unimplemented")
 }
 
-func (s *querysrv) handleAnnounceV2(addr *net.UDPAddr, buf []byte) error {
+func (s *querysrv) handleAnnounce(addr *net.UDPAddr, buf []byte) error {
 	var pkt discover.Announce
 	err := pkt.UnmarshalXDR(buf)
 	if err != nil && err != io.EOF {
@@ -103,15 +104,7 @@ func (s *querysrv) handleAnnounceV2(addr *net.UDPAddr, buf []byte) error {
 	}
 
 	var id protocol.DeviceID
-	if len(pkt.This.ID) == 32 {
-		// Raw node ID
-		copy(id[:], pkt.This.ID)
-	} else {
-		err = id.UnmarshalText(pkt.This.ID)
-		if err != nil {
-			return err
-		}
-	}
+	copy(id[:], pkt.This.ID)
 
 	if id == protocol.LocalDeviceID {
 		return fmt.Errorf("Rejecting announce for local device ID from %v", addr)
@@ -123,11 +116,40 @@ func (s *querysrv) handleAnnounceV2(addr *net.UDPAddr, buf []byte) error {
 	}
 
 	for _, annAddr := range pkt.This.Addresses {
-		tip := annAddr.IP
-		if len(tip) == 0 {
-			tip = addr.IP
+		uri, err := url.Parse(annAddr)
+		if err != nil {
+			continue
 		}
-		if err := s.updateAddress(tx, id, tip, annAddr.Port); err != nil {
+
+		host, port, err := net.SplitHostPort(uri.Host)
+		if err != nil {
+			continue
+		}
+
+		if len(host) == 0 {
+			uri.Host = net.JoinHostPort(addr.IP.String(), port)
+		}
+
+		if err := s.updateAddress(tx, id, uri.String()); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	_, err = tx.Stmt(s.prep["deleteRelay"]).Exec(id.String())
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	for _, relay := range pkt.This.Relays {
+		uri, err := url.Parse(relay.Address)
+		if err != nil {
+			continue
+		}
+
+		_, err = tx.Stmt(s.prep["insertRelay"]).Exec(id.String(), uri, relay.Latency)
+		if err != nil {
 			tx.Rollback()
 			return err
 		}
@@ -141,7 +163,7 @@ func (s *querysrv) handleAnnounceV2(addr *net.UDPAddr, buf []byte) error {
 	return tx.Commit()
 }
 
-func (s *querysrv) handleQueryV2(conn *net.UDPConn, addr *net.UDPAddr, buf []byte) error {
+func (s *querysrv) handleQuery(conn *net.UDPConn, addr *net.UDPAddr, buf []byte) error {
 	var pkt discover.Query
 	err := pkt.UnmarshalXDR(buf)
 	if err != nil {
@@ -149,17 +171,14 @@ func (s *querysrv) handleQueryV2(conn *net.UDPConn, addr *net.UDPAddr, buf []byt
 	}
 
 	var id protocol.DeviceID
-	if len(pkt.DeviceID) == 32 {
-		// Raw node ID
-		copy(id[:], pkt.DeviceID)
-	} else {
-		err = id.UnmarshalText(pkt.DeviceID)
-		if err != nil {
-			return err
-		}
-	}
+	copy(id[:], pkt.DeviceID)
 
 	addrs, err := s.getAddresses(id)
+	if err != nil {
+		return err
+	}
+
+	relays, err := s.getRelays(id)
 	if err != nil {
 		return err
 	}
@@ -170,6 +189,7 @@ func (s *querysrv) handleQueryV2(conn *net.UDPConn, addr *net.UDPAddr, buf []byt
 			This: discover.Device{
 				ID:        pkt.DeviceID,
 				Addresses: addrs,
+				Relays:    relays,
 			},
 		}
 
@@ -222,14 +242,14 @@ func (s *querysrv) updateDevice(tx *sql.Tx, device protocol.DeviceID) error {
 	return nil
 }
 
-func (s *querysrv) updateAddress(tx *sql.Tx, device protocol.DeviceID, ip net.IP, port uint16) error {
-	res, err := tx.Stmt(s.prep["updateAddress"]).Exec(device.String(), ip.String(), port)
+func (s *querysrv) updateAddress(tx *sql.Tx, device protocol.DeviceID, uri string) error {
+	res, err := tx.Stmt(s.prep["updateAddress"]).Exec(device.String(), uri)
 	if err != nil {
 		return err
 	}
 
 	if rows, _ := res.RowsAffected(); rows == 0 {
-		_, err := tx.Stmt(s.prep["insertAddress"]).Exec(device.String(), ip.String(), port)
+		_, err := tx.Stmt(s.prep["insertAddress"]).Exec(device.String(), uri)
 		if err != nil {
 			return err
 		}
@@ -238,27 +258,47 @@ func (s *querysrv) updateAddress(tx *sql.Tx, device protocol.DeviceID, ip net.IP
 	return nil
 }
 
-func (s *querysrv) getAddresses(device protocol.DeviceID) ([]discover.Address, error) {
+func (s *querysrv) getAddresses(device protocol.DeviceID) ([]string, error) {
 	rows, err := s.prep["selectAddress"].Query(device.String())
 	if err != nil {
 		return nil, err
 	}
 
-	var res []discover.Address
+	var res []string
 	for rows.Next() {
 		var addr string
-		var port int
-		err := rows.Scan(&addr, &port)
+
+		err := rows.Scan(&addr)
 		if err != nil {
 			log.Println("Scan:", err)
 			continue
 		}
-		ip := net.ParseIP(addr)
-		bs := ip.To4()
-		if bs == nil {
-			bs = ip.To16()
+		res = append(res, addr)
+	}
+
+	return res, nil
+}
+
+func (s *querysrv) getRelays(device protocol.DeviceID) ([]discover.Relay, error) {
+	rows, err := s.prep["selectRelay"].Query(device.String())
+	if err != nil {
+		return nil, err
+	}
+
+	var res []discover.Relay
+	for rows.Next() {
+		var addr string
+		var latency int32
+
+		err := rows.Scan(&addr, &latency)
+		if err != nil {
+			log.Println("Scan:", err)
+			continue
 		}
-		res = append(res, discover.Address{IP: []byte(bs), Port: uint16(port)})
+		res = append(res, discover.Relay{
+			Address: addr,
+			Latency: latency,
+		})
 	}
 
 	return res, nil
