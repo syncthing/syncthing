@@ -15,11 +15,12 @@ var syncthing = angular.module('syncthing', [
 ]);
 
 var urlbase = 'rest';
-var guiVersion = null;
-var deviceId = null;
 
 syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
     $httpProvider.interceptors.push(function xHeadersResponseInterceptor() {
+        var guiVersion = null;
+        var deviceId = null;
+        
         return {
             response: function onResponse(response) {
                 var headers = response.headers();
