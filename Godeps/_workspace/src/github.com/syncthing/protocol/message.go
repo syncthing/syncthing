@@ -58,6 +58,31 @@ func (f FileInfo) HasPermissionBits() bool {
 	return f.Flags&FlagNoPermBits == 0
 }
 
+// WinsConflict returns true if "f" is the one to choose when it is in
+// conflict with "other".
+func (f FileInfo) WinsConflict(other FileInfo) bool {
+	// If a modification is in conflict with a delete, we pick the
+	// modification.
+	if !f.IsDeleted() && other.IsDeleted() {
+		return true
+	}
+	if f.IsDeleted() && !other.IsDeleted() {
+		return false
+	}
+
+	// The one with the newer modification time wins.
+	if f.Modified > other.Modified {
+		return true
+	}
+	if f.Modified < other.Modified {
+		return false
+	}
+
+	// The modification times were equal. Use the device ID in the version
+	// vector as tie breaker.
+	return f.Version.Compare(other.Version) == ConcurrentGreater
+}
+
 type BlockInfo struct {
 	Offset int64 // noencode (cache only)
 	Size   int32
