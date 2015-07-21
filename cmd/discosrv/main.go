@@ -8,10 +8,8 @@ import (
 	"log"
 	"net"
 	"os"
-	"strings"
 	"time"
 
-	_ "github.com/lib/pq"
 	"github.com/thejerf/suture"
 )
 
@@ -19,9 +17,10 @@ var (
 	lruSize     = 10240
 	limitAvg    = 5
 	limitBurst  = 20
-	dbConn      = getEnvDefault("DISCOSRV_DB", "postgres://user:password@localhost/discosrv")
 	globalStats stats
 	statsFile   string
+	backend     = "ql"
+	dsn         = getEnvDefault("DISCOSRV_DB_DSN", "memory://discosrv")
 )
 
 func main() {
@@ -35,30 +34,26 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
-	flag.StringVar(&listen, "listen", ":22026", "Listen address")
+	flag.StringVar(&listen, "listen", ":22027", "Listen address")
 	flag.IntVar(&lruSize, "limit-cache", lruSize, "Limiter cache entries")
 	flag.IntVar(&limitAvg, "limit-avg", limitAvg, "Allowed average package rate, per 10 s")
 	flag.IntVar(&limitBurst, "limit-burst", limitBurst, "Allowed burst size, packets")
 	flag.StringVar(&statsFile, "stats-file", statsFile, "File to write periodic operation stats to")
+	flag.StringVar(&backend, "db-backend", backend, "Database backend to use")
+	flag.StringVar(&dsn, "db-dsn", dsn, "Database DSN")
 	flag.Parse()
 
 	addr, _ := net.ResolveUDPAddr("udp", listen)
 
-	if !strings.Contains(dbConn, "sslmode=") {
-		dbConn += "?sslmode=disable"
-	}
-
 	var err error
-	db, err := sql.Open("postgres", dbConn)
+	db, err := sql.Open(backend, dsn)
+	if err != nil {
+		log.Fatalln("sql.Open:", err)
+	}
+	prep, err := setup(backend, db)
 	if err != nil {
 		log.Fatalln("Setup:", err)
 	}
-	err = setupDB(db)
-	if err != nil {
-		log.Fatalln("Setup:", err)
-	}
-
-	prep, err := compileStatements(db)
 
 	main := suture.NewSimple("main")
 

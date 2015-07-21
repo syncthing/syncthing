@@ -18,7 +18,7 @@ func (s *cleansrv) Serve() {
 	for {
 		time.Sleep(next(s.intv))
 
-		err := s.cleanOldAddresses()
+		err := s.cleanOldEntries()
 		if err != nil {
 			log.Println("Clean:", err)
 		}
@@ -29,7 +29,7 @@ func (s *cleansrv) Stop() {
 	panic("stop unimplemented")
 }
 
-func (s *cleansrv) cleanOldAddresses() (err error) {
+func (s *cleansrv) cleanOldEntries() (err error) {
 	var tx *sql.Tx
 	tx, err = s.db.Begin()
 	if err != nil {
@@ -52,6 +52,14 @@ func (s *cleansrv) cleanOldAddresses() (err error) {
 		log.Printf("Clean: %d old addresses", rows)
 	}
 
+	res, err = tx.Stmt(s.prep["cleanRelay"]).Exec()
+	if err != nil {
+		return err
+	}
+	if rows, _ := res.RowsAffected(); rows > 0 {
+		log.Printf("Clean: %d old relays", rows)
+	}
+
 	res, err = tx.Stmt(s.prep["cleanDevice"]).Exec()
 	if err != nil {
 		return err
@@ -60,7 +68,7 @@ func (s *cleansrv) cleanOldAddresses() (err error) {
 		log.Printf("Clean: %d old devices", rows)
 	}
 
-	var devs, addrs int
+	var devs, addrs, relays int
 	row := tx.Stmt(s.prep["countDevice"]).QueryRow()
 	if err = row.Scan(&devs); err != nil {
 		return err
@@ -69,7 +77,11 @@ func (s *cleansrv) cleanOldAddresses() (err error) {
 	if err = row.Scan(&addrs); err != nil {
 		return err
 	}
+	row = tx.Stmt(s.prep["countRelay"]).QueryRow()
+	if err = row.Scan(&relays); err != nil {
+		return err
+	}
 
-	log.Printf("Database: %d devices, %d addresses", devs, addrs)
+	log.Printf("Database: %d devices, %d addresses, %d relays", devs, addrs, relays)
 	return nil
 }
