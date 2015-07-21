@@ -16,6 +16,7 @@ var syncthing = angular.module('syncthing', [
     'syncthing.device',
     'syncthing.folder',
     'syncthing.settings',
+    'syncthing.transfer',
     'syncthing.usagereport'
 ]);
 
