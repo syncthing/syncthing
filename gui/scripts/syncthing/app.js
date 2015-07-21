@@ -19,26 +19,32 @@ var guiVersion = null;
 var deviceId = null;
 
 syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
-    $httpProvider.interceptors.push(function () {
+    $httpProvider.interceptors.push(function xHeadersResponseInterceptor() {
         return {
-            response: function (response) {
+            response: function onResponse(response) {
                 var headers = response.headers();
+                var responseVersion;
+                var deviceIdShort;
                 
                 // angular template cache sends no headers
-                if(Object.keys(headers).length > 0) {
-                    var responseVersion = headers['x-syncthing-version'];
-                    if (!guiVersion) {
-                        guiVersion = responseVersion;
-                    } else if (guiVersion != responseVersion) {
-                        document.location.reload(true);
-                    }
-                    if (!deviceId) {
-                        deviceId = headers['x-syncthing-id'];
-                        if (deviceId) {
-                            var deviceIdShort = deviceId.substring(0, 5);
-                            $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIdShort;
-                            $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIdShort;
-                        }
+                if(Object.keys(headers).length === 0) {
+                    return response;
+                }
+                
+                responseVersion = headers['x-syncthing-version'];
+                
+                if (!guiVersion) {
+                    guiVersion = responseVersion;
+                } else if (guiVersion != responseVersion) {
+                    document.location.reload(true);
+                }
+                
+                if (!deviceId) {
+                    deviceId = headers['x-syncthing-id'];
+                    if (deviceId) {
+                        deviceIdShort = deviceId.substring(0, 5);
+                        $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIdShort;
+                        $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIdShort;
                     }
                 }
                 
