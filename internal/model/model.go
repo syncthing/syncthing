@@ -491,6 +491,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	}
 
 	m.fmut.RLock()
+	cfg := m.folderCfgs[folder]
 	files, ok := m.folderFiles[folder]
 	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
@@ -505,24 +506,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 		l.Fatalf("Index for nonexistant folder %q", folder)
 	}
 
-	for i := 0; i < len(fs); {
-		if fs[i].Flags&^protocol.FlagsAll != 0 {
-			if debug {
-				l.Debugln("dropping update for file with unknown bits set", fs[i])
-			}
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else if symlinkInvalid(folder, fs[i]) {
-			if debug {
-				l.Debugln("dropping update for unsupported symlink", fs[i])
-			}
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else {
-			i++
-		}
-	}
-
+	fs = filterIndex(folder, fs, cfg.IgnoreDelete)
 	files.Replace(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -552,6 +536,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 
 	m.fmut.RLock()
 	files := m.folderFiles[folder]
+	cfg := m.folderCfgs[folder]
 	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
@@ -559,24 +544,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 		l.Fatalf("IndexUpdate for nonexistant folder %q", folder)
 	}
 
-	for i := 0; i < len(fs); {
-		if fs[i].Flags&^protocol.FlagsAll != 0 {
-			if debug {
-				l.Debugln("dropping update for file with unknown bits set", fs[i])
-			}
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else if symlinkInvalid(folder, fs[i]) {
-			if debug {
-				l.Debugln("dropping update for unsupported symlink", fs[i])
-			}
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else {
-			i++
-		}
-	}
-
+	fs = filterIndex(folder, fs, cfg.IgnoreDelete)
 	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -1786,6 +1754,33 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	return true
+}
+
+func filterIndex(folder string, fs []protocol.FileInfo, dropDeletes bool) []protocol.FileInfo {
+	for i := 0; i < len(fs); {
+		if fs[i].Flags&^protocol.FlagsAll != 0 {
+			if debug {
+				l.Debugln("dropping update for file with unknown bits set", fs[i])
+			}
+			fs[i] = fs[len(fs)-1]
+			fs = fs[:len(fs)-1]
+		} else if fs[i].IsDeleted() && dropDeletes {
+			if debug {
+				l.Debugln("dropping update for undesired delete", fs[i])
+			}
+			fs[i] = fs[len(fs)-1]
+			fs = fs[:len(fs)-1]
+		} else if symlinkInvalid(folder, fs[i]) {
+			if debug {
+				l.Debugln("dropping update for unsupported symlink", fs[i])
+			}
+			fs[i] = fs[len(fs)-1]
+			fs = fs[:len(fs)-1]
+		} else {
+			i++
+		}
+	}
+	return fs
 }
 
 func symlinkInvalid(folder string, fi db.FileIntf) bool {

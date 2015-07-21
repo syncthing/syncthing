@@ -1192,3 +1192,40 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	}
 	b.ReportAllocs()
 }
+
+func TestIgnoreDelete(t *testing.T) {
+	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
+
+	// This folder should ignore external deletes
+	cfg := defaultFolderConfig
+	cfg.IgnoreDelete = true
+
+	m.AddFolder(cfg)
+	m.ServeBackground()
+	m.StartFolderRW("default")
+	m.ScanFolder("default")
+
+	// Get a currently existing file
+	f, ok := m.CurrentGlobalFile("default", "foo")
+	if !ok {
+		t.Fatal("foo should exist")
+	}
+
+	// Mark it for deletion
+	f.Flags = protocol.FlagDeleted
+	f.Version = f.Version.Update(142) // arbitrary short remote ID
+	f.Blocks = nil
+
+	// Send the index
+	m.Index(device1, "default", []protocol.FileInfo{f}, 0, nil)
+
+	// Make sure we ignored it
+	f, ok = m.CurrentGlobalFile("default", "foo")
+	if !ok {
+		t.Fatal("foo should exist")
+	}
+	if f.IsDeleted() {
+		t.Fatal("foo should not be marked for deletion")
+	}
+}
