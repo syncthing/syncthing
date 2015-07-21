@@ -5,6 +5,8 @@ ignoreDelete
 incoming index updates. When set, incoming updates with the delete flag set
 are ignored.
 
+.. note:: This option should normally be set to ``false``.
+
 Example Scenario
 ----------------
 
