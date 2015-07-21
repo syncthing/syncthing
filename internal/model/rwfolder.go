@@ -78,15 +78,16 @@ type rwFolder struct {
 	progressEmitter  *ProgressEmitter
 	virtualMtimeRepo *db.VirtualMtimeRepo
 
-	folder      string
-	dir         string
-	scanIntv    time.Duration
-	versioner   versioner.Versioner
-	ignorePerms bool
-	copiers     int
-	pullers     int
-	shortID     uint64
-	order       config.PullOrder
+	folder         string
+	dir            string
+	scanIntv       time.Duration
+	versioner      versioner.Versioner
+	ignorePerms    bool
+	copiers        int
+	pullers        int
+	shortID        uint64
+	order          config.PullOrder
+	skipHashOnCopy bool
 
 	stop        chan struct{}
 	queue       *jobQueue
@@ -112,14 +113,15 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		progressEmitter:  m.progressEmitter,
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(m.db, cfg.ID),
 
-		folder:      cfg.ID,
-		dir:         cfg.Path(),
-		scanIntv:    time.Duration(cfg.RescanIntervalS) * time.Second,
-		ignorePerms: cfg.IgnorePerms,
-		copiers:     cfg.Copiers,
-		pullers:     cfg.Pullers,
-		shortID:     shortID,
-		order:       cfg.Order,
+		folder:         cfg.ID,
+		dir:            cfg.Path(),
+		scanIntv:       time.Duration(cfg.RescanIntervalS) * time.Second,
+		ignorePerms:    cfg.IgnorePerms,
+		copiers:        cfg.Copiers,
+		pullers:        cfg.Pullers,
+		shortID:        shortID,
+		order:          cfg.Order,
+		skipHashOnCopy: cfg.SkipHashOnCopy,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -1100,20 +1102,22 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 					return false
 				}
 
-				hash, err := scanner.VerifyBuffer(buf, block)
-				if err != nil {
-					if hash != nil {
-						if debug {
-							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
+				if !p.skipHashOnCopy {
+					hash, err := scanner.VerifyBuffer(buf, block)
+					if err != nil {
+						if hash != nil {
+							if debug {
+								l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
+							}
+							err = p.model.finder.Fix(folder, file, index, block.Hash, hash)
+							if err != nil {
+								l.Warnln("finder fix:", err)
+							}
+						} else if debug {
+							l.Debugln("Finder failed to verify buffer", err)
 						}
-						err = p.model.finder.Fix(folder, file, index, block.Hash, hash)
-						if err != nil {
-							l.Warnln("finder fix:", err)
-						}
-					} else if debug {
-						l.Debugln("Finder failed to verify buffer", err)
+						return false
 					}
-					return false
 				}
 
 				_, err = dstFd.WriteAt(buf, block.Offset)
