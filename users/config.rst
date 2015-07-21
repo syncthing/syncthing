@@ -152,7 +152,7 @@ device
 versioning
     Specifies a versioning configuration.
 
-    .. note:: Needs explanation.
+    seealso:: :ref:`versioning`
 
 copiers, pullers, hashers
     The number of copier, puller and hasher routines to use, or zero for the
@@ -235,7 +235,7 @@ IPv6 address (``2001:db8::23:42``)
 
 IPv6 address and port (``[2001:db8::23:42]:12345``)
     The address and port is used as given. The address must be enclosed in
-    angled brackets.
+    square brackets.
 
 ``dynamic``
     The word ``dynamic`` means to use local and global discovery to find the
@@ -275,7 +275,7 @@ address
 
     IPv6 address and port (``[::1]:8384``)
         The address and port is used as given. The address must be enclosed in
-        angled brackets.
+        square brackets.
 
     Wildcard and port (``0.0.0.0:12345``, ``[::]:12345``, ``:12345``)
         These are equivalent and will result in Syncthing listening on all
