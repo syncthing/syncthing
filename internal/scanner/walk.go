@@ -127,6 +127,8 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 				l.Debugln("error:", p, info, err)
 			}
 			return skip
+		} else if debug {
+			l.Debugln("Walking", p, info.Name(), err)
 		}
 
 		rn, err := filepath.Rel(w.Dir, p)
