@@ -129,7 +129,9 @@ func (p *Process) Stop() (*os.ProcessState, error) {
 	p.stop = true
 	p.eventMut.Unlock()
 
-	if _, err := p.Post("/rest/system/shutdown", nil); err != nil {
+	if _, err := p.Post("/rest/system/shutdown", nil); err != nil && err != io.ErrUnexpectedEOF {
+		// Unexpected EOF is somewhat expected here, as we may exit before
+		// returning something sensible.
 		return nil, err
 	}
 	p.cmd.Wait()
