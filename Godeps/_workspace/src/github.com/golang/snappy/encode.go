@@ -79,7 +79,7 @@ func emitCopy(dst []byte, offset, length int) int {
 // slice of dst if dst was large enough to hold the entire encoded block.
 // Otherwise, a newly allocated slice will be returned.
 // It is valid to pass a nil dst.
-func Encode(dst, src []byte) ([]byte, error) {
+func Encode(dst, src []byte) []byte {
 	if n := MaxEncodedLen(len(src)); len(dst) < n {
 		dst = make([]byte, n)
 	}
@@ -92,7 +92,7 @@ func Encode(dst, src []byte) ([]byte, error) {
 		if len(src) != 0 {
 			d += emitLiteral(dst[d:], src)
 		}
-		return dst[:d], nil
+		return dst[:d]
 	}
 
 	// Initialize the hash table. Its size ranges from 1<<8 to 1<<14 inclusive.
@@ -145,7 +145,7 @@ func Encode(dst, src []byte) ([]byte, error) {
 	if lit != len(src) {
 		d += emitLiteral(dst[d:], src[lit:])
 	}
-	return dst[:d], nil
+	return dst[:d]
 }
 
 // MaxEncodedLen returns the maximum length of a snappy block, given its
@@ -176,7 +176,7 @@ func MaxEncodedLen(srcLen int) int {
 
 // NewWriter returns a new Writer that compresses to w, using the framing
 // format described at
-// https://code.google.com/p/snappy/source/browse/trunk/framing_format.txt
+// https://github.com/google/snappy/blob/master/framing_format.txt
 func NewWriter(w io.Writer) *Writer {
 	return &Writer{
 		w:   w,
@@ -226,11 +226,7 @@ func (w *Writer) Write(p []byte) (n int, errRet error) {
 		// Compress the buffer, discarding the result if the improvement
 		// isn't at least 12.5%.
 		chunkType := uint8(chunkTypeCompressedData)
-		chunkBody, err := Encode(w.enc, uncompressed)
-		if err != nil {
-			w.err = err
-			return n, err
-		}
+		chunkBody := Encode(w.enc, uncompressed)
 		if len(chunkBody) >= len(uncompressed)-len(uncompressed)/8 {
 			chunkType, chunkBody = chunkTypeUncompressedData, uncompressed
 		}
@@ -244,11 +240,11 @@ func (w *Writer) Write(p []byte) (n int, errRet error) {
 		w.buf[5] = uint8(checksum >> 8)
 		w.buf[6] = uint8(checksum >> 16)
 		w.buf[7] = uint8(checksum >> 24)
-		if _, err = w.w.Write(w.buf[:]); err != nil {
+		if _, err := w.w.Write(w.buf[:]); err != nil {
 			w.err = err
 			return n, err
 		}
-		if _, err = w.w.Write(chunkBody); err != nil {
+		if _, err := w.w.Write(chunkBody); err != nil {
 			w.err = err
 			return n, err
 		}

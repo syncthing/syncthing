@@ -27,7 +27,7 @@ func DecodedLen(src []byte) (int, error) {
 // that the length header occupied.
 func decodedLen(src []byte) (blockLen, headerLen int, err error) {
 	v, n := binary.Uvarint(src)
-	if n == 0 {
+	if n <= 0 {
 		return 0, 0, ErrCorrupt
 	}
 	if uint64(int(v)) != v {
@@ -56,7 +56,7 @@ func Decode(dst, src []byte) ([]byte, error) {
 			x := uint(src[s] >> 2)
 			switch {
 			case x < 60:
-				s += 1
+				s++
 			case x == 60:
 				s += 2
 				if s > len(src) {
@@ -130,7 +130,7 @@ func Decode(dst, src []byte) ([]byte, error) {
 
 // NewReader returns a new Reader that decompresses from r, using the framing
 // format described at
-// https://code.google.com/p/snappy/source/browse/trunk/framing_format.txt
+// https://github.com/google/snappy/blob/master/framing_format.txt
 func NewReader(r io.Reader) *Reader {
 	return &Reader{
 		r:       r,
@@ -200,7 +200,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 		}
 
 		// The chunk types are specified at
-		// https://code.google.com/p/snappy/source/browse/trunk/framing_format.txt
+		// https://github.com/google/snappy/blob/master/framing_format.txt
 		switch chunkType {
 		case chunkTypeCompressedData:
 			// Section 4.2. Compressed data (chunk type 0x00).
@@ -280,13 +280,11 @@ func (r *Reader) Read(p []byte) (int, error) {
 			// Section 4.5. Reserved unskippable chunks (chunk types 0x02-0x7f).
 			r.err = ErrUnsupported
 			return 0, r.err
-
-		} else {
-			// Section 4.4 Padding (chunk type 0xfe).
-			// Section 4.6. Reserved skippable chunks (chunk types 0x80-0xfd).
-			if !r.readFull(r.buf[:chunkLen]) {
-				return 0, r.err
-			}
+		}
+		// Section 4.4 Padding (chunk type 0xfe).
+		// Section 4.6. Reserved skippable chunks (chunk types 0x80-0xfd).
+		if !r.readFull(r.buf[:chunkLen]) {
+			return 0, r.err
 		}
 	}
 }

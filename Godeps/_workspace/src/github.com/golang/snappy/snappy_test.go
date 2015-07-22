@@ -24,11 +24,7 @@ var (
 )
 
 func roundtrip(b, ebuf, dbuf []byte) error {
-	e, err := Encode(ebuf, b)
-	if err != nil {
-		return fmt.Errorf("encoding error: %v", err)
-	}
-	d, err := Decode(dbuf, e)
+	d, err := Decode(dbuf, Encode(ebuf, b))
 	if err != nil {
 		return fmt.Errorf("decoding error: %v", err)
 	}
@@ -79,6 +75,16 @@ func TestSmallRegular(t *testing.T) {
 		if err := roundtrip(b, nil, nil); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestInvalidVarint(t *testing.T) {
+	data := []byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00")
+	if _, err := DecodedLen(data); err != ErrCorrupt {
+		t.Errorf("DecodedLen: got %v, want ErrCorrupt", err)
+	}
+	if _, err := Decode(nil, data); err != ErrCorrupt {
+		t.Errorf("Decode: got %v, want ErrCorrupt", err)
 	}
 }
 
@@ -197,10 +203,7 @@ func TestWriterReset(t *testing.T) {
 }
 
 func benchDecode(b *testing.B, src []byte) {
-	encoded, err := Encode(nil, src)
-	if err != nil {
-		b.Fatal(err)
-	}
+	encoded := Encode(nil, src)
 	// Bandwidth is in amount of uncompressed data.
 	b.SetBytes(int64(len(src)))
 	b.ResetTimer()
@@ -222,7 +225,7 @@ func benchEncode(b *testing.B, src []byte) {
 func readFile(b testing.TB, filename string) []byte {
 	src, err := ioutil.ReadFile(filename)
 	if err != nil {
-		b.Fatalf("failed reading %s: %s", filename, err)
+		b.Skipf("skipping benchmark: %v", err)
 	}
 	if len(src) == 0 {
 		b.Fatalf("%s has zero length", filename)
@@ -284,14 +287,14 @@ var testFiles = []struct {
 // The test data files are present at this canonical URL.
 const baseURL = "https://raw.githubusercontent.com/google/snappy/master/testdata/"
 
-func downloadTestdata(basename string) (errRet error) {
+func downloadTestdata(b *testing.B, basename string) (errRet error) {
 	filename := filepath.Join(*testdata, basename)
 	if stat, err := os.Stat(filename); err == nil && stat.Size() != 0 {
 		return nil
 	}
 
 	if !*download {
-		return fmt.Errorf("test data not found; skipping benchmark without the -download flag")
+		b.Skipf("test data not found; skipping benchmark without the -download flag")
 	}
 	// Download the official snappy C++ implementation reference test data
 	// files for benchmarking.
@@ -326,7 +329,7 @@ func downloadTestdata(basename string) (errRet error) {
 }
 
 func benchFile(b *testing.B, n int, decode bool) {
-	if err := downloadTestdata(testFiles[n].filename); err != nil {
+	if err := downloadTestdata(b, testFiles[n].filename); err != nil {
 		b.Fatalf("failed to download testdata: %s", err)
 	}
 	data := readFile(b, filepath.Join(*testdata, testFiles[n].filename))

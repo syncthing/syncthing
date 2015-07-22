@@ -471,29 +471,22 @@ func computeNonStarterCounts() {
 		if exp := c.forms[FCompatibility].expandedDecomp; len(exp) > 0 {
 			runes = exp
 		}
+		// We consider runes that combine backwards to be non-starters for the
+		// purpose of Stream-Safe Text Processing.
 		for _, r := range runes {
-			if chars[r].ccc == 0 {
+			if cr := &chars[r]; cr.ccc == 0 && !cr.forms[FCompatibility].combinesBackward {
 				break
 			}
 			c.nLeadingNonStarters++
 		}
 		for i := len(runes) - 1; i >= 0; i-- {
-			if chars[runes[i]].ccc == 0 {
+			if cr := &chars[runes[i]]; cr.ccc == 0 && !cr.forms[FCompatibility].combinesBackward {
 				break
 			}
 			c.nTrailingNonStarters++
 		}
-
-		// We consider runes that combine backwards to be non-starters for the
-		// purpose of Stream-Safe Text Processing.
-		for _, f := range c.forms {
-			if c.ccc == 0 && f.combinesBackward {
-				if len(c.forms[FCompatibility].expandedDecomp) > 0 {
-					log.Fatalf("%U: CCC==0 modifier with an expansion is not supported.", i)
-				}
-				c.nTrailingNonStarters = 1
-				c.nLeadingNonStarters = 1
-			}
+		if c.nTrailingNonStarters > 3 {
+			log.Fatalf("%U: Decomposition with more than 3 (%d) trailing modifiers (%U)", i, c.nTrailingNonStarters, runes)
 		}
 
 		if isHangul(rune(i)) {
@@ -839,10 +832,16 @@ func verifyComputed() {
 				continue
 			}
 			if a, b := c.nLeadingNonStarters > 0, (c.ccc > 0 || f.combinesBackward); a != b {
-				// We accept these two runes to be treated differently (it only affects
-				// segment breaking in iteration, most likely on inproper use), but
+				// We accept these runes to be treated differently (it only affects
+				// segment breaking in iteration, most likely on improper use), but
 				// reconsider if more characters are added.
-				if i != 0xFF9E && i != 0xFF9F {
+				// U+FF9E HALFWIDTH KATAKANA VOICED SOUND MARK;Lm;0;L;<narrow> 3099;;;;N;;;;;
+				// U+FF9F HALFWIDTH KATAKANA SEMI-VOICED SOUND MARK;Lm;0;L;<narrow> 309A;;;;N;;;;;
+				// U+3133 HANGUL LETTER KIYEOK-SIOS;Lo;0;L;<compat> 11AA;;;;N;HANGUL LETTER GIYEOG SIOS;;;;
+				// U+318E HANGUL LETTER ARAEAE;Lo;0;L;<compat> 11A1;;;;N;HANGUL LETTER ALAE AE;;;;
+				// U+FFA3 HALFWIDTH HANGUL LETTER KIYEOK-SIOS;Lo;0;L;<narrow> 3133;;;;N;HALFWIDTH HANGUL LETTER GIYEOG SIOS;;;;
+				// U+FFDC HALFWIDTH HANGUL LETTER I;Lo;0;L;<narrow> 3163;;;;N;;;;;
+				if i != 0xFF9E && i != 0xFF9F && !(0x3133 <= i && i <= 0x318E) && !(0xFFA3 <= i && i <= 0xFFDC) {
 					log.Fatalf("%U: nLead was %v; want %v", i, a, b)
 				}
 			}

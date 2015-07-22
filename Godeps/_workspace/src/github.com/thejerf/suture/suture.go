@@ -36,6 +36,13 @@ to your Supervisor. Supervisors are also services, so you can create a
 tree structure here, depending on the exact combination of restarts
 you want to create.
 
+As a special case, when adding Supervisors to Supervisors, the "sub"
+supervisor will have the "super" supervisor's Log function copied.
+This allows you to set one log function on the "top" supervisor, and
+have it propagate down to all the sub-supervisors. This also allows
+libraries or modules to provide Supervisors without having to commit
+their users to a particular logging method.
+
 Finally, as what is probably the last line of your main() function, call
 .Serve() on your top level supervisor. This will start all the services
 you've defined.
@@ -126,8 +133,10 @@ type Supervisor struct {
 	// If you ever come up with some need to get into these, submit a pull
 	// request to make them public and some smidge of justification, and
 	// I'll happily do it.
-	logBadStop func(Service)
-	logFailure func(service Service, currentFailures float64, failureThreshold float64, restarting bool, error interface{}, stacktrace []byte)
+	// But since I've now changed the signature on these once, I'm glad I
+	// didn't start with them public... :)
+	logBadStop func(*Supervisor, Service)
+	logFailure func(supervisor *Supervisor, service Service, currentFailures float64, failureThreshold float64, restarting bool, error interface{}, stacktrace []byte)
 	logBackoff func(*Supervisor, bool)
 
 	// avoid a dependency on github.com/thejerf/abtime by just implementing
@@ -233,10 +242,10 @@ func New(name string, spec Spec) (s *Supervisor) {
 	s.resumeTimer = make(chan time.Time)
 
 	// set up the default logging handlers
-	s.logBadStop = func(service Service) {
-		s.log(fmt.Sprintf("Service %s failed to terminate in a timely manner", serviceName(service)))
+	s.logBadStop = func(supervisor *Supervisor, service Service) {
+		s.log(fmt.Sprintf("%s: Service %s failed to terminate in a timely manner", serviceName(supervisor), serviceName(service)))
 	}
-	s.logFailure = func(service Service, failures float64, threshold float64, restarting bool, err interface{}, st []byte) {
+	s.logFailure = func(supervisor *Supervisor, service Service, failures float64, threshold float64, restarting bool, err interface{}, st []byte) {
 		var errString string
 
 		e, canError := err.(error)
@@ -246,7 +255,7 @@ func New(name string, spec Spec) (s *Supervisor) {
 			errString = fmt.Sprintf("%#v", err)
 		}
 
-		s.log(fmt.Sprintf("Failed service '%s' (%f failures of %f), restarting: %#v, error: %s, stacktrace: %s", serviceName(service), failures, threshold, restarting, errString, string(st)))
+		s.log(fmt.Sprintf("%s: Failed service '%s' (%f failures of %f), restarting: %#v, error: %s, stacktrace: %s", serviceName(supervisor), serviceName(service), failures, threshold, restarting, errString, string(st)))
 	}
 	s.logBackoff = func(s *Supervisor, entering bool) {
 		if entering {
@@ -346,10 +355,22 @@ will be started when the supervisor is.
 
 The returned ServiceID may be passed to the Remove method of the Supervisor
 to terminate the service.
+
+As a special behavior, if the service added is itself a supervisor, the
+supervisor being added will copy the Log function from the Supervisor it
+is being added to. This allows factoring out providing a Supervisor
+from its logging.
+
 */
 func (s *Supervisor) Add(service Service) ServiceToken {
 	if s == nil {
 		panic("can't add service to nil *suture.Supervisor")
+	}
+
+	if supervisor, isSupervisor := service.(*Supervisor); isSupervisor {
+		supervisor.logBadStop = s.logBadStop
+		supervisor.logFailure = s.logFailure
+		supervisor.logBackoff = s.logBackoff
 	}
 
 	if s.state == notRunning {
@@ -492,12 +513,12 @@ func (s *Supervisor) handleFailedService(id serviceID, err interface{}, stacktra
 	if monitored {
 		if s.state == normal {
 			s.runService(failedService, id)
-			s.logFailure(failedService, s.failures, s.failureThreshold, true, err, stacktrace)
+			s.logFailure(s, failedService, s.failures, s.failureThreshold, true, err, stacktrace)
 		} else {
 			// FIXME: When restarting, check that the service still
 			// exists (it may have been stopped in the meantime)
 			s.restartQueue = append(s.restartQueue, id)
-			s.logFailure(failedService, s.failures, s.failureThreshold, false, err, stacktrace)
+			s.logFailure(s, failedService, s.failures, s.failureThreshold, false, err, stacktrace)
 		}
 	}
 }
@@ -536,7 +557,7 @@ func (s *Supervisor) removeService(id serviceID) {
 			case <-successChan:
 				// Life is good!
 			case <-failChan:
-				s.logBadStop(service)
+				s.logBadStop(s, service)
 			}
 		}()
 	}
