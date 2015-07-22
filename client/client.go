@@ -12,6 +12,7 @@ import (
 
 	syncthingprotocol "github.com/syncthing/protocol"
 	"github.com/syncthing/relaysrv/protocol"
+	"github.com/syncthing/syncthing/internal/sync"
 )
 
 type ProtocolClient struct {
@@ -28,6 +29,9 @@ type ProtocolClient struct {
 	stopped chan struct{}
 
 	conn *tls.Conn
+
+	mut       sync.RWMutex
+	connected bool
 }
 
 func NewProtocolClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation) *ProtocolClient {
@@ -49,6 +53,9 @@ func NewProtocolClient(uri *url.URL, certs []tls.Certificate, invitations chan p
 
 		stop:    make(chan struct{}),
 		stopped: make(chan struct{}),
+
+		mut:       sync.NewRWMutex(),
+		connected: false,
 	}
 }
 
@@ -82,6 +89,9 @@ func (c *ProtocolClient) Serve() {
 	}
 
 	defer c.cleanup()
+	c.mut.Lock()
+	c.connected = true
+	c.mut.Unlock()
 
 	messages := make(chan interface{})
 	errors := make(chan error, 1)
@@ -149,6 +159,13 @@ func (c *ProtocolClient) Stop() {
 	<-c.stopped
 }
 
+func (c *ProtocolClient) StatusOK() bool {
+	c.mut.RLock()
+	con := c.connected
+	c.mut.RUnlock()
+	return con
+}
+
 func (c *ProtocolClient) String() string {
 	return fmt.Sprintf("ProtocolClient@%p", c)
 }
@@ -186,6 +203,10 @@ func (c *ProtocolClient) cleanup() {
 	if debug {
 		l.Debugln(c, "cleaning up")
 	}
+
+	c.mut.Lock()
+	c.connected = false
+	c.mut.Unlock()
 
 	c.conn.Close()
 }
