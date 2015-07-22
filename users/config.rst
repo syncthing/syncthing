@@ -152,7 +152,8 @@ device
 versioning
     Specifies a versioning configuration.
 
-    seealso:: :ref:`versioning`
+.. seealso::
+    :ref:`versioning`
 
 copiers, pullers, hashers
     The number of copier, puller and hasher routines to use, or zero for the
