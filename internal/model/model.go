@@ -691,14 +691,7 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 
 	conn, ok := m.rawConn[device]
 	if ok {
-		if conn, ok := conn.(*tls.Conn); ok {
-			// If the underlying connection is a *tls.Conn, Close() does more
-			// than it says on the tin. Specifically, it sends a TLS alert
-			// message, which might block forever if the connection is dead
-			// and we don't have a deadline site.
-			conn.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
-		}
-		conn.Close()
+		closeRawConn(conn)
 	}
 	delete(m.protoConn, device)
 	delete(m.rawConn, device)
@@ -1732,28 +1725,130 @@ func (m *Model) VerifyConfiguration(from, to config.Configuration) error {
 func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	// TODO: This should not use reflect, and should take more care to try to handle stuff without restart.
 
-	// Adding, removing or changing folders requires restart
-	if !reflect.DeepEqual(from.Folders, to.Folders) {
-		return false
+	// Go through the folder configs and figure out if we need to restart or not.
+
+	fromFolders := mapFolders(from.Folders)
+	toFolders := mapFolders(to.Folders)
+	for folderID := range toFolders {
+		if _, ok := fromFolders[folderID]; !ok {
+			// A folder was added. Requires restart.
+			if debug {
+				l.Debugln(m, "requires restart, adding folder", folderID)
+			}
+			return false
+		}
+	}
+
+	for folderID, fromCfg := range fromFolders {
+		toCfg, ok := toFolders[folderID]
+		if !ok {
+			// A folder was removed. Requires restart.
+			if debug {
+				l.Debugln(m, "requires restart, removing folder", folderID)
+			}
+			return false
+		}
+
+		// This folder exists on both sides. Compare the device lists, as we
+		// can handle adding a device (but not currently removing one).
+
+		fromDevs := mapDevices(fromCfg.DeviceIDs())
+		toDevs := mapDevices(toCfg.DeviceIDs())
+		for dev := range fromDevs {
+			if _, ok := toDevs[dev]; !ok {
+				// A device was removed. Requires restart.
+				if debug {
+					l.Debugln(m, "requires restart, removing device", dev, "from folder", folderID)
+				}
+				return false
+			}
+		}
+
+		for dev := range toDevs {
+			if _, ok := fromDevs[dev]; !ok {
+				// A device was added. Handle it!
+
+				m.fmut.Lock()
+				m.pmut.Lock()
+
+				m.folderCfgs[folderID] = toCfg
+				m.folderDevices[folderID] = append(m.folderDevices[folderID], dev)
+				m.deviceFolders[dev] = append(m.deviceFolders[dev], folderID)
+
+				// If we already have a connection to this device, we should
+				// disconnect it so that we start sharing the folder with it.
+				// We close the underlying connection and let the normal error
+				// handling kick in to clean up and reconnect.
+				if conn, ok := m.rawConn[dev]; ok {
+					closeRawConn(conn)
+				}
+
+				m.pmut.Unlock()
+				m.fmut.Unlock()
+			}
+		}
+
+		// Check if anything else differs, apart from the device list.
+		fromCfg.Devices = nil
+		toCfg.Devices = nil
+		if !reflect.DeepEqual(fromCfg, toCfg) {
+			if debug {
+				l.Debugln(m, "requires restart, folder", folderID, "configuration differs")
+			}
+			return false
+		}
 	}
 
 	// Removing a device requres restart
-	toDevs := make(map[protocol.DeviceID]bool, len(from.Devices))
-	for _, dev := range to.Devices {
-		toDevs[dev.DeviceID] = true
-	}
+	toDevs := mapDeviceCfgs(from.Devices)
 	for _, dev := range from.Devices {
 		if _, ok := toDevs[dev.DeviceID]; !ok {
+			if debug {
+				l.Debugln(m, "requires restart, device", dev.DeviceID, "was removed")
+			}
 			return false
 		}
 	}
 
 	// All of the generic options require restart
 	if !reflect.DeepEqual(from.Options, to.Options) {
+		if debug {
+			l.Debugln(m, "requires restart, options differ")
+		}
 		return false
 	}
 
 	return true
+}
+
+// mapFolders returns a map of folder ID to folder configuration for the given
+// slice of folder configurations.
+func mapFolders(folders []config.FolderConfiguration) map[string]config.FolderConfiguration {
+	m := make(map[string]config.FolderConfiguration, len(folders))
+	for _, cfg := range folders {
+		m[cfg.ID] = cfg
+	}
+	return m
+}
+
+// mapDevices returns a map of device ID to nothing for the given slice of
+// device IDs.
+func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
+	m := make(map[protocol.DeviceID]struct{}, len(devices))
+	for _, dev := range devices {
+		m[dev] = struct{}{}
+	}
+	return m
+}
+
+// mapDeviceCfgs returns a map of device ID to nothing for the given slice of
+// device configurations.
+func mapDeviceCfgs(devices []config.DeviceConfiguration) map[protocol.DeviceID]struct{} {
+	m := make(map[protocol.DeviceID]struct{}, len(devices))
+	for _, dev := range devices {
+		m[dev.DeviceID] = struct{}{}
+	}
+	return m
 }
 
 func filterIndex(folder string, fs []protocol.FileInfo, dropDeletes bool) []protocol.FileInfo {
@@ -1815,4 +1910,15 @@ func getChunk(data []string, skip, get int) ([]string, int, int) {
 		return data[skip:l], 0, get - (l - skip)
 	}
 	return data[skip : skip+get], 0, 0
+}
+
+func closeRawConn(conn io.Closer) error {
+	if conn, ok := conn.(*tls.Conn); ok {
+		// If the underlying connection is a *tls.Conn, Close() does more
+		// than it says on the tin. Specifically, it sends a TLS alert
+		// message, which might block forever if the connection is dead
+		// and we don't have a deadline set.
+		conn.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
+	}
+	return conn.Close()
 }

@@ -63,6 +63,10 @@ func NewProcess(addr string) *Process {
 	return p
 }
 
+func (p *Process) ID() protocol.DeviceID {
+	return p.id
+}
+
 // LogTo creates the specified log file and ensures that stdout and stderr
 // from the Start()ed process is redirected there. Must be called before
 // Start().
@@ -226,6 +230,34 @@ func (p *Process) Rescan(folder string) error {
 
 func (p *Process) RescanDelay(folder string, delaySeconds int) error {
 	_, err := p.Post(fmt.Sprintf("/rest/db/scan?folder=%s&next=%d", folder, delaySeconds), nil)
+	return err
+}
+
+func (p *Process) ConfigInSync() (bool, error) {
+	bs, err := p.Get("/rest/system/config/insync")
+	if err != nil {
+		return false, err
+	}
+	return bytes.Contains(bs, []byte("true")), nil
+}
+
+func (p *Process) GetConfig() (config.Configuration, error) {
+	var cfg config.Configuration
+	bs, err := p.Get("/rest/system/config")
+	if err != nil {
+		return cfg, err
+	}
+
+	err = json.Unmarshal(bs, &cfg)
+	return cfg, err
+}
+
+func (p *Process) PostConfig(cfg config.Configuration) error {
+	buf := new(bytes.Buffer)
+	if err := json.NewEncoder(buf).Encode(cfg); err != nil {
+		return err
+	}
+	_, err := p.Post("/rest/system/config", buf)
 	return err
 }
 

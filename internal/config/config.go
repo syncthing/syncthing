@@ -82,8 +82,6 @@ type FolderConfiguration struct {
 	IgnoreDelete    bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
 
 	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
-
-	deviceIDs []protocol.DeviceID
 }
 
 func (f FolderConfiguration) Copy() FolderConfiguration {
@@ -144,12 +142,11 @@ func (f *FolderConfiguration) HasMarker() bool {
 }
 
 func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
-	if f.deviceIDs == nil {
-		for _, n := range f.Devices {
-			f.deviceIDs = append(f.deviceIDs, n.DeviceID)
-		}
+	deviceIDs := make([]protocol.DeviceID, len(f.Devices))
+	for i, n := range f.Devices {
+		deviceIDs[i] = n.DeviceID
 	}
-	return f.deviceIDs
+	return deviceIDs
 }
 
 type VersioningConfiguration struct {
