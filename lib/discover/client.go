@@ -14,7 +14,11 @@ import (
 	"github.com/syncthing/protocol"
 )
 
-type Factory func(*url.URL, *Announce) (Client, error)
+type Announcer interface {
+	Announcement() Announce
+}
+
+type Factory func(*url.URL, Announcer) (Client, error)
 
 var (
 	factories                      = make(map[string]Factory)
@@ -26,7 +30,7 @@ func Register(proto string, factory Factory) {
 	factories[proto] = factory
 }
 
-func New(addr string, pkt *Announce) (Client, error) {
+func New(addr string, announcer Announcer) (Client, error) {
 	uri, err := url.Parse(addr)
 	if err != nil {
 		return nil, err
@@ -35,7 +39,7 @@ func New(addr string, pkt *Announce) (Client, error) {
 	if !ok {
 		return nil, fmt.Errorf("Unsupported scheme: %s", uri.Scheme)
 	}
-	client, err := factory(uri, pkt)
+	client, err := factory(uri, announcer)
 	if err != nil {
 		return nil, err
 	}

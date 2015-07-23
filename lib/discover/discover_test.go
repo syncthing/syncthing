@@ -84,14 +84,14 @@ func TestGlobalDiscovery(t *testing.T) {
 
 	clients := []*DummyClient{c1, c2}
 
-	Register("test1", func(uri *url.URL, pkt *Announce) (Client, error) {
+	Register("test1", func(uri *url.URL, ann Announcer) (Client, error) {
 		c := clients[0]
 		clients = clients[1:]
 		c.url = uri
 		return c, nil
 	})
 
-	Register("test2", func(uri *url.URL, pkt *Announce) (Client, error) {
+	Register("test2", func(uri *url.URL, ann Announcer) (Client, error) {
 		c3.url = uri
 		return c3, nil
 	})

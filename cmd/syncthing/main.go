@@ -920,8 +920,14 @@ func discovery(extPort int, relaySvc *relay.Svc) *discover.Discoverer {
 	}
 
 	if opts.GlobalAnnEnabled {
-		l.Infoln("Starting global discovery announcements")
-		disc.StartGlobal(opts.GlobalAnnServers, uint16(extPort))
+		go func() {
+			// Defer starting global announce server, giving time to connect
+			// to relay servers.
+			time.Sleep(5 * time.Second)
+			l.Infoln("Starting global discovery announcements")
+			disc.StartGlobal(opts.GlobalAnnServers, uint16(extPort))
+		}()
+
 	}
 
 	return disc

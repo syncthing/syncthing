@@ -20,12 +20,13 @@ import (
 
 func init() {
 	for _, proto := range []string{"udp", "udp4", "udp6"} {
-		Register(proto, func(uri *url.URL, pkt *Announce) (Client, error) {
+		Register(proto, func(uri *url.URL, announcer Announcer) (Client, error) {
 			c := &UDPClient{
-				wg:  sync.NewWaitGroup(),
-				mut: sync.NewRWMutex(),
+				announcer: announcer,
+				wg:        sync.NewWaitGroup(),
+				mut:       sync.NewRWMutex(),
 			}
-			err := c.Start(uri, pkt)
+			err := c.Start(uri)
 			if err != nil {
 				return nil, err
 			}
@@ -37,22 +38,20 @@ func init() {
 type UDPClient struct {
 	url *url.URL
 
-	id protocol.DeviceID
-
 	stop          chan struct{}
 	wg            sync.WaitGroup
 	listenAddress *net.UDPAddr
 
 	globalBroadcastInterval time.Duration
 	errorRetryInterval      time.Duration
+	announcer               Announcer
 
 	status bool
 	mut    sync.RWMutex
 }
 
-func (d *UDPClient) Start(uri *url.URL, pkt *Announce) error {
+func (d *UDPClient) Start(uri *url.URL) error {
 	d.url = uri
-	d.id = protocol.DeviceIDFromBytes(pkt.This.ID)
 	d.stop = make(chan struct{})
 
 	params := uri.Query()
@@ -79,11 +78,11 @@ func (d *UDPClient) Start(uri *url.URL, pkt *Announce) error {
 	}
 
 	d.wg.Add(1)
-	go d.broadcast(pkt.MustMarshalXDR())
+	go d.broadcast()
 	return nil
 }
 
-func (d *UDPClient) broadcast(pkt []byte) {
+func (d *UDPClient) broadcast() {
 	defer d.wg.Done()
 
 	conn, err := net.ListenUDP(d.url.Scheme, d.listenAddress)
@@ -126,7 +125,14 @@ func (d *UDPClient) broadcast(pkt []byte) {
 				l.Debugf("discover %s: broadcast: Sending self announcement to %v", d.url, remote)
 			}
 
-			_, err := conn.WriteTo(pkt, remote)
+			ann := d.announcer.Announcement()
+			pkt, err := ann.MarshalXDR()
+			if err != nil {
+				timer.Reset(d.errorRetryInterval)
+				continue
+			}
+
+			_, err = conn.WriteTo(pkt, remote)
 			if err != nil {
 				if debug {
 					l.Debugf("discover %s: broadcast: Failed to send self announcement: %s", d.url, err)
@@ -137,7 +143,7 @@ func (d *UDPClient) broadcast(pkt []byte) {
 
 				time.Sleep(1 * time.Second)
 
-				pkt, err := d.Lookup(d.id)
+				pkt, err := d.Lookup(protocol.DeviceIDFromBytes(ann.This.ID))
 				if err != nil && debug {
 					l.Debugf("discover %s: broadcast: Self-lookup failed: %v", d.url, err)
 				} else if debug {

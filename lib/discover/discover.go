@@ -144,14 +144,13 @@ func (d *Discoverer) StartGlobal(servers []string, extPort uint16) {
 	}
 
 	d.extPort = extPort
-	pkt := d.announcementPkt(true)
 	wg := sync.NewWaitGroup()
 	clients := make(chan Client, len(servers))
 	for _, address := range servers {
 		wg.Add(1)
 		go func(addr string) {
 			defer wg.Done()
-			client, err := New(addr, pkt)
+			client, err := New(addr, d)
 			if err != nil {
 				l.Infoln("Error creating discovery client", addr, err)
 				return
@@ -318,7 +317,11 @@ func (d *Discoverer) All() map[protocol.DeviceID][]CacheEntry {
 	return devices
 }
 
-func (d *Discoverer) announcementPkt(allowExternal bool) *Announce {
+func (d *Discoverer) Announcement() Announce {
+	return d.announcementPkt(true)
+}
+
+func (d *Discoverer) announcementPkt(allowExternal bool) Announce {
 	var addrs []string
 	if d.extPort != 0 && allowExternal {
 		addrs = []string{fmt.Sprintf("tcp://:%d", d.extPort)}
@@ -326,7 +329,7 @@ func (d *Discoverer) announcementPkt(allowExternal bool) *Announce {
 		addrs = resolveAddrs(d.listenAddrs)
 	}
 
-	relayAddrs := make([]string, 0)
+	var relayAddrs []string
 	if d.relaySvc != nil {
 		status := d.relaySvc.ClientStatus()
 		for uri, ok := range status {
@@ -336,7 +339,7 @@ func (d *Discoverer) announcementPkt(allowExternal bool) *Announce {
 		}
 	}
 
-	return &Announce{
+	return Announce{
 		Magic: AnnouncementMagic,
 		This:  Device{d.myID[:], addrs, measureLatency(relayAddrs)},
 	}

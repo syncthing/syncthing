@@ -250,11 +250,8 @@ func (s *connectionSvc) connect() {
 				if addr == "dynamic" {
 					if discoverer != nil {
 						t, r := discoverer.Lookup(deviceID)
-						relays = append(relays, r...)
-						if len(t) == 0 {
-							continue
-						}
 						addrs = append(addrs, t...)
+						relays = append(relays, r...)
 					}
 				} else {
 					addrs = append(addrs, addr)
