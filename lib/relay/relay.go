@@ -8,7 +8,9 @@ package relay
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"net"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -82,7 +84,8 @@ func (s *Svc) VerifyConfiguration(from, to config.Configuration) error {
 }
 
 func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
-	existing := make(map[string]struct{}, len(to.Options.RelayServers))
+	existing := make(map[string]*url.URL, len(to.Options.RelayServers))
+
 	for _, addr := range to.Options.RelayServers {
 		uri, err := url.Parse(addr)
 		if err != nil {
@@ -91,32 +94,74 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 			}
 			continue
 		}
+		existing[uri.String()] = uri
+	}
 
-		existing[uri.String()] = struct{}{}
+	// Expand dynamic addresses into a set of relays
+	for key, uri := range existing {
+		if uri.Scheme != "dynamic+http" && uri.Scheme != "dynamic+https" {
+			continue
+		}
+		delete(existing, key)
 
-		_, ok := s.tokens[uri.String()]
+		uri.Scheme = uri.Scheme[8:]
+
+		data, err := http.Get(uri.String())
+		if err != nil {
+			if debug {
+				l.Debugln("Failed to lookup dynamic relays", err)
+			}
+			continue
+		}
+
+		var ann dynamicAnnouncement
+		err = json.NewDecoder(data.Body).Decode(&ann)
+		data.Body.Close()
+		if err != nil {
+			if debug {
+				l.Debugln("Failed to lookup dynamic relays", err)
+			}
+			continue
+		}
+		for _, relayAnn := range ann.Relays {
+			ruri, err := url.Parse(relayAnn.URL)
+			if err != nil {
+				if debug {
+					l.Debugln("Failed to parse dynamic relay address", relayAnn.URL, err)
+				}
+				continue
+			}
+			if debug {
+				l.Debugln("Found", ruri, "via", uri)
+			}
+			existing[ruri.String()] = ruri
+		}
+	}
+
+	for key, uri := range existing {
+		_, ok := s.tokens[key]
 		if !ok {
 			if debug {
 				l.Debugln("Connecting to relay", uri)
 			}
 			c := client.NewProtocolClient(uri, s.tlsCfg.Certificates, s.invitations)
-			s.tokens[uri.String()] = s.Add(c)
+			s.tokens[key] = s.Add(c)
 			s.mut.Lock()
-			s.clients[uri.String()] = c
+			s.clients[key] = c
 			s.mut.Unlock()
 		}
 	}
 
-	for uri, token := range s.tokens {
-		_, ok := existing[uri]
+	for key, token := range s.tokens {
+		_, ok := existing[key]
 		if !ok {
 			err := s.Remove(token)
-			delete(s.tokens, uri)
+			delete(s.tokens, key)
 			s.mut.Lock()
-			delete(s.clients, uri)
+			delete(s.clients, key)
 			s.mut.Unlock()
 			if debug {
-				l.Debugln("Disconnecting from relay", uri, err)
+				l.Debugln("Disconnecting from relay", key, err)
 			}
 		}
 	}
@@ -194,4 +239,12 @@ func (r *invitationReceiver) Stop() {
 	}
 	r.stop <- struct{}{}
 	r.stop = nil
+}
+
+type dynamicAnnouncement struct {
+	Relays []relayAnnouncement `json:"relays"`
+}
+
+type relayAnnouncement struct {
+	URL string `json:"url"`
 }

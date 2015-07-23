@@ -37,6 +37,7 @@ func TestDefaultValues(t *testing.T) {
 		LocalAnnEnabled:         true,
 		LocalAnnPort:            21025,
 		LocalAnnMCAddr:          "[ff32::5222]:21026",
+		RelayServers:            []string{"dynamic+https://relays.syncthing.net"},
 		MaxSendKbps:             0,
 		MaxRecvKbps:             0,
 		ReconnectIntervalS:      60,
