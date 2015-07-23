@@ -65,7 +65,9 @@ func (c *ProtocolClient) Serve() {
 	defer close(c.stopped)
 
 	if err := c.connect(); err != nil {
-		l.Infoln("Relay connect:", err)
+		if debug {
+			l.Debugln("Relay connect:", err)
+		}
 		return
 	}
 
