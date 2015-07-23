@@ -65,12 +65,13 @@ type service interface {
 type Model struct {
 	*suture.Supervisor
 
-	cfg             *config.Wrapper
-	db              *leveldb.DB
-	finder          *db.BlockFinder
-	progressEmitter *ProgressEmitter
-	id              protocol.DeviceID
-	shortID         uint64
+	cfg               *config.Wrapper
+	db                *leveldb.DB
+	finder            *db.BlockFinder
+	progressEmitter   *ProgressEmitter
+	id                protocol.DeviceID
+	shortID           uint64
+	cacheIgnoredFiles bool
 
 	deviceName    string
 	clientName    string
@@ -90,8 +91,6 @@ type Model struct {
 	rawConn   map[protocol.DeviceID]io.Closer
 	deviceVer map[protocol.DeviceID]string
 	pmut      sync.RWMutex // protects protoConn and rawConn
-
-	started bool
 
 	reqValidationCache map[string]time.Time // folder / file name => time when confirmed to exist
 	rvmut              sync.RWMutex         // protects reqValidationCache
@@ -119,6 +118,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		progressEmitter:    NewProgressEmitter(cfg),
 		id:                 id,
 		shortID:            id.Short(),
+		cacheIgnoredFiles:  cfg.Options().CacheIgnoredFiles,
 		deviceName:         deviceName,
 		clientName:         clientName,
 		clientVersion:      clientVersion,
@@ -190,6 +190,8 @@ func (m *Model) StartFolderRW(folder string) {
 	}
 
 	m.Add(p)
+
+	l.Okln("Ready to synchronize", folder, "(read-write)")
 }
 
 // StartFolderRO starts read only processing on the current model. When in
@@ -210,7 +212,9 @@ func (m *Model) StartFolderRO(folder string) {
 	m.folderRunners[folder] = s
 	m.fmut.Unlock()
 
-	go s.Serve()
+	m.Add(s)
+
+	l.Okln("Ready to synchronize", folder, "(read only; no external updates accepted)")
 }
 
 type ConnectionInfo struct {
@@ -1121,9 +1125,6 @@ func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, o
 }
 
 func (m *Model) AddFolder(cfg config.FolderConfiguration) {
-	if m.started {
-		panic("cannot add folder to started model")
-	}
 	if len(cfg.ID) == 0 {
 		panic("cannot add empty folder id")
 	}
@@ -1138,7 +1139,7 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 		m.deviceFolders[device.DeviceID] = append(m.deviceFolders[device.DeviceID], cfg.ID)
 	}
 
-	ignores := ignore.New(m.cfg.Options().CacheIgnoredFiles)
+	ignores := ignore.New(m.cacheIgnoredFiles)
 	_ = ignores.Load(filepath.Join(cfg.Path(), ".stignore")) // Ignore error, there might not be an .stignore
 	m.folderIgnores[cfg.ID] = ignores
 
@@ -1729,13 +1730,28 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 
 	fromFolders := mapFolders(from.Folders)
 	toFolders := mapFolders(to.Folders)
-	for folderID := range toFolders {
+	for folderID, cfg := range toFolders {
 		if _, ok := fromFolders[folderID]; !ok {
-			// A folder was added. Requires restart.
+			// A folder was added.
 			if debug {
-				l.Debugln(m, "requires restart, adding folder", folderID)
+				l.Debugln(m, "adding folder", folderID)
 			}
-			return false
+			m.AddFolder(cfg)
+			if cfg.ReadOnly {
+				m.StartFolderRO(folderID)
+			} else {
+				m.StartFolderRW(folderID)
+			}
+
+			// Drop connections to all devices that can now share the new
+			// folder.
+			m.pmut.Lock()
+			for _, dev := range cfg.DeviceIDs() {
+				if conn, ok := m.rawConn[dev]; ok {
+					closeRawConn(conn)
+				}
+			}
+			m.pmut.Unlock()
 		}
 	}
 
