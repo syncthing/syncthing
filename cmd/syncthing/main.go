@@ -630,7 +630,7 @@ func syncthingMain() {
 			m.StartDeadlockDetector(time.Duration(it) * time.Second)
 		}
 	} else if !IsRelease || IsBeta {
-		m.StartDeadlockDetector(20 * 60 * time.Second)
+		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
 	// Clear out old indexes for other devices. Otherwise we'll start up and
@@ -674,9 +674,12 @@ func syncthingMain() {
 	// Start the relevant services
 
 	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
-	relaySvc = relay.NewSvc(cfg, tlsCfg, connectionSvc.conns)
-	connectionSvc.Add(relaySvc)
 	mainSvc.Add(connectionSvc)
+
+	if opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn {
+		relaySvc = relay.NewSvc(cfg, tlsCfg, connectionSvc.conns)
+		connectionSvc.Add(relaySvc)
+	}
 
 	// Start discovery
 

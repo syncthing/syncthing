@@ -14,6 +14,7 @@
         <maxRecvKbps>2341</maxRecvKbps>
         <reconnectionIntervalS>6000</reconnectionIntervalS>
         <relayReconnectIntervalM>20</relayReconnectIntervalM>
+        <relayWithoutGlobalAnn>true</relayWithoutGlobalAnn>
         <startBrowser>false</startBrowser>
         <upnpEnabled>false</upnpEnabled>
         <upnpLeaseMinutes>90</upnpLeaseMinutes>
