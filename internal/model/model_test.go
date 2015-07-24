@@ -96,8 +96,8 @@ func TestRequest(t *testing.T) {
 	// device1 shares default, but device2 doesn't
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolderRO("default")
-	m.ScanFolder("default")
 	m.ServeBackground()
+	m.ScanFolder("default")
 
 	// Existing, shared file
 	bs, err := m.Request(device1, "default", "foo", 0, 6, nil, 0, nil)

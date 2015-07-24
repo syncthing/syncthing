@@ -628,10 +628,8 @@ func syncthingMain() {
 		// Routine to pull blocks from other devices to synchronize the local
 		// folder. Does not run when we are in read only (publish only) mode.
 		if folderCfg.ReadOnly {
-			l.Okf("Ready to synchronize %s (read only; no external updates accepted)", folderCfg.ID)
 			m.StartFolderRO(folderCfg.ID)
 		} else {
-			l.Okf("Ready to synchronize %s (read-write)", folderCfg.ID)
 			m.StartFolderRW(folderCfg.ID)
 		}
 	}
