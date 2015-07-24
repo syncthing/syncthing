@@ -45,8 +45,9 @@ type connectionSvc struct {
 
 	lastRelayCheck map[protocol.DeviceID]time.Time
 
-	mut      sync.RWMutex
-	connType map[protocol.DeviceID]model.ConnectionType
+	mut           sync.RWMutex
+	connType      map[protocol.DeviceID]model.ConnectionType
+	relaysEnabled bool
 }
 
 func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Model, tlsCfg *tls.Config) *connectionSvc {
@@ -59,6 +60,7 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Mo
 		conns:      make(chan model.IntermediateConnection),
 
 		connType:       make(map[protocol.DeviceID]model.ConnectionType),
+		relaysEnabled:  cfg.Options().RelaysEnabled,
 		lastRelayCheck: make(map[protocol.DeviceID]time.Time),
 	}
 	cfg.Subscribe(svc)
@@ -239,6 +241,7 @@ func (s *connectionSvc) connect() {
 
 			s.mut.RLock()
 			ct, ok := s.connType[deviceID]
+			relaysEnabled := s.relaysEnabled
 			s.mut.RUnlock()
 			if connected && ok && ct.IsDirect() {
 				continue
@@ -296,7 +299,8 @@ func (s *connectionSvc) connect() {
 			// Also, do not set lastRelayCheck time if we have no relays,
 			// as otherwise when we do discover relays, we might have to
 			// wait up to RelayReconnectIntervalM to connect again.
-			if connected || len(relays) == 0 {
+			// Also, do not try relays if we are explicitly told not to.
+			if connected || len(relays) == 0 || !relaysEnabled {
 				continue nextDevice
 			}
 
@@ -394,6 +398,10 @@ func (s *connectionSvc) VerifyConfiguration(from, to config.Configuration) error
 }
 
 func (s *connectionSvc) CommitConfiguration(from, to config.Configuration) bool {
+	s.mut.Lock()
+	s.relaysEnabled = to.Options.RelaysEnabled
+	s.mut.Unlock()
+
 	// We require a restart if a device as been removed.
 
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))

@@ -223,6 +223,7 @@ type OptionsConfiguration struct {
 	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
 	MaxRecvKbps             int      `xml:"maxRecvKbps" json:"maxRecvKbps"`
 	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
+	RelaysEnabled           bool     `xml:"relaysEnabled" json:"relaysEnabled" default:"true"`
 	RelayReconnectIntervalM int      `xml:"relayReconnectIntervalM" json:"relayReconnectIntervalM" default:"10"`
 	RelayWithoutGlobalAnn   bool     `xml:"relayWithoutGlobalAnn" json:"relayWithoutGlobalAnn" default:"false"`
 	StartBrowser            bool     `xml:"startBrowser" json:"startBrowser" default:"true"`

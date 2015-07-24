@@ -676,7 +676,7 @@ func syncthingMain() {
 	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
 	mainSvc.Add(connectionSvc)
 
-	if opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn {
+	if opts.RelaysEnabled && (opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn) {
 		relaySvc = relay.NewSvc(cfg, tlsCfg, connectionSvc.conns)
 		connectionSvc.Add(relaySvc)
 	}

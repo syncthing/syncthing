@@ -13,6 +13,7 @@
         <maxSendKbps>1234</maxSendKbps>
         <maxRecvKbps>2341</maxRecvKbps>
         <reconnectionIntervalS>6000</reconnectionIntervalS>
+        <relaysEnabled>false</relaysEnabled>
         <relayReconnectIntervalM>20</relayReconnectIntervalM>
         <relayWithoutGlobalAnn>true</relayWithoutGlobalAnn>
         <startBrowser>false</startBrowser>
