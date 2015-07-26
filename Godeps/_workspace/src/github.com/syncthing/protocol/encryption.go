@@ -38,6 +38,9 @@ func Encrypt(buf []byte, label []byte, cert tls.Certificate) (out []byte, err er
 	var offset int
 	
 	for i := 0; i < len(buf); i += k {
+		if i + k > len(buf) {
+			k = len(buf) - i
+		}
 		out, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, pubkey, buf[i:k], label)
 		if err != nil {
 			l.Debugln("error:", err)
