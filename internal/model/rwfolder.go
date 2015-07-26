@@ -1058,21 +1058,21 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 					return false
 				}
 
-				hash, err := scanner.VerifyBuffer(buf, block)
-				if err != nil {
-					if hash != nil {
-						if debug {
-							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
-						}
-						err = p.model.finder.Fix(folder, file, index, block.Hash, hash)
-						if err != nil {
-							l.Warnln("finder fix:", err)
-						}
-					} else if debug {
-						l.Debugln("Finder failed to verify buffer", err)
-					}
-					return false
-				}
+				// hash, err := scanner.VerifyBuffer(buf, block)
+				// if err != nil {
+				// 	if hash != nil {
+				// 		if debug {
+				// 			l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
+				// 		}
+				// 		err = p.model.finder.Fix(folder, file, index, block.Hash, hash)
+				// 		if err != nil {
+				// 			l.Warnln("finder fix:", err)
+				// 		}
+				// 	} else if debug {
+				// 		l.Debugln("Finder failed to verify buffer", err)
+				// 	}
+				// 	return false
+				// }
 
 				_, err = dstFd.WriteAt(buf, block.Offset)
 				if err != nil {
@@ -1151,13 +1151,13 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 
 			// Verify that the received block matches the desired hash, if not
 			// try pulling it from another device.
-			_, lastError = scanner.VerifyBuffer(buf, state.block)
-			if lastError != nil {
-				if debug {
-					l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
-				}
-				continue
-			}
+			// _, lastError = scanner.VerifyBuffer(buf, state.block)
+			// if lastError != nil {
+			// 	if debug {
+			// 		l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
+			// 	}
+			// 	continue
+			// }
 
 			// Save the block data we got from the cluster
 			_, err = fd.WriteAt(buf, state.block.Offset)
