@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "July 19, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "July 25, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -196,13 +196,15 @@ the configuration file.
 .TP
 .B versioning
 Specifies a versioning configuration.
+.UNINDENT
 .sp
-\fBNOTE:\fP
-.INDENT 7.0
+\fBSEE ALSO:\fP
+.INDENT 0.0
 .INDENT 3.5
-Needs explanation.
+versioning
 .UNINDENT
 .UNINDENT
+.INDENT 0.0
 .TP
 .B copiers, pullers, hashers
 The number of copier, puller and hasher routines to use, or zero for the
@@ -297,7 +299,7 @@ The default port (22000) is used.
 .TP
 .B IPv6 address and port (\fB[2001:db8::23:42]:12345\fP)
 The address and port is used as given. The address must be enclosed in
-angled brackets.
+square brackets.
 .TP
 .B \fBdynamic\fP
 The word \fBdynamic\fP means to use local and global discovery to find the
@@ -345,7 +347,7 @@ The address and port is used as given.
 .TP
 .B IPv6 address and port (\fB[::1]:8384\fP)
 The address and port is used as given. The address must be enclosed in
-angled brackets.
+square brackets.
 .TP
 .B Wildcard and port (\fB0.0.0.0:12345\fP, \fB[::]:12345\fP, \fB:12345\fP)
 These are equivalent and will result in Syncthing listening on all
