@@ -37,6 +37,107 @@ import (
 	"github.com/thejerf/suture"
 )
 
+// Stuff in rwFolder which is defined globally
+const (
+	pauseIntv     = 60 * time.Second
+	nextPullIntv  = 10 * time.Second
+	shortPullIntv = time.Second
+)
+
+// A pullBlockState is passed to the puller routine for each block that needs
+// to be fetched.
+type pullBlockState struct {
+	*sharedPullerState
+	block protocol.BlockInfo
+}
+
+// A copyBlocksState is passed to copy routine if the file has blocks to be
+// copied.
+type copyBlocksState struct {
+	*sharedPullerState
+	blocks []protocol.BlockInfo
+}
+
+// Which filemode bits to preserve
+const retainBits = os.ModeSetgid | os.ModeSetuid | os.ModeSticky
+
+var (
+	activity    = newDeviceActivity()
+	errNoDevice = errors.New("no available source device")
+)
+
+const (
+	dbUpdateHandleDir = iota
+	dbUpdateDeleteDir
+	dbUpdateHandleFile
+	dbUpdateDeleteFile
+	dbUpdateShortcutFile
+)
+
+type dbUpdateJob struct {
+	file    protocol.FileInfo
+	jobType int
+}
+
+// functions from rwFolder
+func invalidateFolder(cfg *config.Configuration, folderID string, err error) {
+	for i := range cfg.Folders {
+		folder := &cfg.Folders[i]
+		if folder.ID == folderID {
+			folder.Invalid = err.Error()
+			return
+		}
+	}
+}
+
+func removeDevice(devices []protocol.DeviceID, device protocol.DeviceID) []protocol.DeviceID {
+	for i := range devices {
+		if devices[i] == device {
+			devices[i] = devices[len(devices)-1]
+			return devices[:len(devices)-1]
+		}
+	}
+	return devices
+}
+
+func moveForConflict(name string) error {
+	ext := filepath.Ext(name)
+	withoutExt := name[:len(name)-len(ext)]
+	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405") + ext
+	err := os.Rename(name, newName)
+	if os.IsNotExist(err) {
+		// We were supposed to move a file away but it does not exist. Either
+		// the user has already moved it away, or the conflict was between a
+		// remote modification and a local delete. In either way it does not
+		// matter, go ahead as if the move succeeded.
+		return nil
+	}
+	return err
+}
+
+// A []fileError is sent as part of an event and will be JSON serialized.
+type fileError struct {
+	Path string `json:"path"`
+	Err  string `json:"error"`
+}
+
+type fileErrorList []fileError
+
+func (l fileErrorList) Len() int {
+	return len(l)
+}
+
+func (l fileErrorList) Less(a, b int) bool {
+	return l[a].Path < l[b].Path
+}
+
+func (l fileErrorList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+
+
+// EndStuff
+
 // How many files to send in each Index/IndexUpdate message.
 const (
 	indexTargetSize        = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
@@ -215,6 +316,45 @@ func (m *Model) StartFolderRO(folder string) {
 	m.Add(s)
 
 	l.Okln("Ready to synchronize", folder, "(read only; no external updates accepted)")
+}
+
+// StartFolderRW starts read/write processing on the current model. When in
+// read/write mode the model will attempt to keep in sync with the cluster by
+// pulling needed files from peer devices.
+func (m *Model) StartFolderENC(folder string) {
+	m.fmut.Lock()
+	cfg, ok := m.folderCfgs[folder]
+	if !ok {
+		panic("cannot start nonexistent folder " + folder)
+	}
+
+	_, ok = m.folderRunners[folder]
+	if ok {
+		panic("cannot start already running folder " + folder)
+	}
+	p := newENCFolder(m, m.shortID, cfg)
+	m.folderRunners[folder] = p
+	m.fmut.Unlock()
+
+	if len(cfg.Versioning.Type) > 0 {
+		factory, ok := versioner.Factories[cfg.Versioning.Type]
+		if !ok {
+			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
+		}
+
+		versioner := factory(folder, cfg.Path(), cfg.Versioning.Params)
+		if service, ok := versioner.(suture.Service); ok {
+			// The versioner implements the suture.Service interface, so
+			// expects to be run in the background in addition to being called
+			// when files are going to be archived.
+			m.Add(service)
+		}
+		p.versioner = versioner
+	}
+
+	m.Add(p)
+
+	l.Okln("Ready to synchronize", folder, "(encrypted)")
 }
 
 type ConnectionInfo struct {

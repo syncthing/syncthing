@@ -629,6 +629,8 @@ func syncthingMain() {
 		// folder. Does not run when we are in read only (publish only) mode.
 		if folderCfg.ReadOnly {
 			m.StartFolderRO(folderCfg.ID)
+		} else if folderCfg.Encrypted {
+			m.StartFolderENC(folderCfg.ID)
 		} else {
 			m.StartFolderRW(folderCfg.ID)
 		}
