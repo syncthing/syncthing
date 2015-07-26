@@ -174,6 +174,8 @@ type Model struct {
 	shortID           uint64
 	cacheIgnoredFiles bool
 
+	cert              tls.Certificate
+
 	deviceName    string
 	clientName    string
 	clientVersion string
@@ -204,7 +206,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB) *Model {
+func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB, cert tls.Certificate) *Model {
 	m := &Model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
@@ -235,6 +237,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		rawConn:            make(map[protocol.DeviceID]io.Closer),
 		deviceVer:          make(map[protocol.DeviceID]string),
 		reqValidationCache: make(map[string]time.Time),
+		cert:               cert,
 
 		fmut:  sync.NewRWMutex(),
 		pmut:  sync.NewRWMutex(),
@@ -957,11 +960,32 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		defer reader.(*os.File).Close()
 	}
 
+	var n int
+
 	buf := make([]byte, size)
-	_, err = reader.ReadAt(buf, offset)
-	if err != nil {
+	n, err = reader.ReadAt(buf, offset)
+	if n == 0 && err != nil {
+		l.Debugf("err", err)
 		return nil, err
 	}
+
+	if (m.folderCfgs[folder].Encrypted) {
+		buf = buf[:n]
+
+		l.Debugf("before model encryption", buf)
+
+		buf, err := protocol.Encrypt(buf, []byte(name), m.cert)
+		if err != nil {
+			l.Debugf("error:", err)
+			return nil, err
+		}
+
+		l.Debugf("after model encryption", buf)
+
+		l.Debugf("Requested size", size, " actual size", len(buf))
+	}
+
+	
 
 	return buf, nil
 }
@@ -1096,7 +1120,7 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[deviceID] {
 		fs := m.folderFiles[folder]
-		go sendIndexes(protoConn, folder, fs, m.folderIgnores[folder])
+		go m.sendIndexes(protoConn, folder, fs, m.folderIgnores[folder])
 	}
 	m.fmut.RUnlock()
 	m.pmut.Unlock()
@@ -1137,7 +1161,7 @@ func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
 	m.folderStatRef(folder).ReceivedFile(file)
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
+func (m *Model) sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	var err error
@@ -1146,7 +1170,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 		l.Debugf("sendIndexes for %s-%s/%q starting", deviceID, name, folder)
 	}
 
-	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores)
+	minLocalVer, err := m.sendIndexTo(true, 0, conn, folder, fs, ignores)
 
 	for err == nil {
 		time.Sleep(5 * time.Second)
@@ -1154,7 +1178,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 			continue
 		}
 
-		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
+		minLocalVer, err = m.sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
 	}
 
 	if debug {
@@ -1162,7 +1186,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	}
 }
 
-func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
+func (m *Model) sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -1172,6 +1196,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 
 	fs.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
+
 		if f.LocalVersion <= minLocalVer {
 			return true
 		}
@@ -1185,6 +1210,28 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 				l.Debugln("not sending update for ignored/unsupported symlink", f)
 			}
 			return true
+		}
+
+		if (m.folderCfgs[folder].Encrypted) {
+			l.Debugf("opening", filepath.Join(m.folderCfgs[folder].Path(), f.Name))
+
+			fd, err := os.Open(filepath.Join(m.folderCfgs[folder].Path(), f.Name))
+			if err == nil {
+				l.Debugf("EncBlocks: Datei geoeffnet")
+				fstats, err := fd.Stat()
+				if err == nil {
+					var blocks, err = scanner.EncryptedBlocks(fd, protocol.BlockSize, fstats.Size(), []byte(f.Name), m.cert)
+					if (err == nil) {
+						l.Debugf("EncBlocks:", blocks)
+
+						f.Blocks = blocks
+					} else {
+						l.Debugf("error:", err)
+					}
+				}
+			}
+			fd.Close()
+
 		}
 
 		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {

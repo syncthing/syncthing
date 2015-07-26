@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"crypto/tls"
 
 	"github.com/syncthing/protocol"
 )
@@ -35,6 +36,57 @@ func Blocks(r io.Reader, blocksize int, sizehint int64) ([]protocol.BlockInfo, e
 		if n == 0 {
 			break
 		}
+
+		b := protocol.BlockInfo{
+			Size:   int32(n),
+			Offset: offset,
+			Hash:   hf.Sum(nil),
+		}
+		blocks = append(blocks, b)
+		offset += int64(n)
+
+		hf.Reset()
+	}
+
+	if len(blocks) == 0 {
+		// Empty file
+		blocks = append(blocks, protocol.BlockInfo{
+			Offset: 0,
+			Size:   0,
+			Hash:   SHA256OfNothing,
+		})
+	}
+
+	return blocks, nil
+}
+
+func EncryptedBlocks(r io.Reader, blocksize int, sizehint int64, label []byte, cert tls.Certificate) ([]protocol.BlockInfo, error) {
+	var blocks []protocol.BlockInfo
+	if sizehint > 0 {
+		blocks = make([]protocol.BlockInfo, 0, int(sizehint/int64(blocksize)))
+	}
+	var offset int64
+	hf := sha256.New()
+	for {
+		lr := &io.LimitedReader{R: r, N: int64(blocksize)}
+
+		buf := make([]byte, blocksize)
+
+		n, _ := lr.Read(buf)
+		if n == 0 {
+			break
+		}
+
+		buf = buf[:n]
+
+		out, err := protocol.Encrypt(buf, label, cert)
+		if err != nil {
+			return nil, err
+		}
+
+		hf.Write(out)
+
+		n = len(out)
 
 		b := protocol.BlockInfo{
 			Size:   int32(n),

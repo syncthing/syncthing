@@ -602,7 +602,7 @@ func syncthingMain() {
 		}
 	}
 
-	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb)
+	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb, cert)
 	cfg.Subscribe(m)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
