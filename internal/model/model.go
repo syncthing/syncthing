@@ -1702,6 +1702,10 @@ func (m *Model) Override(folder string) {
 	runner.setState(FolderIdle)
 }
 
+func (m *Model) Restore(folder string) {
+	l.Debugln("Restore clicked", folder)
+}
+
 // CurrentLocalVersion returns the change version for the given folder.
 // This is guaranteed to increment if the contents of the local folder has
 // changed.

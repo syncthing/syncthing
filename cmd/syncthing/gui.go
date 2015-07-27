@@ -159,6 +159,7 @@ func (s *apiSvc) Serve() {
 	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                      // folder file [perpage] [page]
 	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                // folder
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)              // folder
+	postRestMux.HandleFunc("/rest/db/restore", s.postDBRestore)              // folder
 	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                      // folder [sub...] [delay]
 	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)          // <body>
 	postRestMux.HandleFunc("/rest/system/discovery", s.postSystemDiscovery)    // device addr
@@ -449,6 +450,12 @@ func (s *apiSvc) postDBOverride(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 	go s.model.Override(folder)
+}
+
+func (s *apiSvc) postDBRestore(w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var folder = qs.Get("folder")
+	go s.model.Restore(folder)
 }
 
 func (s *apiSvc) getDBNeed(w http.ResponseWriter, r *http.Request) {
