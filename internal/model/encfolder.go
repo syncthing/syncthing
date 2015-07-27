@@ -113,8 +113,8 @@ func (p *encFolder) Serve() {
 		p.setState(FolderIdle)
 	}()
 
-	var prevVer int64
-	var prevIgnoreHash string
+	//var prevVer int64
+	//var prevIgnoreHash string
 
 	rescheduleScan := func() {
 		if p.scanIntv == 0 {
@@ -140,109 +140,111 @@ func (p *encFolder) Serve() {
 		case <-p.stop:
 			return
 
-		case <-p.remoteIndex:
-			prevVer = 0
-			p.pullTimer.Reset(shortPullIntv)
-			if debug {
-				l.Debugln(p, "remote index updated, rescheduling pull")
-			}
+		// Don't Pull Remote Index
+		// case <-p.remoteIndex:
+		// 	prevVer = 0
+		// 	p.pullTimer.Reset(shortPullIntv)
+		// 	if debug {
+		// 		l.Debugln(p, "remote index updated, rescheduling pull")
+		// 	}
 
-		case <-p.pullTimer.C:
-			if !initialScanCompleted {
-				if debug {
-					l.Debugln(p, "skip (initial)")
-				}
-				p.pullTimer.Reset(nextPullIntv)
-				continue
-			}
+		// At first, also don't pull files
+		// case <-p.pullTimer.C:
+		// 	if !initialScanCompleted {
+		// 		if debug {
+		// 			l.Debugln(p, "skip (initial)")
+		// 		}
+		// 		p.pullTimer.Reset(nextPullIntv)
+		// 		continue
+		// 	}
 
-			p.model.fmut.RLock()
-			curIgnores := p.model.folderIgnores[p.folder]
-			p.model.fmut.RUnlock()
+		// 	p.model.fmut.RLock()
+		// 	curIgnores := p.model.folderIgnores[p.folder]
+		// 	p.model.fmut.RUnlock()
 
-			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
-				// The ignore patterns have changed. We need to re-evaluate if
-				// there are files we need now that were ignored before.
-				if debug {
-					l.Debugln(p, "ignore patterns have changed, resetting prevVer")
-				}
-				prevVer = 0
-				prevIgnoreHash = newHash
-			}
+		// 	if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
+		// 		// The ignore patterns have changed. We need to re-evaluate if
+		// 		// there are files we need now that were ignored before.
+		// 		if debug {
+		// 			l.Debugln(p, "ignore patterns have changed, resetting prevVer")
+		// 		}
+		// 		prevVer = 0
+		// 		prevIgnoreHash = newHash
+		// 	}
 
-			// RemoteLocalVersion() is a fast call, doesn't touch the database.
-			curVer, ok := p.model.RemoteLocalVersion(p.folder)
-			if !ok || curVer == prevVer {
-				if debug {
-					l.Debugln(p, "skip (curVer == prevVer)", prevVer, ok)
-				}
-				p.pullTimer.Reset(nextPullIntv)
-				continue
-			}
+		// 	// RemoteLocalVersion() is a fast call, doesn't touch the database.
+		// 	curVer, ok := p.model.RemoteLocalVersion(p.folder)
+		// 	if !ok || curVer == prevVer {
+		// 		if debug {
+		// 			l.Debugln(p, "skip (curVer == prevVer)", prevVer, ok)
+		// 		}
+		// 		p.pullTimer.Reset(nextPullIntv)
+		// 		continue
+		// 	}
 
-			if debug {
-				l.Debugln(p, "pulling", prevVer, curVer)
-			}
+		// 	if debug {
+		// 		l.Debugln(p, "pulling", prevVer, curVer)
+		// 	}
 
-			p.setState(FolderSyncing)
-			p.clearErrors()
-			tries := 0
+		// 	p.setState(FolderSyncing)
+		// 	p.clearErrors()
+		// 	tries := 0
 
-			for {
-				tries++
+		// 	for {
+		// 		tries++
 
-				changed := p.pullerIteration(curIgnores)
-				if debug {
-					l.Debugln(p, "changed", changed)
-				}
+		// 		changed := p.pullerIteration(curIgnores)
+		// 		if debug {
+		// 			l.Debugln(p, "changed", changed)
+		// 		}
 
-				if changed == 0 {
-					// No files were changed by the puller, so we are in
-					// sync. Remember the local version number and
-					// schedule a resync a little bit into the future.
+		// 		if changed == 0 {
+		// 			// No files were changed by the puller, so we are in
+		// 			// sync. Remember the local version number and
+		// 			// schedule a resync a little bit into the future.
 
-					if lv, ok := p.model.RemoteLocalVersion(p.folder); ok && lv < curVer {
-						// There's a corner case where the device we needed
-						// files from disconnected during the puller
-						// iteration. The files will have been removed from
-						// the index, so we've concluded that we don't need
-						// them, but at the same time we have the local
-						// version that includes those files in curVer. So we
-						// catch the case that localVersion might have
-						// decreased here.
-						l.Debugln(p, "adjusting curVer", lv)
-						curVer = lv
-					}
-					prevVer = curVer
-					if debug {
-						l.Debugln(p, "next pull in", nextPullIntv)
-					}
-					p.pullTimer.Reset(nextPullIntv)
-					break
-				}
+		// 			if lv, ok := p.model.RemoteLocalVersion(p.folder); ok && lv < curVer {
+		// 				// There's a corner case where the device we needed
+		// 				// files from disconnected during the puller
+		// 				// iteration. The files will have been removed from
+		// 				// the index, so we've concluded that we don't need
+		// 				// them, but at the same time we have the local
+		// 				// version that includes those files in curVer. So we
+		// 				// catch the case that localVersion might have
+		// 				// decreased here.
+		// 				l.Debugln(p, "adjusting curVer", lv)
+		// 				curVer = lv
+		// 			}
+		// 			prevVer = curVer
+		// 			if debug {
+		// 				l.Debugln(p, "next pull in", nextPullIntv)
+		// 			}
+		// 			p.pullTimer.Reset(nextPullIntv)
+		// 			break
+		// 		}
 
-				if tries > 10 {
-					// We've tried a bunch of times to get in sync, but
-					// we're not making it. Probably there are write
-					// errors preventing us. Flag this with a warning and
-					// wait a bit longer before retrying.
-					l.Infof("Folder %q isn't making progress. Pausing puller for %v.", p.folder, pauseIntv)
-					if debug {
-						l.Debugln(p, "next pull in", pauseIntv)
-					}
+		// 		if tries > 10 {
+		// 			// We've tried a bunch of times to get in sync, but
+		// 			// we're not making it. Probably there are write
+		// 			// errors preventing us. Flag this with a warning and
+		// 			// wait a bit longer before retrying.
+		// 			l.Infof("Folder %q isn't making progress. Pausing puller for %v.", p.folder, pauseIntv)
+		// 			if debug {
+		// 				l.Debugln(p, "next pull in", pauseIntv)
+		// 			}
 
-					if folderErrors := p.currentErrors(); len(folderErrors) > 0 {
-						events.Default.Log(events.FolderErrors, map[string]interface{}{
-							"folder": p.folder,
-							"errors": folderErrors,
-						})
-					}
+		// 			if folderErrors := p.currentErrors(); len(folderErrors) > 0 {
+		// 				events.Default.Log(events.FolderErrors, map[string]interface{}{
+		// 					"folder": p.folder,
+		// 					"errors": folderErrors,
+		// 				})
+		// 			}
 
-					p.pullTimer.Reset(pauseIntv)
-					break
-				}
-			}
-			p.setState(FolderIdle)
+		// 			p.pullTimer.Reset(pauseIntv)
+		// 			break
+		// 		}
+		// 	}
+		// 	p.setState(FolderIdle)
 
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
