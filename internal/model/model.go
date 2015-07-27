@@ -1212,27 +1212,27 @@ func (m *Model) sendIndexTo(initial bool, minLocalVer int64, conn protocol.Conne
 			return true
 		}
 
-		if (m.folderCfgs[folder].Encrypted) {
-			l.Debugf("opening", filepath.Join(m.folderCfgs[folder].Path(), f.Name))
+		// if (m.folderCfgs[folder].Encrypted) {
+		// 	l.Debugf("opening", filepath.Join(m.folderCfgs[folder].Path(), f.Name))
 
-			fd, err := os.Open(filepath.Join(m.folderCfgs[folder].Path(), f.Name))
-			if err == nil {
-				l.Debugf("EncBlocks: Datei geoeffnet")
-				fstats, err := fd.Stat()
-				if err == nil {
-					var blocks, err = scanner.EncryptedBlocks(fd, protocol.BlockSize, fstats.Size(), []byte(f.Name), m.cert)
-					if (err == nil) {
-						l.Debugf("EncBlocks:", blocks)
+		// 	fd, err := os.Open(filepath.Join(m.folderCfgs[folder].Path(), f.Name))
+		// 	if err == nil {
+		// 		l.Debugf("EncBlocks: Datei geoeffnet")
+		// 		fstats, err := fd.Stat()
+		// 		if err == nil {
+		// 			var blocks, err = scanner.EncryptedBlocks(fd, protocol.BlockSize, fstats.Size(), []byte(f.Name), m.cert)
+		// 			if (err == nil) {
+		// 				l.Debugf("EncBlocks:", blocks)
 
-						f.Blocks = blocks
-					} else {
-						l.Debugf("error:", err)
-					}
-				}
-			}
-			fd.Close()
+		// 				f.Blocks = blocks
+		// 			} else {
+		// 				l.Debugf("error:", err)
+		// 			}
+		// 		}
+		// 	}
+		// 	fd.Close()
 
-		}
+		// }
 
 		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
 			if initial {
