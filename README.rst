@@ -10,7 +10,7 @@ To edit the documentation you need a GitHub account. Once you have created one
 and logged in, you can edit any page by navigating to the corresponding file and
 clicking the edit (pen) icon. This will create a so called "fork" and a "pull
 request", which will be approved by one of the existing documentation team
-members. Once you haveve made a contribution or two, you can be added to the
+members. Once you have made a contribution or two, you can be added to the
 documentation team and perform edits without requiring approval.
 
 In the long run, learning to use Git_ and running Sphinx_ on your computer is
