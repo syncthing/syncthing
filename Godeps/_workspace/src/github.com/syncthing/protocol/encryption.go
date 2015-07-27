@@ -17,7 +17,7 @@ import (
 func Encrypt(buf []byte, label []byte, cert tls.Certificate) (out []byte, err error) {
 	var ret []byte
 
-	l.Debugln("Before encryption: ", buf)
+	l.Debugf("Trying to encrypt", len(buf), "bytes of data")
 
 	// Certificate stuff
 	pub, err := x509.ParseCertificate(cert.Certificate[0])
@@ -32,26 +32,30 @@ func Encrypt(buf []byte, label []byte, cert tls.Certificate) (out []byte, err er
 	// now to encrypting
 	// each encrypted chunk may only be ((pubkey.N.BitLen() + 7) / 8) - 11 byte big, so we may have to cut here
 
+	sha := sha256.New()
 
-	k := ((pubkey.N.BitLen() + 7) / 8) - 11
+	k := ((pubkey.N.BitLen() + 7) / 8) -2*sha.Size()-2
 
 	var offset int
 	
 	for i := 0; i < len(buf); i += k {
+		l.Debugf("Encrypt cicle i", i, "k", k, "i+k", i+k, "len", len(buf))
 		if i + k > len(buf) {
 			k = len(buf) - i
 		}
-		out, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, pubkey, buf[i:k], label)
+		out, err := rsa.EncryptOAEP(sha, rand.Reader, pubkey, buf[i:i+k], label) // Outputs 384 Bytes
 		if err != nil {
 			l.Debugln("error:", err)
 			return nil, err
 		}
+
 		ret = append(ret, out...)
 
 		offset += len(out)
 	}
 
-	l.Debugln("After encryption: ", ret)
+	return ret, nil
+}
 
 	return ret, nil
 }

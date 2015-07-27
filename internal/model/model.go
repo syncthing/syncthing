@@ -972,15 +972,15 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	if (m.folderCfgs[folder].Encrypted) {
 		buf = buf[:n]
 
-		l.Debugf("before model encryption", buf)
+		l.Debugf("Encrypting", name)
 
-		buf, err := protocol.Encrypt(buf, []byte(name), m.cert)
+		out, err := protocol.Encrypt(buf, []byte(name), m.cert)
 		if err != nil {
 			l.Debugf("error:", err)
 			return nil, err
 		}
 
-		l.Debugf("after model encryption", buf)
+		buf = out
 
 		l.Debugf("Requested size", size, " actual size", len(buf))
 	}
