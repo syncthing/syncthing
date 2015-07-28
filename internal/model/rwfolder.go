@@ -46,6 +46,8 @@ type rwFolder struct {
 	shortID     uint64
 	order       config.PullOrder
 
+	encTarget   bool
+
 	stop        chan struct{}
 	queue       *jobQueue
 	dbUpdates   chan dbUpdateJob
@@ -78,6 +80,8 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		pullers:     cfg.Pullers,
 		shortID:     shortID,
 		order:       cfg.Order,
+
+		encTarget:   cfg.EncTarget,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -1023,7 +1027,11 @@ func (p *rwFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
 func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
-	buf := make([]byte, protocol.BlockSize)
+	var blockSize int64 = protocol.BlockSize
+	if p.encTarget {
+		blockSize = 154875
+	}
+	buf := make([]byte, blockSize)
 
 	for state := range in {
 		dstFd, err := state.tempFile()
@@ -1052,7 +1060,7 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 					return false
 				}
 
-				_, err = fd.ReadAt(buf, protocol.BlockSize*int64(index))
+				_, err = fd.ReadAt(buf, blockSize*int64(index))
 				fd.Close()
 				if err != nil {
 					return false
