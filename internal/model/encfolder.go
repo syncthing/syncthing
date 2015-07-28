@@ -15,6 +15,8 @@ import (
 	"sort"
 	"time"
 
+	"crypto/rsa"
+
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/db"
@@ -46,6 +48,8 @@ type encFolder struct {
 	shortID     uint64
 	order       config.PullOrder
 
+	privkey     *rsa.PrivateKey
+
 	stop        chan struct{}
 	queue       *jobQueue
 	dbUpdates   chan dbUpdateJob
@@ -59,7 +63,7 @@ type encFolder struct {
 	errorsMut sync.Mutex
 }
 
-func newENCFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *encFolder {
+func newENCFolder(m *Model, shortID uint64, cfg config.FolderConfiguration, privkey *rsa.PrivateKey) *encFolder {
 	return &encFolder{
 		stateTracker: stateTracker{
 			folder: cfg.ID,
@@ -78,6 +82,8 @@ func newENCFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *enc
 		pullers:     cfg.Pullers,
 		shortID:     shortID,
 		order:       cfg.Order,
+
+		privkey:     privkey,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -1161,14 +1167,13 @@ func (p *encFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPu
 			// 	continue
 			// }
 
-			l.Debugln("Before decryption: ", buf)
+			dbuf, err := protocol.Decrypt(buf, []byte(state.file.Name), p.privkey)
+ 			if err != nil {
+ 				l.Debugf("Error decrypting " + state.file.Name)
+ 			} else {
+ 				buf = dbuf
+ 			}
 
-			for i := 0; i < len(buf); i++ {
-				buf[i] = buf[i]+1
-			}
-
-			l.Debugln("After decryption: ", buf)
- 
 			// Save the block data we got from the cluster
 			_, err = fd.WriteAt(buf, state.block.Offset)
 			if err != nil {
