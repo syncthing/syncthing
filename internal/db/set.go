@@ -88,22 +88,6 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 	}
 }
 
-func (s *FileSet) ReplaceWithDelete(device protocol.DeviceID, fs []protocol.FileInfo, myID uint64) {
-	if debug {
-		l.Debugf("%s ReplaceWithDelete(%v, [%d])", s.folder, device, len(fs))
-	}
-	normalizeFilenames(fs)
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if lv := ldbReplaceWithDelete(s.db, []byte(s.folder), device[:], fs, myID); lv > s.localVersion[device] {
-		s.localVersion[device] = lv
-	}
-	if device == protocol.LocalDeviceID {
-		s.blockmap.Drop()
-		s.blockmap.Add(fs)
-	}
-}
-
 func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	if debug {
 		l.Debugf("%s Update(%v, [%d])", s.folder, device, len(fs))

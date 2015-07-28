@@ -826,13 +826,6 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	return buf, nil
 }
 
-// ReplaceLocal replaces the local folder index with the given list of files.
-func (m *Model) ReplaceLocal(folder string, fs []protocol.FileInfo) {
-	m.fmut.RLock()
-	m.folderFiles[folder].ReplaceWithDelete(protocol.LocalDeviceID, fs, m.shortID)
-	m.fmut.RUnlock()
-}
-
 func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]

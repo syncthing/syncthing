@@ -116,6 +116,7 @@ func TestGlobalSet(t *testing.T) {
 		protocol.FileInfo{Name: "b", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(2)},
 		protocol.FileInfo{Name: "c", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(3)},
 		protocol.FileInfo{Name: "d", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(4)},
+		protocol.FileInfo{Name: "z", Version: protocol.Vector{{ID: myID, Value: 1001}}, Flags: protocol.FlagDeleted},
 	}
 	localTot := fileList{
 		local0[0],
@@ -160,8 +161,8 @@ func TestGlobalSet(t *testing.T) {
 		local0[3],
 	}
 
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local0, myID)
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local1, myID)
+	m.Replace(protocol.LocalDeviceID, local0)
+	m.Replace(protocol.LocalDeviceID, local1)
 	m.Replace(remoteDevice0, remote0)
 	m.Update(remoteDevice0, remote1)
 
@@ -283,7 +284,7 @@ func TestNeedWithInvalid(t *testing.T) {
 		protocol.FileInfo{Name: "d", Version: protocol.Vector{{ID: myID, Value: 1003}}, Blocks: genBlocks(7)},
 	}
 
-	s.ReplaceWithDelete(protocol.LocalDeviceID, localHave, myID)
+	s.Replace(protocol.LocalDeviceID, localHave)
 	s.Replace(remoteDevice0, remote0Have)
 	s.Replace(remoteDevice1, remote1Have)
 
@@ -310,7 +311,7 @@ func TestUpdateToInvalid(t *testing.T) {
 		protocol.FileInfo{Name: "d", Version: protocol.Vector{{ID: myID, Value: 1003}}, Blocks: genBlocks(7)},
 	}
 
-	s.ReplaceWithDelete(protocol.LocalDeviceID, localHave, myID)
+	s.Replace(protocol.LocalDeviceID, localHave)
 
 	have := fileList(haveList(s, protocol.LocalDeviceID))
 	sort.Sort(have)
@@ -370,81 +371,6 @@ func TestInvalidAvailability(t *testing.T) {
 		t.Error("Incorrect availability for 'none':", av)
 	}
 }
-
-func TestLocalDeleted(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m := db.NewFileSet("test", ldb)
-
-	local1 := []protocol.FileInfo{
-		{Name: "a", Version: protocol.Vector{{ID: myID, Value: 1000}}},
-		{Name: "b", Version: protocol.Vector{{ID: myID, Value: 1000}}},
-		{Name: "c", Version: protocol.Vector{{ID: myID, Value: 1000}}},
-		{Name: "d", Version: protocol.Vector{{ID: myID, Value: 1000}}},
-		{Name: "z", Version: protocol.Vector{{ID: myID, Value: 1000}}, Flags: protocol.FlagDirectory},
-	}
-
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local1, myID)
-
-	m.ReplaceWithDelete(protocol.LocalDeviceID, []protocol.FileInfo{
-		local1[0],
-		// [1] removed
-		local1[2],
-		local1[3],
-		local1[4],
-	}, myID)
-	m.ReplaceWithDelete(protocol.LocalDeviceID, []protocol.FileInfo{
-		local1[0],
-		local1[2],
-		// [3] removed
-		local1[4],
-	}, myID)
-	m.ReplaceWithDelete(protocol.LocalDeviceID, []protocol.FileInfo{
-		local1[0],
-		local1[2],
-		// [4] removed
-	}, myID)
-
-	expectedGlobal1 := []protocol.FileInfo{
-		local1[0],
-		{Name: "b", Version: protocol.Vector{{ID: myID, Value: 1001}}, Flags: protocol.FlagDeleted},
-		local1[2],
-		{Name: "d", Version: protocol.Vector{{ID: myID, Value: 1001}}, Flags: protocol.FlagDeleted},
-		{Name: "z", Version: protocol.Vector{{ID: myID, Value: 1001}}, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
-	}
-
-	g := globalList(m)
-	sort.Sort(fileList(g))
-	sort.Sort(fileList(expectedGlobal1))
-
-	if fmt.Sprint(g) != fmt.Sprint(expectedGlobal1) {
-		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", g, expectedGlobal1)
-	}
-
-	m.ReplaceWithDelete(protocol.LocalDeviceID, []protocol.FileInfo{
-		local1[0],
-		// [2] removed
-	}, myID)
-
-	expectedGlobal2 := []protocol.FileInfo{
-		local1[0],
-		{Name: "b", Version: protocol.Vector{{ID: myID, Value: 1001}}, Flags: protocol.FlagDeleted},
-		{Name: "c", Version: protocol.Vector{{ID: myID, Value: 1001}}, Flags: protocol.FlagDeleted},
-		{Name: "d", Version: protocol.Vector{{ID: myID, Value: 1001}}, Flags: protocol.FlagDeleted},
-		{Name: "z", Version: protocol.Vector{{ID: myID, Value: 1001}}, Flags: protocol.FlagDeleted | protocol.FlagDirectory},
-	}
-
-	g = globalList(m)
-	sort.Sort(fileList(g))
-	sort.Sort(fileList(expectedGlobal2))
-
-	if fmt.Sprint(g) != fmt.Sprint(expectedGlobal2) {
-		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", g, expectedGlobal2)
-	}
-}
-
 func Benchmark10kReplace(b *testing.B) {
 	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
@@ -459,7 +385,7 @@ func Benchmark10kReplace(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m := db.NewFileSet("test", ldb)
-		m.ReplaceWithDelete(protocol.LocalDeviceID, local, myID)
+		m.Replace(protocol.LocalDeviceID, local)
 	}
 }
 
@@ -482,7 +408,7 @@ func Benchmark10kUpdateChg(b *testing.B) {
 		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: protocol.Vector{{ID: myID, Value: 1000}}})
 	}
 
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local, myID)
+	m.Replace(protocol.LocalDeviceID, local)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -513,7 +439,7 @@ func Benchmark10kUpdateSme(b *testing.B) {
 		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: protocol.Vector{{ID: myID, Value: 1000}}})
 	}
 
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local, myID)
+	m.Replace(protocol.LocalDeviceID, local)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -543,7 +469,7 @@ func Benchmark10kNeed2k(b *testing.B) {
 		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: protocol.Vector{{1, 980}}})
 	}
 
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local, myID)
+	m.Replace(protocol.LocalDeviceID, local)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -576,7 +502,7 @@ func Benchmark10kHaveFullList(b *testing.B) {
 		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: protocol.Vector{{1, 980}}})
 	}
 
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local, myID)
+	m.Replace(protocol.LocalDeviceID, local)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -609,7 +535,7 @@ func Benchmark10kGlobal(b *testing.B) {
 		local = append(local, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Version: protocol.Vector{{1, 980}}})
 	}
 
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local, myID)
+	m.Replace(protocol.LocalDeviceID, local)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -642,7 +568,7 @@ func TestGlobalReset(t *testing.T) {
 		{Name: "e", Version: protocol.Vector{{ID: myID, Value: 1000}}},
 	}
 
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local, myID)
+	m.Replace(protocol.LocalDeviceID, local)
 	g := globalList(m)
 	sort.Sort(fileList(g))
 
@@ -689,7 +615,7 @@ func TestNeed(t *testing.T) {
 		{Name: "e", Version: protocol.Vector{{ID: myID, Value: 1000}}},
 	}
 
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local, myID)
+	m.Replace(protocol.LocalDeviceID, local)
 	m.Replace(remoteDevice0, remote)
 
 	need := needList(m, protocol.LocalDeviceID)
@@ -725,19 +651,13 @@ func TestLocalVersion(t *testing.T) {
 		{Name: "e", Version: protocol.Vector{{ID: myID, Value: 1000}}},
 	}
 
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local1, myID)
+	m.Replace(protocol.LocalDeviceID, local1)
 	c0 := m.LocalVersion(protocol.LocalDeviceID)
 
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local2, myID)
+	m.Replace(protocol.LocalDeviceID, local2)
 	c1 := m.LocalVersion(protocol.LocalDeviceID)
 	if !(c1 > c0) {
 		t.Fatal("Local version number should have incremented")
-	}
-
-	m.ReplaceWithDelete(protocol.LocalDeviceID, local2, myID)
-	c2 := m.LocalVersion(protocol.LocalDeviceID)
-	if c2 != c1 {
-		t.Fatal("Local version number should be unchanged")
 	}
 }
 
@@ -850,7 +770,7 @@ func TestLongPath(t *testing.T) {
 		{Name: string(name), Version: protocol.Vector{{ID: myID, Value: 1000}}},
 	}
 
-	s.ReplaceWithDelete(protocol.LocalDeviceID, local, myID)
+	s.Replace(protocol.LocalDeviceID, local)
 
 	gf := globalList(s)
 	if l := len(gf); l != 1 {

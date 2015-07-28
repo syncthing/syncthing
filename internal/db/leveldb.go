@@ -321,40 +321,6 @@ func ldbReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) i
 	})
 }
 
-func ldbReplaceWithDelete(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo, myID uint64) int64 {
-	mtimeRepo := NewVirtualMtimeRepo(db, string(folder))
-
-	return ldbGenericReplace(db, folder, device, fs, func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) int64 {
-		var tf FileInfoTruncated
-		err := tf.UnmarshalXDR(dbi.Value())
-		if err != nil {
-			panic(err)
-		}
-		if !tf.IsDeleted() {
-			if debugDB {
-				l.Debugf("mark deleted; folder=%q device=%v name=%q", folder, protocol.DeviceIDFromBytes(device), name)
-			}
-			ts := clock(tf.LocalVersion)
-			f := protocol.FileInfo{
-				Name:         tf.Name,
-				Version:      tf.Version.Update(myID),
-				LocalVersion: ts,
-				Flags:        tf.Flags | protocol.FlagDeleted,
-				Modified:     tf.Modified,
-			}
-			bs, _ := f.MarshalXDR()
-			if debugDB {
-				l.Debugf("batch.Put %p %x", batch, dbi.Key())
-			}
-			batch.Put(dbi.Key(), bs)
-			mtimeRepo.DeleteMtime(tf.Name)
-			ldbUpdateGlobal(db, batch, folder, device, f)
-			return ts
-		}
-		return 0
-	})
-}
-
 func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) int64 {
 	runtime.GC()
 
