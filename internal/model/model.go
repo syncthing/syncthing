@@ -1001,13 +1001,25 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 
 	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores)
 
+	sub := events.Default.Subscribe(events.LocalIndexUpdated)
+	defer events.Default.Unsubscribe(sub)
+
 	for err == nil {
-		time.Sleep(5 * time.Second)
+		// While we have sent a localVersion at least equal to the one
+		// currently in the database, wait for the local index to update. The
+		// local index may update for other folders than the one we are
+		// sending for.
 		if fs.LocalVersion(protocol.LocalDeviceID) <= minLocalVer {
+			sub.Poll(time.Minute)
 			continue
 		}
 
 		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
+
+		// Wait a short amount of time before entering the next loop. If there
+		// are continous changes happening to the local index, this gives us
+		// time to batch them up a little.
+		time.Sleep(250 * time.Millisecond)
 	}
 
 	if debug {
