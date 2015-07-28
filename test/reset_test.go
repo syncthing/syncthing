@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestReset(t *testing.T) {
@@ -33,7 +32,7 @@ func TestReset(t *testing.T) {
 	size := createFiles(t)
 
 	p := startInstance(t, 1)
-	defer checkedStop(t, p)
+	defer p.Stop() // Not checkedStop, because Syncthing will exit on it's own
 
 	m, err := p.Model("default")
 	if err != nil {
@@ -73,12 +72,10 @@ func TestReset(t *testing.T) {
 		t.Fatalf("Failed to reset indexes (default): %v (%s)", err, bytes.TrimSpace(bs))
 	}
 
-	// Syncthing restarts on reset. But we set STNORESTART=1 for the tests. So
-	// we wait for it to exit, then do a stop so the rc.Process is happy and
-	// restart it again.
-	time.Sleep(time.Second)
+	// ---- Syncthing exits here ----
+
 	p = startInstance(t, 1)
-	defer checkedStop(t, p)
+	defer p.Stop() // Not checkedStop, because Syncthing will exit on it's own
 
 	m, err = p.Model("default")
 	if err != nil {
@@ -114,9 +111,8 @@ func TestReset(t *testing.T) {
 		t.Fatalf("Failed to reset indexes (all): %v (%s)", err, bytes.TrimSpace(bs))
 	}
 
-	// Syncthing restarts on reset. But we set STNORESTART=1 for the tests. So
-	// we wait for it to exit, then restart it again.
-	time.Sleep(time.Second)
+	// ---- Syncthing exits here ----
+
 	p = startInstance(t, 1)
 	defer checkedStop(t, p)
 
