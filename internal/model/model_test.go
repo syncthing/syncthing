@@ -99,8 +99,11 @@ func TestRequest(t *testing.T) {
 	m.ServeBackground()
 	m.ScanFolder("default")
 
+	bs := make([]byte, protocol.BlockSize)
+
 	// Existing, shared file
-	bs, err := m.Request(device1, "default", "foo", 0, 6, nil, 0, nil)
+	bs = bs[:6]
+	err := m.Request(device1, "default", "foo", 0, nil, 0, nil, bs)
 	if err != nil {
 		t.Error(err)
 	}
@@ -109,57 +112,34 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Existing, nonshared file
-	bs, err = m.Request(device2, "default", "foo", 0, 6, nil, 0, nil)
+	err = m.Request(device2, "default", "foo", 0, nil, 0, nil, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
-	}
-	if bs != nil {
-		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
 	}
 
 	// Nonexistent file
-	bs, err = m.Request(device1, "default", "nonexistent", 0, 6, nil, 0, nil)
+	err = m.Request(device1, "default", "nonexistent", 0, nil, 0, nil, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
-	}
-	if bs != nil {
-		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
 	}
 
 	// Shared folder, but disallowed file name
-	bs, err = m.Request(device1, "default", "../walk.go", 0, 6, nil, 0, nil)
+	err = m.Request(device1, "default", "../walk.go", 0, nil, 0, nil, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
-	}
-	if bs != nil {
-		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
-	}
-
-	// Larger block than available
-	bs, err = m.Request(device1, "default", "foo", 0, 42, nil, 0, nil)
-	if err == nil {
-		t.Error("Unexpected nil error on insecure file read")
-	}
-	if bs != nil {
-		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
 	}
 
 	// Negative offset
-	bs, err = m.Request(device1, "default", "foo", -4, 6, nil, 0, nil)
+	err = m.Request(device1, "default", "foo", -4, nil, 0, nil, bs[:0])
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
-	}
-	if bs != nil {
-		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
 	}
 
-	// Negative size
-	bs, err = m.Request(device1, "default", "foo", 4, -4, nil, 0, nil)
+	// Larger block than available
+	bs = bs[:42]
+	err = m.Request(device1, "default", "foo", 0, nil, 0, nil, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
-	}
-	if bs != nil {
-		t.Errorf("Unexpected non nil data on insecure file read: %q", string(bs))
 	}
 }
 
