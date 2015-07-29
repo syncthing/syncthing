@@ -37,8 +37,6 @@
     </device>
     <gui enabled="true" tls="false">
         <address>127.0.0.1:8081</address>
-        <user>testuser</user>
-        <password>$2a$10$7tKL5uvLDGn5s2VLPM2yWOK/II45az0mTel8hxAUJDRQN1Tk2QYwu</password>
         <apikey>abc123</apikey>
     </gui>
     <options>

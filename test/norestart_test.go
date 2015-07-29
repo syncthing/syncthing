@@ -90,7 +90,6 @@ func TestFolderWithoutRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer removeAll("testfolder-p1", "testfolder-p4")
 
 	if err := generateFiles("testfolder-p1", 50, 18, "../LICENSE"); err != nil {
 		t.Fatal(err)
@@ -101,6 +100,8 @@ func TestFolderWithoutRestart(t *testing.T) {
 
 	p4 := startInstance(t, 4)
 	defer checkedStop(t, p4)
+
+	defer removeAll("testfolder-p1", "testfolder-p4")
 
 	if ok, err := p1.ConfigInSync(); err != nil || !ok {
 		t.Fatal("p1 should be in sync;", ok, err)
