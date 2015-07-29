@@ -29,7 +29,6 @@ func TestOverride(t *testing.T) {
 	fld.ReadOnly = true
 	cfg.SetFolder(fld)
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
-	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
 	cfg.Save()
 
 	log.Println("Cleaning...")
@@ -64,6 +63,7 @@ func TestOverride(t *testing.T) {
 
 	master := startInstance(t, 1)
 	defer checkedStop(t, master)
+	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
 
 	slave := startInstance(t, 2)
 	defer checkedStop(t, slave)
@@ -158,7 +158,6 @@ func TestOverrideIgnores(t *testing.T) {
 	fld.ReadOnly = true
 	cfg.SetFolder(fld)
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
-	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
 	cfg.Save()
 
 	log.Println("Cleaning...")
@@ -203,6 +202,7 @@ func TestOverrideIgnores(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer master.stop()
+	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
 
 	log.Println("Starting slave...")
 	slave := syncthingProcess{ // id2
