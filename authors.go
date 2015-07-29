@@ -20,6 +20,8 @@ import (
 	"strings"
 )
 
+const htmlFile = "gui/scripts/syncthing/core/views/directives/aboutModalView.html"
+
 func main() {
 	bs := readAll("AUTHORS")
 	lines := strings.Split(string(bs), "\n")
@@ -27,17 +29,17 @@ func main() {
 	authors := make([]string, 0, len(lines))
 	for _, line := range lines {
 		if m := nameRe.FindStringSubmatch(line); len(m) == 2 {
-			authors = append(authors, "          <li class=\"auto-generated\">"+m[1]+"</li>")
+			authors = append(authors, "        <li class=\"auto-generated\">"+m[1]+"</li>")
 		}
 	}
 	sort.Strings(authors)
 	replacement := strings.Join(authors, "\n")
 
 	authorsRe := regexp.MustCompile(`(?s)id="contributor-list">.*?</ul>`)
-	bs = readAll("gui/index.html")
-	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n        </ul>"))
+	bs = readAll(htmlFile)
+	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n      </ul>"))
 
-	if err := ioutil.WriteFile("gui/index.html", bs, 0644); err != nil {
+	if err := ioutil.WriteFile(htmlFile, bs, 0644); err != nil {
 		log.Fatal(err)
 	}
 }
