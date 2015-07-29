@@ -348,7 +348,7 @@ func (p *Process) readResponse(resp *http.Response) ([]byte, error) {
 		return bs, err
 	}
 	if resp.StatusCode != 200 {
-		return bs, fmt.Errorf("%s", resp.Status)
+		return bs, fmt.Errorf("%s: %s", resp.Status, bs)
 	}
 	return bs, nil
 }
