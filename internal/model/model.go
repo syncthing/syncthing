@@ -1942,6 +1942,8 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			m.AddFolder(cfg)
 			if cfg.ReadOnly {
 				m.StartFolderRO(folderID)
+			} else if cfg.Encrypted {
+				m.StartFolderENC(folderID)
 			} else {
 				m.StartFolderRW(folderID)
 			}

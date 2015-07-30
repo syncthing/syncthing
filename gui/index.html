@@ -687,23 +687,31 @@
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
-                      <input type="checkbox" ng-model="currentFolder.encrypt"> <span translate>Encrypt</span>
-                    </label>
-                  </div>
-                  <p translate class="help-block">Encrypt files in this folder before sending them to the remote computer.</p>
-                </div>
-                <div class="form-group">
-                  <div class="checkbox">
-                    <label>
                       <input type="checkbox" ng-model="currentFolder.ignorePerms"> <span translate>Ignore Permissions</span>
                     </label>
                   </div>
                   <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
                 </div>
+                <div class="form-group">
+                  <div class="checkbox">
+                    <label>
+                      <input type="checkbox" ng-model="currentFolder.encrypt"> <span translate>Encrypt</span>
+                    </label>
+                  </div>
+                  <p translate class="help-block">Encrypt files in this folder before sending them to the remote computer.</p>
+                </div>
               </div>
 
               <!-- Right column-->
               <div class="col-md-6">
+                <div class="form-group">
+                  <div class="checkbox">
+                    <label>
+                      <input type="checkbox" ng-model="currentFolder.encrypted"> <span translate>Encrypted</span>
+                    </label>
+                  </div>
+                  <p translate class="help-block">Receive encrypted files with this folder. You can only send OR receive encrypted files (not both). Currently only one-to-one connections are supported with encryption</p>
+                </div>
                 <div class="form-group">
                   <label translate>File Pull Order</label>
                   <select class="form-control" ng-model="currentFolder.order">
