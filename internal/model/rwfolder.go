@@ -1049,8 +1049,8 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 		p.model.fmut.RUnlock()
 
 		for _, block := range state.blocks {
-			buf = buf[:int(block.Size)]
 			found := p.model.finder.Iterate(block.Hash, func(folder, file string, index int32) bool {
+				buf = buf[:int(block.Size)]
 				fd, err := os.Open(filepath.Join(folderRoots[folder], file))
 				if err != nil {
 					return false
@@ -1153,6 +1153,8 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 				continue
 			}
 
+			offset := state.block.Offset
+
 			// If this folder is set for encryption, ignore the hash (since the encrypted block will have a different hash) and go ahead and decrypt it
 			if (!p.encrypt) {
 				// Verify that the received block matches the desired hash, if not
@@ -1171,10 +1173,11 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 	 			} else {
 	 				buf = dbuf
 	 			}
+	 			offset = offset / protocol.EncryptedBlockSize * protocol.BlockSize
 	 		}
 
 			// Save the block data we got from the cluster
-			_, err = fd.WriteAt(buf, state.block.Offset)
+			_, err = fd.WriteAt(buf, offset)
 			if err != nil {
 				state.fail("save", err)
 			} else {
