@@ -17,8 +17,6 @@ import (
 func Encrypt(buf []byte, label []byte, cert tls.Certificate) (out []byte, err error) {
 	var ret []byte
 
-	l.Debugf("Trying to encrypt", len(buf), "bytes of data")
-
 	// Certificate stuff
 	pub, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
@@ -38,7 +36,6 @@ func Encrypt(buf []byte, label []byte, cert tls.Certificate) (out []byte, err er
 	var offset int
 	
 	for i := 0; i < len(buf); i += k {
-		l.Debugf("Encrypt cicle i", i, "k", k, "i+k", i+k, "len", len(buf))
 		if i + k > len(buf) {
 			k = len(buf) - i
 		}
@@ -59,8 +56,6 @@ func Encrypt(buf []byte, label []byte, cert tls.Certificate) (out []byte, err er
 func Decrypt(buf []byte, label []byte, key *rsa.PrivateKey) (out []byte, err error) {
 	var ret []byte
 
-	l.Debugf("Trying to decrypt", len(buf), "bytes of data")
-
 	// now to encrypting
 	// each encrypted chunk may only be ((pubkey.N.BitLen() + 7) / 8) - 11 byte big, so we may have to cut her
 
@@ -69,7 +64,6 @@ func Decrypt(buf []byte, label []byte, key *rsa.PrivateKey) (out []byte, err err
 	var offset int
 	
 	for i := 0; i < len(buf); i += k {
-		l.Debugf("Decrypt cicle i", i, "k", k, "i+k", i+k, "len", len(buf))
 		if i + k > len(buf) {
 			k = len(buf) - i
 		}
