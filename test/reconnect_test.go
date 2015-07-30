@@ -13,6 +13,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/rc"
 )
 
 func TestRestartReceiverDuringTransfer(t *testing.T) {
@@ -89,6 +91,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 				go func() {
 					time.Sleep(receiverDelay)
 					receiver = startInstance(t, 2)
+					rc.AwaitSync("default", receiver)
 					wg.Done()
 				}()
 			}
@@ -98,6 +101,7 @@ func testRestartDuringTransfer(t *testing.T, restartSender, restartReceiver bool
 				go func() {
 					time.Sleep(senderDelay)
 					sender = startInstance(t, 1)
+					rc.AwaitSync("default", sender)
 					wg.Done()
 				}()
 			}
