@@ -1309,6 +1309,10 @@ angular.module('syncthing.core')
             $http.post(urlbase + "/db/override?folder=" + encodeURIComponent(folder));
         };
 
+        $scope.restore = function (folder) {
+            $http.post(urlbase + "/db/restore?folder=" + encodeURIComponent(folder));
+        };
+
         $scope.about = function () {
             $('#about').modal('show');
         };
