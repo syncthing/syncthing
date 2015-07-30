@@ -687,6 +687,14 @@
                 <div class="form-group">
                   <div class="checkbox">
                     <label>
+                      <input type="checkbox" ng-model="currentFolder.encrypt"> <span translate>Encrypt</span>
+                    </label>
+                  </div>
+                  <p translate class="help-block">Encrypt files in this folder before sending them to the remote computer.</p>
+                </div>
+                <div class="form-group">
+                  <div class="checkbox">
+                    <label>
                       <input type="checkbox" ng-model="currentFolder.ignorePerms"> <span translate>Ignore Permissions</span>
                     </label>
                   </div>
