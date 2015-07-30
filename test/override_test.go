@@ -29,7 +29,7 @@ func TestOverride(t *testing.T) {
 	fld.ReadOnly = true
 	cfg.SetFolder(fld)
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
-	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
+	defer osutil.Rename("h1/config.xml.orig", "h1/config.xml")
 	cfg.Save()
 
 	log.Println("Cleaning...")
@@ -158,7 +158,7 @@ func TestOverrideIgnores(t *testing.T) {
 	fld.ReadOnly = true
 	cfg.SetFolder(fld)
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
-	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
+	defer osutil.Rename("h1/config.xml.orig", "h1/config.xml")
 	cfg.Save()
 
 	log.Println("Cleaning...")
