@@ -965,11 +965,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	}
 
 	if m.folderCfgs[folder].Encrypt {
-		if size == 158592 {
+		if size == protocol.EncryptedBlockSize {
 			size = protocol.BlockSize
 			l.Debugf("Requested 158592 serving", size)
 		}
-		offset = (offset / 158592) * protocol.BlockSize
+		offset = (offset / protocol.EncryptedBlockSize) * protocol.BlockSize
 	}
 
 	var n int

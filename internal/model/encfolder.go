@@ -83,7 +83,7 @@ func newENCFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *enc
 
 		// ToDo We need to calculate this based on the current protocol.BlockSize in case that changes at a later point in time
 		// This may also change if the key length changes or we use another hash algorithm for OAEP
-		blockSize:   158592,
+		blockSize:   protocol.EncryptedBlockSize,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
