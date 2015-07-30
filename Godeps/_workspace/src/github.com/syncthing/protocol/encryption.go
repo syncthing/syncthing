@@ -13,10 +13,14 @@ import (
 	"io"
 )
 
-func Encrypt(buf []byte, key[]byte) (out []byte, err error) {
+func Encrypt(in []byte, key[]byte) (out []byte, err error) {
 	// Buffer needs to be multiples of aes.BlockSize
-	if len(buf)%aes.BlockSize != 0 {
-		buf = buf[:len(buf)+ ((len(buf)/aes.BlockSize)+1)*aes.BlockSize]
+	var buf []byte
+	if len(in)%aes.BlockSize != 0 {
+		buf = make([]byte, ((len(in)/aes.BlockSize)+1)*aes.BlockSize)
+		copy(buf, in)
+	} else {
+		buf = in
 	}
 	
 	block, err := aes.NewCipher(key)

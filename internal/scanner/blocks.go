@@ -11,7 +11,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"crypto/tls"
+	"crypto/aes"
 
 	"github.com/syncthing/protocol"
 )
@@ -60,7 +60,7 @@ func Blocks(r io.Reader, blocksize int, sizehint int64) ([]protocol.BlockInfo, e
 	return blocks, nil
 }
 
-func EncryptedBlocks(r io.Reader, blocksize int, sizehint int64, label []byte, cert tls.Certificate) ([]protocol.BlockInfo, error) {
+func EncryptedBlocks(r io.Reader, blocksize int, sizehint int64) ([]protocol.BlockInfo, error) {
 	var blocks []protocol.BlockInfo
 	if sizehint > 0 {
 		blocks = make([]protocol.BlockInfo, 0, int(sizehint/int64(blocksize)))
@@ -80,7 +80,11 @@ func EncryptedBlocks(r io.Reader, blocksize int, sizehint int64, label []byte, c
 
 		// The size for encrypted blocks changes because of the encryption
 		// calculate the corrected size for the encryped blocks here
-		n = (((n / 318)+1) * 384)
+		// n = (((n / 318)+1) * 384)
+		n += aes.BlockSize
+		if (n % aes.BlockSize != 0) {
+			n = ((n/aes.BlockSize)+1)*aes.BlockSize
+		}
 
 		b := protocol.BlockInfo{
 			Size:   int32(n),

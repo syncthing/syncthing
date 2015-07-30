@@ -1232,7 +1232,7 @@ func (m *Model) sendIndexTo(initial bool, minLocalVer int64, conn protocol.Conne
 			if err == nil {
 				fstats, err := fd.Stat()
 				if err == nil {
-					var blocks, err = scanner.EncryptedBlocks(fd, protocol.BlockSize, fstats.Size(), []byte(f.Name), m.cert)
+					var blocks, err = scanner.EncryptedBlocks(fd, protocol.BlockSize, fstats.Size())
 					if (err == nil) {
 						f.Blocks = blocks
 					} else {
