@@ -967,7 +967,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	if m.folderCfgs[folder].Encrypt {
 		if size == protocol.EncryptedBlockSize {
 			size = protocol.BlockSize
-			l.Debugf("Requested 158592 serving", size)
+			l.Debugf("Requested %d serving %d", protocol.EncryptedBlockSize, size)
 		}
 		offset = (offset / protocol.EncryptedBlockSize) * protocol.BlockSize
 	}
@@ -986,7 +986,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 		l.Debugf("Encrypting", name)
 
-		out, err := protocol.Encrypt(buf, []byte(name), m.cert)
+		out, err := protocol.Encrypt(buf, []byte("549DAB2E79160077D5200DFA9F0EEB45"))
 		if err != nil {
 			l.Debugf("error:", err)
 			return nil, err
@@ -1230,13 +1230,10 @@ func (m *Model) sendIndexTo(initial bool, minLocalVer int64, conn protocol.Conne
 
 			fd, err := os.Open(filepath.Join(m.folderCfgs[folder].Path(), f.Name))
 			if err == nil {
-				l.Debugf("EncBlocks: File opened")
 				fstats, err := fd.Stat()
 				if err == nil {
 					var blocks, err = scanner.EncryptedBlocks(fd, protocol.BlockSize, fstats.Size(), []byte(f.Name), m.cert)
 					if (err == nil) {
-						l.Debugf("EncBlocks:", blocks)
-
 						f.Blocks = blocks
 					} else {
 						l.Debugf("error:", err)

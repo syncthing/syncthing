@@ -1170,7 +1170,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 				if debug {
 					l.Debugf("Decrypting %s/%s (S=%d o=%d)", p.folder, state.file.Name, state.block.Size, state.block.Offset)
 				}
-				dbuf, err := protocol.Decrypt(buf, []byte(state.file.Name), p.model.privkey)
+				dbuf, err := protocol.Decrypt(buf, []byte("549DAB2E79160077D5200DFA9F0EEB45"))
 	 			if err != nil {
 	 				l.Debugf("Error decrypting " + state.file.Name)
 	 			} else {

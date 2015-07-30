@@ -16,7 +16,7 @@ import (
 
 const (
 	BlockSize = 128 * 1024
-	EncryptedBlockSize = 158592
+	EncryptedBlockSize = 128 * 1024 + 16
 )
 
 const (
