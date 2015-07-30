@@ -9,13 +9,11 @@ package model
 import (
 	"fmt"
 	"io/ioutil"
-	"math/rand"
+	// "math/rand"
 	"os"
 	"path/filepath"
 	"sort"
 	"time"
-
-	"crypto/rsa"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
@@ -48,7 +46,7 @@ type encFolder struct {
 	shortID     uint64
 	order       config.PullOrder
 
-	privkey     *rsa.PrivateKey
+	blockSize   int
 
 	stop        chan struct{}
 	queue       *jobQueue
@@ -63,7 +61,7 @@ type encFolder struct {
 	errorsMut sync.Mutex
 }
 
-func newENCFolder(m *Model, shortID uint64, cfg config.FolderConfiguration, privkey *rsa.PrivateKey) *encFolder {
+func newENCFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *encFolder {
 	return &encFolder{
 		stateTracker: stateTracker{
 			folder: cfg.ID,
@@ -83,7 +81,9 @@ func newENCFolder(m *Model, shortID uint64, cfg config.FolderConfiguration, priv
 		shortID:     shortID,
 		order:       cfg.Order,
 
-		privkey:     privkey,
+		// ToDo We need to calculate this based on the current protocol.BlockSize in case that changes at a later point in time
+		// This may also change if the key length changes or we use another hash algorithm for OAEP
+		blockSize:   158592,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -119,24 +119,24 @@ func (p *encFolder) Serve() {
 		p.setState(FolderIdle)
 	}()
 
-	//var prevVer int64
-	//var prevIgnoreHash string
+	var prevVer int64
+	var prevIgnoreHash string
 
-	rescheduleScan := func() {
-		if p.scanIntv == 0 {
-			// We should not run scans, so it should not be rescheduled.
-			return
-		}
+	// rescheduleScan := func() {
+	// 	if p.scanIntv == 0 {
+	// 		// We should not run scans, so it should not be rescheduled.
+	// 		return
+	// 	}
 
-		// Sleep a random time between 3/4 and 5/4 of the configured interval.
-		sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
-		intv := time.Duration(sleepNanos) * time.Nanosecond
+	// 	// Sleep a random time between 3/4 and 5/4 of the configured interval.
+	// 	sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
+	// 	intv := time.Duration(sleepNanos) * time.Nanosecond
 
-		if debug {
-			l.Debugln(p, "next rescan in", intv)
-		}
-		p.scanTimer.Reset(intv)
-	}
+	// 	if debug {
+	// 		l.Debugln(p, "next rescan in", intv)
+	// 	}
+	// 	p.scanTimer.Reset(intv)
+	// }
 
 	// We don't start pulling files until a scan has been completed.
 	initialScanCompleted := false
@@ -146,169 +146,172 @@ func (p *encFolder) Serve() {
 		case <-p.stop:
 			return
 
-		// Don't Pull Remote Index
-		// case <-p.remoteIndex:
-		// 	prevVer = 0
-		// 	p.pullTimer.Reset(shortPullIntv)
-		// 	if debug {
-		// 		l.Debugln(p, "remote index updated, rescheduling pull")
-		// 	}
+		case <-p.remoteIndex:
+			prevVer = 0
+			p.pullTimer.Reset(shortPullIntv)
+			if debug {
+				l.Debugln(p, "remote index updated, rescheduling pull")
+			}
 
-		// At first, also don't pull files
-		// case <-p.pullTimer.C:
-		// 	if !initialScanCompleted {
-		// 		if debug {
-		// 			l.Debugln(p, "skip (initial)")
-		// 		}
-		// 		p.pullTimer.Reset(nextPullIntv)
-		// 		continue
-		// 	}
+		case <-p.pullTimer.C:
+			if !initialScanCompleted {
+				if debug {
+					l.Debugln(p, "skip (initial)")
+				}
+				p.pullTimer.Reset(nextPullIntv)
+				continue
+			}
 
-		// 	p.model.fmut.RLock()
-		// 	curIgnores := p.model.folderIgnores[p.folder]
-		// 	p.model.fmut.RUnlock()
+			p.model.fmut.RLock()
+			curIgnores := p.model.folderIgnores[p.folder]
+			p.model.fmut.RUnlock()
 
-		// 	if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
-		// 		// The ignore patterns have changed. We need to re-evaluate if
-		// 		// there are files we need now that were ignored before.
-		// 		if debug {
-		// 			l.Debugln(p, "ignore patterns have changed, resetting prevVer")
-		// 		}
-		// 		prevVer = 0
-		// 		prevIgnoreHash = newHash
-		// 	}
+			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
+				// The ignore patterns have changed. We need to re-evaluate if
+				// there are files we need now that were ignored before.
+				if debug {
+					l.Debugln(p, "ignore patterns have changed, resetting prevVer")
+				}
+				prevVer = 0
+				prevIgnoreHash = newHash
+			}
 
-		// 	// RemoteLocalVersion() is a fast call, doesn't touch the database.
-		// 	curVer, ok := p.model.RemoteLocalVersion(p.folder)
-		// 	if !ok || curVer == prevVer {
-		// 		if debug {
-		// 			l.Debugln(p, "skip (curVer == prevVer)", prevVer, ok)
-		// 		}
-		// 		p.pullTimer.Reset(nextPullIntv)
-		// 		continue
-		// 	}
+			// RemoteLocalVersion() is a fast call, doesn't touch the database.
+			curVer, ok := p.model.RemoteLocalVersion(p.folder)
+			if !ok || curVer == prevVer {
+				if debug {
+					l.Debugln(p, "skip (curVer == prevVer)", prevVer, ok)
+				}
+				p.pullTimer.Reset(nextPullIntv)
+				continue
+			}
 
-		// 	if debug {
-		// 		l.Debugln(p, "pulling", prevVer, curVer)
-		// 	}
+			if debug {
+				l.Debugln(p, "pulling", prevVer, curVer)
+			}
 
-		// 	p.setState(FolderSyncing)
-		// 	p.clearErrors()
-		// 	tries := 0
+			p.setState(FolderSyncing)
+			p.clearErrors()
+			tries := 0
 
-		// 	for {
-		// 		tries++
+			for {
+				tries++
 
-		// 		changed := p.pullerIteration(curIgnores)
-		// 		if debug {
-		// 			l.Debugln(p, "changed", changed)
-		// 		}
+				changed := p.pullerIteration(curIgnores)
+				if debug {
+					l.Debugln(p, "changed", changed)
+				}
 
-		// 		if changed == 0 {
-		// 			// No files were changed by the puller, so we are in
-		// 			// sync. Remember the local version number and
-		// 			// schedule a resync a little bit into the future.
+				if changed == 0 {
+					// No files were changed by the puller, so we are in
+					// sync. Remember the local version number and
+					// schedule a resync a little bit into the future.
 
-		// 			if lv, ok := p.model.RemoteLocalVersion(p.folder); ok && lv < curVer {
-		// 				// There's a corner case where the device we needed
-		// 				// files from disconnected during the puller
-		// 				// iteration. The files will have been removed from
-		// 				// the index, so we've concluded that we don't need
-		// 				// them, but at the same time we have the local
-		// 				// version that includes those files in curVer. So we
-		// 				// catch the case that localVersion might have
-		// 				// decreased here.
-		// 				l.Debugln(p, "adjusting curVer", lv)
-		// 				curVer = lv
-		// 			}
-		// 			prevVer = curVer
-		// 			if debug {
-		// 				l.Debugln(p, "next pull in", nextPullIntv)
-		// 			}
-		// 			p.pullTimer.Reset(nextPullIntv)
-		// 			break
-		// 		}
+					if lv, ok := p.model.RemoteLocalVersion(p.folder); ok && lv < curVer {
+						// There's a corner case where the device we needed
+						// files from disconnected during the puller
+						// iteration. The files will have been removed from
+						// the index, so we've concluded that we don't need
+						// them, but at the same time we have the local
+						// version that includes those files in curVer. So we
+						// catch the case that localVersion might have
+						// decreased here.
+						l.Debugln(p, "adjusting curVer", lv)
+						curVer = lv
+					}
+					prevVer = curVer
+					if debug {
+						l.Debugln(p, "next pull in", nextPullIntv)
+					}
+					p.pullTimer.Reset(nextPullIntv)
+					break
+				}
 
-		// 		if tries > 10 {
-		// 			// We've tried a bunch of times to get in sync, but
-		// 			// we're not making it. Probably there are write
-		// 			// errors preventing us. Flag this with a warning and
-		// 			// wait a bit longer before retrying.
-		// 			l.Infof("Folder %q isn't making progress. Pausing puller for %v.", p.folder, pauseIntv)
-		// 			if debug {
-		// 				l.Debugln(p, "next pull in", pauseIntv)
-		// 			}
+				if tries > 10 {
+					// We've tried a bunch of times to get in sync, but
+					// we're not making it. Probably there are write
+					// errors preventing us. Flag this with a warning and
+					// wait a bit longer before retrying.
+					l.Infof("Folder %q isn't making progress. Pausing puller for %v.", p.folder, pauseIntv)
+					if debug {
+						l.Debugln(p, "next pull in", pauseIntv)
+					}
 
-		// 			if folderErrors := p.currentErrors(); len(folderErrors) > 0 {
-		// 				events.Default.Log(events.FolderErrors, map[string]interface{}{
-		// 					"folder": p.folder,
-		// 					"errors": folderErrors,
-		// 				})
-		// 			}
+					if folderErrors := p.currentErrors(); len(folderErrors) > 0 {
+						events.Default.Log(events.FolderErrors, map[string]interface{}{
+							"folder": p.folder,
+							"errors": folderErrors,
+						})
+					}
 
-		// 			p.pullTimer.Reset(pauseIntv)
-		// 			break
-		// 		}
-		// 	}
-		// 	p.setState(FolderIdle)
+					p.pullTimer.Reset(pauseIntv)
+					break
+				}
+			}
+			p.setState(FolderIdle)
+
+		// On the encrypted node we don't won't to scan the filesystem since our file hashes would differ nevertheless
+		// We trust on the clients index here
+		// Later we have to manage 2 indexes for our encrypted files and the cleartext ones from the clients to grasp which files still need to be synced
+		// In case we lost connection during sync or something else happened (file corruption)
 
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
-		case <-p.scanTimer.C:
-			if err := p.model.CheckFolderHealth(p.folder); err != nil {
-				l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
-				rescheduleScan()
-				continue
-			}
+		// case <-p.scanTimer.C:
+		// 	if err := p.model.CheckFolderHealth(p.folder); err != nil {
+		// 		l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
+		// 		rescheduleScan()
+		// 		continue
+		// 	}
 
-			if debug {
-				l.Debugln(p, "rescan")
-			}
+		// 	if debug {
+		// 		l.Debugln(p, "rescan")
+		// 	}
 
-			if err := p.model.internalScanFolderSubs(p.folder, nil); err != nil {
-				// Potentially sets the error twice, once in the scanner just
-				// by doing a check, and once here, if the error returned is
-				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by setError.
-				p.setError(err)
-				rescheduleScan()
-				continue
-			}
+		// 	if err := p.model.internalScanFolderSubs(p.folder, nil); err != nil {
+		// 		// Potentially sets the error twice, once in the scanner just
+		// 		// by doing a check, and once here, if the error returned is
+		// 		// the same one as returned by CheckFolderHealth, though
+		// 		// duplicate set is handled by setError.
+		// 		p.setError(err)
+		// 		rescheduleScan()
+		// 		continue
+		// 	}
 
-			if p.scanIntv > 0 {
-				rescheduleScan()
-			}
-			if !initialScanCompleted {
-				l.Infoln("Completed initial scan (enc) of folder", p.folder)
-				initialScanCompleted = true
-			}
+		// 	if p.scanIntv > 0 {
+		// 		rescheduleScan()
+		// 	}
+		// 	if !initialScanCompleted {
+		// 		l.Infoln("Completed initial scan (enc) of folder", p.folder)
+		// 		initialScanCompleted = true
+		// 	}
 
-		case req := <-p.scanNow:
-			if err := p.model.CheckFolderHealth(p.folder); err != nil {
-				l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
-				req.err <- err
-				continue
-			}
+		// case req := <-p.scanNow:
+		// 	if err := p.model.CheckFolderHealth(p.folder); err != nil {
+		// 		l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
+		// 		req.err <- err
+		// 		continue
+		// 	}
 
-			if debug {
-				l.Debugln(p, "forced rescan")
-			}
+		// 	if debug {
+		// 		l.Debugln(p, "forced rescan")
+		// 	}
 
-			if err := p.model.internalScanFolderSubs(p.folder, req.subs); err != nil {
-				// Potentially sets the error twice, once in the scanner just
-				// by doing a check, and once here, if the error returned is
-				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by setError.
-				p.setError(err)
-				req.err <- err
-				continue
-			}
+		// 	if err := p.model.internalScanFolderSubs(p.folder, req.subs); err != nil {
+		// 		// Potentially sets the error twice, once in the scanner just
+		// 		// by doing a check, and once here, if the error returned is
+		// 		// the same one as returned by CheckFolderHealth, though
+		// 		// duplicate set is handled by setError.
+		// 		p.setError(err)
+		// 		req.err <- err
+		// 		continue
+		// 	}
 
-			req.err <- nil
+		// 	req.err <- nil
 
-		case next := <-p.delayScan:
-			p.scanTimer.Reset(next)
+		// case next := <-p.delayScan:
+		// 	p.scanTimer.Reset(next)
 		}
 	}
 }
@@ -928,7 +931,7 @@ func (p *encFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlock
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize)
+	tempBlocks, err := scanner.HashFile(tempName, p.blockSize)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
@@ -1031,7 +1034,7 @@ func (p *encFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
 func (p *encFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
-	buf := make([]byte, protocol.BlockSize)
+	buf := make([]byte, p.blockSize)
 
 	for state := range in {
 		dstFd, err := state.tempFile()
@@ -1060,7 +1063,7 @@ func (p *encFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pul
 					return false
 				}
 
-				_, err = fd.ReadAt(buf, protocol.BlockSize*int64(index))
+				_, err = fd.ReadAt(buf, int64(p.blockSize)*int64(index))
 				fd.Close()
 				if err != nil {
 					return false
@@ -1166,13 +1169,6 @@ func (p *encFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPu
 			// 	}
 			// 	continue
 			// }
-
-			dbuf, err := protocol.Decrypt(buf, []byte(state.file.Name), p.privkey)
- 			if err != nil {
- 				l.Debugf("Error decrypting " + state.file.Name)
- 			} else {
- 				buf = dbuf
- 			}
 
 			// Save the block data we got from the cluster
 			_, err = fd.WriteAt(buf, state.block.Offset)

@@ -339,7 +339,7 @@ func (m *Model) StartFolderENC(folder string) {
 	if ok {
 		panic("cannot start already running folder " + folder)
 	}
-	p := newENCFolder(m, m.shortID, cfg, m.privkey)
+	p := newENCFolder(m, m.shortID, cfg)
 	m.folderRunners[folder] = p
 	m.fmut.Unlock()
 
@@ -964,6 +964,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		defer reader.(*os.File).Close()
 	}
 
+	if m.folderCfgs[folder].Encrypt && size == 158592 {
+		size = protocol.BlockSize
+		l.Debugf("Requested 158592 serving", size)
+	}
+
 	var n int
 
 	buf := make([]byte, size)
@@ -973,7 +978,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return nil, err
 	}
 
-	if (m.folderCfgs[folder].Encrypted) {
+	if (m.folderCfgs[folder].Encrypt) {
 		buf = buf[:n]
 
 		l.Debugf("Encrypting", name)
@@ -1216,27 +1221,28 @@ func (m *Model) sendIndexTo(initial bool, minLocalVer int64, conn protocol.Conne
 			return true
 		}
 
-		// if (m.folderCfgs[folder].Encrypted) {
-		// 	l.Debugf("opening", filepath.Join(m.folderCfgs[folder].Path(), f.Name))
+		// This is a temporary workaround to set the correct size for the eNode
+		if (m.folderCfgs[folder].Encrypt) {
+			l.Debugf("opening", filepath.Join(m.folderCfgs[folder].Path(), f.Name))
 
-		// 	fd, err := os.Open(filepath.Join(m.folderCfgs[folder].Path(), f.Name))
-		// 	if err == nil {
-		// 		l.Debugf("EncBlocks: Datei geoeffnet")
-		// 		fstats, err := fd.Stat()
-		// 		if err == nil {
-		// 			var blocks, err = scanner.EncryptedBlocks(fd, protocol.BlockSize, fstats.Size(), []byte(f.Name), m.cert)
-		// 			if (err == nil) {
-		// 				l.Debugf("EncBlocks:", blocks)
+			fd, err := os.Open(filepath.Join(m.folderCfgs[folder].Path(), f.Name))
+			if err == nil {
+				l.Debugf("EncBlocks: File opened")
+				fstats, err := fd.Stat()
+				if err == nil {
+					var blocks, err = scanner.EncryptedBlocks(fd, protocol.BlockSize, fstats.Size(), []byte(f.Name), m.cert)
+					if (err == nil) {
+						l.Debugf("EncBlocks:", blocks)
 
-		// 				f.Blocks = blocks
-		// 			} else {
-		// 				l.Debugf("error:", err)
-		// 			}
-		// 		}
-		// 	}
-		// 	fd.Close()
+						f.Blocks = blocks
+					} else {
+						l.Debugf("error:", err)
+					}
+				}
+			}
+			fd.Close()
 
-		// }
+		}
 
 		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
 			if initial {

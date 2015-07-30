@@ -71,8 +71,8 @@ type FolderConfiguration struct {
 	RawPath         string                      `xml:"path,attr" json:"path"`
 	Devices         []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	ReadOnly        bool                        `xml:"ro,attr" json:"readOnly"`
-	Encrypted       bool                        `xml:"enc,attr" json:"encrypted"`
-	EncTarget       bool                        `xml:"encTarget,attr" json:"encTarget"`
+	Encrypted       bool                        `xml:"encrypted,attr" json:"encrypted"`
+	Encrypt         bool                        `xml:"encrypt,attr" json:"encrypt"`
 	RescanIntervalS int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
 	IgnorePerms     bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize   bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`

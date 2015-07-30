@@ -28,7 +28,6 @@ func Encrypt(buf []byte, label []byte, cert tls.Certificate) (out []byte, err er
 
 	pubkey := pub.PublicKey.(*rsa.PublicKey)
 
-
 	// now to encrypting
 	// each encrypted chunk may only be ((pubkey.N.BitLen() + 7) / 8) - 11 byte big, so we may have to cut here
 
