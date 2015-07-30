@@ -148,6 +148,7 @@ func (p *encFolder) Serve() {
 
 		case <-p.remoteIndex:
 			prevVer = 0
+			initialScanCompleted = true
 			p.pullTimer.Reset(shortPullIntv)
 			if debug {
 				l.Debugln(p, "remote index updated, rescheduling pull")

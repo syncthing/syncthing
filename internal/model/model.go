@@ -964,9 +964,12 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		defer reader.(*os.File).Close()
 	}
 
-	if m.folderCfgs[folder].Encrypt && size == 158592 {
-		size = protocol.BlockSize
-		l.Debugf("Requested 158592 serving", size)
+	if m.folderCfgs[folder].Encrypt {
+		if size == 158592 {
+			size = protocol.BlockSize
+			l.Debugf("Requested 158592 serving", size)
+		}
+		offset = (offset / 158592) * protocol.BlockSize
 	}
 
 	var n int
@@ -1241,7 +1244,6 @@ func (m *Model) sendIndexTo(initial bool, minLocalVer int64, conn protocol.Conne
 				}
 			}
 			fd.Close()
-
 		}
 
 		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {

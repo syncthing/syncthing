@@ -80,7 +80,7 @@ func EncryptedBlocks(r io.Reader, blocksize int, sizehint int64, label []byte, c
 
 		// The size for encrypted blocks changes because of the encryption
 		// calculate the corrected size for the encryped blocks here
-		n = ((n / 318) * 384)
+		n = (((n / 318)+1) * 384)
 
 		b := protocol.BlockInfo{
 			Size:   int32(n),
