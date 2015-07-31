@@ -1227,13 +1227,14 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 nextSub:
 	for _, sub := range subs {
 		for sub != "" {
-			if _, ok = fs.Get(protocol.LocalDeviceID, sub); ok {
+			parent := filepath.Dir(sub)
+			if parent == "." || parent == string(filepath.Separator) {
+				parent = ""
+			}
+			if _, ok = fs.Get(protocol.LocalDeviceID, parent); ok {
 				break
 			}
-			sub = filepath.Dir(sub)
-			if sub == "." || sub == string(filepath.Separator) {
-				sub = ""
-			}
+			sub = parent
 		}
 		for _, us := range unifySubs {
 			if strings.HasPrefix(sub, us) {

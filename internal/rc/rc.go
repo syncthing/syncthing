@@ -17,9 +17,11 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	stdsync "sync"
 	"time"
 
@@ -230,6 +232,21 @@ func (p *Process) Rescan(folder string) error {
 
 func (p *Process) RescanDelay(folder string, delaySeconds int) error {
 	_, err := p.Post(fmt.Sprintf("/rest/db/scan?folder=%s&next=%d", folder, delaySeconds), nil)
+	return err
+}
+
+func (p *Process) RescanSub(folder string, sub string, delaySeconds int) error {
+	return p.RescanSubs(folder, []string{sub}, delaySeconds)
+}
+
+func (p *Process) RescanSubs(folder string, subs []string, delaySeconds int) error {
+	data := url.Values{}
+	data.Set("folder", folder)
+	for _, sub := range subs {
+		data.Add("sub", sub)
+	}
+	data.Set("next", strconv.Itoa(delaySeconds))
+	_, err := p.Post("/rest/db/scan?"+data.Encode(), nil)
 	return err
 }
 
