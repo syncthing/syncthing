@@ -9,11 +9,13 @@ package protocol
 import (
 	"crypto/cipher"
 	"crypto/aes"
-	"crypto/rand"
-	"io"
+	"crypto/sha1"
+	"golang.org/x/crypto/pbkdf2"
 )
 
-func Encrypt(in []byte, key[]byte) (out []byte, err error) {
+func Encrypt(in []byte, passphrase string, salt string) (out []byte, err error) {
+	key := pbkdf2.Key([]byte(passphrase), []byte(salt), 4096, 32, sha1.New)
+
 	// Buffer needs to be multiples of aes.BlockSize
 	var buf []byte
 	if len(in)%aes.BlockSize != 0 {
@@ -28,40 +30,36 @@ func Encrypt(in []byte, key[]byte) (out []byte, err error) {
 		panic(err)
 	}
 
-	// The IV needs to be unique, but not secure. Therefore it's common to
-	// include it at the beginning of the ciphertext.
-	out = make([]byte, aes.BlockSize+len(buf))
-	iv := out[:aes.BlockSize]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		panic(err)
-	}
+	// If the key is unique for each ciphertext, then it's ok to use a zero IV
+	out = make([]byte, len(buf))
 
-	mode := cipher.NewCBCEncrypter(block, iv)
-	mode.CryptBlocks(out[aes.BlockSize:], buf)
+	var iv [aes.BlockSize]byte
+	mode := cipher.NewCBCEncrypter(block, iv[:])
+	mode.CryptBlocks(out, buf)
 
 	return out, nil
 }
 
-func Decrypt(buf []byte, key []byte) (out []byte, err error) {
+func Decrypt(buf []byte, passphrase string, salt string) (out []byte, err error) {
+	key := pbkdf2.Key([]byte(passphrase), []byte(salt), 4096, 32, sha1.New)
+
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		panic(err)
 	}
 
-	// The IV needs to be unique, but not secure. Therefore it's common to
-	// include it at the beginning of the ciphertext.
 	if len(buf) < aes.BlockSize {
 		panic("ciphertext too short")
 	}
-	iv := buf[:aes.BlockSize]
-	buf = buf[aes.BlockSize:]
 
 	// CBC mode always works in whole blocks.
 	if len(buf)%aes.BlockSize != 0 {
 		panic("ciphertext is not a multiple of the block size")
 	}
 
-	mode := cipher.NewCBCDecrypter(block, iv)
+	// If the key is unique for each ciphertext, then it's ok to use a zero IV
+	var iv [aes.BlockSize]byte
+	mode := cipher.NewCBCDecrypter(block, iv[:])
 
 	// CryptBlocks can work in-place if the two arguments are the same.
 	mode.CryptBlocks(buf, buf)
