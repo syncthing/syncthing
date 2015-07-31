@@ -957,14 +957,6 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		defer reader.(*os.File).Close()
 	}
 
-	if m.folderCfgs[folder].Encrypt {
-		if size == protocol.EncryptedBlockSize {
-			size = protocol.BlockSize
-			l.Debugf("Requested %d serving %d", protocol.EncryptedBlockSize, size)
-		}
-		offset = (offset / protocol.EncryptedBlockSize) * protocol.BlockSize
-	}
-
 	var n int
 
 	buf := make([]byte, size)
@@ -1219,23 +1211,23 @@ func (m *Model) sendIndexTo(initial bool, minLocalVer int64, conn protocol.Conne
 		}
 
 		// This is a temporary workaround to set the correct size for the eNode
-		if (m.folderCfgs[folder].Encrypt && f.IsFile()) {
-			l.Debugf("opening", filepath.Join(m.folderCfgs[folder].Path(), f.Name))
+		// if (m.folderCfgs[folder].Encrypt && f.IsFile()) {
+		// 	l.Debugf("opening", filepath.Join(m.folderCfgs[folder].Path(), f.Name))
 
-			fd, err := os.Open(filepath.Join(m.folderCfgs[folder].Path(), f.Name))
-			if err == nil {
-				fstats, err := fd.Stat()
-				if err == nil {
-					var blocks, err = scanner.EncryptedBlocks(fd, protocol.BlockSize, fstats.Size())
-					if (err == nil) {
-						f.Blocks = blocks
-					} else {
-						l.Debugf("error:", err)
-					}
-				}
-			}
-			fd.Close()
-		}
+		// 	fd, err := os.Open(filepath.Join(m.folderCfgs[folder].Path(), f.Name))
+		// 	if err == nil {
+		// 		fstats, err := fd.Stat()
+		// 		if err == nil {
+		// 			var blocks, err = scanner.EncryptedBlocks(fd, protocol.BlockSize, fstats.Size())
+		// 			if (err == nil) {
+		// 				f.Blocks = blocks
+		// 			} else {
+		// 				l.Debugf("error:", err)
+		// 			}
+		// 		}
+		// 	}
+		// 	fd.Close()
+		// }
 
 		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
 			if initial {

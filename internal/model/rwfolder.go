@@ -1183,7 +1183,6 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 	 			} else {
 	 				buf = dbuf
 	 			}
-	 			offset = offset / protocol.EncryptedBlockSize * protocol.BlockSize
 	 		}
 
 			// Save the block data we got from the cluster

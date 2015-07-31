@@ -926,7 +926,7 @@ func (p *encFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlock
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(tempName, protocol.EncryptedBlockSize)
+	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
@@ -1029,7 +1029,7 @@ func (p *encFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
 func (p *encFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
-	buf := make([]byte, protocol.EncryptedBlockSize)
+	buf := make([]byte, protocol.BlockSize)
 
 	for state := range in {
 		dstFd, err := state.tempFile()
@@ -1058,7 +1058,7 @@ func (p *encFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pul
 					return false
 				}
 
-				_, err = fd.ReadAt(buf, int64(protocol.EncryptedBlockSize)*int64(index))
+				_, err = fd.ReadAt(buf, int64(protocol.BlockSize)*int64(index))
 				fd.Close()
 				if err != nil {
 					return false
