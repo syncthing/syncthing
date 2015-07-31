@@ -979,7 +979,8 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 		l.Debugf("Encrypting", name)
 
-		out, err := protocol.Encrypt(buf, []byte("549DAB2E79160077D5200DFA9F0EEB45"))
+		// ToDo we should not use the filename as the salt
+		out, err := protocol.Encrypt(buf, m.folderCfgs[folder].Passphrase, name)
 		if err != nil {
 			l.Debugf("error:", err)
 			return nil, err

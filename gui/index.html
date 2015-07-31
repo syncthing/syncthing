@@ -700,6 +700,11 @@
                   </div>
                   <p translate class="help-block">Encrypt files in this folder before sending them to the remote computer.</p>
                 </div>
+                <div class="form-group" ng-if="currentFolder.encrypt">
+                  <label translate for="passphrase">Passphrase</label>
+                  <input ng-readonly="editingExisting" type="text" ng-model="currentFolder.passphrase" />
+                  <p translate class="help-block">Note this Passphrase to be able to restore this folder at a later point.</p>
+                </div>
               </div>
 
               <!-- Right column-->

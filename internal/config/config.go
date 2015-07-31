@@ -73,6 +73,7 @@ type FolderConfiguration struct {
 	ReadOnly        bool                        `xml:"ro,attr" json:"readOnly"`
 	Encrypted       bool                        `xml:"encrypted,attr" json:"encrypted"`
 	Encrypt         bool                        `xml:"encrypt,attr" json:"encrypt"`
+	Passphrase      string                      `xml:"passphrase" json:"passphrase"`
 	RescanIntervalS int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
 	IgnorePerms     bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize   bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
