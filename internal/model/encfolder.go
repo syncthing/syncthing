@@ -46,8 +46,6 @@ type encFolder struct {
 	shortID     uint64
 	order       config.PullOrder
 
-	blockSize   int
-
 	stop        chan struct{}
 	queue       *jobQueue
 	dbUpdates   chan dbUpdateJob
@@ -80,10 +78,6 @@ func newENCFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *enc
 		pullers:     cfg.Pullers,
 		shortID:     shortID,
 		order:       cfg.Order,
-
-		// ToDo We need to calculate this based on the current protocol.BlockSize in case that changes at a later point in time
-		// This may also change if the key length changes or we use another hash algorithm for OAEP
-		blockSize:   protocol.EncryptedBlockSize,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -932,7 +926,7 @@ func (p *encFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlock
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(tempName, p.blockSize)
+	tempBlocks, err := scanner.HashFile(tempName, protocol.EncryptedBlockSize)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
@@ -1035,7 +1029,7 @@ func (p *encFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
 func (p *encFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
-	buf := make([]byte, p.blockSize)
+	buf := make([]byte, protocol.EncryptedBlockSize)
 
 	for state := range in {
 		dstFd, err := state.tempFile()
@@ -1064,7 +1058,7 @@ func (p *encFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pul
 					return false
 				}
 
-				_, err = fd.ReadAt(buf, int64(p.blockSize)*int64(index))
+				_, err = fd.ReadAt(buf, int64(protocol.EncryptedBlockSize)*int64(index))
 				fd.Close()
 				if err != nil {
 					return false
