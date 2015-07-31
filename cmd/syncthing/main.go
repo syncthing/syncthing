@@ -25,6 +25,10 @@ import (
 	"strings"
 	"time"
 
+	"encoding/pem"
+	"crypto/x509"
+	"bufio"
+
 	"github.com/calmh/logger"
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/protocol"
@@ -463,6 +467,26 @@ func syncthingMain() {
 		}
 	}
 
+	// Get private key from PEM file
+	// // Load PEM
+	pemfile, err := os.Open(locations[locKeyFile])
+	if err != nil {
+		l.Fatalln("load priv key:", err)
+	}
+	// need to convert pemfile to []byte for decoding
+	pemfileinfo, _ := pemfile.Stat()
+	pembytes := make([]byte,pemfileinfo.Size())
+	// read pemfile content into pembytes
+	buffer := bufio.NewReader(pemfile)
+	_, err = buffer.Read(pembytes)
+	// proper decoding now
+	data, _ := pem.Decode([]byte(pembytes))
+	pemfile.Close()
+	privatekey, err := x509.ParsePKCS1PrivateKey(data.Bytes)
+	if err != nil {
+		l.Debugf("err", err)
+	}
+
 	// We reinitialize the predictable RNG with our device ID, to get a
 	// sequence that is always the same but unique to this syncthing instance.
 	predictableRandom.Seed(seedFromBytes(cert.Certificate[0]))
@@ -602,7 +626,7 @@ func syncthingMain() {
 		}
 	}
 
-	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb)
+	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb, cert, privatekey)
 	cfg.Subscribe(m)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
