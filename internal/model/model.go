@@ -22,8 +22,6 @@ import (
 	stdsync "sync"
 	"time"
 
-	"crypto/rsa"
-
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/db"
@@ -176,9 +174,6 @@ type Model struct {
 	shortID           uint64
 	cacheIgnoredFiles bool
 
-	cert              tls.Certificate
-	privkey			  *rsa.PrivateKey
-
 	deviceName    string
 	clientName    string
 	clientVersion string
@@ -209,7 +204,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB, cert tls.Certificate, privkey *rsa.PrivateKey) *Model {
+func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB) *Model {
 	m := &Model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
@@ -240,8 +235,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		rawConn:            make(map[protocol.DeviceID]io.Closer),
 		deviceVer:          make(map[protocol.DeviceID]string),
 		reqValidationCache: make(map[string]time.Time),
-		cert:               cert,
-		privkey:            privkey,
 
 		fmut:  sync.NewRWMutex(),
 		pmut:  sync.NewRWMutex(),
