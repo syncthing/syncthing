@@ -54,6 +54,10 @@ func (f FileInfo) IsSymlink() bool {
 	return f.Flags&FlagSymlink != 0
 }
 
+func (f FileInfo) IsFile() bool {
+	return !f.IsDeleted() && !f.IsDirectory() && !f.IsSymlink()
+}
+
 func (f FileInfo) HasPermissionBits() bool {
 	return f.Flags&FlagNoPermBits == 0
 }

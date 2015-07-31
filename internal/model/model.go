@@ -1225,7 +1225,7 @@ func (m *Model) sendIndexTo(initial bool, minLocalVer int64, conn protocol.Conne
 		}
 
 		// This is a temporary workaround to set the correct size for the eNode
-		if (m.folderCfgs[folder].Encrypt) {
+		if (m.folderCfgs[folder].Encrypt && f.IsFile()) {
 			l.Debugf("opening", filepath.Join(m.folderCfgs[folder].Path(), f.Name))
 
 			fd, err := os.Open(filepath.Join(m.folderCfgs[folder].Path(), f.Name))
