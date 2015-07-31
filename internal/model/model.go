@@ -967,20 +967,20 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	}
 
 	if (m.folderCfgs[folder].Encrypt) {
-		buf = buf[:n]
+		// Still need that? buf = buf[:n]
 
-		l.Debugf("Encrypting", name)
+		if debug {
+			l.Debugf("Encrypting", name)
+		}
 
 		// ToDo we should not use the filename as the salt
 		out, err := protocol.Encrypt(buf, m.folderCfgs[folder].Passphrase, name)
 		if err != nil {
-			l.Debugf("error:", err)
+			l.Debugf("Error during encryption of %q: %q:", name, err.Error())
 			return nil, err
 		}
 
 		buf = out
-
-		l.Debugf("Requested size", size, " actual size", len(buf))
 	}
 
 	
