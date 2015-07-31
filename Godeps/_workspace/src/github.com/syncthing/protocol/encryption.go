@@ -13,31 +13,20 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-func Encrypt(in []byte, passphrase string, salt string) (out []byte, err error) {
+func Encrypt(buf []byte, passphrase string, salt string) (out []byte, err error) {
 	key := pbkdf2.Key([]byte(passphrase), []byte(salt), 4096, 32, sha1.New)
 
-	// Buffer needs to be multiples of aes.BlockSize
-	var buf []byte
-	if len(in)%aes.BlockSize != 0 {
-		buf = make([]byte, ((len(in)/aes.BlockSize)+1)*aes.BlockSize)
-		copy(buf, in)
-	} else {
-		buf = in
-	}
-	
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		panic(err)
 	}
 
 	// If the key is unique for each ciphertext, then it's ok to use a zero IV
-	out = make([]byte, len(buf))
-
 	var iv [aes.BlockSize]byte
-	mode := cipher.NewCBCEncrypter(block, iv[:])
-	mode.CryptBlocks(out, buf)
+	stream := cipher.NewCFBEncrypter(block, iv[:])
+	stream.XORKeyStream(buf, buf)
 
-	return out, nil
+	return buf, nil
 }
 
 func Decrypt(buf []byte, passphrase string, salt string) (out []byte, err error) {
@@ -48,21 +37,10 @@ func Decrypt(buf []byte, passphrase string, salt string) (out []byte, err error)
 		panic(err)
 	}
 
-	if len(buf) < aes.BlockSize {
-		panic("ciphertext too short")
-	}
-
-	// CBC mode always works in whole blocks.
-	if len(buf)%aes.BlockSize != 0 {
-		panic("ciphertext is not a multiple of the block size")
-	}
-
 	// If the key is unique for each ciphertext, then it's ok to use a zero IV
 	var iv [aes.BlockSize]byte
-	mode := cipher.NewCBCDecrypter(block, iv[:])
-
-	// CryptBlocks can work in-place if the two arguments are the same.
-	mode.CryptBlocks(buf, buf)
+	stream := cipher.NewCFBDecrypter(block, iv[:])
+	stream.XORKeyStream(buf, buf)
 
 	return buf, nil
 }
