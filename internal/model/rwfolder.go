@@ -1176,10 +1176,9 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 				if debug {
 					l.Debugf("Decrypting %s/%s (S=%d o=%d)", p.folder, state.file.Name, state.block.Size, state.block.Offset)
 				}
-				// ToDo we should not use the filename as the salt
-				dbuf, err := protocol.Decrypt(buf, p.key, state.file.Name)
+				dbuf, err := protocol.Decrypt(buf, p.key, state.block.Hash)
 	 			if err != nil {
-	 				l.Debugf("Error decrypting " + state.file.Name)
+	 				l.Debugf("Error decrypting %q: %q", state.file.Name, err.Error())
 	 			} else {
 	 				buf = dbuf
 	 			}

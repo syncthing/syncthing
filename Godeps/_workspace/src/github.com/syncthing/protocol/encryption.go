@@ -13,8 +13,8 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-func Encrypt(buf []byte, passphrase string, salt string) (out []byte, err error) {
-	key := pbkdf2.Key([]byte(passphrase), []byte(salt), 4096, 32, sha1.New)
+func Encrypt(buf []byte, passphrase string, salt []byte) (out []byte, err error) {
+	key := pbkdf2.Key([]byte(passphrase), salt, 4096, 32, sha1.New)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -29,8 +29,8 @@ func Encrypt(buf []byte, passphrase string, salt string) (out []byte, err error)
 	return buf, nil
 }
 
-func Decrypt(buf []byte, passphrase string, salt string) (out []byte, err error) {
-	key := pbkdf2.Key([]byte(passphrase), []byte(salt), 4096, 32, sha1.New)
+func Decrypt(buf []byte, passphrase string, salt []byte) (out []byte, err error) {
+	key := pbkdf2.Key([]byte(passphrase), salt, 4096, 32, sha1.New)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
