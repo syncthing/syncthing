@@ -1051,48 +1051,44 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 		p.model.fmut.RUnlock()
 
 		for _, block := range state.blocks {
-			// Don't copy files (yet) if we're receiving encrypted files from the eNode
-			found := false
-			if (!p.encrypt) {
-				found = p.model.finder.Iterate(block.Hash, func(folder, file string, index int32) bool {
-					buf = buf[:int(block.Size)]
-					fd, err := os.Open(filepath.Join(folderRoots[folder], file))
-					if err != nil {
-						return false
-					}
+			found := p.model.finder.Iterate(block.Hash, func(folder, file string, index int32) bool {
+				buf = buf[:int(block.Size)]
+				fd, err := os.Open(filepath.Join(folderRoots[folder], file))
+				if err != nil {
+					return false
+				}
 
-					_, err = fd.ReadAt(buf, protocol.BlockSize*int64(index))
-					fd.Close()
-					if err != nil {
-						return false
-					}
+				_, err = fd.ReadAt(buf, protocol.BlockSize*int64(index))
+				fd.Close()
+				if err != nil {
+					return false
+				}
 
-					hash, err := scanner.VerifyBuffer(buf, block)
-					if err != nil {
-						if hash != nil {
-							if debug {
-								l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
-							}
-							err = p.model.finder.Fix(folder, file, index, block.Hash, hash)
-							if err != nil {
-								l.Warnln("finder fix:", err)
-							}
-						} else if debug {
-							l.Debugln("Finder failed to verify buffer", err)
+				hash, err := scanner.VerifyBuffer(buf, block)
+				if err != nil {
+					if hash != nil {
+						if debug {
+							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
 						}
-						return false
+						err = p.model.finder.Fix(folder, file, index, block.Hash, hash)
+						if err != nil {
+							l.Warnln("finder fix:", err)
+						}
+					} else if debug {
+						l.Debugln("Finder failed to verify buffer", err)
 					}
+					return false
+				}
 
-					_, err = dstFd.WriteAt(buf, block.Offset)
-					if err != nil {
-						state.fail("dst write", err)
-					}
-					if file == state.file.Name {
-						state.copiedFromOrigin()
-					}
-					return true
-				})
-			}
+				_, err = dstFd.WriteAt(buf, block.Offset)
+				if err != nil {
+					state.fail("dst write", err)
+				}
+				if file == state.file.Name {
+					state.copiedFromOrigin()
+				}
+				return true
+			})
 
 			if state.failed() != nil {
 				break
@@ -1162,17 +1158,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			offset := state.block.Offset
 
 			// If this folder is set for encryption, ignore the hash (since the encrypted block will have a different hash) and go ahead and decrypt it
-			if (!p.encrypt) {
-				// Verify that the received block matches the desired hash, if not
-				// try pulling it from another device.
-				_, lastError = scanner.VerifyBuffer(buf, state.block)
-				if lastError != nil {
-					if debug {
-						l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
-					}
-					continue
-				}
-			} else {
+			if (p.encrypt) {
 				if debug {
 					l.Debugf("Decrypting %s/%s (S=%d o=%d)", p.folder, state.file.Name, state.block.Size, state.block.Offset)
 				}
@@ -1183,6 +1169,16 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 	 				buf = dbuf
 	 			}
 	 		}
+
+			// Verify that the received block matches the desired hash, if not
+			// try pulling it from another device.
+			_, lastError = scanner.VerifyBuffer(buf, state.block)
+			if lastError != nil {
+				if debug {
+					l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
+				}
+				continue
+			}
 
 			// Save the block data we got from the cluster
 			_, err = fd.WriteAt(buf, offset)
