@@ -918,12 +918,12 @@ func (s *apiSvc) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 		search = search + pathSeparator
 	}
 	subdirectories, _ := osutil.Glob(search + "*")
-	ret := make([]string, 0, 10)
+	ret := make([]string, 0, 100) // Standard 10
 	for _, subdirectory := range subdirectories {
 		info, err := os.Stat(subdirectory)
 		if err == nil && info.IsDir() {
 			ret = append(ret, subdirectory+pathSeparator)
-			if len(ret) > 9 {
+			if len(ret) > 99 { // Standard 9
 				break
 			}
 		}

@@ -48,6 +48,7 @@ angular.module('syncthing.core')
         $scope.failedCurrentPage = 1;
         $scope.failedCurrentFolder = undefined;
         $scope.failedPageSize = 10;
+        $scope.directory = '';
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -1079,6 +1080,27 @@ angular.module('syncthing.core')
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
         };
+
+        $scope.filetree = function () {
+          $('#editFolder').modal('hide');
+          $http.get(urlbase + '/system/browse?current=/').success(function (data) {
+              $scope.filetreeDir = data;
+          }).error($scope.emitHTTPError);
+          $('#fileTree').modal();
+        }
+
+        $scope.filetreeLook = function (path) {
+          $http.get(urlbase + '/system/browse?current=/' + path).success(function (data) {
+              $scope.filetreeDir = data;
+          }).error($scope.emitHTTPError);
+          $scope.directory = path;
+        }
+
+        $scope.filetreeOk = function(path) {
+          $scope.currentFolder.path = path;
+          $('#editFolder').modal();
+          $('#fileTree').modal('hide');
+        }
 
         $scope.addFolderAndShare = function (folder, device) {
             $scope.dismissFolderRejection(folder, device);
