@@ -31,7 +31,7 @@ func (t *TestModel) Index(deviceID DeviceID, folder string, files []FileInfo, fl
 func (t *TestModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
 }
 
-func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error) {
+func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64, size int, hash []byte, flags uint32, options []Option, buf []byte) error {
 	t.folder = folder
 	t.name = name
 	t.offset = offset
@@ -39,7 +39,8 @@ func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64
 	t.hash = hash
 	t.flags = flags
 	t.options = options
-	return t.data, nil
+	copy(buf, t.data)
+	return nil
 }
 
 func (t *TestModel) Close(deviceID DeviceID, err error) {

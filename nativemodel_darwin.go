@@ -26,9 +26,9 @@ func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileI
 	m.next.IndexUpdate(deviceID, folder, files, flags, options)
 }
 
-func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error) {
+func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, flags uint32, options []Option, buf []byte) error {
 	name = norm.NFD.String(name)
-	return m.next.Request(deviceID, folder, name, offset, size, hash, flags, options)
+	return m.next.Request(deviceID, folder, name, offset, hash, flags, options, buf)
 }
 
 func (m nativeModel) ClusterConfig(deviceID DeviceID, config ClusterConfigMessage) {
