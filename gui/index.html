@@ -631,13 +631,19 @@
 
   <!-- File tree modal -->
 
-  <div id="fileTree" class="modal fade" tabindex="1">
+  <div id="filetree" class="modal fade" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h4 class="modal-title">File Tree</h4>
+          <h4 class="modal-title">
+            File Tree
+            <small>
+              {{directory}}
+            </small>
+          </h4>
         </div>
         <div class="modal-body">
+          <a ng-click="filetreeBack()" href="">..</a><br><br>
           <a ng-repeat="item in filetreeDir" ng-click="filetreeLook(item)" href="">{{item}}<br></a>
         </div>
         <div class="modal-footer">
