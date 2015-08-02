@@ -1,0 +1,119 @@
+<div id="settings" class="modal fade" tabindex="-1">
+<div class="modal-dialog modal-lg">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h4 translate class="modal-title">Settings</h4>
+    </div>
+    <div class="modal-body">
+      <form role="form">
+        <div class="row">
+
+          <div class="col-md-6">
+            <div class="form-group">
+              <label translate for="DeviceName">Device Name</label>
+              <input id="DeviceName" class="form-control" type="text" ng-model="tmpOptions.deviceName">
+            </div>
+            <div class="form-group">
+              <label translate for="ListenAddressStr">Sync Protocol Listen Addresses</label>
+              <input id="ListenAddressStr" class="form-control" type="text" ng-model="tmpOptions.listenAddressStr">
+            </div>
+            <div class="form-group">
+              <label translate for="MaxRecvKbps">Incoming Rate Limit (KiB/s)</label>
+              <input id="MaxRecvKbps" class="form-control" type="number" ng-model="tmpOptions.maxRecvKbps">
+            </div>
+            <div class="form-group">
+              <label translate for="MaxSendKbps">Outgoing Rate Limit (KiB/s)</label>
+              <input id="MaxSendKbps" class="form-control" type="number" ng-model="tmpOptions.maxSendKbps">
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <div class="checkbox">
+                  <label>
+                    <input id="UPnPEnabled" type="checkbox" ng-model="tmpOptions.upnpEnabled"> <span translate>Enable UPnP</span>
+                  </label>
+                </div>
+              </div>
+              <div class="form-group">
+                <div class="checkbox">
+                  <label>
+                    <input id="GlobalAnnEnabled" type="checkbox" ng-model="tmpOptions.globalAnnounceEnabled"> <span translate>Global Discovery</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <div class="checkbox">
+                  <label ng-if="upgradeInfo">
+                    <input id="AutoUpgradeEnabled" type="checkbox" ng-model="tmpOptions.autoUpgradeEnabled"> <span translate>Automatic upgrades</span>
+                  </label>
+                </div>
+              </div>
+              <div class="form-group">
+                <div class="checkbox">
+                  <label>
+                    <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.localAnnounceEnabled"> <span translate>Local Discovery</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label translate for="GlobalAnnServersStr">Global Discovery Server</label>
+              <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions.globalAnnounceServersStr">
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="form-group">
+              <label translate for="Address">GUI Listen Addresses</label>
+              <input id="Address" class="form-control" type="text" ng-model="tmpGUI.address">
+            </div>
+            <div class="form-group">
+              <label translate for="User">GUI Authentication User</label>
+              <input id="User" class="form-control" type="text" ng-model="tmpGUI.user">
+            </div>
+            <div class="form-group">
+              <label translate for="Password">GUI Authentication Password</label>
+              <input id="Password" class="form-control" type="password" ng-model="tmpGUI.password">
+            </div>
+            <div class="form-group">
+              <div class="checkbox">
+                <label>
+                  <input id="UseTLS" type="checkbox" ng-model="tmpGUI.useTLS"> <span translate>Use HTTPS for GUI</span>
+                </label>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="checkbox">
+                <label>
+                  <input id="StartBrowser" type="checkbox" ng-model="tmpOptions.startBrowser"> <span translate>Start Browser</span>
+                </label>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="checkbox">
+                <label>
+                  <input id="UREnabled" type="checkbox" ng-model="tmpOptions.urEnabled"> <span translate>Anonymous Usage Reporting</span> (<a translate ng-click="showURPreview()" href="#">Preview</a>)
+                </label>
+              </div>
+            </div>
+
+            <hr />
+
+            <div class="form-group">
+              <label><span translate>API Key</span></label>
+              <div class="well well-sm text-monospace">{{tmpGUI.apiKey || "-"}}</div>
+              <button translate type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(tmpGUI)">Generate</button>
+            </div>
+          </div>
+
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary btn-sm" ng-click="saveSettings()"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Save</span></button>
+      <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
+    </div>
+  </div>
+</div>
+</div>
