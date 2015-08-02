@@ -705,19 +705,19 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, flags uint32, options []protocol.Option) ([]byte, error) {
-	if offset < 0 || size < 0 {
-		return nil, protocol.ErrNoSuchFile
+func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, flags uint32, options []protocol.Option, buf []byte) error {
+	if offset < 0 {
+		return protocol.ErrNoSuchFile
 	}
 
 	if !m.folderSharedWith(folder, deviceID) {
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
-		return nil, protocol.ErrNoSuchFile
+		return protocol.ErrNoSuchFile
 	}
 
 	if flags != 0 {
 		// We don't currently support or expect any flags.
-		return nil, fmt.Errorf("protocol error: unknown flags 0x%x in Request message", flags)
+		return fmt.Errorf("protocol error: unknown flags 0x%x in Request message", flags)
 	}
 
 	// Verify that the requested file exists in the local model. We only need
@@ -739,7 +739,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 		if !ok {
 			l.Warnf("Request from %s for file %s in nonexistent folder %q", deviceID, name, folder)
-			return nil, protocol.ErrNoSuchFile
+			return protocol.ErrNoSuchFile
 		}
 
 		// This call is really expensive for large files, as we load the full
@@ -747,21 +747,21 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		// space for, read, and deserialize.
 		lf, ok := folderFiles.Get(protocol.LocalDeviceID, name)
 		if !ok {
-			return nil, protocol.ErrNoSuchFile
+			return protocol.ErrNoSuchFile
 		}
 
 		if lf.IsInvalid() || lf.IsDeleted() {
 			if debug {
-				l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, size, lf)
+				l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, len(buf), lf)
 			}
-			return nil, protocol.ErrInvalid
+			return protocol.ErrInvalid
 		}
 
 		if offset > lf.Size() {
 			if debug {
-				l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, size)
+				l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, len(buf))
 			}
-			return nil, protocol.ErrNoSuchFile
+			return protocol.ErrNoSuchFile
 		}
 
 		m.rvmut.Lock()
@@ -792,7 +792,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	}
 
 	if debug && deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 	}
 	m.fmut.RLock()
 	fn := filepath.Join(m.folderCfgs[folder].Path(), name)
@@ -803,7 +803,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	if info, err := os.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		target, _, err := symlinks.Read(fn)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		reader = strings.NewReader(target)
 	} else {
@@ -811,19 +811,18 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		// at any moment.
 		reader, err = os.Open(fn)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		defer reader.(*os.File).Close()
 	}
 
-	buf := make([]byte, size)
 	_, err = reader.ReadAt(buf, offset)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return buf, nil
+	return nil
 }
 
 func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
