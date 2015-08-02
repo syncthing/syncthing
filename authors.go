@@ -20,7 +20,7 @@ import (
 	"strings"
 )
 
-const htmlFile = "gui/scripts/syncthing/core/views/directives/aboutModalView.html"
+const htmlFile = "gui/syncthing/core/aboutModalView.html"
 
 func main() {
 	bs := readAll("AUTHORS")

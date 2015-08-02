@@ -492,6 +492,7 @@
   <div usage-report-preview-modal></div>
   <div needed-files-modal></div>
   <div failed-files-modal></div>
+  <div about-modal></div>
 
   <!-- vendor scripts -->
   <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
@@ -503,57 +504,57 @@
   <!-- / vendor scripts -->
 
   <!-- gui application code -->
-  <script src="scripts/syncthing/core/module.js"></script>
-  <script src="scripts/syncthing/core/services/events.js"></script>
-  <script src="scripts/syncthing/core/controllers/syncthingController.js"></script>
-  <script src="scripts/syncthing/core/directives/aboutModalDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/identiconDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/languageSelectDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/majorUpgradeModalDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/modalDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/uniqueFolderDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/validDeviceidDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/popoverDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/selectOnClickDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/messageDialogs/httpErrorDialogDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/messageDialogs/networkErrorDialogDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/messageDialogs/restartingDialogDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/messageDialogs/shutdownDialogDirective.js"></script>
-  <script src="scripts/syncthing/core/directives/messageDialogs/upgradingDialogDirective.js"></script>
-  <script src="scripts/syncthing/core/filters/alwaysNumberFilter.js"></script>
-  <script src="scripts/syncthing/core/filters/basenameFilter.js"></script>
-  <script src="scripts/syncthing/core/filters/binaryFilter.js"></script>
-  <script src="scripts/syncthing/core/filters/durationFilter.js"></script>
-  <script src="scripts/syncthing/core/filters/groupFilter.js"></script>
-  <script src="scripts/syncthing/core/filters/naturalFilter.js"></script>
-  <script src="scripts/syncthing/core/filters/lastErrorComponentFilter.js"></script>
-  <script src="scripts/syncthing/core/services/filterStabilize.js"></script>
-  <script src="scripts/syncthing/core/services/localeService.js"></script>
-  <script src="scripts/syncthing/core/services/memoize.js"></script>
+  <script src="syncthing/core/module.js"></script>
+  <script src="syncthing/core/aboutModalDirective.js"></script>
+  <script src="syncthing/core/alwaysNumberFilter.js"></script>
+  <script src="syncthing/core/basenameFilter.js"></script>
+  <script src="syncthing/core/binaryFilter.js"></script>
+  <script src="syncthing/core/durationFilter.js"></script>
+  <script src="syncthing/core/eventService.js"></script>
+  <script src="syncthing/core/filterStabilize.js"></script>
+  <script src="syncthing/core/groupFilter.js"></script>
+  <script src="syncthing/core/httpErrorDialogDirective.js"></script>
+  <script src="syncthing/core/identiconDirective.js"></script>
+  <script src="syncthing/core/languageSelectDirective.js"></script>
+  <script src="syncthing/core/lastErrorComponentFilter.js"></script>
+  <script src="syncthing/core/localeService.js"></script>
+  <script src="syncthing/core/majorUpgradeModalDirective.js"></script>
+  <script src="syncthing/core/memoize.js"></script>
+  <script src="syncthing/core/modalDirective.js"></script>
+  <script src="syncthing/core/naturalFilter.js"></script>
+  <script src="syncthing/core/networkErrorDialogDirective.js"></script>
+  <script src="syncthing/core/popoverDirective.js"></script>
+  <script src="syncthing/core/restartingDialogDirective.js"></script>
+  <script src="syncthing/core/selectOnClickDirective.js"></script>
+  <script src="syncthing/core/shutdownDialogDirective.js"></script>
+  <script src="syncthing/core/syncthingController.js"></script>
+  <script src="syncthing/core/uniqueFolderDirective.js"></script>
+  <script src="syncthing/core/upgradingDialogDirective.js"></script>
+  <script src="syncthing/core/validDeviceidDirective.js"></script>
 
-  <script src="scripts/syncthing/device/module.js"></script>
-  <script src="scripts/syncthing/device/directives/editDeviceModalDirective.js"></script>
-  <script src="scripts/syncthing/device/directives/idqrModalDirective.js"></script>
+  <script src="syncthing/device/module.js"></script>
+  <script src="syncthing/device/editDeviceModalDirective.js"></script>
+  <script src="syncthing/device/idqrModalDirective.js"></script>
 
-  <script src="scripts/syncthing/folder/module.js"></script>
-  <script src="scripts/syncthing/folder/directives/editFolderModalDirective.js"></script>
-  <script src="scripts/syncthing/folder/directives/editIgnoresModalDirective.js"></script>
+  <script src="syncthing/folder/module.js"></script>
+  <script src="syncthing/folder/editFolderModalDirective.js"></script>
+  <script src="syncthing/folder/editIgnoresModalDirective.js"></script>
 
-  <script src="scripts/syncthing/settings/module.js"></script>
-  <script src="scripts/syncthing/settings/directives/settingsModalDirective.js"></script>
-  <script src="scripts/syncthing/settings/directives/advancedSettingsModalDirective.js"></script>
+  <script src="syncthing/settings/module.js"></script>
+  <script src="syncthing/settings/settingsModalDirective.js"></script>
+  <script src="syncthing/settings/advancedSettingsModalDirective.js"></script>
 
-  <script src="scripts/syncthing/transfer/module.js"></script>
-  <script src="scripts/syncthing/transfer/directives/failedFilesModalDirective.js"></script>
-  <script src="scripts/syncthing/transfer/directives/neededFilesModalDirective.js"></script>
+  <script src="syncthing/transfer/module.js"></script>
+  <script src="syncthing/transfer/failedFilesModalDirective.js"></script>
+  <script src="syncthing/transfer/neededFilesModalDirective.js"></script>
 
-  <script src="scripts/syncthing/usagereport/module.js"></script>
-  <script src="scripts/syncthing/usagereport/directives/usageReportModalDirective.js"></script>
-  <script src="scripts/syncthing/usagereport/directives/usageReportPreviewModalDirective.js"></script>
+  <script src="syncthing/usagereport/module.js"></script>
+  <script src="syncthing/usagereport/usageReportModalDirective.js"></script>
+  <script src="syncthing/usagereport/usageReportPreviewModalDirective.js"></script>
 
   <script src="assets/lang/valid-langs.js"></script>
   <script src="assets/lang/prettyprint.js"></script>
-  <script src="scripts/syncthing/app.js"></script>
+  <script src="syncthing/app.js"></script>
   <!-- / gui application code -->
 
 </body>
