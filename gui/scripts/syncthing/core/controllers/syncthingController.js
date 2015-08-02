@@ -49,7 +49,6 @@ angular.module('syncthing.core')
         $scope.failedCurrentFolder = undefined;
         $scope.failedPageSize = 10;
         $scope.directory = '';
-        $scope.rootDirectory = '';
 
         $scope.localStateTotal = {
             bytes: 0,
