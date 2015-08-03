@@ -734,7 +734,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	validated := m.reqValidationCache[folder+"/"+name]
 	m.rvmut.RUnlock()
 
-	lfModified := int64(0)
+	lastModified := int64(0)
 	if time.Since(validated) > reqValidationTime {
 		m.fmut.RLock()
 		folderFiles, ok := m.folderFiles[folder]
@@ -792,7 +792,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 			}
 		}
 		m.rvmut.Unlock()
-		lfModified = lf.Modified
+		lastModified = lf.Modified
 	}
 
 	if debug && deviceID != protocol.LocalDeviceID {
@@ -800,23 +800,25 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	}
 	m.fmut.RLock()
 	fn := filepath.Join(m.folderCfgs[folder].Path(), name)
-	mtimeRepo, _ := m.folderMtimeRepos[folder]
+	mtimeRepo := m.folderMtimeRepos[folder]
 	m.fmut.RUnlock()
 
 	var reader io.ReaderAt
 	var err error
 	info, err := os.Lstat(fn)
 
-	mtime := info.ModTime()
-	if mtimeRepo != nil {
-		mtime = mtimeRepo.GetMtime(fn, mtime)
-	}
-	if lfModified != mtime.Unix() {
-		if debug {
-			l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; outdated: %v %v", m, deviceID, folder, name, offset, size, lfModified, mtime.Unix())
+	if err != nil {
+		mtime := info.ModTime()
+		if mtimeRepo != nil {
+			mtime = mtimeRepo.GetMtime(fn, mtime)
 		}
-		// TODO Can we do this here? m.ScanFolderSubs(folder, []string{name})
-		return nil, protocol.ErrInvalid
+		if lastModified != mtime.Unix() {
+			if debug {
+				l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; outdated: %v %v", m, deviceID, folder, name, offset, len(buf), lastModified, mtime.Unix())
+			}
+			// TODO Can we do this here? m.ScanFolderSubs(folder, []string{name})
+			return protocol.ErrInvalid
+		}
 	}
 
 	if err == nil && info.Mode()&os.ModeSymlink != 0 {
