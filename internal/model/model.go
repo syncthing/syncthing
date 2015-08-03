@@ -77,15 +77,16 @@ type Model struct {
 	clientName    string
 	clientVersion string
 
-	folderCfgs     map[string]config.FolderConfiguration                  // folder -> cfg
-	folderFiles    map[string]*db.FileSet                                 // folder -> files
-	folderDevices  map[string][]protocol.DeviceID                         // folder -> deviceIDs
-	deviceFolders  map[protocol.DeviceID][]string                         // deviceID -> folders
-	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
-	folderIgnores  map[string]*ignore.Matcher                             // folder -> matcher object
-	folderRunners  map[string]service                                     // folder -> puller or scanner
-	folderStatRefs map[string]*stats.FolderStatisticsReference            // folder -> statsRef
-	fmut           sync.RWMutex                                           // protects the above
+	folderCfgs       map[string]config.FolderConfiguration                  // folder -> cfg
+	folderFiles      map[string]*db.FileSet                                 // folder -> files
+	folderMtimeRepos map[string]*db.VirtualMtimeRepo                        // folder -> virtualMtimeRepo
+	folderDevices    map[string][]protocol.DeviceID                         // folder -> deviceIDs
+	deviceFolders    map[protocol.DeviceID][]string                         // deviceID -> folders
+	deviceStatRefs   map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
+	folderIgnores    map[string]*ignore.Matcher                             // folder -> matcher object
+	folderRunners    map[string]service                                     // folder -> puller or scanner
+	folderStatRefs   map[string]*stats.FolderStatisticsReference            // folder -> statsRef
+	fmut             sync.RWMutex                                           // protects the above
 
 	protoConn map[protocol.DeviceID]protocol.Connection
 	rawConn   map[protocol.DeviceID]io.Closer
@@ -124,6 +125,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		clientVersion:      clientVersion,
 		folderCfgs:         make(map[string]config.FolderConfiguration),
 		folderFiles:        make(map[string]*db.FileSet),
+		folderMtimeRepos:   make(map[string]*db.VirtualMtimeRepo),
 		folderDevices:      make(map[string][]protocol.DeviceID),
 		deviceFolders:      make(map[protocol.DeviceID][]string),
 		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
@@ -732,6 +734,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	validated := m.reqValidationCache[folder+"/"+name]
 	m.rvmut.RUnlock()
 
+	lfModified := int64(0)
 	if time.Since(validated) > reqValidationTime {
 		m.fmut.RLock()
 		folderFiles, ok := m.folderFiles[folder]
@@ -789,6 +792,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 			}
 		}
 		m.rvmut.Unlock()
+		lfModified = lf.Modified
 	}
 
 	if debug && deviceID != protocol.LocalDeviceID {
@@ -796,11 +800,26 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	}
 	m.fmut.RLock()
 	fn := filepath.Join(m.folderCfgs[folder].Path(), name)
+	mtimeRepo, _ := m.folderMtimeRepos[folder]
 	m.fmut.RUnlock()
 
 	var reader io.ReaderAt
 	var err error
-	if info, err := os.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
+	info, err := os.Lstat(fn)
+
+	mtime := info.ModTime()
+	if mtimeRepo != nil {
+		mtime = mtimeRepo.GetMtime(fn, mtime)
+	}
+	if lfModified != mtime.Unix() {
+		if debug {
+			l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; outdated: %v %v", m, deviceID, folder, name, offset, size, lfModified, mtime.Unix())
+		}
+		// TODO Can we do this here? m.ScanFolderSubs(folder, []string{name})
+		return nil, protocol.ErrInvalid
+	}
+
+	if err == nil && info.Mode()&os.ModeSymlink != 0 {
 		target, _, err := symlinks.Read(fn)
 		if err != nil {
 			return err
@@ -1136,6 +1155,7 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
 	m.folderCfgs[cfg.ID] = cfg
 	m.folderFiles[cfg.ID] = db.NewFileSet(cfg.ID, m.db)
+	m.folderMtimeRepos[cfg.ID] = db.NewVirtualMtimeRepo(m.db, cfg.ID)
 
 	m.folderDevices[cfg.ID] = make([]protocol.DeviceID, len(cfg.Devices))
 	for i, device := range cfg.Devices {
@@ -1264,7 +1284,7 @@ nextSub:
 		TempNamer:     defTempNamer,
 		TempLifetime:  time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:  cFiler{m, folder},
-		MtimeRepo:     db.NewVirtualMtimeRepo(m.db, folderCfg.ID),
+		MtimeRepo:     m.folderMtimeRepos[folder],
 		IgnorePerms:   folderCfg.IgnorePerms,
 		AutoNormalize: folderCfg.AutoNormalize,
 		Hashers:       m.numHashers(folder),
