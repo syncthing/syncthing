@@ -48,6 +48,7 @@ angular.module('syncthing.core')
         $scope.failedCurrentPage = 1;
         $scope.failedCurrentFolder = undefined;
         $scope.failedPageSize = 10;
+        $scope.directory = '';
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -1078,6 +1079,48 @@ angular.module('syncthing.core')
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
+        };
+
+        $scope.filetree = function () {
+          switch ($scope.version.os) {
+            case "darwin":
+            case "linux":
+            case "freebsd":
+                $scope.filetreeOpen('/');
+                break;
+            case "windows":
+                $scope.filetreeOpen('C:/')
+            default:
+              $scope.filetreeOpen('/');
+          }
+        }
+
+        $scope.filetreeOpen = function (path) {
+          $('#editFolder').modal('hide');
+          $http.get(urlbase + '/system/browse?current=' + path).success(function (data) {
+              $scope.directory = path;
+              $scope.filetreeDir = data;
+          }).error($scope.emitHTTPError);
+          $('#filetree').modal();
+        };
+
+        $scope.filetreeLook = function (path) {
+          $http.get(urlbase + '/system/browse?current=' + path).success(function (data) {
+              $scope.directory = path;
+              $scope.filetreeDir = data;
+          }).error($scope.emitHTTPError);
+        };
+
+        $scope.filetreeBack = function () {
+          var split = $scope.directory.split('/');
+          var len = $scope.directory.length - 2;
+          $scope.filetreeLook($scope.directory.substr(0, len - split[split.length - 2].length + 1));
+        };
+
+        $scope.filetreeOk = function(path) {
+          $scope.currentFolder.path = path;
+          $('#editFolder').modal();
+          $('#filetree').modal('hide');
         };
 
         $scope.addFolderAndShare = function (folder, device) {

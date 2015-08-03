@@ -629,6 +629,31 @@
     </div>
   </div>
 
+  <!-- File tree modal -->
+
+  <div id="filetree" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title">
+            File Tree
+            <small>
+              {{directory}}
+            </small>
+          </h4>
+        </div>
+        <div class="modal-body">
+          <a ng-click="filetreeBack()" href="">..</a><br><br>
+          <a ng-repeat="item in filetreeDir" ng-click="filetreeLook(item)" href="">{{item}}<br></a>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default btn-sm" ng-click="filetreeOk(directory)"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Ok</span></button>
+          <button type="button" class="btn btn-default btn-sm" ng-click="filetreeOk()"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Folder editor modal -->
 
   <div id="editFolder" class="modal fade" tabindex="-1">
@@ -654,10 +679,15 @@
                 </div>
                 <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty}">
                   <label translate for="folderPath">Folder Path</label>
-                  <input name="folderPath" ng-readonly="editingExisting" id="folderPath" class="form-control" type="text" ng-model="currentFolder.path" list="directory-list" required />
-                  <datalist id="directory-list">
-                    <option ng-repeat="directory in directoryList" value="{{ directory }}" />
-                  </datalist>
+                  <div class="input-group">
+                    <input name="folderPath" ng-readonly="editingExisting" id="folderPath" class="form-control" type="text" ng-model="currentFolder.path" list="directory-list" required />
+                    <datalist id="directory-list">
+                      <option ng-repeat="directory in directoryList" value="{{ directory }}" />
+                    </datalist>
+                    <span class="input-group-btn">
+                      <button class="btn btn-default" type="button" ng-click="filetree()"><span class="glyphicon glyphicon-list-alt"></span>&nbsp;<span translate>FileTree</span></button>
+                    </span>
+                  </div>
                   <p class="help-block">
                     <span translate ng-if="folderEditor.folderPath.$valid || folderEditor.folderPath.$pristine">Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.
                     <span translate ng-if="folderEditor.folderPath.$error.required && folderEditor.folderPath.$dirty">The folder path cannot be blank.</span>
