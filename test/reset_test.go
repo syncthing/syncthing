@@ -10,6 +10,7 @@ package integration
 
 import (
 	"bytes"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -68,7 +69,7 @@ func TestReset(t *testing.T) {
 	// Reset indexes of the default folder
 	log.Println("Reset indexes of default folder")
 	bs, err := p.Post("/rest/system/reset?folder=default", nil)
-	if err != nil {
+	if err != nil && err != io.ErrUnexpectedEOF {
 		t.Fatalf("Failed to reset indexes (default): %v (%s)", err, bytes.TrimSpace(bs))
 	}
 
