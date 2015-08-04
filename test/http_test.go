@@ -40,7 +40,6 @@ var jsonEndpoints = []string{
 	"/rest/system/error",
 	"/rest/system/ping",
 	"/rest/system/status",
-	"/rest/system/upgrade",
 	"/rest/system/version",
 }
 
