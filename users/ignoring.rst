@@ -54,7 +54,7 @@ The ``.stignore`` file contains a list of file or path patterns. The
    are *included* (that is, *not* ignored). This can be used to override
    more general patterns that follow. Note that files in ignored
    directories can not be re-included this way. This is due to the fact
-   that syncthing stops scanning when it reaches an ignored directory,
+   that Syncthing stops scanning when it reaches an ignored directory,
    so doesn't know what files it might contain.
 
 -  A pattern beginning with ``(?i)`` enables case-insensitive pattern
@@ -110,7 +110,7 @@ all files and directories called "foo", ending in a "2" or starting with
 .. note::
   Please note that directory patterns ending with a slash
   ``some/directory/`` matches the content of the directory, but not the
-  directory itself. If you want the pattern to match the director and it's
+  directory itself. If you want the pattern to match the directory and its
   content, make sure it does not have a ``/`` at the end of the pattern.
 
 Effects on "In Sync" Status
