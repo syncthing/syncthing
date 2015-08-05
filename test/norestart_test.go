@@ -15,6 +15,7 @@ import (
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/rc"
 )
 
@@ -50,7 +51,7 @@ func TestAddDeviceWithoutRestart(t *testing.T) {
 
 	os.Remove("h4/config.xml.orig")
 	os.Rename("h4/config.xml", "h4/config.xml.orig")
-	defer os.Rename("h4/config.xml.orig", "h4/config.xml")
+	defer osutil.Rename("h4/config.xml.orig", "h4/config.xml")
 
 	cfg, err := p4.GetConfig()
 	if err != nil {
@@ -117,7 +118,7 @@ func TestFolderWithoutRestart(t *testing.T) {
 
 	os.Remove("h1/config.xml.orig")
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
-	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
+	defer osutil.Rename("h1/config.xml.orig", "h1/config.xml")
 
 	cfg, err := p1.GetConfig()
 	if err != nil {
@@ -154,7 +155,7 @@ func TestFolderWithoutRestart(t *testing.T) {
 
 	os.Remove("h4/config.xml.orig")
 	os.Rename("h4/config.xml", "h4/config.xml.orig")
-	defer os.Rename("h4/config.xml.orig", "h4/config.xml")
+	defer osutil.Rename("h4/config.xml.orig", "h4/config.xml")
 
 	cfg, err = p4.GetConfig()
 	if err != nil {
