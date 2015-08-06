@@ -36,6 +36,7 @@ var (
 	goos      string
 	noupgrade bool
 	version   string
+	goVersion float64
 	race      bool
 )
 
@@ -70,7 +71,7 @@ func main() {
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
 	}
 
-	checkRequiredGoVersion()
+	goVersion, _ = checkRequiredGoVersion()
 
 	if flag.NArg() == 0 {
 		var tags []string
@@ -154,7 +155,7 @@ func main() {
 	}
 }
 
-func checkRequiredGoVersion() {
+func checkRequiredGoVersion() (float64, bool) {
 	ver := run("go", "version")
 	re := regexp.MustCompile(`go version go(\d+\.\d+)`)
 	if m := re.FindSubmatch(ver); len(m) == 2 {
@@ -163,14 +164,16 @@ func checkRequiredGoVersion() {
 		f, err := strconv.ParseFloat(vs, 64)
 		if err != nil {
 			log.Printf("*** Couldn't parse Go version out of %q.\n*** This isn't known to work, proceed on your own risk.", vs)
-			return
+			return 0, false
 		}
 		if f < minGoVersion {
 			log.Fatalf("*** Go version %.01f is less than required %.01f.\n*** This is known not to work, not proceeding.", f, minGoVersion)
 		}
-	} else {
-		log.Printf("*** Unknown Go version %q.\n*** This isn't known to work, proceed on your own risk.", ver)
+		return f, true
 	}
+
+	log.Printf("*** Unknown Go version %q.\n*** This isn't known to work, proceed on your own risk.", ver)
+	return 0, false
 }
 
 func setup() {
@@ -438,13 +441,18 @@ func clean() {
 }
 
 func ldflags() string {
-	var b bytes.Buffer
+	sep := ' '
+	if goVersion > 1.4 {
+		sep = '='
+	}
+
+	b := new(bytes.Buffer)
 	b.WriteString("-w")
-	b.WriteString(fmt.Sprintf(" -X main.Version %s", version))
-	b.WriteString(fmt.Sprintf(" -X main.BuildStamp %d", buildStamp()))
-	b.WriteString(fmt.Sprintf(" -X main.BuildUser %s", buildUser()))
-	b.WriteString(fmt.Sprintf(" -X main.BuildHost %s", buildHost()))
-	b.WriteString(fmt.Sprintf(" -X main.BuildEnv %s", buildEnvironment()))
+	fmt.Fprintf(b, " -X main.Version%c%s", sep, version)
+	fmt.Fprintf(b, " -X main.BuildStamp%c%d", sep, buildStamp())
+	fmt.Fprintf(b, " -X main.BuildUser%c%s", sep, buildUser())
+	fmt.Fprintf(b, " -X main.BuildHost%c%s", sep, buildHost())
+	fmt.Fprintf(b, " -X main.BuildEnv%c%s", sep, buildEnvironment())
 	return b.String()
 }
 
@@ -742,7 +750,9 @@ func vet(pkg string) {
 		if falseAlarmComposites.Match(line) || exitStatus.Match(line) {
 			continue
 		}
-		log.Printf("%s", line)
+		if len(line) > 0 {
+			log.Printf("%s", line)
+		}
 	}
 }
 
@@ -758,6 +768,8 @@ func lint(pkg string) {
 		if analCommentPolicy.Match(line) {
 			continue
 		}
-		log.Printf("%s", line)
+		if len(line) > 0 {
+			log.Printf("%s", line)
+		}
 	}
 }
