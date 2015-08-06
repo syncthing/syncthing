@@ -17,7 +17,7 @@ import (
 	"testing"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/rc"
+	"github.com/syncthing/syncthing/lib/rc"
 )
 
 var jsonEndpoints = []string{

@@ -12,7 +12,7 @@ import (
 	"os"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/discover"
+	"github.com/syncthing/syncthing/lib/discover"
 )
 
 func main() {

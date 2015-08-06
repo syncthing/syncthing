@@ -81,9 +81,9 @@ func main() {
 		install("./cmd/...", tags)
 
 		vet("./cmd/syncthing")
-		vet("./internal/...")
+		vet("./lib/...")
 		lint("./cmd/syncthing")
-		lint("./internal/...")
+		lint("./lib/...")
 		return
 	}
 
@@ -143,11 +143,11 @@ func main() {
 
 		case "vet":
 			vet("./cmd/syncthing")
-			vet("./internal/...")
+			vet("./lib/...")
 
 		case "lint":
 			lint("./cmd/syncthing")
-			lint("./internal/...")
+			lint("./lib/...")
 
 		default:
 			log.Fatalf("Unknown command %q", cmd)
@@ -405,11 +405,11 @@ func setBuildEnv() {
 
 func assets() {
 	setBuildEnv()
-	runPipe("internal/auto/gui.files.go", "go", "run", "cmd/genassets/main.go", "gui")
+	runPipe("lib/auto/gui.files.go", "go", "run", "cmd/genassets/main.go", "gui")
 }
 
 func xdr() {
-	runPrint("go", "generate", "./internal/discover", "./internal/db")
+	runPrint("go", "generate", "./lib/discover", "./lib/db")
 }
 
 func translate() {

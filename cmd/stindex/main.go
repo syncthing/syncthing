@@ -14,7 +14,7 @@ import (
 	"os"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
