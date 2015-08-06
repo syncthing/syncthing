@@ -301,7 +301,7 @@
               <div class="panel-footer">
                 <button class="btn btn-sm btn-danger pull-left" ng-if="folderStatus(folder) == 'outofsync' && folder.readOnly" ng-click="override(folder.id)" href=""><span class="glyphicon glyphicon-upload"></span>&nbsp;<span translate>Override Changes</span></button>
                 <span class="pull-right">
-                  <button class="btn btn-sm btn-default" href="" ng-show="['idle', 'stopped'].indexOf(folderStatus(folder)) > -1" ng-click="rescanFolder(folder.id)"><span class="glyphicon glyphicon-refresh"></span>&nbsp;<span translate>Rescan</span></button>
+                  <button class="btn btn-sm btn-default" href="" ng-show="['idle', 'stopped', 'unshared'].indexOf(folderStatus(folder)) > -1" ng-click="rescanFolder(folder.id)"><span class="glyphicon glyphicon-refresh"></span>&nbsp;<span translate>Rescan</span></button>
                   <button class="btn btn-sm btn-default" href="" ng-click="editFolder(folder)"><span class="glyphicon glyphicon-pencil"></span>&nbsp;<span translate>Edit</span></button>
                 </span>
                 <div class="clearfix"></div>
