@@ -73,6 +73,8 @@ func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir strin
 		eventSub:        eventSub,
 	}
 
+	l.AddHandler(logger.LevelWarn, svc.showGuiError)
+
 	var err error
 	svc.listener, err = svc.getListener(cfg)
 	return svc, err
@@ -115,6 +117,10 @@ func (s *apiSvc) getListener(cfg config.GUIConfiguration) (net.Listener, error) 
 		},
 	}
 
+	if cfg.Address != "127.0.0.1" && cfg.User == "" {
+		l.Warnf("The GUI is accessible to the local network. Please install a GUI username and password to increase security.")
+	}
+
 	rawListener, err := net.Listen("tcp", cfg.Address)
 	if err != nil {
 		return nil, err
@@ -126,8 +132,6 @@ func (s *apiSvc) getListener(cfg config.GUIConfiguration) (net.Listener, error) 
 
 func (s *apiSvc) Serve() {
 	s.stop = make(chan struct{})
-
-	l.AddHandler(logger.LevelWarn, s.showGuiError)
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
