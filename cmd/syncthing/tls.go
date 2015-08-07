@@ -102,7 +102,9 @@ func (l *DowngradingListener) Accept() (net.Conn, error) {
 	}
 
 	br := bufio.NewReader(conn)
+	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	bs, err := br.Peek(1)
+	conn.SetReadDeadline(time.Time{})
 	if err != nil {
 		// We hit a read error here, but the Accept() call succeeded so we must not return an error.
 		// We return the connection as is and let whoever tries to use it deal with the error.
