@@ -906,7 +906,9 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	fd, err := osutil.CreateAtomic(filepath.Join(cfg.Path(), ".stignore"), 0644)
+	ignorelist := filepath.Join(cfg.Path(), ".stignore")
+
+	fd, err := osutil.CreateAtomic(ignorelist, 0644)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
@@ -920,6 +922,8 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
+
+	osutil.HideFile(ignorelist)
 
 	return m.ScanFolder(folder)
 }
