@@ -54,6 +54,7 @@ var testcases = []testcase{
 
 	{"foo.txt", "foo.TXT", CaseFold, true},
 	{"(?i)foo.txt", "foo.TXT", 0, true},
+	{"(?i)(?i)foo.txt", "foo.TXT", 0, true}, // repeated prefix should be fine
 	{"(?i)**foo.txt", "/dev/tmp/foo.TXT", 0, true},
 	{"(?i)!**foo.txt", "/dev/tmp/foo.TXT", 0, false},
 
