@@ -1057,6 +1057,7 @@ angular.module('syncthing.core')
                 selectedDevices: {}
             };
             $scope.currentFolder.rescanIntervalS = 60;
+            $scope.currentFolder.minDiskFreePct = 1;
             $scope.currentFolder.order = "random";
             $scope.currentFolder.fileVersioningSelector = "none";
             $scope.currentFolder.trashcanClean = 0;
@@ -1077,6 +1078,7 @@ angular.module('syncthing.core')
                 id: folder,
                 selectedDevices: {},
                 rescanIntervalS: 60,
+                minDiskFreePct: 1,
                 fileVersioningSelector: "none",
                 trashcanClean: 0,
                 simpleKeep: 5,
