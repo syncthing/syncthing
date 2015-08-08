@@ -138,11 +138,13 @@
               <div class="form-group">
                 <label translate for="devices">Share With Devices</label>
                 <p translate class="help-block">Select the devices to share this folder with.</p>
-                <div class="three-columns">
-                  <div class="checkbox" ng-repeat="device in otherDevices()">
-                    <label>
-                      <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
-                    </label>
+                <div class="row">
+                  <div class="col-md-4" ng-repeat="device in otherDevices()">
+                    <div class="checkbox">
+                      <label>
+                        <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>

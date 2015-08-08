@@ -54,11 +54,13 @@
               <div class="form-group">
                 <label translate for="folders">Share Folders With Device</label>
                 <p translate class="help-block">Select the folders to share with this device.</p>
-                <div class="three-columns">
-                  <div class="checkbox" ng-repeat="folder in folderList()">
-                    <label>
-                      <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]"> {{folder.id}}
-                    </label>
+                <div class="row">
+                  <div class="col-md-4" ng-repeat="folder in folderList()">
+                    <div class="checkbox">
+                      <label>
+                        <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]"> {{folder.id}}
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
