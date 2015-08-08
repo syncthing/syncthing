@@ -2,6 +2,6 @@ angular.module('syncthing.core')
     .directive('httpErrorDialog', function () {
         return {
             restrict: 'A',
-            templateUrl: 'syncthing/core//httpErrorDialogView.html'
+            templateUrl: 'syncthing/core/httpErrorDialogView.html'
         };
 });
