@@ -1004,6 +1004,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		reused:      reused,
 		ignorePerms: p.ignorePermissions(file),
 		version:     curFile.Version,
+		modified:    curFile.Modified,
 		mut:         sync.NewMutex(),
 	}
 
@@ -1222,8 +1223,29 @@ func (p *rwFolder) performFinish(state *sharedPullerState) error {
 		}
 	}
 
-	// Set the correct timestamp on the new file
+	// Verify if a file will be overwritten and if we are up to date about its current mtime
 	t := time.Unix(state.file.Modified, 0)
+	existingInfo, existingErr := os.Lstat(state.realName)
+	if existingErr == nil {
+		mtime := existingInfo.ModTime()
+
+		p.model.fmut.RLock()
+		if mtimeRepo, ok := p.model.folderMtimeRepos[p.folder]; ok {
+			mtime = mtimeRepo.GetMtime(state.file.Name, mtime)
+			// TODO should break here. If we need the mtime value from the mtimeRepo we are 'up to date' anyway
+		}
+		p.model.fmut.RUnlock()
+
+		if state.modified != existingInfo.ModTime().Unix() {
+			// File changed and we didn't know about it, make a conflict
+			if debug {
+				l.Debugf("%v performFinish %s: %q; outdated: %v %v", p, p.folder, state.file.Name, state.modified, t.Unix())
+			}
+			// TODO do we need to scan here? See p.inConflict
+		}
+	}
+
+	// Set the correct timestamp on the new file
 	if err := os.Chtimes(state.tempName, t, t); err != nil {
 		// Try using virtual mtimes instead
 		info, err := os.Stat(state.tempName)

@@ -177,6 +177,73 @@ func TestConflictsDefault(t *testing.T) {
 	}
 }
 
+func TestConflictSingleScan(t *testing.T) {
+	log.Println("Cleaning...")
+	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sender := startInstance(t, 1)
+	defer checkedStop(t, sender)
+	receiver := startInstance(t, 2)
+	defer checkedStop(t, receiver)
+
+	if err := sender.RescanDelay("default", 86400); err != nil {
+		t.Fatal(err)
+	}
+	if err := receiver.RescanDelay("default", 86400); err != nil {
+		t.Fatal(err)
+	}
+	rc.AwaitSync("default", sender, receiver)
+
+	log.Println("Introducing a conflict (simultaneous edit)...")
+
+	fd, err := os.Create("s1/testfile.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fd.WriteString("text added to s1\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = fd.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fd, err = os.Create("s2/testfile.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fd.WriteString("text added to s2\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = fd.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	log.Println("Syncing...")
+	// Only scan the sender side
+	if err := sender.RescanDelay("default", 86400); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(1 * time.Second)
+	rc.AwaitSync("default", sender, receiver)
+
+	// The conflict is expected on the s2 side due to how we calculate which
+	// file is the winner (based on device ID)
+	files, err := osutil.Glob("s2/*sync-conflict*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 {
+		t.Errorf("Expected 1 conflicted files instead of %d", len(files))
+	}
+}
+
 func TestConflictsInitialMerge(t *testing.T) {
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s2", "h1/index*", "h2/index*")

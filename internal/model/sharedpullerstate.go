@@ -26,6 +26,7 @@ type sharedPullerState struct {
 	realName    string
 	reused      int // Number of blocks reused from temporary file
 	ignorePerms bool
+	modified    int64           // Known modification time
 	version     protocol.Vector // The current (old) version
 
 	// Mutable, must be locked for access
