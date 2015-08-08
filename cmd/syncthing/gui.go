@@ -955,6 +955,11 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Header.Get("If-Modified-Since") == auto.AssetsBuildDate {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
 	mtype := s.mimeTypeForFile(file)
 	if len(mtype) != 0 {
 		w.Header().Set("Content-Type", mtype)
@@ -970,6 +975,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
 	w.Header().Set("Last-Modified", auto.AssetsBuildDate)
+	w.Header().Set("Cache-Control", "public")
 
 	w.Write(bs)
 }
