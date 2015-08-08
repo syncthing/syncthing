@@ -38,9 +38,10 @@ func Convert(pattern string, flags int) (*regexp.Regexp, error) {
 		}
 	}
 
-	// Support case insensitive ignores
-	ignore := strings.TrimPrefix(pattern, "(?i)")
-	if ignore != pattern {
+	// Support case insensitive ignores. We do the loop because we may in some
+	// circumstances end up with multiple insensitivity prefixes
+	// ("(?i)(?i)foo"), which should be accepted.
+	for ignore := strings.TrimPrefix(pattern, "(?i)"); ignore != pattern; ignore = strings.TrimPrefix(pattern, "(?i)") {
 		flags |= CaseFold
 		pattern = ignore
 	}
