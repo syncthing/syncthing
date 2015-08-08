@@ -26,7 +26,7 @@ import (
 
 const (
 	OldestHandledVersion = 5
-	CurrentVersion       = 10
+	CurrentVersion       = 11
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -74,6 +74,7 @@ type FolderConfiguration struct {
 	RescanIntervalS int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
 	IgnorePerms     bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize   bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
+	MinDiskFreePct  int                         `xml:"minDiskFreePct" json:"minDiskFreePct"`
 	Versioning      VersioningConfiguration     `xml:"versioning" json:"versioning"`
 	Copiers         int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
 	Pullers         int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
@@ -364,6 +365,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 9 {
 		convertV9V10(cfg)
 	}
+	if cfg.Version == 10 {
+		convertV10V11(cfg)
+	}
 
 	// Hash old cleartext passwords
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
@@ -458,6 +462,14 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 	}
 
 	return false
+}
+
+func convertV10V11(cfg *Configuration) {
+	// Set minimum disk free of existing folders to 1%
+	for i := range cfg.Folders {
+		cfg.Folders[i].MinDiskFreePct = 1
+	}
+	cfg.Version = 11
 }
 
 func convertV9V10(cfg *Configuration) {
