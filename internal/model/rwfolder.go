@@ -1155,8 +1155,6 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 				continue
 			}
 
-			offset := state.block.Offset
-
 			// If this folder is set for encryption, ignore the hash (since the encrypted block will have a different hash) and go ahead and decrypt it
 			if (p.encrypt) {
 				if debug {
@@ -1181,7 +1179,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			}
 
 			// Save the block data we got from the cluster
-			_, err = fd.WriteAt(buf, offset)
+			_, err = fd.WriteAt(buf, state.block.Offset)
 			if err != nil {
 				state.fail("save", err)
 			} else {
