@@ -349,7 +349,7 @@ func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDService, er
 		descriptions := getIGDServices(rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:2",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
-			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:1"})
+			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:2"})
 
 		result = append(result, descriptions...)
 	} else {
