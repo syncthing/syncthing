@@ -92,6 +92,7 @@ func TestDeviceConfig(t *testing.T) {
 				Pullers:         16,
 				Hashers:         0,
 				AutoNormalize:   true,
+				MinDiskFreePct:  1,
 			},
 		}
 		expectedDevices := []DeviceConfiguration{
