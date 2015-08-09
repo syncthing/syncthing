@@ -8,8 +8,8 @@ Synopsis
 
     syncthing [-audit] [-generate=<dir>] [-gui-address=<address>]
               [-gui-apikey=<key>] [-gui-authentication=<username:password>]
-              [-home=<dir>] [-logflags=<flags>] [-no-browser] [-no-restart]
-              [-reset] [-upgrade] [-upgrade-check] [-upgrade-to=<url>]
+              [-home=<dir>] [-logflags=<flags>] [-no-browser] [-no-console]
+              [-no-restart] [-reset] [-upgrade] [-upgrade-check] [-upgrade-to=<url>]
               [-verbose] [-version]
 
 Description
@@ -68,6 +68,10 @@ Options
 .. cmdoption:: -no-browser
 
     Do not start a browser.
+
+.. cmdoption:: -no-console
+
+    Hide the console window. (On Windows only)
 
 .. cmdoption:: -no-restart
 
