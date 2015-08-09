@@ -55,6 +55,7 @@ func TestDefaultValues(t *testing.T) {
 		DatabaseBlockCacheMiB:   0,
 		PingTimeoutS:            30,
 		PingIdleTimeS:           60,
+		MinHomeDiskFreePct:      1,
 	}
 
 	cfg := New(device1)
@@ -165,6 +166,7 @@ func TestOverriddenValues(t *testing.T) {
 		DatabaseBlockCacheMiB:   42,
 		PingTimeoutS:            60,
 		PingIdleTimeS:           120,
+		MinHomeDiskFreePct:      5,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
