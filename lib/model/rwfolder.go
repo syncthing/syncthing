@@ -879,14 +879,21 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 		// get rid of. Attempt to delete it instead so that we make *some*
 		// progress. The target is unhandled.
 
-		err = osutil.InWritableDir(osutil.Remove, from)
-		if err != nil {
-			l.Infof("Puller (folder %q, file %q): delete %q after failed rename: %v", p.folder, target.Name, source.Name, err)
-			p.newError(target.Name, err)
-			return
-		}
+		// The error handling here is a bit special. If the remove fails, we
+		// try an Lstat of the file. If the Lstat fails we interpret that as
+		// the file being missing (or at least completely out of reach for
+		// some reason, which amounts to the same thing) and mark the delete
+		// as successfull. Only if the delete fails and the file is still in
+		// place do we skip the database update.
 
-		p.dbUpdates <- dbUpdateJob{source, dbUpdateDeleteFile}
+		if err = osutil.InWritableDir(osutil.Remove, from); err != nil {
+			if _, statErr := os.Lstat(from); statErr != nil {
+				err = nil
+			}
+		}
+		if err == nil {
+			p.dbUpdates <- dbUpdateJob{source, dbUpdateDeleteFile}
+		}
 	}
 }
 

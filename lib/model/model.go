@@ -1323,6 +1323,13 @@ nextSub:
 	// TODO: We should limit the Have scanning to start at sub
 	seenPrefix := false
 	var iterError error
+
+	// We cannot call updateLocals inside the WithHaveTruncated loop as this
+	// would lead to opening a write transaction during a read transaction,
+	// which is not supported by the bolt database layer. Hence we batch all
+	// the changes here. The individual file objects are small enough as they
+	// have nil blocks, so this should be fine.
+
 	fs.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 		hasPrefix := len(subs) == 0
@@ -1343,15 +1350,6 @@ nextSub:
 		if !f.IsDeleted() {
 			if f.IsInvalid() {
 				return true
-			}
-
-			if len(batch) == batchSizeFiles {
-				if err := m.CheckFolderHealth(folder); err != nil {
-					iterError = err
-					return false
-				}
-				m.updateLocals(folder, batch)
-				batch = batch[:0]
 			}
 
 			if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
