@@ -71,7 +71,7 @@ Options
 
 .. cmdoption:: -no-console
 
-    Hide the console window.
+    Hide the console window. (On Windows only)
 
 .. cmdoption:: -no-restart
 
