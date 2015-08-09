@@ -46,7 +46,7 @@ case "${1:-default}" in
 
 	prerelease)
 		go run build.go transifex
-		git add -A gui/assets/ internal/auto/
+		git add -A gui/assets/ lib/auto/
 		pushd man ; ./refresh.sh ; popd
 		git add -A man
 		echo
@@ -64,9 +64,7 @@ case "${1:-default}" in
 
 	all)
 		go run build.go -goos darwin -goarch amd64 tar
-		go run build.go -goos darwin -goarch 386 tar
 
-		go run build.go -goos dragonfly -goarch 386 tar
 		go run build.go -goos dragonfly -goarch amd64 tar
 
 		go run build.go -goos freebsd -goarch 386 tar

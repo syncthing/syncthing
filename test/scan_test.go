@@ -13,7 +13,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/syncthing/syncthing/internal/rc"
+	"github.com/syncthing/syncthing/lib/rc"
 )
 
 func TestSubScan(t *testing.T) {
