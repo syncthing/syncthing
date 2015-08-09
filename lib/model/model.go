@@ -45,7 +45,6 @@ const (
 	indexBatchSize         = 1000       // Either way, don't include more files than this
 	reqValidationTime      = time.Hour  // How long to cache validation entries for Request messages
 	reqValidationCacheSize = 1000       // How many entries to aim for in the validation cache size
-	minHomeDiskFreePct     = 1.0        // Stop when less space than this is available on the home (config & db) disk
 )
 
 type service interface {
@@ -1663,8 +1662,10 @@ func (m *Model) BringToFront(folder, file string) {
 // CheckFolderHealth checks the folder for common errors and returns the
 // current folder error, or nil if the folder is healthy.
 func (m *Model) CheckFolderHealth(id string) error {
-	if free, err := osutil.DiskFreePercentage(m.cfg.ConfigPath()); err == nil && free < minHomeDiskFreePct {
-		return errors.New("out of disk space")
+	if minFree := float64(m.cfg.Options().MinHomeDiskFreePct); minFree > 0 {
+		if free, err := osutil.DiskFreePercentage(m.cfg.ConfigPath()); err == nil && free < minFree {
+			return errors.New("home disk is out of space")
+		}
 	}
 
 	folder, ok := m.cfg.Folders()[id]

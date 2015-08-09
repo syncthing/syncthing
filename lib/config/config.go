@@ -238,6 +238,7 @@ type OptionsConfiguration struct {
 	DatabaseBlockCacheMiB   int      `xml:"databaseBlockCacheMiB" json:"databaseBlockCacheMiB" default:"0"`
 	PingTimeoutS            int      `xml:"pingTimeoutS" json:"pingTimeoutS" default:"30"`
 	PingIdleTimeS           int      `xml:"pingIdleTimeS" json:"pingIdleTimeS" default:"60"`
+	MinHomeDiskFreePct      int      `xml:"minHomeDiskFreePct" json:"minHomeDiskFreePct" default:"1"`
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {
