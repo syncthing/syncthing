@@ -3,8 +3,7 @@
     <div class="modal-content">
       <div class="modal-header alert alert-danger">
         <h4 class="modal-title">
-          <span ng-if="icon" class="glyphicon glyphicon-chevron-up"></span>
-          <span translate>Major Upgrade</span>
+          <span class="fa fa-arrow-circle-up"></span><span translate>Major Upgrade</span>
         </h4>
       </div>
       <div class="modal-body">
@@ -18,8 +17,12 @@
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-primary btn-sm" ng-click="upgrade()"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Upgrade</span></button>
-        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
+        <button type="button" class="btn btn-primary btn-sm" ng-click="upgrade()">
+          <span class="fa fa-check"></span>&nbsp;<span translate>Upgrade</span>
+        </button>
+        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+          <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+        </button>
       </div>
     </div>
   </div>

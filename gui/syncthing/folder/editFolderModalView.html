@@ -2,8 +2,10 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 ng-show="!editingExisting" class="modal-title"><span translate>Add Folder</span></h4>
-        <h4 ng-show="editingExisting" class="modal-title"><span translate>Edit Folder</span></h4>
+        <h4 class="modal-title">
+          <span ng-show="!editingExisting"><span class="fa fa-folder"></span><span translate>Add Folder</span></span>
+          <span ng-show="editingExisting"><span class="fa fa-pencil"></span><span translate>Edit Folder</span></span>
+        </h4>
       </div>
       <div class="modal-body">
         <form role="form" name="folderEditor">
@@ -54,7 +56,7 @@
                   <label>
                     <input type="checkbox" ng-model="currentFolder.readOnly"> <span translate>Folder Master</span>
                   </label>
-                  &nbsp;<a href="http://docs.syncthing.net/users/foldermaster.html" target="_blank"><span class="glyphicon glyphicon-book"></span>&nbsp;<span translate>Help</span></a>
+                  &nbsp;<a href="http://docs.syncthing.net/users/foldermaster.html" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Help</span></a>
                 </div>
                 <p translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
               </div>
@@ -82,7 +84,7 @@
                 </select>
               </div>
               <div class="form-group">
-                <label translate>File Versioning</label>&emsp;<a href="http://docs.syncthing.net/users/versioning.html" target="_blank"><span class="glyphicon glyphicon-book"></span>&nbsp;<span translate>Help</span></a>
+                <label translate>File Versioning</label>&emsp;<a href="http://docs.syncthing.net/users/versioning.html" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Help</span></a>
                 <select class="form-control" ng-model="currentFolder.fileVersioningSelector">
                   <option value="none" translate>No File Versioning</option>
                   <option value="trashcan" translate>Trash Can File Versioning</option>
@@ -163,10 +165,18 @@
         <div translate ng-show="!editingExisting">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Save</span></button>
-        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
-        <button ng-if="editingExisting" type="button" class="btn btn-warning pull-left btn-sm" ng-click="deleteFolder(currentFolder.id)"><span class="glyphicon glyphicon-minus"></span>&nbsp;<span translate>Remove</span></button>
-        <button id="editIgnoresButton" ng-if="editingExisting" type="button" class="btn btn-default pull-left btn-sm" ng-click="editIgnores()"><span class="glyphicon glyphicon-eye-close"></span>&nbsp;<span translate>Ignore Patterns</span></button>
+        <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid">
+          <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
+        </button>
+        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+          <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+        </button>
+        <button type="button" class="btn btn-warning pull-left btn-sm" ng-click="deleteFolder(currentFolder.id)" ng-if="editingExisting">
+          <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
+        </button>
+        <button type="button" class="btn btn-default pull-left btn-sm" id="editIgnoresButton" ng-click="editIgnores()" ng-if="editingExisting">
+          <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Ignore Patterns</span>
+        </button>
       </div>
     </div>
   </div>

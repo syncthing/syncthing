@@ -2,7 +2,7 @@
 <div class="modal-dialog modal-lg">
   <div class="modal-content">
     <div class="modal-header">
-      <h4 translate class="modal-title">Settings</h4>
+      <h4 class="modal-title"><span class="fa fa-cog"></span><span translate>Settings</span></h4>
     </div>
     <div class="modal-body">
       <form role="form">
@@ -101,9 +101,11 @@
             <hr />
 
             <div class="form-group">
-              <label><span translate>API Key</span></label>
+              <label translate>API Key</label>
               <div class="well well-sm text-monospace">{{tmpGUI.apiKey || "-"}}</div>
-              <button translate type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(tmpGUI)">Generate</button>
+              <button type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(tmpGUI)">
+                <span class="fa fa-repeat"></span>&nbsp;<span translate>Generate</span>
+              </button>
             </div>
           </div>
 
@@ -111,8 +113,12 @@
       </form>
     </div>
     <div class="modal-footer">
-      <button type="button" class="btn btn-primary btn-sm" ng-click="saveSettings()"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Save</span></button>
-      <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
+      <button type="button" class="btn btn-primary btn-sm" ng-click="saveSettings()">
+        <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
+      </button>
+      <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+        <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+      </button>
     </div>
   </div>
 </div>

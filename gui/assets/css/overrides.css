@@ -67,7 +67,7 @@ identicon {
     top: 1px;
 }
 
-.panel-heading .glyphicon {
+.panel-heading .fa, .modal-header .fa {
     margin-right: 10px;
 }
 
