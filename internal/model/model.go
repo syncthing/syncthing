@@ -901,7 +901,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	                l.Debugf("Model.Request: Error decoding base32: %s, %s", err, name)
 	        }
 
-			nameBuf, err := protocol.Decrypt(base32dec, m.folderCfgs[folder].Passphrase, []byte(m.clientName))
+			nameBuf, err := protocol.DecryptBlock(base32dec, m.folderCfgs[folder].Passphrase)
 			if err != nil {
 	                l.Debugf("Model.Request: Error decrypting: %s, %s", err, name)
 	        }
@@ -1258,7 +1258,7 @@ func (m *Model) sendIndexTo(initial bool, minLocalVer int64, conn protocol.Conne
 		// }
 
 		if (m.folderCfgs[folder].Encrypt) {
-			encrypted, err := protocol.Encrypt([]byte(f.Name), m.folderCfgs[folder].Passphrase, []byte(m.clientName))
+			encrypted, err := protocol.EncryptBlock([]byte(f.Name), m.folderCfgs[folder].Passphrase)
 			if err != nil {
 	                l.Debugf("Model.sendIndexTo: Error encrypting: %s, %s", err, f.Name)
 	        }
@@ -2129,7 +2129,7 @@ func (m* Model) decryptIndex(fs []protocol.FileInfo, folder string) []protocol.F
             l.Debugf("Model.DecryptIndex: Error decoding base32: %s, %s", err, fs[i].Name)
         }
 
-		nameBuf, err := protocol.Decrypt(base32dec, m.folderCfgs[folder].Passphrase, []byte(m.clientName))
+		nameBuf, err := protocol.DecryptBlock(base32dec, m.folderCfgs[folder].Passphrase)
 		if err != nil {
             l.Debugf("Model.DecryptIndex: Error decrypting: %s, %s", err, fs[i].Name)
         }

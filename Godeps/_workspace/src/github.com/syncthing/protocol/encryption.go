@@ -7,9 +7,13 @@
 package protocol
 
 import (
-	"crypto/cipher"
+	"bytes"
 	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"crypto/sha1"
+	"io"
+
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -45,6 +49,64 @@ func Decrypt(buf []byte, passphrase string, salt []byte) (out []byte, err error)
 	return buf, nil
 }
 
+func EncryptBlock(in []byte, key string) (out []byte, err error) {
+	// Buffer needs to be multiples of aes.BlockSize
+	var buf []byte
+	if len(in)%aes.BlockSize != 0 {
+		buf = make([]byte, ((len(in)/aes.BlockSize)+1)*aes.BlockSize)
+		copy(buf, in)
+	} else {
+		buf = in
+	}
+
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		panic(err)
+	}
+
+	// The IV needs to be unique, but not secure. Therefore it's common to
+	// include it at the beginning of the ciphertext.
+	out = make([]byte, aes.BlockSize+len(buf))
+	iv := out[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		panic(err)
+	}
+
+	mode := cipher.NewCBCEncrypter(block, iv)
+	mode.CryptBlocks(out[aes.BlockSize:], buf)
+
+	return out, nil
+}
+
+func DecryptBlock(buf []byte, key string) (out []byte, err error) {
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		panic(err)
+	}
+
+	// The IV needs to be unique, but not secure. Therefore it's common to
+	// include it at the beginning of the ciphertext.
+	if len(buf) < aes.BlockSize {
+		panic("ciphertext too short")
+	}
+	iv := buf[:aes.BlockSize]
+	buf = buf[aes.BlockSize:]
+
+	// CBC mode always works in whole blocks.
+	if len(buf)%aes.BlockSize != 0 {
+		panic("ciphertext is not a multiple of the block size")
+	}
+
+	mode := cipher.NewCBCDecrypter(block, iv)
+
+	// CryptBlocks can work in-place if the two arguments are the same.
+	mode.CryptBlocks(buf, buf)
+
+	buf = bytes.Trim(buf, "\x00")
+
+	return buf, nil
+}
+
 // func Encrypt(buf []byte, label []byte, cert tls.Certificate) (out []byte, err error) {
 // 	var ret []byte
 
@@ -65,7 +127,7 @@ func Decrypt(buf []byte, passphrase string, salt []byte) (out []byte, err error)
 // 	k := ((pubkey.N.BitLen() + 7) / 8) -2*sha.Size()-2
 
 // 	var offset int
-	
+
 // 	for i := 0; i < len(buf); i += k {
 // 		if i + k > len(buf) {
 // 			k = len(buf) - i
@@ -92,7 +154,7 @@ func Decrypt(buf []byte, passphrase string, salt []byte) (out []byte, err error)
 
 // 	out := make([]byte, 384)
 // 	sha := sha256.New()
-	
+
 // 	for i := 0; i < len(buf); i += k {
 // 		if i + k > len(buf) {
 // 			k = len(buf) - i
