@@ -22,6 +22,8 @@ import (
 	stdsync "sync"
 	"time"
 
+	"encoding/base32"
+
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
 	"github.com/syncthing/syncthing/internal/db"
@@ -651,6 +653,11 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	}
 
 	fs = filterIndex(folder, fs, cfg.IgnoreDelete)
+
+	if (m.folderCfgs[folder].Encrypt) {
+		fs = m.decryptIndex(fs, folder)
+	}
+
 	files.Replace(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -689,6 +696,11 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	}
 
 	fs = filterIndex(folder, fs, cfg.IgnoreDelete)
+
+	if (m.folderCfgs[folder].Encrypt) {
+		fs = m.decryptIndex(fs, folder)
+	}
+
 	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -880,6 +892,23 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		if !ok {
 			l.Warnf("Request from %s for file %s in nonexistent folder %q", deviceID, name, folder)
 			return nil, protocol.ErrNoSuchFile
+		}
+
+		// Decode/Decrypt filenames
+		if (m.folderCfgs[folder].Encrypt) {
+			base32dec, err := base32.StdEncoding.DecodeString(name)
+			if err != nil {
+	                l.Debugf("Model.Request: Error decoding base32: %s, %s", err, name)
+	        }
+
+			nameBuf, err := protocol.Decrypt(base32dec, m.folderCfgs[folder].Passphrase, []byte(m.clientName))
+			if err != nil {
+	                l.Debugf("Model.Request: Error decrypting: %s, %s", err, name)
+	        }
+
+	        //l.Debugf("Model.Requst: %s -> %s", name, string(nameBuf))
+
+			name = string(nameBuf)
 		}
 
 		// This call is really expensive for large files, as we load the full
@@ -1227,6 +1256,18 @@ func (m *Model) sendIndexTo(initial bool, minLocalVer int64, conn protocol.Conne
 		// 	}
 		// 	fd.Close()
 		// }
+
+		if (m.folderCfgs[folder].Encrypt) {
+			encrypted, err := protocol.Encrypt([]byte(f.Name), m.folderCfgs[folder].Passphrase, []byte(m.clientName))
+			if err != nil {
+	                l.Debugf("Model.sendIndexTo: Error encrypting: %s, %s", err, f.Name)
+	        }
+			base32enc := base32.StdEncoding.EncodeToString(encrypted)
+
+			//l.Debugf("Model.sendIndexTo: %s -> %s", f.Name, base32enc)
+			
+			f.Name = base32enc
+		}
 
 		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
 			if initial {
@@ -2078,6 +2119,25 @@ func filterIndex(folder string, fs []protocol.FileInfo, dropDeletes bool) []prot
 			i++
 		}
 	}
+	return fs
+}
+
+func (m* Model) decryptIndex(fs []protocol.FileInfo, folder string) []protocol.FileInfo {
+	for i := 0; i < len(fs); i++ {
+		base32dec, err := base32.StdEncoding.DecodeString(fs[i].Name)
+		if err != nil {
+            l.Debugf("Model.DecryptIndex: Error decoding base32: %s, %s", err, fs[i].Name)
+        }
+
+		nameBuf, err := protocol.Decrypt(base32dec, m.folderCfgs[folder].Passphrase, []byte(m.clientName))
+		if err != nil {
+            l.Debugf("Model.DecryptIndex: Error decrypting: %s, %s", err, fs[i].Name)
+        }
+
+        //l.Debugf("Model.decryptIndex: %s -> %s", fs[i].Name, string(nameBuf))
+
+		fs[i].Name = string(nameBuf)
+ 	}
 	return fs
 }
 
