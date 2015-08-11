@@ -22,7 +22,7 @@ import (
 	stdsync "sync"
 	"time"
 
-	"encoding/base32"
+	"encoding/base64"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
@@ -896,7 +896,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 		// Decode/Decrypt filenames
 		if (m.folderCfgs[folder].Encrypt) {
-			base32dec, err := base32.StdEncoding.DecodeString(name)
+			base32dec, err := base64.URLEncoding.DecodeString(name)
 			if err != nil {
 	                l.Debugf("Model.Request: Error decoding base32: %s, %s", err, name)
 	        }
@@ -1262,7 +1262,7 @@ func (m *Model) sendIndexTo(initial bool, minLocalVer int64, conn protocol.Conne
 			if err != nil {
 	                l.Debugf("Model.sendIndexTo: Error encrypting: %s, %s", err, f.Name)
 	        }
-			base32enc := base32.StdEncoding.EncodeToString(encrypted)
+			base32enc := base64.URLEncoding.EncodeToString(encrypted)
 
 			//l.Debugf("Model.sendIndexTo: %s -> %s", f.Name, base32enc)
 			
@@ -2124,7 +2124,7 @@ func filterIndex(folder string, fs []protocol.FileInfo, dropDeletes bool) []prot
 
 func (m* Model) decryptIndex(fs []protocol.FileInfo, folder string) []protocol.FileInfo {
 	for i := 0; i < len(fs); i++ {
-		base32dec, err := base32.StdEncoding.DecodeString(fs[i].Name)
+		base32dec, err := base64.URLEncoding.DecodeString(fs[i].Name)
 		if err != nil {
             l.Debugf("Model.DecryptIndex: Error decoding base32: %s, %s", err, fs[i].Name)
         }
