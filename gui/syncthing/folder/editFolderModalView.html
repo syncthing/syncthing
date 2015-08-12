@@ -54,6 +54,7 @@
                   <label>
                     <input type="checkbox" ng-model="currentFolder.readOnly"> <span translate>Folder Master</span>
                   </label>
+                  &nbsp;<a href="http://docs.syncthing.net/users/foldermaster.html" target="_blank"><span class="glyphicon glyphicon-book"></span>&nbsp;<span translate>Help</span></a>
                 </div>
                 <p translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
               </div>
@@ -134,7 +135,7 @@
                 <input name="externalCommand" id="externalCommand" class="form-control" type="text" ng-model="currentFolder.externalCommand" required></input>
                 <p class="help-block">
                   <span translate ng-if="folderEditor.externalCommand.$valid || folderEditor.externalCommand.$pristine">The first command line parameter is the folder path and the second parameter is the relative path in the folder.</span>
-                  <span translate ng-if="folderEditor.externalCommand.$error.required  && folderEditor.externalCommand.$dirty">The path cannot be blank.</span>
+                  <span translate ng-if="folderEditor.externalCommand.$error.required && folderEditor.externalCommand.$dirty">The path cannot be blank.</span>
                 </p>
               </div>
             </div>
