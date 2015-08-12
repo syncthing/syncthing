@@ -32,7 +32,7 @@
             <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice._addressesStr"></input>
             <p translate class="help-block">Enter comma separated "ip:port" addresses or "dynamic" to perform automatic discovery of the address.</p>
           </div>
-          <div ng-if="!editingSelf" class="form-group">
+          <div class="form-group">
             <label translate>Compression</label>
             <select class="form-control" ng-model="currentDevice.compression">
               <option value="always" translate>All Data</option>
@@ -40,7 +40,7 @@
               <option value="never" translate>Off</option>
             </select>
           </div>
-          <div ng-if="!editingSelf" class="form-group">
+          <div class="form-group">
             <div class="checkbox">
               <label>
                 <input type="checkbox" ng-model="currentDevice.introducer"> <span translate>Introducer</span>
@@ -49,7 +49,7 @@
             </div>
           </div>
 
-          <div class="row" ng-if="!editingSelf">
+          <div class="row">
             <div class="col-md-12">
               <div class="form-group">
                 <label translate for="folders">Share Folders With Device</label>
@@ -72,7 +72,7 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Save</span></button>
         <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
-        <button ng-if="editingExisting && !editingSelf" type="button" class="btn btn-warning pull-left btn-sm" ng-click="deleteDevice()"><span class="glyphicon glyphicon-minus"></span>&nbsp;<span translate>Remove</span></button>
+        <button ng-if="editingExisting" type="button" class="btn btn-warning pull-left btn-sm" ng-click="deleteDevice()"><span class="glyphicon glyphicon-minus"></span>&nbsp;<span translate>Remove</span></button>
       </div>
     </div>
   </div>
