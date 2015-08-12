@@ -10,9 +10,8 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"crypto/sha1"
-	"io"
+	"crypto/sha256"
 
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -49,14 +48,14 @@ func Decrypt(buf []byte, passphrase string, salt []byte) (out []byte, err error)
 	return buf, nil
 }
 
-func EncryptBlock(in []byte, key string) (out []byte, err error) {
+func EncryptFilename(filename []byte, key string) (out []byte, err error) {
 	// Buffer needs to be multiples of aes.BlockSize
 	var buf []byte
-	if len(in)%aes.BlockSize != 0 {
-		buf = make([]byte, ((len(in)/aes.BlockSize)+1)*aes.BlockSize)
-		copy(buf, in)
+	if len(filename)%aes.BlockSize != 0 {
+		buf = make([]byte, ((len(filename)/aes.BlockSize)+1)*aes.BlockSize)
+		copy(buf, filename)
 	} else {
-		buf = in
+		buf = filename
 	}
 
 	block, err := aes.NewCipher([]byte(key))
@@ -64,13 +63,20 @@ func EncryptBlock(in []byte, key string) (out []byte, err error) {
 		panic(err)
 	}
 
+	// sha256 the filename to use as IV
+	hash := sha256.New()
+	hash.Write(filename)
+	salt := hash.Sum(nil)
+
+	if len(salt) < aes.BlockSize {
+		panic("Salt too short")
+	}
+
 	// The IV needs to be unique, but not secure. Therefore it's common to
 	// include it at the beginning of the ciphertext.
 	out = make([]byte, aes.BlockSize+len(buf))
 	iv := out[:aes.BlockSize]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		panic(err)
-	}
+	copy(iv, salt[:aes.BlockSize])
 
 	mode := cipher.NewCBCEncrypter(block, iv)
 	mode.CryptBlocks(out[aes.BlockSize:], buf)
@@ -78,7 +84,7 @@ func EncryptBlock(in []byte, key string) (out []byte, err error) {
 	return out, nil
 }
 
-func DecryptBlock(buf []byte, key string) (out []byte, err error) {
+func DecryptFilename(filename []byte, key string) (out []byte, err error) {
 	block, err := aes.NewCipher([]byte(key))
 	if err != nil {
 		panic(err)
@@ -86,25 +92,25 @@ func DecryptBlock(buf []byte, key string) (out []byte, err error) {
 
 	// The IV needs to be unique, but not secure. Therefore it's common to
 	// include it at the beginning of the ciphertext.
-	if len(buf) < aes.BlockSize {
+	if len(filename) < aes.BlockSize {
 		panic("ciphertext too short")
 	}
-	iv := buf[:aes.BlockSize]
-	buf = buf[aes.BlockSize:]
+	iv := filename[:aes.BlockSize]
+	filename = filename[aes.BlockSize:]
 
 	// CBC mode always works in whole blocks.
-	if len(buf)%aes.BlockSize != 0 {
+	if len(filename)%aes.BlockSize != 0 {
 		panic("ciphertext is not a multiple of the block size")
 	}
 
 	mode := cipher.NewCBCDecrypter(block, iv)
 
 	// CryptBlocks can work in-place if the two arguments are the same.
-	mode.CryptBlocks(buf, buf)
+	mode.CryptBlocks(filename, filename)
 
-	buf = bytes.Trim(buf, "\x00")
+	filename = bytes.Trim(filename, "\x00")
 
-	return buf, nil
+	return filename, nil
 }
 
 // func Encrypt(buf []byte, label []byte, cert tls.Certificate) (out []byte, err error) {
