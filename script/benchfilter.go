@@ -11,17 +11,15 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"text/tabwriter"
 )
 
 var (
-	benchRe   = regexp.MustCompile(`^Bench`)
-	spacesRe  = regexp.MustCompile(`\s+`)
-	numbersRe = regexp.MustCompile(`\b[\d\.]+\b`)
+	benchRe = regexp.MustCompile(`^(Bench[^\s]+)\s+(\d+)\s+(\d+ ns/op)\s*(\d+ B/op)?\s*(\d+ allocs/op)?`)
 )
 
 func main() {
@@ -30,17 +28,15 @@ func main() {
 	n := 0
 
 	for br.Scan() {
-		line := br.Bytes()
+		line := br.Text()
 
-		if benchRe.Match(line) {
+		if match := benchRe.FindStringSubmatch(line); match != nil {
 			n++
-			line = spacesRe.ReplaceAllLiteral(line, []byte("\t"))
-			line = numbersRe.ReplaceAllFunc(line, func(n []byte) []byte {
-				return []byte(fmt.Sprintf("%12s", n))
-			})
-			tw.Write(line)
-			tw.Write([]byte("\n"))
-		} else if n > 0 && bytes.HasPrefix(line, []byte("ok")) {
+			for i := range match[2:] {
+				match[2+i] = fmt.Sprintf("%16s", match[2+i])
+			}
+			tw.Write([]byte(strings.Join(match[1:], "\t") + "\n"))
+		} else if n > 0 && strings.HasPrefix(line, "ok") {
 			n = 0
 			tw.Flush()
 			fmt.Printf("%s\n\n", line)

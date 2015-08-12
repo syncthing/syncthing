@@ -181,6 +181,8 @@ func setup() {
 	runPrint("go", "get", "-v", "golang.org/x/tools/cmd/vet")
 	runPrint("go", "get", "-v", "golang.org/x/net/html")
 	runPrint("go", "get", "-v", "github.com/tools/godep")
+	runPrint("go", "get", "-v", "github.com/axw/gocov/gocov")
+	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
 }
 
 func test(pkg string) {
@@ -405,7 +407,7 @@ func setBuildEnv() {
 
 func assets() {
 	setBuildEnv()
-	runPipe("lib/auto/gui.files.go", "go", "run", "cmd/genassets/main.go", "gui")
+	runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "gui")
 }
 
 func xdr() {
@@ -414,7 +416,7 @@ func xdr() {
 
 func translate() {
 	os.Chdir("gui/assets/lang")
-	runPipe("lang-en-new.json", "go", "run", "../../../cmd/translate/main.go", "lang-en.json", "../../")
+	runPipe("lang-en-new.json", "go", "run", "../../../script/translate.go", "lang-en.json", "../../")
 	os.Remove("lang-en.json")
 	err := os.Rename("lang-en-new.json", "lang-en.json")
 	if err != nil {
@@ -425,7 +427,7 @@ func translate() {
 
 func transifex() {
 	os.Chdir("gui/assets/lang")
-	runPrint("go", "run", "../../../cmd/transifexdl/main.go")
+	runPrint("go", "run", "../../../script/transifexdl.go")
 	os.Chdir("../../..")
 	assets()
 }

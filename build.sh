@@ -4,99 +4,103 @@ IFS=$'\n\t'
 
 STTRACE=${STTRACE:-}
 
+script() {
+	name="$1"
+	shift
+	go run "script/$name.go" "$@"
+}
+
+build() {
+	go run build.go "$@"
+}
+
 case "${1:-default}" in
 	default)
-		go run build.go
+		build
 		;;
 
 	clean)
-		go run build.go "$1"
-		;;
-
-	test)
-		ulimit -t 60 &>/dev/null || true
-		ulimit -d 512000 &>/dev/null || true
-		ulimit -m 512000 &>/dev/null || true
-		go run build.go test
-		;;
-
-	bench)
-		LOGGER_DISCARD=1 go run build.go bench | go run benchfilter.go
+		build "$@"
 		;;
 
 	tar)
-		go run build.go "$1"
+		build "$@"
 		;;
 
 	deps)
-		go run build.go "$1"
+		build "$@"
 		;;
 
 	assets)
-		go run build.go "$1"
+		build "$@"
 		;;
 
 	xdr)
-		go run build.go "$1"
+		build "$@"
 		;;
 
 	translate)
-		go run build.go "$1"
-		;;
-
-	prerelease)
-		go run build.go transifex
-		git add -A gui/assets/ lib/auto/
-		pushd man ; ./refresh.sh ; popd
-		git add -A man
-		echo
-		echo Changelog:
-		go run changelog.go
+		build "$@"
 		;;
 
 	deb)
-		go run build.go "$1"
-		;;
-
-	noupgrade)
-		go run build.go -no-upgrade tar
-		;;
-
-	all)
-		go run build.go -goos darwin -goarch amd64 tar
-
-		go run build.go -goos dragonfly -goarch amd64 tar
-
-		go run build.go -goos freebsd -goarch 386 tar
-		go run build.go -goos freebsd -goarch amd64 tar
-
-		go run build.go -goos linux -goarch 386 tar
-		go run build.go -goos linux -goarch amd64 tar
-		go run build.go -goos linux -goarch arm tar
-
-		go run build.go -goos netbsd -goarch 386 tar
-		go run build.go -goos netbsd -goarch amd64 tar
-
-		go run build.go -goos openbsd -goarch 386 tar
-		go run build.go -goos openbsd -goarch amd64 tar
-
-		go run build.go -goos solaris -goarch amd64 tar
-
-		go run build.go -goos windows -goarch 386 zip
-		go run build.go -goos windows -goarch amd64 zip
+		build "$@"
 		;;
 
 	setup)
-		echo "Don't worry, just build."
+		build "$@"
+		;;
+
+	test)
+		ulimit -t 600 &>/dev/null || true
+		ulimit -d 512000 &>/dev/null || true
+		ulimit -m 512000 &>/dev/null || true
+		LOGGER_DISCARD=1 build test
+		;;
+
+	bench)
+		LOGGER_DISCARD=1 build bench | script benchfilter
+		;;
+
+	prerelease)
+		build transifex
+		git add -A gui/assets/ lib/auto/
+		pushd man ; ./refresh.sh ; popd
+		git add -A man
+		;;
+
+	noupgrade)
+		build -no-upgrade tar
+		;;
+
+	all)
+		build -goos darwin -goarch amd64 tar
+
+		build -goos dragonfly -goarch amd64 tar
+
+		build -goos freebsd -goarch 386 tar
+		build -goos freebsd -goarch amd64 tar
+
+		build -goos linux -goarch 386 tar
+		build -goos linux -goarch amd64 tar
+		build -goos linux -goarch arm tar
+
+		build -goos netbsd -goarch 386 tar
+		build -goos netbsd -goarch amd64 tar
+
+		build -goos openbsd -goarch 386 tar
+		build -goos openbsd -goarch amd64 tar
+
+		build -goos solaris -goarch amd64 tar
+
+		build -goos windows -goarch 386 zip
+		build -goos windows -goarch amd64 zip
 		;;
 
 	test-cov)
 		ulimit -t 600 &>/dev/null || true
 		ulimit -d 512000 &>/dev/null || true
 		ulimit -m 512000 &>/dev/null || true
-
-		go get github.com/axw/gocov/gocov
-		go get github.com/AlekSi/gocov-xml
 
 		echo "mode: set" > coverage.out
 		fail=0
