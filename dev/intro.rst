@@ -87,7 +87,7 @@ etc/
 gui/
    The web GUI source. Gets compiled into the ``syncthing`` binary by way of ``genassets`` and the build process.
 
-internal/
+lib/
    Contains all packages that make up the parts of ``syncthing``.
 
    auto/
@@ -120,6 +120,9 @@ internal/
    osutil/
       Abstracts away certain OS specific quirks.
 
+   rc/
+      Remote controls a Syncthing process over the REST API.
+
    scanner/
       Looks for changes to files and hashes them as appropriate.
 
@@ -149,6 +152,9 @@ pkg/
 
 protocol/
    Legacy location of the protocol package.
+
+script/
+   Various utility scripts for auto generating stuff and so on.
 
 test/
    The integration test suite.
