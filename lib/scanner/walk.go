@@ -97,7 +97,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	newParallelHasher(w.Dir, w.BlockSize, w.Hashers, hashedFiles, files)
 
 	go func() {
-		hashFiles := w.walkAndHashFiles(files)
+		hashFiles := w.walkAndHashFiles(files, hashedFiles)
 		if len(w.Subs) == 0 {
 			filepath.Walk(w.Dir, hashFiles)
 		} else {
@@ -111,7 +111,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	return hashedFiles, nil
 }
 
-func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFunc {
+func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.WalkFunc {
 	now := time.Now()
 	return func(p string, info os.FileInfo, err error) error {
 		// Return value used when we are returning early and don't want to
@@ -311,7 +311,7 @@ func (w *Walker) walkAndHashFiles(fchan chan protocol.FileInfo) filepath.WalkFun
 			if debug {
 				l.Debugln("dir:", p, f)
 			}
-			fchan <- f
+			dchan <- f
 			return nil
 		}
 
