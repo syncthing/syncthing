@@ -66,6 +66,11 @@ const (
 	dbUpdateShortcutFile
 )
 
+const (
+	defaultCopiers = 1
+	defaultPullers = 16
+)
+
 type dbUpdateJob struct {
 	file    protocol.FileInfo
 	jobType int
@@ -102,7 +107,7 @@ type rwFolder struct {
 }
 
 func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
-	return &rwFolder{
+	p := &rwFolder{
 		stateTracker: stateTracker{
 			folder: cfg.ID,
 			mut:    sync.NewMutex(),
@@ -131,6 +136,15 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 
 		errorsMut: sync.NewMutex(),
 	}
+
+	if p.copiers == 0 {
+		p.copiers = defaultCopiers
+	}
+	if p.pullers == 0 {
+		p.pullers = defaultPullers
+	}
+
+	return p
 }
 
 // Helper function to check whether either the ignorePerm flag has been

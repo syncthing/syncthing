@@ -404,12 +404,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		cfg.Folders[i].Devices = ensureDevicePresent(cfg.Folders[i].Devices, myID)
 		cfg.Folders[i].Devices = ensureExistingDevices(cfg.Folders[i].Devices, existingDevices)
 		cfg.Folders[i].Devices = ensureNoDuplicates(cfg.Folders[i].Devices)
-		if cfg.Folders[i].Copiers == 0 {
-			cfg.Folders[i].Copiers = 1
-		}
-		if cfg.Folders[i].Pullers == 0 {
-			cfg.Folders[i].Pullers = 16
-		}
 		sort.Sort(FolderDeviceConfigurationList(cfg.Folders[i].Devices))
 	}
 
