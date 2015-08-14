@@ -2,7 +2,7 @@
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header alert alert-danger">
-          <h4 translate class="modal-title">Advanced Configuration</h4>
+          <h4 class="modal-title"><span class="fa fa-cogs"></span><span translate>Advanced Configuration</span></h4>
         </div>
         <div class="modal-body">
 
@@ -71,8 +71,12 @@
           </div>
 
           <div class="modal-footer">
-            <button type="button" class="btn btn-primary btn-sm" ng-click="saveAdvanced()"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Save</span></button>
-            <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
+            <button type="button" class="btn btn-primary btn-sm" ng-click="saveAdvanced()">
+              <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
+            </button>
+            <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+              <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+            </button>
           </div>
         </div>
       </div>

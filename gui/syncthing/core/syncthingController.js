@@ -69,9 +69,9 @@ angular.module('syncthing.core')
             'touch': 'Update'
         };
         $scope.needIcons = {
-            'rm': 'remove',
-            'rmdir': 'remove',
-            'sync': 'download',
+            'rm': 'trash-o',
+            'rmdir': 'trash-o',
+            'sync': 'arrow-circle-o-down',
             'touch': 'asterisk'
         };
 

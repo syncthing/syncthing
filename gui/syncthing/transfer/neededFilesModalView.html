@@ -1,4 +1,4 @@
-<div id="needed" class="modal fade" large="yes" status="info" icon="cloud-download" close="yes" title="{{'Out of Sync Items' | translate}}" tabindex="-1">
+<modal id="needed" status="info" icon="cloud-download" title="{{'Out of Sync Items' | translate}}" large="yes" close="yes" tabindex="-1">
   <div class="progress">
     <div class="progress-bar progress-bar-success" style="width: 20%"><span translate class="show">Reused</span></div>
     <div class="progress-bar" style="width: 20%"><span translate class="show">Copied from original</span></div>
@@ -13,13 +13,13 @@
 
     <tr dir-paginate="f in needed | itemsPerPage: neededPageSize" current-page="neededCurrentPage" total-items="neededTotal" pagination-id="needed">
       <!-- Icon -->
-      <td class="small-data"><span class="glyphicon glyphicon-{{needIcons[f.action]}}"></span> {{needActions[f.action]}}</td>
+      <td class="small-data"><span class="fa fa-fw fa-{{needIcons[f.action]}}"></span> {{needActions[f.action]}}</td>
 
       <!-- Name -->
       <td ng-if="f.type != 'queued'" title="{{f.name}}">{{f.name | basename}}</td>
       <td ng-if="f.type == 'queued'">
         <a href="" ng-click="bumpFile(neededFolder, f.name)" title="{{'Move to top of queue' | translate}}">
-          <span class="glyphicon glyphicon-eject"></span>
+          <span class="fa fa-eject"></span>
         </a>
         <span title="{{f.name}}">&nbsp;{{f.name | basename}}</span>
       </td>
@@ -51,4 +51,4 @@
     <li>
   </ul>
   <div class="clearfix"></div>
-</div>
+</modal>
