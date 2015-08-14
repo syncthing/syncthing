@@ -1079,6 +1079,7 @@ angular.module('syncthing.core')
                 selectedDevices: {},
                 rescanIntervalS: 60,
                 minDiskFreePct: 1,
+                order: "random",
                 fileVersioningSelector: "none",
                 trashcanClean: 0,
                 simpleKeep: 5,
