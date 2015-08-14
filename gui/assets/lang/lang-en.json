@@ -184,6 +184,7 @@
    "The number of old versions to keep, per file.": "The number of old versions to keep, per file.",
    "The number of versions must be a number and cannot be blank.": "The number of versions must be a number and cannot be blank.",
    "The path cannot be blank.": "The path cannot be blank.",
+   "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
    "The rescan interval must be a non-negative number of seconds.": "The rescan interval must be a non-negative number of seconds.",
    "They are retried automatically and will be synced when the error is resolved.": "They are retried automatically and will be synced when the error is resolved.",
    "This is a major version upgrade.": "This is a major version upgrade.",
