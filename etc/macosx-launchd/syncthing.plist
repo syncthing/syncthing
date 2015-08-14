@@ -13,7 +13,7 @@
 
 		<key>ProgramArguments</key>
 		<array>
-			<string>/Users/USERNAME/bin/syncthing</string>
+			<string>/Users/USERNAME/bin/syncthing/syncthing</string>
 		</array>
 
 		<key>EnvironmentVariables</key>
