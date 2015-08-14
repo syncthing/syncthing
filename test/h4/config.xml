@@ -1,6 +1,7 @@
-<configuration version="10">
+<configuration version="11">
     <folder id="default" path="s4" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
         <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT"></device>
+        <minDiskFreePct>1</minDiskFreePct>
         <versioning></versioning>
         <copiers>1</copiers>
         <pullers>16</pullers>
@@ -43,5 +44,6 @@
         <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
         <pingTimeoutS>30</pingTimeoutS>
         <pingIdleTimeS>60</pingIdleTimeS>
+        <minHomeDiskFreePct>1</minHomeDiskFreePct>
     </options>
 </configuration>
