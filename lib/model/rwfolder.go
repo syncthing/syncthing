@@ -1260,34 +1260,48 @@ func (p *rwFolder) performFinish(state *sharedPullerState) error {
 		p.virtualMtimeRepo.UpdateMtime(state.file.Name, info.ModTime(), t)
 	}
 
-	var err error
-	if p.inConflict(state.version, state.file.Version) {
-		// The new file has been changed in conflict with the existing one. We
-		// should file it away as a conflict instead of just removing or
-		// archiving. Also merge with the version vector we had, to indicate
-		// we have resolved the conflict.
-		state.file.Version = state.file.Version.Merge(state.version)
-		err = osutil.InWritableDir(moveForConflict, state.realName)
-	} else if p.versioner != nil {
-		// If we should use versioning, let the versioner archive the old
-		// file before we replace it. Archiving a non-existent file is not
-		// an error.
-		err = p.versioner.Archive(state.realName)
-	} else {
-		err = nil
-	}
-	if err != nil {
-		return err
+	if stat, err := osutil.Lstat(state.realName); err == nil {
+		// There is an old file or directory already in place. We need to
+		// handle that.
+
+		switch {
+		case stat.IsDir() || stat.Mode()&os.ModeSymlink != 0:
+			// It's a directory or a symlink. These are not versioned or
+			// archived for conflicts, only removed (which of course fails for
+			// non-empty directories).
+
+			// TODO: This is the place where we want to remove temporary files
+			// and future hard ignores before attempting a directory delete.
+			// Should share code with p.deletDir().
+
+			if err = osutil.InWritableDir(osutil.Remove, state.realName); err != nil {
+				return err
+			}
+
+		case p.inConflict(state.version, state.file.Version):
+			// The new file has been changed in conflict with the existing one. We
+			// should file it away as a conflict instead of just removing or
+			// archiving. Also merge with the version vector we had, to indicate
+			// we have resolved the conflict.
+
+			state.file.Version = state.file.Version.Merge(state.version)
+			if err = osutil.InWritableDir(moveForConflict, state.realName); err != nil {
+				return err
+			}
+
+		case p.versioner != nil:
+			// If we should use versioning, let the versioner archive the old
+			// file before we replace it. Archiving a non-existent file is not
+			// an error.
+
+			if err = p.versioner.Archive(state.realName); err != nil {
+				return err
+			}
+		}
 	}
 
-	// If the target path is a symlink or a directory, we cannot copy
-	// over it, hence remove it before proceeding.
-	stat, err := osutil.Lstat(state.realName)
-	if err == nil && (stat.IsDir() || stat.Mode()&os.ModeSymlink != 0) {
-		osutil.InWritableDir(osutil.Remove, state.realName)
-	}
 	// Replace the original content with the new one
-	if err = osutil.Rename(state.tempName, state.realName); err != nil {
+	if err := osutil.Rename(state.tempName, state.realName); err != nil {
 		return err
 	}
 
