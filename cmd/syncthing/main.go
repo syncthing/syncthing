@@ -454,6 +454,11 @@ func syncthingMain() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
+	// Attempt to increase the limit on number of open files to the maximum
+	// allowed, in case we have many peers. We don't really care enough to
+	// report the error if there is one.
+	osutil.MaximizeOpenFileLimit()
+
 	// Ensure that that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
