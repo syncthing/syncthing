@@ -591,8 +591,18 @@ func syncthingMain() {
 
 	dbFile := locations[locDatabase]
 	ldb, err := leveldb.OpenFile(dbFile, dbOpts())
-	if err != nil && errors.IsCorrupted(err) {
+	if leveldbIsCorrupted(err) {
 		ldb, err = leveldb.RecoverFile(dbFile, dbOpts())
+	}
+	if leveldbIsCorrupted(err) {
+		// The database is corrupted, and we've tried to recover it but it
+		// didn't work. At this point there isn't much to do beyond dropping
+		// the database and reindexing...
+		l.Infoln("Database corruption detected, unable to recover. Reinitializing...")
+		if err := resetDB(); err != nil {
+			l.Fatalln("Remove database:", err)
+		}
+		ldb, err = leveldb.OpenFile(dbFile, dbOpts())
 	}
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
@@ -1104,4 +1114,20 @@ func checkShortIDs(cfg *config.Wrapper) error {
 		exists[shortID] = deviceID
 	}
 	return nil
+}
+
+// A "better" version of leveldb's errors.IsCorrupted.
+func leveldbIsCorrupted(err error) bool {
+	switch {
+	case err == nil:
+		return false
+
+	case errors.IsCorrupted(err):
+		return true
+
+	case strings.Contains(err.Error(), "corrupted"):
+		return true
+	}
+
+	return false
 }
