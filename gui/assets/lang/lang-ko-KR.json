@@ -184,6 +184,7 @@
     "The number of old versions to keep, per file.": "각 파일별로 유지할 이전 버전의 개수를 지정합니다.",
     "The number of versions must be a number and cannot be blank.": "버전 개수는 숫자여야 하며 비워 둘 수 없습니다.",
     "The path cannot be blank.": "경로는 비워 둘 수 없습니다.",
+    "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
     "The rescan interval must be a non-negative number of seconds.": "재검색 간격은 초단위이며 양수로 입력해야 합니다.",
     "They are retried automatically and will be synced when the error is resolved.": "They are retried automatically and will be synced when the error is resolved.",
     "This is a major version upgrade.": "이 업데이트는 메이저 버전입니다.",

@@ -184,6 +184,7 @@
     "The number of old versions to keep, per file.": "Броят стари версии, които да бъдат пазени за всеки файл.",
     "The number of versions must be a number and cannot be blank.": "Броят версии трябва да бъде число и не може да бъде празно.",
     "The path cannot be blank.": "Пътят неможе да бъде празен.",
+    "The rate limit must be a non-negative number (0: no limit)": "Ограничението на скорста трябва да бъде положително число (0: неограничено)",
     "The rescan interval must be a non-negative number of seconds.": "Интервала на сканиране трябва да бъде не отрицателно число в секунди.",
     "They are retried automatically and will be synced when the error is resolved.": "Ще бъдат спрени и автоматично синхронизирани, когато грешката бъде оправена.",
     "This is a major version upgrade.": "Това е нова основна версия.",

@@ -184,6 +184,7 @@
     "The number of old versions to keep, per file.": "Dosya başına saklanacak eski sürüm.",
     "The number of versions must be a number and cannot be blank.": "Sürümlerin sayısı sayı olmalı ve boş bırakılamaz.",
     "The path cannot be blank.": "Dizin yolu boş bırakılamaz.",
+    "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
     "The rescan interval must be a non-negative number of seconds.": "Tarama zaman aralığı, saniye cinsinden negatif olmayan bir sayı olmalıdır.",
     "They are retried automatically and will be synced when the error is resolved.": "They are retried automatically and will be synced when the error is resolved.",
     "This is a major version upgrade.": "This is a major version upgrade.",

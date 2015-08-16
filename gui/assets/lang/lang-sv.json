@@ -184,6 +184,7 @@
     "The number of old versions to keep, per file.": "Antalet gamla versioner som ska behållas, per fil.",
     "The number of versions must be a number and cannot be blank.": "Antalet versioner måste vara ett nummer och kan inte lämnas tomt.",
     "The path cannot be blank.": "Ange en sökväg",
+    "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
     "The rescan interval must be a non-negative number of seconds.": "Förnyelseintervallet måste vara ett positivt antal sekunder",
     "They are retried automatically and will be synced when the error is resolved.": "They are retried automatically and will be synced when the error is resolved.",
     "This is a major version upgrade.": "Det här är en stor uppgradering.",

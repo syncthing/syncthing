@@ -184,6 +184,7 @@
     "The number of old versions to keep, per file.": "El nombre de versions antigues per a guardar, per cada fitxer.",
     "The number of versions must be a number and cannot be blank.": "El nombre de versions deu ser un nombre i no pot estar buit.",
     "The path cannot be blank.": "La ruta no pot estar buida.",
+    "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
     "The rescan interval must be a non-negative number of seconds.": "L'interval de reescaneig deu ser un nombre positiu de segons.",
     "They are retried automatically and will be synced when the error is resolved.": "They are retried automatically and will be synced when the error is resolved.",
     "This is a major version upgrade.": "Aquesta és una actualització important de la versió.",

@@ -184,6 +184,7 @@
     "The number of old versions to keep, per file.": "A megtartott régi verziók száma, fájlonként.",
     "The number of versions must be a number and cannot be blank.": "A megtartott verziók száma nem lehet üres",
     "The path cannot be blank.": "Elérési út nem lehet üres.",
+    "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
     "The rescan interval must be a non-negative number of seconds.": "Az átnézési intervallum nullánál nagyobb másodperc érték kell legyen",
     "They are retried automatically and will be synced when the error is resolved.": "They are retried automatically and will be synced when the error is resolved.",
     "This is a major version upgrade.": "Ez egy főverzió frissítés.",

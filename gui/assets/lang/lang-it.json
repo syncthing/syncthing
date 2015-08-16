@@ -184,6 +184,7 @@
     "The number of old versions to keep, per file.": "Il numero di vecchie versioni da mantenere, per file.",
     "The number of versions must be a number and cannot be blank.": "Il numero di versioni dev'essere un numero e non può essere vuoto.",
     "The path cannot be blank.": "Il percorso non può essere vuoto.",
+    "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
     "The rescan interval must be a non-negative number of seconds.": "L'intervallo di scansione deve essere un numero superiore a zero secondi.",
     "They are retried automatically and will be synced when the error is resolved.": "They are retried automatically and will be synced when the error is resolved.",
     "This is a major version upgrade.": "Questo è un aggiornamento di versione principale",

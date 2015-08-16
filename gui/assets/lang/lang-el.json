@@ -184,6 +184,7 @@
     "The number of old versions to keep, per file.": "Πόσες παλιότερες εκδόσεις θα διατηρούνται, ανά αρχείο.",
     "The number of versions must be a number and cannot be blank.": "Ο αριθμός εκδόσεων πρέπει να είναι αριθμός και σίγουρα όχι κενό.",
     "The path cannot be blank.": "Το μονοπάτι δεν μπορεί να είναι κενό.",
+    "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
     "The rescan interval must be a non-negative number of seconds.": "Ο χρόνος επανελέγχου για αλλαγές είναι σε δευτερόλεπτα (δηλ. θετικός αριθμός).",
     "They are retried automatically and will be synced when the error is resolved.": "Όταν επιλυθεί το σφάλμα θα κατεβούν και θα συχρονιστούν αυτόματα.",
     "This is a major version upgrade.": "Αυτή είναι μιας σημαντική αναβάθμιση.",

@@ -184,6 +184,7 @@
     "The number of old versions to keep, per file.": "Tal på gamle versjonar ein skal behalda, per fil.",
     "The number of versions must be a number and cannot be blank.": "Tal på versjonar må vera eit tal og kan ikkje vera tomt.",
     "The path cannot be blank.": "Bana kan ikkje vera tom.",
+    "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
     "The rescan interval must be a non-negative number of seconds.": "Talet på sekund i skanneintervallet kan ikkje vera negativt.",
     "They are retried automatically and will be synced when the error is resolved.": "They are retried automatically and will be synced when the error is resolved.",
     "This is a major version upgrade.": "This is a major version upgrade.",

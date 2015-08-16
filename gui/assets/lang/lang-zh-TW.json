@@ -184,6 +184,7 @@
     "The number of old versions to keep, per file.": "每個檔案要保留的舊版本數量。",
     "The number of versions must be a number and cannot be blank.": "每個檔案要保留的舊版本數量必須是數字且不能為空白。",
     "The path cannot be blank.": "路徑不能空白。",
+    "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
     "The rescan interval must be a non-negative number of seconds.": "重新掃描間隔必須為一個非負數的秒數。",
     "They are retried automatically and will be synced when the error is resolved.": "They are retried automatically and will be synced when the error is resolved.",
     "This is a major version upgrade.": "這是一個主要版本更新。",
