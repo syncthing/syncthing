@@ -24,41 +24,41 @@ func TestIgnore(t *testing.T) {
 
 	var tests = []struct {
 		f string
-		r bool
+		r Result
 	}{
-		{"afile", false},
-		{"bfile", true},
-		{"cfile", false},
-		{"dfile", false},
-		{"efile", true},
-		{"ffile", true},
+		{"afile", DontIgnore},
+		{"bfile", Nuke},
+		{"cfile", DontIgnore},
+		{"dfile", DontIgnore},
+		{"efile", Nuke},
+		{"ffile", Nuke},
 
-		{"dir1", false},
-		{filepath.Join("dir1", "cfile"), true},
-		{filepath.Join("dir1", "dfile"), false},
-		{filepath.Join("dir1", "efile"), true},
-		{filepath.Join("dir1", "ffile"), false},
+		{"dir1", DontIgnore},
+		{filepath.Join("dir1", "cfile"), Nuke},
+		{filepath.Join("dir1", "dfile"), DontIgnore},
+		{filepath.Join("dir1", "efile"), Nuke},
+		{filepath.Join("dir1", "ffile"), DontIgnore},
 
-		{"dir2", false},
-		{filepath.Join("dir2", "cfile"), false},
-		{filepath.Join("dir2", "dfile"), true},
-		{filepath.Join("dir2", "efile"), true},
-		{filepath.Join("dir2", "ffile"), false},
+		{"dir2", DontIgnore},
+		{filepath.Join("dir2", "cfile"), DontIgnore},
+		{filepath.Join("dir2", "dfile"), Nuke},
+		{filepath.Join("dir2", "efile"), Nuke},
+		{filepath.Join("dir2", "ffile"), DontIgnore},
 
-		{filepath.Join("dir3"), true},
-		{filepath.Join("dir3", "afile"), true},
+		{filepath.Join("dir3"), Nuke},
+		{filepath.Join("dir3", "afile"), Nuke},
 
-		{"lost+found", true},
+		{"lost+found", Nuke},
 	}
 
 	for i, tc := range tests {
-		if r := pats.Match(tc.f); r != tc.r {
+		if r := pats.match(tc.f); r != tc.r {
 			t.Errorf("Incorrect ignoreFile() #%d (%s); E: %v, A: %v", i, tc.f, tc.r, r)
 		}
 	}
 }
 
-func TestExcludes(t *testing.T) {
+func TestDontIgnores(t *testing.T) {
 	stignore := `
 	!iex2
 	!ign1/ex
@@ -74,28 +74,78 @@ func TestExcludes(t *testing.T) {
 
 	var tests = []struct {
 		f string
-		r bool
+		r Result
 	}{
-		{"ign1", true},
-		{"ign2", true},
-		{"ibla2", true},
-		{"iex2", false},
-		{filepath.Join("ign1", "ign"), true},
-		{filepath.Join("ign1", "ex"), false},
-		{filepath.Join("ign1", "iex2"), false},
-		{filepath.Join("iex2", "ign"), false},
-		{filepath.Join("foo", "bar", "ign1"), true},
-		{filepath.Join("foo", "bar", "ign2"), true},
-		{filepath.Join("foo", "bar", "iex2"), false},
+		{"ign1", Nuke},
+		{"ign2", Nuke},
+		{"ibla2", Nuke},
+		{"iex2", DontIgnore},
+		{filepath.Join("ign1", "ign"), Nuke},
+		{filepath.Join("ign1", "ex"), DontIgnore},
+		{filepath.Join("ign1", "iex2"), DontIgnore},
+		{filepath.Join("iex2", "ign"), DontIgnore},
+		{filepath.Join("foo", "bar", "ign1"), Nuke},
+		{filepath.Join("foo", "bar", "ign2"), Nuke},
+		{filepath.Join("foo", "bar", "iex2"), DontIgnore},
 	}
 
 	for _, tc := range tests {
-		if r := pats.Match(tc.f); r != tc.r {
+		if r := pats.match(tc.f); r != tc.r {
 			t.Errorf("Incorrect match for %s: %v != %v", tc.f, r, tc.r)
 		}
 	}
 }
 
+func TestPreserve(t *testing.T) {
+	stignore := `
+	(?preserve)iex2
+	(?preserve)Path with Spaces
+	!(?preserve)ign1/ex
+	ign1
+	!i*2
+	!(?preserve)ign2
+	(?preserve)(?i)**ifn1
+	!(?preserve)(?i)**ifn2
+	!(?preserve)(?i)**ifn3
+	(?preserve)(?i)ifn4
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var tests = []struct {
+		f string
+		r Result
+	}{
+		{"ign1", Nuke},
+		{"Path with Spaces", Preserve},
+		{"ign2", DontIgnore},
+		{"ibla2", DontIgnore},
+		{"iex2", Preserve},
+		{filepath.Join("ign1", "ign"), Nuke},
+		{filepath.Join("ign1", "ex"), Preserve},
+		{filepath.Join("ign1", "iex2"), Preserve},
+		{filepath.Join("iex2", "ign"), Preserve},
+		{filepath.Join("foo", "bar", "ign1"), Nuke},
+		{filepath.Join("foo", "bar", "ign2"), DontIgnore},
+		{filepath.Join("foo", "bar", "iex2"), Preserve},
+		{filepath.Join("foo", "bar", "i*2"), DontIgnore},
+		{filepath.Join("foo", "bar", "ifn1"), Preserve},
+		{filepath.Join("foo", "bar", "iFn1"), Preserve},
+		{filepath.Join("foo", "bar", "ifn2"), DontIgnore},
+		{filepath.Join("foo", "bar", "ifn3"), Preserve},
+		{"ifn4", Preserve},
+		{filepath.Join("foo", "bar", "ifn4"), DontIgnore},
+	}
+
+	for _, tc := range tests {
+		if r := pats.match(tc.f); r != tc.r {
+			t.Errorf("Incorrect match for %s: %v != %v", tc.f, r, tc.r)
+		}
+	}
+}
 func TestBadPatterns(t *testing.T) {
 	var badPatterns = []string{
 		"[",
@@ -132,13 +182,13 @@ func TestCaseSensitivity(t *testing.T) {
 	}
 
 	for _, tc := range match {
-		if !ign.Match(tc) {
+		if ign.match(tc) != Nuke {
 			t.Errorf("Incorrect match for %q: should be matched", tc)
 		}
 	}
 
 	for _, tc := range dontMatch {
-		if ign.Match(tc) {
+		if ign.match(tc) != DontIgnore {
 			t.Errorf("Incorrect match for %q: should not be matched", tc)
 		}
 	}
@@ -184,7 +234,7 @@ func TestCaching(t *testing.T) {
 	// Cache some outcomes
 
 	for _, letter := range []string{"a", "b", "x", "y"} {
-		pats.Match(letter)
+		pats.match(letter)
 	}
 
 	if pats.matches.len() != 4 {
@@ -217,7 +267,7 @@ func TestCaching(t *testing.T) {
 	// Cache some outcomes again
 
 	for _, letter := range []string{"b", "x", "y"} {
-		pats.Match(letter)
+		pats.match(letter)
 	}
 
 	// Verify that outcomes preserved on next laod
@@ -245,7 +295,7 @@ func TestCaching(t *testing.T) {
 	// Cache some outcomes again
 
 	for _, letter := range []string{"b", "x", "y"} {
-		pats.Match(letter)
+		pats.match(letter)
 	}
 
 	// Verify that outcomes provided on next laod
@@ -281,7 +331,7 @@ func TestCommentsAndBlankLines(t *testing.T) {
 	}
 }
 
-var result bool
+var result Result
 
 func BenchmarkMatch(b *testing.B) {
 	stignore := `
@@ -307,7 +357,7 @@ flamingo
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		result = pats.Match("filename")
+		result = pats.match("filename")
 	}
 }
 
@@ -347,7 +397,7 @@ flamingo
 		b.Fatal(err)
 	}
 	// Cache the outcome for "filename"
-	pats.Match("filename")
+	pats.match("filename")
 
 	// This load should now load the cached outcomes as the set of patterns
 	// has not changed.
@@ -357,7 +407,7 @@ flamingo
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		result = pats.Match("filename")
+		result = pats.match("filename")
 	}
 }
 
@@ -385,13 +435,13 @@ func TestCacheReload(t *testing.T) {
 
 	// Verify that both are ignored
 
-	if !pats.Match("f1") {
+	if pats.match("f1") == DontIgnore {
 		t.Error("Unexpected non-match for f1")
 	}
-	if !pats.Match("f2") {
+	if pats.match("f2") == DontIgnore {
 		t.Error("Unexpected non-match for f2")
 	}
-	if pats.Match("f3") {
+	if pats.match("f3") == Nuke {
 		t.Error("Unexpected match for f3")
 	}
 
@@ -417,13 +467,13 @@ func TestCacheReload(t *testing.T) {
 
 	// Verify that the new patterns are in effect
 
-	if !pats.Match("f1") {
+	if pats.match("f1") == DontIgnore {
 		t.Error("Unexpected non-match for f1")
 	}
-	if pats.Match("f2") {
+	if pats.match("f2") == Nuke {
 		t.Error("Unexpected match for f2")
 	}
-	if !pats.Match("f3") {
+	if pats.match("f3") == DontIgnore {
 		t.Error("Unexpected non-match for f3")
 	}
 }
