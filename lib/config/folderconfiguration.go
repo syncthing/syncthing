@@ -73,9 +73,13 @@ func (f FolderConfiguration) Path() string {
 	return f.cachedPath
 }
 
+func (f FolderConfiguration) SyncthingPath() string {
+	return filepath.Join(f.Path(), ".syncthing")
+}
+
 func (f *FolderConfiguration) CreateMarker() error {
 	if !f.HasMarker() {
-		marker := filepath.Join(f.Path(), ".stfolder")
+		marker := f.SyncthingPath()
 		fd, err := os.Create(marker)
 		if err != nil {
 			return err
@@ -88,7 +92,76 @@ func (f *FolderConfiguration) CreateMarker() error {
 }
 
 func (f *FolderConfiguration) HasMarker() bool {
-	_, err := os.Stat(filepath.Join(f.Path(), ".stfolder"))
+	_, err := os.Stat(f.SyncthingPath())
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (f *FolderConfiguration) CreateDefaultIgnores() error {
+	if f.HasIgnores() {
+		l.Infoln("Not overriding existing ignores with default ignores")
+		return nil
+	}
+
+	fd, err := os.Create(filepath.Join(f.SyncthingPath(), "ignores.txt"))
+	if err != nil {
+		return err
+	}
+
+	ignores := "#include .stsharedignore"
+	if runtime.GOOS == "windows" {
+		ignores = ignores + `
+ehthumbs.db
+desktop.ini
+Thumbs.db
+(?preserve)lost+found
+(?preserve)$RECYCLE.BIN
+(?preserve)pagefile.sys
+(?preserve)System Volume Information
+(?preserve)swapfile.sys
+(?preserve)hiberfil.sys
+`
+	}
+	if runtime.GOOS == "linux" {
+		ignores = ignores + `
+*~
+.directory/
+`
+	}
+	if runtime.GOOS == "darwin" {
+		ignores = ignores + `
+._*
+.apdisk
+.AppleDB
+.AppleDesktop
+.AppleDouble
+.DocumentRevisions-V100
+.DS_Store
+.DS_Store?
+.fseventsd
+.LSOverride
+.Spotlight-V100
+.TemporaryItems
+Icon\r
+(?preserve).Trashes/
+(?preserve).Trash-*/
+(?preserve)Network Trash Folder/
+(?preserve)Temporary Items/
+`
+	}
+	_, err = fd.WriteString(ignores)
+	if err != nil {
+		return err
+	}
+	fd.Close()
+
+	return nil
+}
+
+func (f *FolderConfiguration) HasIgnores() bool {
+	_, err := os.Stat(filepath.Join(f.SyncthingPath(), "ignores.txt"))
 	if err != nil {
 		return false
 	}

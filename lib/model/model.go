@@ -1774,6 +1774,10 @@ func (m *Model) CheckFolderHealth(id string) error {
 		if err == nil && !folder.HasMarker() {
 			err = folder.CreateMarker()
 		}
+
+		if err == nil {
+			err = folder.CreateDefaultIgnores()
+		}
 	}
 
 	m.fmut.RLock()

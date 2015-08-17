@@ -29,7 +29,7 @@ func TestFolderErrors(t *testing.T) {
 		Folders: []config.FolderConfiguration{fcfg},
 	})
 
-	for _, file := range []string{".stfolder", "testfolder/.stfolder", "testfolder"} {
+	for _, file := range []string{".stfolder", ".stignore", "testfolder/.stfolder", "testfolder"} {
 		if err := os.Remove("testdata/" + file); err != nil && !os.IsNotExist(err) {
 			t.Fatal(err)
 		}
@@ -55,8 +55,15 @@ func TestFolderErrors(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	_, err = os.Stat("testdata/testfolder/.stignore")
+	if err != nil {
+		t.Error(err)
+	}
 
 	if err := os.Remove("testdata/testfolder/.stfolder"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove("testdata/testfolder/.stignore"); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove("testdata/testfolder/"); err != nil {
@@ -81,8 +88,15 @@ func TestFolderErrors(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	_, err = os.Stat("testdata/.stignore")
+	if err != nil {
+		t.Error(err)
+	}
 
 	if err := os.Remove("testdata/.stfolder"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove("testdata/.stignore"); err != nil {
 		t.Fatal(err)
 	}
 
