@@ -42,7 +42,7 @@ IndexMessage Structure:
 
 struct IndexMessage {
 	string Folder<>;
-	FileInfo Files<>;
+	FileInfo Files<1000000>;
 	unsigned int Flags;
 	Option Options<64>;
 }
@@ -75,6 +75,9 @@ func (o IndexMessage) AppendXDR(bs []byte) ([]byte, error) {
 
 func (o IndexMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 	xw.WriteString(o.Folder)
+	if l := len(o.Files); l > 1000000 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Files", l, 1000000)
+	}
 	xw.WriteUint32(uint32(len(o.Files)))
 	for i := range o.Files {
 		_, err := o.Files[i].EncodeXDRInto(xw)
@@ -111,7 +114,10 @@ func (o *IndexMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.Folder = xr.ReadString()
 	_FilesSize := int(xr.ReadUint32())
 	if _FilesSize < 0 {
-		return xdr.ElementSizeExceeded("Files", _FilesSize, 0)
+		return xdr.ElementSizeExceeded("Files", _FilesSize, 1000000)
+	}
+	if _FilesSize > 1000000 {
+		return xdr.ElementSizeExceeded("Files", _FilesSize, 1000000)
 	}
 	o.Files = make([]FileInfo, _FilesSize)
 	for i := range o.Files {
@@ -173,7 +179,7 @@ struct FileInfo {
 	hyper Modified;
 	Vector Version;
 	hyper LocalVersion;
-	BlockInfo Blocks<>;
+	BlockInfo Blocks<1000000>;
 }
 
 */
@@ -214,6 +220,9 @@ func (o FileInfo) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), err
 	}
 	xw.WriteUint64(uint64(o.LocalVersion))
+	if l := len(o.Blocks); l > 1000000 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Blocks", l, 1000000)
+	}
 	xw.WriteUint32(uint32(len(o.Blocks)))
 	for i := range o.Blocks {
 		_, err := o.Blocks[i].EncodeXDRInto(xw)
@@ -243,7 +252,10 @@ func (o *FileInfo) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.LocalVersion = int64(xr.ReadUint64())
 	_BlocksSize := int(xr.ReadUint32())
 	if _BlocksSize < 0 {
-		return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 0)
+		return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 1000000)
+	}
+	if _BlocksSize > 1000000 {
+		return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 1000000)
 	}
 	o.Blocks = make([]BlockInfo, _BlocksSize)
 	for i := range o.Blocks {
@@ -571,7 +583,7 @@ ClusterConfigMessage Structure:
 struct ClusterConfigMessage {
 	string ClientName<64>;
 	string ClientVersion<64>;
-	Folder Folders<>;
+	Folder Folders<1000000>;
 	Option Options<64>;
 }
 
@@ -610,6 +622,9 @@ func (o ClusterConfigMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ElementSizeExceeded("ClientVersion", l, 64)
 	}
 	xw.WriteString(o.ClientVersion)
+	if l := len(o.Folders); l > 1000000 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Folders", l, 1000000)
+	}
 	xw.WriteUint32(uint32(len(o.Folders)))
 	for i := range o.Folders {
 		_, err := o.Folders[i].EncodeXDRInto(xw)
@@ -646,7 +661,10 @@ func (o *ClusterConfigMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.ClientVersion = xr.ReadStringMax(64)
 	_FoldersSize := int(xr.ReadUint32())
 	if _FoldersSize < 0 {
-		return xdr.ElementSizeExceeded("Folders", _FoldersSize, 0)
+		return xdr.ElementSizeExceeded("Folders", _FoldersSize, 1000000)
+	}
+	if _FoldersSize > 1000000 {
+		return xdr.ElementSizeExceeded("Folders", _FoldersSize, 1000000)
 	}
 	o.Folders = make([]Folder, _FoldersSize)
 	for i := range o.Folders {
@@ -697,7 +715,7 @@ Folder Structure:
 
 struct Folder {
 	string ID<64>;
-	Device Devices<>;
+	Device Devices<1000000>;
 	unsigned int Flags;
 	Option Options<64>;
 }
@@ -733,6 +751,9 @@ func (o Folder) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 64)
 	}
 	xw.WriteString(o.ID)
+	if l := len(o.Devices); l > 1000000 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Devices", l, 1000000)
+	}
 	xw.WriteUint32(uint32(len(o.Devices)))
 	for i := range o.Devices {
 		_, err := o.Devices[i].EncodeXDRInto(xw)
@@ -769,7 +790,10 @@ func (o *Folder) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.ID = xr.ReadStringMax(64)
 	_DevicesSize := int(xr.ReadUint32())
 	if _DevicesSize < 0 {
-		return xdr.ElementSizeExceeded("Devices", _DevicesSize, 0)
+		return xdr.ElementSizeExceeded("Devices", _DevicesSize, 1000000)
+	}
+	if _DevicesSize > 1000000 {
+		return xdr.ElementSizeExceeded("Devices", _DevicesSize, 1000000)
 	}
 	o.Devices = make([]Device, _DevicesSize)
 	for i := range o.Devices {
