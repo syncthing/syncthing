@@ -52,12 +52,14 @@ func IsCorrupted(err error) bool {
 	switch err.(type) {
 	case *ErrCorrupted:
 		return true
+	case *storage.ErrCorrupted:
+		return true
 	}
 	return false
 }
 
 // ErrMissingFiles is the type that indicating a corruption due to missing
-// files.
+// files. ErrMissingFiles always wrapped with ErrCorrupted.
 type ErrMissingFiles struct {
 	Files []*storage.FileInfo
 }

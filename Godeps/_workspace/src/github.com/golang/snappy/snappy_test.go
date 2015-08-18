@@ -86,6 +86,16 @@ func TestInvalidVarint(t *testing.T) {
 	if _, err := Decode(nil, data); err != ErrCorrupt {
 		t.Errorf("Decode: got %v, want ErrCorrupt", err)
 	}
+
+	// The encoded varint overflows 32 bits
+	data = []byte("\xff\xff\xff\xff\xff\x00")
+
+	if _, err := DecodedLen(data); err != ErrCorrupt {
+		t.Errorf("DecodedLen: got %v, want ErrCorrupt", err)
+	}
+	if _, err := Decode(nil, data); err != ErrCorrupt {
+		t.Errorf("Decode: got %v, want ErrCorrupt", err)
+	}
 }
 
 func cmp(a, b []byte) error {

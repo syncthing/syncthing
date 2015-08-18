@@ -291,6 +291,7 @@ func recoverTable(s *session, o *opt.Options) error {
 
 		// We will drop corrupted table.
 		strict = o.GetStrict(opt.StrictRecovery)
+		noSync = o.GetNoSync()
 
 		rec   = &sessionRecord{}
 		bpool = util.NewBufferPool(o.GetBlockSize() + 5)
@@ -328,9 +329,11 @@ func recoverTable(s *session, o *opt.Options) error {
 		if err != nil {
 			return
 		}
-		err = writer.Sync()
-		if err != nil {
-			return
+		if !noSync {
+			err = writer.Sync()
+			if err != nil {
+				return
+			}
 		}
 		size = int64(tw.BytesLen())
 		return

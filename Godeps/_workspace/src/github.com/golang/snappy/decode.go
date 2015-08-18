@@ -13,6 +13,8 @@ import (
 var (
 	// ErrCorrupt reports that the input is invalid.
 	ErrCorrupt = errors.New("snappy: corrupt input")
+	// ErrTooLarge reports that the uncompressed length is too large.
+	ErrTooLarge = errors.New("snappy: decoded block is too large")
 	// ErrUnsupported reports that the input isn't supported.
 	ErrUnsupported = errors.New("snappy: unsupported input")
 )
@@ -27,11 +29,13 @@ func DecodedLen(src []byte) (int, error) {
 // that the length header occupied.
 func decodedLen(src []byte) (blockLen, headerLen int, err error) {
 	v, n := binary.Uvarint(src)
-	if n <= 0 {
+	if n <= 0 || v > 0xffffffff {
 		return 0, 0, ErrCorrupt
 	}
-	if uint64(int(v)) != v {
-		return 0, 0, errors.New("snappy: decoded block is too large")
+
+	const wordSize = 32 << (^uint(0) >> 32 & 1)
+	if wordSize == 32 && v > 0x7fffffff {
+		return 0, 0, ErrTooLarge
 	}
 	return int(v), n, nil
 }

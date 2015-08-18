@@ -129,7 +129,7 @@ func (db *DB) Write(b *Batch, wo *opt.WriteOptions) (err error) {
 		return
 	}
 
-	b.init(wo.GetSync())
+	b.init(wo.GetSync() && !db.s.o.GetNoSync())
 
 	// The write happen synchronously.
 	select {

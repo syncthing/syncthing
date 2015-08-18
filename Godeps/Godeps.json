@@ -1,13 +1,13 @@
 {
 	"ImportPath": "github.com/syncthing/syncthing",
-	"GoVersion": "devel",
+	"GoVersion": "go1.5rc1",
 	"Packages": [
 		"./cmd/..."
 	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/bkaradzic/go-lz4",
-			"Rev": "4f7c2045dbd17b802370e2e6022200468abf02ba"
+			"Rev": "d47913b1412890a261b9fefae99d72d2bf5aebd8"
 		},
 		{
 			"ImportPath": "github.com/calmh/du",
@@ -27,7 +27,7 @@
 		},
 		{
 			"ImportPath": "github.com/golang/snappy",
-			"Rev": "0c7f8a7704bfec561913f4df52c832f094ef56f0"
+			"Rev": "723cc1e459b8eea2dea4583200fd60757d40097a"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
@@ -43,7 +43,7 @@
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "183614d6b32571e867df4cf086f5480ceefbdfac"
+			"Rev": "b743d92d3215f11c9b5ce8830fafe1f16786adf4"
 		},
 		{
 			"ImportPath": "github.com/thejerf/suture",
@@ -63,19 +63,19 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/bcrypt",
-			"Rev": "7d5b0be716b9d6d4269afdaae10032bb296d3cdf"
+			"Rev": "c16968172724c0b5e8bdc6ad33f5a79443a44cd7"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/blowfish",
-			"Rev": "7d5b0be716b9d6d4269afdaae10032bb296d3cdf"
+			"Rev": "c16968172724c0b5e8bdc6ad33f5a79443a44cd7"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",
-			"Rev": "3eb7007b740b66a77f3c85f2660a0240b284115a"
+			"Rev": "723492b65e225eafcba054e76ba18bb9c5ac1ea2"
 		},
 		{
 			"ImportPath": "golang.org/x/text/unicode/norm",
-			"Rev": "3eb7007b740b66a77f3c85f2660a0240b284115a"
+			"Rev": "723492b65e225eafcba054e76ba18bb9c5ac1ea2"
 		}
 	]
 }
