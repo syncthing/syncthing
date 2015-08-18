@@ -412,7 +412,7 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 	}
 
 	msgBuf := c.rdbuf0
-	if hdr.compression {
+	if hdr.compression && msglen > 0 {
 		c.rdbuf1 = c.rdbuf1[:cap(c.rdbuf1)]
 		c.rdbuf1, err = lz4.Decode(c.rdbuf1, c.rdbuf0)
 		if err != nil {
