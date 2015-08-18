@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-	Make sure the "syncthing" executable is located in ~/bin/syncthing.
+	Make sure the "syncthing" executable is located at ~/bin/syncthing/syncthing.
 	Replace the string "USERNAME" in this file with your username, such as "jb".
 	Copy this file to ~/Library/LaunchAgents/syncthing.plist.
 	Execute "launchctl load ~/Library/LaunchAgents/syncthing.plist".
