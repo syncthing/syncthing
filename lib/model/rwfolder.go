@@ -533,7 +533,7 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	case config.OrderOldestFirst:
 		p.queue.SortOldestFirst()
 	case config.OrderNewestFirst:
-		p.queue.SortOldestFirst()
+		p.queue.SortNewestFirst()
 	}
 
 	// Process the file queue
