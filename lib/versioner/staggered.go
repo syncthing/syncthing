@@ -182,7 +182,8 @@ func (v Staggered) expire(versions []string) {
 			continue
 		}
 
-		versionTime, err := time.Parse(TimeFormat, filenameTag(file))
+		loc, _ := time.LoadLocation("Local")
+		versionTime, err := time.ParseInLocation(TimeFormat, filenameTag(file), loc)
 		if err != nil {
 			if debug {
 				l.Debugf("Versioner: file name %q is invalid: %v", file, err)
