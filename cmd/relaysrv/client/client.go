@@ -12,7 +12,7 @@ import (
 
 	syncthingprotocol "github.com/syncthing/protocol"
 	"github.com/syncthing/relaysrv/protocol"
-	"github.com/syncthing/syncthing/internal/sync"
+	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type ProtocolClient struct {
