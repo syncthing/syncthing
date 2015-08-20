@@ -32,6 +32,8 @@ var (
 	globalLimitBps  int
 	sessionLimiter  *ratelimit.Bucket
 	globalLimiter   *ratelimit.Bucket
+
+	statusAddr string
 )
 
 func main() {
@@ -47,6 +49,7 @@ func main() {
 	flag.IntVar(&sessionLimitBps, "per-session-rate", sessionLimitBps, "Per session rate limit, in bytes/s")
 	flag.IntVar(&globalLimitBps, "global-rate", globalLimitBps, "Global rate limit, in bytes/s")
 	flag.BoolVar(&debug, "debug", false, "Enable debug output")
+	flag.StringVar(&statusAddr, "status-srv", ":22070", "Listen address for status service (blank to disable)")
 
 	flag.Parse()
 
@@ -98,6 +101,10 @@ func main() {
 	}
 
 	go sessionListener(listenSession)
+
+	if statusAddr != "" {
+		go statusService(statusAddr)
+	}
 
 	protocolListener(listenProtocol, tlsCfg)
 }

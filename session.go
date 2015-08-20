@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/ratelimit"
@@ -18,8 +19,10 @@ import (
 )
 
 var (
-	sessionMut = sync.Mutex{}
-	sessions   = make(map[string]*session, 0)
+	sessionMut   = sync.Mutex{}
+	sessions     = make(map[string]*session, 0)
+	numProxies   int64
+	bytesProxied int64
 )
 
 type session struct {
@@ -178,6 +181,9 @@ func (s *session) proxy(c1, c2 net.Conn) error {
 		log.Println("Proxy", c1.RemoteAddr(), "->", c2.RemoteAddr())
 	}
 
+	atomic.AddInt64(&numProxies, 1)
+	defer atomic.AddInt64(&numProxies, -1)
+
 	buf := make([]byte, 65536)
 	for {
 		c1.SetReadDeadline(time.Now().Add(networkTimeout))
@@ -185,6 +191,8 @@ func (s *session) proxy(c1, c2 net.Conn) error {
 		if err != nil {
 			return err
 		}
+
+		atomic.AddInt64(&bytesProxied, int64(n))
 
 		if debug {
 			log.Printf("%d bytes from %s to %s", n, c1.RemoteAddr(), c2.RemoteAddr())
