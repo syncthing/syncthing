@@ -11,15 +11,17 @@ build() {
 	export GOOS="$1"
 	export GOARCH="$2"
 	target="discosrv-$GOOS-$GOARCH"
-	go build -v
+	go build -i -v -ldflags -w
 	mkdir "$target"
 	if [ -f discosrv ] ; then
 		mv discosrv "$target"
 		tar zcvf "$target.tar.gz" "$target"
+		rm -r "$target"
 	fi
 	if [ -f discosrv.exe ] ; then
-	      	mv discosrv.exe "$target"
+		mv discosrv.exe "$target"
 		zip -r "$target.zip" "$target"
+		rm -r "$target"
 	fi
 }
 
