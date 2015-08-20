@@ -10,21 +10,26 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"runtime"
-	"strconv"
+	"sort"
 	"time"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type Discoverer struct {
 	myID            protocol.DeviceID
 	listenAddrs     []string
+	relaySvc        *relay.Svc
 	localBcastIntv  time.Duration
 	localBcastStart time.Time
 	cacheLifetime   time.Duration
@@ -34,9 +39,10 @@ type Discoverer struct {
 	localBcastTick  <-chan time.Time
 	forcedBcastTick chan time.Time
 
-	registryLock sync.RWMutex
-	registry     map[protocol.DeviceID][]CacheEntry
-	lastLookup   map[protocol.DeviceID]time.Time
+	registryLock    sync.RWMutex
+	addressRegistry map[protocol.DeviceID][]CacheEntry
+	relayRegistry   map[protocol.DeviceID][]CacheEntry
+	lastLookup      map[protocol.DeviceID]time.Time
 
 	clients []Client
 	mut     sync.RWMutex
@@ -51,17 +57,19 @@ var (
 	ErrIncorrectMagic = errors.New("incorrect magic number")
 )
 
-func NewDiscoverer(id protocol.DeviceID, addresses []string) *Discoverer {
+func NewDiscoverer(id protocol.DeviceID, addresses []string, relaySvc *relay.Svc) *Discoverer {
 	return &Discoverer{
-		myID:           id,
-		listenAddrs:    addresses,
-		localBcastIntv: 30 * time.Second,
-		cacheLifetime:  5 * time.Minute,
-		negCacheCutoff: 3 * time.Minute,
-		registry:       make(map[protocol.DeviceID][]CacheEntry),
-		lastLookup:     make(map[protocol.DeviceID]time.Time),
-		registryLock:   sync.NewRWMutex(),
-		mut:            sync.NewRWMutex(),
+		myID:            id,
+		listenAddrs:     addresses,
+		relaySvc:        relaySvc,
+		localBcastIntv:  30 * time.Second,
+		cacheLifetime:   5 * time.Minute,
+		negCacheCutoff:  3 * time.Minute,
+		addressRegistry: make(map[protocol.DeviceID][]CacheEntry),
+		relayRegistry:   make(map[protocol.DeviceID][]CacheEntry),
+		lastLookup:      make(map[protocol.DeviceID]time.Time),
+		registryLock:    sync.NewRWMutex(),
+		mut:             sync.NewRWMutex(),
 	}
 }
 
@@ -136,14 +144,13 @@ func (d *Discoverer) StartGlobal(servers []string, extPort uint16) {
 	}
 
 	d.extPort = extPort
-	pkt := d.announcementPkt()
 	wg := sync.NewWaitGroup()
 	clients := make(chan Client, len(servers))
 	for _, address := range servers {
 		wg.Add(1)
 		go func(addr string) {
 			defer wg.Done()
-			client, err := New(addr, pkt)
+			client, err := New(addr, d)
 			if err != nil {
 				l.Infoln("Error creating discovery client", addr, err)
 				return
@@ -184,75 +191,108 @@ func (d *Discoverer) ExtAnnounceOK() map[string]bool {
 	return ret
 }
 
-func (d *Discoverer) Lookup(device protocol.DeviceID) []string {
+// Lookup returns a list of addresses the device is available at, as well as
+// a list of relays the device is supposed to be available on sorted by the
+// sum of latencies between this device, and the device in question.
+func (d *Discoverer) Lookup(device protocol.DeviceID) ([]string, []string) {
 	d.registryLock.RLock()
-	cached := d.filterCached(d.registry[device])
+	cachedAddresses := d.filterCached(d.addressRegistry[device])
+	cachedRelays := d.filterCached(d.relayRegistry[device])
 	lastLookup := d.lastLookup[device]
 	d.registryLock.RUnlock()
 
 	d.mut.RLock()
 	defer d.mut.RUnlock()
 
-	if len(cached) > 0 {
+	relays := make([]string, len(cachedRelays))
+	for i := range cachedRelays {
+		relays[i] = cachedRelays[i].Address
+	}
+
+	if len(cachedAddresses) > 0 {
 		// There are cached address entries.
-		addrs := make([]string, len(cached))
-		for i := range cached {
-			addrs[i] = cached[i].Address
+		addrs := make([]string, len(cachedAddresses))
+		for i := range cachedAddresses {
+			addrs[i] = cachedAddresses[i].Address
 		}
-		return addrs
+		return addrs, relays
 	}
 
 	if time.Since(lastLookup) < d.negCacheCutoff {
 		// We have recently tried to lookup this address and failed. Lets
 		// chill for a while.
-		return nil
+		return nil, relays
 	}
 
 	if len(d.clients) != 0 && time.Since(d.localBcastStart) > d.localBcastIntv {
 		// Only perform external lookups if we have at least one external
 		// server client and one local announcement interval has passed. This is
 		// to avoid finding local peers on their remote address at startup.
-		results := make(chan []string, len(d.clients))
+		results := make(chan Announce, len(d.clients))
 		wg := sync.NewWaitGroup()
 		for _, client := range d.clients {
 			wg.Add(1)
 			go func(c Client) {
 				defer wg.Done()
-				results <- c.Lookup(device)
+				ann, err := c.Lookup(device)
+				if err == nil {
+					results <- ann
+				}
+
 			}(client)
 		}
 
 		wg.Wait()
 		close(results)
 
-		cached := []CacheEntry{}
-		seen := make(map[string]struct{})
+		cachedAddresses := []CacheEntry{}
+		availableRelays := []Relay{}
+		seenAddresses := make(map[string]struct{})
+		seenRelays := make(map[string]struct{})
 		now := time.Now()
 
 		var addrs []string
 		for result := range results {
-			for _, addr := range result {
-				_, ok := seen[addr]
+			for _, addr := range result.This.Addresses {
+				_, ok := seenAddresses[addr]
 				if !ok {
-					cached = append(cached, CacheEntry{
+					cachedAddresses = append(cachedAddresses, CacheEntry{
 						Address: addr,
 						Seen:    now,
 					})
-					seen[addr] = struct{}{}
+					seenAddresses[addr] = struct{}{}
 					addrs = append(addrs, addr)
+				}
+			}
+
+			for _, relay := range result.This.Relays {
+				_, ok := seenRelays[relay.Address]
+				if !ok {
+					availableRelays = append(availableRelays, relay)
+					seenRelays[relay.Address] = struct{}{}
 				}
 			}
 		}
 
+		relays = addressesSortedByLatency(availableRelays)
+		cachedRelays := make([]CacheEntry, len(relays))
+		for i := range relays {
+			cachedRelays[i] = CacheEntry{
+				Address: relays[i],
+				Seen:    now,
+			}
+		}
+
 		d.registryLock.Lock()
-		d.registry[device] = cached
+		d.addressRegistry[device] = cachedAddresses
+		d.relayRegistry[device] = cachedRelays
 		d.lastLookup[device] = time.Now()
 		d.registryLock.Unlock()
 
-		return addrs
+		return addrs, relays
 	}
 
-	return nil
+	return nil, relays
 }
 
 func (d *Discoverer) Hint(device string, addrs []string) {
@@ -267,8 +307,8 @@ func (d *Discoverer) Hint(device string, addrs []string) {
 
 func (d *Discoverer) All() map[protocol.DeviceID][]CacheEntry {
 	d.registryLock.RLock()
-	devices := make(map[protocol.DeviceID][]CacheEntry, len(d.registry))
-	for device, addrs := range d.registry {
+	devices := make(map[protocol.DeviceID][]CacheEntry, len(d.addressRegistry))
+	for device, addrs := range d.addressRegistry {
 		addrsCopy := make([]CacheEntry, len(addrs))
 		copy(addrsCopy, addrs)
 		devices[device] = addrsCopy
@@ -277,41 +317,36 @@ func (d *Discoverer) All() map[protocol.DeviceID][]CacheEntry {
 	return devices
 }
 
-func (d *Discoverer) announcementPkt() *Announce {
-	var addrs []Address
-	if d.extPort != 0 {
-		addrs = []Address{{Port: d.extPort}}
+func (d *Discoverer) Announcement() Announce {
+	return d.announcementPkt(true)
+}
+
+func (d *Discoverer) announcementPkt(allowExternal bool) Announce {
+	var addrs []string
+	if d.extPort != 0 && allowExternal {
+		addrs = []string{fmt.Sprintf("tcp://:%d", d.extPort)}
 	} else {
-		for _, astr := range d.listenAddrs {
-			addr, err := net.ResolveTCPAddr("tcp", astr)
-			if err != nil {
-				l.Warnln("discover: %v: not announcing %s", err, astr)
-				continue
-			} else if debug {
-				l.Debugf("discover: resolved %s as %#v", astr, addr)
-			}
-			if len(addr.IP) == 0 || addr.IP.IsUnspecified() {
-				addrs = append(addrs, Address{Port: uint16(addr.Port)})
-			} else if bs := addr.IP.To4(); bs != nil {
-				addrs = append(addrs, Address{IP: bs, Port: uint16(addr.Port)})
-			} else if bs := addr.IP.To16(); bs != nil {
-				addrs = append(addrs, Address{IP: bs, Port: uint16(addr.Port)})
+		addrs = resolveAddrs(d.listenAddrs)
+	}
+
+	var relayAddrs []string
+	if d.relaySvc != nil {
+		status := d.relaySvc.ClientStatus()
+		for uri, ok := range status {
+			if ok {
+				relayAddrs = append(relayAddrs, uri)
 			}
 		}
 	}
-	return &Announce{
+
+	return Announce{
 		Magic: AnnouncementMagic,
-		This:  Device{d.myID[:], addrs},
+		This:  Device{d.myID[:], addrs, measureLatency(relayAddrs)},
 	}
 }
 
 func (d *Discoverer) sendLocalAnnouncements() {
-	var addrs = resolveAddrs(d.listenAddrs)
-
-	var pkt = Announce{
-		Magic: AnnouncementMagic,
-		This:  Device{d.myID[:], addrs},
-	}
+	var pkt = d.announcementPkt(false)
 	msg := pkt.MustMarshalXDR()
 
 	for {
@@ -363,19 +398,32 @@ func (d *Discoverer) registerDevice(addr net.Addr, device Device) bool {
 	d.registryLock.Lock()
 	defer d.registryLock.Unlock()
 
-	current := d.filterCached(d.registry[id])
+	current := d.filterCached(d.addressRegistry[id])
 
 	orig := current
 
-	for _, a := range device.Addresses {
-		var deviceAddr string
-		if len(a.IP) > 0 {
-			deviceAddr = net.JoinHostPort(net.IP(a.IP).String(), strconv.Itoa(int(a.Port)))
-		} else if addr != nil {
-			ua := addr.(*net.UDPAddr)
-			ua.Port = int(a.Port)
-			deviceAddr = ua.String()
+	for _, deviceAddr := range device.Addresses {
+		uri, err := url.Parse(deviceAddr)
+		if err != nil {
+			if debug {
+				l.Debugf("discover: Failed to parse address %s: %s", deviceAddr, err)
+			}
+			continue
 		}
+
+		host, port, err := net.SplitHostPort(uri.Host)
+		if err != nil {
+			if debug {
+				l.Debugf("discover: Failed to split address host %s: %s", deviceAddr, err)
+			}
+			continue
+		}
+
+		if host == "" {
+			uri.Host = net.JoinHostPort(addr.(*net.UDPAddr).IP.String(), port)
+			deviceAddr = uri.String()
+		}
+
 		for i := range current {
 			if current[i].Address == deviceAddr {
 				current[i].Seen = time.Now()
@@ -393,7 +441,7 @@ func (d *Discoverer) registerDevice(addr net.Addr, device Device) bool {
 		l.Debugf("discover: Caching %s addresses: %v", id, current)
 	}
 
-	d.registry[id] = current
+	d.addressRegistry[id] = current
 
 	if len(current) > len(orig) {
 		addrs := make([]string, len(current))
@@ -413,7 +461,7 @@ func (d *Discoverer) filterCached(c []CacheEntry) []CacheEntry {
 	for i := 0; i < len(c); {
 		if ago := time.Since(c[i].Seen); ago > d.cacheLifetime {
 			if debug {
-				l.Debugf("discover: Removing cached address %s - seen %v ago", c[i].Address, ago)
+				l.Debugf("discover: Removing cached entry %s - seen %v ago", c[i].Address, ago)
 			}
 			c[i] = c[len(c)-1]
 			c = c[:len(c)-1]
@@ -424,30 +472,99 @@ func (d *Discoverer) filterCached(c []CacheEntry) []CacheEntry {
 	return c
 }
 
-func addrToAddr(addr *net.TCPAddr) Address {
+func addrToAddr(addr *net.TCPAddr) string {
 	if len(addr.IP) == 0 || addr.IP.IsUnspecified() {
-		return Address{Port: uint16(addr.Port)}
+		return fmt.Sprintf(":%d", addr.Port)
 	} else if bs := addr.IP.To4(); bs != nil {
-		return Address{IP: bs, Port: uint16(addr.Port)}
+		return fmt.Sprintf("%s:%d", bs.String(), addr.Port)
 	} else if bs := addr.IP.To16(); bs != nil {
-		return Address{IP: bs, Port: uint16(addr.Port)}
+		return fmt.Sprintf("[%s]:%d", bs.String(), addr.Port)
 	}
-	return Address{}
+	return ""
 }
 
-func resolveAddrs(addrs []string) []Address {
-	var raddrs []Address
+func resolveAddrs(addrs []string) []string {
+	var raddrs []string
 	for _, addrStr := range addrs {
-		addrRes, err := net.ResolveTCPAddr("tcp", addrStr)
+		uri, err := url.Parse(addrStr)
+		if err != nil {
+			continue
+		}
+		addrRes, err := net.ResolveTCPAddr("tcp", uri.Host)
 		if err != nil {
 			continue
 		}
 		addr := addrToAddr(addrRes)
-		if len(addr.IP) > 0 {
-			raddrs = append(raddrs, addr)
-		} else {
-			raddrs = append(raddrs, Address{Port: addr.Port})
+		if len(addr) > 0 {
+			uri.Host = addr
+			raddrs = append(raddrs, uri.String())
 		}
 	}
 	return raddrs
+}
+
+func measureLatency(relayAdresses []string) []Relay {
+	relays := make([]Relay, 0, len(relayAdresses))
+	for i, addr := range relayAdresses {
+		relay := Relay{
+			Address: addr,
+			Latency: int32(time.Hour / time.Millisecond),
+		}
+		relays = append(relays, relay)
+
+		if latency, err := getLatencyForURL(addr); err == nil {
+			if debug {
+				l.Debugf("Relay %s latency %s", addr, latency)
+			}
+			relays[i].Latency = int32(latency / time.Millisecond)
+		} else {
+			l.Debugf("Failed to get relay %s latency %s", addr, err)
+		}
+	}
+	return relays
+}
+
+// addressesSortedByLatency adds local latency to the relay, and sorts them
+// by sum latency, and returns the addresses.
+func addressesSortedByLatency(input []Relay) []string {
+	relays := make([]Relay, len(input))
+	copy(relays, input)
+	for i, relay := range relays {
+		if latency, err := getLatencyForURL(relay.Address); err == nil {
+			relays[i].Latency += int32(latency / time.Millisecond)
+		} else {
+			relays[i].Latency += int32(time.Hour / time.Millisecond)
+		}
+	}
+
+	sort.Sort(relayList(relays))
+
+	addresses := make([]string, 0, len(relays))
+	for _, relay := range relays {
+		addresses = append(addresses, relay.Address)
+	}
+	return addresses
+}
+
+func getLatencyForURL(addr string) (time.Duration, error) {
+	uri, err := url.Parse(addr)
+	if err != nil {
+		return 0, err
+	}
+
+	return osutil.TCPPing(uri.Host)
+}
+
+type relayList []Relay
+
+func (l relayList) Len() int {
+	return len(l)
+}
+
+func (l relayList) Less(a, b int) bool {
+	return l[a].Latency < l[b].Latency
+}
+
+func (l relayList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
 }

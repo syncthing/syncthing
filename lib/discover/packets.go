@@ -10,8 +10,8 @@
 package discover
 
 const (
-	AnnouncementMagic = 0x9D79BC39
-	QueryMagic        = 0x2CA856F5
+	AnnouncementMagic = 0x9D79BC40
+	QueryMagic        = 0x2CA856F6
 )
 
 type Query struct {
@@ -25,12 +25,13 @@ type Announce struct {
 	Extra []Device // max:16
 }
 
-type Device struct {
-	ID        []byte    // max:32
-	Addresses []Address // max:16
+type Relay struct {
+	Address string // max:256
+	Latency int32
 }
 
-type Address struct {
-	IP   []byte // max:16
-	Port uint16
+type Device struct {
+	ID        []byte   // max:32
+	Addresses []string // max:16
+	Relays    []Relay  // max:16
 }

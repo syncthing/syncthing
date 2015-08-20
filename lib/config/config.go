@@ -9,6 +9,7 @@ package config
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io"
 	"math/rand"
 	"os"
@@ -26,7 +27,7 @@ import (
 
 const (
 	OldestHandledVersion = 5
-	CurrentVersion       = 11
+	CurrentVersion       = 12
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -212,15 +213,19 @@ type FolderDeviceConfiguration struct {
 }
 
 type OptionsConfiguration struct {
-	ListenAddress           []string `xml:"listenAddress" json:"listenAddress" default:"0.0.0.0:22000"`
-	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22026, udp6://announce-v6.syncthing.net:22026"`
+	ListenAddress           []string `xml:"listenAddress" json:"listenAddress" default:"tcp://0.0.0.0:22000"`
+	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22027, udp6://announce-v6.syncthing.net:22027"`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21025"`
 	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
+	RelayServers            []string `xml:"relayServer" json:"relayServers" default:"dynamic+https://relays.syncthing.net"`
 	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
 	MaxRecvKbps             int      `xml:"maxRecvKbps" json:"maxRecvKbps"`
 	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
+	RelaysEnabled           bool     `xml:"relaysEnabled" json:"relaysEnabled" default:"true"`
+	RelayReconnectIntervalM int      `xml:"relayReconnectIntervalM" json:"relayReconnectIntervalM" default:"10"`
+	RelayWithoutGlobalAnn   bool     `xml:"relayWithoutGlobalAnn" json:"relayWithoutGlobalAnn" default:"false"`
 	StartBrowser            bool     `xml:"startBrowser" json:"startBrowser" default:"true"`
 	UPnPEnabled             bool     `xml:"upnpEnabled" json:"upnpEnabled" default:"true"`
 	UPnPLeaseM              int      `xml:"upnpLeaseMinutes" json:"upnpLeaseMinutes" default:"60"`
@@ -346,6 +351,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		}
 	}
 
+	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
+	cfg.Options.GlobalAnnServers = uniqueStrings(cfg.Options.GlobalAnnServers)
+
 	if cfg.Version < OldestHandledVersion {
 		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
 	}
@@ -368,6 +376,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 	if cfg.Version == 10 {
 		convertV10V11(cfg)
+	}
+	if cfg.Version == 11 {
+		convertV11V12(cfg)
 	}
 
 	// Hash old cleartext passwords
@@ -420,9 +431,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		cfg.Options.ReconnectIntervalS = 5
 	}
 
-	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
-	cfg.Options.GlobalAnnServers = uniqueStrings(cfg.Options.GlobalAnnServers)
-
 	if cfg.GUI.APIKey == "" {
 		cfg.GUI.APIKey = randomString(32)
 	}
@@ -465,6 +473,38 @@ func convertV10V11(cfg *Configuration) {
 		cfg.Folders[i].MinDiskFreePct = 1
 	}
 	cfg.Version = 11
+}
+
+func convertV11V12(cfg *Configuration) {
+	// Change listen address schema
+	for i, addr := range cfg.Options.ListenAddress {
+		if len(addr) > 0 && !strings.HasPrefix(addr, "tcp://") {
+			cfg.Options.ListenAddress[i] = fmt.Sprintf("tcp://%s", addr)
+		}
+	}
+
+	for i, device := range cfg.Devices {
+		for j, addr := range device.Addresses {
+			if addr != "dynamic" && addr != "" {
+				cfg.Devices[i].Addresses[j] = fmt.Sprintf("tcp://%s", addr)
+			}
+		}
+	}
+
+	// Use new discovery server
+	for i, addr := range cfg.Options.GlobalAnnServers {
+		if addr == "udp4://announce.syncthing.net:22026" {
+			cfg.Options.GlobalAnnServers[i] = "udp4://announce.syncthing.net:22027"
+		} else if addr == "udp6://announce-v6.syncthing.net:22026" {
+			cfg.Options.GlobalAnnServers[i] = "udp6://announce-v6.syncthing.net:22027"
+		} else if addr == "udp4://194.126.249.5:22026" {
+			cfg.Options.GlobalAnnServers[i] = "udp4://194.126.249.5:22027"
+		} else if addr == "udp6://[2001:470:28:4d6::5]:22026" {
+			cfg.Options.GlobalAnnServers[i] = "udp6://[2001:470:28:4d6::5]:22027"
+		}
+	}
+
+	cfg.Version = 12
 }
 
 func convertV9V10(cfg *Configuration) {

@@ -31,15 +31,19 @@ func init() {
 
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
-		ListenAddress:           []string{"0.0.0.0:22000"},
-		GlobalAnnServers:        []string{"udp4://announce.syncthing.net:22026", "udp6://announce-v6.syncthing.net:22026"},
+		ListenAddress:           []string{"tcp://0.0.0.0:22000"},
+		GlobalAnnServers:        []string{"udp4://announce.syncthing.net:22027", "udp6://announce-v6.syncthing.net:22027"},
 		GlobalAnnEnabled:        true,
 		LocalAnnEnabled:         true,
 		LocalAnnPort:            21025,
 		LocalAnnMCAddr:          "[ff32::5222]:21026",
+		RelayServers:            []string{"dynamic+https://relays.syncthing.net"},
 		MaxSendKbps:             0,
 		MaxRecvKbps:             0,
 		ReconnectIntervalS:      60,
+		RelaysEnabled:           true,
+		RelayReconnectIntervalM: 10,
+		RelayWithoutGlobalAnn:   false,
 		StartBrowser:            true,
 		UPnPEnabled:             true,
 		UPnPLeaseM:              60,
@@ -100,13 +104,13 @@ func TestDeviceConfig(t *testing.T) {
 			{
 				DeviceID:    device1,
 				Name:        "node one",
-				Addresses:   []string{"a"},
+				Addresses:   []string{"tcp://a"},
 				Compression: protocol.CompressMetadata,
 			},
 			{
 				DeviceID:    device4,
 				Name:        "node two",
-				Addresses:   []string{"b"},
+				Addresses:   []string{"tcp://b"},
 				Compression: protocol.CompressMetadata,
 			},
 		}
@@ -142,15 +146,19 @@ func TestNoListenAddress(t *testing.T) {
 
 func TestOverriddenValues(t *testing.T) {
 	expected := OptionsConfiguration{
-		ListenAddress:           []string{":23000"},
+		ListenAddress:           []string{"tcp://:23000"},
 		GlobalAnnServers:        []string{"udp4://syncthing.nym.se:22026"},
 		GlobalAnnEnabled:        false,
 		LocalAnnEnabled:         false,
 		LocalAnnPort:            42123,
 		LocalAnnMCAddr:          "quux:3232",
+		RelayServers:            []string{"relay://123.123.123.123:1234", "relay://125.125.125.125:1255"},
 		MaxSendKbps:             1234,
 		MaxRecvKbps:             2341,
 		ReconnectIntervalS:      6000,
+		RelaysEnabled:           false,
+		RelayReconnectIntervalM: 20,
+		RelayWithoutGlobalAnn:   true,
 		StartBrowser:            false,
 		UPnPEnabled:             false,
 		UPnPLeaseM:              90,
@@ -255,15 +263,15 @@ func TestDeviceAddressesStatic(t *testing.T) {
 	expected := map[protocol.DeviceID]DeviceConfiguration{
 		device1: {
 			DeviceID:  device1,
-			Addresses: []string{"192.0.2.1", "192.0.2.2"},
+			Addresses: []string{"tcp://192.0.2.1", "tcp://192.0.2.2"},
 		},
 		device2: {
 			DeviceID:  device2,
-			Addresses: []string{"192.0.2.3:6070", "[2001:db8::42]:4242"},
+			Addresses: []string{"tcp://192.0.2.3:6070", "tcp://[2001:db8::42]:4242"},
 		},
 		device3: {
 			DeviceID:  device3,
-			Addresses: []string{"[2001:db8::44]:4444", "192.0.2.4:6090"},
+			Addresses: []string{"tcp://[2001:db8::44]:4444", "tcp://192.0.2.4:6090"},
 		},
 		device4: {
 			DeviceID:    device4,
@@ -330,12 +338,12 @@ func TestIssue1750(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if cfg.Options().ListenAddress[0] != ":23000" {
-		t.Errorf("%q != %q", cfg.Options().ListenAddress[0], ":23000")
+	if cfg.Options().ListenAddress[0] != "tcp://:23000" {
+		t.Errorf("%q != %q", cfg.Options().ListenAddress[0], "tcp://:23000")
 	}
 
-	if cfg.Options().ListenAddress[1] != ":23001" {
-		t.Errorf("%q != %q", cfg.Options().ListenAddress[1], ":23001")
+	if cfg.Options().ListenAddress[1] != "tcp://:23001" {
+		t.Errorf("%q != %q", cfg.Options().ListenAddress[1], "tcp://:23001")
 	}
 
 	if cfg.Options().GlobalAnnServers[0] != "udp4://syncthing.nym.se:22026" {

@@ -176,6 +176,7 @@ angular.module('syncthing.core')
                     outbps: 0,
                     inBytesTotal: 0,
                     outBytesTotal: 0,
+                    type: arg.data.type,
                     address: arg.data.addr
                 };
                 $scope.completion[arg.data.id] = {
@@ -346,14 +347,24 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/system/status').success(function (data) {
                 $scope.myID = data.myID;
                 $scope.system = data;
+
                 $scope.announceServersTotal = data.extAnnounceOK ? Object.keys(data.extAnnounceOK).length : 0;
-                var failed = [];
+                var failedAnnounce = [];
                 for (var server in data.extAnnounceOK) {
                     if (!data.extAnnounceOK[server]) {
-                        failed.push(server);
+                        failedAnnounce.push(server);
                     }
                 }
-                $scope.announceServersFailed = failed;
+                $scope.announceServersFailed = failedAnnounce;
+
+                $scope.relayClientsTotal = data.relayClientStatus ? Object.keys(data.relayClientStatus).length : 0;
+                var failedRelays = [];
+                for (var relay in data.relayClientStatus) {
+                    if (!data.relayClientStatus[relay]) {
+                        failedRelays.push(relay);
+                    }
+                }
+                $scope.relayClientsFailed = failedRelays;
 
 
                 console.log("refreshSystem", data);

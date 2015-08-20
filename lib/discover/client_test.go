@@ -24,6 +24,14 @@ func init() {
 	device, _ = protocol.DeviceIDFromString("P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2")
 }
 
+type FakeAnnouncer struct {
+	pkt Announce
+}
+
+func (f *FakeAnnouncer) Announcement() Announce {
+	return f.pkt
+}
+
 func TestUDP4Success(t *testing.T) {
 	conn, err := net.ListenUDP("udp4", nil)
 	if err != nil {
@@ -33,18 +41,19 @@ func TestUDP4Success(t *testing.T) {
 	port := conn.LocalAddr().(*net.UDPAddr).Port
 
 	address := fmt.Sprintf("udp4://127.0.0.1:%d", port)
-	pkt := &Announce{
+	pkt := Announce{
 		Magic: AnnouncementMagic,
 		This: Device{
 			device[:],
-			[]Address{{
-				IP:   net.IPv4(123, 123, 123, 123),
-				Port: 1234,
-			}},
+			[]string{"tcp://123.123.123.123:1234"},
+			nil,
 		},
 	}
+	ann := &FakeAnnouncer{
+		pkt: pkt,
+	}
 
-	client, err := New(address, pkt)
+	client, err := New(address, ann)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +110,12 @@ func TestUDP4Success(t *testing.T) {
 	wg := sync.NewWaitGroup()
 	wg.Add(1)
 	go func() {
-		addrs = client.Lookup(device)
+		pkt, err := client.Lookup(device)
+		if err == nil {
+			for _, addr := range pkt.This.Addresses {
+				addrs = append(addrs, addr)
+			}
+		}
 		wg.Done()
 	}()
 
@@ -117,7 +131,7 @@ func TestUDP4Success(t *testing.T) {
 	// Wait for the lookup to arrive, verify that the number of answers is correct
 	wg.Wait()
 
-	if len(addrs) != 1 || addrs[0] != "123.123.123.123:1234" {
+	if len(addrs) != 1 || addrs[0] != "tcp://123.123.123.123:1234" {
 		t.Fatal("Wrong number of answers")
 	}
 
@@ -134,18 +148,19 @@ func TestUDP4Failure(t *testing.T) {
 
 	address := fmt.Sprintf("udp4://127.0.0.1:%d/?listenaddress=127.0.0.1&retry=5", port)
 
-	pkt := &Announce{
+	pkt := Announce{
 		Magic: AnnouncementMagic,
 		This: Device{
 			device[:],
-			[]Address{{
-				IP:   net.IPv4(123, 123, 123, 123),
-				Port: 1234,
-			}},
+			[]string{"tcp://123.123.123.123:1234"},
+			nil,
 		},
 	}
+	ann := &FakeAnnouncer{
+		pkt: pkt,
+	}
 
-	client, err := New(address, pkt)
+	client, err := New(address, ann)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +212,12 @@ func TestUDP4Failure(t *testing.T) {
 	wg := sync.NewWaitGroup()
 	wg.Add(1)
 	go func() {
-		addrs = client.Lookup(device)
+		pkt, err := client.Lookup(device)
+		if err == nil {
+			for _, addr := range pkt.This.Addresses {
+				addrs = append(addrs, addr)
+			}
+		}
 		wg.Done()
 	}()
 

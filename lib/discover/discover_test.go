@@ -18,15 +18,15 @@ import (
 type DummyClient struct {
 	url          *url.URL
 	lookups      []protocol.DeviceID
-	lookupRet    []string
+	lookupRet    Announce
 	stops        int
 	statusRet    bool
 	statusChecks int
 }
 
-func (c *DummyClient) Lookup(device protocol.DeviceID) []string {
+func (c *DummyClient) Lookup(device protocol.DeviceID) (Announce, error) {
 	c.lookups = append(c.lookups, device)
-	return c.lookupRet
+	return c.lookupRet, nil
 }
 
 func (c *DummyClient) StatusOK() bool {
@@ -45,34 +45,58 @@ func (c *DummyClient) Address() string {
 func TestGlobalDiscovery(t *testing.T) {
 	c1 := &DummyClient{
 		statusRet: false,
-		lookupRet: []string{"test.com:1234"},
+		lookupRet: Announce{
+			Magic: AnnouncementMagic,
+			This: Device{
+				ID:        protocol.LocalDeviceID[:],
+				Addresses: []string{"test.com:1234"},
+				Relays:    nil,
+			},
+			Extra: nil,
+		},
 	}
 
 	c2 := &DummyClient{
 		statusRet: true,
-		lookupRet: []string{},
+		lookupRet: Announce{
+			Magic: AnnouncementMagic,
+			This: Device{
+				ID:        protocol.LocalDeviceID[:],
+				Addresses: nil,
+				Relays:    nil,
+			},
+			Extra: nil,
+		},
 	}
 
 	c3 := &DummyClient{
 		statusRet: true,
-		lookupRet: []string{"best.com:2345"},
+		lookupRet: Announce{
+			Magic: AnnouncementMagic,
+			This: Device{
+				ID:        protocol.LocalDeviceID[:],
+				Addresses: []string{"best.com:2345"},
+				Relays:    nil,
+			},
+			Extra: nil,
+		},
 	}
 
 	clients := []*DummyClient{c1, c2}
 
-	Register("test1", func(uri *url.URL, pkt *Announce) (Client, error) {
+	Register("test1", func(uri *url.URL, ann Announcer) (Client, error) {
 		c := clients[0]
 		clients = clients[1:]
 		c.url = uri
 		return c, nil
 	})
 
-	Register("test2", func(uri *url.URL, pkt *Announce) (Client, error) {
+	Register("test2", func(uri *url.URL, ann Announcer) (Client, error) {
 		c3.url = uri
 		return c3, nil
 	})
 
-	d := NewDiscoverer(device, []string{})
+	d := NewDiscoverer(device, []string{}, nil)
 	d.localBcastStart = time.Time{}
 	servers := []string{
 		"test1://123.123.123.123:1234",
@@ -93,7 +117,7 @@ func TestGlobalDiscovery(t *testing.T) {
 		}
 	}
 
-	addrs := d.Lookup(device)
+	addrs, _ := d.Lookup(device)
 	if len(addrs) != 2 {
 		t.Fatal("Wrong number of addresses", addrs)
 	}
@@ -117,7 +141,7 @@ func TestGlobalDiscovery(t *testing.T) {
 		}
 	}
 
-	addrs = d.Lookup(device)
+	addrs, _ = d.Lookup(device)
 	if len(addrs) != 2 {
 		t.Fatal("Wrong number of addresses", addrs)
 	}

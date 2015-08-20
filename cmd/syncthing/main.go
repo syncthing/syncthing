@@ -34,8 +34,10 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/upgrade"
+
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -110,6 +112,7 @@ var (
 	readRateLimit  *ratelimit.Bucket
 	stop           = make(chan int)
 	discoverer     *discover.Discoverer
+	relaySvc       *relay.Svc
 	cert           tls.Certificate
 	lans           []*net.IPNet
 )
@@ -627,7 +630,7 @@ func syncthingMain() {
 			m.StartDeadlockDetector(time.Duration(it) * time.Second)
 		}
 	} else if !IsRelease || IsBeta {
-		m.StartDeadlockDetector(20 * 60 * time.Second)
+		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
 	// Clear out old indexes for other devices. Otherwise we'll start up and
@@ -658,15 +661,30 @@ func syncthingMain() {
 
 	// The default port we announce, possibly modified by setupUPnP next.
 
-	addr, err := net.ResolveTCPAddr("tcp", opts.ListenAddress[0])
+	uri, err := url.Parse(opts.ListenAddress[0])
+	if err != nil {
+		l.Fatalf("Failed to parse listen address %s: %v", opts.ListenAddress[0], err)
+	}
+
+	addr, err := net.ResolveTCPAddr("tcp", uri.Host)
 	if err != nil {
 		l.Fatalln("Bad listen address:", err)
+	}
+
+	// Start the relevant services
+
+	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
+	mainSvc.Add(connectionSvc)
+
+	if opts.RelaysEnabled && (opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn) {
+		relaySvc = relay.NewSvc(cfg, tlsCfg, connectionSvc.conns)
+		connectionSvc.Add(relaySvc)
 	}
 
 	// Start discovery
 
 	localPort := addr.Port
-	discoverer = discovery(localPort)
+	discoverer = discovery(localPort, relaySvc)
 
 	// Start UPnP. The UPnP service will restart global discovery if the
 	// external port changes.
@@ -675,10 +693,6 @@ func syncthingMain() {
 		upnpSvc := newUPnPSvc(cfg, localPort)
 		mainSvc.Add(upnpSvc)
 	}
-
-	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
-	cfg.Subscribe(connectionSvc)
-	mainSvc.Add(connectionSvc)
 
 	if cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
@@ -900,18 +914,23 @@ func shutdown() {
 	stop <- exitSuccess
 }
 
-func discovery(extPort int) *discover.Discoverer {
+func discovery(extPort int, relaySvc *relay.Svc) *discover.Discoverer {
 	opts := cfg.Options()
-	disc := discover.NewDiscoverer(myID, opts.ListenAddress)
-
+	disc := discover.NewDiscoverer(myID, opts.ListenAddress, relaySvc)
 	if opts.LocalAnnEnabled {
 		l.Infoln("Starting local discovery announcements")
 		disc.StartLocal(opts.LocalAnnPort, opts.LocalAnnMCAddr)
 	}
 
 	if opts.GlobalAnnEnabled {
-		l.Infoln("Starting global discovery announcements")
-		disc.StartGlobal(opts.GlobalAnnServers, uint16(extPort))
+		go func() {
+			// Defer starting global announce server, giving time to connect
+			// to relay servers.
+			time.Sleep(5 * time.Second)
+			l.Infoln("Starting global discovery announcements")
+			disc.StartGlobal(opts.GlobalAnnServers, uint16(extPort))
+		}()
+
 	}
 
 	return disc
