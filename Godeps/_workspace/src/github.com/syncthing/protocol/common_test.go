@@ -31,11 +31,11 @@ func (t *TestModel) Index(deviceID DeviceID, folder string, files []FileInfo, fl
 func (t *TestModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
 }
 
-func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64, size int, hash []byte, flags uint32, options []Option, buf []byte) error {
+func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64, hash []byte, flags uint32, options []Option, buf []byte) error {
 	t.folder = folder
 	t.name = name
 	t.offset = offset
-	t.size = size
+	t.size = len(buf)
 	t.hash = hash
 	t.flags = flags
 	t.options = options

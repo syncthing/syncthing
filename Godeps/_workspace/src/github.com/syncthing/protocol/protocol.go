@@ -15,7 +15,11 @@ import (
 )
 
 const (
-	BlockSize = 128 * 1024
+	// Data block size (128 KiB)
+	BlockSize = 128 << 10
+
+	// We reject messages larger than this when encountered on the wire. (64 MiB)
+	MaxMessageLen = 64 << 20
 )
 
 const (
@@ -383,6 +387,11 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 		l.Debugf("read header %v (msglen=%d)", hdr, msglen)
 	}
 
+	if msglen > MaxMessageLen {
+		err = fmt.Errorf("message length %d exceeds maximum %d", msglen, MaxMessageLen)
+		return
+	}
+
 	if hdr.version != 0 {
 		err = fmt.Errorf("unknown protocol version 0x%x", hdr.version)
 		return
@@ -403,7 +412,7 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 	}
 
 	msgBuf := c.rdbuf0
-	if hdr.compression {
+	if hdr.compression && msglen > 0 {
 		c.rdbuf1 = c.rdbuf1[:cap(c.rdbuf1)]
 		c.rdbuf1, err = lz4.Decode(c.rdbuf1, c.rdbuf0)
 		if err != nil {
