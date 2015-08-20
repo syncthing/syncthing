@@ -9,7 +9,7 @@ import "fmt"
 
 type IndexMessage struct {
 	Folder  string
-	Files   []FileInfo
+	Files   []FileInfo // max:1000000
 	Flags   uint32
 	Options []Option // max:64
 }
@@ -20,7 +20,7 @@ type FileInfo struct {
 	Modified     int64
 	Version      Vector
 	LocalVersion int64
-	Blocks       []BlockInfo
+	Blocks       []BlockInfo // max:1000000
 }
 
 func (f FileInfo) String() string {
@@ -109,9 +109,9 @@ type ResponseMessage struct {
 }
 
 type ClusterConfigMessage struct {
-	ClientName    string // max:64
-	ClientVersion string // max:64
-	Folders       []Folder
+	ClientName    string   // max:64
+	ClientVersion string   // max:64
+	Folders       []Folder // max:1000000
 	Options       []Option // max:64
 }
 
@@ -125,8 +125,8 @@ func (o *ClusterConfigMessage) GetOption(key string) string {
 }
 
 type Folder struct {
-	ID      string // max:64
-	Devices []Device
+	ID      string   // max:64
+	Devices []Device // max:1000000
 	Flags   uint32
 	Options []Option // max:64
 }
