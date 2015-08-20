@@ -1,4 +1,4 @@
-<configuration version="11">
+<configuration version="12">
     <folder id="default" path="s2" ro="false" rescanIntervalS="15" ignorePerms="false" autoNormalize="true">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
@@ -36,29 +36,33 @@
         <ignoreDelete>false</ignoreDelete>
     </folder>
     <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="metadata" introducer="false">
-        <address>127.0.0.1:22001</address>
+        <address>tcp://127.0.0.1:22001</address>
     </device>
     <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU" name="s2" compression="metadata" introducer="false">
-        <address>127.0.0.1:22002</address>
+        <address>tcp://127.0.0.1:22002</address>
     </device>
     <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="metadata" introducer="false">
-        <address>127.0.0.1:22003</address>
+        <address>tcp://127.0.0.1:22003</address>
     </device>
     <gui enabled="true" tls="false">
         <address>127.0.0.1:8082</address>
         <apikey>abc123</apikey>
     </gui>
     <options>
-        <listenAddress>127.0.0.1:22002</listenAddress>
-        <globalAnnounceServer>udp4://announce.syncthing.net:22026</globalAnnounceServer>
-        <globalAnnounceServer>udp6://announce-v6.syncthing.net:22026</globalAnnounceServer>
+        <listenAddress>tcp://127.0.0.1:22002</listenAddress>
+        <globalAnnounceServer>udp4://announce.syncthing.net:22027</globalAnnounceServer>
+        <globalAnnounceServer>udp6://announce-v6.syncthing.net:22027</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
         <localAnnouncePort>21025</localAnnouncePort>
         <localAnnounceMCAddr>[ff32::5222]:21026</localAnnounceMCAddr>
+        <relayServer>dynamic+https://relays.syncthing.net</relayServer>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>5</reconnectionIntervalS>
+        <relaysEnabled>true</relaysEnabled>
+        <relayReconnectIntervalM>10</relayReconnectIntervalM>
+        <relayWithoutGlobalAnn>false</relayWithoutGlobalAnn>
         <startBrowser>false</startBrowser>
         <upnpEnabled>true</upnpEnabled>
         <upnpLeaseMinutes>0</upnpLeaseMinutes>

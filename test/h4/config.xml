@@ -1,4 +1,4 @@
-<configuration version="11">
+<configuration version="12">
     <folder id="default" path="s4" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
         <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT"></device>
         <minDiskFreePct>1</minDiskFreePct>
@@ -17,16 +17,20 @@
         <apikey>PMA5yUTG-Mw98nJ0YEtWTCHlM5O4aNi0</apikey>
     </gui>
     <options>
-        <listenAddress>127.0.0.1:22004</listenAddress>
-        <globalAnnounceServer>udp4://announce.syncthing.net:22026</globalAnnounceServer>
-        <globalAnnounceServer>udp6://announce-v6.syncthing.net:22026</globalAnnounceServer>
+        <listenAddress>tcp://127.0.0.1:22004</listenAddress>
+        <globalAnnounceServer>udp4://announce.syncthing.net:22027</globalAnnounceServer>
+        <globalAnnounceServer>udp6://announce-v6.syncthing.net:22027</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
         <localAnnouncePort>21025</localAnnouncePort>
         <localAnnounceMCAddr>[ff32::5222]:21026</localAnnounceMCAddr>
+        <relayServer>dynamic+https://relays.syncthing.net</relayServer>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>60</reconnectionIntervalS>
+        <relaysEnabled>true</relaysEnabled>
+        <relayReconnectIntervalM>10</relayReconnectIntervalM>
+        <relayWithoutGlobalAnn>false</relayWithoutGlobalAnn>
         <startBrowser>false</startBrowser>
         <upnpEnabled>false</upnpEnabled>
         <upnpLeaseMinutes>60</upnpLeaseMinutes>
