@@ -110,30 +110,31 @@ func (s *session) Serve() {
 			close(s.conns)
 
 			if debug {
-				log.Println("Session", s, "starting between", conns[0].RemoteAddr(), conns[1].RemoteAddr())
+				log.Println("Session", s, "starting between", conns[0].RemoteAddr(), "and", conns[1].RemoteAddr())
 			}
 
 			wg := sync.WaitGroup{}
 			wg.Add(2)
 
-			errors := make(chan error, 2)
-
+			var err0 error
 			go func() {
-				errors <- s.proxy(conns[0], conns[1])
+				err0 = s.proxy(conns[0], conns[1])
 				wg.Done()
 			}()
 
+			var err1 error
 			go func() {
-				errors <- s.proxy(conns[1], conns[0])
+				err1 = s.proxy(conns[1], conns[0])
 				wg.Done()
 			}()
 
 			wg.Wait()
 
 			if debug {
-				log.Println("Session", s, "ended, outcomes:", <-errors, <-errors)
+				log.Println("Session", s, "ended, outcomes:", err0, "and", err1)
 			}
 			goto done
+
 		case <-timedout:
 			if debug {
 				log.Println("Session", s, "timed out")

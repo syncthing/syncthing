@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	syncthingprotocol "github.com/syncthing/protocol"
@@ -15,8 +16,9 @@ import (
 )
 
 var (
-	outboxesMut = sync.RWMutex{}
-	outboxes    = make(map[syncthingprotocol.DeviceID]chan interface{})
+	outboxesMut    = sync.RWMutex{}
+	outboxes       = make(map[syncthingprotocol.DeviceID]chan interface{})
+	numConnections int64
 )
 
 func protocolListener(addr string, config *tls.Config) {
@@ -122,7 +124,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 				outboxesMut.RUnlock()
 				if !ok {
 					if debug {
-						log.Println(id, "is looking", requestedPeer, "which does not exist")
+						log.Println(id, "is looking for", requestedPeer, "which does not exist")
 					}
 					protocol.WriteMessage(conn, protocol.ResponseNotFound)
 					conn.Close()
@@ -219,6 +221,9 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 }
 
 func messageReader(conn net.Conn, messages chan<- interface{}, errors chan<- error) {
+	atomic.AddInt64(&numConnections, 1)
+	defer atomic.AddInt64(&numConnections, -1)
+
 	for {
 		msg, err := protocol.ReadMessage(conn)
 		if err != nil {
