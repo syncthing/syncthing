@@ -53,8 +53,3 @@ tunnel instead. You can start a tunnel with a command like the following::
 This will bind to your local port 9999 and forward all connections from there to
 port 8384 on the target machine. This still works even if Syncthing is bound to
 listen on localhost only.
-
-You can forward multiple ports corresponding to many machines this way, but
-because Syncthing uses session cookies for the entire domain (i.e. your local
-machine), you will need to connect to each control panel in a separate browser
-instance or explicitly issue a browser reload when switching between them.
