@@ -36,8 +36,6 @@ func sessionListener(addr string) {
 }
 
 func sessionConnectionHandler(conn net.Conn) {
-	defer conn.Close()
-
 	if err := conn.SetDeadline(time.Now().Add(messageTimeout)); err != nil {
 		if debug {
 			log.Println("Weird error setting deadline:", err, "on", conn.RemoteAddr())
@@ -59,6 +57,7 @@ func sessionConnectionHandler(conn net.Conn) {
 
 		if ses == nil {
 			protocol.WriteMessage(conn, protocol.ResponseNotFound)
+			conn.Close()
 			return
 		}
 
@@ -67,6 +66,7 @@ func sessionConnectionHandler(conn net.Conn) {
 				log.Println("Failed to add", conn.RemoteAddr(), "to session", ses)
 			}
 			protocol.WriteMessage(conn, protocol.ResponseAlreadyConnected)
+			conn.Close()
 			return
 		}
 
@@ -81,12 +81,15 @@ func sessionConnectionHandler(conn net.Conn) {
 			if debug {
 				log.Println("Weird error setting deadline:", err, "on", conn.RemoteAddr())
 			}
+			conn.Close()
 			return
 		}
+
 	default:
 		if debug {
 			log.Println("Unexpected message from", conn.RemoteAddr(), message)
 		}
 		protocol.WriteMessage(conn, protocol.ResponseUnexpectedMessage)
+		conn.Close()
 	}
 }
