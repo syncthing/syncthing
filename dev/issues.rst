@@ -52,7 +52,7 @@ pr-refactor
     This pull request is a refactoring, i.e. not supposed to change
     behavior.
 
-pr-wait-or-pending
+pr-WIP
     This pull request is not ready for merging, even if the tests
     pass and it looks good. It is incomplete or requires more
     discussion.
