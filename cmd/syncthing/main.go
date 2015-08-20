@@ -47,7 +47,7 @@ import (
 
 var (
 	Version     = "unknown-dev"
-	Codename    = "Aluminium Ant"
+	Codename    = "Beryllium Bedbug"
 	BuildEnv    = "default"
 	BuildStamp  = "0"
 	BuildDate   time.Time
