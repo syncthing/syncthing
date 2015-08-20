@@ -11,15 +11,17 @@ build() {
 	export GOOS="$1"
 	export GOARCH="$2"
 	target="relaysrv-$GOOS-$GOARCH"
-	go build -v
+	go build -i -v -ldflags -w
 	mkdir "$target"
 	if [ -f relaysrv ] ; then
 		mv relaysrv "$target"
-		tar zcvf "$target.tar.gz" "$target" 
+		tar zcvf "$target.tar.gz" "$target"
+		rm -r "$target"
 	fi
 	if [ -f relaysrv.exe ] ; then
-	      	mv relaysrv.exe "$target"
+		mv relaysrv.exe "$target"
 		zip -r "$target.zip" "$target"
+		rm -r "$target"
 	fi
 }
 
