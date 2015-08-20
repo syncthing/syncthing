@@ -59,7 +59,7 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 	}
 
 	v := NewSimple("", dir, map[string]string{"keep": "2"})
-	versionDir := filepath.Join(dir, ".stversions")
+	versionDir := filepath.Join(dir, ".syncthing/versions")
 
 	path := filepath.Join(dir, "test")
 

@@ -44,11 +44,11 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 		cleanInterval = 3600 // Default: clean once per hour
 	}
 
-	// Use custom path if set, otherwise .stversions in folderPath
+	// Use custom path if set, otherwise .syncthing/versions in folderPath
 	var versionsDir string
 	if params["versionsPath"] == "" {
-		l.Debugln("using default dir .stversions")
-		versionsDir = filepath.Join(folderPath, ".stversions")
+		l.Debugln("using default dir .syncthing/versions")
+		versionsDir = filepath.Join(folderPath, ".syncthing/versions")
 	} else {
 		l.Debugln("using dir", params["versionsPath"])
 		versionsDir = params["versionsPath"]

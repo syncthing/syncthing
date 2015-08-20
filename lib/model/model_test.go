@@ -447,8 +447,8 @@ func TestIgnores(t *testing.T) {
 	}
 
 	// Assure a clean start state
-	ioutil.WriteFile("testdata/.stfolder", nil, 0644)
-	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
+	os.Mkdir("testdata/.syncthing", 0755)
+	ioutil.WriteFile("testdata/.syncthing/ignores.txt", []byte(".*\nquux\n"), 0755)
 
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
@@ -619,19 +619,18 @@ func TestROScanRecovery(t *testing.T) {
 		return
 	}
 
-	fd, err := os.Create(filepath.Join(fcfg.RawPath, ".stfolder"))
+	err := os.Mkdir(filepath.Join(fcfg.RawPath, ".syncthing"), 0755)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	fd.Close()
 
 	if err := waitFor(""); err != nil {
 		t.Error(err)
 		return
 	}
 
-	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
+	os.Remove(filepath.Join(fcfg.RawPath, ".syncthing"))
 
 	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
@@ -703,19 +702,18 @@ func TestRWScanRecovery(t *testing.T) {
 		return
 	}
 
-	fd, err := os.Create(filepath.Join(fcfg.RawPath, ".stfolder"))
+	err := os.Mkdir(filepath.Join(fcfg.RawPath, ".syncthing"), 0755)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	fd.Close()
 
 	if err := waitFor(""); err != nil {
 		t.Error(err)
 		return
 	}
 
-	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
+	os.Remove(filepath.Join(fcfg.RawPath, ".syncthing"))
 
 	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)

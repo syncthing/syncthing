@@ -1171,7 +1171,7 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 	}
 
 	ignores := ignore.New(m.cacheIgnoredFiles)
-	if err := ignores.Load(filepath.Join(cfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
+	if err := ignores.Load(filepath.Join(cfg.SyncthingPath(), "ignores.txt"), cfg.Path()); err != nil && !os.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
 	m.folderIgnores[cfg.ID] = ignores
@@ -1265,7 +1265,7 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 		return err
 	}
 
-	if err := ignores.Load(filepath.Join(folderCfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
+	if err := ignores.Load(filepath.Join(folderCfg.SyncthingPath(), "ignores.txt"), folderCfg.Path()); err != nil && !os.IsNotExist(err) {
 		err = fmt.Errorf("loading ignores: %v", err)
 		runner.setError(err)
 		l.Infof("Stopping folder %s due to error: %s", folder, err)

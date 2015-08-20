@@ -69,26 +69,26 @@ func New(withCache bool) *Matcher {
 	return m
 }
 
-func (m *Matcher) Load(file string) error {
+func (m *Matcher) Load(file string, includePath string) error {
 	// No locking, Parse() does the locking
 
 	fd, err := os.Open(file)
 	if err != nil {
 		// We do a parse with empty patterns to clear out the hash, cache etc.
-		m.Parse(&bytes.Buffer{}, file)
+		m.Parse(&bytes.Buffer{}, file, includePath)
 		return err
 	}
 	defer fd.Close()
 
-	return m.Parse(fd, file)
+	return m.Parse(fd, file, includePath)
 }
 
-func (m *Matcher) Parse(r io.Reader, file string) error {
+func (m *Matcher) Parse(r io.Reader, file, includePath string) error {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	seen := map[string]bool{file: true}
-	patterns, err := parseIgnoreFile(r, file, seen)
+	patterns, err := parseIgnoreFile(r, file, includePath, seen)
 	// Error is saved and returned at the end. We process the patterns
 	// (possibly blank) anyway.
 
@@ -207,7 +207,7 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func loadIgnoreFile(file string, seen map[string]bool) ([]Pattern, error) {
+func loadIgnoreFile(file string, includePath string, seen map[string]bool) ([]Pattern, error) {
 	if seen[file] {
 		return nil, fmt.Errorf("Multiple include of ignore file %q", file)
 	}
@@ -219,10 +219,10 @@ func loadIgnoreFile(file string, seen map[string]bool) ([]Pattern, error) {
 	}
 	defer fd.Close()
 
-	return parseIgnoreFile(fd, file, seen)
+	return parseIgnoreFile(fd, file, includePath, seen)
 }
 
-func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]Pattern, error) {
+func parseIgnoreFile(fd io.Reader, currentFile, includePath string, seen map[string]bool) ([]Pattern, error) {
 	var patterns []Pattern
 
 	addPattern := func(line string) error {
@@ -266,7 +266,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := line[len("#include "):]
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
-			includes, err := loadIgnoreFile(includeFile, seen)
+			includes, err := loadIgnoreFile(includeFile, filepath.Dir(includeFile), seen)
 			if err != nil {
 				return fmt.Errorf("include of %q: %v", includeRel, err)
 			}

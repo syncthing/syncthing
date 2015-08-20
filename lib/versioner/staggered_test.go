@@ -26,7 +26,7 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 	}
 
 	v := NewStaggered("", dir, map[string]string{"maxAge": "365"})
-	versionDir := filepath.Join(dir, ".stversions")
+	versionDir := filepath.Join(dir, ".syncthing/versions")
 
 	path := filepath.Join(dir, "test")
 

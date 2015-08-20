@@ -240,8 +240,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			return nil
 		}
 
-		if sn := filepath.Base(relPath); sn == ".stignore" || sn == ".stfolder" ||
-			strings.HasPrefix(relPath, ".stversions") || (w.Matcher != nil && w.Matcher.Ignore(relPath)) {
+		if strings.HasPrefix(relPath, ".syncthing") || (w.Matcher != nil && w.Matcher.Ignore(relPath)) {
 			// An ignored file
 			l.Debugln("ignored:", relPath)
 			return skip
