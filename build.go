@@ -13,7 +13,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
-	"crypto/md5"
 	"flag"
 	"fmt"
 	"io"
@@ -28,16 +27,19 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/signature"
 )
 
 var (
-	versionRe = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
-	goarch    string
-	goos      string
-	noupgrade bool
-	version   string
-	goVersion float64
-	race      bool
+	versionRe  = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
+	goarch     string
+	goos       string
+	noupgrade  bool
+	version    string
+	goVersion  float64
+	race       bool
+	signingKey string
 )
 
 const minGoVersion = 1.3
@@ -62,6 +64,7 @@ func main() {
 	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
+	flag.StringVar(&signingKey, "sign", signingKey, "Private key file for signing binaries")
 	flag.Parse()
 
 	switch goarch {
@@ -215,7 +218,7 @@ func build(pkg string, tags []string) {
 		binary += ".exe"
 	}
 
-	rmr(binary, binary+".md5")
+	rmr(binary, binary+".sig")
 	args := []string{"build", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
@@ -227,11 +230,13 @@ func build(pkg string, tags []string) {
 	setBuildEnv()
 	runPrint("go", args...)
 
-	// Create an md5 checksum of the binary, to be included in the archive for
-	// automatic upgrades.
-	err := md5File(binary)
-	if err != nil {
-		log.Fatal(err)
+	if signingKey != "" {
+		// Create an signature of the binary, to be included in the archive for
+		// automatic upgrades.
+		err := signFile(signingKey, binary)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
@@ -249,7 +254,10 @@ func buildTar() {
 		{src: "LICENSE", dst: name + "/LICENSE.txt"},
 		{src: "AUTHORS", dst: name + "/AUTHORS.txt"},
 		{src: "syncthing", dst: name + "/syncthing"},
-		{src: "syncthing.md5", dst: name + "/syncthing.md5"},
+	}
+
+	if _, err := os.Stat("syncthing.sig"); err == nil {
+		files = append(files, archiveFile{src: "syncthing.sig", dst: name + "/syncthing.sig"})
 	}
 
 	for _, file := range listFiles("etc") {
@@ -277,7 +285,10 @@ func buildZip() {
 		{src: "LICENSE", dst: name + "/LICENSE.txt"},
 		{src: "AUTHORS", dst: name + "/AUTHORS.txt"},
 		{src: "syncthing.exe", dst: name + "/syncthing.exe"},
-		{src: "syncthing.exe.md5", dst: name + "/syncthing.exe.md5"},
+	}
+
+	if _, err := os.Stat("syncthing.exe.sig"); err == nil {
+		files = append(files, archiveFile{src: "syncthing.exe.sig", dst: name + "/syncthing.exe.sig"})
 	}
 
 	for _, file := range listFiles("extra") {
@@ -712,29 +723,31 @@ func zipFile(out string, files []archiveFile) {
 	}
 }
 
-func md5File(file string) error {
+func signFile(keyname, file string) error {
+	privkey, err := ioutil.ReadFile(keyname)
+	if err != nil {
+		return err
+	}
+
 	fd, err := os.Open(file)
 	if err != nil {
 		return err
 	}
 	defer fd.Close()
 
-	h := md5.New()
-	_, err = io.Copy(h, fd)
+	sig, err := signature.Sign(privkey, fd)
 	if err != nil {
 		return err
 	}
 
-	out, err := os.Create(file + ".md5")
+	out, err := os.Create(file + ".sig")
 	if err != nil {
 		return err
 	}
-
-	_, err = fmt.Fprintf(out, "%x\n", h.Sum(nil))
+	_, err = out.Write(sig)
 	if err != nil {
 		return err
 	}
-
 	return out.Close()
 }
 
