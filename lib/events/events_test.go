@@ -14,7 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 )
 
-var timeout = 100 * time.Millisecond
+const timeout = 500 * time.Millisecond
 
 func TestNewLogger(t *testing.T) {
 	l := events.NewLogger()
