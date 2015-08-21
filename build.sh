@@ -134,10 +134,17 @@ case "${1:-default}" in
 
 	docker-all)
 		img=${DOCKERIMG:-syncthing/build:latest}
+		if [ -f /etc/syncthing/syncthing.priv ] ; then
+			# Default signing key location. If present, pass into Docker so we
+			# can sign the release from in there.
+			extra=(-v /etc/syncthing/syncthing.priv:/etc/syncthing/syncthing.priv)
+		fi
+
 		docker run --rm -h syncthing-builder -u $(id -u) -t \
 			-v $(pwd):/go/src/github.com/syncthing/syncthing \
 			-w /go/src/github.com/syncthing/syncthing \
 			-e "STTRACE=$STTRACE" \
+			${extra[@]-} \
 			"$img" \
 			sh -c './build.sh clean \
 				&& ./build.sh test-cov \
