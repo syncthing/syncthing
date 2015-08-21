@@ -13,7 +13,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
-	"crypto/md5"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,12 +25,27 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/signature"
 )
+
+// This is an HTTP/HTTPS client that does *not* perform certificate
+// validation. We do this because some systems where Syncthing runs have
+// issues with old or missing CA roots. It doesn't actually matter that we
+// load the upgrade insecurely as we verify an ECDSA signature of the actual
+// binary contents before accepting the upgrade.
+var insecureHTTP = &http.Client{
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	},
+}
 
 // LatestGithubReleases returns the latest releases, including prereleases or
 // not depending on the argument
 func LatestGithubReleases(version string) ([]Release, error) {
-	resp, err := http.Get("https://api.github.com/repos/syncthing/syncthing/releases?per_page=30")
+	resp, err := insecureHTTP.Get("https://api.github.com/repos/syncthing/syncthing/releases?per_page=30")
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +159,7 @@ func readRelease(dir, url string) (string, error) {
 	}
 
 	req.Header.Add("Accept", "application/octet-stream")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := insecureHTTP.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -166,10 +181,10 @@ func readTarGz(dir string, r io.Reader) (string, error) {
 
 	tr := tar.NewReader(gr)
 
-	var tempName, actualMD5, expectedMD5 string
+	var tempName string
+	var sig []byte
 
 	// Iterate through the files in the archive.
-fileLoop:
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -186,50 +201,21 @@ fileLoop:
 			l.Debugf("considering file %q", shortName)
 		}
 
-		switch shortName {
-		case "syncthing":
-			if debug {
-				l.Debugln("writing and hashing binary")
-			}
-			tempName, actualMD5, err = writeBinary(dir, tr)
-			if err != nil {
-				return "", err
-			}
+		err = archiveFileVisitor(dir, &tempName, &sig, shortName, tr)
+		if err != nil {
+			return "", err
+		}
 
-			if expectedMD5 != "" {
-				// We're done
-				break fileLoop
-			}
-
-		case "syncthing.md5":
-			bs, err := ioutil.ReadAll(tr)
-			if err != nil {
-				return "", err
-			}
-
-			expectedMD5 = strings.TrimSpace(string(bs))
-			if debug {
-				l.Debugln("expected md5 is", actualMD5)
-			}
-
-			if actualMD5 != "" {
-				// We're done
-				break fileLoop
-			}
+		if tempName != "" && sig != nil {
+			break
 		}
 	}
 
-	if tempName != "" {
-		// We found and saved something to disk.
-		if expectedMD5 == "" || actualMD5 == expectedMD5 {
-			return tempName, nil
-		}
-		os.Remove(tempName)
-		// There was an md5 file included in the archive, and it doesn't
-		// match what we just wrote to disk.
-		return "", fmt.Errorf("incorrect MD5 checksum")
+	if err := verifyUpgrade(tempName, sig); err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("no upgrade found")
+
+	return tempName, nil
 }
 
 func readZip(dir string, r io.Reader) (string, error) {
@@ -243,10 +229,10 @@ func readZip(dir string, r io.Reader) (string, error) {
 		return "", err
 	}
 
-	var tempName, actualMD5, expectedMD5 string
+	var tempName string
+	var sig []byte
 
 	// Iterate through the files in the archive.
-fileLoop:
 	for _, file := range archive.File {
 		shortName := path.Base(file.Name)
 
@@ -254,94 +240,108 @@ fileLoop:
 			l.Debugf("considering file %q", shortName)
 		}
 
-		switch shortName {
-		case "syncthing.exe":
-			if debug {
-				l.Debugln("writing and hashing binary")
-			}
+		inFile, err := file.Open()
+		if err != nil {
+			return "", err
+		}
 
-			inFile, err := file.Open()
-			if err != nil {
-				return "", err
-			}
-			tempName, actualMD5, err = writeBinary(dir, inFile)
-			if err != nil {
-				return "", err
-			}
+		err = archiveFileVisitor(dir, &tempName, &sig, shortName, inFile)
+		inFile.Close()
+		if err != nil {
+			return "", err
+		}
 
-			if expectedMD5 != "" {
-				// We're done
-				break fileLoop
-			}
-
-		case "syncthing.exe.md5":
-			inFile, err := file.Open()
-			if err != nil {
-				return "", err
-			}
-			bs, err := ioutil.ReadAll(inFile)
-			if err != nil {
-				return "", err
-			}
-
-			expectedMD5 = strings.TrimSpace(string(bs))
-			if debug {
-				l.Debugln("expected md5 is", actualMD5)
-			}
-
-			if actualMD5 != "" {
-				// We're done
-				break fileLoop
-			}
+		if tempName != "" && sig != nil {
+			break
 		}
 	}
 
-	if tempName != "" {
-		// We found and saved something to disk.
-		if expectedMD5 == "" || actualMD5 == expectedMD5 {
-			return tempName, nil
-		}
-		os.Remove(tempName)
-		// There was an md5 file included in the archive, and it doesn't
-		// match what we just wrote to disk.
-		return "", fmt.Errorf("incorrect MD5 checksum")
+	if err := verifyUpgrade(tempName, sig); err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("No upgrade found")
+
+	return tempName, nil
 }
 
-func writeBinary(dir string, inFile io.Reader) (filename, md5sum string, err error) {
-	outFile, err := ioutil.TempFile(dir, "syncthing")
-	if err != nil {
-		return "", "", err
+// archiveFileVisitor is called for each file in an archive. It may set
+// tempFile and signature.
+func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, filename string, filedata io.Reader) error {
+	var err error
+	switch filename {
+	case "syncthing", "syncthing.exe":
+		if debug {
+			l.Debugln("reading binary")
+		}
+		*tempFile, err = writeBinary(dir, filedata)
+		if err != nil {
+			return err
+		}
+
+	case "syncthing.sig", "syncthing.exe.sig":
+		if debug {
+			l.Debugln("reading signature")
+		}
+		*signature, err = ioutil.ReadAll(filedata)
+		if err != nil {
+			return err
+		}
 	}
 
-	// Write the binary both a temporary file and to the MD5 hasher.
+	return nil
+}
 
-	h := md5.New()
-	mw := io.MultiWriter(h, outFile)
+func verifyUpgrade(tempName string, sig []byte) error {
+	if tempName == "" {
+		return fmt.Errorf("no upgrade found")
+	}
+	if sig == nil {
+		return fmt.Errorf("no signature found")
+	}
 
-	_, err = io.Copy(mw, inFile)
+	if debug {
+		l.Debugf("checking signature\n%s", sig)
+	}
+
+	fd, err := os.Open(tempName)
+	if err != nil {
+		return err
+	}
+	err = signature.Verify(SigningKey, sig, fd)
+	fd.Close()
+
+	if err != nil {
+		os.Remove(tempName)
+		return err
+	}
+
+	return nil
+}
+
+func writeBinary(dir string, inFile io.Reader) (filename string, err error) {
+	// Write the binary to a temporary file.
+
+	outFile, err := ioutil.TempFile(dir, "syncthing")
+	if err != nil {
+		return "", err
+	}
+
+	_, err = io.Copy(outFile, inFile)
 	if err != nil {
 		os.Remove(outFile.Name())
-		return "", "", err
+		return "", err
 	}
 
 	err = outFile.Close()
 	if err != nil {
 		os.Remove(outFile.Name())
-		return "", "", err
+		return "", err
 	}
 
 	err = os.Chmod(outFile.Name(), os.FileMode(0755))
 	if err != nil {
 		os.Remove(outFile.Name())
-		return "", "", err
+		return "", err
 	}
 
-	actualMD5 := fmt.Sprintf("%x", h.Sum(nil))
-	if debug {
-		l.Debugln("actual md5 is", actualMD5)
-	}
-
-	return outFile.Name(), actualMD5, nil
+	return outFile.Name(), nil
 }

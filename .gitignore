@@ -1,4 +1,6 @@
-./syncthing
+syncthing
+!gui/syncthing
+!Godeps/_workspace/src/github.com/syncthing
 syncthing.exe
 *.tar.gz
 *.zip
@@ -9,8 +11,7 @@ files/pidx
 bin
 perfstats*.csv
 coverage.xml
-!gui/scripts/syncthing
-syncthing.md5
-syncthing.exe.md5
+syncthing.sig
+syncthing.exe.sig
 RELEASE
 deb
