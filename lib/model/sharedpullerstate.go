@@ -103,7 +103,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	// Attempt to create the temp file
 	flags := os.O_WRONLY
 	if s.reused == 0 {
-		flags |= os.O_CREATE | os.O_EXCL
+		flags |= os.O_CREATE
 	} else {
 		// With sufficiently bad luck when exiting or crashing, we may have
 		// had time to chmod the temp file to read only state but not yet
