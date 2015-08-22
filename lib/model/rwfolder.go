@@ -1015,7 +1015,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 			// Otherwise, discard the file ourselves in order for the
 			// sharedpuller not to panic when it fails to exclusively create a
 			// file which already exists
-			os.Remove(tempName)
+			osutil.InWritableDir(osutil.Remove, tempName)
 		}
 	} else {
 		blocks = file.Blocks
