@@ -290,7 +290,7 @@ func (s *connectionSvc) connect() {
 				}
 
 				s.conns <- model.IntermediateConnection{
-					conn, model.ConnectionTypeBasicDial,
+					conn, model.ConnectionTypeDirectDial,
 				}
 				continue nextDevice
 			}

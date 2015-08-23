@@ -25,8 +25,8 @@ type Connection struct {
 }
 
 const (
-	ConnectionTypeBasicAccept ConnectionType = iota
-	ConnectionTypeBasicDial
+	ConnectionTypeDirectAccept ConnectionType = iota
+	ConnectionTypeDirectDial
 	ConnectionTypeRelayAccept
 	ConnectionTypeRelayDial
 )
@@ -35,10 +35,10 @@ type ConnectionType int
 
 func (t ConnectionType) String() string {
 	switch t {
-	case ConnectionTypeBasicAccept:
-		return "basic-accept"
-	case ConnectionTypeBasicDial:
-		return "basic-dial"
+	case ConnectionTypeDirectAccept:
+		return "direct-accept"
+	case ConnectionTypeDirectDial:
+		return "direct-dial"
 	case ConnectionTypeRelayAccept:
 		return "relay-accept"
 	case ConnectionTypeRelayDial:
@@ -48,5 +48,5 @@ func (t ConnectionType) String() string {
 }
 
 func (t ConnectionType) IsDirect() bool {
-	return t == ConnectionTypeBasicAccept || t == ConnectionTypeBasicDial
+	return t == ConnectionTypeDirectAccept || t == ConnectionTypeDirectDial
 }
