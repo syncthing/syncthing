@@ -54,9 +54,10 @@ func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config, conns chan<- model.Intermed
 		tlsCfg:      tlsCfg,
 		conns:       conns,
 		invitations: svc.invitations,
+		stop:        make(chan struct{}),
 	}
 
-	svc.receiverToken = svc.Add(receiver)
+	svc.Add(receiver)
 
 	return svc
 }
@@ -66,11 +67,10 @@ type Svc struct {
 	cfg    *config.Wrapper
 	tlsCfg *tls.Config
 
-	receiverToken suture.ServiceToken
-	tokens        map[string]suture.ServiceToken
-	clients       map[string]*client.ProtocolClient
-	mut           sync.RWMutex
-	invitations   chan protocol.SessionInvitation
+	tokens      map[string]suture.ServiceToken
+	clients     map[string]*client.ProtocolClient
+	mut         sync.RWMutex
+	invitations chan protocol.SessionInvitation
 }
 
 func (s *Svc) VerifyConfiguration(from, to config.Configuration) error {
@@ -123,6 +123,7 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 			}
 			continue
 		}
+
 		for _, relayAnn := range ann.Relays {
 			ruri, err := url.Parse(relayAnn.URL)
 			if err != nil {
@@ -138,6 +139,8 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
+	s.mut.Lock()
+
 	for key, uri := range existing {
 		_, ok := s.tokens[key]
 		if !ok {
@@ -146,9 +149,7 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 			}
 			c := client.NewProtocolClient(uri, s.tlsCfg.Certificates, s.invitations)
 			s.tokens[key] = s.Add(c)
-			s.mut.Lock()
 			s.clients[key] = c
-			s.mut.Unlock()
 		}
 	}
 
@@ -157,14 +158,14 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 		if !ok {
 			err := s.Remove(token)
 			delete(s.tokens, key)
-			s.mut.Lock()
 			delete(s.clients, key)
-			s.mut.Unlock()
 			if debug {
 				l.Debugln("Disconnecting from relay", key, err)
 			}
 		}
 	}
+
+	s.mut.Unlock()
 
 	return true
 }
@@ -187,11 +188,6 @@ type invitationReceiver struct {
 }
 
 func (r *invitationReceiver) Serve() {
-	if r.stop != nil {
-		return
-	}
-	r.stop = make(chan struct{})
-
 	for {
 		select {
 		case inv := <-r.invitations:
@@ -227,6 +223,7 @@ func (r *invitationReceiver) Serve() {
 			r.conns <- model.IntermediateConnection{
 				tc, model.ConnectionTypeRelayAccept,
 			}
+
 		case <-r.stop:
 			return
 		}
@@ -234,17 +231,13 @@ func (r *invitationReceiver) Serve() {
 }
 
 func (r *invitationReceiver) Stop() {
-	if r.stop == nil {
-		return
-	}
-	r.stop <- struct{}{}
-	r.stop = nil
+	close(r.stop)
 }
 
+// This is the announcement recieved from the relay server;
+// {"relays": [{"url": "relay://10.20.30.40:5060"}, ...]}
 type dynamicAnnouncement struct {
-	Relays []relayAnnouncement `json:"relays"`
-}
-
-type relayAnnouncement struct {
-	URL string `json:"url"`
+	Relays []struct {
+		URL string
+	}
 }
