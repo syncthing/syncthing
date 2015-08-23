@@ -23,7 +23,7 @@
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
         <localAnnouncePort>21025</localAnnouncePort>
-        <localAnnounceMCAddr>[ff32::5222]:21026</localAnnounceMCAddr>
+        <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
         <relayServer>dynamic+https://relays.syncthing.net</relayServer>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
