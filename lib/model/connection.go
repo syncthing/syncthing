@@ -14,8 +14,8 @@ import (
 )
 
 type IntermediateConnection struct {
-	Conn     *tls.Conn
-	ConnType ConnectionType
+	*tls.Conn
+	Type ConnectionType
 }
 
 type Connection struct {
