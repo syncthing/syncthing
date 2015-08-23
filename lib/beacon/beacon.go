@@ -18,7 +18,11 @@ type Interface interface {
 	Recv() ([]byte, net.Addr)
 }
 
-func genericReader(conn *net.UDPConn, outbox chan<- recv) {
+type readerFrom interface {
+	ReadFrom([]byte) (int, net.Addr, error)
+}
+
+func genericReader(conn readerFrom, outbox chan<- recv) {
 	bs := make([]byte, 65536)
 	for {
 		n, addr, err := conn.ReadFrom(bs)

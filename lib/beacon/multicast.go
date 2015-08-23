@@ -6,38 +6,65 @@
 
 package beacon
 
-import "net"
+import (
+	"errors"
+	"fmt"
+	"net"
+
+	"golang.org/x/net/ipv6"
+)
 
 type Multicast struct {
-	conn   *net.UDPConn
+	conn   *ipv6.PacketConn
 	addr   *net.UDPAddr
-	intf   *net.Interface
 	inbox  chan []byte
 	outbox chan recv
+	intfs  []net.Interface
 }
 
-func NewMulticast(addr, ifname string) (*Multicast, error) {
+func NewMulticast(addr string) (*Multicast, error) {
 	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		return nil, err
 	}
-	intf, err := net.InterfaceByName(ifname)
+
+	conn, err := net.ListenPacket("udp6", fmt.Sprintf("[::]:%d", gaddr.Port))
 	if err != nil {
 		return nil, err
-	}
-	conn, err := net.ListenMulticastUDP("udp6", intf, gaddr)
-	if err != nil {
-		return nil, err
-	}
-	b := &Multicast{
-		conn:   conn,
-		addr:   gaddr,
-		intf:   intf,
-		inbox:  make(chan []byte),
-		outbox: make(chan recv, 16),
 	}
 
-	go genericReader(b.conn, b.outbox)
+	intfs, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	p := ipv6.NewPacketConn(conn)
+	joined := 0
+	for _, intf := range intfs {
+		err := p.JoinGroup(&intf, &net.UDPAddr{IP: gaddr.IP})
+		if debug {
+			if err != nil {
+				l.Debugln("IPv6 join", intf.Name, "failed:", err)
+			} else {
+				l.Debugln("IPv6 join", intf.Name, "success")
+			}
+		}
+		joined++
+	}
+
+	if joined == 0 {
+		return nil, errors.New("no multicast interfaces available")
+	}
+
+	b := &Multicast{
+		conn:   p,
+		addr:   gaddr,
+		inbox:  make(chan []byte),
+		outbox: make(chan recv, 16),
+		intfs:  intfs,
+	}
+
+	go genericReader(ipv6ReaderAdapter{b.conn}, b.outbox)
 	go b.writer()
 
 	return b, nil
@@ -53,14 +80,30 @@ func (b *Multicast) Recv() ([]byte, net.Addr) {
 }
 
 func (b *Multicast) writer() {
-	addr := *b.addr
-	addr.Zone = b.intf.Name
+	wcm := &ipv6.ControlMessage{
+		HopLimit: 1,
+	}
+
 	for bs := range b.inbox {
-		_, err := b.conn.WriteTo(bs, &addr)
-		if err != nil && debug {
-			l.Debugln(err, "on write to", addr)
-		} else if debug {
-			l.Debugf("sent %d bytes to %s", len(bs), addr.String())
+		for _, intf := range b.intfs {
+			wcm.IfIndex = intf.Index
+			_, err := b.conn.WriteTo(bs, wcm, b.addr)
+			if err != nil && debug {
+				l.Debugln(err, "on write to", b.addr)
+			} else if debug {
+				l.Debugf("sent %d bytes to %v on %s", len(bs), b.addr, intf.Name)
+			}
 		}
 	}
+}
+
+// This makes ReadFrom on an *ipv6.PacketConn behave like ReadFrom on a
+// net.PacketConn.
+type ipv6ReaderAdapter struct {
+	c *ipv6.PacketConn
+}
+
+func (i ipv6ReaderAdapter) ReadFrom(bs []byte) (int, net.Addr, error) {
+	n, _, src, err := i.c.ReadFrom(bs)
+	return n, src, err
 }

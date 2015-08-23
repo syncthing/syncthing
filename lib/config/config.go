@@ -218,7 +218,7 @@ type OptionsConfiguration struct {
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21025"`
-	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff32::5222]:21026"`
+	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
 	RelayServers            []string `xml:"relayServer" json:"relayServers" default:"dynamic+https://relays.syncthing.net"`
 	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
 	MaxRecvKbps             int      `xml:"maxRecvKbps" json:"maxRecvKbps"`
@@ -502,6 +502,11 @@ func convertV11V12(cfg *Configuration) {
 		} else if addr == "udp6://[2001:470:28:4d6::5]:22026" {
 			cfg.Options.GlobalAnnServers[i] = "udp6://[2001:470:28:4d6::5]:22027"
 		}
+	}
+
+	// Use new multicast group
+	if cfg.Options.LocalAnnMCAddr == "[ff32::5222]:21026" {
+		cfg.Options.LocalAnnMCAddr = "[ff12::8384]:21027"
 	}
 
 	cfg.Version = 12

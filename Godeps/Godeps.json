@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/syncthing/syncthing",
-	"GoVersion": "go1.5rc1",
+	"GoVersion": "go1.5",
 	"Packages": [
 		"./cmd/..."
 	],
@@ -76,6 +76,14 @@
 		{
 			"ImportPath": "golang.org/x/crypto/blowfish",
 			"Rev": "c16968172724c0b5e8bdc6ad33f5a79443a44cd7"
+		},
+		{
+			"ImportPath": "golang.org/x/net/internal/iana",
+			"Rev": "66f0418ca41253f8d1a024eb9754e9441a8e79b9"
+		},
+		{
+			"ImportPath": "golang.org/x/net/ipv6",
+			"Rev": "66f0418ca41253f8d1a024eb9754e9441a8e79b9"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",
