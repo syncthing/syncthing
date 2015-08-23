@@ -201,6 +201,7 @@ var (
 	logFile           string
 	auditEnabled      bool
 	verbose           bool
+	paused            bool
 	noRestart         = os.Getenv("STNORESTART") != ""
 	noUpgrade         = os.Getenv("STNOUPGRADE") != ""
 	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
@@ -239,6 +240,7 @@ func main() {
 	flag.StringVar(&upgradeTo, "upgrade-to", upgradeTo, "Force upgrade directly from specified URL")
 	flag.BoolVar(&auditEnabled, "audit", false, "Write events to audit file")
 	flag.BoolVar(&verbose, "verbose", false, "Print verbose log output")
+	flag.BoolVar(&paused, "paused", false, "Start with all devices paused")
 
 	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, baseDirs["config"]))
 	flag.Parse()
@@ -631,6 +633,12 @@ func syncthingMain() {
 		}
 	} else if !IsRelease || IsBeta {
 		m.StartDeadlockDetector(20 * time.Minute)
+	}
+
+	if paused {
+		for device := range cfg.Devices() {
+			m.PauseDevice(device)
+		}
 	}
 
 	// Clear out old indexes for other devices. Otherwise we'll start up and
