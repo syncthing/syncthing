@@ -165,7 +165,7 @@ angular.module('syncthing.core')
         });
 
         $scope.$on(Events.DEVICE_DISCONNECTED, function (event, arg) {
-            delete $scope.connections[arg.data.id];
+            $scope.connections[arg.data.id].connected = false;
             refreshDeviceStats();
         });
 
@@ -207,6 +207,14 @@ angular.module('syncthing.core')
 
         $scope.$on(Events.DEVICE_REJECTED, function (event, arg) {
             $scope.deviceRejections[arg.data.device] = arg;
+        });
+
+        $scope.$on(Events.DEVICE_PAUSED, function (event, arg) {
+            $scope.connections[arg.data.device].paused = true;
+        });
+
+        $scope.$on(Events.DEVICE_RESUMED, function (event, arg) {
+            $scope.connections[arg.data.device].paused = false;
         });
 
         $scope.$on(Events.FOLDER_REJECTED, function (event, arg) {
@@ -625,7 +633,15 @@ angular.module('syncthing.core')
                 return 'unused';
             }
 
-            if ($scope.connections[deviceCfg.deviceID]) {
+            if (typeof $scope.connections[deviceCfg.deviceID] === 'undefined') {
+                return 'unknown';
+            }
+
+            if ($scope.connections[deviceCfg.deviceID].paused) {
+                return 'paused';
+            }
+
+            if ($scope.connections[deviceCfg.deviceID].connected) {
                 if ($scope.completion[deviceCfg.deviceID] && $scope.completion[deviceCfg.deviceID]._total === 100) {
                     return 'insync';
                 } else {
@@ -643,7 +659,15 @@ angular.module('syncthing.core')
                 return 'warning';
             }
 
-            if ($scope.connections[deviceCfg.deviceID]) {
+            if (typeof $scope.connections[deviceCfg.deviceID] === 'undefined') {
+                return 'info';
+            }
+
+            if ($scope.connections[deviceCfg.deviceID].paused) {
+                return 'default';
+            }
+
+            if ($scope.connections[deviceCfg.deviceID].connected) {
                 if ($scope.completion[deviceCfg.deviceID] && $scope.completion[deviceCfg.deviceID]._total === 100) {
                     return 'success';
                 } else {
@@ -657,7 +681,7 @@ angular.module('syncthing.core')
 
         $scope.deviceAddr = function (deviceCfg) {
             var conn = $scope.connections[deviceCfg.deviceID];
-            if (conn) {
+            if (conn && conn.connected) {
                 return conn.address;
             }
             return '?';
@@ -700,6 +724,14 @@ angular.module('syncthing.core')
                 return device.name;
             }
             return device.deviceID.substr(0, 6);
+        };
+
+        $scope.pauseDevice = function (device) {
+            $http.post(urlbase + "/system/pause?device=" + device);
+        };
+
+        $scope.resumeDevice = function (device) {
+            $http.post(urlbase + "/system/resume?device=" + device);
         };
 
         $scope.editSettings = function () {
