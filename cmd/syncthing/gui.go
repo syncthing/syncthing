@@ -169,6 +169,8 @@ func (s *apiSvc) Serve() {
 	postRestMux.HandleFunc("/rest/system/restart", s.postSystemRestart)        // -
 	postRestMux.HandleFunc("/rest/system/shutdown", s.postSystemShutdown)      // -
 	postRestMux.HandleFunc("/rest/system/upgrade", s.postSystemUpgrade)        // -
+	postRestMux.HandleFunc("/rest/system/stop", s.postSystemStopFolder)        // folder
+	postRestMux.HandleFunc("/rest/system/start", s.postSystemStartFolder)      // folder
 
 	// Debug endpoints, not for general use
 	getRestMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
@@ -831,6 +833,18 @@ func (s *apiSvc) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		l.Infoln("Upgrading")
 		stop <- exitUpgrading
 	}
+}
+
+func (s *apiSvc) postSystemStopFolder(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	s.model.StopFolder(folder)
+}
+
+func (s *apiSvc) postSystemStartFolder(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	s.model.StartFolder(folder)
 }
 
 func (s *apiSvc) postDBScan(w http.ResponseWriter, r *http.Request) {

@@ -84,6 +84,7 @@ type Model struct {
 	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
 	folderIgnores  map[string]*ignore.Matcher                             // folder -> matcher object
 	folderRunners  map[string]service                                     // folder -> puller or scanner
+	folderTokens   map[string]suture.ServiceToken                         // folder -> the puller/scanner's service token
 	folderStatRefs map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut           sync.RWMutex                                           // protects the above
 
@@ -128,6 +129,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:      make(map[string]*ignore.Matcher),
 		folderRunners:      make(map[string]service),
+		folderTokens:       make(map[string]suture.ServiceToken),
 		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
 		conn:               make(map[protocol.DeviceID]Connection),
 		deviceVer:          make(map[protocol.DeviceID]string),
@@ -153,10 +155,44 @@ func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 	deadlockDetect(m.pmut, timeout)
 }
 
-// StartFolderRW starts read/write processing on the current model. When in
+func (m *Model) StartFolder(folder string) {
+	m.fmut.Lock()
+	if _, ok := m.folderTokens[folder]; ok {
+		// Already running
+		m.fmut.Unlock()
+		return
+	}
+	cfg := m.folderCfgs[folder]
+	m.fmut.Unlock()
+
+	if cfg.ReadOnly {
+		m.startFolderRO(folder)
+	} else {
+		m.startFolderRW(folder)
+	}
+}
+
+func (m *Model) StopFolder(folder string) {
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
+
+	token, ok := m.folderTokens[folder]
+	if !ok {
+		// Not running, or nonexistent
+		return
+	}
+
+	m.Remove(token)
+	delete(m.folderTokens, folder)
+	delete(m.folderRunners, folder)
+
+	l.Infoln("Paused", folder)
+}
+
+// startFolderRW starts read/write processing on the current model. When in
 // read/write mode the model will attempt to keep in sync with the cluster by
 // pulling needed files from peer devices.
-func (m *Model) StartFolderRW(folder string) {
+func (m *Model) startFolderRW(folder string) {
 	m.fmut.Lock()
 	cfg, ok := m.folderCfgs[folder]
 	if !ok {
@@ -169,7 +205,6 @@ func (m *Model) StartFolderRW(folder string) {
 	}
 	p := newRWFolder(m, m.shortID, cfg)
 	m.folderRunners[folder] = p
-	m.fmut.Unlock()
 
 	if len(cfg.Versioning.Type) > 0 {
 		factory, ok := versioner.Factories[cfg.Versioning.Type]
@@ -187,15 +222,16 @@ func (m *Model) StartFolderRW(folder string) {
 		p.versioner = versioner
 	}
 
-	m.Add(p)
+	m.folderTokens[folder] = m.Add(p)
+	m.fmut.Unlock()
 
 	l.Okln("Ready to synchronize", folder, "(read-write)")
 }
 
-// StartFolderRO starts read only processing on the current model. When in
+// startFolderRO starts read only processing on the current model. When in
 // read only mode the model will announce files to the cluster but not pull in
 // any external changes.
-func (m *Model) StartFolderRO(folder string) {
+func (m *Model) startFolderRO(folder string) {
 	m.fmut.Lock()
 	cfg, ok := m.folderCfgs[folder]
 	if !ok {
@@ -208,9 +244,9 @@ func (m *Model) StartFolderRO(folder string) {
 	}
 	s := newROFolder(m, folder, time.Duration(cfg.RescanIntervalS)*time.Second)
 	m.folderRunners[folder] = s
-	m.fmut.Unlock()
 
-	m.Add(s)
+	m.folderTokens[folder] = m.Add(s)
+	m.fmut.Unlock()
 
 	l.Okln("Ready to synchronize", folder, "(read only; no external updates accepted)")
 }
@@ -711,6 +747,15 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 // Implements the protocol.Model interface.
 func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, flags uint32, options []protocol.Option, buf []byte) error {
 	if offset < 0 {
+		return protocol.ErrNoSuchFile
+	}
+
+	// If there is no runner, the folder is paused. We should not
+	// serve files for it.
+	m.fmut.Lock()
+	_, ok := m.folderRunners[folder]
+	m.fmut.Unlock()
+	if !ok {
 		return protocol.ErrNoSuchFile
 	}
 
@@ -1476,10 +1521,8 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
 	if !ok {
-		// The returned error should be an actual folder error, so returning
-		// errors.New("does not exist") or similar here would be
-		// inappropriate.
-		return "", time.Time{}, nil
+		// Not running means stopped
+		return FolderStopped.String(), time.Time{}, nil
 	}
 	state, changed, err := runner.getState()
 	return state.String(), changed, err
@@ -1754,11 +1797,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 				l.Debugln(m, "adding folder", folderID)
 			}
 			m.AddFolder(cfg)
-			if cfg.ReadOnly {
-				m.StartFolderRO(folderID)
-			} else {
-				m.StartFolderRW(folderID)
-			}
+			m.StartFolder(folderID)
 
 			// Drop connections to all devices that can now share the new
 			// folder.
