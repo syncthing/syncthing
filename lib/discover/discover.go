@@ -102,6 +102,9 @@ func (d *Discoverer) startLocalIPv4Broadcasts(localPort int) {
 func (d *Discoverer) startLocalIPv6Multicasts(localMCAddr string) {
 	mb, err := beacon.NewMulticast(localMCAddr)
 	if err != nil {
+		if debug {
+			l.Debugln("beacon.NewMulticast:", err)
+		}
 		l.Infoln("Local discovery over IPv6 unavailable")
 		return
 	}
