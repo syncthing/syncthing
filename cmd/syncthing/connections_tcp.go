@@ -99,7 +99,7 @@ func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- model.Intermedia
 		}
 
 		conns <- model.IntermediateConnection{
-			tc, model.ConnectionTypeBasicAccept,
+			tc, model.ConnectionTypeDirectAccept,
 		}
 	}
 }

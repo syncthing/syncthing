@@ -285,7 +285,7 @@ func BenchmarkRequest(b *testing.B) {
 	m.AddConnection(Connection{
 		&net.TCPConn{},
 		fc,
-		ConnectionTypeBasicAccept,
+		ConnectionTypeDirectAccept,
 	})
 	m.Index(device1, "default", files, 0, nil)
 
@@ -328,7 +328,7 @@ func TestDeviceRename(t *testing.T) {
 	m.AddConnection(Connection{
 		&net.TCPConn{},
 		fc,
-		ConnectionTypeBasicAccept,
+		ConnectionTypeDirectAccept,
 	})
 
 	m.ServeBackground()

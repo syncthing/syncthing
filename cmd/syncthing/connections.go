@@ -143,7 +143,7 @@ next:
 		s.mut.RLock()
 		ct, ok := s.connType[remoteID]
 		s.mut.RUnlock()
-		if ok && !ct.IsDirect() && c.ConnType.IsDirect() {
+		if ok && !ct.IsDirect() && c.Type.IsDirect() {
 			if debugNet {
 				l.Debugln("Switching connections", remoteID)
 			}
@@ -194,7 +194,7 @@ next:
 					rd = &limitedReader{c.Conn, readRateLimit}
 				}
 
-				name := fmt.Sprintf("%s-%s (%s)", c.Conn.LocalAddr(), c.Conn.RemoteAddr(), c.ConnType)
+				name := fmt.Sprintf("%s-%s (%s)", c.Conn.LocalAddr(), c.Conn.RemoteAddr(), c.Type)
 				protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
@@ -205,10 +205,10 @@ next:
 				s.model.AddConnection(model.Connection{
 					c.Conn,
 					protoConn,
-					c.ConnType,
+					c.Type,
 				})
 				s.mut.Lock()
-				s.connType[remoteID] = c.ConnType
+				s.connType[remoteID] = c.Type
 				s.mut.Unlock()
 				continue next
 			}
@@ -219,11 +219,9 @@ next:
 				"device":  remoteID.String(),
 				"address": c.Conn.RemoteAddr().String(),
 			})
-			l.Infof("Connection from %s (%s) with unknown device ID %s", c.Conn.RemoteAddr(), c.ConnType, remoteID)
-		} else {
-			l.Infof("Connection from %s (%s) with ignored device ID %s", c.Conn.RemoteAddr(), c.ConnType, remoteID)
 		}
 
+		l.Infof("Connection from %s (%s) with ignored device ID %s", c.Conn.RemoteAddr(), c.Type, remoteID)
 		c.Conn.Close()
 	}
 }
@@ -290,7 +288,7 @@ func (s *connectionSvc) connect() {
 				}
 
 				s.conns <- model.IntermediateConnection{
-					conn, model.ConnectionTypeBasicDial,
+					conn, model.ConnectionTypeDirectDial,
 				}
 				continue nextDevice
 			}
