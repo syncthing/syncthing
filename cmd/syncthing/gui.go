@@ -169,6 +169,8 @@ func (s *apiSvc) Serve() {
 	postRestMux.HandleFunc("/rest/system/restart", s.postSystemRestart)        // -
 	postRestMux.HandleFunc("/rest/system/shutdown", s.postSystemShutdown)      // -
 	postRestMux.HandleFunc("/rest/system/upgrade", s.postSystemUpgrade)        // -
+	postRestMux.HandleFunc("/rest/system/pause", s.postSystemPause)            // device
+	postRestMux.HandleFunc("/rest/system/resume", s.postSystemResume)          // device
 
 	// Debug endpoints, not for general use
 	getRestMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
@@ -831,6 +833,32 @@ func (s *apiSvc) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		l.Infoln("Upgrading")
 		stop <- exitUpgrading
 	}
+}
+
+func (s *apiSvc) postSystemPause(w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var deviceStr = qs.Get("device")
+
+	device, err := protocol.DeviceIDFromString(deviceStr)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	s.model.PauseDevice(device)
+}
+
+func (s *apiSvc) postSystemResume(w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var deviceStr = qs.Get("device")
+
+	device, err := protocol.DeviceIDFromString(deviceStr)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	s.model.ResumeDevice(device)
 }
 
 func (s *apiSvc) postDBScan(w http.ResponseWriter, r *http.Request) {

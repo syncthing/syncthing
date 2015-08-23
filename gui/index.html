@@ -425,6 +425,7 @@
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.deviceID]._total | number:0}}%)
                   </span>
+                  <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unused"><span class="hidden-xs" translate>Unused</span><span class="visible-xs">&#9724;</span></span>
                 </span>
@@ -434,18 +435,18 @@
               <div class="panel-body">
                 <table class="table table-condensed table-striped">
                   <tbody>
-                    <tr ng-if="connections[deviceCfg.deviceID]">
+                    <tr ng-if="connections[deviceCfg.deviceID].connected">
                       <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Download Rate</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].inbps | binary}}B/s ({{connections[deviceCfg.deviceID].inBytesTotal | binary}}B)</td>
                     </tr>
-                    <tr ng-if="connections[deviceCfg.deviceID]">
+                    <tr ng-if="connections[deviceCfg.deviceID].connected">
                       <th><span class="fa fa-fw fa-cloud-upload"></span>&nbsp;<span translate>Upload Rate</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].outbps | binary}}B/s ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</td>
                     </tr>
                     <tr>
                       <th>
 												<span class="fa fa-fw fa-link"></span>
-                        <span translate ng-if="connections[deviceCfg.deviceID].type.indexOf('basic') == 0" >Address</span>
+                        <span translate ng-if="connections[deviceCfg.deviceID].type.indexOf('direct') == 0" >Address</span>
                         <span translate ng-if="connections[deviceCfg.deviceID].type.indexOf('relay') == 0" >Relayed via</span>
                       </th>
                       <td class="text-right">{{deviceAddr(deviceCfg)}}</td>
@@ -461,11 +462,11 @@
                       <th><span class="fa fa-fw fa-thumbs-o-up"></span>&nbsp;<span translate>Introducer</span></th>
                       <td translate class="text-right">Yes</td>
                     </tr>
-                    <tr ng-if="connections[deviceCfg.deviceID]">
+                    <tr ng-if="connections[deviceCfg.deviceID].version">
                       <th><span class="fa fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].clientVersion}}</td>
                     </tr>
-                    <tr ng-if="!connections[deviceCfg.deviceID]">
+                    <tr ng-if="!connections[deviceCfg.deviceID].connected">
                       <th><span class="fa fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
                       <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
                       <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
@@ -481,6 +482,12 @@
                 <span class="pull-right">
                   <button type="button" class="btn btn-sm btn-default" ng-click="editDevice(deviceCfg)">
                     <span class="fa fa-pencil"></span>&nbsp;<span translate>Edit</span>
+                  </button>
+                  <button ng-if="!connections[deviceCfg.deviceID].paused" type="button" class="btn btn-sm btn-default" ng-click="pauseDevice(deviceCfg.deviceID)">
+                    <span class="fa fa-pause"></span>&nbsp;<span translate>Pause</span>
+                  </button>
+                  <button ng-if="connections[deviceCfg.deviceID].paused" type="button" class="btn btn-sm btn-default" ng-click="resumeDevice(deviceCfg.deviceID)">
+                    <span class="fa fa-play"></span>&nbsp;<span translate>Resume</span>
                   </button>
                 </span>
                 <div class="clearfix"></div>

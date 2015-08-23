@@ -87,9 +87,10 @@ type Model struct {
 	folderStatRefs map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut           sync.RWMutex                                           // protects the above
 
-	conn      map[protocol.DeviceID]Connection
-	deviceVer map[protocol.DeviceID]string
-	pmut      sync.RWMutex // protects conn and deviceVer
+	conn         map[protocol.DeviceID]Connection
+	deviceVer    map[protocol.DeviceID]string
+	devicePaused map[protocol.DeviceID]bool
+	pmut         sync.RWMutex // protects the above
 
 	reqValidationCache map[string]time.Time // folder / file name => time when confirmed to exist
 	rvmut              sync.RWMutex         // protects reqValidationCache
@@ -131,6 +132,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
 		conn:               make(map[protocol.DeviceID]Connection),
 		deviceVer:          make(map[protocol.DeviceID]string),
+		devicePaused:       make(map[protocol.DeviceID]bool),
 		reqValidationCache: make(map[string]time.Time),
 
 		fmut:  sync.NewRWMutex(),
@@ -217,6 +219,8 @@ func (m *Model) StartFolderRO(folder string) {
 
 type ConnectionInfo struct {
 	protocol.Statistics
+	Connected     bool
+	Paused        bool
 	Address       string
 	ClientVersion string
 	Type          ConnectionType
@@ -227,9 +231,11 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 		"at":            info.At,
 		"inBytesTotal":  info.InBytesTotal,
 		"outBytesTotal": info.OutBytesTotal,
+		"connected":     info.Connected,
+		"paused":        info.Paused,
 		"address":       info.Address,
-		"type":          info.Type.String(),
 		"clientVersion": info.ClientVersion,
+		"type":          info.Type.String(),
 	})
 }
 
@@ -242,16 +248,21 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 	m.pmut.RLock()
 	m.fmut.RLock()
 
-	var res = make(map[string]interface{})
-	conns := make(map[string]ConnectionInfo, len(m.conn))
-	for device, conn := range m.conn {
+	res := make(map[string]interface{})
+	devs := m.cfg.Devices()
+	conns := make(map[string]ConnectionInfo, len(devs))
+	for device := range devs {
 		ci := ConnectionInfo{
-			Statistics:    conn.Statistics(),
 			ClientVersion: m.deviceVer[device],
+			Paused:        m.devicePaused[device],
 		}
-		if addr := m.conn[device].RemoteAddr(); addr != nil {
-			ci.Address = addr.String()
+		if conn, ok := m.conn[device]; ok {
 			ci.Type = conn.Type
+			ci.Connected = ok
+			ci.Statistics = conn.Statistics()
+			if addr := conn.RemoteAddr(); addr != nil {
+				ci.Address = addr.String()
+			}
 		}
 
 		conns[device.String()] = ci
@@ -954,6 +965,31 @@ func (m *Model) AddConnection(conn Connection) {
 	m.pmut.Unlock()
 
 	m.deviceWasSeen(deviceID)
+}
+
+func (m *Model) PauseDevice(device protocol.DeviceID) {
+	m.pmut.Lock()
+	m.devicePaused[device] = true
+	_, ok := m.conn[device]
+	m.pmut.Unlock()
+	if ok {
+		m.Close(device, errors.New("device paused"))
+	}
+	events.Default.Log(events.DevicePaused, map[string]string{"device": device.String()})
+}
+
+func (m *Model) ResumeDevice(device protocol.DeviceID) {
+	m.pmut.Lock()
+	m.devicePaused[device] = false
+	m.pmut.Unlock()
+	events.Default.Log(events.DeviceResumed, map[string]string{"device": device.String()})
+}
+
+func (m *Model) IsPaused(device protocol.DeviceID) bool {
+	m.pmut.Lock()
+	paused := m.devicePaused[device]
+	m.pmut.Unlock()
+	return paused
 }
 
 func (m *Model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatisticsReference {

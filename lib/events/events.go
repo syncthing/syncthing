@@ -25,6 +25,8 @@ const (
 	DeviceConnected
 	DeviceDisconnected
 	DeviceRejected
+	DevicePaused
+	DeviceResumed
 	LocalIndexUpdated
 	RemoteIndexUpdated
 	ItemStarted
@@ -78,6 +80,10 @@ func (t EventType) String() string {
 		return "FolderCompletion"
 	case FolderErrors:
 		return "FolderErrors"
+	case DevicePaused:
+		return "DevicePaused"
+	case DeviceResumed:
+		return "DeviceResumed"
 	default:
 		return "Unknown"
 	}

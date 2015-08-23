@@ -123,6 +123,15 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 		delete(sum, "ignorePatterns")
 		delete(sum, "stateChanged")
 		return fmt.Sprintf("Summary for folder %q is %v", data["folder"], data["summary"])
+
+	case events.DevicePaused:
+		data := ev.Data.(map[string]string)
+		device := data["device"]
+		return fmt.Sprintf("Device %v was paused", device)
+	case events.DeviceResumed:
+		data := ev.Data.(map[string]string)
+		device := data["device"]
+		return fmt.Sprintf("Device %v was resumed", device)
 	}
 
 	return fmt.Sprintf("%s %#v", ev.Type, ev)

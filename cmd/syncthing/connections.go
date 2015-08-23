@@ -158,6 +158,10 @@ next:
 			l.Infof("Connected to already connected device (%s)", remoteID)
 			c.Conn.Close()
 			continue
+		} else if s.model.IsPaused(remoteID) {
+			l.Infof("Connection from paused device (%s)", remoteID)
+			c.Conn.Close()
+			continue
 		}
 
 		for deviceID, deviceCfg := range s.cfg.Devices() {
@@ -232,6 +236,10 @@ func (s *connectionSvc) connect() {
 	nextDevice:
 		for deviceID, deviceCfg := range s.cfg.Devices() {
 			if deviceID == myID {
+				continue
+			}
+
+			if s.model.IsPaused(deviceID) {
 				continue
 			}
 
