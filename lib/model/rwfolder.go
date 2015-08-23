@@ -165,8 +165,7 @@ func (p *rwFolder) Serve() {
 	defer func() {
 		p.pullTimer.Stop()
 		p.scanTimer.Stop()
-		// TODO: Should there be an actual FolderStopped state?
-		p.setState(FolderIdle)
+		p.setState(FolderStopped)
 	}()
 
 	var prevVer int64

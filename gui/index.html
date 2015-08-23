@@ -200,7 +200,10 @@
                 <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="stopped">
+                    <span ng-if="model[folder.id].invalid || model[folder.id].error" class="hidden-xs" translate>Stopped</span><span class="visible-xs">&#9724;</span>
+                    <span ng-if="!(model[folder.id].invalid || model[folder.id].error)" class="hidden-xs" translate>Paused</span><span class="visible-xs">&#9724;</span>
+                  </span>
                   <span ng-switch-when="scanning"><span class="hidden-xs" translate>Scanning</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
@@ -312,7 +315,13 @@
                   <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                 </button>
                 <span class="pull-right">
-                  <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-show="['idle', 'stopped', 'unshared'].indexOf(folderStatus(folder)) > -1">
+                  <button type="button" class="btn btn-sm btn-default" ng-click="stopFolder(folder.id)" ng-if="folderStatus(folder) == 'idle'">
+                    <span class="fa fa-pause"></span>&nbsp;<span translate>Pause</span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-default" ng-click="startFolder(folder.id)" ng-if="folderStatus(folder) == 'stopped'">
+                    <span class="fa fa-play"></span>&nbsp;<span translate>Start</span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-if="['idle', 'unshared'].indexOf(folderStatus(folder)) > -1">
                     <span class="fa fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="editFolder(folder)">

@@ -587,8 +587,15 @@ angular.module('syncthing.core')
         };
 
         $scope.folderClass = function (folderCfg) {
-            var status = $scope.folderStatus(folderCfg);
+            if (typeof $scope.model[folderCfg.id] === 'undefined') {
+                return 'info';
+            }
 
+            if ($scope.model[folderCfg.id].invalid || $scope.model[folderCfg.id].error) {
+                return 'danger';
+            }
+
+            var status = $scope.folderStatus(folderCfg);
             if (status == 'idle') {
                 return 'success';
             }
@@ -601,7 +608,10 @@ angular.module('syncthing.core')
             if (status === 'unshared') {
                 return 'warning';
             }
-            if (status === 'stopped' || status === 'outofsync' || status === 'error') {
+            if (status === 'stopped') {
+                return 'default';
+            }
+            if (status === 'outofsync' || status === 'error') {
                 return 'danger';
             }
 
@@ -1342,6 +1352,14 @@ angular.module('syncthing.core')
 
         $scope.rescanFolder = function (folder) {
             $http.post(urlbase + "/db/scan?folder=" + encodeURIComponent(folder));
+        };
+
+        $scope.stopFolder = function (folder) {
+            $http.post(urlbase + "/system/stop?folder=" + encodeURIComponent(folder));
+        };
+
+        $scope.startFolder = function (folder) {
+            $http.post(urlbase + "/system/start?folder=" + encodeURIComponent(folder));
         };
 
         $scope.bumpFile = function (folder, file) {
