@@ -201,6 +201,7 @@ func (p *BufferPool) String() string {
 
 func (p *BufferPool) drain() {
 	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:

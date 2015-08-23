@@ -7,7 +7,7 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/bkaradzic/go-lz4",
-			"Rev": "d47913b1412890a261b9fefae99d72d2bf5aebd8"
+			"Rev": "74ddf82598bc4745b965729e9c6a463bedd33049"
 		},
 		{
 			"ImportPath": "github.com/calmh/du",
@@ -43,15 +43,15 @@
 		},
 		{
 			"ImportPath": "github.com/syncthing/relaysrv/client",
-			"Rev": "7c6a31017968e7c1a69148db1ca3dea71eba8236"
+			"Rev": "7fe1fdd8c751df165ea825bc8d3e895f118bb236"
 		},
 		{
 			"ImportPath": "github.com/syncthing/relaysrv/protocol",
-			"Rev": "7c6a31017968e7c1a69148db1ca3dea71eba8236"
+			"Rev": "7fe1fdd8c751df165ea825bc8d3e895f118bb236"
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "b743d92d3215f11c9b5ce8830fafe1f16786adf4"
+			"Rev": "1a9d62f03ea92815b46fcaab357cfd4df264b1a0"
 		},
 		{
 			"ImportPath": "github.com/thejerf/suture",
@@ -71,11 +71,11 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/bcrypt",
-			"Rev": "c16968172724c0b5e8bdc6ad33f5a79443a44cd7"
+			"Rev": "81bf7719a6b7ce9b665598222362b50122dfc13b"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/blowfish",
-			"Rev": "c16968172724c0b5e8bdc6ad33f5a79443a44cd7"
+			"Rev": "81bf7719a6b7ce9b665598222362b50122dfc13b"
 		},
 		{
 			"ImportPath": "golang.org/x/net/internal/iana",
