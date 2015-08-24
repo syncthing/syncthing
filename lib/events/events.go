@@ -188,12 +188,19 @@ func (s *Subscription) Poll(timeout time.Duration) (Event, error) {
 		dl.Debugln("poll", timeout)
 	}
 
-	s.timeout.Reset(timeout)
+	if !s.timeout.Reset(timeout) {
+		select {
+		case <-s.timeout.C:
+		default:
+		}
+	}
+
 	select {
 	case e, ok := <-s.events:
 		if !ok {
 			return e, ErrClosed
 		}
+		s.timeout.Stop()
 		return e, nil
 	case <-s.timeout.C:
 		return Event{}, ErrTimeout

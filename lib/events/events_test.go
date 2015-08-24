@@ -14,7 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 )
 
-const timeout = 500 * time.Millisecond
+const timeout = 100 * time.Millisecond
 
 func TestNewLogger(t *testing.T) {
 	l := events.NewLogger()
@@ -26,6 +26,7 @@ func TestNewLogger(t *testing.T) {
 func TestSubscriber(t *testing.T) {
 	l := events.NewLogger()
 	s := l.Subscribe(0)
+	defer l.Unsubscribe(s)
 	if s == nil {
 		t.Fatal("Unexpected nil Subscription")
 	}
@@ -34,6 +35,7 @@ func TestSubscriber(t *testing.T) {
 func TestTimeout(t *testing.T) {
 	l := events.NewLogger()
 	s := l.Subscribe(0)
+	defer l.Unsubscribe(s)
 	_, err := s.Poll(timeout)
 	if err != events.ErrTimeout {
 		t.Fatal("Unexpected non-Timeout error:", err)
@@ -45,6 +47,7 @@ func TestEventBeforeSubscribe(t *testing.T) {
 
 	l.Log(events.DeviceConnected, "foo")
 	s := l.Subscribe(0)
+	defer l.Unsubscribe(s)
 
 	_, err := s.Poll(timeout)
 	if err != events.ErrTimeout {
@@ -56,6 +59,7 @@ func TestEventAfterSubscribe(t *testing.T) {
 	l := events.NewLogger()
 
 	s := l.Subscribe(events.AllEvents)
+	defer l.Unsubscribe(s)
 	l.Log(events.DeviceConnected, "foo")
 
 	ev, err := s.Poll(timeout)
@@ -80,6 +84,7 @@ func TestEventAfterSubscribeIgnoreMask(t *testing.T) {
 	l := events.NewLogger()
 
 	s := l.Subscribe(events.DeviceDisconnected)
+	defer l.Unsubscribe(s)
 	l.Log(events.DeviceConnected, "foo")
 
 	_, err := s.Poll(timeout)
@@ -91,7 +96,8 @@ func TestEventAfterSubscribeIgnoreMask(t *testing.T) {
 func TestBufferOverflow(t *testing.T) {
 	l := events.NewLogger()
 
-	_ = l.Subscribe(events.AllEvents)
+	s := l.Subscribe(events.AllEvents)
+	defer l.Unsubscribe(s)
 
 	t0 := time.Now()
 	for i := 0; i < events.BufferSize*2; i++ {
@@ -126,6 +132,7 @@ func TestIDs(t *testing.T) {
 	l := events.NewLogger()
 
 	s := l.Subscribe(events.AllEvents)
+	defer l.Unsubscribe(s)
 	l.Log(events.DeviceConnected, "foo")
 	l.Log(events.DeviceConnected, "bar")
 
@@ -154,6 +161,7 @@ func TestBufferedSub(t *testing.T) {
 	l := events.NewLogger()
 
 	s := l.Subscribe(events.AllEvents)
+	defer l.Unsubscribe(s)
 	bs := events.NewBufferedSubscription(s, 10*events.BufferSize)
 
 	go func() {
