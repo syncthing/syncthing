@@ -39,7 +39,6 @@ import (
 	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/thejerf/suture"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -1131,20 +1130,4 @@ func checkShortIDs(cfg *config.Wrapper) error {
 		exists[shortID] = deviceID
 	}
 	return nil
-}
-
-// A "better" version of leveldb's errors.IsCorrupted.
-func leveldbIsCorrupted(err error) bool {
-	switch {
-	case err == nil:
-		return false
-
-	case errors.IsCorrupted(err):
-		return true
-
-	case strings.Contains(err.Error(), "corrupted"):
-		return true
-	}
-
-	return false
 }
