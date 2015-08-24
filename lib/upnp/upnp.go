@@ -111,6 +111,20 @@ func Discover(timeout time.Duration) []IGD {
 			continue
 		}
 
+		// HAX
+		// TODO: Fix me https://github.com/golang/go/issues/12301
+		if runtime.GOOS == "windows" {
+			for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
+				wg.Add(1)
+				go func(deviceType string) {
+					discover(nil, deviceType, timeout, resultChan)
+					wg.Done()
+				}(deviceType)
+			}
+			break
+		}
+		// END OF HAX
+
 		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
 			wg.Add(1)
 			go func(intf net.Interface, deviceType string) {
