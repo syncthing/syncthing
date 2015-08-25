@@ -24,7 +24,6 @@ var urlbase = 'rest';
 
 syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
     $httpProvider.interceptors.push(function xHeadersResponseInterceptor() {
-        var guiVersion = null;
         var deviceId = null;
 
         return {
@@ -36,14 +35,6 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
                 // angular template cache sends no headers
                 if(Object.keys(headers).length === 0) {
                     return response;
-                }
-
-                responseVersion = headers['x-syncthing-version'];
-
-                if (!guiVersion) {
-                    guiVersion = responseVersion;
-                } else if (guiVersion != responseVersion) {
-                    document.location.reload(true);
                 }
 
                 if (!deviceId) {
