@@ -89,6 +89,12 @@ angular.module('syncthing.core')
             refreshFolderStats();
 
             $http.get(urlbase + '/system/version').success(function (data) {
+                if ($scope.version.version && $scope.version.version != data.version) {
+                    // We already have a version response, but it differs from
+                    // the new one. Reload the full GUI in case it's changed.
+                    document.location.reload(true);
+                }
+
                 $scope.version = data;
             }).error($scope.emitHTTPError);
 
