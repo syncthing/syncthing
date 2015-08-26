@@ -1297,18 +1297,20 @@ nextSub:
 	subs = unifySubs
 
 	w := &scanner.Walker{
-		Dir:           folderCfg.Path(),
-		Subs:          subs,
-		Matcher:       ignores,
-		BlockSize:     protocol.BlockSize,
-		TempNamer:     defTempNamer,
-		TempLifetime:  time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:  cFiler{m, folder},
-		MtimeRepo:     db.NewVirtualMtimeRepo(m.db, folderCfg.ID),
-		IgnorePerms:   folderCfg.IgnorePerms,
-		AutoNormalize: folderCfg.AutoNormalize,
-		Hashers:       m.numHashers(folder),
-		ShortID:       m.shortID,
+		Folder:                folderCfg.ID,
+		Dir:                   folderCfg.Path(),
+		Subs:                  subs,
+		Matcher:               ignores,
+		BlockSize:             protocol.BlockSize,
+		TempNamer:             defTempNamer,
+		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
+		CurrentFiler:          cFiler{m, folder},
+		MtimeRepo:             db.NewVirtualMtimeRepo(m.db, folderCfg.ID),
+		IgnorePerms:           folderCfg.IgnorePerms,
+		AutoNormalize:         folderCfg.AutoNormalize,
+		Hashers:               m.numHashers(folder),
+		ShortID:               m.shortID,
+		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 	}
 
 	runner.setState(FolderScanning)

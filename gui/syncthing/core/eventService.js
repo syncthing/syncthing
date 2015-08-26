@@ -78,6 +78,7 @@ angular.module('syncthing.core')
             STARTUP_COMPLETED:    'StartupCompleted',   // Emitted exactly once, when initialization is complete and Syncthing is ready to start exchanging data with other devices
             STATE_CHANGED:        'StateChanged',   // Emitted when a folder changes state
             FOLDER_ERRORS:        'FolderErrors',   // Emitted when a folder has errors preventing a full sync
+            FOLDER_SCAN_PROGRESS: 'FolderScanProgress',   // Emitted every ScanProgressIntervalS seconds, indicating how far into the scan it is at.
 
             start: function() {
                 $http.get(urlbase + '/events?limit=1')

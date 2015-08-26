@@ -195,13 +195,20 @@
           <div class="panel panel-default" ng-repeat="folder in folderList()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
+              <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h3 class="panel-title">
                 <span class="fa fa-folder hidden-xs"></span>{{folder.id}}
                 <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="scanning"><span class="hidden-xs" translate>Scanning</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="scanning">
+                    <span class="hidden-xs" translate>Scanning</span>
+                    <span class="hidden-xs" ng-if="scanPercentage(folder.id) != undefined">
+                        ({{scanPercentage(folder.id)}}%)
+                    </span>
+                    <span class="visible-xs">&#9724;</span>
+                  </span>
                   <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span>
@@ -445,7 +452,7 @@
                     </tr>
                     <tr>
                       <th>
-												<span class="fa fa-fw fa-link"></span>
+                        <span class="fa fa-fw fa-link"></span>
                         <span translate ng-if="connections[deviceCfg.deviceID].type.indexOf('direct') == 0" >Address</span>
                         <span translate ng-if="connections[deviceCfg.deviceID].type.indexOf('relay') == 0" >Relayed via</span>
                       </th>

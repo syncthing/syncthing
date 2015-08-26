@@ -38,6 +38,7 @@ const (
 	FolderSummary
 	FolderCompletion
 	FolderErrors
+	FolderScanProgress
 
 	AllEvents = (1 << iota) - 1
 )
@@ -84,6 +85,8 @@ func (t EventType) String() string {
 		return "DevicePaused"
 	case DeviceResumed:
 		return "DeviceResumed"
+	case FolderScanProgress:
+		return "FolderScanProgress"
 	default:
 		return "Unknown"
 	}

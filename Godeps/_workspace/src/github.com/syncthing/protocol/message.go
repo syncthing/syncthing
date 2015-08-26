@@ -20,6 +20,7 @@ type FileInfo struct {
 	Modified     int64
 	Version      Vector
 	LocalVersion int64
+	CachedSize   int64       // noencode (cache only)
 	Blocks       []BlockInfo // max:1000000
 }
 

@@ -19,24 +19,27 @@ import (
 // workers are used in parallel. The outbox will become closed when the inbox
 // is closed and all items handled.
 
-func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan protocol.FileInfo) {
+func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan protocol.FileInfo, counter *uint64, done chan struct{}) {
 	wg := sync.NewWaitGroup()
 	wg.Add(workers)
 
 	for i := 0; i < workers; i++ {
 		go func() {
-			hashFiles(dir, blockSize, outbox, inbox)
+			hashFiles(dir, blockSize, outbox, inbox, counter)
 			wg.Done()
 		}()
 	}
 
 	go func() {
 		wg.Wait()
+		if done != nil {
+			close(done)
+		}
 		close(outbox)
 	}()
 }
 
-func HashFile(path string, blockSize int) ([]protocol.BlockInfo, error) {
+func HashFile(path string, blockSize int, sizeHint int64, counter *uint64) ([]protocol.BlockInfo, error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		if debug {
@@ -44,27 +47,29 @@ func HashFile(path string, blockSize int) ([]protocol.BlockInfo, error) {
 		}
 		return []protocol.BlockInfo{}, err
 	}
-
-	fi, err := fd.Stat()
-	if err != nil {
-		fd.Close()
-		if debug {
-			l.Debugln("stat:", err)
-		}
-		return []protocol.BlockInfo{}, err
-	}
 	defer fd.Close()
-	return Blocks(fd, blockSize, fi.Size())
+
+	if sizeHint == 0 {
+		fi, err := fd.Stat()
+		if err != nil {
+			if debug {
+				l.Debugln("stat:", err)
+			}
+			return []protocol.BlockInfo{}, err
+		}
+		sizeHint = fi.Size()
+	}
+
+	return Blocks(fd, blockSize, sizeHint, counter)
 }
 
-func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo) {
+func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, counter *uint64) {
 	for f := range inbox {
-		if f.IsDirectory() || f.IsDeleted() || f.IsSymlink() {
-			outbox <- f
-			continue
+		if f.IsDirectory() || f.IsDeleted() {
+			panic("Bug. Asked to hash a directory or a deleted file.")
 		}
 
-		blocks, err := HashFile(filepath.Join(dir, f.Name), blockSize)
+		blocks, err := HashFile(filepath.Join(dir, f.Name), blockSize, f.CachedSize, counter)
 		if err != nil {
 			if debug {
 				l.Debugln("hash error:", f.Name, err)
