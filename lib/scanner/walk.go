@@ -139,10 +139,10 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	// which it receives the files we ask it to hash.
 	go func() {
 		var filesToHash []protocol.FileInfo
-		var total, progress uint64
+		var total, progress int64
 		for file := range toHashChan {
 			filesToHash = append(filesToHash, file)
-			total += uint64(file.CachedSize)
+			total += int64(file.CachedSize)
 		}
 
 		realToHashChan := make(chan protocol.FileInfo)
@@ -161,7 +161,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 					ticker.Stop()
 					return
 				case <-ticker.C:
-					current := atomic.LoadUint64(&progress)
+					current := atomic.LoadInt64(&progress)
 					if debug {
 						l.Debugf("Walk %s %s current progress %d/%d (%d%%)", w.Dir, w.Subs, current, total, current*100/total)
 					}

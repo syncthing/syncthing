@@ -19,7 +19,7 @@ import (
 // workers are used in parallel. The outbox will become closed when the inbox
 // is closed and all items handled.
 
-func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan protocol.FileInfo, counter *uint64, done chan struct{}) {
+func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan protocol.FileInfo, counter *int64, done chan struct{}) {
 	wg := sync.NewWaitGroup()
 	wg.Add(workers)
 
@@ -39,7 +39,7 @@ func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan pr
 	}()
 }
 
-func HashFile(path string, blockSize int, sizeHint int64, counter *uint64) ([]protocol.BlockInfo, error) {
+func HashFile(path string, blockSize int, sizeHint int64, counter *int64) ([]protocol.BlockInfo, error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		if debug {
@@ -63,7 +63,7 @@ func HashFile(path string, blockSize int, sizeHint int64, counter *uint64) ([]pr
 	return Blocks(fd, blockSize, sizeHint, counter)
 }
 
-func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, counter *uint64) {
+func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, counter *int64) {
 	for f := range inbox {
 		if f.IsDirectory() || f.IsDeleted() {
 			panic("Bug. Asked to hash a directory or a deleted file.")
