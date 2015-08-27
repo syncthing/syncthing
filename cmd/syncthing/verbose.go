@@ -125,7 +125,11 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 		folder := data["folder"].(string)
 		current := data["current"].(int64)
 		total := data["total"].(int64)
-		return fmt.Sprintf("Scanning folder %q, %d%% done", folder, 100*current/total)
+		var pct int64
+		if total > 0 {
+			pct = 100 * current / total
+		}
+		return fmt.Sprintf("Scanning folder %q, %d%% done", folder, pct)
 
 	case events.DevicePaused:
 		data := ev.Data.(map[string]string)
