@@ -40,7 +40,7 @@ func monitorMain() {
 	var err error
 	var dst io.Writer = os.Stdout
 
-	if logFile != "" {
+	if logFile != "-" {
 		var fileDst io.Writer
 
 		fileDst, err = os.Create(logFile)
