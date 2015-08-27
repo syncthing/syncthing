@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"sync/atomic"
 
 	"github.com/syncthing/protocol"
 )
@@ -18,7 +19,7 @@ import (
 var SHA256OfNothing = []uint8{0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55}
 
 // Blocks returns the blockwise hash of the reader.
-func Blocks(r io.Reader, blocksize int, sizehint int64) ([]protocol.BlockInfo, error) {
+func Blocks(r io.Reader, blocksize int, sizehint int64, counter *uint64) ([]protocol.BlockInfo, error) {
 	var blocks []protocol.BlockInfo
 	if sizehint > 0 {
 		blocks = make([]protocol.BlockInfo, 0, int(sizehint/int64(blocksize)))
@@ -34,6 +35,10 @@ func Blocks(r io.Reader, blocksize int, sizehint int64) ([]protocol.BlockInfo, e
 
 		if n == 0 {
 			break
+		}
+
+		if counter != nil {
+			atomic.AddUint64(counter, uint64(n))
 		}
 
 		b := protocol.BlockInfo{

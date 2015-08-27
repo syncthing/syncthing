@@ -48,6 +48,7 @@ angular.module('syncthing.core')
         $scope.failedCurrentPage = 1;
         $scope.failedCurrentFolder = undefined;
         $scope.failedPageSize = 10;
+        $scope.scanProgress = {};
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -162,6 +163,12 @@ angular.module('syncthing.core')
                 // shortly though.
                 if (data.to === 'syncing') {
                     $scope.failed[data.folder] = [];
+                }
+
+                // If a folder has started scanning, then any scan progress is
+                // also obsolete.
+                if (data.to === 'scanning') {
+                    delete $scope.scanProgress[data.folder];
                 }
             }
         });
@@ -308,6 +315,15 @@ angular.module('syncthing.core')
         $scope.$on(Events.FOLDER_ERRORS, function (event, arg) {
             var data = arg.data;
             $scope.failed[data.folder] = data.errors;
+        });
+
+        $scope.$on(Events.FOLDER_SCAN_PROGRESS, function (event, arg) {
+            var data = arg.data;
+            $scope.scanProgress[data.folder] = {
+                current: data.current,
+                total: data.total
+            };
+            console.log("FolderScanProgress", data);
         });
 
         $scope.emitHTTPError = function (data, status, headers, config) {
@@ -633,6 +649,14 @@ angular.module('syncthing.core')
             var pct = 100 * $scope.model[folder].inSyncBytes / $scope.model[folder].globalBytes;
             return Math.floor(pct);
         };
+
+        $scope.scanPercentage = function (folder) {
+            if (!$scope.scanProgress[folder]) {
+                return undefined;
+            }
+            var pct = 100 * $scope.scanProgress[folder].current / $scope.scanProgress[folder].total;
+            return Math.floor(pct);
+        }
 
         $scope.deviceStatus = function (deviceCfg) {
             if ($scope.deviceFolders(deviceCfg).length === 0) {
