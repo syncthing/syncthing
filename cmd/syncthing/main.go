@@ -218,11 +218,12 @@ func main() {
 	if runtime.GOOS == "windows" {
 		// On Windows, we use a log file by default. Setting the -logfile flag
 		// to "-" disables this behavior.
-
 		flag.StringVar(&logFile, "logfile", "", "Log file name (use \"-\" for stdout)")
 
 		// We also add an option to hide the console window
 		flag.BoolVar(&noConsole, "no-console", false, "Hide console window")
+	} else {
+		flag.StringVar(&logFile, "logfile", "-", "Log file name (use \"-\" for stdout)")
 	}
 
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
@@ -262,14 +263,9 @@ func main() {
 		guiAssets = locations[locGUIAssets]
 	}
 
-	if runtime.GOOS == "windows" {
-		if logFile == "" {
-			// Use the default log file location
-			logFile = locations[locLogFile]
-		} else if logFile == "-" {
-			// Don't use a logFile
-			logFile = ""
-		}
+	if logFile == "" {
+		// Use the default log file location
+		logFile = locations[locLogFile]
 	}
 
 	if showVersion {
