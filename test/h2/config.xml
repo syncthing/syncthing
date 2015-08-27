@@ -52,7 +52,7 @@
         <listenAddress>tcp://127.0.0.1:22002</listenAddress>
         <globalAnnounceServer>udp4://announce.syncthing.net:22027</globalAnnounceServer>
         <globalAnnounceServer>udp6://announce-v6.syncthing.net:22027</globalAnnounceServer>
-        <globalAnnounceEnabled>false</globalAnnounceEnabled>
+        <globalAnnounceEnabled>true</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
         <localAnnouncePort>21025</localAnnouncePort>
         <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>

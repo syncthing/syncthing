@@ -217,7 +217,7 @@ type OptionsConfiguration struct {
 	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22027, udp6://announce-v6.syncthing.net:22027"`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
-	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21025"`
+	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027"`
 	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
 	RelayServers            []string `xml:"relayServer" json:"relayServers" default:"dynamic+https://relays.syncthing.net"`
 	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
@@ -507,6 +507,11 @@ func convertV11V12(cfg *Configuration) {
 	// Use new multicast group
 	if cfg.Options.LocalAnnMCAddr == "[ff32::5222]:21026" {
 		cfg.Options.LocalAnnMCAddr = "[ff12::8384]:21027"
+	}
+
+	// Use new local discovery port
+	if cfg.Options.LocalAnnPort == 21025 {
+		cfg.Options.LocalAnnPort = 21027
 	}
 
 	cfg.Version = 12

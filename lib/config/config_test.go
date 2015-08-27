@@ -35,7 +35,7 @@ func TestDefaultValues(t *testing.T) {
 		GlobalAnnServers:        []string{"udp4://announce.syncthing.net:22027", "udp6://announce-v6.syncthing.net:22027"},
 		GlobalAnnEnabled:        true,
 		LocalAnnEnabled:         true,
-		LocalAnnPort:            21025,
+		LocalAnnPort:            21027,
 		LocalAnnMCAddr:          "[ff12::8384]:21027",
 		RelayServers:            []string{"dynamic+https://relays.syncthing.net"},
 		MaxSendKbps:             0,
