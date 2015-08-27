@@ -60,7 +60,7 @@ func (s *verboseSvc) WaitForStart() {
 
 func (s *verboseSvc) formatEvent(ev events.Event) string {
 	switch ev.Type {
-	case events.Ping, events.DownloadProgress:
+	case events.Ping, events.DownloadProgress, events.LocalIndexUpdated:
 		// Skip
 		return ""
 
@@ -86,9 +86,6 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 	case events.RemoteIndexUpdated:
 		data := ev.Data.(map[string]interface{})
 		return fmt.Sprintf("Device %v sent an index update for %q with %d items", data["device"], data["folder"], data["items"])
-	case events.LocalIndexUpdated:
-		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Updated index for folder %q with %v items", data["folder"], data["items"])
 
 	case events.DeviceRejected:
 		data := ev.Data.(map[string]interface{})
@@ -123,6 +120,12 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 		delete(sum, "ignorePatterns")
 		delete(sum, "stateChanged")
 		return fmt.Sprintf("Summary for folder %q is %v", data["folder"], data["summary"])
+	case events.FolderScanProgress:
+		data := ev.Data.(map[string]interface{})
+		folder := data["folder"].(string)
+		current := data["current"].(int64)
+		total := data["total"].(int64)
+		return fmt.Sprintf("Scanning folder %q, %d%% done", folder, 100*current/total)
 
 	case events.DevicePaused:
 		data := ev.Data.(map[string]string)
