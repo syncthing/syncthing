@@ -893,7 +893,7 @@ func defaultConfig(myName string) config.Configuration {
 	if err != nil {
 		l.Fatalln("get free port (BEP):", err)
 	}
-	newCfg.Options.ListenAddress = []string{fmt.Sprintf("0.0.0.0:%d", port)}
+	newCfg.Options.ListenAddress = []string{fmt.Sprintf("tcp://0.0.0.0:%d", port)}
 	return newCfg
 }
 
