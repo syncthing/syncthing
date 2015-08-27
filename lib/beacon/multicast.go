@@ -8,7 +8,6 @@ package beacon
 
 import (
 	"errors"
-	"fmt"
 	"net"
 
 	"golang.org/x/net/ipv6"
@@ -28,7 +27,7 @@ func NewMulticast(addr string) (*Multicast, error) {
 		return nil, err
 	}
 
-	conn, err := net.ListenPacket("udp6", fmt.Sprintf("[::]:%d", gaddr.Port))
+	conn, err := net.ListenPacket("udp6", addr)
 	if err != nil {
 		return nil, err
 	}
