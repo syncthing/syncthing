@@ -14,7 +14,7 @@ import (
 const (
 	batchTargetSize = 250 << 10 // Aim for making index messages no larger than 250 KiB (uncompressed)
 	batchMaxFiles   = 1000      // Either way, don't include more files than this
-	maxInMemorySize = 4 << 10   // The maximum size of an inMemoryIndexSorter before switching to a leveldb backend
+	maxInMemorySize = 8 << 20   // The maximum size of an inMemoryIndexSorter before switching to a leveldb backend
 )
 
 // An indexSorter sorts FileInfos.
@@ -30,6 +30,7 @@ type indexSorter interface {
 // newIndexSorter returns a new indexSorter ready for use.
 func newIndexSorter() indexSorter {
 	return &adaptiveIndexSorter{
+		indexSorter:     &inMemoryIndexSorter{},
 		maxInMemorySize: maxInMemorySize,
 	}
 }
@@ -42,10 +43,7 @@ type adaptiveIndexSorter struct {
 }
 
 func (s *adaptiveIndexSorter) Enqueue(items ...protocol.FileInfo) {
-	if s.indexSorter == nil {
-		// First time
-		s.indexSorter = &inMemoryIndexSorter{}
-	} else if is, ok := s.indexSorter.(*inMemoryIndexSorter); ok {
+	if is, ok := s.indexSorter.(*inMemoryIndexSorter); ok {
 		// We have an in memory index sorter. Check if the size has been
 		// exceeded, and if so switch to a database backed index sorter before
 		// continuing.
