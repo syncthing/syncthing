@@ -704,6 +704,7 @@ func (m *Model) addDevicesFromIntroducer(deviceID protocol.DeviceID, cm protocol
 
 func (m *Model) startIndexSenders(deviceID protocol.DeviceID, cm protocol.ClusterConfigMessage) {
 	m.fmut.RLock()
+	m.pmut.RLock()
 	for _, folder := range cm.Folders {
 		fs := m.folderFiles[folder.ID]
 		var initialLocalVer int64
@@ -731,8 +732,9 @@ func (m *Model) startIndexSenders(deviceID protocol.DeviceID, cm protocol.Cluste
 			initialLocalVer = 0
 		}
 
-		go sendIndexes(m.protoConn[deviceID], folder.ID, fs, m.folderIgnores[folder.ID], initialLocalVer)
+		go sendIndexes(m.conn[deviceID], folder.ID, fs, m.folderIgnores[folder.ID], initialLocalVer)
 	}
+	m.pmut.RUnlock()
 	m.fmut.RUnlock()
 }
 
@@ -997,7 +999,7 @@ func (m *Model) AddConnection(conn Connection) {
 	conn.Start()
 
 	cm := m.generateClusterConfig(deviceID)
-	protoConn.ClusterConfig(cm)
+	conn.ClusterConfig(cm)
 	m.pmut.Unlock()
 
 	m.deviceWasSeen(deviceID)
@@ -1077,17 +1079,16 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	defer events.Default.Unsubscribe(sub)
 
 	for err == nil {
-<<<<<<< HEAD:lib/model/model.go
 		// While we have sent a localVersion at least equal to the one
 		// currently in the database, wait for the local index to update. The
 		// local index may update for other folders than the one we are
 		// sending for.
-		if fs.LocalVersion(protocol.LocalDeviceID) <= minLocalVer {
+		if fs.MaxLocalVersion(protocol.LocalDeviceID) <= minLocalVer {
 			sub.Poll(time.Minute)
 			continue
 		}
 
-		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
+		minLocalVer, err = sendIndexTo(minLocalVer, conn, folder, fs, ignores)
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continous changes happening to the local index, this gives us
@@ -1097,14 +1098,6 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 
 	if debug {
 		l.Debugf("sendIndexes for %s-%s/%q exiting: %v", deviceID, name, folder, err)
-=======
-		time.Sleep(5 * time.Second)
-		if fs.MaxLocalVersion(protocol.LocalDeviceID) <= minLocalVer {
-			continue
-		}
-
-		minLocalVer, err = sendIndexTo(minLocalVer, conn, folder, fs, ignores)
->>>>>>> Implement delta indexes:internal/model/model.go
 	}
 }
 

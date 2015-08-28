@@ -13,7 +13,7 @@ func TestInMemoryIndexSorter(t *testing.T) {
 	s.Enqueue(protocol.FileInfo{Name: "first", LocalVersion: 9})
 
 	if s.Size() != 3 {
-		t.Fatalf("wrong size", s.Size(), "!= 3")
+		t.Fatal("wrong size", s.Size(), "!= 3")
 	}
 
 	c := s.GetChunk(2)
