@@ -278,11 +278,12 @@ func TestMarshalIndexMessage(t *testing.T) {
 	}
 
 	f := func(m1 IndexMessage) bool {
-		for _, f := range m1.Files {
-			for i := range f.Blocks {
-				f.Blocks[i].Offset = 0
-				if len(f.Blocks[i].Hash) == 0 {
-					f.Blocks[i].Hash = nil
+		for i, f := range m1.Files {
+			m1.Files[i].CachedSize = 0
+			for j := range f.Blocks {
+				f.Blocks[j].Offset = 0
+				if len(f.Blocks[j].Hash) == 0 {
+					f.Blocks[j].Hash = nil
 				}
 			}
 		}
