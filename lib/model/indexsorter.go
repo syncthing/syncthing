@@ -53,9 +53,7 @@ func (s *adaptiveIndexSorter) Enqueue(items ...protocol.FileInfo) {
 			if err != nil {
 				panic(err) // What else, at this point?
 			}
-			for batch := is.Batch(); len(batch) > 0; batch = is.Batch() {
-				ds.Enqueue(batch...)
-			}
+			ds.Enqueue(is.items...)
 			s.indexSorter = ds
 		}
 	}
