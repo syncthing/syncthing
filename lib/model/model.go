@@ -40,12 +40,8 @@ import (
 
 // How many files to send in each Index/IndexUpdate message.
 const (
-	indexTargetSize        = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	indexPerFileSize       = 250        // Each FileInfo is approximately this big, in bytes, excluding BlockInfos
-	indexPerBlockSize      = 40         // Each BlockInfo is approximately this big
-	indexBatchSize         = 1000       // Either way, don't include more files than this
-	reqValidationTime      = time.Hour  // How long to cache validation entries for Request messages
-	reqValidationCacheSize = 1000       // How many entries to aim for in the validation cache size
+	reqValidationTime      = time.Hour // How long to cache validation entries for Request messages
+	reqValidationCacheSize = 1000      // How many entries to aim for in the validation cache size
 )
 
 type service interface {
@@ -1105,10 +1101,10 @@ func sendIndexTo(minLocalVer int64, conn protocol.Connection, folder string, fs 
 	initial := minLocalVer == 0
 	deviceID := conn.ID()
 	name := conn.Name()
-	batch := make([]protocol.FileInfo, 0, indexBatchSize)
-	currentBatchSize := 0
 	maxLocalVer := int64(0)
 	var err error
+
+	is := newIndexSorter()
 
 	fs.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
@@ -1127,42 +1123,26 @@ func sendIndexTo(minLocalVer int64, conn protocol.Connection, folder string, fs 
 			return true
 		}
 
-		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
-			if initial {
-				if err = conn.Index(folder, batch, 0, nil); err != nil {
-					return false
-				}
-				if debug {
-					l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), currentBatchSize)
-				}
-				initial = false
-			} else {
-				if err = conn.IndexUpdate(folder, batch, 0, nil); err != nil {
-					return false
-				}
-				if debug {
-					l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), currentBatchSize)
-				}
-			}
-
-			batch = make([]protocol.FileInfo, 0, indexBatchSize)
-			currentBatchSize = 0
-		}
-
-		batch = append(batch, f)
-		currentBatchSize += indexPerFileSize + len(f.Blocks)*indexPerBlockSize
+		is.Enqueue(f)
 		return true
 	})
 
-	if initial && err == nil {
-		err = conn.Index(folder, batch, 0, nil)
-		if debug && err == nil {
-			l.Debugf("sendIndexes for %s-%s/%q: %d files (small initial index)", deviceID, name, folder, len(batch))
-		}
-	} else if len(batch) > 0 && err == nil {
-		err = conn.IndexUpdate(folder, batch, 0, nil)
-		if debug && err == nil {
-			l.Debugf("sendIndexes for %s-%s/%q: %d files (last batch)", deviceID, name, folder, len(batch))
+	for batch := is.Batch(); len(batch) > 0; batch = is.Batch() {
+		if initial {
+			if err = conn.Index(folder, batch, 0, nil); err != nil {
+				return 0, err
+			}
+			if debug {
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (initial index)", deviceID, name, folder, len(batch))
+			}
+			initial = false
+		} else {
+			if err = conn.IndexUpdate(folder, batch, 0, nil); err != nil {
+				return 0, err
+			}
+			if debug {
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (batched update)", deviceID, name, folder, len(batch))
+			}
 		}
 	}
 
@@ -1575,10 +1555,10 @@ func (m *Model) Override(folder string) {
 	}
 
 	runner.setState(FolderScanning)
-	batch := make([]protocol.FileInfo, 0, indexBatchSize)
+	batch := make([]protocol.FileInfo, 0, batchMaxFiles)
 	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
-		if len(batch) == indexBatchSize {
+		if len(batch) == batchMaxFiles {
 			m.updateLocals(folder, batch)
 			batch = batch[:0]
 		}

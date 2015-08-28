@@ -16,9 +16,9 @@ func TestInMemoryIndexSorter(t *testing.T) {
 		t.Fatal("wrong size", s.Size(), "!= 3")
 	}
 
-	c := s.GetChunk(2)
-	if len(c) != 2 {
-		t.Fatal("wrong chunk size", len(c), "!= 2")
+	c := s.Batch()
+	if len(c) != 3 {
+		t.Fatal("wrong batch size", len(c), "!= 3")
 	}
 	if c[0].Name != "first" {
 		t.Error("Incorrect first element:", c[0].Name)
@@ -26,17 +26,12 @@ func TestInMemoryIndexSorter(t *testing.T) {
 	if c[1].Name != "middle" {
 		t.Error("Incorrect middle element:", c[1].Name)
 	}
-
-	c = s.GetChunk(2)
-	if len(c) != 1 {
-		t.Fatal("wrong chunk size", len(c), "!= 1")
-	}
-	if c[0].Name != "last" {
-		t.Error("Incorrect last element:", c[0].Name)
+	if c[2].Name != "last" {
+		t.Error("Incorrect last element:", c[2].Name)
 	}
 
-	c = s.GetChunk(2)
-	if c != nil {
-		t.Fatal("wrong chunk size", len(c), "!= 0")
+	c = s.Batch()
+	if len(c) != 0 {
+		t.Fatal("wrong batch size", len(c), "!= 0")
 	}
 }

@@ -6,12 +6,17 @@ import (
 	"github.com/syncthing/protocol"
 )
 
-// An indexSorter accepts FileInfos via enqueue, then returns them sorted via
-// getChunk(). It's an error to call enqueue() after getChunk() as we've
-// already began returning sorted entries.
+const (
+	batchTargetSize   = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
+	batchPerFileSize  = 250        // Each FileInfo is approximately this big, in bytes, excluding BlockInfos
+	batchPerBlockSize = 40         // Each BlockInfo is approximately this big
+	batchMaxFiles     = 1000       // Either way, don't include more files than this
+)
+
+// An indexSorter sorts FileInfos.
 type indexSorter interface {
 	Enqueue(items ...protocol.FileInfo)
-	GetChunk(size int) []protocol.FileInfo
+	Batch() []protocol.FileInfo
 	Size() int
 	Close()
 }
@@ -33,7 +38,7 @@ func (s *inmemoryIndexSorter) Enqueue(items ...protocol.FileInfo) {
 	s.items = append(s.items, items...)
 }
 
-func (s *inmemoryIndexSorter) GetChunk(size int) []protocol.FileInfo {
+func (s *inmemoryIndexSorter) Batch() []protocol.FileInfo {
 	if !s.sorted {
 		sort.Sort(sortByLocalVersion(s.items))
 		s.sorted = true
@@ -44,9 +49,11 @@ func (s *inmemoryIndexSorter) GetChunk(size int) []protocol.FileInfo {
 		return nil
 	}
 
-	end := s.nextIdx + size
-	if end > len(s.items) {
-		end = len(s.items)
+	end := s.nextIdx
+	batchSize := 0
+	for end < len(s.items) && batchSize < batchTargetSize && end-s.nextIdx < batchMaxFiles {
+		batchSize += batchPerFileSize + len(s.items[end].Blocks)*batchPerBlockSize
+		end++
 	}
 
 	chunk := s.items[s.nextIdx:end]
