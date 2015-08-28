@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sort"
+	"unsafe"
 
 	"github.com/syncthing/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -15,6 +16,12 @@ const (
 	batchTargetSize = 250 << 10 // Aim for making index messages no larger than 250 KiB (uncompressed)
 	batchMaxFiles   = 1000      // Either way, don't include more files than this
 	maxInMemorySize = 8 << 20   // The maximum size of an inMemoryIndexSorter before switching to a leveldb backend
+)
+
+var (
+	fileInfoSize    = int(unsafe.Sizeof(protocol.FileInfo{}))
+	blockInfoSize   = int(unsafe.Sizeof(protocol.BlockInfo{}))
+	counterInfoSize = int(unsafe.Sizeof(protocol.Counter{}))
 )
 
 // An indexSorter sorts FileInfos.
@@ -209,16 +216,5 @@ func (s sortByLocalVersion) Less(a, b int) bool {
 
 // The approximate site of a FileInfo in memory.
 func sizeBytes(f protocol.FileInfo) int {
-	/*
-		type FileInfo struct {
-			Name         string // max:8192
-			Flags        uint32
-			Modified     int64
-			Version      Vector
-			LocalVersion int64
-			CachedSize   int64       // noencode (cache only)
-			Blocks       []BlockInfo // max:1000000
-		}
-	*/
-	return 8 + len(f.Name) + 4 + 8 + 8 + 16*len(f.Version) + 8 + 8 + 8 + 8 + 40*len(f.Blocks)
+	return fileInfoSize + len(f.Name) + counterInfoSize*len(f.Version) + blockInfoSize*len(f.Blocks)
 }
