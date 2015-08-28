@@ -1105,6 +1105,7 @@ func sendIndexTo(minLocalVer int64, conn protocol.Connection, folder string, fs 
 	var err error
 
 	is := newIndexSorter()
+	defer is.Close()
 
 	fs.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
