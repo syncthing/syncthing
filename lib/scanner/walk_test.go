@@ -149,7 +149,7 @@ func TestVerify(t *testing.T) {
 	// data should be an even multiple of blocksize long
 	data := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut e")
 	buf := bytes.NewBuffer(data)
-	var progress uint64
+	var progress int64
 
 	blocks, err := Blocks(buf, blocksize, 0, &progress)
 	if err != nil {
@@ -159,7 +159,7 @@ func TestVerify(t *testing.T) {
 		t.Fatalf("Incorrect number of blocks %d != %d", len(blocks), exp)
 	}
 
-	if uint64(len(data)) != progress {
+	if int64(len(data)) != progress {
 		t.Fatalf("Incorrect counter value %d  != %d", len(data), progress)
 	}
 
