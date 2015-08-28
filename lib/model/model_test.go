@@ -403,7 +403,7 @@ func TestClusterConfig(t *testing.T) {
 	m.AddFolder(cfg.Folders[1])
 	m.ServeBackground()
 
-	cm := m.clusterConfig(device2)
+	cm := m.generateClusterConfig(device2)
 
 	if l := len(cm.Folders); l != 2 {
 		t.Fatalf("Incorrect number of folders %d != 2", l)
