@@ -13,7 +13,7 @@ func TestInMemoryIndexSorter(t *testing.T) {
 	s.Enqueue(protocol.FileInfo{Name: "last", LocalVersion: 12})
 	s.Enqueue(protocol.FileInfo{Name: "first", LocalVersion: 9})
 
-	if s.size < 64 || s.size > 256 {
+	if s.size < 64 || s.size > 1024 {
 		t.Fatal("wrong size", s.size)
 	}
 
