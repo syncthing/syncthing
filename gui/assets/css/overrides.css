@@ -41,8 +41,17 @@ identicon {
     position: relative;
     width: 1em;
     height: 1em;
-    line-height: 1em;
-    overflow: visible;
+    line-height: 1;
+    margin-right: 5px;
+}
+
+.identicon {
+    width: 1em;
+    height: 1em;
+}
+
+.identicon rect {
+    fill: #333;
 }
 
 .checkbox {
@@ -57,17 +66,6 @@ identicon {
     max-width: none;
 }
 
-.identicon {
-    width: 20px;
-    height: 20px;
-}
-
-.panel-heading .identicon {
-    display: block;
-    position: absolute;
-    top: 1px;
-}
-
 .panel-heading .fa, .modal-header .fa {
     margin-right: 10px;
 }
@@ -75,10 +73,6 @@ identicon {
 .panel-heading {
     position: relative;
     overflow: hidden;
-}
-
-.identicon rect {
-    fill: #666;
 }
 
 .text-monospace {
