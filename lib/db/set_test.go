@@ -10,10 +10,10 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"reflect"
 	"sort"
 	"testing"
 
+	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -532,8 +532,9 @@ func TestListDropFolder(t *testing.T) {
 	// Check that we have both folders and their data is in the global list
 
 	expectedFolderList := []string{"test0", "test1"}
-	if actualFolderList := ldb.ListFolders(); !reflect.DeepEqual(actualFolderList, expectedFolderList) {
-		t.Fatalf("FolderList mismatch\nE: %v\nA: %v", expectedFolderList, actualFolderList)
+	actualFolderList := ldb.ListFolders()
+	if diff, equal := messagediff.PrettyDiff(actualFolderList, expectedFolderList); !equal {
+		t.Fatalf("FolderList mismatch. Diff:\n%s", diff)
 	}
 	if l := len(globalList(s0)); l != 3 {
 		t.Errorf("Incorrect global length %d != 3 for s0", l)
@@ -547,8 +548,9 @@ func TestListDropFolder(t *testing.T) {
 	db.DropFolder(ldb, "test1")
 
 	expectedFolderList = []string{"test0"}
-	if actualFolderList := ldb.ListFolders(); !reflect.DeepEqual(actualFolderList, expectedFolderList) {
-		t.Fatalf("FolderList mismatch\nE: %v\nA: %v", expectedFolderList, actualFolderList)
+	actualFolderList = ldb.ListFolders()
+	if diff, equal := messagediff.PrettyDiff(actualFolderList, expectedFolderList); !equal {
+		t.Fatalf("FolderList mismatch. Diff:\n%s", diff)
 	}
 	if l := len(globalList(s0)); l != 3 {
 		t.Errorf("Incorrect global length %d != 3 for s0", l)

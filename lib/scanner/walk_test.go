@@ -13,13 +13,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	rdebug "runtime/debug"
 	"sort"
 	"sync"
 	"testing"
 
+	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -120,8 +120,8 @@ func TestWalk(t *testing.T) {
 	sort.Sort(fileList(tmp))
 	files := fileList(tmp).testfiles()
 
-	if !reflect.DeepEqual(files, testdata) {
-		t.Errorf("Walk returned unexpected data\nExpected: %v\nActual: %v", testdata, files)
+	if diff, equal := messagediff.PrettyDiff(files, testdata); !equal {
+		t.Errorf("Walk returned unexpected data. Diff:\n%s", diff)
 	}
 }
 
