@@ -74,33 +74,27 @@ case "${1:-default}" in
 		;;
 
 	all)
-		if [ -f /etc/syncthing/syncthing.priv ] ; then
-			# Default signing key location. If present, use it to sign the
-			# release.
-			extra=(-sign /etc/syncthing/syncthing.priv)
-		fi
+		build -goos darwin -goarch amd64 tar
 
-		build -goos darwin -goarch amd64 ${extra[@]-} tar
+		build -goos dragonfly -goarch amd64 tar
 
-		build -goos dragonfly -goarch amd64 ${extra[@]-} tar
+		build -goos freebsd -goarch 386 tar
+		build -goos freebsd -goarch amd64 tar
 
-		build -goos freebsd -goarch 386 ${extra[@]-} tar
-		build -goos freebsd -goarch amd64 ${extra[@]-} tar
+		build -goos linux -goarch 386 tar
+		build -goos linux -goarch amd64 tar
+		build -goos linux -goarch arm tar
 
-		build -goos linux -goarch 386 ${extra[@]-} tar
-		build -goos linux -goarch amd64 ${extra[@]-} tar
-		build -goos linux -goarch arm ${extra[@]-} tar
+		build -goos netbsd -goarch 386 tar
+		build -goos netbsd -goarch amd64 tar
 
-		build -goos netbsd -goarch 386 ${extra[@]-} tar
-		build -goos netbsd -goarch amd64 ${extra[@]-} tar
+		build -goos openbsd -goarch 386 tar
+		build -goos openbsd -goarch amd64 tar
 
-		build -goos openbsd -goarch 386 ${extra[@]-} tar
-		build -goos openbsd -goarch amd64 ${extra[@]-} tar
+		build -goos solaris -goarch amd64 tar
 
-		build -goos solaris -goarch amd64 ${extra[@]-} tar
-
-		build -goos windows -goarch 386 ${extra[@]-} zip
-		build -goos windows -goarch amd64 ${extra[@]-} zip
+		build -goos windows -goarch 386 zip
+		build -goos windows -goarch amd64 zip
 		;;
 
 	test-cov)
@@ -134,17 +128,10 @@ case "${1:-default}" in
 
 	docker-all)
 		img=${DOCKERIMG:-syncthing/build:latest}
-		if [ -f /etc/syncthing/syncthing.priv ] ; then
-			# Default signing key location. If present, pass into Docker so we
-			# can sign the release from in there.
-			extra=(-v /etc/syncthing/syncthing.priv:/etc/syncthing/syncthing.priv)
-		fi
-
 		docker run --rm -h syncthing-builder -u $(id -u) -t \
 			-v $(pwd):/go/src/github.com/syncthing/syncthing \
 			-w /go/src/github.com/syncthing/syncthing \
 			-e "STTRACE=$STTRACE" \
-			${extra[@]-} \
 			"$img" \
 			sh -c './build.sh clean \
 				&& ./build.sh test-cov \
