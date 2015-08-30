@@ -249,3 +249,8 @@ ul.three-columns li, ul.two-columns li {
         position: static;
     }
 }
+
+/** Font Awesome Icons **/
+.fa {
+    color: #666;
+}
