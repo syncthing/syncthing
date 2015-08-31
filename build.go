@@ -214,7 +214,7 @@ func build(pkg string, tags []string) {
 		binary += ".exe"
 	}
 
-	rmr(binary, binary+".sig")
+	rmr(binary)
 	args := []string{"build", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
@@ -243,10 +243,6 @@ func buildTar() {
 		{src: "syncthing", dst: name + "/syncthing"},
 	}
 
-	if _, err := os.Stat("syncthing.sig"); err == nil {
-		files = append(files, archiveFile{src: "syncthing.sig", dst: name + "/syncthing.sig"})
-	}
-
 	for _, file := range listFiles("etc") {
 		files = append(files, archiveFile{src: file, dst: name + "/" + file})
 	}
@@ -272,10 +268,6 @@ func buildZip() {
 		{src: "LICENSE", dst: name + "/LICENSE.txt"},
 		{src: "AUTHORS", dst: name + "/AUTHORS.txt"},
 		{src: "syncthing.exe", dst: name + "/syncthing.exe"},
-	}
-
-	if _, err := os.Stat("syncthing.exe.sig"); err == nil {
-		files = append(files, archiveFile{src: "syncthing.exe.sig", dst: name + "/syncthing.exe.sig"})
 	}
 
 	for _, file := range listFiles("extra") {
