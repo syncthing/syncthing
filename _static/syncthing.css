@@ -17,6 +17,11 @@
 	padding-left: 22px;
 	margin-left: 0px;
 }
+.versionadded p {
+	padding: 14px;
+	background-color: rgb(231, 242, 250);
+	color: rgb(41, 128, 185);
+}
 /* Add a strike-through class. */
 .strike {
 	text-decoration: line-through;
