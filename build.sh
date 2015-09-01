@@ -84,6 +84,7 @@ case "${1:-default}" in
 		build -goos linux -goarch 386 tar
 		build -goos linux -goarch amd64 tar
 		build -goos linux -goarch arm tar
+		build -goos linux -goarch arm -64k tar
 
 		build -goos netbsd -goarch 386 tar
 		build -goos netbsd -goarch amd64 tar
