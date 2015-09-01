@@ -8,14 +8,14 @@ Description
 
 Every device is identified by a device ID. The device ID is used for address
 resolution, authentication and authorization. The term "device ID" could
-interchangably have been "key ID" since the device ID is a direct properties of
+interchangably have been "key ID" since the device ID is a direct property of
 the public key in use.
 
 Keys
 ----
 
 To understand device IDs we need to look at the underlying mechanisms. At first
-startup, Syncthing will create an public/private key pair.
+startup, Syncthing will create a public/private keypair.
 
 Currently this is a 3072 bit RSA key. The keys are saved in the form of the
 private key (``key.pem``) and a self signed certificate (``cert.pem``). The self
@@ -74,16 +74,16 @@ To form a device ID the SHA-256 hash of the certificate data in DER form is
 calculated. This means the hash covers all information under the
 ``Certificate:`` section above.
 
-The hashing results in a 256 bit hash, which we encode using base32. Base32
-encodes five bits per character, so we need 256 / 5 = 51.2 characters to encode
+The hashing results in a 256 bit hash which we encode using base32. Base32
+encodes five bits per character so we need 256 / 5 = 51.2 characters to encode
 the device ID. This becomes 52 characters in practice, but 52 characters of
-base32 would decode to 260 bits which is not an whole number of bytes. The
+base32 would decode to 260 bits which is not a whole number of bytes. The
 base32 encoding adds padding to 280 bits (the next multiple of both 5 and 8
 bits) so the resulting ID looks something like::
 
     MFZWI3DBONSGYYLTMRWGC43ENRQXGZDMMFZWI3DBONSGYYLTMRWA====
 
-The padding (``====``) is stripped away, the device ID split in four
+The padding (``====``) is stripped away, the device ID split into four
 groups, and `check
 digits <https://forum.syncthing.net/t/v0-9-0-new-device-id-format/478>`__
 are added for each group. For presentation purposes the device ID is
@@ -94,13 +94,13 @@ grouped with dashes, resulting in the final value::
 Connection Establishment
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-So now we know what device IDs are, here's how they are used in Syncthing. When
-you add a device ID to the syncthing configuration, Syncthing will attempt to
+Now we know what device IDs are, here's how they are used in Syncthing. When
+you add a device ID to the configuration, Syncthing will attempt to
 connect to that device. The first thing we need to do is figure out the IP and
-port to connect to. There's three possibilities here;
+port to connect to. There are three possibilities here:
 
 -  The IP and port can be set statically in the configuration. The IP
-   can equally well be a hostname, so if you have a static IP or a
+   can equally well be a host name, so if you have a static IP or a
    dynamic DNS setup this might be a good option.
 
 -  Using local discovery, if enabled. Every Syncthing instance on a LAN
@@ -115,13 +115,12 @@ port to connect to. There's three possibilities here;
    any local announcements the global discovery server will be queried
    for an address.
 
-Once we have and address and port a TCP connection is established and a TLS
+Once we have an address and port a TCP connection is established and a TLS
 handshake performed. As part of the handshake both devices present their
 certificates. Once the handshake has completed and the peer certificate is
-known, the following steps are performed.
+known, the following steps are performed:
 
-#. Calculate the remote device ID by using the process above on the
-   received certificate.
+#. Calculate the remote device ID by processing the received certificate as above.
 
 #. Weed out a few possible misconfigurations - i.e. if the device ID is
    that of the local device or of a device we already have an active
@@ -144,7 +143,7 @@ that there is no way that we know of to create two different messages
 with the same hash.
 
 You can argue that of course there are collisions - there's an infinite
-amount of inputs and a finite amount of outputs, so per definition there
+amount of inputs and a finite amount of outputs - so by definition there
 are infinitely many messages that result in the same hash.
 
 I'm going to quote `stack
@@ -171,13 +170,13 @@ here:
     find SHA-256 collisions scary then your priorities are wrong.
 
 It's also worth noting that the property of SHA-256 that we are using is not
-simply collision resistance but resistance to a preimage attack. I.e. even if
+simply collision resistance but resistance to a preimage attack, i.e. even if
 you can find two messages that result in a hash collision that doesn't help you
 attack Syncthing (or TLS in general). You need to create a message that hashes
 to exactly the hash that my certificate already has or you won't get in.
 
 Note also that it's not good enough to find a random blob of bits that happen to
-have the same hash as my certificate. You need to create a valid DER- encoded,
+have the same hash as my certificate. You need to create a valid DER-encoded,
 signed certificate that has the same hash as mine. The difficulty of this is
 staggeringly far beyond the already staggering difficulty of finding a SHA-256
 collision.
@@ -200,7 +199,7 @@ for a given device ID, so can't connect to it and sync). It could also
 be an intelligence gathering attack; if I spoof a given ID, I can see
 which devices try to connect to it.
 
-It could be mitigated in several ways;
+It could be mitigated in several ways:
 
 -  Announcements could be signed by the device private key. This
    requires already having the public key to verify.
@@ -209,7 +208,7 @@ It could be mitigated in several ways;
    so the server calculates the device ID based on the certificate
    instead of trusting to the device to tell the truth.
 
--  The user could statically configure IP or hostname for the devices.
+-  The user could statically configure IP or host name for the devices.
 
 -  The user could run a trusted global server.
 
@@ -228,7 +227,7 @@ various possible solutions:
 -  Use shorter device IDs with verification based on the full ID ("You
    entered MFZWI3; I found and connected to a device with the ID
    MFZWI3-DBONSG-YYLTMR-WGC43E-NRQXGZ-DMMFZW-I3DBON-SGYYLT-MRWA, please
-   confirm that this is correct.").
+   confirm that this is correct").
 
 -  Use shorter device IDs with an out of band authentication, a la
    Bluetooth pairing. You enter a one time PIN into Syncthing and give
