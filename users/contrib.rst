@@ -100,18 +100,21 @@ Fedora
 Gentoo
 ~~~~~~
 
-Syncthing is available from the [timboudreau overlay](http://github.com/timboudreau/gentoo),
-which contains an ebuild for building syncthing from source, installing it and setting it up
-as a service that runs on startup.
+Syncthing is available from the [timboudreau overlay](http://github.com/timboudreau/gentoo), or from [fearedbliss's overlay](https://github.com/fearedbliss/bliss-overlay). These overlays contain the ebuild for building syncthing from source,
+installing it, and setting it up as a service that runs on startup.
 
 Install layman if you don't have it already.  Then run
 
-- layman -a timboudreau
+- layman -a timboudreau (or bliss-overlay)
 - eix-update
 - emerge syncthing
 
 Edit /etc/conf.d/syncthing and set the user who will share files to
 your user name.
+
+fearedbliss's overlay compiles syncthing so that it doesn't autoupdate on its own (To ensure updates are stable, and also provides a clean upgrade path via Portage). It also installs the systemd service/user unit files provided by SyncThing.
+
+If you don't have layman installed but are using a relatively new version of Portage (>= 2.2.18), you can integrate these external repositories directly into your normal emerge --sync updates by following the steps here (https://wiki.gentoo.org/wiki//etc/portage/repos.conf#External_Overlay).
 
 FreeBSD
 ~~~~~~~
