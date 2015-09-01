@@ -1465,8 +1465,16 @@ func (m *Model) numHashers(folder string) int {
 		return folderCfg.Hashers
 	}
 
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		// Interactive operating systems; don't load the system too heavily by
+		// default.
+		return 1
+	}
+
+	// For other operating systems and architectures, lets try to get some
+	// work done... Divide the available CPU cores among the configured
+	// folders.
 	if perFolder := runtime.GOMAXPROCS(-1) / numFolders; perFolder > 0 {
-		// We have CPUs to spare, divide them per folder.
 		return perFolder
 	}
 
