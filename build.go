@@ -37,6 +37,7 @@ var (
 	version   string
 	goVersion float64
 	race      bool
+	use64k    bool
 )
 
 const minGoVersion = 1.3
@@ -61,7 +62,13 @@ func main() {
 	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
+	flag.BoolVar(&use64k, "64k", use64k, "Use 64k pages")
 	flag.Parse()
+
+	if use64k {
+		// The 64k builds can't auto upgrade right now.
+		noupgrade = true
+	}
 
 	switch goarch {
 	case "386", "amd64", "arm":
@@ -230,6 +237,9 @@ func build(pkg string, tags []string) {
 func buildTar() {
 	name := archiveName()
 	var tags []string
+	if use64k {
+		name += "-64k"
+	}
 	if noupgrade {
 		tags = []string{"noupgrade"}
 		name += "-noupgrade"
@@ -445,6 +455,9 @@ func ldflags() string {
 	fmt.Fprintf(b, " -X main.BuildUser%c%s", sep, buildUser())
 	fmt.Fprintf(b, " -X main.BuildHost%c%s", sep, buildHost())
 	fmt.Fprintf(b, " -X main.BuildEnv%c%s", sep, buildEnvironment())
+	if use64k {
+		fmt.Fprintf(b, " -R 65536")
+	}
 	return b.String()
 }
 
