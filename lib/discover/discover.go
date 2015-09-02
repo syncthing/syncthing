@@ -21,22 +21,21 @@ import (
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type Discoverer struct {
-	myID            protocol.DeviceID
-	listenAddrs     []string
-	relaySvc        *relay.Svc
-	localBcastIntv  time.Duration
-	localBcastStart time.Time
-	cacheLifetime   time.Duration
-	negCacheCutoff  time.Duration
-	beacons         []beacon.Interface
-	extPort         uint16
-	localBcastTick  <-chan time.Time
-	forcedBcastTick chan time.Time
+	myID                protocol.DeviceID
+	listenAddrs         []string
+	relayStatusProvider relayStatusProvider
+	localBcastIntv      time.Duration
+	localBcastStart     time.Time
+	cacheLifetime       time.Duration
+	negCacheCutoff      time.Duration
+	beacons             []beacon.Interface
+	extPort             uint16
+	localBcastTick      <-chan time.Time
+	forcedBcastTick     chan time.Time
 
 	registryLock    sync.RWMutex
 	addressRegistry map[protocol.DeviceID][]CacheEntry
@@ -45,6 +44,10 @@ type Discoverer struct {
 
 	clients []Client
 	mut     sync.RWMutex
+}
+
+type relayStatusProvider interface {
+	ClientStatus() map[string]bool
 }
 
 type CacheEntry struct {
@@ -56,19 +59,19 @@ var (
 	ErrIncorrectMagic = errors.New("incorrect magic number")
 )
 
-func NewDiscoverer(id protocol.DeviceID, addresses []string, relaySvc *relay.Svc) *Discoverer {
+func NewDiscoverer(id protocol.DeviceID, addresses []string, relayStatusProvider relayStatusProvider) *Discoverer {
 	return &Discoverer{
-		myID:            id,
-		listenAddrs:     addresses,
-		relaySvc:        relaySvc,
-		localBcastIntv:  30 * time.Second,
-		cacheLifetime:   5 * time.Minute,
-		negCacheCutoff:  3 * time.Minute,
-		addressRegistry: make(map[protocol.DeviceID][]CacheEntry),
-		relayRegistry:   make(map[protocol.DeviceID][]CacheEntry),
-		lastLookup:      make(map[protocol.DeviceID]time.Time),
-		registryLock:    sync.NewRWMutex(),
-		mut:             sync.NewRWMutex(),
+		myID:                id,
+		listenAddrs:         addresses,
+		relayStatusProvider: relayStatusProvider,
+		localBcastIntv:      30 * time.Second,
+		cacheLifetime:       5 * time.Minute,
+		negCacheCutoff:      3 * time.Minute,
+		addressRegistry:     make(map[protocol.DeviceID][]CacheEntry),
+		relayRegistry:       make(map[protocol.DeviceID][]CacheEntry),
+		lastLookup:          make(map[protocol.DeviceID]time.Time),
+		registryLock:        sync.NewRWMutex(),
+		mut:                 sync.NewRWMutex(),
 	}
 }
 
@@ -251,7 +254,7 @@ func (d *Discoverer) Lookup(device protocol.DeviceID) ([]string, []string) {
 			}
 		}
 
-		relays = addressesSortedByLatency(availableRelays)
+		relays = RelayAddressesSortedByLatency(availableRelays)
 		cachedRelays := make([]CacheEntry, len(relays))
 		for i := range relays {
 			cachedRelays[i] = CacheEntry{
@@ -307,8 +310,8 @@ func (d *Discoverer) announcementPkt(allowExternal bool) Announce {
 	}
 
 	var relayAddrs []string
-	if d.relaySvc != nil {
-		status := d.relaySvc.ClientStatus()
+	if d.relayStatusProvider != nil {
+		status := d.relayStatusProvider.ClientStatus()
 		for uri, ok := range status {
 			if ok {
 				relayAddrs = append(relayAddrs, uri)
@@ -489,7 +492,7 @@ func measureLatency(relayAdresses []string) []Relay {
 		}
 		relays = append(relays, relay)
 
-		if latency, err := getLatencyForURL(addr); err == nil {
+		if latency, err := osutil.GetLatencyForURL(addr); err == nil {
 			if debug {
 				l.Debugf("Relay %s latency %s", addr, latency)
 			}
@@ -501,13 +504,13 @@ func measureLatency(relayAdresses []string) []Relay {
 	return relays
 }
 
-// addressesSortedByLatency adds local latency to the relay, and sorts them
+// RelayAddressesSortedByLatency adds local latency to the relay, and sorts them
 // by sum latency, and returns the addresses.
-func addressesSortedByLatency(input []Relay) []string {
+func RelayAddressesSortedByLatency(input []Relay) []string {
 	relays := make([]Relay, len(input))
 	copy(relays, input)
 	for i, relay := range relays {
-		if latency, err := getLatencyForURL(relay.Address); err == nil {
+		if latency, err := osutil.GetLatencyForURL(relay.Address); err == nil {
 			relays[i].Latency += int32(latency / time.Millisecond)
 		} else {
 			relays[i].Latency += int32(time.Hour / time.Millisecond)
@@ -521,15 +524,6 @@ func addressesSortedByLatency(input []Relay) []string {
 		addresses = append(addresses, relay.Address)
 	}
 	return addresses
-}
-
-func getLatencyForURL(addr string) (time.Duration, error) {
-	uri, err := url.Parse(addr)
-	if err != nil {
-		return 0, err
-	}
-
-	return osutil.TCPPing(uri.Host)
 }
 
 type relayList []Relay

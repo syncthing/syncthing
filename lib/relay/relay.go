@@ -17,6 +17,7 @@ import (
 	"github.com/syncthing/relaysrv/client"
 	"github.com/syncthing/relaysrv/protocol"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -29,7 +30,7 @@ func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config, conns chan<- model.Intermed
 		Supervisor: suture.New("Svc", suture.Spec{
 			Log: func(log string) {
 				if debug {
-					l.Infoln(log)
+					l.Debugln(log)
 				}
 			},
 			FailureBackoff:   5 * time.Minute,
@@ -97,14 +98,19 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 		existing[uri.String()] = uri
 	}
 
-	// Expand dynamic addresses into a set of relays
+	// Query dynamic addresses, and pick the closest relay from the ones they provide.
 	for key, uri := range existing {
 		if uri.Scheme != "dynamic+http" && uri.Scheme != "dynamic+https" {
 			continue
 		}
 		delete(existing, key)
 
+		// Trim off the `dynamic+` prefix
 		uri.Scheme = uri.Scheme[8:]
+
+		if debug {
+			l.Debugln("Looking up dynamic relays from", uri)
+		}
 
 		data, err := http.Get(uri.String())
 		if err != nil {
@@ -124,6 +130,7 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
+		dynRelays := make([]discover.Relay, 0, len(ann.Relays))
 		for _, relayAnn := range ann.Relays {
 			ruri, err := url.Parse(relayAnn.URL)
 			if err != nil {
@@ -135,7 +142,21 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 			if debug {
 				l.Debugln("Found", ruri, "via", uri)
 			}
-			existing[ruri.String()] = ruri
+			dynRelays = append(dynRelays, discover.Relay{
+				Address: ruri.String(),
+			})
+		}
+
+		dynRelayAddrs := discover.RelayAddressesSortedByLatency(dynRelays)
+		if len(dynRelayAddrs) > 0 {
+			closestRelay := dynRelayAddrs[0]
+			if debug {
+				l.Debugln("Picking", closestRelay, "as closest dynamic relay from", uri)
+			}
+			ruri, _ := url.Parse(closestRelay)
+			existing[closestRelay] = ruri
+		} else if debug {
+			l.Debugln("No dynamic relay found on", uri)
 		}
 	}
 
