@@ -44,7 +44,7 @@ The ``.stignore`` file contains a list of file or path patterns. The
    ``/foo`` matches ``foo`` but not ``subdir/foo``.
 
 -  A pattern beginning with ``#include`` results in loading patterns
-   from the named file which must reside in the repository. It is an error for a file to not exist or be
+   from the named file. It is an error for a file to not exist or be
    included more than once. Note that while this can be used to include
    patterns from a file in a subdirectory, the patterns themselves are
    still relative to the repository *root*. Example:
