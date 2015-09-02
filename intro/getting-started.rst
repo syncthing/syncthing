@@ -25,7 +25,7 @@ on Windows, also available in `German
 Installing
 ----------
 
-We suggest you have a look to many of the :ref:`contributions` which let
+We suggest you have a look at the :ref:`contributions` which let
 you pick a flavor of Syncthing that best fits your scenario. For example, if you
 are interested in a cross-platform GUI application you can check out
 `Syncthing-GTK`_. The community has also developed Windows, Android and many
@@ -39,12 +39,12 @@ will explain how to set up two devices with the core Syncthing flavor.
 Syncthing
 ~~~~~~~~~
 
-Grab the `latest release`_ of Syncthing for your operating system at and unpack
+Grab the `latest release`_ of Syncthing for your operating system and unpack
 it. There will be a binary called ``syncthing`` (or ``syncthing.exe`` on
 Windows). Start this in whatever way you are most comfortable with;
 double-clicking should work in any graphical environment, but I'll use the
-terminal to better illustrate what happens. At first start, Syncthing will
-generate a configuration and some keys and then start the admin GUI in your
+terminal to better illustrate what happens. At first start Syncthing will
+generate a configuration file, some keys and then start the admin GUI in your
 browser. Something like the following will be printed in the terminal::
 
     $ syncthing
@@ -78,7 +78,7 @@ Configuring
 -----------
 
 The admin GUI starts automatically and remains available on
-``http://localhost:8384/``. It should look something like this:
+``https://localhost:8384/``. Cookies are essential to the correct functioning of the GUI; please ensure your browser accepts them. It should look something like this:
 
 .. image:: gs1.png
 
@@ -96,15 +96,12 @@ time you start Syncthing. It is printed in the log above, and you can
 see it in the web GUI by selecting the "gear menu" (top right) and "Show
 ID".
 
-Two devices will *only* connect and talk to each other if they both know
-about the other's device ID. Since the configuration must be mutual for
-a connection to happen, device IDs don't need to be kept secret.
+Two devices will *only* connect and talk to each other if they are both configured with each other's device ID. Since the configuration must be mutual for
+a connection to happen, device IDs don't need to be kept secret. They are essentially part of the public key.
 
-To get your two devices to talk to each other, click "Add Device" at the
+To get your two devices to talk to each other click "Add Device" at the
 bottom right on both, and enter the device ID of the other side. You
-should also select the folder(s) that you want to share with this
-device. The device name is optional, but you can set it to something
-that makes sense for you to remember what device this is.
+should also select the folder(s) that you want to share. The device name is optional and purely cosmetic. It can be changed later if required.
 
 .. image:: gs2.png
 
@@ -115,22 +112,19 @@ need for a restart.
 .. image:: gs3.png
 
 Syncthing needs to be restarted for some configuration changes to take
-effect (such as sharing folders with new devices). When you click
+effect, such as sharing folders with new devices. When you click
 "Restart" Syncthing will first restart:
 
 .. image:: gs4.png
 
-and then come back up and after a while (up to a minute) connect to the
-other device. Remember though that you need to do the above process on
-both devices, and only once you've done this on both devices will they
-be able to connect.
+...and then connect to the new device after a minute or so. Remember to repeat this step for the other device.
 
 .. image:: gs5.png
 
 At this point the two devices share an empty directory. Adding files to
-the Sync directory on either device will synchronize those files to the
+the shared directory on either device will synchronize those files to the
 other side. Each device scans for changes every 60 seconds, so changes
-can take a little over a minute to propagate to the other side. The
+can take a little over a minute to propagate to the other side, although some contributed wrappers may include file system "watcher" features. The
 rescan interval can be changed for each folder by clicking on a folder,
 clicking "Edit" and entering a new value for "Rescan Interval".
 
@@ -139,7 +133,7 @@ clicking "Edit" and entering a new value for "Rescan Interval".
 Good luck and have fun! There is more
 `documentation <http://docs.syncthing.net/>`__ and if you run into
 trouble feel free to post a question in the `support
-forum <http://forum.syncthing.net/category/support>`__. If you have
-problems getting this to connect, first take a look at :ref:`firewall-setup`, then
+forum <https://forum.syncthing.net/c/support>`__. If you have
+problems getting devices to connect, first take a look at :ref:`firewall-setup`, then
 look at any error messages in the GUI or on the console and if necessary
-move on to :ref:`debugging`.
+move on to :ref:`debugging`. Don't forget that configuration changes will not be reflected instantly - give Syncthing a little time, especially after a restart.
