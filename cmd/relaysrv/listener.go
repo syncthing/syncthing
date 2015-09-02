@@ -11,6 +11,7 @@ import (
 	"time"
 
 	syncthingprotocol "github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 
 	"github.com/syncthing/relaysrv/protocol"
 )
@@ -21,14 +22,16 @@ var (
 	numConnections int64
 )
 
-func protocolListener(addr string, config *tls.Config) {
-	listener, err := net.Listen("tcp", addr)
+func listener(addr string, config *tls.Config) {
+	tcpListener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
+	listener := tlsutil.DowngradingListener{tcpListener, nil}
+
 	for {
-		conn, err := listener.Accept()
+		conn, isTLS, err := listener.AcceptNoWrap()
 		if err != nil {
 			if debug {
 				log.Println(err)
@@ -39,10 +42,15 @@ func protocolListener(addr string, config *tls.Config) {
 		setTCPOptions(conn)
 
 		if debug {
-			log.Println("Protocol listener accepted connection from", conn.RemoteAddr())
+			log.Println("Listener accepted connection from", conn.RemoteAddr(), "tls", isTLS)
 		}
 
-		go protocolConnectionHandler(conn, config)
+		if isTLS {
+			go protocolConnectionHandler(conn, config)
+		} else {
+			go sessionConnectionHandler(conn)
+		}
+
 	}
 }
 
@@ -217,6 +225,65 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 				conn.Close()
 			}
 		}
+	}
+}
+
+func sessionConnectionHandler(conn net.Conn) {
+	if err := conn.SetDeadline(time.Now().Add(messageTimeout)); err != nil {
+		if debug {
+			log.Println("Weird error setting deadline:", err, "on", conn.RemoteAddr())
+		}
+		return
+	}
+
+	message, err := protocol.ReadMessage(conn)
+	if err != nil {
+		return
+	}
+
+	switch msg := message.(type) {
+	case protocol.JoinSessionRequest:
+		ses := findSession(string(msg.Key))
+		if debug {
+			log.Println(conn.RemoteAddr(), "session lookup", ses)
+		}
+
+		if ses == nil {
+			protocol.WriteMessage(conn, protocol.ResponseNotFound)
+			conn.Close()
+			return
+		}
+
+		if !ses.AddConnection(conn) {
+			if debug {
+				log.Println("Failed to add", conn.RemoteAddr(), "to session", ses)
+			}
+			protocol.WriteMessage(conn, protocol.ResponseAlreadyConnected)
+			conn.Close()
+			return
+		}
+
+		if err := protocol.WriteMessage(conn, protocol.ResponseSuccess); err != nil {
+			if debug {
+				log.Println("Failed to send session join response to ", conn.RemoteAddr(), "for", ses)
+			}
+			return
+		}
+
+		if err := conn.SetDeadline(time.Time{}); err != nil {
+			if debug {
+				log.Println("Weird error setting deadline:", err, "on", conn.RemoteAddr())
+			}
+			conn.Close()
+			return
+		}
+
+	default:
+		if debug {
+			log.Println("Unexpected message from", conn.RemoteAddr(), message)
+		}
+		protocol.WriteMessage(conn, protocol.ResponseUnexpectedMessage)
+		conn.Close()
 	}
 }
 
