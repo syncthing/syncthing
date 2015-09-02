@@ -27,43 +27,43 @@ func Convert(pattern string, flags int) (*regexp.Regexp, error) {
 		flags |= NoEscape | CaseFold
 		pattern = filepath.FromSlash(pattern)
 		if flags&PathName != 0 {
-			any = "[^\\\\]"
+			any = `[^\\]`
 		}
 	case "darwin":
 		flags |= CaseFold
 		fallthrough
 	default:
 		if flags&PathName != 0 {
-			any = "[^/]"
+			any = `[^/]`
 		}
 	}
 
 	if flags&NoEscape != 0 {
-		pattern = strings.Replace(pattern, "\\", "\\\\", -1)
+		pattern = strings.Replace(pattern, `\`, `\\`, -1)
 	} else {
-		pattern = strings.Replace(pattern, "\\*", "[:escapedstar:]", -1)
-		pattern = strings.Replace(pattern, "\\?", "[:escapedques:]", -1)
-		pattern = strings.Replace(pattern, "\\.", "[:escapeddot:]", -1)
+		pattern = strings.Replace(pattern, `\*`, "[:escapedstar:]", -1)
+		pattern = strings.Replace(pattern, `\?`, "[:escapedques:]", -1)
+		pattern = strings.Replace(pattern, `\.`, "[:escapeddot:]", -1)
 	}
 
 	// Characters that are special in regexps but not in glob, must be
 	// escaped.
-	for _, char := range []string{".", "+", "$", "^", "(", ")", "|"} {
-		pattern = strings.Replace(pattern, char, "\\"+char, -1)
+	for _, char := range []string{`.`, `+`, `$`, `^`, `(`, `)`, `|`} {
+		pattern = strings.Replace(pattern, char, `\`+char, -1)
 	}
 
-	pattern = strings.Replace(pattern, "**", "[:doublestar:]", -1)
-	pattern = strings.Replace(pattern, "*", any+"*", -1)
-	pattern = strings.Replace(pattern, "[:doublestar:]", ".*", -1)
-	pattern = strings.Replace(pattern, "?", any, -1)
+	pattern = strings.Replace(pattern, `**`, `[:doublestar:]`, -1)
+	pattern = strings.Replace(pattern, `*`, any+`*`, -1)
+	pattern = strings.Replace(pattern, `[:doublestar:]`, `.*`, -1)
+	pattern = strings.Replace(pattern, `?`, any, -1)
 
-	pattern = strings.Replace(pattern, "[:escapedstar:]", "\\*", -1)
-	pattern = strings.Replace(pattern, "[:escapedques:]", "\\?", -1)
-	pattern = strings.Replace(pattern, "[:escapeddot:]", "\\.", -1)
+	pattern = strings.Replace(pattern, `[:escapedstar:]`, `\*`, -1)
+	pattern = strings.Replace(pattern, `[:escapedques:]`, `\?`, -1)
+	pattern = strings.Replace(pattern, `[:escapeddot:]`, `\.`, -1)
 
-	pattern = "^" + pattern + "$"
+	pattern = `^` + pattern + `$`
 	if flags&CaseFold != 0 {
-		pattern = "(?i)" + pattern
+		pattern = `(?i)` + pattern
 	}
 	return regexp.Compile(pattern)
 }
