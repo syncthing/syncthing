@@ -8,6 +8,7 @@ package osutil
 
 import (
 	"net"
+	"net/url"
 	"time"
 )
 
@@ -24,4 +25,15 @@ func TCPPing(address string) (time.Duration, error) {
 		conn.Close()
 	}
 	return time.Since(start), err
+}
+
+// GetLatencyForURL parses the given URL, tries opening a TCP connection to it
+// and returns the time it took to establish the connection.
+func GetLatencyForURL(addr string) (time.Duration, error) {
+	uri, err := url.Parse(addr)
+	if err != nil {
+		return 0, err
+	}
+
+	return TCPPing(uri.Host)
 }
