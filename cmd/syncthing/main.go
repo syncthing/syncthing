@@ -36,6 +36,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/symlinks"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -67,8 +68,10 @@ const (
 )
 
 const (
-	bepProtocolName   = "bep/1.0"
-	pingEventInterval = time.Minute
+	bepProtocolName      = "bep/1.0"
+	tlsDefaultCommonName = "syncthing"
+	tlsRSABits           = 3072
+	pingEventInterval    = time.Minute
 )
 
 var l = logger.DefaultLogger
@@ -298,7 +301,7 @@ func main() {
 			l.Warnln("Key exists; will not overwrite.")
 			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 		} else {
-			cert, err = newCertificate(certFile, keyFile, tlsDefaultCommonName)
+			cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, tlsRSABits)
 			myID = protocol.NewDeviceID(cert.Certificate[0])
 			if err != nil {
 				l.Fatalln("load cert:", err)
@@ -464,9 +467,10 @@ func syncthingMain() {
 	// Ensure that that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
-		cert, err = newCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
+		l.Infof("Generating RSA key and certificate for %s...", tlsDefaultCommonName)
+		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName, tlsRSABits)
 		if err != nil {
-			l.Fatalln("load cert:", err)
+			l.Fatalln(err)
 		}
 	}
 

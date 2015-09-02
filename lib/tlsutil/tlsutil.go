@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package main
+package tlsutil
 
 import (
 	"bufio"
@@ -14,6 +14,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"math/big"
 	mr "math/rand"
@@ -22,17 +23,10 @@ import (
 	"time"
 )
 
-const (
-	tlsRSABits           = 3072
-	tlsDefaultCommonName = "syncthing"
-)
-
-func newCertificate(certFile, keyFile, name string) (tls.Certificate, error) {
-	l.Infof("Generating RSA key and certificate for %s...", name)
-
+func NewCertificate(certFile, keyFile, tlsDefaultCommonName string, tlsRSABits int) (tls.Certificate, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, tlsRSABits)
 	if err != nil {
-		l.Fatalln("generate key:", err)
+		return tls.Certificate{}, fmt.Errorf("generate key: %s", err)
 	}
 
 	notBefore := time.Now()
@@ -41,7 +35,7 @@ func newCertificate(certFile, keyFile, name string) (tls.Certificate, error) {
 	template := x509.Certificate{
 		SerialNumber: new(big.Int).SetInt64(mr.Int63()),
 		Subject: pkix.Name{
-			CommonName: name,
+			CommonName: tlsDefaultCommonName,
 		},
 		NotBefore: notBefore,
 		NotAfter:  notAfter,
@@ -53,33 +47,33 @@ func newCertificate(certFile, keyFile, name string) (tls.Certificate, error) {
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
 	if err != nil {
-		l.Fatalln("create cert:", err)
+		return tls.Certificate{}, fmt.Errorf("create cert: %s", err)
 	}
 
 	certOut, err := os.Create(certFile)
 	if err != nil {
-		l.Fatalln("save cert:", err)
+		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
 	}
 	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	if err != nil {
-		l.Fatalln("save cert:", err)
+		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
 	}
 	err = certOut.Close()
 	if err != nil {
-		l.Fatalln("save cert:", err)
+		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
 	}
 
 	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		l.Fatalln("save key:", err)
+		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
 	err = pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	if err != nil {
-		l.Fatalln("save key:", err)
+		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
 	err = keyOut.Close()
 	if err != nil {
-		l.Fatalln("save key:", err)
+		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
 
 	return tls.LoadX509KeyPair(certFile, keyFile)
@@ -88,11 +82,6 @@ func newCertificate(certFile, keyFile, name string) (tls.Certificate, error) {
 type DowngradingListener struct {
 	net.Listener
 	TLSConfig *tls.Config
-}
-
-type WrappedConnection struct {
-	io.Reader
-	net.Conn
 }
 
 func (l *DowngradingListener) Accept() (net.Conn, error) {
@@ -119,6 +108,11 @@ func (l *DowngradingListener) Accept() (net.Conn, error) {
 	}
 
 	return wrapper, nil
+}
+
+type WrappedConnection struct {
+	io.Reader
+	net.Conn
 }
 
 func (c *WrappedConnection) Read(b []byte) (n int, err error) {

@@ -34,6 +34,7 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
@@ -92,7 +93,7 @@ func (s *apiSvc) getListener(cfg config.GUIConfiguration) (net.Listener, error) 
 			name = tlsDefaultCommonName
 		}
 
-		cert, err = newCertificate(locations[locHTTPSCertFile], locations[locHTTPSKeyFile], name)
+		cert, err = tlsutil.NewCertificate(locations[locHTTPSCertFile], locations[locHTTPSKeyFile], name, tlsRSABits)
 	}
 	if err != nil {
 		return nil, err
@@ -120,7 +121,7 @@ func (s *apiSvc) getListener(cfg config.GUIConfiguration) (net.Listener, error) 
 		return nil, err
 	}
 
-	listener := &DowngradingListener{rawListener, tlsCfg}
+	listener := &tlsutil.DowngradingListener{rawListener, tlsCfg}
 	return listener, nil
 }
 
