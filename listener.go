@@ -31,7 +31,7 @@ func listener(addr string, config *tls.Config) {
 	listener := tlsutil.DowngradingListener{tcpListener, nil}
 
 	for {
-		conn, isTLS, err := listener.AcceptNoWrap()
+		conn, isTLS, err := listener.AcceptNoWrapTLS()
 		if err != nil {
 			if debug {
 				log.Println(err)
