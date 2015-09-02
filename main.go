@@ -17,9 +17,8 @@ import (
 )
 
 var (
-	listenProtocol string
-	listenSession  string
-	debug          bool
+	listen string
+	debug  bool
 
 	sessionAddress []byte
 	sessionPort    uint16
@@ -39,9 +38,7 @@ var (
 func main() {
 	var dir, extAddress string
 
-	flag.StringVar(&listenProtocol, "protocol-listen", ":22067", "Protocol listen address")
-	flag.StringVar(&listenSession, "session-listen", ":22068", "Session listen address")
-	flag.StringVar(&extAddress, "external-address", "", "External address to advertise, defaults no IP and session-listen port, causing clients to use the remote IP from the protocol connection")
+	flag.StringVar(&listen, "listen", ":22067", "Protocol listen address")
 	flag.StringVar(&dir, "keys", ".", "Directory where cert.pem and key.pem is stored")
 	flag.DurationVar(&networkTimeout, "network-timeout", 2*time.Minute, "Timeout for network operations")
 	flag.DurationVar(&pingInterval, "ping-interval", time.Minute, "How often pings are sent")
@@ -54,7 +51,7 @@ func main() {
 	flag.Parse()
 
 	if extAddress == "" {
-		extAddress = listenSession
+		extAddress = listen
 	}
 
 	addr, err := net.ResolveTCPAddr("tcp", extAddress)
@@ -100,11 +97,9 @@ func main() {
 		globalLimiter = ratelimit.NewBucketWithRate(float64(globalLimitBps), int64(2*globalLimitBps))
 	}
 
-	go sessionListener(listenSession)
-
 	if statusAddr != "" {
 		go statusService(statusAddr)
 	}
 
-	protocolListener(listenProtocol, tlsCfg)
+	listener(listen, tlsCfg)
 }
