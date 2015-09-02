@@ -89,7 +89,7 @@ type DowngradingListener struct {
 }
 
 func (l *DowngradingListener) Accept() (net.Conn, error) {
-	conn, isTLS, err := l.AcceptNoWrap()
+	conn, isTLS, err := l.AcceptNoWrapTLS()
 
 	// We failed to identify the socket type, pretend that everything is fine,
 	// and pass it to the underlying handler, and let them deal with it.
@@ -107,7 +107,7 @@ func (l *DowngradingListener) Accept() (net.Conn, error) {
 	return conn, nil
 }
 
-func (l *DowngradingListener) AcceptNoWrap() (net.Conn, bool, error) {
+func (l *DowngradingListener) AcceptNoWrapTLS() (net.Conn, bool, error) {
 	conn, err := l.Listener.Accept()
 	if err != nil {
 		return nil, false, err
@@ -124,14 +124,14 @@ func (l *DowngradingListener) AcceptNoWrap() (net.Conn, bool, error) {
 		return conn, false, ErrIdentificationFailed
 	}
 
-	return &WrappedConnection{br, conn}, bs[0] == 0x16, nil
+	return &UnionedConnection{br, conn}, bs[0] == 0x16, nil
 }
 
-type WrappedConnection struct {
+type UnionedConnection struct {
 	io.Reader
 	net.Conn
 }
 
-func (c *WrappedConnection) Read(b []byte) (n int, err error) {
+func (c *UnionedConnection) Read(b []byte) (n int, err error) {
 	return c.Reader.Read(b)
 }
