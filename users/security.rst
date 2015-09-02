@@ -6,11 +6,11 @@ possible for an attacker to join a cluster uninvited, and it should not be
 possible to extract private information from intercepted traffic. Currently this
 is implemented as follows.
 
-All traffic is protected by TLS. To prevent uninvited nodes from joining a
-cluster, the certificate fingerprint of each node is compared to a preset list
-of acceptable nodes at connection establishment. The fingerprint is computed as
-the SHA-256 hash of the certificate and displayed in BASE32 encoding to form a
-reasonably compact and convenient string.
+All device to device traffic is protected by TLS. To prevent uninvited nodes
+from joining a cluster, the certificate fingerprint of each node is compared
+to a preset list of acceptable nodes at connection establishment. The
+fingerprint is computed as the SHA-256 hash of the certificate and displayed
+in BASE32 encoding to form a reasonably compact and convenient string.
 
 Incoming requests for file data are verified to the extent that the requested
 file name must exist in the local index and the global model.
@@ -26,14 +26,19 @@ Global Discovery
 ~~~~~~~~~~~~~~~~
 
 When global discovery is enabled, Syncthing sends an announcement packet every
-30 minutes to the global discovery server, so that it can keep a mapping between
-your device ID and external IP. Also, when connecting to other devices that have
-not been seen on the local network, a query is sent to the global discovery
-server containing the device ID of the requested device. The discovery server is
+30 minutes to the global discovery server so that it can keep a mapping
+between your device ID and external IP. The packets contain the device ID and
+listening port. Also, when connecting to other devices that have not been seen
+on the local network, a query is sent to the global discovery server
+containing the device ID of the requested device. The discovery server is
 currently hosted by :user:`calmh`. Global discovery defaults to **on**.
 
 When turned off, devices with dynamic addresses not on the local network cannot
 be found and connected to.
+
+An eavesdropper on the Internet can deduce which machines are running
+Syncthing with global discovery enabled, what their device IDs are, and what
+device IDs they are attempting to connect to via global discovery.
 
 If a different global discovery server is configured, no data is sent to the
 default global discovery server.
