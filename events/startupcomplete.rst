@@ -1,5 +1,5 @@
 StartupComplete
-----------------
+---------------
 
 Emitted exactly once, when initialization is complete and Syncthing is
 ready to start exchanging data with other devices.
