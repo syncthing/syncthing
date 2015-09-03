@@ -1,4 +1,4 @@
-StartupCompleted
+StartupComplete
 ----------------
 
 Emitted exactly once, when initialization is complete and Syncthing is
