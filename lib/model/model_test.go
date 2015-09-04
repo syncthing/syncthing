@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -282,11 +283,7 @@ func BenchmarkRequest(b *testing.B) {
 		id:          device1,
 		requestData: []byte("some data to return"),
 	}
-	m.AddConnection(Connection{
-		&net.TCPConn{},
-		fc,
-		ConnectionTypeDirectAccept,
-	})
+	m.AddConnection(&fakeConn{}, fc)
 	m.Index(device1, "default", files, 0, nil)
 
 	b.ResetTimer()
@@ -325,11 +322,7 @@ func TestDeviceRename(t *testing.T) {
 		requestData: []byte("some data to return"),
 	}
 
-	m.AddConnection(Connection{
-		&net.TCPConn{},
-		fc,
-		ConnectionTypeDirectAccept,
-	})
+	m.AddConnection(&fakeConn{}, fc)
 
 	m.ServeBackground()
 	if cfg.Devices()[device1].Name != "" {
@@ -1225,4 +1218,16 @@ func TestIgnoreDelete(t *testing.T) {
 	if f.IsDeleted() {
 		t.Fatal("foo should not be marked for deletion")
 	}
+}
+
+type fakeConn struct {
+	net.TCPConn
+}
+
+func (fakeConn) IsDirect() bool {
+	return true
+}
+
+func (fakeConn) ConnectionState() tls.ConnectionState {
+	return tls.ConnectionState{}
 }

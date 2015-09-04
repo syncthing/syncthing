@@ -12,8 +12,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/relay"
 )
 
 func init() {
@@ -62,7 +62,7 @@ func tcpDialer(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
 	return tc, nil
 }
 
-func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- model.IntermediateConnection) {
+func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- relay.Connection) {
 	tcaddr, err := net.ResolveTCPAddr("tcp", uri.Host)
 	if err != nil {
 		l.Fatalln("listen (BEP/tcp):", err)
@@ -98,8 +98,6 @@ func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- model.Intermedia
 			continue
 		}
 
-		conns <- model.IntermediateConnection{
-			tc, model.ConnectionTypeDirectAccept,
-		}
+		conns <- relay.Connection{tc, relay.ConnectionTypeDirectAccept}
 	}
 }
