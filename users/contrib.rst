@@ -72,10 +72,9 @@ Syncthing is included in arkOS, https://arkos.io/.
 Debian / Ubuntu
 ~~~~~~~~~~~~~~~
 
--  Official packages: http://apt.syncthing.net/
+-  **Official packages: http://apt.syncthing.net/**
 -  Syncthing GTK PPA:
    https://launchpad.net/~nilarimogard/+archive/ubuntu/webupd8/
--  https://forum.syncthing.net/t/lxle-a-respin-of-lubuntu-now-has-syncthing-included-by-default/1392
 
 Docker
 ~~~~~~
