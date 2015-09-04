@@ -1003,7 +1003,7 @@ func (m *Model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatistic
 		return sr
 	}
 
-	sr := stats.NewDeviceStatisticsReference(m.db, deviceID)
+	sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
 	m.deviceStatRefs[deviceID] = sr
 	return sr
 }
@@ -1025,7 +1025,7 @@ func (m *Model) folderStatRef(folder string) *stats.FolderStatisticsReference {
 }
 
 func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
-	m.folderStatRef(folder).ReceivedFile(file)
+	m.folderStatRef(folder).ReceivedFile(file.Name, file.IsDeleted())
 }
 
 func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
