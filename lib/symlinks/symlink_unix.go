@@ -11,7 +11,6 @@ package symlinks
 import (
 	"os"
 
-	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
@@ -19,23 +18,24 @@ var (
 	Supported = true
 )
 
-func Read(path string) (string, uint32, error) {
-	var mode uint32
-	stat, err := os.Stat(path)
-	if err != nil {
-		mode = protocol.FlagSymlinkMissingTarget
-	} else if stat.IsDir() {
-		mode = protocol.FlagDirectory
+func Read(path string) (string, TargetType, error) {
+	tt := TargetUnknown
+	if stat, err := os.Stat(path); err == nil {
+		if stat.IsDir() {
+			tt = TargetDirectory
+		} else {
+			tt = TargetFile
+		}
 	}
-	path, err = os.Readlink(path)
+	path, err := os.Readlink(path)
 
-	return osutil.NormalizedFilename(path), mode, err
+	return osutil.NormalizedFilename(path), tt, err
 }
 
-func Create(source, target string, flags uint32) error {
+func Create(source, target string, tt TargetType) error {
 	return os.Symlink(osutil.NativeFilename(target), source)
 }
 
-func ChangeType(path string, flags uint32) error {
+func ChangeType(path string, tt TargetType) error {
 	return nil
 }
