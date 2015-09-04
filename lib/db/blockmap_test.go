@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/lib/config"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
@@ -30,6 +29,7 @@ func genBlocks(n int) []protocol.BlockInfo {
 }
 
 var f1, f2, f3 protocol.FileInfo
+var folders = []string{"folder1", "folder2"}
 
 func init() {
 	blocks := genBlocks(30)
@@ -57,16 +57,7 @@ func setup() (*leveldb.DB, *BlockFinder) {
 	if err != nil {
 		panic(err)
 	}
-
-	wrapper := config.Wrap("", config.Configuration{})
-	wrapper.SetFolder(config.FolderConfiguration{
-		ID: "folder1",
-	})
-	wrapper.SetFolder(config.FolderConfiguration{
-		ID: "folder2",
-	})
-
-	return db, NewBlockFinder(db, wrapper)
+	return db, NewBlockFinder(db)
 }
 
 func dbEmpty(db *leveldb.DB) bool {
@@ -94,21 +85,21 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	f.Iterate(folders, f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		if folder != "folder1" || file != "f1" || index != 0 {
 			t.Fatal("Mismatch")
 		}
 		return true
 	})
 
-	f.Iterate(f2.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	f.Iterate(folders, f2.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		if folder != "folder1" || file != "f2" || index != 0 {
 			t.Fatal("Mismatch")
 		}
 		return true
 	})
 
-	f.Iterate(f3.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	f.Iterate(folders, f3.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		t.Fatal("Unexpected block")
 		return true
 	})
@@ -123,17 +114,17 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	f.Iterate(folders, f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		t.Fatal("Unexpected block")
 		return false
 	})
 
-	f.Iterate(f2.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	f.Iterate(folders, f2.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		t.Fatal("Unexpected block")
 		return false
 	})
 
-	f.Iterate(f3.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	f.Iterate(folders, f3.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		if folder != "folder1" || file != "f3" || index != 0 {
 			t.Fatal("Mismatch")
 		}
@@ -180,7 +171,7 @@ func TestBlockFinderLookup(t *testing.T) {
 	}
 
 	counter := 0
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	f.Iterate(folders, f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		counter++
 		switch counter {
 		case 1:
@@ -196,6 +187,7 @@ func TestBlockFinderLookup(t *testing.T) {
 		}
 		return false
 	})
+
 	if counter != 2 {
 		t.Fatal("Incorrect count", counter)
 	}
@@ -208,7 +200,7 @@ func TestBlockFinderLookup(t *testing.T) {
 	}
 
 	counter = 0
-	f.Iterate(f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
+	f.Iterate(folders, f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		counter++
 		switch counter {
 		case 1:
@@ -220,6 +212,7 @@ func TestBlockFinderLookup(t *testing.T) {
 		}
 		return false
 	})
+
 	if counter != 1 {
 		t.Fatal("Incorrect count")
 	}
@@ -240,7 +233,7 @@ func TestBlockFinderFix(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !f.Iterate(f1.Blocks[0].Hash, iterFn) {
+	if !f.Iterate(folders, f1.Blocks[0].Hash, iterFn) {
 		t.Fatal("Block not found")
 	}
 
@@ -249,11 +242,11 @@ func TestBlockFinderFix(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if f.Iterate(f1.Blocks[0].Hash, iterFn) {
+	if f.Iterate(folders, f1.Blocks[0].Hash, iterFn) {
 		t.Fatal("Unexpected block")
 	}
 
-	if !f.Iterate(f2.Blocks[0].Hash, iterFn) {
+	if !f.Iterate(folders, f2.Blocks[0].Hash, iterFn) {
 		t.Fatal("Block not found")
 	}
 }

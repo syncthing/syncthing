@@ -42,6 +42,8 @@ var blocks = []protocol.BlockInfo{
 	{Offset: 917504, Size: 0x20000, Hash: []uint8{0x96, 0x6b, 0x15, 0x6b, 0xc4, 0xf, 0x19, 0x18, 0xca, 0xbb, 0x5f, 0xd6, 0xbb, 0xa2, 0xc6, 0x2a, 0xac, 0xbb, 0x8a, 0xb9, 0xce, 0xec, 0x4c, 0xdb, 0x78, 0xec, 0x57, 0x5d, 0x33, 0xf9, 0x8e, 0xaf}},
 }
 
+var folders = []string{"default"}
+
 // Layout of the files: (indexes from the above array)
 // 12345678 - Required file
 // 02005008 - Existing file (currently in the index)
@@ -197,7 +199,7 @@ func TestCopierFinder(t *testing.T) {
 
 	// Verify that the blocks we say exist on file, really exist in the db.
 	for _, idx := range []int{2, 3, 4, 7} {
-		if m.finder.Iterate(blocks[idx].Hash, iterFn) == false {
+		if m.finder.Iterate(folders, blocks[idx].Hash, iterFn) == false {
 			t.Error("Didn't find block")
 		}
 	}
@@ -277,7 +279,7 @@ func TestCopierCleanup(t *testing.T) {
 	// Add file to index
 	m.updateLocals("default", []protocol.FileInfo{file})
 
-	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
+	if !m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
 		t.Error("Expected block not found")
 	}
 
@@ -286,11 +288,11 @@ func TestCopierCleanup(t *testing.T) {
 	// Update index (removing old blocks)
 	m.updateLocals("default", []protocol.FileInfo{file})
 
-	if m.finder.Iterate(blocks[0].Hash, iterFn) {
+	if m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
 	}
 
-	if !m.finder.Iterate(blocks[1].Hash, iterFn) {
+	if !m.finder.Iterate(folders, blocks[1].Hash, iterFn) {
 		t.Error("Expected block not found")
 	}
 
@@ -299,11 +301,11 @@ func TestCopierCleanup(t *testing.T) {
 	// Update index (removing old blocks)
 	m.updateLocals("default", []protocol.FileInfo{file})
 
-	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
+	if !m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
 	}
 
-	if m.finder.Iterate(blocks[1].Hash, iterFn) {
+	if m.finder.Iterate(folders, blocks[1].Hash, iterFn) {
 		t.Error("Expected block not found")
 	}
 }
@@ -334,7 +336,7 @@ func TestLastResortPulling(t *testing.T) {
 	}
 
 	// Check that that particular block is there
-	if !m.finder.Iterate(blocks[0].Hash, iterFn) {
+	if !m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
 		t.Error("Expected block not found")
 	}
 
@@ -361,11 +363,11 @@ func TestLastResortPulling(t *testing.T) {
 	<-pullChan
 
 	// Verify that it did fix the incorrect hash.
-	if m.finder.Iterate(blocks[0].Hash, iterFn) {
+	if m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
 		t.Error("Found unexpected block")
 	}
 
-	if !m.finder.Iterate(scanner.SHA256OfNothing, iterFn) {
+	if !m.finder.Iterate(folders, scanner.SHA256OfNothing, iterFn) {
 		t.Error("Expected block not found")
 	}
 

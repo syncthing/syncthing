@@ -16,12 +16,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"sort"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -112,46 +109,19 @@ func (m *BlockMap) blockKey(hash []byte, file string) []byte {
 }
 
 type BlockFinder struct {
-	db      *leveldb.DB
-	folders []string
-	mut     sync.RWMutex
+	db *leveldb.DB
 }
 
-func NewBlockFinder(db *leveldb.DB, cfg *config.Wrapper) *BlockFinder {
+func NewBlockFinder(db *leveldb.DB) *BlockFinder {
 	if blockFinder != nil {
 		return blockFinder
 	}
 
 	f := &BlockFinder{
-		db:  db,
-		mut: sync.NewRWMutex(),
+		db: db,
 	}
-
-	f.CommitConfiguration(config.Configuration{}, cfg.Raw())
-	cfg.Subscribe(f)
 
 	return f
-}
-
-// VerifyConfiguration implementes the config.Committer interface
-func (f *BlockFinder) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
-// CommitConfiguration implementes the config.Committer interface
-func (f *BlockFinder) CommitConfiguration(from, to config.Configuration) bool {
-	folders := make([]string, len(to.Folders))
-	for i, folder := range to.Folders {
-		folders[i] = folder.ID
-	}
-
-	sort.Strings(folders)
-
-	f.mut.Lock()
-	f.folders = folders
-	f.mut.Unlock()
-
-	return true
 }
 
 func (f *BlockFinder) String() string {
@@ -163,10 +133,7 @@ func (f *BlockFinder) String() string {
 // they are happy with the block) or false to continue iterating for whatever
 // reason. The iterator finally returns the result, whether or not a
 // satisfying block was eventually found.
-func (f *BlockFinder) Iterate(hash []byte, iterFn func(string, string, int32) bool) bool {
-	f.mut.RLock()
-	folders := f.folders
-	f.mut.RUnlock()
+func (f *BlockFinder) Iterate(folders []string, hash []byte, iterFn func(string, string, int32) bool) bool {
 	for _, folder := range folders {
 		key := toBlockKey(hash, folder, "")
 		iter := f.db.NewIterator(util.BytesPrefix(key), nil)

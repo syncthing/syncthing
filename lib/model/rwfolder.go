@@ -1107,15 +1107,17 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 		}
 
 		folderRoots := make(map[string]string)
+		var folders []string
 		p.model.fmut.RLock()
 		for folder, cfg := range p.model.folderCfgs {
 			folderRoots[folder] = cfg.Path()
+			folders = append(folders, folder)
 		}
 		p.model.fmut.RUnlock()
 
 		for _, block := range state.blocks {
 			buf = buf[:int(block.Size)]
-			found := p.model.finder.Iterate(block.Hash, func(folder, file string, index int32) bool {
+			found := p.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
 				fd, err := os.Open(filepath.Join(folderRoots[folder], file))
 				if err != nil {
 					return false
