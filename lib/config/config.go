@@ -75,7 +75,7 @@ type FolderConfiguration struct {
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
 	IgnorePerms           bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize         bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
-	MinDiskFreePct        int                         `xml:"minDiskFreePct" json:"minDiskFreePct"`
+	MinDiskFreePct        float64                     `xml:"minDiskFreePct" json:"minDiskFreePct"`
 	Versioning            VersioningConfiguration     `xml:"versioning" json:"versioning"`
 	Copiers               int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
 	Pullers               int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
@@ -244,7 +244,7 @@ type OptionsConfiguration struct {
 	DatabaseBlockCacheMiB   int      `xml:"databaseBlockCacheMiB" json:"databaseBlockCacheMiB" default:"0"`
 	PingTimeoutS            int      `xml:"pingTimeoutS" json:"pingTimeoutS" default:"30"`
 	PingIdleTimeS           int      `xml:"pingIdleTimeS" json:"pingIdleTimeS" default:"60"`
-	MinHomeDiskFreePct      int      `xml:"minHomeDiskFreePct" json:"minHomeDiskFreePct" default:"1"`
+	MinHomeDiskFreePct      float64  `xml:"minHomeDiskFreePct" json:"minHomeDiskFreePct" default:"1"`
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {
@@ -584,6 +584,13 @@ func setDefaults(data interface{}) error {
 					return err
 				}
 				f.SetInt(i)
+
+			case float64:
+				i, err := strconv.ParseFloat(v, 64)
+				if err != nil {
+					return err
+				}
+				f.SetFloat(i)
 
 			case bool:
 				f.SetBool(v == "true")
