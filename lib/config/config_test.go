@@ -166,7 +166,7 @@ func TestOverriddenValues(t *testing.T) {
 		DatabaseBlockCacheMiB:   42,
 		PingTimeoutS:            60,
 		PingIdleTimeS:           120,
-		MinHomeDiskFreePct:      5,
+		MinHomeDiskFreePct:      5.2,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
