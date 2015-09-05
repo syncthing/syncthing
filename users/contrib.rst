@@ -45,6 +45,7 @@ Windows
 OS X
 ~~~~
 
+-  https://github.com/sieren/QSyncthingTray (OSX 10.7+)
 -  https://github.com/m0ppers/syncthing-bar (OSX 10.10 only)
 -  https://github.com/jerryjacobs/foo-app/releases (OSX 10.9 compatible)
 
