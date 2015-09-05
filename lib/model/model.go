@@ -1711,7 +1711,7 @@ func (m *Model) BringToFront(folder, file string) {
 // CheckFolderHealth checks the folder for common errors and returns the
 // current folder error, or nil if the folder is healthy.
 func (m *Model) CheckFolderHealth(id string) error {
-	if minFree := float64(m.cfg.Options().MinHomeDiskFreePct); minFree > 0 {
+	if minFree := m.cfg.Options().MinHomeDiskFreePct; minFree > 0 {
 		if free, err := osutil.DiskFreePercentage(m.cfg.ConfigPath()); err == nil && free < minFree {
 			return errors.New("home disk is out of space")
 		}
@@ -1732,7 +1732,7 @@ func (m *Model) CheckFolderHealth(id string) error {
 			err = errors.New("folder path missing")
 		} else if !folder.HasMarker() {
 			err = errors.New("folder marker missing")
-		} else if free, errDfp := osutil.DiskFreePercentage(folder.Path()); errDfp == nil && free < float64(folder.MinDiskFreePct) {
+		} else if free, errDfp := osutil.DiskFreePercentage(folder.Path()); errDfp == nil && free < folder.MinDiskFreePct {
 			err = errors.New("out of disk space")
 		}
 	} else if os.IsNotExist(err) {

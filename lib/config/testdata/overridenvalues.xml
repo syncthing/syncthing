@@ -31,6 +31,6 @@
         <databaseBlockCacheMiB>42</databaseBlockCacheMiB>
         <pingTimeoutS>60</pingTimeoutS>
         <pingIdleTimeS>120</pingIdleTimeS>
-        <minHomeDiskFreePct>5</minHomeDiskFreePct>
+        <minHomeDiskFreePct>5.2</minHomeDiskFreePct>
     </options>
 </configuration>
