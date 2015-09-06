@@ -511,7 +511,7 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	// Check if we are able to store all files on disk. Only perform this
 	// check if there is a minimum free space threshold set on the folder.
 	folderCfg := p.model.cfg.Folders()[p.folder]
-	if folderCfg.MinDiskFreePct > 0 || pullFileSize > 0 {
+	if folderCfg.MinDiskFreePct > 0 && pullFileSize > 0 {
 		if free, err := osutil.DiskFreeBytes(folderCfg.Path()); err == nil && free < pullFileSize {
 			l.Warnf(`Folder "%s": insufficient disk space available to pull %d files (%.2f MiB)`, p.folder, changed, float64(pullFileSize)/1024/1024)
 			return 0
