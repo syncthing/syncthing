@@ -80,6 +80,7 @@ func (m *usageReportingManager) String() string {
 // various places, so not part of the usageReportingSvc object.
 func reportData(m *model.Model) map[string]interface{} {
 	res := make(map[string]interface{})
+	res["urVersion"] = usageReportVersion
 	res["uniqueID"] = cfg.Options().URUniqueID
 	res["version"] = Version
 	res["longVersion"] = LongVersion
@@ -204,7 +205,21 @@ func reportData(m *model.Model) map[string]interface{} {
 		"otherServers":      otherAnnounceServers,
 	}
 
-	res["usesRelays"] = cfg.Options().RelaysEnabled
+	defaultRelayServers, otherRelayServers := 0, 0
+	for _, addr := range cfg.Options().RelayServers {
+		switch addr {
+		case "dynamic+https://relays.syncthing.net":
+			defaultRelayServers++
+		default:
+			otherRelayServers++
+		}
+	}
+	res["relays"] = map[string]interface{}{
+		"enabled":        cfg.Options().RelaysEnabled,
+		"defaultServers": defaultRelayServers,
+		"otherServers":   otherRelayServers,
+	}
+
 	res["usesRateLimit"] = cfg.Options().MaxRecvKbps > 0 || cfg.Options().MaxSendKbps > 0
 
 	res["upgradeAllowedManual"] = !(upgrade.DisabledByCompilation || noUpgrade)
