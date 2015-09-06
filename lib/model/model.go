@@ -1713,7 +1713,7 @@ func (m *Model) BringToFront(folder, file string) {
 func (m *Model) CheckFolderHealth(id string) error {
 	if minFree := m.cfg.Options().MinHomeDiskFreePct; minFree > 0 {
 		if free, err := osutil.DiskFreePercentage(m.cfg.ConfigPath()); err == nil && free < minFree {
-			return errors.New("home disk is out of space")
+			return errors.New("home disk has insufficient free space")
 		}
 	}
 
@@ -1723,29 +1723,41 @@ func (m *Model) CheckFolderHealth(id string) error {
 	}
 
 	fi, err := os.Stat(folder.Path())
-	if v, ok := m.CurrentLocalVersion(id); ok && v > 0 {
-		// Safety check. If the cached index contains files but the
-		// folder doesn't exist, we have a problem. We would assume
-		// that all files have been deleted which might not be the case,
-		// so mark it as invalid instead.
-		if err != nil || !fi.IsDir() {
+
+	v, ok := m.CurrentLocalVersion(id)
+	indexHasFiles := ok && v > 0
+
+	if indexHasFiles {
+		// There are files in the folder according to the index, so it must
+		// have existed and had a correct marker at some point. Verify that
+		// this is still the case.
+
+		switch {
+		case err != nil || !fi.IsDir():
 			err = errors.New("folder path missing")
-		} else if !folder.HasMarker() {
+
+		case !folder.HasMarker():
 			err = errors.New("folder marker missing")
-		} else if free, errDfp := osutil.DiskFreePercentage(folder.Path()); errDfp == nil && free < folder.MinDiskFreePct {
-			err = errors.New("out of disk space")
+
+		case !folder.ReadOnly:
+			// Check for free space, if it isn't a master folder. We aren't
+			// going to change the contents of master folders, so we don't
+			// care about the amount of free space there.
+			if free, errDfp := osutil.DiskFreePercentage(folder.Path()); errDfp == nil && free < folder.MinDiskFreePct {
+				err = errors.New("insufficient free space")
+			}
 		}
-	} else if os.IsNotExist(err) {
-		// If we don't have any files in the index, and the directory
-		// doesn't exist, try creating it.
-		err = osutil.MkdirAll(folder.Path(), 0700)
-		if err == nil {
+	} else {
+		// It's a blank folder, so this may the first time we're looking at
+		// it. Attempt to create and tag with our marker as appropriate.
+
+		if os.IsNotExist(err) {
+			err = osutil.MkdirAll(folder.Path(), 0700)
+		}
+
+		if err == nil && !folder.HasMarker() {
 			err = folder.CreateMarker()
 		}
-	} else if !folder.HasMarker() {
-		// If we don't have any files in the index, and the path does exist
-		// but the marker is not there, create it.
-		err = folder.CreateMarker()
 	}
 
 	m.fmut.RLock()
