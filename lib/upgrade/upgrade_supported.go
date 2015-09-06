@@ -29,6 +29,8 @@ import (
 	"github.com/syncthing/syncthing/lib/signature"
 )
 
+const DisabledByCompilation = false
+
 // This is an HTTP/HTTPS client that does *not* perform certificate
 // validation. We do this because some systems where Syncthing runs have
 // issues with old or missing CA roots. It doesn't actually matter that we
