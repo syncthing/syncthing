@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	syncthingprotocol "github.com/syncthing/protocol"
@@ -20,10 +21,10 @@ func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs [
 	}
 
 	conn, err := tls.Dial("tcp", uri.Host, configForCerts(certs))
-	conn.SetDeadline(time.Now().Add(10 * time.Second))
 	if err != nil {
 		return protocol.SessionInvitation{}, err
 	}
+	conn.SetDeadline(time.Now().Add(10 * time.Second))
 
 	if err := performHandshakeAndValidation(conn, uri); err != nil {
 		return protocol.SessionInvitation{}, err
@@ -95,6 +96,25 @@ func JoinSession(invitation protocol.SessionInvitation) (net.Conn, error) {
 	default:
 		return nil, fmt.Errorf("protocol error: expecting response got %v", msg)
 	}
+}
+
+func TestRelay(uri *url.URL, certs []tls.Certificate) bool {
+	id := syncthingprotocol.NewDeviceID(certs[0].Certificate[0])
+	c := NewProtocolClient(uri, certs, nil)
+	go c.Serve()
+	defer c.Stop()
+
+	for i := 0; i < 5; i++ {
+		_, err := GetInvitationFromRelay(uri, id, certs)
+		if err == nil {
+			return true
+		}
+		if !strings.Contains(err.Error(), "Incorrect response code") {
+			return false
+		}
+		time.Sleep(time.Second)
+	}
+	return false
 }
 
 func configForCerts(certs []tls.Certificate) *tls.Config {
