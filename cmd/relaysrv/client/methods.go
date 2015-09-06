@@ -98,13 +98,17 @@ func JoinSession(invitation protocol.SessionInvitation) (net.Conn, error) {
 	}
 }
 
-func TestRelay(uri *url.URL, certs []tls.Certificate) bool {
+func TestRelay(uri *url.URL, certs []tls.Certificate, sleep time.Duration, times int) bool {
 	id := syncthingprotocol.NewDeviceID(certs[0].Certificate[0])
-	c := NewProtocolClient(uri, certs, nil)
+	invs := make(chan protocol.SessionInvitation, 1)
+	c := NewProtocolClient(uri, certs, invs)
 	go c.Serve()
-	defer c.Stop()
+	defer func() {
+		close(invs)
+		c.Stop()
+	}()
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < times; i++ {
 		_, err := GetInvitationFromRelay(uri, id, certs)
 		if err == nil {
 			return true
@@ -112,7 +116,7 @@ func TestRelay(uri *url.URL, certs []tls.Certificate) bool {
 		if !strings.Contains(err.Error(), "Incorrect response code") {
 			return false
 		}
-		time.Sleep(time.Second)
+		time.Sleep(sleep)
 	}
 	return false
 }
