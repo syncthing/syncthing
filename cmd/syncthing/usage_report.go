@@ -15,17 +15,20 @@ import (
 	"net"
 	"net/http"
 	"runtime"
+	"sort"
 	"time"
 
+	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/thejerf/suture"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
 // fields are added or changed this integer must be incremented so that users
 // are prompted for acceptance of the new report.
-const usageReportVersion = 1
+const usageReportVersion = 2
 
 type usageReportingManager struct {
 	model *model.Model
@@ -120,6 +123,92 @@ func reportData(m *model.Model) map[string]interface{} {
 	if err == nil {
 		res["memorySize"] = bytes / 1024 / 1024
 	}
+	res["numCPU"] = runtime.NumCPU()
+
+	var rescanIntvs []int
+	folderUses := map[string]int{
+		"readonly":      0,
+		"ignorePerms":   0,
+		"ignoreDelete":  0,
+		"autoNormalize": 0,
+	}
+	for _, cfg := range cfg.Folders() {
+		rescanIntvs = append(rescanIntvs, cfg.RescanIntervalS)
+
+		if cfg.ReadOnly {
+			folderUses["readonly"]++
+		}
+		if cfg.IgnorePerms {
+			folderUses["ignorePerms"]++
+		}
+		if cfg.IgnoreDelete {
+			folderUses["ignoreDelete"]++
+		}
+		if cfg.AutoNormalize {
+			folderUses["autoNormalize"]++
+		}
+	}
+	sort.Ints(rescanIntvs)
+	res["rescanIntvs"] = rescanIntvs
+	res["folderUses"] = folderUses
+
+	deviceUses := map[string]int{
+		"introducer":       0,
+		"customCertName":   0,
+		"compressAlways":   0,
+		"compressMetadata": 0,
+		"compressNever":    0,
+		"dynamicAddr":      0,
+		"staticAddr":       0,
+	}
+	for _, cfg := range cfg.Devices() {
+		if cfg.Introducer {
+			deviceUses["introducer"]++
+		}
+		if cfg.CertName != "" && cfg.CertName != "syncthing" {
+			deviceUses["customCertName"]++
+		}
+		if cfg.Compression == protocol.CompressAlways {
+			deviceUses["compressAlways"]++
+		} else if cfg.Compression == protocol.CompressMetadata {
+			deviceUses["compressMetadata"]++
+		} else if cfg.Compression == protocol.CompressNever {
+			deviceUses["compressNever"]++
+		}
+		for _, addr := range cfg.Addresses {
+			if addr == "dynamic" {
+				deviceUses["dynamicAddr"]++
+			} else {
+				deviceUses["staticAddr"]++
+			}
+		}
+	}
+	res["deviceUses"] = deviceUses
+
+	defaultAnnounceServersDNS, defaultAnnounceServersIP, otherAnnounceServers := 0, 0, 0
+	for _, addr := range cfg.Options().GlobalAnnServers {
+		switch addr {
+		case "udp4://announce.syncthing.net:22027", "udp6://announce-v6.syncthing.net:22027":
+			defaultAnnounceServersDNS++
+		case "udp4://194.126.249.5:22027", "udp6://[2001:470:28:4d6::5]:22027":
+			defaultAnnounceServersIP++
+		default:
+			otherAnnounceServers++
+		}
+	}
+	res["announce"] = map[string]interface{}{
+		"globalEnabled":     cfg.Options().GlobalAnnEnabled,
+		"localEnabled":      cfg.Options().LocalAnnEnabled,
+		"defaultServersDNS": defaultAnnounceServersDNS,
+		"defaultServersIP":  defaultAnnounceServersIP,
+		"otherServers":      otherAnnounceServers,
+	}
+
+	res["usesRelays"] = cfg.Options().RelaysEnabled
+	res["usesRateLimit"] = cfg.Options().MaxRecvKbps > 0 || cfg.Options().MaxSendKbps > 0
+
+	res["upgradeAllowedManual"] = !(upgrade.DisabledByCompilation || noUpgrade)
+	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgrade) && cfg.Options().AutoUpgradeIntervalH > 0
 
 	return res
 }

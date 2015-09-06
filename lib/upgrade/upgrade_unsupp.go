@@ -8,6 +8,8 @@
 
 package upgrade
 
+const DisabledByCompilation = true
+
 func upgradeTo(binary string, rel Release) error {
 	return ErrUpgradeUnsupported
 }
