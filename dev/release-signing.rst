@@ -21,7 +21,7 @@ Binary Signing
 .. versionadded:: 0.12.0
 
 In a genuine release archive you expect to find the ``syncthing`` binary
-(``syncting.exe`` on Windows) and an accompanying signature ``syncthing.sig``
+(``syncthing.exe`` on Windows) and an accompanying signature ``syncthing.sig``
 (``syncthing.exe.sig`` on Windows). The signature file contains the `ECDSA
 signature
 <https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm>`__
