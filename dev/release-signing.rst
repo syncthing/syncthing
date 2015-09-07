@@ -60,7 +60,7 @@ onwards)::
 To create signatures of your own, you need a private key. The Syncthing
 private key is a closely guarded secret, but you can generate your own using
 ``stsigtool gen``. The ``gen`` command generates and outputs a new private and
-public key par to stdout; you'll need to paste them into a PEM file each for
+public key pair to stdout; you'll need to paste them into a PEM file each for
 storage. You can then sign binaries with the private key using ``stsigtool
 sign``, verify them with the public key using ``stsigtool verify``, and have
 Syncthing accept these signatures by replacing the compiled in public key.
