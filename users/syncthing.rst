@@ -8,7 +8,7 @@ Synopsis
 
     syncthing [-audit] [-generate=<dir>] [-gui-address=<address>]
               [-gui-apikey=<key>] [-gui-authentication=<username:password>]
-              [-home=<dir>] [-logflags=<flags>] [-no-browser] [-no-console]
+              [-home=<dir>] [-logfile=<filename>] [-logflags=<flags>] [-no-browser] [-no-console]
               [-no-restart] [-reset] [-upgrade] [-upgrade-check] [-upgrade-to=<url>]
               [-verbose] [-version]
 
@@ -49,6 +49,10 @@ Options
 
     Set configuration directory. The default configuration directory is:
     ``$HOME/.config/syncthing``.
+    
+.. cmdoption:: -logfile=<filename>
+
+    Set destination filename for logging (use ``"-"`` for stdout, which is the default option).
 
 .. cmdoption:: -logflags=<flags>
 
