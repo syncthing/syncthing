@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -30,15 +31,17 @@ type sharedPullerState struct {
 	sparse      bool
 
 	// Mutable, must be locked for access
-	err        error      // The first error we hit
-	fd         *os.File   // The fd of the temp file
-	copyTotal  int        // Total number of copy actions for the whole job
-	pullTotal  int        // Total number of pull actions for the whole job
-	copyOrigin int        // Number of blocks copied from the original file
-	copyNeeded int        // Number of copy actions still pending
-	pullNeeded int        // Number of block pulls still pending
-	closed     bool       // True if the file has been finalClosed.
-	mut        sync.Mutex // Protects the above
+	err              error        // The first error we hit
+	fd               *os.File     // The fd of the temp file
+	copyTotal        int          // Total number of copy actions for the whole job
+	pullTotal        int          // Total number of pull actions for the whole job
+	copyOrigin       int          // Number of blocks copied from the original file
+	copyNeeded       int          // Number of copy actions still pending
+	pullNeeded       int          // Number of block pulls still pending
+	closed           bool         // True if the file has been finalClosed.
+	available        []int32      // Indexes of the blocks that are available in the temporary file
+	availableUpdated time.Time    // Time when list of available blocks was last updated
+	mut              sync.RWMutex // Protects the above
 }
 
 // A momentary state representing the progress of the puller
@@ -56,7 +59,7 @@ type pullerProgress struct {
 // A lockedWriterAt synchronizes WriteAt calls with an external mutex.
 // WriteAt() is goroutine safe by itself, but not against for example Close().
 type lockedWriterAt struct {
-	mut *sync.Mutex
+	mut *sync.RWMutex
 	wr  io.WriterAt
 }
 
@@ -196,15 +199,18 @@ func (s *sharedPullerState) failLocked(context string, err error) {
 }
 
 func (s *sharedPullerState) failed() error {
-	s.mut.Lock()
-	defer s.mut.Unlock()
+	s.mut.RLock()
+	err := s.err
+	s.mut.RUnlock()
 
-	return s.err
+	return err
 }
 
-func (s *sharedPullerState) copyDone() {
+func (s *sharedPullerState) copyDone(block protocol.BlockInfo) {
 	s.mut.Lock()
 	s.copyNeeded--
+	s.available = append(s.available, int32(block.Offset/protocol.BlockSize))
+	s.availableUpdated = time.Now()
 	l.Debugln("sharedPullerState", s.folder, s.file.Name, "copyNeeded ->", s.copyNeeded)
 	s.mut.Unlock()
 }
@@ -225,9 +231,11 @@ func (s *sharedPullerState) pullStarted() {
 	s.mut.Unlock()
 }
 
-func (s *sharedPullerState) pullDone() {
+func (s *sharedPullerState) pullDone(block protocol.BlockInfo) {
 	s.mut.Lock()
 	s.pullNeeded--
+	s.available = append(s.available, int32(block.Offset/protocol.BlockSize))
+	s.availableUpdated = time.Now()
 	l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded done ->", s.pullNeeded)
 	s.mut.Unlock()
 }
@@ -265,10 +273,10 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	return true, s.err
 }
 
-// Returns the momentarily progress for the puller
+// Progress returns the momentarily progress for the puller
 func (s *sharedPullerState) Progress() *pullerProgress {
-	s.mut.Lock()
-	defer s.mut.Unlock()
+	s.mut.RLock()
+	defer s.mut.RUnlock()
 	total := s.reused + s.copyTotal + s.pullTotal
 	done := total - s.copyNeeded - s.pullNeeded
 	return &pullerProgress{
@@ -281,4 +289,20 @@ func (s *sharedPullerState) Progress() *pullerProgress {
 		BytesTotal:          db.BlocksToSize(total),
 		BytesDone:           db.BlocksToSize(done),
 	}
+}
+
+// AvailableUpdated returns the time last time list of available blocks was updated
+func (s *sharedPullerState) AvailableUpdated() time.Time {
+	s.mut.RLock()
+	t := s.availableUpdated
+	s.mut.RUnlock()
+	return t
+}
+
+// Available returns blocks available in the current temporary file
+func (s *sharedPullerState) Available() []int32 {
+	s.mut.RLock()
+	blocks := s.available
+	s.mut.RUnlock()
+	return blocks
 }
