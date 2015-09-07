@@ -37,6 +37,7 @@ type sharedPullerState struct {
 	copyOrigin       int          // Number of blocks copied from the original file
 	copyNeeded       int          // Number of copy actions still pending
 	pullNeeded       int          // Number of block pulls still pending
+	updated          time.Time    // Time when any of the counters above were last updated
 	closed           bool         // True if the file has been finalClosed.
 	available        []int32      // Indexes of the blocks that are available in the temporary file
 	availableUpdated time.Time    // Time when list of available blocks was last updated
@@ -197,6 +198,7 @@ func (s *sharedPullerState) failed() error {
 func (s *sharedPullerState) copyDone(block protocol.BlockInfo) {
 	s.mut.Lock()
 	s.copyNeeded--
+	s.updated = time.Now()
 	s.available = append(s.available, int32(block.Offset/protocol.BlockSize))
 	s.availableUpdated = time.Now()
 	l.Debugln("sharedPullerState", s.folder, s.file.Name, "copyNeeded ->", s.copyNeeded)
@@ -206,6 +208,7 @@ func (s *sharedPullerState) copyDone(block protocol.BlockInfo) {
 func (s *sharedPullerState) copiedFromOrigin() {
 	s.mut.Lock()
 	s.copyOrigin++
+	s.updated = time.Now()
 	s.mut.Unlock()
 }
 
@@ -215,6 +218,7 @@ func (s *sharedPullerState) pullStarted() {
 	s.copyNeeded--
 	s.pullTotal++
 	s.pullNeeded++
+	s.updated = time.Now()
 	l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded start ->", s.pullNeeded)
 	s.mut.Unlock()
 }
@@ -222,6 +226,7 @@ func (s *sharedPullerState) pullStarted() {
 func (s *sharedPullerState) pullDone(block protocol.BlockInfo) {
 	s.mut.Lock()
 	s.pullNeeded--
+	s.updated = time.Now()
 	s.available = append(s.available, int32(block.Offset/protocol.BlockSize))
 	s.availableUpdated = time.Now()
 	l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded done ->", s.pullNeeded)
@@ -277,6 +282,14 @@ func (s *sharedPullerState) Progress() *pullerProgress {
 		BytesTotal:          db.BlocksToSize(total),
 		BytesDone:           db.BlocksToSize(done),
 	}
+}
+
+// Updated returns the time when any of the progress related counters was last updated.
+func (s *sharedPullerState) Updated() time.Time {
+	s.mut.RLock()
+	t := s.updated
+	s.mut.RUnlock()
+	return t
 }
 
 // AvailableUpdated returns the time last time list of available blocks was updated
