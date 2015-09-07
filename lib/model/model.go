@@ -60,6 +60,11 @@ type service interface {
 	getState() (folderState, time.Time, error)
 }
 
+type Availability struct {
+	ID    protocol.DeviceID `json:"id"`
+	Flags uint32            `json:"flags"`
+}
+
 type Model struct {
 	*suture.Supervisor
 
@@ -91,6 +96,7 @@ type Model struct {
 	helloMessages     map[protocol.DeviceID]protocol.HelloMessage
 	deviceClusterConf map[protocol.DeviceID]protocol.ClusterConfigMessage
 	devicePaused      map[protocol.DeviceID]bool
+	deviceDownloads   map[protocol.DeviceID]*deviceDownloadState
 	pmut              sync.RWMutex // protects the above
 }
 
@@ -132,6 +138,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		helloMessages:      make(map[protocol.DeviceID]protocol.HelloMessage),
 		deviceClusterConf:  make(map[protocol.DeviceID]protocol.ClusterConfigMessage),
 		devicePaused:       make(map[protocol.DeviceID]bool),
+		deviceDownloads:    make(map[protocol.DeviceID]*deviceDownloadState),
 		fmut:               sync.NewRWMutex(),
 		pmut:               sync.NewRWMutex(),
 	}
@@ -742,6 +749,7 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 	delete(m.conn, device)
 	delete(m.helloMessages, device)
 	delete(m.deviceClusterConf, device)
+	delete(m.deviceDownloads, device)
 	m.pmut.Unlock()
 }
 
@@ -988,6 +996,7 @@ func (m *Model) AddConnection(conn Connection, hello protocol.HelloMessage) {
 		panic("add existing device")
 	}
 	m.conn[deviceID] = conn
+	m.deviceDownloads[deviceID] = newDeviceDownloadState()
 
 	m.helloMessages[deviceID] = hello
 
@@ -1040,6 +1049,24 @@ func (m *Model) PauseDevice(device protocol.DeviceID) {
 		m.Close(device, errors.New("device paused"))
 	}
 	events.Default.Log(events.DevicePaused, map[string]string{"device": device.String()})
+}
+
+func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate, flags uint32, options []protocol.Option) {
+	if !m.folderSharedWith(folder, device) || !m.cfg.Options().ReceiveTempIndexes {
+		return
+	}
+
+	m.fmut.RLock()
+	cfg, ok := m.folderCfgs[folder]
+	m.fmut.RUnlock()
+
+	if !ok || cfg.ReadOnly {
+		return
+	}
+
+	m.pmut.RLock()
+	m.deviceDownloads[device].Update(folder, updates)
+	m.pmut.RUnlock()
 }
 
 func (m *Model) ResumeDevice(device protocol.DeviceID) {
@@ -1742,7 +1769,7 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 	return output
 }
 
-func (m *Model) Availability(folder, file string) []protocol.DeviceID {
+func (m *Model) Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []Availability {
 	// Acquire this lock first, as the value returned from foldersFiles can
 	// get heavily modified on Close()
 	m.pmut.RLock()
@@ -1750,19 +1777,27 @@ func (m *Model) Availability(folder, file string) []protocol.DeviceID {
 
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
+	devices := m.folderDevices[folder]
 	m.fmut.RUnlock()
 	if !ok {
 		return nil
 	}
 
-	availableDevices := []protocol.DeviceID{}
+	var availabilities []Availability
 	for _, device := range fs.Availability(file) {
 		_, ok := m.conn[device]
 		if ok {
-			availableDevices = append(availableDevices, device)
+			availabilities = append(availabilities, Availability{device, 0})
 		}
 	}
-	return availableDevices
+
+	for _, device := range devices {
+		if m.deviceDownloads[device].Has(folder, file, version, int32(block.Offset/protocol.BlockSize)) {
+			availabilities = append(availabilities, Availability{device, protocol.FlagFromTemporary})
+		}
+	}
+
+	return availabilities
 }
 
 // BringToFront bumps the given files priority in the job queue.

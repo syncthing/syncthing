@@ -696,7 +696,7 @@ func (s *apiService) getDBFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	av := s.model.Availability(folder, file)
+	av := s.model.Availability(folder, file, protocol.Vector{}, protocol.BlockInfo{})
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
