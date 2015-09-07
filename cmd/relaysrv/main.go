@@ -5,9 +5,12 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"log"
 	"net"
+	"net/url"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juju/ratelimit"
@@ -32,7 +35,9 @@ var (
 	sessionLimiter  *ratelimit.Bucket
 	globalLimiter   *ratelimit.Bucket
 
-	statusAddr string
+	statusAddr       string
+	poolAddrs        string
+	defaultPoolAddrs string = "https://relays.syncthing.net"
 )
 
 func main() {
@@ -47,6 +52,7 @@ func main() {
 	flag.IntVar(&globalLimitBps, "global-rate", globalLimitBps, "Global rate limit, in bytes/s")
 	flag.BoolVar(&debug, "debug", false, "Enable debug output")
 	flag.StringVar(&statusAddr, "status-srv", ":22070", "Listen address for status service (blank to disable)")
+	flag.StringVar(&poolAddrs, "pools", defaultPoolAddrs, "Comma separated list of relau pool addresses to join")
 
 	flag.Parse()
 
@@ -99,6 +105,26 @@ func main() {
 
 	if statusAddr != "" {
 		go statusService(statusAddr)
+	}
+
+	uri, err := url.Parse(fmt.Sprintf("relay://%s/?id=%s", extAddress, id))
+	if err != nil {
+		log.Fatalln("Failed to construct URI", err)
+	}
+
+	if poolAddrs == defaultPoolAddrs {
+		log.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+		log.Println("!!  Joining default relay pools, this relay will be available for public use. !!")
+		log.Println(`!!      Use the -pools="" command line option to make the relay private.      !!`)
+		log.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+	}
+
+	pools := strings.Split(poolAddrs, ",")
+	for _, pool := range pools {
+		pool = strings.TrimSpace(pool)
+		if len(pool) > 0 {
+			go poolHandler(pool, uri)
+		}
 	}
 
 	listener(listen, tlsCfg)
