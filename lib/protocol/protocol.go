@@ -23,13 +23,14 @@ const (
 )
 
 const (
-	messageTypeClusterConfig = 0
-	messageTypeIndex         = 1
-	messageTypeRequest       = 2
-	messageTypeResponse      = 3
-	messageTypePing          = 4
-	messageTypeIndexUpdate   = 6
-	messageTypeClose         = 7
+	messageTypeClusterConfig    = 0
+	messageTypeIndex            = 1
+	messageTypeRequest          = 2
+	messageTypeResponse         = 3
+	messageTypePing             = 4
+	messageTypeIndexUpdate      = 6
+	messageTypeClose            = 7
+	messageTypeDownloadProgress = 8
 )
 
 const (
@@ -51,14 +52,20 @@ const (
 	SymlinkTypeMask = FlagDirectory | FlagSymlinkMissingTarget
 )
 
-// IndexMessage message flags (for IndexUpdate)
-const (
-	FlagIndexTemporary uint32 = 1 << iota
-)
-
 // Request message flags
 const (
-	FlagRequestTemporary uint32 = 1 << iota
+	FlagFromTemporary uint32 = 1 << iota
+)
+
+// FileDownloadProgressUpdate update types
+const (
+	UpdateTypeAppend uint32 = iota
+	UpdateTypeForget
+)
+
+// CLusterCOnfig flags
+const (
+	FlagClusterConfigTemporaryIndexesDisabled uint32 = 1 << 0
 )
 
 // ClusterConfigMessage.Folders flags
@@ -95,6 +102,8 @@ type Model interface {
 	ClusterConfig(deviceID DeviceID, config ClusterConfigMessage)
 	// The peer device closed the connection
 	Close(deviceID DeviceID, err error)
+	// The peer device sent progress updates for the files it is currently downloading
+	DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate, flags uint32, options []Option)
 }
 
 type Connection interface {
@@ -105,6 +114,7 @@ type Connection interface {
 	IndexUpdate(folder string, files []FileInfo, flags uint32, options []Option) error
 	Request(folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error)
 	ClusterConfig(config ClusterConfigMessage)
+	DownloadProgress(folder string, updates []FileDownloadProgressUpdate, flags uint32, options []Option)
 	Statistics() Statistics
 }
 
@@ -280,6 +290,16 @@ func (c *rawConnection) ClusterConfig(config ClusterConfigMessage) {
 	c.send(-1, messageTypeClusterConfig, config, nil)
 }
 
+// DownloadProgress sends the progress updates for the files that are currently being downloaded.
+func (c *rawConnection) DownloadProgress(folder string, updates []FileDownloadProgressUpdate, flags uint32, options []Option) {
+	c.send(-1, messageTypeDownloadProgress, DownloadProgressMessage{
+		Folder:  folder,
+		Updates: updates,
+		Flags:   flags,
+		Options: options,
+	}, nil)
+}
+
 func (c *rawConnection) ping() bool {
 	var id int
 	select {
@@ -346,6 +366,12 @@ func (c *rawConnection) readerLoop() (err error) {
 				return fmt.Errorf("protocol error: response message in state %d", state)
 			}
 			c.handleResponse(hdr.msgID, msg)
+
+		case DownloadProgressMessage:
+			if state != stateReady {
+				return fmt.Errorf("protocol error: response message in state %d", state)
+			}
+			c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates, msg.Flags, msg.Options)
 
 		case pingMessage:
 			if state != stateReady {

@@ -581,6 +581,8 @@ ClusterConfigMessage Structure:
 \                Zero or more Folder Structures                 \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                             Flags                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                       Number of Options                       |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
@@ -594,6 +596,7 @@ struct ClusterConfigMessage {
 	string ClientName<64>;
 	string ClientVersion<64>;
 	Folder Folders<1000000>;
+	unsigned int Flags;
 	Option Options<64>;
 }
 
@@ -646,6 +649,7 @@ func (o ClusterConfigMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 			return xw.Tot(), err
 		}
 	}
+	xw.WriteUint32(o.Flags)
 	if l := len(o.Options); l > 64 {
 		return xw.Tot(), xdr.ElementSizeExceeded("Options", l, 64)
 	}
@@ -685,6 +689,131 @@ func (o *ClusterConfigMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 	for i := range o.Folders {
 		(&o.Folders[i]).DecodeXDRFrom(xr)
 	}
+	o.Flags = xr.ReadUint32()
+	_OptionsSize := int(xr.ReadUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
+	if _OptionsSize > 64 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	}
+	o.Options = make([]Option, _OptionsSize)
+	for i := range o.Options {
+		(&o.Options[i]).DecodeXDRFrom(xr)
+	}
+	return xr.Error()
+}
+
+/*
+
+DownloadProgressMessage Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Length of Folder                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                   Folder (variable length)                    \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Number of Updates                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\      Zero or more FileDownloadProgressUpdate Structures       \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                             Flags                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Number of Options                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                Zero or more Option Structures                 \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+struct DownloadProgressMessage {
+	string Folder<64>;
+	FileDownloadProgressUpdate Updates<>;
+	unsigned int Flags;
+	Option Options<64>;
+}
+
+*/
+
+func (o DownloadProgressMessage) EncodeXDR(w io.Writer) (int, error) {
+	var xw = xdr.NewWriter(w)
+	return o.EncodeXDRInto(xw)
+}
+
+func (o DownloadProgressMessage) MarshalXDR() ([]byte, error) {
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o DownloadProgressMessage) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o DownloadProgressMessage) AppendXDR(bs []byte) ([]byte, error) {
+	var aw = xdr.AppendWriter(bs)
+	var xw = xdr.NewWriter(&aw)
+	_, err := o.EncodeXDRInto(xw)
+	return []byte(aw), err
+}
+
+func (o DownloadProgressMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+	if l := len(o.Folder); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Folder", l, 64)
+	}
+	xw.WriteString(o.Folder)
+	xw.WriteUint32(uint32(len(o.Updates)))
+	for i := range o.Updates {
+		_, err := o.Updates[i].EncodeXDRInto(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
+	}
+	xw.WriteUint32(o.Flags)
+	if l := len(o.Options); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Options", l, 64)
+	}
+	xw.WriteUint32(uint32(len(o.Options)))
+	for i := range o.Options {
+		_, err := o.Options[i].EncodeXDRInto(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
+	}
+	return xw.Tot(), xw.Error()
+}
+
+func (o *DownloadProgressMessage) DecodeXDR(r io.Reader) error {
+	xr := xdr.NewReader(r)
+	return o.DecodeXDRFrom(xr)
+}
+
+func (o *DownloadProgressMessage) UnmarshalXDR(bs []byte) error {
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
+	return o.DecodeXDRFrom(xr)
+}
+
+func (o *DownloadProgressMessage) DecodeXDRFrom(xr *xdr.Reader) error {
+	o.Folder = xr.ReadStringMax(64)
+	_UpdatesSize := int(xr.ReadUint32())
+	if _UpdatesSize < 0 {
+		return xdr.ElementSizeExceeded("Updates", _UpdatesSize, 0)
+	}
+	o.Updates = make([]FileDownloadProgressUpdate, _UpdatesSize)
+	for i := range o.Updates {
+		(&o.Updates[i]).DecodeXDRFrom(xr)
+	}
+	o.Flags = xr.ReadUint32()
 	_OptionsSize := int(xr.ReadUint32())
 	if _OptionsSize < 0 {
 		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
@@ -991,6 +1120,113 @@ func (o *Device) DecodeXDRFrom(xr *xdr.Reader) error {
 	for i := range o.Options {
 		(&o.Options[i]).DecodeXDRFrom(xr)
 	}
+	return xr.Error()
+}
+
+/*
+
+FileDownloadProgressUpdate Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        Length of Name                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                    Name (variable length)                     \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                       Vector Structure                        \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                    Number of Block Indexes                    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         Block Indexes                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          Update Type                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+struct FileDownloadProgressUpdate {
+	string Name<8192>;
+	Vector Version;
+	int BlockIndexes<1000000>;
+	unsigned int UpdateType;
+}
+
+*/
+
+func (o FileDownloadProgressUpdate) EncodeXDR(w io.Writer) (int, error) {
+	var xw = xdr.NewWriter(w)
+	return o.EncodeXDRInto(xw)
+}
+
+func (o FileDownloadProgressUpdate) MarshalXDR() ([]byte, error) {
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o FileDownloadProgressUpdate) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o FileDownloadProgressUpdate) AppendXDR(bs []byte) ([]byte, error) {
+	var aw = xdr.AppendWriter(bs)
+	var xw = xdr.NewWriter(&aw)
+	_, err := o.EncodeXDRInto(xw)
+	return []byte(aw), err
+}
+
+func (o FileDownloadProgressUpdate) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+	if l := len(o.Name); l > 8192 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Name", l, 8192)
+	}
+	xw.WriteString(o.Name)
+	_, err := o.Version.EncodeXDRInto(xw)
+	if err != nil {
+		return xw.Tot(), err
+	}
+	if l := len(o.BlockIndexes); l > 1000000 {
+		return xw.Tot(), xdr.ElementSizeExceeded("BlockIndexes", l, 1000000)
+	}
+	xw.WriteUint32(uint32(len(o.BlockIndexes)))
+	for i := range o.BlockIndexes {
+		xw.WriteUint32(uint32(o.BlockIndexes[i]))
+	}
+	xw.WriteUint32(o.UpdateType)
+	return xw.Tot(), xw.Error()
+}
+
+func (o *FileDownloadProgressUpdate) DecodeXDR(r io.Reader) error {
+	xr := xdr.NewReader(r)
+	return o.DecodeXDRFrom(xr)
+}
+
+func (o *FileDownloadProgressUpdate) UnmarshalXDR(bs []byte) error {
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
+	return o.DecodeXDRFrom(xr)
+}
+
+func (o *FileDownloadProgressUpdate) DecodeXDRFrom(xr *xdr.Reader) error {
+	o.Name = xr.ReadStringMax(8192)
+	(&o.Version).DecodeXDRFrom(xr)
+	_BlockIndexesSize := int(xr.ReadUint32())
+	if _BlockIndexesSize < 0 {
+		return xdr.ElementSizeExceeded("BlockIndexes", _BlockIndexesSize, 1000000)
+	}
+	if _BlockIndexesSize > 1000000 {
+		return xdr.ElementSizeExceeded("BlockIndexes", _BlockIndexesSize, 1000000)
+	}
+	o.BlockIndexes = make([]int32, _BlockIndexesSize)
+	for i := range o.BlockIndexes {
+		o.BlockIndexes[i] = int32(xr.ReadUint32())
+	}
+	o.UpdateType = xr.ReadUint32()
 	return xr.Error()
 }
 

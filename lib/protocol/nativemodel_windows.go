@@ -21,30 +21,22 @@ var disallowedCharacters = string([]rune{
 })
 
 type nativeModel struct {
-	next Model
+	Model
 }
 
 func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
 	fixupFiles(folder, files)
-	m.next.Index(deviceID, folder, files, flags, options)
+	m.Model.Index(deviceID, folder, files, flags, options)
 }
 
 func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
 	fixupFiles(folder, files)
-	m.next.IndexUpdate(deviceID, folder, files, flags, options)
+	m.Model.IndexUpdate(deviceID, folder, files, flags, options)
 }
 
 func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, flags uint32, options []Option, buf []byte) error {
 	name = filepath.FromSlash(name)
-	return m.next.Request(deviceID, folder, name, offset, hash, flags, options, buf)
-}
-
-func (m nativeModel) ClusterConfig(deviceID DeviceID, config ClusterConfigMessage) {
-	m.next.ClusterConfig(deviceID, config)
-}
-
-func (m nativeModel) Close(deviceID DeviceID, err error) {
-	m.next.Close(deviceID, err)
+	return m.Model.Request(deviceID, folder, name, offset, hash, flags, options, buf)
 }
 
 func fixupFiles(folder string, files []FileInfo) {
