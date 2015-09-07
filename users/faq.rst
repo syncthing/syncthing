@@ -230,7 +230,7 @@ Where do Syncthing logs go to?
 
 Syncthing logs to stdout by default. On Windows Syncthing by default also
 creates ``syncthing.log`` in Syncthing's home directory (check ``-help`` to see
-where that is).
+where that is). Command line option ``-logfile`` can be used to specify user-defined logfile.
 
 How do I upgrade Syncthing?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
