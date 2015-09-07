@@ -42,6 +42,11 @@ func poolHandler(pool string, uri *url.URL) {
 			}
 			time.Sleep(time.Minute)
 			continue
+		} else if resp.StatusCode == 403 {
+			if debug {
+				log.Println(pool, "failed to join due to IP address not matching external address")
+			}
+			return
 		} else if resp.StatusCode == 200 {
 			var x struct {
 				EvictionIn time.Duration `json:"evictionIn"`
