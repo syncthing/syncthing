@@ -722,16 +722,16 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 	if !m.folderSharedWith(folder, deviceID) {
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
-		return protocol.ErrInvalid
+		return protocol.ErrNoSuchFile
 	}
 
-	if flags != 0 {
-		// We don't currently support or expect any flags.
-		return protocol.ErrInvalid
+	if flags != 0 && flags != protocol.FlagFromTemporary {
+		// We currently support only no flags, or FromTemporary flag.
+		return fmt.Errorf("protocol error: unknown flags 0x%x in Request message", flags)
 	}
 
 	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d f=%d", m, deviceID, folder, name, offset, len(buf), flags)
 	}
 	m.fmut.RLock()
 	folderPath := m.folderCfgs[folder].Path()
@@ -772,8 +772,6 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		}
 	}
 
-	var reader io.ReaderAt
-	var err error
 	if info, err := os.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		target, _, err := symlinks.Read(fn)
 		if err != nil {
@@ -783,25 +781,49 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 			}
 			return protocol.ErrGeneric
 		}
-		reader = strings.NewReader(target)
-	} else {
-		// Cannot easily cache fd's because we might need to delete the file
-		// at any moment.
-		reader, err = os.Open(fn)
-		if err != nil {
-			l.Debugln("os.Open:", err)
-			if os.IsNotExist(err) {
-				return protocol.ErrNoSuchFile
-			}
+		if _, err := strings.NewReader(target).ReadAt(buf, offset); err != nil {
+			l.Debugln("symlink.Reader.ReadAt", err)
 			return protocol.ErrGeneric
 		}
-
-		defer reader.(*os.File).Close()
+		return nil
 	}
 
-	_, err = reader.ReadAt(buf, offset)
+	// Cannot easily cache fd's because we might need to delete the file
+	// at any moment.
+
+	// Only check temp files if we the flag is set, and if we are set to
+	// advertise the temp indexes.
+	if flags&protocol.FlagFromTemporary == protocol.FlagFromTemporary && m.cfg.Options().SendTempIndexes {
+		tempFn := filepath.Join(folderPath, defTempNamer.TempName(name))
+		tempFile, err := os.Open(tempFn)
+		if err == nil {
+			defer tempFile.Close()
+			_, err = tempFile.ReadAt(buf, offset)
+			if err != nil {
+				// The file might have finishe downloading, try the real file.
+				l.Debugln("tempFile.ReadAt:", err)
+			} else {
+				return nil
+			}
+		} else {
+			// The file might have finishe downloading, try the real file.
+			l.Debugln("os.Open:", err)
+		}
+	}
+
+	file, err := os.Open(fn)
 	if err != nil {
-		l.Debugln("reader.ReadAt:", err)
+		l.Debugln("os.Open:", err)
+		if os.IsNotExist(err) {
+			return protocol.ErrNoSuchFile
+		}
+		return protocol.ErrGeneric
+	}
+	defer file.Close()
+
+	_, err = file.ReadAt(buf, offset)
+	if err != nil {
+		l.Debugln("file.ReadAt:", err)
 		return protocol.ErrGeneric
 	}
 
