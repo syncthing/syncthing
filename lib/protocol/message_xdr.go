@@ -588,6 +588,8 @@ ClusterConfigMessage Structure:
 \                Zero or more Folder Structures                 \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                             Flags                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                       Number of Options                       |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
@@ -598,13 +600,14 @@ ClusterConfigMessage Structure:
 
 struct ClusterConfigMessage {
 	Folder Folders<1000000>;
+	unsigned int Flags;
 	Option Options<64>;
 }
 
 */
 
 func (o ClusterConfigMessage) XDRSize() int {
-	return 4 + xdr.SizeOfSlice(o.Folders) +
+	return 4 + xdr.SizeOfSlice(o.Folders) + 4 +
 		4 + xdr.SizeOfSlice(o.Options)
 }
 
@@ -632,6 +635,7 @@ func (o ClusterConfigMessage) MarshalXDRInto(m *xdr.Marshaller) error {
 			return err
 		}
 	}
+	m.MarshalUint32(o.Flags)
 	if l := len(o.Options); l > 64 {
 		return xdr.ElementSizeExceeded("Options", l, 64)
 	}
@@ -667,6 +671,136 @@ func (o *ClusterConfigMessage) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 			(&o.Folders[i]).UnmarshalXDRFrom(u)
 		}
 	}
+	o.Flags = u.UnmarshalUint32()
+	_OptionsSize := int(u.UnmarshalUint32())
+	if _OptionsSize < 0 {
+		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+	} else if _OptionsSize == 0 {
+		o.Options = nil
+	} else {
+		if _OptionsSize > 64 {
+			return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
+		}
+		if _OptionsSize <= len(o.Options) {
+			o.Options = o.Options[:_OptionsSize]
+		} else {
+			o.Options = make([]Option, _OptionsSize)
+		}
+		for i := range o.Options {
+			(&o.Options[i]).UnmarshalXDRFrom(u)
+		}
+	}
+	return u.Error
+}
+
+/*
+
+DownloadProgressMessage Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                 Folder (length + padded data)                 \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Number of Updates                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\      Zero or more FileDownloadProgressUpdate Structures       \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                             Flags                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Number of Options                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                Zero or more Option Structures                 \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+struct DownloadProgressMessage {
+	string Folder<64>;
+	FileDownloadProgressUpdate Updates<1000000>;
+	unsigned int Flags;
+	Option Options<64>;
+}
+
+*/
+
+func (o DownloadProgressMessage) XDRSize() int {
+	return 4 + len(o.Folder) + xdr.Padding(len(o.Folder)) +
+		4 + xdr.SizeOfSlice(o.Updates) + 4 +
+		4 + xdr.SizeOfSlice(o.Options)
+}
+
+func (o DownloadProgressMessage) MarshalXDR() ([]byte, error) {
+	buf := make([]byte, o.XDRSize())
+	m := &xdr.Marshaller{Data: buf}
+	return buf, o.MarshalXDRInto(m)
+}
+
+func (o DownloadProgressMessage) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o DownloadProgressMessage) MarshalXDRInto(m *xdr.Marshaller) error {
+	if l := len(o.Folder); l > 64 {
+		return xdr.ElementSizeExceeded("Folder", l, 64)
+	}
+	m.MarshalString(o.Folder)
+	if l := len(o.Updates); l > 1000000 {
+		return xdr.ElementSizeExceeded("Updates", l, 1000000)
+	}
+	m.MarshalUint32(uint32(len(o.Updates)))
+	for i := range o.Updates {
+		if err := o.Updates[i].MarshalXDRInto(m); err != nil {
+			return err
+		}
+	}
+	m.MarshalUint32(o.Flags)
+	if l := len(o.Options); l > 64 {
+		return xdr.ElementSizeExceeded("Options", l, 64)
+	}
+	m.MarshalUint32(uint32(len(o.Options)))
+	for i := range o.Options {
+		if err := o.Options[i].MarshalXDRInto(m); err != nil {
+			return err
+		}
+	}
+	return m.Error
+}
+
+func (o *DownloadProgressMessage) UnmarshalXDR(bs []byte) error {
+	u := &xdr.Unmarshaller{Data: bs}
+	return o.UnmarshalXDRFrom(u)
+}
+func (o *DownloadProgressMessage) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	o.Folder = u.UnmarshalStringMax(64)
+	_UpdatesSize := int(u.UnmarshalUint32())
+	if _UpdatesSize < 0 {
+		return xdr.ElementSizeExceeded("Updates", _UpdatesSize, 1000000)
+	} else if _UpdatesSize == 0 {
+		o.Updates = nil
+	} else {
+		if _UpdatesSize > 1000000 {
+			return xdr.ElementSizeExceeded("Updates", _UpdatesSize, 1000000)
+		}
+		if _UpdatesSize <= len(o.Updates) {
+			o.Updates = o.Updates[:_UpdatesSize]
+		} else {
+			o.Updates = make([]FileDownloadProgressUpdate, _UpdatesSize)
+		}
+		for i := range o.Updates {
+			(&o.Updates[i]).UnmarshalXDRFrom(u)
+		}
+	}
+	o.Flags = u.UnmarshalUint32()
 	_OptionsSize := int(u.UnmarshalUint32())
 	if _OptionsSize < 0 {
 		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
@@ -989,6 +1123,109 @@ func (o *Device) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 		}
 		for i := range o.Options {
 			(&o.Options[i]).UnmarshalXDRFrom(u)
+		}
+	}
+	return u.Error
+}
+
+/*
+
+FileDownloadProgressUpdate Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          Update Type                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                  Name (length + padded data)                  \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                       Vector Structure                        \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                    Number of Block Indexes                    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+|                    Block Indexes (n items)                    |
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+struct FileDownloadProgressUpdate {
+	unsigned int UpdateType;
+	string Name<8192>;
+	Vector Version;
+	int BlockIndexes<1000000>;
+}
+
+*/
+
+func (o FileDownloadProgressUpdate) XDRSize() int {
+	return 4 +
+		4 + len(o.Name) + xdr.Padding(len(o.Name)) +
+		o.Version.XDRSize() +
+		4 + len(o.BlockIndexes)*4
+}
+
+func (o FileDownloadProgressUpdate) MarshalXDR() ([]byte, error) {
+	buf := make([]byte, o.XDRSize())
+	m := &xdr.Marshaller{Data: buf}
+	return buf, o.MarshalXDRInto(m)
+}
+
+func (o FileDownloadProgressUpdate) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o FileDownloadProgressUpdate) MarshalXDRInto(m *xdr.Marshaller) error {
+	m.MarshalUint32(o.UpdateType)
+	if l := len(o.Name); l > 8192 {
+		return xdr.ElementSizeExceeded("Name", l, 8192)
+	}
+	m.MarshalString(o.Name)
+	if err := o.Version.MarshalXDRInto(m); err != nil {
+		return err
+	}
+	if l := len(o.BlockIndexes); l > 1000000 {
+		return xdr.ElementSizeExceeded("BlockIndexes", l, 1000000)
+	}
+	m.MarshalUint32(uint32(len(o.BlockIndexes)))
+	for i := range o.BlockIndexes {
+		m.MarshalUint32(uint32(o.BlockIndexes[i]))
+	}
+	return m.Error
+}
+
+func (o *FileDownloadProgressUpdate) UnmarshalXDR(bs []byte) error {
+	u := &xdr.Unmarshaller{Data: bs}
+	return o.UnmarshalXDRFrom(u)
+}
+func (o *FileDownloadProgressUpdate) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	o.UpdateType = u.UnmarshalUint32()
+	o.Name = u.UnmarshalStringMax(8192)
+	(&o.Version).UnmarshalXDRFrom(u)
+	_BlockIndexesSize := int(u.UnmarshalUint32())
+	if _BlockIndexesSize < 0 {
+		return xdr.ElementSizeExceeded("BlockIndexes", _BlockIndexesSize, 1000000)
+	} else if _BlockIndexesSize == 0 {
+		o.BlockIndexes = nil
+	} else {
+		if _BlockIndexesSize > 1000000 {
+			return xdr.ElementSizeExceeded("BlockIndexes", _BlockIndexesSize, 1000000)
+		}
+		if _BlockIndexesSize <= len(o.BlockIndexes) {
+			o.BlockIndexes = o.BlockIndexes[:_BlockIndexesSize]
+		} else {
+			o.BlockIndexes = make([]int32, _BlockIndexesSize)
+		}
+		for i := range o.BlockIndexes {
+			o.BlockIndexes[i] = int32(u.UnmarshalUint32())
 		}
 	}
 	return u.Error
