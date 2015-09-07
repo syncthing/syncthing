@@ -9,7 +9,6 @@ package model
 import (
 	"fmt"
 	"path/filepath"
-	"reflect"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -18,10 +17,10 @@ import (
 )
 
 type ProgressEmitter struct {
-	registry map[string]*sharedPullerState
-	interval time.Duration
-	last     map[string]map[string]*pullerProgress
-	mut      sync.Mutex
+	registry   map[string]*sharedPullerState
+	interval   time.Duration
+	lastUpdate time.Time
+	mut        sync.Mutex
 
 	timer *time.Timer
 
@@ -34,7 +33,6 @@ func NewProgressEmitter(cfg *config.Wrapper) *ProgressEmitter {
 	t := &ProgressEmitter{
 		stop:     make(chan struct{}),
 		registry: make(map[string]*sharedPullerState),
-		last:     make(map[string]map[string]*pullerProgress),
 		timer:    time.NewTimer(time.Millisecond),
 		mut:      sync.NewMutex(),
 	}
@@ -48,6 +46,8 @@ func NewProgressEmitter(cfg *config.Wrapper) *ProgressEmitter {
 // Serve starts the progress emitter which starts emitting DownloadProgress
 // events as the progress happens.
 func (t *ProgressEmitter) Serve() {
+	var lastUpdate time.Time
+	var lastCount, newCount int
 	for {
 		select {
 		case <-t.stop:
@@ -56,21 +56,33 @@ func (t *ProgressEmitter) Serve() {
 		case <-t.timer.C:
 			t.mut.Lock()
 			l.Debugln("progress emitter: timer - looking after", len(t.registry))
-			output := make(map[string]map[string]*pullerProgress)
+
+			newLastUpdated := lastUpdate
+			newCount = len(t.registry)
 			for _, puller := range t.registry {
-				if output[puller.folder] == nil {
-					output[puller.folder] = make(map[string]*pullerProgress)
+				updated := puller.Updated()
+				if updated.After(newLastUpdated) {
+					newLastUpdated = updated
 				}
-				output[puller.folder][puller.file.Name] = puller.Progress()
 			}
-			if !reflect.DeepEqual(t.last, output) {
+
+			if !newLastUpdated.Equal(lastUpdate) || newCount != lastCount {
+				lastUpdate = newLastUpdated
+				lastCount = newCount
+				output := make(map[string]map[string]*pullerProgress)
+				for _, puller := range t.registry {
+					if output[puller.folder] == nil {
+						output[puller.folder] = make(map[string]*pullerProgress)
+					}
+					output[puller.folder][puller.file.Name] = puller.Progress()
+				}
 				events.Default.Log(events.DownloadProgress, output)
-				t.last = output
 				l.Debugf("progress emitter: emitting %#v", output)
 			} else {
 				l.Debugln("progress emitter: nothing new")
 			}
-			if len(t.registry) != 0 {
+
+			if newCount != 0 {
 				t.timer.Reset(t.interval)
 			}
 			t.mut.Unlock()
@@ -115,7 +127,9 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 func (t *ProgressEmitter) Deregister(s *sharedPullerState) {
 	t.mut.Lock()
 	defer t.mut.Unlock()
+
 	l.Debugln("progress emitter: deregistering", s.folder, s.file.Name)
+
 	delete(t.registry, filepath.Join(s.folder, s.file.Name))
 }
 

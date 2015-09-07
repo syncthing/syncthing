@@ -1034,6 +1034,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		copyTotal:        len(blocks),
 		copyNeeded:       len(blocks),
 		reused:           len(reused),
+		updated:          time.Now(),
 		available:        reused,
 		availableUpdated: time.Now(),
 		ignorePerms:      p.ignorePermissions(file),
