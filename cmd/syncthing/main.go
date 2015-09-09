@@ -302,9 +302,12 @@ func main() {
 			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 		} else {
 			cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, tlsRSABits)
+			if err != nil {
+				l.Fatalln("Create certificate:", err)
+			}
 			myID = protocol.NewDeviceID(cert.Certificate[0])
 			if err != nil {
-				l.Fatalln("load cert:", err)
+				l.Fatalln("Load certificate:", err)
 			}
 			if err == nil {
 				l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
