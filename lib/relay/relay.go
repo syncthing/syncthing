@@ -192,6 +192,12 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 }
 
 func (s *Svc) ClientStatus() map[string]bool {
+	if s == nil {
+		// A nil client does not have a status, really. Yet we may be called
+		// this way, for raisins...
+		return nil
+	}
+
 	s.mut.RLock()
 	status := make(map[string]bool, len(s.clients))
 	for uri, client := range s.clients {
