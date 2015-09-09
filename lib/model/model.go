@@ -62,6 +62,16 @@ type service interface {
 	getState() (folderState, time.Time, error)
 }
 
+type connection struct {
+	TypedConnection
+	protocol.Connection
+}
+
+type TypedConnection interface {
+	net.Conn
+	IsDirect() bool
+}
+
 type Model struct {
 	*suture.Supervisor
 
@@ -87,7 +97,7 @@ type Model struct {
 	folderStatRefs map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut           sync.RWMutex                                           // protects the above
 
-	conn         map[protocol.DeviceID]Connection
+	conn         map[protocol.DeviceID]connection
 	deviceVer    map[protocol.DeviceID]string
 	devicePaused map[protocol.DeviceID]bool
 	pmut         sync.RWMutex // protects the above
@@ -130,7 +140,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderIgnores:      make(map[string]*ignore.Matcher),
 		folderRunners:      make(map[string]service),
 		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
-		conn:               make(map[protocol.DeviceID]Connection),
+		conn:               make(map[protocol.DeviceID]connection),
 		deviceVer:          make(map[protocol.DeviceID]string),
 		devicePaused:       make(map[protocol.DeviceID]bool),
 		reqValidationCache: make(map[string]time.Time),
@@ -223,7 +233,7 @@ type ConnectionInfo struct {
 	Paused        bool
 	Address       string
 	ClientVersion string
-	Type          ConnectionType
+	Direct        bool
 }
 
 func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
@@ -235,7 +245,7 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 		"paused":        info.Paused,
 		"address":       info.Address,
 		"clientVersion": info.ClientVersion,
-		"type":          info.Type.String(),
+		"direct":        info.Direct,
 	})
 }
 
@@ -257,7 +267,7 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 			Paused:        m.devicePaused[device],
 		}
 		if conn, ok := m.conn[device]; ok {
-			ci.Type = conn.Type
+			ci.Direct = conn.IsDirect()
 			ci.Connected = ok
 			ci.Statistics = conn.Statistics()
 			if addr := conn.RemoteAddr(); addr != nil {
@@ -592,14 +602,14 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		m.deviceVer[deviceID] = cm.ClientName + " " + cm.ClientVersion
 	}
 
-	event := map[string]string{
+	event := map[string]interface{}{
 		"id":            deviceID.String(),
 		"clientName":    cm.ClientName,
 		"clientVersion": cm.ClientVersion,
 	}
 
 	if conn, ok := m.conn[deviceID]; ok {
-		event["type"] = conn.Type.String()
+		event["direct"] = conn.IsDirect()
 		addr := conn.RemoteAddr()
 		if addr != nil {
 			event["addr"] = addr.String()
@@ -945,7 +955,8 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
-func (m *Model) AddConnection(conn Connection) {
+func (m *Model) AddConnection(nc TypedConnection, pc protocol.Connection) {
+	conn := connection{nc, pc}
 	deviceID := conn.ID()
 
 	m.pmut.Lock()

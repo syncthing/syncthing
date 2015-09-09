@@ -453,8 +453,8 @@
                     <tr>
                       <th>
                         <span class="fa fa-fw fa-link"></span>
-                        <span translate ng-if="connections[deviceCfg.deviceID].type.indexOf('direct') == 0" >Address</span>
-                        <span translate ng-if="connections[deviceCfg.deviceID].type.indexOf('relay') == 0" >Relayed via</span>
+                        <span translate ng-if="connections[deviceCfg.deviceID].direct" >Address</span>
+                        <span translate ng-if="!connections[deviceCfg.deviceID].direct" >Relayed via</span>
                       </th>
                       <td class="text-right">{{deviceAddr(deviceCfg)}}</td>
                     </tr>

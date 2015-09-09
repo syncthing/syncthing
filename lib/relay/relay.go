@@ -18,14 +18,13 @@ import (
 	"github.com/syncthing/relaysrv/protocol"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/discover"
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/thejerf/suture"
 )
 
-func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config, conns chan<- model.IntermediateConnection) *Svc {
+func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config, conns chan<- Connection) *Svc {
 	svc := &Svc{
 		Supervisor: suture.New("Svc", suture.Spec{
 			Log: func(log string) {
@@ -210,7 +209,7 @@ func (s *Svc) ClientStatus() map[string]bool {
 type invitationReceiver struct {
 	invitations chan protocol.SessionInvitation
 	tlsCfg      *tls.Config
-	conns       chan<- model.IntermediateConnection
+	conns       chan<- Connection
 	stop        chan struct{}
 }
 
@@ -247,9 +246,7 @@ func (r *invitationReceiver) Serve() {
 				tc.Close()
 				continue
 			}
-			r.conns <- model.IntermediateConnection{
-				tc, model.ConnectionTypeRelayAccept,
-			}
+			r.conns <- Connection{tc, ConnectionTypeRelayAccept}
 
 		case <-r.stop:
 			return

@@ -21,16 +21,17 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/relay"
 
 	"github.com/thejerf/suture"
 )
 
-type DialerFactory func(*url.URL, *tls.Config) (*tls.Conn, error)
-type ListenerFactory func(*url.URL, *tls.Config, chan<- model.IntermediateConnection)
+type dialerFactory func(*url.URL, *tls.Config) (*tls.Conn, error)
+type listenerFactory func(*url.URL, *tls.Config, chan<- relay.Connection)
 
 var (
-	dialers   = make(map[string]DialerFactory, 0)
-	listeners = make(map[string]ListenerFactory, 0)
+	dialers   = make(map[string]dialerFactory, 0)
+	listeners = make(map[string]listenerFactory, 0)
 )
 
 // The connection service listens on TLS and dials configured unconnected
@@ -41,12 +42,12 @@ type connectionSvc struct {
 	myID   protocol.DeviceID
 	model  *model.Model
 	tlsCfg *tls.Config
-	conns  chan model.IntermediateConnection
+	conns  chan relay.Connection
 
 	lastRelayCheck map[protocol.DeviceID]time.Time
 
 	mut           sync.RWMutex
-	connType      map[protocol.DeviceID]model.ConnectionType
+	isDirect      map[protocol.DeviceID]bool
 	relaysEnabled bool
 }
 
@@ -57,9 +58,9 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Mo
 		myID:       myID,
 		model:      mdl,
 		tlsCfg:     tlsCfg,
-		conns:      make(chan model.IntermediateConnection),
+		conns:      make(chan relay.Connection),
 
-		connType:       make(map[protocol.DeviceID]model.ConnectionType),
+		isDirect:       make(map[protocol.DeviceID]bool),
 		relaysEnabled:  cfg.Options().RelaysEnabled,
 		lastRelayCheck: make(map[protocol.DeviceID]time.Time),
 	}
@@ -107,14 +108,14 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Mo
 func (s *connectionSvc) handle() {
 next:
 	for c := range s.conns {
-		cs := c.Conn.ConnectionState()
+		cs := c.ConnectionState()
 
 		// We should have negotiated the next level protocol "bep/1.0" as part
 		// of the TLS handshake. Unfortunately this can't be a hard error,
 		// because there are implementations out there that don't support
 		// protocol negotiation (iOS for one...).
 		if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != bepProtocolName {
-			l.Infof("Peer %s did not negotiate bep/1.0", c.Conn.RemoteAddr())
+			l.Infof("Peer %s did not negotiate bep/1.0", c.RemoteAddr())
 		}
 
 		// We should have received exactly one certificate from the other
@@ -122,8 +123,8 @@ next:
 		// connection.
 		certs := cs.PeerCertificates
 		if cl := len(certs); cl != 1 {
-			l.Infof("Got peer certificate list of length %d != 1 from %s; protocol error", cl, c.Conn.RemoteAddr())
-			c.Conn.Close()
+			l.Infof("Got peer certificate list of length %d != 1 from %s; protocol error", cl, c.RemoteAddr())
+			c.Close()
 			continue
 		}
 		remoteCert := certs[0]
@@ -134,16 +135,16 @@ next:
 		// clients between the same NAT gateway, and global discovery.
 		if remoteID == myID {
 			l.Infof("Connected to myself (%s) - should not happen", remoteID)
-			c.Conn.Close()
+			c.Close()
 			continue
 		}
 
 		// If we have a relay connection, and the new incoming connection is
 		// not a relay connection, we should drop that, and prefer the this one.
 		s.mut.RLock()
-		ct, ok := s.connType[remoteID]
+		isDirect, ok := s.isDirect[remoteID]
 		s.mut.RUnlock()
-		if ok && !ct.IsDirect() && c.Type.IsDirect() {
+		if ok && !isDirect && c.IsDirect() {
 			if debugNet {
 				l.Debugln("Switching connections", remoteID)
 			}
@@ -156,11 +157,11 @@ next:
 			// in parallel we don't want to do that or we end up with no
 			// connections still established...
 			l.Infof("Connected to already connected device (%s)", remoteID)
-			c.Conn.Close()
+			c.Close()
 			continue
 		} else if s.model.IsPaused(remoteID) {
 			l.Infof("Connection from paused device (%s)", remoteID)
-			c.Conn.Close()
+			c.Close()
 			continue
 		}
 
@@ -178,41 +179,37 @@ next:
 					// Incorrect certificate name is something the user most
 					// likely wants to know about, since it's an advanced
 					// config. Warn instead of Info.
-					l.Warnf("Bad certificate from %s (%v): %v", remoteID, c.Conn.RemoteAddr(), err)
-					c.Conn.Close()
+					l.Warnf("Bad certificate from %s (%v): %v", remoteID, c.RemoteAddr(), err)
+					c.Close()
 					continue next
 				}
 
 				// If rate limiting is set, and based on the address we should
 				// limit the connection, then we wrap it in a limiter.
 
-				limit := s.shouldLimit(c.Conn.RemoteAddr())
+				limit := s.shouldLimit(c.RemoteAddr())
 
-				wr := io.Writer(c.Conn)
+				wr := io.Writer(c)
 				if limit && writeRateLimit != nil {
-					wr = &limitedWriter{c.Conn, writeRateLimit}
+					wr = &limitedWriter{c, writeRateLimit}
 				}
 
-				rd := io.Reader(c.Conn)
+				rd := io.Reader(c)
 				if limit && readRateLimit != nil {
-					rd = &limitedReader{c.Conn, readRateLimit}
+					rd = &limitedReader{c, readRateLimit}
 				}
 
-				name := fmt.Sprintf("%s-%s (%s)", c.Conn.LocalAddr(), c.Conn.RemoteAddr(), c.Type)
+				name := fmt.Sprintf("%s-%s (direct-%v)", c.LocalAddr(), c.RemoteAddr(), c.IsDirect())
 				protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
 				if debugNet {
-					l.Debugf("cipher suite: %04X in lan: %t", c.Conn.ConnectionState().CipherSuite, !limit)
+					l.Debugf("cipher suite: %04X in lan: %t", c.ConnectionState().CipherSuite, !limit)
 				}
 
-				s.model.AddConnection(model.Connection{
-					c.Conn,
-					protoConn,
-					c.Type,
-				})
+				s.model.AddConnection(c, protoConn)
 				s.mut.Lock()
-				s.connType[remoteID] = c.Type
+				s.isDirect[remoteID] = c.IsDirect()
 				s.mut.Unlock()
 				continue next
 			}
@@ -221,12 +218,12 @@ next:
 		if !s.cfg.IgnoredDevice(remoteID) {
 			events.Default.Log(events.DeviceRejected, map[string]string{
 				"device":  remoteID.String(),
-				"address": c.Conn.RemoteAddr().String(),
+				"address": c.RemoteAddr().String(),
 			})
 		}
 
-		l.Infof("Connection from %s (%s) with ignored device ID %s", c.Conn.RemoteAddr(), c.Type, remoteID)
-		c.Conn.Close()
+		l.Infof("Connection from %s (direct-%v) with ignored device ID %s", c.RemoteAddr(), c.IsDirect(), remoteID)
+		c.Close()
 	}
 }
 
@@ -246,10 +243,10 @@ func (s *connectionSvc) connect() {
 			connected := s.model.ConnectedTo(deviceID)
 
 			s.mut.RLock()
-			ct, ok := s.connType[deviceID]
+			isDirect, ok := s.isDirect[deviceID]
 			relaysEnabled := s.relaysEnabled
 			s.mut.RUnlock()
-			if connected && ok && ct.IsDirect() {
+			if connected && ok && isDirect {
 				continue
 			}
 
@@ -295,9 +292,7 @@ func (s *connectionSvc) connect() {
 					s.model.Close(deviceID, fmt.Errorf("switching connections"))
 				}
 
-				s.conns <- model.IntermediateConnection{
-					conn, model.ConnectionTypeDirectDial,
-				}
+				s.conns <- relay.Connection{conn, relay.ConnectionTypeDirectDial}
 				continue nextDevice
 			}
 
@@ -367,9 +362,7 @@ func (s *connectionSvc) connect() {
 					tc.Close()
 					continue
 				}
-				s.conns <- model.IntermediateConnection{
-					tc, model.ConnectionTypeRelayDial,
-				}
+				s.conns <- relay.Connection{tc, relay.ConnectionTypeRelayDial}
 				continue nextDevice
 			}
 		}
