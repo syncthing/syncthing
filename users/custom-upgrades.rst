@@ -15,7 +15,7 @@ Usage
 
 The URL used to fetch release information can be set in :ref:`advanced`, under
 the name ``releasesURL``. The URL should point to a location serving a valid
-relase list. The release list is a JSON file on the following format::
+release list. The release list is a JSON file on the following format::
 
 	[
 	  {
@@ -69,6 +69,8 @@ relase list. The release list is a JSON file on the following format::
 
 The file may include additional attributes; these are ignored. Syncthing looks
 for a version number in ``tag_name``, then for an asset ``name`` matching
-``syncthing-$os-$arch-$version.$ext``. The actual assets must be official
+``syncthing-$os-$arch-$version.$ext``. Only beta releases (i.e. releases with
+version numbers of the form ``v0.11.24-beta...``) will consider an upgrade to
+a release marked as ``"prerelease": true``. The actual assets must be official
 releases downloaded from Github, or they must be custom compiled and signed
 according to the process outlined in :ref:`release-signing`.
