@@ -60,6 +60,43 @@ type report struct {
 	SHA256Perf     float64
 	MemorySize     int
 
+	// v2 fields
+
+	URVersion  int
+	NumCPU     int
+	FolderUses struct {
+		ReadOnly      int
+		IgnorePerms   int
+		IgnoreDelete  int
+		AutoNormalize int
+	}
+	DeviceUses struct {
+		Introducer       int
+		CustomCertName   int
+		CompressAlways   int
+		CompressMetadata int
+		CompressNever    int
+		DynamicAddr      int
+		StaticAddr       int
+	}
+	Announce struct {
+		GlobalEnabled     bool
+		LocalEnabled      bool
+		DefaultServersDNS int
+		DefaultServersIP  int
+		OtherServers      int
+	}
+	Relays struct {
+		Enabled        bool
+		DefaultServers int
+		OtherServers   int
+	}
+	UsesRateLimit        bool
+	UpgradeAllowedManual bool
+	UpgradeAllowedAuto   bool
+
+	// Generated
+
 	Date string
 }
 
@@ -71,6 +108,19 @@ func (r *report) Validate() error {
 		return fmt.Errorf("date not initialized")
 	}
 	return nil
+}
+
+func (r *report) FieldsInDBOrder() []interface{} {
+	return []interface{}{r.UniqueID, r.Version, r.LongVersion, r.Platform, r.NumFolders,
+		r.NumDevices, r.TotFiles, r.FolderMaxFiles, r.TotMiB, r.FolderMaxMiB,
+		r.MemoryUsageMiB, r.SHA256Perf, r.MemorySize, r.Date,
+		r.URVersion, r.NumCPU,
+		r.FolderUses.ReadOnly, r.FolderUses.IgnorePerms, r.FolderUses.IgnoreDelete, r.FolderUses.AutoNormalize,
+		r.DeviceUses.Introducer, r.DeviceUses.CustomCertName, r.DeviceUses.CompressAlways, r.DeviceUses.CompressMetadata, r.DeviceUses.CompressNever,
+		r.DeviceUses.DynamicAddr, r.DeviceUses.StaticAddr,
+		r.Announce.GlobalEnabled, r.Announce.LocalEnabled, r.Announce.DefaultServersDNS, r.Announce.DefaultServersIP, r.Announce.OtherServers,
+		r.Relays.Enabled, r.Relays.DefaultServers, r.Relays.OtherServers,
+		r.UsesRateLimit, r.UpgradeAllowedManual, r.UpgradeAllowedAuto}
 }
 
 func setupDB(db *sql.DB) error {
@@ -95,24 +145,74 @@ func setupDB(db *sql.DB) error {
 		return err
 	}
 
+	var t string
 	row := db.QueryRow(`SELECT 'UniqueIDIndex'::regclass`)
-	if err := row.Scan(nil); err != nil {
-		_, err = db.Exec(`CREATE UNIQUE INDEX UniqueIDIndex ON Reports (Date, UniqueID)`)
+	if err := row.Scan(&t); err != nil {
+		log.Println(err)
+		if _, err = db.Exec(`CREATE UNIQUE INDEX UniqueIDIndex ON Reports (Date, UniqueID)`); err != nil {
+			return err
+		}
 	}
 
 	row = db.QueryRow(`SELECT 'ReceivedIndex'::regclass`)
-	if err := row.Scan(nil); err != nil {
-		_, err = db.Exec(`CREATE INDEX ReceivedIndex ON Reports (Received)`)
+	if err := row.Scan(&t); err != nil {
+		if _, err = db.Exec(`CREATE INDEX ReceivedIndex ON Reports (Received)`); err != nil {
+			return err
+		}
 	}
 
-	return err
+	row = db.QueryRow(`SELECT attname FROM pg_attribute WHERE attrelid = (SELECT oid FROM pg_class WHERE relname = 'reports') AND attname = 'reportversion'`)
+	if err := row.Scan(&t); err != nil {
+		// The ReportVersion column doesn't exist; add the new columns.
+		_, err = db.Exec(`ALTER TABLE Reports
+		ADD COLUMN ReportVersion INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN NumCPU INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderRO  INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderIgnorePerms INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderIgnoreDelete INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderAutoNormalize INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN DeviceIntroducer INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN DeviceCustomCertName INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN DeviceCompressAlways INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN DeviceCompressMetadata INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN DeviceCompressNever INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN DeviceDynamicAddr INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN DeviceStaticAddr INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN AnnounceGlobalEnabled BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN AnnounceLocalEnabled BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN AnnounceDefaultServersDNS INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN AnnounceDefaultServersIP INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN AnnounceOtherServers INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN RelayEnabled BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN RelayDefaultServers INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN RelayOtherServers INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN RateLimitEnabled BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN UpgradeAllowedManual BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN UpgradeAllowedAuto BOOLEAN NOT NULL DEFAULT FALSE
+		`)
+		if err != nil {
+			return err
+		}
+	}
+
+	row = db.QueryRow(`SELECT 'ReportVersionIndex'::regclass`)
+	if err := row.Scan(&t); err != nil {
+		if _, err = db.Exec(`CREATE INDEX ReportVersionIndex ON Reports (ReportVersion)`); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func insertReport(db *sql.DB, r report) error {
-	_, err := db.Exec(`INSERT INTO Reports VALUES (TIMEZONE('UTC', NOW()), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-		r.UniqueID, r.Version, r.LongVersion, r.Platform, r.NumFolders,
-		r.NumDevices, r.TotFiles, r.FolderMaxFiles, r.TotMiB, r.FolderMaxMiB,
-		r.MemoryUsageMiB, r.SHA256Perf, r.MemorySize, r.Date)
+	fields := r.FieldsInDBOrder()
+	params := make([]string, len(fields))
+	for i := range params {
+		params[i] = fmt.Sprintf("$%d", i+1)
+	}
+	query := "INSERT INTO Reports VALUES (TIMEZONE('UTC', NOW()), " + strings.Join(params, ", ") + ")"
+	_, err := db.Exec(query, fields...)
 
 	return err
 }
