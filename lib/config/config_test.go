@@ -60,6 +60,9 @@ func TestDefaultValues(t *testing.T) {
 		PingTimeoutS:            30,
 		PingIdleTimeS:           60,
 		MinHomeDiskFreePct:      1,
+		URURL:                   "https://data.syncthing.net/newdata",
+		URInitialDelayS:         1800,
+		URPostInsecurely:        false,
 	}
 
 	cfg := New(device1)
@@ -175,6 +178,9 @@ func TestOverriddenValues(t *testing.T) {
 		PingTimeoutS:            60,
 		PingIdleTimeS:           120,
 		MinHomeDiskFreePct:      5.2,
+		URURL:                   "https://localhost/newdata",
+		URInitialDelayS:         800,
+		URPostInsecurely:        true,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)

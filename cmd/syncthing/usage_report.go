@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -238,17 +239,21 @@ func (s *usageReportingService) sendUsageReport() error {
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
 
-	var client = http.DefaultClient
+	transp := &http.Transport{}
+	client := &http.Client{Transport: transp}
 	if BuildEnv == "android" {
 		// This works around the lack of DNS resolution on Android... :(
-		tr := &http.Transport{
-			Dial: func(network, addr string) (net.Conn, error) {
-				return net.Dial(network, "194.126.249.13:443")
-			},
+		transp.Dial = func(network, addr string) (net.Conn, error) {
+			return net.Dial(network, "194.126.249.13:443")
 		}
-		client = &http.Client{Transport: tr}
 	}
-	_, err := client.Post("https://data.syncthing.net/newdata", "application/json", &b)
+
+	if cfg.Options().URPostInsecurely {
+		transp.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+	_, err := client.Post(cfg.Options().URURL, "application/json", &b)
 	return err
 }
 
@@ -258,7 +263,7 @@ func (s *usageReportingService) Serve() {
 	l.Infoln("Starting usage reporting")
 	defer l.Infoln("Stopping usage reporting")
 
-	t := time.NewTimer(10 * time.Minute) // time to initial report at start
+	t := time.NewTimer(time.Duration(cfg.Options().URInitialDelayS) * time.Second) // time to initial report at start
 	for {
 		select {
 		case <-s.stop:
