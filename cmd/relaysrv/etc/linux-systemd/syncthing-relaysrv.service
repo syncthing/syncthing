@@ -1,0 +1,16 @@
+[Unit]
+Description=Syncthing relay server
+After=network.target
+
+[Service]
+User=syncthing-relaysrv
+Group=syncthing-relaysrv
+ExecStart=/usr/bin/syncthing-relaysrv
+
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
