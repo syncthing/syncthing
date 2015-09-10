@@ -110,17 +110,70 @@ func (r *report) Validate() error {
 	return nil
 }
 
-func (r *report) FieldsInDBOrder() []interface{} {
-	return []interface{}{r.UniqueID, r.Version, r.LongVersion, r.Platform, r.NumFolders,
-		r.NumDevices, r.TotFiles, r.FolderMaxFiles, r.TotMiB, r.FolderMaxMiB,
-		r.MemoryUsageMiB, r.SHA256Perf, r.MemorySize, r.Date,
-		r.URVersion, r.NumCPU,
-		r.FolderUses.ReadOnly, r.FolderUses.IgnorePerms, r.FolderUses.IgnoreDelete, r.FolderUses.AutoNormalize,
-		r.DeviceUses.Introducer, r.DeviceUses.CustomCertName, r.DeviceUses.CompressAlways, r.DeviceUses.CompressMetadata, r.DeviceUses.CompressNever,
-		r.DeviceUses.DynamicAddr, r.DeviceUses.StaticAddr,
-		r.Announce.GlobalEnabled, r.Announce.LocalEnabled, r.Announce.DefaultServersDNS, r.Announce.DefaultServersIP, r.Announce.OtherServers,
-		r.Relays.Enabled, r.Relays.DefaultServers, r.Relays.OtherServers,
-		r.UsesRateLimit, r.UpgradeAllowedManual, r.UpgradeAllowedAuto}
+func (r *report) FieldPointers() []interface{} {
+	// All the fields of the report, in the same order as the database fields.
+	return []interface{}{
+		&r.Received, &r.UniqueID, &r.Version, &r.LongVersion, &r.Platform,
+		&r.NumFolders, &r.NumDevices, &r.TotFiles, &r.FolderMaxFiles,
+		&r.TotMiB, &r.FolderMaxMiB, &r.MemoryUsageMiB, &r.SHA256Perf,
+		&r.MemorySize, &r.Date, &r.URVersion, &r.NumCPU,
+		&r.FolderUses.ReadOnly, &r.FolderUses.IgnorePerms, &r.FolderUses.IgnoreDelete,
+		&r.FolderUses.AutoNormalize, &r.DeviceUses.Introducer,
+		&r.DeviceUses.CustomCertName, &r.DeviceUses.CompressAlways,
+		&r.DeviceUses.CompressMetadata, &r.DeviceUses.CompressNever,
+		&r.DeviceUses.DynamicAddr, &r.DeviceUses.StaticAddr,
+		&r.Announce.GlobalEnabled, &r.Announce.LocalEnabled,
+		&r.Announce.DefaultServersDNS, &r.Announce.DefaultServersIP,
+		&r.Announce.OtherServers, &r.Relays.Enabled, &r.Relays.DefaultServers,
+		&r.Relays.OtherServers, &r.UsesRateLimit, &r.UpgradeAllowedManual,
+		&r.UpgradeAllowedAuto}
+}
+
+func (r *report) FieldNames() []string {
+	// The database fields that back this struct in PostgreSQL
+	return []string{
+		// V1
+		"Received",
+		"UniqueID",
+		"Version",
+		"LongVersion",
+		"Platform",
+		"NumFolders",
+		"NumDevices",
+		"TotFiles",
+		"FolderMaxFiles",
+		"TotMiB",
+		"FolderMaxMiB",
+		"MemoryUsageMiB",
+		"SHA256Perf",
+		"MemorySize",
+		"Date",
+		// V2
+		"ReportVersion",
+		"NumCPU",
+		"FolderRO",
+		"FolderIgnorePerms",
+		"FolderIgnoreDelete",
+		"FolderAutoNormalize",
+		"DeviceIntroducer",
+		"DeviceCustomCertName",
+		"DeviceCompressAlways",
+		"DeviceCompressMetadata",
+		"DeviceCompressNever",
+		"DeviceDynamicAddr",
+		"DeviceStaticAddr",
+		"AnnounceGlobalEnabled",
+		"AnnounceLocalEnabled",
+		"AnnounceDefaultServersDNS",
+		"AnnounceDefaultServersIP",
+		"AnnounceOtherServers",
+		"RelayEnabled",
+		"RelayDefaultServers",
+		"RelayOtherServers",
+		"RateLimitEnabled",
+		"UpgradeAllowedManual",
+		"UpgradeAllowedAuto",
+	}
 }
 
 func setupDB(db *sql.DB) error {
@@ -206,12 +259,13 @@ func setupDB(db *sql.DB) error {
 }
 
 func insertReport(db *sql.DB, r report) error {
-	fields := r.FieldsInDBOrder()
+	r.Received = time.Now().UTC()
+	fields := r.FieldPointers()
 	params := make([]string, len(fields))
 	for i := range params {
 		params[i] = fmt.Sprintf("$%d", i+1)
 	}
-	query := "INSERT INTO Reports VALUES (TIMEZONE('UTC', NOW()), " + strings.Join(params, ", ") + ")"
+	query := "INSERT INTO Reports (" + strings.Join(r.FieldNames(), ", ") + ") VALUES (" + strings.Join(params, ", ") + ")"
 	_, err := db.Exec(query, fields...)
 
 	return err
@@ -414,25 +468,9 @@ func getReport(db *sql.DB) map[string]interface{} {
 	var compilers []string
 	var builders []string
 
-	fields := []string{
-		"Received",
-		"UniqueID",
-		"Version",
-		"LongVersion",
-		"Platform",
-		"NumFolders",
-		"NumDevices",
-		"TotFiles",
-		"FolderMaxFiles",
-		"TotMiB",
-		"FolderMaxMiB",
-		"MemoryUsageMiB",
-		"SHA256Perf",
-		"MemorySize",
-		"Date",
-	}
+	var rep report
 
-	rows, err := db.Query(`SELECT ` + strings.Join(fields, ",") + ` FROM Reports WHERE Received > now() - '1 day'::INTERVAL`)
+	rows, err := db.Query(`SELECT ` + strings.Join(rep.FieldNames(), ",") + ` FROM Reports WHERE Received > now() - '1 day'::INTERVAL`)
 	if err != nil {
 		log.Println("sql:", err)
 		return nil
@@ -440,12 +478,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 	defer rows.Close()
 
 	for rows.Next() {
-
-		var rep report
-		err := rows.Scan(&rep.Received, &rep.UniqueID, &rep.Version,
-			&rep.LongVersion, &rep.Platform, &rep.NumFolders, &rep.NumDevices,
-			&rep.TotFiles, &rep.FolderMaxFiles, &rep.TotMiB, &rep.FolderMaxMiB,
-			&rep.MemoryUsageMiB, &rep.SHA256Perf, &rep.MemorySize, &rep.Date)
+		err := rows.Scan(rep.FieldPointers()...)
 
 		if err != nil {
 			log.Println("sql:", err)
