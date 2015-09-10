@@ -1,3 +1,5 @@
+.. _release-signing:
+
 Release Signing
 ===============
 
