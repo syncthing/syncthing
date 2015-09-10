@@ -414,7 +414,25 @@ func getReport(db *sql.DB) map[string]interface{} {
 	var compilers []string
 	var builders []string
 
-	rows, err := db.Query(`SELECT * FROM Reports WHERE Received > now() - '1 day'::INTERVAL`)
+	fields := []string{
+		"Received",
+		"UniqueID",
+		"Version",
+		"LongVersion",
+		"Platform",
+		"NumFolders",
+		"NumDevices",
+		"TotFiles",
+		"FolderMaxFiles",
+		"TotMiB",
+		"FolderMaxMiB",
+		"MemoryUsageMiB",
+		"SHA256Perf",
+		"MemorySize",
+		"Date",
+	}
+
+	rows, err := db.Query(`SELECT ` + strings.Join(fields, ",") + ` FROM Reports WHERE Received > now() - '1 day'::INTERVAL`)
 	if err != nil {
 		log.Println("sql:", err)
 		return nil
