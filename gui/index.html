@@ -190,8 +190,8 @@
       <!-- Folder list (top left) -->
 
       <div class="col-md-6">
+        <h3 translate>Folders</h3>
         <div class="panel-group" id="folders">
-        <div class="visible-xs"><h3><span translate>Folders</span></h3><hr></div>
           <div class="panel panel-default" ng-repeat="folder in folderList()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
@@ -348,7 +348,7 @@
       <!-- This device -->
 
       <div class="col-md-6">
-      <div class="visible-xs"><h3><span translate>Devices</span></h3><hr></div>
+        <h3 translate>Devices</h3>
         <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
           <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
             <h3 class="panel-title">
