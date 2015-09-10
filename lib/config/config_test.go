@@ -63,6 +63,7 @@ func TestDefaultValues(t *testing.T) {
 		URURL:                   "https://data.syncthing.net/newdata",
 		URInitialDelayS:         1800,
 		URPostInsecurely:        false,
+		ReleasesURL:             "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30",
 	}
 
 	cfg := New(device1)
@@ -181,6 +182,7 @@ func TestOverriddenValues(t *testing.T) {
 		URURL:                   "https://localhost/newdata",
 		URInitialDelayS:         800,
 		URPostInsecurely:        true,
+		ReleasesURL:             "https://localhost/releases",
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)

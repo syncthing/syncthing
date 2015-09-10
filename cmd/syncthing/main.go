@@ -347,7 +347,7 @@ func main() {
 	}
 
 	if doUpgrade || doUpgradeCheck {
-		rel, err := upgrade.LatestRelease(Version)
+		rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
 		if err != nil {
 			l.Fatalln("Upgrade:", err) // exits 1
 		}
@@ -1060,7 +1060,7 @@ func autoUpgrade() {
 		case <-timer.C:
 		}
 
-		rel, err := upgrade.LatestRelease(Version)
+		rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return

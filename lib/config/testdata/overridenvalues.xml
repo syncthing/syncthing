@@ -35,5 +35,6 @@
         <urURL>https://localhost/newdata</urURL>
         <urInitialDelayS>800</urInitialDelayS>
         <urPostInsecurely>true</urPostInsecurely>
+        <releasesURL>https://localhost/releases</releasesURL>
     </options>
 </configuration>

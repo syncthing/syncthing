@@ -248,6 +248,7 @@ type OptionsConfiguration struct {
 	PingTimeoutS            int      `xml:"pingTimeoutS" json:"pingTimeoutS" default:"30"`
 	PingIdleTimeS           int      `xml:"pingIdleTimeS" json:"pingIdleTimeS" default:"60"`
 	MinHomeDiskFreePct      float64  `xml:"minHomeDiskFreePct" json:"minHomeDiskFreePct" default:"1"`
+	ReleasesURL             string   `xml:"releasesURL" json:"releasesURL" default:"https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"`
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {
