@@ -595,6 +595,14 @@ func syncthingMain() {
 		for _, lan := range lans {
 			networks = append(networks, lan.String())
 		}
+		for _, lan := range opts.AlwaysLocalNets {
+			_, ipnet, err := net.ParseCIDR(lan)
+			if err != nil {
+				l.Infoln("Network", lan, "is malformed:", err)
+				continue
+			}
+			networks = append(networks, ipnet.String())
+		}
 		l.Infoln("Local networks:", strings.Join(networks, ", "))
 	}
 
