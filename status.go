@@ -24,7 +24,9 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	status := make(map[string]interface{})
 
 	sessionMut.Lock()
-	status["numSessions"] = len(sessions)
+	// This can potentially be double the number of pending sessions, as each session has two keys, one for each side.
+	status["numPendingSessionKeys"] = len(pendingSessions)
+	status["numActiveSessions"] = len(activeSessions)
 	sessionMut.Unlock()
 	status["numConnections"] = atomic.LoadInt64(&numConnections)
 	status["numProxies"] = atomic.LoadInt64(&numProxies)

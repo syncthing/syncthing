@@ -4,6 +4,7 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/hex"
 	"log"
 	"net"
 	"sync"
@@ -34,7 +35,7 @@ func listener(addr string, config *tls.Config) {
 		conn, isTLS, err := listener.AcceptNoWrapTLS()
 		if err != nil {
 			if debug {
-				log.Println(err)
+				log.Println("Listener failed to accept connection from", conn.RemoteAddr(), ". Possibly a TCP Ping.")
 			}
 			continue
 		}
@@ -138,13 +139,13 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 					conn.Close()
 					continue
 				}
-
-				ses := newSession(sessionLimiter, globalLimiter)
+				// requestedPeer is the server, id is the client
+				ses := newSession(requestedPeer, id, sessionLimiter, globalLimiter)
 
 				go ses.Serve()
 
-				clientInvitation := ses.GetClientInvitationMessage(requestedPeer)
-				serverInvitation := ses.GetServerInvitationMessage(id)
+				clientInvitation := ses.GetClientInvitationMessage()
+				serverInvitation := ses.GetServerInvitationMessage()
 
 				if err := protocol.WriteMessage(conn, clientInvitation); err != nil {
 					if debug {
@@ -181,12 +182,19 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 			// Potentially closing a second time.
 			conn.Close()
 
-			// Only delete the outbox if the client is joined, as it might be
-			// a lookup request coming from the same client.
 			if joined {
+				// Only delete the outbox if the client is joined, as it might be
+				// a lookup request coming from the same client.
 				outboxesMut.Lock()
 				delete(outboxes, id)
 				outboxesMut.Unlock()
+				// Also, kill all sessions related to this node, as it probably
+				// went offline. This is for the other end to realize the client
+				// is no longer there faster. This also helps resolve
+				// 'already connected' errors when one of the sides is
+				// restarting, and connecting to the other peer before the other
+				// peer even realised that the node has gone away.
+				dropSessions(id)
 			}
 			return
 
@@ -245,7 +253,7 @@ func sessionConnectionHandler(conn net.Conn) {
 	case protocol.JoinSessionRequest:
 		ses := findSession(string(msg.Key))
 		if debug {
-			log.Println(conn.RemoteAddr(), "session lookup", ses)
+			log.Println(conn.RemoteAddr(), "session lookup", ses, hex.EncodeToString(msg.Key)[:5])
 		}
 
 		if ses == nil {
