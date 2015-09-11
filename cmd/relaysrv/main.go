@@ -42,6 +42,8 @@ var (
 )
 
 func main() {
+	log.SetFlags(log.Lshortfile | log.LstdFlags)
+
 	var dir, extAddress string
 
 	flag.StringVar(&listen, "listen", ":22067", "Protocol listen address")
