@@ -15,20 +15,21 @@ import (
 
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/relaysrv/protocol"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 
 	syncthingprotocol "github.com/syncthing/protocol"
 )
 
 var (
 	listen string
-	debug  bool
+	debug  bool = false
 
 	sessionAddress []byte
 	sessionPort    uint16
 
-	networkTimeout time.Duration
-	pingInterval   time.Duration
-	messageTimeout time.Duration
+	networkTimeout time.Duration = 2 * time.Minute
+	pingInterval   time.Duration = time.Minute
+	messageTimeout time.Duration = time.Minute
 
 	sessionLimitBps int
 	globalLimitBps  int
@@ -45,14 +46,14 @@ func main() {
 
 	flag.StringVar(&listen, "listen", ":22067", "Protocol listen address")
 	flag.StringVar(&dir, "keys", ".", "Directory where cert.pem and key.pem is stored")
-	flag.DurationVar(&networkTimeout, "network-timeout", 2*time.Minute, "Timeout for network operations")
-	flag.DurationVar(&pingInterval, "ping-interval", time.Minute, "How often pings are sent")
-	flag.DurationVar(&messageTimeout, "message-timeout", time.Minute, "Maximum amount of time we wait for relevant messages to arrive")
+	flag.DurationVar(&networkTimeout, "network-timeout", networkTimeout, "Timeout for network operations between the client and the relay.\n\tIf no data is received between the client and the relay in this period of time, the connection is terminated.\n\tFurthermore, if no data is sent between either clients being relayed within this period of time, the session is also terminated.")
+	flag.DurationVar(&pingInterval, "ping-interval", pingInterval, "How often pings are sent")
+	flag.DurationVar(&messageTimeout, "message-timeout", messageTimeout, "Maximum amount of time we wait for relevant messages to arrive")
 	flag.IntVar(&sessionLimitBps, "per-session-rate", sessionLimitBps, "Per session rate limit, in bytes/s")
 	flag.IntVar(&globalLimitBps, "global-rate", globalLimitBps, "Global rate limit, in bytes/s")
-	flag.BoolVar(&debug, "debug", false, "Enable debug output")
+	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
 	flag.StringVar(&statusAddr, "status-srv", ":22070", "Listen address for status service (blank to disable)")
-	flag.StringVar(&poolAddrs, "pools", defaultPoolAddrs, "Comma separated list of relau pool addresses to join")
+	flag.StringVar(&poolAddrs, "pools", defaultPoolAddrs, "Comma separated list of relay pool addresses to join")
 
 	flag.Parse()
 
@@ -71,7 +72,11 @@ func main() {
 	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		log.Fatalln("Failed to load X509 key pair:", err)
+		log.Println("Failed to load keypair. Generating one, this might take a while...")
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, "relaysrv", 3072)
+		if err != nil {
+			log.Fatalln("Failed to generate X509 key pair:", err)
+		}
 	}
 
 	tlsCfg := &tls.Config{
@@ -107,9 +112,13 @@ func main() {
 		go statusService(statusAddr)
 	}
 
-	uri, err := url.Parse(fmt.Sprintf("relay://%s/?id=%s", extAddress, id))
+	uri, err := url.Parse(fmt.Sprintf("relay://%s/?id=%s&pingInterval=%s&networkTimeout=%s&sessionLimitBps=%d&globalLimitBps=%d&statusAddr=%s", extAddress, id, pingInterval, networkTimeout, sessionLimitBps, globalLimitBps, statusAddr))
 	if err != nil {
 		log.Fatalln("Failed to construct URI", err)
+	}
+
+	if debug {
+		log.Println("URI:", uri.String())
 	}
 
 	if poolAddrs == defaultPoolAddrs {
