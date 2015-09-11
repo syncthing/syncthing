@@ -214,8 +214,11 @@ type FolderDeviceConfiguration struct {
 }
 
 type OptionsConfiguration struct {
+	CommentListenAddress    string   `xml:",comment" json:"-" default:"An address (URL format) that we listen on for incoming sync connections. Supports the tcp:// scheme only."`
 	ListenAddress           []string `xml:"listenAddress" json:"listenAddress" default:"tcp://0.0.0.0:22000"`
+	CommentGlobalAnnServers string   `xml:",comment" json:"-" default:"An address (URL format) to a global discovery server. Uses udp4:// or udp6:// schemes."`
 	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22027, udp6://announce-v6.syncthing.net:22027"`
+	CommentGlobalAnnEnabled string   `xml:",comment" json:"-" default:"When set to true, global discovery servers are announced to and queried for dynamic addresses."`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027"`
