@@ -451,6 +451,11 @@ type category struct {
 	Binary bool
 }
 
+type feature struct {
+	Key string
+	Pct int
+}
+
 func getReport(db *sql.DB) map[string]interface{} {
 	nodes := 0
 	var versions []string
@@ -467,6 +472,33 @@ func getReport(db *sql.DB) map[string]interface{} {
 	var memorySize []int
 	var compilers []string
 	var builders []string
+
+	v2Reports := 0
+	features := map[string]int{
+		"Rate limiting":                          0,
+		"Upgrades allowed (automatic)":           0,
+		"Upgrades allowed (manual)":              0,
+		"Folders, automatic normalization":       0,
+		"Folders, ignore deletes":                0,
+		"Folders, ignore permissions":            0,
+		"Folders, master mode":                   0,
+		"Devices, compress always":               0,
+		"Devices, compress metadata":             0,
+		"Devices, compress nothing":              0,
+		"Devices, custom certificate":            0,
+		"Devices, dynamic addresses":             0,
+		"Devices, static addresses":              0,
+		"Devices, introducer":                    0,
+		"Relaying, enabled":                      0,
+		"Relaying, default relays":               0,
+		"Relaying, other relays":                 0,
+		"Discovery, global enabled":              0,
+		"Discovery, local enabled":               0,
+		"Discovery, default servers (using DNS)": 0,
+		"Discovery, default servers (using IP)":  0,
+		"Discovery, other servers":               0,
+	}
+	var numCPU []int
 
 	var rep report
 
@@ -520,6 +552,77 @@ func getReport(db *sql.DB) map[string]interface{} {
 		}
 		if rep.MemorySize > 0 {
 			memorySize = append(memorySize, rep.MemorySize*(1<<20))
+		}
+
+		if rep.URVersion >= 2 {
+			v2Reports++
+			numCPU = append(numCPU, rep.NumCPU)
+			if rep.UsesRateLimit {
+				features["Rate limiting"]++
+			}
+			if rep.UpgradeAllowedAuto {
+				features["Upgrades allowed (automatic)"]++
+			}
+			if rep.UpgradeAllowedManual {
+				features["Upgrades allowed (manual)"]++
+			}
+			if rep.FolderUses.AutoNormalize > 0 {
+				features["Folders, automatic normalization"]++
+			}
+			if rep.FolderUses.IgnoreDelete > 0 {
+				features["Folders, ignore deletes"]++
+			}
+			if rep.FolderUses.IgnorePerms > 0 {
+				features["Folders, ignore permissions"]++
+			}
+			if rep.FolderUses.ReadOnly > 0 {
+				features["Folders, master mode"]++
+			}
+			if rep.DeviceUses.CompressAlways > 0 {
+				features["Devices, compress always"]++
+			}
+			if rep.DeviceUses.CompressMetadata > 0 {
+				features["Devices, compress metadata"]++
+			}
+			if rep.DeviceUses.CompressNever > 0 {
+				features["Devices, compress nothing"]++
+			}
+			if rep.DeviceUses.CustomCertName > 0 {
+				features["Devices, custom certificate"]++
+			}
+			if rep.DeviceUses.DynamicAddr > 0 {
+				features["Devices, dynamic addresses"]++
+			}
+			if rep.DeviceUses.StaticAddr > 0 {
+				features["Devices, static addresses"]++
+			}
+			if rep.DeviceUses.Introducer > 0 {
+				features["Devices, introducer"]++
+			}
+			if rep.Relays.Enabled {
+				features["Relaying, enabled"]++
+			}
+			if rep.Relays.DefaultServers > 0 {
+				features["Relaying, default relays"]++
+			}
+			if rep.Relays.OtherServers > 0 {
+				features["Relaying, other relays"]++
+			}
+			if rep.Announce.GlobalEnabled {
+				features["Discovery, global enabled"]++
+			}
+			if rep.Announce.LocalEnabled {
+				features["Discovery, local enabled"]++
+			}
+			if rep.Announce.DefaultServersDNS > 0 {
+				features["Discovery, default servers (using DNS)"]++
+			}
+			if rep.Announce.DefaultServersIP > 0 {
+				features["Discovery, default servers (using IP)"]++
+			}
+			if rep.Announce.DefaultServersIP > 0 {
+				features["Discovery, other servers"]++
+			}
 		}
 	}
 
@@ -579,14 +682,34 @@ func getReport(db *sql.DB) map[string]interface{} {
 		Binary: true,
 	})
 
+	categories = append(categories, category{
+		Values: statsForInts(numCPU),
+		Descr:  "Number of CPU cores",
+	})
+
+	var featureList []feature
+	var featureNames []string
+	for key := range features {
+		featureNames = append(featureNames, key)
+	}
+	sort.Strings(featureNames)
+	for _, key := range featureNames {
+		featureList = append(featureList, feature{
+			Key: key,
+			Pct: (100 * features[key]) / v2Reports,
+		})
+	}
+
 	r := make(map[string]interface{})
 	r["nodes"] = nodes
+	r["v2nodes"] = v2Reports
 	r["categories"] = categories
 	r["versions"] = analyticsFor(versions, 10)
 	r["platforms"] = analyticsFor(platforms, 0)
 	r["os"] = analyticsFor(oses, 0)
 	r["compilers"] = analyticsFor(compilers, 12)
 	r["builders"] = analyticsFor(builders, 12)
+	r["features"] = featureList
 
 	return r
 }

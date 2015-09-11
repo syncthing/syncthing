@@ -243,6 +243,29 @@ found in the LICENSE file.
       </div>
 
     </div>
+
+    <div class="row">
+    <div class="col-md-12">
+    <h4>Feature Usage</h4>
+    <p>
+    The following lists feature usage, as a percentage of the v0.12+ population (<b>{{.v2nodes}}</b> devices).
+    </p>
+    <table class="table table-striped">
+    <thead><tr><th>Feature</th><th colspan="2" class="text-center">Usage</th></tr></thead>
+    <tbody>
+    {{range .features}}
+    <tr>
+    <td style="width: 30%">{{.Key}}</td>
+    <td style="width: 10%" class="text-right">{{.Pct}}%</td>
+    <td style="width: 60%">
+    <div class="progress-bar" role="progressbar" aria-valuenow="{{.Pct}}" aria-valuemin="0" aria-valuemax="100" style="width: {{.Pct}}%; height:20px"></div>
+  </td>
+    </tr>
+    {{end}}
+    </tbody>
+    </table>
+    </div>
+    </div>
   </div>
 </body>
 </html>
