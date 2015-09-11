@@ -1080,7 +1080,11 @@ func (p *rwFolder) shortcutFile(file protocol.FileInfo) error {
 
 // shortcutSymlink changes the symlinks type if necessary.
 func (p *rwFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
-	err = symlinks.ChangeType(filepath.Join(p.dir, file.Name), file.Flags)
+	tt := symlinks.TargetFile
+	if file.IsDirectory() {
+		tt = symlinks.TargetDirectory
+	}
+	err = symlinks.ChangeType(filepath.Join(p.dir, file.Name), tt)
 	if err != nil {
 		l.Infof("Puller (folder %q, file %q): symlink shortcut: %v", p.folder, file.Name, err)
 		p.newError(file.Name, err)
@@ -1316,7 +1320,11 @@ func (p *rwFolder) performFinish(state *sharedPullerState) error {
 		// Remove the file, and replace it with a symlink.
 		err = osutil.InWritableDir(func(path string) error {
 			os.Remove(path)
-			return symlinks.Create(path, string(content), state.file.Flags)
+			tt := symlinks.TargetFile
+			if state.file.IsDirectory() {
+				tt = symlinks.TargetDirectory
+			}
+			return symlinks.Create(path, string(content), tt)
 		}, state.realName)
 		if err != nil {
 			return err

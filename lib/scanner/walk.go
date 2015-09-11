@@ -311,8 +311,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			// checking that their existing blocks match with the blocks in
 			// the index.
 
-			target, flags, err := symlinks.Read(p)
-			flags = flags & protocol.SymlinkTypeMask
+			target, targetType, err := symlinks.Read(p)
 			if err != nil {
 				if debug {
 					l.Debugln("readlink error:", p, err)
@@ -337,7 +336,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				//  - the symlink type (file/dir) was the same
 				//  - the block list (i.e. hash of target) was the same
 				cf, ok = w.CurrentFiler.CurrentFile(rn)
-				if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(flags, cf.Flags) && BlocksEqual(cf.Blocks, blocks) {
+				if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && BlocksEqual(cf.Blocks, blocks) {
 					return skip
 				}
 			}
@@ -345,7 +344,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			f := protocol.FileInfo{
 				Name:     rn,
 				Version:  cf.Version.Update(w.ShortID),
-				Flags:    protocol.FlagSymlink | flags | protocol.FlagNoPermBits | 0666,
+				Flags:    uint32(protocol.FlagSymlink | protocol.FlagNoPermBits | 0666 | SymlinkFlags(targetType)),
 				Modified: 0,
 				Blocks:   blocks,
 			}
@@ -467,7 +466,7 @@ func PermsEqual(a, b uint32) bool {
 	}
 }
 
-func SymlinkTypeEqual(disk, index uint32) bool {
+func SymlinkTypeEqual(disk symlinks.TargetType, f protocol.FileInfo) bool {
 	// If the target is missing, Unix never knows what type of symlink it is
 	// and Windows always knows even if there is no target. Which means that
 	// without this special check a Unix node would be fighting with a Windows
@@ -476,8 +475,25 @@ func SymlinkTypeEqual(disk, index uint32) bool {
 	// know means you are on Unix, and on Unix you don't really care what the
 	// target type is. The moment you do know, and if something doesn't match,
 	// that will propagate through the cluster.
-	if disk&protocol.FlagSymlinkMissingTarget != 0 && index&protocol.FlagSymlinkMissingTarget == 0 {
+	switch disk {
+	case symlinks.TargetUnknown:
 		return true
+	case symlinks.TargetDirectory:
+		return f.IsDirectory() && f.Flags&protocol.FlagSymlinkMissingTarget == 0
+	case symlinks.TargetFile:
+		return !f.IsDirectory() && f.Flags&protocol.FlagSymlinkMissingTarget == 0
 	}
-	return disk&protocol.SymlinkTypeMask == index&protocol.SymlinkTypeMask
+	panic("unknown symlink TargetType")
+}
+
+func SymlinkFlags(t symlinks.TargetType) uint32 {
+	switch t {
+	case symlinks.TargetFile:
+		return 0
+	case symlinks.TargetDirectory:
+		return protocol.FlagDirectory
+	case symlinks.TargetUnknown:
+		return protocol.FlagSymlinkMissingTarget
+	}
+	panic("unknown symlink TargetType")
 }
