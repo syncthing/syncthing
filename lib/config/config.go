@@ -214,9 +214,9 @@ type FolderDeviceConfiguration struct {
 }
 
 type OptionsConfiguration struct {
-	ListenAddress           []string `xml:"listenAddress" json:"listenAddress" default:"tcp://0.0.0.0:22000"`
-	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22027, udp6://announce-v6.syncthing.net:22027"`
-	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
+	ListenAddress           []string `xml:"listenAddress" json:"listenAddress" default:"tcp://0.0.0.0:22000" comment:"An address (URL format) that we listen on for incoming sync connections. Supports the tcp:// scheme only."`
+	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers"default:"udp4://announce.syncthing.net:22027, udp6://announce-v6.syncthing.net:22027"comment:"An address (URL format) to a global discovery server. Uses udp4:// or udp6:// schemes."`
+	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true" comment:"When set to true, global discovery servers are announced to and queried for dynamic addresses."`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027"`
 	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
@@ -251,13 +251,47 @@ type OptionsConfiguration struct {
 	ReleasesURL             string   `xml:"releasesURL" json:"releasesURL" default:"https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"`
 }
 
-func (orig OptionsConfiguration) Copy() OptionsConfiguration {
-	c := orig
-	c.ListenAddress = make([]string, len(orig.ListenAddress))
-	copy(c.ListenAddress, orig.ListenAddress)
-	c.GlobalAnnServers = make([]string, len(orig.GlobalAnnServers))
-	copy(c.GlobalAnnServers, orig.GlobalAnnServers)
+func (o *OptionsConfiguration) Copy() OptionsConfiguration {
+	c := *o
+	c.ListenAddress = make([]string, len(o.ListenAddress))
+	copy(c.ListenAddress, o.ListenAddress)
+	c.GlobalAnnServers = make([]string, len(o.GlobalAnnServers))
+	copy(c.GlobalAnnServers, o.GlobalAnnServers)
 	return c
+}
+
+func (o *OptionsConfiguration) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	s := reflect.ValueOf(o).Elem()
+	t := s.Type()
+
+	e.EncodeToken(start)
+
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		tag := t.Field(i).Tag
+
+		elem := tag.Get("xml")
+		if elem != "-" {
+			comment := tag.Get("comment")
+			if len(comment) > 0 {
+				// EncodeToken on a comment doesn't indent like it does on
+				// other tags. I'd consider that a bug, but since we know the
+				// indent level of the option block we can simulate it with a
+				// chardata token first. Kill me now?
+				e.EncodeToken(xml.CharData("\n        "))
+				e.EncodeToken(xml.Comment(" " + elem + ": " + comment + " "))
+			}
+
+			// The interface we get back from reflect doesn't include the
+			// struct tag, so we manually extract the "xml" that above and
+			// pass that to EncodeElement. This is not beatiful, and it
+			// doesn't support "attr" and stuff like that... Kill me again?
+			e.EncodeElement(f.Interface(), xml.StartElement{Name: xml.Name{Local: elem}})
+		}
+	}
+
+	e.EncodeToken(start.End())
+	return nil
 }
 
 type GUIConfiguration struct {
