@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/relaysrv/client"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -37,11 +38,12 @@ var (
 // devices. Successful connections are handed to the model.
 type connectionSvc struct {
 	*suture.Supervisor
-	cfg    *config.Wrapper
-	myID   protocol.DeviceID
-	model  *model.Model
-	tlsCfg *tls.Config
-	conns  chan model.IntermediateConnection
+	cfg        *config.Wrapper
+	myID       protocol.DeviceID
+	model      *model.Model
+	tlsCfg     *tls.Config
+	discoverer *discover.Discoverer
+	conns      chan model.IntermediateConnection
 
 	lastRelayCheck map[protocol.DeviceID]time.Time
 
@@ -50,13 +52,14 @@ type connectionSvc struct {
 	relaysEnabled bool
 }
 
-func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Model, tlsCfg *tls.Config) *connectionSvc {
+func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Model, tlsCfg *tls.Config, discoverer *discover.Discoverer) *connectionSvc {
 	svc := &connectionSvc{
 		Supervisor: suture.NewSimple("connectionSvc"),
 		cfg:        cfg,
 		myID:       myID,
 		model:      mdl,
 		tlsCfg:     tlsCfg,
+		discoverer: discoverer,
 		conns:      make(chan model.IntermediateConnection),
 
 		connType:       make(map[protocol.DeviceID]model.ConnectionType),
@@ -257,8 +260,8 @@ func (s *connectionSvc) connect() {
 			var relays []string
 			for _, addr := range deviceCfg.Addresses {
 				if addr == "dynamic" {
-					if discoverer != nil {
-						t, r := discoverer.Lookup(deviceID)
+					if s.discoverer != nil {
+						t, r := s.discoverer.Lookup(deviceID)
 						addrs = append(addrs, t...)
 						relays = append(relays, r...)
 					}

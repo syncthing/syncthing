@@ -103,7 +103,7 @@ func TestGlobalDiscovery(t *testing.T) {
 		"test1://23.23.23.23:234",
 		"test2://234.234.234.234.2345",
 	}
-	d.StartGlobal(servers, 1234)
+	d.StartGlobal(servers, nil)
 
 	if len(d.clients) != 3 {
 		t.Fatal("Wrong number of clients")

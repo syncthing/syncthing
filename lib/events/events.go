@@ -39,6 +39,7 @@ const (
 	FolderCompletion
 	FolderErrors
 	FolderScanProgress
+	ExternalPortMappingChanged
 
 	AllEvents = (1 << iota) - 1
 )
@@ -87,6 +88,8 @@ func (t EventType) String() string {
 		return "DeviceResumed"
 	case FolderScanProgress:
 		return "FolderScanProgress"
+	case ExternalPortMappingChanged:
+		return "ExternalPortMappingChanged"
 	default:
 		return "Unknown"
 	}
