@@ -212,6 +212,12 @@ func (p *rwFolder) Serve() {
 				continue
 			}
 
+			if err := p.model.CheckFolderHealth(p.folder); err != nil {
+				l.Infoln("Skipping folder", p.folder, "pull due to folder error:", err)
+				p.pullTimer.Reset(nextPullIntv)
+				continue
+			}
+
 			p.model.fmut.RLock()
 			curIgnores := p.model.folderIgnores[p.folder]
 			p.model.fmut.RUnlock()
@@ -451,7 +457,6 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	// !!!
 
 	changed := 0
-	pullFileSize := int64(0)
 
 	fileDeletions := map[string]protocol.FileInfo{}
 	dirDeletions := []protocol.FileInfo{}
@@ -500,23 +505,12 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		default:
 			// A new or changed file or symlink. This is the only case where we
 			// do stuff concurrently in the background
-			pullFileSize += file.Size()
 			p.queue.Push(file.Name, file.Size(), file.Modified)
 		}
 
 		changed++
 		return true
 	})
-
-	// Check if we are able to store all files on disk. Only perform this
-	// check if there is a minimum free space threshold set on the folder.
-	folderCfg := p.model.cfg.Folders()[p.folder]
-	if folderCfg.MinDiskFreePct > 0 && pullFileSize > 0 {
-		if free, err := osutil.DiskFreeBytes(folderCfg.Path()); err == nil && free < pullFileSize {
-			l.Warnf(`Folder "%s": insufficient disk space available to pull %d files (%.2f MiB)`, p.folder, changed, float64(pullFileSize)/1024/1024)
-			return 0
-		}
-	}
 
 	// Reorder the file queue according to configuration
 
@@ -967,6 +961,12 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 			p.dbUpdates <- dbUpdateJob{file, dbUpdateShortcutFile}
 		}
 
+		return
+	}
+
+	if free, err := osutil.DiskFreeBytes(p.dir); err == nil && free < file.Size() {
+		l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.dir, file.Name, float64(free)/1024/1024, float64(file.Size())/1024/1024)
+		p.newError(file.Name, errors.New("insufficient space"))
 		return
 	}
 
