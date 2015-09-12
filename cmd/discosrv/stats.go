@@ -49,7 +49,7 @@ func (s *stats) Error() {
 func (s *stats) Reset() stats {
 	s.mut.Lock()
 	ns := *s
-	s.announces, s.queries, s.answers = 0, 0, 0
+	s.announces, s.queries, s.answers, s.errors = 0, 0, 0, 0
 	s.reset = time.Now()
 	s.mut.Unlock()
 	return ns
