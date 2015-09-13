@@ -18,6 +18,6 @@ func upgradeToURL(binary, url string) error {
 	return ErrUpgradeUnsupported
 }
 
-func LatestRelease(version string) (Release, error) {
+func LatestRelease(releasesURL, version string) (Release, error) {
 	return Release{}, ErrUpgradeUnsupported
 }
