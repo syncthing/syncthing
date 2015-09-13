@@ -57,21 +57,23 @@ type apiSvc struct {
 	cfg             config.GUIConfiguration
 	assetDir        string
 	model           *model.Model
+	eventSub        *events.BufferedSubscription
+	discoverer      *discover.Discoverer
 	listener        net.Listener
 	fss             *folderSummarySvc
 	stop            chan struct{}
 	systemConfigMut sync.Mutex
-	eventSub        *events.BufferedSubscription
 }
 
-func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription) (*apiSvc, error) {
+func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.Discoverer) (*apiSvc, error) {
 	svc := &apiSvc{
 		id:              id,
 		cfg:             cfg,
 		assetDir:        assetDir,
 		model:           m,
-		systemConfigMut: sync.NewMutex(),
 		eventSub:        eventSub,
+		discoverer:      discoverer,
+		systemConfigMut: sync.NewMutex(),
 	}
 
 	var err error
@@ -628,8 +630,8 @@ func (s *apiSvc) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys - m.HeapReleased
 	res["tilde"] = tilde
-	if cfg.Options().GlobalAnnEnabled && discoverer != nil {
-		res["extAnnounceOK"] = discoverer.ExtAnnounceOK()
+	if cfg.Options().GlobalAnnEnabled && s.discoverer != nil {
+		res["extAnnounceOK"] = s.discoverer.ExtAnnounceOK()
 	}
 	if relaySvc != nil {
 		res["relayClientStatus"] = relaySvc.ClientStatus()
@@ -681,8 +683,8 @@ func (s *apiSvc) postSystemDiscovery(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var device = qs.Get("device")
 	var addr = qs.Get("addr")
-	if len(device) != 0 && len(addr) != 0 && discoverer != nil {
-		discoverer.Hint(device, []string{addr})
+	if len(device) != 0 && len(addr) != 0 && s.discoverer != nil {
+		s.discoverer.Hint(device, []string{addr})
 	}
 }
 
@@ -690,11 +692,11 @@ func (s *apiSvc) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	devices := map[string][]discover.CacheEntry{}
 
-	if discoverer != nil {
+	if s.discoverer != nil {
 		// Device ids can't be marshalled as keys so we need to manually
 		// rebuild this map using strings. Discoverer may be nil if discovery
 		// has not started yet.
-		for device, entries := range discoverer.All() {
+		for device, entries := range s.discoverer.All() {
 			devices[device.String()] = entries
 		}
 	}

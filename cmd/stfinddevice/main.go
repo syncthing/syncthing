@@ -36,7 +36,7 @@ func main() {
 	}
 
 	discoverer := discover.NewDiscoverer(protocol.LocalDeviceID, nil, nil)
-	discoverer.StartGlobal([]string{server}, 1)
+	discoverer.StartGlobal([]string{server}, nil)
 	addresses, relays := discoverer.Lookup(id)
 	for _, addr := range addresses {
 		log.Println("address:", addr)

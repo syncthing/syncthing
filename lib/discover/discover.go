@@ -33,7 +33,7 @@ type Discoverer struct {
 	cacheLifetime       time.Duration
 	negCacheCutoff      time.Duration
 	beacons             []beacon.Interface
-	extPort             uint16
+	extAddr             externalAddr
 	localBcastTick      <-chan time.Time
 	forcedBcastTick     chan time.Time
 
@@ -48,6 +48,10 @@ type Discoverer struct {
 
 type relayStatusProvider interface {
 	ClientStatus() map[string]bool
+}
+
+type externalAddr interface {
+	ExternalAddresses() []string
 }
 
 type CacheEntry struct {
@@ -115,7 +119,7 @@ func (d *Discoverer) startLocalIPv6Multicasts(localMCAddr string) {
 	go d.recvAnnouncements(mb)
 }
 
-func (d *Discoverer) StartGlobal(servers []string, extPort uint16) {
+func (d *Discoverer) StartGlobal(servers []string, extAddr externalAddr) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 
@@ -123,7 +127,7 @@ func (d *Discoverer) StartGlobal(servers []string, extPort uint16) {
 		d.stopGlobal()
 	}
 
-	d.extPort = extPort
+	d.extAddr = extAddr
 	wg := sync.NewWaitGroup()
 	clients := make(chan Client, len(servers))
 	for _, address := range servers {
@@ -303,8 +307,8 @@ func (d *Discoverer) Announcement() Announce {
 
 func (d *Discoverer) announcementPkt(allowExternal bool) Announce {
 	var addrs []string
-	if d.extPort != 0 && allowExternal {
-		addrs = []string{fmt.Sprintf("tcp://:%d", d.extPort)}
+	if allowExternal && d.extAddr != nil {
+		addrs = d.extAddr.ExternalAddresses()
 	} else {
 		addrs = resolveAddrs(d.listenAddrs)
 	}

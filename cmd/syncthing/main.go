@@ -114,7 +114,6 @@ var (
 	writeRateLimit *ratelimit.Bucket
 	readRateLimit  *ratelimit.Bucket
 	stop           = make(chan int)
-	discoverer     *discover.Discoverer
 	relaySvc       *relay.Svc
 	cert           tls.Certificate
 	lans           []*net.IPNet
@@ -674,10 +673,6 @@ func syncthingMain() {
 
 	mainSvc.Add(m)
 
-	// GUI
-
-	setupGUI(mainSvc, cfg, m, apiSub)
-
 	// The default port we announce, possibly modified by setupUPnP next.
 
 	uri, err := url.Parse(opts.ListenAddress[0])
@@ -690,27 +685,40 @@ func syncthingMain() {
 		l.Fatalln("Bad listen address:", err)
 	}
 
-	// Start the relevant services
+	// The externalAddr tracks our external addresses for discovery purposes.
 
-	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
-	mainSvc.Add(connectionSvc)
-
-	if opts.RelaysEnabled && (opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn) {
-		relaySvc = relay.NewSvc(cfg, tlsCfg, connectionSvc.conns)
-		connectionSvc.Add(relaySvc)
-	}
-
-	// Start discovery
-
-	localPort := addr.Port
-	discoverer = discovery(localPort, relaySvc)
+	var extAddr *externalAddr
 
 	// Start UPnP. The UPnP service will restart global discovery if the
 	// external port changes.
 
 	if opts.UPnPEnabled {
-		upnpSvc := newUPnPSvc(cfg, localPort)
+		upnpSvc := newUPnPSvc(cfg, addr.Port)
 		mainSvc.Add(upnpSvc)
+
+		// The external address tracker needs to know about the UPnP service
+		// so it can check for an external mapped port.
+		extAddr = newExternalAddr(upnpSvc, cfg)
+	} else {
+		extAddr = newExternalAddr(nil, cfg)
+	}
+
+	// Start discovery
+
+	discoverer := discovery(extAddr, relaySvc)
+
+	// GUI
+
+	setupGUI(mainSvc, cfg, m, apiSub, discoverer)
+
+	// Start connection management
+
+	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg, discoverer)
+	mainSvc.Add(connectionSvc)
+
+	if opts.RelaysEnabled && (opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn) {
+		relaySvc = relay.NewSvc(cfg, tlsCfg, connectionSvc.conns)
+		connectionSvc.Add(relaySvc)
 	}
 
 	if cpuProfile {
@@ -833,7 +841,7 @@ func startAuditing(mainSvc *suture.Supervisor) {
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription) {
+func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.Discoverer) {
 	opts := cfg.Options()
 	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
 
@@ -862,7 +870,7 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 
 			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			l.Infoln("Starting web GUI on", urlShow)
-			api, err := newAPISvc(myID, guiCfg, guiAssets, m, apiSub)
+			api, err := newAPISvc(myID, guiCfg, guiAssets, m, apiSub, discoverer)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
@@ -933,7 +941,7 @@ func shutdown() {
 	stop <- exitSuccess
 }
 
-func discovery(extPort int, relaySvc *relay.Svc) *discover.Discoverer {
+func discovery(extAddr *externalAddr, relaySvc *relay.Svc) *discover.Discoverer {
 	opts := cfg.Options()
 	disc := discover.NewDiscoverer(myID, opts.ListenAddress, relaySvc)
 	if opts.LocalAnnEnabled {
@@ -947,7 +955,7 @@ func discovery(extPort int, relaySvc *relay.Svc) *discover.Discoverer {
 			// to relay servers.
 			time.Sleep(5 * time.Second)
 			l.Infoln("Starting global discovery announcements")
-			disc.StartGlobal(opts.GlobalAnnServers, uint16(extPort))
+			disc.StartGlobal(opts.GlobalAnnServers, extAddr)
 		}()
 
 	}

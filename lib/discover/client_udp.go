@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -113,44 +114,24 @@ func (d *UDPClient) broadcast() {
 	}
 
 	timer := time.NewTimer(0)
+
+	eventSub := events.Default.Subscribe(events.ExternalPortMappingChanged)
+	defer events.Default.Unsubscribe(eventSub)
+
 	for {
 		select {
 		case <-d.stop:
 			return
 
+		case <-eventSub.C():
+			ok := d.sendAnnouncement(remote, conn)
+
+			d.mut.Lock()
+			d.status = ok
+			d.mut.Unlock()
+
 		case <-timer.C:
-			var ok bool
-
-			if debug {
-				l.Debugf("discover %s: broadcast: Sending self announcement to %v", d.url, remote)
-			}
-
-			ann := d.announcer.Announcement()
-			pkt, err := ann.MarshalXDR()
-			if err != nil {
-				timer.Reset(d.errorRetryInterval)
-				continue
-			}
-
-			_, err = conn.WriteTo(pkt, remote)
-			if err != nil {
-				if debug {
-					l.Debugf("discover %s: broadcast: Failed to send self announcement: %s", d.url, err)
-				}
-				ok = false
-			} else {
-				// Verify that the announce server responds positively for our device ID
-
-				time.Sleep(1 * time.Second)
-
-				pkt, err := d.Lookup(protocol.DeviceIDFromBytes(ann.This.ID))
-				if err != nil && debug {
-					l.Debugf("discover %s: broadcast: Self-lookup failed: %v", d.url, err)
-				} else if debug {
-					l.Debugf("discover %s: broadcast: Self-lookup returned: %v", d.url, pkt.This.Addresses)
-				}
-				ok = len(pkt.This.Addresses) > 0
-			}
+			ok := d.sendAnnouncement(remote, conn)
 
 			d.mut.Lock()
 			d.status = ok
@@ -163,6 +144,40 @@ func (d *UDPClient) broadcast() {
 			}
 		}
 	}
+}
+
+func (d *UDPClient) sendAnnouncement(remote net.Addr, conn *net.UDPConn) bool {
+	if debug {
+		l.Debugf("discover %s: broadcast: Sending self announcement to %v", d.url, remote)
+	}
+
+	ann := d.announcer.Announcement()
+	pkt, err := ann.MarshalXDR()
+	if err != nil {
+		return false
+	}
+
+	myID := protocol.DeviceIDFromBytes(ann.This.ID)
+
+	_, err = conn.WriteTo(pkt, remote)
+	if err != nil {
+		if debug {
+			l.Debugf("discover %s: broadcast: Failed to send self announcement: %s", d.url, err)
+		}
+		return false
+	}
+
+	// Verify that the announce server responds positively for our device ID
+
+	time.Sleep(1 * time.Second)
+
+	ann, err = d.Lookup(myID)
+	if err != nil && debug {
+		l.Debugf("discover %s: broadcast: Self-lookup failed: %v", d.url, err)
+	} else if debug {
+		l.Debugf("discover %s: broadcast: Self-lookup returned: %v", d.url, ann.This.Addresses)
+	}
+	return len(ann.This.Addresses) > 0
 }
 
 func (d *UDPClient) Lookup(device protocol.DeviceID) (Announce, error) {
