@@ -14,13 +14,13 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 )
 
-type externalAddr struct {
+type addressLister struct {
 	upnpSvc *upnpSvc
 	cfg     *config.Wrapper
 }
 
-func newExternalAddr(upnpSvc *upnpSvc, cfg *config.Wrapper) *externalAddr {
-	return &externalAddr{
+func newAddressLister(upnpSvc *upnpSvc, cfg *config.Wrapper) *addressLister {
+	return &addressLister{
 		upnpSvc: upnpSvc,
 		cfg:     cfg,
 	}
@@ -31,7 +31,7 @@ func newExternalAddr(upnpSvc *upnpSvc, cfg *config.Wrapper) *externalAddr {
 // one or more addresses with an empty IP address (0.0.0.0 or ::) and just
 // port number - this means that the outside address of a NAT gateway should
 // be substituted.
-func (e *externalAddr) ExternalAddresses() []string {
+func (e *addressLister) ExternalAddresses() []string {
 	var addrs []string
 
 	// Grab our listen addresses from the config. Unspecified ones are passed

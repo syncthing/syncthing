@@ -687,7 +687,7 @@ func syncthingMain() {
 
 	// The externalAddr tracks our external addresses for discovery purposes.
 
-	var extAddr *externalAddr
+	var addrList *addressLister
 
 	// Start UPnP. The UPnP service will restart global discovery if the
 	// external port changes.
@@ -698,14 +698,14 @@ func syncthingMain() {
 
 		// The external address tracker needs to know about the UPnP service
 		// so it can check for an external mapped port.
-		extAddr = newExternalAddr(upnpSvc, cfg)
+		addrList = newAddressLister(upnpSvc, cfg)
 	} else {
-		extAddr = newExternalAddr(nil, cfg)
+		addrList = newAddressLister(nil, cfg)
 	}
 
 	// Start discovery
 
-	discoverer := discovery(extAddr, relaySvc)
+	discoverer := discovery(addrList, relaySvc)
 
 	// GUI
 
@@ -941,7 +941,7 @@ func shutdown() {
 	stop <- exitSuccess
 }
 
-func discovery(extAddr *externalAddr, relaySvc *relay.Svc) *discover.Discoverer {
+func discovery(addrList *addressLister, relaySvc *relay.Svc) *discover.Discoverer {
 	opts := cfg.Options()
 	disc := discover.NewDiscoverer(myID, opts.ListenAddress, relaySvc)
 	if opts.LocalAnnEnabled {
@@ -955,7 +955,7 @@ func discovery(extAddr *externalAddr, relaySvc *relay.Svc) *discover.Discoverer 
 			// to relay servers.
 			time.Sleep(5 * time.Second)
 			l.Infoln("Starting global discovery announcements")
-			disc.StartGlobal(opts.GlobalAnnServers, extAddr)
+			disc.StartGlobal(opts.GlobalAnnServers, addrList)
 		}()
 
 	}
