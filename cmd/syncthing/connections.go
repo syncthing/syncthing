@@ -22,6 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/relay"
 
 	"github.com/thejerf/suture"
 )
@@ -44,6 +45,7 @@ type connectionSvc struct {
 	tlsCfg     *tls.Config
 	discoverer *discover.Discoverer
 	conns      chan model.IntermediateConnection
+	relaySvc   *relay.Svc
 
 	lastRelayCheck map[protocol.DeviceID]time.Time
 
@@ -52,7 +54,7 @@ type connectionSvc struct {
 	relaysEnabled bool
 }
 
-func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Model, tlsCfg *tls.Config, discoverer *discover.Discoverer) *connectionSvc {
+func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Model, tlsCfg *tls.Config, discoverer *discover.Discoverer, relaySvc *relay.Svc) *connectionSvc {
 	svc := &connectionSvc{
 		Supervisor: suture.NewSimple("connectionSvc"),
 		cfg:        cfg,
@@ -60,6 +62,7 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Mo
 		model:      mdl,
 		tlsCfg:     tlsCfg,
 		discoverer: discoverer,
+		relaySvc:   relaySvc,
 		conns:      make(chan model.IntermediateConnection),
 
 		connType:       make(map[protocol.DeviceID]model.ConnectionType),
@@ -103,6 +106,10 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Mo
 		}))
 	}
 	svc.Add(serviceFunc(svc.handle))
+
+	if svc.relaySvc != nil {
+		svc.Add(serviceFunc(svc.acceptRelayConns))
+	}
 
 	return svc
 }
@@ -382,6 +389,12 @@ func (s *connectionSvc) connect() {
 		if maxD := time.Duration(s.cfg.Options().ReconnectIntervalS) * time.Second; delay > maxD {
 			delay = maxD
 		}
+	}
+}
+
+func (s *connectionSvc) acceptRelayConns() {
+	for {
+		s.conns <- s.relaySvc.Accept()
 	}
 }
 

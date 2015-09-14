@@ -711,15 +711,18 @@ func syncthingMain() {
 
 	setupGUI(mainSvc, cfg, m, apiSub, discoverer)
 
+	// Start relay management
+
+	var relaySvc *relay.Svc
+	if opts.RelaysEnabled && (opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn) {
+		relaySvc = relay.NewSvc(cfg, tlsCfg)
+		mainSvc.Add(relaySvc)
+	}
+
 	// Start connection management
 
-	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg, discoverer)
+	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg, discoverer, relaySvc)
 	mainSvc.Add(connectionSvc)
-
-	if opts.RelaysEnabled && (opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn) {
-		relaySvc = relay.NewSvc(cfg, tlsCfg, connectionSvc.conns)
-		connectionSvc.Add(relaySvc)
-	}
 
 	if cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
