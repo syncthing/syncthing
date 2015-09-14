@@ -18,15 +18,26 @@ import (
 	"github.com/syncthing/relaysrv/protocol"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/discover"
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/thejerf/suture"
 )
 
+type Svc struct {
+	*suture.Supervisor
+	cfg    *config.Wrapper
+	tlsCfg *tls.Config
+
+	tokens      map[string]suture.ServiceToken
+	clients     map[string]*client.ProtocolClient
+	mut         sync.RWMutex
+	invitations chan protocol.SessionInvitation
+	conns       chan *tls.Conn
+}
+
 func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config) *Svc {
-	conns := make(chan model.IntermediateConnection)
+	conns := make(chan *tls.Conn)
 
 	svc := &Svc{
 		Supervisor: suture.New("Svc", suture.Spec{
@@ -63,18 +74,6 @@ func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config) *Svc {
 	svc.Add(receiver)
 
 	return svc
-}
-
-type Svc struct {
-	*suture.Supervisor
-	cfg    *config.Wrapper
-	tlsCfg *tls.Config
-
-	tokens      map[string]suture.ServiceToken
-	clients     map[string]*client.ProtocolClient
-	mut         sync.RWMutex
-	invitations chan protocol.SessionInvitation
-	conns       chan model.IntermediateConnection
 }
 
 func (s *Svc) VerifyConfiguration(from, to config.Configuration) error {
@@ -210,14 +209,15 @@ func (s *Svc) ClientStatus() map[string]bool {
 	return status
 }
 
-func (s *Svc) Accept() model.IntermediateConnection {
+// Accept returns a new *tls.Conn. The connection is already handshaken.
+func (s *Svc) Accept() *tls.Conn {
 	return <-s.conns
 }
 
 type invitationReceiver struct {
 	invitations chan protocol.SessionInvitation
 	tlsCfg      *tls.Config
-	conns       chan<- model.IntermediateConnection
+	conns       chan<- *tls.Conn
 	stop        chan struct{}
 }
 
@@ -254,9 +254,7 @@ func (r *invitationReceiver) Serve() {
 				tc.Close()
 				continue
 			}
-			r.conns <- model.IntermediateConnection{
-				tc, model.ConnectionTypeRelayAccept,
-			}
+			r.conns <- tc
 
 		case <-r.stop:
 			return

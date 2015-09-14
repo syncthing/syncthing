@@ -394,7 +394,11 @@ func (s *connectionSvc) connect() {
 
 func (s *connectionSvc) acceptRelayConns() {
 	for {
-		s.conns <- s.relaySvc.Accept()
+		conn := s.relaySvc.Accept()
+		s.conns <- model.IntermediateConnection{
+			Conn: conn,
+			Type: model.ConnectionTypeRelayAccept,
+		}
 	}
 }
 
