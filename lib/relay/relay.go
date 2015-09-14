@@ -25,7 +25,9 @@ import (
 	"github.com/thejerf/suture"
 )
 
-func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config, conns chan<- model.IntermediateConnection) *Svc {
+func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config) *Svc {
+	conns := make(chan model.IntermediateConnection)
+
 	svc := &Svc{
 		Supervisor: suture.New("Svc", suture.Spec{
 			Log: func(log string) {
@@ -40,11 +42,11 @@ func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config, conns chan<- model.Intermed
 		cfg:    cfg,
 		tlsCfg: tlsCfg,
 
-		tokens:  make(map[string]suture.ServiceToken),
-		clients: make(map[string]*client.ProtocolClient),
-		mut:     sync.NewRWMutex(),
-
+		tokens:      make(map[string]suture.ServiceToken),
+		clients:     make(map[string]*client.ProtocolClient),
+		mut:         sync.NewRWMutex(),
 		invitations: make(chan protocol.SessionInvitation),
+		conns:       conns,
 	}
 
 	rcfg := cfg.Raw()
@@ -72,6 +74,7 @@ type Svc struct {
 	clients     map[string]*client.ProtocolClient
 	mut         sync.RWMutex
 	invitations chan protocol.SessionInvitation
+	conns       chan model.IntermediateConnection
 }
 
 func (s *Svc) VerifyConfiguration(from, to config.Configuration) error {
@@ -205,6 +208,10 @@ func (s *Svc) ClientStatus() map[string]bool {
 	}
 	s.mut.RUnlock()
 	return status
+}
+
+func (s *Svc) Accept() model.IntermediateConnection {
+	return <-s.conns
 }
 
 type invitationReceiver struct {
