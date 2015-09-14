@@ -161,6 +161,15 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 				}
 				conn.Close()
 
+			case protocol.Ping:
+				if err := protocol.WriteMessage(conn, protocol.Pong{}); err != nil {
+					if debug {
+						log.Println("Error writing pong:", err)
+					}
+					conn.Close()
+					continue
+				}
+
 			case protocol.Pong:
 				// Nothing
 
