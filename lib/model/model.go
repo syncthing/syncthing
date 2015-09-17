@@ -617,6 +617,10 @@ func (m *Model) folderSharedWithUnlocked(folder string, deviceID protocol.Device
 func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterConfigMessage) {
 	// Check the peer device's announced folders against our own. Emits events
 	// for folders that we don't expect (unknown or not shared).
+	// Also, collect a list of folders we do share, and if he's interested in
+	// temporary indexes, subscribe the connection.
+
+	sharedFolders := make([]string, 0, len(cm.Folders))
 
 	m.fmut.Lock()
 nextFolder:
@@ -643,8 +647,14 @@ nextFolder:
 			l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.ID, deviceID)
 			continue
 		}
+		sharedFolders = append(sharedFolders, folder.ID)
 	}
 	m.fmut.Unlock()
+
+	// This breaks if we send multiple CM messages during the same connection.
+	if cm.Flags&protocol.FlagClusterConfigTemporaryIndexes != 0 {
+		m.progressEmitter.temporaryIndexSubscribe(conn, sharedFolders)
+	}
 
 	var changed bool
 
@@ -653,9 +663,6 @@ nextFolder:
 		// and devices and add what we are missing.
 
 		for _, folder := range cm.Folders {
-			// If we don't have this folder yet, skip it. Ideally, we'd
-			// offer up something in the GUI to create the folder, but for the
-			// moment we only handle folders that we already have.
 			if _, ok := m.folderDevices[folder.ID]; !ok {
 				continue
 			}
@@ -744,6 +751,7 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 
 	conn, ok := m.conn[device]
 	if ok {
+		m.progressEmitter.temporaryIndexUnsubscribe(conn)
 		closeRawConn(conn)
 	}
 	delete(m.conn, device)
