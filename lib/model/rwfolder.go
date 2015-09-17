@@ -1013,7 +1013,14 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 			osutil.InWritableDir(osutil.Remove, tempName)
 		}
 	} else {
-		blocks = file.Blocks
+		// Copy the blocks, as we don't want to shuffle them on the FileInfo
+		blocks = append(blocks, file.Blocks...)
+	}
+
+	// Shuffle the blocks
+	for i := range blocks {
+		j := rand.Intn(i + 1)
+		blocks[i], blocks[j] = blocks[j], blocks[i]
 	}
 
 	s := sharedPullerState{
