@@ -98,7 +98,7 @@
                 <label translate for="trashcanClean">Clean out after</label>
                 <div class="input-group">
                   <input name="trashcanClean" id="trashcanClean" class="form-control text-right" type="number" ng-model="currentFolder.trashcanClean" required min="0"></input>
-                  <div class="input-group-addon">days</div>
+                  <div class="input-group-addon" translate>days</div>
                 </div>
                 <p class="help-block">
                   <span translate ng-if="folderEditor.trashcanClean.$valid || folderEditor.trashcanClean.$pristine">The number of days to keep files in the trash can. Zero means forever.</span>
