@@ -53,12 +53,14 @@ var (
 	dir            string        = ""
 	evictionTime   time.Duration = time.Hour
 	debug          bool          = false
-	getLRUSize     int           = 10240
+	getLRUSize     int           = 10 << 10
+	getLimitBurst  int64         = 10
+	getLimitAvg                  = 1
+	postLRUSize    int           = 1 << 10
+	postLimitBurst int64         = 2
+	postLimitAvg                 = 1
 	getLimit       time.Duration
-	getLimitBurst  int64 = 10
-	postLRUSize    int   = 128
 	postLimit      time.Duration
-	postLimitBurst int64 = 2
 
 	getMut      sync.RWMutex = sync.NewRWMutex()
 	getLRUCache *lru.Cache
@@ -75,8 +77,6 @@ var (
 )
 
 func main() {
-	var getLimitAvg, postLimitAvg int
-
 	flag.StringVar(&listen, "listen", listen, "Listen address")
 	flag.StringVar(&dir, "keys", dir, "Directory where http-cert.pem and http-key.pem is stored for TLS listening")
 	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
