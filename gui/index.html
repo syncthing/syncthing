@@ -379,28 +379,28 @@
                     <th><span class="fa fa-fw fa-tachometer"></span>&nbsp;<span translate>CPU Utilization</span></th>
                     <td class="text-right">{{system.cpuPercent | alwaysNumber | natural:1}}%</td>
                   </tr>
-                  <tr ng-if="system.extAnnounceOK != undefined && announceServersTotal > 0">
-                    <th><span class="fa fa-fw fa-bullhorn"></span>&nbsp;<span translate>Global Discovery</span></th>
+                  <tr ng-if="system.discoveryEnabled">
+                    <th><span class="fa fa-fw fa-map-signs"></span>&nbsp;<span translate>Discovery</span></th>
                     <td class="text-right">
-                      <span ng-if="announceServersFailed.length == 0" class="data text-success">
-                        <span>OK</span>
+                      <span ng-if="discoveryFailed.length == 0" class="data text-success">
+                        <span>{{discoveryTotal}}/{{discoveryTotal}}</span>
                       </span>
-                      <span ng-if="announceServersFailed.length != 0" class="data" ng-class="{'text-danger': announceServersFailed.length == announceServersTotal}">
-                        <span popover data-trigger="hover" data-placement="bottom" data-content="{{announceServersFailed.join('\n')}}">
-                          {{announceServersTotal-announceServersFailed.length}}/{{announceServersTotal}}
+                      <span ng-if="discoveryFailed.length != 0" class="data" ng-class="{'text-danger': discoveryFailed.length == discoveryTotal}">
+                        <span popover data-trigger="hover" data-placement="bottom" data-html="true" data-content="{{discoveryFailed.join('<br>\n')}}">
+                          {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
                         </span>
                       </span>
                     </td>
                   </tr>
-                  <tr ng-if="system.relayClientStatus != undefined && relayClientsTotal > 0">
+                  <tr ng-if="system.relaysEnabled">
                     <th><span class="fa fa-fw fa-sitemap"></span>&nbsp;<span translate>Relays</span></th>
                     <td class="text-right">
-                      <span ng-if="relayClientsFailed.length == 0" class="data text-success">
-                        <span>OK</span>
+                      <span ng-if="relaysFailed.length == 0" class="data text-success">
+                        <span>{{relaysTotal}}/{{relaysTotal}}</span>
                       </span>
-                      <span ng-if="relayClientsFailed.length != 0" class="data" ng-class="{'text-danger': relayClientsFailed.length == relayClientsTotal}">
-                        <span popover data-trigger="hover" data-placement="bottom" data-content="{{relayClientsFailed.join('\n')}}">
-                          {{relayClientsTotal-relayClientsFailed.length}}/{{relayClientsTotal}}
+                      <span ng-if="relaysFailed.length != 0" class="data" ng-class="{'text-danger': relaysFailed.length == relaysTotal}">
+                        <span popover data-trigger="hover" data-placement="bottom" data-html="true" data-content="{{relaysFailed.join('<br>\n')}}">
+                          {{relaysTotal-relaysFailed.length}}/{{relaysTotal}}
                         </span>
                       </span>
                     </td>

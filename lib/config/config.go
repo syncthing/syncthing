@@ -31,6 +31,21 @@ const (
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
+var (
+	// DefaultDiscoveryServers should be substituted when the configuration
+	// contains <globalAnnounceServer>default</globalAnnounceServer>. This is
+	// done by the "consumer" of the configuration, as we don't want these
+	// saved to the config.
+	DefaultDiscoveryServers = []string{
+		"https://v4-1.discover.syncthing.net/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 194.126.249.5, Sweden
+		"https://v4-2.discover.syncthing.net/?id=AQEHEO2-XOS7QRA-X2COH5K-PO6OPVA-EWOSEGO-KZFMD32-XJ4ZV46-CUUVKAS", // 45.55.230.38, USA
+		"https://v4-3.discover.syncthing.net/?id=7WT2BVR-FX62ZOW-TNVVW25-6AHFJGD-XEXQSBW-VO3MPL2-JBTLL4T-P4572Q4", // 128.199.95.124, Singapore
+		"https://v6-1.discover.syncthing.net/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 2001:470:28:4d6::5, Sweden
+		"https://v6-2.discover.syncthing.net/?id=AQEHEO2-XOS7QRA-X2COH5K-PO6OPVA-EWOSEGO-KZFMD32-XJ4ZV46-CUUVKAS", // 2604:a880:800:10::182:a001, USA
+		"https://v6-3.discover.syncthing.net/?id=7WT2BVR-FX62ZOW-TNVVW25-6AHFJGD-XEXQSBW-VO3MPL2-JBTLL4T-P4572Q4", // 2400:6180:0:d0::d9:d001, Singapore
+	}
+)
+
 type Configuration struct {
 	Version        int                   `xml:"version,attr" json:"version"`
 	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
@@ -215,7 +230,7 @@ type FolderDeviceConfiguration struct {
 
 type OptionsConfiguration struct {
 	ListenAddress           []string `xml:"listenAddress" json:"listenAddress" default:"tcp://0.0.0.0:22000"`
-	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22027, udp6://announce-v6.syncthing.net:22027"`
+	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"default"`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027"`
@@ -498,17 +513,21 @@ func convertV11V12(cfg *Configuration) {
 	}
 
 	// Use new discovery server
-	for i, addr := range cfg.Options.GlobalAnnServers {
+	var newDiscoServers []string
+	var useDefault bool
+	for _, addr := range cfg.Options.GlobalAnnServers {
 		if addr == "udp4://announce.syncthing.net:22026" {
-			cfg.Options.GlobalAnnServers[i] = "udp4://announce.syncthing.net:22027"
+			useDefault = true
 		} else if addr == "udp6://announce-v6.syncthing.net:22026" {
-			cfg.Options.GlobalAnnServers[i] = "udp6://announce-v6.syncthing.net:22027"
-		} else if addr == "udp4://194.126.249.5:22026" {
-			cfg.Options.GlobalAnnServers[i] = "udp4://194.126.249.5:22027"
-		} else if addr == "udp6://[2001:470:28:4d6::5]:22026" {
-			cfg.Options.GlobalAnnServers[i] = "udp6://[2001:470:28:4d6::5]:22027"
+			useDefault = true
+		} else {
+			newDiscoServers = append(newDiscoServers, addr)
 		}
 	}
+	if useDefault {
+		newDiscoServers = append(newDiscoServers, "default")
+	}
+	cfg.Options.GlobalAnnServers = newDiscoServers
 
 	// Use new multicast group
 	if cfg.Options.LocalAnnMCAddr == "[ff32::5222]:21026" {

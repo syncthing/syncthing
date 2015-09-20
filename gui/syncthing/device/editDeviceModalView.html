@@ -13,7 +13,7 @@
             <label translate for="deviceID">Device ID</label>
             <input ng-if="!editingExisting" name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.deviceID" required valid-deviceid list="discovery-list" />
             <datalist id="discovery-list" ng-if="!editingExisting">
-              <option ng-repeat="(id,address) in discovery" value="{{ id }}" />
+              <option ng-repeat="(id, data) in discovery" value="{{id}}" />
             </datalist>
             <div ng-if="editingExisting" class="well well-sm text-monospace">{{currentDevice.deviceID}}</div>
             <p class="help-block">

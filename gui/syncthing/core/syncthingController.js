@@ -378,24 +378,25 @@ angular.module('syncthing.core')
                 $scope.myID = data.myID;
                 $scope.system = data;
 
-                $scope.announceServersTotal = data.extAnnounceOK ? Object.keys(data.extAnnounceOK).length : 0;
-                var failedAnnounce = [];
-                for (var server in data.extAnnounceOK) {
-                    if (!data.extAnnounceOK[server]) {
-                        failedAnnounce.push(server);
+                $scope.discoveryTotal = data.discoveryMethods;
+                var discoveryFailed = [];
+                for (var disco in data.discoveryErrors) {
+                    if (data.discoveryErrors[disco]) {
+                        discoveryFailed.push(disco + ": " + data.discoveryErrors[disco]);
                     }
                 }
-                $scope.announceServersFailed = failedAnnounce;
+                $scope.discoveryFailed = discoveryFailed;
 
-                $scope.relayClientsTotal = data.relayClientStatus ? Object.keys(data.relayClientStatus).length : 0;
-                var failedRelays = [];
+                var relaysFailed = [];
+                var relaysTotal = 0;
                 for (var relay in data.relayClientStatus) {
                     if (!data.relayClientStatus[relay]) {
-                        failedRelays.push(relay);
+                        relaysFailed.push(relay);
                     }
+                    relaysTotal++;
                 }
-                $scope.relayClientsFailed = failedRelays;
-
+                $scope.relaysFailed = relaysFailed;
+                $scope.relaysTotal = relaysTotal;
 
                 console.log("refreshSystem", data);
             }).error($scope.emitHTTPError);

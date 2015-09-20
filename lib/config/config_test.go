@@ -32,7 +32,7 @@ func init() {
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		ListenAddress:           []string{"tcp://0.0.0.0:22000"},
-		GlobalAnnServers:        []string{"udp4://announce.syncthing.net:22027", "udp6://announce-v6.syncthing.net:22027"},
+		GlobalAnnServers:        []string{"default"},
 		GlobalAnnEnabled:        true,
 		LocalAnnEnabled:         true,
 		LocalAnnPort:            21027,

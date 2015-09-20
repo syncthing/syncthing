@@ -114,7 +114,6 @@ var (
 	writeRateLimit *ratelimit.Bucket
 	readRateLimit  *ratelimit.Bucket
 	stop           = make(chan int)
-	relaySvc       *relay.Svc
 	cert           tls.Certificate
 	lans           []*net.IPNet
 )
@@ -689,8 +688,7 @@ func syncthingMain() {
 
 	var addrList *addressLister
 
-	// Start UPnP. The UPnP service will restart global discovery if the
-	// external port changes.
+	// Start UPnP
 
 	if opts.UPnPEnabled {
 		upnpSvc := newUPnPSvc(cfg, addr.Port)
@@ -703,14 +701,6 @@ func syncthingMain() {
 		addrList = newAddressLister(nil, cfg)
 	}
 
-	// Start discovery
-
-	discoverer := discovery(addrList, relaySvc)
-
-	// GUI
-
-	setupGUI(mainSvc, cfg, m, apiSub, discoverer)
-
 	// Start relay management
 
 	var relaySvc *relay.Svc
@@ -719,9 +709,51 @@ func syncthingMain() {
 		mainSvc.Add(relaySvc)
 	}
 
+	// Start discovery
+
+	cachedDiscovery := discover.NewCachingMux()
+	mainSvc.Add(cachedDiscovery)
+
+	if cfg.Options().GlobalAnnEnabled {
+		for _, srv := range cfg.GlobalDiscoveryServers() {
+			l.Infoln("Using discovery server", srv)
+			gd, err := discover.NewGlobal(srv, cert, addrList, relaySvc)
+			if err != nil {
+				l.Warnln("Global discovery:", err)
+				continue
+			}
+
+			// Each global discovery server gets its results cached for five
+			// minutes, and is not asked again for a minute when it's returned
+			// unsuccessfully.
+			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute)
+		}
+	}
+
+	if cfg.Options().LocalAnnEnabled {
+		// v4 broadcasts
+		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), addrList, relaySvc)
+		if err != nil {
+			l.Warnln("IPv4 local discovery:", err)
+		} else {
+			cachedDiscovery.Add(bcd, 0, 0)
+		}
+		// v6 multicasts
+		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, addrList, relaySvc)
+		if err != nil {
+			l.Warnln("IPv6 local discovery:", err)
+		} else {
+			cachedDiscovery.Add(mcd, 0, 0)
+		}
+	}
+
+	// GUI
+
+	setupGUI(mainSvc, cfg, m, apiSub, cachedDiscovery, relaySvc)
+
 	// Start connection management
 
-	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg, discoverer, relaySvc)
+	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg, cachedDiscovery, relaySvc)
 	mainSvc.Add(connectionSvc)
 
 	if cpuProfile {
@@ -844,7 +876,7 @@ func startAuditing(mainSvc *suture.Supervisor) {
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.Discoverer) {
+func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc) {
 	opts := cfg.Options()
 	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
 
@@ -873,7 +905,7 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 
 			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			l.Infoln("Starting web GUI on", urlShow)
-			api, err := newAPISvc(myID, guiCfg, guiAssets, m, apiSub, discoverer)
+			api, err := newAPISvc(myID, guiCfg, guiAssets, m, apiSub, discoverer, relaySvc)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
@@ -942,28 +974,6 @@ func restart() {
 func shutdown() {
 	l.Infoln("Shutting down")
 	stop <- exitSuccess
-}
-
-func discovery(addrList *addressLister, relaySvc *relay.Svc) *discover.Discoverer {
-	opts := cfg.Options()
-	disc := discover.NewDiscoverer(myID, opts.ListenAddress, relaySvc)
-	if opts.LocalAnnEnabled {
-		l.Infoln("Starting local discovery announcements")
-		disc.StartLocal(opts.LocalAnnPort, opts.LocalAnnMCAddr)
-	}
-
-	if opts.GlobalAnnEnabled {
-		go func() {
-			// Defer starting global announce server, giving time to connect
-			// to relay servers.
-			time.Sleep(5 * time.Second)
-			l.Infoln("Starting global discovery announcements")
-			disc.StartGlobal(opts.GlobalAnnServers, addrList)
-		}()
-
-	}
-
-	return disc
 }
 
 func ensureDir(dir string, mode int) {

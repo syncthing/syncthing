@@ -32,6 +32,7 @@ type ProtocolClient struct {
 
 	mut       sync.RWMutex
 	connected bool
+	latency   time.Duration
 }
 
 func NewProtocolClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation) *ProtocolClient {
@@ -168,6 +169,13 @@ func (c *ProtocolClient) StatusOK() bool {
 	return con
 }
 
+func (c *ProtocolClient) Latency() time.Duration {
+	c.mut.RLock()
+	lat := c.latency
+	c.mut.RUnlock()
+	return lat
+}
+
 func (c *ProtocolClient) String() string {
 	return fmt.Sprintf("ProtocolClient@%p", c)
 }
@@ -177,8 +185,18 @@ func (c *ProtocolClient) connect() error {
 		return fmt.Errorf("Unsupported relay schema:", c.URI.Scheme)
 	}
 
-	conn, err := tls.Dial("tcp", c.URI.Host, c.config)
+	t0 := time.Now()
+	tcpConn, err := net.Dial("tcp", c.URI.Host)
 	if err != nil {
+		return err
+	}
+
+	c.mut.Lock()
+	c.latency = time.Since(t0)
+	c.mut.Unlock()
+
+	conn := tls.Client(tcpConn, c.config)
+	if err = conn.Handshake(); err != nil {
 		return err
 	}
 

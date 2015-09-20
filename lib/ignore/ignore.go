@@ -12,6 +12,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -236,6 +237,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			includeFile := filepath.Join(filepath.Dir(currentFile), line[len("#include "):])
 			includes, err := loadIgnoreFile(includeFile, seen)
 			if err != nil {
+				log.Println(err)
 				return err
 			}
 			patterns = append(patterns, includes...)

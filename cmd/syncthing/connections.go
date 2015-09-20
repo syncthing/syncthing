@@ -43,7 +43,7 @@ type connectionSvc struct {
 	myID       protocol.DeviceID
 	model      *model.Model
 	tlsCfg     *tls.Config
-	discoverer *discover.Discoverer
+	discoverer discover.Finder
 	conns      chan model.IntermediateConnection
 	relaySvc   *relay.Svc
 
@@ -54,7 +54,7 @@ type connectionSvc struct {
 	relaysEnabled bool
 }
 
-func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Model, tlsCfg *tls.Config, discoverer *discover.Discoverer, relaySvc *relay.Svc) *connectionSvc {
+func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Model, tlsCfg *tls.Config, discoverer discover.Finder, relaySvc *relay.Svc) *connectionSvc {
 	svc := &connectionSvc{
 		Supervisor: suture.NewSimple("connectionSvc"),
 		cfg:        cfg,
@@ -264,13 +264,14 @@ func (s *connectionSvc) connect() {
 			}
 
 			var addrs []string
-			var relays []string
+			var relays []discover.Relay
 			for _, addr := range deviceCfg.Addresses {
 				if addr == "dynamic" {
 					if s.discoverer != nil {
-						t, r := s.discoverer.Lookup(deviceID)
-						addrs = append(addrs, t...)
-						relays = append(relays, r...)
+						if t, r, err := s.discoverer.Lookup(deviceID); err == nil {
+							addrs = append(addrs, t...)
+							relays = append(relays, r...)
+						}
 					}
 				} else {
 					addrs = append(addrs, addr)
@@ -333,7 +334,7 @@ func (s *connectionSvc) connect() {
 			s.lastRelayCheck[deviceID] = time.Now()
 
 			for _, addr := range relays {
-				uri, err := url.Parse(addr)
+				uri, err := url.Parse(addr.URL)
 				if err != nil {
 					l.Infoln("Failed to parse relay connection url:", addr, err)
 					continue

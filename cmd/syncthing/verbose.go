@@ -8,6 +8,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/syncthing/syncthing/lib/events"
 )
@@ -139,6 +140,16 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 		data := ev.Data.(map[string]string)
 		device := data["device"]
 		return fmt.Sprintf("Device %v was resumed", device)
+
+	case events.ExternalPortMappingChanged:
+		data := ev.Data.(map[string]int)
+		port := data["port"]
+		return fmt.Sprintf("External port mapping changed; new port is %d.", port)
+	case events.RelayStateChanged:
+		data := ev.Data.(map[string][]string)
+		newRelays := data["new"]
+		return fmt.Sprintf("Relay state changed; connected relay(s) are %s.", strings.Join(newRelays, ", "))
+
 	}
 
 	return fmt.Sprintf("%s %#v", ev.Type, ev)

@@ -40,6 +40,7 @@ const (
 	FolderErrors
 	FolderScanProgress
 	ExternalPortMappingChanged
+	RelayStateChanged
 
 	AllEvents = (1 << iota) - 1
 )
@@ -90,6 +91,8 @@ func (t EventType) String() string {
 		return "FolderScanProgress"
 	case ExternalPortMappingChanged:
 		return "ExternalPortMappingChanged"
+	case RelayStateChanged:
+		return "RelayStateChanged"
 	default:
 		return "Unknown"
 	}

@@ -5,7 +5,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
 //go:generate -command genxdr go run ../../Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
-//go:generate genxdr -o packets_xdr.go packets.go
+//go:generate genxdr -o localpackets_xdr.go localpackets.go
 
 package discover
 
@@ -26,8 +26,8 @@ type Announce struct {
 }
 
 type Relay struct {
-	Address string // max:256
-	Latency int32
+	URL     string `json:"url"` // max:2083
+	Latency int32  `json:"latency"`
 }
 
 type Device struct {

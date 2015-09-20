@@ -32,6 +32,17 @@ func newAddressLister(upnpSvc *upnpSvc, cfg *config.Wrapper) *addressLister {
 // port number - this means that the outside address of a NAT gateway should
 // be substituted.
 func (e *addressLister) ExternalAddresses() []string {
+	return e.addresses(false)
+}
+
+// AllAddresses returns a list of addresses that are our best guess for where
+// we are reachable from the local network. Same conditions as
+// ExternalAddresses, but private IPv4 addresses are included.
+func (e *addressLister) AllAddresses() []string {
+	return e.addresses(true)
+}
+
+func (e *addressLister) addresses(includePrivateIPV4 bool) []string {
 	var addrs []string
 
 	// Grab our listen addresses from the config. Unspecified ones are passed
@@ -56,6 +67,9 @@ func (e *addressLister) ExternalAddresses() []string {
 		} else if isPublicIPv4(addr.IP) || isPublicIPv6(addr.IP) {
 			// A public address; include as is.
 			addrs = append(addrs, "tcp://"+addr.String())
+		} else if includePrivateIPV4 && addr.IP.To4().IsGlobalUnicast() {
+			// A private IPv4 address.
+			addrs = append(addrs, "tcp://"+addr.String())
 		}
 	}
 
@@ -66,8 +80,6 @@ func (e *addressLister) ExternalAddresses() []string {
 			addrs = append(addrs, fmt.Sprintf("tcp://:%d", port))
 		}
 	}
-
-	l.Infoln("External addresses:", addrs)
 
 	return addrs
 }
