@@ -12,16 +12,21 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"time"
 
 	"github.com/syncthing/relaysrv/client"
 	"github.com/syncthing/relaysrv/protocol"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/discover"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/thejerf/suture"
+)
+
+const (
+	eventBroadcasterCheckInterval = 10 * time.Second
 )
 
 type Svc struct {
@@ -71,7 +76,12 @@ func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config) *Svc {
 		stop:        make(chan struct{}),
 	}
 
+	eventBc := &eventBroadcaster{
+		svc: svc,
+	}
+
 	svc.Add(receiver)
+	svc.Add(eventBc)
 
 	return svc
 }
@@ -132,7 +142,7 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
-		dynRelays := make([]discover.Relay, 0, len(ann.Relays))
+		var dynRelayAddrs []string
 		for _, relayAnn := range ann.Relays {
 			ruri, err := url.Parse(relayAnn.URL)
 			if err != nil {
@@ -144,13 +154,11 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 			if debug {
 				l.Debugln("Found", ruri, "via", uri)
 			}
-			dynRelays = append(dynRelays, discover.Relay{
-				Address: ruri.String(),
-			})
+			dynRelayAddrs = append(dynRelayAddrs, ruri.String())
 		}
 
-		dynRelayAddrs := discover.RelayAddressesSortedByLatency(dynRelays)
 		if len(dynRelayAddrs) > 0 {
+			dynRelayAddrs = relayAddressesSortedByLatency(dynRelayAddrs)
 			closestRelay := dynRelayAddrs[0]
 			if debug {
 				l.Debugln("Picking", closestRelay, "as closest dynamic relay from", uri)
@@ -193,7 +201,14 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (s *Svc) ClientStatus() map[string]bool {
+type Status struct {
+	URL     string
+	OK      bool
+	Latency int
+}
+
+// Relays return the list of relays that currently have an OK status.
+func (s *Svc) Relays() []string {
 	if s == nil {
 		// A nil client does not have a status, really. Yet we may be called
 		// this way, for raisins...
@@ -201,12 +216,34 @@ func (s *Svc) ClientStatus() map[string]bool {
 	}
 
 	s.mut.RLock()
-	status := make(map[string]bool, len(s.clients))
-	for uri, client := range s.clients {
-		status[uri] = client.StatusOK()
+	relays := make([]string, 0, len(s.clients))
+	for uri := range s.clients {
+		relays = append(relays, uri)
 	}
 	s.mut.RUnlock()
-	return status
+
+	sort.Strings(relays)
+
+	return relays
+}
+
+// RelayStatus returns the latency and OK status for a given relay.
+func (s *Svc) RelayStatus(uri string) (time.Duration, bool) {
+	if s == nil {
+		// A nil client does not have a status, really. Yet we may be called
+		// this way, for raisins...
+		return time.Hour, false
+	}
+
+	s.mut.RLock()
+	client, ok := s.clients[uri]
+	s.mut.RUnlock()
+
+	if !ok || !client.StatusOK() {
+		return time.Hour, false
+	}
+
+	return client.Latency(), true
 }
 
 // Accept returns a new *tls.Conn. The connection is already handshaken.
@@ -266,10 +303,99 @@ func (r *invitationReceiver) Stop() {
 	close(r.stop)
 }
 
+// The eventBroadcaster sends a RelayStateChanged event when the relay status
+// changes. We need this somewhat ugly polling mechanism as there's currently
+// no way to get the event feed directly from the relay lib. This may be
+// somethign to revisit later, possibly.
+type eventBroadcaster struct {
+	svc  *Svc
+	stop chan struct{}
+}
+
+func (e *eventBroadcaster) Serve() {
+	timer := time.NewTicker(eventBroadcasterCheckInterval)
+	defer timer.Stop()
+
+	var prevOKRelays []string
+
+	for {
+		select {
+		case <-timer.C:
+			curOKRelays := e.svc.Relays()
+
+			changed := len(curOKRelays) != len(prevOKRelays)
+			if !changed {
+				for i := range curOKRelays {
+					if curOKRelays[i] != prevOKRelays[i] {
+						changed = true
+						break
+					}
+				}
+			}
+
+			if changed {
+				events.Default.Log(events.RelayStateChanged, map[string][]string{
+					"old": prevOKRelays,
+					"new": curOKRelays,
+				})
+			}
+
+			prevOKRelays = curOKRelays
+
+		case <-e.stop:
+			return
+		}
+	}
+}
+
+func (e *eventBroadcaster) Stop() {
+	close(e.stop)
+}
+
 // This is the announcement recieved from the relay server;
 // {"relays": [{"url": "relay://10.20.30.40:5060"}, ...]}
 type dynamicAnnouncement struct {
 	Relays []struct {
 		URL string
 	}
+}
+
+// relayAddressesSortedByLatency adds local latency to the relay, and sorts them
+// by sum latency, and returns the addresses.
+func relayAddressesSortedByLatency(input []string) []string {
+	relays := make(relayList, len(input))
+	for i, relay := range input {
+		if latency, err := osutil.GetLatencyForURL(relay); err == nil {
+			relays[i] = relayWithLatency{relay, int(latency / time.Millisecond)}
+		} else {
+			relays[i] = relayWithLatency{relay, int(time.Hour / time.Millisecond)}
+		}
+	}
+
+	sort.Sort(relays)
+
+	addresses := make([]string, len(relays))
+	for i, relay := range relays {
+		addresses[i] = relay.relay
+	}
+	return addresses
+}
+
+type relayWithLatency struct {
+	relay   string
+	latency int
+}
+
+type relayList []relayWithLatency
+
+func (l relayList) Len() int {
+	return len(l)
+}
+
+func (l relayList) Less(a, b int) bool {
+	return l[a].latency < l[b].latency
+}
+
+func (l relayList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
 }

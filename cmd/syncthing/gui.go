@@ -33,6 +33,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -58,14 +59,15 @@ type apiSvc struct {
 	assetDir        string
 	model           *model.Model
 	eventSub        *events.BufferedSubscription
-	discoverer      *discover.Discoverer
+	discoverer      *discover.CachingMux
+	relaySvc        *relay.Svc
 	listener        net.Listener
 	fss             *folderSummarySvc
 	stop            chan struct{}
 	systemConfigMut sync.Mutex
 }
 
-func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.Discoverer) (*apiSvc, error) {
+func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc) (*apiSvc, error) {
 	svc := &apiSvc{
 		id:              id,
 		cfg:             cfg,
@@ -73,6 +75,7 @@ func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir strin
 		model:           m,
 		eventSub:        eventSub,
 		discoverer:      discoverer,
+		relaySvc:        relaySvc,
 		systemConfigMut: sync.NewMutex(),
 	}
 
@@ -164,7 +167,6 @@ func (s *apiSvc) Serve() {
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)              // folder
 	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                      // folder [sub...] [delay]
 	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)          // <body>
-	postRestMux.HandleFunc("/rest/system/discovery", s.postSystemDiscovery)    // device addr
 	postRestMux.HandleFunc("/rest/system/error", s.postSystemError)            // <body>
 	postRestMux.HandleFunc("/rest/system/error/clear", s.postSystemErrorClear) // -
 	postRestMux.HandleFunc("/rest/system/ping", s.restPing)                    // -
@@ -630,11 +632,30 @@ func (s *apiSvc) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys - m.HeapReleased
 	res["tilde"] = tilde
-	if cfg.Options().GlobalAnnEnabled && s.discoverer != nil {
-		res["extAnnounceOK"] = s.discoverer.ExtAnnounceOK()
+	if cfg.Options().LocalAnnEnabled || cfg.Options().GlobalAnnEnabled {
+		res["discoveryEnabled"] = true
+		discoErrors := make(map[string]string)
+		discoMethods := 0
+		for disco, err := range s.discoverer.ChildErrors() {
+			discoMethods++
+			if err != nil {
+				discoErrors[disco] = err.Error()
+			}
+		}
+		res["discoveryMethods"] = discoMethods
+		res["discoveryErrors"] = discoErrors
 	}
-	if relaySvc != nil {
-		res["relayClientStatus"] = relaySvc.ClientStatus()
+	if s.relaySvc != nil {
+		res["relaysEnabled"] = true
+		relayClientStatus := make(map[string]bool)
+		relayClientLatency := make(map[string]int)
+		for _, relay := range s.relaySvc.Relays() {
+			latency, ok := s.relaySvc.RelayStatus(relay)
+			relayClientStatus[relay] = ok
+			relayClientLatency[relay] = int(latency / time.Millisecond)
+		}
+		res["relayClientStatus"] = relayClientStatus
+		res["relayClientLatency"] = relayClientLatency
 	}
 	cpuUsageLock.RLock()
 	var cpusum float64
@@ -679,25 +700,16 @@ func (s *apiSvc) showGuiError(l logger.LogLevel, err string) {
 	guiErrorsMut.Unlock()
 }
 
-func (s *apiSvc) postSystemDiscovery(w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var device = qs.Get("device")
-	var addr = qs.Get("addr")
-	if len(device) != 0 && len(addr) != 0 && s.discoverer != nil {
-		s.discoverer.Hint(device, []string{addr})
-	}
-}
-
 func (s *apiSvc) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	devices := map[string][]discover.CacheEntry{}
+	devices := make(map[string]discover.CacheEntry)
 
 	if s.discoverer != nil {
 		// Device ids can't be marshalled as keys so we need to manually
 		// rebuild this map using strings. Discoverer may be nil if discovery
 		// has not started yet.
-		for device, entries := range s.discoverer.All() {
-			devices[device.String()] = entries
+		for device, entry := range s.discoverer.Cache() {
+			devices[device.String()] = entry
 		}
 	}
 

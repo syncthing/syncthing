@@ -249,3 +249,7 @@ ul.three-columns li, ul.two-columns li {
         position: static;
     }
 }
+
+.popover {
+    min-width: 250px;
+}

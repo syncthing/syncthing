@@ -7,8 +7,9 @@ package protocol
 
 import (
 	"fmt"
-	syncthingprotocol "github.com/syncthing/protocol"
 	"net"
+
+	syncthingprotocol "github.com/syncthing/protocol"
 )
 
 const (

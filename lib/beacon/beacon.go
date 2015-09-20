@@ -6,7 +6,12 @@
 
 package beacon
 
-import "net"
+import (
+	"net"
+	stdsync "sync"
+
+	"github.com/thejerf/suture"
+)
 
 type recv struct {
 	data []byte
@@ -14,34 +19,30 @@ type recv struct {
 }
 
 type Interface interface {
+	suture.Service
 	Send(data []byte)
 	Recv() ([]byte, net.Addr)
+	Error() error
 }
 
 type readerFrom interface {
 	ReadFrom([]byte) (int, net.Addr, error)
 }
 
-func genericReader(conn readerFrom, outbox chan<- recv) {
-	bs := make([]byte, 65536)
-	for {
-		n, addr, err := conn.ReadFrom(bs)
-		if err != nil {
-			l.Warnln("multicast read:", err)
-			return
-		}
-		if debug {
-			l.Debugf("recv %d bytes from %s", n, addr)
-		}
+type errorHolder struct {
+	err error
+	mut stdsync.Mutex // uses stdlib sync as I want this to be trivially embeddable, and there is no risk of blocking
+}
 
-		c := make([]byte, n)
-		copy(c, bs)
-		select {
-		case outbox <- recv{c, addr}:
-		default:
-			if debug {
-				l.Debugln("dropping message")
-			}
-		}
-	}
+func (e *errorHolder) setError(err error) {
+	e.mut.Lock()
+	e.err = err
+	e.mut.Unlock()
+}
+
+func (e *errorHolder) Error() error {
+	e.mut.Lock()
+	err := e.err
+	e.mut.Unlock()
+	return err
 }

@@ -192,10 +192,10 @@ Relay Structure:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Length of Address                       |
+|                         Length of URL                         |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                   Address (variable length)                   \
+\                     URL (variable length)                     \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                            Latency                            |
@@ -203,7 +203,7 @@ Relay Structure:
 
 
 struct Relay {
-	string Address<256>;
+	string URL<256>;
 	int Latency;
 }
 
@@ -234,10 +234,10 @@ func (o Relay) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o Relay) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	if l := len(o.Address); l > 256 {
-		return xw.Tot(), xdr.ElementSizeExceeded("Address", l, 256)
+	if l := len(o.URL); l > 256 {
+		return xw.Tot(), xdr.ElementSizeExceeded("URL", l, 256)
 	}
-	xw.WriteString(o.Address)
+	xw.WriteString(o.URL)
 	xw.WriteUint32(uint32(o.Latency))
 	return xw.Tot(), xw.Error()
 }
@@ -254,7 +254,7 @@ func (o *Relay) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *Relay) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.Address = xr.ReadStringMax(256)
+	o.URL = xr.ReadStringMax(256)
 	o.Latency = int32(xr.ReadUint32())
 	return xr.Error()
 }

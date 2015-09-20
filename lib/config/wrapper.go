@@ -317,3 +317,15 @@ func (w *Wrapper) Save() error {
 	events.Default.Log(events.ConfigSaved, w.cfg)
 	return nil
 }
+
+func (w *Wrapper) GlobalDiscoveryServers() []string {
+	var servers []string
+	for _, srv := range w.cfg.Options.GlobalAnnServers {
+		if srv == "default" {
+			servers = append(servers, DefaultDiscoveryServers...)
+		} else {
+			servers = append(servers, srv)
+		}
+	}
+	return uniqueStrings(servers)
+}
