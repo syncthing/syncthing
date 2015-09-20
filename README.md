@@ -2,6 +2,7 @@ Syncthing
 =========
 
 [![Latest Build (Official)](https://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing.svg?style=flat-square)](http://build.syncthing.net/job/syncthing/lastBuild/)
+[![AppVeyor Build](https://img.shields.io/appveyor/ci/calmh/syncthing/master.svg?style=flat-square)](https://ci.appveyor.com/project/calmh/syncthing)
 [![API Documentation](https://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](http://godoc.org/github.com/syncthing/syncthing)
 [![MPLv2 License](https://img.shields.io/badge/license-MPLv2-blue.svg?style=flat-square)](https://www.mozilla.org/MPL/2.0/)
 
