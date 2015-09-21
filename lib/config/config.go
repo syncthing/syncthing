@@ -45,7 +45,7 @@ var (
 		"https://discovery-v6-3.syncthing.net/?id=7WT2BVR-FX62ZOW-TNVVW25-6AHFJGD-XEXQSBW-VO3MPL2-JBTLL4T-P4572Q4", // 2400:6180:0:d0::d9:d001, Singapore
 	}
 
-	// DefaultDiscoveryServerIPs is used by the usage reporting.
+	// DefaultDiscoveryServersIP is used by the usage reporting.
 	// XXX: Detect Android, and use this is we still don't have working DNS?
 	DefaultDiscoveryServersIP = []string{
 		"https://194.126.249.5/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA",
