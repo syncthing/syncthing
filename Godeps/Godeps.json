@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/syncthing/syncthing",
-	"GoVersion": "go1.5",
+	"GoVersion": "go1.5.1",
 	"Packages": [
 		"./cmd/..."
 	],
@@ -39,7 +39,7 @@
 		},
 		{
 			"ImportPath": "github.com/syncthing/protocol",
-			"Rev": "68c5dcd83d9be8f28ae59e951a87cdcf01c6f5cb"
+			"Rev": "f91191218b192ace841c878f161832d19c09145a"
 		},
 		{
 			"ImportPath": "github.com/syncthing/relaysrv/client",

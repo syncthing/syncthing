@@ -577,9 +577,6 @@ func syncthingMain() {
 		symlinks.Supported = false
 	}
 
-	protocol.PingTimeout = time.Duration(opts.PingTimeoutS) * time.Second
-	protocol.PingIdleTime = time.Duration(opts.PingIdleTimeS) * time.Second
-
 	if opts.MaxSendKbps > 0 {
 		writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxSendKbps), int64(5*1000*opts.MaxSendKbps))
 	}

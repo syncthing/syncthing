@@ -29,8 +29,6 @@
         <symlinksEnabled>false</symlinksEnabled>
         <limitBandwidthInLan>true</limitBandwidthInLan>
         <databaseBlockCacheMiB>42</databaseBlockCacheMiB>
-        <pingTimeoutS>60</pingTimeoutS>
-        <pingIdleTimeS>120</pingIdleTimeS>
         <minHomeDiskFreePct>5.2</minHomeDiskFreePct>
         <urURL>https://localhost/newdata</urURL>
         <urInitialDelayS>800</urInitialDelayS>
