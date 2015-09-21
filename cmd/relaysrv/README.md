@@ -54,6 +54,37 @@ If you do not care about certificate pinning (improved security) or do not care 
 relay://123.123.123.123:22067
 ```
 
-This URL can then be used in `syncthing` as one of the relay servers.
+This URI can then be used in `syncthing` as one of the relay servers.
 
 See `relaysrv -help` for other options, such as rate limits, timeout intervals, etc.
+
+Other items available in this repo
+----
+##### testutil 
+A test utility which can be used to test connectivity of a relay server. 
+You need to generate two x509 key pairs (key.pem and cert.pem), one for the client, another one for the server, in separate directories.
+Afterwards, start the client:
+```bash
+./testutil -relay="relay://uri.of.relay" -keys=certs/client/ -join
+```
+
+This prints out the client ID:
+```
+2015/09/21 23:00:52 main.go:42: ID: BG2C5ZA-W7XPFDO-LH222Z6-65F3HJX-ADFTGRT-3SBFIGM-KV26O2Q-E5RMRQ2
+```
+
+In the other terminal run the following:
+
+```bash
+ ./testutil -relay="relay://uri.of.relay" -keys=certs/server/ -connect=BG2C5ZA-W7XPFDO-LH222Z6-65F3HJX-ADFTGRT-3SBFIGM-KV26O2Q-E5RMRQ2
+```
+
+Which should then give you an interactive prompt, where you can type things in one terminal, and they get relayed to the other terminal.
+
+##### client
+
+A client library which is used by syncthing
+
+##### protocol
+
+Go files which define the protocol and it's messages
