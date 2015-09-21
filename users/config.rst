@@ -333,7 +333,7 @@ listenAddress
     element under the `GUI Element`_ for allowed syntax.
 
 globalAnnounceServer
-    A URI to a global announce (discvoery) server. Allowed protocol prefixes
+    A URI to a global announce (discovery) server. Allowed protocol prefixes
     are ``udp4://`` (UDP over IPv4), ``udp6://`` (UDP over IPv6) and
     ``udp://`` (UDP over any available protocol).
 
