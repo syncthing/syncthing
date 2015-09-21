@@ -872,14 +872,21 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 		// get rid of. Attempt to delete it instead so that we make *some*
 		// progress. The target is unhandled.
 
-		err = osutil.InWritableDir(osutil.Remove, from)
-		if err != nil {
-			l.Infof("Puller (folder %q, file %q): delete %q after failed rename: %v", p.folder, target.Name, source.Name, err)
-			p.newError(target.Name, err)
-			return
-		}
+		// The error handling here is a bit special. If the remove fails, we
+		// try an Lstat of the file. If the Lstat fails we interpret that as
+		// the file being missing (or at least completely out of reach for
+		// some reason, which amounts to the same thing) and mark the delete
+		// as successfull. Only if the delete fails and the file is still in
+		// place do we skip the database update.
 
-		p.dbUpdates <- dbUpdateJob{source, dbUpdateDeleteFile}
+		if err = osutil.InWritableDir(osutil.Remove, from); err != nil {
+			if _, statErr := os.Lstat(from); statErr != nil {
+				err = nil
+			}
+		}
+		if err == nil {
+			p.dbUpdates <- dbUpdateJob{source, dbUpdateDeleteFile}
+		}
 	}
 }
 
@@ -1120,7 +1127,7 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 
 		for _, block := range state.blocks {
 			buf = buf[:int(block.Size)]
-			found := p.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
+			found := p.model.IterateBlocks(block.Hash, func(folder, file string, index int) bool {
 				fd, err := os.Open(filepath.Join(folderRoots[folder], file))
 				if err != nil {
 					return false
@@ -1138,10 +1145,7 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 						if debug {
 							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
 						}
-						err = p.model.finder.Fix(folder, file, index, block.Hash, hash)
-						if err != nil {
-							l.Warnln("finder fix:", err)
-						}
+						p.model.FixBlock(folder, file, index, block.Hash, hash)
 					} else if debug {
 						l.Debugln("Finder failed to verify buffer", err)
 					}

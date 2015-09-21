@@ -8,6 +8,7 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -25,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/boltdb/bolt"
 	"github.com/calmh/logger"
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/protocol"
@@ -38,10 +40,6 @@ import (
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/errors"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/thejerf/suture"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -84,6 +82,9 @@ func init() {
 			l.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, exp)
 		}
 	}
+
+	// HAX HAX
+	Version = Version + "-boltdb"
 
 	// Check for a clean release build. A release is something like "v0.1.2",
 	// with an optional suffix of letters and dot separated numbers like
@@ -203,6 +204,7 @@ var (
 	auditEnabled      bool
 	verbose           bool
 	paused            bool
+	compact           bool
 	noRestart         = os.Getenv("STNORESTART") != ""
 	noUpgrade         = os.Getenv("STNOUPGRADE") != ""
 	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
@@ -243,6 +245,7 @@ func main() {
 	flag.BoolVar(&auditEnabled, "audit", false, "Write events to audit file")
 	flag.BoolVar(&verbose, "verbose", false, "Print verbose log output")
 	flag.BoolVar(&paused, "paused", false, "Start with all devices paused")
+	flag.BoolVar(&compact, "compact-db", false, "Compact the database file")
 
 	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, baseDirs["config"]))
 	flag.Parse()
@@ -358,8 +361,8 @@ func main() {
 		l.Infof("Upgrade available (current %q < latest %q)", Version, rel.Tag)
 
 		if doUpgrade {
-			// Use leveldb database locks to protect against concurrent upgrades
-			_, err = leveldb.OpenFile(locations[locDatabase], &opt.Options{OpenFilesCacheCapacity: 100})
+			// Use database locks to protect against concurrent upgrades
+			dbh, err := db.NewBoltDB(locations[locDatabase])
 			if err != nil {
 				l.Infoln("Attempting upgrade through running Syncthing...")
 				err = upgradeViaRest()
@@ -369,6 +372,7 @@ func main() {
 				l.Okln("Syncthing upgrading")
 				return
 			}
+			dbh.Close()
 
 			err = upgrade.To(rel)
 			if err != nil {
@@ -381,7 +385,18 @@ func main() {
 	}
 
 	if reset {
-		resetDB()
+		if err := resetDB(); err != nil {
+			l.Fatalln("Reset:", err)
+		}
+		l.Okln("Reset database")
+		return
+	}
+
+	if compact {
+		if err := compactDB(); err != nil {
+			l.Fatalln("Compact:", err)
+		}
+		l.Okln("Compacted database")
 		return
 	}
 
@@ -602,34 +617,21 @@ func syncthingMain() {
 	}
 
 	dbFile := locations[locDatabase]
-	ldb, err := leveldb.OpenFile(dbFile, dbOpts())
-	if leveldbIsCorrupted(err) {
-		ldb, err = leveldb.RecoverFile(dbFile, dbOpts())
-	}
-	if leveldbIsCorrupted(err) {
-		// The database is corrupted, and we've tried to recover it but it
-		// didn't work. At this point there isn't much to do beyond dropping
-		// the database and reindexing...
-		l.Infoln("Database corruption detected, unable to recover. Reinitializing...")
-		if err := resetDB(); err != nil {
-			l.Fatalln("Remove database:", err)
-		}
-		ldb, err = leveldb.OpenFile(dbFile, dbOpts())
-	}
+	dbh, err := db.NewBoltDB(dbFile)
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
 
 	// Remove database entries for folders that no longer exist in the config
 	folders := cfg.Folders()
-	for _, folder := range db.ListFolders(ldb) {
+	for _, folder := range db.ListFolders(dbh) {
 		if _, ok := folders[folder]; !ok {
 			l.Infof("Cleaning data for dropped folder %q", folder)
-			db.DropFolder(ldb, folder)
+			db.DropFolder(dbh, folder)
 		}
 	}
 
-	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb)
+	m := model.NewModel(cfg, myID, myName, "syncthing", Version, dbh)
 	cfg.Subscribe(m)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
@@ -652,12 +654,6 @@ func syncthingMain() {
 	// needs to be changed when we correctly do persistent indexes.
 	for _, folderCfg := range cfg.Folders() {
 		m.AddFolder(folderCfg)
-		for _, device := range folderCfg.DeviceIDs() {
-			if device == myID {
-				continue
-			}
-			m.Index(device, folderCfg.ID, nil, 0, nil)
-		}
 		// Routine to pull blocks from other devices to synchronize the local
 		// folder. Does not run when we are in read only (publish only) mode.
 		if folderCfg.ReadOnly {
@@ -668,6 +664,15 @@ func syncthingMain() {
 	}
 
 	mainSvc.Add(m)
+
+	for _, folderCfg := range cfg.Folders() {
+		for _, device := range folderCfg.DeviceIDs() {
+			if device == myID {
+				continue
+			}
+			m.Index(device, folderCfg.ID, nil, 0, nil)
+		}
+	}
 
 	// The default port we announce, possibly modified by setupUPnP next.
 
@@ -822,40 +827,6 @@ func syncthingMain() {
 	os.Exit(code)
 }
 
-func dbOpts() *opt.Options {
-	// Calculate a suitable database block cache capacity.
-
-	// Default is 8 MiB.
-	blockCacheCapacity := 8 << 20
-	// Increase block cache up to this maximum:
-	const maxCapacity = 64 << 20
-	// ... which we reach when the box has this much RAM:
-	const maxAtRAM = 8 << 30
-
-	if v := cfg.Options().DatabaseBlockCacheMiB; v != 0 {
-		// Use the value from the config, if it's set.
-		blockCacheCapacity = v << 20
-	} else if bytes, err := memorySize(); err == nil {
-		// We start at the default of 8 MiB and use larger values for machines
-		// with more memory.
-
-		if bytes > maxAtRAM {
-			// Cap the cache at maxCapacity when we reach maxAtRam amount of memory
-			blockCacheCapacity = maxCapacity
-		} else if bytes > maxAtRAM/maxCapacity*int64(blockCacheCapacity) {
-			// Grow from the default to maxCapacity at maxAtRam amount of memory
-			blockCacheCapacity = int(bytes * maxCapacity / maxAtRAM)
-		}
-		l.Infoln("Database block cache capacity", blockCacheCapacity/1024, "KiB")
-	}
-
-	return &opt.Options{
-		OpenFilesCacheCapacity: 100,
-		BlockCacheCapacity:     blockCacheCapacity,
-		WriteBuffer:            4 << 20,
-	}
-}
-
 func startAuditing(mainSvc *suture.Supervisor) {
 	auditFile := timestampedLoc(locAuditLog)
 	fd, err := os.OpenFile(auditFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
@@ -961,6 +932,23 @@ func generatePingEvents() {
 
 func resetDB() error {
 	return os.RemoveAll(locations[locDatabase])
+}
+
+func compactDB() error {
+	dbh, err := db.NewBoltDB(locations[locDatabase])
+	if err != nil {
+		return err
+	}
+	err = dbh.View(func(tx *bolt.Tx) error {
+		return tx.CopyFile(locations[locDatabase]+".new", 0644)
+	})
+	dbh.Close()
+
+	if err != nil {
+		return err
+	}
+
+	return osutil.Rename(locations[locDatabase]+".new", locations[locDatabase])
 }
 
 func restart() {
@@ -1171,20 +1159,4 @@ func checkShortIDs(cfg *config.Wrapper) error {
 		exists[shortID] = deviceID
 	}
 	return nil
-}
-
-// A "better" version of leveldb's errors.IsCorrupted.
-func leveldbIsCorrupted(err error) bool {
-	switch {
-	case err == nil:
-		return false
-
-	case errors.IsCorrupted(err):
-		return true
-
-	case strings.Contains(err.Error(), "corrupted"):
-		return true
-	}
-
-	return false
 }

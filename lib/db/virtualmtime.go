@@ -9,8 +9,6 @@ package db
 import (
 	"fmt"
 	"time"
-
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 // This type encapsulates a repository of mtimes for platforms where file mtimes
@@ -25,11 +23,9 @@ type VirtualMtimeRepo struct {
 	ns *NamespacedKV
 }
 
-func NewVirtualMtimeRepo(ldb *leveldb.DB, folder string) *VirtualMtimeRepo {
-	prefix := string(KeyTypeVirtualMtime) + folder
-
+func NewVirtualMtimeRepo(db *BoltDB, folder string) *VirtualMtimeRepo {
 	return &VirtualMtimeRepo{
-		ns: NewNamespacedKV(ldb, prefix),
+		ns: NewNamespacedKV(db, "vmtime/"+folder),
 	}
 }
 
@@ -49,7 +45,9 @@ func (r *VirtualMtimeRepo) UpdateMtime(path string, diskMtime, actualMtime time.
 func (r *VirtualMtimeRepo) GetMtime(path string, diskMtime time.Time) time.Time {
 	data, exists := r.ns.Bytes(path)
 	if !exists {
-		// Absense of debug print is significant enough in itself here
+		if debug {
+			l.Debugf("virtual mtime: does not exist: path: %s", path)
+		}
 		return diskMtime
 	}
 
@@ -76,6 +74,9 @@ func (r *VirtualMtimeRepo) GetMtime(path string, diskMtime time.Time) time.Time 
 }
 
 func (r *VirtualMtimeRepo) DeleteMtime(path string) {
+	if debug {
+		l.Debugf("virtual mtime: delete path: %s", path)
+	}
 	r.ns.Delete(path)
 }
 

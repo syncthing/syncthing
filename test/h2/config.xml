@@ -3,10 +3,7 @@
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
-        <minDiskFreePct>1</minDiskFreePct>
-        <versioning type="trashcan">
-            <param key="cleanoutDays" val="1"></param>
-        </versioning>
+        <versioning></versioning>
         <copiers>1</copiers>
         <pullers>16</pullers>
         <hashers>0</hashers>
@@ -85,6 +82,5 @@
         <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
         <pingTimeoutS>30</pingTimeoutS>
         <pingIdleTimeS>60</pingIdleTimeS>
-        <minHomeDiskFreePct>1</minHomeDiskFreePct>
     </options>
 </configuration>

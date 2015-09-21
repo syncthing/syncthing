@@ -91,7 +91,8 @@ case "${1:-default}" in
 		build -goos openbsd -goarch 386 tar
 		build -goos openbsd -goarch amd64 tar
 
-		build -goos solaris -goarch amd64 tar
+		# Bolt doesn't build on Solaris, need locking primitives
+		# build -goos solaris -goarch amd64 tar
 
 		build -goos windows -goarch 386 zip
 		build -goos windows -goarch amd64 zip

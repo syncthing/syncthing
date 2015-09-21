@@ -9,19 +9,14 @@ package db
 import (
 	"testing"
 	"time"
-
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 func TestNamespacedInt(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dbh, cleanup := tempDB()
+	defer cleanup()
 
-	n1 := NewNamespacedKV(ldb, "foo")
-	n2 := NewNamespacedKV(ldb, "bar")
+	n1 := NewNamespacedKV(dbh, "foo")
+	n2 := NewNamespacedKV(dbh, "bar")
 
 	// Key is missing to start with
 
@@ -53,12 +48,10 @@ func TestNamespacedInt(t *testing.T) {
 }
 
 func TestNamespacedTime(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dbh, cleanup := tempDB()
+	defer cleanup()
 
-	n1 := NewNamespacedKV(ldb, "foo")
+	n1 := NewNamespacedKV(dbh, "foo")
 
 	if v, ok := n1.Time("test"); v != (time.Time{}) || ok {
 		t.Errorf("Incorrect return v %v != %v || ok %v != false", v, time.Time{}, ok)
@@ -73,12 +66,10 @@ func TestNamespacedTime(t *testing.T) {
 }
 
 func TestNamespacedString(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dbh, cleanup := tempDB()
+	defer cleanup()
 
-	n1 := NewNamespacedKV(ldb, "foo")
+	n1 := NewNamespacedKV(dbh, "foo")
 
 	if v, ok := n1.String("test"); v != "" || ok {
 		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
@@ -89,15 +80,42 @@ func TestNamespacedString(t *testing.T) {
 	if v, ok := n1.String("test"); v != "yo" || !ok {
 		t.Errorf("Incorrect return v %q != \"yo\" || ok %v != true", v, ok)
 	}
+
+	n1.Delete("test")
+
+	if v, ok := n1.String("test"); v != "" || ok {
+		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
+	}
+}
+
+func TestNamespacedBytes(t *testing.T) {
+	dbh, cleanup := tempDB()
+	defer cleanup()
+
+	n1 := NewNamespacedKV(dbh, "foo")
+
+	if v, ok := n1.Bytes("test"); v != nil || ok {
+		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
+	}
+
+	n1.PutBytes("test", []byte("yo"))
+
+	if v, ok := n1.Bytes("test"); string(v) != "yo" || !ok {
+		t.Errorf("Incorrect return v %q != \"yo\" || ok %v != true", v, ok)
+	}
+
+	n1.Delete("test")
+
+	if v, ok := n1.Bytes("test"); v != nil || ok {
+		t.Errorf("Incorrect return v %q != nil || ok %v != false", v, ok)
+	}
 }
 
 func TestNamespacedReset(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dbh, cleanup := tempDB()
+	defer cleanup()
 
-	n1 := NewNamespacedKV(ldb, "foo")
+	n1 := NewNamespacedKV(dbh, "foo")
 
 	n1.PutString("test1", "yo1")
 	n1.PutString("test2", "yo2")

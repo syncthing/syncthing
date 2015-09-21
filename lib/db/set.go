@@ -16,14 +16,13 @@ import (
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type FileSet struct {
 	localVersion map[protocol.DeviceID]int64
 	mutex        sync.Mutex
 	folder       string
-	db           *leveldb.DB
+	db           *BoltDB
 	blockmap     *BlockMap
 }
 
@@ -43,7 +42,7 @@ type FileIntf interface {
 // continue iteration, false to stop.
 type Iterator func(f FileIntf) bool
 
-func NewFileSet(folder string, db *leveldb.DB) *FileSet {
+func NewFileSet(folder string, db *BoltDB) *FileSet {
 	var s = FileSet{
 		localVersion: make(map[protocol.DeviceID]int64),
 		folder:       folder,
@@ -52,10 +51,10 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 		mutex:        sync.NewMutex(),
 	}
 
-	ldbCheckGlobals(db, []byte(folder))
+	s.db.initFolder([]byte(folder))
 
 	var deviceID protocol.DeviceID
-	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f FileInfoTruncated) bool {
+	s.db.withAllFolderTruncated([]byte(folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
 		if f.LocalVersion > s.localVersion[deviceID] {
 			s.localVersion[deviceID] = f.LocalVersion
@@ -77,7 +76,7 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.localVersion[device] = ldbReplace(s.db, []byte(s.folder), device[:], fs)
+	s.localVersion[device] = s.db.replace([]byte(s.folder), device[:], fs)
 	if len(fs) == 0 {
 		// Reset the local version if all files were removed.
 		s.localVersion[device] = 0
@@ -99,7 +98,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		discards := make([]protocol.FileInfo, 0, len(fs))
 		updates := make([]protocol.FileInfo, 0, len(fs))
 		for _, newFile := range fs {
-			existingFile, ok := ldbGet(s.db, []byte(s.folder), device[:], []byte(newFile.Name))
+			existingFile, ok := s.db.get([]byte(s.folder), device[:], []byte(newFile.Name))
 			if !ok || !existingFile.Version.Equal(newFile.Version) {
 				discards = append(discards, existingFile)
 				updates = append(updates, newFile)
@@ -108,7 +107,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		s.blockmap.Discard(discards)
 		s.blockmap.Update(updates)
 	}
-	if lv := ldbUpdate(s.db, []byte(s.folder), device[:], fs); lv > s.localVersion[device] {
+	if lv := s.db.update([]byte(s.folder), device[:], fs); lv > s.localVersion[device] {
 		s.localVersion[device] = lv
 	}
 }
@@ -117,59 +116,59 @@ func (s *FileSet) WithNeed(device protocol.DeviceID, fn Iterator) {
 	if debug {
 		l.Debugf("%s WithNeed(%v)", s.folder, device)
 	}
-	ldbWithNeed(s.db, []byte(s.folder), device[:], false, nativeFileIterator(fn))
+	s.db.withNeed([]byte(s.folder), device[:], false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithNeedTruncated(device protocol.DeviceID, fn Iterator) {
 	if debug {
 		l.Debugf("%s WithNeedTruncated(%v)", s.folder, device)
 	}
-	ldbWithNeed(s.db, []byte(s.folder), device[:], true, nativeFileIterator(fn))
+	s.db.withNeed([]byte(s.folder), device[:], true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithHave(device protocol.DeviceID, fn Iterator) {
 	if debug {
 		l.Debugf("%s WithHave(%v)", s.folder, device)
 	}
-	ldbWithHave(s.db, []byte(s.folder), device[:], false, nativeFileIterator(fn))
+	s.db.withHave([]byte(s.folder), device[:], false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithHaveTruncated(device protocol.DeviceID, fn Iterator) {
 	if debug {
 		l.Debugf("%s WithHaveTruncated(%v)", s.folder, device)
 	}
-	ldbWithHave(s.db, []byte(s.folder), device[:], true, nativeFileIterator(fn))
+	s.db.withHave([]byte(s.folder), device[:], true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithGlobal(fn Iterator) {
 	if debug {
 		l.Debugf("%s WithGlobal()", s.folder)
 	}
-	ldbWithGlobal(s.db, []byte(s.folder), nil, false, nativeFileIterator(fn))
+	s.db.withGlobal([]byte(s.folder), nil, false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithGlobalTruncated(fn Iterator) {
 	if debug {
 		l.Debugf("%s WithGlobalTruncated()", s.folder)
 	}
-	ldbWithGlobal(s.db, []byte(s.folder), nil, true, nativeFileIterator(fn))
+	s.db.withGlobal([]byte(s.folder), nil, true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
 	if debug {
 		l.Debugf("%s WithPrefixedGlobalTruncated()", s.folder, prefix)
 	}
-	ldbWithGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn))
+	s.db.withGlobal([]byte(s.folder), []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {
-	f, ok := ldbGet(s.db, []byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
+	f, ok := s.db.get([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
 	f.Name = osutil.NativeFilename(f.Name)
 	return f, ok
 }
 
 func (s *FileSet) GetGlobal(file string) (protocol.FileInfo, bool) {
-	fi, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
+	fi, ok := s.db.getGlobal([]byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
 	if !ok {
 		return protocol.FileInfo{}, false
 	}
@@ -179,7 +178,7 @@ func (s *FileSet) GetGlobal(file string) (protocol.FileInfo, bool) {
 }
 
 func (s *FileSet) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
-	fi, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
+	fi, ok := s.db.getGlobal([]byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
 	if !ok {
 		return FileInfoTruncated{}, false
 	}
@@ -189,7 +188,7 @@ func (s *FileSet) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
 }
 
 func (s *FileSet) Availability(file string) []protocol.DeviceID {
-	return ldbAvailability(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
+	return s.db.availability([]byte(s.folder), []byte(osutil.NormalizedFilename(file)))
 }
 
 func (s *FileSet) LocalVersion(device protocol.DeviceID) int64 {
@@ -198,18 +197,32 @@ func (s *FileSet) LocalVersion(device protocol.DeviceID) int64 {
 	return s.localVersion[device]
 }
 
+func (s *FileSet) IterateBlocks(hash []byte, fn func(file string, idx int) bool) bool {
+	return s.blockmap.Iterate(hash, fn)
+}
+
+func (s *FileSet) FixBlock(file string, index int, oldHash, newHash []byte) {
+	s.blockmap.Fix(file, index, oldHash, newHash)
+}
+
+func (s *FileSet) OverrideRemoteChanges(folder string) {
+	s.mutex.Lock()
+	s.localVersion[protocol.LocalDeviceID] = s.db.overrideRemoteChanges([]byte(folder))
+	s.mutex.Unlock()
+}
+
 // ListFolders returns the folder IDs seen in the database.
-func ListFolders(db *leveldb.DB) []string {
-	return ldbListFolders(db)
+func ListFolders(db *BoltDB) []string {
+	return db.listFolders()
 }
 
 // DropFolder clears out all information related to the given folder from the
 // database.
-func DropFolder(db *leveldb.DB, folder string) {
-	ldbDropFolder(db, []byte(folder))
+func DropFolder(db *BoltDB, folder string) {
+	db.dropFolder([]byte(folder))
 	bm := &BlockMap{
 		db:     db,
-		folder: folder,
+		folder: []byte(folder),
 	}
 	bm.Drop()
 	NewVirtualMtimeRepo(db, folder).Drop()

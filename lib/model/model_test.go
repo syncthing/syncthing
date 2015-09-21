@@ -22,8 +22,6 @@ import (
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 var device1, device2 protocol.DeviceID
@@ -89,11 +87,24 @@ func init() {
 	}
 }
 
+func tempDB() (*db.BoltDB, func()) {
+	dbh, err := db.NewBoltDB(fmt.Sprintf("testdata/test-%d.db", time.Now().UnixNano()))
+	if err != nil {
+		panic(err)
+	}
+
+	return dbh, func() {
+		p := dbh.Path()
+		dbh.Close()
+		os.RemoveAll(p)
+	}
+}
+
 func TestRequest(t *testing.T) {
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
 
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
-
 	// device1 shares default, but device2 doesn't
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolderRO("default")
@@ -167,7 +178,9 @@ func BenchmarkIndex_100(b *testing.B) {
 }
 
 func benchmarkIndex(b *testing.B, nfiles int) {
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
+
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolderRO("default")
@@ -175,10 +188,12 @@ func benchmarkIndex(b *testing.B, nfiles int) {
 
 	files := genFiles(nfiles)
 	m.Index(device1, "default", files, 0, nil)
+	m.indexWriter.waitFor(1)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.Index(device1, "default", files, 0, nil)
+		m.indexWriter.waitFor(i + 2)
 	}
 	b.ReportAllocs()
 }
@@ -196,7 +211,9 @@ func BenchmarkIndexUpdate_10000_1(b *testing.B) {
 }
 
 func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
+
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolderRO("default")
@@ -206,10 +223,12 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	ufiles := genFiles(nufiles)
 
 	m.Index(device1, "default", files, 0, nil)
+	m.indexWriter.waitFor(1)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.IndexUpdate(device1, "default", ufiles, 0, nil)
+		m.indexWriter.waitFor(i + 2)
 	}
 	b.ReportAllocs()
 }
@@ -261,7 +280,9 @@ func (FakeConnection) Statistics() protocol.Statistics {
 }
 
 func BenchmarkRequest(b *testing.B) {
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
+
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
@@ -288,6 +309,7 @@ func BenchmarkRequest(b *testing.B) {
 		ConnectionTypeDirectAccept,
 	})
 	m.Index(device1, "default", files, 0, nil)
+	m.indexWriter.waitFor(1)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -317,7 +339,9 @@ func TestDeviceRename(t *testing.T) {
 	}
 	cfg := config.Wrap("tmpconfig.xml", rawCfg)
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
+
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 
 	fc := FakeConnection{
@@ -396,7 +420,8 @@ func TestClusterConfig(t *testing.T) {
 		},
 	}
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
 
 	m := NewModel(config.Wrap("/tmp/test", cfg), protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(cfg.Folders[0])
@@ -468,7 +493,9 @@ func TestIgnores(t *testing.T) {
 	ioutil.WriteFile("testdata/.stfolder", nil, 0644)
 	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
+
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolderRO("default")
@@ -543,7 +570,9 @@ func TestIgnores(t *testing.T) {
 }
 
 func TestRefuseUnknownBits(t *testing.T) {
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
+
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
@@ -567,6 +596,7 @@ func TestRefuseUnknownBits(t *testing.T) {
 			Flags: protocol.FlagsAll &^ (protocol.FlagInvalid | protocol.FlagSymlink),
 		},
 	}, 0, nil)
+	m.indexWriter.waitFor(1)
 
 	for _, name := range []string{"invalid1", "invalid2", "invalid3"} {
 		f, ok := m.CurrentGlobalFile("default", name)
@@ -581,8 +611,10 @@ func TestRefuseUnknownBits(t *testing.T) {
 }
 
 func TestROScanRecovery(t *testing.T) {
-	ldb, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	set := db.NewFileSet("default", ldb)
+	dbh, cleanup := tempDB()
+	defer cleanup()
+
+	set := db.NewFileSet("default", dbh)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
 	})
@@ -603,7 +635,7 @@ func TestROScanRecovery(t *testing.T) {
 
 	os.RemoveAll(fcfg.RawPath)
 
-	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
+	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", dbh)
 	m.AddFolder(fcfg)
 	m.StartFolderRO("default")
 	m.ServeBackground()
@@ -665,8 +697,10 @@ func TestROScanRecovery(t *testing.T) {
 }
 
 func TestRWScanRecovery(t *testing.T) {
-	ldb, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	set := db.NewFileSet("default", ldb)
+	dbh, cleanup := tempDB()
+	defer cleanup()
+
+	set := db.NewFileSet("default", dbh)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
 	})
@@ -687,7 +721,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	os.RemoveAll(fcfg.RawPath)
 
-	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb)
+	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", dbh)
 	m.AddFolder(fcfg)
 	m.StartFolderRW("default")
 	m.ServeBackground()
@@ -749,7 +783,9 @@ func TestRWScanRecovery(t *testing.T) {
 }
 
 func TestGlobalDirectoryTree(t *testing.T) {
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
+
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
@@ -838,6 +874,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	m.Index(device1, "default", testdata, 0, nil)
+	m.indexWriter.waitFor(1)
 
 	result := m.GlobalDirectoryTree("default", "", -1, false)
 
@@ -999,7 +1036,9 @@ func TestGlobalDirectoryTree(t *testing.T) {
 }
 
 func TestGlobalDirectorySelfFixing(t *testing.T) {
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
+
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
@@ -1097,6 +1136,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 	}
 
 	m.Index(device1, "default", testdata, 0, nil)
+	m.indexWriter.waitFor(1)
 
 	result := m.GlobalDirectoryTree("default", "", -1, false)
 
@@ -1173,7 +1213,9 @@ func BenchmarkTree_100_10(b *testing.B) {
 }
 
 func benchmarkTree(b *testing.B, n1, n2 int) {
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
+
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
@@ -1182,6 +1224,7 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	files := genDeepFiles(n1, n2)
 
 	m.Index(device1, "default", files, 0, nil)
+	m.indexWriter.waitFor(1)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1191,7 +1234,9 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 }
 
 func TestIgnoreDelete(t *testing.T) {
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db, cleanup := tempDB()
+	defer cleanup()
+
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db)
 
 	// This folder should ignore external deletes

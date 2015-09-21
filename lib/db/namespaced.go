@@ -10,20 +10,26 @@ import (
 	"encoding/binary"
 	"time"
 
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/boltdb/bolt"
 )
 
 // NamespacedKV is a simple key-value store using a specific namespace within
-// a leveldb.
+// a database.
 type NamespacedKV struct {
-	db     *leveldb.DB
+	db     *BoltDB
 	prefix []byte
 }
 
 // NewNamespacedKV returns a new NamespacedKV that lives in the namespace
 // specified by the prefix.
-func NewNamespacedKV(db *leveldb.DB, prefix string) *NamespacedKV {
+func NewNamespacedKV(db *BoltDB, prefix string) *NamespacedKV {
+	db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte(prefix))
+		if err != nil {
+			panic(err)
+		}
+		return nil
+	})
 	return &NamespacedKV{
 		db:     db,
 		prefix: []byte(prefix),
@@ -32,128 +38,146 @@ func NewNamespacedKV(db *leveldb.DB, prefix string) *NamespacedKV {
 
 // Reset removes all entries in this namespace.
 func (n *NamespacedKV) Reset() {
-	it := n.db.NewIterator(util.BytesPrefix(n.prefix), nil)
-	defer it.Release()
-	batch := new(leveldb.Batch)
-	for it.Next() {
-		batch.Delete(it.Key())
-		if batch.Len() > batchFlushSize {
-			if err := n.db.Write(batch, nil); err != nil {
-				panic(err)
-			}
-			batch.Reset()
-		}
-	}
-	if batch.Len() > 0 {
-		if err := n.db.Write(batch, nil); err != nil {
+	n.db.Update(func(tx *bolt.Tx) error {
+		if err := tx.DeleteBucket(n.prefix); err != nil {
 			panic(err)
 		}
-	}
+		if _, err := tx.CreateBucket(n.prefix); err != nil {
+			panic(err)
+		}
+		return nil
+	})
 }
 
 // PutInt64 stores a new int64. Any existing value (even if of another type)
 // is overwritten.
 func (n *NamespacedKV) PutInt64(key string, val int64) {
-	keyBs := append(n.prefix, []byte(key)...)
 	var valBs [8]byte
 	binary.BigEndian.PutUint64(valBs[:], uint64(val))
-	n.db.Put(keyBs, valBs[:], nil)
+	n.db.Update(func(tx *bolt.Tx) error {
+		if err := tx.Bucket(n.prefix).Put([]byte(key), valBs[:]); err != nil {
+			panic(err)
+		}
+		return nil
+	})
 }
 
 // Int64 returns the stored value interpreted as an int64 and a boolean that
 // is false if no value was stored at the key.
-func (n *NamespacedKV) Int64(key string) (int64, bool) {
-	keyBs := append(n.prefix, []byte(key)...)
-	valBs, err := n.db.Get(keyBs, nil)
-	if err != nil {
-		return 0, false
-	}
-	val := binary.BigEndian.Uint64(valBs)
-	return int64(val), true
+func (n *NamespacedKV) Int64(key string) (val int64, ok bool) {
+	n.db.View(func(tx *bolt.Tx) error {
+		valBs := tx.Bucket(n.prefix).Get([]byte(key))
+		if valBs != nil {
+			val = int64(binary.BigEndian.Uint64(valBs))
+			ok = true
+		}
+		return nil
+	})
+	return
 }
 
 // PutTime stores a new time.Time. Any existing value (even if of another
 // type) is overwritten.
 func (n *NamespacedKV) PutTime(key string, val time.Time) {
-	keyBs := append(n.prefix, []byte(key)...)
 	valBs, _ := val.MarshalBinary() // never returns an error
-	n.db.Put(keyBs, valBs, nil)
+	n.db.Update(func(tx *bolt.Tx) error {
+		if err := tx.Bucket(n.prefix).Put([]byte(key), valBs[:]); err != nil {
+			panic(err)
+		}
+		return nil
+	})
 }
 
 // Time returns the stored value interpreted as a time.Time and a boolean
 // that is false if no value was stored at the key.
-func (n NamespacedKV) Time(key string) (time.Time, bool) {
-	var t time.Time
-	keyBs := append(n.prefix, []byte(key)...)
-	valBs, err := n.db.Get(keyBs, nil)
-	if err != nil {
-		return t, false
-	}
-	err = t.UnmarshalBinary(valBs)
-	return t, err == nil
+func (n NamespacedKV) Time(key string) (t time.Time, ok bool) {
+	n.db.View(func(tx *bolt.Tx) error {
+		valBs := tx.Bucket(n.prefix).Get([]byte(key))
+		if valBs != nil {
+			err := t.UnmarshalBinary(valBs)
+			ok = err == nil
+		}
+		return nil
+	})
+	return
 }
 
 // PutString stores a new string. Any existing value (even if of another type)
 // is overwritten.
 func (n *NamespacedKV) PutString(key, val string) {
-	keyBs := append(n.prefix, []byte(key)...)
-	n.db.Put(keyBs, []byte(val), nil)
+	n.db.Update(func(tx *bolt.Tx) error {
+		if err := tx.Bucket(n.prefix).Put([]byte(key), []byte(val)); err != nil {
+			panic(err)
+		}
+		return nil
+	})
 }
 
 // String returns the stored value interpreted as a string and a boolean that
 // is false if no value was stored at the key.
-func (n NamespacedKV) String(key string) (string, bool) {
-	keyBs := append(n.prefix, []byte(key)...)
-	valBs, err := n.db.Get(keyBs, nil)
-	if err != nil {
-		return "", false
-	}
-	return string(valBs), true
+func (n NamespacedKV) String(key string) (s string, ok bool) {
+	n.db.View(func(tx *bolt.Tx) error {
+		valBs := tx.Bucket(n.prefix).Get([]byte(key))
+		if valBs != nil {
+			s = string(valBs)
+			ok = true
+		}
+		return nil
+	})
+	return
 }
 
 // PutBytes stores a new byte slice. Any existing value (even if of another type)
 // is overwritten.
 func (n *NamespacedKV) PutBytes(key string, val []byte) {
-	keyBs := append(n.prefix, []byte(key)...)
-	n.db.Put(keyBs, val, nil)
+	n.db.Update(func(tx *bolt.Tx) error {
+		if err := tx.Bucket(n.prefix).Put([]byte(key), val); err != nil {
+			panic(err)
+		}
+		return nil
+	})
 }
 
 // Bytes returns the stored value as a raw byte slice and a boolean that
 // is false if no value was stored at the key.
-func (n NamespacedKV) Bytes(key string) ([]byte, bool) {
-	keyBs := append(n.prefix, []byte(key)...)
-	valBs, err := n.db.Get(keyBs, nil)
-	if err != nil {
-		return nil, false
-	}
-	return valBs, true
+func (n NamespacedKV) Bytes(key string) (v []byte, ok bool) {
+	n.db.View(func(tx *bolt.Tx) error {
+		v = tx.Bucket(n.prefix).Get([]byte(key))
+		if v != nil {
+			ok = true
+		}
+		return nil
+	})
+	return
 }
 
 // PutBool stores a new boolean. Any existing value (even if of another type)
 // is overwritten.
 func (n *NamespacedKV) PutBool(key string, val bool) {
-	keyBs := append(n.prefix, []byte(key)...)
 	if val {
-		n.db.Put(keyBs, []byte{0x0}, nil)
+		n.PutBytes(key, []byte{1})
 	} else {
-		n.db.Put(keyBs, []byte{0x1}, nil)
+		n.PutBytes(key, []byte{0})
 	}
 }
 
 // Bool returns the stored value as a boolean and a boolean that
 // is false if no value was stored at the key.
 func (n NamespacedKV) Bool(key string) (bool, bool) {
-	keyBs := append(n.prefix, []byte(key)...)
-	valBs, err := n.db.Get(keyBs, nil)
-	if err != nil {
-		return false, false
+	bs, ok := n.Bytes(key)
+	if ok && len(bs) >= 1 {
+		return bs[0] != 0, true
 	}
-	return valBs[0] == 0x0, true
+	return false, false
 }
 
 // Delete deletes the specified key. It is allowed to delete a nonexistent
 // key.
 func (n NamespacedKV) Delete(key string) {
-	keyBs := append(n.prefix, []byte(key)...)
-	n.db.Delete(keyBs, nil)
+	n.db.Update(func(tx *bolt.Tx) error {
+		if err := tx.Bucket(n.prefix).Delete([]byte(key)); err != nil {
+			panic(err)
+		}
+		return nil
+	})
 }

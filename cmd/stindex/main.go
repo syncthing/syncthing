@@ -4,6 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
+// +build ignore
+
 package main
 
 import (
@@ -13,10 +15,9 @@ import (
 	"log"
 	"os"
 
+	"github.com/boltdb/bolt"
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 func main() {
@@ -25,11 +26,7 @@ func main() {
 
 	flag.Parse()
 
-	ldb, err := leveldb.OpenFile(flag.Arg(0), &opt.Options{
-		ErrorIfMissing:         true,
-		Strict:                 opt.StrictAll,
-		OpenFilesCacheCapacity: 100,
-	})
+	ldb, err := bolt.Open(flag.Arg(0), 0644, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
