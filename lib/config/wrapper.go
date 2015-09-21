@@ -60,10 +60,8 @@ type Wrapper struct {
 	deviceMap map[protocol.DeviceID]DeviceConfiguration
 	folderMap map[string]FolderConfiguration
 	replaces  chan Configuration
+	subs      []Committer
 	mut       sync.Mutex
-
-	subs []Committer
-	sMut sync.Mutex
 }
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
@@ -73,7 +71,6 @@ func Wrap(path string, cfg Configuration) *Wrapper {
 		cfg:  cfg,
 		path: path,
 		mut:  sync.NewMutex(),
-		sMut: sync.NewMutex(),
 	}
 	w.replaces = make(chan Configuration)
 	return w
@@ -109,15 +106,15 @@ func (w *Wrapper) Stop() {
 // Subscribe registers the given handler to be called on any future
 // configuration changes.
 func (w *Wrapper) Subscribe(c Committer) {
-	w.sMut.Lock()
+	w.mut.Lock()
 	w.subs = append(w.subs, c)
-	w.sMut.Unlock()
+	w.mut.Unlock()
 }
 
 // Unsubscribe de-registers the given handler from any future calls to
 // configuration changes
 func (w *Wrapper) Unsubscribe(c Committer) {
-	w.sMut.Lock()
+	w.mut.Lock()
 	for i := range w.subs {
 		if w.subs[i] == c {
 			copy(w.subs[i:], w.subs[i+1:])
@@ -126,7 +123,7 @@ func (w *Wrapper) Unsubscribe(c Committer) {
 			break
 		}
 	}
-	w.sMut.Unlock()
+	w.mut.Unlock()
 }
 
 // Raw returns the currently wrapped Configuration object.
