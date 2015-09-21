@@ -119,9 +119,7 @@ func main() {
 		log.Fatalln("Failed to construct URI", err)
 	}
 
-	if debug {
-		log.Println("URI:", uri.String())
-	}
+	log.Println("URI:", uri.String())
 
 	if poolAddrs == defaultPoolAddrs {
 		log.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
