@@ -55,6 +55,7 @@ func (s *querysrv) Serve() {
 	}
 
 	http.HandleFunc("/", s.handler)
+	http.HandleFunc("/ping", handlePing)
 
 	tlsListener, err := tls.Listen("tcp", s.addr, tlsCfg)
 	if err != nil {
@@ -389,4 +390,8 @@ func (s *querysrv) getRelays(device protocol.DeviceID) ([]annRelay, error) {
 	}
 
 	return res, nil
+}
+
+func handlePing(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(204)
 }
