@@ -47,7 +47,8 @@
 		},
 		{
 			"ImportPath": "github.com/thejerf/suture",
-			"Rev": "fc7aaeabdc43fe41c5328efa1479ffea0b820978"
+			"Comment": "v1.0.1",
+			"Rev": "99c1f2d613756768fc4299acd9dc621e11ed3fd7"
 		},
 		{
 			"ImportPath": "github.com/vitrun/qart/coding",
