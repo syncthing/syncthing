@@ -83,8 +83,8 @@ Which should then give you an interactive prompt, where you can type things in o
 
 ##### client
 
-A client library which is used by syncthing
+A client library which is used by `syncthing`
 
 ##### protocol
 
-Go files which define the protocol and it's messages
+Go files which define the protocol and it's messages, and a few utility functions which make it easier to consume.
