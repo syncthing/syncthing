@@ -1,0 +1,12 @@
+version: '{branch}-{build}'
+clone_folder: C:\src\github.com\syncthing\syncthing
+init:
+- go version
+environment:
+  GOPATH: C:\
+build_script:
+- go run build.go zip
+test_script:
+- go run build.go test
+artifacts:
+- path: '*.zip'

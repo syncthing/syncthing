@@ -38,6 +38,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/symlinks"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/thejerf/suture"
 	"golang.org/x/crypto/bcrypt"
@@ -65,8 +66,10 @@ const (
 )
 
 const (
-	bepProtocolName   = "bep/1.0"
-	pingEventInterval = time.Minute
+	bepProtocolName      = "bep/1.0"
+	tlsDefaultCommonName = "syncthing"
+	tlsRSABits           = 3072
+	pingEventInterval    = time.Minute
 )
 
 var l = logger.DefaultLogger
@@ -112,8 +115,6 @@ var (
 	writeRateLimit *ratelimit.Bucket
 	readRateLimit  *ratelimit.Bucket
 	stop           = make(chan int)
-	discoverer     *discover.Discoverer
-	relaySvc       *relay.Svc
 	cert           tls.Certificate
 	lans           []*net.IPNet
 )
@@ -220,11 +221,12 @@ func main() {
 	if runtime.GOOS == "windows" {
 		// On Windows, we use a log file by default. Setting the -logfile flag
 		// to "-" disables this behavior.
-
 		flag.StringVar(&logFile, "logfile", "", "Log file name (use \"-\" for stdout)")
 
 		// We also add an option to hide the console window
 		flag.BoolVar(&noConsole, "no-console", false, "Hide console window")
+	} else {
+		flag.StringVar(&logFile, "logfile", "-", "Log file name (use \"-\" for stdout)")
 	}
 
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
@@ -265,14 +267,9 @@ func main() {
 		guiAssets = locations[locGUIAssets]
 	}
 
-	if runtime.GOOS == "windows" {
-		if logFile == "" {
-			// Use the default log file location
-			logFile = locations[locLogFile]
-		} else if logFile == "-" {
-			// Don't use a logFile
-			logFile = ""
-		}
+	if logFile == "" {
+		// Use the default log file location
+		logFile = locations[locLogFile]
 	}
 
 	if showVersion {
@@ -305,10 +302,13 @@ func main() {
 			l.Warnln("Key exists; will not overwrite.")
 			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 		} else {
-			cert, err = newCertificate(certFile, keyFile, tlsDefaultCommonName)
+			cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, tlsRSABits)
+			if err != nil {
+				l.Fatalln("Create certificate:", err)
+			}
 			myID = protocol.NewDeviceID(cert.Certificate[0])
 			if err != nil {
-				l.Fatalln("load cert:", err)
+				l.Fatalln("Load certificate:", err)
 			}
 			if err == nil {
 				l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
@@ -348,7 +348,7 @@ func main() {
 	}
 
 	if doUpgrade || doUpgradeCheck {
-		rel, err := upgrade.LatestRelease(Version)
+		rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
 		if err != nil {
 			l.Fatalln("Upgrade:", err) // exits 1
 		}
@@ -483,9 +483,10 @@ func syncthingMain() {
 	// Ensure that that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
-		cert, err = newCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
+		l.Infof("Generating RSA key and certificate for %s...", tlsDefaultCommonName)
+		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName, tlsRSABits)
 		if err != nil {
-			l.Fatalln("load cert:", err)
+			l.Fatalln(err)
 		}
 	}
 
@@ -591,9 +592,6 @@ func syncthingMain() {
 		symlinks.Supported = false
 	}
 
-	protocol.PingTimeout = time.Duration(opts.PingTimeoutS) * time.Second
-	protocol.PingIdleTime = time.Duration(opts.PingIdleTimeS) * time.Second
-
 	if opts.MaxSendKbps > 0 {
 		writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxSendKbps), int64(5*1000*opts.MaxSendKbps))
 	}
@@ -606,6 +604,14 @@ func syncthingMain() {
 		networks := make([]string, 0, len(lans))
 		for _, lan := range lans {
 			networks = append(networks, lan.String())
+		}
+		for _, lan := range opts.AlwaysLocalNets {
+			_, ipnet, err := net.ParseCIDR(lan)
+			if err != nil {
+				l.Infoln("Network", lan, "is malformed:", err)
+				continue
+			}
+			networks = append(networks, ipnet.String())
 		}
 		l.Infoln("Local networks:", strings.Join(networks, ", "))
 	}
@@ -668,10 +674,6 @@ func syncthingMain() {
 		}
 	}
 
-	// GUI
-
-	setupGUI(mainSvc, cfg, m, apiSub)
-
 	// The default port we announce, possibly modified by setupUPnP next.
 
 	uri, err := url.Parse(opts.ListenAddress[0])
@@ -684,28 +686,77 @@ func syncthingMain() {
 		l.Fatalln("Bad listen address:", err)
 	}
 
-	// Start the relevant services
+	// The externalAddr tracks our external addresses for discovery purposes.
 
-	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
-	mainSvc.Add(connectionSvc)
+	var addrList *addressLister
 
+	// Start UPnP
+
+	if opts.UPnPEnabled {
+		upnpSvc := newUPnPSvc(cfg, addr.Port)
+		mainSvc.Add(upnpSvc)
+
+		// The external address tracker needs to know about the UPnP service
+		// so it can check for an external mapped port.
+		addrList = newAddressLister(upnpSvc, cfg)
+	} else {
+		addrList = newAddressLister(nil, cfg)
+	}
+
+	// Start relay management
+
+	var relaySvc *relay.Svc
 	if opts.RelaysEnabled && (opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn) {
-		relaySvc = relay.NewSvc(cfg, tlsCfg, connectionSvc.conns)
-		connectionSvc.Add(relaySvc)
+		relaySvc = relay.NewSvc(cfg, tlsCfg)
+		mainSvc.Add(relaySvc)
 	}
 
 	// Start discovery
 
-	localPort := addr.Port
-	discoverer = discovery(localPort, relaySvc)
+	cachedDiscovery := discover.NewCachingMux()
+	mainSvc.Add(cachedDiscovery)
 
-	// Start UPnP. The UPnP service will restart global discovery if the
-	// external port changes.
+	if cfg.Options().GlobalAnnEnabled {
+		for _, srv := range cfg.GlobalDiscoveryServers() {
+			l.Infoln("Using discovery server", srv)
+			gd, err := discover.NewGlobal(srv, cert, addrList, relaySvc)
+			if err != nil {
+				l.Warnln("Global discovery:", err)
+				continue
+			}
 
-	if opts.UPnPEnabled {
-		upnpSvc := newUPnPSvc(cfg, localPort)
-		mainSvc.Add(upnpSvc)
+			// Each global discovery server gets its results cached for five
+			// minutes, and is not asked again for a minute when it's returned
+			// unsuccessfully.
+			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute)
+		}
 	}
+
+	if cfg.Options().LocalAnnEnabled {
+		// v4 broadcasts
+		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), addrList, relaySvc)
+		if err != nil {
+			l.Warnln("IPv4 local discovery:", err)
+		} else {
+			cachedDiscovery.Add(bcd, 0, 0)
+		}
+		// v6 multicasts
+		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, addrList, relaySvc)
+		if err != nil {
+			l.Warnln("IPv6 local discovery:", err)
+		} else {
+			cachedDiscovery.Add(mcd, 0, 0)
+		}
+	}
+
+	// GUI
+
+	setupGUI(mainSvc, cfg, m, apiSub, cachedDiscovery, relaySvc)
+
+	// Start connection management
+
+	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg, cachedDiscovery, relaySvc)
+	mainSvc.Add(connectionSvc)
 
 	if cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
@@ -793,7 +844,7 @@ func startAuditing(mainSvc *suture.Supervisor) {
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription) {
+func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc) {
 	opts := cfg.Options()
 	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
 
@@ -822,7 +873,7 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 
 			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			l.Infoln("Starting web GUI on", urlShow)
-			api, err := newAPISvc(myID, guiCfg, guiAssets, m, apiSub)
+			api, err := newAPISvc(myID, guiCfg, guiAssets, m, apiSub, discoverer, relaySvc)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
@@ -868,7 +919,7 @@ func defaultConfig(myName string) config.Configuration {
 	if err != nil {
 		l.Fatalln("get free port (BEP):", err)
 	}
-	newCfg.Options.ListenAddress = []string{fmt.Sprintf("0.0.0.0:%d", port)}
+	newCfg.Options.ListenAddress = []string{fmt.Sprintf("tcp://0.0.0.0:%d", port)}
 	return newCfg
 }
 
@@ -908,28 +959,6 @@ func restart() {
 func shutdown() {
 	l.Infoln("Shutting down")
 	stop <- exitSuccess
-}
-
-func discovery(extPort int, relaySvc *relay.Svc) *discover.Discoverer {
-	opts := cfg.Options()
-	disc := discover.NewDiscoverer(myID, opts.ListenAddress, relaySvc)
-	if opts.LocalAnnEnabled {
-		l.Infoln("Starting local discovery announcements")
-		disc.StartLocal(opts.LocalAnnPort, opts.LocalAnnMCAddr)
-	}
-
-	if opts.GlobalAnnEnabled {
-		go func() {
-			// Defer starting global announce server, giving time to connect
-			// to relay servers.
-			time.Sleep(5 * time.Second)
-			l.Infoln("Starting global discovery announcements")
-			disc.StartGlobal(opts.GlobalAnnServers, uint16(extPort))
-		}()
-
-	}
-
-	return disc
 }
 
 func ensureDir(dir string, mode int) {
@@ -1045,7 +1074,7 @@ func autoUpgrade() {
 		case <-timer.C:
 		}
 
-		rel, err := upgrade.LatestRelease(Version)
+		rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return

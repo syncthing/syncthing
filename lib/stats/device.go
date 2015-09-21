@@ -9,7 +9,6 @@ package stats
 import (
 	"time"
 
-	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/db"
 )
 
@@ -19,12 +18,12 @@ type DeviceStatistics struct {
 
 type DeviceStatisticsReference struct {
 	ns     *db.NamespacedKV
-	device protocol.DeviceID
+	device string
 }
 
-func NewDeviceStatisticsReference(ldb *db.BoltDB, device protocol.DeviceID) *DeviceStatisticsReference {
+func NewDeviceStatisticsReference(ldb *db.BoltDB, device string) *DeviceStatisticsReference {
 	return &DeviceStatisticsReference{
-		ns:     db.NewNamespacedKV(ldb, "devstat/"+device.String()),
+		ns:     db.NewNamespacedKV(ldb, "devstat/"+device),
 		device: device,
 	}
 }

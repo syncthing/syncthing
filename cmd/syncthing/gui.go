@@ -33,7 +33,9 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
@@ -56,21 +58,25 @@ type apiSvc struct {
 	cfg             config.GUIConfiguration
 	assetDir        string
 	model           *model.Model
+	eventSub        *events.BufferedSubscription
+	discoverer      *discover.CachingMux
+	relaySvc        *relay.Svc
 	listener        net.Listener
 	fss             *folderSummarySvc
 	stop            chan struct{}
 	systemConfigMut sync.Mutex
-	eventSub        *events.BufferedSubscription
 }
 
-func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription) (*apiSvc, error) {
+func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc) (*apiSvc, error) {
 	svc := &apiSvc{
 		id:              id,
 		cfg:             cfg,
 		assetDir:        assetDir,
 		model:           m,
-		systemConfigMut: sync.NewMutex(),
 		eventSub:        eventSub,
+		discoverer:      discoverer,
+		relaySvc:        relaySvc,
+		systemConfigMut: sync.NewMutex(),
 	}
 
 	var err error
@@ -92,7 +98,7 @@ func (s *apiSvc) getListener(cfg config.GUIConfiguration) (net.Listener, error) 
 			name = tlsDefaultCommonName
 		}
 
-		cert, err = newCertificate(locations[locHTTPSCertFile], locations[locHTTPSKeyFile], name)
+		cert, err = tlsutil.NewCertificate(locations[locHTTPSCertFile], locations[locHTTPSKeyFile], name, tlsRSABits)
 	}
 	if err != nil {
 		return nil, err
@@ -120,7 +126,7 @@ func (s *apiSvc) getListener(cfg config.GUIConfiguration) (net.Listener, error) 
 		return nil, err
 	}
 
-	listener := &DowngradingListener{rawListener, tlsCfg}
+	listener := &tlsutil.DowngradingListener{rawListener, tlsCfg}
 	return listener, nil
 }
 
@@ -161,7 +167,6 @@ func (s *apiSvc) Serve() {
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)              // folder
 	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                      // folder [sub...] [delay]
 	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)          // <body>
-	postRestMux.HandleFunc("/rest/system/discovery", s.postSystemDiscovery)    // device addr
 	postRestMux.HandleFunc("/rest/system/error", s.postSystemError)            // <body>
 	postRestMux.HandleFunc("/rest/system/error/clear", s.postSystemErrorClear) // -
 	postRestMux.HandleFunc("/rest/system/ping", s.restPing)                    // -
@@ -627,11 +632,30 @@ func (s *apiSvc) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys - m.HeapReleased
 	res["tilde"] = tilde
-	if cfg.Options().GlobalAnnEnabled && discoverer != nil {
-		res["extAnnounceOK"] = discoverer.ExtAnnounceOK()
+	if cfg.Options().LocalAnnEnabled || cfg.Options().GlobalAnnEnabled {
+		res["discoveryEnabled"] = true
+		discoErrors := make(map[string]string)
+		discoMethods := 0
+		for disco, err := range s.discoverer.ChildErrors() {
+			discoMethods++
+			if err != nil {
+				discoErrors[disco] = err.Error()
+			}
+		}
+		res["discoveryMethods"] = discoMethods
+		res["discoveryErrors"] = discoErrors
 	}
-	if relaySvc != nil {
-		res["relayClientStatus"] = relaySvc.ClientStatus()
+	if s.relaySvc != nil {
+		res["relaysEnabled"] = true
+		relayClientStatus := make(map[string]bool)
+		relayClientLatency := make(map[string]int)
+		for _, relay := range s.relaySvc.Relays() {
+			latency, ok := s.relaySvc.RelayStatus(relay)
+			relayClientStatus[relay] = ok
+			relayClientLatency[relay] = int(latency / time.Millisecond)
+		}
+		res["relayClientStatus"] = relayClientStatus
+		res["relayClientLatency"] = relayClientLatency
 	}
 	cpuUsageLock.RLock()
 	var cpusum float64
@@ -642,6 +666,7 @@ func (s *apiSvc) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["cpuPercent"] = cpusum / float64(len(cpuUsagePercent)) / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
 	res["uptime"] = int(time.Since(startTime).Seconds())
+	res["startTime"] = startTime
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
@@ -675,25 +700,16 @@ func (s *apiSvc) showGuiError(l logger.LogLevel, err string) {
 	guiErrorsMut.Unlock()
 }
 
-func (s *apiSvc) postSystemDiscovery(w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var device = qs.Get("device")
-	var addr = qs.Get("addr")
-	if len(device) != 0 && len(addr) != 0 && discoverer != nil {
-		discoverer.Hint(device, []string{addr})
-	}
-}
-
 func (s *apiSvc) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	devices := map[string][]discover.CacheEntry{}
+	devices := make(map[string]discover.CacheEntry)
 
-	if discoverer != nil {
+	if s.discoverer != nil {
 		// Device ids can't be marshalled as keys so we need to manually
 		// rebuild this map using strings. Discoverer may be nil if discovery
 		// has not started yet.
-		for device, entries := range discoverer.All() {
-			devices[device.String()] = entries
+		for device, entry := range s.discoverer.Cache() {
+			devices[device.String()] = entry
 		}
 	}
 
@@ -771,7 +787,7 @@ func (s *apiSvc) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
 		return
 	}
-	rel, err := upgrade.LatestRelease(Version)
+	rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -814,7 +830,7 @@ func (s *apiSvc) getLang(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiSvc) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
-	rel, err := upgrade.LatestRelease(Version)
+	rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
 	if err != nil {
 		l.Warnln("getting latest release:", err)
 		http.Error(w, err.Error(), 500)

@@ -31,6 +31,32 @@ const (
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
+var (
+	// DefaultDiscoveryServers should be substituted when the configuration
+	// contains <globalAnnounceServer>default</globalAnnounceServer>. This is
+	// done by the "consumer" of the configuration, as we don't want these
+	// saved to the config.
+	DefaultDiscoveryServers = []string{
+		"https://discovery-v4-1.syncthing.net/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 194.126.249.5, Sweden
+		"https://discovery-v4-2.syncthing.net/?id=AQEHEO2-XOS7QRA-X2COH5K-PO6OPVA-EWOSEGO-KZFMD32-XJ4ZV46-CUUVKAS", // 45.55.230.38, USA
+		"https://discovery-v4-3.syncthing.net/?id=7WT2BVR-FX62ZOW-TNVVW25-6AHFJGD-XEXQSBW-VO3MPL2-JBTLL4T-P4572Q4", // 128.199.95.124, Singapore
+		"https://discovery-v6-1.syncthing.net/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 2001:470:28:4d6::5, Sweden
+		"https://discovery-v6-2.syncthing.net/?id=AQEHEO2-XOS7QRA-X2COH5K-PO6OPVA-EWOSEGO-KZFMD32-XJ4ZV46-CUUVKAS", // 2604:a880:800:10::182:a001, USA
+		"https://discovery-v6-3.syncthing.net/?id=7WT2BVR-FX62ZOW-TNVVW25-6AHFJGD-XEXQSBW-VO3MPL2-JBTLL4T-P4572Q4", // 2400:6180:0:d0::d9:d001, Singapore
+	}
+
+	// DefaultDiscoveryServersIP is used by the usage reporting.
+	// XXX: Detect Android, and use this is we still don't have working DNS?
+	DefaultDiscoveryServersIP = []string{
+		"https://194.126.249.5/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA",
+		"https://45.55.230.38/?id=AQEHEO2-XOS7QRA-X2COH5K-PO6OPVA-EWOSEGO-KZFMD32-XJ4ZV46-CUUVKAS",
+		"https://128.199.95.124/?id=7WT2BVR-FX62ZOW-TNVVW25-6AHFJGD-XEXQSBW-VO3MPL2-JBTLL4T-P4572Q4",
+		"https://[2001:470:28:4d6::5]/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA",
+		"https://[2604:a880:800:10::182:a001]/?id=AQEHEO2-XOS7QRA-X2COH5K-PO6OPVA-EWOSEGO-KZFMD32-XJ4ZV46-CUUVKAS",
+		"https://[2400:6180:0:d0::d9:d001]/?id=7WT2BVR-FX62ZOW-TNVVW25-6AHFJGD-XEXQSBW-VO3MPL2-JBTLL4T-P4572Q4",
+	}
+)
+
 type Configuration struct {
 	Version        int                   `xml:"version,attr" json:"version"`
 	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
@@ -68,20 +94,21 @@ func (cfg Configuration) Copy() Configuration {
 }
 
 type FolderConfiguration struct {
-	ID              string                      `xml:"id,attr" json:"id"`
-	RawPath         string                      `xml:"path,attr" json:"path"`
-	Devices         []FolderDeviceConfiguration `xml:"device" json:"devices"`
-	ReadOnly        bool                        `xml:"ro,attr" json:"readOnly"`
-	RescanIntervalS int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
-	IgnorePerms     bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
-	AutoNormalize   bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
-	MinDiskFreePct  int                         `xml:"minDiskFreePct" json:"minDiskFreePct"`
-	Versioning      VersioningConfiguration     `xml:"versioning" json:"versioning"`
-	Copiers         int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
-	Pullers         int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
-	Hashers         int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
-	Order           PullOrder                   `xml:"order" json:"order"`
-	IgnoreDelete    bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
+	ID                    string                      `xml:"id,attr" json:"id"`
+	RawPath               string                      `xml:"path,attr" json:"path"`
+	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
+	ReadOnly              bool                        `xml:"ro,attr" json:"readOnly"`
+	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
+	IgnorePerms           bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
+	AutoNormalize         bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
+	MinDiskFreePct        float64                     `xml:"minDiskFreePct" json:"minDiskFreePct"`
+	Versioning            VersioningConfiguration     `xml:"versioning" json:"versioning"`
+	Copiers               int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
+	Pullers               int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
+	Hashers               int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
+	Order                 PullOrder                   `xml:"order" json:"order"`
+	IgnoreDelete          bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
+	ScanProgressIntervalS int                         `xml:"scanProgressInterval" json:"scanProgressInterval"` // Set to a negative value to disable. Value of 0 will get replaced with value of 2 (default value)
 
 	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 }
@@ -214,10 +241,10 @@ type FolderDeviceConfiguration struct {
 
 type OptionsConfiguration struct {
 	ListenAddress           []string `xml:"listenAddress" json:"listenAddress" default:"tcp://0.0.0.0:22000"`
-	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"udp4://announce.syncthing.net:22027, udp6://announce-v6.syncthing.net:22027"`
+	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"default"`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
-	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21025"`
+	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027"`
 	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
 	RelayServers            []string `xml:"relayServer" json:"relayServers" default:"dynamic+https://relays.syncthing.net"`
 	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
@@ -233,6 +260,9 @@ type OptionsConfiguration struct {
 	UPnPTimeoutS            int      `xml:"upnpTimeoutSeconds" json:"upnpTimeoutSeconds" default:"10"`
 	URAccepted              int      `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
 	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
+	URURL                   string   `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"`
+	URPostInsecurely        bool     `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"` // For testing
+	URInitialDelayS         int      `xml:"urInitialDelayS" json:"urInitialDelayS" default:"1800"`
 	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true"`
 	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12"` // 0 for off
 	KeepTemporariesH        int      `xml:"keepTemporariesH" json:"keepTemporariesH" default:"24"`         // 0 for off
@@ -241,9 +271,9 @@ type OptionsConfiguration struct {
 	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
 	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
 	DatabaseBlockCacheMiB   int      `xml:"databaseBlockCacheMiB" json:"databaseBlockCacheMiB" default:"0"`
-	PingTimeoutS            int      `xml:"pingTimeoutS" json:"pingTimeoutS" default:"30"`
-	PingIdleTimeS           int      `xml:"pingIdleTimeS" json:"pingIdleTimeS" default:"60"`
-	MinHomeDiskFreePct      int      `xml:"minHomeDiskFreePct" json:"minHomeDiskFreePct" default:"1"`
+	MinHomeDiskFreePct      float64  `xml:"minHomeDiskFreePct" json:"minHomeDiskFreePct" default:"1"`
+	ReleasesURL             string   `xml:"releasesURL" json:"releasesURL" default:"https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"`
+	AlwaysLocalNets         []string `xml:"alwaysLocalNet" json:"alwaysLocalNets"`
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {
@@ -492,21 +522,30 @@ func convertV11V12(cfg *Configuration) {
 	}
 
 	// Use new discovery server
-	for i, addr := range cfg.Options.GlobalAnnServers {
+	var newDiscoServers []string
+	var useDefault bool
+	for _, addr := range cfg.Options.GlobalAnnServers {
 		if addr == "udp4://announce.syncthing.net:22026" {
-			cfg.Options.GlobalAnnServers[i] = "udp4://announce.syncthing.net:22027"
+			useDefault = true
 		} else if addr == "udp6://announce-v6.syncthing.net:22026" {
-			cfg.Options.GlobalAnnServers[i] = "udp6://announce-v6.syncthing.net:22027"
-		} else if addr == "udp4://194.126.249.5:22026" {
-			cfg.Options.GlobalAnnServers[i] = "udp4://194.126.249.5:22027"
-		} else if addr == "udp6://[2001:470:28:4d6::5]:22026" {
-			cfg.Options.GlobalAnnServers[i] = "udp6://[2001:470:28:4d6::5]:22027"
+			useDefault = true
+		} else {
+			newDiscoServers = append(newDiscoServers, addr)
 		}
 	}
+	if useDefault {
+		newDiscoServers = append(newDiscoServers, "default")
+	}
+	cfg.Options.GlobalAnnServers = newDiscoServers
 
 	// Use new multicast group
 	if cfg.Options.LocalAnnMCAddr == "[ff32::5222]:21026" {
 		cfg.Options.LocalAnnMCAddr = "[ff12::8384]:21027"
+	}
+
+	// Use new local discovery port
+	if cfg.Options.LocalAnnPort == 21025 {
+		cfg.Options.LocalAnnPort = 21027
 	}
 
 	cfg.Version = 12
@@ -578,6 +617,13 @@ func setDefaults(data interface{}) error {
 					return err
 				}
 				f.SetInt(i)
+
+			case float64:
+				i, err := strconv.ParseFloat(v, 64)
+				if err != nil {
+					return err
+				}
+				f.SetFloat(i)
 
 			case bool:
 				f.SetBool(v == "true")

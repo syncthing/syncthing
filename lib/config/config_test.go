@@ -32,10 +32,10 @@ func init() {
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		ListenAddress:           []string{"tcp://0.0.0.0:22000"},
-		GlobalAnnServers:        []string{"udp4://announce.syncthing.net:22027", "udp6://announce-v6.syncthing.net:22027"},
+		GlobalAnnServers:        []string{"default"},
 		GlobalAnnEnabled:        true,
 		LocalAnnEnabled:         true,
-		LocalAnnPort:            21025,
+		LocalAnnPort:            21027,
 		LocalAnnMCAddr:          "[ff12::8384]:21027",
 		RelayServers:            []string{"dynamic+https://relays.syncthing.net"},
 		MaxSendKbps:             0,
@@ -57,9 +57,11 @@ func TestDefaultValues(t *testing.T) {
 		SymlinksEnabled:         true,
 		LimitBandwidthInLan:     false,
 		DatabaseBlockCacheMiB:   0,
-		PingTimeoutS:            30,
-		PingIdleTimeS:           60,
 		MinHomeDiskFreePct:      1,
+		URURL:                   "https://data.syncthing.net/newdata",
+		URInitialDelayS:         1800,
+		URPostInsecurely:        false,
+		ReleasesURL:             "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30",
 	}
 
 	cfg := New(device1)
@@ -172,9 +174,11 @@ func TestOverriddenValues(t *testing.T) {
 		SymlinksEnabled:         false,
 		LimitBandwidthInLan:     true,
 		DatabaseBlockCacheMiB:   42,
-		PingTimeoutS:            60,
-		PingIdleTimeS:           120,
-		MinHomeDiskFreePct:      5,
+		MinHomeDiskFreePct:      5.2,
+		URURL:                   "https://localhost/newdata",
+		URInitialDelayS:         800,
+		URPostInsecurely:        true,
+		ReleasesURL:             "https://localhost/releases",
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)

@@ -18,9 +18,11 @@ import (
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/relaysrv/client"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/relay"
 
 	"github.com/thejerf/suture"
 )
@@ -37,11 +39,13 @@ var (
 // devices. Successful connections are handed to the model.
 type connectionSvc struct {
 	*suture.Supervisor
-	cfg    *config.Wrapper
-	myID   protocol.DeviceID
-	model  *model.Model
-	tlsCfg *tls.Config
-	conns  chan model.IntermediateConnection
+	cfg        *config.Wrapper
+	myID       protocol.DeviceID
+	model      *model.Model
+	tlsCfg     *tls.Config
+	discoverer discover.Finder
+	conns      chan model.IntermediateConnection
+	relaySvc   *relay.Svc
 
 	lastRelayCheck map[protocol.DeviceID]time.Time
 
@@ -50,13 +54,15 @@ type connectionSvc struct {
 	relaysEnabled bool
 }
 
-func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Model, tlsCfg *tls.Config) *connectionSvc {
+func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Model, tlsCfg *tls.Config, discoverer discover.Finder, relaySvc *relay.Svc) *connectionSvc {
 	svc := &connectionSvc{
 		Supervisor: suture.NewSimple("connectionSvc"),
 		cfg:        cfg,
 		myID:       myID,
 		model:      mdl,
 		tlsCfg:     tlsCfg,
+		discoverer: discoverer,
+		relaySvc:   relaySvc,
 		conns:      make(chan model.IntermediateConnection),
 
 		connType:       make(map[protocol.DeviceID]model.ConnectionType),
@@ -100,6 +106,10 @@ func newConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl *model.Mo
 		}))
 	}
 	svc.Add(serviceFunc(svc.handle))
+
+	if svc.relaySvc != nil {
+		svc.Add(serviceFunc(svc.acceptRelayConns))
+	}
 
 	return svc
 }
@@ -254,13 +264,14 @@ func (s *connectionSvc) connect() {
 			}
 
 			var addrs []string
-			var relays []string
+			var relays []discover.Relay
 			for _, addr := range deviceCfg.Addresses {
 				if addr == "dynamic" {
-					if discoverer != nil {
-						t, r := discoverer.Lookup(deviceID)
-						addrs = append(addrs, t...)
-						relays = append(relays, r...)
+					if s.discoverer != nil {
+						if t, r, err := s.discoverer.Lookup(deviceID); err == nil {
+							addrs = append(addrs, t...)
+							relays = append(relays, r...)
+						}
 					}
 				} else {
 					addrs = append(addrs, addr)
@@ -323,7 +334,7 @@ func (s *connectionSvc) connect() {
 			s.lastRelayCheck[deviceID] = time.Now()
 
 			for _, addr := range relays {
-				uri, err := url.Parse(addr)
+				uri, err := url.Parse(addr.URL)
 				if err != nil {
 					l.Infoln("Failed to parse relay connection url:", addr, err)
 					continue
@@ -378,6 +389,16 @@ func (s *connectionSvc) connect() {
 		delay *= 2
 		if maxD := time.Duration(s.cfg.Options().ReconnectIntervalS) * time.Second; delay > maxD {
 			delay = maxD
+		}
+	}
+}
+
+func (s *connectionSvc) acceptRelayConns() {
+	for {
+		conn := s.relaySvc.Accept()
+		s.conns <- model.IntermediateConnection{
+			Conn: conn,
+			Type: model.ConnectionTypeRelayAccept,
 		}
 	}
 }

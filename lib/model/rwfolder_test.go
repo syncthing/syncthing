@@ -39,6 +39,8 @@ var blocks = []protocol.BlockInfo{
 	{Offset: 917504, Size: 0x20000, Hash: []uint8{0x96, 0x6b, 0x15, 0x6b, 0xc4, 0xf, 0x19, 0x18, 0xca, 0xbb, 0x5f, 0xd6, 0xbb, 0xa2, 0xc6, 0x2a, 0xac, 0xbb, 0x8a, 0xb9, 0xce, 0xec, 0x4c, 0xdb, 0x78, 0xec, 0x57, 0x5d, 0x33, 0xf9, 0x8e, 0xaf}},
 }
 
+var folders = []string{"default"}
+
 // Layout of the files: (indexes from the above array)
 // 12345678 - Required file
 // 02005008 - Existing file (currently in the index)
@@ -244,7 +246,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(tempFile, protocol.BlockSize)
+	blks, err := scanner.HashFile(tempFile, protocol.BlockSize, 0, nil)
 	if err != nil {
 		t.Log(err)
 	}

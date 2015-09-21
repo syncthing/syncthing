@@ -13,6 +13,7 @@ import (
 	"os"
 
 	"github.com/syncthing/syncthing/lib/signature"
+	"github.com/syncthing/syncthing/lib/upgrade"
 )
 
 func main() {
@@ -33,8 +34,11 @@ Where command is one of:
 	sign <privkeyfile> <datafile>
 		- sign a file
 
-	verify <pubkeyfile> <signaturefile> <datafile>
-		- verify a signature
+	verify <signaturefile> <datafile>
+		- verify a signature, using the built in public key
+
+	verify <signaturefile> <datafile> <pubkeyfile>
+		- verify a signature, using the specified public key file
 `)
 	}
 
@@ -44,7 +48,11 @@ Where command is one of:
 	case "sign":
 		sign(flag.Arg(1), flag.Arg(2))
 	case "verify":
-		verify(flag.Arg(1), flag.Arg(2), flag.Arg(3))
+		if flag.NArg() == 4 {
+			verifyWithFile(flag.Arg(1), flag.Arg(2), flag.Arg(3))
+		} else {
+			verifyWithKey(flag.Arg(1), flag.Arg(2), upgrade.SigningKey)
+		}
 	}
 }
 
@@ -78,12 +86,15 @@ func sign(keyname, dataname string) {
 	os.Stdout.Write(sig)
 }
 
-func verify(keyname, signame, dataname string) {
+func verifyWithFile(signame, dataname, keyname string) {
 	pubkey, err := ioutil.ReadFile(keyname)
 	if err != nil {
 		log.Fatal(err)
 	}
+	verifyWithKey(signame, dataname, pubkey)
+}
 
+func verifyWithKey(signame, dataname string, pubkey []byte) {
 	sig, err := ioutil.ReadFile(signame)
 	if err != nil {
 		log.Fatal(err)
@@ -99,4 +110,6 @@ func verify(keyname, signame, dataname string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Println("correct signature")
 }

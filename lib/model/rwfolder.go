@@ -212,6 +212,12 @@ func (p *rwFolder) Serve() {
 				continue
 			}
 
+			if err := p.model.CheckFolderHealth(p.folder); err != nil {
+				l.Infoln("Skipping folder", p.folder, "pull due to folder error:", err)
+				p.pullTimer.Reset(nextPullIntv)
+				continue
+			}
+
 			p.model.fmut.RLock()
 			curIgnores := p.model.folderIgnores[p.folder]
 			p.model.fmut.RUnlock()
@@ -451,7 +457,6 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	// !!!
 
 	changed := 0
-	pullFileSize := int64(0)
 
 	fileDeletions := map[string]protocol.FileInfo{}
 	dirDeletions := []protocol.FileInfo{}
@@ -500,24 +505,12 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		default:
 			// A new or changed file or symlink. This is the only case where we
 			// do stuff concurrently in the background
-			pullFileSize += file.Size()
 			p.queue.Push(file.Name, file.Size(), file.Modified)
 		}
 
 		changed++
 		return true
 	})
-
-	// Check if we are able to store all files on disk
-	if pullFileSize > 0 {
-		folder, ok := p.model.cfg.Folders()[p.folder]
-		if ok {
-			if free, err := osutil.DiskFreeBytes(folder.Path()); err == nil && free < pullFileSize {
-				l.Infof("Puller (folder %q): insufficient disk space available to pull %d files (%.2fMB)", p.folder, changed, float64(pullFileSize)/1024/1024)
-				return 0
-			}
-		}
-	}
 
 	// Reorder the file queue according to configuration
 
@@ -978,6 +971,12 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		return
 	}
 
+	if free, err := osutil.DiskFreeBytes(p.dir); err == nil && free < file.Size() {
+		l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.dir, file.Name, float64(free)/1024/1024, float64(file.Size())/1024/1024)
+		p.newError(file.Name, errors.New("insufficient space"))
+		return
+	}
+
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
 		"item":   file.Name,
@@ -996,7 +995,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize)
+	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize, 0, nil)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
@@ -1088,7 +1087,11 @@ func (p *rwFolder) shortcutFile(file protocol.FileInfo) error {
 
 // shortcutSymlink changes the symlinks type if necessary.
 func (p *rwFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
-	err = symlinks.ChangeType(filepath.Join(p.dir, file.Name), file.Flags)
+	tt := symlinks.TargetFile
+	if file.IsDirectory() {
+		tt = symlinks.TargetDirectory
+	}
+	err = symlinks.ChangeType(filepath.Join(p.dir, file.Name), tt)
 	if err != nil {
 		l.Infof("Puller (folder %q, file %q): symlink shortcut: %v", p.folder, file.Name, err)
 		p.newError(file.Name, err)
@@ -1114,9 +1117,11 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 		}
 
 		folderRoots := make(map[string]string)
+		var folders []string
 		p.model.fmut.RLock()
 		for folder, cfg := range p.model.folderCfgs {
 			folderRoots[folder] = cfg.Path()
+			folders = append(folders, folder)
 		}
 		p.model.fmut.RUnlock()
 
@@ -1319,7 +1324,11 @@ func (p *rwFolder) performFinish(state *sharedPullerState) error {
 		// Remove the file, and replace it with a symlink.
 		err = osutil.InWritableDir(func(path string) error {
 			os.Remove(path)
-			return symlinks.Create(path, string(content), state.file.Flags)
+			tt := symlinks.TargetFile
+			if state.file.IsDirectory() {
+				tt = symlinks.TargetDirectory
+			}
+			return symlinks.Create(path, string(content), tt)
 		}, state.realName)
 		if err != nil {
 			return err

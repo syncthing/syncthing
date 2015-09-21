@@ -8,6 +8,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/syncthing/syncthing/lib/events"
 )
@@ -60,7 +61,7 @@ func (s *verboseSvc) WaitForStart() {
 
 func (s *verboseSvc) formatEvent(ev events.Event) string {
 	switch ev.Type {
-	case events.Ping, events.DownloadProgress:
+	case events.Ping, events.DownloadProgress, events.LocalIndexUpdated:
 		// Skip
 		return ""
 
@@ -86,9 +87,6 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 	case events.RemoteIndexUpdated:
 		data := ev.Data.(map[string]interface{})
 		return fmt.Sprintf("Device %v sent an index update for %q with %d items", data["device"], data["folder"], data["items"])
-	case events.LocalIndexUpdated:
-		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Updated index for folder %q with %v items", data["folder"], data["items"])
 
 	case events.DeviceRejected:
 		data := ev.Data.(map[string]interface{})
@@ -123,6 +121,16 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 		delete(sum, "ignorePatterns")
 		delete(sum, "stateChanged")
 		return fmt.Sprintf("Summary for folder %q is %v", data["folder"], data["summary"])
+	case events.FolderScanProgress:
+		data := ev.Data.(map[string]interface{})
+		folder := data["folder"].(string)
+		current := data["current"].(int64)
+		total := data["total"].(int64)
+		var pct int64
+		if total > 0 {
+			pct = 100 * current / total
+		}
+		return fmt.Sprintf("Scanning folder %q, %d%% done", folder, pct)
 
 	case events.DevicePaused:
 		data := ev.Data.(map[string]string)
@@ -132,6 +140,16 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 		data := ev.Data.(map[string]string)
 		device := data["device"]
 		return fmt.Sprintf("Device %v was resumed", device)
+
+	case events.ExternalPortMappingChanged:
+		data := ev.Data.(map[string]int)
+		port := data["port"]
+		return fmt.Sprintf("External port mapping changed; new port is %d.", port)
+	case events.RelayStateChanged:
+		data := ev.Data.(map[string][]string)
+		newRelays := data["new"]
+		return fmt.Sprintf("Relay state changed; connected relay(s) are %s.", strings.Join(newRelays, ", "))
+
 	}
 
 	return fmt.Sprintf("%s %#v", ev.Type, ev)

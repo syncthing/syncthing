@@ -39,6 +39,7 @@ func genBlocks(n int) []protocol.BlockInfo {
 }
 
 var f1, f2, f3 protocol.FileInfo
+var folders = []string{"folder1", "folder2"}
 
 func init() {
 	blocks := genBlocks(30)
@@ -189,14 +190,21 @@ func TestBlockMapAdd_500GB(t *testing.T) {
 	testBlockMapAdd(t, 500/12)
 }
 
+<<<<<<< HEAD
 func TestBlockMapAdd_1TB(t *testing.T) {
 	testBlockMapAdd(t, 1000/12)
 }
+=======
+	if !f.Iterate(folders, f1.Blocks[0].Hash, iterFn) {
+		t.Fatal("Block not found")
+	}
+>>>>>>> master
 
 func TestBlockMapAdd_5TB(t *testing.T) {
 	testBlockMapAdd(t, 5000/12)
 }
 
+<<<<<<< HEAD
 func TestBlockMapAdd_8TB(t *testing.T) {
 	testBlockMapAdd(t, 8000/12)
 }
@@ -220,6 +228,14 @@ func testBlockMapAdd(t *testing.T, files int) {
 			Blocks: genBlocks(100000), // This is a 12 GB file
 		}
 		m.Add([]protocol.FileInfo{f})
+=======
+	if f.Iterate(folders, f1.Blocks[0].Hash, iterFn) {
+		t.Fatal("Unexpected block")
+	}
+
+	if !f.Iterate(folders, f2.Blocks[0].Hash, iterFn) {
+		t.Fatal("Block not found")
+>>>>>>> master
 	}
 
 	runtime.GC()

@@ -101,14 +101,14 @@ func (r *reparseData) SubstituteName() string {
 	return string(utf16.Decode(r.buffer[offset : offset+length]))
 }
 
-func Read(path string) (string, uint32, error) {
+func Read(path string) (string, TargetType, error) {
 	ptr, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
-		return "", protocol.FlagSymlinkMissingTarget, err
+		return "", TargetUnknown, err
 	}
 	handle, err := syscall.CreateFile(ptr, 0, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE, nil, syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS|Win32FileFlagOpenReparsePoint, 0)
 	if err != nil || handle == syscall.InvalidHandle {
-		return "", protocol.FlagSymlinkMissingTarget, err
+		return "", TargetUnknown, err
 	}
 	defer syscall.Close(handle)
 	var ret uint16
@@ -116,21 +116,22 @@ func Read(path string) (string, uint32, error) {
 
 	r1, _, err := syscall.Syscall9(procDeviceIoControl.Addr(), 8, uintptr(handle), Win32FsctlGetReparsePoint, 0, 0, uintptr(unsafe.Pointer(&data)), unsafe.Sizeof(data), uintptr(unsafe.Pointer(&ret)), 0, 0)
 	if r1 == 0 {
-		return "", protocol.FlagSymlinkMissingTarget, err
+		return "", TargetUnknown, err
 	}
 
-	var flags uint32
-	attr, err := syscall.GetFileAttributes(ptr)
-	if err != nil {
-		flags = protocol.FlagSymlinkMissingTarget
-	} else if attr&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
-		flags = protocol.FlagDirectory
+	tt := TargetUnknown
+	if attr, err := syscall.GetFileAttributes(ptr); err == nil {
+		if attr&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
+			tt = TargetDirectory
+		} else {
+			tt = TargetFile
+		}
 	}
 
-	return osutil.NormalizedFilename(data.PrintName()), flags, nil
+	return osutil.NormalizedFilename(data.PrintName()), tt, nil
 }
 
-func Create(source, target string, flags uint32) error {
+func Create(source, target string, tt TargetType) error {
 	srcp, err := syscall.UTF16PtrFromString(source)
 	if err != nil {
 		return err
@@ -146,7 +147,7 @@ func Create(source, target string, flags uint32) error {
 	// If the flags doesn't reveal the target type, try to evaluate it
 	// ourselves, and worst case default to the symlink pointing to a file.
 	mode := 0
-	if flags&protocol.FlagSymlinkMissingTarget != 0 {
+	if tt == TargetUnknown {
 		path := target
 		if !filepath.IsAbs(target) {
 			path = filepath.Join(filepath.Dir(source), target)
@@ -156,7 +157,7 @@ func Create(source, target string, flags uint32) error {
 		if err == nil && stat.IsDir() {
 			mode = Win32SymbolicLinkFlagDirectory
 		}
-	} else if flags&protocol.FlagDirectory != 0 {
+	} else if tt == TargetDirectory {
 		mode = Win32SymbolicLinkFlagDirectory
 	}
 
@@ -167,24 +168,24 @@ func Create(source, target string, flags uint32) error {
 	return err
 }
 
-func ChangeType(path string, flags uint32) error {
-	target, cflags, err := Read(path)
+func ChangeType(path string, tt TargetType) error {
+	target, exTt, err := Read(path)
 	if err != nil {
 		return err
 	}
 	// If it's the same type, nothing to do.
-	if cflags&protocol.SymlinkTypeMask == flags&protocol.SymlinkTypeMask {
+	if tt == exTt {
 		return nil
 	}
 
 	// If the actual type is unknown, but the new type is file, nothing to do
-	if cflags&protocol.FlagSymlinkMissingTarget != 0 && flags&protocol.FlagDirectory == 0 {
+	if exTt == TargetUnknown && tt != TargetDirectory {
 		return nil
 	}
 	return osutil.InWritableDir(func(path string) error {
 		// It should be a symlink as well hence no need to change permissions on
 		// the file.
 		os.Remove(path)
-		return Create(path, target, flags)
+		return Create(path, target, tt)
 	}, path)
 }

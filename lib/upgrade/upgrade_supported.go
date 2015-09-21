@@ -29,6 +29,8 @@ import (
 	"github.com/syncthing/syncthing/lib/signature"
 )
 
+const DisabledByCompilation = false
+
 // This is an HTTP/HTTPS client that does *not* perform certificate
 // validation. We do this because some systems where Syncthing runs have
 // issues with old or missing CA roots. It doesn't actually matter that we
@@ -44,8 +46,8 @@ var insecureHTTP = &http.Client{
 
 // LatestGithubReleases returns the latest releases, including prereleases or
 // not depending on the argument
-func LatestGithubReleases(version string) ([]Release, error) {
-	resp, err := insecureHTTP.Get("https://api.github.com/repos/syncthing/syncthing/releases?per_page=30")
+func LatestGithubReleases(releasesURL, version string) ([]Release, error) {
+	resp, err := insecureHTTP.Get(releasesURL)
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +74,8 @@ func (s SortByRelease) Less(i, j int) bool {
 	return CompareVersions(s[i].Tag, s[j].Tag) > 0
 }
 
-func LatestRelease(version string) (Release, error) {
-	rels, _ := LatestGithubReleases(version)
+func LatestRelease(releasesURL, version string) (Release, error) {
+	rels, _ := LatestGithubReleases(releasesURL, version)
 	return SelectLatestRelease(version, rels)
 }
 

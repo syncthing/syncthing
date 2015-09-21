@@ -48,6 +48,7 @@ angular.module('syncthing.core')
         $scope.failedCurrentPage = 1;
         $scope.failedCurrentFolder = undefined;
         $scope.failedPageSize = 10;
+        $scope.scanProgress = {};
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -89,6 +90,12 @@ angular.module('syncthing.core')
             refreshFolderStats();
 
             $http.get(urlbase + '/system/version').success(function (data) {
+                if ($scope.version.version && $scope.version.version != data.version) {
+                    // We already have a version response, but it differs from
+                    // the new one. Reload the full GUI in case it's changed.
+                    document.location.reload(true);
+                }
+
                 $scope.version = data;
             }).error($scope.emitHTTPError);
 
@@ -156,6 +163,12 @@ angular.module('syncthing.core')
                 // shortly though.
                 if (data.to === 'syncing') {
                     $scope.failed[data.folder] = [];
+                }
+
+                // If a folder has started scanning, then any scan progress is
+                // also obsolete.
+                if (data.to === 'scanning') {
+                    delete $scope.scanProgress[data.folder];
                 }
             }
         });
@@ -304,6 +317,15 @@ angular.module('syncthing.core')
             $scope.failed[data.folder] = data.errors;
         });
 
+        $scope.$on(Events.FOLDER_SCAN_PROGRESS, function (event, arg) {
+            var data = arg.data;
+            $scope.scanProgress[data.folder] = {
+                current: data.current,
+                total: data.total
+            };
+            console.log("FolderScanProgress", data);
+        });
+
         $scope.emitHTTPError = function (data, status, headers, config) {
             $scope.$emit('HTTPError', {data: data, status: status, headers: headers, config: config});
         };
@@ -356,24 +378,25 @@ angular.module('syncthing.core')
                 $scope.myID = data.myID;
                 $scope.system = data;
 
-                $scope.announceServersTotal = data.extAnnounceOK ? Object.keys(data.extAnnounceOK).length : 0;
-                var failedAnnounce = [];
-                for (var server in data.extAnnounceOK) {
-                    if (!data.extAnnounceOK[server]) {
-                        failedAnnounce.push(server);
+                $scope.discoveryTotal = data.discoveryMethods;
+                var discoveryFailed = [];
+                for (var disco in data.discoveryErrors) {
+                    if (data.discoveryErrors[disco]) {
+                        discoveryFailed.push(disco + ": " + data.discoveryErrors[disco]);
                     }
                 }
-                $scope.announceServersFailed = failedAnnounce;
+                $scope.discoveryFailed = discoveryFailed;
 
-                $scope.relayClientsTotal = data.relayClientStatus ? Object.keys(data.relayClientStatus).length : 0;
-                var failedRelays = [];
+                var relaysFailed = [];
+                var relaysTotal = 0;
                 for (var relay in data.relayClientStatus) {
                     if (!data.relayClientStatus[relay]) {
-                        failedRelays.push(relay);
+                        relaysFailed.push(relay);
                     }
+                    relaysTotal++;
                 }
-                $scope.relayClientsFailed = failedRelays;
-
+                $scope.relaysFailed = relaysFailed;
+                $scope.relaysTotal = relaysTotal;
 
                 console.log("refreshSystem", data);
             }).error($scope.emitHTTPError);
@@ -627,6 +650,14 @@ angular.module('syncthing.core')
             var pct = 100 * $scope.model[folder].inSyncBytes / $scope.model[folder].globalBytes;
             return Math.floor(pct);
         };
+
+        $scope.scanPercentage = function (folder) {
+            if (!$scope.scanProgress[folder]) {
+                return undefined;
+            }
+            var pct = 100 * $scope.scanProgress[folder].current / $scope.scanProgress[folder].total;
+            return Math.floor(pct);
+        }
 
         $scope.deviceStatus = function (deviceCfg) {
             if ($scope.deviceFolders(deviceCfg).length === 0) {

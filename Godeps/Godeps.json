@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/syncthing/syncthing",
-	"GoVersion": "go1.5",
+	"GoVersion": "go1.5.1",
 	"Packages": [
 		"./cmd/..."
 	],
@@ -39,15 +39,15 @@
 		},
 		{
 			"ImportPath": "github.com/syncthing/protocol",
-			"Rev": "388a29bbe21d8772ee4c29f4520aa8040309607d"
+			"Rev": "f91191218b192ace841c878f161832d19c09145a"
 		},
 		{
 			"ImportPath": "github.com/syncthing/relaysrv/client",
-			"Rev": "7fe1fdd8c751df165ea825bc8d3e895f118bb236"
+			"Rev": "6e126fb97e2ff566d35f8d8824e86793d22b2147"
 		},
 		{
 			"ImportPath": "github.com/syncthing/relaysrv/protocol",
-			"Rev": "7fe1fdd8c751df165ea825bc8d3e895f118bb236"
+			"Rev": "6e126fb97e2ff566d35f8d8824e86793d22b2147"
 		},
 		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
@@ -55,7 +55,7 @@
 		},
 		{
 			"ImportPath": "github.com/thejerf/suture",
-			"Rev": "fc7aaeabdc43fe41c5328efa1479ffea0b820978"
+			"Rev": "860b44045335c64a6d54ac7eed22a3aedfc687c9"
 		},
 		{
 			"ImportPath": "github.com/vitrun/qart/coding",

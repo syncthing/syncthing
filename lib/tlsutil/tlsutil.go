@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package main
+package tlsutil
 
 import (
 	"bufio"
@@ -14,6 +14,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"math/big"
 	mr "math/rand"
@@ -22,17 +23,14 @@ import (
 	"time"
 )
 
-const (
-	tlsRSABits           = 3072
-	tlsDefaultCommonName = "syncthing"
+var (
+	ErrIdentificationFailed = fmt.Errorf("failed to identify socket type")
 )
 
-func newCertificate(certFile, keyFile, name string) (tls.Certificate, error) {
-	l.Infof("Generating RSA key and certificate for %s...", name)
-
+func NewCertificate(certFile, keyFile, tlsDefaultCommonName string, tlsRSABits int) (tls.Certificate, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, tlsRSABits)
 	if err != nil {
-		l.Fatalln("generate key:", err)
+		return tls.Certificate{}, fmt.Errorf("generate key: %s", err)
 	}
 
 	notBefore := time.Now()
@@ -41,7 +39,7 @@ func newCertificate(certFile, keyFile, name string) (tls.Certificate, error) {
 	template := x509.Certificate{
 		SerialNumber: new(big.Int).SetInt64(mr.Int63()),
 		Subject: pkix.Name{
-			CommonName: name,
+			CommonName: tlsDefaultCommonName,
 		},
 		NotBefore: notBefore,
 		NotAfter:  notAfter,
@@ -49,37 +47,38 @@ func newCertificate(certFile, keyFile, name string) (tls.Certificate, error) {
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
+		SignatureAlgorithm:    x509.SHA256WithRSA,
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
 	if err != nil {
-		l.Fatalln("create cert:", err)
+		return tls.Certificate{}, fmt.Errorf("create cert: %s", err)
 	}
 
 	certOut, err := os.Create(certFile)
 	if err != nil {
-		l.Fatalln("save cert:", err)
+		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
 	}
 	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	if err != nil {
-		l.Fatalln("save cert:", err)
+		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
 	}
 	err = certOut.Close()
 	if err != nil {
-		l.Fatalln("save cert:", err)
+		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
 	}
 
 	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		l.Fatalln("save key:", err)
+		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
 	err = pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	if err != nil {
-		l.Fatalln("save key:", err)
+		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
 	err = keyOut.Close()
 	if err != nil {
-		l.Fatalln("save key:", err)
+		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
 
 	return tls.LoadX509KeyPair(certFile, keyFile)
@@ -90,15 +89,29 @@ type DowngradingListener struct {
 	TLSConfig *tls.Config
 }
 
-type WrappedConnection struct {
-	io.Reader
-	net.Conn
+func (l *DowngradingListener) Accept() (net.Conn, error) {
+	conn, isTLS, err := l.AcceptNoWrapTLS()
+
+	// We failed to identify the socket type, pretend that everything is fine,
+	// and pass it to the underlying handler, and let them deal with it.
+	if err == ErrIdentificationFailed {
+		return conn, nil
+	}
+
+	if err != nil {
+		return conn, err
+	}
+
+	if isTLS {
+		return tls.Server(conn, l.TLSConfig), nil
+	}
+	return conn, nil
 }
 
-func (l *DowngradingListener) Accept() (net.Conn, error) {
+func (l *DowngradingListener) AcceptNoWrapTLS() (net.Conn, bool, error) {
 	conn, err := l.Listener.Accept()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	br := bufio.NewReader(conn)
@@ -107,20 +120,19 @@ func (l *DowngradingListener) Accept() (net.Conn, error) {
 	conn.SetReadDeadline(time.Time{})
 	if err != nil {
 		// We hit a read error here, but the Accept() call succeeded so we must not return an error.
-		// We return the connection as is and let whoever tries to use it deal with the error.
-		return conn, nil
+		// We return the connection as is with a special error which handles this
+		// special case in Accept().
+		return conn, false, ErrIdentificationFailed
 	}
 
-	wrapper := &WrappedConnection{br, conn}
-
-	// 0x16 is the first byte of a TLS handshake
-	if bs[0] == 0x16 {
-		return tls.Server(wrapper, l.TLSConfig), nil
-	}
-
-	return wrapper, nil
+	return &UnionedConnection{br, conn}, bs[0] == 0x16, nil
 }
 
-func (c *WrappedConnection) Read(b []byte) (n int, err error) {
+type UnionedConnection struct {
+	io.Reader
+	net.Conn
+}
+
+func (c *UnionedConnection) Read(b []byte) (n int, err error) {
 	return c.Reader.Read(b)
 }

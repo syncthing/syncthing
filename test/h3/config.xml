@@ -39,8 +39,7 @@
     </gui>
     <options>
         <listenAddress>tcp://127.0.0.1:22003</listenAddress>
-        <globalAnnounceServer>udp4://announce.syncthing.net:22027</globalAnnounceServer>
-        <globalAnnounceServer>udp6://announce-v6.syncthing.net:22027</globalAnnounceServer>
+        <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
         <localAnnouncePort>21025</localAnnouncePort>

@@ -105,6 +105,10 @@ func Verify(pubKeyPEM []byte, signature []byte, data io.Reader) error {
 
 	// Parse the signature
 	block, _ := pem.Decode(signature)
+	if block == nil || block.Bytes == nil {
+		return errors.New("unsupported signature format")
+	}
+
 	r, s, err := unmarshalSignature(block.Bytes)
 	if err != nil {
 		return err
@@ -146,6 +150,9 @@ func loadPrivateKey(bs []byte) (*ecdsa.PrivateKey, error) {
 func loadPublicKey(bs []byte) (*ecdsa.PublicKey, error) {
 	// Decode and parse the public key PEM block
 	block, _ := pem.Decode(bs)
+	if block == nil || block.Bytes == nil {
+		return nil, errors.New("unsupported public key format")
+	}
 	intf, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		return nil, err

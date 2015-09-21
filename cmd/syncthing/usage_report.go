@@ -10,22 +10,26 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"runtime"
+	"sort"
 	"time"
 
+	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/thejerf/suture"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
 // fields are added or changed this integer must be incremented so that users
 // are prompted for acceptance of the new report.
-const usageReportVersion = 1
+const usageReportVersion = 2
 
 type usageReportingManager struct {
 	model *model.Model
@@ -77,6 +81,7 @@ func (m *usageReportingManager) String() string {
 // various places, so not part of the usageReportingSvc object.
 func reportData(m *model.Model) map[string]interface{} {
 	res := make(map[string]interface{})
+	res["urVersion"] = usageReportVersion
 	res["uniqueID"] = cfg.Options().URUniqueID
 	res["version"] = Version
 	res["longVersion"] = LongVersion
@@ -120,8 +125,116 @@ func reportData(m *model.Model) map[string]interface{} {
 	if err == nil {
 		res["memorySize"] = bytes / 1024 / 1024
 	}
+	res["numCPU"] = runtime.NumCPU()
+
+	var rescanIntvs []int
+	folderUses := map[string]int{
+		"readonly":      0,
+		"ignorePerms":   0,
+		"ignoreDelete":  0,
+		"autoNormalize": 0,
+	}
+	for _, cfg := range cfg.Folders() {
+		rescanIntvs = append(rescanIntvs, cfg.RescanIntervalS)
+
+		if cfg.ReadOnly {
+			folderUses["readonly"]++
+		}
+		if cfg.IgnorePerms {
+			folderUses["ignorePerms"]++
+		}
+		if cfg.IgnoreDelete {
+			folderUses["ignoreDelete"]++
+		}
+		if cfg.AutoNormalize {
+			folderUses["autoNormalize"]++
+		}
+	}
+	sort.Ints(rescanIntvs)
+	res["rescanIntvs"] = rescanIntvs
+	res["folderUses"] = folderUses
+
+	deviceUses := map[string]int{
+		"introducer":       0,
+		"customCertName":   0,
+		"compressAlways":   0,
+		"compressMetadata": 0,
+		"compressNever":    0,
+		"dynamicAddr":      0,
+		"staticAddr":       0,
+	}
+	for _, cfg := range cfg.Devices() {
+		if cfg.Introducer {
+			deviceUses["introducer"]++
+		}
+		if cfg.CertName != "" && cfg.CertName != "syncthing" {
+			deviceUses["customCertName"]++
+		}
+		if cfg.Compression == protocol.CompressAlways {
+			deviceUses["compressAlways"]++
+		} else if cfg.Compression == protocol.CompressMetadata {
+			deviceUses["compressMetadata"]++
+		} else if cfg.Compression == protocol.CompressNever {
+			deviceUses["compressNever"]++
+		}
+		for _, addr := range cfg.Addresses {
+			if addr == "dynamic" {
+				deviceUses["dynamicAddr"]++
+			} else {
+				deviceUses["staticAddr"]++
+			}
+		}
+	}
+	res["deviceUses"] = deviceUses
+
+	defaultAnnounceServersDNS, defaultAnnounceServersIP, otherAnnounceServers := 0, 0, 0
+	for _, addr := range cfg.Options().GlobalAnnServers {
+		if addr == "default" {
+			defaultAnnounceServersDNS++
+		} else if stringIn(addr, config.DefaultDiscoveryServersIP) {
+			defaultAnnounceServersIP++
+		} else {
+			otherAnnounceServers++
+		}
+	}
+	res["announce"] = map[string]interface{}{
+		"globalEnabled":     cfg.Options().GlobalAnnEnabled,
+		"localEnabled":      cfg.Options().LocalAnnEnabled,
+		"defaultServersDNS": defaultAnnounceServersDNS,
+		"defaultServersIP":  defaultAnnounceServersIP,
+		"otherServers":      otherAnnounceServers,
+	}
+
+	defaultRelayServers, otherRelayServers := 0, 0
+	for _, addr := range cfg.Options().RelayServers {
+		switch addr {
+		case "dynamic+https://relays.syncthing.net":
+			defaultRelayServers++
+		default:
+			otherRelayServers++
+		}
+	}
+	res["relays"] = map[string]interface{}{
+		"enabled":        cfg.Options().RelaysEnabled,
+		"defaultServers": defaultRelayServers,
+		"otherServers":   otherRelayServers,
+	}
+
+	res["usesRateLimit"] = cfg.Options().MaxRecvKbps > 0 || cfg.Options().MaxSendKbps > 0
+
+	res["upgradeAllowedManual"] = !(upgrade.DisabledByCompilation || noUpgrade)
+	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgrade) && cfg.Options().AutoUpgradeIntervalH > 0
 
 	return res
+}
+
+func stringIn(needle string, haystack []string) bool {
+	for _, s := range haystack {
+		if needle == s {
+			return true
+		}
+	}
+	return false
 }
 
 type usageReportingService struct {
@@ -134,17 +247,21 @@ func (s *usageReportingService) sendUsageReport() error {
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
 
-	var client = http.DefaultClient
+	transp := &http.Transport{}
+	client := &http.Client{Transport: transp}
 	if BuildEnv == "android" {
 		// This works around the lack of DNS resolution on Android... :(
-		tr := &http.Transport{
-			Dial: func(network, addr string) (net.Conn, error) {
-				return net.Dial(network, "194.126.249.13:443")
-			},
+		transp.Dial = func(network, addr string) (net.Conn, error) {
+			return net.Dial(network, "194.126.249.13:443")
 		}
-		client = &http.Client{Transport: tr}
 	}
-	_, err := client.Post("https://data.syncthing.net/newdata", "application/json", &b)
+
+	if cfg.Options().URPostInsecurely {
+		transp.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+	_, err := client.Post(cfg.Options().URURL, "application/json", &b)
 	return err
 }
 
@@ -154,7 +271,7 @@ func (s *usageReportingService) Serve() {
 	l.Infoln("Starting usage reporting")
 	defer l.Infoln("Stopping usage reporting")
 
-	t := time.NewTimer(10 * time.Minute) // time to initial report at start
+	t := time.NewTimer(time.Duration(cfg.Options().URInitialDelayS) * time.Second) // time to initial report at start
 	for {
 		select {
 		case <-s.stop:

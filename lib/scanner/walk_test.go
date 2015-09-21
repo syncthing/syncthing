@@ -20,6 +20,7 @@ import (
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/symlinks"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -149,13 +150,18 @@ func TestVerify(t *testing.T) {
 	// data should be an even multiple of blocksize long
 	data := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut e")
 	buf := bytes.NewBuffer(data)
+	var progress int64
 
-	blocks, err := Blocks(buf, blocksize, 0)
+	blocks, err := Blocks(buf, blocksize, 0, &progress)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if exp := len(data) / blocksize; len(blocks) != exp {
 		t.Fatalf("Incorrect number of blocks %d != %d", len(blocks), exp)
+	}
+
+	if int64(len(data)) != progress {
+		t.Fatalf("Incorrect counter value %d  != %d", len(data), progress)
 	}
 
 	buf = bytes.NewBuffer(data)
@@ -337,4 +343,32 @@ func (l testfileList) String() string {
 	}
 	b.WriteString("}")
 	return b.String()
+}
+
+func TestSymlinkTypeEqual(t *testing.T) {
+	testcases := []struct {
+		onDiskType   symlinks.TargetType
+		inIndexFlags uint32
+		equal        bool
+	}{
+		// File is only equal to file
+		{symlinks.TargetFile, 0, true},
+		{symlinks.TargetFile, protocol.FlagDirectory, false},
+		{symlinks.TargetFile, protocol.FlagSymlinkMissingTarget, false},
+		// Directory is only equal to directory
+		{symlinks.TargetDirectory, 0, false},
+		{symlinks.TargetDirectory, protocol.FlagDirectory, true},
+		{symlinks.TargetDirectory, protocol.FlagSymlinkMissingTarget, false},
+		// Unknown is equal to anything
+		{symlinks.TargetUnknown, 0, true},
+		{symlinks.TargetUnknown, protocol.FlagDirectory, true},
+		{symlinks.TargetUnknown, protocol.FlagSymlinkMissingTarget, true},
+	}
+
+	for _, tc := range testcases {
+		res := SymlinkTypeEqual(tc.onDiskType, protocol.FileInfo{Flags: tc.inIndexFlags})
+		if res != tc.equal {
+			t.Errorf("Incorrect result %v for %v, %v", res, tc.onDiskType, tc.inIndexFlags)
+		}
+	}
 }

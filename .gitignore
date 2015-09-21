@@ -12,6 +12,5 @@ bin
 perfstats*.csv
 coverage.xml
 syncthing.sig
-syncthing.exe.sig
 RELEASE
 deb

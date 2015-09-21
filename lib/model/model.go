@@ -892,7 +892,9 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	fd, err := osutil.CreateAtomic(filepath.Join(cfg.Path(), ".stignore"), 0644)
+	path := filepath.Join(cfg.Path(), ".stignore")
+
+	fd, err := osutil.CreateAtomic(path, 0644)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
@@ -906,6 +908,7 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
+	osutil.HideFile(path)
 
 	return m.ScanFolder(folder)
 }
@@ -971,7 +974,7 @@ func (m *Model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatistic
 		return sr
 	}
 
-	sr := stats.NewDeviceStatisticsReference(m.db, deviceID)
+	sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
 	m.deviceStatRefs[deviceID] = sr
 	return sr
 }
@@ -993,7 +996,7 @@ func (m *Model) folderStatRef(folder string) *stats.FolderStatisticsReference {
 }
 
 func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
-	m.folderStatRef(folder).ReceivedFile(file)
+	m.folderStatRef(folder).ReceivedFile(file.Name, file.IsDeleted())
 }
 
 func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
@@ -1264,18 +1267,20 @@ nextSub:
 	subs = unifySubs
 
 	w := &scanner.Walker{
-		Dir:           folderCfg.Path(),
-		Subs:          subs,
-		Matcher:       ignores,
-		BlockSize:     protocol.BlockSize,
-		TempNamer:     defTempNamer,
-		TempLifetime:  time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:  cFiler{m, folder},
-		MtimeRepo:     db.NewVirtualMtimeRepo(m.db, folderCfg.ID),
-		IgnorePerms:   folderCfg.IgnorePerms,
-		AutoNormalize: folderCfg.AutoNormalize,
-		Hashers:       m.numHashers(folder),
-		ShortID:       m.shortID,
+		Folder:                folderCfg.ID,
+		Dir:                   folderCfg.Path(),
+		Subs:                  subs,
+		Matcher:               ignores,
+		BlockSize:             protocol.BlockSize,
+		TempNamer:             defTempNamer,
+		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
+		CurrentFiler:          cFiler{m, folder},
+		MtimeRepo:             db.NewVirtualMtimeRepo(m.db, folderCfg.ID),
+		IgnorePerms:           folderCfg.IgnorePerms,
+		AutoNormalize:         folderCfg.AutoNormalize,
+		Hashers:               m.numHashers(folder),
+		ShortID:               m.shortID,
+		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 	}
 
 	runner.setState(FolderScanning)
@@ -1425,8 +1430,16 @@ func (m *Model) numHashers(folder string) int {
 		return folderCfg.Hashers
 	}
 
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		// Interactive operating systems; don't load the system too heavily by
+		// default.
+		return 1
+	}
+
+	// For other operating systems and architectures, lets try to get some
+	// work done... Divide the available CPU cores among the configured
+	// folders.
 	if perFolder := runtime.GOMAXPROCS(-1) / numFolders; perFolder > 0 {
-		// We have CPUs to spare, divide them per folder.
 		return perFolder
 	}
 
@@ -1648,7 +1661,7 @@ func (m *Model) BringToFront(folder, file string) {
 // CheckFolderHealth checks the folder for common errors and returns the
 // current folder error, or nil if the folder is healthy.
 func (m *Model) CheckFolderHealth(id string) error {
-	if minFree := float64(m.cfg.Options().MinHomeDiskFreePct); minFree > 0 {
+	if minFree := m.cfg.Options().MinHomeDiskFreePct; minFree > 0 {
 		if free, err := osutil.DiskFreePercentage(m.cfg.ConfigPath()); err == nil && free < minFree {
 			return errors.New("home disk is out of space")
 		}
@@ -1669,7 +1682,7 @@ func (m *Model) CheckFolderHealth(id string) error {
 			err = errors.New("folder path missing")
 		} else if !folder.HasMarker() {
 			err = errors.New("folder marker missing")
-		} else if free, errDfp := osutil.DiskFreePercentage(folder.Path()); errDfp == nil && free < float64(folder.MinDiskFreePct) {
+		} else if free, errDfp := osutil.DiskFreePercentage(folder.Path()); errDfp == nil && free < folder.MinDiskFreePct {
 			err = errors.New("out of disk space")
 		}
 	} else if os.IsNotExist(err) {

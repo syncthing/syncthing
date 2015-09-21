@@ -11,26 +11,30 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upnp"
 )
 
 // The UPnP service runs a loop for discovery of IGDs (Internet Gateway
 // Devices) and setup/renewal of a port mapping.
 type upnpSvc struct {
-	cfg       *config.Wrapper
-	localPort int
-	stop      chan struct{}
+	cfg        *config.Wrapper
+	localPort  int
+	extPort    int
+	extPortMut sync.Mutex
+	stop       chan struct{}
 }
 
 func newUPnPSvc(cfg *config.Wrapper, localPort int) *upnpSvc {
 	return &upnpSvc{
-		cfg:       cfg,
-		localPort: localPort,
+		cfg:        cfg,
+		localPort:  localPort,
+		extPortMut: sync.NewMutex(),
 	}
 }
 
 func (s *upnpSvc) Serve() {
-	extPort := 0
 	foundIGD := true
 	s.stop = make(chan struct{})
 
@@ -38,7 +42,15 @@ func (s *upnpSvc) Serve() {
 		igds := upnp.Discover(time.Duration(s.cfg.Options().UPnPTimeoutS) * time.Second)
 		if len(igds) > 0 {
 			foundIGD = true
-			extPort = s.tryIGDs(igds, extPort)
+			s.extPortMut.Lock()
+			oldExtPort := s.extPort
+			s.extPortMut.Unlock()
+
+			newExtPort := s.tryIGDs(igds, oldExtPort)
+
+			s.extPortMut.Lock()
+			s.extPort = newExtPort
+			s.extPortMut.Unlock()
 		} else if foundIGD {
 			// Only print a notice if we've previously found an IGD or this is
 			// the first time around.
@@ -64,6 +76,13 @@ func (s *upnpSvc) Stop() {
 	close(s.stop)
 }
 
+func (s *upnpSvc) ExternalPort() int {
+	s.extPortMut.Lock()
+	port := s.extPort
+	s.extPortMut.Unlock()
+	return port
+}
+
 func (s *upnpSvc) tryIGDs(igds []upnp.IGD, prevExtPort int) int {
 	// Lets try all the IGDs we found and use the first one that works.
 	// TODO: Use all of them, and sort out the resulting mess to the
@@ -76,13 +95,8 @@ func (s *upnpSvc) tryIGDs(igds []upnp.IGD, prevExtPort int) int {
 		}
 
 		if extPort != prevExtPort {
-			// External port changed; refresh the discovery announcement.
-			// TODO: Don't reach out to some magic global here?
 			l.Infof("New UPnP port mapping: external port %d to local port %d.", extPort, s.localPort)
-			if s.cfg.Options().GlobalAnnEnabled {
-				discoverer.StopGlobal()
-				discoverer.StartGlobal(s.cfg.Options().GlobalAnnServers, uint16(extPort))
-			}
+			events.Default.Log(events.ExternalPortMappingChanged, map[string]int{"port": extPort})
 		}
 		if debugNet {
 			l.Debugf("Created/updated UPnP port mapping for external port %d on device %s.", extPort, igd.FriendlyIdentifier())
