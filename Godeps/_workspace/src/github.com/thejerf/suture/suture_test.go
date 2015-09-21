@@ -478,6 +478,22 @@ func TestNilSupervisorAdd(t *testing.T) {
 	s.Add(s)
 }
 
+// https://github.com/thejerf/suture/issues/11
+//
+// The purpose of this test is to verify that it does not cause data races,
+// so there are no obvious assertions.
+func TestIssue11(t *testing.T) {
+	t.Parallel()
+
+	s := NewSimple("main")
+	s.ServeBackground()
+
+	subsuper := NewSimple("sub")
+	s.Add(subsuper)
+
+	subsuper.Add(NewService("may cause data race"))
+}
+
 // http://golangtutorials.blogspot.com/2011/10/gotest-unit-testing-and-benchmarking-go.html
 // claims test function are run in the same order as the source file...
 // I'm not sure if this is part of the contract, though. Especially in the
@@ -509,7 +525,7 @@ func (s *FailableService) Serve() {
 		everMultistarted = true
 		panic("Multi-started the same service! " + s.name)
 	}
-	s.existing += 1
+	s.existing++
 
 	s.started <- true
 
@@ -522,13 +538,13 @@ func (s *FailableService) Serve() {
 			case Happy:
 				// Do nothing on purpose. Life is good!
 			case Fail:
-				s.existing -= 1
+				s.existing--
 				if useStopChan {
 					s.stop <- true
 				}
 				return
 			case Panic:
-				s.existing -= 1
+				s.existing--
 				panic("Panic!")
 			case Hang:
 				// or more specifically, "hang until I release you"
@@ -537,7 +553,7 @@ func (s *FailableService) Serve() {
 				useStopChan = true
 			}
 		case <-s.shutdown:
-			s.existing -= 1
+			s.existing--
 			if useStopChan {
 				s.stop <- true
 			}

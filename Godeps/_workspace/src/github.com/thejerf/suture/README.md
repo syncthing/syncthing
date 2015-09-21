@@ -37,3 +37,14 @@ easily fit into the OTP paradigm. It ought to someday be considered a good
 idea to distribute libraries that provide some sort of supervisor tree
 functionality out of the box. It is possible to provide this functionality
 without explicitly depending on the Suture library.
+
+Changelog
+---------
+
+suture uses semantic versioning.
+
+1. 1.0.0
+  * Initial release.
+2. 1.0.1
+  * Fixed data race on the .state variable.
+
