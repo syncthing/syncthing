@@ -14,7 +14,7 @@ from the build server.
 
 By default, all relay servers will join the default public relay pool, which means that the relay server will be availble for public use, and **will consume your bandwidth** helping others to connect.
 
-If you wish to disable this behaviour, please specify `-pool=""` argument.
+If you wish to disable this behaviour, please specify `-pools=""` argument.
 
 Please note that `relaysrv` is only usable by `syncthing` **version v0.12 and onwards**.
 
