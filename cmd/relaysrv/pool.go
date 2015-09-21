@@ -13,6 +13,9 @@ import (
 )
 
 func poolHandler(pool string, uri *url.URL) {
+	if debug {
+		log.Println("Joining", pool)
+	}
 	for {
 		var b bytes.Buffer
 		json.NewEncoder(&b).Encode(struct {
@@ -54,13 +57,11 @@ func poolHandler(pool string, uri *url.URL) {
 			err := json.NewDecoder(resp.Body).Decode(&x)
 			if err == nil {
 				rejoin := x.EvictionIn - (x.EvictionIn / 5)
-				if debug {
-					log.Println("Joined", pool, "rejoining in", rejoin)
-				}
+				log.Println("Joined", pool, "rejoining in", rejoin)
 				time.Sleep(rejoin)
 				continue
 			} else if debug {
-				log.Println("Failed to deserialize respnse", err)
+				log.Println("Failed to deserialize response", err)
 			}
 		}
 		time.Sleep(time.Hour)
