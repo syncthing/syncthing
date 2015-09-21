@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -81,94 +80,6 @@ func TestPing(t *testing.T) {
 		t.Error("c1 ping failed")
 	}
 }
-
-func TestPingErr(t *testing.T) {
-	e := errors.New("something broke")
-
-	for i := 0; i < 32; i++ {
-		for j := 0; j < 32; j++ {
-			m0 := newTestModel()
-			m1 := newTestModel()
-
-			ar, aw := io.Pipe()
-			br, bw := io.Pipe()
-			eaw := &ErrPipe{PipeWriter: *aw, max: i, err: e}
-			ebw := &ErrPipe{PipeWriter: *bw, max: j, err: e}
-
-			c0 := NewConnection(c0ID, ar, ebw, m0, "name", CompressAlways).(wireFormatConnection).next.(*rawConnection)
-			c0.Start()
-			c1 := NewConnection(c1ID, br, eaw, m1, "name", CompressAlways)
-			c1.Start()
-			c0.ClusterConfig(ClusterConfigMessage{})
-			c1.ClusterConfig(ClusterConfigMessage{})
-
-			res := c0.ping()
-			if (i < 8 || j < 8) && res {
-				// This should have resulted in failure, as there is no way an empty ClusterConfig plus a Ping message fits in eight bytes.
-				t.Errorf("Unexpected ping success; i=%d, j=%d", i, j)
-			} else if (i >= 28 && j >= 28) && !res {
-				// This should have worked though, as 28 bytes is plenty for both.
-				t.Errorf("Unexpected ping fail; i=%d, j=%d", i, j)
-			}
-		}
-	}
-}
-
-// func TestRequestResponseErr(t *testing.T) {
-// 	e := errors.New("something broke")
-
-// 	var pass bool
-// 	for i := 0; i < 48; i++ {
-// 		for j := 0; j < 38; j++ {
-// 			m0 := newTestModel()
-// 			m0.data = []byte("response data")
-// 			m1 := newTestModel()
-
-// 			ar, aw := io.Pipe()
-// 			br, bw := io.Pipe()
-// 			eaw := &ErrPipe{PipeWriter: *aw, max: i, err: e}
-// 			ebw := &ErrPipe{PipeWriter: *bw, max: j, err: e}
-
-// 			NewConnection(c0ID, ar, ebw, m0, nil)
-// 			c1 := NewConnection(c1ID, br, eaw, m1, nil).(wireFormatConnection).next.(*rawConnection)
-
-// 			d, err := c1.Request("default", "tn", 1234, 5678)
-// 			if err == e || err == ErrClosed {
-// 				t.Logf("Error at %d+%d bytes", i, j)
-// 				if !m1.isClosed() {
-// 					t.Fatal("c1 not closed")
-// 				}
-// 				if !m0.isClosed() {
-// 					t.Fatal("c0 not closed")
-// 				}
-// 				continue
-// 			}
-// 			if err != nil {
-// 				t.Fatal(err)
-// 			}
-// 			if string(d) != "response data" {
-// 				t.Fatalf("Incorrect response data %q", string(d))
-// 			}
-// 			if m0.folder != "default" {
-// 				t.Fatalf("Incorrect folder %q", m0.folder)
-// 			}
-// 			if m0.name != "tn" {
-// 				t.Fatalf("Incorrect name %q", m0.name)
-// 			}
-// 			if m0.offset != 1234 {
-// 				t.Fatalf("Incorrect offset %d", m0.offset)
-// 			}
-// 			if m0.size != 5678 {
-// 				t.Fatalf("Incorrect size %d", m0.size)
-// 			}
-// 			t.Logf("Pass at %d+%d bytes", i, j)
-// 			pass = true
-// 		}
-// 	}
-// 	if !pass {
-// 		t.Fatal("Never passed")
-// 	}
-// }
 
 func TestVersionErr(t *testing.T) {
 	m0 := newTestModel()
