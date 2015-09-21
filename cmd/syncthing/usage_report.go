@@ -189,12 +189,11 @@ func reportData(m *model.Model) map[string]interface{} {
 
 	defaultAnnounceServersDNS, defaultAnnounceServersIP, otherAnnounceServers := 0, 0, 0
 	for _, addr := range cfg.Options().GlobalAnnServers {
-		switch addr {
-		case "udp4://announce.syncthing.net:22027", "udp6://announce-v6.syncthing.net:22027":
+		if addr == "default" {
 			defaultAnnounceServersDNS++
-		case "udp4://194.126.249.5:22027", "udp6://[2001:470:28:4d6::5]:22027":
+		} else if stringIn(addr, config.DefaultDiscoveryServersIP) {
 			defaultAnnounceServersIP++
-		default:
+		} else {
 			otherAnnounceServers++
 		}
 	}
@@ -227,6 +226,15 @@ func reportData(m *model.Model) map[string]interface{} {
 	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgrade) && cfg.Options().AutoUpgradeIntervalH > 0
 
 	return res
+}
+
+func stringIn(needle string, haystack []string) bool {
+	for _, s := range haystack {
+		if needle == s {
+			return true
+		}
+	}
+	return false
 }
 
 type usageReportingService struct {
