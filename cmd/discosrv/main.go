@@ -3,10 +3,10 @@
 package main
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"flag"
 	"log"
-	"net"
 	"os"
 	"time"
 
@@ -21,6 +21,9 @@ var (
 	statsFile   string
 	backend     = "ql"
 	dsn         = getEnvDefault("DISCOSRV_DB_DSN", "memory://discosrv")
+	certFile    = "cert.pem"
+	keyFile     = "key.pem"
+	debug       = false
 )
 
 func main() {
@@ -34,18 +37,23 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
-	flag.StringVar(&listen, "listen", ":22027", "Listen address")
+	flag.StringVar(&listen, "listen", ":8443", "Listen address")
 	flag.IntVar(&lruSize, "limit-cache", lruSize, "Limiter cache entries")
 	flag.IntVar(&limitAvg, "limit-avg", limitAvg, "Allowed average package rate, per 10 s")
 	flag.IntVar(&limitBurst, "limit-burst", limitBurst, "Allowed burst size, packets")
 	flag.StringVar(&statsFile, "stats-file", statsFile, "File to write periodic operation stats to")
 	flag.StringVar(&backend, "db-backend", backend, "Database backend to use")
 	flag.StringVar(&dsn, "db-dsn", dsn, "Database DSN")
+	flag.StringVar(&certFile, "cert", certFile, "Certificate file")
+	flag.StringVar(&keyFile, "key", keyFile, "Key file")
+	flag.BoolVar(&debug, "debug", debug, "Debug")
 	flag.Parse()
 
-	addr, _ := net.ResolveUDPAddr("udp", listen)
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		log.Fatalln("Failed to load X509 key pair:", err)
+	}
 
-	var err error
 	db, err := sql.Open(backend, dsn)
 	if err != nil {
 		log.Fatalln("sql.Open:", err)
@@ -58,7 +66,8 @@ func main() {
 	main := suture.NewSimple("main")
 
 	main.Add(&querysrv{
-		addr: addr,
+		addr: listen,
+		cert: cert,
 		db:   db,
 		prep: prep,
 	})

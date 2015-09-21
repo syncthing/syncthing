@@ -104,9 +104,9 @@ func postgresCompile(db *sql.DB) (map[string]*sql.Stmt, error) {
 		"insertAddress": "INSERT INTO Addresses (DeviceID, Seen, Address) VALUES ($1, now(), $2)",
 		"insertRelay":   "INSERT INTO Relays (DeviceID, Seen, Address, Latency) VALUES ($1, now(), $2, $3)",
 		"insertDevice":  "INSERT INTO Devices (DeviceID, Seen) VALUES ($1, now())",
-		"selectAddress": "SELECT Address from Addresses WHERE DeviceID=$1 AND Seen > now() - '1 hour'::INTERVAL ORDER BY random() LIMIT 16",
-		"selectRelay":   "SELECT Address, Latency from Relays WHERE DeviceID=$1 AND Seen > now() - '1 hour'::INTERVAL ORDER BY random() LIMIT 16",
-		"updateRelay":   "UPDATE Relays SET Seen=now(), Latency=$3 WHERE DeviceID=$1 AND Address=$2",
+		"selectAddress": "SELECT Address FROM Addresses WHERE DeviceID=$1 AND Seen > now() - '1 hour'::INTERVAL ORDER BY random() LIMIT 16",
+		"selectRelay":   "SELECT Address, Latency FROM Relays WHERE DeviceID=$1 AND Seen > now() - '1 hour'::INTERVAL ORDER BY random() LIMIT 16",
+		"updateAddress": "UPDATE Addresses SET Seen=now() WHERE DeviceID=$1 AND Address=$2",
 		"updateDevice":  "UPDATE Devices SET Seen=now() WHERE DeviceID=$1",
 		"deleteRelay":   "DELETE FROM Relays WHERE DeviceID=$1",
 	}

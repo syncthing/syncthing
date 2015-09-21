@@ -80,7 +80,7 @@ func qlCompile(db *sql.DB) (map[string]*sql.Stmt, error) {
 		"insertDevice":  "INSERT INTO Devices (DeviceID, Seen) VALUES ($1, now())",
 		"selectAddress": `SELECT Address from Addresses WHERE DeviceID==$1 AND Seen > now() - duration("1h") LIMIT 16`,
 		"selectRelay":   `SELECT Address, Latency from Relays WHERE DeviceID==$1 AND Seen > now() - duration("1h") LIMIT 16`,
-		"updateAddress": "UPDATE Addresses Seen=now()WHERE DeviceID==$1 AND Address==$2",
+		"updateAddress": "UPDATE Addresses Seen=now() WHERE DeviceID==$1 AND Address==$2",
 		"updateDevice":  "UPDATE Devices Seen=now() WHERE DeviceID==$1",
 		"deleteRelay":   "DELETE FROM Relays WHERE DeviceID==$1",
 	}
