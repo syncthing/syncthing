@@ -1,0 +1,81 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 1 (0x1)
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C=US, ST=Nevada, L=Las Vegas, O=github.com/lib/pq, CN=pq CA
+        Validity
+            Not Before: Oct 11 15:05:15 2014 GMT
+            Not After : Oct  8 15:05:15 2024 GMT
+        Subject: C=US, ST=Nevada, L=Las Vegas, O=github.com/lib/pq, CN=postgres
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+            RSA Public Key: (2048 bit)
+                Modulus (2048 bit):
+                    00:d7:8a:4c:85:fb:17:a5:3c:8f:e0:72:11:29:ce:
+                    3f:b0:1f:3f:7d:c6:ee:7f:a7:fc:02:2b:35:47:08:
+                    a6:3d:90:df:5c:56:14:94:00:c7:6d:d1:d2:e2:61:
+                    95:77:b8:e3:a6:66:31:f9:1f:21:7d:62:e1:27:da:
+                    94:37:61:4a:ea:63:53:a0:61:b8:9c:bb:a5:e2:e7:
+                    b7:a6:d8:0f:05:04:c7:29:e2:ea:49:2b:7f:de:15:
+                    00:a6:18:70:50:c7:0c:de:9a:f9:5a:96:b0:e1:94:
+                    06:c6:6d:4a:21:3b:b4:0f:a5:6d:92:86:34:b2:4e:
+                    d7:0e:a7:19:c0:77:0b:7b:87:c8:92:de:42:ff:86:
+                    d2:b7:9a:a4:d4:15:23:ca:ad:a5:69:21:b8:ce:7e:
+                    66:cb:85:5d:b9:ed:8b:2d:09:8d:94:e4:04:1e:72:
+                    ec:ef:d0:76:90:15:5a:a4:f7:91:4b:e9:ce:4e:9d:
+                    5d:9a:70:17:9c:d8:e9:73:83:ea:3d:61:99:a6:cd:
+                    ac:91:40:5a:88:77:e5:4e:2a:8e:3d:13:f3:f9:38:
+                    6f:81:6b:8a:95:ca:0e:07:ab:6f:da:b4:8c:d9:ff:
+                    aa:78:03:aa:c7:c2:cf:6f:64:92:d3:d8:83:d5:af:
+                    f1:23:18:a7:2e:7b:17:0b:e7:7d:f1:fa:a8:41:a3:
+                    04:57
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Subject Key Identifier: 
+                EE:F0:B3:46:DC:C7:09:EB:0E:B6:2F:E5:FE:62:60:45:44:9F:59:CC
+            X509v3 Authority Key Identifier: 
+                keyid:52:93:ED:1E:76:0A:9F:65:4F:DE:19:66:C1:D5:22:40:35:CB:A0:72
+
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            X509v3 Key Usage: 
+                Digital Signature, Non Repudiation, Key Encipherment
+    Signature Algorithm: sha256WithRSAEncryption
+        7e:5a:6e:be:bf:d2:6c:c1:d6:fa:b6:fb:3f:06:53:36:08:87:
+        9d:95:b1:39:af:9e:f6:47:38:17:39:da:25:7c:f2:ad:0c:e3:
+        ab:74:19:ca:fb:8c:a0:50:c0:1d:19:8a:9c:21:ed:0f:3a:d1:
+        96:54:2e:10:09:4f:b8:70:f7:2b:99:43:d2:c6:15:bc:3f:24:
+        7d:28:39:32:3f:8d:a4:4f:40:75:7f:3e:0d:1c:d1:69:f2:4e:
+        98:83:47:97:d2:25:ac:c9:36:86:2f:04:a6:c4:86:c7:c4:00:
+        5f:7f:b9:ad:fc:bf:e9:f5:78:d7:82:1a:51:0d:fc:ab:9e:92:
+        1d:5f:0c:18:d1:82:e0:14:c9:ce:91:89:71:ff:49:49:ff:35:
+        bf:7b:44:78:42:c1:d0:66:65:bb:28:2e:60:ca:9b:20:12:a9:
+        90:61:b1:96:ec:15:46:c9:37:f7:07:90:8a:89:45:2a:3f:37:
+        ec:dc:e3:e5:8f:c3:3a:57:80:a5:54:60:0c:e1:b2:26:99:2b:
+        40:7e:36:d1:9a:70:02:ec:63:f4:3b:72:ae:81:fb:30:20:6d:
+        cb:48:46:c6:b5:8f:39:b1:84:05:25:55:8d:f5:62:f6:1b:46:
+        2e:da:a3:4c:26:12:44:d7:56:b6:b8:a9:ca:d3:ab:71:45:7c:
+        9f:48:6d:1e
+-----BEGIN CERTIFICATE-----
+MIIDlDCCAnygAwIBAgIBATANBgkqhkiG9w0BAQsFADBeMQswCQYDVQQGEwJVUzEP
+MA0GA1UECBMGTmV2YWRhMRIwEAYDVQQHEwlMYXMgVmVnYXMxGjAYBgNVBAoTEWdp
+dGh1Yi5jb20vbGliL3BxMQ4wDAYDVQQDEwVwcSBDQTAeFw0xNDEwMTExNTA1MTVa
+Fw0yNDEwMDgxNTA1MTVaMGExCzAJBgNVBAYTAlVTMQ8wDQYDVQQIEwZOZXZhZGEx
+EjAQBgNVBAcTCUxhcyBWZWdhczEaMBgGA1UEChMRZ2l0aHViLmNvbS9saWIvcHEx
+ETAPBgNVBAMTCHBvc3RncmVzMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+AQEA14pMhfsXpTyP4HIRKc4/sB8/fcbuf6f8Ais1RwimPZDfXFYUlADHbdHS4mGV
+d7jjpmYx+R8hfWLhJ9qUN2FK6mNToGG4nLul4ue3ptgPBQTHKeLqSSt/3hUAphhw
+UMcM3pr5Wpaw4ZQGxm1KITu0D6VtkoY0sk7XDqcZwHcLe4fIkt5C/4bSt5qk1BUj
+yq2laSG4zn5my4Vdue2LLQmNlOQEHnLs79B2kBVapPeRS+nOTp1dmnAXnNjpc4Pq
+PWGZps2skUBaiHflTiqOPRPz+ThvgWuKlcoOB6tv2rSM2f+qeAOqx8LPb2SS09iD
+1a/xIxinLnsXC+d98fqoQaMEVwIDAQABo1owWDAdBgNVHQ4EFgQU7vCzRtzHCesO
+ti/l/mJgRUSfWcwwHwYDVR0jBBgwFoAUUpPtHnYKn2VP3hlmwdUiQDXLoHIwCQYD
+VR0TBAIwADALBgNVHQ8EBAMCBeAwDQYJKoZIhvcNAQELBQADggEBAH5abr6/0mzB
+1vq2+z8GUzYIh52VsTmvnvZHOBc52iV88q0M46t0Gcr7jKBQwB0Zipwh7Q860ZZU
+LhAJT7hw9yuZQ9LGFbw/JH0oOTI/jaRPQHV/Pg0c0WnyTpiDR5fSJazJNoYvBKbE
+hsfEAF9/ua38v+n1eNeCGlEN/Kuekh1fDBjRguAUyc6RiXH/SUn/Nb97RHhCwdBm
+ZbsoLmDKmyASqZBhsZbsFUbJN/cHkIqJRSo/N+zc4+WPwzpXgKVUYAzhsiaZK0B+
+NtGacALsY/Q7cq6B+zAgbctIRsa1jzmxhAUlVY31YvYbRi7ao0wmEkTXVra4qcrT
+q3FFfJ9IbR4=
+-----END CERTIFICATE-----
