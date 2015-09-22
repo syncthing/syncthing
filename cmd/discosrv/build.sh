@@ -1,11 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
+GOPATH="$(pwd)/Godeps/_workspace:$GOPATH"
+
 build() {
 	export GOOS="$1"
 	export GOARCH="$2"
 	target="discosrv-$GOOS-$GOARCH"
-	go build -i -v -ldflags -w
+	go build -i -v -tags purego -ldflags -w
 	mkdir "$target"
 	if [ -f discosrv ] ; then
 		mv discosrv "$target"
@@ -21,8 +23,6 @@ build() {
 
 buildpkg() {
 	echo Get dependencies
-	go get -d -tags purego
-
 	rm -rf discosrv-*-*
 
 	for goos in linux darwin windows freebsd openbsd netbsd solaris ; do
