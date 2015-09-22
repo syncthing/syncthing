@@ -182,7 +182,7 @@ func (c *ProtocolClient) String() string {
 
 func (c *ProtocolClient) connect() error {
 	if c.URI.Scheme != "relay" {
-		return fmt.Errorf("Unsupported relay schema:", c.URI.Scheme)
+		return fmt.Errorf("Unsupported relay schema: %v", c.URI.Scheme)
 	}
 
 	t0 := time.Now()

@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	// Data block size (128 KiB)
+	// BlockSize is the standard ata block size (128 KiB)
 	BlockSize = 128 << 10
 
-	// We reject messages larger than this when encountered on the wire. (64 MiB)
+	// MaxMessageLen is the largest message size allowed on the wire. (64 MiB)
 	MaxMessageLen = 64 << 20
 )
 
@@ -145,9 +145,11 @@ type isEofer interface {
 }
 
 const (
-	// We make sure to send a message at least this often, by triggering pings.
+	// PingSendInterval is how often we make sure to send a message, by
+	// triggering pings if necessary.
 	PingSendInterval = 90 * time.Second
-	// If we haven't received a message from the other side for this long, close the connection.
+	// ReceiveTimeout is the longest we'll wait for a message from the other
+	// side before closing the connection.
 	ReceiveTimeout = 300 * time.Second
 )
 
