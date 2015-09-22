@@ -6,7 +6,7 @@
 
 package db
 
-import "github.com/syncthing/protocol"
+import "github.com/syncthing/syncthing/lib/protocol"
 
 type FileInfoTruncated struct {
 	protocol.FileInfo

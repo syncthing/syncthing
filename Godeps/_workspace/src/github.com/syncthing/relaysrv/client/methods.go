@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	syncthingprotocol "github.com/syncthing/protocol"
-	"github.com/syncthing/relaysrv/protocol"
+	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/relay/protocol"
 )
 
 func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs []tls.Certificate) (protocol.SessionInvitation, error) {

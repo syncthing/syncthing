@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"time"
 
-	syncthingprotocol "github.com/syncthing/protocol"
-	"github.com/syncthing/relaysrv/protocol"
+	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 

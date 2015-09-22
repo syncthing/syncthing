@@ -13,8 +13,8 @@
 package db
 
 import (
-	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syndtr/goleveldb/leveldb"
 )

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net"
 
-	syncthingprotocol "github.com/syncthing/protocol"
+	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 )
 
 const (

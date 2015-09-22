@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func init() {

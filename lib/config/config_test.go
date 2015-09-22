@@ -17,7 +17,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 var device1, device2, device3, device4 protocol.DeviceID

@@ -15,14 +15,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/syncthing/protocol"
-	"github.com/syncthing/relaysrv/client"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay"
+	"github.com/syncthing/syncthing/lib/relay/client"
 
 	"github.com/thejerf/suture"
 )

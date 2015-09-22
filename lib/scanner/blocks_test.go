@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 var blocksTestData = []struct {
