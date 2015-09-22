@@ -20,7 +20,7 @@ import (
 	"github.com/golang/groupcache/lru"
 	"github.com/juju/ratelimit"
 
-	"github.com/syncthing/relaysrv/client"
+	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )

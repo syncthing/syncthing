@@ -1,0 +1,63 @@
+{
+	"ImportPath": "github.com/syncthing/relaypoolsrv",
+	"GoVersion": "go1.5.1",
+	"Deps": [
+		{
+			"ImportPath": "github.com/bkaradzic/go-lz4",
+			"Rev": "74ddf82598bc4745b965729e9c6a463bedd33049"
+		},
+		{
+			"ImportPath": "github.com/calmh/logger",
+			"Rev": "c96f6a1a8c7b6bf2f4860c667867d90174799eb2"
+		},
+		{
+			"ImportPath": "github.com/calmh/luhn",
+			"Rev": "0c8388ff95fa92d4094011e5a04fc99dea3d1632"
+		},
+		{
+			"ImportPath": "github.com/calmh/xdr",
+			"Rev": "5f7208e86762911861c94f1849eddbfc0a60cbf0"
+		},
+		{
+			"ImportPath": "github.com/golang/groupcache/lru",
+			"Rev": "604ed5785183e59ae2789449d89e73f3a2a77987"
+		},
+		{
+			"ImportPath": "github.com/juju/ratelimit",
+			"Rev": "772f5c38e468398c4511514f4f6aa9a4185bc0a0"
+		},
+		{
+			"ImportPath": "github.com/syncthing/syncthing/lib/protocol",
+			"Comment": "v0.12.0-beta1-119-g24c499d",
+			"Rev": "24c499d2822ae891c95406066456872e8d6c8164"
+		},
+		{
+			"ImportPath": "github.com/syncthing/syncthing/lib/relay/client",
+			"Comment": "v0.12.0-beta1-119-g24c499d",
+			"Rev": "24c499d2822ae891c95406066456872e8d6c8164"
+		},
+		{
+			"ImportPath": "github.com/syncthing/syncthing/lib/relay/protocol",
+			"Comment": "v0.12.0-beta1-119-g24c499d",
+			"Rev": "24c499d2822ae891c95406066456872e8d6c8164"
+		},
+		{
+			"ImportPath": "github.com/syncthing/syncthing/lib/sync",
+			"Comment": "v0.12.0-beta1-119-g24c499d",
+			"Rev": "24c499d2822ae891c95406066456872e8d6c8164"
+		},
+		{
+			"ImportPath": "github.com/syncthing/syncthing/lib/tlsutil",
+			"Comment": "v0.12.0-beta1-119-g24c499d",
+			"Rev": "24c499d2822ae891c95406066456872e8d6c8164"
+		},
+		{
+			"ImportPath": "golang.org/x/text/transform",
+			"Rev": "723492b65e225eafcba054e76ba18bb9c5ac1ea2"
+		},
+		{
+			"ImportPath": "golang.org/x/text/unicode/norm",
+			"Rev": "723492b65e225eafcba054e76ba18bb9c5ac1ea2"
+		}
+	]
+}
