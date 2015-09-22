@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rc"
 )
 

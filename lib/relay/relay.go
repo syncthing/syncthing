@@ -15,11 +15,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/syncthing/relaysrv/client"
-	"github.com/syncthing/relaysrv/protocol"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/relay/client"
+	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/thejerf/suture"

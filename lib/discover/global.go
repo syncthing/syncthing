@@ -18,8 +18,8 @@ import (
 	stdsync "sync"
 	"time"
 
-	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type globalClient struct {

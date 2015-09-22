@@ -38,20 +38,6 @@
 			"Rev": "6e7f843663477789fac7c02def0d0909e969b4e5"
 		},
 		{
-			"ImportPath": "github.com/syncthing/protocol",
-			"Rev": "f91191218b192ace841c878f161832d19c09145a"
-		},
-		{
-			"ImportPath": "github.com/syncthing/relaysrv/client",
-			"Comment": "v0.12.0",
-			"Rev": "6e126fb97e2ff566d35f8d8824e86793d22b2147"
-		},
-		{
-			"ImportPath": "github.com/syncthing/relaysrv/protocol",
-			"Comment": "v0.12.0",
-			"Rev": "6e126fb97e2ff566d35f8d8824e86793d22b2147"
-		},
-		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
 			"Rev": "1a9d62f03ea92815b46fcaab357cfd4df264b1a0"
 		},
@@ -82,11 +68,11 @@
 		},
 		{
 			"ImportPath": "golang.org/x/net/internal/iana",
-			"Rev": "66f0418ca41253f8d1a024eb9754e9441a8e79b9"
+			"Rev": "db8e4de5b2d6653f66aea53094624468caad15d2"
 		},
 		{
 			"ImportPath": "golang.org/x/net/ipv6",
-			"Rev": "66f0418ca41253f8d1a024eb9754e9441a8e79b9"
+			"Rev": "db8e4de5b2d6653f66aea53094624468caad15d2"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",

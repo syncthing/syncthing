@@ -9,9 +9,9 @@ package config
 import (
 	"os"
 
-	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 

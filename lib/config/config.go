@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/crypto/bcrypt"
 )
 

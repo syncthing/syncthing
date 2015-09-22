@@ -17,9 +17,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/thejerf/suture"
 )
 
