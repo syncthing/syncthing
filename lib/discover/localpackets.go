@@ -11,13 +11,7 @@ package discover
 
 const (
 	AnnouncementMagic = 0x9D79BC40
-	QueryMagic        = 0x2CA856F6
 )
-
-type Query struct {
-	Magic    uint32
-	DeviceID []byte // max:32
-}
 
 type Announce struct {
 	Magic uint32

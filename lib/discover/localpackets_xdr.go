@@ -13,80 +13,6 @@ import (
 
 /*
 
-Query Structure:
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             Magic                             |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                      Length of Device ID                      |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/                                                               /
-\                  Device ID (variable length)                  \
-/                                                               /
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-struct Query {
-	unsigned int Magic;
-	opaque DeviceID<32>;
-}
-
-*/
-
-func (o Query) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
-}
-
-func (o Query) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
-}
-
-func (o Query) MustMarshalXDR() []byte {
-	bs, err := o.MarshalXDR()
-	if err != nil {
-		panic(err)
-	}
-	return bs
-}
-
-func (o Query) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
-}
-
-func (o Query) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	xw.WriteUint32(o.Magic)
-	if l := len(o.DeviceID); l > 32 {
-		return xw.Tot(), xdr.ElementSizeExceeded("DeviceID", l, 32)
-	}
-	xw.WriteBytes(o.DeviceID)
-	return xw.Tot(), xw.Error()
-}
-
-func (o *Query) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
-}
-
-func (o *Query) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
-}
-
-func (o *Query) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.Magic = xr.ReadUint32()
-	o.DeviceID = xr.ReadBytesMax(32)
-	return xr.Error()
-}
-
-/*
-
 Announce Structure:
 
  0                   1                   2                   3
@@ -203,7 +129,7 @@ Relay Structure:
 
 
 struct Relay {
-	string URL<256>;
+	string URL<2083>;
 	int Latency;
 }
 
@@ -234,8 +160,8 @@ func (o Relay) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o Relay) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	if l := len(o.URL); l > 256 {
-		return xw.Tot(), xdr.ElementSizeExceeded("URL", l, 256)
+	if l := len(o.URL); l > 2083 {
+		return xw.Tot(), xdr.ElementSizeExceeded("URL", l, 2083)
 	}
 	xw.WriteString(o.URL)
 	xw.WriteUint32(uint32(o.Latency))
@@ -254,7 +180,7 @@ func (o *Relay) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *Relay) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.URL = xr.ReadStringMax(256)
+	o.URL = xr.ReadStringMax(2083)
 	o.Latency = int32(xr.ReadUint32())
 	return xr.Error()
 }
