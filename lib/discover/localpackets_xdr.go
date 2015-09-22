@@ -113,6 +113,200 @@ func (o *Announce) DecodeXDRFrom(xr *xdr.Reader) error {
 
 /*
 
+Device Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         Length of ID                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                     ID (variable length)                      \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      Number of Addresses                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                Zero or more Address Structures                \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Number of Relays                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                 Zero or more Relay Structures                 \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+struct Device {
+	opaque ID<32>;
+	Address Addresses<16>;
+	Relay Relays<16>;
+}
+
+*/
+
+func (o Device) EncodeXDR(w io.Writer) (int, error) {
+	var xw = xdr.NewWriter(w)
+	return o.EncodeXDRInto(xw)
+}
+
+func (o Device) MarshalXDR() ([]byte, error) {
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o Device) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o Device) AppendXDR(bs []byte) ([]byte, error) {
+	var aw = xdr.AppendWriter(bs)
+	var xw = xdr.NewWriter(&aw)
+	_, err := o.EncodeXDRInto(xw)
+	return []byte(aw), err
+}
+
+func (o Device) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+	if l := len(o.ID); l > 32 {
+		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 32)
+	}
+	xw.WriteBytes(o.ID)
+	if l := len(o.Addresses); l > 16 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Addresses", l, 16)
+	}
+	xw.WriteUint32(uint32(len(o.Addresses)))
+	for i := range o.Addresses {
+		_, err := o.Addresses[i].EncodeXDRInto(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
+	}
+	if l := len(o.Relays); l > 16 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Relays", l, 16)
+	}
+	xw.WriteUint32(uint32(len(o.Relays)))
+	for i := range o.Relays {
+		_, err := o.Relays[i].EncodeXDRInto(xw)
+		if err != nil {
+			return xw.Tot(), err
+		}
+	}
+	return xw.Tot(), xw.Error()
+}
+
+func (o *Device) DecodeXDR(r io.Reader) error {
+	xr := xdr.NewReader(r)
+	return o.DecodeXDRFrom(xr)
+}
+
+func (o *Device) UnmarshalXDR(bs []byte) error {
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
+	return o.DecodeXDRFrom(xr)
+}
+
+func (o *Device) DecodeXDRFrom(xr *xdr.Reader) error {
+	o.ID = xr.ReadBytesMax(32)
+	_AddressesSize := int(xr.ReadUint32())
+	if _AddressesSize < 0 {
+		return xdr.ElementSizeExceeded("Addresses", _AddressesSize, 16)
+	}
+	if _AddressesSize > 16 {
+		return xdr.ElementSizeExceeded("Addresses", _AddressesSize, 16)
+	}
+	o.Addresses = make([]Address, _AddressesSize)
+	for i := range o.Addresses {
+		(&o.Addresses[i]).DecodeXDRFrom(xr)
+	}
+	_RelaysSize := int(xr.ReadUint32())
+	if _RelaysSize < 0 {
+		return xdr.ElementSizeExceeded("Relays", _RelaysSize, 16)
+	}
+	if _RelaysSize > 16 {
+		return xdr.ElementSizeExceeded("Relays", _RelaysSize, 16)
+	}
+	o.Relays = make([]Relay, _RelaysSize)
+	for i := range o.Relays {
+		(&o.Relays[i]).DecodeXDRFrom(xr)
+	}
+	return xr.Error()
+}
+
+/*
+
+Address Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         Length of URL                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                     URL (variable length)                     \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+struct Address {
+	string URL<2083>;
+}
+
+*/
+
+func (o Address) EncodeXDR(w io.Writer) (int, error) {
+	var xw = xdr.NewWriter(w)
+	return o.EncodeXDRInto(xw)
+}
+
+func (o Address) MarshalXDR() ([]byte, error) {
+	return o.AppendXDR(make([]byte, 0, 128))
+}
+
+func (o Address) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o Address) AppendXDR(bs []byte) ([]byte, error) {
+	var aw = xdr.AppendWriter(bs)
+	var xw = xdr.NewWriter(&aw)
+	_, err := o.EncodeXDRInto(xw)
+	return []byte(aw), err
+}
+
+func (o Address) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+	if l := len(o.URL); l > 2083 {
+		return xw.Tot(), xdr.ElementSizeExceeded("URL", l, 2083)
+	}
+	xw.WriteString(o.URL)
+	return xw.Tot(), xw.Error()
+}
+
+func (o *Address) DecodeXDR(r io.Reader) error {
+	xr := xdr.NewReader(r)
+	return o.DecodeXDRFrom(xr)
+}
+
+func (o *Address) UnmarshalXDR(bs []byte) error {
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
+	return o.DecodeXDRFrom(xr)
+}
+
+func (o *Address) DecodeXDRFrom(xr *xdr.Reader) error {
+	o.URL = xr.ReadStringMax(2083)
+	return xr.Error()
+}
+
+/*
+
 Relay Structure:
 
  0                   1                   2                   3
@@ -182,129 +376,5 @@ func (o *Relay) UnmarshalXDR(bs []byte) error {
 func (o *Relay) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.URL = xr.ReadStringMax(2083)
 	o.Latency = int32(xr.ReadUint32())
-	return xr.Error()
-}
-
-/*
-
-Device Structure:
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Length of ID                          |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/                                                               /
-\                     ID (variable length)                      \
-/                                                               /
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                      Number of Addresses                      |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                      Length of Addresses                      |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/                                                               /
-\                  Addresses (variable length)                  \
-/                                                               /
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Number of Relays                        |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/                                                               /
-\                 Zero or more Relay Structures                 \
-/                                                               /
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-struct Device {
-	opaque ID<32>;
-	string Addresses<16>;
-	Relay Relays<16>;
-}
-
-*/
-
-func (o Device) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
-}
-
-func (o Device) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
-}
-
-func (o Device) MustMarshalXDR() []byte {
-	bs, err := o.MarshalXDR()
-	if err != nil {
-		panic(err)
-	}
-	return bs
-}
-
-func (o Device) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
-}
-
-func (o Device) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	if l := len(o.ID); l > 32 {
-		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 32)
-	}
-	xw.WriteBytes(o.ID)
-	if l := len(o.Addresses); l > 16 {
-		return xw.Tot(), xdr.ElementSizeExceeded("Addresses", l, 16)
-	}
-	xw.WriteUint32(uint32(len(o.Addresses)))
-	for i := range o.Addresses {
-		xw.WriteString(o.Addresses[i])
-	}
-	if l := len(o.Relays); l > 16 {
-		return xw.Tot(), xdr.ElementSizeExceeded("Relays", l, 16)
-	}
-	xw.WriteUint32(uint32(len(o.Relays)))
-	for i := range o.Relays {
-		_, err := o.Relays[i].EncodeXDRInto(xw)
-		if err != nil {
-			return xw.Tot(), err
-		}
-	}
-	return xw.Tot(), xw.Error()
-}
-
-func (o *Device) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
-}
-
-func (o *Device) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
-}
-
-func (o *Device) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.ID = xr.ReadBytesMax(32)
-	_AddressesSize := int(xr.ReadUint32())
-	if _AddressesSize < 0 {
-		return xdr.ElementSizeExceeded("Addresses", _AddressesSize, 16)
-	}
-	if _AddressesSize > 16 {
-		return xdr.ElementSizeExceeded("Addresses", _AddressesSize, 16)
-	}
-	o.Addresses = make([]string, _AddressesSize)
-	for i := range o.Addresses {
-		o.Addresses[i] = xr.ReadString()
-	}
-	_RelaysSize := int(xr.ReadUint32())
-	if _RelaysSize < 0 {
-		return xdr.ElementSizeExceeded("Relays", _RelaysSize, 16)
-	}
-	if _RelaysSize > 16 {
-		return xdr.ElementSizeExceeded("Relays", _RelaysSize, 16)
-	}
-	o.Relays = make([]Relay, _RelaysSize)
-	for i := range o.Relays {
-		(&o.Relays[i]).DecodeXDRFrom(xr)
-	}
 	return xr.Error()
 }

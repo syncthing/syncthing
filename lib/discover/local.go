@@ -117,7 +117,12 @@ func (c *localClient) Error() error {
 }
 
 func (c *localClient) announcementPkt() Announce {
-	addrs := c.addrList.AllAddresses()
+	var addrs []Address
+	for _, addr := range c.addrList.AllAddresses() {
+		addrs = append(addrs, Address{
+			URL: addr,
+		})
+	}
 
 	var relays []Relay
 	for _, relay := range c.relayStat.Relays() {
@@ -198,7 +203,7 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 
 	var validAddresses []string
 	for _, addr := range device.Addresses {
-		u, err := url.Parse(addr)
+		u, err := url.Parse(addr.URL)
 		if err != nil {
 			continue
 		}
@@ -216,7 +221,7 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 			u.Host = fmt.Sprintf("%s:%d", host, tcpAddr.Port)
 			validAddresses = append(validAddresses, u.String())
 		} else {
-			validAddresses = append(validAddresses, addr)
+			validAddresses = append(validAddresses, addr.URL)
 		}
 	}
 

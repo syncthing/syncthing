@@ -19,13 +19,17 @@ type Announce struct {
 	Extra []Device // max:16
 }
 
+type Device struct {
+	ID        []byte    // max:32
+	Addresses []Address // max:16
+	Relays    []Relay   // max:16
+}
+
+type Address struct {
+	URL string // max:2083
+}
+
 type Relay struct {
 	URL     string `json:"url"` // max:2083
 	Latency int32  `json:"latency"`
-}
-
-type Device struct {
-	ID        []byte   // max:32
-	Addresses []string // max:16
-	Relays    []Relay  // max:16
 }
