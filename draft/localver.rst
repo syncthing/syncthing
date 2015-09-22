@@ -1,4 +1,4 @@
-.. _localver::
+.. _localver:
 
 Understanding the Local Version Counter
 =======================================
