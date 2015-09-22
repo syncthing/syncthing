@@ -14,7 +14,7 @@ import (
 
 	"github.com/golang/groupcache/lru"
 	"github.com/juju/ratelimit"
-	"github.com/syncthing/protocol"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type querysrv struct {
