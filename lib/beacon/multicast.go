@@ -124,19 +124,26 @@ func (w *multicastWriter) Serve() {
 			return
 		}
 
-		var success int
-
+		success := 0
 		for _, intf := range intfs {
 			wcm.IfIndex = intf.Index
 			pconn.SetWriteDeadline(time.Now().Add(time.Second))
 			_, err = pconn.WriteTo(bs, wcm, gaddr)
 			pconn.SetWriteDeadline(time.Time{})
-			if err != nil && debug {
-				l.Debugln(err, "on write to", gaddr, intf.Name)
-			} else if debug {
-				l.Debugf("sent %d bytes to %v on %s", len(bs), gaddr, intf.Name)
-				success++
+
+			if err != nil {
+				if debug {
+					l.Debugln(err, "on write to", gaddr, intf.Name)
+				}
+				w.setError(err)
+				continue
 			}
+
+			if debug {
+				l.Debugf("sent %d bytes to %v on %s", len(bs), gaddr, intf.Name)
+			}
+
+			success++
 		}
 
 		if success > 0 {

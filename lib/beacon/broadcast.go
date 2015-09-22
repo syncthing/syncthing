@@ -124,12 +124,14 @@ func (w *broadcastWriter) Serve() {
 			l.Debugln("addresses:", dsts)
 		}
 
+		success := 0
 		for _, ip := range dsts {
 			dst := &net.UDPAddr{IP: ip, Port: w.port}
 
 			w.conn.SetWriteDeadline(time.Now().Add(time.Second))
 			_, err := w.conn.WriteTo(bs, dst)
 			w.conn.SetWriteDeadline(time.Time{})
+
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				// Write timeouts should not happen. We treat it as a fatal
 				// error on the socket.
@@ -138,23 +140,34 @@ func (w *broadcastWriter) Serve() {
 				}
 				w.setError(err)
 				return
-			} else if err, ok := err.(net.Error); ok && err.Temporary() {
+			}
+
+			if err, ok := err.(net.Error); ok && err.Temporary() {
 				// A transient error. Lets hope for better luck in the future.
 				if debug {
 					l.Debugln(err)
 				}
 				continue
-			} else if err != nil {
+			}
+
+			if err != nil {
 				// Some other error that we don't expect. Bail and retry.
 				if debug {
 					l.Debugln(err)
 				}
 				w.setError(err)
 				return
-			} else if debug {
-				l.Debugf("sent %d bytes to %s", len(bs), dst)
-				w.setError(nil)
 			}
+
+			if debug {
+				l.Debugf("sent %d bytes to %s", len(bs), dst)
+			}
+
+			success++
+		}
+
+		if success > 0 {
+			w.setError(nil)
 		}
 	}
 }
