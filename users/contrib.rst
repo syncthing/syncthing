@@ -152,6 +152,7 @@ REST API Bindings
 
 -  Ruby: https://github.com/retgoat/syncthing-ruby
 -  Python: https://github.com/blakev/python-syncthing (https://pypi.python.org/pypi/syncthing)
+-  Python: https://github.com/akissa/pysyncthing (https://pypi.python.org/pypi/pysyncthing)
 
 Ports
 ~~~~~
@@ -167,4 +168,3 @@ Configuration management
 -  SaltStack: https://bitbucket.org/StartledPhoenix/saltstack-syncthing
 -  Puppet: https://github.com/whefter/puppet-syncthing
 -  Command line interface: https://github.com/syncthing/syncthing-cli
-
