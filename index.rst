@@ -70,6 +70,13 @@ can use the headings in the left sidebar to navigate the site.
    Introduction <dev/intro>
    dev/*
 
+.. toctree::
+   :caption: Specifications
+   :maxdepth: 1
+   :glob:
+
+   specs/*
+
 .. _`contribution guidelines`: https://github.com/syncthing/syncthing/blob/master/CONTRIBUTING.md
 .. _Github: https://github.com/syncthing/docs
 .. _`issue tracker`: https://github.com/syncthing/syncthing/issues
