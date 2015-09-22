@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/thejerf/suture"
+	"golang.org/x/net/trace"
 )
 
 type Broadcast struct {
@@ -21,6 +22,8 @@ type Broadcast struct {
 	outbox chan recv
 	br     *broadcastReader
 	bw     *broadcastWriter
+
+	trace.EventLog
 }
 
 func NewBroadcast(port int) *Broadcast {
@@ -38,19 +41,22 @@ func NewBroadcast(port int) *Broadcast {
 				}
 			},
 		}),
-		port:   port,
-		inbox:  make(chan []byte),
-		outbox: make(chan recv, 16),
+		port:     port,
+		inbox:    make(chan []byte),
+		outbox:   make(chan recv, 16),
+		EventLog: trace.NewEventLog("beacon.Broadcast", fmt.Sprintf("port %d", port)),
 	}
 
 	b.br = &broadcastReader{
-		port:   port,
-		outbox: b.outbox,
+		port:     port,
+		outbox:   b.outbox,
+		EventLog: b.EventLog,
 	}
 	b.Add(b.br)
 	b.bw = &broadcastWriter{
-		port:  port,
-		inbox: b.inbox,
+		port:     port,
+		inbox:    b.inbox,
+		EventLog: b.EventLog,
 	}
 	b.Add(b.bw)
 
@@ -58,11 +64,13 @@ func NewBroadcast(port int) *Broadcast {
 }
 
 func (b *Broadcast) Send(data []byte) {
+	b.Printf("Send %d bytes", len(data))
 	b.inbox <- data
 }
 
 func (b *Broadcast) Recv() ([]byte, net.Addr) {
 	recv := <-b.outbox
+	b.Printf("Recv %d bytes from %v", len(recv.data), recv.src)
 	return recv.data, recv.src
 }
 
@@ -78,6 +86,7 @@ type broadcastWriter struct {
 	inbox chan []byte
 	conn  *net.UDPConn
 	errorHolder
+	trace.EventLog
 }
 
 func (w *broadcastWriter) Serve() {
@@ -85,6 +94,8 @@ func (w *broadcastWriter) Serve() {
 		l.Debugln(w, "starting")
 		defer l.Debugln(w, "stopping")
 	}
+	w.Printf("%v starting", w)
+	defer w.Printf("%v stopping", w)
 
 	var err error
 	w.conn, err = net.ListenUDP("udp4", nil)
@@ -93,6 +104,7 @@ func (w *broadcastWriter) Serve() {
 			l.Debugln(err)
 		}
 		w.setError(err)
+		w.Errorf("ListenUDP: %v", err)
 		return
 	}
 	defer w.conn.Close()
@@ -104,6 +116,7 @@ func (w *broadcastWriter) Serve() {
 				l.Debugln(err)
 			}
 			w.setError(err)
+			w.Errorf("InterfaceAddrs: %v", err)
 			continue
 		}
 
@@ -123,6 +136,7 @@ func (w *broadcastWriter) Serve() {
 		if debug {
 			l.Debugln("addresses:", dsts)
 		}
+		w.Printf("Addresses: %v", dsts)
 
 		for _, ip := range dsts {
 			dst := &net.UDPAddr{IP: ip, Port: w.port}
@@ -137,12 +151,14 @@ func (w *broadcastWriter) Serve() {
 					l.Debugln(err)
 				}
 				w.setError(err)
+				w.Errorf("WriteTo %v: %v", dst, err)
 				return
 			} else if err, ok := err.(net.Error); ok && err.Temporary() {
 				// A transient error. Lets hope for better luck in the future.
 				if debug {
 					l.Debugln(err)
 				}
+				w.Printf("WriteTo %v: %v", dst, err)
 				continue
 			} else if err != nil {
 				// Some other error that we don't expect. Bail and retry.
@@ -150,11 +166,13 @@ func (w *broadcastWriter) Serve() {
 					l.Debugln(err)
 				}
 				w.setError(err)
+				w.Errorf("WriteTo %v: %v", dst, err)
 				return
 			} else if debug {
 				l.Debugf("sent %d bytes to %s", len(bs), dst)
-				w.setError(nil)
 			}
+			w.setError(nil)
+			w.Printf("WriteTo %v: %d bytes", dst, len(bs))
 		}
 	}
 }
@@ -172,6 +190,7 @@ type broadcastReader struct {
 	outbox chan recv
 	conn   *net.UDPConn
 	errorHolder
+	trace.EventLog
 }
 
 func (r *broadcastReader) Serve() {
@@ -179,6 +198,8 @@ func (r *broadcastReader) Serve() {
 		l.Debugln(r, "starting")
 		defer l.Debugln(r, "stopping")
 	}
+	r.Printf("%v starting", r)
+	defer r.Printf("%v stopping", r)
 
 	var err error
 	r.conn, err = net.ListenUDP("udp4", &net.UDPAddr{Port: r.port})
@@ -187,6 +208,7 @@ func (r *broadcastReader) Serve() {
 			l.Debugln(err)
 		}
 		r.setError(err)
+		r.Errorf("ListenUDP: %v", err)
 		return
 	}
 	defer r.conn.Close()
@@ -199,6 +221,7 @@ func (r *broadcastReader) Serve() {
 				l.Debugln(err)
 			}
 			r.setError(err)
+			r.Errorf("ReadFrom: %v", err)
 			return
 		}
 
@@ -216,6 +239,7 @@ func (r *broadcastReader) Serve() {
 			if debug {
 				l.Debugln("dropping message")
 			}
+			r.Errorf("Dropping message")
 		}
 	}
 

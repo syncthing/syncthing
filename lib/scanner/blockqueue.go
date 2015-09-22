@@ -12,6 +12,7 @@ import (
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"golang.org/x/net/trace"
 )
 
 // The parallell hasher reads FileInfo structures from the inbox, hashes the
@@ -40,11 +41,16 @@ func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan pr
 }
 
 func HashFile(path string, blockSize int, sizeHint int64, counter *int64) ([]protocol.BlockInfo, error) {
+	tr := trace.New("scanner.HashFile", path)
+	defer tr.Finish()
+
 	fd, err := os.Open(path)
 	if err != nil {
 		if debug {
 			l.Debugln("open:", err)
 		}
+		tr.LazyPrintf("open: %v", err)
+		tr.SetError()
 		return []protocol.BlockInfo{}, err
 	}
 	defer fd.Close()
@@ -55,12 +61,23 @@ func HashFile(path string, blockSize int, sizeHint int64, counter *int64) ([]pro
 			if debug {
 				l.Debugln("stat:", err)
 			}
+			tr.LazyPrintf("stat: %v", err)
+			tr.SetError()
 			return []protocol.BlockInfo{}, err
 		}
+		tr.LazyPrintf("%d bytes, %0o, %v", fi.Size(), fi.Mode(), fi.ModTime())
 		sizeHint = fi.Size()
+	} else {
+		tr.LazyPrintf("%d bytes (size hint)", sizeHint)
 	}
 
-	return Blocks(fd, blockSize, sizeHint, counter)
+	blocks, err := Blocks(fd, blockSize, sizeHint, counter)
+	if err != nil {
+		tr.LazyPrintf("Blocks: %v", err)
+		tr.SetError()
+	}
+	tr.LazyPrintf("%d blocks", len(blocks))
+	return blocks, err
 }
 
 func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, counter *int64) {

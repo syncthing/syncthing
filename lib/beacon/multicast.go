@@ -14,6 +14,7 @@ import (
 
 	"github.com/thejerf/suture"
 	"golang.org/x/net/ipv6"
+	"golang.org/x/net/trace"
 )
 
 type Multicast struct {
@@ -23,6 +24,7 @@ type Multicast struct {
 	outbox chan recv
 	mr     *multicastReader
 	mw     *multicastWriter
+	trace.EventLog
 }
 
 func NewMulticast(addr string) *Multicast {
@@ -40,21 +42,24 @@ func NewMulticast(addr string) *Multicast {
 				}
 			},
 		}),
-		inbox:  make(chan []byte),
-		outbox: make(chan recv, 16),
+		inbox:    make(chan []byte),
+		outbox:   make(chan recv, 16),
+		EventLog: trace.NewEventLog("beacon.Multicast", addr),
 	}
 
 	m.mr = &multicastReader{
-		addr:   addr,
-		outbox: m.outbox,
-		stop:   make(chan struct{}),
+		addr:     addr,
+		outbox:   m.outbox,
+		stop:     make(chan struct{}),
+		EventLog: m.EventLog,
 	}
 	m.Add(m.mr)
 
 	m.mw = &multicastWriter{
-		addr:  addr,
-		inbox: m.inbox,
-		stop:  make(chan struct{}),
+		addr:     addr,
+		inbox:    m.inbox,
+		stop:     make(chan struct{}),
+		EventLog: m.EventLog,
 	}
 	m.Add(m.mw)
 
@@ -62,11 +67,13 @@ func NewMulticast(addr string) *Multicast {
 }
 
 func (m *Multicast) Send(data []byte) {
+	m.Printf("Send %d bytes", len(data))
 	m.inbox <- data
 }
 
 func (m *Multicast) Recv() ([]byte, net.Addr) {
 	recv := <-m.outbox
+	m.Printf("Recv %d bytes from %v", len(recv.data), recv.src)
 	return recv.data, recv.src
 }
 
@@ -82,6 +89,7 @@ type multicastWriter struct {
 	inbox <-chan []byte
 	errorHolder
 	stop chan struct{}
+	trace.EventLog
 }
 
 func (w *multicastWriter) Serve() {
@@ -89,6 +97,8 @@ func (w *multicastWriter) Serve() {
 		l.Debugln(w, "starting")
 		defer l.Debugln(w, "stopping")
 	}
+	w.Printf("%v starting", w)
+	defer w.Printf("%v stopping", w)
 
 	gaddr, err := net.ResolveUDPAddr("udp6", w.addr)
 	if err != nil {
@@ -96,6 +106,7 @@ func (w *multicastWriter) Serve() {
 			l.Debugln(err)
 		}
 		w.setError(err)
+		w.Errorf("ResolveUDPAddr: %v", err)
 		return
 	}
 
@@ -105,6 +116,7 @@ func (w *multicastWriter) Serve() {
 			l.Debugln(err)
 		}
 		w.setError(err)
+		w.Errorf("ListenPacket: %v", err)
 		return
 	}
 
@@ -121,6 +133,7 @@ func (w *multicastWriter) Serve() {
 				l.Debugln(err)
 			}
 			w.setError(err)
+			w.Errorf("Interfaces: %v", err)
 			return
 		}
 
@@ -133,10 +146,13 @@ func (w *multicastWriter) Serve() {
 			pconn.SetWriteDeadline(time.Time{})
 			if err != nil && debug {
 				l.Debugln(err, "on write to", gaddr, intf.Name)
+				w.Errorf("WriteTo %v on %v: %v", gaddr, intf.Name, err)
+				continue
 			} else if debug {
 				l.Debugf("sent %d bytes to %v on %s", len(bs), gaddr, intf.Name)
-				success++
 			}
+			success++
+			w.Printf("WriteTo %v on %v: %d bytes", gaddr, intf.Name, len(bs))
 		}
 
 		if success > 0 {
@@ -163,6 +179,7 @@ type multicastReader struct {
 	outbox chan<- recv
 	errorHolder
 	stop chan struct{}
+	trace.EventLog
 }
 
 func (r *multicastReader) Serve() {
@@ -170,6 +187,8 @@ func (r *multicastReader) Serve() {
 		l.Debugln(r, "starting")
 		defer l.Debugln(r, "stopping")
 	}
+	r.Printf("%v starting", r)
+	defer r.Printf("%v stopping", r)
 
 	gaddr, err := net.ResolveUDPAddr("udp6", r.addr)
 	if err != nil {
@@ -177,6 +196,7 @@ func (r *multicastReader) Serve() {
 			l.Debugln(err)
 		}
 		r.setError(err)
+		r.Errorf("ResolveUDPAddr: %v", err)
 		return
 	}
 
@@ -186,6 +206,7 @@ func (r *multicastReader) Serve() {
 			l.Debugln(err)
 		}
 		r.setError(err)
+		r.Errorf("ListenPacket: %v", err)
 		return
 	}
 
@@ -195,6 +216,7 @@ func (r *multicastReader) Serve() {
 			l.Debugln(err)
 		}
 		r.setError(err)
+		r.Errorf("Interfaces: %v", err)
 		return
 	}
 
@@ -202,6 +224,11 @@ func (r *multicastReader) Serve() {
 	joined := 0
 	for _, intf := range intfs {
 		err := pconn.JoinGroup(&intf, &net.UDPAddr{IP: gaddr.IP})
+		if err != nil {
+			r.Errorf("JoinGroup %v on %v: %v", gaddr.IP, intf.Name, err)
+			continue
+		}
+		r.Printf("JoinGroup %v on %v", gaddr.IP, intf.Name)
 		if debug {
 			if err != nil {
 				l.Debugln("IPv6 join", intf.Name, "failed:", err)
@@ -242,6 +269,7 @@ func (r *multicastReader) Serve() {
 			if debug {
 				l.Debugln("dropping message")
 			}
+			r.Errorf("Dropping message")
 		}
 	}
 }

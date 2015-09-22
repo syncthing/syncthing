@@ -21,6 +21,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/symlinks"
+	"golang.org/x/net/trace"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -72,6 +73,8 @@ type Walker struct {
 	// Optional progress tick interval which defines how often FolderScanProgress
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
+
+	trace.Trace
 }
 
 type TempNamer interface {
@@ -98,8 +101,16 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 		l.Debugln("Walk", w.Dir, w.Subs, w.BlockSize, w.Matcher)
 	}
 
+	closeTrace := make(chan struct{})
+	w.Trace = trace.New("scanner.Walk", w.Folder)
+	go func() {
+		<-closeTrace
+		w.Trace.Finish()
+	}()
+
 	err := checkDir(w.Dir)
 	if err != nil {
+		w.LazyPrintf("checkDir: %v", err)
 		return nil, err
 	}
 
@@ -111,9 +122,11 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	go func() {
 		hashFiles := w.walkAndHashFiles(toHashChan, finishedChan)
 		if len(w.Subs) == 0 {
+			w.LazyPrintf("regular scan, no subs")
 			filepath.Walk(w.Dir, hashFiles)
 		} else {
 			for _, sub := range w.Subs {
+				w.LazyPrintf("scanning sub %s", sub)
 				filepath.Walk(filepath.Join(w.Dir, sub), hashFiles)
 			}
 		}
@@ -123,7 +136,8 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil)
+		w.LazyPrintf("progress emitting disabled")
+		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, closeTrace)
 		return finishedChan, nil
 	}
 
@@ -162,6 +176,8 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 					if debug {
 						l.Debugln("Walk progress done", w.Dir, w.Subs, w.BlockSize, w.Matcher)
 					}
+					w.LazyPrintf("Walk progress done: %v, %v, %v, %v", w.Dir, w.Subs, w.BlockSize, w.Matcher)
+					close(closeTrace)
 					ticker.Stop()
 					return
 				case <-ticker.C:
@@ -169,6 +185,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 					if debug {
 						l.Debugf("Walk %s %s current progress %d/%d (%d%%)", w.Dir, w.Subs, current, total, current*100/total)
 					}
+					w.LazyPrintf("Walk %s %s current progress %d/%d (%d%%)", w.Dir, w.Subs, current, total, current*100/total)
 					events.Default.Log(events.FolderScanProgress, map[string]interface{}{
 						"folder":  w.Folder,
 						"current": current,
@@ -182,6 +199,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 			if debug {
 				l.Debugln("real to hash:", file.Name)
 			}
+			w.LazyPrintf("hashing %s", file.Name)
 			realToHashChan <- file
 		}
 		close(realToHashChan)
@@ -205,6 +223,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			if debug {
 				l.Debugln("error:", p, info, err)
 			}
+			w.LazyPrintf("error: %v, %v, %v", p, info, err)
 			return skip
 		}
 
@@ -213,6 +232,8 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			if debug {
 				l.Debugln("rel error:", p, err)
 			}
+			w.LazyPrintf("rel error: %v, %v", p, err)
+
 			return skip
 		}
 
@@ -230,11 +251,13 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			if debug {
 				l.Debugln("temporary:", rn)
 			}
+			w.LazyPrintf("temporary: %v", rn)
 			if info.Mode().IsRegular() && mtime.Add(w.TempLifetime).Before(now) {
 				os.Remove(p)
 				if debug {
 					l.Debugln("removing temporary:", rn, mtime)
 				}
+				w.LazyPrintf("removing temporary: %v, %v", rn, mtime)
 			}
 			return nil
 		}
@@ -245,11 +268,13 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			if debug {
 				l.Debugln("ignored:", rn)
 			}
+			w.LazyPrintf("ignored: %v", rn)
 			return skip
 		}
 
 		if !utf8.ValidString(rn) {
 			l.Warnf("File name %q is not in UTF8 encoding; skipping.", rn)
+			w.LazyPrintf("File name %q is not in UTF8 encoding; skipping.", rn)
 			return skip
 		}
 
@@ -271,6 +296,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				// We're not authorized to do anything about it, so complain and skip.
 
 				l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", rn)
+				w.LazyPrintf("File name %q is not in the correct UTF8 normalization form; skipping.", rn)
 				return skip
 			}
 
@@ -283,10 +309,12 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 					return skip
 				}
 				l.Infof(`Normalized UTF8 encoding of file name "%s".`, rn)
+				w.LazyPrintf(`Normalized UTF8 encoding of file name "%s".`, rn)
 			} else {
 				// There is something already in the way at the normalized
 				// file name.
 				l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, rn)
+				w.LazyPrintf(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, rn)
 				return skip
 			}
 
@@ -316,6 +344,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				if debug {
 					l.Debugln("readlink error:", p, err)
 				}
+				w.LazyPrintf("readlink error: %v, %v", p, err)
 				return skip
 			}
 
@@ -324,6 +353,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				if debug {
 					l.Debugln("hash link error:", p, err)
 				}
+				w.LazyPrintf("hash link error: %v, %v", p, err)
 				return skip
 			}
 
@@ -350,8 +380,9 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			}
 
 			if debug {
-				l.Debugln("symlink changedb:", p, f)
+				l.Debugln("symlink changed:", p, f)
 			}
+			w.LazyPrintf("symlink changed: %v, %v", p, f)
 
 			dchan <- f
 
@@ -387,6 +418,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				Modified: mtime.Unix(),
 			}
 			if debug {
+				w.LazyPrintf("dir: %v, %v", p, f)
 				l.Debugln("dir:", p, f)
 			}
 			dchan <- f
@@ -436,6 +468,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			if debug {
 				l.Debugln("to hash:", p, f)
 			}
+			w.LazyPrintf("to hash: %v", p)
 			fchan <- f
 		}
 

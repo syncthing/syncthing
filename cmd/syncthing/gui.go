@@ -39,6 +39,7 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/net/trace"
 )
 
 type guiError struct {
@@ -188,6 +189,12 @@ func (s *apiSvc) Serve() {
 	mux := http.NewServeMux()
 	mux.Handle("/rest/", restMux)
 	mux.HandleFunc("/qr/", s.getQR)
+	mux.HandleFunc("/debug/events", func(w http.ResponseWriter, r *http.Request) {
+		trace.RenderEvents(w, r, false)
+	})
+	mux.HandleFunc("/debug/requests", func(w http.ResponseWriter, r *http.Request) {
+		trace.Render(w, r, false)
+	})
 
 	// Serve compiled in assets unless an asset directory was set (for development)
 	mux.Handle("/", embeddedStatic{
