@@ -1,0 +1,93 @@
+{
+	"ImportPath": "github.com/syncthing/discosrv",
+	"GoVersion": "go1.5.1",
+	"Deps": [
+		{
+			"ImportPath": "github.com/bkaradzic/go-lz4",
+			"Rev": "74ddf82598bc4745b965729e9c6a463bedd33049"
+		},
+		{
+			"ImportPath": "github.com/calmh/logger",
+			"Rev": "c96f6a1a8c7b6bf2f4860c667867d90174799eb2"
+		},
+		{
+			"ImportPath": "github.com/calmh/luhn",
+			"Rev": "0c8388ff95fa92d4094011e5a04fc99dea3d1632"
+		},
+		{
+			"ImportPath": "github.com/calmh/xdr",
+			"Rev": "5f7208e86762911861c94f1849eddbfc0a60cbf0"
+		},
+		{
+			"ImportPath": "github.com/camlistore/lock",
+			"Rev": "ae27720f340952636b826119b58130b9c1a847a0"
+		},
+		{
+			"ImportPath": "github.com/cznic/b",
+			"Rev": "e2e747ce049fb910cff6b1fd7ad8faf3900939d5"
+		},
+		{
+			"ImportPath": "github.com/cznic/bufs",
+			"Rev": "3dcccbd7064a1689f9c093a988ea11ac00e21f51"
+		},
+		{
+			"ImportPath": "github.com/cznic/exp/lldb",
+			"Rev": "36265f1914ea00990ff0b73f72350edf9b1850df"
+		},
+		{
+			"ImportPath": "github.com/cznic/fileutil",
+			"Rev": "1c9c88fbf552b3737c7b97e1f243860359687976"
+		},
+		{
+			"ImportPath": "github.com/cznic/mathutil",
+			"Rev": "a804f0f2d8521e22d6adabf02cbec61dc1f9dbd2"
+		},
+		{
+			"ImportPath": "github.com/cznic/ql",
+			"Rev": "9c77931b60c6317f94de402268bbc3e8334b71f4"
+		},
+		{
+			"ImportPath": "github.com/cznic/sortutil",
+			"Rev": "4c7342852e65c2088c981288f2c5610d10b9f7f4"
+		},
+		{
+			"ImportPath": "github.com/cznic/strutil",
+			"Rev": "1eb03e3cc9d345307a45ec82bd3016cde4bd4464"
+		},
+		{
+			"ImportPath": "github.com/cznic/zappy",
+			"Rev": "47331054e4f96186e3ff772877c0443909368a45"
+		},
+		{
+			"ImportPath": "github.com/golang/groupcache/lru",
+			"Rev": "604ed5785183e59ae2789449d89e73f3a2a77987"
+		},
+		{
+			"ImportPath": "github.com/juju/ratelimit",
+			"Rev": "772f5c38e468398c4511514f4f6aa9a4185bc0a0"
+		},
+		{
+			"ImportPath": "github.com/lib/pq",
+			"Comment": "go1.0-cutoff-47-g93e9980",
+			"Rev": "93e9980741c9e593411b94e07d5bad8cfb4809db"
+		},
+		{
+			"ImportPath": "github.com/syncthing/syncthing/lib/protocol",
+			"Comment": "v0.12.0-beta1-119-g24c499d",
+			"Rev": "24c499d2822ae891c95406066456872e8d6c8164"
+		},
+		{
+			"ImportPath": "github.com/thejerf/suture",
+			"Comment": "v1.0.1",
+			"Rev": "99c1f2d613756768fc4299acd9dc621e11ed3fd7"
+		},
+		{
+			"ImportPath": "golang.org/x/text/transform",
+			"Rev": "723492b65e225eafcba054e76ba18bb9c5ac1ea2"
+		},
+		{
+			"ImportPath": "golang.org/x/text/unicode/norm",
+			"Rev": "723492b65e225eafcba054e76ba18bb9c5ac1ea2"
+		}
+	]
+}
