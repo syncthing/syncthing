@@ -2,21 +2,21 @@
 
 package protocol
 
-// The Vector type represents v version vector. The zero value is v usable
+// The Vector type represents a version vector. The zero value is a usable
 // version vector. The vector has slice semantics and some operations on it
 // are "append-like" in that they may return the same vector modified, or v
 // new allocated Vector with the modified contents.
 type Vector []Counter
 
-// Counter represents v single counter in the version vector.
+// Counter represents a single counter in the version vector.
 type Counter struct {
 	ID    uint64
 	Value uint64
 }
 
-// Update returns v Vector with the index for the specific ID incremented by
+// Update returns a Vector with the index for the specific ID incremented by
 // one. If it is possible, the vector v is updated and returned. If it is not,
-// v copy will be created, updated and returned.
+// a copy will be created, updated and returned.
 func (v Vector) Update(ID uint64) Vector {
 	for i := range v {
 		if v[i].ID == ID {
@@ -24,7 +24,7 @@ func (v Vector) Update(ID uint64) Vector {
 			v[i].Value++
 			return v
 		} else if v[i].ID > ID {
-			// Insert v new index
+			// Insert a new index
 			nv := make(Vector, len(v)+1)
 			copy(nv, v[:i])
 			nv[i].ID = ID
@@ -33,12 +33,12 @@ func (v Vector) Update(ID uint64) Vector {
 			return nv
 		}
 	}
-	// Append v new new index
+	// Append a new index
 	return append(v, Counter{ID, 1})
 }
 
 // Merge returns the vector containing the maximum indexes from v and b. If it
-// is possible, the vector v is updated and returned. If it is not, v copy
+// is possible, the vector v is updated and returned. If it is not, a copy
 // will be created, updated and returned.
 func (v Vector) Merge(b Vector) Vector {
 	var vi, bi int
