@@ -4,22 +4,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package main
+package connections
 
 import (
-	"io"
+	"os"
+	"strings"
 
-	"github.com/juju/ratelimit"
+	"github.com/calmh/logger"
 )
 
-type limitedWriter struct {
-	w      io.Writer
-	bucket *ratelimit.Bucket
-}
-
-func (w *limitedWriter) Write(buf []byte) (int, error) {
-	if w.bucket != nil {
-		w.bucket.Wait(int64(len(buf)))
-	}
-	return w.w.Write(buf)
-}
+var (
+	debug = strings.Contains(os.Getenv("STTRACE"), "connections") || os.Getenv("STTRACE") == "all"
+	l     = logger.DefaultLogger
+)

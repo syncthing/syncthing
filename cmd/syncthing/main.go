@@ -28,6 +28,7 @@ import (
 	"github.com/calmh/logger"
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
@@ -577,13 +578,6 @@ func syncthingMain() {
 		symlinks.Supported = false
 	}
 
-	if opts.MaxSendKbps > 0 {
-		writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxSendKbps), int64(5*1000*opts.MaxSendKbps))
-	}
-	if opts.MaxRecvKbps > 0 {
-		readRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxRecvKbps), int64(5*1000*opts.MaxRecvKbps))
-	}
-
 	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
 		lans, _ = osutil.GetLans()
 		networks := make([]string, 0, len(lans))
@@ -750,7 +744,7 @@ func syncthingMain() {
 
 	// Start connection management
 
-	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg, cachedDiscovery, relaySvc)
+	connectionSvc := connections.NewConnectionSvc(cfg, myID, m, tlsCfg, cachedDiscovery, relaySvc, bepProtocolName, tlsDefaultCommonName, lans)
 	mainSvc.Add(connectionSvc)
 
 	if cpuProfile {
