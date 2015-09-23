@@ -17,27 +17,16 @@ Cross-platform
 
 -  https://github.com/syncthing/syncthing-gtk
 -  https://github.com/sieren/QSyncthingTray
--  https://github.com/alex2108/syncthing-tray (Tray icon only)
 
 Android
 ~~~~~~~
 
 -  https://github.com/syncthing/syncthing-android
 
-Ubuntu
-~~~~~~
-
--  https://github.com/icaruseffect/syncthing-ubuntu-indicator
-
 .. _contrib-windows:
 
 Windows
 ~~~~~~~
-
--  https://github.com/iss0/SyncthingTray
-
--  https://github.com/bloones/SyncThingWin (Windows service helper and
-   tray icon)
 
 -  https://github.com/canton7/SyncTrayzor (Windows host for Syncthing.
    Installer, auto-start, built-in browser, tray icon, folder watcher,
@@ -47,7 +36,6 @@ OS X
 ~~~~
 
 -  https://github.com/m0ppers/syncthing-bar (OSX 10.10 only)
--  https://github.com/jerryjacobs/foo-app/releases (OSX 10.9 compatible)
 
 Kindle Touch
 ~~~~~~~~~~~~
@@ -56,6 +44,13 @@ Kindle Touch
 
 Packages and Bundlings
 ----------------------
+
+Debian / Ubuntu
+~~~~~~~~~~~~~~~
+
+-  **Official packages:** http://apt.syncthing.net/
+-  Syncthing GTK PPA:
+   https://launchpad.net/~nilarimogard/+archive/ubuntu/webupd8/
 
 ArchLinux
 ~~~~~~~~~
@@ -70,13 +65,6 @@ arkOS
 
 Syncthing is included in arkOS, https://arkos.io/.
 
-Debian / Ubuntu
-~~~~~~~~~~~~~~~
-
--  **Official packages: http://apt.syncthing.net/**
--  Syncthing GTK PPA:
-   https://launchpad.net/~nilarimogard/+archive/ubuntu/webupd8/
-
 Docker
 ~~~~~~
 
@@ -88,33 +76,11 @@ Docker
    container that allows custom config and will keep your settings and
    data past docker image restarts.
 
-Fedora
-~~~~~~
-
--  https://github.com/thunderbirdtr/syncthing\_rpm (SRPM, binary
-   packages coming)
-
--  https://copr.fedoraproject.org/coprs/tune2fs/syncthing/ (RPMs, based
-   on https://github.com/thunderbirdtr/syncthing\_rpm)
 
 Gentoo
 ~~~~~~
 
-Syncthing is available from the [timboudreau overlay](http://github.com/timboudreau/gentoo), or from [fearedbliss's overlay](https://github.com/fearedbliss/bliss-overlay). These overlays contain the ebuild for building syncthing from source,
-installing it, and setting it up as a service that runs on startup.
-
-Install layman if you don't have it already.  Then run
-
-- layman -a timboudreau (or bliss-overlay)
-- eix-update
-- emerge syncthing
-
-Edit /etc/conf.d/syncthing and set the user who will share files to
-your user name.
-
-fearedbliss's overlay compiles syncthing so that it doesn't autoupdate on its own (To ensure updates are stable, and also provides a clean upgrade path via Portage). It also installs the systemd service/user unit files provided by SyncThing.
-
-If you don't have layman installed but are using a relatively new version of Portage (>= 2.2.18), you can integrate these external repositories directly into your normal emerge --sync updates by following the steps here (https://wiki.gentoo.org/wiki//etc/portage/repos.conf#External_Overlay).
+Syncthing is available from the `timboudreau overlay <http://github.com/timboudreau/gentoo>`__ or from `fearedbliss's overlay <https://github.com/fearedbliss/bliss-overlay>`__.
 
 FreeBSD
 ~~~~~~~
@@ -157,14 +123,30 @@ REST API Bindings
 Ports
 ~~~~~
 
--  Swift: https://github.com/dapperstout/pulse-swift
--  Java: https://github.com/dapperstout/pulse-java
--  PHP: https://github.com/cebe/pulse-php-discover (Only Discovery so
-   far)
+-  Swift: https://source.ind.ie/project/pulse-swift/tree/master
 
 Configuration management
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
--  SaltStack: https://bitbucket.org/StartledPhoenix/saltstack-syncthing
 -  Puppet: https://github.com/whefter/puppet-syncthing
 -  Command line interface: https://github.com/syncthing/syncthing-cli
+
+Older, Possibly Unmaintained
+----------------------------
+
+.. note::
+   These projects have not been updated in quite a while. They may still be
+   usable, or they may be in disrepair. If you are the maintainer of one of
+   these and you have revived the project, please update this page
+   accordingly.
+
+-  https://github.com/alex2108/syncthing-tray
+-  https://github.com/icaruseffect/syncthing-ubuntu-indicator
+-  https://github.com/iss0/SyncthingTray
+-  https://github.com/bloones/SyncThingWin
+-  https://github.com/jerryjacobs/foo-app/releases
+-  https://github.com/thunderbirdtr/syncthing_rpm
+-  https://copr.fedoraproject.org/coprs/tune2fs/syncthing/
+-  https://github.com/dapperstout/pulse-java
+-  https://github.com/cebe/pulse-php-discover
+-  https://bitbucket.org/StartledPhoenix/saltstack-syncthing
