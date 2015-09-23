@@ -279,11 +279,11 @@ man_pages = [
     ('users/faq', 'syncthing-faq',
      'Frequently Asked Questions',
      ['The Syncthing Authors'], 7),
-    ('specs/bep-v1', 'syncthing-bep',
-     'Block Exchange Protocol v1',
+    ('specs/bep-v1', 'syncthing-bep-v1',
+     'Block Exchange Protocol',
      ['The Syncthing Authors'], 7),
-    ('specs/localdisco-v3', 'syncthing-localdisco',
-     'Local Discovery Protocol v3',
+    ('specs/localdisco-v3', 'syncthing-localdisco-v3',
+     'Local Discovery Protocol',
      ['The Syncthing Authors'], 7),
 ]
 
