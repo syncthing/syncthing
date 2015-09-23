@@ -33,3 +33,10 @@ The documentation uses the `rst format`_. For a starting point check out the
 .. _Sphinx: http://sphinx-doc.org/
 .. _`rst format`: http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html
 .. _`reStructuredText Primer`: http://sphinx-doc.org/rest.html
+
+License
+=======
+
+All documentation and protocol specifications are licensed under the `Creative
+Commons Attribution 4.0 International License
+<http://creativecommons.org/licenses/by/4.0/>`__.
