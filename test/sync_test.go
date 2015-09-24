@@ -25,6 +25,7 @@ import (
 const (
 	longTimeLimit  = 5 * time.Minute
 	shortTimeLimit = 45 * time.Second
+	s12Folder      = `¯\_(ツ)_/¯ Räksmörgås 动作 Адрес` // This was renamed to ensure arbitrary folder IDs are fine.
 )
 
 func TestSyncClusterWithoutVersioning(t *testing.T) {
@@ -220,7 +221,7 @@ func testSyncCluster(t *testing.T) {
 				t.Fatal(err)
 			}
 			if i == 0 || i == 1 {
-				if err := device.RescanDelay("s12", 86400); err != nil {
+				if err := device.RescanDelay(s12Folder, 86400); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -418,7 +419,7 @@ func scSyncAndCompare(p []*rc.Process, expected [][]fileInfo) error {
 		if !rc.InSync("default", p...) {
 			continue
 		}
-		if !rc.InSync("s12", p[0], p[1]) {
+		if !rc.InSync(s12Folder, p[0], p[1]) {
 			continue
 		}
 		if !rc.InSync("s23", p[1], p[2]) {

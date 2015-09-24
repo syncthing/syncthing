@@ -226,12 +226,12 @@ func (p *Process) Events(since int) ([]Event, error) {
 }
 
 func (p *Process) Rescan(folder string) error {
-	_, err := p.Post("/rest/db/scan?folder="+folder, nil)
+	_, err := p.Post("/rest/db/scan?folder="+url.QueryEscape(folder), nil)
 	return err
 }
 
 func (p *Process) RescanDelay(folder string, delaySeconds int) error {
-	_, err := p.Post(fmt.Sprintf("/rest/db/scan?folder=%s&next=%d", folder, delaySeconds), nil)
+	_, err := p.Post(fmt.Sprintf("/rest/db/scan?folder=%s&next=%d", url.QueryEscape(folder), delaySeconds), nil)
 	return err
 }
 
@@ -341,7 +341,7 @@ type Model struct {
 }
 
 func (p *Process) Model(folder string) (Model, error) {
-	bs, err := p.Get("/rest/db/status?folder=" + folder)
+	bs, err := p.Get("/rest/db/status?folder=" + url.QueryEscape(folder))
 	if err != nil {
 		return Model{}, err
 	}

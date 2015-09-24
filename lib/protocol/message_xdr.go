@@ -41,7 +41,7 @@ IndexMessage Structure:
 
 
 struct IndexMessage {
-	string Folder<>;
+	string Folder<256>;
 	FileInfo Files<1000000>;
 	unsigned int Flags;
 	Option Options<64>;
@@ -74,6 +74,9 @@ func (o IndexMessage) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o IndexMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+	if l := len(o.Folder); l > 256 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Folder", l, 256)
+	}
 	xw.WriteString(o.Folder)
 	if l := len(o.Files); l > 1000000 {
 		return xw.Tot(), xdr.ElementSizeExceeded("Files", l, 1000000)
@@ -111,7 +114,7 @@ func (o *IndexMessage) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *IndexMessage) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.Folder = xr.ReadString()
+	o.Folder = xr.ReadStringMax(256)
 	_FilesSize := int(xr.ReadUint32())
 	if _FilesSize < 0 {
 		return xdr.ElementSizeExceeded("Files", _FilesSize, 1000000)
@@ -380,7 +383,7 @@ RequestMessage Structure:
 
 
 struct RequestMessage {
-	string Folder<64>;
+	string Folder<256>;
 	string Name<8192>;
 	hyper Offset;
 	int Size;
@@ -416,8 +419,8 @@ func (o RequestMessage) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o RequestMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	if l := len(o.Folder); l > 64 {
-		return xw.Tot(), xdr.ElementSizeExceeded("Folder", l, 64)
+	if l := len(o.Folder); l > 256 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Folder", l, 256)
 	}
 	xw.WriteString(o.Folder)
 	if l := len(o.Name); l > 8192 {
@@ -456,7 +459,7 @@ func (o *RequestMessage) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *RequestMessage) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.Folder = xr.ReadStringMax(64)
+	o.Folder = xr.ReadStringMax(256)
 	o.Name = xr.ReadStringMax(8192)
 	o.Offset = int64(xr.ReadUint64())
 	o.Size = int32(xr.ReadUint32())
@@ -714,7 +717,7 @@ Folder Structure:
 
 
 struct Folder {
-	string ID<64>;
+	string ID<256>;
 	Device Devices<1000000>;
 	unsigned int Flags;
 	Option Options<64>;
@@ -747,8 +750,8 @@ func (o Folder) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o Folder) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	if l := len(o.ID); l > 64 {
-		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 64)
+	if l := len(o.ID); l > 256 {
+		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 256)
 	}
 	xw.WriteString(o.ID)
 	if l := len(o.Devices); l > 1000000 {
@@ -787,7 +790,7 @@ func (o *Folder) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *Folder) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.ID = xr.ReadStringMax(64)
+	o.ID = xr.ReadStringMax(256)
 	_DevicesSize := int(xr.ReadUint32())
 	if _DevicesSize < 0 {
 		return xdr.ElementSizeExceeded("Devices", _DevicesSize, 1000000)
