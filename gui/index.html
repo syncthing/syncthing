@@ -28,7 +28,11 @@
 
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
-      <span class="navbar-brand"><img class="logo" src="assets/img/logo-horizontal.svg" height="32" width="117"/></span>
+      <span class="navbar-brand">
+        <a href="https://syncthing.net/">
+          <img class="logo" src="assets/img/logo-horizontal.svg" height="32" width="117"/>
+        </a>
+      </span>
       <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo && upgradeInfo.newer">
