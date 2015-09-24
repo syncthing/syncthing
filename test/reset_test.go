@@ -108,7 +108,7 @@ func TestReset(t *testing.T) {
 	// Reset all indexes
 	log.Println("Reset DB...")
 	bs, err = p.Post("/rest/system/reset", nil)
-	if err != nil {
+	if err != nil && err != io.ErrUnexpectedEOF {
 		t.Fatalf("Failed to reset indexes (all): %v (%s)", err, bytes.TrimSpace(bs))
 	}
 
