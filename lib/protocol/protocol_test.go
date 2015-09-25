@@ -172,9 +172,7 @@ func TestClose(t *testing.T) {
 
 func TestElementSizeExceededNested(t *testing.T) {
 	m := ClusterConfigMessage{
-		Folders: []Folder{
-			{ID: "longstringlongstringlongstringinglongstringlongstringlonlongstringlongstringlon"},
-		},
+		ClientName: "longstringlongstringlongstringinglongstringlongstringlonlongstringlongstringlon",
 	}
 	_, err := m.EncodeXDR(ioutil.Discard)
 	if err == nil {

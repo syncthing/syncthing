@@ -1,6 +1,6 @@
 // Copyright (C) 2014 The Protocol Authors.
 
-//go:generate -command genxdr go run ../syncthing/Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
+//go:generate -command genxdr go run ../../Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
 //go:generate genxdr -o message_xdr.go message.go
 
 package protocol
@@ -8,7 +8,7 @@ package protocol
 import "fmt"
 
 type IndexMessage struct {
-	Folder  string
+	Folder  string     // max:256
 	Files   []FileInfo // max:1000000
 	Flags   uint32
 	Options []Option // max:64
@@ -95,7 +95,7 @@ func (b BlockInfo) String() string {
 }
 
 type RequestMessage struct {
-	Folder  string // max:64
+	Folder  string // max:256
 	Name    string // max:8192
 	Offset  int64
 	Size    int32
@@ -126,7 +126,7 @@ func (o *ClusterConfigMessage) GetOption(key string) string {
 }
 
 type Folder struct {
-	ID      string   // max:64
+	ID      string   // max:256
 	Devices []Device // max:1000000
 	Flags   uint32
 	Options []Option // max:64
