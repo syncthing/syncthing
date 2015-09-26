@@ -557,6 +557,12 @@ ClusterConfigMessage Structure:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                     Length of Device Name                     |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                 Device Name (variable length)                 \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                     Length of Client Name                     |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
@@ -584,6 +590,7 @@ ClusterConfigMessage Structure:
 
 
 struct ClusterConfigMessage {
+	string DeviceName<64>;
 	string ClientName<64>;
 	string ClientVersion<64>;
 	Folder Folders<1000000>;
@@ -617,6 +624,10 @@ func (o ClusterConfigMessage) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o ClusterConfigMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+	if l := len(o.DeviceName); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("DeviceName", l, 64)
+	}
+	xw.WriteString(o.DeviceName)
 	if l := len(o.ClientName); l > 64 {
 		return xw.Tot(), xdr.ElementSizeExceeded("ClientName", l, 64)
 	}
@@ -660,6 +671,7 @@ func (o *ClusterConfigMessage) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *ClusterConfigMessage) DecodeXDRFrom(xr *xdr.Reader) error {
+	o.DeviceName = xr.ReadStringMax(64)
 	o.ClientName = xr.ReadStringMax(64)
 	o.ClientVersion = xr.ReadStringMax(64)
 	_FoldersSize := int(xr.ReadUint32())

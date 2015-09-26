@@ -584,6 +584,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	event := map[string]string{
 		"id":            deviceID.String(),
+		"deviceName":    cm.DeviceName,
 		"clientName":    cm.ClientName,
 		"clientVersion": cm.ClientVersion,
 	}
@@ -600,18 +601,15 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	events.Default.Log(events.DeviceConnected, event)
 
-	l.Infof(`Device %s client is "%s %s"`, deviceID, cm.ClientName, cm.ClientVersion)
+	l.Infof(`Device %s client is "%s %s named %s"`, deviceID, cm.ClientName, cm.ClientVersion, cm.DeviceName)
 
 	var changed bool
 
-	if name := cm.GetOption("name"); name != "" {
-		l.Infof("Device %s name is %q", deviceID, name)
-		device, ok := m.cfg.Devices()[deviceID]
-		if ok && device.Name == "" {
-			device.Name = name
-			m.cfg.SetDevice(device)
-			changed = true
-		}
+	device, ok := m.cfg.Devices()[deviceID]
+	if ok && device.Name == "" {
+		device.Name = cm.DeviceName
+		m.cfg.SetDevice(device)
+		changed = true
 	}
 
 	if m.cfg.Devices()[deviceID].Introducer {
@@ -1465,14 +1463,9 @@ func (m *Model) numHashers(folder string) int {
 // clusterConfig returns a ClusterConfigMessage that is correct for the given peer device
 func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
 	cm := protocol.ClusterConfigMessage{
+		DeviceName:    m.deviceName,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
-		Options: []protocol.Option{
-			{
-				Key:   "name",
-				Value: m.deviceName,
-			},
-		},
 	}
 
 	m.fmut.RLock()

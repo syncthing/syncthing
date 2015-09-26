@@ -110,6 +110,7 @@ type ResponseMessage struct {
 }
 
 type ClusterConfigMessage struct {
+	DeviceName    string   // max:64
 	ClientName    string   // max:64
 	ClientVersion string   // max:64
 	Folders       []Folder // max:1000000
