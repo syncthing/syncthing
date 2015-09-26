@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package main
+package connections
 
 import (
 	"crypto/tls"
@@ -33,7 +33,7 @@ func tcpDialer(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
 
 	raddr, err := net.ResolveTCPAddr("tcp", uri.Host)
 	if err != nil {
-		if debugNet {
+		if debug {
 			l.Debugln(err)
 		}
 		return nil, err
@@ -41,7 +41,7 @@ func tcpDialer(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
 
 	conn, err := net.DialTCP("tcp", nil, raddr)
 	if err != nil {
-		if debugNet {
+		if debug {
 			l.Debugln(err)
 		}
 		return nil, err
@@ -81,7 +81,7 @@ func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- model.Intermedia
 			continue
 		}
 
-		if debugNet {
+		if debug {
 			l.Debugln("connect from", conn.RemoteAddr())
 		}
 

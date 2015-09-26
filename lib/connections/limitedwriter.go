@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package main
+package connections
 
 import (
 	"io"
@@ -12,15 +12,21 @@ import (
 	"github.com/juju/ratelimit"
 )
 
-type limitedReader struct {
-	r      io.Reader
+type LimitedWriter struct {
+	writer io.Writer
 	bucket *ratelimit.Bucket
 }
 
-func (r *limitedReader) Read(buf []byte) (int, error) {
-	n, err := r.r.Read(buf)
-	if r.bucket != nil {
-		r.bucket.Wait(int64(n))
+func NewWriteLimiter(w io.Writer, b *ratelimit.Bucket) *LimitedWriter {
+	return &LimitedWriter{
+		writer: w,
+		bucket: b,
 	}
-	return n, err
+}
+
+func (w *LimitedWriter) Write(buf []byte) (int, error) {
+	if w.bucket != nil {
+		w.bucket.Wait(int64(len(buf)))
+	}
+	return w.writer.Write(buf)
 }
