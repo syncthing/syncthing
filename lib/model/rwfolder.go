@@ -1,8 +1,8 @@
-// Copyright (C) 2014 The Syncthing Authors.
+// Copyright (C) 2015 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// you can obtain one at http://mozilla.org/MPL/2.0/.
 
 package model
 
@@ -965,7 +965,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 	}
 
 	if free, err := osutil.DiskFreeBytes(p.dir); err == nil && free < file.Size() {
-		l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.dir, file.Name, float64(free)/1024/1024, float64(file.Size())/1024/1024)
+		l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.folder, p.dir, file.Name, float64(free)/1024/1024, float64(file.Size())/1024/1024)
 		p.newError(file.Name, errors.New("insufficient space"))
 		return
 	}
