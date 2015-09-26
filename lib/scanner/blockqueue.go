@@ -56,7 +56,7 @@ func HashFile(path string, blockSize int, sizeHint int64, counter *int64) ([]pro
 		sizeHint = fi.Size()
 	}
 
-	return Blocks(fd, blockSize, sizeHint, counter)
+	return Blocks(SHA256, fd, blockSize, sizeHint, counter)
 }
 
 func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, counter *int64) {

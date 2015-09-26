@@ -23,6 +23,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/scanner"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -113,6 +114,7 @@ type FolderConfiguration struct {
 	PullerSleepS          int                         `xml:"pullerSleepS" json:"pullerSleepS"`
 	PullerPauseS          int                         `xml:"pullerPauseS" json:"pullerPauseS"`
 	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
+	HashAlgorithm         scanner.HashAlgorithm       `xml:"hashAlgorithm" json:"hashAlgorithm"`
 
 	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 }

@@ -152,7 +152,7 @@ func TestVerify(t *testing.T) {
 	buf := bytes.NewBuffer(data)
 	var progress int64
 
-	blocks, err := Blocks(buf, blocksize, 0, &progress)
+	blocks, err := Blocks(SHA256, buf, blocksize, 0, &progress)
 	if err != nil {
 		t.Fatal(err)
 	}

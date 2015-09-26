@@ -9,23 +9,68 @@ package scanner
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"sync/atomic"
 
+	"github.com/spaolacci/murmur3"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-var SHA256OfNothing = []uint8{0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55}
+type HashAlgorithm int
+
+const (
+	SHA256 HashAlgorithm = iota
+	Murmur3
+)
+
+func (h HashAlgorithm) String() string {
+	switch h {
+	case SHA256:
+		return "sha256"
+	case Murmur3:
+		return "murmur3"
+	default:
+		return "unknown"
+	}
+}
+
+func (h *HashAlgorithm) UnmarshalText(bs []byte) error {
+	switch string(bs) {
+	case "sha256":
+		*h = SHA256
+		return nil
+	case "murmur3":
+		*h = Murmur3
+		return nil
+	}
+	return errors.New("unknown hash algorithm")
+}
+
+func (h *HashAlgorithm) MarshalText() ([]byte, error) {
+	return []byte(h.String()), nil
+}
 
 // Blocks returns the blockwise hash of the reader.
-func Blocks(r io.Reader, blocksize int, sizehint int64, counter *int64) ([]protocol.BlockInfo, error) {
+func Blocks(algo HashAlgorithm, r io.Reader, blocksize int, sizehint int64, counter *int64) ([]protocol.BlockInfo, error) {
 	var blocks []protocol.BlockInfo
 	if sizehint > 0 {
 		blocks = make([]protocol.BlockInfo, 0, int(sizehint/int64(blocksize)))
 	}
+
+	var hf hash.Hash
+	switch algo {
+	case SHA256:
+		hf = sha256.New()
+	case Murmur3:
+		hf = murmur3.New128()
+	default:
+		panic("unknown hash algorithm")
+	}
+
 	var offset int64
-	hf := sha256.New()
 	for {
 		lr := &io.LimitedReader{R: r, N: int64(blocksize)}
 		n, err := io.Copy(hf, lr)
@@ -57,7 +102,7 @@ func Blocks(r io.Reader, blocksize int, sizehint int64, counter *int64) ([]proto
 		blocks = append(blocks, protocol.BlockInfo{
 			Offset: 0,
 			Size:   0,
-			Hash:   SHA256OfNothing,
+			Hash:   hf.Sum(nil),
 		})
 	}
 

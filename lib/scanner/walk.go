@@ -72,6 +72,8 @@ type Walker struct {
 	// Optional progress tick interval which defines how often FolderScanProgress
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
+	// The hash algorithm to use for block hashes.
+	HashAlgorithm HashAlgorithm
 }
 
 type TempNamer interface {
@@ -299,7 +301,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				return skip
 			}
 
-			blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0, nil)
+			blocks, err := Blocks(w.HashAlgorithm, strings.NewReader(target), w.BlockSize, 0, nil)
 			if err != nil {
 				l.Debugln("hash link error:", p, err)
 				return skip

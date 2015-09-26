@@ -600,6 +600,25 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	m.pmut.Unlock()
 
+	// Check peer device's announced hash algorithms against our own.
+
+	m.fmut.RLock()
+	for _, folder := range cm.Folders {
+		var algo scanner.HashAlgorithm
+		for _, opt := range folder.Options {
+			if opt.Key == "hashAlgorithm" {
+				if err := algo.UnmarshalText([]byte(opt.Value)); err != nil {
+					l.Warnln("Device", deviceID, "announces unknown hash algorithm", opt.Value, "for folder", folder.ID)
+				}
+			}
+		}
+		our := m.folderCfgs[folder.ID].HashAlgorithm
+		if algo != our {
+			l.Warnln("Device", deviceID, "announces hash algorithm", algo, "for folder", folder.ID, "which doesn't match our", our)
+		}
+	}
+	m.fmut.RUnlock()
+
 	events.Default.Log(events.DeviceConnected, event)
 
 	l.Infof(`Device %s client is "%s %s" named "%s"`, deviceID, cm.ClientName, cm.ClientVersion, cm.DeviceName)
@@ -1276,6 +1295,7 @@ nextSub:
 		Hashers:               m.numHashers(folder),
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
+		HashAlgorithm:         folderCfg.HashAlgorithm,
 	}
 
 	runner.setState(FolderScanning)
@@ -1454,6 +1474,12 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 		folderCfg := m.cfg.Folders()[folder]
 		cr := protocol.Folder{
 			ID: folder,
+			Options: []protocol.Option{
+				{
+					Key:   "hashAlgorithm",
+					Value: m.folderCfgs[folder].HashAlgorithm.String(),
+				},
+			},
 		}
 		var flags uint32
 		if folderCfg.ReadOnly {
