@@ -37,20 +37,10 @@ var (
 )
 
 type Model interface {
+	protocol.Model
 	AddConnection(conn model.Connection)
 	ConnectedTo(remoteID protocol.DeviceID) bool
 	IsPaused(remoteID protocol.DeviceID) bool
-
-	// An index was received from the peer device
-	Index(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo, flags uint32, options []protocol.Option)
-	// An index update was received from the peer device
-	IndexUpdate(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo, flags uint32, options []protocol.Option)
-	// A request was made by the peer device
-	Request(deviceID protocol.DeviceID, folder string, name string, offset int64, hash []byte, flags uint32, options []protocol.Option, buf []byte) error
-	// A cluster configuration message was received
-	ClusterConfig(deviceID protocol.DeviceID, config protocol.ClusterConfigMessage)
-	// The peer device closed the connection
-	Close(deviceID protocol.DeviceID, err error)
 }
 
 // The connection service listens on TLS and dials configured unconnected
