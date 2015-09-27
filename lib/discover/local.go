@@ -218,7 +218,7 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 			if err != nil {
 				continue
 			}
-			u.Host = fmt.Sprintf("%s:%d", host, tcpAddr.Port)
+			u.Host = net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port))
 			validAddresses = append(validAddresses, u.String())
 		} else {
 			validAddresses = append(validAddresses, addr.URL)
@@ -247,9 +247,9 @@ func addrToAddr(addr *net.TCPAddr) string {
 	if len(addr.IP) == 0 || addr.IP.IsUnspecified() {
 		return fmt.Sprintf(":%c", addr.Port)
 	} else if bs := addr.IP.To4(); bs != nil {
-		return fmt.Sprintf("%s:%c", bs.String(), addr.Port)
+		return net.JoinHostPort(bs.String(), strconv.Itoa(addr.Port))
 	} else if bs := addr.IP.To16(); bs != nil {
-		return fmt.Sprintf("[%s]:%c", bs.String(), addr.Port)
+		return net.JoinHostPort(bs.String(), strconv.Itoa(addr.Port))
 	}
 	return ""
 }
