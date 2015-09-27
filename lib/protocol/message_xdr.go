@@ -842,6 +842,28 @@ Device Structure:
 \                     ID (variable length)                      \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        Length of Name                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                    Name (variable length)                     \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      Number of Addresses                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      Length of Addresses                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                  Addresses (variable length)                  \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          Compression                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      Length of Cert Name                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                  Cert Name (variable length)                  \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                  Max Local Version (64 bits)                  +
 |                                                               |
@@ -858,6 +880,10 @@ Device Structure:
 
 struct Device {
 	opaque ID<32>;
+	string Name<64>;
+	string Addresses<64>;
+	unsigned int Compression;
+	string CertName<64>;
 	hyper MaxLocalVersion;
 	unsigned int Flags;
 	Option Options<64>;
@@ -894,6 +920,22 @@ func (o Device) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 32)
 	}
 	xw.WriteBytes(o.ID)
+	if l := len(o.Name); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Name", l, 64)
+	}
+	xw.WriteString(o.Name)
+	if l := len(o.Addresses); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Addresses", l, 64)
+	}
+	xw.WriteUint32(uint32(len(o.Addresses)))
+	for i := range o.Addresses {
+		xw.WriteString(o.Addresses[i])
+	}
+	xw.WriteUint32(o.Compression)
+	if l := len(o.CertName); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("CertName", l, 64)
+	}
+	xw.WriteString(o.CertName)
 	xw.WriteUint64(uint64(o.MaxLocalVersion))
 	xw.WriteUint32(o.Flags)
 	if l := len(o.Options); l > 64 {
@@ -922,6 +964,20 @@ func (o *Device) UnmarshalXDR(bs []byte) error {
 
 func (o *Device) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.ID = xr.ReadBytesMax(32)
+	o.Name = xr.ReadStringMax(64)
+	_AddressesSize := int(xr.ReadUint32())
+	if _AddressesSize < 0 {
+		return xdr.ElementSizeExceeded("Addresses", _AddressesSize, 64)
+	}
+	if _AddressesSize > 64 {
+		return xdr.ElementSizeExceeded("Addresses", _AddressesSize, 64)
+	}
+	o.Addresses = make([]string, _AddressesSize)
+	for i := range o.Addresses {
+		o.Addresses[i] = xr.ReadStringMax(2083)
+	}
+	o.Compression = xr.ReadUint32()
+	o.CertName = xr.ReadStringMax(64)
 	o.MaxLocalVersion = int64(xr.ReadUint64())
 	o.Flags = xr.ReadUint32()
 	_OptionsSize := int(xr.ReadUint32())

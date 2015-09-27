@@ -632,11 +632,20 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				if _, ok := m.cfg.Devices()[id]; !ok {
 					// The device is currently unknown. Add it to the config.
 
+					addresses := []string{"dynamic"}
+					for _, addr := range device.Addresses {
+						if addr != "dynamic" {
+							addresses = append(addresses, addr)
+						}
+					}
+
 					l.Infof("Adding device %v to config (vouched for by introducer %v)", id, deviceID)
 					newDeviceCfg := config.DeviceConfiguration{
 						DeviceID:    id,
+						Name:        device.Name,
 						Compression: m.cfg.Devices()[deviceID].Compression,
-						Addresses:   []string{"dynamic"},
+						Addresses:   addresses,
+						CertName:    device.CertName,
 					}
 
 					// The introducers' introducers are also our introducers.
@@ -1477,12 +1486,19 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 			// DeviceID is a value type, but with an underlying array. Copy it
 			// so we don't grab aliases to the same array later on in device[:]
 			device := device
-			// TODO: Set read only bit when relevant
+			// TODO: Set read only bit when relevant, and when we have per device
+			// access controls.
+			deviceCfg := m.cfg.Devices()[device]
 			cn := protocol.Device{
-				ID:    device[:],
-				Flags: protocol.FlagShareTrusted,
+				ID:          device[:],
+				Name:        deviceCfg.Name,
+				Addresses:   deviceCfg.Addresses,
+				Compression: uint32(deviceCfg.Compression),
+				CertName:    deviceCfg.CertName,
+				Flags:       protocol.FlagShareTrusted,
 			}
-			if deviceCfg := m.cfg.Devices()[device]; deviceCfg.Introducer {
+
+			if deviceCfg.Introducer {
 				cn.Flags |= protocol.FlagIntroducer
 			}
 			cr.Devices = append(cr.Devices, cn)
