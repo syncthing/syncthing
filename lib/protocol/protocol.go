@@ -61,6 +61,13 @@ const (
 	FlagRequestTemporary uint32 = 1 << iota
 )
 
+// ClusterConfigMessage.Folders flags
+const (
+	FlagFolderReadOnly     uint32 = 1 << 0
+	FlagFolderIgnorePerms         = 1 << 1
+	FlagFolderIgnoreDelete        = 1 << 2
+)
+
 // ClusterConfigMessage.Folders.Devices flags
 const (
 	FlagShareTrusted  uint32 = 1 << 0

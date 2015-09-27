@@ -1479,9 +1479,21 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
+		folderCfg := m.cfg.Folders()[folder]
 		cr := protocol.Folder{
 			ID: folder,
 		}
+		var flags uint32
+		if folderCfg.ReadOnly {
+			flags |= protocol.FlagFolderReadOnly
+		}
+		if folderCfg.IgnorePerms {
+			flags |= protocol.FlagFolderIgnorePerms
+		}
+		if folderCfg.IgnoreDelete {
+			flags |= protocol.FlagFolderIgnoreDelete
+		}
+		cr.Flags = flags
 		for _, device := range m.folderDevices[folder] {
 			// DeviceID is a value type, but with an underlying array. Copy it
 			// so we don't grab aliases to the same array later on in device[:]
