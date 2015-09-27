@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "新しいフォルダーを追加する際、フォルダーIDはデバイス間でフォルダーの対応づけに使われることに注意してください。フォルダーIDは大文字と小文字が区別され、共有するすべてのデバイスの間で完全に一致しなくてはなりません。",
     "Yes": "はい",
     "You must keep at least one version.": "少なくとも一つのバージョンを保存してください。",
+    "days": "日",
     "full documentation": "詳細なマニュアル",
     "items": "項目",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} がフォルダー \"{{folder}}\" を共有するよう求めています。"

@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Quant s'afig una nova carpeta, hi ha que tindre en compte que l'ID de la carpeta s'utilitza per a juntar les carpetes entre dispositius. Són sensibles a les majúscules i deuen coincidir exactament entre tots els dispositius.",
     "Yes": "Sí",
     "You must keep at least one version.": "Es deu mantindre al menys una versió.",
+    "days": "days",
     "full documentation": "Documentació completa",
     "items": "Elements",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vol compartit la carpeta \"{{folder}}\"."

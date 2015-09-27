@@ -49,7 +49,7 @@
     "Edit Folder": "Bewerk map",
     "Editing": "Bezig met bewerken",
     "Enable UPnP": "UPnP gebruiken",
-    "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Voer door komma's gescheiden (\"tcp://ip:port\", \"tcp://host:port\") adressen of \"dynamisch\" in om automatische ontdekking van het adres uit te voeren.",
+    "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Voer door komma's gescheiden (\"tcp://ip:port\", \"tcp://host:port\") adressen in of voer \"dynamisch\" in om automatische ontdekking van het adres uit te voeren.",
     "Enter ignore patterns, one per line.": "Voer negeerpatronen in, één per regel.",
     "Error": "Fout",
     "External File Versioning": "Extern versiebeheer voor bestanden",
@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Houd er bij het toevoegen van nieuwe mappen rekening mee dat het map-ID gebruikt wordt om mappen tussen apparaten te verbinden. Dit ID is hoofdlettergevoelig en moet identiek zijn op andere apparaten.",
     "Yes": "Ja",
     "You must keep at least one version.": "Minstens 1 versie moet bewaard blijven.",
+    "days": "dagen",
     "full documentation": "volledige documentatie",
     "items": "objecten",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wil de map \"{{folder}}\" delen."

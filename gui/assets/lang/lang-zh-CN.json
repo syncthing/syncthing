@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "若你添加了新文件夹，记住文件夹标识是用以在不同设备间建立联系的。在不同设备间拥有相同标识的文件夹将会被同步。且文件夹标识大小写敏感。",
     "Yes": "是",
     "You must keep at least one version.": "您必须保留至少一个版本。",
+    "days": "days",
     "full documentation": "完整文档",
     "items": "条目",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想将 “{{folder}}” 文件夹共享给您"

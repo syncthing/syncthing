@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "當新增一個資料夾時，請記住，資料夾識別碼是用來將裝置之間的資料夾綁定在一起的。它們有區分大小寫，且必須在所有裝置之間完全相同。",
     "Yes": "是",
     "You must keep at least one version.": "您必須保留至少一個版本。",
+    "days": "days",
     "full documentation": "完整說明文件",
     "items": "個項目",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想要分享資料夾 \"{{folder}}\"。"

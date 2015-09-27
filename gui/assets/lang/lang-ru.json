@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Когда добавляете новую папку, помните, что ID папок используются для того, чтобы связывать папки между всеми устройствами. Они чувствительны к регистру и должны совпадать на всех используемых устройствах.",
     "Yes": "Да",
     "You must keep at least one version.": "Вы должны хранить как минимум одну версию.",
+    "days": "Дней",
     "full documentation": "полная документация",
     "items": "элементы",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хочет поделиться папкой \"{{folder}}\"."
