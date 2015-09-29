@@ -7,6 +7,7 @@
 package discover
 
 import (
+	"sort"
 	stdsync "sync"
 	"time"
 
@@ -110,7 +111,7 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 		l.Debugln("   ", relays)
 	}
 
-	return direct, relays, nil
+	return uniqueSortedStrings(direct), uniqueSortedRelays(relays), nil
 }
 
 func (m *CachingMux) String() string {
@@ -195,4 +196,50 @@ func (c *cache) Cache() map[protocol.DeviceID]CacheEntry {
 	}
 	c.mut.Unlock()
 	return m
+}
+
+func uniqueSortedStrings(ss []string) []string {
+	m := make(map[string]struct{}, len(ss))
+	for _, s := range ss {
+		m[s] = struct{}{}
+	}
+
+	var us = make([]string, 0, len(m))
+	for k := range m {
+		us = append(us, k)
+	}
+
+	sort.Strings(us)
+
+	return us
+}
+
+func uniqueSortedRelays(rs []Relay) []Relay {
+	m := make(map[string]Relay, len(rs))
+	for _, r := range rs {
+		m[r.URL] = r
+	}
+
+	var ur = make([]Relay, 0, len(m))
+	for _, r := range m {
+		ur = append(ur, r)
+	}
+
+	sort.Sort(relayList(ur))
+
+	return ur
+}
+
+type relayList []Relay
+
+func (l relayList) Len() int {
+	return len(l)
+}
+
+func (l relayList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+
+func (l relayList) Less(a, b int) bool {
+	return l[a].URL < l[b].URL
 }
