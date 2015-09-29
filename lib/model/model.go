@@ -1144,7 +1144,9 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 	}
 
 	ignores := ignore.New(m.cacheIgnoredFiles)
-	_ = ignores.Load(filepath.Join(cfg.Path(), ".stignore")) // Ignore error, there might not be an .stignore
+	if err := ignores.Load(filepath.Join(cfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
+		l.Warnln("Loading ignores:", err)
+	}
 	m.folderIgnores[cfg.ID] = ignores
 
 	m.fmut.Unlock()
@@ -1231,10 +1233,17 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
+		runner.setError(err)
+		l.Infof("Stopping folder %s due to error: %s", folder, err)
 		return err
 	}
 
-	_ = ignores.Load(filepath.Join(folderCfg.Path(), ".stignore")) // Ignore error, there might not be an .stignore
+	if err := ignores.Load(filepath.Join(folderCfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
+		err = fmt.Errorf("loading ignores: %v", err)
+		runner.setError(err)
+		l.Infof("Stopping folder %s due to error: %s", folder, err)
+		return err
+	}
 
 	// Required to make sure that we start indexing at a directory we're already
 	// aware off.
