@@ -55,7 +55,7 @@ var (
 
 type apiSvc struct {
 	id              protocol.DeviceID
-	cfg             config.GUIConfiguration
+	cfg             *config.Wrapper
 	assetDir        string
 	model           *model.Model
 	eventSub        *events.BufferedSubscription
@@ -67,7 +67,7 @@ type apiSvc struct {
 	systemConfigMut sync.Mutex
 }
 
-func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc) (*apiSvc, error) {
+func newAPISvc(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc) (*apiSvc, error) {
 	svc := &apiSvc{
 		id:              id,
 		cfg:             cfg,
@@ -80,7 +80,7 @@ func newAPISvc(id protocol.DeviceID, cfg config.GUIConfiguration, assetDir strin
 	}
 
 	var err error
-	svc.listener, err = svc.getListener(cfg)
+	svc.listener, err = svc.getListener(cfg.GUI())
 	return svc, err
 }
 
@@ -195,20 +195,22 @@ func (s *apiSvc) Serve() {
 		assets:   auto.Assets(),
 	})
 
+	guiCfg := s.cfg.GUI()
+
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware(s.id.String()[:5], "/rest", s.cfg.APIKey, mux)
+	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg.APIKey, mux)
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
-	if len(s.cfg.User) > 0 && len(s.cfg.Password) > 0 {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], s.cfg, handler)
+	if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
+		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, handler)
 	}
 
 	// Redirect to HTTPS if we are supposed to
-	if s.cfg.UseTLS {
+	if guiCfg.UseTLS {
 		handler = redirectToHTTPSMiddleware(handler)
 	}
 
@@ -221,7 +223,7 @@ func (s *apiSvc) Serve() {
 		ReadTimeout: 10 * time.Second,
 	}
 
-	s.fss = newFolderSummarySvc(s.model)
+	s.fss = newFolderSummarySvc(s.cfg, s.model)
 	defer s.fss.Stop()
 	s.fss.ServeBackground()
 
@@ -273,7 +275,6 @@ func (s *apiSvc) CommitConfiguration(from, to config.Configuration) bool {
 		// method.
 		return false
 	}
-	s.cfg = to.GUI
 
 	close(s.stop)
 
@@ -409,12 +410,12 @@ func (s *apiSvc) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 func (s *apiSvc) getDBStatus(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
-	res := folderSummary(s.model, folder)
+	res := folderSummary(s.cfg, s.model, folder)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(res)
 }
 
-func folderSummary(m *model.Model, folder string) map[string]interface{} {
+func folderSummary(cfg *config.Wrapper, m *model.Model, folder string) map[string]interface{} {
 	var res = make(map[string]interface{})
 
 	res["invalid"] = cfg.Folders()[folder].Invalid
@@ -524,7 +525,7 @@ func (s *apiSvc) getDBFile(w http.ResponseWriter, r *http.Request) {
 
 func (s *apiSvc) getSystemConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(cfg.Raw())
+	json.NewEncoder(w).Encode(s.cfg.Raw())
 }
 
 func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
@@ -539,7 +540,7 @@ func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if to.GUI.Password != cfg.GUI().Password {
+	if to.GUI.Password != s.cfg.GUI().Password {
 		if to.GUI.Password != "" {
 			hash, err := bcrypt.GenerateFromPassword([]byte(to.GUI.Password), 0)
 			if err != nil {
@@ -554,7 +555,7 @@ func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Fixup usage reporting settings
 
-	if curAcc := cfg.Options().URAccepted; to.Options.URAccepted > curAcc {
+	if curAcc := s.cfg.Options().URAccepted; to.Options.URAccepted > curAcc {
 		// UR was enabled
 		to.Options.URAccepted = usageReportVersion
 		to.Options.URUniqueID = randomString(8)
@@ -566,9 +567,9 @@ func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Activate and save
 
-	resp := cfg.Replace(to)
+	resp := s.cfg.Replace(to)
 	configInSync = !resp.RequiresRestart
-	cfg.Save()
+	s.cfg.Save()
 }
 
 func (s *apiSvc) getSystemConfigInsync(w http.ResponseWriter, r *http.Request) {
@@ -586,7 +587,7 @@ func (s *apiSvc) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 
 	if len(folder) > 0 {
-		if _, ok := cfg.Folders()[folder]; !ok {
+		if _, ok := s.cfg.Folders()[folder]; !ok {
 			http.Error(w, "Invalid folder ID", 500)
 			return
 		}
@@ -594,7 +595,7 @@ func (s *apiSvc) postSystemReset(w http.ResponseWriter, r *http.Request) {
 
 	if len(folder) == 0 {
 		// Reset all folders.
-		for folder := range cfg.Folders() {
+		for folder := range s.cfg.Folders() {
 			s.model.ResetFolder(folder)
 		}
 		s.flushResponse(`{"ok": "resetting database"}`, w)
@@ -632,7 +633,7 @@ func (s *apiSvc) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys - m.HeapReleased
 	res["tilde"] = tilde
-	if cfg.Options().LocalAnnEnabled || cfg.Options().GlobalAnnEnabled {
+	if s.cfg.Options().LocalAnnEnabled || s.cfg.Options().GlobalAnnEnabled {
 		res["discoveryEnabled"] = true
 		discoErrors := make(map[string]string)
 		discoMethods := 0
@@ -718,7 +719,7 @@ func (s *apiSvc) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
 
 func (s *apiSvc) getReport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(reportData(s.model))
+	json.NewEncoder(w).Encode(reportData(s.cfg, s.model))
 }
 
 func (s *apiSvc) getDBIgnores(w http.ResponseWriter, r *http.Request) {
@@ -787,7 +788,7 @@ func (s *apiSvc) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
 		return
 	}
-	rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
+	rel, err := upgrade.LatestRelease(s.cfg.Options().ReleasesURL, Version)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -830,7 +831,7 @@ func (s *apiSvc) getLang(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiSvc) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
-	rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
+	rel, err := upgrade.LatestRelease(s.cfg.Options().ReleasesURL, Version)
 	if err != nil {
 		l.Warnln("getting latest release:", err)
 		http.Error(w, err.Error(), 500)
@@ -928,7 +929,7 @@ func (s *apiSvc) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 	tot := map[string]float64{}
 	count := map[string]float64{}
 
-	for _, folder := range cfg.Folders() {
+	for _, folder := range s.cfg.Folders() {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
 			if s.model.ConnectedTo(device) {

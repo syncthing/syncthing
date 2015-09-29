@@ -32,12 +32,14 @@ import (
 const usageReportVersion = 2
 
 type usageReportingManager struct {
+	cfg   *config.Wrapper
 	model *model.Model
 	sup   *suture.Supervisor
 }
 
-func newUsageReportingManager(m *model.Model, cfg *config.Wrapper) *usageReportingManager {
+func newUsageReportingManager(cfg *config.Wrapper, m *model.Model) *usageReportingManager {
 	mgr := &usageReportingManager{
+		cfg:   cfg,
 		model: m,
 	}
 
@@ -58,9 +60,7 @@ func (m *usageReportingManager) VerifyConfiguration(from, to config.Configuratio
 func (m *usageReportingManager) CommitConfiguration(from, to config.Configuration) bool {
 	if to.Options.URAccepted >= usageReportVersion && m.sup == nil {
 		// Usage reporting was turned on; lets start it.
-		svc := &usageReportingService{
-			model: m.model,
-		}
+		svc := newUsageReportingService(m.cfg, m.model)
 		m.sup = suture.NewSimple("usageReporting")
 		m.sup.Add(svc)
 		m.sup.ServeBackground()
@@ -79,7 +79,7 @@ func (m *usageReportingManager) String() string {
 
 // reportData returns the data to be sent in a usage report. It's used in
 // various places, so not part of the usageReportingSvc object.
-func reportData(m *model.Model) map[string]interface{} {
+func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 	res := make(map[string]interface{})
 	res["urVersion"] = usageReportVersion
 	res["uniqueID"] = cfg.Options().URUniqueID
@@ -238,12 +238,21 @@ func stringIn(needle string, haystack []string) bool {
 }
 
 type usageReportingService struct {
+	cfg   *config.Wrapper
 	model *model.Model
 	stop  chan struct{}
 }
 
+func newUsageReportingService(cfg *config.Wrapper, model *model.Model) *usageReportingService {
+	return &usageReportingService{
+		cfg:   cfg,
+		model: model,
+		stop:  make(chan struct{}),
+	}
+}
+
 func (s *usageReportingService) sendUsageReport() error {
-	d := reportData(s.model)
+	d := reportData(s.cfg, s.model)
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
 
@@ -256,12 +265,12 @@ func (s *usageReportingService) sendUsageReport() error {
 		}
 	}
 
-	if cfg.Options().URPostInsecurely {
+	if s.cfg.Options().URPostInsecurely {
 		transp.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
 	}
-	_, err := client.Post(cfg.Options().URURL, "application/json", &b)
+	_, err := client.Post(s.cfg.Options().URURL, "application/json", &b)
 	return err
 }
 
@@ -271,7 +280,7 @@ func (s *usageReportingService) Serve() {
 	l.Infoln("Starting usage reporting")
 	defer l.Infoln("Stopping usage reporting")
 
-	t := time.NewTimer(time.Duration(cfg.Options().URInitialDelayS) * time.Second) // time to initial report at start
+	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second) // time to initial report at start
 	for {
 		select {
 		case <-s.stop:

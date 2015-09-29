@@ -9,6 +9,7 @@ package main
 import (
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -20,6 +21,7 @@ import (
 type folderSummarySvc struct {
 	*suture.Supervisor
 
+	cfg       *config.Wrapper
 	model     *model.Model
 	stop      chan struct{}
 	immediate chan string
@@ -33,9 +35,10 @@ type folderSummarySvc struct {
 	lastEventReqMut sync.Mutex
 }
 
-func newFolderSummarySvc(m *model.Model) *folderSummarySvc {
+func newFolderSummarySvc(cfg *config.Wrapper, m *model.Model) *folderSummarySvc {
 	svc := &folderSummarySvc{
 		Supervisor:      suture.NewSimple("folderSummarySvc"),
+		cfg:             cfg,
 		model:           m,
 		stop:            make(chan struct{}),
 		immediate:       make(chan string),
@@ -162,13 +165,13 @@ func (c *folderSummarySvc) foldersToHandle() []string {
 func (c *folderSummarySvc) sendSummary(folder string) {
 	// The folder summary contains how many bytes, files etc
 	// are in the folder and how in sync we are.
-	data := folderSummary(c.model, folder)
+	data := folderSummary(c.cfg, c.model, folder)
 	events.Default.Log(events.FolderSummary, map[string]interface{}{
 		"folder":  folder,
 		"summary": data,
 	})
 
-	for _, devCfg := range cfg.Folders()[folder].Devices {
+	for _, devCfg := range c.cfg.Folders()[folder].Devices {
 		if devCfg.DeviceID.Equals(myID) {
 			// We already know about ourselves.
 			continue
