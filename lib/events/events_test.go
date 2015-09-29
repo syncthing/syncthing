@@ -134,6 +134,7 @@ func TestIDs(t *testing.T) {
 	s := l.Subscribe(events.AllEvents)
 	defer l.Unsubscribe(s)
 	l.Log(events.DeviceConnected, "foo")
+	_ = l.Subscribe(events.AllEvents)
 	l.Log(events.DeviceConnected, "bar")
 
 	ev, err := s.Poll(timeout)
@@ -152,8 +153,8 @@ func TestIDs(t *testing.T) {
 	if ev.Data.(string) != "bar" {
 		t.Fatal("Incorrect event:", ev)
 	}
-	if !(ev.ID > id) {
-		t.Fatalf("ID not incremented (%d !> %d)", ev.ID, id)
+	if ev.ID != id+1 {
+		t.Fatalf("ID not incremented (%d != %d)", ev.ID, id+1)
 	}
 }
 
