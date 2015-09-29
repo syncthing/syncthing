@@ -90,7 +90,7 @@ func (t EventType) MarshalText() ([]byte, error) {
 const BufferSize = 64
 
 type Logger struct {
-	subs   map[int]*Subscription
+	subs   []*Subscription
 	nextID int
 	mutex  sync.Mutex
 }
@@ -104,7 +104,6 @@ type Event struct {
 
 type Subscription struct {
 	mask    EventType
-	id      int
 	events  chan Event
 	timeout *time.Timer
 }
@@ -118,7 +117,6 @@ var (
 
 func NewLogger() *Logger {
 	return &Logger{
-		subs:  make(map[int]*Subscription),
 		mutex: sync.NewMutex(),
 	}
 }
@@ -128,13 +126,13 @@ func (l *Logger) Log(t EventType, data interface{}) {
 	if debug {
 		dl.Debugln("log", l.nextID, t.String(), data)
 	}
+	l.nextID++
 	e := Event{
 		ID:   l.nextID,
 		Time: time.Now(),
 		Type: t,
 		Data: data,
 	}
-	l.nextID++
 	for _, s := range l.subs {
 		if s.mask&t != 0 {
 			select {
@@ -154,12 +152,10 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 	}
 	s := &Subscription{
 		mask:    mask,
-		id:      l.nextID,
 		events:  make(chan Event, BufferSize),
 		timeout: time.NewTimer(0),
 	}
-	l.nextID++
-	l.subs[s.id] = s
+	l.subs = append(l.subs, s)
 	l.mutex.Unlock()
 	return s
 }
@@ -169,7 +165,15 @@ func (l *Logger) Unsubscribe(s *Subscription) {
 	if debug {
 		dl.Debugln("unsubscribe")
 	}
-	delete(l.subs, s.id)
+	for i, ss := range l.subs {
+		if s == ss {
+			last := len(l.subs) - 1
+			l.subs[i] = l.subs[last]
+			l.subs[last] = nil
+			l.subs = l.subs[:last]
+			break
+		}
+	}
 	close(s.events)
 	l.mutex.Unlock()
 }
