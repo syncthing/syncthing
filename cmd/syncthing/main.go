@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/calmh/logger"
-	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
@@ -108,15 +107,12 @@ func init() {
 }
 
 var (
-	cfg            *config.Wrapper
-	myID           protocol.DeviceID
-	confDir        string
-	logFlags       = log.Ltime
-	writeRateLimit *ratelimit.Bucket
-	readRateLimit  *ratelimit.Bucket
-	stop           = make(chan int)
-	cert           tls.Certificate
-	lans           []*net.IPNet
+	myID     protocol.DeviceID
+	confDir  string
+	logFlags = log.Ltime
+	stop     = make(chan int)
+	cert     tls.Certificate
+	lans     []*net.IPNet
 )
 
 const (
@@ -346,7 +342,11 @@ func main() {
 	}
 
 	if doUpgrade || doUpgradeCheck {
-		rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
+		releasesURL := "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"
+		if cfg, _, err := loadConfig(locations[locConfigFile]); err == nil {
+			releasesURL = cfg.Options().ReleasesURL
+		}
+		rel, err := upgrade.LatestRelease(releasesURL, Version)
 		if err != nil {
 			l.Fatalln("Upgrade:", err) // exits 1
 		}
@@ -497,33 +497,21 @@ func syncthingMain() {
 
 	cfgFile := locations[locConfigFile]
 
-	var myName string
-
 	// Load the configuration file, if it exists.
 	// If it does not, create a template.
 
-	if info, err := os.Stat(cfgFile); err == nil {
-		if !info.Mode().IsRegular() {
-			l.Fatalln("Config file is not a file?")
-		}
-		cfg, err = config.Load(cfgFile, myID)
-		if err == nil {
-			myCfg := cfg.Devices()[myID]
-			if myCfg.Name == "" {
-				myName, _ = os.Hostname()
-			} else {
-				myName = myCfg.Name
-			}
+	cfg, myName, err := loadConfig(cfgFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			l.Infoln("No config file; starting with empty defaults")
+			myName, _ = os.Hostname()
+			newCfg := defaultConfig(myName)
+			cfg = config.Wrap(cfgFile, newCfg)
+			cfg.Save()
+			l.Infof("Edit %s to taste or use the GUI\n", cfgFile)
 		} else {
-			l.Fatalln("Configuration:", err)
+			l.Fatalln("Loading config:", err)
 		}
-	} else {
-		l.Infoln("No config file; starting with empty defaults")
-		myName, _ = os.Hostname()
-		newCfg := defaultConfig(myName)
-		cfg = config.Wrap(cfgFile, newCfg)
-		cfg.Save()
-		l.Infof("Edit %s to taste or use the GUI\n", cfgFile)
 	}
 
 	if cfg.Raw().OriginalVersion != config.CurrentVersion {
@@ -596,9 +584,10 @@ func syncthingMain() {
 	}
 
 	dbFile := locations[locDatabase]
-	ldb, err := leveldb.OpenFile(dbFile, dbOpts())
+	dbOpts := dbOpts(cfg)
+	ldb, err := leveldb.OpenFile(dbFile, dbOpts)
 	if leveldbIsCorrupted(err) {
-		ldb, err = leveldb.RecoverFile(dbFile, dbOpts())
+		ldb, err = leveldb.RecoverFile(dbFile, dbOpts)
 	}
 	if leveldbIsCorrupted(err) {
 		// The database is corrupted, and we've tried to recover it but it
@@ -608,7 +597,7 @@ func syncthingMain() {
 		if err := resetDB(); err != nil {
 			l.Fatalln("Remove database:", err)
 		}
-		ldb, err = leveldb.OpenFile(dbFile, dbOpts())
+		ldb, err = leveldb.OpenFile(dbFile, dbOpts)
 	}
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
@@ -780,7 +769,7 @@ func syncthingMain() {
 	// The usageReportingManager registers itself to listen to configuration
 	// changes, and there's nothing more we need to tell it from the outside.
 	// Hence we don't keep the returned pointer.
-	newUsageReportingManager(m, cfg)
+	newUsageReportingManager(cfg, m)
 
 	if opts.RestartOnWakeup {
 		go standbyMonitor()
@@ -790,7 +779,7 @@ func syncthingMain() {
 		if noUpgrade {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		} else if IsRelease {
-			go autoUpgrade()
+			go autoUpgrade(cfg)
 		} else {
 			l.Infof("No automatic upgrades; %s is not a release version.", Version)
 		}
@@ -816,7 +805,30 @@ func syncthingMain() {
 	os.Exit(code)
 }
 
-func dbOpts() *opt.Options {
+func loadConfig(cfgFile string) (*config.Wrapper, string, error) {
+	info, err := os.Stat(cfgFile)
+	if err != nil {
+		return nil, "", err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, "", errors.New("configuration is not a file")
+	}
+
+	cfg, err := config.Load(cfgFile, myID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	myCfg := cfg.Devices()[myID]
+	myName := myCfg.Name
+	if myName == "" {
+		myName, _ = os.Hostname()
+	}
+
+	return cfg, myName, nil
+}
+
+func dbOpts(cfg *config.Wrapper) *opt.Options {
 	// Calculate a suitable database block cache capacity.
 
 	// Default is 8 MiB.
@@ -896,7 +908,7 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 
 			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			l.Infoln("Starting web GUI on", urlShow)
-			api, err := newAPISvc(myID, guiCfg, guiAssets, m, apiSub, discoverer, relaySvc)
+			api, err := newAPISvc(myID, cfg, guiAssets, m, apiSub, discoverer, relaySvc)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
@@ -1066,7 +1078,7 @@ func standbyMonitor() {
 	}
 }
 
-func autoUpgrade() {
+func autoUpgrade(cfg *config.Wrapper) {
 	timer := time.NewTimer(0)
 	sub := events.Default.Subscribe(events.DeviceConnected)
 	for {
