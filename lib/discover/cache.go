@@ -34,6 +34,14 @@ type cachedFinder struct {
 	Finder
 	cacheTime    time.Duration
 	negCacheTime time.Duration
+	priority     int
+}
+
+// A prioritizedAddress is what we use to sort addresses returned from
+// different sources with different priorities.
+type prioritizedAddress struct {
+	priority int
+	addr     string
 }
 
 func NewCachingMux() *CachingMux {
@@ -44,9 +52,9 @@ func NewCachingMux() *CachingMux {
 }
 
 // Add registers a new Finder, with associated cache timeouts.
-func (m *CachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration) {
+func (m *CachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration, priority int) {
 	m.mut.Lock()
-	m.finders = append(m.finders, cachedFinder{finder, cacheTime, negCacheTime})
+	m.finders = append(m.finders, cachedFinder{finder, cacheTime, negCacheTime, priority})
 	m.caches = append(m.caches, newCache())
 	m.mut.Unlock()
 
@@ -58,6 +66,8 @@ func (m *CachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration) {
 // Lookup attempts to resolve the device ID using any of the added Finders,
 // while obeying the cache settings.
 func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays []Relay, err error) {
+	var pdirect []prioritizedAddress
+
 	m.mut.Lock()
 	for i, finder := range m.finders {
 		if cacheEntry, ok := m.caches[i].Get(deviceID); ok {
@@ -67,9 +77,11 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 				// It's a positive, valid entry. Use it.
 				if debug {
 					l.Debugln("cached discovery entry for", deviceID, "at", finder.String())
-					l.Debugln("   ", cacheEntry)
+					l.Debugln("  cache:", cacheEntry)
 				}
-				direct = append(direct, cacheEntry.Direct...)
+				for _, addr := range cacheEntry.Direct {
+					pdirect = append(pdirect, prioritizedAddress{finder.priority, addr})
+				}
 				relays = append(relays, cacheEntry.Relays...)
 				continue
 			}
@@ -90,10 +102,12 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 		if td, tr, err := finder.Lookup(deviceID); err == nil {
 			if debug {
 				l.Debugln("lookup for", deviceID, "at", finder.String())
-				l.Debugln("   ", td)
-				l.Debugln("   ", tr)
+				l.Debugln("  direct:", td)
+				l.Debugln("  relays:", tr)
 			}
-			direct = append(direct, td...)
+			for _, addr := range td {
+				pdirect = append(pdirect, prioritizedAddress{finder.priority, addr})
+			}
 			relays = append(relays, tr...)
 			m.caches[i].Set(deviceID, CacheEntry{
 				Direct: td,
@@ -105,13 +119,15 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 	}
 	m.mut.Unlock()
 
+	direct = uniqueSortedAddrs(pdirect)
+	relays = uniqueSortedRelays(relays)
 	if debug {
 		l.Debugln("lookup results for", deviceID)
-		l.Debugln("   ", direct)
-		l.Debugln("   ", relays)
+		l.Debugln("  direct: ", direct)
+		l.Debugln("  relays: ", relays)
 	}
 
-	return uniqueSortedStrings(direct), uniqueSortedRelays(relays), nil
+	return direct, relays, nil
 }
 
 func (m *CachingMux) String() string {
@@ -198,20 +214,19 @@ func (c *cache) Cache() map[protocol.DeviceID]CacheEntry {
 	return m
 }
 
-func uniqueSortedStrings(ss []string) []string {
-	m := make(map[string]struct{}, len(ss))
+func uniqueSortedAddrs(ss []prioritizedAddress) []string {
+	// We sort the addresses by priority, then filter them based on seen
+	// (first time seen is the on kept, so we retain priority).
+	sort.Sort(prioritizedAddressList(ss))
+	filtered := make([]string, 0, len(ss))
+	seen := make(map[string]struct{}, len(ss))
 	for _, s := range ss {
-		m[s] = struct{}{}
+		if _, ok := seen[s.addr]; !ok {
+			filtered = append(filtered, s.addr)
+			seen[s.addr] = struct{}{}
+		}
 	}
-
-	var us = make([]string, 0, len(m))
-	for k := range m {
-		us = append(us, k)
-	}
-
-	sort.Strings(us)
-
-	return us
+	return filtered
 }
 
 func uniqueSortedRelays(rs []Relay) []Relay {
@@ -242,4 +257,21 @@ func (l relayList) Swap(a, b int) {
 
 func (l relayList) Less(a, b int) bool {
 	return l[a].URL < l[b].URL
+}
+
+type prioritizedAddressList []prioritizedAddress
+
+func (l prioritizedAddressList) Len() int {
+	return len(l)
+}
+
+func (l prioritizedAddressList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+
+func (l prioritizedAddressList) Less(a, b int) bool {
+	if l[a].priority != l[b].priority {
+		return l[a].priority < l[b].priority
+	}
+	return l[a].addr < l[b].addr
 }

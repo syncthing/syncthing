@@ -73,6 +73,13 @@ const (
 	pingEventInterval    = time.Minute
 )
 
+// The discovery results are sorted by their source priority.
+const (
+	ipv6LocalDiscoveryPriority = iota
+	ipv4LocalDiscoveryPriority
+	globalDiscoveryPriority
+)
+
 var l = logger.DefaultLogger
 
 func init() {
@@ -703,7 +710,7 @@ func syncthingMain() {
 			// Each global discovery server gets its results cached for five
 			// minutes, and is not asked again for a minute when it's returned
 			// unsuccessfully.
-			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute)
+			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute, globalDiscoveryPriority)
 		}
 	}
 
@@ -713,14 +720,14 @@ func syncthingMain() {
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
-			cachedDiscovery.Add(bcd, 0, 0)
+			cachedDiscovery.Add(bcd, 0, 0, ipv4LocalDiscoveryPriority)
 		}
 		// v6 multicasts
 		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, addrList, relaySvc)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
-			cachedDiscovery.Add(mcd, 0, 0)
+			cachedDiscovery.Add(mcd, 0, 0, ipv6LocalDiscoveryPriority)
 		}
 	}
 
