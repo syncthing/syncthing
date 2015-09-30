@@ -1370,6 +1370,7 @@ nextSub:
 	// TODO: We should limit the Have scanning to start at sub
 	seenPrefix := false
 	var iterError error
+	css := osutil.NewCachedCaseSensitiveStat(folderCfg.Path())
 	fs.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 		hasPrefix := len(subs) == 0
@@ -1413,7 +1414,7 @@ nextSub:
 					Version:  f.Version, // The file is still the same, so don't bump version
 				}
 				batch = append(batch, nf)
-			} else if _, err := osutil.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
+			} else if _, err := css.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
 				// File has been deleted.
 
 				// We don't specifically verify that the error is

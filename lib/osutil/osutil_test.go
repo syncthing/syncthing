@@ -7,8 +7,11 @@
 package osutil_test
 
 import (
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -177,5 +180,80 @@ func TestDiskUsage(t *testing.T) {
 	}
 	if free < 1 {
 		t.Error("Disk is full?", free)
+	}
+}
+
+func TestCaseSensitiveStat(t *testing.T) {
+	switch runtime.GOOS {
+	case "windows", "darwin":
+		break // We can test!
+	default:
+		t.Skip("Cannot test on this platform")
+		return
+	}
+
+	dir, err := ioutil.TempDir("", "TestCaseSensitiveStat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	if err := ioutil.WriteFile(filepath.Join(dir, "File"), []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Lstat(filepath.Join(dir, "File")); err != nil {
+		// Standard Lstat should report the file exists
+		t.Fatal("Unexpected error:", err)
+	}
+	if _, err := os.Lstat(filepath.Join(dir, "fILE")); err != nil {
+		// ... also with the incorrect case spelling
+		t.Fatal("Unexpected error:", err)
+	}
+
+	// Create the case sensitive stat:er. We stress it a little by giving it a
+	// base path with an intentionally incorrect casing.
+
+	css := osutil.NewCachedCaseSensitiveStat(strings.ToUpper(dir))
+
+	if _, err := css.Lstat(filepath.Join(dir, "File")); err != nil {
+		// Our Lstat should report the file exists
+		t.Fatal("Unexpected error:", err)
+	}
+	if _, err := css.Lstat(filepath.Join(dir, "fILE")); err == nil || !os.IsNotExist(err) {
+		// ... but with the incorrect case we should get ErrNotExist
+		t.Fatal("Unexpected non-IsNotExist error:", err)
+	}
+
+	// Now do the same tests for a file in a case-sensitive directory.
+
+	if err := os.Mkdir(filepath.Join(dir, "Dir"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(filepath.Join(dir, "Dir/File"), []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Lstat(filepath.Join(dir, "Dir/File")); err != nil {
+		// Standard Lstat should report the file exists
+		t.Fatal("Unexpected error:", err)
+	}
+	if _, err := os.Lstat(filepath.Join(dir, "dIR/File")); err != nil {
+		// ... also with the incorrect case spelling
+		t.Fatal("Unexpected error:", err)
+	}
+
+	// Recreate the case sensitive stat:er. We stress it a little by giving it a
+	// base path with an intentionally incorrect casing.
+
+	css = osutil.NewCachedCaseSensitiveStat(strings.ToLower(dir))
+
+	if _, err := css.Lstat(filepath.Join(dir, "Dir/File")); err != nil {
+		// Our Lstat should report the file exists
+		t.Fatal("Unexpected error:", err)
+	}
+	if _, err := css.Lstat(filepath.Join(dir, "dIR/File")); err == nil || !os.IsNotExist(err) {
+		// ... but with the incorrect case we should get ErrNotExist
+		t.Fatal("Unexpected non-IsNotExist error:", err)
 	}
 }
