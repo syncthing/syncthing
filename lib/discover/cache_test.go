@@ -15,7 +15,8 @@ import (
 )
 
 func TestCacheUnique(t *testing.T) {
-	direct := []string{"tcp://192.0.2.42:22000", "tcp://192.0.2.43:22000"}
+	// Direct addresses should be sorted by prio
+	direct := []string{"tcp://192.0.2.43:22000?prio=8", "tcp://192.0.2.44:22000?prio=10", "tcp://192.0.2.42:22000?prio=20"}
 	relays := []Relay{{URL: "relay://192.0.2.44:443"}, {URL: "tcp://192.0.2.45:443"}}
 
 	c := NewCachingMux()

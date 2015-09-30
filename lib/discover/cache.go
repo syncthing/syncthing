@@ -7,6 +7,7 @@
 package discover
 
 import (
+	"net/url"
 	"sort"
 	stdsync "sync"
 	"time"
@@ -67,7 +68,7 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 				// It's a positive, valid entry. Use it.
 				if debug {
 					l.Debugln("cached discovery entry for", deviceID, "at", finder.String())
-					l.Debugln("   ", cacheEntry)
+					l.Debugln("  cache:", cacheEntry)
 				}
 				direct = append(direct, cacheEntry.Direct...)
 				relays = append(relays, cacheEntry.Relays...)
@@ -90,8 +91,8 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 		if td, tr, err := finder.Lookup(deviceID); err == nil {
 			if debug {
 				l.Debugln("lookup for", deviceID, "at", finder.String())
-				l.Debugln("   ", td)
-				l.Debugln("   ", tr)
+				l.Debugln("  direct:", td)
+				l.Debugln("  relays:", tr)
 			}
 			direct = append(direct, td...)
 			relays = append(relays, tr...)
@@ -105,13 +106,15 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 	}
 	m.mut.Unlock()
 
+	direct = uniqueSortedStrings(direct)
+	relays = uniqueSortedRelays(relays)
 	if debug {
 		l.Debugln("lookup results for", deviceID)
-		l.Debugln("   ", direct)
-		l.Debugln("   ", relays)
+		l.Debugln("  direct: ", direct)
+		l.Debugln("  relays: ", relays)
 	}
 
-	return uniqueSortedStrings(direct), uniqueSortedRelays(relays), nil
+	return direct, relays, nil
 }
 
 func (m *CachingMux) String() string {
@@ -209,7 +212,7 @@ func uniqueSortedStrings(ss []string) []string {
 		us = append(us, k)
 	}
 
-	sort.Strings(us)
+	sort.Sort(urlsWithPrio(us))
 
 	return us
 }
@@ -242,4 +245,34 @@ func (l relayList) Swap(a, b int) {
 
 func (l relayList) Less(a, b int) bool {
 	return l[a].URL < l[b].URL
+}
+
+type urlsWithPrio []string
+
+func (l urlsWithPrio) Len() int {
+	return len(l)
+}
+
+func (l urlsWithPrio) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+
+func (l urlsWithPrio) Less(a, b int) bool {
+	ua, err := url.Parse(l[a])
+	if err != nil {
+		return false
+	}
+	pa := queryInt(ua.Query(), "prio", defaultGlobalPrio)
+
+	ub, err := url.Parse(l[b])
+	if err != nil {
+		return false
+	}
+	pb := queryInt(ub.Query(), "prio", defaultGlobalPrio)
+
+	if pa != pb {
+		return pa < pb
+	}
+
+	return ua.Host < ub.Host
 }
