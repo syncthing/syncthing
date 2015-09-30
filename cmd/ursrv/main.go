@@ -693,11 +693,14 @@ func getReport(db *sql.DB) map[string]interface{} {
 		featureNames = append(featureNames, key)
 	}
 	sort.Strings(featureNames)
-	for _, key := range featureNames {
-		featureList = append(featureList, feature{
-			Key: key,
-			Pct: (100 * features[key]) / v2Reports,
-		})
+	if v2Reports > 0 {
+		for _, key := range featureNames {
+			featureList = append(featureList, feature{
+				Key: key,
+				Pct: (100 * features[key]) / v2Reports,
+			})
+		}
+		sort.Sort(sort.Reverse(sortableFeatureList(featureList)))
 	}
 
 	r := make(map[string]interface{})
@@ -880,4 +883,16 @@ func getMovement(db *sql.DB) ([][]interface{}, error) {
 	}
 
 	return res, nil
+}
+
+type sortableFeatureList []feature
+
+func (l sortableFeatureList) Len() int {
+	return len(l)
+}
+func (l sortableFeatureList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+func (l sortableFeatureList) Less(a, b int) bool {
+	return l[a].Pct < l[b].Pct
 }

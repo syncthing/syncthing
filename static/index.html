@@ -100,13 +100,13 @@ found in the LICENSE file.
       <div class="col-md-12">
         <h1>Syncthing Usage Data</h1>
 
-        <h4>Active Users per Day and Version</h4>
+        <h4 id="active-users">Active Users per Day and Version</h4>
         <p>
           This is the total number of unique users with reporting enabled, per day. Area color represents the major version.
         </p>
         <div class="img-thumbnail" id="versionChart" style="width: 1130px; height: 400px; padding: 10px;"></div>
 
-        <h4>Users Joining and Leaving per Day</h4>
+        <h4 id="joining-leaving">Users Joining and Leaving per Day</h4>
         <p>
           This is the total number of unique users joining and leaving per day. A user is counted as "joined" on first the day their unique ID is seen, and as "left" on the last day the unique ID was seen before a two weeks or longer absence. "Bounced" refers to users who joined and left on the same day.
         </p>
@@ -116,7 +116,7 @@ found in the LICENSE file.
          Spikes in December 2014 were due to the unique ID format changing and have been partly removed to avoid skewing the graph scale.
         </p>
 
-        <h4>Usage Metrics</h4>
+        <h4 id="metrics">Usage Metrics</h4>
         <p>
           This is the aggregated usage report data for the last 24 hours. Data based on <b>{{.nodes}}</b> devices that have reported in.
         </p>
@@ -246,7 +246,7 @@ found in the LICENSE file.
 
     <div class="row">
     <div class="col-md-12">
-    <h4>Feature Usage</h4>
+    <h4 id="features">Feature Usage</h4>
     <p>
     The following lists feature usage, as a percentage of the v0.12+ population (<b>{{.v2nodes}}</b> devices).
     </p>
