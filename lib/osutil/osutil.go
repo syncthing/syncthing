@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -240,4 +241,91 @@ func SetTCPOptions(conn *net.TCPConn) error {
 		return err
 	}
 	return nil
+}
+
+// The CachedCaseSensitiveStat provides an Lstat() method similar to
+// os.Lstat(), but that is always case sensitive regardless of underlying file
+// system semantics. The "Cached" part refers to the fact that it lists the
+// contents of a directory the first time it's needed and then retains this
+// information for the duration. It's expected that instances of this type are
+// fairly short lived.
+//
+// There's some song and dance to check directories that are parents to the
+// checked path as well, that is we want to catch the situation that someone
+// calls Lstat("foo/BAR/baz") when the actual path is "foo/bar/baz" and return
+// NotExist appropriately. But we don't want to do this check too high up, as
+// the user may have told us the folder path is ~/Sync while it is actually
+// ~/sync and this *should* work properly... Sigh. Hence the "base" parameter.
+type CachedCaseSensitiveStat struct {
+	base    string                   // base directory, we should not check stuff above this
+	results map[string][]os.FileInfo // directory path => list of children
+}
+
+func NewCachedCaseSensitiveStat(base string) *CachedCaseSensitiveStat {
+	return &CachedCaseSensitiveStat{
+		base:    strings.ToLower(base),
+		results: make(map[string][]os.FileInfo),
+	}
+}
+
+func (c *CachedCaseSensitiveStat) Lstat(name string) (os.FileInfo, error) {
+	dir := filepath.Dir(name)
+	base := filepath.Base(name)
+
+	if !strings.HasPrefix(strings.ToLower(dir), c.base) {
+		// We only validate things within the base directory, which we need to
+		// compare case insensitively against.
+		return nil, os.ErrInvalid
+	}
+
+	// If we don't already have a list of directory entries for this
+	// directory, try to list it. Return error if this fails.
+	l, ok := c.results[dir]
+	if !ok {
+		if len(dir) > len(c.base) {
+			// We are checking in a subdirectory of base. Must make sure *it*
+			// exists with the specified casing, up to the base directory.
+			if _, err := c.Lstat(dir); err != nil {
+				return nil, err
+			}
+		}
+
+		fd, err := os.Open(dir)
+		if err != nil {
+			return nil, err
+		}
+		defer fd.Close()
+
+		l, err = fd.Readdir(-1)
+		if err != nil {
+			return nil, err
+		}
+
+		sort.Sort(fileInfoList(l))
+		c.results[dir] = l
+	}
+
+	// Get the index of the first entry with name >= base using binary search.
+	idx := sort.Search(len(l), func(i int) bool {
+		return l[i].Name() >= base
+	})
+
+	if idx >= len(l) || l[idx].Name() != base {
+		// The search didn't find any such entry
+		return nil, os.ErrNotExist
+	}
+
+	return l[idx], nil
+}
+
+type fileInfoList []os.FileInfo
+
+func (l fileInfoList) Len() int {
+	return len(l)
+}
+func (l fileInfoList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+func (l fileInfoList) Less(a, b int) bool {
+	return l[a].Name() < l[b].Name()
 }
