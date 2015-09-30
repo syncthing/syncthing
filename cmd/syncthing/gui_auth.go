@@ -25,7 +25,6 @@ var (
 )
 
 func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguration, next http.Handler) http.Handler {
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if cfg.APIKey != "" && r.Header.Get("X-API-Key") == cfg.APIKey {
 			next.ServeHTTP(w, r)

@@ -85,6 +85,11 @@ func newAPISvc(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *mo
 }
 
 func (s *apiSvc) getListener(cfg config.GUIConfiguration) (net.Listener, error) {
+	if guiAddress != "" {
+		// Override from the environment
+		cfg.Address = guiAddress
+	}
+
 	cert, err := tls.LoadX509KeyPair(locations[locHTTPSCertFile], locations[locHTTPSKeyFile])
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
@@ -196,6 +201,10 @@ func (s *apiSvc) Serve() {
 	})
 
 	guiCfg := s.cfg.GUI()
+	if guiAPIKey != "" {
+		// Override from the environment
+		guiCfg.APIKey = guiAPIKey
+	}
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.

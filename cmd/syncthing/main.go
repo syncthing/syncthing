@@ -43,7 +43,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/thejerf/suture"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -188,28 +187,27 @@ are mostly useful for developers. Use with care.
 
 // Command line and environment options
 var (
-	reset             bool
-	showVersion       bool
-	doUpgrade         bool
-	doUpgradeCheck    bool
-	upgradeTo         string
-	noBrowser         bool
-	noConsole         bool
-	generateDir       string
-	logFile           string
-	auditEnabled      bool
-	verbose           bool
-	paused            bool
-	noRestart         = os.Getenv("STNORESTART") != ""
-	noUpgrade         = os.Getenv("STNOUPGRADE") != ""
-	guiAddress        = os.Getenv("STGUIADDRESS") // legacy
-	guiAuthentication = os.Getenv("STGUIAUTH")    // legacy
-	guiAPIKey         = os.Getenv("STGUIAPIKEY")  // legacy
-	profiler          = os.Getenv("STPROFILER")
-	guiAssets         = os.Getenv("STGUIASSETS")
-	cpuProfile        = os.Getenv("STCPUPROFILE") != ""
-	stRestarting      = os.Getenv("STRESTART") != ""
-	innerProcess      = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
+	reset          bool
+	showVersion    bool
+	doUpgrade      bool
+	doUpgradeCheck bool
+	upgradeTo      string
+	noBrowser      bool
+	noConsole      bool
+	generateDir    string
+	logFile        string
+	auditEnabled   bool
+	verbose        bool
+	paused         bool
+	noRestart      = os.Getenv("STNORESTART") != ""
+	noUpgrade      = os.Getenv("STNOUPGRADE") != ""
+	guiAddress     = os.Getenv("STGUIADDRESS") // legacy
+	guiAPIKey      = os.Getenv("STGUIAPIKEY")  // legacy
+	profiler       = os.Getenv("STPROFILER")
+	guiAssets      = os.Getenv("STGUIASSETS")
+	cpuProfile     = os.Getenv("STCPUPROFILE") != ""
+	stRestarting   = os.Getenv("STRESTART") != ""
+	innerProcess   = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
 )
 
 func main() {
@@ -226,7 +224,6 @@ func main() {
 
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address")
-	flag.StringVar(&guiAuthentication, "gui-authentication", guiAuthentication, "Override GUI authentication; username:password")
 	flag.StringVar(&guiAPIKey, "gui-apikey", guiAPIKey, "Override GUI API key")
 	flag.StringVar(&confDir, "home", "", "Set configuration directory")
 	flag.IntVar(&logFlags, "logflags", logFlags, "Select information in log line prefix")
@@ -880,47 +877,52 @@ func startAuditing(mainSvc *suture.Supervisor) {
 }
 
 func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc) {
-	opts := cfg.Options()
-	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
+	guiCfg := cfg.GUI()
 
-	if guiCfg.Enabled && guiCfg.Address != "" {
-		addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address)
+	if !guiCfg.Enabled {
+		return
+	}
+	if guiCfg.Address == "" {
+		return
+	}
+
+	addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address)
+	if err != nil {
+		l.Fatalf("Cannot start GUI on %q: %v", guiCfg.Address, err)
+	} else {
+		var hostOpen, hostShow string
+		switch {
+		case addr.IP == nil:
+			hostOpen = "localhost"
+			hostShow = "0.0.0.0"
+		case addr.IP.IsUnspecified():
+			hostOpen = "localhost"
+			hostShow = addr.IP.String()
+		default:
+			hostOpen = addr.IP.String()
+			hostShow = hostOpen
+		}
+
+		var proto = "http"
+		if guiCfg.UseTLS {
+			proto = "https"
+		}
+
+		urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
+		l.Infoln("Starting web GUI on", urlShow)
+
+		api, err := newAPISvc(myID, cfg, guiAssets, m, apiSub, discoverer, relaySvc)
 		if err != nil {
-			l.Fatalf("Cannot start GUI on %q: %v", guiCfg.Address, err)
-		} else {
-			var hostOpen, hostShow string
-			switch {
-			case addr.IP == nil:
-				hostOpen = "localhost"
-				hostShow = "0.0.0.0"
-			case addr.IP.IsUnspecified():
-				hostOpen = "localhost"
-				hostShow = addr.IP.String()
-			default:
-				hostOpen = addr.IP.String()
-				hostShow = hostOpen
-			}
+			l.Fatalln("Cannot start GUI:", err)
+		}
+		cfg.Subscribe(api)
+		mainSvc.Add(api)
 
-			var proto = "http"
-			if guiCfg.UseTLS {
-				proto = "https"
-			}
-
-			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
-			l.Infoln("Starting web GUI on", urlShow)
-			api, err := newAPISvc(myID, cfg, guiAssets, m, apiSub, discoverer, relaySvc)
-			if err != nil {
-				l.Fatalln("Cannot start GUI:", err)
-			}
-			cfg.Subscribe(api)
-			mainSvc.Add(api)
-
-			if opts.StartBrowser && !noBrowser && !stRestarting {
-				urlOpen := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostOpen, strconv.Itoa(addr.Port)))
-				// Can potentially block if the utility we are invoking doesn't
-				// fork, and just execs, hence keep it in it's own routine.
-				go openURL(urlOpen)
-			}
+		if cfg.Options().StartBrowser && !noBrowser && !stRestarting {
+			urlOpen := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostOpen, strconv.Itoa(addr.Port)))
+			// Can potentially block if the utility we are invoking doesn't
+			// fork, and just execs, hence keep it in it's own routine.
+			go openURL(urlOpen)
 		}
 	}
 }
@@ -1014,48 +1016,6 @@ func getFreePort(host string, ports ...int) (int, error) {
 	addr := c.Addr().(*net.TCPAddr)
 	c.Close()
 	return addr.Port, nil
-}
-
-func overrideGUIConfig(cfg config.GUIConfiguration, address, authentication, apikey string) config.GUIConfiguration {
-	if address != "" {
-		cfg.Enabled = true
-
-		if !strings.Contains(address, "//") {
-			// Assume just an IP was given. Don't touch he TLS setting.
-			cfg.Address = address
-		} else {
-			parsed, err := url.Parse(address)
-			if err != nil {
-				l.Fatalln(err)
-			}
-			cfg.Address = parsed.Host
-			switch parsed.Scheme {
-			case "http":
-				cfg.UseTLS = false
-			case "https":
-				cfg.UseTLS = true
-			default:
-				l.Fatalln("Unknown scheme:", parsed.Scheme)
-			}
-		}
-	}
-
-	if authentication != "" {
-		authenticationParts := strings.SplitN(authentication, ":", 2)
-
-		hash, err := bcrypt.GenerateFromPassword([]byte(authenticationParts[1]), 0)
-		if err != nil {
-			l.Fatalln("Invalid GUI password:", err)
-		}
-
-		cfg.User = authenticationParts[0]
-		cfg.Password = string(hash)
-	}
-
-	if apikey != "" {
-		cfg.APIKey = apikey
-	}
-	return cfg
 }
 
 func standbyMonitor() {
