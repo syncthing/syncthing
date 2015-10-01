@@ -108,7 +108,7 @@
 
             <div class="form-group">
               <label translate>API Key</label>
-              <div class="well well-sm text-monospace">{{tmpGUI.apiKey || "-"}}</div>
+              <div class="well well-sm text-monospace" select-on-click>{{tmpGUI.apiKey || "-"}}</div>
               <button type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(tmpGUI)">
                 <span class="fa fa-repeat"></span>&nbsp;<span translate>Generate</span>
               </button>
