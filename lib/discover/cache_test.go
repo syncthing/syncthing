@@ -15,7 +15,21 @@ import (
 )
 
 func TestCacheUnique(t *testing.T) {
-	direct := []string{"tcp://192.0.2.42:22000", "tcp://192.0.2.43:22000"}
+	direct0 := []string{"tcp://192.0.2.44:22000", "tcp://192.0.2.42:22000"} // prio 0
+	direct1 := []string{"tcp://192.0.2.43:22000", "tcp://192.0.2.42:22000"} // prio 1
+
+	// what we expect from just direct0
+	direct0Sorted := []string{"tcp://192.0.2.42:22000", "tcp://192.0.2.44:22000"}
+
+	// what we expect from direct0+direct1
+	totalSorted := []string{
+		// first prio 0, sorted
+		"tcp://192.0.2.42:22000", "tcp://192.0.2.44:22000",
+		// then prio 1
+		"tcp://192.0.2.43:22000",
+		// no duplicate .42
+	}
+
 	relays := []Relay{{URL: "relay://192.0.2.44:443"}, {URL: "tcp://192.0.2.45:443"}}
 
 	c := NewCachingMux()
@@ -25,15 +39,15 @@ func TestCacheUnique(t *testing.T) {
 	// Add a fake discovery service and verify we get it's answers through the
 	// cache.
 
-	f1 := &fakeDiscovery{direct, relays}
-	c.Add(f1, time.Minute, 0)
+	f1 := &fakeDiscovery{direct0, relays}
+	c.Add(f1, time.Minute, 0, 0)
 
 	dir, rel, err := c.Lookup(protocol.LocalDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(dir, direct) {
-		t.Errorf("Incorrect direct; %+v != %+v", dir, direct)
+	if !reflect.DeepEqual(dir, direct0Sorted) {
+		t.Errorf("Incorrect direct; %+v != %+v", dir, direct0Sorted)
 	}
 	if !reflect.DeepEqual(rel, relays) {
 		t.Errorf("Incorrect relays; %+v != %+v", rel, relays)
@@ -42,15 +56,15 @@ func TestCacheUnique(t *testing.T) {
 	// Add one more that answers in the same way and check that we don't
 	// duplicate or otherwise mess up the responses now.
 
-	f2 := &fakeDiscovery{direct, relays}
-	c.Add(f2, time.Minute, 0)
+	f2 := &fakeDiscovery{direct1, relays}
+	c.Add(f2, time.Minute, 0, 1)
 
 	dir, rel, err = c.Lookup(protocol.LocalDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(dir, direct) {
-		t.Errorf("Incorrect direct; %+v != %+v", dir, direct)
+	if !reflect.DeepEqual(dir, totalSorted) {
+		t.Errorf("Incorrect direct; %+v != %+v", dir, totalSorted)
 	}
 	if !reflect.DeepEqual(rel, relays) {
 		t.Errorf("Incorrect relays; %+v != %+v", rel, relays)
