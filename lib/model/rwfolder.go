@@ -965,7 +965,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 	}
 
 	if free, err := osutil.DiskFreeBytes(p.dir); err == nil && free < file.Size() {
-		l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.dir, file.Name, float64(free)/1024/1024, float64(file.Size())/1024/1024)
+		l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.folder, p.dir, file.Name, float64(free)/1024/1024, float64(file.Size())/1024/1024)
 		p.newError(file.Name, errors.New("insufficient space"))
 		return
 	}
