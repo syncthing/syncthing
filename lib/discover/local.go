@@ -29,6 +29,7 @@ type localClient struct {
 	addrList  AddressLister
 	relayStat RelayStatusProvider
 	name      string
+	prio      int
 
 	beacon          beacon.Interface
 	localBcastStart time.Time
@@ -47,12 +48,13 @@ var (
 	ErrIncorrectMagic = errors.New("incorrect magic number")
 )
 
-func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, relayStat RelayStatusProvider) (FinderService, error) {
+func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, relayStat RelayStatusProvider, prio int) (FinderService, error) {
 	c := &localClient{
 		Supervisor:      suture.NewSimple("local"),
 		myID:            id,
 		addrList:        addrList,
 		relayStat:       relayStat,
+		prio:            prio,
 		localBcastTick:  time.Tick(BroadcastInterval),
 		forcedBcastTick: make(chan time.Time),
 		localBcastStart: time.Now(),
@@ -219,10 +221,12 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 				continue
 			}
 			u.Host = net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port))
-			validAddresses = append(validAddresses, u.String())
-		} else {
-			validAddresses = append(validAddresses, addr.URL)
 		}
+		q := u.Query()
+		q.Set("prio", strconv.Itoa(c.prio))
+		u.RawQuery = q.Encode()
+
+		validAddresses = append(validAddresses, u.String())
 	}
 
 	c.Set(id, CacheEntry{

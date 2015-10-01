@@ -25,12 +25,13 @@ func TestParseOptions(t *testing.T) {
 		out  string
 		opts serverOptions
 	}{
-		{"https://example.com/", "https://example.com/", serverOptions{}},
-		{"https://example.com/?insecure", "https://example.com/", serverOptions{insecure: true}},
-		{"https://example.com/?insecure=true", "https://example.com/", serverOptions{insecure: true}},
-		{"https://example.com/?insecure=yes", "https://example.com/", serverOptions{insecure: true}},
-		{"https://example.com/?insecure=false&noannounce", "https://example.com/", serverOptions{noAnnounce: true}},
-		{"https://example.com/?id=abc", "https://example.com/", serverOptions{id: "abc", insecure: true}},
+		{"https://example.com/", "https://example.com/", serverOptions{prio: defaultGlobalPrio}},
+		{"https://example.com/?insecure", "https://example.com/", serverOptions{insecure: true, prio: defaultGlobalPrio}},
+		{"https://example.com/?insecure=true", "https://example.com/", serverOptions{insecure: true, prio: defaultGlobalPrio}},
+		{"https://example.com/?insecure=yes", "https://example.com/", serverOptions{insecure: true, prio: defaultGlobalPrio}},
+		{"https://example.com/?insecure=false&noannounce", "https://example.com/", serverOptions{noAnnounce: true, prio: defaultGlobalPrio}},
+		{"https://example.com/?id=abc", "https://example.com/", serverOptions{id: "abc", insecure: true, prio: defaultGlobalPrio}},
+		{"https://example.com/?id=abc&prio=47", "https://example.com/", serverOptions{id: "abc", insecure: true, prio: 47}},
 	}
 
 	for _, tc := range testcases {
@@ -84,7 +85,7 @@ func TestGlobalOverHTTP(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(direct) != 1 || direct[0] != "tcp://192.0.2.42::22000" {
+	if len(direct) != 1 || direct[0] != "tcp://192.0.2.42:22000?prio=100" {
 		t.Errorf("incorrect direct list: %+v", direct)
 	}
 	if len(relays) != 1 || relays[0] != (Relay{URL: "relay://192.0.2.43:443", Latency: 42}) {
@@ -132,7 +133,7 @@ func TestGlobalOverHTTPS(t *testing.T) {
 	if direct, relays, err := testLookup(url); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	} else {
-		if len(direct) != 1 || direct[0] != "tcp://192.0.2.42::22000" {
+		if len(direct) != 1 || direct[0] != "tcp://192.0.2.42:22000?prio=100" {
 			t.Errorf("incorrect direct list: %+v", direct)
 		}
 		if len(relays) != 1 || relays[0] != (Relay{URL: "relay://192.0.2.43:443", Latency: 42}) {
@@ -155,7 +156,7 @@ func TestGlobalOverHTTPS(t *testing.T) {
 	if direct, relays, err := testLookup(url); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	} else {
-		if len(direct) != 1 || direct[0] != "tcp://192.0.2.42::22000" {
+		if len(direct) != 1 || direct[0] != "tcp://192.0.2.42:22000?prio=100" {
 			t.Errorf("incorrect direct list: %+v", direct)
 		}
 		if len(relays) != 1 || relays[0] != (Relay{URL: "relay://192.0.2.43:443", Latency: 42}) {
@@ -236,7 +237,7 @@ func (s *fakeDiscoveryServer) handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204)
 	} else {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"direct":["tcp://192.0.2.42::22000"], "relays":[{"url": "relay://192.0.2.43:443", "latency": 42}]}`))
+		w.Write([]byte(`{"direct":["tcp://192.0.2.42:22000"], "relays":[{"url": "relay://192.0.2.43:443", "latency": 42}]}`))
 	}
 }
 

@@ -24,6 +24,7 @@ import (
 
 type globalClient struct {
 	server         string
+	prio           int
 	addrList       AddressLister
 	relayStat      RelayStatusProvider
 	announceClient httpClient
@@ -32,6 +33,8 @@ type globalClient struct {
 	stop           chan struct{}
 	errorHolder
 }
+
+const defaultGlobalPrio = 100
 
 type httpClient interface {
 	Get(url string) (*http.Response, error)
@@ -52,6 +55,7 @@ type serverOptions struct {
 	insecure   bool   // don't check certificate
 	noAnnounce bool   // don't announce
 	id         string // expected server device ID
+	prio       int    // address priority, lower is better
 }
 
 func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, relayStat RelayStatusProvider) (FinderService, error) {
@@ -98,6 +102,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, rela
 
 	cl := &globalClient{
 		server:         server,
+		prio:           opts.prio,
 		addrList:       addrList,
 		relayStat:      relayStat,
 		announceClient: announceClient,
@@ -142,6 +147,19 @@ func (c *globalClient) Lookup(device protocol.DeviceID) (direct []string, relays
 	var ann announcement
 	err = json.NewDecoder(resp.Body).Decode(&ann)
 	resp.Body.Close()
+
+	// Add ?prio=100 or whatever is appropriate from our prio setting.
+	for i, addr := range ann.Direct {
+		u, err := url.Parse(addr)
+		if err != nil {
+			continue
+		}
+		q := u.Query()
+		q.Set("prio", strconv.Itoa(c.prio))
+		u.RawQuery = q.Encode()
+		ann.Direct[i] = u.String()
+	}
+
 	return ann.Direct, ann.Relays, err
 }
 
@@ -288,6 +306,7 @@ func parseOptions(dsn string) (server string, opts serverOptions, err error) {
 	opts.id = q.Get("id")
 	opts.insecure = opts.id != "" || queryBool(q, "insecure")
 	opts.noAnnounce = queryBool(q, "noannounce")
+	opts.prio = queryInt(q, "prio", defaultGlobalPrio)
 
 	// Check for disallowed combinations
 	if p.Scheme == "http" {
@@ -317,6 +336,19 @@ func queryBool(q url.Values, key string) bool {
 	}
 
 	return q.Get(key) != "false"
+}
+
+// queryInt returns the query parameter parsed as integer, returning the
+// default if the parameter was missing or bad.
+func queryInt(q url.Values, key string, def int) int {
+	if _, ok := q[key]; !ok {
+		return def
+	}
+
+	if n, err := strconv.Atoi(q.Get(key)); err == nil {
+		return n
+	}
+	return def
 }
 
 type idCheckingHTTPClient struct {
