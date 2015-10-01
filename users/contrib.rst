@@ -57,7 +57,7 @@ ArchLinux
 
 -  https://www.archlinux.org/packages/?name=syncthing
 -  https://www.archlinux.org/packages/?name=syncthing-gtk
--  https://aur.archlinux.org/packages/syncthing-inotify
+-  https://www.archlinux.org/packages/?name=syncthing-inotify
 -  https://aur.archlinux.org/packages/syncthing-discosrv
 
 arkOS
