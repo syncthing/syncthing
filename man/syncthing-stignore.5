@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-STIGNORE" "5" "September 10, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "October 01, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .
@@ -93,7 +93,7 @@ matching. \fB(?i)test\fP matches \fBtest\fP, \fBTEST\fP and \fBtEsT\fP\&. The
 \fB(?i)\fP prefix can be combined with other patterns, for example the
 pattern \fB(?i)!picture*.png\fP indicates that \fBPicture1.PNG\fP should
 be synchronized. Note that case\-insensitive patterns must start with
-\fB(?i)\fP when combined with other flags.
+\fB(?i)\fP when combined with other flags. On Mac OS and Windows, patterns are always case\-insensitive.
 .IP \(bu 2
 A line beginning with \fB//\fP is a comment and has no effect.
 .UNINDENT

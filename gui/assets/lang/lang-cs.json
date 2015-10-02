@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Při přidávání nového adresáře mějte na paměti, že jeho ID je použito ke svázání adresářů napříč přístoji. Rozlišují se malá a velká písmena a musí přesně souhlasit mezi všemi přístroji.",
     "Yes": "Ano",
     "You must keep at least one version.": "Je třeba ponechat alespoň jednu verzi.",
+    "days": "dní",
     "full documentation": "plná dokumentace",
     "items": "položky",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} chce sdílet adresář \"{{folder}}\"."

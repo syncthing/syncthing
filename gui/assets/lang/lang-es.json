@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Al agregar un nuevo repositorio, tenga en cuenta que la ID del repositorio se utiliza para conectar los repositorios entre dispositivos. Se distingue entre mayúsculas y minúsculas y debe ser exactamente igual en todos los dispositivos.",
     "Yes": "Sí",
     "You must keep at least one version.": "Debe mantener al menos una versión",
+    "days": "days",
     "full documentation": "documentación completa",
     "items": "ítems",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quiere compartir repositorio \"{{folder}}\"."

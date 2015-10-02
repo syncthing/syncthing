@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "새 폴더를 추가할 시 폴더 ID는 장치간에 폴더를 묶을 때 사용됩니다. 대소문자를 구분하며 모든 장치에서 같은 ID를 사용해야 합니다.",
     "Yes": "예",
     "You must keep at least one version.": "최소 한 개의 버전은 유지해야 합니다.",
+    "days": "days",
     "full documentation": "전체 문서",
     "items": "항목",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 에서 폴더  \\\"{{folder}}\\\" 를 공유하길 원합니다."

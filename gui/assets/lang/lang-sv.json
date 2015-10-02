@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "När du lägger till ny katalog, tänk på att katalog-ID:t knyter ihop katalogen mellan olika noder. De måste vara exakt desamma mellan noder och stora eller små bokstäver har betydelse.",
     "Yes": "Ja",
     "You must keep at least one version.": "Du måste behålla åtminstone en version.",
+    "days": "days",
     "full documentation": "fullständig dokumentation",
     "items": "poster",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vill dela katalogen \"{{folder}}\"."

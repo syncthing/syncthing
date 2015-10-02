@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Quando adicionar uma nova pasta, lembre-se que o ID da pasta é utilizado para ligar as pastas entre dispositivos. É sensível às diferenças entre maiúsculas e minúsculas e tem que ter uma correspondência perfeita entre todos os dispositivos.",
     "Yes": "Sim",
     "You must keep at least one version.": "Tem que manter pelo menos uma versão.",
+    "days": "dias",
     "full documentation": "documentação completa",
     "items": "itens",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quer partilhar a pasta \"{{folder}}\"."

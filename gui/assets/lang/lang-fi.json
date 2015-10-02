@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Lisättäessä uutta kansiota, muista että kansion ID:tä käytetään solmimaan kansiot yhteen laitteiden välillä. Ne ovat riippuvaisia kirjankoosta ja niiden tulee täsmätä kaikkien laitteiden välillä.",
     "Yes": "Kyllä",
     "You must keep at least one version.": "Sinun tulee säilyttää ainakin yksi versio.",
+    "days": "days",
     "full documentation": "täysi dokumentaatio",
     "items": "kohteet",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} haluaa jakaa kansion \"{{folder}}\"."

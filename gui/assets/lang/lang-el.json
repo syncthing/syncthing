@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Όταν προσθέτεις έναν νέο φάκελο, θυμήσου πως η ταυτότητα ενός φακέλου χρησιμοποιείται για να να συσχετίσει φακέλους μεταξύ συσκευών. Η ταυτότητα του φακέλου θα πρέπει να είναι η ίδια σε όλες τις συσκευές και έχουν σημασία τα πεζά ή κεφαλαία γράμματα.",
     "Yes": "Ναι",
     "You must keep at least one version.": "Πρέπει να τηρήσεις τουλάχιστον μια έκδοση.",
+    "days": "days",
     "full documentation": "πλήρης τεκμηρίωση",
     "items": "εγγραφές",
     "{%device%} wants to share folder \"{%folder%}\".": "Η συσκευή {{device}} θέλει να μοιράσει τον φάκελο «{{folder}}»."

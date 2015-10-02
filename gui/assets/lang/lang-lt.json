@@ -189,7 +189,7 @@
     "The number of old versions to keep, per file.": "Kiek failo versijų saugoti.",
     "The number of versions must be a number and cannot be blank.": "Versijų skaičius turi būti skaitmuo ir negali būti tuščias laukelis.",
     "The path cannot be blank.": "Kelias negali būti tuščias.",
-    "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
+    "The rate limit must be a non-negative number (0: no limit)": "Srauto maksimalus greitis privalo būti ne neigiamas skaičius (0: nėra apribojimo)",
     "The rescan interval must be a non-negative number of seconds.": "Nuskaitymo dažnis negali būti neigiamas skaičius.",
     "They are retried automatically and will be synced when the error is resolved.": "They are retried automatically and will be synced when the error is resolved.",
     "This is a major version upgrade.": "Tai yra stambus atnaujinimas.",
@@ -212,6 +212,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Kai įvedate naują aplanką neužmirškite, kad jis bus naudojamas visuose įrenginiuose. Svarbu visur įvesti visiškai tokį pat aplanko vardą neužmirštant apie didžiąsias ir mažąsias raides.",
     "Yes": "Taip",
     "You must keep at least one version.": "Būtina saugoti bent vieną versiją.",
+    "days": "days",
     "full documentation": "pilna dokumentacija",
     "items": "įrašai",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} nori dalintis aplanku \"{{folder}}\""
