@@ -124,16 +124,12 @@ func (c *globalClient) Lookup(device protocol.DeviceID) (direct []string, relays
 
 	resp, err := c.queryClient.Get(qURL.String())
 	if err != nil {
-		if debug {
-			l.Debugln("globalClient.Lookup", qURL.String(), err)
-		}
+		l.Debugln("globalClient.Lookup", qURL, err)
 		return nil, nil, err
 	}
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
-		if debug {
-			l.Debugln("globalClient.Lookup", qURL.String(), resp.Status)
-		}
+		l.Debugln("globalClient.Lookup", qURL, resp.Status)
 		return nil, nil, errors.New(resp.Status)
 	}
 
@@ -198,9 +194,7 @@ func (c *globalClient) sendAnnouncement(timer *time.Timer) {
 
 	if len(ann.Direct)+len(ann.Relays) == 0 {
 		c.setError(errors.New("nothing to announce"))
-		if debug {
-			l.Debugln("Nothing to announce")
-		}
+		l.Debugln("Nothing to announce")
 		timer.Reset(announceErrorRetryInterval)
 		return
 	}
@@ -208,37 +202,27 @@ func (c *globalClient) sendAnnouncement(timer *time.Timer) {
 	// The marshal doesn't fail, I promise.
 	postData, _ := json.Marshal(ann)
 
-	if debug {
-		l.Debugf("Announcement: %s", postData)
-	}
+	l.Debugf("Announcement: %s", postData)
 
 	resp, err := c.announceClient.Post(c.server, "application/json", bytes.NewReader(postData))
 	if err != nil {
-		if debug {
-			l.Debugln("announce POST:", err)
-		}
+		l.Debugln("announce POST:", err)
 		c.setError(err)
 		timer.Reset(announceErrorRetryInterval)
 		return
 	}
-	if debug {
-		l.Debugln("announce POST:", resp.Status)
-	}
+	l.Debugln("announce POST:", resp.Status)
 	resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		if debug {
-			l.Debugln("announce POST:", resp.Status)
-		}
+		l.Debugln("announce POST:", resp.Status)
 		c.setError(errors.New(resp.Status))
 
 		if h := resp.Header.Get("Retry-After"); h != "" {
 			// The server has a recommendation on when we should
 			// retry. Follow it.
 			if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
-				if debug {
-					l.Debugln("announce Retry-After:", secs, err)
-				}
+				l.Debugln("announce Retry-After:", secs, err)
 				timer.Reset(time.Duration(secs) * time.Second)
 				return
 			}
@@ -254,9 +238,7 @@ func (c *globalClient) sendAnnouncement(timer *time.Timer) {
 		// The server has a recommendation on when we should
 		// reannounce. Follow it.
 		if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
-			if debug {
-				l.Debugln("announce Reannounce-After:", secs, err)
-			}
+			l.Debugln("announce Reannounce-After:", secs, err)
 			timer.Reset(time.Duration(secs) * time.Second)
 			return
 		}

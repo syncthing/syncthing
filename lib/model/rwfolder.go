@@ -157,10 +157,8 @@ func (p *rwFolder) ignorePermissions(file protocol.FileInfo) bool {
 // Serve will run scans and pulls. It will return when Stop()ed or on a
 // critical error.
 func (p *rwFolder) Serve() {
-	if debug {
-		l.Debugln(p, "starting")
-		defer l.Debugln(p, "exiting")
-	}
+	l.Debugln(p, "starting")
+	defer l.Debugln(p, "exiting")
 
 	defer func() {
 		p.pullTimer.Stop()
@@ -182,9 +180,7 @@ func (p *rwFolder) Serve() {
 		sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
 		intv := time.Duration(sleepNanos) * time.Nanosecond
 
-		if debug {
-			l.Debugln(p, "next rescan in", intv)
-		}
+		l.Debugln(p, "next rescan in", intv)
 		p.scanTimer.Reset(intv)
 	}
 
@@ -199,15 +195,11 @@ func (p *rwFolder) Serve() {
 		case <-p.remoteIndex:
 			prevVer = 0
 			p.pullTimer.Reset(shortPullIntv)
-			if debug {
-				l.Debugln(p, "remote index updated, rescheduling pull")
-			}
+			l.Debugln(p, "remote index updated, rescheduling pull")
 
 		case <-p.pullTimer.C:
 			if !initialScanCompleted {
-				if debug {
-					l.Debugln(p, "skip (initial)")
-				}
+				l.Debugln(p, "skip (initial)")
 				p.pullTimer.Reset(nextPullIntv)
 				continue
 			}
@@ -225,9 +217,7 @@ func (p *rwFolder) Serve() {
 			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
 				// The ignore patterns have changed. We need to re-evaluate if
 				// there are files we need now that were ignored before.
-				if debug {
-					l.Debugln(p, "ignore patterns have changed, resetting prevVer")
-				}
+				l.Debugln(p, "ignore patterns have changed, resetting prevVer")
 				prevVer = 0
 				prevIgnoreHash = newHash
 			}
@@ -235,16 +225,12 @@ func (p *rwFolder) Serve() {
 			// RemoteLocalVersion() is a fast call, doesn't touch the database.
 			curVer, ok := p.model.RemoteLocalVersion(p.folder)
 			if !ok || curVer == prevVer {
-				if debug {
-					l.Debugln(p, "skip (curVer == prevVer)", prevVer, ok)
-				}
+				l.Debugln(p, "skip (curVer == prevVer)", prevVer, ok)
 				p.pullTimer.Reset(nextPullIntv)
 				continue
 			}
 
-			if debug {
-				l.Debugln(p, "pulling", prevVer, curVer)
-			}
+			l.Debugln(p, "pulling", prevVer, curVer)
 
 			p.setState(FolderSyncing)
 			p.clearErrors()
@@ -254,9 +240,7 @@ func (p *rwFolder) Serve() {
 				tries++
 
 				changed := p.pullerIteration(curIgnores)
-				if debug {
-					l.Debugln(p, "changed", changed)
-				}
+				l.Debugln(p, "changed", changed)
 
 				if changed == 0 {
 					// No files were changed by the puller, so we are in
@@ -276,9 +260,7 @@ func (p *rwFolder) Serve() {
 						curVer = lv
 					}
 					prevVer = curVer
-					if debug {
-						l.Debugln(p, "next pull in", nextPullIntv)
-					}
+					l.Debugln(p, "next pull in", nextPullIntv)
 					p.pullTimer.Reset(nextPullIntv)
 					break
 				}
@@ -289,9 +271,7 @@ func (p *rwFolder) Serve() {
 					// errors preventing us. Flag this with a warning and
 					// wait a bit longer before retrying.
 					l.Infof("Folder %q isn't making progress. Pausing puller for %v.", p.folder, pauseIntv)
-					if debug {
-						l.Debugln(p, "next pull in", pauseIntv)
-					}
+					l.Debugln(p, "next pull in", pauseIntv)
 
 					if folderErrors := p.currentErrors(); len(folderErrors) > 0 {
 						events.Default.Log(events.FolderErrors, map[string]interface{}{
@@ -316,9 +296,7 @@ func (p *rwFolder) Serve() {
 				continue
 			}
 
-			if debug {
-				l.Debugln(p, "rescan")
-			}
+			l.Debugln(p, "rescan")
 
 			if err := p.model.internalScanFolderSubs(p.folder, nil); err != nil {
 				// Potentially sets the error twice, once in the scanner just
@@ -345,9 +323,7 @@ func (p *rwFolder) Serve() {
 				continue
 			}
 
-			if debug {
-				l.Debugln(p, "forced rescan")
-			}
+			l.Debugln(p, "forced rescan")
 
 			if err := p.model.internalScanFolderSubs(p.folder, req.subs); err != nil {
 				// Potentially sets the error twice, once in the scanner just
@@ -409,9 +385,7 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	pullWg := sync.NewWaitGroup()
 	doneWg := sync.NewWaitGroup()
 
-	if debug {
-		l.Debugln(p, "c", p.copiers, "p", p.pullers)
-	}
+	l.Debugln(p, "c", p.copiers, "p", p.pullers)
 
 	p.dbUpdates = make(chan dbUpdateJob)
 	updateWg.Add(1)
@@ -474,9 +448,7 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 			return true
 		}
 
-		if debug {
-			l.Debugln(p, "handling", file.Name)
-		}
+		l.Debugln(p, "handling", file.Name)
 
 		switch {
 		case file.IsDeleted():
@@ -498,9 +470,7 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 			}
 		case file.IsDirectory() && !file.IsSymlink():
 			// A new or changed directory
-			if debug {
-				l.Debugln("Creating directory", file.Name)
-			}
+			l.Debugln("Creating directory", file.Name)
 			p.handleDir(file)
 		default:
 			// A new or changed file or symlink. This is the only case where we
@@ -591,17 +561,13 @@ nextFile:
 	doneWg.Wait()
 
 	for _, file := range fileDeletions {
-		if debug {
-			l.Debugln("Deleting file", file.Name)
-		}
+		l.Debugln("Deleting file", file.Name)
 		p.deleteFile(file)
 	}
 
 	for i := range dirDeletions {
 		dir := dirDeletions[len(dirDeletions)-i-1]
-		if debug {
-			l.Debugln("Deleting dir", dir.Name)
-		}
+		l.Debugln("Deleting dir", dir.Name)
 		p.deleteDir(dir)
 	}
 
@@ -638,7 +604,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 		mode = 0777
 	}
 
-	if debug {
+	if shouldDebug() {
 		curFile, _ := p.model.CurrentFolderFile(p.folder, file.Name)
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
@@ -836,9 +802,7 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 		})
 	}()
 
-	if debug {
-		l.Debugln(p, "taking rename shortcut", source.Name, "->", target.Name)
-	}
+	l.Debugln(p, "taking rename shortcut", source.Name, "->", target.Name)
 
 	from := filepath.Join(p.dir, source.Name)
 	to := filepath.Join(p.dir, target.Name)
@@ -926,9 +890,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		// We are supposed to copy the entire file, and then fetch nothing. We
 		// are only updating metadata, so we don't actually *need* to make the
 		// copy.
-		if debug {
-			l.Debugln(p, "taking shortcut on", file.Name)
-		}
+		l.Debugln(p, "taking shortcut on", file.Name)
 
 		events.Default.Log(events.ItemStarted, map[string]string{
 			"folder": p.folder,
@@ -1033,9 +995,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		mut:         sync.NewMutex(),
 	}
 
-	if debug {
-		l.Debugf("%v need file %s; copy %d, reused %v", p, file.Name, len(blocks), reused)
-	}
+	l.Debugf("%v need file %s; copy %d, reused %v", p, file.Name, len(blocks), reused)
 
 	cs := copyBlocksState{
 		sharedPullerState: &s,
@@ -1135,14 +1095,12 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 				hash, err := scanner.VerifyBuffer(buf, block)
 				if err != nil {
 					if hash != nil {
-						if debug {
-							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
-						}
+						l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
 						err = p.model.finder.Fix(folder, file, index, block.Hash, hash)
 						if err != nil {
 							l.Warnln("finder fix:", err)
 						}
-					} else if debug {
+					} else {
 						l.Debugln("Finder failed to verify buffer", err)
 					}
 					return false
@@ -1217,9 +1175,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			buf, lastError := p.model.requestGlobal(selected, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, 0, nil)
 			activity.done(selected)
 			if lastError != nil {
-				if debug {
-					l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)
-				}
+				l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)
 				continue
 			}
 
@@ -1227,9 +1183,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			// try pulling it from another device.
 			_, lastError = scanner.VerifyBuffer(buf, state.block)
 			if lastError != nil {
-				if debug {
-					l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
-				}
+				l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
 				continue
 			}
 
@@ -1339,9 +1293,7 @@ func (p *rwFolder) performFinish(state *sharedPullerState) error {
 func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 	for state := range in {
 		if closed, err := state.finalClose(); closed {
-			if debug {
-				l.Debugln(p, "closing", state.file.Name)
-			}
+			l.Debugln(p, "closing", state.file.Name)
 
 			p.queue.Done(state.file.Name)
 

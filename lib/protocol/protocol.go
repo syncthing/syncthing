@@ -369,9 +369,7 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 	hdr = decodeHeader(binary.BigEndian.Uint32(c.rdbuf0[0:4]))
 	msglen := int(binary.BigEndian.Uint32(c.rdbuf0[4:8]))
 
-	if debug {
-		l.Debugf("read header %v (msglen=%d)", hdr, msglen)
-	}
+	l.Debugf("read header %v (msglen=%d)", hdr, msglen)
 
 	if msglen > MaxMessageLen {
 		err = fmt.Errorf("message length %d exceeds maximum %d", msglen, MaxMessageLen)
@@ -393,9 +391,7 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 		return
 	}
 
-	if debug {
-		l.Debugf("read %d bytes", len(c.rdbuf0))
-	}
+	l.Debugf("read %d bytes", len(c.rdbuf0))
 
 	msgBuf := c.rdbuf0
 	if hdr.compression && msglen > 0 {
@@ -405,17 +401,13 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 			return
 		}
 		msgBuf = c.rdbuf1
-		if debug {
-			l.Debugf("decompressed to %d bytes", len(msgBuf))
-		}
+		l.Debugf("decompressed to %d bytes", len(msgBuf))
 	}
 
-	if debug {
-		if len(msgBuf) > 1024 {
-			l.Debugf("message data:\n%s", hex.Dump(msgBuf[:1024]))
-		} else {
-			l.Debugf("message data:\n%s", hex.Dump(msgBuf))
-		}
+	if len(msgBuf) > 1024 {
+		l.Debugf("message data:\n%s", hex.Dump(msgBuf[:1024]))
+	} else {
+		l.Debugf("message data:\n%s", hex.Dump(msgBuf))
 	}
 
 	// We check each returned error for the XDRError.IsEOF() method.
@@ -477,16 +469,12 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 }
 
 func (c *rawConnection) handleIndex(im IndexMessage) {
-	if debug {
-		l.Debugf("Index(%v, %v, %d file, flags %x, opts: %s)", c.id, im.Folder, len(im.Files), im.Flags, im.Options)
-	}
+	l.Debugf("Index(%v, %v, %d file, flags %x, opts: %s)", c.id, im.Folder, len(im.Files), im.Flags, im.Options)
 	c.receiver.Index(c.id, im.Folder, filterIndexMessageFiles(im.Files), im.Flags, im.Options)
 }
 
 func (c *rawConnection) handleIndexUpdate(im IndexMessage) {
-	if debug {
-		l.Debugf("queueing IndexUpdate(%v, %v, %d files, flags %x, opts: %s)", c.id, im.Folder, len(im.Files), im.Flags, im.Options)
-	}
+	l.Debugf("queueing IndexUpdate(%v, %v, %d files, flags %x, opts: %s)", c.id, im.Folder, len(im.Files), im.Flags, im.Options)
 	c.receiver.IndexUpdate(c.id, im.Folder, filterIndexMessageFiles(im.Files), im.Flags, im.Options)
 }
 
@@ -636,9 +624,7 @@ func (c *rawConnection) writerLoop() {
 					binary.BigEndian.PutUint32(msgBuf[4:8], uint32(len(tempBuf)))
 					msgBuf = msgBuf[0 : len(tempBuf)+8]
 
-					if debug {
-						l.Debugf("write compressed message; %v (len=%d)", hm.hdr, len(tempBuf))
-					}
+					l.Debugf("write compressed message; %v (len=%d)", hm.hdr, len(tempBuf))
 				} else {
 					// No point in compressing very short messages
 					hm.hdr.compression = false
@@ -652,14 +638,10 @@ func (c *rawConnection) writerLoop() {
 					msgBuf = msgBuf[0 : len(uncBuf)+8]
 					copy(msgBuf[8:], uncBuf)
 
-					if debug {
-						l.Debugf("write uncompressed message; %v (len=%d)", hm.hdr, len(uncBuf))
-					}
+					l.Debugf("write uncompressed message; %v (len=%d)", hm.hdr, len(uncBuf))
 				}
 			} else {
-				if debug {
-					l.Debugf("write empty message; %v", hm.hdr)
-				}
+				l.Debugf("write empty message; %v", hm.hdr)
 				binary.BigEndian.PutUint32(msgBuf[4:8], 0)
 				msgBuf = msgBuf[:8]
 			}
@@ -669,9 +651,7 @@ func (c *rawConnection) writerLoop() {
 			if err == nil {
 				var n int
 				n, err = c.cw.Write(msgBuf)
-				if debug {
-					l.Debugf("wrote %d bytes on the wire", n)
-				}
+				l.Debugf("wrote %d bytes on the wire", n)
 			}
 			if err != nil {
 				c.close(err)
@@ -725,15 +705,11 @@ func (c *rawConnection) pingSender() {
 		case <-ticker:
 			d := time.Since(c.cw.Last())
 			if d < PingSendInterval/2 {
-				if debug {
-					l.Debugln(c.id, "ping skipped after wr", d)
-				}
+				l.Debugln(c.id, "ping skipped after wr", d)
 				continue
 			}
 
-			if debug {
-				l.Debugln(c.id, "ping -> after", d)
-			}
+			l.Debugln(c.id, "ping -> after", d)
 			c.ping()
 
 		case <-c.closed:
@@ -753,15 +729,11 @@ func (c *rawConnection) pingReceiver() {
 		case <-ticker:
 			d := time.Since(c.cr.Last())
 			if d > ReceiveTimeout {
-				if debug {
-					l.Debugln(c.id, "ping timeout", d)
-				}
+				l.Debugln(c.id, "ping timeout", d)
 				c.close(ErrTimeout)
 			}
 
-			if debug {
-				l.Debugln(c.id, "last read within", d)
-			}
+			l.Debugln(c.id, "last read within", d)
 
 		case <-c.closed:
 			return

@@ -34,9 +34,7 @@ func NewExternal(folderID, folderPath string, params map[string]string) Versione
 		folderPath: folderPath,
 	}
 
-	if debug {
-		l.Debugf("instantiated %#v", s)
-	}
+	l.Debugf("instantiated %#v", s)
 	return s
 }
 
@@ -45,17 +43,13 @@ func NewExternal(folderID, folderPath string, params map[string]string) Versione
 func (v External) Archive(filePath string) error {
 	_, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {
-		if debug {
-			l.Debugln("not archiving nonexistent file", filePath)
-		}
+		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
 	} else if err != nil {
 		return err
 	}
 
-	if debug {
-		l.Debugln("archiving", filePath)
-	}
+	l.Debugln("archiving", filePath)
 
 	inFolderPath, err := filepath.Rel(v.folderPath, filePath)
 	if err != nil {

@@ -47,9 +47,7 @@ func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config) *Svc {
 	svc := &Svc{
 		Supervisor: suture.New("Svc", suture.Spec{
 			Log: func(log string) {
-				if debug {
-					l.Debugln(log)
-				}
+				l.Debugln(log)
 			},
 			FailureBackoff:   5 * time.Minute,
 			FailureDecay:     float64((10 * time.Minute) / time.Second),
@@ -102,9 +100,7 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 	for _, addr := range to.Options.RelayServers {
 		uri, err := url.Parse(addr)
 		if err != nil {
-			if debug {
-				l.Debugln("Failed to parse relay address", addr, err)
-			}
+			l.Debugln("Failed to parse relay address", addr, err)
 			continue
 		}
 		existing[uri.String()] = uri
@@ -120,15 +116,11 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 		// Trim off the `dynamic+` prefix
 		uri.Scheme = uri.Scheme[8:]
 
-		if debug {
-			l.Debugln("Looking up dynamic relays from", uri)
-		}
+		l.Debugln("Looking up dynamic relays from", uri)
 
 		data, err := http.Get(uri.String())
 		if err != nil {
-			if debug {
-				l.Debugln("Failed to lookup dynamic relays", err)
-			}
+			l.Debugln("Failed to lookup dynamic relays", err)
 			continue
 		}
 
@@ -136,9 +128,7 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 		err = json.NewDecoder(data.Body).Decode(&ann)
 		data.Body.Close()
 		if err != nil {
-			if debug {
-				l.Debugln("Failed to lookup dynamic relays", err)
-			}
+			l.Debugln("Failed to lookup dynamic relays", err)
 			continue
 		}
 
@@ -146,26 +136,20 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 		for _, relayAnn := range ann.Relays {
 			ruri, err := url.Parse(relayAnn.URL)
 			if err != nil {
-				if debug {
-					l.Debugln("Failed to parse dynamic relay address", relayAnn.URL, err)
-				}
+				l.Debugln("Failed to parse dynamic relay address", relayAnn.URL, err)
 				continue
 			}
-			if debug {
-				l.Debugln("Found", ruri, "via", uri)
-			}
+			l.Debugln("Found", ruri, "via", uri)
 			dynRelayAddrs = append(dynRelayAddrs, ruri.String())
 		}
 
 		if len(dynRelayAddrs) > 0 {
 			dynRelayAddrs = relayAddressesSortedByLatency(dynRelayAddrs)
 			closestRelay := dynRelayAddrs[0]
-			if debug {
-				l.Debugln("Picking", closestRelay, "as closest dynamic relay from", uri)
-			}
+			l.Debugln("Picking", closestRelay, "as closest dynamic relay from", uri)
 			ruri, _ := url.Parse(closestRelay)
 			existing[closestRelay] = ruri
-		} else if debug {
+		} else {
 			l.Debugln("No dynamic relay found on", uri)
 		}
 	}
@@ -175,9 +159,7 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 	for key, uri := range existing {
 		_, ok := s.tokens[key]
 		if !ok {
-			if debug {
-				l.Debugln("Connecting to relay", uri)
-			}
+			l.Debugln("Connecting to relay", uri)
 			c := client.NewProtocolClient(uri, s.tlsCfg.Certificates, s.invitations)
 			s.tokens[key] = s.Add(c)
 			s.clients[key] = c
@@ -190,9 +172,7 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 			err := s.Remove(token)
 			delete(s.tokens, key)
 			delete(s.clients, key)
-			if debug {
-				l.Debugln("Disconnecting from relay", key, err)
-			}
+			l.Debugln("Disconnecting from relay", key, err)
 		}
 	}
 
@@ -262,14 +242,10 @@ func (r *invitationReceiver) Serve() {
 	for {
 		select {
 		case inv := <-r.invitations:
-			if debug {
-				l.Debugln("Received relay invitation", inv)
-			}
+			l.Debugln("Received relay invitation", inv)
 			conn, err := client.JoinSession(inv)
 			if err != nil {
-				if debug {
-					l.Debugf("Failed to join relay session %s: %v", inv, err)
-				}
+				l.Debugf("Failed to join relay session %s: %v", inv, err)
 				continue
 			}
 

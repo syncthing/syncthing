@@ -42,9 +42,7 @@ func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan pr
 func HashFile(path string, blockSize int, sizeHint int64, counter *int64) ([]protocol.BlockInfo, error) {
 	fd, err := os.Open(path)
 	if err != nil {
-		if debug {
-			l.Debugln("open:", err)
-		}
+		l.Debugln("open:", err)
 		return []protocol.BlockInfo{}, err
 	}
 	defer fd.Close()
@@ -52,9 +50,7 @@ func HashFile(path string, blockSize int, sizeHint int64, counter *int64) ([]pro
 	if sizeHint == 0 {
 		fi, err := fd.Stat()
 		if err != nil {
-			if debug {
-				l.Debugln("stat:", err)
-			}
+			l.Debugln("stat:", err)
 			return []protocol.BlockInfo{}, err
 		}
 		sizeHint = fi.Size()
@@ -71,9 +67,7 @@ func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, 
 
 		blocks, err := HashFile(filepath.Join(dir, f.Name), blockSize, f.CachedSize, counter)
 		if err != nil {
-			if debug {
-				l.Debugln("hash error:", f.Name, err)
-			}
+			l.Debugln("hash error:", f.Name, err)
 			continue
 		}
 

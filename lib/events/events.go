@@ -138,9 +138,7 @@ func NewLogger() *Logger {
 
 func (l *Logger) Log(t EventType, data interface{}) {
 	l.mutex.Lock()
-	if debug {
-		dl.Debugln("log", l.nextID, t.String(), data)
-	}
+	dl.Debugln("log", l.nextID, t, data)
 	l.nextID++
 	e := Event{
 		ID:   l.nextID,
@@ -162,9 +160,7 @@ func (l *Logger) Log(t EventType, data interface{}) {
 
 func (l *Logger) Subscribe(mask EventType) *Subscription {
 	l.mutex.Lock()
-	if debug {
-		dl.Debugln("subscribe", mask)
-	}
+	dl.Debugln("subscribe", mask)
 	s := &Subscription{
 		mask:    mask,
 		events:  make(chan Event, BufferSize),
@@ -177,9 +173,7 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 
 func (l *Logger) Unsubscribe(s *Subscription) {
 	l.mutex.Lock()
-	if debug {
-		dl.Debugln("unsubscribe")
-	}
+	dl.Debugln("unsubscribe")
 	for i, ss := range l.subs {
 		if s == ss {
 			last := len(l.subs) - 1
@@ -197,9 +191,7 @@ func (l *Logger) Unsubscribe(s *Subscription) {
 // out of the event channel is closed. Poll should not be called concurrently
 // from multiple goroutines for a single subscription.
 func (s *Subscription) Poll(timeout time.Duration) (Event, error) {
-	if debug {
-		dl.Debugln("poll", timeout)
-	}
+	dl.Debugln("poll", timeout)
 
 	if !s.timeout.Reset(timeout) {
 		select {

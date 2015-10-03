@@ -121,9 +121,7 @@ func NewConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tl
 			continue
 		}
 
-		if debug {
-			l.Debugln("listening on", uri.String())
-		}
+		l.Debugln("listening on", uri)
 
 		svc.Add(serviceFunc(func() {
 			listener(uri, svc.tlsCfg, svc.conns)
@@ -178,9 +176,7 @@ next:
 		ct, ok := s.connType[remoteID]
 		s.mut.RUnlock()
 		if ok && !ct.IsDirect() && c.Type.IsDirect() {
-			if debug {
-				l.Debugln("Switching connections", remoteID)
-			}
+			l.Debugln("Switching connections", remoteID)
 			s.model.Close(remoteID, fmt.Errorf("switching connections"))
 		} else if s.model.ConnectedTo(remoteID) {
 			// We should not already be connected to the other party. TODO: This
@@ -236,9 +232,7 @@ next:
 				protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
-				if debug {
-					l.Debugf("cipher suite: %04X in lan: %t", c.Conn.ConnectionState().CipherSuite, !limit)
-				}
+				l.Debugf("cipher suite: %04X in lan: %t", c.Conn.ConnectionState().CipherSuite, !limit)
 
 				s.model.AddConnection(model.Connection{
 					c.Conn,
@@ -311,18 +305,14 @@ func (s *connectionSvc) connect() {
 
 				dialer, ok := dialers[uri.Scheme]
 				if !ok {
-					l.Infoln("Unknown address schema", uri.String())
+					l.Infoln("Unknown address schema", uri)
 					continue
 				}
 
-				if debug {
-					l.Debugln("dial", deviceCfg.DeviceID, uri.String())
-				}
+				l.Debugln("dial", deviceCfg.DeviceID, uri)
 				conn, err := dialer(uri, s.tlsCfg)
 				if err != nil {
-					if debug {
-						l.Debugln("dial failed", deviceCfg.DeviceID, uri.String(), err)
-					}
+					l.Debugln("dial failed", deviceCfg.DeviceID, uri, err)
 					continue
 				}
 
@@ -347,11 +337,9 @@ func (s *connectionSvc) connect() {
 
 			reconIntv := time.Duration(s.cfg.Options().RelayReconnectIntervalM) * time.Minute
 			if last, ok := s.lastRelayCheck[deviceID]; ok && time.Since(last) < reconIntv {
-				if debug {
-					l.Debugln("Skipping connecting via relay to", deviceID, "last checked at", last)
-				}
+				l.Debugln("Skipping connecting via relay to", deviceID, "last checked at", last)
 				continue nextDevice
-			} else if debug {
+			} else {
 				l.Debugln("Trying relay connections to", deviceID, relays)
 			}
 
@@ -366,21 +354,17 @@ func (s *connectionSvc) connect() {
 
 				inv, err := client.GetInvitationFromRelay(uri, deviceID, s.tlsCfg.Certificates)
 				if err != nil {
-					if debug {
-						l.Debugf("Failed to get invitation for %s from %s: %v", deviceID, uri, err)
-					}
+					l.Debugf("Failed to get invitation for %s from %s: %v", deviceID, uri, err)
 					continue
-				} else if debug {
+				} else {
 					l.Debugln("Succesfully retrieved relay invitation", inv, "from", uri)
 				}
 
 				conn, err := client.JoinSession(inv)
 				if err != nil {
-					if debug {
-						l.Debugf("Failed to join relay session %s: %v", inv, err)
-					}
+					l.Debugf("Failed to join relay session %s: %v", inv, err)
 					continue
-				} else if debug {
+				} else {
 					l.Debugln("Sucessfully joined relay session", inv)
 				}
 

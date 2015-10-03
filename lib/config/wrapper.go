@@ -142,13 +142,9 @@ func (w *Wrapper) replaceLocked(to Configuration) CommitResponse {
 	from := w.cfg
 
 	for _, sub := range w.subs {
-		if debug {
-			l.Debugln(sub, "verifying configuration")
-		}
+		l.Debugln(sub, "verifying configuration")
 		if err := sub.VerifyConfiguration(from, to); err != nil {
-			if debug {
-				l.Debugln(sub, "rejected config:", err)
-			}
+			l.Debugln(sub, "rejected config:", err)
 			return CommitResponse{
 				ValidationError: err,
 			}
@@ -157,14 +153,10 @@ func (w *Wrapper) replaceLocked(to Configuration) CommitResponse {
 
 	allOk := true
 	for _, sub := range w.subs {
-		if debug {
-			l.Debugln(sub, "committing configuration")
-		}
+		l.Debugln(sub, "committing configuration")
 		ok := sub.CommitConfiguration(from, to)
 		if !ok {
-			if debug {
-				l.Debugln(sub, "requires restart")
-			}
+			l.Debugln(sub, "requires restart")
 			allOk = false
 		}
 	}

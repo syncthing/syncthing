@@ -98,9 +98,7 @@ func (s *upnpSvc) tryIGDs(igds []upnp.IGD, prevExtPort int) int {
 			l.Infof("New UPnP port mapping: external port %d to local port %d.", extPort, s.localPort)
 			events.Default.Log(events.ExternalPortMappingChanged, map[string]int{"port": extPort})
 		}
-		if debugNet {
-			l.Debugf("Created/updated UPnP port mapping for external port %d on device %s.", extPort, igd.FriendlyIdentifier())
-		}
+		l.Debugf("Created/updated UPnP port mapping for external port %d on device %s.", extPort, igd.FriendlyIdentifier())
 		return extPort
 	}
 

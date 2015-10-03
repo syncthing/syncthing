@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/calmh/logger"
+	"github.com/syncthing/syncthing/lib/logger"
 )
 
 const (
@@ -23,6 +23,7 @@ const (
 
 func TestTypes(t *testing.T) {
 	debug = false
+	l.SetDebug("sync", false)
 
 	if _, ok := NewMutex().(*sync.Mutex); !ok {
 		t.Error("Wrong type")
@@ -37,6 +38,7 @@ func TestTypes(t *testing.T) {
 	}
 
 	debug = true
+	l.SetDebug("sync", true)
 
 	if _, ok := NewMutex().(*loggedMutex); !ok {
 		t.Error("Wrong type")
@@ -51,10 +53,12 @@ func TestTypes(t *testing.T) {
 	}
 
 	debug = false
+	l.SetDebug("sync", false)
 }
 
 func TestMutex(t *testing.T) {
 	debug = true
+	l.SetDebug("sync", true)
 	threshold = logThreshold
 
 	msgmut := sync.Mutex{}
@@ -84,10 +88,12 @@ func TestMutex(t *testing.T) {
 	}
 
 	debug = false
+	l.SetDebug("sync", false)
 }
 
 func TestRWMutex(t *testing.T) {
 	debug = true
+	l.SetDebug("sync", true)
 	threshold = logThreshold
 
 	msgmut := sync.Mutex{}
@@ -142,10 +148,12 @@ func TestRWMutex(t *testing.T) {
 	mut.RUnlock()
 
 	debug = false
+	l.SetDebug("sync", false)
 }
 
 func TestWaitGroup(t *testing.T) {
 	debug = true
+	l.SetDebug("sync", true)
 	threshold = logThreshold
 
 	msgmut := sync.Mutex{}
@@ -182,4 +190,5 @@ func TestWaitGroup(t *testing.T) {
 	}
 
 	debug = false
+	l.SetDebug("sync", false)
 }

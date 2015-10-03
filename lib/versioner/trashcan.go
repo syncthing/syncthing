@@ -37,9 +37,7 @@ func NewTrashcan(folderID, folderPath string, params map[string]string) Versione
 		stop:         make(chan struct{}),
 	}
 
-	if debug {
-		l.Debugf("instantiated %#v", s)
-	}
+	l.Debugf("instantiated %#v", s)
 	return s
 }
 
@@ -48,9 +46,7 @@ func NewTrashcan(folderID, folderPath string, params map[string]string) Versione
 func (t *Trashcan) Archive(filePath string) error {
 	_, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {
-		if debug {
-			l.Debugln("not archiving nonexistent file", filePath)
-		}
+		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
 	} else if err != nil {
 		return err
@@ -62,18 +58,14 @@ func (t *Trashcan) Archive(filePath string) error {
 			return err
 		}
 
-		if debug {
-			l.Debugln("creating versions dir", versionsDir)
-		}
+		l.Debugln("creating versions dir", versionsDir)
 		if err := osutil.MkdirAll(versionsDir, 0777); err != nil {
 			return err
 		}
 		osutil.HideFile(versionsDir)
 	}
 
-	if debug {
-		l.Debugln("archiving", filePath)
-	}
+	l.Debugln("archiving", filePath)
 
 	relativePath, err := filepath.Rel(t.folderPath, filePath)
 	if err != nil {
@@ -85,9 +77,7 @@ func (t *Trashcan) Archive(filePath string) error {
 		return err
 	}
 
-	if debug {
-		l.Debugln("moving to", archivedPath)
-	}
+	l.Debugln("moving to", archivedPath)
 
 	if err := osutil.Rename(filePath, archivedPath); err != nil {
 		return err
@@ -102,10 +92,8 @@ func (t *Trashcan) Archive(filePath string) error {
 }
 
 func (t *Trashcan) Serve() {
-	if debug {
-		l.Debugln(t, "starting")
-		defer l.Debugln(t, "stopping")
-	}
+	l.Debugln(t, "starting")
+	defer l.Debugln(t, "stopping")
 
 	// Do the first cleanup one minute after startup.
 	timer := time.NewTimer(time.Minute)

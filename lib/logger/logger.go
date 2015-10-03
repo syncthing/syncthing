@@ -11,7 +11,11 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
+
+// This package uses stdlib sync as it may be used to debug syncthing/lib/sync
+// and that would cause an implosion of the universe.
 
 type LogLevel int
 
@@ -46,15 +50,17 @@ type Logger interface {
 	Fatalf(format string, vals ...interface{})
 	ShouldDebug(facility string) bool
 	SetDebug(facility string, enabled bool)
-	Facilities() (enabled, disabled []string)
-	NewFacility(facility string) Logger
+	Facilities() map[string]string
+	FacilityDebugging() []string
+	NewFacility(facility, description string) Logger
 }
 
 type logger struct {
-	logger   *log.Logger
-	handlers [NumLevels][]MessageHandler
-	debug    map[string]bool
-	mut      sync.Mutex
+	logger     *log.Logger
+	handlers   [NumLevels][]MessageHandler
+	facilities map[string]string // facility name => description
+	debug      map[string]bool   // facility name => debugging enabled
+	mut        sync.Mutex
 }
 
 // The default logger logs to standard output with a time prefix.
@@ -226,24 +232,42 @@ func (l *logger) SetDebug(facility string, enabled bool) {
 	l.mut.Unlock()
 }
 
-// Facilities returns the currently known set of facilities, both those for
-// which debug is enabled and those for which it is disabled.
-func (l *logger) Facilities() (enabled, disabled []string) {
+// FacilityDebugging returns the set of facilities that have debugging
+// enabled.
+func (l *logger) FacilityDebugging() []string {
+	var enabled []string
 	l.mut.Lock()
 	for facility, isEnabled := range l.debug {
 		if isEnabled {
 			enabled = append(enabled, facility)
-		} else {
-			disabled = append(disabled, facility)
 		}
 	}
 	l.mut.Unlock()
-	return
+	return enabled
+}
+
+// Facilities returns the currently known set of facilities and their
+// descriptions.
+func (l *logger) Facilities() map[string]string {
+	l.mut.Lock()
+	res := make(map[string]string, len(l.facilities))
+	for facility, descr := range l.facilities {
+		res[facility] = descr
+	}
+	l.mut.Unlock()
+	return res
 }
 
 // NewFacility returns a new logger bound to the named facility.
-func (l *logger) NewFacility(facility string) Logger {
+func (l *logger) NewFacility(facility, description string) Logger {
 	l.mut.Lock()
+	if l.facilities == nil {
+		l.facilities = make(map[string]string)
+	}
+	if description != "" {
+		l.facilities[facility] = description
+	}
+
 	if l.debug == nil {
 		l.debug = make(map[string]bool)
 	}
@@ -278,4 +302,78 @@ func (l *facilityLogger) Debugf(format string, vals ...interface{}) {
 		return
 	}
 	l.logger.Debugf(format, vals...)
+}
+
+// A Recorder keeps a size limited record of log events.
+type Recorder struct {
+	lines   []Line
+	initial int
+	mut     sync.Mutex
+}
+
+// A Line represents a single log entry.
+type Line struct {
+	When    time.Time
+	Message string
+}
+
+func NewRecorder(l Logger, level LogLevel, size, initial int) *Recorder {
+	r := &Recorder{
+		lines:   make([]Line, 0, size),
+		initial: initial,
+	}
+	l.AddHandler(level, r.append)
+	return r
+}
+
+func (r *Recorder) Since(t time.Time) []Line {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+
+	res := r.lines
+	for i := 0; i < len(res) && res[i].When.Before(t); i++ {
+		// nothing, just incrementing i
+	}
+	if len(res) == 0 {
+		return nil
+	}
+
+	// We must copy the result as r.lines can be mutated as soon as the lock
+	// is released.
+	cp := make([]Line, len(res))
+	copy(cp, res)
+	return cp
+}
+
+func (r *Recorder) Clear() {
+	r.mut.Lock()
+	r.lines = r.lines[:0]
+	r.mut.Unlock()
+}
+
+func (r *Recorder) append(l LogLevel, msg string) {
+	line := Line{
+		When:    time.Now(),
+		Message: msg,
+	}
+
+	r.mut.Lock()
+	defer r.mut.Unlock()
+
+	if len(r.lines) == cap(r.lines) {
+		if r.initial > 0 {
+			// Shift all lines one step to the left, keeping the "initial" first intact.
+			copy(r.lines[r.initial+1:], r.lines[r.initial+2:])
+		} else {
+			copy(r.lines, r.lines[1:])
+		}
+		// Add the new one at the end
+		r.lines[len(r.lines)-1] = line
+		return
+	}
+
+	r.lines = append(r.lines, line)
+	if len(r.lines) == r.initial {
+		r.lines = append(r.lines, Line{time.Now(), "..."})
+	}
 }

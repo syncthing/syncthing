@@ -10,10 +10,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/calmh/logger"
+	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
-	debug = strings.Contains(os.Getenv("STTRACE"), "upgrade") || os.Getenv("STTRACE") == "all"
-	l     = logger.DefaultLogger
+	l = logger.DefaultLogger.NewFacility("upgrade", "Binary upgrades")
 )
+
+func init() {
+	l.SetDebug("upgrade", strings.Contains(os.Getenv("STTRACE"), "upgrade") || os.Getenv("STTRACE") == "all")
+}

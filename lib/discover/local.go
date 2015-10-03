@@ -166,15 +166,11 @@ func (c *localClient) recvAnnouncements(b beacon.Interface) {
 		var pkt Announce
 		err := pkt.UnmarshalXDR(buf)
 		if err != nil && err != io.EOF {
-			if debug {
-				l.Debugf("discover: Failed to unmarshal local announcement from %s:\n%s", addr, hex.Dump(buf))
-			}
+			l.Debugf("discover: Failed to unmarshal local announcement from %s:\n%s", addr, hex.Dump(buf))
 			continue
 		}
 
-		if debug {
-			l.Debugf("discover: Received local announcement from %s for %s", addr, protocol.DeviceIDFromBytes(pkt.This.ID))
-		}
+		l.Debugf("discover: Received local announcement from %s for %s", addr, protocol.DeviceIDFromBytes(pkt.This.ID))
 
 		var newDevice bool
 		if bytes.Compare(pkt.This.ID, c.myID[:]) != 0 {

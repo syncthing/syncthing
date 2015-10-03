@@ -107,9 +107,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 	m := &Model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
-				if debug {
-					l.Debugln(line)
-				}
+				l.Debugln(line)
 			},
 		}),
 		cfg:                cfg,
@@ -335,9 +333,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 	})
 
 	res := 100 * (1 - float64(need)/float64(tot))
-	if debug {
-		l.Debugf("%v Completion(%s, %q): %f (%d / %d)", m, device, folder, res, need, tot)
-	}
+	l.Debugf("%v Completion(%s, %q): %f (%d / %d)", m, device, folder, res, need, tot)
 
 	return res
 }
@@ -412,9 +408,7 @@ func (m *Model) NeedSize(folder string) (nfiles int, bytes int64) {
 		})
 	}
 	bytes -= m.progressEmitter.BytesCompleted(folder)
-	if debug {
-		l.Debugf("%v NeedSize(%q): %d %d", m, folder, nfiles, bytes)
-	}
+	l.Debugf("%v NeedSize(%q): %d %d", m, folder, nfiles, bytes)
 	return
 }
 
@@ -493,9 +487,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 		return
 	}
 
-	if debug {
-		l.Debugf("IDX(in): %s %q: %d files", deviceID, folder, len(fs))
-	}
+	l.Debugf("IDX(in): %s %q: %d files", deviceID, folder, len(fs))
 
 	if !m.folderSharedWith(folder, deviceID) {
 		events.Default.Log(events.FolderRejected, map[string]string{
@@ -541,9 +533,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 		return
 	}
 
-	if debug {
-		l.Debugf("%v IDXUP(in): %s / %q: %d files", m, deviceID, folder, len(fs))
-	}
+	l.Debugf("%v IDXUP(in): %s / %q: %d files", m, deviceID, folder, len(fs))
 
 	if !m.folderSharedWith(folder, deviceID) {
 		l.Infof("Update for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
@@ -766,16 +756,12 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		}
 
 		if lf.IsInvalid() || lf.IsDeleted() {
-			if debug {
-				l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, len(buf), lf)
-			}
+			l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, len(buf), lf)
 			return protocol.ErrInvalid
 		}
 
 		if offset > lf.Size() {
-			if debug {
-				l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, len(buf))
-			}
+			l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, len(buf))
 			return protocol.ErrNoSuchFile
 		}
 
@@ -806,7 +792,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		m.rvmut.Unlock()
 	}
 
-	if debug && deviceID != protocol.LocalDeviceID {
+	if deviceID != protocol.LocalDeviceID {
 		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 	}
 	m.fmut.RLock()
@@ -1033,9 +1019,8 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	name := conn.Name()
 	var err error
 
-	if debug {
-		l.Debugf("sendIndexes for %s-%s/%q starting", deviceID, name, folder)
-	}
+	l.Debugf("sendIndexes for %s-%s/%q starting", deviceID, name, folder)
+	defer l.Debugf("sendIndexes for %s-%s/%q exiting: %v", deviceID, name, folder, err)
 
 	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores)
 
@@ -1060,9 +1045,6 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 		time.Sleep(250 * time.Millisecond)
 	}
 
-	if debug {
-		l.Debugf("sendIndexes for %s-%s/%q exiting: %v", deviceID, name, folder, err)
-	}
 }
 
 func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
@@ -1084,9 +1066,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 		}
 
 		if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
-			if debug {
-				l.Debugln("not sending update for ignored/unsupported symlink", f)
-			}
+			l.Debugln("not sending update for ignored/unsupported symlink", f)
 			return true
 		}
 
@@ -1095,17 +1075,13 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 				if err = conn.Index(folder, batch, 0, nil); err != nil {
 					return false
 				}
-				if debug {
-					l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), currentBatchSize)
-				}
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), currentBatchSize)
 				initial = false
 			} else {
 				if err = conn.IndexUpdate(folder, batch, 0, nil); err != nil {
 					return false
 				}
-				if debug {
-					l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), currentBatchSize)
-				}
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), currentBatchSize)
 			}
 
 			batch = make([]protocol.FileInfo, 0, indexBatchSize)
@@ -1119,12 +1095,12 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 
 	if initial && err == nil {
 		err = conn.Index(folder, batch, 0, nil)
-		if debug && err == nil {
+		if err == nil {
 			l.Debugf("sendIndexes for %s-%s/%q: %d files (small initial index)", deviceID, name, folder, len(batch))
 		}
 	} else if len(batch) > 0 && err == nil {
 		err = conn.IndexUpdate(folder, batch, 0, nil)
-		if debug && err == nil {
+		if err == nil {
 			l.Debugf("sendIndexes for %s-%s/%q: %d files (last batch)", deviceID, name, folder, len(batch))
 		}
 	}
@@ -1160,9 +1136,7 @@ func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, o
 		return nil, fmt.Errorf("requestGlobal: no such device: %s", deviceID)
 	}
 
-	if debug {
-		l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x f=%x op=%s", m, deviceID, folder, name, offset, size, hash, flags, options)
-	}
+	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x f=%x op=%s", m, deviceID, folder, name, offset, size, hash, flags, options)
 
 	return nc.Request(folder, name, offset, size, hash, flags, options)
 }
@@ -1403,9 +1377,7 @@ nextSub:
 
 			if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
 				// File has been ignored or an unsupported symlink. Set invalid bit.
-				if debug {
-					l.Debugln("setting invalid bit on ignored", f)
-				}
+				l.Debugln("setting invalid bit on ignored", f)
 				nf := protocol.FileInfo{
 					Name:     f.Name,
 					Flags:    f.Flags | protocol.FlagInvalid,
@@ -1820,9 +1792,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	for folderID, cfg := range toFolders {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
-			if debug {
-				l.Debugln(m, "adding folder", folderID)
-			}
+			l.Debugln(m, "adding folder", folderID)
 			m.AddFolder(cfg)
 			if cfg.ReadOnly {
 				m.StartFolderRO(folderID)
@@ -1846,9 +1816,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		toCfg, ok := toFolders[folderID]
 		if !ok {
 			// A folder was removed. Requires restart.
-			if debug {
-				l.Debugln(m, "requires restart, removing folder", folderID)
-			}
+			l.Debugln(m, "requires restart, removing folder", folderID)
 			return false
 		}
 
@@ -1860,9 +1828,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		for dev := range fromDevs {
 			if _, ok := toDevs[dev]; !ok {
 				// A device was removed. Requires restart.
-				if debug {
-					l.Debugln(m, "requires restart, removing device", dev, "from folder", folderID)
-				}
+				l.Debugln(m, "requires restart, removing device", dev, "from folder", folderID)
 				return false
 			}
 		}
@@ -1895,9 +1861,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		fromCfg.Devices = nil
 		toCfg.Devices = nil
 		if !reflect.DeepEqual(fromCfg, toCfg) {
-			if debug {
-				l.Debugln(m, "requires restart, folder", folderID, "configuration differs")
-			}
+			l.Debugln(m, "requires restart, folder", folderID, "configuration differs")
 			return false
 		}
 	}
@@ -1906,18 +1870,14 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	toDevs := mapDeviceCfgs(from.Devices)
 	for _, dev := range from.Devices {
 		if _, ok := toDevs[dev.DeviceID]; !ok {
-			if debug {
-				l.Debugln(m, "requires restart, device", dev.DeviceID, "was removed")
-			}
+			l.Debugln(m, "requires restart, device", dev.DeviceID, "was removed")
 			return false
 		}
 	}
 
 	// All of the generic options require restart
 	if !reflect.DeepEqual(from.Options, to.Options) {
-		if debug {
-			l.Debugln(m, "requires restart, options differ")
-		}
+		l.Debugln(m, "requires restart, options differ")
 		return false
 	}
 
@@ -1957,21 +1917,15 @@ func mapDeviceCfgs(devices []config.DeviceConfiguration) map[protocol.DeviceID]s
 func filterIndex(folder string, fs []protocol.FileInfo, dropDeletes bool) []protocol.FileInfo {
 	for i := 0; i < len(fs); {
 		if fs[i].Flags&^protocol.FlagsAll != 0 {
-			if debug {
-				l.Debugln("dropping update for file with unknown bits set", fs[i])
-			}
+			l.Debugln("dropping update for file with unknown bits set", fs[i])
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
 		} else if fs[i].IsDeleted() && dropDeletes {
-			if debug {
-				l.Debugln("dropping update for undesired delete", fs[i])
-			}
+			l.Debugln("dropping update for undesired delete", fs[i])
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
 		} else if symlinkInvalid(folder, fs[i]) {
-			if debug {
-				l.Debugln("dropping update for unsupported symlink", fs[i])
-			}
+			l.Debugln("dropping update for unsupported symlink", fs[i])
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
 		} else {

@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -21,16 +22,17 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/pprof"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/calmh/logger"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -71,6 +73,9 @@ const (
 	tlsDefaultCommonName = "syncthing"
 	tlsRSABits           = 3072
 	pingEventInterval    = time.Minute
+	maxSystemErrors      = 5
+	initialSystemLog     = 10
+	maxSystemLog         = 250
 )
 
 // The discovery results are sorted by their source priority.
@@ -79,8 +84,6 @@ const (
 	ipv4LocalDiscoveryPriority
 	globalDiscoveryPriority
 )
-
-var l = logger.DefaultLogger
 
 func init() {
 	if Version != "unknown-dev" {
@@ -148,25 +151,11 @@ Development Settings
 The following environment variables modify syncthing's behavior in ways that
 are mostly useful for developers. Use with care.
 
- STGUIASSETS     Directory to load GUI assets from. Overrides compiled in assets.
+ STGUIASSETS     Directory to load GUI assets from. Overrides compiled in
+                 assets.
 
  STTRACE         A comma separated string of facilities to trace. The valid
-                 facility strings are:
-
-                 - "beacon"   (the beacon package)
-                 - "discover" (the discover package)
-                 - "events"   (the events package)
-                 - "files"    (the files package)
-                 - "http"     (the main package; HTTP requests)
-                 - "locks"    (the sync package; trace long held locks)
-                 - "net"      (the main package; connections & network messages)
-                 - "model"    (the model package)
-                 - "scanner"  (the scanner package)
-                 - "stats"    (the stats package)
-                 - "suture"   (the suture package; service management)
-                 - "upnp"     (the upnp package)
-                 - "xdr"      (the xdr package)
-                 - "all"      (all of the above)
+                 facility strings listed below.
 
  STPROFILER      Set to a listen address such as "127.0.0.1:9090" to start the
                  profiler with HTTP access.
@@ -189,7 +178,15 @@ are mostly useful for developers. Use with care.
 
  GOGC            Percentage of heap growth at which to trigger GC. Default is
                  100. Lower numbers keep peak memory usage down, at the price
-                 of CPU usage (ie. performance).`
+                 of CPU usage (ie. performance).
+
+
+Debugging Facilities
+--------------------
+
+The following are valid values for the STTRACE variable:
+
+%s`
 )
 
 // Command line and environment options
@@ -245,7 +242,8 @@ func main() {
 	flag.BoolVar(&verbose, "verbose", false, "Print verbose log output")
 	flag.BoolVar(&paused, "paused", false, "Start with all devices paused")
 
-	flag.Usage = usageFor(flag.CommandLine, usage, fmt.Sprintf(extraUsage, baseDirs["config"]))
+	longUsage := fmt.Sprintf(extraUsage, baseDirs["config"], debugFacilities())
+	flag.Usage = usageFor(flag.CommandLine, usage, longUsage)
 	flag.Parse()
 
 	if noConsole {
@@ -397,6 +395,28 @@ func main() {
 	}
 }
 
+func debugFacilities() string {
+	facilities := l.Facilities()
+
+	// Get a sorted list of names
+	var names []string
+	maxLen := 0
+	for name := range facilities {
+		names = append(names, name)
+		if len(name) > maxLen {
+			maxLen = len(name)
+		}
+	}
+	sort.Strings(names)
+
+	// Format the choices
+	b := new(bytes.Buffer)
+	for _, name := range names {
+		fmt.Fprintf(b, " %-*s - %s\n", maxLen, name, facilities[name])
+	}
+	return b.String()
+}
+
 func upgradeViaRest() error {
 	cfg, err := config.Load(locations[locConfigFile], protocol.LocalDeviceID)
 	if err != nil {
@@ -439,9 +459,7 @@ func syncthingMain() {
 	// We want any logging it does to go through our log system.
 	mainSvc := suture.New("main", suture.Spec{
 		Log: func(line string) {
-			if debugSuture {
-				l.Debugln(line)
-			}
+			l.Debugln(line)
 		},
 	})
 	mainSvc.ServeBackground()
@@ -457,6 +475,9 @@ func syncthingMain() {
 	if verbose {
 		mainSvc.Add(newVerboseSvc())
 	}
+
+	errors := logger.NewRecorder(l, logger.LevelWarn, maxSystemErrors, 0)
+	systemLog := logger.NewRecorder(l, logger.LevelDebug, maxSystemLog, initialSystemLog)
 
 	// Event subscription for the API; must start early to catch the early events.
 	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents), 1000)
@@ -733,7 +754,7 @@ func syncthingMain() {
 
 	// GUI
 
-	setupGUI(mainSvc, cfg, m, apiSub, cachedDiscovery, relaySvc)
+	setupGUI(mainSvc, cfg, m, apiSub, cachedDiscovery, relaySvc, errors, systemLog)
 
 	// Start connection management
 
@@ -883,7 +904,7 @@ func startAuditing(mainSvc *suture.Supervisor) {
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc) {
+func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc, errors, systemLog *logger.Recorder) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -918,7 +939,7 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 		urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 		l.Infoln("Starting web GUI on", urlShow)
 
-		api, err := newAPISvc(myID, cfg, guiAssets, m, apiSub, discoverer, relaySvc)
+		api, err := newAPISvc(myID, cfg, guiAssets, m, apiSub, discoverer, relaySvc, errors, systemLog)
 		if err != nil {
 			l.Fatalln("Cannot start GUI:", err)
 		}

@@ -4,8 +4,10 @@
 package logger
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAPI(t *testing.T) {
@@ -14,45 +16,42 @@ func TestAPI(t *testing.T) {
 	l.SetPrefix("testing")
 
 	debug := 0
-	l.AddHandler(LevelDebug, checkFunc(t, LevelDebug, "test 0", &debug))
+	l.AddHandler(LevelDebug, checkFunc(t, LevelDebug, &debug))
 	info := 0
-	l.AddHandler(LevelInfo, checkFunc(t, LevelInfo, "test 1", &info))
-	warn := 0
-	l.AddHandler(LevelWarn, checkFunc(t, LevelWarn, "test 2", &warn))
+	l.AddHandler(LevelInfo, checkFunc(t, LevelInfo, &info))
 	ok := 0
-	l.AddHandler(LevelOK, checkFunc(t, LevelOK, "test 3", &ok))
+	l.AddHandler(LevelOK, checkFunc(t, LevelOK, &ok))
+	warn := 0
+	l.AddHandler(LevelWarn, checkFunc(t, LevelWarn, &warn))
 
 	l.Debugf("test %d", 0)
 	l.Debugln("test", 0)
 	l.Infof("test %d", 1)
 	l.Infoln("test", 1)
-	l.Warnf("test %d", 2)
-	l.Warnln("test", 2)
-	l.Okf("test %d", 3)
-	l.Okln("test", 3)
+	l.Okf("test %d", 2)
+	l.Okln("test", 2)
+	l.Warnf("test %d", 3)
+	l.Warnln("test", 3)
 
-	if debug != 2 {
-		t.Errorf("Debug handler called %d != 2 times", debug)
+	if debug != 8 {
+		t.Errorf("Debug handler called %d != 8 times", debug)
 	}
-	if info != 2 {
-		t.Errorf("Info handler called %d != 2 times", info)
+	if info != 6 {
+		t.Errorf("Info handler called %d != 6 times", info)
+	}
+	if ok != 4 {
+		t.Errorf("Ok handler called %d != 4 times", ok)
 	}
 	if warn != 2 {
 		t.Errorf("Warn handler called %d != 2 times", warn)
 	}
-	if ok != 2 {
-		t.Errorf("Ok handler called %d != 2 times", ok)
-	}
 }
 
-func checkFunc(t *testing.T, expectl LogLevel, expectmsg string, counter *int) func(LogLevel, string) {
+func checkFunc(t *testing.T, expectl LogLevel, counter *int) func(LogLevel, string) {
 	return func(l LogLevel, msg string) {
 		*counter++
-		if l != expectl {
-			t.Errorf("Incorrect message level %d != %d", l, expectl)
-		}
-		if !strings.HasSuffix(msg, expectmsg) {
-			t.Errorf("%q does not end with %q", msg, expectmsg)
+		if l < expectl {
+			t.Errorf("Incorrect message level %d < %d", l, expectl)
 		}
 	}
 }
@@ -69,11 +68,11 @@ func TestFacilityDebugging(t *testing.T) {
 		}
 	})
 
+	f0 := l.NewFacility("f0", "foo#0")
+	f1 := l.NewFacility("f1", "foo#1")
+
 	l.SetDebug("f0", true)
 	l.SetDebug("f1", false)
-
-	f0 := l.NewFacility("f0")
-	f1 := l.NewFacility("f1")
 
 	f0.Debugln("Debug line from f0")
 	f1.Debugln("Debug line from f1")
@@ -81,4 +80,61 @@ func TestFacilityDebugging(t *testing.T) {
 	if msgs != 1 {
 		t.Fatalf("Incorrent number of messages, %d != 1", msgs)
 	}
+}
+
+func TestRecorder(t *testing.T) {
+	l := New()
+	l.SetFlags(0)
+
+	// Keep the last five warnings or higher, no special initial handling.
+	r0 := NewRecorder(l, LevelWarn, 5, 0)
+	// Keep the last ten infos or higher, with the first three being permanent.
+	r1 := NewRecorder(l, LevelInfo, 10, 3)
+
+	// Log a bunch of messages.
+	for i := 0; i < 15; i++ {
+		l.Debugf("Debug#%d", i)
+		l.Infof("Info#%d", i)
+		l.Warnf("Warn#%d", i)
+	}
+
+	// r0 should contain the last five warnings
+	lines := r0.Since(time.Time{})
+	if len(lines) != 5 {
+		t.Fatalf("Incorrect length %d != 5", len(lines))
+	}
+	for i := 0; i < 5; i++ {
+		expected := fmt.Sprintf("Warn#%d", i+10)
+		if lines[i].Message != expected {
+			t.Error("Incorrect warning in r0:", lines[i].Message, "!=", expected)
+		}
+	}
+
+	// r0 should contain:
+	// - The first three messages
+	// - A "..." marker
+	// - The last six messages
+	// (totalling ten)
+	lines = r1.Since(time.Time{})
+	if len(lines) != 10 {
+		t.Fatalf("Incorrect length %d != 10", len(lines))
+	}
+	expected := []string{
+		"Info#0",
+		"Warn#0",
+		"Info#1",
+		"...",
+		"Info#12",
+		"Warn#12",
+		"Info#13",
+		"Warn#13",
+		"Info#14",
+		"Warn#14",
+	}
+	for i := 0; i < 10; i++ {
+		if lines[i].Message != expected[i] {
+			t.Error("Incorrect warning in r0:", lines[i].Message, "!=", expected[i])
+		}
+	}
+
 }

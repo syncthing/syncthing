@@ -14,10 +14,6 @@
 			"Rev": "3c0690cca16228b97741327b1b6781397afbdb24"
 		},
 		{
-			"ImportPath": "github.com/calmh/logger",
-			"Rev": "c96f6a1a8c7b6bf2f4860c667867d90174799eb2"
-		},
-		{
 			"ImportPath": "github.com/calmh/luhn",
 			"Rev": "0c8388ff95fa92d4094011e5a04fc99dea3d1632"
 		},

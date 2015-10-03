@@ -62,18 +62,14 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 		}
 		return true
 	})
-	if debug {
-		l.Debugf("loaded localVersion for %q: %#v", folder, s.localVersion)
-	}
+	l.Debugf("loaded localVersion for %q: %#v", folder, s.localVersion)
 	clock(s.localVersion[protocol.LocalDeviceID])
 
 	return &s
 }
 
 func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
-	if debug {
-		l.Debugf("%s Replace(%v, [%d])", s.folder, device, len(fs))
-	}
+	l.Debugf("%s Replace(%v, [%d])", s.folder, device, len(fs))
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -89,9 +85,7 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 }
 
 func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
-	if debug {
-		l.Debugf("%s Update(%v, [%d])", s.folder, device, len(fs))
-	}
+	l.Debugf("%s Update(%v, [%d])", s.folder, device, len(fs))
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -114,51 +108,37 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 }
 
 func (s *FileSet) WithNeed(device protocol.DeviceID, fn Iterator) {
-	if debug {
-		l.Debugf("%s WithNeed(%v)", s.folder, device)
-	}
+	l.Debugf("%s WithNeed(%v)", s.folder, device)
 	ldbWithNeed(s.db, []byte(s.folder), device[:], false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithNeedTruncated(device protocol.DeviceID, fn Iterator) {
-	if debug {
-		l.Debugf("%s WithNeedTruncated(%v)", s.folder, device)
-	}
+	l.Debugf("%s WithNeedTruncated(%v)", s.folder, device)
 	ldbWithNeed(s.db, []byte(s.folder), device[:], true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithHave(device protocol.DeviceID, fn Iterator) {
-	if debug {
-		l.Debugf("%s WithHave(%v)", s.folder, device)
-	}
+	l.Debugf("%s WithHave(%v)", s.folder, device)
 	ldbWithHave(s.db, []byte(s.folder), device[:], false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithHaveTruncated(device protocol.DeviceID, fn Iterator) {
-	if debug {
-		l.Debugf("%s WithHaveTruncated(%v)", s.folder, device)
-	}
+	l.Debugf("%s WithHaveTruncated(%v)", s.folder, device)
 	ldbWithHave(s.db, []byte(s.folder), device[:], true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithGlobal(fn Iterator) {
-	if debug {
-		l.Debugf("%s WithGlobal()", s.folder)
-	}
+	l.Debugf("%s WithGlobal()", s.folder)
 	ldbWithGlobal(s.db, []byte(s.folder), nil, false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithGlobalTruncated(fn Iterator) {
-	if debug {
-		l.Debugf("%s WithGlobalTruncated()", s.folder)
-	}
+	l.Debugf("%s WithGlobalTruncated()", s.folder)
 	ldbWithGlobal(s.db, []byte(s.folder), nil, true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
-	if debug {
-		l.Debugf("%s WithPrefixedGlobalTruncated()", s.folder, prefix)
-	}
+	l.Debugf("%s WithPrefixedGlobalTruncated()", s.folder, prefix)
 	ldbWithGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn))
 }
 

@@ -54,9 +54,7 @@ func (s *FolderStatisticsReference) GetLastFile() LastFile {
 }
 
 func (s *FolderStatisticsReference) ReceivedFile(file string, deleted bool) {
-	if debug {
-		l.Debugln("stats.FolderStatisticsReference.ReceivedFile:", s.folder, file)
-	}
+	l.Debugln("stats.FolderStatisticsReference.ReceivedFile:", s.folder, file)
 	s.ns.PutTime("lastFileAt", time.Now())
 	s.ns.PutString("lastFileName", file)
 	s.ns.PutBool("lastFileDeleted", deleted)
