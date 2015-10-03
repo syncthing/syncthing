@@ -139,57 +139,7 @@ The -logflags value is a sum of the following:
 
 I.e. to prefix each log line with date and time, set -logflags=3 (1 + 2 from
 above). The value 0 is used to disable all of the above. The default is to
-show time only (2).
-
-
-Development Settings
---------------------
-
-The following environment variables modify syncthing's behavior in ways that
-are mostly useful for developers. Use with care.
-
- STGUIASSETS     Directory to load GUI assets from. Overrides compiled in assets.
-
- STTRACE         A comma separated string of facilities to trace. The valid
-                 facility strings are:
-
-                 - "beacon"   (the beacon package)
-                 - "discover" (the discover package)
-                 - "events"   (the events package)
-                 - "files"    (the files package)
-                 - "http"     (the main package; HTTP requests)
-                 - "locks"    (the sync package; trace long held locks)
-                 - "net"      (the main package; connections & network messages)
-                 - "model"    (the model package)
-                 - "scanner"  (the scanner package)
-                 - "stats"    (the stats package)
-                 - "suture"   (the suture package; service management)
-                 - "upnp"     (the upnp package)
-                 - "xdr"      (the xdr package)
-                 - "all"      (all of the above)
-
- STPROFILER      Set to a listen address such as "127.0.0.1:9090" to start the
-                 profiler with HTTP access.
-
- STCPUPROFILE    Write a CPU profile to cpu-$pid.pprof on exit.
-
- STHEAPPROFILE   Write heap profiles to heap-$pid-$timestamp.pprof each time
-                 heap usage increases.
-
- STBLOCKPROFILE  Write block profiles to block-$pid-$timestamp.pprof every 20
-                 seconds.
-
- STPERFSTATS     Write running performance statistics to perf-$pid.csv. Not
-                 supported on Windows.
-
- STNOUPGRADE     Disable automatic upgrades.
-
- GOMAXPROCS      Set the maximum number of CPU cores to use. Defaults to all
-                 available CPU cores.
-
- GOGC            Percentage of heap growth at which to trigger GC. Default is
-                 100. Lower numbers keep peak memory usage down, at the price
-                 of CPU usage (ie. performance).`
+show time only (2).`
 )
 
 // Command line and environment options
