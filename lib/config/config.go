@@ -363,6 +363,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		// This way in the tests, we get away without OS specific separators
 		// in the test configs.
 		folder.RawPath = filepath.Dir(folder.RawPath + string(filepath.Separator))
+		if folder.RawPath[len(folder.RawPath)-1] != filepath.Separator {
+			folder.RawPath = folder.RawPath + string(filepath.Separator)
+		}
 
 		if folder.ID == "" {
 			folder.ID = "default"
