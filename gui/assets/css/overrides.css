@@ -21,6 +21,10 @@ ul+h5 {
     margin-top: 1.5em;
 }
 
+#content {
+    margin-bottom: 50px;
+}
+
 .panel-progress {
     background: #3498db;
     height: 3px;
@@ -64,6 +68,7 @@ identicon {
 
 .popover {
     max-width: none;
+    min-width: 250px;
 }
 
 .panel-heading .fa, .modal-header .fa {
@@ -248,8 +253,4 @@ ul.three-columns li, ul.two-columns li {
     .navbar-fixed-bottom {
         position: static;
     }
-}
-
-.popover {
-    min-width: 250px;
 }
