@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"runtime"
 	"sort"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -28,15 +29,17 @@ var (
 	clockMut  = sync.NewMutex()
 )
 
-func clock(v int64) int64 {
+func clock() int64 {
 	clockMut.Lock()
-	defer clockMut.Unlock()
-	if v > clockTick {
-		clockTick = v + 1
+	now := time.Now().UnixNano()
+	if now > clockTick {
+		clockTick = now
 	} else {
 		clockTick++
 	}
-	return clockTick
+	t := clockTick
+	clockMut.Unlock()
+	return t
 }
 
 const (
@@ -414,7 +417,7 @@ func ldbInsert(batch dbWriter, folder, device []byte, file protocol.FileInfo) in
 	}
 
 	if file.LocalVersion == 0 {
-		file.LocalVersion = clock(0)
+		file.LocalVersion = clock()
 	}
 
 	name := []byte(file.Name)

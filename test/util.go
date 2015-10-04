@@ -328,7 +328,7 @@ func compareDirectories(dirs ...string) error {
 		for i := 1; i < len(res); i++ {
 			if res[i] != res[0] {
 				close(abort)
-				return fmt.Errorf("Mismatch; %#v (%s) != %#v (%s)", res[i], dirs[i], res[0], dirs[0])
+				return fmt.Errorf("Mismatch; %v (%s) != %v (%s)", res[i], dirs[i], res[0], dirs[0])
 			}
 		}
 

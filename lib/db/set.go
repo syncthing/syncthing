@@ -20,11 +20,12 @@ import (
 )
 
 type FileSet struct {
-	localVersion map[protocol.DeviceID]int64
-	mutex        sync.Mutex
-	folder       string
-	db           *leveldb.DB
-	blockmap     *BlockMap
+	minLocalVersion map[protocol.DeviceID]int64
+	maxLocalVersion map[protocol.DeviceID]int64
+	mutex           sync.Mutex
+	folder          string
+	db              *leveldb.DB
+	blockmap        *BlockMap
 }
 
 // FileIntf is the set of methods implemented by both protocol.FileInfo and
@@ -45,11 +46,12 @@ type Iterator func(f FileIntf) bool
 
 func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 	var s = FileSet{
-		localVersion: make(map[protocol.DeviceID]int64),
-		folder:       folder,
-		db:           db,
-		blockmap:     NewBlockMap(db, folder),
-		mutex:        sync.NewMutex(),
+		maxLocalVersion: make(map[protocol.DeviceID]int64),
+		minLocalVersion: make(map[protocol.DeviceID]int64),
+		folder:          folder,
+		db:              db,
+		blockmap:        NewBlockMap(db, folder),
+		mutex:           sync.NewMutex(),
 	}
 
 	ldbCheckGlobals(db, []byte(folder))
@@ -57,15 +59,17 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 	var deviceID protocol.DeviceID
 	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
-		if f.LocalVersion > s.localVersion[deviceID] {
-			s.localVersion[deviceID] = f.LocalVersion
+		if f.LocalVersion > s.maxLocalVersion[deviceID] {
+			s.maxLocalVersion[deviceID] = f.LocalVersion
+		}
+		if s.minLocalVersion[deviceID] == 0 || f.LocalVersion < s.minLocalVersion[deviceID] {
+			s.minLocalVersion[deviceID] = f.LocalVersion
 		}
 		return true
 	})
 	if debug {
-		l.Debugf("loaded localVersion for %q: %#v", folder, s.localVersion)
+		l.Debugf("loaded maxLocalVersion for %q: %#v", folder, s.maxLocalVersion)
 	}
-	clock(s.localVersion[protocol.LocalDeviceID])
 
 	return &s
 }
@@ -77,10 +81,10 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.localVersion[device] = ldbReplace(s.db, []byte(s.folder), device[:], fs)
+	s.maxLocalVersion[device] = ldbReplace(s.db, []byte(s.folder), device[:], fs)
 	if len(fs) == 0 {
 		// Reset the local version if all files were removed.
-		s.localVersion[device] = 0
+		s.maxLocalVersion[device] = 0
 	}
 	if device == protocol.LocalDeviceID {
 		s.blockmap.Drop()
@@ -108,8 +112,8 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		s.blockmap.Discard(discards)
 		s.blockmap.Update(updates)
 	}
-	if lv := ldbUpdate(s.db, []byte(s.folder), device[:], fs); lv > s.localVersion[device] {
-		s.localVersion[device] = lv
+	if lv := ldbUpdate(s.db, []byte(s.folder), device[:], fs); lv > s.maxLocalVersion[device] {
+		s.maxLocalVersion[device] = lv
 	}
 }
 
@@ -192,10 +196,16 @@ func (s *FileSet) Availability(file string) []protocol.DeviceID {
 	return ldbAvailability(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
 }
 
-func (s *FileSet) LocalVersion(device protocol.DeviceID) int64 {
+func (s *FileSet) MaxLocalVersion(device protocol.DeviceID) int64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.localVersion[device]
+	return s.maxLocalVersion[device]
+}
+
+func (s *FileSet) MinLocalVersion(device protocol.DeviceID) int64 {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return s.minLocalVersion[device]
 }
 
 // ListFolders returns the folder IDs seen in the database.

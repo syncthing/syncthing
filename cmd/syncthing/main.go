@@ -634,17 +634,10 @@ func syncthingMain() {
 		}
 	}
 
-	// Clear out old indexes for other devices. Otherwise we'll start up and
-	// start needing a bunch of files which are nowhere to be found. This
-	// needs to be changed when we correctly do persistent indexes.
+	// Add and start all folders.
 	for _, folderCfg := range cfg.Folders() {
 		m.AddFolder(folderCfg)
-		for _, device := range folderCfg.DeviceIDs() {
-			if device == myID {
-				continue
-			}
-			m.Index(device, folderCfg.ID, nil, 0, nil)
-		}
+
 		// Routine to pull blocks from other devices to synchronize the local
 		// folder. Does not run when we are in read only (publish only) mode.
 		if folderCfg.ReadOnly {

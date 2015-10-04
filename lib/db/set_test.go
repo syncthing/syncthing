@@ -652,10 +652,10 @@ func TestLocalVersion(t *testing.T) {
 	}
 
 	m.Replace(protocol.LocalDeviceID, local1)
-	c0 := m.LocalVersion(protocol.LocalDeviceID)
+	c0 := m.MaxLocalVersion(protocol.LocalDeviceID)
 
 	m.Replace(protocol.LocalDeviceID, local2)
-	c1 := m.LocalVersion(protocol.LocalDeviceID)
+	c1 := m.MaxLocalVersion(protocol.LocalDeviceID)
 	if !(c1 > c0) {
 		t.Fatal("Local version number should have incremented")
 	}
