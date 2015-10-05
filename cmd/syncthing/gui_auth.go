@@ -42,9 +42,7 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 			}
 		}
 
-		if debugHTTP {
-			l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
-		}
+		httpl.Debugln("Sessionless HTTP request with authentication; this is expensive.")
 
 		error := func() {
 			time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)

@@ -351,9 +351,7 @@ func (p *Process) Model(folder string) (Model, error) {
 		return Model{}, err
 	}
 
-	if debug {
-		l.Debugf("%+v", res)
-	}
+	l.Debugf("%+v", res)
 
 	return res, nil
 }
@@ -506,9 +504,7 @@ func (p *Process) eventLoop() {
 				m[p.id.String()] = version
 				p.localVersion[folder] = m
 				p.done[folder] = false
-				if debug {
-					l.Debugf("LocalIndexUpdated %v %v done=false\n\t%+v", p.id, folder, m)
-				}
+				l.Debugf("LocalIndexUpdated %v %v done=false\n\t%+v", p.id, folder, m)
 				p.eventMut.Unlock()
 
 			case "RemoteIndexUpdated":
@@ -524,9 +520,7 @@ func (p *Process) eventLoop() {
 				m[device] = version
 				p.localVersion[folder] = m
 				p.done[folder] = false
-				if debug {
-					l.Debugf("RemoteIndexUpdated %v %v done=false\n\t%+v", p.id, folder, m)
-				}
+				l.Debugf("RemoteIndexUpdated %v %v done=false\n\t%+v", p.id, folder, m)
 				p.eventMut.Unlock()
 
 			case "FolderSummary":
@@ -537,9 +531,7 @@ func (p *Process) eventLoop() {
 				done := need == 0
 				p.eventMut.Lock()
 				p.done[folder] = done
-				if debug {
-					l.Debugf("Foldersummary %v %v\n\t%+v", p.id, folder, p.done)
-				}
+				l.Debugf("Foldersummary %v %v\n\t%+v", p.id, folder, p.done)
 				p.eventMut.Unlock()
 			}
 		}

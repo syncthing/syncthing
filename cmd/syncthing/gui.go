@@ -20,16 +20,17 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/calmh/logger"
 	"github.com/syncthing/syncthing/lib/auto"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -41,15 +42,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type guiError struct {
-	Time  time.Time `json:"time"`
-	Error string    `json:"error"`
-}
-
 var (
 	configInSync = true
-	guiErrors    = []guiError{}
-	guiErrorsMut = sync.NewMutex()
 	startTime    = time.Now()
 )
 
@@ -65,9 +59,12 @@ type apiSvc struct {
 	fss             *folderSummarySvc
 	stop            chan struct{}
 	systemConfigMut sync.Mutex
+
+	guiErrors *logger.Recorder
+	systemLog *logger.Recorder
 }
 
-func newAPISvc(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc) (*apiSvc, error) {
+func newAPISvc(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc, errors, systemLog *logger.Recorder) (*apiSvc, error) {
 	svc := &apiSvc{
 		id:              id,
 		cfg:             cfg,
@@ -77,6 +74,8 @@ func newAPISvc(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *mo
 		discoverer:      discoverer,
 		relaySvc:        relaySvc,
 		systemConfigMut: sync.NewMutex(),
+		guiErrors:       errors,
+		systemLog:       systemLog,
 	}
 
 	var err error
@@ -138,8 +137,6 @@ func (s *apiSvc) getListener(cfg config.GUIConfiguration) (net.Listener, error) 
 func (s *apiSvc) Serve() {
 	s.stop = make(chan struct{})
 
-	l.AddHandler(logger.LevelWarn, s.showGuiError)
-
 	// The GET handlers
 	getRestMux := http.NewServeMux()
 	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
@@ -164,6 +161,9 @@ func (s *apiSvc) Serve() {
 	getRestMux.HandleFunc("/rest/system/status", s.getSystemStatus)              // -
 	getRestMux.HandleFunc("/rest/system/upgrade", s.getSystemUpgrade)            // -
 	getRestMux.HandleFunc("/rest/system/version", s.getSystemVersion)            // -
+	getRestMux.HandleFunc("/rest/system/debug", s.getSystemDebug)                // -
+	getRestMux.HandleFunc("/rest/system/log", s.getSystemLog)                    // [since]
+	getRestMux.HandleFunc("/rest/system/log.txt", s.getSystemLogTxt)             // [since]
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
@@ -181,6 +181,7 @@ func (s *apiSvc) Serve() {
 	postRestMux.HandleFunc("/rest/system/upgrade", s.postSystemUpgrade)        // -
 	postRestMux.HandleFunc("/rest/system/pause", s.postSystemPause)            // device
 	postRestMux.HandleFunc("/rest/system/resume", s.postSystemResume)          // device
+	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)            // [enable] [disable]
 
 	// Debug endpoints, not for general use
 	getRestMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
@@ -223,9 +224,7 @@ func (s *apiSvc) Serve() {
 		handler = redirectToHTTPSMiddleware(handler)
 	}
 
-	if debugHTTP {
-		handler = debugMiddleware(handler)
-	}
+	handler = debugMiddleware(handler)
 
 	srv := http.Server{
 		Handler:     handler,
@@ -377,6 +376,36 @@ func (s *apiSvc) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
 	})
+}
+
+func (s *apiSvc) getSystemDebug(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	names := l.Facilities()
+	enabled := l.FacilityDebugging()
+	sort.Strings(enabled)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"facilities": names,
+		"enabled":    enabled,
+	})
+}
+
+func (s *apiSvc) postSystemDebug(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	q := r.URL.Query()
+	for _, f := range strings.Split(q.Get("enable"), ",") {
+		if f == "" {
+			continue
+		}
+		l.SetDebug(f, true)
+		l.Infof("Enabled debug data for %q", f)
+	}
+	for _, f := range strings.Split(q.Get("disable"), ",") {
+		if f == "" {
+			continue
+		}
+		l.SetDebug(f, false)
+		l.Infof("Disabled debug data for %q", f)
+	}
 }
 
 func (s *apiSvc) getDBBrowse(w http.ResponseWriter, r *http.Request) {
@@ -684,30 +713,41 @@ func (s *apiSvc) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 
 func (s *apiSvc) getSystemError(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	guiErrorsMut.Lock()
-	json.NewEncoder(w).Encode(map[string][]guiError{"errors": guiErrors})
-	guiErrorsMut.Unlock()
+	json.NewEncoder(w).Encode(map[string][]logger.Line{
+		"errors": s.guiErrors.Since(time.Time{}),
+	})
 }
 
 func (s *apiSvc) postSystemError(w http.ResponseWriter, r *http.Request) {
 	bs, _ := ioutil.ReadAll(r.Body)
 	r.Body.Close()
-	s.showGuiError(0, string(bs))
+	l.Warnln(string(bs))
 }
 
 func (s *apiSvc) postSystemErrorClear(w http.ResponseWriter, r *http.Request) {
-	guiErrorsMut.Lock()
-	guiErrors = []guiError{}
-	guiErrorsMut.Unlock()
+	s.guiErrors.Clear()
 }
 
-func (s *apiSvc) showGuiError(l logger.LogLevel, err string) {
-	guiErrorsMut.Lock()
-	guiErrors = append(guiErrors, guiError{time.Now(), err})
-	if len(guiErrors) > 5 {
-		guiErrors = guiErrors[len(guiErrors)-5:]
+func (s *apiSvc) getSystemLog(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	since, err := time.Parse(time.RFC3339, q.Get("since"))
+	l.Debugln(err)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	json.NewEncoder(w).Encode(map[string][]logger.Line{
+		"messages": s.systemLog.Since(since),
+	})
+}
+
+func (s *apiSvc) getSystemLogTxt(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	since, err := time.Parse(time.RFC3339, q.Get("since"))
+	l.Debugln(err)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+
+	for _, line := range s.systemLog.Since(since) {
+		fmt.Fprintf(w, "%s: %s\n", line.When.Format(time.RFC3339), line.Message)
 	}
-	guiErrorsMut.Unlock()
 }
 
 func (s *apiSvc) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {

@@ -35,9 +35,7 @@ func NewMulticast(addr string) *Multicast {
 			FailureBackoff:   60 * time.Second,
 			// Only log restarts in debug mode.
 			Log: func(line string) {
-				if debug {
-					l.Debugln(line)
-				}
+				l.Debugln(line)
 			},
 		}),
 		inbox:  make(chan []byte),
@@ -85,25 +83,19 @@ type multicastWriter struct {
 }
 
 func (w *multicastWriter) Serve() {
-	if debug {
-		l.Debugln(w, "starting")
-		defer l.Debugln(w, "stopping")
-	}
+	l.Debugln(w, "starting")
+	defer l.Debugln(w, "stopping")
 
 	gaddr, err := net.ResolveUDPAddr("udp6", w.addr)
 	if err != nil {
-		if debug {
-			l.Debugln(err)
-		}
+		l.Debugln(err)
 		w.setError(err)
 		return
 	}
 
 	conn, err := net.ListenPacket("udp6", ":0")
 	if err != nil {
-		if debug {
-			l.Debugln(err)
-		}
+		l.Debugln(err)
 		w.setError(err)
 		return
 	}
@@ -117,9 +109,7 @@ func (w *multicastWriter) Serve() {
 	for bs := range w.inbox {
 		intfs, err := net.Interfaces()
 		if err != nil {
-			if debug {
-				l.Debugln(err)
-			}
+			l.Debugln(err)
 			w.setError(err)
 			return
 		}
@@ -132,16 +122,12 @@ func (w *multicastWriter) Serve() {
 			pconn.SetWriteDeadline(time.Time{})
 
 			if err != nil {
-				if debug {
-					l.Debugln(err, "on write to", gaddr, intf.Name)
-				}
+				l.Debugln(err, "on write to", gaddr, intf.Name)
 				w.setError(err)
 				continue
 			}
 
-			if debug {
-				l.Debugf("sent %d bytes to %v on %s", len(bs), gaddr, intf.Name)
-			}
+			l.Debugf("sent %d bytes to %v on %s", len(bs), gaddr, intf.Name)
 
 			success++
 		}
@@ -149,9 +135,7 @@ func (w *multicastWriter) Serve() {
 		if success > 0 {
 			w.setError(nil)
 		} else {
-			if debug {
-				l.Debugln(err)
-			}
+			l.Debugln(err)
 			w.setError(err)
 		}
 	}
@@ -173,34 +157,26 @@ type multicastReader struct {
 }
 
 func (r *multicastReader) Serve() {
-	if debug {
-		l.Debugln(r, "starting")
-		defer l.Debugln(r, "stopping")
-	}
+	l.Debugln(r, "starting")
+	defer l.Debugln(r, "stopping")
 
 	gaddr, err := net.ResolveUDPAddr("udp6", r.addr)
 	if err != nil {
-		if debug {
-			l.Debugln(err)
-		}
+		l.Debugln(err)
 		r.setError(err)
 		return
 	}
 
 	conn, err := net.ListenPacket("udp6", r.addr)
 	if err != nil {
-		if debug {
-			l.Debugln(err)
-		}
+		l.Debugln(err)
 		r.setError(err)
 		return
 	}
 
 	intfs, err := net.Interfaces()
 	if err != nil {
-		if debug {
-			l.Debugln(err)
-		}
+		l.Debugln(err)
 		r.setError(err)
 		return
 	}
@@ -209,20 +185,16 @@ func (r *multicastReader) Serve() {
 	joined := 0
 	for _, intf := range intfs {
 		err := pconn.JoinGroup(&intf, &net.UDPAddr{IP: gaddr.IP})
-		if debug {
-			if err != nil {
-				l.Debugln("IPv6 join", intf.Name, "failed:", err)
-			} else {
-				l.Debugln("IPv6 join", intf.Name, "success")
-			}
+		if err != nil {
+			l.Debugln("IPv6 join", intf.Name, "failed:", err)
+		} else {
+			l.Debugln("IPv6 join", intf.Name, "success")
 		}
 		joined++
 	}
 
 	if joined == 0 {
-		if debug {
-			l.Debugln("no multicast interfaces available")
-		}
+		l.Debugln("no multicast interfaces available")
 		r.setError(errors.New("no multicast interfaces available"))
 		return
 	}
@@ -231,24 +203,18 @@ func (r *multicastReader) Serve() {
 	for {
 		n, _, addr, err := pconn.ReadFrom(bs)
 		if err != nil {
-			if debug {
-				l.Debugln(err)
-			}
+			l.Debugln(err)
 			r.setError(err)
 			continue
 		}
-		if debug {
-			l.Debugf("recv %d bytes from %s", n, addr)
-		}
+		l.Debugf("recv %d bytes from %s", n, addr)
 
 		c := make([]byte, n)
 		copy(c, bs)
 		select {
 		case r.outbox <- recv{c, addr}:
 		default:
-			if debug {
-				l.Debugln("dropping message")
-			}
+			l.Debugln("dropping message")
 		}
 	}
 }

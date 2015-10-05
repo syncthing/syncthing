@@ -48,10 +48,8 @@ func newROFolder(model *Model, folder string, interval time.Duration) *roFolder 
 }
 
 func (s *roFolder) Serve() {
-	if debug {
-		l.Debugln(s, "starting")
-		defer l.Debugln(s, "exiting")
-	}
+	l.Debugln(s, "starting")
+	defer l.Debugln(s, "exiting")
 
 	defer func() {
 		s.timer.Stop()
@@ -79,9 +77,7 @@ func (s *roFolder) Serve() {
 				continue
 			}
 
-			if debug {
-				l.Debugln(s, "rescan")
-			}
+			l.Debugln(s, "rescan")
 
 			if err := s.model.internalScanFolderSubs(s.folder, nil); err != nil {
 				// Potentially sets the error twice, once in the scanner just
@@ -111,9 +107,7 @@ func (s *roFolder) Serve() {
 				continue
 			}
 
-			if debug {
-				l.Debugln(s, "forced rescan")
-			}
+			l.Debugln(s, "forced rescan")
 
 			if err := s.model.internalScanFolderSubs(s.folder, req.subs); err != nil {
 				// Potentially sets the error twice, once in the scanner just

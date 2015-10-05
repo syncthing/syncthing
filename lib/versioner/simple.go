@@ -35,9 +35,7 @@ func NewSimple(folderID, folderPath string, params map[string]string) Versioner 
 		folderPath: folderPath,
 	}
 
-	if debug {
-		l.Debugf("instantiated %#v", s)
-	}
+	l.Debugf("instantiated %#v", s)
 	return s
 }
 
@@ -46,9 +44,7 @@ func NewSimple(folderID, folderPath string, params map[string]string) Versioner 
 func (v Simple) Archive(filePath string) error {
 	fileInfo, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {
-		if debug {
-			l.Debugln("not archiving nonexistent file", filePath)
-		}
+		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
 	} else if err != nil {
 		return err
@@ -58,9 +54,7 @@ func (v Simple) Archive(filePath string) error {
 	_, err = os.Stat(versionsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			if debug {
-				l.Debugln("creating versions dir", versionsDir)
-			}
+			l.Debugln("creating versions dir", versionsDir)
 			osutil.MkdirAll(versionsDir, 0755)
 			osutil.HideFile(versionsDir)
 		} else {
@@ -68,9 +62,7 @@ func (v Simple) Archive(filePath string) error {
 		}
 	}
 
-	if debug {
-		l.Debugln("archiving", filePath)
-	}
+	l.Debugln("archiving", filePath)
 
 	file := filepath.Base(filePath)
 	inFolderPath, err := filepath.Rel(v.folderPath, filepath.Dir(filePath))
@@ -86,9 +78,7 @@ func (v Simple) Archive(filePath string) error {
 
 	ver := taggedFilename(file, fileInfo.ModTime().Format(TimeFormat))
 	dst := filepath.Join(dir, ver)
-	if debug {
-		l.Debugln("moving to", dst)
-	}
+	l.Debugln("moving to", dst)
 	err = osutil.Rename(filePath, dst)
 	if err != nil {
 		return err
@@ -114,9 +104,7 @@ func (v Simple) Archive(filePath string) error {
 
 	if len(versions) > v.keep {
 		for _, toRemove := range versions[:len(versions)-v.keep] {
-			if debug {
-				l.Debugln("cleaning out", toRemove)
-			}
+			l.Debugln("cleaning out", toRemove)
 			err = os.Remove(toRemove)
 			if err != nil {
 				l.Warnln("removing old version:", err)

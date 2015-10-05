@@ -9,10 +9,24 @@ package main
 import (
 	"os"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
-	debugNet    = strings.Contains(os.Getenv("STTRACE"), "net") || os.Getenv("STTRACE") == "all"
-	debugHTTP   = strings.Contains(os.Getenv("STTRACE"), "http") || os.Getenv("STTRACE") == "all"
-	debugSuture = strings.Contains(os.Getenv("STTRACE"), "suture") || os.Getenv("STTRACE") == "all"
+	l     = logger.DefaultLogger.NewFacility("main", "Main package")
+	httpl = logger.DefaultLogger.NewFacility("http", "REST API")
 )
+
+func init() {
+	l.SetDebug("main", strings.Contains(os.Getenv("STTRACE"), "main") || os.Getenv("STTRACE") == "all")
+	l.SetDebug("http", strings.Contains(os.Getenv("STTRACE"), "http") || os.Getenv("STTRACE") == "all")
+}
+
+func shouldDebugMain() bool {
+	return l.ShouldDebug("main")
+}
+
+func shouldDebugHTTP() bool {
+	return l.ShouldDebug("http")
+}

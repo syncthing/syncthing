@@ -10,10 +10,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/calmh/logger"
+	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
-	debug = strings.Contains(os.Getenv("STTRACE"), "stats") || os.Getenv("STTRACE") == "all"
-	l     = logger.DefaultLogger
+	l = logger.DefaultLogger.NewFacility("stats", "Persistent device and folder statistics")
 )
+
+func init() {
+	l.SetDebug("stats", strings.Contains(os.Getenv("STTRACE"), "stats") || os.Getenv("STTRACE") == "all")
+}

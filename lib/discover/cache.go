@@ -75,10 +75,8 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 
 			if cacheEntry.found && time.Since(cacheEntry.when) < finder.cacheTime {
 				// It's a positive, valid entry. Use it.
-				if debug {
-					l.Debugln("cached discovery entry for", deviceID, "at", finder.String())
-					l.Debugln("  cache:", cacheEntry)
-				}
+				l.Debugln("cached discovery entry for", deviceID, "at", finder)
+				l.Debugln("  cache:", cacheEntry)
 				for _, addr := range cacheEntry.Direct {
 					pdirect = append(pdirect, prioritizedAddress{finder.priority, addr})
 				}
@@ -89,9 +87,7 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 			if !cacheEntry.found && time.Since(cacheEntry.when) < finder.negCacheTime {
 				// It's a negative, valid entry. We should not make another
 				// attempt right now.
-				if debug {
-					l.Debugln("negative cache entry for", deviceID, "at", finder.String())
-				}
+				l.Debugln("negative cache entry for", deviceID, "at", finder)
 				continue
 			}
 
@@ -100,11 +96,9 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 
 		// Perform the actual lookup and cache the result.
 		if td, tr, err := finder.Lookup(deviceID); err == nil {
-			if debug {
-				l.Debugln("lookup for", deviceID, "at", finder.String())
-				l.Debugln("  direct:", td)
-				l.Debugln("  relays:", tr)
-			}
+			l.Debugln("lookup for", deviceID, "at", finder)
+			l.Debugln("  direct:", td)
+			l.Debugln("  relays:", tr)
 			for _, addr := range td {
 				pdirect = append(pdirect, prioritizedAddress{finder.priority, addr})
 			}
@@ -121,11 +115,9 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 
 	direct = uniqueSortedAddrs(pdirect)
 	relays = uniqueSortedRelays(relays)
-	if debug {
-		l.Debugln("lookup results for", deviceID)
-		l.Debugln("  direct: ", direct)
-		l.Debugln("  relays: ", relays)
-	}
+	l.Debugln("lookup results for", deviceID)
+	l.Debugln("  direct: ", direct)
+	l.Debugln("  relays: ", relays)
 
 	return direct, relays, nil
 }

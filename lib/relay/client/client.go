@@ -66,15 +66,11 @@ func (c *ProtocolClient) Serve() {
 	defer close(c.stopped)
 
 	if err := c.connect(); err != nil {
-		if debug {
-			l.Debugln("Relay connect:", err)
-		}
+		l.Debugln("Relay connect:", err)
 		return
 	}
 
-	if debug {
-		l.Debugln(c, "connected", c.conn.RemoteAddr())
-	}
+	l.Debugln(c, "connected", c.conn.RemoteAddr())
 
 	if err := c.join(); err != nil {
 		c.conn.Close()
@@ -87,9 +83,7 @@ func (c *ProtocolClient) Serve() {
 		return
 	}
 
-	if debug {
-		l.Debugln(c, "joined", c.conn.RemoteAddr(), "via", c.conn.LocalAddr())
-	}
+	l.Debugln(c, "joined", c.conn.RemoteAddr(), "via", c.conn.LocalAddr())
 
 	defer c.cleanup()
 	c.mut.Lock()
@@ -107,9 +101,7 @@ func (c *ProtocolClient) Serve() {
 		select {
 		case message := <-messages:
 			timeout.Reset(c.timeout)
-			if debug {
-				log.Printf("%s received message %T", c, message)
-			}
+			log.Printf("%s received message %T", c, message)
 
 			switch msg := message.(type) {
 			case protocol.Ping:
@@ -118,9 +110,7 @@ func (c *ProtocolClient) Serve() {
 					return
 
 				}
-				if debug {
-					l.Debugln(c, "sent pong")
-				}
+				l.Debugln(c, "sent pong")
 
 			case protocol.SessionInvitation:
 				ip := net.IP(msg.Address)
@@ -135,9 +125,7 @@ func (c *ProtocolClient) Serve() {
 			}
 
 		case <-c.stop:
-			if debug {
-				l.Debugln(c, "stopping")
-			}
+			l.Debugln(c, "stopping")
 			return
 
 		case err := <-errors:
@@ -145,9 +133,7 @@ func (c *ProtocolClient) Serve() {
 			return
 
 		case <-timeout.C:
-			if debug {
-				l.Debugln(c, "timed out")
-			}
+			l.Debugln(c, "timed out")
 			return
 		}
 	}
@@ -220,9 +206,7 @@ func (c *ProtocolClient) cleanup() {
 		c.Invitations = make(chan protocol.SessionInvitation)
 	}
 
-	if debug {
-		l.Debugln(c, "cleaning up")
-	}
+	l.Debugln(c, "cleaning up")
 
 	c.mut.Lock()
 	c.connected = false

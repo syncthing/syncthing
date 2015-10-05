@@ -47,14 +47,10 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 	// Use custom path if set, otherwise .stversions in folderPath
 	var versionsDir string
 	if params["versionsPath"] == "" {
-		if debug {
-			l.Debugln("using default dir .stversions")
-		}
+		l.Debugln("using default dir .stversions")
 		versionsDir = filepath.Join(folderPath, ".stversions")
 	} else {
-		if debug {
-			l.Debugln("using dir", params["versionsPath"])
-		}
+		l.Debugln("using dir", params["versionsPath"])
 		versionsDir = params["versionsPath"]
 	}
 
@@ -71,9 +67,7 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 		mutex: sync.NewMutex(),
 	}
 
-	if debug {
-		l.Debugf("instantiated %#v", s)
-	}
+	l.Debugf("instantiated %#v", s)
 
 	go func() {
 		s.clean()
@@ -86,14 +80,10 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 }
 
 func (v Staggered) clean() {
-	if debug {
-		l.Debugln("Versioner clean: Waiting for lock on", v.versionsPath)
-	}
+	l.Debugln("Versioner clean: Waiting for lock on", v.versionsPath)
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
-	if debug {
-		l.Debugln("Versioner clean: Cleaning", v.versionsPath)
-	}
+	l.Debugln("Versioner clean: Cleaning", v.versionsPath)
 
 	if _, err := os.Stat(v.versionsPath); os.IsNotExist(err) {
 		// There is no need to clean a nonexistent dir.
@@ -144,30 +134,22 @@ func (v Staggered) clean() {
 		}
 
 		if path == v.versionsPath {
-			if debug {
-				l.Debugln("Cleaner: versions dir is empty, don't delete", path)
-			}
+			l.Debugln("Cleaner: versions dir is empty, don't delete", path)
 			continue
 		}
 
-		if debug {
-			l.Debugln("Cleaner: deleting empty directory", path)
-		}
+		l.Debugln("Cleaner: deleting empty directory", path)
 		err = os.Remove(path)
 		if err != nil {
 			l.Warnln("Versioner: can't remove directory", path, err)
 		}
 	}
 
-	if debug {
-		l.Debugln("Cleaner: Finished cleaning", v.versionsPath)
-	}
+	l.Debugln("Cleaner: Finished cleaning", v.versionsPath)
 }
 
 func (v Staggered) expire(versions []string) {
-	if debug {
-		l.Debugln("Versioner: Expiring versions", versions)
-	}
+	l.Debugln("Versioner: Expiring versions", versions)
 	var prevAge int64
 	firstFile := true
 	for _, file := range versions {
@@ -185,18 +167,14 @@ func (v Staggered) expire(versions []string) {
 		loc, _ := time.LoadLocation("Local")
 		versionTime, err := time.ParseInLocation(TimeFormat, filenameTag(file), loc)
 		if err != nil {
-			if debug {
-				l.Debugf("Versioner: file name %q is invalid: %v", file, err)
-			}
+			l.Debugf("Versioner: file name %q is invalid: %v", file, err)
 			continue
 		}
 		age := int64(time.Since(versionTime).Seconds())
 
 		// If the file is older than the max age of the last interval, remove it
 		if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
-			if debug {
-				l.Debugln("Versioner: File over maximum age -> delete ", file)
-			}
+			l.Debugln("Versioner: File over maximum age -> delete ", file)
 			err = os.Remove(file)
 			if err != nil {
 				l.Warnf("Versioner: can't remove %q: %v", file, err)
@@ -220,9 +198,7 @@ func (v Staggered) expire(versions []string) {
 		}
 
 		if prevAge-age < usedInterval.step {
-			if debug {
-				l.Debugln("too many files in step -> delete", file)
-			}
+			l.Debugln("too many files in step -> delete", file)
 			err = os.Remove(file)
 			if err != nil {
 				l.Warnf("Versioner: can't remove %q: %v", file, err)
@@ -237,17 +213,13 @@ func (v Staggered) expire(versions []string) {
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v Staggered) Archive(filePath string) error {
-	if debug {
-		l.Debugln("Waiting for lock on ", v.versionsPath)
-	}
+	l.Debugln("Waiting for lock on ", v.versionsPath)
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
 	_, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {
-		if debug {
-			l.Debugln("not archiving nonexistent file", filePath)
-		}
+		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
 	} else if err != nil {
 		return err
@@ -255,9 +227,7 @@ func (v Staggered) Archive(filePath string) error {
 
 	if _, err := os.Stat(v.versionsPath); err != nil {
 		if os.IsNotExist(err) {
-			if debug {
-				l.Debugln("creating versions dir", v.versionsPath)
-			}
+			l.Debugln("creating versions dir", v.versionsPath)
 			osutil.MkdirAll(v.versionsPath, 0755)
 			osutil.HideFile(v.versionsPath)
 		} else {
@@ -265,9 +235,7 @@ func (v Staggered) Archive(filePath string) error {
 		}
 	}
 
-	if debug {
-		l.Debugln("archiving", filePath)
-	}
+	l.Debugln("archiving", filePath)
 
 	file := filepath.Base(filePath)
 	inFolderPath, err := filepath.Rel(v.folderPath, filepath.Dir(filePath))
@@ -283,9 +251,7 @@ func (v Staggered) Archive(filePath string) error {
 
 	ver := taggedFilename(file, time.Now().Format(TimeFormat))
 	dst := filepath.Join(dir, ver)
-	if debug {
-		l.Debugln("moving to", dst)
-	}
+	l.Debugln("moving to", dst)
 	err = osutil.Rename(filePath, dst)
 	if err != nil {
 		return err

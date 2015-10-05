@@ -34,9 +34,7 @@ func NewVirtualMtimeRepo(ldb *leveldb.DB, folder string) *VirtualMtimeRepo {
 }
 
 func (r *VirtualMtimeRepo) UpdateMtime(path string, diskMtime, actualMtime time.Time) {
-	if debug {
-		l.Debugf("virtual mtime: storing values for path:%s disk:%v actual:%v", path, diskMtime, actualMtime)
-	}
+	l.Debugf("virtual mtime: storing values for path:%s disk:%v actual:%v", path, diskMtime, actualMtime)
 
 	diskBytes, _ := diskMtime.MarshalBinary()
 	actualBytes, _ := actualMtime.MarshalBinary()
@@ -63,15 +61,11 @@ func (r *VirtualMtimeRepo) GetMtime(path string, diskMtime time.Time) time.Time 
 			panic(fmt.Sprintf("Can't unmarshal stored mtime at path %s: %v", path, err))
 		}
 
-		if debug {
-			l.Debugf("virtual mtime: return %v instead of %v for path: %s", mtime, diskMtime, path)
-		}
+		l.Debugf("virtual mtime: return %v instead of %v for path: %s", mtime, diskMtime, path)
 		return mtime
 	}
 
-	if debug {
-		l.Debugf("virtual mtime: record exists, but mismatch inDisk: %v dbDisk: %v for path: %s", diskMtime, mtime, path)
-	}
+	l.Debugf("virtual mtime: record exists, but mismatch inDisk: %v dbDisk: %v for path: %s", diskMtime, mtime, path)
 	return diskMtime
 }
 

@@ -96,12 +96,8 @@ func SelectLatestRelease(version string, rels []Release) (Release, error) {
 			assetName := path.Base(asset.Name)
 			// Check for the architecture
 			expectedRelease := releaseName(rel.Tag)
-			if debug {
-				l.Debugf("expected release asset %q", expectedRelease)
-			}
-			if debug {
-				l.Debugln("considering release", assetName)
-			}
+			l.Debugf("expected release asset %q", expectedRelease)
+			l.Debugln("considering release", assetName)
 			if strings.HasPrefix(assetName, expectedRelease) {
 				return rel, nil
 			}
@@ -113,14 +109,10 @@ func SelectLatestRelease(version string, rels []Release) (Release, error) {
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
 func upgradeTo(binary string, rel Release) error {
 	expectedRelease := releaseName(rel.Tag)
-	if debug {
-		l.Debugf("expected release asset %q", expectedRelease)
-	}
+	l.Debugf("expected release asset %q", expectedRelease)
 	for _, asset := range rel.Assets {
 		assetName := path.Base(asset.Name)
-		if debug {
-			l.Debugln("considering release", assetName)
-		}
+		l.Debugln("considering release", assetName)
 
 		if strings.HasPrefix(assetName, expectedRelease) {
 			return upgradeToURL(binary, asset.URL)
@@ -151,9 +143,7 @@ func upgradeToURL(binary string, url string) error {
 }
 
 func readRelease(dir, url string) (string, error) {
-	if debug {
-		l.Debugf("loading %q", url)
-	}
+	l.Debugf("loading %q", url)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -199,9 +189,7 @@ func readTarGz(dir string, r io.Reader) (string, error) {
 
 		shortName := path.Base(hdr.Name)
 
-		if debug {
-			l.Debugf("considering file %q", shortName)
-		}
+		l.Debugf("considering file %q", shortName)
 
 		err = archiveFileVisitor(dir, &tempName, &sig, shortName, tr)
 		if err != nil {
@@ -238,9 +226,7 @@ func readZip(dir string, r io.Reader) (string, error) {
 	for _, file := range archive.File {
 		shortName := path.Base(file.Name)
 
-		if debug {
-			l.Debugf("considering file %q", shortName)
-		}
+		l.Debugf("considering file %q", shortName)
 
 		inFile, err := file.Open()
 		if err != nil {
@@ -271,18 +257,14 @@ func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, filenam
 	var err error
 	switch filename {
 	case "syncthing", "syncthing.exe":
-		if debug {
-			l.Debugln("reading binary")
-		}
+		l.Debugln("reading binary")
 		*tempFile, err = writeBinary(dir, filedata)
 		if err != nil {
 			return err
 		}
 
 	case "syncthing.sig", "syncthing.exe.sig":
-		if debug {
-			l.Debugln("reading signature")
-		}
+		l.Debugln("reading signature")
 		*signature, err = ioutil.ReadAll(filedata)
 		if err != nil {
 			return err
@@ -300,9 +282,7 @@ func verifyUpgrade(tempName string, sig []byte) error {
 		return fmt.Errorf("no signature found")
 	}
 
-	if debug {
-		l.Debugf("checking signature\n%s", sig)
-	}
+	l.Debugf("checking signature\n%s", sig)
 
 	fd, err := os.Open(tempName)
 	if err != nil {

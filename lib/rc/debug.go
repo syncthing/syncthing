@@ -10,10 +10,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/calmh/logger"
+	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
-	debug = strings.Contains(os.Getenv("STTRACE"), "rc") || os.Getenv("STTRACE") == "all"
-	l     = logger.DefaultLogger
+	l = logger.DefaultLogger.NewFacility("rc", "Remote control package")
 )
+
+func init() {
+	l.SetDebug("rc", strings.Contains(os.Getenv("STTRACE"), "rc") || os.Getenv("STTRACE") == "all")
+}

@@ -51,15 +51,11 @@ func (t *ProgressEmitter) Serve() {
 	for {
 		select {
 		case <-t.stop:
-			if debug {
-				l.Debugln("progress emitter: stopping")
-			}
+			l.Debugln("progress emitter: stopping")
 			return
 		case <-t.timer.C:
 			t.mut.Lock()
-			if debug {
-				l.Debugln("progress emitter: timer - looking after", len(t.registry))
-			}
+			l.Debugln("progress emitter: timer - looking after", len(t.registry))
 			output := make(map[string]map[string]*pullerProgress)
 			for _, puller := range t.registry {
 				if output[puller.folder] == nil {
@@ -70,10 +66,8 @@ func (t *ProgressEmitter) Serve() {
 			if !reflect.DeepEqual(t.last, output) {
 				events.Default.Log(events.DownloadProgress, output)
 				t.last = output
-				if debug {
-					l.Debugf("progress emitter: emitting %#v", output)
-				}
-			} else if debug {
+				l.Debugf("progress emitter: emitting %#v", output)
+			} else {
 				l.Debugln("progress emitter: nothing new")
 			}
 			if len(t.registry) != 0 {
@@ -95,9 +89,7 @@ func (t *ProgressEmitter) CommitConfiguration(from, to config.Configuration) boo
 	defer t.mut.Unlock()
 
 	t.interval = time.Duration(to.Options.ProgressUpdateIntervalS) * time.Second
-	if debug {
-		l.Debugln("progress emitter: updated interval", t.interval)
-	}
+	l.Debugln("progress emitter: updated interval", t.interval)
 
 	return true
 }
@@ -112,9 +104,7 @@ func (t *ProgressEmitter) Stop() {
 func (t *ProgressEmitter) Register(s *sharedPullerState) {
 	t.mut.Lock()
 	defer t.mut.Unlock()
-	if debug {
-		l.Debugln("progress emitter: registering", s.folder, s.file.Name)
-	}
+	l.Debugln("progress emitter: registering", s.folder, s.file.Name)
 	if len(t.registry) == 0 {
 		t.timer.Reset(t.interval)
 	}
@@ -125,9 +115,7 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 func (t *ProgressEmitter) Deregister(s *sharedPullerState) {
 	t.mut.Lock()
 	defer t.mut.Unlock()
-	if debug {
-		l.Debugln("progress emitter: deregistering", s.folder, s.file.Name)
-	}
+	l.Debugln("progress emitter: deregistering", s.folder, s.file.Name)
 	delete(t.registry, filepath.Join(s.folder, s.file.Name))
 }
 
@@ -141,9 +129,7 @@ func (t *ProgressEmitter) BytesCompleted(folder string) (bytes int64) {
 			bytes += s.Progress().BytesDone
 		}
 	}
-	if debug {
-		l.Debugf("progress emitter: bytes completed for %s: %d", folder, bytes)
-	}
+	l.Debugf("progress emitter: bytes completed for %s: %d", folder, bytes)
 	return
 }
 

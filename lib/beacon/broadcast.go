@@ -33,9 +33,7 @@ func NewBroadcast(port int) *Broadcast {
 			FailureBackoff:   60 * time.Second,
 			// Only log restarts in debug mode.
 			Log: func(line string) {
-				if debug {
-					l.Debugln(line)
-				}
+				l.Debugln(line)
 			},
 		}),
 		port:   port,
@@ -81,17 +79,13 @@ type broadcastWriter struct {
 }
 
 func (w *broadcastWriter) Serve() {
-	if debug {
-		l.Debugln(w, "starting")
-		defer l.Debugln(w, "stopping")
-	}
+	l.Debugln(w, "starting")
+	defer l.Debugln(w, "stopping")
 
 	var err error
 	w.conn, err = net.ListenUDP("udp4", nil)
 	if err != nil {
-		if debug {
-			l.Debugln(err)
-		}
+		l.Debugln(err)
 		w.setError(err)
 		return
 	}
@@ -100,9 +94,7 @@ func (w *broadcastWriter) Serve() {
 	for bs := range w.inbox {
 		addrs, err := net.InterfaceAddrs()
 		if err != nil {
-			if debug {
-				l.Debugln(err)
-			}
+			l.Debugln(err)
 			w.setError(err)
 			continue
 		}
@@ -120,9 +112,7 @@ func (w *broadcastWriter) Serve() {
 			dsts = append(dsts, net.IP{0xff, 0xff, 0xff, 0xff})
 		}
 
-		if debug {
-			l.Debugln("addresses:", dsts)
-		}
+		l.Debugln("addresses:", dsts)
 
 		success := 0
 		for _, ip := range dsts {
@@ -135,34 +125,25 @@ func (w *broadcastWriter) Serve() {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				// Write timeouts should not happen. We treat it as a fatal
 				// error on the socket.
-				if debug {
-					l.Debugln(err)
-				}
+				l.Debugln(err)
 				w.setError(err)
 				return
 			}
 
 			if err, ok := err.(net.Error); ok && err.Temporary() {
 				// A transient error. Lets hope for better luck in the future.
-				if debug {
-					l.Debugln(err)
-				}
+				l.Debugln(err)
 				continue
 			}
 
 			if err != nil {
 				// Some other error that we don't expect. Bail and retry.
-				if debug {
-					l.Debugln(err)
-				}
+				l.Debugln(err)
 				w.setError(err)
 				return
 			}
 
-			if debug {
-				l.Debugf("sent %d bytes to %s", len(bs), dst)
-			}
-
+			l.Debugf("sent %d bytes to %s", len(bs), dst)
 			success++
 		}
 
@@ -188,17 +169,13 @@ type broadcastReader struct {
 }
 
 func (r *broadcastReader) Serve() {
-	if debug {
-		l.Debugln(r, "starting")
-		defer l.Debugln(r, "stopping")
-	}
+	l.Debugln(r, "starting")
+	defer l.Debugln(r, "stopping")
 
 	var err error
 	r.conn, err = net.ListenUDP("udp4", &net.UDPAddr{Port: r.port})
 	if err != nil {
-		if debug {
-			l.Debugln(err)
-		}
+		l.Debugln(err)
 		r.setError(err)
 		return
 	}
@@ -208,27 +185,21 @@ func (r *broadcastReader) Serve() {
 	for {
 		n, addr, err := r.conn.ReadFrom(bs)
 		if err != nil {
-			if debug {
-				l.Debugln(err)
-			}
+			l.Debugln(err)
 			r.setError(err)
 			return
 		}
 
 		r.setError(nil)
 
-		if debug {
-			l.Debugf("recv %d bytes from %s", n, addr)
-		}
+		l.Debugf("recv %d bytes from %s", n, addr)
 
 		c := make([]byte, n)
 		copy(c, bs)
 		select {
 		case r.outbox <- recv{c, addr}:
 		default:
-			if debug {
-				l.Debugln("dropping message")
-			}
+			l.Debugln("dropping message")
 		}
 	}
 

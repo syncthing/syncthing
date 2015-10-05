@@ -49,9 +49,7 @@ func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs [
 	case protocol.Response:
 		return protocol.SessionInvitation{}, fmt.Errorf("Incorrect response code %d: %s", msg.Code, msg.Message)
 	case protocol.SessionInvitation:
-		if debug {
-			l.Debugln("Received invitation", msg, "via", conn.LocalAddr())
-		}
+		l.Debugln("Received invitation", msg, "via", conn.LocalAddr())
 		ip := net.IP(msg.Address)
 		if len(ip) == 0 || ip.IsUnspecified() {
 			msg.Address = conn.RemoteAddr().(*net.TCPAddr).IP[:]

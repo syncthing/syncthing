@@ -94,9 +94,7 @@ type IgnoreMatcher interface {
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
 func (w *Walker) Walk() (chan protocol.FileInfo, error) {
-	if debug {
-		l.Debugln("Walk", w.Dir, w.Subs, w.BlockSize, w.Matcher)
-	}
+	l.Debugln("Walk", w.Dir, w.Subs, w.BlockSize, w.Matcher)
 
 	err := checkDir(w.Dir)
 	if err != nil {
@@ -159,16 +157,12 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 			for {
 				select {
 				case <-done:
-					if debug {
-						l.Debugln("Walk progress done", w.Dir, w.Subs, w.BlockSize, w.Matcher)
-					}
+					l.Debugln("Walk progress done", w.Dir, w.Subs, w.BlockSize, w.Matcher)
 					ticker.Stop()
 					return
 				case <-ticker.C:
 					current := atomic.LoadInt64(&progress)
-					if debug {
-						l.Debugf("Walk %s %s current progress %d/%d (%d%%)", w.Dir, w.Subs, current, total, current*100/total)
-					}
+					l.Debugf("Walk %s %s current progress %d/%d (%d%%)", w.Dir, w.Subs, current, total, current*100/total)
 					events.Default.Log(events.FolderScanProgress, map[string]interface{}{
 						"folder":  w.Folder,
 						"current": current,
@@ -179,9 +173,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 		}()
 
 		for _, file := range filesToHash {
-			if debug {
-				l.Debugln("real to hash:", file.Name)
-			}
+			l.Debugln("real to hash:", file.Name)
 			realToHashChan <- file
 		}
 		close(realToHashChan)
@@ -202,17 +194,13 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 		}
 
 		if err != nil {
-			if debug {
-				l.Debugln("error:", p, info, err)
-			}
+			l.Debugln("error:", p, info, err)
 			return skip
 		}
 
 		rn, err := filepath.Rel(w.Dir, p)
 		if err != nil {
-			if debug {
-				l.Debugln("rel error:", p, err)
-			}
+			l.Debugln("rel error:", p, err)
 			return skip
 		}
 
@@ -227,14 +215,10 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 
 		if w.TempNamer != nil && w.TempNamer.IsTemporary(rn) {
 			// A temporary file
-			if debug {
-				l.Debugln("temporary:", rn)
-			}
+			l.Debugln("temporary:", rn)
 			if info.Mode().IsRegular() && mtime.Add(w.TempLifetime).Before(now) {
 				os.Remove(p)
-				if debug {
-					l.Debugln("removing temporary:", rn, mtime)
-				}
+				l.Debugln("removing temporary:", rn, mtime)
 			}
 			return nil
 		}
@@ -242,9 +226,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 		if sn := filepath.Base(rn); sn == ".stignore" || sn == ".stfolder" ||
 			strings.HasPrefix(rn, ".stversions") || (w.Matcher != nil && w.Matcher.Match(rn)) {
 			// An ignored file
-			if debug {
-				l.Debugln("ignored:", rn)
-			}
+			l.Debugln("ignored:", rn)
 			return skip
 		}
 
@@ -313,17 +295,13 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 
 			target, targetType, err := symlinks.Read(p)
 			if err != nil {
-				if debug {
-					l.Debugln("readlink error:", p, err)
-				}
+				l.Debugln("readlink error:", p, err)
 				return skip
 			}
 
 			blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0, nil)
 			if err != nil {
-				if debug {
-					l.Debugln("hash link error:", p, err)
-				}
+				l.Debugln("hash link error:", p, err)
 				return skip
 			}
 
@@ -349,9 +327,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				Blocks:   blocks,
 			}
 
-			if debug {
-				l.Debugln("symlink changedb:", p, f)
-			}
+			l.Debugln("symlink changedb:", p, f)
 
 			dchan <- f
 
@@ -386,9 +362,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				Flags:    flags,
 				Modified: mtime.Unix(),
 			}
-			if debug {
-				l.Debugln("dir:", p, f)
-			}
+			l.Debugln("dir:", p, f)
 			dchan <- f
 			return nil
 		}
@@ -416,9 +390,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 					return nil
 				}
 
-				if debug {
-					l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
-				}
+				l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
 			}
 
 			var flags = curMode & uint32(maskModePerm)
@@ -433,9 +405,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				Modified:   mtime.Unix(),
 				CachedSize: info.Size(),
 			}
-			if debug {
-				l.Debugln("to hash:", p, f)
-			}
+			l.Debugln("to hash:", p, f)
 			fchan <- f
 		}
 
@@ -448,7 +418,7 @@ func checkDir(dir string) error {
 		return err
 	} else if !info.IsDir() {
 		return errors.New(dir + ": not a directory")
-	} else if debug {
+	} else {
 		l.Debugln("checkDir", dir, info)
 	}
 	return nil

@@ -10,11 +10,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/calmh/logger"
+	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
-	debug   = strings.Contains(os.Getenv("STTRACE"), "files") || os.Getenv("STTRACE") == "all"
-	debugDB = strings.Contains(os.Getenv("STTRACE"), "db") || os.Getenv("STTRACE") == "all"
-	l       = logger.DefaultLogger
+	l = logger.DefaultLogger.NewFacility("db", "The database layer")
 )
+
+func init() {
+	l.SetDebug("db", strings.Contains(os.Getenv("STTRACE"), "db") || os.Getenv("STTRACE") == "all")
+}

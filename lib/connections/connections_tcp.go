@@ -33,17 +33,13 @@ func tcpDialer(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
 
 	raddr, err := net.ResolveTCPAddr("tcp", uri.Host)
 	if err != nil {
-		if debug {
-			l.Debugln(err)
-		}
+		l.Debugln(err)
 		return nil, err
 	}
 
 	conn, err := net.DialTCP("tcp", nil, raddr)
 	if err != nil {
-		if debug {
-			l.Debugln(err)
-		}
+		l.Debugln(err)
 		return nil, err
 	}
 
@@ -81,9 +77,7 @@ func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- model.Intermedia
 			continue
 		}
 
-		if debug {
-			l.Debugln("connect from", conn.RemoteAddr())
-		}
+		l.Debugln("connect from", conn.RemoteAddr())
 
 		err = osutil.SetTCPOptions(conn.(*net.TCPConn))
 		if err != nil {

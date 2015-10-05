@@ -37,16 +37,12 @@ func (s *DeviceStatisticsReference) GetLastSeen() time.Time {
 		// time.Time{} from s.ns
 		return time.Unix(0, 0)
 	}
-	if debug {
-		l.Debugln("stats.DeviceStatisticsReference.GetLastSeen:", s.device, t)
-	}
+	l.Debugln("stats.DeviceStatisticsReference.GetLastSeen:", s.device, t)
 	return t
 }
 
 func (s *DeviceStatisticsReference) WasSeen() {
-	if debug {
-		l.Debugln("stats.DeviceStatisticsReference.WasSeen:", s.device)
-	}
+	l.Debugln("stats.DeviceStatisticsReference.WasSeen:", s.device)
 	s.ns.PutTime("lastSeen", time.Now())
 }
 
