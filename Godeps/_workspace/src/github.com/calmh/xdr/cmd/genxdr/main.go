@@ -28,6 +28,7 @@ type fieldInfo struct {
 	Encoder   string // the encoder name, i.e. "Uint64" for Read/WriteUint64
 	Convert   string // what to convert to when encoding, i.e. "uint64"
 	Max       int    // max size for slices and strings
+	Submax    int    // max size for strings inside slices
 }
 
 type structInfo struct {
@@ -156,7 +157,11 @@ func (o *{{.TypeName}}) DecodeXDRFrom(xr *xdr.Reader) error {
 				{{if ne $fieldInfo.Convert ""}}
 					o.{{$fieldInfo.Name}}[i] = {{$fieldInfo.FieldType}}(xr.Read{{$fieldInfo.Encoder}}())
 				{{else if $fieldInfo.IsBasic}}
-					o.{{$fieldInfo.Name}}[i] = xr.Read{{$fieldInfo.Encoder}}()
+					{{if ge $fieldInfo.Submax 1}}
+						o.{{$fieldInfo.Name}}[i] = xr.Read{{$fieldInfo.Encoder}}Max({{$fieldInfo.Submax}})
+					{{else}}
+						o.{{$fieldInfo.Name}}[i] = xr.Read{{$fieldInfo.Encoder}}()
+					{{end}}
 				{{else}}
 					(&o.{{$fieldInfo.Name}}[i]).DecodeXDRFrom(xr)
 				{{end}}
@@ -166,7 +171,7 @@ func (o *{{.TypeName}}) DecodeXDRFrom(xr *xdr.Reader) error {
 	return xr.Error()
 }`))
 
-var maxRe = regexp.MustCompile(`\Wmax:(\d+)`)
+var maxRe = regexp.MustCompile(`(?:\Wmax:)(\d+)(?:\s*,\s*(\d+))?`)
 
 type typeSet struct {
 	Type    string
@@ -198,11 +203,15 @@ func handleStruct(t *ast.StructType) []fieldInfo {
 		}
 
 		fn := sf.Names[0].Name
-		var max = 0
+		var max1, max2 int
 		if sf.Comment != nil {
 			c := sf.Comment.List[0].Text
-			if m := maxRe.FindStringSubmatch(c); m != nil {
-				max, _ = strconv.Atoi(m[1])
+			m := maxRe.FindStringSubmatch(c)
+			if len(m) >= 2 {
+				max1, _ = strconv.Atoi(m[1])
+			}
+			if len(m) >= 3 {
+				max2, _ = strconv.Atoi(m[2])
 			}
 			if strings.Contains(c, "noencode") {
 				continue
@@ -220,14 +229,16 @@ func handleStruct(t *ast.StructType) []fieldInfo {
 					FieldType: tn,
 					Encoder:   enc.Encoder,
 					Convert:   enc.Type,
-					Max:       max,
+					Max:       max1,
+					Submax:    max2,
 				}
 			} else {
 				f = fieldInfo{
 					Name:      fn,
 					IsBasic:   false,
 					FieldType: tn,
-					Max:       max,
+					Max:       max1,
+					Submax:    max2,
 				}
 			}
 
@@ -245,7 +256,8 @@ func handleStruct(t *ast.StructType) []fieldInfo {
 					FieldType: tn,
 					Encoder:   enc.Encoder,
 					Convert:   enc.Type,
-					Max:       max,
+					Max:       max1,
+					Submax:    max2,
 				}
 			} else if enc, ok := xdrEncoders[tn]; ok {
 				f = fieldInfo{
@@ -255,14 +267,16 @@ func handleStruct(t *ast.StructType) []fieldInfo {
 					FieldType: tn,
 					Encoder:   enc.Encoder,
 					Convert:   enc.Type,
-					Max:       max,
+					Max:       max1,
+					Submax:    max2,
 				}
 			} else {
 				f = fieldInfo{
 					Name:      fn,
 					IsSlice:   true,
 					FieldType: tn,
-					Max:       max,
+					Max:       max1,
+					Submax:    max2,
 				}
 			}
 
@@ -270,7 +284,8 @@ func handleStruct(t *ast.StructType) []fieldInfo {
 			f = fieldInfo{
 				Name:      fn,
 				FieldType: ft.Sel.Name,
-				Max:       max,
+				Max:       max1,
+				Submax:    max2,
 			}
 		}
 
