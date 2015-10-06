@@ -233,7 +233,11 @@ log messages (``-e`` lets the pager jump to the very end)::
 Permissions
 ^^^^^^^^^^^
 
-In case you want to override the permissions under which the files and folders are created (especially because Windows does not have a concept of group permissions), you enable the `Ignore Permissions` option in the folder settings, and add the line "UMask=0002" (or any other umask you like) in the [Service] section of the "syncthing@.service" file.
+In case you want to override the permissions under which the files and folders
+are created (especially because Windows does not have a concept of group
+permissions), you enable the ``Ignore Permissions`` option in the folder
+settings, and add the line ``UMask=0002`` (or any other umask you like) in the
+``[Service]`` section of the ``syncthing@.service`` file.
 
 Debugging
 ^^^^^^^^^
