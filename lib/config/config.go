@@ -108,7 +108,9 @@ type FolderConfiguration struct {
 	Hashers               int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
 	Order                 PullOrder                   `xml:"order" json:"order"`
 	IgnoreDelete          bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
-	ScanProgressIntervalS int                         `xml:"scanProgressInterval" json:"scanProgressInterval"` // Set to a negative value to disable. Value of 0 will get replaced with value of 2 (default value)
+	ScanProgressIntervalS int                         `xml:"scanProgressIntervalS" json:"scanProgressIntervalS"` // Set to a negative value to disable. Value of 0 will get replaced with value of 2 (default value)
+	PullerSleepS          int                         `xml:"pullerSleepS" json:"pullerSleepS"`
+	PullerPauseS          int                         `xml:"pullerPauseS" json:"pullerPauseS"`
 
 	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 }
