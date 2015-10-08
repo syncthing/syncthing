@@ -239,7 +239,7 @@
                       <td class="text-right">{{model[folder.id].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].localBytes | binary}}B</td>
                     </tr>
                     <tr ng-if="model[folder.id].needFiles > 0">
-                      <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Out of Sync</span></th>
+                      <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                       <td class="text-right">
                         <a href="" ng-click="showNeed(folder.id)">{{model[folder.id].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
                       </td>
