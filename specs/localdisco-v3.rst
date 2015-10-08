@@ -11,11 +11,11 @@ reply; the only message type is Announcement.
 On multihomed hosts the announcement packets should be sent on each interface
 on which Syncthing will accept connections.
 
-For IPv4, the Announcement packet is broadcasted either to the link-specific
+For IPv4, the Announcement packet is broadcast either to the link-specific
 broadcast address, or to the generic link-local broadcast address
 ``255.255.255.255``, with destination port 21027.
 
-For IPv6, the Announcement packet is multicasted to the transient link-local
+For IPv6, the Announcement packet is multicast to the transient link-local
 multicast address ``[ff12::8384]``, with destination port 21027.
 
 It is recommended that local discovery Announcement packets be sent on a 30 to
@@ -44,7 +44,7 @@ The Announcement packet has the following structure::
     \                       Device Structure                        \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                        Number of Extra                        |
+    |                    Number of Extra Devices                    |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
     \                Zero or more Device Structures                 \
@@ -136,7 +136,7 @@ bytes) of the device X.509 certificate, as explained in section *Device
 ID*.
 
 For each ``Address`` and ``Relay`` the ``URL`` field contains the actual
-target address. For direction connections (the ``Address`` list) these will
+target address. Direct connections (the ``Address`` list) will
 typically have the ``tcp://`` scheme. Relay connections will typically use the
 ``relay://`` scheme.
 

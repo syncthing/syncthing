@@ -10,7 +10,7 @@ are ignored.
 Example Scenario
 ----------------
 
-Assume two devices, "Alice" and "Bob", sharing a folder. Bob has set
+Assume two devices, "Alice" and "Bob", are sharing a folder. Bob has set
 ``ignoreDelete``.
 
 New and updated files are synchronized as usual between Alice and Bob. When

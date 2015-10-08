@@ -31,7 +31,7 @@ Prerequisites
 -  Go **1.3** or higher
 -  Git
 
-If you're not a Go developer since before, the easiest way to get going
+If you're not already a Go developer, the easiest way to get going
 is to download the latest version of Go as instructed in
 http://golang.org/doc/install and ``export GOPATH=~``.
 

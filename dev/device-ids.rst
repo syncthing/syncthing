@@ -206,7 +206,7 @@ It could be mitigated in several ways:
 
 -  Announcements to the global announce server could be done using TLS,
    so the server calculates the device ID based on the certificate
-   instead of trusting to the device to tell the truth.
+   instead of trusting the device to tell the truth.
 
 -  The user could statically configure IP or host name for the devices.
 

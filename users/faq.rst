@@ -142,7 +142,7 @@ safe from your (or our) mistakes.
 Why is there no iOS client?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Alternative implementation Syncthing (using the Syncthing protocol) are being
+An alternative implementation of Syncthing (using the Syncthing protocol) is being
 developed at this point in time to enable iOS support. Additionally, it seems
 that the next version of Go will support the darwin-arm architecture such that
 we can compile the mainstream code for the iOS platform.
@@ -230,7 +230,7 @@ Where do Syncthing logs go to?
 
 Syncthing logs to stdout by default. On Windows Syncthing by default also
 creates ``syncthing.log`` in Syncthing's home directory (check ``-help`` to see
-where that is). Command line option ``-logfile`` can be used to specify user-defined logfile.
+where that is). Command line option ``-logfile`` can be used to specify a user-defined logfile.
 
 How do I upgrade Syncthing?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

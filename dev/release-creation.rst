@@ -44,7 +44,7 @@ Tag". Set the "Release title" to the same version as the tag, paste in
 the changelog from above, and publish the release.
 
 On the signing server, logged in via ssh, run ``sign-upload-release``. This
-will create download the build artefacts from Jenkins, sign all the binaries,
+will download the build artefacts from Jenkins, sign all the binaries,
 create the sha1sum and sha256sum files, sign them with the release GPG key and
 upload the whole shebang to Github.
 
