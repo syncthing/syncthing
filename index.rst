@@ -22,7 +22,7 @@ Contact
   :ref:`project-presentation`.
 
 * To report bugs or request features, please use the `issue tracker`_ Before you
-  do so, make   sure you are running the `latest version`_, and please do a
+  do so, make sure you are running the `latest version`_, and please do a
   quick search to see if the issue has already been reported.
 
   .. image:: issues.png

@@ -106,7 +106,7 @@ lib/
       The local and global device discovery -- maps device IDs to IP and port tuples.
 
    events/
-      The event subsystem, handles emitting of and subscribing to events accross the other packages.
+      The event subsystem, handles emitting of and subscribing to events across the other packages.
 
    fnmatch/
       Matches strings to glob patterns, used by the ignore package.

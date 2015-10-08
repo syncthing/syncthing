@@ -75,6 +75,6 @@ Where block size is 128KB.
 
 Files/folders appearing in the event data imply that the download has
 been started for that file/folder, where disappearing implies that the
-downloads has been finished or failed for that file/folder. There is
+downloads have been finished or failed for that file/folder. There is
 always a last event emitted with no data, which implies all downloads
-being finished/failed.
+have finished/failed.

@@ -19,14 +19,14 @@ device. Each time a change is made to the index information of an item (file
 or directory), that item is tagged with the current value of the local version
 counter, and the counter is increased.
 
-Principal Operation
--------------------
+Principal of Operation
+----------------------
 
 Assume that the starting value of the counter is ``0``. The next change that
 happens will be assigned local version ``1``. Local scanning reveals the
 presence of three new files, ``foo``, ``bar`` and ``baz``. When ``foo`` is
 discovered, it's index entry gets assigned local version ``1`` and the counter
-is increased. Likewise ``bar`` gets ``2`` and ``foo`` gets ``3``.
+is increased. Likewise ``bar`` gets ``2`` and ``baz`` gets ``3``.
 
 ====  =============
 File  Local Version

@@ -63,7 +63,7 @@ protocol
 Milestone
 ---------
 
-There are milestones for major and sometimes minor versions. An issues
+There are milestones for major and sometimes minor versions. An issue
 being assigned to a milestone means it is a blocker - the release can't
 be made without the issue being closed. Issues not assigned to a
 milestone can be handled whenever.

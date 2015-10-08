@@ -50,7 +50,7 @@ Runs Jenkins and does the core and Android builds, Ubuntu Linux.
 OSX and Windows Build Slaves
 ----------------------------
 
-Runs Jenkins build slaves and run builds and tests on the Mac and
+Runs Jenkins build slaves and runs builds and tests on the Mac and
 Windows operating systems. Hosted by :user:`Zillode`.
 
 APT Server

@@ -44,21 +44,21 @@ facilities are something like this:
 -  ``beacon`` sends and receives UDP broadcasts used by the local
    discovery system. Debugging here will show which interfaces and
    addresses are selected for broadcasts, etc.
--  ``discover`` sends and received local discovery packets. Debugging
+-  ``discover`` sends and receives local discovery packets. Debugging
    here will output the parsed packets, nodes that get registered etc.
 -  ``files`` keeps track of lists of files with metadata and figures out
    which is the newest version of each.
 -  ``net`` shows connection attempts, incoming connections, and the low
    level error when connection attempts fail.
 -  ``model`` is the largest chunk of the system; this is where pulling
-   of out of date files happen, indexes sent and received, and incoming
+   of out of date files happens, indexes are sent and received, and incoming
    requests for file chunks are logged.
 -  ``scanner`` is the local filesystem scanner. Debugging here will
    output information about changed and unchanged files.
 -  ``upnp`` is the upnp talker.
 -  ``xdr`` is the low level protocol encoder. Debugging here will output
    all bytes sent/received over the sync connection. Very verbose.
--  ``all`` simply enabled debugging of all facilities.
+-  ``all`` simply enables debugging of all facilities.
 
 Enabling any of the facilities will also change the log format to
 include microsecond timestamps and file names plus line numbers. This

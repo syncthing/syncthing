@@ -43,7 +43,7 @@ directory the following files are located:
 Config File Format
 ------------------
 
-The following is shows the default configuration file:
+The following shows the default configuration file:
 
 .. code-block:: xml
 
@@ -123,7 +123,7 @@ id
     The folder ID, must be unique. (mandatory)
 
 path
-    The oath to the directory where the folder is stored on this
+    The path to the directory where the folder is stored on this
     device; not sent to other devices. (mandatory)
 
 ro
@@ -339,7 +339,7 @@ globalAnnounceServer
 
 globalAnnounceEnabled
     Whether to announce this device to the global announce (discovery) server,
-    and also use it to look up other device.
+    and also use it to look up other devices.
 
 localAnnounceEnabled
     Whether to send announcements to the local LAN, also use such

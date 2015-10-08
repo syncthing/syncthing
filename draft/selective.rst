@@ -4,7 +4,7 @@ Selective Sync
 ==============
 
 This is for when you don't want to synchronize *all* files from the cluster
-onto your device, or you want only some directories of your to be synced
+onto your device, or you want only some directories of yours to be synced
 *to* the cluster. There are two mechanisms that support this usage; *Directory
 Selection* and *Excluded Files*.
 
@@ -50,7 +50,7 @@ changes will be downloaded from the cluster and local changes will not be
 tracked.
 
 .. note:: When displaying the tree we must merge what we actually have on disk
-	with what is in the global state.Or we will not be able to show new
+	with what is in the global state, or we will not be able to show new
 	directories to the user as we don't know about them...
 
 

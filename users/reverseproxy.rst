@@ -3,7 +3,7 @@
 Reverse Proxy Setup
 ===================
 
-A reverse proxy allow you to "pass" requests through your web server to another
+A reverse proxy allows you to "pass" requests through your web server to another
 site or program. The reverse proxy will make it look like Syncthing's GUI is a
 page within your existing site.
 
@@ -12,7 +12,7 @@ This is especially useful if:
 - You need to access the GUI on port 80 or 443 but you already host a website
   on the same device.
 - You want to share SSL certificates with an existing site.
-- You want to share authentification with an existing setup.
+- You want to share authentication with an existing setup.
 
 Server Configuration
 --------------------
