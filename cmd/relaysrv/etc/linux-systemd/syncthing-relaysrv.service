@@ -6,6 +6,8 @@ After=network.target
 User=syncthing-relaysrv
 Group=syncthing-relaysrv
 ExecStart=/usr/bin/syncthing-relaysrv
+WorkingDirectory=/var/lib/syncthing-relaysrv
+RootDirectory=/var/lib/syncthing-relaysrv
 
 PrivateTmp=true
 ProtectSystem=full
