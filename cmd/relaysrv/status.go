@@ -25,6 +25,8 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 
 	sessionMut.Lock()
 	// This can potentially be double the number of pending sessions, as each session has two keys, one for each side.
+	status["startTime"] = rc.startTime
+	status["uptime"] = time.Since(rc.startTime)
 	status["numPendingSessionKeys"] = len(pendingSessions)
 	status["numActiveSessions"] = len(activeSessions)
 	sessionMut.Unlock()
@@ -55,15 +57,17 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 type rateCalculator struct {
-	rates   []int64
-	prev    int64
-	counter *int64
+	rates     []int64
+	prev      int64
+	counter   *int64
+	startTime time.Time
 }
 
 func newRateCalculator(keepIntervals int, interval time.Duration, counter *int64) *rateCalculator {
 	r := &rateCalculator{
-		rates:   make([]int64, keepIntervals),
-		counter: counter,
+		rates:     make([]int64, keepIntervals),
+		counter:   counter,
+		startTime: time.Now(),
 	}
 
 	go r.updateRates(interval)
