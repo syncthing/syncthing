@@ -5,7 +5,7 @@ After=network.target
 [Service]
 User=syncthing-relaysrv
 Group=syncthing-relaysrv
-ExecStart=/usr/bin/syncthing-relaysrv
+ExecStart=/usr/bin/relaysrv
 WorkingDirectory=/var/lib/syncthing-relaysrv
 RootDirectory=/var/lib/syncthing-relaysrv
 
