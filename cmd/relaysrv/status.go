@@ -45,6 +45,14 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		rc.rate(30*60/10) * 8 / 1000,
 		rc.rate(60*60/10) * 8 / 1000,
 	}
+	status["options"] = map[string]interface{}{
+		"network-timeout":  networkTimeout,
+		"ping-interval":    pingInterval,
+		"message-timeout":  messageTimeout,
+		"per-session-rate": sessionLimitBps,
+		"global-rate":      globalLimitBps,
+		"pools":            defaultPoolAddrs,
+	}
 
 	bs, err := json.MarshalIndent(status, "", "    ")
 	if err != nil {
