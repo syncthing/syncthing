@@ -17,6 +17,7 @@ Cross-platform
 
 -  https://github.com/syncthing/syncthing-gtk
 -  https://github.com/sieren/QSyncthingTray
+-  https://github.com/graboluk/stiko
 
 Android
 ~~~~~~~
