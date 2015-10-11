@@ -138,21 +138,20 @@ access the GUI type 127.0.0.1:8384 (by default) into Safari.
 Linux
 -----
 
-Ubuntu like systems
-~~~~~~~~~~~~~~~~~~~
+On Ubuntu-like systems
+~~~~~~~~~~~~~~~~~~~~~~
 
-#. Click the dashboard (hit 'Win' button).
-#. Open 'Startup Applications'.
+#. Launch the program 'Startup Applications'.
 #. Click 'Add'.
 #. Fill out the form:
 
    -  Name: Syncthing
-   -  ``Command: /path/to/syncthing/binary -no-browser -home="/home/your\_user/.config/syncthing"``
+   -  Command: ``/path/to/syncthing/binary -no-browser -home="/home/your\_user/.config/syncthing"``
 
-Supervisord
-~~~~~~~~~~~
+Using Supervisord
+~~~~~~~~~~~~~~~~~
 
-Add following to your ``/etc/supervisord.conf``::
+Add the following to your ``/etc/supervisord.conf`` file::
 
     [program:syncthing]
     command = /path/to/syncthing/binary -no-browser -home="/home/some_user/.config/syncthing"
@@ -161,93 +160,113 @@ Add following to your ``/etc/supervisord.conf``::
     user = some_user
     environment = STNORESTART="1"
 
-systemd
-~~~~~~~
+Using systemd
+~~~~~~~~~~~~~
 
 systemd is a suite of system management daemons, libraries, and
 utilities designed as a central management and configuration platform
 for the Linux computer operating system. It also offers users the
 ability to manage services under the user's control with a per-user
 systemd instance, enabling users to start, stop, enable, and disable
-their own units. Service files for system are provided by Syncthing and
+their own units. Service files for systemd are provided by Syncthing and
 can be found in
 `etc/linux-systemd <https://github.com/syncthing/syncthing/tree/master/etc/linux-systemd>`_.
-Several distros (including arch linux) ship these service files with the
-Syncthing package. If your distro provides a systemd service file for
-Syncthing you can skip step 2.
 
-How to use the system instance
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+You have two primary options: You can set up Syncthing as a system service, or a
+user service.
 
 Running Syncthing as a system service ensures that Syncthing is run at startup
-even if the Syncthing user has no active session. Since the system service
-keeps Syncthing running even without an active user session, it is intended to
-be used on a *server*.
+even if the Syncthing user has no active session. Since the system service keeps
+Syncthing running even without an active user session, it is intended to be used
+on a *server*.
 
-#. Create the user who should run the service, or choose an existing
-   one.
-#. Copy the ``system/syncthing@.service`` file into the `load path of
-   the system
-   instance <http://www.freedesktop.org/software/systemd/man/systemd.unit.html#Unit%20Load%20Path>`__.
-#. Enable and start the service. Append the Syncthing user after the
-   ``@``::
+Running Syncthing as a user service ensures that Syncthing only starts after the
+user has logged into the sytem (e.g., via the graphical login screen, or ssh).
+Thus, the user service is intended to be used on a *(multiuser) desktop
+computer*. It avoids unnecessarily running Syncthing instances.
+
+Several distros (including arch linux) ship the needed service files with the
+Syncthing package. If your distro provides a systemd service file for Syncthing,
+you can skip step 2 when you setting up either the system service or the user
+service, as described below.
+
+How to set up a system service
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+#. Create the user who should run the service, or choose an existing one.
+#. Copy the ``Syncthing/etc/system/syncthing@.service`` file into the
+   `load path of the system instance
+   <http://www.freedesktop.org/software/systemd/man/systemd.unit.html#Unit%20Load%20Path>`__.
+#. Enable and start the service. Replace "myuser" with the actual Syncthing
+   user after the ``@``::
 
     systemctl enable syncthing@myuser.service
     systemctl start syncthing@myuser.service
 
-How to use the user instance
+How to set up a user service
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Running Syncthing as a user service ensures that Syncthing is run after the
-Syncthing user has created a session (e.g. via the graphical login screen or
-ssh). Thus, the user service is intended to be used on a *(multiuser) desktop
-computer*. It avoids unnecessarily running Syncthing instances.
-
 #. Create the user who should run the service, or choose an existing
-   one.
-#. Copy the ``user/syncthing.service`` file into the `load path of the
-   user
-   instance <http://www.freedesktop.org/software/systemd/man/systemd.unit.html#Unit%20Load%20Path>`__.
-   To do this without root privileges you can use
-   ``~/.config/systemd/user/``.
+   one. *Probably this will be your own user account.*
+#. Copy the ``Syncthing/etc/user/syncthing.service`` file into the `load path
+   of the user instance
+   <http://www.freedesktop.org/software/systemd/man/systemd.unit.html#Unit%20Load%20Path>`__.
+   To do this without root privileges you can just use this folder under your
+   home directory: ``~/.config/systemd/user/``.
 #. Enable and start the service::
 
     systemctl --user enable syncthing.service
     systemctl --user start syncthing.service
 
+Checking the service status
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 To check if Syncthing runs properly you can use the ``status``
-subcommand::
+subcommand. To check the status of a system service::
 
     systemctl status syncthing@myuser.service
+
+To check the status of a user service::
+
     systemctl --user status syncthing.service
 
 Using the journal
 ^^^^^^^^^^^^^^^^^
 
-Systemd logs everything into the journal. You can easily access Syncthing
-log messages (``-e`` lets the pager jump to the very end)::
+Systemd logs everything into the journal, so you can easily access Syncthing log
+messages. In both of the following examples, ``-e`` tells the pager to jump to
+the very end, so that you see the most recent logs.
+
+To see the logs for the system service::
 
     journalctl -e -u syncthing@myuser.service
+
+To see the logs for the user service::
+
     journalctl -e --user-unit=syncthing.service
 
 Permissions
 ^^^^^^^^^^^
 
-In case you want to override the permissions under which the files and folders
-are created (especially because Windows does not have a concept of group
-permissions), you enable the ``Ignore Permissions`` option in the folder
-settings, and add the line ``UMask=0002`` (or any other umask you like) in the
+If you enabled the ``Ignore Permissions`` option in the Syncthing client's
+folder settings, then you will also need to add the line ``UMask=0002`` (or any
+other `umask setting <http://www.tech-faq.com/umask.html>` you like) in the
 ``[Service]`` section of the ``syncthing@.service`` file.
 
 Debugging
 ^^^^^^^^^
 
 If you are asked on the bugtracker to start Syncthing with specific
-environment variables it will not work the easy way. Systemd isolates each
+environment variables it will not work the normal way. Systemd isolates each
 service and it cannot access global environment variables. The solution is to
-add this variables to the service file instead. Just use::
+add the variables to the service file instead.
+
+To edit the system service, run::
 
     systemctl edit syncthing@myuser.service
+
+To edit the user service, run::
+
     systemctl --user edit syncthing.service
 
 This will create an additional configuration file automatically and you
