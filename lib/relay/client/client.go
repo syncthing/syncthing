@@ -5,7 +5,6 @@ package client
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"time"
@@ -101,7 +100,7 @@ func (c *ProtocolClient) Serve() {
 		select {
 		case message := <-messages:
 			timeout.Reset(c.timeout)
-			log.Printf("%s received message %T", c, message)
+			l.Debugf("%s received message %T", c, message)
 
 			switch msg := message.(type) {
 			case protocol.Ping:
