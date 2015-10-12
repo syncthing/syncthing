@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -289,7 +290,7 @@ func parseResponse(deviceType string, resp []byte) (IGD, error) {
 }
 
 func localIP(url *url.URL) (string, error) {
-	conn, err := net.Dial("tcp", url.Host)
+	conn, err := dialer.Dial("tcp", url.Host)
 	if err != nil {
 		return "", err
 	}

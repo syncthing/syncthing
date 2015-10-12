@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
@@ -37,13 +38,13 @@ func tcpDialer(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
 		return nil, err
 	}
 
-	conn, err := net.DialTCP("tcp", nil, raddr)
+	conn, err := dialer.Dial(raddr.Network(), raddr.String())
 	if err != nil {
 		l.Debugln(err)
 		return nil, err
 	}
 
-	err = osutil.SetTCPOptions(conn)
+	err = osutil.SetTCPOptions(conn.(*net.TCPConn))
 	if err != nil {
 		l.Infoln(err)
 	}
