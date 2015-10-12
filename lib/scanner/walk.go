@@ -141,7 +141,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	// which it receives the files we ask it to hash.
 	go func() {
 		var filesToHash []protocol.FileInfo
-		var total, progress int64
+		var total, progress int64 = 1, 0
 		for file := range toHashChan {
 			filesToHash = append(filesToHash, file)
 			total += int64(file.CachedSize)
