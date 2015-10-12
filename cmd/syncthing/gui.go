@@ -83,12 +83,7 @@ func newAPISvc(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *mo
 	return svc, err
 }
 
-func (s *apiSvc) getListener(cfg config.GUIConfiguration) (net.Listener, error) {
-	if guiAddress != "" {
-		// Override from the environment
-		cfg.Address = guiAddress
-	}
-
+func (s *apiSvc) getListener(guiCfg config.GUIConfiguration) (net.Listener, error) {
 	cert, err := tls.LoadX509KeyPair(locations[locHTTPSCertFile], locations[locHTTPSKeyFile])
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
@@ -125,10 +120,12 @@ func (s *apiSvc) getListener(cfg config.GUIConfiguration) (net.Listener, error) 
 		},
 	}
 
-	rawListener, err := net.Listen("tcp", cfg.Address)
+	rawListener, err := net.Listen("tcp", guiCfg.Address())
 	if err != nil {
 		return nil, err
 	}
+
+	l.Infoln("Starting web GUI on", guiCfg.URL())
 
 	listener := &tlsutil.DowngradingListener{rawListener, tlsCfg}
 	return listener, nil
@@ -202,14 +199,10 @@ func (s *apiSvc) Serve() {
 	})
 
 	guiCfg := s.cfg.GUI()
-	if guiAPIKey != "" {
-		// Override from the environment
-		guiCfg.APIKey = guiAPIKey
-	}
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg.APIKey, mux)
+	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg.APIKey(), mux)
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
@@ -220,7 +213,7 @@ func (s *apiSvc) Serve() {
 	}
 
 	// Redirect to HTTPS if we are supposed to
-	if guiCfg.UseTLS {
+	if guiCfg.UseTLS() {
 		handler = redirectToHTTPSMiddleware(handler)
 	}
 

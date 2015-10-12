@@ -528,7 +528,7 @@ func TestRequiresRestart(t *testing.T) {
 	}
 
 	newCfg = cfg
-	newCfg.GUI.UseTLS = !cfg.GUI.UseTLS
+	newCfg.GUI.RawUseTLS = !cfg.GUI.RawUseTLS
 	if !ChangeRequiresRestart(cfg, newCfg) {
 		t.Error("Changing GUI options requires restart")
 	}
@@ -551,7 +551,7 @@ func TestCopy(t *testing.T) {
 	cfg.Devices[0].Addresses[0] = "wrong"
 	cfg.Folders[0].Devices[0].DeviceID = protocol.DeviceID{0, 1, 2, 3}
 	cfg.Options.ListenAddress[0] = "wrong"
-	cfg.GUI.APIKey = "wrong"
+	cfg.GUI.RawAPIKey = "wrong"
 
 	bsChanged, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -632,5 +632,27 @@ func TestLargeRescanInterval(t *testing.T) {
 	}
 	if wrapper.Folders()["l2"].RescanIntervalS != 0 {
 		t.Error("negative rescan interval should become zero")
+	}
+}
+
+func TestGUIConfigURL(t *testing.T) {
+	testcases := [][2]string{
+		{"192.0.2.42:8080", "http://192.0.2.42:8080/"},
+		{":8080", "http://127.0.0.1:8080/"},
+		{"0.0.0.0:8080", "http://127.0.0.1:8080/"},
+		{"127.0.0.1:8080", "http://127.0.0.1:8080/"},
+		{"127.0.0.2:8080", "http://127.0.0.2:8080/"},
+		{"[::]:8080", "http://[::1]:8080/"},
+		{"[2001::42]:8080", "http://[2001::42]:8080/"},
+	}
+
+	for _, tc := range testcases {
+		c := GUIConfiguration{
+			RawAddress: tc[0],
+		}
+		u := c.URL()
+		if u != tc[1] {
+			t.Errorf("Incorrect URL %s != %s for addr %s", u, tc[1], tc[0])
+		}
 	}
 }

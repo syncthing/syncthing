@@ -205,8 +205,6 @@ var (
 	paused         bool
 	noRestart      = os.Getenv("STNORESTART") != ""
 	noUpgrade      = os.Getenv("STNOUPGRADE") != ""
-	guiAddress     = os.Getenv("STGUIADDRESS") // legacy
-	guiAPIKey      = os.Getenv("STGUIAPIKEY")  // legacy
 	profiler       = os.Getenv("STPROFILER")
 	guiAssets      = os.Getenv("STGUIASSETS")
 	cpuProfile     = os.Getenv("STCPUPROFILE") != ""
@@ -226,6 +224,7 @@ func main() {
 		flag.StringVar(&logFile, "logfile", "-", "Log file name (use \"-\" for stdout)")
 	}
 
+	var guiAddress, guiAPIKey string
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address")
 	flag.StringVar(&guiAPIKey, "gui-apikey", guiAPIKey, "Override GUI API key")
@@ -245,6 +244,15 @@ func main() {
 	longUsage := fmt.Sprintf(extraUsage, baseDirs["config"], debugFacilities())
 	flag.Usage = usageFor(flag.CommandLine, usage, longUsage)
 	flag.Parse()
+
+	if guiAddress != "" {
+		// The config picks this up from the environment.
+		os.Setenv("STGUIADDRESS", guiAddress)
+	}
+	if guiAPIKey != "" {
+		// The config picks this up from the environment.
+		os.Setenv("STGUIAPIKEY", guiAPIKey)
+	}
 
 	if noConsole {
 		osutil.HideConsole()
@@ -422,14 +430,9 @@ func upgradeViaRest() error {
 	if err != nil {
 		return err
 	}
-	target := cfg.GUI().Address
-	if cfg.GUI().UseTLS {
-		target = "https://" + target
-	} else {
-		target = "http://" + target
-	}
+	target := cfg.GUI().URL()
 	r, _ := http.NewRequest("POST", target+"/rest/system/upgrade", nil)
-	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
+	r.Header.Set("X-API-Key", cfg.GUI().APIKey())
 
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -910,48 +913,18 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 	if !guiCfg.Enabled {
 		return
 	}
-	if guiCfg.Address == "" {
-		return
-	}
 
-	addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address)
+	api, err := newAPISvc(myID, cfg, guiAssets, m, apiSub, discoverer, relaySvc, errors, systemLog)
 	if err != nil {
-		l.Fatalf("Cannot start GUI on %q: %v", guiCfg.Address, err)
-	} else {
-		var hostOpen, hostShow string
-		switch {
-		case addr.IP == nil:
-			hostOpen = "localhost"
-			hostShow = "0.0.0.0"
-		case addr.IP.IsUnspecified():
-			hostOpen = "localhost"
-			hostShow = addr.IP.String()
-		default:
-			hostOpen = addr.IP.String()
-			hostShow = hostOpen
-		}
+		l.Fatalln("Cannot start GUI:", err)
+	}
+	cfg.Subscribe(api)
+	mainSvc.Add(api)
 
-		var proto = "http"
-		if guiCfg.UseTLS {
-			proto = "https"
-		}
-
-		urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
-		l.Infoln("Starting web GUI on", urlShow)
-
-		api, err := newAPISvc(myID, cfg, guiAssets, m, apiSub, discoverer, relaySvc, errors, systemLog)
-		if err != nil {
-			l.Fatalln("Cannot start GUI:", err)
-		}
-		cfg.Subscribe(api)
-		mainSvc.Add(api)
-
-		if cfg.Options().StartBrowser && !noBrowser && !stRestarting {
-			urlOpen := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostOpen, strconv.Itoa(addr.Port)))
-			// Can potentially block if the utility we are invoking doesn't
-			// fork, and just execs, hence keep it in it's own routine.
-			go openURL(urlOpen)
-		}
+	if cfg.Options().StartBrowser && !noBrowser && !stRestarting {
+		// Can potentially block if the utility we are invoking doesn't
+		// fork, and just execs, hence keep it in it's own routine.
+		go openURL(guiCfg.URL())
 	}
 }
 
@@ -978,7 +951,7 @@ func defaultConfig(myName string) config.Configuration {
 	if err != nil {
 		l.Fatalln("get free port (GUI):", err)
 	}
-	newCfg.GUI.Address = fmt.Sprintf("127.0.0.1:%d", port)
+	newCfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
 
 	port, err = getFreePort("0.0.0.0", 22000)
 	if err != nil {
