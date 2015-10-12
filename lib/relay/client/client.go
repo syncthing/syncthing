@@ -78,6 +78,7 @@ func (c *ProtocolClient) Serve() {
 	}
 
 	if err := c.conn.SetDeadline(time.Time{}); err != nil {
+		c.conn.Close()
 		l.Infoln("Relay set deadline:", err)
 		return
 	}
