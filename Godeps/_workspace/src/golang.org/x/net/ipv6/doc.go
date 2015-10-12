@@ -42,7 +42,7 @@
 // The outgoing packets will be labeled DiffServ assured forwarding
 // class 1 low drop precedence, known as AF11 packets.
 //
-//			if err := ipv6.NewConn(c).SetTrafficClass(DiffServAF11); err != nil {
+//			if err := ipv6.NewConn(c).SetTrafficClass(0x28); err != nil {
 //				// error handling
 //			}
 //			if _, err := c.Write(data); err != nil {
@@ -124,7 +124,7 @@
 //
 // The application can also send both unicast and multicast packets.
 //
-//		p.SetTrafficClass(DiffServCS0)
+//		p.SetTrafficClass(0x0)
 //		p.SetHopLimit(16)
 //		if _, err := p.WriteTo(data[:n], nil, src); err != nil {
 //			// error handling
@@ -237,4 +237,4 @@
 // MLDv1 and starts to listen to multicast traffic.
 // In the fallback case, ExcludeSourceSpecificGroup and
 // IncludeSourceSpecificGroup may return an error.
-package ipv6
+package ipv6 // import "golang.org/x/net/ipv6"
