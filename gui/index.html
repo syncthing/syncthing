@@ -171,7 +171,7 @@
         <div class="panel panel-warning">
           <div class="panel-heading"><h3 class="panel-title"><span class="fa fa-exclamation-circle"></span><span translate>Notice</span></h3></div>
           <div class="panel-body">
-            <p ng-repeat="err in errorList()"><small>{{err.time | date:"yyyy-MM-dd HH:mm:ss"}}:</small> {{friendlyDevices(err.error)}}</p>
+            <p ng-repeat="err in errorList()"><small>{{err.when | date:"yyyy-MM-dd HH:mm:ss"}}:</small> {{friendlyDevices(err.message)}}</p>
           </div>
           <div class="panel-footer">
             <button type="button" class="btn btn-sm btn-default pull-right" ng-click="clearErrors()">

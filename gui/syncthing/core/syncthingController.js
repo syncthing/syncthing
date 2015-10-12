@@ -1047,12 +1047,12 @@ angular.module('syncthing.core')
                 return [];
             }
             return $scope.errors.filter(function (e) {
-                return e.time > $scope.seenError;
+                return e.when > $scope.seenError;
             });
         };
 
         $scope.clearErrors = function () {
-            $scope.seenError = $scope.errors[$scope.errors.length - 1].time;
+            $scope.seenError = $scope.errors[$scope.errors.length - 1].when;
             $http.post(urlbase + '/system/error/clear');
         };
 
