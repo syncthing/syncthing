@@ -1043,6 +1043,9 @@ angular.module('syncthing.core')
         };
 
         $scope.errorList = function () {
+            if (!$scope.errors) {
+                return [];
+            }
             return $scope.errors.filter(function (e) {
                 return e.time > $scope.seenError;
             });
