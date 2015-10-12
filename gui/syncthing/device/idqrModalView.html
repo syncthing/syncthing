@@ -1,0 +1,4 @@
+<modal id="idqr" status="info" icon="qrcode" title="{{'Device Identification' | translate}} - {{deviceName(thisDevice())}}" large="yes" close="yes">
+  <div class="well well-sm text-monospace text-center">{{myID}}</div>
+  <img ng-if="myID" class="center-block img-thumbnail" ng-src="qr/?text={{myID}}"/>
+</modal>

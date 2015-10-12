@@ -308,6 +308,11 @@ type Options struct {
 	// The default is 2.
 	MaxMemCompationLevel int
 
+	// NoSync allows completely disable fsync.
+	//
+	// The default is false.
+	NoSync bool
+
 	// NumLevel defines number of database level. The level shouldn't changed
 	// between opens, or the database will panic.
 	//
@@ -544,6 +549,13 @@ func (o *Options) GetMaxMemCompationLevel() int {
 		return o.GetNumLevel() - 1
 	}
 	return level
+}
+
+func (o *Options) GetNoSync() bool {
+	if o == nil {
+		return false
+	}
+	return o.NoSync
 }
 
 func (o *Options) GetNumLevel() int {

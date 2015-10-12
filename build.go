@@ -36,6 +36,7 @@ var (
 	goos      string
 	noupgrade bool
 	version   string
+	goVersion float64
 	race      bool
 )
 
@@ -70,7 +71,7 @@ func main() {
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
 	}
 
-	checkRequiredGoVersion()
+	goVersion, _ = checkRequiredGoVersion()
 
 	if flag.NArg() == 0 {
 		var tags []string
@@ -80,9 +81,9 @@ func main() {
 		install("./cmd/...", tags)
 
 		vet("./cmd/syncthing")
-		vet("./internal/...")
+		vet("./lib/...")
 		lint("./cmd/syncthing")
-		lint("./internal/...")
+		lint("./lib/...")
 		return
 	}
 
@@ -142,11 +143,11 @@ func main() {
 
 		case "vet":
 			vet("./cmd/syncthing")
-			vet("./internal/...")
+			vet("./lib/...")
 
 		case "lint":
 			lint("./cmd/syncthing")
-			lint("./internal/...")
+			lint("./lib/...")
 
 		default:
 			log.Fatalf("Unknown command %q", cmd)
@@ -154,7 +155,7 @@ func main() {
 	}
 }
 
-func checkRequiredGoVersion() {
+func checkRequiredGoVersion() (float64, bool) {
 	ver := run("go", "version")
 	re := regexp.MustCompile(`go version go(\d+\.\d+)`)
 	if m := re.FindSubmatch(ver); len(m) == 2 {
@@ -163,14 +164,16 @@ func checkRequiredGoVersion() {
 		f, err := strconv.ParseFloat(vs, 64)
 		if err != nil {
 			log.Printf("*** Couldn't parse Go version out of %q.\n*** This isn't known to work, proceed on your own risk.", vs)
-			return
+			return 0, false
 		}
 		if f < minGoVersion {
 			log.Fatalf("*** Go version %.01f is less than required %.01f.\n*** This is known not to work, not proceeding.", f, minGoVersion)
 		}
-	} else {
-		log.Printf("*** Unknown Go version %q.\n*** This isn't known to work, proceed on your own risk.", ver)
+		return f, true
 	}
+
+	log.Printf("*** Unknown Go version %q.\n*** This isn't known to work, proceed on your own risk.", ver)
+	return 0, false
 }
 
 func setup() {
@@ -178,6 +181,8 @@ func setup() {
 	runPrint("go", "get", "-v", "golang.org/x/tools/cmd/vet")
 	runPrint("go", "get", "-v", "golang.org/x/net/html")
 	runPrint("go", "get", "-v", "github.com/tools/godep")
+	runPrint("go", "get", "-v", "github.com/axw/gocov/gocov")
+	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
 }
 
 func test(pkg string) {
@@ -314,6 +319,8 @@ func buildDeb() {
 		{src: "man/syncthing-rest-api.7", dst: "deb/usr/share/man/man7/syncthing-rest-api.7", perm: 0644},
 		{src: "man/syncthing-security.7", dst: "deb/usr/share/man/man7/syncthing-security.7", perm: 0644},
 		{src: "man/syncthing-versioning.7", dst: "deb/usr/share/man/man7/syncthing-versioning.7", perm: 0644},
+		{src: "etc/linux-systemd/system/syncthing@.service", dst: "deb/lib/systemd/system/syncthing@.service", perm: 0644},
+		{src: "etc/linux-systemd/user/syncthing.service", dst: "deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
 	}
 
 	for _, file := range listFiles("extra") {
@@ -400,16 +407,16 @@ func setBuildEnv() {
 
 func assets() {
 	setBuildEnv()
-	runPipe("internal/auto/gui.files.go", "go", "run", "cmd/genassets/main.go", "gui")
+	runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "gui")
 }
 
 func xdr() {
-	runPrint("go", "generate", "./internal/discover", "./internal/db")
+	runPrint("go", "generate", "./lib/discover", "./lib/db")
 }
 
 func translate() {
 	os.Chdir("gui/assets/lang")
-	runPipe("lang-en-new.json", "go", "run", "../../../cmd/translate/main.go", "lang-en.json", "../../index.html")
+	runPipe("lang-en-new.json", "go", "run", "../../../script/translate.go", "lang-en.json", "../../")
 	os.Remove("lang-en.json")
 	err := os.Rename("lang-en-new.json", "lang-en.json")
 	if err != nil {
@@ -420,7 +427,7 @@ func translate() {
 
 func transifex() {
 	os.Chdir("gui/assets/lang")
-	runPrint("go", "run", "../../../cmd/transifexdl/main.go")
+	runPrint("go", "run", "../../../script/transifexdl.go")
 	os.Chdir("../../..")
 	assets()
 }
@@ -436,13 +443,18 @@ func clean() {
 }
 
 func ldflags() string {
-	var b bytes.Buffer
+	sep := ' '
+	if goVersion > 1.4 {
+		sep = '='
+	}
+
+	b := new(bytes.Buffer)
 	b.WriteString("-w")
-	b.WriteString(fmt.Sprintf(" -X main.Version %s", version))
-	b.WriteString(fmt.Sprintf(" -X main.BuildStamp %d", buildStamp()))
-	b.WriteString(fmt.Sprintf(" -X main.BuildUser %s", buildUser()))
-	b.WriteString(fmt.Sprintf(" -X main.BuildHost %s", buildHost()))
-	b.WriteString(fmt.Sprintf(" -X main.BuildEnv %s", buildEnvironment()))
+	fmt.Fprintf(b, " -X main.Version%c%s", sep, version)
+	fmt.Fprintf(b, " -X main.BuildStamp%c%d", sep, buildStamp())
+	fmt.Fprintf(b, " -X main.BuildUser%c%s", sep, buildUser())
+	fmt.Fprintf(b, " -X main.BuildHost%c%s", sep, buildHost())
+	fmt.Fprintf(b, " -X main.BuildEnv%c%s", sep, buildEnvironment())
 	return b.String()
 }
 
@@ -740,7 +752,9 @@ func vet(pkg string) {
 		if falseAlarmComposites.Match(line) || exitStatus.Match(line) {
 			continue
 		}
-		log.Printf("%s", line)
+		if len(line) > 0 {
+			log.Printf("%s", line)
+		}
 	}
 }
 
@@ -756,6 +770,8 @@ func lint(pkg string) {
 		if analCommentPolicy.Match(line) {
 			continue
 		}
-		log.Printf("%s", line)
+		if len(line) > 0 {
+			log.Printf("%s", line)
+		}
 	}
 }

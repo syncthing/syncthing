@@ -9,9 +9,9 @@ package main
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/internal/events"
-	"github.com/syncthing/syncthing/internal/model"
-	"github.com/syncthing/syncthing/internal/sync"
+	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture"
 )
 

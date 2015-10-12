@@ -1,0 +1,29 @@
+<div id="majorUpgrade" class="modal fade" tabindex="-1" data-backdrop="true" data-keyboard="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header alert alert-danger">
+        <h4 class="modal-title">
+          <span class="fa fa-arrow-circle-up"></span><span translate>Major Upgrade</span>
+        </h4>
+      </div>
+      <div class="modal-body">
+        <p>
+          <span translate>This is a major version upgrade.</span>
+          <span translate>A new major version may not be compatible with previous versions.</span>
+          <span translate>Please consult the release notes before performing a major upgrade.</span>
+        </p>
+        <p>
+          <a href="https://github.com/syncthing/syncthing/releases/tag/{{upgradeInfo.latest}}" target="_blank" translate>Release Notes</a>
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary btn-sm" ng-click="upgrade()">
+          <span class="fa fa-check"></span>&nbsp;<span translate>Upgrade</span>
+        </button>
+        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+          <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

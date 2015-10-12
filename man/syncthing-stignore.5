@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-STIGNORE" "5" "June 28, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "October 01, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .
@@ -85,7 +85,7 @@ A pattern beginning with \fB!\fP negates the pattern: matching files
 are \fIincluded\fP (that is, \fInot\fP ignored). This can be used to override
 more general patterns that follow. Note that files in ignored
 directories can not be re\-included this way. This is due to the fact
-that syncthing stops scanning when it reaches an ignored directory,
+that Syncthing stops scanning when it reaches an ignored directory,
 so doesn\(aqt know what files it might contain.
 .IP \(bu 2
 A pattern beginning with \fB(?i)\fP enables case\-insensitive pattern
@@ -93,7 +93,7 @@ matching. \fB(?i)test\fP matches \fBtest\fP, \fBTEST\fP and \fBtEsT\fP\&. The
 \fB(?i)\fP prefix can be combined with other patterns, for example the
 pattern \fB(?i)!picture*.png\fP indicates that \fBPicture1.PNG\fP should
 be synchronized. Note that case\-insensitive patterns must start with
-\fB(?i)\fP when combined with other flags.
+\fB(?i)\fP when combined with other flags. On Mac OS and Windows, patterns are always case\-insensitive.
 .IP \(bu 2
 A line beginning with \fB//\fP is a comment and has no effect.
 .UNINDENT
@@ -166,7 +166,7 @@ My Pictures/  # ignored, matched case insensitive "(?i)my pictures" pattern
 .INDENT 3.5
 Please note that directory patterns ending with a slash
 \fBsome/directory/\fP matches the content of the directory, but not the
-directory itself. If you want the pattern to match the director and it\(aqs
+directory itself. If you want the pattern to match the directory and its
 content, make sure it does not have a \fB/\fP at the end of the pattern.
 .UNINDENT
 .UNINDENT

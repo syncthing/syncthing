@@ -17,7 +17,7 @@ func (i *Incrementor) Serve() {
 	for {
 		select {
 		case i.next <- i.current:
-			i.current += 1
+			i.current++
 		case <-i.stop:
 			// We sync here just to guarantee the output of "Stopping the service",
 			// so this passes the test reliably.

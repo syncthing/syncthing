@@ -26,9 +26,9 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/syncthing/syncthing/internal/osutil"
-	"github.com/syncthing/syncthing/internal/rc"
-	"github.com/syncthing/syncthing/internal/symlinks"
+	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/rc"
+	"github.com/syncthing/syncthing/lib/symlinks"
 )
 
 func init() {
@@ -535,7 +535,7 @@ func startInstance(t *testing.T, i int) *rc.Process {
 
 	p := rc.NewProcess(addr)
 	p.LogTo(log)
-	if err := p.Start("../bin/syncthing", "-home", fmt.Sprintf("h%d", i), "-audit", "-no-browser"); err != nil {
+	if err := p.Start("../bin/syncthing", "-home", fmt.Sprintf("h%d", i), "-no-browser"); err != nil {
 		t.Fatal(err)
 	}
 	p.AwaitStartup()

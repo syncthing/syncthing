@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-DEVICE-IDS" "7" "June 28, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-DEVICE-IDS" "7" "October 01, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-device-ids \- Understanding Device IDs
 .
@@ -34,12 +34,12 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .sp
 Every device is identified by a device ID. The device ID is used for address
 resolution, authentication and authorization. The term "device ID" could
-interchangably have been "key ID" since the device ID is a direct properties of
+interchangably have been "key ID" since the device ID is a direct property of
 the public key in use.
 .SH KEYS
 .sp
 To understand device IDs we need to look at the underlying mechanisms. At first
-startup, Syncthing will create an public/private key pair.
+startup, Syncthing will create a public/private keypair.
 .sp
 Currently this is a 3072 bit RSA key. The keys are saved in the form of the
 private key (\fBkey.pem\fP) and a self signed certificate (\fBcert.pem\fP). The self
@@ -104,10 +104,10 @@ To form a device ID the SHA\-256 hash of the certificate data in DER form is
 calculated. This means the hash covers all information under the
 \fBCertificate:\fP section above.
 .sp
-The hashing results in a 256 bit hash, which we encode using base32. Base32
-encodes five bits per character, so we need 256 / 5 = 51.2 characters to encode
+The hashing results in a 256 bit hash which we encode using base32. Base32
+encodes five bits per character so we need 256 / 5 = 51.2 characters to encode
 the device ID. This becomes 52 characters in practice, but 52 characters of
-base32 would decode to 260 bits which is not an whole number of bytes. The
+base32 would decode to 260 bits which is not a whole number of bytes. The
 base32 encoding adds padding to 280 bits (the next multiple of both 5 and 8
 bits) so the resulting ID looks something like:
 .INDENT 0.0
@@ -121,7 +121,7 @@ MFZWI3DBONSGYYLTMRWGC43ENRQXGZDMMFZWI3DBONSGYYLTMRWA====
 .UNINDENT
 .UNINDENT
 .sp
-The padding (\fB====\fP) is stripped away, the device ID split in four
+The padding (\fB====\fP) is stripped away, the device ID split into four
 groups, and \fI\%check
 digits\fP <\fBhttps://forum.syncthing.net/t/v0-9-0-new-device-id-format/478\fP>
 are added for each group. For presentation purposes the device ID is
@@ -138,14 +138,14 @@ MFZWI3D\-BONSGYC\-YLTMRWG\-C43ENR5\-QXGZDMM\-FZWI3DP\-BONSGYY\-LTMRWAD
 .UNINDENT
 .SS Connection Establishment
 .sp
-So now we know what device IDs are, here\(aqs how they are used in Syncthing. When
-you add a device ID to the syncthing configuration, Syncthing will attempt to
+Now we know what device IDs are, here\(aqs how they are used in Syncthing. When
+you add a device ID to the configuration, Syncthing will attempt to
 connect to that device. The first thing we need to do is figure out the IP and
-port to connect to. There\(aqs three possibilities here;
+port to connect to. There are three possibilities here:
 .INDENT 0.0
 .IP \(bu 2
 The IP and port can be set statically in the configuration. The IP
-can equally well be a hostname, so if you have a static IP or a
+can equally well be a host name, so if you have a static IP or a
 dynamic DNS setup this might be a good option.
 .IP \(bu 2
 Using local discovery, if enabled. Every Syncthing instance on a LAN
@@ -161,14 +161,13 @@ any local announcements the global discovery server will be queried
 for an address.
 .UNINDENT
 .sp
-Once we have and address and port a TCP connection is established and a TLS
+Once we have an address and port a TCP connection is established and a TLS
 handshake performed. As part of the handshake both devices present their
 certificates. Once the handshake has completed and the peer certificate is
-known, the following steps are performed.
+known, the following steps are performed:
 .INDENT 0.0
 .IP 1. 3
-Calculate the remote device ID by using the process above on the
-received certificate.
+Calculate the remote device ID by processing the received certificate as above.
 .IP 2. 3
 Weed out a few possible misconfigurations \- i.e. if the device ID is
 that of the local device or of a device we already have an active
@@ -190,7 +189,7 @@ that there is no way that we know of to create two different messages
 with the same hash.
 .sp
 You can argue that of course there are collisions \- there\(aqs an infinite
-amount of inputs and a finite amount of outputs, so per definition there
+amount of inputs and a finite amount of outputs \- so by definition there
 are infinitely many messages that result in the same hash.
 .sp
 I\(aqm going to quote \fI\%stack
@@ -220,13 +219,13 @@ find SHA\-256 collisions scary then your priorities are wrong.
 .UNINDENT
 .sp
 It\(aqs also worth noting that the property of SHA\-256 that we are using is not
-simply collision resistance but resistance to a preimage attack. I.e. even if
+simply collision resistance but resistance to a preimage attack, i.e. even if
 you can find two messages that result in a hash collision that doesn\(aqt help you
 attack Syncthing (or TLS in general). You need to create a message that hashes
 to exactly the hash that my certificate already has or you won\(aqt get in.
 .sp
 Note also that it\(aqs not good enough to find a random blob of bits that happen to
-have the same hash as my certificate. You need to create a valid DER\- encoded,
+have the same hash as my certificate. You need to create a valid DER\-encoded,
 signed certificate that has the same hash as mine. The difficulty of this is
 staggeringly far beyond the already staggering difficulty of finding a SHA\-256
 collision.
@@ -245,7 +244,7 @@ for a given device ID, so can\(aqt connect to it and sync). It could also
 be an intelligence gathering attack; if I spoof a given ID, I can see
 which devices try to connect to it.
 .sp
-It could be mitigated in several ways;
+It could be mitigated in several ways:
 .INDENT 0.0
 .IP \(bu 2
 Announcements could be signed by the device private key. This
@@ -255,7 +254,7 @@ Announcements to the global announce server could be done using TLS,
 so the server calculates the device ID based on the certificate
 instead of trusting to the device to tell the truth.
 .IP \(bu 2
-The user could statically configure IP or hostname for the devices.
+The user could statically configure IP or host name for the devices.
 .IP \(bu 2
 The user could run a trusted global server.
 .UNINDENT
@@ -274,7 +273,7 @@ various possible solutions:
 Use shorter device IDs with verification based on the full ID ("You
 entered MFZWI3; I found and connected to a device with the ID
 MFZWI3\-DBONSG\-YYLTMR\-WGC43E\-NRQXGZ\-DMMFZW\-I3DBON\-SGYYLT\-MRWA, please
-confirm that this is correct.").
+confirm that this is correct").
 .IP \(bu 2
 Use shorter device IDs with an out of band authentication, a la
 Bluetooth pairing. You enter a one time PIN into Syncthing and give

@@ -1,0 +1,19 @@
+<modal id="failed" status="warning" icon="exclamation-circle" title="{{'Failed Items' | translate}}" large="yes" close="yes">
+  <p>
+    <span translate>The following items could not be synchronized.</span>
+    <span translate>They are retried automatically and will be synced when the error is resolved.</span>
+  </p>
+  <table class="table table-striped table-condensed">
+    <tr dir-paginate="e in failedCurrent | itemsPerPage: failedPageSize" current-page="failedCurrentPage" pagination-id="failed">
+      <td><abbr title="{{e.path}}">{{e.path | basename}}</abbr></td>
+      <td><abbr title="{{e.error}}">{{e.error | lastErrorComponent}}</abbr></td>
+    </tr>
+  </table>
+  <dir-pagination-controls on-page-change="failedPageChanged(newPageNumber)" pagination-id="failed"></dir-pagination-controls>
+  <ul class="pagination pull-right">
+    <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: failedPageSize == option }">
+      <a href="#" ng-click="failedChangePageSize(option)">{{option}}</a>
+    <li>
+  </ul>
+  <div class="clearfix"></div>
+</modal>

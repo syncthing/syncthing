@@ -1,0 +1,32 @@
+<div id="editIgnores" class="modal fade" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" translate>Ignore Patterns</h4>
+      </div>
+      <div class="modal-body">
+        <p translate>Enter ignore patterns, one per line.</p>
+        <textarea class="form-control" rows="15"></textarea>
+
+        <hr/>
+
+        <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="http://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
+        <dl class="dl-horizontal dl-narrow small">
+          <dt><code>!</code></dt> <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
+          <dt><code>*</code></dt> <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
+          <dt><code>**</code></dt> <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
+          <dt><code>//</code></dt> <dd><span translate>Comment, when used at the start of a line</span></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <div class="pull-left"><span translate>Editing</span> <code>{{currentFolder.path}}{{system.pathSeparator}}.stignore</code></div>
+        <button type="button" class="btn btn-primary btn-sm" ng-click="saveIgnores()" data-dismiss="modal">
+          <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
+        </button>
+        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+          <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

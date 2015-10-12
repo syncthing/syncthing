@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func TestCLIReset(t *testing.T) {

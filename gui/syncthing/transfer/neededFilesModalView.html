@@ -1,0 +1,54 @@
+<modal id="needed" status="info" icon="cloud-download" title="{{'Out of Sync Items' | translate}}" large="yes" close="yes" tabindex="-1">
+  <div class="progress">
+    <div class="progress-bar progress-bar-success" style="width: 20%"><span translate class="show">Reused</span></div>
+    <div class="progress-bar" style="width: 20%"><span translate class="show">Copied from original</span></div>
+    <div class="progress-bar progress-bar-info" style="width: 20%"><span translate class="show">Copied from elsewhere</span></div>
+    <div class="progress-bar progress-bar-warning" style="width: 20%"><span translate class="show">Downloaded</span></div>
+    <div class="progress-bar progress-bar-danger progress-bar-striped active" style="width: 20%"><span translate class="show">Downloading</span></div>
+  </div>
+
+  <hr/>
+
+  <table class="table table-striped table-condensed">
+
+    <tr dir-paginate="f in needed | itemsPerPage: neededPageSize" current-page="neededCurrentPage" total-items="neededTotal" pagination-id="needed">
+      <!-- Icon -->
+      <td class="small-data"><span class="fa fa-fw fa-{{needIcons[f.action]}}"></span> {{needActions[f.action]}}</td>
+
+      <!-- Name -->
+      <td ng-if="f.type != 'queued'" title="{{f.name}}">{{f.name | basename}}</td>
+      <td ng-if="f.type == 'queued'">
+        <a href="" ng-click="bumpFile(neededFolder, f.name)" title="{{'Move to top of queue' | translate}}">
+          <span class="fa fa-eject"></span>
+        </a>
+        <span title="{{f.name}}">&nbsp;{{f.name | basename}}</span>
+      </td>
+
+      <!-- Size/Progress -->
+      <td ng-if="f.type == 'progress' && f.action == 'sync' && progress[neededFolder] && progress[neededFolder][f.name]">
+        <div class="progress">
+          <div class="progress-bar progress-bar-success" style="width: {{progress[neededFolder][f.name].reused}}%"></div>
+          <div class="progress-bar" style="width: {{progress[neededFolder][f.name].copiedFromOrigin}}%"></div>
+          <div class="progress-bar progress-bar-info" style="width: {{progress[neededFolder][f.name].copiedFromElsewhere}}%"></div>
+          <div class="progress-bar progress-bar-warning" style="width: {{progress[neededFolder][f.name].pulled}}%"></div>
+          <div class="progress-bar progress-bar-danger progress-bar-striped active" style="width: {{progress[neededFolder][f.name].pulling}}%"></div>
+          <span class="show frontal">
+            {{progress[neededFolder][f.name].bytesDone | binary}}B / {{progress[neededFolder][f.name].bytesTotal | binary}}B
+          </span>
+        </div>
+      </td>
+      <td class="text-right small-data" ng-if="f.type != 'progress' || f.action != 'sync' || !progress[neededFolder] || !progress[neededFolder][f.name]">
+        <span ng-if="f.size > 0">{{f.size | binary}}B</span>
+      </td>
+
+    </tr>
+  </table>
+
+  <dir-pagination-controls on-page-change="neededPageChanged(newPageNumber)" pagination-id="needed"></dir-pagination-controls>
+  <ul class="pagination pull-right">
+    <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: neededPageSize == option }">
+      <a href="#" ng-click="neededChangePageSize(option)">{{option}}</a>
+    <li>
+  </ul>
+  <div class="clearfix"></div>
+</modal>

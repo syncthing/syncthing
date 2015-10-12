@@ -1,0 +1,84 @@
+ <div id="advanced" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header alert alert-danger">
+          <h4 class="modal-title"><span class="fa fa-cogs"></span><span translate>Advanced Configuration</span></h4>
+        </div>
+        <div class="modal-body">
+
+          <p class="text-danger">
+            <b translate>Be careful!</b>
+            <span translate>Incorrect configuration may damage your folder contents and render Syncthing inoperable.</span>
+          </p>
+
+          <div class="panel-group" id="advancedAccordion" role="tablist" aria-multiselectable="true">
+
+            <div class="panel panel-default">
+              <div class="panel-heading" role="tab" id="guiHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#guiConfig" aria-expanded="true" aria-controls="guiConfig" style="cursor: pointer">
+                <h4 class="panel-title" translate>GUI</h4>
+              </div>
+              <div id="guiConfig" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="guiHeading">
+                <div class="panel-body">
+                  <form class="form-horizontal" role="form">
+                    <div ng-repeat="(key, value) in advancedConfig.gui" ng-init="type = inputTypeFor(key, value)" ng-if="type != 'skip'" class="form-group">
+                      <label for="guiInput{{$index}}" class="col-sm-4 control-label">{{key}}</label>
+                      <div class="col-sm-8">
+                        <input id="guiInput{{$index}}" class="form-control" type="{{type}}" ng-model="advancedConfig.gui[key]" />
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default">
+              <div class="panel-heading" role="tab" id="optionsHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#optionsConfig" aria-expanded="true" aria-controls="optionsConfig" style="cursor: pointer">
+                <h4 class="panel-title" translate>Options</h4>
+              </div>
+              <div id="optionsConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="optionsHeading">
+                <div class="panel-body">
+                  <form class="form-horizontal" role="form">
+                    <div ng-repeat="(key, value) in advancedConfig.options" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                      <label for="optionsInput{{$index}}" class="col-sm-4 control-label">{{key}}</label>
+                      <div class="col-sm-8">
+                        <input id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.options[key]" />
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders">
+              <div class="panel-heading" role="tab" id="folder{{$index}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{$index}}Config" aria-expanded="true" aria-controls="folder{{$index}}Config" style="cursor: pointer">
+                <h4 class="panel-title">
+                  <span translate>Folder</span> "{{folder.id}}"
+                </h4>
+              </div>
+              <div id="folder{{$index}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{$index}}Heading">
+                <div class="panel-body">
+                  <form class="form-horizontal" role="form">
+                    <div ng-repeat="(key, value) in folder" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                      <label for="folder{{$index}}Input{{$index}}" class="col-sm-4 control-label">{{key}}</label>
+                      <div class="col-sm-8">
+                        <input id="folder{{$index}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folder[key]" />
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary btn-sm" ng-click="saveAdvanced()">
+              <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
+            </button>
+            <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+              <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>

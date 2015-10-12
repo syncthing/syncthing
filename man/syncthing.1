@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "June 28, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING" "1" "October 01, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -38,9 +38,9 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .ft C
 syncthing [\-audit] [\-generate=<dir>] [\-gui\-address=<address>]
           [\-gui\-apikey=<key>] [\-gui\-authentication=<username:password>]
-          [\-home=<dir>] [\-logflags=<flags>] [\-no\-browser] [\-no\-restart]
-          [\-reset] [\-upgrade] [\-upgrade\-check] [\-upgrade\-to=<url>]
-          [\-verbose] [\-version]
+          [\-home=<dir>] [\-logfile=<filename>] [\-logflags=<flags>] [\-no\-browser]
+          [\-no\-console] [\-no\-restart] [\-reset] [\-upgrade] [\-upgrade\-check]
+          [\-upgrade\-to=<url>] [\-verbose] [\-version]
 .ft P
 .fi
 .UNINDENT
@@ -87,6 +87,11 @@ Set configuration directory. The default configuration directory is:
 .UNINDENT
 .INDENT 0.0
 .TP
+.B \-logfile=<filename>
+Set destination filename for logging (use \fB"\-"\fP for stdout, which is the default option).
+.UNINDENT
+.INDENT 0.0
+.TP
 .B \-logflags=<flags>
 Select information in log line prefix, default 2. The \fB\-logflags\fP value is
 a sum of the following:
@@ -111,6 +116,11 @@ show time only (2).
 .TP
 .B \-no\-browser
 Do not start a browser.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-no\-console
+Hide the console window. (On Windows only)
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -233,21 +243,22 @@ HTTP access.
 Write a CPU profile to cpu\-$pid.pprof on exit.
 .TP
 .B STHEAPPROFILE
-Write heap profiles to heap\-$pid\-$timestamp.pprof each time heap usage
+Write heap profiles to \fBheap\-$pid\-$timestamp.pprof\fP each time heap usage
 increases.
 .TP
 .B STBLOCKPROFILE
 Write block profiles to \fBblock\-$pid\-$timestamp.pprof\fP every 20 seconds.
 .TP
 .B STPERFSTATS
-Write running performance statistics to perf\-$pid.csv. Not supported on
+Write running performance statistics to \fBperf\-$pid.csv\fP\&. Not supported on
 Windows.
 .TP
 .B STNOUPGRADE
 Disable automatic upgrades.
 .TP
 .B GOMAXPROCS
-Set the maximum number of CPU cores to use. Defaults to all available CPU cores.
+Set the maximum number of CPU cores to use. Defaults to all available CPU
+cores.
 .TP
 .B GOGC
 Percentage of heap growth at which to trigger GC. Default is 100. Lower

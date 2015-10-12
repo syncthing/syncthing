@@ -14,6 +14,7 @@ body {
 
 h1, h2, h3, h4, h5 {
     font-family: "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    line-height: 1.25;
 }
 
 ul+h5 {
@@ -67,7 +68,7 @@ identicon {
     top: 1px;
 }
 
-.panel-heading .glyphicon {
+.panel-heading .fa, .modal-header .fa {
     margin-right: 10px;
 }
 

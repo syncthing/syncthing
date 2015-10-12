@@ -9,14 +9,15 @@
 package integration
 
 import (
+	"bytes"
 	"io/ioutil"
 	"log"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/osutil"
-	"github.com/syncthing/syncthing/internal/rc"
+	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/rc"
 )
 
 func TestConflictsDefault(t *testing.T) {
@@ -156,15 +157,23 @@ func TestConflictsDefault(t *testing.T) {
 	}
 	rc.AwaitSync("default", sender, receiver)
 
-	// The conflict should manifest on the s2 side again, where we should have
-	// moved the file to a conflict copy instead of just deleting it.
+	// The conflict is resolved to the advantage of the edit over the delete.
+	// As such, we get the edited content synced back to s1 where it was
+	// removed.
 
 	files, err = osutil.Glob("s2/*sync-conflict*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 2 {
-		t.Errorf("Expected 2 conflicted files instead of %d", len(files))
+	if len(files) != 1 {
+		t.Errorf("Expected 1 conflicted files instead of %d", len(files))
+	}
+	bs, err := ioutil.ReadFile("s1/testfile.txt")
+	if err != nil {
+		t.Error("reading file:", err)
+	}
+	if !bytes.Contains(bs, []byte("more text added to s2")) {
+		t.Error("s1/testfile.txt should contain data added in s2")
 	}
 }
 

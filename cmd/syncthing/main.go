@@ -28,14 +28,14 @@ import (
 	"github.com/calmh/logger"
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/config"
-	"github.com/syncthing/syncthing/internal/db"
-	"github.com/syncthing/syncthing/internal/discover"
-	"github.com/syncthing/syncthing/internal/events"
-	"github.com/syncthing/syncthing/internal/model"
-	"github.com/syncthing/syncthing/internal/osutil"
-	"github.com/syncthing/syncthing/internal/symlinks"
-	"github.com/syncthing/syncthing/internal/upgrade"
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/discover"
+	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/symlinks"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -45,6 +45,7 @@ import (
 
 var (
 	Version     = "unknown-dev"
+	Codename    = "Aluminium Ant"
 	BuildEnv    = "default"
 	BuildStamp  = "0"
 	BuildDate   time.Time
@@ -93,7 +94,7 @@ func init() {
 	BuildDate = time.Unix(int64(stamp), 0)
 
 	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
-	LongVersion = fmt.Sprintf("syncthing %s (%s %s-%s %s) %s@%s %s", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildEnv, BuildUser, BuildHost, date)
+	LongVersion = fmt.Sprintf(`syncthing %s "%s" (%s %s-%s %s) %s@%s %s`, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildEnv, BuildUser, BuildHost, date)
 
 	if os.Getenv("STTRACE") != "" {
 		logFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
@@ -213,11 +214,12 @@ func main() {
 	if runtime.GOOS == "windows" {
 		// On Windows, we use a log file by default. Setting the -logfile flag
 		// to "-" disables this behavior.
-
 		flag.StringVar(&logFile, "logfile", "", "Log file name (use \"-\" for stdout)")
 
 		// We also add an option to hide the console window
 		flag.BoolVar(&noConsole, "no-console", false, "Hide console window")
+	} else {
+		flag.StringVar(&logFile, "logfile", "-", "Log file name (use \"-\" for stdout)")
 	}
 
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
@@ -256,14 +258,9 @@ func main() {
 		guiAssets = locations[locGUIAssets]
 	}
 
-	if runtime.GOOS == "windows" {
-		if logFile == "" {
-			// Use the default log file location
-			logFile = locations[locLogFile]
-		} else if logFile == "-" {
-			// Don't use a logFile
-			logFile = ""
-		}
+	if logFile == "" {
+		// Use the default log file location
+		logFile = locations[locLogFile]
 	}
 
 	if showVersion {
@@ -454,6 +451,11 @@ func syncthingMain() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
+	// Attempt to increase the limit on number of open files to the maximum
+	// allowed, in case we have many peers. We don't really care enough to
+	// report the error if there is one.
+	osutil.MaximizeOpenFileLimit()
+
 	// Ensure that that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
@@ -586,8 +588,18 @@ func syncthingMain() {
 
 	dbFile := locations[locDatabase]
 	ldb, err := leveldb.OpenFile(dbFile, dbOpts())
-	if err != nil && errors.IsCorrupted(err) {
+	if leveldbIsCorrupted(err) {
 		ldb, err = leveldb.RecoverFile(dbFile, dbOpts())
+	}
+	if leveldbIsCorrupted(err) {
+		// The database is corrupted, and we've tried to recover it but it
+		// didn't work. At this point there isn't much to do beyond dropping
+		// the database and reindexing...
+		l.Infoln("Database corruption detected, unable to recover. Reinitializing...")
+		if err := resetDB(); err != nil {
+			l.Fatalln("Remove database:", err)
+		}
+		ldb, err = leveldb.OpenFile(dbFile, dbOpts())
 	}
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
@@ -628,10 +640,8 @@ func syncthingMain() {
 		// Routine to pull blocks from other devices to synchronize the local
 		// folder. Does not run when we are in read only (publish only) mode.
 		if folderCfg.ReadOnly {
-			l.Okf("Ready to synchronize %s (read only; no external updates accepted)", folderCfg.ID)
 			m.StartFolderRO(folderCfg.ID)
 		} else {
-			l.Okf("Ready to synchronize %s (read-write)", folderCfg.ID)
 			m.StartFolderRW(folderCfg.ID)
 		}
 	}
@@ -672,7 +682,6 @@ func syncthingMain() {
 			log.Fatal(err)
 		}
 		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
 	}
 
 	for _, device := range cfg.Devices() {
@@ -728,6 +737,11 @@ func syncthingMain() {
 	mainSvc.Stop()
 
 	l.Okln("Exiting")
+
+	if cpuProfile {
+		pprof.StopCPUProfile()
+	}
+
 	os.Exit(code)
 }
 
@@ -835,6 +849,7 @@ func defaultConfig(myName string) config.Configuration {
 			ID:              "default",
 			RawPath:         locations[locDefFolder],
 			RescanIntervalS: 60,
+			MinDiskFreePct:  1,
 			Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
 		},
 	}
@@ -1096,4 +1111,20 @@ func checkShortIDs(cfg *config.Wrapper) error {
 		exists[shortID] = deviceID
 	}
 	return nil
+}
+
+// A "better" version of leveldb's errors.IsCorrupted.
+func leveldbIsCorrupted(err error) bool {
+	switch {
+	case err == nil:
+		return false
+
+	case errors.IsCorrupted(err):
+		return true
+
+	case strings.Contains(err.Error(), "corrupted"):
+		return true
+	}
+
+	return false
 }

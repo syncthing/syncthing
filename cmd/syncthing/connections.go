@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/config"
-	"github.com/syncthing/syncthing/internal/events"
-	"github.com/syncthing/syncthing/internal/model"
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/model"
 	"github.com/thejerf/suture"
 )
 
@@ -177,10 +177,6 @@ next:
 				if debugNet {
 					l.Debugf("cipher suite: %04X in lan: %t", conn.ConnectionState().CipherSuite, !limit)
 				}
-				events.Default.Log(events.DeviceConnected, map[string]string{
-					"id":   remoteID.String(),
-					"addr": conn.RemoteAddr().String(),
-				})
 
 				s.model.AddConnection(conn, protoConn)
 				continue next

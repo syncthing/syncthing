@@ -17,8 +17,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/config"
-	"github.com/syncthing/syncthing/internal/model"
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/model"
 	"github.com/thejerf/suture"
 )
 

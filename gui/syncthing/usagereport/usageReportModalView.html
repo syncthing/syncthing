@@ -1,0 +1,25 @@
+<div id="ur" class="modal fade" data-backdrop="static" data-keyboard="false" tabindex="-1">
+<div class="modal-dialog modal-lg">
+  <div class="modal-content">
+    <div class="modal-header alert alert-info">
+      <h4 class="modal-title"><span class="fa fa-bar-chart"></span><span translate>Allow Anonymous Usage Reporting?</span></h4>
+    </div>
+    <div class="modal-body">
+      <p translate>The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.</p>
+      <p translate translate-value-url="<a href=&quot;https://data.syncthing.net&quot; target=&quot;_blank&quot;>https://data.syncthing.net</a>">The aggregated statistics are publicly available at {%url%}.</p>
+      <button type="button" class="btn btn-default btn-sm" ng-click="showReportPreview()" ng-show="!reportPreview">
+        <span class="fa fa-file-text-o"></span>&nbsp;<span translate>Preview Usage Report</span>
+      </button>
+      <pre ng-if="reportPreview"><small>{{reportData | json}}</small></pre>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-success btn-sm" ng-click="acceptUR()">
+        <span class="fa fa-check"></span>&nbsp;<span translate>Yes</span>
+      </button>
+      <button type="button" class="btn btn-danger btn-sm" ng-click="declineUR()">
+        <span class="fa fa-times"></span>&nbsp;<span translate>No</span>
+      </button>
+    </div>
+  </div>
+</div>
+</div>

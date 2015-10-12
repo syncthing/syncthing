@@ -9,7 +9,7 @@ import "fmt"
 
 type IndexMessage struct {
 	Folder  string
-	Files   []FileInfo
+	Files   []FileInfo // max:1000000
 	Flags   uint32
 	Options []Option // max:64
 }
@@ -20,7 +20,7 @@ type FileInfo struct {
 	Modified     int64
 	Version      Vector
 	LocalVersion int64
-	Blocks       []BlockInfo
+	Blocks       []BlockInfo // max:1000000
 }
 
 func (f FileInfo) String() string {
@@ -58,6 +58,31 @@ func (f FileInfo) HasPermissionBits() bool {
 	return f.Flags&FlagNoPermBits == 0
 }
 
+// WinsConflict returns true if "f" is the one to choose when it is in
+// conflict with "other".
+func (f FileInfo) WinsConflict(other FileInfo) bool {
+	// If a modification is in conflict with a delete, we pick the
+	// modification.
+	if !f.IsDeleted() && other.IsDeleted() {
+		return true
+	}
+	if f.IsDeleted() && !other.IsDeleted() {
+		return false
+	}
+
+	// The one with the newer modification time wins.
+	if f.Modified > other.Modified {
+		return true
+	}
+	if f.Modified < other.Modified {
+		return false
+	}
+
+	// The modification times were equal. Use the device ID in the version
+	// vector as tie breaker.
+	return f.Version.Compare(other.Version) == ConcurrentGreater
+}
+
 type BlockInfo struct {
 	Offset int64 // noencode (cache only)
 	Size   int32
@@ -84,9 +109,9 @@ type ResponseMessage struct {
 }
 
 type ClusterConfigMessage struct {
-	ClientName    string // max:64
-	ClientVersion string // max:64
-	Folders       []Folder
+	ClientName    string   // max:64
+	ClientVersion string   // max:64
+	Folders       []Folder // max:1000000
 	Options       []Option // max:64
 }
 
@@ -100,8 +125,8 @@ func (o *ClusterConfigMessage) GetOption(key string) string {
 }
 
 type Folder struct {
-	ID      string // max:64
-	Devices []Device
+	ID      string   // max:64
+	Devices []Device // max:1000000
 	Flags   uint32
 	Options []Option // max:64
 }

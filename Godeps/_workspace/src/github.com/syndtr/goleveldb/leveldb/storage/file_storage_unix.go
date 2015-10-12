@@ -50,13 +50,23 @@ func rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
 }
 
+func isErrInvalid(err error) bool {
+	if err == os.ErrInvalid {
+		return true
+	}
+	if syserr, ok := err.(*os.SyscallError); ok && syserr.Err == syscall.EINVAL {
+		return true
+	}
+	return false
+}
+
 func syncDir(name string) error {
 	f, err := os.Open(name)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	if err := f.Sync(); err != nil {
+	if err := f.Sync(); err != nil && !isErrInvalid(err) {
 		return err
 	}
 	return nil

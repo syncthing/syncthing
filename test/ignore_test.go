@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/syncthing/syncthing/internal/symlinks"
+	"github.com/syncthing/syncthing/lib/symlinks"
 )
 
 func TestIgnores(t *testing.T) {
@@ -31,9 +31,16 @@ func TestIgnores(t *testing.T) {
 
 	// Create eight empty files and directories
 
-	files := []string{"f1", "f2", "f3", "f4", "f11", "f12", "f13", "f14"}
 	dirs := []string{"d1", "d2", "d3", "d4", "d11", "d12", "d13", "d14"}
+	files := []string{"f1", "f2", "f3", "f4", "f11", "f12", "f13", "f14", "d1/f1.TXT"}
 	all := append(files, dirs...)
+
+	for _, dir := range dirs {
+		err := os.Mkdir(filepath.Join("s1", dir), 0755)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	for _, file := range files {
 		fd, err := os.Create(filepath.Join("s1", file))
@@ -41,13 +48,6 @@ func TestIgnores(t *testing.T) {
 			t.Fatal(err)
 		}
 		fd.Close()
-	}
-
-	for _, dir := range dirs {
-		err := os.Mkdir(filepath.Join("s1", dir), 0755)
-		if err != nil {
-			t.Fatal(err)
-		}
 	}
 
 	var syms []string
@@ -81,7 +81,7 @@ func TestIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fd.WriteString("f1*\nf2\nd1*\nd2\ns1*\ns2") // [fds][34] only non-ignored items
+	_, err = fd.WriteString("f1*\nf2\nd1*\nd2\ns1*\ns2\n(?i)*.txt") // [fds][34] only non-ignored items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = len(all) * 7 / 8 // seven out of eight items of each type should remain
+	expected = len(all)*7/8 + 1 // seven out of eight items of each type should remain, plus the foo.TXT
 	if m.LocalFiles != expected {
 		t.Fatalf("Incorrect number of files after second ignore, %d != %d", m.LocalFiles, expected)
 	}

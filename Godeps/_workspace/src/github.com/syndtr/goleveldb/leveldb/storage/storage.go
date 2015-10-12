@@ -46,6 +46,22 @@ var (
 	ErrClosed      = errors.New("leveldb/storage: closed")
 )
 
+// ErrCorrupted is the type that wraps errors that indicate corruption of
+// a file. Package storage has its own type instead of using
+// errors.ErrCorrupted to prevent circular import.
+type ErrCorrupted struct {
+	File *FileInfo
+	Err  error
+}
+
+func (e *ErrCorrupted) Error() string {
+	if e.File != nil {
+		return fmt.Sprintf("%v [file=%v]", e.Err, e.File)
+	} else {
+		return e.Err.Error()
+	}
+}
+
 // Syncer is the interface that wraps basic Sync method.
 type Syncer interface {
 	// Sync commits the current contents of the file to stable storage.

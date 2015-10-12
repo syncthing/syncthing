@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/config"
-	"github.com/syncthing/syncthing/internal/rc"
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/rc"
 )
 
 const (

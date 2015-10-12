@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-NETWORKING" "7" "June 28, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-NETWORKING" "7" "October 01, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-networking \- Firewall Setup
 .
@@ -64,7 +64,9 @@ incoming traffic:
 Port \fB22000/TCP\fP (or the actual listening port if you have changed
 the \fISync Protocol Listen Address\fP setting.)
 .IP \(bu 2
-Port \fB21025/UDP\fP (for discovery broadcasts)
+Port \fB21025/UDP\fP (for discovery broadcasts on IPv4)
+.IP \(bu 2
+Port \fB21026/UDP\fP (for discovery multicasts on IPv6)
 .UNINDENT
 .SH REMOTE WEB GUI
 .sp
@@ -91,11 +93,6 @@ ssh \-L 9999:localhost:8384 machine
 This will bind to your local port 9999 and forward all connections from there to
 port 8384 on the target machine. This still works even if Syncthing is bound to
 listen on localhost only.
-.sp
-You can forward multiple ports corresponding to many machines this way, but
-because Syncthing uses session cookies for the entire domain (i.e. your local
-machine), you will need to connect to each control panel in a separate browser
-instance or explicitly issue a browser reload when switching between them.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

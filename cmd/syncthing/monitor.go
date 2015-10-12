@@ -17,8 +17,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/osutil"
-	"github.com/syncthing/syncthing/internal/sync"
+	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/sync"
 )
 
 var (
@@ -40,7 +40,7 @@ func monitorMain() {
 	var err error
 	var dst io.Writer = os.Stdout
 
-	if logFile != "" {
+	if logFile != "-" {
 		var fileDst io.Writer
 
 		fileDst, err = os.Create(logFile)
@@ -146,9 +146,8 @@ func monitorMain() {
 						// binary as part of the upgrade process.
 						l.Infoln("Restarting monitor...")
 						os.Setenv("STNORESTART", "")
-						err := exec.Command(args[0], args[1:]...).Start()
-						if err != nil {
-							l.Warnln("restart:", err)
+						if err = restartMonitor(args); err != nil {
+							l.Warnln("Restart:", err)
 						}
 						return
 					}
@@ -182,7 +181,8 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 				}
 
 				l.Warnf("Panic detected, writing to \"%s\"", panicFd.Name())
-				l.Warnln("Please create an issue at https://github.com/syncthing/syncthing/issues/ with the panic log attached")
+				l.Warnln("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
+				l.Warnln("If no issue with similar panic message exists, please create a new issue with the panic log attached")
 
 				stdoutMut.Lock()
 				for _, line := range stdoutFirstLines {
@@ -225,4 +225,40 @@ func copyStdout(stdout io.Reader, dst io.Writer) {
 
 		dst.Write([]byte(line))
 	}
+}
+
+func restartMonitor(args []string) error {
+	if runtime.GOOS != "windows" {
+		// syscall.Exec is the cleanest way to restart on Unixes as it
+		// replaces the current process with the new one, keeping the pid and
+		// controlling terminal and so on
+		return restartMonitorUnix(args)
+	}
+
+	// but it isn't supported on Windows, so there we start a normal
+	// exec.Command and return.
+	return restartMonitorWindows(args)
+}
+
+func restartMonitorUnix(args []string) error {
+	if !strings.ContainsRune(args[0], os.PathSeparator) {
+		// The path to the binary doesn't contain a slash, so it should be
+		// found in $PATH.
+		binary, err := exec.LookPath(args[0])
+		if err != nil {
+			return err
+		}
+		args[0] = binary
+	}
+
+	return syscall.Exec(args[0], args, os.Environ())
+}
+
+func restartMonitorWindows(args []string) error {
+	cmd := exec.Command(args[0], args[1:]...)
+	// Retain the standard streams
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+	return cmd.Start()
 }

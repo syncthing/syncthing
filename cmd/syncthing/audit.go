@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/syncthing/syncthing/internal/events"
+	"github.com/syncthing/syncthing/lib/events"
 )
 
 // The auditSvc subscribes to events and writes these in JSON format, one

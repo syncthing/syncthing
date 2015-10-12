@@ -26,15 +26,15 @@ import (
 
 	"github.com/calmh/logger"
 	"github.com/syncthing/protocol"
-	"github.com/syncthing/syncthing/internal/auto"
-	"github.com/syncthing/syncthing/internal/config"
-	"github.com/syncthing/syncthing/internal/db"
-	"github.com/syncthing/syncthing/internal/discover"
-	"github.com/syncthing/syncthing/internal/events"
-	"github.com/syncthing/syncthing/internal/model"
-	"github.com/syncthing/syncthing/internal/osutil"
-	"github.com/syncthing/syncthing/internal/sync"
-	"github.com/syncthing/syncthing/internal/upgrade"
+	"github.com/syncthing/syncthing/lib/auto"
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/discover"
+	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -355,6 +355,7 @@ func (s *apiSvc) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(map[string]string{
 		"version":     Version,
+		"codename":    Codename,
 		"longVersion": LongVersion,
 		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
@@ -955,6 +956,11 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Header.Get("If-Modified-Since") == auto.AssetsBuildDate {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
 	mtype := s.mimeTypeForFile(file)
 	if len(mtype) != 0 {
 		w.Header().Set("Content-Type", mtype)
@@ -970,6 +976,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
 	w.Header().Set("Last-Modified", auto.AssetsBuildDate)
+	w.Header().Set("Cache-Control", "public")
 
 	w.Write(bs)
 }

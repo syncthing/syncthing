@@ -10,14 +10,16 @@
     <div class="modal-content">
       <div class="modal-header alert alert-{{status}}">
         <h4 class="modal-title">
-          <span ng-if="icon" class="glyphicon glyphicon-{{icon}}"></span>
+          <span ng-if="icon" class="fa fa-{{icon}}"></span>
           {{title}}
         </h4>
       </div>
       <div class="modal-body" ng-transclude>
       </div>
       <div ng-if="close" class="modal-footer">
-        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&emsp;<span translate>Close</span></button>
+        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+          <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+        </button>
       </div>
     </div>
   </div>

@@ -20,7 +20,7 @@ token in the bucket represents one byte.
 ```go
 func Writer(w io.Writer, bucket *Bucket) io.Writer
 ```
-Writer returns a reader that is rate limited by the given token bucket. Each
+Writer returns a writer that is rate limited by the given token bucket. Each
 token in the bucket represents one byte.
 
 #### type Bucket

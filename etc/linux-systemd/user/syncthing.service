@@ -2,6 +2,7 @@
 Description=Syncthing - Open Source Continuous File Synchronization
 Documentation=http://docs.syncthing.net/
 After=network.target
+Wants=syncthing-inotify.service
 
 [Service]
 Environment=STNORESTART=yes

@@ -77,7 +77,7 @@ func TestFailures(t *testing.T) {
 		// to avoid deadlocks during shutdown, we have to not try to send
 		// things out on channels while we're shutting down (this undoes the
 		// logFailure overide about 25 lines down)
-		s.logFailure = func(Service, float64, float64, bool, interface{}, []byte) {}
+		s.logFailure = func(*Supervisor, Service, float64, float64, bool, interface{}, []byte) {}
 		s.Stop()
 	}()
 	s.sync()
@@ -102,7 +102,7 @@ func TestFailures(t *testing.T) {
 
 	failNotify := make(chan bool)
 	// use this to synchronize on here
-	s.logFailure = func(s Service, cf float64, ft float64, r bool, error interface{}, stacktrace []byte) {
+	s.logFailure = func(supervisor *Supervisor, s Service, cf float64, ft float64, r bool, error interface{}, stacktrace []byte) {
 		failNotify <- r
 	}
 
@@ -276,8 +276,8 @@ func TestDefaultLogging(t *testing.T) {
 
 	serviceName(&BarelyService{})
 
-	s.logBadStop(service)
-	s.logFailure(service, 1, 1, true, errors.New("test error"), []byte{})
+	s.logBadStop(s, service)
+	s.logFailure(s, service, 1, 1, true, errors.New("test error"), []byte{})
 
 	s.Stop()
 }
@@ -289,8 +289,16 @@ func TestNestedSupervisors(t *testing.T) {
 	super2 := NewSimple("Nested5")
 	service := NewService("Service5")
 
+	super2.logBadStop = func(*Supervisor, Service) {
+		panic("Failed to copy logBadStop")
+	}
+
 	super1.Add(super2)
 	super2.Add(service)
+
+	// test the functions got copied from super1; if this panics, it didn't
+	// get copied
+	super2.logBadStop(super2, service)
 
 	go super1.Serve()
 	super1.sync()
@@ -340,7 +348,7 @@ func TestStoppingStillWorksWithHungServices(t *testing.T) {
 		return resumeChan
 	}
 	failNotify := make(chan struct{})
-	s.logBadStop = func(s Service) {
+	s.logBadStop = func(supervisor *Supervisor, s Service) {
 		failNotify <- struct{}{}
 	}
 
@@ -438,7 +446,7 @@ func TestFailingSupervisors(t *testing.T) {
 	}
 	failNotify := make(chan string)
 	// use this to synchronize on here
-	s1.logFailure = func(s Service, cf float64, ft float64, r bool, error interface{}, stacktrace []byte) {
+	s1.logFailure = func(supervisor *Supervisor, s Service, cf float64, ft float64, r bool, error interface{}, stacktrace []byte) {
 		failNotify <- fmt.Sprintf("%s", s)
 	}
 
@@ -468,6 +476,22 @@ func TestNilSupervisorAdd(t *testing.T) {
 	}()
 
 	s.Add(s)
+}
+
+// https://github.com/thejerf/suture/issues/11
+//
+// The purpose of this test is to verify that it does not cause data races,
+// so there are no obvious assertions.
+func TestIssue11(t *testing.T) {
+	t.Parallel()
+
+	s := NewSimple("main")
+	s.ServeBackground()
+
+	subsuper := NewSimple("sub")
+	s.Add(subsuper)
+
+	subsuper.Add(NewService("may cause data race"))
 }
 
 // http://golangtutorials.blogspot.com/2011/10/gotest-unit-testing-and-benchmarking-go.html
@@ -501,7 +525,7 @@ func (s *FailableService) Serve() {
 		everMultistarted = true
 		panic("Multi-started the same service! " + s.name)
 	}
-	s.existing += 1
+	s.existing++
 
 	s.started <- true
 
@@ -514,13 +538,13 @@ func (s *FailableService) Serve() {
 			case Happy:
 				// Do nothing on purpose. Life is good!
 			case Fail:
-				s.existing -= 1
+				s.existing--
 				if useStopChan {
 					s.stop <- true
 				}
 				return
 			case Panic:
-				s.existing -= 1
+				s.existing--
 				panic("Panic!")
 			case Hang:
 				// or more specifically, "hang until I release you"
@@ -529,7 +553,7 @@ func (s *FailableService) Serve() {
 				useStopChan = true
 			}
 		case <-s.shutdown:
-			s.existing -= 1
+			s.existing--
 			if useStopChan {
 				s.stop <- true
 			}

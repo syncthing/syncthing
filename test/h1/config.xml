@@ -1,23 +1,27 @@
-<configuration version="10">
+<configuration version="11">
     <folder id="default" path="s1" ro="false" rescanIntervalS="10" ignorePerms="false" autoNormalize="true">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
+        <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT"></device>
+        <minDiskFreePct>1</minDiskFreePct>
         <versioning></versioning>
-        <lenientMtimes>false</lenientMtimes>
         <copiers>1</copiers>
         <pullers>16</pullers>
         <hashers>0</hashers>
-	<followSymlinks>true</followSymlinks>
+        <order>random</order>
+        <ignoreDelete>false</ignoreDelete>
     </folder>
     <folder id="s12" path="s12-1" ro="false" rescanIntervalS="10" ignorePerms="false" autoNormalize="true">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
+        <minDiskFreePct>1</minDiskFreePct>
         <versioning></versioning>
-        <lenientMtimes>false</lenientMtimes>
         <copiers>1</copiers>
         <pullers>16</pullers>
         <hashers>0</hashers>
+        <order>random</order>
+        <ignoreDelete>false</ignoreDelete>
     </folder>
     <device id="EJHMPAQ-OGCVORE-ISB4IS3-SYYVJXF-TKJGLTU-66DIQPF-GJ5D2GX-GQ3OWQK" name="s4" compression="metadata" introducer="false">
         <address>127.0.0.1:22004</address>
@@ -30,6 +34,9 @@
     </device>
     <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="metadata" introducer="false">
         <address>127.0.0.1:22003</address>
+    </device>
+    <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false">
+        <address>127.0.0.1:22004</address>
     </device>
     <gui enabled="true" tls="false">
         <address>127.0.0.1:8081</address>
@@ -52,6 +59,7 @@
         <upnpEnabled>true</upnpEnabled>
         <upnpLeaseMinutes>0</upnpLeaseMinutes>
         <upnpRenewalMinutes>30</upnpRenewalMinutes>
+        <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
         <urAccepted>-1</urAccepted>
         <urUniqueID></urUniqueID>
         <restartOnWakeup>true</restartOnWakeup>
@@ -61,5 +69,9 @@
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
         <symlinksEnabled>true</symlinksEnabled>
         <limitBandwidthInLan>false</limitBandwidthInLan>
+        <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
+        <pingTimeoutS>30</pingTimeoutS>
+        <pingIdleTimeS>60</pingIdleTimeS>
+        <minHomeDiskFreePct>1</minHomeDiskFreePct>
     </options>
 </configuration>
