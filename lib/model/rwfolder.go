@@ -79,17 +79,18 @@ type rwFolder struct {
 	progressEmitter  *ProgressEmitter
 	virtualMtimeRepo *db.VirtualMtimeRepo
 
-	folder      string
-	dir         string
-	scanIntv    time.Duration
-	versioner   versioner.Versioner
-	ignorePerms bool
-	copiers     int
-	pullers     int
-	shortID     uint64
-	order       config.PullOrder
-	sleep       time.Duration
-	pause       time.Duration
+	folder       string
+	dir          string
+	scanIntv     time.Duration
+	versioner    versioner.Versioner
+	ignorePerms  bool
+	copiers      int
+	pullers      int
+	shortID      uint64
+	order        config.PullOrder
+	maxConflicts int
+	sleep        time.Duration
+	pause        time.Duration
 
 	stop        chan struct{}
 	queue       *jobQueue
@@ -115,14 +116,15 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		progressEmitter:  m.progressEmitter,
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(m.db, cfg.ID),
 
-		folder:      cfg.ID,
-		dir:         cfg.Path(),
-		scanIntv:    time.Duration(cfg.RescanIntervalS) * time.Second,
-		ignorePerms: cfg.IgnorePerms,
-		copiers:     cfg.Copiers,
-		pullers:     cfg.Pullers,
-		shortID:     shortID,
-		order:       cfg.Order,
+		folder:       cfg.ID,
+		dir:          cfg.Path(),
+		scanIntv:     time.Duration(cfg.RescanIntervalS) * time.Second,
+		ignorePerms:  cfg.IgnorePerms,
+		copiers:      cfg.Copiers,
+		pullers:      cfg.Pullers,
+		shortID:      shortID,
+		order:        cfg.Order,
+		maxConflicts: cfg.MaxConflicts,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -757,7 +759,7 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 		// of deleting. Also merge with the version vector we had, to indicate
 		// we have resolved the conflict.
 		file.Version = file.Version.Merge(cur.Version)
-		err = osutil.InWritableDir(moveForConflict, realName)
+		err = osutil.InWritableDir(p.moveForConflict, realName)
 	} else if p.versioner != nil {
 		err = osutil.InWritableDir(p.versioner.Archive, realName)
 	} else {
@@ -1254,7 +1256,7 @@ func (p *rwFolder) performFinish(state *sharedPullerState) error {
 			// we have resolved the conflict.
 
 			state.file.Version = state.file.Version.Merge(state.version)
-			if err = osutil.InWritableDir(moveForConflict, state.realName); err != nil {
+			if err = osutil.InWritableDir(p.moveForConflict, state.realName); err != nil {
 				return err
 			}
 
@@ -1447,7 +1449,14 @@ func removeDevice(devices []protocol.DeviceID, device protocol.DeviceID) []proto
 	return devices
 }
 
-func moveForConflict(name string) error {
+func (p *rwFolder) moveForConflict(name string) error {
+	if p.maxConflicts == 0 {
+		if err := osutil.Remove(name); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+
 	ext := filepath.Ext(name)
 	withoutExt := name[:len(name)-len(ext)]
 	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405") + ext
@@ -1457,7 +1466,21 @@ func moveForConflict(name string) error {
 		// the user has already moved it away, or the conflict was between a
 		// remote modification and a local delete. In either way it does not
 		// matter, go ahead as if the move succeeded.
-		return nil
+		err = nil
+	}
+	if p.maxConflicts > -1 {
+		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????" + ext)
+		if gerr == nil && len(matches) > p.maxConflicts {
+			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
+			for _, match := range matches[p.maxConflicts:] {
+				gerr = osutil.Remove(match)
+				if gerr != nil {
+					l.Debugln(p, "removing extra conflict", gerr)
+				}
+			}
+		} else if gerr != nil {
+			l.Debugln(p, "globbing for conflicts", gerr)
+		}
 	}
 	return err
 }

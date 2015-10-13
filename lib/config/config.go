@@ -111,6 +111,7 @@ type FolderConfiguration struct {
 	ScanProgressIntervalS int                         `xml:"scanProgressIntervalS" json:"scanProgressIntervalS"` // Set to a negative value to disable. Value of 0 will get replaced with value of 2 (default value)
 	PullerSleepS          int                         `xml:"pullerSleepS" json:"pullerSleepS"`
 	PullerPauseS          int                         `xml:"pullerPauseS" json:"pullerPauseS"`
+	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
 
 	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 }
@@ -499,14 +500,6 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 	return false
 }
 
-func convertV10V11(cfg *Configuration) {
-	// Set minimum disk free of existing folders to 1%
-	for i := range cfg.Folders {
-		cfg.Folders[i].MinDiskFreePct = 1
-	}
-	cfg.Version = 11
-}
-
 func convertV11V12(cfg *Configuration) {
 	// Change listen address schema
 	for i, addr := range cfg.Options.ListenAddress {
@@ -550,7 +543,20 @@ func convertV11V12(cfg *Configuration) {
 		cfg.Options.LocalAnnPort = 21027
 	}
 
+	// Set MaxConflicts to unlimited
+	for i := range cfg.Folders {
+		cfg.Folders[i].MaxConflicts = -1
+	}
+
 	cfg.Version = 12
+}
+
+func convertV10V11(cfg *Configuration) {
+	// Set minimum disk free of existing folders to 1%
+	for i := range cfg.Folders {
+		cfg.Folders[i].MinDiskFreePct = 1
+	}
+	cfg.Version = 11
 }
 
 func convertV9V10(cfg *Configuration) {
