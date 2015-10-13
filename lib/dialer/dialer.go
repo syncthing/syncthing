@@ -8,6 +8,7 @@ package dialer
 
 import (
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -26,6 +27,12 @@ var (
 func init() {
 	l.SetDebug("dialer", strings.Contains(os.Getenv("STTRACE"), "dialer") || os.Getenv("STTRACE") == "all")
 	if usingProxy {
+		http.DefaultTransport = &http.Transport{
+			Dial:                Dial,
+			Proxy:               http.ProxyFromEnvironment,
+			TLSHandshakeTimeout: 10 * time.Second,
+		}
+
 		// Defer this, so that logging gets setup.
 		go func() {
 			time.Sleep(500 * time.Millisecond)

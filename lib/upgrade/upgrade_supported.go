@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
 )
 
@@ -38,6 +39,8 @@ const DisabledByCompilation = false
 // binary contents before accepting the upgrade.
 var insecureHTTP = &http.Client{
 	Transport: &http.Transport{
+		Dial:  dialer.Dial,
+		Proxy: http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
