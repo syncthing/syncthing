@@ -125,8 +125,6 @@ func (s *apiSvc) getListener(guiCfg config.GUIConfiguration) (net.Listener, erro
 		return nil, err
 	}
 
-	l.Infoln("Starting web GUI on", guiCfg.URL())
-
 	listener := &tlsutil.DowngradingListener{rawListener, tlsCfg}
 	return listener, nil
 }
@@ -229,6 +227,7 @@ func (s *apiSvc) Serve() {
 	s.fss.ServeBackground()
 
 	l.Infoln("API listening on", s.listener.Addr())
+	l.Infoln("GUI URL is", guiCfg.URL())
 	err := srv.Serve(s.listener)
 
 	// The return could be due to an intentional close. Wait for the stop
