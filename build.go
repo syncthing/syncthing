@@ -186,7 +186,7 @@ func setup() {
 
 func test(pkg string) {
 	setBuildEnv()
-	runPrint("go", "test", "-short", "-timeout", "60s", pkg)
+	runPrint("go", "test", "-short", "-race", "-timeout", "60s", pkg)
 }
 
 func bench(pkg string) {
