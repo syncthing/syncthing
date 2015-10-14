@@ -445,11 +445,18 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		finisherChan <- state
 		time.Sleep(100 * time.Millisecond)
 
-		if state.fd != nil {
+		state.mut.Lock()
+		stateFd := state.fd
+		state.mut.Unlock()
+		if stateFd != nil {
 			t.Fatal("File not closed?")
 		}
 
-		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+		p.queue.mut.Lock()
+		lenQProgr := len(p.queue.progress)
+		lenQQueued := len(p.queue.queued)
+		p.queue.mut.Unlock()
+		if len(p.progressEmitter.registry) != 0 || lenQProgr != 0 || lenQQueued != 0 {
 			t.Fatal("Still registered", len(p.progressEmitter.registry), len(p.queue.progress), len(p.queue.queued))
 		}
 
@@ -457,7 +464,11 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		finisherChan <- state
 		time.Sleep(100 * time.Millisecond)
 
-		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
+		p.queue.mut.Lock()
+		lenQProgr = len(p.queue.progress)
+		lenQQueued = len(p.queue.queued)
+		p.queue.mut.Unlock()
+		if len(p.progressEmitter.registry) != 0 || lenQProgr != 0 || lenQQueued != 0 {
 			t.Fatal("Still registered")
 		}
 	case <-time.After(time.Second):
@@ -527,12 +538,19 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		finisherChan <- state
 		time.Sleep(100 * time.Millisecond)
 
-		if state.fd != nil {
+		state.mut.Lock()
+		stateFd := state.fd
+		state.mut.Unlock()
+		if stateFd != nil {
 			t.Fatal("File not closed?")
 		}
 
-		if len(p.progressEmitter.registry) != 0 || len(p.queue.progress) != 0 || len(p.queue.queued) != 0 {
-			t.Fatal("Still registered", len(p.progressEmitter.registry), len(p.queue.progress), len(p.queue.queued))
+		p.queue.mut.Lock()
+		lenQProgr := len(p.queue.progress)
+		lenQQueued := len(p.queue.queued)
+		p.queue.mut.Unlock()
+		if len(p.progressEmitter.registry) != 0 || lenQProgr != 0 || lenQQueued != 0 {
+			t.Fatal("Still registered", len(p.progressEmitter.registry), lenQProgr, lenQQueued)
 		}
 
 		// Doing it again should have no effect
