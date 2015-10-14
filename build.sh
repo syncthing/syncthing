@@ -111,7 +111,7 @@ case "${1:-default}" in
 			godep go test -race -coverprofile=profile.out $dir
 			if [ -f profile.out ] ; then
 				# and if there was test output, append it to coverage.out
-				grep -v "mode: set" profile.out >> coverage.out
+				grep -v "mode: " profile.out >> coverage.out
 				rm profile.out
 			fi
 		done
