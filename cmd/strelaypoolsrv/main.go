@@ -149,7 +149,7 @@ func main() {
 	}
 
 	handler := http.NewServeMux()
-	handler.HandleFunc("/", handleRequest)
+	handler.HandleFunc("/endpoint", handleRequest)
 
 	srv := http.Server{
 		Handler:     handler,
