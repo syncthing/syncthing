@@ -20,7 +20,6 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/relay/client"
@@ -366,11 +365,6 @@ func (s *connectionSvc) connect() {
 					continue
 				} else {
 					l.Debugln("Sucessfully joined relay session", inv)
-				}
-
-				err = osutil.SetTCPOptions(conn.(*net.TCPConn))
-				if err != nil {
-					l.Infoln(err)
 				}
 
 				var tc *tls.Conn

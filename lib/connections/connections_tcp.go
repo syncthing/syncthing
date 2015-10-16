@@ -44,11 +44,6 @@ func tcpDialer(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
 		return nil, err
 	}
 
-	err = osutil.SetTCPOptions(conn.(*net.TCPConn))
-	if err != nil {
-		l.Infoln(err)
-	}
-
 	tc := tls.Client(conn, tlsCfg)
 	err = tc.Handshake()
 	if err != nil {
