@@ -38,7 +38,7 @@ var (
 
 	statusAddr       string
 	poolAddrs        string
-	defaultPoolAddrs string = "https://relays.syncthing.net"
+	defaultPoolAddrs string = "https://relays.syncthing.net/endpoint"
 )
 
 func main() {
