@@ -40,6 +40,7 @@
    "Device {%device%} ({%address%}) wants to connect. Add new device?": "Device {{device}} ({{address}}) wants to connect. Add new device?",
    "Devices": "Devices",
    "Disconnected": "Disconnected",
+   "Discovery": "Discovery",
    "Documentation": "Documentation",
    "Download Rate": "Download Rate",
    "Downloaded": "Downloaded",
