@@ -100,6 +100,7 @@ func TestDeviceConfig(t *testing.T) {
 				Hashers:         0,
 				AutoNormalize:   true,
 				MinDiskFreePct:  1,
+				MaxConflicts:    -1,
 			},
 		}
 		expectedDevices := []DeviceConfiguration{
