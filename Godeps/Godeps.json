@@ -19,7 +19,7 @@
 		},
 		{
 			"ImportPath": "github.com/calmh/xdr",
-			"Rev": "5f7208e86762911861c94f1849eddbfc0a60cbf0"
+			"Rev": "47c0042d09a827b81ee62497f99e5e0c7f0bd31c"
 		},
 		{
 			"ImportPath": "github.com/golang/snappy",

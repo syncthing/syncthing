@@ -341,18 +341,13 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	ccm.Options = []protocol.Option{
-		{
-			Key:   "name",
-			Value: "tester",
-		},
-	}
+	ccm.DeviceName = "tester"
 	m.ClusterConfig(device1, ccm)
 	if cfg.Devices()[device1].Name != "tester" {
 		t.Errorf("Device did not get a name")
 	}
 
-	ccm.Options[0].Value = "tester2"
+	ccm.DeviceName = "tester2"
 	m.ClusterConfig(device1, ccm)
 	if cfg.Devices()[device1].Name != "tester" {
 		t.Errorf("Device name got overwritten")

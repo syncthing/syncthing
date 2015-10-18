@@ -584,6 +584,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	event := map[string]string{
 		"id":            deviceID.String(),
+		"deviceName":    cm.DeviceName,
 		"clientName":    cm.ClientName,
 		"clientVersion": cm.ClientVersion,
 	}
@@ -600,18 +601,15 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	events.Default.Log(events.DeviceConnected, event)
 
-	l.Infof(`Device %s client is "%s %s"`, deviceID, cm.ClientName, cm.ClientVersion)
+	l.Infof(`Device %s client is "%s %s named %s"`, deviceID, cm.ClientName, cm.ClientVersion, cm.DeviceName)
 
 	var changed bool
 
-	if name := cm.GetOption("name"); name != "" {
-		l.Infof("Device %s name is %q", deviceID, name)
-		device, ok := m.cfg.Devices()[deviceID]
-		if ok && device.Name == "" {
-			device.Name = name
-			m.cfg.SetDevice(device)
-			changed = true
-		}
+	device, ok := m.cfg.Devices()[deviceID]
+	if ok && device.Name == "" {
+		device.Name = cm.DeviceName
+		m.cfg.SetDevice(device)
+		changed = true
 	}
 
 	if m.cfg.Devices()[deviceID].Introducer {
@@ -634,11 +632,20 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				if _, ok := m.cfg.Devices()[id]; !ok {
 					// The device is currently unknown. Add it to the config.
 
+					addresses := []string{"dynamic"}
+					for _, addr := range device.Addresses {
+						if addr != "dynamic" {
+							addresses = append(addresses, addr)
+						}
+					}
+
 					l.Infof("Adding device %v to config (vouched for by introducer %v)", id, deviceID)
 					newDeviceCfg := config.DeviceConfiguration{
 						DeviceID:    id,
+						Name:        device.Name,
 						Compression: m.cfg.Devices()[deviceID].Compression,
-						Addresses:   []string{"dynamic"},
+						Addresses:   addresses,
+						CertName:    device.CertName,
 					}
 
 					// The introducers' introducers are also our introducers.
@@ -1465,31 +1472,45 @@ func (m *Model) numHashers(folder string) int {
 // clusterConfig returns a ClusterConfigMessage that is correct for the given peer device
 func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
 	cm := protocol.ClusterConfigMessage{
+		DeviceName:    m.deviceName,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
-		Options: []protocol.Option{
-			{
-				Key:   "name",
-				Value: m.deviceName,
-			},
-		},
 	}
 
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
+		folderCfg := m.cfg.Folders()[folder]
 		cr := protocol.Folder{
 			ID: folder,
 		}
+		var flags uint32
+		if folderCfg.ReadOnly {
+			flags |= protocol.FlagFolderReadOnly
+		}
+		if folderCfg.IgnorePerms {
+			flags |= protocol.FlagFolderIgnorePerms
+		}
+		if folderCfg.IgnoreDelete {
+			flags |= protocol.FlagFolderIgnoreDelete
+		}
+		cr.Flags = flags
 		for _, device := range m.folderDevices[folder] {
 			// DeviceID is a value type, but with an underlying array. Copy it
 			// so we don't grab aliases to the same array later on in device[:]
 			device := device
-			// TODO: Set read only bit when relevant
+			// TODO: Set read only bit when relevant, and when we have per device
+			// access controls.
+			deviceCfg := m.cfg.Devices()[device]
 			cn := protocol.Device{
-				ID:    device[:],
-				Flags: protocol.FlagShareTrusted,
+				ID:          device[:],
+				Name:        deviceCfg.Name,
+				Addresses:   deviceCfg.Addresses,
+				Compression: uint32(deviceCfg.Compression),
+				CertName:    deviceCfg.CertName,
+				Flags:       protocol.FlagShareTrusted,
 			}
-			if deviceCfg := m.cfg.Devices()[device]; deviceCfg.Introducer {
+
+			if deviceCfg.Introducer {
 				cn.Flags |= protocol.FlagIntroducer
 			}
 			cr.Devices = append(cr.Devices, cn)
