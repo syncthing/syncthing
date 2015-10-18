@@ -38,6 +38,7 @@ var (
 
 	statusAddr       string
 	poolAddrs        string
+	providedBy       string
 	defaultPoolAddrs string = "https://relays.syncthing.net/endpoint"
 )
 
@@ -56,6 +57,7 @@ func main() {
 	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
 	flag.StringVar(&statusAddr, "status-srv", ":22070", "Listen address for status service (blank to disable)")
 	flag.StringVar(&poolAddrs, "pools", defaultPoolAddrs, "Comma separated list of relay pool addresses to join")
+	flag.StringVar(&providedBy, "provided-by", "", "An optional description about who provides the relay")
 
 	flag.Parse()
 
@@ -114,7 +116,7 @@ func main() {
 		go statusService(statusAddr)
 	}
 
-	uri, err := url.Parse(fmt.Sprintf("relay://%s/?id=%s&pingInterval=%s&networkTimeout=%s&sessionLimitBps=%d&globalLimitBps=%d&statusAddr=%s", extAddress, id, pingInterval, networkTimeout, sessionLimitBps, globalLimitBps, statusAddr))
+	uri, err := url.Parse(fmt.Sprintf("relay://%s/?id=%s&pingInterval=%s&networkTimeout=%s&sessionLimitBps=%d&globalLimitBps=%d&statusAddr=%s&providedBy=%s", extAddress, id, pingInterval, networkTimeout, sessionLimitBps, globalLimitBps, statusAddr, providedBy))
 	if err != nil {
 		log.Fatalln("Failed to construct URI", err)
 	}
