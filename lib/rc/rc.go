@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -156,6 +157,8 @@ func (p *Process) Get(path string) ([]byte, error) {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
+			Dial:              dialer.Dial,
+			Proxy:             http.ProxyFromEnvironment,
 			DisableKeepAlives: true,
 		},
 	}

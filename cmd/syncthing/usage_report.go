@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -261,7 +262,7 @@ func (s *usageReportingService) sendUsageReport() error {
 	if BuildEnv == "android" {
 		// This works around the lack of DNS resolution on Android... :(
 		transp.Dial = func(network, addr string) (net.Conn, error) {
-			return net.Dial(network, "194.126.249.13:443")
+			return dialer.Dial(network, "194.126.249.13:443")
 		}
 	}
 

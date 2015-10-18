@@ -9,7 +9,6 @@ package relay
 import (
 	"crypto/tls"
 	"encoding/json"
-	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -247,11 +246,6 @@ func (r *invitationReceiver) Serve() {
 			if err != nil {
 				l.Debugf("Failed to join relay session %s: %v", inv, err)
 				continue
-			}
-
-			err = osutil.SetTCPOptions(conn.(*net.TCPConn))
-			if err != nil {
-				l.Infoln(err)
 			}
 
 			var tc *tls.Conn

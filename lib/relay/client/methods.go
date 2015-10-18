@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/dialer"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 )
@@ -20,10 +21,12 @@ func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs [
 		return protocol.SessionInvitation{}, fmt.Errorf("Unsupported relay scheme: %v", uri.Scheme)
 	}
 
-	conn, err := tls.Dial("tcp", uri.Host, configForCerts(certs))
+	rconn, err := dialer.Dial("tcp", uri.Host)
 	if err != nil {
 		return protocol.SessionInvitation{}, err
 	}
+
+	conn := tls.Client(rconn, configForCerts(certs))
 	conn.SetDeadline(time.Now().Add(10 * time.Second))
 
 	if err := performHandshakeAndValidation(conn, uri); err != nil {
@@ -63,7 +66,7 @@ func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs [
 func JoinSession(invitation protocol.SessionInvitation) (net.Conn, error) {
 	addr := net.JoinHostPort(net.IP(invitation.Address).String(), strconv.Itoa(int(invitation.Port)))
 
-	conn, err := net.Dial("tcp", addr)
+	conn, err := dialer.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}

@@ -18,6 +18,7 @@ import (
 	stdsync "sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -73,6 +74,8 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, rela
 	// certificate depending on the insecure setting.
 	var announceClient httpClient = &http.Client{
 		Transport: &http.Transport{
+			Dial:  dialer.Dial,
+			Proxy: http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: opts.insecure,
 				Certificates:       []tls.Certificate{cert},
@@ -87,6 +90,8 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, rela
 	// certificate here, so lets not include it. May be insecure if requested.
 	var queryClient httpClient = &http.Client{
 		Transport: &http.Transport{
+			Dial:  dialer.Dial,
+			Proxy: http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: opts.insecure,
 			},

@@ -64,11 +64,15 @@
 		},
 		{
 			"ImportPath": "golang.org/x/net/internal/iana",
-			"Rev": "db8e4de5b2d6653f66aea53094624468caad15d2"
+			"Rev": "4b709d93778b93d2f34943e3142c71578d83ad31"
 		},
 		{
 			"ImportPath": "golang.org/x/net/ipv6",
-			"Rev": "db8e4de5b2d6653f66aea53094624468caad15d2"
+			"Rev": "4b709d93778b93d2f34943e3142c71578d83ad31"
+		},
+		{
+			"ImportPath": "golang.org/x/net/proxy",
+			"Rev": "4b709d93778b93d2f34943e3142c71578d83ad31"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",
