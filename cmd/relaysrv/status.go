@@ -52,6 +52,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		"per-session-rate": sessionLimitBps,
 		"global-rate":      globalLimitBps,
 		"pools":            defaultPoolAddrs,
+		"provided-by":      providedBy,
 	}
 
 	bs, err := json.MarshalIndent(status, "", "    ")
