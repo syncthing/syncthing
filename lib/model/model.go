@@ -712,17 +712,17 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 // Implements the protocol.Model interface.
 func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, flags uint32, options []protocol.Option, buf []byte) error {
 	if offset < 0 {
-		return protocol.ErrNoSuchFile
+		return protocol.ErrInvalid
 	}
 
 	if !m.folderSharedWith(folder, deviceID) {
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
-		return protocol.ErrNoSuchFile
+		return protocol.ErrInvalid
 	}
 
 	if flags != 0 {
 		// We don't currently support or expect any flags.
-		return fmt.Errorf("protocol error: unknown flags 0x%x in Request message", flags)
+		return protocol.ErrInvalid
 	}
 
 	if deviceID != protocol.LocalDeviceID {
@@ -752,7 +752,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	if !strings.HasPrefix(fn, folderPath) {
 		// Request tries to escape!
 		l.Debugf("%v Invalid REQ(in) tries to escape: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
-		return fmt.Errorf("invalid filename")
+		return protocol.ErrInvalid
 	}
 
 	if folderIgnores != nil {
@@ -763,7 +763,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 			return err
 		} else if folderIgnores.Match(rn) {
 			l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
-			return fmt.Errorf("invalid filename")
+			return protocol.ErrNoSuchFile
 		}
 	}
 
@@ -772,7 +772,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	if info, err := os.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		target, _, err := symlinks.Read(fn)
 		if err != nil {
-			return err
+			l.Debugln("symlinks.Read:", err)
+			if os.IsNotExist(err) {
+				return protocol.ErrNoSuchFile
+			}
+			return protocol.ErrGeneric
 		}
 		reader = strings.NewReader(target)
 	} else {
@@ -780,7 +784,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		// at any moment.
 		reader, err = os.Open(fn)
 		if err != nil {
-			return err
+			l.Debugln("os.Open:", err)
+			if os.IsNotExist(err) {
+				return protocol.ErrNoSuchFile
+			}
+			return protocol.ErrGeneric
 		}
 
 		defer reader.(*os.File).Close()
@@ -788,7 +796,8 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 	_, err = reader.ReadAt(buf, offset)
 	if err != nil {
-		return err
+		l.Debugln("reader.ReadAt:", err)
+		return protocol.ErrGeneric
 	}
 
 	return nil
