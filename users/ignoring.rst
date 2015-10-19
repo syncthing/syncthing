@@ -1,3 +1,5 @@
+.. _ignoring-files:
+
 Ignoring Files
 ==============
 

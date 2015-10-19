@@ -514,3 +514,21 @@ minHomeDiskFreePct
 
 releasesURL
     The URL from which release information is loaded, for automatic upgrades.
+
+Syncing Configuration files
+---------------------------
+
+Syncing configuration files between devices (such that multiple devices are
+using the same configuration files) can cause issues. This is easy to do
+accidentally if you sync your home folder between devices. A common symptom
+of syncing configuration files is two devices ending up with the same Device ID.
+
+If you want to use syncthing to backup your configuration files, it is recommended
+that the files you are backing up are in a :ref:`folder-master` to prevent other
+devices from overwriting the per device configuration. The folder on the remote
+device(s) should not be used as configuration for the remote devices.
+
+If you'd like to sync your home folder in non-master mode, you may add the
+folder that stores the configuration files to the :ref:`ignore list <ignoring-files>`.
+If you'd also like to backup your configuration files, add another folder in
+master mode for just the configuration folder.
