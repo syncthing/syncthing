@@ -70,6 +70,7 @@ type Model struct {
 	id                protocol.DeviceID
 	shortID           uint64
 	cacheIgnoredFiles bool
+	protectedFiles    []string
 
 	deviceName    string
 	clientName    string
@@ -98,7 +99,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB) *Model {
+func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB, protectedFiles []string) *Model {
 	m := &Model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
@@ -112,6 +113,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		id:                id,
 		shortID:           id.Short(),
 		cacheIgnoredFiles: cfg.Options().CacheIgnoredFiles,
+		protectedFiles:    protectedFiles,
 		deviceName:        deviceName,
 		clientName:        clientName,
 		clientVersion:     clientVersion,
@@ -180,9 +182,39 @@ func (m *Model) StartFolderRW(folder string) {
 		p.versioner = versioner
 	}
 
+	m.warnAboutOverwritingProtectedFiles(folder)
+
 	m.Add(p)
 
 	l.Okln("Ready to synchronize", folder, "(read-write)")
+}
+
+func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
+	if m.folderCfgs[folder].ReadOnly {
+		return
+	}
+
+	folderLocation := m.folderCfgs[folder].Path()
+	ignores := m.folderIgnores[folder]
+
+	var filesAtRisk []string
+	for _, protectedFilePath := range m.protectedFiles {
+		// check if file is synced in this folder
+		if !strings.HasPrefix(protectedFilePath, folderLocation) {
+			continue
+		}
+
+		// check if file is ignored
+		if ignores.Match(protectedFilePath) {
+			continue
+		}
+
+		filesAtRisk = append(filesAtRisk, protectedFilePath)
+	}
+
+	if len(filesAtRisk) > 0 {
+		l.Warnln("Some protected files may be overwritten and cause issues. See http://docs.syncthing.net/users/config.html#syncing-configuration-files for more information. The at risk files are:", strings.Join(filesAtRisk, ", "))
+	}
 }
 
 // StartFolderRO starts read only processing on the current model. When in

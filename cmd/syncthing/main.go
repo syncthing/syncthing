@@ -635,6 +635,10 @@ func syncthingMain() {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
 
+	protectedFiles := []string{
+		locations[locDatabase], locations[locConfigFile], locations[locCertFile], locations[locKeyFile],
+	}
+
 	// Remove database entries for folders that no longer exist in the config
 	folders := cfg.Folders()
 	for _, folder := range db.ListFolders(ldb) {
@@ -644,7 +648,7 @@ func syncthingMain() {
 		}
 	}
 
-	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb)
+	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb, protectedFiles)
 	cfg.Subscribe(m)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
