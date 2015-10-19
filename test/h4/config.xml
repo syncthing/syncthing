@@ -8,6 +8,7 @@
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
+        <maxConflicts>-1</maxConflicts>
     </folder>
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false">
         <address>dynamic</address>

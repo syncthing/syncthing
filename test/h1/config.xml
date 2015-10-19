@@ -11,6 +11,7 @@
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
+        <maxConflicts>-1</maxConflicts>
     </folder>
     <folder id="¯\_(ツ)_/¯ Räksmörgås 动作 Адрес" path="s12-1" ro="false" rescanIntervalS="10" ignorePerms="false" autoNormalize="true">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
@@ -22,6 +23,7 @@
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
+        <maxConflicts>-1</maxConflicts>
     </folder>
     <device id="EJHMPAQ-OGCVORE-ISB4IS3-SYYVJXF-TKJGLTU-66DIQPF-GJ5D2GX-GQ3OWQK" name="s4" compression="metadata" introducer="false">
         <address>tcp://127.0.0.1:22004</address>
