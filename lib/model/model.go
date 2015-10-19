@@ -39,12 +39,10 @@ import (
 
 // How many files to send in each Index/IndexUpdate message.
 const (
-	indexTargetSize        = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	indexPerFileSize       = 250        // Each FileInfo is approximately this big, in bytes, excluding BlockInfos
-	indexPerBlockSize      = 40         // Each BlockInfo is approximately this big
-	indexBatchSize         = 1000       // Either way, don't include more files than this
-	reqValidationTime      = time.Hour  // How long to cache validation entries for Request messages
-	reqValidationCacheSize = 1000       // How many entries to aim for in the validation cache size
+	indexTargetSize   = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
+	indexPerFileSize  = 250        // Each FileInfo is approximately this big, in bytes, excluding BlockInfos
+	indexPerBlockSize = 40         // Each BlockInfo is approximately this big
+	indexBatchSize    = 1000       // Either way, don't include more files than this
 )
 
 type service interface {
@@ -91,9 +89,6 @@ type Model struct {
 	deviceVer    map[protocol.DeviceID]string
 	devicePaused map[protocol.DeviceID]bool
 	pmut         sync.RWMutex // protects the above
-
-	reqValidationCache map[string]time.Time // folder / file name => time when confirmed to exist
-	rvmut              sync.RWMutex         // protects reqValidationCache
 }
 
 var (
@@ -110,32 +105,30 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 				l.Debugln(line)
 			},
 		}),
-		cfg:                cfg,
-		db:                 ldb,
-		finder:             db.NewBlockFinder(ldb),
-		progressEmitter:    NewProgressEmitter(cfg),
-		id:                 id,
-		shortID:            id.Short(),
-		cacheIgnoredFiles:  cfg.Options().CacheIgnoredFiles,
-		deviceName:         deviceName,
-		clientName:         clientName,
-		clientVersion:      clientVersion,
-		folderCfgs:         make(map[string]config.FolderConfiguration),
-		folderFiles:        make(map[string]*db.FileSet),
-		folderDevices:      make(map[string][]protocol.DeviceID),
-		deviceFolders:      make(map[protocol.DeviceID][]string),
-		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
-		folderIgnores:      make(map[string]*ignore.Matcher),
-		folderRunners:      make(map[string]service),
-		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
-		conn:               make(map[protocol.DeviceID]Connection),
-		deviceVer:          make(map[protocol.DeviceID]string),
-		devicePaused:       make(map[protocol.DeviceID]bool),
-		reqValidationCache: make(map[string]time.Time),
+		cfg:               cfg,
+		db:                ldb,
+		finder:            db.NewBlockFinder(ldb),
+		progressEmitter:   NewProgressEmitter(cfg),
+		id:                id,
+		shortID:           id.Short(),
+		cacheIgnoredFiles: cfg.Options().CacheIgnoredFiles,
+		deviceName:        deviceName,
+		clientName:        clientName,
+		clientVersion:     clientVersion,
+		folderCfgs:        make(map[string]config.FolderConfiguration),
+		folderFiles:       make(map[string]*db.FileSet),
+		folderDevices:     make(map[string][]protocol.DeviceID),
+		deviceFolders:     make(map[protocol.DeviceID][]string),
+		deviceStatRefs:    make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
+		folderIgnores:     make(map[string]*ignore.Matcher),
+		folderRunners:     make(map[string]service),
+		folderStatRefs:    make(map[string]*stats.FolderStatisticsReference),
+		conn:              make(map[protocol.DeviceID]Connection),
+		deviceVer:         make(map[protocol.DeviceID]string),
+		devicePaused:      make(map[protocol.DeviceID]bool),
 
-		fmut:  sync.NewRWMutex(),
-		pmut:  sync.NewRWMutex(),
-		rvmut: sync.NewRWMutex(),
+		fmut: sync.NewRWMutex(),
+		pmut: sync.NewRWMutex(),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -719,99 +712,71 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 // Implements the protocol.Model interface.
 func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, flags uint32, options []protocol.Option, buf []byte) error {
 	if offset < 0 {
-		return protocol.ErrNoSuchFile
+		return protocol.ErrInvalid
 	}
 
 	if !m.folderSharedWith(folder, deviceID) {
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
-		return protocol.ErrNoSuchFile
+		return protocol.ErrInvalid
 	}
 
 	if flags != 0 {
 		// We don't currently support or expect any flags.
-		return fmt.Errorf("protocol error: unknown flags 0x%x in Request message", flags)
-	}
-
-	// Verify that the requested file exists in the local model. We only need
-	// to validate this file if we haven't done so recently, so we keep a
-	// cache of successfull results. "Recently" can be quite a long time, as
-	// we remove validation cache entries when we detect local changes. If
-	// we're out of sync here and the file actually doesn't exist any more, or
-	// has shrunk or something, then we'll anyway get a read error that we
-	// pass on to the other side.
-
-	m.rvmut.RLock()
-	validated := m.reqValidationCache[folder+"/"+name]
-	m.rvmut.RUnlock()
-
-	if time.Since(validated) > reqValidationTime {
-		m.fmut.RLock()
-		folderFiles, ok := m.folderFiles[folder]
-		m.fmut.RUnlock()
-
-		if !ok {
-			l.Warnf("Request from %s for file %s in nonexistent folder %q", deviceID, name, folder)
-			return protocol.ErrNoSuchFile
-		}
-
-		// This call is really expensive for large files, as we load the full
-		// block list which may be megabytes and megabytes of data to allocate
-		// space for, read, and deserialize.
-		lf, ok := folderFiles.Get(protocol.LocalDeviceID, name)
-		if !ok {
-			return protocol.ErrNoSuchFile
-		}
-
-		if lf.IsInvalid() || lf.IsDeleted() {
-			l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, len(buf), lf)
-			return protocol.ErrInvalid
-		}
-
-		if offset > lf.Size() {
-			l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, len(buf))
-			return protocol.ErrNoSuchFile
-		}
-
-		m.rvmut.Lock()
-		m.reqValidationCache[folder+"/"+name] = time.Now()
-		if len(m.reqValidationCache) > reqValidationCacheSize {
-			// Don't let the cache grow infinitely
-			for name, validated := range m.reqValidationCache {
-				if time.Since(validated) > time.Minute {
-					delete(m.reqValidationCache, name)
-				}
-			}
-
-			if len(m.reqValidationCache) > reqValidationCacheSize*9/10 {
-				// The first clean didn't help much, we're still over 90%
-				// full; we may have synced a lot of files lately. Prune the
-				// cache more aggressively by removing every other item so we
-				// don't get stuck doing useless cache cleaning.
-				i := 0
-				for name := range m.reqValidationCache {
-					if i%2 == 0 {
-						delete(m.reqValidationCache, name)
-					}
-					i++
-				}
-			}
-		}
-		m.rvmut.Unlock()
+		return protocol.ErrInvalid
 	}
 
 	if deviceID != protocol.LocalDeviceID {
 		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 	}
 	m.fmut.RLock()
-	fn := filepath.Join(m.folderCfgs[folder].Path(), name)
+	folderPath := m.folderCfgs[folder].Path()
+	folderIgnores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
+
+	// filepath.Join() returns a filepath.Clean()ed path, which (quoting the
+	// docs for clarity here):
+	//
+	//     Clean returns the shortest path name equivalent to path by purely lexical
+	//     processing. It applies the following rules iteratively until no further
+	//     processing can be done:
+	//
+	//     1. Replace multiple Separator elements with a single one.
+	//     2. Eliminate each . path name element (the current directory).
+	//     3. Eliminate each inner .. path name element (the parent directory)
+	//        along with the non-.. element that precedes it.
+	//     4. Eliminate .. elements that begin a rooted path:
+	//        that is, replace "/.." by "/" at the beginning of a path,
+	//        assuming Separator is '/'.
+	fn := filepath.Join(folderPath, name)
+
+	if !strings.HasPrefix(fn, folderPath) {
+		// Request tries to escape!
+		l.Debugf("%v Invalid REQ(in) tries to escape: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		return protocol.ErrInvalid
+	}
+
+	if folderIgnores != nil {
+		// "rn" becomes the relative name of the file within the folder. This is
+		// different than the original "name" parameter in that it's been
+		// cleaned from any possible funny business.
+		if rn, err := filepath.Rel(folderPath, fn); err != nil {
+			return err
+		} else if folderIgnores.Match(rn) {
+			l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+			return protocol.ErrNoSuchFile
+		}
+	}
 
 	var reader io.ReaderAt
 	var err error
 	if info, err := os.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		target, _, err := symlinks.Read(fn)
 		if err != nil {
-			return err
+			l.Debugln("symlinks.Read:", err)
+			if os.IsNotExist(err) {
+				return protocol.ErrNoSuchFile
+			}
+			return protocol.ErrGeneric
 		}
 		reader = strings.NewReader(target)
 	} else {
@@ -819,7 +784,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		// at any moment.
 		reader, err = os.Open(fn)
 		if err != nil {
-			return err
+			l.Debugln("os.Open:", err)
+			if os.IsNotExist(err) {
+				return protocol.ErrNoSuchFile
+			}
+			return protocol.ErrGeneric
 		}
 
 		defer reader.(*os.File).Close()
@@ -827,7 +796,8 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 	_, err = reader.ReadAt(buf, offset)
 	if err != nil {
-		return err
+		l.Debugln("reader.ReadAt:", err)
+		return protocol.ErrGeneric
 	}
 
 	return nil
@@ -1120,12 +1090,6 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	files := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	files.Update(protocol.LocalDeviceID, fs)
-
-	m.rvmut.Lock()
-	for _, f := range fs {
-		delete(m.reqValidationCache, folder+"/"+f.Name)
-	}
-	m.rvmut.Unlock()
 
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":  folder,
