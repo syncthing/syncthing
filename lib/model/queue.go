@@ -109,6 +109,18 @@ func (q *jobQueue) Shuffle() {
 	}
 }
 
+func (q *jobQueue) lenQueued() int {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+	return len(q.queued)
+}
+
+func (q *jobQueue) lenProgress() int {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+	return len(q.progress)
+}
+
 func (q *jobQueue) SortSmallestFirst() {
 	q.mut.Lock()
 	defer q.mut.Unlock()

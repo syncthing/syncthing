@@ -136,3 +136,9 @@ func (t *ProgressEmitter) BytesCompleted(folder string) (bytes int64) {
 func (t *ProgressEmitter) String() string {
 	return fmt.Sprintf("ProgressEmitter@%p", t)
 }
+
+func (t *ProgressEmitter) lenRegistry() int {
+	t.mut.Lock()
+	defer t.mut.Unlock()
+	return len(t.registry)
+}
