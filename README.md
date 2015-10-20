@@ -48,7 +48,7 @@ Please see the [Syncthing documentation site][6].
 
 All code is licensed under the [MPLv2 License][7].
 
-[1]: https://github.com/syncthing/specs/blob/master/BEPv1.md
+[1]: http://docs.syncthing.net/specs/bep-v1.html
 [2]: http://docs.syncthing.net/intro/getting-started.html
 [3]: https://github.com/syncthing/syncthing/blob/master/etc
 [4]: https://webchat.freenode.net/
