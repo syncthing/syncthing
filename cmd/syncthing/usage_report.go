@@ -112,15 +112,7 @@ func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 	res["memoryUsageMiB"] = (mem.Sys - mem.HeapReleased) / 1024 / 1024
-
-	var perf float64
-	for i := 0; i < 5; i++ {
-		p := cpuBench()
-		if p > perf {
-			perf = p
-		}
-	}
-	res["sha256Perf"] = perf
+	res["sha256Perf"] = cpuBench(5, 125*time.Millisecond)
 
 	bytes, err := memorySize()
 	if err == nil {
@@ -301,7 +293,17 @@ func (s *usageReportingService) Stop() {
 }
 
 // cpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
-func cpuBench() float64 {
+func cpuBench(iterations int, duration time.Duration) float64 {
+	var perf float64
+	for i := 0; i < iterations; i++ {
+		if v := cpuBenchOnce(duration); v > perf {
+			perf = v
+		}
+	}
+	return perf
+}
+
+func cpuBenchOnce(duration time.Duration) float64 {
 	chunkSize := 100 * 1 << 10
 	h := sha256.New()
 	bs := make([]byte, chunkSize)
@@ -309,7 +311,7 @@ func cpuBench() float64 {
 
 	t0 := time.Now()
 	b := 0
-	for time.Since(t0) < 125*time.Millisecond {
+	for time.Since(t0) < duration {
 		h.Write(bs)
 		b += chunkSize
 	}
