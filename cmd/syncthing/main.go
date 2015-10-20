@@ -516,6 +516,7 @@ func syncthingMain() {
 
 	l.Infoln(LongVersion)
 	l.Infoln("My ID:", myID)
+	printHashRate()
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -834,6 +835,22 @@ func syncthingMain() {
 	}
 
 	os.Exit(code)
+}
+
+// printHashRate prints the hashing performance in MB/s, formatting it with
+// appropriate precision for the value, i.e. 182 MB/s, 18 MB/s, 1.8 MB/s, 0.18
+// MB/s.
+func printHashRate() {
+	hashRate := cpuBench(3, 100*time.Millisecond)
+
+	decimals := 0
+	if hashRate < 1 {
+		decimals = 2
+	} else if hashRate < 10 {
+		decimals = 1
+	}
+
+	l.Infof("Single thread hash performance is ~%.*f MB/s", decimals, hashRate)
 }
 
 func loadConfig(cfgFile string) (*config.Wrapper, string, error) {
