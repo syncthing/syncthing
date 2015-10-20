@@ -14,6 +14,7 @@ pages=(
 	syncthing-versioning.7
 	syncthing-bep.7
 	syncthing-localdisco.7
+	syncthing-globaldisco.7
 )
 
 for page in "${pages[@]}" ; do
