@@ -285,6 +285,9 @@ man_pages = [
     ('specs/localdisco-v3', 'syncthing-localdisco',
      'Local Discovery Protocol v3',
      ['The Syncthing Authors'], 7),
+    ('specs/globaldisco-v3', 'syncthing-globaldisco',
+     'Global Discovery Protocol v3',
+     ['The Syncthing Authors'], 7),
 ]
 
 # If true, show URL addresses after external links.
