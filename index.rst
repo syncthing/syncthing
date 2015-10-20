@@ -75,6 +75,7 @@ can use the headings in the left sidebar to navigate the site.
    :maxdepth: 1
    :glob:
 
+   specs/index.rst
    specs/*
 
 .. _`contribution guidelines`: https://github.com/syncthing/syncthing/blob/master/CONTRIBUTING.md

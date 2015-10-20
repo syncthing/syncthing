@@ -1,3 +1,5 @@
+.. _bep-v1:
+
 Block Exchange Protocol v1
 ==========================
 
@@ -56,17 +58,18 @@ fingerprints (SHA-256) referred to as "Device IDs".
 There is no required order or synchronization among BEP messages except
 as noted per message type - any message type may be sent at any time and
 the sender need not await a response to one message before sending
-another. Responses MUST however be sent in the same order as the
-requests are received.
+another.
 
 The underlying transport protocol MUST be TCP.
 
 Messages
 --------
 
-Every message starts with one 32 bit word indicating the message
-version, type and ID, followed by the length of the message. The header
-is in network byte order, i.e. big endian.
+Every message starts with one 32 bit word indicating the message version, type
+and ID, followed by the length of the message. The header is in network byte
+order, i.e. big endian. In this document, in diagrams and text, "bit 0" refers
+to the *most significant* bit of a word; "bit 31" is thus the least
+significant bit of a 32 bit word.
 
 ::
 
@@ -78,26 +81,31 @@ is in network byte order, i.e. big endian.
     |                            Length                             |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-For BEP v1 the Version field is set to zero. Future versions with
+For BEP v1 the **Version** field is set to zero. Future versions with
 incompatible message formats will increment the Version field. A message
 with an unknown version is a protocol error and MUST result in the
 connection being terminated. A client supporting multiple versions MAY
 retry with a different protocol version upon disconnection.
 
-The Message ID is set to a unique value for each transmitted request
-message. In response messages it is set to the Message ID of the
-corresponding request message. The uniqueness requirement implies that
-no more than 4096 messages may be outstanding at any given moment. The
-ordering requirement implies that a response to a given message ID also
-means that all preceding messages have been received, specifically those
-which do not otherwise demand a response. Hence their message ID:s may
-be reused.
+The **Message ID** is set to a unique value for each transmitted Request
+message. In Response messages it is set to the Message ID of the corresponding
+Request message. The uniqueness requirement implies that no more than 4096
+request messages may be outstanding at any given moment. For message types
+that do not have a corresponding response (Cluster Configuration, Index, etc.)
+the Message ID field is irrelevant and SHOULD be set to zero.
 
-The Type field indicates the type of data following the message header
+The **Type** field indicates the type of data following the message header
 and is one of the integers defined below. A message of an unknown type
 is a protocol error and MUST result in the connection being terminated.
 
-The Compression bit "C" indicates the compression used for the message.
+The **Compression** bit "C" indicates the compression used for the message.
+
+For C=0:
+
+-  The Length field contains the length, in bytes, of the uncompressed
+   message data.
+
+-  The message is not compressed.
 
 For C=1:
 
@@ -110,23 +118,23 @@ For C=1:
 -  The message data is compressed using the LZ4 format and algorithm
    described in http://www.lz4.org/.
 
-For C=0:
-
--  The Length field contains the length, in bytes, of the uncompressed
-   message data.
-
--  The message is not compressed.
-
 All data within the message (post decompression, if compression is in
 use) MUST be in XDR (RFC 1014) encoding. All fields shorter than 32 bits
 and all variable length data MUST be padded to a multiple of 32 bits.
 The actual data types in use by BEP, in XDR naming convention, are the
 following:
 
-:(unsigned) int: (unsigned) 32 bit integer
-:(unsigned) hyper: (unsigned) 64 bit integer
-:opaque<>: variable length opaque data
-:string<>: variable length string
+(unsigned) int:
+    (unsigned) 32 bit integer
+
+(unsigned) hyper:
+    (unsigned) 64 bit integer
+
+opaque<>
+    variable length opaque data
+
+string<>
+    variable length string
 
 The transmitted length of string and opaque data is the length of actual
 data, excluding any added padding. The encoding of opaque<> and string<>
@@ -137,6 +145,12 @@ normalization form C.
 
 Cluster Config (Type = 0)
 ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. Documentation note: the structure of a message section is always:
+   1. A short description of the message
+   2. ASCII art overview of the message formats
+   3. Description of the fields in the message.
+   4. XDR syntax field descriptions.
 
 This informational message provides information about the cluster
 configuration as it pertains to the current connection. A Cluster Config
@@ -153,16 +167,22 @@ Graphical Representation
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                     Length of ClientName                      |
+    |                     Length of Device Name                     |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                 ClientName (variable length)                  \
+    \                 Device Name (variable length)                 \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                    Length of ClientVersion                    |
+    |                     Length of Client Name                     |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                ClientVersion (variable length)                \
+    \                 Client Name (variable length)                 \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                   Length of Client Version                    |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \               Client Version (variable length)                \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                       Number of Folders                       |
@@ -177,7 +197,6 @@ Graphical Representation
     \                Zero or more Option Structures                 \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
 
     Folder Structure:
 
@@ -205,7 +224,6 @@ Graphical Representation
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-
     Device Structure:
 
      0                   1                   2                   3
@@ -215,6 +233,28 @@ Graphical Representation
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
     \                     ID (variable length)                      \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                        Length of Name                         |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                    Name (variable length)                     \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                      Number of Addresses                      |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                       Length of Address                       |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                   Address (variable length)                   \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                          Compression                          |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                      Length of Cert Name                      |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                  Cert Name (variable length)                  \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                                                               |
@@ -229,7 +269,6 @@ Graphical Representation
     \                Zero or more Option Structures                 \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
 
     Option Structure:
 
@@ -249,30 +288,105 @@ Graphical Representation
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-Fields
-^^^^^^
+Fields (ClusterConfigMessage)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ClientName and ClientVersion fields identify the implementation. The
-values SHOULD be simple strings identifying the implementation name, as
-a user would expect to see it, and the version string in the same
-manner. An example ClientName is "syncthing" and an example
-ClientVersion is "v0.7.2". The ClientVersion field SHOULD follow the
-patterns laid out in the `Semantic Versioning <http://semver.org/>`__
-standard.
+.. Documentation note: the first time a field is mentioned it is put in **bold
+   text**. We use the Space Separated names in running text and ASCII art
+   diagrams, and CamelCase in the XDR syntax block at the end.
 
-The Folders field lists all folders that will be synchronized over the
-current connection. Each folder has a list of participating Devices,
-Flags and Options. Currently no flags are defined so the field MUST be
-set to all zeroes. The Options field is implementation specific and
-described below.
+The **Device Name** is a human readable (configured or auto detected) device
+name or host name, for the sending device.
 
-The Device ID is a 32 byte number that uniquely identifies the device.
-For instance, the reference implementation uses the SHA-256 of the
+The **Client Name** and **Client Version** identifies the implementation. The
+values SHOULD  be simple strings identifying the implementation name, as a
+user would expect to see it, and the version string in the same manner. An
+example Client Name is "syncthing" and an example Client Version is "v0.7.2".
+The Client Version field SHOULD follow the patterns laid out in the `Semantic
+Versioning <http://semver.org/>`__ standard.
+
+The **Folders** field contains the list of folders that will be synchronized
+over the current connection.
+
+The **Options** field is a list of options that apply to the current
+connection. The options are used in an implementation specific manner. The
+options list is conceptually a map of keys to values, although it is
+transmitted in the form of a list of key and value pairs, both of string type.
+Key ID:s are implementation specific. An implementation MUST ignore unknown
+keys. An implementation MAY impose limits on the length keys and values. The
+options list may be used to inform devices of relevant local configuration
+options such as rate limiting or make recommendations about request
+parallelism, device priorities, etc. An empty options list is valid for
+devices not having any such information to share. Devices MAY NOT make any
+assumptions about peers acting in a specific manner as a result of sent
+options.
+
+
+Fields (Folder Structure)
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The **ID** field contains the folder ID, as a human readable string.
+
+The **Devices** field is list of devices participating in sharing this folder.
+
+The **Flags** field contains flags that affect the behavior of the folder. The
+folder Flags field contains the following single bit flags:
+
+::
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                       Reserved                          |D|P|R|
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+:Bit 31 ("R", Read Only):
+    is set for folders that the device will accept no updates from the network
+    for.
+
+:Bit 30 ("P", Ignore Permissions):
+    is set for folders that the device will not accept or announce file
+    permissions for.
+
+:Bit 29 ("D", Ignore Deletes):
+    is set for folders that the device will ignore deletes for.
+
+The **Options** field contains a list of options that apply to the folder.
+
+Fields (Device Structure)
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The device **ID** field is a 32 byte number that uniquely identifies the
+device. For instance, the reference implementation uses the SHA-256 of the
 device X.509 certificate.
 
-Each device has an associated Flags field to indicate the sharing mode
-of that device for the folder in question. See the discussion on Sharing
-Modes. The Device Flags field contains the following single bit flags:
+The **Name** field is a human readable name assigned to the described device
+by the sending device. It MAY be empty and it need not be unique.
+
+The list of **Addressess** is that used by the sending device to connect to
+the described device.
+
+The **Compression** field indicates the compression mode in use for this
+device and folder. The following values are valid:
+
+:0: Compress metadata. This enables compression of metadata messages such as Index.
+:1: Compression disabled. No compression is used on any message.
+:2: Compress always. Metadata messages as well as Response messages are compressed.
+
+The **Cert Name** field indicates the expected certificate name for this
+device. It is commonly blank, indicating to use the implementation default.
+
+The **Max Local Version** field contains the highest local file
+version number of the files already known to be in the index sent by
+this device. If nothing is known about the index of a given device, this
+field MUST be set to zero. When receiving a Cluster Config message with
+a non-zero Max Local Version for the local device ID, a device MAY elect
+to send an Index Update message containing only files with higher local
+version numbers in place of the initial Index message.
+
+The **Flags** field indicates the sharing mode of the folder and other device
+& folder specific settings. See the discussion on Sharing Modes. The Device
+Flags field contains the following single bit flags:
 
 ::
 
@@ -311,25 +425,7 @@ Modes. The Device Flags field contains the following single bit flags:
 
 Exactly one of the T and R bits MUST be set.
 
-The per device Max Local Version field contains the highest local file
-version number of the files already known to be in the index sent by
-this device. If nothing is known about the index of a given device, this
-field MUST be set to zero. When receiving a Cluster Config message with
-a non-zero Max Local Version for the local device ID, a device MAY elect
-to send an Index Update message containing only files with higher local
-version numbers in place of the initial Index message.
-
-The Options field contain option values to be used in an implementation
-specific manner. The options list is conceptually a map of Key => Value
-items, although it is transmitted in the form of a list of (Key, Value)
-pairs, both of string type. Key ID:s are implementation specific. An
-implementation MUST ignore unknown keys. An implementation MAY impose
-limits on the length keys and values. The options list may be used to
-inform devices of relevant local configuration options such as rate
-limiting or make recommendations about request parallelism, device
-priorities, etc. An empty options list is valid for devices not having
-any such information to share. Devices MAY NOT make any assumptions
-about peers acting in a specific manner as a result of sent options.
+The **Options** field contains a list of options that apply to the device.
 
 XDR
 ^^^
@@ -337,29 +433,34 @@ XDR
 ::
 
     struct ClusterConfigMessage {
-        string ClientName<>;
-        string ClientVersion<>;
-        Folder Folders<>;
-        Option Options<>;
+        string DeviceName<64>;
+        string ClientName<64>;
+        string ClientVersion<64>;
+        Folder Folders<1000000>;
+        Option Options<64>;
     }
 
     struct Folder {
-        string ID<64>;
-        Device Devices<>;
+        string ID<256>;
+        Device Devices<1000000>;
         unsigned int Flags;
         Option Options<64>;
     }
 
     struct Device {
         opaque ID<32>;
+        string Name<64>;
+        string Addresses<64>;
+        unsigned int Compression;
+        string CertName<64>;
         hyper MaxLocalVersion;
         unsigned int Flags;
         Option Options<64>;
     }
 
     struct Option {
-        string Key<>;
-        string Value<>;
+        string Key<64>;
+        string Value<1024>;
     }
 
 Index (Type = 1) and Index Update (Type = 6)
@@ -404,7 +505,6 @@ Graphical Representation
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-
     FileInfo Structure:
 
      0                   1                   2                   3
@@ -423,7 +523,7 @@ Graphical Representation
     |                                                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
-    \                       Vector Structure                        \
+    \                   Version (variable length)                   \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                                                               |
@@ -437,7 +537,6 @@ Graphical Representation
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-
     Vector Structure:
 
      0                   1                   2                   3
@@ -449,7 +548,6 @@ Graphical Representation
     \                Zero or more Counter Structures                \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
 
     Counter Structure:
 
@@ -480,33 +578,30 @@ Graphical Representation
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-Fields
-^^^^^^
+Fields (Index Message)
+^^^^^^^^^^^^^^^^^^^^^^
 
-The Folder field identifies the folder that the index message pertains
-to. For single folder implementations the device MUST use the string
-"default".
+The **Folder** field identifies the folder that the index message pertains to.
 
-The Name is the file name path relative to the folder root. Like all
+**Files**
+
+The **Flags** field is reserved for future use and MUST currently be set to
+zero.
+
+The **Options** list is implementation defined and as described in the
+ClusterConfig message section.
+
+Fields (FileInfo Structure)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The **Name** is the file name path relative to the folder root. Like all
 strings in BEP, the Name is always in UTF-8 NFC regardless of operating
 system or file system specific conventions. The Name field uses the
 slash character ("/") as path separator, regardless of the
 implementation's operating system conventions. The combination of Folder
 and Name uniquely identifies each file in a cluster.
 
-The Version field is a version vector describing the updates performed
-to file by all members in the cluster. Each counter in the version
-vector is an ID-Value tuple. The ID is used the first 64 bits of the
-device ID. The Value is a simple incrementing counter, starting at zero.
-The combination of Folder, Name and Version uniquely identifies the
-contents of a file at a given point in time.
-
-The Local Version field is the value of a device local monotonic clock
-at the time of last local database update to a file. The clock ticks on
-every local database update.
-
-The Flags field (per FileInfo) is made up of the following single bit
-flags:
+The **Flags** field is made up of the following single bit flags:
 
 ::
 
@@ -530,10 +625,10 @@ flags:
    temporarily not serve data for the file.
 
 :Bit 17 ("P"): is set when there is no permission information for the
-   file. This is the case when it originates on a non-permission-
-   supporting file system. Changes to only permission bits SHOULD be
-   disregarded on files with this bit set. The permissions bits MUST be
-   set to the octal value 0666.
+   file. This is the case when it originates on a file system which
+   does not support permissions. Changes to only permission bits SHOULD
+   be disregarded on files with this bit set. The permissions bits MUST
+   be set to the octal value 0666.
 
 :Bit 16 ("S"): is set when the file is a symbolic link. The block list
    SHALL be of one or more blocks since the target of the symlink is
@@ -547,25 +642,26 @@ flags:
 :Bit 0 through 14: are reserved for future use and SHALL be set to
    zero.
 
-The hash algorithm is implied by the Hash length. Currently, the hash
-MUST be 32 bytes long and computed by SHA256.
-
-The Modified time is expressed as the number of seconds since the Unix
+The **Modified** time is expressed as the number of seconds since the Unix
 Epoch (1970-01-01 00:00:00 UTC).
 
-In the rare occasion that a file is simultaneously and independently
-modified by two devices in the same cluster and thus end up on the same
-Version number after modification, the Modified field is used as a tie
-breaker (higher being better), followed by the hash values of the file
-blocks (lower being better).
+The **Version** field is a version vector describing the updates performed
+to a file by all members in the cluster. Each counter in the version
+vector is an ID-Value tuple. The ID is used the first 64 bits of the
+device ID. The Value is a simple incrementing counter, starting at zero.
+The combination of Folder, Name and Version uniquely identifies the
+contents of a file at a given point in time.
 
-The Blocks list contains the size and hash for each block in the file.
+The **Local Version** field is the value of a device local monotonic clock
+at the time of last local database update to a file. The clock ticks on
+every local database update.
+
+The **Blocks** list contains the size and hash for each block in the file.
 Each block represents a 128 KiB slice of the file, except for the last
 block which may represent a smaller amount of data.
 
-The Flags field (in IndexMessage) is reserved for future use and MUST
-currently be set to zero. The Options list is implementation defined and
-as described in the ClusterConfig message section.
+The hash algorithm is implied by the **Hash** length. Currently, the hash
+MUST be 32 bytes long and computed by SHA256.
 
 XDR
 ^^^
@@ -573,8 +669,8 @@ XDR
 ::
 
     struct IndexMessage {
-        string Folder<>;
-        FileInfo Files<>;
+        string Folder<256>;
+        FileInfo Files<1000000>;
         unsigned int Flags;
         Option Options<64>;
     }
@@ -585,7 +681,7 @@ XDR
         hyper Modified;
         Vector Version;
         hyper LocalVersion;
-        BlockInfo Blocks<>;
+        BlockInfo Blocks<1000000>;
     }
 
     struct Vector {
@@ -599,7 +695,7 @@ XDR
 
     struct BlockInfo {
         unsigned int Size;
-        opaque Hash<>;
+        opaque Hash<64>;
     }
 
 Request (Type = 2)
@@ -710,11 +806,11 @@ ResponseMessage Structure:
 Fields
 ^^^^^^
 
-The Data field contains either a full 128 KiB block, a shorter block in
+The **Data** field contains either a full 128 KiB block, a shorter block in
 the case of the last block in a file, or is empty (zero length) if the
 requested block is not available.
 
-The Code field contains an error code describing the reason a Request
+The **Code** field contains an error code describing the reason a Request
 could not be fulfilled, in the case where a zero length Data was
 returned. The following values are defined:
 
@@ -741,15 +837,11 @@ XDR
 Ping (Type = 4)
 ~~~~~~~~~~~~~~~
 
-The Ping message is used to determine that a connection is alive, and to
-keep connections alive through state tracking network elements such as
-firewalls and NAT gateways. The Ping message has no contents.
-
-Pong (Type = 5)
-~~~~~~~~~~~~~~~
-
-The Pong message is sent in response to a Ping. The Pong message has no
-contents, but copies the Message ID from the Ping.
+The Ping message is used to determine that a connection is alive, and to keep
+connections alive through state tracking network elements such as firewalls
+and NAT gateways. The Ping message has no contents. A Ping message is sent
+every 90 seconds, if no other message has been sent in the preceding 90
+seconds.
 
 Close (Type = 7)
 ~~~~~~~~~~~~~~~~
@@ -780,8 +872,8 @@ Graphical Representation
 Fields
 ^^^^^^
 
-The Reason field contains a human description of the error condition,
-suitable for consumption by a human. The Code field is for a machine
+The **Reason** field contains a human description of the error condition,
+suitable for consumption by a human. The **Code** field is for a machine
 readable error code. Codes are reserved for future use and MUST
 currently be set to zero.
 
@@ -895,17 +987,16 @@ Example Exchange
 15   Ping->
 ===  =======================  ======================
 
-The connection is established and at 1. both peers send
-ClusterConfiguration messages and then Index records. The Index records
-are received and both peers recompute their knowledge of the data in the
-cluster. In this example, peer A has four missing or outdated blocks. At
-2 through 5 peer A sends requests for these blocks. The requests are
-received by peer B, who retrieves the data from the folder and transmits
-Response records (6 through 9). Device A updates their folder contents
-and transmits an Index Update message (10). Both peers enter idle state
-after 10. At some later time 11, peer A determines that it has not seen
-data from B for some time and sends a Ping request. A response is sent
-at 12.
+The connection is established and at 1. both peers send ClusterConfiguration
+messages and then Index records. The Index records are received and both peers
+recompute their knowledge of the data in the cluster. In this example, peer A
+has four missing or outdated blocks. At 5 through 8 peer A sends requests for
+these blocks. The requests are received by peer B, who retrieves the data from
+the folder and transmits Response records (9 through 12). Device A updates
+their folder contents and transmits an Index Update message (13). Both peers
+enter idle state after 13. At some later time 14, the ping timer on device B
+expires and a Ping message is sent. The same process occurs for device A at
+15.
 
 Examples of Strong Cipher Suites
 --------------------------------

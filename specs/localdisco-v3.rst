@@ -1,3 +1,5 @@
+.. _localdisco-v3:
+
 Local Discovery Protocol v3
 ===========================
 
