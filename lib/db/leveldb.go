@@ -167,6 +167,10 @@ func globalKeyFolder(key []byte) []byte {
 	return folder[:izero]
 }
 
+func isLocalDevice(dev []byte) bool {
+	return bytes.Equal(dev, protocol.LocalDeviceID[:])
+}
+
 type deletionHandler func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) int64
 
 func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo, deleteFn deletionHandler) int64 {
@@ -297,7 +301,7 @@ func ldbReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) i
 	})
 }
 
-func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) int64 {
+func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo, size *sizeTracker) int64 {
 	runtime.GC()
 
 	batch := new(leveldb.Batch)
@@ -314,12 +318,17 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) in
 
 	var maxLocalVer int64
 	var fk []byte
+	localDev := isLocalDevice(device)
 	for _, f := range fs {
 		name := []byte(f.Name)
 		fk = deviceKeyInto(fk[:cap(fk)], folder, device, name)
 		l.Debugf("snap.Get %p %x", snap, fk)
 		bs, err := snap.Get(fk, nil)
 		if err == leveldb.ErrNotFound {
+			if localDev {
+				size.addFile(f)
+			}
+
 			if lv := ldbInsert(batch, folder, device, f); lv > maxLocalVer {
 				maxLocalVer = lv
 			}
@@ -339,6 +348,11 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) in
 		// Flags might change without the version being bumped when we set the
 		// invalid flag on an existing file.
 		if !ef.Version.Equal(f.Version) || ef.Flags != f.Flags {
+			if localDev {
+				size.removeFile(ef)
+				size.addFile(f)
+			}
+
 			if lv := ldbInsert(batch, folder, device, f); lv > maxLocalVer {
 				maxLocalVer = lv
 			}

@@ -406,16 +406,7 @@ func (m *Model) LocalSize(folder string) (nfiles, deleted int, bytes int64) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		rf.WithHaveTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-			if f.IsInvalid() {
-				return true
-			}
-			fs, de, by := sizeOfFile(f)
-			nfiles += fs
-			deleted += de
-			bytes += by
-			return true
-		})
+		nfiles, deleted, bytes = rf.Size()
 	}
 	return
 }

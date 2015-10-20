@@ -13,6 +13,8 @@
 package db
 
 import (
+	stdsync "sync"
+
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -25,6 +27,7 @@ type FileSet struct {
 	folder       string
 	db           *leveldb.DB
 	blockmap     *BlockMap
+	sizeTracker
 }
 
 // FileIntf is the set of methods implemented by both protocol.FileInfo and
@@ -43,6 +46,47 @@ type FileIntf interface {
 // continue iteration, false to stop.
 type Iterator func(f FileIntf) bool
 
+type sizeTracker struct {
+	files   int
+	deleted int
+	bytes   int64
+	mut     stdsync.Mutex
+}
+
+func (s *sizeTracker) addFile(f FileIntf) {
+	if f.IsInvalid() {
+		return
+	}
+	s.mut.Lock()
+	if f.IsDeleted() {
+		s.deleted++
+	} else {
+		s.files++
+	}
+	s.bytes += f.Size()
+	s.mut.Unlock()
+}
+
+func (s *sizeTracker) removeFile(f FileIntf) {
+	if f.IsInvalid() {
+		return
+	}
+	s.mut.Lock()
+	if f.IsDeleted() {
+		s.deleted--
+	} else {
+		s.files--
+	}
+	s.bytes -= f.Size()
+	s.mut.Unlock()
+}
+
+func (s *sizeTracker) Size() (files, deleted int, bytes int64) {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	return s.files, s.deleted, s.bytes
+}
+
 func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 	var s = FileSet{
 		localVersion: make(map[protocol.DeviceID]int64),
@@ -59,6 +103,9 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 		copy(deviceID[:], device)
 		if f.LocalVersion > s.localVersion[deviceID] {
 			s.localVersion[deviceID] = f.LocalVersion
+		}
+		if deviceID == protocol.LocalDeviceID {
+			s.addFile(f)
 		}
 		return true
 	})
@@ -102,7 +149,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		s.blockmap.Discard(discards)
 		s.blockmap.Update(updates)
 	}
-	if lv := ldbUpdate(s.db, []byte(s.folder), device[:], fs); lv > s.localVersion[device] {
+	if lv := ldbUpdate(s.db, []byte(s.folder), device[:], fs, &s.sizeTracker); lv > s.localVersion[device] {
 		s.localVersion[device] = lv
 	}
 }
