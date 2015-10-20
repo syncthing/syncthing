@@ -11,6 +11,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture"
 )
 
@@ -42,13 +43,15 @@ func NewBroadcast(port int) *Broadcast {
 	}
 
 	b.br = &broadcastReader{
-		port:   port,
-		outbox: b.outbox,
+		port:    port,
+		outbox:  b.outbox,
+		connMut: sync.NewMutex(),
 	}
 	b.Add(b.br)
 	b.bw = &broadcastWriter{
-		port:  port,
-		inbox: b.inbox,
+		port:    port,
+		inbox:   b.inbox,
+		connMut: sync.NewMutex(),
 	}
 	b.Add(b.bw)
 
@@ -72,9 +75,10 @@ func (b *Broadcast) Error() error {
 }
 
 type broadcastWriter struct {
-	port  int
-	inbox chan []byte
-	conn  *net.UDPConn
+	port    int
+	inbox   chan []byte
+	conn    *net.UDPConn
+	connMut sync.Mutex
 	errorHolder
 }
 
@@ -82,14 +86,17 @@ func (w *broadcastWriter) Serve() {
 	l.Debugln(w, "starting")
 	defer l.Debugln(w, "stopping")
 
-	var err error
-	w.conn, err = net.ListenUDP("udp4", nil)
+	conn, err := net.ListenUDP("udp4", nil)
 	if err != nil {
 		l.Debugln(err)
 		w.setError(err)
 		return
 	}
-	defer w.conn.Close()
+	defer conn.Close()
+
+	w.connMut.Lock()
+	w.conn = conn
+	w.connMut.Unlock()
 
 	for bs := range w.inbox {
 		addrs, err := net.InterfaceAddrs()
@@ -118,9 +125,9 @@ func (w *broadcastWriter) Serve() {
 		for _, ip := range dsts {
 			dst := &net.UDPAddr{IP: ip, Port: w.port}
 
-			w.conn.SetWriteDeadline(time.Now().Add(time.Second))
-			_, err := w.conn.WriteTo(bs, dst)
-			w.conn.SetWriteDeadline(time.Time{})
+			conn.SetWriteDeadline(time.Now().Add(time.Second))
+			_, err := conn.WriteTo(bs, dst)
+			conn.SetWriteDeadline(time.Time{})
 
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				// Write timeouts should not happen. We treat it as a fatal
@@ -154,7 +161,11 @@ func (w *broadcastWriter) Serve() {
 }
 
 func (w *broadcastWriter) Stop() {
-	w.conn.Close()
+	w.connMut.Lock()
+	if w.conn != nil {
+		w.conn.Close()
+	}
+	w.connMut.Unlock()
 }
 
 func (w *broadcastWriter) String() string {
@@ -162,9 +173,10 @@ func (w *broadcastWriter) String() string {
 }
 
 type broadcastReader struct {
-	port   int
-	outbox chan recv
-	conn   *net.UDPConn
+	port    int
+	outbox  chan recv
+	conn    *net.UDPConn
+	connMut sync.Mutex
 	errorHolder
 }
 
@@ -172,18 +184,21 @@ func (r *broadcastReader) Serve() {
 	l.Debugln(r, "starting")
 	defer l.Debugln(r, "stopping")
 
-	var err error
-	r.conn, err = net.ListenUDP("udp4", &net.UDPAddr{Port: r.port})
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{Port: r.port})
 	if err != nil {
 		l.Debugln(err)
 		r.setError(err)
 		return
 	}
-	defer r.conn.Close()
+	defer conn.Close()
+
+	r.connMut.Lock()
+	r.conn = conn
+	r.connMut.Unlock()
 
 	bs := make([]byte, 65536)
 	for {
-		n, addr, err := r.conn.ReadFrom(bs)
+		n, addr, err := conn.ReadFrom(bs)
 		if err != nil {
 			l.Debugln(err)
 			r.setError(err)
@@ -206,7 +221,11 @@ func (r *broadcastReader) Serve() {
 }
 
 func (r *broadcastReader) Stop() {
-	r.conn.Close()
+	r.connMut.Lock()
+	if r.conn != nil {
+		r.conn.Close()
+	}
+	r.connMut.Unlock()
 }
 
 func (r *broadcastReader) String() string {

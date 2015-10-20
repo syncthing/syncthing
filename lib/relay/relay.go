@@ -74,7 +74,8 @@ func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config) *Svc {
 	}
 
 	eventBc := &eventBroadcaster{
-		svc: svc,
+		svc:  svc,
+		stop: make(chan struct{}),
 	}
 
 	svc.Add(receiver)
