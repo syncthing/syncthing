@@ -195,7 +195,11 @@ func bench(pkg string) {
 }
 
 func install(pkg string, tags []string) {
-	os.Setenv("GOBIN", "./bin")
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	os.Setenv("GOBIN", filepath.Join(cwd, "bin"))
 	args := []string{"install", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
