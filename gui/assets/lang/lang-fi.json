@@ -40,6 +40,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "Laite {{device}} ({{address}}) haluaa yhdistää. Lisää uusi laite?",
     "Devices": "Laitteet",
     "Disconnected": "Yhteys katkaistu",
+    "Discovery": "Discovery",
     "Documentation": "Dokumentaatio",
     "Download Rate": "Latausmäärä",
     "Downloaded": "Ladattu",

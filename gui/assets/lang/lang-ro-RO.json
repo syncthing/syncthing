@@ -40,6 +40,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "Dispozitivul{{dispoztiv}}({{adresă}})vrea sa se conecteze.Adaug un dispozitiv nou?",
     "Devices": "Dispozitiv",
     "Disconnected": "Deconectat",
+    "Discovery": "Discovery",
     "Documentation": "Documentaţie",
     "Download Rate": "Viteză de Descărcare",
     "Downloaded": "Descărcat",

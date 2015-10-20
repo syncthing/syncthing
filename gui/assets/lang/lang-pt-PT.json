@@ -40,6 +40,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "O dispositivo {{device}} ({{address}}) quer conectar-se. Adiciono este novo dispositivo?",
     "Devices": "Dispositivos",
     "Disconnected": "Desconectado",
+    "Discovery": "Busca",
     "Documentation": "Documentação",
     "Download Rate": "Velocidade de recepção",
     "Downloaded": "Recebido",

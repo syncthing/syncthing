@@ -1,0 +1,1357 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "SYNCTHING-BEP" "7" "October 20, 2015" "v0.11" "Syncthing"
+.SH NAME
+syncthing-bep \- Block Exchange Protocol v1
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH INTRODUCTION AND DEFINITIONS
+.sp
+BEP is used between two or more \fIdevices\fP thus forming a \fIcluster\fP\&. Each
+device has one or more \fIfolders\fP of files described by the \fIlocal
+model\fP, containing metadata and block hashes. The local model is sent to
+the other devices in the cluster. The union of all files in the local
+models, with files selected for highest change version, forms the
+\fIglobal model\fP\&. Each device strives to get its folders in sync with the
+global model by requesting missing or outdated blocks from the other
+devices in the cluster.
+.sp
+File data is described and transferred in units of \fIblocks\fP, each being
+128 KiB (131072 bytes) in size.
+.sp
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+document are to be interpreted as described in RFC 2119.
+.SH TRANSPORT AND AUTHENTICATION
+.sp
+BEP is deployed as the highest level in a protocol stack, with the lower
+level protocols providing encryption and authentication.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
++\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-|
+|   Block Exchange Protocol   |
+|\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-|
+| Encryption & Auth (TLS 1.2) |
+|\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-|
+|             TCP             |
+|\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-|
+v             ...             v
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The encryption and authentication layer SHALL use TLS 1.2 or a higher
+revision. A strong cipher suite SHALL be used, with "strong cipher
+suite" being defined as being without known weaknesses and providing
+Perfect Forward Secrecy (PFS). Examples of strong cipher suites are
+given at the end of this document. This is not to be taken as an
+exhaustive list of allowed cipher suites but represents best practices
+at the time of writing.
+.sp
+The exact nature of the authentication is up to the application, however
+it SHALL be based on the TLS certificate presented at the start of the
+connection. Possibilities include certificates signed by a common
+trusted CA, preshared certificates, preshared certificate fingerprints
+or certificate pinning combined with some out of band first
+verification. The reference implementation uses preshared certificate
+fingerprints (SHA\-256) referred to as "Device IDs".
+.sp
+There is no required order or synchronization among BEP messages except
+as noted per message type \- any message type may be sent at any time and
+the sender need not await a response to one message before sending
+another. Responses MUST however be sent in the same order as the
+requests are received.
+.sp
+The underlying transport protocol MUST be TCP.
+.SH MESSAGES
+.sp
+Every message starts with one 32 bit word indicating the message
+version, type and ID, followed by the length of the message. The header
+is in network byte order, i.e. big endian.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|  Ver  |       Message ID      |      Type     |   Reserved  |C|
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                            Length                             |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+For BEP v1 the Version field is set to zero. Future versions with
+incompatible message formats will increment the Version field. A message
+with an unknown version is a protocol error and MUST result in the
+connection being terminated. A client supporting multiple versions MAY
+retry with a different protocol version upon disconnection.
+.sp
+The Message ID is set to a unique value for each transmitted request
+message. In response messages it is set to the Message ID of the
+corresponding request message. The uniqueness requirement implies that
+no more than 4096 messages may be outstanding at any given moment. The
+ordering requirement implies that a response to a given message ID also
+means that all preceding messages have been received, specifically those
+which do not otherwise demand a response. Hence their message ID:s may
+be reused.
+.sp
+The Type field indicates the type of data following the message header
+and is one of the integers defined below. A message of an unknown type
+is a protocol error and MUST result in the connection being terminated.
+.sp
+The Compression bit "C" indicates the compression used for the message.
+.sp
+For C=1:
+.INDENT 0.0
+.IP \(bu 2
+The Length field contains the length, in bytes, of the compressed
+message data plus a four byte uncompressed length field.
+.IP \(bu 2
+The compressed message data is preceeded by a 32 bit field denoting
+the length of the uncompressed message.
+.IP \(bu 2
+The message data is compressed using the LZ4 format and algorithm
+described in \fI\%http://www.lz4.org/\fP\&.
+.UNINDENT
+.sp
+For C=0:
+.INDENT 0.0
+.IP \(bu 2
+The Length field contains the length, in bytes, of the uncompressed
+message data.
+.IP \(bu 2
+The message is not compressed.
+.UNINDENT
+.sp
+All data within the message (post decompression, if compression is in
+use) MUST be in XDR (RFC 1014) encoding. All fields shorter than 32 bits
+and all variable length data MUST be padded to a multiple of 32 bits.
+The actual data types in use by BEP, in XDR naming convention, are the
+following:
+.INDENT 0.0
+.TP
+.B (unsigned) int
+(unsigned) 32 bit integer
+.TP
+.B (unsigned) hyper
+(unsigned) 64 bit integer
+.TP
+.B opaque<>
+variable length opaque data
+.TP
+.B string<>
+variable length string
+.UNINDENT
+.sp
+The transmitted length of string and opaque data is the length of actual
+data, excluding any added padding. The encoding of opaque<> and string<>
+are identical, the distinction being solely one of interpretation.
+Opaque data should not be interpreted but can be compared bytewise to
+other opaque data. All strings MUST use the Unicode UTF\-8 encoding,
+normalization form C.
+.SS Cluster Config (Type = 0)
+.sp
+This informational message provides information about the cluster
+configuration as it pertains to the current connection. A Cluster Config
+message MUST be the first message sent on a BEP connection. Additional
+Cluster Config messages MUST NOT be sent after the initial exchange.
+.SS Graphical Representation
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ClusterConfigMessage Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                     Length of ClientName                      |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                 ClientName (variable length)                  \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                    Length of ClientVersion                    |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                ClientVersion (variable length)                \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Number of Folders                       |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                Zero or more Folder Structures                 \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Number of Options                       |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                Zero or more Option Structures                 \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+Folder Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                         Length of ID                          |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                     ID (variable length)                      \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Number of Devices                       |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                Zero or more Device Structures                 \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                             Flags                             |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Number of Options                       |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                Zero or more Option Structures                 \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+Device Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                         Length of ID                          |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                     ID (variable length)                      \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                                                               |
++                  Max Local Version (64 bits)                  +
+|                                                               |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                             Flags                             |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Number of Options                       |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                Zero or more Option Structures                 \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+Option Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                         Length of Key                         |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                     Key (variable length)                     \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                        Length of Value                        |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                    Value (variable length)                    \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Fields
+.sp
+The ClientName and ClientVersion fields identify the implementation. The
+values SHOULD be simple strings identifying the implementation name, as
+a user would expect to see it, and the version string in the same
+manner. An example ClientName is "syncthing" and an example
+ClientVersion is "v0.7.2". The ClientVersion field SHOULD follow the
+patterns laid out in the \fI\%Semantic Versioning\fP <\fBhttp://semver.org/\fP>
+standard.
+.sp
+The Folders field lists all folders that will be synchronized over the
+current connection. Each folder has a list of participating Devices,
+Flags and Options. Currently no flags are defined so the field MUST be
+set to all zeroes. The Options field is implementation specific and
+described below.
+.sp
+The Device ID is a 32 byte number that uniquely identifies the device.
+For instance, the reference implementation uses the SHA\-256 of the
+device X.509 certificate.
+.sp
+Each device has an associated Flags field to indicate the sharing mode
+of that device for the folder in question. See the discussion on Sharing
+Modes. The Device Flags field contains the following single bit flags:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|          Reserved         |Pri|          Reserved       |I|R|T|
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B Bit 31 ("T", Trusted)
+is set for devices that participate in trusted
+mode.
+.TP
+.B Bit 30 ("R", Read Only)
+is set for devices that participate in read
+only mode.
+.TP
+.B Bit 29 ("I", Introducer)
+is set for devices that are trusted as
+cluster introducers.
+.TP
+.B Bits 16 through 28
+are reserved and MUST be set to zero.
+.TP
+.B Bits 14\-15 ("Pri)
+indicate the device\(aqs upload priority for this
+folder. Possible values are:
+.INDENT 7.0
+.TP
+.B 00
+The default. Normal priority.
+.TP
+.B 01
+High priority. Other devices SHOULD favour requesting files
+from this device over devices with normal or low priority.
+.TP
+.B 10
+Low priority. Other devices SHOULD avoid requesting files from
+this device when they are available from other devices.
+.TP
+.B 11
+Sharing disabled. Other devices SHOULD NOT request files from
+this device.
+.UNINDENT
+.TP
+.B Bits 0 through 14
+are reserved and MUST be set to zero.
+.UNINDENT
+.sp
+Exactly one of the T and R bits MUST be set.
+.sp
+The per device Max Local Version field contains the highest local file
+version number of the files already known to be in the index sent by
+this device. If nothing is known about the index of a given device, this
+field MUST be set to zero. When receiving a Cluster Config message with
+a non\-zero Max Local Version for the local device ID, a device MAY elect
+to send an Index Update message containing only files with higher local
+version numbers in place of the initial Index message.
+.sp
+The Options field contain option values to be used in an implementation
+specific manner. The options list is conceptually a map of Key => Value
+items, although it is transmitted in the form of a list of (Key, Value)
+pairs, both of string type. Key ID:s are implementation specific. An
+implementation MUST ignore unknown keys. An implementation MAY impose
+limits on the length keys and values. The options list may be used to
+inform devices of relevant local configuration options such as rate
+limiting or make recommendations about request parallelism, device
+priorities, etc. An empty options list is valid for devices not having
+any such information to share. Devices MAY NOT make any assumptions
+about peers acting in a specific manner as a result of sent options.
+.SS XDR
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+struct ClusterConfigMessage {
+    string ClientName<>;
+    string ClientVersion<>;
+    Folder Folders<>;
+    Option Options<>;
+}
+
+struct Folder {
+    string ID<64>;
+    Device Devices<>;
+    unsigned int Flags;
+    Option Options<64>;
+}
+
+struct Device {
+    opaque ID<32>;
+    hyper MaxLocalVersion;
+    unsigned int Flags;
+    Option Options<64>;
+}
+
+struct Option {
+    string Key<>;
+    string Value<>;
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Index (Type = 1) and Index Update (Type = 6)
+.sp
+The Index and Index Update messages define the contents of the senders
+folder. An Index message represents the full contents of the folder and
+thus supersedes any previous index. An Index Update amends an existing
+index with new information, not affecting any entries not included in
+the message. An Index Update MAY NOT be sent unless preceded by an
+Index, unless a non\-zero Max Local Version has been announced for the
+given folder by the peer device.
+.SS Graphical Representation
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+IndexMessage Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Length of Folder                        |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                   Folder (variable length)                    \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                        Number of Files                        |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e               Zero or more FileInfo Structures                \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                             Flags                             |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Number of Options                       |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                Zero or more Option Structures                 \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+FileInfo Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                        Length of Name                         |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                    Name (variable length)                     \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                             Flags                             |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                                                               |
++                      Modified (64 bits)                       +
+|                                                               |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                       Vector Structure                        \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                                                               |
++                    Local Version (64 bits)                    +
+|                                                               |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Number of Blocks                        |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e               Zero or more BlockInfo Structures               \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+Vector Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                      Number of Counters                       |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                Zero or more Counter Structures                \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+Counter Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                                                               |
++                          ID (64 bits)                         +
+|                                                               |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                                                               |
++                        Value (64 bits)                        +
+|                                                               |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+BlockInfo Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                             Size                              |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                        Length of Hash                         |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                    Hash (variable length)                     \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Fields
+.sp
+The Folder field identifies the folder that the index message pertains
+to. For single folder implementations the device MUST use the string
+"default".
+.sp
+The Name is the file name path relative to the folder root. Like all
+strings in BEP, the Name is always in UTF\-8 NFC regardless of operating
+system or file system specific conventions. The Name field uses the
+slash character ("/") as path separator, regardless of the
+implementation\(aqs operating system conventions. The combination of Folder
+and Name uniquely identifies each file in a cluster.
+.sp
+The Version field is a version vector describing the updates performed
+to file by all members in the cluster. Each counter in the version
+vector is an ID\-Value tuple. The ID is used the first 64 bits of the
+device ID. The Value is a simple incrementing counter, starting at zero.
+The combination of Folder, Name and Version uniquely identifies the
+contents of a file at a given point in time.
+.sp
+The Local Version field is the value of a device local monotonic clock
+at the time of last local database update to a file. The clock ticks on
+every local database update.
+.sp
+The Flags field (per FileInfo) is made up of the following single bit
+flags:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|              Reserved       |U|S|P|I|D|   Unix Perm. & Mode   |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B The lower 12 bits
+hold the common Unix permission and mode bits. An
+implementation MAY ignore or interpret these as is suitable on the
+host operating system.
+.TP
+.B Bit 19 ("D")
+is set when the file has been deleted. The block list
+SHALL be of length zero and the modification time indicates the time
+of deletion or, if the time of deletion is not reliably determinable,
+the last known modification time.
+.TP
+.B Bit 18 ("I")
+is set when the file is invalid and unavailable for
+synchronization. A peer MAY set this bit to indicate that it can
+temporarily not serve data for the file.
+.TP
+.B Bit 17 ("P")
+is set when there is no permission information for the
+file. This is the case when it originates on a non\-permission\-
+supporting file system. Changes to only permission bits SHOULD be
+disregarded on files with this bit set. The permissions bits MUST be
+set to the octal value 0666.
+.TP
+.B Bit 16 ("S")
+is set when the file is a symbolic link. The block list
+SHALL be of one or more blocks since the target of the symlink is
+stored within the blocks of the file.
+.TP
+.B Bit 15 ("U")
+is set when the symbolic links target does not exist. On
+systems where symbolic links have types, this bit being means that
+the default file symlink SHALL be used. If this bit is unset bit 19
+will decide the type of symlink to be created.
+.TP
+.B Bit 0 through 14
+are reserved for future use and SHALL be set to
+zero.
+.UNINDENT
+.sp
+The hash algorithm is implied by the Hash length. Currently, the hash
+MUST be 32 bytes long and computed by SHA256.
+.sp
+The Modified time is expressed as the number of seconds since the Unix
+Epoch (1970\-01\-01 00:00:00 UTC).
+.sp
+In the rare occasion that a file is simultaneously and independently
+modified by two devices in the same cluster and thus end up on the same
+Version number after modification, the Modified field is used as a tie
+breaker (higher being better), followed by the hash values of the file
+blocks (lower being better).
+.sp
+The Blocks list contains the size and hash for each block in the file.
+Each block represents a 128 KiB slice of the file, except for the last
+block which may represent a smaller amount of data.
+.sp
+The Flags field (in IndexMessage) is reserved for future use and MUST
+currently be set to zero. The Options list is implementation defined and
+as described in the ClusterConfig message section.
+.SS XDR
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+struct IndexMessage {
+    string Folder<>;
+    FileInfo Files<>;
+    unsigned int Flags;
+    Option Options<64>;
+}
+
+struct FileInfo {
+    string Name<8192>;
+    unsigned int Flags;
+    hyper Modified;
+    Vector Version;
+    hyper LocalVersion;
+    BlockInfo Blocks<>;
+}
+
+struct Vector {
+    Counter Counters<>
+}
+
+struct Counter {
+    unsigned hyper ID
+    unsigned hyper Value
+}
+
+struct BlockInfo {
+    unsigned int Size;
+    opaque Hash<>;
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Request (Type = 2)
+.sp
+The Request message expresses the desire to receive a data block
+corresponding to a part of a certain file in the peer\(aqs folder.
+.SS Graphical Representation
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+RequestMessage Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Length of Folder                        |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                   Folder (variable length)                    \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                        Length of Name                         |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                    Name (variable length)                     \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                                                               |
++                       Offset (64 bits)                        +
+|                                                               |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                             Size                              |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                        Length of Hash                         |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                    Hash (variable length)                     \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                             Flags                             |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Number of Options                       |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                Zero or more Option Structures                 \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Fields
+.sp
+The Folder and Name fields are as documented for the Index message. The
+Offset and Size fields specify the region of the file to be transferred.
+This SHOULD equate to exactly one block as seen in an Index message.
+.sp
+The Hash field MAY be set to the expected hash value of the block, or
+may be left empty (zero length). If set, the other device SHOULD ensure
+that the transmitted block matches the requested hash. The other device
+MAY reuse a block from a different file and offset having the same size
+and hash, if one exists.
+.sp
+The Flags field is reserved for future use and MUST currently be set to
+zero. The Options list is implementation defined and as described in the
+ClusterConfig message section.
+.SS XDR
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+struct RequestMessage {
+    string Folder<64>;
+    string Name<8192>;
+    hyper Offset;
+    int Size;
+    opaque Hash<64>;
+    unsigned int Flags;
+    Option Options<64>;
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Response (Type = 3)
+.sp
+The Response message is sent in response to a Request message.
+.SS Graphical Representation
+.sp
+ResponseMessage Structure:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                        Length of Data                         |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                    Data (variable length)                     \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                             Code                              |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Fields
+.sp
+The Data field contains either a full 128 KiB block, a shorter block in
+the case of the last block in a file, or is empty (zero length) if the
+requested block is not available.
+.sp
+The Code field contains an error code describing the reason a Request
+could not be fulfilled, in the case where a zero length Data was
+returned. The following values are defined:
+.INDENT 0.0
+.TP
+.B 0
+No Error (Data should be present)
+.TP
+.B 1
+Generic Error
+.TP
+.B 2
+No Such File (the requested file does not exist, or the offset is
+outside the acceptable range for the file)
+.TP
+.B 3
+Invalid (file exists but has invalid bit set or is otherwise
+unavailable)
+.UNINDENT
+.SS XDR
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+struct ResponseMessage {
+    opaque Data<>;
+    int Code;
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Ping (Type = 4)
+.sp
+The Ping message is used to determine that a connection is alive, and to
+keep connections alive through state tracking network elements such as
+firewalls and NAT gateways. The Ping message has no contents.
+.SS Pong (Type = 5)
+.sp
+The Pong message is sent in response to a Ping. The Pong message has no
+contents, but copies the Message ID from the Ping.
+.SS Close (Type = 7)
+.sp
+The Close message MAY be sent to indicate that the connection will be
+torn down due to an error condition. A Close message MUST NOT be
+followed by further messages.
+.SS Graphical Representation
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+CloseMessage Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Length of Reason                        |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                   Reason (variable length)                    \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                             Code                              |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Fields
+.sp
+The Reason field contains a human description of the error condition,
+suitable for consumption by a human. The Code field is for a machine
+readable error code. Codes are reserved for future use and MUST
+currently be set to zero.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+struct CloseMessage {
+    string Reason<1024>;
+    int Code;
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH SHARING MODES
+.SS Trusted
+.sp
+Trusted mode is the default sharing mode. Updates are exchanged in both
+directions.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
++\-\-\-\-\-\-\-\-\-\-\-\-+     Updates      /\-\-\-\-\-\-\-\-\-\e
+|            |  \-\-\-\-\-\-\-\-\-\-\->   /           \e
+|   Device   |                 |  Cluster  |
+|            |  <\-\-\-\-\-\-\-\-\-\-\-   \e           /
++\-\-\-\-\-\-\-\-\-\-\-\-+     Updates      \e\-\-\-\-\-\-\-\-\-/
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Read Only
+.sp
+In read only mode, a device does not synchronize the local folder to the
+cluster, but publishes changes to its local folder contents as usual.
+The local folder can be seen as a "master copy" that is never affected
+by the actions of other cluster devices.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
++\-\-\-\-\-\-\-\-\-\-\-\-+     Updates      /\-\-\-\-\-\-\-\-\-\e
+|            |  \-\-\-\-\-\-\-\-\-\-\->   /           \e
+|   Device   |                 |  Cluster  |
+|            |                 \e           /
++\-\-\-\-\-\-\-\-\-\-\-\-+                  \e\-\-\-\-\-\-\-\-\-/
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH MESSAGE LIMITS
+.sp
+An implementation MAY impose reasonable limits on the length of messages
+and message fields to aid robustness in the face of corruption or broken
+implementations. These limits, if imposed, SHOULD NOT be more
+restrictive than the following. An implementation should strive to keep
+messages short and to the point, favouring more and smaller messages
+over fewer and larger. For example, favour a smaller Index message
+followed by one or more Index Update messages rather than sending a very
+large Index message.
+.TS
+center;
+|l|l|l|.
+_
+T{
+Message Type
+T}	T{
+Field
+T}	T{
+Limit
+T}
+_
+T{
+\fBAll Messages\fP
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Total length
+T}	T{
+64 MiB
+T}
+_
+T{
+\fBIndex and Index Update Messages\fP
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Folder
+T}	T{
+64 bytes
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Number of Files
+T}	T{
+1.000.000
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Name
+T}	T{
+8192 bytes
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Number of Blocks
+T}	T{
+1.000.000
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Hash
+T}	T{
+64 bytes
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Number of Counters
+T}	T{
+1.000.000
+T}
+_
+T{
+\fBRequest Messages\fP
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Folder
+T}	T{
+64 bytes
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Name
+T}	T{
+8192 bytes
+T}
+_
+T{
+\fBResponse Messages\fP
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Data
+T}	T{
+256 KiB
+T}
+_
+T{
+\fBCluster Config Message\fP
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Number of Folders
+T}	T{
+1.000.000
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Number of Devices
+T}	T{
+1.000.000
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Number of Options
+T}	T{
+64
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Key
+T}	T{
+64 bytes
+T}
+_
+T{
+.nf
+
+.fi
+T}	T{
+Value
+T}	T{
+1024 bytes
+T}
+_
+.TE
+.SH EXAMPLE EXCHANGE
+.TS
+center;
+|l|l|l|.
+_
+T{
+#
+T}	T{
+A
+T}	T{
+B
+T}
+_
+T{
+1
+T}	T{
+ClusterConfiguration\->
+T}	T{
+<\-ClusterConfiguration
+T}
+_
+T{
+2
+T}	T{
+Index\->
+T}	T{
+<\-Index
+T}
+_
+T{
+3
+T}	T{
+IndexUpdate\->
+T}	T{
+<\-IndexUpdate
+T}
+_
+T{
+4
+T}	T{
+IndexUpdate\->
+T}	T{
+T}
+_
+T{
+5
+T}	T{
+Request\->
+T}	T{
+T}
+_
+T{
+6
+T}	T{
+Request\->
+T}	T{
+T}
+_
+T{
+7
+T}	T{
+Request\->
+T}	T{
+T}
+_
+T{
+8
+T}	T{
+Request\->
+T}	T{
+T}
+_
+T{
+9
+T}	T{
+T}	T{
+<\-Response
+T}
+_
+T{
+10
+T}	T{
+T}	T{
+<\-Response
+T}
+_
+T{
+11
+T}	T{
+T}	T{
+<\-Response
+T}
+_
+T{
+12
+T}	T{
+T}	T{
+<\-Response
+T}
+_
+T{
+13
+T}	T{
+Index Update\->
+T}	T{
+T}
+_
+T{
+\&...
+T}	T{
+T}	T{
+T}
+_
+T{
+14
+T}	T{
+T}	T{
+<\-Ping
+T}
+_
+T{
+15
+T}	T{
+Ping\->
+T}	T{
+T}
+_
+.TE
+.sp
+The connection is established and at 1. both peers send
+ClusterConfiguration messages and then Index records. The Index records
+are received and both peers recompute their knowledge of the data in the
+cluster. In this example, peer A has four missing or outdated blocks. At
+2 through 5 peer A sends requests for these blocks. The requests are
+received by peer B, who retrieves the data from the folder and transmits
+Response records (6 through 9). Device A updates their folder contents
+and transmits an Index Update message (10). Both peers enter idle state
+after 10. At some later time 11, peer A determines that it has not seen
+data from B for some time and sends a Ping request. A response is sent
+at 12.
+.SH EXAMPLES OF STRONG CIPHER SUITES
+.TS
+center;
+|l|l|l|.
+_
+T{
+ID
+T}	T{
+Name
+T}	T{
+Description
+T}
+_
+T{
+0x009F
+T}	T{
+DHE\-RSA\-AES256\-GCM\-SHA384
+T}	T{
+TLSv1.2 DH RSA AESGCM(256) AEAD
+T}
+_
+T{
+0x006B
+T}	T{
+DHE\-RSA\-AES256\-SHA256
+T}	T{
+TLSv1.2 DH RSA AES(256) SHA256
+T}
+_
+T{
+0xC030
+T}	T{
+ECDHE\-RSA\-AES256\-GCM\-SHA384
+T}	T{
+TLSv1.2 ECDH RSA AESGCM(256) AEAD
+T}
+_
+T{
+0xC028
+T}	T{
+ECDHE\-RSA\-AES256\-SHA384
+T}	T{
+TLSv1.2 ECDH RSA AES(256) SHA384
+T}
+_
+T{
+0x009E
+T}	T{
+DHE\-RSA\-AES128\-GCM\-SHA256
+T}	T{
+TLSv1.2 DH RSA AESGCM(128) AEAD
+T}
+_
+T{
+0x0067
+T}	T{
+DHE\-RSA\-AES128\-SHA256
+T}	T{
+TLSv1.2 DH RSA AES(128) SHA256
+T}
+_
+T{
+0xC02F
+T}	T{
+ECDHE\-RSA\-AES128\-GCM\-SHA256
+T}	T{
+TLSv1.2 ECDH RSA AESGCM(128) AEAD
+T}
+_
+T{
+0xC027
+T}	T{
+ECDHE\-RSA\-AES128\-SHA256
+T}	T{
+TLSv1.2 ECDH RSA AES(128) SHA256
+T}
+_
+.TE
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2015, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.

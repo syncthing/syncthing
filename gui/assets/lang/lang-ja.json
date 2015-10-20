@@ -40,6 +40,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "デバイス {{device}} ({{address}}) が接続を求めています。新しいデバイスとして追加しますか?",
     "Devices": "デバイス",
     "Disconnected": "切断中",
+    "Discovery": "Discovery",
     "Documentation": "マニュアル",
     "Download Rate": "ダウンロード速度",
     "Downloaded": "ダウンロード済",

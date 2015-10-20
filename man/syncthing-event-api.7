@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "September 23, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "October 20, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -306,9 +306,9 @@ Where block size is 128KB.
 .sp
 Files/folders appearing in the event data imply that the download has
 been started for that file/folder, where disappearing implies that the
-downloads has been finished or failed for that file/folder. There is
+downloads have been finished or failed for that file/folder. There is
 always a last event emitted with no data, which implies all downloads
-being finished/failed.
+have finished/failed.
 .SS FolderCompletion
 .sp
 The \fBFolderCompletion\fP event is emitted when the local or remote

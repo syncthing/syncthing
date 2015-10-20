@@ -40,6 +40,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "Устройство {{device}} ({{address}}) хочет подключиться. Добавить новое устройство?",
     "Devices": "Устройства",
     "Disconnected": "Нет соединения",
+    "Discovery": "Обнаружение",
     "Documentation": "Документация",
     "Download Rate": "Скорость загрузки",
     "Downloaded": "Загружено",

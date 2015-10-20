@@ -40,6 +40,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "Η συσκευή {{device}} ({{address}}) επιθυμεί να συνδεθεί. Προσθήκη της νέας συσκευής1",
     "Devices": "Συσκευές",
     "Disconnected": "Αποσυνδεδεμένος",
+    "Discovery": "Discovery",
     "Documentation": "Τεκμηρίωση",
     "Download Rate": "Ταχύτητα λήψης",
     "Downloaded": "Έχει ληφθεί",

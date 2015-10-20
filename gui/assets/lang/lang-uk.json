@@ -40,6 +40,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "Пристрій {{device}} ({{address}}) намагається під’єднатися. Додати новий пристрій?",
     "Devices": "Пристрої",
     "Disconnected": "З’єднання відсутнє",
+    "Discovery": "Discovery",
     "Documentation": "Документація",
     "Download Rate": "Швидкість завантаження",
     "Downloaded": "Завантажено",
@@ -212,7 +213,7 @@
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Коли додаєте нову директорію, пам’ятайте, що ID цієї директорії використовується для того, щоб зв’язувати директорії разом між вузлами. Назви є чутливими до регістра та повинні співпадати точно між усіма вузлами.",
     "Yes": "Так",
     "You must keep at least one version.": "Ви повинні зберігати щонайменше одну версію.",
-    "days": "days",
+    "days": "днів",
     "full documentation": "повна документація",
     "items": "елементи",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хоче поділитися директорією \"{{folder}}\"."

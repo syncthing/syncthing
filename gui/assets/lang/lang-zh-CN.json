@@ -40,6 +40,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "设备：{{device}} 地址：({{address}}) 请求连接。是否添加新设备？",
     "Devices": "设备",
     "Disconnected": "连接已断开",
+    "Discovery": "Discovery",
     "Documentation": "文档",
     "Download Rate": "下载速度",
     "Downloaded": "已下载",

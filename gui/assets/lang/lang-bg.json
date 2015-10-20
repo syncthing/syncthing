@@ -40,6 +40,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "Устройство {{device}} ({{address}}) желае да се свърже. Добави ново устройство?",
     "Devices": "Устройства",
     "Disconnected": "Прекрати Връзката",
+    "Discovery": "Откриване",
     "Documentation": "Документация",
     "Download Rate": "Скорост на Теглене",
     "Downloaded": "Изтеглен",

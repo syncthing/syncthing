@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "September 23, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "October 20, 2015" "v0.11" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -75,7 +75,7 @@ site request forgery).
 .UNINDENT
 .SH CONFIG FILE FORMAT
 .sp
-The following is shows the default configuration file:
+The following shows the default configuration file:
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -166,7 +166,7 @@ element:
 The folder ID, must be unique. (mandatory)
 .TP
 .B path
-The oath to the directory where the folder is stored on this
+The path to the directory where the folder is stored on this
 device; not sent to other devices. (mandatory)
 .TP
 .B ro
@@ -417,7 +417,7 @@ are \fBudp4://\fP (UDP over IPv4), \fBudp6://\fP (UDP over IPv6) and
 .TP
 .B globalAnnounceEnabled
 Whether to announce this device to the global announce (discovery) server,
-and also use it to look up other device.
+and also use it to look up other devices.
 .TP
 .B localAnnounceEnabled
 Whether to send announcements to the local LAN, also use such

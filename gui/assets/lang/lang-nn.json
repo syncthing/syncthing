@@ -40,6 +40,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "Eininga {{device}} ({{address}}) vil kopla seg til. Vil du leggja ho til?",
     "Devices": "Einingar",
     "Disconnected": "Fråkopla",
+    "Discovery": "Discovery",
     "Documentation": "Dokumentasjon",
     "Download Rate": "Nedlastingsfart",
     "Downloaded": "Lasta ned",
