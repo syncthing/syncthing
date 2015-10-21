@@ -12,7 +12,6 @@ package db
 import (
 	"bytes"
 	"fmt"
-	"runtime"
 	"sort"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -170,8 +169,6 @@ func globalKeyFolder(key []byte) []byte {
 type deletionHandler func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) int64
 
 func ldbGenericReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker, deleteFn deletionHandler) int64 {
-	runtime.GC()
-
 	sort.Sort(fileList(fs)) // sort list on name, same as in the database
 
 	start := deviceKey(folder, device, nil)                            // before all folder/device files
@@ -306,8 +303,6 @@ func ldbReplace(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo, l
 }
 
 func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) int64 {
-	runtime.GC()
-
 	batch := new(leveldb.Batch)
 	l.Debugf("new batch %p", batch)
 	snap, err := db.GetSnapshot()
@@ -601,8 +596,6 @@ func ldbWithHave(db *leveldb.DB, folder, device []byte, truncate bool, fn Iterat
 }
 
 func ldbWithAllFolderTruncated(db *leveldb.DB, folder []byte, fn func(device []byte, f FileInfoTruncated) bool) {
-	runtime.GC()
-
 	start := deviceKey(folder, nil, nil)                                                  // before all folder/device files
 	limit := deviceKey(folder, protocol.LocalDeviceID[:], []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
 	snap, err := db.GetSnapshot()
@@ -706,8 +699,6 @@ func ldbGetGlobal(db *leveldb.DB, folder, file []byte, truncate bool) (FileIntf,
 }
 
 func ldbWithGlobal(db *leveldb.DB, folder, prefix []byte, truncate bool, fn Iterator) {
-	runtime.GC()
-
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
@@ -787,8 +778,6 @@ func ldbAvailability(db *leveldb.DB, folder, file []byte) []protocol.DeviceID {
 }
 
 func ldbWithNeed(db *leveldb.DB, folder, device []byte, truncate bool, fn Iterator) {
-	runtime.GC()
-
 	start := globalKey(folder, nil)
 	limit := globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
 	snap, err := db.GetSnapshot()
@@ -887,8 +876,6 @@ nextFile:
 }
 
 func ldbListFolders(db *leveldb.DB) []string {
-	runtime.GC()
-
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
@@ -920,8 +907,6 @@ func ldbListFolders(db *leveldb.DB) []string {
 }
 
 func ldbDropFolder(db *leveldb.DB, folder []byte) {
-	runtime.GC()
-
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
@@ -966,8 +951,6 @@ func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
 }
 
 func ldbCheckGlobals(db *leveldb.DB, folder []byte, globalSize *sizeTracker) {
-	defer runtime.GC()
-
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
