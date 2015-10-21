@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,9 +20,18 @@ import (
 )
 
 var (
-	c0ID = NewDeviceID([]byte{1})
-	c1ID = NewDeviceID([]byte{2})
+	c0ID     = NewDeviceID([]byte{1})
+	c1ID     = NewDeviceID([]byte{2})
+	quickCfg = &quick.Config{}
 )
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if testing.Short() {
+		quickCfg.MaxCount = 10
+	}
+	os.Exit(m.Run())
+}
 
 func TestHeaderFunctions(t *testing.T) {
 	f := func(ver, id, typ int) bool {
@@ -181,11 +191,6 @@ func TestElementSizeExceededNested(t *testing.T) {
 }
 
 func TestMarshalIndexMessage(t *testing.T) {
-	var quickCfg = &quick.Config{MaxCountScale: 10}
-	if testing.Short() {
-		quickCfg = nil
-	}
-
 	f := func(m1 IndexMessage) bool {
 		for i, f := range m1.Files {
 			m1.Files[i].CachedSize = 0
@@ -206,11 +211,6 @@ func TestMarshalIndexMessage(t *testing.T) {
 }
 
 func TestMarshalRequestMessage(t *testing.T) {
-	var quickCfg = &quick.Config{MaxCountScale: 10}
-	if testing.Short() {
-		quickCfg = nil
-	}
-
 	f := func(m1 RequestMessage) bool {
 		return testMarshal(t, "request", &m1, &RequestMessage{})
 	}
@@ -221,11 +221,6 @@ func TestMarshalRequestMessage(t *testing.T) {
 }
 
 func TestMarshalResponseMessage(t *testing.T) {
-	var quickCfg = &quick.Config{MaxCountScale: 10}
-	if testing.Short() {
-		quickCfg = nil
-	}
-
 	f := func(m1 ResponseMessage) bool {
 		if len(m1.Data) == 0 {
 			m1.Data = nil
@@ -239,11 +234,6 @@ func TestMarshalResponseMessage(t *testing.T) {
 }
 
 func TestMarshalClusterConfigMessage(t *testing.T) {
-	var quickCfg = &quick.Config{MaxCountScale: 10}
-	if testing.Short() {
-		quickCfg = nil
-	}
-
 	f := func(m1 ClusterConfigMessage) bool {
 		return testMarshal(t, "clusterconfig", &m1, &ClusterConfigMessage{})
 	}
@@ -254,11 +244,6 @@ func TestMarshalClusterConfigMessage(t *testing.T) {
 }
 
 func TestMarshalCloseMessage(t *testing.T) {
-	var quickCfg = &quick.Config{MaxCountScale: 10}
-	if testing.Short() {
-		quickCfg = nil
-	}
-
 	f := func(m1 CloseMessage) bool {
 		return testMarshal(t, "close", &m1, &CloseMessage{})
 	}
