@@ -173,11 +173,57 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", g, expectedGlobal)
 	}
 
+	globalFiles, globalDeleted, globalBytes := 0, 0, int64(0)
+	for _, f := range g {
+		if f.IsInvalid() {
+			continue
+		}
+		if f.IsDeleted() {
+			globalDeleted++
+		} else {
+			globalFiles++
+		}
+		globalBytes += f.Size()
+	}
+	gsFiles, gsDeleted, gsBytes := m.GlobalSize()
+	if gsFiles != globalFiles {
+		t.Errorf("Incorrect GlobalSize files; %d != %d", gsFiles, globalFiles)
+	}
+	if gsDeleted != globalDeleted {
+		t.Errorf("Incorrect GlobalSize deleted; %d != %d", gsDeleted, globalDeleted)
+	}
+	if gsBytes != globalBytes {
+		t.Errorf("Incorrect GlobalSize bytes; %d != %d", gsBytes, globalBytes)
+	}
+
 	h := fileList(haveList(m, protocol.LocalDeviceID))
 	sort.Sort(h)
 
 	if fmt.Sprint(h) != fmt.Sprint(localTot) {
 		t.Errorf("Have incorrect;\n A: %v !=\n E: %v", h, localTot)
+	}
+
+	haveFiles, haveDeleted, haveBytes := 0, 0, int64(0)
+	for _, f := range h {
+		if f.IsInvalid() {
+			continue
+		}
+		if f.IsDeleted() {
+			haveDeleted++
+		} else {
+			haveFiles++
+		}
+		haveBytes += f.Size()
+	}
+	lsFiles, lsDeleted, lsBytes := m.LocalSize()
+	if lsFiles != haveFiles {
+		t.Errorf("Incorrect LocalSize files; %d != %d", lsFiles, haveFiles)
+	}
+	if lsDeleted != haveDeleted {
+		t.Errorf("Incorrect LocalSize deleted; %d != %d", lsDeleted, haveDeleted)
+	}
+	if lsBytes != haveBytes {
+		t.Errorf("Incorrect LocalSize bytes; %d != %d", lsBytes, haveBytes)
 	}
 
 	h = fileList(haveList(m, remoteDevice0))

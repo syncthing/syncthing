@@ -427,18 +427,19 @@ func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device []byte, file pr
 			panic(err)
 		}
 
-		if len(fl.versions) > 0 {
-			// Keep the current neweset file around so we can subtract it from
-			// the globalSize if we replace it.
-			oldFile, hasOldFile = ldbGet(db, folder, fl.versions[0].device, name)
-		}
-
 		for i := range fl.versions {
 			if bytes.Compare(fl.versions[i].device, device) == 0 {
 				if fl.versions[i].version.Equal(file.Version) {
 					// No need to do anything
 					return false
 				}
+
+				if i == 0 {
+					// Keep the current newest file around so we can subtract it from
+					// the globalSize if we replace it.
+					oldFile, hasOldFile = ldbGet(db, folder, fl.versions[0].device, name)
+				}
+
 				fl.versions = append(fl.versions[:i], fl.versions[i+1:]...)
 				break
 			}
@@ -492,6 +493,14 @@ done:
 		if !file.Version.Equal(oldFile.Version) {
 			globalSize.addFile(file)
 			if hasOldFile {
+				// We have the old file that was removed at the head of the list.
+				globalSize.removeFile(oldFile)
+			} else if len(fl.versions) > 1 {
+				// The previous newest version is now at index 1, grab it from there.
+				oldFile, ok := ldbGet(db, folder, fl.versions[1].device, name)
+				if !ok {
+					panic("file referenced in version list does not exist")
+				}
 				globalSize.removeFile(oldFile)
 			}
 		}
