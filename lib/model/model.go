@@ -329,8 +329,6 @@ func (m *Model) FolderStatistics() map[string]stats.FolderStatistics {
 // Completion returns the completion status, in percent, for the given device
 // and folder.
 func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
-	var tot int64
-
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
@@ -338,29 +336,22 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 		return 0 // Folder doesn't exist, so we hardly have any of it
 	}
 
-	rf.WithGlobalTruncated(func(f db.FileIntf) bool {
-		if !f.IsDeleted() {
-			tot += f.Size()
-		}
-		return true
-	})
-
+	_, _, tot := rf.GlobalSize()
 	if tot == 0 {
 		return 100 // Folder is empty, so we have all of it
 	}
 
 	var need int64
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
-		if !f.IsDeleted() {
-			need += f.Size()
-		}
+		need += f.Size()
 		return true
 	})
 
-	res := 100 * (1 - float64(need)/float64(tot))
-	l.Debugf("%v Completion(%s, %q): %f (%d / %d)", m, device, folder, res, need, tot)
+	needRatio := float64(need) / float64(tot)
+	completionPct := 100 * (1 - needRatio)
+	l.Debugf("%v Completion(%s, %q): %f (%d / %d = %f)", m, device, folder, completionPct, need, tot, needRatio)
 
-	return res
+	return completionPct
 }
 
 func sizeOf(fs []protocol.FileInfo) (files, deleted int, bytes int64) {
@@ -389,13 +380,7 @@ func (m *Model) GlobalSize(folder string) (nfiles, deleted int, bytes int64) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		rf.WithGlobalTruncated(func(f db.FileIntf) bool {
-			fs, de, by := sizeOfFile(f)
-			nfiles += fs
-			deleted += de
-			bytes += by
-			return true
-		})
+		nfiles, deleted, bytes = rf.GlobalSize()
 	}
 	return
 }
@@ -406,7 +391,7 @@ func (m *Model) LocalSize(folder string) (nfiles, deleted int, bytes int64) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		nfiles, deleted, bytes = rf.Size()
+		nfiles, deleted, bytes = rf.LocalSize()
 	}
 	return
 }
