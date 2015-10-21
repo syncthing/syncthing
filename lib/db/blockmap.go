@@ -26,6 +26,8 @@ import (
 
 var blockFinder *BlockFinder
 
+const maxBatchSize = 256 << 10
+
 type BlockMap struct {
 	db     *leveldb.DB
 	folder string
@@ -44,6 +46,13 @@ func (m *BlockMap) Add(files []protocol.FileInfo) error {
 	buf := make([]byte, 4)
 	var key []byte
 	for _, file := range files {
+		if batch.Len() > maxBatchSize {
+			if err := m.db.Write(batch, nil); err != nil {
+				return err
+			}
+			batch.Reset()
+		}
+
 		if file.IsDirectory() || file.IsDeleted() || file.IsInvalid() {
 			continue
 		}
@@ -63,6 +72,13 @@ func (m *BlockMap) Update(files []protocol.FileInfo) error {
 	buf := make([]byte, 4)
 	var key []byte
 	for _, file := range files {
+		if batch.Len() > maxBatchSize {
+			if err := m.db.Write(batch, nil); err != nil {
+				return err
+			}
+			batch.Reset()
+		}
+
 		if file.IsDirectory() {
 			continue
 		}
@@ -89,6 +105,13 @@ func (m *BlockMap) Discard(files []protocol.FileInfo) error {
 	batch := new(leveldb.Batch)
 	var key []byte
 	for _, file := range files {
+		if batch.Len() > maxBatchSize {
+			if err := m.db.Write(batch, nil); err != nil {
+				return err
+			}
+			batch.Reset()
+		}
+
 		for _, block := range file.Blocks {
 			key = m.blockKeyInto(key, block.Hash, file.Name)
 			batch.Delete(key)
@@ -103,6 +126,13 @@ func (m *BlockMap) Drop() error {
 	iter := m.db.NewIterator(util.BytesPrefix(m.blockKeyInto(nil, nil, "")[:1+64]), nil)
 	defer iter.Release()
 	for iter.Next() {
+		if batch.Len() > maxBatchSize {
+			if err := m.db.Write(batch, nil); err != nil {
+				return err
+			}
+			batch.Reset()
+		}
+
 		batch.Delete(iter.Key())
 	}
 	if iter.Error() != nil {
