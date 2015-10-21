@@ -4,6 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
+// +build benchmark
+
 package db_test
 
 import (
@@ -40,19 +42,6 @@ func init() {
 	fs = db.NewFileSet("test", ldb)
 	fs.Replace(remoteDevice0, files)
 	fs.Replace(protocol.LocalDeviceID, firstHalf)
-}
-
-func genBlocks(n int) []protocol.BlockInfo {
-	b := make([]protocol.BlockInfo, n)
-	for i := range b {
-		h := make([]byte, 32)
-		for j := range h {
-			h[j] = byte(i + j)
-		}
-		b[i].Size = int32(i)
-		b[i].Hash = h
-	}
-	return b
 }
 
 func tempDB() (*leveldb.DB, string) {

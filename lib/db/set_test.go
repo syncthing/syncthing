@@ -28,6 +28,19 @@ func init() {
 
 const myID = 1
 
+func genBlocks(n int) []protocol.BlockInfo {
+	b := make([]protocol.BlockInfo, n)
+	for i := range b {
+		h := make([]byte, 32)
+		for j := range h {
+			h[j] = byte(i + j)
+		}
+		b[i].Size = int32(i)
+		b[i].Hash = h
+	}
+	return b
+}
+
 func globalList(s *db.FileSet) []protocol.FileInfo {
 	var fs []protocol.FileInfo
 	s.WithGlobal(func(fi db.FileIntf) bool {
