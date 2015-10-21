@@ -33,9 +33,13 @@ func (f FileInfo) Size() (bytes int64) {
 	if f.IsDeleted() || f.IsDirectory() {
 		return 128
 	}
+	if f.CachedSize > 0 {
+		return f.CachedSize
+	}
 	for _, b := range f.Blocks {
 		bytes += int64(b.Size)
 	}
+	f.CachedSize = bytes
 	return
 }
 
