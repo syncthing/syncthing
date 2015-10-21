@@ -79,7 +79,22 @@ func TestGlobalOverHTTP(t *testing.T) {
 	mux.HandleFunc("/", s.handler)
 	go http.Serve(list, mux)
 
+	// This should succeed
 	direct, relays, err := testLookup("http://" + list.Addr().String() + "?insecure&noannounce")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !testing.Short() {
+		// This should time out
+		_, _, err = testLookup("http://" + list.Addr().String() + "/block?insecure&noannounce")
+		if err == nil {
+			t.Fatalf("unexpected nil error, should have been a timeout")
+		}
+	}
+
+	// This should work again
+	_, _, err = testLookup("http://" + list.Addr().String() + "?insecure&noannounce")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -231,6 +246,11 @@ type fakeDiscoveryServer struct {
 }
 
 func (s *fakeDiscoveryServer) handler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/block" {
+		// Never return for requests here
+		select {}
+	}
+
 	if r.Method == "POST" {
 		s.announce, _ = ioutil.ReadAll(r.Body)
 		w.WriteHeader(204)

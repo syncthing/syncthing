@@ -42,6 +42,7 @@ type httpClient interface {
 const (
 	defaultReannounceInterval  = 30 * time.Minute
 	announceErrorRetryInterval = 5 * time.Minute
+	requestTimeout             = 5 * time.Second
 )
 
 type announcement struct {
@@ -73,6 +74,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, rela
 	// certificate to prove our identity, and may or may not verify the server
 	// certificate depending on the insecure setting.
 	var announceClient httpClient = &http.Client{
+		Timeout: requestTimeout,
 		Transport: &http.Transport{
 			Dial:  dialer.Dial,
 			Proxy: http.ProxyFromEnvironment,
@@ -89,6 +91,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, rela
 	// The http.Client used for queries. We don't need to present our
 	// certificate here, so lets not include it. May be insecure if requested.
 	var queryClient httpClient = &http.Client{
+		Timeout: requestTimeout,
 		Transport: &http.Transport{
 			Dial:  dialer.Dial,
 			Proxy: http.ProxyFromEnvironment,
