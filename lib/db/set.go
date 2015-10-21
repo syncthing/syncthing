@@ -13,6 +13,8 @@
 package db
 
 import (
+	stdsync "sync"
+
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -25,6 +27,8 @@ type FileSet struct {
 	folder       string
 	db           *leveldb.DB
 	blockmap     *BlockMap
+	localSize    sizeTracker
+	globalSize   sizeTracker
 }
 
 // FileIntf is the set of methods implemented by both protocol.FileInfo and
@@ -43,6 +47,52 @@ type FileIntf interface {
 // continue iteration, false to stop.
 type Iterator func(f FileIntf) bool
 
+type sizeTracker struct {
+	files   int
+	deleted int
+	bytes   int64
+	mut     stdsync.Mutex
+}
+
+func (s *sizeTracker) addFile(f FileIntf) {
+	if f.IsInvalid() {
+		return
+	}
+
+	s.mut.Lock()
+	if f.IsDeleted() {
+		s.deleted++
+	} else {
+		s.files++
+	}
+	s.bytes += f.Size()
+	s.mut.Unlock()
+}
+
+func (s *sizeTracker) removeFile(f FileIntf) {
+	if f.IsInvalid() {
+		return
+	}
+
+	s.mut.Lock()
+	if f.IsDeleted() {
+		s.deleted--
+	} else {
+		s.files--
+	}
+	s.bytes -= f.Size()
+	if s.deleted < 0 || s.files < 0 {
+		panic("bug: removed more than added")
+	}
+	s.mut.Unlock()
+}
+
+func (s *sizeTracker) Size() (files, deleted int, bytes int64) {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	return s.files, s.deleted, s.bytes
+}
+
 func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 	var s = FileSet{
 		localVersion: make(map[protocol.DeviceID]int64),
@@ -52,13 +102,16 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 		mutex:        sync.NewMutex(),
 	}
 
-	ldbCheckGlobals(db, []byte(folder))
+	ldbCheckGlobals(db, []byte(folder), &s.globalSize)
 
 	var deviceID protocol.DeviceID
 	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
 		if f.LocalVersion > s.localVersion[deviceID] {
 			s.localVersion[deviceID] = f.LocalVersion
+		}
+		if deviceID == protocol.LocalDeviceID {
+			s.localSize.addFile(f)
 		}
 		return true
 	})
@@ -73,7 +126,7 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.localVersion[device] = ldbReplace(s.db, []byte(s.folder), device[:], fs)
+	s.localVersion[device] = ldbReplace(s.db, []byte(s.folder), device[:], fs, &s.localSize, &s.globalSize)
 	if len(fs) == 0 {
 		// Reset the local version if all files were removed.
 		s.localVersion[device] = 0
@@ -102,7 +155,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		s.blockmap.Discard(discards)
 		s.blockmap.Update(updates)
 	}
-	if lv := ldbUpdate(s.db, []byte(s.folder), device[:], fs); lv > s.localVersion[device] {
+	if lv := ldbUpdate(s.db, []byte(s.folder), device[:], fs, &s.localSize, &s.globalSize); lv > s.localVersion[device] {
 		s.localVersion[device] = lv
 	}
 }
@@ -176,6 +229,14 @@ func (s *FileSet) LocalVersion(device protocol.DeviceID) int64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.localVersion[device]
+}
+
+func (s *FileSet) LocalSize() (files, deleted int, bytes int64) {
+	return s.localSize.Size()
+}
+
+func (s *FileSet) GlobalSize() (files, deleted int, bytes int64) {
+	return s.globalSize.Size()
 }
 
 // ListFolders returns the folder IDs seen in the database.
