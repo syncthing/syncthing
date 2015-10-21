@@ -6,22 +6,44 @@
 
 package db
 
-import "github.com/syncthing/syncthing/lib/protocol"
+import (
+	"bytes"
+
+	"github.com/calmh/xdr"
+	"github.com/syncthing/syncthing/lib/protocol"
+)
 
 type FileInfoTruncated struct {
 	protocol.FileInfo
-	ActualSize int64
 }
 
-func (f *FileInfoTruncated) UnmarshalXDR(bs []byte) error {
-	err := f.FileInfo.UnmarshalXDR(bs)
-	f.ActualSize = f.FileInfo.Size()
-	f.FileInfo.Blocks = nil
-	return err
+func (o *FileInfoTruncated) UnmarshalXDR(bs []byte) error {
+	var br = bytes.NewReader(bs)
+	var xr = xdr.NewReader(br)
+	return o.DecodeXDRFrom(xr)
 }
 
-func (f FileInfoTruncated) Size() int64 {
-	return f.ActualSize
+func (o *FileInfoTruncated) DecodeXDRFrom(xr *xdr.Reader) error {
+	o.Name = xr.ReadStringMax(8192)
+	o.Flags = xr.ReadUint32()
+	o.Modified = int64(xr.ReadUint64())
+	(&o.Version).DecodeXDRFrom(xr)
+	o.LocalVersion = int64(xr.ReadUint64())
+	_BlocksSize := int(xr.ReadUint32())
+	if _BlocksSize < 0 {
+		return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 1000000)
+	}
+	if _BlocksSize > 1000000 {
+		return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 1000000)
+	}
+
+	buf := make([]byte, 64)
+	for i := 0; i < _BlocksSize; i++ {
+		size := xr.ReadUint32()
+		o.CachedSize += int64(size)
+		xr.ReadBytesMaxInto(64, buf)
+	}
+	return xr.Error()
 }
 
 func BlocksToSize(num int) int64 {
