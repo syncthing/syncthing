@@ -107,19 +107,25 @@ func (l *logger) callHandlers(level LogLevel, s string) {
 
 // Debugln logs a line with a DEBUG prefix.
 func (l *logger) Debugln(vals ...interface{}) {
+	l.debugln(3, vals)
+}
+func (l *logger) debugln(level int, vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
 	s := fmt.Sprintln(vals...)
-	l.logger.Output(2, "DEBUG: "+s)
+	l.logger.Output(level, "DEBUG: "+s)
 	l.callHandlers(LevelDebug, s)
 }
 
 // Debugf logs a formatted line with a DEBUG prefix.
 func (l *logger) Debugf(format string, vals ...interface{}) {
+	l.debugf(3, format, vals...)
+}
+func (l *logger) debugf(level int, format string, vals ...interface{}) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
 	s := fmt.Sprintf(format, vals...)
-	l.logger.Output(2, "DEBUG: "+s)
+	l.logger.Output(level, "DEBUG: "+s)
 	l.callHandlers(LevelDebug, s)
 }
 
@@ -293,7 +299,7 @@ func (l *facilityLogger) Debugln(vals ...interface{}) {
 	if !l.ShouldDebug(l.facility) {
 		return
 	}
-	l.logger.Debugln(vals...)
+	l.logger.debugln(3, vals...)
 }
 
 // Debugf logs a formatted line with a DEBUG prefix.
@@ -301,7 +307,7 @@ func (l *facilityLogger) Debugf(format string, vals ...interface{}) {
 	if !l.ShouldDebug(l.facility) {
 		return
 	}
-	l.logger.Debugf(format, vals...)
+	l.logger.debugf(3, format, vals...)
 }
 
 // A Recorder keeps a size limited record of log events.
