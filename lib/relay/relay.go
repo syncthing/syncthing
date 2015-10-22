@@ -170,12 +170,13 @@ func (s *Svc) RelayStatus(uri string) (time.Duration, bool) {
 	}
 
 	s.mut.RLock()
+	defer s.mut.RUnlock()
+
 	for _, client := range s.clients {
 		if client.URI().String() == uri {
 			return client.Latency(), client.StatusOK()
 		}
 	}
-	s.mut.RUnlock()
 
 	return time.Hour, false
 }
