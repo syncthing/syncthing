@@ -91,7 +91,7 @@ func TestDeviceConfig(t *testing.T) {
 		expectedFolders := []FolderConfiguration{
 			{
 				ID:              "test",
-				RawPath:         "testdata" + string(filepath.Separator),
+				RawPath:         "testdata",
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				ReadOnly:        true,
 				RescanIntervalS: 600,
@@ -103,6 +103,11 @@ func TestDeviceConfig(t *testing.T) {
 				MaxConflicts:    -1,
 			},
 		}
+
+		if runtime.GOOS != "windows" {
+			expectedFolders[0].RawPath += string(filepath.Separator)
+		}
+
 		expectedDevices := []DeviceConfiguration{
 			{
 				DeviceID:    device1,
