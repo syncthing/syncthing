@@ -961,6 +961,7 @@ func defaultConfig(myName string) config.Configuration {
 			RescanIntervalS: 60,
 			MinDiskFreePct:  1,
 			Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
+			AutoNormalize:   true,
 		},
 	}
 	newCfg.Devices = []config.DeviceConfiguration{

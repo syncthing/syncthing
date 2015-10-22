@@ -54,7 +54,7 @@ var locations = map[locationEnum]string{
 	locPanicLog:      "${config}/panic-${timestamp}.log",
 	locAuditLog:      "${config}/audit-${timestamp}.log",
 	locGUIAssets:     "${config}/gui",
-	locDefFolder:     "${home}/Sync",
+	locDefFolder:     "${home}/Sync/",
 }
 
 // expandLocations replaces the variables in the location map with actual
