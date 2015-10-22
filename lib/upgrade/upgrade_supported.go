@@ -89,7 +89,7 @@ func SelectLatestRelease(version string, rels []Release) (Release, error) {
 
 	sort.Sort(SortByRelease(rels))
 	// Check for a beta build
-	beta := strings.Contains(version, "-beta")
+	beta := strings.Contains(version, "-")
 
 	for _, rel := range rels {
 		if rel.Prerelease && !beta {
