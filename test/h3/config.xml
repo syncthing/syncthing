@@ -1,5 +1,5 @@
 <configuration version="12">
-    <folder id="s23" path="s23-3" ro="false" rescanIntervalS="20" ignorePerms="false" autoNormalize="true">
+    <folder id="s23" path="s23-3/" ro="false" rescanIntervalS="20" ignorePerms="false" autoNormalize="true">
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
         <minDiskFreePct>1</minDiskFreePct>
@@ -9,9 +9,12 @@
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
+        <scanProgressIntervalS>0</scanProgressIntervalS>
+        <pullerSleepS>0</pullerSleepS>
+        <pullerPauseS>0</pullerPauseS>
         <maxConflicts>-1</maxConflicts>
     </folder>
-    <folder id="default" path="s3" ro="false" rescanIntervalS="20" ignorePerms="false" autoNormalize="true">
+    <folder id="default" path="s3/" ro="false" rescanIntervalS="20" ignorePerms="false" autoNormalize="true">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="JMFJCXB-GZDE4BN-OCJE3VF-65GYZNU-AIVJRET-3J6HMRQ-AUQIGJO-FKNHMQU"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
@@ -24,6 +27,9 @@
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
+        <scanProgressIntervalS>0</scanProgressIntervalS>
+        <pullerSleepS>0</pullerSleepS>
+        <pullerPauseS>0</pullerPauseS>
         <maxConflicts>-1</maxConflicts>
     </folder>
     <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="metadata" introducer="false">
@@ -44,9 +50,9 @@
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
-        <localAnnouncePort>21025</localAnnouncePort>
+        <localAnnouncePort>21027</localAnnouncePort>
         <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
-        <relayServer>dynamic+https://relays.syncthing.net</relayServer>
+        <relayServer>dynamic+https://relays.syncthing.net/endpoint</relayServer>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>5</reconnectionIntervalS>
@@ -60,6 +66,9 @@
         <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
         <urAccepted>-1</urAccepted>
         <urUniqueID></urUniqueID>
+        <urURL>https://data.syncthing.net/newdata</urURL>
+        <urPostInsecurely>false</urPostInsecurely>
+        <urInitialDelayS>1800</urInitialDelayS>
         <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
         <keepTemporariesH>24</keepTemporariesH>
@@ -68,8 +77,7 @@
         <symlinksEnabled>true</symlinksEnabled>
         <limitBandwidthInLan>false</limitBandwidthInLan>
         <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
-        <pingTimeoutS>30</pingTimeoutS>
-        <pingIdleTimeS>60</pingIdleTimeS>
         <minHomeDiskFreePct>1</minHomeDiskFreePct>
+        <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
     </options>
 </configuration>

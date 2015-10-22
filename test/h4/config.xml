@@ -1,5 +1,5 @@
 <configuration version="12">
-    <folder id="default" path="s4" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
+    <folder id="default" path="s4/" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
         <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT"></device>
         <minDiskFreePct>1</minDiskFreePct>
         <versioning></versioning>
@@ -8,6 +8,9 @@
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
+        <scanProgressIntervalS>0</scanProgressIntervalS>
+        <pullerSleepS>0</pullerSleepS>
+        <pullerPauseS>0</pullerPauseS>
         <maxConflicts>-1</maxConflicts>
     </folder>
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false">
@@ -22,9 +25,9 @@
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
-        <localAnnouncePort>21025</localAnnouncePort>
+        <localAnnouncePort>21027</localAnnouncePort>
         <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
-        <relayServer>dynamic+https://relays.syncthing.net</relayServer>
+        <relayServer>dynamic+https://relays.syncthing.net/endpoint</relayServer>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>60</reconnectionIntervalS>
@@ -38,6 +41,9 @@
         <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
         <urAccepted>-1</urAccepted>
         <urUniqueID></urUniqueID>
+        <urURL>https://data.syncthing.net/newdata</urURL>
+        <urPostInsecurely>false</urPostInsecurely>
+        <urInitialDelayS>1800</urInitialDelayS>
         <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
         <keepTemporariesH>24</keepTemporariesH>
@@ -46,8 +52,7 @@
         <symlinksEnabled>true</symlinksEnabled>
         <limitBandwidthInLan>false</limitBandwidthInLan>
         <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
-        <pingTimeoutS>30</pingTimeoutS>
-        <pingIdleTimeS>60</pingIdleTimeS>
         <minHomeDiskFreePct>1</minHomeDiskFreePct>
+        <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
     </options>
 </configuration>
