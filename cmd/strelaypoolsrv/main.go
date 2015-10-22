@@ -163,6 +163,7 @@ func main() {
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	switch r.Method {
 	case "GET":
 		if limit(r.RemoteAddr, getLRUCache, getMut, getLimit, int64(getLimitBurst)) {
