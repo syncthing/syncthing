@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	AssetsBuildDate = "Tue, 20 Oct 2015 07:59:38 GMT"
+	AssetsBuildDate = "Thu, 22 Oct 2015 06:14:16 GMT"
 )
 
 func Assets() map[string][]byte {
