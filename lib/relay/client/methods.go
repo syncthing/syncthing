@@ -102,7 +102,11 @@ func JoinSession(invitation protocol.SessionInvitation) (net.Conn, error) {
 func TestRelay(uri *url.URL, certs []tls.Certificate, sleep time.Duration, times int) bool {
 	id := syncthingprotocol.NewDeviceID(certs[0].Certificate[0])
 	invs := make(chan protocol.SessionInvitation, 1)
-	c := NewProtocolClient(uri, certs, invs)
+	c, err := NewClient(uri, certs, invs)
+	if err != nil {
+		close(invs)
+		return false
+	}
 	go c.Serve()
 	defer func() {
 		close(invs)
