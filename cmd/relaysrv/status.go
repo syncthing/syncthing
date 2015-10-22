@@ -26,7 +26,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	sessionMut.Lock()
 	// This can potentially be double the number of pending sessions, as each session has two keys, one for each side.
 	status["startTime"] = rc.startTime
-	status["uptime"] = time.Since(rc.startTime)
+	status["uptimeSeconds"] = time.Since(rc.startTime) / time.Second
 	status["numPendingSessionKeys"] = len(pendingSessions)
 	status["numActiveSessions"] = len(activeSessions)
 	sessionMut.Unlock()
@@ -46,12 +46,12 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		rc.rate(60*60/10) * 8 / 1000,
 	}
 	status["options"] = map[string]interface{}{
-		"network-timeout":  networkTimeout,
-		"ping-interval":    pingInterval,
-		"message-timeout":  messageTimeout,
+		"network-timeout":  networkTimeout / time.Second,
+		"ping-interval":    pingInterval / time.Second,
+		"message-timeout":  messageTimeout / time.Second,
 		"per-session-rate": sessionLimitBps,
 		"global-rate":      globalLimitBps,
-		"pools":            defaultPoolAddrs,
+		"pools":            pools,
 		"provided-by":      providedBy,
 	}
 

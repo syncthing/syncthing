@@ -38,6 +38,7 @@ var (
 
 	statusAddr       string
 	poolAddrs        string
+	pools            []string
 	providedBy       string
 	defaultPoolAddrs string = "https://relays.syncthing.net/endpoint"
 )
@@ -116,7 +117,7 @@ func main() {
 		go statusService(statusAddr)
 	}
 
-	uri, err := url.Parse(fmt.Sprintf("relay://%s/?id=%s&pingInterval=%s&networkTimeout=%s&sessionLimitBps=%d&globalLimitBps=%d&statusAddr=%s&providedBy=%s", extAddress, id, pingInterval, networkTimeout, sessionLimitBps, globalLimitBps, statusAddr, providedBy))
+	uri, err := url.Parse(fmt.Sprintf("relay://%s/?id=%s&pingInterval=%s&networkTimeout=%s&sessionLimitBps=%d&globalLimitBps=%d&statusAddr=%s&providedBy=%s", extAddress, id, pingInterval/time.Second, networkTimeout/time.Second, sessionLimitBps, globalLimitBps, statusAddr, providedBy))
 	if err != nil {
 		log.Fatalln("Failed to construct URI", err)
 	}
@@ -130,7 +131,7 @@ func main() {
 		log.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	}
 
-	pools := strings.Split(poolAddrs, ",")
+	pools = strings.Split(poolAddrs, ",")
 	for _, pool := range pools {
 		pool = strings.TrimSpace(pool)
 		if len(pool) > 0 {
