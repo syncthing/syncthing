@@ -62,7 +62,7 @@ var upgrades = map[string]string{
 	"v0.10.21":                        "v0.10.30",
 	"v0.10.29":                        "v0.10.30",
 	"v0.10.31":                        "v0.10.30",
-	"v0.10.0-alpha":                   "v0.10.30",
+	"v0.10.0-alpha":                   "v0.11.0-beta0",
 	"v0.10.0-beta":                    "v0.11.0-beta0",
 	"v0.11.0-beta0+40-g53cb66e-dirty": "v0.11.0-beta0",
 }
