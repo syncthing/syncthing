@@ -962,6 +962,7 @@ func defaultConfig(myName string) config.Configuration {
 			MinDiskFreePct:  1,
 			Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
 			AutoNormalize:   true,
+			MaxConflicts:    -1,
 		},
 	}
 	newCfg.Devices = []config.DeviceConfiguration{
