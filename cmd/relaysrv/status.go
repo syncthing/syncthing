@@ -21,6 +21,7 @@ func statusService(addr string) {
 }
 
 func getStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	status := make(map[string]interface{})
 
 	sessionMut.Lock()
