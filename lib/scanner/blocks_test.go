@@ -122,3 +122,29 @@ func TestDiff(t *testing.T) {
 		}
 	}
 }
+
+/*
+func BenchmarkBlocksMurmur3(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		fd, err := os.Open("testdata/random")
+		if err != nil {
+			b.Fatal(err)
+		}
+		Blocks(Murmur3, fd, 128<<10, 1024*1024, nil)
+		fd.Close()
+	}
+	b.SetBytes(1024 * 1024)
+}
+
+func BenchmarkBlocksSHA256(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		fd, err := os.Open("testdata/random")
+		if err != nil {
+			b.Fatal(err)
+		}
+		Blocks(SHA256, fd, 128<<10, 1024*1024, nil)
+		fd.Close()
+	}
+	b.SetBytes(1024 * 1024)
+}
+*/

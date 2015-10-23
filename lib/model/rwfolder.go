@@ -79,18 +79,19 @@ type rwFolder struct {
 	progressEmitter  *ProgressEmitter
 	virtualMtimeRepo *db.VirtualMtimeRepo
 
-	folder       string
-	dir          string
-	scanIntv     time.Duration
-	versioner    versioner.Versioner
-	ignorePerms  bool
-	copiers      int
-	pullers      int
-	shortID      uint64
-	order        config.PullOrder
-	maxConflicts int
-	sleep        time.Duration
-	pause        time.Duration
+	folder        string
+	dir           string
+	scanIntv      time.Duration
+	versioner     versioner.Versioner
+	ignorePerms   bool
+	copiers       int
+	pullers       int
+	shortID       uint64
+	order         config.PullOrder
+	maxConflicts  int
+	sleep         time.Duration
+	pause         time.Duration
+	hashAlgorithm scanner.HashAlgorithm
 
 	stop        chan struct{}
 	queue       *jobQueue
@@ -116,15 +117,16 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		progressEmitter:  m.progressEmitter,
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(m.db, cfg.ID),
 
-		folder:       cfg.ID,
-		dir:          cfg.Path(),
-		scanIntv:     time.Duration(cfg.RescanIntervalS) * time.Second,
-		ignorePerms:  cfg.IgnorePerms,
-		copiers:      cfg.Copiers,
-		pullers:      cfg.Pullers,
-		shortID:      shortID,
-		order:        cfg.Order,
-		maxConflicts: cfg.MaxConflicts,
+		folder:        cfg.ID,
+		dir:           cfg.Path(),
+		scanIntv:      time.Duration(cfg.RescanIntervalS) * time.Second,
+		ignorePerms:   cfg.IgnorePerms,
+		copiers:       cfg.Copiers,
+		pullers:       cfg.Pullers,
+		shortID:       shortID,
+		order:         cfg.Order,
+		maxConflicts:  cfg.MaxConflicts,
+		hashAlgorithm: cfg.HashAlgorithm,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -962,7 +964,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize, 0, nil)
+	tempBlocks, err := scanner.HashFile(p.hashAlgorithm, tempName, protocol.BlockSize, 0, nil)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
