@@ -89,7 +89,7 @@ func Blocks(algo HashAlgorithm, r io.Reader, blocksize int, sizehint int64, coun
 		b := protocol.BlockInfo{
 			Size:   int32(n),
 			Offset: offset,
-			Hash:   hf.Sum(nil),
+			Hash:   sum256(hf),
 		}
 		blocks = append(blocks, b)
 		offset += int64(n)
@@ -102,11 +102,27 @@ func Blocks(algo HashAlgorithm, r io.Reader, blocksize int, sizehint int64, coun
 		blocks = append(blocks, protocol.BlockInfo{
 			Offset: 0,
 			Size:   0,
-			Hash:   hf.Sum(nil),
+			Hash:   sum256(hf),
 		})
 	}
 
 	return blocks, nil
+}
+
+// This returns a 256 bit (32 byte) hash, regardless of the size of the hash
+// function. We make assumptions in a number of places that hashes are 32
+// bytes long...
+func sum256(hf hash.Hash) []byte {
+	h := hf.Sum(nil)
+	if len(h) > 32 {
+		panic("unsupported hash length > 256 bits")
+	}
+	if len(h) == 32 {
+		return h
+	}
+	h256 := make([]byte, 32)
+	copy(h256, h)
+	return h256
 }
 
 // PopulateOffsets sets the Offset field on each block
@@ -153,7 +169,7 @@ func Verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
 			return err
 		}
 
-		hash := hf.Sum(nil)
+		hash := sum256(hf)
 		hf.Reset()
 
 		if bytes.Compare(hash, block.Hash) != 0 {
@@ -180,7 +196,7 @@ func VerifyBuffer(buf []byte, block protocol.BlockInfo) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	hash := hf.Sum(nil)
+	hash := sum256(hf)
 
 	if !bytes.Equal(hash, block.Hash) {
 		return hash, fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
