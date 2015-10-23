@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<html lang="en" ng-app="syncthing" ng-controller="relayDataController">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Relay stats</title>
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+      #map {
+        height: 600px;
+      }
+      .ng-cloak {
+        display: none;
+      }
+    </style>
+  </head>
+
+  <body class="ng-cloak">
+    <div class="container">
+      <h1>Relay Pool Data</h2>
+      <div ng-if="!started" class="text-center">
+        <img src="//cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif"/>
+        <p>Please wait while we gather data</p>
+        <p ng-repeat="entry in progress" class="ng-cloak">{{ entry.name }}... <span ng-if="entry.done">Done!</span></p>
+      </div>
+      <div>
+        <div ng-show="started" class="ng-hide">
+          <p>
+            Currently {{ relays.length }} relays online ({{ totals.goMaxProcs }} cores in total).
+          </p>
+          <p>
+            So far {{ totals.bytesProxied | bytes }} proxied.
+            Currently {{ totals.numActiveSessions }} active sessions, with {{ totals.numConnections }} clients online.
+          </p>
+          <p>
+            Average rates in last
+            <span>10s: {{ totals.kbps10s1m5m15m30m60m[0] * 1024 | bytes }}/s</span>
+            <span>1m: {{ totals.kbps10s1m5m15m30m60m[1] * 1024 | bytes }}/s</span>
+            <span>5m: {{ totals.kbps10s1m5m15m30m60m[2] * 1024 | bytes }}/s</span>
+            <span>15m: {{ totals.kbps10s1m5m15m30m60m[3] * 1024 | bytes }}/s</span>
+            <span>30m: {{ totals.kbps10s1m5m15m30m60m[4] * 1024 | bytes }}/s</span>
+            <span>1h: {{ totals.kbps10s1m5m15m30m60m[5] * 1024 | bytes }}/s</span>
+          </p>
+        </div>
+        <div id="map"></div> <!-- Can't hide the map, otherwise it freaks out -->
+        <p ng-show="started" class="ng-hide">The circle size represents how much bytes the relay transfered relative to other relays</p>
+      </div>
+    </div>
+
+
+    <script src="//code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.4.7/angular.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="//maps.googleapis.com/maps/api/js"></script>
+  </body>
+
+  <script>
+  angular.module('syncthing', [
+  ])
+  .filter('bytes', function() {
+    return function(bytes, precision) {
+      if (isNaN(parseFloat(bytes)) || !isFinite(bytes)) return '-';
+      if (typeof precision === 'undefined') precision = 1;
+
+      var units = ['bytes', 'kB', 'MB', 'GB', 'TB', 'PB'],
+          number = Math.floor(Math.log(bytes) / Math.log(1024));
+
+      var value = (bytes / Math.pow(1000, Math.floor(number)));
+      if (!isFinite(value)) {
+        value = 0;
+        precision = 0;
+      }
+      if (!isFinite(number)) {
+        units = 'bytes';
+      } else {
+        units = units[number];
+      }
+      return value.toFixed(precision) + ' ' + units;
+    }
+  })
+  .controller('relayDataController', ['$scope', '$rootScope', '$http', '$q', '$compile', function($scope, $rootScope, $http, $q, $compile) {
+    $scope.started = false;
+    $scope.geoip = {};
+    $scope.status = {};
+    $scope.uri = {};
+    $scope.progress = [];
+    $scope.totals = {
+      bytesProxied: 0,
+      goMaxProcs: 0,
+      kbps10s1m5m15m30m60m: [0, 0, 0, 0, 0, 0],
+      numActiveSessions: 0,
+      numConnections: 0,
+      numPendingSessionKeys: 0,
+      numProxies: 0,
+    };
+
+    function initProgress(name) {
+      $scope.progress.push({name: name, done: false});
+    }
+
+    function progressDone(name) {
+      angular.forEach($scope.progress, function(progress) {
+          if (progress.name == name) {
+            progress.done = true;
+          }
+      });
+    }
+
+    var map;
+    var template = $('#infoTemplate').html();
+
+    initProgress("Fetching relays");
+    $http.get("/endpoint").then(function(response) {
+      progressDone("Fetching relays");
+
+      $scope.relays = response.data.relays;
+
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 1,
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+      });
+
+      var promises = [];
+      angular.forEach($scope.relays, function(relay) {
+        var uri = document.createElement('a');
+
+        // HAX, otherwise doesn't work
+        uri.href = relay.url.replace('relay://', 'http://');
+
+        // Convert query string to object
+        uri.args = {};
+        angular.forEach(uri.search.replace(/^\?/, '').split('&'), function(query) {
+            var split = query.split('=');
+            uri.args[split[0]] = split[1];
+        })
+
+        $scope.uri[relay.url] = uri;
+
+        initProgress("Resolving location for " + uri.hostname);
+        var resolveGeoIp = $http.get('http://www.telize.com/geoip/' + uri.hostname).then(function (response) {
+          progressDone("Resolving location for " + uri.hostname);
+
+          $scope.geoip[relay.url] = response.data;
+        });
+
+        promises.push(resolveGeoIp);
+
+        var resolveStatus = $q.defer();
+
+        initProgress("Getting relay status for" + uri.hostname);
+        $http.get("http://" + uri.hostname + (uri.args.statusAddr || ":22070") + "/status").then(function (response) {
+          progressDone("Getting relay status for" + uri.hostname);
+          $scope.status[relay.url] = response.data;
+          angular.forEach($scope.totals, function(value, key) {
+            if (typeof $scope.totals[key] == 'number') {
+              $scope.totals[key] += response.data[key];
+            } else if (typeof $scope.totals[key] == 'object' && $scope.totals[key] instanceof Array) {
+              angular.forEach($scope.totals[key], function(value, index) {
+                $scope.totals[key][index] += response.data[key][index];
+              });
+            }
+          });
+          resolveStatus.resolve(response.data);
+        }, function() {
+          progressDone("Getting relay status for" + uri.hostname);
+
+          resolveStatus.resolve(response.data);
+        });
+
+        promises.push(resolveStatus);
+      });
+
+      $q.all(promises).then(function() {
+        $scope.started = true;
+        var bounds = new google.maps.LatLngBounds();
+
+        angular.forEach($scope.relays, function(relay) {
+          var scope = $rootScope.$new(true);
+          var geoip = $scope.geoip[relay.url];
+          var position = new google.maps.LatLng(geoip.latitude, geoip.longitude);
+
+          scope.status = $scope.status[relay.url];
+          scope.geoip = geoip;
+          scope.relay = relay;
+          scope.uri = $scope.uri[relay.url];
+
+          var marker = new google.maps.Marker({
+            position: position,
+            map: map,
+            title: relay.url,
+          });
+
+          if (scope.status) {
+            marker.circle = new google.maps.Circle({
+              strokeColor: '#FF0000',
+              strokeOpacity: 0.8,
+              strokeWeight: 2,
+              fillColor: '#FF0000',
+              fillOpacity: 0.35,
+              map: map,
+              center: position,
+              radius: ((scope.status.bytesProxied * 100) / $scope.totals.bytesProxied) * 5000
+            });
+          }
+
+          var content = $compile(template)(scope)[0];
+
+          marker.info = new google.maps.InfoWindow();
+          marker.info.setContent(content);
+
+          marker.addListener('mouseover', function() {
+            marker.info.open(map, marker);
+          });
+
+          marker.addListener('mouseout', function() {
+            marker.info.close();
+          });
+
+          marker.addListener('click', function() {
+            if (scope.status) {
+              window.open("http://" + scope.uri.hostname + (scope.uri.args.statusAddr || ":22070") + "/status", "_blank");
+            }
+          });
+
+          bounds.extend(marker.position);
+        });
+
+        map.fitBounds(bounds);
+        if ($scope.relays.length == 1) {
+          map.setZoom(13);
+        }
+        $scope.started = true;
+      });
+    });
+  }]);
+  </script>
+
+  <script type="text/template" id="infoTemplate">
+    <div>
+      <p><b>{{ uri.hostname }}</b> <span ng-if="status.options['provided-by']">provided by <u>{{ status.options['provided-by'] }}</u></span></p>
+      <div ng-if="status">
+        <span ng-if="status.startTime">Start time: {{ status.startTime | date:"medium" }}</br></span>
+        <span ng-if="status.bytesProxied != undefined">Proxied: {{ status.bytesProxied | bytes }}</br></span>
+        <span ng-if="status.numActiveSessions != undefined">Sessions: {{ status.numActiveSessions }}</br></span>
+        <span ng-if="status.numConnections != undefined">Clients: {{ status.numConnections }}</br></span>
+        <span ng-if="status.options.pools">Pools: {{ status.options.pools.join(', ') }}</br></span>
+        <span ng-if="status.options['global-rate'] != undefined">
+          <span ng-if="status.options['global-rate'] > 0">Global rate limit: {{ status.options['global-rate'] | bytes }}/s</span>
+          <span ng-if="status.options['global-rate'] == 0">Global rate limit: unlimited</span>
+          </br>
+        </span>
+        <span ng-if="status.options['per-session-rate'] != undefined">
+          <span ng-if="status.options['per-session-rate'] > 0">Session rate limit: {{ status.options['per-session-rate'] | bytes }}/s</span>
+          <span ng-if="status.options['per-session-rate'] == 0">Session rate limit: unlimited</span>
+          </br>
+        </span>
+      </div>
+      <div ng-if="!status">
+        Data unavailable.
+      <div>
+    </div>
+  </script>
+</html>

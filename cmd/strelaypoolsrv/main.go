@@ -1,8 +1,12 @@
 // Copyright (C) 2015 Audrius Butkevicius and Contributors (see the CONTRIBUTORS file).
 
+//go:generate go run genassets.go gui auto/gui.go
+
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
 	"flag"
@@ -10,6 +14,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"mime"
 	"net"
 	"net/http"
 	"net/url"
@@ -20,6 +25,7 @@ import (
 	"github.com/golang/groupcache/lru"
 	"github.com/juju/ratelimit"
 
+	"github.com/syncthing/relaypoolsrv/auto"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -149,6 +155,7 @@ func main() {
 	}
 
 	handler := http.NewServeMux()
+	handler.HandleFunc("/", handleAssets)
 	handler.HandleFunc("/endpoint", handleRequest)
 
 	srv := http.Server{
@@ -159,6 +166,72 @@ func main() {
 	err = srv.Serve(listener)
 	if err != nil {
 		log.Fatalln("serve:", err)
+	}
+}
+
+func handleAssets(w http.ResponseWriter, r *http.Request) {
+	assets := auto.Assets()
+	path := r.URL.Path[1:]
+	if path == "" {
+		path = "index.html"
+	}
+
+	bs, ok := assets[path]
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if r.Header.Get("If-Modified-Since") == auto.AssetsBuildDate {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	mtype := mimeTypeForFile(path)
+	if len(mtype) != 0 {
+		w.Header().Set("Content-Type", mtype)
+	}
+
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+	} else {
+		// ungzip if browser not send gzip accepted header
+		var gr *gzip.Reader
+		gr, _ = gzip.NewReader(bytes.NewReader(bs))
+		bs, _ = ioutil.ReadAll(gr)
+		gr.Close()
+	}
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
+	w.Header().Set("Last-Modified", auto.AssetsBuildDate)
+	w.Header().Set("Cache-Control", "public")
+
+	w.Write(bs)
+}
+
+func mimeTypeForFile(file string) string {
+	// We use a built in table of the common types since the system
+	// TypeByExtension might be unreliable. But if we don't know, we delegate
+	// to the system.
+	ext := filepath.Ext(file)
+	switch ext {
+	case ".htm", ".html":
+		return "text/html"
+	case ".css":
+		return "text/css"
+	case ".js":
+		return "application/javascript"
+	case ".json":
+		return "application/json"
+	case ".png":
+		return "image/png"
+	case ".ttf":
+		return "application/x-font-ttf"
+	case ".woff":
+		return "application/x-font-woff"
+	case ".svg":
+		return "image/svg+xml"
+	default:
+		return mime.TypeByExtension(ext)
 	}
 }
 
