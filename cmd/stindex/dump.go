@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 

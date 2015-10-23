@@ -45,7 +45,7 @@ func main() {
 	if mode == "dump" {
 		dump(ldb)
 	} else if mode == "dumpsize" {
-		size(ldb)
+		dumpsize(ldb)
 	} else {
 		fmt.Println("Unknown mode")
 	}
