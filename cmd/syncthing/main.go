@@ -600,17 +600,18 @@ func syncthingMain() {
 
 	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
 		lans, _ = osutil.GetLans()
-		networks := make([]string, 0, len(lans))
-		for _, lan := range lans {
-			networks = append(networks, lan.String())
-		}
 		for _, lan := range opts.AlwaysLocalNets {
 			_, ipnet, err := net.ParseCIDR(lan)
 			if err != nil {
 				l.Infoln("Network", lan, "is malformed:", err)
 				continue
 			}
-			networks = append(networks, ipnet.String())
+			lans = append(lans, ipnet)
+		}
+
+		networks := make([]string, len(lans))
+		for i, lan := range lans {
+			networks[i] = lan.String()
 		}
 		l.Infoln("Local networks:", strings.Join(networks, ", "))
 	}
