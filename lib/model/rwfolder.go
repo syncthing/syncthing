@@ -49,7 +49,7 @@ const retainBits = os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 
 var (
 	activity    = newDeviceActivity()
-	errNoDevice = errors.New("no available source device")
+	errNoDevice = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later.")
 )
 
 const (
