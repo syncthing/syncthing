@@ -49,7 +49,7 @@ const retainBits = os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 
 var (
 	activity    = newDeviceActivity()
-	errNoDevice = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later.")
+	errNoDevice = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
 )
 
 const (
@@ -1427,16 +1427,6 @@ func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
 		return true
 	}
 	return false
-}
-
-func invalidateFolder(cfg *config.Configuration, folderID string, err error) {
-	for i := range cfg.Folders {
-		folder := &cfg.Folders[i]
-		if folder.ID == folderID {
-			folder.Invalid = err.Error()
-			return
-		}
-	}
 }
 
 func removeDevice(devices []protocol.DeviceID, device protocol.DeviceID) []protocol.DeviceID {

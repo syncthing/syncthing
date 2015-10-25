@@ -22,11 +22,3 @@ func init() {
 	l.SetDebug("main", strings.Contains(os.Getenv("STTRACE"), "main") || os.Getenv("STTRACE") == "all")
 	l.SetDebug("http", strings.Contains(os.Getenv("STTRACE"), "http") || os.Getenv("STTRACE") == "all")
 }
-
-func shouldDebugMain() bool {
-	return l.ShouldDebug("main")
-}
-
-func shouldDebugHTTP() bool {
-	return l.ShouldDebug("http")
-}

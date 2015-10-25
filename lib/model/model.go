@@ -354,16 +354,6 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 	return completionPct
 }
 
-func sizeOf(fs []protocol.FileInfo) (files, deleted int, bytes int64) {
-	for _, f := range fs {
-		fs, de, by := sizeOfFile(f)
-		files += fs
-		deleted += de
-		bytes += by
-	}
-	return
-}
-
 func sizeOfFile(f db.FileIntf) (files, deleted int, bytes int64) {
 	if !f.IsDeleted() {
 		files++

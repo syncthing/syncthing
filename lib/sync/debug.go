@@ -33,7 +33,3 @@ func init() {
 	}
 	l.Debugf("Enabling lock logging at %v threshold", threshold)
 }
-
-func shouldDebug() bool {
-	return l.ShouldDebug("sync")
-}

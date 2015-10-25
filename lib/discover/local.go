@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/url"
@@ -237,35 +236,4 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 	}
 
 	return isNewDevice
-}
-
-func addrToAddr(addr *net.TCPAddr) string {
-	if len(addr.IP) == 0 || addr.IP.IsUnspecified() {
-		return fmt.Sprintf(":%c", addr.Port)
-	} else if bs := addr.IP.To4(); bs != nil {
-		return net.JoinHostPort(bs.String(), strconv.Itoa(addr.Port))
-	} else if bs := addr.IP.To16(); bs != nil {
-		return net.JoinHostPort(bs.String(), strconv.Itoa(addr.Port))
-	}
-	return ""
-}
-
-func resolveAddrs(addrs []string) []string {
-	var raddrs []string
-	for _, addrStr := range addrs {
-		uri, err := url.Parse(addrStr)
-		if err != nil {
-			continue
-		}
-		addrRes, err := net.ResolveTCPAddr("tcp", uri.Host)
-		if err != nil {
-			continue
-		}
-		addr := addrToAddr(addrRes)
-		if len(addr) > 0 {
-			uri.Host = addr
-			raddrs = append(raddrs, uri.String())
-		}
-	}
-	return raddrs
 }
