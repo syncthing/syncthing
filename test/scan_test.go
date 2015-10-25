@@ -29,7 +29,7 @@ func TestSubScan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 1. Scan a single file it a known directory "file1.txt"
+	// 1. Scan a single file in a known directory "file1.txt"
 	// 2. Scan a single file in an unknown directory "filetest/file1.txt"
 	// 3. Scan a single file in a deep unknown directory "filetest/1/2/3/4/5/6/7/file1.txt"
 	// 4. Scan a directory in a deep unknown directory "dirtest/1/2/3/4/5/6/7"
