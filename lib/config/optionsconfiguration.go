@@ -49,5 +49,9 @@ func (orig OptionsConfiguration) Copy() OptionsConfiguration {
 	copy(c.ListenAddress, orig.ListenAddress)
 	c.GlobalAnnServers = make([]string, len(orig.GlobalAnnServers))
 	copy(c.GlobalAnnServers, orig.GlobalAnnServers)
+	c.RelayServers = make([]string, len(orig.RelayServers))
+	copy(c.RelayServers, orig.RelayServers)
+	c.AlwaysLocalNets = make([]string, len(orig.AlwaysLocalNets))
+	copy(c.AlwaysLocalNets, orig.AlwaysLocalNets)
 	return c
 }
