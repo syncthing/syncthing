@@ -18,7 +18,6 @@ import (
 
 type Multicast struct {
 	*suture.Supervisor
-	addr   *net.UDPAddr
 	inbox  chan []byte
 	outbox chan recv
 	mr     *multicastReader
