@@ -129,6 +129,10 @@ The corresponding XDR representation is as follows (see
         int Latency;
     }
 
+
+In the ``Announce``  structure  field ``Magic`` is used to ensure
+a correct datagram was received and MUST be equal to ``0x9D79BC40``.
+
 The first Device structure contains information about the sending
 device. The following zero or more Extra devices contain information
 about other devices known to the sending device.
