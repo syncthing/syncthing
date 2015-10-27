@@ -56,6 +56,34 @@ var (
 	}
 )
 
+func New(myID protocol.DeviceID) Configuration {
+	var cfg Configuration
+	cfg.Version = CurrentVersion
+	cfg.OriginalVersion = CurrentVersion
+
+	setDefaults(&cfg)
+	setDefaults(&cfg.Options)
+	setDefaults(&cfg.GUI)
+
+	cfg.prepare(myID)
+
+	return cfg
+}
+
+func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
+	var cfg Configuration
+
+	setDefaults(&cfg)
+	setDefaults(&cfg.Options)
+	setDefaults(&cfg.GUI)
+
+	err := xml.NewDecoder(r).Decode(&cfg)
+	cfg.OriginalVersion = cfg.Version
+
+	cfg.prepare(myID)
+	return cfg, err
+}
+
 type Configuration struct {
 	Version        int                   `xml:"version,attr" json:"version"`
 	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
@@ -92,34 +120,6 @@ func (cfg Configuration) Copy() Configuration {
 	return newCfg
 }
 
-func New(myID protocol.DeviceID) Configuration {
-	var cfg Configuration
-	cfg.Version = CurrentVersion
-	cfg.OriginalVersion = CurrentVersion
-
-	setDefaults(&cfg)
-	setDefaults(&cfg.Options)
-	setDefaults(&cfg.GUI)
-
-	cfg.prepare(myID)
-
-	return cfg
-}
-
-func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
-	var cfg Configuration
-
-	setDefaults(&cfg)
-	setDefaults(&cfg.Options)
-	setDefaults(&cfg.GUI)
-
-	err := xml.NewDecoder(r).Decode(&cfg)
-	cfg.OriginalVersion = cfg.Version
-
-	cfg.prepare(myID)
-	return cfg, err
-}
-
 func (cfg *Configuration) WriteXML(w io.Writer) error {
 	e := xml.NewEncoder(w)
 	e.Indent("", "    ")
@@ -140,6 +140,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 	if cfg.IgnoredDevices == nil {
 		cfg.IgnoredDevices = []protocol.DeviceID{}
+	}
+	if cfg.Options.AlwaysLocalNets == nil {
+		cfg.Options.AlwaysLocalNets = []string{}
 	}
 
 	// Check for missing, bad or duplicate folder ID:s
