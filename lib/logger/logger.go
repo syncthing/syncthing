@@ -319,8 +319,8 @@ type Recorder struct {
 
 // A Line represents a single log entry.
 type Line struct {
-	When    time.Time
-	Message string
+	When    time.Time `json:"when"`
+	Message string    `json:"message"`
 }
 
 func NewRecorder(l Logger, level LogLevel, size, initial int) *Recorder {
