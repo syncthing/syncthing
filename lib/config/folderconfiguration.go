@@ -47,6 +47,7 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 	c := f
 	c.Devices = make([]FolderDeviceConfiguration, len(f.Devices))
 	copy(c.Devices, f.Devices)
+	c.Versioning = f.Versioning.Copy()
 	return c
 }
 

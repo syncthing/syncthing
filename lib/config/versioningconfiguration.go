@@ -23,6 +23,15 @@ type InternalParam struct {
 	Val string `xml:"val,attr"`
 }
 
+func (c VersioningConfiguration) Copy() VersioningConfiguration {
+	cp := c
+	cp.Params = make(map[string]string, len(c.Params))
+	for k, v := range c.Params {
+		cp.Params[k] = v
+	}
+	return cp
+}
+
 func (c *VersioningConfiguration) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	var tmp InternalVersioningConfiguration
 	tmp.Type = c.Type
