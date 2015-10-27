@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	OldestHandledVersion = 5
+	OldestHandledVersion = 10
 	CurrentVersion       = 12
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
@@ -193,22 +193,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 
 	// Upgrade configuration versions as appropriate
-	if cfg.Version <= 5 {
-		convertV5V6(cfg)
-	}
-	if cfg.Version == 6 {
-		convertV6V7(cfg)
-	}
-	if cfg.Version == 7 {
-		convertV7V8(cfg)
-	}
-	if cfg.Version == 8 {
-		convertV8V9(cfg)
-	}
-	if cfg.Version == 9 {
-		convertV9V10(cfg)
-	}
-	if cfg.Version == 10 {
+	if cfg.Version <= 10 {
 		convertV10V11(cfg)
 	}
 	if cfg.Version == 11 {
@@ -358,52 +343,6 @@ func convertV10V11(cfg *Configuration) {
 		cfg.Folders[i].MinDiskFreePct = 1
 	}
 	cfg.Version = 11
-}
-
-func convertV9V10(cfg *Configuration) {
-	// Enable auto normalization on existing folders.
-	for i := range cfg.Folders {
-		cfg.Folders[i].AutoNormalize = true
-	}
-	cfg.Version = 10
-}
-
-func convertV8V9(cfg *Configuration) {
-	// Compression is interpreted and serialized differently, but no enforced
-	// changes. Still need a new version number since the compression stuff
-	// isn't understandable by earlier versions.
-	cfg.Version = 9
-}
-
-func convertV7V8(cfg *Configuration) {
-	// Add IPv6 announce server
-	if len(cfg.Options.GlobalAnnServers) == 1 && cfg.Options.GlobalAnnServers[0] == "udp4://announce.syncthing.net:22026" {
-		cfg.Options.GlobalAnnServers = append(cfg.Options.GlobalAnnServers, "udp6://announce-v6.syncthing.net:22026")
-	}
-
-	cfg.Version = 8
-}
-
-func convertV6V7(cfg *Configuration) {
-	// Migrate announce server addresses to the new URL based format
-	for i := range cfg.Options.GlobalAnnServers {
-		cfg.Options.GlobalAnnServers[i] = "udp4://" + cfg.Options.GlobalAnnServers[i]
-	}
-
-	cfg.Version = 7
-}
-
-func convertV5V6(cfg *Configuration) {
-	// Added ".stfolder" file at folder roots to identify mount issues
-	// Doesn't affect the config itself, but uses config migrations to identify
-	// the migration point.
-	for _, folder := range Wrap("", *cfg).Folders() {
-		// Best attempt, if it fails, it fails, the user will have to fix
-		// it up manually, as the repo will not get started.
-		folder.CreateMarker()
-	}
-
-	cfg.Version = 6
 }
 
 func setDefaults(data interface{}) error {
