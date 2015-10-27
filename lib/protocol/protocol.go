@@ -411,10 +411,12 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 		l.Debugf("decompressed to %d bytes", len(msgBuf))
 	}
 
-	if len(msgBuf) > 1024 {
-		l.Debugf("message data:\n%s", hex.Dump(msgBuf[:1024]))
-	} else {
-		l.Debugf("message data:\n%s", hex.Dump(msgBuf))
+	if shouldDebug() {
+		if len(msgBuf) > 1024 {
+			l.Debugf("message data:\n%s", hex.Dump(msgBuf[:1024]))
+		} else {
+			l.Debugf("message data:\n%s", hex.Dump(msgBuf))
+		}
 	}
 
 	// We check each returned error for the XDRError.IsEOF() method.

@@ -16,3 +16,7 @@ var (
 func init() {
 	l.SetDebug("protocol", strings.Contains(os.Getenv("STTRACE"), "protocol") || os.Getenv("STTRACE") == "all")
 }
+
+func shouldDebug() bool {
+	return l.ShouldDebug("protocol")
+}
