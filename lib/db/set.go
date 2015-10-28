@@ -146,7 +146,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		discards := make([]protocol.FileInfo, 0, len(fs))
 		updates := make([]protocol.FileInfo, 0, len(fs))
 		for _, newFile := range fs {
-			existingFile, ok := ldbGet(s.db, []byte(s.folder), device[:], []byte(newFile.Name))
+			existingFile, ok := s.db.getFile([]byte(s.folder), device[:], []byte(newFile.Name))
 			if !ok || !existingFile.Version.Equal(newFile.Version) {
 				discards = append(discards, existingFile)
 				updates = append(updates, newFile)
@@ -155,7 +155,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		s.blockmap.Discard(discards)
 		s.blockmap.Update(updates)
 	}
-	if lv := s.db.update([]byte(s.folder), device[:], fs, &s.localSize, &s.globalSize); lv > s.localVersion[device] {
+	if lv := s.db.updateFiles([]byte(s.folder), device[:], fs, &s.localSize, &s.globalSize); lv > s.localVersion[device] {
 		s.localVersion[device] = lv
 	}
 }
@@ -196,7 +196,7 @@ func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
 }
 
 func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {
-	f, ok := ldbGet(s.db, []byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
+	f, ok := s.db.getFile([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
 	f.Name = osutil.NativeFilename(f.Name)
 	return f, ok
 }

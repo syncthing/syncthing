@@ -89,13 +89,18 @@ type dbReader interface {
 	Get([]byte, *opt.ReadOptions) ([]byte, error)
 }
 
-type dbWriter interface {
-	Put([]byte, []byte)
-	Delete([]byte)
-}
-
 type dbInstance struct {
 	*leveldb.DB
+}
+
+type readOnlyTransaction struct {
+	*leveldb.Snapshot
+	db *leveldb.DB
+}
+
+type readWriteTransaction struct {
+	readOnlyTransaction
+	*leveldb.Batch
 }
 
 // Flush batches to disk when they contain this many records.
@@ -170,7 +175,46 @@ func globalKeyFolder(key []byte) []byte {
 	return folder[:izero]
 }
 
-type deletionHandler func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) int64
+type deletionHandler func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator) int64
+
+func (db *dbInstance) newReadOnlyTransaction() readOnlyTransaction {
+	snap, err := db.GetSnapshot()
+	if err != nil {
+		panic(err)
+	}
+	return readOnlyTransaction{
+		Snapshot: snap,
+		db:       db.DB,
+	}
+}
+
+func (db *dbInstance) newReadWriteTransaction() readWriteTransaction {
+	t := db.newReadOnlyTransaction()
+	return readWriteTransaction{
+		readOnlyTransaction: t,
+		Batch:               new(leveldb.Batch),
+	}
+}
+
+func (t readOnlyTransaction) close() {
+	t.Release()
+}
+
+func (t readWriteTransaction) close() {
+	if err := t.db.Write(t.Batch, nil); err != nil {
+		panic(err)
+	}
+	t.readOnlyTransaction.close()
+}
+
+func (t readWriteTransaction) checkFlush() {
+	if t.Batch.Len() > batchFlushSize {
+		if err := t.db.Write(t.Batch, nil); err != nil {
+			panic(err)
+		}
+		t.Batch.Reset()
+	}
+}
 
 func (db *dbInstance) genericReplace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker, deleteFn deletionHandler) int64 {
 	sort.Sort(fileList(fs)) // sort list on name, same as in the database
@@ -178,19 +222,10 @@ func (db *dbInstance) genericReplace(folder, device []byte, fs []protocol.FileIn
 	start := deviceKey(folder, device, nil)                            // before all folder/device files
 	limit := deviceKey(folder, device, []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
 
-	batch := new(leveldb.Batch)
-	l.Debugf("new batch %p", batch)
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
-	l.Debugf("created snapshot %p", snap)
-	defer func() {
-		l.Debugf("close snapshot %p", snap)
-		snap.Release()
-	}()
+	t := db.newReadWriteTransaction()
+	defer t.close()
 
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := t.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
 	defer dbi.Release()
 
 	moreDb := dbi.Next()
@@ -222,16 +257,16 @@ func (db *dbInstance) genericReplace(folder, device []byte, fs []protocol.FileIn
 		case moreFs && (!moreDb || cmp == -1):
 			l.Debugln("generic replace; missing - insert")
 			// Database is missing this file. Insert it.
-			if lv := ldbInsert(batch, folder, device, fs[fsi]); lv > maxLocalVer {
+			if lv := t.insertFile(folder, device, fs[fsi]); lv > maxLocalVer {
 				maxLocalVer = lv
 			}
 			if isLocalDevice {
 				localSize.addFile(fs[fsi])
 			}
 			if fs[fsi].IsInvalid() {
-				ldbRemoveFromGlobal(snap, batch, folder, device, newName, globalSize)
+				t.removeFromGlobal(folder, device, newName, globalSize)
 			} else {
-				ldbUpdateGlobal(snap, batch, folder, device, fs[fsi], globalSize)
+				t.updateGlobal(folder, device, fs[fsi], globalSize)
 			}
 			fsi++
 
@@ -244,7 +279,7 @@ func (db *dbInstance) genericReplace(folder, device []byte, fs []protocol.FileIn
 			ef.UnmarshalXDR(dbi.Value())
 			if !fs[fsi].Version.Equal(ef.Version) || fs[fsi].Flags != ef.Flags {
 				l.Debugln("generic replace; differs - insert")
-				if lv := ldbInsert(batch, folder, device, fs[fsi]); lv > maxLocalVer {
+				if lv := t.insertFile(folder, device, fs[fsi]); lv > maxLocalVer {
 					maxLocalVer = lv
 				}
 				if isLocalDevice {
@@ -252,9 +287,9 @@ func (db *dbInstance) genericReplace(folder, device []byte, fs []protocol.FileIn
 					localSize.addFile(fs[fsi])
 				}
 				if fs[fsi].IsInvalid() {
-					ldbRemoveFromGlobal(snap, batch, folder, device, newName, globalSize)
+					t.removeFromGlobal(folder, device, newName, globalSize)
 				} else {
-					ldbUpdateGlobal(snap, batch, folder, device, fs[fsi], globalSize)
+					t.updateGlobal(folder, device, fs[fsi], globalSize)
 				}
 			} else {
 				l.Debugln("generic replace; equal - ignore")
@@ -265,7 +300,7 @@ func (db *dbInstance) genericReplace(folder, device []byte, fs []protocol.FileIn
 
 		case moreDb && (!moreFs || cmp == 1):
 			l.Debugln("generic replace; exists - remove")
-			if lv := deleteFn(snap, batch, folder, device, oldName, dbi); lv > maxLocalVer {
+			if lv := deleteFn(t, folder, device, oldName, dbi); lv > maxLocalVer {
 				maxLocalVer = lv
 			}
 			moreDb = dbi.Next()
@@ -273,22 +308,7 @@ func (db *dbInstance) genericReplace(folder, device []byte, fs []protocol.FileIn
 
 		// Write out and reuse the batch every few records, to avoid the batch
 		// growing too large and thus allocating unnecessarily much memory.
-		if batch.Len() > batchFlushSize {
-			l.Debugf("db.Write %p", batch)
-
-			err = db.Write(batch, nil)
-			if err != nil {
-				panic(err)
-			}
-
-			batch.Reset()
-		}
-	}
-
-	l.Debugf("db.Write %p", batch)
-	err = db.Write(batch, nil)
-	if err != nil {
-		panic(err)
+		t.checkFlush()
 	}
 
 	return maxLocalVer
@@ -296,28 +316,18 @@ func (db *dbInstance) genericReplace(folder, device []byte, fs []protocol.FileIn
 
 func (db *dbInstance) replace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) int64 {
 	// TODO: Return the remaining maxLocalVer?
-	return db.genericReplace(folder, device, fs, localSize, globalSize, func(db dbReader, batch dbWriter, folder, device, name []byte, dbi iterator.Iterator) int64 {
+	return db.genericReplace(folder, device, fs, localSize, globalSize, func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator) int64 {
 		// Database has a file that we are missing. Remove it.
 		l.Debugf("delete; folder=%q device=%v name=%q", folder, protocol.DeviceIDFromBytes(device), name)
-		ldbRemoveFromGlobal(db, batch, folder, device, name, globalSize)
-		l.Debugf("batch.Delete %p %x", batch, dbi.Key())
-		batch.Delete(dbi.Key())
+		t.removeFromGlobal(folder, device, name, globalSize)
+		t.Delete(dbi.Key())
 		return 0
 	})
 }
 
-func (db *dbInstance) update(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) int64 {
-	batch := new(leveldb.Batch)
-	l.Debugf("new batch %p", batch)
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
-	l.Debugf("created snapshot %p", snap)
-	defer func() {
-		l.Debugf("close snapshot %p", snap)
-		snap.Release()
-	}()
+func (db *dbInstance) updateFiles(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) int64 {
+	t := db.newReadWriteTransaction()
+	defer t.close()
 
 	var maxLocalVer int64
 	var fk []byte
@@ -325,20 +335,19 @@ func (db *dbInstance) update(folder, device []byte, fs []protocol.FileInfo, loca
 	for _, f := range fs {
 		name := []byte(f.Name)
 		fk = deviceKeyInto(fk[:cap(fk)], folder, device, name)
-		l.Debugf("snap.Get %p %x", snap, fk)
-		bs, err := snap.Get(fk, nil)
+		bs, err := t.Get(fk, nil)
 		if err == leveldb.ErrNotFound {
 			if isLocalDevice {
 				localSize.addFile(f)
 			}
 
-			if lv := ldbInsert(batch, folder, device, f); lv > maxLocalVer {
+			if lv := t.insertFile(folder, device, f); lv > maxLocalVer {
 				maxLocalVer = lv
 			}
 			if f.IsInvalid() {
-				ldbRemoveFromGlobal(snap, batch, folder, device, name, globalSize)
+				t.removeFromGlobal(folder, device, name, globalSize)
 			} else {
-				ldbUpdateGlobal(snap, batch, folder, device, f, globalSize)
+				t.updateGlobal(folder, device, f, globalSize)
 			}
 			continue
 		}
@@ -356,40 +365,25 @@ func (db *dbInstance) update(folder, device []byte, fs []protocol.FileInfo, loca
 				localSize.addFile(f)
 			}
 
-			if lv := ldbInsert(batch, folder, device, f); lv > maxLocalVer {
+			if lv := t.insertFile(folder, device, f); lv > maxLocalVer {
 				maxLocalVer = lv
 			}
 			if f.IsInvalid() {
-				ldbRemoveFromGlobal(snap, batch, folder, device, name, globalSize)
+				t.removeFromGlobal(folder, device, name, globalSize)
 			} else {
-				ldbUpdateGlobal(snap, batch, folder, device, f, globalSize)
+				t.updateGlobal(folder, device, f, globalSize)
 			}
 		}
 
 		// Write out and reuse the batch every few records, to avoid the batch
 		// growing too large and thus allocating unnecessarily much memory.
-		if batch.Len() > batchFlushSize {
-			l.Debugf("db.Write %p", batch)
-
-			err = db.Write(batch, nil)
-			if err != nil {
-				panic(err)
-			}
-
-			batch.Reset()
-		}
-	}
-
-	l.Debugf("db.Write %p", batch)
-	err = db.Write(batch, nil)
-	if err != nil {
-		panic(err)
+		t.checkFlush()
 	}
 
 	return maxLocalVer
 }
 
-func ldbInsert(batch dbWriter, folder, device []byte, file protocol.FileInfo) int64 {
+func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.FileInfo) int64 {
 	l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
 
 	if file.LocalVersion == 0 {
@@ -398,20 +392,19 @@ func ldbInsert(batch dbWriter, folder, device []byte, file protocol.FileInfo) in
 
 	name := []byte(file.Name)
 	nk := deviceKey(folder, device, name)
-	l.Debugf("batch.Put %p %x", batch, nk)
-	batch.Put(nk, file.MustMarshalXDR())
+	t.Put(nk, file.MustMarshalXDR())
 
 	return file.LocalVersion
 }
 
-// ldbUpdateGlobal adds this device+version to the version list for the given
+// updateGlobal adds this device+version to the version list for the given
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
-func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device []byte, file protocol.FileInfo, globalSize *sizeTracker) bool {
+func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.FileInfo, globalSize *sizeTracker) bool {
 	l.Debugf("update global; folder=%q device=%v file=%q version=%d", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
 	name := []byte(file.Name)
 	gk := globalKey(folder, name)
-	svl, err := db.Get(gk, nil)
+	svl, err := t.Get(gk, nil)
 	if err != nil && err != leveldb.ErrNotFound {
 		panic(err)
 	}
@@ -436,7 +429,7 @@ func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device []byte, file pr
 				if i == 0 {
 					// Keep the current newest file around so we can subtract it from
 					// the globalSize if we replace it.
-					oldFile, hasOldFile = ldbGet(db, folder, fl.versions[0].device, name)
+					oldFile, hasOldFile = t.getFile(folder, fl.versions[0].device, name)
 				}
 
 				fl.versions = append(fl.versions[:i], fl.versions[i+1:]...)
@@ -469,7 +462,7 @@ func ldbUpdateGlobal(db dbReader, batch dbWriter, folder, device []byte, file pr
 			// "Greater" in the condition above is just based on the device
 			// IDs in the version vector, which is not the only thing we use
 			// to determine the winner.)
-			of, ok := ldbGet(db, folder, fl.versions[i].device, name)
+			of, ok := t.getFile(folder, fl.versions[i].device, name)
 			if !ok {
 				panic("file referenced in version list does not exist")
 			}
@@ -496,7 +489,7 @@ done:
 				globalSize.removeFile(oldFile)
 			} else if len(fl.versions) > 1 {
 				// The previous newest version is now at index 1, grab it from there.
-				oldFile, ok := ldbGet(db, folder, fl.versions[1].device, name)
+				oldFile, ok := t.getFile(folder, fl.versions[1].device, name)
 				if !ok {
 					panic("file referenced in version list does not exist")
 				}
@@ -505,9 +498,8 @@ done:
 		}
 	}
 
-	l.Debugf("batch.Put %p %x", batch, gk)
 	l.Debugf("new global after update: %v", fl)
-	batch.Put(gk, fl.MustMarshalXDR())
+	t.Put(gk, fl.MustMarshalXDR())
 
 	return true
 }
@@ -522,11 +514,11 @@ func insertVersion(vl []fileVersion, i int, v fileVersion) []fileVersion {
 // ldbRemoveFromGlobal removes the device from the global version list for the
 // given file. If the version list is empty after this, the file entry is
 // removed entirely.
-func ldbRemoveFromGlobal(db dbReader, batch dbWriter, folder, device, file []byte, globalSize *sizeTracker) {
+func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, globalSize *sizeTracker) {
 	l.Debugf("remove from global; folder=%q device=%v file=%q", folder, protocol.DeviceIDFromBytes(device), file)
 
 	gk := globalKey(folder, file)
-	svl, err := db.Get(gk, nil)
+	svl, err := t.Get(gk, nil)
 	if err != nil {
 		// We might be called to "remove" a global version that doesn't exist
 		// if the first update for the file is already marked invalid.
@@ -543,7 +535,7 @@ func ldbRemoveFromGlobal(db dbReader, batch dbWriter, folder, device, file []byt
 	for i := range fl.versions {
 		if bytes.Compare(fl.versions[i].device, device) == 0 {
 			if i == 0 && globalSize != nil {
-				f, ok := ldbGet(db, folder, device, file)
+				f, ok := t.getFile(folder, device, file)
 				if !ok {
 					panic("removing nonexistent file")
 				}
@@ -556,14 +548,12 @@ func ldbRemoveFromGlobal(db dbReader, batch dbWriter, folder, device, file []byt
 	}
 
 	if len(fl.versions) == 0 {
-		l.Debugf("batch.Delete %p %x", batch, gk)
-		batch.Delete(gk)
+		t.Delete(gk)
 	} else {
-		l.Debugf("batch.Put %p %x", batch, gk)
 		l.Debugf("new global after remove: %v", fl)
-		batch.Put(gk, fl.MustMarshalXDR())
+		t.Put(gk, fl.MustMarshalXDR())
 		if removed {
-			f, ok := ldbGet(db, folder, fl.versions[0].device, file)
+			f, ok := t.getFile(folder, fl.versions[0].device, file)
 			if !ok {
 				panic("new global is nonexistent file")
 			}
@@ -575,17 +565,11 @@ func ldbRemoveFromGlobal(db dbReader, batch dbWriter, folder, device, file []byt
 func (db *dbInstance) withHave(folder, device []byte, truncate bool, fn Iterator) {
 	start := deviceKey(folder, device, nil)                            // before all folder/device files
 	limit := deviceKey(folder, device, []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
-	l.Debugf("created snapshot %p", snap)
-	defer func() {
-		l.Debugf("close snapshot %p", snap)
-		snap.Release()
-	}()
 
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
 	defer dbi.Release()
 
 	for dbi.Next() {
@@ -602,17 +586,11 @@ func (db *dbInstance) withHave(folder, device []byte, truncate bool, fn Iterator
 func (db *dbInstance) withAllFolderTruncated(folder []byte, fn func(device []byte, f FileInfoTruncated) bool) {
 	start := deviceKey(folder, nil, nil)                                                  // before all folder/device files
 	limit := deviceKey(folder, protocol.LocalDeviceID[:], []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
-	l.Debugf("created snapshot %p", snap)
-	defer func() {
-		l.Debugf("close snapshot %p", snap)
-		snap.Release()
-	}()
 
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
 	defer dbi.Release()
 
 	for dbi.Next() {
@@ -626,10 +604,9 @@ func (db *dbInstance) withAllFolderTruncated(folder []byte, fn func(device []byt
 		switch f.Name {
 		case "", ".", "..", "/": // A few obviously invalid filenames
 			l.Infof("Dropping invalid filename %q from database", f.Name)
-			batch := new(leveldb.Batch)
-			ldbRemoveFromGlobal(db, batch, folder, device, nil, nil)
-			batch.Delete(dbi.Key())
-			db.Write(batch, nil)
+			t.removeFromGlobal(folder, device, nil, nil)
+			t.Delete(dbi.Key())
+			t.checkFlush()
 			continue
 		}
 
@@ -639,7 +616,15 @@ func (db *dbInstance) withAllFolderTruncated(folder []byte, fn func(device []byt
 	}
 }
 
-func ldbGet(db dbReader, folder, device, file []byte) (protocol.FileInfo, bool) {
+func (db *dbInstance) getFile(folder, device, file []byte) (protocol.FileInfo, bool) {
+	return ldbGetFile(db, folder, device, file)
+}
+
+func (t readOnlyTransaction) getFile(folder, device, file []byte) (protocol.FileInfo, bool) {
+	return ldbGetFile(t, folder, device, file)
+}
+
+func ldbGetFile(db dbReader, folder, device, file []byte) (protocol.FileInfo, bool) {
 	nk := deviceKey(folder, device, file)
 	bs, err := db.Get(nk, nil)
 	if err == leveldb.ErrNotFound {
@@ -659,18 +644,11 @@ func ldbGet(db dbReader, folder, device, file []byte) (protocol.FileInfo, bool) 
 
 func (db *dbInstance) getGlobal(folder, file []byte, truncate bool) (FileIntf, bool) {
 	k := globalKey(folder, file)
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
-	l.Debugf("created snapshot %p", snap)
-	defer func() {
-		l.Debugf("close snapshot %p", snap)
-		snap.Release()
-	}()
 
-	l.Debugf("snap.Get %p %x", snap, k)
-	bs, err := snap.Get(k, nil)
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+
+	bs, err := t.Get(k, nil)
 	if err == leveldb.ErrNotFound {
 		return nil, false
 	}
@@ -689,8 +667,7 @@ func (db *dbInstance) getGlobal(folder, file []byte, truncate bool) (FileIntf, b
 	}
 
 	k = deviceKey(folder, vl.versions[0].device, file)
-	l.Debugf("snap.Get %p %x", snap, k)
-	bs, err = snap.Get(k, nil)
+	bs, err = t.Get(k, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -703,17 +680,10 @@ func (db *dbInstance) getGlobal(folder, file []byte, truncate bool) (FileIntf, b
 }
 
 func (db *dbInstance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator) {
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
-	l.Debugf("created snapshot %p", snap)
-	defer func() {
-		l.Debugf("close snapshot %p", snap)
-		snap.Release()
-	}()
+	t := db.newReadOnlyTransaction()
+	defer t.close()
 
-	dbi := snap.NewIterator(util.BytesPrefix(globalKey(folder, prefix)), nil)
+	dbi := t.NewIterator(util.BytesPrefix(globalKey(folder, prefix)), nil)
 	defer dbi.Release()
 
 	var fk []byte
@@ -729,8 +699,7 @@ func (db *dbInstance) withGlobal(folder, prefix []byte, truncate bool, fn Iterat
 		}
 		name := globalKeyName(dbi.Key())
 		fk = deviceKeyInto(fk[:cap(fk)], folder, vl.versions[0].device, name)
-		l.Debugf("snap.Get %p %x", snap, fk)
-		bs, err := snap.Get(fk, nil)
+		bs, err := t.Get(fk, nil)
 		if err != nil {
 			l.Debugf("folder: %q (%x)", folder, folder)
 			l.Debugf("key: %q (%x)", dbi.Key(), dbi.Key())
@@ -784,17 +753,11 @@ func (db *dbInstance) availability(folder, file []byte) []protocol.DeviceID {
 func (db *dbInstance) withNeed(folder, device []byte, truncate bool, fn Iterator) {
 	start := globalKey(folder, nil)
 	limit := globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
-	l.Debugf("created snapshot %p", snap)
-	defer func() {
-		l.Debugf("close snapshot %p", snap)
-		snap.Release()
-	}()
 
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
 	defer dbi.Release()
 
 	var fk []byte
@@ -836,8 +799,7 @@ nextFile:
 					continue nextFile
 				}
 				fk = deviceKeyInto(fk[:cap(fk)], folder, vl.versions[i].device, name)
-				l.Debugf("snap.Get %p %x", snap, fk)
-				bs, err := snap.Get(fk, nil)
+				bs, err := t.Get(fk, nil)
 				if err != nil {
 					var id protocol.DeviceID
 					copy(id[:], device)
@@ -880,17 +842,10 @@ nextFile:
 }
 
 func (db *dbInstance) listFolders() []string {
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
-	l.Debugf("created snapshot %p", snap)
-	defer func() {
-		l.Debugf("close snapshot %p", snap)
-		snap.Release()
-	}()
+	t := db.newReadOnlyTransaction()
+	defer t.close()
 
-	dbi := snap.NewIterator(util.BytesPrefix([]byte{KeyTypeGlobal}), nil)
+	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeGlobal}), nil)
 	defer dbi.Release()
 
 	folderExists := make(map[string]bool)
@@ -911,18 +866,11 @@ func (db *dbInstance) listFolders() []string {
 }
 
 func (db *dbInstance) dropFolder(folder []byte) {
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
-	l.Debugf("created snapshot %p", snap)
-	defer func() {
-		l.Debugf("close snapshot %p", snap)
-		snap.Release()
-	}()
+	t := db.newReadOnlyTransaction()
+	defer t.close()
 
 	// Remove all items related to the given folder from the device->file bucket
-	dbi := snap.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
+	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
 	for dbi.Next() {
 		itemFolder := deviceKeyFolder(dbi.Key())
 		if bytes.Compare(folder, itemFolder) == 0 {
@@ -932,7 +880,7 @@ func (db *dbInstance) dropFolder(folder []byte) {
 	dbi.Release()
 
 	// Remove all items related to the given folder from the global bucket
-	dbi = snap.NewIterator(util.BytesPrefix([]byte{KeyTypeGlobal}), nil)
+	dbi = t.NewIterator(util.BytesPrefix([]byte{KeyTypeGlobal}), nil)
 	for dbi.Next() {
 		itemFolder := globalKeyFolder(dbi.Key())
 		if bytes.Compare(folder, itemFolder) == 0 {
@@ -955,23 +903,13 @@ func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
 }
 
 func (db *dbInstance) checkGlobals(folder []byte, globalSize *sizeTracker) {
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
-	l.Debugf("created snapshot %p", snap)
-	defer func() {
-		l.Debugf("close snapshot %p", snap)
-		snap.Release()
-	}()
+	t := db.newReadWriteTransaction()
+	defer t.close()
 
 	start := globalKey(folder, nil)
 	limit := globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
-	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := t.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
 	defer dbi.Release()
-
-	batch := new(leveldb.Batch)
-	l.Debugf("new batch %p", batch)
 
 	var fk []byte
 	for dbi.Next() {
@@ -992,8 +930,7 @@ func (db *dbInstance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 		for i, version := range vl.versions {
 			fk = deviceKeyInto(fk[:cap(fk)], folder, version.device, name)
 
-			l.Debugf("snap.Get %p %x", snap, fk)
-			_, err := snap.Get(fk, nil)
+			_, err := t.Get(fk, nil)
 			if err == leveldb.ErrNotFound {
 				continue
 			}
@@ -1003,7 +940,7 @@ func (db *dbInstance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 			newVL.versions = append(newVL.versions, version)
 
 			if i == 0 {
-				fi, ok := ldbGet(snap, folder, version.device, name)
+				fi, ok := t.getFile(folder, version.device, name)
 				if !ok {
 					panic("nonexistent global master file")
 				}
@@ -1012,10 +949,9 @@ func (db *dbInstance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 		}
 
 		if len(newVL.versions) != len(vl.versions) {
-			l.Infof("db repair: rewriting global version list for %x %x", gk[1:1+64], gk[1+64:])
-			batch.Put(dbi.Key(), newVL.MustMarshalXDR())
+			t.Put(dbi.Key(), newVL.MustMarshalXDR())
+			t.checkFlush()
 		}
 	}
 	l.Debugf("db check completed for %q", folder)
-	db.Write(batch, nil)
 }
