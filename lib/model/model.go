@@ -190,7 +190,7 @@ func (m *Model) StartFolderRW(folder string) {
 }
 
 func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
-	if m.folderCfgs[folder].ReadOnly {
+	if m.folderCfgs[folder].Master {
 		return
 	}
 
@@ -1446,7 +1446,7 @@ func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMe
 			ID: folder,
 		}
 		var flags uint32
-		if folderCfg.ReadOnly {
+		if folderCfg.Master {
 			flags |= protocol.FlagFolderReadOnly
 		}
 		if folderCfg.IgnorePerms {
@@ -1703,7 +1703,7 @@ func (m *Model) CheckFolderHealth(id string) error {
 		case !folder.HasMarker():
 			err = errors.New("folder marker missing")
 
-		case !folder.ReadOnly:
+		case !folder.Master:
 			// Check for free space, if it isn't a master folder. We aren't
 			// going to change the contents of master folders, so we don't
 			// care about the amount of free space there.
@@ -1777,7 +1777,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			// A folder was added.
 			l.Debugln(m, "adding folder", folderID)
 			m.AddFolder(cfg)
-			if cfg.ReadOnly {
+			if cfg.Master {
 				m.StartFolderRO(folderID)
 			} else {
 				m.StartFolderRW(folderID)

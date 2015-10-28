@@ -122,7 +122,9 @@ func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 
 	var rescanIntvs []int
 	folderUses := map[string]int{
-		"readonly":      0,
+		"ignore":        0,
+		"master":        0,
+		"slave":         0,
 		"ignorePerms":   0,
 		"ignoreDelete":  0,
 		"autoNormalize": 0,
@@ -130,8 +132,14 @@ func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 	for _, cfg := range cfg.Folders() {
 		rescanIntvs = append(rescanIntvs, cfg.RescanIntervalS)
 
-		if cfg.ReadOnly {
-			folderUses["readonly"]++
+		if cfg.Master {
+			if cfg.Slave {
+				folderUses["ignore"]++
+			} else {
+				folderUses["master"]++
+			}
+		} else if cfg.Slave {
+			folderUses["slave"]++
 		}
 		if cfg.IgnorePerms {
 			folderUses["ignorePerms"]++

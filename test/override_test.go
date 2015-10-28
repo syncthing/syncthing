@@ -27,7 +27,7 @@ func TestOverride(t *testing.T) {
 	id, _ := protocol.DeviceIDFromString(id1)
 	cfg, _ := config.Load("h1/config.xml", id)
 	fld := cfg.Folders()["default"]
-	fld.ReadOnly = true
+	fld.Master = true
 	cfg.SetFolder(fld)
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
 	defer osutil.Rename("h1/config.xml.orig", "h1/config.xml")
@@ -156,7 +156,7 @@ func TestOverrideIgnores(t *testing.T) {
 	id, _ := protocol.DeviceIDFromString(id1)
 	cfg, _ := config.Load("h1/config.xml", id)
 	fld := cfg.Folders()["default"]
-	fld.ReadOnly = true
+	fld.Master = true
 	cfg.SetFolder(fld)
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
 	defer osutil.Rename("h1/config.xml.orig", "h1/config.xml")
