@@ -153,9 +153,9 @@
 
         var resolveStatus = $q.defer();
 
-        initProgress("Getting relay status for" + uri.hostname);
+        initProgress("Getting relay status for " + uri.hostname);
         $http.get("http://" + uri.hostname + (uri.args.statusAddr || ":22070") + "/status").then(function (response) {
-          progressDone("Getting relay status for" + uri.hostname);
+          progressDone("Getting relay status for " + uri.hostname);
           $scope.status[relay.url] = response.data;
           angular.forEach($scope.totals, function(value, key) {
             if (typeof $scope.totals[key] == 'number') {
@@ -168,7 +168,7 @@
           });
           resolveStatus.resolve(response.data);
         }, function() {
-          progressDone("Getting relay status for" + uri.hostname);
+          progressDone("Getting relay status for " + uri.hostname);
 
           resolveStatus.resolve(response.data);
         });
