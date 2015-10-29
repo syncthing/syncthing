@@ -11,57 +11,60 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-type roFolder struct {
+type masterFolder struct {
 	stateTracker
 
-	folder    string
-	intv      time.Duration
-	timer     *time.Timer
-	model     *Model
+	model *Model
+
+	folder   string
+	scanIntv time.Duration
+	shortID  uint64
+
 	stop      chan struct{}
-	scanNow   chan rescanRequest
+	scanTimer *time.Timer
 	delayScan chan time.Duration
+	scanNow   chan rescanRequest
 }
 
-type rescanRequest struct {
-	subs []string
-	err  chan error
-}
-
-func newROFolder(model *Model, folder string, interval time.Duration) *roFolder {
-	return &roFolder{
+func newMasterFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *masterFolder {
+	return &masterFolder{
 		stateTracker: stateTracker{
-			folder: folder,
+			folder: cfg.ID,
 			mut:    sync.NewMutex(),
 		},
-		folder:    folder,
-		intv:      interval,
-		timer:     time.NewTimer(time.Millisecond),
-		model:     model,
+
+		model: m,
+
+		folder:   cfg.ID,
+		scanIntv: time.Duration(cfg.RescanIntervalS) * time.Second,
+		shortID:  shortID,
+
 		stop:      make(chan struct{}),
-		scanNow:   make(chan rescanRequest),
+		scanTimer: time.NewTimer(time.Millisecond),
 		delayScan: make(chan time.Duration),
+		scanNow:   make(chan rescanRequest),
 	}
 }
 
-func (s *roFolder) Serve() {
+func (s *masterFolder) Serve() {
 	l.Debugln(s, "starting")
 	defer l.Debugln(s, "exiting")
 
 	defer func() {
-		s.timer.Stop()
+		s.scanTimer.Stop()
 	}()
 
 	reschedule := func() {
-		if s.intv == 0 {
+		if s.scanIntv == 0 {
 			return
 		}
 		// Sleep a random time between 3/4 and 5/4 of the configured interval.
-		sleepNanos := (s.intv.Nanoseconds()*3 + rand.Int63n(2*s.intv.Nanoseconds())) / 4
-		s.timer.Reset(time.Duration(sleepNanos) * time.Nanosecond)
+		sleepNanos := (s.scanIntv.Nanoseconds()*3 + rand.Int63n(2*s.scanIntv.Nanoseconds())) / 4
+		s.scanTimer.Reset(time.Duration(sleepNanos) * time.Nanosecond)
 	}
 
 	initialScanCompleted := false
@@ -70,7 +73,7 @@ func (s *roFolder) Serve() {
 		case <-s.stop:
 			return
 
-		case <-s.timer.C:
+		case <-s.scanTimer.C:
 			if err := s.model.CheckFolderHealth(s.folder); err != nil {
 				l.Infoln("Skipping folder", s.folder, "scan due to folder error:", err)
 				reschedule()
@@ -94,7 +97,7 @@ func (s *roFolder) Serve() {
 				initialScanCompleted = true
 			}
 
-			if s.intv == 0 {
+			if s.scanIntv == 0 {
 				continue
 			}
 
@@ -122,19 +125,19 @@ func (s *roFolder) Serve() {
 			req.err <- nil
 
 		case next := <-s.delayScan:
-			s.timer.Reset(next)
+			s.scanTimer.Reset(next)
 		}
 	}
 }
 
-func (s *roFolder) Stop() {
+func (s *masterFolder) Stop() {
 	close(s.stop)
 }
 
-func (s *roFolder) IndexUpdated() {
+func (s *masterFolder) IndexUpdated() {
 }
 
-func (s *roFolder) Scan(subs []string) error {
+func (s *masterFolder) Scan(subs []string) error {
 	req := rescanRequest{
 		subs: subs,
 		err:  make(chan error),
@@ -143,16 +146,16 @@ func (s *roFolder) Scan(subs []string) error {
 	return <-req.err
 }
 
-func (s *roFolder) String() string {
+func (s *masterFolder) String() string {
 	return fmt.Sprintf("roFolder/%s@%p", s.folder, s)
 }
 
-func (s *roFolder) BringToFront(string) {}
+func (s *masterFolder) BringToFront(string) {}
 
-func (s *roFolder) Jobs() ([]string, []string) {
+func (s *masterFolder) Jobs() ([]string, []string) {
 	return nil, nil
 }
 
-func (s *roFolder) DelayScan(next time.Duration) {
+func (s *masterFolder) DelayScan(next time.Duration) {
 	s.delayScan <- next
 }

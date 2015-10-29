@@ -95,7 +95,7 @@ func TestDeviceConfig(t *testing.T) {
 				RawPath:         "testdata",
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				Master:          true,
-				Slave:           true,
+				Slave:           false,
 				RescanIntervalS: 600,
 				Copiers:         0,
 				Pullers:         0,

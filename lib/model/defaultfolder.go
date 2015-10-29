@@ -30,49 +30,7 @@ import (
 
 // TODO: Stop on errors
 
-// A pullBlockState is passed to the puller routine for each block that needs
-// to be fetched.
-type pullBlockState struct {
-	*sharedPullerState
-	block protocol.BlockInfo
-}
-
-// A copyBlocksState is passed to copy routine if the file has blocks to be
-// copied.
-type copyBlocksState struct {
-	*sharedPullerState
-	blocks []protocol.BlockInfo
-}
-
-// Which filemode bits to preserve
-const retainBits = os.ModeSetgid | os.ModeSetuid | os.ModeSticky
-
-var (
-	activity    = newDeviceActivity()
-	errNoDevice = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
-)
-
-const (
-	dbUpdateHandleDir = iota
-	dbUpdateDeleteDir
-	dbUpdateHandleFile
-	dbUpdateDeleteFile
-	dbUpdateShortcutFile
-)
-
-const (
-	defaultCopiers     = 1
-	defaultPullers     = 16
-	defaultPullerSleep = 10 * time.Second
-	defaultPullerPause = 60 * time.Second
-)
-
-type dbUpdateJob struct {
-	file    protocol.FileInfo
-	jobType int
-}
-
-type rwFolder struct {
+type defaultFolder struct {
 	stateTracker
 
 	model            *Model
@@ -105,8 +63,8 @@ type rwFolder struct {
 	errorsMut sync.Mutex
 }
 
-func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
-	p := &rwFolder{
+func newDefaultFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *defaultFolder {
+	p := &defaultFolder{
 		stateTracker: stateTracker{
 			folder: cfg.ID,
 			mut:    sync.NewMutex(),
@@ -162,13 +120,13 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 // Helper function to check whether either the ignorePerm flag has been
 // set on the local host or the FlagNoPermBits has been set on the file/dir
 // which is being pulled.
-func (p *rwFolder) ignorePermissions(file protocol.FileInfo) bool {
+func (p *defaultFolder) ignorePermissions(file protocol.FileInfo) bool {
 	return p.ignorePerms || file.Flags&protocol.FlagNoPermBits != 0
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
 // critical error.
-func (p *rwFolder) Serve() {
+func (p *defaultFolder) Serve() {
 	l.Debugln(p, "starting")
 	defer l.Debugln(p, "exiting")
 
@@ -355,11 +313,11 @@ func (p *rwFolder) Serve() {
 	}
 }
 
-func (p *rwFolder) Stop() {
+func (p *defaultFolder) Stop() {
 	close(p.stop)
 }
 
-func (p *rwFolder) IndexUpdated() {
+func (p *defaultFolder) IndexUpdated() {
 	select {
 	case p.remoteIndex <- struct{}{}:
 	default:
@@ -370,7 +328,7 @@ func (p *rwFolder) IndexUpdated() {
 	}
 }
 
-func (p *rwFolder) Scan(subs []string) error {
+func (p *defaultFolder) Scan(subs []string) error {
 	req := rescanRequest{
 		subs: subs,
 		err:  make(chan error),
@@ -379,7 +337,7 @@ func (p *rwFolder) Scan(subs []string) error {
 	return <-req.err
 }
 
-func (p *rwFolder) String() string {
+func (p *defaultFolder) String() string {
 	return fmt.Sprintf("rwFolder/%s@%p", p.folder, p)
 }
 
@@ -387,7 +345,7 @@ func (p *rwFolder) String() string {
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
+func (p *defaultFolder) pullerIteration(ignores *ignore.Matcher) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -591,7 +549,7 @@ nextFile:
 }
 
 // handleDir creates or updates the given directory
-func (p *rwFolder) handleDir(file protocol.FileInfo) {
+func (p *defaultFolder) handleDir(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
@@ -686,7 +644,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 }
 
 // deleteDir attempts to delete the given directory
-func (p *rwFolder) deleteDir(file protocol.FileInfo) {
+func (p *defaultFolder) deleteDir(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
@@ -733,7 +691,7 @@ func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 }
 
 // deleteFile attempts to delete the given file
-func (p *rwFolder) deleteFile(file protocol.FileInfo) {
+func (p *defaultFolder) deleteFile(file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
@@ -783,7 +741,7 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 
 // renameFile attempts to rename an existing file to a destination
 // and set the right attributes on it.
-func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
+func (p *defaultFolder) renameFile(source, target protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
@@ -895,7 +853,7 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
+func (p *defaultFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
 	curFile, ok := p.model.CurrentFolderFile(p.folder, file.Name)
 
 	if ok && len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
@@ -1018,7 +976,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
-func (p *rwFolder) shortcutFile(file protocol.FileInfo) error {
+func (p *defaultFolder) shortcutFile(file protocol.FileInfo) error {
 	realName := filepath.Join(p.dir, file.Name)
 	if !p.ignorePermissions(file) {
 		if err := os.Chmod(realName, os.FileMode(file.Flags&0777)); err != nil {
@@ -1051,7 +1009,7 @@ func (p *rwFolder) shortcutFile(file protocol.FileInfo) error {
 }
 
 // shortcutSymlink changes the symlinks type if necessary.
-func (p *rwFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
+func (p *defaultFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
 	tt := symlinks.TargetFile
 	if file.IsDirectory() {
 		tt = symlinks.TargetDirectory
@@ -1066,7 +1024,7 @@ func (p *rwFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
 
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
-func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
+func (p *defaultFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
 	buf := make([]byte, protocol.BlockSize)
 
 	for state := range in {
@@ -1147,7 +1105,7 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 	}
 }
 
-func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
+func (p *defaultFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	for state := range in {
 		if state.failed() != nil {
 			out <- state.sharedPullerState
@@ -1212,7 +1170,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 	}
 }
 
-func (p *rwFolder) performFinish(state *sharedPullerState) error {
+func (p *defaultFolder) performFinish(state *sharedPullerState) error {
 	// Set the correct permission bits on the new file
 	if !p.ignorePermissions(state.file) {
 		if err := os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777)); err != nil {
@@ -1302,7 +1260,7 @@ func (p *rwFolder) performFinish(state *sharedPullerState) error {
 	return nil
 }
 
-func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
+func (p *defaultFolder) finisherRoutine(in <-chan *sharedPullerState) {
 	for state := range in {
 		if closed, err := state.finalClose(); closed {
 			l.Debugln(p, "closing", state.file.Name)
@@ -1333,21 +1291,21 @@ func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 }
 
 // Moves the given filename to the front of the job queue
-func (p *rwFolder) BringToFront(filename string) {
+func (p *defaultFolder) BringToFront(filename string) {
 	p.queue.BringToFront(filename)
 }
 
-func (p *rwFolder) Jobs() ([]string, []string) {
+func (p *defaultFolder) Jobs() ([]string, []string) {
 	return p.queue.Jobs()
 }
 
-func (p *rwFolder) DelayScan(next time.Duration) {
+func (p *defaultFolder) DelayScan(next time.Duration) {
 	p.delayScan <- next
 }
 
 // dbUpdaterRoutine aggregates db updates and commits them in batches no
 // larger than 1000 items, and no more delayed than 2 seconds.
-func (p *rwFolder) dbUpdaterRoutine() {
+func (p *defaultFolder) dbUpdaterRoutine() {
 	const (
 		maxBatchSize = 1000
 		maxBatchTime = 2 * time.Second
@@ -1413,7 +1371,7 @@ loop:
 	}
 }
 
-func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
+func (p *defaultFolder) inConflict(current, replacement protocol.Vector) bool {
 	if current.Concurrent(replacement) {
 		// Obvious case
 		return true
@@ -1429,17 +1387,7 @@ func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
 	return false
 }
 
-func removeDevice(devices []protocol.DeviceID, device protocol.DeviceID) []protocol.DeviceID {
-	for i := range devices {
-		if devices[i] == device {
-			devices[i] = devices[len(devices)-1]
-			return devices[:len(devices)-1]
-		}
-	}
-	return devices
-}
-
-func (p *rwFolder) moveForConflict(name string) error {
+func (p *defaultFolder) moveForConflict(name string) error {
 	if p.maxConflicts == 0 {
 		if err := osutil.Remove(name); err != nil && !os.IsNotExist(err) {
 			return err
@@ -1475,7 +1423,7 @@ func (p *rwFolder) moveForConflict(name string) error {
 	return err
 }
 
-func (p *rwFolder) newError(path string, err error) {
+func (p *defaultFolder) newError(path string, err error) {
 	p.errorsMut.Lock()
 	defer p.errorsMut.Unlock()
 
@@ -1489,13 +1437,13 @@ func (p *rwFolder) newError(path string, err error) {
 	p.errors[path] = err.Error()
 }
 
-func (p *rwFolder) clearErrors() {
+func (p *defaultFolder) clearErrors() {
 	p.errorsMut.Lock()
 	p.errors = make(map[string]string)
 	p.errorsMut.Unlock()
 }
 
-func (p *rwFolder) currentErrors() []fileError {
+func (p *defaultFolder) currentErrors() []fileError {
 	p.errorsMut.Lock()
 	errors := make([]fileError, 0, len(p.errors))
 	for path, err := range p.errors {
@@ -1504,24 +1452,4 @@ func (p *rwFolder) currentErrors() []fileError {
 	sort.Sort(fileErrorList(errors))
 	p.errorsMut.Unlock()
 	return errors
-}
-
-// A []fileError is sent as part of an event and will be JSON serialized.
-type fileError struct {
-	Path string `json:"path"`
-	Err  string `json:"error"`
-}
-
-type fileErrorList []fileError
-
-func (l fileErrorList) Len() int {
-	return len(l)
-}
-
-func (l fileErrorList) Less(a, b int) bool {
-	return l[a].Path < l[b].Path
-}
-
-func (l fileErrorList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
 }

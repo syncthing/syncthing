@@ -148,10 +148,10 @@ func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 	deadlockDetect(m.pmut, timeout)
 }
 
-// StartFolderRW starts read/write processing on the current model. When in
+// StartFolderDefault starts read/write processing on the current model. When in
 // read/write mode the model will attempt to keep in sync with the cluster by
 // pulling needed files from peer devices.
-func (m *Model) StartFolderRW(folder string) {
+func (m *Model) StartFolderDefault(folder string) {
 	m.fmut.Lock()
 	cfg, ok := m.folderCfgs[folder]
 	if !ok {
@@ -162,7 +162,7 @@ func (m *Model) StartFolderRW(folder string) {
 	if ok {
 		panic("cannot start already running folder " + folder)
 	}
-	p := newRWFolder(m, m.shortID, cfg)
+	p := newDefaultFolder(m, m.shortID, cfg)
 	m.folderRunners[folder] = p
 	m.fmut.Unlock()
 
@@ -217,10 +217,10 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 	}
 }
 
-// StartFolderRO starts read only processing on the current model. When in
+// StartFolderMaster starts read only processing on the current model. When in
 // read only mode the model will announce files to the cluster but not pull in
 // any external changes.
-func (m *Model) StartFolderRO(folder string) {
+func (m *Model) StartFolderMaster(folder string) {
 	m.fmut.Lock()
 	cfg, ok := m.folderCfgs[folder]
 	if !ok {
@@ -231,7 +231,7 @@ func (m *Model) StartFolderRO(folder string) {
 	if ok {
 		panic("cannot start already running folder " + folder)
 	}
-	s := newROFolder(m, folder, time.Duration(cfg.RescanIntervalS)*time.Second)
+	s := newMasterFolder(m, m.shortID, cfg)
 	m.folderRunners[folder] = s
 	m.fmut.Unlock()
 
@@ -1778,9 +1778,9 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			l.Debugln(m, "adding folder", folderID)
 			m.AddFolder(cfg)
 			if cfg.Master {
-				m.StartFolderRO(folderID)
+				m.StartFolderMaster(folderID)
 			} else {
-				m.StartFolderRW(folderID)
+				m.StartFolderDefault(folderID)
 			}
 
 			// Drop connections to all devices that can now share the new
