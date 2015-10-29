@@ -896,9 +896,9 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
 func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
-	curFile, ok := p.model.CurrentFolderFile(p.folder, file.Name)
+	curFile, hasCurFile := p.model.CurrentFolderFile(p.folder, file.Name)
 
-	if ok && len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
+	if hasCurFile && len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
 		// We are supposed to copy the entire file, and then fetch nothing. We
 		// are only updating metadata, so we don't actually *need* to make the
 		// copy.
@@ -938,6 +938,31 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		return
 	}
 
+	// Figure out the absolute filenames we need once and for all
+	tempName := filepath.Join(p.dir, defTempNamer.TempName(file.Name))
+	realName := filepath.Join(p.dir, file.Name)
+
+	if hasCurFile {
+		// Check that the file on disk is what we expect it to be according to
+		// the database. If there's a mismatch here, there might be local
+		// changes that we don't know about yet and we should scan before
+		// touching the file. If we can't stat the file we'll just pull it.
+		if info, err := osutil.Lstat(realName); err == nil {
+			if info.ModTime().Unix() != curFile.Modified || info.Size() != curFile.Size() {
+				l.Debugln("file modified but not rescanned; not pulling:", realName)
+				// Scan() is synchronous (i.e. blocks until the scan is
+				// completed and returns an error), but a scan can't happen
+				// while we're in the puller routine. Request the scan in the
+				// background and it'll be handled when the current pulling
+				// sweep is complete. As we do retries, we'll queue the scan
+				// for this file up to ten times, but the last nine of those
+				// scans will be cheap...
+				go p.Scan([]string{file.Name})
+				return
+			}
+		}
+	}
+
 	if free, err := osutil.DiskFreeBytes(p.dir); err == nil && free < file.Size() {
 		l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.folder, p.dir, file.Name, float64(free)/1024/1024, float64(file.Size())/1024/1024)
 		p.newError(file.Name, errors.New("insufficient space"))
@@ -952,10 +977,6 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 	})
 
 	scanner.PopulateOffsets(file.Blocks)
-
-	// Figure out the absolute filenames we need once and for all
-	tempName := filepath.Join(p.dir, defTempNamer.TempName(file.Name))
-	realName := filepath.Join(p.dir, file.Name)
 
 	reused := 0
 	var blocks []protocol.BlockInfo
