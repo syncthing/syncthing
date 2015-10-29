@@ -26,7 +26,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 12
+	CurrentVersion       = 13
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -202,6 +202,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 11 {
 		convertV11V12(cfg)
 	}
+	if cfg.Version == 12 {
+		convertV12V13(cfg)
+	}
 
 	// Hash old cleartext passwords
 	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
@@ -287,6 +290,17 @@ func ChangeRequiresRestart(from, to Configuration) bool {
 	}
 
 	return false
+}
+
+func convertV12V13(cfg *Configuration) {
+	// Map deprecated ReadOnly to Master
+	for i, f := range cfg.Folders {
+		if f.Deprecated_ReadOnly {
+			cfg.Folders[i].Master, cfg.Folders[i].Deprecated_ReadOnly = f.Deprecated_ReadOnly, false
+		}
+	}
+
+	cfg.Version = 13
 }
 
 func convertV11V12(cfg *Configuration) {

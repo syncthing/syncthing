@@ -20,6 +20,7 @@ type FolderConfiguration struct {
 	ID                    string                      `xml:"id,attr" json:"id"`
 	RawPath               string                      `xml:"path,attr" json:"path"`
 	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
+	Deprecated_ReadOnly   bool                        `xml:"ro,attr,omitempty" json:"readOnly,omitempty"`
 	Master                bool                        `xml:"master,attr" json:"master"`
 	Slave                 bool                        `xml:"slave,attr" json:"slave"`
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
