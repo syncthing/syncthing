@@ -9,9 +9,9 @@ package config
 
 import (
 	"encoding/xml"
-	"fmt"
 	"io"
 	"math/rand"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -293,14 +293,14 @@ func convertV11V12(cfg *Configuration) {
 	// Change listen address schema
 	for i, addr := range cfg.Options.ListenAddress {
 		if len(addr) > 0 && !strings.HasPrefix(addr, "tcp://") {
-			cfg.Options.ListenAddress[i] = fmt.Sprintf("tcp://%s", addr)
+			cfg.Options.ListenAddress[i] = tcpAddr(addr)
 		}
 	}
 
 	for i, device := range cfg.Devices {
 		for j, addr := range device.Addresses {
 			if addr != "dynamic" && addr != "" {
-				cfg.Devices[i].Addresses[j] = fmt.Sprintf("tcp://%s", addr)
+				cfg.Devices[i].Addresses[j] = tcpAddr(addr)
 			}
 		}
 	}
@@ -498,4 +498,12 @@ func randomString(l int) string {
 		bs[i] = randomCharset[rand.Intn(len(randomCharset))]
 	}
 	return string(bs)
+}
+
+func tcpAddr(host string) string {
+	u := url.URL{
+		Scheme: "tcp",
+		Host:   host,
+	}
+	return u.String()
 }
