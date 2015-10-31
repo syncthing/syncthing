@@ -9,6 +9,7 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -42,9 +43,6 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/errors"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/thejerf/suture"
 )
 
@@ -371,7 +369,7 @@ func main() {
 
 		if doUpgrade {
 			// Use leveldb database locks to protect against concurrent upgrades
-			_, err = leveldb.OpenFile(locations[locDatabase], &opt.Options{OpenFilesCacheCapacity: 100})
+			_, err = db.Open(locations[locDatabase])
 			if err != nil {
 				l.Infoln("Attempting upgrade through running Syncthing...")
 				err = upgradeViaRest()
@@ -617,21 +615,7 @@ func syncthingMain() {
 	}
 
 	dbFile := locations[locDatabase]
-	dbOpts := dbOpts(cfg)
-	ldb, err := leveldb.OpenFile(dbFile, dbOpts)
-	if leveldbIsCorrupted(err) {
-		ldb, err = leveldb.RecoverFile(dbFile, dbOpts)
-	}
-	if leveldbIsCorrupted(err) {
-		// The database is corrupted, and we've tried to recover it but it
-		// didn't work. At this point there isn't much to do beyond dropping
-		// the database and reindexing...
-		l.Infoln("Database corruption detected, unable to recover. Reinitializing...")
-		if err := resetDB(); err != nil {
-			l.Fatalln("Remove database:", err)
-		}
-		ldb, err = leveldb.OpenFile(dbFile, dbOpts)
-	}
+	ldb, err := db.Open(dbFile)
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
@@ -642,7 +626,7 @@ func syncthingMain() {
 
 	// Remove database entries for folders that no longer exist in the config
 	folders := cfg.Folders()
-	for _, folder := range db.ListFolders(ldb) {
+	for _, folder := range ldb.ListFolders() {
 		if _, ok := folders[folder]; !ok {
 			l.Infof("Cleaning data for dropped folder %q", folder)
 			db.DropFolder(ldb, folder)
@@ -879,40 +863,6 @@ func loadConfig(cfgFile string) (*config.Wrapper, string, error) {
 	}
 
 	return cfg, myName, nil
-}
-
-func dbOpts(cfg *config.Wrapper) *opt.Options {
-	// Calculate a suitable database block cache capacity.
-
-	// Default is 8 MiB.
-	blockCacheCapacity := 8 << 20
-	// Increase block cache up to this maximum:
-	const maxCapacity = 64 << 20
-	// ... which we reach when the box has this much RAM:
-	const maxAtRAM = 8 << 30
-
-	if v := cfg.Options().DatabaseBlockCacheMiB; v != 0 {
-		// Use the value from the config, if it's set.
-		blockCacheCapacity = v << 20
-	} else if bytes, err := memorySize(); err == nil {
-		// We start at the default of 8 MiB and use larger values for machines
-		// with more memory.
-
-		if bytes > maxAtRAM {
-			// Cap the cache at maxCapacity when we reach maxAtRam amount of memory
-			blockCacheCapacity = maxCapacity
-		} else if bytes > maxAtRAM/maxCapacity*int64(blockCacheCapacity) {
-			// Grow from the default to maxCapacity at maxAtRam amount of memory
-			blockCacheCapacity = int(bytes * maxCapacity / maxAtRAM)
-		}
-		l.Infoln("Database block cache capacity", blockCacheCapacity/1024, "KiB")
-	}
-
-	return &opt.Options{
-		OpenFilesCacheCapacity: 100,
-		BlockCacheCapacity:     blockCacheCapacity,
-		WriteBuffer:            4 << 20,
-	}
 }
 
 func startAuditing(mainSvc *suture.Supervisor) {
@@ -1165,20 +1115,4 @@ func checkShortIDs(cfg *config.Wrapper) error {
 		exists[shortID] = deviceID
 	}
 	return nil
-}
-
-// A "better" version of leveldb's errors.IsCorrupted.
-func leveldbIsCorrupted(err error) bool {
-	switch {
-	case err == nil:
-		return false
-
-	case errors.IsCorrupted(err):
-		return true
-
-	case strings.Contains(err.Error(), "corrupted"):
-		return true
-	}
-
-	return false
 }

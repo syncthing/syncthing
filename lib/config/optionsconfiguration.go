@@ -37,7 +37,6 @@ type OptionsConfiguration struct {
 	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" json:"progressUpdateIntervalS" default:"5"`
 	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
 	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
-	DatabaseBlockCacheMiB   int      `xml:"databaseBlockCacheMiB" json:"databaseBlockCacheMiB" default:"0"`
 	MinHomeDiskFreePct      float64  `xml:"minHomeDiskFreePct" json:"minHomeDiskFreePct" default:"1"`
 	ReleasesURL             string   `xml:"releasesURL" json:"releasesURL" default:"https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"`
 	AlwaysLocalNets         []string `xml:"alwaysLocalNet" json:"alwaysLocalNets"`

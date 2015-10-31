@@ -16,10 +16,10 @@ import (
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
 	*leveldb.Snapshot
-	db *dbInstance
+	db *Instance
 }
 
-func (db *dbInstance) newReadOnlyTransaction() readOnlyTransaction {
+func (db *Instance) newReadOnlyTransaction() readOnlyTransaction {
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
@@ -46,7 +46,7 @@ type readWriteTransaction struct {
 	*leveldb.Batch
 }
 
-func (db *dbInstance) newReadWriteTransaction() readWriteTransaction {
+func (db *Instance) newReadWriteTransaction() readWriteTransaction {
 	t := db.newReadOnlyTransaction()
 	return readWriteTransaction{
 		readOnlyTransaction: t,

@@ -9,16 +9,10 @@ package db
 import (
 	"testing"
 	"time"
-
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 func TestVirtualMtimeRepo(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ldb := OpenMemory()
 
 	// A few repos so we can ensure they don't pollute each other
 	repo1 := NewVirtualMtimeRepo(ldb, "folder1")
