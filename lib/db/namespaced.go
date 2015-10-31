@@ -17,13 +17,13 @@ import (
 // NamespacedKV is a simple key-value store using a specific namespace within
 // a leveldb.
 type NamespacedKV struct {
-	db     *leveldb.DB
+	db     *Instance
 	prefix []byte
 }
 
 // NewNamespacedKV returns a new NamespacedKV that lives in the namespace
 // specified by the prefix.
-func NewNamespacedKV(db *leveldb.DB, prefix string) *NamespacedKV {
+func NewNamespacedKV(db *Instance, prefix string) *NamespacedKV {
 	return &NamespacedKV{
 		db:     db,
 		prefix: []byte(prefix),

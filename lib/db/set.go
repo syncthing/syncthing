@@ -18,14 +18,13 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type FileSet struct {
 	localVersion map[protocol.DeviceID]int64
 	mutex        sync.Mutex
 	folder       string
-	db           *dbInstance
+	db           *Instance
 	blockmap     *BlockMap
 	localSize    sizeTracker
 	globalSize   sizeTracker
@@ -93,11 +92,11 @@ func (s *sizeTracker) Size() (files, deleted int, bytes int64) {
 	return s.files, s.deleted, s.bytes
 }
 
-func NewFileSet(folder string, db *leveldb.DB) *FileSet {
+func NewFileSet(folder string, db *Instance) *FileSet {
 	var s = FileSet{
 		localVersion: make(map[protocol.DeviceID]int64),
 		folder:       folder,
-		db:           newDBInstance(db),
+		db:           db,
 		blockmap:     NewBlockMap(db, folder),
 		mutex:        sync.NewMutex(),
 	}
@@ -239,17 +238,10 @@ func (s *FileSet) GlobalSize() (files, deleted int, bytes int64) {
 	return s.globalSize.Size()
 }
 
-// ListFolders returns the folder IDs seen in the database.
-func ListFolders(db *leveldb.DB) []string {
-	i := newDBInstance(db)
-	return i.listFolders()
-}
-
 // DropFolder clears out all information related to the given folder from the
 // database.
-func DropFolder(db *leveldb.DB, folder string) {
-	i := newDBInstance(db)
-	i.dropFolder([]byte(folder))
+func DropFolder(db *Instance, folder string) {
+	db.dropFolder([]byte(folder))
 	bm := &BlockMap{
 		db:     db,
 		folder: folder,

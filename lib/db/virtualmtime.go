@@ -9,8 +9,6 @@ package db
 import (
 	"fmt"
 	"time"
-
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 // This type encapsulates a repository of mtimes for platforms where file mtimes
@@ -25,7 +23,7 @@ type VirtualMtimeRepo struct {
 	ns *NamespacedKV
 }
 
-func NewVirtualMtimeRepo(ldb *leveldb.DB, folder string) *VirtualMtimeRepo {
+func NewVirtualMtimeRepo(ldb *Instance, folder string) *VirtualMtimeRepo {
 	prefix := string(KeyTypeVirtualMtime) + folder
 
 	return &VirtualMtimeRepo{

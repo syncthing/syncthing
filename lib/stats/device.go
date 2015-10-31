@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type DeviceStatistics struct {
@@ -22,7 +21,7 @@ type DeviceStatisticsReference struct {
 	device string
 }
 
-func NewDeviceStatisticsReference(ldb *leveldb.DB, device string) *DeviceStatisticsReference {
+func NewDeviceStatisticsReference(ldb *db.Instance, device string) *DeviceStatisticsReference {
 	prefix := string(db.KeyTypeDeviceStatistic) + device
 	return &DeviceStatisticsReference{
 		ns:     db.NewNamespacedKV(ldb, prefix),
