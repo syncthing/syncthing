@@ -14,3 +14,4 @@ coverage.xml
 syncthing.sig
 RELEASE
 deb
+*.DS_Store
