@@ -63,13 +63,13 @@ func (e *addressLister) addresses(includePrivateIPV4 bool) []string {
 
 		if addr.IP == nil || addr.IP.IsUnspecified() {
 			// Address like 0.0.0.0:22000 or [::]:22000 or :22000; include as is.
-			addrs = append(addrs, tcpAddr(addr.String()))
+			addrs = append(addrs, "tcp://"+addr.String())
 		} else if isPublicIPv4(addr.IP) || isPublicIPv6(addr.IP) {
 			// A public address; include as is.
-			addrs = append(addrs, tcpAddr(addr.String()))
+			addrs = append(addrs, "tcp://"+addr.String())
 		} else if includePrivateIPV4 && addr.IP.To4().IsGlobalUnicast() {
 			// A private IPv4 address.
-			addrs = append(addrs, tcpAddr(addr.String()))
+			addrs = append(addrs, "tcp://"+addr.String())
 		}
 	}
 
@@ -116,12 +116,4 @@ func isPublicIPv6(ip net.IP) bool {
 	}
 
 	return ip.IsGlobalUnicast()
-}
-
-func tcpAddr(host string) string {
-	u := url.URL{
-		Scheme: "tcp",
-		Host:   host,
-	}
-	return u.String()
 }

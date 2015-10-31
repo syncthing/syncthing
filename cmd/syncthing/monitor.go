@@ -28,10 +28,8 @@ var (
 )
 
 const (
-	countRestarts         = 4
-	loopThreshold         = 60 * time.Second
-	logFileAutoCloseDelay = 5 * time.Second
-	logFileMaxOpenTime    = time.Minute
+	countRestarts = 4
+	loopThreshold = 60 * time.Second
 )
 
 func monitorMain() {
@@ -39,10 +37,16 @@ func monitorMain() {
 	os.Setenv("STMONITORED", "yes")
 	l.SetPrefix("[monitor] ")
 
+	var err error
 	var dst io.Writer = os.Stdout
 
 	if logFile != "-" {
-		var fileDst io.Writer = newAutoclosedFile(logFile, logFileAutoCloseDelay, logFileMaxOpenTime)
+		var fileDst io.Writer
+
+		fileDst, err = os.Create(logFile)
+		if err != nil {
+			l.Fatalln("log file:", err)
+		}
 
 		if runtime.GOOS == "windows" {
 			// Translate line breaks to Windows standard
@@ -257,115 +261,4 @@ func restartMonitorWindows(args []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	return cmd.Start()
-}
-
-// An autoclosedFile is an io.WriteCloser that opens itself for appending on
-// Write() and closes itself after an interval of no writes (closeDelay) or
-// when the file has been open for too long (maxOpenTime). A call to Write()
-// will return any error that happens on the resulting Open() call too. Errors
-// on automatic Close() calls are silently swallowed...
-type autoclosedFile struct {
-	name        string        // path to write to
-	closeDelay  time.Duration // close after this long inactivity
-	maxOpenTime time.Duration // or this long after opening
-
-	fd         io.WriteCloser // underlying WriteCloser
-	opened     time.Time      // timestamp when the file was last opened
-	closed     chan struct{}  // closed on Close(), stops the closerLoop
-	closeTimer *time.Timer    // fires closeDelay after a write
-
-	mut sync.Mutex
-}
-
-func newAutoclosedFile(name string, closeDelay, maxOpenTime time.Duration) *autoclosedFile {
-	f := &autoclosedFile{
-		name:        name,
-		closeDelay:  closeDelay,
-		maxOpenTime: maxOpenTime,
-		mut:         sync.NewMutex(),
-		closed:      make(chan struct{}),
-		closeTimer:  time.NewTimer(time.Minute),
-	}
-	go f.closerLoop()
-	return f
-}
-
-func (f *autoclosedFile) Write(bs []byte) (int, error) {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-
-	// Make sure the file is open for appending
-	if err := f.ensureOpen(); err != nil {
-		return 0, err
-	}
-
-	// If we haven't run into the maxOpenTime, postpone close for another
-	// closeDelay
-	if time.Since(f.opened) < f.maxOpenTime {
-		f.closeTimer.Reset(f.closeDelay)
-	}
-
-	return f.fd.Write(bs)
-}
-
-func (f *autoclosedFile) Close() error {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-
-	// Stop the timer and closerLoop() routine
-	f.closeTimer.Stop()
-	close(f.closed)
-
-	// Close the file, if it's open
-	if f.fd != nil {
-		return f.fd.Close()
-	}
-
-	return nil
-}
-
-// Must be called with f.mut held!
-func (f *autoclosedFile) ensureOpen() error {
-	if f.fd != nil {
-		// File is already open
-		return nil
-	}
-
-	// We open the file for write only, and create it if it doesn't exist.
-	flags := os.O_WRONLY | os.O_CREATE
-	if f.opened.IsZero() {
-		// This is the first time we are opening the file. We should truncate
-		// it to better emulate an os.Create() call.
-		flags |= os.O_TRUNC
-	} else {
-		// The file was already opened once, so we should append to it.
-		flags |= os.O_APPEND
-	}
-
-	fd, err := os.OpenFile(f.name, flags, 0644)
-	if err != nil {
-		return err
-	}
-
-	f.fd = fd
-	f.opened = time.Now()
-	return nil
-}
-
-func (f *autoclosedFile) closerLoop() {
-	for {
-		select {
-		case <-f.closeTimer.C:
-			// Close the file when the timer expires.
-			f.mut.Lock()
-			if f.fd != nil {
-				f.fd.Close() // errors, schmerrors
-				f.fd = nil
-			}
-			f.mut.Unlock()
-
-		case <-f.closed:
-			return
-		}
-	}
 }

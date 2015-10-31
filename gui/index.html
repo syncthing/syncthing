@@ -28,22 +28,12 @@
 
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
-      <span class="navbar-brand"><img class="logo" src="assets/img/logo-horizontal.svg" height="32" width="117"/></span>
+      <span class="navbar-brand"><img class="logo" src="assets/img/GreenDashLogo.png" height="62" width="117" /></span>
       <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
-        <li ng-if="upgradeInfo && upgradeInfo.newer">
-          <button type="button" class="btn navbar-btn btn-primary btn-sm" ng-click="upgrade()">
-            <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
-          </button>
-        </li>
-        <li ng-if="upgradeInfo && upgradeInfo.majorNewer">
-          <button type="button" class="btn navbar-btn btn-danger btn-sm" ng-click="upgradeMajor()">
-            <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
-          </button>
-        </li>
         <li class="dropdown" language-select></li>
         <li class="hidden-xs">
-          <a href="http://docs.syncthing.net/intro/gui.html" target="_blank">
+          <a href="http://mydash.xyz" target="_blank">
             <span class="fa fa-book"></span>&nbsp;<span translate>Help</span>
           </a>
         </li>

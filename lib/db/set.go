@@ -25,7 +25,7 @@ type FileSet struct {
 	localVersion map[protocol.DeviceID]int64
 	mutex        sync.Mutex
 	folder       string
-	db           *dbInstance
+	db           *leveldb.DB
 	blockmap     *BlockMap
 	localSize    sizeTracker
 	globalSize   sizeTracker
@@ -97,15 +97,15 @@ func NewFileSet(folder string, db *leveldb.DB) *FileSet {
 	var s = FileSet{
 		localVersion: make(map[protocol.DeviceID]int64),
 		folder:       folder,
-		db:           newDBInstance(db),
+		db:           db,
 		blockmap:     NewBlockMap(db, folder),
 		mutex:        sync.NewMutex(),
 	}
 
-	s.db.checkGlobals([]byte(folder), &s.globalSize)
+	ldbCheckGlobals(db, []byte(folder), &s.globalSize)
 
 	var deviceID protocol.DeviceID
-	s.db.withAllFolderTruncated([]byte(folder), func(device []byte, f FileInfoTruncated) bool {
+	ldbWithAllFolderTruncated(db, []byte(folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
 		if f.LocalVersion > s.localVersion[deviceID] {
 			s.localVersion[deviceID] = f.LocalVersion
@@ -126,7 +126,7 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.localVersion[device] = s.db.replace([]byte(s.folder), device[:], fs, &s.localSize, &s.globalSize)
+	s.localVersion[device] = ldbReplace(s.db, []byte(s.folder), device[:], fs, &s.localSize, &s.globalSize)
 	if len(fs) == 0 {
 		// Reset the local version if all files were removed.
 		s.localVersion[device] = 0
@@ -146,7 +146,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		discards := make([]protocol.FileInfo, 0, len(fs))
 		updates := make([]protocol.FileInfo, 0, len(fs))
 		for _, newFile := range fs {
-			existingFile, ok := s.db.getFile([]byte(s.folder), device[:], []byte(newFile.Name))
+			existingFile, ok := ldbGet(s.db, []byte(s.folder), device[:], []byte(newFile.Name))
 			if !ok || !existingFile.Version.Equal(newFile.Version) {
 				discards = append(discards, existingFile)
 				updates = append(updates, newFile)
@@ -155,54 +155,54 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		s.blockmap.Discard(discards)
 		s.blockmap.Update(updates)
 	}
-	if lv := s.db.updateFiles([]byte(s.folder), device[:], fs, &s.localSize, &s.globalSize); lv > s.localVersion[device] {
+	if lv := ldbUpdate(s.db, []byte(s.folder), device[:], fs, &s.localSize, &s.globalSize); lv > s.localVersion[device] {
 		s.localVersion[device] = lv
 	}
 }
 
 func (s *FileSet) WithNeed(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeed(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], false, nativeFileIterator(fn))
+	ldbWithNeed(s.db, []byte(s.folder), device[:], false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithNeedTruncated(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeedTruncated(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], true, nativeFileIterator(fn))
+	ldbWithNeed(s.db, []byte(s.folder), device[:], true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithHave(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithHave(%v)", s.folder, device)
-	s.db.withHave([]byte(s.folder), device[:], false, nativeFileIterator(fn))
+	ldbWithHave(s.db, []byte(s.folder), device[:], false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithHaveTruncated(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithHaveTruncated(%v)", s.folder, device)
-	s.db.withHave([]byte(s.folder), device[:], true, nativeFileIterator(fn))
+	ldbWithHave(s.db, []byte(s.folder), device[:], true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithGlobal(fn Iterator) {
 	l.Debugf("%s WithGlobal()", s.folder)
-	s.db.withGlobal([]byte(s.folder), nil, false, nativeFileIterator(fn))
+	ldbWithGlobal(s.db, []byte(s.folder), nil, false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithGlobalTruncated(fn Iterator) {
 	l.Debugf("%s WithGlobalTruncated()", s.folder)
-	s.db.withGlobal([]byte(s.folder), nil, true, nativeFileIterator(fn))
+	ldbWithGlobal(s.db, []byte(s.folder), nil, true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
 	l.Debugf("%s WithPrefixedGlobalTruncated()", s.folder, prefix)
-	s.db.withGlobal([]byte(s.folder), []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn))
+	ldbWithGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {
-	f, ok := s.db.getFile([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
+	f, ok := ldbGet(s.db, []byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
 	f.Name = osutil.NativeFilename(f.Name)
 	return f, ok
 }
 
 func (s *FileSet) GetGlobal(file string) (protocol.FileInfo, bool) {
-	fi, ok := s.db.getGlobal([]byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
+	fi, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
 	if !ok {
 		return protocol.FileInfo{}, false
 	}
@@ -212,7 +212,7 @@ func (s *FileSet) GetGlobal(file string) (protocol.FileInfo, bool) {
 }
 
 func (s *FileSet) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
-	fi, ok := s.db.getGlobal([]byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
+	fi, ok := ldbGetGlobal(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
 	if !ok {
 		return FileInfoTruncated{}, false
 	}
@@ -222,7 +222,7 @@ func (s *FileSet) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
 }
 
 func (s *FileSet) Availability(file string) []protocol.DeviceID {
-	return s.db.availability([]byte(s.folder), []byte(osutil.NormalizedFilename(file)))
+	return ldbAvailability(s.db, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
 }
 
 func (s *FileSet) LocalVersion(device protocol.DeviceID) int64 {
@@ -241,15 +241,13 @@ func (s *FileSet) GlobalSize() (files, deleted int, bytes int64) {
 
 // ListFolders returns the folder IDs seen in the database.
 func ListFolders(db *leveldb.DB) []string {
-	i := newDBInstance(db)
-	return i.listFolders()
+	return ldbListFolders(db)
 }
 
 // DropFolder clears out all information related to the given folder from the
 // database.
 func DropFolder(db *leveldb.DB, folder string) {
-	i := newDBInstance(db)
-	i.dropFolder([]byte(folder))
+	ldbDropFolder(db, []byte(folder))
 	bm := &BlockMap{
 		db:     db,
 		folder: folder,
