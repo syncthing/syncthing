@@ -31,8 +31,8 @@ func newDBInstance(db *leveldb.DB) *dbInstance {
 func (db *dbInstance) genericReplace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker, deleteFn deletionHandler) int64 {
 	sort.Sort(fileList(fs)) // sort list on name, same as in the database
 
-	start := deviceKey(folder, device, nil)                            // before all folder/device files
-	limit := deviceKey(folder, device, []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
+	start := db.deviceKey(folder, device, nil)                            // before all folder/device files
+	limit := db.deviceKey(folder, device, []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
 
 	t := db.newReadWriteTransaction()
 	defer t.close()
@@ -58,7 +58,7 @@ func (db *dbInstance) genericReplace(folder, device []byte, fs []protocol.FileIn
 		}
 
 		if moreDb {
-			oldName = deviceKeyName(dbi.Key())
+			oldName = db.deviceKeyName(dbi.Key())
 		}
 
 		cmp := bytes.Compare(newName, oldName)
@@ -146,7 +146,7 @@ func (db *dbInstance) updateFiles(folder, device []byte, fs []protocol.FileInfo,
 	isLocalDevice := bytes.Equal(device, protocol.LocalDeviceID[:])
 	for _, f := range fs {
 		name := []byte(f.Name)
-		fk = deviceKeyInto(fk[:cap(fk)], folder, device, name)
+		fk = db.deviceKeyInto(fk[:cap(fk)], folder, device, name)
 		bs, err := t.Get(fk, nil)
 		if err == leveldb.ErrNotFound {
 			if isLocalDevice {
@@ -196,8 +196,8 @@ func (db *dbInstance) updateFiles(folder, device []byte, fs []protocol.FileInfo,
 }
 
 func (db *dbInstance) withHave(folder, device []byte, truncate bool, fn Iterator) {
-	start := deviceKey(folder, device, nil)                            // before all folder/device files
-	limit := deviceKey(folder, device, []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
+	start := db.deviceKey(folder, device, nil)                            // before all folder/device files
+	limit := db.deviceKey(folder, device, []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
 
 	t := db.newReadOnlyTransaction()
 	defer t.close()
@@ -217,8 +217,8 @@ func (db *dbInstance) withHave(folder, device []byte, truncate bool, fn Iterator
 }
 
 func (db *dbInstance) withAllFolderTruncated(folder []byte, fn func(device []byte, f FileInfoTruncated) bool) {
-	start := deviceKey(folder, nil, nil)                                                  // before all folder/device files
-	limit := deviceKey(folder, protocol.LocalDeviceID[:], []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
+	start := db.deviceKey(folder, nil, nil)                                                  // before all folder/device files
+	limit := db.deviceKey(folder, protocol.LocalDeviceID[:], []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
 
 	t := db.newReadWriteTransaction()
 	defer t.close()
@@ -227,7 +227,7 @@ func (db *dbInstance) withAllFolderTruncated(folder []byte, fn func(device []byt
 	defer dbi.Release()
 
 	for dbi.Next() {
-		device := deviceKeyDevice(dbi.Key())
+		device := db.deviceKeyDevice(dbi.Key())
 		var f FileInfoTruncated
 		err := f.UnmarshalXDR(dbi.Value())
 		if err != nil {
@@ -250,11 +250,11 @@ func (db *dbInstance) withAllFolderTruncated(folder []byte, fn func(device []byt
 }
 
 func (db *dbInstance) getFile(folder, device, file []byte) (protocol.FileInfo, bool) {
-	return getFile(db, folder, device, file)
+	return getFile(db, db.deviceKey(folder, device, file))
 }
 
 func (db *dbInstance) getGlobal(folder, file []byte, truncate bool) (FileIntf, bool) {
-	k := globalKey(folder, file)
+	k := db.globalKey(folder, file)
 
 	t := db.newReadOnlyTransaction()
 	defer t.close()
@@ -277,7 +277,7 @@ func (db *dbInstance) getGlobal(folder, file []byte, truncate bool) (FileIntf, b
 		panic("no versions?")
 	}
 
-	k = deviceKey(folder, vl.versions[0].device, file)
+	k = db.deviceKey(folder, vl.versions[0].device, file)
 	bs, err = t.Get(k, nil)
 	if err != nil {
 		panic(err)
@@ -294,7 +294,7 @@ func (db *dbInstance) withGlobal(folder, prefix []byte, truncate bool, fn Iterat
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(util.BytesPrefix(globalKey(folder, prefix)), nil)
+	dbi := t.NewIterator(util.BytesPrefix(db.globalKey(folder, prefix)), nil)
 	defer dbi.Release()
 
 	var fk []byte
@@ -308,8 +308,8 @@ func (db *dbInstance) withGlobal(folder, prefix []byte, truncate bool, fn Iterat
 			l.Debugln(dbi.Key())
 			panic("no versions?")
 		}
-		name := globalKeyName(dbi.Key())
-		fk = deviceKeyInto(fk[:cap(fk)], folder, vl.versions[0].device, name)
+		name := db.globalKeyName(dbi.Key())
+		fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.versions[0].device, name)
 		bs, err := t.Get(fk, nil)
 		if err != nil {
 			l.Debugf("folder: %q (%x)", folder, folder)
@@ -334,7 +334,7 @@ func (db *dbInstance) withGlobal(folder, prefix []byte, truncate bool, fn Iterat
 }
 
 func (db *dbInstance) availability(folder, file []byte) []protocol.DeviceID {
-	k := globalKey(folder, file)
+	k := db.globalKey(folder, file)
 	bs, err := db.Get(k, nil)
 	if err == leveldb.ErrNotFound {
 		return nil
@@ -362,8 +362,8 @@ func (db *dbInstance) availability(folder, file []byte) []protocol.DeviceID {
 }
 
 func (db *dbInstance) withNeed(folder, device []byte, truncate bool, fn Iterator) {
-	start := globalKey(folder, nil)
-	limit := globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
+	start := db.globalKey(folder, nil)
+	limit := db.globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
 
 	t := db.newReadOnlyTransaction()
 	defer t.close()
@@ -400,7 +400,7 @@ nextFile:
 		}
 
 		if need || !have {
-			name := globalKeyName(dbi.Key())
+			name := db.globalKeyName(dbi.Key())
 			needVersion := vl.versions[0].version
 
 		nextVersion:
@@ -409,7 +409,7 @@ nextFile:
 					// We haven't found a valid copy of the file with the needed version.
 					continue nextFile
 				}
-				fk = deviceKeyInto(fk[:cap(fk)], folder, vl.versions[i].device, name)
+				fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.versions[i].device, name)
 				bs, err := t.Get(fk, nil)
 				if err != nil {
 					var id protocol.DeviceID
@@ -461,7 +461,7 @@ func (db *dbInstance) listFolders() []string {
 
 	folderExists := make(map[string]bool)
 	for dbi.Next() {
-		folder := string(globalKeyFolder(dbi.Key()))
+		folder := string(db.globalKeyFolder(dbi.Key()))
 		if !folderExists[folder] {
 			folderExists[folder] = true
 		}
@@ -483,7 +483,7 @@ func (db *dbInstance) dropFolder(folder []byte) {
 	// Remove all items related to the given folder from the device->file bucket
 	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
 	for dbi.Next() {
-		itemFolder := deviceKeyFolder(dbi.Key())
+		itemFolder := db.deviceKeyFolder(dbi.Key())
 		if bytes.Compare(folder, itemFolder) == 0 {
 			db.Delete(dbi.Key(), nil)
 		}
@@ -493,7 +493,7 @@ func (db *dbInstance) dropFolder(folder []byte) {
 	// Remove all items related to the given folder from the global bucket
 	dbi = t.NewIterator(util.BytesPrefix([]byte{KeyTypeGlobal}), nil)
 	for dbi.Next() {
-		itemFolder := globalKeyFolder(dbi.Key())
+		itemFolder := db.globalKeyFolder(dbi.Key())
 		if bytes.Compare(folder, itemFolder) == 0 {
 			db.Delete(dbi.Key(), nil)
 		}
@@ -505,8 +505,8 @@ func (db *dbInstance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	start := globalKey(folder, nil)
-	limit := globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
+	start := db.globalKey(folder, nil)
+	limit := db.globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
 	dbi := t.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
 	defer dbi.Release()
 
@@ -524,10 +524,10 @@ func (db *dbInstance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 		// there are global entries pointing to no longer existing files. Here
 		// we find those and clear them out.
 
-		name := globalKeyName(gk)
+		name := db.globalKeyName(gk)
 		var newVL versionList
 		for i, version := range vl.versions {
-			fk = deviceKeyInto(fk[:cap(fk)], folder, version.device, name)
+			fk = db.deviceKeyInto(fk[:cap(fk)], folder, version.device, name)
 
 			_, err := t.Get(fk, nil)
 			if err == leveldb.ErrNotFound {
@@ -553,6 +553,75 @@ func (db *dbInstance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 		}
 	}
 	l.Debugf("db check completed for %q", folder)
+}
+
+// deviceKey returns a byte slice encoding the following information:
+//	   keyTypeDevice (1 byte)
+//	   folder (64 bytes)
+//	   device (32 bytes)
+//	   name (variable size)
+func (db *dbInstance) deviceKey(folder, device, file []byte) []byte {
+	return db.deviceKeyInto(nil, folder, device, file)
+}
+
+func (db *dbInstance) deviceKeyInto(k []byte, folder, device, file []byte) []byte {
+	reqLen := 1 + 64 + 32 + len(file)
+	if len(k) < reqLen {
+		k = make([]byte, reqLen)
+	}
+	k[0] = KeyTypeDevice
+	if len(folder) > 64 {
+		panic("folder name too long")
+	}
+	copy(k[1:], []byte(folder))
+	copy(k[1+64:], device[:])
+	copy(k[1+64+32:], []byte(file))
+	return k[:reqLen]
+}
+
+func (db *dbInstance) deviceKeyName(key []byte) []byte {
+	return key[1+64+32:]
+}
+
+func (db *dbInstance) deviceKeyFolder(key []byte) []byte {
+	folder := key[1 : 1+64]
+	izero := bytes.IndexByte(folder, 0)
+	if izero < 0 {
+		return folder
+	}
+	return folder[:izero]
+}
+
+func (db *dbInstance) deviceKeyDevice(key []byte) []byte {
+	return key[1+64 : 1+64+32]
+}
+
+// globalKey returns a byte slice encoding the following information:
+//	   keyTypeGlobal (1 byte)
+//	   folder (64 bytes)
+//	   name (variable size)
+func (db *dbInstance) globalKey(folder, file []byte) []byte {
+	k := make([]byte, 1+64+len(file))
+	k[0] = KeyTypeGlobal
+	if len(folder) > 64 {
+		panic("folder name too long")
+	}
+	copy(k[1:], []byte(folder))
+	copy(k[1+64:], []byte(file))
+	return k
+}
+
+func (db *dbInstance) globalKeyName(key []byte) []byte {
+	return key[1+64:]
+}
+
+func (db *dbInstance) globalKeyFolder(key []byte) []byte {
+	folder := key[1 : 1+64]
+	izero := bytes.IndexByte(folder, 0)
+	if izero < 0 {
+		return folder
+	}
+	return folder[:izero]
 }
 
 func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
