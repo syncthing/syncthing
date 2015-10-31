@@ -89,78 +89,8 @@ type dbReader interface {
 // Flush batches to disk when they contain this many records.
 const batchFlushSize = 64
 
-// deviceKey returns a byte slice encoding the following information:
-//	   keyTypeDevice (1 byte)
-//	   folder (64 bytes)
-//	   device (32 bytes)
-//	   name (variable size)
-func deviceKey(folder, device, file []byte) []byte {
-	return deviceKeyInto(nil, folder, device, file)
-}
-
-func deviceKeyInto(k []byte, folder, device, file []byte) []byte {
-	reqLen := 1 + 64 + 32 + len(file)
-	if len(k) < reqLen {
-		k = make([]byte, reqLen)
-	}
-	k[0] = KeyTypeDevice
-	if len(folder) > 64 {
-		panic("folder name too long")
-	}
-	copy(k[1:], []byte(folder))
-	copy(k[1+64:], device[:])
-	copy(k[1+64+32:], []byte(file))
-	return k[:reqLen]
-}
-
-func deviceKeyName(key []byte) []byte {
-	return key[1+64+32:]
-}
-
-func deviceKeyFolder(key []byte) []byte {
-	folder := key[1 : 1+64]
-	izero := bytes.IndexByte(folder, 0)
-	if izero < 0 {
-		return folder
-	}
-	return folder[:izero]
-}
-
-func deviceKeyDevice(key []byte) []byte {
-	return key[1+64 : 1+64+32]
-}
-
-// globalKey returns a byte slice encoding the following information:
-//	   keyTypeGlobal (1 byte)
-//	   folder (64 bytes)
-//	   name (variable size)
-func globalKey(folder, file []byte) []byte {
-	k := make([]byte, 1+64+len(file))
-	k[0] = KeyTypeGlobal
-	if len(folder) > 64 {
-		panic("folder name too long")
-	}
-	copy(k[1:], []byte(folder))
-	copy(k[1+64:], []byte(file))
-	return k
-}
-
-func globalKeyName(key []byte) []byte {
-	return key[1+64:]
-}
-
-func globalKeyFolder(key []byte) []byte {
-	folder := key[1 : 1+64]
-	izero := bytes.IndexByte(folder, 0)
-	if izero < 0 {
-		return folder
-	}
-	return folder[:izero]
-}
-
-func getFile(db dbReader, folder, device, file []byte) (protocol.FileInfo, bool) {
-	nk := deviceKey(folder, device, file)
-	bs, err := db.Get(nk, nil)
+func getFile(db dbReader, key []byte) (protocol.FileInfo, bool) {
+	bs, err := db.Get(key, nil)
 	if err == leveldb.ErrNotFound {
 		return protocol.FileInfo{}, false
 	}

@@ -16,7 +16,7 @@ import (
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
 	*leveldb.Snapshot
-	db *leveldb.DB
+	db *dbInstance
 }
 
 func (db *dbInstance) newReadOnlyTransaction() readOnlyTransaction {
@@ -26,7 +26,7 @@ func (db *dbInstance) newReadOnlyTransaction() readOnlyTransaction {
 	}
 	return readOnlyTransaction{
 		Snapshot: snap,
-		db:       db.DB,
+		db:       db,
 	}
 }
 
@@ -35,7 +35,7 @@ func (t readOnlyTransaction) close() {
 }
 
 func (t readOnlyTransaction) getFile(folder, device, file []byte) (protocol.FileInfo, bool) {
-	return getFile(t, folder, device, file)
+	return getFile(t, t.db.deviceKey(folder, device, file))
 }
 
 // A readWriteTransaction is a readOnlyTransaction plus a batch for writes.
@@ -78,7 +78,7 @@ func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.Fi
 	}
 
 	name := []byte(file.Name)
-	nk := deviceKey(folder, device, name)
+	nk := t.db.deviceKey(folder, device, name)
 	t.Put(nk, file.MustMarshalXDR())
 
 	return file.LocalVersion
@@ -90,7 +90,7 @@ func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.Fi
 func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.FileInfo, globalSize *sizeTracker) bool {
 	l.Debugf("update global; folder=%q device=%v file=%q version=%d", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
 	name := []byte(file.Name)
-	gk := globalKey(folder, name)
+	gk := t.db.globalKey(folder, name)
 	svl, err := t.Get(gk, nil)
 	if err != nil && err != leveldb.ErrNotFound {
 		panic(err)
@@ -197,7 +197,7 @@ done:
 func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, globalSize *sizeTracker) {
 	l.Debugf("remove from global; folder=%q device=%v file=%q", folder, protocol.DeviceIDFromBytes(device), file)
 
-	gk := globalKey(folder, file)
+	gk := t.db.globalKey(folder, file)
 	svl, err := t.Get(gk, nil)
 	if err != nil {
 		// We might be called to "remove" a global version that doesn't exist
