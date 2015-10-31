@@ -383,11 +383,17 @@ func requestProcessor() {
 			timer.Stop()
 		}
 
-		for _, current := range knownRelays {
+		for i, current := range knownRelays {
 			if current.uri.Host == request.relay.uri.Host {
 				if debug {
 					log.Println("Relay", request.relay, "already exists")
 				}
+
+				// Evict the old entry anyway, as configuration might have changed.
+				last := len(knownRelays) - 1
+				knownRelays[i] = knownRelays[last]
+				knownRelays = knownRelays[:last]
+
 				goto found
 			}
 		}
@@ -395,9 +401,11 @@ func requestProcessor() {
 		if debug {
 			log.Println("Adding new relay", request.relay)
 		}
-		knownRelays = append(knownRelays, request.relay)
 
 	found:
+
+		knownRelays = append(knownRelays, request.relay)
+
 		evictionTimers[request.relay.uri.Host] = time.AfterFunc(evictionTime, evict(request.relay))
 		mut.Unlock()
 		request.result <- result{nil, evictionTime}
