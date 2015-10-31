@@ -79,9 +79,9 @@ func main() {
 		}
 		install("./cmd/...", tags)
 
-		vet("./cmd/syncthing")
+		vet("./cmd/dash")
 		vet("./lib/...")
-		lint("./cmd/syncthing")
+		lint("./cmd/dash")
 		lint("./lib/...")
 		return
 	}
@@ -100,7 +100,7 @@ func main() {
 			install(pkg, tags)
 
 		case "build":
-			pkg := "./cmd/syncthing"
+			pkg := "./cmd/dash"
 			var tags []string
 			if noupgrade {
 				tags = []string{"noupgrade"}
@@ -141,11 +141,11 @@ func main() {
 			clean()
 
 		case "vet":
-			vet("./cmd/syncthing")
+			vet("./cmd/dash")
 			vet("./lib/...")
 
 		case "lint":
-			lint("./cmd/syncthing")
+			lint("./cmd/dash")
 			lint("./lib/...")
 
 		default:
@@ -238,7 +238,7 @@ func buildTar() {
 		tags = []string{"noupgrade"}
 		name += "-noupgrade"
 	}
-	build("./cmd/syncthing", tags)
+	build("./cmd/dash", tags)
 	filename := name + ".tar.gz"
 	files := []archiveFile{
 		{src: "README.md", dst: name + "/README.txt"},
@@ -265,7 +265,7 @@ func buildZip() {
 		tags = []string{"noupgrade"}
 		name += "-noupgrade"
 	}
-	build("./cmd/syncthing", tags)
+	build("./cmd/dash", tags)
 	filename := name + ".zip"
 	files := []archiveFile{
 		{src: "README.md", dst: name + "/README.txt"},
@@ -296,7 +296,7 @@ func buildDeb() {
 		goarch = "arm"
 	}
 
-	build("./cmd/syncthing", []string{"noupgrade"})
+	build("./cmd/dash", []string{"noupgrade"})
 
 	files := []archiveFile{
 		{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},

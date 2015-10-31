@@ -54,8 +54,8 @@ var (
 	BuildEnv    = "default"
 	BuildStamp  = "0"
 	BuildDate   time.Time
-	BuildHost   = "unknown"
-	BuildUser   = "unknown"
+	BuildHost   = "DASH"
+	BuildUser   = "JasonPerr"
 	IsRelease   bool
 	IsBeta      bool
 	LongVersion string
