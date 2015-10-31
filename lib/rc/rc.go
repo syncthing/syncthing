@@ -31,8 +31,8 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-// We set the API key via the STGUIAPIKEY variable when we launch the binary,
-// to ensure that we have API access regardless of authentication settings.
+// APIKey is set via the STGUIAPIKEY variable when we launch the binary, to
+// ensure that we have API access regardless of authentication settings.
 const APIKey = "592A47BC-A7DF-4C2F-89E0-A80B3E5094EE"
 
 type Process struct {

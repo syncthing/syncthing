@@ -6,8 +6,8 @@
 
 package upgrade
 
-// This is the public key used to verify signed upgrades. It must match the
-// private key used to sign binaries for the built in upgrade mechanism to
+// SigningKey is the public key used to verify signed upgrades. It must match
+// the private key used to sign binaries for the built in upgrade mechanism to
 // accept an upgrade. Keys and signatures can be created and verified with the
 // stsigtool utility. The build script creates signed binaries when given the
 // -sign option.
