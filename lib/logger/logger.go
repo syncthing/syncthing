@@ -63,7 +63,7 @@ type logger struct {
 	mut        sync.Mutex
 }
 
-// The default logger logs to standard output with a time prefix.
+// DefaultLogger logs to standard output with a time prefix.
 var DefaultLogger = New()
 
 func New() Logger {
