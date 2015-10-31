@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type FolderStatistics struct {
@@ -28,7 +27,7 @@ type LastFile struct {
 	Deleted  bool      `json:"deleted"`
 }
 
-func NewFolderStatisticsReference(ldb *leveldb.DB, folder string) *FolderStatisticsReference {
+func NewFolderStatisticsReference(ldb *db.Instance, folder string) *FolderStatisticsReference {
 	prefix := string(db.KeyTypeFolderStatistic) + folder
 	return &FolderStatisticsReference{
 		ns:     db.NewNamespacedKV(ldb, prefix),

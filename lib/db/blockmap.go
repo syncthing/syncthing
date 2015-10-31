@@ -29,11 +29,11 @@ var blockFinder *BlockFinder
 const maxBatchSize = 256 << 10
 
 type BlockMap struct {
-	db     *leveldb.DB
+	db     *Instance
 	folder string
 }
 
-func NewBlockMap(db *leveldb.DB, folder string) *BlockMap {
+func NewBlockMap(db *Instance, folder string) *BlockMap {
 	return &BlockMap{
 		db:     db,
 		folder: folder,
@@ -146,10 +146,10 @@ func (m *BlockMap) blockKeyInto(o, hash []byte, file string) []byte {
 }
 
 type BlockFinder struct {
-	db *leveldb.DB
+	db *Instance
 }
 
-func NewBlockFinder(db *leveldb.DB) *BlockFinder {
+func NewBlockFinder(db *Instance) *BlockFinder {
 	if blockFinder != nil {
 		return blockFinder
 	}

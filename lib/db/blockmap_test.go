@@ -10,9 +10,6 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/protocol"
-
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 func genBlocks(n int) []protocol.BlockInfo {
@@ -50,17 +47,14 @@ func init() {
 	}
 }
 
-func setup() (*leveldb.DB, *BlockFinder) {
+func setup() (*Instance, *BlockFinder) {
 	// Setup
 
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		panic(err)
-	}
+	db := OpenMemory()
 	return db, NewBlockFinder(db)
 }
 
-func dbEmpty(db *leveldb.DB) bool {
+func dbEmpty(db *Instance) bool {
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()
 	if iter.Next() {

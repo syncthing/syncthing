@@ -15,8 +15,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 var remoteDevice0, remoteDevice1 protocol.DeviceID
@@ -96,11 +94,7 @@ func (l fileList) String() string {
 }
 
 func TestGlobalSet(t *testing.T) {
-
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ldb := db.OpenMemory()
 
 	m := db.NewFileSet("test", ldb)
 
@@ -303,10 +297,7 @@ func TestGlobalSet(t *testing.T) {
 }
 
 func TestNeedWithInvalid(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ldb := db.OpenMemory()
 
 	s := db.NewFileSet("test", ldb)
 
@@ -343,10 +334,7 @@ func TestNeedWithInvalid(t *testing.T) {
 }
 
 func TestUpdateToInvalid(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ldb := db.OpenMemory()
 
 	s := db.NewFileSet("test", ldb)
 
@@ -378,10 +366,7 @@ func TestUpdateToInvalid(t *testing.T) {
 }
 
 func TestInvalidAvailability(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ldb := db.OpenMemory()
 
 	s := db.NewFileSet("test", ldb)
 
@@ -419,10 +404,7 @@ func TestInvalidAvailability(t *testing.T) {
 }
 
 func TestGlobalReset(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ldb := db.OpenMemory()
 
 	m := db.NewFileSet("test", ldb)
 
@@ -460,10 +442,7 @@ func TestGlobalReset(t *testing.T) {
 }
 
 func TestNeed(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ldb := db.OpenMemory()
 
 	m := db.NewFileSet("test", ldb)
 
@@ -501,10 +480,7 @@ func TestNeed(t *testing.T) {
 }
 
 func TestLocalVersion(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ldb := db.OpenMemory()
 
 	m := db.NewFileSet("test", ldb)
 
@@ -534,10 +510,7 @@ func TestLocalVersion(t *testing.T) {
 }
 
 func TestListDropFolder(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ldb := db.OpenMemory()
 
 	s0 := db.NewFileSet("test0", ldb)
 	local1 := []protocol.FileInfo{
@@ -558,7 +531,7 @@ func TestListDropFolder(t *testing.T) {
 	// Check that we have both folders and their data is in the global list
 
 	expectedFolderList := []string{"test0", "test1"}
-	if actualFolderList := db.ListFolders(ldb); !reflect.DeepEqual(actualFolderList, expectedFolderList) {
+	if actualFolderList := ldb.ListFolders(); !reflect.DeepEqual(actualFolderList, expectedFolderList) {
 		t.Fatalf("FolderList mismatch\nE: %v\nA: %v", expectedFolderList, actualFolderList)
 	}
 	if l := len(globalList(s0)); l != 3 {
@@ -573,7 +546,7 @@ func TestListDropFolder(t *testing.T) {
 	db.DropFolder(ldb, "test1")
 
 	expectedFolderList = []string{"test0"}
-	if actualFolderList := db.ListFolders(ldb); !reflect.DeepEqual(actualFolderList, expectedFolderList) {
+	if actualFolderList := ldb.ListFolders(); !reflect.DeepEqual(actualFolderList, expectedFolderList) {
 		t.Fatalf("FolderList mismatch\nE: %v\nA: %v", expectedFolderList, actualFolderList)
 	}
 	if l := len(globalList(s0)); l != 3 {
@@ -585,10 +558,7 @@ func TestListDropFolder(t *testing.T) {
 }
 
 func TestGlobalNeedWithInvalid(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ldb := db.OpenMemory()
 
 	s := db.NewFileSet("test1", ldb)
 
@@ -625,10 +595,7 @@ func TestGlobalNeedWithInvalid(t *testing.T) {
 }
 
 func TestLongPath(t *testing.T) {
-	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ldb := db.OpenMemory()
 
 	s := db.NewFileSet("test", ldb)
 
