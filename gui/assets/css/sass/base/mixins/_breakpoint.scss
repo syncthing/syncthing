@@ -1,0 +1,22 @@
+//
+// Media queries to qucikly specify special styles for mobile (baby-bear), tablet(mama-bear) and desktop (papa-bear)
+//
+
+// Usage example:
+// .m-example {
+//   @include breakpoint(baby-bear) {
+//     width:100%;
+//   }
+// }
+
+@mixin breakpoint($breakpoint) {
+  @if $breakpoint == papa-bear {
+    @media screen and (min-width: 769px) { @content; }
+  }
+  @if $breakpoint == mama-bear {
+    @media screen and (min-width: 401px) and (max-width: 768) { @content; }
+  }
+  @if $breakpoint == baby-bear {
+    @media screen and (max-width: 400px) { @content; }
+  }
+}

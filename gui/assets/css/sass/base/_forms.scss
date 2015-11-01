@@ -1,0 +1,42 @@
+//
+// Default styling for forms
+//
+
+input,
+textarea,
+select {
+  padding: rem(9) rem(15);
+  margin: 0 rem(10) rem(10) 0;
+  border: 1px solid $color-border;
+  @include rounded-all(4);
+  max-width: 100%;
+}
+
+input.error,
+textarea.error,
+select.error {
+  border: 1px solid $color-red;
+}
+
+.form-text:focus,
+.form-textarea:focus,
+.form-select:focus {
+  outline: none;
+  border-color: $color-primary;
+  box-shadow: 0 0 10px $color-primary;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  margin-right: 0.625em;
+}
+
+fieldset {
+  border: 1px solid $color-border;
+}
+
+label {
+  font-size: rem(14);
+  margin-bottom: rem(5);
+  color: $color-soft-text;
+}

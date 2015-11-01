@@ -1,3 +1,3 @@
-$(".st-table").on('mouseenter', "[data-toggle='tooltip']", function() {
+$(".m-table").on('mouseenter', "[data-toggle='tooltip']", function() {
   $(this).tooltip('show');
 });

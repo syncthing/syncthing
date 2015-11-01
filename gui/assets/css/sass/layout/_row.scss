@@ -1,0 +1,20 @@
+//
+// row
+//
+
+.l-row {
+  max-width: $content-width;
+  width: 100%;
+  position: relative;
+  margin: 0 auto;
+  @include clearfix;
+  padding: 0 rem(20);
+}
+
+.l-row-medium {
+  max-width: $content-width-wrapper;
+}
+
+.l-row-big {
+  max-width: $content-width-header;
+}

@@ -1,0 +1,58 @@
+//
+// Padding
+//
+
+.h-pad-1 { padding: $spacing-1; } // Tiny
+.h-pad-2 { padding: $spacing-2; } // Smaller
+.h-pad-3 { padding: $spacing-3; } // Small
+.h-pad-4 { padding: $spacing-4; } // Medium
+.h-pad-5 { padding: $spacing-5; } // Large
+.h-pad-6 { padding: $spacing-6; } // Huge
+
+.h-pad-1-x { padding-left: $spacing-1; padding-right: $spacing-1; }
+.h-pad-2-x { padding-left: $spacing-2; padding-right: $spacing-2; }
+.h-pad-3-x { padding-left: $spacing-3; padding-right: $spacing-3; }
+.h-pad-4-x { padding-left: $spacing-4; padding-right: $spacing-4; }
+.h-pad-5-x { padding-left: $spacing-5; padding-right: $spacing-5; }
+.h-pad-6-x { padding-left: $spacing-6; padding-right: $spacing-6; }
+
+.h-pad-1-y { padding-top: $spacing-1; padding-bottom: $spacing-1; }
+.h-pad-2-y { padding-top: $spacing-2; padding-bottom: $spacing-2; }
+.h-pad-3-y { padding-top: $spacing-3; padding-bottom: $spacing-3; }
+.h-pad-4-y { padding-top: $spacing-4; padding-bottom: $spacing-4; }
+.h-pad-5-y { padding-top: $spacing-5; padding-bottom: $spacing-5; }
+.h-pad-6-y { padding-top: $spacing-6; padding-bottom: $spacing-6; }
+
+/* Padding Left */
+.h-pad-1-l { padding-left: $spacing-1; }
+.h-pad-2-l { padding-left: $spacing-2; }
+.h-pad-3-l { padding-left: $spacing-3; }
+.h-pad-4-l { padding-left: $spacing-4; }
+.h-pad-5-l { padding-left: $spacing-5; }
+.h-pad-6-l { padding-left: $spacing-6; }
+
+/* Padding Right*/
+.h-pad-1-r { padding-right: $spacing-1; }
+.h-pad-2-r { padding-right: $spacing-2; }
+.h-pad-3-r { padding-right: $spacing-3; }
+.h-pad-4-r { padding-right: $spacing-4; }
+.h-pad-5-r { padding-right: $spacing-5; }
+.h-pad-6-r { padding-right: $spacing-6; }
+
+/* Padding-bottom */
+.h-pad-1-b { padding-bottom: $spacing-1; }
+.h-pad-2-b { padding-bottom: $spacing-2; }
+.h-pad-3-b { padding-bottom: $spacing-3; }
+.h-pad-4-b { padding-bottom: $spacing-4; }
+.h-pad-5-b { padding-bottom: $spacing-5; }
+.h-pad-6-b { padding-bottom: $spacing-6; }
+
+/* Padding-top */
+.h-pad-1-t { padding-top: $spacing-1; }
+.h-pad-2-t { padding-top: $spacing-2; }
+.h-pad-3-t { padding-top: $spacing-3; }
+.h-pad-4-t { padding-top: $spacing-4; }
+.h-pad-5-t { padding-top: $spacing-5; }
+.h-pad-6-t { padding-top: $spacing-6; }
+
+.no-padding { padding: 0; }

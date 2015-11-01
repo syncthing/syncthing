@@ -1,0 +1,12 @@
+//
+// Hidden from the view but screen readers can still see it and read it.
+//
+
+.h-visually-hidden {
+  clip: rect(1px 1px 1px 1px);
+  clip: rect(1px, 1px, 1px, 1px);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

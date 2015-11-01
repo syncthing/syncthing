@@ -1,0 +1,113 @@
+//
+// Settings - Here we set all the base variables and imports
+//
+
+
+// Import this converter here so we can use it in the settings
+@import "sass/base/functions/px-to-rem";
+
+
+// Base settings
+
+$font-family-main : "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+
+// Paddings and margins
+
+$spacing-1: rem(5);
+$spacing-2: rem(10);
+$spacing-3: rem(15);
+$spacing-4: rem(25);
+$spacing-5: rem(50);
+$spacing-6: rem(100);
+
+
+// Colors
+
+$color-primary: #0791D1;
+$color-secondary: #70AF68;
+
+$color-background: #ffffff;
+$color-background-faded: #fcfcfc;
+$color-text: #333;
+$color-soft-text: #dcdcdc;
+$color-border: #dfdfdf;
+
+$color-red: #FF595F;
+$color-white: #ffffff;
+$color-yellow: #F89E33;
+
+
+// Border radius
+
+$border-radius: 4px;
+
+
+// Width of the content area
+
+$content-width: 800px;
+$content-width-header: 780px;
+$content-width-wrapper: 800px;
+
+
+
+
+
+//
+// Imports
+//
+
+// Functions
+
+
+
+// Mixins
+
+@import "sass/base/mixins/animations";
+@import "sass/base/mixins/box-shadow";
+@import "sass/base/mixins/clearfix";
+@import "sass/base/mixins/breakpoint";
+@import "sass/base/mixins/rounded-corners";
+@import "sass/base/mixins/transition";
+@import "sass/base/mixins/vertical-align-middle";
+@import "sass/base/mixins/borders";
+@import "sass/base/mixins/circle";
+
+
+// Base
+
+@import "sass/base/normalize";
+@import "sass/base/elements";
+@import "sass/base/forms";
+@import "sass/base/tables";
+@import "sass/base/box-model";
+
+
+// Layout
+
+@import "sass/layout/row";
+@import "sass/layout/header";
+@import "sass/layout/main-content";
+@import "sass/layout/footer";
+
+
+// Modules
+
+@import "sass/modules/buttons";
+@import "sass/modules/box-note";
+@import "sass/modules/table";
+
+
+// Helpers
+
+@import "sass/helpers/helper-classes";
+@import "sass/helpers/vertical-align-middle";
+@import "sass/helpers/visually-hidden";
+@import "sass/helpers/text";
+@import "sass/helpers/padding";
+@import "sass/helpers/margin";
+
+// Vendors
+
+@import "sass/vendor/bootstrap";
+@import "sass/vendor/ion";

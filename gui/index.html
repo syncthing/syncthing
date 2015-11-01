@@ -20,25 +20,26 @@
   <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="vendor/ionicons/css/ionicons.min.css" rel="stylesheet">
   <link href="assets/font/opensans.css" rel="stylesheet">
+  <!-- TODO remove overrides.css when everything has been moved into proper modules -->
   <link href="assets/css/overrides.css" rel="stylesheet">
-  <link href="assets/css/syncthing.css" rel="stylesheet">
+  <link href="assets/css/styles.css" rel="stylesheet">
 </head>
 
 <body>
   <!-- Top bar -->
 
-  <header class="navbar navbar-top navbar-white container st-head" role="navigation">
+  <header class="l-header l-row" role="navigation">
       <img class="logo" src="assets/img/logo-icon.svg" height="45" width="45"/>
 
       <!-- Notifications and settings -->
-      <div class="st-head-buttons ">
-        <div class="st-head-notifications dropdown">
-          <button type="button" class="st-head-notifications-btn btn btn-default btn-lg dropdown-toggle" data-toggle="dropdown">
+      <div class="l-header-buttons ">
+        <div class="l-header-notifications dropdown">
+          <button type="button" class="l-header-notifications-btn btn btn-lg dropdown-toggle" data-toggle="dropdown">
             <span class="ion ion-android-notifications" aria-label="Edit"></span>
           </button>
         </div>
-        <div class="st-head-settings dropdown">
-          <button class="btn btn-default btn-lg dropdown-toggle" data-toggle="dropdown">
+        <div class="l-header-settings dropdown">
+          <button class="btn btn-lg dropdown-toggle" data-toggle="dropdown">
             <span class="ion ion-gear-b" aria-label="Edit"></span>
           </button>
           <ul class="dropdown-menu">
@@ -57,52 +58,41 @@
             <span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
-        <!-- <li class="dropdown" language-select></li>
-        <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog" aria-label="Edit"></span>&nbsp;<span translate>Actions</span><span class="caret"></span></a>
-          <ul class="dropdown-menu">
-            <li><a href="" ng-click="editSettings()"><span class="glyphicon glyphicon-cog"></span><span translate>Settings</span></a></li>
-            <li><a href="" ng-click="idDevice()"><span class="glyphicon glyphicon-qrcode"></span><span translate>Show ID</span></a></li>
-            <li class="divider"></li>
-            <li><a href="" ng-click="shutdown()"><span class="glyphicon glyphicon-off"></span><span translate>Shutdown</span></a></li>
-            <li><a href="" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span><span translate>Restart</span></a></li>
-            <li class="divider"></li>
-            <li><a href="" ng-click="about()"><span class="glyphicon glyphicon-heart-empty"></span><span translate>About</span></a></li>
-          </ul>
-        </li> -->
       </div>
 
       <!-- This device -->
 
-      <div class="st-head-data " ng-repeat="deviceCfg in [thisDevice()]">
-        <div class="st-head-data-container">
-          <span class="st-head-data-item" >
+      <!-- TODO make l-header-data fold into a drawer on mobile that expands when clicked on l-header-device-name -->
+
+      <div class="l-header-data " ng-repeat="deviceCfg in [thisDevice()]">
+        <div class="l-header-data-container">
+          <span class="l-header-data-item" >
             <span class="ion ion-arrow-down-a" data-toggle="tooltip" title="Download Rate"></span>
-            <span class="st-info" translate>Upload Rate</span>
+            <span class="h-visually-hidden" translate>Upload Rate</span>
             <span class="st-data">{{connections['total'].inbps | binary}}B/s</span>
           </span>
 
-          <span class="st-head-data-item" data-toggle="tooltip" title="Upload Rate">
+          <span class="l-header-data-item" data-toggle="tooltip" title="Upload Rate">
             <span class="ion ion-arrow-up-a"></span>
-            <span class="st-info" translate>Upload Rate</span>
+            <span class="h-visually-hidden" translate>Upload Rate</span>
             <span class="st-data">{{connections['total'].outbps | binary}}B/s </span>
           </span>
 
-          <span class="st-head-data-item" data-toggle="tooltip" title="RAM Utilization">
+          <span class="l-header-data-item" data-toggle="tooltip" title="RAM Utilization">
             <span class="ion ion-grid"></span>
-            <span class="st-info" translate>RAM Utilization</span>
+            <span class="h-visually-hidden" translate>RAM Utilization</span>
             <span class="st-data">{{system.sys | binary}}B</span>
           </span>
 
-          <span class="st-head-data-item" data-toggle="tooltip" title="CPU Utilization">
+          <span class="l-header-data-item" data-toggle="tooltip" title="CPU Utilization">
             <span class="ion ion-speedometer"></span>
-            <span class="st-info" translate>CPU Utilization</span>
+            <span class="h-visually-hidden" translate>CPU Utilization</span>
             <span class="st-data">{{system.cpuPercent | alwaysNumber | natural:1}}%</span>
           </span>
 
-          <span class="st-head-data-item" data-toggle="tooltip" title="Global Discovery" ng-if="system.extAnnounceOK != undefined && announceServersTotal > 0">
+          <span class="l-header-data-item" data-toggle="tooltip" title="Global Discovery" ng-if="system.extAnnounceOK != undefined && announceServersTotal > 0">
             <span class="ion ion-ios-world-outline"></span>
-            <span class="st-info" translate>Global Discovery</span>
+            <span class="h-visually-hidden" translate>Global Discovery</span>
             <span ng-if="announceServersFailed.length == 0" class="data text-success">
               <span>OK</span>
             </span>
@@ -114,21 +104,22 @@
           </span>
         </div>
 
-        <!-- <span>
-          <span class="glyphicon glyphicon-tag"></span><span translate>Version</span>
-          <span class="text-right">{{version}}</span>
-        </span> -->
     </div>
 
-    <span class="st-device-name">{{thisDeviceName()}}</span>
+    <span class="l-header-device-name">{{thisDeviceName()}}</span>
     <!-- This device ends -->
   </header>
 
-  <div class="container">
+
+
+
+  <div class="l-content">
+
+    <!-- TODO Add these notifications into notification dropdown -->
 
     <!-- Panel: Restart Needed -->
 
-    <div ng-if="!configInSync" class="row">
+    <div ng-if="!configInSync" class="l-row">
       <div class="col-md-12">
         <div class="panel panel-warning">
           <div class="panel-heading"><h3 class="panel-title"><span class="glyphicon glyphicon-exclamation-sign"></span><span translate>Restart Needed</span></h3></div>
@@ -136,7 +127,7 @@
             <p translate>The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.</p>
           </div>
           <div class="panel-footer">
-            <button type="button" class="btn btn-sm btn-default pull-right" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span><span translate>Restart</span></button>
+            <button type="button" class="btn btn-sm pull-right" ng-click="restart()"><span class="glyphicon glyphicon-refresh"></span><span translate>Restart</span></button>
             <div class="clearfix"></div>
           </div>
         </div>
@@ -145,7 +136,7 @@
 
     <!-- Panel: New Device -->
 
-    <div ng-repeat="(device, event) in deviceRejections" class="row">
+    <div ng-repeat="(device, event) in deviceRejections" class="l-row">
       <div class="col-md-12">
         <div class="panel panel-warning">
           <div class="panel-heading">
@@ -165,7 +156,7 @@
             <div class="pull-right">
               <button class="btn btn-sm btn-success" ng-click="addNewDeviceID(device)"><span class="glyphicon glyphicon-ok"></span><span translate>Add</span></button>
               <button class="btn btn-sm btn-danger" ng-click="ignoreRejectedDevice(device)"><span class="glyphicon glyphicon-remove"></span><span translate>Ignore</span></button>
-              <button class="btn btn-sm btn-default" ng-click="dismissDeviceRejection(device)"><span class="glyphicon glyphicon-time"></span><span translate>Later</span></button>
+              <button class="btn btn-sm" ng-click="dismissDeviceRejection(device)"><span class="glyphicon glyphicon-time"></span><span translate>Later</span></button>
             </div>
           </div>
         </div>
@@ -201,7 +192,7 @@
               <button class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(event.data.folder, event.data.device)" ng-if="folders[event.data.folder]">
                 <span class="glyphicon glyphicon-ok"></span><span translate>Share</span>
               </button>
-              <button class="btn btn-sm btn-default" ng-click="dismissFolderRejection(event.data.folder, event.data.device)">
+              <button class="btn btn-sm" ng-click="dismissFolderRejection(event.data.folder, event.data.device)">
                 <span class="glyphicon glyphicon-time"></span><span translate>Later</span>
               </button>
             </div>
@@ -212,7 +203,7 @@
 
     <!-- Panel: Notice -->
 
-    <div ng-if="errorList().length > 0" class="row">
+    <div ng-if="errorList().length > 0" class="l-row">
       <div class="col-md-12">
         <div class="panel panel-warning">
           <div class="panel-heading"><h3 class="panel-title"><span class="glyphicon glyphicon-exclamation-sign"></span><span translate>Notice</span></h3></div>
@@ -220,7 +211,7 @@
             <p ng-repeat="err in errorList()"><small>{{err.time | date:"yyyy-MM-dd HH:mm:ss"}}:</small> {{friendlyDevices(err.error)}}</p>
           </div>
           <div class="panel-footer">
-            <button type="button" class="pull-right btn btn-sm btn-default" ng-click="clearErrors()"><span class="glyphicon glyphicon-ok"></span><span translate>OK</span></button>
+            <button type="button" class="pull-right btn btn-sm" ng-click="clearErrors()"><span class="glyphicon glyphicon-ok"></span><span translate>OK</span></button>
             <div class="clearfix"></div>
           </div>
         </div>
@@ -229,227 +220,121 @@
 
     <!-- First regular row -->
 
-    <div class="row">
+    <div class="l-row">
 
       <!-- Folder list (top left) -->
 
-      <div class="st-table">
-        <div class="st-table-head st-row">
-          <div class="st-cell" translate>Name</div>
-          <div class="st-cell" translate>Size</div>
-          <div class="st-cell" translate>Status</div>
-          <div class="st-cell" translate>Devices</div>
-          <div class="st-cell" translate>Actions</div>
+      <!-- TODO make mobile version of table - something like this: http://codepen.io/geoffreyrose/pen/azdJNO -->
+
+      <div class="m-table">
+        <div class="m-table-head m-table-row">
+          <div class="m-table-cell" translate>Name</div>
+          <div class="m-table-cell" translate>Size</div>
+          <div class="m-table-cell" translate>Status</div>
+          <div class="m-table-cell" translate>Devices</div>
+          <div class="m-table-cell" translate>Actions</div>
         </div>
-        <div class="st-row" ng-repeat="folder in folderList()">
-          <div class="st-cell st-folder-name">
+
+
+
+
+        <div class="m-table-row" ng-repeat="folder in folderList()">
+          <div class="m-table-cell m-table-folder-name">
             <span class="ion ion-folder"></span>{{folder.id}}
           </div>
-          <div class="st-cell st-folder-size">
+
+
+
+
+          <div class="m-table-cell m-table-folder-size">
             <span data-toggle="tooltip" title="Local size / Global size">
-              <span class="" >{{model[folder.id].localBytes | binary}}B</span>
-              <span class="st-quiet">{{model[folder.id].globalBytes | binary}}B</span>
+              <span class="m-table-local-size" >{{model[folder.id].localBytes | binary}}B</span>
+              <span class="m-table-global-size">{{model[folder.id].globalBytes | binary}}B</span>
             </span>
           </div>
-          <div class="st-cell st-folder-status">
+
+
+
+
+          <div class="m-table-cell m-table-folder-status">
             <span class="text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
 
               <span ng-switch-when="unknown">
-                <span class="hidden-xs" data-toggle="tooltip" title="Unknown" translate><span class="ion ion-help-circled"></span></span>
-                <span class="visible-xs">&#9724;</span>
+                <span class="ion ion-help-circled" data-toggle="tooltip" title="Unknown" translate></span>
               </span>
 
               <span ng-switch-when="unshared">
-                <span class="hidden-xs" data-toggle="tooltip" title="Unshared" translate>Unshared</span>
-                <span class="visible-xs">&#9724;</span>
+                <span class="ion ion-heart-broken" data-toggle="tooltip" title="Unshared" translate></span>
               </span>
 
               <span ng-switch-when="stopped">
-                <span class="hidden-xs" data-toggle="tooltip" title="Stopped" translate>Stopped</span>
-                <span class="visible-xs">&#9724;</span>
+                <span class="ion ion-stop" data-toggle="tooltip" title="Stopped" translate></span>
               </span>
 
               <span ng-switch-when="scanning">
-                <span class="hidden-xs" data-toggle="tooltip" title="Scanning" translate>Scanning</span>
-                <span class="visible-xs">&#9724;</span>
+                <span class="ion ion-refresh" data-toggle="tooltip" title="Scanning" translate></span>
               </span>
 
               <span ng-switch-when="idle">
                 <span class="ion ion-checkmark-circled" data-toggle="tooltip" title="Up to Date" translate></span>
-                <span class="visible-xs">&#9724;</span>
               </span>
 
               <span ng-switch-when="syncing">
-                <span class="hidden-xs" data-toggle="tooltip" title="Syncing" translate>Syncing</span>
-                ({{syncPercentage(folder.id)}}%)
+                <span class="ion ion-loop" data-toggle="tooltip" title="Syncing ({{syncPercentage(folder.id)}}%)" translate></span>
               </span>
 
             </span>
           </div>
-          <div class="st-cell st-folder-devices">
+
+
+
+
+          <!-- TODO Add identicon which shows status color (green: In sync, yellow: syncing red: out of sync) and add syncing percentage to tooltip -->
+          <div class="m-table-cell m-table-folder-devices">
             <div class="" data-toggle="tooltip" title="{{sharesFolder(folder)}}">{{sharesFolder(folder)}}</div>
           </div>
-          <div class="st-cell st-folder-actions">
+
+
+
+
+          <div class="m-table-cell m-table-folder-actions">
+
               <button class="btn btn-sm btn-danger pull-left" ng-if="folderStatus(folder) == 'idle' && folder.readOnly && model[folder.id].needFiles > 0" ng-click="override(folder.id)" href="">
                 <span class="glyphicon glyphicon-upload"></span>
-                <span class="st-info" translate>Override Changes</span>
+                <span class="h-visually-hidden" translate>Override Changes</span>
               </button>
+
               <span class="">
-                <button class="btn btn-sm btn-default"  ng-click="rescanFolder(folder.id)" data-toggle="tooltip" title="Rescan">
-                  <span class="glyphicon glyphicon-refresh"></span>
-                </button><button class="btn btn-sm btn-default st-info-parent" ng-click="editFolder(folder)" data-toggle="tooltip" title="Edit Folder">
-                  <span class="glyphicon glyphicon-pencil"></span>
+
+                <button class="btn btn-sm"  ng-click="addDeviceToFolder(folder.id)" data-toggle="tooltip" title="Add device">
+                  <span class="ion ion-plus"></span>
                 </button>
+
+                <button class="btn btn-sm"  ng-click="rescanFolder(folder.id)" data-toggle="tooltip" title="Rescan">
+                  <span class="ion ion-refresh"></span>
+                </button>
+
+                <button class="btn btn-sm" ng-click="editFolder(folder)" data-toggle="tooltip" title="Edit Folder">
+                  <span class="ion ion-edit"></span>
+                </button>
+
               </span>
           </div>
+
         </div>
       </div>
 
-      <span class="pull-right">
-        <button class="btn btn-sm btn-default" ng-click="rescanAllFolders()"><span class="glyphicon glyphicon-repeat"></span><span translate>Rescan All</span></button>
-        <button class="btn btn-sm btn-default" ng-click="addFolder()"><span class="glyphicon glyphicon-plus"></span><span translate>Add Folder</span></button>
-      </span>
 
-      <button class="btn btn-sm btn-default pull-right" ng-click="addDevice()"><span class="glyphicon glyphicon-plus"></span><span translate>Add Device</span></button>
 
-      <!-- <div class="col-md-12">
-        <div class="panel-group" id="folders">
-        <div class="visible-xs"><h3><span translate>Folders</span></h3><hr></div>
-          <div class="panel panel-default" ng-repeat="folder in folderList()">
-            <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
-              <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
-              <h3 class="panel-title">
-                <span class="glyphicon glyphicon-hdd hidden-xs"></span>{{folder.id}}
-                <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
-                  <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="scanning"><span class="hidden-xs" translate>Scanning</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="syncing">
-                    <span class="hidden-xs" translate>Syncing</span>
-                    ({{syncPercentage(folder.id)}}%)
-                  </span>
-                  <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs">&#9724;</span></span>
-                </span>
-              </h3>
-            </div>
-            <div id="folder-{{$index}}" class="panel-collapse collapse">
-              <div class="panel-body">
-                <table class="table table-condensed table-striped">
-                  <tbody>
-                    <tr>
-                      <th><span class="glyphicon glyphicon-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>
-                      <td class="text-right">{{folder.path}}</td>
-                    </tr>
-                    <tr ng-if="model[folder.id].invalid || model[folder.id].error">
-                      <th><span class="glyphicon glyphicon-warning-sign"></span>&nbsp;<span translate>Error</span></th>
-                      <td class="text-right">{{model[folder.id].invalid || model[folder.id].error}}</td>
-                    </tr>
-                    <tr>
-                      <th><span class="glyphicon glyphicon-globe"></span>&nbsp;<span translate>Global State</span></th>
-                      <td class="text-right">{{model[folder.id].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].globalBytes | binary}}B</td>
-                    </tr>
-                    <tr>
-                      <th><span class="glyphicon glyphicon-home"></span>&nbsp;<span translate>Local State</span></th>
-                      <td class="text-right">{{model[folder.id].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].localBytes | binary}}B</td>
-                    </tr>
-                    <tr ng-if="model[folder.id].needFiles > 0">
-                      <th><span class="glyphicon glyphicon-cloud-download"></span>&nbsp;<span translate>Out of Sync</span></th>
-                      <td class="text-right">
-                        <a ng-click="showNeed(folder.id)" href="">{{model[folder.id].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
-                      </td>
-                    </tr>
-                    <tr ng-if="!folder.readOnly && (folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id))">
-                      <th><span class="glyphicon glyphicon-exclamation-sign"></span>&nbsp;<span translate>Failed Items</span></th>
-                      <!-- Show the number of failed items as a link to bring up the list. -->
-                      <td ng-if="hasFailedFiles(folder.id)" class="text-right">
-                        <a ng-click="showFailed(folder.id)" href="">{{failed[folder.id].length | alwaysNumber}}&nbsp;<span translate>items</span></a>
-                      </td>
-                      <!-- The list of failed items hasn't loaded yet; show an ellipsis for the time being. -->
-                      <td ng-if="!hasFailedFiles(folder.id)" class="text-right">
-                        ...
-                      </td>
-                    </tr>
-                    <tr ng-if="folder.readOnly">
 
-                      <th><span class="glyphicon glyphicon-lock"></span>&emsp;<span translate>Folder Master</span></th>
-                      <td class="text-right">
-                        <span translate>Yes</span>
-                      </td>
-                    </tr>
-                    <tr ng-if="model[folder.id].ignorePatterns">
+      <!-- <button class="btn btn-sm" ng-click="rescanAllFolders()"><span class="glyphicon glyphicon-repeat"></span><span translate>Rescan All</span></button> -->
 
-                      <th><span class="glyphicon glyphicon-eye-close"></span>&emsp;<span translate>Ignore Patterns</span></th>
-                      <td class="text-right">
-                        <span translate>Yes</span>
-                      </td>
-                    </tr>
-                    <tr ng-if="folder.ignorePerms">
-                      <th><span class="glyphicon glyphicon-unchecked"></span>&nbsp;<span translate>Ignore Permissions</span></th>
-                      <td class="text-right">
-                        <span translate>Yes</span>
-                      </td>
-                    </tr>
-                    <tr ng-if="folder.rescanIntervalS != 60">
-                      <th><span class="glyphicon glyphicon-refresh"></span>&nbsp;<span translate>Rescan Interval</span></th>
-                      <td class="text-right">{{folder.rescanIntervalS}} s</td>
-                    </tr>
-                    <tr ng-if="folder.order != 'random'">
-                      <th><span class="glyphicon glyphicon-sort"></span>&nbsp;<span translate>File Pull Order</span></th>
-                      <td class="text-right" ng-switch="folder.order">
-                        <span ng-switch-when="random" translate>Random</span>
-                        <span ng-switch-when="alphabetic" translate>Alphabetic</span>
-                        <span ng-switch-when="smallestFirst" translate>Smallest First</span>
-                        <span ng-switch-when="largestFirst" translate>Largest First</span>
-                        <span ng-switch-when="oldestFirst" translate>Oldest First</span>
-                        <span ng-switch-when="newestFirst" translate>Newest First</span>
-                      </td>
-                    </tr>
-                    <tr ng-if="folder.versioning.type">
-                      <th><span class="glyphicon glyphicon-tags"></span>&nbsp;<span translate>File Versioning</span></th>
-                      <td class="text-right" ng-switch="folder.versioning.type">
-                        <span ng-switch-when="trashcan" translate>Trash Can File Versioning</span>
-                        <span ng-switch-when="staggered" translate>Staggered File Versioning</span>
-                        <span ng-switch-when="simple" translate>Simple File Versioning</span>
-                        <span ng-switch-when="external" translate>External File Versioning</span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <th><span class="glyphicon glyphicon-share-alt"></span><span translate>Shared With</span></th>
-                      <td class="text-right">{{sharesFolder(folder)}}</td>
-                    </tr>
-                    <tr ng-if="!folder.readOnly && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
-                      <th><span class="glyphicon glyphicon-transfer"></span>&nbsp;<span translate>Last File Received</span></th>
-                      <td class="text-right">
-                        <span title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
-                          <span translate ng-if="!folderStats[folder.id].lastFile.deleted">Updated</span>
-                          <span translate ng-if="folderStats[folder.id].lastFile.deleted">Deleted</span>
-                          {{folderStats[folder.id].lastFile.filename | basename}}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="panel-footer">
-                <button class="btn btn-sm btn-danger pull-left" ng-if="folderStatus(folder) == 'outofsync' && folder.readOnly" ng-click="override(folder.id)" href=""><span class="glyphicon glyphicon-upload"></span>&nbsp;<span translate>Override Changes</span></button>
-                <span class="pull-right">
-                  <button class="btn btn-sm btn-default" href="" ng-show="['idle', 'stopped'].indexOf(folderStatus(folder)) > -1" ng-click="rescanFolder(folder.id)"><span class="glyphicon glyphicon-refresh"></span>&nbsp;<span translate>Rescan</span></button>
-                  <button class="btn btn-sm btn-default" href="" ng-click="editFolder(folder)"><span class="glyphicon glyphicon-pencil"></span>&nbsp;<span translate>Edit</span></button>
-                </span>
-                <div class="clearfix"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <span class="pull-right">
-          <button class="btn btn-sm btn-default" ng-click="rescanAllFolders()"><span class="glyphicon glyphicon-repeat"></span><span translate>Rescan All</span></button>
-          <button class="btn btn-sm btn-default" ng-click="addFolder()"><span class="glyphicon glyphicon-plus"></span><span translate>Add Folder</span></button>
-        </span>
-        <div class="clearfix"></div>
-        <hr class="visible-sm"/>
-      </div> -->
+      <button class="btn btn-sm btn-secondary fr" ng-click="addFolder()"><span class="ion ion-folder h-mar-2-r"></span><span translate>Add Folder</span></button>
+
+      <button class="btn btn-sm btn-secondary fr h-mar-2-r " ng-click="addDevice()"><span class="ion ion-monitor h-mar-2-r"></span><span translate>Add Device</span></button>
+
+
+
 
       <!-- Device list (top right) -->
 
@@ -515,20 +400,24 @@
                 </table>
               </div>
               <div class="panel-footer">
-                <span class="pull-right"><a class="btn btn-sm btn-default" href="" ng-click="editDevice(deviceCfg)"><span class="glyphicon glyphicon-pencil"></span><span translate>Edit</span></a></span>
+                <span class="pull-right"><a class="btn btn-sm" href="" ng-click="editDevice(deviceCfg)"><span class="glyphicon glyphicon-pencil"></span><span translate>Edit</span></a></span>
                 <div class="clearfix"></div>
               </div>
             </div>
           </div>
         </div>
         <div class="form-group">
-          <button class="btn btn-sm btn-default pull-right" ng-click="addDevice()"><span class="glyphicon glyphicon-plus"></span><span translate>Add Device</span></button>
+          <button class="btn btn-sm pull-right" ng-click="addDevice()"><span class="glyphicon glyphicon-plus"></span><span translate>Add Device</span></button>
           <div class="clearfix"></div>
         </div>
       </div>
-    </div> <!-- /row --> -->
+    </div>
 
-  </div> <!-- /container -->
+    <!-- /row -->
+
+  </div>
+
+  <!-- /container -->
 
   <!-- Bottom bar -->
 
@@ -610,7 +499,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary btn-sm" ng-click="upgrade()"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Upgrade</span></button>
-          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
+          <button type="button" class="btn btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
         </div>
       </div>
     </div>
@@ -669,13 +558,13 @@
               </div>
             </div>
 
-            <div class="row" ng-if="!editingSelf">
+            <div class="l-row" ng-if="!editingSelf">
               <div class="col-md-12">
                 <div class="form-group">
                   <label translate for="folders">Share Folders With Device</label>
                   <p translate class="help-block">Select the folders to share with this device.</p>
                   <div class="container-fluid">
-                    <div class="row" ng-repeat="folderGroup in folderList() | group:3">
+                    <div class="l-row" ng-repeat="folderGroup in folderList() | group:3">
                       <div class="checkbox col-md-4" ng-repeat="folder in folderGroup">
                         <label>
                           <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]"> {{folder.id}}
@@ -691,7 +580,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid"><span class="glyphicon glyphicon-ok"></span><span translate>Save</span></button>
-          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span><span translate>Close</span></button>
+          <button type="button" class="btn btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span><span translate>Close</span></button>
           <button ng-if="editingExisting && !editingSelf" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteDevice()"><span class="glyphicon glyphicon-minus"></span><span translate>Delete</span></button>
         </div>
       </div>
@@ -709,7 +598,7 @@
         </div>
         <div class="modal-body">
           <form role="form" name="folderEditor">
-            <div class="row">
+            <div class="l-row">
               <div class="col-md-12">
                 <div class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">
                   <label for="folderID"><span translate>Folder ID</span></label>
@@ -741,7 +630,7 @@
                 </div>
               </div>
             </div>
-            <div class="row">
+            <div class="l-row">
               <!-- Left column -->
               <div class="col-md-6">
                 <div class="form-group">
@@ -836,13 +725,13 @@
               </div>
             </div>
 
-            <div class="row">
+            <div class="l-row">
               <div class="col-md-12">
                 <div class="form-group">
                   <label translate for="devices">Share With Devices</label>
                   <p translate class="help-block">Select the devices to share this folder with.</p>
                   <div class="container-fluid">
-                    <div class="row" ng-repeat="deviceGroup in otherDevices() | group:3">
+                    <div class="l-row" ng-repeat="deviceGroup in otherDevices() | group:3">
                       <div class="checkbox col-md-4" ng-repeat="device in deviceGroup">
                         <label>
                           <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
@@ -859,13 +748,61 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid"><span class="glyphicon glyphicon-ok"></span><span translate>Save</span></button>
-          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span><span translate>Close</span></button>
+          <button type="button" class="btn btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span><span translate>Close</span></button>
           <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteFolder()"><span class="glyphicon glyphicon-minus"></span><span translate>Delete</span></button>
-          <button id="editIgnoresButton" ng-if="editingExisting" type="button" class="btn btn-default pull-left btn-sm" ng-click="editIgnores()"><span class="glyphicon glyphicon-eye-close"></span><span translate>Ignore Patterns</span></button>
+          <button id="editIgnoresButton" ng-if="editingExisting" type="button" class="btn pull-left btn-sm" ng-click="editIgnores()"><span class="glyphicon glyphicon-eye-close"></span><span translate>Ignore Patterns</span></button>
         </div>
       </div>
     </div>
   </div>
+
+
+
+  <!-- Folder editor modal -->
+
+  <div id="addDeviceToFolder" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 ng-show="!editingExisting" class="modal-title"><span translate>Add Folder</span></h4>
+          <h4 ng-show="editingExisting" class="modal-title"><span translate>Edit Folder</span></h4>
+        </div>
+        <div class="modal-body">
+          <form role="form" name="folderEditor">
+            <div class="l-row">
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label translate for="devices">Share With Devices</label>
+                  <p translate class="help-block">Select the devices to share this folder with.</p>
+                  <div class="container-fluid">
+                    <div class="l-row" ng-repeat="deviceGroup in otherDevices() | group:3">
+                      <div class="checkbox col-md-4" ng-repeat="device in deviceGroup">
+                        <label>
+                          <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </form>
+          <div translate ng-show="!editingExisting">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid"><span class="glyphicon glyphicon-ok"></span><span translate>Save</span></button>
+          <button type="button" class="btn btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span><span translate>Close</span></button>
+          <button ng-if="editingExisting" type="button" class="btn btn-danger pull-left btn-sm" ng-click="deleteFolder()"><span class="glyphicon glyphicon-minus"></span><span translate>Delete</span></button>
+          <button id="editIgnoresButton" ng-if="editingExisting" type="button" class="btn pull-left btn-sm" ng-click="editIgnores()"><span class="glyphicon glyphicon-eye-close"></span><span translate>Ignore Patterns</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+
 
   <!-- Ignores editor modal -->
 
@@ -892,11 +829,14 @@
         <div class="modal-footer">
           <div class="pull-left"><span translate>Editing</span> <code>{{currentFolder.path}}{{system.pathSeparator}}.stignore</code></div>
           <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal" ng-click="saveIgnores()"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Save</span></button>
-          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
+          <button type="button" class="btn btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
         </div>
       </div>
     </div>
   </div>
+
+
+
 
   <!-- Settings modal -->
 
@@ -908,7 +848,7 @@
         </div>
         <div class="modal-body">
           <form role="form">
-            <div class="row">
+            <div class="l-row">
 
               <div class="col-md-6">
                 <div class="form-group">
@@ -1005,7 +945,7 @@
                 <div class="form-group">
                   <label><span translate>API Key</span></label>
                   <div class="well well-sm text-monospace">{{tmpGUI.apiKey || "-"}}</div>
-                  <button translate type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(tmpGUI)">Generate</button>
+                  <button translate type="button" class="btn btn-sm" ng-click="setAPIKey(tmpGUI)">Generate</button>
                 </div>
               </div>
 
@@ -1014,11 +954,14 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary btn-sm" ng-click="saveSettings()"><span class="glyphicon glyphicon-ok"></span><span translate>Save</span></button>
-          <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span><span translate>Close</span></button>
+          <button type="button" class="btn btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span><span translate>Close</span></button>
         </div>
       </div>
     </div>
   </div>
+
+
+
 
   <!-- Usage report modal -->
 
@@ -1031,7 +974,7 @@
         <div class="modal-body">
           <p translate>The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.</p>
           <p translate translate-value-url="<a href=&quot;https://data.syncthing.net&quot; target=&quot;_blank&quot;>https://data.syncthing.net</a>">The aggregated statistics are publicly available at {%url%}.</p>
-          <button translate type="button" class="btn btn-default btn-sm" ng-show="!reportPreview" ng-click="showReportPreview()">Preview Usage Report</button>
+          <button translate type="button" class="btn btn-sm" ng-show="!reportPreview" ng-click="showReportPreview()">Preview Usage Report</button>
           <pre ng-if="reportPreview"><small>{{reportData | json}}</small></pre>
         </div>
         <div class="modal-footer">
@@ -1041,6 +984,9 @@
       </div>
     </div>
   </div>
+
+
+
 
   <!-- Usage report preview modal -->
 
@@ -1061,6 +1007,9 @@
       </div>
     </div>
   </div>
+
+
+
 
   <!-- Needed files modal -->
 
@@ -1119,6 +1068,9 @@
     <div class="clearfix"></div>
   </modal>
 
+
+
+
   <!-- Failed Items modal -->
 
   <modal id="failed" large="yes" status="warning" icon="exclamation-sign" close="yes" title="{{'Failed Items' | translate}}">
@@ -1141,6 +1093,8 @@
     <div class="clearfix"></div>
   </modal>
 
+
+
   <!-- About modal -->
 
   <modal id="about" large="yes" close="yes" status="info" title="{{'About' | translate}}">
@@ -1148,7 +1102,7 @@
     <hr/>
 
     <p translate>Copyright &copy; 2015 the following Contributors:</p>
-    <div class="row">
+    <div class="l-row">
       <div class="col-md-12">
         <ul class="list-unstyled three-columns" id="contributor-list">
           <li class="auto-generated">Aaron Bieber</li>
@@ -1306,7 +1260,7 @@
 
           <div class="modal-footer">
             <button type="button" class="btn btn-primary btn-sm" ng-click="saveAdvanced()"><span class="glyphicon glyphicon-ok"></span>&nbsp;<span translate>Save</span></button>
-            <button type="button" class="btn btn-default btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
+            <button type="button" class="btn btn-sm" data-dismiss="modal"><span class="glyphicon glyphicon-remove"></span>&nbsp;<span translate>Close</span></button>
           </div>
         </div>
       </div>

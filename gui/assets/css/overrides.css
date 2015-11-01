@@ -7,19 +7,6 @@
 
 */
 
-body {
-    padding-bottom: 70px;
-    font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: #333;
-}
-
-h1, h2, h3, h4, h5 {
-    font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-}
-
-ul+h5 {
-    margin-top: 1.5em;
-}
 
 .panel-progress {
     background: #3498db;

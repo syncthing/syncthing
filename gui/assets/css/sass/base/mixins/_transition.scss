@@ -1,0 +1,21 @@
+//
+// Transition
+//
+
+// example: @include transition(background, 1s, ease-in-out, 0);
+
+@mixin transition($property, $duration, $timing-function, $delay) {
+  -webkit-transition: $property $duration $timing-function $delay;
+     -moz-transition: $property $duration $timing-function $delay;
+       -o-transition: $property $duration $timing-function $delay;
+          transition: $property $duration $timing-function $delay;
+}
+
+// example: @include double-transition(background, 1s, ease-in-out, 0, opacity, .1s, ease-in-out, 0);
+
+@mixin double-transition($property1, $duration1, $timing-function1, $delay1, $property2, $duration2, $timing-function2, $delay2) {
+  -webkit-transition: $property1 $duration1 $timing-function1 $delay1, $property2 $duration2 $timing-function2 $delay2;
+     -moz-transition: $property1 $duration1 $timing-function1 $delay1, $property2 $duration2 $timing-function2 $delay2;
+       -o-transition: $property1 $duration1 $timing-function1 $delay1, $property2 $duration2 $timing-function2 $delay2;
+          transition: $property1 $duration1 $timing-function1 $delay1, $property2 $duration2 $timing-function2 $delay2;
+}

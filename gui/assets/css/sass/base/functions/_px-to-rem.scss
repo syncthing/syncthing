@@ -1,0 +1,13 @@
+//
+// px to rem - converts px units to rem units
+//
+
+$base-font-size: 16px;
+
+@function rem($size) {
+  // Change the number to px
+  $size: $size * 1px;
+
+  // Default font size on html element is 100%, equivalent to 16px;
+  @return $size / $base-font-size * 1rem;
+}

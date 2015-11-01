@@ -1,0 +1,6 @@
+.m-box-note {
+  border: 1px solid $color-border;
+  @include rounded-all(4);
+  background-color: $color-background-faded;
+  padding: rem(15);
+}

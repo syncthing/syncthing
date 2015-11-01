@@ -1,0 +1,10 @@
+//
+// Box model is set globally since it makes using the grid classes simpler
+//
+
+
+*, *:after, *:before {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}

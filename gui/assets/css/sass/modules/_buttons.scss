@@ -1,0 +1,77 @@
+//
+// Buttons
+//
+
+
+.btn {
+  border-color: $color-primary;
+  color: $color-primary;
+  background-color: $color-background;
+  border-radius: 3px;
+  -webkit-transition: all 300ms ease;
+  -moz-transition: all 300ms ease;
+  -o-transition: all 300ms ease;
+  transition: all 300ms ease;
+}
+
+.btn-secondary {
+  border-color: $color-secondary;
+  color: $color-secondary;
+  background-color: transparent;
+}
+
+
+
+.btn-sm {
+  padding: 10px;
+}
+
+.btn-lg {
+  padding: 11px 16px;
+}
+
+
+
+
+.btn:hover,
+.btn:focus,
+.btn:active,
+.btn.active,
+.open .dropdown-toggle.btn  {
+  border-color: $color-primary;
+  background-color: $color-primary;
+  color: white;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus,
+.btn-secondary:active,
+.btn-secondary.active,
+.open .dropdown-toggle.btn-secondary  {
+  border-color: $color-secondary;
+  background-color: $color-secondary;
+  color: white;
+}
+
+
+
+
+.btn .ion {
+  -webkit-transition: all 300ms ease;
+  -moz-transition: all 300ms ease;
+  -o-transition: all 300ms ease;
+  transition: all 300ms ease;
+}
+
+.btn-secondary .ion {
+  color: $color-secondary;
+}
+
+.open .ion,
+.btn:hover .ion,
+.btn:focus .ion,
+.btn:active .ion,
+.btn.active .ion,
+.open .dropdown-toggle.btn .ion {
+  color: white;
+}
