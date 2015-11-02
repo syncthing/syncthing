@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/syncthing/protocol"
@@ -32,7 +33,7 @@ import (
 const (
 	pauseIntv     = 60 * time.Second
 	nextPullIntv  = 10 * time.Second
-	shortPullIntv = 5 * time.Second
+	shortPullIntv = time.Second
 )
 
 // A pullBlockState is passed to the puller routine for each block that needs
@@ -49,10 +50,26 @@ type copyBlocksState struct {
 	blocks []protocol.BlockInfo
 }
 
+// Which filemode bits to preserve
+const retainBits = os.ModeSetgid | os.ModeSetuid | os.ModeSticky
+
 var (
 	activity    = newDeviceActivity()
 	errNoDevice = errors.New("no available source device")
 )
+
+const (
+	dbUpdateHandleDir = iota
+	dbUpdateDeleteDir
+	dbUpdateHandleFile
+	dbUpdateDeleteFile
+	dbUpdateShortcutFile
+)
+
+type dbUpdateJob struct {
+	file    protocol.FileInfo
+	jobType int
+}
 
 type rwFolder struct {
 	stateTracker
@@ -73,11 +90,15 @@ type rwFolder struct {
 
 	stop        chan struct{}
 	queue       *jobQueue
-	dbUpdates   chan protocol.FileInfo
+	dbUpdates   chan dbUpdateJob
 	scanTimer   *time.Timer
 	pullTimer   *time.Timer
 	delayScan   chan time.Duration
+	scanNow     chan rescanRequest
 	remoteIndex chan struct{} // An index update was received, we should re-evaluate needs
+
+	errors    map[string]string // path -> error string
+	errorsMut sync.Mutex
 }
 
 func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
@@ -105,8 +126,18 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		pullTimer:   time.NewTimer(shortPullIntv),
 		scanTimer:   time.NewTimer(time.Millisecond), // The first scan should be done immediately.
 		delayScan:   make(chan time.Duration),
+		scanNow:     make(chan rescanRequest),
 		remoteIndex: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a notification if we're busy doing a pull when it comes.
+
+		errorsMut: sync.NewMutex(),
 	}
+}
+
+// Helper function to check whether either the ignorePerm flag has been
+// set on the local host or the FlagNoPermBits has been set on the file/dir
+// which is being pulled.
+func (p *rwFolder) ignorePermissions(file protocol.FileInfo) bool {
+	return p.ignorePerms || file.Flags&protocol.FlagNoPermBits != 0
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
@@ -182,10 +213,10 @@ func (p *rwFolder) Serve() {
 			}
 
 			// RemoteLocalVersion() is a fast call, doesn't touch the database.
-			curVer := p.model.RemoteLocalVersion(p.folder)
-			if curVer == prevVer {
+			curVer, ok := p.model.RemoteLocalVersion(p.folder)
+			if !ok || curVer == prevVer {
 				if debug {
-					l.Debugln(p, "skip (curVer == prevVer)", prevVer)
+					l.Debugln(p, "skip (curVer == prevVer)", prevVer, ok)
 				}
 				p.pullTimer.Reset(nextPullIntv)
 				continue
@@ -194,8 +225,11 @@ func (p *rwFolder) Serve() {
 			if debug {
 				l.Debugln(p, "pulling", prevVer, curVer)
 			}
+
 			p.setState(FolderSyncing)
+			p.clearErrors()
 			tries := 0
+
 			for {
 				tries++
 
@@ -209,7 +243,7 @@ func (p *rwFolder) Serve() {
 					// sync. Remember the local version number and
 					// schedule a resync a little bit into the future.
 
-					if lv := p.model.RemoteLocalVersion(p.folder); lv < curVer {
+					if lv, ok := p.model.RemoteLocalVersion(p.folder); ok && lv < curVer {
 						// There's a corner case where the device we needed
 						// files from disconnected during the puller
 						// iteration. The files will have been removed from
@@ -234,10 +268,18 @@ func (p *rwFolder) Serve() {
 					// we're not making it. Probably there are write
 					// errors preventing us. Flag this with a warning and
 					// wait a bit longer before retrying.
-					l.Warnf("Folder %q isn't making progress - check logs for possible root cause. Pausing puller for %v.", p.folder, pauseIntv)
+					l.Infof("Folder %q isn't making progress. Pausing puller for %v.", p.folder, pauseIntv)
 					if debug {
 						l.Debugln(p, "next pull in", pauseIntv)
 					}
+
+					if folderErrors := p.currentErrors(); len(folderErrors) > 0 {
+						events.Default.Log(events.FolderErrors, map[string]interface{}{
+							"folder": p.folder,
+							"errors": folderErrors,
+						})
+					}
+
 					p.pullTimer.Reset(pauseIntv)
 					break
 				}
@@ -258,7 +300,7 @@ func (p *rwFolder) Serve() {
 				l.Debugln(p, "rescan")
 			}
 
-			if err := p.model.ScanFolder(p.folder); err != nil {
+			if err := p.model.internalScanFolderSubs(p.folder, nil); err != nil {
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
@@ -275,6 +317,29 @@ func (p *rwFolder) Serve() {
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
 				initialScanCompleted = true
 			}
+
+		case req := <-p.scanNow:
+			if err := p.model.CheckFolderHealth(p.folder); err != nil {
+				l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
+				req.err <- err
+				continue
+			}
+
+			if debug {
+				l.Debugln(p, "forced rescan")
+			}
+
+			if err := p.model.internalScanFolderSubs(p.folder, req.subs); err != nil {
+				// Potentially sets the error twice, once in the scanner just
+				// by doing a check, and once here, if the error returned is
+				// the same one as returned by CheckFolderHealth, though
+				// duplicate set is handled by setError.
+				p.setError(err)
+				req.err <- err
+				continue
+			}
+
+			req.err <- nil
 
 		case next := <-p.delayScan:
 			p.scanTimer.Reset(next)
@@ -295,6 +360,15 @@ func (p *rwFolder) IndexUpdated() {
 		// queued to ensure we recheck after the pull, but beyond that we must
 		// make sure to not block index receiving.
 	}
+}
+
+func (p *rwFolder) Scan(subs []string) error {
+	req := rescanRequest{
+		subs: subs,
+		err:  make(chan error),
+	}
+	p.scanNow <- req
+	return <-req.err
 }
 
 func (p *rwFolder) String() string {
@@ -319,7 +393,7 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		l.Debugln(p, "c", p.copiers, "p", p.pullers)
 	}
 
-	p.dbUpdates = make(chan protocol.FileInfo)
+	p.dbUpdates = make(chan dbUpdateJob)
 	updateWg.Add(1)
 	go func() {
 		// dbUpdaterRoutine finishes when p.dbUpdates is closed
@@ -521,7 +595,7 @@ nextFile:
 // handleDir creates or updates the given directory
 func (p *rwFolder) handleDir(file protocol.FileInfo) {
 	var err error
-	events.Default.Log(events.ItemStarted, map[string]interface{}{
+	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
 		"item":   file.Name,
 		"type":   "dir",
@@ -532,7 +606,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
-			"error":  err,
+			"error":  events.Error(err),
 			"type":   "dir",
 			"action": "update",
 		})
@@ -540,8 +614,8 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 
 	realName := filepath.Join(p.dir, file.Name)
 	mode := os.FileMode(file.Flags & 0777)
-	if p.ignorePerms {
-		mode = 0755
+	if p.ignorePermissions(file) {
+		mode = 0777
 	}
 
 	if debug {
@@ -558,6 +632,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 		err = osutil.InWritableDir(osutil.Remove, realName)
 		if err != nil {
 			l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
+			p.newError(file.Name, err)
 			return
 		}
 		fallthrough
@@ -569,42 +644,53 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 		// not MkdirAll because the parent should already exist.
 		mkdir := func(path string) error {
 			err = os.Mkdir(path, mode)
-			if err != nil || p.ignorePerms {
+			if err != nil || p.ignorePermissions(file) {
 				return err
 			}
-			return os.Chmod(path, mode)
+
+			// Stat the directory so we can check its permissions.
+			info, err := osutil.Lstat(path)
+			if err != nil {
+				return err
+			}
+
+			// Mask for the bits we want to preserve and add them in to the
+			// directories permissions.
+			return os.Chmod(path, mode|(info.Mode()&retainBits))
 		}
 
 		if err = osutil.InWritableDir(mkdir, realName); err == nil {
-			p.dbUpdates <- file
+			p.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
 		} else {
 			l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
+			p.newError(file.Name, err)
 		}
 		return
 	// Weird error when stat()'ing the dir. Probably won't work to do
 	// anything else with it if we can't even stat() it.
 	case err != nil:
 		l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
+		p.newError(file.Name, err)
 		return
 	}
 
 	// The directory already exists, so we just correct the mode bits. (We
 	// don't handle modification times on directories, because that sucks...)
 	// It's OK to change mode bits on stuff within non-writable directories.
-
-	if p.ignorePerms {
-		p.dbUpdates <- file
-	} else if err := os.Chmod(realName, mode); err == nil {
-		p.dbUpdates <- file
+	if p.ignorePermissions(file) {
+		p.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
+	} else if err := os.Chmod(realName, mode|(info.Mode()&retainBits)); err == nil {
+		p.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
 	} else {
 		l.Infof("Puller (folder %q, dir %q): %v", p.folder, file.Name, err)
+		p.newError(file.Name, err)
 	}
 }
 
 // deleteDir attempts to delete the given directory
 func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 	var err error
-	events.Default.Log(events.ItemStarted, map[string]interface{}{
+	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
 		"item":   file.Name,
 		"type":   "dir",
@@ -614,7 +700,7 @@ func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
-			"error":  err,
+			"error":  events.Error(err),
 			"type":   "dir",
 			"action": "delete",
 		})
@@ -631,18 +717,27 @@ func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 			}
 		}
 	}
+
 	err = osutil.InWritableDir(osutil.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
-		p.dbUpdates <- file
+		// It was removed or it doesn't exist to start with
+		p.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteDir}
+	} else if _, serr := os.Lstat(realName); serr != nil && !os.IsPermission(serr) {
+		// We get an error just looking at the directory, and it's not a
+		// permission problem. Lets assume the error is in fact some variant
+		// of "file does not exist" (possibly expressed as some parent being a
+		// file and not a directory etc) and that the delete is handled.
+		p.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteDir}
 	} else {
 		l.Infof("Puller (folder %q, dir %q): delete: %v", p.folder, file.Name, err)
+		p.newError(file.Name, err)
 	}
 }
 
 // deleteFile attempts to delete the given file
 func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 	var err error
-	events.Default.Log(events.ItemStarted, map[string]interface{}{
+	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
 		"item":   file.Name,
 		"type":   "file",
@@ -652,7 +747,7 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
-			"error":  err,
+			"error":  events.Error(err),
 			"type":   "file",
 			"action": "delete",
 		})
@@ -673,10 +768,18 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 		err = osutil.InWritableDir(osutil.Remove, realName)
 	}
 
-	if err != nil && !os.IsNotExist(err) {
-		l.Infof("Puller (folder %q, file %q): delete: %v", p.folder, file.Name, err)
+	if err == nil || os.IsNotExist(err) {
+		// It was removed or it doesn't exist to start with
+		p.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteFile}
+	} else if _, serr := os.Lstat(realName); serr != nil && !os.IsPermission(serr) {
+		// We get an error just looking at the file, and it's not a permission
+		// problem. Lets assume the error is in fact some variant of "file
+		// does not exist" (possibly expressed as some parent being a file and
+		// not a directory etc) and that the delete is handled.
+		p.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteFile}
 	} else {
-		p.dbUpdates <- file
+		l.Infof("Puller (folder %q, file %q): delete: %v", p.folder, file.Name, err)
+		p.newError(file.Name, err)
 	}
 }
 
@@ -684,13 +787,13 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 // and set the right attributes on it.
 func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 	var err error
-	events.Default.Log(events.ItemStarted, map[string]interface{}{
+	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
 		"item":   source.Name,
 		"type":   "file",
 		"action": "delete",
 	})
-	events.Default.Log(events.ItemStarted, map[string]interface{}{
+	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
 		"item":   target.Name,
 		"type":   "file",
@@ -700,14 +803,14 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   source.Name,
-			"error":  err,
+			"error":  events.Error(err),
 			"type":   "file",
 			"action": "delete",
 		})
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   target.Name,
-			"error":  err,
+			"error":  events.Error(err),
 			"type":   "file",
 			"action": "update",
 		})
@@ -734,13 +837,16 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 		// of the source and the creation of the target. Fix-up the metadata,
 		// and update the local index of the target file.
 
-		p.dbUpdates <- source
+		p.dbUpdates <- dbUpdateJob{source, dbUpdateDeleteFile}
 
 		err = p.shortcutFile(target)
 		if err != nil {
 			l.Infof("Puller (folder %q, file %q): rename from %q metadata: %v", p.folder, target.Name, source.Name, err)
+			p.newError(target.Name, err)
 			return
 		}
+
+		p.dbUpdates <- dbUpdateJob{target, dbUpdateHandleFile}
 	} else {
 		// We failed the rename so we have a source file that we still need to
 		// get rid of. Attempt to delete it instead so that we make *some*
@@ -749,23 +855,51 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 		err = osutil.InWritableDir(osutil.Remove, from)
 		if err != nil {
 			l.Infof("Puller (folder %q, file %q): delete %q after failed rename: %v", p.folder, target.Name, source.Name, err)
+			p.newError(target.Name, err)
 			return
 		}
 
-		p.dbUpdates <- source
+		p.dbUpdates <- dbUpdateJob{source, dbUpdateDeleteFile}
 	}
 }
+
+// This is the flow of data and events here, I think...
+//
+// +-----------------------+
+// |                       | - - - - > ItemStarted
+// |      handleFile       | - - - - > ItemFinished (on shortcuts)
+// |                       |
+// +-----------------------+
+//             |
+//             | copyChan (copyBlocksState; unless shortcut taken)
+//             |
+//             |    +-----------------------+
+//             |    | +-----------------------+
+//             +--->| |                       |
+//                  | |     copierRoutine     |
+//                  +-|                       |
+//                    +-----------------------+
+//                                |
+//                                | pullChan (sharedPullerState)
+//                                |
+//                                |   +-----------------------+
+//                                |   | +-----------------------+
+//                                +-->| |                       |
+//                                    | |     pullerRoutine     |
+//                                    +-|                       |
+//                                      +-----------------------+
+//                                                  |
+//                                                  | finisherChan (sharedPullerState)
+//                                                  |
+//                                                  |   +-----------------------+
+//                                                  |   |                       |
+//                                                  +-->|    finisherRoutine    | - - - - > ItemFinished
+//                                                      |                       |
+//                                                      +-----------------------+
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
 func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
-	events.Default.Log(events.ItemStarted, map[string]interface{}{
-		"folder": p.folder,
-		"item":   file.Name,
-		"type":   "file",
-		"action": "update",
-	})
-
 	curFile, ok := p.model.CurrentFolderFile(p.folder, file.Name)
 
 	if ok && len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
@@ -775,22 +909,47 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		if debug {
 			l.Debugln(p, "taking shortcut on", file.Name)
 		}
+
+		events.Default.Log(events.ItemStarted, map[string]string{
+			"folder": p.folder,
+			"item":   file.Name,
+			"type":   "file",
+			"action": "metadata",
+		})
+
 		p.queue.Done(file.Name)
+
 		var err error
 		if file.IsSymlink() {
 			err = p.shortcutSymlink(file)
 		} else {
 			err = p.shortcutFile(file)
 		}
+
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": p.folder,
 			"item":   file.Name,
-			"error":  err,
+			"error":  events.Error(err),
 			"type":   "file",
-			"action": "update",
+			"action": "metadata",
 		})
+
+		if err != nil {
+			l.Infoln("Puller: shortcut:", err)
+			p.newError(file.Name, err)
+		} else {
+			p.dbUpdates <- dbUpdateJob{file, dbUpdateShortcutFile}
+		}
+
 		return
 	}
+
+	events.Default.Log(events.ItemStarted, map[string]string{
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "file",
+		"action": "update",
+	})
 
 	scanner.PopulateOffsets(file.Blocks)
 
@@ -843,7 +1002,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		copyTotal:   len(blocks),
 		copyNeeded:  len(blocks),
 		reused:      reused,
-		ignorePerms: p.ignorePerms,
+		ignorePerms: p.ignorePermissions(file),
 		version:     curFile.Version,
 		mut:         sync.NewMutex(),
 	}
@@ -863,9 +1022,10 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 // thing that has changed.
 func (p *rwFolder) shortcutFile(file protocol.FileInfo) error {
 	realName := filepath.Join(p.dir, file.Name)
-	if !p.ignorePerms {
+	if !p.ignorePermissions(file) {
 		if err := os.Chmod(realName, os.FileMode(file.Flags&0777)); err != nil {
 			l.Infof("Puller (folder %q, file %q): shortcut: chmod: %v", p.folder, file.Name, err)
+			p.newError(file.Name, err)
 			return err
 		}
 	}
@@ -876,6 +1036,7 @@ func (p *rwFolder) shortcutFile(file protocol.FileInfo) error {
 		info, err := os.Stat(realName)
 		if err != nil {
 			l.Infof("Puller (folder %q, file %q): shortcut: unable to stat file: %v", p.folder, file.Name, err)
+			p.newError(file.Name, err)
 			return err
 		}
 
@@ -888,17 +1049,15 @@ func (p *rwFolder) shortcutFile(file protocol.FileInfo) error {
 		file.Version = file.Version.Merge(cur.Version)
 	}
 
-	p.dbUpdates <- file
 	return nil
 }
 
 // shortcutSymlink changes the symlinks type if necessary.
 func (p *rwFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
 	err = symlinks.ChangeType(filepath.Join(p.dir, file.Name), file.Flags)
-	if err == nil {
-		p.dbUpdates <- file
-	} else {
+	if err != nil {
 		l.Infof("Puller (folder %q, file %q): symlink shortcut: %v", p.folder, file.Name, err)
+		p.newError(file.Name, err)
 	}
 	return
 }
@@ -909,16 +1068,15 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 	buf := make([]byte, protocol.BlockSize)
 
 	for state := range in {
-		if p.progressEmitter != nil {
-			p.progressEmitter.Register(state.sharedPullerState)
-		}
-
 		dstFd, err := state.tempFile()
 		if err != nil {
-			// Nothing more to do for this failed file (the error was logged
-			// when it happened)
+			// Nothing more to do for this failed file, since we couldn't create a temporary for it.
 			out <- state.sharedPullerState
 			continue
+		}
+
+		if p.progressEmitter != nil {
+			p.progressEmitter.Register(state.sharedPullerState)
 		}
 
 		folderRoots := make(map[string]string)
@@ -990,6 +1148,7 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	for state := range in {
 		if state.failed() != nil {
+			out <- state.sharedPullerState
 			continue
 		}
 
@@ -998,6 +1157,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 		// no point in issuing the request to the network.
 		fd, err := state.tempFile()
 		if err != nil {
+			out <- state.sharedPullerState
 			continue
 		}
 
@@ -1025,6 +1185,9 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			buf, lastError := p.model.requestGlobal(selected, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, 0, nil)
 			activity.done(selected)
 			if lastError != nil {
+				if debug {
+					l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)
+				}
 				continue
 			}
 
@@ -1032,6 +1195,9 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			// try pulling it from another device.
 			_, lastError = scanner.VerifyBuffer(buf, state.block)
 			if lastError != nil {
+				if debug {
+					l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
+				}
 				continue
 			}
 
@@ -1048,39 +1214,26 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 	}
 }
 
-func (p *rwFolder) performFinish(state *sharedPullerState) {
-	var err error
-	defer func() {
-		events.Default.Log(events.ItemFinished, map[string]interface{}{
-			"folder": p.folder,
-			"item":   state.file.Name,
-			"error":  err,
-			"type":   "file",
-			"action": "update",
-		})
-	}()
-
+func (p *rwFolder) performFinish(state *sharedPullerState) error {
 	// Set the correct permission bits on the new file
-	if !p.ignorePerms {
-		err = os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777))
-		if err != nil {
-			l.Warnln("Puller: final:", err)
-			return
+	if !p.ignorePermissions(state.file) {
+		if err := os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777)); err != nil {
+			return err
 		}
 	}
 
 	// Set the correct timestamp on the new file
 	t := time.Unix(state.file.Modified, 0)
-	err = os.Chtimes(state.tempName, t, t)
-	if err != nil {
-		// First try using virtual mtimes
-		if info, err := os.Stat(state.tempName); err != nil {
-			l.Infof("Puller (folder %q, file %q): final: unable to stat file: %v", p.folder, state.file.Name, err)
-		} else {
-			p.virtualMtimeRepo.UpdateMtime(state.file.Name, info.ModTime(), t)
+	if err := os.Chtimes(state.tempName, t, t); err != nil {
+		// Try using virtual mtimes instead
+		info, err := os.Stat(state.tempName)
+		if err != nil {
+			return err
 		}
+		p.virtualMtimeRepo.UpdateMtime(state.file.Name, info.ModTime(), t)
 	}
 
+	var err error
 	if p.inConflict(state.version, state.file.Version) {
 		// The new file has been changed in conflict with the existing one. We
 		// should file it away as a conflict instead of just removing or
@@ -1097,8 +1250,7 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 		err = nil
 	}
 	if err != nil {
-		l.Warnln("Puller: final:", err)
-		return
+		return err
 	}
 
 	// If the target path is a symlink or a directory, we cannot copy
@@ -1108,18 +1260,15 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 		osutil.InWritableDir(osutil.Remove, state.realName)
 	}
 	// Replace the original content with the new one
-	err = osutil.Rename(state.tempName, state.realName)
-	if err != nil {
-		l.Warnln("Puller: final:", err)
-		return
+	if err = osutil.Rename(state.tempName, state.realName); err != nil {
+		return err
 	}
 
 	// If it's a symlink, the target of the symlink is inside the file.
 	if state.file.IsSymlink() {
 		content, err := ioutil.ReadFile(state.realName)
 		if err != nil {
-			l.Warnln("Puller: final: reading symlink:", err)
-			return
+			return err
 		}
 
 		// Remove the file, and replace it with a symlink.
@@ -1128,13 +1277,13 @@ func (p *rwFolder) performFinish(state *sharedPullerState) {
 			return symlinks.Create(path, string(content), state.file.Flags)
 		}, state.realName)
 		if err != nil {
-			l.Warnln("Puller: final: creating symlink:", err)
-			return
+			return err
 		}
 	}
 
 	// Record the updated file in the index
-	p.dbUpdates <- state.file
+	p.dbUpdates <- dbUpdateJob{state.file, dbUpdateHandleFile}
+	return nil
 }
 
 func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
@@ -1143,24 +1292,25 @@ func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 			if debug {
 				l.Debugln(p, "closing", state.file.Name)
 			}
-			if err != nil {
-				l.Warnln("Puller: final:", err)
-				continue
-			}
 
 			p.queue.Done(state.file.Name)
-			if state.failed() == nil {
-				p.performFinish(state)
-			} else {
-				events.Default.Log(events.ItemFinished, map[string]interface{}{
-					"folder": p.folder,
-					"item":   state.file.Name,
-					"error":  state.failed(),
-					"type":   "file",
-					"action": "update",
-				})
+
+			if err == nil {
+				err = p.performFinish(state)
 			}
-			p.model.receivedFile(p.folder, state.file.Name)
+
+			if err != nil {
+				l.Infoln("Puller: final:", err)
+				p.newError(state.file.Name, err)
+			}
+			events.Default.Log(events.ItemFinished, map[string]interface{}{
+				"folder": p.folder,
+				"item":   state.file.Name,
+				"error":  events.Error(err),
+				"type":   "file",
+				"action": "update",
+			})
+
 			if p.progressEmitter != nil {
 				p.progressEmitter.Deregister(state)
 			}
@@ -1189,36 +1339,63 @@ func (p *rwFolder) dbUpdaterRoutine() {
 		maxBatchTime = 2 * time.Second
 	)
 
-	batch := make([]protocol.FileInfo, 0, maxBatchSize)
+	batch := make([]dbUpdateJob, 0, maxBatchSize)
+	files := make([]protocol.FileInfo, 0, maxBatchSize)
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
+
+	handleBatch := func() {
+		found := false
+		var lastFile protocol.FileInfo
+
+		for _, job := range batch {
+			files = append(files, job.file)
+			if job.file.IsInvalid() || (job.file.IsDirectory() && !job.file.IsSymlink()) {
+				continue
+			}
+
+			if job.jobType&(dbUpdateHandleFile|dbUpdateDeleteFile) == 0 {
+				continue
+			}
+
+			found = true
+			lastFile = job.file
+		}
+
+		p.model.updateLocals(p.folder, files)
+
+		if found {
+			p.model.receivedFile(p.folder, lastFile)
+		}
+
+		batch = batch[:0]
+		files = files[:0]
+	}
 
 loop:
 	for {
 		select {
-		case file, ok := <-p.dbUpdates:
+		case job, ok := <-p.dbUpdates:
 			if !ok {
 				break loop
 			}
 
-			file.LocalVersion = 0
-			batch = append(batch, file)
+			job.file.LocalVersion = 0
+			batch = append(batch, job)
 
 			if len(batch) == maxBatchSize {
-				p.model.updateLocals(p.folder, batch)
-				batch = batch[:0]
+				handleBatch()
 			}
 
 		case <-tick.C:
 			if len(batch) > 0 {
-				p.model.updateLocals(p.folder, batch)
-				batch = batch[:0]
+				handleBatch()
 			}
 		}
 	}
 
 	if len(batch) > 0 {
-		p.model.updateLocals(p.folder, batch)
+		handleBatch()
 	}
 }
 
@@ -1271,4 +1448,55 @@ func moveForConflict(name string) error {
 		return nil
 	}
 	return err
+}
+
+func (p *rwFolder) newError(path string, err error) {
+	p.errorsMut.Lock()
+	defer p.errorsMut.Unlock()
+
+	// We might get more than one error report for a file (i.e. error on
+	// Write() followed by Close()); we keep the first error as that is
+	// probably closer to the root cause.
+	if _, ok := p.errors[path]; ok {
+		return
+	}
+
+	p.errors[path] = err.Error()
+}
+
+func (p *rwFolder) clearErrors() {
+	p.errorsMut.Lock()
+	p.errors = make(map[string]string)
+	p.errorsMut.Unlock()
+}
+
+func (p *rwFolder) currentErrors() []fileError {
+	p.errorsMut.Lock()
+	errors := make([]fileError, 0, len(p.errors))
+	for path, err := range p.errors {
+		errors = append(errors, fileError{path, err})
+	}
+	sort.Sort(fileErrorList(errors))
+	p.errorsMut.Unlock()
+	return errors
+}
+
+// A []fileError is sent as part of an event and will be JSON serialized.
+type fileError struct {
+	Path string `json:"path"`
+	Err  string `json:"error"`
+}
+
+type fileErrorList []fileError
+
+func (l fileErrorList) Len() int {
+	return len(l)
+}
+
+func (l fileErrorList) Less(a, b int) bool {
+	return l[a].Path < l[b].Path
+}
+
+func (l fileErrorList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
 }

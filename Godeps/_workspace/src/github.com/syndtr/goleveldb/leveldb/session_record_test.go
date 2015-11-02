@@ -19,8 +19,8 @@ func decodeEncode(v *sessionRecord) (res bool, err error) {
 	if err != nil {
 		return
 	}
-	v2 := &sessionRecord{numLevel: opt.DefaultNumLevel}
-	err = v.decode(b)
+	v2 := &sessionRecord{}
+	err = v.decode(b, opt.DefaultNumLevel)
 	if err != nil {
 		return
 	}
@@ -34,7 +34,7 @@ func decodeEncode(v *sessionRecord) (res bool, err error) {
 
 func TestSessionRecord_EncodeDecode(t *testing.T) {
 	big := uint64(1) << 50
-	v := &sessionRecord{numLevel: opt.DefaultNumLevel}
+	v := &sessionRecord{}
 	i := uint64(0)
 	test := func() {
 		res, err := decodeEncode(v)

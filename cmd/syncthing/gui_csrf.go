@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/syncthing/syncthing/internal/osutil"
 	"github.com/syncthing/syncthing/internal/sync"
@@ -24,7 +23,7 @@ var csrfMut = sync.NewMutex()
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
 // is currently set.
-func csrfMiddleware(prefix, apiKey string, next http.Handler) http.Handler {
+func csrfMiddleware(unique, prefix, apiKey string, next http.Handler) http.Handler {
 	loadCsrfTokens()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Allow requests carrying a valid API key
@@ -35,10 +34,10 @@ func csrfMiddleware(prefix, apiKey string, next http.Handler) http.Handler {
 
 		// Allow requests for the front page, and set a CSRF cookie if there isn't already a valid one.
 		if !strings.HasPrefix(r.URL.Path, prefix) {
-			cookie, err := r.Cookie("CSRF-Token")
+			cookie, err := r.Cookie("CSRF-Token-" + unique)
 			if err != nil || !validCsrfToken(cookie.Value) {
 				cookie = &http.Cookie{
-					Name:  "CSRF-Token",
+					Name:  "CSRF-Token-" + unique,
 					Value: newCsrfToken(),
 				}
 				http.SetCookie(w, cookie)
@@ -54,7 +53,7 @@ func csrfMiddleware(prefix, apiKey string, next http.Handler) http.Handler {
 		}
 
 		// Verify the CSRF token
-		token := r.Header.Get("X-CSRF-Token")
+		token := r.Header.Get("X-CSRF-Token-" + unique)
 		if !validCsrfToken(token) {
 			http.Error(w, "CSRF Error", 403)
 			return
@@ -91,28 +90,20 @@ func newCsrfToken() string {
 }
 
 func saveCsrfTokens() {
-	name := locations[locCsrfTokens]
-	tmp := fmt.Sprintf("%s.tmp.%d", name, time.Now().UnixNano())
+	// We're ignoring errors in here. It's not super critical and there's
+	// nothing relevant we can do about them anyway...
 
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	name := locations[locCsrfTokens]
+	f, err := osutil.CreateAtomic(name, 0600)
 	if err != nil {
 		return
 	}
-	defer os.Remove(tmp)
 
 	for _, t := range csrfTokens {
-		_, err := fmt.Fprintln(f, t)
-		if err != nil {
-			return
-		}
+		fmt.Fprintln(f, t)
 	}
 
-	err = f.Close()
-	if err != nil {
-		return
-	}
-
-	osutil.Rename(tmp, name)
+	f.Close()
 }
 
 func loadCsrfTokens() {

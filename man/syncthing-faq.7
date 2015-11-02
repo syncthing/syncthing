@@ -1,0 +1,292 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "SYNCTHING-FAQ" "7" "July 01, 2015" "v0.11" "Syncthing"
+.SH NAME
+syncthing-faq \- Frequently Asked Questions
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH GENERAL
+.SS What is Syncthing?
+.sp
+Syncthing is an application that lets you synchronize your files across multiple
+devices. This means the creation, modification or deletion of files on one
+machine will automatically be replicated to your other devices. We believe your
+data is your data alone and you deserve to choose where it is stored. Therefore
+Syncthing does not upload your data to the cloud but exchanges your data across
+your machines as soon as they are online at the same time.
+.SS Is it "syncthing", "Syncthing" or "SyncThing"?
+.sp
+It\(aqs \fBSyncthing\fP, although the command and source repository is spelled
+\fBsyncthing\fP so it may be referred to in that way as well. It\(aqs definitely not
+SyncThing, even though the abbreviation \fBst\fP is used in some
+circumstances and file names.
+.SS How does Syncthing differ from BitTorrent Sync?
+.sp
+The two are different and not related. Syncthing and BitTorrent Sync accomplish
+some of the same things, namely syncing files between two or more computers.
+.sp
+BitTorrent Sync by BitTorrent, Inc is a proprietary peer\-to\-peer file
+synchronization tool available for Windows, Mac, Linux, Android, iOS, Windows
+Phone, Amazon Kindle Fire and BSD. [1] Syncthing is an open source file
+synchronization tool.
+.sp
+Syncthing uses an open and documented protocol, and likewise the security
+mechanisms in use are well defined and visible in the source code. BitTorrent
+Sync uses an undocumented, closed protocol with unknown security properties.
+.IP [1] 5
+\fI\%http://en.wikipedia.org/wiki/BitTorrent_Sync\fP
+.SH USAGE
+.SS What things are synced?
+.sp
+The following things are \fIalways\fP synchronized:
+.INDENT 0.0
+.IP \(bu 2
+File Contents
+.IP \(bu 2
+File Modification Times
+.UNINDENT
+.sp
+The following may be synchronized or not, depending:
+.INDENT 0.0
+.IP \(bu 2
+File Permissions (When supported by file system. On Windows, only the
+read only bit is synchronized.)
+.IP \(bu 2
+Symbolic Links (When supported by the OS. On Windows Vista and up,
+requires administrator privileges. Links are synced as is and are not
+followed.)
+.UNINDENT
+.sp
+The following is \fInot\fP synchronized;
+.INDENT 0.0
+.IP \(bu 2
+File or Directory Owners and Groups (not preserved)
+.IP \(bu 2
+Directory Modification Times (not preserved)
+.IP \(bu 2
+Hard Links (followed, not preserved)
+.IP \(bu 2
+Extended Attributes, Resource Forks (not preserved)
+.IP \(bu 2
+Windows, POSIX or NFS ACLs (not preserved)
+.IP \(bu 2
+Devices, FIFOs, and Other Specials (ignored)
+.IP \(bu 2
+Sparse file sparseness (will become unsparse)
+.UNINDENT
+.SS Is synchronization fast?
+.sp
+Syncthing segments files into pieces, called blocks, to transfer data from one
+device to another. Therefore, multiple devices can share the synchronization
+load, in a similar way as the torrent protocol. The more devices you have online
+(and synchronized), the faster an additional device will receive the data
+because small blocks will be fetched from all devices in parallel.
+.sp
+Syncthing handles renaming files and updating their metadata in an efficient
+manner. This means that renaming a large file will not cause a retransmission of
+that file. Additionally, appending data to existing large files should be
+handled efficiently as well.
+.sp
+Temporary files are used to store partial data downloaded from other devices.
+They are automatically removed whenever a file transfer has been completed or
+after the configured amount of time which is set in the configuration file (24
+hours by default).
+.SS Should I keep my device IDs secret?
+.sp
+No. The IDs are not sensitive. Given a device ID it\(aqs possible to find the IP
+address for that node, if global discovery is enabled on it. Knowing the device
+ID doesn\(aqt help you actually establish a connection to that node or get a list
+of files, etc.
+.sp
+For a connection to be established, both nodes need to know about the other\(aqs
+device ID. It\(aqs not possible (in practice) to forge a device ID. (To forge a
+device ID you need to create a TLS certificate with that specific SHA\-256 hash.
+If you can do that, you can spoof any TLS certificate. The world is your
+oyster!)
+.sp
+\fBSEE ALSO:\fP
+.INDENT 0.0
+.INDENT 3.5
+device\-ids
+.UNINDENT
+.UNINDENT
+.SS What if there is a conflict?
+.sp
+Syncthing does recognize conflicts. When a file has been modified on two devices
+simultaneously, one of the files will be renamed to \fB<filename>.sync\-
+conflict\-<date>\-<time>.<ext>\fP\&. The device which has the larger value of the
+first 63 bits for his device ID will have his file marked as the conflicting
+file. Note that we only create \fBsync\-conflict\fP files when the actual content
+differs.
+.sp
+Beware that the \fB<filename>.sync\-conflict\-<date>\-<time>.<ext>\fP files are
+treated as normal files after they are created, so they are propagated between
+devices. We do this because the conflict is detected and resolved on one device,
+creating the \fBsync\-conflict\fP file, but it\(aqs just as much of a conflict
+everywhere else and we don\(aqt know which of the conflicting files is the "best"
+from the user point of view. Moreover, if there\(aqs something that automatically
+causes a conflict on change you\(aqll end up with \fBsync\-conflict\-...sync\-conflict
+\-...\-sync\-conflict\fP files.
+.SS How to configure multiple users on a single machine?
+.sp
+Each user should run their own Syncthing instance. Be aware that you might need
+to configure ports such that they do not overlap (see the config.xml).
+.SS Is Syncthing my ideal backup application?
+.sp
+No, Syncthing is not a backup application because all changes to your files
+(modification, deletion, etc) will be propagated to all your devices. You can
+enable versioning, but we encourage the use of other tools to keep your data
+safe from your (or our) mistakes.
+.SS Why is there no iOS client?
+.sp
+Alternative implementation Syncthing (using the Syncthing protocol) are being
+developed at this point in time to enable iOS support. Additionally, it seems
+that the next version of Go will support the darwin\-arm architecture such that
+we can compile the mainstream code for the iOS platform.
+.SS Why does it use so much CPU?
+.INDENT 0.0
+.IP 1. 3
+When new or changed files are detected, or Syncthing starts for the
+first time, your files are hashed using SHA\-256.
+.IP 2. 3
+Data that is sent over the network is first compressed and then
+encrypted using AES\-128. When receiving data, it must be decrypted
+and decompressed.
+.UNINDENT
+.sp
+Hashing, compression and encryption cost CPU time. Also, using the GUI causes a
+certain amount of CPU usage. Note however that once things are \fIin sync\fP CPU
+usage should be negligible.
+.SS How can I exclude files with brackets (\fB[]\fP) in the name?
+.sp
+The patterns in .stignore are glob patterns, where brackets are used to denote
+character ranges. That is, the pattern \fBq[abc]x\fP will match the files \fBqax\fP,
+\fBqbx\fP and \fBqcx\fP\&.
+.sp
+To match an actual file \fIcalled\fP \fBq[abc]x\fP the pattern needs to "escape" the
+brackets, like so: \fBq\e[abc\e]x\fP\&.
+.SS Why is the setup more complicated than BTSync?
+.sp
+Security over convenience. In Syncthing you have to setup both sides to connect
+two nodes. An attacker can\(aqt do much with a stolen node ID, because you have to
+add the node on the other side too. You have better control where your files are
+transferred.
+.SS How do I access the web GUI from another computer?
+.sp
+The default listening address is 127.0.0.1:8384, so you can only access the GUI
+from the same machine. Change the \fBGUI listen address\fP through the web UI from
+\fB127.0.0.1:8384\fP to \fB0.0.0.0:8384\fP or change the config.xml:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<gui enabled="true" tls="false">
+  <address>127.0.0.1:8384</address>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+to
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<gui enabled="true" tls="false">
+  <address>0.0.0.0:8384</address>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Then the GUI is accessible from everywhere. You should most likely set a
+password and enable HTTPS now. You can do this from inside the GUI.
+.sp
+If both your computers are Unixy (Linux, Mac, etc) You can also leave the GUI
+settings at default and use an ssh port forward to access it. For example,
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ ssh \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+will log you into othercomputer.example.com, and present the \fIremote\fP Syncthing
+GUI on \fI\%http://localhost:9090\fP on your \fIlocal\fP computer. You should not open more
+than one Syncthing GUI in a single browser due to conflicting X\-CSRFTokens. Any
+modification will be rejected. See \fI\%issue #720\fP <\fBhttps://github.com/syncthing/syncthing/issues/720\fP> to work around this limitation.
+.sp
+The CSRF tokens are stored using cookies. Therefore, if you get the message
+\fBSyncthing seems to be experiencing a problem processing your request\fP, you
+should verify the cookie settings of your browser.
+.SS Why do I see Syncthing twice in task manager?
+.sp
+One process manages the other, to capture logs and manage restarts. This makes
+it easier to handle upgrades from within Syncthing itself, and also ensures that
+we get a nice log file to help us narrow down the cause for crashes and other
+bugs.
+.SS Where do Syncthing logs go to?
+.sp
+Syncthing logs to stdout by default. On Windows Syncthing by default also
+creates \fBsyncthing.log\fP in Syncthing\(aqs home directory (check \fB\-help\fP to see
+where that is).
+.SS How do I upgrade Syncthing?
+.INDENT 0.0
+.IP \(bu 2
+If automatic upgrades is enabled (which is the default), Syncthing will
+upgrade itself automatically within 24 hours of a new release.
+.IP \(bu 2
+The upgrade button appears in the web GUI when a new version has been released.
+Pressing it will perform an upgrade.
+.IP \(bu 2
+To force an upgrade from the command line, run \fBsyncthing \-upgrade\fP\&.
+.UNINDENT
+.sp
+Note that your system should have CA certificates installed which allow a secure
+connection to GitHub (e.g. FreeBSD requires \fBsudo pkg install ca_root_nss\fP).
+If \fBcurl\fP or \fBwget\fP works with normal HTTPS sites, then so should Syncthing.
+.SS Where do I find the latest release?
+.sp
+We release new versions through GitHub. The latest release is always found \fI\%on
+the release page\fP <\fBhttps://github.com/syncthing/syncthing/releases/latest\fP>\&.
+Unfortunately GitHub does not provide a single URL to automatically download the
+latest version. We suggest to use the GitHub API at
+\fI\%https://api.github.com/repos/syncthing/syncthing/releases/latest\fP and parsing the
+JSON response.
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2015, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.

@@ -1,0 +1,25 @@
+//
+// Footer
+//
+
+.l-footer {
+  margin-top: rem(50);
+  margin-bottom: rem(50);
+}
+
+.l-footer-list {
+  list-style-type: none;
+  text-align: center;
+}
+
+.l-footer-list li {
+  display: inline-block;
+  margin-right: rem(25);
+}
+.l-footer-list li:last-child {
+  margin-right: 0;
+}
+
+.l-footer-list a {
+  color: $color-soft-text;
+}

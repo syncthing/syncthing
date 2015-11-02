@@ -25,12 +25,12 @@ type nativeModel struct {
 }
 
 func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
-	fixupFiles(files)
+	fixupFiles(folder, files)
 	m.next.Index(deviceID, folder, files, flags, options)
 }
 
 func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
-	fixupFiles(files)
+	fixupFiles(folder, files)
 	m.next.IndexUpdate(deviceID, folder, files, flags, options)
 }
 
@@ -47,7 +47,7 @@ func (m nativeModel) Close(deviceID DeviceID, err error) {
 	m.next.Close(deviceID, err)
 }
 
-func fixupFiles(files []FileInfo) {
+func fixupFiles(folder string, files []FileInfo) {
 	for i, f := range files {
 		if strings.ContainsAny(f.Name, disallowedCharacters) {
 			if f.IsDeleted() {
@@ -56,7 +56,7 @@ func fixupFiles(files []FileInfo) {
 				continue
 			}
 			files[i].Flags |= FlagInvalid
-			l.Warnf("File name %q contains invalid characters; marked as invalid.", f.Name)
+			l.Warnf("File name %q (folder %q) contains invalid characters; marked as invalid.", f.Name, folder)
 		}
 		files[i].Name = filepath.FromSlash(files[i].Name)
 	}

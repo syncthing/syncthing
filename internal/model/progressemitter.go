@@ -7,6 +7,7 @@
 package model
 
 import (
+	"fmt"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -37,8 +38,10 @@ func NewProgressEmitter(cfg *config.Wrapper) *ProgressEmitter {
 		timer:    time.NewTimer(time.Millisecond),
 		mut:      sync.NewMutex(),
 	}
-	t.Changed(cfg.Raw())
+
+	t.CommitConfiguration(config.Configuration{}, cfg.Raw())
 	cfg.Subscribe(t)
+
 	return t
 }
 
@@ -81,17 +84,22 @@ func (t *ProgressEmitter) Serve() {
 	}
 }
 
-// Changed implements the config.Handler Interface to handle configuration
-// changes
-func (t *ProgressEmitter) Changed(cfg config.Configuration) error {
+// VerifyConfiguration implements the config.Committer interface
+func (t *ProgressEmitter) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
+}
+
+// CommitConfiguration implements the config.Committer interface
+func (t *ProgressEmitter) CommitConfiguration(from, to config.Configuration) bool {
 	t.mut.Lock()
 	defer t.mut.Unlock()
 
-	t.interval = time.Duration(cfg.Options.ProgressUpdateIntervalS) * time.Second
+	t.interval = time.Duration(to.Options.ProgressUpdateIntervalS) * time.Second
 	if debug {
 		l.Debugln("progress emitter: updated interval", t.interval)
 	}
-	return nil
+
+	return true
 }
 
 // Stop stops the emitter.
@@ -137,4 +145,8 @@ func (t *ProgressEmitter) BytesCompleted(folder string) (bytes int64) {
 		l.Debugf("progress emitter: bytes completed for %s: %d", folder, bytes)
 	}
 	return
+}
+
+func (t *ProgressEmitter) String() string {
+	return fmt.Sprintf("ProgressEmitter@%p", t)
 }

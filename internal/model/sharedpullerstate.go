@@ -36,6 +36,7 @@ type sharedPullerState struct {
 	copyOrigin int        // Number of blocks copied from the original file
 	copyNeeded int        // Number of copy actions still pending
 	pullNeeded int        // Number of block pulls still pending
+	closed     bool       // True if the file has been finalClosed.
 	mut        sync.Mutex // Protects the above
 }
 
@@ -115,7 +116,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 			return nil, err
 		}
 	}
-	fd, err := os.OpenFile(s.tempName, flags, 0644)
+	fd, err := os.OpenFile(s.tempName, flags, 0666)
 	if err != nil {
 		s.failLocked("dst create", err)
 		return nil, err
@@ -218,16 +219,28 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
-	if s.pullNeeded+s.copyNeeded != 0 && s.err == nil {
-		// Not done yet.
+	if s.closed {
+		// Already closed
 		return false, nil
 	}
 
-	if fd := s.fd; fd != nil {
-		s.fd = nil
-		return true, fd.Close()
+	if s.pullNeeded+s.copyNeeded != 0 && s.err == nil {
+		// Not done yet, and not errored
+		return false, nil
 	}
-	return false, nil
+
+	if s.fd != nil {
+		if closeErr := s.fd.Close(); closeErr != nil && s.err == nil {
+			// This is our error if we weren't errored before. Otherwise we
+			// keep the earlier error.
+			s.err = closeErr
+		}
+		s.fd = nil
+	}
+
+	s.closed = true
+
+	return true, s.err
 }
 
 // Returns the momentarily progress for the puller

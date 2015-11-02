@@ -182,7 +182,7 @@ func (s *session) newManifest(rec *sessionRecord, v *version) (err error) {
 		defer v.release()
 	}
 	if rec == nil {
-		rec = &sessionRecord{numLevel: s.o.GetNumLevel()}
+		rec = &sessionRecord{}
 	}
 	s.fillRecord(rec, true)
 	v.fillRecord(rec)

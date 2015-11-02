@@ -8,6 +8,7 @@ package leveldb
 
 import (
 	"errors"
+	"math/rand"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -39,11 +40,11 @@ func (db *DB) newRawIterator(slice *util.Range, ro *opt.ReadOptions) iterator.It
 	ti := v.getIterators(slice, ro)
 	n := len(ti) + 2
 	i := make([]iterator.Iterator, 0, n)
-	emi := em.mdb.NewIterator(slice)
+	emi := em.NewIterator(slice)
 	emi.SetReleaser(&memdbReleaser{m: em})
 	i = append(i, emi)
 	if fm != nil {
-		fmi := fm.mdb.NewIterator(slice)
+		fmi := fm.NewIterator(slice)
 		fmi.SetReleaser(&memdbReleaser{m: fm})
 		i = append(i, fmi)
 	}
@@ -80,6 +81,10 @@ func (db *DB) newIterator(seq uint64, slice *util.Range, ro *opt.ReadOptions) *d
 	return iter
 }
 
+func (db *DB) iterSamplingRate() int {
+	return rand.Intn(2 * db.s.o.GetIteratorSamplingRate())
+}
+
 type dir int
 
 const (
@@ -98,11 +103,21 @@ type dbIter struct {
 	seq    uint64
 	strict bool
 
-	dir      dir
-	key      []byte
-	value    []byte
-	err      error
-	releaser util.Releaser
+	smaplingGap int
+	dir         dir
+	key         []byte
+	value       []byte
+	err         error
+	releaser    util.Releaser
+}
+
+func (i *dbIter) sampleSeek() {
+	ikey := i.iter.Key()
+	i.smaplingGap -= len(ikey) + len(i.iter.Value())
+	for i.smaplingGap < 0 {
+		i.smaplingGap += i.db.iterSamplingRate()
+		i.db.sampleSeek(ikey)
+	}
 }
 
 func (i *dbIter) setErr(err error) {
@@ -175,6 +190,7 @@ func (i *dbIter) Seek(key []byte) bool {
 func (i *dbIter) next() bool {
 	for {
 		if ukey, seq, kt, kerr := parseIkey(i.iter.Key()); kerr == nil {
+			i.sampleSeek()
 			if seq <= i.seq {
 				switch kt {
 				case ktDel:
@@ -225,6 +241,7 @@ func (i *dbIter) prev() bool {
 	if i.iter.Valid() {
 		for {
 			if ukey, seq, kt, kerr := parseIkey(i.iter.Key()); kerr == nil {
+				i.sampleSeek()
 				if seq <= i.seq {
 					if !del && i.icmp.uCompare(ukey, i.key) < 0 {
 						return true
@@ -266,6 +283,7 @@ func (i *dbIter) Prev() bool {
 	case dirForward:
 		for i.iter.Prev() {
 			if ukey, _, _, kerr := parseIkey(i.iter.Key()); kerr == nil {
+				i.sampleSeek()
 				if i.icmp.uCompare(ukey, i.key) < 0 {
 					goto cont
 				}

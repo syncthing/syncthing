@@ -1,0 +1,9 @@
+//
+// Vertical align middle
+//
+
+@mixin vertical-align-middle {
+  position: relative;
+  transform: translateY( -50% );
+  top: 50%;
+}

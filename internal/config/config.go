@@ -9,7 +9,6 @@ package config
 
 import (
 	"encoding/xml"
-	"fmt"
 	"io"
 	"math/rand"
 	"os"
@@ -20,17 +19,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/calmh/logger"
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/osutil"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var l = logger.DefaultLogger
-
 const (
 	OldestHandledVersion = 5
 	CurrentVersion       = 10
+	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
 type Configuration struct {
@@ -240,6 +237,8 @@ type OptionsConfiguration struct {
 	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
 	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
 	DatabaseBlockCacheMiB   int      `xml:"databaseBlockCacheMiB" json:"databaseBlockCacheMiB" default:"0"`
+	PingTimeoutS            int      `xml:"pingTimeoutS" json:"pingTimeoutS" default:"30"`
+	PingIdleTimeS           int      `xml:"pingIdleTimeS" json:"pingIdleTimeS" default:"60"`
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {
@@ -312,7 +311,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 
 	// Check for missing, bad or duplicate folder ID:s
 	var seenFolders = map[string]*FolderConfiguration{}
-	var uniqueCounter int
 	for i := range cfg.Folders {
 		folder := &cfg.Folders[i]
 
@@ -333,17 +331,16 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 			folder.ID = "default"
 		}
 
+		if folder.RescanIntervalS > MaxRescanIntervalS {
+			folder.RescanIntervalS = MaxRescanIntervalS
+		} else if folder.RescanIntervalS < 0 {
+			folder.RescanIntervalS = 0
+		}
+
 		if seen, ok := seenFolders[folder.ID]; ok {
 			l.Warnf("Multiple folders with ID %q; disabling", folder.ID)
-
 			seen.Invalid = "duplicate folder ID"
-			if seen.ID == folder.ID {
-				uniqueCounter++
-				seen.ID = fmt.Sprintf("%s~%d", folder.ID, uniqueCounter)
-			}
 			folder.Invalid = "duplicate folder ID"
-			uniqueCounter++
-			folder.ID = fmt.Sprintf("%s~%d", folder.ID, uniqueCounter)
 		} else {
 			seenFolders[folder.ID] = folder
 		}
@@ -583,7 +580,7 @@ func fillNilSlices(data interface{}) error {
 func uniqueStrings(ss []string) []string {
 	var m = make(map[string]bool, len(ss))
 	for _, s := range ss {
-		m[s] = true
+		m[strings.Trim(s, " ")] = true
 	}
 
 	var us = make([]string, 0, len(m))

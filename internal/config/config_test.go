@@ -53,6 +53,8 @@ func TestDefaultValues(t *testing.T) {
 		SymlinksEnabled:         true,
 		LimitBandwidthInLan:     false,
 		DatabaseBlockCacheMiB:   0,
+		PingTimeoutS:            30,
+		PingIdleTimeS:           60,
 	}
 
 	cfg := New(device1)
@@ -160,6 +162,8 @@ func TestOverriddenValues(t *testing.T) {
 		SymlinksEnabled:         false,
 		LimitBandwidthInLan:     true,
 		DatabaseBlockCacheMiB:   42,
+		PingTimeoutS:            60,
+		PingIdleTimeS:           120,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
@@ -314,6 +318,29 @@ func TestIssue1262(t *testing.T) {
 
 	if actual != expected {
 		t.Errorf("%q != %q", actual, expected)
+	}
+}
+
+func TestIssue1750(t *testing.T) {
+	cfg, err := Load("testdata/issue-1750.xml", device4)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg.Options().ListenAddress[0] != ":23000" {
+		t.Errorf("%q != %q", cfg.Options().ListenAddress[0], ":23000")
+	}
+
+	if cfg.Options().ListenAddress[1] != ":23001" {
+		t.Errorf("%q != %q", cfg.Options().ListenAddress[1], ":23001")
+	}
+
+	if cfg.Options().GlobalAnnServers[0] != "udp4://syncthing.nym.se:22026" {
+		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[0], "udp4://syncthing.nym.se:22026")
+	}
+
+	if cfg.Options().GlobalAnnServers[1] != "udp4://syncthing.nym.se:22027" {
+		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[1], "udp4://syncthing.nym.se:22027")
 	}
 }
 
@@ -576,5 +603,19 @@ func TestPullOrder(t *testing.T) {
 		if actual := folders[tc.name].Order; actual != tc.order {
 			t.Errorf("Incorrect pull order for %q: %v != %v", tc.name, actual, tc.order)
 		}
+	}
+}
+
+func TestLargeRescanInterval(t *testing.T) {
+	wrapper, err := Load("testdata/largeinterval.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if wrapper.Folders()["l1"].RescanIntervalS != MaxRescanIntervalS {
+		t.Error("too large rescan interval should be maxed out")
+	}
+	if wrapper.Folders()["l2"].RescanIntervalS != 0 {
+		t.Error("negative rescan interval should become zero")
 	}
 }

@@ -19,6 +19,7 @@ import (
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/ignore"
+	"github.com/syncthing/syncthing/internal/osutil"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -218,7 +219,7 @@ func TestNormalization(t *testing.T) {
 
 	for _, s1 := range tests {
 		// Create a directory for each of the interesting strings above
-		if err := os.MkdirAll(filepath.Join("testdata/normalization", s1), 0755); err != nil {
+		if err := osutil.MkdirAll(filepath.Join("testdata/normalization", s1), 0755); err != nil {
 			t.Fatal(err)
 		}
 

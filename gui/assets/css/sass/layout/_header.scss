@@ -1,0 +1,111 @@
+//
+// header
+//
+
+
+.l-header {
+  padding: rem(40) rem(20);
+  @include clearfix;
+}
+
+.l-header-data {
+  margin: 10px 20px;
+  position: relative;
+  float: right;
+  overflow: hidden;
+}
+
+.l-header-data-container {
+  white-space: nowrap;
+}
+
+.l-header-data-item {
+  margin-left: 20px;
+}
+
+.l-header-data-item:first-child {
+  margin-left: 0;
+}
+
+
+
+
+.l-header-device-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 4em;
+  margin: 10px 0;
+  padding-left: 20px;
+  left: 0;
+}
+.l-header-device-name:hover {
+  z-index: 10;
+  width: auto;
+  position: absolute;
+  background-color: white;
+  padding-right: 20px;
+  margin-left: 65px;
+}
+
+.logo {
+  display: block;
+  float: left;
+}
+
+.l-header-buttons {
+  float: right;
+}
+
+.l-header-settings {
+  float: left;
+}
+
+.l-header-settings .btn {
+  margin-left: 10px;
+}
+
+.l-header-notifications {
+  float: left;
+}
+
+.l-header-notifications-btn {
+  border-color: #cbcbcb;
+  color: #DCDCDC;
+}
+
+
+@media (max-width:700px) {
+  .l-header-data {
+    float: left;
+    clear: both;
+    width: 100%;
+    margin: 0;
+  }
+  .l-header-data-container {
+    display: table;
+    width: 100%;
+    margin: 0 auto;
+    border-collapse: collapse;
+  }
+  .l-header-data-item {
+    margin-left: 0;
+    display: table-row;
+    border-bottom: 1px solid #dbdbdb;
+  }
+  .l-header-data-item > * {
+    display: table-cell;
+    padding: 10px 0;
+  }
+  .l-header-device-name {
+    text-align: center;
+    padding-right: 20px;
+  }
+  .l-header-device-name:hover {
+    width: auto;
+    position: relative;
+    background-color: transparent;
+    padding-right: 20px;
+  }
+}

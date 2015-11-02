@@ -155,6 +155,7 @@ are mostly useful for developers. Use with care.
                  - "model"    (the model package)
                  - "scanner"  (the scanner package)
                  - "stats"    (the stats package)
+                 - "suture"   (the suture package; service management)
                  - "upnp"     (the upnp package)
                  - "xdr"      (the xdr package)
                  - "all"      (all of the above)
@@ -251,6 +252,10 @@ func main() {
 		l.Fatalln(err)
 	}
 
+	if guiAssets == "" {
+		guiAssets = locations[locGUIAssets]
+	}
+
 	if runtime.GOOS == "windows" {
 		if logFile == "" {
 			// Use the default log file location
@@ -279,7 +284,7 @@ func main() {
 			l.Fatalln(dir, "is not a directory")
 		}
 		if err != nil && os.IsNotExist(err) {
-			err = os.MkdirAll(dir, 0700)
+			err = osutil.MkdirAll(dir, 0700)
 			if err != nil {
 				l.Fatalln("generate:", err)
 			}
@@ -420,11 +425,12 @@ func upgradeViaRest() error {
 
 func syncthingMain() {
 	// Create a main service manager. We'll add things to this as we go along.
-	// We want any logging it does to go through our log system, with INFO
-	// severity.
+	// We want any logging it does to go through our log system.
 	mainSvc := suture.New("main", suture.Spec{
 		Log: func(line string) {
-			l.Infoln(line)
+			if debugSuture {
+				l.Debugln(line)
+			}
 		},
 	})
 	mainSvc.ServeBackground()
@@ -441,11 +447,12 @@ func syncthingMain() {
 		mainSvc.Add(newVerboseSvc())
 	}
 
+	// Event subscription for the API; must start early to catch the early events.
+	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents), 1000)
+
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
-
-	events.Default.Log(events.Starting, map[string]string{"home": baseDirs["config"]})
 
 	// Ensure that that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
@@ -465,6 +472,13 @@ func syncthingMain() {
 
 	l.Infoln(LongVersion)
 	l.Infoln("My ID:", myID)
+
+	// Emit the Starting event, now that we know who we are.
+
+	events.Default.Log(events.Starting, map[string]string{
+		"home": baseDirs["config"],
+		"myID": myID.String(),
+	})
 
 	// Prepare to be able to save configuration
 
@@ -551,6 +565,9 @@ func syncthingMain() {
 		symlinks.Supported = false
 	}
 
+	protocol.PingTimeout = time.Duration(opts.PingTimeoutS) * time.Second
+	protocol.PingIdleTime = time.Duration(opts.PingIdleTimeS) * time.Second
+
 	if opts.MaxSendKbps > 0 {
 		writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*opts.MaxSendKbps), int64(5*1000*opts.MaxSendKbps))
 	}
@@ -586,6 +603,7 @@ func syncthingMain() {
 	}
 
 	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb)
+	cfg.Subscribe(m)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
 		it, err := strconv.Atoi(t)
@@ -595,10 +613,6 @@ func syncthingMain() {
 	} else if !IsRelease || IsBeta {
 		m.StartDeadlockDetector(20 * 60 * time.Second)
 	}
-
-	// GUI
-
-	setupGUI(mainSvc, cfg, m)
 
 	// Clear out old indexes for other devices. Otherwise we'll start up and
 	// start needing a bunch of files which are nowhere to be found. This
@@ -611,7 +625,22 @@ func syncthingMain() {
 			}
 			m.Index(device, folderCfg.ID, nil, 0, nil)
 		}
+		// Routine to pull blocks from other devices to synchronize the local
+		// folder. Does not run when we are in read only (publish only) mode.
+		if folderCfg.ReadOnly {
+			l.Okf("Ready to synchronize %s (read only; no external updates accepted)", folderCfg.ID)
+			m.StartFolderRO(folderCfg.ID)
+		} else {
+			l.Okf("Ready to synchronize %s (read-write)", folderCfg.ID)
+			m.StartFolderRW(folderCfg.ID)
+		}
 	}
+
+	mainSvc.Add(m)
+
+	// GUI
+
+	setupGUI(mainSvc, cfg, m, apiSub)
 
 	// The default port we announce, possibly modified by setupUPnP next.
 
@@ -634,19 +663,8 @@ func syncthingMain() {
 	}
 
 	connectionSvc := newConnectionSvc(cfg, myID, m, tlsCfg)
+	cfg.Subscribe(connectionSvc)
 	mainSvc.Add(connectionSvc)
-
-	for _, folder := range cfg.Folders() {
-		// Routine to pull blocks from other devices to synchronize the local
-		// folder. Does not run when we are in read only (publish only) mode.
-		if folder.ReadOnly {
-			l.Okf("Ready to synchronize %s (read only; no external updates accepted)", folder.ID)
-			m.StartFolderRO(folder.ID)
-		} else {
-			l.Okf("Ready to synchronize %s (read-write)", folder.ID)
-			m.StartFolderRW(folder.ID)
-		}
-	}
 
 	if cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
@@ -698,7 +716,9 @@ func syncthingMain() {
 		}
 	}
 
-	events.Default.Log(events.StartupComplete, nil)
+	events.Default.Log(events.StartupComplete, map[string]string{
+		"myID": myID.String(),
+	})
 	go generatePingEvents()
 
 	cleanConfigDirectory()
@@ -714,9 +734,7 @@ func syncthingMain() {
 func dbOpts() *opt.Options {
 	// Calculate a suitable database block cache capacity.
 
-	// Default is 8 MiB. In reality, the database will use twice the amount we
-	// calculate here, as it also has two write buffers each sized at half the
-	// block cache.
+	// Default is 8 MiB.
 	blockCacheCapacity := 8 << 20
 	// Increase block cache up to this maximum:
 	const maxCapacity = 64 << 20
@@ -743,7 +761,7 @@ func dbOpts() *opt.Options {
 	return &opt.Options{
 		OpenFilesCacheCapacity: 100,
 		BlockCacheCapacity:     blockCacheCapacity,
-		WriteBuffer:            blockCacheCapacity / 2,
+		WriteBuffer:            4 << 20,
 	}
 }
 
@@ -764,7 +782,7 @@ func startAuditing(mainSvc *suture.Supervisor) {
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model) {
+func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription) {
 	opts := cfg.Options()
 	guiCfg := overrideGUIConfig(cfg.GUI(), guiAddress, guiAuthentication, guiAPIKey)
 
@@ -793,10 +811,11 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model) {
 
 			urlShow := fmt.Sprintf("%s://%s/", proto, net.JoinHostPort(hostShow, strconv.Itoa(addr.Port)))
 			l.Infoln("Starting web GUI on", urlShow)
-			api, err := newAPISvc(guiCfg, guiAssets, m)
+			api, err := newAPISvc(myID, guiCfg, guiAssets, m, apiSub)
 			if err != nil {
 				l.Fatalln("Cannot start GUI:", err)
 			}
+			cfg.Subscribe(api)
 			mainSvc.Add(api)
 
 			if opts.StartBrowser && !noBrowser && !stRestarting {
@@ -882,7 +901,7 @@ func discovery(extPort int) *discover.Discoverer {
 func ensureDir(dir string, mode int) {
 	fi, err := os.Stat(dir)
 	if os.IsNotExist(err) {
-		err := os.MkdirAll(dir, 0700)
+		err := osutil.MkdirAll(dir, 0700)
 		if err != nil {
 			l.Fatalln(err)
 		}

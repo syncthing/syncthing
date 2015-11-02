@@ -441,22 +441,26 @@ func newTableOps(s *session) *tOps {
 	var (
 		cacher cache.Cacher
 		bcache *cache.Cache
+		bpool  *util.BufferPool
 	)
 	if s.o.GetOpenFilesCacheCapacity() > 0 {
 		cacher = cache.NewLRU(s.o.GetOpenFilesCacheCapacity())
 	}
-	if !s.o.DisableBlockCache {
+	if !s.o.GetDisableBlockCache() {
 		var bcacher cache.Cacher
 		if s.o.GetBlockCacheCapacity() > 0 {
 			bcacher = cache.NewLRU(s.o.GetBlockCacheCapacity())
 		}
 		bcache = cache.NewCache(bcacher)
 	}
+	if !s.o.GetDisableBufferPool() {
+		bpool = util.NewBufferPool(s.o.GetBlockSize() + 5)
+	}
 	return &tOps{
 		s:      s,
 		cache:  cache.NewCache(cacher),
 		bcache: bcache,
-		bpool:  util.NewBufferPool(s.o.GetBlockSize() + 5),
+		bpool:  bpool,
 	}
 }
 

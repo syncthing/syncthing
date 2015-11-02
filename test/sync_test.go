@@ -10,13 +10,21 @@ package integration
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/config"
+	"github.com/syncthing/syncthing/internal/rc"
+)
+
+const (
+	longTimeLimit  = 5 * time.Minute
+	shortTimeLimit = 45 * time.Second
 )
 
 func TestSyncClusterWithoutVersioning(t *testing.T) {
@@ -46,6 +54,21 @@ func TestSyncClusterSimpleVersioning(t *testing.T) {
 	testSyncCluster(t)
 }
 
+func TestSyncClusterTrashcanVersioning(t *testing.T) {
+	// Use simple versioning
+	id, _ := protocol.DeviceIDFromString(id2)
+	cfg, _ := config.Load("h2/config.xml", id)
+	fld := cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{
+		Type:   "trashcan",
+		Params: map[string]string{"cleanoutDays": "1"},
+	}
+	cfg.SetFolder(fld)
+	cfg.Save()
+
+	testSyncCluster(t)
+}
+
 func TestSyncClusterStaggeredVersioning(t *testing.T) {
 	// Use staggered versioning
 	id, _ := protocol.DeviceIDFromString(id2)
@@ -60,6 +83,18 @@ func TestSyncClusterStaggeredVersioning(t *testing.T) {
 	testSyncCluster(t)
 }
 
+func TestSyncClusterForcedRescan(t *testing.T) {
+	// Use no versioning
+	id, _ := protocol.DeviceIDFromString(id2)
+	cfg, _ := config.Load("h2/config.xml", id)
+	fld := cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{}
+	cfg.SetFolder(fld)
+	cfg.Save()
+
+	testSyncClusterForcedRescan(t)
+}
+
 func testSyncCluster(t *testing.T) {
 	// This tests syncing files back and forth between three cluster members.
 	// Their configs are in h1, h2 and h3. The folder "default" is shared
@@ -68,12 +103,19 @@ func testSyncCluster(t *testing.T) {
 	// Another folder is shared between 1 and 2 only, in s12-1 and s12-2. A
 	// third folders is shared between 2 and 3, in s23-2 and s23-3.
 
+	// When -short is passed, keep it more reasonable.
+	timeLimit := longTimeLimit
+	if testing.Short() {
+		timeLimit = shortTimeLimit
+	}
+
 	const (
 		numFiles    = 100
 		fileSizeExp = 20
-		iterations  = 3
 	)
-	log.Printf("Testing with numFiles=%d, fileSizeExp=%d, iterations=%d", numFiles, fileSizeExp, iterations)
+	rand.Seed(42)
+
+	log.Printf("Testing with numFiles=%d, fileSizeExp=%d, timeLimit=%v", numFiles, fileSizeExp, timeLimit)
 
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s12-1",
@@ -152,45 +194,38 @@ func testSyncCluster(t *testing.T) {
 	expected := [][]fileInfo{e1, e2, e3}
 
 	// Start the syncers
-	p, err := scStartProcesses()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		for i := range p {
-			p[i].stop()
-		}
-	}()
 
-	log.Println("Waiting for startup...")
-	// Wait for one scan to succeed, or up to 20 seconds...
-	// This is to let startup, UPnP etc complete.
-	for _, device := range p {
-		for i := 0; i < 20; i++ {
-			err := device.rescan("default")
-			if err != nil {
-				time.Sleep(time.Second)
-				continue
-			}
-			break
-		}
-	}
+	log.Println("Starting Syncthing...")
 
-	for count := 0; count < iterations; count++ {
+	p0 := startInstance(t, 1)
+	defer checkedStop(t, p0)
+	p1 := startInstance(t, 2)
+	defer checkedStop(t, p1)
+	p2 := startInstance(t, 3)
+	defer checkedStop(t, p2)
+
+	p := []*rc.Process{p0, p1, p2}
+
+	start := time.Now()
+	iteration := 0
+	for time.Since(start) < timeLimit {
+		iteration++
+		log.Println("Iteration", iteration)
+
 		log.Println("Forcing rescan...")
 
 		// Force rescan of folders
 		for i, device := range p {
-			if err := device.rescan("default"); err != nil {
+			if err := device.RescanDelay("default", 86400); err != nil {
 				t.Fatal(err)
 			}
-			if i < 2 {
-				if err := device.rescan("s12"); err != nil {
+			if i == 0 || i == 1 {
+				if err := device.RescanDelay("s12", 86400); err != nil {
 					t.Fatal(err)
 				}
 			}
-			if i > 1 {
-				if err := device.rescan("s23"); err != nil {
+			if i == 1 || i == 2 {
+				if err := device.RescanDelay("s23", 86400); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -265,65 +300,132 @@ func testSyncCluster(t *testing.T) {
 	}
 }
 
-func scStartProcesses() ([]syncthingProcess, error) {
-	p := make([]syncthingProcess, 3)
+func testSyncClusterForcedRescan(t *testing.T) {
+	// During this test, we create 1K files, remove and then create them
+	// again. However, during these operations we will perform scan operations
+	// such that other nodes will retrieve these options while data is
+	// changing.
 
-	p[0] = syncthingProcess{ // id1
-		instance: "1",
-		argv:     []string{"-home", "h1"},
-		port:     8081,
-		apiKey:   apiKey,
+	// When -short is passed, keep it more reasonable.
+	timeLimit := longTimeLimit
+	if testing.Short() {
+		timeLimit = shortTimeLimit
 	}
-	err := p[0].start()
+
+	log.Println("Cleaning...")
+	err := removeAll("s1", "s12-1",
+		"s2", "s12-2", "s23-2",
+		"s3", "s23-3",
+		"h1/index*", "h2/index*", "h3/index*")
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
 
-	p[1] = syncthingProcess{ // id2
-		instance: "2",
-		argv:     []string{"-home", "h2"},
-		port:     8082,
-		apiKey:   apiKey,
+	// Create initial folder contents. All three devices have stuff in
+	// "default", which should be merged. The other two folders are initially
+	// empty on one side.
+
+	log.Println("Generating files...")
+	if err := os.MkdirAll("s1/test-stable-files", 0755); err != nil {
+		t.Fatal(err)
 	}
-	err = p[1].start()
+	for i := 0; i < 1000; i++ {
+		name := fmt.Sprintf("s1/test-stable-files/%d", i)
+		if err := ioutil.WriteFile(name, []byte(time.Now().Format(time.RFC3339Nano)), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Prepare the expected state of folders after the sync
+	expected, err := directoryContents("s1")
 	if err != nil {
-		p[0].stop()
-		return nil, err
+		t.Fatal(err)
 	}
 
-	p[2] = syncthingProcess{ // id3
-		instance: "3",
-		argv:     []string{"-home", "h3"},
-		port:     8083,
-		apiKey:   apiKey,
-	}
-	err = p[2].start()
-	if err != nil {
-		p[0].stop()
-		p[1].stop()
-		return nil, err
-	}
+	// Start the syncers
+	p0 := startInstance(t, 1)
+	defer checkedStop(t, p0)
+	p1 := startInstance(t, 2)
+	defer checkedStop(t, p1)
+	p2 := startInstance(t, 3)
+	defer checkedStop(t, p2)
 
-	return p, nil
+	p := []*rc.Process{p0, p1, p2}
+
+	start := time.Now()
+	for time.Since(start) < timeLimit {
+		rescan := func() {
+			for i := range p {
+				if err := p[i].Rescan("default"); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+
+		log.Println("Forcing rescan...")
+		rescan()
+
+		// Sync stuff and verify it looks right
+		err = scSyncAndCompare(p, [][]fileInfo{expected})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		log.Println("Altering...")
+
+		// Delete and recreate stable files while scanners and pullers are active
+		for i := 0; i < 1000; i++ {
+			name := fmt.Sprintf("s1/test-stable-files/%d", i)
+			if err := os.Remove(name); err != nil {
+				t.Fatal(err)
+			}
+			if rand.Intn(10) == 0 {
+				rescan()
+			}
+		}
+
+		rescan()
+
+		time.Sleep(50 * time.Millisecond)
+		for i := 0; i < 1000; i++ {
+			name := fmt.Sprintf("s1/test-stable-files/%d", i)
+			if err := ioutil.WriteFile(name, []byte(time.Now().Format(time.RFC3339Nano)), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if rand.Intn(10) == 0 {
+				rescan()
+			}
+		}
+
+		rescan()
+
+		// Prepare the expected state of folders after the sync
+		expected, err = directoryContents("s1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(expected) != 1001 {
+			t.Fatal("s1 does not have 1001 files;", len(expected))
+		}
+	}
 }
 
-func scSyncAndCompare(p []syncthingProcess, expected [][]fileInfo) error {
+func scSyncAndCompare(p []*rc.Process, expected [][]fileInfo) error {
 	log.Println("Syncing...")
 
 	for {
-		time.Sleep(2 * time.Second)
-
-		if err := allDevicesInSync(p); err != nil {
-			log.Println(err)
+		time.Sleep(250 * time.Millisecond)
+		if !rc.InSync("default", p...) {
 			continue
 		}
-
+		if !rc.InSync("s12", p[0], p[1]) {
+			continue
+		}
+		if !rc.InSync("s23", p[1], p[2]) {
+			continue
+		}
 		break
 	}
-
-	// This is necessary, or all files won't be in place even when everything
-	// is already reported in sync. Why?!
-	time.Sleep(5 * time.Second)
 
 	log.Println("Checking...")
 
@@ -337,23 +439,27 @@ func scSyncAndCompare(p []syncthingProcess, expected [][]fileInfo) error {
 		}
 	}
 
-	for _, dir := range []string{"s12-1", "s12-2"} {
-		actual, err := directoryContents(dir)
-		if err != nil {
-			return err
-		}
-		if err := compareDirectoryContents(actual, expected[1]); err != nil {
-			return fmt.Errorf("%s: %v", dir, err)
+	if len(expected) > 1 {
+		for _, dir := range []string{"s12-1", "s12-2"} {
+			actual, err := directoryContents(dir)
+			if err != nil {
+				return err
+			}
+			if err := compareDirectoryContents(actual, expected[1]); err != nil {
+				return fmt.Errorf("%s: %v", dir, err)
+			}
 		}
 	}
 
-	for _, dir := range []string{"s23-2", "s23-3"} {
-		actual, err := directoryContents(dir)
-		if err != nil {
-			return err
-		}
-		if err := compareDirectoryContents(actual, expected[2]); err != nil {
-			return fmt.Errorf("%s: %v", dir, err)
+	if len(expected) > 2 {
+		for _, dir := range []string{"s23-2", "s23-3"} {
+			actual, err := directoryContents(dir)
+			if err != nil {
+				return err
+			}
+			if err := compareDirectoryContents(actual, expected[2]); err != nil {
+				return fmt.Errorf("%s: %v", dir, err)
+			}
 		}
 	}
 

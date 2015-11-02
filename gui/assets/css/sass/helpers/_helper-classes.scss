@@ -1,0 +1,95 @@
+//
+// Helper classes -
+//
+// Used for quick assistance, when its not worth it to make another module.
+//
+
+
+.fr { float:right; }
+.fl { float:left; }
+.fn { float: none;}
+.dot { border-radius: 50%; }
+.dot img { border-radius: 50% }
+.quiet { color: $color-soft-text; }
+.center { text-align:center; }
+.relative { position:relative; }
+.clip { overflow:hidden; }
+.clearboth { clear: both; }
+.clear-left { clear: left; }
+.clear-right { clear: right }
+.clear-even:nth-child(even) { clear: left; }
+.clear-odd:nth-child(odd) { clear: left; }
+.hide-text { text-indent:-99999px; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.display-block { display: block; }
+img.inline, .inline { display: inline-block; }
+.break-word { word-wrap: break-word; }
+.align-middle { vertical-align: middle;}
+.align-top { vertical-align: top;}
+.align-bottom { vertical-align: bottom;}
+.align-text-bottom { vertical-align: text-bottom; };
+.display-block { display:block; }
+.scroll-x { overflow-x: auto; }
+.scroll-y { overflow-y: auto; }
+.scroll-x-content .block-content { height:20em; overflow-x: auto; }
+.scroll-y-content .block-content { height:20em; overflow-y: auto; }
+.capitalize { text-transform: capitalize; }
+.capitalize_first::first-letter { text-transform: capitalize; }
+.uppercase { text-transform: uppercase; }
+.hover-noline:hover, .hover-noline:focus { text-decoration: none; }
+.hover-lighten:hover { opacity: 0.8; }
+.z1   { z-index: 1; }
+.z10  { z-index: 10; }
+.z100 { z-index: 100; }
+.z1000 { z-index: 1000; }
+.round { border-radius: 3px; }
+.round-top { border-radius: 3px 3px 0 0; }
+.round-right { border-radius: 0 3px 3px 0; }
+.round-bottom { border-radius: 0 0 3px 3px; }
+.round-left { border-radius: 3px 0 0 3px; }
+.unround { border-radius: 0; }
+.tiny { font-size: 0.550em; }
+.puny { font-size: 0.750em; }
+.small { font-size: 0.875em; }
+.big { font-size: 1.250em; }
+.large { font-size: 1.5em; }
+.huge { font-size: 2em; }
+.font-bold { font-weight: bold; }
+.font-normal { font-weight: normal; }
+.line-height0 { line-height: 0; }
+.line-height1 { line-height: 1em; }
+.line-height2 { line-height: 1.5em; }
+.pointer:hover { cursor: pointer; }
+.height-1em { height: 1em; }
+.width-1em { width: 1em; }
+.whitespace-nowrap { white-space: nowrap; }
+.whitespace-normal { white-space: normal; }
+.max100 { max-width: 100% }
+.min-height1 { min-height: 1em; }
+.min-height2 { min-height: 2em; }
+.min-height3 { min-height: 3em; }
+.min-height4 { min-height: 4em; }
+.hidden { display:none; }
+.visually-hidden {
+  clip: rect(1px 1px 1px 1px);
+  clip: rect(1px, 1px, 1px, 1px);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.single-centered {
+  max-width: 750px;
+  margin: 0 auto;
+}
+.autofill {
+  height: 100%;
+  width: 100%;
+}
+.dots {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

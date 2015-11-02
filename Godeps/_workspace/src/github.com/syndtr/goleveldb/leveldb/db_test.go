@@ -405,19 +405,21 @@ func (h *dbHarness) compactRange(min, max string) {
 	t.Log("DB range compaction done")
 }
 
-func (h *dbHarness) sizeAssert(start, limit string, low, hi uint64) {
-	t := h.t
-	db := h.db
-
-	s, err := db.SizeOf([]util.Range{
+func (h *dbHarness) sizeOf(start, limit string) uint64 {
+	sz, err := h.db.SizeOf([]util.Range{
 		{[]byte(start), []byte(limit)},
 	})
 	if err != nil {
-		t.Error("SizeOf: got error: ", err)
+		h.t.Error("SizeOf: got error: ", err)
 	}
-	if s.Sum() < low || s.Sum() > hi {
-		t.Errorf("sizeof %q to %q not in range, want %d - %d, got %d",
-			shorten(start), shorten(limit), low, hi, s.Sum())
+	return sz.Sum()
+}
+
+func (h *dbHarness) sizeAssert(start, limit string, low, hi uint64) {
+	sz := h.sizeOf(start, limit)
+	if sz < low || sz > hi {
+		h.t.Errorf("sizeOf %q to %q not in range, want %d - %d, got %d",
+			shorten(start), shorten(limit), low, hi, sz)
 	}
 }
 
@@ -2443,7 +2445,7 @@ func TestDB_TableCompactionBuilder(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		rec := &sessionRecord{numLevel: s.o.GetNumLevel()}
+		rec := &sessionRecord{}
 		rec.addTableFile(i, tf)
 		if err := s.commit(rec); err != nil {
 			t.Fatal(err)
@@ -2453,7 +2455,7 @@ func TestDB_TableCompactionBuilder(t *testing.T) {
 	// Build grandparent.
 	v := s.version()
 	c := newCompaction(s, v, 1, append(tFiles{}, v.tables[1]...))
-	rec := &sessionRecord{numLevel: s.o.GetNumLevel()}
+	rec := &sessionRecord{}
 	b := &tableCompactionBuilder{
 		s:         s,
 		c:         c,
@@ -2477,7 +2479,7 @@ func TestDB_TableCompactionBuilder(t *testing.T) {
 	// Build level-1.
 	v = s.version()
 	c = newCompaction(s, v, 0, append(tFiles{}, v.tables[0]...))
-	rec = &sessionRecord{numLevel: s.o.GetNumLevel()}
+	rec = &sessionRecord{}
 	b = &tableCompactionBuilder{
 		s:         s,
 		c:         c,
@@ -2521,7 +2523,7 @@ func TestDB_TableCompactionBuilder(t *testing.T) {
 	// Compaction with transient error.
 	v = s.version()
 	c = newCompaction(s, v, 1, append(tFiles{}, v.tables[1]...))
-	rec = &sessionRecord{numLevel: s.o.GetNumLevel()}
+	rec = &sessionRecord{}
 	b = &tableCompactionBuilder{
 		s:         s,
 		c:         c,
@@ -2576,4 +2578,124 @@ func TestDB_TableCompactionBuilder(t *testing.T) {
 		iter1.Release()
 	}
 	v.release()
+}
+
+func testDB_IterTriggeredCompaction(t *testing.T, limitDiv int) {
+	const (
+		vSize = 200 * opt.KiB
+		tSize = 100 * opt.MiB
+		mIter = 100
+		n     = tSize / vSize
+	)
+
+	h := newDbHarnessWopt(t, &opt.Options{
+		Compression:       opt.NoCompression,
+		DisableBlockCache: true,
+	})
+	defer h.close()
+
+	key := func(x int) string {
+		return fmt.Sprintf("v%06d", x)
+	}
+
+	// Fill.
+	value := strings.Repeat("x", vSize)
+	for i := 0; i < n; i++ {
+		h.put(key(i), value)
+	}
+	h.compactMem()
+
+	// Delete all.
+	for i := 0; i < n; i++ {
+		h.delete(key(i))
+	}
+	h.compactMem()
+
+	var (
+		limit = n / limitDiv
+
+		startKey = key(0)
+		limitKey = key(limit)
+		maxKey   = key(n)
+		slice    = &util.Range{Limit: []byte(limitKey)}
+
+		initialSize0 = h.sizeOf(startKey, limitKey)
+		initialSize1 = h.sizeOf(limitKey, maxKey)
+	)
+
+	t.Logf("inital size %s [rest %s]", shortenb(int(initialSize0)), shortenb(int(initialSize1)))
+
+	for r := 0; true; r++ {
+		if r >= mIter {
+			t.Fatal("taking too long to compact")
+		}
+
+		// Iterates.
+		iter := h.db.NewIterator(slice, h.ro)
+		for iter.Next() {
+		}
+		if err := iter.Error(); err != nil {
+			t.Fatalf("Iter err: %v", err)
+		}
+		iter.Release()
+
+		// Wait compaction.
+		h.waitCompaction()
+
+		// Check size.
+		size0 := h.sizeOf(startKey, limitKey)
+		size1 := h.sizeOf(limitKey, maxKey)
+		t.Logf("#%03d size %s [rest %s]", r, shortenb(int(size0)), shortenb(int(size1)))
+		if size0 < initialSize0/10 {
+			break
+		}
+	}
+
+	if initialSize1 > 0 {
+		h.sizeAssert(limitKey, maxKey, initialSize1/4-opt.MiB, initialSize1+opt.MiB)
+	}
+}
+
+func TestDB_IterTriggeredCompaction(t *testing.T) {
+	testDB_IterTriggeredCompaction(t, 1)
+}
+
+func TestDB_IterTriggeredCompactionHalf(t *testing.T) {
+	testDB_IterTriggeredCompaction(t, 2)
+}
+
+func TestDB_ReadOnly(t *testing.T) {
+	h := newDbHarness(t)
+	defer h.close()
+
+	h.put("foo", "v1")
+	h.put("bar", "v2")
+	h.compactMem()
+
+	h.put("xfoo", "v1")
+	h.put("xbar", "v2")
+
+	t.Log("Trigger read-only")
+	if err := h.db.SetReadOnly(); err != nil {
+		h.close()
+		t.Fatalf("SetReadOnly error: %v", err)
+	}
+
+	h.stor.SetEmuErr(storage.TypeAll, tsOpCreate, tsOpReplace, tsOpRemove, tsOpWrite, tsOpWrite, tsOpSync)
+
+	ro := func(key, value, wantValue string) {
+		if err := h.db.Put([]byte(key), []byte(value), h.wo); err != ErrReadOnly {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		h.getVal(key, wantValue)
+	}
+
+	ro("foo", "vx", "v1")
+
+	h.o.ReadOnly = true
+	h.reopenDB()
+
+	ro("foo", "vx", "v1")
+	ro("bar", "vx", "v2")
+	h.assertNumKeys(4)
 }

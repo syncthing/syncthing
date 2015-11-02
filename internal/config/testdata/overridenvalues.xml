@@ -24,5 +24,7 @@
         <symlinksEnabled>false</symlinksEnabled>
         <limitBandwidthInLan>true</limitBandwidthInLan>
         <databaseBlockCacheMiB>42</databaseBlockCacheMiB>
+        <pingTimeoutS>60</pingTimeoutS>
+        <pingIdleTimeS>120</pingIdleTimeS>
     </options>
 </configuration>

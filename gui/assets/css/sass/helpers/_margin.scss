@@ -1,0 +1,58 @@
+//
+// margin
+//
+
+.h-mar-1 { margin: $spacing-1; } // Tiny
+.h-mar-2 { margin: $spacing-2; } // Smaller
+.h-mar-3 { margin: $spacing-3; } // Small
+.h-mar-4 { margin: $spacing-4; } // Medium
+.h-mar-5 { margin: $spacing-5; } // Large
+.h-mar-6 { margin: $spacing-6; } // Huge
+
+.h-mar-1-x { margin-left: $spacing-1; margin-right: $spacing-1; }
+.h-mar-2-x { margin-left: $spacing-2; margin-right: $spacing-2; }
+.h-mar-3-x { margin-left: $spacing-3; margin-right: $spacing-3; }
+.h-mar-4-x { margin-left: $spacing-4; margin-right: $spacing-4; }
+.h-mar-5-x { margin-left: $spacing-5; margin-right: $spacing-5; }
+.h-mar-6-x { margin-left: $spacing-6; margin-right: $spacing-6; }
+
+.h-mar-1-y { margin-top: $spacing-1; margin-bottom: $spacing-1; }
+.h-mar-2-y { margin-top: $spacing-2; margin-bottom: $spacing-2; }
+.h-mar-3-y { margin-top: $spacing-3; margin-bottom: $spacing-3; }
+.h-mar-4-y { margin-top: $spacing-4; margin-bottom: $spacing-4; }
+.h-mar-5-y { margin-top: $spacing-5; margin-bottom: $spacing-5; }
+.h-mar-6-y { margin-top: $spacing-6; margin-bottom: $spacing-6; }
+
+/* margin Left */
+.h-mar-1-l { margin-left: $spacing-1; }
+.h-mar-2-l { margin-left: $spacing-2; }
+.h-mar-3-l { margin-left: $spacing-3; }
+.h-mar-4-l { margin-left: $spacing-4; }
+.h-mar-5-l { margin-left: $spacing-5; }
+.h-mar-6-l { margin-left: $spacing-6; }
+
+/* margin Right*/
+.h-mar-1-r { margin-right: $spacing-1; }
+.h-mar-2-r { margin-right: $spacing-2; }
+.h-mar-3-r { margin-right: $spacing-3; }
+.h-mar-4-r { margin-right: $spacing-4; }
+.h-mar-5-r { margin-right: $spacing-5; }
+.h-mar-6-r { margin-right: $spacing-6; }
+
+/* margin-bottom */
+.h-mar-1-b { margin-bottom: $spacing-1; }
+.h-mar-2-b { margin-bottom: $spacing-2; }
+.h-mar-3-b { margin-bottom: $spacing-3; }
+.h-mar-4-b { margin-bottom: $spacing-4; }
+.h-mar-5-b { margin-bottom: $spacing-5; }
+.h-mar-6-b { margin-bottom: $spacing-6; }
+
+/* margin-top */
+.h-mar-1-t { margin-top: $spacing-1; }
+.h-mar-2-t { margin-top: $spacing-2; }
+.h-mar-3-t { margin-top: $spacing-3; }
+.h-mar-4-t { margin-top: $spacing-4; }
+.h-mar-5-t { margin-top: $spacing-5; }
+.h-mar-6-t { margin-top: $spacing-6; }
+
+.no-margin { margin: 0; }

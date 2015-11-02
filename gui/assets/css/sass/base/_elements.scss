@@ -1,0 +1,147 @@
+
+html {
+  font-size: 100%;
+
+  @include breakpoint(baby-bear) {
+    font-size: 82%;
+  }
+}
+
+body {
+  font-family: $font-family-main;
+  font-weight: 300;
+  color: $color-text;
+  background: $color-white;
+}
+
+
+
+
+//  HTML Elements
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: normal;
+  margin-top: 0;
+  margin-bottom: rem(25);
+}
+
+h1 { font-size: rem(34); }
+
+h2 { font-size: rem(24); }
+
+h3 { font-size: rem (20); }
+
+h4 { font-size: rem (20); }
+
+h5 { font-size: rem (20); }
+
+h6 { font-size: rem (20); }
+
+p {
+  line-height: 1.5em;
+}
+
+b,
+strong {}
+
+i,
+em {}
+
+dfn {}
+
+sup {}
+
+sub {}
+
+del {}
+
+ins {}
+
+blockquote {
+  font-size: 1.2em;
+  font-style: italic;
+  border-left: 1em solid $color-primary;
+  padding-left: 1em;
+}
+
+cite {}
+
+q {}
+
+address {}
+
+ul {
+  list-style-type: square;
+  padding-left: 1.5em;
+
+}
+
+ol {
+  padding-left: 1.5em;
+}
+
+li {}
+
+dl {}
+
+dd {}
+
+dt {}
+
+abbr {}
+
+acronym {}
+
+pre,
+code,
+tt,
+samp,
+kbd,
+var {
+  font-family: Consolas, Monaco, 'Courier New', Courier, monospace, sans-serif;
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+p:empty{
+  display: none;
+}
+
+pre {
+  background-color: $color-text;
+  color: $color-white;
+  padding: 0.325em;
+  display: inline-block;
+}
+
+
+// Images
+
+img {
+  max-width: 100%;
+}
+
+// Links
+
+a {
+  text-decoration: none;
+  color: $color-primary;
+}
+
+a:link,
+a:visited {}
+
+a:active,
+a.active {}
+
+a:hover,
+a:focus {
+  text-decoration: underline;
+}

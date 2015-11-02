@@ -1,0 +1,13 @@
+//
+// Animations
+//
+
+// example: @include animation('slide-down 5s 3');
+
+@mixin animation($str) {
+  -webkit-animation: #{$str};
+     -moz-animation: #{$str};
+      -ms-animation: #{$str};
+       -o-animation: #{$str};
+          animation: #{$str};
+}

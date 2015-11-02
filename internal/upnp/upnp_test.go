@@ -33,6 +33,33 @@ func TestExternalIPParsing(t *testing.T) {
 	}
 }
 
+func TestSoapFaultParsing(t *testing.T) {
+	soapResponse :=
+		[]byte(`<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+		<s:Body>
+			<s:Fault>
+				<faultcode>s:Client</faultcode>
+				<faultstring>UPnPError</faultstring>
+				<detail>
+					<UPnPError xmlns="urn:schemas-upnp-org:control-1-0">
+					<errorCode>725</errorCode>
+					<errorDescription>OnlyPermanentLeasesSupported</errorDescription></UPnPError>
+				</detail>
+			</s:Fault>
+		</s:Body>
+		</s:Envelope>`)
+
+	envelope := &soapErrorResponse{}
+	err := xml.Unmarshal(soapResponse, envelope)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if envelope.ErrorCode != 725 {
+		t.Error("Parse of SOAP request failed.", envelope)
+	}
+}
+
 func TestControlURLParsing(t *testing.T) {
 	rootURL := "http://192.168.243.1:80/igd.xml"
 

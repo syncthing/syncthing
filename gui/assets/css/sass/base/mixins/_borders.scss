@@ -1,0 +1,26 @@
+//
+// Borders
+//
+
+
+$default-border: 1px solid $color-border;
+
+@mixin border-all {
+  border: $default-border;
+}
+
+@mixin border-right {
+  border-right: $default-border;
+}
+
+@mixin border-left {
+  border-left: $default-border;
+}
+
+@mixin border-top {
+  border-top: $default-border;
+}
+
+@mixin border-bottom {
+  border-bottom: $default-border;
+}

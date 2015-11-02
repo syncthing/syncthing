@@ -1,0 +1,65 @@
+//
+// Rounded corners
+//
+
+@mixin rounded-all($size) {
+  -webkit-border-radius: $size + px;
+     -moz-border-radius: $size + px;
+      border-radius: $size + px;
+}
+
+// Rounded Corners Top Only
+@mixin rounded-top($size) {
+  -webkit-border-radius: $size + px $size + px 0 0;
+     -moz-border-radius: $size + px $size + px 0 0;
+      border-radius: $size + px $size + px 0 0;
+}
+
+// Rounded Corner Top Left Only
+@mixin rounded-top-left($size) {
+  -webkit-border-radius: $size + px 0 0 0;
+     -moz-border-radius: $size + px 0 0 0;
+      border-radius: $size + px 0 0 0;
+}
+
+// Rounded Corner Top Right Only
+@mixin rounded-top-right($size) {
+  -webkit-border-radius: 0 $size + px 0 0;
+     -moz-border-radius: 0 $size + px 0 0;
+      border-radius: 0 $size + px 0 0;
+}
+
+// Rounded Corners Bottom Only
+@mixin rounded-bottom($size) {
+  -webkit-border-radius: 0 0 $size + px $size + px;
+     -moz-border-radius: 0 0 $size + px $size + px;
+      border-radius: 0 0 $size + px $size + px;
+}
+
+// Rounded Corner Bottom Left Only
+@mixin rounded-bottom-left($size) {
+  -webkit-border-radius: 0 0 0 $size + px;
+     -moz-border-radius: 0 0 0 $size + px;
+      border-radius: 0 0 0 $size + px;
+}
+
+// Rounded Corner Bottom Right Only
+@mixin rounded-bottom-right($size) {
+  -webkit-border-radius: 0 0 $size + px 0;
+     -moz-border-radius: 0 0 $size + px 0;
+      border-radius: 0 0 $size + px 0;
+}
+
+// Rounded Corners Left Only
+@mixin rounded-left($size) {
+  -webkit-border-radius: 0 0 $size + px $size + px;
+     -moz-border-radius: 0 0 $size + px $size + px;
+      border-radius: $size + px 0 0 $size + px;
+}
+
+// Rounded Corners Right Only
+@mixin rounded-right($size) {
+  -webkit-border-radius: 0 $size + px $size + px 0;
+     -moz-border-radius: 0 $size + px $size + px 0;
+      border-radius: 0 $size + px $size + px 0;
+}

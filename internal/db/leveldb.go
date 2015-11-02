@@ -104,7 +104,14 @@ const batchFlushSize = 64
 //	   device (32 bytes)
 //	   name (variable size)
 func deviceKey(folder, device, file []byte) []byte {
-	k := make([]byte, 1+64+32+len(file))
+	return deviceKeyInto(nil, folder, device, file)
+}
+
+func deviceKeyInto(k []byte, folder, device, file []byte) []byte {
+	reqLen := 1 + 64 + 32 + len(file)
+	if len(k) < reqLen {
+		k = make([]byte, reqLen)
+	}
 	k[0] = KeyTypeDevice
 	if len(folder) > 64 {
 		panic("folder name too long")
@@ -112,7 +119,7 @@ func deviceKey(folder, device, file []byte) []byte {
 	copy(k[1:], []byte(folder))
 	copy(k[1+64:], device[:])
 	copy(k[1+64+32:], []byte(file))
-	return k
+	return k[:reqLen]
 }
 
 func deviceKeyName(key []byte) []byte {
@@ -370,9 +377,10 @@ func ldbUpdate(db *leveldb.DB, folder, device []byte, fs []protocol.FileInfo) in
 	}()
 
 	var maxLocalVer int64
+	var fk []byte
 	for _, f := range fs {
 		name := []byte(f.Name)
-		fk := deviceKey(folder, device, name)
+		fk = deviceKeyInto(fk[:cap(fk)], folder, device, name)
 		if debugDB {
 			l.Debugf("snap.Get %p %x", snap, fk)
 		}
@@ -727,6 +735,7 @@ func ldbWithGlobal(db *leveldb.DB, folder, prefix []byte, truncate bool, fn Iter
 	dbi := snap.NewIterator(util.BytesPrefix(globalKey(folder, prefix)), nil)
 	defer dbi.Release()
 
+	var fk []byte
 	for dbi.Next() {
 		var vl versionList
 		err := vl.UnmarshalXDR(dbi.Value())
@@ -738,7 +747,7 @@ func ldbWithGlobal(db *leveldb.DB, folder, prefix []byte, truncate bool, fn Iter
 			panic("no versions?")
 		}
 		name := globalKeyName(dbi.Key())
-		fk := deviceKey(folder, vl.versions[0].device, name)
+		fk = deviceKeyInto(fk[:cap(fk)], folder, vl.versions[0].device, name)
 		if debugDB {
 			l.Debugf("snap.Get %p %x", snap, fk)
 		}
@@ -815,6 +824,7 @@ func ldbWithNeed(db *leveldb.DB, folder, device []byte, truncate bool, fn Iterat
 	dbi := snap.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
 	defer dbi.Release()
 
+	var fk []byte
 nextFile:
 	for dbi.Next() {
 		var vl versionList
@@ -852,7 +862,7 @@ nextFile:
 					// We haven't found a valid copy of the file with the needed version.
 					continue nextFile
 				}
-				fk := deviceKey(folder, vl.versions[i].device, name)
+				fk = deviceKeyInto(fk[:cap(fk)], folder, vl.versions[i].device, name)
 				if debugDB {
 					l.Debugf("snap.Get %p %x", snap, fk)
 				}
@@ -1013,6 +1023,8 @@ func ldbCheckGlobals(db *leveldb.DB, folder []byte) {
 	if debugDB {
 		l.Debugf("new batch %p", batch)
 	}
+
+	var fk []byte
 	for dbi.Next() {
 		gk := dbi.Key()
 		var vl versionList
@@ -1029,7 +1041,7 @@ func ldbCheckGlobals(db *leveldb.DB, folder []byte) {
 		name := globalKeyName(gk)
 		var newVL versionList
 		for _, version := range vl.versions {
-			fk := deviceKey(folder, version.device, name)
+			fk = deviceKeyInto(fk[:cap(fk)], folder, version.device, name)
 			if debugDB {
 				l.Debugf("snap.Get %p %x", snap, fk)
 			}

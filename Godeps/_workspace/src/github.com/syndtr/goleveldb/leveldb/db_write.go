@@ -63,24 +63,24 @@ func (db *DB) rotateMem(n int) (mem *memDB, err error) {
 	return
 }
 
-func (db *DB) flush(n int) (mem *memDB, nn int, err error) {
+func (db *DB) flush(n int) (mdb *memDB, mdbFree int, err error) {
 	delayed := false
 	flush := func() (retry bool) {
 		v := db.s.version()
 		defer v.release()
-		mem = db.getEffectiveMem()
+		mdb = db.getEffectiveMem()
 		defer func() {
 			if retry {
-				mem.decref()
-				mem = nil
+				mdb.decref()
+				mdb = nil
 			}
 		}()
-		nn = mem.mdb.Free()
+		mdbFree = mdb.Free()
 		switch {
 		case v.tLen(0) >= db.s.o.GetWriteL0SlowdownTrigger() && !delayed:
 			delayed = true
 			time.Sleep(time.Millisecond)
-		case nn >= n:
+		case mdbFree >= n:
 			return false
 		case v.tLen(0) >= db.s.o.GetWriteL0PauseTrigger():
 			delayed = true
@@ -90,15 +90,15 @@ func (db *DB) flush(n int) (mem *memDB, nn int, err error) {
 			}
 		default:
 			// Allow memdb to grow if it has no entry.
-			if mem.mdb.Len() == 0 {
-				nn = n
+			if mdb.Len() == 0 {
+				mdbFree = n
 			} else {
-				mem.decref()
-				mem, err = db.rotateMem(n)
+				mdb.decref()
+				mdb, err = db.rotateMem(n)
 				if err == nil {
-					nn = mem.mdb.Free()
+					mdbFree = mdb.Free()
 				} else {
-					nn = 0
+					mdbFree = 0
 				}
 			}
 			return false
@@ -157,18 +157,18 @@ func (db *DB) Write(b *Batch, wo *opt.WriteOptions) (err error) {
 		}
 	}()
 
-	mem, memFree, err := db.flush(b.size())
+	mdb, mdbFree, err := db.flush(b.size())
 	if err != nil {
 		return
 	}
-	defer mem.decref()
+	defer mdb.decref()
 
 	// Calculate maximum size of the batch.
 	m := 1 << 20
 	if x := b.size(); x <= 128<<10 {
 		m = x + (128 << 10)
 	}
-	m = minInt(m, memFree)
+	m = minInt(m, mdbFree)
 
 	// Merge with other batch.
 drain:
@@ -197,7 +197,7 @@ drain:
 		select {
 		case db.journalC <- b:
 			// Write into memdb
-			if berr := b.memReplay(mem.mdb); berr != nil {
+			if berr := b.memReplay(mdb.DB); berr != nil {
 				panic(berr)
 			}
 		case err = <-db.compPerErrC:
@@ -211,7 +211,7 @@ drain:
 		case err = <-db.journalAckC:
 			if err != nil {
 				// Revert memdb if error detected
-				if berr := b.revertMemReplay(mem.mdb); berr != nil {
+				if berr := b.revertMemReplay(mdb.DB); berr != nil {
 					panic(berr)
 				}
 				return
@@ -225,7 +225,7 @@ drain:
 		if err != nil {
 			return
 		}
-		if berr := b.memReplay(mem.mdb); berr != nil {
+		if berr := b.memReplay(mdb.DB); berr != nil {
 			panic(berr)
 		}
 	}
@@ -233,7 +233,7 @@ drain:
 	// Set last seq number.
 	db.addSeq(uint64(b.Len()))
 
-	if b.size() >= memFree {
+	if b.size() >= mdbFree {
 		db.rotateMem(0)
 	}
 	return
@@ -249,8 +249,7 @@ func (db *DB) Put(key, value []byte, wo *opt.WriteOptions) error {
 	return db.Write(b, wo)
 }
 
-// Delete deletes the value for the given key. It returns ErrNotFound if
-// the DB does not contain the key.
+// Delete deletes the value for the given key.
 //
 // It is safe to modify the contents of the arguments after Delete returns.
 func (db *DB) Delete(key []byte, wo *opt.WriteOptions) error {
@@ -290,9 +289,9 @@ func (db *DB) CompactRange(r util.Range) error {
 	}
 
 	// Check for overlaps in memdb.
-	mem := db.getEffectiveMem()
-	defer mem.decref()
-	if isMemOverlaps(db.s.icmp, mem.mdb, r.Start, r.Limit) {
+	mdb := db.getEffectiveMem()
+	defer mdb.decref()
+	if isMemOverlaps(db.s.icmp, mdb.DB, r.Start, r.Limit) {
 		// Memdb compaction.
 		if _, err := db.rotateMem(0); err != nil {
 			<-db.writeLockC
@@ -308,4 +307,32 @@ func (db *DB) CompactRange(r util.Range) error {
 
 	// Table compaction.
 	return db.compSendRange(db.tcompCmdC, -1, r.Start, r.Limit)
+}
+
+// SetReadOnly makes DB read-only. It will stay read-only until reopened.
+func (db *DB) SetReadOnly() error {
+	if err := db.ok(); err != nil {
+		return err
+	}
+
+	// Lock writer.
+	select {
+	case db.writeLockC <- struct{}{}:
+		db.compWriteLocking = true
+	case err := <-db.compPerErrC:
+		return err
+	case _, _ = <-db.closeC:
+		return ErrClosed
+	}
+
+	// Set compaction read-only.
+	select {
+	case db.compErrSetC <- ErrReadOnly:
+	case perr := <-db.compPerErrC:
+		return perr
+	case _, _ = <-db.closeC:
+		return ErrClosed
+	}
+
+	return nil
 }

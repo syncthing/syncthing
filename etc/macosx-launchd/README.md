@@ -4,9 +4,8 @@ background under Mac OS X.
  1. Install the `syncthing` binary in a directory called `bin` in your
     home directory.
 
- 2. Edit the `syncthing.plist` file in the two places that refer to your
-    home directory; that is, replace `/Users/jb` with your actual home
-    directory location.
+ 2. Edit the `syncthing.plist` by replacing `USERNAME` with your actual
+    username such as `jb`.
 
  3. Copy the `syncthing.plist` file to `~/Library/LaunchAgents`.
 
@@ -15,3 +14,6 @@ background under Mac OS X.
 
 You probably want to turn off "Start Browser" among the settings to
 avoid it opening a browser window on each login.
+
+Logs are in `~/Library/Logs/Syncthing.log` and, for crashes and exceptions,
+`~/Library/Logs/Syncthing-Error.log`.

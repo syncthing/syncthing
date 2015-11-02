@@ -1,0 +1,114 @@
+//
+// Table
+//
+
+
+.m-table {
+  display: table;
+  width: 100%;
+  border: 1px solid $color-border;
+  border-radius: 3px;
+  margin-bottom: 30px;
+}
+
+.m-table-row {
+  display: table-row;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.m-table-row:nth-child(even) {
+  background-color: $color-background-faded;
+}
+
+.m-table-cell {
+  display: table-cell;
+  text-align: center;
+  padding: 15px;
+  border-bottom: 1px solid $color-border;
+}
+.m-table-cell:first-child {
+  padding-left: 30px;
+  text-align: left;
+}
+.m-table-cell:last-child {
+  padding-right: 30px;
+}
+.m-table-row:last-child .m-table-cell {
+  border-bottom: 0;
+}
+
+.m-table-head {
+  font-weight: bold;
+}
+
+.m-table-folder-actions .btn-sm {
+  margin: 0 2.5px;
+}
+.m-table-folder-actions .ion {
+  font-size: 16px;
+}
+
+.m-table-folder-name .ion {
+  margin-right: 10px;
+  font-size: 26px;
+}
+
+.m-table-global-size {
+  color: $color-soft-text;
+}
+
+
+
+
+.m-table-folder-status .ion-stop,
+.m-table-folder-status .ion-heart-broken {
+  color: $color-red;
+}
+
+.m-table-folder-status .ion-refresh,
+.m-table-folder-status .ion-loop {
+  @include animation("spin 750ms infinite linear");
+  color: $color-yellow;
+}
+
+// Spin animation
+@-moz-keyframes spin {
+ from {
+   -moz-transform: rotate(0deg);
+   transform: rotate(0deg);
+ }
+ to {
+   -moz-transform: rotate(359deg);
+   transform: rotate(359deg);
+ }
+}
+@-webkit-keyframes "spin" {
+ from {
+   -webkit-transform: rotate(0deg);
+   transform: rotate(0deg);
+ }
+ to {
+   -webkit-transform: rotate(359deg);
+   transform: rotate(359deg);
+ }
+}
+@-ms-keyframes "spin" {
+ from {
+   -ms-transform: rotate(0deg);
+   transform: rotate(0deg);
+ }
+ to {
+   -ms-transform: rotate(359deg);
+   transform: rotate(359deg);
+ }
+}
+@-o-keyframes "spin" {
+ from {
+   -o-transform: rotate(0deg);
+   transform: rotate(0deg);
+ }
+ to {
+   -o-transform: rotate(359deg);
+   transform: rotate(359deg);
+ }
+}

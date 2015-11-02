@@ -6,6 +6,7 @@ package logger
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -37,6 +38,13 @@ type Logger struct {
 var DefaultLogger = New()
 
 func New() *Logger {
+	if os.Getenv("LOGGER_DISCARD") != "" {
+		// Hack to completely disable logging, for example when running benchmarks.
+		return &Logger{
+			logger: log.New(ioutil.Discard, "", 0),
+		}
+	}
+
 	return &Logger{
 		logger: log.New(os.Stdout, "", log.Ltime),
 	}

@@ -13,10 +13,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	stdsync "sync"
@@ -34,14 +34,17 @@ import (
 	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syncthing/syncthing/internal/versioner"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/thejerf/suture"
 )
 
 // How many files to send in each Index/IndexUpdate message.
 const (
-	indexTargetSize   = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	indexPerFileSize  = 250        // Each FileInfo is approximately this big, in bytes, excluding BlockInfos
-	IndexPerBlockSize = 40         // Each BlockInfo is approximately this big
-	indexBatchSize    = 1000       // Either way, don't include more files than this
+	indexTargetSize        = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
+	indexPerFileSize       = 250        // Each FileInfo is approximately this big, in bytes, excluding BlockInfos
+	indexPerBlockSize      = 40         // Each BlockInfo is approximately this big
+	indexBatchSize         = 1000       // Either way, don't include more files than this
+	reqValidationTime      = time.Hour  // How long to cache validation entries for Request messages
+	reqValidationCacheSize = 1000       // How many entries to aim for in the validation cache size
 )
 
 type service interface {
@@ -51,13 +54,17 @@ type service interface {
 	BringToFront(string)
 	DelayScan(d time.Duration)
 	IndexUpdated() // Remote index was updated notification
+	Scan(subs []string) error
 
 	setState(state folderState)
 	setError(err error)
+	clearError()
 	getState() (folderState, time.Time, error)
 }
 
 type Model struct {
+	*suture.Supervisor
+
 	cfg             *config.Wrapper
 	db              *leveldb.DB
 	finder          *db.BlockFinder
@@ -84,12 +91,14 @@ type Model struct {
 	deviceVer map[protocol.DeviceID]string
 	pmut      sync.RWMutex // protects protoConn and rawConn
 
-	addedFolder bool
-	started     bool
+	started bool
+
+	reqValidationCache map[string]time.Time // folder / file name => time when confirmed to exist
+	rvmut              sync.RWMutex         // protects reqValidationCache
 }
 
 var (
-	SymlinkWarning = stdsync.Once{}
+	symlinkWarning = stdsync.Once{}
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -97,29 +106,38 @@ var (
 // for file data without altering the local folder in any way.
 func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB) *Model {
 	m := &Model{
-		cfg:             cfg,
-		db:              ldb,
-		finder:          db.NewBlockFinder(ldb, cfg),
-		progressEmitter: NewProgressEmitter(cfg),
-		id:              id,
-		shortID:         id.Short(),
-		deviceName:      deviceName,
-		clientName:      clientName,
-		clientVersion:   clientVersion,
-		folderCfgs:      make(map[string]config.FolderConfiguration),
-		folderFiles:     make(map[string]*db.FileSet),
-		folderDevices:   make(map[string][]protocol.DeviceID),
-		deviceFolders:   make(map[protocol.DeviceID][]string),
-		deviceStatRefs:  make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
-		folderIgnores:   make(map[string]*ignore.Matcher),
-		folderRunners:   make(map[string]service),
-		folderStatRefs:  make(map[string]*stats.FolderStatisticsReference),
-		protoConn:       make(map[protocol.DeviceID]protocol.Connection),
-		rawConn:         make(map[protocol.DeviceID]io.Closer),
-		deviceVer:       make(map[protocol.DeviceID]string),
+		Supervisor: suture.New("model", suture.Spec{
+			Log: func(line string) {
+				if debug {
+					l.Debugln(line)
+				}
+			},
+		}),
+		cfg:                cfg,
+		db:                 ldb,
+		finder:             db.NewBlockFinder(ldb, cfg),
+		progressEmitter:    NewProgressEmitter(cfg),
+		id:                 id,
+		shortID:            id.Short(),
+		deviceName:         deviceName,
+		clientName:         clientName,
+		clientVersion:      clientVersion,
+		folderCfgs:         make(map[string]config.FolderConfiguration),
+		folderFiles:        make(map[string]*db.FileSet),
+		folderDevices:      make(map[string][]protocol.DeviceID),
+		deviceFolders:      make(map[protocol.DeviceID][]string),
+		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
+		folderIgnores:      make(map[string]*ignore.Matcher),
+		folderRunners:      make(map[string]service),
+		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
+		protoConn:          make(map[protocol.DeviceID]protocol.Connection),
+		rawConn:            make(map[protocol.DeviceID]io.Closer),
+		deviceVer:          make(map[protocol.DeviceID]string),
+		reqValidationCache: make(map[string]time.Time),
 
-		fmut: sync.NewRWMutex(),
-		pmut: sync.NewRWMutex(),
+		fmut:  sync.NewRWMutex(),
+		pmut:  sync.NewRWMutex(),
+		rvmut: sync.NewRWMutex(),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -160,10 +178,18 @@ func (m *Model) StartFolderRW(folder string) {
 		if !ok {
 			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
 		}
-		p.versioner = factory(folder, cfg.Path(), cfg.Versioning.Params)
+
+		versioner := factory(folder, cfg.Path(), cfg.Versioning.Params)
+		if service, ok := versioner.(suture.Service); ok {
+			// The versioner implements the suture.Service interface, so
+			// expects to be run in the background in addition to being called
+			// when files are going to be archived.
+			m.Add(service)
+		}
+		p.versioner = versioner
 	}
 
-	go p.Serve()
+	m.Add(p)
 }
 
 // StartFolderRO starts read only processing on the current model. When in
@@ -486,7 +512,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 			}
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
-		} else if symlinkInvalid(fs[i].IsSymlink()) {
+		} else if symlinkInvalid(folder, fs[i]) {
 			if debug {
 				l.Debugln("dropping update for unsupported symlink", fs[i])
 			}
@@ -540,7 +566,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 			}
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
-		} else if symlinkInvalid(fs[i].IsSymlink()) {
+		} else if symlinkInvalid(folder, fs[i]) {
 			if debug {
 				l.Debugln("dropping update for unsupported symlink", fs[i])
 			}
@@ -729,33 +755,61 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return nil, fmt.Errorf("protocol error: unknown flags 0x%x in Request message", flags)
 	}
 
-	// Verify that the requested file exists in the local model.
-	m.fmut.RLock()
-	folderFiles, ok := m.folderFiles[folder]
-	m.fmut.RUnlock()
+	// Verify that the requested file exists in the local model. We only need
+	// to validate this file if we haven't done so recently, so we keep a
+	// cache of successfull results. "Recently" can be quite a long time, as
+	// we remove validation cache entries when we detect local changes. If
+	// we're out of sync here and the file actually doesn't exist any more, or
+	// has shrunk or something, then we'll anyway get a read error that we
+	// pass on to the other side.
 
-	if !ok {
-		l.Warnf("Request from %s for file %s in nonexistent folder %q", deviceID, name, folder)
-		return nil, protocol.ErrNoSuchFile
-	}
+	m.rvmut.RLock()
+	validated := m.reqValidationCache[folder+"/"+name]
+	m.rvmut.RUnlock()
 
-	lf, ok := folderFiles.Get(protocol.LocalDeviceID, name)
-	if !ok {
-		return nil, protocol.ErrNoSuchFile
-	}
+	if time.Since(validated) > reqValidationTime {
+		m.fmut.RLock()
+		folderFiles, ok := m.folderFiles[folder]
+		m.fmut.RUnlock()
 
-	if lf.IsInvalid() || lf.IsDeleted() {
-		if debug {
-			l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, size, lf)
+		if !ok {
+			l.Warnf("Request from %s for file %s in nonexistent folder %q", deviceID, name, folder)
+			return nil, protocol.ErrNoSuchFile
 		}
-		return nil, protocol.ErrInvalid
-	}
 
-	if offset > lf.Size() {
-		if debug {
-			l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, size)
+		// This call is really expensive for large files, as we load the full
+		// block list which may be megabytes and megabytes of data to allocate
+		// space for, read, and deserialize.
+		lf, ok := folderFiles.Get(protocol.LocalDeviceID, name)
+		if !ok {
+			return nil, protocol.ErrNoSuchFile
 		}
-		return nil, protocol.ErrNoSuchFile
+
+		if lf.IsInvalid() || lf.IsDeleted() {
+			if debug {
+				l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d; invalid: %v", m, deviceID, folder, name, offset, size, lf)
+			}
+			return nil, protocol.ErrInvalid
+		}
+
+		if offset > lf.Size() {
+			if debug {
+				l.Debugf("%v REQ(in; nonexistent): %s: %q o=%d s=%d", m, deviceID, name, offset, size)
+			}
+			return nil, protocol.ErrNoSuchFile
+		}
+
+		m.rvmut.Lock()
+		m.reqValidationCache[folder+"/"+name] = time.Now()
+		if len(m.reqValidationCache) > reqValidationCacheSize {
+			// Don't let the cache grow infinitely
+			for name, validated := range m.reqValidationCache {
+				if time.Since(validated) > time.Minute {
+					delete(m.reqValidationCache, name)
+				}
+			}
+		}
+		m.rvmut.Unlock()
 	}
 
 	if debug && deviceID != protocol.LocalDeviceID {
@@ -767,7 +821,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 	var reader io.ReaderAt
 	var err error
-	if lf.IsSymlink() {
+	if info, err := os.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		target, _, err := symlinks.Read(fn)
 		if err != nil {
 			return nil, err
@@ -881,30 +935,17 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	fd, err := ioutil.TempFile(cfg.Path(), ".syncthing.stignore-"+folder)
+	fd, err := osutil.CreateAtomic(filepath.Join(cfg.Path(), ".stignore"), 0644)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
-	defer os.Remove(fd.Name())
 
 	for _, line := range content {
-		_, err = fmt.Fprintln(fd, line)
-		if err != nil {
-			l.Warnln("Saving .stignore:", err)
-			return err
-		}
+		fmt.Fprintln(fd, line)
 	}
 
-	err = fd.Close()
-	if err != nil {
-		l.Warnln("Saving .stignore:", err)
-		return err
-	}
-
-	file := filepath.Join(cfg.Path(), ".stignore")
-	err = osutil.Rename(fd.Name(), file)
-	if err != nil {
+	if err := fd.Close(); err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
@@ -927,6 +968,8 @@ func (m *Model) AddConnection(rawConn io.Closer, protoConn protocol.Connection) 
 		panic("add existing device")
 	}
 	m.rawConn[deviceID] = rawConn
+
+	protoConn.Start()
 
 	cm := m.clusterConfig(deviceID)
 	protoConn.ClusterConfig(cm)
@@ -971,8 +1014,8 @@ func (m *Model) folderStatRef(folder string) *stats.FolderStatisticsReference {
 	return sr
 }
 
-func (m *Model) receivedFile(folder, filename string) {
-	m.folderStatRef(folder).ReceivedFile(filename)
+func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
+	m.folderStatRef(folder).ReceivedFile(file)
 }
 
 func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
@@ -1018,7 +1061,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 			maxLocalVer = f.LocalVersion
 		}
 
-		if ignores.Match(f.Name) || symlinkInvalid(f.IsSymlink()) {
+		if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
 			if debug {
 				l.Debugln("not sending update for ignored/unsupported symlink", f)
 			}
@@ -1048,7 +1091,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 		}
 
 		batch = append(batch, f)
-		currentBatchSize += indexPerFileSize + len(f.Blocks)*IndexPerBlockSize
+		currentBatchSize += indexPerFileSize + len(f.Blocks)*indexPerBlockSize
 		return true
 	})
 
@@ -1069,12 +1112,20 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 
 func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	m.fmut.RLock()
-	m.folderFiles[folder].Update(protocol.LocalDeviceID, fs)
+	files := m.folderFiles[folder]
 	m.fmut.RUnlock()
+	files.Update(protocol.LocalDeviceID, fs)
+
+	m.rvmut.Lock()
+	for _, f := range fs {
+		delete(m.reqValidationCache, folder+"/"+f.Name)
+	}
+	m.rvmut.Unlock()
 
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-		"folder": folder,
-		"items":  len(fs),
+		"folder":  folder,
+		"items":   len(fs),
+		"version": files.LocalVersion(protocol.LocalDeviceID),
 	})
 }
 
@@ -1116,7 +1167,6 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 	_ = ignores.Load(filepath.Join(cfg.Path(), ".stignore")) // Ignore error, there might not be an .stignore
 	m.folderIgnores[cfg.ID] = ignores
 
-	m.addedFolder = true
 	m.fmut.Unlock()
 }
 
@@ -1163,6 +1213,21 @@ func (m *Model) ScanFolder(folder string) error {
 }
 
 func (m *Model) ScanFolderSubs(folder string, subs []string) error {
+	m.fmut.Lock()
+	runner, ok := m.folderRunners[folder]
+	m.fmut.Unlock()
+
+	// Folders are added to folderRunners only when they are started. We can't
+	// scan them before they have started, so that's what we need to check for
+	// here.
+	if !ok {
+		return errors.New("no such folder")
+	}
+
+	return runner.Scan(subs)
+}
+
+func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 	for i, sub := range subs {
 		sub = osutil.NativeFilename(sub)
 		if p := filepath.Clean(filepath.Join(folder, sub)); !strings.HasPrefix(p, folder) {
@@ -1229,6 +1294,12 @@ nextSub:
 
 	fchan, err := w.Walk()
 	if err != nil {
+		// The error we get here is likely an OS level error, which might not be
+		// as readable as our health check errors. Check if we can get a health
+		// check error first, and use that if it's available.
+		if ferr := m.CheckFolderHealth(folder); ferr != nil {
+			err = ferr
+		}
 		runner.setError(err)
 		return err
 	}
@@ -1263,6 +1334,7 @@ nextSub:
 	batch = batch[:0]
 	// TODO: We should limit the Have scanning to start at sub
 	seenPrefix := false
+	var iterError error
 	fs.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 		hasPrefix := len(subs) == 0
@@ -1286,11 +1358,15 @@ nextSub:
 			}
 
 			if len(batch) == batchSizeFiles {
+				if err := m.CheckFolderHealth(folder); err != nil {
+					iterError = err
+					return false
+				}
 				m.updateLocals(folder, batch)
 				batch = batch[:0]
 			}
 
-			if ignores.Match(f.Name) || symlinkInvalid(f.IsSymlink()) {
+			if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
 				// File has been ignored or an unsupported symlink. Set invalid bit.
 				if debug {
 					l.Debugln("setting invalid bit on ignored", f)
@@ -1323,7 +1399,16 @@ nextSub:
 		}
 		return true
 	})
-	if len(batch) > 0 {
+
+	if iterError != nil {
+		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, iterError)
+		return iterError
+	}
+
+	if err := m.CheckFolderHealth(folder); err != nil {
+		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
+		return err
+	} else if len(batch) > 0 {
 		m.updateLocals(folder, batch)
 	}
 
@@ -1429,7 +1514,7 @@ func (m *Model) Override(folder string) {
 	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
 		if len(batch) == indexBatchSize {
-			fs.Update(protocol.LocalDeviceID, batch)
+			m.updateLocals(folder, batch)
 			batch = batch[:0]
 		}
 
@@ -1449,7 +1534,7 @@ func (m *Model) Override(folder string) {
 		return true
 	})
 	if len(batch) > 0 {
-		fs.Update(protocol.LocalDeviceID, batch)
+		m.updateLocals(folder, batch)
 	}
 	runner.setState(FolderIdle)
 }
@@ -1457,23 +1542,23 @@ func (m *Model) Override(folder string) {
 // CurrentLocalVersion returns the change version for the given folder.
 // This is guaranteed to increment if the contents of the local folder has
 // changed.
-func (m *Model) CurrentLocalVersion(folder string) int64 {
+func (m *Model) CurrentLocalVersion(folder string) (int64, bool) {
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	if !ok {
 		// The folder might not exist, since this can be called with a user
 		// specified folder name from the REST interface.
-		return 0
+		return 0, false
 	}
 
-	return fs.LocalVersion(protocol.LocalDeviceID)
+	return fs.LocalVersion(protocol.LocalDeviceID), true
 }
 
 // RemoteLocalVersion returns the change version for the given folder, as
 // sent by remote peers. This is guaranteed to increment if the contents of
 // the remote or global folder has changed.
-func (m *Model) RemoteLocalVersion(folder string) int64 {
+func (m *Model) RemoteLocalVersion(folder string) (int64, bool) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 
@@ -1481,7 +1566,7 @@ func (m *Model) RemoteLocalVersion(folder string) int64 {
 	if !ok {
 		// The folder might not exist, since this can be called with a user
 		// specified folder name from the REST interface.
-		return 0
+		return 0, false
 	}
 
 	var ver int64
@@ -1489,7 +1574,7 @@ func (m *Model) RemoteLocalVersion(folder string) int64 {
 		ver += fs.LocalVersion(n)
 	}
 
-	return ver
+	return ver, true
 }
 
 func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{} {
@@ -1598,7 +1683,7 @@ func (m *Model) CheckFolderHealth(id string) error {
 	}
 
 	fi, err := os.Stat(folder.Path())
-	if m.CurrentLocalVersion(id) > 0 {
+	if v, ok := m.CurrentLocalVersion(id); ok && v > 0 {
 		// Safety check. If the cached index contains files but the
 		// folder doesn't exist, we have a problem. We would assume
 		// that all files have been deleted which might not be the case,
@@ -1611,7 +1696,7 @@ func (m *Model) CheckFolderHealth(id string) error {
 	} else if os.IsNotExist(err) {
 		// If we don't have any files in the index, and the directory
 		// doesn't exist, try creating it.
-		err = os.MkdirAll(folder.Path(), 0700)
+		err = osutil.MkdirAll(folder.Path(), 0700)
 		if err == nil {
 			err = folder.CreateMarker()
 		}
@@ -1642,33 +1727,68 @@ func (m *Model) CheckFolderHealth(id string) error {
 	} else if oldErr != nil {
 		l.Infof("Folder %q error is cleared, restarting", folder.ID)
 		if runnerExists {
-			runner.setState(FolderIdle)
+			runner.clearError()
 		}
 	}
 
 	return err
 }
 
-func (m *Model) ResetFolder(folder string) error {
-	for _, f := range db.ListFolders(m.db) {
-		if f == folder {
-			l.Infof("Cleaning data for folder %q", folder)
-			db.DropFolder(m.db, folder)
-			return nil
-		}
-	}
-	return fmt.Errorf("Unknown folder %q", folder)
+func (m *Model) ResetFolder(folder string) {
+	l.Infof("Cleaning data for folder %q", folder)
+	db.DropFolder(m.db, folder)
 }
 
 func (m *Model) String() string {
 	return fmt.Sprintf("model@%p", m)
 }
 
-func symlinkInvalid(isLink bool) bool {
-	if !symlinks.Supported && isLink {
-		SymlinkWarning.Do(func() {
+func (m *Model) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
+}
+
+func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
+	// TODO: This should not use reflect, and should take more care to try to handle stuff without restart.
+
+	// Adding, removing or changing folders requires restart
+	if !reflect.DeepEqual(from.Folders, to.Folders) {
+		return false
+	}
+
+	// Removing a device requres restart
+	toDevs := make(map[protocol.DeviceID]bool, len(from.Devices))
+	for _, dev := range to.Devices {
+		toDevs[dev.DeviceID] = true
+	}
+	for _, dev := range from.Devices {
+		if _, ok := toDevs[dev.DeviceID]; !ok {
+			return false
+		}
+	}
+
+	// All of the generic options require restart
+	if !reflect.DeepEqual(from.Options, to.Options) {
+		return false
+	}
+
+	return true
+}
+
+func symlinkInvalid(folder string, fi db.FileIntf) bool {
+	if !symlinks.Supported && fi.IsSymlink() && !fi.IsInvalid() && !fi.IsDeleted() {
+		symlinkWarning.Do(func() {
 			l.Warnln("Symlinks are disabled, unsupported or require Administrator privileges. This might cause your folder to appear out of sync.")
 		})
+
+		// Need to type switch for the concrete type to be able to access fields...
+		var name string
+		switch fi := fi.(type) {
+		case protocol.FileInfo:
+			name = fi.Name
+		case db.FileInfoTruncated:
+			name = fi.Name
+		}
+		l.Infoln("Unsupported symlink", name, "in folder", folder)
 		return true
 	}
 	return false
