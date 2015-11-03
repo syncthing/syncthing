@@ -11,3 +11,6 @@ Specifications
 
 :ref:`localdisco-v3`
 	The protocol used for local discovery within a broadcast domain (LAN).
+
+:ref:`relay-v1`
+	The protocol used for connection relaying.
