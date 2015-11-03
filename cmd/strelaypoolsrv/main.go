@@ -67,6 +67,7 @@ var (
 	getLimit       time.Duration
 	postLimit      time.Duration
 	permRelaysFile string
+	ipHeader string
 
 	getMut      sync.RWMutex = sync.NewRWMutex()
 	getLRUCache *lru.Cache
@@ -94,6 +95,7 @@ func main() {
 	flag.IntVar(&postLimitAvg, "post-limit-avg", 2, "Allowed average post request rate, per minute")
 	flag.Int64Var(&postLimitBurst, "post-limit-burst", postLimitBurst, "Allowed burst post requests")
 	flag.StringVar(&permRelaysFile, "perm-relays", "", "Path to list of permanent relays")
+	flag.StringVar(&ipHeader, "ip-header", "", "Name of header which holds clients ip:port. Only meaningful when running behind a reverse proxy.")
 
 	flag.Parse()
 
@@ -236,6 +238,9 @@ func mimeTypeForFile(file string) string {
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
+	if ipHeader != "" {
+		r.RemoteAddr = r.Header.Get(ipHeader)
+	}
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	switch r.Method {
 	case "GET":
