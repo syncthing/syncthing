@@ -13,6 +13,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 // The Committer interface is implemented by objects that need to know about
@@ -321,5 +322,5 @@ func (w *Wrapper) GlobalDiscoveryServers() []string {
 			servers = append(servers, srv)
 		}
 	}
-	return uniqueStrings(servers)
+	return util.UniqueStrings(servers)
 }

@@ -11,15 +11,13 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"io"
-	"math/rand"
 	"net/url"
 	"os"
-	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 const (
@@ -55,9 +53,9 @@ func New(myID protocol.DeviceID) Configuration {
 	cfg.Version = CurrentVersion
 	cfg.OriginalVersion = CurrentVersion
 
-	setDefaults(&cfg)
-	setDefaults(&cfg.Options)
-	setDefaults(&cfg.GUI)
+	util.SetDefaults(&cfg)
+	util.SetDefaults(&cfg.Options)
+	util.SetDefaults(&cfg.GUI)
 
 	cfg.prepare(myID)
 
@@ -67,9 +65,9 @@ func New(myID protocol.DeviceID) Configuration {
 func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	var cfg Configuration
 
-	setDefaults(&cfg)
-	setDefaults(&cfg.Options)
-	setDefaults(&cfg.GUI)
+	util.SetDefaults(&cfg)
+	util.SetDefaults(&cfg.Options)
+	util.SetDefaults(&cfg.GUI)
 
 	err := xml.NewDecoder(r).Decode(&cfg)
 	cfg.OriginalVersion = cfg.Version
@@ -81,9 +79,9 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	var cfg Configuration
 
-	setDefaults(&cfg)
-	setDefaults(&cfg.Options)
-	setDefaults(&cfg.GUI)
+	util.SetDefaults(&cfg)
+	util.SetDefaults(&cfg.Options)
+	util.SetDefaults(&cfg.GUI)
 
 	err := json.NewDecoder(r).Decode(&cfg)
 	cfg.OriginalVersion = cfg.Version
@@ -140,7 +138,7 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 }
 
 func (cfg *Configuration) prepare(myID protocol.DeviceID) {
-	fillNilSlices(&cfg.Options)
+	util.FillNilSlices(&cfg.Options)
 
 	// Initialize any empty slices
 	if cfg.Folders == nil {
@@ -168,8 +166,8 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		}
 	}
 
-	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
-	cfg.Options.GlobalAnnServers = uniqueStrings(cfg.Options.GlobalAnnServers)
+	cfg.Options.ListenAddress = util.UniqueStrings(cfg.Options.ListenAddress)
+	cfg.Options.GlobalAnnServers = util.UniqueStrings(cfg.Options.GlobalAnnServers)
 
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
 		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
@@ -224,7 +222,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 
 	if cfg.GUI.RawAPIKey == "" {
-		cfg.GUI.RawAPIKey = randomString(32)
+		cfg.GUI.RawAPIKey = util.RandomString(32)
 	}
 }
 
@@ -287,98 +285,6 @@ func convertV10V11(cfg *Configuration) {
 	cfg.Version = 11
 }
 
-func setDefaults(data interface{}) error {
-	s := reflect.ValueOf(data).Elem()
-	t := s.Type()
-
-	for i := 0; i < s.NumField(); i++ {
-		f := s.Field(i)
-		tag := t.Field(i).Tag
-
-		v := tag.Get("default")
-		if len(v) > 0 {
-			switch f.Interface().(type) {
-			case string:
-				f.SetString(v)
-
-			case int:
-				i, err := strconv.ParseInt(v, 10, 64)
-				if err != nil {
-					return err
-				}
-				f.SetInt(i)
-
-			case float64:
-				i, err := strconv.ParseFloat(v, 64)
-				if err != nil {
-					return err
-				}
-				f.SetFloat(i)
-
-			case bool:
-				f.SetBool(v == "true")
-
-			case []string:
-				// We don't do anything with string slices here. Any default
-				// we set will be appended to by the XML decoder, so we fill
-				// those after decoding.
-
-			default:
-				panic(f.Type())
-			}
-		}
-	}
-	return nil
-}
-
-// fillNilSlices sets default value on slices that are still nil.
-func fillNilSlices(data interface{}) error {
-	s := reflect.ValueOf(data).Elem()
-	t := s.Type()
-
-	for i := 0; i < s.NumField(); i++ {
-		f := s.Field(i)
-		tag := t.Field(i).Tag
-
-		v := tag.Get("default")
-		if len(v) > 0 {
-			switch f.Interface().(type) {
-			case []string:
-				if f.IsNil() {
-					// Treat the default as a comma separated slice
-					vs := strings.Split(v, ",")
-					for i := range vs {
-						vs[i] = strings.TrimSpace(vs[i])
-					}
-
-					rv := reflect.MakeSlice(reflect.TypeOf([]string{}), len(vs), len(vs))
-					for i, v := range vs {
-						rv.Index(i).SetString(v)
-					}
-					f.Set(rv)
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func uniqueStrings(ss []string) []string {
-	var m = make(map[string]bool, len(ss))
-	for _, s := range ss {
-		m[strings.Trim(s, " ")] = true
-	}
-
-	var us = make([]string, 0, len(m))
-	for k := range m {
-		us = append(us, k)
-	}
-
-	sort.Strings(us)
-
-	return us
-}
-
 func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.DeviceID) []FolderDeviceConfiguration {
 	for _, device := range devices {
 		if device.DeviceID.Equals(myID) {
@@ -424,19 +330,6 @@ loop:
 		i++
 	}
 	return devices[0:count]
-}
-
-// randomCharset contains the characters that can make up a randomString().
-const randomCharset = "01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-"
-
-// randomString returns a string of random characters (taken from
-// randomCharset) of the specified length.
-func randomString(l int) string {
-	bs := make([]byte, l)
-	for i := range bs {
-		bs[i] = randomCharset[rand.Intn(len(randomCharset))]
-	}
-	return string(bs)
 }
 
 func tcpAddr(host string) string {

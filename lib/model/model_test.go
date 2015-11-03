@@ -8,11 +8,11 @@ package model
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -269,10 +270,13 @@ func BenchmarkRequest(b *testing.B) {
 		id:          device1,
 		requestData: []byte("some data to return"),
 	}
-	m.AddConnection(Connection{
-		&net.TCPConn{},
+	m.AddConnection(connections.Connection{
+		connections.IntermediateConnection{
+			&tls.Conn{},
+			"test",
+			9000,
+		},
 		fc,
-		ConnectionTypeDirectAccept,
 	})
 	m.Index(device1, "default", files, 0, nil)
 
@@ -312,10 +316,13 @@ func TestDeviceRename(t *testing.T) {
 		requestData: []byte("some data to return"),
 	}
 
-	m.AddConnection(Connection{
-		&net.TCPConn{},
+	m.AddConnection(connections.Connection{
+		connections.IntermediateConnection{
+			nil,
+			"test",
+			9000,
+		},
 		fc,
-		ConnectionTypeDirectAccept,
 	})
 
 	m.ServeBackground()

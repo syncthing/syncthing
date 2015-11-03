@@ -62,7 +62,6 @@ func WriteMessage(w io.Writer, message interface{}) error {
 	}
 
 	header.messageLength = int32(len(payload))
-
 	headerpayload, err := header.MarshalXDR()
 	if err != nil {
 		return err

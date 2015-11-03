@@ -15,22 +15,20 @@ import (
 )
 
 func TestCacheUnique(t *testing.T) {
-	direct0 := []string{"tcp://192.0.2.44:22000", "tcp://192.0.2.42:22000"} // prio 0
-	direct1 := []string{"tcp://192.0.2.43:22000", "tcp://192.0.2.42:22000"} // prio 1
+	direct0 := []string{"tcp://192.0.2.44:22000", "tcp://192.0.2.42:22000", "relay://192.0.2.44:443"} // prio 0
+	direct1 := []string{"tcp://192.0.2.43:22000", "tcp://192.0.2.42:22000", "relay://192.0.2.45:443"} // prio 1
 
 	// what we expect from just direct0
-	direct0Sorted := []string{"tcp://192.0.2.42:22000", "tcp://192.0.2.44:22000"}
+	direct0Sorted := []string{"relay://192.0.2.44:443", "tcp://192.0.2.42:22000", "tcp://192.0.2.44:22000"}
 
 	// what we expect from direct0+direct1
 	totalSorted := []string{
 		// first prio 0, sorted
-		"tcp://192.0.2.42:22000", "tcp://192.0.2.44:22000",
+		"relay://192.0.2.44:443", "tcp://192.0.2.42:22000", "tcp://192.0.2.44:22000",
 		// then prio 1
-		"tcp://192.0.2.43:22000",
+		"relay://192.0.2.45:443", "tcp://192.0.2.43:22000",
 		// no duplicate .42
 	}
-
-	relays := []Relay{{URL: "relay://192.0.2.44:443"}, {URL: "tcp://192.0.2.45:443"}}
 
 	c := NewCachingMux()
 	c.ServeBackground()
@@ -39,45 +37,38 @@ func TestCacheUnique(t *testing.T) {
 	// Add a fake discovery service and verify we get it's answers through the
 	// cache.
 
-	f1 := &fakeDiscovery{direct0, relays}
+	f1 := &fakeDiscovery{direct0}
 	c.Add(f1, time.Minute, 0, 0)
 
-	dir, rel, err := c.Lookup(protocol.LocalDeviceID)
+	addrs, err := c.Lookup(protocol.LocalDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(dir, direct0Sorted) {
-		t.Errorf("Incorrect direct; %+v != %+v", dir, direct0Sorted)
-	}
-	if !reflect.DeepEqual(rel, relays) {
-		t.Errorf("Incorrect relays; %+v != %+v", rel, relays)
+	if !reflect.DeepEqual(addrs, direct0Sorted) {
+		t.Errorf("Incorrect addresses; %+v != %+v", addrs, direct0Sorted)
 	}
 
 	// Add one more that answers in the same way and check that we don't
 	// duplicate or otherwise mess up the responses now.
 
-	f2 := &fakeDiscovery{direct1, relays}
+	f2 := &fakeDiscovery{direct1}
 	c.Add(f2, time.Minute, 0, 1)
 
-	dir, rel, err = c.Lookup(protocol.LocalDeviceID)
+	addrs, err = c.Lookup(protocol.LocalDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(dir, totalSorted) {
-		t.Errorf("Incorrect direct; %+v != %+v", dir, totalSorted)
-	}
-	if !reflect.DeepEqual(rel, relays) {
-		t.Errorf("Incorrect relays; %+v != %+v", rel, relays)
+	if !reflect.DeepEqual(addrs, totalSorted) {
+		t.Errorf("Incorrect addresses; %+v != %+v", addrs, totalSorted)
 	}
 }
 
 type fakeDiscovery struct {
-	direct []string
-	relays []Relay
+	addresses []string
 }
 
-func (f *fakeDiscovery) Lookup(deviceID protocol.DeviceID) (direct []string, relays []Relay, err error) {
-	return f.direct, f.relays, nil
+func (f *fakeDiscovery) Lookup(deviceID protocol.DeviceID) (addresses []string, err error) {
+	return f.addresses, nil
 }
 
 func (f *fakeDiscovery) Error() error {

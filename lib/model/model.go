@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -86,7 +87,7 @@ type Model struct {
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut               sync.RWMutex                                           // protects the above
 
-	conn         map[protocol.DeviceID]Connection
+	conn         map[protocol.DeviceID]connections.Connection
 	deviceVer    map[protocol.DeviceID]string
 	devicePaused map[protocol.DeviceID]bool
 	pmut         sync.RWMutex // protects the above
@@ -126,7 +127,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderRunners:      make(map[string]service),
 		folderRunnerTokens: make(map[string][]suture.ServiceToken),
 		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
-		conn:               make(map[protocol.DeviceID]Connection),
+		conn:               make(map[protocol.DeviceID]connections.Connection),
 		deviceVer:          make(map[protocol.DeviceID]string),
 		devicePaused:       make(map[protocol.DeviceID]bool),
 
@@ -285,7 +286,7 @@ type ConnectionInfo struct {
 	Paused        bool
 	Address       string
 	ClientVersion string
-	Type          ConnectionType
+	Type          string
 }
 
 func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
@@ -297,7 +298,7 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 		"paused":        info.Paused,
 		"address":       info.Address,
 		"clientVersion": info.ClientVersion,
-		"type":          info.Type.String(),
+		"type":          info.Type,
 	})
 }
 
@@ -619,10 +620,9 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		"clientVersion": cm.ClientVersion,
 	}
 
-	if conn, ok := m.conn[deviceID]; ok {
-		event["type"] = conn.Type.String()
-		addr := conn.RemoteAddr()
-		if addr != nil {
+	if conn, ok := m.conn[deviceID]; ok && conn.Conn != nil {
+		event["type"] = conn.Type
+		if addr := conn.RemoteAddr(); addr != nil {
 			event["addr"] = addr.String()
 		}
 	}
@@ -945,7 +945,7 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
-func (m *Model) AddConnection(conn Connection) {
+func (m *Model) AddConnection(conn connections.Connection) {
 	deviceID := conn.ID()
 
 	m.pmut.Lock()
