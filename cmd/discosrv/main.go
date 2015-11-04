@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/thejerf/suture"
 )
 
@@ -53,6 +54,9 @@ func main() {
 	if err != nil {
 		log.Fatalln("Failed to load X509 key pair:", err)
 	}
+
+	devID := protocol.NewDeviceID(cert.Certificate[0])
+	log.Println("Server device ID is", devID)
 
 	db, err := sql.Open(backend, dsn)
 	if err != nil {
