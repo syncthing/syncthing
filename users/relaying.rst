@@ -1,9 +1,9 @@
 .. _relaying:
 
-.. versionadded:: 0.12.0
-
 Relaying
 ========
+
+.. versionadded:: 0.12.0
 
 Syncthing can bounce traffic via a *relay* when it's not possible to establish
 a direct connection between two devices. There are a number of public relays
