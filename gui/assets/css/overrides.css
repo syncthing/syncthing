@@ -22,6 +22,11 @@
     white-space: nowrap;
 }
 
+.nav>li>a:hover, .nav>li>a:focus {
+    text-decoration: none;
+    background-color: #82ce51;
+}
+
 .navbar-default, .navbar-collapse, .navbar, .navbar-static-top, .navbar-static-top, .navbar-fixed-top, .navbar-fixed-bottom {
 	min-height: 70px !important;
 	margin:0px !important;
@@ -32,11 +37,17 @@
 
 }
 
+.navbar-container {
+    margin-left: 0px;
+}
+
 .navbar-collapse a {
 	color:#ffffff !important;
 	font-family: 'Oswald';
 	letter-spacing: 1px;
 	font-size: 16px;
+	text-transform: uppercase;
+	border-left: 1px solid #80c156;
 }
 
 li {
@@ -163,8 +174,9 @@ identicon {
 .logo {
     margin: 0;
     padding: 0;
-    top: -5px;
     position: relative;
+    margin-left: -15px;
+    margin-top: 2px;
 }
 
 .list-no-bullet {
