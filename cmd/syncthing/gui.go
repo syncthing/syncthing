@@ -562,8 +562,7 @@ func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	s.systemConfigMut.Lock()
 	defer s.systemConfigMut.Unlock()
 
-	var to config.Configuration
-	err := json.NewDecoder(r.Body).Decode(&to)
+	to, err := config.ReadJSON(r.Body, myID)
 	if err != nil {
 		l.Warnln("decoding posted config:", err)
 		http.Error(w, err.Error(), 500)

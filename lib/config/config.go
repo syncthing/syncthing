@@ -8,6 +8,7 @@
 package config
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"io"
 	"math/rand"
@@ -83,6 +84,20 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	return cfg, err
 }
 
+func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
+	var cfg Configuration
+
+	setDefaults(&cfg)
+	setDefaults(&cfg.Options)
+	setDefaults(&cfg.GUI)
+
+	err := json.NewDecoder(r).Decode(&cfg)
+	cfg.OriginalVersion = cfg.Version
+
+	cfg.prepare(myID)
+	return cfg, err
+}
+
 type Configuration struct {
 	Version        int                   `xml:"version,attr" json:"version"`
 	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
@@ -133,7 +148,7 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	fillNilSlices(&cfg.Options)
 
-	// Initialize an empty slices
+	// Initialize any empty slices
 	if cfg.Folders == nil {
 		cfg.Folders = []FolderConfiguration{}
 	}
