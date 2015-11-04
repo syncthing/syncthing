@@ -33,7 +33,7 @@ certificate was presented, status ``403`` (Forbidden) is returned. If the
 posted data doesn't conform to the expected format, ``400`` (Bad Request) is
 returned.
 
-In successfull responses, the server may return a ``Reannounce-After"``header
+In successfull responses, the server may return a ``Reannounce-After`` header
 containing the number of seconds after which the client should perform a new
 announcement.
 

@@ -124,11 +124,12 @@ Session mode
 
 The first and only message the client sends in the session mode is the
 SessionInvitation message which contains the session key identifying which
-session you are trying to join.
-.. The relay responds with one of the following Response messages:
-   1. ResponseNotFound - Session key is invalid
-   2. ResponseAlreadyConnected - Session is full (both sides already connected)
-   3. ResponseSuccess - You have successfully joined the session
+session you are trying to join. The relay responds with one of the following
+Response messages:
+
+1. ResponseNotFound - Session key is invalid
+2. ResponseAlreadyConnected - Session is full (both sides already connected)
+3. ResponseSuccess - You have successfully joined the session
 
 After the successful response, all the bytes written and received will be
 relayed between the two devices in the session directly.
