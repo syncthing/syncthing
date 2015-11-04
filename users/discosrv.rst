@@ -1,6 +1,8 @@
 Running a Discovery Server
 ==========================
 
+.. note:: This describes the procedure for a v0.12 discovery server.
+
 Description
 -----------
 
@@ -21,20 +23,6 @@ running ``discosrv`` doesn't have permission to do so, create the directory
 and set the owner appropriately or use the command line switches (see below)
 to select a different location.
 
-Pointing Syncthing at Your Discovery Server
--------------------------------------------
-
-By default, Syncthing uses the global discovery servers at
-``announce.syncthing.net`` (IPv4) and ``announce-v6.syncthing.net`` (IPv6). To
-make Syncthing use your own instance of discosrv, open up Syncthing's web GUI.
-Go to settings, Global Discovery Server and add discosrv's host address to the
-comma-separated list, e.g. ``udp4://server_address_or_ip.tld:port_number``.
-Note that discosrv uses port 22026 by default. For discosrv to be available
-over the internet with a dynamic ip address, you will need a dynamic DNS
-service.
-
-|Settings Screenshot|
-
 Configuring
 -----------
 
@@ -44,85 +32,66 @@ gives you all the tweakables with their defaults:
 
 ::
 
-    -db-dir="/var/discosrv/db": Database directory
-    -debug=false: Enable debug output
-    -limit-avg=1: Allowed average package rate, per 10 s
-    -limit-burst=10: Allowed burst size, packets
-    -limit-cache=1024: Limiter cache entries
-    -listen=":22026": Listen address
-    -stats-file="/var/discosrv/stats": Statistics file name
-    -stats-intv=0: Statistics output interval (s)
-    -timestamp=true: Timestamp the log output
-    -unknown-file="": Unknown packet log file name
+  Usage of discosrv:
+    -cert string
+        Certificate file (default "cert.pem")
+    -db-backend string
+        Database backend to use (default "ql")
+    -db-dsn string
+        Database DSN (default "memory://discosrv")
+    -debug
+        Debug
+    -key string
+        Key file (default "key.pem")
+    -limit-avg int
+        Allowed average package rate, per 10 s (default 5)
+    -limit-burst int
+        Allowed burst size, packets (default 20)
+    -limit-cache int
+        Limiter cache entries (default 10240)
+    -listen string
+        Listen address (default ":8443")
+    -stats-file string
+        File to write periodic operation stats to
 
-Linux
-~~~~~
+Certificates
+^^^^^^^^^^^^
 
-The following instructions enables a ``discosrv`` instance on a Ubuntu server,
-and assumes the user has knowledge of basic linux commands.
+The discovery server provides service over HTTPS. To ensure secure connections
+from clients there are two options:
 
-- Copy the discosrv executable to /usr/local/bin and set permissions
-  as follows: user root, group root, permissions 0755
+- Use a CA-signed certificate pair for the domain name you will use for the
+  discovery server. This is like any other HTTPS website; clients will
+  authenticate the server based on it's certificate and domain name.
 
-- Using putty, login to your VPS and enter the following commands::
+- Use any certificate pair and let clients authenticate the server based on
+  it's "device ID" (similar to Syncthing-to-Syncthing authentication). In
+  this case, using `syncthing -generate` is a good option to create a
+  certificate pair.
 
-  $ cd /usr/local/bin
-  $ sudo discosrv -listen=":22026"
+Whichever option you choose, the discovery server must be given the paths to
+the certificate and key at startup::
 
-- Leave 1st terminal open and open a second putty terminal, login to
-  the VPS and execute::
+  $ discosrv -cert /etc/discosrv/disco.example.com-cert.pem -key /etc/discosrv/disco.example.com-key.pem
+  Server device ID is 7DDRT7J-UICR4PM-PBIZYL3-MZOJ7X7-EX56JP6-IK6HHMW-S7EK32W-G3EUPQA
 
-  $ sudo netstat -ulp
+The discovery server prints it's device ID at startup. In the case where you
+are using a non CA signed certificate, this device ID (fingerprint) must be
+given to the clients in the discovery server URL:
 
-  The output should indicate that discosrv is listening on port 22026.
+``https://disco.example.com:8443/?id=7DDRT7J-UICR4PM-PBIZYL3-MZOJ7X7-EX56JP6
+-IK6HHMW-S7EK32W-G3EUPQA``.
 
-- When you close the putty terminals, the installed discosrv will stop
-  running. To enable an "always on" state, add nohup & to the terminal
-  command. The correct command is::
+Pointing Syncthing at Your Discovery Server
+-------------------------------------------
 
-  $ nohup sudo discosrv -listen=":22026" &
+By default, Syncthing uses a number of global discovery servers, signified by
+the entry ``default`` in the list of discovery servers. To make Syncthing use
+your own instance of discosrv, open up Syncthing's web GUI. Go to settings,
+Global Discovery Server and add discosrv's host address to the comma-separated
+list, e.g. ``https://disco.example.com:8443/``. Note that discosrv uses port
+8443 by default. For discosrv to be available over the internet with a dynamic
+IP address, you will need a dynamic DNS service.
 
-  Now when you close the terminal, discosrv will still be running.
-
-- Set the Syncthing WebGUI settings for "Global Discovery Server" to
-  point to ``udp4://your.vps.ip.address:22026`` and restart Syncthing.
-
-Windows
-~~~~~~~
-
-On Windows, it is unusual to have a var folder in a root directory. The
-following batch file will start ``discosrv`` from the current folder and make
-``discosrv`` create and use the current folder for its config. You can easily
-change all available parameters if desired.
-
-::
-
-    @ECHO OFF
-    :: Database directory. Default is "X:\var\discosrv\db", where X is the partition discosrv.exe is executed on.
-    SET db-dir=%CD%\db
-    :: Statistics file name. Default is "X:\var\discosrv\stats", where X is the partition discosrv.exe is executed on - note that this is a text file without extension, not a directory.
-    SET stats-file=%CD%\stats
-    :: Listen address. Default is ":22026".
-    SET listen=:22026
-
-
-    :: These parameters usually don't need tampering. If you don't understand what they do, leave them alone.
-    :: Enable debug output, true/false. Default is "false".
-    SET debug=false
-    :: Allowed average packet rate, per 10s. Default is "1".
-    SET limit-avg=1
-    :: Allowed burst size, packets. Default is "10".
-    SET limit-burst=10
-    :: Limiter cache entries. Default is "1024".
-    SET limit-cache=1024
-    :: Statistics output interval in seconds. Default is "0".
-    SET stats-intv=0
-    :: Enable timestamping the log output. Default is "true".
-    SET timestamp=true
-    :: Unknown packet log file name. Default is an empty string, "".
-    SET unknown-file=
-    ECHO ON
-
-    START "discosrv" /B discosrv.exe -db-dir="%db-dir%" -stats-file="%stats-file%" -listen="%listen%" -debug=%debug% -limit-avg=%limit-avg% -limit-burst=%limit-burst% -limit-cache=%limit-cache% -stats-intv=%stats-intv% -timestamp=%timestamp% -unknown-file="%unknown-file%"
-
-.. |Settings Screenshot| image:: disco-settings.png
+If you wish to use *only* your own discovery server, remove the ``default``
+entry from the list.
