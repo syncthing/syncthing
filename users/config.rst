@@ -47,33 +47,42 @@ The following shows the default configuration file:
 
 .. code-block:: xml
 
-    <configuration version="10">
-        <folder id="default" path="/Users/jb/Sync" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
-            <device id="5SYI2FS-LW6YAXI-JJDYETS-NDBBPIO-256MWBO-XDPXWVG-24QPUM4-PDW4UQU"></device>
+    <configuration version="12">
+        <folder id="default" path="/Users/jb/Sync/" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
+            <device id="3LT2GA5-CQI4XJM-WTZ264P-MLOGMHL-MCRLDNT-MZV4RD3-KA745CL-OGAERQZ"></device>
+            <minDiskFreePct>1</minDiskFreePct>
             <versioning></versioning>
             <copiers>0</copiers>
             <pullers>0</pullers>
             <hashers>0</hashers>
             <order>random</order>
+            <ignoreDelete>false</ignoreDelete>
+            <scanProgressIntervalS>0</scanProgressIntervalS>
+            <pullerSleepS>0</pullerSleepS>
+            <pullerPauseS>0</pullerPauseS>
+            <maxConflicts>0</maxConflicts>
         </folder>
-        <device id="5SYI2FS-LW6YAXI-JJDYETS-NDBBPIO-256MWBO-XDPXWVG-24QPUM4-PDW4UQU" name="syno" compression="metadata" introducer="false">
+        <device id="3LT2GA5-CQI4XJM-WTZ264P-MLOGMHL-MCRLDNT-MZV4RD3-KA745CL-OGAERQZ" name="syno" compression="metadata" introducer="false">
             <address>dynamic</address>
         </device>
         <gui enabled="true" tls="false">
-            <address>127.0.0.1:8384</address>
-            <apikey>l7jSbCqPD95JYZ0g8vi4ZLAMg3ulnN1b</apikey>
+            <address>127.0.0.1:52620</address>
+            <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
         </gui>
         <options>
-            <listenAddress>0.0.0.0:56847</listenAddress>
-            <globalAnnounceServer>udp4://announce.syncthing.net:22026</globalAnnounceServer>
-            <globalAnnounceServer>udp6://announce-v6.syncthing.net:22026</globalAnnounceServer>
+            <listenAddress>tcp://0.0.0.0:22000</listenAddress>
+            <globalAnnounceServer>default</globalAnnounceServer>
             <globalAnnounceEnabled>true</globalAnnounceEnabled>
             <localAnnounceEnabled>true</localAnnounceEnabled>
-            <localAnnouncePort>21025</localAnnouncePort>
-            <localAnnounceMCAddr>[ff32::5222]:21026</localAnnounceMCAddr>
+            <localAnnouncePort>21027</localAnnouncePort>
+            <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
+            <relayServer>dynamic+https://relays.syncthing.net/endpoint</relayServer>
             <maxSendKbps>0</maxSendKbps>
             <maxRecvKbps>0</maxRecvKbps>
             <reconnectionIntervalS>60</reconnectionIntervalS>
+            <relaysEnabled>true</relaysEnabled>
+            <relayReconnectIntervalM>10</relayReconnectIntervalM>
+            <relayWithoutGlobalAnn>false</relayWithoutGlobalAnn>
             <startBrowser>true</startBrowser>
             <upnpEnabled>true</upnpEnabled>
             <upnpLeaseMinutes>60</upnpLeaseMinutes>
@@ -81,6 +90,9 @@ The following shows the default configuration file:
             <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
             <urAccepted>0</urAccepted>
             <urUniqueID></urUniqueID>
+            <urURL>https://data.syncthing.net/newdata</urURL>
+            <urPostInsecurely>false</urPostInsecurely>
+            <urInitialDelayS>1800</urInitialDelayS>
             <restartOnWakeup>true</restartOnWakeup>
             <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
             <keepTemporariesH>24</keepTemporariesH>
@@ -89,6 +101,8 @@ The following shows the default configuration file:
             <symlinksEnabled>true</symlinksEnabled>
             <limitBandwidthInLan>false</limitBandwidthInLan>
             <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
+            <minHomeDiskFreePct>1</minHomeDiskFreePct>
+            <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
         </options>
     </configuration>
 
@@ -106,13 +120,19 @@ Folder Element
 
 .. code-block:: xml
 
-    <folder id="default" path="/Users/jb/Sync" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
-        <device id="5SYI2FS-LW6YAXI-JJDYETS-NDBBPIO-256MWBO-XDPXWVG-24QPUM4-PDW4UQU"></device>
+    <folder id="default" path="/Users/jb/Sync/" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
+        <device id="3LT2GA5-CQI4XJM-WTZ264P-MLOGMHL-MCRLDNT-MZV4RD3-KA745CL-OGAERQZ"></device>
+        <minDiskFreePct>1</minDiskFreePct>
         <versioning></versioning>
         <copiers>0</copiers>
         <pullers>0</pullers>
         <hashers>0</hashers>
         <order>random</order>
+        <ignoreDelete>false</ignoreDelete>
+        <scanProgressIntervalS>0</scanProgressIntervalS>
+        <pullerSleepS>0</pullerSleepS>
+        <pullerPauseS>0</pullerPauseS>
+        <maxConflicts>0</maxConflicts>
     </folder>
 
 One or more ``folder`` elements must be present in the file. Each element
@@ -149,6 +169,11 @@ device
     Syncthing will currently add this automatically if it is not present in
     the configuration file.
 
+minDiskFreePct
+    The percentage of space that should be available on the disk this folder
+    resides. The folder will be stopped when the percentage of free space goes
+    below the threshold. Set to zero to disable.
+
 versioning
     Specifies a versioning configuration.
 
@@ -178,6 +203,24 @@ order
     oldestFirst, newestFirst
         Pull files ordered by modification time; oldest and newest first
         respectively.
+
+ignoreDelete
+    When set to true, this device will pretend not to see instructions to
+    delete files from other devices.
+
+scanProgressIntervalS
+    The interval with which scan progress information is sent to the GUI. Zero
+    means the default value (two seconds).
+
+pullerSleepS, pullerPauseS
+    Tweaks for rate limiting the puller. Don't change these unless you know
+    what you're doing.
+
+maxConflicts
+    The maximum number of conflict copies to keep around for any given file.
+    The default, -1, means an unlimited number. Setting this to zero disables
+    conflict copies altogether.
+
 
 Device Element
 --------------
@@ -297,16 +340,19 @@ Options Element
 .. code-block:: xml
 
     <options>
-        <listenAddress>0.0.0.0:56847</listenAddress>
-        <globalAnnounceServer>udp4://announce.syncthing.net:22026</globalAnnounceServer>
-        <globalAnnounceServer>udp6://announce-v6.syncthing.net:22026</globalAnnounceServer>
+        <listenAddress>tcp://0.0.0.0:22000</listenAddress>
+        <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>true</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
-        <localAnnouncePort>21025</localAnnouncePort>
-        <localAnnounceMCAddr>[ff32::5222]:21026</localAnnounceMCAddr>
+        <localAnnouncePort>21027</localAnnouncePort>
+        <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
+        <relayServer>dynamic+https://relays.syncthing.net/endpoint</relayServer>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>60</reconnectionIntervalS>
+        <relaysEnabled>true</relaysEnabled>
+        <relayReconnectIntervalM>10</relayReconnectIntervalM>
+        <relayWithoutGlobalAnn>false</relayWithoutGlobalAnn>
         <startBrowser>true</startBrowser>
         <upnpEnabled>true</upnpEnabled>
         <upnpLeaseMinutes>60</upnpLeaseMinutes>
@@ -314,6 +360,9 @@ Options Element
         <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
         <urAccepted>0</urAccepted>
         <urUniqueID></urUniqueID>
+        <urURL>https://data.syncthing.net/newdata</urURL>
+        <urPostInsecurely>false</urPostInsecurely>
+        <urInitialDelayS>1800</urInitialDelayS>
         <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
         <keepTemporariesH>24</keepTemporariesH>
@@ -322,20 +371,26 @@ Options Element
         <symlinksEnabled>true</symlinksEnabled>
         <limitBandwidthInLan>false</limitBandwidthInLan>
         <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
-        <pingTimeoutS>60</pingTimeoutS>
-        <pingIdleTimeS>120</pingIdleTimeS>
+        <minHomeDiskFreePct>1</minHomeDiskFreePct>
+        <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
     </options>
 
 The ``options`` element contains all other global configuration options.
 
 listenAddress
     The listen address for incoming sync connections. See the ``address``
-    element under the `GUI Element`_ for allowed syntax.
+    element under the `GUI Element`_ for allowed syntax, with the addition
+    that the address must have a protocol scheme prefix. Currently ``tcp://``
+    is the only supported protocol scheme.
 
 globalAnnounceServer
-    A URI to a global announce (discovery) server. Allowed protocol prefixes
-    are ``udp4://`` (UDP over IPv4), ``udp6://`` (UDP over IPv6) and
-    ``udp://`` (UDP over any available protocol).
+    A URI to a global announce (discovery) server, or the word ``default`` to
+    include the default servers. Any number of globalAnnounceServer elements
+    may be present. The syntax for non-default entries is that of a HTTP or
+    HTTPS URL. A number of options may be added as query options to the URL:
+    ``insecure`` to prevent certificate validation (required for HTTP URLs)
+    and ``id=<device ID>`` to perform certificate pinning. The device ID to
+    use is printed by the discovery server on startup.
 
 globalAnnounceEnabled
     Whether to announce this device to the global announce (discovery) server,
@@ -351,6 +406,12 @@ localAnnouncePort
 localAnnounceMCAddr
     The group address and port to join and send IPv6 multicast announcements on.
 
+relayServer
+    Lists one or more relay servers, on the format ``relay://hostname:port``.
+    Alternatively, a relay list can be loaded over https by using an URL like
+    ``dynamic+https://somehost/path``. The default loads the list of relays
+    from the relay pool server, ``relays.syncthing.net``.
+
 maxSendKbps
     Outgoing data rate limit, in kibibits per second.
 
@@ -360,6 +421,17 @@ maxRecvKbps
 reconnectionIntervalS
     The number of seconds to wait between each attempt to connect to currently
     unconnected devices.
+
+relaysEnabled
+    When true, relays will be connected to and potentially used for device to device connections.
+
+relayReconnectIntervalM
+    Sets the interval, in minutes, between relay reconnect attempts.
+
+relayWithoutGlobalAnn
+    When set to true, relay connections will be attempted even when global
+    discovery is disabled. This is useful only in the case where devices are
+    known to be connected to the same relays. The default is ``false``.
 
 startBrowser
     Whether to attempt to start a browser to show the GUI when Syncthing starts.
@@ -386,6 +458,17 @@ urAccepted
 urUniqueID
     The unique ID sent together with the usage report. Generated when usage
     reporting is enabled.
+
+urURL
+    The URL to post usage report data to, when enabled.
+
+urPostInsecurely
+    When true, the UR URL can be http instead of https, or have a self signed
+    certificate. The default is ``false``.
+
+urInitialDelayS
+    The time to wait from startup to the first usage report being sent. Allows
+    the system to stabilize before reporting statistics.
 
 restartOnWakeup
     Whether to perform a restart of Syncthing when it is detected that we are
@@ -424,3 +507,10 @@ pingTimeoutS
 
 pingIdleTimeS
     ping interval in seconds. Don't change it unless you feel it's necessary.
+
+minHomeDiskFreePct
+    The percentage of space that should be available on the partition holding
+    the configuration and index.
+
+releasesURL
+    The URL from which release information is loaded, for automatic upgrades.
