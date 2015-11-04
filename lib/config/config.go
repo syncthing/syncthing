@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/protocol"
-	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -201,16 +200,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 	if cfg.Version == 11 {
 		convertV11V12(cfg)
-	}
-
-	// Hash old cleartext passwords
-	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
-		hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
-		if err != nil {
-			l.Warnln("bcrypting password:", err)
-		} else {
-			cfg.GUI.Password = string(hash)
-		}
 	}
 
 	// Build a list of available devices
