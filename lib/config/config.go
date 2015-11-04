@@ -247,37 +247,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 }
 
-// ChangeRequiresRestart returns true if updating the configuration requires a
-// complete restart.
-func ChangeRequiresRestart(from, to Configuration) bool {
-	// Adding, removing or changing folders requires restart
-	if !reflect.DeepEqual(from.Folders, to.Folders) {
-		return true
-	}
-
-	// Removing a device requres restart
-	toDevs := make(map[protocol.DeviceID]bool, len(from.Devices))
-	for _, dev := range to.Devices {
-		toDevs[dev.DeviceID] = true
-	}
-	for _, dev := range from.Devices {
-		if _, ok := toDevs[dev.DeviceID]; !ok {
-			return true
-		}
-	}
-
-	// Changing usage reporting to on or off does not require a restart.
-	to.Options.URAccepted = from.Options.URAccepted
-	to.Options.URUniqueID = from.Options.URUniqueID
-
-	// All of the generic options require restart
-	if !reflect.DeepEqual(from.Options, to.Options) || !reflect.DeepEqual(from.GUI, to.GUI) {
-		return true
-	}
-
-	return false
-}
-
 func convertV11V12(cfg *Configuration) {
 	// Change listen address schema
 	for i, addr := range cfg.Options.ListenAddress {
