@@ -7,6 +7,69 @@
 
 */
 
+.dropdown-menu>li>a:hover, .dropdown-menu>li>a:focus {
+    text-decoration: none;
+    color: #262626 !important;
+    background-color: #f5f5f5;
+}
+.dropdown-menu>li>a {
+    display: block;
+    padding: 3px 20px;
+    clear: both;
+    font-weight: normal;
+    line-height: 1.5;
+    color: #333 !important;
+    white-space: nowrap;
+}
+
+.navbar-default, .navbar-collapse, .navbar, .navbar-static-top, .navbar-static-top, .navbar-fixed-top, .navbar-fixed-bottom {
+	min-height: 70px !important;
+	margin:0px !important;
+	/* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#309c44+0,97c458+78 */
+	background: #73b64a; /* Old browsers */
+	background-image: linear-gradient(to bottom,  #73b64a 0%,#73b64a 100%) !important; /* W3C */
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#73b64a', endColorstr='#97C458',GradientType=0 ); /* IE6-9 */
+
+}
+
+.navbar-collapse a {
+	color:#ffffff !important;
+	font-family: 'Oswald';
+	letter-spacing: 1px;
+	font-size: 16px;
+}
+
+li {
+	color:#82ce51 !important;
+	font-family: 'Oswald';
+	letter-spacing: 1px;
+	font-size: 16px;
+}
+
+ul.nav, ul.navbar-nav {
+	float: right;
+
+}
+
+.navbar-brand {
+	margin-top: -13px;
+}
+
+.navbar-default .navbar-nav li a {
+	min-height: 69px !important;
+	color:#ffffff !important;
+	font-family: 'Oswald';
+	letter-spacing: 1px;
+	font-size: 14px;
+	text-transform: uppercase;
+	padding: 25px 18px 20px 18px;
+	border-left: 1px solid #80c156;
+}
+.navbar-default .navbar-nav li a:hover {
+	background-color: #82ce51 !important;
+	display: block;
+}
+
 body {
     padding-bottom: 70px;
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;

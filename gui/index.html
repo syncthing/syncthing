@@ -26,11 +26,18 @@
 <body>
   <!-- Top bar -->
 
-  <nav class="navbar navbar-top navbar-default" role="navigation">
+<!--  <nav class="navbar navbar-top navbar-default" role="navigation">-->
+    <nav class="navbar-collapse collapse navbar-responsive-collapse" role="navigation">
+
     <div class="container">
-      <span class="navbar-brand"><img class="logo" src="assets/img/GreenDashLogo.png" height="62" width="117" /></span>
+      <span class="navbar-brand"><img class="logo" src="assets/img/WhiteDashlogo.png" height="62" width="117" /></span>
       <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
+        <li class="hidden-xs">
+          <a href="http://localhost:3000/companies/1?" target="_blank">
+			  <span translate>Dashboard</span>
+          </a>
+        </li>
         <li class="dropdown" language-select></li>
         <li class="hidden-xs">
           <a href="http://mydash.xyz" target="_blank">
