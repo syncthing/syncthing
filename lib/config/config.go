@@ -14,9 +14,7 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -163,35 +161,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	var seenFolders = map[string]*FolderConfiguration{}
 	for i := range cfg.Folders {
 		folder := &cfg.Folders[i]
-
-		if len(folder.RawPath) == 0 {
-			folder.Invalid = "no directory configured"
-			continue
-		}
-
-		// The reason it's done like this:
-		// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
-		// C:\somedir  ->  C:\somedir\    ->  C:\somedir
-		// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
-		// This way in the tests, we get away without OS specific separators
-		// in the test configs.
-		folder.RawPath = filepath.Dir(folder.RawPath + string(filepath.Separator))
-
-		// If we're not on Windows, we want the path to end with a slash to
-		// penetrate symlinks. On Windows, paths must not end with a slash.
-		if runtime.GOOS != "windows" && folder.RawPath[len(folder.RawPath)-1] != filepath.Separator {
-			folder.RawPath = folder.RawPath + string(filepath.Separator)
-		}
-
-		if folder.ID == "" {
-			folder.ID = "default"
-		}
-
-		if folder.RescanIntervalS > MaxRescanIntervalS {
-			folder.RescanIntervalS = MaxRescanIntervalS
-		} else if folder.RescanIntervalS < 0 {
-			folder.RescanIntervalS = 0
-		}
+		folder.prepare()
 
 		if seen, ok := seenFolders[folder.ID]; ok {
 			l.Warnf("Multiple folders with ID %q; disabling", folder.ID)

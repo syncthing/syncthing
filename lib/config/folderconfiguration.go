@@ -109,6 +109,37 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 	return deviceIDs
 }
 
+func (f *FolderConfiguration) prepare() {
+	if len(f.RawPath) == 0 {
+		f.Invalid = "no directory configured"
+		return
+	}
+
+	// The reason it's done like this:
+	// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
+	// C:\somedir  ->  C:\somedir\    ->  C:\somedir
+	// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
+	// This way in the tests, we get away without OS specific separators
+	// in the test configs.
+	f.RawPath = filepath.Dir(f.RawPath + string(filepath.Separator))
+
+	// If we're not on Windows, we want the path to end with a slash to
+	// penetrate symlinks. On Windows, paths must not end with a slash.
+	if runtime.GOOS != "windows" && f.RawPath[len(f.RawPath)-1] != filepath.Separator {
+		f.RawPath = f.RawPath + string(filepath.Separator)
+	}
+
+	if f.ID == "" {
+		f.ID = "default"
+	}
+
+	if f.RescanIntervalS > MaxRescanIntervalS {
+		f.RescanIntervalS = MaxRescanIntervalS
+	} else if f.RescanIntervalS < 0 {
+		f.RescanIntervalS = 0
+	}
+}
+
 type FolderDeviceConfigurationList []FolderDeviceConfiguration
 
 func (l FolderDeviceConfigurationList) Less(a, b int) bool {
