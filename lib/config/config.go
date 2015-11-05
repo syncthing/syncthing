@@ -175,7 +175,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	cfg.Options.ListenAddress = uniqueStrings(cfg.Options.ListenAddress)
 	cfg.Options.GlobalAnnServers = uniqueStrings(cfg.Options.GlobalAnnServers)
 
-	if cfg.Version < OldestHandledVersion {
+	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
 		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
 	}
 

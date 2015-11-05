@@ -104,6 +104,13 @@ func TestDeviceConfig(t *testing.T) {
 			},
 		}
 
+		// The cachedPath will have been resolved to an absolute path,
+		// depending on where the tests are running. Zero it out so we don't
+		// fail based on that.
+		for i := range cfg.Folders {
+			cfg.Folders[i].cachedPath = ""
+		}
+
 		if runtime.GOOS != "windows" {
 			expectedFolders[0].RawPath += string(filepath.Separator)
 		}
