@@ -8,6 +8,7 @@
 package config
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"io"
 	"math/rand"
@@ -21,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/protocol"
-	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -84,6 +84,20 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	return cfg, err
 }
 
+func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
+	var cfg Configuration
+
+	setDefaults(&cfg)
+	setDefaults(&cfg.Options)
+	setDefaults(&cfg.GUI)
+
+	err := json.NewDecoder(r).Decode(&cfg)
+	cfg.OriginalVersion = cfg.Version
+
+	cfg.prepare(myID)
+	return cfg, err
+}
+
 type Configuration struct {
 	Version        int                   `xml:"version,attr" json:"version"`
 	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
@@ -134,7 +148,7 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	fillNilSlices(&cfg.Options)
 
-	// Initialize an empty slices
+	// Initialize any empty slices
 	if cfg.Folders == nil {
 		cfg.Folders = []FolderConfiguration{}
 	}
@@ -206,16 +220,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		convertV12V13(cfg)
 	}
 
-	// Hash old cleartext passwords
-	if len(cfg.GUI.Password) > 0 && cfg.GUI.Password[0] != '$' {
-		hash, err := bcrypt.GenerateFromPassword([]byte(cfg.GUI.Password), 0)
-		if err != nil {
-			l.Warnln("bcrypting password:", err)
-		} else {
-			cfg.GUI.Password = string(hash)
-		}
-	}
-
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
 	for _, device := range cfg.Devices {
@@ -259,37 +263,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.GUI.RawAPIKey == "" {
 		cfg.GUI.RawAPIKey = randomString(32)
 	}
-}
-
-// ChangeRequiresRestart returns true if updating the configuration requires a
-// complete restart.
-func ChangeRequiresRestart(from, to Configuration) bool {
-	// Adding, removing or changing folders requires restart
-	if !reflect.DeepEqual(from.Folders, to.Folders) {
-		return true
-	}
-
-	// Removing a device requres restart
-	toDevs := make(map[protocol.DeviceID]bool, len(from.Devices))
-	for _, dev := range to.Devices {
-		toDevs[dev.DeviceID] = true
-	}
-	for _, dev := range from.Devices {
-		if _, ok := toDevs[dev.DeviceID]; !ok {
-			return true
-		}
-	}
-
-	// Changing usage reporting to on or off does not require a restart.
-	to.Options.URAccepted = from.Options.URAccepted
-	to.Options.URUniqueID = from.Options.URUniqueID
-
-	// All of the generic options require restart
-	if !reflect.DeepEqual(from.Options, to.Options) || !reflect.DeepEqual(from.GUI, to.GUI) {
-		return true
-	}
-
-	return false
 }
 
 func convertV12V13(cfg *Configuration) {

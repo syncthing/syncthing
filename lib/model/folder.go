@@ -948,7 +948,7 @@ func (p *defaultFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyB
 	tempName := filepath.Join(p.dir, defTempNamer.TempName(file.Name))
 	realName := filepath.Join(p.dir, file.Name)
 
-	if hasCurFile {
+	if hasCurFile && !curFile.IsDirectory() && !curFile.IsSymlink() {
 		// Check that the file on disk is what we expect it to be according to
 		// the database. If there's a mismatch here, there might be local
 		// changes that we don't know about yet and we should scan before
