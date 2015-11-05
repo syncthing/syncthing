@@ -94,7 +94,7 @@ func TestRequest(t *testing.T) {
 
 	// device1 shares default, but device2 doesn't
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderMaster("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 	m.ScanFolder("default")
 
@@ -168,7 +168,7 @@ func benchmarkIndex(b *testing.B, nfiles int) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderMaster("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	files := genFiles(nfiles)
@@ -197,7 +197,7 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderMaster("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	files := genFiles(nfiles)
@@ -464,7 +464,7 @@ func TestIgnores(t *testing.T) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderMaster("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	expected := []string{
@@ -598,7 +598,7 @@ func TestROScanRecovery(t *testing.T) {
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
-	m.StartFolderMaster("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	waitFor := func(status string) error {
@@ -682,7 +682,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
-	m.StartFolderDefault("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	waitFor := func(status string) error {
@@ -1193,7 +1193,7 @@ func TestIgnoreDelete(t *testing.T) {
 
 	m.AddFolder(cfg)
 	m.ServeBackground()
-	m.StartFolderDefault("default")
+	m.StartFolder("default")
 	m.ScanFolder("default")
 
 	// Get a currently existing file
