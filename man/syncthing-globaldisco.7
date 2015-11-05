@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-GLOBALDISCO" "7" "October 20, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-GLOBALDISCO" "7" "November 04, 2015" "v0.12" "Syncthing"
 .SH NAME
 syncthing-globaldisco \- Global Discovery Protocol v3
 .
@@ -67,15 +67,7 @@ certificate was presented, status \fB403\fP (Forbidden) is returned. If the
 posted data doesn\(aqt conform to the expected format, \fB400\fP (Bad Request) is
 returned.
 .sp
-In successfull responses, the server may return a 
-.nf
-\(ga\(ga
-.fi
-Reannounce\-After"
-.nf
-\(ga\(ga
-.fi
-header
+In successfull responses, the server may return a \fBReannounce\-After\fP header
 containing the number of seconds after which the client should perform a new
 announcement.
 .sp
