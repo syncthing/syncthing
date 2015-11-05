@@ -158,7 +158,7 @@ Add the following to your ``/etc/supervisord.conf`` file::
     directory = /home/some_user/
     autorestart = True
     user = some_user
-    environment = STNORESTART="1"
+    environment = STNORESTART="1", HOME="home/some_user"
 
 Using systemd
 ~~~~~~~~~~~~~
