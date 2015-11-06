@@ -36,7 +36,8 @@ type FolderConfiguration struct {
 	PullerPauseS          int                         `xml:"pullerPauseS" json:"pullerPauseS"`
 	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
 
-	Invalid string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
+	Invalid    string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
+	cachedPath string
 }
 
 type FolderDeviceConfiguration struct {
@@ -55,28 +56,11 @@ func (f FolderConfiguration) Path() string {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Path() should be valid.
 
-	// Attempt tilde expansion; leave unchanged in case of error
-	if path, err := osutil.ExpandTilde(f.RawPath); err == nil {
-		f.RawPath = path
+	if f.cachedPath == "" {
+		l.Infoln("bug: uncached path call (should only happen in tests)")
+		return f.cleanedPath()
 	}
-
-	// Attempt absolutification; leave unchanged in case of error
-	if !filepath.IsAbs(f.RawPath) {
-		// Abs() looks like a fairly expensive syscall on Windows, while
-		// IsAbs() is a whole bunch of string mangling. I think IsAbs() may be
-		// somewhat faster in the general case, hence the outer if...
-		if path, err := filepath.Abs(f.RawPath); err == nil {
-			f.RawPath = path
-		}
-	}
-
-	// Attempt to enable long filename support on Windows. We may still not
-	// have an absolute path here if the previous steps failed.
-	if runtime.GOOS == "windows" && filepath.IsAbs(f.RawPath) && !strings.HasPrefix(f.RawPath, `\\`) {
-		return `\\?\` + f.RawPath
-	}
-
-	return f.RawPath
+	return f.cachedPath
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
@@ -129,6 +113,8 @@ func (f *FolderConfiguration) prepare() {
 		f.RawPath = f.RawPath + string(filepath.Separator)
 	}
 
+	f.cachedPath = f.cleanedPath()
+
 	if f.ID == "" {
 		f.ID = "default"
 	}
@@ -138,6 +124,33 @@ func (f *FolderConfiguration) prepare() {
 	} else if f.RescanIntervalS < 0 {
 		f.RescanIntervalS = 0
 	}
+}
+
+func (f *FolderConfiguration) cleanedPath() string {
+	cleaned := f.RawPath
+
+	// Attempt tilde expansion; leave unchanged in case of error
+	if path, err := osutil.ExpandTilde(cleaned); err == nil {
+		cleaned = path
+	}
+
+	// Attempt absolutification; leave unchanged in case of error
+	if !filepath.IsAbs(cleaned) {
+		// Abs() looks like a fairly expensive syscall on Windows, while
+		// IsAbs() is a whole bunch of string mangling. I think IsAbs() may be
+		// somewhat faster in the general case, hence the outer if...
+		if path, err := filepath.Abs(cleaned); err == nil {
+			cleaned = path
+		}
+	}
+
+	// Attempt to enable long filename support on Windows. We may still not
+	// have an absolute path here if the previous steps failed.
+	if runtime.GOOS == "windows" && filepath.IsAbs(cleaned) && !strings.HasPrefix(f.RawPath, `\\`) {
+		return `\\?\` + cleaned
+	}
+
+	return cleaned
 }
 
 type FolderDeviceConfigurationList []FolderDeviceConfiguration
