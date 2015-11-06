@@ -109,6 +109,12 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 				when:   time.Now(),
 				found:  len(td)+len(tr) > 0,
 			})
+		} else {
+			// Lookup returned error, add a negative cache entry.
+			m.caches[i].Set(deviceID, CacheEntry{
+				when:  time.Now(),
+				found: false,
+			})
 		}
 	}
 	m.mut.Unlock()
