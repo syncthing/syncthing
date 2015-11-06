@@ -26,9 +26,7 @@ func poolHandler(pool string, uri *url.URL) {
 
 		resp, err := http.Post(pool, "application/json", &b)
 		if err != nil {
-			if debug {
-				log.Println("Error joining pool", pool, err)
-			}
+			log.Println("Error joining pool", pool, err)
 		} else if resp.StatusCode == 500 {
 			if debug {
 				bs, err := ioutil.ReadAll(resp.Body)
@@ -38,17 +36,15 @@ func poolHandler(pool string, uri *url.URL) {
 					log.Println("Response for", pool, string(bs))
 				}
 				resp.Body.Close()
+			} else {
+				log.Println(pool, "failed to join due to an internal server error")
 			}
 		} else if resp.StatusCode == 429 {
-			if debug {
-				log.Println(pool, "under load, will retry in a minute")
-			}
+			log.Println(pool, "under load, will retry in a minute")
 			time.Sleep(time.Minute)
 			continue
 		} else if resp.StatusCode == 403 {
-			if debug {
-				log.Println(pool, "failed to join due to IP address not matching external address")
-			}
+			log.Println(pool, "failed to join due to IP address not matching external address. Aborting")
 			return
 		} else if resp.StatusCode == 200 {
 			var x struct {
@@ -60,9 +56,11 @@ func poolHandler(pool string, uri *url.URL) {
 				log.Println("Joined", pool, "rejoining in", rejoin)
 				time.Sleep(rejoin)
 				continue
-			} else if debug {
+			} else {
 				log.Println("Failed to deserialize response", err)
 			}
+		} else {
+			log.Println(pool, "unknown response type from server", resp.StatusCode)
 		}
 		time.Sleep(time.Hour)
 	}
