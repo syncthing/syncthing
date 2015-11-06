@@ -146,13 +146,14 @@ func (s *querysrv) handleGET(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	globalStats.Query()
+
 	if len(ann.Direct)+len(ann.Relays) == 0 {
-		globalStats.Error()
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	}
 
-	globalStats.Query()
+	globalStats.Answer()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(ann)
