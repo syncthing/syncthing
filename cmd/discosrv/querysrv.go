@@ -66,9 +66,9 @@ func (s *querysrv) Serve() {
 	s.listener = tlsListener
 
 	srv := &http.Server{
-		ReadTimeout:    30 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 2 << 10,
+		ReadTimeout:    5 * time.Second,
+		WriteTimeout:   5 * time.Second,
+		MaxHeaderBytes: 1 << 10,
 	}
 
 	if err := srv.Serve(tlsListener); err != nil {
