@@ -25,6 +25,7 @@ var (
 	certFile    = "cert.pem"
 	keyFile     = "key.pem"
 	debug       = false
+	useHttp     = false
 )
 
 func main() {
@@ -48,15 +49,20 @@ func main() {
 	flag.StringVar(&certFile, "cert", certFile, "Certificate file")
 	flag.StringVar(&keyFile, "key", keyFile, "Key file")
 	flag.BoolVar(&debug, "debug", debug, "Debug")
+	flag.BoolVar(&useHttp, "http", useHttp, "Listen on HTTP (behind an HTTPS proxy)")
 	flag.Parse()
 
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		log.Fatalln("Failed to load X509 key pair:", err)
-	}
+	var cert tls.Certificate
+	var err error
+	if !useHttp {
+		cert, err = tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			log.Fatalln("Failed to load X509 key pair:", err)
+		}
 
-	devID := protocol.NewDeviceID(cert.Certificate[0])
-	log.Println("Server device ID is", devID)
+		devID := protocol.NewDeviceID(cert.Certificate[0])
+		log.Println("Server device ID is", devID)
+	}
 
 	db, err := sql.Open(backend, dsn)
 	if err != nil {
