@@ -20,6 +20,50 @@ You must be reachable on the given email address. If you do not wish to use
 your real name for whatever reason, using a nickname or pseudonym is perfectly
 acceptable.
 
+Team Membership
+---------------
+
+Contributing useful commits via pull requests will at some point get you
+invited to the `Syncthing core team
+<https://github.com/orgs/syncthing/teams/core>`__. This team gives you push
+access to most repositories, subject to the guidelines below.
+
+The `Syncthing maintainers team
+<https://github.com/orgs/syncthing/teams/maintainers>`__ has the same access
+permissions, the added responsibility of reviewing major changes, and the
+ability to invite members into the core team.
+
+Code Review
+-----------
+
+Commits will generally fall into one of the three categories below, with
+different requirements on review.
+
+Trivial:
+  A small change or refactor that is obviously correct. These may be pushed
+  without review by any member of the core team. Examples:
+  `removing dead code <https://github.com/syncthing/syncthing/commits/master>`__,
+  `updating values <https://github.com/syncthing/syncthing/commit/2aa028facb7ccbe48e85c8c444501cc3fb38ef24>`__.
+
+Minor:
+  A new feature, bugfix or refactoring that may need extra eyes on it to weed
+  out mistakes, but is architecturally simple or at least uncontroversial.
+  Minor changes must go through a pull request and can be merged on approval
+  by any other developer on the core or maintainers team. Tests must pass.
+  Examples: `adding caching <https://github.com/syncthing/syncthing/pull/2432/files>`__,
+  `fixing a small bug <https://github.com/syncthing/syncthing/pull/2406/files>`__.
+
+Major:
+  A complex new feature or bugfix, a large refactoring, or a change to the
+  underlying architecture of things. A major change must be reviewed by a
+  member of the *maintainers* team. Tests must pass.
+
+The categorization is inherently subjective; we recommend erring on the side
+of caution - if you are not sure whether a change is *trivial* or merely
+*minor*, it's probably minor.
+
+First time contributions from new developers are always major.
+
 Coding Style
 ------------
 
@@ -110,8 +154,8 @@ Branches
 Tags
 ----
 
-All releases are tagged semver style as ``vx.y.z``. Release tags are
-signed by GPG key 681C3CFCF614F575.
+All releases are tagged semver style as ``vx.y.z``. The maintainer doing the
+release signs the tag using their GPG key.
 
 Licensing
 ---------
