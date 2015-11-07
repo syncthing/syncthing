@@ -87,7 +87,7 @@ const (
 func init() {
 	if Version != "unknown-dev" {
 		// If not a generic dev build, version string should come from git describe
-		exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\+\d+-g[0-9a-f]+)?(-dirty)?$`)
+		exp := regexp.MustCompile(`^v?\d+\.\d+\.\d+(-[a-z0-9]+)*(\+\d+-g[0-9a-f]+)?(-dirty)?$`)
 		if !exp.MatchString(Version) {
 			l.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, exp)
 		}
