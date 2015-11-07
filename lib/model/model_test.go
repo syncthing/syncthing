@@ -33,7 +33,7 @@ func init() {
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 
 	defaultFolderConfig = config.NewFolderConfiguration("default", "testdata")
-	defaultConfig.Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
+	defaultFolderConfig.Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
 	_defaultConfig := config.Configuration{
 		Folders: []config.FolderConfiguration{defaultFolderConfig},
 		Devices: []config.DeviceConfiguration{config.NewDeviceConfiguration(device1, "device1")},
