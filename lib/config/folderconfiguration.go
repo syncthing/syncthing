@@ -44,6 +44,15 @@ type FolderDeviceConfiguration struct {
 	DeviceID protocol.DeviceID `xml:"id,attr" json:"deviceID"`
 }
 
+func NewFolderConfiguration(id, path string) FolderConfiguration {
+	f := FolderConfiguration{
+		ID:      id,
+		RawPath: path,
+	}
+	f.prepare()
+	return f
+}
+
 func (f FolderConfiguration) Copy() FolderConfiguration {
 	c := f
 	c.Devices = make([]FolderDeviceConfiguration, len(f.Devices))

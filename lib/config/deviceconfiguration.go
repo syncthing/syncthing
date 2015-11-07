@@ -17,6 +17,13 @@ type DeviceConfiguration struct {
 	Introducer  bool                 `xml:"introducer,attr" json:"introducer"`
 }
 
+func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {
+	return DeviceConfiguration{
+		DeviceID: id,
+		Name:     name,
+	}
+}
+
 func (orig DeviceConfiguration) Copy() DeviceConfiguration {
 	c := orig
 	c.Addresses = make([]string, len(orig.Addresses))

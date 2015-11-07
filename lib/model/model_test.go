@@ -32,22 +32,11 @@ func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 
-	defaultFolderConfig = config.FolderConfiguration{
-		ID:      "default",
-		RawPath: "testdata",
-		Devices: []config.FolderDeviceConfiguration{
-			{
-				DeviceID: device1,
-			},
-		},
-	}
+	defaultFolderConfig = config.NewFolderConfiguration("default", "testdata")
+	defaultConfig.Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
 	_defaultConfig := config.Configuration{
 		Folders: []config.FolderConfiguration{defaultFolderConfig},
-		Devices: []config.DeviceConfiguration{
-			{
-				DeviceID: device1,
-			},
-		},
+		Devices: []config.DeviceConfiguration{config.NewDeviceConfiguration(device1, "device1")},
 		Options: config.OptionsConfiguration{
 			// Don't remove temporaries directly on startup
 			KeepTemporariesH: 1,

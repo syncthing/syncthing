@@ -904,25 +904,19 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 }
 
 func defaultConfig(myName string) config.Configuration {
+	defaultFolder := config.NewFolderConfiguration("default", locations[locDefFolder])
+	defaultFolder.RescanIntervalS = 60
+	defaultFolder.MinDiskFreePct = 1
+	defaultFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: myID}}
+	defaultFolder.AutoNormalize = true
+	defaultFolder.MaxConflicts = -1
+
+	thisDevice := config.NewDeviceConfiguration(myID, myName)
+	thisDevice.Addresses = []string{"dynamic"}
+
 	newCfg := config.New(myID)
-	newCfg.Folders = []config.FolderConfiguration{
-		{
-			ID:              "default",
-			RawPath:         locations[locDefFolder],
-			RescanIntervalS: 60,
-			MinDiskFreePct:  1,
-			Devices:         []config.FolderDeviceConfiguration{{DeviceID: myID}},
-			AutoNormalize:   true,
-			MaxConflicts:    -1,
-		},
-	}
-	newCfg.Devices = []config.DeviceConfiguration{
-		{
-			DeviceID:  myID,
-			Addresses: []string{"dynamic"},
-			Name:      myName,
-		},
-	}
+	newCfg.Folders = []config.FolderConfiguration{defaultFolder}
+	newCfg.Devices = []config.DeviceConfiguration{thisDevice}
 
 	port, err := getFreePort("127.0.0.1", 8384)
 	if err != nil {
