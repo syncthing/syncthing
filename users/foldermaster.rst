@@ -1,3 +1,5 @@
+.. _folder-master:
+
 Folder Master
 =============
 
