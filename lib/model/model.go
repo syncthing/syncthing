@@ -87,10 +87,11 @@ type Model struct {
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut               sync.RWMutex                                           // protects the above
 
-	conn          map[protocol.DeviceID]Connection
-	helloMessages map[protocol.DeviceID]protocol.HelloMessage
-	devicePaused  map[protocol.DeviceID]bool
-	pmut          sync.RWMutex // protects the above
+	conn              map[protocol.DeviceID]Connection
+	helloMessages     map[protocol.DeviceID]protocol.HelloMessage
+	deviceClusterConf map[protocol.DeviceID]protocol.ClusterConfigMessage
+	devicePaused      map[protocol.DeviceID]bool
+	pmut              sync.RWMutex // protects the above
 }
 
 var (
@@ -129,10 +130,10 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
 		conn:               make(map[protocol.DeviceID]Connection),
 		helloMessages:      make(map[protocol.DeviceID]protocol.HelloMessage),
+		deviceClusterConf:  make(map[protocol.DeviceID]protocol.ClusterConfigMessage),
 		devicePaused:       make(map[protocol.DeviceID]bool),
-
-		fmut: sync.NewRWMutex(),
-		pmut: sync.NewRWMutex(),
+		fmut:               sync.NewRWMutex(),
+		pmut:               sync.NewRWMutex(),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -740,6 +741,7 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 	}
 	delete(m.conn, device)
 	delete(m.helloMessages, device)
+	delete(m.deviceClusterConf, device)
 	m.pmut.Unlock()
 }
 
@@ -1535,6 +1537,10 @@ func (m *Model) numHashers(folder string) int {
 // the given peer device
 func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
 	var message protocol.ClusterConfigMessage
+
+	if m.cfg.Options().ReceiveTempIndexes {
+		message.Flags |= protocol.FlagClusterConfigTemporaryIndexes
+	}
 
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
