@@ -1,4 +1,5 @@
 syncthing
+!etc/firewall-ufw/syncthing
 !gui/syncthing
 !Godeps/_workspace/src/github.com/syncthing
 syncthing.exe
