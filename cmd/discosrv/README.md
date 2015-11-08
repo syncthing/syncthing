@@ -19,7 +19,7 @@ By default it will use in-memory `ql` backend. If you wish to persist the
 information on disk between restarts in `ql`, specify a file DSN:
 
 ```bash
-$ discosrv -db-dsn="file://var/run/discosrv.db"
+$ discosrv -db-dsn="file:///var/run/discosrv.db"
 ```
 
 For `postgres`, you will need to create a database and a user with permissions
