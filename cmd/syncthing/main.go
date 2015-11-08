@@ -621,7 +621,10 @@ func syncthingMain() {
 	}
 
 	protectedFiles := []string{
-		locations[locDatabase], locations[locConfigFile], locations[locCertFile], locations[locKeyFile],
+		locations[locDatabase],
+		locations[locConfigFile],
+		locations[locCertFile],
+		locations[locKeyFile],
 	}
 
 	// Remove database entries for folders that no longer exist in the config
