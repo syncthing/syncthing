@@ -72,15 +72,14 @@ from clients there are two options:
 Whichever option you choose, the discovery server must be given the paths to
 the certificate and key at startup::
 
-  $ discosrv -cert /etc/discosrv/disco.example.com-cert.pem -key /etc/discosrv/disco.example.com-key.pem
+  $ discosrv -cert /path/to/cert.pem -key /path/to/key.pem
   Server device ID is 7DDRT7J-UICR4PM-PBIZYL3-MZOJ7X7-EX56JP6-IK6HHMW-S7EK32W-G3EUPQA
 
 The discovery server prints it's device ID at startup. In the case where you
 are using a non CA signed certificate, this device ID (fingerprint) must be
-given to the clients in the discovery server URL:
+given to the clients in the discovery server URL::
 
-``https://disco.example.com:8443/?id=7DDRT7J-UICR4PM-PBIZYL3-MZOJ7X7-EX56JP6
--IK6HHMW-S7EK32W-G3EUPQA``.
+  https://disco.example.com:8443/?id=7DDRT7J-UICR4PM-PBIZYL3-MZOJ7X7-EX56JP6-IK6HHMW-S7EK32W-G3EUPQA
 
 Pointing Syncthing at Your Discovery Server
 -------------------------------------------
