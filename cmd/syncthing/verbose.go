@@ -149,6 +149,16 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 		data := ev.Data.(map[string][]string)
 		newRelays := data["new"]
 		return fmt.Sprintf("Relay state changed; connected relay(s) are %s.", strings.Join(newRelays, ", "))
+	case events.LoginAttempt:
+		data := ev.Data.(map[string]interface{})
+		username := data["username"].(string)
+		var success string
+		if data["success"].(bool) {
+			success = "successful"
+		} else {
+			success = "failed"
+		}
+		return fmt.Sprintf("Login %s for username %s.", success, username)
 
 	}
 
