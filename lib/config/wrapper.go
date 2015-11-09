@@ -310,9 +310,14 @@ func (w *Wrapper) Save() error {
 func (w *Wrapper) GlobalDiscoveryServers() []string {
 	var servers []string
 	for _, srv := range w.cfg.Options.GlobalAnnServers {
-		if srv == "default" {
+		switch srv {
+		case "default":
 			servers = append(servers, DefaultDiscoveryServers...)
-		} else {
+		case "default-v4":
+			servers = append(servers, DefaultDiscoveryServersV4...)
+		case "default-v6":
+			servers = append(servers, DefaultDiscoveryServersV6...)
+		default:
 			servers = append(servers, srv)
 		}
 	}

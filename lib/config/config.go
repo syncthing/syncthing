@@ -29,18 +29,25 @@ const (
 )
 
 var (
-	// DefaultDiscoveryServers should be substituted when the configuration
-	// contains <globalAnnounceServer>default</globalAnnounceServer>. This is
+	// DefaultDiscoveryServersV4 should be substituted when the configuration
+	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>. This is
 	// done by the "consumer" of the configuration, as we don't want these
 	// saved to the config.
-	DefaultDiscoveryServers = []string{
+	DefaultDiscoveryServersV4 = []string{
 		"https://discovery-v4-1.syncthing.net/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 194.126.249.5, Sweden
 		"https://discovery-v4-2.syncthing.net/?id=DVU36WY-H3LVZHW-E6LLFRE-YAFN5EL-HILWRYP-OC2M47J-Z4PE62Y-ADIBDQC", // 45.55.230.38, USA
 		"https://discovery-v4-3.syncthing.net/?id=7WT2BVR-FX62ZOW-TNVVW25-6AHFJGD-XEXQSBW-VO3MPL2-JBTLL4T-P4572Q4", // 128.199.95.124, Singapore
+	}
+	// DefaultDiscoveryServersV6 should be substituted when the configuration
+	// contains <globalAnnounceServer>default-v6</globalAnnounceServer>.
+	DefaultDiscoveryServersV6 = []string{
 		"https://discovery-v6-1.syncthing.net/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 2001:470:28:4d6::5, Sweden
 		"https://discovery-v6-2.syncthing.net/?id=DVU36WY-H3LVZHW-E6LLFRE-YAFN5EL-HILWRYP-OC2M47J-Z4PE62Y-ADIBDQC", // 2604:a880:800:10::182:a001, USA
 		"https://discovery-v6-3.syncthing.net/?id=7WT2BVR-FX62ZOW-TNVVW25-6AHFJGD-XEXQSBW-VO3MPL2-JBTLL4T-P4572Q4", // 2400:6180:0:d0::d9:d001, Singapore
 	}
+	// DefaultDiscoveryServers should be substituted when the configuration
+	// contains <globalAnnounceServer>default</globalAnnounceServer>.
+	DefaultDiscoveryServers = append(DefaultDiscoveryServersV4, DefaultDiscoveryServersV6...)
 
 	// DefaultDiscoveryServersIP is used by the usage reporting.
 	// XXX: Detect Android, and use this is we still don't have working DNS?

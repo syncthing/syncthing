@@ -182,7 +182,7 @@ func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 
 	defaultAnnounceServersDNS, defaultAnnounceServersIP, otherAnnounceServers := 0, 0, 0
 	for _, addr := range cfg.Options().GlobalAnnServers {
-		if addr == "default" {
+		if addr == "default" || addr == "default-v4" || addr == "default-v6" {
 			defaultAnnounceServersDNS++
 		} else if stringIn(addr, config.DefaultDiscoveryServersIP) {
 			defaultAnnounceServersIP++
