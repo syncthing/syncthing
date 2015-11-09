@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "November 04, 2015" "v0.12" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "November 09, 2015" "v0.12" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -598,6 +598,22 @@ the configuration and index.
 .B releasesURL
 The URL from which release information is loaded, for automatic upgrades.
 .UNINDENT
+.SH SYNCING CONFIGURATION FILES
+.sp
+Syncing configuration files between devices (such that multiple devices are
+using the same configuration files) can cause issues. This is easy to do
+accidentally if you sync your home folder between devices. A common symptom
+of syncing configuration files is two devices ending up with the same Device ID.
+.sp
+If you want to use syncthing to backup your configuration files, it is recommended
+that the files you are backing up are in a folder\-master to prevent other
+devices from overwriting the per device configuration. The folder on the remote
+device(s) should not be used as configuration for the remote devices.
+.sp
+If you\(aqd like to sync your home folder in non\-master mode, you may add the
+folder that stores the configuration files to the ignore list\&.
+If you\(aqd also like to backup your configuration files, add another folder in
+master mode for just the configuration folder.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

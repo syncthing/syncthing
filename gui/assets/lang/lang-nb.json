@@ -40,7 +40,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "Enhet {{device}} ({{address}}) ønsker å koble seg til. Legg til ny enhet?",
     "Devices": "Enheter",
     "Disconnected": "Frakoblet",
-    "Discovery": "Discovery",
+    "Discovery": "Oppdagelse",
     "Documentation": "Dokumentasjon",
     "Download Rate": "Nedlastingsrate",
     "Downloaded": "Lastet ned",
