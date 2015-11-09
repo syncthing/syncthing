@@ -34,5 +34,7 @@
         <urInitialDelayS>800</urInitialDelayS>
         <urPostInsecurely>true</urPostInsecurely>
         <releasesURL>https://localhost/releases</releasesURL>
+        <sendTempIndexes>false</sendTempIndexes>
+        <receiveTempIndexes>false</receiveTempIndexes>
     </options>
 </configuration>

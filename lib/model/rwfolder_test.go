@@ -92,9 +92,16 @@ func TestHandleFile(t *testing.T) {
 		t.Errorf("Unexpected count of copy blocks: %d != 8", len(toCopy.blocks))
 	}
 
-	for i, block := range toCopy.blocks {
-		if string(block.Hash) != string(blocks[i+1].Hash) {
-			t.Errorf("Block mismatch: %s != %s", block.String(), blocks[i+1].String())
+	for _, block := range blocks[1:] {
+		found := false
+		for _, toCopyBlock := range toCopy.blocks {
+			if string(toCopyBlock.Hash) == string(block.Hash) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Did not find block %s", block.String())
 		}
 	}
 }
@@ -148,9 +155,17 @@ func TestHandleFileWithTemp(t *testing.T) {
 		t.Errorf("Unexpected count of copy blocks: %d != 4", len(toCopy.blocks))
 	}
 
-	for i, eq := range []int{1, 5, 6, 8} {
-		if string(toCopy.blocks[i].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block mismatch: %s != %s", toCopy.blocks[i].String(), blocks[eq].String())
+	for _, idx := range []int{1, 5, 6, 8} {
+		found := false
+		block := blocks[idx]
+		for _, toCopyBlock := range toCopy.blocks {
+			if string(toCopyBlock.Hash) == string(block.Hash) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Did not find block %s", block.String())
 		}
 	}
 }
@@ -230,13 +245,22 @@ func TestCopierFinder(t *testing.T) {
 	default:
 	}
 
-	// Verify that the right blocks went into the pull list
-	for i, eq := range []int{1, 5, 6, 8} {
-		if string(pulls[i].block.Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", eq, pulls[i].block.String(), blocks[eq].String())
+	// Verify that the right blocks went into the pull list.
+	// They are pulled in random order.
+	for _, idx := range []int{1, 5, 6, 8} {
+		found := false
+		block := blocks[idx]
+		for _, pulledBlock := range pulls {
+			if string(pulledBlock.block.Hash) == string(block.Hash) {
+				found = true
+				break
+			}
 		}
-		if string(finish.file.Blocks[eq-1].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", eq, finish.file.Blocks[eq-1].String(), blocks[eq].String())
+		if !found {
+			t.Errorf("Did not find block %s", block.String())
+		}
+		if string(finish.file.Blocks[idx-1].Hash) != string(blocks[idx].Hash) {
+			t.Errorf("Block %d mismatch: %s != %s", idx, finish.file.Blocks[idx-1].String(), blocks[idx].String())
 		}
 	}
 
@@ -390,7 +414,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
-	emitter := NewProgressEmitter(defaultConfig)
+	emitter := NewProgressEmitter(defaultConfig, nil)
 	go emitter.Serve()
 
 	p := rwFolder{
@@ -482,7 +506,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
-	emitter := NewProgressEmitter(defaultConfig)
+	emitter := NewProgressEmitter(defaultConfig, nil)
 	go emitter.Serve()
 
 	p := rwFolder{
@@ -514,7 +538,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 	p.handleFile(file, copyChan, finisherChan)
 
-	// Receove at finisher, we shoud error out as puller has nowhere to pull
+	// Receive at finisher, we shoud error out as puller has nowhere to pull
 	// from.
 	select {
 	case state := <-finisherBufferChan:
