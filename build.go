@@ -315,6 +315,7 @@ func buildDeb() {
 		{src: "man/syncthing-versioning.7", dst: "deb/usr/share/man/man7/syncthing-versioning.7", perm: 0644},
 		{src: "etc/linux-systemd/system/syncthing@.service", dst: "deb/lib/systemd/system/syncthing@.service", perm: 0644},
 		{src: "etc/linux-systemd/user/syncthing.service", dst: "deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
+		{src: "etc/firewall-ufw/syncthing", dst: "deb/etc/ufw/applications.d/syncthing", perm: 0644},
 	}
 
 	for _, file := range listFiles("extra") {
@@ -343,6 +344,8 @@ Description: Open Source Continuous File Synchronization
  -- Jakob Borg <jakob@nym.se>  {{date}}
 `
 
+	conffiles := "/etc/ufw/applications.d/syncthing\n"
+
 	control = strings.Replace(control, "{{arch}}", debarch, -1)
 	control = strings.Replace(control, "{{version}}", version[1:], -1)
 	changelog = strings.Replace(changelog, "{{arch}}", debarch, -1)
@@ -353,6 +356,7 @@ Description: Open Source Continuous File Synchronization
 	ioutil.WriteFile("deb/DEBIAN/control", []byte(control), 0644)
 	ioutil.WriteFile("deb/DEBIAN/compat", []byte("9\n"), 0644)
 	ioutil.WriteFile("deb/DEBIAN/changelog", []byte(changelog), 0644)
+	ioutil.WriteFile("deb/DEBIAN/conffiles", []byte(conffiles), 0644)
 
 }
 
