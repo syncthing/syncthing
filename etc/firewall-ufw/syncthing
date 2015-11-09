@@ -1,4 +1,0 @@
-[syncthing]
-title=Syncthing
-description=Syncthing file synchronisation
-ports=22000/tcp|21027/udp
