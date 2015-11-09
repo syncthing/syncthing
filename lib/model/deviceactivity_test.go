@@ -13,46 +13,48 @@ import (
 )
 
 func TestDeviceActivity(t *testing.T) {
-	n0 := protocol.DeviceID([32]byte{1, 2, 3, 4})
-	n1 := protocol.DeviceID([32]byte{5, 6, 7, 8})
-	n2 := protocol.DeviceID([32]byte{9, 10, 11, 12})
-	devices := []protocol.DeviceID{n0, n1, n2}
+	n0 := Availability{protocol.DeviceID([32]byte{1, 2, 3, 4}), 0}
+	n1 := Availability{protocol.DeviceID([32]byte{5, 6, 7, 8}), 1}
+	n2 := Availability{protocol.DeviceID([32]byte{9, 10, 11, 12}), 0}
+	devices := []Availability{n0, n1, n2}
 	na := newDeviceActivity()
 
-	if lb := na.leastBusy(devices); lb != n0 {
+	if lb, ok := na.leastBusy(devices); !ok || lb != n0 {
 		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
 	}
-	if lb := na.leastBusy(devices); lb != n0 {
+	if lb, ok := na.leastBusy(devices); !ok || lb != n0 {
 		t.Errorf("Least busy device should still be n0 (%v) not %v", n0, lb)
 	}
 
-	na.using(na.leastBusy(devices))
-	if lb := na.leastBusy(devices); lb != n1 {
+	lb, _ := na.leastBusy(devices)
+	na.using(lb)
+	if lb, ok := na.leastBusy(devices); !ok || lb != n1 {
 		t.Errorf("Least busy device should be n1 (%v) not %v", n1, lb)
 	}
-
-	na.using(na.leastBusy(devices))
-	if lb := na.leastBusy(devices); lb != n2 {
+	lb, _ = na.leastBusy(devices)
+	na.using(lb)
+	if lb, ok := na.leastBusy(devices); !ok || lb != n2 {
 		t.Errorf("Least busy device should be n2 (%v) not %v", n2, lb)
 	}
 
-	na.using(na.leastBusy(devices))
-	if lb := na.leastBusy(devices); lb != n0 {
+	lb, _ = na.leastBusy(devices)
+	na.using(lb)
+	if lb, ok := na.leastBusy(devices); !ok || lb != n0 {
 		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
 	}
 
 	na.done(n1)
-	if lb := na.leastBusy(devices); lb != n1 {
+	if lb, ok := na.leastBusy(devices); !ok || lb != n1 {
 		t.Errorf("Least busy device should be n1 (%v) not %v", n1, lb)
 	}
 
 	na.done(n2)
-	if lb := na.leastBusy(devices); lb != n1 {
+	if lb, ok := na.leastBusy(devices); !ok || lb != n1 {
 		t.Errorf("Least busy device should still be n1 (%v) not %v", n1, lb)
 	}
 
 	na.done(n0)
-	if lb := na.leastBusy(devices); lb != n0 {
+	if lb, ok := na.leastBusy(devices); !ok || lb != n0 {
 		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
 	}
 }

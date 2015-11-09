@@ -49,6 +49,9 @@ func (t *TestModel) Close(deviceID DeviceID, err error) {
 func (t *TestModel) ClusterConfig(deviceID DeviceID, config ClusterConfigMessage) {
 }
 
+func (t *TestModel) DownloadProgress(DeviceID, string, []FileDownloadProgressUpdate, uint32, []Option) {
+}
+
 func (t *TestModel) closedError() error {
 	select {
 	case <-t.closedCh:

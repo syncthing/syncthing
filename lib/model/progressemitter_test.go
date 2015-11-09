@@ -7,34 +7,46 @@
 package model
 
 import (
+	"fmt"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
 var timeout = 10 * time.Millisecond
 
+func caller(skip int) string {
+	_, file, line, ok := runtime.Caller(skip + 1)
+	if !ok {
+		return "unknown"
+	}
+	return fmt.Sprintf("%s:%d", filepath.Base(file), line)
+}
+
 func expectEvent(w *events.Subscription, t *testing.T, size int) {
 	event, err := w.Poll(timeout)
 	if err != nil {
-		t.Fatal("Unexpected error:", err)
+		t.Fatal("Unexpected error:", err, "at", caller(1))
 	}
 	if event.Type != events.DownloadProgress {
-		t.Fatal("Unexpected event:", event)
+		t.Fatal("Unexpected event:", event, "at", caller(1))
 	}
 	data := event.Data.(map[string]map[string]*pullerProgress)
 	if len(data) != size {
-		t.Fatal("Unexpected event data size:", data)
+		t.Fatal("Unexpected event data size:", data, "at", caller(1))
 	}
 }
 
 func expectTimeout(w *events.Subscription, t *testing.T) {
 	_, err := w.Poll(timeout)
 	if err != events.ErrTimeout {
-		t.Fatal("Unexpected non-Timeout error:", err)
+		t.Fatal("Unexpected non-Timeout error:", err, "at", caller(1))
 	}
 }
 
@@ -52,14 +64,15 @@ func TestProgressEmitter(t *testing.T) {
 	expectTimeout(w, t)
 
 	s := sharedPullerState{
-		mut: sync.NewMutex(),
+		updated: time.Now(),
+		mut:     sync.NewRWMutex(),
 	}
 	p.Register(&s)
 
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
 
-	s.copyDone()
+	s.copyDone(protocol.BlockInfo{})
 
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
@@ -74,7 +87,7 @@ func TestProgressEmitter(t *testing.T) {
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
 
-	s.pullDone()
+	s.pullDone(protocol.BlockInfo{})
 
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)

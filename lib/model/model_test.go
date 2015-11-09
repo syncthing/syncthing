@@ -253,6 +253,10 @@ func (FakeConnection) Statistics() protocol.Statistics {
 	return protocol.Statistics{}
 }
 
+func (FakeConnection) DownloadProgress(string, []protocol.FileDownloadProgressUpdate, uint32, []protocol.Option) {
+
+}
+
 func BenchmarkRequest(b *testing.B) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)

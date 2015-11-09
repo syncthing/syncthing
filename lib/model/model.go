@@ -653,6 +653,9 @@ nextFolder:
 
 	// This breaks if we send multiple CM messages during the same connection.
 	if cm.Flags&protocol.FlagClusterConfigTemporaryIndexes != 0 {
+		m.pmut.RLock()
+		conn := m.conn[deviceID]
+		m.pmut.RUnlock()
 		m.progressEmitter.temporaryIndexSubscribe(conn, sharedFolders)
 	}
 
