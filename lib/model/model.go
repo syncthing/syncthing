@@ -261,7 +261,7 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// ConnectionStats returns a map with connection statistics for each connected device.
+// ConnectionStats returns a map with connection statistics for each device.
 func (m *Model) ConnectionStats() map[string]interface{} {
 	type remoteAddrer interface {
 		RemoteAddr() net.Addr
