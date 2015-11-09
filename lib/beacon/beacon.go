@@ -25,10 +25,6 @@ type Interface interface {
 	Error() error
 }
 
-type readerFrom interface {
-	ReadFrom([]byte) (int, net.Addr, error)
-}
-
 type errorHolder struct {
 	err error
 	mut stdsync.Mutex // uses stdlib sync as I want this to be trivially embeddable, and there is no risk of blocking

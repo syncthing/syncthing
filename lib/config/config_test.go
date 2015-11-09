@@ -56,12 +56,12 @@ func TestDefaultValues(t *testing.T) {
 		ProgressUpdateIntervalS: 5,
 		SymlinksEnabled:         true,
 		LimitBandwidthInLan:     false,
-		DatabaseBlockCacheMiB:   0,
 		MinHomeDiskFreePct:      1,
 		URURL:                   "https://data.syncthing.net/newdata",
 		URInitialDelayS:         1800,
 		URPostInsecurely:        false,
 		ReleasesURL:             "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30",
+		AlwaysLocalNets:         []string{},
 	}
 
 	cfg := New(device1)
@@ -102,6 +102,13 @@ func TestDeviceConfig(t *testing.T) {
 				MinDiskFreePct:  1,
 				MaxConflicts:    -1,
 			},
+		}
+
+		// The cachedPath will have been resolved to an absolute path,
+		// depending on where the tests are running. Zero it out so we don't
+		// fail based on that.
+		for i := range cfg.Folders {
+			cfg.Folders[i].cachedPath = ""
 		}
 
 		if runtime.GOOS != "windows" {
@@ -179,12 +186,12 @@ func TestOverriddenValues(t *testing.T) {
 		ProgressUpdateIntervalS: 10,
 		SymlinksEnabled:         false,
 		LimitBandwidthInLan:     true,
-		DatabaseBlockCacheMiB:   42,
 		MinHomeDiskFreePct:      5.2,
 		URURL:                   "https://localhost/newdata",
 		URInitialDelayS:         800,
 		URPostInsecurely:        true,
 		ReleasesURL:             "https://localhost/releases",
+		AlwaysLocalNets:         []string{},
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
@@ -460,83 +467,6 @@ func TestPrepare(t *testing.T) {
 
 	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.ListenAddress == nil {
 		t.Error("Unexpected nil")
-	}
-}
-
-func TestRequiresRestart(t *testing.T) {
-	wr, err := Load("testdata/v6.xml", device1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := wr.cfg
-
-	if ChangeRequiresRestart(cfg, cfg) {
-		t.Error("No change does not require restart")
-	}
-
-	newCfg := cfg
-	newCfg.Devices = append(newCfg.Devices, DeviceConfiguration{
-		DeviceID: device3,
-	})
-	if ChangeRequiresRestart(cfg, newCfg) {
-		t.Error("Adding a device does not require restart")
-	}
-
-	newCfg = cfg
-	newCfg.Devices = newCfg.Devices[:len(newCfg.Devices)-1]
-	if !ChangeRequiresRestart(cfg, newCfg) {
-		t.Error("Removing a device requires restart")
-	}
-
-	newCfg = cfg
-	newCfg.Folders = append(newCfg.Folders, FolderConfiguration{
-		ID:      "t1",
-		RawPath: "t1",
-	})
-	if !ChangeRequiresRestart(cfg, newCfg) {
-		t.Error("Adding a folder requires restart")
-	}
-
-	newCfg = cfg
-	newCfg.Folders = newCfg.Folders[:len(newCfg.Folders)-1]
-	if !ChangeRequiresRestart(cfg, newCfg) {
-		t.Error("Removing a folder requires restart")
-	}
-
-	newCfg = cfg
-	newFolders := make([]FolderConfiguration, len(cfg.Folders))
-	copy(newFolders, cfg.Folders)
-	newCfg.Folders = newFolders
-	if ChangeRequiresRestart(cfg, newCfg) {
-		t.Error("No changes done yet")
-	}
-	newCfg.Folders[0].RawPath = "different"
-	if !ChangeRequiresRestart(cfg, newCfg) {
-		t.Error("Changing a folder requires restart")
-	}
-
-	newCfg = cfg
-	newDevices := make([]DeviceConfiguration, len(cfg.Devices))
-	copy(newDevices, cfg.Devices)
-	newCfg.Devices = newDevices
-	if ChangeRequiresRestart(cfg, newCfg) {
-		t.Error("No changes done yet")
-	}
-	newCfg.Devices[0].Name = "different"
-	if ChangeRequiresRestart(cfg, newCfg) {
-		t.Error("Changing a device does not require restart")
-	}
-
-	newCfg = cfg
-	newCfg.Options.GlobalAnnEnabled = !cfg.Options.GlobalAnnEnabled
-	if !ChangeRequiresRestart(cfg, newCfg) {
-		t.Error("Changing general options requires restart")
-	}
-
-	newCfg = cfg
-	newCfg.GUI.RawUseTLS = !cfg.GUI.RawUseTLS
-	if !ChangeRequiresRestart(cfg, newCfg) {
-		t.Error("Changing GUI options requires restart")
 	}
 }
 

@@ -33,7 +33,6 @@ import (
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/thejerf/suture"
 )
 
@@ -64,7 +63,7 @@ type Model struct {
 	*suture.Supervisor
 
 	cfg               *config.Wrapper
-	db                *leveldb.DB
+	db                *db.Instance
 	finder            *db.BlockFinder
 	progressEmitter   *ProgressEmitter
 	id                protocol.DeviceID
@@ -99,7 +98,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB, protectedFiles []string) *Model {
+func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *db.Instance, protectedFiles []string) *Model {
 	m := &Model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
@@ -352,16 +351,6 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 	l.Debugf("%v Completion(%s, %q): %f (%d / %d = %f)", m, device, folder, completionPct, need, tot, needRatio)
 
 	return completionPct
-}
-
-func sizeOf(fs []protocol.FileInfo) (files, deleted int, bytes int64) {
-	for _, f := range fs {
-		fs, de, by := sizeOfFile(f)
-		files += fs
-		deleted += de
-		bytes += by
-	}
-	return
 }
 
 func sizeOfFile(f db.FileIntf) (files, deleted int, bytes int64) {

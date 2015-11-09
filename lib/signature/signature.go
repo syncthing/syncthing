@@ -44,7 +44,7 @@ func GenerateKeys() (privKey []byte, pubKey []byte, err error) {
 	})
 
 	// Marshal the public key
-	bs, err = x509.MarshalPKIXPublicKey(key.Public())
+	bs, err = x509.MarshalPKIXPublicKey(&key.PublicKey)
 	if err != nil {
 		return nil, nil, err
 	}

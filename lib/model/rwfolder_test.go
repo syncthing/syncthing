@@ -12,12 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sync"
-
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 func init() {
@@ -72,7 +70,7 @@ func TestHandleFile(t *testing.T) {
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
@@ -128,7 +126,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
@@ -190,7 +188,7 @@ func TestCopierFinder(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 	requiredFile.Name = "file2"
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	// Update index
@@ -267,7 +265,7 @@ func TestCopierCleanup(t *testing.T) {
 		return true
 	}
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
@@ -316,7 +314,7 @@ func TestCopierCleanup(t *testing.T) {
 // Make sure that the copier routine hashes the content when asked, and pulls
 // if it fails to find the block.
 func TestLastResortPulling(t *testing.T) {
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
@@ -390,7 +388,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	}
 	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db := db.OpenMemory()
 
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
@@ -483,7 +481,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	}
 	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 

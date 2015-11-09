@@ -201,7 +201,7 @@ func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 	defaultRelayServers, otherRelayServers := 0, 0
 	for _, addr := range cfg.Options().RelayServers {
 		switch addr {
-		case "dynamic+https://relays.syncthing.net":
+		case "dynamic+https://relays.syncthing.net/endpoint":
 			defaultRelayServers++
 		default:
 			otherRelayServers++

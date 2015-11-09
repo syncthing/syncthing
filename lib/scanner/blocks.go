@@ -55,11 +55,6 @@ func (h *HashAlgorithm) MarshalText() ([]byte, error) {
 
 // Blocks returns the blockwise hash of the reader.
 func Blocks(algo HashAlgorithm, r io.Reader, blocksize int, sizehint int64, counter *int64) ([]protocol.BlockInfo, error) {
-	var blocks []protocol.BlockInfo
-	if sizehint > 0 {
-		blocks = make([]protocol.BlockInfo, 0, int(sizehint/int64(blocksize)))
-	}
-
 	var hf hash.Hash
 	switch algo {
 	case SHA256:
@@ -69,11 +64,26 @@ func Blocks(algo HashAlgorithm, r io.Reader, blocksize int, sizehint int64, coun
 	default:
 		panic("unknown hash algorithm")
 	}
+	hashLength := hf.Size()
+
+	var blocks []protocol.BlockInfo
+	var hashes, thisHash []byte
+
+	if sizehint > 0 {
+		// Allocate contiguous blocks for the BlockInfo structures and their
+		// hashes once and for all.
+		numBlocks := int(sizehint / int64(blocksize))
+		blocks = make([]protocol.BlockInfo, 0, numBlocks)
+		hashes = make([]byte, 0, hashLength*numBlocks)
+	}
+
+	// A 32k buffer is used for copying into the hash function.
+	buf := make([]byte, 32<<10)
 
 	var offset int64
 	for {
-		lr := &io.LimitedReader{R: r, N: int64(blocksize)}
-		n, err := io.Copy(hf, lr)
+		lr := io.LimitReader(r, int64(blocksize))
+		n, err := copyBuffer(hf, lr, buf)
 		if err != nil {
 			return nil, err
 		}
@@ -86,11 +96,17 @@ func Blocks(algo HashAlgorithm, r io.Reader, blocksize int, sizehint int64, coun
 			atomic.AddInt64(counter, int64(n))
 		}
 
+		// Carve out a hash-sized chunk of "hashes" to store the hash for this
+		// block.
+		hashes = hf.Sum(hashes)
+		thisHash, hashes = hashes[:hashLength], hashes[hashLength:]
+
 		b := protocol.BlockInfo{
 			Size:   int32(n),
 			Offset: offset,
 			Hash:   sum256(hf),
 		}
+
 		blocks = append(blocks, b)
 		offset += int64(n)
 
@@ -218,4 +234,49 @@ func BlocksEqual(src, tgt []protocol.BlockInfo) bool {
 		}
 	}
 	return true
+}
+
+// This is a copy & paste of io.copyBuffer from the Go 1.5 standard library,
+// as we want this but also want to build with Go 1.3+.
+
+// copyBuffer is the actual implementation of Copy and CopyBuffer.
+// if buf is nil, one is allocated.
+func copyBuffer(dst io.Writer, src io.Reader, buf []byte) (written int64, err error) {
+	// If the reader has a WriteTo method, use it to do the copy.
+	// Avoids an allocation and a copy.
+	if wt, ok := src.(io.WriterTo); ok {
+		return wt.WriteTo(dst)
+	}
+	// Similarly, if the writer has a ReadFrom method, use it to do the copy.
+	if rt, ok := dst.(io.ReaderFrom); ok {
+		return rt.ReadFrom(src)
+	}
+	if buf == nil {
+		buf = make([]byte, 32*1024)
+	}
+	for {
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			nw, ew := dst.Write(buf[0:nr])
+			if nw > 0 {
+				written += int64(nw)
+			}
+			if ew != nil {
+				err = ew
+				break
+			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if er == io.EOF {
+			break
+		}
+		if er != nil {
+			err = er
+			break
+		}
+	}
+	return written, err
 }

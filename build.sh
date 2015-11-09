@@ -108,7 +108,7 @@ case "${1:-default}" in
 		# For every package in the repo
 		for dir in $(go list ./...) ; do
 			# run the tests
-			godep go test -race -coverprofile=profile.out $dir
+			GOPATH="$(pwd)/Godeps/_workspace:$GOPATH" go test -race -coverprofile=profile.out $dir
 			if [ -f profile.out ] ; then
 				# and if there was test output, append it to coverage.out
 				grep -v "mode: " profile.out >> coverage.out

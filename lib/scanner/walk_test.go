@@ -8,13 +8,16 @@ package scanner
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	rdebug "runtime/debug"
 	"sort"
+	"sync"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -370,5 +373,41 @@ func TestSymlinkTypeEqual(t *testing.T) {
 		if res != tc.equal {
 			t.Errorf("Incorrect result %v for %v, %v", res, tc.onDiskType, tc.inIndexFlags)
 		}
+	}
+}
+
+var initOnce sync.Once
+
+const (
+	testdataSize = 17 << 20
+	testdataName = "_random.data"
+)
+
+func BenchmarkHashFile(b *testing.B) {
+	initOnce.Do(initTestFile)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if _, err := HashFile(testdataName, protocol.BlockSize, testdataSize, nil); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	b.ReportAllocs()
+}
+
+func initTestFile() {
+	fd, err := os.Create(testdataName)
+	if err != nil {
+		panic(err)
+	}
+
+	lr := io.LimitReader(rand.Reader, testdataSize)
+	if _, err := io.Copy(fd, lr); err != nil {
+		panic(err)
+	}
+
+	if err := fd.Close(); err != nil {
+		panic(err)
 	}
 }

@@ -14,9 +14,6 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
-
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 func TestFolderErrors(t *testing.T) {
@@ -38,7 +35,7 @@ func TestFolderErrors(t *testing.T) {
 		}
 	}
 
-	ldb, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb := db.OpenMemory()
 
 	// Case 1 - new folder, directory and marker created
 

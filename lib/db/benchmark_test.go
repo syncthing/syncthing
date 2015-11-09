@@ -17,8 +17,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 var files, oneFile, firstHalf, secondHalf []protocol.FileInfo
@@ -44,16 +42,16 @@ func init() {
 	fs.Replace(protocol.LocalDeviceID, firstHalf)
 }
 
-func tempDB() (*leveldb.DB, string) {
+func tempDB() (*db.Instance, string) {
 	dir, err := ioutil.TempDir("", "syncthing")
 	if err != nil {
 		panic(err)
 	}
-	db, err := leveldb.OpenFile(filepath.Join(dir, "db"), &opt.Options{OpenFilesCacheCapacity: 100})
+	dbi, err := db.Open(filepath.Join(dir, "db"))
 	if err != nil {
 		panic(err)
 	}
-	return db, dir
+	return dbi, dir
 }
 
 func BenchmarkReplaceAll(b *testing.B) {

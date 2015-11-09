@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-NETWORKING" "7" "October 20, 2015" "v0.11" "Syncthing"
+.TH "SYNCTHING-NETWORKING" "7" "November 04, 2015" "v0.12" "Syncthing"
 .SH NAME
 syncthing-networking \- Firewall Setup
 .
@@ -55,18 +55,20 @@ The external forwarded port and the internal destination port has to be the same
 Communication in Syncthing works both ways. Therefore if you set up port
 forwards for one device, other devices will be able to connect to it even when
 they are behind a NAT network or firewall.
+.sp
+In the absence of port forwarding, relaying may work well enough to get
+devices connected and synced, but will perform poorly in comparison to a
+direct connection.
 .SH LOCAL FIREWALL
 .sp
 If your PC has a local firewall, you will need to open the following ports for
-incoming traffic:
+incoming and outgoing traffic:
 .INDENT 0.0
 .IP \(bu 2
 Port \fB22000/TCP\fP (or the actual listening port if you have changed
 the \fISync Protocol Listen Address\fP setting.)
 .IP \(bu 2
-Port \fB21025/UDP\fP (for discovery broadcasts on IPv4)
-.IP \(bu 2
-Port \fB21026/UDP\fP (for discovery multicasts on IPv6)
+Port \fB21027/UDP\fP (for discovery broadcasts on IPv4 and multicasts on IPv6)
 .UNINDENT
 .SH REMOTE WEB GUI
 .sp

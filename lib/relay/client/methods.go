@@ -109,8 +109,8 @@ func TestRelay(uri *url.URL, certs []tls.Certificate, sleep time.Duration, times
 	}
 	go c.Serve()
 	defer func() {
-		close(invs)
 		c.Stop()
+		close(invs)
 	}()
 
 	for i := 0; i < times; i++ {
