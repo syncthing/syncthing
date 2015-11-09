@@ -196,6 +196,7 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 	// Any empty or unspecified addresses should be set to the source address
 	// of the announcement. We also skip any addresses we can't parse.
 
+	l.Debugln("discover: Registering addresses for", id)
 	var validAddresses []string
 	for _, addr := range device.Addresses {
 		u, err := url.Parse(addr.URL)
@@ -215,8 +216,10 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 			}
 			u.Host = net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port))
 			validAddresses = append(validAddresses, u.String())
+			l.Debugf("discover: Replaced address %v in %s to get %s", tcpAddr.IP, addr.URL, u.String())
 		} else {
 			validAddresses = append(validAddresses, addr.URL)
+			l.Debugf("discover: Accepted address %s verbatim", addr.URL)
 		}
 	}
 
@@ -230,7 +233,7 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 	if isNewDevice {
 		events.Default.Log(events.DeviceDiscovered, map[string]interface{}{
 			"device": id.String(),
-			"addrs":  device.Addresses,
+			"addrs":  validAddresses,
 			"relays": device.Relays,
 		})
 	}
