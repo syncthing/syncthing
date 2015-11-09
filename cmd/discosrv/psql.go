@@ -15,6 +15,9 @@ func init() {
 func postgresSetup(db *sql.DB) error {
 	var err error
 
+	db.SetMaxIdleConns(4)
+	db.SetMaxOpenConns(8)
+
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS Devices (
 		DeviceID CHAR(63) NOT NULL PRIMARY KEY,
 		Seen TIMESTAMP NOT NULL
