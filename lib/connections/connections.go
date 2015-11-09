@@ -280,49 +280,18 @@ func (s *connectionSvc) connect() {
 				continue
 			}
 
-			var addrs []string
-			var relays []discover.Relay
-			for _, addr := range deviceCfg.Addresses {
-				if addr == "dynamic" {
-					if s.discoverer != nil {
-						if t, r, err := s.discoverer.Lookup(deviceID); err == nil {
-							addrs = append(addrs, t...)
-							relays = append(relays, r...)
-						}
-					}
-				} else {
-					addrs = append(addrs, addr)
-				}
-			}
+			addrs, relays := s.resolveAddresses(deviceID, deviceCfg.Addresses)
 
 			for _, addr := range addrs {
-				uri, err := url.Parse(addr)
-				if err != nil {
-					l.Infoln("Failed to parse connection url:", addr, err)
-					continue
+				if conn := s.connectDirect(deviceID, addr); conn != nil {
+					if connected {
+						s.model.Close(deviceID, fmt.Errorf("switching connections"))
+					}
+					s.conns <- model.IntermediateConnection{
+						conn, model.ConnectionTypeDirectDial,
+					}
+					continue nextDevice
 				}
-
-				dialer, ok := dialers[uri.Scheme]
-				if !ok {
-					l.Infoln("Unknown address schema", uri)
-					continue
-				}
-
-				l.Debugln("dial", deviceCfg.DeviceID, uri)
-				conn, err := dialer(uri, s.tlsCfg)
-				if err != nil {
-					l.Debugln("dial failed", deviceCfg.DeviceID, uri, err)
-					continue
-				}
-
-				if connected {
-					s.model.Close(deviceID, fmt.Errorf("switching connections"))
-				}
-
-				s.conns <- model.IntermediateConnection{
-					conn, model.ConnectionTypeDirectDial,
-				}
-				continue nextDevice
 			}
 
 			// Only connect via relays if not already connected
@@ -345,45 +314,12 @@ func (s *connectionSvc) connect() {
 			s.lastRelayCheck[deviceID] = time.Now()
 
 			for _, addr := range relays {
-				uri, err := url.Parse(addr.URL)
-				if err != nil {
-					l.Infoln("Failed to parse relay connection url:", addr, err)
-					continue
+				if conn := s.connectViaRelay(deviceID, addr); conn != nil {
+					s.conns <- model.IntermediateConnection{
+						conn, model.ConnectionTypeRelayDial,
+					}
+					continue nextDevice
 				}
-
-				inv, err := client.GetInvitationFromRelay(uri, deviceID, s.tlsCfg.Certificates)
-				if err != nil {
-					l.Debugf("Failed to get invitation for %s from %s: %v", deviceID, uri, err)
-					continue
-				} else {
-					l.Debugln("Succesfully retrieved relay invitation", inv, "from", uri)
-				}
-
-				conn, err := client.JoinSession(inv)
-				if err != nil {
-					l.Debugf("Failed to join relay session %s: %v", inv, err)
-					continue
-				} else {
-					l.Debugln("Sucessfully joined relay session", inv)
-				}
-
-				var tc *tls.Conn
-
-				if inv.ServerSocket {
-					tc = tls.Server(conn, s.tlsCfg)
-				} else {
-					tc = tls.Client(conn, s.tlsCfg)
-				}
-				err = tc.Handshake()
-				if err != nil {
-					l.Infof("TLS handshake (BEP/relay %s): %v", inv, err)
-					tc.Close()
-					continue
-				}
-				s.conns <- model.IntermediateConnection{
-					tc, model.ConnectionTypeRelayDial,
-				}
-				continue nextDevice
 			}
 		}
 
@@ -393,6 +329,84 @@ func (s *connectionSvc) connect() {
 			delay = maxD
 		}
 	}
+}
+
+func (s *connectionSvc) resolveAddresses(deviceID protocol.DeviceID, inAddrs []string) (addrs []string, relays []discover.Relay) {
+	for _, addr := range inAddrs {
+		if addr == "dynamic" {
+			if s.discoverer != nil {
+				if t, r, err := s.discoverer.Lookup(deviceID); err == nil {
+					addrs = append(addrs, t...)
+					relays = append(relays, r...)
+				}
+			}
+		} else {
+			addrs = append(addrs, addr)
+		}
+	}
+	return
+}
+
+func (s *connectionSvc) connectDirect(deviceID protocol.DeviceID, addr string) *tls.Conn {
+	uri, err := url.Parse(addr)
+	if err != nil {
+		l.Infoln("Failed to parse connection url:", addr, err)
+		return nil
+	}
+
+	dialer, ok := dialers[uri.Scheme]
+	if !ok {
+		l.Infoln("Unknown address schema", uri)
+		return nil
+	}
+
+	l.Debugln("dial", deviceID, uri)
+	conn, err := dialer(uri, s.tlsCfg)
+	if err != nil {
+		l.Debugln("dial failed", deviceID, uri, err)
+		return nil
+	}
+
+	return conn
+}
+
+func (s *connectionSvc) connectViaRelay(deviceID protocol.DeviceID, addr discover.Relay) *tls.Conn {
+	uri, err := url.Parse(addr.URL)
+	if err != nil {
+		l.Infoln("Failed to parse relay connection url:", addr, err)
+		return nil
+	}
+
+	inv, err := client.GetInvitationFromRelay(uri, deviceID, s.tlsCfg.Certificates)
+	if err != nil {
+		l.Debugf("Failed to get invitation for %s from %s: %v", deviceID, uri, err)
+		return nil
+	}
+	l.Debugln("Succesfully retrieved relay invitation", inv, "from", uri)
+
+	conn, err := client.JoinSession(inv)
+	if err != nil {
+		l.Debugf("Failed to join relay session %s: %v", inv, err)
+		return nil
+	}
+	l.Debugln("Sucessfully joined relay session", inv)
+
+	var tc *tls.Conn
+
+	if inv.ServerSocket {
+		tc = tls.Server(conn, s.tlsCfg)
+	} else {
+		tc = tls.Client(conn, s.tlsCfg)
+	}
+
+	err = tc.Handshake()
+	if err != nil {
+		l.Infof("TLS handshake (BEP/relay %s): %v", inv, err)
+		tc.Close()
+		return nil
+	}
+
+	return tc
 }
 
 func (s *connectionSvc) acceptRelayConns() {
