@@ -78,7 +78,7 @@ Configuring
 -----------
 
 The admin GUI starts automatically and remains available on
-[https://localhost:8384/](https://localhost:8384/). Cookies are essential to the correct functioning of the GUI; please ensure your browser accepts them. It should look something like this:
+``https://localhost:8384/``. Cookies are essential to the correct functioning of the GUI; please ensure your browser accepts them. It should look something like this:
 
 .. image:: gs1.png
 
