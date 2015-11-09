@@ -190,11 +190,7 @@ func readTarGz(dir string, r io.Reader) (string, error) {
 			return "", err
 		}
 
-		shortName := path.Base(hdr.Name)
-
-		l.Debugf("considering file %q", shortName)
-
-		err = archiveFileVisitor(dir, &tempName, &sig, shortName, tr)
+		err = archiveFileVisitor(dir, &tempName, &sig, hdr.Name, tr)
 		if err != nil {
 			return "", err
 		}
@@ -227,16 +223,12 @@ func readZip(dir string, r io.Reader) (string, error) {
 
 	// Iterate through the files in the archive.
 	for _, file := range archive.File {
-		shortName := path.Base(file.Name)
-
-		l.Debugf("considering file %q", shortName)
-
 		inFile, err := file.Open()
 		if err != nil {
 			return "", err
 		}
 
-		err = archiveFileVisitor(dir, &tempName, &sig, shortName, inFile)
+		err = archiveFileVisitor(dir, &tempName, &sig, file.Name, inFile)
 		inFile.Close()
 		if err != nil {
 			return "", err
@@ -256,18 +248,26 @@ func readZip(dir string, r io.Reader) (string, error) {
 
 // archiveFileVisitor is called for each file in an archive. It may set
 // tempFile and signature.
-func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, filename string, filedata io.Reader) error {
+func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, archivePath string, filedata io.Reader) error {
 	var err error
+	filename := path.Base(archivePath)
+	archiveDir := path.Dir(archivePath)
+	archiveDirs := strings.Split(archiveDir, "/")
+	if len(archiveDirs) > 1 {
+		//don't consider files in subfolders
+		return nil
+	}
+	l.Debugf("considering file %s", archivePath)
 	switch filename {
 	case "syncthing", "syncthing.exe":
-		l.Debugln("reading binary")
+		l.Debugf("found upgrade binary %s", archivePath)
 		*tempFile, err = writeBinary(dir, filedata)
 		if err != nil {
 			return err
 		}
 
 	case "syncthing.sig", "syncthing.exe.sig":
-		l.Debugln("reading signature")
+		l.Debugf("found signature %s", archivePath)
 		*signature, err = ioutil.ReadAll(filedata)
 		if err != nil {
 			return err
