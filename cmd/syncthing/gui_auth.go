@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -23,6 +24,13 @@ var (
 	sessions    = make(map[string]bool)
 	sessionsMut = sync.NewMutex()
 )
+
+func emitLoginAttempt(success bool, username string) {
+	events.Default.Log(events.LoginAttempt, map[string]interface{}{
+		"success":  success,
+		"username": username,
+	})
+}
 
 func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguration, next http.Handler) http.Handler {
 	apiKey := cfg.APIKey()
@@ -70,12 +78,15 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 			return
 		}
 
-		if string(fields[0]) != cfg.User {
+		username := string(fields[0])
+		if username != cfg.User {
+			emitLoginAttempt(false, username)
 			error()
 			return
 		}
 
 		if err := bcrypt.CompareHashAndPassword([]byte(cfg.Password), fields[1]); err != nil {
+			emitLoginAttempt(false, username)
 			error()
 			return
 		}
@@ -90,6 +101,7 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 			MaxAge: 0,
 		})
 
+		emitLoginAttempt(true, username)
 		next.ServeHTTP(w, r)
 	})
 }

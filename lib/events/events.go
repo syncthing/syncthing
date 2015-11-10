@@ -41,6 +41,7 @@ const (
 	FolderScanProgress
 	ExternalPortMappingChanged
 	RelayStateChanged
+	LoginAttempt
 
 	AllEvents = (1 << iota) - 1
 )
@@ -93,6 +94,8 @@ func (t EventType) String() string {
 		return "ExternalPortMappingChanged"
 	case RelayStateChanged:
 		return "RelayStateChanged"
+	case LoginAttempt:
+		return "LoginAttempt"
 	default:
 		return "Unknown"
 	}
