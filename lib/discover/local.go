@@ -215,6 +215,7 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 				continue
 			}
 			u.Host = net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port))
+			l.Debugf("discover: Reconstructed URL is %#v", u)
 			validAddresses = append(validAddresses, u.String())
 			l.Debugf("discover: Replaced address %v in %s to get %s", tcpAddr.IP, addr.URL, u.String())
 		} else {
