@@ -73,7 +73,7 @@ func TestHandleFile(t *testing.T) {
 	// Update index
 	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
-	p := rwFolder{
+	p := defaultFolder{
 		folder:    "default",
 		dir:       "testdata",
 		model:     m,
@@ -129,7 +129,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	// Update index
 	m.updateLocals("default", []protocol.FileInfo{existingFile})
 
-	p := rwFolder{
+	p := defaultFolder{
 		folder:    "default",
 		dir:       "testdata",
 		model:     m,
@@ -202,7 +202,7 @@ func TestCopierFinder(t *testing.T) {
 		}
 	}
 
-	p := rwFolder{
+	p := defaultFolder{
 		folder:    "default",
 		dir:       "testdata",
 		model:     m,
@@ -338,7 +338,7 @@ func TestLastResortPulling(t *testing.T) {
 		t.Error("Expected block not found")
 	}
 
-	p := rwFolder{
+	p := defaultFolder{
 		folder:    "default",
 		dir:       "testdata",
 		model:     m,
@@ -393,7 +393,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	emitter := NewProgressEmitter(defaultConfig)
 	go emitter.Serve()
 
-	p := rwFolder{
+	p := defaultFolder{
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
@@ -485,7 +485,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	emitter := NewProgressEmitter(defaultConfig)
 	go emitter.Serve()
 
-	p := rwFolder{
+	p := defaultFolder{
 		folder:          "default",
 		dir:             "testdata",
 		model:           m,
