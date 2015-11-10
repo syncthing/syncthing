@@ -40,12 +40,12 @@
           </p>
           <p>
             Average rates in last
-            <span>10s: {{ totals.kbps10s1m5m15m30m60m[0] * 1024 | bytes }}/s</span>
-            <span>1m: {{ totals.kbps10s1m5m15m30m60m[1] * 1024 | bytes }}/s</span>
-            <span>5m: {{ totals.kbps10s1m5m15m30m60m[2] * 1024 | bytes }}/s</span>
-            <span>15m: {{ totals.kbps10s1m5m15m30m60m[3] * 1024 | bytes }}/s</span>
-            <span>30m: {{ totals.kbps10s1m5m15m30m60m[4] * 1024 | bytes }}/s</span>
-            <span>1h: {{ totals.kbps10s1m5m15m30m60m[5] * 1024 | bytes }}/s</span>
+            <span>10s: {{ totals.kbps10s1m5m15m30m60m[0] * 128 | bytes }}/s</span>
+            <span>1m: {{ totals.kbps10s1m5m15m30m60m[1] * 128 | bytes }}/s</span>
+            <span>5m: {{ totals.kbps10s1m5m15m30m60m[2] * 128 | bytes }}/s</span>
+            <span>15m: {{ totals.kbps10s1m5m15m30m60m[3] * 128 | bytes }}/s</span>
+            <span>30m: {{ totals.kbps10s1m5m15m30m60m[4] * 128 | bytes }}/s</span>
+            <span>1h: {{ totals.kbps10s1m5m15m30m60m[5] * 128 | bytes }}/s</span>
           </p>
         </div>
         <div id="map"></div> <!-- Can't hide the map, otherwise it freaks out -->
