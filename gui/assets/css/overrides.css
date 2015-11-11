@@ -27,6 +27,11 @@
     background-color: #82ce51;
 }
 
+.nav .open>a, .nav .open>a:hover, .nav .open>a:focus {
+    background-color: #82ce51;
+    border-color: #3498db;
+}
+
 .navbar-default, .navbar-collapse, .navbar, .navbar-static-top, .navbar-static-top, .navbar-fixed-top, .navbar-fixed-bottom {
 	min-height: 70px !important;
 	margin:0px !important;
