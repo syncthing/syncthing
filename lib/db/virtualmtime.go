@@ -45,7 +45,7 @@ func (r *VirtualMtimeRepo) UpdateMtime(path string, diskMtime, actualMtime time.
 func (r *VirtualMtimeRepo) GetMtime(path string, diskMtime time.Time) time.Time {
 	data, exists := r.ns.Bytes(path)
 	if !exists {
-		// Absense of debug print is significant enough in itself here
+		// Absence of debug print is significant enough in itself here
 		return diskMtime
 	}
 

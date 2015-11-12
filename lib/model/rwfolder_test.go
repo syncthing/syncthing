@@ -514,7 +514,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 	p.handleFile(file, copyChan, finisherChan)
 
-	// Receove at finisher, we shoud error out as puller has nowhere to pull
+	// Receive at finisher, we should error out as puller has nowhere to pull
 	// from.
 	select {
 	case state := <-finisherBufferChan:

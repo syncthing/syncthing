@@ -220,7 +220,7 @@ func alterFiles(dir string) error {
 			/*
 				This fails. Bug?
 
-					// Rename the file, while potentially moving it up in the directory hiearachy
+					// Rename the file, while potentially moving it up in the directory hierarchy
 					case r == 4 && comps > 2 && (info.Mode().IsRegular() || rand.Float64() < 0.2):
 						rpath := filepath.Dir(path)
 						if rand.Float64() < 0.2 {

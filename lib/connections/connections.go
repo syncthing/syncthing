@@ -389,7 +389,7 @@ func (s *connectionSvc) connectViaRelay(deviceID protocol.DeviceID, addr discove
 		l.Debugf("Failed to join relay session %s: %v", inv, err)
 		return nil
 	}
-	l.Debugln("Sucessfully joined relay session", inv)
+	l.Debugln("Successfully joined relay session", inv)
 
 	var tc *tls.Conn
 

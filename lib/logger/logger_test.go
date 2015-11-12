@@ -78,7 +78,7 @@ func TestFacilityDebugging(t *testing.T) {
 	f1.Debugln("Debug line from f1")
 
 	if msgs != 1 {
-		t.Fatalf("Incorrent number of messages, %d != 1", msgs)
+		t.Fatalf("Incorrect number of messages, %d != 1", msgs)
 	}
 }
 

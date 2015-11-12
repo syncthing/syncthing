@@ -24,7 +24,7 @@ connection addresses (if any) and relay addresses (if any).
 	}
 
 It's OK for either of the "direct" or "relays" fields to be either the empty
-list ([]), null, or missing entirely. An announcment with both fields missing
+list ([]), null, or missing entirely. An announcement with both fields missing
 or empty is however not useful...
 
 Any empty or unspecified IP addresses (i.e. addresses like tcp://:22000,
@@ -39,7 +39,7 @@ The server response is empty, with code 200 (OK) on success. If no certificate
 was presented, status 403 (Forbidden) is returned. If the posted data doesn't
 conform to the expected format, 400 (Bad Request) is returned.
 
-In successfull responses, the server may return a "Reannounce-After" header
+In successful responses, the server may return a "Reannounce-After" header
 containing the number of seconds after which the client should perform a new
 announcement.
 
@@ -58,7 +58,7 @@ Queries are performed as HTTPS GET requests to the announce server URL. The
 requested device ID is passed as the query parameter "device", in canonical
 string form, i.e. https://announce.syncthing.net/?device=ABC12345-....
 
-Successfull responses will have status code 200 (OK) and carry a JSON payload
+Successful responses will have status code 200 (OK) and carry a JSON payload
 of the same format as the announcement above. The response will not contain
 empty or unspecified addresses.
 
