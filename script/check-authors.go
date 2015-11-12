@@ -32,6 +32,7 @@ var excludeCommits = stringSetFromStrings([]string{
 	"4b76ec40c07078beaa2c5e250ed7d9bd6276a718",
 	"32a76901a91ff0f663db6f0830e0aedec946e4d0",
 	"3626003f680bad3e63677982576d3a05421e88e9",
+	"342036408e65bd25bb6afbcc705e2e2c013bb01f",
 })
 
 func init() {
