@@ -948,7 +948,8 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		// changes that we don't know about yet and we should scan before
 		// touching the file. If we can't stat the file we'll just pull it.
 		if info, err := osutil.Lstat(realName); err == nil {
-			if info.ModTime().Unix() != curFile.Modified || info.Size() != curFile.Size() {
+			mtime := p.virtualMtimeRepo.GetMtime(file.Name, info.ModTime())
+			if mtime.Unix() != curFile.Modified || info.Size() != curFile.Size() {
 				l.Debugln("file modified but not rescanned; not pulling:", realName)
 				// Scan() is synchronous (i.e. blocks until the scan is
 				// completed and returns an error), but a scan can't happen
