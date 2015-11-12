@@ -31,7 +31,7 @@ import (
 // If all verification calls returns nil, CommitConfiguration() is called for
 // each subscribing object. The callee returns true if the new configuration
 // has been successfully applied, otherwise false. Any Commit() call returning
-// false will result in a "restart needed" respone to the API/user. Note that
+// false will result in a "restart needed" response to the API/user. Note that
 // the new configuration will still have been applied by those who were
 // capable of doing so.
 type Committer interface {

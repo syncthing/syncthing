@@ -1014,7 +1014,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
 
 		// Wait a short amount of time before entering the next loop. If there
-		// are continous changes happening to the local index, this gives us
+		// are continuous changes happening to the local index, this gives us
 		// time to batch them up a little.
 		time.Sleep(250 * time.Millisecond)
 	}
@@ -1848,7 +1848,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
-	// Removing a device requres restart
+	// Removing a device requires restart
 	toDevs := mapDeviceCfgs(from.Devices)
 	for _, dev := range from.Devices {
 		if _, ok := toDevs[dev.DeviceID]; !ok {

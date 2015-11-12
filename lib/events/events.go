@@ -284,7 +284,7 @@ func (s *BufferedSubscription) Since(id int, into []Event) []Event {
 }
 
 // Error returns a string pointer suitable for JSON marshalling errors. It
-// retains the "null on sucess" semantics, but ensures the error result is a
+// retains the "null on success" semantics, but ensures the error result is a
 // string regardless of the underlying concrete error type.
 func Error(err error) *string {
 	if err == nil {

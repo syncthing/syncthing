@@ -47,7 +47,7 @@ func TestGetIndex(t *testing.T) {
 	p := startInstance(t, 2)
 	defer checkedStop(t, p)
 
-	// Check for explicint index.html
+	// Check for explicit index.html
 
 	res, err := http.Get("http://localhost:8082/index.html")
 	if err != nil {
