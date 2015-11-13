@@ -1290,6 +1290,11 @@ nextSub:
 	}
 	subs = unifySubs
 
+	// The cancel channel is closed whenever we return (such as from an error),
+	// to signal the potentially still running walker to stop.
+	cancel := make(chan struct{})
+	defer close(cancel)
+
 	w := &scanner.Walker{
 		Folder:                folderCfg.ID,
 		Dir:                   folderCfg.Path(),
@@ -1305,6 +1310,7 @@ nextSub:
 		Hashers:               m.numHashers(folder),
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
+		Cancel:                cancel,
 	}
 
 	runner.setState(FolderScanning)
@@ -1714,15 +1720,15 @@ func (m *Model) BringToFront(folder, file string) {
 // CheckFolderHealth checks the folder for common errors and returns the
 // current folder error, or nil if the folder is healthy.
 func (m *Model) CheckFolderHealth(id string) error {
+	folder, ok := m.cfg.Folders()[id]
+	if !ok {
+		return errors.New("folder does not exist")
+	}
+
 	if minFree := m.cfg.Options().MinHomeDiskFreePct; minFree > 0 {
 		if free, err := osutil.DiskFreePercentage(m.cfg.ConfigPath()); err == nil && free < minFree {
 			return errors.New("home disk has insufficient free space")
 		}
-	}
-
-	folder, ok := m.cfg.Folders()[id]
-	if !ok {
-		return errors.New("folder does not exist")
 	}
 
 	fi, err := os.Stat(folder.Path())
