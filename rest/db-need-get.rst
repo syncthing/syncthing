@@ -30,3 +30,6 @@ needed by this device in order for it to become in sync.
           ...
       ]
     }
+
+.. note::
+  This is an expensive call, increasing CPU and RAM usage on the device. Use sparingly.
