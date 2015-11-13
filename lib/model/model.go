@@ -75,15 +75,16 @@ type Model struct {
 	clientName    string
 	clientVersion string
 
-	folderCfgs     map[string]config.FolderConfiguration                  // folder -> cfg
-	folderFiles    map[string]*db.FileSet                                 // folder -> files
-	folderDevices  map[string][]protocol.DeviceID                         // folder -> deviceIDs
-	deviceFolders  map[protocol.DeviceID][]string                         // deviceID -> folders
-	deviceStatRefs map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
-	folderIgnores  map[string]*ignore.Matcher                             // folder -> matcher object
-	folderRunners  map[string]service                                     // folder -> puller or scanner
-	folderStatRefs map[string]*stats.FolderStatisticsReference            // folder -> statsRef
-	fmut           sync.RWMutex                                           // protects the above
+	folderCfgs         map[string]config.FolderConfiguration                  // folder -> cfg
+	folderFiles        map[string]*db.FileSet                                 // folder -> files
+	folderDevices      map[string][]protocol.DeviceID                         // folder -> deviceIDs
+	deviceFolders      map[protocol.DeviceID][]string                         // deviceID -> folders
+	deviceStatRefs     map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
+	folderIgnores      map[string]*ignore.Matcher                             // folder -> matcher object
+	folderRunners      map[string]service                                     // folder -> puller or scanner
+	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
+	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
+	fmut               sync.RWMutex                                           // protects the above
 
 	conn         map[protocol.DeviceID]Connection
 	deviceVer    map[protocol.DeviceID]string
@@ -105,28 +106,29 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 				l.Debugln(line)
 			},
 		}),
-		cfg:               cfg,
-		db:                ldb,
-		finder:            db.NewBlockFinder(ldb),
-		progressEmitter:   NewProgressEmitter(cfg),
-		id:                id,
-		shortID:           id.Short(),
-		cacheIgnoredFiles: cfg.Options().CacheIgnoredFiles,
-		protectedFiles:    protectedFiles,
-		deviceName:        deviceName,
-		clientName:        clientName,
-		clientVersion:     clientVersion,
-		folderCfgs:        make(map[string]config.FolderConfiguration),
-		folderFiles:       make(map[string]*db.FileSet),
-		folderDevices:     make(map[string][]protocol.DeviceID),
-		deviceFolders:     make(map[protocol.DeviceID][]string),
-		deviceStatRefs:    make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
-		folderIgnores:     make(map[string]*ignore.Matcher),
-		folderRunners:     make(map[string]service),
-		folderStatRefs:    make(map[string]*stats.FolderStatisticsReference),
-		conn:              make(map[protocol.DeviceID]Connection),
-		deviceVer:         make(map[protocol.DeviceID]string),
-		devicePaused:      make(map[protocol.DeviceID]bool),
+		cfg:                cfg,
+		db:                 ldb,
+		finder:             db.NewBlockFinder(ldb),
+		progressEmitter:    NewProgressEmitter(cfg),
+		id:                 id,
+		shortID:            id.Short(),
+		cacheIgnoredFiles:  cfg.Options().CacheIgnoredFiles,
+		protectedFiles:     protectedFiles,
+		deviceName:         deviceName,
+		clientName:         clientName,
+		clientVersion:      clientVersion,
+		folderCfgs:         make(map[string]config.FolderConfiguration),
+		folderFiles:        make(map[string]*db.FileSet),
+		folderDevices:      make(map[string][]protocol.DeviceID),
+		deviceFolders:      make(map[protocol.DeviceID][]string),
+		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
+		folderIgnores:      make(map[string]*ignore.Matcher),
+		folderRunners:      make(map[string]service),
+		folderRunnerTokens: make(map[string][]suture.ServiceToken),
+		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
+		conn:               make(map[protocol.DeviceID]Connection),
+		deviceVer:          make(map[protocol.DeviceID]string),
+		devicePaused:       make(map[protocol.DeviceID]bool),
 
 		fmut: sync.NewRWMutex(),
 		pmut: sync.NewRWMutex(),
@@ -163,7 +165,6 @@ func (m *Model) StartFolderRW(folder string) {
 	}
 	p := newRWFolder(m, m.shortID, cfg)
 	m.folderRunners[folder] = p
-	m.fmut.Unlock()
 
 	if len(cfg.Versioning.Type) > 0 {
 		factory, ok := versioner.Factories[cfg.Versioning.Type]
@@ -176,14 +177,17 @@ func (m *Model) StartFolderRW(folder string) {
 			// The versioner implements the suture.Service interface, so
 			// expects to be run in the background in addition to being called
 			// when files are going to be archived.
-			m.Add(service)
+			token := m.Add(service)
+			m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 		}
 		p.versioner = versioner
 	}
 
 	m.warnAboutOverwritingProtectedFiles(folder)
 
-	m.Add(p)
+	token := m.Add(p)
+	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
+	m.fmut.Unlock()
 
 	l.Okln("Ready to synchronize", folder, "(read-write)")
 }
@@ -232,11 +236,47 @@ func (m *Model) StartFolderRO(folder string) {
 	}
 	s := newROFolder(m, folder, time.Duration(cfg.RescanIntervalS)*time.Second)
 	m.folderRunners[folder] = s
+
+	token := m.Add(s)
+	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	m.fmut.Unlock()
 
-	m.Add(s)
-
 	l.Okln("Ready to synchronize", folder, "(read only; no external updates accepted)")
+}
+
+func (m *Model) RemoveFolder(folder string) {
+	m.fmut.Lock()
+	m.pmut.Lock()
+
+	// Stop the services running for this folder
+	for _, id := range m.folderRunnerTokens[folder] {
+		m.Remove(id)
+	}
+
+	// Close connections to affected devices
+	for _, dev := range m.folderDevices[folder] {
+		if conn, ok := m.conn[dev]; ok {
+			closeRawConn(conn)
+		}
+	}
+
+	// Clean up our config maps
+	delete(m.folderCfgs, folder)
+	delete(m.folderFiles, folder)
+	delete(m.folderDevices, folder)
+	delete(m.folderIgnores, folder)
+	delete(m.folderRunners, folder)
+	delete(m.folderRunnerTokens, folder)
+	delete(m.folderStatRefs, folder)
+	for dev, folders := range m.deviceFolders {
+		m.deviceFolders[dev] = stringSliceWithout(folders, folder)
+	}
+
+	// Remove it from the database
+	db.DropFolder(m.db, folder)
+
+	m.pmut.Unlock()
+	m.fmut.Unlock()
 }
 
 type ConnectionInfo struct {
@@ -1797,9 +1837,9 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	for folderID, fromCfg := range fromFolders {
 		toCfg, ok := toFolders[folderID]
 		if !ok {
-			// A folder was removed. Requires restart.
-			l.Debugln(m, "requires restart, removing folder", folderID)
-			return false
+			// The folder was removed.
+			m.RemoveFolder(folderID)
+			continue
 		}
 
 		// This folder exists on both sides. Compare the device lists, as we
@@ -1960,4 +2000,15 @@ func closeRawConn(conn io.Closer) error {
 		conn.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
 	}
 	return conn.Close()
+}
+
+func stringSliceWithout(ss []string, s string) []string {
+	for i := range ss {
+		if ss[i] == s {
+			copy(ss[i:], ss[i+1:])
+			ss = ss[:len(ss)-1]
+			return ss
+		}
+	}
+	return ss
 }
