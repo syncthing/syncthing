@@ -214,6 +214,9 @@ func blockKeyInto(o, hash []byte, folder, file string) []byte {
 	}
 	o[0] = KeyTypeBlock
 	copy(o[1:], []byte(folder))
+	for i := len(folder); i < 64; i++ {
+		o[1+i] = 0
+	}
 	copy(o[1+64:], []byte(hash))
 	copy(o[1+64+32:], []byte(file))
 	return o
