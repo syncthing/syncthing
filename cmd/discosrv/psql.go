@@ -4,6 +4,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 
 	_ "github.com/lib/pq"
 )
@@ -100,7 +101,7 @@ func postgresCompile(db *sql.DB) (map[string]*sql.Stmt, error) {
 	stmts := map[string]string{
 		"cleanAddress":  "DELETE FROM Addresses WHERE Seen < now() - '2 hour'::INTERVAL",
 		"cleanRelay":    "DELETE FROM Relays WHERE Seen < now() - '2 hour'::INTERVAL",
-		"cleanDevice":   "DELETE FROM Devices WHERE Seen < now() - '24 hour'::INTERVAL",
+		"cleanDevice":   fmt.Sprintf("DELETE FROM Devices WHERE Seen < now() - '%d hour'::INTERVAL", maxDeviceAge/3600),
 		"countAddress":  "SELECT count(*) FROM Addresses",
 		"countDevice":   "SELECT count(*) FROM Devices",
 		"countRelay":    "SELECT count(*) FROM Relays",
@@ -109,6 +110,7 @@ func postgresCompile(db *sql.DB) (map[string]*sql.Stmt, error) {
 		"insertDevice":  "INSERT INTO Devices (DeviceID, Seen) VALUES ($1, now())",
 		"selectAddress": "SELECT Address FROM Addresses WHERE DeviceID=$1 AND Seen > now() - '1 hour'::INTERVAL ORDER BY random() LIMIT 16",
 		"selectRelay":   "SELECT Address, Latency FROM Relays WHERE DeviceID=$1 AND Seen > now() - '1 hour'::INTERVAL ORDER BY random() LIMIT 16",
+		"selectDevice":  "SELECT Seen FROM Devices WHERE DeviceID=$1",
 		"updateAddress": "UPDATE Addresses SET Seen=now() WHERE DeviceID=$1 AND Address=$2",
 		"updateDevice":  "UPDATE Devices SET Seen=now() WHERE DeviceID=$1",
 		"deleteRelay":   "DELETE FROM Relays WHERE DeviceID=$1",
