@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/golang/groupcache/lru"
@@ -23,7 +24,7 @@ type querysrv struct {
 	addr     string
 	db       *sql.DB
 	prep     map[string]*sql.Stmt
-	limiter  *lru.Cache
+	limiter  *safeCache
 	cert     tls.Certificate
 	listener net.Listener
 }
@@ -38,8 +39,28 @@ type annRelay struct {
 	Latency int    `json:"latency"`
 }
 
+type safeCache struct {
+	*lru.Cache
+	mut sync.Mutex
+}
+
+func (s *safeCache) Get(key string) (val interface{}, ok bool) {
+	s.mut.Lock()
+	val, ok = s.Cache.Get(key)
+	s.mut.Unlock()
+	return
+}
+
+func (s *safeCache) Add(key string, val interface{}) {
+	s.mut.Lock()
+	s.Cache.Add(key, val)
+	s.mut.Unlock()
+}
+
 func (s *querysrv) Serve() {
-	s.limiter = lru.New(lruSize)
+	s.limiter = &safeCache{
+		Cache: lru.New(lruSize),
+	}
 
 	if useHttp {
 		listener, err := net.Listen("tcp", s.addr)
