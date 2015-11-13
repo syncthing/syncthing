@@ -72,6 +72,8 @@ type Walker struct {
 	// Optional progress tick interval which defines how often FolderScanProgress
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
+	// Signals cancel from the outside - when closed, we should stop walking.
+	Cancel chan struct{}
 }
 
 type TempNamer interface {
@@ -121,7 +123,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil)
+		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.Cancel)
 		return finishedChan, nil
 	}
 
@@ -149,7 +151,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 
 		realToHashChan := make(chan protocol.FileInfo)
 		done := make(chan struct{})
-		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, realToHashChan, &progress, done)
+		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, realToHashChan, &progress, done, w.Cancel)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
@@ -168,13 +170,21 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 						"current": current,
 						"total":   total,
 					})
+				case <-w.Cancel:
+					ticker.Stop()
+					return
 				}
 			}
 		}()
 
+	loop:
 		for _, file := range filesToHash {
 			l.Debugln("real to hash:", file.Name)
-			realToHashChan <- file
+			select {
+			case realToHashChan <- file:
+			case <-w.Cancel:
+				break loop
+			}
 		}
 		close(realToHashChan)
 	}()
@@ -329,7 +339,11 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 
 			l.Debugln("symlink changedb:", p, f)
 
-			dchan <- f
+			select {
+			case dchan <- f:
+			case <-w.Cancel:
+				return errors.New("cancelled")
+			}
 
 			return skip
 		}
@@ -363,7 +377,13 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				Modified: mtime.Unix(),
 			}
 			l.Debugln("dir:", p, f)
-			dchan <- f
+
+			select {
+			case dchan <- f:
+			case <-w.Cancel:
+				return errors.New("cancelled")
+			}
+
 			return nil
 		}
 
@@ -406,7 +426,12 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				CachedSize: info.Size(),
 			}
 			l.Debugln("to hash:", p, f)
-			fchan <- f
+
+			select {
+			case fchan <- f:
+			case <-w.Cancel:
+				return errors.New("cancelled")
+			}
 		}
 
 		return nil
