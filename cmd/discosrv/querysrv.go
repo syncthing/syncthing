@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ type querysrv struct {
 }
 
 type announcement struct {
+	Seen   time.Time
 	Direct []string   `json:"direct"`
 	Relays []annRelay `json:"relays"`
 }
@@ -55,6 +57,22 @@ func (s *safeCache) Add(key string, val interface{}) {
 	s.mut.Lock()
 	s.Cache.Add(key, val)
 	s.mut.Unlock()
+}
+
+func negCacheFor(lastSeen time.Time) int {
+	since := time.Since(lastSeen).Seconds()
+	if since >= maxDeviceAge {
+		return maxNegCache
+	}
+	if since < 0 {
+		// That's weird
+		return minNegCache
+	}
+
+	// Return a value linearly scaled from minNegCache (at zero seconds ago)
+	// to maxNegCache (at maxDeviceAge seconds ago).
+	r := since / maxDeviceAge
+	return int(minNegCache + r*(maxNegCache-minNegCache))
 }
 
 func (s *querysrv) Serve() {
@@ -157,6 +175,18 @@ func (s *querysrv) handleGET(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var ann announcement
+
+	ann.Seen, err = s.getDeviceSeen(deviceID)
+	negCache := strconv.Itoa(negCacheFor(ann.Seen))
+	w.Header().Set("Retry-After", negCache)
+	w.Header().Set("Cache-Control", "public, max-age="+negCache)
+
+	if err != nil {
+		// The device is not in the database.
+		globalStats.Query()
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
 
 	ann.Direct, err = s.getAddresses(deviceID)
 	if err != nil {
@@ -383,6 +413,15 @@ func (s *querysrv) getAddresses(device protocol.DeviceID) ([]string, error) {
 	}
 
 	return res, nil
+}
+
+func (s *querysrv) getDeviceSeen(device protocol.DeviceID) (time.Time, error) {
+	row := s.prep["selectDevice"].QueryRow(device.String())
+	var seen time.Time
+	if err := row.Scan(&seen); err != nil {
+		return time.Time{}, err
+	}
+	return seen, nil
 }
 
 func (s *querysrv) getRelays(device protocol.DeviceID) ([]annRelay, error) {

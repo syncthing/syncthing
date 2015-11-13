@@ -14,6 +14,12 @@ import (
 	"github.com/thejerf/suture"
 )
 
+const (
+	minNegCache  = 60        // seconds
+	maxNegCache  = 3600      // seconds
+	maxDeviceAge = 7 * 86400 // one week, in seconds
+)
+
 var (
 	lruSize     = 10240
 	limitAvg    = 5
