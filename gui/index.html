@@ -319,7 +319,7 @@
                   <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                 </button>
                 <span class="pull-right">
-                  <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-show="['idle', 'unshared'].indexOf(folderStatus(folder)) > -1">
+                  <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-show="['idle', 'stopped', 'unshared'].indexOf(folderStatus(folder)) > -1">
                     <span class="fa fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="editFolder(folder)">
