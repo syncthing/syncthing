@@ -36,6 +36,7 @@ Windows
 OS X
 ~~~~
 
+-  https://github.com/jerryjacobs/syncthing-mac/releases
 -  https://github.com/m0ppers/syncthing-bar (OSX 10.10 only)
 
 Kindle Touch
@@ -145,7 +146,6 @@ Older, Possibly Unmaintained
 -  https://github.com/icaruseffect/syncthing-ubuntu-indicator
 -  https://github.com/iss0/SyncthingTray
 -  https://github.com/bloones/SyncThingWin
--  https://github.com/jerryjacobs/foo-app/releases
 -  https://github.com/thunderbirdtr/syncthing_rpm
 -  https://copr.fedoraproject.org/coprs/tune2fs/syncthing/
 -  https://github.com/dapperstout/pulse-java
