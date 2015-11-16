@@ -72,6 +72,29 @@
 
   <div class="container" id="content">
 
+    <!-- Panel: Open, no auth -->
+
+    <div ng-if="openNoAuth" class="row">
+      <div class="col-md-12">
+        <div class="panel panel-danger">
+          <div class="panel-heading"><h3 class="panel-title"><span class="fa fa-exclamation-circle"></span><span translate>Danger!</span></h3></div>
+          <div class="panel-body">
+            <p>
+            <span translate>The Syncthing admin interface is configured to allow remote access without a password.</span>
+            <b><span translate>This can easily give hackers access to read and change any files on your computer.</span></b>
+            <span translate>Please set a GUI Authentication User and Password in the Settings dialog.</span>
+            </p>
+          </div>
+          <div class="panel-footer">
+            <button type="button" class="btn btn-sm btn-default pull-right" ng-click="editSettings()">
+              <span class="fa fa-cog"></span>&nbsp;<span translate>Settings</span>
+            </button>
+            <div class="clearfix"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Panel: Restart Needed -->
 
     <div ng-if="!configInSync" class="row">

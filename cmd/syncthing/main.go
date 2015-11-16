@@ -892,6 +892,10 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 		return
 	}
 
+	if guiCfg.InsecureAdminAccess {
+		l.Warnln("Insecure admin access is enabled.")
+	}
+
 	api, err := newAPISvc(myID, cfg, guiAssets, m, apiSub, discoverer, relaySvc, errors, systemLog)
 	if err != nil {
 		l.Fatalln("Cannot start GUI:", err)
