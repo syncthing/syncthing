@@ -64,12 +64,6 @@ Runs Jenkins and does the core and Android builds, Ubuntu Linux.
 - build2.syncthing.net (build runner, SmartOS container, 8192 MB)
 - `android.syncthing.net <http://android.syncthing.net/>`__ (Ubuntu Linux, 3072 MB)
 
-OSX and Windows Build Slaves
-----------------------------
-
-Runs Jenkins build slaves and runs builds and tests on the Mac and
-Windows operating systems. Hosted by :user:`Zillode`.
-
 APT Server
 ----------
 
