@@ -36,7 +36,7 @@ Windows
 OS X
 ~~~~
 
--  https://github.com/jerryjacobs/syncthing-mac/releases
+-  https://github.com/xor-gate/syncthing-mac/releases
 -  https://github.com/m0ppers/syncthing-bar (OSX 10.10 only)
 
 Kindle Touch
