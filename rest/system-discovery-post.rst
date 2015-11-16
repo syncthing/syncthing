@@ -1,6 +1,8 @@
 POST /rest/system/discovery
 ================================
 
+.. note:: Removed in v0.12.0.
+
 Post with the query parameters ``device`` and ``addr`` to add entries to
 the discovery cache.
 
