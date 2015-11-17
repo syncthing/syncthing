@@ -1,0 +1,3 @@
+dependencies:
+  post:
+      - ./generate.sh
