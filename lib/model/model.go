@@ -956,7 +956,7 @@ func (m *Model) AddConnection(conn Connection) {
 
 	conn.Start()
 
-	cm := m.clusterConfig(deviceID)
+	cm := m.generateClusterConfig(deviceID)
 	conn.ClusterConfig(cm)
 
 	m.fmut.RLock()
@@ -1476,8 +1476,9 @@ func (m *Model) numHashers(folder string) int {
 	return 1
 }
 
-// clusterConfig returns a ClusterConfigMessage that is correct for the given peer device
-func (m *Model) clusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
+// generateClusterConfig returns a ClusterConfigMessage that is correct for
+// the given peer device
+func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
 	cm := protocol.ClusterConfigMessage{
 		DeviceName:    m.deviceName,
 		ClientName:    m.clientName,
