@@ -321,7 +321,8 @@ angular.module('syncthing.core')
             var data = arg.data;
             $scope.scanProgress[data.folder] = {
                 current: data.current,
-                total: data.total
+                total: data.total,
+                rate: data.rate,
             };
             console.log("FolderScanProgress", data);
         });
@@ -666,6 +667,13 @@ angular.module('syncthing.core')
             }
             var pct = 100 * $scope.scanProgress[folder].current / $scope.scanProgress[folder].total;
             return Math.floor(pct);
+        }
+
+        $scope.scanRate = function (folder) {
+            if (!$scope.scanProgress[folder]) {
+                return 0;
+            }
+            return $scope.scanProgress[folder].rate;
         }
 
         $scope.deviceStatus = function (deviceCfg) {
