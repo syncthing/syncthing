@@ -228,7 +228,7 @@
                   <span ng-switch-when="scanning">
                     <span class="hidden-xs" translate>Scanning</span>
                     <span class="hidden-xs" ng-if="scanPercentage(folder.id) != undefined">
-                        ({{scanPercentage(folder.id)}}%)
+                      (<span class="hidden-xs" ng-if="scanRate(folder.id) > 0">{{scanRate(folder.id) | binary}}B/s, </span>{{scanPercentage(folder.id)}}%)
                     </span>
                     <span class="visible-xs">&#9724;</span>
                   </span>

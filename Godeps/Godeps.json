@@ -34,6 +34,10 @@
 			"Rev": "6e7f843663477789fac7c02def0d0909e969b4e5"
 		},
 		{
+			"ImportPath": "github.com/rcrowley/go-metrics",
+			"Rev": "1ce93efbc8f9c568886b2ef85ce305b2217b3de3"
+		},
+		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
 			"Rev": "1a9d62f03ea92815b46fcaab357cfd4df264b1a0"
 		},
@@ -56,31 +60,31 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/bcrypt",
-			"Rev": "81bf7719a6b7ce9b665598222362b50122dfc13b"
+			"Rev": "575fdbe86e5dd89229707ebec0575ce7d088a4a6"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/blowfish",
-			"Rev": "81bf7719a6b7ce9b665598222362b50122dfc13b"
+			"Rev": "575fdbe86e5dd89229707ebec0575ce7d088a4a6"
 		},
 		{
 			"ImportPath": "golang.org/x/net/internal/iana",
-			"Rev": "4b709d93778b93d2f34943e3142c71578d83ad31"
+			"Rev": "042ba42fa6633b34205efc66ba5719cd3afd8d38"
 		},
 		{
 			"ImportPath": "golang.org/x/net/ipv6",
-			"Rev": "4b709d93778b93d2f34943e3142c71578d83ad31"
+			"Rev": "042ba42fa6633b34205efc66ba5719cd3afd8d38"
 		},
 		{
 			"ImportPath": "golang.org/x/net/proxy",
-			"Rev": "4b709d93778b93d2f34943e3142c71578d83ad31"
+			"Rev": "042ba42fa6633b34205efc66ba5719cd3afd8d38"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",
-			"Rev": "723492b65e225eafcba054e76ba18bb9c5ac1ea2"
+			"Rev": "5eb8d4684c4796dd36c74f6452f2c0fa6c79597e"
 		},
 		{
 			"ImportPath": "golang.org/x/text/unicode/norm",
-			"Rev": "723492b65e225eafcba054e76ba18bb9c5ac1ea2"
+			"Rev": "5eb8d4684c4796dd36c74f6452f2c0fa6c79597e"
 		}
 	]
 }
