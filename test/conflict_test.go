@@ -80,6 +80,10 @@ func TestConflictsDefault(t *testing.T) {
 
 	log.Println("Introducing a conflict (simultaneous edit)...")
 
+	if err := sender.PauseDevice(receiver.ID()); err != nil {
+		t.Fatal(err)
+	}
+
 	fd, err = os.OpenFile("s1/testfile.txt", os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -106,6 +110,10 @@ func TestConflictsDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := sender.ResumeDevice(receiver.ID()); err != nil {
+		t.Fatal(err)
+	}
+
 	log.Println("Syncing...")
 
 	if err := sender.RescanDelay("default", 86400); err != nil {
@@ -129,6 +137,10 @@ func TestConflictsDefault(t *testing.T) {
 
 	log.Println("Introducing a conflict (edit plus delete)...")
 
+	if err := sender.PauseDevice(receiver.ID()); err != nil {
+		t.Fatal(err)
+	}
+
 	err = os.Remove("s1/testfile.txt")
 	if err != nil {
 		t.Fatal(err)
@@ -144,6 +156,10 @@ func TestConflictsDefault(t *testing.T) {
 	}
 	err = fd.Close()
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sender.ResumeDevice(receiver.ID()); err != nil {
 		t.Fatal(err)
 	}
 

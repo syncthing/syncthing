@@ -281,6 +281,16 @@ func (p *Process) PostConfig(cfg config.Configuration) error {
 	return err
 }
 
+func (p *Process) PauseDevice(dev protocol.DeviceID) error {
+	_, err := p.Post("/rest/system/pause?device="+dev.String(), nil)
+	return err
+}
+
+func (p *Process) ResumeDevice(dev protocol.DeviceID) error {
+	_, err := p.Post("/rest/system/resume?device="+dev.String(), nil)
+	return err
+}
+
 func InSync(folder string, ps ...*Process) bool {
 	for _, p := range ps {
 		p.eventMut.Lock()
