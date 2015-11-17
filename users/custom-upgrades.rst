@@ -23,19 +23,19 @@ release list. The release list is a JSON file on the following format::
 	    "prerelease": false,
 	    "assets": [
 	      {
-	        "url": "https://api.github.com/repos/syncthing/syncthing/releases/assets/844913",
+	        "url": "https://example.com/dl/syncthing-dragonfly-amd64-v0.11.24.tar.gz",
 	        "name": "syncthing-dragonfly-amd64-v0.11.24.tar.gz",
 	      },
 	      {
-	        "url": "https://api.github.com/repos/syncthing/syncthing/releases/assets/844914",
+	        "url": "https://example.com/dl/syncthing-freebsd-386-v0.11.24.tar.gz",
 	        "name": "syncthing-freebsd-386-v0.11.24.tar.gz",
 	      },
 	      {
-	        "url": "https://api.github.com/repos/syncthing/syncthing/releases/assets/844915",
+	        "url": "https://example.com/dl/syncthing-freebsd-amd64-v0.11.24.tar.gz",
 	        "name": "syncthing-freebsd-amd64-v0.11.24.tar.gz",
 	      },
 	      {
-	        "url": "https://api.github.com/repos/syncthing/syncthing/releases/assets/844916",
+	        "url": "https://example.com/dl/syncthing-linux-386-v0.11.24.tar.gz",
 	        "name": "syncthing-linux-386-v0.11.24.tar.gz",
 	      },
 	      ...
@@ -46,19 +46,19 @@ release list. The release list is a JSON file on the following format::
 	    "prerelease": false,
 	    "assets": [
 	      {
-	        "url": "https://api.github.com/repos/syncthing/syncthing/releases/assets/824903",
+	        "url": "https://example.com/dl/syncthing-dragonfly-amd64-v0.11.23.tar.gz",
 	        "name": "syncthing-dragonfly-amd64-v0.11.23.tar.gz",
 	      },
 	      {
-	        "url": "https://api.github.com/repos/syncthing/syncthing/releases/assets/824904",
+	        "url": "https://example.com/dl/syncthing-freebsd-386-v0.11.23.tar.gz",
 	        "name": "syncthing-freebsd-386-v0.11.23.tar.gz",
 	      },
 	      {
-	        "url": "https://api.github.com/repos/syncthing/syncthing/releases/assets/824905",
+	        "url": "https://example.com/dl/syncthing-freebsd-amd64-v0.11.23.tar.gz",
 	        "name": "syncthing-freebsd-amd64-v0.11.23.tar.gz",
 	      },
 	      {
-	        "url": "https://api.github.com/repos/syncthing/syncthing/releases/assets/824906",
+	        "url": "https://example.com/dl/syncthing-linux-386-v0.11.23.tar.gz",
 	        "name": "syncthing-linux-386-v0.11.23.tar.gz",
 	      },
 	      ...
