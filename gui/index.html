@@ -228,7 +228,7 @@
                   <span ng-switch-when="scanning">
                     <span class="hidden-xs" translate>Scanning</span>
                     <span class="hidden-xs" ng-if="scanPercentage(folder.id) != undefined">
-                      (<span class="hidden-xs" ng-if="scanRate(folder.id) > 0">{{scanRate(folder.id) | binary}}B/s, </span>{{scanPercentage(folder.id)}}%)
+                      {{scanPercentage(folder.id)}}%
                     </span>
                     <span class="visible-xs">&#9724;</span>
                   </span>
@@ -265,6 +265,12 @@
                       <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                       <td class="text-right">
                         <a href="" ng-click="showNeed(folder.id)">{{model[folder.id].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
+                      </td>
+                    </tr>
+                    <tr ng-if="folderStatus(folder) === 'scanning' && scanRate(folder.id) > 0">
+                      <th><span class="fa fa-fw fa-hourglass-2"></span>&nbsp;<span translate>Scan Time Remaining</span></th>
+                      <td class="text-right">
+                        <span title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
                       </td>
                     </tr>
                     <tr ng-if="!folder.readOnly && (folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id))">
