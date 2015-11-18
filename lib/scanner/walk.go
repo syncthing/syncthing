@@ -146,9 +146,6 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 		var filesToHash []protocol.FileInfo
 		var total int64 = 1
 
-		progress := newByteCounter()
-		defer progress.Close()
-
 		for file := range toHashChan {
 			filesToHash = append(filesToHash, file)
 			total += int64(file.CachedSize)
@@ -156,6 +153,9 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 
 		realToHashChan := make(chan protocol.FileInfo)
 		done := make(chan struct{})
+		progress := newByteCounter()
+		defer progress.Close()
+
 		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.Cancel)
 
 		// A routine which actually emits the FolderScanProgress events
