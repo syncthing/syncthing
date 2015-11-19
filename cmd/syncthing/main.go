@@ -667,11 +667,7 @@ func syncthingMain() {
 		}
 		// Routine to pull blocks from other devices to synchronize the local
 		// folder. Does not run when we are in read only (publish only) mode.
-		if folderCfg.ReadOnly {
-			m.StartFolderRO(folderCfg.ID)
-		} else {
-			m.StartFolderRW(folderCfg.ID)
-		}
+		m.StartFolder(folderCfg.ID)
 	}
 
 	mainSvc.Add(m)
