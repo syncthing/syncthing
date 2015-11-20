@@ -119,6 +119,10 @@ func (c *staticClient) Serve() {
 				}
 				c.invitations <- msg
 
+			case protocol.RelayFull:
+				l.Infoln("Disconnected from relay due to it becoming full.")
+				return
+
 			default:
 				l.Infoln("Relay: protocol error: unexpected message %v", msg)
 				return
@@ -239,6 +243,9 @@ func (c *staticClient) join() error {
 		if msg.Code != 0 {
 			return fmt.Errorf("Incorrect response code %d: %s", msg.Code, msg.Message)
 		}
+
+	case protocol.RelayFull:
+		return fmt.Errorf("relay full")
 
 	default:
 		return fmt.Errorf("protocol error: expecting response got %v", msg)
