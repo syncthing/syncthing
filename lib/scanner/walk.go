@@ -252,44 +252,9 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			return skip
 		}
 
-		var normalizedRn string
-		if runtime.GOOS == "darwin" {
-			// Mac OS X file names should always be NFD normalized.
-			normalizedRn = norm.NFD.String(relPath)
-		} else {
-			// Every other OS in the known universe uses NFC or just plain
-			// doesn't bother to define an encoding. In our case *we* do care,
-			// so we enforce NFC regardless.
-			normalizedRn = norm.NFC.String(relPath)
-		}
-
-		if relPath != normalizedRn {
-			// The file name was not normalized.
-
-			if !w.AutoNormalize {
-				// We're not authorized to do anything about it, so complain and skip.
-
-				l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", relPath)
-				return skip
-			}
-
-			// We will attempt to normalize it.
-			normalizedPath := filepath.Join(w.Dir, normalizedRn)
-			if _, err := osutil.Lstat(normalizedPath); os.IsNotExist(err) {
-				// Nothing exists with the normalized filename. Good.
-				if err = os.Rename(absPath, normalizedPath); err != nil {
-					l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, relPath, err)
-					return skip
-				}
-				l.Infof(`Normalized UTF8 encoding of file name "%s".`, relPath)
-			} else {
-				// There is something already in the way at the normalized
-				// file name.
-				l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, relPath)
-				return skip
-			}
-
-			relPath = normalizedRn
+		relPath, shouldSkip := w.normalizePath(absPath, relPath)
+		if shouldSkip {
+			return skip
 		}
 
 		var cf protocol.FileInfo
@@ -443,6 +408,51 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 
 		return nil
 	}
+}
+
+// normalizePath returns the normalized relative path (possibly after fixing
+// it on disk), or skip is true.
+func (w *Walker) normalizePath(absPath, relPath string) (normPath string, skip bool) {
+	if runtime.GOOS == "darwin" {
+		// Mac OS X file names should always be NFD normalized.
+		normPath = norm.NFD.String(relPath)
+	} else {
+		// Every other OS in the known universe uses NFC or just plain
+		// doesn't bother to define an encoding. In our case *we* do care,
+		// so we enforce NFC regardless.
+		normPath = norm.NFC.String(relPath)
+	}
+
+	if relPath != normPath {
+		// The file name was not normalized.
+
+		if !w.AutoNormalize {
+			// We're not authorized to do anything about it, so complain and skip.
+
+			l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", relPath)
+			return "", true
+		}
+
+		// We will attempt to normalize it.
+		normalizedPath := filepath.Join(w.Dir, normPath)
+		if _, err := osutil.Lstat(normalizedPath); os.IsNotExist(err) {
+			// Nothing exists with the normalized filename. Good.
+			if err = os.Rename(absPath, normalizedPath); err != nil {
+				l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, relPath, err)
+				return "", true
+			}
+			l.Infof(`Normalized UTF8 encoding of file name "%s".`, relPath)
+		} else {
+			// There is something already in the way at the normalized
+			// file name.
+			l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, relPath)
+			return "", true
+		}
+
+		relPath = normPath
+	}
+
+	return normPath, false
 }
 
 func checkDir(dir string) error {
