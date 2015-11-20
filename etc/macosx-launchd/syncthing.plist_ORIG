@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+	Make sure the "syncthing" executable is located at ~/bin/syncthing.
+	Replace the string "USERNAME" in this file with your username, such as "jb".
+	Copy this file to ~/Library/LaunchAgents/syncthing.plist.
+	Execute "launchctl load ~/Library/LaunchAgents/syncthing.plist".
+-->
+<plist version="1.0">
+	<dict>
+		<key>Label</key>
+		<string>net.syncthing.syncthing</string>
+
+		<key>ProgramArguments</key>
+		<array>
+			<string>/Users/USERNAME/bin/syncthing</string>
+		</array>
+
+		<key>EnvironmentVariables</key>
+		<dict>
+			<key>HOME</key>
+			<string>/Users/USERNAME</string>
+			<key>STNORESTART</key>
+			<string>1</string>
+		</dict>
+
+		<key>KeepAlive</key>
+		<true/>
+
+		<key>LowPriorityIO</key>
+		<true/>
+
+		<key>ProcessType</key>
+		<string>Background</string>
+
+		<key>StandardOutPath</key>
+		<string>/Users/USERNAME/Library/Logs/Syncthing.log</string>
+
+		<key>StandardErrorPath</key>
+		<string>/Users/USERNAME/Library/Logs/Syncthing-Errors.log</string>
+	</dict>
+</plist>
