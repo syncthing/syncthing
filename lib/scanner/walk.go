@@ -201,7 +201,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 
 func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.WalkFunc {
 	now := time.Now()
-	return func(p string, info os.FileInfo, err error) error {
+	return func(absPath string, info os.FileInfo, err error) error {
 		// Return value used when we are returning early and don't want to
 		// process the item. For directories, this means do-not-descend.
 		var skip error // nil
@@ -211,65 +211,65 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 		}
 
 		if err != nil {
-			l.Debugln("error:", p, info, err)
+			l.Debugln("error:", absPath, info, err)
 			return skip
 		}
 
-		rn, err := filepath.Rel(w.Dir, p)
+		relPath, err := filepath.Rel(w.Dir, absPath)
 		if err != nil {
-			l.Debugln("rel error:", p, err)
+			l.Debugln("rel error:", absPath, err)
 			return skip
 		}
 
-		if rn == "." {
+		if relPath == "." {
 			return nil
 		}
 
 		mtime := info.ModTime()
 		if w.MtimeRepo != nil {
-			mtime = w.MtimeRepo.GetMtime(rn, mtime)
+			mtime = w.MtimeRepo.GetMtime(relPath, mtime)
 		}
 
-		if w.TempNamer != nil && w.TempNamer.IsTemporary(rn) {
+		if w.TempNamer != nil && w.TempNamer.IsTemporary(relPath) {
 			// A temporary file
-			l.Debugln("temporary:", rn)
+			l.Debugln("temporary:", relPath)
 			if info.Mode().IsRegular() && mtime.Add(w.TempLifetime).Before(now) {
-				os.Remove(p)
-				l.Debugln("removing temporary:", rn, mtime)
+				os.Remove(absPath)
+				l.Debugln("removing temporary:", relPath, mtime)
 			}
 			return nil
 		}
 
-		if sn := filepath.Base(rn); sn == ".stignore" || sn == ".stfolder" ||
-			strings.HasPrefix(rn, ".stversions") || (w.Matcher != nil && w.Matcher.Match(rn)) {
+		if sn := filepath.Base(relPath); sn == ".stignore" || sn == ".stfolder" ||
+			strings.HasPrefix(relPath, ".stversions") || (w.Matcher != nil && w.Matcher.Match(relPath)) {
 			// An ignored file
-			l.Debugln("ignored:", rn)
+			l.Debugln("ignored:", relPath)
 			return skip
 		}
 
-		if !utf8.ValidString(rn) {
-			l.Warnf("File name %q is not in UTF8 encoding; skipping.", rn)
+		if !utf8.ValidString(relPath) {
+			l.Warnf("File name %q is not in UTF8 encoding; skipping.", relPath)
 			return skip
 		}
 
 		var normalizedRn string
 		if runtime.GOOS == "darwin" {
 			// Mac OS X file names should always be NFD normalized.
-			normalizedRn = norm.NFD.String(rn)
+			normalizedRn = norm.NFD.String(relPath)
 		} else {
 			// Every other OS in the known universe uses NFC or just plain
 			// doesn't bother to define an encoding. In our case *we* do care,
 			// so we enforce NFC regardless.
-			normalizedRn = norm.NFC.String(rn)
+			normalizedRn = norm.NFC.String(relPath)
 		}
 
-		if rn != normalizedRn {
+		if relPath != normalizedRn {
 			// The file name was not normalized.
 
 			if !w.AutoNormalize {
 				// We're not authorized to do anything about it, so complain and skip.
 
-				l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", rn)
+				l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", relPath)
 				return skip
 			}
 
@@ -277,19 +277,19 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			normalizedPath := filepath.Join(w.Dir, normalizedRn)
 			if _, err := osutil.Lstat(normalizedPath); os.IsNotExist(err) {
 				// Nothing exists with the normalized filename. Good.
-				if err = os.Rename(p, normalizedPath); err != nil {
-					l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, rn, err)
+				if err = os.Rename(absPath, normalizedPath); err != nil {
+					l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, relPath, err)
 					return skip
 				}
-				l.Infof(`Normalized UTF8 encoding of file name "%s".`, rn)
+				l.Infof(`Normalized UTF8 encoding of file name "%s".`, relPath)
 			} else {
 				// There is something already in the way at the normalized
 				// file name.
-				l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, rn)
+				l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, relPath)
 				return skip
 			}
 
-			rn = normalizedRn
+			relPath = normalizedRn
 		}
 
 		var cf protocol.FileInfo
@@ -310,15 +310,15 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			// checking that their existing blocks match with the blocks in
 			// the index.
 
-			target, targetType, err := symlinks.Read(p)
+			target, targetType, err := symlinks.Read(absPath)
 			if err != nil {
-				l.Debugln("readlink error:", p, err)
+				l.Debugln("readlink error:", absPath, err)
 				return skip
 			}
 
 			blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0, nil)
 			if err != nil {
-				l.Debugln("hash link error:", p, err)
+				l.Debugln("hash link error:", absPath, err)
 				return skip
 			}
 
@@ -330,21 +330,21 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				//  - it wasn't invalid
 				//  - the symlink type (file/dir) was the same
 				//  - the block list (i.e. hash of target) was the same
-				cf, ok = w.CurrentFiler.CurrentFile(rn)
+				cf, ok = w.CurrentFiler.CurrentFile(relPath)
 				if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && BlocksEqual(cf.Blocks, blocks) {
 					return skip
 				}
 			}
 
 			f := protocol.FileInfo{
-				Name:     rn,
+				Name:     relPath,
 				Version:  cf.Version.Update(w.ShortID),
 				Flags:    uint32(protocol.FlagSymlink | protocol.FlagNoPermBits | 0666 | SymlinkFlags(targetType)),
 				Modified: 0,
 				Blocks:   blocks,
 			}
 
-			l.Debugln("symlink changedb:", p, f)
+			l.Debugln("symlink changedb:", absPath, f)
 
 			select {
 			case dchan <- f:
@@ -364,7 +364,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				//  - was a directory previously (not a file or something else)
 				//  - was not a symlink (since it's a directory now)
 				//  - was not invalid (since it looks valid now)
-				cf, ok = w.CurrentFiler.CurrentFile(rn)
+				cf, ok = w.CurrentFiler.CurrentFile(relPath)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
 				if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 					return nil
@@ -378,12 +378,12 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				flags |= uint32(info.Mode() & maskModePerm)
 			}
 			f := protocol.FileInfo{
-				Name:     rn,
+				Name:     relPath,
 				Version:  cf.Version.Update(w.ShortID),
 				Flags:    flags,
 				Modified: mtime.Unix(),
 			}
-			l.Debugln("dir:", p, f)
+			l.Debugln("dir:", absPath, f)
 
 			select {
 			case dchan <- f:
@@ -396,7 +396,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 
 		if info.Mode().IsRegular() {
 			curMode := uint32(info.Mode())
-			if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(rn) {
+			if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
 				curMode |= 0111
 			}
 
@@ -410,7 +410,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 				//  - was not a symlink (since it's a file now)
 				//  - was not invalid (since it looks valid now)
 				//  - has the same size as previously
-				cf, ok = w.CurrentFiler.CurrentFile(rn)
+				cf, ok = w.CurrentFiler.CurrentFile(relPath)
 				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, curMode)
 				if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == mtime.Unix() && !cf.IsDirectory() &&
 					!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
@@ -426,13 +426,13 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			}
 
 			f := protocol.FileInfo{
-				Name:       rn,
+				Name:       relPath,
 				Version:    cf.Version.Update(w.ShortID),
 				Flags:      flags,
 				Modified:   mtime.Unix(),
 				CachedSize: info.Size(),
 			}
-			l.Debugln("to hash:", p, f)
+			l.Debugln("to hash:", absPath, f)
 
 			select {
 			case fchan <- f:
