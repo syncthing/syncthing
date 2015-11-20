@@ -263,61 +263,11 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 		// Index wise symlinks are always files, regardless of what the target
 		// is, because symlinks carry their target path as their content.
 		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
-			// If the target is a directory, do NOT descend down there. This
-			// will cause files to get tracked, and removing the symlink will
-			// as a result remove files in their real location.
-			if !symlinks.Supported {
+			if shouldSkip, err := w.walkSymlink(absPath, relPath, dchan); err != nil {
+				return err
+			} else if shouldSkip {
 				return skip
 			}
-
-			// We always rehash symlinks as they have no modtime or
-			// permissions. We check if they point to the old target by
-			// checking that their existing blocks match with the blocks in
-			// the index.
-
-			target, targetType, err := symlinks.Read(absPath)
-			if err != nil {
-				l.Debugln("readlink error:", absPath, err)
-				return skip
-			}
-
-			blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0, nil)
-			if err != nil {
-				l.Debugln("hash link error:", absPath, err)
-				return skip
-			}
-
-			if w.CurrentFiler != nil {
-				// A symlink is "unchanged", if
-				//  - it exists
-				//  - it wasn't deleted (because it isn't now)
-				//  - it was a symlink
-				//  - it wasn't invalid
-				//  - the symlink type (file/dir) was the same
-				//  - the block list (i.e. hash of target) was the same
-				cf, ok = w.CurrentFiler.CurrentFile(relPath)
-				if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && BlocksEqual(cf.Blocks, blocks) {
-					return skip
-				}
-			}
-
-			f := protocol.FileInfo{
-				Name:     relPath,
-				Version:  cf.Version.Update(w.ShortID),
-				Flags:    uint32(protocol.FlagSymlink | protocol.FlagNoPermBits | 0666 | SymlinkFlags(targetType)),
-				Modified: 0,
-				Blocks:   blocks,
-			}
-
-			l.Debugln("symlink changedb:", absPath, f)
-
-			select {
-			case dchan <- f:
-			case <-w.Cancel:
-				return errors.New("cancelled")
-			}
-
-			return skip
 		}
 
 		if info.Mode().IsDir() {
@@ -408,6 +358,68 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 
 		return nil
 	}
+}
+
+// walkSymlinks returns true if the symlink should be skipped, or an error if
+// we should stop walking altogether.
+func (w *Walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileInfo) (skip bool, err error) {
+	// If the target is a directory, do NOT descend down there. This
+	// will cause files to get tracked, and removing the symlink will
+	// as a result remove files in their real location.
+	if !symlinks.Supported {
+		return true, nil
+	}
+
+	// We always rehash symlinks as they have no modtime or
+	// permissions. We check if they point to the old target by
+	// checking that their existing blocks match with the blocks in
+	// the index.
+
+	target, targetType, err := symlinks.Read(absPath)
+	if err != nil {
+		l.Debugln("readlink error:", absPath, err)
+		return true, nil
+	}
+
+	blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0, nil)
+	if err != nil {
+		l.Debugln("hash link error:", absPath, err)
+		return true, nil
+	}
+
+	var currentVersion protocol.Vector
+	if w.CurrentFiler != nil {
+		// A symlink is "unchanged", if
+		//  - it exists
+		//  - it wasn't deleted (because it isn't now)
+		//  - it was a symlink
+		//  - it wasn't invalid
+		//  - the symlink type (file/dir) was the same
+		//  - the block list (i.e. hash of target) was the same
+		cf, ok := w.CurrentFiler.CurrentFile(relPath)
+		if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && BlocksEqual(cf.Blocks, blocks) {
+			return true, nil
+		}
+		currentVersion = cf.Version
+	}
+
+	f := protocol.FileInfo{
+		Name:     relPath,
+		Version:  currentVersion.Update(w.ShortID),
+		Flags:    uint32(protocol.FlagSymlink | protocol.FlagNoPermBits | 0666 | SymlinkFlags(targetType)),
+		Modified: 0,
+		Blocks:   blocks,
+	}
+
+	l.Debugln("symlink changedb:", absPath, f)
+
+	select {
+	case dchan <- f:
+	case <-w.Cancel:
+		return false, errors.New("cancelled")
+	}
+
+	return false, nil
 }
 
 // normalizePath returns the normalized relative path (possibly after fixing
