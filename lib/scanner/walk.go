@@ -201,7 +201,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 
 func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.WalkFunc {
 	now := time.Now()
-	return func(p string, info os.FileInfo, err error) error {
+	return func(absPath string, info os.FileInfo, err error) error {
 		// Return value used when we are returning early and don't want to
 		// process the item. For directories, this means do-not-descend.
 		var skip error // nil
@@ -211,238 +211,272 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 		}
 
 		if err != nil {
-			l.Debugln("error:", p, info, err)
+			l.Debugln("error:", absPath, info, err)
 			return skip
 		}
 
-		rn, err := filepath.Rel(w.Dir, p)
+		relPath, err := filepath.Rel(w.Dir, absPath)
 		if err != nil {
-			l.Debugln("rel error:", p, err)
+			l.Debugln("rel error:", absPath, err)
 			return skip
 		}
 
-		if rn == "." {
+		if relPath == "." {
 			return nil
 		}
 
 		mtime := info.ModTime()
 		if w.MtimeRepo != nil {
-			mtime = w.MtimeRepo.GetMtime(rn, mtime)
+			mtime = w.MtimeRepo.GetMtime(relPath, mtime)
 		}
 
-		if w.TempNamer != nil && w.TempNamer.IsTemporary(rn) {
+		if w.TempNamer != nil && w.TempNamer.IsTemporary(relPath) {
 			// A temporary file
-			l.Debugln("temporary:", rn)
+			l.Debugln("temporary:", relPath)
 			if info.Mode().IsRegular() && mtime.Add(w.TempLifetime).Before(now) {
-				os.Remove(p)
-				l.Debugln("removing temporary:", rn, mtime)
+				os.Remove(absPath)
+				l.Debugln("removing temporary:", relPath, mtime)
 			}
 			return nil
 		}
 
-		if sn := filepath.Base(rn); sn == ".stignore" || sn == ".stfolder" ||
-			strings.HasPrefix(rn, ".stversions") || (w.Matcher != nil && w.Matcher.Match(rn)) {
+		if sn := filepath.Base(relPath); sn == ".stignore" || sn == ".stfolder" ||
+			strings.HasPrefix(relPath, ".stversions") || (w.Matcher != nil && w.Matcher.Match(relPath)) {
 			// An ignored file
-			l.Debugln("ignored:", rn)
+			l.Debugln("ignored:", relPath)
 			return skip
 		}
 
-		if !utf8.ValidString(rn) {
-			l.Warnf("File name %q is not in UTF8 encoding; skipping.", rn)
+		if !utf8.ValidString(relPath) {
+			l.Warnf("File name %q is not in UTF8 encoding; skipping.", relPath)
 			return skip
 		}
 
-		var normalizedRn string
-		if runtime.GOOS == "darwin" {
-			// Mac OS X file names should always be NFD normalized.
-			normalizedRn = norm.NFD.String(rn)
-		} else {
-			// Every other OS in the known universe uses NFC or just plain
-			// doesn't bother to define an encoding. In our case *we* do care,
-			// so we enforce NFC regardless.
-			normalizedRn = norm.NFC.String(rn)
-		}
-
-		if rn != normalizedRn {
-			// The file name was not normalized.
-
-			if !w.AutoNormalize {
-				// We're not authorized to do anything about it, so complain and skip.
-
-				l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", rn)
-				return skip
-			}
-
-			// We will attempt to normalize it.
-			normalizedPath := filepath.Join(w.Dir, normalizedRn)
-			if _, err := osutil.Lstat(normalizedPath); os.IsNotExist(err) {
-				// Nothing exists with the normalized filename. Good.
-				if err = os.Rename(p, normalizedPath); err != nil {
-					l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, rn, err)
-					return skip
-				}
-				l.Infof(`Normalized UTF8 encoding of file name "%s".`, rn)
-			} else {
-				// There is something already in the way at the normalized
-				// file name.
-				l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, rn)
-				return skip
-			}
-
-			rn = normalizedRn
-		}
-
-		var cf protocol.FileInfo
-		var ok bool
-
-		// Index wise symlinks are always files, regardless of what the target
-		// is, because symlinks carry their target path as their content.
-		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
-			// If the target is a directory, do NOT descend down there. This
-			// will cause files to get tracked, and removing the symlink will
-			// as a result remove files in their real location.
-			if !symlinks.Supported {
-				return skip
-			}
-
-			// We always rehash symlinks as they have no modtime or
-			// permissions. We check if they point to the old target by
-			// checking that their existing blocks match with the blocks in
-			// the index.
-
-			target, targetType, err := symlinks.Read(p)
-			if err != nil {
-				l.Debugln("readlink error:", p, err)
-				return skip
-			}
-
-			blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0, nil)
-			if err != nil {
-				l.Debugln("hash link error:", p, err)
-				return skip
-			}
-
-			if w.CurrentFiler != nil {
-				// A symlink is "unchanged", if
-				//  - it exists
-				//  - it wasn't deleted (because it isn't now)
-				//  - it was a symlink
-				//  - it wasn't invalid
-				//  - the symlink type (file/dir) was the same
-				//  - the block list (i.e. hash of target) was the same
-				cf, ok = w.CurrentFiler.CurrentFile(rn)
-				if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && BlocksEqual(cf.Blocks, blocks) {
-					return skip
-				}
-			}
-
-			f := protocol.FileInfo{
-				Name:     rn,
-				Version:  cf.Version.Update(w.ShortID),
-				Flags:    uint32(protocol.FlagSymlink | protocol.FlagNoPermBits | 0666 | SymlinkFlags(targetType)),
-				Modified: 0,
-				Blocks:   blocks,
-			}
-
-			l.Debugln("symlink changedb:", p, f)
-
-			select {
-			case dchan <- f:
-			case <-w.Cancel:
-				return errors.New("cancelled")
-			}
-
+		relPath, shouldSkip := w.normalizePath(absPath, relPath)
+		if shouldSkip {
 			return skip
 		}
 
-		if info.Mode().IsDir() {
-			if w.CurrentFiler != nil {
-				// A directory is "unchanged", if it
-				//  - exists
-				//  - has the same permissions as previously, unless we are ignoring permissions
-				//  - was not marked deleted (since it apparently exists now)
-				//  - was a directory previously (not a file or something else)
-				//  - was not a symlink (since it's a directory now)
-				//  - was not invalid (since it looks valid now)
-				cf, ok = w.CurrentFiler.CurrentFile(rn)
-				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
-					return nil
-				}
+		switch {
+		case info.Mode()&os.ModeSymlink == os.ModeSymlink:
+			var shouldSkip bool
+			shouldSkip, err = w.walkSymlink(absPath, relPath, dchan)
+			if err == nil && shouldSkip {
+				return skip
 			}
 
-			flags := uint32(protocol.FlagDirectory)
-			if w.IgnorePerms {
-				flags |= protocol.FlagNoPermBits | 0777
-			} else {
-				flags |= uint32(info.Mode() & maskModePerm)
-			}
-			f := protocol.FileInfo{
-				Name:     rn,
-				Version:  cf.Version.Update(w.ShortID),
-				Flags:    flags,
-				Modified: mtime.Unix(),
-			}
-			l.Debugln("dir:", p, f)
+		case info.Mode().IsDir():
+			err = w.walkDir(relPath, info, mtime, dchan)
 
-			select {
-			case dchan <- f:
-			case <-w.Cancel:
-				return errors.New("cancelled")
-			}
+		case info.Mode().IsRegular():
+			err = w.walkRegular(relPath, info, mtime, fchan)
+		}
 
+		return err
+	}
+}
+
+func (w *Walker) walkRegular(relPath string, info os.FileInfo, mtime time.Time, fchan chan protocol.FileInfo) error {
+	curMode := uint32(info.Mode())
+	if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
+		curMode |= 0111
+	}
+
+	var currentVersion protocol.Vector
+	if w.CurrentFiler != nil {
+		// A file is "unchanged", if it
+		//  - exists
+		//  - has the same permissions as previously, unless we are ignoring permissions
+		//  - was not marked deleted (since it apparently exists now)
+		//  - had the same modification time as it has now
+		//  - was not a directory previously (since it's a file now)
+		//  - was not a symlink (since it's a file now)
+		//  - was not invalid (since it looks valid now)
+		//  - has the same size as previously
+		cf, ok := w.CurrentFiler.CurrentFile(relPath)
+		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, curMode)
+		if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == mtime.Unix() && !cf.IsDirectory() &&
+			!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
 			return nil
 		}
+		currentVersion = cf.Version
 
-		if info.Mode().IsRegular() {
-			curMode := uint32(info.Mode())
-			if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(rn) {
-				curMode |= 0111
-			}
+		l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
+	}
 
-			if w.CurrentFiler != nil {
-				// A file is "unchanged", if it
-				//  - exists
-				//  - has the same permissions as previously, unless we are ignoring permissions
-				//  - was not marked deleted (since it apparently exists now)
-				//  - had the same modification time as it has now
-				//  - was not a directory previously (since it's a file now)
-				//  - was not a symlink (since it's a file now)
-				//  - was not invalid (since it looks valid now)
-				//  - has the same size as previously
-				cf, ok = w.CurrentFiler.CurrentFile(rn)
-				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, curMode)
-				if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == mtime.Unix() && !cf.IsDirectory() &&
-					!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
-					return nil
-				}
+	var flags = curMode & uint32(maskModePerm)
+	if w.IgnorePerms {
+		flags = protocol.FlagNoPermBits | 0666
+	}
 
-				l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
-			}
+	f := protocol.FileInfo{
+		Name:       relPath,
+		Version:    currentVersion.Update(w.ShortID),
+		Flags:      flags,
+		Modified:   mtime.Unix(),
+		CachedSize: info.Size(),
+	}
+	l.Debugln("to hash:", relPath, f)
 
-			var flags = curMode & uint32(maskModePerm)
-			if w.IgnorePerms {
-				flags = protocol.FlagNoPermBits | 0666
-			}
+	select {
+	case fchan <- f:
+	case <-w.Cancel:
+		return errors.New("cancelled")
+	}
 
-			f := protocol.FileInfo{
-				Name:       rn,
-				Version:    cf.Version.Update(w.ShortID),
-				Flags:      flags,
-				Modified:   mtime.Unix(),
-				CachedSize: info.Size(),
-			}
-			l.Debugln("to hash:", p, f)
+	return nil
+}
 
-			select {
-			case fchan <- f:
-			case <-w.Cancel:
-				return errors.New("cancelled")
-			}
+func (w *Walker) walkDir(relPath string, info os.FileInfo, mtime time.Time, dchan chan protocol.FileInfo) error {
+	var currentVersion protocol.Vector
+
+	if w.CurrentFiler != nil {
+		// A directory is "unchanged", if it
+		//  - exists
+		//  - has the same permissions as previously, unless we are ignoring permissions
+		//  - was not marked deleted (since it apparently exists now)
+		//  - was a directory previously (not a file or something else)
+		//  - was not a symlink (since it's a directory now)
+		//  - was not invalid (since it looks valid now)
+		cf, ok := w.CurrentFiler.CurrentFile(relPath)
+		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
+		if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
+			return nil
+		}
+		currentVersion = cf.Version
+	}
+
+	flags := uint32(protocol.FlagDirectory)
+	if w.IgnorePerms {
+		flags |= protocol.FlagNoPermBits | 0777
+	} else {
+		flags |= uint32(info.Mode() & maskModePerm)
+	}
+	f := protocol.FileInfo{
+		Name:     relPath,
+		Version:  currentVersion.Update(w.ShortID),
+		Flags:    flags,
+		Modified: mtime.Unix(),
+	}
+	l.Debugln("dir:", relPath, f)
+
+	select {
+	case dchan <- f:
+	case <-w.Cancel:
+		return errors.New("cancelled")
+	}
+
+	return nil
+}
+
+// walkSymlinks returns true if the symlink should be skipped, or an error if
+// we should stop walking altogether. filepath.Walk isn't supposed to
+// transcend into symlinks at all, but there are rumours that this may have
+// happened anyway under some circumstances, possibly Windows reparse points
+// or something. Hence the "skip" return from this one.
+func (w *Walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileInfo) (skip bool, err error) {
+	// If the target is a directory, do NOT descend down there. This will
+	// cause files to get tracked, and removing the symlink will as a result
+	// remove files in their real location.
+	if !symlinks.Supported {
+		return true, nil
+	}
+
+	// We always rehash symlinks as they have no modtime or
+	// permissions. We check if they point to the old target by
+	// checking that their existing blocks match with the blocks in
+	// the index.
+
+	target, targetType, err := symlinks.Read(absPath)
+	if err != nil {
+		l.Debugln("readlink error:", absPath, err)
+		return true, nil
+	}
+
+	blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0, nil)
+	if err != nil {
+		l.Debugln("hash link error:", absPath, err)
+		return true, nil
+	}
+
+	var currentVersion protocol.Vector
+	if w.CurrentFiler != nil {
+		// A symlink is "unchanged", if
+		//  - it exists
+		//  - it wasn't deleted (because it isn't now)
+		//  - it was a symlink
+		//  - it wasn't invalid
+		//  - the symlink type (file/dir) was the same
+		//  - the block list (i.e. hash of target) was the same
+		cf, ok := w.CurrentFiler.CurrentFile(relPath)
+		if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && BlocksEqual(cf.Blocks, blocks) {
+			return true, nil
+		}
+		currentVersion = cf.Version
+	}
+
+	f := protocol.FileInfo{
+		Name:     relPath,
+		Version:  currentVersion.Update(w.ShortID),
+		Flags:    uint32(protocol.FlagSymlink | protocol.FlagNoPermBits | 0666 | SymlinkFlags(targetType)),
+		Modified: 0,
+		Blocks:   blocks,
+	}
+
+	l.Debugln("symlink changedb:", absPath, f)
+
+	select {
+	case dchan <- f:
+	case <-w.Cancel:
+		return false, errors.New("cancelled")
+	}
+
+	return false, nil
+}
+
+// normalizePath returns the normalized relative path (possibly after fixing
+// it on disk), or skip is true.
+func (w *Walker) normalizePath(absPath, relPath string) (normPath string, skip bool) {
+	if runtime.GOOS == "darwin" {
+		// Mac OS X file names should always be NFD normalized.
+		normPath = norm.NFD.String(relPath)
+	} else {
+		// Every other OS in the known universe uses NFC or just plain
+		// doesn't bother to define an encoding. In our case *we* do care,
+		// so we enforce NFC regardless.
+		normPath = norm.NFC.String(relPath)
+	}
+
+	if relPath != normPath {
+		// The file name was not normalized.
+
+		if !w.AutoNormalize {
+			// We're not authorized to do anything about it, so complain and skip.
+
+			l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", relPath)
+			return "", true
 		}
 
-		return nil
+		// We will attempt to normalize it.
+		normalizedPath := filepath.Join(w.Dir, normPath)
+		if _, err := osutil.Lstat(normalizedPath); os.IsNotExist(err) {
+			// Nothing exists with the normalized filename. Good.
+			if err = os.Rename(absPath, normalizedPath); err != nil {
+				l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, relPath, err)
+				return "", true
+			}
+			l.Infof(`Normalized UTF8 encoding of file name "%s".`, relPath)
+		} else {
+			// There is something already in the way at the normalized
+			// file name.
+			l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, relPath)
+			return "", true
+		}
+
+		relPath = normPath
 	}
+
+	return normPath, false
 }
 
 func checkDir(dir string) error {
