@@ -257,29 +257,22 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			return skip
 		}
 
-		// Index wise symlinks are always files, regardless of what the target
-		// is, because symlinks carry their target path as their content.
-		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
-			if shouldSkip, err := w.walkSymlink(absPath, relPath, dchan); err != nil {
-				return err
-			} else if shouldSkip {
+		switch {
+		case info.Mode()&os.ModeSymlink == os.ModeSymlink:
+			var shouldSkip bool
+			shouldSkip, err = w.walkSymlink(absPath, relPath, dchan)
+			if err == nil && shouldSkip {
 				return skip
 			}
+
+		case info.Mode().IsDir():
+			err = w.walkDir(relPath, info, mtime, dchan)
+
+		case info.Mode().IsRegular():
+			err = w.walkRegular(relPath, info, mtime, fchan)
 		}
 
-		if info.Mode().IsDir() {
-			if err := w.walkDir(relPath, info, mtime, dchan); err != nil {
-				return err
-			}
-		}
-
-		if info.Mode().IsRegular() {
-			if err := w.walkRegular(relPath, info, mtime, fchan); err != nil {
-				return err
-			}
-		}
-
-		return nil
+		return err
 	}
 }
 
@@ -377,11 +370,14 @@ func (w *Walker) walkDir(relPath string, info os.FileInfo, mtime time.Time, dcha
 }
 
 // walkSymlinks returns true if the symlink should be skipped, or an error if
-// we should stop walking altogether.
+// we should stop walking altogether. filepath.Walk isn't supposed to
+// transcend into symlinks at all, but there are rumours that this may have
+// happened anyway under some circumstances, possibly Windows reparse points
+// or something. Hence the "skip" return from this one.
 func (w *Walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileInfo) (skip bool, err error) {
-	// If the target is a directory, do NOT descend down there. This
-	// will cause files to get tracked, and removing the symlink will
-	// as a result remove files in their real location.
+	// If the target is a directory, do NOT descend down there. This will
+	// cause files to get tracked, and removing the symlink will as a result
+	// remove files in their real location.
 	if !symlinks.Supported {
 		return true, nil
 	}
