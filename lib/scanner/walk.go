@@ -271,42 +271,9 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 		}
 
 		if info.Mode().IsDir() {
-			if w.CurrentFiler != nil {
-				// A directory is "unchanged", if it
-				//  - exists
-				//  - has the same permissions as previously, unless we are ignoring permissions
-				//  - was not marked deleted (since it apparently exists now)
-				//  - was a directory previously (not a file or something else)
-				//  - was not a symlink (since it's a directory now)
-				//  - was not invalid (since it looks valid now)
-				cf, ok = w.CurrentFiler.CurrentFile(relPath)
-				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
-				if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
-					return nil
-				}
+			if err := w.walkDir(relPath, info, mtime, dchan); err != nil {
+				return err
 			}
-
-			flags := uint32(protocol.FlagDirectory)
-			if w.IgnorePerms {
-				flags |= protocol.FlagNoPermBits | 0777
-			} else {
-				flags |= uint32(info.Mode() & maskModePerm)
-			}
-			f := protocol.FileInfo{
-				Name:     relPath,
-				Version:  cf.Version.Update(w.ShortID),
-				Flags:    flags,
-				Modified: mtime.Unix(),
-			}
-			l.Debugln("dir:", absPath, f)
-
-			select {
-			case dchan <- f:
-			case <-w.Cancel:
-				return errors.New("cancelled")
-			}
-
-			return nil
 		}
 
 		if info.Mode().IsRegular() {
@@ -358,6 +325,48 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 
 		return nil
 	}
+}
+
+func (w *Walker) walkDir(relPath string, info os.FileInfo, mtime time.Time, dchan chan protocol.FileInfo) error {
+	var currentVersion protocol.Vector
+
+	if w.CurrentFiler != nil {
+		// A directory is "unchanged", if it
+		//  - exists
+		//  - has the same permissions as previously, unless we are ignoring permissions
+		//  - was not marked deleted (since it apparently exists now)
+		//  - was a directory previously (not a file or something else)
+		//  - was not a symlink (since it's a directory now)
+		//  - was not invalid (since it looks valid now)
+		cf, ok := w.CurrentFiler.CurrentFile(relPath)
+		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
+		if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
+			return nil
+		}
+		currentVersion = cf.Version
+	}
+
+	flags := uint32(protocol.FlagDirectory)
+	if w.IgnorePerms {
+		flags |= protocol.FlagNoPermBits | 0777
+	} else {
+		flags |= uint32(info.Mode() & maskModePerm)
+	}
+	f := protocol.FileInfo{
+		Name:     relPath,
+		Version:  currentVersion.Update(w.ShortID),
+		Flags:    flags,
+		Modified: mtime.Unix(),
+	}
+	l.Debugln("dir:", relPath, f)
+
+	select {
+	case dchan <- f:
+	case <-w.Cancel:
+		return errors.New("cancelled")
+	}
+
+	return nil
 }
 
 // walkSymlinks returns true if the symlink should be skipped, or an error if
