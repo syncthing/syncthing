@@ -52,7 +52,7 @@ Section "SyncThing" SecSyncThing
 	SimpleSC::StopService "SyncThing" 1 30	
   
   File /r "${SOURCEPATH}\syncthing.exe"
-  File /r "${SOURCEPATH}\syncthing.exe.md5"
+  File /r "${SOURCEPATH}\syncthing.exe.sig"
   File /r "${SOURCEPATH}\AUTHORS.txt"
   File /r "${SOURCEPATH}\LICENSE.txt"
   File /r "${SOURCEPATH}\README.txt"
@@ -71,7 +71,7 @@ Section "Command Line Interface" SecSyncThingCLI
 
   SetOutPath "$INSTDIR"
   
-  File /r "${SOURCEPATH}\syncthing-cli.exe"  
+  File /r "${SOURCEPATH}\syncthing.exe"  
   
 SectionEnd
 
