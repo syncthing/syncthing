@@ -257,9 +257,6 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			return skip
 		}
 
-		var cf protocol.FileInfo
-		var ok bool
-
 		// Index wise symlinks are always files, regardless of what the target
 		// is, because symlinks carry their target path as their content.
 		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
@@ -277,54 +274,64 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 		}
 
 		if info.Mode().IsRegular() {
-			curMode := uint32(info.Mode())
-			if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
-				curMode |= 0111
-			}
-
-			if w.CurrentFiler != nil {
-				// A file is "unchanged", if it
-				//  - exists
-				//  - has the same permissions as previously, unless we are ignoring permissions
-				//  - was not marked deleted (since it apparently exists now)
-				//  - had the same modification time as it has now
-				//  - was not a directory previously (since it's a file now)
-				//  - was not a symlink (since it's a file now)
-				//  - was not invalid (since it looks valid now)
-				//  - has the same size as previously
-				cf, ok = w.CurrentFiler.CurrentFile(relPath)
-				permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, curMode)
-				if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == mtime.Unix() && !cf.IsDirectory() &&
-					!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
-					return nil
-				}
-
-				l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
-			}
-
-			var flags = curMode & uint32(maskModePerm)
-			if w.IgnorePerms {
-				flags = protocol.FlagNoPermBits | 0666
-			}
-
-			f := protocol.FileInfo{
-				Name:       relPath,
-				Version:    cf.Version.Update(w.ShortID),
-				Flags:      flags,
-				Modified:   mtime.Unix(),
-				CachedSize: info.Size(),
-			}
-			l.Debugln("to hash:", absPath, f)
-
-			select {
-			case fchan <- f:
-			case <-w.Cancel:
-				return errors.New("cancelled")
+			if err := w.walkRegular(relPath, info, mtime, fchan); err != nil {
+				return err
 			}
 		}
 
 		return nil
 	}
+}
+
+func (w *Walker) walkRegular(relPath string, info os.FileInfo, mtime time.Time, fchan chan protocol.FileInfo) error {
+	curMode := uint32(info.Mode())
+	if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
+		curMode |= 0111
+	}
+
+	var currentVersion protocol.Vector
+	if w.CurrentFiler != nil {
+		// A file is "unchanged", if it
+		//  - exists
+		//  - has the same permissions as previously, unless we are ignoring permissions
+		//  - was not marked deleted (since it apparently exists now)
+		//  - had the same modification time as it has now
+		//  - was not a directory previously (since it's a file now)
+		//  - was not a symlink (since it's a file now)
+		//  - was not invalid (since it looks valid now)
+		//  - has the same size as previously
+		cf, ok := w.CurrentFiler.CurrentFile(relPath)
+		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, curMode)
+		if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == mtime.Unix() && !cf.IsDirectory() &&
+			!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
+			return nil
+		}
+		currentVersion = cf.Version
+
+		l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
+	}
+
+	var flags = curMode & uint32(maskModePerm)
+	if w.IgnorePerms {
+		flags = protocol.FlagNoPermBits | 0666
+	}
+
+	f := protocol.FileInfo{
+		Name:       relPath,
+		Version:    currentVersion.Update(w.ShortID),
+		Flags:      flags,
+		Modified:   mtime.Unix(),
+		CachedSize: info.Size(),
+	}
+	l.Debugln("to hash:", relPath, f)
+
+	select {
+	case fchan <- f:
+	case <-w.Cancel:
+		return errors.New("cancelled")
+	}
+
+	return nil
 }
 
 func (w *Walker) walkDir(relPath string, info os.FileInfo, mtime time.Time, dchan chan protocol.FileInfo) error {
