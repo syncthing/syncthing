@@ -27,6 +27,7 @@ type sharedPullerState struct {
 	reused      int // Number of blocks reused from temporary file
 	ignorePerms bool
 	version     protocol.Vector // The current (old) version
+	sparse      bool
 
 	// Mutable, must be locked for access
 	err        error      // The first error we hit
@@ -136,6 +137,15 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	if err != nil {
 		s.failLocked("dst create", err)
 		return nil, err
+	}
+
+	if s.sparse {
+		// Truncate sets the size of the file. This creates a sparse file or a
+		// space reservation, depending on the underlying filesystem.
+		if err := fd.Truncate(s.file.Size()); err != nil {
+			s.failLocked("dst truncate", err)
+			return nil, err
+		}
 	}
 
 	// Same fd will be used by all writers

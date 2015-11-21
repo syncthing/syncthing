@@ -466,3 +466,69 @@ func scSyncAndCompare(p []*rc.Process, expected [][]fileInfo) error {
 
 	return nil
 }
+
+func TestSyncSparseFile(t *testing.T) {
+	// This test verifies that when syncing a file that consists mostly of
+	// zeroes, those blocks are not transferred. It doesn't verify whether
+	// the resulting file is actually *sparse* or not.alterFiles
+
+	log.Println("Cleaning...")
+	err := removeAll("s1", "s12-1",
+		"s2", "s12-2", "s23-2",
+		"s3", "s23-3",
+		"h1/index*", "h2/index*", "h3/index*")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	log.Println("Generating files...")
+
+	if err := os.Mkdir("s1", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	fd, err := os.Create("s1/testfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fd.Write([]byte("Start")); err != nil {
+		t.Fatal(err)
+	}
+	kib := make([]byte, 1024)
+	for i := 0; i < 8192; i++ {
+		if _, err := fd.Write(kib); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := fd.Write([]byte("End")); err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	// Start the syncers
+
+	log.Println("Syncing...")
+
+	p0 := startInstance(t, 1)
+	defer checkedStop(t, p0)
+	p1 := startInstance(t, 2)
+	defer checkedStop(t, p1)
+
+	rc.AwaitSync("default", p0, p1)
+
+	log.Println("Comparing...")
+
+	if err := compareDirectories("s1", "s2"); err != nil {
+		t.Fatal(err)
+	}
+
+	conns, err := p0.Connections()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tot := conns["total"]
+	if tot.OutBytesTotal > 256<<10 {
+		t.Fatal("Sending side has sent", tot.OutBytesTotal, "bytes, which is too much")
+	}
+}
