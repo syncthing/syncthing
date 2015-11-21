@@ -86,6 +86,19 @@ func dropSessions(id syncthingprotocol.DeviceID) {
 	sessionMut.RUnlock()
 }
 
+func hasSessions(id syncthingprotocol.DeviceID) bool {
+	sessionMut.RLock()
+	has := false
+	for _, session := range activeSessions {
+		if session.HasParticipant(id) {
+			has = true
+			break
+		}
+	}
+	sessionMut.RUnlock()
+	return has
+}
+
 type session struct {
 	mut sync.Mutex
 
@@ -127,7 +140,7 @@ func (s *session) Serve() {
 			s.mut.Lock()
 			s.conns = append(s.conns, conn)
 			s.mut.Unlock()
-			// We're the only ones mutating% s.conns, hence we are free to read it.
+			// We're the only ones mutating s.conns, hence we are free to read it.
 			if len(s.conns) < 2 {
 				continue
 			}

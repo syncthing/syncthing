@@ -10,10 +10,13 @@ import (
 	"net"
 	"net/url"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/ratelimit"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 
@@ -31,8 +34,12 @@ var (
 	pingInterval   time.Duration = time.Minute
 	messageTimeout time.Duration = time.Minute
 
+	limitCheckTimer *time.Timer
+
 	sessionLimitBps int
 	globalLimitBps  int
+	overLimit       int32
+	descriptorLimit int64
 	sessionLimiter  *ratelimit.Bucket
 	globalLimiter   *ratelimit.Bucket
 
@@ -70,6 +77,17 @@ func main() {
 	addr, err := net.ResolveTCPAddr("tcp", extAddress)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	maxDescriptors, err := osutil.MaximizeOpenFileLimit()
+	if maxDescriptors > 0 {
+		// Assume that 20% of FD's are leaked/unaccounted for.
+		descriptorLimit = int64(maxDescriptors*80) / 100
+		log.Println("Connection limit", descriptorLimit)
+
+		go monitorLimits()
+	} else if err != nil && runtime.GOOS != "windows" {
+		log.Println("Assuming no connection limit, due to error retrievign rlimits:", err)
 	}
 
 	sessionAddress = addr.IP[:]
@@ -141,4 +159,17 @@ func main() {
 	}
 
 	listener(listen, tlsCfg)
+}
+
+func monitorLimits() {
+	limitCheckTimer = time.NewTimer(time.Minute)
+	for range limitCheckTimer.C {
+		if atomic.LoadInt64(&numConnections)+atomic.LoadInt64(&numProxies) > descriptorLimit {
+			atomic.StoreInt32(&overLimit, 1)
+			log.Println("Gone past our connection limits. Starting to refuse new/drop idle connections.")
+		} else if atomic.CompareAndSwapInt32(&overLimit, 1, 0) {
+			log.Println("Dropped below our connection limits. Accepting new connections.")
+		}
+		limitCheckTimer.Reset(time.Minute)
+	}
 }
