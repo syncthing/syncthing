@@ -9,7 +9,7 @@ To get it, run `go get github.com/syncthing/relaysrv` or download the
 [latest build](http://build.syncthing.net/job/relaysrv/lastSuccessfulBuild/artifact/)
 from the build server.
 
-:exclamation:Warnings:exclamation: - Read or regret 
+:exclamation:Warnings:exclamation: - Read or regret
 -----
 
 By default, all relay servers will join the default public relay pool, which means that the relay server will be availble for public use, and **will consume your bandwidth** helping others to connect.
@@ -27,7 +27,7 @@ Make sure you have a public IP with port 22067 open, or make sure you have port-
 Run the `relaysrv` with no arguments (or `-debug` if you want more output), and that should be enough for the server to join the public relay pool.
 You should see a message saying:
 ```
-2015/09/21 22:45:46 pool.go:60: Joined https://relays.syncthing.net rejoining in 48m0s
+2015/09/21 22:45:46 pool.go:60: Joined https://relays.syncthing.net/endpoint rejoining in 48m0s
 ```
 
 See `relaysrv -help` for other options, such as rate limits, timeout intervals, etc.
@@ -60,8 +60,8 @@ See `relaysrv -help` for other options, such as rate limits, timeout intervals, 
 
 Other items available in this repo
 ----
-##### testutil 
-A test utility which can be used to test connectivity of a relay server. 
+##### testutil
+A test utility which can be used to test connectivity of a relay server.
 You need to generate two x509 key pairs (key.pem and cert.pem), one for the client, another one for the server, in separate directories.
 Afterwards, start the client:
 ```bash
@@ -81,10 +81,17 @@ In the other terminal run the following:
 
 Which should then give you an interactive prompt, where you can type things in one terminal, and they get relayed to the other terminal.
 
-##### client
+Relay related libraries used by this repo
+----
+##### Relay protocol definition.
 
-A client library which is used by `syncthing`
+[Available here](https://github.com/syncthing/syncthing/tree/master/lib/relay/protocol)
 
-##### protocol
 
-Go files which define the protocol and it's messages, and a few utility functions which make it easier to consume.
+##### Relay client
+
+Only used by the testutil.
+
+[Available here](https://github.com/syncthing/syncthing/tree/master/lib/relay/client)
+
+
