@@ -91,6 +91,7 @@ type rwFolder struct {
 	maxConflicts int
 	sleep        time.Duration
 	pause        time.Duration
+	allowSparse  bool
 
 	stop        chan struct{}
 	queue       *jobQueue
@@ -125,6 +126,7 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		shortID:      shortID,
 		order:        cfg.Order,
 		maxConflicts: cfg.MaxConflicts,
+		allowSparse:  !cfg.DisableSparseFiles,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -1027,6 +1029,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		ignorePerms: p.ignorePermissions(file),
 		version:     curFile.Version,
 		mut:         sync.NewMutex(),
+		sparse:      p.allowSparse,
 	}
 
 	l.Debugf("%v need file %s; copy %d, reused %v", p, file.Name, len(blocks), reused)
@@ -1113,6 +1116,18 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 		p.model.fmut.RUnlock()
 
 		for _, block := range state.blocks {
+			if p.allowSparse && state.reused == 0 && block.IsEmpty() {
+				// The block is a block of all zeroes, and we are not reusing
+				// a temp file, so there is no need to do anything with it.
+				// If we were reusing a temp file and had this block to copy,
+				// it would be because the block in the temp file was *not* a
+				// block of all zeroes, so then we should not skip it.
+
+				// Pretend we copied it.
+				state.copiedFromOrigin()
+				continue
+			}
+
 			buf = buf[:int(block.Size)]
 			found := p.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
 				fd, err := os.Open(filepath.Join(folderRoots[folder], file))
@@ -1181,6 +1196,14 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 		// no point in issuing the request to the network.
 		fd, err := state.tempFile()
 		if err != nil {
+			out <- state.sharedPullerState
+			continue
+		}
+
+		if p.allowSparse && state.reused == 0 && state.block.IsEmpty() {
+			// There is no need to request a block of all zeroes. Pretend we
+			// requested it and handled it correctly.
+			state.pullDone()
 			out <- state.sharedPullerState
 			continue
 		}

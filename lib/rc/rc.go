@@ -550,3 +550,27 @@ func (p *Process) eventLoop() {
 		}
 	}
 }
+
+type ConnectionStats struct {
+	Address       string
+	Type          string
+	Connected     bool
+	Paused        bool
+	ClientVersion string
+	InBytesTotal  int64
+	OutBytesTotal int64
+}
+
+func (p *Process) Connections() (map[string]ConnectionStats, error) {
+	bs, err := p.Get("/rest/system/connections")
+	if err != nil {
+		return nil, err
+	}
+
+	var res map[string]ConnectionStats
+	if err := json.Unmarshal(bs, &res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
