@@ -36,7 +36,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	status["bytesProxied"] = atomic.LoadInt64(&bytesProxied)
 	status["goVersion"] = runtime.Version()
 	status["goOS"] = runtime.GOOS
-	status["goAarch"] = runtime.GOARCH
+	status["goArch"] = runtime.GOARCH
 	status["goMaxProcs"] = runtime.GOMAXPROCS(-1)
 	status["kbps10s1m5m15m30m60m"] = []int64{
 		rc.rate(10/10) * 8 / 1000,
