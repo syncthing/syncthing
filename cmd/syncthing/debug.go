@@ -18,6 +18,10 @@ var (
 	httpl = logger.DefaultLogger.NewFacility("http", "REST API")
 )
 
+func shouldDebugHTTP() bool {
+	return l.ShouldDebug("http")
+}
+
 func init() {
 	l.SetDebug("main", strings.Contains(os.Getenv("STTRACE"), "main") || os.Getenv("STTRACE") == "all")
 	l.SetDebug("http", strings.Contains(os.Getenv("STTRACE"), "http") || os.Getenv("STTRACE") == "all")
