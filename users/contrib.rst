@@ -93,6 +93,7 @@ OpenSUSE
 ~~~~~~~~
 
 -  http://software.opensuse.org/package/syncthing
+-  https://susestudio.com/a/qkdvwb/syncthing
 
 Synology NAS
 ~~~~~~~~~~~~
