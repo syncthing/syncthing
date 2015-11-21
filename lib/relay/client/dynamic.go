@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"sort"
@@ -82,7 +83,7 @@ func (c *dynamicClient) Serve() {
 		addrs = append(addrs, ruri.String())
 	}
 
-	for _, addr := range relayAddressesSortedByLatency(addrs) {
+	for _, addr := range relayAddressesOrder(addrs) {
 		select {
 		case <-c.stop:
 			l.Debugln(c, "stopping")
@@ -176,42 +177,44 @@ type dynamicAnnouncement struct {
 	}
 }
 
-// relayAddressesSortedByLatency adds local latency to the relay, and sorts them
-// by sum latency, and returns the addresses.
-func relayAddressesSortedByLatency(input []string) []string {
-	relays := make(relayList, len(input))
-	for i, relay := range input {
-		if latency, err := osutil.GetLatencyForURL(relay); err == nil {
-			relays[i] = relayWithLatency{relay, int(latency / time.Millisecond)}
-		} else {
-			relays[i] = relayWithLatency{relay, int(time.Hour / time.Millisecond)}
+// relayAddressesOrder checks the latency to each relay, rounds latency down to
+// the closest 50ms, and puts them in buckets of 50ms latency ranges. Then
+// shuffles each bucket, and returns all addresses starting with the ones from
+// the lowest latency bucket, ending with the highest latency buceket.
+func relayAddressesOrder(input []string) []string {
+	buckets := make(map[int][]string)
+
+	for _, relay := range input {
+		latency, err := osutil.GetLatencyForURL(relay)
+		if err != nil {
+			latency = time.Hour
 		}
+
+		id := int(latency/time.Millisecond) / 50
+
+		buckets[id] = append(buckets[id], relay)
 	}
 
-	sort.Sort(relays)
-
-	addresses := make([]string, len(relays))
-	for i, relay := range relays {
-		addresses[i] = relay.relay
+	var ids []int
+	for id, bucket := range buckets {
+		shuffle(bucket)
+		ids = append(ids, id)
 	}
+
+	sort.Ints(ids)
+
+	addresses := make([]string, len(input))
+
+	for _, id := range ids {
+		addresses = append(addresses, buckets[id]...)
+	}
+
 	return addresses
 }
 
-type relayWithLatency struct {
-	relay   string
-	latency int
-}
-
-type relayList []relayWithLatency
-
-func (l relayList) Len() int {
-	return len(l)
-}
-
-func (l relayList) Less(a, b int) bool {
-	return l[a].latency < l[b].latency
-}
-
-func (l relayList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
+func shuffle(slice []string) {
+	for i := len(slice) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		slice[i], slice[j] = slice[j], slice[i]
+	}
 }

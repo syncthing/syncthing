@@ -20,6 +20,7 @@ const (
 	messageTypeResponse
 	messageTypeConnectRequest
 	messageTypeSessionInvitation
+	messageTypeRelayFull
 )
 
 type header struct {
@@ -31,6 +32,7 @@ type header struct {
 type Ping struct{}
 type Pong struct{}
 type JoinRelayRequest struct{}
+type RelayFull struct{}
 
 type JoinSessionRequest struct {
 	Key []byte // max:32
