@@ -149,10 +149,8 @@ func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 	deadlockDetect(m.pmut, timeout)
 }
 
-// StartFolderRW starts read/write processing on the current model. When in
-// read/write mode the model will attempt to keep in sync with the cluster by
-// pulling needed files from peer devices.
-func (m *Model) StartFolderRW(folder string) {
+// StartFolder starts processing on the current model.
+func (m *Model) StartFolder(folder string) {
 	m.fmut.Lock()
 	cfg, ok := m.folderCfgs[folder]
 	if !ok {
@@ -163,10 +161,10 @@ func (m *Model) StartFolderRW(folder string) {
 	if ok {
 		panic("cannot start already running folder " + folder)
 	}
-	p := newRWFolder(m, m.shortID, cfg)
+	p := newFolder(m, m.shortID, cfg)
 	m.folderRunners[folder] = p
 
-	if len(cfg.Versioning.Type) > 0 {
+	if len(cfg.Versioning.Type) > 0 && !cfg.ReadOnly {
 		factory, ok := versioner.Factories[cfg.Versioning.Type]
 		if !ok {
 			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
@@ -189,7 +187,7 @@ func (m *Model) StartFolderRW(folder string) {
 	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	m.fmut.Unlock()
 
-	l.Okln("Ready to synchronize", folder, "(read-write)")
+	l.Okln("Ready to synchronize", folder)
 }
 
 func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
@@ -218,30 +216,6 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 	if len(filesAtRisk) > 0 {
 		l.Warnln("Some protected files may be overwritten and cause issues. See http://docs.syncthing.net/users/config.html#syncing-configuration-files for more information. The at risk files are:", strings.Join(filesAtRisk, ", "))
 	}
-}
-
-// StartFolderRO starts read only processing on the current model. When in
-// read only mode the model will announce files to the cluster but not pull in
-// any external changes.
-func (m *Model) StartFolderRO(folder string) {
-	m.fmut.Lock()
-	cfg, ok := m.folderCfgs[folder]
-	if !ok {
-		panic("cannot start nonexistent folder " + folder)
-	}
-
-	_, ok = m.folderRunners[folder]
-	if ok {
-		panic("cannot start already running folder " + folder)
-	}
-	s := newROFolder(m, folder, time.Duration(cfg.RescanIntervalS)*time.Second)
-	m.folderRunners[folder] = s
-
-	token := m.Add(s)
-	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
-	m.fmut.Unlock()
-
-	l.Okln("Ready to synchronize", folder, "(read only; no external updates accepted)")
 }
 
 func (m *Model) RemoveFolder(folder string) {
@@ -1823,11 +1797,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			// A folder was added.
 			l.Debugln(m, "adding folder", folderID)
 			m.AddFolder(cfg)
-			if cfg.ReadOnly {
-				m.StartFolderRO(folderID)
-			} else {
-				m.StartFolderRW(folderID)
-			}
+			m.StartFolder(folderID)
 
 			// Drop connections to all devices that can now share the new
 			// folder.

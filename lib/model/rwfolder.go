@@ -30,48 +30,6 @@ import (
 
 // TODO: Stop on errors
 
-// A pullBlockState is passed to the puller routine for each block that needs
-// to be fetched.
-type pullBlockState struct {
-	*sharedPullerState
-	block protocol.BlockInfo
-}
-
-// A copyBlocksState is passed to copy routine if the file has blocks to be
-// copied.
-type copyBlocksState struct {
-	*sharedPullerState
-	blocks []protocol.BlockInfo
-}
-
-// Which filemode bits to preserve
-const retainBits = os.ModeSetgid | os.ModeSetuid | os.ModeSticky
-
-var (
-	activity    = newDeviceActivity()
-	errNoDevice = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
-)
-
-const (
-	dbUpdateHandleDir = iota
-	dbUpdateDeleteDir
-	dbUpdateHandleFile
-	dbUpdateDeleteFile
-	dbUpdateShortcutFile
-)
-
-const (
-	defaultCopiers     = 1
-	defaultPullers     = 16
-	defaultPullerSleep = 10 * time.Second
-	defaultPullerPause = 60 * time.Second
-)
-
-type dbUpdateJob struct {
-	file    protocol.FileInfo
-	jobType int
-}
-
 type rwFolder struct {
 	stateTracker
 
@@ -79,6 +37,7 @@ type rwFolder struct {
 	progressEmitter  *ProgressEmitter
 	virtualMtimeRepo *db.VirtualMtimeRepo
 
+	ro           bool
 	folder       string
 	dir          string
 	scanIntv     time.Duration
@@ -105,7 +64,7 @@ type rwFolder struct {
 	errorsMut sync.Mutex
 }
 
-func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
+func newFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
 	p := &rwFolder{
 		stateTracker: stateTracker{
 			folder: cfg.ID,
@@ -116,6 +75,7 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		progressEmitter:  m.progressEmitter,
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(m.db, cfg.ID),
 
+		ro:           cfg.ReadOnly,
 		folder:       cfg.ID,
 		dir:          cfg.Path(),
 		scanIntv:     time.Duration(cfg.RescanIntervalS) * time.Second,
@@ -210,6 +170,9 @@ func (p *rwFolder) Serve() {
 			l.Debugln(p, "remote index updated, rescheduling pull")
 
 		case <-p.pullTimer.C:
+			if p.ro {
+				continue
+			}
 			if !initialScanCompleted {
 				l.Debugln(p, "skip (initial)")
 				p.pullTimer.Reset(p.sleep)
@@ -360,6 +323,9 @@ func (p *rwFolder) Stop() {
 }
 
 func (p *rwFolder) IndexUpdated() {
+	if p.ro {
+		return
+	}
 	select {
 	case p.remoteIndex <- struct{}{}:
 	default:
@@ -380,6 +346,9 @@ func (p *rwFolder) Scan(subs []string) error {
 }
 
 func (p *rwFolder) String() string {
+	if p.ro {
+		return fmt.Sprintf("roFolder/%s@%p", p.folder, p)
+	}
 	return fmt.Sprintf("rwFolder/%s@%p", p.folder, p)
 }
 
@@ -1451,16 +1420,6 @@ func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
 	return false
 }
 
-func removeDevice(devices []protocol.DeviceID, device protocol.DeviceID) []protocol.DeviceID {
-	for i := range devices {
-		if devices[i] == device {
-			devices[i] = devices[len(devices)-1]
-			return devices[:len(devices)-1]
-		}
-	}
-	return devices
-}
-
 func (p *rwFolder) moveForConflict(name string) error {
 	if p.maxConflicts == 0 {
 		if err := osutil.Remove(name); err != nil && !os.IsNotExist(err) {
@@ -1526,24 +1485,4 @@ func (p *rwFolder) currentErrors() []fileError {
 	sort.Sort(fileErrorList(errors))
 	p.errorsMut.Unlock()
 	return errors
-}
-
-// A []fileError is sent as part of an event and will be JSON serialized.
-type fileError struct {
-	Path string `json:"path"`
-	Err  string `json:"error"`
-}
-
-type fileErrorList []fileError
-
-func (l fileErrorList) Len() int {
-	return len(l)
-}
-
-func (l fileErrorList) Less(a, b int) bool {
-	return l[a].Path < l[b].Path
-}
-
-func (l fileErrorList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
 }
