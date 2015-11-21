@@ -9,10 +9,13 @@ import (
 	"log"
 	"net"
 	"net/url"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/juju/ratelimit"
@@ -158,7 +161,32 @@ func main() {
 		}
 	}
 
-	listener(listen, tlsCfg)
+	go listener(listen, tlsCfg)
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	<-sigs
+
+	// Gracefully close all connections, hoping that clients will be faster
+	// to realize that the relay is now gone.
+
+	sessionMut.RLock()
+	for _, session := range activeSessions {
+		session.CloseConns()
+	}
+
+	for _, session := range pendingSessions {
+		session.CloseConns()
+	}
+	sessionMut.RUnlock()
+
+	outboxesMut.RLock()
+	for _, outbox := range outboxes {
+		close(outbox)
+	}
+	outboxesMut.RUnlock()
+
+	time.Sleep(500 * time.Millisecond)
 }
 
 func monitorLimits() {

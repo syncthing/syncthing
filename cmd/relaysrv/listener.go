@@ -252,6 +252,10 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 			conn.Close()
 
 		case msg := <-outbox:
+			if msg == nil {
+				conn.Close()
+				return
+			}
 			if debug {
 				log.Printf("Sending message %T to %s", msg, id)
 			}
