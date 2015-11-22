@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "November 14, 2015" "v0.12" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "November 21, 2015" "v0.12" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -222,6 +222,13 @@ Returns the contents of the local discovery cache.
 .UNINDENT
 .UNINDENT
 .SS POST /rest/system/discovery
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Removed in v0.12.0.
+.UNINDENT
+.UNINDENT
 .sp
 Post with the query parameters \fBdevice\fP and \fBaddr\fP to add entries to
 the discovery cache.
