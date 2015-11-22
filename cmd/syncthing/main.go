@@ -197,7 +197,6 @@ var (
 	upgradeTo      string
 	noBrowser      bool
 	noConsole      bool
-	generateDir    string
 	logFile        string
 	auditEnabled   bool
 	verbose        bool
@@ -224,6 +223,7 @@ func main() {
 	}
 
 	var guiAddress, guiAPIKey string
+	var generateDir string
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address")
 	flag.StringVar(&guiAPIKey, "gui-apikey", guiAPIKey, "Override GUI API key")
@@ -283,54 +283,7 @@ func main() {
 	l.SetFlags(logFlags)
 
 	if generateDir != "" {
-		dir, err := osutil.ExpandTilde(generateDir)
-		if err != nil {
-			l.Fatalln("generate:", err)
-		}
-
-		info, err := os.Stat(dir)
-		if err == nil && !info.IsDir() {
-			l.Fatalln(dir, "is not a directory")
-		}
-		if err != nil && os.IsNotExist(err) {
-			err = osutil.MkdirAll(dir, 0700)
-			if err != nil {
-				l.Fatalln("generate:", err)
-			}
-		}
-
-		certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err == nil {
-			l.Warnln("Key exists; will not overwrite.")
-			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
-		} else {
-			cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, tlsRSABits)
-			if err != nil {
-				l.Fatalln("Create certificate:", err)
-			}
-			myID = protocol.NewDeviceID(cert.Certificate[0])
-			if err != nil {
-				l.Fatalln("Load certificate:", err)
-			}
-			if err == nil {
-				l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
-			}
-		}
-
-		cfgFile := filepath.Join(dir, "config.xml")
-		if _, err := os.Stat(cfgFile); err == nil {
-			l.Warnln("Config exists; will not overwrite.")
-			return
-		}
-		var myName, _ = os.Hostname()
-		var newCfg = defaultConfig(myName)
-		var cfg = config.Wrap(cfgFile, newCfg)
-		err = cfg.Save()
-		if err != nil {
-			l.Warnln("Failed to save config", err)
-		}
-
+		generate(generateDir)
 		return
 	}
 
@@ -399,6 +352,56 @@ func main() {
 		syncthingMain()
 	} else {
 		monitorMain()
+	}
+}
+
+func generate(generateDir string) {
+	dir, err := osutil.ExpandTilde(generateDir)
+	if err != nil {
+		l.Fatalln("generate:", err)
+	}
+
+	info, err := os.Stat(dir)
+	if err == nil && !info.IsDir() {
+		l.Fatalln(dir, "is not a directory")
+	}
+	if err != nil && os.IsNotExist(err) {
+		err = osutil.MkdirAll(dir, 0700)
+		if err != nil {
+			l.Fatalln("generate:", err)
+		}
+	}
+
+	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err == nil {
+		l.Warnln("Key exists; will not overwrite.")
+		l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
+	} else {
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, tlsRSABits)
+		if err != nil {
+			l.Fatalln("Create certificate:", err)
+		}
+		myID = protocol.NewDeviceID(cert.Certificate[0])
+		if err != nil {
+			l.Fatalln("Load certificate:", err)
+		}
+		if err == nil {
+			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
+		}
+	}
+
+	cfgFile := filepath.Join(dir, "config.xml")
+	if _, err := os.Stat(cfgFile); err == nil {
+		l.Warnln("Config exists; will not overwrite.")
+		return
+	}
+	var myName, _ = os.Hostname()
+	var newCfg = defaultConfig(myName)
+	var cfg = config.Wrap(cfgFile, newCfg)
+	err = cfg.Save()
+	if err != nil {
+		l.Warnln("Failed to save config", err)
 	}
 }
 
