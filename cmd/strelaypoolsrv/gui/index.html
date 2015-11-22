@@ -143,7 +143,7 @@
         $scope.uri[relay.url] = uri;
 
         initProgress("Resolving location for " + uri.hostname);
-        var resolveGeoIp = $http.get('http://www.telize.com/geoip/' + uri.hostname).then(function (response) {
+        var resolveGeoIp = $http.get('http://ipinfo.io/' + uri.hostname).then(function (response) {
           progressDone("Resolving location for " + uri.hostname);
 
           $scope.geoip[relay.url] = response.data;
@@ -173,7 +173,7 @@
           resolveStatus.resolve(response.data);
         });
 
-        promises.push(resolveStatus);
+        promises.push(resolveStatus.promise);
       });
 
       $q.all(promises).then(function() {
@@ -183,7 +183,8 @@
         angular.forEach($scope.relays, function(relay) {
           var scope = $rootScope.$new(true);
           var geoip = $scope.geoip[relay.url];
-          var position = new google.maps.LatLng(geoip.latitude, geoip.longitude);
+          var locParts = geoip.loc.split(',');
+          var position = new google.maps.LatLng(locParts[0], locParts[1]);
 
           scope.status = $scope.status[relay.url];
           scope.geoip = geoip;
