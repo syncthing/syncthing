@@ -18,6 +18,14 @@
       .ng-cloak {
         display: none;
       }
+      table {
+        font-size: 11px;
+        width: 100%;
+        border: 1px;
+      }
+      tfoot td {
+        font-weight: bold;
+      }
     </style>
   </head>
 
@@ -34,22 +42,66 @@
           <p>
             Currently {{ relays.length }} relays online ({{ totals.goMaxProcs }} cores in total).
           </p>
-          <p>
-            So far {{ totals.bytesProxied | bytes }} proxied.
-            Currently {{ totals.numActiveSessions }} active sessions, with {{ totals.numConnections }} clients online.
-          </p>
-          <p>
-            Average rates in last
-            <span>10s: {{ totals.kbps10s1m5m15m30m60m[0] * 128 | bytes }}/s</span>
-            <span>1m: {{ totals.kbps10s1m5m15m30m60m[1] * 128 | bytes }}/s</span>
-            <span>5m: {{ totals.kbps10s1m5m15m30m60m[2] * 128 | bytes }}/s</span>
-            <span>15m: {{ totals.kbps10s1m5m15m30m60m[3] * 128 | bytes }}/s</span>
-            <span>30m: {{ totals.kbps10s1m5m15m30m60m[4] * 128 | bytes }}/s</span>
-            <span>1h: {{ totals.kbps10s1m5m15m30m60m[5] * 128 | bytes }}/s</span>
-          </p>
         </div>
         <div id="map"></div> <!-- Can't hide the map, otherwise it freaks out -->
         <p ng-show="started" class="ng-hide">The circle size represents how much bytes the relay transfered relative to other relays</p>
+      </div>
+      <div ng-show="started" class="ng-hide">
+        <table>
+          <thead>
+            <tr>
+              <th colspan="4"></th>
+              <th colspan="6"">Transfer rate in the last period (per second)</th>
+              <th colspan="2"></th>
+            <tr/>
+            <tr>
+              <th>Address</th>
+              <th>Active Sessions</th>
+              <th>Connections</th>
+              <th>Data proxied</th>
+              <th>10s</th>
+              <th>1m</th>
+              <th>5m</th>
+              <th>15m</th>
+              <th>30m</th>
+              <th>60m</th>
+              <th>Uptime</th>
+              <th>Provided by</th>
+          </thead>
+          <tbody>
+            <tr ng-repeat="relay in relays">
+              <td>{{ relay.url.split('/')[2] }}</td>
+              <td>{{ status[relay.url].numActiveSessions }}</td>
+              <td>{{ status[relay.url].numConnections }}</td>
+              <td>{{ status[relay.url].bytesProxied | bytes }}</td>
+              <td>{{ status[relay.url].kbps10s1m5m15m30m60m[0] * 128 | bytes }}/s</td>
+              <td>{{ status[relay.url].kbps10s1m5m15m30m60m[1] * 128 | bytes }}/s</td>
+              <td>{{ status[relay.url].kbps10s1m5m15m30m60m[2] * 128 | bytes }}/s</td>
+              <td>{{ status[relay.url].kbps10s1m5m15m30m60m[3] * 128 | bytes }}/s</td>
+              <td>{{ status[relay.url].kbps10s1m5m15m30m60m[4] * 128 | bytes }}/s</td>
+              <td>{{ status[relay.url].kbps10s1m5m15m30m60m[5] * 128 | bytes }}/s</td>
+              <td ng-if="status[relay.url].uptimeSeconds != undefined">{{ status[relay.url].uptimeSeconds/60/60 | number:0 }} hours</td>
+              <td ng-if="status[relay.url].uptimeSeconds == undefined"></td>
+              <td>{{ status[relay.url].options['provided-by'] || '' }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>Totals</td>
+              <td>{{ totals.numActiveSessions }}</td>
+              <td>{{ totals.numConnections }}</td>
+              <td>{{ totals.bytesProxied | bytes }}</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[0] * 128 | bytes }}/s</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[1] * 128 | bytes }}/s</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[2] * 128 | bytes }}/s</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[3] * 128 | bytes }}/s</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[4] * 128 | bytes }}/s</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[5] * 128 | bytes }}/s</td>
+              <td>{{ totals.uptimeSeconds/60/60 | number:0 }} hours</td>
+              <td></td>
+            </tr>
+          </tfoor>
+        </table>
       </div>
     </div>
 
@@ -63,6 +115,9 @@
   <script>
   angular.module('syncthing', [
   ])
+  .config(function($httpProvider) {
+    $httpProvider.defaults.timeout = 5000;
+  })
   .filter('bytes', function() {
     return function(bytes, precision) {
       if (isNaN(parseFloat(bytes)) || !isFinite(bytes)) return '-';
@@ -84,7 +139,7 @@
       return value.toFixed(precision) + ' ' + units;
     }
   })
-  .controller('relayDataController', ['$scope', '$rootScope', '$http', '$q', '$compile', function($scope, $rootScope, $http, $q, $compile) {
+  .controller('relayDataController', ['$scope', '$rootScope', '$http', '$q', '$compile', '$timeout', function($scope, $rootScope, $http, $q, $compile, $timeout) {
     $scope.started = false;
     $scope.geoip = {};
     $scope.status = {};
@@ -98,7 +153,10 @@
       numConnections: 0,
       numPendingSessionKeys: 0,
       numProxies: 0,
+      uptimeSeconds: 0,
     };
+
+    var usedLocs = {};
 
     function initProgress(name) {
       $scope.progress.push({name: name, done: false});
@@ -154,7 +212,12 @@
         var resolveStatus = $q.defer();
 
         initProgress("Getting relay status for " + uri.hostname);
-        $http.get("http://" + uri.hostname + (uri.args.statusAddr || ":22070") + "/status").then(function (response) {
+
+        // Normal timeout doesn't deal with relays which accept the TCP connection
+        // but don't respond (some firewalls do that), so deal with it this way.
+        var timeoutRequest = $q.defer();
+
+        $http.get("http://" + uri.hostname + (uri.args.statusAddr || ":22070") + "/status", { timeout: timeoutRequest.promise }).then(function (response) {
           progressDone("Getting relay status for " + uri.hostname);
           $scope.status[relay.url] = response.data;
           angular.forEach($scope.totals, function(value, key) {
@@ -173,6 +236,10 @@
           resolveStatus.resolve(response.data);
         });
 
+        $timeout(function() {
+          timeoutRequest.resolve();
+        }, 5000);
+
         promises.push(resolveStatus.promise);
       });
 
@@ -183,6 +250,17 @@
         angular.forEach($scope.relays, function(relay) {
           var scope = $rootScope.$new(true);
           var geoip = $scope.geoip[relay.url];
+
+          // Deal with overlapping markers
+          while (geoip.loc in usedLocs) {
+            var locParts = geoip.loc.split(',');
+            locParts = [parseFloat(locParts[0]), parseFloat(locParts[1])];
+            locParts[Math.round(Math.random())] += 0.5 * (Math.random() >= 0.5 ? 1 : -1);
+            geoip.loc = locParts.join(',');
+          }
+
+          usedLocs[geoip.loc] = true;
+
           var locParts = geoip.loc.split(',');
           var position = new google.maps.LatLng(locParts[0], locParts[1]);
 
@@ -206,7 +284,7 @@
               fillOpacity: 0.35,
               map: map,
               center: position,
-              radius: ((scope.status.bytesProxied * 100) / $scope.totals.bytesProxied) * 5000
+              radius: ((scope.status.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000
             });
           }
 
@@ -221,12 +299,6 @@
 
           marker.addListener('mouseout', function() {
             marker.info.close();
-          });
-
-          marker.addListener('click', function() {
-            if (scope.status) {
-              window.open("http://" + scope.uri.hostname + (scope.uri.args.statusAddr || ":22070") + "/status", "_blank");
-            }
           });
 
           bounds.extend(marker.position);
