@@ -53,7 +53,10 @@ func main() {
 
 	if join {
 		log.Println("Creating client")
-		relay := client.NewProtocolClient(uri, []tls.Certificate{cert}, nil)
+		relay, err := client.NewClient(uri, []tls.Certificate{cert}, nil, 10*time.Second)
+		if err != nil {
+			log.Fatal(err)
+		}
 		log.Println("Created client")
 
 		go relay.Serve()
@@ -62,7 +65,7 @@ func main() {
 
 		go func() {
 			log.Println("Starting invitation receiver")
-			for invite := range relay.Invitations {
+			for invite := range relay.Invitations() {
 				select {
 				case recv <- invite:
 					log.Println("Received invitation", invite)
@@ -87,7 +90,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		invite, err := client.GetInvitationFromRelay(uri, id, []tls.Certificate{cert})
+		invite, err := client.GetInvitationFromRelay(uri, id, []tls.Certificate{cert}, 10*time.Second)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -101,7 +104,7 @@ func main() {
 		connectToStdio(stdin, conn)
 		log.Println("Finished", conn.RemoteAddr(), conn.LocalAddr())
 	} else if test {
-		if client.TestRelay(uri, []tls.Certificate{cert}) {
+		if client.TestRelay(uri, []tls.Certificate{cert}, time.Second, 2*time.Second, 4) {
 			log.Println("OK")
 		} else {
 			log.Println("FAIL")
