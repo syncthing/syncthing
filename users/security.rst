@@ -120,3 +120,16 @@ ID's `are OK to share anyway
 <http://docs.syncthing.net/users/faq.html#should-i-keep-my-device-ids-secret>`__,
 but the actual transmitted data is protected as well as we can. Knowing your
 device ID can expose your IP address, using global discovery.
+
+Protecting your Syncthing keys and identity
+-------------------------------------------
+
+Anyone who can access the Syncthing TLS keys and config file on your device can
+impersonate your device, connect to your peers, and then have access to your
+synced files. Here are some general principles to protect your files:
+
+#. If a device of yours is lost, make sure to revoke its access from your other
+   devices.
+#. If you're syncing confidential data on an encrypted disk to guard against
+   device theft, put the Syncthing config folder on the same encrypted disk to
+   avoid leaking keys and metadata. Or, use whole disk encryption.
