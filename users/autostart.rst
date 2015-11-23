@@ -14,25 +14,25 @@ Task Scheduler
 ~~~~~~~~~~~~~~
 
 #. Start the `Task Scheduler <https://en.wikipedia.org/wiki/Windows_Task_Scheduler>`__
-#. Create a New Task ([Action] menu -> [Create Task...])
+#. Create a New Task ("Action" menu -> "Create Task...")
 #. General Tab:
-    #. Name the task (for example 'SyncThing')
-    #. Check "Run whether user is logged on or not:
+    #. Name the task (for example 'Syncthing')
+    #. Check "Run whether user is logged on or not"
 #. Triggers Tab:
-    #. Click [New...]
-    #. Set [Begin the task] to [At Startup]
+    #. Click "New..."
+    #. Set "Begin the task" to "At Startup"
     #. (optional) choose a delay
     #. Make sure Enabled is checked
-    #. Click [OK]
+    #. Click "OK"
 #. Actions Tab:
-    #. Click [New...]
-    #. [Action] should be set as [Start a program]
-    #. Enter the path to syncthing.exe in [Program/Script]
-    #. Click [OK]
+    #. Click "New..."
+    #. [Action] should be set as "Start a program"
+    #. Enter the path to syncthing.exe in "Program/Script"
+    #. Click "OK"
 #. Settings Tab:
-    #. (recommended) Kepp the checkbox on [Allow task to be run on demand]
-    #. Clear checkbox from [Stop task if it runs longer than:]
-    #. (recommended) Keep [Do not start a new instance] for [If the task is already running, then the following rule applies]
+    #. (recommended) Keep the checkbox on "Allow task to be run on demand"
+    #. Clear checkbox from "Stop task if it runs longer than:"
+    #. (recommended) Keep "Do not start a new instance" for "If the task is already running, then the following rule applies"
 #. Click OK
 #. Enter password for the user.
 
