@@ -50,6 +50,9 @@ func WriteMessage(w io.Writer, message interface{}) error {
 	case SessionInvitation:
 		payload, err = msg.MarshalXDR()
 		header.messageType = messageTypeSessionInvitation
+	case RelayFull:
+		payload, err = msg.MarshalXDR()
+		header.messageType = messageTypeRelayFull
 	default:
 		err = fmt.Errorf("Unknown message type")
 	}
@@ -106,6 +109,10 @@ func ReadMessage(r io.Reader) (interface{}, error) {
 		return msg, err
 	case messageTypeSessionInvitation:
 		var msg SessionInvitation
+		err := msg.DecodeXDR(r)
+		return msg, err
+	case messageTypeRelayFull:
+		var msg RelayFull
 		err := msg.DecodeXDR(r)
 		return msg, err
 	}

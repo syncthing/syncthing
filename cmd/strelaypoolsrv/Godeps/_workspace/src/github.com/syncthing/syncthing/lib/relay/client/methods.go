@@ -11,20 +11,23 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/dialer"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 )
 
-func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs []tls.Certificate) (protocol.SessionInvitation, error) {
+func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs []tls.Certificate, timeout time.Duration) (protocol.SessionInvitation, error) {
 	if uri.Scheme != "relay" {
-		return protocol.SessionInvitation{}, fmt.Errorf("Unsupported relay scheme:", uri.Scheme)
+		return protocol.SessionInvitation{}, fmt.Errorf("Unsupported relay scheme: %v", uri.Scheme)
 	}
 
-	conn, err := tls.Dial("tcp", uri.Host, configForCerts(certs))
+	rconn, err := dialer.Dial("tcp", uri.Host)
 	if err != nil {
 		return protocol.SessionInvitation{}, err
 	}
-	conn.SetDeadline(time.Now().Add(10 * time.Second))
+
+	conn := tls.Client(rconn, configForCerts(certs))
+	conn.SetDeadline(time.Now().Add(timeout))
 
 	if err := performHandshakeAndValidation(conn, uri); err != nil {
 		return protocol.SessionInvitation{}, err
@@ -49,9 +52,7 @@ func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs [
 	case protocol.Response:
 		return protocol.SessionInvitation{}, fmt.Errorf("Incorrect response code %d: %s", msg.Code, msg.Message)
 	case protocol.SessionInvitation:
-		if debug {
-			l.Debugln("Received invitation", msg, "via", conn.LocalAddr())
-		}
+		l.Debugln("Received invitation", msg, "via", conn.LocalAddr())
 		ip := net.IP(msg.Address)
 		if len(ip) == 0 || ip.IsUnspecified() {
 			msg.Address = conn.RemoteAddr().(*net.TCPAddr).IP[:]
@@ -65,7 +66,7 @@ func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs [
 func JoinSession(invitation protocol.SessionInvitation) (net.Conn, error) {
 	addr := net.JoinHostPort(net.IP(invitation.Address).String(), strconv.Itoa(int(invitation.Port)))
 
-	conn, err := net.Dial("tcp", addr)
+	conn, err := dialer.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -98,18 +99,22 @@ func JoinSession(invitation protocol.SessionInvitation) (net.Conn, error) {
 	}
 }
 
-func TestRelay(uri *url.URL, certs []tls.Certificate, sleep time.Duration, times int) bool {
+func TestRelay(uri *url.URL, certs []tls.Certificate, sleep, timeout time.Duration, times int) bool {
 	id := syncthingprotocol.NewDeviceID(certs[0].Certificate[0])
 	invs := make(chan protocol.SessionInvitation, 1)
-	c := NewProtocolClient(uri, certs, invs)
+	c, err := NewClient(uri, certs, invs, timeout)
+	if err != nil {
+		close(invs)
+		return false
+	}
 	go c.Serve()
 	defer func() {
-		close(invs)
 		c.Stop()
+		close(invs)
 	}()
 
 	for i := 0; i < times; i++ {
-		_, err := GetInvitationFromRelay(uri, id, certs)
+		_, err := GetInvitationFromRelay(uri, id, certs, timeout)
 		if err == nil {
 			return true
 		}

@@ -41,7 +41,7 @@ IndexMessage Structure:
 
 
 struct IndexMessage {
-	string Folder<>;
+	string Folder<256>;
 	FileInfo Files<1000000>;
 	unsigned int Flags;
 	Option Options<64>;
@@ -74,6 +74,9 @@ func (o IndexMessage) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o IndexMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+	if l := len(o.Folder); l > 256 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Folder", l, 256)
+	}
 	xw.WriteString(o.Folder)
 	if l := len(o.Files); l > 1000000 {
 		return xw.Tot(), xdr.ElementSizeExceeded("Files", l, 1000000)
@@ -111,7 +114,7 @@ func (o *IndexMessage) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *IndexMessage) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.Folder = xr.ReadString()
+	o.Folder = xr.ReadStringMax(256)
 	_FilesSize := int(xr.ReadUint32())
 	if _FilesSize < 0 {
 		return xdr.ElementSizeExceeded("Files", _FilesSize, 1000000)
@@ -380,7 +383,7 @@ RequestMessage Structure:
 
 
 struct RequestMessage {
-	string Folder<64>;
+	string Folder<256>;
 	string Name<8192>;
 	hyper Offset;
 	int Size;
@@ -416,8 +419,8 @@ func (o RequestMessage) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o RequestMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	if l := len(o.Folder); l > 64 {
-		return xw.Tot(), xdr.ElementSizeExceeded("Folder", l, 64)
+	if l := len(o.Folder); l > 256 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Folder", l, 256)
 	}
 	xw.WriteString(o.Folder)
 	if l := len(o.Name); l > 8192 {
@@ -456,7 +459,7 @@ func (o *RequestMessage) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *RequestMessage) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.Folder = xr.ReadStringMax(64)
+	o.Folder = xr.ReadStringMax(256)
 	o.Name = xr.ReadStringMax(8192)
 	o.Offset = int64(xr.ReadUint64())
 	o.Size = int32(xr.ReadUint32())
@@ -554,6 +557,12 @@ ClusterConfigMessage Structure:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                     Length of Device Name                     |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                 Device Name (variable length)                 \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                     Length of Client Name                     |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
@@ -581,6 +590,7 @@ ClusterConfigMessage Structure:
 
 
 struct ClusterConfigMessage {
+	string DeviceName<64>;
 	string ClientName<64>;
 	string ClientVersion<64>;
 	Folder Folders<1000000>;
@@ -614,6 +624,10 @@ func (o ClusterConfigMessage) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o ClusterConfigMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+	if l := len(o.DeviceName); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("DeviceName", l, 64)
+	}
+	xw.WriteString(o.DeviceName)
 	if l := len(o.ClientName); l > 64 {
 		return xw.Tot(), xdr.ElementSizeExceeded("ClientName", l, 64)
 	}
@@ -657,6 +671,7 @@ func (o *ClusterConfigMessage) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *ClusterConfigMessage) DecodeXDRFrom(xr *xdr.Reader) error {
+	o.DeviceName = xr.ReadStringMax(64)
 	o.ClientName = xr.ReadStringMax(64)
 	o.ClientVersion = xr.ReadStringMax(64)
 	_FoldersSize := int(xr.ReadUint32())
@@ -714,7 +729,7 @@ Folder Structure:
 
 
 struct Folder {
-	string ID<64>;
+	string ID<256>;
 	Device Devices<1000000>;
 	unsigned int Flags;
 	Option Options<64>;
@@ -747,8 +762,8 @@ func (o Folder) AppendXDR(bs []byte) ([]byte, error) {
 }
 
 func (o Folder) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	if l := len(o.ID); l > 64 {
-		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 64)
+	if l := len(o.ID); l > 256 {
+		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 256)
 	}
 	xw.WriteString(o.ID)
 	if l := len(o.Devices); l > 1000000 {
@@ -787,7 +802,7 @@ func (o *Folder) UnmarshalXDR(bs []byte) error {
 }
 
 func (o *Folder) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.ID = xr.ReadStringMax(64)
+	o.ID = xr.ReadStringMax(256)
 	_DevicesSize := int(xr.ReadUint32())
 	if _DevicesSize < 0 {
 		return xdr.ElementSizeExceeded("Devices", _DevicesSize, 1000000)
@@ -827,6 +842,28 @@ Device Structure:
 \                     ID (variable length)                      \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        Length of Name                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                    Name (variable length)                     \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      Number of Addresses                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      Length of Addresses                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                  Addresses (variable length)                  \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          Compression                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      Length of Cert Name                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                  Cert Name (variable length)                  \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                  Max Local Version (64 bits)                  +
 |                                                               |
@@ -843,6 +880,10 @@ Device Structure:
 
 struct Device {
 	opaque ID<32>;
+	string Name<64>;
+	string Addresses<64>;
+	unsigned int Compression;
+	string CertName<64>;
 	hyper MaxLocalVersion;
 	unsigned int Flags;
 	Option Options<64>;
@@ -879,6 +920,22 @@ func (o Device) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 32)
 	}
 	xw.WriteBytes(o.ID)
+	if l := len(o.Name); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Name", l, 64)
+	}
+	xw.WriteString(o.Name)
+	if l := len(o.Addresses); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("Addresses", l, 64)
+	}
+	xw.WriteUint32(uint32(len(o.Addresses)))
+	for i := range o.Addresses {
+		xw.WriteString(o.Addresses[i])
+	}
+	xw.WriteUint32(o.Compression)
+	if l := len(o.CertName); l > 64 {
+		return xw.Tot(), xdr.ElementSizeExceeded("CertName", l, 64)
+	}
+	xw.WriteString(o.CertName)
 	xw.WriteUint64(uint64(o.MaxLocalVersion))
 	xw.WriteUint32(o.Flags)
 	if l := len(o.Options); l > 64 {
@@ -907,6 +964,20 @@ func (o *Device) UnmarshalXDR(bs []byte) error {
 
 func (o *Device) DecodeXDRFrom(xr *xdr.Reader) error {
 	o.ID = xr.ReadBytesMax(32)
+	o.Name = xr.ReadStringMax(64)
+	_AddressesSize := int(xr.ReadUint32())
+	if _AddressesSize < 0 {
+		return xdr.ElementSizeExceeded("Addresses", _AddressesSize, 64)
+	}
+	if _AddressesSize > 64 {
+		return xdr.ElementSizeExceeded("Addresses", _AddressesSize, 64)
+	}
+	o.Addresses = make([]string, _AddressesSize)
+	for i := range o.Addresses {
+		o.Addresses[i] = xr.ReadStringMax(2083)
+	}
+	o.Compression = xr.ReadUint32()
+	o.CertName = xr.ReadStringMax(64)
 	o.MaxLocalVersion = int64(xr.ReadUint64())
 	o.Flags = xr.ReadUint32()
 	_OptionsSize := int(xr.ReadUint32())

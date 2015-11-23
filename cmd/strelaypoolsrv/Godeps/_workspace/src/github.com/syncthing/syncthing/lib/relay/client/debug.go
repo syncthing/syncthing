@@ -6,10 +6,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/calmh/logger"
+	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
-	debug = strings.Contains(os.Getenv("STTRACE"), "relay") || os.Getenv("STTRACE") == "all"
-	l     = logger.DefaultLogger
+	l = logger.DefaultLogger.NewFacility("relay", "")
 )
+
+func init() {
+	l.SetDebug("relay", strings.Contains(os.Getenv("STTRACE"), "relay") || os.Getenv("STTRACE") == "all")
+}

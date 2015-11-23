@@ -14,10 +14,10 @@ const (
 )
 
 var (
-	ErrNoError    error = nil
-	ErrGeneric          = errors.New("generic error")
-	ErrNoSuchFile       = errors.New("no such file")
-	ErrInvalid          = errors.New("file is invalid")
+	ErrNoError    error
+	ErrGeneric    = errors.New("generic error")
+	ErrNoSuchFile = errors.New("no such file")
+	ErrInvalid    = errors.New("file is invalid")
 )
 
 var lookupError = map[int32]error{

@@ -1,6 +1,6 @@
 // Copyright (C) 2015 Audrius Butkevicius and Contributors (see the CONTRIBUTORS file).
 
-//go:generate -command genxdr go run ../../syncthing/Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
+//go:generate -command genxdr go run ../../../Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
 //go:generate genxdr -o packets_xdr.go packets.go
 
 package protocol
@@ -20,6 +20,7 @@ const (
 	messageTypeResponse
 	messageTypeConnectRequest
 	messageTypeSessionInvitation
+	messageTypeRelayFull
 )
 
 type header struct {
@@ -31,6 +32,7 @@ type header struct {
 type Ping struct{}
 type Pong struct{}
 type JoinRelayRequest struct{}
+type RelayFull struct{}
 
 type JoinSessionRequest struct {
 	Key []byte // max:32

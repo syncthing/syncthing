@@ -67,7 +67,7 @@ var (
 	getLimit       time.Duration
 	postLimit      time.Duration
 	permRelaysFile string
-	ipHeader string
+	ipHeader       string
 
 	getMut      sync.RWMutex = sync.NewRWMutex()
 	getLRUCache *lru.Cache
@@ -371,7 +371,7 @@ func requestProcessor() {
 		if debug {
 			log.Println("Request for", request.relay)
 		}
-		if !client.TestRelay(request.uri, []tls.Certificate{testCert}, 250*time.Millisecond, 4) {
+		if !client.TestRelay(request.uri, []tls.Certificate{testCert}, time.Second, 2*time.Second, 3) {
 			if debug {
 				log.Println("Test for relay", request.relay, "failed")
 			}

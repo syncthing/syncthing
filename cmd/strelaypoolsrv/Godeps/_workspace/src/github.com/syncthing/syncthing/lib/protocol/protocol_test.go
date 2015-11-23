@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,11 +20,21 @@ import (
 )
 
 var (
-	c0ID = NewDeviceID([]byte{1})
-	c1ID = NewDeviceID([]byte{2})
+	c0ID     = NewDeviceID([]byte{1})
+	c1ID     = NewDeviceID([]byte{2})
+	quickCfg = &quick.Config{}
 )
 
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if flag.Lookup("test.short").Value.String() != "false" {
+		quickCfg.MaxCount = 10
+	}
+	os.Exit(m.Run())
+}
+
 func TestHeaderFunctions(t *testing.T) {
+	t.Parallel()
 	f := func(ver, id, typ int) bool {
 		ver = int(uint(ver) % 16)
 		id = int(uint(id) % 4096)
@@ -38,6 +49,7 @@ func TestHeaderFunctions(t *testing.T) {
 }
 
 func TestHeaderLayout(t *testing.T) {
+	t.Parallel()
 	var e, a uint32
 
 	// Version are the first four bits
@@ -63,6 +75,7 @@ func TestHeaderLayout(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
+	t.Parallel()
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
@@ -82,6 +95,7 @@ func TestPing(t *testing.T) {
 }
 
 func TestVersionErr(t *testing.T) {
+	t.Parallel()
 	m0 := newTestModel()
 	m1 := newTestModel()
 
@@ -109,6 +123,7 @@ func TestVersionErr(t *testing.T) {
 }
 
 func TestTypeErr(t *testing.T) {
+	t.Parallel()
 	m0 := newTestModel()
 	m1 := newTestModel()
 
@@ -136,6 +151,7 @@ func TestTypeErr(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
+	t.Parallel()
 	m0 := newTestModel()
 	m1 := newTestModel()
 
@@ -171,10 +187,9 @@ func TestClose(t *testing.T) {
 }
 
 func TestElementSizeExceededNested(t *testing.T) {
+	t.Parallel()
 	m := ClusterConfigMessage{
-		Folders: []Folder{
-			{ID: "longstringlongstringlongstringinglongstringlongstringlonlongstringlongstringlon"},
-		},
+		ClientName: "longstringlongstringlongstringinglongstringlongstringlonlongstringlongstringlon",
 	}
 	_, err := m.EncodeXDR(ioutil.Discard)
 	if err == nil {
@@ -183,11 +198,7 @@ func TestElementSizeExceededNested(t *testing.T) {
 }
 
 func TestMarshalIndexMessage(t *testing.T) {
-	var quickCfg = &quick.Config{MaxCountScale: 10}
-	if testing.Short() {
-		quickCfg = nil
-	}
-
+	t.Parallel()
 	f := func(m1 IndexMessage) bool {
 		for i, f := range m1.Files {
 			m1.Files[i].CachedSize = 0
@@ -208,11 +219,7 @@ func TestMarshalIndexMessage(t *testing.T) {
 }
 
 func TestMarshalRequestMessage(t *testing.T) {
-	var quickCfg = &quick.Config{MaxCountScale: 10}
-	if testing.Short() {
-		quickCfg = nil
-	}
-
+	t.Parallel()
 	f := func(m1 RequestMessage) bool {
 		return testMarshal(t, "request", &m1, &RequestMessage{})
 	}
@@ -223,11 +230,7 @@ func TestMarshalRequestMessage(t *testing.T) {
 }
 
 func TestMarshalResponseMessage(t *testing.T) {
-	var quickCfg = &quick.Config{MaxCountScale: 10}
-	if testing.Short() {
-		quickCfg = nil
-	}
-
+	t.Parallel()
 	f := func(m1 ResponseMessage) bool {
 		if len(m1.Data) == 0 {
 			m1.Data = nil
@@ -241,11 +244,7 @@ func TestMarshalResponseMessage(t *testing.T) {
 }
 
 func TestMarshalClusterConfigMessage(t *testing.T) {
-	var quickCfg = &quick.Config{MaxCountScale: 10}
-	if testing.Short() {
-		quickCfg = nil
-	}
-
+	t.Parallel()
 	f := func(m1 ClusterConfigMessage) bool {
 		return testMarshal(t, "clusterconfig", &m1, &ClusterConfigMessage{})
 	}
@@ -256,11 +255,7 @@ func TestMarshalClusterConfigMessage(t *testing.T) {
 }
 
 func TestMarshalCloseMessage(t *testing.T) {
-	var quickCfg = &quick.Config{MaxCountScale: 10}
-	if testing.Short() {
-		quickCfg = nil
-	}
-
+	t.Parallel()
 	f := func(m1 CloseMessage) bool {
 		return testMarshal(t, "close", &m1, &CloseMessage{})
 	}

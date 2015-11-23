@@ -12,20 +12,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/calmh/logger"
+	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
-	debug     = strings.Contains(os.Getenv("STTRACE"), "locks") || os.Getenv("STTRACE") == "all"
 	threshold = time.Duration(100 * time.Millisecond)
-	l         = logger.DefaultLogger
+	l         = logger.DefaultLogger.NewFacility("sync", "Mutexes")
+
+	// We make an exception in this package and have an actual "if debug { ...
+	// }" variable, as it may be rather performance critical and does
+	// nonstandard things (from a debug logging PoV).
+	debug = strings.Contains(os.Getenv("STTRACE"), "sync") || os.Getenv("STTRACE") == "all"
 )
 
 func init() {
-	if n, err := strconv.Atoi(os.Getenv("STLOCKTHRESHOLD")); debug && err == nil {
+	l.SetDebug("sync", strings.Contains(os.Getenv("STTRACE"), "sync") || os.Getenv("STTRACE") == "all")
+
+	if n, err := strconv.Atoi(os.Getenv("STLOCKTHRESHOLD")); err == nil {
 		threshold = time.Duration(n) * time.Millisecond
 	}
-	if debug {
-		l.Debugf("Enabling lock logging at %v threshold", threshold)
-	}
+	l.Debugf("Enabling lock logging at %v threshold", threshold)
 }

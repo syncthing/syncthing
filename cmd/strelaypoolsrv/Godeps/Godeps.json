@@ -29,27 +29,27 @@
 		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/protocol",
 			"Comment": "v0.12.0-beta1-119-g24c499d",
-			"Rev": "24c499d2822ae891c95406066456872e8d6c8164"
+			"Rev": "431d51f5c49ed7860e289ddab3c1fcf30004ff00"
 		},
 		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/relay/client",
 			"Comment": "v0.12.0-beta1-119-g24c499d",
-			"Rev": "24c499d2822ae891c95406066456872e8d6c8164"
+			"Rev": "431d51f5c49ed7860e289ddab3c1fcf30004ff00"
 		},
 		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/relay/protocol",
 			"Comment": "v0.12.0-beta1-119-g24c499d",
-			"Rev": "24c499d2822ae891c95406066456872e8d6c8164"
+			"Rev": "431d51f5c49ed7860e289ddab3c1fcf30004ff00"
 		},
 		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/sync",
 			"Comment": "v0.12.0-beta1-119-g24c499d",
-			"Rev": "24c499d2822ae891c95406066456872e8d6c8164"
+			"Rev": "431d51f5c49ed7860e289ddab3c1fcf30004ff00"
 		},
 		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/tlsutil",
 			"Comment": "v0.12.0-beta1-119-g24c499d",
-			"Rev": "24c499d2822ae891c95406066456872e8d6c8164"
+			"Rev": "431d51f5c49ed7860e289ddab3c1fcf30004ff00"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",

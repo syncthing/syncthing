@@ -1,14 +1,20 @@
 // Copyright (C) 2014 The Protocol Authors.
 
-//go:generate -command genxdr go run ../syncthing/Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
+//go:generate -command genxdr go run ../../Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
 //go:generate genxdr -o message_xdr.go message.go
 
 package protocol
 
-import "fmt"
+import (
+	"bytes"
+	"crypto/sha256"
+	"fmt"
+)
+
+var sha256OfEmptyBlock = sha256.Sum256(make([]byte, BlockSize))
 
 type IndexMessage struct {
-	Folder  string
+	Folder  string     // max:256
 	Files   []FileInfo // max:1000000
 	Flags   uint32
 	Options []Option // max:64
@@ -33,9 +39,13 @@ func (f FileInfo) Size() (bytes int64) {
 	if f.IsDeleted() || f.IsDirectory() {
 		return 128
 	}
+	if f.CachedSize > 0 {
+		return f.CachedSize
+	}
 	for _, b := range f.Blocks {
 		bytes += int64(b.Size)
 	}
+	f.CachedSize = bytes
 	return
 }
 
@@ -94,8 +104,13 @@ func (b BlockInfo) String() string {
 	return fmt.Sprintf("Block{%d/%d/%x}", b.Offset, b.Size, b.Hash)
 }
 
+// IsEmpty returns true if the block is a full block of zeroes.
+func (b BlockInfo) IsEmpty() bool {
+	return b.Size == BlockSize && bytes.Equal(b.Hash, sha256OfEmptyBlock[:])
+}
+
 type RequestMessage struct {
-	Folder  string // max:64
+	Folder  string // max:256
 	Name    string // max:8192
 	Offset  int64
 	Size    int32
@@ -110,6 +125,7 @@ type ResponseMessage struct {
 }
 
 type ClusterConfigMessage struct {
+	DeviceName    string   // max:64
 	ClientName    string   // max:64
 	ClientVersion string   // max:64
 	Folders       []Folder // max:1000000
@@ -126,14 +142,18 @@ func (o *ClusterConfigMessage) GetOption(key string) string {
 }
 
 type Folder struct {
-	ID      string   // max:64
+	ID      string   // max:256
 	Devices []Device // max:1000000
 	Flags   uint32
 	Options []Option // max:64
 }
 
 type Device struct {
-	ID              []byte // max:32
+	ID              []byte   // max:32
+	Name            string   // max:64
+	Addresses       []string // max:64,2083
+	Compression     uint32
+	CertName        string // max:64
 	MaxLocalVersion int64
 	Flags           uint32
 	Options         []Option // max:64
