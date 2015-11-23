@@ -49,20 +49,22 @@ var insecureHTTP = &http.Client{
 
 // FetchLatestReleases returns the latest releases, including prereleases or
 // not depending on the argument
-func FetchLatestReleases(releasesURL, version string) ([]Release, error) {
+func FetchLatestReleases(releasesURL, version string) ([]Release) {
 	resp, err := insecureHTTP.Get(releasesURL)
 	if err != nil {
-		return nil, err
+		l.Infoln("Couldn't fetch release information:", err)
+		return nil
 	}
 	if resp.StatusCode > 299 {
-		return nil, fmt.Errorf("API call returned HTTP error: %s", resp.Status)
+		l.Infoln("API call returned HTTP error: %s", resp.Status)
+		return nil
 	}
 
 	var rels []Release
 	json.NewDecoder(resp.Body).Decode(&rels)
 	resp.Body.Close()
 
-	return rels, nil
+	return rels
 }
 
 type SortByRelease []Release
@@ -78,7 +80,7 @@ func (s SortByRelease) Less(i, j int) bool {
 }
 
 func LatestRelease(releasesURL, version string) (Release, error) {
-	rels, _ := FetchLatestReleases(releasesURL, version)
+	rels := FetchLatestReleases(releasesURL, version)
 	return SelectLatestRelease(version, rels)
 }
 
