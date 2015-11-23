@@ -47,9 +47,9 @@ var insecureHTTP = &http.Client{
 	},
 }
 
-// LatestGithubReleases returns the latest releases, including prereleases or
+// FetchLatestReleases returns the latest releases, including prereleases or
 // not depending on the argument
-func LatestGithubReleases(releasesURL, version string) ([]Release, error) {
+func FetchLatestReleases(releasesURL, version string) ([]Release, error) {
 	resp, err := insecureHTTP.Get(releasesURL)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (s SortByRelease) Less(i, j int) bool {
 }
 
 func LatestRelease(releasesURL, version string) (Release, error) {
-	rels, _ := LatestGithubReleases(releasesURL, version)
+	rels, _ := FetchLatestReleases(releasesURL, version)
 	return SelectLatestRelease(version, rels)
 }
 
