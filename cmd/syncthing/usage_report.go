@@ -13,7 +13,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"runtime"
 	"sort"
@@ -249,19 +248,14 @@ func (s *usageReportingService) sendUsageReport() error {
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
 
-	transp := &http.Transport{}
-	client := &http.Client{Transport: transp}
-	if BuildEnv == "android" {
-		// This works around the lack of DNS resolution on Android... :(
-		transp.Dial = func(network, addr string) (net.Conn, error) {
-			return dialer.Dial(network, "194.126.249.13:443")
-		}
-	}
-
-	if s.cfg.Options().URPostInsecurely {
-		transp.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
-		}
+	client := &http.Client{
+		Transport: &http.Transport{
+			Dial:  dialer.Dial,
+			Proxy: http.ProxyFromEnvironment,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: s.cfg.Options().URPostInsecurely,
+			},
+		},
 	}
 	_, err := client.Post(s.cfg.Options().URURL, "application/json", &b)
 	return err

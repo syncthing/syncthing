@@ -50,7 +50,6 @@ var (
 	DefaultDiscoveryServers = append(DefaultDiscoveryServersV4, DefaultDiscoveryServersV6...)
 
 	// DefaultDiscoveryServersIP is used by the usage reporting.
-	// XXX: Detect Android, and use this is we still don't have working DNS?
 	DefaultDiscoveryServersIP = []string{
 		"https://194.126.249.5/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA",
 		"https://45.55.230.38/?id=AQEHEO2-XOS7QRA-X2COH5K-PO6OPVA-EWOSEGO-KZFMD32-XJ4ZV46-CUUVKAS",
