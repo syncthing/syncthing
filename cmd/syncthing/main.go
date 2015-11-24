@@ -639,6 +639,13 @@ func syncthingMain() {
 		}
 	}
 
+	// Pack and optimize the database
+	if err := ldb.Compact(); err != nil {
+		// I don't think this is fatal, but who knows. If it is, we'll surely
+		// get an error when trying to write to the db later.
+		l.Infoln("Compacting database:", err)
+	}
+
 	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb, protectedFiles)
 	cfg.Subscribe(m)
 
