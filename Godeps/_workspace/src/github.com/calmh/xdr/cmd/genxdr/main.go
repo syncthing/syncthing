@@ -171,6 +171,39 @@ func (o *{{.TypeName}}) DecodeXDRFrom(xr *xdr.Reader) error {
 	return xr.Error()
 }`))
 
+var emptyTypeTpl = template.Must(template.New("encoder").Parse(`
+func (o {{.TypeName}}) EncodeXDR(w io.Writer) (int, error) {
+	return 0, nil
+}//+n
+
+func (o {{.TypeName}}) MarshalXDR() ([]byte, error) {
+	return nil, nil
+}//+n
+
+func (o {{.TypeName}}) MustMarshalXDR() []byte {
+	return nil
+}//+n
+
+func (o {{.TypeName}}) AppendXDR(bs []byte) ([]byte, error) {
+	return bs, nil
+}//+n
+
+func (o {{.TypeName}}) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+	return xw.Tot(), xw.Error()
+}//+n
+
+func (o *{{.TypeName}}) DecodeXDR(r io.Reader) error {
+	return nil
+}//+n
+
+func (o *{{.TypeName}}) UnmarshalXDR(bs []byte) error {
+	return nil
+}//+n
+
+func (o *{{.TypeName}}) DecodeXDRFrom(xr *xdr.Reader) error {
+	return xr.Error()
+}`))
+
 var maxRe = regexp.MustCompile(`(?:\Wmax:)(\d+)(?:\s*,\s*(\d+))?`)
 
 type typeSet struct {
@@ -300,7 +333,14 @@ func generateCode(output io.Writer, s structInfo) {
 	fs := s.Fields
 
 	var buf bytes.Buffer
-	err := encodeTpl.Execute(&buf, map[string]interface{}{"TypeName": name, "Fields": fs})
+	var err error
+	if len(fs) == 0 {
+		// This is an empty type. We can create a quite simple codec for it.
+		err = emptyTypeTpl.Execute(&buf, map[string]interface{}{"TypeName": name})
+	} else {
+		// Generate with the default template.
+		err = encodeTpl.Execute(&buf, map[string]interface{}{"TypeName": name, "Fields": fs})
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -326,6 +366,14 @@ func generateDiagram(output io.Writer, s structInfo) {
 	fs := s.Fields
 
 	fmt.Fprintln(output, sn+" Structure:")
+
+	if len(fs) == 0 {
+		fmt.Fprintln(output, "(contains no fields)")
+		fmt.Fprintln(output)
+		fmt.Fprintln(output)
+		return
+	}
+
 	fmt.Fprintln(output)
 	fmt.Fprintln(output, " 0                   1                   2                   3")
 	fmt.Fprintln(output, " 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1")

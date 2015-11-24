@@ -405,7 +405,7 @@ func assets() {
 }
 
 func xdr() {
-	runPrint("go", "generate", "./lib/discover", "./lib/db", "./lib/protocol")
+	runPrint("go", "generate", "./lib/discover", "./lib/db", "./lib/protocol", "./lib/relay/protocol")
 }
 
 func translate() {
