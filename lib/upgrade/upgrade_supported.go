@@ -49,7 +49,7 @@ var insecureHTTP = &http.Client{
 
 // FetchLatestReleases returns the latest releases, including prereleases or
 // not depending on the argument
-func FetchLatestReleases(releasesURL, version string) ([]Release) {
+func FetchLatestReleases(releasesURL, version string) []Release {
 	resp, err := insecureHTTP.Get(releasesURL)
 	if err != nil {
 		l.Infoln("Couldn't fetch release information:", err)
@@ -86,7 +86,7 @@ func LatestRelease(releasesURL, version string) (Release, error) {
 
 func SelectLatestRelease(version string, rels []Release) (Release, error) {
 	if len(rels) == 0 {
-		return Release{}, ErrVersionUnknown
+		return Release{}, ErrNoVersionToSelect
 	}
 
 	sort.Sort(SortByRelease(rels))
@@ -108,7 +108,7 @@ func SelectLatestRelease(version string, rels []Release) (Release, error) {
 			}
 		}
 	}
-	return Release{}, ErrVersionUnknown
+	return Release{}, ErrNoReleaseDownload
 }
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
@@ -124,7 +124,7 @@ func upgradeTo(binary string, rel Release) error {
 		}
 	}
 
-	return ErrVersionUnknown
+	return ErrNoReleaseDownload
 }
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
