@@ -123,6 +123,9 @@ lib/
    rc/
       Remote controls a Syncthing process over the REST API.
 
+   protocol/
+      Implementation of the BEP protocol.
+
    scanner/
       Looks for changes to files and hashes them as appropriate.
 
