@@ -377,7 +377,7 @@ func (s *connectionSvc) connectViaRelay(deviceID protocol.DeviceID, addr discove
 		return nil
 	}
 
-	inv, err := client.GetInvitationFromRelay(uri, deviceID, s.tlsCfg.Certificates)
+	inv, err := client.GetInvitationFromRelay(uri, deviceID, s.tlsCfg.Certificates, 10*time.Second)
 	if err != nil {
 		l.Debugf("Failed to get invitation for %s from %s: %v", deviceID, uri, err)
 		return nil

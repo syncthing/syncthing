@@ -11,7 +11,7 @@ import (
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 )
 
-type relayClientFactory func(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation) RelayClient
+type relayClientFactory func(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) RelayClient
 
 var (
 	supportedSchemes = map[string]relayClientFactory{
@@ -31,11 +31,11 @@ type RelayClient interface {
 	URI() *url.URL
 }
 
-func NewClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation) (RelayClient, error) {
+func NewClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) (RelayClient, error) {
 	factory, ok := supportedSchemes[uri.Scheme]
 	if !ok {
 		return nil, fmt.Errorf("Unsupported scheme: %s", uri.Scheme)
 	}
 
-	return factory(uri, certs, invitations), nil
+	return factory(uri, certs, invitations, timeout), nil
 }

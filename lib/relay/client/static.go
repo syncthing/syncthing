@@ -22,7 +22,8 @@ type staticClient struct {
 
 	config *tls.Config
 
-	timeout time.Duration
+	messageTimeout time.Duration
+	connectTimeout time.Duration
 
 	stop    chan struct{}
 	stopped chan struct{}
@@ -34,7 +35,7 @@ type staticClient struct {
 	latency   time.Duration
 }
 
-func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation) RelayClient {
+func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) RelayClient {
 	closeInvitationsOnFinish := false
 	if invitations == nil {
 		closeInvitationsOnFinish = true
@@ -49,7 +50,8 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 
 		config: configForCerts(certs),
 
-		timeout: time.Minute * 2,
+		messageTimeout: time.Minute * 2,
+		connectTimeout: timeout,
 
 		stop:    make(chan struct{}),
 		stopped: make(chan struct{}),
@@ -95,12 +97,12 @@ func (c *staticClient) Serve() {
 
 	go messageReader(c.conn, messages, errors)
 
-	timeout := time.NewTimer(c.timeout)
+	timeout := time.NewTimer(c.messageTimeout)
 
 	for {
 		select {
 		case message := <-messages:
-			timeout.Reset(c.timeout)
+			timeout.Reset(c.messageTimeout)
 			l.Debugf("%s received message %T", c, message)
 
 			switch msg := message.(type) {
@@ -201,7 +203,7 @@ func (c *staticClient) connect() error {
 		return err
 	}
 
-	if err := conn.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
+	if err := conn.SetDeadline(time.Now().Add(c.connectTimeout)); err != nil {
 		conn.Close()
 		return err
 	}

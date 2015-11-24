@@ -22,13 +22,14 @@ type dynamicClient struct {
 	certs                    []tls.Certificate
 	invitations              chan protocol.SessionInvitation
 	closeInvitationsOnFinish bool
+	timeout                  time.Duration
 
 	mut    sync.RWMutex
 	client RelayClient
 	stop   chan struct{}
 }
 
-func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation) RelayClient {
+func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) RelayClient {
 	closeInvitationsOnFinish := false
 	if invitations == nil {
 		closeInvitationsOnFinish = true
@@ -39,6 +40,7 @@ func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan pr
 		certs:                    certs,
 		invitations:              invitations,
 		closeInvitationsOnFinish: closeInvitationsOnFinish,
+		timeout:                  timeout,
 
 		mut: sync.NewRWMutex(),
 	}
@@ -94,7 +96,7 @@ func (c *dynamicClient) Serve() {
 				l.Debugln(c, "skipping relay", addr, err)
 				continue
 			}
-			client, err := NewClient(ruri, c.certs, c.invitations)
+			client, err := NewClient(ruri, c.certs, c.invitations, c.timeout)
 			if err != nil {
 				continue
 			}
