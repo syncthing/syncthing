@@ -47,22 +47,24 @@ var insecureHTTP = &http.Client{
 	},
 }
 
-// LatestGithubReleases returns the latest releases, including prereleases or
+// FetchLatestReleases returns the latest releases, including prereleases or
 // not depending on the argument
-func LatestGithubReleases(releasesURL, version string) ([]Release, error) {
+func FetchLatestReleases(releasesURL, version string) []Release {
 	resp, err := insecureHTTP.Get(releasesURL)
 	if err != nil {
-		return nil, err
+		l.Infoln("Couldn't fetch release information:", err)
+		return nil
 	}
 	if resp.StatusCode > 299 {
-		return nil, fmt.Errorf("API call returned HTTP error: %s", resp.Status)
+		l.Infoln("API call returned HTTP error: %s", resp.Status)
+		return nil
 	}
 
 	var rels []Release
 	json.NewDecoder(resp.Body).Decode(&rels)
 	resp.Body.Close()
 
-	return rels, nil
+	return rels
 }
 
 type SortByRelease []Release
@@ -78,13 +80,13 @@ func (s SortByRelease) Less(i, j int) bool {
 }
 
 func LatestRelease(releasesURL, version string) (Release, error) {
-	rels, _ := LatestGithubReleases(releasesURL, version)
+	rels := FetchLatestReleases(releasesURL, version)
 	return SelectLatestRelease(version, rels)
 }
 
 func SelectLatestRelease(version string, rels []Release) (Release, error) {
 	if len(rels) == 0 {
-		return Release{}, ErrVersionUnknown
+		return Release{}, ErrNoVersionToSelect
 	}
 
 	sort.Sort(SortByRelease(rels))
@@ -106,7 +108,7 @@ func SelectLatestRelease(version string, rels []Release) (Release, error) {
 			}
 		}
 	}
-	return Release{}, ErrVersionUnknown
+	return Release{}, ErrNoReleaseDownload
 }
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
@@ -122,7 +124,7 @@ func upgradeTo(binary string, rel Release) error {
 		}
 	}
 
-	return ErrVersionUnknown
+	return ErrNoReleaseDownload
 }
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
