@@ -183,8 +183,6 @@ func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 	for _, addr := range cfg.Options().GlobalAnnServers {
 		if addr == "default" || addr == "default-v4" || addr == "default-v6" {
 			defaultAnnounceServersDNS++
-		} else if stringIn(addr, config.DefaultDiscoveryServersIP) {
-			defaultAnnounceServersIP++
 		} else {
 			otherAnnounceServers++
 		}
@@ -218,15 +216,6 @@ func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgrade) && cfg.Options().AutoUpgradeIntervalH > 0
 
 	return res
-}
-
-func stringIn(needle string, haystack []string) bool {
-	for _, s := range haystack {
-		if needle == s {
-			return true
-		}
-	}
-	return false
 }
 
 type usageReportingService struct {
