@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/dialer"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -189,7 +190,7 @@ func (c *staticClient) connect() error {
 	}
 
 	t0 := time.Now()
-	tcpConn, err := net.Dial("tcp", c.uri.Host)
+	tcpConn, err := dialer.DialTimeout("tcp", c.uri.Host, c.connectTimeout)
 	if err != nil {
 		return err
 	}

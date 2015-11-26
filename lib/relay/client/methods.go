@@ -21,7 +21,7 @@ func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs [
 		return protocol.SessionInvitation{}, fmt.Errorf("Unsupported relay scheme: %v", uri.Scheme)
 	}
 
-	rconn, err := dialer.Dial("tcp", uri.Host)
+	rconn, err := dialer.DialTimeout("tcp", uri.Host, timeout)
 	if err != nil {
 		return protocol.SessionInvitation{}, err
 	}
