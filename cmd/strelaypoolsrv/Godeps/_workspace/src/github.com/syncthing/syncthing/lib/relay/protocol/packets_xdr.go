@@ -86,10 +86,7 @@ func (o *header) DecodeXDRFrom(xr *xdr.Reader) error {
 /*
 
 Ping Structure:
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+(contains no fields)
 
 
 struct Ping {
@@ -98,27 +95,19 @@ struct Ping {
 */
 
 func (o Ping) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+	return 0, nil
 }
 
 func (o Ping) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	return nil, nil
 }
 
 func (o Ping) MustMarshalXDR() []byte {
-	bs, err := o.MarshalXDR()
-	if err != nil {
-		panic(err)
-	}
-	return bs
+	return nil
 }
 
 func (o Ping) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
+	return bs, nil
 }
 
 func (o Ping) EncodeXDRInto(xw *xdr.Writer) (int, error) {
@@ -126,14 +115,11 @@ func (o Ping) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 }
 
 func (o *Ping) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+	return nil
 }
 
 func (o *Ping) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	return nil
 }
 
 func (o *Ping) DecodeXDRFrom(xr *xdr.Reader) error {
@@ -143,10 +129,7 @@ func (o *Ping) DecodeXDRFrom(xr *xdr.Reader) error {
 /*
 
 Pong Structure:
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+(contains no fields)
 
 
 struct Pong {
@@ -155,27 +138,19 @@ struct Pong {
 */
 
 func (o Pong) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+	return 0, nil
 }
 
 func (o Pong) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	return nil, nil
 }
 
 func (o Pong) MustMarshalXDR() []byte {
-	bs, err := o.MarshalXDR()
-	if err != nil {
-		panic(err)
-	}
-	return bs
+	return nil
 }
 
 func (o Pong) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
+	return bs, nil
 }
 
 func (o Pong) EncodeXDRInto(xw *xdr.Writer) (int, error) {
@@ -183,14 +158,11 @@ func (o Pong) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 }
 
 func (o *Pong) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+	return nil
 }
 
 func (o *Pong) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	return nil
 }
 
 func (o *Pong) DecodeXDRFrom(xr *xdr.Reader) error {
@@ -200,10 +172,7 @@ func (o *Pong) DecodeXDRFrom(xr *xdr.Reader) error {
 /*
 
 JoinRelayRequest Structure:
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+(contains no fields)
 
 
 struct JoinRelayRequest {
@@ -212,27 +181,19 @@ struct JoinRelayRequest {
 */
 
 func (o JoinRelayRequest) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+	return 0, nil
 }
 
 func (o JoinRelayRequest) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	return nil, nil
 }
 
 func (o JoinRelayRequest) MustMarshalXDR() []byte {
-	bs, err := o.MarshalXDR()
-	if err != nil {
-		panic(err)
-	}
-	return bs
+	return nil
 }
 
 func (o JoinRelayRequest) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
+	return bs, nil
 }
 
 func (o JoinRelayRequest) EncodeXDRInto(xw *xdr.Writer) (int, error) {
@@ -240,14 +201,11 @@ func (o JoinRelayRequest) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 }
 
 func (o *JoinRelayRequest) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+	return nil
 }
 
 func (o *JoinRelayRequest) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	return nil
 }
 
 func (o *JoinRelayRequest) DecodeXDRFrom(xr *xdr.Reader) error {
@@ -257,10 +215,7 @@ func (o *JoinRelayRequest) DecodeXDRFrom(xr *xdr.Reader) error {
 /*
 
 RelayFull Structure:
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+(contains no fields)
 
 
 struct RelayFull {
@@ -269,27 +224,19 @@ struct RelayFull {
 */
 
 func (o RelayFull) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+	return 0, nil
 }
 
 func (o RelayFull) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	return nil, nil
 }
 
 func (o RelayFull) MustMarshalXDR() []byte {
-	bs, err := o.MarshalXDR()
-	if err != nil {
-		panic(err)
-	}
-	return bs
+	return nil
 }
 
 func (o RelayFull) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
+	return bs, nil
 }
 
 func (o RelayFull) EncodeXDRInto(xw *xdr.Writer) (int, error) {
@@ -297,14 +244,11 @@ func (o RelayFull) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 }
 
 func (o *RelayFull) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+	return nil
 }
 
 func (o *RelayFull) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	return nil
 }
 
 func (o *RelayFull) DecodeXDRFrom(xr *xdr.Reader) error {

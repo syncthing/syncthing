@@ -7,8 +7,8 @@
 			"Rev": "74ddf82598bc4745b965729e9c6a463bedd33049"
 		},
 		{
-			"ImportPath": "github.com/calmh/logger",
-			"Rev": "c96f6a1a8c7b6bf2f4860c667867d90174799eb2"
+			"ImportPath": "github.com/calmh/du",
+			"Rev": "3c0690cca16228b97741327b1b6781397afbdb24"
 		},
 		{
 			"ImportPath": "github.com/calmh/luhn",
@@ -23,33 +23,100 @@
 			"Rev": "604ed5785183e59ae2789449d89e73f3a2a77987"
 		},
 		{
+			"ImportPath": "github.com/golang/snappy",
+			"Rev": "723cc1e459b8eea2dea4583200fd60757d40097a"
+		},
+		{
 			"ImportPath": "github.com/juju/ratelimit",
-			"Rev": "772f5c38e468398c4511514f4f6aa9a4185bc0a0"
+			"Rev": "77ed1c8a01217656d2080ad51981f6e99adaa177"
+		},
+		{
+			"ImportPath": "github.com/kardianos/osext",
+			"Rev": "efacde03154693404c65e7aa7d461ac9014acd0c"
+		},
+		{
+			"ImportPath": "github.com/rcrowley/go-metrics",
+			"Rev": "1ce93efbc8f9c568886b2ef85ce305b2217b3de3"
+		},
+		{
+			"ImportPath": "github.com/syncthing/syncthing/lib/dialer",
+			"Comment": "v0.12.4-15-g321ef98",
+			"Rev": "321ef9816c57f0f5de336c9d65c27b2480b2b191"
+		},
+		{
+			"ImportPath": "github.com/syncthing/syncthing/lib/logger",
+			"Comment": "v0.12.4-15-g321ef98",
+			"Rev": "321ef9816c57f0f5de336c9d65c27b2480b2b191"
+		},
+		{
+			"ImportPath": "github.com/syncthing/syncthing/lib/osutil",
+			"Comment": "v0.12.4-15-g321ef98",
+			"Rev": "321ef9816c57f0f5de336c9d65c27b2480b2b191"
 		},
 		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/protocol",
-			"Comment": "v0.12.0-beta1-119-g24c499d",
-			"Rev": "431d51f5c49ed7860e289ddab3c1fcf30004ff00"
+			"Comment": "v0.12.4-15-g321ef98",
+			"Rev": "321ef9816c57f0f5de336c9d65c27b2480b2b191"
 		},
 		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/relay/client",
-			"Comment": "v0.12.0-beta1-119-g24c499d",
-			"Rev": "431d51f5c49ed7860e289ddab3c1fcf30004ff00"
+			"Comment": "v0.12.4-15-g321ef98",
+			"Rev": "321ef9816c57f0f5de336c9d65c27b2480b2b191"
 		},
 		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/relay/protocol",
-			"Comment": "v0.12.0-beta1-119-g24c499d",
-			"Rev": "431d51f5c49ed7860e289ddab3c1fcf30004ff00"
+			"Comment": "v0.12.4-15-g321ef98",
+			"Rev": "321ef9816c57f0f5de336c9d65c27b2480b2b191"
 		},
 		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/sync",
-			"Comment": "v0.12.0-beta1-119-g24c499d",
-			"Rev": "431d51f5c49ed7860e289ddab3c1fcf30004ff00"
+			"Comment": "v0.12.4-15-g321ef98",
+			"Rev": "321ef9816c57f0f5de336c9d65c27b2480b2b191"
 		},
 		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/tlsutil",
-			"Comment": "v0.12.0-beta1-119-g24c499d",
-			"Rev": "431d51f5c49ed7860e289ddab3c1fcf30004ff00"
+			"Comment": "v0.12.4-15-g321ef98",
+			"Rev": "321ef9816c57f0f5de336c9d65c27b2480b2b191"
+		},
+		{
+			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
+			"Rev": "87e4e645d80ae9c537e8f2dee52b28036a5dd75e"
+		},
+		{
+			"ImportPath": "github.com/thejerf/suture",
+			"Rev": "ff19fb384c3fe30f42717967eaa69da91e5f317c"
+		},
+		{
+			"ImportPath": "github.com/vitrun/qart/coding",
+			"Rev": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0"
+		},
+		{
+			"ImportPath": "github.com/vitrun/qart/gf256",
+			"Rev": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0"
+		},
+		{
+			"ImportPath": "github.com/vitrun/qart/qr",
+			"Rev": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/bcrypt",
+			"Rev": "c57d4a71915a248dbad846d60825145062b4c18e"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/blowfish",
+			"Rev": "c57d4a71915a248dbad846d60825145062b4c18e"
+		},
+		{
+			"ImportPath": "golang.org/x/net/internal/iana",
+			"Rev": "55cccaa02af1a99c69ba3213e33468628b61be4b"
+		},
+		{
+			"ImportPath": "golang.org/x/net/ipv6",
+			"Rev": "55cccaa02af1a99c69ba3213e33468628b61be4b"
+		},
+		{
+			"ImportPath": "golang.org/x/net/proxy",
+			"Rev": "55cccaa02af1a99c69ba3213e33468628b61be4b"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",

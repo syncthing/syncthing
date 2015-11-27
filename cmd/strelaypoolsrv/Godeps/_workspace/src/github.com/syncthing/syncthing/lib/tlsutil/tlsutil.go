@@ -8,6 +8,8 @@ package tlsutil
 
 import (
 	"bufio"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -27,8 +29,17 @@ var (
 	ErrIdentificationFailed = fmt.Errorf("failed to identify socket type")
 )
 
+// NewCertificate generates and returns a new TLS certificate. If tlsRSABits
+// is greater than zero we generate an RSA certificate with the specified
+// number of bits. Otherwise we create a 384 bit ECDSA certificate.
 func NewCertificate(certFile, keyFile, tlsDefaultCommonName string, tlsRSABits int) (tls.Certificate, error) {
-	priv, err := rsa.GenerateKey(rand.Reader, tlsRSABits)
+	var priv interface{}
+	var err error
+	if tlsRSABits > 0 {
+		priv, err = rsa.GenerateKey(rand.Reader, tlsRSABits)
+	} else {
+		priv, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	}
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("generate key: %s", err)
 	}
@@ -47,10 +58,9 @@ func NewCertificate(certFile, keyFile, tlsDefaultCommonName string, tlsRSABits i
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
-		SignatureAlgorithm:    x509.SHA256WithRSA,
 	}
 
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey(priv), priv)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("create cert: %s", err)
 	}
@@ -72,7 +82,13 @@ func NewCertificate(certFile, keyFile, tlsDefaultCommonName string, tlsRSABits i
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
-	err = pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+
+	block, err := pemBlockForKey(priv)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
+	}
+
+	err = pem.Encode(keyOut, block)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
@@ -135,4 +151,30 @@ type UnionedConnection struct {
 
 func (c *UnionedConnection) Read(b []byte) (n int, err error) {
 	return c.Reader.Read(b)
+}
+
+func publicKey(priv interface{}) interface{} {
+	switch k := priv.(type) {
+	case *rsa.PrivateKey:
+		return &k.PublicKey
+	case *ecdsa.PrivateKey:
+		return &k.PublicKey
+	default:
+		return nil
+	}
+}
+
+func pemBlockForKey(priv interface{}) (*pem.Block, error) {
+	switch k := priv.(type) {
+	case *rsa.PrivateKey:
+		return &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(k)}, nil
+	case *ecdsa.PrivateKey:
+		b, err := x509.MarshalECPrivateKey(k)
+		if err != nil {
+			return nil, err
+		}
+		return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}, nil
+	default:
+		return nil, fmt.Errorf("unknown key type")
+	}
 }

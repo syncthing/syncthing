@@ -1152,10 +1152,7 @@ func (o *CloseMessage) DecodeXDRFrom(xr *xdr.Reader) error {
 /*
 
 EmptyMessage Structure:
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+(contains no fields)
 
 
 struct EmptyMessage {
@@ -1164,27 +1161,19 @@ struct EmptyMessage {
 */
 
 func (o EmptyMessage) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+	return 0, nil
 }
 
 func (o EmptyMessage) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	return nil, nil
 }
 
 func (o EmptyMessage) MustMarshalXDR() []byte {
-	bs, err := o.MarshalXDR()
-	if err != nil {
-		panic(err)
-	}
-	return bs
+	return nil
 }
 
 func (o EmptyMessage) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
+	return bs, nil
 }
 
 func (o EmptyMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
@@ -1192,14 +1181,11 @@ func (o EmptyMessage) EncodeXDRInto(xw *xdr.Writer) (int, error) {
 }
 
 func (o *EmptyMessage) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+	return nil
 }
 
 func (o *EmptyMessage) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	return nil
 }
 
 func (o *EmptyMessage) DecodeXDRFrom(xr *xdr.Reader) error {
