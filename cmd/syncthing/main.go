@@ -70,7 +70,8 @@ const (
 const (
 	bepProtocolName      = "bep/1.0"
 	tlsDefaultCommonName = "syncthing"
-	tlsRSABits           = 3072
+	httpsRSABits         = 2048
+	bepRSABits           = 0 // 384 bit ECDSA used instead
 	pingEventInterval    = time.Minute
 	maxSystemErrors      = 5
 	initialSystemLog     = 10
@@ -378,7 +379,7 @@ func generate(generateDir string) {
 		l.Warnln("Key exists; will not overwrite.")
 		l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 	} else {
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, tlsRSABits)
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, bepRSABits)
 		if err != nil {
 			l.Fatalln("Create certificate:", err)
 		}
@@ -501,8 +502,8 @@ func syncthingMain() {
 	// Ensure that that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
-		l.Infof("Generating RSA key and certificate for %s...", tlsDefaultCommonName)
-		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName, tlsRSABits)
+		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
+		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName, bepRSABits)
 		if err != nil {
 			l.Fatalln(err)
 		}
