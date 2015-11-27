@@ -98,7 +98,7 @@ func (s *apiSvc) getListener(guiCfg config.GUIConfiguration) (net.Listener, erro
 			name = tlsDefaultCommonName
 		}
 
-		cert, err = tlsutil.NewCertificate(locations[locHTTPSCertFile], locations[locHTTPSKeyFile], name, tlsRSABits)
+		cert, err = tlsutil.NewCertificate(locations[locHTTPSCertFile], locations[locHTTPSKeyFile], name, httpsRSABits)
 	}
 	if err != nil {
 		return nil, err
