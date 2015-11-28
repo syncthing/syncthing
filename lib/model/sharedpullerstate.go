@@ -139,7 +139,9 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		return nil, err
 	}
 
-	if s.sparse {
+	// Don't truncate symlink files, as that will mean that the path will
+	// contain a bunch of nulls.
+	if s.sparse && !s.file.IsSymlink() {
 		// Truncate sets the size of the file. This creates a sparse file or a
 		// space reservation, depending on the underlying filesystem.
 		if err := fd.Truncate(s.file.Size()); err != nil {
