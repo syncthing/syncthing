@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-STIGNORE" "5" "November 21, 2015" "v0.12" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "November 28, 2015" "v0.12" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .
@@ -93,7 +93,8 @@ matching. \fB(?i)test\fP matches \fBtest\fP, \fBTEST\fP and \fBtEsT\fP\&. The
 \fB(?i)\fP prefix can be combined with other patterns, for example the
 pattern \fB(?i)!picture*.png\fP indicates that \fBPicture1.PNG\fP should
 be synchronized. Note that case\-insensitive patterns must start with
-\fB(?i)\fP when combined with other flags. On Mac OS and Windows, patterns are always case\-insensitive.
+\fB(?i)\fP when combined with other flags. On Mac OS and Windows,
+patterns are always case\-insensitive.
 .IP \(bu 2
 A line beginning with \fB//\fP is a comment and has no effect.
 .UNINDENT
@@ -180,17 +181,16 @@ Assume two nodes, Alice and Bob, where Alice has 100 files to share, but
 Bob ignores 25 of these. From Alice\(aqs point of view Bob will become
 about 75% in sync (the actual number depends on the sizes of the
 individual files) and remain in "Syncing" state even though it is in
-fact not syncing anything (\fI\%issue #623\fP <\fBhttps://github.com/syncthing/syncthing/issues/623\fP>). From
-Bob\(aqs point of view it\(aqs 100% up to date but will show fewer files in
-both the local and global view.
+fact not syncing anything (\fI\%issue #623\fP <\fBhttps://github.com/syncthing/syncthing/issues/623\fP>). From Bob\(aqs point of view, it\(aqs
+100% up to date but will show fewer files in both the local and global
+view.
 .sp
 If Bob adds files that have already been synced to the ignore list, they
 will remain in the "global" view but disappear from the "local" view.
 The end result is more files in the global repository than in the local,
-but still 100% in sync (\fI\%issue #624\fP <\fBhttps://github.com/syncthing/syncthing/issues/624\fP>). From
-Alice\(aqs point of view, Bob will remain 100% in sync until the next
-reconnect, because Bob has already announce that he has the files that
-are now suddenly ignored.
+but still 100% in sync (\fI\%issue #624\fP <\fBhttps://github.com/syncthing/syncthing/issues/624\fP>). From Alice\(aqs point of view, Bob
+will remain 100% in sync until the next reconnect, because Bob has
+already announced that he has the files that are now suddenly ignored.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT
