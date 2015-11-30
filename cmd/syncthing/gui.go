@@ -320,7 +320,7 @@ func debugMiddleware(h http.Handler) http.Handler {
 			l.Debugf("http: %s %q: status %d, %d bytes in %.02f ms", r.Method, r.URL.String(), status, written, ms)
 			
 			// For some reason this is the only event that seems to consistantly occur in the debug logs AFTER all
-			// file folder index changes occur.  So we use it to reset the golbal var that makes us rechoose the
+			// file folder index changes occur.  So we use it to reset the global var that makes us rechoose the
 			// new updater client next time a change is made.
 			if r.URL.String() == "/rest/stats/folder" {
 				logger.ResetUpdaterClient()

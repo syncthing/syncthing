@@ -9,26 +9,6 @@
 // 2) Figure out location of logfile for all OS's (right now it is stored in same location as executable)
 // 3) Rotate log files
 //
-// ------- insert code -------
-// model.go (near line 568)
-//logger.FindUpdaterClient(deviceID.String())
-//
-// model.go (near line 1122)
-//logger.WriteClientSyncToLog(deviceID.String(), string(name), len(batch))
-//
-// gui.go (near line 319)
-//// For some reason this is the only event that seems to consistantly occur in the debug logs AFTER all
-//// file folder index changes occur.  So we use it to reset the golbal var that makes us rechoose the
-//// new updater client next time a change is made.
-//if r.URL.String() == "/rest/stats/folder" {
-//	logger.ResetUpdaterClient()
-//}
-//
-// events.go (near line 146)
-//if(t.String() == "ItemFinished") {
-//	logger.WriteFileSyncToLog(data)
-//}
-//----- end insert code -----
 
 package logger
 
