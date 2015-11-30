@@ -10,4 +10,4 @@ for config and db:
 
 .. code-block:: bash
 
-    $ curl -H X-API-Key:abc123 -X POST 'http://localhost:8385/rest/system/debug?disable=beacon,discovery&enable=config,db'
+    $ curl -H X-API-Key:abc123 -X POST 'http://localhost:8384/rest/system/debug?disable=beacon,discovery&enable=config,db'
