@@ -716,6 +716,7 @@ func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 				osutil.InWritableDir(osutil.Remove, filepath.Join(realName, file))
 			}
 		}
+		dir.Close()
 	}
 
 	err = osutil.InWritableDir(osutil.Remove, realName)
