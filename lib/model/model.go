@@ -26,6 +26,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -564,6 +565,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	}
 
 	l.Debugf("%v IDXUP(in): %s / %q: %d files", m, deviceID, folder, len(fs))
+	logger.FindUpdaterClient(deviceID.String())
 
 	if !m.folderSharedWith(folder, deviceID) {
 		l.Infof("Update for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
@@ -1117,6 +1119,8 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 		if err == nil {
 			l.Debugf("sendIndexes for %s-%s/%q: %d files (last batch)", deviceID, name, folder, len(batch))
 		}
+		
+		logger.WriteClientSyncToLog(deviceID.String(), string(name), len(batch))
 	}
 
 	return maxLocalVer, err
