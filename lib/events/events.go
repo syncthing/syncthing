@@ -12,6 +12,7 @@ import (
 	stdsync "sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -142,6 +143,9 @@ func NewLogger() *Logger {
 func (l *Logger) Log(t EventType, data interface{}) {
 	l.mutex.Lock()
 	dl.Debugln("log", l.nextID, t, data)
+	if(t.String() == "ItemFinished") {
+		logger.WriteFileSyncToLog(data)
+	}
 	l.nextID++
 	e := Event{
 		ID:   l.nextID,
