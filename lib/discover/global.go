@@ -56,6 +56,16 @@ type serverOptions struct {
 	id         string // expected server device ID
 }
 
+// A lookupError is any other error but with a cache validity time attached.
+type lookupError struct {
+	error
+	cacheFor time.Duration
+}
+
+func (e lookupError) CacheFor() time.Duration {
+	return e.cacheFor
+}
+
 func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, relayStat RelayStatusProvider) (FinderService, error) {
 	server, opts, err := parseOptions(server)
 	if err != nil {
@@ -138,10 +148,15 @@ func (c *globalClient) Lookup(device protocol.DeviceID) (direct []string, relays
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
 		l.Debugln("globalClient.Lookup", qURL, resp.Status)
-		return nil, nil, errors.New(resp.Status)
+		err := errors.New(resp.Status)
+		if secs, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && secs > 0 {
+			err = lookupError{
+				error:    err,
+				cacheFor: time.Duration(secs) * time.Second,
+			}
+		}
+		return nil, nil, err
 	}
-
-	// TODO: Handle 429 and Retry-After?
 
 	var ann announcement
 	err = json.NewDecoder(resp.Body).Decode(&ann)
