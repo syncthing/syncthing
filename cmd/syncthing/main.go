@@ -665,26 +665,6 @@ func syncthingMain() {
 		}
 	}
 
-	// Clear out old indexes for other devices. Otherwise we'll start up and
-	// start needing a bunch of files which are nowhere to be found. This
-	// needs to be changed when we correctly do persistent indexes.
-	for _, folderCfg := range cfg.Folders() {
-		m.AddFolder(folderCfg)
-		for _, device := range folderCfg.DeviceIDs() {
-			if device == myID {
-				continue
-			}
-			m.Index(device, folderCfg.ID, nil, 0, nil)
-		}
-		// Routine to pull blocks from other devices to synchronize the local
-		// folder. Does not run when we are in read only (publish only) mode.
-		if folderCfg.ReadOnly {
-			m.StartFolderRO(folderCfg.ID)
-		} else {
-			m.StartFolderRW(folderCfg.ID)
-		}
-	}
-
 	mainSvc.Add(m)
 
 	// The default port we announce, possibly modified by setupUPnP next.
@@ -729,6 +709,34 @@ func syncthingMain() {
 	cachedDiscovery := discover.NewCachingMux()
 	mainSvc.Add(cachedDiscovery)
 
+	// GUI
+
+	setupGUI(mainSvc, cfg, m, apiSub, cachedDiscovery, relaySvc, errors, systemLog)
+
+	// Initialize Folders
+
+	// Clear out old indexes for other devices. Otherwise we'll start up and
+	// start needing a bunch of files which are nowhere to be found. This
+	// needs to be changed when we correctly do persistent indexes.
+	for _, folderCfg := range cfg.Folders() {
+		m.AddFolder(folderCfg)
+		for _, device := range folderCfg.DeviceIDs() {
+			if device == myID {
+				continue
+			}
+			m.Index(device, folderCfg.ID, nil, 0, nil)
+		}
+		// Routine to pull blocks from other devices to synchronize the local
+		// folder. Does not run when we are in read only (publish only) mode.
+		if folderCfg.ReadOnly {
+			m.StartFolderRO(folderCfg.ID)
+		} else {
+			m.StartFolderRW(folderCfg.ID)
+		}
+	}
+
+	// Initialize discovery
+
 	if cfg.Options().GlobalAnnEnabled {
 		for _, srv := range cfg.GlobalDiscoveryServers() {
 			l.Infoln("Using discovery server", srv)
@@ -761,10 +769,6 @@ func syncthingMain() {
 			cachedDiscovery.Add(mcd, 0, 0, ipv6LocalDiscoveryPriority)
 		}
 	}
-
-	// GUI
-
-	setupGUI(mainSvc, cfg, m, apiSub, cachedDiscovery, relaySvc, errors, systemLog)
 
 	// Start connection management
 
