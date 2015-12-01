@@ -739,9 +739,9 @@ func syncthingMain() {
 			}
 
 			// Each global discovery server gets its results cached for five
-			// minutes, and is not asked again for a minute when it's returned
-			// unsuccessfully.
-			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute, globalDiscoveryPriority)
+			// minutes, and is not asked again for up to 60 minutes when it's
+			// returned unsuccessfully.
+			cachedDiscovery.Add(gd, 5*time.Minute, 60*time.Minute, globalDiscoveryPriority)
 		}
 	}
 

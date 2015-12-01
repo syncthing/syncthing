@@ -26,6 +26,7 @@ type CacheEntry struct {
 	Relays []Relay   `json:"relays"`
 	when   time.Time // When did we get the result
 	found  bool      // Is it a success (cacheTime applies) or a failure (negCacheTime applies)?
+	hits   int
 }
 
 // A FinderService is a Finder that has background activity and must be run as
