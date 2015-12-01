@@ -149,7 +149,7 @@ func (c *globalClient) Lookup(device protocol.DeviceID) (direct []string, relays
 		resp.Body.Close()
 		l.Debugln("globalClient.Lookup", qURL, resp.Status)
 		err := errors.New(resp.Status)
-		if secs, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && secs > 0 {
+		if secs, atoiErr := strconv.Atoi(resp.Header.Get("Retry-After")); atoiErr == nil && secs > 0 {
 			err = lookupError{
 				error:    err,
 				cacheFor: time.Duration(secs) * time.Second,
