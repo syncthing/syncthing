@@ -70,7 +70,10 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 
 	m.mut.Lock()
 	for i, finder := range m.finders {
-		if cacheEntry, ok := m.caches[i].Get(deviceID); ok {
+		var cacheEntry CacheEntry
+		var hasCacheEntry bool
+
+		if cacheEntry, hasCacheEntry = m.caches[i].Get(deviceID); hasCacheEntry {
 			// We have a cache entry. Lets see what it says.
 
 			if cacheEntry.found && time.Since(cacheEntry.when) < finder.cacheTime {
@@ -84,10 +87,17 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 				continue
 			}
 
-			if !cacheEntry.found && time.Since(cacheEntry.when) < finder.negCacheTime {
+			// A negative cache entry is valid if it's newer than hits * one
+			// minute, and newer than negCacheTime. This means we'll cache the
+			// first lookup failure for a minute, the second for two minutes
+			// and so on up to the maximum negCacheTime.
+			maxNegTime := time.Minute * time.Duration(cacheEntry.hits)
+			age := time.Since(cacheEntry.when)
+			valid := age < maxNegTime && age < finder.negCacheTime
+			if !cacheEntry.found && valid {
 				// It's a negative, valid entry. We should not make another
 				// attempt right now.
-				l.Debugln("negative cache entry for", deviceID, "at", finder)
+				l.Debugln("negative cache entry for", deviceID, "at", finder, "with", cacheEntry.hits, "hits, valid for another", maxNegTime-age, "or", finder.negCacheTime-age)
 				continue
 			}
 
@@ -110,10 +120,17 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 				found:  len(td)+len(tr) > 0,
 			})
 		} else {
-			// Lookup returned error, add a negative cache entry.
+			// Lookup returned error, add a negative cache entry. Bump the
+			// number of hits on it if we already had a negative cache entry
+			// that we've now reconfirmed, otherwise default to one hit.
+			hits := 1
+			if hasCacheEntry && !cacheEntry.found {
+				hits = cacheEntry.hits + 1
+			}
 			m.caches[i].Set(deviceID, CacheEntry{
 				when:  time.Now(),
 				found: false,
+				hits:  hits,
 			})
 		}
 	}
