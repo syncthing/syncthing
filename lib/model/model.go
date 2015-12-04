@@ -1128,9 +1128,9 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	m.fmut.RUnlock()
 	files.Update(protocol.LocalDeviceID, fs)
 	
-	var filenames []string
-	for _, file := range fs {
-		filenames = append(filenames, file.Name)
+	filenames := make([]string, len(fs))
+	for i, file := range fs {
+		filenames[i] = file.Name
 	}
 	
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
