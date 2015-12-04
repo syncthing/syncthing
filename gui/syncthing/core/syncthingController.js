@@ -1414,10 +1414,13 @@ angular.module('syncthing.core')
         };
 
         $scope.showURPreview = function () {
-            $('#settings').modal('hide');
-            $('#urPreview').modal().on('hidden.bs.modal', function () {
-                $('#settings').modal();
-            });
+            $('#settings').modal('hide')
+                .one('hidden.bs.modal', function() {
+                    $('#urPreview').modal()
+                        .one('hidden.bs.modal', function () {
+                            $('#settings').modal();
+                        });
+                });
         };
 
         $scope.acceptUR = function () {

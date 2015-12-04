@@ -44,6 +44,13 @@ type prioritizedAddress struct {
 	addr     string
 }
 
+// An error may implement cachedError, in which case it will be interrogated
+// to see how long we should cache the error. This overrides the default
+// negative cache time.
+type cachedError interface {
+	CacheFor() time.Duration
+}
+
 func NewCachingMux() *CachingMux {
 	return &CachingMux{
 		Supervisor: suture.NewSimple("discover.cachingMux"),
@@ -84,10 +91,11 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 				continue
 			}
 
-			if !cacheEntry.found && time.Since(cacheEntry.when) < finder.negCacheTime {
+			valid := time.Now().Before(cacheEntry.validUntil) || time.Since(cacheEntry.when) < finder.negCacheTime
+			if !cacheEntry.found && valid {
 				// It's a negative, valid entry. We should not make another
 				// attempt right now.
-				l.Debugln("negative cache entry for", deviceID, "at", finder)
+				l.Debugln("negative cache entry for", deviceID, "at", finder, "valid until", cacheEntry.when.Add(finder.negCacheTime), "or", cacheEntry.validUntil)
 				continue
 			}
 
@@ -111,10 +119,14 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 			})
 		} else {
 			// Lookup returned error, add a negative cache entry.
-			m.caches[i].Set(deviceID, CacheEntry{
+			entry := CacheEntry{
 				when:  time.Now(),
 				found: false,
-			})
+			}
+			if err, ok := err.(cachedError); ok {
+				entry.validUntil = time.Now().Add(err.CacheFor())
+			}
+			m.caches[i].Set(deviceID, entry)
 		}
 	}
 	m.mut.Unlock()

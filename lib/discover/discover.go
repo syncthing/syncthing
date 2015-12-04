@@ -22,10 +22,11 @@ type Finder interface {
 }
 
 type CacheEntry struct {
-	Direct []string  `json:"direct"`
-	Relays []Relay   `json:"relays"`
-	when   time.Time // When did we get the result
-	found  bool      // Is it a success (cacheTime applies) or a failure (negCacheTime applies)?
+	Direct     []string  `json:"direct"`
+	Relays     []Relay   `json:"relays"`
+	when       time.Time // When did we get the result
+	found      bool      // Is it a success (cacheTime applies) or a failure (negCacheTime applies)?
+	validUntil time.Time // Validity time, overrides normal calculation
 }
 
 // A FinderService is a Finder that has background activity and must be run as

@@ -15,6 +15,7 @@ pages=(
 	syncthing-bep.7
 	syncthing-localdisco.7
 	syncthing-globaldisco.7
+	syncthing-relay.7
 )
 
 for page in "${pages[@]}" ; do
