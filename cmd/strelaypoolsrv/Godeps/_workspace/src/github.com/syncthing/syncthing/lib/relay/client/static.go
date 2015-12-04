@@ -200,9 +200,6 @@ func (c *staticClient) connect() error {
 	c.mut.Unlock()
 
 	conn := tls.Client(tcpConn, c.config)
-	if err = conn.Handshake(); err != nil {
-		return err
-	}
 
 	if err := conn.SetDeadline(time.Now().Add(c.connectTimeout)); err != nil {
 		conn.Close()

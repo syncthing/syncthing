@@ -37,10 +37,13 @@ func CreateAtomic(path string, mode os.FileMode) (*AtomicWriter, error) {
 		return nil, err
 	}
 
-	if err := os.Chmod(fd.Name(), mode); err != nil {
-		fd.Close()
-		os.Remove(fd.Name())
-		return nil, err
+	// chmod fails on Android so don't even try
+	if runtime.GOOS != "android" {
+		if err := os.Chmod(fd.Name(), mode); err != nil {
+			fd.Close()
+			os.Remove(fd.Name())
+			return nil, err
+		}
 	}
 
 	w := &AtomicWriter{

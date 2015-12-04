@@ -6,7 +6,7 @@
 //go:generate go run maketables.go triegen.go -test
 
 // Package norm contains types and functions for normalizing Unicode strings.
-package norm // import "golang.org/x/text/unicode/norm"
+package norm
 
 import "unicode/utf8"
 
