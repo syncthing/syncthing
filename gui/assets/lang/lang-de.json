@@ -61,7 +61,7 @@
     "File permission bits are ignored when looking for changes. Use on FAT file systems.": "Dateizugriffsrechte beim Suchen nach Veränderungen ignorieren. Bei FAT-Dateisystemen zu verwenden.",
     "Files are moved to .stversions folder when replaced or deleted by Syncthing.": "Wenn Dateien von Syncthing ersetzt oder gelöscht werden sollen, werden sie vorher in den .stversions Ordner verschoben.",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": "Dateien werden, bevor Syncthing sie löscht oder ersetzt, datiert in das Verzeichnis .stversions verschoben.",
-    "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "Dateien sind auf diesem Gerät schreibgeschützt. Auf diesem Gerät durchgeführte Veränderungen werden aber auf den Rest des Verbunds übertragen.",
+    "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "Dateien auf diesem Gerät sind vor dem Überschreiben durch andere Geräte geschützt. Auf diesem Gerät durchgeführte Veränderungen werden auf den Rest des Verbunds übertragen.",
     "Folder": "Verzeichnis",
     "Folder ID": "Verzeichnis ID",
     "Folder Master": "Master Verzeichnis - schreibgeschützt",
