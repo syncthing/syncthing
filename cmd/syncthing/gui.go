@@ -317,7 +317,7 @@ func debugMiddleware(h http.Handler) http.Handler {
 					written = rf.Int()
 				}
 			}
-			l.Debugf("http: %s %q: status %d, %d bytes in %.02f ms", r.Method, r.URL.String(), status, written, ms)
+			httpl.Debugf("http: %s %q: status %d, %d bytes in %.02f ms", r.Method, r.URL.String(), status, written, ms)
 		}
 	})
 }
