@@ -578,7 +578,7 @@ func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	to, err := config.ReadJSON(r.Body, myID)
 	if err != nil {
 		l.Warnln("decoding posted config:", err)
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -587,7 +587,7 @@ func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 			hash, err := bcrypt.GenerateFromPassword([]byte(to.GUI.Password), 0)
 			if err != nil {
 				l.Warnln("bcrypting password:", err)
-				http.Error(w, err.Error(), 500)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
