@@ -9,7 +9,7 @@ GitHub
 
 All repos, issue trackers and binary releases are hosted at `GitHub <https://github.com/syncthing>`__.
 
-Main & Documenatation Websites
+Main & Documentation Websites
 ------------------------------
 
 Static HTML, served by Nginx.
