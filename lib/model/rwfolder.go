@@ -1495,7 +1495,8 @@ func (p *rwFolder) moveForConflict(name string) error {
 
 	ext := filepath.Ext(name)
 	withoutExt := name[:len(name)-len(ext)]
-	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405") + ext
+	// When renaming the file add the device name that it belonged too for users benefit
+	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405-[" + p.model.deviceName + "-version]" + ext)
 	err := os.Rename(name, newName)
 	if os.IsNotExist(err) {
 		// We were supposed to move a file away but it does not exist. Either
@@ -1505,7 +1506,8 @@ func (p *rwFolder) moveForConflict(name string) error {
 		err = nil
 	}
 	if p.maxConflicts > -1 {
-		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????" + ext)
+		// When renaming the file add the device name that it belonged too for users benefit
+		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????-[" + p.model.deviceName + "-version]" + ext)
 		if gerr == nil && len(matches) > p.maxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[p.maxConflicts:] {
