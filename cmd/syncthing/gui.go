@@ -398,14 +398,14 @@ func (s *apiSvc) postSystemDebug(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	q := r.URL.Query()
 	for _, f := range strings.Split(q.Get("enable"), ",") {
-		if f == "" {
+		if f == "" || l.ShouldDebug(f) {
 			continue
 		}
 		l.SetDebug(f, true)
 		l.Infof("Enabled debug data for %q", f)
 	}
 	for _, f := range strings.Split(q.Get("disable"), ",") {
-		if f == "" {
+		if f == "" || !l.ShouldDebug(f) {
 			continue
 		}
 		l.SetDebug(f, false)
