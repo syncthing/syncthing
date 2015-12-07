@@ -32,8 +32,14 @@ func (s *verboseSvc) Serve() {
 	sub := events.Default.Subscribe(events.AllEvents)
 	defer events.Default.Unsubscribe(sub)
 
-	// We're ready to start processing events.
-	close(s.started)
+	select {
+	case <-s.started:
+		// The started channel has already been closed; do nothing.
+	default:
+		// This is the first time around. Indicate that we're ready to start
+		// processing events.
+		close(s.started)
+	}
 
 	for {
 		select {
@@ -96,7 +102,7 @@ func (s *verboseSvc) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Rejected unshared folder %q from device %v", data["folder"], data["device"])
 
 	case events.ItemStarted:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]string)
 		return fmt.Sprintf("Started syncing %q / %q (%v %v)", data["folder"], data["item"], data["action"], data["type"])
 	case events.ItemFinished:
 		data := ev.Data.(map[string]interface{})
