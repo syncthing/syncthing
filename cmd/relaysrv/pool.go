@@ -28,17 +28,13 @@ func poolHandler(pool string, uri *url.URL) {
 		if err != nil {
 			log.Println("Error joining pool", pool, err)
 		} else if resp.StatusCode == 500 {
-			if debug {
-				bs, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					log.Println("Failed to read response body for", pool, err)
-				} else {
-					log.Println("Response for", pool, string(bs))
-				}
-				resp.Body.Close()
+			bs, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Println("Failed to join", pool, "due to an internal server error. Could not read response:", err)
 			} else {
-				log.Println(pool, "failed to join due to an internal server error")
+				log.Println("Failed to join", pool, "due to an internal server error:", string(bs))
 			}
+			resp.Body.Close()
 		} else if resp.StatusCode == 429 {
 			log.Println(pool, "under load, will retry in a minute")
 			time.Sleep(time.Minute)
