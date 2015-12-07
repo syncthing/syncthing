@@ -107,6 +107,16 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 
 			switch msg := message.(type) {
 			case protocol.JoinRelayRequest:
+				if atomic.LoadInt32(&overLimit) > 0 {
+					protocol.WriteMessage(conn, protocol.RelayFull{})
+					if debug {
+						log.Println("Refusing join request from", id, "due to being over limits")
+					}
+					conn.Close()
+					limitCheckTimer.Reset(time.Second)
+					continue
+				}
+
 				outboxesMut.RLock()
 				_, ok := outboxes[id]
 				outboxesMut.RUnlock()
@@ -223,6 +233,16 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 				conn.Close()
 			}
 
+			if atomic.LoadInt32(&overLimit) > 0 && !hasSessions(id) {
+				if debug {
+					log.Println("Dropping", id, "as it has no sessions and we are over our limits")
+				}
+				protocol.WriteMessage(conn, protocol.RelayFull{})
+				conn.Close()
+
+				limitCheckTimer.Reset(time.Second)
+			}
+
 		case <-timeoutTicker.C:
 			// We should receive a error from the reader loop, which will cause
 			// us to quit this loop.
@@ -232,6 +252,10 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 			conn.Close()
 
 		case msg := <-outbox:
+			if msg == nil {
+				conn.Close()
+				return
+			}
 			if debug {
 				log.Printf("Sending message %T to %s", msg, id)
 			}
