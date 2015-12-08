@@ -448,7 +448,6 @@ func ldflags() string {
 	fmt.Fprintf(b, " -X main.BuildStamp%c%d", sep, buildStamp())
 	fmt.Fprintf(b, " -X main.BuildUser%c%s", sep, buildUser())
 	fmt.Fprintf(b, " -X main.BuildHost%c%s", sep, buildHost())
-	fmt.Fprintf(b, " -X main.BuildEnv%c%s", sep, buildEnvironment())
 	return b.String()
 }
 
