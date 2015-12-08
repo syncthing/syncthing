@@ -219,7 +219,7 @@ func build(pkg string, tags []string) {
 	}
 
 	rmr(binary)
-	args := []string{"build", "-ldflags", ldflags()}
+	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
 	}
