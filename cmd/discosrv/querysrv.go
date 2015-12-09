@@ -399,6 +399,7 @@ func (s *querysrv) getAddresses(device protocol.DeviceID) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	var res []string
 	for rows.Next() {
@@ -429,6 +430,7 @@ func (s *querysrv) getRelays(device protocol.DeviceID) ([]annRelay, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	var res []annRelay
 	for rows.Next() {
