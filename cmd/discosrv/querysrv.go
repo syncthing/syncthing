@@ -8,7 +8,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -19,6 +21,7 @@ import (
 	"github.com/golang/groupcache/lru"
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"golang.org/x/net/context"
 )
 
 type querysrv struct {
@@ -57,6 +60,12 @@ func (s *safeCache) Add(key string, val interface{}) {
 	s.mut.Lock()
 	s.Cache.Add(key, val)
 	s.mut.Unlock()
+}
+
+type requestID int64
+
+func (i requestID) String() string {
+	return fmt.Sprintf("%016x", int64(i))
 }
 
 func negCacheFor(lastSeen time.Time) int {
@@ -125,10 +134,29 @@ func (s *querysrv) Serve() {
 	}
 }
 
+var topCtx = context.Background()
+
 func (s *querysrv) handler(w http.ResponseWriter, req *http.Request) {
+	reqID := requestID(rand.Int63())
+	ctx := context.WithValue(topCtx, "id", reqID)
+
 	if debug {
-		log.Println(req.Method, req.URL)
+		log.Println(reqID, req.Method, req.URL)
 	}
+
+	t0 := time.Now()
+	defer func() {
+		diff := time.Since(t0)
+		var comment string
+		if diff > time.Second {
+			comment = "(very slow request)"
+		} else if diff > 100*time.Millisecond {
+			comment = "(slow request)"
+		}
+		if comment != "" || debug {
+			log.Println(reqID, req.Method, req.URL, "completed in", diff, comment)
+		}
+	}()
 
 	var remoteIP net.IP
 	if useHttp {
@@ -154,20 +182,22 @@ func (s *querysrv) handler(w http.ResponseWriter, req *http.Request) {
 
 	switch req.Method {
 	case "GET":
-		s.handleGET(w, req)
+		s.handleGET(ctx, w, req)
 	case "POST":
-		s.handlePOST(remoteIP, w, req)
+		s.handlePOST(ctx, remoteIP, w, req)
 	default:
 		globalStats.Error()
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func (s *querysrv) handleGET(w http.ResponseWriter, req *http.Request) {
+func (s *querysrv) handleGET(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	reqID := ctx.Value("id").(requestID)
+
 	deviceID, err := protocol.DeviceIDFromString(req.URL.Query().Get("device"))
 	if err != nil {
 		if debug {
-			log.Println(req.Method, req.URL, "bad device param")
+			log.Println(reqID, "bad device param")
 		}
 		globalStats.Error()
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -188,20 +218,28 @@ func (s *querysrv) handleGET(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ann.Direct, err = s.getAddresses(deviceID)
+	t0 := time.Now()
+	ann.Direct, err = s.getAddresses(ctx, deviceID)
 	if err != nil {
-		log.Println("getAddresses:", err)
+		log.Println(reqID, "getAddresses:", err)
 		globalStats.Error()
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	if debug {
+		log.Println(reqID, "getAddresses in", time.Since(t0))
+	}
 
+	t0 = time.Now()
 	ann.Relays, err = s.getRelays(deviceID)
 	if err != nil {
-		log.Println("getRelays:", err)
+		log.Println(reqID, "getRelays:", err)
 		globalStats.Error()
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
+	}
+	if debug {
+		log.Println(reqID, "getRelays in", time.Since(t0))
 	}
 
 	globalStats.Query()
@@ -217,11 +255,13 @@ func (s *querysrv) handleGET(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(ann)
 }
 
-func (s *querysrv) handlePOST(remoteIP net.IP, w http.ResponseWriter, req *http.Request) {
+func (s *querysrv) handlePOST(ctx context.Context, remoteIP net.IP, w http.ResponseWriter, req *http.Request) {
+	reqID := ctx.Value("id").(requestID)
+
 	rawCert := certificateBytes(req)
 	if rawCert == nil {
 		if debug {
-			log.Println(req.Method, req.URL, "no certificates")
+			log.Println(reqID, "no certificates")
 		}
 		globalStats.Error()
 		http.Error(w, "Forbidden", http.StatusForbidden)
@@ -231,7 +271,7 @@ func (s *querysrv) handlePOST(remoteIP net.IP, w http.ResponseWriter, req *http.
 	var ann announcement
 	if err := json.NewDecoder(req.Body).Decode(&ann); err != nil {
 		if debug {
-			log.Println(req.Method, req.URL, err)
+			log.Println(reqID, "decode:", err)
 		}
 		globalStats.Error()
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -245,17 +285,17 @@ func (s *querysrv) handlePOST(remoteIP net.IP, w http.ResponseWriter, req *http.
 	// and not worry about it. The second indicates that the request was fine,
 	// but something internal fucked up. We should log it and respond with a
 	// more apologetic 500 Internal Server Error.
-	userErr, internalErr := s.handleAnnounce(remoteIP, deviceID, ann.Direct, ann.Relays)
+	userErr, internalErr := s.handleAnnounce(ctx, remoteIP, deviceID, ann.Direct, ann.Relays)
 	if userErr != nil {
 		if debug {
-			log.Println(req.Method, req.URL, userErr)
+			log.Println(reqID, "handleAnnounce:", userErr)
 		}
 		globalStats.Error()
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 	if internalErr != nil {
-		log.Println("handleAnnounce:", internalErr)
+		log.Println(reqID, "handleAnnounce:", internalErr)
 		globalStats.Error()
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -276,7 +316,9 @@ func (s *querysrv) Stop() {
 	s.listener.Close()
 }
 
-func (s *querysrv) handleAnnounce(remote net.IP, deviceID protocol.DeviceID, direct []string, relays []annRelay) (userErr, internalErr error) {
+func (s *querysrv) handleAnnounce(ctx context.Context, remote net.IP, deviceID protocol.DeviceID, direct []string, relays []annRelay) (userErr, internalErr error) {
+	reqID := ctx.Value("id").(requestID)
+
 	tx, err := s.db.Begin()
 	if err != nil {
 		internalErr = err
@@ -309,16 +351,20 @@ func (s *querysrv) handleAnnounce(remote net.IP, deviceID protocol.DeviceID, dir
 			uri.Host = net.JoinHostPort(remote.String(), port)
 		}
 
-		if err := s.updateAddress(tx, deviceID, uri.String()); err != nil {
+		if err := s.updateAddress(ctx, tx, deviceID, uri.String()); err != nil {
 			internalErr = err
 			return
 		}
 	}
 
+	t0 := time.Now()
 	_, err = tx.Stmt(s.prep["deleteRelay"]).Exec(deviceID.String())
 	if err != nil {
 		internalErr = err
 		return
+	}
+	if debug {
+		log.Println(reqID, "deleteRelay in", time.Since(t0))
 	}
 
 	for _, relay := range relays {
@@ -328,19 +374,27 @@ func (s *querysrv) handleAnnounce(remote net.IP, deviceID protocol.DeviceID, dir
 			return
 		}
 
+		t0 = time.Now()
 		_, err = tx.Stmt(s.prep["insertRelay"]).Exec(deviceID.String(), uri.String(), relay.Latency)
 		if err != nil {
 			internalErr = err
 			return
 		}
+		if debug {
+			log.Println(reqID, "insertRelay in", time.Since(t0))
+		}
 	}
 
-	if err := s.updateDevice(tx, deviceID); err != nil {
+	if err := s.updateDevice(ctx, tx, deviceID); err != nil {
 		internalErr = err
 		return
 	}
 
+	t0 = time.Now()
 	internalErr = tx.Commit()
+	if debug {
+		log.Println(reqID, "commit in", time.Since(t0))
+	}
 	return
 }
 
@@ -362,23 +416,32 @@ func (s *querysrv) limit(remote net.IP) bool {
 	return false
 }
 
-func (s *querysrv) updateDevice(tx *sql.Tx, device protocol.DeviceID) error {
+func (s *querysrv) updateDevice(ctx context.Context, tx *sql.Tx, device protocol.DeviceID) error {
+	reqID := ctx.Value("id").(requestID)
+	t0 := time.Now()
 	res, err := tx.Stmt(s.prep["updateDevice"]).Exec(device.String())
 	if err != nil {
 		return err
 	}
+	if debug {
+		log.Println(reqID, "updateDevice in", time.Since(t0))
+	}
 
 	if rows, _ := res.RowsAffected(); rows == 0 {
+		t0 = time.Now()
 		_, err := tx.Stmt(s.prep["insertDevice"]).Exec(device.String())
 		if err != nil {
 			return err
+		}
+		if debug {
+			log.Println(reqID, "insertDevice in", time.Since(t0))
 		}
 	}
 
 	return nil
 }
 
-func (s *querysrv) updateAddress(tx *sql.Tx, device protocol.DeviceID, uri string) error {
+func (s *querysrv) updateAddress(ctx context.Context, tx *sql.Tx, device protocol.DeviceID, uri string) error {
 	res, err := tx.Stmt(s.prep["updateAddress"]).Exec(device.String(), uri)
 	if err != nil {
 		return err
@@ -394,7 +457,7 @@ func (s *querysrv) updateAddress(tx *sql.Tx, device protocol.DeviceID, uri strin
 	return nil
 }
 
-func (s *querysrv) getAddresses(device protocol.DeviceID) ([]string, error) {
+func (s *querysrv) getAddresses(ctx context.Context, device protocol.DeviceID) ([]string, error) {
 	rows, err := s.prep["selectAddress"].Query(device.String())
 	if err != nil {
 		return nil, err
