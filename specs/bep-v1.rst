@@ -904,8 +904,8 @@ directions.
 Read Only
 ~~~~~~~~~
 
-In read only mode, a device does not synchronize the local folder to the
-cluster, but publishes changes to its local folder contents as usual.
+In read only mode, a device does not apply any updates from the cluster, 
+but publishes changes of its local folder to the cluser as usual.
 The local folder can be seen as a "master copy" that is never affected
 by the actions of other cluster devices.
 
