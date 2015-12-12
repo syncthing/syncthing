@@ -238,7 +238,7 @@ func convertV12V13(cfg *Configuration) {
 		id := cfg.Folders[i].ID
 		folderPath := cfg.Folders[i].Path()
 		newSTPath := cfg.Folders[i].SyncthingPath()
-		if err := os.Mkdir(filepath.Join(folderPath, ".syncthing"), 0755); err != nil {
+		if err := os.Mkdir(filepath.Join(folderPath, ".syncthing"), 0777); err != nil {
 			l.Warnf("Failed to create .syncthing marker for folder %s.", id)
 			continue
 		}
@@ -246,10 +246,10 @@ func convertV12V13(cfg *Configuration) {
 			l.Warnf("Skipping upgrade of folder %s, .stfolder missing or cannot remove.", id)
 			continue
 		}
-		if err := os.Rename(filepath.Join(folderPath, ".stversions"), filepath.Join(newSTPath, "versions")); err != nil {
+		if err := os.Rename(filepath.Join(folderPath, ".stversions"), filepath.Join(newSTPath, "versions")); err != nil && !os.IsNotExist(err) {
 			l.Warnf("Failed to move existing .stversions to .syncthing/versions for folder %s.", id)
 		}
-		if err := os.Rename(filepath.Join(folderPath, ".stignore"), filepath.Join(newSTPath, "ignores.txt")); err != nil {
+		if err := os.Rename(filepath.Join(folderPath, ".stignore"), filepath.Join(newSTPath, "ignores.txt")); err != nil && !os.IsNotExist(err) {
 			l.Warnf("Failed to move existing .stignore to .syncthing/ignores.txt for folder %s.", id)
 		}
 	}

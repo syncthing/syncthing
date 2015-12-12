@@ -85,7 +85,6 @@ func (f *FolderConfiguration) CreateMarker() error {
 			return err
 		}
 		fd.Close()
-		osutil.HideFile(marker)
 	}
 
 	return nil
