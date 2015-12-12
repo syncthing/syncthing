@@ -74,27 +74,26 @@ case "${1:-default}" in
 		;;
 
 	all)
-		build -goos darwin -goarch amd64 tar
+		platforms=(
+			darwin-amd64 dragonfly-amd64 freebsd-amd64 linux-amd64 netbsd-amd64 openbsd-amd64 solaris-amd64 windows-amd64
+			freebsd-386 linux-386 netbsd-386 openbsd-386 windows-386
+			linux-arm
+		)
 
-		build -goos dragonfly -goarch amd64 tar
+		for plat in "${platforms[@]}"; do
+			echo Building "$plat"
 
-		build -goos freebsd -goarch 386 tar
-		build -goos freebsd -goarch amd64 tar
+			goos="${plat%-*}"
+			goarch="${plat#*-}"
+			dist="tar"
 
-		build -goos linux -goarch 386 tar
-		build -goos linux -goarch amd64 tar
-		build -goos linux -goarch arm tar
+			if [[ $goos == "windows" ]]; then
+				dist="zip"
+			fi
 
-		build -goos netbsd -goarch 386 tar
-		build -goos netbsd -goarch amd64 tar
-
-		build -goos openbsd -goarch 386 tar
-		build -goos openbsd -goarch amd64 tar
-
-		build -goos solaris -goarch amd64 tar
-
-		build -goos windows -goarch 386 zip
-		build -goos windows -goarch amd64 zip
+			build -goos "$goos" -goarch "$goarch" "$dist"
+			echo
+		done
 		;;
 
 	test-cov)
