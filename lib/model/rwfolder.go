@@ -716,8 +716,23 @@ func (p *rwFolder) deleteDir(ignores *ignore.Matcher, file protocol.FileInfo) {
 				osutil.InWritableDir(osutil.Remove, filepath.Join(realName, file))
 			}
 			if ignores.Nuke(file) {
-				// TODO remove directories?
-				osutil.InWritableDir(osutil.Remove, filepath.Join(realName, file))
+				if info, err := os.Stat(file); err == nil && info.IsDir() {
+					// Recursively check whether we can safely nuke the directory
+					err := filepath.Walk(file, func(path string, f os.FileInfo, err error) error {
+						if err != nil || !ignores.Nuke(path) {
+							return errors.New("Cannot nuke dir")
+						}
+					})
+					if err == nil {
+						filepath.Walk(file, func(path string, f os.FileInfo, err error) error {
+							if err != nil {
+								osutil.InWritableDir(osutil.Remove, path)
+							}
+						})
+					}
+				} else {
+					osutil.InWritableDir(osutil.Remove, path)
+				}
 			}
 		}
 		dir.Close()

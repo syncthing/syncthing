@@ -234,7 +234,9 @@ func parseIgnoreFile(fd io.Reader, currentFile, includePath string, seen map[str
 
 		if strings.HasPrefix(line, "(?preserve)") {
 			line = line[11:]
-			result = Preserve
+			if result == Nuke {
+				result = Preserve
+			}
 		}
 
 		flags := fnmatch.PathName

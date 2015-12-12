@@ -24,7 +24,7 @@ func TestSubScan(t *testing.T) {
 	}
 
 	log.Println("Generating files...")
-	err = os.Mkdir("s1", 0755)
+	err = generateFiles("s1", 10, 10, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}

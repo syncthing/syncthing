@@ -125,7 +125,7 @@ func TestPreserve(t *testing.T) {
 		{"ibla2", DontIgnore},
 		{"iex2", Preserve},
 		{filepath.Join("ign1", "ign"), Nuke},
-		{filepath.Join("ign1", "ex"), Preserve},
+		{filepath.Join("ign1", "ex"), DontIgnore},
 		{filepath.Join("ign1", "iex2"), Preserve},
 		{filepath.Join("iex2", "ign"), Preserve},
 		{filepath.Join("foo", "bar", "ign1"), Nuke},
@@ -135,9 +135,9 @@ func TestPreserve(t *testing.T) {
 		{filepath.Join("foo", "bar", "ifn1"), Preserve},
 		{filepath.Join("foo", "bar", "iFn1"), Preserve},
 		{filepath.Join("foo", "bar", "ifn2"), DontIgnore},
-		{filepath.Join("foo", "bar", "ifn3"), Preserve},
+		{filepath.Join("foo", "bar", "ifn3"), DontIgnore},
 		{"ifn4", Preserve},
-		{filepath.Join("foo", "bar", "ifn4"), DontIgnore},
+		{filepath.Join("foo", "bar", "ifn4"), Preserve},
 	}
 
 	for _, tc := range tests {

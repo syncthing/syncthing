@@ -109,48 +109,9 @@ func (f *FolderConfiguration) CreateDefaultIgnores() error {
 		return err
 	}
 
-	ignores := "#include .stsharedignore"
-	if runtime.GOOS == "windows" {
-		ignores = ignores + `
-ehthumbs.db
-desktop.ini
-Thumbs.db
-(?preserve)lost+found
-(?preserve)$RECYCLE.BIN
-(?preserve)pagefile.sys
-(?preserve)System Volume Information
-(?preserve)swapfile.sys
-(?preserve)hiberfil.sys
-`
-	}
-	if runtime.GOOS == "linux" {
-		ignores = ignores + `
-*~
-.directory/
-`
-	}
-	if runtime.GOOS == "darwin" {
-		ignores = ignores + `
-._*
-.apdisk
-.AppleDB
-.AppleDesktop
-.AppleDouble
-.DocumentRevisions-V100
-.DS_Store
-.DS_Store?
-.fseventsd
-.LSOverride
-.Spotlight-V100
-.TemporaryItems
-Icon\r
-(?preserve).Trashes/
-(?preserve).Trash-*/
-(?preserve)Network Trash Folder/
-(?preserve)Temporary Items/
-`
-	}
-	_, err = fd.WriteString(ignores)
+	ignores := "#include .stsharedignore\n" + DefaultIgnores()
+
+	_, err = ioutil.WriteFile(filepath.Join(f.SyncthingPath(), "ignores.txt"), ignores, 0755)
 	if err != nil {
 		return err
 	}
@@ -161,10 +122,7 @@ Icon\r
 
 func (f *FolderConfiguration) HasIgnores() bool {
 	_, err := os.Stat(filepath.Join(f.SyncthingPath(), "ignores.txt"))
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
