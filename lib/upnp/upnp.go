@@ -531,9 +531,9 @@ func (s *IGDService) AddPortMapping(localIPAddress string, protocol Protocol, ex
 	if err != nil && timeout > 0 {
 		// Try to repair error code 725 - OnlyPermanentLeasesSupported
 		envelope := &soapErrorResponse{}
-		err = xml.Unmarshal(response, envelope)
-		if err != nil {
-			return err
+		err2 := xml.Unmarshal(response, envelope)
+		if err2 != nil {
+			return err2
 		}
 		if envelope.ErrorCode == 725 {
 			return s.AddPortMapping(localIPAddress, protocol, externalPort, internalPort, description, 0)
