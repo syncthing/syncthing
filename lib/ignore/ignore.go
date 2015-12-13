@@ -267,7 +267,7 @@ func parseIgnoreFile(fd io.Reader, currentFile, includePath string, seen map[str
 			patterns = append(patterns, Pattern{exp, result})
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := line[len("#include "):]
-			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
+			includeFile := filepath.Join(filepath.Dir(includePath), includeRel)
 			includes, err := loadIgnoreFile(includeFile, filepath.Dir(includeFile), seen)
 			if err != nil {
 				return fmt.Errorf("include of %q: %v", includeRel, err)
