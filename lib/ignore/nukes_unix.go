@@ -8,7 +8,7 @@
 
 package ignore
 
-const defaultIgnores = `
+const DefaultIgnores = `
 *~
 .directory/
 `

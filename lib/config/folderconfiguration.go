@@ -7,11 +7,13 @@
 package config
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -109,9 +111,9 @@ func (f *FolderConfiguration) CreateDefaultIgnores() error {
 		return err
 	}
 
-	ignores := "#include .stsharedignore\n" + DefaultIgnores()
+	ignores := "#include .stsharedignore\n" + ignore.DefaultIgnores + "\n"
 
-	_, err = ioutil.WriteFile(filepath.Join(f.SyncthingPath(), "ignores.txt"), ignores, 0755)
+	err = ioutil.WriteFile(filepath.Join(f.SyncthingPath(), "ignores.txt"), []byte(ignores), 0755)
 	if err != nil {
 		return err
 	}
