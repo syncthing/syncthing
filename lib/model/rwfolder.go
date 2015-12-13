@@ -81,20 +81,21 @@ type rwFolder struct {
 	progressEmitter  *ProgressEmitter
 	virtualMtimeRepo *db.VirtualMtimeRepo
 
-	folder        string
-	dir           string
-	scanIntv      time.Duration
-	versioner     versioner.Versioner
-	ignorePerms   bool
-	copiers       int
-	pullers       int
-	shortID       uint64
-	remoteShortID uint64
-	order         config.PullOrder
-	maxConflicts  int
-	sleep         time.Duration
-	pause         time.Duration
-	allowSparse   bool
+	folder       string
+	dir          string
+	scanIntv     time.Duration
+	versioner    versioner.Versioner
+	ignorePerms  bool
+	copiers      int
+	pullers      int
+	shortID      uint64
+	newVersion   protocol.Vector
+	curVersion   protocol.Vector
+	order        config.PullOrder
+	maxConflicts int
+	sleep        time.Duration
+	pause        time.Duration
+	allowSparse  bool
 
 	stop        chan struct{}
 	queue       *jobQueue
@@ -120,17 +121,16 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		progressEmitter:  m.progressEmitter,
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(m.db, cfg.ID),
 
-		folder:        cfg.ID,
-		dir:           cfg.Path(),
-		scanIntv:      time.Duration(cfg.RescanIntervalS) * time.Second,
-		ignorePerms:   cfg.IgnorePerms,
-		copiers:       cfg.Copiers,
-		pullers:       cfg.Pullers,
-		shortID:       shortID,
-		remoteShortID: shortID, // We dont yet care what this value is so we set it same as short ID
-		order:         cfg.Order,
-		maxConflicts:  cfg.MaxConflicts,
-		allowSparse:   !cfg.DisableSparseFiles,
+		folder:       cfg.ID,
+		dir:          cfg.Path(),
+		scanIntv:     time.Duration(cfg.RescanIntervalS) * time.Second,
+		ignorePerms:  cfg.IgnorePerms,
+		copiers:      cfg.Copiers,
+		pullers:      cfg.Pullers,
+		shortID:      shortID,
+		order:        cfg.Order,
+		maxConflicts: cfg.MaxConflicts,
+		allowSparse:  !cfg.DisableSparseFiles,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -766,7 +766,9 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 		// of deleting. Also merge with the version vector we had, to indicate
 		// we have resolved the conflict.
 		file.Version = file.Version.Merge(cur.Version)
-		p.remoteShortID = file.Version[0].ID
+
+		p.curVersion = cur.Version
+		p.newVersion = file.Version
 
 		err = osutil.InWritableDir(p.moveForConflict, realName)
 	} else if p.versioner != nil {
@@ -1306,9 +1308,11 @@ func (p *rwFolder) performFinish(state *sharedPullerState) error {
 			// should file it away as a conflict instead of just removing or
 			// archiving. Also merge with the version vector we had, to indicate
 			// we have resolved the conflict.
-			p.remoteShortID = state.file.Version[0].ID
-
 			state.file.Version = state.file.Version.Merge(state.version)
+
+			p.curVersion = state.version
+			p.newVersion = state.file.Version
+
 			if err = osutil.InWritableDir(p.moveForConflict, state.realName); err != nil {
 				return err
 			}
@@ -1500,19 +1504,11 @@ func (p *rwFolder) moveForConflict(name string) error {
 		return nil
 	}
 
-	l.Debugf("NATENATENATE %v", file.Version[0])
-
 	ext := filepath.Ext(name)
 	withoutExt := name[:len(name)-len(ext)]
 
-	// Now figure out the remote client ID from base32 encoding of first 64 bytes of version
-	bytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(bytes, p.remoteShortID)
-	remoteID := base32.StdEncoding.EncodeToString(bytes[:4])
-	remoteID = remoteID[:4] // We just need the beginning characters
-
 	// When renaming the file add the device name that it belonged too for users benefit
-	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405-["+remoteID+"]"+ext)
+	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405-["+p.findNewestUpdateID()+"]"+ext)
 	err := os.Rename(name, newName)
 	if os.IsNotExist(err) {
 		// We were supposed to move a file away but it does not exist. Either
@@ -1523,7 +1519,7 @@ func (p *rwFolder) moveForConflict(name string) error {
 	}
 	if p.maxConflicts > -1 {
 		// When renaming the file add the device name that it belonged too for users benefit
-		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????-[" + remoteID + "]" + ext)
+		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????-[" + p.findNewestUpdateID() + "]" + ext)
 		if gerr == nil && len(matches) > p.maxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[p.maxConflicts:] {
@@ -1537,6 +1533,30 @@ func (p *rwFolder) moveForConflict(name string) error {
 		}
 	}
 	return err
+}
+
+// This function searches through both the current and newer version vector
+// arrays, every time there is a conflict.  What it expects to find is that one
+// of the versions will be incremented by 1 and the ID for that element is the
+// one that made the change.  Thus its ID is converted to binary and base32
+// encoded to find the first few chars and those are returned.
+func (p *rwFolder) findNewestUpdateID() string {
+	var newestClientID uint64
+
+	for i := 0; i < len(p.newVersion); i++ {
+		// If the new version value has iterated even once from the previous
+		// version, then we know that's the guy who made the change.
+		if p.curVersion[i].Value < p.newVersion[i].Value {
+			newestClientID = p.newVersion[i].ID
+		}
+	}
+
+	// Now figure out remote client ID from base32 encoding of first 64 bytes
+	bytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(bytes, newestClientID)
+	remoteID := base32.StdEncoding.EncodeToString(bytes)
+
+	return remoteID[:7] // We just need the beginning characters
 }
 
 func (p *rwFolder) newError(path string, err error) {
