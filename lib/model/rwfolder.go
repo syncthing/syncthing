@@ -1308,8 +1308,8 @@ func (p *rwFolder) performFinish(state *sharedPullerState) error {
 			// should file it away as a conflict instead of just removing or
 			// archiving. Also merge with the version vector we had, to indicate
 			// we have resolved the conflict.
-			state.file.Version = state.file.Version.Merge(state.version)
 
+			state.file.Version = state.file.Version.Merge(state.version)
 			p.curVersion = state.version
 			p.newVersion = state.file.Version
 
@@ -1508,7 +1508,7 @@ func (p *rwFolder) moveForConflict(name string) error {
 	withoutExt := name[:len(name)-len(ext)]
 
 	// When renaming the file add the device name that it belonged too for users benefit
-	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405-["+p.findNewestUpdateID()+"]"+ext)
+	newName := withoutExt + time.Now().Format(".sync-conflict-with_"+p.findNewestUpdateID()+"-20060102-150405"+ext)
 	err := os.Rename(name, newName)
 	if os.IsNotExist(err) {
 		// We were supposed to move a file away but it does not exist. Either
@@ -1519,7 +1519,7 @@ func (p *rwFolder) moveForConflict(name string) error {
 	}
 	if p.maxConflicts > -1 {
 		// When renaming the file add the device name that it belonged too for users benefit
-		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????-[" + p.findNewestUpdateID() + "]" + ext)
+		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-with_" + p.findNewestUpdateID() + "-????????-??????" + ext)
 		if gerr == nil && len(matches) > p.maxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[p.maxConflicts:] {
@@ -1537,9 +1537,10 @@ func (p *rwFolder) moveForConflict(name string) error {
 
 // This function searches through both the current and newer version vector
 // arrays, every time there is a conflict.  What it expects to find is that one
-// of the versions will be incremented by 1 and the ID for that element is the
-// one that made the change.  Thus its ID is converted to binary and base32
-// encoded to find the first few chars and those are returned.
+// of the versions will always be incremented by 1 from the previous version
+// list and the ID for that element is the one that made the change.  Thus its
+// ID is converted to binary and base32 encoded to find the first few chars and
+// those are returned.
 func (p *rwFolder) findNewestUpdateID() string {
 	var newestClientID uint64
 
