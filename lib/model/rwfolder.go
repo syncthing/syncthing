@@ -722,16 +722,16 @@ func (p *rwFolder) deleteDir(ignores *ignore.Matcher, file protocol.FileInfo) {
 						if err != nil || !ignores.Nuke(path) {
 							return errors.New("Cannot nuke dir")
 						}
+						return nil
 					})
 					if err == nil {
 						filepath.Walk(file, func(path string, f os.FileInfo, err error) error {
-							if err != nil {
-								osutil.InWritableDir(osutil.Remove, path)
-							}
+							osutil.InWritableDir(osutil.Remove, path)
+							return err
 						})
 					}
 				} else {
-					osutil.InWritableDir(osutil.Remove, path)
+					osutil.InWritableDir(osutil.Remove, file)
 				}
 			}
 		}
