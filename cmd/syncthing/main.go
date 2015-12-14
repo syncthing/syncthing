@@ -19,6 +19,7 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -26,6 +27,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -462,6 +464,8 @@ func upgradeViaRest() error {
 }
 
 func syncthingMain() {
+	setupSignalHandling()
+
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
 	mainSvc := suture.New("main", suture.Spec{
@@ -837,6 +841,28 @@ func syncthingMain() {
 	}
 
 	os.Exit(code)
+}
+
+func setupSignalHandling() {
+	// Exit cleanly with "restarting" code on SIGHUP.
+
+	restartSign := make(chan os.Signal, 1)
+	sigHup := syscall.Signal(1)
+	signal.Notify(restartSign, sigHup)
+	go func() {
+		<-restartSign
+		stop <- exitRestarting
+	}()
+
+	// Exit with "success" code (no restart) on INT/TERM
+
+	stopSign := make(chan os.Signal, 1)
+	sigTerm := syscall.Signal(15)
+	signal.Notify(stopSign, os.Interrupt, sigTerm)
+	go func() {
+		<-stopSign
+		stop <- exitSuccess
+	}()
 }
 
 // printHashRate prints the hashing performance in MB/s, formatting it with
