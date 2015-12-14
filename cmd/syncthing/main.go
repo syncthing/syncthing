@@ -227,10 +227,10 @@ func main() {
 	var guiAddress, guiAPIKey string
 	var generateDir string
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
-	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address")
+	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
 	flag.StringVar(&guiAPIKey, "gui-apikey", guiAPIKey, "Override GUI API key")
 	flag.StringVar(&confDir, "home", "", "Set configuration directory")
-	flag.IntVar(&logFlags, "logflags", logFlags, "Select information in log line prefix")
+	flag.IntVar(&logFlags, "logflags", logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&noRestart, "no-restart", noRestart, "Do not restart; just exit")
 	flag.BoolVar(&reset, "reset", false, "Reset the database")
