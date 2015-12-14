@@ -98,7 +98,7 @@ certificates are sent in clear text (as in HTTPS etc), meaning that the
 certificate Common Name (by default ``syncthing``) is visible.
 
 An eavesdropper can deduce that this is a Syncthing connection and calculate the
-device ID:s involved based on the hashes of the sent certificates.
+device IDs involved based on the hashes of the sent certificates.
 
 Likewise, if the sync port (default 22000) is accessible from the internet, a
 port scanner may discover it, attempt a TLS negotiation and thus obtain the
@@ -116,7 +116,7 @@ In Short
 
 Parties doing surveillance on your network (whether that be corporate IT, the
 NSA or someone else) will be able to see that you use Syncthing, and your device
-ID's `are OK to share anyway
+IDs `are OK to share anyway
 <http://docs.syncthing.net/users/faq.html#should-i-keep-my-device-ids-secret>`__,
 but the actual transmitted data is protected as well as we can. Knowing your
 device ID can expose your IP address, using global discovery.
