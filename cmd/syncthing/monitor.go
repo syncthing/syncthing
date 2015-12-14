@@ -62,9 +62,12 @@ func monitorMain() {
 	args := os.Args
 	var restarts [countRestarts]time.Time
 
-	sign := make(chan os.Signal, 1)
-	sigTerm := syscall.Signal(0xf)
-	signal.Notify(sign, os.Interrupt, sigTerm, os.Kill)
+	stopSign := make(chan os.Signal, 1)
+	sigTerm := syscall.Signal(15)
+	signal.Notify(stopSign, os.Interrupt, sigTerm)
+	restartSign := make(chan os.Signal, 1)
+	sigHup := syscall.Signal(1)
+	signal.Notify(restartSign, sigHup)
 
 	for {
 		if t := time.Since(restarts[0]); t < loopThreshold {
@@ -124,11 +127,16 @@ func monitorMain() {
 		}()
 
 		select {
-		case s := <-sign:
+		case s := <-stopSign:
 			l.Infof("Signal %d received; exiting", s)
 			cmd.Process.Kill()
 			<-exit
 			return
+
+		case s := <-restartSign:
+			l.Infof("Signal %d received; restarting", s)
+			cmd.Process.Signal(sigHup)
+			err = <-exit
 
 		case err = <-exit:
 			if err == nil {
