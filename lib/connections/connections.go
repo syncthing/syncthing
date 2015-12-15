@@ -288,7 +288,7 @@ func (s *connectionSvc) connect() {
 
 			for _, addr := range addrs {
 				if conn := s.connectDirect(deviceID, addr); conn != nil {
-					l.Debugln("Connectin to", deviceID, "via", addr, "succeeded")
+					l.Debugln("Connecting to", deviceID, "via", addr, "succeeded")
 					if connected {
 						s.model.Close(deviceID, fmt.Errorf("switching connections"))
 					}
@@ -297,7 +297,7 @@ func (s *connectionSvc) connect() {
 					}
 					continue nextDevice
 				}
-				l.Debugln("Connectin to", deviceID, "via", addr, "failed")
+				l.Debugln("Connecting to", deviceID, "via", addr, "failed")
 			}
 
 			// Only connect via relays if not already connected
@@ -314,21 +314,21 @@ func (s *connectionSvc) connect() {
 			if last, ok := s.lastRelayCheck[deviceID]; ok && time.Since(last) < reconIntv {
 				l.Debugln("Skipping connecting via relay to", deviceID, "last checked at", last)
 				continue nextDevice
-			} else {
-				l.Debugln("Trying relay connections to", deviceID, relays)
 			}
+
+			l.Debugln("Trying relay connections to", deviceID, relays)
 
 			s.lastRelayCheck[deviceID] = time.Now()
 
 			for _, addr := range relays {
 				if conn := s.connectViaRelay(deviceID, addr); conn != nil {
-					l.Debugln("Connectin to", deviceID, "via", addr, "succeeded")
+					l.Debugln("Connecting to", deviceID, "via", addr, "succeeded")
 					s.conns <- model.IntermediateConnection{
 						conn, model.ConnectionTypeRelayDial,
 					}
 					continue nextDevice
 				}
-				l.Debugln("Connectin to", deviceID, "via", addr, "failed")
+				l.Debugln("Connecting to", deviceID, "via", addr, "failed")
 			}
 		}
 
