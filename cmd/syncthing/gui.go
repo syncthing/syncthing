@@ -130,6 +130,11 @@ func (s *apiSvc) getListener(guiCfg config.GUIConfiguration) (net.Listener, erro
 	return listener, nil
 }
 
+func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(jsonObject)
+}
+
 func (s *apiSvc) Serve() {
 	s.stop = make(chan struct{})
 
@@ -366,15 +371,11 @@ func withDetailsMiddleware(id protocol.DeviceID, h http.Handler) http.Handler {
 }
 
 func (s *apiSvc) restPing(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(map[string]string{
-		"ping": "pong",
-	})
+	sendJSON(w, map[string]string{"ping": "pong"})
 }
 
 func (s *apiSvc) getSystemVersion(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(map[string]string{
+	sendJSON(w, map[string]string{
 		"version":     Version,
 		"codename":    Codename,
 		"longVersion": LongVersion,
@@ -384,11 +385,10 @@ func (s *apiSvc) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiSvc) getSystemDebug(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	names := l.Facilities()
 	enabled := l.FacilityDebugging()
 	sort.Strings(enabled)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	sendJSON(w, map[string]interface{}{
 		"facilities": names,
 		"enabled":    enabled,
 	})
@@ -424,11 +424,7 @@ func (s *apiSvc) getDBBrowse(w http.ResponseWriter, r *http.Request) {
 		levels = -1
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-
-	tree := s.model.GlobalDirectoryTree(folder, prefix, levels, dirsonly)
-
-	json.NewEncoder(w).Encode(tree)
+	sendJSON(w, s.model.GlobalDirectoryTree(folder, prefix, levels, dirsonly))
 }
 
 func (s *apiSvc) getDBCompletion(w http.ResponseWriter, r *http.Request) {
@@ -442,20 +438,15 @@ func (s *apiSvc) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res := map[string]float64{
+	sendJSON(w, map[string]float64{
 		"completion": s.model.Completion(device, folder),
-	}
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(res)
+	})
 }
 
 func (s *apiSvc) getDBStatus(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
-	res := folderSummary(s.cfg, s.model, folder)
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(res)
+	sendJSON(w, folderSummary(s.cfg, s.model, folder))
 }
 
 func folderSummary(cfg *config.Wrapper, m *model.Model, folder string) map[string]interface{} {
@@ -520,35 +511,26 @@ func (s *apiSvc) getDBNeed(w http.ResponseWriter, r *http.Request) {
 	progress, queued, rest, total := s.model.NeedFolderFiles(folder, page, perpage)
 
 	// Convert the struct to a more loose structure, and inject the size.
-	output := map[string]interface{}{
+	sendJSON(w, map[string]interface{}{
 		"progress": s.toNeedSlice(progress),
 		"queued":   s.toNeedSlice(queued),
 		"rest":     s.toNeedSlice(rest),
 		"total":    total,
 		"page":     page,
 		"perpage":  perpage,
-	}
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(output)
+	})
 }
 
 func (s *apiSvc) getSystemConnections(w http.ResponseWriter, r *http.Request) {
-	var res = s.model.ConnectionStats()
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(res)
+	sendJSON(w, s.model.ConnectionStats())
 }
 
 func (s *apiSvc) getDeviceStats(w http.ResponseWriter, r *http.Request) {
-	var res = s.model.DeviceStatistics()
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(res)
+	sendJSON(w, s.model.DeviceStatistics())
 }
 
 func (s *apiSvc) getFolderStats(w http.ResponseWriter, r *http.Request) {
-	var res = s.model.FolderStatistics()
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(res)
+	sendJSON(w, s.model.FolderStatistics())
 }
 
 func (s *apiSvc) getDBFile(w http.ResponseWriter, r *http.Request) {
@@ -559,7 +541,7 @@ func (s *apiSvc) getDBFile(w http.ResponseWriter, r *http.Request) {
 	lf, _ := s.model.CurrentFolderFile(folder, file)
 
 	av := s.model.Availability(folder, file)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
 		"availability": av,
@@ -567,8 +549,7 @@ func (s *apiSvc) getDBFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiSvc) getSystemConfig(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(s.cfg.Raw())
+	sendJSON(w, s.cfg.Raw())
 }
 
 func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
@@ -615,8 +596,7 @@ func (s *apiSvc) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiSvc) getSystemConfigInsync(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(map[string]bool{"configInSync": configInSync})
+	sendJSON(w, map[string]bool{"configInSync": configInSync})
 }
 
 func (s *apiSvc) postSystemRestart(w http.ResponseWriter, r *http.Request) {
@@ -711,13 +691,11 @@ func (s *apiSvc) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(res)
+	sendJSON(w, res)
 }
 
 func (s *apiSvc) getSystemError(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(map[string][]logger.Line{
+	sendJSON(w, map[string][]logger.Line{
 		"errors": s.guiErrors.Since(time.Time{}),
 	})
 }
@@ -736,9 +714,7 @@ func (s *apiSvc) getSystemLog(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	since, err := time.Parse(time.RFC3339, q.Get("since"))
 	l.Debugln(err)
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-
-	json.NewEncoder(w).Encode(map[string][]logger.Line{
+	sendJSON(w, map[string][]logger.Line{
 		"messages": s.systemLog.Since(since),
 	})
 }
@@ -775,7 +751,6 @@ func (s *apiSvc) getSystemHTTPMetrics(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiSvc) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	devices := make(map[string]discover.CacheEntry)
 
 	if s.discoverer != nil {
@@ -787,17 +762,15 @@ func (s *apiSvc) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	json.NewEncoder(w).Encode(devices)
+	sendJSON(w, devices)
 }
 
 func (s *apiSvc) getReport(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(reportData(s.cfg, s.model))
+	sendJSON(w, reportData(s.cfg, s.model))
 }
 
 func (s *apiSvc) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	ignores, patterns, err := s.model.GetIgnores(qs.Get("folder"))
 	if err != nil {
@@ -805,7 +778,7 @@ func (s *apiSvc) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string][]string{
+	sendJSON(w, map[string][]string{
 		"ignore":   ignores,
 		"patterns": patterns,
 	})
@@ -841,8 +814,6 @@ func (s *apiSvc) getEvents(w http.ResponseWriter, r *http.Request) {
 
 	s.fss.gotEventRequest()
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-
 	// Flush before blocking, to indicate that we've received the request
 	// and that it should not be retried.
 	f := w.(http.Flusher)
@@ -853,7 +824,7 @@ func (s *apiSvc) getEvents(w http.ResponseWriter, r *http.Request) {
 		evs = evs[len(evs)-limit:]
 	}
 
-	json.NewEncoder(w).Encode(evs)
+	sendJSON(w, evs)
 }
 
 func (s *apiSvc) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
@@ -872,24 +843,21 @@ func (s *apiSvc) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 	res["newer"] = upgrade.CompareVersions(rel.Tag, Version) == upgrade.Newer
 	res["majorNewer"] = upgrade.CompareVersions(rel.Tag, Version) == upgrade.MajorNewer
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(res)
+	sendJSON(w, res)
 }
 
 func (s *apiSvc) getDeviceID(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	idStr := qs.Get("id")
 	id, err := protocol.DeviceIDFromString(idStr)
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	var info = map[string]string{}
 	if err == nil {
-		json.NewEncoder(w).Encode(map[string]string{
-			"id": id.String(),
-		})
+		info["id"] = id.String()
 	} else {
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": err.Error(),
-		})
+		info["error"] = err.Error()
 	}
+	sendJSON(w, info)
 }
 
 func (s *apiSvc) getLang(w http.ResponseWriter, r *http.Request) {
@@ -899,8 +867,7 @@ func (s *apiSvc) getLang(w http.ResponseWriter, r *http.Request) {
 		parts := strings.SplitN(l, ";", 2)
 		langs = append(langs, strings.ToLower(strings.TrimSpace(parts[0])))
 	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(langs)
+	sendJSON(w, langs)
 }
 
 func (s *apiSvc) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
@@ -971,7 +938,7 @@ func (s *apiSvc) postDBScan(w http.ResponseWriter, r *http.Request) {
 		errors := s.model.ScanFolders()
 		if len(errors) > 0 {
 			http.Error(w, "Error scanning folders", 500)
-			json.NewEncoder(w).Encode(errors)
+			sendJSON(w, errors)
 			return
 		}
 	}
@@ -1019,12 +986,10 @@ func (s *apiSvc) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 		comp[device] = int(tot[device] / count[device])
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(comp)
+	sendJSON(w, comp)
 }
 
 func (s *apiSvc) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	qs := r.URL.Query()
 	current := qs.Get("current")
 	search, _ := osutil.ExpandTilde(current)
@@ -1043,7 +1008,8 @@ func (s *apiSvc) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	json.NewEncoder(w).Encode(ret)
+
+	sendJSON(w, ret)
 }
 
 type embeddedStatic struct {
