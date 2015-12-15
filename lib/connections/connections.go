@@ -260,11 +260,14 @@ next:
 func (s *connectionSvc) connect() {
 	delay := time.Second
 	for {
+		l.Debugln("Reconnect loop")
 	nextDevice:
 		for deviceID, deviceCfg := range s.cfg.Devices() {
 			if deviceID == s.myID {
 				continue
 			}
+
+			l.Debugln("Reconnect loop for", deviceID)
 
 			if s.model.IsPaused(deviceID) {
 				continue
@@ -277,6 +280,7 @@ func (s *connectionSvc) connect() {
 			relaysEnabled := s.relaysEnabled
 			s.mut.RUnlock()
 			if connected && ok && ct.IsDirect() {
+				l.Debugln("Already connected to", deviceID, "via", ct.String())
 				continue
 			}
 
@@ -284,6 +288,7 @@ func (s *connectionSvc) connect() {
 
 			for _, addr := range addrs {
 				if conn := s.connectDirect(deviceID, addr); conn != nil {
+					l.Debugln("Connectin to", deviceID, "via", addr, "succeeded")
 					if connected {
 						s.model.Close(deviceID, fmt.Errorf("switching connections"))
 					}
@@ -292,6 +297,7 @@ func (s *connectionSvc) connect() {
 					}
 					continue nextDevice
 				}
+				l.Debugln("Connectin to", deviceID, "via", addr, "failed")
 			}
 
 			// Only connect via relays if not already connected
@@ -300,6 +306,7 @@ func (s *connectionSvc) connect() {
 			// wait up to RelayReconnectIntervalM to connect again.
 			// Also, do not try relays if we are explicitly told not to.
 			if connected || len(relays) == 0 || !relaysEnabled {
+				l.Debugln("Not connecting via relay", connected, len(relays) == 0, !relaysEnabled)
 				continue nextDevice
 			}
 
@@ -315,11 +322,13 @@ func (s *connectionSvc) connect() {
 
 			for _, addr := range relays {
 				if conn := s.connectViaRelay(deviceID, addr); conn != nil {
+					l.Debugln("Connectin to", deviceID, "via", addr, "succeeded")
 					s.conns <- model.IntermediateConnection{
 						conn, model.ConnectionTypeRelayDial,
 					}
 					continue nextDevice
 				}
+				l.Debugln("Connectin to", deviceID, "via", addr, "failed")
 			}
 		}
 
