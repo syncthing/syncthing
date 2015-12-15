@@ -1759,8 +1759,11 @@ func (m *Model) CheckFolderHealth(id string) error {
 			// Check for free space, if it isn't a master folder. We aren't
 			// going to change the contents of master folders, so we don't
 			// care about the amount of free space there.
-			if free, errDfp := osutil.DiskFreePercentage(folder.Path()); errDfp == nil && free < folder.MinDiskFreePct {
-				err = errors.New("insufficient free space")
+			diskFreeP, errDfp := osutil.DiskFreePercentage(folder.Path())
+			if errDfp == nil && diskFreeP < folder.MinDiskFreePct {
+				diskFreeBytes, _ := osutil.DiskFreeBytes(folder.Path())
+				str := fmt.Sprintf("insufficient free space (%d MiB, %.2f%%)", diskFreeBytes/1024/1024, diskFreeP)
+				err = errors.New(str)
 			}
 		}
 	} else {
