@@ -15,10 +15,12 @@ import (
 
 var (
 	l = logger.DefaultLogger.NewFacility("model", "The root hub")
+	lConflict = logger.DefaultLogger.NewFacility("conflict", "The root hub")
 )
 
 func init() {
 	l.SetDebug("model", strings.Contains(os.Getenv("STTRACE"), "model") || os.Getenv("STTRACE") == "all")
+	lConflict.SetDebug("conflict", strings.Contains(os.Getenv("STTRACE"), "conflict") || os.Getenv("STTRACE") == "all")
 }
 
 func shouldDebug() bool {
