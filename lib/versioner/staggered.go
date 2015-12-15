@@ -258,16 +258,18 @@ func (v Staggered) Archive(filePath string) error {
 	}
 
 	// Glob according to the new file~timestamp.ext pattern.
-	newVersions, err := osutil.Glob(filepath.Join(dir, taggedFilename(file, TimeGlob)))
+	pattern := filepath.Join(dir, taggedFilename(file, TimeGlob))
+	newVersions, err := osutil.Glob(pattern)
 	if err != nil {
-		l.Warnln("globbing:", err)
+		l.Warnln("globbing:", err, "for", pattern)
 		return nil
 	}
 
 	// Also according to the old file.ext~timestamp pattern.
-	oldVersions, err := osutil.Glob(filepath.Join(dir, file+"~"+TimeGlob))
+	pattern = filepath.Join(dir, file+"~"+TimeGlob)
+	oldVersions, err := osutil.Glob(pattern)
 	if err != nil {
-		l.Warnln("globbing:", err)
+		l.Warnln("globbing:", err, "for", pattern)
 		return nil
 	}
 
