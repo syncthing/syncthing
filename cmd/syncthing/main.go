@@ -305,43 +305,14 @@ func main() {
 		return
 	}
 
-	if doUpgrade || doUpgradeCheck {
-		releasesURL := "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"
-		if cfg, _, err := loadConfig(locations[locConfigFile]); err == nil {
-			releasesURL = cfg.Options().ReleasesURL
-		}
-		rel, err := upgrade.LatestRelease(releasesURL, Version)
-		if err != nil {
-			l.Fatalln("Upgrade:", err) // exits 1
-		}
+	if doUpgradeCheck {
+		checkUpgrade()
+		return
+	}
 
-		if upgrade.CompareVersions(rel.Tag, Version) <= 0 {
-			l.Infof("No upgrade available (current %q >= latest %q).", Version, rel.Tag)
-			os.Exit(exitNoUpgradeAvailable)
-		}
-
-		l.Infof("Upgrade available (current %q < latest %q)", Version, rel.Tag)
-
-		if doUpgrade {
-			// Use leveldb database locks to protect against concurrent upgrades
-			_, err = db.Open(locations[locDatabase])
-			if err != nil {
-				l.Infoln("Attempting upgrade through running Syncthing...")
-				err = upgradeViaRest()
-				if err != nil {
-					l.Fatalln("Upgrade:", err)
-				}
-				l.Okln("Syncthing upgrading")
-				return
-			}
-
-			err = upgrade.To(rel)
-			if err != nil {
-				l.Fatalln("Upgrade:", err) // exits 1
-			}
-			l.Okf("Upgraded to %q", rel.Tag)
-		}
-
+	if doUpgrade {
+		release := checkUpgrade()
+		performUpgrade(release)
 		return
 	}
 
@@ -427,6 +398,46 @@ func debugFacilities() string {
 		fmt.Fprintf(b, " %-*s - %s\n", maxLen, name, facilities[name])
 	}
 	return b.String()
+}
+
+func checkUpgrade() upgrade.Release {
+	releasesURL := "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"
+	if cfg, _, err := loadConfig(locations[locConfigFile]); err == nil {
+		releasesURL = cfg.Options().ReleasesURL
+	}
+	release, err := upgrade.LatestRelease(releasesURL, Version)
+	if err != nil {
+		l.Fatalln("Upgrade:", err)
+	}
+
+	if upgrade.CompareVersions(release.Tag, Version) <= 0 {
+		noUpgradeMessage := "No upgrade available (current %q >= latest %q)."
+		l.Infof(noUpgradeMessage, Version, release.Tag)
+		os.Exit(exitNoUpgradeAvailable)
+	}
+
+	l.Infof("Upgrade available (current %q < latest %q)", Version, release.Tag)
+	return release
+}
+
+func performUpgrade(release upgrade.Release) {
+	// Use leveldb database locks to protect against concurrent upgrades
+	_, err := db.Open(locations[locDatabase])
+	if err == nil {
+		err = upgrade.To(release)
+		if err != nil {
+			l.Fatalln("Upgrade:", err)
+		}
+		l.Okf("Upgraded to %q", release.Tag)
+	} else {
+		l.Infoln("Attempting upgrade through running Syncthing...")
+		err = upgradeViaRest()
+		if err != nil {
+			l.Fatalln("Upgrade:", err)
+		}
+		l.Okln("Syncthing upgrading")
+		os.Exit(exitUpgrading)
+	}
 }
 
 func upgradeViaRest() error {
