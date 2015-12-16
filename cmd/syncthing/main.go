@@ -198,6 +198,7 @@ var (
 	doUpgradeCheck bool
 	upgradeTo      string
 	noBrowser      bool
+	browserOnly    bool
 	noConsole      bool
 	logFile        string
 	auditEnabled   bool
@@ -232,6 +233,7 @@ func main() {
 	flag.StringVar(&confDir, "home", "", "Set configuration directory")
 	flag.IntVar(&logFlags, "logflags", logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&noBrowser, "no-browser", false, "Do not start browser")
+	flag.BoolVar(&browserOnly, "browser-only", false, "Open GUI in browser")
 	flag.BoolVar(&noRestart, "no-restart", noRestart, "Do not restart; just exit")
 	flag.BoolVar(&reset, "reset", false, "Reset the database")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
@@ -279,6 +281,11 @@ func main() {
 
 	if showVersion {
 		fmt.Println(LongVersion)
+		return
+	}
+
+	if browserOnly {
+		openGUI()
 		return
 	}
 
@@ -354,6 +361,18 @@ func main() {
 		syncthingMain()
 	} else {
 		monitorMain()
+	}
+}
+
+func openGUI() {
+	cfg, _, err := loadConfig(locations[locConfigFile])
+	if err != nil {
+		l.Fatalln("Config:", err)
+	}
+	if cfg.GUI().Enabled {
+		openURL(cfg.GUI().URL())
+	} else {
+		l.Warnln("Browser: GUI is currently disabled")
 	}
 }
 
