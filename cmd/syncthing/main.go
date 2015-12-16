@@ -289,10 +289,6 @@ func main() {
 		return
 	}
 
-	if info, err := os.Stat(baseDirs["config"]); err == nil && !info.IsDir() {
-		l.Fatalln("Config directory", baseDirs["config"], "is not a directory")
-	}
-
 	// Ensure that our home directory exists.
 	ensureDir(baseDirs["config"], 0700)
 
@@ -1007,15 +1003,16 @@ func shutdown() {
 	stop <- exitSuccess
 }
 
-func ensureDir(dir string, mode int) {
-	fi, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		err := osutil.MkdirAll(dir, 0700)
-		if err != nil {
-			l.Fatalln(err)
-		}
-	} else if mode >= 0 && err == nil && int(fi.Mode()&0777) != mode {
-		err := os.Chmod(dir, os.FileMode(mode))
+func ensureDir(dir string, mode os.FileMode) {
+	err := osutil.MkdirAll(dir, mode)
+	if err != nil {
+		l.Fatalln(err)
+	}
+
+	fi, _ := os.Stat(dir)
+	currentMode := fi.Mode() & 0777
+	if mode >= 0 && currentMode != mode {
+		err := os.Chmod(dir, mode)
 		// This can fail on crappy filesystems, nothing we can do about it.
 		if err != nil {
 			l.Warnln(err)
