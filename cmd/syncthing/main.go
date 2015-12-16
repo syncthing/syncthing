@@ -203,6 +203,9 @@ var (
 	auditEnabled   bool
 	verbose        bool
 	paused         bool
+	guiAddress     string
+	guiAPIKey      string
+	generateDir    string
 	noRestart      = os.Getenv("STNORESTART") != ""
 	noUpgrade      = os.Getenv("STNOUPGRADE") != ""
 	profiler       = os.Getenv("STPROFILER")
@@ -212,7 +215,7 @@ var (
 	innerProcess   = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
 )
 
-func main() {
+func parseCommandLineOptions() {
 	if runtime.GOOS == "windows" {
 		// On Windows, we use a log file by default. Setting the -logfile flag
 		// to "-" disables this behavior.
@@ -224,8 +227,6 @@ func main() {
 		flag.StringVar(&logFile, "logfile", "-", "Log file name (use \"-\" for stdout)")
 	}
 
-	var guiAddress, guiAPIKey string
-	var generateDir string
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
 	flag.StringVar(&guiAPIKey, "gui-apikey", guiAPIKey, "Override GUI API key")
@@ -245,6 +246,10 @@ func main() {
 	longUsage := fmt.Sprintf(extraUsage, baseDirs["config"], debugFacilities())
 	flag.Usage = usageFor(flag.CommandLine, usage, longUsage)
 	flag.Parse()
+}
+
+func main() {
+	parseCommandLineOptions()
 
 	if guiAddress != "" {
 		// The config picks this up from the environment.
