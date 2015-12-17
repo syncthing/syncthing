@@ -118,7 +118,6 @@ func init() {
 
 var (
 	myID     protocol.DeviceID
-	confDir  string
 	logFlags = log.Ltime
 	stop     = make(chan int)
 	cert     tls.Certificate
@@ -190,8 +189,14 @@ The following are valid values for the STTRACE variable:
 %s`
 )
 
-// Command line and environment options
+// Environment options
 var (
+	noUpgrade    = os.Getenv("STNOUPGRADE") != ""
+	innerProcess = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
+)
+
+type RuntimeOptions struct {
+	confDir        string
 	reset          bool
 	showVersion    bool
 	doUpgrade      bool
@@ -207,132 +212,140 @@ var (
 	guiAddress     string
 	guiAPIKey      string
 	generateDir    string
-	noRestart      = os.Getenv("STNORESTART") != ""
-	noUpgrade      = os.Getenv("STNOUPGRADE") != ""
-	profiler       = os.Getenv("STPROFILER")
-	guiAssets      = os.Getenv("STGUIASSETS")
-	cpuProfile     = os.Getenv("STCPUPROFILE") != ""
-	stRestarting   = os.Getenv("STRESTART") != ""
-	innerProcess   = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
-)
+	noRestart      bool
+	profiler       string
+	guiAssets      string
+	cpuProfile     bool
+	stRestarting   bool
+}
 
-func parseCommandLineOptions() {
-	if runtime.GOOS == "windows" {
-		// On Windows, we use a log file by default. Setting the -logfile flag
-		// to "-" disables this behavior.
-		flag.StringVar(&logFile, "logfile", "", "Log file name (use \"-\" for stdout)")
-
-		// We also add an option to hide the console window
-		flag.BoolVar(&noConsole, "no-console", false, "Hide console window")
-	} else {
-		flag.StringVar(&logFile, "logfile", "-", "Log file name (use \"-\" for stdout)")
+func defaultRuntimeOptions() RuntimeOptions {
+	options := RuntimeOptions{
+		noRestart:    os.Getenv("STNORESTART") != "",
+		profiler:     os.Getenv("STPROFILER"),
+		guiAssets:    os.Getenv("STGUIASSETS"),
+		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
+		stRestarting: os.Getenv("STRESTART") != "",
+		logFile:      "-", // Output to stdout
 	}
 
-	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
-	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
-	flag.StringVar(&guiAPIKey, "gui-apikey", guiAPIKey, "Override GUI API key")
-	flag.StringVar(&confDir, "home", "", "Set configuration directory")
+	if options.guiAssets != "" {
+		options.guiAssets = locations[locGUIAssets]
+	}
+
+	if runtime.GOOS == "windows" {
+		options.logFile = locations[locLogFile]
+	}
+
+	return options
+}
+
+func parseCommandLineOptions() RuntimeOptions {
+	options := defaultRuntimeOptions()
+
+	flag.StringVar(&options.generateDir, "generate", "", "Generate key and config in specified dir, then exit")
+	flag.StringVar(&options.guiAddress, "gui-address", options.guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
+	flag.StringVar(&options.guiAPIKey, "gui-apikey", options.guiAPIKey, "Override GUI API key")
+	flag.StringVar(&options.confDir, "home", "", "Set configuration directory")
 	flag.IntVar(&logFlags, "logflags", logFlags, "Select information in log line prefix (see below)")
-	flag.BoolVar(&noBrowser, "no-browser", false, "Do not start browser")
-	flag.BoolVar(&browserOnly, "browser-only", false, "Open GUI in browser")
-	flag.BoolVar(&noRestart, "no-restart", noRestart, "Do not restart; just exit")
-	flag.BoolVar(&reset, "reset", false, "Reset the database")
-	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
-	flag.BoolVar(&doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
-	flag.BoolVar(&showVersion, "version", false, "Show version")
-	flag.StringVar(&upgradeTo, "upgrade-to", upgradeTo, "Force upgrade directly from specified URL")
-	flag.BoolVar(&auditEnabled, "audit", false, "Write events to audit file")
-	flag.BoolVar(&verbose, "verbose", false, "Print verbose log output")
-	flag.BoolVar(&paused, "paused", false, "Start with all devices paused")
+	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
+	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
+	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Do not restart; just exit")
+	flag.BoolVar(&options.reset, "reset", false, "Reset the database")
+	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
+	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
+	flag.BoolVar(&options.showVersion, "version", false, "Show version")
+	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
+	flag.BoolVar(&options.auditEnabled, "audit", false, "Write events to audit file")
+	flag.BoolVar(&options.verbose, "verbose", false, "Print verbose log output")
+	flag.BoolVar(&options.paused, "paused", false, "Start with all devices paused")
+	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (use \"-\" for stdout)")
+	if runtime.GOOS == "windows" {
+		// Allow user to hide the console window
+		flag.BoolVar(&options.noConsole, "no-console", false, "Hide console window")
+	}
 
 	longUsage := fmt.Sprintf(extraUsage, baseDirs["config"], debugFacilities())
 	flag.Usage = usageFor(flag.CommandLine, usage, longUsage)
 	flag.Parse()
+
+	return options
 }
 
 func main() {
-	parseCommandLineOptions()
+	options := parseCommandLineOptions()
 
-	if guiAddress != "" {
+	if options.guiAddress != "" {
 		// The config picks this up from the environment.
-		os.Setenv("STGUIADDRESS", guiAddress)
+		os.Setenv("STGUIADDRESS", options.guiAddress)
 	}
-	if guiAPIKey != "" {
+	if options.guiAPIKey != "" {
 		// The config picks this up from the environment.
-		os.Setenv("STGUIAPIKEY", guiAPIKey)
+		os.Setenv("STGUIAPIKEY", options.guiAPIKey)
 	}
 
-	if noConsole {
+	if options.noConsole {
 		osutil.HideConsole()
 	}
 
-	if confDir != "" {
+	if options.confDir != "" {
 		// Not set as default above because the string can be really long.
-		baseDirs["config"] = confDir
+		baseDirs["config"] = options.confDir
 	}
 
 	if err := expandLocations(); err != nil {
 		l.Fatalln(err)
 	}
 
-	if guiAssets == "" {
-		guiAssets = locations[locGUIAssets]
-	}
-
-	if logFile == "" {
-		// Use the default log file location
-		logFile = locations[locLogFile]
-	}
-
-	if showVersion {
+	if options.showVersion {
 		fmt.Println(LongVersion)
 		return
 	}
 
-	if browserOnly {
+	if options.browserOnly {
 		openGUI()
 		return
 	}
 
 	l.SetFlags(logFlags)
 
-	if generateDir != "" {
-		generate(generateDir)
+	if options.generateDir != "" {
+		generate(options.generateDir)
 		return
 	}
 
 	// Ensure that our home directory exists.
 	ensureDir(baseDirs["config"], 0700)
 
-	if upgradeTo != "" {
-		err := upgrade.ToURL(upgradeTo)
+	if options.upgradeTo != "" {
+		err := upgrade.ToURL(options.upgradeTo)
 		if err != nil {
 			l.Fatalln("Upgrade:", err) // exits 1
 		}
-		l.Okln("Upgraded from", upgradeTo)
+		l.Okln("Upgraded from", options.upgradeTo)
 		return
 	}
 
-	if doUpgradeCheck {
+	if options.doUpgradeCheck {
 		checkUpgrade()
 		return
 	}
 
-	if doUpgrade {
+	if options.doUpgrade {
 		release := checkUpgrade()
 		performUpgrade(release)
 		return
 	}
 
-	if reset {
+	if options.reset {
 		resetDB()
 		return
 	}
 
-	if noRestart {
-		syncthingMain()
+	if options.noRestart {
+		syncthingMain(options)
 	} else {
-		monitorMain()
+		monitorMain(options)
 	}
 }
 
@@ -494,7 +507,7 @@ func upgradeViaRest() error {
 	return err
 }
 
-func syncthingMain() {
+func syncthingMain(runtimeOptions RuntimeOptions) {
 	setupSignalHandling()
 
 	// Create a main service manager. We'll add things to this as we go along.
@@ -510,11 +523,11 @@ func syncthingMain() {
 	// lines look ugly.
 	l.SetPrefix("[start] ")
 
-	if auditEnabled {
+	if runtimeOptions.auditEnabled {
 		startAuditing(mainSvc)
 	}
 
-	if verbose {
+	if runtimeOptions.verbose {
 		mainSvc.Add(newVerboseSvc())
 	}
 
@@ -594,11 +607,11 @@ func syncthingMain() {
 		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one if the following:\n  ", err)
 	}
 
-	if len(profiler) > 0 {
+	if len(runtimeOptions.profiler) > 0 {
 		go func() {
-			l.Debugln("Starting profiler on", profiler)
+			l.Debugln("Starting profiler on", runtimeOptions.profiler)
 			runtime.SetBlockProfileRate(1)
-			err := http.ListenAndServe(profiler, nil)
+			err := http.ListenAndServe(runtimeOptions.profiler, nil)
 			if err != nil {
 				l.Fatalln(err)
 			}
@@ -693,7 +706,7 @@ func syncthingMain() {
 		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
-	if paused {
+	if runtimeOptions.paused {
 		for device := range cfg.Devices() {
 			m.PauseDevice(device)
 		}
@@ -798,14 +811,14 @@ func syncthingMain() {
 
 	// GUI
 
-	setupGUI(mainSvc, cfg, m, apiSub, cachedDiscovery, relaySvc, errors, systemLog)
+	setupGUI(mainSvc, cfg, m, apiSub, cachedDiscovery, relaySvc, errors, systemLog, runtimeOptions)
 
 	// Start connection management
 
 	connectionSvc := connections.NewConnectionSvc(cfg, myID, m, tlsCfg, cachedDiscovery, relaySvc, bepProtocolName, tlsDefaultCommonName, lans)
 	mainSvc.Add(connectionSvc)
 
-	if cpuProfile {
+	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
 			log.Fatal(err)
@@ -867,7 +880,7 @@ func syncthingMain() {
 
 	l.Okln("Exiting")
 
-	if cpuProfile {
+	if runtimeOptions.cpuProfile {
 		pprof.StopCPUProfile()
 	}
 
@@ -952,7 +965,7 @@ func startAuditing(mainSvc *suture.Supervisor) {
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc, errors, systemLog *logger.Recorder) {
+func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc, errors, systemLog *logger.Recorder, runtimeOptions RuntimeOptions) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -963,14 +976,14 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	api, err := newAPISvc(myID, cfg, guiAssets, m, apiSub, discoverer, relaySvc, errors, systemLog)
+	api, err := newAPISvc(myID, cfg, runtimeOptions.guiAssets, m, apiSub, discoverer, relaySvc, errors, systemLog)
 	if err != nil {
 		l.Fatalln("Cannot start GUI:", err)
 	}
 	cfg.Subscribe(api)
 	mainSvc.Add(api)
 
-	if cfg.Options().StartBrowser && !noBrowser && !stRestarting {
+	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in it's own routine.
 		go openURL(guiCfg.URL())

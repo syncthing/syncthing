@@ -34,13 +34,14 @@ const (
 	logFileMaxOpenTime    = time.Minute
 )
 
-func monitorMain() {
+func monitorMain(runtimeOptions RuntimeOptions) {
 	os.Setenv("STNORESTART", "yes")
 	os.Setenv("STMONITORED", "yes")
 	l.SetPrefix("[monitor] ")
 
 	var dst io.Writer = os.Stdout
 
+	logFile := runtimeOptions.logFile
 	if logFile != "-" {
 		var fileDst io.Writer = newAutoclosedFile(logFile, logFileAutoCloseDelay, logFileMaxOpenTime)
 
