@@ -203,6 +203,9 @@ var (
 	auditEnabled   bool
 	verbose        bool
 	paused         bool
+	guiAddress     string
+	guiAPIKey      string
+	generateDir    string
 	noRestart      = os.Getenv("STNORESTART") != ""
 	noUpgrade      = os.Getenv("STNOUPGRADE") != ""
 	profiler       = os.Getenv("STPROFILER")
@@ -212,7 +215,7 @@ var (
 	innerProcess   = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
 )
 
-func main() {
+func parseCommandLineOptions() {
 	if runtime.GOOS == "windows" {
 		// On Windows, we use a log file by default. Setting the -logfile flag
 		// to "-" disables this behavior.
@@ -224,8 +227,6 @@ func main() {
 		flag.StringVar(&logFile, "logfile", "-", "Log file name (use \"-\" for stdout)")
 	}
 
-	var guiAddress, guiAPIKey string
-	var generateDir string
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
 	flag.StringVar(&guiAPIKey, "gui-apikey", guiAPIKey, "Override GUI API key")
@@ -245,6 +246,10 @@ func main() {
 	longUsage := fmt.Sprintf(extraUsage, baseDirs["config"], debugFacilities())
 	flag.Usage = usageFor(flag.CommandLine, usage, longUsage)
 	flag.Parse()
+}
+
+func main() {
+	parseCommandLineOptions()
 
 	if guiAddress != "" {
 		// The config picks this up from the environment.
@@ -289,10 +294,6 @@ func main() {
 		return
 	}
 
-	if info, err := os.Stat(baseDirs["config"]); err == nil && !info.IsDir() {
-		l.Fatalln("Config directory", baseDirs["config"], "is not a directory")
-	}
-
 	// Ensure that our home directory exists.
 	ensureDir(baseDirs["config"], 0700)
 
@@ -305,43 +306,14 @@ func main() {
 		return
 	}
 
-	if doUpgrade || doUpgradeCheck {
-		releasesURL := "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"
-		if cfg, _, err := loadConfig(locations[locConfigFile]); err == nil {
-			releasesURL = cfg.Options().ReleasesURL
-		}
-		rel, err := upgrade.LatestRelease(releasesURL, Version)
-		if err != nil {
-			l.Fatalln("Upgrade:", err) // exits 1
-		}
+	if doUpgradeCheck {
+		checkUpgrade()
+		return
+	}
 
-		if upgrade.CompareVersions(rel.Tag, Version) <= 0 {
-			l.Infof("No upgrade available (current %q >= latest %q).", Version, rel.Tag)
-			os.Exit(exitNoUpgradeAvailable)
-		}
-
-		l.Infof("Upgrade available (current %q < latest %q)", Version, rel.Tag)
-
-		if doUpgrade {
-			// Use leveldb database locks to protect against concurrent upgrades
-			_, err = db.Open(locations[locDatabase])
-			if err != nil {
-				l.Infoln("Attempting upgrade through running Syncthing...")
-				err = upgradeViaRest()
-				if err != nil {
-					l.Fatalln("Upgrade:", err)
-				}
-				l.Okln("Syncthing upgrading")
-				return
-			}
-
-			err = upgrade.To(rel)
-			if err != nil {
-				l.Fatalln("Upgrade:", err) // exits 1
-			}
-			l.Okf("Upgraded to %q", rel.Tag)
-		}
-
+	if doUpgrade {
+		release := checkUpgrade()
+		performUpgrade(release)
 		return
 	}
 
@@ -427,6 +399,46 @@ func debugFacilities() string {
 		fmt.Fprintf(b, " %-*s - %s\n", maxLen, name, facilities[name])
 	}
 	return b.String()
+}
+
+func checkUpgrade() upgrade.Release {
+	releasesURL := "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"
+	if cfg, _, err := loadConfig(locations[locConfigFile]); err == nil {
+		releasesURL = cfg.Options().ReleasesURL
+	}
+	release, err := upgrade.LatestRelease(releasesURL, Version)
+	if err != nil {
+		l.Fatalln("Upgrade:", err)
+	}
+
+	if upgrade.CompareVersions(release.Tag, Version) <= 0 {
+		noUpgradeMessage := "No upgrade available (current %q >= latest %q)."
+		l.Infof(noUpgradeMessage, Version, release.Tag)
+		os.Exit(exitNoUpgradeAvailable)
+	}
+
+	l.Infof("Upgrade available (current %q < latest %q)", Version, release.Tag)
+	return release
+}
+
+func performUpgrade(release upgrade.Release) {
+	// Use leveldb database locks to protect against concurrent upgrades
+	_, err := db.Open(locations[locDatabase])
+	if err == nil {
+		err = upgrade.To(release)
+		if err != nil {
+			l.Fatalln("Upgrade:", err)
+		}
+		l.Okf("Upgraded to %q", release.Tag)
+	} else {
+		l.Infoln("Attempting upgrade through running Syncthing...")
+		err = upgradeViaRest()
+		if err != nil {
+			l.Fatalln("Upgrade:", err)
+		}
+		l.Okln("Syncthing upgrading")
+		os.Exit(exitUpgrading)
+	}
 }
 
 func upgradeViaRest() error {
@@ -996,15 +1008,16 @@ func shutdown() {
 	stop <- exitSuccess
 }
 
-func ensureDir(dir string, mode int) {
-	fi, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		err := osutil.MkdirAll(dir, 0700)
-		if err != nil {
-			l.Fatalln(err)
-		}
-	} else if mode >= 0 && err == nil && int(fi.Mode()&0777) != mode {
-		err := os.Chmod(dir, os.FileMode(mode))
+func ensureDir(dir string, mode os.FileMode) {
+	err := osutil.MkdirAll(dir, mode)
+	if err != nil {
+		l.Fatalln(err)
+	}
+
+	fi, _ := os.Stat(dir)
+	currentMode := fi.Mode() & 0777
+	if mode >= 0 && currentMode != mode {
+		err := os.Chmod(dir, mode)
 		// This can fail on crappy filesystems, nothing we can do about it.
 		if err != nil {
 			l.Warnln(err)
