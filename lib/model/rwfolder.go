@@ -757,7 +757,7 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 	realName := filepath.Join(p.dir, file.Name)
 
 	cur, ok := p.model.CurrentFolderFile(p.folder, file.Name)
-	if ok && p.inConflict(cur.Version, file.Version) {
+	if ok && p.inConflict(cur, file) {
 		// There is a conflict here. Move the file to a conflict copy instead
 		// of deleting. Also merge with the version vector we had, to indicate
 		// we have resolved the conflict.
@@ -1029,6 +1029,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		reused:      reused,
 		ignorePerms: p.ignorePermissions(file),
 		version:     curFile.Version,
+		curFile:     curFile,
 		mut:         sync.NewMutex(),
 		sparse:      p.allowSparse,
 	}
@@ -1295,7 +1296,7 @@ func (p *rwFolder) performFinish(state *sharedPullerState) error {
 				return err
 			}
 
-		case p.inConflict(state.version, state.file.Version):
+		case p.inConflict(state.curFile, state.file):
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
 			// archiving. Also merge with the version vector we had, to indicate
@@ -1459,20 +1460,26 @@ loop:
 	}
 }
 
-func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
-	if current.Concurrent(replacement) {
+func (p *rwFolder) inConflict(current, replacement protocol.FileInfo) bool {
+	if current.Version.Concurrent(replacement.Version) {
 		// Obvious case
+		lConflict.Debugf("Conflicting files: %#v %#v", current, replacement)
 		return true
 	}
-	if replacement.Counter(p.shortID) > current.Counter(p.shortID) {
+	if replacement.Version.Counter(p.shortID) > current.Version.Counter(p.shortID) {
 		// The replacement file contains a higher version for ourselves than
 		// what we have. This isn't supposed to be possible, since it's only
 		// we who can increment that counter. We take it as a sign that
 		// something is wrong (our index may have been corrupted or removed)
 		// and flag it as a conflict.
+		lConflict.Debugf("Conflicting files (wat?): %#v %#v", current, replacement)
 		return true
 	}
 	return false
+}
+
+func (p *rwFolder) logConflict(cur, file protocol.FileInfo) {
+
 }
 
 func removeDevice(devices []protocol.DeviceID, device protocol.DeviceID) []protocol.DeviceID {

@@ -27,6 +27,7 @@ type sharedPullerState struct {
 	reused      int // Number of blocks reused from temporary file
 	ignorePerms bool
 	version     protocol.Vector // The current (old) version
+	curFile     protocol.FileInfo
 	sparse      bool
 
 	// Mutable, must be locked for access
