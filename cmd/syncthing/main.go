@@ -110,18 +110,13 @@ func init() {
 
 	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
 	LongVersion = fmt.Sprintf(`syncthing %s "%s" (%s %s-%s) %s@%s %s`, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
-
-	if os.Getenv("STTRACE") != "" {
-		logFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
-	}
 }
 
 var (
-	myID     protocol.DeviceID
-	logFlags = log.Ltime
-	stop     = make(chan int)
-	cert     tls.Certificate
-	lans     []*net.IPNet
+	myID protocol.DeviceID
+	stop = make(chan int)
+	cert tls.Certificate
+	lans []*net.IPNet
 )
 
 const (
@@ -217,6 +212,7 @@ type RuntimeOptions struct {
 	guiAssets      string
 	cpuProfile     bool
 	stRestarting   bool
+	logFlags       int
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -227,10 +223,15 @@ func defaultRuntimeOptions() RuntimeOptions {
 		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
 		stRestarting: os.Getenv("STRESTART") != "",
 		logFile:      "-", // Output to stdout
+		logFlags:     log.Ltime,
 	}
 
 	if options.guiAssets != "" {
 		options.guiAssets = locations[locGUIAssets]
+	}
+
+	if os.Getenv("STTRACE") != "" {
+		options.logFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
 	}
 
 	if runtime.GOOS == "windows" {
@@ -247,7 +248,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.guiAddress, "gui-address", options.guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
 	flag.StringVar(&options.guiAPIKey, "gui-apikey", options.guiAPIKey, "Override GUI API key")
 	flag.StringVar(&options.confDir, "home", "", "Set configuration directory")
-	flag.IntVar(&logFlags, "logflags", logFlags, "Select information in log line prefix (see below)")
+	flag.IntVar(&options.logFlags, "logflags", options.logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
 	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Do not restart; just exit")
@@ -274,6 +275,7 @@ func parseCommandLineOptions() RuntimeOptions {
 
 func main() {
 	options := parseCommandLineOptions()
+	l.SetFlags(options.logFlags)
 
 	if options.guiAddress != "" {
 		// The config picks this up from the environment.
@@ -306,8 +308,6 @@ func main() {
 		openGUI()
 		return
 	}
-
-	l.SetFlags(logFlags)
 
 	if options.generateDir != "" {
 		generate(options.generateDir)
