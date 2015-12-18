@@ -199,7 +199,7 @@ type RuntimeOptions struct {
 	upgradeTo      string
 	noBrowser      bool
 	browserOnly    bool
-	noConsole      bool
+	hideConsole    bool
 	logFile        string
 	auditEnabled   bool
 	verbose        bool
@@ -263,7 +263,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (use \"-\" for stdout)")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
-		flag.BoolVar(&options.noConsole, "no-console", false, "Hide console window")
+		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
 	}
 
 	longUsage := fmt.Sprintf(extraUsage, baseDirs["config"], debugFacilities())
@@ -286,7 +286,7 @@ func main() {
 		os.Setenv("STGUIAPIKEY", options.guiAPIKey)
 	}
 
-	if options.noConsole {
+	if options.hideConsole {
 		osutil.HideConsole()
 	}
 
