@@ -366,17 +366,7 @@ func generate(generateDir string) {
 	if err != nil {
 		l.Fatalln("generate:", err)
 	}
-
-	info, err := os.Stat(dir)
-	if err == nil && !info.IsDir() {
-		l.Fatalln(dir, "is not a directory")
-	}
-	if err != nil && os.IsNotExist(err) {
-		err = osutil.MkdirAll(dir, 0700)
-		if err != nil {
-			l.Fatalln("generate:", err)
-		}
-	}
+	ensureDir(dir, 0700)
 
 	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
