@@ -26,6 +26,12 @@ to select a different location.
 Configuring
 -----------
 
+.. note::
+   If you are running an instance of syncthing on the discovery server,
+   you must either add that instance to other nodes using a static 
+   address or bind the discovery server and syncthing instances to
+   different IP addresses.
+
 Running discosrv with non-default settings requires passing the
 respective parameters to discosrv on every start. ``discosrv -help``
 gives you all the tweakables with their defaults:
