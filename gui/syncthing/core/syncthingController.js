@@ -970,13 +970,14 @@ angular.module('syncthing.core')
             $('#idqr').modal('show');
         };
 
-        $scope.addDevice = function () {
-            $http.get(urlbase + '/system/discovery')
+        $scope.addDevice = function (deviceID) {
+            return $http.get(urlbase + '/system/discovery')
                 .success(function (registry) {
                     $scope.discovery = registry;
                 })
                 .then(function () {
                     $scope.currentDevice = {
+                        deviceID: deviceID,
                         _addressesStr: 'dynamic',
                         compression: 'metadata',
                         introducer: false,
@@ -1016,18 +1017,7 @@ angular.module('syncthing.core')
         $scope.saveDevice = function () {
             $('#editDevice').modal('hide');
             $scope.saveDeviceConfig($scope.currentDevice);
-        };
-
-        $scope.addNewDeviceID = function (device) {
-            var deviceCfg = {
-                deviceID: device,
-                _addressesStr: 'dynamic',
-                compression: 'metadata',
-                introducer: false,
-                selectedFolders: {}
-            };
-            $scope.saveDeviceConfig(deviceCfg);
-            $scope.dismissDeviceRejection(device);
+            $scope.dismissDeviceRejection($scope.currentDevice.deviceID);
         };
 
         $scope.saveDeviceConfig = function (deviceCfg) {
