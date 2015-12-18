@@ -19,6 +19,7 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -26,6 +27,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -196,11 +198,15 @@ var (
 	doUpgradeCheck bool
 	upgradeTo      string
 	noBrowser      bool
+	browserOnly    bool
 	noConsole      bool
 	logFile        string
 	auditEnabled   bool
 	verbose        bool
 	paused         bool
+	guiAddress     string
+	guiAPIKey      string
+	generateDir    string
 	noRestart      = os.Getenv("STNORESTART") != ""
 	noUpgrade      = os.Getenv("STNOUPGRADE") != ""
 	profiler       = os.Getenv("STPROFILER")
@@ -210,7 +216,7 @@ var (
 	innerProcess   = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
 )
 
-func main() {
+func parseCommandLineOptions() {
 	if runtime.GOOS == "windows" {
 		// On Windows, we use a log file by default. Setting the -logfile flag
 		// to "-" disables this behavior.
@@ -222,14 +228,13 @@ func main() {
 		flag.StringVar(&logFile, "logfile", "-", "Log file name (use \"-\" for stdout)")
 	}
 
-	var guiAddress, guiAPIKey string
-	var generateDir string
 	flag.StringVar(&generateDir, "generate", "", "Generate key and config in specified dir, then exit")
-	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address")
+	flag.StringVar(&guiAddress, "gui-address", guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
 	flag.StringVar(&guiAPIKey, "gui-apikey", guiAPIKey, "Override GUI API key")
 	flag.StringVar(&confDir, "home", "", "Set configuration directory")
-	flag.IntVar(&logFlags, "logflags", logFlags, "Select information in log line prefix")
+	flag.IntVar(&logFlags, "logflags", logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&noBrowser, "no-browser", false, "Do not start browser")
+	flag.BoolVar(&browserOnly, "browser-only", false, "Open GUI in browser")
 	flag.BoolVar(&noRestart, "no-restart", noRestart, "Do not restart; just exit")
 	flag.BoolVar(&reset, "reset", false, "Reset the database")
 	flag.BoolVar(&doUpgrade, "upgrade", false, "Perform upgrade")
@@ -243,6 +248,10 @@ func main() {
 	longUsage := fmt.Sprintf(extraUsage, baseDirs["config"], debugFacilities())
 	flag.Usage = usageFor(flag.CommandLine, usage, longUsage)
 	flag.Parse()
+}
+
+func main() {
+	parseCommandLineOptions()
 
 	if guiAddress != "" {
 		// The config picks this up from the environment.
@@ -280,15 +289,16 @@ func main() {
 		return
 	}
 
+	if browserOnly {
+		openGUI()
+		return
+	}
+
 	l.SetFlags(logFlags)
 
 	if generateDir != "" {
 		generate(generateDir)
 		return
-	}
-
-	if info, err := os.Stat(baseDirs["config"]); err == nil && !info.IsDir() {
-		l.Fatalln("Config directory", baseDirs["config"], "is not a directory")
 	}
 
 	// Ensure that our home directory exists.
@@ -303,43 +313,14 @@ func main() {
 		return
 	}
 
-	if doUpgrade || doUpgradeCheck {
-		releasesURL := "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"
-		if cfg, _, err := loadConfig(locations[locConfigFile]); err == nil {
-			releasesURL = cfg.Options().ReleasesURL
-		}
-		rel, err := upgrade.LatestRelease(releasesURL, Version)
-		if err != nil {
-			l.Fatalln("Upgrade:", err) // exits 1
-		}
+	if doUpgradeCheck {
+		checkUpgrade()
+		return
+	}
 
-		if upgrade.CompareVersions(rel.Tag, Version) <= 0 {
-			l.Infof("No upgrade available (current %q >= latest %q).", Version, rel.Tag)
-			os.Exit(exitNoUpgradeAvailable)
-		}
-
-		l.Infof("Upgrade available (current %q < latest %q)", Version, rel.Tag)
-
-		if doUpgrade {
-			// Use leveldb database locks to protect against concurrent upgrades
-			_, err = db.Open(locations[locDatabase])
-			if err != nil {
-				l.Infoln("Attempting upgrade through running Syncthing...")
-				err = upgradeViaRest()
-				if err != nil {
-					l.Fatalln("Upgrade:", err)
-				}
-				l.Okln("Syncthing upgrading")
-				return
-			}
-
-			err = upgrade.To(rel)
-			if err != nil {
-				l.Fatalln("Upgrade:", err) // exits 1
-			}
-			l.Okf("Upgraded to %q", rel.Tag)
-		}
-
+	if doUpgrade {
+		release := checkUpgrade()
+		performUpgrade(release)
 		return
 	}
 
@@ -352,6 +333,18 @@ func main() {
 		syncthingMain()
 	} else {
 		monitorMain()
+	}
+}
+
+func openGUI() {
+	cfg, _, err := loadConfig(locations[locConfigFile])
+	if err != nil {
+		l.Fatalln("Config:", err)
+	}
+	if cfg.GUI().Enabled {
+		openURL(cfg.GUI().URL())
+	} else {
+		l.Warnln("Browser: GUI is currently disabled")
 	}
 }
 
@@ -427,6 +420,46 @@ func debugFacilities() string {
 	return b.String()
 }
 
+func checkUpgrade() upgrade.Release {
+	releasesURL := "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"
+	if cfg, _, err := loadConfig(locations[locConfigFile]); err == nil {
+		releasesURL = cfg.Options().ReleasesURL
+	}
+	release, err := upgrade.LatestRelease(releasesURL, Version)
+	if err != nil {
+		l.Fatalln("Upgrade:", err)
+	}
+
+	if upgrade.CompareVersions(release.Tag, Version) <= 0 {
+		noUpgradeMessage := "No upgrade available (current %q >= latest %q)."
+		l.Infof(noUpgradeMessage, Version, release.Tag)
+		os.Exit(exitNoUpgradeAvailable)
+	}
+
+	l.Infof("Upgrade available (current %q < latest %q)", Version, release.Tag)
+	return release
+}
+
+func performUpgrade(release upgrade.Release) {
+	// Use leveldb database locks to protect against concurrent upgrades
+	_, err := db.Open(locations[locDatabase])
+	if err == nil {
+		err = upgrade.To(release)
+		if err != nil {
+			l.Fatalln("Upgrade:", err)
+		}
+		l.Okf("Upgraded to %q", release.Tag)
+	} else {
+		l.Infoln("Attempting upgrade through running Syncthing...")
+		err = upgradeViaRest()
+		if err != nil {
+			l.Fatalln("Upgrade:", err)
+		}
+		l.Okln("Syncthing upgrading")
+		os.Exit(exitUpgrading)
+	}
+}
+
 func upgradeViaRest() error {
 	cfg, err := config.Load(locations[locConfigFile], protocol.LocalDeviceID)
 	if err != nil {
@@ -462,6 +495,8 @@ func upgradeViaRest() error {
 }
 
 func syncthingMain() {
+	setupSignalHandling()
+
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
 	mainSvc := suture.New("main", suture.Spec{
@@ -839,6 +874,28 @@ func syncthingMain() {
 	os.Exit(code)
 }
 
+func setupSignalHandling() {
+	// Exit cleanly with "restarting" code on SIGHUP.
+
+	restartSign := make(chan os.Signal, 1)
+	sigHup := syscall.Signal(1)
+	signal.Notify(restartSign, sigHup)
+	go func() {
+		<-restartSign
+		stop <- exitRestarting
+	}()
+
+	// Exit with "success" code (no restart) on INT/TERM
+
+	stopSign := make(chan os.Signal, 1)
+	sigTerm := syscall.Signal(15)
+	signal.Notify(stopSign, os.Interrupt, sigTerm)
+	go func() {
+		<-stopSign
+		stop <- exitSuccess
+	}()
+}
+
 // printHashRate prints the hashing performance in MB/s, formatting it with
 // appropriate precision for the value, i.e. 182 MB/s, 18 MB/s, 1.8 MB/s, 0.18
 // MB/s.
@@ -970,15 +1027,16 @@ func shutdown() {
 	stop <- exitSuccess
 }
 
-func ensureDir(dir string, mode int) {
-	fi, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		err := osutil.MkdirAll(dir, 0700)
-		if err != nil {
-			l.Fatalln(err)
-		}
-	} else if mode >= 0 && err == nil && int(fi.Mode()&0777) != mode {
-		err := os.Chmod(dir, os.FileMode(mode))
+func ensureDir(dir string, mode os.FileMode) {
+	err := osutil.MkdirAll(dir, mode)
+	if err != nil {
+		l.Fatalln(err)
+	}
+
+	fi, _ := os.Stat(dir)
+	currentMode := fi.Mode() & 0777
+	if mode >= 0 && currentMode != mode {
+		err := os.Chmod(dir, mode)
 		// This can fail on crappy filesystems, nothing we can do about it.
 		if err != nil {
 			l.Warnln(err)
