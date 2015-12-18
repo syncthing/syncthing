@@ -44,7 +44,7 @@ func (c GUIConfiguration) Address() string {
 }
 
 func (c GUIConfiguration) UseTLS() bool {
-	if override := os.Getenv("STGUIADDRESS"); override != "" {
+	if override := os.Getenv("STGUIADDRESS"); override != "" && strings.HasPrefix(override, "http") {
 		return strings.HasPrefix(override, "https:")
 	}
 	return c.RawUseTLS
