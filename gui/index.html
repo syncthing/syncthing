@@ -121,12 +121,13 @@
         <div class="panel panel-warning">
           <div class="panel-heading">
             <h3 class="panel-title">
-              <identicon data-value="device"></identicon>&nbsp;<span translate>New Device</span>
+              <identicon data-value="device"></identicon>
+              <span translate>New Device</span>
+              <span class="pull-right">{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
             </h3>
           </div>
           <div class="panel-body">
             <p>
-              <small>{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}:</small>
               <span translate translate-value-device="{{ device }}" translate-value-address="{{ event.data.address }}">
                 Device {%device%} ({%address%}) wants to connect. Add new device?
               </span>
