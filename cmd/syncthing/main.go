@@ -209,7 +209,7 @@ type RuntimeOptions struct {
 	generateDir    string
 	noRestart      bool
 	profiler       string
-	guiAssets      string
+	assetDir       string
 	cpuProfile     bool
 	stRestarting   bool
 	logFlags       int
@@ -219,15 +219,15 @@ func defaultRuntimeOptions() RuntimeOptions {
 	options := RuntimeOptions{
 		noRestart:    os.Getenv("STNORESTART") != "",
 		profiler:     os.Getenv("STPROFILER"),
-		guiAssets:    os.Getenv("STGUIASSETS"),
+		assetDir:     os.Getenv("STGUIASSETS"),
 		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
 		stRestarting: os.Getenv("STRESTART") != "",
 		logFile:      "-", // Output to stdout
 		logFlags:     log.Ltime,
 	}
 
-	if options.guiAssets != "" {
-		options.guiAssets = locations[locGUIAssets]
+	if options.assetDir != "" {
+		options.assetDir = locations[locGUIAssets]
 	}
 
 	if os.Getenv("STTRACE") != "" {
@@ -976,7 +976,7 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	api, err := newAPISvc(myID, cfg, runtimeOptions.guiAssets, m, apiSub, discoverer, relaySvc, errors, systemLog)
+	api, err := newAPISvc(myID, cfg, runtimeOptions.assetDir, m, apiSub, discoverer, relaySvc, errors, systemLog)
 	if err != nil {
 		l.Fatalln("Cannot start GUI:", err)
 	}
