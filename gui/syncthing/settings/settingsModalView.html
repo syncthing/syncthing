@@ -50,19 +50,20 @@
             <div class="col-md-6">
               <div class="form-group">
                 <div class="checkbox">
-                  <label ng-if="upgradeInfo">
-                    <input id="AutoUpgradeEnabled" type="checkbox" ng-model="tmpOptions.autoUpgradeEnabled"> <span translate>Automatic upgrades</span>
-                  </label>
-                </div>
-              </div>
-              <div class="form-group">
-                <div class="checkbox">
                   <label>
                     <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.localAnnounceEnabled"> <span translate>Local Discovery</span>
                   </label>
                 </div>
               </div>
+              <div class="form-group">
+                <div class="checkbox">
+                  <label ng-if="upgradeInfo">
+                    <input id="AutoUpgradeEnabled" type="checkbox" ng-model="tmpOptions.autoUpgradeEnabled"> <span translate>Automatic upgrades</span>
+                  </label>
+                </div>
+              </div>
             </div>
+            <div class="clearfix"></div>
             <div class="form-group">
               <label translate for="GlobalAnnServersStr">Global Discovery Server</label>
               <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions._globalAnnounceServersStr">
