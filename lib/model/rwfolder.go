@@ -79,19 +79,20 @@ type rwFolder struct {
 	progressEmitter  *ProgressEmitter
 	virtualMtimeRepo *db.VirtualMtimeRepo
 
-	folder       string
-	dir          string
-	scanIntv     time.Duration
-	versioner    versioner.Versioner
-	ignorePerms  bool
-	copiers      int
-	pullers      int
-	shortID      uint64
-	order        config.PullOrder
-	maxConflicts int
-	sleep        time.Duration
-	pause        time.Duration
-	allowSparse  bool
+	folder         string
+	dir            string
+	scanIntv       time.Duration
+	versioner      versioner.Versioner
+	ignorePerms    bool
+	copiers        int
+	pullers        int
+	shortID        uint64
+	order          config.PullOrder
+	maxConflicts   int
+	sleep          time.Duration
+	pause          time.Duration
+	allowSparse    bool
+	checkFreeSpace bool
 
 	stop        chan struct{}
 	queue       *jobQueue
@@ -117,16 +118,17 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		progressEmitter:  m.progressEmitter,
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(m.db, cfg.ID),
 
-		folder:       cfg.ID,
-		dir:          cfg.Path(),
-		scanIntv:     time.Duration(cfg.RescanIntervalS) * time.Second,
-		ignorePerms:  cfg.IgnorePerms,
-		copiers:      cfg.Copiers,
-		pullers:      cfg.Pullers,
-		shortID:      shortID,
-		order:        cfg.Order,
-		maxConflicts: cfg.MaxConflicts,
-		allowSparse:  !cfg.DisableSparseFiles,
+		folder:         cfg.ID,
+		dir:            cfg.Path(),
+		scanIntv:       time.Duration(cfg.RescanIntervalS) * time.Second,
+		ignorePerms:    cfg.IgnorePerms,
+		copiers:        cfg.Copiers,
+		pullers:        cfg.Pullers,
+		shortID:        shortID,
+		order:          cfg.Order,
+		maxConflicts:   cfg.MaxConflicts,
+		allowSparse:    !cfg.DisableSparseFiles,
+		checkFreeSpace: cfg.MinDiskFreePct != 0,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -967,10 +969,12 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		}
 	}
 
-	if free, err := osutil.DiskFreeBytes(p.dir); err == nil && free < file.Size() {
-		l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.folder, p.dir, file.Name, float64(free)/1024/1024, float64(file.Size())/1024/1024)
-		p.newError(file.Name, errors.New("insufficient space"))
-		return
+	if p.checkFreeSpace {
+		if free, err := osutil.DiskFreeBytes(p.dir); err == nil && free < file.Size() {
+			l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.folder, p.dir, file.Name, float64(free)/1024/1024, float64(file.Size())/1024/1024)
+			p.newError(file.Name, errors.New("insufficient space"))
+			return
+		}
 	}
 
 	events.Default.Log(events.ItemStarted, map[string]string{
