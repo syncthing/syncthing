@@ -7,6 +7,8 @@
 package model
 
 import (
+	"encoding/base32"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -87,6 +89,8 @@ type rwFolder struct {
 	copiers      int
 	pullers      int
 	shortID      uint64
+	newVersion   protocol.Vector
+	curVersion   protocol.Vector
 	order        config.PullOrder
 	maxConflicts int
 	sleep        time.Duration
@@ -762,6 +766,10 @@ func (p *rwFolder) deleteFile(file protocol.FileInfo) {
 		// of deleting. Also merge with the version vector we had, to indicate
 		// we have resolved the conflict.
 		file.Version = file.Version.Merge(cur.Version)
+
+		p.curVersion = cur.Version
+		p.newVersion = file.Version
+
 		err = osutil.InWritableDir(p.moveForConflict, realName)
 	} else if p.versioner != nil {
 		err = osutil.InWritableDir(p.versioner.Archive, realName)
@@ -1302,6 +1310,9 @@ func (p *rwFolder) performFinish(state *sharedPullerState) error {
 			// we have resolved the conflict.
 
 			state.file.Version = state.file.Version.Merge(state.version)
+			p.curVersion = state.version
+			p.newVersion = state.file.Version
+
 			if err = osutil.InWritableDir(p.moveForConflict, state.realName); err != nil {
 				return err
 			}
@@ -1495,7 +1506,10 @@ func (p *rwFolder) moveForConflict(name string) error {
 
 	ext := filepath.Ext(name)
 	withoutExt := name[:len(name)-len(ext)]
-	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405") + ext
+	// When renaming the file add the device name that it belonged too for users benefit
+	newName := withoutExt + ".sync-conflict-with-" + p.findNewestUpdateID() +
+		"_" + time.Now().Format("20060102-150405"+ext)
+
 	err := os.Rename(name, newName)
 	if os.IsNotExist(err) {
 		// We were supposed to move a file away but it does not exist. Either
@@ -1505,7 +1519,7 @@ func (p *rwFolder) moveForConflict(name string) error {
 		err = nil
 	}
 	if p.maxConflicts > -1 {
-		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????" + ext)
+		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-with-???????-????????-??????" + ext)
 		if gerr == nil && len(matches) > p.maxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[p.maxConflicts:] {
@@ -1519,6 +1533,31 @@ func (p *rwFolder) moveForConflict(name string) error {
 		}
 	}
 	return err
+}
+
+// This function searches through both the current and newer version vector
+// arrays, every time there is a conflict.  What it expects to find is that one
+// of the versions will always be incremented by 1 from the previous version
+// list and the ID for that element is the one that made the change.  Thus its
+// ID is converted to binary and base32 encoded to find the first few chars and
+// those are returned.
+func (p *rwFolder) findNewestUpdateID() string {
+	var newestClientID uint64
+
+	for i := 0; i < len(p.newVersion); i++ {
+		// If the new version value has iterated even once from the previous
+		// version, then we know that's the guy who made the change.
+		if p.curVersion[i].Value < p.newVersion[i].Value {
+			newestClientID = p.newVersion[i].ID
+		}
+	}
+
+	// Now figure out remote client ID from base32 encoding of first 64 bytes
+	bytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(bytes, newestClientID)
+	remoteID := base32.StdEncoding.EncodeToString(bytes)
+
+	return remoteID[:7] // We just need the beginning characters
 }
 
 func (p *rwFolder) newError(path string, err error) {
