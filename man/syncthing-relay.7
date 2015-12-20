@@ -1,7 +1,699 @@
-<html>
-<head><title>404 Not Found</title></head>
-<body bgcolor="white">
-<center><h1>404 Not Found</h1></center>
-<hr><center>nginx/1.7.4</center>
-</body>
-</html>
+.\" Man page generated from reStructuredText.
+.
+.TH "SYNCTHING-RELAY" "7" "December 18, 2015" "v0.12" "Syncthing"
+.SH NAME
+syncthing-relay \- Relay Protocol v1
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH WHAT IS A RELAY?
+.sp
+Relay is a service which relays data between two \fIdevices\fP which are not able to
+connect to each other directly otherwise. This is usually due to both devices
+being behind a NAT and neither side being able to open a port which would
+be directly accessible from the internet.
+.sp
+A relay was designed to relay BEP protocol, hence the reliance on device ID\(aqs
+in the protocol spec, but at the same time it is general enough that could be
+reused by other protocols or applications, as the data transferred between two
+devices which use a relay is completely obscure and does not affect the
+relaying.
+.SH OPERATION MODES
+.sp
+Relay listens on a single TCP socket, but has two different connection modes,
+where a connection mode is a predefined set of messages which the relay and
+the device are expecting to exchange.
+.sp
+The first mode is the \fIprotocol\fP mode which allows a client to interact
+with the relay, for example join the relay, or request to connect to a device,
+given it is available on the relay. Similarly to BEP, protocol mode requires
+the device to connect via TLS using a strong suite of ciphers (same as BEP),
+which allows the relay to verify and derive the identity (Device ID) of the
+device.
+.sp
+The second mode is the \fIsession\fP mode which after a few initial messages
+connects two devices directly to each other via the relay, and is a plain\-text
+protocol, which for every byte written by one device, sends the same set of
+bytes to the other device and vica versa.
+.SH IDENTIFYING THE CONNECTION MODE
+.sp
+Because both connection modes operate over the same single socket, a method
+of detecting the connection mode is required.
+.sp
+When a new client connects to the relay, the relay checks the first byte
+that the client has sent, and if that matches 0x16, that implies to us that
+the connection is a protocol mode connection, due to 0x16 being the first byte
+in the TLS handshake, and only protocol mode connections use TLS.
+.sp
+If the first byte is not 0x16, then we assume that the connection is a session
+mode connection.
+.SH PROTOCOL MODE
+.sp
+Protocol mode uses TLS and protocol name defined by the TLS header should be
+\fIbep\-relay\fP\&.
+.sp
+Protocol mode has two submodes:
+1. Permanent protocol submode \- Joining the relay, and waiting for messages from
+the relay asking to connect to some device which is interested in having a
+session with you.
+2. Temporary protocol submode \- Only used to request a session with a device
+which is connected to the relay using the permanent protocol submode.
+.SS Permanent protocol submode
+.sp
+A permanent protocol submode begins with the client sending a JoinRelayRequest
+message, which the relay responds to with either a ResponseSuccess or
+ResponseAlreadyConnected message if a client with the same device ID already
+exists.
+.sp
+After the client has joined, no more messages are exchanged apart from
+Ping/Pong messages for general connection keep alive checking.
+.sp
+From this point onwards, the client stand\-by\(aqs and waits for SessionInvitation
+messages from the relay, which implies that some other device is trying to
+connect with you. SessionInvitation message contains the unique session key
+which then can be used to establish a connection in session mode.
+.sp
+If the client fails to send a JoinRelayRequest message within the first ping
+interval, the connection is terminated.
+If the client fails to send a message (even if its a ping message) every minute
+(by default), the connection is terminated.
+.SS Temporary protocol submode
+.sp
+A temporary protocol submode begins with ConnectRequest message, to which the
+relay responds with either ResponseNotFound if the device the client it is after
+is not available, or with a SessionInvitation, which contains the unique session
+key which then can be used to establish a connection in session mode.
+.sp
+The connection is terminated immediately after that.
+.SS Example Exchange
+.sp
+Client A \- Permanent protocol submode
+Client B \- Temporary protocol submode
+.TS
+center;
+|l|l|l|l|.
+_
+T{
+#
+T}	T{
+Client (A)
+T}	T{
+Relay
+T}	T{
+Client (B)
+T}
+_
+T{
+1
+T}	T{
+JoinRelayRequest\->
+T}	T{
+T}	T{
+T}
+_
+T{
+2
+T}	T{
+T}	T{
+<\-ResponseSuccess
+T}	T{
+T}
+_
+T{
+3
+T}	T{
+Ping\->
+T}	T{
+T}	T{
+T}
+_
+T{
+4
+T}	T{
+T}	T{
+<\-Pong
+T}	T{
+T}
+_
+T{
+5
+T}	T{
+T}	T{
+T}	T{
+<\-ConnectRequest(A)
+T}
+_
+T{
+6
+T}	T{
+T}	T{
+SessionInvitation(A)\->
+T}	T{
+T}
+_
+T{
+7
+T}	T{
+T}	T{
+<\-SessionInvitation(B)
+T}	T{
+T}
+_
+T{
+8
+T}	T{
+T}	T{
+T}	T{
+(Disconnects)
+T}
+_
+T{
+9
+T}	T{
+Ping\->
+T}	T{
+T}	T{
+T}
+_
+T{
+10
+T}	T{
+T}	T{
+<\-Pong
+T}	T{
+T}
+_
+T{
+11
+T}	T{
+Ping\->
+T}	T{
+T}	T{
+T}
+_
+T{
+12
+T}	T{
+T}	T{
+<\-Pong
+T}	T{
+T}
+_
+.TE
+.SH SESSION MODE
+.sp
+The first and only message the client sends in the session mode is the
+SessionInvitation message which contains the session key identifying which
+session you are trying to join. The relay responds with one of the following
+Response messages:
+.INDENT 0.0
+.IP 1. 3
+ResponseNotFound \- Session key is invalid
+.IP 2. 3
+ResponseAlreadyConnected \- Session is full (both sides already connected)
+.IP 3. 3
+ResponseSuccess \- You have successfully joined the session
+.UNINDENT
+.sp
+After the successful response, all the bytes written and received will be
+relayed between the two devices in the session directly.
+.SS Example Exchange
+.sp
+Client A \- Permanent protocol mode
+Client B \- Temporary protocol mode
+.TS
+center;
+|l|l|l|l|.
+_
+T{
+#
+T}	T{
+Client (A)
+T}	T{
+Relay
+T}	T{
+Client (B)
+T}
+_
+T{
+1
+T}	T{
+SessionInvitation(A)\->
+T}	T{
+T}	T{
+T}
+_
+T{
+2
+T}	T{
+T}	T{
+<\-ResponseSuccess
+T}	T{
+T}
+_
+T{
+3
+T}	T{
+Data\->
+T}	T{
+(Buffers data)
+T}	T{
+T}
+_
+T{
+4
+T}	T{
+Data\->
+T}	T{
+(Buffers data)
+T}	T{
+T}
+_
+T{
+5
+T}	T{
+T}	T{
+T}	T{
+<\-SessionInvitation(B)
+T}
+_
+T{
+6
+T}	T{
+T}	T{
+ResponseSuccess\->
+T}	T{
+T}
+_
+T{
+7
+T}	T{
+T}	T{
+Relays data \->
+T}	T{
+T}
+_
+T{
+8
+T}	T{
+T}	T{
+Relays data \->
+T}	T{
+T}
+_
+T{
+9
+T}	T{
+T}	T{
+<\-Relays data
+T}	T{
+<\-Data
+T}
+_
+.TE
+.SH MESSAGES
+.sp
+All messages are preceeded by a header message. Header message contains the
+magic value 0x9E79BC40, message type integer, and message length.
+.sp
+\fBWARNING:\fP
+.INDENT 0.0
+.INDENT 3.5
+Some messages have no content, apart from the implied header which allows
+us to identify what type of message it is.
+.UNINDENT
+.UNINDENT
+.SS Header structure
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                             Magic                             |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                         Message Type                          |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                        Message Length                         |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+struct Header {
+        unsigned int Magic;
+        int MessageType;
+        int MessageLength;
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Ping message (Type = 0)
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+struct Ping {
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Pong message (Type = 1)
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+struct Pong {
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS JoinRelayRequest message (Type = 2)
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+struct JoinRelayRequest {
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS JoinSessionRequest message (Type = 3)
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                         Length of Key                         |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                     Key (variable length)                     \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+struct JoinSessionRequest {
+        opaque Key<32>;
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B : Key
+This is a unique random session key generated by the relay server. It is
+used to identify which session you are trying to connect to.
+.UNINDENT
+.SS Response message (Type = 4)
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                             Code                              |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Length of Message                       |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                   Message (variable length)                   \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+struct Response {
+        int Code;
+        string Message<>;
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B : Code
+An integer representing the status code.
+.TP
+.B : Message
+Message associated with the code.
+.UNINDENT
+.SS ConnectRequest message (Type = 5)
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                         Length of ID                          |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                     ID (variable length)                      \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+struct ConnectRequest {
+        opaque ID<32>;
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B : ID
+Device ID to which the client would like to connect.
+.UNINDENT
+.SS SessionInvitation message (Type = 6)
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                        Length of From                         |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                    From (variable length)                     \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                         Length of Key                         |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                     Key (variable length)                     \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                       Length of Address                       |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+/                                                               /
+\e                   Address (variable length)                   \e
+/                                                               /
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|            0x0000             |             Port              |
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+|                  Server Socket (V=0 or 1)                   |V|
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+struct SessionInvitation {
+        opaque From<32>;
+        opaque Key<32>;
+        opaque Address<32>;
+        unsigned int Port;
+        bool ServerSocket;
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B : From
+Device ID identifying who you will be connecting with.
+.TP
+.B : Key
+A unique random session key generated by the relay server. It is used to
+identify which session you are trying to connect to.
+.TP
+.B : Address
+An optional IP address on which the relay server is expecting you to
+connect, in order to start a connection in session mode.
+Empty/all zero IP should be replaced with the relay\(aqs public IP address that
+was used when establishing the protocol mode connection.
+.TP
+.B : Port
+An optional port on which the relay server is expecting you to connect,
+in order to start a connection in session mode.
+.TP
+.B : Server Socket
+Because both sides connecting to the relay use the client side of the socket,
+and some protocols behave differently depending if the connection starts on
+the server side or the client side, this boolean indicates which side of the
+connection this client should assume it\(aqs getting. The value is inverted in
+the invitation which is sent to the other device, so that there is always
+one client socket, and one server socket.
+.UNINDENT
+.SH HOW SYNCTHING USES RELAYS, AND GENERAL SECURITY
+.sp
+In the case of Syncthing and BEP, when two devices connect via relay, they
+start their standard TLS connection encapsulated within the relay\(aqs plain\-text
+session connection, effectively upgrading the plain\-text connection to a TLS
+connection.
+.sp
+Even though the relay could be used for man\-in\-the\-middle attack, using TLS
+at the application/BEP level ensures that all the traffic is safely encrypted,
+and is completely meaningless to the relay. Furthermore, the secure suite of
+ciphers used by BEP provides forward secrecy, meaning that even if the relay
+did capture all the traffic, and even if the attacker did get their hands on the
+device keys, they would still not be able to recover/decrypt any traffic which
+was transported via the relay.
+.sp
+After establishing a relay session, syncthing looks at the SessionInvitation
+message, and depending which side it has received, wraps the raw socket in
+either a TLS client socket or a TLS server socket depending on the ServerSocket
+boolean value in the SessionInvitation, and starts the TLS handshake.
+.sp
+From that point onwards it functions exactly the same way as if syncthing was
+establishing a direct connection with the other device over the internet,
+performing device ID validation, and full TLS encryption, and provides the same
+security properties as it would provide when connecting over the internet.
+.SH EXAMPLES OF STRONG CIPHER SUITES
+.TS
+center;
+|l|l|l|.
+_
+T{
+ID
+T}	T{
+Name
+T}	T{
+Description
+T}
+_
+T{
+0x009F
+T}	T{
+DHE\-RSA\-AES256\-GCM\-SHA384
+T}	T{
+TLSv1.2 DH RSA AESGCM(256) AEAD
+T}
+_
+T{
+0x006B
+T}	T{
+DHE\-RSA\-AES256\-SHA256
+T}	T{
+TLSv1.2 DH RSA AES(256) SHA256
+T}
+_
+T{
+0xC030
+T}	T{
+ECDHE\-RSA\-AES256\-GCM\-SHA384
+T}	T{
+TLSv1.2 ECDH RSA AESGCM(256) AEAD
+T}
+_
+T{
+0xC028
+T}	T{
+ECDHE\-RSA\-AES256\-SHA384
+T}	T{
+TLSv1.2 ECDH RSA AES(256) SHA384
+T}
+_
+T{
+0x009E
+T}	T{
+DHE\-RSA\-AES128\-GCM\-SHA256
+T}	T{
+TLSv1.2 DH RSA AESGCM(128) AEAD
+T}
+_
+T{
+0x0067
+T}	T{
+DHE\-RSA\-AES128\-SHA256
+T}	T{
+TLSv1.2 DH RSA AES(128) SHA256
+T}
+_
+T{
+0xC02F
+T}	T{
+ECDHE\-RSA\-AES128\-GCM\-SHA256
+T}	T{
+TLSv1.2 ECDH RSA AESGCM(128) AEAD
+T}
+_
+T{
+0xC027
+T}	T{
+ECDHE\-RSA\-AES128\-SHA256
+T}	T{
+TLSv1.2 ECDH RSA AES(128) SHA256
+T}
+_
+.TE
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2015, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.

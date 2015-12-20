@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-SECURITY" "7" "December 01, 2015" "v0.12" "Syncthing"
+.TH "SYNCTHING-SECURITY" "7" "December 18, 2015" "v0.12" "Syncthing"
 .SH NAME
 syncthing-security \- Security Principles
 .
@@ -115,7 +115,7 @@ certificates are sent in clear text (as in HTTPS etc), meaning that the
 certificate Common Name (by default \fBsyncthing\fP) is visible.
 .sp
 An eavesdropper can deduce that this is a Syncthing connection and calculate the
-device ID:s involved based on the hashes of the sent certificates.
+device IDs involved based on the hashes of the sent certificates.
 .sp
 Likewise, if the sync port (default 22000) is accessible from the internet, a
 port scanner may discover it, attempt a TLS negotiation and thus obtain the
@@ -129,7 +129,7 @@ web GUI defaults to being reachable from the \fBlocal host only\fP\&.
 .sp
 Parties doing surveillance on your network (whether that be corporate IT, the
 NSA or someone else) will be able to see that you use Syncthing, and your device
-ID\(aqs \fI\%are OK to share anyway\fP <\fBhttp://docs.syncthing.net/users/faq.html#should-i-keep-my-device-ids-secret\fP>,
+IDs \fI\%are OK to share anyway\fP <\fBhttp://docs.syncthing.net/users/faq.html#should-i-keep-my-device-ids-secret\fP>,
 but the actual transmitted data is protected as well as we can. Knowing your
 device ID can expose your IP address, using global discovery.
 .SH PROTECTING YOUR SYNCTHING KEYS AND IDENTITY
@@ -141,8 +141,6 @@ synced files. Here are some general principles to protect your files:
 .IP 1. 3
 If a device of yours is lost, make sure to revoke its access from your other
 devices.
-.UNINDENT
-.INDENT 0.0
 .IP 2. 3
 If you\(aqre syncing confidential data on an encrypted disk to guard against
 device theft, put the Syncthing config folder on the same encrypted disk to

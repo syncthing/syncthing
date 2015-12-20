@@ -148,12 +148,12 @@
     "Share Folders With Device": "Del Mapper Med Enhet",
     "Share With Devices": "Del Med Enheter",
     "Share this folder?": "Dele denne mappen?",
-    "Shared With": "Delt Med",
+    "Shared With": "Delt med",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Kort kjennemerke på mappen. Må være det samme på alle enheter i en gruppe.",
     "Show ID": "Vis ID",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Vis i stedet for Eining ID i gruppestatus. Vil bli kringkastet til andre enheter som et valgfritt standardnavn.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Vist i stedet for Mappe-ID i gruppestatus. Vil bli oppdatert til navnet enheten kringkaster dersom tomt.",
-    "Shutdown": "Slå Av",
+    "Shutdown": "Avslutt",
     "Shutdown Complete": "Avslutning fullført",
     "Simple File Versioning": "Enkel Versjonskontroll",
     "Single level wildcard (matches within a directory only)": "Enkeltnivåsøk (søker kun i en mappe)",
@@ -220,6 +220,6 @@
     "You must keep at least one version.": "Du må beholde minst én versjon",
     "days": "dager",
     "full documentation": "all dokumentasjon",
-    "items": "element",
+    "items": "elementer",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} ønsker å dele mappen \"{{folder}}\"."
 }
