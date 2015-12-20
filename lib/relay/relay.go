@@ -112,7 +112,7 @@ func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
 			l.Debugln("Connecting to relay", uri)
 			c, err := client.NewClient(uri, s.tlsCfg.Certificates, s.invitations, 10*time.Second)
 			if err != nil {
-				l.Debugln("Failed to connect to relay", uri, err)
+				l.Infoln("Failed to connect to relay", uri, err)
 				continue
 			}
 			s.tokens[key] = s.Add(c)
