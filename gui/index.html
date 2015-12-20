@@ -121,21 +121,22 @@
         <div class="panel panel-warning">
           <div class="panel-heading">
             <h3 class="panel-title">
-              <identicon data-value="device"></identicon>&nbsp;<span translate>New Device</span>
+              <identicon data-value="device"></identicon>
+              <span translate>New Device</span>
+              <span class="pull-right">{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
             </h3>
           </div>
           <div class="panel-body">
             <p>
-              <small>{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}:</small>
               <span translate translate-value-device="{{ device }}" translate-value-address="{{ event.data.address }}">
                 Device {%device%} ({%address%}) wants to connect. Add new device?
-              <span>
+              </span>
             </p>
           </div>
           <div class="panel-footer clearfix">
             <div class="pull-right">
-              <button type="button" class="btn btn-sm btn-success" ng-click="addNewDeviceID(device)">
-                <span class="fa fa-check"></span>&nbsp;<span translate>Add</span>
+              <button type="button" class="btn btn-sm btn-success" ng-click="addDevice(device)">
+                <span class="fa fa-plus"></span>&nbsp;<span translate>Add Device</span>
               </button>
               <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreRejectedDevice(device)">
                 <span class="fa fa-times"></span>&nbsp;<span translate>Ignore</span>
@@ -158,11 +159,11 @@
             <h3 class="panel-title"><span class="fa fa-folder"></span>
               <span translate ng-if="!folders[event.data.folder]">New Folder</span>
               <span translate ng-if="folders[event.data.folder]">Share Folder</span>
+              <span class="pull-right">{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
             </h3>
           </div>
           <div class="panel-body">
             <p>
-              <small>{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}:</small>
               <span translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}">
                 {%device%} wants to share folder "{%folder%}".
               </span>
