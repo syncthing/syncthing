@@ -603,7 +603,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	if err := checkShortIDs(cfg); err != nil {
-		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one if the following:\n  ", err)
+		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
 	}
 
 	if len(runtimeOptions.profiler) > 0 {
