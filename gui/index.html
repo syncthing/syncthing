@@ -159,11 +159,11 @@
             <h3 class="panel-title"><span class="fa fa-folder"></span>
               <span translate ng-if="!folders[event.data.folder]">New Folder</span>
               <span translate ng-if="folders[event.data.folder]">Share Folder</span>
+              <span class="pull-right">{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
             </h3>
           </div>
           <div class="panel-body">
             <p>
-              <small>{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}:</small>
               <span translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}">
                 {%device%} wants to share folder "{%folder%}".
               </span>
