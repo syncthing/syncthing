@@ -88,7 +88,6 @@ func (c *staticClient) Serve() {
 
 	l.Debugln(c, "joined", c.conn.RemoteAddr(), "via", c.conn.LocalAddr())
 
-	defer c.cleanup()
 	c.mut.Lock()
 	c.connected = true
 	c.mut.Unlock()
@@ -110,10 +109,10 @@ func (c *staticClient) Serve() {
 			case protocol.Ping:
 				if err := protocol.WriteMessage(c.conn, protocol.Pong{}); err != nil {
 					l.Infoln("Relay write:", err)
-					return
-
+					c.disconnect()
+				} else {
+					l.Debugln(c, "sent pong")
 				}
-				l.Debugln(c, "sent pong")
 
 			case protocol.SessionInvitation:
 				ip := net.IP(msg.Address)
@@ -124,24 +123,38 @@ func (c *staticClient) Serve() {
 
 			case protocol.RelayFull:
 				l.Infoln("Disconnected from relay due to it becoming full.")
-				return
+				c.disconnect()
 
 			default:
 				l.Infoln("Relay: protocol error: unexpected message %v", msg)
-				return
+				c.disconnect()
 			}
 
 		case <-c.stop:
 			l.Debugln(c, "stopping")
-			return
+			c.disconnect()
 
+		// We always exit via this branch of the select, to make sure the
+		// the reader routine exits.
 		case err := <-errors:
-			l.Infoln("Relay received:", err)
+			close(errors)
+			close(messages)
+			c.mut.Lock()
+			if c.connected {
+				c.conn.Close()
+				c.connected = false
+				l.Infoln("Relay received:", err)
+			}
+			if c.closeInvitationsOnFinish {
+				close(c.invitations)
+				c.invitations = make(chan protocol.SessionInvitation)
+			}
+			c.mut.Unlock()
 			return
 
 		case <-timeout.C:
 			l.Debugln(c, "timed out")
-			return
+			c.disconnect()
 		}
 	}
 }
@@ -215,13 +228,9 @@ func (c *staticClient) connect() error {
 	return nil
 }
 
-func (c *staticClient) cleanup() {
-	l.Debugln(c, "cleaning up")
+func (c *staticClient) disconnect() {
+	l.Debugln(c, "disconnecting")
 	c.mut.Lock()
-	if c.closeInvitationsOnFinish {
-		close(c.invitations)
-		c.invitations = make(chan protocol.SessionInvitation)
-	}
 	c.connected = false
 	c.mut.Unlock()
 
