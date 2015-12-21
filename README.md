@@ -55,3 +55,4 @@ All code is licensed under the [MPLv2 License][7].
 [5]: http://docs.syncthing.net/dev/building.html
 [6]: http://docs.syncthing.net/
 [7]: https://github.com/syncthing/syncthing/blob/master/LICENSE
+TEST
