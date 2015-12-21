@@ -42,6 +42,40 @@ var blocks = []protocol.BlockInfo{
 
 var folders = []string{"default"}
 
+func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
+	// Create existing file
+	existingBlocks := make([]protocol.BlockInfo, len(blockNumbers))
+	for i := range blockNumbers {
+		existingBlocks[i] = blocks[blockNumbers[i]]
+	}
+
+	return protocol.FileInfo{
+		Name:     filename,
+		Flags:    0,
+		Modified: 0,
+		Blocks:   existingBlocks,
+	}
+}
+
+func setUpModel(file protocol.FileInfo) *Model {
+	db := db.OpenMemory()
+	model := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	model.AddFolder(defaultFolderConfig)
+	// Update index
+	model.updateLocals("default", []protocol.FileInfo{file})
+	return model
+}
+
+func setUpRwFolder(model *Model) rwFolder {
+	return rwFolder{
+		folder:    "default",
+		dir:       "testdata",
+		model:     model,
+		errors:    make(map[string]string),
+		errorsMut: sync.NewMutex(),
+	}
+}
+
 // Layout of the files: (indexes from the above array)
 // 12345678 - Required file
 // 02005008 - Existing file (currently in the index)
@@ -52,35 +86,13 @@ func TestHandleFile(t *testing.T) {
 	// Copy: 2, 5, 8
 	// Pull: 1, 3, 4, 6, 7
 
-	// Create existing file
-	existingFile := protocol.FileInfo{
-		Name:     "filex",
-		Flags:    0,
-		Modified: 0,
-		Blocks: []protocol.BlockInfo{
-			blocks[0], blocks[2], blocks[0], blocks[0],
-			blocks[5], blocks[0], blocks[0], blocks[8],
-		},
-	}
-
-	// Create target file
+	existingBlocks := []int{0, 2, 0, 0, 5, 0, 0, 8}
+	existingFile := setUpFile("filex", existingBlocks)
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
-	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
-	// Update index
-	m.updateLocals("default", []protocol.FileInfo{existingFile})
-
-	p := rwFolder{
-		folder:    "default",
-		dir:       "testdata",
-		model:     m,
-		errors:    make(map[string]string),
-		errorsMut: sync.NewMutex(),
-	}
-
+	m := setUpModel(existingFile)
+	p := setUpRwFolder(m)
 	copyChan := make(chan copyBlocksState, 1)
 
 	p.handleFile(requiredFile, copyChan, nil)
@@ -108,35 +120,13 @@ func TestHandleFileWithTemp(t *testing.T) {
 	// Copy: 5, 8
 	// Pull: 1, 6
 
-	// Create existing file
-	existingFile := protocol.FileInfo{
-		Name:     "file",
-		Flags:    0,
-		Modified: 0,
-		Blocks: []protocol.BlockInfo{
-			blocks[0], blocks[2], blocks[0], blocks[0],
-			blocks[5], blocks[0], blocks[0], blocks[8],
-		},
-	}
-
-	// Create target file
+	existingBlocks := []int{0, 2, 0, 0, 5, 0, 0, 8}
+	existingFile := setUpFile("file", existingBlocks)
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
-	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
-	// Update index
-	m.updateLocals("default", []protocol.FileInfo{existingFile})
-
-	p := rwFolder{
-		folder:    "default",
-		dir:       "testdata",
-		model:     m,
-		errors:    make(map[string]string),
-		errorsMut: sync.NewMutex(),
-	}
-
+	m := setUpModel(existingFile)
+	p := setUpRwFolder(m)
 	copyChan := make(chan copyBlocksState, 1)
 
 	p.handleFile(requiredFile, copyChan, nil)
@@ -169,47 +159,14 @@ func TestCopierFinder(t *testing.T) {
 		t.Error(err)
 	}
 
-	// Create existing file
-	existingFile := protocol.FileInfo{
-		Name:     defTempNamer.TempName("file"),
-		Flags:    0,
-		Modified: 0,
-		Blocks: []protocol.BlockInfo{
-			blocks[0], blocks[2], blocks[3], blocks[4],
-			blocks[0], blocks[0], blocks[7], blocks[0],
-		},
-	}
-
-	// Create target file
+	existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
+	existingFile := setUpFile(defTempNamer.TempName("file"), existingBlocks)
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 	requiredFile.Name = "file2"
 
-	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
-	// Update index
-	m.updateLocals("default", []protocol.FileInfo{existingFile})
-
-	iterFn := func(folder, file string, index int32) bool {
-		return true
-	}
-
-	// Verify that the blocks we say exist on file, really exist in the db.
-	for _, idx := range []int{2, 3, 4, 7} {
-		if m.finder.Iterate(folders, blocks[idx].Hash, iterFn) == false {
-			t.Error("Didn't find block")
-		}
-	}
-
-	p := rwFolder{
-		folder:    "default",
-		dir:       "testdata",
-		model:     m,
-		errors:    make(map[string]string),
-		errorsMut: sync.NewMutex(),
-	}
-
+	m := setUpModel(existingFile)
+	p := setUpRwFolder(m)
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, 4)
 	finisherChan := make(chan *sharedPullerState, 1)
@@ -262,24 +219,9 @@ func TestCopierCleanup(t *testing.T) {
 		return true
 	}
 
-	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
-
 	// Create a file
-	file := protocol.FileInfo{
-		Name:     "test",
-		Flags:    0,
-		Modified: 0,
-		Blocks:   []protocol.BlockInfo{blocks[0]},
-	}
-
-	// Add file to index
-	m.updateLocals("default", []protocol.FileInfo{file})
-
-	if !m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
-		t.Error("Expected block not found")
-	}
+	file := setUpFile("test", []int{0})
+	m := setUpModel(file)
 
 	file.Blocks = []protocol.BlockInfo{blocks[1]}
 	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
@@ -311,19 +253,10 @@ func TestCopierCleanup(t *testing.T) {
 // Make sure that the copier routine hashes the content when asked, and pulls
 // if it fails to find the block.
 func TestLastResortPulling(t *testing.T) {
-	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
-
 	// Add a file to index (with the incorrect block representation, as content
 	// doesn't actually match the block list)
-	file := protocol.FileInfo{
-		Name:     "empty",
-		Flags:    0,
-		Modified: 0,
-		Blocks:   []protocol.BlockInfo{blocks[0]},
-	}
-	m.updateLocals("default", []protocol.FileInfo{file})
+	file := setUpFile("empty", []int{0})
+	m := setUpModel(file)
 
 	// Pretend that we are handling a new file of the same content but
 	// with a different name (causing to copy that particular block)
@@ -333,18 +266,7 @@ func TestLastResortPulling(t *testing.T) {
 		return true
 	}
 
-	// Check that that particular block is there
-	if !m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
-		t.Error("Expected block not found")
-	}
-
-	p := rwFolder{
-		folder:    "default",
-		dir:       "testdata",
-		model:     m,
-		errors:    make(map[string]string),
-		errorsMut: sync.NewMutex(),
-	}
+	p := setUpRwFolder(m)
 
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, 1)
@@ -374,15 +296,7 @@ func TestLastResortPulling(t *testing.T) {
 }
 
 func TestDeregisterOnFailInCopy(t *testing.T) {
-	file := protocol.FileInfo{
-		Name:     "filex",
-		Flags:    0,
-		Modified: 0,
-		Blocks: []protocol.BlockInfo{
-			blocks[0], blocks[2], blocks[0], blocks[0],
-			blocks[5], blocks[0], blocks[0], blocks[8],
-		},
-	}
+	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
 	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
 
 	db := db.OpenMemory()
@@ -467,15 +381,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 }
 
 func TestDeregisterOnFailInPull(t *testing.T) {
-	file := protocol.FileInfo{
-		Name:     "filex",
-		Flags:    0,
-		Modified: 0,
-		Blocks: []protocol.BlockInfo{
-			blocks[0], blocks[2], blocks[0], blocks[0],
-			blocks[5], blocks[0], blocks[0], blocks[8],
-		},
-	}
+	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
 	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
 
 	db := db.OpenMemory()
