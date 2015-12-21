@@ -1036,13 +1036,17 @@ func ensureDir(dir string, mode os.FileMode) {
 		l.Fatalln(err)
 	}
 
-	fi, _ := os.Stat(dir)
-	currentMode := fi.Mode() & 0777
-	if mode >= 0 && currentMode != mode {
-		err := os.Chmod(dir, mode)
-		// This can fail on crappy filesystems, nothing we can do about it.
-		if err != nil {
-			l.Warnln(err)
+	if fi, err := os.Stat(dir); err == nil {
+		// Apprently the stat may fail even though the mkdirall passed. If it
+		// does, we'll just assume things are in order and let other things
+		// fail (like loading or creating the config...).
+		currentMode := fi.Mode() & 0777
+		if currentMode != mode {
+			err := os.Chmod(dir, mode)
+			// This can fail on crappy filesystems, nothing we can do about it.
+			if err != nil {
+				l.Warnln(err)
+			}
 		}
 	}
 }
