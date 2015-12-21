@@ -222,7 +222,6 @@ func defaultRuntimeOptions() RuntimeOptions {
 		assetDir:     os.Getenv("STGUIASSETS"),
 		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
 		stRestarting: os.Getenv("STRESTART") != "",
-		logFile:      "-", // Output to stdout
 		logFlags:     log.Ltime,
 	}
 
@@ -234,8 +233,12 @@ func defaultRuntimeOptions() RuntimeOptions {
 		options.logFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
 	}
 
-	if runtime.GOOS == "windows" {
-		options.logFile = locations[locLogFile]
+	if runtime.GOOS != "windows" {
+		// On non-Windows, we explicitly default to "-" which means stdout. On
+		// Windows, the blank options.logFile will later be replaced with the
+		// default path, unless the user has manually specified "-" or
+		// something else.
+		options.logFile = "-"
 	}
 
 	return options
@@ -297,6 +300,12 @@ func main() {
 
 	if err := expandLocations(); err != nil {
 		l.Fatalln(err)
+	}
+
+	if options.logFile == "" {
+		// Blank means use the default logfile location. We must set this
+		// *after* expandLocations above.
+		options.logFile = locations[locLogFile]
 	}
 
 	if options.showVersion {
