@@ -53,30 +53,30 @@ func executable() (string, error) {
 		// NULL terminated arguments.
 		var args []string
 		argv := uintptr(unsafe.Pointer(&buf[0]))
-		Loop:
-			for {
-				argp := *(**[1<<20]byte)(unsafe.Pointer(argv))
-				if argp == nil {
-					break
-				}
-				for i := 0; uintptr(i) < n; i++ {
-					// we don't want the full arguments list
-					if string(argp[i]) == " " {
-						break Loop
-					}
-					if argp[i] != 0 {
-						continue
-					}
-					args = append(args, string(argp[:i]))
-					n -= uintptr(i)
-					break
-				}
-				if n < unsafe.Sizeof(argv) {
-					break
-				}
-				argv += unsafe.Sizeof(argv)
-				n -= unsafe.Sizeof(argv)
+	Loop:
+		for {
+			argp := *(**[1 << 20]byte)(unsafe.Pointer(argv))
+			if argp == nil {
+				break
 			}
+			for i := 0; uintptr(i) < n; i++ {
+				// we don't want the full arguments list
+				if string(argp[i]) == " " {
+					break Loop
+				}
+				if argp[i] != 0 {
+					continue
+				}
+				args = append(args, string(argp[:i]))
+				n -= uintptr(i)
+				break
+			}
+			if n < unsafe.Sizeof(argv) {
+				break
+			}
+			argv += unsafe.Sizeof(argv)
+			n -= unsafe.Sizeof(argv)
+		}
 		execPath = args[0]
 		// There is no canonical way to get an executable path on
 		// OpenBSD, so check PATH in case we are called directly
