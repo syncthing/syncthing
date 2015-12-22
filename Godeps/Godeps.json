@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/syncthing/syncthing",
-	"GoVersion": "go1.5.1",
+	"GoVersion": "go1.5.2",
 	"Packages": [
 		"./cmd/..."
 	],
@@ -31,7 +31,7 @@
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",
-			"Rev": "345163ffe35aa66560a4cd7dddf00f3ae21c9fda"
+			"Rev": "431e263e413efe4446ede50cec4819b26659fbe7"
 		},
 		{
 			"ImportPath": "github.com/rcrowley/go-metrics",

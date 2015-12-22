@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build linux netbsd solaris dragonfly
+// +build linux netbsd solaris dragonfly freebsd
 
 package osext
 
@@ -27,6 +27,8 @@ func executable() (string, error) {
 		return execpath, nil
 	case "netbsd":
 		return os.Readlink("/proc/curproc/exe")
+	case "freebsd":
+		return os.Readlink("/proc/curproc/file")
 	case "dragonfly":
 		return os.Readlink("/proc/curproc/file")
 	case "solaris":
