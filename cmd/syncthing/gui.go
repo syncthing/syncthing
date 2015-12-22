@@ -10,6 +10,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/tls"
+	"encoding/base32"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -1138,8 +1140,11 @@ type jsonVersionVector protocol.Vector
 
 func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
 	res := make([]string, len(v))
+	bs := make([]byte, 8)
 	for i, c := range v {
-		res[i] = fmt.Sprintf("%d:%d", c.ID, c.Value)
+		binary.BigEndian.PutUint64(bs, c.ID)
+		id := base32.StdEncoding.EncodeToString(bs)
+		res[i] = fmt.Sprintf("%s:%d", id[:7], c.Value)
 	}
 	return json.Marshal(res)
 }
