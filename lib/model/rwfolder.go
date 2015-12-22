@@ -969,25 +969,11 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		}
 	}
 
-	if p.checkFreeSpace {
-		if free, err := osutil.DiskFreeBytes(p.dir); err == nil && free < file.Size() {
-			l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.folder, p.dir, file.Name, float64(free)/1024/1024, float64(file.Size())/1024/1024)
-			p.newError(file.Name, errors.New("insufficient space"))
-			return
-		}
-	}
-
-	events.Default.Log(events.ItemStarted, map[string]string{
-		"folder": p.folder,
-		"item":   file.Name,
-		"type":   "file",
-		"action": "update",
-	})
-
 	scanner.PopulateOffsets(file.Blocks)
 
 	reused := 0
 	var blocks []protocol.BlockInfo
+	var blocksSize int64
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
@@ -1007,6 +993,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 			_, ok := existingBlocks[block.String()]
 			if !ok {
 				blocks = append(blocks, block)
+				blocksSize += int64(block.Size)
 			}
 		}
 
@@ -1021,7 +1008,23 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		}
 	} else {
 		blocks = file.Blocks
+		blocksSize = file.Size()
 	}
+
+	if p.checkFreeSpace {
+		if free, err := osutil.DiskFreeBytes(p.dir); err == nil && free < blocksSize {
+			l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.folder, p.dir, file.Name, float64(free)/1024/1024, float64(blocksSize)/1024/1024)
+			p.newError(file.Name, errors.New("insufficient space"))
+			return
+		}
+	}
+
+	events.Default.Log(events.ItemStarted, map[string]string{
+		"folder": p.folder,
+		"item":   file.Name,
+		"type":   "file",
+		"action": "update",
+	})
 
 	s := sharedPullerState{
 		file:        file,
