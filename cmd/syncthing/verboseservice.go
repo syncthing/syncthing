@@ -15,20 +15,20 @@ import (
 
 // The verbose logging service subscribes to events and prints these in
 // verbose format to the console using INFO level.
-type verboseSvc struct {
+type verboseService struct {
 	stop    chan struct{} // signals time to stop
 	started chan struct{} // signals startup complete
 }
 
-func newVerboseSvc() *verboseSvc {
-	return &verboseSvc{
+func newVerboseService() *verboseService {
+	return &verboseService{
 		stop:    make(chan struct{}),
 		started: make(chan struct{}),
 	}
 }
 
 // Serve runs the verbose logging service.
-func (s *verboseSvc) Serve() {
+func (s *verboseService) Serve() {
 	sub := events.Default.Subscribe(events.AllEvents)
 	defer events.Default.Unsubscribe(sub)
 
@@ -55,17 +55,17 @@ func (s *verboseSvc) Serve() {
 }
 
 // Stop stops the verbose logging service.
-func (s *verboseSvc) Stop() {
+func (s *verboseService) Stop() {
 	close(s.stop)
 }
 
 // WaitForStart returns once the verbose logging service is ready to receive
 // events, or immediately if it's already running.
-func (s *verboseSvc) WaitForStart() {
+func (s *verboseService) WaitForStart() {
 	<-s.started
 }
 
-func (s *verboseSvc) formatEvent(ev events.Event) string {
+func (s *verboseService) formatEvent(ev events.Event) string {
 	switch ev.Type {
 	case events.Ping, events.DownloadProgress, events.LocalIndexUpdated:
 		// Skip

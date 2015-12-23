@@ -13,17 +13,17 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 )
 
-// The auditSvc subscribes to events and writes these in JSON format, one
+// The auditService subscribes to events and writes these in JSON format, one
 // event per line, to the specified writer.
-type auditSvc struct {
+type auditService struct {
 	w       io.Writer     // audit destination
 	stop    chan struct{} // signals time to stop
 	started chan struct{} // signals startup complete
 	stopped chan struct{} // signals stop complete
 }
 
-func newAuditSvc(w io.Writer) *auditSvc {
-	return &auditSvc{
+func newAuditService(w io.Writer) *auditService {
+	return &auditService{
 		w:       w,
 		stop:    make(chan struct{}),
 		started: make(chan struct{}),
@@ -32,7 +32,7 @@ func newAuditSvc(w io.Writer) *auditSvc {
 }
 
 // Serve runs the audit service.
-func (s *auditSvc) Serve() {
+func (s *auditService) Serve() {
 	defer close(s.stopped)
 	sub := events.Default.Subscribe(events.AllEvents)
 	defer events.Default.Unsubscribe(sub)
@@ -52,18 +52,18 @@ func (s *auditSvc) Serve() {
 }
 
 // Stop stops the audit service.
-func (s *auditSvc) Stop() {
+func (s *auditService) Stop() {
 	close(s.stop)
 }
 
 // WaitForStart returns once the audit service is ready to receive events, or
 // immediately if it's already running.
-func (s *auditSvc) WaitForStart() {
+func (s *auditService) WaitForStart() {
 	<-s.started
 }
 
 // WaitForStop returns once the audit service has stopped.
 // (Needed by the tests.)
-func (s *auditSvc) WaitForStop() {
+func (s *auditService) WaitForStop() {
 	<-s.stopped
 }

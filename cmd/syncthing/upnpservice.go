@@ -18,7 +18,7 @@ import (
 
 // The UPnP service runs a loop for discovery of IGDs (Internet Gateway
 // Devices) and setup/renewal of a port mapping.
-type upnpSvc struct {
+type upnpService struct {
 	cfg        *config.Wrapper
 	localPort  int
 	extPort    int
@@ -26,15 +26,15 @@ type upnpSvc struct {
 	stop       chan struct{}
 }
 
-func newUPnPSvc(cfg *config.Wrapper, localPort int) *upnpSvc {
-	return &upnpSvc{
+func newUPnPService(cfg *config.Wrapper, localPort int) *upnpService {
+	return &upnpService{
 		cfg:        cfg,
 		localPort:  localPort,
 		extPortMut: sync.NewMutex(),
 	}
 }
 
-func (s *upnpSvc) Serve() {
+func (s *upnpService) Serve() {
 	foundIGD := true
 	s.stop = make(chan struct{})
 
@@ -72,18 +72,18 @@ func (s *upnpSvc) Serve() {
 	}
 }
 
-func (s *upnpSvc) Stop() {
+func (s *upnpService) Stop() {
 	close(s.stop)
 }
 
-func (s *upnpSvc) ExternalPort() int {
+func (s *upnpService) ExternalPort() int {
 	s.extPortMut.Lock()
 	port := s.extPort
 	s.extPortMut.Unlock()
 	return port
 }
 
-func (s *upnpSvc) tryIGDs(igds []upnp.IGD, prevExtPort int) int {
+func (s *upnpService) tryIGDs(igds []upnp.IGD, prevExtPort int) int {
 	// Lets try all the IGDs we found and use the first one that works.
 	// TODO: Use all of them, and sort out the resulting mess to the
 	// discovery announcement code...
@@ -105,7 +105,7 @@ func (s *upnpSvc) tryIGDs(igds []upnp.IGD, prevExtPort int) int {
 	return 0
 }
 
-func (s *upnpSvc) tryIGD(igd upnp.IGD, suggestedPort int) (int, error) {
+func (s *upnpService) tryIGD(igd upnp.IGD, suggestedPort int) (int, error) {
 	var err error
 	leaseTime := s.cfg.Options().UPnPLeaseM * 60
 

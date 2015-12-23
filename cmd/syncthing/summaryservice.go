@@ -16,9 +16,9 @@ import (
 	"github.com/thejerf/suture"
 )
 
-// The folderSummarySvc adds summary information events (FolderSummary and
+// The folderSummaryService adds summary information events (FolderSummary and
 // FolderCompletion) into the event stream at certain intervals.
-type folderSummarySvc struct {
+type folderSummaryService struct {
 	*suture.Supervisor
 
 	cfg       *config.Wrapper
@@ -35,9 +35,9 @@ type folderSummarySvc struct {
 	lastEventReqMut sync.Mutex
 }
 
-func newFolderSummarySvc(cfg *config.Wrapper, m *model.Model) *folderSummarySvc {
-	svc := &folderSummarySvc{
-		Supervisor:      suture.NewSimple("folderSummarySvc"),
+func newFolderSummaryService(cfg *config.Wrapper, m *model.Model) *folderSummaryService {
+	service := &folderSummaryService{
+		Supervisor:      suture.NewSimple("folderSummaryService"),
 		cfg:             cfg,
 		model:           m,
 		stop:            make(chan struct{}),
@@ -47,20 +47,20 @@ func newFolderSummarySvc(cfg *config.Wrapper, m *model.Model) *folderSummarySvc 
 		lastEventReqMut: sync.NewMutex(),
 	}
 
-	svc.Add(serviceFunc(svc.listenForUpdates))
-	svc.Add(serviceFunc(svc.calculateSummaries))
+	service.Add(serviceFunc(service.listenForUpdates))
+	service.Add(serviceFunc(service.calculateSummaries))
 
-	return svc
+	return service
 }
 
-func (c *folderSummarySvc) Stop() {
+func (c *folderSummaryService) Stop() {
 	c.Supervisor.Stop()
 	close(c.stop)
 }
 
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
-func (c *folderSummarySvc) listenForUpdates() {
+func (c *folderSummaryService) listenForUpdates() {
 	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged)
 	defer events.Default.Unsubscribe(sub)
 
@@ -110,7 +110,7 @@ func (c *folderSummarySvc) listenForUpdates() {
 
 // calculateSummaries periodically recalculates folder summaries and
 // completion percentage, and sends the results on the event bus.
-func (c *folderSummarySvc) calculateSummaries() {
+func (c *folderSummaryService) calculateSummaries() {
 	const pumpInterval = 2 * time.Second
 	pump := time.NewTimer(pumpInterval)
 
@@ -139,7 +139,7 @@ func (c *folderSummarySvc) calculateSummaries() {
 
 // foldersToHandle returns the list of folders needing a summary update, and
 // clears the list.
-func (c *folderSummarySvc) foldersToHandle() []string {
+func (c *folderSummaryService) foldersToHandle() []string {
 	// We only recalculate summaries if someone is listening to events
 	// (a request to /rest/events has been made within the last
 	// pingEventInterval).
@@ -162,7 +162,7 @@ func (c *folderSummarySvc) foldersToHandle() []string {
 }
 
 // sendSummary send the summary events for a single folder
-func (c *folderSummarySvc) sendSummary(folder string) {
+func (c *folderSummaryService) sendSummary(folder string) {
 	// The folder summary contains how many bytes, files etc
 	// are in the folder and how in sync we are.
 	data := folderSummary(c.cfg, c.model, folder)
@@ -192,7 +192,7 @@ func (c *folderSummarySvc) sendSummary(folder string) {
 	}
 }
 
-func (c *folderSummarySvc) gotEventRequest() {
+func (c *folderSummaryService) gotEventRequest() {
 	c.lastEventReqMut.Lock()
 	c.lastEventReq = time.Now()
 	c.lastEventReqMut.Unlock()

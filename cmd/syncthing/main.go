@@ -511,23 +511,23 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
-	mainSvc := suture.New("main", suture.Spec{
+	mainService := suture.New("main", suture.Spec{
 		Log: func(line string) {
 			l.Debugln(line)
 		},
 	})
-	mainSvc.ServeBackground()
+	mainService.ServeBackground()
 
 	// Set a log prefix similar to the ID we will have later on, or early log
 	// lines look ugly.
 	l.SetPrefix("[start] ")
 
 	if runtimeOptions.auditEnabled {
-		startAuditing(mainSvc)
+		startAuditing(mainService)
 	}
 
 	if runtimeOptions.verbose {
-		mainSvc.Add(newVerboseSvc())
+		mainService.Add(newVerboseService())
 	}
 
 	errors := logger.NewRecorder(l, logger.LevelWarn, maxSystemErrors, 0)
@@ -731,7 +731,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	mainSvc.Add(m)
+	mainService.Add(m)
 
 	// The default port we announce, possibly modified by setupUPnP next.
 
@@ -752,33 +752,33 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Start UPnP
 
 	if opts.UPnPEnabled {
-		upnpSvc := newUPnPSvc(cfg, addr.Port)
-		mainSvc.Add(upnpSvc)
+		upnpService := newUPnPService(cfg, addr.Port)
+		mainService.Add(upnpService)
 
 		// The external address tracker needs to know about the UPnP service
 		// so it can check for an external mapped port.
-		addrList = newAddressLister(upnpSvc, cfg)
+		addrList = newAddressLister(upnpService, cfg)
 	} else {
 		addrList = newAddressLister(nil, cfg)
 	}
 
 	// Start relay management
 
-	var relaySvc *relay.Svc
+	var relayService *relay.Service
 	if opts.RelaysEnabled && (opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn) {
-		relaySvc = relay.NewSvc(cfg, tlsCfg)
-		mainSvc.Add(relaySvc)
+		relayService = relay.NewService(cfg, tlsCfg)
+		mainService.Add(relayService)
 	}
 
 	// Start discovery
 
 	cachedDiscovery := discover.NewCachingMux()
-	mainSvc.Add(cachedDiscovery)
+	mainService.Add(cachedDiscovery)
 
 	if cfg.Options().GlobalAnnEnabled {
 		for _, srv := range cfg.GlobalDiscoveryServers() {
 			l.Infoln("Using discovery server", srv)
-			gd, err := discover.NewGlobal(srv, cert, addrList, relaySvc)
+			gd, err := discover.NewGlobal(srv, cert, addrList, relayService)
 			if err != nil {
 				l.Warnln("Global discovery:", err)
 				continue
@@ -793,14 +793,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if cfg.Options().LocalAnnEnabled {
 		// v4 broadcasts
-		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), addrList, relaySvc)
+		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), addrList, relayService)
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
 			cachedDiscovery.Add(bcd, 0, 0, ipv4LocalDiscoveryPriority)
 		}
 		// v6 multicasts
-		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, addrList, relaySvc)
+		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, addrList, relayService)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
@@ -810,12 +810,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// GUI
 
-	setupGUI(mainSvc, cfg, m, apiSub, cachedDiscovery, relaySvc, errors, systemLog, runtimeOptions)
+	setupGUI(mainService, cfg, m, apiSub, cachedDiscovery, relayService, errors, systemLog, runtimeOptions)
 
 	// Start connection management
 
-	connectionSvc := connections.NewConnectionSvc(cfg, myID, m, tlsCfg, cachedDiscovery, relaySvc, bepProtocolName, tlsDefaultCommonName, lans)
-	mainSvc.Add(connectionSvc)
+	connectionService := connections.NewConnectionService(cfg, myID, m, tlsCfg, cachedDiscovery, relayService, bepProtocolName, tlsDefaultCommonName, lans)
+	mainService.Add(connectionService)
 
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
@@ -875,7 +875,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	code := <-stop
 
-	mainSvc.Stop()
+	mainService.Stop()
 
 	l.Okln("Exiting")
 
@@ -947,24 +947,24 @@ func loadConfig(cfgFile string) (*config.Wrapper, string, error) {
 	return cfg, myName, nil
 }
 
-func startAuditing(mainSvc *suture.Supervisor) {
+func startAuditing(mainService *suture.Supervisor) {
 	auditFile := timestampedLoc(locAuditLog)
 	fd, err := os.OpenFile(auditFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		l.Fatalln("Audit:", err)
 	}
 
-	auditSvc := newAuditSvc(fd)
-	mainSvc.Add(auditSvc)
+	auditService := newAuditService(fd)
+	mainService.Add(auditService)
 
 	// We wait for the audit service to fully start before we return, to
 	// ensure we capture all events from the start.
-	auditSvc.WaitForStart()
+	auditService.WaitForStart()
 
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.CachingMux, relaySvc *relay.Svc, errors, systemLog *logger.Recorder, runtimeOptions RuntimeOptions) {
+func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.CachingMux, relayService *relay.Service, errors, systemLog *logger.Recorder, runtimeOptions RuntimeOptions) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -975,12 +975,12 @@ func setupGUI(mainSvc *suture.Supervisor, cfg *config.Wrapper, m *model.Model, a
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	api, err := newAPISvc(myID, cfg, runtimeOptions.assetDir, m, apiSub, discoverer, relaySvc, errors, systemLog)
+	api, err := newAPIService(myID, cfg, runtimeOptions.assetDir, m, apiSub, discoverer, relayService, errors, systemLog)
 	if err != nil {
 		l.Fatalln("Cannot start GUI:", err)
 	}
 	cfg.Subscribe(api)
-	mainSvc.Add(api)
+	mainService.Add(api)
 
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
 		// Can potentially block if the utility we are invoking doesn't
