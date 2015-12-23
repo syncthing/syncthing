@@ -42,9 +42,9 @@ type Model interface {
 	IsPaused(remoteID protocol.DeviceID) bool
 }
 
-// The connection service listens on TLS and dials configured unconnected
+// The connection connectionService listens on TLS and dials configured unconnected
 // devices. Successful connections are handed to the model.
-type connectionSvc struct {
+type connectionService struct {
 	*suture.Supervisor
 	cfg                  *config.Wrapper
 	myID                 protocol.DeviceID
@@ -52,7 +52,7 @@ type connectionSvc struct {
 	tlsCfg               *tls.Config
 	discoverer           discover.Finder
 	conns                chan model.IntermediateConnection
-	relaySvc             *relay.Svc
+	relayService         *relay.Service
 	bepProtocolName      string
 	tlsDefaultCommonName string
 	lans                 []*net.IPNet
@@ -66,16 +66,16 @@ type connectionSvc struct {
 	relaysEnabled bool
 }
 
-func NewConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, relaySvc *relay.Svc,
+func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, relayService *relay.Service,
 	bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) suture.Service {
-	svc := &connectionSvc{
-		Supervisor:           suture.NewSimple("connectionSvc"),
+	service := &connectionService{
+		Supervisor:           suture.NewSimple("connectionService"),
 		cfg:                  cfg,
 		myID:                 myID,
 		model:                mdl,
 		tlsCfg:               tlsCfg,
 		discoverer:           discoverer,
-		relaySvc:             relaySvc,
+		relayService:         relayService,
 		conns:                make(chan model.IntermediateConnection),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
@@ -85,20 +85,20 @@ func NewConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tl
 		relaysEnabled:  cfg.Options().RelaysEnabled,
 		lastRelayCheck: make(map[protocol.DeviceID]time.Time),
 	}
-	cfg.Subscribe(svc)
+	cfg.Subscribe(service)
 
-	if svc.cfg.Options().MaxSendKbps > 0 {
-		svc.writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*svc.cfg.Options().MaxSendKbps), int64(5*1000*svc.cfg.Options().MaxSendKbps))
+	if service.cfg.Options().MaxSendKbps > 0 {
+		service.writeRateLimit = ratelimit.NewBucketWithRate(float64(1000*service.cfg.Options().MaxSendKbps), int64(5*1000*service.cfg.Options().MaxSendKbps))
 	}
-	if svc.cfg.Options().MaxRecvKbps > 0 {
-		svc.readRateLimit = ratelimit.NewBucketWithRate(float64(1000*svc.cfg.Options().MaxRecvKbps), int64(5*1000*svc.cfg.Options().MaxRecvKbps))
+	if service.cfg.Options().MaxRecvKbps > 0 {
+		service.readRateLimit = ratelimit.NewBucketWithRate(float64(1000*service.cfg.Options().MaxRecvKbps), int64(5*1000*service.cfg.Options().MaxRecvKbps))
 	}
 
 	// There are several moving parts here; one routine per listening address
 	// to handle incoming connections, one routine to periodically attempt
 	// outgoing connections, one routine to the the common handling
 	// regardless of whether the connection was incoming or outgoing.
-	// Furthermore, a relay service which handles incoming requests to connect
+	// Furthermore, a relay connectionService which handles incoming requests to connect
 	// via the relays.
 	//
 	// TODO: Clean shutdown, and/or handling config changes on the fly. We
@@ -106,8 +106,8 @@ func NewConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tl
 	// not new listen addresses and we don't support disconnecting devices
 	// that are removed and so on...
 
-	svc.Add(serviceFunc(svc.connect))
-	for _, addr := range svc.cfg.Options().ListenAddress {
+	service.Add(serviceFunc(service.connect))
+	for _, addr := range service.cfg.Options().ListenAddress {
 		uri, err := url.Parse(addr)
 		if err != nil {
 			l.Infoln("Failed to parse listen address:", addr, err)
@@ -122,20 +122,20 @@ func NewConnectionSvc(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tl
 
 		l.Debugln("listening on", uri)
 
-		svc.Add(serviceFunc(func() {
-			listener(uri, svc.tlsCfg, svc.conns)
+		service.Add(serviceFunc(func() {
+			listener(uri, service.tlsCfg, service.conns)
 		}))
 	}
-	svc.Add(serviceFunc(svc.handle))
+	service.Add(serviceFunc(service.handle))
 
-	if svc.relaySvc != nil {
-		svc.Add(serviceFunc(svc.acceptRelayConns))
+	if service.relayService != nil {
+		service.Add(serviceFunc(service.acceptRelayConns))
 	}
 
-	return svc
+	return service
 }
 
-func (s *connectionSvc) handle() {
+func (s *connectionService) handle() {
 next:
 	for c := range s.conns {
 		cs := c.Conn.ConnectionState()
@@ -257,7 +257,7 @@ next:
 	}
 }
 
-func (s *connectionSvc) connect() {
+func (s *connectionService) connect() {
 	delay := time.Second
 	for {
 		l.Debugln("Reconnect loop")
@@ -340,7 +340,7 @@ func (s *connectionSvc) connect() {
 	}
 }
 
-func (s *connectionSvc) resolveAddresses(deviceID protocol.DeviceID, inAddrs []string) (addrs []string, relays []discover.Relay) {
+func (s *connectionService) resolveAddresses(deviceID protocol.DeviceID, inAddrs []string) (addrs []string, relays []discover.Relay) {
 	for _, addr := range inAddrs {
 		if addr == "dynamic" {
 			if s.discoverer != nil {
@@ -356,7 +356,7 @@ func (s *connectionSvc) resolveAddresses(deviceID protocol.DeviceID, inAddrs []s
 	return
 }
 
-func (s *connectionSvc) connectDirect(deviceID protocol.DeviceID, addr string) *tls.Conn {
+func (s *connectionService) connectDirect(deviceID protocol.DeviceID, addr string) *tls.Conn {
 	uri, err := url.Parse(addr)
 	if err != nil {
 		l.Infoln("Failed to parse connection url:", addr, err)
@@ -379,7 +379,7 @@ func (s *connectionSvc) connectDirect(deviceID protocol.DeviceID, addr string) *
 	return conn
 }
 
-func (s *connectionSvc) connectViaRelay(deviceID protocol.DeviceID, addr discover.Relay) *tls.Conn {
+func (s *connectionService) connectViaRelay(deviceID protocol.DeviceID, addr discover.Relay) *tls.Conn {
 	uri, err := url.Parse(addr.URL)
 	if err != nil {
 		l.Infoln("Failed to parse relay connection url:", addr, err)
@@ -418,9 +418,9 @@ func (s *connectionSvc) connectViaRelay(deviceID protocol.DeviceID, addr discove
 	return tc
 }
 
-func (s *connectionSvc) acceptRelayConns() {
+func (s *connectionService) acceptRelayConns() {
 	for {
-		conn := s.relaySvc.Accept()
+		conn := s.relayService.Accept()
 		s.conns <- model.IntermediateConnection{
 			Conn: conn,
 			Type: model.ConnectionTypeRelayAccept,
@@ -428,7 +428,7 @@ func (s *connectionSvc) acceptRelayConns() {
 	}
 }
 
-func (s *connectionSvc) shouldLimit(addr net.Addr) bool {
+func (s *connectionService) shouldLimit(addr net.Addr) bool {
 	if s.cfg.Options().LimitBandwidthInLan {
 		return true
 	}
@@ -445,11 +445,11 @@ func (s *connectionSvc) shouldLimit(addr net.Addr) bool {
 	return !tcpaddr.IP.IsLoopback()
 }
 
-func (s *connectionSvc) VerifyConfiguration(from, to config.Configuration) error {
+func (s *connectionService) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
-func (s *connectionSvc) CommitConfiguration(from, to config.Configuration) bool {
+func (s *connectionService) CommitConfiguration(from, to config.Configuration) bool {
 	s.mut.Lock()
 	s.relaysEnabled = to.Options.RelaysEnabled
 	s.mut.Unlock()

@@ -60,9 +60,9 @@ func (m *usageReportingManager) VerifyConfiguration(from, to config.Configuratio
 func (m *usageReportingManager) CommitConfiguration(from, to config.Configuration) bool {
 	if to.Options.URAccepted >= usageReportVersion && m.sup == nil {
 		// Usage reporting was turned on; lets start it.
-		svc := newUsageReportingService(m.cfg, m.model)
+		service := newUsageReportingService(m.cfg, m.model)
 		m.sup = suture.NewSimple("usageReporting")
-		m.sup.Add(svc)
+		m.sup.Add(service)
 		m.sup.ServeBackground()
 	} else if to.Options.URAccepted < usageReportVersion && m.sup != nil {
 		// Usage reporting was turned off
@@ -78,7 +78,7 @@ func (m *usageReportingManager) String() string {
 }
 
 // reportData returns the data to be sent in a usage report. It's used in
-// various places, so not part of the usageReportingSvc object.
+// various places, so not part of the usageReportingManager object.
 func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 	res := make(map[string]interface{})
 	res["urVersion"] = usageReportVersion

@@ -65,8 +65,8 @@ func (m *CachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration, p
 	m.caches = append(m.caches, newCache())
 	m.mut.Unlock()
 
-	if svc, ok := finder.(suture.Service); ok {
-		m.Supervisor.Add(svc)
+	if service, ok := finder.(suture.Service); ok {
+		m.Supervisor.Add(service)
 	}
 }
 

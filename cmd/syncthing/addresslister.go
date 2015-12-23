@@ -15,14 +15,14 @@ import (
 )
 
 type addressLister struct {
-	upnpSvc *upnpSvc
-	cfg     *config.Wrapper
+	upnpService *upnpService
+	cfg         *config.Wrapper
 }
 
-func newAddressLister(upnpSvc *upnpSvc, cfg *config.Wrapper) *addressLister {
+func newAddressLister(upnpService *upnpService, cfg *config.Wrapper) *addressLister {
 	return &addressLister{
-		upnpSvc: upnpSvc,
-		cfg:     cfg,
+		upnpService: upnpService,
+		cfg:         cfg,
 	}
 }
 
@@ -73,10 +73,10 @@ func (e *addressLister) addresses(includePrivateIPV4 bool) []string {
 		}
 	}
 
-	// Get an external port mapping from the upnpSvc, if it has one. If so,
+	// Get an external port mapping from the upnpService, if it has one. If so,
 	// add it as another unspecified address.
-	if e.upnpSvc != nil {
-		if port := e.upnpSvc.ExternalPort(); port != 0 {
+	if e.upnpService != nil {
+		if port := e.upnpService.ExternalPort(); port != 0 {
 			addrs = append(addrs, fmt.Sprintf("tcp://:%d", port))
 		}
 	}

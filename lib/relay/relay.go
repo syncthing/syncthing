@@ -26,7 +26,7 @@ const (
 	eventBroadcasterCheckInterval = 10 * time.Second
 )
 
-type Svc struct {
+type Service struct {
 	*suture.Supervisor
 	cfg    *config.Wrapper
 	tlsCfg *tls.Config
@@ -38,11 +38,11 @@ type Svc struct {
 	conns       chan *tls.Conn
 }
 
-func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config) *Svc {
+func NewService(cfg *config.Wrapper, tlsCfg *tls.Config) *Service {
 	conns := make(chan *tls.Conn)
 
-	svc := &Svc{
-		Supervisor: suture.New("Svc", suture.Spec{
+	service := &Service{
+		Supervisor: suture.New("Service", suture.Spec{
 			Log: func(log string) {
 				l.Debugln(log)
 			},
@@ -61,28 +61,28 @@ func NewSvc(cfg *config.Wrapper, tlsCfg *tls.Config) *Svc {
 	}
 
 	rcfg := cfg.Raw()
-	svc.CommitConfiguration(rcfg, rcfg)
-	cfg.Subscribe(svc)
+	service.CommitConfiguration(rcfg, rcfg)
+	cfg.Subscribe(service)
 
 	receiver := &invitationReceiver{
 		tlsCfg:      tlsCfg,
 		conns:       conns,
-		invitations: svc.invitations,
+		invitations: service.invitations,
 		stop:        make(chan struct{}),
 	}
 
 	eventBc := &eventBroadcaster{
-		svc:  svc,
-		stop: make(chan struct{}),
+		Service: service,
+		stop:    make(chan struct{}),
 	}
 
-	svc.Add(receiver)
-	svc.Add(eventBc)
+	service.Add(receiver)
+	service.Add(eventBc)
 
-	return svc
+	return service
 }
 
-func (s *Svc) VerifyConfiguration(from, to config.Configuration) error {
+func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
 	for _, addr := range to.Options.RelayServers {
 		_, err := url.Parse(addr)
 		if err != nil {
@@ -92,7 +92,7 @@ func (s *Svc) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
-func (s *Svc) CommitConfiguration(from, to config.Configuration) bool {
+func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	existing := make(map[string]*url.URL, len(to.Options.RelayServers))
 
 	for _, addr := range to.Options.RelayServers {
@@ -142,7 +142,7 @@ type Status struct {
 }
 
 // Relays return the list of relays that currently have an OK status.
-func (s *Svc) Relays() []string {
+func (s *Service) Relays() []string {
 	if s == nil {
 		// A nil client does not have a status, really. Yet we may be called
 		// this way, for raisins...
@@ -162,7 +162,7 @@ func (s *Svc) Relays() []string {
 }
 
 // RelayStatus returns the latency and OK status for a given relay.
-func (s *Svc) RelayStatus(uri string) (time.Duration, bool) {
+func (s *Service) RelayStatus(uri string) (time.Duration, bool) {
 	if s == nil {
 		// A nil client does not have a status, really. Yet we may be called
 		// this way, for raisins...
@@ -182,7 +182,7 @@ func (s *Svc) RelayStatus(uri string) (time.Duration, bool) {
 }
 
 // Accept returns a new *tls.Conn. The connection is already handshaken.
-func (s *Svc) Accept() *tls.Conn {
+func (s *Service) Accept() *tls.Conn {
 	return <-s.conns
 }
 
@@ -234,8 +234,8 @@ func (r *invitationReceiver) Stop() {
 // no way to get the event feed directly from the relay lib. This may be
 // something to revisit later, possibly.
 type eventBroadcaster struct {
-	svc  *Svc
-	stop chan struct{}
+	Service *Service
+	stop    chan struct{}
 }
 
 func (e *eventBroadcaster) Serve() {
@@ -247,7 +247,7 @@ func (e *eventBroadcaster) Serve() {
 	for {
 		select {
 		case <-timer.C:
-			curOKRelays := e.svc.Relays()
+			curOKRelays := e.Service.Relays()
 
 			changed := len(curOKRelays) != len(prevOKRelays)
 			if !changed {

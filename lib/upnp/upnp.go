@@ -58,13 +58,9 @@ func (n *IGD) URL() *url.URL {
 
 // An IGDService is a specific service provided by an IGD.
 type IGDService struct {
-	serviceID  string
-	serviceURL string
-	serviceURN string
-}
-
-func (s *IGDService) ID() string {
-	return s.serviceID
+	ID  string
+	URL string
+	URN string
 }
 
 type Protocol string
@@ -75,9 +71,9 @@ const (
 )
 
 type upnpService struct {
-	ServiceID   string `xml:"serviceId"`
-	ServiceType string `xml:"serviceType"`
-	ControlURL  string `xml:"controlURL"`
+	ID         string `xml:"serviceId"`
+	Type       string `xml:"serviceType"`
+	ControlURL string `xml:"controlURL"`
 }
 
 type upnpDevice struct {
@@ -132,8 +128,8 @@ nextResult:
 			if existingResult.uuid == result.uuid {
 				if shouldDebug() {
 					l.Debugf("Skipping duplicate result %s with services:", result.uuid)
-					for _, svc := range result.services {
-						l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
+					for _, service := range result.services {
+						l.Debugf("* [%s] %s", service.ID, service.URL)
 					}
 				}
 				continue nextResult
@@ -143,8 +139,8 @@ nextResult:
 		results = append(results, result)
 		if shouldDebug() {
 			l.Debugf("UPnP discovery result %s with services:", result.uuid)
-			for _, svc := range result.services {
-				l.Debugf("* [%s] %s", svc.serviceID, svc.serviceURL)
+			for _, service := range result.services {
+				l.Debugf("* [%s] %s", service.ID, service.URL)
 			}
 		}
 	}
@@ -317,9 +313,9 @@ func getChildDevices(d upnpDevice, deviceType string) []upnpDevice {
 
 func getChildServices(d upnpDevice, serviceType string) []upnpService {
 	var result []upnpService
-	for _, svc := range d.Services {
-		if svc.ServiceType == serviceType {
-			result = append(result, svc)
+	for _, service := range d.Services {
+		if service.Type == serviceType {
+			result = append(result, service)
 		}
 	}
 	return result
@@ -352,7 +348,7 @@ func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDService, er
 	return result, nil
 }
 
-func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, serviceURNs []string) []IGDService {
+func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, URNs []string) []IGDService {
 	var result []IGDService
 
 	devices := getChildDevices(device, wanDeviceURN)
@@ -370,21 +366,21 @@ func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanC
 		}
 
 		for _, connection := range connections {
-			for _, serviceURN := range serviceURNs {
-				services := getChildServices(connection, serviceURN)
+			for _, URN := range URNs {
+				services := getChildServices(connection, URN)
 
-				l.Debugln(rootURL, "- no services of type", serviceURN, " found on connection.")
+				l.Debugln(rootURL, "- no services of type", URN, " found on connection.")
 
 				for _, service := range services {
 					if len(service.ControlURL) == 0 {
-						l.Infoln(rootURL+"- malformed", service.ServiceType, "description: no control URL.")
+						l.Infoln(rootURL+"- malformed", service.Type, "description: no control URL.")
 					} else {
 						u, _ := url.Parse(rootURL)
 						replaceRawPath(u, service.ControlURL)
 
-						l.Debugln(rootURL, "- found", service.ServiceType, "with URL", u)
+						l.Debugln(rootURL, "- found", service.Type, "with URL", u)
 
-						service := IGDService{serviceID: service.ServiceID, serviceURL: u.String(), serviceURN: service.ServiceType}
+						service := IGDService{ID: service.ID, URL: u.String(), URN: service.Type}
 
 						result = append(result, service)
 					}
@@ -525,9 +521,9 @@ func (s *IGDService) AddPortMapping(localIPAddress string, protocol Protocol, ex
 	<NewPortMappingDescription>%s</NewPortMappingDescription>
 	<NewLeaseDuration>%d</NewLeaseDuration>
 	</u:AddPortMapping>`
-	body := fmt.Sprintf(tpl, s.serviceURN, externalPort, protocol, internalPort, localIPAddress, description, timeout)
+	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol, internalPort, localIPAddress, description, timeout)
 
-	response, err := soapRequest(s.serviceURL, s.serviceURN, "AddPortMapping", body)
+	response, err := soapRequest(s.URL, s.URN, "AddPortMapping", body)
 	if err != nil && timeout > 0 {
 		// Try to repair error code 725 - OnlyPermanentLeasesSupported
 		envelope := &soapErrorResponse{}
@@ -549,9 +545,9 @@ func (s *IGDService) DeletePortMapping(protocol Protocol, externalPort int) erro
 	<NewExternalPort>%d</NewExternalPort>
 	<NewProtocol>%s</NewProtocol>
 	</u:DeletePortMapping>`
-	body := fmt.Sprintf(tpl, s.serviceURN, externalPort, protocol)
+	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol)
 
-	_, err := soapRequest(s.serviceURL, s.serviceURN, "DeletePortMapping", body)
+	_, err := soapRequest(s.URL, s.URN, "DeletePortMapping", body)
 
 	if err != nil {
 		return err
@@ -566,9 +562,9 @@ func (s *IGDService) DeletePortMapping(protocol Protocol, externalPort int) erro
 func (s *IGDService) GetExternalIPAddress() (net.IP, error) {
 	tpl := `<u:GetExternalIPAddress xmlns:u="%s" />`
 
-	body := fmt.Sprintf(tpl, s.serviceURN)
+	body := fmt.Sprintf(tpl, s.URN)
 
-	response, err := soapRequest(s.serviceURL, s.serviceURN, "GetExternalIPAddress", body)
+	response, err := soapRequest(s.URL, s.URN, "GetExternalIPAddress", body)
 
 	if err != nil {
 		return nil, err

@@ -17,13 +17,13 @@ import (
 
 func TestAuditService(t *testing.T) {
 	buf := new(bytes.Buffer)
-	svc := newAuditSvc(buf)
+	service := newAuditService(buf)
 
 	// Event sent before start, will not be logged
 	events.Default.Log(events.Ping, "the first event")
 
-	go svc.Serve()
-	svc.WaitForStart()
+	go service.Serve()
+	service.WaitForStart()
 
 	// Event that should end up in the audit log
 	events.Default.Log(events.Ping, "the second event")
@@ -31,8 +31,8 @@ func TestAuditService(t *testing.T) {
 	// We need to give the events time to arrive, since the channels are buffered etc.
 	time.Sleep(10 * time.Millisecond)
 
-	svc.Stop()
-	svc.WaitForStop()
+	service.Stop()
+	service.WaitForStop()
 
 	// This event should not be logged, since we have stopped.
 	events.Default.Log(events.Ping, "the third event")
