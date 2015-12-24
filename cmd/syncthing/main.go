@@ -922,14 +922,31 @@ func loadOrCreateConfig() *config.Wrapper {
 	}
 
 	if cfg.Raw().OriginalVersion != config.CurrentVersion {
-		// Archive previous version and save new one
-		archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion)
-		l.Infoln("Archiving a copy of old config file format at:", archivePath)
-		osutil.Rename(cfg.ConfigPath(), archivePath)
-		cfg.Save()
+		err = archiveAndSaveConfig(cfg)
+		if err != nil {
+			l.Fatalln("Config archive:", err)
+		}
 	}
 
 	return cfg
+}
+
+func archiveAndSaveConfig(cfg *config.Wrapper) error {
+	// To prevent previous config from being cleaned up, quickly touch it too
+	now := time.Now()
+	err := os.Chtimes(cfg.ConfigPath(), now, now)
+	if err != nil {
+		return err
+	}
+
+	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion)
+	l.Infoln("Archiving a copy of old config file format at:", archivePath)
+	err = osutil.Rename(cfg.ConfigPath(), archivePath)
+	if err != nil {
+		return err
+	}
+
+	return cfg.Save()
 }
 
 func startAuditing(mainService *suture.Supervisor) {
