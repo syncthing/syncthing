@@ -1,6 +1,5 @@
 # Text files use LF line endings in this repository
-# Changed to: No normalize
-*   -text
+*   text=auto
 
 # Except the dependencies, which we leave alone
 Godeps/**   -text=auto
