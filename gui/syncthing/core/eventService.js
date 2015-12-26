@@ -18,7 +18,8 @@ angular.module('syncthing.core')
                 return;
             }
             $rootScope.$broadcast(self.ONLINE);
-
+			$("link[rel='shortcut icon']").attr("href","assets/img/favicon_idle.png")
+			
             if (lastID > 0) {   // not emit events from first response
 				var green_counter=0;
 				var red_counter=0;
@@ -50,7 +51,7 @@ angular.module('syncthing.core')
 					$("link[rel='shortcut icon']").attr("href","assets/img/favicon_error.png")
 				}else if(green_counter>0) //GREEN
 				{
-					$("link[rel='shortcut icon']").attr("href","assets/img/favicon_syncing.png")
+					$("link[rel='shortcut icon']").attr("href","assets/img/favicon_syncing.gif")
 				}else //BLUE
 				{
 					$("link[rel='shortcut icon']").attr("href","assets/img/favicon_idle.png")
@@ -72,7 +73,7 @@ angular.module('syncthing.core')
 
         function errorFn (dummy) {
             $rootScope.$broadcast(self.OFFLINE);
-
+			$("link[rel='shortcut icon']").attr("href","assets/img/favicon_error.png")
             $timeout(function () {
                 $http.get(urlbase + '/events?limit=1')
                     .success(successFn)
