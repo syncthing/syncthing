@@ -31,14 +31,14 @@ angular.module('syncthing.core')
                     }
                     $rootScope.$broadcast(event.type, event);
                     
-                    if (event.type=='FolderErrors') {
+                    if (event.type == 'FolderErrors') {
                         red_counter++;
                     }
-                    if (event.type=='ItemStarted' || event.type=='DownloadProgress') {
+                    if (event.type == 'ItemStarted' || event.type == 'DownloadProgress') {
                         green_counter++;
                     }
                     
-                    if (event.type=='StateChanged' && event.data.to=='syncing') {
+                    if (event.type == 'StateChanged' && event.data.to == 'syncing') {
                         green_counter++;
                     }
                     
@@ -47,7 +47,7 @@ angular.module('syncthing.core')
                 if (red_counter>0) {
                     //RED
                     $("link[rel='shortcut icon']").attr("href","assets/img/favicon_error.png")
-                } else if (green_counter>0){
+                } else if (green_counter>0) {
                     //GREEN
                     $("link[rel='shortcut icon']").attr("href","assets/img/favicon_syncing.gif")
                 } else {
