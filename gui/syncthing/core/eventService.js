@@ -6,6 +6,12 @@ angular.module('syncthing.core')
 
         var lastID = 0;
         var self = this;
+        
+        var shortcutIcon=$("#favicon");
+        
+        function changeFavIcon (icon) {
+            shortcutIcon.attr("href","/assets/img/" + icon);
+        }
 
         function successFn (data) {
             // When Syncthing restarts while the long polling connection is in
@@ -18,12 +24,11 @@ angular.module('syncthing.core')
                 return;
             }
             $rootScope.$broadcast(self.ONLINE);
-            //GREEN
-            $("link[rel='shortcut icon']").attr("href","assets/img/favicon_idle.png")
+            
             
             if (lastID > 0) {   // not emit events from first response
-                var green_counter=0;
-                var red_counter=0;
+                var greenCounter = 0;
+                var redCounter = 0;
                 
                 data.forEach(function (event) {
                     if (debugEvents) {
@@ -31,28 +36,28 @@ angular.module('syncthing.core')
                     }
                     $rootScope.$broadcast(event.type, event);
                     
+                    // Counters for favicon change decision
                     if (event.type == 'FolderErrors') {
-                        red_counter++;
+                        redCounter++;
                     }
                     if (event.type == 'ItemStarted' || event.type == 'DownloadProgress') {
-                        green_counter++;
+                        greenCounter++;
                     }
-                    
                     if (event.type == 'StateChanged' && event.data.to == 'syncing') {
-                        green_counter++;
+                        greenCounter++;
                     }
                     
                 });
                 
-                if (red_counter>0) {
+                if (redCounter>0) {
                     //RED
-                    $("link[rel='shortcut icon']").attr("href","assets/img/favicon_error.png")
-                } else if (green_counter>0) {
+                    changeFavIcon("favicon_error.png");
+                } else if (greenCounter>0) {
                     //GREEN
-                    $("link[rel='shortcut icon']").attr("href","assets/img/favicon_syncing.gif")
+                    changeFavIcon("favicon_syncing.gif");
                 } else {
                     //BLUE
-                    $("link[rel='shortcut icon']").attr("href","assets/img/favicon_idle.png")
+                    changeFavIcon("favicon_idle.png");
                 }
                 
             }
@@ -72,7 +77,7 @@ angular.module('syncthing.core')
         function errorFn (dummy) {
             $rootScope.$broadcast(self.OFFLINE);
             //RED
-            $("link[rel='shortcut icon']").attr("href","assets/img/favicon_error.png")
+            changeFavIcon("favicon_error.png");
             $timeout(function () {
                 $http.get(urlbase + '/events?limit=1')
                     .success(successFn)
