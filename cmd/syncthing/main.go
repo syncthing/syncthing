@@ -936,15 +936,11 @@ func loadOrCreateConfig() *config.Wrapper {
 func archiveAndSaveConfig(cfg *config.Wrapper) error {
 	// To prevent previous config from being cleaned up, quickly touch it too
 	now := time.Now()
-	err := os.Chtimes(cfg.ConfigPath(), now, now)
-	if err != nil {
-		return err
-	}
+	_ = os.Chtimes(cfg.ConfigPath(), now, now) // May return error on Android etc; no worries
 
 	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion)
 	l.Infoln("Archiving a copy of old config file format at:", archivePath)
-	err = osutil.Rename(cfg.ConfigPath(), archivePath)
-	if err != nil {
+	if err := osutil.Rename(cfg.ConfigPath(), archivePath); err != nil {
 		return err
 	}
 
