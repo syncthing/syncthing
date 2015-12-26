@@ -225,10 +225,6 @@ func defaultRuntimeOptions() RuntimeOptions {
 		logFlags:     log.Ltime,
 	}
 
-	if options.assetDir != "" {
-		options.assetDir = locations[locGUIAssets]
-	}
-
 	if os.Getenv("STTRACE") != "" {
 		options.logFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
 	}
@@ -306,6 +302,12 @@ func main() {
 		// Blank means use the default logfile location. We must set this
 		// *after* expandLocations above.
 		options.logFile = locations[locLogFile]
+	}
+
+	if options.assetDir == "" {
+		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
+		// should look for extra assets in the default place.
+		options.assetDir = locations[locGUIAssets]
 	}
 
 	if options.showVersion {
