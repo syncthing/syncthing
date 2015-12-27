@@ -6,6 +6,12 @@ angular.module('syncthing.core')
 
         var lastID = 0;
         var self = this;
+        
+        var shortcutIcon=$("#favicon");
+        
+        function changeFavIcon (icon) {
+            shortcutIcon.attr("href","/assets/img/" + icon);
+        }
 
         function successFn (data) {
             // When Syncthing restarts while the long polling connection is in
@@ -18,14 +24,42 @@ angular.module('syncthing.core')
                 return;
             }
             $rootScope.$broadcast(self.ONLINE);
-
+            
+            
             if (lastID > 0) {   // not emit events from first response
+                var greenCounter = 0;
+                var redCounter = 0;
+                
                 data.forEach(function (event) {
                     if (debugEvents) {
                         console.log("event", event.id, event.type, event.data);
                     }
                     $rootScope.$broadcast(event.type, event);
+                    
+                    // Counters for favicon change decision
+                    if (event.type == 'FolderErrors') {
+                        redCounter++;
+                    }
+                    if (event.type == 'ItemStarted' || event.type == 'DownloadProgress') {
+                        greenCounter++;
+                    }
+                    if (event.type == 'StateChanged' && event.data.to == 'syncing') {
+                        greenCounter++;
+                    }
+                    
                 });
+                
+                if (redCounter>0) {
+                    //RED
+                    changeFavIcon("favicon_error.png");
+                } else if (greenCounter>0) {
+                    //GREEN
+                    changeFavIcon("favicon_syncing.gif");
+                } else {
+                    //BLUE
+                    changeFavIcon("favicon_idle.png");
+                }
+                
             }
 
             var lastEvent = data.pop();
@@ -42,7 +76,8 @@ angular.module('syncthing.core')
 
         function errorFn (dummy) {
             $rootScope.$broadcast(self.OFFLINE);
-
+            //RED
+            changeFavIcon("favicon_error.png");
             $timeout(function () {
                 $http.get(urlbase + '/events?limit=1')
                     .success(successFn)
