@@ -103,8 +103,7 @@ Synology NAS
    the files at https://synocommunity.com/packages). Numerous CPU
    architectures are supported. SPK's may be older versions, however you
    can execute a Syncthing version upgrade via Web-GUI after
-   installation on Synology device. As Syncthing is marked as beta by
-   the SynoCommunity, you need to enable beta-versions in the settings.
+   installation on Synology device.
 
 QNAP NAS
 ~~~~~~~~
