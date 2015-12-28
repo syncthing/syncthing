@@ -9,10 +9,10 @@ angular.module('syncthing.core')
         
         var shortcutIcon=$("#favicon");
         
-		//Preloads Error icon
-		//To ensure it's available offline
-		new Image().src="/assets/img/favicon_error.png";
-		
+        //Preloads Error icon
+        //To ensure it's available offline
+        new Image().src="/assets/img/favicon_error.png";
+        
         function changeFavIcon (icon) {
             shortcutIcon.attr("href","/assets/img/" + icon);
         }
