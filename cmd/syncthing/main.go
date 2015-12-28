@@ -225,10 +225,6 @@ func defaultRuntimeOptions() RuntimeOptions {
 		logFlags:     log.Ltime,
 	}
 
-	if options.assetDir != "" {
-		options.assetDir = locations[locGUIAssets]
-	}
-
 	if os.Getenv("STTRACE") != "" {
 		options.logFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
 	}
@@ -308,6 +304,12 @@ func main() {
 		options.logFile = locations[locLogFile]
 	}
 
+	if options.assetDir == "" {
+		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
+		// should look for extra assets in the default place.
+		options.assetDir = locations[locGUIAssets]
+	}
+
 	if options.showVersion {
 		fmt.Println(LongVersion)
 		return
@@ -359,10 +361,7 @@ func main() {
 }
 
 func openGUI() {
-	cfg, _, err := loadConfig(locations[locConfigFile])
-	if err != nil {
-		l.Fatalln("Config:", err)
-	}
+	cfg, _ := loadConfig()
 	if cfg.GUI().Enabled {
 		openURL(cfg.GUI().URL())
 	} else {
@@ -433,10 +432,8 @@ func debugFacilities() string {
 }
 
 func checkUpgrade() upgrade.Release {
-	releasesURL := "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"
-	if cfg, _, err := loadConfig(locations[locConfigFile]); err == nil {
-		releasesURL = cfg.Options().ReleasesURL
-	}
+	cfg, _ := loadConfig()
+	releasesURL := cfg.Options().ReleasesURL
 	release, err := upgrade.LatestRelease(releasesURL, Version)
 	if err != nil {
 		l.Fatalln("Upgrade:", err)
@@ -473,10 +470,7 @@ func performUpgrade(release upgrade.Release) {
 }
 
 func upgradeViaRest() error {
-	cfg, err := config.Load(locations[locConfigFile], protocol.LocalDeviceID)
-	if err != nil {
-		return err
-	}
+	cfg, _ := loadConfig()
 	target := cfg.GUI().URL()
 	r, _ := http.NewRequest("POST", target+"/rest/system/upgrade", nil)
 	r.Header.Set("X-API-Key", cfg.GUI().APIKey())
@@ -573,37 +567,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"myID": myID.String(),
 	})
 
-	// Prepare to be able to save configuration
-
-	cfgFile := locations[locConfigFile]
-
-	// Load the configuration file, if it exists.
-	// If it does not, create a template.
-
-	cfg, myName, err := loadConfig(cfgFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			l.Infoln("No config file; starting with empty defaults")
-			myName, _ = os.Hostname()
-			newCfg := defaultConfig(myName)
-			cfg = config.Wrap(cfgFile, newCfg)
-			cfg.Save()
-			l.Infof("Edit %s to taste or use the GUI\n", cfgFile)
-		} else {
-			l.Fatalln("Loading config:", err)
-		}
-	}
-
-	if cfg.Raw().OriginalVersion != config.CurrentVersion {
-		l.Infoln("Archiving a copy of old config file format")
-		// Archive a copy
-		osutil.Rename(cfgFile, cfgFile+fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion))
-		// Save the new version
-		cfg.Save()
-	}
+	cfg := loadOrCreateConfig()
 
 	if err := checkShortIDs(cfg); err != nil {
-		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one if the following:\n  ", err)
+		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
 	}
 
 	if len(runtimeOptions.profiler) > 0 {
@@ -693,7 +660,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		l.Infoln("Compacting database:", err)
 	}
 
-	m := model.NewModel(cfg, myID, myName, "syncthing", Version, ldb, protectedFiles)
+	m := model.NewModel(cfg, myID, myDeviceName(cfg), "syncthing", Version, ldb, protectedFiles)
 	cfg.Subscribe(m)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
@@ -886,6 +853,15 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	os.Exit(code)
 }
 
+func myDeviceName(cfg *config.Wrapper) string {
+	devices := cfg.Devices()
+	myName := devices[myID].Name
+	if myName == "" {
+		myName, _ = os.Hostname()
+	}
+	return myName
+}
+
 func setupSignalHandling() {
 	// Exit cleanly with "restarting" code on SIGHUP.
 
@@ -924,27 +900,51 @@ func printHashRate() {
 	l.Infof("Single thread hash performance is ~%.*f MB/s", decimals, hashRate)
 }
 
-func loadConfig(cfgFile string) (*config.Wrapper, string, error) {
-	info, err := os.Stat(cfgFile)
-	if err != nil {
-		return nil, "", err
-	}
-	if !info.Mode().IsRegular() {
-		return nil, "", errors.New("configuration is not a file")
-	}
-
+func loadConfig() (*config.Wrapper, error) {
+	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)
+
 	if err != nil {
-		return nil, "", err
+		l.Infoln("Error loading config file; using defaults for now")
+		myName, _ := os.Hostname()
+		newCfg := defaultConfig(myName)
+		cfg = config.Wrap(cfgFile, newCfg)
 	}
 
-	myCfg := cfg.Devices()[myID]
-	myName := myCfg.Name
-	if myName == "" {
-		myName, _ = os.Hostname()
+	return cfg, err
+}
+
+func loadOrCreateConfig() *config.Wrapper {
+	cfg, err := loadConfig()
+	if os.IsNotExist(err) {
+		cfg.Save()
+		l.Infof("Defaults saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
+	} else if err != nil {
+		l.Fatalln("Config:", err)
 	}
 
-	return cfg, myName, nil
+	if cfg.Raw().OriginalVersion != config.CurrentVersion {
+		err = archiveAndSaveConfig(cfg)
+		if err != nil {
+			l.Fatalln("Config archive:", err)
+		}
+	}
+
+	return cfg
+}
+
+func archiveAndSaveConfig(cfg *config.Wrapper) error {
+	// To prevent previous config from being cleaned up, quickly touch it too
+	now := time.Now()
+	_ = os.Chtimes(cfg.ConfigPath(), now, now) // May return error on Android etc; no worries
+
+	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion)
+	l.Infoln("Archiving a copy of old config file format at:", archivePath)
+	if err := osutil.Rename(cfg.ConfigPath(), archivePath); err != nil {
+		return err
+	}
+
+	return cfg.Save()
 }
 
 func startAuditing(mainService *suture.Supervisor) {
