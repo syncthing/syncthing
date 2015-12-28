@@ -37,13 +37,13 @@ angular.module('syncthing.core')
                     $rootScope.$broadcast(event.type, event);
                     
                     // Counters for favicon change decision
-                    if (event.type == 'FolderErrors') {
+                    if (event.type == self.FOLDER_ERRORS) {
                         redCounter++;
                     }
-                    if (event.type == 'ItemStarted' || event.type == 'DownloadProgress') {
+                    if (event.type == self.ITEM_STARTED || event.type == self.DOWNLOAD_PROGRESS) {
                         greenCounter++;
                     }
-                    if (event.type == 'StateChanged' && event.data.to == 'syncing') {
+                    if (event.type == self.STATE_CHANGED && event.data.to == 'syncing') {
                         greenCounter++;
                     }
                     
