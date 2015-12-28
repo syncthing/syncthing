@@ -51,7 +51,7 @@ angular.module('syncthing.core')
                 
                 if (redCounter>0) {
                     //RED
-                    changeFavIcon("favicon_error.gif");
+                    changeFavIcon("favicon_error.png");
                 } else if (greenCounter>0) {
                     //GREEN
                     changeFavIcon("favicon_syncing.gif");
@@ -77,7 +77,7 @@ angular.module('syncthing.core')
         function errorFn (dummy) {
             $rootScope.$broadcast(self.OFFLINE);
             //RED
-            changeFavIcon("favicon_error.gif");
+            changeFavIcon("favicon_error.png");
             $timeout(function () {
                 $http.get(urlbase + '/events?limit=1')
                     .success(successFn)
