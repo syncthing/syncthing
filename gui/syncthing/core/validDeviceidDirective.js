@@ -21,8 +21,7 @@ angular.module('syncthing.core')
                         }).length;
                         if (matches > 0) {
                             ctrl.$setValidity('unique', false);
-                        }
-                        else {
+                        } else {
                             ctrl.$setValidity('unique', true);
                         }
                     }
