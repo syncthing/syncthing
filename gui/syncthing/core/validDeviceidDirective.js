@@ -12,7 +12,7 @@ angular.module('syncthing.core')
                             if (resp.error) {
                                 ctrl.$setValidity('validDeviceid', false);
                             } else {
-                                ctrl.$setValidity('validDeviceid', true); 
+                                ctrl.$setValidity('validDeviceid', true);
                             }
                         });
                         //Prevents user from adding a duplicate ID
