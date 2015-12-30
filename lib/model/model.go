@@ -893,6 +893,10 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 		return lines, nil, fmt.Errorf("Folder %s does not exist", folder)
 	}
 
+	if !cfg.HasMarker() {
+		return lines, nil, fmt.Errorf("Folder %s stopped", folder)
+	}
+
 	fd, err := os.Open(filepath.Join(cfg.Path(), ".stignore"))
 	if err != nil {
 		if os.IsNotExist(err) {
