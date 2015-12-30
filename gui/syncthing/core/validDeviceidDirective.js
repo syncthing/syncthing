@@ -12,15 +12,19 @@ angular.module('syncthing.core')
                             if (resp.error) {
                                 ctrl.$setValidity('validDeviceid', false);
                             } else {
-                                ctrl.$setValidity('validDeviceid', true);
+                                ctrl.$setValidity('validDeviceid', true); 
                             }
                         });
                         //Prevents user from adding a duplicate ID
                         var matches = scope.devices.filter(function (n) {
                             return n.deviceID == viewValue;
                         }).length;
-                        if (matches > 0) ctrl.$setValidity('unique', false);
-                        else ctrl.$setValidity('unique', true);
+                        if (matches > 0) {
+                            ctrl.$setValidity('unique', false);
+                        }
+                        else {
+                            ctrl.$setValidity('unique', true);
+                        }
                     }
                     return viewValue;
                 });
