@@ -21,6 +21,7 @@
               <span translate ng-show="!editingExisting && (deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine)">When adding a new device, keep in mind that this device must be added on the other side too.</span>
               <span translate ng-if="deviceEditor.deviceID.$error.required && deviceEditor.deviceID.$dirty">The device ID cannot be blank.</span>
               <span translate ng-if="deviceEditor.deviceID.$error.validDeviceid && deviceEditor.deviceID.$dirty">The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.</span>
+              <span translate ng-if="deviceEditor.deviceID.$error.unique && deviceEditor.deviceID.$dirty">A device with that ID is already added.</span>
             </p>
           </div>
           <div class="form-group">
