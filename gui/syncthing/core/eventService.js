@@ -11,10 +11,10 @@ angular.module('syncthing.core')
         
         //Preloads Error icon
         //To ensure it's available offline
-        new Image().src="/assets/img/favicon_error.png";
+        new Image().src="/assets/img/favicon_error.gif"
         
         function changeFavIcon (icon) {
-            shortcutIcon.attr("href","/assets/img/" + icon);
+            shortcutIcon.attr("href","/assets/img/" + "favicon_" + icon + ".gif");
         }
 
         function successFn (data) {
@@ -31,8 +31,7 @@ angular.module('syncthing.core')
             
             
             if (lastID > 0) {   // not emit events from first response
-                var greenCounter = 0;
-                var redCounter = 0;
+                var iconState = "idle";
                 
                 data.forEach(function (event) {
                     if (debugEvents) {
@@ -42,28 +41,17 @@ angular.module('syncthing.core')
                     
                     // Counters for favicon change decision
                     if (event.type == self.FOLDER_ERRORS) {
-                        redCounter++;
+                        iconState = "error";
                     }
                     if (event.type == self.ITEM_STARTED || event.type == self.DOWNLOAD_PROGRESS) {
-                        greenCounter++;
+                        iconState = iconState == "error" ? iconState : "syncing"
                     }
                     if (event.type == self.STATE_CHANGED && event.data.to == 'syncing') {
-                        greenCounter++;
+                        iconState = iconState == "error" ? iconState : "syncing"
                     }
                     
                 });
-                
-                if (redCounter>0) {
-                    //RED
-                    changeFavIcon("favicon_error.png");
-                } else if (greenCounter>0) {
-                    //GREEN
-                    changeFavIcon("favicon_syncing.gif");
-                } else {
-                    //BLUE
-                    changeFavIcon("favicon_idle.png");
-                }
-                
+                changeFavIcon(iconState);
             }
 
             var lastEvent = data.pop();
@@ -81,7 +69,7 @@ angular.module('syncthing.core')
         function errorFn (dummy) {
             $rootScope.$broadcast(self.OFFLINE);
             //RED
-            changeFavIcon("favicon_error.png");
+            changeFavIcon("error");
             $timeout(function () {
                 $http.get(urlbase + '/events?limit=1')
                     .success(successFn)
