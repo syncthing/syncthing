@@ -76,14 +76,14 @@
         <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid">
           <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
         </button>
+        <button type="button" class="btn btn-default btn-sm" ng-click="idDevice(currentDevice)" ng-if="editingExisting || deviceEditor.deviceID.$valid">
+          <span class="fa fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
+        </button>
         <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
           <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
         </button>
         <button type="button" class="btn btn-warning pull-left btn-sm" ng-click="deleteDevice()" ng-if="editingExisting">
           <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
-        </button>
-        <button type="button" class="btn btn-default pull-left btn-sm" ng-click="idDevice(currentDevice)" ng-if="editingExisting || deviceEditor.deviceID.$valid">
-          <span class="fa fa-qrcode"></span>&nbsp;<span translate>Show QR Code</span>
         </button>
       </div>
     </div>
