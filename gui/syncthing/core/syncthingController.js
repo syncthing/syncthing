@@ -1322,7 +1322,8 @@ angular.module('syncthing.core')
             var names = [];
             folderCfg.devices.forEach(function (device) {
                 if (device.deviceID != $scope.myID) {
-                    names.push($scope.deviceName($scope.findDevice(device.deviceID)));
+                    var name = $scope.deviceName($scope.findDevice(device.deviceID));
+                    if (name != "") names.push(name);
                 }
             });
             names.sort();
