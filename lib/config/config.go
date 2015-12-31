@@ -199,6 +199,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		existingDevices[myID] = true
 	}
 
+	// Ensure that the device list is free from duplicates
+	cfg.Devices = ensureNoDuplicateDevices(cfg.Devices)
+
 	sort.Sort(DeviceConfigurationList(cfg.Devices))
 	// Ensure that any loose devices are not present in the wrong places
 	// Ensure that there are no duplicate devices
@@ -206,7 +209,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	for i := range cfg.Folders {
 		cfg.Folders[i].Devices = ensureDevicePresent(cfg.Folders[i].Devices, myID)
 		cfg.Folders[i].Devices = ensureExistingDevices(cfg.Folders[i].Devices, existingDevices)
-		cfg.Folders[i].Devices = ensureNoDuplicates(cfg.Folders[i].Devices)
+		cfg.Folders[i].Devices = ensureNoDuplicateFolderDevices(cfg.Folders[i].Devices)
 		sort.Sort(FolderDeviceConfigurationList(cfg.Folders[i].Devices))
 	}
 
@@ -408,7 +411,25 @@ loop:
 	return devices[0:count]
 }
 
-func ensureNoDuplicates(devices []FolderDeviceConfiguration) []FolderDeviceConfiguration {
+func ensureNoDuplicateFolderDevices(devices []FolderDeviceConfiguration) []FolderDeviceConfiguration {
+	count := len(devices)
+	i := 0
+	seenDevices := make(map[protocol.DeviceID]bool)
+loop:
+	for i < count {
+		id := devices[i].DeviceID
+		if _, ok := seenDevices[id]; ok {
+			devices[i] = devices[count-1]
+			count--
+			continue loop
+		}
+		seenDevices[id] = true
+		i++
+	}
+	return devices[0:count]
+}
+
+func ensureNoDuplicateDevices(devices []DeviceConfiguration) []DeviceConfiguration {
 	count := len(devices)
 	i := 0
 	seenDevices := make(map[protocol.DeviceID]bool)

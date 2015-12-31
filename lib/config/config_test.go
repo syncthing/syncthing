@@ -592,3 +592,29 @@ func TestGUIConfigURL(t *testing.T) {
 		}
 	}
 }
+
+func TestRemoveDuplicateDevicesFolders(t *testing.T) {
+	wrapper, err := Load("testdata/duplicates.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// All folders are loaded, but the duplicate ones are disabled.
+	if l := len(wrapper.Raw().Folders); l != 3 {
+		t.Errorf("Incorrect number of folders, %d != 3", l)
+	}
+	for i, f := range wrapper.Raw().Folders {
+		if f.ID == "f1" && f.Invalid == "" {
+			t.Errorf("Folder %d (%q) is not set invalid", i, f.ID)
+		}
+	}
+
+	if l := len(wrapper.Raw().Devices); l != 3 {
+		t.Errorf("Incorrect number of devices, %d != 3", l)
+	}
+
+	f := wrapper.Folders()["f2"]
+	if l := len(f.Devices); l != 2 {
+		t.Errorf("Incorrect number of folder devices, %d != 2", l)
+	}
+}
