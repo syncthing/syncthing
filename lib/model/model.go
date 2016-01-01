@@ -520,11 +520,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	l.Debugf("IDX(in): %s %q: %d files", deviceID, folder, len(fs))
 
 	if !m.folderSharedWith(folder, deviceID) {
-		events.Default.Log(events.FolderRejected, map[string]string{
-			"folder": folder,
-			"device": deviceID.String(),
-		})
-		l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
+		l.Debugf("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
 		return
 	}
 
@@ -566,7 +562,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	l.Debugf("%v IDXUP(in): %s / %q: %d files", m, deviceID, folder, len(fs))
 
 	if !m.folderSharedWith(folder, deviceID) {
-		l.Infof("Update for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
+		l.Debugf("Update for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
 		return
 	}
 
@@ -596,6 +592,10 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 func (m *Model) folderSharedWith(folder string, deviceID protocol.DeviceID) bool {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
+	return m.folderSharedWithUnlocked(folder, deviceID)
+}
+
+func (m *Model) folderSharedWithUnlocked(folder string, deviceID protocol.DeviceID) bool {
 	for _, nfolder := range m.deviceFolders[deviceID] {
 		if nfolder == folder {
 			return true
@@ -628,6 +628,37 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	m.pmut.Unlock()
+
+	// Check the peer device's announced folders against our own. Emits events
+	// for folders that we don't expect (unknown or not shared).
+
+	m.fmut.Lock()
+nextFolder:
+	for _, folder := range cm.Folders {
+		cfg := m.folderCfgs[folder.ID]
+
+		if _, err := protocol.HashAlgorithmFromFlagBits(folder.Flags); err != nil {
+			// The hash algorithm failed to deserialize, so it's not SHA256
+			// (the only acceptable algorithm).
+			l.Warnf("Device %v: %v", deviceID, err)
+			cfg.Invalid = err.Error() + " from " + deviceID.String()
+			m.cfg.SetFolder(cfg)
+			if srv := m.folderRunners[folder.ID]; srv != nil {
+				srv.setError(fmt.Errorf(cfg.Invalid))
+			}
+			continue nextFolder
+		}
+
+		if !m.folderSharedWithUnlocked(folder.ID, deviceID) {
+			events.Default.Log(events.FolderRejected, map[string]string{
+				"folder": folder.ID,
+				"device": deviceID.String(),
+			})
+			l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.ID, deviceID)
+			continue
+		}
+	}
+	m.fmut.Unlock()
 
 	events.Default.Log(events.DeviceConnected, event)
 
