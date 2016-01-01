@@ -966,7 +966,9 @@ angular.module('syncthing.core')
             $('#editDevice').modal();
         };
 
-        $scope.idDevice = function () {
+        $scope.idDevice = function (deviceCfg) {
+            $scope.currentDevice = deviceCfg;
+            $('#editDevice').modal('hide');
             $('#idqr').modal('show');
         };
 
