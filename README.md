@@ -1,5 +1,7 @@
 # Syncthing
 
+[![Join the chat at https://gitter.im/syncthing/syncthing](https://badges.gitter.im/syncthing/syncthing.svg)](https://gitter.im/syncthing/syncthing?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 [![Latest Build (Official)](https://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing.svg?style=flat-square&label=unix%20build)](http://build.syncthing.net/job/syncthing/lastBuild/)
 [![AppVeyor Build](https://img.shields.io/appveyor/ci/calmh/syncthing/master.svg?style=flat-square&label=windows%20build)](https://ci.appveyor.com/project/calmh/syncthing)
 [![API Documentation](https://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](http://godoc.org/github.com/syncthing/syncthing)
