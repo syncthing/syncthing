@@ -514,13 +514,11 @@ func TestIgnores(t *testing.T) {
 		t.Error("No error")
 	}
 
+	// Invalid path, marker should be missing, hence returns an error.
 	m.AddFolder(config.FolderConfiguration{ID: "fresh", RawPath: "XXX"})
 	ignores, _, err = m.GetIgnores("fresh")
-	if err != nil {
-		t.Error(err)
-	}
-	if len(ignores) > 0 {
-		t.Errorf("Expected no ignores, got: %v", ignores)
+	if err == nil {
+		t.Error("No error")
 	}
 }
 
