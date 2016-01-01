@@ -1513,6 +1513,9 @@ angular.module('syncthing.core')
                 '386': '32 bit',
                 'amd64': '64 bit',
                 'arm': 'ARM',
+                'arm64': 'AArch64',
+                'ppc64': 'PowerPC',
+                'ppc64le': 'PowerPC (LE)',
             }[$scope.version.arch] || $scope.version.arch;
 
             return $scope.version.version + ', ' + os + ' (' + arch + ')';
