@@ -64,7 +64,7 @@ func main() {
 	flag.Parse()
 
 	switch goarch {
-	case "386", "amd64", "arm":
+	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le":
 		break
 	default:
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
