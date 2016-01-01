@@ -152,6 +152,7 @@
    "Shared With": "Shared With",
    "Short identifier for the folder. Must be the same on all cluster devices.": "Short identifier for the folder. Must be the same on all cluster devices.",
    "Show ID": "Show ID",
+   "Show QR": "Show QR",
    "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.",
    "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.",
    "Shutdown": "Shutdown",
