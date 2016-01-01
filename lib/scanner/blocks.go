@@ -8,22 +8,19 @@ package scanner
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"io"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-var SHA256OfNothing = []uint8{0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55}
-
 type Counter interface {
 	Update(bytes int64)
 }
 
 // Blocks returns the blockwise hash of the reader.
-func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter) ([]protocol.BlockInfo, error) {
-	hf := sha256.New()
+func Blocks(algo protocol.HashAlgorithm, r io.Reader, blocksize int, sizehint int64, counter Counter) ([]protocol.BlockInfo, error) {
+	hf := algo.New()
 	hashLength := hf.Size()
 
 	var blocks []protocol.BlockInfo
@@ -78,7 +75,7 @@ func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter) ([]prot
 		blocks = append(blocks, protocol.BlockInfo{
 			Offset: 0,
 			Size:   0,
-			Hash:   SHA256OfNothing,
+			Hash:   hf.Sum(nil),
 		})
 	}
 
@@ -120,8 +117,8 @@ func BlockDiff(src, tgt []protocol.BlockInfo) (have, need []protocol.BlockInfo) 
 
 // Verify returns nil or an error describing the mismatch between the block
 // list and actual reader contents
-func Verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
-	hf := sha256.New()
+func Verify(algo protocol.HashAlgorithm, r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
+	hf := algo.New()
 	for i, block := range blocks {
 		lr := &io.LimitedReader{R: r, N: int64(blocksize)}
 		_, err := io.Copy(hf, lr)
@@ -147,11 +144,11 @@ func Verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
 	return nil
 }
 
-func VerifyBuffer(buf []byte, block protocol.BlockInfo) ([]byte, error) {
+func VerifyBuffer(algo protocol.HashAlgorithm, buf []byte, block protocol.BlockInfo) ([]byte, error) {
 	if len(buf) != int(block.Size) {
 		return nil, fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}
-	hf := sha256.New()
+	hf := algo.New()
 	_, err := hf.Write(buf)
 	if err != nil {
 		return nil, err

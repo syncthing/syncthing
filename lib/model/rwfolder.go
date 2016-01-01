@@ -7,8 +7,10 @@
 package model
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -93,6 +95,7 @@ type rwFolder struct {
 	pause          time.Duration
 	allowSparse    bool
 	checkFreeSpace bool
+	hashAlgorithm  protocol.HashAlgorithm
 
 	stop        chan struct{}
 	queue       *jobQueue
@@ -129,6 +132,7 @@ func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFo
 		maxConflicts:   cfg.MaxConflicts,
 		allowSparse:    !cfg.DisableSparseFiles,
 		checkFreeSpace: cfg.MinDiskFreePct != 0,
+		hashAlgorithm:  cfg.HashAlgorithm,
 
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
@@ -970,48 +974,15 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 	}
 
 	scanner.PopulateOffsets(file.Blocks)
+	scanner.PopulateOffsets(curFile.Blocks)
 
-	reused := 0
-	var blocks []protocol.BlockInfo
-	var blocksSize int64
-
-	// Check for an old temporary file which might have some blocks we could
-	// reuse.
-	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize, 0, nil)
-	if err == nil {
-		// Check for any reusable blocks in the temp file
-		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
-
-		// block.String() returns a string unique to the block
-		existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
-		for _, block := range tempCopyBlocks {
-			existingBlocks[block.String()] = struct{}{}
-		}
-
-		// Since the blocks are already there, we don't need to get them.
-		for _, block := range file.Blocks {
-			_, ok := existingBlocks[block.String()]
-			if !ok {
-				blocks = append(blocks, block)
-				blocksSize += int64(block.Size)
-			}
-		}
-
-		// The sharedpullerstate will know which flags to use when opening the
-		// temp file depending if we are reusing any blocks or not.
-		reused = len(file.Blocks) - len(blocks)
-		if reused == 0 {
-			// Otherwise, discard the file ourselves in order for the
-			// sharedpuller not to panic when it fails to exclusively create a
-			// file which already exists
-			osutil.InWritableDir(osutil.Remove, tempName)
-		}
-	} else {
-		blocks = file.Blocks
-		blocksSize = file.Size()
-	}
+	blocks, reused := p.neededBlocksForFile(file, tempName)
 
 	if p.checkFreeSpace {
+		var blocksSize int64
+		for _, b := range blocks {
+			blocksSize += int64(b.Size)
+		}
 		if free, err := osutil.DiskFreeBytes(p.dir); err == nil && free < blocksSize {
 			l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, p.folder, p.dir, file.Name, float64(free)/1024/1024, float64(blocksSize)/1024/1024)
 			p.newError(file.Name, errors.New("insufficient space"))
@@ -1028,6 +999,7 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 
 	s := sharedPullerState{
 		file:        file,
+		curFile:     curFile,
 		folder:      p.folder,
 		tempName:    tempName,
 		realName:    realName,
@@ -1047,6 +1019,44 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		blocks:            blocks,
 	}
 	copyChan <- cs
+}
+
+func (p *rwFolder) neededBlocksForFile(file protocol.FileInfo, tempName string) (blocks []protocol.BlockInfo, reused int) {
+	// Check for an old temporary file which might have some blocks we could
+	// reuse.
+	tempBlocks, err := scanner.HashFile(p.hashAlgorithm, tempName, protocol.BlockSize, 0, nil)
+	if err == nil {
+		// Check for any reusable blocks in the temp file
+		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
+
+		// block.String() returns a string unique to the block
+		existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
+		for _, block := range tempCopyBlocks {
+			existingBlocks[block.String()] = struct{}{}
+		}
+
+		// Since the blocks are already there, we don't need to get them.
+		for _, block := range file.Blocks {
+			_, ok := existingBlocks[block.String()]
+			if !ok {
+				blocks = append(blocks, block)
+			}
+		}
+
+		// The sharedpullerstate will know which flags to use when opening the
+		// temp file depending if we are reusing any blocks or not.
+		reused = len(file.Blocks) - len(blocks)
+		if reused == 0 {
+			// Otherwise, discard the file ourselves in order for the
+			// sharedpuller not to panic when it fails to exclusively create a
+			// file which already exists
+			osutil.InWritableDir(osutil.Remove, tempName)
+		}
+	} else {
+		blocks = file.Blocks
+	}
+
+	return
 }
 
 // shortcutFile sets file mode and modification time, when that's the only
@@ -1124,7 +1134,7 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 		p.model.fmut.RUnlock()
 
 		for _, block := range state.blocks {
-			if p.allowSparse && state.reused == 0 && block.IsEmpty() {
+			if p.allowSparse && state.reused == 0 && p.hashAlgorithm.Empty(block) {
 				// The block is a block of all zeroes, and we are not reusing
 				// a temp file, so there is no need to do anything with it.
 				// If we were reusing a temp file and had this block to copy,
@@ -1137,41 +1147,13 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 			}
 
 			buf = buf[:int(block.Size)]
-			found := p.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
-				fd, err := os.Open(filepath.Join(folderRoots[folder], file))
-				if err != nil {
-					return false
-				}
 
-				_, err = fd.ReadAt(buf, protocol.BlockSize*int64(index))
-				fd.Close()
-				if err != nil {
-					return false
-				}
-
-				hash, err := scanner.VerifyBuffer(buf, block)
-				if err != nil {
-					if hash != nil {
-						l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
-						err = p.model.finder.Fix(folder, file, index, block.Hash, hash)
-						if err != nil {
-							l.Warnln("finder fix:", err)
-						}
-					} else {
-						l.Debugln("Finder failed to verify buffer", err)
-					}
-					return false
-				}
-
-				_, err = dstFd.WriteAt(buf, block.Offset)
-				if err != nil {
-					state.fail("dst write", err)
-				}
-				if file == state.file.Name {
-					state.copiedFromOrigin()
-				}
-				return true
-			})
+			var found bool
+			if p.hashAlgorithm.Secure() {
+				found = p.copyFromAnywhere(dstFd, folders, folderRoots, block, buf, state)
+			} else {
+				found = p.copyFromOriginal(dstFd, block, buf, state)
+			}
 
 			if state.failed() != nil {
 				break
@@ -1192,6 +1174,86 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 	}
 }
 
+// copyFromOriginal copies a block from the original (old) version of the same
+// file, if the offset, size and hash matches.
+func (p *rwFolder) copyFromOriginal(dstFd io.WriterAt, block protocol.BlockInfo, buf []byte, state copyBlocksState) bool {
+	// We are only interested in the block at the same offset as the one we
+	// need, which ought to be at index position offset / BlockSize.
+	idx := int(block.Offset / protocol.BlockSize)
+	if idx >= len(state.curFile.Blocks) {
+		return false
+	}
+	curBlock := state.curFile.Blocks[idx]
+
+	if curBlock.Offset == block.Offset && curBlock.Size == block.Size && bytes.Equal(curBlock.Hash, block.Hash) {
+		l.Debugln("copying block", idx, "from old version of", state.file.Name)
+		if err := p.copyBlock(block, dstFd, state.realName, block.Offset, buf); err == nil {
+			return true
+		}
+	}
+
+	return false
+}
+
+type hashMismatchError struct {
+	expected []byte
+	actual   []byte
+}
+
+func (e hashMismatchError) Error() string {
+	return fmt.Sprintf("hash mismatch; expected: %x, actual: %x", e.expected, e.actual)
+}
+
+// copyFromAnywhere uses the blockfinder to find a block with a matching hash
+// anywhere in the system and copies it.
+func (p *rwFolder) copyFromAnywhere(dstFd io.WriterAt, folders []string, folderRoots map[string]string, block protocol.BlockInfo, buf []byte, state copyBlocksState) bool {
+	found := p.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
+		l.Debugln("candidate block found in", folder, "/", file, "#", index)
+		srcFile := filepath.Join(folderRoots[folder], file)
+		srcOffset := protocol.BlockSize * int64(index)
+		err := p.copyBlock(block, dstFd, srcFile, srcOffset, buf)
+		if mismatch, ok := err.(hashMismatchError); ok {
+			l.Debugln("fixing", mismatch, state.folder, file)
+			if err := p.model.finder.Fix(state.folder, file, int32(block.Offset/protocol.BlockSize), mismatch.expected, mismatch.actual); err != nil {
+				l.Warnln("finder fix:", err)
+			}
+		}
+		return err == nil
+	})
+	return found
+}
+
+// copyBlock copies a block from a source file and offset to a destination fd.
+// The hash is verified against what the block claims it should have.
+func (p *rwFolder) copyBlock(block protocol.BlockInfo, dstFd io.WriterAt, srcFile string, srcOffset int64, buf []byte) error {
+	fd, err := os.Open(srcFile)
+	if err != nil {
+		l.Debugf("copyBlock: couldn't open %s: %v", srcFile, err)
+		return err
+	}
+
+	_, err = fd.ReadAt(buf, srcOffset)
+	fd.Close()
+	if err != nil {
+		l.Debugf("copyBlock: couldn't readAt %s@%d: %v", srcFile, srcOffset, err)
+		return err
+	}
+
+	hash, err := scanner.VerifyBuffer(p.hashAlgorithm, buf, block)
+	if err != nil {
+		if hash != nil {
+			return hashMismatchError{
+				expected: block.Hash,
+				actual:   hash,
+			}
+		}
+		return err
+	}
+
+	_, err = dstFd.WriteAt(buf, block.Offset)
+	return err
+}
+
 func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	for state := range in {
 		if state.failed() != nil {
@@ -1208,7 +1270,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			continue
 		}
 
-		if p.allowSparse && state.reused == 0 && state.block.IsEmpty() {
+		if p.allowSparse && state.reused == 0 && p.hashAlgorithm.Empty(state.block) {
 			// There is no need to request a block of all zeroes. Pretend we
 			// requested it and handled it correctly.
 			state.pullDone()
@@ -1246,7 +1308,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 
 			// Verify that the received block matches the desired hash, if not
 			// try pulling it from another device.
-			_, lastError = scanner.VerifyBuffer(buf, state.block)
+			_, lastError = scanner.VerifyBuffer(p.hashAlgorithm, buf, state.block)
 			if lastError != nil {
 				l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
 				continue

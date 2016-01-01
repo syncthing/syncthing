@@ -38,6 +38,10 @@
 			"Rev": "1ce93efbc8f9c568886b2ef85ce305b2217b3de3"
 		},
 		{
+			"ImportPath": "github.com/spaolacci/murmur3",
+			"Rev": "0d12bf811670bf6a1a63828dfbd003eded177fce"
+		},
+		{
 			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
 			"Rev": "1a9d62f03ea92815b46fcaab357cfd4df264b1a0"
 		},

@@ -66,6 +66,14 @@ const (
 	FlagFolderReadOnly     uint32 = 1 << 0
 	FlagFolderIgnorePerms         = 1 << 1
 	FlagFolderIgnoreDelete        = 1 << 2
+
+	// The folder hash algorithm IDs, to be put in the flags field by shifting
+	// left FolderHashShiftBits
+	FolderHashSHA256  = 0
+	FolderHashMurmur3 = 1
+	// ... 2 up to 15 currently reserved
+	FolderHashMask      = 15
+	FolderHashShiftBits = 3
 )
 
 // ClusterConfigMessage.Folders.Devices flags

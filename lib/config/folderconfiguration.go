@@ -36,6 +36,7 @@ type FolderConfiguration struct {
 	PullerPauseS          int                         `xml:"pullerPauseS" json:"pullerPauseS"`
 	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
+	HashAlgorithm         protocol.HashAlgorithm      `xml:"hashAlgorithm" json:"hashAlgorithm"`
 
 	Invalid    string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 	cachedPath string

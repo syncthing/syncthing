@@ -174,7 +174,7 @@
           </div>
           <div class="panel-footer clearfix">
             <div class="pull-right">
-              <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(event.data.folder, event.data.device)" ng-if="!folders[event.data.folder]">
+              <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(event.data.folder, event.data.device, event.data.hashAlgorithm)" ng-if="!folders[event.data.folder]">
                 <span class="fa fa-check"></span>&nbsp;<span translate>Add</span>
               </button>
               <button type="button" class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(event.data.folder, event.data.device)" ng-if="folders[event.data.folder]">
@@ -284,6 +284,13 @@
                       <!-- The list of failed items hasn't loaded yet; show a spinner for the time being. -->
                       <td ng-if="!hasFailedFiles(folder.id)" class="text-right">
                         <span class="fa fa-spinner fa-pulse"></span>
+                      </td>
+                    </tr>
+                    <tr ng-if="folder.hashAlgorithm != 'sha256'">
+                      <th><span class="fa fa-fw fa-cubes"></span>&nbsp;<span translate>Hash Algorithm</span></th>
+                      <td class="text-right" ng-switch="folder.hashAlgorithm">
+                        <span ng-switch-when="sha256">SHA256</span>
+                        <span ng-switch-when="murmur3">Murmur3-128</span>
                       </td>
                     </tr>
                     <tr ng-if="folder.readOnly">

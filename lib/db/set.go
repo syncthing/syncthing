@@ -28,6 +28,7 @@ type FileSet struct {
 	blockmap     *BlockMap
 	localSize    sizeTracker
 	globalSize   sizeTracker
+	useBlockMap  bool
 }
 
 // FileIntf is the set of methods implemented by both protocol.FileInfo and
@@ -92,14 +93,23 @@ func (s *sizeTracker) Size() (files, deleted int, bytes int64) {
 	return s.files, s.deleted, s.bytes
 }
 
-func NewFileSet(folder string, db *Instance) *FileSet {
+func NewFileSet(folder string, db *Instance, useBlockMap bool, hashAlgo int) *FileSet {
 	var s = FileSet{
 		localVersion: make(map[protocol.DeviceID]int64),
 		folder:       folder,
 		db:           db,
 		blockmap:     NewBlockMap(db, folder),
 		mutex:        sync.NewMutex(),
+		useBlockMap:  useBlockMap,
 	}
+
+	hashAlgos := NewNamespacedKV(db, "hashAlgo")
+	if cur, ok := hashAlgos.Int64(folder); ok && cur != int64(hashAlgo) {
+		// Mismatch! Drop all data for this folder so we'll do a rescan.
+		l.Infoln("Folder", folder, "has changed hash algorithm; dropping existing hash data.")
+		DropFolder(db, folder)
+	}
+	hashAlgos.PutInt64(folder, int64(hashAlgo))
 
 	s.db.checkGlobals([]byte(folder), &s.globalSize)
 
@@ -130,7 +140,7 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 		// Reset the local version if all files were removed.
 		s.localVersion[device] = 0
 	}
-	if device == protocol.LocalDeviceID {
+	if s.useBlockMap && device == protocol.LocalDeviceID {
 		s.blockmap.Drop()
 		s.blockmap.Add(fs)
 	}
@@ -141,7 +151,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	normalizeFilenames(fs)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if device == protocol.LocalDeviceID {
+	if s.useBlockMap && device == protocol.LocalDeviceID {
 		discards := make([]protocol.FileInfo, 0, len(fs))
 		updates := make([]protocol.FileInfo, 0, len(fs))
 		for _, newFile := range fs {
@@ -248,6 +258,7 @@ func DropFolder(db *Instance, folder string) {
 	}
 	bm.Drop()
 	NewVirtualMtimeRepo(db, folder).Drop()
+	NewNamespacedKV(db, "hashAlgo").Delete(folder)
 }
 
 func normalizeFilenames(fs []protocol.FileInfo) {
