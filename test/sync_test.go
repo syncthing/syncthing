@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rc"
 )
@@ -35,6 +36,41 @@ func TestSyncClusterWithoutVersioning(t *testing.T) {
 	fld := cfg.Folders()["default"]
 	fld.Versioning = config.VersioningConfiguration{}
 	cfg.SetFolder(fld)
+	cfg.Save()
+
+	testSyncCluster(t)
+}
+
+func TestSyncClusterWithoutVersioningMurmur3(t *testing.T) {
+	// Use no versioning
+	id, _ := protocol.DeviceIDFromString(id2)
+	cfg, _ := config.Load("h2/config.xml", id)
+	fld := cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{}
+	fld.HashAlgorithm = protocol.Murmur3
+	cfg.SetFolder(fld)
+	osutil.Rename("h2/config.xml", "h2/config.xml.orig")
+	defer osutil.Rename("h2/config.xml.orig", "h2/config.xml")
+	cfg.Save()
+
+	id, _ = protocol.DeviceIDFromString(id2)
+	cfg, _ = config.Load("h1/config.xml", id)
+	fld = cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{}
+	fld.HashAlgorithm = protocol.Murmur3
+	cfg.SetFolder(fld)
+	osutil.Rename("h1/config.xml", "h1/config.xml.orig")
+	defer osutil.Rename("h1/config.xml.orig", "h1/config.xml")
+	cfg.Save()
+
+	id, _ = protocol.DeviceIDFromString(id2)
+	cfg, _ = config.Load("h3/config.xml", id)
+	fld = cfg.Folders()["default"]
+	fld.Versioning = config.VersioningConfiguration{}
+	fld.HashAlgorithm = protocol.Murmur3
+	cfg.SetFolder(fld)
+	osutil.Rename("h3/config.xml", "h3/config.xml.orig")
+	defer osutil.Rename("h3/config.xml.orig", "h3/config.xml")
 	cfg.Save()
 
 	testSyncCluster(t)

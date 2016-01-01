@@ -6,12 +6,8 @@
 package protocol
 
 import (
-	"bytes"
-	"crypto/sha256"
 	"fmt"
 )
-
-var sha256OfEmptyBlock = sha256.Sum256(make([]byte, BlockSize))
 
 type IndexMessage struct {
 	Folder  string     // max:256
@@ -102,11 +98,6 @@ type BlockInfo struct {
 
 func (b BlockInfo) String() string {
 	return fmt.Sprintf("Block{%d/%d/%x}", b.Offset, b.Size, b.Hash)
-}
-
-// IsEmpty returns true if the block is a full block of zeroes.
-func (b BlockInfo) IsEmpty() bool {
-	return b.Size == BlockSize && bytes.Equal(b.Hash, sha256OfEmptyBlock[:])
 }
 
 type RequestMessage struct {

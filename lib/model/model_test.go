@@ -564,7 +564,7 @@ func TestRefuseUnknownBits(t *testing.T) {
 
 func TestROScanRecovery(t *testing.T) {
 	ldb := db.OpenMemory()
-	set := db.NewFileSet("default", ldb)
+	set := db.NewFileSet("default", ldb, true, 0)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
 	})
@@ -648,7 +648,7 @@ func TestROScanRecovery(t *testing.T) {
 
 func TestRWScanRecovery(t *testing.T) {
 	ldb := db.OpenMemory()
-	set := db.NewFileSet("default", ldb)
+	set := db.NewFileSet("default", ldb, true, 0)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
 	})

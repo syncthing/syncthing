@@ -99,7 +99,7 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Rejected connection from device %v at %v", data["device"], data["address"])
 	case events.FolderRejected:
 		data := ev.Data.(map[string]string)
-		return fmt.Sprintf("Rejected unshared folder %q from device %v", data["folder"], data["device"])
+		return fmt.Sprintf("Rejected unshared folder %q (%s) from device %v", data["folder"], data["hashAlgorithm"], data["device"])
 
 	case events.ItemStarted:
 		data := ev.Data.(map[string]string)

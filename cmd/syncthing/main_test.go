@@ -88,7 +88,7 @@ func TestFolderErrors(t *testing.T) {
 
 	// Case 3 - Folder marker missing
 
-	set := db.NewFileSet("folder", ldb)
+	set := db.NewFileSet("folder", ldb, true, 0)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
 	})

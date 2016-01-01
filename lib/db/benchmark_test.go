@@ -37,7 +37,7 @@ func init() {
 	oneFile = firstHalf[middle-1 : middle]
 
 	ldb, _ := tempDB()
-	fs = db.NewFileSet("test", ldb)
+	fs = db.NewFileSet("test", ldb, true, 0)
 	fs.Replace(remoteDevice0, files)
 	fs.Replace(protocol.LocalDeviceID, firstHalf)
 }
@@ -63,7 +63,7 @@ func BenchmarkReplaceAll(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m := db.NewFileSet("test", ldb)
+		m := db.NewFileSet("test", ldb, true, 0)
 		m.Replace(protocol.LocalDeviceID, files)
 	}
 

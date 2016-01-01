@@ -96,7 +96,7 @@ func (l fileList) String() string {
 func TestGlobalSet(t *testing.T) {
 	ldb := db.OpenMemory()
 
-	m := db.NewFileSet("test", ldb)
+	m := db.NewFileSet("test", ldb, true, 0)
 
 	local0 := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(1)},
@@ -299,7 +299,7 @@ func TestGlobalSet(t *testing.T) {
 func TestNeedWithInvalid(t *testing.T) {
 	ldb := db.OpenMemory()
 
-	s := db.NewFileSet("test", ldb)
+	s := db.NewFileSet("test", ldb, true, 0)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(1)},
@@ -336,7 +336,7 @@ func TestNeedWithInvalid(t *testing.T) {
 func TestUpdateToInvalid(t *testing.T) {
 	ldb := db.OpenMemory()
 
-	s := db.NewFileSet("test", ldb)
+	s := db.NewFileSet("test", ldb, true, 0)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(1)},
@@ -368,7 +368,7 @@ func TestUpdateToInvalid(t *testing.T) {
 func TestInvalidAvailability(t *testing.T) {
 	ldb := db.OpenMemory()
 
-	s := db.NewFileSet("test", ldb)
+	s := db.NewFileSet("test", ldb, true, 0)
 
 	remote0Have := fileList{
 		protocol.FileInfo{Name: "both", Version: protocol.Vector{{ID: myID, Value: 1001}}, Blocks: genBlocks(2)},
@@ -406,7 +406,7 @@ func TestInvalidAvailability(t *testing.T) {
 func TestGlobalReset(t *testing.T) {
 	ldb := db.OpenMemory()
 
-	m := db.NewFileSet("test", ldb)
+	m := db.NewFileSet("test", ldb, true, 0)
 
 	local := []protocol.FileInfo{
 		{Name: "a", Version: protocol.Vector{{ID: myID, Value: 1000}}},
@@ -444,7 +444,7 @@ func TestGlobalReset(t *testing.T) {
 func TestNeed(t *testing.T) {
 	ldb := db.OpenMemory()
 
-	m := db.NewFileSet("test", ldb)
+	m := db.NewFileSet("test", ldb, true, 0)
 
 	local := []protocol.FileInfo{
 		{Name: "a", Version: protocol.Vector{{ID: myID, Value: 1000}}},
@@ -482,7 +482,7 @@ func TestNeed(t *testing.T) {
 func TestLocalVersion(t *testing.T) {
 	ldb := db.OpenMemory()
 
-	m := db.NewFileSet("test", ldb)
+	m := db.NewFileSet("test", ldb, true, 0)
 
 	local1 := []protocol.FileInfo{
 		{Name: "a", Version: protocol.Vector{{ID: myID, Value: 1000}}},
@@ -512,7 +512,7 @@ func TestLocalVersion(t *testing.T) {
 func TestListDropFolder(t *testing.T) {
 	ldb := db.OpenMemory()
 
-	s0 := db.NewFileSet("test0", ldb)
+	s0 := db.NewFileSet("test0", ldb, true, 0)
 	local1 := []protocol.FileInfo{
 		{Name: "a", Version: protocol.Vector{{ID: myID, Value: 1000}}},
 		{Name: "b", Version: protocol.Vector{{ID: myID, Value: 1000}}},
@@ -520,7 +520,7 @@ func TestListDropFolder(t *testing.T) {
 	}
 	s0.Replace(protocol.LocalDeviceID, local1)
 
-	s1 := db.NewFileSet("test1", ldb)
+	s1 := db.NewFileSet("test1", ldb, true, 0)
 	local2 := []protocol.FileInfo{
 		{Name: "d", Version: protocol.Vector{{ID: myID, Value: 1002}}},
 		{Name: "e", Version: protocol.Vector{{ID: myID, Value: 1002}}},
@@ -560,7 +560,7 @@ func TestListDropFolder(t *testing.T) {
 func TestGlobalNeedWithInvalid(t *testing.T) {
 	ldb := db.OpenMemory()
 
-	s := db.NewFileSet("test1", ldb)
+	s := db.NewFileSet("test1", ldb, true, 0)
 
 	rem0 := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{{ID: myID, Value: 1002}}, Blocks: genBlocks(4)},
@@ -597,7 +597,7 @@ func TestGlobalNeedWithInvalid(t *testing.T) {
 func TestLongPath(t *testing.T) {
 	ldb := db.OpenMemory()
 
-	s := db.NewFileSet("test", ldb)
+	s := db.NewFileSet("test", ldb, true, 0)
 
 	var b bytes.Buffer
 	for i := 0; i < 100; i++ {

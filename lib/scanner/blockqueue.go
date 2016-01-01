@@ -19,13 +19,13 @@ import (
 // workers are used in parallel. The outbox will become closed when the inbox
 // is closed and all items handled.
 
-func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan protocol.FileInfo, counter Counter, done, cancel chan struct{}) {
+func newParallelHasher(algo protocol.HashAlgorithm, dir string, blockSize, workers int, outbox, inbox chan protocol.FileInfo, counter Counter, done, cancel chan struct{}) {
 	wg := sync.NewWaitGroup()
 	wg.Add(workers)
 
 	for i := 0; i < workers; i++ {
 		go func() {
-			hashFiles(dir, blockSize, outbox, inbox, counter, cancel)
+			hashFiles(algo, dir, blockSize, outbox, inbox, counter, cancel)
 			wg.Done()
 		}()
 	}
@@ -39,7 +39,7 @@ func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan pr
 	}()
 }
 
-func HashFile(path string, blockSize int, sizeHint int64, counter Counter) ([]protocol.BlockInfo, error) {
+func HashFile(algo protocol.HashAlgorithm, path string, blockSize int, sizeHint int64, counter Counter) ([]protocol.BlockInfo, error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		l.Debugln("open:", err)
@@ -56,10 +56,10 @@ func HashFile(path string, blockSize int, sizeHint int64, counter Counter) ([]pr
 		sizeHint = fi.Size()
 	}
 
-	return Blocks(fd, blockSize, sizeHint, counter)
+	return Blocks(algo, fd, blockSize, sizeHint, counter)
 }
 
-func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, counter Counter, cancel chan struct{}) {
+func hashFiles(algo protocol.HashAlgorithm, dir string, blockSize int, outbox, inbox chan protocol.FileInfo, counter Counter, cancel chan struct{}) {
 	for {
 		select {
 		case f, ok := <-inbox:
@@ -71,7 +71,7 @@ func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, 
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(filepath.Join(dir, f.Name), blockSize, f.CachedSize, counter)
+			blocks, err := HashFile(algo, filepath.Join(dir, f.Name), blockSize, f.CachedSize, counter)
 			if err != nil {
 				l.Debugln("hash error:", f.Name, err)
 				continue

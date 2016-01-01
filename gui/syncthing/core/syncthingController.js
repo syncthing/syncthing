@@ -1210,12 +1210,13 @@ angular.module('syncthing.core')
             $scope.currentFolder.staggeredVersionsPath = "";
             $scope.currentFolder.externalCommand = "";
             $scope.currentFolder.autoNormalize = true;
+            $scope.currentFolder.hashAlgorithm = "sha256";
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
         };
 
-        $scope.addFolderAndShare = function (folder, device) {
+        $scope.addFolderAndShare = function (folder, device, hashAlgorithm) {
             $scope.dismissFolderRejection(folder, device);
             $scope.currentFolder = {
                 id: folder,
@@ -1231,7 +1232,8 @@ angular.module('syncthing.core')
                 staggeredCleanInterval: 3600,
                 staggeredVersionsPath: "",
                 externalCommand: "",
-                autoNormalize: true
+                autoNormalize: true,
+                hashAlgorithm: hashAlgorithm,
             };
             $scope.currentFolder.selectedDevices[device] = true;
 

@@ -189,7 +189,7 @@ func (m *Model) StartFolderRW(folder string) {
 	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	m.fmut.Unlock()
 
-	l.Okln("Ready to synchronize", folder, "(read-write)")
+	l.Okln("Ready to synchronize", folder, "(read-write,", cfg.HashAlgorithm.String(), "hashing)")
 }
 
 func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
@@ -520,11 +520,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	l.Debugf("IDX(in): %s %q: %d files", deviceID, folder, len(fs))
 
 	if !m.folderSharedWith(folder, deviceID) {
-		events.Default.Log(events.FolderRejected, map[string]string{
-			"folder": folder,
-			"device": deviceID.String(),
-		})
-		l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
+		l.Debugln("idx for unshared folder")
 		return
 	}
 
@@ -566,7 +562,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	l.Debugf("%v IDXUP(in): %s / %q: %d files", m, deviceID, folder, len(fs))
 
 	if !m.folderSharedWith(folder, deviceID) {
-		l.Infof("Update for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
+		l.Debugln("idxup for unshared folder")
 		return
 	}
 
@@ -596,6 +592,10 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 func (m *Model) folderSharedWith(folder string, deviceID protocol.DeviceID) bool {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
+	return m.folderSharedWithUnlocked(folder, deviceID)
+}
+
+func (m *Model) folderSharedWithUnlocked(folder string, deviceID protocol.DeviceID) bool {
 	for _, nfolder := range m.deviceFolders[deviceID] {
 		if nfolder == folder {
 			return true
@@ -628,6 +628,48 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	m.pmut.Unlock()
+
+	// Check the peer device's announced folders against our own. Emits events
+	// for folders that we don't expect (unknown or not shared) and otherwise
+	// verifies compatible hash algorithms.
+
+	m.fmut.Lock()
+nextFolder:
+	for _, folder := range cm.Folders {
+		cfg := m.folderCfgs[folder.ID]
+
+		theirAlgo, err := protocol.HashAlgorithmFromFlagBits(folder.Flags)
+		if err != nil {
+			l.Warnf("Device %v: %v", deviceID, err)
+			cfg.Invalid = err.Error() + " from " + deviceID.String()
+			m.cfg.SetFolder(cfg)
+			if srv := m.folderRunners[folder.ID]; srv != nil {
+				srv.setError(fmt.Errorf(cfg.Invalid))
+			}
+			continue nextFolder
+		}
+
+		if !m.folderSharedWithUnlocked(folder.ID, deviceID) {
+			events.Default.Log(events.FolderRejected, map[string]string{
+				"folder":        folder.ID,
+				"device":        deviceID.String(),
+				"hashAlgorithm": theirAlgo.String(),
+			})
+			l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.ID, deviceID)
+			continue
+		}
+
+		ourAlgo := cfg.HashAlgorithm
+		if theirAlgo != ourAlgo {
+			l.Warnln("Device", deviceID, "announces hash algorithm", theirAlgo, "for folder", folder.ID, "which doesn't match our", ourAlgo)
+			cfg.Invalid = "Hash algorithm mismatch with " + deviceID.String()
+			m.cfg.SetFolder(cfg)
+			if srv := m.folderRunners[folder.ID]; srv != nil {
+				srv.setError(fmt.Errorf(cfg.Invalid))
+			}
+		}
+	}
+	m.fmut.Unlock()
 
 	events.Default.Log(events.DeviceConnected, event)
 
@@ -1162,7 +1204,7 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 
 	m.fmut.Lock()
 	m.folderCfgs[cfg.ID] = cfg
-	m.folderFiles[cfg.ID] = db.NewFileSet(cfg.ID, m.db)
+	m.folderFiles[cfg.ID] = db.NewFileSet(cfg.ID, m.db, cfg.HashAlgorithm.Secure(), int(cfg.HashAlgorithm))
 
 	m.folderDevices[cfg.ID] = make([]protocol.DeviceID, len(cfg.Devices))
 	for i, device := range cfg.Devices {
@@ -1317,6 +1359,7 @@ nextSub:
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		Cancel:                cancel,
+		HashAlgorithm:         folderCfg.HashAlgorithm,
 	}
 
 	runner.setState(FolderScanning)
@@ -1494,9 +1537,8 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
 		folderCfg := m.cfg.Folders()[folder]
-		cr := protocol.Folder{
-			ID: folder,
-		}
+		cr := protocol.Folder{ID: folder}
+
 		var flags uint32
 		if folderCfg.ReadOnly {
 			flags |= protocol.FlagFolderReadOnly
@@ -1507,6 +1549,9 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 		if folderCfg.IgnoreDelete {
 			flags |= protocol.FlagFolderIgnoreDelete
 		}
+
+		flags |= folderCfg.HashAlgorithm.FlagBits()
+
 		cr.Flags = flags
 		for _, device := range m.folderDevices[folder] {
 			// DeviceID is a value type, but with an underlying array. Copy it
@@ -1730,6 +1775,10 @@ func (m *Model) CheckFolderHealth(id string) error {
 	folder, ok := m.cfg.Folders()[id]
 	if !ok {
 		return errors.New("folder does not exist")
+	}
+
+	if folder.Invalid != "" {
+		return errors.New(folder.Invalid)
 	}
 
 	if minFree := m.cfg.Options().MinHomeDiskFreePct; minFree > 0 {
@@ -2027,4 +2076,13 @@ func stringSliceWithout(ss []string, s string) []string {
 		}
 	}
 	return ss
+}
+
+func getOption(options []protocol.Option, key string) (string, bool) {
+	for _, opt := range options {
+		if opt.Key == key {
+			return opt.Value, true
+		}
+	}
+	return "", false
 }

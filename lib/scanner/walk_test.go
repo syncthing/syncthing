@@ -64,11 +64,12 @@ func TestWalkSub(t *testing.T) {
 	}
 
 	w := Walker{
-		Dir:       "testdata",
-		Subs:      []string{"dir2"},
-		BlockSize: 128 * 1024,
-		Matcher:   ignores,
-		Hashers:   2,
+		Dir:           "testdata",
+		Subs:          []string{"dir2"},
+		BlockSize:     128 * 1024,
+		Matcher:       ignores,
+		Hashers:       2,
+		HashAlgorithm: protocol.SHA256,
 	}
 	fchan, err := w.Walk()
 	var files []protocol.FileInfo
@@ -102,10 +103,11 @@ func TestWalk(t *testing.T) {
 	t.Log(ignores)
 
 	w := Walker{
-		Dir:       "testdata",
-		BlockSize: 128 * 1024,
-		Matcher:   ignores,
-		Hashers:   2,
+		Dir:           "testdata",
+		BlockSize:     128 * 1024,
+		Matcher:       ignores,
+		Hashers:       2,
+		HashAlgorithm: protocol.SHA256,
 	}
 
 	fchan, err := w.Walk()
@@ -148,7 +150,15 @@ func TestWalkError(t *testing.T) {
 	}
 }
 
-func TestVerify(t *testing.T) {
+func TestVerifySHA256(t *testing.T) {
+	testVerify(protocol.SHA256, t)
+}
+
+func TestVerifyMurmur3(t *testing.T) {
+	testVerify(protocol.Murmur3, t)
+}
+
+func testVerify(algo protocol.HashAlgorithm, t *testing.T) {
 	blocksize := 16
 	// data should be an even multiple of blocksize long
 	data := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut e")
@@ -156,7 +166,7 @@ func TestVerify(t *testing.T) {
 	progress := newByteCounter()
 	defer progress.Close()
 
-	blocks, err := Blocks(buf, blocksize, 0, progress)
+	blocks, err := Blocks(algo, buf, blocksize, 0, progress)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,21 +179,21 @@ func TestVerify(t *testing.T) {
 	}
 
 	buf = bytes.NewBuffer(data)
-	err = Verify(buf, blocksize, blocks)
+	err = Verify(algo, buf, blocksize, blocks)
 	t.Log(err)
 	if err != nil {
 		t.Fatal("Unexpected verify failure", err)
 	}
 
 	buf = bytes.NewBuffer(append(data, '\n'))
-	err = Verify(buf, blocksize, blocks)
+	err = Verify(algo, buf, blocksize, blocks)
 	t.Log(err)
 	if err == nil {
 		t.Fatal("Unexpected verify success")
 	}
 
 	buf = bytes.NewBuffer(data[:len(data)-1])
-	err = Verify(buf, blocksize, blocks)
+	err = Verify(algo, buf, blocksize, blocks)
 	t.Log(err)
 	if err == nil {
 		t.Fatal("Unexpected verify success")
@@ -191,7 +201,7 @@ func TestVerify(t *testing.T) {
 
 	data[42] = 42
 	buf = bytes.NewBuffer(data)
-	err = Verify(buf, blocksize, blocks)
+	err = Verify(algo, buf, blocksize, blocks)
 	t.Log(err)
 	if err == nil {
 		t.Fatal("Unexpected verify success")
@@ -384,17 +394,31 @@ const (
 	testdataName = "_random.data"
 )
 
-func BenchmarkHashFile(b *testing.B) {
+func BenchmarkHashFileSHA256(b *testing.B) {
 	initOnce.Do(initTestFile)
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := HashFile(testdataName, protocol.BlockSize, testdataSize, nil); err != nil {
+		if _, err := HashFile(protocol.SHA256, testdataName, protocol.BlockSize, testdataSize, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
 
 	b.ReportAllocs()
+	b.SetBytes(testdataSize)
+}
+func BenchmarkHashFileMurmur3(b *testing.B) {
+	initOnce.Do(initTestFile)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if _, err := HashFile(protocol.Murmur3, testdataName, protocol.BlockSize, testdataSize, nil); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(testdataSize)
 }
 
 func initTestFile() {

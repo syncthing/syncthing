@@ -125,6 +125,8 @@ func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 		"ignorePerms":   0,
 		"ignoreDelete":  0,
 		"autoNormalize": 0,
+		"hashSHA256":    0,
+		"hashMurmur3":   0,
 	}
 	for _, cfg := range cfg.Folders() {
 		rescanIntvs = append(rescanIntvs, cfg.RescanIntervalS)
@@ -140,6 +142,12 @@ func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 		}
 		if cfg.AutoNormalize {
 			folderUses["autoNormalize"]++
+		}
+		switch cfg.HashAlgorithm {
+		case protocol.SHA256:
+			folderUses["hashSHA256"]++
+		case protocol.Murmur3:
+			folderUses["hashMurmur3"]++
 		}
 	}
 	sort.Ints(rescanIntvs)

@@ -21,7 +21,13 @@ func main() {
 	log.SetOutput(os.Stdout)
 
 	standardBlocks := flag.Bool("s", false, "Use standard block size")
+	hashAlgo := flag.String("h", "sha256", "Hash algorithm [sha256, murmur3]")
 	flag.Parse()
+
+	var algo protocol.HashAlgorithm
+	if err := algo.UnmarshalText([]byte(*hashAlgo)); err != nil {
+		log.Fatalln(err)
+	}
 
 	path := flag.Arg(0)
 	if path == "" {
@@ -68,7 +74,7 @@ func main() {
 		if *standardBlocks || blockSize < protocol.BlockSize {
 			blockSize = protocol.BlockSize
 		}
-		bs, err := scanner.Blocks(fd, blockSize, fi.Size(), nil)
+		bs, err := scanner.Blocks(algo, fd, blockSize, fi.Size(), nil)
 		if err != nil {
 			log.Fatal(err)
 		}

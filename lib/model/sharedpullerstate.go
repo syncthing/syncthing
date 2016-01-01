@@ -21,6 +21,7 @@ import (
 type sharedPullerState struct {
 	// Immutable, does not require locking
 	file        protocol.FileInfo // The new file (desired end state)
+	curFile     protocol.FileInfo // The current file (old state), if any
 	folder      string
 	tempName    string
 	realName    string

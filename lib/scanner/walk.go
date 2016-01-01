@@ -75,6 +75,8 @@ type Walker struct {
 	ProgressTickIntervalS int
 	// Signals cancel from the outside - when closed, we should stop walking.
 	Cancel chan struct{}
+	// The hash algorithm to use for block hashes.
+	HashAlgorithm protocol.HashAlgorithm
 }
 
 type TempNamer interface {
@@ -124,7 +126,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.Cancel)
+		newParallelHasher(w.HashAlgorithm, w.Dir, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.Cancel)
 		return finishedChan, nil
 	}
 
@@ -156,7 +158,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 		progress := newByteCounter()
 		defer progress.Close()
 
-		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.Cancel)
+		newParallelHasher(w.HashAlgorithm, w.Dir, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.Cancel)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
@@ -393,7 +395,7 @@ func (w *Walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 		return true, nil
 	}
 
-	blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0, nil)
+	blocks, err := Blocks(w.HashAlgorithm, strings.NewReader(target), w.BlockSize, 0, nil)
 	if err != nil {
 		l.Debugln("hash link error:", absPath, err)
 		return true, nil
