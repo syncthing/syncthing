@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -1493,6 +1494,14 @@ func removeDevice(devices []protocol.DeviceID, device protocol.DeviceID) []proto
 }
 
 func (p *rwFolder) moveForConflict(name string) error {
+	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
+		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
+		if err := osutil.Remove(name); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+
 	if p.maxConflicts == 0 {
 		if err := osutil.Remove(name); err != nil && !os.IsNotExist(err) {
 			return err
