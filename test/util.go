@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -192,30 +191,34 @@ func alterFiles(dir string) error {
 				return osutil.TryRename(path, newPath)
 			}
 
-		// Switch between files and directories
-		case r == 3 && comps > 3 && rand.Float64() < 0.2:
-			if !info.Mode().IsRegular() {
-				err = removeAll(path)
-				if err != nil {
+			/*
+				This doesn't in fact work. Sometimes it appears to. We need to get this sorted...
+
+				// Switch between files and directories
+				case r == 3 && comps > 3 && rand.Float64() < 0.2:
+					if !info.Mode().IsRegular() {
+						err = removeAll(path)
+						if err != nil {
+							return err
+						}
+						d1 := []byte("I used to be a dir: " + path)
+						err := ioutil.WriteFile(path, d1, 0644)
+						if err != nil {
+							return err
+						}
+					} else {
+						err := osutil.Remove(path)
+						if err != nil {
+							return err
+						}
+						err = os.MkdirAll(path, 0755)
+						if err != nil {
+							return err
+						}
+						generateFiles(path, 10, 20, "../LICENSE")
+					}
 					return err
-				}
-				d1 := []byte("I used to be a dir: " + path)
-				err := ioutil.WriteFile(path, d1, 0644)
-				if err != nil {
-					return err
-				}
-			} else {
-				err := osutil.Remove(path)
-				if err != nil {
-					return err
-				}
-				err = os.MkdirAll(path, 0755)
-				if err != nil {
-					return err
-				}
-				generateFiles(path, 10, 20, "../LICENSE")
-			}
-			return err
+			*/
 
 			/*
 				This fails. Bug?

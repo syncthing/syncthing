@@ -97,7 +97,7 @@ func NewFileSet(folder string, db *Instance) *FileSet {
 		localVersion: make(map[protocol.DeviceID]int64),
 		folder:       folder,
 		db:           db,
-		blockmap:     NewBlockMap(db, folder),
+		blockmap:     NewBlockMap(db, db.folderIdx.ID([]byte(folder))),
 		mutex:        sync.NewMutex(),
 	}
 
@@ -244,7 +244,7 @@ func DropFolder(db *Instance, folder string) {
 	db.dropFolder([]byte(folder))
 	bm := &BlockMap{
 		db:     db,
-		folder: folder,
+		folder: db.folderIdx.ID([]byte(folder)),
 	}
 	bm.Drop()
 	NewVirtualMtimeRepo(db, folder).Drop()
