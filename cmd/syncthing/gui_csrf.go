@@ -17,8 +17,15 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
+// csrfTokens is a list of valid tokens. It is sorted so that the most
+// recently used token is first in the list. New tokens are added to the front
+// of the list (as it is the most recently used at that time). The list is
+// pruned to a maximum of maxCsrfTokens, throwing away the least recently used
+// tokens.
 var csrfTokens []string
 var csrfMut = sync.NewMutex()
+
+const maxCsrfTokens = 25
 
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
@@ -36,6 +43,7 @@ func csrfMiddleware(unique, prefix, apiKey string, next http.Handler) http.Handl
 		if !strings.HasPrefix(r.URL.Path, prefix) {
 			cookie, err := r.Cookie("CSRF-Token-" + unique)
 			if err != nil || !validCsrfToken(cookie.Value) {
+				httpl.Debugln("new CSRF cookie in response to request for", r.URL)
 				cookie = &http.Cookie{
 					Name:  "CSRF-Token-" + unique,
 					Value: newCsrfToken(),
@@ -47,7 +55,13 @@ func csrfMiddleware(unique, prefix, apiKey string, next http.Handler) http.Handl
 		}
 
 		if r.Method == "GET" {
-			// Allow GET requests unconditionally
+			// Allow GET requests unconditionally, but if we got the CSRF
+			// token cookie do the verification anyway so we keep the
+			// csrfTokens list sorted by recent usage. We don't care about the
+			// outcome of the validity check.
+			if cookie, err := r.Cookie("CSRF-Token-" + unique); err == nil {
+				validCsrfToken(cookie.Value)
+			}
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -66,8 +80,15 @@ func csrfMiddleware(unique, prefix, apiKey string, next http.Handler) http.Handl
 func validCsrfToken(token string) bool {
 	csrfMut.Lock()
 	defer csrfMut.Unlock()
-	for _, t := range csrfTokens {
+	for i, t := range csrfTokens {
 		if t == token {
+			if i > 0 {
+				// Move this token to the head of the list. Copy the tokens at
+				// the front one step to the right and then replace the token
+				// at the head.
+				copy(csrfTokens[1:], csrfTokens[:i+1])
+				csrfTokens[0] = token
+			}
 			return true
 		}
 	}
@@ -78,9 +99,9 @@ func newCsrfToken() string {
 	token := randomString(32)
 
 	csrfMut.Lock()
-	csrfTokens = append(csrfTokens, token)
-	if len(csrfTokens) > 10 {
-		csrfTokens = csrfTokens[len(csrfTokens)-10:]
+	csrfTokens = append([]string{token}, csrfTokens...)
+	if len(csrfTokens) > maxCsrfTokens {
+		csrfTokens = csrfTokens[:maxCsrfTokens]
 	}
 	defer csrfMut.Unlock()
 
