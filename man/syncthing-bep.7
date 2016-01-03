@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-BEP" "7" "December 21, 2015" "v0.12" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "January 01, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .
@@ -366,7 +366,7 @@ folder Flags field contains the following single bit flags:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-|                       Reserved                          |D|P|R|
+|                       Reserved                  | Hash  |D|P|R|
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
 .ft P
 .fi
@@ -384,6 +384,18 @@ permissions for.
 .TP
 .B Bit 29 ("D", Ignore Deletes)
 is set for folders that the device will ignore deletes for.
+.TP
+.B Bits 25\-28 (Hash)
+indicates the hash algorithm in use for this folder, as a four bit integer.
+The value values are:
+.INDENT 7.0
+.IP \(bu 2
+0: SHA256
+.IP \(bu 2
+1: Murmur3\-128
+.IP \(bu 2
+2\-15: Reserved for future usage
+.UNINDENT
 .UNINDENT
 .sp
 The \fBOptions\fP field contains a list of options that apply to the folder.

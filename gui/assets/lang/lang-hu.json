@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "A device with that ID is already added.",
     "A negative number of days doesn't make sense.": "Negatív számú nap nincs értelmezve.",
     "A new major version may not be compatible with previous versions.": "Az új főverzió nem kompatibilis az előző főverzióval.",
     "API Key": "API kulcs",
@@ -151,6 +152,7 @@
     "Shared With": "Megosztva ezekkel:",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Rövid azonosító. Minden megosztott eszközön azonosnak kell lennie.",
     "Show ID": "Azonosító mutatása",
+    "Show QR": "Show QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Az eszköz azonosító helyett jelenik meg. A többi eszközön alapértelmezett névként használható. ",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Az eszköz azonosító helyett jelenik meg. Üresen hagyva az eszköz saját neve lesz használva ",
     "Shutdown": "Leállítás",

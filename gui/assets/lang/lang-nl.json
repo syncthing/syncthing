@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "A device with that ID is already added.",
     "A negative number of days doesn't make sense.": "Een negatief aantal dagen is niet logisch.",
     "A new major version may not be compatible with previous versions.": "Een nieuwe major version is misschien niet compatibel met eerdere versies.",
     "API Key": "API-sleutel",
@@ -151,6 +152,7 @@
     "Shared With": "Gedeeld met",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Korte aanduiding voor deze map. Moet dezelfde zijn op alle apparaten in het cluster.",
     "Show ID": "Toon ID",
+    "Show QR": "Show QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Wordt i.p.v. het apparaat-ID getoond in de clusterstatus. Deze naam wordt aan andere apparaten voorgesteld als optionele standaard naam.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Wordt in plaats van het apparaat-ID in de cluster status getoond. Zal geupdate worden naar de naam die het apparaat uitzend. ",
     "Shutdown": "Sluit af",

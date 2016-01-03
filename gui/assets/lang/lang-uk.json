@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "Пристрій з таким ID вже додано.",
     "A negative number of days doesn't make sense.": "Від'ємна кількість днів немає сенсу.",
     "A new major version may not be compatible with previous versions.": "Нова мажорна версія може бути несумісною із попередніми версіями.",
     "API Key": "API ключ",
@@ -151,6 +152,7 @@
     "Shared With": "Доступно для",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Короткий ідентифікатор для директорії. Має бути однаковим на усіх  пристроях кластеру.",
     "Show ID": "Показати ID",
+    "Show QR": "Показати QR-код",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Показується замість ID пристрою в статусі кластера. Буде розголошено іншим вузлам як опціональне типове ім’я.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Показується замість ID пристрою в статусі кластера. Буде оновлено ім’ям, яке розголошене пристроєм, якщо залишити порожнім.",
     "Shutdown": "Вимкнути",

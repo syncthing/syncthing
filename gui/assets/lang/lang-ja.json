@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "入力されたIDのデバイスはすでに追加されています。",
     "A negative number of days doesn't make sense.": "負の日数は指定できません。",
     "A new major version may not be compatible with previous versions.": "新しいメジャーバージョンは以前のバージョンと互換性がないかもしれません。",
     "API Key": "APIキー",
@@ -41,7 +42,7 @@
     "Device {%device%} ({%address%}) wants to connect. Add new device?": "デバイス {{device}} ({{address}}) が接続を求めています。新しいデバイスとして追加しますか?",
     "Devices": "デバイス",
     "Disconnected": "切断中",
-    "Discovery": "Discovery",
+    "Discovery": "ディスカバリーサーバー",
     "Documentation": "マニュアル",
     "Download Rate": "ダウンロード速度",
     "Downloaded": "ダウンロード済",
@@ -151,6 +152,7 @@
     "Shared With": "共有相手",
     "Short identifier for the folder. Must be the same on all cluster devices.": "このフォルダーの短い識別子。このフォルダーを共有する全てのデバイス上で同じである必要があります。",
     "Show ID": "IDを表示",
+    "Show QR": "QRコードを表示",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "クラスターステータスでデバイスIDの代わりに表示されます。他のデバイスに対してもデフォルトの名前として通知されます。",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "クラスターステータスでデバイスIDの代わりに表示されます。空欄の場合デバイスが名乗る名前に更新されます。",
     "Shutdown": "シャットダウン",

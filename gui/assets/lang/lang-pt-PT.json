@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "Já tinha sido adicionado um dispositivo com esse ID.",
     "A negative number of days doesn't make sense.": "Um número negativo de dias não faz sentido.",
     "A new major version may not be compatible with previous versions.": "Uma nova versão principal pode não ser compatível com versões anteriores.",
     "API Key": "Chave da API",
@@ -118,7 +119,7 @@
     "Pause": "Pausar",
     "Paused": "Em pausa",
     "Please consult the release notes before performing a major upgrade.": "Consulte as notas de lançamento antes de fazer uma actualização importante.",
-    "Please set a GUI Authentication User and Password in the Settings dialog.": "Por favor, defina um utilizador e senha de autenticação na interface gráfica, nas configurações.",
+    "Please set a GUI Authentication User and Password in the Settings dialog.": "Por favor, defina um utilizador e senha de autenticação para a interface gráfica, nas configurações.",
     "Please wait": "Aguarde",
     "Preview": "Previsão",
     "Preview Usage Report": "Pré-visualizar relatório de utilização",
@@ -151,6 +152,7 @@
     "Shared With": "Partilhada com",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Identificador curto para a pasta. Tem que ser igual em todos os dispositivos do grupo.",
     "Show ID": "Mostrar ID",
+    "Show QR": "Mostrar QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Apresentado ao invés do ID do dispositivo no indicador de estado do grupo. Será divulgado aos outros dispositivos como um nome pré-definido opcional.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Apresentado ao invés do ID do dispositivo no indicador de estado do grupo. Será actualizado para o nome que o dispositivo divulga, se for deixado em branco.",
     "Shutdown": "Desligar",

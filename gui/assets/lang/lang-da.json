@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "A device with that ID is already added.",
     "A negative number of days doesn't make sense.": "Et negativt antal dage giver ikke mening.",
     "A new major version may not be compatible with previous versions.": "En ny versionsudgivelse er måske ikke kompatibel med tidligere versioner.",
     "API Key": "API-nøgle",
@@ -151,6 +152,7 @@
     "Shared With": "Delt med",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Kort navn for mappen. Skal være det samme på alle tilknyttede enheder.",
     "Show ID": "Vis ID",
+    "Show QR": "Show QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Vist istedet for Enheds ID i klynge status. Vil blive vist på andre enheder som valgfrit standard navn.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Vist istedet for Enheds ID i klynge status. Vil blive opdateret til det navn som enheden viser, hvis det ikke er udfyldt.",
     "Shutdown": "Luk ned",

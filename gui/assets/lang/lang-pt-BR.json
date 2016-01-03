@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "Um dispositivo com este ID já foi adicionado.",
     "A negative number of days doesn't make sense.": "Um número negativo de dias não faz sentido.",
     "A new major version may not be compatible with previous versions.": "Uma nova versão principal pode não ser compatível com versões anteriores.",
     "API Key": "Chave da API",
@@ -151,6 +152,7 @@
     "Shared With": "Compartilhada com",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Identificador curto para a pasta. Deve ser igual em todos os dispositivos.",
     "Show ID": "Mostrar ID",
+    "Show QR": "Exibir QR Code",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Mostrado no lugar do ID do dispositivo no indicador de estado do grupo. Será divulgado aos outros dispositivos como um nome opcional e pré-definido.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Mostrado no lugar do ID do dispositivo no indicador de estado do grupo. Será atualizado para o nome que o dispositivo divulga, caso seja deixado em branco.",
     "Shutdown": "Desligar",

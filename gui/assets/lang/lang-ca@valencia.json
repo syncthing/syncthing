@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "A device with that ID is already added.",
     "A negative number of days doesn't make sense.": "Un nombre negatiu de dies no té sentit.",
     "A new major version may not be compatible with previous versions.": "Una nova versión amb canvis importants pot no ser compatible amb versions prèvies.",
     "API Key": "Clau API",
@@ -151,6 +152,7 @@
     "Shared With": "Compartit amb",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Identificador curt per a la carpeta. Deu ser el mateix en tots els dispositius del grup (cluster).",
     "Show ID": "Mostrar ID",
+    "Show QR": "Show QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Mostrat en lloc de l'ID del dispositiu en l'estat del grup (cluster). S'anunciarà als altres dispositius com el nom opcional per defecte.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Mostrat en lloc de l'ID del dispositiu en l'estat del grup (cluster). S'actualitzarà al nom que el dispositiu anuncia si es deixa buit.",
     "Shutdown": "Apagar",

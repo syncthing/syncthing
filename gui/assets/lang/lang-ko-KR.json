@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "A device with that ID is already added.",
     "A negative number of days doesn't make sense.": "A negative number of days doesn't make sense.",
     "A new major version may not be compatible with previous versions.": "새로운 메이저 버전은 이전 버전과 호환되지 않을 수 있습니다.",
     "API Key": "API 키",
@@ -151,6 +152,7 @@
     "Shared With": "~와 공유",
     "Short identifier for the folder. Must be the same on all cluster devices.": "간단한 폴더 식별자입니다. 모든 장치에서 동일해야 합니다.",
     "Show ID": "내 기기 ID",
+    "Show QR": "Show QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "장치에 대한 아이디로 표시됩니다. 옵션에 얻은 기본이름으로 다른장치에 통보합니다.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "아이디가 비어있는 경우 기본 값으로 다른 장치에 업데이트 됩니다.",
     "Shutdown": "종료",

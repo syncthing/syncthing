@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "Přístroj s tímto ID je již přídán.",
     "A negative number of days doesn't make sense.": "Záporný počet dní nedává smysl.",
     "A new major version may not be compatible with previous versions.": "Nová důležitá verze nemusí být kompatibilní s předchozími verzemi.",
     "API Key": "API klíč",
@@ -151,6 +152,7 @@
     "Shared With": "Sdíleno s",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Krátký identifikátor tohoto adresáře. Musí být stejný na všech přístrojích v clusteru.",
     "Show ID": "Zobrazit ID",
+    "Show QR": "Zobrazit QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Zobrazeno místo ID přístroje na náhledu stavu clusteru. Bude odesíláno ostatním přístrojům jako výchozí jméno přístroje.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Zobrazeno místo ID přístroje na náhledu stavu clusteru. Pokud nebude vyplněno, bude nastaveno na jméno, které přístroj odesílá.",
     "Shutdown": "Vypnout",

@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "Ein Gerät mit dieser ID existiert bereits.",
     "A negative number of days doesn't make sense.": "Eine negative Anzahl von Tagen ergibt keinen Sinn.",
     "A new major version may not be compatible with previous versions.": "Die neue Hauptversion ist evtl. nicht mit vorherigen Versionen kompatibel.",
     "API Key": "API-Schlüssel",
@@ -151,6 +152,7 @@
     "Shared With": "Geteilt mit",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Kurze ID für das Verzeichnis. Muss auf allen Verbunds-Geräten gleich sein.",
     "Show ID": "ID anzeigen",
+    "Show QR": "Show QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Wird anstatt der Geräte ID angezeigt. Wird als optionaler Gerätename an die anderen Clients im Cluster weitergegeben.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Wird auf diesem Gerät als Gerätename angezeigt und an die anderen Geräte im Geräte-Verbund weitergegeben. Wenn kein Gerätename anegegeben wird, wird der Name des entfernten Gerätes genommen.",
     "Shutdown": "Herunterfahren",

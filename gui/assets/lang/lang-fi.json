@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "A device with that ID is already added.",
     "A negative number of days doesn't make sense.": "Negatiivinen määrä päiviä ei ole järjellinen.",
     "A new major version may not be compatible with previous versions.": "A new major version may not be compatible with previous versions.",
     "API Key": "API-avain",
@@ -151,6 +152,7 @@
     "Shared With": "Jaettu seuraavien kanssa",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Lyhyt tunniste kansiolle. Tämän tulee olla sama kaikilla ryhmän laitteilla.",
     "Show ID": "Näytä ID",
+    "Show QR": "Show QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Näytetään ryhmän tiedoissa laitteen ID:n sijaan. Ilmoitetaan muille laitteille vaihtoehtoisena oletusnimenä.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Näytetään ryhmän tiedoissa laitteen ID:n sijaan. Tyhjä nimi päivitetään laitteen ilmoittamaksi nimeksi.",
     "Shutdown": "Sammuta",

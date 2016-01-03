@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "您已添加过该设备",
     "A negative number of days doesn't make sense.": "天数不能为负",
     "A new major version may not be compatible with previous versions.": "重大更新可能与之前的版本之间无法兼容",
     "API Key": "API Key",
@@ -150,7 +151,8 @@
     "Share this folder?": "是否共享该文件夹？",
     "Shared With": "共享给",
     "Short identifier for the folder. Must be the same on all cluster devices.": "文件夹的别名。必须在所有设备上保持一致。",
-    "Show ID": "显示设备标示",
+    "Show ID": "显示设备标识",
+    "Show QR": "显示二维码",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "在设备丛中，显示该名称，而不是设备标识。亦会作为一个可选的默认名称被发送到其他设备。",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "在设备丛中，将会显示本名称，而不是设备标识。如果设置为空，则会使用目标设备提供的默认名称。",
     "Shutdown": "关闭 Syncthing",

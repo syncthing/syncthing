@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "A device with that ID is already added.",
     "A negative number of days doesn't make sense.": "Số ngày không thể âm.",
     "A new major version may not be compatible with previous versions.": "Phiên bản quan trọng mới có thể sẽ không tương thích với các bản cũ.",
     "API Key": "Khoá API",
@@ -151,6 +152,7 @@
     "Shared With": "Đã chia sẻ với",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Tên tắt cho thư mục. Phải trùng khớp trên tất cả thiết bị trong cụm.",
     "Show ID": "Hiển thị ID",
+    "Show QR": "Show QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Hiển thị thay cho ID thiết bị trong trạng thái cụm. Sẽ được giới thiệu đến các thiết bị khác như tên mặc định tuỳ chọn.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Hiển thị thay cho ID thiết bị trong trạng thái cụm. Nếu để trống sẽ được cập nhật thành tên mà thiết bị giới thiệu.",
     "Shutdown": "Đóng",

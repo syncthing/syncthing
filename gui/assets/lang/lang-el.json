@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "A device with that ID is already added.",
     "A negative number of days doesn't make sense.": "Δε βγάζει νόημα ένας αρνητικός αριθμός ημερών.",
     "A new major version may not be compatible with previous versions.": "Μια νέα σημαντική έκδοση μπορεί να μην είναι συμβατή με τις προηγούμενες εκδόσεις.",
     "API Key": "Κλειδί API",
@@ -151,6 +152,7 @@
     "Shared With": "Διαμοιράζεται με",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Σύντομη ταυτότητα για το φάκελο. Θα πρέπει να είναι η ίδια σε όλη τη συστάδα  συσκευών με τις οποίες διαμοιράζεται ο φάκελος αυτός.",
     "Show ID": "Εμφάνιση ταυτότητας",
+    "Show QR": "Show QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Θα φαίνεται αντί για την ταυτότητα της συσκευής στην προβολή της κατάστασης ολόκληρης της συστάδας. Θα γνωστοποιείται σαν το προαιρετικό όνομα της συσκευής.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Θα φαίνεται αντί για την ταυτότητα της συσκευής στην προβολή της κατάστασης ολόκληρης της συστάδας. Θα ενημερώνεται αυτόματα αν αλλάξει το όνομα της συσκευής.",
     "Shutdown": "Απενεργοποίηση",

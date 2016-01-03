@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "A device with that ID is already added.",
     "A negative number of days doesn't make sense.": "一個負的天數並不合理。",
     "A new major version may not be compatible with previous versions.": "一個新的主要版本可能與以前的版本並不相容。",
     "API Key": "API 金鑰",
@@ -151,6 +152,7 @@
     "Shared With": "與誰共享",
     "Short identifier for the folder. Must be the same on all cluster devices.": "資料夾的簡短識別字。必須在叢集內所有的裝置上皆相同。",
     "Show ID": "顯示識別碼",
+    "Show QR": "Show QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "代替裝置識別碼顯示在叢集狀態中。這段文字將會廣播到其他的裝置作為一個可選的預設名稱。",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "代替裝置識別碼顯示在叢集狀態中。本欄若未填寫則將被更新為此裝置所廣播的名稱。",
     "Shutdown": "關閉",

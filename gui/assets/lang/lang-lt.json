@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "Įrenginys su tokiu ID jau yra pridėtas.",
     "A negative number of days doesn't make sense.": "Privalo būti teigiamas skaičius.",
     "A new major version may not be compatible with previous versions.": "Nauja versija gali būti nesuderinama su senomis versijomis.",
     "API Key": "API raktas",
@@ -151,6 +152,7 @@
     "Shared With": "Dalinamasi su",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Trumpas aplanko identifikatorius. Privalo būti toks pat visuose įrenginiuose.",
     "Show ID": "Rodyti ID",
+    "Show QR": "Rodyti QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Grupės būsenoje rodomas vietoje įrenginio vardo. Kiti įrenginiai matys kaip pasirinktinį vardą.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Grupės būsenoje rodomas vietoje įrenginio vardo. Bus atnaujintas į įrenginio vardą jei nieko neįrašysite.",
     "Shutdown": "Išjungti",

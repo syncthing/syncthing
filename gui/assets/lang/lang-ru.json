@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "Устройство с таким ID уже добавлено.",
     "A negative number of days doesn't make sense.": "Отрицательное число дней не имеет значения.",
     "A new major version may not be compatible with previous versions.": "Новое обновление основной версии может быть несовместимо с предыдущими версиями.",
     "API Key": "Ключ API",
@@ -151,6 +152,7 @@
     "Shared With": "Доступ предоставлен",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Короткий идентификатор папки. Должен быть одинаковым на всех устройствах кластера.",
     "Show ID": "Показать ID",
+    "Show QR": "Показать QR-код",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Отображается вместо ID устройства в статусе группы. Будет разослан другим устройствам в качестве имени по умолчанию.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Отображается вместо ID устройства в статусе группы. Если поле не заполнено, то будет установлено имя, передаваемое этим устройством.",
     "Shutdown": "Выключить",

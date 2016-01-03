@@ -1,4 +1,5 @@
 {
+    "A device with that ID is already added.": "A device with that ID is already added.",
     "A negative number of days doesn't make sense.": "Eit negativt tal dagar har ikkje meining.",
     "A new major version may not be compatible with previous versions.": "Ein ny hovudversjon er ikkje nødvendigvis kompatibel med eldre versjonar. ",
     "API Key": "API-nøkkel",
@@ -151,6 +152,7 @@
     "Shared With": "Delt Med",
     "Short identifier for the folder. Must be the same on all cluster devices.": "Kort kjennemerke på mappa. Må vera det same på alle einingane i klyngja.",
     "Show ID": "Vis ID",
+    "Show QR": "Show QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Vist i staden for einings-ID-en i klyngjestatusen. Vil verta kringkasta til dei andre einingane som eit valfritt standardnamn.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Vist i staden for mappe-ID-en i klyngjestatuses. Vil verta oppdatert til namnet eininga kringkastar dersom tomt.",
     "Shutdown": "Slå Av",
