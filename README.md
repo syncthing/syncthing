@@ -27,8 +27,12 @@ Take a look at the [getting started guide][2].
 There are a few examples for keeping Syncthing running in the background
 on your system in [the etc directory][3].
 
-There is an IRC channel, `#syncthing` on [Freenode][4], for talking directly
-to developers and users.
+## Getting in Touch
+
+The first and best point of contact is the [Forum][8]. There is also an IRC
+channel, `#syncthing` on [Freenode][4] (with a [web client][9]), for talking
+directly to developers and users. If you've found something that is clearly a
+bug, feel free to report it in the [GitHub issue tracker][10].
 
 ## Building
 
@@ -51,7 +55,10 @@ All code is licensed under the [MPLv2 License][7].
 [1]: http://docs.syncthing.net/specs/bep-v1.html
 [2]: http://docs.syncthing.net/intro/getting-started.html
 [3]: https://github.com/syncthing/syncthing/blob/master/etc
-[4]: https://webchat.freenode.net/
+[4]: http://www.freenode.net/irc_servers.shtml
 [5]: http://docs.syncthing.net/dev/building.html
 [6]: http://docs.syncthing.net/
 [7]: https://github.com/syncthing/syncthing/blob/master/LICENSE
+[8]: https://forum.syncthing.net/
+[9]: https://kiwiirc.com/client/irc.freenode.net/#syncthing
+[10]: https://github.com/syncthing/syncthing/issues
