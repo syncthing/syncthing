@@ -31,7 +31,7 @@
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",
-			"Rev": "431e263e413efe4446ede50cec4819b26659fbe7"
+			"Rev": "29ae4ffbc9a6fe9fb2bc5029050ce6996ea1d3bc"
 		},
 		{
 			"ImportPath": "github.com/rcrowley/go-metrics",
