@@ -353,6 +353,7 @@ angular.module('syncthing.core')
             $scope.config = config;
             $scope.config.options._listenAddressStr = $scope.config.options.listenAddress.join(', ');
             $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
+            $scope.config.options._relayServersStr = $scope.config.options.relayServers.join(', ');
 
             $scope.devices = $scope.config.devices;
             $scope.devices.forEach(function (deviceCfg) {
@@ -890,7 +891,7 @@ angular.module('syncthing.core')
                 $scope.config.options = angular.copy($scope.tmpOptions);
                 $scope.config.gui = angular.copy($scope.tmpGUI);
 
-                ['listenAddress', 'globalAnnounceServers'].forEach(function (key) {
+                ['listenAddress', 'globalAnnounceServers', 'relayServers'].forEach(function (key) {
                     $scope.config.options[key] = $scope.config.options["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
                         return x.trim();
                     });
