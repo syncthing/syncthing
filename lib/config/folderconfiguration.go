@@ -18,6 +18,7 @@ import (
 
 type FolderConfiguration struct {
 	ID                    string                      `xml:"id,attr" json:"id"`
+	Label                 string                      `xml:"label,attr" json:"label"`
 	RawPath               string                      `xml:"path,attr" json:"path"`
 	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	ReadOnly              bool                        `xml:"ro,attr" json:"readOnly"`
