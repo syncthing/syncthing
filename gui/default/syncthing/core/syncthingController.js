@@ -1546,6 +1546,11 @@ angular.module('syncthing.core')
             return 'text';
         };
 
+        $scope.changedFolderLabel = function(){
+            $scope.currentFolder.id = randomString(5)+"-" + $scope.currentFolder.label;
+        }
+
+
         // pseudo main. called on all definitions assigned
         initController();
     });
