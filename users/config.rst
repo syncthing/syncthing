@@ -151,7 +151,8 @@ ro
     Syncthing) on this device.
 
 rescanIntervalS
-    The rescan interval, in seconds.
+    The rescan interval, in seconds. Can be set to zero to disable when external
+    plugins are used to trigger rescans.
 
 ignorePerms
     True if the folder should ignore permissions.
@@ -413,10 +414,10 @@ relayServer
     from the relay pool server, ``relays.syncthing.net``.
 
 maxSendKbps
-    Outgoing data rate limit, in kibibits per second.
+    Outgoing data rate limit, in kilobits per second.
 
 maxRecvKbps
-    Incoming data rate limits, in kibibits per second.
+    Incoming data rate limits, in kilobits per second.
 
 reconnectionIntervalS
     The number of seconds to wait between each attempt to connect to currently
@@ -450,7 +451,7 @@ upnpTimeoutSeconds
     When scanning for UPnP devices, wait this long for responses.
 
 urAccepted
-    Whether the user as accepted to submit anonymous usage data. The default,
+    Whether the user has accepted to submit anonymous usage data. The default,
     ``0``, mean the user has not made a choice, and Syncthing will ask at some
     point in the future. ``-1`` means no, a number above zero means that that
     version of usage reporting has been accepted.
@@ -463,7 +464,7 @@ urURL
     The URL to post usage report data to, when enabled.
 
 urPostInsecurely
-    When true, the UR URL can be http instead of https, or have a self signed
+    When true, the UR URL can be http instead of https, or have a self-signed
     certificate. The default is ``false``.
 
 urInitialDelayS
@@ -487,7 +488,8 @@ cacheIgnoredFiles
     the price of memory.
 
 progressUpdateIntervalS
-    .. note:: Requires explanation.
+    How often in seconds the progress of ongoing downloads is made available to
+    the GUI.
 
 symlinksEnabled
     Whether to sync symlinks, if supported by the system.
@@ -503,10 +505,10 @@ databaseBlockCacheMiB
 
 pingTimeoutS
     Ping-timeout in seconds. Don't change it unless you are having issues due to
-    slow response time (slow connection/cpu) and large index exchanges
+    slow response time (slow connection/cpu) and large index exchanges.
 
 pingIdleTimeS
-    ping interval in seconds. Don't change it unless you feel it's necessary.
+    Ping interval in seconds. Don't change it unless you feel it's necessary.
 
 minHomeDiskFreePct
     The percentage of space that should be available on the partition holding
@@ -523,7 +525,7 @@ using the same configuration files) can cause issues. This is easy to do
 accidentally if you sync your home folder between devices. A common symptom
 of syncing configuration files is two devices ending up with the same Device ID.
 
-If you want to use syncthing to backup your configuration files, it is recommended
+If you want to use Syncthing to backup your configuration files, it is recommended
 that the files you are backing up are in a :ref:`folder-master` to prevent other
 devices from overwriting the per device configuration. The folder on the remote
 device(s) should not be used as configuration for the remote devices.
