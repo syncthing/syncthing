@@ -11,6 +11,14 @@
         <form role="form" name="folderEditor">
           <div class="row">
             <div class="col-md-12">
+              <div class="form-group" ng-class="{'has-error': folderEditor.folderLabel.$invalid && folderEditor.folderLabel.$dirty}">
+                <label for="folderLabel"><span translate>Folder Label</span></label>
+                <input name="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" ng-show="!editingExisting" ng-change="changedFolderLabel()"></input>
+                <input name="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" ng-show="editingExisting"></input>
+                <p class="help-block">
+                  <span translate ng-if="folderEditor.folderLabel.$valid || folderEditor.folderLabel.$pristine">Short identifier for the folder. Can be different on each device.</span>
+                </p>
+              </div>
               <div class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">
                 <label for="folderID"><span translate>Folder ID</span></label>
                 <input name="folderID" ng-readonly="editingExisting" id="folderID" class="form-control" type="text" ng-model="currentFolder.id" required unique-folder value="{{currentFolder.id}}"></input>
@@ -18,14 +26,6 @@
                   <span translate ng-if="folderEditor.folderID.$valid || folderEditor.folderID.$pristine">Short identifier for the folder. Must be the same on all cluster devices.</span>
                   <span translate ng-if="folderEditor.folderID.$error.uniqueFolder">The folder ID must be unique.</span>
                   <span translate ng-if="folderEditor.folderID.$error.required && folderEditor.folderID.$dirty">The folder ID cannot be blank.</span>
-                </p>
-              </div>
-              <div class="form-group" ng-class="{'has-error': folderEditor.folderLabel.$invalid && folderEditor.folderLabel.$dirty}">
-                <label for="folderLabel"><span translate>Folder Label</span></label>
-                <input name="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" ng-show="!editingExisting" ng-change="changedFolderLabel()"></input>
-                <input name="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" ng-show="editingExisting"></input>
-                <p class="help-block">
-                  <span translate ng-if="folderEditor.folderLabel.$valid || folderEditor.folderLabel.$pristine">Short identifier for the folder. Can be different on each device.</span>
                 </p>
               </div>
               <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty}">
