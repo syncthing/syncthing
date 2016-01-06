@@ -414,10 +414,10 @@ relayServer
     from the relay pool server, ``relays.syncthing.net``.
 
 maxSendKbps
-    Outgoing data rate limit, in kilobits per second.
+    Outgoing data rate limit, in kibibits per second.
 
 maxRecvKbps
-    Incoming data rate limits, in kilobits per second.
+    Incoming data rate limits, in kibibits per second.
 
 reconnectionIntervalS
     The number of seconds to wait between each attempt to connect to currently
