@@ -23,6 +23,7 @@ func init() {
 }
 
 func tcpDialer(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
+	// Check that there is a port number in uri.Host, otherwise add one.
 	host, port, err := net.SplitHostPort(uri.Host)
 	if err != nil && strings.HasPrefix(err.Error(), "missing port") {
 		// addr is on the form "1.2.3.4"
@@ -32,13 +33,9 @@ func tcpDialer(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
 		uri.Host = net.JoinHostPort(host, "22000")
 	}
 
-	raddr, err := net.ResolveTCPAddr("tcp", uri.Host)
-	if err != nil {
-		l.Debugln(err)
-		return nil, err
-	}
-
-	conn, err := dialer.Dial(raddr.Network(), raddr.String())
+	// Don't try to resolve the address before dialing. The dialer may be a
+	// proxy, and we should let the proxy do the resolving in that case.
+	conn, err := dialer.Dial("tcp", uri.Host)
 	if err != nil {
 		l.Debugln(err)
 		return nil, err
