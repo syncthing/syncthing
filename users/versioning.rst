@@ -100,7 +100,8 @@ the following script and store it as ``/Users/jb/bin/onlylatest.sh`` (i.e. the
     filepath="$2"
 
     # First ensure the dir where we need to store the file exists
-    mkdir -p `dirname "$versionspath/$filepath"`
+    outpath=`dirname "$versionspath/$filepath"`
+    mkdir -p "$outpath"
     # Then move the file there
     mv -f "$folderpath/$filepath" "$versionspath/$filepath"
 
