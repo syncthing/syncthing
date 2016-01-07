@@ -28,6 +28,7 @@ import (
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/auto"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
@@ -35,10 +36,10 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -49,31 +50,32 @@ var (
 )
 
 type apiService struct {
-	id              protocol.DeviceID
-	cfg             *config.Wrapper
-	assetDir        string
-	model           *model.Model
-	eventSub        *events.BufferedSubscription
-	discoverer      *discover.CachingMux
-	relayService    *relay.Service
-	listener        net.Listener
-	fss             *folderSummaryService
-	stop            chan struct{}
-	systemConfigMut sync.Mutex
+	id                protocol.DeviceID
+	cfg               *config.Wrapper
+	assetDir          string
+	model             *model.Model
+	eventSub          *events.BufferedSubscription
+	discoverer        *discover.CachingMux
+	connectionService *connections.Service
+	listener          net.Listener
+	fss               *folderSummaryService
+	stop              chan struct{}
+	systemConfigMut   sync.Mutex
 
 	guiErrors *logger.Recorder
 	systemLog *logger.Recorder
 }
 
-func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relayService *relay.Service, errors, systemLog *logger.Recorder) (*apiService, error) {
+func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, connectionService *connections.Service, errors, systemLog *logger.Recorder) (*apiService, error) {
 	service := &apiService{
-		id:              id,
-		cfg:             cfg,
-		assetDir:        assetDir,
-		model:           m,
-		eventSub:        eventSub,
-		discoverer:      discoverer,
-		relayService:    relayService,
+		id:                id,
+		cfg:               cfg,
+		assetDir:          assetDir,
+		model:             m,
+		eventSub:          eventSub,
+		discoverer:        discoverer,
+		connectionService: connectionService,
+
 		systemConfigMut: sync.NewMutex(),
 		guiErrors:       errors,
 		systemLog:       systemLog,
@@ -581,7 +583,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	if curAcc := s.cfg.Options().URAccepted; to.Options.URAccepted > curAcc {
 		// UR was enabled
 		to.Options.URAccepted = usageReportVersion
-		to.Options.URUniqueID = randomString(8)
+		to.Options.URUniqueID = util.RandomString(8)
 	} else if to.Options.URAccepted < curAcc {
 		// UR was disabled
 		to.Options.URAccepted = -1
@@ -668,18 +670,9 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 		res["discoveryMethods"] = discoMethods
 		res["discoveryErrors"] = discoErrors
 	}
-	if s.relayService != nil {
-		res["relaysEnabled"] = true
-		relayClientStatus := make(map[string]bool)
-		relayClientLatency := make(map[string]int)
-		for _, relay := range s.relayService.Relays() {
-			latency, ok := s.relayService.RelayStatus(relay)
-			relayClientStatus[relay] = ok
-			relayClientLatency[relay] = int(latency / time.Millisecond)
-		}
-		res["relayClientStatus"] = relayClientStatus
-		res["relayClientLatency"] = relayClientLatency
-	}
+
+	res["connectionStatus"] = s.connectionService.Status()
+
 	cpuUsageLock.RLock()
 	var cpusum float64
 	for _, p := range cpuUsagePercent {

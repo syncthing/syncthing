@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package main
+package util
 
 import (
 	"crypto/md5"
@@ -14,22 +14,22 @@ import (
 	mathRand "math/rand"
 )
 
-// randomCharset contains the characters that can make up a randomString().
+// randomCharset contains the characters that can make up a RandomString().
 const randomCharset = "01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-"
 
-// predictableRandom is an RNG that will always have the same sequence. It
+// PredictableRandom is an RNG that will always have the same sequence. It
 // will be seeded with the device ID during startup, so that the sequence is
 // predictable but varies between instances.
-var predictableRandom = mathRand.New(mathRand.NewSource(42))
+var PredictableRandom = mathRand.New(mathRand.NewSource(42))
 
 func init() {
 	// The default RNG should be seeded with something good.
-	mathRand.Seed(randomInt64())
+	mathRand.Seed(RandomInt64())
 }
 
-// randomString returns a string of random characters (taken from
-// randomCharset) of the specified length.
-func randomString(l int) string {
+// RandomString returns a string of random characters (taken from
+// RandomCharset) of the specified length.
+func RandomString(l int) string {
 	bs := make([]byte, l)
 	for i := range bs {
 		bs[i] = randomCharset[mathRand.Intn(len(randomCharset))]
@@ -37,19 +37,19 @@ func randomString(l int) string {
 	return string(bs)
 }
 
-// randomInt64 returns a strongly random int64, slowly
-func randomInt64() int64 {
+// RandomInt64 returns a strongly random int64, slowly
+func RandomInt64() int64 {
 	var bs [8]byte
 	_, err := io.ReadFull(cryptoRand.Reader, bs[:])
 	if err != nil {
 		panic("randomness failure: " + err.Error())
 	}
-	return seedFromBytes(bs[:])
+	return SeedFromBytes(bs[:])
 }
 
-// seedFromBytes calculates a weak 64 bit hash from the given byte slice,
+// SeedFromBytes calculates a weak 64 bit hash from the given byte slice,
 // suitable for use a predictable random seed.
-func seedFromBytes(bs []byte) int64 {
+func SeedFromBytes(bs []byte) int64 {
 	h := md5.New()
 	h.Write(bs)
 	s := h.Sum(nil)

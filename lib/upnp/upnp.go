@@ -26,49 +26,19 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-// An IGD is a UPnP InternetGatewayDevice.
-type IGD struct {
-	uuid           string
-	friendlyName   string
-	services       []IGDService
-	url            *url.URL
-	localIPAddress string
+func init() {
+	nat.Register(func(timeout time.Duration) []nat.NATDevice {
+		igds := make([]nat.NATDevice, 0)
+		for _, igd := range Discover(timeout) {
+			igds = append(igds, &igd)
+		}
+		return igds
+	})
 }
-
-func (n *IGD) UUID() string {
-	return n.uuid
-}
-
-func (n *IGD) FriendlyName() string {
-	return n.friendlyName
-}
-
-// FriendlyIdentifier returns a friendly identifier (friendly name + IP
-// address) for the IGD.
-func (n *IGD) FriendlyIdentifier() string {
-	return "'" + n.FriendlyName() + "' (" + strings.Split(n.URL().Host, ":")[0] + ")"
-}
-
-func (n *IGD) URL() *url.URL {
-	return n.url
-}
-
-// An IGDService is a specific service provided by an IGD.
-type IGDService struct {
-	ID  string
-	URL string
-	URN string
-}
-
-type Protocol string
-
-const (
-	TCP Protocol = "TCP"
-	UDP          = "UDP"
-)
 
 type upnpService struct {
 	ID         string `xml:"serviceId"`
@@ -126,22 +96,19 @@ nextResult:
 	for result := range resultChan {
 		for _, existingResult := range results {
 			if existingResult.uuid == result.uuid {
-				if shouldDebug() {
-					l.Debugf("Skipping duplicate result %s with services:", result.uuid)
-					for _, service := range result.services {
-						l.Debugf("* [%s] %s", service.ID, service.URL)
-					}
+				l.Debugf("Skipping duplicate result %s with services:", result.uuid)
+				for _, service := range result.services {
+					l.Debugf("* [%s] %s", service.ID, service.URL)
 				}
 				continue nextResult
 			}
 		}
 
 		results = append(results, result)
-		if shouldDebug() {
-			l.Debugf("UPnP discovery result %s with services:", result.uuid)
-			for _, service := range result.services {
-				l.Debugf("* [%s] %s", service.ID, service.URL)
-			}
+
+		l.Debugf("UPnP discovery result %s with services:", result.uuid)
+		for _, service := range result.services {
+			l.Debugf("* [%s] %s", service.ID, service.URL)
 		}
 	}
 
@@ -286,19 +253,19 @@ func parseResponse(deviceType string, resp []byte) (IGD, error) {
 	}, nil
 }
 
-func localIP(url *url.URL) (string, error) {
-	conn, err := dialer.Dial("tcp", url.Host)
+func localIP(url *url.URL) (net.IP, error) {
+	conn, err := dialer.DialTimeout("tcp", url.Host, time.Second)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer conn.Close()
 
 	localIPAddress, _, err := net.SplitHostPort(conn.LocalAddr().String())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return localIPAddress, nil
+	return net.ParseIP(localIPAddress), nil
 }
 
 func getChildDevices(d upnpDevice, deviceType string) []upnpDevice {
@@ -460,36 +427,6 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 	return resp, nil
 }
 
-// AddPortMapping adds a port mapping to all relevant services on the
-// specified InternetGatewayDevice. Port mapping will fail and return an error
-// if action is fails for _any_ of the relevant services. For this reason, it
-// is generally better to configure port mapping for each individual service
-// instead.
-func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
-	for _, service := range n.services {
-		err := service.AddPortMapping(n.localIPAddress, protocol, externalPort, internalPort, description, timeout)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// DeletePortMapping deletes a port mapping from all relevant services on the
-// specified InternetGatewayDevice. Port mapping will fail and return an error
-// if action is fails for _any_ of the relevant services. For this reason, it
-// is generally better to configure port mapping for each individual service
-// instead.
-func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) error {
-	for _, service := range n.services {
-		err := service.DeletePortMapping(protocol, externalPort)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 type soapGetExternalIPAddressResponseEnvelope struct {
 	XMLName xml.Name
 	Body    soapGetExternalIPAddressResponseBody `xml:"Body"`
@@ -507,76 +444,4 @@ type getExternalIPAddressResponse struct {
 type soapErrorResponse struct {
 	ErrorCode        int    `xml:"Body>Fault>detail>UPnPError>errorCode"`
 	ErrorDescription string `xml:"Body>Fault>detail>UPnPError>errorDescription"`
-}
-
-// AddPortMapping adds a port mapping to the specified IGD service.
-func (s *IGDService) AddPortMapping(localIPAddress string, protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
-	tpl := `<u:AddPortMapping xmlns:u="%s">
-	<NewRemoteHost></NewRemoteHost>
-	<NewExternalPort>%d</NewExternalPort>
-	<NewProtocol>%s</NewProtocol>
-	<NewInternalPort>%d</NewInternalPort>
-	<NewInternalClient>%s</NewInternalClient>
-	<NewEnabled>1</NewEnabled>
-	<NewPortMappingDescription>%s</NewPortMappingDescription>
-	<NewLeaseDuration>%d</NewLeaseDuration>
-	</u:AddPortMapping>`
-	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol, internalPort, localIPAddress, description, timeout)
-
-	response, err := soapRequest(s.URL, s.URN, "AddPortMapping", body)
-	if err != nil && timeout > 0 {
-		// Try to repair error code 725 - OnlyPermanentLeasesSupported
-		envelope := &soapErrorResponse{}
-		if unmarshalErr := xml.Unmarshal(response, envelope); unmarshalErr != nil {
-			return unmarshalErr
-		}
-		if envelope.ErrorCode == 725 {
-			return s.AddPortMapping(localIPAddress, protocol, externalPort, internalPort, description, 0)
-		}
-	}
-
-	return err
-}
-
-// DeletePortMapping deletes a port mapping from the specified IGD service.
-func (s *IGDService) DeletePortMapping(protocol Protocol, externalPort int) error {
-	tpl := `<u:DeletePortMapping xmlns:u="%s">
-	<NewRemoteHost></NewRemoteHost>
-	<NewExternalPort>%d</NewExternalPort>
-	<NewProtocol>%s</NewProtocol>
-	</u:DeletePortMapping>`
-	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol)
-
-	_, err := soapRequest(s.URL, s.URN, "DeletePortMapping", body)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// GetExternalIPAddress queries the IGD service for its external IP address.
-// Returns nil if the external IP address is invalid or undefined, along with
-// any relevant errors
-func (s *IGDService) GetExternalIPAddress() (net.IP, error) {
-	tpl := `<u:GetExternalIPAddress xmlns:u="%s" />`
-
-	body := fmt.Sprintf(tpl, s.URN)
-
-	response, err := soapRequest(s.URL, s.URN, "GetExternalIPAddress", body)
-
-	if err != nil {
-		return nil, err
-	}
-
-	envelope := &soapGetExternalIPAddressResponseEnvelope{}
-	err = xml.Unmarshal(response, envelope)
-	if err != nil {
-		return nil, err
-	}
-
-	result := net.ParseIP(envelope.Body.GetExternalIPAddressResponse.NewExternalIPAddress)
-
-	return result, nil
 }

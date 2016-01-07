@@ -17,7 +17,6 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -38,12 +37,13 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/thejerf/suture"
 )
@@ -551,7 +551,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// We reinitialize the predictable RNG with our device ID, to get a
 	// sequence that is always the same but unique to this syncthing instance.
-	predictableRandom.Seed(seedFromBytes(cert.Certificate[0]))
+	util.PredictableRandom.Seed(util.SeedFromBytes(cert.Certificate[0]))
 
 	myID = protocol.NewDeviceID(cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
@@ -700,52 +700,25 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	mainService.Add(m)
 
-	// The default port we announce, possibly modified by setupUPnP next.
-
-	uri, err := url.Parse(opts.ListenAddress[0])
-	if err != nil {
-		l.Fatalf("Failed to parse listen address %s: %v", opts.ListenAddress[0], err)
-	}
-
-	addr, err := net.ResolveTCPAddr("tcp", uri.Host)
-	if err != nil {
-		l.Fatalln("Bad listen address:", err)
-	}
-
-	// The externalAddr tracks our external addresses for discovery purposes.
-
-	var addrList *addressLister
-
-	// Start UPnP
-
-	if opts.UPnPEnabled {
-		upnpService := newUPnPService(cfg, addr.Port)
-		mainService.Add(upnpService)
-
-		// The external address tracker needs to know about the UPnP service
-		// so it can check for an external mapped port.
-		addrList = newAddressLister(upnpService, cfg)
-	} else {
-		addrList = newAddressLister(nil, cfg)
-	}
-
-	// Start relay management
-
-	var relayService *relay.Service
-	if opts.RelaysEnabled && (opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn) {
-		relayService = relay.NewService(cfg, tlsCfg)
-		mainService.Add(relayService)
-	}
-
 	// Start discovery
 
 	cachedDiscovery := discover.NewCachingMux()
 	mainService.Add(cachedDiscovery)
 
+	// Start NAT service
+
+	natService := nat.NewService(cfg)
+	mainService.Add(natService)
+
+	// Start connection management
+
+	connectionService := connections.NewService(cfg, myID, m, tlsCfg, cachedDiscovery, natService, bepProtocolName, tlsDefaultCommonName, lans)
+	mainService.Add(connectionService)
+
 	if cfg.Options().GlobalAnnEnabled {
 		for _, srv := range cfg.GlobalDiscoveryServers() {
 			l.Infoln("Using discovery server", srv)
-			gd, err := discover.NewGlobal(srv, cert, addrList, relayService)
+			gd, err := discover.NewGlobal(srv, cert, connectionService)
 			if err != nil {
 				l.Warnln("Global discovery:", err)
 				continue
@@ -760,14 +733,15 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if cfg.Options().LocalAnnEnabled {
 		// v4 broadcasts
-		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), addrList, relayService)
+		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), connectionService)
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
 			cachedDiscovery.Add(bcd, 0, 0, ipv4LocalDiscoveryPriority)
 		}
+
 		// v6 multicasts
-		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, addrList, relayService)
+		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, connectionService)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
@@ -776,13 +750,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	// GUI
-
-	setupGUI(mainService, cfg, m, apiSub, cachedDiscovery, relayService, errors, systemLog, runtimeOptions)
-
-	// Start connection management
-
-	connectionService := connections.NewConnectionService(cfg, myID, m, tlsCfg, cachedDiscovery, relayService, bepProtocolName, tlsDefaultCommonName, lans)
-	mainService.Add(connectionService)
+	setupGUI(mainService, cfg, m, apiSub, cachedDiscovery, connectionService, errors, systemLog, runtimeOptions)
 
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
@@ -808,7 +776,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		if opts.URUniqueID == "" {
 			// Previously the ID was generated from the node ID. We now need
 			// to generate a new one.
-			opts.URUniqueID = randomString(8)
+			opts.URUniqueID = util.RandomString(8)
 			cfg.SetOptions(opts)
 			cfg.Save()
 		}
@@ -964,7 +932,7 @@ func startAuditing(mainService *suture.Supervisor) {
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.CachingMux, relayService *relay.Service, errors, systemLog *logger.Recorder, runtimeOptions RuntimeOptions) {
+func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub *events.BufferedSubscription, discoverer *discover.CachingMux, connectionService *connections.Service, errors, systemLog *logger.Recorder, runtimeOptions RuntimeOptions) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -975,7 +943,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	api, err := newAPIService(myID, cfg, runtimeOptions.assetDir, m, apiSub, discoverer, relayService, errors, systemLog)
+	api, err := newAPIService(myID, cfg, runtimeOptions.assetDir, m, apiSub, discoverer, connectionService, errors, systemLog)
 	if err != nil {
 		l.Fatalln("Cannot start GUI:", err)
 	}
