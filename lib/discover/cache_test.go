@@ -91,3 +91,55 @@ func (f *fakeDiscovery) String() string {
 func (f *fakeDiscovery) Cache() map[protocol.DeviceID]CacheEntry {
 	return nil
 }
+
+func TestCacheSlowLookup(t *testing.T) {
+	c := NewCachingMux()
+	c.ServeBackground()
+	defer c.Stop()
+
+	// Add a slow discovery service.
+
+	started := make(chan struct{})
+	f1 := &slowDiscovery{time.Second, started}
+	c.Add(f1, time.Minute, 0, 0)
+
+	// Start a lookup, which will take at least a second
+
+	t0 := time.Now()
+	go c.Lookup(protocol.LocalDeviceID)
+	<-started // The slow lookup method has been called so we're inside the lock
+
+	// It should be possible to get ChildErrors while it's running
+
+	c.ChildErrors()
+
+	// Only a small amount of time should have passed, not the full second
+
+	diff := time.Since(t0)
+	if diff > 500*time.Millisecond {
+		t.Error("ChildErrors was blocked for", diff)
+	}
+}
+
+type slowDiscovery struct {
+	delay   time.Duration
+	started chan struct{}
+}
+
+func (f *slowDiscovery) Lookup(deviceID protocol.DeviceID) (direct []string, relays []Relay, err error) {
+	close(f.started)
+	time.Sleep(f.delay)
+	return nil, nil, nil
+}
+
+func (f *slowDiscovery) Error() error {
+	return nil
+}
+
+func (f *slowDiscovery) String() string {
+	return "fake"
+}
+
+func (f *slowDiscovery) Cache() map[protocol.DeviceID]CacheEntry {
+	return nil
+}
