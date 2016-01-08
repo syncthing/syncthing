@@ -146,34 +146,39 @@ Development Settings
 The following environment variables modify syncthing's behavior in ways that
 are mostly useful for developers. Use with care.
 
- STGUIASSETS     Directory to load GUI assets from. Overrides compiled in
-                 assets.
+ STDEFAULTSYNCDIR The directory to use as the default sync dir.  This should be
+                  an absoulte path.  It will only be used on first startup or
+                  after config dir is deleted.  It will be ignored all other
+                  times.
 
- STTRACE         A comma separated string of facilities to trace. The valid
-                 facility strings listed below.
+ STGUIASSETS      Directory to load GUI assets from. Overrides compiled in
+                  assets.
 
- STPROFILER      Set to a listen address such as "127.0.0.1:9090" to start the
-                 profiler with HTTP access.
+ STTRACE          A comma separated string of facilities to trace. The valid
+                  facility strings listed below.
 
- STCPUPROFILE    Write a CPU profile to cpu-$pid.pprof on exit.
+ STPROFILER       Set to a listen address such as "127.0.0.1:9090" to start the
+                  profiler with HTTP access.
 
- STHEAPPROFILE   Write heap profiles to heap-$pid-$timestamp.pprof each time
-                 heap usage increases.
+ STCPUPROFILE     Write a CPU profile to cpu-$pid.pprof on exit.
 
- STBLOCKPROFILE  Write block profiles to block-$pid-$timestamp.pprof every 20
-                 seconds.
+ STHEAPPROFILE    Write heap profiles to heap-$pid-$timestamp.pprof each time
+                  heap usage increases.
 
- STPERFSTATS     Write running performance statistics to perf-$pid.csv. Not
-                 supported on Windows.
+ STBLOCKPROFILE   Write block profiles to block-$pid-$timestamp.pprof every 20
+                  seconds.
 
- STNOUPGRADE     Disable automatic upgrades.
+ STPERFSTATS      Write running performance statistics to perf-$pid.csv. Not
+                  supported on Windows.
 
- GOMAXPROCS      Set the maximum number of CPU cores to use. Defaults to all
-                 available CPU cores.
+ STNOUPGRADE      Disable automatic upgrades.
 
- GOGC            Percentage of heap growth at which to trigger GC. Default is
-                 100. Lower numbers keep peak memory usage down, at the price
-                 of CPU usage (ie. performance).
+ GOMAXPROCS       Set the maximum number of CPU cores to use. Defaults to all
+                  available CPU cores.
+
+ GOGC             Percentage of heap growth at which to trigger GC. Default is
+                  100. Lower numbers keep peak memory usage down, at the price
+                  of CPU usage (ie. performance).
 
 
 Debugging Facilities
@@ -212,6 +217,7 @@ type RuntimeOptions struct {
 	assetDir       string
 	cpuProfile     bool
 	stRestarting   bool
+	startSyncDir   string
 	logFlags       int
 }
 
@@ -222,6 +228,7 @@ func defaultRuntimeOptions() RuntimeOptions {
 		assetDir:     os.Getenv("STGUIASSETS"),
 		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
 		stRestarting: os.Getenv("STRESTART") != "",
+		startSyncDir: os.Getenv("STDEFAULTSYNCDIR"),
 		logFlags:     log.Ltime,
 	}
 
@@ -292,6 +299,11 @@ func main() {
 	if options.confDir != "" {
 		// Not set as default above because the string can be really long.
 		baseDirs["config"] = options.confDir
+	}
+
+	if options.startSyncDir != "" {
+		locations[locDefFolder] = options.startSyncDir
+		l.Infoln("Changed the default starting folder to", options.startSyncDir, " Only affects first run.")
 	}
 
 	if err := expandLocations(); err != nil {
