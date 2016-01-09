@@ -182,6 +182,7 @@ func setup() {
 	runPrint("go", "get", "-v", "github.com/tools/godep")
 	runPrint("go", "get", "-v", "github.com/axw/gocov/gocov")
 	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
+	runPrint("go", "get", "-v", "bitbucket.org/tebeka/go2xunit")
 }
 
 func test(pkg string) {
