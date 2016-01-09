@@ -146,34 +146,38 @@ Development Settings
 The following environment variables modify syncthing's behavior in ways that
 are mostly useful for developers. Use with care.
 
- STGUIASSETS     Directory to load GUI assets from. Overrides compiled in
-                 assets.
+ STNODEFAULTFOLDER Don't create a default folder when starting for the first
+                   time.  This variable will be ignored anytime after the first
+                   run.
 
- STTRACE         A comma separated string of facilities to trace. The valid
-                 facility strings listed below.
+ STGUIASSETS       Directory to load GUI assets from. Overrides compiled in
+                   assets.
 
- STPROFILER      Set to a listen address such as "127.0.0.1:9090" to start the
-                 profiler with HTTP access.
+ STTRACE           A comma separated string of facilities to trace. The valid
+                   facility strings listed below.
 
- STCPUPROFILE    Write a CPU profile to cpu-$pid.pprof on exit.
+ STPROFILER        Set to a listen address such as "127.0.0.1:9090" to start the
+                   profiler with HTTP access.
 
- STHEAPPROFILE   Write heap profiles to heap-$pid-$timestamp.pprof each time
-                 heap usage increases.
+ STCPUPROFILE      Write a CPU profile to cpu-$pid.pprof on exit.
 
- STBLOCKPROFILE  Write block profiles to block-$pid-$timestamp.pprof every 20
-                 seconds.
+ STHEAPPROFILE     Write heap profiles to heap-$pid-$timestamp.pprof each time
+                   heap usage increases.
 
- STPERFSTATS     Write running performance statistics to perf-$pid.csv. Not
-                 supported on Windows.
+ STBLOCKPROFILE    Write block profiles to block-$pid-$timestamp.pprof every 20
+                   seconds.
 
- STNOUPGRADE     Disable automatic upgrades.
+ STPERFSTATS       Write running performance statistics to perf-$pid.csv. Not
+                   supported on Windows.
 
- GOMAXPROCS      Set the maximum number of CPU cores to use. Defaults to all
-                 available CPU cores.
+ STNOUPGRADE       Disable automatic upgrades.
 
- GOGC            Percentage of heap growth at which to trigger GC. Default is
-                 100. Lower numbers keep peak memory usage down, at the price
-                 of CPU usage (ie. performance).
+ GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
+                   available CPU cores.
+
+ GOGC              Percentage of heap growth at which to trigger GC. Default is
+                   100. Lower numbers keep peak memory usage down, at the price
+                   of CPU usage (ie. performance).
 
 
 Debugging Facilities
@@ -186,8 +190,9 @@ The following are valid values for the STTRACE variable:
 
 // Environment options
 var (
-	noUpgrade    = os.Getenv("STNOUPGRADE") != ""
-	innerProcess = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
+	noUpgrade       = os.Getenv("STNOUPGRADE") != ""
+	innerProcess    = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
+	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
 )
 
 type RuntimeOptions struct {
@@ -990,18 +995,28 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 }
 
 func defaultConfig(myName string) config.Configuration {
-	defaultFolder := config.NewFolderConfiguration("default", locations[locDefFolder])
-	defaultFolder.RescanIntervalS = 60
-	defaultFolder.MinDiskFreePct = 1
-	defaultFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: myID}}
-	defaultFolder.AutoNormalize = true
-	defaultFolder.MaxConflicts = -1
+	var defaultFolder config.FolderConfiguration
+
+	if !noDefaultFolder {
+		l.Infoln("Default folder created and/or linked to new config")
+
+		defaultFolder = config.NewFolderConfiguration("default", locations[locDefFolder])
+		defaultFolder.RescanIntervalS = 60
+		defaultFolder.MinDiskFreePct = 1
+		defaultFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: myID}}
+		defaultFolder.AutoNormalize = true
+		defaultFolder.MaxConflicts = -1
+	} else {
+		l.Infoln("We will skip creation of a default folder on first start since the proper envvar is set")
+	}
 
 	thisDevice := config.NewDeviceConfiguration(myID, myName)
 	thisDevice.Addresses = []string{"dynamic"}
 
 	newCfg := config.New(myID)
-	newCfg.Folders = []config.FolderConfiguration{defaultFolder}
+	if !noDefaultFolder {
+		newCfg.Folders = []config.FolderConfiguration{defaultFolder}
+	}
 	newCfg.Devices = []config.DeviceConfiguration{thisDevice}
 
 	port, err := getFreePort("127.0.0.1", 8384)
