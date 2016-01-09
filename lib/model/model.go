@@ -396,6 +396,10 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 		return true
 	})
 
+	m.pmut.RLock()
+	need -= int64(m.deviceDownloads[device].NumberOfBlocksInProgress() * protocol.BlockSize)
+	m.pmut.RUnlock()
+
 	needRatio := float64(need) / float64(tot)
 	completionPct := 100 * (1 - needRatio)
 	l.Debugf("%v Completion(%s, %q): %f (%d / %d = %f)", m, device, folder, completionPct, need, tot, needRatio)

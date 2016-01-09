@@ -23,8 +23,9 @@ type deviceFolderFileDownloadState struct {
 // deviceFolderDownloadState holds current download state of all files that
 // a remote device is currently downloading in a specific folder.
 type deviceFolderDownloadState struct {
-	mut   sync.RWMutex
-	files map[string]deviceFolderFileDownloadState
+	mut                      sync.RWMutex
+	files                    map[string]deviceFolderFileDownloadState
+	numberOfBlocksInProgress int
 }
 
 // Has returns wether a block at that specific index, and that specific version of the file
@@ -56,6 +57,7 @@ func (p *deviceFolderDownloadState) Update(updates []protocol.FileDownloadProgre
 	for _, update := range updates {
 		local, ok := p.files[update.Name]
 		if update.UpdateType == protocol.UpdateTypeForget && ok && local.version.Equal(update.Version) {
+			p.numberOfBlocksInProgress -= len(local.blockIndexes)
 			delete(p.files, update.Name)
 		} else if update.UpdateType == protocol.UpdateTypeAppend {
 			if !ok {
@@ -64,21 +66,33 @@ func (p *deviceFolderDownloadState) Update(updates []protocol.FileDownloadProgre
 					version:      update.Version,
 				}
 			} else if !local.version.Equal(update.Version) {
+				p.numberOfBlocksInProgress -= len(local.blockIndexes)
 				local.blockIndexes = append(local.blockIndexes[:0], update.BlockIndexes...)
 				local.version = update.Version
 			} else {
 				local.blockIndexes = append(local.blockIndexes, update.BlockIndexes...)
 			}
 			p.files[update.Name] = local
+			p.numberOfBlocksInProgress += len(update.BlockIndexes)
 		}
 	}
+}
+
+// NumberOfBlocksInProgress returns the number of blocks the device has downloaded
+// for a specific folder.
+func (p *deviceFolderDownloadState) NumberOfBlocksInProgress() int {
+	p.mut.RLock()
+	n := p.numberOfBlocksInProgress
+	p.mut.RUnlock()
+	return n
 }
 
 // deviceDownloadState represents the state of all in progress downloads
 // for all folders of a specific device.
 type deviceDownloadState struct {
-	mut     sync.RWMutex
-	folders map[string]*deviceFolderDownloadState
+	mut                      sync.RWMutex
+	folders                  map[string]*deviceFolderDownloadState
+	numberOfBlocksInProgress int
 }
 
 // Update updates internal state of what has been downloaded into the temporary
@@ -116,6 +130,22 @@ func (t *deviceDownloadState) Has(folder, file string, version protocol.Vector, 
 	}
 
 	return f.Has(file, version, index)
+}
+
+// NumberOfBlocksInProgress returns the number of blocks the device has downloaded
+// for all folders.
+func (t *deviceDownloadState) NumberOfBlocksInProgress() int {
+	if t == nil {
+		return 0
+	}
+
+	n := 0
+	t.mut.RLock()
+	for _, folder := range t.folders {
+		n += folder.NumberOfBlocksInProgress()
+	}
+	t.mut.RUnlock()
+	return n
 }
 
 func newDeviceDownloadState() *deviceDownloadState {
