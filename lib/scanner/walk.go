@@ -90,8 +90,8 @@ type CurrentFiler interface {
 }
 
 type IgnoreMatcher interface {
-	// Match returns true if the file should be ignored.
-	Match(filename string) bool
+	// Ignore returns true if the file should be ignored.
+	Ignore(filename string) bool
 }
 
 // Walk returns the list of files found in the local folder by scanning the
@@ -240,8 +240,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			return nil
 		}
 
-		if sn := filepath.Base(relPath); sn == ".stignore" || sn == ".stfolder" ||
-			strings.HasPrefix(relPath, ".stversions") || (w.Matcher != nil && w.Matcher.Match(relPath)) {
+		if strings.HasPrefix(relPath, ".syncthing") || (w.Matcher != nil && w.Matcher.Ignore(relPath)) {
 			// An ignored file
 			l.Debugln("ignored:", relPath)
 			return skip

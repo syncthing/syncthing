@@ -208,7 +208,7 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 		}
 
 		// check if file is ignored
-		if ignores.Match(protectedFilePath) {
+		if ignores.Ignore(protectedFilePath) {
 			continue
 		}
 
@@ -829,7 +829,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		// cleaned from any possible funny business.
 		if rn, err := filepath.Rel(folderPath, fn); err != nil {
 			return err
-		} else if folderIgnores.Match(rn) {
+		} else if folderIgnores.Ignore(rn) {
 			l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 			return protocol.ErrNoSuchFile
 		}
@@ -1114,7 +1114,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 			maxLocalVer = f.LocalVersion
 		}
 
-		if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
+		if ignores.Ignore(f.Name) || symlinkInvalid(folder, f) {
 			l.Debugln("not sending update for ignored/unsupported symlink", f)
 			return true
 		}
@@ -1206,7 +1206,7 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 	}
 
 	ignores := ignore.New(m.cacheIgnoredFiles)
-	if err := ignores.Load(filepath.Join(cfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
+	if err := ignores.Load(filepath.Join(cfg.SyncthingPath(), "ignores.txt"), cfg.Path()); err != nil && !os.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
 	m.folderIgnores[cfg.ID] = ignores
@@ -1300,7 +1300,7 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 		return err
 	}
 
-	if err := ignores.Load(filepath.Join(folderCfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
+	if err := ignores.Load(filepath.Join(folderCfg.SyncthingPath(), "ignores.txt"), folderCfg.Path()); err != nil && !os.IsNotExist(err) {
 		err = fmt.Errorf("loading ignores: %v", err)
 		runner.setError(err)
 		l.Infof("Stopping folder %s due to error: %s", folder, err)
@@ -1430,7 +1430,7 @@ nextSub:
 				batch = batch[:0]
 			}
 
-			if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
+			if ignores.Ignore(f.Name) || symlinkInvalid(folder, f) {
 				// File has been ignored or an unsupported symlink. Set invalid bit.
 				l.Debugln("setting invalid bit on ignored", f)
 				nf := protocol.FileInfo{
@@ -1811,6 +1811,10 @@ func (m *Model) CheckFolderHealth(id string) error {
 
 		if err == nil && !folder.HasMarker() {
 			err = folder.CreateMarker()
+		}
+
+		if err == nil {
+			err = folder.CreateDefaultIgnores()
 		}
 	}
 

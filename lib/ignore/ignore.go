@@ -22,16 +22,30 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
+type Result int
+
+const (
+	DontIgnore Result = iota
+	Nuke
+	Preserve
+)
+
 type Pattern struct {
-	match   *regexp.Regexp
-	include bool
+	match  *regexp.Regexp
+	result Result
 }
 
 func (p Pattern) String() string {
-	if p.include {
+	switch p.result {
+	case DontIgnore:
+		return "(?exclude)" + p.match.String()
+	case Nuke:
 		return p.match.String()
+	case Preserve:
+		return "(?preserve)" + p.match.String()
+	default:
+		panic("Unsupported ignore result")
 	}
-	return "(?exclude)" + p.match.String()
 }
 
 type Matcher struct {
@@ -55,26 +69,26 @@ func New(withCache bool) *Matcher {
 	return m
 }
 
-func (m *Matcher) Load(file string) error {
+func (m *Matcher) Load(file string, includePath string) error {
 	// No locking, Parse() does the locking
 
 	fd, err := os.Open(file)
 	if err != nil {
 		// We do a parse with empty patterns to clear out the hash, cache etc.
-		m.Parse(&bytes.Buffer{}, file)
+		m.Parse(&bytes.Buffer{}, file, includePath)
 		return err
 	}
 	defer fd.Close()
 
-	return m.Parse(fd, file)
+	return m.Parse(fd, file, includePath)
 }
 
-func (m *Matcher) Parse(r io.Reader, file string) error {
+func (m *Matcher) Parse(r io.Reader, file, includePath string) error {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	seen := map[string]bool{file: true}
-	patterns, err := parseIgnoreFile(r, file, seen)
+	patterns, err := parseIgnoreFile(r, file, includePath, seen)
 	// Error is saved and returned at the end. We process the patterns
 	// (possibly blank) anyway.
 
@@ -93,16 +107,28 @@ func (m *Matcher) Parse(r io.Reader, file string) error {
 	return err
 }
 
-func (m *Matcher) Match(file string) (result bool) {
+func (m *Matcher) Nuke(file string) (result bool) {
+	return m.match(file) == Nuke
+}
+
+func (m *Matcher) Preserve(file string) (result bool) {
+	return m.match(file) == Preserve
+}
+
+func (m *Matcher) Ignore(file string) (result bool) {
+	return m.match(file) != DontIgnore
+}
+
+func (m *Matcher) match(file string) (result Result) {
 	if m == nil {
-		return false
+		return DontIgnore
 	}
 
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	if len(m.patterns) == 0 {
-		return false
+		return DontIgnore
 	}
 
 	if m.matches != nil {
@@ -121,12 +147,12 @@ func (m *Matcher) Match(file string) (result bool) {
 	// Check all the patterns for a match.
 	for _, pattern := range m.patterns {
 		if pattern.match.MatchString(file) {
-			return pattern.include
+			return pattern.result
 		}
 	}
 
-	// Default to false.
-	return false
+	// Default to DontIgnore.
+	return DontIgnore
 }
 
 // Patterns return a list of the loaded regexp patterns, as strings
@@ -181,7 +207,7 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func loadIgnoreFile(file string, seen map[string]bool) ([]Pattern, error) {
+func loadIgnoreFile(file string, includePath string, seen map[string]bool) ([]Pattern, error) {
 	if seen[file] {
 		return nil, fmt.Errorf("Multiple include of ignore file %q", file)
 	}
@@ -193,17 +219,24 @@ func loadIgnoreFile(file string, seen map[string]bool) ([]Pattern, error) {
 	}
 	defer fd.Close()
 
-	return parseIgnoreFile(fd, file, seen)
+	return parseIgnoreFile(fd, file, includePath, seen)
 }
 
-func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]Pattern, error) {
+func parseIgnoreFile(fd io.Reader, currentFile, includePath string, seen map[string]bool) ([]Pattern, error) {
 	var patterns []Pattern
 
 	addPattern := func(line string) error {
-		include := true
+		result := Nuke
 		if strings.HasPrefix(line, "!") {
 			line = line[1:]
-			include = false
+			result = DontIgnore
+		}
+
+		if strings.HasPrefix(line, "(?preserve)") {
+			line = line[11:]
+			if result == Nuke {
+				result = Preserve
+			}
 		}
 
 		flags := fnmatch.PathName
@@ -218,24 +251,24 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
-			patterns = append(patterns, Pattern{exp, include})
+			patterns = append(patterns, Pattern{exp, result})
 		} else if strings.HasPrefix(line, "**/") {
 			// Add the pattern as is, and without **/ so it matches in current dir
 			exp, err := fnmatch.Convert(line, flags)
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
-			patterns = append(patterns, Pattern{exp, include})
+			patterns = append(patterns, Pattern{exp, result})
 
 			exp, err = fnmatch.Convert(line[3:], flags)
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
-			patterns = append(patterns, Pattern{exp, include})
+			patterns = append(patterns, Pattern{exp, result})
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := line[len("#include "):]
-			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
-			includes, err := loadIgnoreFile(includeFile, seen)
+			includeFile := filepath.Join(filepath.Dir(includePath), includeRel)
+			includes, err := loadIgnoreFile(includeFile, filepath.Dir(includeFile), seen)
 			if err != nil {
 				return fmt.Errorf("include of %q: %v", includeRel, err)
 			}
@@ -247,13 +280,13 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
-			patterns = append(patterns, Pattern{exp, include})
+			patterns = append(patterns, Pattern{exp, result})
 
 			exp, err = fnmatch.Convert("**/"+line, flags)
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
-			patterns = append(patterns, Pattern{exp, include})
+			patterns = append(patterns, Pattern{exp, result})
 		}
 		return nil
 	}

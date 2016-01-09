@@ -7,11 +7,13 @@
 package config
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -73,26 +75,56 @@ func (f FolderConfiguration) Path() string {
 	return f.cachedPath
 }
 
+func (f FolderConfiguration) SyncthingPath() string {
+	return filepath.Join(f.Path(), ".syncthing")
+}
+
 func (f *FolderConfiguration) CreateMarker() error {
 	if !f.HasMarker() {
-		marker := filepath.Join(f.Path(), ".stfolder")
+		marker := f.SyncthingPath()
 		fd, err := os.Create(marker)
 		if err != nil {
 			return err
 		}
 		fd.Close()
-		osutil.HideFile(marker)
 	}
 
 	return nil
 }
 
 func (f *FolderConfiguration) HasMarker() bool {
-	_, err := os.Stat(filepath.Join(f.Path(), ".stfolder"))
+	_, err := os.Stat(f.SyncthingPath())
 	if err != nil {
 		return false
 	}
 	return true
+}
+
+func (f *FolderConfiguration) CreateDefaultIgnores() error {
+	if f.HasIgnores() {
+		l.Infoln("Not overriding existing ignores with default ignores")
+		return nil
+	}
+
+	fd, err := os.Create(filepath.Join(f.SyncthingPath(), "ignores.txt"))
+	if err != nil {
+		return err
+	}
+
+	ignores := "#include .stsharedignore\n" + ignore.DefaultIgnores + "\n"
+
+	err = ioutil.WriteFile(filepath.Join(f.SyncthingPath(), "ignores.txt"), []byte(ignores), 0755)
+	if err != nil {
+		return err
+	}
+	fd.Close()
+
+	return nil
+}
+
+func (f *FolderConfiguration) HasIgnores() bool {
+	_, err := os.Stat(filepath.Join(f.SyncthingPath(), "ignores.txt"))
+	return err == nil
 }
 
 func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {

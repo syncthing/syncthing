@@ -14,6 +14,7 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -24,7 +25,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 12
+	CurrentVersion       = 13
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -182,6 +183,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 11 {
 		convertV11V12(cfg)
 	}
+	if cfg.Version == 12 {
+		convertV12V13(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -229,6 +233,31 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.GUI.RawAPIKey == "" {
 		cfg.GUI.RawAPIKey = randomString(32)
 	}
+}
+
+func convertV12V13(cfg *Configuration) {
+	// Move .stignore and .stversions to .syncthing
+	for i := range cfg.Folders {
+		id := cfg.Folders[i].ID
+		folderPath := cfg.Folders[i].Path()
+		newSTPath := cfg.Folders[i].SyncthingPath()
+		if err := os.Mkdir(filepath.Join(folderPath, ".syncthing"), 0777); err != nil {
+			l.Warnf("Failed to create .syncthing marker for folder %s.", id)
+			continue
+		}
+		if err := os.Remove(filepath.Join(folderPath, ".stfolder")); err != nil {
+			l.Warnf("Skipping upgrade of folder %s, .stfolder missing or cannot remove.", id)
+			continue
+		}
+		if err := os.Rename(filepath.Join(folderPath, ".stversions"), filepath.Join(newSTPath, "versions")); err != nil && !os.IsNotExist(err) {
+			l.Warnf("Failed to move existing .stversions to .syncthing/versions for folder %s.", id)
+		}
+		if err := os.Rename(filepath.Join(folderPath, ".stignore"), filepath.Join(newSTPath, "ignores.txt")); err != nil && !os.IsNotExist(err) {
+			l.Warnf("Failed to move existing .stignore to .syncthing/ignores.txt for folder %s.", id)
+		}
+	}
+
+	cfg.Version = 13
 }
 
 func convertV11V12(cfg *Configuration) {

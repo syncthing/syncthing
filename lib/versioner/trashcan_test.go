@@ -23,14 +23,14 @@ func TestTrashcanCleanout(t *testing.T) {
 		file         string
 		shouldRemove bool
 	}{
-		{"testdata/.stversions/file1", false},
-		{"testdata/.stversions/file2", true},
-		{"testdata/.stversions/keep1/file1", false},
-		{"testdata/.stversions/keep1/file2", false},
-		{"testdata/.stversions/keep2/file1", false},
-		{"testdata/.stversions/keep2/file2", true},
-		{"testdata/.stversions/remove/file1", true},
-		{"testdata/.stversions/remove/file2", true},
+		{"testdata/.syncthing/versions/file1", false},
+		{"testdata/.syncthing/versions/file2", true},
+		{"testdata/.syncthing/versions/keep1/file1", false},
+		{"testdata/.syncthing/versions/keep1/file2", false},
+		{"testdata/.syncthing/versions/keep2/file1", false},
+		{"testdata/.syncthing/versions/keep2/file2", true},
+		{"testdata/.syncthing/versions/remove/file1", true},
+		{"testdata/.syncthing/versions/remove/file2", true},
 	}
 
 	os.RemoveAll("testdata")
@@ -63,7 +63,7 @@ func TestTrashcanCleanout(t *testing.T) {
 		}
 	}
 
-	if _, err := os.Lstat("testdata/.stversions/remove"); !os.IsNotExist(err) {
+	if _, err := os.Lstat("testdata/.syncthing/versions/remove"); !os.IsNotExist(err) {
 		t.Error("empty directory should have been removed")
 	}
 }

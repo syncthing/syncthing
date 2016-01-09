@@ -460,7 +460,7 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 
 		file := intf.(protocol.FileInfo)
 
-		if ignores.Match(file.Name) {
+		if ignores.Ignore(file.Name) {
 			// This is an ignored file. Skip it, continue iteration.
 			return true
 		}
@@ -585,7 +585,7 @@ nextFile:
 	for i := range dirDeletions {
 		dir := dirDeletions[len(dirDeletions)-i-1]
 		l.Debugln("Deleting dir", dir.Name)
-		p.deleteDir(dir)
+		p.deleteDir(ignores, dir)
 	}
 
 	// Wait for db updates to complete
@@ -691,7 +691,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 }
 
 // deleteDir attempts to delete the given directory
-func (p *rwFolder) deleteDir(file protocol.FileInfo) {
+func (p *rwFolder) deleteDir(ignores *ignore.Matcher, file protocol.FileInfo) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
@@ -710,13 +710,32 @@ func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 	}()
 
 	realName := filepath.Join(p.dir, file.Name)
-	// Delete any temporary files lying around in the directory
+	// Delete any temporary and nukeable files lying around in the directory
 	dir, _ := os.Open(realName)
 	if dir != nil {
 		files, _ := dir.Readdirnames(-1)
 		for _, file := range files {
 			if defTempNamer.IsTemporary(file) {
 				osutil.InWritableDir(osutil.Remove, filepath.Join(realName, file))
+			}
+			if ignores.Nuke(file) {
+				if info, err := os.Stat(file); err == nil && info.IsDir() {
+					// Recursively check whether we can safely nuke the directory
+					err := filepath.Walk(file, func(path string, f os.FileInfo, err error) error {
+						if err != nil || !ignores.Nuke(path) {
+							return errors.New("Cannot nuke dir")
+						}
+						return nil
+					})
+					if err == nil {
+						filepath.Walk(file, func(path string, f os.FileInfo, err error) error {
+							osutil.InWritableDir(osutil.Remove, path)
+							return err
+						})
+					}
+				} else {
+					osutil.InWritableDir(osutil.Remove, file)
+				}
 			}
 		}
 		dir.Close()

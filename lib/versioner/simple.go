@@ -50,7 +50,7 @@ func (v Simple) Archive(filePath string) error {
 		return err
 	}
 
-	versionsDir := filepath.Join(v.folderPath, ".stversions")
+	versionsDir := filepath.Join(v.folderPath, ".syncthing/versions")
 	_, err = os.Stat(versionsDir)
 	if err != nil {
 		if os.IsNotExist(err) {

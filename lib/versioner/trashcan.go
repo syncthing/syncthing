@@ -52,7 +52,7 @@ func (t *Trashcan) Archive(filePath string) error {
 		return err
 	}
 
-	versionsDir := filepath.Join(t.folderPath, ".stversions")
+	versionsDir := filepath.Join(t.folderPath, ".syncthing/versions")
 	if _, err := os.Stat(versionsDir); err != nil {
 		if !os.IsNotExist(err) {
 			return err
@@ -126,7 +126,7 @@ func (t *Trashcan) String() string {
 }
 
 func (t *Trashcan) cleanoutArchive() error {
-	versionsDir := filepath.Join(t.folderPath, ".stversions")
+	versionsDir := filepath.Join(t.folderPath, ".syncthing/versions")
 	if _, err := osutil.Lstat(versionsDir); os.IsNotExist(err) {
 		return nil
 	}

@@ -29,7 +29,7 @@ func TestFolderErrors(t *testing.T) {
 		Folders: []config.FolderConfiguration{fcfg},
 	})
 
-	for _, file := range []string{".stfolder", "testfolder/.stfolder", "testfolder"} {
+	for _, file := range []string{".syncthing/ignores.txt", ".syncthing", "testfolder/.syncthing/ignores.txt", "testfolder/.syncthing", "testfolder"} {
 		if err := os.Remove("testdata/" + file); err != nil && !os.IsNotExist(err) {
 			t.Fatal(err)
 		}
@@ -43,7 +43,7 @@ func TestFolderErrors(t *testing.T) {
 	m.AddFolder(fcfg)
 
 	if err := m.CheckFolderHealth("folder"); err != nil {
-		t.Error("Unexpected error", cfg.Folders()["folder"].Invalid)
+		t.Error("Unexpected error", cfg.Folders()["folder"].Invalid, err)
 	}
 
 	s, err := os.Stat("testdata/testfolder")
@@ -51,12 +51,19 @@ func TestFolderErrors(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, err = os.Stat("testdata/testfolder/.stfolder")
+	_, err = os.Stat("testdata/testfolder/.syncthing")
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = os.Stat("testdata/testfolder/.syncthing/ignores.txt")
 	if err != nil {
 		t.Error(err)
 	}
 
-	if err := os.Remove("testdata/testfolder/.stfolder"); err != nil {
+	if err := os.Remove("testdata/testfolder/.syncthing/ignores.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove("testdata/testfolder/.syncthing"); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove("testdata/testfolder/"); err != nil {
@@ -77,12 +84,19 @@ func TestFolderErrors(t *testing.T) {
 		t.Error("Unexpected error", cfg.Folders()["folder"].Invalid)
 	}
 
-	_, err = os.Stat("testdata/.stfolder")
+	_, err = os.Stat("testdata/.syncthing")
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = os.Stat("testdata/.syncthing/ignores.txt")
 	if err != nil {
 		t.Error(err)
 	}
 
-	if err := os.Remove("testdata/.stfolder"); err != nil {
+	if err := os.Remove("testdata/.syncthing/ignores.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove("testdata/.syncthing"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -112,7 +126,7 @@ func TestFolderErrors(t *testing.T) {
 
 	// Case 4 - Folder path missing
 
-	if err := os.Remove("testdata/testfolder/.stfolder"); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove("testdata/testfolder/.syncthing"); err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
 	if err := os.Remove("testdata/testfolder"); err != nil && !os.IsNotExist(err) {

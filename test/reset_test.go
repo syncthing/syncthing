@@ -53,10 +53,8 @@ func TestReset(t *testing.T) {
 	if err := os.Mkdir("s1", 0755); err != nil {
 		t.Fatal(err)
 	}
-	if fd, err := os.Create("s1/.stfolder"); err != nil {
+	if err := os.Mkdir("s1/.syncthing", 0755); err != nil {
 		t.Fatal(err)
-	} else {
-		fd.Close()
 	}
 
 	// Reset indexes of an invalid folder
