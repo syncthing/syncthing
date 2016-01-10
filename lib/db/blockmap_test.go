@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 func genBlocks(n int) []protocol.BlockInfo {
@@ -55,7 +56,7 @@ func setup() (*Instance, *BlockFinder) {
 }
 
 func dbEmpty(db *Instance) bool {
-	iter := db.NewIterator(nil, nil)
+	iter := db.NewIterator(util.BytesPrefix([]byte{KeyTypeBlock}), nil)
 	defer iter.Release()
 	if iter.Next() {
 		return false
@@ -70,7 +71,7 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 		t.Fatal("db not empty")
 	}
 
-	m := NewBlockMap(db, "folder1")
+	m := NewBlockMap(db, db.folderIdx.ID([]byte("folder1")))
 
 	f3.Flags |= protocol.FlagDirectory
 
@@ -152,8 +153,8 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 func TestBlockFinderLookup(t *testing.T) {
 	db, f := setup()
 
-	m1 := NewBlockMap(db, "folder1")
-	m2 := NewBlockMap(db, "folder2")
+	m1 := NewBlockMap(db, db.folderIdx.ID([]byte("folder1")))
+	m2 := NewBlockMap(db, db.folderIdx.ID([]byte("folder2")))
 
 	err := m1.Add([]protocol.FileInfo{f1})
 	if err != nil {
@@ -221,7 +222,7 @@ func TestBlockFinderFix(t *testing.T) {
 		return true
 	}
 
-	m := NewBlockMap(db, "folder1")
+	m := NewBlockMap(db, db.folderIdx.ID([]byte("folder1")))
 	err := m.Add([]protocol.FileInfo{f1})
 	if err != nil {
 		t.Fatal(err)

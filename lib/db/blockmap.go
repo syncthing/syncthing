@@ -4,16 +4,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// Package db provides a set type to track local/remote files with newness
-// checks. We must do a certain amount of normalization in here. We will get
-// fed paths with either native or wire-format separators and encodings
-// depending on who calls us. We transform paths to wire-format (NFC and
-// slashes) on the way to the database, and transform to native format
-// (varying separator and encoding) on the way back out.
 package db
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 
@@ -30,10 +23,10 @@ const maxBatchSize = 256 << 10
 
 type BlockMap struct {
 	db     *Instance
-	folder string
+	folder uint32
 }
 
-func NewBlockMap(db *Instance, folder string) *BlockMap {
+func NewBlockMap(db *Instance, folder uint32) *BlockMap {
 	return &BlockMap{
 		db:     db,
 		folder: folder,
@@ -123,7 +116,7 @@ func (m *BlockMap) Discard(files []protocol.FileInfo) error {
 // Drop block map, removing all entries related to this block map from the db.
 func (m *BlockMap) Drop() error {
 	batch := new(leveldb.Batch)
-	iter := m.db.NewIterator(util.BytesPrefix(m.blockKeyInto(nil, nil, "")[:1+64]), nil)
+	iter := m.db.NewIterator(util.BytesPrefix(m.blockKeyInto(nil, nil, "")[:keyPrefixLen+keyFolderLen]), nil)
 	defer iter.Release()
 	for iter.Next() {
 		if batch.Len() > maxBatchSize {
@@ -173,12 +166,13 @@ func (f *BlockFinder) String() string {
 func (f *BlockFinder) Iterate(folders []string, hash []byte, iterFn func(string, string, int32) bool) bool {
 	var key []byte
 	for _, folder := range folders {
-		key = blockKeyInto(key, hash, folder, "")
+		folderID := f.db.folderIdx.ID([]byte(folder))
+		key = blockKeyInto(key, hash, folderID, "")
 		iter := f.db.NewIterator(util.BytesPrefix(key), nil)
 		defer iter.Release()
 
 		for iter.Next() && iter.Error() == nil {
-			folder, file := fromBlockKey(iter.Key())
+			file := blockKeyName(iter.Key())
 			index := int32(binary.BigEndian.Uint32(iter.Value()))
 			if iterFn(folder, osutil.NativeFilename(file), index) {
 				return true
@@ -194,48 +188,41 @@ func (f *BlockFinder) Fix(folder, file string, index int32, oldHash, newHash []b
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, uint32(index))
 
+	folderID := f.db.folderIdx.ID([]byte(folder))
 	batch := new(leveldb.Batch)
-	batch.Delete(blockKeyInto(nil, oldHash, folder, file))
-	batch.Put(blockKeyInto(nil, newHash, folder, file), buf)
+	batch.Delete(blockKeyInto(nil, oldHash, folderID, file))
+	batch.Put(blockKeyInto(nil, newHash, folderID, file), buf)
 	return f.db.Write(batch, nil)
 }
 
 // m.blockKey returns a byte slice encoding the following information:
 //	   keyTypeBlock (1 byte)
-//	   folder (64 bytes)
+//	   folder (4 bytes)
 //	   block hash (32 bytes)
 //	   file name (variable size)
-func blockKeyInto(o, hash []byte, folder, file string) []byte {
-	reqLen := 1 + 64 + 32 + len(file)
+func blockKeyInto(o, hash []byte, folder uint32, file string) []byte {
+	reqLen := keyPrefixLen + keyFolderLen + keyHashLen + len(file)
 	if cap(o) < reqLen {
 		o = make([]byte, reqLen)
 	} else {
 		o = o[:reqLen]
 	}
 	o[0] = KeyTypeBlock
-	copy(o[1:], []byte(folder))
-	for i := len(folder); i < 64; i++ {
-		o[1+i] = 0
-	}
-	copy(o[1+64:], []byte(hash))
-	copy(o[1+64+32:], []byte(file))
+	binary.BigEndian.PutUint32(o[keyPrefixLen:], folder)
+	copy(o[keyPrefixLen+keyFolderLen:], []byte(hash))
+	copy(o[keyPrefixLen+keyFolderLen+keyHashLen:], []byte(file))
 	return o
 }
 
-func fromBlockKey(data []byte) (string, string) {
-	if len(data) < 1+64+32+1 {
+// blockKeyName returns the file name from the block key
+func blockKeyName(data []byte) string {
+	if len(data) < keyPrefixLen+keyFolderLen+keyHashLen+1 {
 		panic("Incorrect key length")
 	}
 	if data[0] != KeyTypeBlock {
 		panic("Incorrect key type")
 	}
 
-	file := string(data[1+64+32:])
-
-	slice := data[1 : 1+64]
-	izero := bytes.IndexByte(slice, 0)
-	if izero > -1 {
-		return string(slice[:izero]), file
-	}
-	return string(slice), file
+	file := string(data[keyPrefixLen+keyFolderLen+keyHashLen:])
+	return file
 }

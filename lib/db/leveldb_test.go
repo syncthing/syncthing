@@ -16,7 +16,9 @@ func TestDeviceKey(t *testing.T) {
 	dev := []byte("device67890123456789012345678901")
 	name := []byte("name")
 
-	db := &Instance{}
+	db := OpenMemory()
+	db.folderIdx.ID(fld)
+	db.deviceIdx.ID(dev)
 
 	key := db.deviceKey(fld, dev, name)
 
@@ -38,7 +40,8 @@ func TestGlobalKey(t *testing.T) {
 	fld := []byte("folder6789012345678901234567890123456789012345678901234567890123")
 	name := []byte("name")
 
-	db := &Instance{}
+	db := OpenMemory()
+	db.folderIdx.ID(fld)
 
 	key := db.globalKey(fld, name)
 

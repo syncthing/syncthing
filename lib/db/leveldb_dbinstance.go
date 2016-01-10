@@ -8,11 +8,15 @@ package db
 
 import (
 	"bytes"
+	"encoding/binary"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
@@ -25,12 +29,31 @@ type deletionHandler func(t readWriteTransaction, folder, device, name []byte, d
 
 type Instance struct {
 	*leveldb.DB
+	folderIdx *smallIndex
+	deviceIdx *smallIndex
 }
+
+const (
+	keyPrefixLen = 1
+	keyFolderLen = 4 // indexed
+	keyDeviceLen = 4 // indexed
+	keyHashLen   = 32
+)
 
 func Open(file string) (*Instance, error) {
 	opts := &opt.Options{
 		OpenFilesCacheCapacity: 100,
 		WriteBuffer:            4 << 20,
+	}
+
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		// The file we are looking to open does not exist. This may be the
+		// first launch so we should look for an old version and try to
+		// convert it.
+		if err := checkConvertDatabase(file); err != nil {
+			l.Infoln("Converting old database:", err)
+			l.Infoln("Will rescan from scratch.")
+		}
 	}
 
 	db, err := leveldb.OpenFile(file, opts)
@@ -60,9 +83,12 @@ func OpenMemory() *Instance {
 }
 
 func newDBInstance(db *leveldb.DB) *Instance {
-	return &Instance{
+	i := &Instance{
 		DB: db,
 	}
+	i.folderIdx = newSmallIndex(i, []byte{KeyTypeFolderIdx})
+	i.deviceIdx = newSmallIndex(i, []byte{KeyTypeDeviceIdx})
+	return i
 }
 
 func (db *Instance) Compact() error {
@@ -72,13 +98,10 @@ func (db *Instance) Compact() error {
 func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker, deleteFn deletionHandler) int64 {
 	sort.Sort(fileList(fs)) // sort list on name, same as in the database
 
-	start := db.deviceKey(folder, device, nil)                            // before all folder/device files
-	limit := db.deviceKey(folder, device, []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
-
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, nil)[:keyPrefixLen+keyFolderLen+keyDeviceLen]), nil)
 	defer dbi.Release()
 
 	moreDb := dbi.Next()
@@ -237,13 +260,10 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 }
 
 func (db *Instance) withHave(folder, device []byte, truncate bool, fn Iterator) {
-	start := db.deviceKey(folder, device, nil)                            // before all folder/device files
-	limit := db.deviceKey(folder, device, []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
-
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, nil)[:keyPrefixLen+keyFolderLen+keyDeviceLen]), nil)
 	defer dbi.Release()
 
 	for dbi.Next() {
@@ -258,13 +278,10 @@ func (db *Instance) withHave(folder, device []byte, truncate bool, fn Iterator) 
 }
 
 func (db *Instance) withAllFolderTruncated(folder []byte, fn func(device []byte, f FileInfoTruncated) bool) {
-	start := db.deviceKey(folder, nil, nil)                                                  // before all folder/device files
-	limit := db.deviceKey(folder, protocol.LocalDeviceID[:], []byte{0xff, 0xff, 0xff, 0xff}) // after all folder/device files
-
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, nil, nil)[:keyPrefixLen+keyFolderLen]), nil)
 	defer dbi.Release()
 
 	for dbi.Next() {
@@ -359,7 +376,10 @@ func (db *Instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 			l.Debugf("vl.versions[0].device: %x", vl.versions[0].device)
 			l.Debugf("name: %q (%x)", name, name)
 			l.Debugf("fk: %q", fk)
-			l.Debugf("fk: %x %x %x", fk[1:1+64], fk[1+64:1+64+32], fk[1+64+32:])
+			l.Debugf("fk: %x %x %x",
+				fk[keyPrefixLen:keyPrefixLen+keyFolderLen],
+				fk[keyPrefixLen+keyFolderLen:keyPrefixLen+keyFolderLen+keyDeviceLen],
+				fk[keyPrefixLen+keyFolderLen+keyDeviceLen:])
 			panic(err)
 		}
 
@@ -403,13 +423,10 @@ func (db *Instance) availability(folder, file []byte) []protocol.DeviceID {
 }
 
 func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) {
-	start := db.globalKey(folder, nil)
-	limit := db.globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
-
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := t.NewIterator(util.BytesPrefix(db.globalKey(folder, nil)[:keyPrefixLen+keyFolderLen]), nil)
 	defer dbi.Release()
 
 	var fk []byte
@@ -546,9 +563,7 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	start := db.globalKey(folder, nil)
-	limit := db.globalKey(folder, []byte{0xff, 0xff, 0xff, 0xff})
-	dbi := t.NewIterator(&util.Range{Start: start, Limit: limit}, nil)
+	dbi := t.NewIterator(util.BytesPrefix(db.globalKey(folder, nil)[:keyPrefixLen+keyFolderLen]), nil)
 	defer dbi.Release()
 
 	var fk []byte
@@ -598,71 +613,72 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 
 // deviceKey returns a byte slice encoding the following information:
 //	   keyTypeDevice (1 byte)
-//	   folder (64 bytes)
-//	   device (32 bytes)
+//	   folder (4 bytes)
+//	   device (4 bytes)
 //	   name (variable size)
 func (db *Instance) deviceKey(folder, device, file []byte) []byte {
 	return db.deviceKeyInto(nil, folder, device, file)
 }
 
 func (db *Instance) deviceKeyInto(k []byte, folder, device, file []byte) []byte {
-	reqLen := 1 + 64 + 32 + len(file)
+	reqLen := keyPrefixLen + keyFolderLen + keyDeviceLen + len(file)
 	if len(k) < reqLen {
 		k = make([]byte, reqLen)
 	}
 	k[0] = KeyTypeDevice
-	if len(folder) > 64 {
-		panic("folder name too long")
-	}
-	copy(k[1:], []byte(folder))
-	copy(k[1+64:], device[:])
-	copy(k[1+64+32:], []byte(file))
+	binary.BigEndian.PutUint32(k[keyPrefixLen:], db.folderIdx.ID(folder))
+	binary.BigEndian.PutUint32(k[keyPrefixLen+keyFolderLen:], db.deviceIdx.ID(device))
+	copy(k[keyPrefixLen+keyFolderLen+keyDeviceLen:], []byte(file))
 	return k[:reqLen]
 }
 
+// deviceKeyName returns the device ID from the key
 func (db *Instance) deviceKeyName(key []byte) []byte {
-	return key[1+64+32:]
+	return key[keyPrefixLen+keyFolderLen+keyDeviceLen:]
 }
 
+// deviceKeyFolder returns the folder name from the key
 func (db *Instance) deviceKeyFolder(key []byte) []byte {
-	folder := key[1 : 1+64]
-	izero := bytes.IndexByte(folder, 0)
-	if izero < 0 {
-		return folder
+	folder, ok := db.folderIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
+	if !ok {
+		panic("bug: lookup of nonexistent folder ID")
 	}
-	return folder[:izero]
+	return folder
 }
 
+// deviceKeyDevice returns the device ID from the key
 func (db *Instance) deviceKeyDevice(key []byte) []byte {
-	return key[1+64 : 1+64+32]
+	device, ok := db.deviceIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen+keyFolderLen:]))
+	if !ok {
+		panic("bug: lookup of nonexistent device ID")
+	}
+	return device
 }
 
 // globalKey returns a byte slice encoding the following information:
 //	   keyTypeGlobal (1 byte)
-//	   folder (64 bytes)
+//	   folder (4 bytes)
 //	   name (variable size)
 func (db *Instance) globalKey(folder, file []byte) []byte {
-	k := make([]byte, 1+64+len(file))
+	k := make([]byte, keyPrefixLen+keyFolderLen+len(file))
 	k[0] = KeyTypeGlobal
-	if len(folder) > 64 {
-		panic("folder name too long")
-	}
-	copy(k[1:], []byte(folder))
-	copy(k[1+64:], []byte(file))
+	binary.BigEndian.PutUint32(k[keyPrefixLen:], db.folderIdx.ID(folder))
+	copy(k[keyPrefixLen+keyFolderLen:], []byte(file))
 	return k
 }
 
+// globalKeyName returns the filename from the key
 func (db *Instance) globalKeyName(key []byte) []byte {
-	return key[1+64:]
+	return key[keyPrefixLen+keyFolderLen:]
 }
 
+// globalKeyFolder returns the folder name from the key
 func (db *Instance) globalKeyFolder(key []byte) []byte {
-	folder := key[1 : 1+64]
-	izero := bytes.IndexByte(folder, 0)
-	if izero < 0 {
-		return folder
+	folder, ok := db.folderIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
+	if !ok {
+		panic("bug: lookup of nonexistent folder ID")
 	}
-	return folder[:izero]
+	return folder
 }
 
 func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
@@ -691,4 +707,133 @@ func leveldbIsCorrupted(err error) bool {
 	}
 
 	return false
+}
+
+// checkConvertDatabase tries to convert an existing old (v0.11) database to
+// new (v0.13) format.
+func checkConvertDatabase(dbFile string) error {
+	oldLoc := filepath.Join(filepath.Dir(dbFile), "index-v0.11.0.db")
+	if _, err := os.Stat(oldLoc); os.IsNotExist(err) {
+		// The old database file does not exist; that's ok, continue as if
+		// everything succeeded.
+		return nil
+	} else if err != nil {
+		// Any other error is weird.
+		return err
+	}
+
+	// There exists a database in the old format. We run a one time
+	// conversion from old to new.
+
+	fromDb, err := leveldb.OpenFile(oldLoc, nil)
+	if err != nil {
+		return err
+	}
+
+	toDb, err := leveldb.OpenFile(dbFile, nil)
+	if err != nil {
+		return err
+	}
+
+	err = convertKeyFormat(fromDb, toDb)
+	if err != nil {
+		return err
+	}
+
+	err = toDb.Close()
+	if err != nil {
+		return err
+	}
+
+	// We've done this one, we don't want to do it again (if the user runs
+	// -reset or so). We don't care too much about errors any more at this stage.
+	fromDb.Close()
+	osutil.Rename(oldLoc, oldLoc+".converted")
+
+	return nil
+}
+
+// A smallIndex is an in memory bidirectional []byte to uint32 map. It gives
+// fast lookups in both directions and persists to the database. Don't use for
+// storing more items than fit comfortably in RAM.
+type smallIndex struct {
+	db     *Instance
+	prefix []byte
+	id2val map[uint32]string
+	val2id map[string]uint32
+	nextID uint32
+	mut    sync.Mutex
+}
+
+func newSmallIndex(db *Instance, prefix []byte) *smallIndex {
+	idx := &smallIndex{
+		db:     db,
+		prefix: prefix,
+		id2val: make(map[uint32]string),
+		val2id: make(map[string]uint32),
+		mut:    sync.NewMutex(),
+	}
+	idx.load()
+	return idx
+}
+
+// load iterates over the prefix space in the database and populates the in
+// memory maps.
+func (i *smallIndex) load() {
+	tr := i.db.newReadOnlyTransaction()
+	it := tr.NewIterator(util.BytesPrefix(i.prefix), nil)
+	for it.Next() {
+		val := string(it.Value())
+		id := binary.BigEndian.Uint32(it.Key()[len(i.prefix):])
+		i.id2val[id] = val
+		i.val2id[val] = id
+		if id >= i.nextID {
+			i.nextID = id + 1
+		}
+	}
+	it.Release()
+	tr.close()
+}
+
+// ID returns the index number for the given byte slice, allocating a new one
+// and persisting this to the database if necessary.
+func (i *smallIndex) ID(val []byte) uint32 {
+	i.mut.Lock()
+	// intentionally avoiding defer here as we want this call to be as fast as
+	// possible in the general case (folder ID already exists). The map lookup
+	// with the conversion of []byte to string is compiler optimized to not
+	// copy the []byte, which is why we don't assign it to a temp variable
+	// here.
+	if id, ok := i.val2id[string(val)]; ok {
+		i.mut.Unlock()
+		return id
+	}
+
+	id := i.nextID
+	i.nextID++
+
+	valStr := string(val)
+	i.val2id[valStr] = id
+	i.id2val[id] = valStr
+
+	key := make([]byte, len(i.prefix)+8) // prefix plus uint32 id
+	copy(key, i.prefix)
+	binary.BigEndian.PutUint32(key[len(i.prefix):], id)
+	i.db.Put(key, val, nil)
+
+	i.mut.Unlock()
+	return id
+}
+
+// Val returns the value for the given index number, or (nil, false) if there
+// is no such index number.
+func (i *smallIndex) Val(id uint32) ([]byte, bool) {
+	i.mut.Lock()
+	val, ok := i.id2val[id]
+	i.mut.Unlock()
+	if !ok {
+		return nil, false
+	}
+
+	return []byte(val), true
 }

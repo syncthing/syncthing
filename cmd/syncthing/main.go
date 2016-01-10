@@ -638,6 +638,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
+
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
@@ -1168,12 +1169,13 @@ func autoUpgrade(cfg *config.Wrapper) {
 // suitable time after they have gone out of fashion.
 func cleanConfigDirectory() {
 	patterns := map[string]time.Duration{
-		"panic-*.log":    7 * 24 * time.Hour,  // keep panic logs for a week
-		"audit-*.log":    7 * 24 * time.Hour,  // keep audit logs for a week
-		"index":          14 * 24 * time.Hour, // keep old index format for two weeks
-		"config.xml.v*":  30 * 24 * time.Hour, // old config versions for a month
-		"*.idx.gz":       30 * 24 * time.Hour, // these should for sure no longer exist
-		"backup-of-v0.8": 30 * 24 * time.Hour, // these neither
+		"panic-*.log":      7 * 24 * time.Hour,  // keep panic logs for a week
+		"audit-*.log":      7 * 24 * time.Hour,  // keep audit logs for a week
+		"index":            14 * 24 * time.Hour, // keep old index format for two weeks
+		"index*.converted": 14 * 24 * time.Hour, // keep old converted indexes for two weeks
+		"config.xml.v*":    30 * 24 * time.Hour, // old config versions for a month
+		"*.idx.gz":         30 * 24 * time.Hour, // these should for sure no longer exist
+		"backup-of-v0.8":   30 * 24 * time.Hour, // these neither
 	}
 
 	for pat, dur := range patterns {

@@ -7,6 +7,7 @@
 package db
 
 import (
+	"encoding/binary"
 	"fmt"
 	"time"
 )
@@ -24,10 +25,12 @@ type VirtualMtimeRepo struct {
 }
 
 func NewVirtualMtimeRepo(ldb *Instance, folder string) *VirtualMtimeRepo {
-	prefix := string(KeyTypeVirtualMtime) + folder
+	var prefix [5]byte // key type + 4 bytes folder idx number
+	prefix[0] = KeyTypeVirtualMtime
+	binary.BigEndian.PutUint32(prefix[1:], ldb.folderIdx.ID([]byte(folder)))
 
 	return &VirtualMtimeRepo{
-		ns: NewNamespacedKV(ldb, prefix),
+		ns: NewNamespacedKV(ldb, string(prefix[:])),
 	}
 }
 
