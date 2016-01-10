@@ -125,6 +125,15 @@ case "${1:-default}" in
 		fi
 		;;
 
+	test-xunit)
+		ulimit -t 600 &>/dev/null || true
+		ulimit -d 512000 &>/dev/null || true
+		ulimit -m 512000 &>/dev/null || true
+
+		(GOPATH="$(pwd)/Godeps/_workspace:$GOPATH" go test -v -race ./lib/... ./cmd/... || true) > tests.out
+		go2xunit -output tests.xml -fail < tests.out
+		;;
+
 	docker-all)
 		img=${DOCKERIMG:-syncthing/build:latest}
 		docker run --rm -h syncthing-builder -u $(id -u) -t \
