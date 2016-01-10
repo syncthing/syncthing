@@ -68,9 +68,9 @@ const (
 	FlagFolderIgnoreDelete        = 1 << 2
 
 	// The folder hash algorithm IDs, to be put in the flags field by shifting
-	// left FolderHashShiftBits
-	FolderHashSHA256 = 0
-	// ... 1 through 15 currently reserved
+	// left FolderHashShiftBits. 1 through 15 currently reserved.
+
+	FolderHashSHA256    = 0
 	FolderHashMask      = 15
 	FolderHashShiftBits = 3
 )
