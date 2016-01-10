@@ -136,8 +136,17 @@
                 <span class="fa fa-repeat"></span>&nbsp;<span translate>Generate</span>
               </button>
             </div>
-          </div>
 
+            <div class="form-group" ng-if="system.themes.length > 1">
+              <label>GUI Theme</label>
+              <select class="form-control" ng-model="tmpGUI.theme" ng->
+                <option ng-repeat="theme in system.themes" value="{{ theme }}">
+                  {{ theme.charAt(0).toUpperCase() + theme.slice(1) }}
+                </option>
+              </select>
+            </div>
+
+          </div>
         </div>
       </form>
     </div>

@@ -20,6 +20,7 @@ type GUIConfiguration struct {
 	RawUseTLS           bool   `xml:"tls,attr" json:"useTLS"`
 	RawAPIKey           string `xml:"apikey,omitempty" json:"apiKey"`
 	InsecureAdminAccess bool   `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
+	Theme               string `xml:"theme" json:"theme" default:"default"`
 }
 
 func (c GUIConfiguration) Address() string {

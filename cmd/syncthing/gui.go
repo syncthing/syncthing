@@ -52,6 +52,7 @@ type apiService struct {
 	id              protocol.DeviceID
 	cfg             *config.Wrapper
 	assetDir        string
+	themes          []string
 	model           *model.Model
 	eventSub        *events.BufferedSubscription
 	discoverer      *discover.CachingMux
@@ -77,6 +78,15 @@ func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m
 		systemConfigMut: sync.NewMutex(),
 		guiErrors:       errors,
 		systemLog:       systemLog,
+	}
+
+	seen := make(map[string]struct{})
+	for file := range auto.Assets() {
+		theme := strings.Split(file, "/")[0]
+		if _, ok := seen[theme]; !ok {
+			seen[theme] = struct{}{}
+			service.themes = append(service.themes, theme)
+		}
 	}
 
 	var err error
@@ -198,10 +208,16 @@ func (s *apiService) Serve() {
 	mux.HandleFunc("/qr/", s.getQR)
 
 	// Serve compiled in assets unless an asset directory was set (for development)
-	mux.Handle("/", embeddedStatic{
-		assetDir: s.assetDir,
-		assets:   auto.Assets(),
-	})
+	assets := &embeddedStatic{
+		theme:        s.cfg.GUI().Theme,
+		lastModified: time.Now(),
+		mut:          sync.NewRWMutex(),
+		assetDir:     s.assetDir,
+		assets:       auto.Assets(),
+	}
+	mux.Handle("/", assets)
+
+	s.cfg.Subscribe(assets)
 
 	guiCfg := s.cfg.GUI()
 
@@ -690,6 +706,7 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["pathSeparator"] = string(filepath.Separator)
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
+	res["themes"] = s.themes
 
 	sendJSON(w, res)
 }
@@ -1015,8 +1032,11 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 }
 
 type embeddedStatic struct {
-	assetDir string
-	assets   map[string][]byte
+	theme        string
+	lastModified time.Time
+	mut          sync.RWMutex
+	assetDir     string
+	assets       map[string][]byte
 }
 
 func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -1039,13 +1059,21 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	bs, ok := s.assets[file]
+	s.mut.RLock()
+	theme := s.theme
+	modified := s.lastModified
+	s.mut.RUnlock()
+
+	bs, ok := s.assets[theme+"/"+file]
 	if !ok {
-		http.NotFound(w, r)
-		return
+		bs, ok = s.assets[config.DefaultTheme+"/"+file]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
 	}
 
-	if r.Header.Get("If-Modified-Since") == auto.AssetsBuildDate {
+	if modifiedSince, err := time.Parse(r.Header.Get("If-Modified-Since"), http.TimeFormat); err == nil && modified.Before(modifiedSince) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
@@ -1064,7 +1092,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		gr.Close()
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-	w.Header().Set("Last-Modified", auto.AssetsBuildDate)
+	w.Header().Set("Last-Modified", modified.Format(http.TimeFormat))
 	w.Header().Set("Cache-Control", "public")
 
 	w.Write(bs)
@@ -1095,6 +1123,27 @@ func (s embeddedStatic) mimeTypeForFile(file string) string {
 	default:
 		return mime.TypeByExtension(ext)
 	}
+}
+
+// VerifyConfiguration implements the config.Committer interface
+func (s *embeddedStatic) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
+}
+
+// CommitConfiguration implements the config.Committer interface
+func (s *embeddedStatic) CommitConfiguration(from, to config.Configuration) bool {
+	s.mut.Lock()
+	if s.theme != to.GUI.Theme {
+		s.theme = to.GUI.Theme
+		s.lastModified = time.Now()
+	}
+	s.mut.Unlock()
+
+	return true
+}
+
+func (s *embeddedStatic) String() string {
+	return fmt.Sprintf("embeddedStatic@%p", s)
 }
 
 func (s *apiService) toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
