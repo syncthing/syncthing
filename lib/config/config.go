@@ -48,6 +48,9 @@ var (
 	// DefaultDiscoveryServers should be substituted when the configuration
 	// contains <globalAnnounceServer>default</globalAnnounceServer>.
 	DefaultDiscoveryServers = append(DefaultDiscoveryServersV4, DefaultDiscoveryServersV6...)
+
+	// DefaultTheme is the default and fallback theme for the web UI.
+	DefaultTheme = "default"
 )
 
 func New(myID protocol.DeviceID) Configuration {

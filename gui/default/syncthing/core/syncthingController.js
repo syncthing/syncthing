@@ -866,6 +866,7 @@ angular.module('syncthing.core')
         $scope.saveSettings = function () {
             // Make sure something changed
             var changed = !angular.equals($scope.config.options, $scope.tmpOptions) || !angular.equals($scope.config.gui, $scope.tmpGUI);
+            var themeChanged = $scope.config.gui.theme !== $scope.tmpGUI.theme;
             if (changed) {
                 // Check if usage reporting has been enabled or disabled
                 if ($scope.tmpOptions.urEnabled && $scope.tmpOptions.urAccepted <= 0) {
@@ -901,6 +902,10 @@ angular.module('syncthing.core')
             }
 
             $('#settings').modal("hide");
+
+            if (themeChanged) {
+              document.location.reload(true);
+            }
         };
 
         $scope.saveAdvanced = function () {
