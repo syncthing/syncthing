@@ -139,15 +139,13 @@ Using `homebrew <http://brew.sh>`__
 Without homebrew
 ~~~~~~~~~~~~~~~~
 
-Download Syncthing for Mac:
+Download and extract Syncthing for Mac:
 https://github.com/syncthing/syncthing/releases/latest.
 
 #. Copy the syncthing binary (the file you would open to launch
-   Syncthing) in a directory called ``bin`` in your home directory. If
+   Syncthing) into a directory called ``bin`` in your home directory i.e. into /home/<username>/bin. If
    "bin" does not exist, create it.
-#. Edit the ``syncthing.plist`` (located in /etc/macosx-launchd) in the
-   two places that refer to your home directory; that is, replace
-   /Users/jb with your actual home directory location.
+#. Open ``syncthing.plist`` located in /etc/macosx-launchd. Replace the four occurances of /Users/USERNAME with your actual home directory location.
 #. Copy the ``syncthing.plist`` file to ``~/Library/LaunchAgents``. If
    you have trouble finding this location select the "Go" menu in Finder
    and choose "Go to folder..." and then type
