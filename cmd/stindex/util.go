@@ -1,4 +1,4 @@
-// Copyright (C) 2015 The Syncthing Authors.
+// Copyright (C) 2015 The Gateway Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -28,12 +28,12 @@ func defaultConfigDir() string {
 	switch runtime.GOOS {
 	case "windows":
 		if p := os.Getenv("LocalAppData"); p != "" {
-			return filepath.Join(p, "Syncthing")
+			return filepath.Join(p, "Gateway")
 		}
-		return filepath.Join(os.Getenv("AppData"), "Syncthing")
+		return filepath.Join(os.Getenv("AppData"), "Gateway")
 
 	case "darwin":
-		dir, err := osutil.ExpandTilde("~/Library/Application Support/Syncthing")
+		dir, err := osutil.ExpandTilde("~/Library/Application Support/Gateway")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -41,9 +41,9 @@ func defaultConfigDir() string {
 
 	default:
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
-			return filepath.Join(xdgCfg, "syncthing")
+			return filepath.Join(xdgCfg, "gateway")
 		}
-		dir, err := osutil.ExpandTilde("~/.config/syncthing")
+		dir, err := osutil.ExpandTilde("~/.config/gateway")
 		if err != nil {
 			log.Fatal(err)
 		}

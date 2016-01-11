@@ -1,19 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-	Make sure the "syncthing" executable is located at ~/bin/syncthing.
+	Make sure the "dash" executable is located at ~/bin/dash.
 	Replace the string "jasonperr" in this file with your username, such as "jb".
-	Copy this file to ~/Library/LaunchAgents/syncthing.plist.
-	Execute "launchctl load ~/Library/LaunchAgents/syncthing.plist".
+	Copy this file to ~/Library/LaunchAgents/dash.plist.
+	Execute "launchctl load ~/Library/LaunchAgents/dash.plist".
 -->
+
 <plist version="1.0">
 	<dict>
 		<key>Label</key>
-		<string>net.syncthing.syncthing</string>
+		<string>net.dash.dash</string>
 
 		<key>ProgramArguments</key>
 		<array>
-			<string>/Users/jasonperr/bin/syncthing</string>
+			<string>/usr/local/dash/bin/dash</string>
 		</array>
 
 		<key>EnvironmentVariables</key>
@@ -28,15 +29,15 @@
 		<true/>
 
 		<key>LowPriorityIO</key>
-		<true/>
+		<false/>
 
 		<key>ProcessType</key>
 		<string>Background</string>
 
 		<key>StandardOutPath</key>
-		<string>/Users/jasonperr/Library/Logs/Syncthing.log</string>
+		<string>/Users/jasonperr/Library/Logs/DASH.log</string>
 
 		<key>StandardErrorPath</key>
-		<string>/Users/jasonperr/Library/Logs/Syncthing-Errors.log</string>
+		<string>/Users/jasonperr/Library/Logs/DASH-Errors.log</string>
 	</dict>
 </plist>

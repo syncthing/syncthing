@@ -17,7 +17,8 @@ import (
 
 func TestAssets(t *testing.T) {
 	assets := auto.Assets()
-	idx, ok := assets["index.html"]
+	// idx, ok := assets["index.html"]
+	idx, ok := assets["login.html"]
 	if !ok {
 		t.Fatal("No index.html in compiled in assets")
 	}

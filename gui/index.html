@@ -16,7 +16,7 @@
   <meta name="author" content="">
   <link rel="shortcut icon" href="assets/img/favicon.png">
 
-  <title ng-bind="thisDeviceName() + ' | Syncthing'"></title>
+  <title ng-bind="thisDeviceName() + ' | DASH'"></title>
   <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="assets/font/raleway.css" rel="stylesheet">
   <link href="vendor/font-awesome/css/font-awesome.min.css" rel="stylesheet">
@@ -76,7 +76,7 @@
         <div class="panel panel-warning">
           <div class="panel-heading"><h3 class="panel-title"><span class="fa fa-exclamation-circle"></span><span translate>Restart Needed</span></h3></div>
           <div class="panel-body">
-            <p translate>The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.</p>
+            <p translate>The configuration has been saved but not activated. DASH must restart to activate the new configuration.</p>
           </div>
           <div class="panel-footer">
             <button type="button" class="btn btn-sm btn-default pull-right" ng-click="restart()">
@@ -90,7 +90,7 @@
 
     <!-- Panel: New Device -->
 
-    <div ng-repeat="(device, event) in deviceRejections" class="row">
+    <!-- <div ng-repeat="(device, event) in deviceRejections" class="row">
       <div class="col-md-12">
         <div class="panel panel-warning">
           <div class="panel-heading">
@@ -121,11 +121,11 @@
           </div>
         </div>
       </div>
-    </div>
+    </div> -->
 
     <!-- Panel: New Folder -->
 
-    <div ng-repeat="(key, event) in folderRejections" class="row reject">
+    <!-- <div ng-repeat="(key, event) in folderRejections" class="row reject">
       <div class="col-md-12">
         <div class="panel panel-warning">
           <div class="panel-heading">
@@ -159,7 +159,7 @@
           </div>
         </div>
       </div>
-    </div>
+    </div> -->
 
     <!-- Panel: Notice -->
 
@@ -332,9 +332,9 @@
           <button type="button" class="btn btn-sm btn-default" ng-click="rescanAllFolders()">
             <span class="fa fa-refresh"></span>&nbsp;<span translate>Rescan All</span>
           </button>
-          <button type="button" class="btn btn-sm btn-default" ng-click="addFolder()">
+          <!-- <button type="button" class="btn btn-sm btn-default" ng-click="addFolder()">
             <span class="fa fa-plus"></span>&nbsp;<span translate>Add Folder</span>
-          </button>
+          </button> -->
         </span>
         <div class="clearfix"></div>
         <hr class="visible-sm"/>

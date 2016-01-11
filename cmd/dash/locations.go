@@ -54,7 +54,7 @@ var locations = map[locationEnum]string{
 	locPanicLog:      "${config}/panic-${timestamp}.log",
 	locAuditLog:      "${config}/audit-${timestamp}.log",
 	locGUIAssets:     "${config}/gui",
-	locDefFolder:     "${home}/Sync",
+	locDefFolder:     "${home}/Gateway",
 }
 
 // expandLocations replaces the variables in the location map with actual
@@ -81,12 +81,12 @@ func defaultConfigDir() string {
 	switch runtime.GOOS {
 	case "windows":
 		if p := os.Getenv("LocalAppData"); p != "" {
-			return filepath.Join(p, "Syncthing")
+			return filepath.Join(p, "Gateway")
 		}
-		return filepath.Join(os.Getenv("AppData"), "Syncthing")
+		return filepath.Join(os.Getenv("AppData"), "Gateway")
 
 	case "darwin":
-		dir, err := osutil.ExpandTilde("~/Library/Application Support/Syncthing")
+		dir, err := osutil.ExpandTilde("~/Library/Application Support/Gateway")
 		if err != nil {
 			l.Fatalln(err)
 		}
@@ -94,9 +94,9 @@ func defaultConfigDir() string {
 
 	default:
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
-			return filepath.Join(xdgCfg, "syncthing")
+			return filepath.Join(xdgCfg, "gateway")
 		}
-		dir, err := osutil.ExpandTilde("~/.config/syncthing")
+		dir, err := osutil.ExpandTilde("~/.config/gateway")
 		if err != nil {
 			l.Fatalln(err)
 		}
