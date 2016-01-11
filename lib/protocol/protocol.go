@@ -113,6 +113,7 @@ type Connection interface {
 	Request(folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error)
 	ClusterConfig(config ClusterConfigMessage)
 	Statistics() Statistics
+	Closed() bool
 }
 
 type rawConnection struct {
@@ -285,6 +286,15 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 // ClusterConfig send the cluster configuration message to the peer and returns any error
 func (c *rawConnection) ClusterConfig(config ClusterConfigMessage) {
 	c.send(-1, messageTypeClusterConfig, config, nil)
+}
+
+func (c *rawConnection) Closed() bool {
+	select {
+	case <-c.closed:
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *rawConnection) ping() bool {
