@@ -1073,10 +1073,18 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 
 	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores)
 
-	sub := events.Default.Subscribe(events.LocalIndexUpdated)
+	// Subscribe to LocalIndexUpdated (we have new information to send) and
+	// DeviceDisconnected (it might be us who disconnected, so we should
+	// exit).
+	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.DeviceDisconnected)
 	defer events.Default.Unsubscribe(sub)
 
 	for err == nil {
+		if conn.Closed() {
+			// Our work is done.
+			return
+		}
+
 		// While we have sent a localVersion at least equal to the one
 		// currently in the database, wait for the local index to update. The
 		// local index may update for other folders than the one we are

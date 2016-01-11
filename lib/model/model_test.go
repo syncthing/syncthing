@@ -243,6 +243,10 @@ func (FakeConnection) Ping() bool {
 	return true
 }
 
+func (FakeConnection) Closed() bool {
+	return false
+}
+
 func (FakeConnection) Statistics() protocol.Statistics {
 	return protocol.Statistics{}
 }
