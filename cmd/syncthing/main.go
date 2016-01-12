@@ -738,7 +738,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Start relay management
 
 	var relayService *relay.Service
-	if opts.RelaysEnabled && (opts.GlobalAnnEnabled || opts.RelayWithoutGlobalAnn) {
+	if opts.RelaysEnabled {
 		relayService = relay.NewService(cfg, tlsCfg)
 		mainService.Add(relayService)
 	}

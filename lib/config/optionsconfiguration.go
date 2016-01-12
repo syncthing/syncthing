@@ -19,7 +19,6 @@ type OptionsConfiguration struct {
 	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
 	RelaysEnabled           bool     `xml:"relaysEnabled" json:"relaysEnabled" default:"true"`
 	RelayReconnectIntervalM int      `xml:"relayReconnectIntervalM" json:"relayReconnectIntervalM" default:"10"`
-	RelayWithoutGlobalAnn   bool     `xml:"relayWithoutGlobalAnn" json:"relayWithoutGlobalAnn" default:"false"`
 	StartBrowser            bool     `xml:"startBrowser" json:"startBrowser" default:"true"`
 	UPnPEnabled             bool     `xml:"upnpEnabled" json:"upnpEnabled" default:"true"`
 	UPnPLeaseM              int      `xml:"upnpLeaseMinutes" json:"upnpLeaseMinutes" default:"60"`
