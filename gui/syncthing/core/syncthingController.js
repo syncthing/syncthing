@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function($locationProvider) {
         $locationProvider.html5Mode(true).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events) {
+    .controller('SyncthingController', function ($scope, $http, $location, $auth, LocaleService, Events) {
         'use strict';
 
         // private/helper definitions
@@ -19,6 +19,19 @@ angular.module('syncthing.core')
         }
 
         // public/scope definitions
+
+        $scope.showLoginPage = true;
+        $scope.submitLogin = function() {
+            $auth.submitLogin({
+                email: $scope.loginForm.email,
+                password: $scope.loginForm.password
+              }).then(function() {
+                console.log('success', arguments);
+                $scope.showLoginPage = false;
+              }).catch(function() {
+                console.log('error', arguments);
+              })
+        };
 
         $scope.completion = {};
         $scope.config = {};
@@ -81,7 +94,7 @@ angular.module('syncthing.core')
                 return;
             }
 
-            console.log('UIOnline');
+            console.log('UIOnline!! Poop');
 
             refreshSystem();
             refreshConfig();
