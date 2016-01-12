@@ -637,11 +637,10 @@ nextFolder:
 	for _, folder := range cm.Folders {
 		cfg := m.folderCfgs[folder.ID]
 
-		if _, err := protocol.HashAlgorithmFromFlagBits(folder.Flags); err != nil {
-			// The hash algorithm failed to deserialize, so it's not SHA256
-			// (the only acceptable algorithm).
-			l.Warnf("Device %v: %v", deviceID, err)
-			cfg.Invalid = err.Error() + " from " + deviceID.String()
+		if folder.Flags&^protocol.FlagFolderAll != 0 {
+			// There are flags set that we don't know what they mean. Scary!
+			l.Warnf("Device %v: unknown flags for folder %s", deviceID, folder.ID)
+			cfg.Invalid = fmt.Sprintf("Unknown flags from device %v", deviceID)
 			m.cfg.SetFolder(cfg)
 			if srv := m.folderRunners[folder.ID]; srv != nil {
 				srv.setError(fmt.Errorf(cfg.Invalid))
