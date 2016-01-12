@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -107,14 +108,14 @@ func TestVersionErr(t *testing.T) {
 
 	w := xdr.NewWriter(c0.cw)
 	w.WriteUint32(encodeHeader(header{
-		version: 2,
+		version: 2, // higher than supported
 		msgID:   0,
-		msgType: 0,
+		msgType: messageTypeIndex,
 	}))
 	w.WriteUint32(0) // Avoids reader closing due to EOF
 
-	if !m1.isClosed() {
-		t.Error("Connection should close due to unknown version")
+	if err := m1.closedError(); err == nil || !strings.Contains(err.Error(), "unknown protocol version") {
+		t.Error("Connection should close due to unknown version, not", err)
 	}
 }
 
@@ -140,8 +141,8 @@ func TestTypeErr(t *testing.T) {
 	}))
 	w.WriteUint32(0) // Avoids reader closing due to EOF
 
-	if !m1.isClosed() {
-		t.Error("Connection should close due to unknown message type")
+	if err := m1.closedError(); err == nil || !strings.Contains(err.Error(), "unknown message type") {
+		t.Error("Connection should close due to unknown message type, not", err)
 	}
 }
 
@@ -159,10 +160,10 @@ func TestClose(t *testing.T) {
 	c0.ClusterConfig(ClusterConfigMessage{})
 	c1.ClusterConfig(ClusterConfigMessage{})
 
-	c0.close(nil)
+	c0.close(errors.New("manual close"))
 
 	<-c0.closed
-	if !m0.isClosed() {
+	if err := m0.closedError(); err == nil || !strings.Contains(err.Error(), "manual close") {
 		t.Fatal("Connection should be closed")
 	}
 
