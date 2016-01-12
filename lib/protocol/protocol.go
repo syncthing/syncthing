@@ -691,6 +691,7 @@ func (c *rawConnection) writerLoop() {
 
 func (c *rawConnection) close(err error) {
 	c.once.Do(func() {
+		l.Debugln("close due to", err)
 		close(c.closed)
 
 		c.awaitingMut.Lock()
