@@ -337,7 +337,7 @@ folder Flags field contains the following single bit flags:
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                       Reserved                  | Hash  |D|P|R|
+    |                           Reserved                      |D|P|R|
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 :Bit 31 ("R", Read Only):
@@ -350,14 +350,6 @@ folder Flags field contains the following single bit flags:
 
 :Bit 29 ("D", Ignore Deletes):
     is set for folders that the device will ignore deletes for.
-
-:Bits 25-28 (Hash):
-    indicates the hash algorithm in use for this folder, as a four bit integer.
-    The value values are:
-
-    - 0: SHA256
-    - 1: Murmur3-128
-    - 2-15: Reserved for future usage
 
 The **Options** field contains a list of options that apply to the folder.
 
@@ -912,7 +904,7 @@ directions.
 Read Only
 ~~~~~~~~~
 
-In read only mode, a device does not apply any updates from the cluster, 
+In read only mode, a device does not apply any updates from the cluster,
 but publishes changes of its local folder to the cluster as usual.
 The local folder can be seen as a "master copy" that is never affected
 by the actions of other cluster devices.
