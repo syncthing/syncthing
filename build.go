@@ -411,19 +411,19 @@ func xdr() {
 
 func translate() {
 	os.Chdir("gui/default/assets/lang")
-	runPipe("lang-en-new.json", "go", "run", "../../../script/translate.go", "lang-en.json", "../../")
+	runPipe("lang-en-new.json", "go", "run", "../../../../script/translate.go", "lang-en.json", "../../../")
 	os.Remove("lang-en.json")
 	err := os.Rename("lang-en-new.json", "lang-en.json")
 	if err != nil {
 		log.Fatal(err)
 	}
-	os.Chdir("../../..")
+	os.Chdir("../../../..")
 }
 
 func transifex() {
 	os.Chdir("gui/default/assets/lang")
-	runPrint("go", "run", "../../../script/transifexdl.go")
-	os.Chdir("../../..")
+	runPrint("go", "run", "../../../../script/transifexdl.go")
+	os.Chdir("../../../..")
 	assets()
 }
 
