@@ -177,7 +177,7 @@
     "Syncthing is upgrading.": "Обновление Syncthing ",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Кажется, Syncthing не запущен или есть проблемы с подключением к Интернету. Переподключаюсь...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing столкнулся с проблемой при обработке Вашего запроса. Пожалуйста, обновите страницу или перезапустите Syncthing если проблема повторится.",
-    "The Syncthing admin interface is configured to allow remote access without a password.": "Административный интерфейс Syncthing настроен разрешать удаленный доступ без пароля.",
+    "The Syncthing admin interface is configured to allow remote access without a password.": "Административный интерфейс Syncthing настроен для предоставления удаленного доступа без пароля.",
     "The aggregated statistics are publicly available at {%url%}.": "Суммарная статистика общедоступна на {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Конфигурация была сохранена но не активирована. Для активации новой конфигурации необходимо рестартовать Syncthing.",
     "The device ID cannot be blank.": "ID устройства не может быть пустым.",
