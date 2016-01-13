@@ -64,7 +64,7 @@ case "${1:-default}" in
 
 	prerelease)
 		build transifex
-		git add -A gui/assets/ lib/auto/
+		git add -A gui/default/assets/ lib/auto/
 		pushd man ; ./refresh.sh ; popd
 		git add -A man
 		;;
