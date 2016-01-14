@@ -6,7 +6,13 @@
 
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/thejerf/suture"
+)
 
 func TestCSRFToken(t *testing.T) {
 	t1 := newCsrfToken()
@@ -39,4 +45,47 @@ func TestCSRFToken(t *testing.T) {
 	if validCsrfToken(t3) {
 		t.Fatal("t3 should have expired by now")
 	}
+}
+
+func TestStopAfterBrokenConfig(t *testing.T) {
+	baseDirs["config"] = "../../test/h1" // to load HTTPS keys
+	expandLocations()
+
+	cfg := config.Configuration{
+		GUI: config.GUIConfiguration{
+			RawAddress: "127.0.0.1:0",
+			RawUseTLS:  false,
+		},
+	}
+	w := config.Wrap("/dev/null", cfg)
+
+	srv, err := newAPIService(protocol.LocalDeviceID, w, "", nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.started = make(chan struct{})
+
+	sup := suture.NewSimple("test")
+	sup.Add(srv)
+	sup.ServeBackground()
+
+	<-srv.started
+
+	// Service is now running, listening on a random port on localhost. Now we
+	// request a config change to a completely invalid listen address. The
+	// commit will fail and the service will be in a broken state.
+
+	newCfg := config.Configuration{
+		GUI: config.GUIConfiguration{
+			RawAddress: "totally not a valid address",
+			RawUseTLS:  false,
+		},
+	}
+	if srv.CommitConfiguration(cfg, newCfg) {
+		t.Fatal("Config commit should have failed")
+	}
+
+	// Nonetheless, it should be fine to Stop() it without panic.
+
+	sup.Stop()
 }
