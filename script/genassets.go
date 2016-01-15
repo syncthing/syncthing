@@ -23,6 +23,10 @@ import (
 	"time"
 )
 
+var (
+	dev bool
+)
+
 var tpl = template.Must(template.New("assets").Parse(`package auto
 
 import (
@@ -66,16 +70,25 @@ func walkerFor(basePath string) filepath.WalkFunc {
 				return err
 			}
 
+			name, _ = filepath.Rel(basePath, name)
+
+			filename := filepath.ToSlash(name)
 			var buf bytes.Buffer
-			gw := gzip.NewWriter(&buf)
-			io.Copy(gw, fd)
-			fd.Close()
+    	gw := gzip.NewWriter(&buf)
+
+			// check for dev mode, modify api locaiton
+			if filename == "syncthing/connection.js" && dev {
+				gw.Write([]byte("var apiBase = 'http://localhost:3000';"));
+			} else {
+				io.Copy(gw, fd)
+				fd.Close()
+			}
+
 			gw.Flush()
 			gw.Close()
 
-			name, _ = filepath.Rel(basePath, name)
 			assets = append(assets, asset{
-				Name: filepath.ToSlash(name),
+				Name: filename,
 				Data: base64.StdEncoding.EncodeToString(buf.Bytes()),
 			})
 		}
@@ -90,6 +103,7 @@ type templateVars struct {
 }
 
 func main() {
+	flag.BoolVar(&dev, "dev", dev, "Development mode")
 	flag.Parse()
 
 	filepath.Walk(flag.Arg(0), walkerFor(flag.Arg(0)))

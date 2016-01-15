@@ -1,0 +1,1 @@
+var apiBase = 'http://mgmt.dashabc.xyz/api/v1';

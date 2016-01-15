@@ -94,8 +94,6 @@ angular.module('syncthing.core')
                 return;
             }
 
-            console.log('UIOnline!! Poop');
-
             refreshSystem();
             refreshConfig();
             refreshConnectionStats();

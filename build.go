@@ -34,6 +34,7 @@ var (
 	goarch    string
 	goos      string
 	noupgrade bool
+	dev       bool
 	version   string
 	goVersion float64
 	race      bool
@@ -59,6 +60,7 @@ func main() {
 	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
 	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
 	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
+	flag.BoolVar(&dev, "dev", dev, "Development mode")
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
 	flag.Parse()
@@ -139,6 +141,17 @@ func main() {
 
 		case "clean":
 			clean()
+
+		case "rebuild":
+			clean();
+			assets();
+
+			pkg := "./cmd/..."
+			var tags []string
+			if noupgrade {
+				tags = []string{"noupgrade"}
+			}
+			install(pkg, tags);
 
 		case "vet":
 			vet("./cmd/dash")
@@ -401,7 +414,11 @@ func setBuildEnv() {
 
 func assets() {
 	setBuildEnv()
-	runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "gui")
+	if dev {
+		runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "-dev", "gui")
+	} else {
+		runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "gui")
+	}
 }
 
 func xdr() {
