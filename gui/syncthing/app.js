@@ -25,7 +25,7 @@ var urlbase = 'rest';
 
 syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider, $authProvider) {
     $authProvider.configure({
-        apiUrl: 'http://localhost:3000/api/v1/'
+        apiUrl: apiBase
     });
 
     $httpProvider.interceptors.push(function xHeadersResponseInterceptor() {

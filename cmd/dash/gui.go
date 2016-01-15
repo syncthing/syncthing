@@ -1028,8 +1028,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if len(file) == 0 {
 		// Confirmed this line determines the start file
-		//file = "index.html"
-		file = "login.html"
+		file = "index.html"
 	}
 
 	if s.assetDir != "" {

@@ -78,7 +78,7 @@ func walkerFor(basePath string) filepath.WalkFunc {
 
 			// check for dev mode, modify api locaiton
 			if filename == "syncthing/connection.js" && dev {
-				gw.Write([]byte("var apiBase = 'http://localhost:3000';"));
+				gw.Write([]byte("var apiBase = 'http://localhost:3000/api/v1';"));
 			} else {
 				io.Copy(gw, fd)
 				fd.Close()
