@@ -67,7 +67,33 @@
     </div>
   </nav>
 
-  <div class="container" id="content">
+  <div class="login-content container" ng-show="showLoginPage">
+    <form ng-submit="submitLogin(loginForm)" role="form" ng-init="loginForm = {}">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email"
+        name="email"
+        id="email"
+        ng-model="loginForm.email"
+        required="required"
+        class="form-control">
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password"
+        name="password"
+        id="password"
+        ng-model="loginForm.password"
+        required="required"
+        class="form-control">
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg">Sign in</button>
+    </form>
+  </div>
+
+  <div class="container" id="content" ng-hide="showLoginPage">
 
     <!-- Panel: Restart Needed -->
 
@@ -554,6 +580,8 @@
   <script src="vendor/angular/angular-translate-loader.min.js"></script>
   <script src="vendor/angular/angular-dirPagination.js"></script>
   <script src="vendor/bootstrap/js/bootstrap.min.js"></script>
+  <script src="vendor/angular-cookie/angular-cookie.min.js"></script>
+  <script src="vendor/ngTokenAuth/ng-token-auth.min.js"></script>
   <!-- / vendor scripts -->
 
   <!-- gui application code -->
@@ -604,6 +632,7 @@
 
   <script src="assets/lang/valid-langs.js"></script>
   <script src="assets/lang/prettyprint.js"></script>
+  <script src="syncthing/connection.js"></script>
   <script src="syncthing/app.js"></script>
   <!-- / gui application code -->
 

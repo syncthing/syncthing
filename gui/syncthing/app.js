@@ -11,6 +11,7 @@
 var syncthing = angular.module('syncthing', [
     'angularUtils.directives.dirPagination',
     'pascalprecht.translate',
+    'ng-token-auth',
 
     'syncthing.core',
     'syncthing.device',
@@ -22,7 +23,11 @@ var syncthing = angular.module('syncthing', [
 
 var urlbase = 'rest';
 
-syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
+syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider, $authProvider) {
+    $authProvider.configure({
+        apiUrl: 'http://localhost:3000/api/v1/'
+    });
+
     $httpProvider.interceptors.push(function xHeadersResponseInterceptor() {
         var deviceId = null;
 
