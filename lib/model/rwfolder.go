@@ -527,6 +527,13 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 
 nextFile:
 	for {
+		select {
+		case <-p.stop:
+			// Stop processing files if the puller has been told to stop.
+			break
+		default:
+		}
+
 		fileName, ok := p.queue.Pop()
 		if !ok {
 			break
