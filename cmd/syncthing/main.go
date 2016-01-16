@@ -338,7 +338,7 @@ func main() {
 		if err != nil {
 			l.Fatalln("Upgrade:", err) // exits 1
 		}
-		l.Okln("Upgraded from", options.upgradeTo)
+		l.Infoln("Upgraded from", options.upgradeTo)
 		return
 	}
 
@@ -462,14 +462,14 @@ func performUpgrade(release upgrade.Release) {
 		if err != nil {
 			l.Fatalln("Upgrade:", err)
 		}
-		l.Okf("Upgraded to %q", release.Tag)
+		l.Infof("Upgraded to %q", release.Tag)
 	} else {
 		l.Infoln("Attempting upgrade through running Syncthing...")
 		err = upgradeViaRest()
 		if err != nil {
 			l.Fatalln("Upgrade:", err)
 		}
-		l.Okln("Syncthing upgrading")
+		l.Infoln("Syncthing upgrading")
 		os.Exit(exitUpgrading)
 	}
 }
@@ -850,7 +850,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	mainService.Stop()
 
-	l.Okln("Exiting")
+	l.Infoln("Exiting")
 
 	if runtimeOptions.cpuProfile {
 		pprof.StopCPUProfile()

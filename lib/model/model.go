@@ -189,7 +189,7 @@ func (m *Model) StartFolderRW(folder string) {
 	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	m.fmut.Unlock()
 
-	l.Okln("Ready to synchronize", folder, "(read-write)")
+	l.Infoln("Ready to synchronize", folder, "(read-write)")
 }
 
 func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
@@ -241,7 +241,7 @@ func (m *Model) StartFolderRO(folder string) {
 	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	m.fmut.Unlock()
 
-	l.Okln("Ready to synchronize", folder, "(read only; no external updates accepted)")
+	l.Infoln("Ready to synchronize", folder, "(read only; no external updates accepted)")
 }
 
 func (m *Model) RemoveFolder(folder string) {
