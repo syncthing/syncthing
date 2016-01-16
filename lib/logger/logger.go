@@ -23,7 +23,6 @@ const (
 	LevelDebug LogLevel = iota
 	LevelVerbose
 	LevelInfo
-	LevelOK
 	LevelWarn
 	LevelFatal
 	NumLevels
@@ -42,8 +41,6 @@ type Logger interface {
 	Verbosef(format string, vals ...interface{})
 	Infoln(vals ...interface{})
 	Infof(format string, vals ...interface{})
-	Okln(vals ...interface{})
-	Okf(format string, vals ...interface{})
 	Warnln(vals ...interface{})
 	Warnf(format string, vals ...interface{})
 	Fatalln(vals ...interface{})
@@ -163,24 +160,6 @@ func (l *logger) Infof(format string, vals ...interface{}) {
 	s := fmt.Sprintf(format, vals...)
 	l.logger.Output(2, "INFO: "+s)
 	l.callHandlers(LevelInfo, s)
-}
-
-// Okln logs a line with an OK prefix.
-func (l *logger) Okln(vals ...interface{}) {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	s := fmt.Sprintln(vals...)
-	l.logger.Output(2, "OK: "+s)
-	l.callHandlers(LevelOK, s)
-}
-
-// Okf logs a formatted line with an OK prefix.
-func (l *logger) Okf(format string, vals ...interface{}) {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	s := fmt.Sprintf(format, vals...)
-	l.logger.Output(2, "OK: "+s)
-	l.callHandlers(LevelOK, s)
 }
 
 // Warnln logs a formatted line with a WARNING prefix.

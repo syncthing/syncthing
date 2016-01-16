@@ -19,8 +19,6 @@ func TestAPI(t *testing.T) {
 	l.AddHandler(LevelDebug, checkFunc(t, LevelDebug, &debug))
 	info := 0
 	l.AddHandler(LevelInfo, checkFunc(t, LevelInfo, &info))
-	ok := 0
-	l.AddHandler(LevelOK, checkFunc(t, LevelOK, &ok))
 	warn := 0
 	l.AddHandler(LevelWarn, checkFunc(t, LevelWarn, &warn))
 
@@ -28,19 +26,14 @@ func TestAPI(t *testing.T) {
 	l.Debugln("test", 0)
 	l.Infof("test %d", 1)
 	l.Infoln("test", 1)
-	l.Okf("test %d", 2)
-	l.Okln("test", 2)
 	l.Warnf("test %d", 3)
 	l.Warnln("test", 3)
 
-	if debug != 8 {
+	if debug != 6 {
 		t.Errorf("Debug handler called %d != 8 times", debug)
 	}
-	if info != 6 {
+	if info != 4 {
 		t.Errorf("Info handler called %d != 6 times", info)
-	}
-	if ok != 4 {
-		t.Errorf("Ok handler called %d != 4 times", ok)
 	}
 	if warn != 2 {
 		t.Errorf("Warn handler called %d != 2 times", warn)
