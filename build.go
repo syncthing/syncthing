@@ -255,6 +255,9 @@ func buildTar() {
 		files = append(files, archiveFile{src: file, dst: name + "/" + filepath.Base(file)})
 	}
 
+	if goos == "darwin" {
+		macosCodesign("syncthing")
+	}
 	tarGz(filename, files)
 	log.Println(filename)
 }
@@ -742,4 +745,24 @@ func lint(pkg string) {
 			log.Printf("%s", line)
 		}
 	}
+}
+
+func macosCodesign(file string) {
+	if pass := os.Getenv("CODESIGN_KEYCHAIN_PASS"); pass != "" {
+		bs, err := runError("security", "unlock-keychain", "-p", pass)
+		if err != nil {
+			log.Println("Codesign: unlocking keychain failed:", string(bs))
+			return
+		}
+	}
+
+	if id := os.Getenv("CODESIGN_IDENTITY"); id != "" {
+		bs, err := runError("codesign", "-s", id, file)
+		if err != nil {
+			log.Println("Codesign: signing failed:", string(bs))
+			return
+		}
+	}
+
+	log.Println("Codesign: successfully signed", file)
 }
