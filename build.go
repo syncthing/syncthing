@@ -762,7 +762,6 @@ func macosCodesign(file string) {
 			log.Println("Codesign: signing failed:", string(bs))
 			return
 		}
+		log.Println("Codesign: successfully signed", file)
 	}
-
-	log.Println("Codesign: successfully signed", file)
 }
