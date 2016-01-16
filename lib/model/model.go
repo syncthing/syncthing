@@ -1168,6 +1168,10 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	m.fmut.RLock()
 	files := m.folderFiles[folder]
 	m.fmut.RUnlock()
+	if files == nil {
+		// The folder doesn't exist.
+		return
+	}
 	files.Update(protocol.LocalDeviceID, fs)
 
 	filenames := make([]string, len(fs))
