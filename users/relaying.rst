@@ -103,7 +103,7 @@ system::
     $ sudo useradd relaysrv
     $ sudo mkdir /etc/relaysrv
     $ sudo chown relaysrv /etc/relaysrv
-    $ sudo -u relaysrv /usr/local/relaysrv -keys /etc/relaysrv
+    $ sudo -u relaysrv /usr/local/bin/relaysrv -keys /etc/relaysrv
 
 This creates a user ``relaysrv`` and a directory ``/etc/relaysrv`` to store
 the keys. The keys are generated on first startup. The relay will join the
