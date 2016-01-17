@@ -24,12 +24,10 @@ Team Membership
 ---------------
 
 Contributing useful commits via pull requests will at some point get you
-invited to the `Syncthing core team
-<https://github.com/orgs/syncthing/teams/core>`__. This team gives you push
+invited to the Syncthing core team. This team gives you push
 access to most repositories, subject to the guidelines below.
 
-The `Syncthing maintainers team
-<https://github.com/orgs/syncthing/teams/maintainers>`__ has the same access
+The Syncthing maintainers team has the same access
 permissions, the added responsibility of reviewing major changes, and the
 ability to invite members into the core team.
 
