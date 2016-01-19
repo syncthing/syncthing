@@ -26,6 +26,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -331,33 +332,29 @@ func buildDeb() {
 		}
 	}
 
-	control := `Package: syncthing
-Architecture: {{arch}}
-Depends: libc6
-Version: {{version}}
-Maintainer: Syncthing Release Management <release@syncthing.net>
-Description: Open Source Continuous File Synchronization
-	Syncthing does bidirectional synchronization of files between two or
-	more computers.
-`
-	changelog := `syncthing ({{version}}); urgency=medium
-
-  * Packaging of {{version}}.
-
- -- Jakob Borg <jakob@nym.se>  {{date}}
-`
-
-	control = strings.Replace(control, "{{arch}}", debarch, -1)
-	control = strings.Replace(control, "{{version}}", version[1:], -1)
-	changelog = strings.Replace(changelog, "{{arch}}", debarch, -1)
-	changelog = strings.Replace(changelog, "{{version}}", version[1:], -1)
-	changelog = strings.Replace(changelog, "{{date}}", time.Now().Format(time.RFC1123), -1)
-
 	os.MkdirAll("deb/DEBIAN", 0755)
-	ioutil.WriteFile("deb/DEBIAN/control", []byte(control), 0644)
-	ioutil.WriteFile("deb/DEBIAN/compat", []byte("9\n"), 0644)
-	ioutil.WriteFile("deb/DEBIAN/changelog", []byte(changelog), 0644)
 
+	data := map[string]string{
+		"arch":    debarch,
+		"version": version[1:],
+		"date":    time.Now().Format(time.RFC1123),
+	}
+	for _, file := range listFiles("debian") {
+		tpl, err := template.New(filepath.Base(file)).ParseFiles(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		out, err := os.Create(filepath.Join("deb/DEBIAN", filepath.Base(file)))
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := tpl.Execute(out, data); err != nil {
+			log.Fatal(err)
+		}
+		if err := out.Close(); err != nil {
+			log.Fatal(err)
+		}
+	}
 }
 
 func copyFile(src, dst string, perm os.FileMode) error {
