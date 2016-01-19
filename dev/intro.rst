@@ -40,7 +40,10 @@ the rest once you file a pull request.
 Source Code Layout
 ~~~~~~~~~~~~~~~~~~
 
-In the source repository you'll find a tree of various packages and directories. There is some Go code at the top level, but it's basically scripts for the build system. The actual code lives in the ``cmd/syncthing`` and ``internal`` directories. The web GUI lives in ``gui``. The rest is as follows.
+In the source repository you'll find a tree of various packages and
+directories. There is some Go code at the top level, but it's basically scripts
+for the build system. The actual code lives in the ``cmd/syncthing`` and
+``lib`` directories. The web GUI lives in ``gui``. The rest is as follows.
 
 Godeps/
    Locally vendored copies of external dependencies.
