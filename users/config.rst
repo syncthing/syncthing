@@ -285,6 +285,15 @@ IPv6 address and port (``[2001:db8::23:42]:12345``)
 ``dynamic``
     The word ``dynamic`` means to use local and global discovery to find the
     device.
+    
+IgnoredDevice Element
+---------------------
+
+.. code-block:: xml
+
+    <ignoredDevice>5SYI2FS-LW6YAXI-JJDYETS-NDBBPIO-256MWBO-XDPXWVG-24QPUM4-PDW4UQU</ignoredDevice>
+
+This optional element lists device IDs that have been specifically ignored. One element must be present for each device ID. Connection attempts from these devices are logged to the console but never displayed in the web GUI.
 
 GUI Element
 -----------
