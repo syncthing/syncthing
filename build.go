@@ -344,7 +344,8 @@ func buildDeb() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		out, err := os.Create(filepath.Join("deb/DEBIAN", filepath.Base(file)))
+		outFile := filepath.Join("deb/DEBIAN", filepath.Base(file))
+		out, err := os.Create(outFile)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -354,6 +355,8 @@ func buildDeb() {
 		if err := out.Close(); err != nil {
 			log.Fatal(err)
 		}
+		info, _ := os.Lstat(file)
+		os.Chmod(outFile, info.Mode())
 	}
 }
 
