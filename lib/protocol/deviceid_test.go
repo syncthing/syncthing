@@ -88,3 +88,11 @@ func TestShortIDString(t *testing.T) {
 		t.Errorf("Wrong short ID: got %q, want %q", sid, want)
 	}
 }
+
+func TestDeviceIDFromBytes(t *testing.T) {
+	id0, _ := DeviceIDFromString(formatted)
+	id1 := DeviceIDFromBytes(id0[:])
+	if id1.String() != formatted {
+		t.Errorf("Wrong device ID, got %q, want %q", id1, formatted)
+	}
+}

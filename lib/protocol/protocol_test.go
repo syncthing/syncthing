@@ -36,13 +36,33 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestHeaderFunctions(t *testing.T) {
+func TestHeaderEncodeDecode(t *testing.T) {
 	f := func(ver, id, typ int) bool {
 		ver = int(uint(ver) % 16)
 		id = int(uint(id) % 4096)
 		typ = int(uint(typ) % 256)
 		h0 := header{version: ver, msgID: id, msgType: typ}
 		h1 := decodeHeader(encodeHeader(h0))
+		return h0 == h1
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestHeaderMarshalUnmarshal(t *testing.T) {
+	f := func(ver, id, typ int) bool {
+		ver = int(uint(ver) % 16)
+		id = int(uint(id) % 4096)
+		typ = int(uint(typ) % 256)
+		buf := new(bytes.Buffer)
+		xw := xdr.NewWriter(buf)
+		h0 := header{version: ver, msgID: id, msgType: typ}
+		h0.encodeXDR(xw)
+
+		xr := xdr.NewReader(buf)
+		var h1 header
+		h1.decodeXDR(xr)
 		return h0 == h1
 	}
 	if err := quick.Check(f, nil); err != nil {
@@ -319,5 +339,49 @@ func timeoutWriteHeader(w *xdr.Writer, hdr header) {
 	select {
 	case <-done:
 	case <-time.After(250 * time.Millisecond):
+	}
+}
+
+func TestFileInfoSize(t *testing.T) {
+	fi := FileInfo{
+		Blocks: []BlockInfo{
+			{Size: 42},
+			{Offset: 42, Size: 23},
+			{Offset: 42 + 23, Size: 34},
+		},
+	}
+
+	size := fi.Size()
+	want := int64(42 + 23 + 34)
+	if size != want {
+		t.Errorf("Incorrect size reported, got %d, want %d", size, want)
+	}
+
+	size = fi.Size() // Cached, this time
+	if size != want {
+		t.Errorf("Incorrect cached size reported, got %d, want %d", size, want)
+	}
+
+	fi.CachedSize = 8
+	want = 8
+	size = fi.Size() // Ensure it came from the cache
+	if size != want {
+		t.Errorf("Incorrect cached size reported, got %d, want %d", size, want)
+	}
+
+	fi.CachedSize = 0
+	fi.Flags = FlagDirectory
+	want = 128
+	size = fi.Size() // Directories are 128 bytes large
+	if size != want {
+		t.Errorf("Incorrect cached size reported, got %d, want %d", size, want)
+	}
+
+	fi.CachedSize = 0
+	fi.Flags = FlagDeleted
+	want = 128
+	size = fi.Size() // Also deleted files
+	if size != want {
+		t.Errorf("Incorrect cached size reported, got %d, want %d", size, want)
 	}
 }
