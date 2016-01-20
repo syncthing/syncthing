@@ -1208,7 +1208,7 @@ func cleanConfigDirectory() {
 // short ID:s; that is, that the devices in the cluster all have unique
 // initial 64 bits.
 func checkShortIDs(cfg *config.Wrapper) error {
-	exists := make(map[uint64]protocol.DeviceID)
+	exists := make(map[protocol.ShortID]protocol.DeviceID)
 	for deviceID := range cfg.Devices() {
 		shortID := deviceID.Short()
 		if otherID, ok := exists[shortID]; ok {

@@ -10,31 +10,31 @@ type Vector []Counter
 
 // Counter represents a single counter in the version vector.
 type Counter struct {
-	ID    uint64
+	ID    ShortID
 	Value uint64
 }
 
 // Update returns a Vector with the index for the specific ID incremented by
 // one. If it is possible, the vector v is updated and returned. If it is not,
 // a copy will be created, updated and returned.
-func (v Vector) Update(ID uint64) Vector {
+func (v Vector) Update(id ShortID) Vector {
 	for i := range v {
-		if v[i].ID == ID {
+		if v[i].ID == id {
 			// Update an existing index
 			v[i].Value++
 			return v
-		} else if v[i].ID > ID {
+		} else if v[i].ID > id {
 			// Insert a new index
 			nv := make(Vector, len(v)+1)
 			copy(nv, v[:i])
-			nv[i].ID = ID
+			nv[i].ID = id
 			nv[i].Value = 1
 			copy(nv[i+1:], v[i:])
 			return nv
 		}
 	}
 	// Append a new index
-	return append(v, Counter{ID, 1})
+	return append(v, Counter{id, 1})
 }
 
 // Merge returns the vector containing the maximum indexes from v and b. If it
@@ -105,7 +105,7 @@ func (v Vector) Concurrent(b Vector) bool {
 }
 
 // Counter returns the current value of the given counter ID.
-func (v Vector) Counter(id uint64) uint64 {
+func (v Vector) Counter(id ShortID) uint64 {
 	for _, c := range v {
 		if c.ID == id {
 			return c.Value

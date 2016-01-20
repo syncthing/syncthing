@@ -67,7 +67,7 @@ type Model struct {
 	finder            *db.BlockFinder
 	progressEmitter   *ProgressEmitter
 	id                protocol.DeviceID
-	shortID           uint64
+	shortID           protocol.ShortID
 	cacheIgnoredFiles bool
 	protectedFiles    []string
 

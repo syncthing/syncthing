@@ -87,7 +87,7 @@ type rwFolder struct {
 	ignorePerms    bool
 	copiers        int
 	pullers        int
-	shortID        uint64
+	shortID        protocol.ShortID
 	order          config.PullOrder
 	maxConflicts   int
 	sleep          time.Duration
@@ -108,7 +108,7 @@ type rwFolder struct {
 	errorsMut sync.Mutex
 }
 
-func newRWFolder(m *Model, shortID uint64, cfg config.FolderConfiguration) *rwFolder {
+func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfiguration) *rwFolder {
 	p := &rwFolder{
 		stateTracker: stateTracker{
 			folder: cfg.ID,
