@@ -56,7 +56,7 @@ func FetchLatestReleases(releasesURL, version string) []Release {
 		return nil
 	}
 	if resp.StatusCode > 299 {
-		l.Infoln("API call returned HTTP error: %s", resp.Status)
+		l.Infoln("API call returned HTTP error:", resp.Status)
 		return nil
 	}
 
