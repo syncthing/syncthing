@@ -1323,7 +1323,7 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 	var unifySubs []string
 nextSub:
 	for _, sub := range subs {
-		for sub != "" {
+		for sub != "" && sub != ".stfolder" && sub != ".stignore" {
 			if _, ok = fs.Get(protocol.LocalDeviceID, sub); ok {
 				break
 			}
