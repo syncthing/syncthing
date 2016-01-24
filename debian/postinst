@@ -2,5 +2,5 @@
 set -euo pipefail
 
 if [[ ${1:-} == configure ]]; then
-	pkill -x -HUP syncthing || true
+	pkill -HUP -x syncthing || true
 fi
