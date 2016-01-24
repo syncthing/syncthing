@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "January 01, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "January 20, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -624,7 +624,7 @@ ready to start exchanging data with other devices.
 .SS StateChanged
 .sp
 Emitted when a folder changes state. Possible states are \fBidle\fP,
-\fBscanning\fP, \fBcleaning\fP and \fBsyncing\fP\&. The field \fBduration\fP is
+\fBscanning\fP, \fBsyncing\fP and \fBerror\fP\&. The field \fBduration\fP is
 the number of seconds the folder spent in state \fBfrom\fP\&. In the example
 below, the folder \fBdefault\fP was in state \fBscanning\fP for 0.198
 seconds and is now in state \fBidle\fP\&.
