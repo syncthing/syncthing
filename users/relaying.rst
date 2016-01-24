@@ -117,7 +117,7 @@ Running on port 443 as an unprivileged user
 
 It is recommended that you run the relay on port 443 (or another port which is
 commonly allowed through corporate firewalls), in order to maximise the chances
-that people are able to connect. However, binding to ports below 1000 requires
+that people are able to connect. However, binding to ports below 1024 requires
 root privileges, and running a relay as root is not recommended. Thankfully
 there are a couple of approaches available to you.
 
