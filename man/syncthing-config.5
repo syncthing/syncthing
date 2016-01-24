@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "January 01, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "January 20, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -194,7 +194,8 @@ True if the folder is read only (Master mode; will not be modified by
 Syncthing) on this device.
 .TP
 .B rescanIntervalS
-The rescan interval, in seconds.
+The rescan interval, in seconds. Can be set to zero to disable when external
+plugins are used to trigger rescans.
 .TP
 .B ignorePerms
 True if the folder should ignore permissions.
@@ -347,6 +348,19 @@ square brackets.
 The word \fBdynamic\fP means to use local and global discovery to find the
 device.
 .UNINDENT
+.SH IGNOREDDEVICE ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<ignoredDevice>5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU</ignoredDevice>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+This optional element lists device IDs that have been specifically ignored. One element must be present for each device ID. Connection attempts from these devices are logged to the console but never displayed in the web GUI.
 .SH GUI ELEMENT
 .INDENT 0.0
 .INDENT 3.5
@@ -527,7 +541,7 @@ Attempt to renew the lease after this many minutes.
 When scanning for UPnP devices, wait this long for responses.
 .TP
 .B urAccepted
-Whether the user as accepted to submit anonymous usage data. The default,
+Whether the user has accepted to submit anonymous usage data. The default,
 \fB0\fP, mean the user has not made a choice, and Syncthing will ask at some
 point in the future. \fB\-1\fP means no, a number above zero means that that
 version of usage reporting has been accepted.
@@ -540,7 +554,7 @@ reporting is enabled.
 The URL to post usage report data to, when enabled.
 .TP
 .B urPostInsecurely
-When true, the UR URL can be http instead of https, or have a self signed
+When true, the UR URL can be http instead of https, or have a self\-signed
 certificate. The default is \fBfalse\fP\&.
 .TP
 .B urInitialDelayS
@@ -564,13 +578,8 @@ Whether to cache the results of ignore pattern evaluation. Performance at
 the price of memory.
 .TP
 .B progressUpdateIntervalS
-.
-\fBNOTE:\fP
-.INDENT 7.0
-.INDENT 3.5
-Requires explanation.
-.UNINDENT
-.UNINDENT
+How often in seconds the progress of ongoing downloads is made available to
+the GUI.
 .TP
 .B symlinksEnabled
 Whether to sync symlinks, if supported by the system.
@@ -586,10 +595,10 @@ unless you\(aqre very short on memory, in which case you want to set this to
 .TP
 .B pingTimeoutS
 Ping\-timeout in seconds. Don\(aqt change it unless you are having issues due to
-slow response time (slow connection/cpu) and large index exchanges
+slow response time (slow connection/cpu) and large index exchanges.
 .TP
 .B pingIdleTimeS
-ping interval in seconds. Don\(aqt change it unless you feel it\(aqs necessary.
+Ping interval in seconds. Don\(aqt change it unless you feel it\(aqs necessary.
 .TP
 .B minHomeDiskFreePct
 The percentage of space that should be available on the partition holding
@@ -605,7 +614,7 @@ using the same configuration files) can cause issues. This is easy to do
 accidentally if you sync your home folder between devices. A common symptom
 of syncing configuration files is two devices ending up with the same Device ID.
 .sp
-If you want to use syncthing to backup your configuration files, it is recommended
+If you want to use Syncthing to backup your configuration files, it is recommended
 that the files you are backing up are in a folder\-master to prevent other
 devices from overwriting the per device configuration. The folder on the remote
 device(s) should not be used as configuration for the remote devices.
