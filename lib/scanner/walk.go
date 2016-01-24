@@ -69,7 +69,7 @@ type Walker struct {
 	// Number of routines to use for hashing
 	Hashers int
 	// Our vector clock id
-	ShortID uint64
+	ShortID protocol.ShortID
 	// Optional progress tick interval which defines how often FolderScanProgress
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int

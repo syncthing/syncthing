@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "January 17, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "January 20, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -348,6 +348,19 @@ square brackets.
 The word \fBdynamic\fP means to use local and global discovery to find the
 device.
 .UNINDENT
+.SH IGNOREDDEVICE ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<ignoredDevice>5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU</ignoredDevice>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+This optional element lists device IDs that have been specifically ignored. One element must be present for each device ID. Connection attempts from these devices are logged to the console but never displayed in the web GUI.
 .SH GUI ELEMENT
 .INDENT 0.0
 .INDENT 3.5

@@ -67,7 +67,7 @@ type Model struct {
 	finder            *db.BlockFinder
 	progressEmitter   *ProgressEmitter
 	id                protocol.DeviceID
-	shortID           uint64
+	shortID           protocol.ShortID
 	cacheIgnoredFiles bool
 	protectedFiles    []string
 
@@ -1323,15 +1323,14 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 	var unifySubs []string
 nextSub:
 	for _, sub := range subs {
-		for sub != "" {
-			parent := filepath.Dir(sub)
-			if parent == "." || parent == string(filepath.Separator) {
-				parent = ""
-			}
-			if _, ok = fs.Get(protocol.LocalDeviceID, parent); ok {
+		for sub != "" && sub != ".stfolder" && sub != ".stignore" {
+			if _, ok = fs.Get(protocol.LocalDeviceID, sub); ok {
 				break
 			}
-			sub = parent
+			sub = filepath.Dir(sub)
+			if sub == "." || sub == string(filepath.Separator) {
+				sub = ""
+			}
 		}
 		for _, us := range unifySubs {
 			if strings.HasPrefix(sub, us) {
@@ -1959,7 +1958,16 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
-	// All of the generic options require restart
+	// Some options don't require restart as those components handle it fine
+	// by themselves.
+	from.Options.URAccepted = to.Options.URAccepted
+	from.Options.URUniqueID = to.Options.URUniqueID
+	// All of the other generic options require restart. Or at least they may;
+	// removing this check requires going through those options carefully and
+	// making sure there are individual services that handle them correctly.
+	// This code is the "original" requires-restart check and protects other
+	// components that haven't yet been converted to VerifyConfig/CommitConfig
+	// handling.
 	if !reflect.DeepEqual(from.Options, to.Options) {
 		l.Debugln(m, "requires restart, options differ")
 		return false

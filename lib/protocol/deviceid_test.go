@@ -74,3 +74,25 @@ func TestMarshallingDeviceID(t *testing.T) {
 		t.Error("Compare error")
 	}
 }
+
+func TestShortIDString(t *testing.T) {
+	id, _ := DeviceIDFromString(formatted)
+
+	sid := id.Short().String()
+	if len(sid) != 7 {
+		t.Errorf("Wrong length for short ID: got %d, want 7", len(sid))
+	}
+
+	want := formatted[:len(sid)]
+	if sid != want {
+		t.Errorf("Wrong short ID: got %q, want %q", sid, want)
+	}
+}
+
+func TestDeviceIDFromBytes(t *testing.T) {
+	id0, _ := DeviceIDFromString(formatted)
+	id1 := DeviceIDFromBytes(id0[:])
+	if id1.String() != formatted {
+		t.Errorf("Wrong device ID, got %q, want %q", id1, formatted)
+	}
+}

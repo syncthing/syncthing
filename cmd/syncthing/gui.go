@@ -1220,7 +1220,7 @@ type jsonVersionVector protocol.Vector
 func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
 	res := make([]string, len(v))
 	for i, c := range v {
-		res[i] = fmt.Sprintf("%d:%d", c.ID, c.Value)
+		res[i] = fmt.Sprintf("%v:%d", c.ID, c.Value)
 	}
 	return json.Marshal(res)
 }

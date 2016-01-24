@@ -1,0 +1,8 @@
+Package: syncthing
+Architecture: {{.arch}}
+Depends: libc6, procps
+Version: {{.version}}
+Maintainer: Syncthing Release Management <release@syncthing.net>
+Description: Open Source Continuous File Synchronization
+	Syncthing does bidirectional synchronization of files between two or
+	more computers.

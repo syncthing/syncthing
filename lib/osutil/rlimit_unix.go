@@ -13,7 +13,7 @@ import "syscall"
 // MaximizeOpenFileLimit tries to set the resoure limit RLIMIT_NOFILE (number
 // of open file descriptors) to the max (hard limit), if the current (soft
 // limit) is below the max. Returns the new (though possibly unchanged) limit,
-// or an error if it was could not be changed.
+// or an error if it could not be changed.
 func MaximizeOpenFileLimit() (int, error) {
 	// Get the current limit on number of open files.
 	var lim syscall.Rlimit

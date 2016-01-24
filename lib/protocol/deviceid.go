@@ -16,6 +16,7 @@ import (
 )
 
 type DeviceID [32]byte
+type ShortID uint64
 
 var LocalDeviceID = DeviceID{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
@@ -69,12 +70,18 @@ func (n DeviceID) Equals(other DeviceID) bool {
 }
 
 // Short returns an integer representing bits 0-63 of the device ID.
-func (n DeviceID) Short() uint64 {
-	return binary.BigEndian.Uint64(n[:])
+func (n DeviceID) Short() ShortID {
+	return ShortID(binary.BigEndian.Uint64(n[:]))
 }
 
 func (n *DeviceID) MarshalText() ([]byte, error) {
 	return []byte(n.String()), nil
+}
+
+func (s ShortID) String() string {
+	var bs [8]byte
+	binary.BigEndian.PutUint64(bs[:], uint64(s))
+	return base32.StdEncoding.EncodeToString(bs[:])[:7]
 }
 
 func (n *DeviceID) UnmarshalText(bs []byte) error {

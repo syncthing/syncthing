@@ -21,7 +21,7 @@ type xdrReader interface {
 func (v Vector) EncodeXDRInto(w xdrWriter) (int, error) {
 	w.WriteUint32(uint32(len(v)))
 	for i := range v {
-		w.WriteUint64(v[i].ID)
+		w.WriteUint64(uint64(v[i].ID))
 		w.WriteUint64(v[i].Value)
 	}
 	return 4 + 16*len(v), nil
@@ -35,7 +35,7 @@ func (v *Vector) DecodeXDRFrom(r xdrReader) error {
 	}
 	n := make(Vector, l)
 	for i := range n {
-		n[i].ID = r.ReadUint64()
+		n[i].ID = ShortID(r.ReadUint64())
 		n[i].Value = r.ReadUint64()
 	}
 	*v = n
