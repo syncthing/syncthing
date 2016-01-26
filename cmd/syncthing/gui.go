@@ -240,6 +240,9 @@ func (s *apiService) Serve() {
 	// protected, other requests will grant cookies.
 	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg.APIKey(), mux)
 
+	// Add the CORS handling
+	handler = corsMiddleware(handler)
+
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
 
@@ -375,6 +378,37 @@ func debugMiddleware(h http.Handler) http.Handler {
 	})
 }
 
+func corsMiddleware(next http.Handler) http.Handler {
+	// Handle CORS headers and CORS OPTIONS request.
+	// CORS OPTIONS request are typically sent by browser during AJAX preflight
+	// when the browser initiate a POST request.
+	// See https://www.w3.org/TR/cors/ for details.
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Add a generous access-control-allow-origin header since we may be
+		// redirecting REST requests over protocols
+		w.Header().Add("Access-Control-Allow-Origin", "*")
+
+		// Process OPTIONS requests
+		if r.Method == "OPTIONS" {
+			// Only GET/POST Methods are supported
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
+			// Only this custom header can be set
+			w.Header().Set("Access-Control-Allow-Headers", "X-API-Key")
+			// The request is meant to be cached 10 minutes
+			w.Header().Set("Access-Control-Max-Age", "600")
+
+			// Indicate that no content will be returned
+			w.WriteHeader(204)
+
+			return
+		}
+
+		// For everything else, pass to the next handler
+		next.ServeHTTP(w, r)
+		return
+	})
+}
+
 func metricsMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t := metrics.GetOrRegisterTimer(r.URL.Path, nil)
@@ -386,10 +420,6 @@ func metricsMiddleware(h http.Handler) http.Handler {
 
 func redirectToHTTPSMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Add a generous access-control-allow-origin header since we may be
-		// redirecting REST requests over protocols
-		w.Header().Add("Access-Control-Allow-Origin", "*")
-
 		if r.TLS == nil {
 			// Redirect HTTP requests to HTTPS
 			r.URL.Host = r.Host

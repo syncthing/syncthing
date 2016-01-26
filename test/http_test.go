@@ -172,6 +172,24 @@ func TestGetJSON(t *testing.T) {
 	}
 }
 
+func TestOptions(t *testing.T) {
+	p := startInstance(t, 2)
+	defer checkedStop(t, p)
+
+	req, err := http.NewRequest("OPTIONS", "http://127.0.0.1:8082/rest/system/error/clear", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 204 {
+		t.Fatalf("Status %d != 204 for OPTIONS", res.StatusCode)
+	}
+}
+
 func TestPOSTWithoutCSRF(t *testing.T) {
 	p := startInstance(t, 2)
 	defer checkedStop(t, p)
