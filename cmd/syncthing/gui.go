@@ -241,7 +241,7 @@ func (s *apiService) Serve() {
 	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg.APIKey(), mux)
 
 	// Add the CORS handling
-	handler = corsMiddleware(handler);
+	handler = corsMiddleware(handler)
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
@@ -398,9 +398,9 @@ func corsMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Max-Age", "600")
 
 			// Indicate that no content will be returned
-			w.WriteHeader(204);
+			w.WriteHeader(204)
 
-			return;
+			return
 		}
 
 		// For everything else, pass to the next handler
