@@ -424,7 +424,7 @@ func redirectToHTTPSMiddleware(h http.Handler) http.Handler {
 			// Redirect HTTP requests to HTTPS
 			r.URL.Host = r.Host
 			r.URL.Scheme = "https"
-			http.Redirect(w, r, r.URL.String(), http.StatusFound)
+			http.Redirect(w, r, r.URL.String(), http.StatusTemporaryRedirect)
 		} else {
 			h.ServeHTTP(w, r)
 		}
