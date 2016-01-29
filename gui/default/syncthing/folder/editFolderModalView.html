@@ -92,6 +92,9 @@
                   <option value="external" translate>External File Versioning</option>
                 </select>
               </div>
+              <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='none'">
+                 <p translate class="help-block">Caution! Old versions of files will not be kept.</p>
+              </div>
               <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='trashcan'" ng-class="{'has-error': folderEditor.trashcanClean.$invalid && folderEditor.trashcanClean.$dirty}">
                 <p translate class="help-block">Files are moved to .stversions folder when replaced or deleted by Syncthing.</p>
                 <label translate for="trashcanClean">Clean out after</label>
