@@ -478,7 +478,7 @@ func upgradeViaRest() error {
 	cfg, _ := loadConfig()
 	target := cfg.GUI().URL()
 	r, _ := http.NewRequest("POST", target+"/rest/system/upgrade", nil)
-	r.Header.Set("X-API-Key", cfg.GUI().APIKey())
+	r.Header.Set("X-API-Key", cfg.GUI().RawAPIKey)
 
 	tr := &http.Transport{
 		Dial:            dialer.Dial,
