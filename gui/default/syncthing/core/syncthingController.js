@@ -1531,6 +1531,9 @@ angular.module('syncthing.core')
             if (key.substr(0, 1) === '_') {
                 return 'skip';
             }
+            if (value === null) {
+                return 'null';
+            }
             if (typeof value === 'number') {
                 return 'number';
             }
