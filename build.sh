@@ -63,6 +63,7 @@ case "${1:-default}" in
 		;;
 
 	prerelease)
+		go run script/authors.go
 		build transifex
 		git add -A gui/default/assets/ lib/auto/
 		pushd man ; ./refresh.sh ; popd
