@@ -46,3 +46,21 @@ func DialTimeout(network, addr string, timeout time.Duration) (net.Conn, error) 
 	}
 	return net.DialTimeout(network, addr, timeout)
 }
+
+// SetTCPOptions sets syncthings default TCP options on a TCP connection
+func SetTCPOptions(conn *net.TCPConn) error {
+	var err error
+	if err = conn.SetLinger(0); err != nil {
+		return err
+	}
+	if err = conn.SetNoDelay(false); err != nil {
+		return err
+	}
+	if err = conn.SetKeepAlivePeriod(60 * time.Second); err != nil {
+		return err
+	}
+	if err = conn.SetKeepAlive(true); err != nil {
+		return err
+	}
+	return nil
+}
