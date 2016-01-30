@@ -9,11 +9,6 @@ Building Syncthing
     of it. For all other purposes we recommend using the the official binary
     releases instead.
 
-.. note::
-    If you're on Linux and want the quickest possible start, check out
-    :ref:`building-with-docker`. Otherwise follow the guide below to set up the
-    development environment on your computer.
-
 Branches and Tags
 -----------------
 
@@ -156,29 +151,3 @@ well to prevent the built in upgrade system from being activated.
 ``go run build.go -version v0.10.26 -no-upgrade tar``
   Builds a tar.gz distribution of syncthing for the current OS/arch, tagged as
   ``v0.10.26``, with upgrades disabled.
-
-.. _building-with-docker:
-
-Building with Docker
---------------------
-
-The Docker based build image exactly replicates the official build
-process and is a quick way to get up and running with the full cross
-compiled setup. Start by getting the build image. It is fairly large
-(about 2 GiB).
-
-::
-
-    $ docker pull syncthing/build:latest
-
-Then check out and build Syncthing.
-
-::
-
-    $ git clone https://github.com/syncthing/syncthing
-    $ cd syncthing
-    $ ./build.sh docker-all
-
-A full build is done for all supported architectures, and tests are run.
-The process should end with a bunch of release files (``.tar.gz`` and
-``.zip``) created.
