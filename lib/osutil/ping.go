@@ -7,20 +7,18 @@
 package osutil
 
 import (
-	"net"
 	"net/url"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/dialer"
 )
 
 // TCPPing returns the duration required to establish a TCP connection
 // to the given host. ICMP packets require root priviledges, hence why we use
 // tcp.
 func TCPPing(address string) (time.Duration, error) {
-	dialer := net.Dialer{
-		Deadline: time.Now().Add(time.Second),
-	}
 	start := time.Now()
-	conn, err := dialer.Dial("tcp", address)
+	conn, err := dialer.DialTimeout("tcp", address, time.Second)
 	if conn != nil {
 		conn.Close()
 	}

@@ -14,7 +14,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/model"
-	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func init() {
@@ -72,7 +71,7 @@ func tcpListener(uri *url.URL, tlsCfg *tls.Config, conns chan<- model.Intermedia
 
 		l.Debugln("connect from", conn.RemoteAddr())
 
-		err = osutil.SetTCPOptions(conn.(*net.TCPConn))
+		err = dialer.SetTCPOptions(conn.(*net.TCPConn))
 		if err != nil {
 			l.Infoln(err)
 		}
