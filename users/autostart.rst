@@ -28,6 +28,7 @@ Task Scheduler
     #. Click "New..."
     #. [Action] should be set as "Start a program"
     #. Enter the path to syncthing.exe in "Program/Script"
+    #. (optional) Enter "-no-console -no-browser" for "Add arguments (optional)"
     #. Click "OK"
 #. Settings Tab:
     #. (recommended) Keep the checkbox on "Allow task to be run on demand"
