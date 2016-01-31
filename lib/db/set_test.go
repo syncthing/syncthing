@@ -9,6 +9,7 @@ package db_test
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -619,4 +620,35 @@ func TestLongPath(t *testing.T) {
 		t.Errorf("Incorrect long filename;\n%q !=\n%q",
 			gf[0].Name, local[0].Name)
 	}
+}
+
+func BenchmarkUpdateOneFile(b *testing.B) {
+	local0 := fileList{
+		protocol.FileInfo{Name: "a", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(1)},
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(3)},
+		protocol.FileInfo{Name: "d", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(4)},
+		// A longer name is more realistic and causes more allocations
+		protocol.FileInfo{Name: "zajksdhaskjdh/askjdhaskjdashkajshd/kasjdhaskjdhaskdjhaskdjash/dkjashdaksjdhaskdjahskdjh", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(8)},
+	}
+
+	ldb, err := db.Open("testdata/benchmarkupdate.db")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer func() {
+		ldb.Close()
+		os.RemoveAll("testdata/benchmarkupdate.db")
+	}()
+
+	m := db.NewFileSet("test", ldb)
+	m.Replace(protocol.LocalDeviceID, local0)
+	l := local0[4:5]
+
+	for i := 0; i < b.N; i++ {
+		l[0].Version = l[0].Version.Update(myID)
+		m.Update(protocol.LocalDeviceID, local0)
+	}
+
+	b.ReportAllocs()
 }

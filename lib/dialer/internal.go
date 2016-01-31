@@ -17,7 +17,6 @@ import (
 	"golang.org/x/net/proxy"
 
 	"github.com/syncthing/syncthing/lib/logger"
-	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 var (
@@ -55,7 +54,7 @@ func dialWithFallback(proxyDialFunc dialFunc, fallbackDialFunc dialFunc, network
 	if err == nil {
 		l.Debugf("Dialing %s address %s via proxy - success, %s -> %s", network, addr, conn.LocalAddr(), conn.RemoteAddr())
 		if tcpconn, ok := conn.(*net.TCPConn); ok {
-			osutil.SetTCPOptions(tcpconn)
+			SetTCPOptions(tcpconn)
 		}
 		return dialerConn{
 			conn, newDialerAddr(network, addr),
@@ -67,7 +66,7 @@ func dialWithFallback(proxyDialFunc dialFunc, fallbackDialFunc dialFunc, network
 	if err == nil {
 		l.Debugf("Dialing %s address %s via fallback - success, %s -> %s", network, addr, conn.LocalAddr(), conn.RemoteAddr())
 		if tcpconn, ok := conn.(*net.TCPConn); ok {
-			osutil.SetTCPOptions(tcpconn)
+			SetTCPOptions(tcpconn)
 		}
 	} else {
 		l.Debugf("Dialing %s address %s via fallback - error %s", network, addr, err)
