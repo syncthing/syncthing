@@ -126,6 +126,8 @@ by a sysadmin who knows enough to understand the security implications.
 #. Connect to the Syncthing UI, enable HTTPS, and set a secure username
    and password.
 
+Please note the configuration directory under this method is located under ``C:\Windows\System32\config\systemprofile\AppData\Local\Syncthing``
+
 Mac OS X
 --------
 
