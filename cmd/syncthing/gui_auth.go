@@ -33,9 +33,8 @@ func emitLoginAttempt(success bool, username string) {
 }
 
 func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguration, next http.Handler) http.Handler {
-	apiKey := cfg.APIKey()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if apiKey != "" && r.Header.Get("X-API-Key") == apiKey {
+		if cfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
 			return
 		}

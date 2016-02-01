@@ -238,7 +238,7 @@ func (s *apiService) Serve() {
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg.APIKey(), mux)
+	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg, mux)
 
 	// Add the CORS handling
 	handler = corsMiddleware(handler)
