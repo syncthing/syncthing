@@ -893,8 +893,10 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request) {
 
 	s.fss.gotEventRequest()
 
-	// Flush before blocking, to indicate that we've received the request
-	// and that it should not be retried.
+	// Flush before blocking, to indicate that we've received the request and
+	// that it should not be retried. Must set Content-Type header before
+	// flushing.
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	f := w.(http.Flusher)
 	f.Flush()
 
