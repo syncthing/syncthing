@@ -18,7 +18,7 @@ type GUIConfiguration struct {
 	User                string `xml:"user,omitempty" json:"user"`
 	Password            string `xml:"password,omitempty" json:"password"`
 	RawUseTLS           bool   `xml:"tls,attr" json:"useTLS"`
-	RawAPIKey           string `xml:"apikey,omitempty" json:"apiKey"`
+	APIKey              string `xml:"apikey,omitempty" json:"apiKey"`
 	InsecureAdminAccess bool   `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
 	Theme               string `xml:"theme" json:"theme" default:"default"`
 }
@@ -76,14 +76,14 @@ func (c GUIConfiguration) URL() string {
 	return u.String()
 }
 
-// Returns whether the given API key is valid, including both the value in config
-// and any overrides
+// IsValidAPIKey returns true when the given API key is valid, including both
+// the value in config and any overrides
 func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 	switch apiKey {
 	case "":
 		return false
 
-	case c.RawAPIKey, os.Getenv("STGUIAPIKEY"):
+	case c.APIKey, os.Getenv("STGUIAPIKEY"):
 		return true
 
 	default:

@@ -485,7 +485,7 @@ func TestCopy(t *testing.T) {
 	cfg.Devices[0].Addresses[0] = "wrong"
 	cfg.Folders[0].Devices[0].DeviceID = protocol.DeviceID{0, 1, 2, 3}
 	cfg.Options.ListenAddress[0] = "wrong"
-	cfg.GUI.RawAPIKey = "wrong"
+	cfg.GUI.APIKey = "wrong"
 
 	bsChanged, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
