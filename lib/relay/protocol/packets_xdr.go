@@ -5,9 +5,6 @@
 package protocol
 
 import (
-	"bytes"
-	"io"
-
 	"github.com/calmh/xdr"
 )
 
@@ -34,13 +31,14 @@ struct header {
 
 */
 
-func (o header) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+func (o header) XDRSize() int {
+	return 4 + 4 + 4
 }
 
 func (o header) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	buf := make([]byte, o.XDRSize())
+	m := &xdr.Marshaller{Data: buf}
+	return buf, o.MarshalXDRInto(m)
 }
 
 func (o header) MustMarshalXDR() []byte {
@@ -51,36 +49,22 @@ func (o header) MustMarshalXDR() []byte {
 	return bs
 }
 
-func (o header) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
-}
-
-func (o header) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	xw.WriteUint32(o.magic)
-	xw.WriteUint32(uint32(o.messageType))
-	xw.WriteUint32(uint32(o.messageLength))
-	return xw.Tot(), xw.Error()
-}
-
-func (o *header) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+func (o header) MarshalXDRInto(m *xdr.Marshaller) error {
+	m.MarshalUint32(o.magic)
+	m.MarshalUint32(uint32(o.messageType))
+	m.MarshalUint32(uint32(o.messageLength))
+	return m.Error
 }
 
 func (o *header) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	u := &xdr.Unmarshaller{Data: bs}
+	return o.UnmarshalXDRFrom(u)
 }
-
-func (o *header) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.magic = xr.ReadUint32()
-	o.messageType = int32(xr.ReadUint32())
-	o.messageLength = int32(xr.ReadUint32())
-	return xr.Error()
+func (o *header) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	o.magic = u.UnmarshalUint32()
+	o.messageType = int32(u.UnmarshalUint32())
+	o.messageLength = int32(u.UnmarshalUint32())
+	return u.Error
 }
 
 /*
@@ -94,10 +78,9 @@ struct Ping {
 
 */
 
-func (o Ping) EncodeXDR(w io.Writer) (int, error) {
-	return 0, nil
+func (o Ping) XDRSize() int {
+	return 0
 }
-
 func (o Ping) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
@@ -106,15 +89,7 @@ func (o Ping) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (o Ping) AppendXDR(bs []byte) ([]byte, error) {
-	return bs, nil
-}
-
-func (o Ping) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	return xw.Tot(), xw.Error()
-}
-
-func (o *Ping) DecodeXDR(r io.Reader) error {
+func (o Ping) MarshalXDRInto(m *xdr.Marshaller) error {
 	return nil
 }
 
@@ -122,8 +97,8 @@ func (o *Ping) UnmarshalXDR(bs []byte) error {
 	return nil
 }
 
-func (o *Ping) DecodeXDRFrom(xr *xdr.Reader) error {
-	return xr.Error()
+func (o *Ping) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	return nil
 }
 
 /*
@@ -137,10 +112,9 @@ struct Pong {
 
 */
 
-func (o Pong) EncodeXDR(w io.Writer) (int, error) {
-	return 0, nil
+func (o Pong) XDRSize() int {
+	return 0
 }
-
 func (o Pong) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
@@ -149,15 +123,7 @@ func (o Pong) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (o Pong) AppendXDR(bs []byte) ([]byte, error) {
-	return bs, nil
-}
-
-func (o Pong) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	return xw.Tot(), xw.Error()
-}
-
-func (o *Pong) DecodeXDR(r io.Reader) error {
+func (o Pong) MarshalXDRInto(m *xdr.Marshaller) error {
 	return nil
 }
 
@@ -165,8 +131,8 @@ func (o *Pong) UnmarshalXDR(bs []byte) error {
 	return nil
 }
 
-func (o *Pong) DecodeXDRFrom(xr *xdr.Reader) error {
-	return xr.Error()
+func (o *Pong) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	return nil
 }
 
 /*
@@ -180,10 +146,9 @@ struct JoinRelayRequest {
 
 */
 
-func (o JoinRelayRequest) EncodeXDR(w io.Writer) (int, error) {
-	return 0, nil
+func (o JoinRelayRequest) XDRSize() int {
+	return 0
 }
-
 func (o JoinRelayRequest) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
@@ -192,15 +157,7 @@ func (o JoinRelayRequest) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (o JoinRelayRequest) AppendXDR(bs []byte) ([]byte, error) {
-	return bs, nil
-}
-
-func (o JoinRelayRequest) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	return xw.Tot(), xw.Error()
-}
-
-func (o *JoinRelayRequest) DecodeXDR(r io.Reader) error {
+func (o JoinRelayRequest) MarshalXDRInto(m *xdr.Marshaller) error {
 	return nil
 }
 
@@ -208,8 +165,8 @@ func (o *JoinRelayRequest) UnmarshalXDR(bs []byte) error {
 	return nil
 }
 
-func (o *JoinRelayRequest) DecodeXDRFrom(xr *xdr.Reader) error {
-	return xr.Error()
+func (o *JoinRelayRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	return nil
 }
 
 /*
@@ -223,10 +180,9 @@ struct RelayFull {
 
 */
 
-func (o RelayFull) EncodeXDR(w io.Writer) (int, error) {
-	return 0, nil
+func (o RelayFull) XDRSize() int {
+	return 0
 }
-
 func (o RelayFull) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
@@ -235,15 +191,7 @@ func (o RelayFull) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (o RelayFull) AppendXDR(bs []byte) ([]byte, error) {
-	return bs, nil
-}
-
-func (o RelayFull) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	return xw.Tot(), xw.Error()
-}
-
-func (o *RelayFull) DecodeXDR(r io.Reader) error {
+func (o RelayFull) MarshalXDRInto(m *xdr.Marshaller) error {
 	return nil
 }
 
@@ -251,8 +199,8 @@ func (o *RelayFull) UnmarshalXDR(bs []byte) error {
 	return nil
 }
 
-func (o *RelayFull) DecodeXDRFrom(xr *xdr.Reader) error {
-	return xr.Error()
+func (o *RelayFull) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	return nil
 }
 
 /*
@@ -262,10 +210,8 @@ JoinSessionRequest Structure:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Length of Key                         |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                     Key (variable length)                     \
+\                  Key (length + padded data)                   \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
@@ -276,13 +222,14 @@ struct JoinSessionRequest {
 
 */
 
-func (o JoinSessionRequest) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+func (o JoinSessionRequest) XDRSize() int {
+	return 4 + len(o.Key) + xdr.Padding(len(o.Key))
 }
 
 func (o JoinSessionRequest) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	buf := make([]byte, o.XDRSize())
+	m := &xdr.Marshaller{Data: buf}
+	return buf, o.MarshalXDRInto(m)
 }
 
 func (o JoinSessionRequest) MustMarshalXDR() []byte {
@@ -293,35 +240,21 @@ func (o JoinSessionRequest) MustMarshalXDR() []byte {
 	return bs
 }
 
-func (o JoinSessionRequest) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
-}
-
-func (o JoinSessionRequest) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+func (o JoinSessionRequest) MarshalXDRInto(m *xdr.Marshaller) error {
 	if l := len(o.Key); l > 32 {
-		return xw.Tot(), xdr.ElementSizeExceeded("Key", l, 32)
+		return xdr.ElementSizeExceeded("Key", l, 32)
 	}
-	xw.WriteBytes(o.Key)
-	return xw.Tot(), xw.Error()
-}
-
-func (o *JoinSessionRequest) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+	m.MarshalBytes(o.Key)
+	return m.Error
 }
 
 func (o *JoinSessionRequest) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	u := &xdr.Unmarshaller{Data: bs}
+	return o.UnmarshalXDRFrom(u)
 }
-
-func (o *JoinSessionRequest) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.Key = xr.ReadBytesMax(32)
-	return xr.Error()
+func (o *JoinSessionRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	o.Key = u.UnmarshalBytesMax(32)
+	return u.Error
 }
 
 /*
@@ -333,10 +266,8 @@ Response Structure:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                             Code                              |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Length of Message                       |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                   Message (variable length)                   \
+\                Message (length + padded data)                 \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
@@ -348,13 +279,15 @@ struct Response {
 
 */
 
-func (o Response) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+func (o Response) XDRSize() int {
+	return 4 +
+		4 + len(o.Message) + xdr.Padding(len(o.Message))
 }
 
 func (o Response) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	buf := make([]byte, o.XDRSize())
+	m := &xdr.Marshaller{Data: buf}
+	return buf, o.MarshalXDRInto(m)
 }
 
 func (o Response) MustMarshalXDR() []byte {
@@ -365,34 +298,20 @@ func (o Response) MustMarshalXDR() []byte {
 	return bs
 }
 
-func (o Response) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
-}
-
-func (o Response) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	xw.WriteUint32(uint32(o.Code))
-	xw.WriteString(o.Message)
-	return xw.Tot(), xw.Error()
-}
-
-func (o *Response) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+func (o Response) MarshalXDRInto(m *xdr.Marshaller) error {
+	m.MarshalUint32(uint32(o.Code))
+	m.MarshalString(o.Message)
+	return m.Error
 }
 
 func (o *Response) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	u := &xdr.Unmarshaller{Data: bs}
+	return o.UnmarshalXDRFrom(u)
 }
-
-func (o *Response) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.Code = int32(xr.ReadUint32())
-	o.Message = xr.ReadString()
-	return xr.Error()
+func (o *Response) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	o.Code = int32(u.UnmarshalUint32())
+	o.Message = u.UnmarshalString()
+	return u.Error
 }
 
 /*
@@ -402,10 +321,8 @@ ConnectRequest Structure:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Length of ID                          |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                     ID (variable length)                      \
+\                   ID (length + padded data)                   \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
@@ -416,13 +333,14 @@ struct ConnectRequest {
 
 */
 
-func (o ConnectRequest) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+func (o ConnectRequest) XDRSize() int {
+	return 4 + len(o.ID) + xdr.Padding(len(o.ID))
 }
 
 func (o ConnectRequest) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	buf := make([]byte, o.XDRSize())
+	m := &xdr.Marshaller{Data: buf}
+	return buf, o.MarshalXDRInto(m)
 }
 
 func (o ConnectRequest) MustMarshalXDR() []byte {
@@ -433,35 +351,21 @@ func (o ConnectRequest) MustMarshalXDR() []byte {
 	return bs
 }
 
-func (o ConnectRequest) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
-}
-
-func (o ConnectRequest) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+func (o ConnectRequest) MarshalXDRInto(m *xdr.Marshaller) error {
 	if l := len(o.ID); l > 32 {
-		return xw.Tot(), xdr.ElementSizeExceeded("ID", l, 32)
+		return xdr.ElementSizeExceeded("ID", l, 32)
 	}
-	xw.WriteBytes(o.ID)
-	return xw.Tot(), xw.Error()
-}
-
-func (o *ConnectRequest) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+	m.MarshalBytes(o.ID)
+	return m.Error
 }
 
 func (o *ConnectRequest) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	u := &xdr.Unmarshaller{Data: bs}
+	return o.UnmarshalXDRFrom(u)
 }
-
-func (o *ConnectRequest) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.ID = xr.ReadBytesMax(32)
-	return xr.Error()
+func (o *ConnectRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	o.ID = u.UnmarshalBytesMax(32)
+	return u.Error
 }
 
 /*
@@ -471,25 +375,19 @@ SessionInvitation Structure:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        Length of From                         |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                    From (variable length)                     \
+\                  From (length + padded data)                  \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Length of Key                         |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                     Key (variable length)                     \
+\                  Key (length + padded data)                   \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Length of Address                       |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                   Address (variable length)                   \
+\                Address (length + padded data)                 \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|            0x0000             |             Port              |
+|         16 zero bits          |             Port              |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                  Server Socket (V=0 or 1)                   |V|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -505,13 +403,16 @@ struct SessionInvitation {
 
 */
 
-func (o SessionInvitation) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+func (o SessionInvitation) XDRSize() int {
+	return 4 + len(o.From) + xdr.Padding(len(o.From)) +
+		4 + len(o.Key) + xdr.Padding(len(o.Key)) +
+		4 + len(o.Address) + xdr.Padding(len(o.Address)) + 4 + 4
 }
 
 func (o SessionInvitation) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	buf := make([]byte, o.XDRSize())
+	m := &xdr.Marshaller{Data: buf}
+	return buf, o.MarshalXDRInto(m)
 }
 
 func (o SessionInvitation) MustMarshalXDR() []byte {
@@ -522,47 +423,33 @@ func (o SessionInvitation) MustMarshalXDR() []byte {
 	return bs
 }
 
-func (o SessionInvitation) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
-}
-
-func (o SessionInvitation) EncodeXDRInto(xw *xdr.Writer) (int, error) {
+func (o SessionInvitation) MarshalXDRInto(m *xdr.Marshaller) error {
 	if l := len(o.From); l > 32 {
-		return xw.Tot(), xdr.ElementSizeExceeded("From", l, 32)
+		return xdr.ElementSizeExceeded("From", l, 32)
 	}
-	xw.WriteBytes(o.From)
+	m.MarshalBytes(o.From)
 	if l := len(o.Key); l > 32 {
-		return xw.Tot(), xdr.ElementSizeExceeded("Key", l, 32)
+		return xdr.ElementSizeExceeded("Key", l, 32)
 	}
-	xw.WriteBytes(o.Key)
+	m.MarshalBytes(o.Key)
 	if l := len(o.Address); l > 32 {
-		return xw.Tot(), xdr.ElementSizeExceeded("Address", l, 32)
+		return xdr.ElementSizeExceeded("Address", l, 32)
 	}
-	xw.WriteBytes(o.Address)
-	xw.WriteUint16(o.Port)
-	xw.WriteBool(o.ServerSocket)
-	return xw.Tot(), xw.Error()
-}
-
-func (o *SessionInvitation) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+	m.MarshalBytes(o.Address)
+	m.MarshalUint16(o.Port)
+	m.MarshalBool(o.ServerSocket)
+	return m.Error
 }
 
 func (o *SessionInvitation) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	u := &xdr.Unmarshaller{Data: bs}
+	return o.UnmarshalXDRFrom(u)
 }
-
-func (o *SessionInvitation) DecodeXDRFrom(xr *xdr.Reader) error {
-	o.From = xr.ReadBytesMax(32)
-	o.Key = xr.ReadBytesMax(32)
-	o.Address = xr.ReadBytesMax(32)
-	o.Port = xr.ReadUint16()
-	o.ServerSocket = xr.ReadBool()
-	return xr.Error()
+func (o *SessionInvitation) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	o.From = u.UnmarshalBytesMax(32)
+	o.Key = u.UnmarshalBytesMax(32)
+	o.Address = u.UnmarshalBytesMax(32)
+	o.Port = u.UnmarshalUint16()
+	o.ServerSocket = u.UnmarshalBool()
+	return u.Error
 }
