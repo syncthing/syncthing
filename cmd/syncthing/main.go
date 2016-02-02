@@ -122,11 +122,6 @@ var (
 const (
 	usage      = "syncthing [options]"
 	extraUsage = `
-The default configuration directory is:
-
-  %s
-
-
 The -logflags value is a sum of the following:
 
    1  Date
@@ -199,6 +194,7 @@ type RuntimeOptions struct {
 	confDir        string
 	reset          bool
 	showVersion    bool
+	showPaths      bool
 	doUpgrade      bool
 	doUpgradeCheck bool
 	upgradeTo      string
@@ -260,6 +256,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&options.showVersion, "version", false, "Show version")
+	flag.BoolVar(&options.showPaths, "paths", false, "Show configuration paths")
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
 	flag.BoolVar(&options.auditEnabled, "audit", false, "Write events to audit file")
 	flag.BoolVar(&options.verbose, "verbose", false, "Print verbose log output")
@@ -270,7 +267,7 @@ func parseCommandLineOptions() RuntimeOptions {
 		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
 	}
 
-	longUsage := fmt.Sprintf(extraUsage, baseDirs["config"], debugFacilities())
+	longUsage := fmt.Sprintf(extraUsage, debugFacilities())
 	flag.Usage = usageFor(flag.CommandLine, usage, longUsage)
 	flag.Parse()
 
@@ -317,6 +314,11 @@ func main() {
 
 	if options.showVersion {
 		fmt.Println(LongVersion)
+		return
+	}
+
+	if options.showPaths {
+		showPaths()
 		return
 	}
 
@@ -1217,4 +1219,14 @@ func checkShortIDs(cfg *config.Wrapper) error {
 		exists[shortID] = deviceID
 	}
 	return nil
+}
+
+func showPaths() {
+	fmt.Printf("Configuration file:\n\t%s\n\n", locations[locConfigFile])
+	fmt.Printf("Database directory:\n\t%s\n\n", locations[locDatabase])
+	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations[locKeyFile], locations[locCertFile])
+	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations[locHTTPSKeyFile], locations[locHTTPSCertFile])
+	fmt.Printf("Log file:\n\t%s\n\n", locations[locLogFile])
+	fmt.Printf("GUI override directory:\n\t%s\n\n", locations[locGUIAssets])
+	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations[locDefFolder])
 }
