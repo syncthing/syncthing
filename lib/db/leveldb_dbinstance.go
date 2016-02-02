@@ -267,7 +267,11 @@ func (db *Instance) withHave(folder, device []byte, truncate bool, fn Iterator) 
 	defer dbi.Release()
 
 	for dbi.Next() {
-		f, err := unmarshalTrunc(dbi.Value(), truncate)
+		// The iterator function may keep a reference to the unmarshalled
+		// struct, which in turn references the buffer it was unmarshalled
+		// from. dbi.Value() just returns an internal slice that it reuses, so
+		// we need to copy it.
+		f, err := unmarshalTrunc(append([]byte{}, dbi.Value()...), truncate)
 		if err != nil {
 			panic(err)
 		}
@@ -287,7 +291,11 @@ func (db *Instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 	for dbi.Next() {
 		device := db.deviceKeyDevice(dbi.Key())
 		var f FileInfoTruncated
-		err := f.UnmarshalXDR(dbi.Value())
+		// The iterator function may keep a reference to the unmarshalled
+		// struct, which in turn references the buffer it was unmarshalled
+		// from. dbi.Value() just returns an internal slice that it reuses, so
+		// we need to copy it.
+		err := f.UnmarshalXDR(append([]byte{}, dbi.Value()...))
 		if err != nil {
 			panic(err)
 		}

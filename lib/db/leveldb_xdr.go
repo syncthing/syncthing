@@ -5,9 +5,6 @@
 package db
 
 import (
-	"bytes"
-	"io"
-
 	"github.com/calmh/xdr"
 )
 
@@ -22,10 +19,8 @@ fileVersion Structure:
 \                       Vector Structure                        \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Length of device                        |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
-\                   device (variable length)                    \
+\                 device (length + padded data)                 \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
@@ -37,13 +32,15 @@ struct fileVersion {
 
 */
 
-func (o fileVersion) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+func (o fileVersion) XDRSize() int {
+	return o.version.XDRSize() +
+		4 + len(o.device) + xdr.Padding(len(o.device))
 }
 
 func (o fileVersion) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	buf := make([]byte, o.XDRSize())
+	m := &xdr.Marshaller{Data: buf}
+	return buf, o.MarshalXDRInto(m)
 }
 
 func (o fileVersion) MustMarshalXDR() []byte {
@@ -54,37 +51,22 @@ func (o fileVersion) MustMarshalXDR() []byte {
 	return bs
 }
 
-func (o fileVersion) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
-}
-
-func (o fileVersion) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	_, err := o.version.EncodeXDRInto(xw)
-	if err != nil {
-		return xw.Tot(), err
+func (o fileVersion) MarshalXDRInto(m *xdr.Marshaller) error {
+	if err := o.version.MarshalXDRInto(m); err != nil {
+		return err
 	}
-	xw.WriteBytes(o.device)
-	return xw.Tot(), xw.Error()
-}
-
-func (o *fileVersion) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+	m.MarshalBytes(o.device)
+	return m.Error
 }
 
 func (o *fileVersion) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	u := &xdr.Unmarshaller{Data: bs}
+	return o.UnmarshalXDRFrom(u)
 }
-
-func (o *fileVersion) DecodeXDRFrom(xr *xdr.Reader) error {
-	(&o.version).DecodeXDRFrom(xr)
-	o.device = xr.ReadBytes()
-	return xr.Error()
+func (o *fileVersion) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	(&o.version).UnmarshalXDRFrom(u)
+	o.device = u.UnmarshalBytes()
+	return u.Error
 }
 
 /*
@@ -108,13 +90,14 @@ struct versionList {
 
 */
 
-func (o versionList) EncodeXDR(w io.Writer) (int, error) {
-	var xw = xdr.NewWriter(w)
-	return o.EncodeXDRInto(xw)
+func (o versionList) XDRSize() int {
+	return 4 + xdr.SizeOfSlice(o.versions)
 }
 
 func (o versionList) MarshalXDR() ([]byte, error) {
-	return o.AppendXDR(make([]byte, 0, 128))
+	buf := make([]byte, o.XDRSize())
+	m := &xdr.Marshaller{Data: buf}
+	return buf, o.MarshalXDRInto(m)
 }
 
 func (o versionList) MustMarshalXDR() []byte {
@@ -125,43 +108,35 @@ func (o versionList) MustMarshalXDR() []byte {
 	return bs
 }
 
-func (o versionList) AppendXDR(bs []byte) ([]byte, error) {
-	var aw = xdr.AppendWriter(bs)
-	var xw = xdr.NewWriter(&aw)
-	_, err := o.EncodeXDRInto(xw)
-	return []byte(aw), err
-}
-
-func (o versionList) EncodeXDRInto(xw *xdr.Writer) (int, error) {
-	xw.WriteUint32(uint32(len(o.versions)))
+func (o versionList) MarshalXDRInto(m *xdr.Marshaller) error {
+	m.MarshalUint32(uint32(len(o.versions)))
 	for i := range o.versions {
-		_, err := o.versions[i].EncodeXDRInto(xw)
-		if err != nil {
-			return xw.Tot(), err
+		if err := o.versions[i].MarshalXDRInto(m); err != nil {
+			return err
 		}
 	}
-	return xw.Tot(), xw.Error()
-}
-
-func (o *versionList) DecodeXDR(r io.Reader) error {
-	xr := xdr.NewReader(r)
-	return o.DecodeXDRFrom(xr)
+	return m.Error
 }
 
 func (o *versionList) UnmarshalXDR(bs []byte) error {
-	var br = bytes.NewReader(bs)
-	var xr = xdr.NewReader(br)
-	return o.DecodeXDRFrom(xr)
+	u := &xdr.Unmarshaller{Data: bs}
+	return o.UnmarshalXDRFrom(u)
 }
-
-func (o *versionList) DecodeXDRFrom(xr *xdr.Reader) error {
-	_versionsSize := int(xr.ReadUint32())
+func (o *versionList) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	_versionsSize := int(u.UnmarshalUint32())
 	if _versionsSize < 0 {
 		return xdr.ElementSizeExceeded("versions", _versionsSize, 0)
+	} else if _versionsSize == 0 {
+		o.versions = nil
+	} else {
+		if _versionsSize <= len(o.versions) {
+			o.versions = o.versions[:_versionsSize]
+		} else {
+			o.versions = make([]fileVersion, _versionsSize)
+		}
+		for i := range o.versions {
+			(&o.versions[i]).UnmarshalXDRFrom(u)
+		}
 	}
-	o.versions = make([]fileVersion, _versionsSize)
-	for i := range o.versions {
-		(&o.versions[i]).DecodeXDRFrom(xr)
-	}
-	return xr.Error()
+	return u.Error
 }

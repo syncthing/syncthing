@@ -11,15 +11,16 @@ type header struct {
 	compression bool
 }
 
-func (h header) encodeXDR(xw *xdr.Writer) (int, error) {
-	u := encodeHeader(h)
-	return xw.WriteUint32(u)
+func (h header) MarshalXDRInto(m *xdr.Marshaller) error {
+	v := encodeHeader(h)
+	m.MarshalUint32(v)
+	return m.Error
 }
 
-func (h *header) decodeXDR(xr *xdr.Reader) error {
-	u := xr.ReadUint32()
-	*h = decodeHeader(u)
-	return xr.Error()
+func (h *header) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	v := u.UnmarshalUint32()
+	*h = decodeHeader(v)
+	return u.Error
 }
 
 func encodeHeader(h header) uint32 {
