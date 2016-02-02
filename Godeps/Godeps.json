@@ -11,15 +11,18 @@
 		},
 		{
 			"ImportPath": "github.com/calmh/du",
+			"Comment": "v1.0.0",
 			"Rev": "3c0690cca16228b97741327b1b6781397afbdb24"
 		},
 		{
 			"ImportPath": "github.com/calmh/luhn",
+			"Comment": "v1.0.0",
 			"Rev": "0c8388ff95fa92d4094011e5a04fc99dea3d1632"
 		},
 		{
 			"ImportPath": "github.com/calmh/xdr",
-			"Rev": "9eb3e1a622d9364deb39c831f7e5f164393d7e37"
+			"Comment": "v2.0.0",
+			"Rev": "b6e0c321c9b5b28ba5ee21e828323e4b982c6976"
 		},
 		{
 			"ImportPath": "github.com/golang/snappy",
