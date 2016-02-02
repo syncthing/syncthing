@@ -3,7 +3,6 @@
 package protocol
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -55,14 +54,13 @@ func TestHeaderMarshalUnmarshal(t *testing.T) {
 		ver = int(uint(ver) % 16)
 		id = int(uint(id) % 4096)
 		typ = int(uint(typ) % 256)
-		buf := new(bytes.Buffer)
-		xw := xdr.NewWriter(buf)
-		h0 := header{version: ver, msgID: id, msgType: typ}
-		h0.encodeXDR(xw)
+		buf := make([]byte, 4)
 
-		xr := xdr.NewReader(buf)
+		h0 := header{version: ver, msgID: id, msgType: typ}
+		h0.MarshalXDRInto(&xdr.Marshaller{Data: buf})
+
 		var h1 header
-		h1.decodeXDR(xr)
+		h1.UnmarshalXDRFrom(&xdr.Unmarshaller{Data: buf})
 		return h0 == h1
 	}
 	if err := quick.Check(f, nil); err != nil {
@@ -128,8 +126,7 @@ func TestVersionErr(t *testing.T) {
 	c0.ClusterConfig(ClusterConfigMessage{})
 	c1.ClusterConfig(ClusterConfigMessage{})
 
-	w := xdr.NewWriter(c0.cw)
-	timeoutWriteHeader(w, header{
+	timeoutWriteHeader(c0.cw, header{
 		version: 2, // higher than supported
 		msgID:   0,
 		msgType: messageTypeIndex,
@@ -154,8 +151,7 @@ func TestTypeErr(t *testing.T) {
 	c0.ClusterConfig(ClusterConfigMessage{})
 	c1.ClusterConfig(ClusterConfigMessage{})
 
-	w := xdr.NewWriter(c0.cw)
-	timeoutWriteHeader(w, header{
+	timeoutWriteHeader(c0.cw, header{
 		version: 0,
 		msgID:   0,
 		msgType: 42, // unknown type
@@ -205,7 +201,7 @@ func TestElementSizeExceededNested(t *testing.T) {
 	m := ClusterConfigMessage{
 		ClientName: "longstringlongstringlongstringinglongstringlongstringlonlongstringlongstringlon",
 	}
-	_, err := m.EncodeXDR(ioutil.Discard)
+	_, err := m.MarshalXDR()
 	if err == nil {
 		t.Errorf("ID length %d > max 64, but no error", len(m.Folders[0].ID))
 	}
@@ -213,12 +209,19 @@ func TestElementSizeExceededNested(t *testing.T) {
 
 func TestMarshalIndexMessage(t *testing.T) {
 	f := func(m1 IndexMessage) bool {
+		if len(m1.Options) == 0 {
+			m1.Options = nil
+		}
 		for i, f := range m1.Files {
 			m1.Files[i].CachedSize = 0
-			for j := range f.Blocks {
-				f.Blocks[j].Offset = 0
-				if len(f.Blocks[j].Hash) == 0 {
-					f.Blocks[j].Hash = nil
+			if len(f.Blocks) == 0 {
+				m1.Files[i].Blocks = nil
+			} else {
+				for j := range f.Blocks {
+					f.Blocks[j].Offset = 0
+					if len(f.Blocks[j].Hash) == 0 {
+						f.Blocks[j].Hash = nil
+					}
 				}
 			}
 		}
@@ -233,6 +236,9 @@ func TestMarshalIndexMessage(t *testing.T) {
 
 func TestMarshalRequestMessage(t *testing.T) {
 	f := func(m1 RequestMessage) bool {
+		if len(m1.Options) == 0 {
+			m1.Options = nil
+		}
 		return testMarshal(t, "request", &m1, &RequestMessage{})
 	}
 
@@ -256,6 +262,9 @@ func TestMarshalResponseMessage(t *testing.T) {
 
 func TestMarshalClusterConfigMessage(t *testing.T) {
 	f := func(m1 ClusterConfigMessage) bool {
+		if len(m1.Options) == 0 {
+			m1.Options = nil
+		}
 		return testMarshal(t, "clusterconfig", &m1, &ClusterConfigMessage{})
 	}
 
@@ -275,13 +284,11 @@ func TestMarshalCloseMessage(t *testing.T) {
 }
 
 type message interface {
-	EncodeXDR(io.Writer) (int, error)
-	DecodeXDR(io.Reader) error
+	MarshalXDR() ([]byte, error)
+	UnmarshalXDR([]byte) error
 }
 
 func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
-	var buf bytes.Buffer
-
 	failed := func(bc []byte) {
 		bs, _ := json.MarshalIndent(m1, "", "  ")
 		ioutil.WriteFile(prefix+"-1.txt", bs, 0644)
@@ -294,7 +301,7 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 		}
 	}
 
-	_, err := m1.EncodeXDR(&buf)
+	buf, err := m1.MarshalXDR()
 	if err != nil && strings.Contains(err.Error(), "exceeds size") {
 		return true
 	}
@@ -303,23 +310,20 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 		t.Fatal(err)
 	}
 
-	bc := make([]byte, len(buf.Bytes()))
-	copy(bc, buf.Bytes())
-
-	err = m2.DecodeXDR(&buf)
+	err = m2.UnmarshalXDR(buf)
 	if err != nil {
-		failed(bc)
+		failed(buf)
 		t.Fatal(err)
 	}
 
 	ok := reflect.DeepEqual(m1, m2)
 	if !ok {
-		failed(bc)
+		failed(buf)
 	}
 	return ok
 }
 
-func timeoutWriteHeader(w *xdr.Writer, hdr header) {
+func timeoutWriteHeader(w io.Writer, hdr header) {
 	// This tries to write a message header to w, but times out after a while.
 	// This is useful because in testing, with a PipeWriter, it will block
 	// forever if the other side isn't reading any more. On the other hand we
@@ -332,8 +336,7 @@ func timeoutWriteHeader(w *xdr.Writer, hdr header) {
 
 	done := make(chan struct{})
 	go func() {
-		w.WriteRaw(buf[:])
-		l.Infoln("write completed")
+		w.Write(buf[:])
 		close(done)
 	}()
 	select {

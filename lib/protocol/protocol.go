@@ -12,6 +12,7 @@ import (
 	"time"
 
 	lz4 "github.com/bkaradzic/go-lz4"
+	"github.com/calmh/xdr"
 )
 
 const (
@@ -130,8 +131,7 @@ type rawConnection struct {
 	pool        sync.Pool
 	compression Compression
 
-	rdbuf0 []byte // used & reused by readMessage
-	rdbuf1 []byte // used & reused by readMessage
+	readerBuf []byte // used & reused by readMessage
 }
 
 type asyncResult struct {
@@ -146,7 +146,8 @@ type hdrMsg struct {
 }
 
 type encodable interface {
-	AppendXDR([]byte) ([]byte, error)
+	MarshalXDRInto(m *xdr.Marshaller) error
+	XDRSize() int
 }
 
 type isEofer interface {
@@ -374,18 +375,14 @@ func (c *rawConnection) readerLoop() (err error) {
 }
 
 func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
-	if cap(c.rdbuf0) < 8 {
-		c.rdbuf0 = make([]byte, 8)
-	} else {
-		c.rdbuf0 = c.rdbuf0[:8]
-	}
-	_, err = io.ReadFull(c.cr, c.rdbuf0)
+	hdrBuf := make([]byte, 8)
+	_, err = io.ReadFull(c.cr, hdrBuf)
 	if err != nil {
 		return
 	}
 
-	hdr = decodeHeader(binary.BigEndian.Uint32(c.rdbuf0[0:4]))
-	msglen := int(binary.BigEndian.Uint32(c.rdbuf0[4:8]))
+	hdr = decodeHeader(binary.BigEndian.Uint32(hdrBuf[:4]))
+	msglen := int(binary.BigEndian.Uint32(hdrBuf[4:]))
 
 	l.Debugf("read header %v (msglen=%d)", hdr, msglen)
 
@@ -399,27 +396,40 @@ func (c *rawConnection) readMessage() (hdr header, msg encodable, err error) {
 		return
 	}
 
-	if cap(c.rdbuf0) < msglen {
-		c.rdbuf0 = make([]byte, msglen)
+	// c.readerBuf contains a buffer we can reuse. But once we've unmarshalled
+	// a message from the buffer we can't reuse it again as the unmarshalled
+	// message refers to the contents of the buffer. The only case we a buffer
+	// ends up in readerBuf for reuse is when the message is compressed, as we
+	// then decompress into a new buffer instead.
+
+	var msgBuf []byte
+	if cap(c.readerBuf) >= msglen {
+		// If we have a buffer ready in rdbuf we just use that.
+		msgBuf = c.readerBuf[:msglen]
 	} else {
-		c.rdbuf0 = c.rdbuf0[:msglen]
+		// Otherwise we allocate a new buffer.
+		msgBuf = make([]byte, msglen)
 	}
-	_, err = io.ReadFull(c.cr, c.rdbuf0)
+
+	_, err = io.ReadFull(c.cr, msgBuf)
 	if err != nil {
 		return
 	}
 
-	l.Debugf("read %d bytes", len(c.rdbuf0))
+	l.Debugf("read %d bytes", len(msgBuf))
 
-	msgBuf := c.rdbuf0
 	if hdr.compression && msglen > 0 {
-		c.rdbuf1 = c.rdbuf1[:cap(c.rdbuf1)]
-		c.rdbuf1, err = lz4.Decode(c.rdbuf1, c.rdbuf0)
+		// We're going to decompress msgBuf into a different newly allocated
+		// buffer, so keep msgBuf around for reuse on the next message.
+		c.readerBuf = msgBuf
+
+		msgBuf, err = lz4.Decode(nil, msgBuf)
 		if err != nil {
 			return
 		}
-		msgBuf = c.rdbuf1
 		l.Debugf("decompressed to %d bytes", len(msgBuf))
+	} else {
+		c.readerBuf = nil
 	}
 
 	if shouldDebug() {
@@ -601,7 +611,14 @@ func (c *rawConnection) writerLoop() {
 		case hm := <-c.outbox:
 			if hm.msg != nil {
 				// Uncompressed message in uncBuf
-				uncBuf, err = hm.msg.AppendXDR(uncBuf[:0])
+				msgLen := hm.msg.XDRSize()
+				if cap(uncBuf) >= msgLen {
+					uncBuf = uncBuf[:msgLen]
+				} else {
+					uncBuf = make([]byte, msgLen)
+				}
+				m := &xdr.Marshaller{Data: uncBuf}
+				err = hm.msg.MarshalXDRInto(m)
 				if hm.done != nil {
 					close(hm.done)
 				}

@@ -74,7 +74,13 @@ func WriteMessage(w io.Writer, message interface{}) error {
 
 func ReadMessage(r io.Reader) (interface{}, error) {
 	var header header
-	if err := header.DecodeXDR(r); err != nil {
+
+	buf := make([]byte, header.XDRSize())
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return nil, err
+	}
+
+	if err := header.UnmarshalXDR(buf); err != nil {
 		return nil, err
 	}
 
@@ -82,38 +88,43 @@ func ReadMessage(r io.Reader) (interface{}, error) {
 		return nil, fmt.Errorf("magic mismatch")
 	}
 
+	buf = make([]byte, int(header.messageLength))
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return nil, err
+	}
+
 	switch header.messageType {
 	case messageTypePing:
 		var msg Ping
-		err := msg.DecodeXDR(r)
+		err := msg.UnmarshalXDR(buf)
 		return msg, err
 	case messageTypePong:
 		var msg Pong
-		err := msg.DecodeXDR(r)
+		err := msg.UnmarshalXDR(buf)
 		return msg, err
 	case messageTypeJoinRelayRequest:
 		var msg JoinRelayRequest
-		err := msg.DecodeXDR(r)
+		err := msg.UnmarshalXDR(buf)
 		return msg, err
 	case messageTypeJoinSessionRequest:
 		var msg JoinSessionRequest
-		err := msg.DecodeXDR(r)
+		err := msg.UnmarshalXDR(buf)
 		return msg, err
 	case messageTypeResponse:
 		var msg Response
-		err := msg.DecodeXDR(r)
+		err := msg.UnmarshalXDR(buf)
 		return msg, err
 	case messageTypeConnectRequest:
 		var msg ConnectRequest
-		err := msg.DecodeXDR(r)
+		err := msg.UnmarshalXDR(buf)
 		return msg, err
 	case messageTypeSessionInvitation:
 		var msg SessionInvitation
-		err := msg.DecodeXDR(r)
+		err := msg.UnmarshalXDR(buf)
 		return msg, err
 	case messageTypeRelayFull:
 		var msg RelayFull
-		err := msg.DecodeXDR(r)
+		err := msg.UnmarshalXDR(buf)
 		return msg, err
 	}
 
