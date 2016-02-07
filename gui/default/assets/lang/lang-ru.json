@@ -113,7 +113,7 @@
     "Oldest First": "Сначала старые",
     "Options": "Настройки",
     "Out of Sync": "Нет синхронизации",
-    "Out of Sync Items": "Не синхронизированные пункты",
+    "Out of Sync Items": "Несинхронизированные пункты",
     "Outgoing Rate Limit (KiB/s)": "Предел скорости отдачи (KiB/s)",
     "Override Changes": "Перезаписать изменения",
     "Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Путь к папке на локальном компьютере. Если её не существует, то она будет создана. Тильда (~) может использоваться как сокращение для",
