@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -30,11 +31,11 @@ const maxCsrfTokens = 25
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
 // is currently set.
-func csrfMiddleware(unique, prefix, apiKey string, next http.Handler) http.Handler {
+func csrfMiddleware(unique string, prefix string, cfg config.GUIConfiguration, next http.Handler) http.Handler {
 	loadCsrfTokens()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Allow requests carrying a valid API key
-		if apiKey != "" && r.Header.Get("X-API-Key") == apiKey {
+		if cfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
 			return
 		}

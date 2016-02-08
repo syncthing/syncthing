@@ -229,8 +229,8 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		cfg.Options.ReconnectIntervalS = 5
 	}
 
-	if cfg.GUI.RawAPIKey == "" {
-		cfg.GUI.RawAPIKey = randomString(32)
+	if cfg.GUI.APIKey == "" {
+		cfg.GUI.APIKey = randomString(32)
 	}
 }
 
