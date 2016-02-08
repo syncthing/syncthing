@@ -54,7 +54,7 @@ Debian / Ubuntu
 -  Syncthing GTK PPA:
    https://launchpad.net/~nilarimogard/+archive/ubuntu/webupd8/
    
-CentoOS
+CentOS
 ~~~~~~~~~~~~~~~
 
 -  **UnOfficial packages:**
