@@ -9,7 +9,6 @@ Synopsis
     $HOME/.config/syncthing
     $HOME/Library/Application Support/Syncthing
     %AppData%/Syncthing
-    %localappdata%/Syncthing
 
 Description
 -----------
@@ -231,6 +230,9 @@ Device Element
     <device id="5SYI2FS-LW6YAXI-JJDYETS-NDBBPIO-256MWBO-XDPXWVG-24QPUM4-PDW4UQU" name="syno" compression="metadata" introducer="false">
         <address>dynamic</address>
     </device>
+    <device id="2CYF2WQ-AKZO2QZ-JAKWLYD-AGHMQUM-BGXUOIS-GYILW34-HJG3DUK-LRRYQAR" name="syno local" compression="metadata" introducer="false">
+        <address>tcp://192.0.2.1:22001</address>
+    </device>
 
 One or more ``device`` elements must be present in the file. Each element
 describes a device participating in the cluster. It is customary to include a
@@ -266,24 +268,31 @@ introducer
     should copy their list of devices per folder when connecting.
 
 In addition, one or more ``address`` child elements must be present. Each
-contains an address to use when attempting to connect to this device and will
-be tried in order. Accepted formats are:
+contains an address or host name to use when attempting to connect to this device and will
+be tried in order. Addresses must be prefixed with ``tcp://``. Accepted formats are:
 
-IPv4 address (``192.0.2.42``)
+IPv4 address (``tcp://192.0.2.42``)
     The default port (22000) is used.
 
-IPv4 address and port (``192.0.2.42:12345``)
+IPv4 address and port (``tcp://192.0.2.42:12345``)
     The address and port is used as given.
 
-IPv6 address (``2001:db8::23:42``)
-    The default port (22000) is used.
+IPv6 address (``tcp://[2001:db8::23:42]``)
+    The default port (22000) is used. The address must be enclosed in
+    square brackets.
 
-IPv6 address and port (``[2001:db8::23:42]:12345``)
+IPv6 address and port (``tcp://[2001:db8::23:42]:12345``)
     The address and port is used as given. The address must be enclosed in
     square brackets.
 
+Host name (``tcp://fileserver``)
+    The host name will be used on the default port (22000) and connections will be attempted via both IPv4 and IPv6, depending on name resolution.
+    
+Host name and port (``tcp://fileserver:12345``)
+    The host name will be used on the given port and connections will be attempted via both IPv4 and IPv6, depending on name resolution.
+
 ``dynamic``
-    The word ``dynamic`` means to use local and global discovery to find the
+    The word ``dynamic`` (without ``tcp://`` prefix) means to use local and global discovery to find the
     device.
     
 IgnoredDevice Element
