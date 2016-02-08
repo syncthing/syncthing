@@ -9,6 +9,7 @@ Synopsis
     $HOME/.config/syncthing
     $HOME/Library/Application Support/Syncthing
     %AppData%/Syncthing
+    %localappdata%/Syncthing
 
 Description
 -----------
@@ -269,7 +270,7 @@ introducer
 
 In addition, one or more ``address`` child elements must be present. Each
 contains an address or host name to use when attempting to connect to this device and will
-be tried in order. Addresses must be prefixed with ``tcp://``. Accepted formats are:
+be tried in order. Entries other than ``dynamic`` must be prefixed with ``tcp://``. Accepted formats are:
 
 IPv4 address (``tcp://192.0.2.42``)
     The default port (22000) is used.
