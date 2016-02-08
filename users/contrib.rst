@@ -53,6 +53,12 @@ Debian / Ubuntu
 -  **Official packages:** http://apt.syncthing.net/
 -  Syncthing GTK PPA:
    https://launchpad.net/~nilarimogard/+archive/ubuntu/webupd8/
+   
+CentoOS
+~~~~~~~~~~~~~~~
+
+-  **UnOfficial packages:**
+https://github.com/mlazarov/syncthing-centos
 
 ArchLinux
 ~~~~~~~~~
