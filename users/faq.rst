@@ -131,6 +131,11 @@ How to configure multiple users on a single machine?
 Each user should run their own Syncthing instance. Be aware that you might need
 to configure ports such that they do not overlap (see the config.xml).
 
+Does Syncthing support syncing between folders on the same system?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Syncthing is not designed to sync locally and the overhead involved in doing so will waste resources. There are better programs to achieve this such as rsync or Unison.
+
 Is Syncthing my ideal backup application?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
