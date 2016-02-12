@@ -615,8 +615,14 @@ func (s *apiService) getDBFile(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	file := qs.Get("file")
-	gf, _ := s.model.CurrentGlobalFile(folder, file)
-	lf, _ := s.model.CurrentFolderFile(folder, file)
+	gf, gfOk := s.model.CurrentGlobalFile(folder, file)
+	lf, lfOk := s.model.CurrentFolderFile(folder, file)
+
+	if !(gfOk || lfOk) {
+		// This file for sure does not exist.
+		http.Error(w, "No such object in the index", http.StatusNotFound)
+		return
+	}
 
 	av := s.model.Availability(folder, file)
 	sendJSON(w, map[string]interface{}{
