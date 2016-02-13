@@ -54,10 +54,6 @@ identicon {
     height: 1em;
 }
 
-.identicon rect {
-    fill: #333;
-}
-
 .checkbox {
     margin-top: 0px;
 }
@@ -348,9 +344,6 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     border-top: 1px solid #222 !important;
 }
 
-.identicon>rect {
-    fill: #aaa !important;
-}
 
 /* buttons */
 .btn {
