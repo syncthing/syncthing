@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "February 08, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "February 12, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -156,6 +156,9 @@ causes a conflict on change you\(aqll end up with \fBsync\-conflict\-...sync\-co
 .sp
 Each user should run their own Syncthing instance. Be aware that you might need
 to configure ports such that they do not overlap (see the config.xml).
+.SS Does Syncthing support syncing between folders on the same system?
+.sp
+Syncthing is not designed to sync locally and the overhead involved in doing so will waste resources. There are better programs to achieve this such as rsync or Unison.
 .SS Is Syncthing my ideal backup application?
 .sp
 No, Syncthing is not a backup application because all changes to your files

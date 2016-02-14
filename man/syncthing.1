@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "February 08, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING" "1" "February 12, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -38,7 +38,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .ft C
 syncthing [\-audit] [\-generate=<dir>] [\-gui\-address=<address>] [\-gui\-apikey=<key>]
           [\-home=<dir>] [\-logfile=<filename>] [\-logflags=<flags>] [\-no\-browser]
-          [\-no\-console] [\-no\-restart] [\-reset] [\-upgrade] [\-upgrade\-check]
+          [\-no\-console] [\-no\-restart] [\-paths] [\-reset] [\-upgrade] [\-upgrade\-check]
           [\-upgrade\-to=<url>] [\-verbose] [\-version]
 .ft P
 .fi
@@ -120,6 +120,11 @@ Hide the console window. (On Windows only)
 .TP
 .B \-no\-restart
 Do not restart; just exit.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-paths
+Print the paths used for configuration, keys, database, GUI overrides, default sync folder and the log file.
 .UNINDENT
 .INDENT 0.0
 .TP
