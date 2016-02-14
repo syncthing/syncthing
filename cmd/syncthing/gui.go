@@ -236,12 +236,12 @@ func (s *apiService) Serve() {
 
 	guiCfg := s.cfg.GUI()
 
+	// Add the CORS handling
+	handler := corsMiddleware(mux)
+
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg, mux)
-
-	// Add the CORS handling
-	handler = corsMiddleware(handler)
+	handler = csrfMiddleware(s.id.String()[:5], "/rest", guiCfg, handler)
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
@@ -382,6 +382,10 @@ func corsMiddleware(next http.Handler) http.Handler {
 	// Handle CORS headers and CORS OPTIONS request.
 	// CORS OPTIONS request are typically sent by browser during AJAX preflight
 	// when the browser initiate a POST request.
+	//
+	// As the OPTIONS request is unauthorized, this handler must be the first
+	// of the chain.
+	//
 	// See https://www.w3.org/TR/cors/ for details.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Add a generous access-control-allow-origin header since we may be
@@ -615,8 +619,14 @@ func (s *apiService) getDBFile(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	file := qs.Get("file")
-	gf, _ := s.model.CurrentGlobalFile(folder, file)
-	lf, _ := s.model.CurrentFolderFile(folder, file)
+	gf, gfOk := s.model.CurrentGlobalFile(folder, file)
+	lf, lfOk := s.model.CurrentFolderFile(folder, file)
+
+	if !(gfOk || lfOk) {
+		// This file for sure does not exist.
+		http.Error(w, "No such object in the index", http.StatusNotFound)
+		return
+	}
 
 	av := s.model.Availability(folder, file)
 	sendJSON(w, map[string]interface{}{

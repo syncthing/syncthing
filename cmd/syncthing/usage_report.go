@@ -121,10 +121,14 @@ func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 
 	var rescanIntvs []int
 	folderUses := map[string]int{
-		"readonly":      0,
-		"ignorePerms":   0,
-		"ignoreDelete":  0,
-		"autoNormalize": 0,
+		"readonly":            0,
+		"ignorePerms":         0,
+		"ignoreDelete":        0,
+		"autoNormalize":       0,
+		"simpleVersioning":    0,
+		"externalVersioning":  0,
+		"staggeredVersioning": 0,
+		"trashcanVersioning":  0,
 	}
 	for _, cfg := range cfg.Folders() {
 		rescanIntvs = append(rescanIntvs, cfg.RescanIntervalS)
@@ -140,6 +144,9 @@ func reportData(cfg *config.Wrapper, m *model.Model) map[string]interface{} {
 		}
 		if cfg.AutoNormalize {
 			folderUses["autoNormalize"]++
+		}
+		if cfg.Versioning.Type != "" {
+			folderUses[cfg.Versioning.Type+"Versioning"]++
 		}
 	}
 	sort.Ints(rescanIntvs)
