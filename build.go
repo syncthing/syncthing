@@ -188,7 +188,18 @@ func setup() {
 
 func test(pkg string) {
 	setBuildEnv()
-	runPrint("go", "test", "-short", "-race", "-timeout", "60s", pkg)
+	useRace := runtime.GOARCH == "amd64"
+	switch runtime.GOOS {
+	case "darwin", "linux", "freebsd", "windows":
+	default:
+		useRace = false
+	}
+
+	if useRace {
+		runPrint("go", "test", "-short", "-race", "-timeout", "60s", pkg)
+	} else {
+		runPrint("go", "test", "-short", "-timeout", "60s", pkg)
+	}
 }
 
 func bench(pkg string) {
