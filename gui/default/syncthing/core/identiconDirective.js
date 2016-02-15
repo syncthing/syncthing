@@ -13,6 +13,11 @@ angular.module('syncthing.core')
             var mirrorColFor = function (col) {
                 return size - col - 1;
             };
+            var strToHue = function (str) {
+                var h=0;
+                for (var i=0; i<str.length; i++) h += str.charCodeAt(i);
+                return h%255;
+            }
             var fillRectAt = function (row, col) {
                 var rect = document.createElementNS(svgNS, 'rect');
 
@@ -20,6 +25,7 @@ angular.module('syncthing.core')
                 rect.setAttribute('y', (row * rectSize) + '%');
                 rect.setAttribute('width', rectSize + '%');
                 rect.setAttribute('height', rectSize + '%');
+                rect.setAttribute('fill','hsl('+strToHue(value)+',100%,50%)');
 
                 svg.appendChild(rect);
             };
