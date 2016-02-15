@@ -65,10 +65,14 @@ type report struct {
 	URVersion  int
 	NumCPU     int
 	FolderUses struct {
-		ReadOnly      int
-		IgnorePerms   int
-		IgnoreDelete  int
-		AutoNormalize int
+		ReadOnly            int
+		IgnorePerms         int
+		IgnoreDelete        int
+		AutoNormalize       int
+		SimpleVersioning    int
+		ExternalVersioning  int
+		StaggeredVersioning int
+		TrashcanVersioning  int
 	}
 	DeviceUses struct {
 		Introducer       int
@@ -126,7 +130,10 @@ func (r *report) FieldPointers() []interface{} {
 		&r.Announce.DefaultServersDNS, &r.Announce.DefaultServersIP,
 		&r.Announce.OtherServers, &r.Relays.Enabled, &r.Relays.DefaultServers,
 		&r.Relays.OtherServers, &r.UsesRateLimit, &r.UpgradeAllowedManual,
-		&r.UpgradeAllowedAuto}
+		&r.UpgradeAllowedAuto,
+		&r.FolderUses.SimpleVersioning, &r.FolderUses.ExternalVersioning,
+		&r.FolderUses.StaggeredVersioning, &r.FolderUses.TrashcanVersioning,
+	}
 }
 
 func (r *report) FieldNames() []string {
@@ -173,6 +180,11 @@ func (r *report) FieldNames() []string {
 		"RateLimitEnabled",
 		"UpgradeAllowedManual",
 		"UpgradeAllowedAuto",
+		// v0.12.19+
+		"FolderSimpleVersioning",
+		"FolderExternalVersioning",
+		"FolderStaggeredVersioning",
+		"FolderTrashcanVersioning",
 	}
 }
 
@@ -241,7 +253,11 @@ func setupDB(db *sql.DB) error {
 		ADD COLUMN RelayOtherServers INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN RateLimitEnabled BOOLEAN NOT NULL DEFAULT FALSE,
 		ADD COLUMN UpgradeAllowedManual BOOLEAN NOT NULL DEFAULT FALSE,
-		ADD COLUMN UpgradeAllowedAuto BOOLEAN NOT NULL DEFAULT FALSE
+		ADD COLUMN UpgradeAllowedAuto BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN FolderSimpleVersioning INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderExternalVersioning INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderStaggeredVersioning INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderTrashcanVersioning INTEGER NOT NULL DEFAULT 0
 		`)
 		if err != nil {
 			return err
@@ -482,6 +498,10 @@ func getReport(db *sql.DB) map[string]interface{} {
 		"Folders, ignore deletes":                0,
 		"Folders, ignore permissions":            0,
 		"Folders, master mode":                   0,
+		"Folders, simple versioning":             0,
+		"Folders, external versioning":           0,
+		"Folders, staggered versioning":          0,
+		"Folders, trashcan versioning":           0,
 		"Devices, compress always":               0,
 		"Devices, compress metadata":             0,
 		"Devices, compress nothing":              0,
@@ -577,6 +597,18 @@ func getReport(db *sql.DB) map[string]interface{} {
 			}
 			if rep.FolderUses.ReadOnly > 0 {
 				features["Folders, master mode"]++
+			}
+			if rep.FolderUses.SimpleVersioning > 0 {
+				features["Folders, simple versioning"]++
+			}
+			if rep.FolderUses.ExternalVersioning > 0 {
+				features["Folders, external versioning"]++
+			}
+			if rep.FolderUses.StaggeredVersioning > 0 {
+				features["Folders, staggered versioning"]++
+			}
+			if rep.FolderUses.TrashcanVersioning > 0 {
+				features["Folders, trashcan versioning"]++
 			}
 			if rep.DeviceUses.CompressAlways > 0 {
 				features["Devices, compress always"]++
@@ -894,5 +926,8 @@ func (l sortableFeatureList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
 }
 func (l sortableFeatureList) Less(a, b int) bool {
-	return l[a].Pct < l[b].Pct
+	if l[a].Pct != l[b].Pct {
+		return l[a].Pct < l[b].Pct
+	}
+	return l[a].Key > l[b].Key
 }
