@@ -30,7 +30,7 @@ level protocols providing encryption and authentication.
 
 ::
 
-    +-----------------------------|
+    +-----------------------------+
     |   Block Exchange Protocol   |
     |-----------------------------|
     | Encryption & Auth (TLS 1.2) |
