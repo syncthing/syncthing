@@ -27,12 +27,12 @@ func (o *FileInfoTruncated) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.LocalVersion = int64(u.UnmarshalUint64())
 	_BlocksSize := int(u.UnmarshalUint32())
 	if _BlocksSize < 0 {
-		return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 1000000)
+		return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 10000000)
 	} else if _BlocksSize == 0 {
 		o.Blocks = nil
 	} else {
-		if _BlocksSize > 1000000 {
-			return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 1000000)
+		if _BlocksSize > 10000000 {
+			return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 10000000)
 		}
 		for i := 0; i < _BlocksSize; i++ {
 			size := int64(u.UnmarshalUint32())
