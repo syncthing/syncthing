@@ -27,7 +27,7 @@ type FileInfo struct {
 	Version      Vector
 	LocalVersion int64
 	CachedSize   int64       // noencode (cache only)
-	Blocks       []BlockInfo // max:1000000
+	Blocks       []BlockInfo // max:10000000
 }
 
 func (f FileInfo) String() string {

@@ -176,7 +176,7 @@ struct FileInfo {
 	hyper Modified;
 	Vector Version;
 	hyper LocalVersion;
-	BlockInfo Blocks<1000000>;
+	BlockInfo Blocks<10000000>;
 }
 
 */
@@ -212,8 +212,8 @@ func (o FileInfo) MarshalXDRInto(m *xdr.Marshaller) error {
 		return err
 	}
 	m.MarshalUint64(uint64(o.LocalVersion))
-	if l := len(o.Blocks); l > 1000000 {
-		return xdr.ElementSizeExceeded("Blocks", l, 1000000)
+	if l := len(o.Blocks); l > 10000000 {
+		return xdr.ElementSizeExceeded("Blocks", l, 10000000)
 	}
 	m.MarshalUint32(uint32(len(o.Blocks)))
 	for i := range o.Blocks {
@@ -236,12 +236,12 @@ func (o *FileInfo) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.LocalVersion = int64(u.UnmarshalUint64())
 	_BlocksSize := int(u.UnmarshalUint32())
 	if _BlocksSize < 0 {
-		return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 1000000)
+		return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 10000000)
 	} else if _BlocksSize == 0 {
 		o.Blocks = nil
 	} else {
-		if _BlocksSize > 1000000 {
-			return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 1000000)
+		if _BlocksSize > 10000000 {
+			return xdr.ElementSizeExceeded("Blocks", _BlocksSize, 10000000)
 		}
 		if _BlocksSize <= len(o.Blocks) {
 			o.Blocks = o.Blocks[:_BlocksSize]
