@@ -7,7 +7,7 @@ Description
 -----------
 
 Changes to files are tracked by so called *version vectors*, which can be used
-to understand a file's provinence in terms of who changed it after receiving a
+to understand a file's provenance in terms of who changed it after receiving a
 copy from whom, etc. However, for other purposes we just need to know which
 files have changed since a certain point in time. For example this is used to
 determine which files to send information about when connecting to a device
