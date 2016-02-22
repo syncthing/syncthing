@@ -494,7 +494,12 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 			return true
 		}
 
-		l.Debugln(p, "handling", file.Name)
+		l.Debugln("XXX", p, "handling", file.Name, len(file.Blocks), file.IsDeleted(), file.IsDirectory())
+
+		if len(file.Blocks) > 0 {
+			fb := file.Blocks[0]
+			l.Debugln("XXX First block", file.Name, fb.Hash, fb.Size, fb.IsEmpty())
+		}
 
 		if !handleFile(file) {
 			// A new or changed file or symlink. This is the only case where we
@@ -920,6 +925,13 @@ func (p *rwFolder) renameFile(source, target protocol.FileInfo) {
 // changed file.
 func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
 	curFile, hasCurFile := p.model.CurrentFolderFile(p.folder, file.Name)
+
+	l.Debugln("XXX Real handle file", curFile.Name, len(curFile.Blocks), curFile.IsDeleted(), len(file.Blocks), file.IsDeleted())
+
+	if len(file.Blocks) > 0 {
+		fb := file.Blocks[0]
+		l.Debugln("XXX Real handle first block", file.Name, fb.Hash, fb.Size, fb.IsEmpty())
+	}
 
 	if hasCurFile && len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
 		// We are supposed to copy the entire file, and then fetch nothing. We
