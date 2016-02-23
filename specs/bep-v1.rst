@@ -438,14 +438,14 @@ XDR
         string ClientVersion<64>;
         Folder Folders<1000000>;
         Option Options<64>;
-    }
+    };
 
     struct Folder {
         string ID<256>;
         Device Devices<1000000>;
         unsigned int Flags;
         Option Options<64>;
-    }
+    };
 
     struct Device {
         opaque ID<32>;
@@ -456,12 +456,12 @@ XDR
         hyper MaxLocalVersion;
         unsigned int Flags;
         Option Options<64>;
-    }
+    };
 
     struct Option {
         string Key<64>;
         string Value<1024>;
-    }
+    };
 
 Index (Type = 1) and Index Update (Type = 6)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -673,7 +673,7 @@ XDR
         FileInfo Files<1000000>;
         unsigned int Flags;
         Option Options<64>;
-    }
+    };
 
     struct FileInfo {
         string Name<8192>;
@@ -682,21 +682,21 @@ XDR
         Vector Version;
         hyper LocalVersion;
         BlockInfo Blocks<1000000>;
-    }
+    };
 
     struct Vector {
-        Counter Counters<>
-    }
+        Counter Counters<>;
+    };
 
     struct Counter {
-        unsigned hyper ID
-        unsigned hyper Value
-    }
+        unsigned hyper ID;
+        unsigned hyper Value;
+    };
 
     struct BlockInfo {
         unsigned int Size;
         opaque Hash<64>;
-    }
+    };
 
 Request (Type = 2)
 ~~~~~~~~~~~~~~~~~~
@@ -777,7 +777,7 @@ XDR
         opaque Hash<64>;
         unsigned int Flags;
         Option Options<64>;
-    }
+    };
 
 Response (Type = 3)
 ~~~~~~~~~~~~~~~~~~~
