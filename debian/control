@@ -1,7 +1,10 @@
 Package: syncthing
+Version: {{.version}}
+Priority: optional
+Section: net
 Architecture: {{.arch}}
 Depends: libc6, procps
-Version: {{.version}}
+Homepage: https://syncthing.net/
 Maintainer: Syncthing Release Management <release@syncthing.net>
 Description: Open Source Continuous File Synchronization
  Syncthing is an application that lets you synchronize your files across
