@@ -249,7 +249,7 @@
                   <tbody>
                     <tr>
                       <th><span class="fa fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>
-                      <td class="text-right">{{folder.path}}</td>
+                      <td class="text-right" title="{{folder.path}}">{{folder.path}}</td>
                     </tr>
                     <tr ng-if="model[folder.id].invalid || model[folder.id].error">
                       <th><span class="fa fa-fw fa-exclamation-triangle"></span>&nbsp;<span translate>Error</span></th>
@@ -442,7 +442,7 @@
                   </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
-                    <td class="text-right">{{versionString()}}</td>
+                    <td class="text-right" title="{{versionString()}}">{{versionString()}}</td>
                   </tr>
                 </tbody>
               </table>
