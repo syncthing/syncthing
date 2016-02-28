@@ -681,7 +681,7 @@ XDR
         hyper Modified;
         Vector Version;
         hyper LocalVersion;
-        BlockInfo Blocks<1000000>;
+        BlockInfo Blocks<10000000>;
     };
 
     struct Vector {
@@ -934,14 +934,14 @@ Message Type        Field               Limit
 =================== =================== =============
 **All Messages**
 -----------------------------------------------------
-|                   Total length        64 MiB
+|                   Total length        512 MiB
 
 **Index and Index Update Messages**
 -----------------------------------------------------
 |                   Folder              64 bytes
 |                   Number of Files     1.000.000
 |                   Name                8192 bytes
-|                   Number of Blocks    1.000.000
+|                   Number of Blocks    10.000.000
 |                   Hash                64 bytes
 |                   Number of Counters  1.000.000
 
@@ -962,6 +962,10 @@ Message Type        Field               Limit
 |                   Key                 64 bytes
 |                   Value               1024 bytes
 =================== =================== =============
+
+The currently defined values allow maximum file size of 1220 GiB
+(10.000.000 x 128 KiB). The maximum message size covers an Index message
+for the maximum file.
 
 Example Exchange
 ----------------
