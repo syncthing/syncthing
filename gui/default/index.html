@@ -222,7 +222,7 @@
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h3 class="panel-title">
-                <span class="fa fa-folder hidden-xs"></span>{{folder.id}}
+                <span class="fa hidden-xs fa-fw" ng-class="[folder.readOnly ? 'fa-lock' : 'fa-folder']"></span>{{folder.id}}
                 <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
@@ -249,7 +249,7 @@
                   <tbody>
                     <tr>
                       <th><span class="fa fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>
-                      <td class="text-right">{{folder.path}}</td>
+                      <td class="text-right" title="{{folder.path}}">{{folder.path}}</td>
                     </tr>
                     <tr ng-if="model[folder.id].invalid || model[folder.id].error">
                       <th><span class="fa fa-fw fa-exclamation-triangle"></span>&nbsp;<span translate>Error</span></th>
@@ -442,7 +442,7 @@
                   </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
-                    <td class="text-right">{{versionString()}}</td>
+                    <td class="text-right" title="{{versionString()}}">{{versionString()}}</td>
                   </tr>
                 </tbody>
               </table>
