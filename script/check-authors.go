@@ -42,7 +42,7 @@ func init() {
 }
 
 func main() {
-	actual := actualAuthorEmails()
+	actual := actualAuthorEmails("cmd/", "lib/", "gui/", "test/", "script/")
 	listed := listedAuthorEmails()
 	missing := actual.except(listed)
 	if len(missing) > 0 {
@@ -56,8 +56,9 @@ func main() {
 
 // actualAuthorEmails returns the set of author emails found in the actual git
 // commit log, except those in excluded commits.
-func actualAuthorEmails() stringSet {
-	cmd := exec.Command("git", "log", "--format=%H %ae")
+func actualAuthorEmails(paths ...string) stringSet {
+	args := append([]string{"log", "--format=%H %ae"}, paths...)
+	cmd := exec.Command("git", args...)
 	bs, err := cmd.Output()
 	if err != nil {
 		log.Fatal("authorEmails:", err)
