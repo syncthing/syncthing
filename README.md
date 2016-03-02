@@ -25,7 +25,8 @@ for incompatible changes.
 Take a look at the [getting started guide][2].
 
 There are a few examples for keeping Syncthing running in the background
-on your system in [the etc directory][3].
+on your system in [the etc directory][3]. There are also several [GUI
+implementations][11] for Windows, Mac and Linux.
 
 ## Getting in Touch
 
@@ -36,15 +37,18 @@ bug, feel free to report it in the [GitHub issue tracker][10].
 
 ## Building
 
-Building Syncthing from source is easy, and there's a [guide][5].
+Building Syncthing from source is easy, and there's a [guide][5]
 that describes it for both Unix and Windows systems.
 
 ## Signed Releases
 
-As of v0.10.15 and onwards, git tags and release binaries are GPG signed
-with the key D26E6ED000654A3E (see https://syncthing.net/security.html).
-For release binaries, MD5 and SHA1 checksums are calculated and signed,
-available in the md5sum.txt.asc and sha1sum.txt.asc files.
+As of v0.10.15 and onwards release binaries are GPG signed with the key
+D26E6ED000654A3E, available from https://syncthing.net/security.html and
+most key servers.
+
+There is also a built in automatic upgrade mechanism (disabled in some
+distribution channels) which uses a compiled in ECDSA signature. Mac OS
+X binaries are also properly code signed.
 
 ## Documentation
 
@@ -62,3 +66,4 @@ All code is licensed under the [MPLv2 License][7].
 [8]: https://forum.syncthing.net/
 [9]: https://kiwiirc.com/client/irc.freenode.net/#syncthing
 [10]: https://github.com/syncthing/syncthing/issues
+[11]: http://docs.syncthing.net/users/contrib.html#gui-wrappers
