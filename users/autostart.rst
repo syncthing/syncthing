@@ -74,7 +74,7 @@ on start, is relatively easy.
 #. Paste the shortcut (right-click in the folder and choose **Paste**,
    or press ``CTRL+V``)
 
-Syncthing will now automatically start the next time Windows boots. No
+Syncthing will now automatically start the next time you open a new Windows session. No
 console or browser window will pop-up. Access the interface by browsing
 to http://localhost:8384/
 
