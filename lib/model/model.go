@@ -1385,6 +1385,11 @@ nextSub:
 	blocksHandled := 0
 
 	for f := range fchan {
+		l.Debugln("XXX Scanner returned", f.Name, len(f.Blocks), f.IsDeleted(), f.IsInvalid())
+		if len(f.Blocks) > 0 {
+			fb := f.Blocks[0]
+			l.Debugln("XXX Scanner first block", fb.Hash, fb.Size, fb.IsEmpty())
+		}
 		if len(batch) == batchSizeFiles || blocksHandled > batchSizeBlocks {
 			if err := m.CheckFolderHealth(folder); err != nil {
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
