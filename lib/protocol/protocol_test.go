@@ -212,6 +212,9 @@ func TestMarshalIndexMessage(t *testing.T) {
 		if len(m1.Options) == 0 {
 			m1.Options = nil
 		}
+		if len(m1.Files) == 0 {
+			m1.Files = nil
+		}
 		for i, f := range m1.Files {
 			m1.Files[i].CachedSize = 0
 			if len(f.Blocks) == 0 {
@@ -239,6 +242,9 @@ func TestMarshalRequestMessage(t *testing.T) {
 		if len(m1.Options) == 0 {
 			m1.Options = nil
 		}
+		if len(m1.Hash) == 0 {
+			m1.Hash = nil
+		}
 		return testMarshal(t, "request", &m1, &RequestMessage{})
 	}
 
@@ -264,6 +270,17 @@ func TestMarshalClusterConfigMessage(t *testing.T) {
 	f := func(m1 ClusterConfigMessage) bool {
 		if len(m1.Options) == 0 {
 			m1.Options = nil
+		}
+		if len(m1.Folders) == 0 {
+			m1.Folders = nil
+		}
+		for i := range m1.Folders {
+			if len(m1.Folders[i].Devices) == 0 {
+				m1.Folders[i].Devices = nil
+			}
+			if len(m1.Folders[i].Options) == 0 {
+				m1.Folders[i].Options = nil
+			}
 		}
 		return testMarshal(t, "clusterconfig", &m1, &ClusterConfigMessage{})
 	}
