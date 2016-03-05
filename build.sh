@@ -27,10 +27,6 @@ case "${1:-default}" in
 		build "$@"
 		;;
 
-	deps)
-		build "$@"
-		;;
-
 	assets)
 		build "$@"
 		;;
@@ -106,7 +102,7 @@ case "${1:-default}" in
 		fail=0
 
 		# For every package in the repo
-		for dir in $(go list ./...) ; do
+		for dir in $(go list ./lib/... ./cmd/...) ; do
 			# run the tests
 			GOPATH="$(pwd)/Godeps/_workspace:$GOPATH" go test -race -coverprofile=profile.out $dir
 			if [ -f profile.out ] ; then

@@ -109,10 +109,10 @@ func main() {
 			build(pkg, tags)
 
 		case "test":
-			test("./...")
+			test("./lib/...", "./cmd/...")
 
 		case "bench":
-			bench("./...")
+			bench("./lib/...", "./cmd/...")
 
 		case "assets":
 			assets()
@@ -125,9 +125,6 @@ func main() {
 
 		case "transifex":
 			transifex()
-
-		case "deps":
-			deps()
 
 		case "tar":
 			buildTar()
@@ -180,13 +177,13 @@ func setup() {
 	runPrint("go", "get", "-v", "golang.org/x/tools/cmd/cover")
 	runPrint("go", "get", "-v", "golang.org/x/tools/cmd/vet")
 	runPrint("go", "get", "-v", "golang.org/x/net/html")
-	runPrint("go", "get", "-v", "github.com/tools/godep")
+	runPrint("go", "get", "-v", "github.com/FiloSottile/gvt")
 	runPrint("go", "get", "-v", "github.com/axw/gocov/gocov")
 	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
 	runPrint("go", "get", "-v", "bitbucket.org/tebeka/go2xunit")
 }
 
-func test(pkg string) {
+func test(pkgs ...string) {
 	setBuildEnv()
 	useRace := runtime.GOARCH == "amd64"
 	switch runtime.GOOS {
@@ -196,15 +193,15 @@ func test(pkg string) {
 	}
 
 	if useRace {
-		runPrint("go", "test", "-short", "-race", "-timeout", "60s", pkg)
+		runPrint("go", append([]string{"test", "-short", "-race", "-timeout", "60s"}, pkgs...)...)
 	} else {
-		runPrint("go", "test", "-short", "-timeout", "60s", pkg)
+		runPrint("go", append([]string{"test", "-short", "-timeout", "60s"}, pkgs...)...)
 	}
 }
 
-func bench(pkg string) {
+func bench(pkgs ...string) {
 	setBuildEnv()
-	runPrint("go", "test", "-run", "NONE", "-bench", ".", pkg)
+	runPrint("go", append([]string{"test", "-run", "NONE", "-bench", "."}, pkgs...)...)
 }
 
 func install(pkg string, tags []string) {
@@ -405,13 +402,7 @@ func listFiles(dir string) []string {
 func setBuildEnv() {
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Println("Warning: can't determine current dir:", err)
-		log.Println("Build might not work as expected")
-	}
-	os.Setenv("GOPATH", fmt.Sprintf("%s%c%s", filepath.Join(wd, "Godeps", "_workspace"), os.PathListSeparator, os.Getenv("GOPATH")))
-	log.Println("GOPATH=" + os.Getenv("GOPATH"))
+	os.Setenv("GO15VENDOREXPERIMENT", "1")
 }
 
 func assets() {
@@ -441,13 +432,8 @@ func transifex() {
 	assets()
 }
 
-func deps() {
-	rmr("Godeps")
-	runPrint("godep", "save", "./cmd/...")
-}
-
 func clean() {
-	rmr("bin", "Godeps/_workspace/pkg", "Godeps/_workspace/bin")
+	rmr("bin")
 	rmr(filepath.Join(os.Getenv("GOPATH"), fmt.Sprintf("pkg/%s_%s/github.com/syncthing", goos, goarch)))
 }
 

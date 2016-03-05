@@ -2,7 +2,7 @@
 *   text=auto
 
 # Except the dependencies, which we leave alone
-Godeps/**   -text=auto
+vendor/**   -text=auto
 
 # Diffs on these files are meaningless
 gui.files.go    -diff
