@@ -1,0 +1,154 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/bkaradzic/go-lz4",
+			"repository": "https://github.com/bkaradzic/go-lz4",
+			"revision": "74ddf82598bc4745b965729e9c6a463bedd33049",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/calmh/du",
+			"repository": "https://github.com/calmh/du",
+			"revision": "3c0690cca16228b97741327b1b6781397afbdb24",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/calmh/luhn",
+			"repository": "https://github.com/calmh/luhn",
+			"revision": "0c8388ff95fa92d4094011e5a04fc99dea3d1632",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/calmh/xdr",
+			"repository": "https://github.com/calmh/xdr",
+			"revision": "b6e0c321c9b5b28ba5ee21e828323e4b982c6976",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/golang/snappy",
+			"repository": "https://github.com/golang/snappy",
+			"revision": "5f1c01d9f64b941dd9582c638279d046eda6ca31",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/juju/ratelimit",
+			"repository": "https://github.com/juju/ratelimit",
+			"revision": "77ed1c8a01217656d2080ad51981f6e99adaa177",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/kardianos/osext",
+			"repository": "https://github.com/kardianos/osext",
+			"revision": "29ae4ffbc9a6fe9fb2bc5029050ce6996ea1d3bc",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/onsi/ginkgo",
+			"repository": "https://github.com/onsi/ginkgo",
+			"revision": "ac3d45ddd7ef5c4d7fc4d037b615a81f4d67981e",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/onsi/gomega",
+			"repository": "https://github.com/onsi/gomega",
+			"revision": "a1094b2db2d4845621602c667bd4ccf09834544e",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/rcrowley/go-metrics",
+			"repository": "https://github.com/rcrowley/go-metrics",
+			"revision": "eeba7bd0dd01ace6e690fa833b3f22aaec29af43",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/stathat/go",
+			"repository": "https://github.com/stathat/go",
+			"revision": "91dfa3a59c5b233fef9a346a1460f6e2bc889d93",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/syndtr/goleveldb/leveldb",
+			"repository": "https://github.com/syndtr/goleveldb",
+			"revision": "ad0d8b2ab58a55ed5c58073aa46451d5e1ca1280",
+			"branch": "master",
+			"path": "/leveldb"
+		},
+		{
+			"importpath": "github.com/thejerf/suture",
+			"repository": "https://github.com/thejerf/suture",
+			"revision": "48dfd58176dd5e34b6ec6810851bb718f0908c8c",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/vitrun/qart/coding",
+			"repository": "https://github.com/vitrun/qart",
+			"revision": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0",
+			"branch": "master",
+			"path": "/coding"
+		},
+		{
+			"importpath": "github.com/vitrun/qart/gf256",
+			"repository": "https://github.com/vitrun/qart",
+			"revision": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0",
+			"branch": "master",
+			"path": "/gf256"
+		},
+		{
+			"importpath": "github.com/vitrun/qart/qr",
+			"repository": "https://github.com/vitrun/qart",
+			"revision": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0",
+			"branch": "master",
+			"path": "/qr"
+		},
+		{
+			"importpath": "golang.org/x/crypto/bcrypt",
+			"repository": "https://go.googlesource.com/crypto",
+			"revision": "5dc8cb4b8a8eb076cbb5a06bc3b8682c15bdbbd3",
+			"branch": "master",
+			"path": "/bcrypt"
+		},
+		{
+			"importpath": "golang.org/x/crypto/blowfish",
+			"repository": "https://go.googlesource.com/crypto",
+			"revision": "5dc8cb4b8a8eb076cbb5a06bc3b8682c15bdbbd3",
+			"branch": "master",
+			"path": "/blowfish"
+		},
+		{
+			"importpath": "golang.org/x/net/internal/iana",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "08f168e593b5aab61849054b77981de812666697",
+			"branch": "master",
+			"path": "/internal/iana"
+		},
+		{
+			"importpath": "golang.org/x/net/ipv6",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "08f168e593b5aab61849054b77981de812666697",
+			"branch": "master",
+			"path": "/ipv6"
+		},
+		{
+			"importpath": "golang.org/x/net/proxy",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "08f168e593b5aab61849054b77981de812666697",
+			"branch": "master",
+			"path": "/proxy"
+		},
+		{
+			"importpath": "golang.org/x/text/transform",
+			"repository": "https://go.googlesource.com/text",
+			"revision": "a71fd10341b064c10f4a81ceac72bcf70f26ea34",
+			"branch": "master",
+			"path": "/transform"
+		},
+		{
+			"importpath": "golang.org/x/text/unicode/norm",
+			"repository": "https://go.googlesource.com/text",
+			"revision": "a71fd10341b064c10f4a81ceac72bcf70f26ea34",
+			"branch": "master",
+			"path": "/unicode/norm"
+		}
+	]
+}
