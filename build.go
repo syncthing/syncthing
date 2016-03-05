@@ -438,9 +438,9 @@ func clean() {
 }
 
 func ldflags() string {
-	sep := ' '
-	if goVersion > 1.4 {
-		sep = '='
+	sep := '='
+	if goVersion > 0 && goVersion < 1.5 {
+		sep = ' '
 	}
 
 	b := new(bytes.Buffer)
