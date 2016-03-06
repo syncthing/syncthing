@@ -8,8 +8,9 @@ package model
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
+
+	"github.com/d4l3k/messagediff"
 )
 
 func TestJobQueue(t *testing.T) {
@@ -126,36 +127,36 @@ func TestBringToFront(t *testing.T) {
 	q.Push("f4", 0, 0)
 
 	_, queued := q.Jobs()
-	if !reflect.DeepEqual(queued, []string{"f1", "f2", "f3", "f4"}) {
-		t.Errorf("Incorrect order %v at start", queued)
+	if diff, equal := messagediff.PrettyDiff(queued, []string{"f1", "f2", "f3", "f4"}); !equal {
+		t.Errorf("Order does not match. Diff:\n%s", diff)
 	}
 
 	q.BringToFront("f1") // corner case: does nothing
 
 	_, queued = q.Jobs()
-	if !reflect.DeepEqual(queued, []string{"f1", "f2", "f3", "f4"}) {
-		t.Errorf("Incorrect order %v", queued)
+	if diff, equal := messagediff.PrettyDiff(queued, []string{"f1", "f2", "f3", "f4"}); !equal {
+		t.Errorf("Order does not match. Diff:\n%s", diff)
 	}
 
 	q.BringToFront("f3")
 
 	_, queued = q.Jobs()
-	if !reflect.DeepEqual(queued, []string{"f3", "f1", "f2", "f4"}) {
-		t.Errorf("Incorrect order %v", queued)
+	if diff, equal := messagediff.PrettyDiff(queued, []string{"f3", "f1", "f2", "f4"}); !equal {
+		t.Errorf("Order does not match. Diff:\n%s", diff)
 	}
 
 	q.BringToFront("f2")
 
 	_, queued = q.Jobs()
-	if !reflect.DeepEqual(queued, []string{"f2", "f3", "f1", "f4"}) {
-		t.Errorf("Incorrect order %v", queued)
+	if diff, equal := messagediff.PrettyDiff(queued, []string{"f2", "f3", "f1", "f4"}); !equal {
+		t.Errorf("Order does not match. Diff:\n%s", diff)
 	}
 
 	q.BringToFront("f4") // corner case: last element
 
 	_, queued = q.Jobs()
-	if !reflect.DeepEqual(queued, []string{"f4", "f2", "f3", "f1"}) {
-		t.Errorf("Incorrect order %v", queued)
+	if diff, equal := messagediff.PrettyDiff(queued, []string{"f4", "f2", "f3", "f1"}); !equal {
+		t.Errorf("Order does not match. Diff:\n%s", diff)
 	}
 }
 
@@ -175,7 +176,7 @@ func TestShuffle(t *testing.T) {
 		}
 
 		t.Logf("%v", queued)
-		if !reflect.DeepEqual(queued, []string{"f1", "f2", "f3", "f4"}) {
+		if _, equal := messagediff.PrettyDiff(queued, []string{"f1", "f2", "f3", "f4"}); !equal {
 			// The queue was shuffled
 			return
 		}
@@ -199,8 +200,8 @@ func TestSortBySize(t *testing.T) {
 	}
 	expected := []string{"f4", "f1", "f3", "f2"}
 
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("SortSmallestFirst(): %#v != %#v", actual, expected)
+	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+		t.Errorf("SortSmallestFirst() diff:\n%s", diff)
 	}
 
 	q.SortLargestFirst()
@@ -211,8 +212,8 @@ func TestSortBySize(t *testing.T) {
 	}
 	expected = []string{"f2", "f3", "f1", "f4"}
 
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("SortLargestFirst(): %#v != %#v", actual, expected)
+	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+		t.Errorf("SortLargestFirst() diff:\n%s", diff)
 	}
 }
 
@@ -231,8 +232,8 @@ func TestSortByAge(t *testing.T) {
 	}
 	expected := []string{"f4", "f1", "f3", "f2"}
 
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("SortOldestFirst(): %#v != %#v", actual, expected)
+	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+		t.Errorf("SortOldestFirst() diff:\n%s", diff)
 	}
 
 	q.SortNewestFirst()
@@ -243,8 +244,8 @@ func TestSortByAge(t *testing.T) {
 	}
 	expected = []string{"f2", "f3", "f1", "f4"}
 
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("SortNewestFirst(): %#v != %#v", actual, expected)
+	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+		t.Errorf("SortNewestFirst() diff:\n%s", diff)
 	}
 }
 

@@ -12,11 +12,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -65,8 +65,8 @@ func TestDefaultValues(t *testing.T) {
 
 	cfg := New(device1)
 
-	if !reflect.DeepEqual(cfg.Options, expected) {
-		t.Errorf("Default config differs;\n  E: %#v\n  A: %#v", expected, cfg.Options)
+	if diff, equal := messagediff.PrettyDiff(cfg.Options, expected); !equal {
+		t.Errorf("Default config differs. Diff:\n%s", diff)
 	}
 }
 
@@ -133,14 +133,14 @@ func TestDeviceConfig(t *testing.T) {
 		if cfg.Version != CurrentVersion {
 			t.Errorf("%d: Incorrect version %d != %d", i, cfg.Version, CurrentVersion)
 		}
-		if !reflect.DeepEqual(cfg.Folders, expectedFolders) {
-			t.Errorf("%d: Incorrect Folders\n  A: %#v\n  E: %#v", i, cfg.Folders, expectedFolders)
+		if diff, equal := messagediff.PrettyDiff(cfg.Folders, expectedFolders); !equal {
+			t.Errorf("%d: Incorrect Folders. Diff:\n%s", i, diff)
 		}
-		if !reflect.DeepEqual(cfg.Devices, expectedDevices) {
-			t.Errorf("%d: Incorrect Devices\n  A: %#v\n  E: %#v", i, cfg.Devices, expectedDevices)
+		if diff, equal := messagediff.PrettyDiff(cfg.Devices, expectedDevices); !equal {
+			t.Errorf("%d: Incorrect Devices. Diff:\n%s", i, diff)
 		}
-		if !reflect.DeepEqual(cfg.Folders[0].DeviceIDs(), expectedDeviceIDs) {
-			t.Errorf("%d: Incorrect DeviceIDs\n  A: %#v\n  E: %#v", i, cfg.Folders[0].DeviceIDs(), expectedDeviceIDs)
+		if diff, equal := messagediff.PrettyDiff(cfg.Folders[0].DeviceIDs(), expectedDeviceIDs); !equal {
+			t.Errorf("%d: Incorrect DeviceIDs. Diff:\n%s", i, diff)
 		}
 	}
 }
@@ -153,8 +153,8 @@ func TestNoListenAddress(t *testing.T) {
 
 	expected := []string{""}
 	actual := cfg.Options().ListenAddress
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("Unexpected ListenAddress %#v", actual)
+	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+		t.Errorf("Unexpected ListenAddress. Diff:\n%s", diff)
 	}
 }
 
@@ -197,8 +197,8 @@ func TestOverriddenValues(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg.Options(), expected) {
-		t.Errorf("Overridden config differs;\n  E: %#v\n  A: %#v", expected, cfg.Options())
+	if diff, equal := messagediff.PrettyDiff(cfg.Options(), expected); !equal {
+		t.Errorf("Overridden config differs. Diff:\n%s", diff)
 	}
 }
 
@@ -231,8 +231,8 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 	}
 
 	actual := cfg.Devices()
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, actual)
+	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+		t.Errorf("Devices differ. Diff:\n%s", diff)
 	}
 }
 
@@ -268,8 +268,8 @@ func TestDeviceCompression(t *testing.T) {
 	}
 
 	actual := cfg.Devices()
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, actual)
+	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+		t.Errorf("Devices differ. Diff:\n%s", diff)
 	}
 }
 
@@ -302,8 +302,8 @@ func TestDeviceAddressesStatic(t *testing.T) {
 	}
 
 	actual := cfg.Devices()
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("Devices differ;\n  E: %#v\n  A: %#v", expected, actual)
+	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+		t.Errorf("Devices differ. Diff:\n%s", diff)
 	}
 }
 
@@ -325,8 +325,8 @@ func TestVersioningConfig(t *testing.T) {
 		"foo": "bar",
 		"baz": "quux",
 	}
-	if !reflect.DeepEqual(vc.Params, expected) {
-		t.Errorf("vc.Params differ;\n  E: %#v\n  A: %#v", expected, vc.Params)
+	if diff, equal := messagediff.PrettyDiff(vc.Params, expected); !equal {
+		t.Errorf("vc.Params differ. Diff:\n%s", diff)
 	}
 }
 
@@ -447,8 +447,8 @@ func TestNewSaveLoad(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(cfg.Raw(), cfg2.Raw()) {
-		t.Errorf("Configs are not equal;\n  E:  %#v\n  A:  %#v", cfg.Raw(), cfg2.Raw())
+	if diff, equal := messagediff.PrettyDiff(cfg.Raw(), cfg2.Raw()); !equal {
+		t.Errorf("Configs are not equal. Diff:\n%s", diff)
 	}
 
 	os.Remove(path)

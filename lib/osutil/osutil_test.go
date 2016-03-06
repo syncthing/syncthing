@@ -80,6 +80,7 @@ func TestInWritableDirWindowsRemove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.Chmod("testdata/windows/ro/readonlynew", 0700)
 	defer os.RemoveAll("testdata")
 
 	create := func(name string) error {
@@ -123,6 +124,7 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.Chmod("testdata/windows/ro/readonlynew", 0700)
 	defer os.RemoveAll("testdata")
 
 	create := func(name string) error {
