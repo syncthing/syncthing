@@ -26,6 +26,12 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/d4l3k/messagediff",
+			"repository": "https://github.com/d4l3k/messagediff",
+			"revision": "bf29d7cd9038386a5b4a22e2d73c8fb20ae14602",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/golang/snappy",
 			"repository": "https://github.com/golang/snappy",
 			"revision": "5f1c01d9f64b941dd9582c638279d046eda6ca31",
