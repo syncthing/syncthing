@@ -267,8 +267,8 @@ func (s *apiService) Serve() {
 	defer s.fss.Stop()
 	s.fss.ServeBackground()
 
-	l.Infoln("API listening on", listener.Addr())
-	l.Infoln("GUI URL is", guiCfg.URL())
+	l.Infoln("GUI and API listening on", listener.Addr())
+	l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
 	if s.started != nil {
 		// only set when run by the tests
 		close(s.started)
