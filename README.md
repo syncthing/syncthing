@@ -31,7 +31,7 @@ implementations][11] for Windows, Mac and Linux.
 ## Getting in Touch
 
 The first and best point of contact is the [Forum][8]. There is also an IRC
-channel, `#syncthing` on [Freenode][4] (with a [web client][9]), for talking
+channel, `#syncthing` on [freenode][4] (with a [web client][9]), for talking
 directly to developers and users. If you've found something that is clearly a
 bug, feel free to report it in the [GitHub issue tracker][10].
 
