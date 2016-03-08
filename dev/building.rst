@@ -23,7 +23,7 @@ may be unstable and unsuitable for general consumption.
 Prerequisites
 -------------
 
--  Go **1.6** or higher
+-  Go **1.3** or higher
 -  Git
 
 If you're not already a Go developer, the easiest way to get going
@@ -40,7 +40,7 @@ Building (Unix)
 
 .. code-block:: bash
 
-    # This should output "go version go1.6" or higher.
+    # This should output "go version go1.3" or higher.
     $ go version
 
     # Go is particular about file locations; use this path unless you know very
@@ -66,7 +66,7 @@ Building (Windows)
 -  Install the prerequisites.
 -  Open a ``cmd`` Window::
 
-    # This should output "go version go1.6" or higher.
+    # This should output "go version go1.3" or higher.
     > go version
 
     # Go is particular about file locations; use this path unless you know very
