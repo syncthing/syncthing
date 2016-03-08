@@ -1256,6 +1256,22 @@ angular.module('syncthing.core')
         };
 
         $scope.saveFolder = function () {
+
+            // This function checks whether baseDir is a subdirectory of newDir,
+            // e.g. it would return true if baseDir = "/home/a", newDir = "/home/a/b".
+            function isSubDir(baseDir, newDir) {
+                if (baseDir.slice(-1) === "/") {
+                    baseDir = baseDir.slice(0, -1);
+                }
+                while (baseDir.length <= newDir.length && newDir.length > 0) {
+                    if (baseDir === newDir) {
+                        return true;
+                    }
+                    newDir = newDir.slice(0, newDir.lastIndexOf("/"));
+                }
+                return false;
+            }
+
             var folderCfg, done, i;
 
             $('#editFolder').modal('hide');
