@@ -23,14 +23,25 @@ may be unstable and unsuitable for general consumption.
 Prerequisites
 -------------
 
--  Go **1.3** or higher
+-  Go **1.3** or higher. We recommend the latest version.
 -  Git
 
 If you're not already a Go developer, the easiest way to get going
 is to download the latest version of Go as instructed in
 http://golang.org/doc/install and ``export GOPATH=~``.
 
-.. note:: You need to set ``GOPATH`` correctly and the source **must** be checked out into ``$GOPATH/src/github.com/syncthing/syncthing``. The instructions below accomplish this correctly.
+.. note::
+        You need to set ``GOPATH`` correctly and the source **must** be checked
+        out into ``$GOPATH/src/github.com/syncthing/syncthing``. The
+        instructions below accomplish this correctly.
+
+.. note::
+        We use Go 1.5+ vendoring for our dependencies. If you are using the
+        build script on Go 1.5 or higher this will just work. If you are
+        building manually on Go 1.5 you need to set ``GO15VENDOREXPERIMENT=1``.
+        If you are building on Go 1.3 or Go 1.4 you need to manually ensure the
+        presence of our dependencies in GOPATH, by ``go get`` or copying from
+        the ``vendor`` directory.
 
 Building (Unix)
 ---------------
