@@ -1257,19 +1257,20 @@ angular.module('syncthing.core')
 
         $scope.saveFolder = function () {
 
-            // This function checks whether baseDir is a subdirectory of newDir,
-            // e.g. it would return true if baseDir = "/home/a", newDir = "/home/a/b".
-            function isSubDir(baseDir, newDir) {
-                if (baseDir.slice(-1) === "/") {
-                    baseDir = baseDir.slice(0, -1);
+            // This function checks whether xdir is a subdirectory of ydir,
+            // e.g. it would return true if xdir = "/home/a", ydir = "/home/a/b".
+            function isSubDir(xdir, ydir) {
+                xdirArr = xdir.split("/");
+                ydirArr = ydir.split("/");
+                if (xdirArr.slice(-1).pop() === "") {
+                    xdirArr = xdirArr.slice(0, -1);
                 }
-                while (baseDir.length <= newDir.length && newDir.length > 0) {
-                    if (baseDir === newDir) {
-                        return true;
-                    }
-                    newDir = newDir.slice(0, newDir.lastIndexOf("/"));
+                if (xdirArr.length > ydirArr.length) {
+                    return false;
                 }
-                return false;
+                return xdirArr.map(function(e, i) {
+                    return xdirArr[i] === ydirArr[i];
+                }).every(e => e == true);
             }
 
             var folderCfg, done, i;
