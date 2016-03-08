@@ -13,8 +13,8 @@
             <div class="col-md-12">
               <div class="form-group" ng-class="{'has-error': folderEditor.folderLabel.$invalid && folderEditor.folderLabel.$dirty}">
                 <label for="folderLabel"><span translate>Folder Label</span></label>
-                <input name="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" ng-show="!editingExisting" ng-change="changedFolderLabel()"/>
-                <input name="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" ng-show="editingExisting"/>
+                <input name="folderLabel" id="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" ng-show="!editingExisting" ng-change="changedFolderLabel()"/>
+                <input name="folderLabel" id="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" ng-show="editingExisting"/>
                 <p class="help-block">
                   <span translate ng-if="folderEditor.folderLabel.$valid || folderEditor.folderLabel.$pristine">Short identifier for the folder. Can be different on each device.</span>
                 </p>
