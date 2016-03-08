@@ -223,7 +223,7 @@
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h3 class="panel-title">
                 <span class="fa hidden-xs fa-fw" ng-class="[folder.readOnly ? 'fa-lock' : 'fa-folder']"></span>
-                <span title="folder id: {{folder.id}}" ng-show="folder.label.length == 0">{{folder.id}}</span>
+                <span                                  ng-show="folder.label.length == 0" >{{folder.id   }}</span>
                 <span title="folder id: {{folder.id}}" ng-show="folder.label != undefined">{{folder.label}}</span>
                 <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
@@ -249,9 +249,9 @@
               <div class="panel-body">
                 <table class="table table-condensed table-striped">
                   <tbody>
-                    <tr>
+                    <tr ng-show="folder.label != undefined && folder.label.length > 0">
                       <th><span class="fa fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Id</span></th>
-                      <td class="text-right">{{folder.id}}</td>
+                      <td class="text-right no-overflow-ellipse">{{folder.id}}</td>
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>

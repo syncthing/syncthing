@@ -140,6 +140,11 @@ table.table-condensed td {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+table.table-condensed td.no-overflow-ellipse {
+    white-space: normal;
+}
+
 @media (max-width:767px) {
     table.table-condensed td {
         /* for mobile phones to allow linebreaks in long repro folder/shared with
