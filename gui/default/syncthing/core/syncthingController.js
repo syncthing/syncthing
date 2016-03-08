@@ -1547,12 +1547,9 @@ angular.module('syncthing.core')
         };
 
         $scope.changedFolderLabel = function(){
-            var date = new Date();
-            // missing printf function in javascript for number with leading zeros
-            var randomPrefix = (date.getSeconds()/100 + date.getMilliseconds() / 100000).toFixed(5).replace("0.","");
-            $scope.currentFolder.id = randomPrefix+"-" + $scope.currentFolder.label;
-        }
-
+            var secondsEpoch = new Date().getTime();
+            $scope.currentFolder.id = $scope.myID + "-" + secondsEpoch;
+        };
 
         // pseudo main. called on all definitions assigned
         initController();
