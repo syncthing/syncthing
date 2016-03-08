@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,14 +25,6 @@ var (
 	c1ID     = NewDeviceID([]byte{2})
 	quickCfg = &quick.Config{}
 )
-
-func TestMain(m *testing.M) {
-	flag.Parse()
-	if flag.Lookup("test.short").Value.String() != "false" {
-		quickCfg.MaxCount = 10
-	}
-	os.Exit(m.Run())
-}
 
 func TestHeaderEncodeDecode(t *testing.T) {
 	f := func(ver, id, typ int) bool {
@@ -208,6 +199,10 @@ func TestElementSizeExceededNested(t *testing.T) {
 }
 
 func TestMarshalIndexMessage(t *testing.T) {
+	if testing.Short() {
+		quickCfg.MaxCount = 10
+	}
+
 	f := func(m1 IndexMessage) bool {
 		if len(m1.Options) == 0 {
 			m1.Options = nil
@@ -238,6 +233,10 @@ func TestMarshalIndexMessage(t *testing.T) {
 }
 
 func TestMarshalRequestMessage(t *testing.T) {
+	if testing.Short() {
+		quickCfg.MaxCount = 10
+	}
+
 	f := func(m1 RequestMessage) bool {
 		if len(m1.Options) == 0 {
 			m1.Options = nil
@@ -254,6 +253,10 @@ func TestMarshalRequestMessage(t *testing.T) {
 }
 
 func TestMarshalResponseMessage(t *testing.T) {
+	if testing.Short() {
+		quickCfg.MaxCount = 10
+	}
+
 	f := func(m1 ResponseMessage) bool {
 		if len(m1.Data) == 0 {
 			m1.Data = nil
@@ -267,6 +270,10 @@ func TestMarshalResponseMessage(t *testing.T) {
 }
 
 func TestMarshalClusterConfigMessage(t *testing.T) {
+	if testing.Short() {
+		quickCfg.MaxCount = 10
+	}
+
 	f := func(m1 ClusterConfigMessage) bool {
 		if len(m1.Options) == 0 {
 			m1.Options = nil
@@ -291,6 +298,10 @@ func TestMarshalClusterConfigMessage(t *testing.T) {
 }
 
 func TestMarshalCloseMessage(t *testing.T) {
+	if testing.Short() {
+		quickCfg.MaxCount = 10
+	}
+
 	f := func(m1 CloseMessage) bool {
 		return testMarshal(t, "close", &m1, &CloseMessage{})
 	}
