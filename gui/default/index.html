@@ -165,8 +165,8 @@
           </div>
           <div class="panel-body">
             <p>
-              <span translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}">
-                {%device%} wants to share folder "{%folder%}".
+              <span translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }} translate-value-folderLabel="{{ event.data.folderLabel }}">
+                {%device%} wants to share folder "{%folderLabel%}" (ID: {%folder%}).
               </span>
               <span translate ng-if="folders[event.data.folder]">Share this folder?</span>
               <span translate ng-if="!folders[event.data.folder]">Add new folder?</span>
