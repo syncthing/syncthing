@@ -1529,16 +1529,16 @@ func (m *Model) numHashers(folder string) int {
 
 // generateClusterConfig returns a ClusterConfigMessage that is correct for
 // the given peer device
-func (model *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
+func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
 	clusterConfigMessage := protocol.ClusterConfigMessage{
-		DeviceName:    model.deviceName,
-		ClientName:    model.clientName,
-		ClientVersion: model.clientVersion,
+		DeviceName:    m.deviceName,
+		ClientName:    m.clientName,
+		ClientVersion: m.clientVersion,
 	}
 
-	model.fmut.RLock()
-	for _, folder := range model.deviceFolders[device] {
-		folderCfg := model.cfg.Folders()[folder]
+	m.fmut.RLock()
+	for _, folder := range m.deviceFolders[device] {
+		folderCfg := m.cfg.Folders()[folder]
 		protocolFolder := protocol.Folder{
 			ID: folder,
 			Label: folderCfg.Label,
@@ -1554,13 +1554,13 @@ func (model *Model) generateClusterConfig(device protocol.DeviceID) protocol.Clu
 			flags |= protocol.FlagFolderIgnoreDelete
 		}
 		protocolFolder.Flags = flags
-		for _, device := range model.folderDevices[folder] {
+		for _, device := range m.folderDevices[folder] {
 			// DeviceID is a value type, but with an underlying array. Copy it
 			// so we don't grab aliases to the same array later on in device[:]
 			device := device
 			// TODO: Set read only bit when relevant, and when we have per device
 			// access controls.
-			deviceCfg := model.cfg.Devices()[device]
+			deviceCfg := m.cfg.Devices()[device]
 			protocolDevice := protocol.Device{
 				ID:          device[:],
 				Name:        deviceCfg.Name,
@@ -1577,7 +1577,7 @@ func (model *Model) generateClusterConfig(device protocol.DeviceID) protocol.Clu
 		}
 		clusterConfigMessage.Folders = append(clusterConfigMessage.Folders, protocolFolder)
 	}
-	model.fmut.RUnlock()
+	m.fmut.RUnlock()
 
 	return clusterConfigMessage
 }
