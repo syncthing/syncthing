@@ -650,8 +650,9 @@ nextFolder:
 
 		if !m.folderSharedWithUnlocked(folder.ID, deviceID) {
 			events.Default.Log(events.FolderRejected, map[string]string{
-				"folder": folder.ID,
-				"device": deviceID.String(),
+				"folder"     : folder.ID,
+				"folderLabel": folder.Label,
+				"device"     : deviceID.String(),
 			})
 			l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.ID, deviceID)
 			continue
