@@ -650,9 +650,9 @@ nextFolder:
 
 		if !m.folderSharedWithUnlocked(folder.ID, deviceID) {
 			events.Default.Log(events.FolderRejected, map[string]string{
-				"folder"     : folder.ID,
+				"folder":      folder.ID,
 				"folderLabel": folder.Label,
-				"device"     : deviceID.String(),
+				"device":      deviceID.String(),
 			})
 			l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.ID, deviceID)
 			continue
@@ -1541,7 +1541,7 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 	for _, folder := range m.deviceFolders[device] {
 		folderCfg := m.cfg.Folders()[folder]
 		protocolFolder := protocol.Folder{
-			ID: folder,
+			ID:    folder,
 			Label: folderCfg.Label,
 		}
 		var flags uint32
