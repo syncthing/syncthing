@@ -1,6 +1,6 @@
 // Copyright (C) 2014 The Protocol Authors.
 
-//go:generate -command genxdr go run ../../Godeps/_workspace/src/github.com/calmh/xdr/cmd/genxdr/main.go
+//go:generate -command genxdr go run ../../vendor/github.com/calmh/xdr/cmd/genxdr/main.go
 //go:generate genxdr -o message_xdr.go message.go
 
 package protocol
