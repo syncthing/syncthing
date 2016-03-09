@@ -91,7 +91,7 @@ STGUIASSETS
 ~~~~~~~~~~~
 
 Directory to load GUI assets from. Overrides compiled in assets. Useful
-for developing webgui, commonly use ``STGUIASSETS=gui/default bin/syncthing`` (for theme *default*)
+for developing webgui, commonly use ``STGUIASSETS=gui bin/syncthing``
 
 STCPUPROFILE
 ~~~~~~~~~~~~
