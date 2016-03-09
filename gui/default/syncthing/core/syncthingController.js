@@ -1221,10 +1221,11 @@ angular.module('syncthing.core')
             $('#editFolder').modal();
         };
 
-        $scope.addFolderAndShare = function (folder, device) {
+        $scope.addFolderAndShare = function (folder, folderLabel, device) {
             $scope.dismissFolderRejection(folder, device);
             $scope.currentFolder = {
                 id: folder,
+                label: folderLabel,
                 selectedDevices: {},
                 rescanIntervalS: 60,
                 minDiskFreePct: 1,
@@ -1237,7 +1238,10 @@ angular.module('syncthing.core')
                 staggeredCleanInterval: 3600,
                 staggeredVersionsPath: "",
                 externalCommand: "",
-                autoNormalize: true
+                autoNormalize: true,
+                viewFlags :{
+                    importFromOtherDevice: true
+                }
             };
             $scope.currentFolder.selectedDevices[device] = true;
 
@@ -1548,7 +1552,9 @@ angular.module('syncthing.core')
 
         $scope.changedFolderLabel = function(){
             var secondsEpoch = new Date().getTime();
-            $scope.currentFolder.id = $scope.myID + "-" + secondsEpoch;
+            // just to make it shorter
+            var base36 = secondsEpoch.toString(36).toUpperCase();
+            $scope.currentFolder.id = $scope.myID.substring(0,15) + "-" + base36;
         };
 
         // pseudo main. called on all definitions assigned
