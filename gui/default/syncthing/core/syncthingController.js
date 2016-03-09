@@ -1347,7 +1347,8 @@ angular.module('syncthing.core')
                 var devices = $scope.folders[folderID].devices;
                 for (var i = 0; i < devices.length; i++) {
                     if (devices[i].deviceID == deviceCfg.deviceID) {
-                        folders.push(folderID);
+                        var label = $scope.folders[folderID].label;
+                        folders.push(label.length > 0 ? label : folderID);
                         break;
                     }
                 }
