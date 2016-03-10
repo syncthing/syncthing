@@ -64,7 +64,7 @@
                         <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]"> {{folder.id}}
                       </label>
                       <label ng-if="folder.label.length != 0">
-                        <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]"> <span title="folder id: {{folder.id}}">{{folder.label}}</span>
+                        <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]"> <span title="{{folder.id}}">{{folder.label}}</span>
                       </label>
                     </div>
                   </div>
