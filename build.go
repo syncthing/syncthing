@@ -543,7 +543,7 @@ func getBranchSuffix() string {
 		return ""
 	}
 
-	validBranchRe := regexp.MustCompile(`^[a-zA-Z0-9_.-]$`)
+	validBranchRe := regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`)
 	if !validBranchRe.MatchString(branch) {
 		// There's some odd stuff in the branch name. Better skip it.
 		return ""
