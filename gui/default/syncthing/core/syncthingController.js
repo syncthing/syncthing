@@ -1553,10 +1553,8 @@ angular.module('syncthing.core')
         };
 
         $scope.createRandomFolderId = function(){
-            var secondsEpoch = new Date().getTime();
-            // just to make it shorter
-            var base36 = secondsEpoch.toString(36).toUpperCase();
-            return $scope.myID.substring(0,7) + "-" + base36;
+            var charset = '0123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ-+';
+            return randomStringFromCharset(5,charset) + "-" + randomStringFromCharset(5,charset);
         };
 
         // pseudo main. called on all definitions assigned

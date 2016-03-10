@@ -115,9 +115,14 @@ function decimals(val, num) {
 }
 
 function randomString(len) {
-    var i, result = '', chars = '01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-';
-    for (i = 0; i < len; i++) {
-        result += chars[Math.round(Math.random() * (chars.length - 1))];
+    var chars = '01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-';
+    return randomStringFromCharset(len,chars);
+}
+
+function randomStringFromCharset(len, charset) {
+    var result = '';
+    for (var i = 0; i < len; i++) {
+        result += charset[Math.round(Math.random() * (charset.length - 1))];
     }
     return result;
 }
