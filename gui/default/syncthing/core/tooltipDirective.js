@@ -4,8 +4,7 @@ angular.module('syncthing.core')
             restrict: 'A',
             link: function (scope, element, attributes) {
                 $(element).tooltip({
-                    html: 'true',
-                    placement: 'top'
+                    html: 'true'
                 });
             }
         };
