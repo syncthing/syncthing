@@ -492,10 +492,64 @@ func getVersion() string {
 	}
 	// ... then see if we have a Git tag.
 	if ver, err := getGitVersion(); err == nil {
+		if strings.Contains(ver, "-") {
+			// The version already contains a hash and stuff. See if we can
+			// find a current branch name to tack onto it as well.
+			return ver + getBranchSuffix()
+		}
 		return ver
 	}
 	// This seems to be a dev build.
 	return "unknown-dev"
+}
+
+func getBranchSuffix() string {
+	bs, err := runError("git", "branch", "-a", "--contains")
+	if err != nil {
+		return ""
+	}
+
+	branches := strings.Split(string(bs), "\n")
+	if len(branches) == 0 {
+		return ""
+	}
+
+	branch := ""
+	for i, candidate := range branches {
+		if strings.HasPrefix(candidate, "*") {
+			// This is the current branch. Select it!
+			branch = strings.TrimLeft(candidate, " \t*")
+			break
+		} else if i == 0 {
+			// Otherwise the first branch in the list will do.
+			branch = strings.TrimSpace(branch)
+		}
+	}
+
+	if branch == "" {
+		return ""
+	}
+
+	// The branch name may be on the form "remotes/origin/foo" from which we
+	// just want "foo".
+	parts := strings.Split(branch, "/")
+	if len(parts) == 0 || len(parts[len(parts)-1]) == 0 {
+		return ""
+	}
+
+	branch = parts[len(parts)-1]
+	if branch == "master" {
+		// master builds are the default.
+		return ""
+	}
+
+	validBranchRe := regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`)
+	if !validBranchRe.MatchString(branch) {
+		// There's some odd stuff in the branch name. Better skip it.
+		return ""
+	}
+
+	return "-" + branch
 }
 
 func buildStamp() int64 {
