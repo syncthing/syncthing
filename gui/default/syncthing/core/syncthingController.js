@@ -1202,20 +1202,21 @@ angular.module('syncthing.core')
 
         $scope.addFolder = function () {
             $scope.currentFolder = {
-                selectedDevices: {}
+                selectedDevices: {},
+                id : $scope.createRandomFolderId(),
+                rescanIntervalS : 60,
+                minDiskFreePct : 1,
+                maxConflicts : 10,
+                order : "random",
+                fileVersioningSelector : "none",
+                trashcanClean : 0,
+                simpleKeep : 5,
+                staggeredMaxAge : 365,
+                staggeredCleanInterval : 3600,
+                staggeredVersionsPath : "",
+                externalCommand : "",
+                autoNormalize : true,
             };
-            $scope.currentFolder.rescanIntervalS = 60;
-            $scope.currentFolder.minDiskFreePct = 1;
-            $scope.currentFolder.maxConflicts = 10;
-            $scope.currentFolder.order = "random";
-            $scope.currentFolder.fileVersioningSelector = "none";
-            $scope.currentFolder.trashcanClean = 0;
-            $scope.currentFolder.simpleKeep = 5;
-            $scope.currentFolder.staggeredMaxAge = 365;
-            $scope.currentFolder.staggeredCleanInterval = 3600;
-            $scope.currentFolder.staggeredVersionsPath = "";
-            $scope.currentFolder.externalCommand = "";
-            $scope.currentFolder.autoNormalize = true;
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
@@ -1551,11 +1552,11 @@ angular.module('syncthing.core')
             return 'text';
         };
 
-        $scope.changedFolderLabel = function(){
+        $scope.createRandomFolderId = function(){
             var secondsEpoch = new Date().getTime();
             // just to make it shorter
             var base36 = secondsEpoch.toString(36).toUpperCase();
-            $scope.currentFolder.id = $scope.myID.substring(0,15) + "-" + base36;
+            return $scope.myID.substring(0,7) + "-" + base36;
         };
 
         // pseudo main. called on all definitions assigned
