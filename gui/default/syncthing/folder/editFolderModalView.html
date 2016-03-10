@@ -35,6 +35,24 @@
           </div>
           <div class="row">
             <div class="col-md-12">
+              <div class="form-group">
+                <label translate for="devices">Share With Devices</label>
+                <p translate class="help-block">Select the devices to share this folder with.</p>
+                <div class="row">
+                  <div class="col-md-4" ng-repeat="device in otherDevices()">
+                    <div class="checkbox">
+                      <label>
+                        <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div translate ng-show="!editingExisting" class="help-block">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
+          <div class="row">
+            <div class="col-md-12">
               <label data-target="#folder-advanced" class="folder-advanced-toggle collapsed" data-toggle="collapse">
                 <span translate>Advanced settings</span>&nbsp;
                 <i class="expand fa fa-plus-square"></i>
@@ -157,25 +175,7 @@
               </div>
             </div>
           </div>
-          <div class="row">
-            <div class="col-md-12">
-              <div class="form-group">
-                <label translate for="devices">Share With Devices</label>
-                <p translate class="help-block">Select the devices to share this folder with.</p>
-                <div class="row">
-                  <div class="col-md-4" ng-repeat="device in otherDevices()">
-                    <div class="checkbox">
-                      <label>
-                        <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </form>
-        <div translate ng-show="!editingExisting" class="help-block">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid">
