@@ -145,7 +145,20 @@ table.table-condensed td {
     background-color: hsla(0,0%,99%,1);
     border: 1px solid hsla(0, 0%, 95%, 1);
     padding: 1rem;
-    margin-bottom: 15p
+    margin-bottom: 15px;
+}
+
+.folder-advanced-toggle{
+    cursor: pointer;
+}
+.folder-advanced-toggle .collapse,
+.folder-advanced-toggle.collapsed .expand{
+    display: inline-block;
+}
+
+.folder-advanced-toggle.collapsed .collapse,
+.folder-advanced-toggle .expand{
+    display: none;
 }
 
 @media (max-width:767px) {
