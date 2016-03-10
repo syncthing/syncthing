@@ -537,9 +537,15 @@ func getBranchSuffix() string {
 		return ""
 	}
 
-	branch = string(parts[len(parts)-1])
+	branch = parts[len(parts)-1]
 	if branch == "master" {
 		// master builds are the default.
+		return ""
+	}
+
+	validBranchRe := regexp.MustCompile(`^[a-zA-Z0-9_.-]$`)
+	if !validBranchRe.MatchString(branch) {
+		// There's some odd stuff in the branch name. Better skip it.
 		return ""
 	}
 
