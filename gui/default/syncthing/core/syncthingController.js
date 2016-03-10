@@ -1553,7 +1553,7 @@ angular.module('syncthing.core')
         };
 
         $scope.createRandomFolderId = function(){
-            var charset = '0123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ-+';
+            var charset = '2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ';
             return randomStringFromCharset(5,charset) + "-" + randomStringFromCharset(5,charset);
         };
 
