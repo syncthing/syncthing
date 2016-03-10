@@ -492,10 +492,39 @@ func getVersion() string {
 	}
 	// ... then see if we have a Git tag.
 	if ver, err := getGitVersion(); err == nil {
+		if strings.Contains(ver, "-") {
+			// The version already contains a hash and stuff. See if we can
+			// find a current branch name to tack onto it as well.
+			return ver + getBranchSuffix()
+		}
 		return ver
 	}
 	// This seems to be a dev build.
 	return "unknown-dev"
+}
+
+func getBranchSuffix() string {
+	bs, err := runError("git", "branch", "-a", "--contains")
+	if err != nil {
+		return ""
+	}
+
+	branches := bytes.Split(bs, []byte{'\n'})
+	if len(branches) == 0 {
+		return ""
+	}
+
+	// "git branch" returns the current branch with an asterisk and space in
+	// "front of it, otherwise just spaces. Remove all that stuff.
+	branch := bytes.TrimLeft(branches[0], " \t*")
+
+	// The branch name may be on the form "remotes/origin/foo" from which we
+	// just want "foo".
+	parts := bytes.Split(branch, []byte{'/'})
+	if len(parts) == 0 || len(parts[len(parts)-1]) == 0 {
+		return ""
+	}
+	return "-" + string(parts[len(parts)-1])
 }
 
 func buildStamp() int64 {
