@@ -509,22 +509,41 @@ func getBranchSuffix() string {
 		return ""
 	}
 
-	branches := bytes.Split(bs, []byte{'\n'})
+	branches := strings.Split(string(bs), "\n")
 	if len(branches) == 0 {
 		return ""
 	}
 
-	// "git branch" returns the current branch with an asterisk and space in
-	// "front of it, otherwise just spaces. Remove all that stuff.
-	branch := bytes.TrimLeft(branches[0], " \t*")
+	branch := ""
+	for i, candidate := range branches {
+		if strings.HasPrefix(candidate, "*") {
+			// This is the current branch. Select it!
+			branch = strings.TrimLeft(candidate, " \t*")
+			break
+		} else if i == 0 {
+			// Otherwise the first branch in the list will do.
+			branch = strings.TrimSpace(branch)
+		}
+	}
+
+	if branch == "" {
+		return ""
+	}
 
 	// The branch name may be on the form "remotes/origin/foo" from which we
 	// just want "foo".
-	parts := bytes.Split(branch, []byte{'/'})
+	parts := strings.Split(branch, "/")
 	if len(parts) == 0 || len(parts[len(parts)-1]) == 0 {
 		return ""
 	}
-	return "-" + string(parts[len(parts)-1])
+
+	branch = string(parts[len(parts)-1])
+	if branch == "master" {
+		// master builds are the default.
+		return ""
+	}
+
+	return "-" + branch
 }
 
 func buildStamp() int64 {
