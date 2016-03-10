@@ -1531,7 +1531,7 @@ func (m *Model) numHashers(folder string) int {
 // generateClusterConfig returns a ClusterConfigMessage that is correct for
 // the given peer device
 func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
-	clusterConfigMessage := protocol.ClusterConfigMessage{
+	message := protocol.ClusterConfigMessage{
 		DeviceName:    m.deviceName,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
@@ -1576,11 +1576,11 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			}
 			protocolFolder.Devices = append(protocolFolder.Devices, protocolDevice)
 		}
-		clusterConfigMessage.Folders = append(clusterConfigMessage.Folders, protocolFolder)
+		message.Folders = append(message.Folders, protocolFolder)
 	}
 	m.fmut.RUnlock()
 
-	return clusterConfigMessage
+	return message
 }
 
 func (m *Model) State(folder string) (string, time.Time, error) {
