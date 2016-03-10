@@ -1,0 +1,16 @@
+syncthing
+!gui/syncthing
+!Godeps/_workspace/src/github.com/syncthing
+syncthing.exe
+*.tar.gz
+*.zip
+*.asc
+.jshintrc
+coverage.out
+files/pidx
+bin
+perfstats*.csv
+coverage.xml
+syncthing.sig
+RELEASE
+deb
