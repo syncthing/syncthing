@@ -170,9 +170,8 @@
               </div>
             </div>
           </div>
-
         </form>
-        <div translate ng-show="!editingExisting">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
+        <div translate ng-show="!editingExisting" class="help-block">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid">
