@@ -191,7 +191,7 @@ func TestAllowedVersions(t *testing.T) {
 		{"v0.13.0-beta.0+1-gabcdef0", true},
 		{"v0.13.0-beta.47+1-gabcdef0", true},
 		{"v0.13.0-some-weird-but-allowed-tag", true},
-		{"v0.13.0-not.allowed.to.do.this", false},
+		{"v0.13.0-allowed.to.do.this", true},
 		{"v0.13.0+not.allowed.to.do.this", false},
 	}
 

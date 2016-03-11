@@ -656,6 +656,10 @@ Folder Structure:
 \                   ID (length + padded data)                   \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                 Label (length + padded data)                  \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                       Number of Devices                       |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
@@ -674,6 +678,7 @@ Folder Structure:
 
 struct Folder {
 	string ID<256>;
+	string Label<256>;
 	Device Devices<1000000>;
 	unsigned int Flags;
 	Option Options<64>;
@@ -683,6 +688,7 @@ struct Folder {
 
 func (o Folder) XDRSize() int {
 	return 4 + len(o.ID) + xdr.Padding(len(o.ID)) +
+		4 + len(o.Label) + xdr.Padding(len(o.Label)) +
 		4 + xdr.SizeOfSlice(o.Devices) + 4 +
 		4 + xdr.SizeOfSlice(o.Options)
 }
@@ -706,6 +712,10 @@ func (o Folder) MarshalXDRInto(m *xdr.Marshaller) error {
 		return xdr.ElementSizeExceeded("ID", l, 256)
 	}
 	m.MarshalString(o.ID)
+	if l := len(o.Label); l > 256 {
+		return xdr.ElementSizeExceeded("Label", l, 256)
+	}
+	m.MarshalString(o.Label)
 	if l := len(o.Devices); l > 1000000 {
 		return xdr.ElementSizeExceeded("Devices", l, 1000000)
 	}
@@ -734,6 +744,7 @@ func (o *Folder) UnmarshalXDR(bs []byte) error {
 }
 func (o *Folder) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.ID = u.UnmarshalStringMax(256)
+	o.Label = u.UnmarshalStringMax(256)
 	_DevicesSize := int(u.UnmarshalUint32())
 	if _DevicesSize < 0 {
 		return xdr.ElementSizeExceeded("Devices", _DevicesSize, 1000000)
