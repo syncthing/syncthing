@@ -1307,5 +1307,6 @@ func dirNames(dir string) []string {
 		}
 	}
 
+	sort.Strings(dirs)
 	return dirs
 }

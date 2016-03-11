@@ -174,7 +174,7 @@ func expectURLToContain(t *testing.T, url, exp string) {
 func TestDirNames(t *testing.T) {
 	names := dirNames("testdata")
 	expected := []string{"default", "foo", "testfolder"}
-	if diff, equal := messagediff.PrettyDiff(names, expected); !equal {
+	if diff, equal := messagediff.PrettyDiff(expected, names); !equal {
 		t.Errorf("Unexpected dirNames return: %#v\n%s", names, diff)
 	}
 }
