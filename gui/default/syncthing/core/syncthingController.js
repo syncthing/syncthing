@@ -685,23 +685,22 @@ angular.module('syncthing.core')
             // 2h 32m
             // 4d 2h
 
-            var res = [];
-
             if (!$scope.scanProgress[folder]) {
                 return "";
             }
-
             // Calculate remaining bytes and seconds based on our current
             // rate.
+
             var remainingBytes = $scope.scanProgress[folder].total - $scope.scanProgress[folder].current;
             var seconds = remainingBytes / $scope.scanProgress[folder].rate;
-
             // Round up to closest ten seconds to avoid flapping too much to
             // and fro.
+
             seconds = Math.ceil(seconds / 10) * 10;
 
             // Separate out the number of days.
             var days = 0;
+            var res = [];
             if (seconds >= 86400) {
                 days = Math.floor(seconds / 86400);
                 res.push('' + days + 'd')
@@ -1029,17 +1028,15 @@ angular.module('syncthing.core')
         };
 
         $scope.saveDeviceConfig = function (deviceCfg) {
-            var done, i;
             deviceCfg.addresses = deviceCfg._addressesStr.split(',').map(function (x) {
                 return x.trim();
             });
 
-            done = false;
-            for (i = 0; i < $scope.devices.length; i++) {
+            var done = false;
+            for (var i = 0; i < $scope.devices.length && !done; i++) {
                 if ($scope.devices[i].deviceID === deviceCfg.deviceID) {
                     $scope.devices[i] = deviceCfg;
                     done = true;
-                    break;
                 }
             }
 
@@ -1097,10 +1094,8 @@ angular.module('syncthing.core')
         };
 
         $scope.thisDevice = function () {
-            var i, n;
-
-            for (i = 0; i < $scope.devices.length; i++) {
-                n = $scope.devices[i];
+            for (var i = 0; i < $scope.devices.length; i++) {
+                var n = $scope.devices[i];
                 if (n.deviceID === $scope.myID) {
                     return n;
                 }
@@ -1261,10 +1256,8 @@ angular.module('syncthing.core')
         };
 
         $scope.saveFolder = function () {
-            var folderCfg;
-
             $('#editFolder').modal('hide');
-            folderCfg = $scope.currentFolder;
+            var folderCfg = $scope.currentFolder;
             folderCfg.devices = [];
             folderCfg.selectedDevices[$scope.myID] = true;
             for (var deviceID in folderCfg.selectedDevices) {
@@ -1451,7 +1444,7 @@ angular.module('syncthing.core')
         };
 
         $scope.showFailed = function (folder) {
-            $scope.failedCurrent = $scope.failed[folder]
+            $scope.failedCurrent = $scope.failed[folder];
             $('#failed').modal().on('hidden.bs.modal', function () {
                 $scope.failedCurrent = undefined;
             });
