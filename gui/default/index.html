@@ -250,7 +250,9 @@
                     <tr>
                       <th><span class="fa fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>
                       <td class="text-right">
-                        <span tooltip data-original-title="{{folder.path}}">{{folder.path}}</span>
+                        <span tooltip data-original-title="{{folder.path}}">
+                          <div class="ellipsis">{{folder.path}}</div>
+                        </span>
                       </td>
                     </tr>
                     <tr ng-if="model[folder.id].invalid || model[folder.id].error">
@@ -445,7 +447,9 @@
                   <tr>
                     <th><span class="fa fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
                     <td class="text-right">
-                      <span tooltip data-original-title="{{versionString()}}">{{versionString()}}</span>
+                      <span tooltip data-original-title="{{versionString()}}">
+                        <div class="ellipsis">{{versionString()}}</div>
+                      </span>
                     </td>
                   </tr>
                 </tbody>
