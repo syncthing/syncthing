@@ -90,7 +90,7 @@ angular.module('syncthing.core')
             refreshFolderStats();
 
             $http.get(urlbase + '/system/version').success(function (data) {
-                if ($scope.version.version && $scope.version.version != data.version) {
+                if ($scope.version.version && $scope.version.version !== data.version) {
                     // We already have a version response, but it differs from
                     // the new one. Reload the full GUI in case it's changed.
                     document.location.reload(true);
@@ -374,8 +374,8 @@ angular.module('syncthing.core')
             // authentication configured, and the magic setting to silence the
             // warning isn't set, then yell at the user.
             var guiCfg = $scope.config.gui;
-            $scope.openNoAuth = guiCfg.address.substr(0, 4) != "127."
-                && guiCfg.address.substr(0, 6) != "[::1]:"
+            $scope.openNoAuth = guiCfg.address.substr(0, 4) !== "127."
+                && guiCfg.address.substr(0, 6) !== "[::1]:"
                 && (!guiCfg.user || !guiCfg.password)
                 && !guiCfg.insecureAdminAccess;
 
@@ -804,7 +804,7 @@ angular.module('syncthing.core')
             var matches = $scope.devices.filter(function (n) {
                 return n.deviceID === deviceID;
             });
-            if (matches.length != 1) {
+            if (matches.length !== 1) {
                 return undefined;
             }
             return matches[0];
@@ -1072,7 +1072,7 @@ angular.module('syncthing.core')
                     }
                 } else {
                     $scope.folders[id].devices = $scope.folders[id].devices.filter(function (n) {
-                        return n.deviceID != deviceCfg.deviceID;
+                        return n.deviceID !== deviceCfg.deviceID;
                     });
                 }
             }
@@ -1334,7 +1334,7 @@ angular.module('syncthing.core')
         $scope.sharesFolder = function (folderCfg) {
             var names = [];
             folderCfg.devices.forEach(function (device) {
-                if (device.deviceID != $scope.myID) {
+                if (device.deviceID !== $scope.myID) {
                     names.push($scope.deviceName($scope.findDevice(device.deviceID)));
                 }
             });
