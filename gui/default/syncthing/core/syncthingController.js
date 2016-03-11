@@ -97,7 +97,7 @@ angular.module('syncthing.core')
                 }
 
                 $scope.version = data;
-                $scope.version.isDevelopmentVersion = data.version.indexOf('dirty')>0;
+                $scope.version.isDevelopmentVersion = data.version.indexOf('-')>0;
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/svc/report').success(function (data) {
