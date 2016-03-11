@@ -1256,43 +1256,6 @@ angular.module('syncthing.core')
         };
 
         $scope.saveFolder = function () {
-
-            // This function checks whether xdir is a subdirectory of ydir,
-            // e.g. it would return true if xdir = "/home/a", ydir = "/home/a/b".
-            function isSubDir(xdir, ydir) {
-                var xdirArr = xdir.split("/");
-                var ydirArr = ydir.split("/");
-                if (xdirArr.slice(-1).pop() === "") {
-                    xdirArr = xdirArr.slice(0, -1);
-                }
-                if (xdirArr.length > ydirArr.length) {
-                    return false;
-                }
-                return xdirArr.map(function(e, i) {
-                    return xdirArr[i] === ydirArr[i];
-                }).every(e => e == true);
-            }
-
-            // TODO put this into assets
-            function subdirConfirmStr(xdir, ydir) {
-                return "This path ("
-                    .concat(xdir)
-                    .concat(") is already a part of ")
-                    .concat(ydir)
-                    .concat(", are you sure this is intentional?");
-            }
-
-            // check whether the directory in question is a subdirectory of any other
-            for (var folder in $scope.folders) {
-                var newpath = $scope.currentFolder.path;
-                var oldpath = $scope.folders[folder].path;
-                if (isSubDir(newpath, oldpath) || isSubDir(oldpath, newpath)) {
-                    if (!window.confirm(subdirConfirmStr(newpath, oldpath))) {
-                        return;
-                    }
-                }
-            }
-
             var folderCfg, done, i;
 
             $('#editFolder').modal('hide');

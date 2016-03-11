@@ -205,6 +205,7 @@
    "They are retried automatically and will be synced when the error is resolved.": "They are retried automatically and will be synced when the error is resolved.",
    "This can easily give hackers access to read and change any files on your computer.": "This can easily give hackers access to read and change any files on your computer.",
    "This is a major version upgrade.": "This is a major version upgrade.",
+   "This path is already a part of {%otherPath%}.": "This path is already a part of {{otherPath}}",
    "Trash Can File Versioning": "Trash Can File Versioning",
    "Unknown": "Unknown",
    "Unshared": "Unshared",
