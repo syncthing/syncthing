@@ -51,8 +51,11 @@
 
             <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders">
               <div class="panel-heading" role="tab" id="folder{{$index}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{$index}}Config" aria-expanded="true" aria-controls="folder{{$index}}Config" style="cursor: pointer">
-                <h4 class="panel-title">
-                  <span translate>Folder</span> "{{folder.id}}"
+                <h4 ng-if="folder.label.length == 0" class="panel-title">
+                    <span translate>Folder</span> "{{folder.id}}"
+                </h4>
+                <h4 ng-if="folder.label.length != 0" class="panel-title">
+                    <span translate>Folder</span> "{{folder.label}}" ({{folder.id}})
                 </h4>
               </div>
               <div id="folder{{$index}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{$index}}Heading">
