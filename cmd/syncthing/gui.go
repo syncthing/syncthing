@@ -88,11 +88,21 @@ func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m
 	}
 
 	seen := make(map[string]struct{})
+	// Load themes from compiled in assets.
 	for file := range auto.Assets() {
 		theme := strings.Split(file, "/")[0]
 		if _, ok := seen[theme]; !ok {
 			seen[theme] = struct{}{}
 			service.themes = append(service.themes, theme)
+		}
+	}
+	if assetDir != "" {
+		// Load any extra themes from the asset override dir.
+		for _, dir := range dirNames(assetDir) {
+			if _, ok := seen[dir]; !ok {
+				seen[dir] = struct{}{}
+				service.themes = append(service.themes, dir)
+			}
 		}
 	}
 
@@ -1276,4 +1286,26 @@ func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
 		res[i] = fmt.Sprintf("%v:%d", c.ID, c.Value)
 	}
 	return json.Marshal(res)
+}
+
+func dirNames(dir string) []string {
+	fd, err := os.Open(dir)
+	if err != nil {
+		return nil
+	}
+	defer fd.Close()
+
+	fis, err := fd.Readdir(-1)
+	if err != nil {
+		return nil
+	}
+
+	var dirs []string
+	for _, fi := range fis {
+		if fi.IsDir() {
+			dirs = append(dirs, filepath.Base(fi.Name()))
+		}
+	}
+
+	return dirs
 }

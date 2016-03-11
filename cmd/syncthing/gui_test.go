@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -167,5 +168,13 @@ func expectURLToContain(t *testing.T, url, exp string) {
 	if string(data) != exp {
 		t.Errorf("Got %q instead of %q on %q", data, exp, url)
 		return
+	}
+}
+
+func TestDirNames(t *testing.T) {
+	names := dirNames("testdata")
+	expected := []string{"default", "foo", "testfolder"}
+	if diff, equal := messagediff.PrettyDiff(names, expected); !equal {
+		t.Error("Unexpected assetDirNames return:", diff)
 	}
 }
