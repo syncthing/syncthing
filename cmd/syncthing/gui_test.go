@@ -175,6 +175,6 @@ func TestDirNames(t *testing.T) {
 	names := dirNames("testdata")
 	expected := []string{"default", "foo", "testfolder"}
 	if diff, equal := messagediff.PrettyDiff(names, expected); !equal {
-		t.Error("Unexpected assetDirNames return:", diff)
+		t.Errorf("Unexpected dirNames return: %#v\n%s", names, diff)
 	}
 }
