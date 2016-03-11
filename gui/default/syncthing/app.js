@@ -29,8 +29,6 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
         return {
             response: function onResponse(response) {
                 var headers = response.headers();
-                var responseVersion;
-                var deviceIdShort;
 
                 // angular template cache sends no headers
                 if(Object.keys(headers).length === 0) {
@@ -40,7 +38,7 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
                 if (!deviceId) {
                     deviceId = headers['x-syncthing-id'];
                     if (deviceId) {
-                        deviceIdShort = deviceId.substring(0, 5);
+                        var deviceIdShort = deviceId.substring(0, 5);
                         $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIdShort;
                         $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIdShort;
                     }
@@ -156,7 +154,6 @@ function debounce(func, wait) {
         context = this;
         args = arguments;
         timestamp = Date.now();
-        var callNow = !timeout;
         if (!timeout) {
             timeout = setTimeout(later, wait);
             result = func.apply(context, args);

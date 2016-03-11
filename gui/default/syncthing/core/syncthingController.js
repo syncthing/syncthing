@@ -668,14 +668,14 @@ angular.module('syncthing.core')
             }
             var pct = 100 * $scope.scanProgress[folder].current / $scope.scanProgress[folder].total;
             return Math.floor(pct);
-        }
+        };
 
         $scope.scanRate = function (folder) {
             if (!$scope.scanProgress[folder]) {
                 return 0;
             }
             return $scope.scanProgress[folder].rate;
-        }
+        };
 
         $scope.scanRemaining = function (folder) {
             // Formats the remaining scan time as a string. Includes days and
@@ -731,7 +731,7 @@ angular.module('syncthing.core')
             }
 
             return res.join(' ');
-        }
+        };
 
         $scope.deviceStatus = function (deviceCfg) {
             if ($scope.deviceFolders(deviceCfg).length === 0) {
@@ -1215,7 +1215,7 @@ angular.module('syncthing.core')
                 staggeredCleanInterval : 3600,
                 staggeredVersionsPath : "",
                 externalCommand : "",
-                autoNormalize : true,
+                autoNormalize : true
             };
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
@@ -1261,7 +1261,7 @@ angular.module('syncthing.core')
         };
 
         $scope.saveFolder = function () {
-            var folderCfg, done, i;
+            var folderCfg;
 
             $('#editFolder').modal('hide');
             folderCfg = $scope.currentFolder;
@@ -1464,7 +1464,7 @@ angular.module('syncthing.core')
             if ($scope.failed[folder].length == 0) {
                 return false;
             }
-            return true
+            return true;
         };
 
         $scope.override = function (folder) {
@@ -1527,7 +1527,7 @@ angular.module('syncthing.core')
                 'arm': 'ARM',
                 'arm64': 'AArch64',
                 'ppc64': 'PowerPC',
-                'ppc64le': 'PowerPC (LE)',
+                'ppc64le': 'PowerPC (LE)'
             }[$scope.version.arch] || $scope.version.arch;
 
             return $scope.version.version + ', ' + os + ' (' + arch + ')';
