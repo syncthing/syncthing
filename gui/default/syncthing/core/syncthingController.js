@@ -271,10 +271,10 @@ angular.module('syncthing.core')
             }
             for (var folder in $scope.progress) {
                 if (!(folder in progress)) {
-                    if ($scope.neededFolder == folder) {
+                    if ($scope.neededFolder === folder) {
                         refreshNeed(folder);
                     }
-                } else if ($scope.neededFolder == folder) {
+                } else if ($scope.neededFolder === folder) {
                     for (file in $scope.progress[folder]) {
                         if (!(file in progress[folder])) {
                             refreshNeed(folder);
@@ -322,7 +322,7 @@ angular.module('syncthing.core')
             $scope.scanProgress[data.folder] = {
                 current: data.current,
                 total: data.total,
-                rate: data.rate,
+                rate: data.rate
             };
             console.log("FolderScanProgress", data);
         });
@@ -509,7 +509,7 @@ angular.module('syncthing.core')
             url += "&page=" + $scope.neededCurrentPage;
             url += "&perpage=" + $scope.neededPageSize;
             $http.get(url).success(function (data) {
-                if ($scope.neededFolder == folder) {
+                if ($scope.neededFolder === folder) {
                     console.log("refreshNeed", folder, data);
                     parseNeeded(data);
                 }
@@ -631,10 +631,10 @@ angular.module('syncthing.core')
         $scope.folderClass = function (folderCfg) {
             var status = $scope.folderStatus(folderCfg);
 
-            if (status == 'idle') {
+            if (status === 'idle') {
                 return 'success';
             }
-            if (status == 'syncing' || status == 'scanning') {
+            if (status === 'syncing' || status === 'scanning') {
                 return 'primary';
             }
             if (status === 'unknown') {
@@ -718,13 +718,13 @@ angular.module('syncthing.core')
 
             var d = new Date(1970, 0, 1).setSeconds(seconds);
 
-            if (days == 0) {
+            if (days === 0) {
                 // Format minutes only if we're within a day of completion.
                 var f = $filter('date')(d, "m'm'");
                 res.push(f);
             }
 
-            if (days == 0 && hours == 0) {
+            if (days === 0 && hours === 0) {
                 // Format seconds only when we're within an hour of completion.
                 var f = $filter('date')(d, "ss's'");
                 res.push(f);
@@ -802,7 +802,7 @@ angular.module('syncthing.core')
 
         $scope.findDevice = function (deviceID) {
             var matches = $scope.devices.filter(function (n) {
-                return n.deviceID == deviceID;
+                return n.deviceID === deviceID;
             });
             if (matches.length != 1) {
                 return undefined;
@@ -1059,7 +1059,7 @@ angular.module('syncthing.core')
                 if (deviceCfg.selectedFolders[id]) {
                     var found = false;
                     for (i = 0; i < $scope.folders[id].devices.length; i++) {
-                        if ($scope.folders[id].devices[i].deviceID == deviceCfg.deviceID) {
+                        if ($scope.folders[id].devices[i].deviceID === deviceCfg.deviceID) {
                             found = true;
                             break;
                         }
@@ -1142,7 +1142,7 @@ angular.module('syncthing.core')
         $scope.directoryList = [];
 
         $scope.$watch('currentFolder.path', function (newvalue) {
-            if (newvalue && newvalue.trim().charAt(0) == '~') {
+            if (newvalue && newvalue.trim().charAt(0) === '~') {
                 $scope.currentFolder.path = $scope.system.tilde + newvalue.trim().substring(1);
             }
             $http.get(urlbase + '/system/browse', {
@@ -1154,7 +1154,7 @@ angular.module('syncthing.core')
 
         $scope.editFolder = function (folderCfg) {
             $scope.currentFolder = angular.copy(folderCfg);
-            if ($scope.currentFolder.path.slice(-1) == $scope.system.pathSeparator) {
+            if ($scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             }
             $scope.currentFolder.selectedDevices = {};
@@ -1347,7 +1347,7 @@ angular.module('syncthing.core')
             for (var folderID in $scope.folders) {
                 var devices = $scope.folders[folderID].devices;
                 for (var i = 0; i < devices.length; i++) {
-                    if (devices[i].deviceID == deviceCfg.deviceID) {
+                    if (devices[i].deviceID === deviceCfg.deviceID) {
                         var label = $scope.folders[folderID].label;
                         folders.push(label.length > 0 ? label : folderID);
                         break;
@@ -1461,7 +1461,7 @@ angular.module('syncthing.core')
             if (!$scope.failed[folder]) {
                 return false;
             }
-            if ($scope.failed[folder].length == 0) {
+            if ($scope.failed[folder].length === 0) {
                 return false;
             }
             return true;
@@ -1498,7 +1498,7 @@ angular.module('syncthing.core')
             url += "&page=" + $scope.neededCurrentPage;
             url += "&perpage=" + $scope.neededPageSize;
             $http.post(url).success(function (data) {
-                if ($scope.neededFolder == folder) {
+                if ($scope.neededFolder === folder) {
                     console.log("bumpFile", folder, data);
                     parseNeeded(data);
                 }
@@ -1518,7 +1518,7 @@ angular.module('syncthing.core')
                 'netbsd': 'NetBSD',
                 'linux': 'Linux',
                 'windows': 'Windows',
-                'solaris': 'Solaris',
+                'solaris': 'Solaris'
             }[$scope.version.os] || $scope.version.os;
 
             var arch ={
