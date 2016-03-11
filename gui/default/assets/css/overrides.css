@@ -141,6 +141,10 @@ table.table-condensed td {
     white-space: nowrap;
 }
 
+table.table-condensed td.no-overflow-ellipse {
+    white-space: normal;
+}
+
 .folder-advanced{
     background-color: hsla(0,0%,99%,1);
     border: 1px solid hsla(0, 0%, 95%, 1);

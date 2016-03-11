@@ -167,8 +167,11 @@
           </div>
           <div class="panel-body">
             <p>
-              <span translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}">
+              <span ng-if="event.data.folderLabel.length == 0" translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}">
                 {%device%} wants to share folder "{%folder%}".
+              </span>
+              <span ng-if="event.data.folderLabel.length != 0" translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}" translate-value-folderLabel="{{ event.data.folderLabel }}">
+                {%device%} wants to share folder "{%folderLabel%}" ({%folder%}).
               </span>
               <span translate ng-if="folders[event.data.folder]">Share this folder?</span>
               <span translate ng-if="!folders[event.data.folder]">Add new folder?</span>
@@ -176,7 +179,7 @@
           </div>
           <div class="panel-footer clearfix">
             <div class="pull-right">
-              <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(event.data.folder, event.data.device)" ng-if="!folders[event.data.folder]">
+              <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(event.data.folder, event.data.folderLabel, event.data.device)" ng-if="!folders[event.data.folder]">
                 <span class="fa fa-check"></span>&nbsp;<span translate>Add</span>
               </button>
               <button type="button" class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(event.data.folder, event.data.device)" ng-if="folders[event.data.folder]">
@@ -224,7 +227,9 @@
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h3 class="panel-title">
-                <span class="fa hidden-xs fa-fw" ng-class="[folder.readOnly ? 'fa-lock' : 'fa-folder']"></span>{{folder.id}}
+                <span class="fa hidden-xs fa-fw" ng-class="[folder.readOnly ? 'fa-lock' : 'fa-folder']"></span>
+                <span ng-show="folder.label.length == 0">{{folder.id}}</span>
+                <span title="{{folder.id}}" ng-show="folder.label.length != 0">{{folder.label}}</span>
                 <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
@@ -249,6 +254,10 @@
               <div class="panel-body">
                 <table class="table table-condensed table-striped">
                   <tbody>
+                    <tr ng-show="folder.label != undefined && folder.label.length > 0">
+                      <th><span class="fa fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder ID</span></th>
+                      <td class="text-right no-overflow-ellipse">{{folder.id}}</td>
+                    </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>
                       <td class="text-right" title="{{folder.path}}">{{folder.path}}</td>
@@ -585,6 +594,7 @@
   <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
   <script src="vendor/angular/angular.min.js"></script>
   <script src="vendor/angular/angular-translate.min.js"></script>
+  <script src="vendor/angular/angular-translate-handler-log.min.js"></script>
   <script src="vendor/angular/angular-translate-loader.min.js"></script>
   <script src="vendor/angular/angular-dirPagination.js"></script>
   <script src="vendor/bootstrap/js/bootstrap.min.js"></script>

@@ -29,8 +29,6 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
         return {
             response: function onResponse(response) {
                 var headers = response.headers();
-                var responseVersion;
-                var deviceIdShort;
 
                 // angular template cache sends no headers
                 if(Object.keys(headers).length === 0) {
@@ -40,7 +38,7 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
                 if (!deviceId) {
                     deviceId = headers['x-syncthing-id'];
                     if (deviceId) {
-                        deviceIdShort = deviceId.substring(0, 5);
+                        var deviceIdShort = deviceId.substring(0, 5);
                         $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIdShort;
                         $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIdShort;
                     }
@@ -57,6 +55,7 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
         prefix: 'assets/lang/lang-',
         suffix: '.json'
     });
+    $translateProvider.useMissingTranslationHandlerLog();
 
     LocaleServiceProvider.setAvailableLocales(validLangs);
     LocaleServiceProvider.setDefaultLocale('en');
@@ -114,9 +113,14 @@ function decimals(val, num) {
 }
 
 function randomString(len) {
-    var i, result = '', chars = '01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-';
-    for (i = 0; i < len; i++) {
-        result += chars[Math.round(Math.random() * (chars.length - 1))];
+    var chars = '01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-';
+    return randomStringFromCharset(len, chars);
+}
+
+function randomStringFromCharset(len, charset) {
+    var result = '';
+    for (var i = 0; i < len; i++) {
+        result += charset[Math.round(Math.random() * (charset.length - 1))];
     }
     return result;
 }
@@ -150,7 +154,6 @@ function debounce(func, wait) {
         context = this;
         args = arguments;
         timestamp = Date.now();
-        var callNow = !timeout;
         if (!timeout) {
             timeout = setTimeout(later, wait);
             result = func.apply(context, args);

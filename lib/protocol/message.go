@@ -143,6 +143,7 @@ func (o *ClusterConfigMessage) GetOption(key string) string {
 
 type Folder struct {
 	ID      string   // max:256
+	Label   string   // max:256
 	Devices []Device // max:1000000
 	Flags   uint32
 	Options []Option // max:64
