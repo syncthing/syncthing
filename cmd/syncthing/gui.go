@@ -1124,22 +1124,33 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		file = "index.html"
 	}
 
-	if s.assetDir != "" {
-		p := filepath.Join(s.assetDir, filepath.FromSlash(file))
-		_, err := os.Stat(p)
-		if err == nil {
-			http.ServeFile(w, r, p)
-			return
-		}
-	}
-
 	s.mut.RLock()
 	theme := s.theme
 	modified := s.lastModified
 	s.mut.RUnlock()
 
+	// Check for an override for the current theme.
+	if s.assetDir != "" {
+		p := filepath.Join(s.assetDir, s.theme, filepath.FromSlash(file))
+		if _, err := os.Stat(p); err == nil {
+			http.ServeFile(w, r, p)
+			return
+		}
+	}
+
+	// Check for a compiled in asset for the current theme.
 	bs, ok := s.assets[theme+"/"+file]
 	if !ok {
+		// Check for an overriden default asset.
+		if s.assetDir != "" {
+			p := filepath.Join(s.assetDir, config.DefaultTheme, filepath.FromSlash(file))
+			if _, err := os.Stat(p); err == nil {
+				http.ServeFile(w, r, p)
+				return
+			}
+		}
+
+		// Check for a compiled in default asset.
 		bs, ok = s.assets[config.DefaultTheme+"/"+file]
 		if !ok {
 			http.NotFound(w, r)
