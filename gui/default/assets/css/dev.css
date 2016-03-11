@@ -1,0 +1,12 @@
+.dev-top-bar{
+    display: none;
+    background-color: yellow;
+}
+
+.dev-error .hasCount{
+    background-color: red;
+}
+
+.dev-warn .hasCount{
+    background-color: yellow;
+}
