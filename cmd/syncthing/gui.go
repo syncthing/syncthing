@@ -54,7 +54,7 @@ type apiService struct {
 	assetDir        string
 	themes          []string
 	model           *model.Model
-	eventSub        *events.BufferedSubscription
+	eventSub        events.BufferedSubscription
 	discoverer      *discover.CachingMux
 	relayService    *relay.Service
 	fss             *folderSummaryService
@@ -70,7 +70,7 @@ type apiService struct {
 	systemLog *logger.Recorder
 }
 
-func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relayService *relay.Service, errors, systemLog *logger.Recorder) (*apiService, error) {
+func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *model.Model, eventSub events.BufferedSubscription, discoverer *discover.CachingMux, relayService *relay.Service, errors, systemLog *logger.Recorder) (*apiService, error) {
 	service := &apiService{
 		id:              id,
 		cfg:             cfg,
