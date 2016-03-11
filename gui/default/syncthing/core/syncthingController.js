@@ -1203,19 +1203,19 @@ angular.module('syncthing.core')
         $scope.addFolder = function () {
             $scope.currentFolder = {
                 selectedDevices: {},
-                id : $scope.createRandomFolderId(),
-                rescanIntervalS : 60,
-                minDiskFreePct : 1,
-                maxConflicts : 10,
-                order : "random",
-                fileVersioningSelector : "none",
-                trashcanClean : 0,
-                simpleKeep : 5,
-                staggeredMaxAge : 365,
-                staggeredCleanInterval : 3600,
-                staggeredVersionsPath : "",
-                externalCommand : "",
-                autoNormalize : true
+                id: $scope.createRandomFolderId(),
+                rescanIntervalS: 60,
+                minDiskFreePct: 1,
+                maxConflicts: 10,
+                order: "random",
+                fileVersioningSelector: "none",
+                trashcanClean: 0,
+                simpleKeep: 5,
+                staggeredMaxAge: 365,
+                staggeredCleanInterval: 3600,
+                staggeredVersionsPath: "",
+                externalCommand: "",
+                autoNormalize: true
             };
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
@@ -1240,7 +1240,7 @@ angular.module('syncthing.core')
                 staggeredVersionsPath: "",
                 externalCommand: "",
                 autoNormalize: true,
-                viewFlags :{
+                viewFlags: {
                     importFromOtherDevice: true
                 }
             };
@@ -1554,7 +1554,7 @@ angular.module('syncthing.core')
 
         $scope.createRandomFolderId = function(){
             var charset = '2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ';
-            return randomStringFromCharset(5,charset) + "-" + randomStringFromCharset(5,charset);
+            return randomStringFromCharset(5, charset) + "-" + randomStringFromCharset(5, charset);
         };
 
         // pseudo main. called on all definitions assigned

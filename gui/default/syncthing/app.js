@@ -114,7 +114,7 @@ function decimals(val, num) {
 
 function randomString(len) {
     var chars = '01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-';
-    return randomStringFromCharset(len,chars);
+    return randomStringFromCharset(len, chars);
 }
 
 function randomStringFromCharset(len, charset) {
