@@ -9,7 +9,6 @@ package main
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture"
@@ -20,7 +19,7 @@ import (
 type folderSummaryService struct {
 	*suture.Supervisor
 
-	cfg       *config.Wrapper
+	cfg       Config
 	model     Model
 	stop      chan struct{}
 	immediate chan string
@@ -34,7 +33,7 @@ type folderSummaryService struct {
 	lastEventReqMut sync.Mutex
 }
 
-func newFolderSummaryService(cfg *config.Wrapper, m Model) *folderSummaryService {
+func newFolderSummaryService(cfg Config, m Model) *folderSummaryService {
 	service := &folderSummaryService{
 		Supervisor:      suture.NewSimple("folderSummaryService"),
 		cfg:             cfg,

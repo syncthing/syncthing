@@ -50,7 +50,7 @@ var (
 
 type apiService struct {
 	id              protocol.DeviceID
-	cfg             *config.Wrapper
+	cfg             Config
 	assetDir        string
 	themes          []string
 	model           Model
@@ -100,7 +100,18 @@ type Model interface {
 	State(folder string) (string, time.Time, error)
 }
 
-func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m Model, eventSub events.BufferedSubscription, discoverer discover.CachingMux, relayService relay.Service, errors, systemLog logger.Recorder) (*apiService, error) {
+type Config interface {
+	GUI() config.GUIConfiguration
+	Raw() config.Configuration
+	Options() config.OptionsConfiguration
+	Replace(cfg config.Configuration) config.CommitResponse
+	Subscribe(c config.Committer)
+	Folders() map[string]config.FolderConfiguration
+	Devices() map[protocol.DeviceID]config.DeviceConfiguration
+	Save() error
+}
+
+func newAPIService(id protocol.DeviceID, cfg Config, assetDir string, m Model, eventSub events.BufferedSubscription, discoverer discover.CachingMux, relayService relay.Service, errors, systemLog logger.Recorder) (*apiService, error) {
 	service := &apiService{
 		id:              id,
 		cfg:             cfg,
@@ -561,7 +572,7 @@ func (s *apiService) getDBStatus(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, folderSummary(s.cfg, s.model, folder))
 }
 
-func folderSummary(cfg *config.Wrapper, m Model, folder string) map[string]interface{} {
+func folderSummary(cfg Config, m Model, folder string) map[string]interface{} {
 	var res = make(map[string]interface{})
 
 	res["invalid"] = cfg.Folders()[folder].Invalid

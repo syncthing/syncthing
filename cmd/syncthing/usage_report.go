@@ -79,7 +79,7 @@ func (m *usageReportingManager) String() string {
 
 // reportData returns the data to be sent in a usage report. It's used in
 // various places, so not part of the usageReportingManager object.
-func reportData(cfg *config.Wrapper, m Model) map[string]interface{} {
+func reportData(cfg Config, m Model) map[string]interface{} {
 	res := make(map[string]interface{})
 	res["urVersion"] = usageReportVersion
 	res["uniqueID"] = cfg.Options().URUniqueID
