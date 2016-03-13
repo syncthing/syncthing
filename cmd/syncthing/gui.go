@@ -51,6 +51,8 @@ var (
 type apiService struct {
 	id              protocol.DeviceID
 	cfg             *config.Wrapper
+	httpsCertFile   string
+	httpsKeyFile    string
 	assetDir        string
 	themes          []string
 	model           *model.Model
@@ -70,10 +72,12 @@ type apiService struct {
 	systemLog *logger.Recorder
 }
 
-func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relayService *relay.Service, errors, systemLog *logger.Recorder) (*apiService, error) {
+func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, httpsCertFile, httpsKeyFile, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relayService *relay.Service, errors, systemLog *logger.Recorder) (*apiService, error) {
 	service := &apiService{
 		id:              id,
 		cfg:             cfg,
+		httpsCertFile:   httpsCertFile,
+		httpsKeyFile:    httpsKeyFile,
 		assetDir:        assetDir,
 		model:           m,
 		eventSub:        eventSub,
@@ -112,7 +116,7 @@ func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m
 }
 
 func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, error) {
-	cert, err := tls.LoadX509KeyPair(locations[locHTTPSCertFile], locations[locHTTPSKeyFile])
+	cert, err := tls.LoadX509KeyPair(s.httpsCertFile, s.httpsKeyFile)
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
 		l.Infoln("Creating new HTTPS certificate")
@@ -125,7 +129,7 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 			name = tlsDefaultCommonName
 		}
 
-		cert, err = tlsutil.NewCertificate(locations[locHTTPSCertFile], locations[locHTTPSKeyFile], name, httpsRSABits)
+		cert, err = tlsutil.NewCertificate(s.httpsCertFile, s.httpsKeyFile, name, httpsRSABits)
 	}
 	if err != nil {
 		return nil, err
