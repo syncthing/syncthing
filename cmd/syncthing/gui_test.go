@@ -55,9 +55,6 @@ func TestCSRFToken(t *testing.T) {
 }
 
 func TestStopAfterBrokenConfig(t *testing.T) {
-	baseDirs["config"] = "../../test/h1" // to load HTTPS keys
-	expandLocations()
-
 	cfg := config.Configuration{
 		GUI: config.GUIConfiguration{
 			RawAddress: "127.0.0.1:0",
@@ -66,7 +63,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg)
 
-	srv, err := newAPIService(protocol.LocalDeviceID, w, "", nil, nil, nil, nil, nil, nil)
+	srv, err := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
