@@ -11,6 +11,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/stub"
 	"github.com/thejerf/suture"
 )
 
@@ -88,4 +89,16 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	// Nonetheless, it should be fine to Stop() it without panic.
 
 	sup.Stop()
+}
+
+func TestGUIRequest(t *testing.T) {
+	m := new(stub.Model)
+	cfg := new(stub.Config)
+	svc, err := newAPIService(protocol.LocalDeviceID, cfg, "", m, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc == nil {
+		t.Error("Nil apiService")
+	}
 }
