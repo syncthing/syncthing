@@ -22,7 +22,7 @@ Forum Website
 
 Powered by Discourse.
 
-- `forum.syncthing.net <https://forum.syncthing.net/>`__ (Ubuntu Linux, 3072 MB)
+- `forum.syncthing.net <https://forum.syncthing.net/>`__ (Ubuntu Linux, 2048 MB)
 
 Global Discovery Servers
 ------------------------
@@ -61,7 +61,6 @@ Build Servers, Core and Android
 Runs Jenkins and does the core and Android builds, Ubuntu Linux.
 
 - `build.syncthing.net <http://build.syncthing.net/>`__ (Jenkins frontend, SmartOS container, 2048 MB)
-- build2.syncthing.net (build runner, SmartOS container, 8192 MB)
 - `android.syncthing.net <http://android.syncthing.net/>`__ (Ubuntu Linux, 3072 MB)
 
 Build Servers, Other
@@ -70,7 +69,9 @@ Build Servers, Other
 Runs a Jenkins slave and builds release builds for their respective OS.
 
 - native-windows-amd64 (Windows 2012 R2, Amazon EC2 t2.micro)
-- native-darwin-amd64 (Mac OS X 10.8.5, MacBookPro5,1)
+- native-darwin-amd64 (Mac OS X 10.8.5, MacBookPro5,1 in calmh's garage)
+- native-ubuntu-amd64 (Ubuntu 14.04, 2048 MB, hosted at DigitalOcean)
+- native-ubuntu-386 (Ubuntu 14.04, 512 MB, hosted at DigitalOcean)
 
 APT Server
 ----------
@@ -85,3 +86,10 @@ Signing Server
 Signs and uploads the release bundles to Github.
 
 - secure.syncthing.net (SmartOS container, 2048 MB)
+
+Code Review Server
+------------------
+
+Runs Crucible & Fisheye.
+
+- `reviews.syncthing.net <https://reviews.syncthing.net>`__ (Ubuntu 14.04, 1024 MB, hosted at DigitalOcean)
