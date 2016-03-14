@@ -1,5 +1,5 @@
 angular.module('syncthing.core')
-    .directive('pathIsSubfolder', function () {
+    .directive('pathIsSubDir', function () {
         return {
             require: 'ngModel',
             priority: 1000,
@@ -21,22 +21,15 @@ angular.module('syncthing.core')
                         }).every(e => e == true);
                     }
 
-                    // check whether the directory in question is a subdirectory of any other
-                    var flag = false;
-                    var oldPath = "";
+
+                    scope.pathIsSubFolder = false;
+                    scope.otherPath = "";
                     for (var folderID in scope.folders) {
-                        oldPath = scope.folders[folderID].path;
-                        if (isSubDir(viewValue, oldPath) || isSubDir(oldPath, viewValue)) {
-                            flag = true;
+                        scope.otherPath = scope.folders[folderID].path;
+                        if (isSubDir(scope.otherPath, viewValue)) {
+                            scope.pathIsSubFolder = true;
                             break;
                         }
-                    }
-
-                    if (flag) {
-                        scope.otherPath = oldPath;
-                        ctrl.$setValidity('pathIsSubfolder', false);
-                    } else {
-                        ctrl.$setValidity('pathIsSubfolder', true);
                     }
                     return viewValue;
                 });
