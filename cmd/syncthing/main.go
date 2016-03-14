@@ -983,7 +983,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	api, err := newAPIService(myID, cfg, runtimeOptions.assetDir, m, apiSub, discoverer, relayService, errors, systemLog)
+	api, err := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, apiSub, discoverer, relayService, errors, systemLog)
 	if err != nil {
 		l.Fatalln("Cannot start GUI:", err)
 	}

@@ -650,8 +650,9 @@ nextFolder:
 
 		if !m.folderSharedWithUnlocked(folder.ID, deviceID) {
 			events.Default.Log(events.FolderRejected, map[string]string{
-				"folder": folder.ID,
-				"device": deviceID.String(),
+				"folder":      folder.ID,
+				"folderLabel": folder.Label,
+				"device":      deviceID.String(),
 			})
 			l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.ID, deviceID)
 			continue
@@ -1530,7 +1531,7 @@ func (m *Model) numHashers(folder string) int {
 // generateClusterConfig returns a ClusterConfigMessage that is correct for
 // the given peer device
 func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
-	cm := protocol.ClusterConfigMessage{
+	message := protocol.ClusterConfigMessage{
 		DeviceName:    m.deviceName,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
@@ -1539,8 +1540,9 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
 		folderCfg := m.cfg.Folders()[folder]
-		cr := protocol.Folder{
-			ID: folder,
+		protocolFolder := protocol.Folder{
+			ID:    folder,
+			Label: folderCfg.Label,
 		}
 		var flags uint32
 		if folderCfg.ReadOnly {
@@ -1552,7 +1554,7 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 		if folderCfg.IgnoreDelete {
 			flags |= protocol.FlagFolderIgnoreDelete
 		}
-		cr.Flags = flags
+		protocolFolder.Flags = flags
 		for _, device := range m.folderDevices[folder] {
 			// DeviceID is a value type, but with an underlying array. Copy it
 			// so we don't grab aliases to the same array later on in device[:]
@@ -1560,7 +1562,7 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			// TODO: Set read only bit when relevant, and when we have per device
 			// access controls.
 			deviceCfg := m.cfg.Devices()[device]
-			cn := protocol.Device{
+			protocolDevice := protocol.Device{
 				ID:          device[:],
 				Name:        deviceCfg.Name,
 				Addresses:   deviceCfg.Addresses,
@@ -1570,15 +1572,15 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			}
 
 			if deviceCfg.Introducer {
-				cn.Flags |= protocol.FlagIntroducer
+				protocolDevice.Flags |= protocol.FlagIntroducer
 			}
-			cr.Devices = append(cr.Devices, cn)
+			protocolFolder.Devices = append(protocolFolder.Devices, protocolDevice)
 		}
-		cm.Folders = append(cm.Folders, cr)
+		message.Folders = append(message.Folders, protocolFolder)
 	}
 	m.fmut.RUnlock()
 
-	return cm
+	return message
 }
 
 func (m *Model) State(folder string) (string, time.Time, error) {

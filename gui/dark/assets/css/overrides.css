@@ -441,7 +441,7 @@ code.ng-binding{
 }
 
 .well, .form-control[readonly="readonly"] { /* read-only fields*/
-    color: #444 !important;
+    color: #666 !important;
     border-color: #444 !important;
     background-color: #111 !important;
 }

@@ -74,6 +74,12 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/syndtr/goleveldb",
+			"repository": "https://github.com/syndtr/goleveldb",
+			"revision": "917f41c560270110ceb73c5b38be2a9127387071",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/syndtr/goleveldb/leveldb",
 			"repository": "https://github.com/syndtr/goleveldb",
 			"revision": "ad0d8b2ab58a55ed5c58073aa46451d5e1ca1280",
