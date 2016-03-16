@@ -140,12 +140,9 @@ table.table-condensed {
     table-layout: fixed;
 }
 table.table-condensed td {
-    white-space: nowrap;
-}
-.ellipsis{
     overflow: hidden;
     text-overflow: ellipsis;
-    pointer-events: none;
+    white-space: nowrap;
 }
 
 table.table-condensed td.no-overflow-ellipse {
