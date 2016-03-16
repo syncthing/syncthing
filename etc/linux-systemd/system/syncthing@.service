@@ -1,6 +1,6 @@
 [Unit]
 Description=Syncthing - Open Source Continuous File Synchronization for %I
-Documentation=http://docs.syncthing.net/
+Documentation=man:syncthing(1)
 After=network.target
 Wants=syncthing-inotify@.service
 
