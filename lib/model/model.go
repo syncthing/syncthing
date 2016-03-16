@@ -1942,9 +1942,11 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			}
 		}
 
-		// Check if anything else differs, apart from the device list.
+		// Check if anything else differs, apart from the device list and label.
 		fromCfg.Devices = nil
 		toCfg.Devices = nil
+		fromCfg.Label = ""
+		toCfg.Label = ""
 		if !reflect.DeepEqual(fromCfg, toCfg) {
 			l.Debugln(m, "requires restart, folder", folderID, "configuration differs")
 			return false

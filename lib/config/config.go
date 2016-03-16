@@ -209,10 +209,14 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	// Ensure that any loose devices are not present in the wrong places
 	// Ensure that there are no duplicate devices
 	// Ensure that puller settings are sane
+	// Ensure that the versioning configuration parameter map is not nil
 	for i := range cfg.Folders {
 		cfg.Folders[i].Devices = ensureDevicePresent(cfg.Folders[i].Devices, myID)
 		cfg.Folders[i].Devices = ensureExistingDevices(cfg.Folders[i].Devices, existingDevices)
 		cfg.Folders[i].Devices = ensureNoDuplicateFolderDevices(cfg.Folders[i].Devices)
+		if cfg.Folders[i].Versioning.Params == nil {
+			cfg.Folders[i].Versioning.Params = map[string]string{}
+		}
 		sort.Sort(FolderDeviceConfigurationList(cfg.Folders[i].Devices))
 	}
 
