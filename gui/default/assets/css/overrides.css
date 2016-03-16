@@ -71,6 +71,10 @@ identicon {
     min-width: 250px;
 }
 
+.tooltip{
+    word-wrap:break-word;
+}
+
 .panel-heading .fa, .modal-header .fa {
     margin-right: 10px;
 }
