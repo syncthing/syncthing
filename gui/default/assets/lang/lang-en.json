@@ -228,7 +228,7 @@
    "Version": "Version",
    "Versions Path": "Versions Path",
    "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.",
-   "Warning, this path is already a subdirectory of {%otherPath%}.": "Warning, this path is already a subdirectory of {{otherPath}}.",
+   "Warning, this path is a subdirectory of an existing folder {%otherFolder%}.": "Warning, this path is a subdirectory of an existing folder {{otherFolder}}.",
    "When adding a new device, keep in mind that this device must be added on the other side too.": "When adding a new device, keep in mind that this device must be added on the other side too.",
    "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.",
    "Yes": "Yes",

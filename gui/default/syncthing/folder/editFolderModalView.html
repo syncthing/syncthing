@@ -36,7 +36,7 @@
                 <p class="help-block">
                   <span translate ng-if="folderEditor.folderPath.$valid || folderEditor.folderPath.$pristine">Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.
                   <span translate ng-if="folderEditor.folderPath.$error.required && folderEditor.folderPath.$dirty">The folder path cannot be blank.</span>
-                  <span class="text-danger" translate translate-value-other-path="{{otherPath}}" ng-if="pathIsSubFolder">Warning, this path is already a subdirectory of {%otherPath%}.</span>
+                  <span class="text-danger" translate translate-value-other-folder="{{otherFolder}}" ng-if="pathIsSubFolder">Warning, this path is a subdirectory of an existing folder {%otherFolder%}.</span>
                 </p>
               </div>
             </div>
