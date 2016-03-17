@@ -533,7 +533,7 @@ func TestListDropFolder(t *testing.T) {
 
 	expectedFolderList := []string{"test0", "test1"}
 	actualFolderList := ldb.ListFolders()
-	if diff, equal := messagediff.PrettyDiff(actualFolderList, expectedFolderList); !equal {
+	if diff, equal := messagediff.PrettyDiff(expectedFolderList, actualFolderList); !equal {
 		t.Fatalf("FolderList mismatch. Diff:\n%s", diff)
 	}
 	if l := len(globalList(s0)); l != 3 {
@@ -549,7 +549,7 @@ func TestListDropFolder(t *testing.T) {
 
 	expectedFolderList = []string{"test0"}
 	actualFolderList = ldb.ListFolders()
-	if diff, equal := messagediff.PrettyDiff(actualFolderList, expectedFolderList); !equal {
+	if diff, equal := messagediff.PrettyDiff(expectedFolderList, actualFolderList); !equal {
 		t.Fatalf("FolderList mismatch. Diff:\n%s", diff)
 	}
 	if l := len(globalList(s0)); l != 3 {

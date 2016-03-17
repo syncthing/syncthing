@@ -65,7 +65,7 @@ func TestDefaultValues(t *testing.T) {
 
 	cfg := New(device1)
 
-	if diff, equal := messagediff.PrettyDiff(cfg.Options, expected); !equal {
+	if diff, equal := messagediff.PrettyDiff(expected, cfg.Options); !equal {
 		t.Errorf("Default config differs. Diff:\n%s", diff)
 	}
 }
@@ -133,13 +133,13 @@ func TestDeviceConfig(t *testing.T) {
 		if cfg.Version != CurrentVersion {
 			t.Errorf("%d: Incorrect version %d != %d", i, cfg.Version, CurrentVersion)
 		}
-		if diff, equal := messagediff.PrettyDiff(cfg.Folders, expectedFolders); !equal {
+		if diff, equal := messagediff.PrettyDiff(expectedFolders, cfg.Folders); !equal {
 			t.Errorf("%d: Incorrect Folders. Diff:\n%s", i, diff)
 		}
-		if diff, equal := messagediff.PrettyDiff(cfg.Devices, expectedDevices); !equal {
+		if diff, equal := messagediff.PrettyDiff(expectedDevices, cfg.Devices); !equal {
 			t.Errorf("%d: Incorrect Devices. Diff:\n%s", i, diff)
 		}
-		if diff, equal := messagediff.PrettyDiff(cfg.Folders[0].DeviceIDs(), expectedDeviceIDs); !equal {
+		if diff, equal := messagediff.PrettyDiff(expectedDeviceIDs, cfg.Folders[0].DeviceIDs()); !equal {
 			t.Errorf("%d: Incorrect DeviceIDs. Diff:\n%s", i, diff)
 		}
 	}
@@ -153,7 +153,7 @@ func TestNoListenAddress(t *testing.T) {
 
 	expected := []string{""}
 	actual := cfg.Options().ListenAddress
-	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+	if diff, equal := messagediff.PrettyDiff(expected, actual); !equal {
 		t.Errorf("Unexpected ListenAddress. Diff:\n%s", diff)
 	}
 }
@@ -197,7 +197,7 @@ func TestOverriddenValues(t *testing.T) {
 		t.Error(err)
 	}
 
-	if diff, equal := messagediff.PrettyDiff(cfg.Options(), expected); !equal {
+	if diff, equal := messagediff.PrettyDiff(expected, cfg.Options()); !equal {
 		t.Errorf("Overridden config differs. Diff:\n%s", diff)
 	}
 }
@@ -231,7 +231,7 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 	}
 
 	actual := cfg.Devices()
-	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+	if diff, equal := messagediff.PrettyDiff(expected, actual); !equal {
 		t.Errorf("Devices differ. Diff:\n%s", diff)
 	}
 }
@@ -268,7 +268,7 @@ func TestDeviceCompression(t *testing.T) {
 	}
 
 	actual := cfg.Devices()
-	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+	if diff, equal := messagediff.PrettyDiff(expected, actual); !equal {
 		t.Errorf("Devices differ. Diff:\n%s", diff)
 	}
 }
@@ -302,7 +302,7 @@ func TestDeviceAddressesStatic(t *testing.T) {
 	}
 
 	actual := cfg.Devices()
-	if diff, equal := messagediff.PrettyDiff(actual, expected); !equal {
+	if diff, equal := messagediff.PrettyDiff(expected, actual); !equal {
 		t.Errorf("Devices differ. Diff:\n%s", diff)
 	}
 }
@@ -325,7 +325,7 @@ func TestVersioningConfig(t *testing.T) {
 		"foo": "bar",
 		"baz": "quux",
 	}
-	if diff, equal := messagediff.PrettyDiff(vc.Params, expected); !equal {
+	if diff, equal := messagediff.PrettyDiff(expected, vc.Params); !equal {
 		t.Errorf("vc.Params differ. Diff:\n%s", diff)
 	}
 }
