@@ -535,10 +535,10 @@ func checkedStop(t *testing.T, p *rc.Process) {
 func startInstance(t *testing.T, i int) *rc.Process {
 	log.Printf("Starting instance %d...", i)
 	addr := fmt.Sprintf("127.0.0.1:%d", 8080+i)
-	log := fmt.Sprintf("logs/%s-%d-%d.out", getTestName(), i, time.Now().Unix()%86400)
+	logFile := fmt.Sprintf("logs/%s-%d-%d.out", getTestName(), i, time.Now().Unix()%86400)
 
 	p := rc.NewProcess(addr)
-	p.LogTo(log)
+	p.LogTo(logFile)
 	if err := p.Start("../bin/syncthing", "-home", fmt.Sprintf("h%d", i), "-no-browser"); err != nil {
 		t.Fatal(err)
 	}
