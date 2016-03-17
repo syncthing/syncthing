@@ -51,6 +51,8 @@ var (
 type apiService struct {
 	id              protocol.DeviceID
 	cfg             *config.Wrapper
+	httpsCertFile   string
+	httpsKeyFile    string
 	assetDir        string
 	themes          []string
 	model           *model.Model
@@ -70,10 +72,12 @@ type apiService struct {
 	systemLog *logger.Recorder
 }
 
-func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relayService *relay.Service, errors, systemLog *logger.Recorder) (*apiService, error) {
+func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, httpsCertFile, httpsKeyFile, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relayService *relay.Service, errors, systemLog *logger.Recorder) (*apiService, error) {
 	service := &apiService{
 		id:              id,
 		cfg:             cfg,
+		httpsCertFile:   httpsCertFile,
+		httpsKeyFile:    httpsKeyFile,
 		assetDir:        assetDir,
 		model:           m,
 		eventSub:        eventSub,
@@ -88,11 +92,21 @@ func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m
 	}
 
 	seen := make(map[string]struct{})
+	// Load themes from compiled in assets.
 	for file := range auto.Assets() {
 		theme := strings.Split(file, "/")[0]
 		if _, ok := seen[theme]; !ok {
 			seen[theme] = struct{}{}
 			service.themes = append(service.themes, theme)
+		}
+	}
+	if assetDir != "" {
+		// Load any extra themes from the asset override dir.
+		for _, dir := range dirNames(assetDir) {
+			if _, ok := seen[dir]; !ok {
+				seen[dir] = struct{}{}
+				service.themes = append(service.themes, dir)
+			}
 		}
 	}
 
@@ -102,7 +116,7 @@ func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, assetDir string, m
 }
 
 func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, error) {
-	cert, err := tls.LoadX509KeyPair(locations[locHTTPSCertFile], locations[locHTTPSKeyFile])
+	cert, err := tls.LoadX509KeyPair(s.httpsCertFile, s.httpsKeyFile)
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
 		l.Infoln("Creating new HTTPS certificate")
@@ -115,7 +129,7 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 			name = tlsDefaultCommonName
 		}
 
-		cert, err = tlsutil.NewCertificate(locations[locHTTPSCertFile], locations[locHTTPSKeyFile], name, httpsRSABits)
+		cert, err = tlsutil.NewCertificate(s.httpsCertFile, s.httpsKeyFile, name, httpsRSABits)
 	}
 	if err != nil {
 		return nil, err
@@ -1124,22 +1138,33 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		file = "index.html"
 	}
 
-	if s.assetDir != "" {
-		p := filepath.Join(s.assetDir, filepath.FromSlash(file))
-		_, err := os.Stat(p)
-		if err == nil {
-			http.ServeFile(w, r, p)
-			return
-		}
-	}
-
 	s.mut.RLock()
 	theme := s.theme
 	modified := s.lastModified
 	s.mut.RUnlock()
 
+	// Check for an override for the current theme.
+	if s.assetDir != "" {
+		p := filepath.Join(s.assetDir, s.theme, filepath.FromSlash(file))
+		if _, err := os.Stat(p); err == nil {
+			http.ServeFile(w, r, p)
+			return
+		}
+	}
+
+	// Check for a compiled in asset for the current theme.
 	bs, ok := s.assets[theme+"/"+file]
 	if !ok {
+		// Check for an overriden default asset.
+		if s.assetDir != "" {
+			p := filepath.Join(s.assetDir, config.DefaultTheme, filepath.FromSlash(file))
+			if _, err := os.Stat(p); err == nil {
+				http.ServeFile(w, r, p)
+				return
+			}
+		}
+
+		// Check for a compiled in default asset.
 		bs, ok = s.assets[config.DefaultTheme+"/"+file]
 		if !ok {
 			http.NotFound(w, r)
@@ -1265,4 +1290,27 @@ func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
 		res[i] = fmt.Sprintf("%v:%d", c.ID, c.Value)
 	}
 	return json.Marshal(res)
+}
+
+func dirNames(dir string) []string {
+	fd, err := os.Open(dir)
+	if err != nil {
+		return nil
+	}
+	defer fd.Close()
+
+	fis, err := fd.Readdir(-1)
+	if err != nil {
+		return nil
+	}
+
+	var dirs []string
+	for _, fi := range fis {
+		if fi.IsDir() {
+			dirs = append(dirs, filepath.Base(fi.Name()))
+		}
+	}
+
+	sort.Strings(dirs)
+	return dirs
 }

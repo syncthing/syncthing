@@ -120,7 +120,7 @@ func TestWalk(t *testing.T) {
 	sort.Sort(fileList(tmp))
 	files := fileList(tmp).testfiles()
 
-	if diff, equal := messagediff.PrettyDiff(files, testdata); !equal {
+	if diff, equal := messagediff.PrettyDiff(testdata, files); !equal {
 		t.Errorf("Walk returned unexpected data. Diff:\n%s", diff)
 	}
 }
