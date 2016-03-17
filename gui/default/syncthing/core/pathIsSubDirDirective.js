@@ -18,7 +18,7 @@ angular.module('syncthing.core')
                         }
                         return xdirArr.map(function(e, i) {
                             return xdirArr[i] === ydirArr[i];
-                        }).every(e => e == true);
+                        }).every(function(e) { return e });
                     }
 
 
