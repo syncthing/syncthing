@@ -379,7 +379,7 @@
       <!-- This device -->
 
       <div class="col-md-6">
-        <h3 translate>Devices</h3>
+        <h3 translate>This Device</h3>
         <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
           <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
             <h3 class="panel-title">
@@ -451,7 +451,7 @@
         </div>
 
         <!-- Remote devices -->
-
+        <h3 translate>Remote Devices</h3>
         <div class="panel-group" id="devices">
           <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
@@ -535,7 +535,7 @@
         </div>
         <div class="form-group">
           <button type="button" class="btn btn-sm btn-default pull-right" ng-click="addDevice()">
-            <span class="fa fa-plus"></span>&nbsp;<span translate>Add Device</span>
+            <span class="fa fa-plus"></span>&nbsp;<span translate>Add Remote Device</span>
           </button>
           <div class="clearfix"></div>
         </div>
