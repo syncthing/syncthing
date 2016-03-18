@@ -6,6 +6,7 @@ GOPATH="$(pwd)/Godeps/_workspace:$GOPATH"
 build() {
 	export GOOS="$1"
 	export GOARCH="$2"
+	export GO15VENDOREXPERIMENT="1"
 	target="discosrv-$GOOS-$GOARCH"
 	go build -i -v -tags purego -ldflags -w
 	mkdir "$target"
