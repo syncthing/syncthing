@@ -21,7 +21,6 @@ build() {
 }
 
 buildpkg() {
-	echo Get dependencies
 	rm -rf discosrv-*-*
 
 	for goos in linux darwin windows freebsd openbsd netbsd solaris ; do
