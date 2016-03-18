@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	stdsync "sync"
 	"time"
@@ -1318,28 +1319,13 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 		return err
 	}
 
-	// Required to make sure that we start indexing at a directory we're already
-	// aware off.
-	var unifySubs []string
-nextSub:
-	for _, sub := range subs {
-		for sub != "" && sub != ".stfolder" && sub != ".stignore" {
-			if _, ok = fs.Get(protocol.LocalDeviceID, sub); ok {
-				break
-			}
-			sub = filepath.Dir(sub)
-			if sub == "." || sub == string(filepath.Separator) {
-				sub = ""
-			}
-		}
-		for _, us := range unifySubs {
-			if strings.HasPrefix(sub, us) {
-				continue nextSub
-			}
-		}
-		unifySubs = append(unifySubs, sub)
-	}
-	subs = unifySubs
+	// Clean the list of subitems to ensure that we start at a known
+	// directory, and don't scan subdirectories of things we've already
+	// scanned.
+	subs = unifySubs(subs, func(f string) bool {
+		_, ok := fs.Get(protocol.LocalDeviceID, f)
+		return ok
+	})
 
 	// The cancel channel is closed whenever we return (such as from an error),
 	// to signal the potentially still running walker to stop.
@@ -2081,4 +2067,43 @@ func stringSliceWithout(ss []string, s string) []string {
 		}
 	}
 	return ss
+}
+
+// unifySubs takes a list of files or directories and trims them down to
+// themselves or the closest parent that exists() returns true for, while
+// removing duplicates and subdirectories. That is, if we have foo/ in the
+// list, we don't also need foo/bar/ because that's already covered.
+func unifySubs(dirs []string, exists func(dir string) bool) []string {
+	var subs []string
+
+	// Trim each item to itself or its closest known parent
+	for _, sub := range dirs {
+		for sub != "" && sub != ".stfolder" && sub != ".stignore" {
+			if exists(sub) {
+				break
+			}
+			sub = filepath.Dir(sub)
+			if sub == "." || sub == string(filepath.Separator) {
+				// Shortcut. We are going to scan the full folder, so we can
+				// just return an empty list of subs at this point.
+				return nil
+			}
+		}
+		subs = append(subs, sub)
+	}
+
+	// Remove any paths that are already covered by their parent
+	sort.Strings(subs)
+	var cleaned []string
+next:
+	for _, sub := range subs {
+		for _, existing := range cleaned {
+			if sub == existing || strings.HasPrefix(sub, existing+string(os.PathSeparator)) {
+				continue next
+			}
+		}
+		cleaned = append(cleaned, sub)
+	}
+
+	return cleaned
 }
