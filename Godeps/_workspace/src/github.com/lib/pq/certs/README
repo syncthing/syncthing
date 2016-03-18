@@ -1,3 +1,0 @@
-This directory contains certificates and private keys for testing some
-SSL-related functionality in Travis.  Do NOT use these certificates for
-anything other than testing.
