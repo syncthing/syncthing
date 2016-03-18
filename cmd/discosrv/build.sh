@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-GOPATH="$(pwd)/Godeps/_workspace:$GOPATH"
-
 build() {
 	export GOOS="$1"
 	export GOARCH="$2"
