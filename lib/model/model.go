@@ -1391,76 +1391,69 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 		m.updateLocals(folder, batch)
 	}
 
+	if len(subs) == 0 {
+		// If we have no specific subdirectories to traverse, set it to one
+		// empty prefix so we traverse the entire folder contents once.
+		subs = []string{""}
+	}
+
+	// Do a scan of the database for each prefix, to check for deleted files.
 	batch = batch[:0]
-	// TODO: We should limit the Have scanning to start at sub
-	seenPrefix := false
-	var iterError error
-	fs.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
-		f := fi.(db.FileInfoTruncated)
-		hasPrefix := len(subs) == 0
-		for _, sub := range subs {
-			if strings.HasPrefix(f.Name, sub) {
-				hasPrefix = true
-				break
-			}
-		}
-		// Return true so that we keep iterating, until we get to the part
-		// of the tree we are interested in. Then return false so we stop
-		// iterating when we've passed the end of the subtree.
-		if !hasPrefix {
-			return !seenPrefix
-		}
+	for _, sub := range subs {
+		var iterError error
 
-		seenPrefix = true
-		if !f.IsDeleted() {
-			if f.IsInvalid() {
-				return true
-			}
-
-			if len(batch) == batchSizeFiles {
-				if err := m.CheckFolderHealth(folder); err != nil {
-					iterError = err
-					return false
+		fs.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
+			f := fi.(db.FileInfoTruncated)
+			if !f.IsDeleted() {
+				if f.IsInvalid() {
+					return true
 				}
-				m.updateLocals(folder, batch)
-				batch = batch[:0]
-			}
 
-			if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
-				// File has been ignored or an unsupported symlink. Set invalid bit.
-				l.Debugln("setting invalid bit on ignored", f)
-				nf := protocol.FileInfo{
-					Name:     f.Name,
-					Flags:    f.Flags | protocol.FlagInvalid,
-					Modified: f.Modified,
-					Version:  f.Version, // The file is still the same, so don't bump version
+				if len(batch) == batchSizeFiles {
+					if err := m.CheckFolderHealth(folder); err != nil {
+						iterError = err
+						return false
+					}
+					m.updateLocals(folder, batch)
+					batch = batch[:0]
 				}
-				batch = append(batch, nf)
-			} else if _, err := osutil.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
-				// File has been deleted.
 
-				// We don't specifically verify that the error is
-				// os.IsNotExist because there is a corner case when a
-				// directory is suddenly transformed into a file. When that
-				// happens, files that were in the directory (that is now a
-				// file) are deleted but will return a confusing error ("not a
-				// directory") when we try to Lstat() them.
+				if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
+					// File has been ignored or an unsupported symlink. Set invalid bit.
+					l.Debugln("setting invalid bit on ignored", f)
+					nf := protocol.FileInfo{
+						Name:     f.Name,
+						Flags:    f.Flags | protocol.FlagInvalid,
+						Modified: f.Modified,
+						Version:  f.Version, // The file is still the same, so don't bump version
+					}
+					batch = append(batch, nf)
+				} else if _, err := osutil.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
+					// File has been deleted.
 
-				nf := protocol.FileInfo{
-					Name:     f.Name,
-					Flags:    f.Flags | protocol.FlagDeleted,
-					Modified: f.Modified,
-					Version:  f.Version.Update(m.shortID),
+					// We don't specifically verify that the error is
+					// os.IsNotExist because there is a corner case when a
+					// directory is suddenly transformed into a file. When that
+					// happens, files that were in the directory (that is now a
+					// file) are deleted but will return a confusing error ("not a
+					// directory") when we try to Lstat() them.
+
+					nf := protocol.FileInfo{
+						Name:     f.Name,
+						Flags:    f.Flags | protocol.FlagDeleted,
+						Modified: f.Modified,
+						Version:  f.Version.Update(m.shortID),
+					}
+					batch = append(batch, nf)
 				}
-				batch = append(batch, nf)
 			}
+			return true
+		})
+
+		if iterError != nil {
+			l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, iterError)
+			return iterError
 		}
-		return true
-	})
-
-	if iterError != nil {
-		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, iterError)
-		return iterError
 	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
