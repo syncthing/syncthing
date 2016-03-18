@@ -259,11 +259,11 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 	return maxLocalVer
 }
 
-func (db *Instance) withHave(folder, device []byte, truncate bool, fn Iterator) {
+func (db *Instance) withHave(folder, device, prefix []byte, truncate bool, fn Iterator) {
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, nil)[:keyPrefixLen+keyFolderLen+keyDeviceLen]), nil)
+	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, prefix)[:keyPrefixLen+keyFolderLen+keyDeviceLen+len(prefix)]), nil)
 	defer dbi.Release()
 
 	for dbi.Next() {
