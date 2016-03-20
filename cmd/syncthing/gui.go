@@ -149,7 +149,16 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 
 func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(jsonObject)
+	// Marshalling might fail, in which case we should return a 500 with the
+	// actual error.
+	bs, err := json.Marshal(jsonObject)
+	if err != nil {
+		// This Marshal() can't fail though.
+		bs, _ = json.Marshal(map[string]string{"error": err.Error()})
+		http.Error(w, string(bs), http.StatusInternalServerError)
+		return
+	}
+	w.Write(bs)
 }
 
 func (s *apiService) Serve() {
