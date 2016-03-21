@@ -19,8 +19,8 @@ import (
 type folderSummaryService struct {
 	*suture.Supervisor
 
-	cfg       Config
-	model     Model
+	cfg       configIntf
+	model     modelIntf
 	stop      chan struct{}
 	immediate chan string
 
@@ -33,7 +33,7 @@ type folderSummaryService struct {
 	lastEventReqMut sync.Mutex
 }
 
-func newFolderSummaryService(cfg Config, m Model) *folderSummaryService {
+func newFolderSummaryService(cfg configIntf, m modelIntf) *folderSummaryService {
 	service := &folderSummaryService{
 		Supervisor:      suture.NewSimple("folderSummaryService"),
 		cfg:             cfg,

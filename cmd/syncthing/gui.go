@@ -50,12 +50,12 @@ var (
 
 type apiService struct {
 	id              protocol.DeviceID
-	cfg             Config
+	cfg             configIntf
 	httpsCertFile   string
 	httpsKeyFile    string
 	assetDir        string
 	themes          []string
-	model           Model
+	model           modelIntf
 	eventSub        events.BufferedSubscription
 	discoverer      discover.CachingMux
 	relayService    relay.Service
@@ -72,7 +72,7 @@ type apiService struct {
 	systemLog logger.Recorder
 }
 
-type Model interface {
+type modelIntf interface {
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
 	Completion(device protocol.DeviceID, folder string) float64
 	Override(folder string)
@@ -102,7 +102,7 @@ type Model interface {
 	State(folder string) (string, time.Time, error)
 }
 
-type Config interface {
+type configIntf interface {
 	GUI() config.GUIConfiguration
 	Raw() config.Configuration
 	Options() config.OptionsConfiguration
@@ -113,7 +113,7 @@ type Config interface {
 	Save() error
 }
 
-func newAPIService(id protocol.DeviceID, cfg Config, httpsCertFile, httpsKeyFile, assetDir string, m Model, eventSub events.BufferedSubscription, discoverer discover.CachingMux, relayService relay.Service, errors, systemLog logger.Recorder) (*apiService, error) {
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, relayService relay.Service, errors, systemLog logger.Recorder) (*apiService, error) {
 	service := &apiService{
 		id:              id,
 		cfg:             cfg,
@@ -595,7 +595,7 @@ func (s *apiService) getDBStatus(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, folderSummary(s.cfg, s.model, folder))
 }
 
-func folderSummary(cfg Config, m Model, folder string) map[string]interface{} {
+func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interface{} {
 	var res = make(map[string]interface{})
 
 	res["invalid"] = cfg.Folders()[folder].Invalid
