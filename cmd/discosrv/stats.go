@@ -95,6 +95,12 @@ func (s *statssrv) writeToFile(stats stats, secs float64) {
 		log.Println("stats file:", err)
 		return
 	}
+	defer func() {
+		err = fd.Close()
+		if err != nil {
+			log.Println("stats file:", err)
+		}
+	}()
 
 	bs, err := ioutil.ReadAll(fd)
 	if err != nil {
@@ -123,12 +129,6 @@ func (s *statssrv) writeToFile(stats stats, secs float64) {
 	}
 
 	_, err = fd.Write(bytes.Join(lines, newLine))
-	if err != nil {
-		log.Println("stats file:", err)
-		return
-	}
-
-	err = fd.Close()
 	if err != nil {
 		log.Println("stats file:", err)
 		return
