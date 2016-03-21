@@ -555,3 +555,48 @@ func symlinksSupported() bool {
 	err = os.Symlink("tmp", filepath.Join(tmp, "link"))
 	return err == nil
 }
+
+func createDirectories(t *testing.T, rootPath string, dirs []string) {
+	for _, dir := range dirs {
+		err := os.Mkdir(filepath.Join(rootPath, dir), 0755)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func createFiles(t *testing.T, rootPath string, files []string) {
+	for _, file := range files {
+		fd, err := os.Create(filepath.Join(rootPath, file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fd.Close()
+	}
+}
+
+func rescan(t *testing.T, instance *rc.Process) {
+	log.Println("Rescanning...")
+	if err := instance.Rescan("default"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func waitForSync(t *testing.T, instance *rc.Process) {
+	for i := 0; i < 100; i++ {
+		time.Sleep(250 * time.Millisecond)
+		if !rc.InSync("default", instance) {
+			continue
+		}
+		return
+	}
+	t.Fatalf("Timed out waiting for %s to sync", instance.ID())
+}
+
+func getModel(t *testing.T, instance *rc.Process, folderName string) rc.Model {
+	m, err := instance.Model(folderName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
