@@ -536,6 +536,7 @@ func startInstance(t *testing.T, i int) *rc.Process {
 	log.Printf("Starting instance %d...", i)
 	addr := fmt.Sprintf("127.0.0.1:%d", 8080+i)
 	logFile := fmt.Sprintf("logs/%s-%d-%d.out", getTestName(), i, time.Now().Unix()%86400)
+	log.Printf("Instance %d log: %s", i, absPath(logFile))
 
 	p := rc.NewProcess(addr)
 	p.LogTo(logFile)
@@ -599,4 +600,12 @@ func getModel(t *testing.T, instance *rc.Process, folderName string) rc.Model {
 		t.Fatal(err)
 	}
 	return m
+}
+
+func absPath(path string) string {
+	newPath, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	return newPath
 }
