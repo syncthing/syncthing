@@ -609,3 +609,11 @@ func absPath(path string) string {
 	}
 	return newPath
 }
+
+func assertFileCount(t *testing.T, instance *rc.Process, folder string, expected int) {
+	model := getModel(t, instance, folder)
+	if model.LocalFiles != expected {
+		t.Fatalf("Incorrect number of files; expected %d, got %d",
+			expected, model.LocalFiles)
+	}
+}
