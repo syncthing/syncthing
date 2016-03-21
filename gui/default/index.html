@@ -258,7 +258,9 @@
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>
-                      <td class="text-right" title="{{folder.path}}">{{folder.path}}</td>
+                      <td class="text-right">
+                        <span tooltip data-original-title="{{folder.path}}">{{folder.path}}</span>
+                      </td>
                     </tr>
                     <tr ng-if="model[folder.id].invalid || model[folder.id].error">
                       <th><span class="fa fa-fw fa-exclamation-triangle"></span>&nbsp;<span translate>Error</span></th>
@@ -281,7 +283,7 @@
                     <tr ng-if="folderStatus(folder) === 'scanning' && scanRate(folder.id) > 0">
                       <th><span class="fa fa-fw fa-hourglass-2"></span>&nbsp;<span translate>Scan Time Remaining</span></th>
                       <td class="text-right">
-                        <span title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
+                        <span tooltip data-original-title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
                       </td>
                     </tr>
                     <tr ng-if="!folder.readOnly && (folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id))">
@@ -344,7 +346,7 @@
                     <tr ng-if="!folder.readOnly && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
                       <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Last File Received</span></th>
                       <td class="text-right">
-                        <span title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
+                        <span tooltip data-original-title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
                           <span translate ng-if="!folderStats[folder.id].lastFile.deleted">Updated</span>
                           <span translate ng-if="folderStats[folder.id].lastFile.deleted">Deleted</span>
                           {{folderStats[folder.id].lastFile.filename | basename}}
@@ -388,7 +390,7 @@
       <!-- This device -->
 
       <div class="col-md-6">
-        <h3 translate>Devices</h3>
+        <h3 translate>This Device</h3>
         <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
           <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
             <h3 class="panel-title">
@@ -451,7 +453,9 @@
                   </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
-                    <td class="text-right" title="{{versionString()}}">{{versionString()}}</td>
+                    <td class="text-right">
+                      <span tooltip data-original-title="{{versionString()}}">{{versionString()}}</span>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -460,7 +464,7 @@
         </div>
 
         <!-- Remote devices -->
-
+        <h3 translate>Remote Devices</h3>
         <div class="panel-group" id="devices">
           <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
@@ -544,7 +548,7 @@
         </div>
         <div class="form-group">
           <button type="button" class="btn btn-sm btn-default pull-right" ng-click="addDevice()">
-            <span class="fa fa-plus"></span>&nbsp;<span translate>Add Device</span>
+            <span class="fa fa-plus"></span>&nbsp;<span translate>Add Remote Device</span>
           </button>
           <div class="clearfix"></div>
         </div>
@@ -615,11 +619,13 @@
   <script src="syncthing/core/modalDirective.js"></script>
   <script src="syncthing/core/naturalFilter.js"></script>
   <script src="syncthing/core/networkErrorDialogDirective.js"></script>
+  <script src="syncthing/core/pathIsSubDirDirective.js"></script>
   <script src="syncthing/core/popoverDirective.js"></script>
   <script src="syncthing/core/restartingDialogDirective.js"></script>
   <script src="syncthing/core/selectOnClickDirective.js"></script>
   <script src="syncthing/core/shutdownDialogDirective.js"></script>
   <script src="syncthing/core/syncthingController.js"></script>
+  <script src="syncthing/core/tooltipDirective.js"></script>
   <script src="syncthing/core/uniqueFolderDirective.js"></script>
   <script src="syncthing/core/upgradingDialogDirective.js"></script>
   <script src="syncthing/core/validDeviceidDirective.js"></script>

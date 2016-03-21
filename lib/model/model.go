@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	stdsync "sync"
 	"time"
@@ -1319,28 +1320,13 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 		return err
 	}
 
-	// Required to make sure that we start indexing at a directory we're already
-	// aware off.
-	var unifySubs []string
-nextSub:
-	for _, sub := range subs {
-		for sub != "" && sub != ".stfolder" && sub != ".stignore" {
-			if _, ok = fs.Get(protocol.LocalDeviceID, sub); ok {
-				break
-			}
-			sub = filepath.Dir(sub)
-			if sub == "." || sub == string(filepath.Separator) {
-				sub = ""
-			}
-		}
-		for _, us := range unifySubs {
-			if strings.HasPrefix(sub, us) {
-				continue nextSub
-			}
-		}
-		unifySubs = append(unifySubs, sub)
-	}
-	subs = unifySubs
+	// Clean the list of subitems to ensure that we start at a known
+	// directory, and don't scan subdirectories of things we've already
+	// scanned.
+	subs = unifySubs(subs, func(f string) bool {
+		_, ok := fs.Get(protocol.LocalDeviceID, f)
+		return ok
+	})
 
 	// The cancel channel is closed whenever we return (such as from an error),
 	// to signal the potentially still running walker to stop.
@@ -1406,76 +1392,69 @@ nextSub:
 		m.updateLocals(folder, batch)
 	}
 
+	if len(subs) == 0 {
+		// If we have no specific subdirectories to traverse, set it to one
+		// empty prefix so we traverse the entire folder contents once.
+		subs = []string{""}
+	}
+
+	// Do a scan of the database for each prefix, to check for deleted files.
 	batch = batch[:0]
-	// TODO: We should limit the Have scanning to start at sub
-	seenPrefix := false
-	var iterError error
-	fs.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
-		f := fi.(db.FileInfoTruncated)
-		hasPrefix := len(subs) == 0
-		for _, sub := range subs {
-			if strings.HasPrefix(f.Name, sub) {
-				hasPrefix = true
-				break
-			}
-		}
-		// Return true so that we keep iterating, until we get to the part
-		// of the tree we are interested in. Then return false so we stop
-		// iterating when we've passed the end of the subtree.
-		if !hasPrefix {
-			return !seenPrefix
-		}
+	for _, sub := range subs {
+		var iterError error
 
-		seenPrefix = true
-		if !f.IsDeleted() {
-			if f.IsInvalid() {
-				return true
-			}
-
-			if len(batch) == batchSizeFiles {
-				if err := m.CheckFolderHealth(folder); err != nil {
-					iterError = err
-					return false
+		fs.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
+			f := fi.(db.FileInfoTruncated)
+			if !f.IsDeleted() {
+				if f.IsInvalid() {
+					return true
 				}
-				m.updateLocals(folder, batch)
-				batch = batch[:0]
-			}
 
-			if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
-				// File has been ignored or an unsupported symlink. Set invalid bit.
-				l.Debugln("setting invalid bit on ignored", f)
-				nf := protocol.FileInfo{
-					Name:     f.Name,
-					Flags:    f.Flags | protocol.FlagInvalid,
-					Modified: f.Modified,
-					Version:  f.Version, // The file is still the same, so don't bump version
+				if len(batch) == batchSizeFiles {
+					if err := m.CheckFolderHealth(folder); err != nil {
+						iterError = err
+						return false
+					}
+					m.updateLocals(folder, batch)
+					batch = batch[:0]
 				}
-				batch = append(batch, nf)
-			} else if _, err := osutil.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
-				// File has been deleted.
 
-				// We don't specifically verify that the error is
-				// os.IsNotExist because there is a corner case when a
-				// directory is suddenly transformed into a file. When that
-				// happens, files that were in the directory (that is now a
-				// file) are deleted but will return a confusing error ("not a
-				// directory") when we try to Lstat() them.
+				if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
+					// File has been ignored or an unsupported symlink. Set invalid bit.
+					l.Debugln("setting invalid bit on ignored", f)
+					nf := protocol.FileInfo{
+						Name:     f.Name,
+						Flags:    f.Flags | protocol.FlagInvalid,
+						Modified: f.Modified,
+						Version:  f.Version, // The file is still the same, so don't bump version
+					}
+					batch = append(batch, nf)
+				} else if _, err := osutil.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
+					// File has been deleted.
 
-				nf := protocol.FileInfo{
-					Name:     f.Name,
-					Flags:    f.Flags | protocol.FlagDeleted,
-					Modified: f.Modified,
-					Version:  f.Version.Update(m.shortID),
+					// We don't specifically verify that the error is
+					// os.IsNotExist because there is a corner case when a
+					// directory is suddenly transformed into a file. When that
+					// happens, files that were in the directory (that is now a
+					// file) are deleted but will return a confusing error ("not a
+					// directory") when we try to Lstat() them.
+
+					nf := protocol.FileInfo{
+						Name:     f.Name,
+						Flags:    f.Flags | protocol.FlagDeleted,
+						Modified: f.Modified,
+						Version:  f.Version.Update(m.shortID),
+					}
+					batch = append(batch, nf)
 				}
-				batch = append(batch, nf)
 			}
+			return true
+		})
+
+		if iterError != nil {
+			l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, iterError)
+			return iterError
 		}
-		return true
-	})
-
-	if iterError != nil {
-		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, iterError)
-		return iterError
 	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
@@ -1942,9 +1921,11 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			}
 		}
 
-		// Check if anything else differs, apart from the device list.
+		// Check if anything else differs, apart from the device list and label.
 		fromCfg.Devices = nil
 		toCfg.Devices = nil
+		fromCfg.Label = ""
+		toCfg.Label = ""
 		if !reflect.DeepEqual(fromCfg, toCfg) {
 			l.Debugln(m, "requires restart, folder", folderID, "configuration differs")
 			return false
@@ -2083,4 +2064,43 @@ func stringSliceWithout(ss []string, s string) []string {
 		}
 	}
 	return ss
+}
+
+// unifySubs takes a list of files or directories and trims them down to
+// themselves or the closest parent that exists() returns true for, while
+// removing duplicates and subdirectories. That is, if we have foo/ in the
+// list, we don't also need foo/bar/ because that's already covered.
+func unifySubs(dirs []string, exists func(dir string) bool) []string {
+	var subs []string
+
+	// Trim each item to itself or its closest known parent
+	for _, sub := range dirs {
+		for sub != "" && sub != ".stfolder" && sub != ".stignore" {
+			if exists(sub) {
+				break
+			}
+			sub = filepath.Dir(sub)
+			if sub == "." || sub == string(filepath.Separator) {
+				// Shortcut. We are going to scan the full folder, so we can
+				// just return an empty list of subs at this point.
+				return nil
+			}
+		}
+		subs = append(subs, sub)
+	}
+
+	// Remove any paths that are already covered by their parent
+	sort.Strings(subs)
+	var cleaned []string
+next:
+	for _, sub := range subs {
+		for _, existing := range cleaned {
+			if sub == existing || strings.HasPrefix(sub, existing+string(os.PathSeparator)) {
+				continue next
+			}
+		}
+		cleaned = append(cleaned, sub)
+	}
+
+	return cleaned
 }

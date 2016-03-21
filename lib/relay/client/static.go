@@ -68,7 +68,7 @@ func (c *staticClient) Serve() {
 	defer close(c.stopped)
 
 	if err := c.connect(); err != nil {
-		l.Debugln("Relay connect:", err)
+		l.Infof("Could not connect to relay %s: %s", c.uri, err)
 		return
 	}
 
@@ -76,7 +76,7 @@ func (c *staticClient) Serve() {
 
 	if err := c.join(); err != nil {
 		c.conn.Close()
-		l.Infoln("Relay join:", err)
+		l.Infof("Could not join relay %s: %s", c.uri, err)
 		return
 	}
 
@@ -86,7 +86,7 @@ func (c *staticClient) Serve() {
 		return
 	}
 
-	l.Debugln(c, "joined", c.conn.RemoteAddr(), "via", c.conn.LocalAddr())
+	l.Infoln("Joined relay", c.uri)
 
 	c.mut.Lock()
 	c.connected = true
@@ -122,7 +122,7 @@ func (c *staticClient) Serve() {
 				c.invitations <- msg
 
 			case protocol.RelayFull:
-				l.Infoln("Disconnected from relay due to it becoming full.")
+				l.Infof("Disconnected from relay %s due to it becoming full.", c.uri)
 				c.disconnect()
 
 			default:
@@ -143,7 +143,7 @@ func (c *staticClient) Serve() {
 			if c.connected {
 				c.conn.Close()
 				c.connected = false
-				l.Infoln("Relay received:", err)
+				l.Infof("Disconnecting from relay %s due to error: %s", c.uri, err)
 			}
 			if c.closeInvitationsOnFinish {
 				close(c.invitations)
