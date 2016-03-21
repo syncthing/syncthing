@@ -52,7 +52,7 @@ type connectionService struct {
 	tlsCfg               *tls.Config
 	discoverer           discover.Finder
 	conns                chan model.IntermediateConnection
-	relayService         *relay.Service
+	relayService         relay.Service
 	bepProtocolName      string
 	tlsDefaultCommonName string
 	lans                 []*net.IPNet
@@ -66,7 +66,7 @@ type connectionService struct {
 	relaysEnabled bool
 }
 
-func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, relayService *relay.Service,
+func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, relayService relay.Service,
 	bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) suture.Service {
 	service := &connectionService{
 		Supervisor:           suture.NewSimple("connectionService"),

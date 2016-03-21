@@ -22,7 +22,13 @@ import (
 // time sets how long we refrain from asking about the same device ID after
 // receiving a negative answer. The value of zero disables caching (positive
 // or negative).
-type CachingMux struct {
+type CachingMux interface {
+	FinderService
+	Add(finder Finder, cacheTime, negCacheTime time.Duration, priority int)
+	ChildErrors() map[string]error
+}
+
+type cachingMux struct {
 	*suture.Supervisor
 	finders []cachedFinder
 	caches  []*cache
@@ -51,15 +57,15 @@ type cachedError interface {
 	CacheFor() time.Duration
 }
 
-func NewCachingMux() *CachingMux {
-	return &CachingMux{
+func NewCachingMux() CachingMux {
+	return &cachingMux{
 		Supervisor: suture.NewSimple("discover.cachingMux"),
 		mut:        sync.NewRWMutex(),
 	}
 }
 
 // Add registers a new Finder, with associated cache timeouts.
-func (m *CachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration, priority int) {
+func (m *cachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration, priority int) {
 	m.mut.Lock()
 	m.finders = append(m.finders, cachedFinder{finder, cacheTime, negCacheTime, priority})
 	m.caches = append(m.caches, newCache())
@@ -72,7 +78,7 @@ func (m *CachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration, p
 
 // Lookup attempts to resolve the device ID using any of the added Finders,
 // while obeying the cache settings.
-func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays []Relay, err error) {
+func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays []Relay, err error) {
 	var pdirect []prioritizedAddress
 
 	m.mut.RLock()
@@ -140,15 +146,15 @@ func (m *CachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 	return direct, relays, nil
 }
 
-func (m *CachingMux) String() string {
+func (m *cachingMux) String() string {
 	return "discovery cache"
 }
 
-func (m *CachingMux) Error() error {
+func (m *cachingMux) Error() error {
 	return nil
 }
 
-func (m *CachingMux) ChildErrors() map[string]error {
+func (m *cachingMux) ChildErrors() map[string]error {
 	children := make(map[string]error, len(m.finders))
 	m.mut.RLock()
 	for _, f := range m.finders {
@@ -158,7 +164,7 @@ func (m *CachingMux) ChildErrors() map[string]error {
 	return children
 }
 
-func (m *CachingMux) Cache() map[protocol.DeviceID]CacheEntry {
+func (m *cachingMux) Cache() map[protocol.DeviceID]CacheEntry {
 	// Res will be the "total" cache, i.e. the union of our cache and all our
 	// children's caches.
 	res := make(map[protocol.DeviceID]CacheEntry)

@@ -33,7 +33,7 @@ func TestCacheUnique(t *testing.T) {
 	relays := []Relay{{URL: "relay://192.0.2.44:443"}, {URL: "tcp://192.0.2.45:443"}}
 
 	c := NewCachingMux()
-	c.ServeBackground()
+	c.(*cachingMux).ServeBackground()
 	defer c.Stop()
 
 	// Add a fake discovery service and verify we get it's answers through the
@@ -94,7 +94,7 @@ func (f *fakeDiscovery) Cache() map[protocol.DeviceID]CacheEntry {
 
 func TestCacheSlowLookup(t *testing.T) {
 	c := NewCachingMux()
-	c.ServeBackground()
+	c.(*cachingMux).ServeBackground()
 	defer c.Stop()
 
 	// Add a slow discovery service.

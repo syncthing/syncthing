@@ -227,7 +227,7 @@ func (s *Subscription) C() <-chan Event {
 	return s.events
 }
 
-type BufferedSubscription struct {
+type bufferedSubscription struct {
 	sub  *Subscription
 	buf  []Event
 	next int
@@ -236,8 +236,12 @@ type BufferedSubscription struct {
 	cond *stdsync.Cond
 }
 
-func NewBufferedSubscription(s *Subscription, size int) *BufferedSubscription {
-	bs := &BufferedSubscription{
+type BufferedSubscription interface {
+	Since(id int, into []Event) []Event
+}
+
+func NewBufferedSubscription(s *Subscription, size int) BufferedSubscription {
+	bs := &bufferedSubscription{
 		sub: s,
 		buf: make([]Event, size),
 		mut: sync.NewMutex(),
@@ -247,7 +251,7 @@ func NewBufferedSubscription(s *Subscription, size int) *BufferedSubscription {
 	return bs
 }
 
-func (s *BufferedSubscription) pollingLoop() {
+func (s *bufferedSubscription) pollingLoop() {
 	for {
 		ev, err := s.sub.Poll(60 * time.Second)
 		if err == ErrTimeout {
@@ -269,7 +273,7 @@ func (s *BufferedSubscription) pollingLoop() {
 	}
 }
 
-func (s *BufferedSubscription) Since(id int, into []Event) []Event {
+func (s *bufferedSubscription) Since(id int, into []Event) []Event {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 

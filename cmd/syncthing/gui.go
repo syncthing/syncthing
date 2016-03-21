@@ -32,10 +32,10 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/logger"
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay"
+	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -50,15 +50,15 @@ var (
 
 type apiService struct {
 	id              protocol.DeviceID
-	cfg             *config.Wrapper
+	cfg             configIntf
 	httpsCertFile   string
 	httpsKeyFile    string
 	assetDir        string
 	themes          []string
-	model           *model.Model
-	eventSub        *events.BufferedSubscription
-	discoverer      *discover.CachingMux
-	relayService    *relay.Service
+	model           modelIntf
+	eventSub        events.BufferedSubscription
+	discoverer      discover.CachingMux
+	relayService    relay.Service
 	fss             *folderSummaryService
 	systemConfigMut sync.Mutex    // serializes posts to /rest/system/config
 	stop            chan struct{} // signals intentional stop
@@ -68,11 +68,52 @@ type apiService struct {
 	listener    net.Listener
 	listenerMut sync.Mutex
 
-	guiErrors *logger.Recorder
-	systemLog *logger.Recorder
+	guiErrors logger.Recorder
+	systemLog logger.Recorder
 }
 
-func newAPIService(id protocol.DeviceID, cfg *config.Wrapper, httpsCertFile, httpsKeyFile, assetDir string, m *model.Model, eventSub *events.BufferedSubscription, discoverer *discover.CachingMux, relayService *relay.Service, errors, systemLog *logger.Recorder) (*apiService, error) {
+type modelIntf interface {
+	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
+	Completion(device protocol.DeviceID, folder string) float64
+	Override(folder string)
+	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int)
+	NeedSize(folder string) (nfiles int, bytes int64)
+	ConnectionStats() map[string]interface{}
+	DeviceStatistics() map[string]stats.DeviceStatistics
+	FolderStatistics() map[string]stats.FolderStatistics
+	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool)
+	CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool)
+	ResetFolder(folder string)
+	Availability(folder, file string) []protocol.DeviceID
+	GetIgnores(folder string) ([]string, []string, error)
+	SetIgnores(folder string, content []string) error
+	PauseDevice(device protocol.DeviceID)
+	ResumeDevice(device protocol.DeviceID)
+	DelayScan(folder string, next time.Duration)
+	ScanFolder(folder string) error
+	ScanFolders() map[string]error
+	ScanFolderSubs(folder string, subs []string) error
+	BringToFront(folder, file string)
+	ConnectedTo(deviceID protocol.DeviceID) bool
+	GlobalSize(folder string) (nfiles, deleted int, bytes int64)
+	LocalSize(folder string) (nfiles, deleted int, bytes int64)
+	CurrentLocalVersion(folder string) (int64, bool)
+	RemoteLocalVersion(folder string) (int64, bool)
+	State(folder string) (string, time.Time, error)
+}
+
+type configIntf interface {
+	GUI() config.GUIConfiguration
+	Raw() config.Configuration
+	Options() config.OptionsConfiguration
+	Replace(cfg config.Configuration) config.CommitResponse
+	Subscribe(c config.Committer)
+	Folders() map[string]config.FolderConfiguration
+	Devices() map[protocol.DeviceID]config.DeviceConfiguration
+	Save() error
+}
+
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, relayService relay.Service, errors, systemLog logger.Recorder) (*apiService, error) {
 	service := &apiService{
 		id:              id,
 		cfg:             cfg,
@@ -554,7 +595,7 @@ func (s *apiService) getDBStatus(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, folderSummary(s.cfg, s.model, folder))
 }
 
-func folderSummary(cfg *config.Wrapper, m *model.Model, folder string) map[string]interface{} {
+func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interface{} {
 	var res = make(map[string]interface{})
 
 	res["invalid"] = cfg.Folders()[folder].Invalid
