@@ -221,8 +221,9 @@
             <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
-              <h3 class="panel-title">
-                <span class="fa hidden-xs fa-fw" ng-class="[folder.readOnly ? 'fa-lock' : 'fa-folder']"></span>{{folder.id}}
+              <h4 class="panel-title">
+                <span class="fa hidden-xs fa-fw" ng-class="[folder.readOnly ? 'fa-lock' : 'fa-folder']"></span>
+                <a href="#folder-{{$index}}">{{folder.id}}</a>
                 <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
@@ -241,7 +242,7 @@
                   </span>
                   <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs">&#9724;</span></span>
                 </span>
-              </h3>
+              </h4>
             </div>
             <div id="folder-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
@@ -382,9 +383,9 @@
         <h3 translate>This Device</h3>
         <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
           <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
-            <h3 class="panel-title">
+            <h4 class="panel-title">
               <identicon data-value="deviceCfg.deviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
-            </h3>
+            </h4>
           </div>
           <div id="device-this" class="panel-collapse collapse in">
             <div class="panel-body">
@@ -456,8 +457,8 @@
           <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
             <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
               <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | number:0}}%"></div>
-              <h3 class="panel-title">
-                <identicon data-value="deviceCfg.deviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
+              <h4 class="panel-title">
+                <identicon data-value="deviceCfg.deviceID"></identicon>&emsp;<a href="#device-{{$index}}">{{deviceName(deviceCfg)}}</a>
                 <span ng-switch="deviceStatus(deviceCfg)" class="pull-right text-{{deviceClass(deviceCfg)}}">
                   <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
@@ -467,7 +468,7 @@
                   <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unused"><span class="hidden-xs" translate>Unused</span><span class="visible-xs">&#9724;</span></span>
                 </span>
-              </h3>
+              </h4>
             </div>
             <div id="device-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">

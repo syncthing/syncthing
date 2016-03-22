@@ -39,6 +39,9 @@ ul+h5 {
     text-overflow: ellipsis;
     overflow: hidden;
 }
+.panel-title a:hover {
+  text-decoration: none;
+}
 
 identicon {
     display: inline-block;
