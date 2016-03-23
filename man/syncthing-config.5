@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "March 04, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "March 21, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -65,7 +65,7 @@ device ID. The key must be kept private.
 The certificate and key for HTTPS GUI connections. These may be replaced
 with a custom certificate for HTTPS as desired.
 .TP
-.B \fBindex\-\fI*\fP\&.db\fP
+.B \fBindex\-\fP\fI*\fP\fB\&.db\fP
 A directory holding the database with metadata and hashes of the files
 currently on disk and available from peers.
 .TP
@@ -514,10 +514,10 @@ Alternatively, a relay list can be loaded over https by using an URL like
 from the relay pool server, \fBrelays.syncthing.net\fP\&.
 .TP
 .B maxSendKbps
-Outgoing data rate limit, in kibibits per second.
+Outgoing data rate limit, in kibibytes per second.
 .TP
 .B maxRecvKbps
-Incoming data rate limits, in kibibits per second.
+Incoming data rate limits, in kibibytes per second.
 .TP
 .B reconnectionIntervalS
 The number of seconds to wait between each attempt to connect to currently
