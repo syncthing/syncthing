@@ -1,4 +1,9 @@
-If your issue is a bug report, replace this paragraph with a description
+If your issue is a support request ("How do I get my devices to connect?"
+or similar), please use the support forum at https://forum.syncthing.net/
+where a large number of helpful people hang out. This issue tracker is for
+reporting bugs or feature requests directly to the developers. 
+
+If your issue is a bug report, replace this boilerplate with a description
 of the problem, being sure to include at least:
 
  - what happened,
