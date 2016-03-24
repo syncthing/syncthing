@@ -181,10 +181,11 @@ func TestDirNames(t *testing.T) {
 }
 
 type httpTestCase struct {
-	URL    string // URL to check
-	Code   int    // Expected result code
-	Type   string // Expected content type
-	Prefix string // Expected result prefix
+	URL     string        // URL to check
+	Code    int           // Expected result code
+	Type    string        // Expected content type
+	Prefix  string        // Expected result prefix
+	Timeout time.Duration // Defaults to a second
 }
 
 func TestAPIServiceRequests(t *testing.T) {
@@ -288,10 +289,11 @@ func TestAPIServiceRequests(t *testing.T) {
 			Prefix: "[",
 		},
 		{
-			URL:    "/rest/svc/report",
-			Code:   200,
-			Type:   "application/json",
-			Prefix: "{",
+			URL:     "/rest/svc/report",
+			Code:    200,
+			Type:    "application/json",
+			Prefix:  "{",
+			Timeout: 5 * time.Second,
 		},
 
 		// /rest/system
@@ -378,8 +380,12 @@ func TestAPIServiceRequests(t *testing.T) {
 // testHTTPRequest tries the given test case, comparing the result code,
 // content type, and result prefix.
 func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase) {
+	timeout := time.Second
+	if tc.Timeout > 0 {
+		timeout = tc.Timeout
+	}
 	cli := &http.Client{
-		Timeout: time.Second,
+		Timeout: timeout,
 	}
 
 	resp, err := cli.Get(baseURL + tc.URL)
