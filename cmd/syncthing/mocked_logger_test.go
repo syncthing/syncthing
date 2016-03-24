@@ -15,7 +15,12 @@ import (
 type mockedLoggerRecorder struct{}
 
 func (r *mockedLoggerRecorder) Since(t time.Time) []logger.Line {
-	select {}
+	return []logger.Line{
+		{
+			When:    time.Now(),
+			Message: "Test message",
+		},
+	}
 }
 
 func (r *mockedLoggerRecorder) Clear() {}
