@@ -9,7 +9,9 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -176,7 +178,7 @@ func TestDirNames(t *testing.T) {
 	}
 }
 
-func TestInstantiateAPIService(t *testing.T) {
+func TestAPIServiceRequests(t *testing.T) {
 	model := new(mockedModel)
 	cfg := new(mockedConfig)
 	httpsCertFile := "../../test/h1/https-cert.pem"
@@ -188,10 +190,62 @@ func TestInstantiateAPIService(t *testing.T) {
 	errorLog := new(mockedLoggerRecorder)
 	systemLog := new(mockedLoggerRecorder)
 
+	// Instantiate the API service
 	svc, err := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
 		eventSub, discoverer, relayService, errorLog, systemLog)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_ = svc
+
+	// Make sure the API service is listening, and get the URL to use.
+	addr := svc.listener.Addr()
+	if addr == nil {
+		t.Fatal("Nil listening address from API service")
+	}
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr.String())
+	if err != nil {
+		t.Fatal("Weird address from API service:", err)
+	}
+	baseUrl := fmt.Sprintf("http://127.0.0.1:%d", tcpAddr.Port)
+
+	// Actually start the API service
+	supervisor := suture.NewSimple("API test")
+	supervisor.Add(svc)
+	supervisor.ServeBackground()
+
+	// Try a test request to /rest/system/status
+	testRestSystemStatus(t, baseUrl)
+}
+
+func testRestSystemStatus(t *testing.T, baseURL string) {
+	url := baseURL + "/rest/system/status"
+	resp := testHTTPRequest(t, url)
+	if resp == nil {
+		return
+	}
+
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Errorf("Unexpected error reading %s: %v", url, err)
+		return
+	}
+	if !bytes.HasPrefix(data, []byte(`{"`)) {
+		t.Errorf("Returned data from %s does not look like JSON", url)
+	}
+	t.Logf("%s", data)
+}
+
+func testHTTPRequest(t *testing.T, url string) *http.Response {
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Errorf("Unexpected error requesting %s: %v", url, err)
+		return nil
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Get on %s should have returned status code 200, not %s", url, resp.Status)
+		return nil
+	}
+	return resp
 }
