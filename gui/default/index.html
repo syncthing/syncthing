@@ -228,7 +228,7 @@
                 <span class="fa hidden-xs fa-fw" ng-class="[folder.readOnly ? 'fa-lock' : 'fa-folder']"></span>
                 <a href="#folder-{{$index}}">
                   <span ng-show="folder.label.length == 0">{{folder.id}}</span>
-                  <span title="{{folder.id}}" ng-show="folder.label.length != 0">{{folder.label}}</span>
+                  <span tooltip data-original-title="{{folder.id}}" ng-show="folder.label.length != 0">{{folder.label}}</span>
                 </a>
                 <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
