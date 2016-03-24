@@ -175,3 +175,23 @@ func TestDirNames(t *testing.T) {
 		t.Errorf("Unexpected dirNames return: %#v\n%s", names, diff)
 	}
 }
+
+func TestInstantiateAPIService(t *testing.T) {
+	model := new(mockedModel)
+	cfg := new(mockedConfig)
+	httpsCertFile := "../../test/h1/https-cert.pem"
+	httpsKeyFile := "../../test/h1/https-key.pem"
+	assetDir := "../../gui"
+	eventSub := new(mockedEventSub)
+	discoverer := new(mockedCachingMux)
+	relayService := new(mockedRelayService)
+	errorLog := new(mockedLoggerRecorder)
+	systemLog := new(mockedLoggerRecorder)
+
+	svc, err := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
+		eventSub, discoverer, relayService, errorLog, systemLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = svc
+}
