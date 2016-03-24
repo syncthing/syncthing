@@ -180,6 +180,14 @@ func TestDirNames(t *testing.T) {
 	}
 }
 
+type httpTestCase struct {
+	URL     string        // URL to check
+	Code    int           // Expected result code
+	Type    string        // Expected content type
+	Prefix  string        // Expected result prefix
+	Timeout time.Duration // Defaults to a second
+}
+
 func TestAPIServiceRequests(t *testing.T) {
 	model := new(mockedModel)
 	cfg := new(mockedConfig)
@@ -216,71 +224,196 @@ func TestAPIServiceRequests(t *testing.T) {
 	supervisor.Add(svc)
 	supervisor.ServeBackground()
 
-	// Try requests to common URLs, all of which should succeed and return
-	// some sort of JSON object.
-	urls := []string{
-		"/rest/system/status",
-		"/rest/system/config",
-		"/rest/system/config/insync",
-		// "/rest/system/connections", does not return an object in the empty case ("null"), should be fixed
-		"/rest/system/discovery",
-		"/rest/system/error?since=0",
-		"/rest/system/ping",
-		// "/rest/system/upgrade", depends on Github API, not good for testing
-		"/rest/system/version",
-		"/rest/system/debug",
-		"/rest/system/log?since=0",
+	cases := []httpTestCase{
+		// /rest/db
+		{
+			URL:    "/rest/db/completion?device=" + protocol.LocalDeviceID.String() + "&folder=default",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:  "/rest/db/file?folder=default&file=something",
+			Code: 404,
+		},
+		{
+			URL:    "/rest/db/ignores?folder=default",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/db/need?folder=default",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/db/status?folder=default",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/db/browse?folder=default",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "null",
+		},
+
+		// /rest/stats
+		{
+			URL:    "/rest/stats/device",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "null",
+		},
+		{
+			URL:    "/rest/stats/folder",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "null",
+		},
+
+		// /rest/svc
+		{
+			URL:    "/rest/svc/deviceid?id=" + protocol.LocalDeviceID.String(),
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/svc/lang",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "[",
+		},
+		{
+			URL:     "/rest/svc/report",
+			Code:    200,
+			Type:    "application/json",
+			Prefix:  "{",
+			Timeout: 5 * time.Second,
+		},
+
+		// /rest/system
+		{
+			URL:    "/rest/system/browse?current=~",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "[",
+		},
+		{
+			URL:    "/rest/system/config",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/system/config/insync",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/system/connections",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "null",
+		},
+		{
+			URL:    "/rest/system/discovery",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/system/error?since=0",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/system/ping",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/system/status",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/system/version",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/system/debug",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/system/log?since=0",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/system/log.txt?since=0",
+			Code:   200,
+			Type:   "text/plain",
+			Prefix: "",
+		},
 	}
-	for _, url := range urls {
-		t.Log("Testing", url, "...")
-		testHTTPJSONObject(t, baseURL+url)
+
+	for _, tc := range cases {
+		t.Log("Testing", tc.URL, "...")
+		testHTTPRequest(t, baseURL, tc)
 	}
 }
 
-// testHTTPJSONObject tries the given URL and verifies that the HTTP request
-// succeeds and that a JSON object (something beginning with "{") is
-// returned. Returns the object data, or nil on failure.
-func testHTTPJSONObject(t *testing.T, url string) []byte {
-	resp := testHTTPRequest(t, url)
-	if resp == nil {
-		return nil
+// testHTTPRequest tries the given test case, comparing the result code,
+// content type, and result prefix.
+func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase) {
+	timeout := time.Second
+	if tc.Timeout > 0 {
+		timeout = tc.Timeout
+	}
+	cli := &http.Client{
+		Timeout: timeout,
+	}
+
+	resp, err := cli.Get(baseURL + tc.URL)
+	if err != nil {
+		t.Errorf("Unexpected error requesting %s: %v", tc.URL, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != tc.Code {
+		t.Errorf("Get on %s should have returned status code %d, not %s", tc.URL, tc.Code, resp.Status)
+		return
 	}
 
 	ct := resp.Header.Get("Content-Type")
-	if !strings.HasPrefix(ct, "application/json") {
-		t.Errorf("The content type on %s should be application/json, not %q", url, ct)
-		return nil
+	if !strings.HasPrefix(ct, tc.Type) {
+		t.Errorf("The content type on %s should be %q, not %q", tc.URL, tc.Type, ct)
+		return
 	}
 
-	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("Unexpected error reading %s: %v", url, err)
-		return nil
+		t.Errorf("Unexpected error reading %s: %v", tc.URL, err)
+		return
 	}
 
-	if !bytes.HasPrefix(data, []byte("{")) {
-		t.Errorf("Returned data from %s does not look like a JSON object: %s", url, data)
-		return nil
+	if !bytes.HasPrefix(data, []byte(tc.Prefix)) {
+		t.Errorf("Returned data from %s does not have prefix %q: %s", tc.URL, tc.Prefix, data)
+		return
 	}
-	return data
-}
-
-// testHTTPRequest performs a HTTP GET request and verifies that the
-// response is successfull (code 200). Returns the *http.Response or nil on
-// failure.
-func testHTTPRequest(t *testing.T, url string) *http.Response {
-	cli := &http.Client{
-		Timeout: time.Second,
-	}
-	resp, err := cli.Get(url)
-	if err != nil {
-		t.Errorf("Unexpected error requesting %s: %v", url, err)
-		return nil
-	}
-	if resp.StatusCode != 200 {
-		t.Errorf("Get on %s should have returned status code 200, not %s", url, resp.Status)
-		return nil
-	}
-	return resp
 }
