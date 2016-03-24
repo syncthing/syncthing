@@ -87,10 +87,10 @@ type Model struct {
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut               sync.RWMutex                                           // protects the above
 
-	conn         map[protocol.DeviceID]Connection
-	deviceVer    map[protocol.DeviceID]string
-	devicePaused map[protocol.DeviceID]bool
-	pmut         sync.RWMutex // protects the above
+	conn          map[protocol.DeviceID]Connection
+	helloMessages map[protocol.DeviceID]protocol.HelloMessage
+	devicePaused  map[protocol.DeviceID]bool
+	pmut          sync.RWMutex // protects the above
 }
 
 var (
@@ -128,7 +128,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderRunnerTokens: make(map[string][]suture.ServiceToken),
 		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
 		conn:               make(map[protocol.DeviceID]Connection),
-		deviceVer:          make(map[protocol.DeviceID]string),
+		helloMessages:      make(map[protocol.DeviceID]protocol.HelloMessage),
 		devicePaused:       make(map[protocol.DeviceID]bool),
 
 		fmut: sync.NewRWMutex(),
@@ -315,8 +315,13 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 	devs := m.cfg.Devices()
 	conns := make(map[string]ConnectionInfo, len(devs))
 	for device := range devs {
+		hello := m.helloMessages[device]
+		versionString := hello.ClientVersion
+		if hello.ClientName != "syncthing" {
+			versionString = hello.ClientName + " " + hello.ClientVersion
+		}
 		ci := ConnectionInfo{
-			ClientVersion: m.deviceVer[device],
+			ClientVersion: versionString,
 			Paused:        m.devicePaused[device],
 		}
 		if conn, ok := m.conn[device]; ok {
@@ -606,30 +611,6 @@ func (m *Model) folderSharedWithUnlocked(folder string, deviceID protocol.Device
 }
 
 func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterConfigMessage) {
-	m.pmut.Lock()
-	if cm.ClientName == "syncthing" {
-		m.deviceVer[deviceID] = cm.ClientVersion
-	} else {
-		m.deviceVer[deviceID] = cm.ClientName + " " + cm.ClientVersion
-	}
-
-	event := map[string]string{
-		"id":            deviceID.String(),
-		"deviceName":    cm.DeviceName,
-		"clientName":    cm.ClientName,
-		"clientVersion": cm.ClientVersion,
-	}
-
-	if conn, ok := m.conn[deviceID]; ok {
-		event["type"] = conn.Type.String()
-		addr := conn.RemoteAddr()
-		if addr != nil {
-			event["addr"] = addr.String()
-		}
-	}
-
-	m.pmut.Unlock()
-
 	// Check the peer device's announced folders against our own. Emits events
 	// for folders that we don't expect (unknown or not shared).
 
@@ -661,18 +642,7 @@ nextFolder:
 	}
 	m.fmut.Unlock()
 
-	events.Default.Log(events.DeviceConnected, event)
-
-	l.Infof(`Device %s client is "%s %s" named "%s"`, deviceID, cm.ClientName, cm.ClientVersion, cm.DeviceName)
-
 	var changed bool
-
-	device, ok := m.cfg.Devices()[deviceID]
-	if ok && device.Name == "" {
-		device.Name = cm.DeviceName
-		m.cfg.SetDevice(device)
-		changed = true
-	}
 
 	if m.cfg.Devices()[deviceID].Introducer {
 		// This device is an introducer. Go through the announced lists of folders
@@ -773,7 +743,7 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 		closeRawConn(conn)
 	}
 	delete(m.conn, device)
-	delete(m.deviceVer, device)
+	delete(m.helloMessages, device)
 	m.pmut.Unlock()
 }
 
@@ -978,10 +948,42 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 	return m.ScanFolder(folder)
 }
 
+// OnHello is called when an device connects to us.
+// This allows us to extract some information from the Hello message
+// and add it to a list of known devices ahead of any checks.
+func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.HelloMessage) {
+	for deviceID := range m.cfg.Devices() {
+		if deviceID == remoteID {
+			// Existing device, we will get the hello message in AddConnection
+			// hence do not persist any state here, as the connection might
+			// get killed before AddConnection
+			return
+		}
+	}
+
+	if !m.cfg.IgnoredDevice(remoteID) {
+		events.Default.Log(events.DeviceRejected, map[string]string{
+			"name":    hello.DeviceName,
+			"device":  remoteID.String(),
+			"address": addr.String(),
+		})
+	}
+}
+
+// GetHello is called when we are about to connect to some remote device.
+func (m *Model) GetHello(protocol.DeviceID) protocol.HelloMessage {
+	return protocol.HelloMessage{
+		DeviceName:      m.deviceName,
+		ClientName:      m.clientName,
+		ClientVersion:   m.clientVersion,
+		ProtocolVersion: protocol.Version,
+	}
+}
+
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
-func (m *Model) AddConnection(conn Connection) {
+func (m *Model) AddConnection(conn Connection, hello protocol.HelloMessage) {
 	deviceID := conn.ID()
 
 	m.pmut.Lock()
@@ -989,6 +991,32 @@ func (m *Model) AddConnection(conn Connection) {
 		panic("add existing device")
 	}
 	m.conn[deviceID] = conn
+
+	m.helloMessages[deviceID] = hello
+
+	event := map[string]string{
+		"id":            deviceID.String(),
+		"deviceName":    hello.DeviceName,
+		"clientName":    hello.ClientName,
+		"clientVersion": hello.ClientVersion,
+		"type":          conn.Type.String(),
+	}
+
+	addr := conn.RemoteAddr()
+	if addr != nil {
+		event["addr"] = addr.String()
+	}
+
+	events.Default.Log(events.DeviceConnected, event)
+
+	l.Infof(`Device %s client is "%s %s" named "%s"`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName)
+
+	device, ok := m.cfg.Devices()[deviceID]
+	if ok && device.Name == "" {
+		device.Name = hello.DeviceName
+		m.cfg.SetDevice(device)
+		m.cfg.Save()
+	}
 
 	conn.Start()
 
@@ -1510,11 +1538,7 @@ func (m *Model) numHashers(folder string) int {
 // generateClusterConfig returns a ClusterConfigMessage that is correct for
 // the given peer device
 func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
-	message := protocol.ClusterConfigMessage{
-		DeviceName:    m.deviceName,
-		ClientName:    m.clientName,
-		ClientVersion: m.clientVersion,
-	}
+	var message protocol.ClusterConfigMessage
 
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {

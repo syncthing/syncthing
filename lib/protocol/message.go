@@ -11,7 +11,25 @@ import (
 	"fmt"
 )
 
-var sha256OfEmptyBlock = sha256.Sum256(make([]byte, BlockSize))
+var (
+	sha256OfEmptyBlock        = sha256.Sum256(make([]byte, BlockSize))
+	Version             int32 = 1
+	HelloMessageMaxSize       = 4 + 64 + // DeviceName (4 bytes for length + 64 max length)
+		4 + 64 + // ClientName
+		4 + 64 + // ClientVersion
+		4 + // ProtocolVersion
+		4 + // PayloadType
+		4 + 256 // Payload
+)
+
+type HelloMessage struct {
+	DeviceName      string // max:64
+	ClientName      string // max:64
+	ClientVersion   string // max:64
+	ProtocolVersion int32
+	PayloadType     int32
+	Payload         []byte // max:256
+}
 
 type IndexMessage struct {
 	Folder  string     // max:256
@@ -125,11 +143,8 @@ type ResponseMessage struct {
 }
 
 type ClusterConfigMessage struct {
-	DeviceName    string   // max:64
-	ClientName    string   // max:64
-	ClientVersion string   // max:64
-	Folders       []Folder // max:1000000
-	Options       []Option // max:64
+	Folders []Folder // max:1000000
+	Options []Option // max:64
 }
 
 func (o *ClusterConfigMessage) GetOption(key string) string {

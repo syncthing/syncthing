@@ -10,6 +10,103 @@ import (
 
 /*
 
+HelloMessage Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\              Device Name (length + padded data)               \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\              Client Name (length + padded data)               \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\             Client Version (length + padded data)             \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Protocol Version                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         Payload Type                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                Payload (length + padded data)                 \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+struct HelloMessage {
+	string DeviceName<64>;
+	string ClientName<64>;
+	string ClientVersion<64>;
+	int ProtocolVersion;
+	int PayloadType;
+	opaque Payload<256>;
+}
+
+*/
+
+func (o HelloMessage) XDRSize() int {
+	return 4 + len(o.DeviceName) + xdr.Padding(len(o.DeviceName)) +
+		4 + len(o.ClientName) + xdr.Padding(len(o.ClientName)) +
+		4 + len(o.ClientVersion) + xdr.Padding(len(o.ClientVersion)) + 4 + 4 +
+		4 + len(o.Payload) + xdr.Padding(len(o.Payload))
+}
+
+func (o HelloMessage) MarshalXDR() ([]byte, error) {
+	buf := make([]byte, o.XDRSize())
+	m := &xdr.Marshaller{Data: buf}
+	return buf, o.MarshalXDRInto(m)
+}
+
+func (o HelloMessage) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o HelloMessage) MarshalXDRInto(m *xdr.Marshaller) error {
+	if l := len(o.DeviceName); l > 64 {
+		return xdr.ElementSizeExceeded("DeviceName", l, 64)
+	}
+	m.MarshalString(o.DeviceName)
+	if l := len(o.ClientName); l > 64 {
+		return xdr.ElementSizeExceeded("ClientName", l, 64)
+	}
+	m.MarshalString(o.ClientName)
+	if l := len(o.ClientVersion); l > 64 {
+		return xdr.ElementSizeExceeded("ClientVersion", l, 64)
+	}
+	m.MarshalString(o.ClientVersion)
+	m.MarshalUint32(uint32(o.ProtocolVersion))
+	m.MarshalUint32(uint32(o.PayloadType))
+	if l := len(o.Payload); l > 256 {
+		return xdr.ElementSizeExceeded("Payload", l, 256)
+	}
+	m.MarshalBytes(o.Payload)
+	return m.Error
+}
+
+func (o *HelloMessage) UnmarshalXDR(bs []byte) error {
+	u := &xdr.Unmarshaller{Data: bs}
+	return o.UnmarshalXDRFrom(u)
+}
+func (o *HelloMessage) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	o.DeviceName = u.UnmarshalStringMax(64)
+	o.ClientName = u.UnmarshalStringMax(64)
+	o.ClientVersion = u.UnmarshalStringMax(64)
+	o.ProtocolVersion = int32(u.UnmarshalUint32())
+	o.PayloadType = int32(u.UnmarshalUint32())
+	o.Payload = u.UnmarshalBytesMax(256)
+	return u.Error
+}
+
+/*
+
 IndexMessage Structure:
 
  0                   1                   2                   3
@@ -506,18 +603,6 @@ ClusterConfigMessage Structure:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/                                                               /
-\              Device Name (length + padded data)               \
-/                                                               /
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/                                                               /
-\              Client Name (length + padded data)               \
-/                                                               /
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/                                                               /
-\             Client Version (length + padded data)             \
-/                                                               /
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                       Number of Folders                       |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
@@ -533,9 +618,6 @@ ClusterConfigMessage Structure:
 
 
 struct ClusterConfigMessage {
-	string DeviceName<64>;
-	string ClientName<64>;
-	string ClientVersion<64>;
 	Folder Folders<1000000>;
 	Option Options<64>;
 }
@@ -543,10 +625,7 @@ struct ClusterConfigMessage {
 */
 
 func (o ClusterConfigMessage) XDRSize() int {
-	return 4 + len(o.DeviceName) + xdr.Padding(len(o.DeviceName)) +
-		4 + len(o.ClientName) + xdr.Padding(len(o.ClientName)) +
-		4 + len(o.ClientVersion) + xdr.Padding(len(o.ClientVersion)) +
-		4 + xdr.SizeOfSlice(o.Folders) +
+	return 4 + xdr.SizeOfSlice(o.Folders) +
 		4 + xdr.SizeOfSlice(o.Options)
 }
 
@@ -565,18 +644,6 @@ func (o ClusterConfigMessage) MustMarshalXDR() []byte {
 }
 
 func (o ClusterConfigMessage) MarshalXDRInto(m *xdr.Marshaller) error {
-	if l := len(o.DeviceName); l > 64 {
-		return xdr.ElementSizeExceeded("DeviceName", l, 64)
-	}
-	m.MarshalString(o.DeviceName)
-	if l := len(o.ClientName); l > 64 {
-		return xdr.ElementSizeExceeded("ClientName", l, 64)
-	}
-	m.MarshalString(o.ClientName)
-	if l := len(o.ClientVersion); l > 64 {
-		return xdr.ElementSizeExceeded("ClientVersion", l, 64)
-	}
-	m.MarshalString(o.ClientVersion)
 	if l := len(o.Folders); l > 1000000 {
 		return xdr.ElementSizeExceeded("Folders", l, 1000000)
 	}
@@ -603,9 +670,6 @@ func (o *ClusterConfigMessage) UnmarshalXDR(bs []byte) error {
 	return o.UnmarshalXDRFrom(u)
 }
 func (o *ClusterConfigMessage) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
-	o.DeviceName = u.UnmarshalStringMax(64)
-	o.ClientName = u.UnmarshalStringMax(64)
-	o.ClientVersion = u.UnmarshalStringMax(64)
 	_FoldersSize := int(u.UnmarshalUint32())
 	if _FoldersSize < 0 {
 		return xdr.ElementSizeExceeded("Folders", _FoldersSize, 1000000)
