@@ -26,7 +26,14 @@ const (
 	eventBroadcasterCheckInterval = 10 * time.Second
 )
 
-type Service struct {
+type Service interface {
+	suture.Service
+	Accept() *tls.Conn
+	Relays() []string
+	RelayStatus(uri string) (time.Duration, bool)
+}
+
+type service struct {
 	*suture.Supervisor
 	cfg    *config.Wrapper
 	tlsCfg *tls.Config
@@ -38,10 +45,10 @@ type Service struct {
 	conns       chan *tls.Conn
 }
 
-func NewService(cfg *config.Wrapper, tlsCfg *tls.Config) *Service {
+func NewService(cfg *config.Wrapper, tlsCfg *tls.Config) Service {
 	conns := make(chan *tls.Conn)
 
-	service := &Service{
+	service := &service{
 		Supervisor: suture.New("Service", suture.Spec{
 			Log: func(log string) {
 				l.Debugln(log)
@@ -82,7 +89,7 @@ func NewService(cfg *config.Wrapper, tlsCfg *tls.Config) *Service {
 	return service
 }
 
-func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
+func (s *service) VerifyConfiguration(from, to config.Configuration) error {
 	for _, addr := range to.Options.RelayServers {
 		_, err := url.Parse(addr)
 		if err != nil {
@@ -92,7 +99,7 @@ func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
-func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
+func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	existing := make(map[string]*url.URL, len(to.Options.RelayServers))
 
 	for _, addr := range to.Options.RelayServers {
@@ -142,7 +149,7 @@ type Status struct {
 }
 
 // Relays return the list of relays that currently have an OK status.
-func (s *Service) Relays() []string {
+func (s *service) Relays() []string {
 	if s == nil {
 		// A nil client does not have a status, really. Yet we may be called
 		// this way, for raisins...
@@ -162,7 +169,7 @@ func (s *Service) Relays() []string {
 }
 
 // RelayStatus returns the latency and OK status for a given relay.
-func (s *Service) RelayStatus(uri string) (time.Duration, bool) {
+func (s *service) RelayStatus(uri string) (time.Duration, bool) {
 	if s == nil {
 		// A nil client does not have a status, really. Yet we may be called
 		// this way, for raisins...
@@ -182,7 +189,7 @@ func (s *Service) RelayStatus(uri string) (time.Duration, bool) {
 }
 
 // Accept returns a new *tls.Conn. The connection is already handshaken.
-func (s *Service) Accept() *tls.Conn {
+func (s *service) Accept() *tls.Conn {
 	return <-s.conns
 }
 
@@ -234,7 +241,7 @@ func (r *invitationReceiver) Stop() {
 // no way to get the event feed directly from the relay lib. This may be
 // something to revisit later, possibly.
 type eventBroadcaster struct {
-	Service *Service
+	Service Service
 	stop    chan struct{}
 }
 

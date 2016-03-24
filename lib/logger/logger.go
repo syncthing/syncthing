@@ -290,7 +290,12 @@ func (l *facilityLogger) Debugf(format string, vals ...interface{}) {
 }
 
 // A Recorder keeps a size limited record of log events.
-type Recorder struct {
+type Recorder interface {
+	Since(t time.Time) []Line
+	Clear()
+}
+
+type recorder struct {
 	lines   []Line
 	initial int
 	mut     sync.Mutex
@@ -302,8 +307,8 @@ type Line struct {
 	Message string    `json:"message"`
 }
 
-func NewRecorder(l Logger, level LogLevel, size, initial int) *Recorder {
-	r := &Recorder{
+func NewRecorder(l Logger, level LogLevel, size, initial int) Recorder {
+	r := &recorder{
 		lines:   make([]Line, 0, size),
 		initial: initial,
 	}
@@ -311,7 +316,7 @@ func NewRecorder(l Logger, level LogLevel, size, initial int) *Recorder {
 	return r
 }
 
-func (r *Recorder) Since(t time.Time) []Line {
+func (r *recorder) Since(t time.Time) []Line {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
@@ -330,13 +335,13 @@ func (r *Recorder) Since(t time.Time) []Line {
 	return cp
 }
 
-func (r *Recorder) Clear() {
+func (r *recorder) Clear() {
 	r.mut.Lock()
 	r.lines = r.lines[:0]
 	r.mut.Unlock()
 }
 
-func (r *Recorder) append(l LogLevel, msg string) {
+func (r *recorder) append(l LogLevel, msg string) {
 	line := Line{
 		When:    time.Now(),
 		Message: msg,
