@@ -172,63 +172,10 @@ table.table-condensed td.no-overflow-ellipse {
     display: none;
 }
 
-@media (max-width:767px) {
-    table.table-condensed td {
-        /* for mobile phones to allow linebreaks in long repro folder/shared with
-        * columns. */
-        white-space: normal;
-    }
-}
-
 .navbar-right {
     /* to align with panel */
     padding-right: 15px;
 }
-
-/**
- * Menu for select language
- */
-
-@media (min-width:480px) and (max-width:649px) {
-    *[language-select] > .dropdown-menu {
-        width: 230px;
-    }
-}
-
-@media (min-width:650px) {
-    *[language-select] > .dropdown-menu > li {
-        width: 50%;
-        float: left;
-    }
-    *[language-select] > .dropdown-menu {
-        width: 440px;
-    }
-}
-
-
-@media (max-width:479px) {
-    .dropdown-menu {
-        padding-top: 55px;
-    }
-
-    nav .dropdown-toggle {
-        font-size: 14px;
-    }
-
-    .dropdown-toggle {
-        float: left;
-    }
-
-    .navbar-brand {
-        padding-left: 0;
-        padding-top: 16px;
-    }
-
-    .navbar-nav .open .dropdown-menu > li > a {
-        padding: 12px 15px 12px 25px;
-    }
-}
-
 
 .panel-body .table-condensed {
     margin-bottom: 0;
@@ -276,7 +223,6 @@ ul.three-columns li, ul.two-columns li {
 }
 
 /** Footer nav on small devices **/
-
 @media (max-width: 1199px) {
     /* Stay at the end of the page, with space reserved for the footer
     usually taking up two rows. */
@@ -305,5 +251,56 @@ ul.three-columns li, ul.two-columns li {
 
     .navbar-fixed-bottom {
         position: relative;
+    }
+}
+
+@media (max-width:767px) {
+    table.table-condensed td {
+        /* for mobile phones to allow linebreaks in long repro folder/shared with
+        * columns. */
+        white-space: normal;
+    }
+}
+
+@media (min-width:650px) {
+    *[language-select] > .dropdown-menu > li {
+        width: 50%;
+        float: left;
+    }
+    *[language-select] > .dropdown-menu {
+        width: 440px;
+    }
+}
+
+/**
+ * Menu for select language
+ */
+
+@media (min-width:480px) and (max-width:649px) {
+    *[language-select] > .dropdown-menu {
+        width: 230px;
+    }
+}
+
+@media (max-width:479px) {
+    .dropdown-menu {
+        padding-top: 55px;
+    }
+
+    nav .dropdown-toggle {
+        font-size: 14px;
+    }
+
+    .dropdown-toggle {
+        float: left;
+    }
+
+    .navbar-brand {
+        padding-left: 0;
+        padding-top: 16px;
+    }
+
+    .navbar-nav .open .dropdown-menu > li > a {
+        padding: 12px 15px 12px 25px;
     }
 }
