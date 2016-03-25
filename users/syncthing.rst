@@ -132,6 +132,9 @@ are mostly useful for developers. Use with care.
 If you start syncthing from within service managers like systemd or supervisor 
 path expansion may not be supported.
 
+STNODEFAULTFOLDER
+    Don't create a default folder when starting for the first time. This 
+    variable will be ignored anytime after the first run.
 STGUIASSETS
     Directory to load GUI assets from. Overrides compiled in assets.
 STTRACE
