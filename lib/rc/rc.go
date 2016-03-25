@@ -574,3 +574,52 @@ func (p *Process) Connections() (map[string]ConnectionStats, error) {
 
 	return res, nil
 }
+
+type SystemStatus struct {
+	Alloc         int64
+	CPUPercent    float64
+	Goroutines    int
+	MyID          protocol.DeviceID
+	PathSeparator string
+	StartTime     time.Time
+	Sys           int64
+	Themes        []string
+	Tilde         string
+	Uptime        int
+}
+
+func (p *Process) SystemStatus() (SystemStatus, error) {
+	bs, err := p.Get("/rest/system/status")
+	if err != nil {
+		return SystemStatus{}, err
+	}
+
+	var res SystemStatus
+	if err := json.Unmarshal(bs, &res); err != nil {
+		return SystemStatus{}, err
+	}
+
+	return res, nil
+}
+
+type SystemVersion struct {
+	Arch        string
+	Codename    string
+	LongVersion string
+	OS          string
+	Version     string
+}
+
+func (p *Process) SystemVersion() (SystemVersion, error) {
+	bs, err := p.Get("/rest/system/version")
+	if err != nil {
+		return SystemVersion{}, err
+	}
+
+	var res SystemVersion
+	if err := json.Unmarshal(bs, &res); err != nil {
+		return SystemVersion{}, err
+	}
+
+	return res, nil
+}
