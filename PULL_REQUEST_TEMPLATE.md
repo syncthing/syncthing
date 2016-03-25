@@ -16,8 +16,9 @@ feel free to just delete this section.
 
 ### Documentation
 
-We know currently what it does. For later use consider a tiny hint in the documentation.
-See https://docs.syncthing.net (sources can be found in https://github.com/syncthing/docs)
+If this is a user visible change (including API and protocol changes), add a link here
+to the corresponding pull request on https://github.com/syncthing/docs or describe
+the documentation changes necessary.
 
 ### Authorship
 
