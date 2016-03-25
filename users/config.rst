@@ -336,14 +336,18 @@ address
 
     IPv4 address and port (``127.0.0.1:8384``)
         The address and port is used as given.
+    IPv4 wildcard and port (``tcp4://0.0.0.0``, ``tcp4://:8384``)
+        These are equivalent and will result in Syncthing listening on all interfaces via IPv4 only.
 
     IPv6 address and port (``[::1]:8384``)
         The address and port is used as given. The address must be enclosed in
         square brackets.
+    IPv6 wildcard and port (``tcp6://[::]:8384``, ``tcp6://:8384``)
+        These are equivalent and will result in Syncthing listening on all interfaces via IPv6 only.
 
     Wildcard and port (``0.0.0.0:12345``, ``[::]:12345``, ``:12345``)
         These are equivalent and will result in Syncthing listening on all
-        interfaces and both IPv4 and IPv6.
+        interfaces via both IPv4 and IPv6.
 
 username
     Set to require authentication.
