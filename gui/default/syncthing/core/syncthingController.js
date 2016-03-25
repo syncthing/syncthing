@@ -978,13 +978,14 @@ angular.module('syncthing.core')
             $('#idqr').modal('show');
         };
 
-        $scope.addDevice = function (deviceID) {
+        $scope.addDevice = function (deviceID, name) {
             return $http.get(urlbase + '/system/discovery')
                 .success(function (registry) {
                     $scope.discovery = registry;
                 })
                 .then(function () {
                     $scope.currentDevice = {
+                        name: name,
                         deviceID: deviceID,
                         _addressesStr: 'dynamic',
                         compression: 'metadata',

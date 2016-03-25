@@ -8,6 +8,7 @@ package connections
 
 import (
 	"crypto/tls"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -18,12 +19,12 @@ import (
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/discover"
-	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/upnp"
+	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/thejerf/suture"
 )
@@ -38,9 +39,11 @@ var (
 
 type Model interface {
 	protocol.Model
-	AddConnection(conn model.Connection)
+	AddConnection(conn model.Connection, hello protocol.HelloMessage)
 	ConnectedTo(remoteID protocol.DeviceID) bool
 	IsPaused(remoteID protocol.DeviceID) bool
+	OnHello(protocol.DeviceID, net.Addr, protocol.HelloMessage)
+	GetHello(protocol.DeviceID) protocol.HelloMessage
 }
 
 // Service listens on TLS and dials configured unconnected devices. Successful
@@ -143,14 +146,14 @@ func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model
 func (s *Service) handle() {
 next:
 	for c := range s.conns {
-		cs := c.Conn.ConnectionState()
+		cs := c.ConnectionState()
 
 		// We should have negotiated the next level protocol "bep/1.0" as part
 		// of the TLS handshake. Unfortunately this can't be a hard error,
 		// because there are implementations out there that don't support
 		// protocol negotiation (iOS for one...).
 		if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != s.bepProtocolName {
-			l.Infof("Peer %s did not negotiate bep/1.0", c.Conn.RemoteAddr())
+			l.Infof("Peer %s did not negotiate bep/1.0", c.RemoteAddr())
 		}
 
 		// We should have received exactly one certificate from the other
@@ -158,8 +161,8 @@ next:
 		// connection.
 		certs := cs.PeerCertificates
 		if cl := len(certs); cl != 1 {
-			l.Infof("Got peer certificate list of length %d != 1 from %s; protocol error", cl, c.Conn.RemoteAddr())
-			c.Conn.Close()
+			l.Infof("Got peer certificate list of length %d != 1 from %s; protocol error", cl, c.RemoteAddr())
+			c.Close()
 			continue
 		}
 		remoteCert := certs[0]
@@ -170,9 +173,18 @@ next:
 		// clients between the same NAT gateway, and global discovery.
 		if remoteID == s.myID {
 			l.Infof("Connected to myself (%s) - should not happen", remoteID)
-			c.Conn.Close()
+			c.Close()
 			continue
 		}
+
+		hello, err := exchangeHello(c, s.model.GetHello(remoteID))
+		if err != nil {
+			l.Infof("Failed to exchange Hello messages with %s (%s): %s", remoteID, c.RemoteAddr(), err)
+			c.Close()
+			continue next
+		}
+
+		s.model.OnHello(remoteID, c.RemoteAddr(), hello)
 
 		// If we have a relay connection, and the new incoming connection is
 		// not a relay connection, we should drop that, and prefer the this one.
@@ -190,11 +202,11 @@ next:
 			// in parallel we don't want to do that or we end up with no
 			// connections still established...
 			l.Infof("Connected to already connected device (%s)", remoteID)
-			c.Conn.Close()
+			c.Close()
 			continue
 		} else if s.model.IsPaused(remoteID) {
 			l.Infof("Connection from paused device (%s)", remoteID)
-			c.Conn.Close()
+			c.Close()
 			continue
 		}
 
@@ -212,15 +224,15 @@ next:
 					// Incorrect certificate name is something the user most
 					// likely wants to know about, since it's an advanced
 					// config. Warn instead of Info.
-					l.Warnf("Bad certificate from %s (%v): %v", remoteID, c.Conn.RemoteAddr(), err)
-					c.Conn.Close()
+					l.Warnf("Bad certificate from %s (%v): %v", remoteID, c.RemoteAddr(), err)
+					c.Close()
 					continue next
 				}
 
 				// If rate limiting is set, and based on the address we should
 				// limit the connection, then we wrap it in a limiter.
 
-				limit := s.shouldLimit(c.Conn.RemoteAddr())
+				limit := s.shouldLimit(c.RemoteAddr())
 
 				wr := io.Writer(c.Conn)
 				if limit && s.writeRateLimit != nil {
@@ -232,17 +244,17 @@ next:
 					rd = NewReadLimiter(c.Conn, s.readRateLimit)
 				}
 
-				name := fmt.Sprintf("%s-%s (%s)", c.Conn.LocalAddr(), c.Conn.RemoteAddr(), c.Type)
+				name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type)
 				protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
-				l.Debugf("cipher suite: %04X in lan: %t", c.Conn.ConnectionState().CipherSuite, !limit)
+				l.Debugf("cipher suite: %04X in lan: %t", c.ConnectionState().CipherSuite, !limit)
 
 				s.model.AddConnection(model.Connection{
-					c.Conn,
+					c,
 					protoConn,
 					c.Type,
-				})
+				}, hello)
 				s.mut.Lock()
 				s.connType[remoteID] = c.Type
 				s.mut.Unlock()
@@ -250,15 +262,8 @@ next:
 			}
 		}
 
-		if !s.cfg.IgnoredDevice(remoteID) {
-			events.Default.Log(events.DeviceRejected, map[string]string{
-				"device":  remoteID.String(),
-				"address": c.Conn.RemoteAddr().String(),
-			})
-		}
-
-		l.Infof("Connection from %s (%s) with ignored device ID %s", c.Conn.RemoteAddr(), c.Type, remoteID)
-		c.Conn.Close()
+		l.Infof("Connection from %s (%s) with ignored device ID %s", c.RemoteAddr(), c.Type, remoteID)
+		c.Close()
 	}
 }
 
@@ -504,7 +509,7 @@ func (s *Service) addresses(includePrivateIPV4 bool) []string {
 			l.Infoln("Listen address", addrStr, "is invalid:", err)
 			continue
 		}
-		addr, err := net.ResolveTCPAddr("tcp", addrURL.Host)
+		addr, err := net.ResolveTCPAddr(addrURL.Scheme, addrURL.Host)
 		if err != nil {
 			l.Infoln("Listen address", addrStr, "is invalid:", err)
 			continue
@@ -512,13 +517,13 @@ func (s *Service) addresses(includePrivateIPV4 bool) []string {
 
 		if addr.IP == nil || addr.IP.IsUnspecified() {
 			// Address like 0.0.0.0:22000 or [::]:22000 or :22000; include as is.
-			addrs = append(addrs, tcpAddr(addr.String()))
+			addrs = append(addrs, util.Address(addrURL.Scheme, addr.String()))
 		} else if isPublicIPv4(addr.IP) || isPublicIPv6(addr.IP) {
 			// A public address; include as is.
-			addrs = append(addrs, tcpAddr(addr.String()))
+			addrs = append(addrs, util.Address(addrURL.Scheme, addr.String()))
 		} else if includePrivateIPV4 && addr.IP.To4().IsGlobalUnicast() {
 			// A private IPv4 address.
-			addrs = append(addrs, tcpAddr(addr.String()))
+			addrs = append(addrs, util.Address(addrURL.Scheme, addr.String()))
 		}
 	}
 
@@ -567,12 +572,52 @@ func isPublicIPv6(ip net.IP) bool {
 	return ip.IsGlobalUnicast()
 }
 
-func tcpAddr(host string) string {
-	u := url.URL{
-		Scheme: "tcp",
-		Host:   host,
+func exchangeHello(c net.Conn, h protocol.HelloMessage) (protocol.HelloMessage, error) {
+	if err := c.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		return protocol.HelloMessage{}, err
 	}
-	return u.String()
+	defer c.SetDeadline(time.Time{})
+
+	header := make([]byte, 8)
+	msg := h.MustMarshalXDR()
+
+	binary.BigEndian.PutUint32(header[:4], protocol.HelloMessageMagic)
+	binary.BigEndian.PutUint32(header[4:], uint32(len(msg)))
+
+	if _, err := c.Write(header); err != nil {
+		return protocol.HelloMessage{}, err
+	}
+
+	if _, err := c.Write(msg); err != nil {
+		return protocol.HelloMessage{}, err
+	}
+
+	if _, err := io.ReadFull(c, header); err != nil {
+		return protocol.HelloMessage{}, err
+	}
+
+	if binary.BigEndian.Uint32(header[:4]) != protocol.HelloMessageMagic {
+		return protocol.HelloMessage{}, fmt.Errorf("incorrect magic")
+	}
+
+	msgSize := binary.BigEndian.Uint32(header[4:])
+	if msgSize > 1024 {
+		return protocol.HelloMessage{}, fmt.Errorf("hello message too big")
+	}
+
+	buf := make([]byte, msgSize)
+
+	var hello protocol.HelloMessage
+
+	if _, err := io.ReadFull(c, buf); err != nil {
+		return protocol.HelloMessage{}, err
+	}
+
+	if err := hello.UnmarshalXDR(buf); err != nil {
+		return protocol.HelloMessage{}, err
+	}
+
+	return hello, nil
 }
 
 // serviceFunc wraps a function to create a suture.Service without stop
