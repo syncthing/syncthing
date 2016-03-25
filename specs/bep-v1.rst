@@ -209,6 +209,10 @@ Graphical Representation
     \                     ID (variable length)                      \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                 Label (length + padded data)                  \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                       Number of Devices                       |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /                                                               /
@@ -327,6 +331,8 @@ Fields (Folder Structure)
 
 The **ID** field contains the folder ID, as a human readable string.
 
+The **Label** field contains the folder label, as human readable name for the **ID**.
+
 The **Devices** field is list of devices participating in sharing this folder.
 
 The **Flags** field contains flags that affect the behavior of the folder. The
@@ -441,10 +447,11 @@ XDR
     };
 
     struct Folder {
-        string ID<256>;
-        Device Devices<1000000>;
-        unsigned int Flags;
-        Option Options<64>;
+    	string ID<256>;
+    	string Label<256>;
+    	Device Devices<1000000>;
+    	unsigned int Flags;
+    	Option Options<64>;
     };
 
     struct Device {
