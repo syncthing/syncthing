@@ -279,7 +279,7 @@ func BenchmarkRequest(b *testing.B) {
 		&net.TCPConn{},
 		fc,
 		ConnectionTypeDirectAccept,
-	})
+	}, protocol.HelloMessage{})
 	m.Index(device1, "default", files, 0, nil)
 
 	b.ResetTimer()
@@ -295,11 +295,10 @@ func BenchmarkRequest(b *testing.B) {
 }
 
 func TestDeviceRename(t *testing.T) {
-	ccm := protocol.ClusterConfigMessage{
+	hello := protocol.HelloMessage{
 		ClientName:    "syncthing",
 		ClientVersion: "v0.9.4",
 	}
-
 	defer os.Remove("tmpconfig.xml")
 
 	rawCfg := config.New(device1)
@@ -313,35 +312,39 @@ func TestDeviceRename(t *testing.T) {
 	db := db.OpenMemory()
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 
-	fc := FakeConnection{
-		id:          device1,
-		requestData: []byte("some data to return"),
+	if cfg.Devices()[device1].Name != "" {
+		t.Errorf("Device already has a name")
 	}
 
-	m.AddConnection(Connection{
+	conn := Connection{
 		&net.TCPConn{},
-		fc,
+		FakeConnection{
+			id:          device1,
+			requestData: []byte("some data to return"),
+		},
 		ConnectionTypeDirectAccept,
-	})
+	}
+
+	m.AddConnection(conn, hello)
 
 	m.ServeBackground()
+
 	if cfg.Devices()[device1].Name != "" {
 		t.Errorf("Device already has a name")
 	}
 
-	m.ClusterConfig(device1, ccm)
-	if cfg.Devices()[device1].Name != "" {
-		t.Errorf("Device already has a name")
-	}
+	m.Close(device1, protocol.ErrTimeout)
+	hello.DeviceName = "tester"
+	m.AddConnection(conn, hello)
 
-	ccm.DeviceName = "tester"
-	m.ClusterConfig(device1, ccm)
 	if cfg.Devices()[device1].Name != "tester" {
 		t.Errorf("Device did not get a name")
 	}
 
-	ccm.DeviceName = "tester2"
-	m.ClusterConfig(device1, ccm)
+	m.Close(device1, protocol.ErrTimeout)
+	hello.DeviceName = "tester2"
+	m.AddConnection(conn, hello)
+
 	if cfg.Devices()[device1].Name != "tester" {
 		t.Errorf("Device name got overwritten")
 	}
