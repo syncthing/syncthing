@@ -13,13 +13,8 @@ import (
 
 var (
 	sha256OfEmptyBlock        = sha256.Sum256(make([]byte, BlockSize))
-	Version             int32 = 1
-	HelloMessageMaxSize       = 4 + 64 + // DeviceName (4 bytes for length + 64 max length)
-		4 + 64 + // ClientName
-		4 + 64 + // ClientVersion
-		4 + // ProtocolVersion
-		4 + // PayloadType
-		4 + 256 // Payload
+	Version            int32  = 1
+	HelloMessageMagic  uint32 = 0x9F79BC40
 )
 
 type HelloMessage struct {

@@ -8,6 +8,7 @@ package connections
 
 import (
 	"crypto/tls"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -582,12 +583,34 @@ func exchangeHello(c net.Conn, h protocol.HelloMessage) (protocol.HelloMessage, 
 	}
 	defer c.SetDeadline(time.Time{})
 
-	buf := make([]byte, protocol.HelloMessageMaxSize)
-	copy(buf, h.MustMarshalXDR())
+	header := make([]byte, 8)
+	msg := h.MustMarshalXDR()
 
-	if _, err := c.Write(buf); err != nil {
+	binary.BigEndian.PutUint32(header[:4], protocol.HelloMessageMagic)
+	binary.BigEndian.PutUint32(header[4:], uint32(len(msg)))
+
+	if _, err := c.Write(header); err != nil {
 		return protocol.HelloMessage{}, err
 	}
+
+	if _, err := c.Write(msg); err != nil {
+		return protocol.HelloMessage{}, err
+	}
+
+	if _, err := io.ReadFull(c, header); err != nil {
+		return protocol.HelloMessage{}, err
+	}
+
+	if binary.BigEndian.Uint32(header[:4]) != protocol.HelloMessageMagic {
+		return protocol.HelloMessage{}, fmt.Errorf("incorrect magic")
+	}
+
+	msgSize := binary.BigEndian.Uint32(header[4:])
+	if msgSize > 1024 {
+		return protocol.HelloMessage{}, errIncompatibleProtocolVersion
+	}
+
+	buf := make([]byte, msgSize)
 
 	var hello protocol.HelloMessage
 
