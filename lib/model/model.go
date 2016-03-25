@@ -973,10 +973,9 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 // GetHello is called when we are about to connect to some remote device.
 func (m *Model) GetHello(protocol.DeviceID) protocol.HelloMessage {
 	return protocol.HelloMessage{
-		DeviceName:      m.deviceName,
-		ClientName:      m.clientName,
-		ClientVersion:   m.clientVersion,
-		ProtocolVersion: protocol.Version,
+		DeviceName:    m.deviceName,
+		ClientName:    m.clientName,
+		ClientVersion: m.clientVersion,
 	}
 }
 

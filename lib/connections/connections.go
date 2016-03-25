@@ -33,9 +33,8 @@ type DialerFactory func(*url.URL, *tls.Config) (*tls.Conn, error)
 type ListenerFactory func(*url.URL, *tls.Config, chan<- model.IntermediateConnection)
 
 var (
-	dialers                        = make(map[string]DialerFactory, 0)
-	listeners                      = make(map[string]ListenerFactory, 0)
-	errIncompatibleProtocolVersion = fmt.Errorf("incompatible protocol version")
+	dialers   = make(map[string]DialerFactory, 0)
+	listeners = make(map[string]ListenerFactory, 0)
 )
 
 type Model interface {
@@ -180,11 +179,7 @@ next:
 
 		hello, err := exchangeHello(c, s.model.GetHello(remoteID))
 		if err != nil {
-			if err == errIncompatibleProtocolVersion {
-				l.Warnf("Connection from %s (%s) with an incompatible version of Syncthing", remoteID, c.RemoteAddr())
-			} else {
-				l.Infof("Failed to exchange Hello messages with %s (%s): %s", remoteID, c.RemoteAddr(), err)
-			}
+			l.Infof("Failed to exchange Hello messages with %s (%s): %s", remoteID, c.RemoteAddr(), err)
 			c.Close()
 			continue next
 		}
@@ -607,7 +602,7 @@ func exchangeHello(c net.Conn, h protocol.HelloMessage) (protocol.HelloMessage, 
 
 	msgSize := binary.BigEndian.Uint32(header[4:])
 	if msgSize > 1024 {
-		return protocol.HelloMessage{}, errIncompatibleProtocolVersion
+		return protocol.HelloMessage{}, fmt.Errorf("hello message too big")
 	}
 
 	buf := make([]byte, msgSize)
@@ -620,10 +615,6 @@ func exchangeHello(c net.Conn, h protocol.HelloMessage) (protocol.HelloMessage, 
 
 	if err := hello.UnmarshalXDR(buf); err != nil {
 		return protocol.HelloMessage{}, err
-	}
-
-	if hello.ProtocolVersion != protocol.Version {
-		return protocol.HelloMessage{}, errIncompatibleProtocolVersion
 	}
 
 	return hello, nil

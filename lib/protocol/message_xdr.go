@@ -27,15 +27,12 @@ HelloMessage Structure:
 \             Client Version (length + padded data)             \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Protocol Version                        |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct HelloMessage {
 	string DeviceName<64>;
 	string ClientName<64>;
 	string ClientVersion<64>;
-	int ProtocolVersion;
 }
 
 */
@@ -43,7 +40,7 @@ struct HelloMessage {
 func (o HelloMessage) XDRSize() int {
 	return 4 + len(o.DeviceName) + xdr.Padding(len(o.DeviceName)) +
 		4 + len(o.ClientName) + xdr.Padding(len(o.ClientName)) +
-		4 + len(o.ClientVersion) + xdr.Padding(len(o.ClientVersion)) + 4
+		4 + len(o.ClientVersion) + xdr.Padding(len(o.ClientVersion))
 }
 
 func (o HelloMessage) MarshalXDR() ([]byte, error) {
@@ -73,7 +70,6 @@ func (o HelloMessage) MarshalXDRInto(m *xdr.Marshaller) error {
 		return xdr.ElementSizeExceeded("ClientVersion", l, 64)
 	}
 	m.MarshalString(o.ClientVersion)
-	m.MarshalUint32(uint32(o.ProtocolVersion))
 	return m.Error
 }
 
@@ -85,7 +81,6 @@ func (o *HelloMessage) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.DeviceName = u.UnmarshalStringMax(64)
 	o.ClientName = u.UnmarshalStringMax(64)
 	o.ClientVersion = u.UnmarshalStringMax(64)
-	o.ProtocolVersion = int32(u.UnmarshalUint32())
 	return u.Error
 }
 
