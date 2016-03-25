@@ -128,7 +128,9 @@ Development Settings
 --------------------
 
 The following environment variables modify Syncthing's behavior in ways that
-are mostly useful for developers. Use with care.
+are mostly useful for developers. Use with care. 
+If you start syncthing from within service managers like systemd or supervisor 
+path expansion may not be supported.
 
 STGUIASSETS
     Directory to load GUI assets from. Overrides compiled in assets.
