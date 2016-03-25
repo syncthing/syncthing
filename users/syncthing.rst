@@ -6,9 +6,9 @@ Synopsis
 
 ::
 
-    syncthing [-audit] [-generate=<dir>] [-gui-address=<address>] [-gui-apikey=<key>]
+    syncthing [-audit] [-browser-only] [-generate=<dir>] [-gui-address=<address>] [-gui-apikey=<key>]
               [-home=<dir>] [-logfile=<filename>] [-logflags=<flags>] [-no-browser]
-              [-no-console] [-no-restart] [-paths] [-reset] [-upgrade] [-upgrade-check]
+              [-no-console] [-no-restart] [-paths] [-paused] [-reset] [-upgrade] [-upgrade-check]
               [-upgrade-to=<url>] [-verbose] [-version]
 
 Description
