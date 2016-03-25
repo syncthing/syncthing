@@ -189,12 +189,12 @@ func TestClose(t *testing.T) {
 }
 
 func TestElementSizeExceededNested(t *testing.T) {
-	m := ClusterConfigMessage{
+	m := HelloMessage{
 		ClientName: "longstringlongstringlongstringinglongstringlongstringlonlongstringlongstringlon",
 	}
 	_, err := m.MarshalXDR()
 	if err == nil {
-		t.Errorf("ID length %d > max 64, but no error", len(m.Folders[0].ID))
+		t.Errorf("ID length %d > max 64, but no error", len(m.ClientName))
 	}
 }
 
