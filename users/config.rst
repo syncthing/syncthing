@@ -270,7 +270,7 @@ introducer
 
 In addition, one or more ``address`` child elements must be present. Each
 contains an address or host name to use when attempting to connect to this device and will
-be tried in order. Entries other than ``dynamic`` must be prefixed with ``tcp://``. Accepted formats are:
+be tried in order. Entries other than ``dynamic`` must be prefixed with ``tcp://`` (dual-stack), ``tcp4://`` (IPv4 only) or ``tcp6://` (IPv6 only). Note that IP addresses need not use tcp4/tcp6; these are optional. Accepted formats are:
 
 IPv4 address (``tcp://192.0.2.42``)
     The default port (22000) is used.
@@ -286,8 +286,8 @@ IPv6 address and port (``tcp://[2001:db8::23:42]:12345``)
     The address and port is used as given. The address must be enclosed in
     square brackets.
 
-Host name (``tcp://fileserver``)
-    The host name will be used on the default port (22000) and connections will be attempted via both IPv4 and IPv6, depending on name resolution.
+Host name (``tcp6://fileserver``)
+    The host name will be used on the default port (22000) and connections will be attempted only via IPv6.
     
 Host name and port (``tcp://fileserver:12345``)
     The host name will be used on the given port and connections will be attempted via both IPv4 and IPv6, depending on name resolution.
@@ -336,14 +336,18 @@ address
 
     IPv4 address and port (``127.0.0.1:8384``)
         The address and port is used as given.
+    IPv4 wildcard and port (``tcp4://0.0.0.0``, ``tcp4://:8384``)
+        These are equivalent and will result in Syncthing listening on all interfaces via IPv4 only.
 
     IPv6 address and port (``[::1]:8384``)
         The address and port is used as given. The address must be enclosed in
         square brackets.
+    IPv6 wildcard and port (``tcp6://[::]:8384``, ``tcp6://:8384``)
+        These are equivalent and will result in Syncthing listening on all interfaces via IPv6 only.
 
     Wildcard and port (``0.0.0.0:12345``, ``[::]:12345``, ``:12345``)
         These are equivalent and will result in Syncthing listening on all
-        interfaces and both IPv4 and IPv6.
+        interfaces via both IPv4 and IPv6.
 
 username
     Set to require authentication.
