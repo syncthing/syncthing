@@ -22,8 +22,6 @@ type HelloMessage struct {
 	ClientName      string // max:64
 	ClientVersion   string // max:64
 	ProtocolVersion int32
-	PayloadType     int32
-	Payload         []byte // max:256
 }
 
 type IndexMessage struct {

@@ -29,12 +29,6 @@ HelloMessage Structure:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                       Protocol Version                        |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Payload Type                          |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/                                                               /
-\                Payload (length + padded data)                 \
-/                                                               /
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct HelloMessage {
@@ -42,8 +36,6 @@ struct HelloMessage {
 	string ClientName<64>;
 	string ClientVersion<64>;
 	int ProtocolVersion;
-	int PayloadType;
-	opaque Payload<256>;
 }
 
 */
@@ -51,8 +43,7 @@ struct HelloMessage {
 func (o HelloMessage) XDRSize() int {
 	return 4 + len(o.DeviceName) + xdr.Padding(len(o.DeviceName)) +
 		4 + len(o.ClientName) + xdr.Padding(len(o.ClientName)) +
-		4 + len(o.ClientVersion) + xdr.Padding(len(o.ClientVersion)) + 4 + 4 +
-		4 + len(o.Payload) + xdr.Padding(len(o.Payload))
+		4 + len(o.ClientVersion) + xdr.Padding(len(o.ClientVersion)) + 4
 }
 
 func (o HelloMessage) MarshalXDR() ([]byte, error) {
@@ -83,11 +74,6 @@ func (o HelloMessage) MarshalXDRInto(m *xdr.Marshaller) error {
 	}
 	m.MarshalString(o.ClientVersion)
 	m.MarshalUint32(uint32(o.ProtocolVersion))
-	m.MarshalUint32(uint32(o.PayloadType))
-	if l := len(o.Payload); l > 256 {
-		return xdr.ElementSizeExceeded("Payload", l, 256)
-	}
-	m.MarshalBytes(o.Payload)
 	return m.Error
 }
 
@@ -100,8 +86,6 @@ func (o *HelloMessage) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.ClientName = u.UnmarshalStringMax(64)
 	o.ClientVersion = u.UnmarshalStringMax(64)
 	o.ProtocolVersion = int32(u.UnmarshalUint32())
-	o.PayloadType = int32(u.UnmarshalUint32())
-	o.Payload = u.UnmarshalBytesMax(256)
 	return u.Error
 }
 
