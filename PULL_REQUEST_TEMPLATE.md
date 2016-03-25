@@ -14,6 +14,11 @@ if new tests are not included.
 If this is a GUI change, include screenshots of the change. If not, please
 feel free to just delete this section.
 
+### Documentation
+
+We know currently what it does. For later use consider a tiny hint in the documentation.
+See https://docs.syncthing.net (sources can be found in https://github.com/syncthing/docs)
+
 ### Authorship
 
 Every author of a code contribution (Go, Javascript, HTML, CSS etc, with the
