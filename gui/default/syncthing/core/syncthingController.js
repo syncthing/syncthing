@@ -811,7 +811,7 @@ angular.module('syncthing.core')
         };
 
         $scope.deviceName = function (deviceCfg) {
-            if (typeof deviceCfg === 'undefined' || deviceCfg.deviceID === undefined) {
+            if (typeof deviceCfg === 'undefined' || typeof deviceCfg.deviceID === 'undefined') {
                 return "";
             }
             if (deviceCfg.name) {
