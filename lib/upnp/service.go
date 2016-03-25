@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package main
+package upnp
 
 import (
 	"fmt"
@@ -13,12 +13,12 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/upnp"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
-// The UPnP service runs a loop for discovery of IGDs (Internet Gateway
-// Devices) and setup/renewal of a port mapping.
-type upnpService struct {
+// Service runs a loop for discovery of IGDs (Internet Gateway Devices) and
+// setup/renewal of a port mapping.
+type Service struct {
 	cfg        *config.Wrapper
 	localPort  int
 	extPort    int
@@ -26,20 +26,20 @@ type upnpService struct {
 	stop       chan struct{}
 }
 
-func newUPnPService(cfg *config.Wrapper, localPort int) *upnpService {
-	return &upnpService{
+func NewUPnPService(cfg *config.Wrapper, localPort int) *Service {
+	return &Service{
 		cfg:        cfg,
 		localPort:  localPort,
 		extPortMut: sync.NewMutex(),
 	}
 }
 
-func (s *upnpService) Serve() {
+func (s *Service) Serve() {
 	foundIGD := true
 	s.stop = make(chan struct{})
 
 	for {
-		igds := upnp.Discover(time.Duration(s.cfg.Options().UPnPTimeoutS) * time.Second)
+		igds := Discover(time.Duration(s.cfg.Options().UPnPTimeoutS) * time.Second)
 		if len(igds) > 0 {
 			foundIGD = true
 			s.extPortMut.Lock()
@@ -72,18 +72,18 @@ func (s *upnpService) Serve() {
 	}
 }
 
-func (s *upnpService) Stop() {
+func (s *Service) Stop() {
 	close(s.stop)
 }
 
-func (s *upnpService) ExternalPort() int {
+func (s *Service) ExternalPort() int {
 	s.extPortMut.Lock()
 	port := s.extPort
 	s.extPortMut.Unlock()
 	return port
 }
 
-func (s *upnpService) tryIGDs(igds []upnp.IGD, prevExtPort int) int {
+func (s *Service) tryIGDs(igds []IGD, prevExtPort int) int {
 	// Lets try all the IGDs we found and use the first one that works.
 	// TODO: Use all of them, and sort out the resulting mess to the
 	// discovery announcement code...
@@ -105,14 +105,14 @@ func (s *upnpService) tryIGDs(igds []upnp.IGD, prevExtPort int) int {
 	return 0
 }
 
-func (s *upnpService) tryIGD(igd upnp.IGD, suggestedPort int) (int, error) {
+func (s *Service) tryIGD(igd IGD, suggestedPort int) (int, error) {
 	var err error
 	leaseTime := s.cfg.Options().UPnPLeaseM * 60
 
 	if suggestedPort != 0 {
 		// First try renewing our existing mapping.
 		name := fmt.Sprintf("syncthing-%d", suggestedPort)
-		err = igd.AddPortMapping(upnp.TCP, suggestedPort, s.localPort, name, leaseTime)
+		err = igd.AddPortMapping(TCP, suggestedPort, s.localPort, name, leaseTime)
 		if err == nil {
 			return suggestedPort, nil
 		}
@@ -120,9 +120,9 @@ func (s *upnpService) tryIGD(igd upnp.IGD, suggestedPort int) (int, error) {
 
 	for i := 0; i < 10; i++ {
 		// Then try up to ten random ports.
-		extPort := 1024 + predictableRandom.Intn(65535-1024)
+		extPort := 1024 + util.PredictableRandom.Intn(65535-1024)
 		name := fmt.Sprintf("syncthing-%d", extPort)
-		err = igd.AddPortMapping(upnp.TCP, extPort, s.localPort, name, leaseTime)
+		err = igd.AddPortMapping(TCP, extPort, s.localPort, name, leaseTime)
 		if err == nil {
 			return extPort, nil
 		}

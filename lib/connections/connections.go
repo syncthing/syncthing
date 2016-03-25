@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/relay/client"
+	"github.com/syncthing/syncthing/lib/upnp"
 
 	"github.com/thejerf/suture"
 )
@@ -42,9 +43,9 @@ type Model interface {
 	IsPaused(remoteID protocol.DeviceID) bool
 }
 
-// The connection connectionService listens on TLS and dials configured unconnected
-// devices. Successful connections are handed to the model.
-type connectionService struct {
+// Service listens on TLS and dials configured unconnected devices. Successful
+// connections are handed to the model.
+type Service struct {
 	*suture.Supervisor
 	cfg                  *config.Wrapper
 	myID                 protocol.DeviceID
@@ -52,6 +53,7 @@ type connectionService struct {
 	tlsCfg               *tls.Config
 	discoverer           discover.Finder
 	conns                chan model.IntermediateConnection
+	upnpService          *upnp.Service
 	relayService         relay.Service
 	bepProtocolName      string
 	tlsDefaultCommonName string
@@ -66,15 +68,16 @@ type connectionService struct {
 	relaysEnabled bool
 }
 
-func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, relayService relay.Service,
-	bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) suture.Service {
-	service := &connectionService{
-		Supervisor:           suture.NewSimple("connectionService"),
+func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, upnpService *upnp.Service,
+	relayService relay.Service, bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) *Service {
+	service := &Service{
+		Supervisor:           suture.NewSimple("connections.Service"),
 		cfg:                  cfg,
 		myID:                 myID,
 		model:                mdl,
 		tlsCfg:               tlsCfg,
 		discoverer:           discoverer,
+		upnpService:          upnpService,
 		relayService:         relayService,
 		conns:                make(chan model.IntermediateConnection),
 		bepProtocolName:      bepProtocolName,
@@ -100,7 +103,7 @@ func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model
 	// to handle incoming connections, one routine to periodically attempt
 	// outgoing connections, one routine to the the common handling
 	// regardless of whether the connection was incoming or outgoing.
-	// Furthermore, a relay connectionService which handles incoming requests to connect
+	// Furthermore, a relay service which handles incoming requests to connect
 	// via the relays.
 	//
 	// TODO: Clean shutdown, and/or handling config changes on the fly. We
@@ -137,7 +140,7 @@ func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model
 	return service
 }
 
-func (s *connectionService) handle() {
+func (s *Service) handle() {
 next:
 	for c := range s.conns {
 		cs := c.Conn.ConnectionState()
@@ -259,7 +262,7 @@ next:
 	}
 }
 
-func (s *connectionService) connect() {
+func (s *Service) connect() {
 	delay := time.Second
 	for {
 		l.Debugln("Reconnect loop")
@@ -342,7 +345,7 @@ func (s *connectionService) connect() {
 	}
 }
 
-func (s *connectionService) resolveAddresses(deviceID protocol.DeviceID, inAddrs []string) (addrs []string, relays []discover.Relay) {
+func (s *Service) resolveAddresses(deviceID protocol.DeviceID, inAddrs []string) (addrs []string, relays []discover.Relay) {
 	for _, addr := range inAddrs {
 		if addr == "dynamic" {
 			if s.discoverer != nil {
@@ -358,7 +361,7 @@ func (s *connectionService) resolveAddresses(deviceID protocol.DeviceID, inAddrs
 	return
 }
 
-func (s *connectionService) connectDirect(deviceID protocol.DeviceID, addr string) *tls.Conn {
+func (s *Service) connectDirect(deviceID protocol.DeviceID, addr string) *tls.Conn {
 	uri, err := url.Parse(addr)
 	if err != nil {
 		l.Infoln("Failed to parse connection url:", addr, err)
@@ -381,7 +384,7 @@ func (s *connectionService) connectDirect(deviceID protocol.DeviceID, addr strin
 	return conn
 }
 
-func (s *connectionService) connectViaRelay(deviceID protocol.DeviceID, addr discover.Relay) *tls.Conn {
+func (s *Service) connectViaRelay(deviceID protocol.DeviceID, addr discover.Relay) *tls.Conn {
 	uri, err := url.Parse(addr.URL)
 	if err != nil {
 		l.Infoln("Failed to parse relay connection url:", addr, err)
@@ -420,7 +423,7 @@ func (s *connectionService) connectViaRelay(deviceID protocol.DeviceID, addr dis
 	return tc
 }
 
-func (s *connectionService) acceptRelayConns() {
+func (s *Service) acceptRelayConns() {
 	for {
 		conn := s.relayService.Accept()
 		s.conns <- model.IntermediateConnection{
@@ -430,7 +433,7 @@ func (s *connectionService) acceptRelayConns() {
 	}
 }
 
-func (s *connectionService) shouldLimit(addr net.Addr) bool {
+func (s *Service) shouldLimit(addr net.Addr) bool {
 	if s.cfg.Options().LimitBandwidthInLan {
 		return true
 	}
@@ -447,11 +450,11 @@ func (s *connectionService) shouldLimit(addr net.Addr) bool {
 	return !tcpaddr.IP.IsLoopback()
 }
 
-func (s *connectionService) VerifyConfiguration(from, to config.Configuration) error {
+func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
-func (s *connectionService) CommitConfiguration(from, to config.Configuration) bool {
+func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	s.mut.Lock()
 	s.relaysEnabled = to.Options.RelaysEnabled
 	s.mut.Unlock()
@@ -470,6 +473,106 @@ func (s *connectionService) CommitConfiguration(from, to config.Configuration) b
 	}
 
 	return true
+}
+
+// ExternalAddresses returns a list of addresses that are our best guess for
+// where we are reachable from the outside. As a special case, we may return
+// one or more addresses with an empty IP address (0.0.0.0 or ::) and just
+// port number - this means that the outside address of a NAT gateway should
+// be substituted.
+func (s *Service) ExternalAddresses() []string {
+	return s.addresses(false)
+}
+
+// AllAddresses returns a list of addresses that are our best guess for where
+// we are reachable from the local network. Same conditions as
+// ExternalAddresses, but private IPv4 addresses are included.
+func (s *Service) AllAddresses() []string {
+	return s.addresses(true)
+}
+
+func (s *Service) addresses(includePrivateIPV4 bool) []string {
+	var addrs []string
+
+	// Grab our listen addresses from the config. Unspecified ones are passed
+	// on verbatim (to be interpreted by a global discovery server or local
+	// discovery peer). Public addresses are passed on verbatim. Private
+	// addresses are filtered.
+	for _, addrStr := range s.cfg.Options().ListenAddress {
+		addrURL, err := url.Parse(addrStr)
+		if err != nil {
+			l.Infoln("Listen address", addrStr, "is invalid:", err)
+			continue
+		}
+		addr, err := net.ResolveTCPAddr("tcp", addrURL.Host)
+		if err != nil {
+			l.Infoln("Listen address", addrStr, "is invalid:", err)
+			continue
+		}
+
+		if addr.IP == nil || addr.IP.IsUnspecified() {
+			// Address like 0.0.0.0:22000 or [::]:22000 or :22000; include as is.
+			addrs = append(addrs, tcpAddr(addr.String()))
+		} else if isPublicIPv4(addr.IP) || isPublicIPv6(addr.IP) {
+			// A public address; include as is.
+			addrs = append(addrs, tcpAddr(addr.String()))
+		} else if includePrivateIPV4 && addr.IP.To4().IsGlobalUnicast() {
+			// A private IPv4 address.
+			addrs = append(addrs, tcpAddr(addr.String()))
+		}
+	}
+
+	// Get an external port mapping from the upnpService, if it has one. If so,
+	// add it as another unspecified address.
+	if s.upnpService != nil {
+		if port := s.upnpService.ExternalPort(); port != 0 {
+			addrs = append(addrs, fmt.Sprintf("tcp://:%d", port))
+		}
+	}
+
+	return addrs
+}
+
+func isPublicIPv4(ip net.IP) bool {
+	ip = ip.To4()
+	if ip == nil {
+		// Not an IPv4 address (IPv6)
+		return false
+	}
+
+	// IsGlobalUnicast below only checks that it's not link local or
+	// multicast, and we want to exclude private (NAT:ed) addresses as well.
+	rfc1918 := []net.IPNet{
+		{IP: net.IP{10, 0, 0, 0}, Mask: net.IPMask{255, 0, 0, 0}},
+		{IP: net.IP{172, 16, 0, 0}, Mask: net.IPMask{255, 240, 0, 0}},
+		{IP: net.IP{192, 168, 0, 0}, Mask: net.IPMask{255, 255, 0, 0}},
+	}
+	for _, n := range rfc1918 {
+		if n.Contains(ip) {
+			return false
+		}
+	}
+
+	return ip.IsGlobalUnicast()
+}
+
+func isPublicIPv6(ip net.IP) bool {
+	if ip.To4() != nil {
+		// Not an IPv6 address (IPv4)
+		// (To16() returns a v6 mapped v4 address so can't be used to check
+		// that it's an actual v6 address)
+		return false
+	}
+
+	return ip.IsGlobalUnicast()
+}
+
+func tcpAddr(host string) string {
+	u := url.URL{
+		Scheme: "tcp",
+		Host:   host,
+	}
+	return u.String()
 }
 
 // serviceFunc wraps a function to create a suture.Service without stop

@@ -44,6 +44,8 @@ import (
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/upnp"
+	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/thejerf/suture"
 )
@@ -558,7 +560,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// We reinitialize the predictable RNG with our device ID, to get a
 	// sequence that is always the same but unique to this syncthing instance.
-	predictableRandom.Seed(seedFromBytes(cert.Certificate[0]))
+	util.PredictableRandom.Seed(util.SeedFromBytes(cert.Certificate[0]))
 
 	myID = protocol.NewDeviceID(cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
@@ -720,21 +722,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		l.Fatalln("Bad listen address:", err)
 	}
 
-	// The externalAddr tracks our external addresses for discovery purposes.
-
-	var addrList *addressLister
-
 	// Start UPnP
-
+	var upnpService *upnp.Service
 	if opts.UPnPEnabled {
-		upnpService := newUPnPService(cfg, addr.Port)
+		upnpService = upnp.NewUPnPService(cfg, addr.Port)
 		mainService.Add(upnpService)
-
-		// The external address tracker needs to know about the UPnP service
-		// so it can check for an external mapped port.
-		addrList = newAddressLister(upnpService, cfg)
-	} else {
-		addrList = newAddressLister(nil, cfg)
 	}
 
 	// Start relay management
@@ -750,10 +742,15 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	cachedDiscovery := discover.NewCachingMux()
 	mainService.Add(cachedDiscovery)
 
+	// Start connection management
+
+	connectionService := connections.NewConnectionService(cfg, myID, m, tlsCfg, cachedDiscovery, upnpService, relayService, bepProtocolName, tlsDefaultCommonName, lans)
+	mainService.Add(connectionService)
+
 	if cfg.Options().GlobalAnnEnabled {
 		for _, srv := range cfg.GlobalDiscoveryServers() {
 			l.Infoln("Using discovery server", srv)
-			gd, err := discover.NewGlobal(srv, cert, addrList, relayService)
+			gd, err := discover.NewGlobal(srv, cert, connectionService, relayService)
 			if err != nil {
 				l.Warnln("Global discovery:", err)
 				continue
@@ -768,14 +765,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if cfg.Options().LocalAnnEnabled {
 		// v4 broadcasts
-		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), addrList, relayService)
+		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), connectionService, relayService)
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
 			cachedDiscovery.Add(bcd, 0, 0, ipv4LocalDiscoveryPriority)
 		}
 		// v6 multicasts
-		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, addrList, relayService)
+		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, connectionService, relayService)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
@@ -786,11 +783,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// GUI
 
 	setupGUI(mainService, cfg, m, apiSub, cachedDiscovery, relayService, errors, systemLog, runtimeOptions)
-
-	// Start connection management
-
-	connectionService := connections.NewConnectionService(cfg, myID, m, tlsCfg, cachedDiscovery, relayService, bepProtocolName, tlsDefaultCommonName, lans)
-	mainService.Add(connectionService)
 
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
@@ -816,7 +808,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		if opts.URUniqueID == "" {
 			// Previously the ID was generated from the node ID. We now need
 			// to generate a new one.
-			opts.URUniqueID = randomString(8)
+			opts.URUniqueID = util.RandomString(8)
 			cfg.SetOptions(opts)
 			cfg.Save()
 		}
