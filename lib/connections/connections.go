@@ -24,6 +24,7 @@ import (
 	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/upnp"
+	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/thejerf/suture"
 )
@@ -504,7 +505,7 @@ func (s *Service) addresses(includePrivateIPV4 bool) []string {
 			l.Infoln("Listen address", addrStr, "is invalid:", err)
 			continue
 		}
-		addr, err := net.ResolveTCPAddr("tcp", addrURL.Host)
+		addr, err := net.ResolveTCPAddr(addrURL.Scheme, addrURL.Host)
 		if err != nil {
 			l.Infoln("Listen address", addrStr, "is invalid:", err)
 			continue
@@ -512,13 +513,13 @@ func (s *Service) addresses(includePrivateIPV4 bool) []string {
 
 		if addr.IP == nil || addr.IP.IsUnspecified() {
 			// Address like 0.0.0.0:22000 or [::]:22000 or :22000; include as is.
-			addrs = append(addrs, tcpAddr(addr.String()))
+			addrs = append(addrs, util.Address(addrURL.Scheme, addr.String()))
 		} else if isPublicIPv4(addr.IP) || isPublicIPv6(addr.IP) {
 			// A public address; include as is.
-			addrs = append(addrs, tcpAddr(addr.String()))
+			addrs = append(addrs, util.Address(addrURL.Scheme, addr.String()))
 		} else if includePrivateIPV4 && addr.IP.To4().IsGlobalUnicast() {
 			// A private IPv4 address.
-			addrs = append(addrs, tcpAddr(addr.String()))
+			addrs = append(addrs, util.Address(addrURL.Scheme, addr.String()))
 		}
 	}
 
@@ -565,14 +566,6 @@ func isPublicIPv6(ip net.IP) bool {
 	}
 
 	return ip.IsGlobalUnicast()
-}
-
-func tcpAddr(host string) string {
-	u := url.URL{
-		Scheme: "tcp",
-		Host:   host,
-	}
-	return u.String()
 }
 
 // serviceFunc wraps a function to create a suture.Service without stop
