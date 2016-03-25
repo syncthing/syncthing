@@ -331,7 +331,7 @@ Fields (Folder Structure)
 
 The **ID** field contains the folder ID, as a human readable string.
 
-The **Label** field contains the folder label, as human readable name for the **ID**.
+The **Label** field contains the folder label, as human readable name for the folder.
 
 The **Devices** field is list of devices participating in sharing this folder.
 
