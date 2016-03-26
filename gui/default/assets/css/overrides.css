@@ -39,7 +39,7 @@ ul+h5 {
     overflow: hidden;
 }
 .panel-title a:hover {
-  text-decoration: none;
+    text-decoration: none;
 }
 
 identicon {
