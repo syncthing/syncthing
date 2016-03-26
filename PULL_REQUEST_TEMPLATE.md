@@ -14,6 +14,12 @@ if new tests are not included.
 If this is a GUI change, include screenshots of the change. If not, please
 feel free to just delete this section.
 
+### Documentation
+
+If this is a user visible change (including API and protocol changes), add a link here
+to the corresponding pull request on https://github.com/syncthing/docs or describe
+the documentation changes necessary.
+
 ### Authorship
 
 Every author of a code contribution (Go, Javascript, HTML, CSS etc, with the
