@@ -105,7 +105,6 @@ identicon {
     display: inline-block;
     min-width: 7em;
     margin-right: 1em;
-    border-radius: 3px;
     padding: 1px 4px;
     margin: 2px 2px;
 }
