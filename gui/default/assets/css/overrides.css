@@ -26,7 +26,6 @@ ul+h5 {
 }
 
 .panel-progress {
-    background: #3498db;
     height: 3px;
     left: 0;
     position: absolute;
@@ -55,10 +54,6 @@ identicon {
 .identicon {
     width: 1em;
     height: 1em;
-}
-
-.identicon rect {
-    fill: #333;
 }
 
 .checkbox {
@@ -110,7 +105,6 @@ identicon {
     display: inline-block;
     min-width: 7em;
     margin-right: 1em;
-    background-color: rgb(236, 240, 241);
     border-radius: 3px;
     padding: 1px 4px;
     margin: 2px 2px;
@@ -153,8 +147,6 @@ table.table-condensed td.no-overflow-ellipse {
 }
 
 .folder-advanced {
-    background-color: hsla(0,0%,99%,1);
-    border: 1px solid hsla(0, 0%, 95%, 1);
     padding: 1rem;
     margin-bottom: 15px;
 }

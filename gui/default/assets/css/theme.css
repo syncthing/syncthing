@@ -6,3 +6,20 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
 */
+
+.panel-progress {
+    background: #3498db;
+}
+
+.identicon rect {
+    fill: #333;
+}
+
+.li-column {
+    background-color: rgb(236, 240, 241);
+}
+
+.folder-advanced {
+    background-color: hsla(0,0%,99%,1);
+    border: 1px solid hsla(0, 0%, 95%, 1);
+}
