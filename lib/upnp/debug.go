@@ -20,7 +20,3 @@ var (
 func init() {
 	l.SetDebug("upnp", strings.Contains(os.Getenv("STTRACE"), "upnp") || os.Getenv("STTRACE") == "all")
 }
-
-func shouldDebug() bool {
-	return l.ShouldDebug("upnp")
-}

@@ -22,6 +22,7 @@
   <link href="assets/font/raleway.css" rel="stylesheet">
   <link href="vendor/font-awesome/css/font-awesome.min.css" rel="stylesheet">
   <link href="assets/css/overrides.css" rel="stylesheet">
+  <link href="assets/css/theme.css" rel="stylesheet">
 </head>
 
 <body>
@@ -44,7 +45,7 @@
         </li>
         <li class="dropdown" language-select></li>
         <li class="hidden-xs">
-          <a href="http://docs.syncthing.net/intro/gui.html" target="_blank">
+          <a href="https://docs.syncthing.net/intro/gui.html" target="_blank">
             <span class="fa fa-book"></span>&nbsp;<span translate>Help</span>
           </a>
         </li>
@@ -58,7 +59,7 @@
             <li><a href="" ng-click="restart()"><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
             <li class="divider"></li>
             <li class="visible-xs">
-              <a href="http://docs.syncthing.net/intro/gui.html" target="_blank">
+              <a href="https://docs.syncthing.net/intro/gui.html" target="_blank">
                 <span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span>
               </a>
             </li>
@@ -129,14 +130,14 @@
           </div>
           <div class="panel-body">
             <p>
-              <span translate translate-value-device="{{ device }}" translate-value-address="{{ event.data.address }}">
-                Device {%device%} ({%address%}) wants to connect. Add new device?
+              <span translate translate-value-device="{{ device }}" translate-value-address="{{ event.data.address }}" translate-value-name="{{ event.data.name }}">
+                Device "{%name%}" ({%device%} at {%address%}) wants to connect. Add new device?
               </span>
             </p>
           </div>
           <div class="panel-footer clearfix">
             <div class="pull-right">
-              <button type="button" class="btn btn-sm btn-success" ng-click="addDevice(device)">
+              <button type="button" class="btn btn-sm btn-success" ng-click="addDevice(device, event.data.name)">
                 <span class="fa fa-plus"></span>&nbsp;<span translate>Add Device</span>
               </button>
               <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreRejectedDevice(device)">
@@ -228,7 +229,7 @@
                 <span class="fa hidden-xs fa-fw" ng-class="[folder.readOnly ? 'fa-lock' : 'fa-folder']"></span>
                 <a href="#folder-{{$index}}">
                   <span ng-show="folder.label.length == 0">{{folder.id}}</span>
-                  <span title="{{folder.id}}" ng-show="folder.label.length != 0">{{folder.label}}</span>
+                  <span tooltip data-original-title="{{folder.id}}" ng-show="folder.label.length != 0">{{folder.label}}</span>
                 </a>
                 <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
@@ -565,7 +566,7 @@
     <div class="container">
       <ul class="nav navbar-nav">
         <li><a class="navbar-link" href="https://syncthing.net/" target="_blank"><span class="fa fa-home"></span>&nbsp;<span translate>Home page</span></a></li>
-        <li><a class="navbar-link" href="http://docs.syncthing.net/" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Documentation</span></a></li>
+        <li><a class="navbar-link" href="https://docs.syncthing.net/" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Documentation</span></a></li>
         <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="fa fa-question-circle"></span>&nbsp;<span translate>Support</span></a></li>
         <li><a class="navbar-link" href="https://data.syncthing.net/" target="_blank"><span class="fa fa-bar-chart"></span>&nbsp;<span translate>Statistics</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/releases" target="_blank"><span class="fa fa-file-text-o"></span>&nbsp;<span translate>Changelog</span></a></li>
