@@ -33,12 +33,12 @@
       <span class="navbar-brand"><img class="logo" src="assets/img/logo-horizontal.svg" height="32" width="117"/></span>
       <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
-        <li ng-if="upgradeInfo && upgradeInfo.newer">
+        <li ng-if="upgradeInfo && upgradeInfo.newer" class="upgrade-newer">
           <button type="button" class="btn navbar-btn btn-primary btn-sm" ng-click="upgrade()">
             <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
-        <li ng-if="upgradeInfo && upgradeInfo.majorNewer">
+        <li ng-if="upgradeInfo && upgradeInfo.majorNewer" class="upgrade-newer-major">
           <button type="button" class="btn navbar-btn btn-danger btn-sm" ng-click="upgradeMajor()">
             <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
@@ -49,7 +49,7 @@
             <span class="fa fa-book"></span>&nbsp;<span translate>Help</span>
           </a>
         </li>
-        <li class="dropdown">
+        <li class="dropdown action-menu">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="fa fa-cog"></span>&nbsp;<span translate>Actions</span> <span class="caret"></span></a>
           <ul class="dropdown-menu">
             <li><a href="" ng-click="editSettings()"><span class="fa fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
