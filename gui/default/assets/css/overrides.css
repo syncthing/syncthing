@@ -74,7 +74,7 @@ identicon {
     min-width: 250px;
 }
 
-.tooltip{
+.tooltip {
     word-wrap:break-word;
 }
 
@@ -103,7 +103,7 @@ identicon {
 }
 
 .list-no-bullet {
-    list-style-type: none
+    list-style-type: none;
 }
 
 .li-column {
@@ -152,18 +152,18 @@ table.table-condensed td.no-overflow-ellipse {
     white-space: normal;
 }
 
-.folder-advanced{
+.folder-advanced {
     background-color: hsla(0,0%,99%,1);
     border: 1px solid hsla(0, 0%, 95%, 1);
     padding: 1rem;
     margin-bottom: 15px;
 }
 
-.folder-advanced-toggle{
+.folder-advanced-toggle {
     cursor: pointer;
 }
 .folder-advanced-toggle .collapse,
-.folder-advanced-toggle.collapsed .expand{
+.folder-advanced-toggle.collapsed .expand {
     display: inline-block;
 }
 
