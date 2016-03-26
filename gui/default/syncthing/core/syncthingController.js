@@ -1551,6 +1551,12 @@ angular.module('syncthing.core')
             return randomStringFromCharset(5, charset) + "-" + randomStringFromCharset(5, charset);
         };
 
+        $scope.themeName = function (theme) {
+            return theme.replace('-', ' ').replace(/(?:^|\s)\S/g, function (a) {
+                return a.toUpperCase();
+            });
+        };
+
         // pseudo main. called on all definitions assigned
         initController();
     });

@@ -139,9 +139,9 @@
 
             <div class="form-group" ng-if="system.themes.length > 1">
               <label>GUI Theme</label>
-              <select class="form-control" ng-model="tmpGUI.theme" ng->
-                <option ng-repeat="theme in system.themes" value="{{ theme }}">
-                  {{ theme.charAt(0).toUpperCase() + theme.slice(1) }}
+              <select class="form-control" ng-model="tmpGUI.theme">
+                <option ng-repeat="theme in system.themes.sort()" value="{{ theme }}">
+                  {{ themeName(theme) }}
                 </option>
               </select>
             </div>
