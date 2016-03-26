@@ -143,11 +143,11 @@ Client B - Temporary protocol mode
 ===  =======================  ====================== =====================
  #         Client (A)                 Relay                Client (B)
 ===  =======================  ====================== =====================
- 1   SessionInvitation(A)->
+ 1   JoinSessionRequest(A)->
  2                            <-ResponseSuccess
  3   Data->                   (Buffers data)
  4   Data->                   (Buffers data)
- 5                                                   <-SessionInvitation(B)
+ 5                                                   <-JoinSessionRequest(B)
  6                            ResponseSuccess->
  7                            Relays data ->
  8                            Relays data ->
