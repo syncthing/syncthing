@@ -617,3 +617,10 @@ func assertFileCount(t *testing.T, instance *rc.Process, folder string, expected
 			expected, model.LocalFiles)
 	}
 }
+
+func makeTempFilename(name string) string {
+	if runtime.GOOS == "windows" {
+		return fmt.Sprintf("~syncthing~%s.tmp", name)
+	}
+	return fmt.Sprintf(".syncthing.%s.tmp", name)
+}
