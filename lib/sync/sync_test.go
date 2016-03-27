@@ -21,6 +21,23 @@ const (
 	longWait     = 125 * time.Millisecond
 )
 
+var skipTimingTests = false
+
+func init() {
+	// Check a few times that a short sleep does not in fact overrun the log
+	// threshold. If it does, the timer accuracy is crap or the host is
+	// overloaded and we can't reliably run the tests in here. In the normal
+	// case this takes just 25*5 = 125 ms.
+	for i := 0; i < 25; i++ {
+		t0 := time.Now()
+		time.Sleep(shortWait)
+		if time.Since(t0) > logThreshold {
+			skipTimingTests = true
+			return
+		}
+	}
+}
+
 func TestTypes(t *testing.T) {
 	debug = false
 	l.SetDebug("sync", false)
@@ -57,6 +74,11 @@ func TestTypes(t *testing.T) {
 }
 
 func TestMutex(t *testing.T) {
+	if skipTimingTests {
+		t.Skip("insufficient timer accuracy")
+		return
+	}
+
 	debug = true
 	l.SetDebug("sync", true)
 	threshold = logThreshold
@@ -92,6 +114,11 @@ func TestMutex(t *testing.T) {
 }
 
 func TestRWMutex(t *testing.T) {
+	if skipTimingTests {
+		t.Skip("insufficient timer accuracy")
+		return
+	}
+
 	debug = true
 	l.SetDebug("sync", true)
 	threshold = logThreshold
@@ -152,6 +179,11 @@ func TestRWMutex(t *testing.T) {
 }
 
 func TestWaitGroup(t *testing.T) {
+	if skipTimingTests {
+		t.Skip("insufficient timer accuracy")
+		return
+	}
+
 	debug = true
 	l.SetDebug("sync", true)
 	threshold = logThreshold
