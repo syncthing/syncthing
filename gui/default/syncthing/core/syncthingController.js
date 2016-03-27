@@ -1,6 +1,6 @@
 angular.module('syncthing.core')
     .config(function($locationProvider) {
-        $locationProvider.html5Mode(true).hashPrefix('!');
+        $locationProvider.html5Mode({enabled: true, requireBase: false}).hashPrefix('!');
     })
     .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter) {
         'use strict';
