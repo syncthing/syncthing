@@ -115,7 +115,7 @@ func main() {
 			bench("./lib/...", "./cmd/...")
 
 		case "assets":
-			assets()
+			rebuildAssets()
 
 		case "xdr":
 			xdr()
@@ -184,6 +184,8 @@ func setup() {
 }
 
 func test(pkgs ...string) {
+	lazyRebuildAssets()
+
 	setBuildEnv()
 	useRace := runtime.GOARCH == "amd64"
 	switch runtime.GOOS {
@@ -200,11 +202,15 @@ func test(pkgs ...string) {
 }
 
 func bench(pkgs ...string) {
+	lazyRebuildAssets()
+
 	setBuildEnv()
 	runPrint("go", append([]string{"test", "-run", "NONE", "-bench", "."}, pkgs...)...)
 }
 
 func install(pkg string, tags []string) {
+	lazyRebuildAssets()
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
@@ -223,6 +229,8 @@ func install(pkg string, tags []string) {
 }
 
 func build(pkg string, tags []string) {
+	lazyRebuildAssets()
+
 	binary := "syncthing"
 	if goos == "windows" {
 		binary += ".exe"
@@ -406,9 +414,40 @@ func setBuildEnv() {
 	os.Setenv("GO15VENDOREXPERIMENT", "1")
 }
 
-func assets() {
+func rebuildAssets() {
 	setBuildEnv()
 	runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "gui")
+}
+
+func lazyRebuildAssets() {
+	if shouldRebuildAssets() {
+		rebuildAssets()
+	}
+}
+
+func shouldRebuildAssets() bool {
+	info, err := os.Stat("lib/auto/gui.files.go")
+	if err != nil {
+		// If the file doesn't exist, we must rebuild it
+		return true
+	}
+
+	// Check if any of the files in gui/ are newer than the asset file. If
+	// so we should rebuild it.
+	currentBuild := info.ModTime()
+	assetsAreNewer := false
+	filepath.Walk("gui", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if assetsAreNewer {
+			return nil
+		}
+		assetsAreNewer = info.ModTime().After(currentBuild)
+		return nil
+	})
+
+	return assetsAreNewer
 }
 
 func xdr() {
@@ -429,8 +468,6 @@ func translate() {
 func transifex() {
 	os.Chdir("gui/default/assets/lang")
 	runPrint("go", "run", "../../../../script/transifexdl.go")
-	os.Chdir("../../../..")
-	assets()
 }
 
 func clean() {
