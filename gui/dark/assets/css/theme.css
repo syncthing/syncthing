@@ -215,10 +215,3 @@ code.ng-binding{
 .progress-bar-danger {
     background-color: #d62c1a !important;
 }
-
-.folder-advanced {
-    background-color: #333 !important;
-    border-color: #484848 !important;
-    padding: 1rem;
-    margin-bottom: 15px;
-}
