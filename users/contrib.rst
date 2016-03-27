@@ -118,6 +118,11 @@ QNAP NAS
    QPKG (Qnap Package) Available for ALL models x86, x86\_64, Arm (all
    including new models)
 
+Windows
+~~~~~~~
+
+-  https://github.com/sodacode/Windows-Syncthing-Installer A very minimalist Windows installer.
+
 Integrations
 ------------
 
