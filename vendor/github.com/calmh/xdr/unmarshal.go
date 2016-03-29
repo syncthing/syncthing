@@ -4,11 +4,7 @@
 
 package xdr
 
-import (
-	"io"
-	"reflect"
-	"unsafe"
-)
+import "io"
 
 type Unmarshaller struct {
 	Error error
@@ -40,11 +36,7 @@ func (u *Unmarshaller) UnmarshalStringMax(max int) string {
 		return ""
 	}
 
-	var v string
-	p := (*reflect.StringHeader)(unsafe.Pointer(&v))
-	p.Data = uintptr(unsafe.Pointer(&buf[0]))
-	p.Len = len(buf)
-	return v
+	return string(buf)
 }
 
 func (u *Unmarshaller) UnmarshalBytes() []byte {
