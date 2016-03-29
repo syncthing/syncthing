@@ -39,6 +39,7 @@
    "Danger!": "Danger!",
    "Delete": "Delete",
    "Deleted": "Deleted",
+   "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Device \"{{name}}\" ({{device}} at {{address}}) wants to connect. Add new device?",
    "Device ID": "Device ID",
    "Device Identification": "Device Identification",
    "Device Name": "Device Name",

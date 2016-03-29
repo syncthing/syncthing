@@ -51,6 +51,7 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
 
     // language and localisation
 
+    $translateProvider.useSanitizeValueStrategy('escape');
     $translateProvider.useStaticFilesLoader({
         prefix: 'assets/lang/lang-',
         suffix: '.json'
