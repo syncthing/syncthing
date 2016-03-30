@@ -83,8 +83,8 @@ copy the following command instead of the command in step 5::
 
     start "Syncthing" /low syncthing.exe -no-console -no-browser
 
-Run independent of user login
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Run as a service independent of user login
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. warning::
   There are important security considerations with this approach. If you do not
@@ -95,38 +95,53 @@ Run independent of user login
   Therefore, you **must** ensure that you set a GUI password, or run Syncthing
   as an unprivileged user.
 
-With the above configuration, Syncthing only starts when a user logs in
-onto the machine. This is not optimal on servers, where a machine can
-run long times after a reboot without anyone logged in. In this case, it
+With the above configuration, Syncthing only starts when a user logs on to the machine. This is not optimal on servers where a machine can
+run long times after a reboot without anyone logged in. In this case it
 is best to create a service that runs as soon as Windows starts. This
-can be achieved using nssm.
+can be achieved using NSSM, the "Non-Sucking Service Manager".
 
 Note that starting Syncthing on login is the preferred approach for
 almost any end-user scenario. The only scenario where running Syncthing
 as a service makes sense is for (mostly) headless servers, administered
 by a sysadmin who knows enough to understand the security implications.
 
-#. Download and extract `nssm <http://nssm.cc/download>`__ to a folder
-   where it can stay (e.g. *c:Files* or the Syncthing folder.
-#. run *nssm.exe install syncthing*
-#. Select ``syncthing.exe`` in the first tab and enter
-   ``-no-console -no-browser`` as Arguments
-   |Configuration Screenshot|
-#. at the Details tab you can switch to *Automatic (Delayed Start)* to
-   start it only some time after boot and speed up the boot process
-   (optional)
-#. At the *Log On* tab you can enter a username and password for the
-   user to run Syncthing as. This user needs to have access to all the
-   synced folders. Usually, you can leave it as the System account.
-#. At the Process Tab you can change the priority to low if you want a
-   more responsive system at the cost of longer sync time
-#. Click the *Install Service* Button
-#. Start the service using the windows service manager, enter
-   ``sc start syncthing`` in a console window or restart the PC.
-#. Connect to the Syncthing UI, enable HTTPS, and set a secure username
-   and password.
+#. Download and extract `nssm <http://nssm.cc/download>`__ to a folder where it can stay. The NSSM executable performs administration as well as executing as the Windows service so it will need to be kept in a suitable location.
+#. From an administrator Command Prompt, CD to the NSSM folder and run ``nssm.exe install syncthing``
+#. Application Tab
 
-Please note the configuration directory under this method is located under ``C:\Windows\System32\config\systemprofile\AppData\Local\Syncthing``
+   -  Set *Path* to your ``syncthing.exe`` and enter ``-no-restart -no-browser -home="<path to your Syncthing folder>"`` as Arguments. Note: Logging is set later on. ``-logfile`` here will not be applied.
+   -  |Windows NSSM Configuration Screenshot|
+#. Details Tab
+
+   -  Optional: Set *Startup type* to *Automatic (Delayed Start)* to delay the start of Syncthing when the system first boots, to improve boot speed.
+#. Log On Tab
+
+   -  Enter the user account to run Syncthing as. This user needs to have access to all the synced folders. You can leave this as *Local System* but doing so poses security risks. Setting this to your Windows user account will reduce this; ideally create a dedicated user account with minimal permissions.
+#. Process Tab
+
+   -  Optional: Change priority to *Low* if you want a more responsive system at the cost of somewhat longer sync time when the system is busy.
+   -  Optional: To enable logging enable "Console window".
+#. Shutdown Tab
+
+   -  To ensure Syncthing is shut down gracefully select all of the checkboxes and set all *Timeouts* to *10000ms*.
+#. Exit Actions Tab
+
+   -  Set *Restart Action* to *Stop service (oneshot mode)*. Specific settings are used later for handling Syncthing exits, restarts and upgrades.
+#. I/O Tab
+
+   -  Optional: To enable logging set *Output (stdout)* to the file desired for logging. The *Error* field will be automatically set to the same file.
+#. File Rotation Tab
+
+   -  Optional: Set the rotation settings to your preferences.
+#. Click the *Install Service* Button
+#. To ensure that Syncthing exits, restarts and upgrades are handled correctly by the Windows service manager, some final settings are needed. Execute these in the same Commant Prompt:
+
+   -  ``nssm set syncthing AppExit Default Exit``
+   -  ``nssm set syncthing AppExit 0 Exit``
+   -  ``nssm set syncthing AppExit 3 Restart``
+   -  ``nssm set syncthing AppExit 4 Restart``
+#. Start the service via ``sc start syncthing`` in the Command Prompt.
+#. Connect to the Syncthing UI, enable HTTPS, and set a secure username and password.
 
 Mac OS X
 --------
@@ -300,5 +315,5 @@ This will create an additional configuration file automatically and you
 can define (or overwrite) further service parameters like e.g.
 ``Environment=STTRACE=model``.
 
-.. |Configuration Screenshot| image:: st1.png
+.. |Windows NSSM Configuration Screenshot| image:: windows-nssm-config.png
 .. |Setup Screenshot| image:: st2.png
