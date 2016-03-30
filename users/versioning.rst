@@ -118,3 +118,34 @@ script will be called as if I ran this from the command line::
 The script will then move the file in question to
 ``~/.trashcan/docs/letter.txt``, replacing any previous version of that letter
 that may already have been there.
+
+Example for Windows
+~~~~~~~~~~~~~~~~~~~
+
+On Windows we can use a batch script to perform the same "trash can"-like
+behavior as mentioned above. I created the following script and saved it as
+``C:\Users\mfrnd\Scripts\onlylatest.bat``.
+
+.. code-block:: batch
+
+    @echo off
+
+    :: We need command extensions for mkdir to create intermediate folders in one go
+    setlocal EnableExtensions
+    
+    :: Where I want my versions stored
+    set VERSIONS_PATH=%USERPROFILE%\.trashcan
+    
+    :: The parameters we get from Syncthing, '~' removes quotes if any
+    set FOLDER_PATH=%~1
+    set FILE_PATH=%~2
+    
+    :: First ensure the dir where we need to store the file exists
+    for %%F in ("%VERSIONS_PATH%\%FILE_PATH%") do set OUTPUT_PATH=%%~dpF
+    if not exist "%OUTPUT_PATH%" mkdir "%OUTPUT_PATH%" || exit /B
+    
+    :: Finally move the file, overwrite existing file if any
+    move /Y "%FOLDER_PATH%\%FILE_PATH%" "%VERSIONS_PATH%\%FILE_PATH%"
+
+Finally, I set ``C:\Users\mfrnd\Scripts\onlylatest.bat`` as command name in
+Syncthing.
