@@ -312,9 +312,7 @@ func (p *rwFolder) Serve() {
 				rescheduleScan()
 				continue
 			}
-			if p.scanIntv > 0 {
-				rescheduleScan()
-			}
+			rescheduleScan()
 			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
 				initialScanCompleted = true
