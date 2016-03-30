@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -543,4 +544,14 @@ func startInstance(t *testing.T, i int) *rc.Process {
 	}
 	p.AwaitStartup()
 	return p
+}
+
+func symlinksSupported() bool {
+	tmp, err := ioutil.TempDir("", "symlink-test")
+	if err != nil {
+		return false
+	}
+	defer os.RemoveAll(tmp)
+	err = os.Symlink("tmp", filepath.Join(tmp, "link"))
+	return err == nil
 }

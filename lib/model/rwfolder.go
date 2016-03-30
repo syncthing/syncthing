@@ -187,20 +187,6 @@ func (p *rwFolder) Serve() {
 	var prevVer int64
 	var prevIgnoreHash string
 
-	rescheduleScan := func() {
-		if p.scanIntv == 0 {
-			// We should not run scans, so it should not be rescheduled.
-			return
-		}
-
-		// Sleep a random time between 3/4 and 5/4 of the configured interval.
-		sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
-		intv := time.Duration(sleepNanos) * time.Nanosecond
-
-		l.Debugln(p, "next rescan in", intv)
-		p.scanTimer.Reset(intv)
-	}
-
 	// We don't start pulling files until a scan has been completed.
 	initialScanCompleted := false
 
@@ -307,26 +293,10 @@ func (p *rwFolder) Serve() {
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
 		case <-p.scanTimer.C:
-			if err := p.model.CheckFolderHealth(p.folder); err != nil {
-				l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
-				rescheduleScan()
+			err := p.scanSubsIfHealthy(nil)
+			p.rescheduleScan()
+			if err != nil {
 				continue
-			}
-
-			l.Debugln(p, "rescan")
-
-			if err := p.model.internalScanFolderSubs(p.folder, nil); err != nil {
-				// Potentially sets the error twice, once in the scanner just
-				// by doing a check, and once here, if the error returned is
-				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by setError.
-				p.setError(err)
-				rescheduleScan()
-				continue
-			}
-
-			if p.scanIntv > 0 {
-				rescheduleScan()
 			}
 			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
@@ -334,30 +304,41 @@ func (p *rwFolder) Serve() {
 			}
 
 		case req := <-p.scanNow:
-			if err := p.model.CheckFolderHealth(p.folder); err != nil {
-				l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
-				req.err <- err
-				continue
-			}
-
-			l.Debugln(p, "forced rescan")
-
-			if err := p.model.internalScanFolderSubs(p.folder, req.subs); err != nil {
-				// Potentially sets the error twice, once in the scanner just
-				// by doing a check, and once here, if the error returned is
-				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by setError.
-				p.setError(err)
-				req.err <- err
-				continue
-			}
-
-			req.err <- nil
+			req.err <- p.scanSubsIfHealthy(req.subs)
 
 		case next := <-p.delayScan:
 			p.scanTimer.Reset(next)
 		}
 	}
+}
+
+func (p *rwFolder) rescheduleScan() {
+	if p.scanIntv == 0 {
+		// We should not run scans, so it should not be rescheduled.
+		return
+	}
+	// Sleep a random time between 3/4 and 5/4 of the configured interval.
+	sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
+	intv := time.Duration(sleepNanos) * time.Nanosecond
+	l.Debugln(p, "next rescan in", intv)
+	p.scanTimer.Reset(intv)
+}
+
+func (p *rwFolder) scanSubsIfHealthy(subs []string) error {
+	if err := p.model.CheckFolderHealth(p.folder); err != nil {
+		l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
+		return err
+	}
+	l.Debugln(p, "Scanning subdirectories")
+	if err := p.model.internalScanFolderSubs(p.folder, subs); err != nil {
+		// Potentially sets the error twice, once in the scanner just
+		// by doing a check, and once here, if the error returned is
+		// the same one as returned by CheckFolderHealth, though
+		// duplicate set is handled by setError.
+		p.setError(err)
+		return err
+	}
+	return nil
 }
 
 func (p *rwFolder) Stop() {
