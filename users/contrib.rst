@@ -58,7 +58,7 @@ CentOS
 ~~~~~~~~~~~~~~~
 
 -  **UnOfficial packages:**
-https://github.com/mlazarov/syncthing-centos
+   https://github.com/mlazarov/syncthing-centos
 
 ArchLinux
 ~~~~~~~~~
