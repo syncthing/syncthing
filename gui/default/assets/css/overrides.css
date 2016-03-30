@@ -172,8 +172,8 @@ table.table-condensed td.no-overflow-ellipse {
     display: none;
 }
 
-.navbar-nav > li {
-    float:left;
+.nav>li{
+    float: left;
 }
 .navbar-right {
     /* to align with panel */
@@ -285,19 +285,6 @@ ul.three-columns li, ul.two-columns li {
 }
 
 @media (max-width:479px) {
-    nav {
-        text-align: center;
-    }
-
-    nav .navbar-brand,
-    nav .upgrade-newer,
-    nav .upgrade-newer-major{
-        width: 100%
-    }
-    nav .dropdown[language-select],
-    nav .dropdown.action-menu{
-        width: 50%;
-    }
     .dropdown-menu {
         padding-top: 55px;
     }
@@ -317,7 +304,8 @@ ul.three-columns li, ul.two-columns li {
     .navbar-nav .open .dropdown-menu > li > a {
         padding: 12px 15px 12px 25px;
     }
-    .navbar-default li{
-        width:100%;
-    }
+
+    .navbar-fixed-bottom li{
+         width:100%;
+     }
 }
