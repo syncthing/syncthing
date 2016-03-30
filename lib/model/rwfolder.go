@@ -187,20 +187,6 @@ func (p *rwFolder) Serve() {
 	var prevVer int64
 	var prevIgnoreHash string
 
-	rescheduleScan := func() {
-		if p.scanIntv == 0 {
-			// We should not run scans, so it should not be rescheduled.
-			return
-		}
-
-		// Sleep a random time between 3/4 and 5/4 of the configured interval.
-		sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
-		intv := time.Duration(sleepNanos) * time.Nanosecond
-
-		l.Debugln(p, "next rescan in", intv)
-		p.scanTimer.Reset(intv)
-	}
-
 	// We don't start pulling files until a scan has been completed.
 	initialScanCompleted := false
 
@@ -309,10 +295,10 @@ func (p *rwFolder) Serve() {
 		case <-p.scanTimer.C:
 			err := p.scanSubsIfHealthy(nil)
 			if err != nil {
-				rescheduleScan()
+				p.rescheduleScan()
 				continue
 			}
-			rescheduleScan()
+			p.rescheduleScan()
 			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
 				initialScanCompleted = true
@@ -325,6 +311,18 @@ func (p *rwFolder) Serve() {
 			p.scanTimer.Reset(next)
 		}
 	}
+}
+
+func (p *rwFolder) rescheduleScan() {
+	if p.scanIntv == 0 {
+		// We should not run scans, so it should not be rescheduled.
+		return
+	}
+	// Sleep a random time between 3/4 and 5/4 of the configured interval.
+	sleepNanos := (p.scanIntv.Nanoseconds()*3 + rand.Int63n(2*p.scanIntv.Nanoseconds())) / 4
+	intv := time.Duration(sleepNanos) * time.Nanosecond
+	l.Debugln(p, "next rescan in", intv)
+	p.scanTimer.Reset(intv)
 }
 
 func (p *rwFolder) scanSubsIfHealthy(subs []string) error {
