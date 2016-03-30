@@ -1,6 +1,6 @@
 angular.module('syncthing.core')
     .config(function($locationProvider) {
-        $locationProvider.html5Mode(true).hashPrefix('!');
+        $locationProvider.html5Mode({enabled: true, requireBase: false}).hashPrefix('!');
     })
     .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter) {
         'use strict';
@@ -1549,6 +1549,12 @@ angular.module('syncthing.core')
         $scope.createRandomFolderId = function(){
             var charset = '2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ';
             return randomStringFromCharset(5, charset) + "-" + randomStringFromCharset(5, charset);
+        };
+
+        $scope.themeName = function (theme) {
+            return theme.replace('-', ' ').replace(/(?:^|\s)\S/g, function (a) {
+                return a.toUpperCase();
+            });
         };
 
         // pseudo main. called on all definitions assigned

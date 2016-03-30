@@ -26,7 +26,6 @@ ul+h5 {
 }
 
 .panel-progress {
-    background: #3498db;
     height: 3px;
     left: 0;
     position: absolute;
@@ -40,7 +39,7 @@ ul+h5 {
     overflow: hidden;
 }
 .panel-title a:hover {
-  text-decoration: none;
+    text-decoration: none;
 }
 
 identicon {
@@ -57,10 +56,6 @@ identicon {
     height: 1em;
 }
 
-.identicon rect {
-    fill: #333;
-}
-
 .checkbox {
     margin-top: 0px;
 }
@@ -74,7 +69,7 @@ identicon {
     min-width: 250px;
 }
 
-.tooltip{
+.tooltip {
     word-wrap:break-word;
 }
 
@@ -103,15 +98,13 @@ identicon {
 }
 
 .list-no-bullet {
-    list-style-type: none
+    list-style-type: none;
 }
 
 .li-column {
     display: inline-block;
     min-width: 7em;
     margin-right: 1em;
-    background-color: rgb(236, 240, 241);
-    border-radius: 3px;
     padding: 1px 4px;
     margin: 2px 2px;
 }
@@ -152,18 +145,16 @@ table.table-condensed td.no-overflow-ellipse {
     white-space: normal;
 }
 
-.folder-advanced{
-    background-color: hsla(0,0%,99%,1);
-    border: 1px solid hsla(0, 0%, 95%, 1);
+.folder-advanced {
     padding: 1rem;
     margin-bottom: 15px;
 }
 
-.folder-advanced-toggle{
+.folder-advanced-toggle {
     cursor: pointer;
 }
 .folder-advanced-toggle .collapse,
-.folder-advanced-toggle.collapsed .expand{
+.folder-advanced-toggle.collapsed .expand {
     display: inline-block;
 }
 

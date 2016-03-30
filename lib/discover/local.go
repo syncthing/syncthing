@@ -124,13 +124,15 @@ func (c *localClient) announcementPkt() Announce {
 	}
 
 	var relays []Relay
-	for _, relay := range c.relayStat.Relays() {
-		latency, ok := c.relayStat.RelayStatus(relay)
-		if ok {
-			relays = append(relays, Relay{
-				URL:     relay,
-				Latency: int32(latency / time.Millisecond),
-			})
+	if c.relayStat != nil {
+		for _, relay := range c.relayStat.Relays() {
+			latency, ok := c.relayStat.RelayStatus(relay)
+			if ok {
+				relays = append(relays, Relay{
+					URL:     relay,
+					Latency: int32(latency / time.Millisecond),
+				})
+			}
 		}
 	}
 
