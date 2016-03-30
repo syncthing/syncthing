@@ -294,11 +294,10 @@ func (p *rwFolder) Serve() {
 		// same time.
 		case <-p.scanTimer.C:
 			err := p.scanSubsIfHealthy(nil)
+			p.rescheduleScan()
 			if err != nil {
-				p.rescheduleScan()
 				continue
 			}
-			p.rescheduleScan()
 			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (rw) of folder", p.folder)
 				initialScanCompleted = true
