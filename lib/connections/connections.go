@@ -189,8 +189,8 @@ next:
 		// If we have a relay connection, and the new incoming connection is
 		// not a relay connection, we should drop that, and prefer the this one.
 		s.mut.RLock()
+		skip := false
 		ct, ok := s.connType[remoteID]
-		s.mut.RUnlock()
 		if ok && !ct.IsDirect() && c.Type.IsDirect() {
 			l.Debugln("Switching connections", remoteID)
 			s.model.Close(remoteID, fmt.Errorf("switching connections"))
@@ -203,10 +203,14 @@ next:
 			// connections still established...
 			l.Infof("Connected to already connected device (%s)", remoteID)
 			c.Close()
-			continue
+			skip = true
 		} else if s.model.IsPaused(remoteID) {
 			l.Infof("Connection from paused device (%s)", remoteID)
 			c.Close()
+			skip = true
+		}
+		s.mut.RUnlock()
+		if skip {
 			continue
 		}
 
@@ -250,12 +254,12 @@ next:
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
 				l.Debugf("cipher suite: %04X in lan: %t", c.ConnectionState().CipherSuite, !limit)
 
+				s.mut.Lock()
 				s.model.AddConnection(model.Connection{
 					c,
 					protoConn,
 					c.Type,
 				}, hello)
-				s.mut.Lock()
 				s.connType[remoteID] = c.Type
 				s.mut.Unlock()
 				continue next
@@ -279,16 +283,16 @@ func (s *Service) connect() {
 
 			l.Debugln("Reconnect loop for", deviceID)
 
-			if s.model.IsPaused(deviceID) {
-				continue
-			}
-
-			connected := s.model.ConnectedTo(deviceID)
-
 			s.mut.RLock()
+			paused := s.model.IsPaused(deviceID)
+			connected := s.model.ConnectedTo(deviceID)
 			ct, ok := s.connType[deviceID]
 			relaysEnabled := s.relaysEnabled
 			s.mut.RUnlock()
+
+			if paused {
+				continue
+			}
 			if connected && ok && ct.IsDirect() {
 				l.Debugln("Already connected to", deviceID, "via", ct.String())
 				continue
