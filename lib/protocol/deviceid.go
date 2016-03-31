@@ -66,7 +66,7 @@ func (n DeviceID) Compare(other DeviceID) int {
 }
 
 func (n DeviceID) Equals(other DeviceID) bool {
-	return bytes.Compare(n[:], other[:]) == 0
+	return bytes.Equal(n[:], other[:])
 }
 
 // Short returns an integer representing bits 0-63 of the device ID.

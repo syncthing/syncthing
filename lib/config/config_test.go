@@ -497,10 +497,10 @@ func TestCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(bsOrig, bsChanged) == 0 {
+	if bytes.Equal(bsOrig, bsChanged) {
 		t.Error("Config should have changed")
 	}
-	if bytes.Compare(bsOrig, bsCopy) != 0 {
+	if !bytes.Equal(bsOrig, bsCopy) {
 		//ioutil.WriteFile("a", bsOrig, 0644)
 		//ioutil.WriteFile("b", bsCopy, 0644)
 		t.Error("Copy should be unchanged")

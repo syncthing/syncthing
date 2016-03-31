@@ -107,7 +107,7 @@ func BlockDiff(src, tgt []protocol.BlockInfo) (have, need []protocol.BlockInfo) 
 	}
 
 	for i := range tgt {
-		if i >= len(src) || bytes.Compare(tgt[i].Hash, src[i].Hash) != 0 {
+		if i >= len(src) || !bytes.Equal(tgt[i].Hash, src[i].Hash) {
 			// Copy differing block
 			need = append(need, tgt[i])
 		} else {
@@ -132,7 +132,7 @@ func Verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
 		hash := hf.Sum(nil)
 		hf.Reset()
 
-		if bytes.Compare(hash, block.Hash) != 0 {
+		if !bytes.Equal(hash, block.Hash) {
 			return fmt.Errorf("hash mismatch %x != %x for block %d", hash, block.Hash, i)
 		}
 	}
