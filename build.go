@@ -46,6 +46,8 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
+	// If GOPATH isn't set, set it correctly with the assumption that we are
+	// in $GOPATH/src/github.com/syncthing/syncthing.
 	if os.Getenv("GOPATH") == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -55,6 +57,12 @@ func main() {
 		log.Println("GOPATH is", gopath)
 		os.Setenv("GOPATH", gopath)
 	}
+
+	// We use Go 1.5+ vendoring.
+	os.Setenv("GO15VENDOREXPERIMENT", "1")
+
+	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
+	// might have installed during "build.go setup".
 	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
 
 	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
@@ -153,9 +161,9 @@ func main() {
 }
 
 func checkRequiredGoVersion() (float64, bool) {
-	ver := run("go", "version")
-	re := regexp.MustCompile(`go version go(\d+\.\d+)`)
-	if m := re.FindSubmatch(ver); len(m) == 2 {
+	re := regexp.MustCompile(`go(\d+\.\d+)`)
+	ver := runtime.Version()
+	if m := re.FindStringSubmatch(ver); len(m) == 2 {
 		vs := string(m[1])
 		// This is a standard go build. Verify that it's new enough.
 		f, err := strconv.ParseFloat(vs, 64)
@@ -163,7 +171,9 @@ func checkRequiredGoVersion() (float64, bool) {
 			log.Printf("*** Couldn't parse Go version out of %q.\n*** This isn't known to work, proceed on your own risk.", vs)
 			return 0, false
 		}
-		if f < minGoVersion {
+		if f < 1.5 {
+			log.Printf("*** Go version %.01f doesn't support the vendoring mechanism.\n*** Ensure correct dependencies in your $GOPATH.", f)
+		} else if f < minGoVersion {
 			log.Fatalf("*** Go version %.01f is less than required %.01f.\n*** This is known not to work, not proceeding.", f, minGoVersion)
 		}
 		return f, true
@@ -186,7 +196,6 @@ func setup() {
 func test(pkgs ...string) {
 	lazyRebuildAssets()
 
-	setBuildEnv()
 	useRace := runtime.GOARCH == "amd64"
 	switch runtime.GOOS {
 	case "darwin", "linux", "freebsd", "windows":
@@ -203,8 +212,6 @@ func test(pkgs ...string) {
 
 func bench(pkgs ...string) {
 	lazyRebuildAssets()
-
-	setBuildEnv()
 	runPrint("go", append([]string{"test", "-run", "NONE", "-bench", "."}, pkgs...)...)
 }
 
@@ -224,7 +231,9 @@ func install(pkg string, tags []string) {
 		args = append(args, "-race")
 	}
 	args = append(args, pkg)
-	setBuildEnv()
+
+	os.Setenv("GOOS", goos)
+	os.Setenv("GOARCH", goarch)
 	runPrint("go", args...)
 }
 
@@ -245,7 +254,9 @@ func build(pkg string, tags []string) {
 		args = append(args, "-race")
 	}
 	args = append(args, pkg)
-	setBuildEnv()
+
+	os.Setenv("GOOS", goos)
+	os.Setenv("GOARCH", goarch)
 	runPrint("go", args...)
 }
 
@@ -408,14 +419,7 @@ func listFiles(dir string) []string {
 	return res
 }
 
-func setBuildEnv() {
-	os.Setenv("GOOS", goos)
-	os.Setenv("GOARCH", goarch)
-	os.Setenv("GO15VENDOREXPERIMENT", "1")
-}
-
 func rebuildAssets() {
-	setBuildEnv()
 	runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "gui")
 }
 
