@@ -288,6 +288,10 @@ ul.three-columns li, ul.two-columns li {
         float: left;
     }
 
+    .nav > li {
+        float:right;
+    }
+
     .logo{
         margin:auto;
     }
