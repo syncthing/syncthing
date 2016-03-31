@@ -174,7 +174,7 @@ func (c *localClient) recvAnnouncements(b beacon.Interface) {
 		l.Debugf("discover: Received local announcement from %s for %s", addr, protocol.DeviceIDFromBytes(pkt.This.ID))
 
 		var newDevice bool
-		if bytes.Compare(pkt.This.ID, c.myID[:]) != 0 {
+		if !bytes.Equal(pkt.This.ID, c.myID[:]) {
 			newDevice = c.registerDevice(addr, pkt.This)
 		}
 
