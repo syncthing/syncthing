@@ -107,7 +107,7 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 		}
 
 		for i := range fl.versions {
-			if bytes.Compare(fl.versions[i].device, device) == 0 {
+			if bytes.Equal(fl.versions[i].device, device) {
 				if fl.versions[i].version.Equal(file.Version) {
 					// No need to do anything
 					return false
@@ -213,7 +213,7 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, glob
 
 	removed := false
 	for i := range fl.versions {
-		if bytes.Compare(fl.versions[i].device, device) == 0 {
+		if bytes.Equal(fl.versions[i].device, device) {
 			if i == 0 && globalSize != nil {
 				f, ok := t.getFile(folder, device, file)
 				if !ok {

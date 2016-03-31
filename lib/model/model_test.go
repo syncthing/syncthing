@@ -97,7 +97,7 @@ func TestRequest(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if bytes.Compare(bs, []byte("foobar")) != 0 {
+	if !bytes.Equal(bs, []byte("foobar")) {
 		t.Errorf("Incorrect data from request: %q", string(bs))
 	}
 
@@ -407,13 +407,13 @@ func TestClusterConfig(t *testing.T) {
 	if l := len(r.Devices); l != 2 {
 		t.Errorf("Incorrect number of devices %d != 2", l)
 	}
-	if id := r.Devices[0].ID; bytes.Compare(id, device1[:]) != 0 {
+	if id := r.Devices[0].ID; !bytes.Equal(id, device1[:]) {
 		t.Errorf("Incorrect device ID %x != %x", id, device1)
 	}
 	if r.Devices[0].Flags&protocol.FlagIntroducer == 0 {
 		t.Error("Device1 should be flagged as Introducer")
 	}
-	if id := r.Devices[1].ID; bytes.Compare(id, device2[:]) != 0 {
+	if id := r.Devices[1].ID; !bytes.Equal(id, device2[:]) {
 		t.Errorf("Incorrect device ID %x != %x", id, device2)
 	}
 	if r.Devices[1].Flags&protocol.FlagIntroducer != 0 {
@@ -427,13 +427,13 @@ func TestClusterConfig(t *testing.T) {
 	if l := len(r.Devices); l != 2 {
 		t.Errorf("Incorrect number of devices %d != 2", l)
 	}
-	if id := r.Devices[0].ID; bytes.Compare(id, device1[:]) != 0 {
+	if id := r.Devices[0].ID; !bytes.Equal(id, device1[:]) {
 		t.Errorf("Incorrect device ID %x != %x", id, device1)
 	}
 	if r.Devices[0].Flags&protocol.FlagIntroducer == 0 {
 		t.Error("Device1 should be flagged as Introducer")
 	}
-	if id := r.Devices[1].ID; bytes.Compare(id, device2[:]) != 0 {
+	if id := r.Devices[1].ID; !bytes.Equal(id, device2[:]) {
 		t.Errorf("Incorrect device ID %x != %x", id, device2)
 	}
 	if r.Devices[1].Flags&protocol.FlagIntroducer != 0 {
