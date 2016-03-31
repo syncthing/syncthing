@@ -179,8 +179,11 @@ func (c *localClient) recvAnnouncements(b beacon.Interface) {
 		}
 
 		if newDevice {
+			// Force a transmit to announce ourselves, if we are ready to do
+			// so right away.
 			select {
 			case c.forcedBcastTick <- time.Now():
+			default:
 			}
 		}
 	}
