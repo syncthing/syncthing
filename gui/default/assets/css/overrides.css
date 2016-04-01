@@ -246,6 +246,10 @@ ul.three-columns li, ul.two-columns li {
     .navbar-fixed-bottom {
         position: relative;
     }
+
+    .nav>li {
+        float:right;
+    }
 }
 
 @media (max-width:767px) {
@@ -286,10 +290,6 @@ ul.three-columns li, ul.two-columns li {
 
     .dropdown-toggle {
         float: left;
-    }
-
-    .nav > li {
-        float:right;
     }
 
     .logo{
