@@ -250,9 +250,7 @@ ul.three-columns li, ul.two-columns li {
     .nav>li {
         float:right;
     }
-}
 
-@media (max-width:767px) {
     table.table-condensed td {
         /* for mobile phones to allow linebreaks in long repro folder/shared with
         * columns. */
