@@ -934,7 +934,7 @@ func (s *apiService) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 
 	sendJSON(w, map[string][]string{
 		"ignore":   ignores,
-		"patterns": patterns,
+		"expanded": patterns,
 	})
 }
 
