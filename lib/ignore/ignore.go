@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/gobwas/glob"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -41,22 +40,14 @@ func (p Pattern) String() string {
 }
 
 type Matcher struct {
-	patterns  []Pattern
-	withCache bool
-	matches   *cache
-	curHash   string
-	stop      chan struct{}
-	mut       sync.Mutex
+	patterns []Pattern
+	curHash  string
+	mut      sync.RWMutex
 }
 
-func New(withCache bool) *Matcher {
+func New() *Matcher {
 	m := &Matcher{
-		withCache: withCache,
-		stop:      make(chan struct{}),
-		mut:       sync.NewMutex(),
-	}
-	if withCache {
-		go m.clean(2 * time.Hour)
+		mut: sync.NewRWMutex(),
 	}
 	return m
 }
@@ -92,10 +83,6 @@ func (m *Matcher) Parse(r io.Reader, file string) error {
 
 	m.curHash = newHash
 	m.patterns = patterns
-	if m.withCache {
-		m.matches = newCache(patterns)
-	}
-
 	return err
 }
 
@@ -104,24 +91,11 @@ func (m *Matcher) Match(file string) (result bool) {
 		return false
 	}
 
-	m.mut.Lock()
-	defer m.mut.Unlock()
+	m.mut.RLock()
+	defer m.mut.RUnlock()
 
 	if len(m.patterns) == 0 {
 		return false
-	}
-
-	if m.matches != nil {
-		// Check the cache for a known result.
-		res, ok := m.matches.get(file)
-		if ok {
-			return res
-		}
-
-		// Update the cache with the result at return time
-		defer func() {
-			m.matches.set(file, result)
-		}()
 	}
 
 	// Check all the patterns for a match.
@@ -163,30 +137,9 @@ func (m *Matcher) Patterns() []string {
 }
 
 func (m *Matcher) Hash() string {
-	m.mut.Lock()
-	defer m.mut.Unlock()
+	m.mut.RLock()
+	defer m.mut.RUnlock()
 	return m.curHash
-}
-
-func (m *Matcher) Stop() {
-	close(m.stop)
-}
-
-func (m *Matcher) clean(d time.Duration) {
-	t := time.NewTimer(d / 2)
-	for {
-		select {
-		case <-m.stop:
-			return
-		case <-t.C:
-			m.mut.Lock()
-			if m.matches != nil {
-				m.matches.clean(d)
-			}
-			t.Reset(d / 2)
-			m.mut.Unlock()
-		}
-	}
 }
 
 func hashPatterns(patterns []Pattern) string {

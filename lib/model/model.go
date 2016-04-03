@@ -63,14 +63,13 @@ type service interface {
 type Model struct {
 	*suture.Supervisor
 
-	cfg               *config.Wrapper
-	db                *db.Instance
-	finder            *db.BlockFinder
-	progressEmitter   *ProgressEmitter
-	id                protocol.DeviceID
-	shortID           protocol.ShortID
-	cacheIgnoredFiles bool
-	protectedFiles    []string
+	cfg             *config.Wrapper
+	db              *db.Instance
+	finder          *db.BlockFinder
+	progressEmitter *ProgressEmitter
+	id              protocol.DeviceID
+	shortID         protocol.ShortID
+	protectedFiles  []string
 
 	deviceName    string
 	clientName    string
@@ -113,7 +112,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		progressEmitter:    NewProgressEmitter(cfg),
 		id:                 id,
 		shortID:            id.Short(),
-		cacheIgnoredFiles:  cfg.Options().CacheIgnoredFiles,
 		protectedFiles:     protectedFiles,
 		deviceName:         deviceName,
 		clientName:         clientName,
@@ -1245,7 +1243,7 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 		m.deviceFolders[device.DeviceID] = append(m.deviceFolders[device.DeviceID], cfg.ID)
 	}
 
-	ignores := ignore.New(m.cacheIgnoredFiles)
+	ignores := ignore.New()
 	if err := ignores.Load(filepath.Join(cfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
