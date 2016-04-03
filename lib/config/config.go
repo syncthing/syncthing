@@ -21,7 +21,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 12
+	CurrentVersion       = 13
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -182,6 +182,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 11 {
 		convertV11V12(cfg)
 	}
+	if cfg.Version == 12 {
+		convertV12V13(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -233,6 +236,13 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.GUI.APIKey == "" {
 		cfg.GUI.APIKey = util.RandomString(32)
 	}
+}
+
+func convertV12V13(cfg *Configuration) {
+	// Not using the ignore cache is the new default. Disable it on existing
+	// configurations.
+	cfg.Options.CacheIgnoredFiles = false
+	cfg.Version = 13
 }
 
 func convertV11V12(cfg *Configuration) {
