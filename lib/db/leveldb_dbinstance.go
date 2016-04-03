@@ -567,58 +567,6 @@ func (db *Instance) dropFolder(folder []byte) {
 	dbi.Release()
 }
 
-func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	dbi := t.NewIterator(util.BytesPrefix(db.globalKey(folder, nil)[:keyPrefixLen+keyFolderLen]), nil)
-	defer dbi.Release()
-
-	var fk []byte
-	for dbi.Next() {
-		gk := dbi.Key()
-		var vl versionList
-		err := vl.UnmarshalXDR(dbi.Value())
-		if err != nil {
-			panic(err)
-		}
-
-		// Check the global version list for consistency. An issue in previous
-		// versions of goleveldb could result in reordered writes so that
-		// there are global entries pointing to no longer existing files. Here
-		// we find those and clear them out.
-
-		name := db.globalKeyName(gk)
-		var newVL versionList
-		for i, version := range vl.versions {
-			fk = db.deviceKeyInto(fk[:cap(fk)], folder, version.device, name)
-
-			_, err := t.Get(fk, nil)
-			if err == leveldb.ErrNotFound {
-				continue
-			}
-			if err != nil {
-				panic(err)
-			}
-			newVL.versions = append(newVL.versions, version)
-
-			if i == 0 {
-				fi, ok := t.getFile(folder, version.device, name)
-				if !ok {
-					panic("nonexistent global master file")
-				}
-				globalSize.addFile(fi)
-			}
-		}
-
-		if len(newVL.versions) != len(vl.versions) {
-			t.Put(dbi.Key(), newVL.MustMarshalXDR())
-			t.checkFlush()
-		}
-	}
-	l.Debugf("db check completed for %q", folder)
-}
-
 // deviceKey returns a byte slice encoding the following information:
 //	   keyTypeDevice (1 byte)
 //	   folder (4 bytes)
