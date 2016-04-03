@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "January 30, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING" "1" "March 30, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -36,9 +36,9 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .sp
 .nf
 .ft C
-syncthing [\-audit] [\-generate=<dir>] [\-gui\-address=<address>] [\-gui\-apikey=<key>]
+syncthing [\-audit] [\-browser\-only] [\-generate=<dir>] [\-gui\-address=<address>] [\-gui\-apikey=<key>]
           [\-home=<dir>] [\-logfile=<filename>] [\-logflags=<flags>] [\-no\-browser]
-          [\-no\-console] [\-no\-restart] [\-reset] [\-upgrade] [\-upgrade\-check]
+          [\-no\-console] [\-no\-restart] [\-paths] [\-paused] [\-reset] [\-upgrade] [\-upgrade\-check]
           [\-upgrade\-to=<url>] [\-verbose] [\-version]
 .ft P
 .fi
@@ -123,6 +123,11 @@ Do not restart; just exit.
 .UNINDENT
 .INDENT 0.0
 .TP
+.B \-paths
+Print the paths used for configuration, keys, database, GUI overrides, default sync folder and the log file.
+.UNINDENT
+.INDENT 0.0
+.TP
 .B \-reset
 Reset the database.
 .UNINDENT
@@ -179,7 +184,13 @@ exit. For example, \fB128 + 9 (SIGKILL) = 137\fP\&.
 .sp
 The following environment variables modify Syncthing\(aqs behavior in ways that
 are mostly useful for developers. Use with care.
+If you start syncthing from within service managers like systemd or supervisor
+path expansion may not be supported.
 .INDENT 0.0
+.TP
+.B STNODEFAULTFOLDER
+Don\(aqt create a default folder when starting for the first time. This
+variable will be ignored anytime after the first run.
 .TP
 .B STGUIASSETS
 Directory to load GUI assets from. Overrides compiled in assets.

@@ -509,3 +509,29 @@ func TestHashOfEmpty(t *testing.T) {
 		t.Error("there are more than zero patterns")
 	}
 }
+
+func TestWindowsPatterns(t *testing.T) {
+	// We should accept patterns as both a/b and a\b and match that against
+	// both kinds of slash as well.
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific test")
+		return
+	}
+
+	stignore := `
+	a/b
+	c\d
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []string{`a\b`, `c\d`}
+	for _, pat := range tests {
+		if !pats.Match(pat) {
+			t.Errorf("Should match %s", pat)
+		}
+	}
+}
