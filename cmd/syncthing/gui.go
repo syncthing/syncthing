@@ -154,7 +154,11 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 	bs, err := json.Marshal(jsonObject)
 	if err != nil {
 		// This Marshal() can't fail though.
-		bs, _ = json.Marshal(map[string]string{"error": err.Error()})
+		objectStr := fmt.Sprintf("%#v", jsonObject)
+		bs, _ = json.Marshal(map[string]string{
+			"error":  err.Error(),
+			"object": objectStr,
+		})
 		http.Error(w, string(bs), http.StatusInternalServerError)
 		return
 	}
