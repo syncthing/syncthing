@@ -301,12 +301,9 @@ func (s *apiService) Serve() {
 
 	guiCfg := s.cfg.GUI()
 
-	// Add the CORS handling
-	handler := corsMiddleware(mux)
-
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler = csrfMiddleware(s.id.String()[:5], "/rest", guiCfg, handler)
+	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg, mux)
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
@@ -320,6 +317,9 @@ func (s *apiService) Serve() {
 	if guiCfg.UseTLS() {
 		handler = redirectToHTTPSMiddleware(handler)
 	}
+
+	// Add the CORS handling
+	handler = corsMiddleware(handler)
 
 	handler = debugMiddleware(handler)
 
@@ -449,7 +449,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	// when the browser initiate a POST request.
 	//
 	// As the OPTIONS request is unauthorized, this handler must be the first
-	// of the chain.
+	// of the chain (hence added at the end).
 	//
 	// See https://www.w3.org/TR/cors/ for details.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
