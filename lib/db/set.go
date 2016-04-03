@@ -101,8 +101,6 @@ func NewFileSet(folder string, db *Instance) *FileSet {
 		mutex:        sync.NewMutex(),
 	}
 
-	s.db.checkGlobals([]byte(folder), &s.globalSize)
-
 	var deviceID protocol.DeviceID
 	s.db.withAllFolderTruncated([]byte(folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
