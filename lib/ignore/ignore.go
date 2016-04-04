@@ -249,7 +249,9 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			}
 			patterns = append(patterns, pattern)
 
-			pattern.match, err = glob.Compile(line[3:])
+			line = line[3:]
+			pattern.pattern = line
+			pattern.match, err = glob.Compile(line)
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
@@ -271,7 +273,9 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			}
 			patterns = append(patterns, pattern)
 
-			pattern.match, err = glob.Compile("**/" + line)
+			line := "**/" + line
+			pattern.pattern = line
+			pattern.match, err = glob.Compile(line)
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
@@ -299,9 +303,6 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			err = addPattern(line)
 		case strings.HasSuffix(line, "/"):
 			err = addPattern(line)
-			if err == nil {
-				err = addPattern(line + "**")
-			}
 		default:
 			err = addPattern(line)
 			if err == nil {
