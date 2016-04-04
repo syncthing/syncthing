@@ -42,6 +42,10 @@ func trackCPUUsage() {
 
 		curTime := time.Now().UnixNano()
 		timeDiff := curTime - prevTime
+		// This is sometimes 0, no clue why.
+		if timeDiff == 0 {
+			continue
+		}
 		curUsage := ktime.Nanoseconds() + utime.Nanoseconds()
 		usageDiff := curUsage - prevUsage
 		cpuUsageLock.Lock()
