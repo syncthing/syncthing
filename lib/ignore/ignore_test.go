@@ -177,10 +177,6 @@ func TestCaching(t *testing.T) {
 		t.Fatal("Expected empty cache")
 	}
 
-	if len(pats.patterns) != 4 {
-		t.Fatal("Incorrect number of patterns loaded", len(pats.patterns), "!=", 4)
-	}
-
 	// Cache some outcomes
 
 	for _, letter := range []string{"a", "b", "x", "y"} {
