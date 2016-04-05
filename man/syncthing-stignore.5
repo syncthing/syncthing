@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-STIGNORE" "5" "January 30, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "March 30, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .
@@ -71,6 +71,8 @@ Question mark matches a single character that is not the directory
 separator. \fBte??st\fP matches \fBtebest\fP but not \fBteb/st\fP or
 \fBtest\fP\&.
 .IP \(bu 2
+Characters enclosed in square brackets \fB[]\fP are interpreted as a character range \fB[a\-z]\fP\&. Before using this syntax you should have a basic understanding of regular expression character classes.
+.IP \(bu 2
 A pattern beginning with \fB/\fP matches in the current directory only.
 \fB/foo\fP matches \fBfoo\fP but not \fBsubdir/foo\fP\&.
 .IP \(bu 2
@@ -97,6 +99,8 @@ be synchronized. Note that case\-insensitive patterns must start with
 patterns are always case\-insensitive.
 .IP \(bu 2
 A line beginning with \fB//\fP is a comment and has no effect.
+.IP \(bu 2
+Windows does not support escaping \fB\e[foo \- bar\e]\fP\&.
 .UNINDENT
 .SH EXAMPLE
 .sp

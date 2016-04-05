@@ -177,10 +177,6 @@ func TestCaching(t *testing.T) {
 		t.Fatal("Expected empty cache")
 	}
 
-	if len(pats.patterns) != 4 {
-		t.Fatal("Incorrect number of patterns loaded", len(pats.patterns), "!=", 4)
-	}
-
 	// Cache some outcomes
 
 	for _, letter := range []string{"a", "b", "x", "y"} {
@@ -507,5 +503,56 @@ func TestHashOfEmpty(t *testing.T) {
 	}
 	if len(p1.patterns) != 0 {
 		t.Error("there are more than zero patterns")
+	}
+}
+
+func TestWindowsPatterns(t *testing.T) {
+	// We should accept patterns as both a/b and a\b and match that against
+	// both kinds of slash as well.
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific test")
+		return
+	}
+
+	stignore := `
+	a/b
+	c\d
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []string{`a\b`, `c\d`}
+	for _, pat := range tests {
+		if !pats.Match(pat) {
+			t.Errorf("Should match %s", pat)
+		}
+	}
+}
+
+func TestAutomaticCaseInsensitivity(t *testing.T) {
+	// We should do case insensitive matching by default on some platforms.
+	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
+		t.Skip("Windows/Mac specific test")
+		return
+	}
+
+	stignore := `
+	A/B
+	c/d
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []string{`a/B`, `C/d`}
+	for _, pat := range tests {
+		if !pats.Match(pat) {
+			t.Errorf("Should match %s", pat)
+		}
 	}
 }

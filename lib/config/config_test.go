@@ -51,7 +51,7 @@ func TestDefaultValues(t *testing.T) {
 		RestartOnWakeup:         true,
 		AutoUpgradeIntervalH:    12,
 		KeepTemporariesH:        24,
-		CacheIgnoredFiles:       true,
+		CacheIgnoredFiles:       false,
 		ProgressUpdateIntervalS: 5,
 		SymlinksEnabled:         true,
 		LimitBandwidthInLan:     false,
@@ -180,7 +180,7 @@ func TestOverriddenValues(t *testing.T) {
 		RestartOnWakeup:         false,
 		AutoUpgradeIntervalH:    24,
 		KeepTemporariesH:        48,
-		CacheIgnoredFiles:       false,
+		CacheIgnoredFiles:       true,
 		ProgressUpdateIntervalS: 10,
 		SymlinksEnabled:         false,
 		LimitBandwidthInLan:     true,
@@ -497,10 +497,10 @@ func TestCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(bsOrig, bsChanged) == 0 {
+	if bytes.Equal(bsOrig, bsChanged) {
 		t.Error("Config should have changed")
 	}
-	if bytes.Compare(bsOrig, bsCopy) != 0 {
+	if !bytes.Equal(bsOrig, bsCopy) {
 		//ioutil.WriteFile("a", bsOrig, 0644)
 		//ioutil.WriteFile("b", bsCopy, 0644)
 		t.Error("Copy should be unchanged")

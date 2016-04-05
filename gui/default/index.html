@@ -18,39 +18,44 @@
   <link rel="mask-icon" href="assets/img/safari-pinned-tab.svg" color="#0882c8">
 
   <title ng-bind="thisDeviceName() + ' | Syncthing'"></title>
-  <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet">
   <link href="assets/font/raleway.css" rel="stylesheet">
-  <link href="vendor/font-awesome/css/font-awesome.min.css" rel="stylesheet">
+  <link href="vendor/font-awesome/css/font-awesome.css" rel="stylesheet">
   <link href="assets/css/overrides.css" rel="stylesheet">
   <link href="assets/css/theme.css" rel="stylesheet">
 </head>
 
 <body>
+  <script src="syncthing/development/logbar.js"></script>
+  <div ng-if="version.isDevelopmentVersion" ng-include="'syncthing/development/logbar.html'"></div>
   <!-- Top bar -->
 
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
-      <span class="navbar-brand"><img class="logo" src="assets/img/logo-horizontal.svg" height="32" width="117"/></span>
+      <span class="navbar-brand">
+        <img class="logo hidden-xs" src="assets/img/logo-horizontal.svg" height="32" width="117"/>
+        <img class="logo hidden visible-xs" src="assets/img/favicon.png" height="32"/>
+      </span>
       <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
-        <li ng-if="upgradeInfo && upgradeInfo.newer">
+        <li ng-if="upgradeInfo && upgradeInfo.newer" class="upgrade-newer">
           <button type="button" class="btn navbar-btn btn-primary btn-sm" ng-click="upgrade()">
             <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
-        <li ng-if="upgradeInfo && upgradeInfo.majorNewer">
+        <li ng-if="upgradeInfo && upgradeInfo.majorNewer" class="upgrade-newer-major">
           <button type="button" class="btn navbar-btn btn-danger btn-sm" ng-click="upgradeMajor()">
             <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
         <li class="dropdown" language-select></li>
-        <li class="hidden-xs">
+        <li>
           <a href="https://docs.syncthing.net/intro/gui.html" target="_blank">
-            <span class="fa fa-book"></span>&nbsp;<span translate>Help</span>
+            <span class="fa fa-question-circle"></span>&nbsp;<span  class="hidden-xs" translate>Help</span>
           </a>
         </li>
-        <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="fa fa-cog"></span>&nbsp;<span translate>Actions</span> <span class="caret"></span></a>
+        <li class="dropdown action-menu">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="fa fa-cog"></span>&nbsp;<span class="hidden-xs" translate>Actions</span> <span class="caret"></span></a>
           <ul class="dropdown-menu">
             <li><a href="" ng-click="editSettings()"><span class="fa fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
             <li><a href="" ng-click="idDevice(thisDevice())"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
@@ -596,13 +601,12 @@
   <div about-modal></div>
 
   <!-- vendor scripts -->
-  <script src="vendor/jquery/jquery-2.0.3.min.js"></script>
-  <script src="vendor/angular/angular.min.js"></script>
-  <script src="vendor/angular/angular-translate.min.js"></script>
-  <script src="vendor/angular/angular-translate-handler-log.min.js"></script>
-  <script src="vendor/angular/angular-translate-loader.min.js"></script>
+  <script src="vendor/jquery/jquery-2.2.2.js"></script>
+  <script src="vendor/angular/angular.js"></script>
+  <script src="vendor/angular/angular-translate.js"></script>
+  <script src="vendor/angular/angular-translate-loader-static-files.js"></script>
   <script src="vendor/angular/angular-dirPagination.js"></script>
-  <script src="vendor/bootstrap/js/bootstrap.min.js"></script>
+  <script src="vendor/bootstrap/js/bootstrap.js"></script>
   <!-- / vendor scripts -->
 
   <!-- gui application code -->

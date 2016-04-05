@@ -9,10 +9,8 @@
 package integration
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -20,16 +18,6 @@ import (
 	"github.com/syncthing/syncthing/lib/rc"
 	"github.com/syncthing/syncthing/lib/symlinks"
 )
-
-func symlinksSupported() bool {
-	tmp, err := ioutil.TempDir("", "symlink-test")
-	if err != nil {
-		return false
-	}
-	defer os.RemoveAll(tmp)
-	err = os.Symlink("tmp", filepath.Join(tmp, "link"))
-	return err == nil
-}
 
 func TestSymlinks(t *testing.T) {
 	if !symlinksSupported() {

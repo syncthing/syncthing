@@ -1129,7 +1129,6 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 		// time to batch them up a little.
 		time.Sleep(250 * time.Millisecond)
 	}
-
 }
 
 func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
@@ -1433,10 +1432,6 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 		fs.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			f := fi.(db.FileInfoTruncated)
 			if !f.IsDeleted() {
-				if f.IsInvalid() {
-					return true
-				}
-
 				if len(batch) == batchSizeFiles {
 					if err := m.CheckFolderHealth(folder); err != nil {
 						iterError = err
@@ -1472,6 +1467,12 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 						Modified: f.Modified,
 						Version:  f.Version.Update(m.shortID),
 					}
+
+					// The deleted file might have been ignored at some
+					// point, but it currently isn't so we make sure to
+					// clear the invalid bit.
+					nf.Flags &^= protocol.FlagInvalid
+
 					batch = append(batch, nf)
 				}
 			}

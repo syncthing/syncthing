@@ -14,24 +14,30 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/fnmatch"
+	"github.com/gobwas/glob"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type Pattern struct {
-	match   *regexp.Regexp
-	include bool
+	pattern  string
+	match    glob.Glob
+	include  bool
+	foldCase bool
 }
 
 func (p Pattern) String() string {
-	if p.include {
-		return p.match.String()
+	ret := p.pattern
+	if !p.include {
+		ret = "!" + ret
 	}
-	return "(?exclude)" + p.match.String()
+	if p.foldCase {
+		ret = "(?i)" + ret
+	}
+	return ret
 }
 
 type Matcher struct {
@@ -119,9 +125,20 @@ func (m *Matcher) Match(file string) (result bool) {
 	}
 
 	// Check all the patterns for a match.
+	file = filepath.ToSlash(file)
+	var lowercaseFile string
 	for _, pattern := range m.patterns {
-		if pattern.match.MatchString(file) {
-			return pattern.include
+		if pattern.foldCase {
+			if lowercaseFile == "" {
+				lowercaseFile = strings.ToLower(file)
+			}
+			if pattern.match.Match(lowercaseFile) {
+				return pattern.include
+			}
+		} else {
+			if pattern.match.Match(file) {
+				return pattern.include
+			}
 		}
 	}
 
@@ -129,7 +146,7 @@ func (m *Matcher) Match(file string) (result bool) {
 	return false
 }
 
-// Patterns return a list of the loaded regexp patterns, as strings
+// Patterns return a list of the loaded patterns, as they've been parsed
 func (m *Matcher) Patterns() []string {
 	if m == nil {
 		return nil
@@ -200,38 +217,49 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 	var patterns []Pattern
 
 	addPattern := func(line string) error {
-		include := true
+		pattern := Pattern{
+			pattern:  line,
+			include:  true,
+			foldCase: runtime.GOOS == "darwin" || runtime.GOOS == "windows",
+		}
+
 		if strings.HasPrefix(line, "!") {
 			line = line[1:]
-			include = false
+			pattern.include = false
 		}
 
-		flags := fnmatch.PathName
 		if strings.HasPrefix(line, "(?i)") {
+			pattern.foldCase = true
 			line = line[4:]
-			flags |= fnmatch.CaseFold
 		}
 
+		if pattern.foldCase {
+			line = strings.ToLower(line)
+		}
+
+		var err error
 		if strings.HasPrefix(line, "/") {
 			// Pattern is rooted in the current dir only
-			exp, err := fnmatch.Convert(line[1:], flags)
+			pattern.match, err = glob.Compile(line[1:])
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
-			patterns = append(patterns, Pattern{exp, include})
+			patterns = append(patterns, pattern)
 		} else if strings.HasPrefix(line, "**/") {
 			// Add the pattern as is, and without **/ so it matches in current dir
-			exp, err := fnmatch.Convert(line, flags)
+			pattern.match, err = glob.Compile(line)
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
-			patterns = append(patterns, Pattern{exp, include})
+			patterns = append(patterns, pattern)
 
-			exp, err = fnmatch.Convert(line[3:], flags)
+			line = line[3:]
+			pattern.pattern = line
+			pattern.match, err = glob.Compile(line)
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
-			patterns = append(patterns, Pattern{exp, include})
+			patterns = append(patterns, pattern)
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := line[len("#include "):]
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
@@ -243,17 +271,19 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 		} else {
 			// Path name or pattern, add it so it matches files both in
 			// current directory and subdirs.
-			exp, err := fnmatch.Convert(line, flags)
+			pattern.match, err = glob.Compile(line)
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
-			patterns = append(patterns, Pattern{exp, include})
+			patterns = append(patterns, pattern)
 
-			exp, err = fnmatch.Convert("**/"+line, flags)
+			line := "**/" + line
+			pattern.pattern = line
+			pattern.match, err = glob.Compile(line)
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q in ignore file", line)
 			}
-			patterns = append(patterns, Pattern{exp, include})
+			patterns = append(patterns, pattern)
 		}
 		return nil
 	}
@@ -267,15 +297,16 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			continue
 		case strings.HasPrefix(line, "//"):
 			continue
+		}
+
+		line = filepath.ToSlash(line)
+		switch {
 		case strings.HasPrefix(line, "#"):
 			err = addPattern(line)
 		case strings.HasSuffix(line, "/**"):
 			err = addPattern(line)
 		case strings.HasSuffix(line, "/"):
 			err = addPattern(line)
-			if err == nil {
-				err = addPattern(line + "**")
-			}
 		default:
 			err = addPattern(line)
 			if err == nil {

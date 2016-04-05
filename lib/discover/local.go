@@ -124,13 +124,15 @@ func (c *localClient) announcementPkt() Announce {
 	}
 
 	var relays []Relay
-	for _, relay := range c.relayStat.Relays() {
-		latency, ok := c.relayStat.RelayStatus(relay)
-		if ok {
-			relays = append(relays, Relay{
-				URL:     relay,
-				Latency: int32(latency / time.Millisecond),
-			})
+	if c.relayStat != nil {
+		for _, relay := range c.relayStat.Relays() {
+			latency, ok := c.relayStat.RelayStatus(relay)
+			if ok {
+				relays = append(relays, Relay{
+					URL:     relay,
+					Latency: int32(latency / time.Millisecond),
+				})
+			}
 		}
 	}
 
@@ -172,13 +174,16 @@ func (c *localClient) recvAnnouncements(b beacon.Interface) {
 		l.Debugf("discover: Received local announcement from %s for %s", addr, protocol.DeviceIDFromBytes(pkt.This.ID))
 
 		var newDevice bool
-		if bytes.Compare(pkt.This.ID, c.myID[:]) != 0 {
+		if !bytes.Equal(pkt.This.ID, c.myID[:]) {
 			newDevice = c.registerDevice(addr, pkt.This)
 		}
 
 		if newDevice {
+			// Force a transmit to announce ourselves, if we are ready to do
+			// so right away.
 			select {
 			case c.forcedBcastTick <- time.Now():
+			default:
 			}
 		}
 	}

@@ -18,13 +18,13 @@ import (
 
 func init() {
 	for _, network := range []string{"tcp", "tcp4", "tcp6"} {
-		dialers[network] = makeTcpDialer(network)
-		listeners[network] = makeTcpListener(network)
+		dialers[network] = makeTCPDialer(network)
+		listeners[network] = makeTCPListener(network)
 	}
 
 }
 
-func makeTcpDialer(network string) DialerFactory {
+func makeTCPDialer(network string) DialerFactory {
 	return func(uri *url.URL, tlsCfg *tls.Config) (*tls.Conn, error) {
 		// Check that there is a port number in uri.Host, otherwise add one.
 		host, port, err := net.SplitHostPort(uri.Host)
@@ -55,7 +55,7 @@ func makeTcpDialer(network string) DialerFactory {
 	}
 }
 
-func makeTcpListener(network string) ListenerFactory {
+func makeTCPListener(network string) ListenerFactory {
 	return func(uri *url.URL, tlsCfg *tls.Config, conns chan<- model.IntermediateConnection) {
 		tcaddr, err := net.ResolveTCPAddr(network, uri.Host)
 		if err != nil {

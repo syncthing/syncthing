@@ -1,6 +1,6 @@
 angular.module('syncthing.core')
     .config(function($locationProvider) {
-        $locationProvider.html5Mode(true).hashPrefix('!');
+        $locationProvider.html5Mode({enabled: true, requireBase: false}).hashPrefix('!');
     })
     .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter) {
         'use strict';
@@ -97,6 +97,7 @@ angular.module('syncthing.core')
                 }
 
                 $scope.version = data;
+                $scope.version.isDevelopmentVersion = data.version.indexOf('-')>0;
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/svc/report').success(function (data) {
@@ -810,7 +811,7 @@ angular.module('syncthing.core')
         };
 
         $scope.deviceName = function (deviceCfg) {
-            if (typeof deviceCfg === 'undefined') {
+            if (typeof deviceCfg === 'undefined' || typeof deviceCfg.deviceID === 'undefined') {
                 return "";
             }
             if (deviceCfg.name) {
@@ -1549,6 +1550,12 @@ angular.module('syncthing.core')
         $scope.createRandomFolderId = function(){
             var charset = '2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ';
             return randomStringFromCharset(5, charset) + "-" + randomStringFromCharset(5, charset);
+        };
+
+        $scope.themeName = function (theme) {
+            return theme.replace('-', ' ').replace(/(?:^|\s)\S/g, function (a) {
+                return a.toUpperCase();
+            });
         };
 
         // pseudo main. called on all definitions assigned

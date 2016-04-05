@@ -22,13 +22,19 @@
 		{
 			"importpath": "github.com/calmh/xdr",
 			"repository": "https://github.com/calmh/xdr",
-			"revision": "b6e0c321c9b5b28ba5ee21e828323e4b982c6976",
+			"revision": "f9b9f8f7aa27725f5cabb699bd9099ca7ce09143",
 			"branch": "master"
 		},
 		{
 			"importpath": "github.com/d4l3k/messagediff",
 			"repository": "https://github.com/d4l3k/messagediff",
 			"revision": "bf29d7cd9038386a5b4a22e2d73c8fb20ae14602",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/gobwas/glob",
+			"repository": "https://github.com/gobwas/glob",
+			"revision": "a3f5513f64fe4307f2c71ea06b25f6154eb9dc5f",
 			"branch": "master"
 		},
 		{

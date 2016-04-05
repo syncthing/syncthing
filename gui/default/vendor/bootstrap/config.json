@@ -35,6 +35,9 @@
     "@headings-font-weight": "500",
     "@headings-line-height": "1.1",
     "@headings-color": "inherit",
+    "@icon-font-path": "\"../fonts/\"",
+    "@icon-font-name": "\"glyphicons-halflings-regular\"",
+    "@icon-font-svg-id": "\"glyphicons_halflingsregular\"",
     "@padding-base-vertical": "6px",
     "@padding-base-horizontal": "12px",
     "@padding-large-vertical": "10px",
@@ -375,6 +378,7 @@
     "@blockquote-border-color": "@gray-lighter",
     "@page-header-border-color": "@gray-lighter",
     "@dl-horizontal-offset": "@component-offset-horizontal",
+    "@dl-horizontal-breakpoint": "@grid-float-breakpoint",
     "@hr-border": "@gray-lighter"
   },
   "css": [
@@ -419,5 +423,5 @@
     "collapse.js",
     "transition.js"
   ],
-  "customizerUrl": "http://getbootstrap.com/customize/?id=7ee3aa2c980c52345937"
+  "customizerUrl": "http://getbootstrap.com/customize/?id=2534c630d2cba4ad9c65"
 }

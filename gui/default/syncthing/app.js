@@ -51,11 +51,11 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
 
     // language and localisation
 
+    $translateProvider.useSanitizeValueStrategy('escape');
     $translateProvider.useStaticFilesLoader({
         prefix: 'assets/lang/lang-',
         suffix: '.json'
     });
-    $translateProvider.useMissingTranslationHandlerLog();
 
     LocaleServiceProvider.setAvailableLocales(validLangs);
     LocaleServiceProvider.setDefaultLocale('en');

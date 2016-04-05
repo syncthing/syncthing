@@ -23,15 +23,15 @@ func TestDeviceKey(t *testing.T) {
 	key := db.deviceKey(fld, dev, name)
 
 	fld2 := db.deviceKeyFolder(key)
-	if bytes.Compare(fld2, fld) != 0 {
+	if !bytes.Equal(fld2, fld) {
 		t.Errorf("wrong folder %q != %q", fld2, fld)
 	}
 	dev2 := db.deviceKeyDevice(key)
-	if bytes.Compare(dev2, dev) != 0 {
+	if !bytes.Equal(dev2, dev) {
 		t.Errorf("wrong device %q != %q", dev2, dev)
 	}
 	name2 := db.deviceKeyName(key)
-	if bytes.Compare(name2, name) != 0 {
+	if !bytes.Equal(name2, name) {
 		t.Errorf("wrong name %q != %q", name2, name)
 	}
 }
@@ -46,11 +46,11 @@ func TestGlobalKey(t *testing.T) {
 	key := db.globalKey(fld, name)
 
 	fld2 := db.globalKeyFolder(key)
-	if bytes.Compare(fld2, fld) != 0 {
+	if !bytes.Equal(fld2, fld) {
 		t.Errorf("wrong folder %q != %q", fld2, fld)
 	}
 	name2 := db.globalKeyName(key)
-	if bytes.Compare(name2, name) != 0 {
+	if !bytes.Equal(name2, name) {
 		t.Errorf("wrong name %q != %q", name2, name)
 	}
 }
