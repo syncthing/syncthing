@@ -15,22 +15,22 @@ func TestCache(t *testing.T) {
 	c := newCache(nil)
 
 	res, ok := c.get("nonexistent")
-	if res != false || ok != false {
+	if res.IsIgnored() || res.IsDeletable() || ok != false {
 		t.Errorf("res %v, ok %v for nonexistent item", res, ok)
 	}
 
 	// Set and check some items
 
-	c.set("true", true)
-	c.set("false", false)
+	c.set("true", Result{true, true})
+	c.set("false", Result{false, false})
 
 	res, ok = c.get("true")
-	if res != true || ok != true {
+	if !res.IsIgnored() || !res.IsDeletable() || ok != true {
 		t.Errorf("res %v, ok %v for true item", res, ok)
 	}
 
 	res, ok = c.get("false")
-	if res != false || ok != true {
+	if res.IsIgnored() || res.IsDeletable() || ok != true {
 		t.Errorf("res %v, ok %v for false item", res, ok)
 	}
 
@@ -41,12 +41,12 @@ func TestCache(t *testing.T) {
 	// Same values should exist
 
 	res, ok = c.get("true")
-	if res != true || ok != true {
+	if !res.IsIgnored() || !res.IsDeletable() || ok != true {
 		t.Errorf("res %v, ok %v for true item", res, ok)
 	}
 
 	res, ok = c.get("false")
-	if res != false || ok != true {
+	if res.IsIgnored() || res.IsDeletable() || ok != true {
 		t.Errorf("res %v, ok %v for false item", res, ok)
 	}
 

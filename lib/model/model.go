@@ -209,7 +209,7 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 		}
 
 		// check if file is ignored
-		if ignores.Match(protectedFilePath) {
+		if ignores.Match(protectedFilePath).IsIgnored() {
 			continue
 		}
 
@@ -800,7 +800,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		// cleaned from any possible funny business.
 		if rn, err := filepath.Rel(folderPath, fn); err != nil {
 			return err
-		} else if folderIgnores.Match(rn) {
+		} else if folderIgnores.Match(rn).IsIgnored() {
 			l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 			return protocol.ErrNoSuchFile
 		}
@@ -1149,7 +1149,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 			maxLocalVer = f.LocalVersion
 		}
 
-		if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
+		if ignores.Match(f.Name).IsIgnored() || symlinkInvalid(folder, f) {
 			l.Debugln("not sending update for ignored/unsupported symlink", f)
 			return true
 		}
@@ -1441,7 +1441,7 @@ func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
 					batch = batch[:0]
 				}
 
-				if ignores.Match(f.Name) || symlinkInvalid(folder, f) {
+				if ignores.Match(f.Name).IsIgnored() || symlinkInvalid(folder, f) {
 					// File has been ignored or an unsupported symlink. Set invalid bit.
 					l.Debugln("setting invalid bit on ignored", f)
 					nf := protocol.FileInfo{

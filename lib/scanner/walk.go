@@ -19,6 +19,7 @@ import (
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/symlinks"
@@ -50,7 +51,7 @@ type Walker struct {
 	// BlockSize controls the size of the block used when hashing.
 	BlockSize int
 	// If Matcher is not nil, it is used to identify files to ignore which were specified by the user.
-	Matcher IgnoreMatcher
+	Matcher *ignore.Matcher
 	// If TempNamer is not nil, it is used to ignore temporary files when walking.
 	TempNamer TempNamer
 	// Number of hours to keep temporary files for
@@ -87,11 +88,6 @@ type TempNamer interface {
 type CurrentFiler interface {
 	// CurrentFile returns the file as seen at last scan.
 	CurrentFile(name string) (protocol.FileInfo, bool)
-}
-
-type IgnoreMatcher interface {
-	// Match returns true if the file should be ignored.
-	Match(filename string) bool
 }
 
 // Walk returns the list of files found in the local folder by scanning the
@@ -241,7 +237,7 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 		}
 
 		if sn := filepath.Base(relPath); sn == ".stignore" || sn == ".stfolder" ||
-			strings.HasPrefix(relPath, ".stversions") || (w.Matcher != nil && w.Matcher.Match(relPath)) {
+			strings.HasPrefix(relPath, ".stversions") || (w.Matcher != nil && w.Matcher.Match(relPath).IsIgnored()) {
 			// An ignored file
 			l.Debugln("ignored:", relPath)
 			return skip

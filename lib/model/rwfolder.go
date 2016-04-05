@@ -470,7 +470,7 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 
 		file := intf.(protocol.FileInfo)
 
-		if ignores.Match(file.Name) {
+		if ignores.Match(file.Name).IsIgnored() {
 			// This is an ignored file. Skip it, continue iteration.
 			return true
 		}
@@ -583,7 +583,7 @@ nextFile:
 	for i := range dirDeletions {
 		dir := dirDeletions[len(dirDeletions)-i-1]
 		l.Debugln("Deleting dir", dir.Name)
-		p.deleteDir(dir)
+		p.deleteDir(dir, ignores)
 	}
 
 	// Wait for db updates to complete
@@ -689,7 +689,7 @@ func (p *rwFolder) handleDir(file protocol.FileInfo) {
 }
 
 // deleteDir attempts to delete the given directory
-func (p *rwFolder) deleteDir(file protocol.FileInfo) {
+func (p *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
 	var err error
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
@@ -712,9 +712,9 @@ func (p *rwFolder) deleteDir(file protocol.FileInfo) {
 	dir, _ := os.Open(realName)
 	if dir != nil {
 		files, _ := dir.Readdirnames(-1)
-		for _, file := range files {
-			if defTempNamer.IsTemporary(file) {
-				osutil.InWritableDir(osutil.Remove, filepath.Join(realName, file))
+		for _, dirFile := range files {
+			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(filepath.Join(file.Name, dirFile)).IsDeletable()) {
+				osutil.InWritableDir(osutil.Remove, filepath.Join(realName, dirFile))
 			}
 		}
 		dir.Close()
