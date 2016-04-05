@@ -229,8 +229,12 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 		}
 
 		if strings.HasPrefix(line, "(?i)") {
-			line = strings.ToLower(line[4:])
 			pattern.foldCase = true
+			line = line[4:]
+		}
+
+		if pattern.foldCase {
+			line = strings.ToLower(line)
 		}
 
 		var err error
