@@ -97,6 +97,7 @@ angular.module('syncthing.core')
                 }
 
                 $scope.version = data;
+                $scope.version.isDevelopmentVersion = data.version.indexOf('-')>0;
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/svc/report').success(function (data) {
@@ -810,7 +811,7 @@ angular.module('syncthing.core')
         };
 
         $scope.deviceName = function (deviceCfg) {
-            if (typeof deviceCfg === 'undefined') {
+            if (typeof deviceCfg === 'undefined' || typeof deviceCfg.deviceID === 'undefined') {
                 return "";
             }
             if (deviceCfg.name) {
