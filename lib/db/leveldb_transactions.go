@@ -71,11 +71,11 @@ func (t readWriteTransaction) checkFlush() {
 }
 
 func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.FileInfo) int64 {
-	l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
-
 	if file.LocalVersion == 0 {
 		file.LocalVersion = clock(0)
 	}
+
+	l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
 
 	name := []byte(file.Name)
 	nk := t.db.deviceKey(folder, device, name)

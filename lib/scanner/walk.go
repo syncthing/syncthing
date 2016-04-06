@@ -19,9 +19,9 @@ import (
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -74,7 +74,8 @@ type Walker struct {
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
 	// Signals cancel from the outside - when closed, we should stop walking.
-	Cancel chan struct{}
+	Cancel     chan struct{}
+	Filesystem fs.Filesystem
 }
 
 type TempNamer interface {
@@ -378,7 +379,7 @@ func (w *Walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 	// If the target is a directory, do NOT descend down there. This will
 	// cause files to get tracked, and removing the symlink will as a result
 	// remove files in their real location.
-	if !symlinks.Supported {
+	if !w.Filesystem.SymlinksSupported() {
 		return true, nil
 	}
 
@@ -387,7 +388,7 @@ func (w *Walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 	// checking that their existing blocks match with the blocks in
 	// the index.
 
-	target, targetType, err := symlinks.Read(absPath)
+	target, targetType, err := w.Filesystem.ReadSymlink(absPath)
 	if err != nil {
 		l.Debugln("readlink error:", absPath, err)
 		return true, nil
@@ -502,7 +503,7 @@ func PermsEqual(a, b uint32) bool {
 	}
 }
 
-func SymlinkTypeEqual(disk symlinks.TargetType, f protocol.FileInfo) bool {
+func SymlinkTypeEqual(disk fs.LinkTargetType, f protocol.FileInfo) bool {
 	// If the target is missing, Unix never knows what type of symlink it is
 	// and Windows always knows even if there is no target. Which means that
 	// without this special check a Unix node would be fighting with a Windows
@@ -512,23 +513,23 @@ func SymlinkTypeEqual(disk symlinks.TargetType, f protocol.FileInfo) bool {
 	// target type is. The moment you do know, and if something doesn't match,
 	// that will propagate through the cluster.
 	switch disk {
-	case symlinks.TargetUnknown:
+	case fs.LinkTargetUnknown:
 		return true
-	case symlinks.TargetDirectory:
+	case fs.LinkTargetDirectory:
 		return f.IsDirectory() && f.Flags&protocol.FlagSymlinkMissingTarget == 0
-	case symlinks.TargetFile:
+	case fs.LinkTargetFile:
 		return !f.IsDirectory() && f.Flags&protocol.FlagSymlinkMissingTarget == 0
 	}
 	panic("unknown symlink TargetType")
 }
 
-func SymlinkFlags(t symlinks.TargetType) uint32 {
+func SymlinkFlags(t fs.LinkTargetType) uint32 {
 	switch t {
-	case symlinks.TargetFile:
+	case fs.LinkTargetFile:
 		return 0
-	case symlinks.TargetDirectory:
+	case fs.LinkTargetDirectory:
 		return protocol.FlagDirectory
-	case symlinks.TargetUnknown:
+	case fs.LinkTargetUnknown:
 		return protocol.FlagSymlinkMissingTarget
 	}
 	panic("unknown symlink TargetType")

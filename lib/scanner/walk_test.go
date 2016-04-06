@@ -20,10 +20,10 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -351,22 +351,22 @@ func (l testfileList) String() string {
 
 func TestSymlinkTypeEqual(t *testing.T) {
 	testcases := []struct {
-		onDiskType   symlinks.TargetType
+		onDiskType   fs.LinkTargetType
 		inIndexFlags uint32
 		equal        bool
 	}{
 		// File is only equal to file
-		{symlinks.TargetFile, 0, true},
-		{symlinks.TargetFile, protocol.FlagDirectory, false},
-		{symlinks.TargetFile, protocol.FlagSymlinkMissingTarget, false},
+		{fs.LinkTargetFile, 0, true},
+		{fs.LinkTargetFile, protocol.FlagDirectory, false},
+		{fs.LinkTargetFile, protocol.FlagSymlinkMissingTarget, false},
 		// Directory is only equal to directory
-		{symlinks.TargetDirectory, 0, false},
-		{symlinks.TargetDirectory, protocol.FlagDirectory, true},
-		{symlinks.TargetDirectory, protocol.FlagSymlinkMissingTarget, false},
+		{fs.LinkTargetDirectory, 0, false},
+		{fs.LinkTargetDirectory, protocol.FlagDirectory, true},
+		{fs.LinkTargetDirectory, protocol.FlagSymlinkMissingTarget, false},
 		// Unknown is equal to anything
-		{symlinks.TargetUnknown, 0, true},
-		{symlinks.TargetUnknown, protocol.FlagDirectory, true},
-		{symlinks.TargetUnknown, protocol.FlagSymlinkMissingTarget, true},
+		{fs.LinkTargetUnknown, 0, true},
+		{fs.LinkTargetUnknown, protocol.FlagDirectory, true},
+		{fs.LinkTargetUnknown, protocol.FlagSymlinkMissingTarget, true},
 	}
 
 	for _, tc := range testcases {

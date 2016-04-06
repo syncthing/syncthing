@@ -78,6 +78,16 @@ func (f FileInfo) HasPermissionBits() bool {
 	return f.Flags&FlagNoPermBits == 0
 }
 
+// Hash returns the summary hash for the entire file. Two files with the same
+// hash are identical.
+func (f FileInfo) Hash() []byte {
+	h := sha256.New()
+	for _, b := range f.Blocks {
+		h.Write(b.Hash)
+	}
+	return h.Sum(nil)
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func (f FileInfo) WinsConflict(other FileInfo) bool {
