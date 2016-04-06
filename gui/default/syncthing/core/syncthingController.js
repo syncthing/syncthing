@@ -250,23 +250,16 @@ angular.module('syncthing.core')
                 progress[folder] = {};
                 for (var file in stats[folder]) {
                     var s = stats[folder][file];
-                    var reused = 100 * s.reused / s.total;
-                    var copiedFromOrigin = 100 * s.copiedFromOrigin / s.total;
-                    var copiedFromElsewhere = 100 * s.copiedFromElsewhere / s.total;
-                    var pulled = 100 * s.pulled / s.total;
-                    var pulling = 100 * s.pulling / s.total;
-                    // We try to round up pulling to at least a percent so that it would be at least a bit visible.
-                    if (pulling < 1 && pulled + copiedFromElsewhere + copiedFromOrigin + reused <= 99) {
-                        pulling = 1;
-                    }
+					var copied = Math.round(100 * s.copied / s.total);
+					var pulled = Math.round(100 * s.pulled / s.total);
+					var pulling = Math.round(100 * s.pulling / s.total);
+					var remaining = 100 - (copied + pulled + pulling);
                     progress[folder][file] = {
-                        reused: reused,
-                        copiedFromOrigin: copiedFromOrigin,
-                        copiedFromElsewhere: copiedFromElsewhere,
+                        copied: copied,
                         pulled: pulled,
                         pulling: pulling,
-                        bytesTotal: s.bytesTotal,
-                        bytesDone: s.bytesDone,
+						remaining: remaining,
+                        total: s.total,
                     };
                 }
             }

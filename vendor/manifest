@@ -99,6 +99,13 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/twmb/algoimpl/go/graph",
+			"repository": "https://github.com/twmb/algoimpl",
+			"revision": "716f8e78b563212cfefb120bedc265741f51d1a4",
+			"branch": "master",
+			"path": "/go/graph"
+		},
+		{
 			"importpath": "github.com/vitrun/qart/coding",
 			"repository": "https://github.com/vitrun/qart",
 			"revision": "ccb109cf25f0cd24474da73b9fee4e7a3e8a8ce0",

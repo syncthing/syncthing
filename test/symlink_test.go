@@ -14,13 +14,13 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rc"
-	"github.com/syncthing/syncthing/lib/symlinks"
 )
 
 func TestSymlinks(t *testing.T) {
-	if !symlinksSupported() {
+	if !fs.DefaultFilesystem.SymlinksSupported() {
 		t.Skip("symlinks unsupported")
 	}
 
@@ -36,7 +36,7 @@ func TestSymlinks(t *testing.T) {
 }
 
 func TestSymlinksSimpleVersioning(t *testing.T) {
-	if !symlinksSupported() {
+	if !fs.DefaultFilesystem.SymlinksSupported() {
 		t.Skip("symlinks unsupported")
 	}
 
@@ -55,7 +55,7 @@ func TestSymlinksSimpleVersioning(t *testing.T) {
 }
 
 func TestSymlinksStaggeredVersioning(t *testing.T) {
-	if !symlinksSupported() {
+	if !fs.DefaultFilesystem.SymlinksSupported() {
 		t.Skip("symlinks unsupported")
 	}
 
@@ -107,7 +107,7 @@ func testSymlinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	fd.Close()
-	err = symlinks.Create("s1/fileLink", "file", 0)
+	err = fs.DefaultFilesystem.CreateSymlink("s1/fileLink", "file", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -118,35 +118,35 @@ func testSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = symlinks.Create("s1/dirLink", "dir", 0)
+	err = fs.DefaultFilesystem.CreateSymlink("s1/dirLink", "dir", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link to something in the repo that does not exist
 
-	err = symlinks.Create("s1/noneLink", "does/not/exist", 0)
+	err = fs.DefaultFilesystem.CreateSymlink("s1/noneLink", "does/not/exist", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link we will replace with a file later
 
-	err = symlinks.Create("s1/repFileLink", "does/not/exist", 0)
+	err = fs.DefaultFilesystem.CreateSymlink("s1/repFileLink", "does/not/exist", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link we will replace with a directory later
 
-	err = symlinks.Create("s1/repDirLink", "does/not/exist", 0)
+	err = fs.DefaultFilesystem.CreateSymlink("s1/repDirLink", "does/not/exist", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link we will remove later
 
-	err = symlinks.Create("s1/removeLink", "does/not/exist", 0)
+	err = fs.DefaultFilesystem.CreateSymlink("s1/removeLink", "does/not/exist", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func testSymlinks(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = symlinks.Create("s1/dirLink", "file", 0)
+	err = fs.DefaultFilesystem.CreateSymlink("s1/dirLink", "file", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func testSymlinks(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = symlinks.Create("s1/fileToReplace", "somewhere/non/existent", 0)
+	err = fs.DefaultFilesystem.CreateSymlink("s1/fileToReplace", "somewhere/non/existent", 0)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func testSymlinks(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = symlinks.Create("s1/dirToReplace", "somewhere/non/existent", 0)
+	err = fs.DefaultFilesystem.CreateSymlink("s1/dirToReplace", "somewhere/non/existent", 0)
 	if err != nil {
 		log.Fatal(err)
 	}

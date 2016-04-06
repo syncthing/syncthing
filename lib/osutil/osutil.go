@@ -69,7 +69,7 @@ func InWritableDir(fn func(string) error, path string) error {
 		return err
 	}
 	if !info.IsDir() {
-		return errors.New("Not a directory: " + path)
+		return errors.New("not a directory: " + path)
 	}
 	if info.Mode()&0200 == 0 {
 		// A non-writeable directory (for this user; we assume that's the
@@ -96,7 +96,7 @@ func InWritableDir(fn func(string) error, path string) error {
 // from the target prior to deletion.
 func Remove(path string) error {
 	if runtime.GOOS == "windows" {
-		info, err := os.Stat(path)
+		info, err := os.Lstat(path)
 		if err != nil {
 			return err
 		}

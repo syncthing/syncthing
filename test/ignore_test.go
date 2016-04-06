@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/syncthing/syncthing/lib/symlinks"
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 func TestIgnores(t *testing.T) {
@@ -51,11 +51,11 @@ func TestIgnores(t *testing.T) {
 	}
 
 	var syms []string
-	if symlinksSupported() {
+	if fs.DefaultFilesystem.SymlinksSupported() {
 		syms = []string{"s1", "s2", "s3", "s4", "s11", "s12", "s13", "s14"}
 		for _, sym := range syms {
 			p := filepath.Join("s1", sym)
-			symlinks.Create(p, p, 0)
+			fs.DefaultFilesystem.CreateSymlink(p, p, 0)
 		}
 		all = append(all, syms...)
 	}
