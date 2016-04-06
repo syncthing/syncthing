@@ -40,6 +40,76 @@ var (
 	race      bool
 )
 
+type target struct {
+	name         string
+	buildPkg     string
+	binaryName   string
+	archiveFiles []archiveFile
+	debianFiles  []archiveFile
+}
+
+type archiveFile struct {
+	src  string
+	dst  string
+	perm os.FileMode
+}
+
+var targets = map[string]target{
+	"all": {
+		// Only valid for the "build" and "install" commands as it lacks all
+		// the archive creation stuff.
+		buildPkg: "./cmd/...",
+	},
+	"syncthing": {
+		// The default target for "build", "install", "tar", "zip", "deb", etc.
+		name:       "syncthing",
+		buildPkg:   "./cmd/syncthing",
+		binaryName: "syncthing", // .exe will be added automatically for Windows builds
+		archiveFiles: []archiveFile{
+			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
+			{src: "README.md", dst: "README.txt", perm: 0644},
+			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+			// All files from etc/ and extra/ added automatically in init().
+		},
+		debianFiles: []archiveFile{
+			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
+			{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},
+			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing/AUTHORS.txt", perm: 0644},
+			{src: "man/syncthing.1", dst: "deb/usr/share/man/man1/syncthing.1", perm: 0644},
+			{src: "man/syncthing-config.5", dst: "deb/usr/share/man/man5/syncthing-config.5", perm: 0644},
+			{src: "man/syncthing-stignore.5", dst: "deb/usr/share/man/man5/syncthing-stignore.5", perm: 0644},
+			{src: "man/syncthing-device-ids.7", dst: "deb/usr/share/man/man7/syncthing-device-ids.7", perm: 0644},
+			{src: "man/syncthing-event-api.7", dst: "deb/usr/share/man/man7/syncthing-event-api.7", perm: 0644},
+			{src: "man/syncthing-faq.7", dst: "deb/usr/share/man/man7/syncthing-faq.7", perm: 0644},
+			{src: "man/syncthing-networking.7", dst: "deb/usr/share/man/man7/syncthing-networking.7", perm: 0644},
+			{src: "man/syncthing-rest-api.7", dst: "deb/usr/share/man/man7/syncthing-rest-api.7", perm: 0644},
+			{src: "man/syncthing-security.7", dst: "deb/usr/share/man/man7/syncthing-security.7", perm: 0644},
+			{src: "man/syncthing-versioning.7", dst: "deb/usr/share/man/man7/syncthing-versioning.7", perm: 0644},
+			{src: "etc/linux-systemd/system/syncthing@.service", dst: "deb/lib/systemd/system/syncthing@.service", perm: 0644},
+			{src: "etc/linux-systemd/system/syncthing-resume.service", dst: "deb/lib/systemd/system/syncthing-resume.service", perm: 0644},
+			{src: "etc/linux-systemd/user/syncthing.service", dst: "deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
+		},
+	},
+}
+
+func init() {
+	// The "syncthing" target includes a few more files found in the "etc"
+	// and "extra" dirs.
+	syncthingPkg := targets["syncthing"]
+	for _, file := range listFiles("etc") {
+		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{src: file, dst: file, perm: 0644})
+	}
+	for _, file := range listFiles("extra") {
+		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{src: file, dst: file, perm: 0644})
+	}
+	for _, file := range listFiles("extra") {
+		syncthingPkg.debianFiles = append(syncthingPkg.debianFiles, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
+	}
+	targets["syncthing"] = syncthingPkg
+}
+
 const minGoVersion = 1.3
 
 func main() {
@@ -81,12 +151,15 @@ func main() {
 
 	goVersion, _ = checkRequiredGoVersion()
 
+	// Invoking build.go with no parameters at all is equivalent to "go run
+	// build.go install all" as that builds everything (incrementally),
+	// which is what you want for maximum error checking during development.
 	if flag.NArg() == 0 {
 		var tags []string
 		if noupgrade {
 			tags = []string{"noupgrade"}
 		}
-		install("./cmd/...", tags)
+		install(targets["all"], tags)
 
 		vet("./cmd/syncthing")
 		vet("./lib/...")
@@ -95,68 +168,77 @@ func main() {
 		return
 	}
 
-	for _, cmd := range flag.Args() {
-		switch cmd {
-		case "setup":
-			setup()
+	// Otherwise, with any command given but not a target, the target is
+	// "syncthing". So "go run build.go install" is "go run build.go install
+	// syncthing" etc.
+	targetName := "syncthing"
+	if flag.NArg() > 1 {
+		targetName = flag.Arg(1)
+	}
+	target, ok := targets[targetName]
+	if !ok {
+		log.Fatalln("Unknown target", target)
+	}
 
-		case "install":
-			pkg := "./cmd/..."
-			var tags []string
-			if noupgrade {
-				tags = []string{"noupgrade"}
-			}
-			install(pkg, tags)
+	cmd := flag.Arg(0)
+	switch cmd {
+	case "setup":
+		setup()
 
-		case "build":
-			pkg := "./cmd/syncthing"
-			var tags []string
-			if noupgrade {
-				tags = []string{"noupgrade"}
-			}
-			build(pkg, tags)
-
-		case "test":
-			test("./lib/...", "./cmd/...")
-
-		case "bench":
-			bench("./lib/...", "./cmd/...")
-
-		case "assets":
-			rebuildAssets()
-
-		case "xdr":
-			xdr()
-
-		case "translate":
-			translate()
-
-		case "transifex":
-			transifex()
-
-		case "tar":
-			buildTar()
-
-		case "zip":
-			buildZip()
-
-		case "deb":
-			buildDeb()
-
-		case "clean":
-			clean()
-
-		case "vet":
-			vet("./cmd/syncthing")
-			vet("./lib/...")
-
-		case "lint":
-			lint("./cmd/syncthing")
-			lint("./lib/...")
-
-		default:
-			log.Fatalf("Unknown command %q", cmd)
+	case "install":
+		var tags []string
+		if noupgrade {
+			tags = []string{"noupgrade"}
 		}
+		install(target, tags)
+
+	case "build":
+		var tags []string
+		if noupgrade {
+			tags = []string{"noupgrade"}
+		}
+		build(target, tags)
+
+	case "test":
+		test("./lib/...", "./cmd/...")
+
+	case "bench":
+		bench("./lib/...", "./cmd/...")
+
+	case "assets":
+		rebuildAssets()
+
+	case "xdr":
+		xdr()
+
+	case "translate":
+		translate()
+
+	case "transifex":
+		transifex()
+
+	case "tar":
+		buildTar(target)
+
+	case "zip":
+		buildZip(target)
+
+	case "deb":
+		buildDeb(target)
+
+	case "clean":
+		clean()
+
+	case "vet":
+		vet("./cmd/syncthing")
+		vet("./lib/...")
+
+	case "lint":
+		lint("./cmd/syncthing")
+		lint("./lib/...")
+
+	default:
+		log.Fatalf("Unknown command %q", cmd)
 	}
 }
 
@@ -215,7 +297,7 @@ func bench(pkgs ...string) {
 	runPrint("go", append([]string{"test", "-run", "NONE", "-bench", "."}, pkgs...)...)
 }
 
-func install(pkg string, tags []string) {
+func install(target target, tags []string) {
 	lazyRebuildAssets()
 
 	cwd, err := os.Getwd()
@@ -230,22 +312,17 @@ func install(pkg string, tags []string) {
 	if race {
 		args = append(args, "-race")
 	}
-	args = append(args, pkg)
+	args = append(args, target.buildPkg)
 
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
 	runPrint("go", args...)
 }
 
-func build(pkg string, tags []string) {
+func build(target target, tags []string) {
 	lazyRebuildAssets()
 
-	binary := "syncthing"
-	if goos == "windows" {
-		binary += ".exe"
-	}
-
-	rmr(binary)
+	rmr(target.binaryName)
 	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, ","))
@@ -253,68 +330,62 @@ func build(pkg string, tags []string) {
 	if race {
 		args = append(args, "-race")
 	}
-	args = append(args, pkg)
+	args = append(args, target.buildPkg)
 
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
 	runPrint("go", args...)
 }
 
-func buildTar() {
-	name := archiveName()
+func buildTar(target target) {
+	name := archiveName(target)
+	filename := name + ".tar.gz"
+
 	var tags []string
 	if noupgrade {
 		tags = []string{"noupgrade"}
 		name += "-noupgrade"
 	}
-	build("./cmd/syncthing", tags)
-	filename := name + ".tar.gz"
-	files := []archiveFile{
-		{src: "README.md", dst: name + "/README.txt"},
-		{src: "LICENSE", dst: name + "/LICENSE.txt"},
-		{src: "AUTHORS", dst: name + "/AUTHORS.txt"},
-		{src: "syncthing", dst: name + "/syncthing"},
-	}
 
-	for _, file := range listFiles("etc") {
-		files = append(files, archiveFile{src: file, dst: name + "/" + file})
-	}
-	for _, file := range listFiles("extra") {
-		files = append(files, archiveFile{src: file, dst: name + "/" + filepath.Base(file)})
-	}
+	build(target, tags)
 
 	if goos == "darwin" {
-		macosCodesign("syncthing")
+		macosCodesign(target.binaryName)
 	}
-	tarGz(filename, files)
+
+	for i := range target.archiveFiles {
+		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.binaryName, 1)
+		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.binaryName, 1)
+	}
+
+	tarGz(filename, target.archiveFiles)
 	log.Println(filename)
 }
 
-func buildZip() {
-	name := archiveName()
+func buildZip(target target) {
+	target.binaryName += ".exe"
+
+	name := archiveName(target)
+	filename := name + ".zip"
+
 	var tags []string
 	if noupgrade {
 		tags = []string{"noupgrade"}
 		name += "-noupgrade"
 	}
-	build("./cmd/syncthing", tags)
-	filename := name + ".zip"
-	files := []archiveFile{
-		{src: "README.md", dst: name + "/README.txt"},
-		{src: "LICENSE", dst: name + "/LICENSE.txt"},
-		{src: "AUTHORS", dst: name + "/AUTHORS.txt"},
-		{src: "syncthing.exe", dst: name + "/syncthing.exe"},
+
+	build(target, tags)
+
+	for i := range target.archiveFiles {
+		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.binaryName, 1)
+		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.binaryName, 1)
 	}
 
-	for _, file := range listFiles("extra") {
-		files = append(files, archiveFile{src: file, dst: name + "/" + filepath.Base(file)})
-	}
-
-	zipFile(filename, files)
+	zipFile(filename, target.archiveFiles)
 	log.Println(filename)
 }
 
-func buildDeb() {
+func buildDeb(target target) {
 	os.RemoveAll("deb")
 
 	// "goarch" here is set to whatever the Debian packages expect. We correct
@@ -328,33 +399,14 @@ func buildDeb() {
 		goarch = "arm"
 	}
 
-	build("./cmd/syncthing", []string{"noupgrade"})
+	build(target, []string{"noupgrade"})
 
-	files := []archiveFile{
-		{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},
-		{src: "LICENSE", dst: "deb/usr/share/doc/syncthing/LICENSE.txt", perm: 0644},
-		{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing/AUTHORS.txt", perm: 0644},
-		{src: "syncthing", dst: "deb/usr/bin/syncthing", perm: 0755},
-		{src: "man/syncthing.1", dst: "deb/usr/share/man/man1/syncthing.1", perm: 0644},
-		{src: "man/syncthing-config.5", dst: "deb/usr/share/man/man5/syncthing-config.5", perm: 0644},
-		{src: "man/syncthing-stignore.5", dst: "deb/usr/share/man/man5/syncthing-stignore.5", perm: 0644},
-		{src: "man/syncthing-device-ids.7", dst: "deb/usr/share/man/man7/syncthing-device-ids.7", perm: 0644},
-		{src: "man/syncthing-event-api.7", dst: "deb/usr/share/man/man7/syncthing-event-api.7", perm: 0644},
-		{src: "man/syncthing-faq.7", dst: "deb/usr/share/man/man7/syncthing-faq.7", perm: 0644},
-		{src: "man/syncthing-networking.7", dst: "deb/usr/share/man/man7/syncthing-networking.7", perm: 0644},
-		{src: "man/syncthing-rest-api.7", dst: "deb/usr/share/man/man7/syncthing-rest-api.7", perm: 0644},
-		{src: "man/syncthing-security.7", dst: "deb/usr/share/man/man7/syncthing-security.7", perm: 0644},
-		{src: "man/syncthing-versioning.7", dst: "deb/usr/share/man/man7/syncthing-versioning.7", perm: 0644},
-		{src: "etc/linux-systemd/system/syncthing@.service", dst: "deb/lib/systemd/system/syncthing@.service", perm: 0644},
-		{src: "etc/linux-systemd/system/syncthing-resume.service", dst: "deb/lib/systemd/system/syncthing-resume.service", perm: 0644},
-		{src: "etc/linux-systemd/user/syncthing.service", dst: "deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
+	for i := range target.debianFiles {
+		target.debianFiles[i].src = strings.Replace(target.debianFiles[i].src, "{{binary}}", target.binaryName, 1)
+		target.debianFiles[i].dst = strings.Replace(target.debianFiles[i].dst, "{{binary}}", target.binaryName, 1)
 	}
 
-	for _, file := range listFiles("extra") {
-		files = append(files, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
-	}
-
-	for _, af := range files {
+	for _, af := range target.debianFiles {
 		if err := copyFile(af.src, af.dst, af.perm); err != nil {
 			log.Fatal(err)
 		}
@@ -363,11 +415,14 @@ func buildDeb() {
 	os.MkdirAll("deb/DEBIAN", 0755)
 
 	data := map[string]string{
+		"name":    target.name,
 		"arch":    debarch,
 		"version": version[1:],
 		"date":    time.Now().Format(time.RFC1123),
 	}
-	for _, file := range listFiles("debian") {
+
+	debTemplateFiles := append(listFiles("debian/common"), listFiles("debian/"+target.name)...)
+	for _, file := range debTemplateFiles {
 		tpl, err := template.New(filepath.Base(file)).ParseFiles(file)
 		if err != nil {
 			log.Fatal(err)
@@ -634,8 +689,8 @@ func buildArch() string {
 	return fmt.Sprintf("%s-%s", os, goarch)
 }
 
-func archiveName() string {
-	return fmt.Sprintf("syncthing-%s-%s", buildArch(), version)
+func archiveName(target target) string {
+	return fmt.Sprintf("%s-%s-%s", target.name, buildArch(), version)
 }
 
 func run(cmd string, args ...string) []byte {
@@ -679,12 +734,6 @@ func runPipe(file, cmd string, args ...string) {
 		log.Fatal(err)
 	}
 	fd.Close()
-}
-
-type archiveFile struct {
-	src  string
-	dst  string
-	perm os.FileMode
 }
 
 func tarGz(out string, files []archiveFile) {

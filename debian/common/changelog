@@ -1,4 +1,4 @@
-syncthing ({{.version}}); urgency=medium
+{{.name}} ({{.version}}); urgency=medium
 
   * Packaging of {{.version}}.
 
