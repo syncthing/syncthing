@@ -83,6 +83,8 @@ Docker
 -  https://github.com/joeybaker/docker-syncthing/ A fully baked docker
    container that allows custom config and will keep your settings and
    data past docker image restarts.
+-  https://github.com/djtm/syncthing-docker-scratch (builds docker containers 
+   from scratch base and/or runs the containers in docker or rkt)
 
 
 Gentoo
