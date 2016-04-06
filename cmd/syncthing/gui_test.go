@@ -417,3 +417,13 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase) {
 		return
 	}
 }
+
+func TestVerifyTickerSleeps(t *testing.T) {
+	t0 := time.Now()
+	tc := time.NewTicker(150 * time.Millisecond)
+	defer tc.Stop()
+	<-tc.C
+	if time.Since(t0) < 150*time.Millisecond {
+		t.Fatalf("Ticker should not fire before specified interval")
+	}
+}
