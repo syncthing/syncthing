@@ -2109,8 +2109,8 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 		} else {
 			l.Debugln("The sub " + sub + " is not indexed")
 			var subdir string
-			//initialising subdir and looping till an already indexed dir is found, The last unindexed dir/file is returned
-			//e.g: sub=adir/bdir/cfile, where only adir is indexed. sub is changed to adir/bdir
+			// Initialising subdir and looping till an already indexed dir is found, The last unindexed dir/file is returned
+			// e.g: sub=adir/bdir/cfile, where only adir is indexed. sub is changed to adir/bdir
 			for subdir = filepath.Dir(sub); !exists(subdir) && subdir != "." && subdir != string(filepath.Separator); subdir = filepath.Dir(sub) {
 				l.Debugln("subdir in loop: " + subdir)
 				sub = subdir
@@ -2119,7 +2119,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 				// Possible wrong sub
 				// 1) sub beginning with filepath.Separator, sub=/adir/bdir/cfile instead of sub=adir/bdir/cfile i.e absolute path instead of path relative to syncthing's root folder
 				// 2) sub=//// (or) sub=// etc.
-				// Putting a debug message and scanning whole folder
+				// Putting a debug message and scanning whole folder.
 				// We are going to scan the full folder, so we can
 				// just return an empty list of subs at this point.
 				l.Debugln("Sub starting with filepath separator found, scanning whole folder root")
