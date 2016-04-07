@@ -22,11 +22,17 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
+var notMatched = Result{
+	include:   false,
+	deletable: false,
+}
+
 type Pattern struct {
-	pattern  string
-	match    glob.Glob
-	include  bool
-	foldCase bool
+	pattern   string
+	match     glob.Glob
+	include   bool
+	foldCase  bool
+	deletable bool
 }
 
 func (p Pattern) String() string {
@@ -37,7 +43,23 @@ func (p Pattern) String() string {
 	if p.foldCase {
 		ret = "(?i)" + ret
 	}
+	if p.deletable {
+		ret = "(?d)" + ret
+	}
 	return ret
+}
+
+type Result struct {
+	include   bool
+	deletable bool
+}
+
+func (r Result) IsIgnored() bool {
+	return r.include
+}
+
+func (r Result) IsDeletable() bool {
+	return r.include && r.deletable
 }
 
 type Matcher struct {
@@ -99,16 +121,16 @@ func (m *Matcher) Parse(r io.Reader, file string) error {
 	return err
 }
 
-func (m *Matcher) Match(file string) (result bool) {
+func (m *Matcher) Match(file string) (result Result) {
 	if m == nil {
-		return false
+		return notMatched
 	}
 
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	if len(m.patterns) == 0 {
-		return false
+		return notMatched
 	}
 
 	if m.matches != nil {
@@ -133,17 +155,23 @@ func (m *Matcher) Match(file string) (result bool) {
 				lowercaseFile = strings.ToLower(file)
 			}
 			if pattern.match.Match(lowercaseFile) {
-				return pattern.include
+				return Result{
+					pattern.include,
+					pattern.deletable,
+				}
 			}
 		} else {
 			if pattern.match.Match(file) {
-				return pattern.include
+				return Result{
+					pattern.include,
+					pattern.deletable,
+				}
 			}
 		}
 	}
 
 	// Default to false.
-	return false
+	return notMatched
 }
 
 // Patterns return a list of the loaded patterns, as they've been parsed
@@ -223,14 +251,25 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			foldCase: runtime.GOOS == "darwin" || runtime.GOOS == "windows",
 		}
 
-		if strings.HasPrefix(line, "!") {
-			line = line[1:]
-			pattern.include = false
-		}
+		// Allow prefixes to be specified in any order, but only once.
+		var seenPrefix [3]bool
 
-		if strings.HasPrefix(line, "(?i)") {
-			pattern.foldCase = true
-			line = line[4:]
+		for {
+			if strings.HasPrefix(line, "!") && !seenPrefix[0] {
+				seenPrefix[0] = true
+				line = line[1:]
+				pattern.include = false
+			} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
+				seenPrefix[1] = true
+				pattern.foldCase = true
+				line = line[4:]
+			} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
+				seenPrefix[2] = true
+				pattern.deletable = true
+				line = line[4:]
+			} else {
+				break
+			}
 		}
 
 		if pattern.foldCase {
