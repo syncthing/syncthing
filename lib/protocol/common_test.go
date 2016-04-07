@@ -2,10 +2,7 @@
 
 package protocol
 
-import (
-	"io"
-	"time"
-)
+import "time"
 
 type TestModel struct {
 	data      []byte
@@ -59,25 +56,4 @@ func (t *TestModel) closedError() error {
 	case <-time.After(1 * time.Second):
 		return nil // Timeout
 	}
-}
-
-type ErrPipe struct {
-	io.PipeWriter
-	written int
-	max     int
-	err     error
-	closed  bool
-}
-
-func (e *ErrPipe) Write(data []byte) (int, error) {
-	if e.closed {
-		return 0, e.err
-	}
-	if e.written+len(data) > e.max {
-		n, _ := e.PipeWriter.Write(data[:e.max-e.written])
-		e.PipeWriter.CloseWithError(e.err)
-		e.closed = true
-		return n, e.err
-	}
-	return e.PipeWriter.Write(data)
 }

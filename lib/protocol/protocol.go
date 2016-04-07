@@ -566,16 +566,6 @@ func (c *rawConnection) handleResponse(msgID int, resp ResponseMessage) {
 	c.awaitingMut.Unlock()
 }
 
-func (c *rawConnection) handlePong(msgID int) {
-	c.awaitingMut.Lock()
-	if rc := c.awaiting[msgID]; rc != nil {
-		c.awaiting[msgID] = nil
-		rc <- asyncResult{}
-		close(rc)
-	}
-	c.awaitingMut.Unlock()
-}
-
 func (c *rawConnection) send(msgID int, msgType int, msg encodable, done chan struct{}) bool {
 	if msgID < 0 {
 		select {

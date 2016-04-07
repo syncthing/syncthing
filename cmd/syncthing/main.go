@@ -117,7 +117,6 @@ func init() {
 var (
 	myID protocol.DeviceID
 	stop = make(chan int)
-	cert tls.Certificate
 	lans []*net.IPNet
 )
 
