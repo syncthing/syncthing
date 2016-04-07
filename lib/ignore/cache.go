@@ -14,7 +14,7 @@ type cache struct {
 }
 
 type cacheEntry struct {
-	value  bool
+	result Result
 	access time.Time
 }
 
@@ -33,17 +33,17 @@ func (c *cache) clean(d time.Duration) {
 	}
 }
 
-func (c *cache) get(key string) (result, ok bool) {
-	res, ok := c.entries[key]
+func (c *cache) get(key string) (Result, bool) {
+	entry, ok := c.entries[key]
 	if ok {
-		res.access = time.Now()
-		c.entries[key] = res
+		entry.access = time.Now()
+		c.entries[key] = entry
 	}
-	return res.value, ok
+	return entry.result, ok
 }
 
-func (c *cache) set(key string, val bool) {
-	c.entries[key] = cacheEntry{val, time.Now()}
+func (c *cache) set(key string, result Result) {
+	c.entries[key] = cacheEntry{result, time.Now()}
 }
 
 func (c *cache) len() int {
