@@ -2104,15 +2104,15 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 			// just return an empty list of subs at this point.
 			return nil
 		} else if exists(sub) {
-			l.Debugln("The sub "+ sub +" exists/indexed and will be scanned")
+			l.Debugln("The sub " + sub + " exists/indexed and will be scanned")
 			subs = append(subs, sub)
-		}  else {
-			l.Debugln("The sub "+  sub +" is not indexed")
+		} else {
+			l.Debugln("The sub " + sub + " is not indexed")
 			var subdir string
 			//initialising subdir and looping till an already indexed dir is found, The last unindexed dir/file is returned
 			//e.g: sub=adir/bdir/cfile, where only adir is indexed. sub is changed to adir/bdir
-			for subdir = filepath.Dir(sub); !exists(subdir) && subdir != "." && subdir != string(filepath.Separator) ; subdir = filepath.Dir(sub) {
-				l.Debugln("subdir in loop: "+ subdir)
+			for subdir = filepath.Dir(sub); !exists(subdir) && subdir != "." && subdir != string(filepath.Separator); subdir = filepath.Dir(sub) {
+				l.Debugln("subdir in loop: " + subdir)
 				sub = subdir
 			}
 			if subdir == string(filepath.Separator) {
