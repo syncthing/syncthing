@@ -39,6 +39,7 @@ type OptionsConfiguration struct {
 	MinHomeDiskFreePct      float64  `xml:"minHomeDiskFreePct" json:"minHomeDiskFreePct" default:"1"`
 	ReleasesURL             string   `xml:"releasesURL" json:"releasesURL" default:"https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"`
 	AlwaysLocalNets         []string `xml:"alwaysLocalNet" json:"alwaysLocalNets"`
+	OverwriteNames          bool     `xml:"overwriteNames" json:"overwriteNames" default:"false"`
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {

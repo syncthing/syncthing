@@ -1011,7 +1011,7 @@ func (m *Model) AddConnection(conn Connection, hello protocol.HelloMessage) {
 	l.Infof(`Device %s client is "%s %s" named "%s"`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName)
 
 	device, ok := m.cfg.Devices()[deviceID]
-	if ok && device.Name == "" {
+	if ok && (device.Name == "" || m.cfg.Options().OverwriteNames) {
 		device.Name = hello.DeviceName
 		m.cfg.SetDevice(device)
 		m.cfg.Save()
