@@ -2100,8 +2100,8 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 
 	// Trim each item to itself or its closest known parent
 	for _, sub := range dirs {
-		sub = strings.Trim(sub,sep)
-		l.Debugln("The trimmed sub is :" sub)
+		sub = strings.Trim(sub, sep)
+		l.Debugln("The trimmed sub is :" + sub)
 		if sub == "" || sub == "." {
 			// Shortcut. We are going to scan the full folder, so we can
 			// just return an empty list of subs at this point.
