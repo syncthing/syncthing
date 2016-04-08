@@ -1223,23 +1223,49 @@ func TestUnifySubs(t *testing.T) {
 		out    []string // expected output
 	}{
 		{
+			// check changed - new cehck follows
 			// trailing slashes are cleaned, known paths are just passed on
 			[]string{"foo/", "bar//"},
 			[]string{"foo", "bar"},
 			[]string{"bar", "foo"}, // the output is sorted
 		},
 		{
+			// absence of separator trimmimg at the end
+			// trailing slashes are cleaned, known paths are just passed on
+			[]string{"foo/", "bar//"},
+			[]string{"foo", "bar"},
+			[]string{"bar//", "foo/"}, // the output is sorted
+		},
+		{
+			// check changed - new check follows
 			// "foo/bar" gets trimmed as it's covered by foo
 			[]string{"foo", "bar/", "foo/bar/"},
 			[]string{"foo", "bar"},
 			[]string{"bar", "foo"},
 		},
 		{
+			// absence of separator trimmimg at the end puts "bar/" in the list
+			// "bar/" is different from "bar" according to index but the scan underneath does the correct scan
+			// "foo/bar" gets trimmed as it's covered by foo
+			[]string{"foo", "bar/", "foo/bar/"},
+			[]string{"foo", "bar"},
+			[]string{"bar/", "foo"},
+		},
+		{
+			// check changed - new check follows
 			// "bar" gets trimmed to "" as it's unknown,
 			// "" gets simplified to the empty list
 			[]string{"foo", "bar", "foo/bar"},
 			[]string{"foo"},
 			nil,
+		},
+		{
+			// foo gets added in list
+			// "bar" gets added in list (only the unscanned file is added and not its parent dir)
+			// "foo/bar" is unknown, gets simplified to "foo" which is already present, hence ignored
+			[]string{"foo", "bar", "foo/bar"},
+			[]string{"foo"},
+			[]string{"bar", "foo"},
 		},
 		{
 			// two independent known paths, both are kept
@@ -1255,6 +1281,7 @@ func TestUnifySubs(t *testing.T) {
 			[]string{"usr/lib"},
 		},
 		{
+			// check changed - new cehck follows
 			// .stignore and .stfolder are special and are passed on
 			// verbatim even though they are unknown
 			[]string{".stfolder", ".stignore"},
@@ -1262,11 +1289,29 @@ func TestUnifySubs(t *testing.T) {
 			[]string{".stfolder", ".stignore"},
 		},
 		{
+			// .stignore and .stfolder are not considered special
+			// .stfolder is passed on and not scanned as it is rejected by walk.go
+			// .stignore is handled like a normal file
+			//	walk.go:246: DEBUG: ignored: .stfolder
+			//	walk.go:214: DEBUG: error: /opt/syncthing/test/.stignore <nil> lstat /opt/syncthing/test/.stignore: no such file or directory
+			[]string{".stfolder", ".stignore"},
+			[]string{},
+			[]string{".stfolder", ".stignore"},
+		},
+		{
+			// check changed - new check follows
 			// but the presense of something else unknown forces an actual
 			// scan
 			[]string{".stfolder", ".stignore", "foo/bar"},
 			[]string{},
 			nil,
+		},
+		{
+			// the presense of something else doesn't affect .stfolder and .stignore
+			// "foo/bar" is trimmed to "foo"
+			[]string{".stfolder", ".stignore", "foo/bar"},
+			[]string{},
+			[]string{".stfolder", ".stignore", "foo"},
 		},
 	}
 
