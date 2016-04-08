@@ -2101,21 +2101,21 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	// Trim each item to itself or its closest known parent
 	for _, sub := range dirs {
 		sub = strings.Trim(sub, sep)
-		l.Debugln("The trimmed sub is :" + sub)
+		l.Debugln("The trimmed sub is:", sub)
 		if sub == "" || sub == "." {
 			// Shortcut. We are going to scan the full folder, so we can
 			// just return an empty list of subs at this point.
 			return nil
 		} else if exists(sub) {
-			l.Debugln("The sub " + sub + " exists/indexed and will be scanned")
+			l.Debugln("The sub ", sub, " exists/indexed and will be scanned")
 			subs = append(subs, sub)
 		} else {
-			l.Debugln("The sub " + sub + " is not indexed")
+			l.Debugln("The sub ", sub, " is not indexed")
 			var subdir string
 			// Initialising subdir and looping till an already indexed dir is found, The last unindexed dir/file is returned
 			// e.g: sub=adir/bdir/cfile, where only adir is indexed. sub is changed to adir/bdir
 			for subdir = filepath.Dir(sub); !exists(subdir) && subdir != "." && subdir != sep; subdir = filepath.Dir(sub) {
-				l.Debugln("subdir in loop: " + subdir)
+				l.Debugln("subdir in loop:", subdir)
 				sub = subdir
 			}
 			subs = append(subs, sub)
