@@ -267,7 +267,6 @@ func checkRequiredGoVersion() (float64, bool) {
 
 func setup() {
 	runPrint("go", "get", "-v", "golang.org/x/tools/cmd/cover")
-	runPrint("go", "get", "-v", "golang.org/x/tools/cmd/vet")
 	runPrint("go", "get", "-v", "golang.org/x/net/html")
 	runPrint("go", "get", "-v", "github.com/FiloSottile/gvt")
 	runPrint("go", "get", "-v", "github.com/axw/gocov/gocov")
@@ -356,6 +355,7 @@ func buildTar(target target) {
 	for i := range target.archiveFiles {
 		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.binaryName, 1)
 		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.binaryName, 1)
+		target.archiveFiles[i].dst = name + "/" + target.archiveFiles[i].dst
 	}
 
 	tarGz(filename, target.archiveFiles)
@@ -379,6 +379,7 @@ func buildZip(target target) {
 	for i := range target.archiveFiles {
 		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.binaryName, 1)
 		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.binaryName, 1)
+		target.archiveFiles[i].dst = name + "/" + target.archiveFiles[i].dst
 	}
 
 	zipFile(filename, target.archiveFiles)
