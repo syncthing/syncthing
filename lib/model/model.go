@@ -2097,18 +2097,23 @@ func stringSliceWithout(ss []string, s string) []string {
 func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	var subs []string
 
-	// Trim each item to itself or its closest known parent
+	// Trim each item until it or its parent is known
 	for _, sub := range dirs {
 		for sub != "" && sub != ".stfolder" && sub != ".stignore" {
-			if exists(sub) {
+			sub = filepath.Clean(sub)
+			parent := filepath.Dir(sub)
+			if parent == "." || exists(parent) {
 				break
 			}
-			sub = filepath.Dir(sub)
+			sub = parent
 			if sub == "." || sub == string(filepath.Separator) {
 				// Shortcut. We are going to scan the full folder, so we can
 				// just return an empty list of subs at this point.
 				return nil
 			}
+		}
+		if sub == "" {
+			return nil
 		}
 		subs = append(subs, sub)
 	}
