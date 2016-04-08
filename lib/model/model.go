@@ -2136,7 +2136,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 next:
 	for _, sub := range subs {
 		for _, existing := range cleaned {
-			if sub == existing || strings.HasPrefix(sub, existing+string(os.PathSeparator)) {
+			if sub == existing || strings.HasPrefix(sub, existing+sep) {
 				continue next
 			}
 		}
