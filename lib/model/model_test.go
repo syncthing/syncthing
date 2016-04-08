@@ -1223,19 +1223,16 @@ func TestUnifySubs(t *testing.T) {
 		out    []string // expected output
 	}{
 		{
-			// absence of separator trimmimg at the end
 			// trailing slashes are cleaned, known paths are just passed on
 			[]string{"foo/", "bar//"},
 			[]string{"foo", "bar"},
-			[]string{"bar//", "foo/"}, // the output is sorted
+			[]string{"bar", "foo"}, // the output is sorted
 		},
 		{
-			// absence of separator trimmimg at the end puts "bar/" in the list
-			// "bar/" is different from "bar" according to index but the scan underneath does the correct scan
 			// "foo/bar" gets trimmed as it's covered by foo
 			[]string{"foo", "bar/", "foo/bar/"},
 			[]string{"foo", "bar"},
-			[]string{"bar/", "foo"},
+			[]string{"bar", "foo"},
 		},
 		{
 			// foo gets added in list
