@@ -721,6 +721,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if err != nil {
 		l.Fatalln("Bad listen address:", err)
 	}
+	if addr.Port == 0 {
+		l.Fatalf("Listen address %s: invalid port", uri)
+	}
 
 	// Start UPnP
 	var upnpService *upnp.Service
