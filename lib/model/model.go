@@ -2100,7 +2100,9 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 
 	// Trim each item to itself or its closest known parent
 	for _, sub := range dirs {
-		if sub == "" || sub == "." || sub == sep {
+		sub = strings.Trim(sub,sep)
+		l.Debugln("The trimmed sub is :" sub)
+		if sub == "" || sub == "." {
 			// Shortcut. We are going to scan the full folder, so we can
 			// just return an empty list of subs at this point.
 			return nil
@@ -2115,16 +2117,6 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 			for subdir = filepath.Dir(sub); !exists(subdir) && subdir != "." && subdir != sep; subdir = filepath.Dir(sub) {
 				l.Debugln("subdir in loop: " + subdir)
 				sub = subdir
-			}
-			if subdir == sep {
-				// Possible wrong sub
-				// 1) sub beginning with filepath.Separator, sub=/adir/bdir/cfile instead of sub=adir/bdir/cfile i.e absolute path instead of path relative to syncthing's root folder
-				// 2) sub=//// (or) sub=// etc.
-				// Putting a debug message and scanning whole folder.
-				// We are going to scan the full folder, so we can
-				// just return an empty list of subs at this point.
-				l.Debugln("Sub starting with filepath separator found, scanning whole folder root")
-				return nil
 			}
 			subs = append(subs, sub)
 		}
