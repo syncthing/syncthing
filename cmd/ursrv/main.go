@@ -27,7 +27,7 @@ var (
 	dbConn            = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
 	listenAddr        = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
 	tpl               *template.Template
-	compilerRe        = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) [\w-]+ \w+\) ([\w@-]+)`)
+	compilerRe        = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
 	aggregateVersions = []string{"v0.7", "v0.8", "v0.9", "v0.10"}
 )
 
