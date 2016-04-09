@@ -45,10 +45,6 @@ var testdata = testfileList{
 	{"further-excludes", 5, "7eb0a548094fa6295f7fd9200d69973e5f5ec5c04f2a86d998080ac43ecf89f1"},
 }
 
-var correctIgnores = map[string][]string{
-	".": {".*", "quux"},
-}
-
 func init() {
 	// This test runs the risk of entering infinite recursion if it fails.
 	// Limit the stack size to 10 megs to crash early in that case instead of
