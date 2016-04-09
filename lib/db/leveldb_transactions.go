@@ -100,7 +100,7 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 	var oldFile protocol.FileInfo
 	var hasOldFile bool
 	// Remove the device from the current version list
-	if svl != nil {
+	if len(svl) != 0 {
 		err = fl.UnmarshalXDR(svl)
 		if err != nil {
 			panic(err)
