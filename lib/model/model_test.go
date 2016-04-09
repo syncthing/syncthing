@@ -357,6 +357,19 @@ func TestDeviceRename(t *testing.T) {
 	if cfgw.Devices()[device1].Name != "tester" {
 		t.Errorf("Device name not saved in config")
 	}
+
+	m.Close(device1, protocol.ErrTimeout)
+
+	opts := cfg.Options()
+	opts.OverwriteNames = true
+	cfg.SetOptions(opts)
+
+	hello.DeviceName = "tester2"
+	m.AddConnection(conn, hello)
+
+	if cfg.Devices()[device1].Name != "tester2" {
+		t.Errorf("Device name not overwritten")
+	}
 }
 
 func TestClusterConfig(t *testing.T) {
