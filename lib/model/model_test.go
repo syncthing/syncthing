@@ -1287,6 +1287,18 @@ func TestUnifySubs(t *testing.T) {
 			[]string{},
 			[]string{".stfolder", ".stignore", "foo"},
 		},
+		{
+			// 8. explicit request to scan all
+			nil,
+			[]string{"foo"},
+			nil,
+		},
+		{
+			// 9. empty list of subs
+			[]string{},
+			[]string{"foo"},
+			nil,
+		},
 	}
 
 	if runtime.GOOS == "windows" {
