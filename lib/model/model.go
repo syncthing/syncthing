@@ -2092,21 +2092,30 @@ func stringSliceWithout(ss []string, s string) []string {
 // list, we don't also need foo/bar/ because that's already covered.
 func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	var subs []string
+	sep := string(filepath.Separator)
 
 	// Trim each item to itself or its closest known parent
 	for _, sub := range dirs {
-		for sub != "" && sub != ".stfolder" && sub != ".stignore" {
-			if exists(sub) {
-				break
+		sub = strings.Trim(sub, sep)
+		l.Debugln("The trimmed sub is:", sub)
+		if sub == "" || sub == "." {
+			// Shortcut. We are going to scan the full folder, so we can
+			// just return an empty list of subs at this point.
+			return nil
+		} else if exists(sub) {
+			l.Debugln("The sub ", sub, " exists/indexed and will be scanned")
+			subs = append(subs, sub)
+		} else {
+			l.Debugln("The sub ", sub, " is not indexed")
+			var subdir string
+			// Initialising subdir and looping till an already indexed dir is found, The last unindexed dir/file is returned
+			// e.g: sub=adir/bdir/cfile, where only adir is indexed. sub is changed to adir/bdir
+			for subdir = filepath.Dir(sub); !exists(subdir) && subdir != "." && subdir != sep; subdir = filepath.Dir(sub) {
+				l.Debugln("subdir in loop:", subdir)
+				sub = subdir
 			}
-			sub = filepath.Dir(sub)
-			if sub == "." || sub == string(filepath.Separator) {
-				// Shortcut. We are going to scan the full folder, so we can
-				// just return an empty list of subs at this point.
-				return nil
-			}
+			subs = append(subs, sub)
 		}
-		subs = append(subs, sub)
 	}
 
 	// Remove any paths that are already covered by their parent
@@ -2115,7 +2124,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 next:
 	for _, sub := range subs {
 		for _, existing := range cleaned {
-			if sub == existing || strings.HasPrefix(sub, existing+string(os.PathSeparator)) {
+			if sub == existing || strings.HasPrefix(sub, existing+sep) {
 				continue next
 			}
 		}
