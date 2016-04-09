@@ -2086,31 +2086,39 @@ func stringSliceWithout(ss []string, s string) []string {
 	return ss
 }
 
-// unifySubs takes a list of files or directories and trims them down to
-// themselves or the closest parent that exists() returns true for, while
-// removing duplicates and subdirectories. That is, if we have foo/ in the
-// list, we don't also need foo/bar/ because that's already covered.
+// The exists function is expected to return true for all known paths
+// (excluding "" and ".")
 func unifySubs(dirs []string, exists func(dir string) bool) []string {
-	var subs []string
+	subs := trimUntilParentKnown(dirs, exists)
+	sort.Strings(subs)
+	return simplifySortedPaths(subs)
+}
 
-	// Trim each item to itself or its closest known parent
+func trimUntilParentKnown(dirs []string, exists func(dir string) bool) []string {
+	var subs []string
 	for _, sub := range dirs {
 		for sub != "" && sub != ".stfolder" && sub != ".stignore" {
-			if exists(sub) {
+			sub = filepath.Clean(sub)
+			parent := filepath.Dir(sub)
+			if parent == "." || exists(parent) {
 				break
 			}
-			sub = filepath.Dir(sub)
+			sub = parent
 			if sub == "." || sub == string(filepath.Separator) {
 				// Shortcut. We are going to scan the full folder, so we can
 				// just return an empty list of subs at this point.
 				return nil
 			}
 		}
+		if sub == "" {
+			return nil
+		}
 		subs = append(subs, sub)
 	}
+	return subs
+}
 
-	// Remove any paths that are already covered by their parent
-	sort.Strings(subs)
+func simplifySortedPaths(subs []string) []string {
 	var cleaned []string
 next:
 	for _, sub := range subs {

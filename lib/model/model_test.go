@@ -1236,50 +1236,56 @@ func TestUnifySubs(t *testing.T) {
 		out    []string // expected output
 	}{
 		{
-			// trailing slashes are cleaned, known paths are just passed on
+			// 0. trailing slashes are cleaned, known paths are just passed on
 			[]string{"foo/", "bar//"},
 			[]string{"foo", "bar"},
 			[]string{"bar", "foo"}, // the output is sorted
 		},
 		{
-			// "foo/bar" gets trimmed as it's covered by foo
+			// 1. "foo/bar" gets trimmed as it's covered by foo
 			[]string{"foo", "bar/", "foo/bar/"},
 			[]string{"foo", "bar"},
 			[]string{"bar", "foo"},
 		},
 		{
-			// "bar" gets trimmed to "" as it's unknown,
-			// "" gets simplified to the empty list
-			[]string{"foo", "bar", "foo/bar"},
+			// 2. "" gets simplified to the empty list; ie scan all
+			[]string{"foo", ""},
 			[]string{"foo"},
 			nil,
 		},
 		{
-			// two independent known paths, both are kept
+			// 3. "foo/bar" is unknown, but it's kept
+			// because its parent is known
+			[]string{"foo/bar"},
+			[]string{"foo"},
+			[]string{"foo/bar"},
+		},
+		{
+			// 4. two independent known paths, both are kept
 			// "usr/lib" is not a prefix of "usr/libexec"
 			[]string{"usr/lib", "usr/libexec"},
-			[]string{"usr/lib", "usr/libexec"},
+			[]string{"usr", "usr/lib", "usr/libexec"},
 			[]string{"usr/lib", "usr/libexec"},
 		},
 		{
-			// "usr/lib" is a prefix of "usr/lib/exec"
+			// 5. "usr/lib" is a prefix of "usr/lib/exec"
 			[]string{"usr/lib", "usr/lib/exec"},
-			[]string{"usr/lib", "usr/libexec"},
+			[]string{"usr", "usr/lib", "usr/libexec"},
 			[]string{"usr/lib"},
 		},
 		{
-			// .stignore and .stfolder are special and are passed on
+			// 6. .stignore and .stfolder are special and are passed on
 			// verbatim even though they are unknown
 			[]string{".stfolder", ".stignore"},
 			[]string{},
 			[]string{".stfolder", ".stignore"},
 		},
 		{
-			// but the presense of something else unknown forces an actual
+			// 7. but the presense of something else unknown forces an actual
 			// scan
 			[]string{".stfolder", ".stignore", "foo/bar"},
 			[]string{},
-			nil,
+			[]string{".stfolder", ".stignore", "foo"},
 		},
 	}
 
