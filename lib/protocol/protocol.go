@@ -40,12 +40,12 @@ const (
 
 // FileInfo flags
 const (
-	FlagDeleted              uint32 = 1 << 12
-	FlagInvalid                     = 1 << 13
-	FlagDirectory                   = 1 << 14
-	FlagNoPermBits                  = 1 << 15
-	FlagSymlink                     = 1 << 16
-	FlagSymlinkMissingTarget        = 1 << 17
+	FlagDeleted              uint32 = 1 << 12 // bit 19 in MSB order with the first bit being #0
+	FlagInvalid                     = 1 << 13 // bit 18
+	FlagDirectory                   = 1 << 14 // bit 17
+	FlagNoPermBits                  = 1 << 15 // bit 16
+	FlagSymlink                     = 1 << 16 // bit 15
+	FlagSymlinkMissingTarget        = 1 << 17 // bit 14
 
 	FlagsAll = (1 << 18) - 1
 
