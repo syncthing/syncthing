@@ -38,13 +38,14 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/upnp"
+	_ "github.com/syncthing/syncthing/lib/upnp"
 	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/thejerf/suture"
@@ -557,10 +558,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	// We reinitialize the predictable RNG with our device ID, to get a
-	// sequence that is always the same but unique to this syncthing instance.
-	util.PredictableRandom.Seed(util.SeedFromBytes(cert.Certificate[0]))
-
 	myID = protocol.NewDeviceID(cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
 
@@ -709,26 +706,30 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	mainService.Add(m)
 
-	// The default port we announce, possibly modified by setupUPnP next.
+	// Start NAT service
+	var natService *nat.Service
+	var mappings []*nat.Mapping
+	if opts.NATEnabled {
+		natService = nat.NewService(myID, cfg)
+		for _, addrStr := range opts.ListenAddress {
+			uri, err := url.Parse(addrStr)
+			if err != nil {
+				l.Fatalf("Failed to parse listen address %s: %v", addrStr, err)
+			}
 
-	uri, err := url.Parse(opts.ListenAddress[0])
-	if err != nil {
-		l.Fatalf("Failed to parse listen address %s: %v", opts.ListenAddress[0], err)
-	}
+			if uri.Scheme == "tcp" || uri.Scheme == "tcp4" {
+				addr, err := net.ResolveTCPAddr(uri.Scheme, uri.Host)
+				if err != nil {
+					l.Fatalln("Bad listen address:", err)
+				}
+				if addr.Port == 0 {
+					l.Fatalf("Listen address %s: invalid port", uri)
+				}
 
-	addr, err := net.ResolveTCPAddr("tcp", uri.Host)
-	if err != nil {
-		l.Fatalln("Bad listen address:", err)
-	}
-	if addr.Port == 0 {
-		l.Fatalf("Listen address %s: invalid port", uri)
-	}
-
-	// Start UPnP
-	var upnpService *upnp.Service
-	if opts.UPnPEnabled {
-		upnpService = upnp.NewUPnPService(cfg, addr.Port)
-		mainService.Add(upnpService)
+				mappings = append(mappings, natService.NewMapping(nat.TCP, addr.IP, addr.Port))
+			}
+		}
+		mainService.Add(natService)
 	}
 
 	// Start relay management
@@ -746,7 +747,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Start connection management
 
-	connectionService := connections.NewConnectionService(cfg, myID, m, tlsCfg, cachedDiscovery, upnpService, relayService, bepProtocolName, tlsDefaultCommonName, lans)
+	connectionService := connections.NewConnectionService(cfg, myID, m, tlsCfg, cachedDiscovery, mappings, relayService, bepProtocolName, tlsDefaultCommonName, lans)
 	mainService.Add(connectionService)
 
 	if cfg.Options().GlobalAnnEnabled {

@@ -242,6 +242,10 @@ func convertV12V13(cfg *Configuration) {
 	// Not using the ignore cache is the new default. Disable it on existing
 	// configurations.
 	cfg.Options.CacheIgnoredFiles = false
+	cfg.Options.NATEnabled = cfg.Options.DeprecatedUPnPEnabled
+	cfg.Options.NATLeaseM = cfg.Options.DeprecatedUPnPLeaseM
+	cfg.Options.NATRenewalM = cfg.Options.DeprecatedUPnPRenewalM
+	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
 	cfg.Version = 13
 }
 

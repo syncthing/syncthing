@@ -13,6 +13,9 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net"
+	"time"
+
+	"github.com/syncthing/syncthing/lib/nat"
 )
 
 // An IGDService is a specific service provided by an IGD.
@@ -23,7 +26,7 @@ type IGDService struct {
 }
 
 // AddPortMapping adds a port mapping to the specified IGD service.
-func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
+func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol nat.Protocol, externalPort, internalPort int, description string, timeout time.Duration) error {
 	tpl := `<u:AddPortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>
@@ -34,7 +37,7 @@ func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol Protocol, ex
 	<NewPortMappingDescription>%s</NewPortMappingDescription>
 	<NewLeaseDuration>%d</NewLeaseDuration>
 	</u:AddPortMapping>`
-	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol, internalPort, localIPAddress, description, timeout)
+	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol, internalPort, localIPAddress, description, timeout/time.Second)
 
 	response, err := soapRequest(s.URL, s.URN, "AddPortMapping", body)
 	if err != nil && timeout > 0 {
@@ -52,7 +55,7 @@ func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol Protocol, ex
 }
 
 // DeletePortMapping deletes a port mapping from the specified IGD service.
-func (s *IGDService) DeletePortMapping(protocol Protocol, externalPort int) error {
+func (s *IGDService) DeletePortMapping(protocol nat.Protocol, externalPort int) error {
 	tpl := `<u:DeletePortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>

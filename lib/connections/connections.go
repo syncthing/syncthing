@@ -19,11 +19,12 @@ import (
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/discover"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/relay/client"
-	"github.com/syncthing/syncthing/lib/upnp"
 	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/thejerf/suture"
@@ -56,7 +57,7 @@ type Service struct {
 	tlsCfg               *tls.Config
 	discoverer           discover.Finder
 	conns                chan model.IntermediateConnection
-	upnpService          *upnp.Service
+	mappings             []*nat.Mapping
 	relayService         relay.Service
 	bepProtocolName      string
 	tlsDefaultCommonName string
@@ -71,7 +72,7 @@ type Service struct {
 	relaysEnabled bool
 }
 
-func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, upnpService *upnp.Service,
+func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, mappings []*nat.Mapping,
 	relayService relay.Service, bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) *Service {
 	service := &Service{
 		Supervisor:           suture.NewSimple("connections.Service"),
@@ -80,7 +81,7 @@ func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model
 		model:                mdl,
 		tlsCfg:               tlsCfg,
 		discoverer:           discoverer,
-		upnpService:          upnpService,
+		mappings:             mappings,
 		relayService:         relayService,
 		conns:                make(chan model.IntermediateConnection),
 		bepProtocolName:      bepProtocolName,
@@ -138,6 +139,17 @@ func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model
 
 	if service.relayService != nil {
 		service.Add(serviceFunc(service.acceptRelayConns))
+	}
+
+	for _, mapping := range mappings {
+		mapping.OnChanged(func(m *nat.Mapping, added, removed []nat.Address) {
+			events.Default.Log(events.ExternalPortMappingChanged, map[string]interface{}{
+				"protocol": m.Protocol(),
+				"local":    m.Address().String(),
+				"added":    added,
+				"removed":  removed,
+			})
+		})
 	}
 
 	return service
@@ -531,11 +543,10 @@ func (s *Service) addresses(includePrivateIPV4 bool) []string {
 		}
 	}
 
-	// Get an external port mapping from the upnpService, if it has one. If so,
-	// add it as another unspecified address.
-	if s.upnpService != nil {
-		if port := s.upnpService.ExternalPort(); port != 0 {
-			addrs = append(addrs, fmt.Sprintf("tcp://:%d", port))
+	// Add addresses provided by the mappings from the NAT service.
+	for _, mapping := range s.mappings {
+		for _, addr := range mapping.ExternalAddresses() {
+			addrs = append(addrs, fmt.Sprintf("tcp://%s", addr))
 		}
 	}
 

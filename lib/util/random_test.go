@@ -6,26 +6,7 @@
 
 package util
 
-import (
-	"runtime"
-	"sync"
-	"testing"
-)
-
-var predictableRandomTest sync.Once
-
-func TestPredictableRandom(t *testing.T) {
-	if runtime.GOARCH != "amd64" {
-		t.Skip("Test only for 64 bit platforms; but if it works there, it should work on 32 bit")
-	}
-	predictableRandomTest.Do(func() {
-		// predictable random sequence is predictable
-		e := int64(3440579354231278675)
-		if v := int64(PredictableRandom.Int()); v != e {
-			t.Errorf("Unexpected random value %d != %d", v, e)
-		}
-	})
-}
+import "testing"
 
 func TestSeedFromBytes(t *testing.T) {
 	// should always return the same seed for the same bytes

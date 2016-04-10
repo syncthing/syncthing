@@ -147,11 +147,13 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		data := ev.Data.(map[string]string)
 		device := data["device"]
 		return fmt.Sprintf("Device %v was resumed", device)
-
 	case events.ExternalPortMappingChanged:
-		data := ev.Data.(map[string]int)
-		port := data["port"]
-		return fmt.Sprintf("External port mapping changed; new port is %d.", port)
+		data := ev.Data.(map[string]interface{})
+		protocol := data["protocol"]
+		local := data["local"]
+		added := data["added"]
+		removed := data["removed"]
+		return fmt.Sprintf("External port mapping changed; protocol: %s, local: %s, added: %s, removed: %s", protocol, local, added, removed)
 	case events.RelayStateChanged:
 		data := ev.Data.(map[string][]string)
 		newRelays := data["new"]

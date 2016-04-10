@@ -20,10 +20,10 @@ type OptionsConfiguration struct {
 	RelaysEnabled           bool     `xml:"relaysEnabled" json:"relaysEnabled" default:"true"`
 	RelayReconnectIntervalM int      `xml:"relayReconnectIntervalM" json:"relayReconnectIntervalM" default:"10"`
 	StartBrowser            bool     `xml:"startBrowser" json:"startBrowser" default:"true"`
-	UPnPEnabled             bool     `xml:"upnpEnabled" json:"upnpEnabled" default:"true"`
-	UPnPLeaseM              int      `xml:"upnpLeaseMinutes" json:"upnpLeaseMinutes" default:"60"`
-	UPnPRenewalM            int      `xml:"upnpRenewalMinutes" json:"upnpRenewalMinutes" default:"30"`
-	UPnPTimeoutS            int      `xml:"upnpTimeoutSeconds" json:"upnpTimeoutSeconds" default:"10"`
+	NATEnabled              bool     `xml:"natEnabled" json:"natEnabled" default:"true"`
+	NATLeaseM               int      `xml:"natLeaseMinutes" json:"natLeaseMinutes" default:"60"`
+	NATRenewalM             int      `xml:"natRenewalMinutes" json:"natRenewalMinutes" default:"30"`
+	NATTimeoutS             int      `xml:"natTimeoutSeconds" json:"natTimeoutSeconds" default:"10"`
 	URAccepted              int      `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
 	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
 	URURL                   string   `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"`
@@ -40,6 +40,11 @@ type OptionsConfiguration struct {
 	ReleasesURL             string   `xml:"releasesURL" json:"releasesURL" default:"https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"`
 	AlwaysLocalNets         []string `xml:"alwaysLocalNet" json:"alwaysLocalNets"`
 	OverwriteNames          bool     `xml:"overwriteNames" json:"overwriteNames" default:"false"`
+
+	DeprecatedUPnPEnabled  bool `xml:"upnpEnabled"`
+	DeprecatedUPnPLeaseM   int  `xml:"upnpLeaseMinutes"`
+	DeprecatedUPnPRenewalM int  `xml:"upnpRenewalMinutes"`
+	DeprecatedUPnPTimeoutS int  `xml:"upnpTimeoutSeconds"`
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {
