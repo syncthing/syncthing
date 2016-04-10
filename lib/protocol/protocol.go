@@ -71,10 +71,11 @@ const (
 
 // ClusterConfigMessage.Folders flags
 const (
-	FlagFolderReadOnly     uint32 = 1 << 0
-	FlagFolderIgnorePerms         = 1 << 1
-	FlagFolderIgnoreDelete        = 1 << 2
-	FlagFolderAll                 = 1<<3 - 1
+	FlagFolderReadOnly            uint32 = 1 << 0
+	FlagFolderIgnorePerms                = 1 << 1
+	FlagFolderIgnoreDelete               = 1 << 2
+	FlagFolderDisabledTempIndexes        = 1 << 3
+	FlagFolderAll                        = 1<<4 - 1
 )
 
 // ClusterConfigMessage.Folders.Devices flags
@@ -263,7 +264,7 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 	var flags uint32
 
 	if fromTemporary {
-		flags = flags | FlagFromTemporary
+		flags |= FlagFromTemporary
 	}
 
 	c.awaitingMut.Lock()

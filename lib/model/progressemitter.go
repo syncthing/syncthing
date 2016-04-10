@@ -22,7 +22,6 @@ type ProgressEmitter struct {
 	interval           time.Duration
 	lastUpdate         time.Time
 	sentDownloadStates map[protocol.DeviceID]*sentDownloadState // States representing what we've sent to the other peer via DownloadProgress messages.
-	sendTempIndexes    bool
 	connections        map[string][]protocol.Connection
 	mut                sync.Mutex
 
@@ -76,7 +75,7 @@ func (t *ProgressEmitter) Serve() {
 				lastUpdate = newLastUpdated
 				lastCount = newCount
 				t.sendDownloadProgressEvent()
-				if t.sendTempIndexes {
+				if len(t.connections) > 0 {
 					t.sendDownloadProgressMessages()
 				}
 			} else {
@@ -191,8 +190,7 @@ func (t *ProgressEmitter) CommitConfiguration(from, to config.Configuration) boo
 	defer t.mut.Unlock()
 
 	t.interval = time.Duration(to.Options.ProgressUpdateIntervalS) * time.Second
-	t.sendTempIndexes = to.Options.SendTempIndexes
-	l.Debugln("progress emitter: updated interval", t.interval, "sendTempIndexes", t.sendTempIndexes)
+	l.Debugln("progress emitter: updated interval", t.interval)
 
 	return true
 }
@@ -260,7 +258,10 @@ func (t *ProgressEmitter) temporaryIndexUnsubscribe(conn protocol.Connection) {
 	t.mut.Lock()
 	left := make(map[string][]protocol.Connection, len(t.connections))
 	for folder, conns := range t.connections {
-		left[folder] = connsWithout(conns, conn)
+		connsLeft := connsWithout(conns, conn)
+		if len(connsLeft) > 0 {
+			left[folder] = connsLeft
+		}
 	}
 	t.connections = left
 	t.mut.Unlock()

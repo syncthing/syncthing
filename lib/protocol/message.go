@@ -135,8 +135,7 @@ type ResponseMessage struct {
 
 type ClusterConfigMessage struct {
 	Folders []Folder // max:1000000
-	Flags         uint32
-	Options       []Option // max:64
+	Options []Option // max:64
 }
 
 type DownloadProgressMessage struct {

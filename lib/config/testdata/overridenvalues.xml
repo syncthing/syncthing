@@ -35,7 +35,5 @@
         <urPostInsecurely>true</urPostInsecurely>
         <releasesURL>https://localhost/releases</releasesURL>
         <overwriteNames>true</overwriteNames>
-        <sendTempIndexes>false</sendTempIndexes>
-        <receiveTempIndexes>false</receiveTempIndexes>
     </options>
 </configuration>

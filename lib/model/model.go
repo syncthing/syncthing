@@ -625,7 +625,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	// Also, collect a list of folders we do share, and if he's interested in
 	// temporary indexes, subscribe the connection.
 
-	sharedFolders := make([]string, 0, len(cm.Folders))
+	tempIndexFolders := make([]string, 0, len(cm.Folders))
 
 	m.fmut.Lock()
 nextFolder:
@@ -652,16 +652,18 @@ nextFolder:
 			l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.ID, deviceID)
 			continue
 		}
-		sharedFolders = append(sharedFolders, folder.ID)
+		if folder.Flags&protocol.FlagFolderDisabledTempIndexes == 0 {
+			tempIndexFolders = append(tempIndexFolders, folder.ID)
+		}
 	}
 	m.fmut.Unlock()
 
 	// This breaks if we send multiple CM messages during the same connection.
-	if cm.Flags&protocol.FlagClusterConfigTemporaryIndexes != 0 {
+	if len(tempIndexFolders) > 0 {
 		m.pmut.RLock()
 		conn := m.conn[deviceID]
 		m.pmut.RUnlock()
-		m.progressEmitter.temporaryIndexSubscribe(conn, sharedFolders)
+		m.progressEmitter.temporaryIndexSubscribe(conn, tempIndexFolders)
 	}
 
 	var changed bool
@@ -790,7 +792,8 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d f=%d", m, deviceID, folder, name, offset, len(buf), flags)
 	}
 	m.fmut.RLock()
-	folderPath := m.folderCfgs[folder].Path()
+	folderCfg := m.folderCfgs[folder]
+	folderPath := folderCfg.Path()
 	folderIgnores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
@@ -844,12 +847,9 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return nil
 	}
 
-	// Cannot easily cache fd's because we might need to delete the file
-	// at any moment.
-
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
-	if flags&protocol.FlagFromTemporary != 0 && m.cfg.Options().SendTempIndexes {
+	if flags&protocol.FlagFromTemporary != 0 && !folderCfg.DisableTempIndexes {
 		tempFn := filepath.Join(folderPath, defTempNamer.TempName(name))
 		if err := readOffsetIntoBuf(tempFn, offset, buf); err == nil {
 			return nil
@@ -1071,7 +1071,7 @@ func (m *Model) PauseDevice(device protocol.DeviceID) {
 }
 
 func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate, flags uint32, options []protocol.Option) {
-	if !m.folderSharedWith(folder, device) || !m.cfg.Options().ReceiveTempIndexes {
+	if !m.folderSharedWith(folder, device) {
 		return
 	}
 
@@ -1079,7 +1079,7 @@ func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, update
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	if !ok || cfg.ReadOnly {
+	if !ok || cfg.ReadOnly || cfg.DisableTempIndexes {
 		return
 	}
 
@@ -1584,10 +1584,6 @@ func (m *Model) numHashers(folder string) int {
 func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
 	var message protocol.ClusterConfigMessage
 
-	if m.cfg.Options().ReceiveTempIndexes {
-		message.Flags |= protocol.FlagClusterConfigTemporaryIndexes
-	}
-
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
 		folderCfg := m.cfg.Folders()[folder]
@@ -1604,6 +1600,9 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 		}
 		if folderCfg.IgnoreDelete {
 			flags |= protocol.FlagFolderIgnoreDelete
+		}
+		if folderCfg.DisableTempIndexes {
+			flags |= protocol.FlagFolderDisabledTempIndexes
 		}
 		protocolFolder.Flags = flags
 		for _, device := range m.folderDevices[folder] {

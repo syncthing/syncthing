@@ -588,8 +588,6 @@ ClusterConfigMessage Structure:
 \                Zero or more Folder Structures                 \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             Flags                             |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                       Number of Options                       |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /                                                               /
@@ -600,14 +598,13 @@ ClusterConfigMessage Structure:
 
 struct ClusterConfigMessage {
 	Folder Folders<1000000>;
-	unsigned int Flags;
 	Option Options<64>;
 }
 
 */
 
 func (o ClusterConfigMessage) XDRSize() int {
-	return 4 + xdr.SizeOfSlice(o.Folders) + 4 +
+	return 4 + xdr.SizeOfSlice(o.Folders) +
 		4 + xdr.SizeOfSlice(o.Options)
 }
 
@@ -635,7 +632,6 @@ func (o ClusterConfigMessage) MarshalXDRInto(m *xdr.Marshaller) error {
 			return err
 		}
 	}
-	m.MarshalUint32(o.Flags)
 	if l := len(o.Options); l > 64 {
 		return xdr.ElementSizeExceeded("Options", l, 64)
 	}
@@ -671,7 +667,6 @@ func (o *ClusterConfigMessage) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 			(&o.Folders[i]).UnmarshalXDRFrom(u)
 		}
 	}
-	o.Flags = u.UnmarshalUint32()
 	_OptionsSize := int(u.UnmarshalUint32())
 	if _OptionsSize < 0 {
 		return xdr.ElementSizeExceeded("Options", _OptionsSize, 64)
