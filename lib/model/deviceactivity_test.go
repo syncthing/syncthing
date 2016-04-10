@@ -13,9 +13,9 @@ import (
 )
 
 func TestDeviceActivity(t *testing.T) {
-	n0 := Availability{protocol.DeviceID([32]byte{1, 2, 3, 4}), 0}
-	n1 := Availability{protocol.DeviceID([32]byte{5, 6, 7, 8}), 1}
-	n2 := Availability{protocol.DeviceID([32]byte{9, 10, 11, 12}), 0}
+	n0 := Availability{protocol.DeviceID([32]byte{1, 2, 3, 4}), false}
+	n1 := Availability{protocol.DeviceID([32]byte{5, 6, 7, 8}), true}
+	n2 := Availability{protocol.DeviceID([32]byte{9, 10, 11, 12}), false}
 	devices := []Availability{n0, n1, n2}
 	na := newDeviceActivity()
 

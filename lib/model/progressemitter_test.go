@@ -185,11 +185,15 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	v1 := (protocol.Vector{}).Update(0)
 	v2 := (protocol.Vector{}).Update(1)
 
+	// Requires more than 10 blocks to work.
+	blocks := make([]protocol.BlockInfo, 11, 11)
+
 	state1 := &sharedPullerState{
 		folder: "folder",
 		file: protocol.FileInfo{
 			Name:    "state1",
 			Version: v1,
+			Blocks:  blocks,
 		},
 		mut:              sync.NewRWMutex(),
 		availableUpdated: time.Now(),
@@ -260,6 +264,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 		file: protocol.FileInfo{
 			Name:    "state2",
 			Version: v1,
+			Blocks:  blocks,
 		},
 		mut:              sync.NewRWMutex(),
 		available:        []int32{1, 2, 3},
@@ -270,6 +275,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 		file: protocol.FileInfo{
 			Name:    "state3",
 			Version: v1,
+			Blocks:  blocks,
 		},
 		mut:              sync.NewRWMutex(),
 		available:        []int32{1, 2, 3},
@@ -280,6 +286,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 		file: protocol.FileInfo{
 			Name:    "state4",
 			Version: v1,
+			Blocks:  blocks,
 		},
 		mut:              sync.NewRWMutex(),
 		available:        []int32{1, 2, 3},
@@ -327,6 +334,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 			Name:    "state5",
 			Version: v1,
 			Flags:   protocol.FlagDirectory,
+			Blocks:  blocks,
 		},
 		mut:              sync.NewRWMutex(),
 		available:        []int32{1, 2, 3},
@@ -350,6 +358,19 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 		file: protocol.FileInfo{
 			Name:    "state7",
 			Version: v1,
+			Blocks:  blocks,
+		},
+		mut:              sync.NewRWMutex(),
+		available:        []int32{1, 2, 3},
+		availableUpdated: time.Now(),
+	}
+	// Less than 10 blocks
+	state8 := &sharedPullerState{
+		folder: "folder",
+		file: protocol.FileInfo{
+			Name:    "state8",
+			Version: v1,
+			Blocks:  blocks[:3],
 		},
 		mut:              sync.NewRWMutex(),
 		available:        []int32{1, 2, 3},
@@ -358,6 +379,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	p.registry["5"] = state5
 	p.registry["6"] = state6
 	p.registry["7"] = state7
+	p.registry["8"] = state8
 
 	p.sendDownloadProgressMessages()
 

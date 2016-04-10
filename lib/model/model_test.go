@@ -243,7 +243,7 @@ func (FakeConnection) IndexUpdate(string, []protocol.FileInfo, uint32, []protoco
 	return nil
 }
 
-func (f FakeConnection) Request(folder, name string, offset int64, size int, hash []byte, flags uint32, options []protocol.Option) ([]byte, error) {
+func (f FakeConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
 	return f.requestData, nil
 }
 
@@ -301,7 +301,7 @@ func BenchmarkRequest(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil, 0, nil)
+		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil, false)
 		if err != nil {
 			b.Error(err)
 		}
