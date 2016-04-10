@@ -221,8 +221,7 @@ func (s *Service) acquireNewMappings(mapping *Mapping, nats map[string]Device) (
 	addrMap := mapping.addressMap()
 
 	for id, nat := range nats {
-		_, ok := addrMap[id]
-		if ok {
+		if _, ok := addrMap[id]; ok {
 			continue
 		}
 
