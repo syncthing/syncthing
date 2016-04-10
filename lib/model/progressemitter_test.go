@@ -19,7 +19,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-var timeout = 10 * time.Millisecond
+var timeout = 100 * time.Millisecond
 
 func caller(skip int) string {
 	_, file, line, ok := runtime.Caller(skip + 1)

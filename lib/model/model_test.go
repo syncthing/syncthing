@@ -335,7 +335,7 @@ func TestDeviceRename(t *testing.T) {
 
 	conn := Connection{
 		&net.TCPConn{},
-		FakeConnection{
+		&FakeConnection{
 			id:          device1,
 			requestData: []byte("some data to return"),
 		},
