@@ -97,7 +97,7 @@ func (s *Service) process() {
 		return
 	}
 
-	nats := discoverAll(time.Duration(s.cfg.Options().NATTimeoutS) * time.Second)
+	nats := discoverAll(time.Duration(s.cfg.Options().NATRenewalM)*time.Minute, time.Duration(s.cfg.Options().NATTimeoutS)*time.Second)
 
 	s.announce.Do(func() {
 		suffix := "s"
@@ -153,6 +153,9 @@ func (s *Service) Sync() {
 func (s *Service) updateMapping(mapping *Mapping, nats map[string]Device, renew bool) {
 	var added, removed []Address
 
+	renewalTime := time.Duration(s.cfg.Options().NATRenewalM) * time.Minute
+	mapping.expires = time.Now().Add(renewalTime)
+
 	newAdded, newRemoved := s.verifyExistingMappings(mapping, nats, renew)
 	added = append(added, newAdded...)
 	removed = append(removed, newRemoved...)
@@ -198,8 +201,6 @@ func (s *Service) verifyExistingMappings(mapping *Mapping, nats map[string]Devic
 			}
 
 			l.Debugf("Renewed %s -> %s mapping on %s", mapping, address, id)
-
-			mapping.expires = time.Now().Add(leaseTime)
 
 			if !addr.Equal(address) {
 				mapping.removeAddress(id)
@@ -262,8 +263,9 @@ func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time
 	if extPort != 0 {
 		// First try renewing our existing mapping, if we have one.
 		name := fmt.Sprintf("syncthing-%d", extPort)
-		err = natd.AddPortMapping(TCP, intPort, extPort, name, leaseTime)
+		port, err := natd.AddPortMapping(TCP, intPort, extPort, name, leaseTime)
 		if err == nil {
+			extPort = port
 			goto findIP
 		}
 		l.Debugln("Error extending lease on", natd.ID(), err)
@@ -273,8 +275,9 @@ func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time
 		// Then try up to ten random ports.
 		extPort = 1024 + predictableRand.Intn(65535-1024)
 		name := fmt.Sprintf("syncthing-%d", extPort)
-		err = natd.AddPortMapping(TCP, intPort, extPort, name, leaseTime)
+		port, err := natd.AddPortMapping(TCP, intPort, extPort, name, leaseTime)
 		if err == nil {
+			extPort = port
 			goto findIP
 		}
 		l.Debugln("Error getting new lease on", natd.ID(), err)

@@ -21,6 +21,6 @@ const (
 type Device interface {
 	ID() string
 	GetLocalIPAddress() net.IP
-	AddPortMapping(protocol Protocol, internalPort, externalPort int, description string, timeout time.Duration) error
+	AddPortMapping(protocol Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error)
 	GetExternalIPAddress() (net.IP, error)
 }

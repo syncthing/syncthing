@@ -26,7 +26,7 @@ type IGDService struct {
 }
 
 // AddPortMapping adds a port mapping to the specified IGD service.
-func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol nat.Protocol, externalPort, internalPort int, description string, timeout time.Duration) error {
+func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol nat.Protocol, externalPort, internalPort int, description string, duration time.Duration) error {
 	tpl := `<u:AddPortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>
@@ -37,10 +37,10 @@ func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol nat.Protocol
 	<NewPortMappingDescription>%s</NewPortMappingDescription>
 	<NewLeaseDuration>%d</NewLeaseDuration>
 	</u:AddPortMapping>`
-	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol, internalPort, localIPAddress, description, timeout/time.Second)
+	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol, internalPort, localIPAddress, description, duration/time.Second)
 
 	response, err := soapRequest(s.URL, s.URN, "AddPortMapping", body)
-	if err != nil && timeout > 0 {
+	if err != nil && duration > 0 {
 		// Try to repair error code 725 - OnlyPermanentLeasesSupported
 		envelope := &soapErrorResponse{}
 		if unmarshalErr := xml.Unmarshal(response, envelope); unmarshalErr != nil {

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type DiscoverFunc func(timeout time.Duration) []Device
+type DiscoverFunc func(renewal, timeout time.Duration) []Device
 
 var providers []DiscoverFunc
 
@@ -18,10 +18,10 @@ func Register(provider DiscoverFunc) {
 	providers = append(providers, provider)
 }
 
-func discoverAll(timeout time.Duration) map[string]Device {
+func discoverAll(renewal, timeout time.Duration) map[string]Device {
 	nats := make(map[string]Device)
 	for _, discoverFunc := range providers {
-		discoveredNATs := discoverFunc(timeout)
+		discoveredNATs := discoverFunc(renewal, timeout)
 		for _, discoveredNAT := range discoveredNATs {
 			nats[discoveredNAT.ID()] = discoveredNAT
 		}
