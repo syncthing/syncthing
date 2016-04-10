@@ -61,8 +61,8 @@ type service interface {
 }
 
 type Availability struct {
-	ID    protocol.DeviceID `json:"id"`
-	Flags uint32            `json:"flags"`
+	ID            protocol.DeviceID `json:"id"`
+	FromTemporary bool              `json:"fromTemporary"`
 }
 
 type Model struct {
@@ -1259,7 +1259,7 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	})
 }
 
-func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, flags uint32, options []protocol.Option) ([]byte, error) {
+func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
@@ -1268,9 +1268,9 @@ func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, o
 		return nil, fmt.Errorf("requestGlobal: no such device: %s", deviceID)
 	}
 
-	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x f=%x op=%s", m, deviceID, folder, name, offset, size, hash, flags, options)
+	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x ft=%t op=%s", m, deviceID, folder, name, offset, size, hash, fromTemporary)
 
-	return nc.Request(folder, name, offset, size, hash, flags, options)
+	return nc.Request(folder, name, offset, size, hash, fromTemporary)
 }
 
 func (m *Model) AddFolder(cfg config.FolderConfiguration) {
@@ -1806,13 +1806,13 @@ func (m *Model) Availability(folder, file string, version protocol.Vector, block
 	for _, device := range fs.Availability(file) {
 		_, ok := m.conn[device]
 		if ok {
-			availabilities = append(availabilities, Availability{device, 0})
+			availabilities = append(availabilities, Availability{ID: device, FromTemporary: false})
 		}
 	}
 
 	for _, device := range devices {
 		if m.deviceDownloads[device].Has(folder, file, version, int32(block.Offset/protocol.BlockSize)) {
-			availabilities = append(availabilities, Availability{device, protocol.FlagFromTemporary})
+			availabilities = append(availabilities, Availability{ID: device, FromTemporary: true})
 		}
 	}
 

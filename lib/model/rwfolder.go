@@ -1247,7 +1247,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			// Fetch the block, while marking the selected device as in use so that
 			// leastBusy can select another device when someone else asks.
 			activity.using(selected)
-			buf, lastError := p.model.requestGlobal(selected.ID, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, selected.Flags, nil)
+			buf, lastError := p.model.requestGlobal(selected.ID, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, selected.FromTemporary)
 			activity.done(selected)
 			if lastError != nil {
 				l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)

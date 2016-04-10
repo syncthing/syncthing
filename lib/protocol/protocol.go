@@ -114,7 +114,7 @@ type Connection interface {
 	Name() string
 	Index(folder string, files []FileInfo, flags uint32, options []Option) error
 	IndexUpdate(folder string, files []FileInfo, flags uint32, options []Option) error
-	Request(folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error)
+	Request(folder string, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
 	ClusterConfig(config ClusterConfigMessage)
 	DownloadProgress(folder string, updates []FileDownloadProgressUpdate, flags uint32, options []Option)
 	Statistics() Statistics
@@ -252,12 +252,18 @@ func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo, flags uint32,
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
-func (c *rawConnection) Request(folder string, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error) {
+func (c *rawConnection) Request(folder string, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
 	var id int
 	select {
 	case id = <-c.nextID:
 	case <-c.closed:
 		return nil, ErrClosed
+	}
+
+	var flags uint32
+
+	if fromTemporary {
+		flags = flags | FlagFromTemporary
 	}
 
 	c.awaitingMut.Lock()
@@ -275,7 +281,7 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 		Size:    int32(size),
 		Hash:    hash,
 		Flags:   flags,
-		Options: options,
+		Options: nil,
 	}, nil)
 	if !ok {
 		return nil, ErrClosed
