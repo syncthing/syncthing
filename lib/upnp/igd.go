@@ -13,6 +13,9 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"time"
+
+	"github.com/syncthing/syncthing/lib/nat"
 )
 
 // An IGD is a UPnP InternetGatewayDevice.
@@ -24,7 +27,7 @@ type IGD struct {
 	localIPAddress net.IP
 }
 
-func (n *IGD) UUID() string {
+func (n *IGD) ID() string {
 	return n.uuid
 }
 
@@ -47,14 +50,14 @@ func (n *IGD) URL() *url.URL {
 // if action is fails for _any_ of the relevant services. For this reason, it
 // is generally better to configure port mapping for each individual service
 // instead.
-func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, description string, timeout int) error {
+func (n *IGD) AddPortMapping(protocol nat.Protocol, externalPort, internalPort int, description string, duration time.Duration) (int, error) {
 	for _, service := range n.services {
-		err := service.AddPortMapping(n.localIPAddress, protocol, externalPort, internalPort, description, timeout)
+		err := service.AddPortMapping(n.localIPAddress, protocol, externalPort, internalPort, description, duration)
 		if err != nil {
-			return err
+			return externalPort, err
 		}
 	}
-	return nil
+	return externalPort, nil
 }
 
 // DeletePortMapping deletes a port mapping from all relevant services on the
@@ -62,7 +65,7 @@ func (n *IGD) AddPortMapping(protocol Protocol, externalPort, internalPort int, 
 // if action is fails for _any_ of the relevant services. For this reason, it
 // is generally better to configure port mapping for each individual service
 // instead.
-func (n *IGD) DeletePortMapping(protocol Protocol, externalPort int) error {
+func (n *IGD) DeletePortMapping(protocol nat.Protocol, externalPort int) error {
 	for _, service := range n.services {
 		err := service.DeletePortMapping(protocol, externalPort)
 		if err != nil {

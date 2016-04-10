@@ -26,15 +26,13 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-type Protocol string
-
-const (
-	TCP Protocol = "TCP"
-	UDP          = "UDP"
-)
+func init() {
+	nat.Register(Discover)
+}
 
 type upnpService struct {
 	ID         string `xml:"serviceId"`
@@ -55,8 +53,8 @@ type upnpRoot struct {
 
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the results list is not deterministic.
-func Discover(timeout time.Duration) []IGD {
-	var results []IGD
+func Discover(renewal, timeout time.Duration) []nat.Device {
+	var results []nat.Device
 
 	interfaces, err := net.Interfaces()
 	if err != nil {
@@ -91,7 +89,7 @@ func Discover(timeout time.Duration) []IGD {
 nextResult:
 	for result := range resultChan {
 		for _, existingResult := range results {
-			if existingResult.uuid == result.uuid {
+			if existingResult.ID() == result.ID() {
 				l.Debugf("Skipping duplicate result %s with services:", result.uuid)
 				for _, service := range result.services {
 					l.Debugf("* [%s] %s", service.ID, service.URL)
@@ -100,7 +98,7 @@ nextResult:
 			}
 		}
 
-		results = append(results, result)
+		results = append(results, &result)
 		l.Debugf("UPnP discovery result %s with services:", result.uuid)
 		for _, service := range result.services {
 			l.Debugf("* [%s] %s", service.ID, service.URL)

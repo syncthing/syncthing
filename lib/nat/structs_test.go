@@ -1,0 +1,54 @@
+// Copyright (C) 2016 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
+
+package nat
+
+import (
+	"net"
+	"testing"
+)
+
+func TestMappingValidGateway(t *testing.T) {
+	a := net.ParseIP("10.0.0.1")
+	b := net.ParseIP("192.168.0.1")
+	tests := []struct {
+		mappingLocalIP net.IP
+		gatewayLocalIP net.IP
+		expected       bool
+	}{
+		// Any of the IPs is nil or unspecified implies correct
+		{nil, nil, true},
+		{net.IPv4zero, net.IPv4zero, true},
+		{nil, net.IPv4zero, true},
+		{net.IPv4zero, nil, true},
+		{a, nil, true},
+		{b, nil, true},
+		{a, net.IPv4zero, true},
+		{b, net.IPv4zero, true},
+		{nil, a, true},
+		{nil, b, true},
+		{net.IPv4zero, a, true},
+		{net.IPv4zero, b, true},
+		// IPs are the same implies correct
+		{a, a, true},
+		{b, b, true},
+		// IPs are specified and different, implies incorrect
+		{a, b, false},
+		{b, a, false},
+	}
+
+	for _, test := range tests {
+		m := Mapping{
+			address: Address{
+				IP: test.mappingLocalIP,
+			},
+		}
+		result := m.validGateway(test.gatewayLocalIP)
+		if result != test.expected {
+			t.Errorf("Incorrect: local %s gateway %s result %t expected %t", test.mappingLocalIP, test.gatewayLocalIP, result, test.expected)
+		}
+	}
+}
