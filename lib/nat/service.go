@@ -152,12 +152,27 @@ func (s *Service) Sync() {
 // Optionally takes renew flag which indicates whether or not we should renew
 // mappings with existing natds
 func (s *Service) updateMapping(mapping *Mapping, nats map[string]Device, renew bool) {
-	leaseTime := time.Duration(s.cfg.Options().NATLeaseM) * time.Minute
 	var added, removed []Address
 
-	addrMap := mapping.addressMap()
+	newAdded, newRemoved := s.verifyExistingMappings(mapping, nats, renew)
+	added = append(added, newAdded...)
+	removed = append(removed, newRemoved...)
 
-	for id, address := range addrMap {
+	newAdded, newRemoved = s.acquireNewMappings(mapping, nats)
+	added = append(added, newAdded...)
+	removed = append(removed, newRemoved...)
+
+	if len(added) > 0 || len(removed) > 0 {
+		mapping.notify(added, removed)
+	}
+}
+
+func (s *Service) verifyExistingMappings(mapping *Mapping, nats map[string]Device, renew bool) ([]Address, []Address) {
+	var added, removed []Address
+
+	leaseTime := time.Duration(s.cfg.Options().NATLeaseM) * time.Minute
+
+	for id, address := range mapping.addressMap() {
 		// Delete addresses for NATDevice's that do not exist anymore
 		nat, ok := nats[id]
 		if !ok {
@@ -196,6 +211,15 @@ func (s *Service) updateMapping(mapping *Mapping, nats map[string]Device, renew 
 		}
 	}
 
+	return added, removed
+}
+
+func (s *Service) acquireNewMappings(mapping *Mapping, nats map[string]Device) ([]Address, []Address) {
+	var added, removed []Address
+
+	leaseTime := time.Duration(s.cfg.Options().NATLeaseM) * time.Minute
+	addrMap := mapping.addressMap()
+
 	for id, nat := range nats {
 		_, ok := addrMap[id]
 		if ok {
@@ -224,9 +248,7 @@ func (s *Service) updateMapping(mapping *Mapping, nats map[string]Device, renew 
 		added = append(added, addr)
 	}
 
-	if len(added) > 0 || len(removed) > 0 {
-		mapping.notify(added, removed)
-	}
+	return added, removed
 }
 
 // tryNATDevice tries to acquire a port mapping for the given internal address to
