@@ -126,7 +126,7 @@ func (t *ProgressEmitter) sendDownloadProgressMessages() {
 
 			var activePullers []*sharedPullerState
 			for _, puller := range t.registry {
-				if puller.folder != folder || puller.file.IsSymlink() || puller.file.IsDirectory() {
+				if puller.folder != folder || puller.file.IsSymlink() || puller.file.IsDirectory() || len(puller.file.Blocks) <= 10 {
 					continue
 				}
 				activePullers = append(activePullers, puller)
