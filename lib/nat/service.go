@@ -40,8 +40,7 @@ func NewService(id protocol.DeviceID, cfg *config.Wrapper) *Service {
 		immediate: make(chan chan struct{}),
 		timer:     time.NewTimer(time.Second),
 
-		mappings: make([]*Mapping, 0),
-		mut:      sync.NewRWMutex(),
+		mut: sync.NewRWMutex(),
 	}
 }
 
