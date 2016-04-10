@@ -396,6 +396,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 		return true
 	})
 
+	// This might might be more than it really is, because some blocks can be of a smaller size.
 	m.pmut.RLock()
 	need -= int64(m.deviceDownloads[device].NumberOfBlocksInProgress() * protocol.BlockSize)
 	m.pmut.RUnlock()
