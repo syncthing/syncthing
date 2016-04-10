@@ -8,6 +8,8 @@ package nat
 
 import (
 	"time"
+
+	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type DiscoverFunc func(renewal, timeout time.Duration) []Device
@@ -19,12 +21,33 @@ func Register(provider DiscoverFunc) {
 }
 
 func discoverAll(renewal, timeout time.Duration) map[string]Device {
-	nats := make(map[string]Device)
+	wg := sync.NewWaitGroup()
+	wg.Add(len(providers))
+
+	c := make(chan Device)
+	done := make(chan struct{})
+
 	for _, discoverFunc := range providers {
-		discoveredNATs := discoverFunc(renewal, timeout)
-		for _, discoveredNAT := range discoveredNATs {
-			nats[discoveredNAT.ID()] = discoveredNAT
-		}
+		go func(f DiscoverFunc) {
+			for _, dev := range f(renewal, timeout) {
+				c <- dev
+			}
+			wg.Done()
+		}(discoverFunc)
 	}
+
+	nats := make(map[string]Device)
+
+	go func() {
+		for dev := range c {
+			nats[dev.ID()] = dev
+		}
+		close(done)
+	}()
+
+	wg.Wait()
+	close(c)
+	<-done
+
 	return nats
 }
