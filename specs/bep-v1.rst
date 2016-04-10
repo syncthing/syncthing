@@ -615,14 +615,14 @@ The **Flags** field is made up of the following single bit flags:
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |              Reserved       |U|S|P|I|D|   Unix Perm. & Mode   |
+    |            Reserved       |U|S|P|D|I|R|   Unix Perm. & Mode   |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 :The lower 12 bits: hold the common Unix permission and mode bits. An
    implementation MAY ignore or interpret these as is suitable on the
    host operating system.
 
-:Bit 19 ("D"): is set when the file has been deleted. The block list
+:Bit 19 ("R"): is set when the file has been deleted. The block list
    SHALL be of length zero and the modification time indicates the time
    of deletion or, if the time of deletion is not reliably determinable,
    the last known modification time.
@@ -631,22 +631,25 @@ The **Flags** field is made up of the following single bit flags:
    synchronization. A peer MAY set this bit to indicate that it can
    temporarily not serve data for the file.
 
-:Bit 17 ("P"): is set when there is no permission information for the
+:Bit 17 ("D"): is set when the item represents a directory. The block
+   list SHALL be of length zero.
+
+:Bit 16 ("P"): is set when there is no permission information for the
    file. This is the case when it originates on a file system which
    does not support permissions. Changes to only permission bits SHOULD
    be disregarded on files with this bit set. The permissions bits MUST
    be set to the octal value 0666.
 
-:Bit 16 ("S"): is set when the file is a symbolic link. The block list
+:Bit 15 ("S"): is set when the file is a symbolic link. The block list
    SHALL be of one or more blocks since the target of the symlink is
    stored within the blocks of the file.
 
-:Bit 15 ("U"): is set when the symbolic links target does not exist. On
+:Bit 14 ("U"): is set when the symbolic links target does not exist. On
    systems where symbolic links have types, this bit being means that
    the default file symlink SHALL be used. If this bit is unset bit 19
    will decide the type of symlink to be created.
 
-:Bit 0 through 14: are reserved for future use and SHALL be set to
+:Bit 0 through 13: are reserved for future use and SHALL be set to
    zero.
 
 The **Modified** time is expressed as the number of seconds since the Unix
