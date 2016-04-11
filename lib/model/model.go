@@ -661,9 +661,13 @@ nextFolder:
 	// This breaks if we send multiple CM messages during the same connection.
 	if len(tempIndexFolders) > 0 {
 		m.pmut.RLock()
-		conn := m.conn[deviceID]
+		conn, ok := m.conn[deviceID]
 		m.pmut.RUnlock()
-		m.progressEmitter.temporaryIndexSubscribe(conn, tempIndexFolders)
+		// In case we've got ClusterConfig, and the connection disappeared
+		// from infront of our nose.
+		if ok {
+			m.progressEmitter.temporaryIndexSubscribe(conn, tempIndexFolders)
+		}
 	}
 
 	var changed bool
