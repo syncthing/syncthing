@@ -20,6 +20,7 @@ import (
 type ProgressEmitter struct {
 	registry           map[string]*sharedPullerState
 	interval           time.Duration
+	minBlocks          int
 	lastUpdate         time.Time
 	sentDownloadStates map[protocol.DeviceID]*sentDownloadState // States representing what we've sent to the other peer via DownloadProgress messages.
 	connections        map[string][]protocol.Connection
@@ -125,7 +126,7 @@ func (t *ProgressEmitter) sendDownloadProgressMessages() {
 
 			var activePullers []*sharedPullerState
 			for _, puller := range t.registry {
-				if puller.folder != folder || puller.file.IsSymlink() || puller.file.IsDirectory() || len(puller.file.Blocks) <= 10 {
+				if puller.folder != folder || puller.file.IsSymlink() || puller.file.IsDirectory() || len(puller.file.Blocks) <= t.minBlocks {
 					continue
 				}
 				activePullers = append(activePullers, puller)
@@ -190,6 +191,7 @@ func (t *ProgressEmitter) CommitConfiguration(from, to config.Configuration) boo
 	defer t.mut.Unlock()
 
 	t.interval = time.Duration(to.Options.ProgressUpdateIntervalS) * time.Second
+	t.minBlocks = to.Options.TempIndexMinBlocks
 	l.Debugln("progress emitter: updated interval", t.interval)
 
 	return true
