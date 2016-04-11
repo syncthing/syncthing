@@ -28,7 +28,6 @@ type sentFolderDownloadState struct {
 
 // update takes a set of currently active sharedPullerStates, and returns a list
 // of updates which we need to send to the client to become up to date.
-// Any pullers that
 func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protocol.FileDownloadProgressUpdate {
 	var name string
 	var updates []protocol.FileDownloadProgressUpdate
