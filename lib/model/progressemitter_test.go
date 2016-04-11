@@ -104,6 +104,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	c := config.Wrap("/tmp/test", config.Configuration{})
 	c.SetOptions(config.OptionsConfiguration{
 		ProgressUpdateIntervalS: 0,
+		TempIndexMinBlocks:      10,
 	})
 
 	fc := &FakeConnection{}
