@@ -168,20 +168,19 @@ func (m *Model) StartFolderRW(folder string) {
 	m.folderRunners[folder] = p
 
 	if len(cfg.Versioning.Type) > 0 {
-		factory, ok := versioner.Factories[cfg.Versioning.Type]
-		if !ok {
-			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
+		if factory, ok := versioner.Factories[cfg.Versioning.Type]; ok {
+			versioner := factory(folder, cfg.Path(), cfg.Versioning.Params)
+			if service, ok := versioner.(suture.Service); ok {
+				// The versioner implements the suture.Service interface, so
+				// expects to be run in the background in addition to being called
+				// when files are going to be archived.
+				token := m.Add(service)
+				m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
+			}
+			p.versioner = versioner
+		} else {
+			l.Warnf("Requested versioning type %q that does not exist for folder %q", cfg.Versioning.Type, folder)
 		}
-
-		versioner := factory(folder, cfg.Path(), cfg.Versioning.Params)
-		if service, ok := versioner.(suture.Service); ok {
-			// The versioner implements the suture.Service interface, so
-			// expects to be run in the background in addition to being called
-			// when files are going to be archived.
-			token := m.Add(service)
-			m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
-		}
-		p.versioner = versioner
 	}
 
 	m.warnAboutOverwritingProtectedFiles(folder)
